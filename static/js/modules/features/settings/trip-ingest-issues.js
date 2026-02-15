@@ -636,7 +636,7 @@ export class TripIngestIssues {
 
         const windowTripText = formatWindowRangeText(windowInfo);
         const tripCell = tx
-          ? `<a class="trip-issue-link" href="/trips/${encodeURIComponent(
+          ? `<a class="trip-issue-link trip-issue-mono" href="/trips/${encodeURIComponent(
               tx
             )}" data-no-swup>${escapeHtml(tx)}</a>`
           : windowTripText
@@ -658,7 +658,7 @@ export class TripIngestIssues {
 
         const actionButtons = resolved
           ? `
-            <span class="badge text-bg-light border">Dismissed</span>
+            <span class="trip-issue-state-badge">Dismissed</span>
             <button class="btn btn-outline-danger btn-sm trip-issue-delete-btn"
                     data-issue-id="${escapeHtml(issueId)}"
                     type="button">

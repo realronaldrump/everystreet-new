@@ -87,8 +87,12 @@ export class OptimalRouteUI {
     const areasWithRoutes = areas.filter((a) => a.has_optimal_route);
 
     if (areasWithRoutes.length === 0) {
-      historyContainer.innerHTML =
-        '<div class="text-muted small">No saved routes yet.</div>';
+      historyContainer.innerHTML = `
+        <div class="empty-state">
+          <i class="fas fa-route" aria-hidden="true"></i>
+          <span>No saved routes yet</span>
+        </div>
+      `;
       return;
     }
 
@@ -99,11 +103,13 @@ export class OptimalRouteUI {
           : "Unknown";
         return `
           <div class="route-history-item" data-area-id="${area.id || area._id}">
-            <div>
+            <div class="route-history-main">
               <div class="route-name">${area.display_name || "Unknown"}</div>
               <div class="route-date">${date}</div>
             </div>
-            <i class="fas fa-chevron-right text-muted"></i>
+            <span class="route-history-chevron" aria-hidden="true">
+              <i class="fas fa-chevron-right"></i>
+            </span>
           </div>
         `;
       })
@@ -155,7 +161,7 @@ export class OptimalRouteUI {
 
     container.innerHTML = `
       <div class="route-history-item" data-mission-id="${mission.id}" data-area-id="${mission.area_id || ""}" data-status="${String(mission.status || "").toLowerCase()}">
-        <div>
+        <div class="route-history-main">
           <div class="route-name">${mission.area_display_name || "Coverage Area"}</div>
           <div class="route-date">${this.formatMissionStatus(mission.status)}</div>
           <div class="route-meta">${mission.session_segments_completed || 0} segments | ${(
@@ -210,7 +216,7 @@ export class OptimalRouteUI {
           status === "active" || status === "paused" ? "Resume" : "Open";
         return `
           <div class="route-history-item" data-mission-id="${mission.id}" data-area-id="${mission.area_id || ""}" data-status="${status}">
-            <div>
+            <div class="route-history-main">
               <div class="route-name">${mission.area_display_name || "Coverage Area"}</div>
               <div class="route-date">${this.formatMissionStatus(mission.status)} | ${started}</div>
               <div class="route-meta">${mission.session_segments_completed || 0} segments | ${(

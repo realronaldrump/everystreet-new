@@ -179,7 +179,7 @@ class VisitsMapController {
         : CONFIG.MAP.styles.dark;
 
     this.map.setStyle(styleUrl);
-    this.map.once("styledata", () => {
+    this.map.once("style.load", () => {
       this._addPlacesSource();
       this._addPlacesLayers();
       this._refreshPlacesSource();
@@ -198,7 +198,7 @@ class VisitsMapController {
     const pitch = this.map?.getPitch();
 
     this.map?.setStyle(styleUrl);
-    this.map?.once("styledata", () => {
+    this.map?.once("style.load", () => {
       if (center) {
         this.map.jumpTo({ center, zoom, bearing, pitch });
       }

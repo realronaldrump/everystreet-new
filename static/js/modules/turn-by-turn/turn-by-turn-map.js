@@ -124,11 +124,9 @@ class TurnByTurnMap {
           // Only change if style actually changed
           if (
             currentStyle &&
-            !currentStyle.sprite?.includes(
-              newStyle.split("/").pop()?.replace("-v11", "")
-            )
+            !currentStyle.sprite?.includes(newStyle.split("/").pop()?.replace("-v11", ""))
           ) {
-            this.map.once("styledata", () => {
+            this.map.once("style.load", () => {
               this.setupMapLayers();
             });
             this.map.setStyle(newStyle);

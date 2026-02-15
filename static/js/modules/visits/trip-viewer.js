@@ -118,7 +118,7 @@ class TripViewer {
     const pitch = this.tripViewMap.getPitch();
 
     this.tripViewMap.setStyle(styleUrl);
-    this.tripViewMap.once("styledata", () => {
+    this.tripViewMap.once("style.load", () => {
       this.tripViewMap.jumpTo({ center, zoom, bearing, pitch });
       setTimeout(() => this.tripViewMap.resize(), 100);
     });

@@ -462,16 +462,21 @@ const AppController = {
 
       loadingManager.pulse("Applying new map style...");
 
-      // Wait for style to be fully loaded
-      await mapCore.waitForStyleLoad();
+      try {
+        // Wait for style to be fully loaded
+        await mapCore.waitForStyleLoad();
 
-      // Re-apply all visible layers with their data
-      for (const [name, info] of Object.entries(state.mapLayers)) {
-        if (info.visible && info.layer) {
-          await layerManager.updateMapLayer(name, info.layer);
+        // Re-apply all visible layers with their data
+        for (const [name, info] of Object.entries(state.mapLayers)) {
+          if (info.visible && info.layer) {
+            await layerManager.updateMapLayer(name, info.layer);
+          }
         }
+      } catch (error) {
+        console.warn("Map style reload did not finish cleanly:", error);
+      } finally {
+        loadingManager.hide();
       }
-      loadingManager.hide();
     });
 
     // Highlight recent trips toggle

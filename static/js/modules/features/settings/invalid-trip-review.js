@@ -130,9 +130,9 @@ export class InvalidTripReview {
         return `
       <tr data-trip-id="${escapeHtml(transactionId)}">
         <td>${tripCell}</td>
-        <td>${escapeHtml(source)}</td>
-        <td class="col-hide-mobile">${escapeHtml(formatDate(when))}</td>
-        <td>${escapeHtml(reason)}</td>
+        <td><span class="trip-invalid-source">${escapeHtml(source)}</span></td>
+        <td class="col-hide-mobile trip-invalid-date">${escapeHtml(formatDate(when))}</td>
+        <td><span class="trip-invalid-reason">${escapeHtml(reason)}</span></td>
         <td>${actions}</td>
       </tr>
     `;

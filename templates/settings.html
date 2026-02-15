@@ -911,12 +911,12 @@ Details
   <!-- Data Management Tab -->
   <div class="settings-tab-content" id="data-management-tab">
     <div class="bento-grid" data-stagger>
-      <div class="settings-group bento-span-12">
-        <h3 class="settings-group-title">
+      <div class="settings-group bento-span-12 trip-data-health-card">
+        <h3 class="settings-group-title trip-data-health-title">
           <i class="fas fa-triangle-exclamation"></i>
 	          Trip Data Health
         </h3>
-        <p class="text-muted small">
+        <p class="trip-data-health-description text-muted small">
 	          Review trips that failed to fetch/process (with reasons), plus any stored trips
 	          that were later marked invalid.
         </p>
@@ -952,8 +952,8 @@ Details
           </li>
         </ul>
 
-        <div class="tab-content mt-3">
-          <div class="tab-pane fade show active"
+        <div class="tab-content trip-data-health-panels mt-3">
+          <div class="tab-pane fade show active trip-data-health-pane"
                id="trip-data-health-issues"
                role="tabpanel"
                aria-labelledby="trip-data-health-issues-tab"
@@ -992,7 +992,7 @@ Details
 
               <div class="trip-issues-controls">
                 <input type="search"
-                       class="form-control form-control-sm"
+                       class="form-control form-control-sm trip-issues-search"
                        id="trip-ingest-issues-search"
                        placeholder="Search trip ID, device, or reason"
                        autocomplete="off" />
@@ -1001,7 +1001,8 @@ Details
                          type="checkbox"
                          role="switch"
                          id="trip-ingest-issues-include-resolved" />
-                  <label class="form-check-label" for="trip-ingest-issues-include-resolved">
+                  <label class="form-check-label trip-issues-switch-label"
+                         for="trip-ingest-issues-include-resolved">
 	                    Show dismissed
                   </label>
                 </div>
@@ -1040,7 +1041,7 @@ Details
               </div>
             </div>
 
-            <div class="table-responsive">
+            <div class="table-responsive trip-issues-table-wrap">
               <table class="table table-sm table-hover align-middle trip-issues-table"
                      id="tripIngestIssuesTable">
                 <thead>
@@ -1074,17 +1075,17 @@ Details
               </table>
             </div>
 
-            <div id="tripIngestIssuesPagination" class="mt-3">
+            <div id="tripIngestIssuesPagination" class="trip-issues-pagination mt-3">
             </div>
           </div>
 
-          <div class="tab-pane fade"
+          <div class="tab-pane fade trip-data-health-pane"
                id="trip-data-health-invalid"
                role="tabpanel"
                aria-labelledby="trip-data-health-invalid-tab"
                tabindex="0">
             <div class="trip-issues-toolbar">
-              <p class="text-muted small mb-0">
+              <p class="trip-data-health-note text-muted small mb-0">
 	                This list contains trips already stored in your database that were marked invalid
 	                (typically by the “Validate Trips” maintenance task). Ingest-time failures appear
 	                under “Ingest issues”.
@@ -1106,8 +1107,9 @@ Details
                 </button>
               </div>
             </div>
-            <div class="table-responsive">
-              <table class="table table-sm table-hover align-middle" id="invalidTripsTable">
+            <div class="table-responsive trip-invalid-table-wrap">
+              <table class="table table-sm table-hover align-middle trip-invalid-table"
+                     id="invalidTripsTable">
                 <thead>
                   <tr>
                     <th>
@@ -1132,7 +1134,7 @@ Details
                 </tbody>
               </table>
             </div>
-            <div id="invalidTripsPagination" class="mt-3">
+            <div id="invalidTripsPagination" class="trip-issues-pagination mt-3">
             </div>
           </div>
         </div>

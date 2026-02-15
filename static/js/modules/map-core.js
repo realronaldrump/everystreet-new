@@ -25,6 +25,8 @@ import { utils } from "./utils.js";
 let initializationPromise = null;
 let initializationError = null;
 const readyCallbacks = [];
+let styleChangeQueue = Promise.resolve();
+let activeStyleType = null;
 
 /**
  * MapCore singleton - manages map lifecycle
@@ -149,6 +151,7 @@ const mapCore = {
       const storedMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType);
       const mapType = storedMapType || theme;
       const mapStyle = CONFIG.MAP.styles[mapType] || CONFIG.MAP.styles[theme];
+      activeStyleType = mapType;
 
       // Determine initial view (URL params > saved state > defaults)
       const initialView = this._getInitialView(options);
@@ -531,7 +534,7 @@ const mapCore = {
    * Useful after style changes
    * @returns {Promise<void>}
    */
-  async waitForStyleLoad() {
+  async waitForStyleLoad({ timeoutMs = 15000 } = {}) {
     const { map } = state;
     if (!map) {
       throw new Error("Map not initialized");
@@ -541,21 +544,33 @@ const mapCore = {
       return;
     }
 
-    await new Promise((resolve) => {
-      const onStyleData = () => {
-        if (map.isStyleLoaded()) {
-          map.off("styledata", onStyleData);
-          resolve();
+    await new Promise((resolve, reject) => {
+      let settled = false;
+
+      const cleanup = () => {
+        if (settled) {
+          return;
         }
+        settled = true;
+        clearTimeout(timeoutId);
+        map.off("style.load", onStyleLoad);
       };
 
-      map.on("styledata", onStyleData);
-
-      // Fallback timeout
-      setTimeout(() => {
-        map.off("styledata", onStyleData);
+      const onStyleLoad = () => {
+        cleanup();
         resolve();
-      }, 5000);
+      };
+
+      const timeoutId = setTimeout(() => {
+        cleanup();
+        if (map.isStyleLoaded()) {
+          resolve();
+          return;
+        }
+        reject(new Error(`Timed out waiting for map style load (${timeoutMs}ms)`));
+      }, timeoutMs);
+
+      map.on("style.load", onStyleLoad);
     });
   },
 
@@ -564,14 +579,25 @@ const mapCore = {
    * @param {string} styleType - Style type (dark, light, satellite, streets)
    * @returns {Promise<void>}
    */
-  async setStyle(styleType) {
+  async _setStyleInternal(styleType, options = {}) {
     const { map } = state;
     if (!map || !state.mapInitialized) {
       throw new Error("Map not initialized");
     }
 
+    const { persistPreference = true } = options;
+    const requestedStyleType =
+      typeof styleType === "string" && styleType in CONFIG.MAP.styles
+        ? styleType
+        : "dark";
+
+    if (activeStyleType === requestedStyleType && map.isStyleLoaded()) {
+      return;
+    }
+
     const styleUrl =
-      CONFIG.MAP.styles[styleType] || `mapbox://styles/mapbox/${styleType}-v11`;
+      CONFIG.MAP.styles[requestedStyleType] ||
+      `mapbox://styles/mapbox/${requestedStyleType}-v11`;
 
     // Save current view
     const currentView = {
@@ -591,15 +617,34 @@ const mapCore = {
     map.jumpTo(currentView);
 
     // Save preference
-    utils.setStorage(CONFIG.STORAGE_KEYS.mapType, styleType);
+    if (persistPreference) {
+      utils.setStorage(CONFIG.STORAGE_KEYS.mapType, requestedStyleType);
+    }
+
+    activeStyleType = requestedStyleType;
 
     // Dispatch event for layer restoration
     document.dispatchEvent(
-      new CustomEvent("mapStyleLoaded", { detail: { styleType } })
+      new CustomEvent("mapStyleLoaded", { detail: { styleType: requestedStyleType } })
     );
     document.dispatchEvent(
-      new CustomEvent("mapStyleChanged", { detail: { styleType } })
+      new CustomEvent("mapStyleChanged", { detail: { styleType: requestedStyleType } })
     );
+  },
+
+  /**
+   * Change map style and wait for it to load
+   * Calls are serialized to avoid overlapping style transitions.
+   * @param {string} styleType - Style type (dark, light, satellite, streets)
+   * @param {{persistPreference?: boolean}} options - Style change options
+   * @returns {Promise<void>}
+   */
+  async setStyle(styleType, options = {}) {
+    styleChangeQueue = styleChangeQueue
+      .catch(() => {})
+      .then(() => this._setStyleInternal(styleType, options));
+
+    return styleChangeQueue;
   },
 
   /**
@@ -619,6 +664,8 @@ const mapCore = {
     state.mapInitialized = false;
     initializationPromise = null;
     initializationError = null;
+    styleChangeQueue = Promise.resolve();
+    activeStyleType = null;
     readyCallbacks.length = 0;
   },
 

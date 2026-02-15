@@ -108,65 +108,24 @@ const mapControlsManager = {
     // Save preference
     utils.setStorage(CONFIG.STORAGE_KEYS.mapType, type);
 
-    // Capture current view
-    const currentView = {
-      center: map.getCenter?.(),
-      zoom: map.getZoom?.(),
-      bearing: map.getBearing?.(),
-      pitch: map.getPitch?.(),
-    };
-
     // Track style change to prevent stale callbacks
     this._styleChangeId += 1;
     const styleChangeId = this._styleChangeId;
 
-    // Set up style load handler
-    const onStyleLoaded = () => {
-      // Ignore if a newer style change was initiated
-      if (this._styleChangeId !== styleChangeId) {
-        return;
-      }
-
-      // Restore view
-      if (currentView.center) {
-        map.jumpTo({
-          center: currentView.center,
-          zoom: currentView.zoom,
-          bearing: currentView.bearing,
-          pitch: currentView.pitch,
-        });
-      }
-
-      // Trigger resize to ensure proper rendering
-      if (typeof map.resize === "function") {
-        setTimeout(() => map.resize(), 100);
-      }
-
-      // Dispatch event for layer restoration
-      document.dispatchEvent(
-        new CustomEvent("mapStyleLoaded", { detail: { mapType: type } })
-      );
-    };
-
     try {
-      // Listen for style data event
-      if (typeof map.once === "function") {
-        map.once("styledata", onStyleLoaded);
-      }
-
-      // Get style URL (no Mapbox-protocol fallbacks; styles are configured in CONFIG).
-      const styleUrl = CONFIG.MAP.styles[type] || CONFIG.MAP.styles.dark;
-
-      // Apply new style
-      map.setStyle(styleUrl);
-
-      // Emit event
-      eventManager.emit("mapTypeChanged", { type });
+      void mapCore
+        .setStyle(type)
+        .then(() => {
+          // Ignore if a newer style change was initiated
+          if (this._styleChangeId !== styleChangeId) {
+            return;
+          }
+          eventManager.emit("mapTypeChanged", { type });
+        })
+        .catch((error) => {
+          console.error("Error updating map type:", error);
+        });
     } catch (error) {
-      // Clean up listener on error
-      if (typeof map.off === "function") {
-        map.off("styledata", onStyleLoaded);
-      }
       console.error("Error updating map type:", error);
     }
   },

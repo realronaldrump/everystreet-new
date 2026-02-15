@@ -238,13 +238,22 @@ export class DrivingNavigationUI {
     if (!this.targetInfo) {
       return;
     }
+    const safeStreetName = streetName || "Unnamed Street";
+    const safeSegmentId = segmentId || "Unknown";
 
     this.targetInfo.innerHTML = `
-      <div class="alert alert-info p-2 mb-2">
-        <i class="fas fa-map-pin me-2"></i>
-        <strong>Target:</strong> ${streetName}
-        <div class="mt-1 small text-light">Segment ID: ${segmentId}</div>
-      </div>
+      <article class="target-card">
+        <div class="target-row">
+          <span class="target-icon" aria-hidden="true">
+            <i class="fas fa-map-pin"></i>
+          </span>
+          <div class="target-content">
+            <div class="target-label">Target Street</div>
+            <div class="target-name">${safeStreetName}</div>
+          </div>
+        </div>
+        <div class="target-meta">Segment ID: ${safeSegmentId}</div>
+      </article>
     `;
   }
 
@@ -262,9 +271,45 @@ export class DrivingNavigationUI {
 
     routeDetailsContent.innerHTML = `
       <div class="route-info-detail">
-        <div><i class="fas fa-clock"></i> ${durationMinutes} min</div>
-        <div><i class="fas fa-road"></i> ${distanceMiles} mi</div>
-        <div class="w-100 text-muted small">(Using ${this.formatLocationSource(locationSource)} position)</div>
+        <div class="route-info-chip">
+          <i class="fas fa-clock" aria-hidden="true"></i>
+          <span>${durationMinutes} min</span>
+        </div>
+        <div class="route-info-chip">
+          <i class="fas fa-road" aria-hidden="true"></i>
+          <span>${distanceMiles} mi</span>
+        </div>
+      </div>
+      <p class="route-info-source">
+        Using ${this.formatLocationSource(locationSource)} position
+      </p>
+    `;
+  }
+
+  formatClusterDistanceMeters(distanceMeters) {
+    if (!Number.isFinite(distanceMeters)) {
+      return "--";
+    }
+    return `${(distanceMeters / 1609.34).toFixed(1)} mi away`;
+  }
+
+  formatClusterColor(color) {
+    if (typeof color !== "string" || color.trim().length === 0) {
+      return "var(--primary)";
+    }
+    return color;
+  }
+
+  buildClusterItemMarkup(cluster, color, index) {
+    const distanceLabel = this.formatClusterDistanceMeters(cluster.distance_to_cluster_m);
+    const safeColor = this.formatClusterColor(color);
+    return `
+      <div class="cluster-item">
+        <div class="cluster-item-heading">
+          <span class="cluster-color-dot" style="background: ${safeColor}"></span>
+          <strong style="color: ${safeColor}">Cluster #${index + 1}</strong>
+        </div>
+        <div class="cluster-item-meta">${cluster.segment_count} streets • ${distanceLabel}</div>
       </div>
     `;
   }
@@ -285,29 +330,24 @@ export class DrivingNavigationUI {
       clusters.reduce((sum, c) => sum + c.total_length_m, 0) / 1609.34;
 
     routeDetailsContent.innerHTML = `
-      <div class="cluster-summary mb-2">
-        <div class="d-flex justify-content-between small">
-          <span>Clusters found:</span>
-          <strong>${clusters.length}</strong>
+      <div class="cluster-summary">
+        <div class="cluster-summary-row">
+          <span class="cluster-summary-label">Clusters found</span>
+          <strong class="cluster-summary-value">${clusters.length}</strong>
         </div>
-        <div class="d-flex justify-content-between small">
-          <span>Total segments:</span>
-          <strong>${totalSegments}</strong>
+        <div class="cluster-summary-row">
+          <span class="cluster-summary-label">Total segments</span>
+          <strong class="cluster-summary-value">${totalSegments}</strong>
         </div>
-        <div class="d-flex justify-content-between small">
-          <span>Total length:</span>
-          <strong>${totalLengthMiles.toFixed(1)} mi</strong>
+        <div class="cluster-summary-row">
+          <span class="cluster-summary-label">Total length</span>
+          <strong class="cluster-summary-value">${totalLengthMiles.toFixed(1)} mi</strong>
         </div>
       </div>
-      <div class="cluster-list small" style="max-height: 120px; overflow-y: auto;">
+      <div class="cluster-list">
         ${clusters
-          .map(
-            (c, i) => `
-          <div class="cluster-item py-1 border-bottom" style="border-color: ${clusterColors[i]};">
-            <strong style="color: ${clusterColors[i]};">Cluster #${i + 1}</strong>
-            - ${c.segment_count} streets, ${(c.distance_to_cluster_m / 1609.34).toFixed(1)} mi away
-          </div>
-        `
+          .map((cluster, index) =>
+            this.buildClusterItemMarkup(cluster, clusterColors[index], index)
           )
           .join("")}
       </div>

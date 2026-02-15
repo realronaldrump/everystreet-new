@@ -1,5 +1,6 @@
 import { CONFIG } from "../core/config.js";
 import store from "../core/store.js";
+import mapCore from "../map-core.js";
 import { utils } from "../utils.js";
 import eventManager from "./event-manager.js";
 
@@ -63,28 +64,19 @@ const themeManager = {
   },
 
   updateMapTheme(theme) {
-    if (!window.map || !window.map.setStyle) {
+    if (!mapCore.isReady()) {
       document.addEventListener("appReady", () => this.updateMapTheme(theme), {
         once: true,
       });
       return;
     }
-    const center = window.map.getCenter();
-    const zoom = window.map.getZoom();
-    const bearing = window.map.getBearing();
-    const pitch = window.map.getPitch();
 
     if (CONFIG.MAP.styles?.[theme]) {
-      const styleUrl = CONFIG.MAP.styles[theme];
-      const restoreState = () => {
-        window.map.jumpTo({ center, zoom, bearing, pitch });
-        setTimeout(() => window.map.resize(), 100);
-        document.dispatchEvent(
-          new CustomEvent("mapStyleLoaded", { detail: { theme } })
-        );
-      };
-      window.map.once("styledata", restoreState);
-      window.map.setStyle(styleUrl);
+      void mapCore
+        .setStyle(theme, { persistPreference: false })
+        .catch((error) => {
+          console.warn("Theme map style update failed:", error);
+        });
     }
     document.dispatchEvent(new CustomEvent("mapThemeChanged", { detail: { theme } }));
   },
