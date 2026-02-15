@@ -167,7 +167,8 @@ export const CONFIG = {
   PERFORMANCE: {
     enableWebGL: true,
     enableWorkers: true,
-    workerCount: navigator.hardwareConcurrency || 4,
+    workerCount:
+      (typeof navigator !== "undefined" && navigator.hardwareConcurrency) || 4,
     maxParallelRequests: 6,
     tripChunkSize: 500,
     progressiveLoadingDelay: 16,

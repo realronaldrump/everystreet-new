@@ -19,6 +19,7 @@ from core.coverage import (
 )
 from db.models import CoverageArea, CoverageState, Street
 from street_coverage.constants import MAX_VIEWPORT_FEATURES
+from street_coverage.services.missions import CoverageMissionService
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/coverage", tags=["coverage-streets"])
@@ -56,6 +57,7 @@ class MarkDrivenSegmentsRequest(BaseModel):
     """Request to mark multiple segments as driven."""
 
     segment_ids: list[str]
+    mission_id: str | None = None
 
 
 # =============================================================================
@@ -197,7 +199,10 @@ async def get_streets_geojson(
 @router.get("/areas/{area_id}/streets/all")
 async def get_all_streets(
     area_id: PydanticObjectId,
-    status: Annotated[str | None, Query(description="Optional status filter")] = None,
+    status_filter: Annotated[
+        str | None,
+        Query(alias="status", description="Optional status filter"),
+    ] = None,
 ):
     """
     Get all street segments for an area with coverage status.
@@ -217,13 +222,13 @@ async def get_all_streets(
             detail=f"Area is not ready (status: {area.status})",
         )
 
-    if status and status not in ("undriven", "driven", "undriveable"):
+    if status_filter and status_filter not in ("undriven", "driven", "undriveable"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid status filter",
         )
 
-    if status in (None, "undriven"):
+    if status_filter in (None, "undriven"):
         # Undriven is the default state; CoverageState rows may be omitted entirely.
         # To keep this endpoint fast, only load non-default statuses and default
         # missing statuses to undriven.
@@ -251,7 +256,7 @@ async def get_all_streets(
         features = []
         for street in streets:
             segment_status = status_map.get(street.segment_id, "undriven")
-            if status == "undriven" and segment_status != "undriven":
+            if status_filter == "undriven" and segment_status != "undriven":
                 continue
 
             features.append(
@@ -273,9 +278,9 @@ async def get_all_streets(
             "features": features,
         }
 
-    # status in {"driven", "undriveable"}: fetch the matching CoverageState rows
+    # status_filter in {"driven", "undriveable"}: fetch matching CoverageState rows
     # first, then hydrate with the current Street geometries.
-    states = await CoverageState.find({"area_id": area_id, "status": status}).to_list()
+    states = await CoverageState.find({"area_id": area_id, "status": status_filter}).to_list()
     if not states:
         return {"type": "FeatureCollection", "features": []}
 
@@ -297,7 +302,7 @@ async def get_all_streets(
                 "street_name": street.street_name,
                 "highway_type": street.highway_type,
                 "length_miles": street.length_miles,
-                "status": status,
+                "status": status_filter,
             },
         }
         for street in streets
@@ -361,15 +366,63 @@ async def mark_segments_driven(
             detail="Coverage area not found",
         )
 
+    mission_oid: PydanticObjectId | None = None
+    if request.mission_id:
+        try:
+            mission_oid = PydanticObjectId(str(request.mission_id))
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid mission_id",
+            ) from exc
+        try:
+            await CoverageMissionService.validate_progress_context(
+                mission_id=mission_oid,
+                area_id=area_id,
+            )
+        except LookupError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(exc),
+            ) from exc
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=str(exc),
+            ) from exc
+
     result = await update_coverage_for_segments(
         area_id=area_id,
         segment_ids=request.segment_ids,
     )
 
+    mission_delta: dict[str, Any] | None = None
+    if mission_oid:
+        try:
+            mission_delta = await CoverageMissionService.apply_segment_progress(
+                mission_id=mission_oid,
+                area_id=area_id,
+                segment_ids=result.newly_driven_segment_ids,
+                note="Segments marked driven from turn-by-turn session.",
+            )
+        except LookupError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(exc),
+            ) from exc
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=str(exc),
+            ) from exc
+
     return {
         "success": True,
         "updated": result.updated,
         "newly_driven": len(result.newly_driven_segment_ids),
+        "newly_driven_segment_ids": result.newly_driven_segment_ids,
+        "newly_driven_length_miles": result.newly_driven_length_miles,
+        "mission_delta": mission_delta,
     }
 
 

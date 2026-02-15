@@ -1,11 +1,15 @@
 # Local development overrides (use with: docker compose -f docker-compose.yml -f docker-compose.local.yml ...)
 services:
   web:
+    build:
+      context: .
     image: everystreet-local:web
     command: uvicorn app:app --host 0.0.0.0 --port 8080 --reload --proxy-headers --forwarded-allow-ips='*'
     volumes:
       - .:/app:cached
   worker:
+    build:
+      context: .
     image: everystreet-local:worker
     volumes:
       - .:/app:cached

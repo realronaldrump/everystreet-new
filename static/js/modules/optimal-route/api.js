@@ -168,6 +168,40 @@ export class OptimalRouteAPI {
     }
   }
 
+  async fetchActiveMission(areaId) {
+    if (!areaId) {
+      return null;
+    }
+    try {
+      const data = await apiClient.get(
+        `/api/coverage/missions/active?area_id=${encodeURIComponent(areaId)}`
+      );
+      return data?.mission || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async fetchMissionHistory(areaId, { limit = 20, status = null } = {}) {
+    if (!areaId) {
+      return [];
+    }
+    const params = new URLSearchParams({
+      area_id: String(areaId),
+      limit: String(limit),
+      offset: "0",
+    });
+    if (status) {
+      params.set("status", String(status));
+    }
+    try {
+      const data = await apiClient.get(`/api/coverage/missions?${params.toString()}`);
+      return Array.isArray(data?.missions) ? data.missions : [];
+    } catch {
+      return [];
+    }
+  }
+
   connectSSE(taskId) {
     if (this.eventSource) {
       this.eventSource.close();

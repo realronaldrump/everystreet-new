@@ -8,6 +8,99 @@ const dateUtils = DateUtils;
 const dateManager = {
   flatpickrInstances: new Map(),
   isDropdownOpen: false,
+  portalPlacements: {
+    dropdown: null,
+    overlay: null,
+  },
+  usingMobilePortal: false,
+  viewportSyncHandler: null,
+
+  isMobileViewport() {
+    return window.matchMedia("(max-width: 768px)").matches;
+  },
+
+  cacheOriginalPlacement(key, element) {
+    if (!element || this.portalPlacements[key]) {
+      return;
+    }
+    this.portalPlacements[key] = {
+      parent: element.parentElement,
+      nextSibling: element.nextSibling,
+    };
+  },
+
+  moveElementToBody(key, element) {
+    if (!element) {
+      return;
+    }
+    this.cacheOriginalPlacement(key, element);
+    if (element.parentElement !== document.body) {
+      document.body.append(element);
+    }
+  },
+
+  restoreElementPlacement(key, element, fallbackParent = null) {
+    if (!element) {
+      return;
+    }
+    const placement = this.portalPlacements[key];
+    const targetParent =
+      (placement?.parent && placement.parent.isConnected ? placement.parent : fallbackParent) ||
+      null;
+    if (!targetParent || element.parentElement === targetParent) {
+      return;
+    }
+    const nextSibling = placement?.nextSibling;
+    if (nextSibling && nextSibling.parentNode === targetParent) {
+      targetParent.insertBefore(element, nextSibling);
+    } else {
+      targetParent.appendChild(element);
+    }
+  },
+
+  syncMobilePortal() {
+    const dropdown = store.getElement(CONFIG.UI.selectors.datePickerDropdown);
+    const overlay = store.getElement(CONFIG.UI.selectors.datePickerOverlay);
+    const wrapper = store.getElement(CONFIG.UI.selectors.datePickerWrapper);
+
+    if (!dropdown || !overlay) {
+      return;
+    }
+
+    if (this.isMobileViewport()) {
+      // Mobile bottom-sheet must be mounted on <body> so it is not clipped
+      // by the fixed/glass header's containing block.
+      this.moveElementToBody("dropdown", dropdown);
+      this.moveElementToBody("overlay", overlay);
+      this.usingMobilePortal = true;
+      return;
+    }
+
+    this.restoreElementPlacement("dropdown", dropdown, wrapper);
+    this.restoreElementPlacement(
+      "overlay",
+      overlay,
+      this.portalPlacements.overlay?.parent || wrapper?.parentElement || document.body
+    );
+    this.usingMobilePortal = false;
+  },
+
+  bindViewportSync() {
+    if (this.viewportSyncHandler) {
+      return;
+    }
+    this.viewportSyncHandler = utils.debounce(() => {
+      const wasUsingMobilePortal = this.usingMobilePortal;
+      this.syncMobilePortal();
+
+      // If the viewport mode changes while open, close cleanly so users
+      // don't keep a stale desktop/mobile layout.
+      if (wasUsingMobilePortal !== this.usingMobilePortal && this.isDropdownOpen) {
+        this.closeDropdown();
+      }
+    }, 120);
+    window.addEventListener("resize", this.viewportSyncHandler, { passive: true });
+  },
 
   init() {
     const startInput = store.getElement(CONFIG.UI.selectors.dpStartDate);
@@ -15,6 +108,9 @@ const dateManager = {
     if (!startInput || !endInput) {
       return;
     }
+
+    this.syncMobilePortal();
+    this.bindViewportSync();
 
     const startDate =
       store.get("filters.startDate") ||
@@ -149,6 +245,8 @@ const dateManager = {
   },
 
   openDropdown() {
+    this.syncMobilePortal();
+
     const dropdown = store.getElement(CONFIG.UI.selectors.datePickerDropdown);
     const trigger = store.getElement(CONFIG.UI.selectors.datePickerTrigger);
     const overlay = store.getElement(CONFIG.UI.selectors.datePickerOverlay);
@@ -183,6 +281,10 @@ const dateManager = {
     // Hide overlay
     if (overlay) {
       overlay.classList.remove("visible");
+    }
+
+    if (!this.isMobileViewport()) {
+      this.syncMobilePortal();
     }
   },
 

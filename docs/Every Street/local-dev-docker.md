@@ -25,7 +25,8 @@ Local mode
 Prod mode
 
 - Pulls `web` and `worker` from GHCR.
-- Starts the standard stack in `docker-compose.yml` (including Watchtower).
+- Starts the standard stack in `docker-compose.yml` (including Watchtower) with `--no-build` so the pulled GHCR images are used.
+- Requires `WATCHTOWER_TOKEN` in `.env` to be set to a strong non-default value.
 
 ## Switching back and forth
 

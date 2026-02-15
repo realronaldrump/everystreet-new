@@ -1232,6 +1232,40 @@
   color: var(--text-tertiary);
 }
 
+.route-history-item[data-status="active"] .route-date {
+  color: var(--success);
+}
+
+.route-history-item[data-status="paused"] .route-date {
+  color: var(--warning);
+}
+
+.route-history-item[data-status="completed"] .route-date {
+  color: var(--text-secondary);
+}
+
+.route-history-item[data-status="cancelled"] .route-date {
+  color: var(--danger);
+}
+
+.route-history-item .route-meta {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  margin-top: 0.125rem;
+}
+
+.route-history-item .route-actions-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.route-history-item .btn-inline {
+  min-height: 36px;
+  font-size: 0.6875rem;
+  padding: 0.35rem 0.6rem;
+}
+
 /* ==========================================================================
    Map Container
    ========================================================================== */

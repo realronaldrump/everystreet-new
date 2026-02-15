@@ -4,6 +4,7 @@
  */
 class LoadingManager {
   constructor() {
+    this.hasDom = typeof document !== "undefined" && Boolean(document.body);
     this.overlay = null;
     this.textElement = null;
     this.isVisible = false;
@@ -12,6 +13,10 @@ class LoadingManager {
     this.hideTimeout = null;
     this.minShowTime = 200; // Minimum time to show overlay (prevents flicker)
     this.showStartTime = null;
+
+    if (!this.hasDom) {
+      return;
+    }
 
     // Initialize when DOM is ready
     if (document.readyState === "loading") {
@@ -22,6 +27,10 @@ class LoadingManager {
   }
 
   init() {
+    if (!this.hasDom) {
+      return;
+    }
+
     // Find or create the loading overlay
     this.overlay = document.querySelector(".loading-overlay");
 
@@ -33,6 +42,10 @@ class LoadingManager {
   }
 
   createOverlay() {
+    if (!this.hasDom) {
+      return;
+    }
+
     this.overlay = document.createElement("div");
     this.overlay.className = "loading-overlay";
     this.overlay.setAttribute("role", "status");
@@ -64,6 +77,10 @@ class LoadingManager {
    * @returns {LoadingManager} - Returns this for chaining
    */
   show(message = "Loading...", options = {}) {
+    if (!this.hasDom) {
+      return this;
+    }
+
     const messageOptions =
       typeof message === "object" && message !== null ? message : options;
     const messageText =
@@ -118,6 +135,10 @@ class LoadingManager {
    * @returns {LoadingManager} - Returns this for chaining
    */
   hide() {
+    if (!this.hasDom) {
+      return this;
+    }
+
     this.activeCount = Math.max(0, this.activeCount - 1);
 
     // Only hide if no active operations
@@ -148,6 +169,10 @@ class LoadingManager {
    * @returns {LoadingManager} - Returns this for chaining
    */
   forceHide() {
+    if (!this.hasDom) {
+      return this;
+    }
+
     this.activeCount = 0;
     if (this.hideTimeout) {
       clearTimeout(this.hideTimeout);
@@ -180,6 +205,10 @@ class LoadingManager {
    * @param {number} duration - How long to show (ms)
    */
   pulse(message, duration = 2000) {
+    if (!this.hasDom) {
+      return;
+    }
+
     this.lastPulse = { message, duration, timestamp: Date.now() };
     // Create a temporary notification that doesn't block the UI
     const notification = document.createElement("div");

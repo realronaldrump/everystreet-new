@@ -16,14 +16,11 @@ name: ${COMPOSE_PROJECT_NAME:-everystreet}
 
 services:
   web:
-    build:
-      context: .
     image: ${EVERYSTREET_IMAGE:-ghcr.io/realronaldrump/everystreet-new:main}
     restart: unless-stopped
     ports:
       - '8080:8080'
     env_file: .env
-    command: uvicorn app:app --host 0.0.0.0 --port 8080 --proxy-headers --forwarded-allow-ips='*'
     volumes:
       - osm_extracts:/osm
       - /var/run/docker.sock:/var/run/docker.sock
@@ -48,8 +45,6 @@ services:
       - com.centurylinklabs.watchtower.enable=true
 
   worker:
-    build:
-      context: .
     image: ${EVERYSTREET_IMAGE:-ghcr.io/realronaldrump/everystreet-new:main}
     restart: unless-stopped
     command: arq tasks.worker.WorkerSettings
@@ -229,7 +224,7 @@ services:
       - WATCHTOWER_INCLUDE_RESTARTING=true
       - WATCHTOWER_ROLLING_RESTART=true
       - WATCHTOWER_HTTP_API_UPDATE=true
-      - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_TOKEN:-changeme}
+      - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_TOKEN:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:

@@ -7,6 +7,7 @@ class VisitsUIManager {
     this.manager = visitsManager;
     this.isDetailedView = false;
     this.isCustomPlacesVisible = true;
+    this.sectionDisplayState = new Map();
   }
 
   setupEnhancedUI() {
@@ -192,23 +193,78 @@ class VisitsUIManager {
     }
   }
 
-  async toggleView(placeId = null) {
-    const mainViewContainer = document.getElementById("visits-table-container");
-    const detailViewContainer = document.getElementById("trips-for-place-container");
+  _getDetailViewContainer() {
+    return (
+      document.getElementById("trips-for-place-container") ||
+      document.getElementById("trips-section")
+    );
+  }
 
+  _setMainContentVisible(isVisible) {
+    const mainViewContainer = document.getElementById("visits-table-container");
+    if (mainViewContainer) {
+      mainViewContainer.classList.toggle("hidden", !isVisible);
+      return;
+    }
+
+    const sections = document.querySelectorAll(".visits-section");
+    if (!sections.length) {
+      return;
+    }
+
+    if (isVisible) {
+      sections.forEach((section) => {
+        if (section.id === "trips-section") {
+          return;
+        }
+        if (!this.sectionDisplayState.has(section)) {
+          return;
+        }
+        section.style.display = this.sectionDisplayState.get(section);
+      });
+      this.sectionDisplayState.clear();
+      return;
+    }
+
+    this.sectionDisplayState.clear();
+    sections.forEach((section) => {
+      if (section.id === "trips-section") {
+        return;
+      }
+      this.sectionDisplayState.set(section, section.style.display);
+      section.style.display = "none";
+    });
+  }
+
+  _setDetailContentVisible(isVisible) {
+    const detailViewContainer = this._getDetailViewContainer();
+    if (!detailViewContainer) {
+      return;
+    }
+
+    detailViewContainer.classList.toggle("hidden", !isVisible);
+    detailViewContainer.style.display = isVisible ? "block" : "none";
+  }
+
+  async toggleView(placeId = null) {
     if (placeId) {
-      // Switch to detailed view for a place
-      mainViewContainer?.classList.add("hidden");
-      detailViewContainer?.classList.remove("hidden");
+      this._setMainContentVisible(false);
+      this._setDetailContentVisible(true);
       this.isDetailedView = true;
 
-      await this.manager.loadTripsForPlace(placeId);
-    } else {
-      // Return to main view
-      detailViewContainer?.classList.add("hidden");
-      mainViewContainer?.classList.remove("hidden");
-      this.isDetailedView = false;
+      if (typeof this.manager.showTripsForPlace === "function") {
+        await this.manager.showTripsForPlace(placeId);
+      } else if (typeof this.manager.loadTripsForPlace === "function") {
+        await this.manager.loadTripsForPlace(placeId);
+      } else {
+        console.warn("Visits manager has no method to load trips for place.");
+      }
+      return;
     }
+
+    this._setDetailContentVisible(false);
+    this._setMainContentVisible(true);
+    this.isDetailedView = false;
   }
 
   updateStatsDisplay(stats) {

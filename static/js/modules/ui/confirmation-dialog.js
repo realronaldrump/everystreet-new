@@ -14,10 +14,18 @@ class ConfirmationDialog {
 
     this.modalId = this.config.modalId;
     this.activeModal = null;
+    this.hasDom = typeof document !== "undefined" && Boolean(document.body);
+    if (!this.hasDom) {
+      return;
+    }
     this._createModal();
   }
 
   _createModal() {
+    if (!this.hasDom) {
+      return;
+    }
+
     if (document.getElementById(this.modalId)) {
       return;
     }
@@ -57,6 +65,10 @@ class ConfirmationDialog {
    * @returns {Promise<boolean>}
    */
   show(options = {}) {
+    if (!this.hasDom) {
+      return Promise.resolve(false);
+    }
+
     return new Promise((resolve) => {
       const modalElement = document.getElementById(this.modalId);
       if (!modalElement) {
@@ -162,6 +174,10 @@ class ConfirmationDialog {
    * @returns {Promise<void>}
    */
   async alert(messageOrOptions) {
+    if (!this.hasDom) {
+      return;
+    }
+
     const options =
       typeof messageOrOptions === "string"
         ? { message: messageOrOptions }
@@ -182,6 +198,10 @@ class ConfirmationDialog {
    * @returns {Promise<string|null>}
    */
   prompt(options = {}) {
+    if (!this.hasDom) {
+      return Promise.resolve(null);
+    }
+
     return new Promise((resolve) => {
       const modalElement = document.getElementById(this.modalId);
       if (!modalElement) {

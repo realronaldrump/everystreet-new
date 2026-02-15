@@ -13,6 +13,10 @@ class NotificationManager {
   }
 
   _getOrCreateContainer() {
+    if (typeof document === "undefined" || !document.body) {
+      return null;
+    }
+
     let container = document.querySelector(`.${this.config.containerClass}`);
 
     if (!container) {
@@ -26,6 +30,10 @@ class NotificationManager {
   }
 
   show(message, type = "info", duration = this.config.defaultDuration) {
+    if (!this.container || typeof document === "undefined") {
+      return null;
+    }
+
     const typeClass = type === "danger" ? "error" : type;
     const iconMap = {
       success: "fa-check-circle",

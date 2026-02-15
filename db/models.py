@@ -530,6 +530,65 @@ class CoverageState(Document):
     model_config = ConfigDict(extra="allow")
 
 
+class CoverageMissionCheckpoint(BaseModel):
+    """Lightweight timeline entry for mission progress/history."""
+
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    event: str
+    note: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="allow")
+
+
+class CoverageMission(Document):
+    """Persistent turn-by-turn mission session for a coverage area."""
+
+    area_id: Indexed(PydanticObjectId)
+    area_version: int = 1
+    area_display_name: str = ""
+
+    status: str = "active"  # active | paused | completed | cancelled
+
+    started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    ended_at: datetime | None = None
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    last_heartbeat_at: datetime | None = None
+
+    route_snapshot: dict[str, Any] = Field(default_factory=dict)
+    baseline: dict[str, Any] = Field(default_factory=dict)
+
+    session_segments_completed: int = 0
+    session_gain_miles: float = 0.0
+    completed_segment_ids: list[str] = Field(default_factory=list)
+    checkpoints: list[CoverageMissionCheckpoint] = Field(default_factory=list)
+
+    class Settings:
+        name = "coverage_missions"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [("status", 1), ("updated_at", -1)],
+                name="coverage_missions_status_updated_idx",
+            ),
+            IndexModel(
+                [("area_id", 1), ("started_at", -1)],
+                name="coverage_missions_area_started_idx",
+            ),
+            IndexModel(
+                [("area_id", 1), ("status", 1)],
+                name="coverage_missions_one_active_per_area_idx",
+                unique=True,
+                partialFilterExpression={"status": "active"},
+            ),
+            IndexModel(
+                [("last_heartbeat_at", -1)],
+                name="coverage_missions_heartbeat_idx",
+            ),
+        ]
+
+    model_config = ConfigDict(extra="allow")
+
+
 class Job(Document):
     """Unified job status tracking for all background work."""
 
@@ -906,6 +965,7 @@ ALL_DOCUMENT_MODELS = [
     # Coverage system models
     CoverageArea,
     CoverageState,
+    CoverageMission,
     Job,
     Street,
     # Map data management models

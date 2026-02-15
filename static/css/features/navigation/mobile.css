@@ -32,6 +32,12 @@
     grid-template-columns: 1fr;
   }
 
+  .nav-mission {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
   .nav-setup-card {
     padding: 20px;
   }

@@ -3,6 +3,8 @@ import { OptimalRouteAPI } from "./api.js";
 import { OPTIMAL_ROUTES_DEFAULTS } from "./constants.js";
 import { OptimalRouteMap } from "./map.js";
 import { OptimalRouteUI } from "./ui.js";
+import { buildTurnByTurnLaunchUrl } from "./launch-url.js";
+import { buildTurnByTurnUrl } from "../turn-by-turn/turn-by-turn-api.js";
 
 export class OptimalRoutesManager {
   constructor(options = {}) {
@@ -17,6 +19,9 @@ export class OptimalRoutesManager {
     this.currentRouteData = null;
     this.coverageAreas = [];
     this.lastSelectedAreaId = "";
+    this.activeMission = null;
+    this.missionHistory = [];
+    this.missionRefreshSeq = 0;
     this.abortController = new AbortController();
 
     // Initialize modules
@@ -275,6 +280,8 @@ export class OptimalRoutesManager {
 
       this.ui.populateAreaSelect(areas);
       this.ui.updateSavedRoutes(areas, (areaId) => this.onAreaSelect(areaId));
+      this.ui.updateActiveMissionCard(null);
+      this.ui.updateMissionHistory([]);
     } catch (error) {
       console.error("Error loading coverage areas:", error);
       this.ui.showNotification("Failed to load coverage areas", "danger");
@@ -315,6 +322,10 @@ export class OptimalRoutesManager {
       }
       document.getElementById("area-stats").style.display = "none";
       document.getElementById("map-legend").style.display = "none";
+      this.activeMission = null;
+      this.missionHistory = [];
+      this.ui.updateActiveMissionCard(null);
+      this.ui.updateMissionHistory([]);
       this.clearRoute();
       this.map.clearStreets();
       return;
@@ -374,6 +385,8 @@ export class OptimalRoutesManager {
       this.api.connectSSE(activeTask.task_id);
       this.ui.showNotification("Reconnected to in-progress route generation", "info");
     }
+
+    await this.refreshMissionWidgets(nextAreaId);
 
     // Fly to area
     const bounds = await this.api.getAreaBounds(nextAreaId);
@@ -481,7 +494,85 @@ export class OptimalRoutesManager {
       return;
     }
     window.localStorage.setItem("turnByTurnAreaId", this.selectedAreaId);
-    const href = `/turn-by-turn?areaId=${encodeURIComponent(this.selectedAreaId)}`;
+    const href = buildTurnByTurnLaunchUrl(this.selectedAreaId, this.activeMission);
+    swupReady.then((swup) => {
+      swup.navigate(href);
+    });
+  }
+
+  async refreshMissionWidgets(areaId) {
+    const requestSeq = ++this.missionRefreshSeq;
+    if (!areaId) {
+      this.activeMission = null;
+      this.missionHistory = [];
+      this.ui.updateActiveMissionCard(null);
+      this.ui.updateMissionHistory([]);
+      return;
+    }
+
+    const [activeMission, history] = await Promise.all([
+      this.api.fetchActiveMission(areaId),
+      this.api.fetchMissionHistory(areaId, { limit: 20 }),
+    ]);
+    if (requestSeq !== this.missionRefreshSeq || areaId !== this.selectedAreaId) {
+      return;
+    }
+
+    this.activeMission = activeMission || null;
+    this.missionHistory = Array.isArray(history)
+      ? history.filter((mission) => mission?.id !== this.activeMission?.id)
+      : [];
+
+    this.ui.updateActiveMissionCard(this.activeMission, {
+      onResume: (mission) => this.openMissionInTurnByTurn(mission, { autoStart: true }),
+      onOpenArea: (missionAreaId) => {
+        if (!missionAreaId || missionAreaId === this.selectedAreaId) {
+          return;
+        }
+        if (this.ui.areaSelect) {
+          this.ui.areaSelect.value = String(missionAreaId);
+        }
+        this.onAreaSelect(missionAreaId);
+      },
+    });
+
+    this.ui.updateMissionHistory(this.missionHistory, {
+      onOpenMission: (mission) => {
+        const status = String(mission?.status || "").toLowerCase();
+        const shouldAutoStart = status === "active" || status === "paused";
+        this.openMissionInTurnByTurn(
+          {
+            id: mission?.id,
+            area_id: mission?.area_id || areaId,
+            status,
+          },
+          { autoStart: shouldAutoStart }
+        );
+      },
+      onOpenArea: (missionAreaId) => {
+        if (!missionAreaId || missionAreaId === this.selectedAreaId) {
+          return;
+        }
+        if (this.ui.areaSelect) {
+          this.ui.areaSelect.value = String(missionAreaId);
+        }
+        this.onAreaSelect(missionAreaId);
+      },
+    });
+  }
+
+  openMissionInTurnByTurn(mission, { autoStart = true } = {}) {
+    const missionId = mission?.id;
+    const missionAreaId = mission?.area_id || this.selectedAreaId;
+    if (!missionId || !missionAreaId) {
+      return;
+    }
+    window.localStorage.setItem("turnByTurnAreaId", String(missionAreaId));
+    const href = buildTurnByTurnUrl({
+      areaId: missionAreaId,
+      missionId,
+      autoStart,
+    });
     swupReady.then((swup) => {
       swup.navigate(href);
     });

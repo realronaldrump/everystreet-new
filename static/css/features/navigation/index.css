@@ -274,6 +274,43 @@ body.light-mode .turn-by-turn {
   gap: 10px;
 }
 
+.nav-mission {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--nav-space-sm);
+  padding: var(--nav-space-sm);
+  border-radius: var(--nav-radius-md);
+  border: 1px solid var(--nav-border);
+  background: var(--nav-surface-elevated);
+}
+
+.nav-mission-state {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--nav-muted);
+}
+
+.nav-mission-state[data-status="active"] {
+  color: var(--nav-success);
+}
+
+.nav-mission-state[data-status="paused"] {
+  color: var(--nav-warning);
+}
+
+.nav-mission-state[data-status="completed"] {
+  color: var(--nav-accent);
+}
+
+.nav-mission-metrics {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--nav-text);
+}
+
 .nav-stat {
   background: var(--nav-surface-elevated);
   border-radius: var(--nav-radius-md);

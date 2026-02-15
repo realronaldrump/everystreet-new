@@ -576,15 +576,14 @@ async def update_coverage_for_trip(
         return 0
 
     trip_driven_at = get_trip_driven_at(trip_data)
+    trip_oid = _coerce_trip_id(trip_id)
 
     total_updated = 0
     for area_id, segment_ids in matches.items():
         result = await update_coverage_for_segments(
             area_id=area_id,
             segment_ids=segment_ids,
-            trip_id=(
-                PydanticObjectId(trip_id) if isinstance(trip_id, str) else trip_id
-            ),
+            trip_id=trip_oid,
             driven_at=trip_driven_at,
         )
         total_updated += result.updated
@@ -618,6 +617,36 @@ async def update_coverage_for_segments(
 
     # De-dupe but keep stable order for predictable behavior and smaller writes.
     segment_ids = list(dict.fromkeys(segment_ids))
+
+    area = await CoverageArea.get(area_id)
+    if not area:
+        return CoverageSegmentsUpdateResult(
+            updated=0,
+            newly_driven_segment_ids=[],
+            newly_driven_length_miles=0.0,
+        )
+
+    length_by_segment: dict[str, float] = {}
+    streets = await Street.find(
+        {
+            "area_id": area_id,
+            "area_version": area.area_version,
+            "segment_id": {"$in": segment_ids},
+        },
+    ).to_list()
+    length_by_segment = {
+        str(street.segment_id): float(street.length_miles or 0.0)
+        for street in streets
+    }
+    # Ignore unknown segment IDs to avoid inflating coverage counters.
+    segment_ids = [sid for sid in segment_ids if sid in length_by_segment]
+
+    if not segment_ids:
+        return CoverageSegmentsUpdateResult(
+            updated=0,
+            newly_driven_segment_ids=[],
+            newly_driven_length_miles=0.0,
+        )
 
     states = await CoverageState.find(
         {
@@ -691,23 +720,17 @@ async def update_coverage_for_segments(
         )
 
     newly_driven_length = 0.0
+    # Sum lengths for newly driven segments to update cached area stats.
     if newly_driven_ids:
-        # Sum lengths for newly driven segments to update cached area stats.
-        area = await CoverageArea.get(area_id)
-        if area:
-            streets = await Street.find(
-                {
-                    "area_id": area_id,
-                    "area_version": area.area_version,
-                    "segment_id": {"$in": newly_driven_ids},
-                },
-            ).to_list()
-            newly_driven_length = sum(s.length_miles or 0.0 for s in streets)
-            await apply_area_stats_delta(
-                area_id,
-                driven_segments_delta=len(newly_driven_ids),
-                driven_length_miles_delta=newly_driven_length,
-            )
+        newly_driven_length = sum(
+            length_by_segment.get(segment_id, 0.0)
+            for segment_id in newly_driven_ids
+        )
+        await apply_area_stats_delta(
+            area_id,
+            driven_segments_delta=len(newly_driven_ids),
+            driven_length_miles_delta=newly_driven_length,
+        )
 
     return CoverageSegmentsUpdateResult(
         updated=updated,
@@ -1088,3 +1111,13 @@ def get_trip_driven_at(trip_data: dict[str, Any] | None) -> datetime | None:
         or trip_data.get("lastUpdate")
     )
     return normalize_to_utc_datetime(driven_at)
+
+
+def _coerce_trip_id(trip_id: PydanticObjectId | str | None) -> PydanticObjectId | None:
+    if trip_id is None or isinstance(trip_id, PydanticObjectId):
+        return trip_id
+    try:
+        return PydanticObjectId(str(trip_id))
+    except Exception:
+        logger.warning("Ignoring invalid trip_id for coverage update: %r", trip_id)
+        return None

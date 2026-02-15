@@ -20,7 +20,7 @@ class GeolocationService {
    * Check if geolocation is supported
    */
   isSupported() {
-    return "geolocation" in navigator;
+    return typeof navigator !== "undefined" && "geolocation" in navigator;
   }
 
   /**
@@ -197,7 +197,7 @@ class GeolocationService {
    * Request permission (if Permissions API is available)
    */
   async requestPermission() {
-    if ("permissions" in navigator) {
+    if (typeof navigator !== "undefined" && "permissions" in navigator) {
       try {
         const result = await navigator.permissions.query({ name: "geolocation" });
         return result.state; // 'granted', 'denied', or 'prompt'

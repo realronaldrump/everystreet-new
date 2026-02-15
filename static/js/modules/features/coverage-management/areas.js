@@ -9,6 +9,14 @@ export function isJobTerminalStatus(status) {
   return ["completed", "failed", "cancelled", "needs_attention"].includes(status);
 }
 
+function normalizeCoveragePercent(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, numeric));
+}
+
 function renderStatus(area, job) {
   const status = area?.status;
   const statusConfig = {
@@ -108,8 +116,9 @@ export function renderAreasTable({
 
   tbody.innerHTML = areas
     .map((area) => {
-      const areaName = escapeHtml(area.display_name);
+      const areaName = escapeHtml(area.display_name || "Coverage area");
       const isReady = area.status === "ready";
+      const coveragePercentage = normalizeCoveragePercent(area.coverage_percentage);
       return `
         <tr data-area-id="${area.id}">
             <td>
@@ -121,8 +130,8 @@ export function renderAreasTable({
             <td>${formatMiles(area.driven_length_miles)}</td>
             <td>
                 <div class="progress" style="height: 20px; min-width: 100px;">
-                    <div class="progress-bar bg-success" style="width: ${area.coverage_percentage}%">
-                        ${area.coverage_percentage.toFixed(2)}%
+                    <div class="progress-bar bg-success" style="width: ${coveragePercentage}%">
+                        ${coveragePercentage.toFixed(2)}%
                     </div>
                 </div>
             </td>

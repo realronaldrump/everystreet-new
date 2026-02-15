@@ -120,6 +120,126 @@ export class OptimalRouteUI {
     });
   }
 
+  formatMissionStatus(status) {
+    const normalized = String(status || "").toLowerCase();
+    if (normalized === "active") {
+      return "Active";
+    }
+    if (normalized === "paused") {
+      return "Paused";
+    }
+    if (normalized === "completed") {
+      return "Completed";
+    }
+    if (normalized === "cancelled") {
+      return "Cancelled";
+    }
+    return "Mission";
+  }
+
+  updateActiveMissionCard(mission, handlers = {}) {
+    const container = document.getElementById("active-mission-card");
+    if (!container) {
+      return;
+    }
+
+    if (!mission || !mission.id) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <i class="fas fa-flag-checkered" aria-hidden="true"></i>
+          <span>No active mission</span>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="route-history-item" data-mission-id="${mission.id}" data-area-id="${mission.area_id || ""}" data-status="${String(mission.status || "").toLowerCase()}">
+        <div>
+          <div class="route-name">${mission.area_display_name || "Coverage Area"}</div>
+          <div class="route-date">${this.formatMissionStatus(mission.status)}</div>
+          <div class="route-meta">${mission.session_segments_completed || 0} segments | ${(
+      mission.session_gain_miles || 0
+    ).toFixed(2)} mi</div>
+        </div>
+        <div class="route-actions-inline">
+          <button type="button" class="btn btn-outline-primary btn-sm btn-inline mission-resume-btn">Resume</button>
+        </div>
+      </div>
+    `;
+
+    const resumeBtn = container.querySelector(".mission-resume-btn");
+    resumeBtn?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      handlers.onResume?.(mission);
+    });
+
+    const row = container.querySelector(".route-history-item");
+    row?.addEventListener("click", () => {
+      handlers.onOpenArea?.(mission.area_id);
+    });
+  }
+
+  updateMissionHistory(missions, handlers = {}) {
+    const container = document.getElementById("mission-history");
+    if (!container) {
+      return;
+    }
+
+    const items = Array.isArray(missions)
+      ? missions.filter((mission) => mission && mission.id)
+      : [];
+
+    if (items.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <i class="fas fa-list-check" aria-hidden="true"></i>
+          <span>No mission history yet</span>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = items
+      .map((mission) => {
+        const started = mission.started_at
+          ? new Date(mission.started_at).toLocaleDateString()
+          : "Unknown date";
+        const status = String(mission.status || "").toLowerCase();
+        const actionLabel =
+          status === "active" || status === "paused" ? "Resume" : "Open";
+        return `
+          <div class="route-history-item" data-mission-id="${mission.id}" data-area-id="${mission.area_id || ""}" data-status="${status}">
+            <div>
+              <div class="route-name">${mission.area_display_name || "Coverage Area"}</div>
+              <div class="route-date">${this.formatMissionStatus(mission.status)} | ${started}</div>
+              <div class="route-meta">${mission.session_segments_completed || 0} segments | ${(
+          mission.session_gain_miles || 0
+        ).toFixed(2)} mi</div>
+            </div>
+            <div class="route-actions-inline">
+              <button type="button" class="btn btn-outline-primary btn-sm btn-inline mission-open-btn">${actionLabel}</button>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    container.querySelectorAll(".route-history-item").forEach((item) => {
+      const { missionId, areaId } = item.dataset;
+      const mission = items.find((entry) => entry.id === missionId) || null;
+
+      item.querySelector(".mission-open-btn")?.addEventListener("click", (event) => {
+        event.stopPropagation();
+        handlers.onOpenMission?.(mission || { id: missionId, area_id: areaId });
+      });
+
+      item.addEventListener("click", () => {
+        handlers.onOpenArea?.(areaId);
+      });
+    });
+  }
+
   updateAreaStats(areaId) {
     const areaStats = document.getElementById("area-stats");
     if (!areaStats) {

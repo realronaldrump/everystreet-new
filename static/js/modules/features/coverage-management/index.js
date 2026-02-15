@@ -15,7 +15,7 @@ import confirmationDialog from "../../ui/confirmation-dialog.js";
 import GlobalJobTracker from "../../ui/global-job-tracker.js";
 import notificationManager from "../../ui/notifications.js";
 import { debounce, escapeHtml } from "../../utils.js";
-import { isJobTerminalStatus, renderAreasTable } from "./areas.js";
+import { renderAreasTable } from "./areas.js";
 import { setMetricValue } from "./stats.js";
 
 const API_BASE = "/api/coverage";
@@ -23,7 +23,6 @@ const API_BASE = "/api/coverage";
 // State
 let currentAreaId = null;
 let map = null;
-const _streetSource = null;
 let activeStreetPopup = null;
 let highlightedSegmentId = null;
 let currentMapFilter = "all";
@@ -49,14 +48,9 @@ let validationElements = null;
 const STREET_LAYERS = ["streets-undriven", "streets-driven", "streets-undriveable"];
 const HIGHLIGHT_LAYER_ID = "streets-highlight";
 let streetInteractivityReady = false;
+let streetsLoadRequestId = 0;
 
-// Background job tracking (minimizable progress + resume)
-const _ACTIVE_JOB_STORAGE_KEY = "coverageManagement.activeJob";
-const JOB_POLL_INTERVAL_MS = 1500;
-
-const activeJob = null;
 let activeJobsByAreaId = new Map();
-const _activeJobPolling = null;
 let pageActive = false;
 let pageSignal = null;
 
@@ -109,6 +103,10 @@ export default async function initCoverageManagementPage({ signal, cleanup } = {
       }
       map = null;
     }
+    streetInteractivityReady = false;
+    streetsLoadRequestId += 1;
+    highlightedSegmentId = null;
+    currentMapFilter = "all";
     activeJobsByAreaId = new Map();
     activeErrorAreaId = null;
   };
@@ -260,7 +258,8 @@ function setupEventListeners(signal) {
   document.querySelectorAll("[data-filter]").forEach((btn) => {
     btn.addEventListener(
       "click",
-      (e) => {
+      () => {
+        const filter = btn.dataset.filter || "all";
         document.querySelectorAll("[data-filter]").forEach((b) => {
           b.classList.remove("active", "btn-primary", "btn-success", "btn-danger");
           b.classList.add(
@@ -269,27 +268,27 @@ function setupEventListeners(signal) {
                 ? "primary"
                 : b.dataset.filter === "driven"
                   ? "success"
-                  : "danger"
+                : "danger"
             }`
           );
         });
-        e.target.classList.add("active");
-        e.target.classList.remove(
+        btn.classList.add("active");
+        btn.classList.remove(
           "btn-outline-primary",
           "btn-outline-success",
           "btn-outline-danger"
         );
-        e.target.classList.add(
+        btn.classList.add(
           `btn-${
-            e.target.dataset.filter === "all"
+            filter === "all"
               ? "primary"
-              : e.target.dataset.filter === "driven"
+              : filter === "driven"
                 ? "success"
                 : "danger"
           }`
         );
 
-        applyMapFilter(e.target.dataset.filter);
+        applyMapFilter(filter);
       },
       signal ? { signal } : false
     );
@@ -355,13 +354,6 @@ function updateMinimizedBadge() {
   }
   if (pctEl) {
     pctEl.textContent = pctText;
-  }
-}
-
-function setProgressModalTitle() {
-  const titleEl = document.getElementById("task-progress-title");
-  if (titleEl && !titleEl.textContent) {
-    titleEl.textContent = "Processing...";
   }
 }
 
@@ -1037,73 +1029,11 @@ function refreshCoverageErrorDetails(areas) {
   showCoverageErrorDetails(area.id, area.display_name, { scroll: false });
 }
 
-// =============================================================================
-// Job Progress Polling
-// =============================================================================
-
-async function _pollJobProgress(jobId) {
-  let consecutiveErrors = 0;
-
-  while (pageActive && activeJob && activeJob.jobId === jobId) {
-    try {
-      const job = await apiGet(`/jobs/${jobId}`);
-      consecutiveErrors = 0;
-
-      // Keep local state in sync so we can resume after refresh
-      activeJob.status = job.status;
-      activeJob.progress = job.progress;
-      activeJob.stage = job.stage;
-      activeJob.message = job.message;
-      activeJob.jobType = job.job_type || activeJob.jobType;
-      activeJob.areaId = job.area_id || activeJob.areaId;
-      activeJob.areaName = job.area_display_name || activeJob.areaName;
-
-      setProgressModalTitle();
-      updateProgress(job.progress, job.stage, job.message);
-
-      if (isJobTerminalStatus(job.status)) {
-        if (job.status === "completed") {
-          return job;
-        }
-
-        const err = new Error(job.error || job.stage || "Job failed");
-        err.job = job;
-        throw err;
-      }
-
-      await sleep(JOB_POLL_INTERVAL_MS);
-    } catch (error) {
-      // Stop polling if the user started tracking a different job
-      if (!activeJob || activeJob.jobId !== jobId) {
-        return null;
-      }
-
-      // Bubble up explicit job failures
-      if (error?.job) {
-        throw error;
-      }
-
-      consecutiveErrors += 1;
-      console.warn("Error polling job:", error);
-
-      updateProgress(
-        activeJob.progress ?? 0,
-        "Connection lost - retrying...",
-        activeJob.message
-      );
-      await sleep(Math.min(30000, 1000 * consecutiveErrors));
-    }
-  }
-
-  return null;
-}
-
 function updateProgress(percent, message, detailMessage = null) {
   const bar = document.querySelector("#taskProgressModal .progress-bar");
   const msg = document.querySelector("#taskProgressModal .progress-message");
   const stage = document.querySelector("#taskProgressModal .progress-stage");
-  const resolvedDetail =
-    typeof detailMessage === "string" ? detailMessage : activeJob?.message || "";
+  const resolvedDetail = typeof detailMessage === "string" ? detailMessage : "";
 
   if (bar) {
     bar.style.width = `${percent}%`;
@@ -1118,14 +1048,7 @@ function updateProgress(percent, message, detailMessage = null) {
       ? `${resolvedDetail} | ${percentLabel}`
       : percentLabel;
   }
-
-  // Keep minimized badge up-to-date
-  if (activeJob) {
-    activeJob.progress = percent;
-    activeJob.stage = message;
-    activeJob.message = resolvedDetail;
-    updateMinimizedBadge();
-  }
+  updateMinimizedBadge();
 }
 
 // =============================================================================
@@ -1201,10 +1124,16 @@ function initOrUpdateMap(areaId, bbox) {
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
     map.on("load", () => {
-      loadStreets(areaId);
+      if (currentAreaId) {
+        loadStreets(currentAreaId);
+      }
       map.resize();
     });
-    map.on("moveend", () => loadStreets(areaId));
+    map.on("moveend", () => {
+      if (currentAreaId) {
+        loadStreets(currentAreaId);
+      }
+    });
   } else {
     map.fitBounds(
       [
@@ -1223,6 +1152,7 @@ async function loadStreets(areaId) {
   if (!map || !areaId) {
     return;
   }
+  const requestId = ++streetsLoadRequestId;
 
   const bounds = map.getBounds();
 
@@ -1235,6 +1165,10 @@ async function loadStreets(areaId) {
         max_lat: bounds.getNorth(),
       })}`
     );
+
+    if (requestId !== streetsLoadRequestId || areaId !== currentAreaId || !map) {
+      return;
+    }
 
     // Update or add source
     if (map.getSource("streets")) {
@@ -1527,8 +1461,4 @@ function applyMapFilter(filter) {
 
 function showNotification(message, type = "info") {
   notificationManager.show(message, type);
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
