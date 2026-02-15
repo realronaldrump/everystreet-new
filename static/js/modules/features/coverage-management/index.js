@@ -11,6 +11,8 @@
 // API base URL
 import apiClient from "../../core/api-client.js";
 import { CONFIG } from "../../core/config.js";
+import { createMap } from "../../map-base.js";
+import { isMapboxStyleUrl, waitForMapboxToken } from "../../mapbox-token.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import GlobalJobTracker from "../../ui/global-job-tracker.js";
 import notificationManager from "../../ui/notifications.js";
@@ -1090,7 +1092,7 @@ async function viewArea(areaId) {
 
     // Initialize or update map
     if (data.bounding_box) {
-      initOrUpdateMap(areaId, data.bounding_box);
+      await initOrUpdateMap(areaId, data.bounding_box);
     }
 
     // Scroll to dashboard
@@ -1103,16 +1105,20 @@ async function viewArea(areaId) {
   }
 }
 
-function initOrUpdateMap(areaId, bbox) {
+async function initOrUpdateMap(areaId, bbox) {
   const container = document.getElementById("coverage-map");
-  container.innerHTML = ""; // Clear loading spinner
 
   if (!map) {
+    container.innerHTML = ""; // Clear loading spinner
     const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
     const styleUrl = CONFIG.MAP.styles[theme] || CONFIG.MAP.styles.dark;
-    map = new mapboxgl.Map({
-      container: "coverage-map",
+    let accessToken;
+    if (isMapboxStyleUrl(styleUrl)) {
+      accessToken = await waitForMapboxToken({ timeoutMs: 5000 });
+    }
+    map = createMap("coverage-map", {
       style: styleUrl,
+      accessToken,
       bounds: [
         [bbox[0], bbox[1]],
         [bbox[2], bbox[3]],
@@ -1120,8 +1126,6 @@ function initOrUpdateMap(areaId, bbox) {
       fitBoundsOptions: { padding: 50 },
       attributionControl: false,
     });
-
-    map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
     map.on("load", () => {
       if (currentAreaId) {
