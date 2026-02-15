@@ -6,11 +6,12 @@ No more loading entire GeoJSON files - streams segments as needed.
 """
 
 import logging
+from datetime import datetime
 from typing import Annotated, Any
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from core.coverage import (
     mark_segment_undriveable,
@@ -58,6 +59,29 @@ class MarkDrivenSegmentsRequest(BaseModel):
 
     segment_ids: list[str]
     mission_id: str | None = None
+
+
+class StreetRenderProjection(BaseModel):
+    """Projected Street fields needed for map rendering."""
+
+    segment_id: str
+    geometry: dict[str, Any]
+    street_name: str | None = None
+    highway_type: str = "unclassified"
+    length_miles: float = 0.0
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class CoverageStateRenderProjection(BaseModel):
+    """Projected CoverageState fields needed for map rendering."""
+
+    segment_id: str
+    status: str = "undriven"
+    last_driven_at: datetime | None = None
+    first_driven_at: datetime | None = None
+
+    model_config = ConfigDict(extra="ignore")
 
 
 # =============================================================================
@@ -237,7 +261,7 @@ async def get_all_streets(
                 "area_id": area_id,
                 "area_version": area.area_version,
             },
-        ).to_list()
+        ).project(StreetRenderProjection).to_list()
 
         if not streets:
             return {"type": "FeatureCollection", "features": []}
@@ -248,14 +272,13 @@ async def get_all_streets(
                 "area_id": area_id,
                 "status": {"$in": ["driven", "undriveable"]},
             },
-        ).to_list()
-        status_map = {
-            s.segment_id: s.status for s in states if s.segment_id in street_ids
-        }
+        ).project(CoverageStateRenderProjection).to_list()
+        state_map = {s.segment_id: s for s in states if s.segment_id in street_ids}
 
         features = []
         for street in streets:
-            segment_status = status_map.get(street.segment_id, "undriven")
+            state = state_map.get(street.segment_id)
+            segment_status = state.status if state else "undriven"
             if status_filter == "undriven" and segment_status != "undriven":
                 continue
 
@@ -269,6 +292,8 @@ async def get_all_streets(
                         "highway_type": street.highway_type,
                         "length_miles": street.length_miles,
                         "status": segment_status,
+                        "last_driven_at": state.last_driven_at if state else None,
+                        "first_driven_at": state.first_driven_at if state else None,
                     },
                 },
             )
@@ -280,18 +305,21 @@ async def get_all_streets(
 
     # status_filter in {"driven", "undriveable"}: fetch matching CoverageState rows
     # first, then hydrate with the current Street geometries.
-    states = await CoverageState.find({"area_id": area_id, "status": status_filter}).to_list()
+    states = await CoverageState.find(
+        {"area_id": area_id, "status": status_filter},
+    ).project(CoverageStateRenderProjection).to_list()
     if not states:
         return {"type": "FeatureCollection", "features": []}
 
-    segment_ids = [s.segment_id for s in states]
+    state_map = {s.segment_id: s for s in states}
+    segment_ids = list(state_map)
     streets = await Street.find(
         {
             "area_id": area_id,
             "area_version": area.area_version,
             "segment_id": {"$in": segment_ids},
         },
-    ).to_list()
+    ).project(StreetRenderProjection).to_list()
 
     features = [
         {
@@ -303,6 +331,8 @@ async def get_all_streets(
                 "highway_type": street.highway_type,
                 "length_miles": street.length_miles,
                 "status": status_filter,
+                "last_driven_at": state_map[street.segment_id].last_driven_at,
+                "first_driven_at": state_map[street.segment_id].first_driven_at,
             },
         }
         for street in streets

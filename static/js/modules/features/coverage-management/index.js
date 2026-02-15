@@ -28,6 +28,7 @@ let map = null;
 let activeStreetPopup = null;
 let highlightedSegmentId = null;
 let currentMapFilter = "all";
+let currentAreaSyncToken = null;
 const areaErrorById = new Map();
 const areaNameById = new Map();
 let activeErrorAreaId = null;
@@ -51,6 +52,9 @@ const STREET_LAYERS = ["streets-undriven", "streets-driven", "streets-undriveabl
 const HIGHLIGHT_LAYER_ID = "streets-highlight";
 let streetInteractivityReady = false;
 let streetsLoadRequestId = 0;
+let streetsCacheKey = null;
+let streetsCacheGeojson = null;
+let renderedStreetsCacheKey = null;
 
 let activeJobsByAreaId = new Map();
 let pageActive = false;
@@ -109,6 +113,10 @@ export default async function initCoverageManagementPage({ signal, cleanup } = {
     streetsLoadRequestId += 1;
     highlightedSegmentId = null;
     currentMapFilter = "all";
+    currentAreaSyncToken = null;
+    streetsCacheKey = null;
+    streetsCacheGeojson = null;
+    renderedStreetsCacheKey = null;
     activeJobsByAreaId = new Map();
     activeErrorAreaId = null;
   };
@@ -1068,6 +1076,7 @@ async function viewArea(areaId) {
     // Load area details
     const data = await apiGet(`/areas/${areaId}`);
     const { area } = data;
+    currentAreaSyncToken = area?.last_synced || area?.created_at || null;
 
     // Update stats
     document.getElementById("dashboard-location-name").textContent = area.display_name;
@@ -1092,7 +1101,7 @@ async function viewArea(areaId) {
 
     // Initialize or update map
     if (data.bounding_box) {
-      await initOrUpdateMap(areaId, data.bounding_box);
+      await initOrUpdateMap(areaId, data.bounding_box, currentAreaSyncToken);
     }
 
     // Scroll to dashboard
@@ -1105,7 +1114,7 @@ async function viewArea(areaId) {
   }
 }
 
-async function initOrUpdateMap(areaId, bbox) {
+async function initOrUpdateMap(areaId, bbox, areaSyncToken = null) {
   const container = document.getElementById("coverage-map");
 
   if (!map) {
@@ -1129,14 +1138,9 @@ async function initOrUpdateMap(areaId, bbox) {
 
     map.on("load", () => {
       if (currentAreaId) {
-        loadStreets(currentAreaId);
+        loadStreets(currentAreaId, currentAreaSyncToken);
       }
       map.resize();
-    });
-    map.on("moveend", () => {
-      if (currentAreaId) {
-        loadStreets(currentAreaId);
-      }
     });
   } else {
     map.fitBounds(
@@ -1146,29 +1150,34 @@ async function initOrUpdateMap(areaId, bbox) {
       ],
       { padding: 50 }
     );
-    loadStreets(areaId);
+    loadStreets(areaId, areaSyncToken);
     // Resize the map after a short delay to ensure the container has updated dimensions
     setTimeout(() => map.resize(), 100);
   }
 }
 
-async function loadStreets(areaId) {
+function buildStreetsCacheKey(areaId, areaSyncToken = null) {
+  const syncToken = areaSyncToken || currentAreaSyncToken || "unsynced";
+  return `${areaId}:${syncToken}`;
+}
+
+async function loadStreets(areaId, areaSyncToken = null) {
   if (!map || !areaId) {
     return;
   }
   const requestId = ++streetsLoadRequestId;
-
-  const bounds = map.getBounds();
+  const cacheKey = buildStreetsCacheKey(areaId, areaSyncToken);
+  if (cacheKey === renderedStreetsCacheKey && map.getSource("streets")) {
+    return;
+  }
 
   try {
-    const data = await apiGet(
-      `/areas/${areaId}/streets/geojson?${new URLSearchParams({
-        min_lon: bounds.getWest(),
-        min_lat: bounds.getSouth(),
-        max_lon: bounds.getEast(),
-        max_lat: bounds.getNorth(),
-      })}`
-    );
+    let data = streetsCacheKey === cacheKey ? streetsCacheGeojson : null;
+    if (!data) {
+      data = await apiGet(`/areas/${areaId}/streets/all`);
+      streetsCacheKey = cacheKey;
+      streetsCacheGeojson = data;
+    }
 
     if (requestId !== streetsLoadRequestId || areaId !== currentAreaId || !map) {
       return;
@@ -1177,8 +1186,10 @@ async function loadStreets(areaId) {
     // Update or add source
     if (map.getSource("streets")) {
       map.getSource("streets").setData(data);
+      renderedStreetsCacheKey = cacheKey;
     } else {
       map.addSource("streets", { type: "geojson", data });
+      renderedStreetsCacheKey = cacheKey;
 
       // Undriven streets (red)
       map.addLayer({

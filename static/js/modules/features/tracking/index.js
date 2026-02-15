@@ -69,7 +69,9 @@ class LiveTripTracker {
     this.lastUpdateTimestamp = null;
     this.freshnessTimer = null;
     this.mapStyleListener = null;
-    this.primaryColor = LiveTripTracker.getCssVar("--primary", "#3b8a7f");
+    this.primaryRgb = [59, 138, 127];
+    this.primaryColor = LiveTripTracker.formatRgb(this.primaryRgb);
+    this.refreshPrimaryColor();
   }
 
   _cacheDomElements() {
@@ -95,6 +97,7 @@ class LiveTripTracker {
     }
 
     try {
+      this.refreshPrimaryColor();
       this._ensureLineLayers();
       this._ensureMarkerLayers();
       this._ensureArrowLayer();
@@ -113,7 +116,7 @@ class LiveTripTracker {
     }
 
     if (!this.map.getLayer(this.lineLayerId)) {
-      const color = this.primaryColor;
+      const color = this.primaryRgb;
       this.map.addLayer({
         id: this.lineLayerId,
         type: "line",
@@ -125,13 +128,13 @@ class LiveTripTracker {
             ["linear"],
             ["line-progress"],
             0,
-            `${color}26`,
+            LiveTripTracker.formatRgba(color, 0.15),
             0.4,
-            `${color}66`,
+            LiveTripTracker.formatRgba(color, 0.4),
             0.75,
-            `${color}bb`,
+            LiveTripTracker.formatRgba(color, 0.73),
             1,
-            `${color}e6`,
+            LiveTripTracker.formatRgba(color, 0.9),
           ],
         },
         layout: {
@@ -216,6 +219,19 @@ class LiveTripTracker {
       }
     };
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  }
+
+  refreshPrimaryColor() {
+    const fallbackRgb = [59, 138, 127];
+    const primaryRgbVar = LiveTripTracker.getCssVar("--primary-rgb", "").trim();
+    const primaryVar = LiveTripTracker.getCssVar("--primary", "#3b8a7f");
+    const resolvedRgb =
+      (primaryRgbVar && LiveTripTracker.resolveRgbChannels(`rgb(${primaryRgbVar})`)) ||
+      LiveTripTracker.resolveRgbChannels(primaryVar) ||
+      fallbackRgb;
+
+    this.primaryRgb = resolvedRgb;
+    this.primaryColor = LiveTripTracker.formatRgb(resolvedRgb);
   }
 
   loadFollowPreference() {
@@ -863,6 +879,72 @@ class LiveTripTracker {
     } catch {
       return fallback;
     }
+  }
+
+  static resolveRgbChannels(colorValue) {
+    const resolved = LiveTripTracker.resolveCssColor(colorValue);
+    if (!resolved) {
+      return null;
+    }
+
+    const match = resolved.match(/^rgba?\((.+)\)$/i);
+    if (!match) {
+      return null;
+    }
+
+    const channels = (match[1].match(/[\d.]+%?/g) || [])
+      .slice(0, 3)
+      .map((value) => {
+        if (value.endsWith("%")) {
+          return (Number.parseFloat(value) / 100) * 255;
+        }
+        return Number.parseFloat(value);
+      })
+      .map((value) => Math.max(0, Math.min(255, Math.round(value))));
+
+    if (channels.length !== 3 || channels.some((value) => !Number.isFinite(value))) {
+      return null;
+    }
+
+    return channels;
+  }
+
+  static resolveCssColor(colorValue) {
+    if (
+      typeof document === "undefined" ||
+      typeof colorValue !== "string" ||
+      !colorValue.trim()
+    ) {
+      return null;
+    }
+
+    const probe = document.createElement("span");
+    probe.style.color = colorValue.trim();
+    if (!probe.style.color) {
+      return null;
+    }
+
+    const parent = document.body || document.documentElement;
+    if (!parent) {
+      return null;
+    }
+
+    parent.appendChild(probe);
+    try {
+      const resolved = getComputedStyle(probe).color;
+      return typeof resolved === "string" && resolved.trim() ? resolved.trim() : null;
+    } finally {
+      probe.remove();
+    }
+  }
+
+  static formatRgb(rgb) {
+    return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+  }
+
+  static formatRgba(rgb, alpha) {
+    const normalizedAlpha = Math.max(0, Math.min(1, Number(alpha)));
+    return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${normalizedAlpha})`;
   }
 
   fitTripBounds(coords) {
