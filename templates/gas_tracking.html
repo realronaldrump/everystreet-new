@@ -71,7 +71,7 @@ Track your fuel and see your efficiency
               <i class="fas fa-plus-circle"></i>
             New Fill-up
             </h2>
-            <span class="card-badge is-hidden-initial" id="form-badge">Editing</span>
+            <span class="card-badge" id="form-badge" style="display: none">Editing</span>
           </div>
 
           <form id="gas-fillup-form" class="gas-form">
@@ -86,7 +86,7 @@ Track your fuel and see your efficiency
 Choose your vehicle...
                   </option>
                 </select>
-                <div id="vehicle-loading-state" class="input-spinner is-hidden-initial">
+                <div id="vehicle-loading-state" class="input-spinner" style="display: none">
                   <span class="spinner-border spinner-border-sm"></span>
                 </div>
               </div>
@@ -171,7 +171,7 @@ Choose your vehicle...
                 <i class="fas fa-chevron-down toggle-icon"></i>
               </button>
 
-              <div class="advanced-content is-hidden-initial" id="advanced-content">
+              <div class="advanced-content" id="advanced-content" style="display: none">
                 <!-- Map Location -->
                 <div class="form-group">
                   <label class="form-label">
@@ -233,7 +233,7 @@ Location
             </div>
 
             <!-- Calculated MPG Display -->
-            <div id="calculated-mpg" class="mpg-result is-hidden-initial">
+            <div id="calculated-mpg" class="mpg-result" style="display: none">
               <span class="mpg-label">MPG this fill-up:</span>
               <span class="mpg-value" id="mpg-value">--</span>
             </div>
@@ -242,14 +242,14 @@ Location
             <div class="form-actions">
               <button type="submit" class="btn-primary btn-submit" id="submit-btn">
                 <span id="submit-btn-text">Save Fill-up</span>
-                <span class="spinner-border spinner-border-sm ms-2 is-hidden-initial"
+                <span class="spinner-border spinner-border-sm ms-2"
                      
-                      id="submit-spinner"></span>
+                      id="submit-spinner" style="display: none"></span>
               </button>
               <button type="button"
-                      class="btn-secondary btn-cancel is-hidden-initial"
+                      class="btn-secondary btn-cancel"
                       id="cancel-edit-btn"
-                     >
+                      style="display: none">
               Cancel
               </button>
             </div>
