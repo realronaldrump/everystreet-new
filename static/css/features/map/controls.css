@@ -296,6 +296,37 @@
   font-weight: var(--font-weight-medium);
 }
 
+/* Layer opacity sliders should follow app accent color instead of browser default blue */
+#map-controls .layer-control .form-range {
+  accent-color: var(--primary);
+  height: 4px;
+  background: rgb(var(--surface-rgb) / 36%);
+  border: 1px solid rgb(var(--border-rgb) / 24%);
+  border-radius: var(--radius-full);
+  outline: none;
+}
+
+#map-controls .layer-control .form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--primary);
+  border: none;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 24%);
+  cursor: pointer;
+}
+
+#map-controls .layer-control .form-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--primary);
+  border: none;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 24%);
+  cursor: pointer;
+}
+
 /* Custom Toggle Switch */
 .toggle-switch {
   position: relative;
