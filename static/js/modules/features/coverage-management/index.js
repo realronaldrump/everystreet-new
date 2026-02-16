@@ -1198,7 +1198,7 @@ async function loadStreets(areaId, areaSyncToken = null) {
         source: "streets",
         filter: ["==", ["get", "status"], "undriven"],
         paint: {
-          "line-color": "#8b98a8",
+          "line-color": "#c47050",
           "line-width": 2,
           "line-opacity": 0.8,
         },

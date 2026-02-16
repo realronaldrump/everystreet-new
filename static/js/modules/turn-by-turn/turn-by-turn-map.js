@@ -165,7 +165,7 @@ class TurnByTurnMap {
             "case",
             ["boolean", ["feature-state", "driven"], false],
             getThemeColor("--success", "#4d9a6a"),
-            getThemeColor("--color-undriven", "#8b98a8"),
+            getThemeColor("--color-undriven", "#c47050"),
           ],
           "line-width": 4,
           "line-opacity": [

@@ -31,7 +31,7 @@ export const DEFAULT_CLUSTER_COLORS = [
  * Default street colors with fallbacks.
  */
 export const DEFAULT_STREET_COLORS = {
-  undriven: "#8b98a8",
+  undriven: "#c47050",
   driven: "#4d9a6a",
 };
 

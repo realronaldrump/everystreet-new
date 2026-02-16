@@ -133,7 +133,7 @@ export const CONFIG = {
     },
     undrivenStreets: {
       order: 2,
-      color: "#8b98a8",
+      color: "#c47050",
       opacity: 0.8,
       visible: false,
       name: "Undriven Streets",

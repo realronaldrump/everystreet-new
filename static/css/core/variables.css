@@ -238,8 +238,8 @@
   --glass-border-strong: rgb(var(--border-rgb) / 22%);
 
   /* Semantic street colors */
-  --color-undriven: #8b98a8;
-  --color-undriven-rgb: 139 152 168;
+  --color-undriven: var(--cat-coral);
+  --color-undriven-rgb: var(--cat-coral-rgb);
   --color-driven: var(--success);
 
   /* Toggle/switch */

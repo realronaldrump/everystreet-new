@@ -121,7 +121,7 @@ export class OptimalRouteMap {
       source: "streets-undriven",
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": "#8b98a8",
+        "line-color": "#c47050",
         "line-width": 2.5,
         "line-opacity": 0.8,
       },
