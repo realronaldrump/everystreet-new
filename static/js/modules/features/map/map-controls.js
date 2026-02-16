@@ -82,13 +82,23 @@ export default function initMapControls({ signal, cleanup } = {}) {
   };
 
   const setStreetMode = (mode) => {
-    document.querySelectorAll(".quick-action-btn").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.streetMode === mode);
+    const buttons = document.querySelectorAll(".quick-action-btn");
+    const currentlyActive = [...buttons].some(
+      (btn) => btn.classList.contains("active") && btn.dataset.streetMode === mode
+    );
+
+    buttons.forEach((btn) => {
+      const isTarget = btn.dataset.streetMode === mode;
+      if (currentlyActive) {
+        btn.classList.toggle("active", false);
+      } else {
+        btn.classList.toggle("active", isTarget);
+      }
     });
 
     document.dispatchEvent(
       new CustomEvent("es:streetModeChange", {
-        detail: { mode },
+        detail: { mode, shouldHide: currentlyActive },
         bubbles: true,
       })
     );

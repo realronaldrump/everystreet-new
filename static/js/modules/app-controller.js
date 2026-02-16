@@ -245,9 +245,20 @@ const AppController = {
     }
 
     const savedStates = getSavedStreetViewModes();
+    const hasStoredStates = Object.keys(savedStates || {}).length > 0;
 
     // Delay to allow map to settle
     setTimeout(() => {
+      if (hasStoredStates) {
+        const quickActionButtons = document.querySelectorAll(".quick-action-btn");
+        quickActionButtons.forEach((btn) => {
+          btn.classList.toggle(
+            "active",
+            savedStates[btn.dataset.streetMode] === true
+          );
+        });
+      }
+
       Object.entries(savedStates).forEach(([mode, isActive]) => {
         if (isActive) {
           this.handleStreetViewModeChange(mode, false);
@@ -404,25 +415,22 @@ const AppController = {
     // Quick-action street mode buttons (map controls). These dispatch a custom event.
     document.addEventListener("es:streetModeChange", async (e) => {
       const mode = e?.detail?.mode;
+      const shouldHide = !!e?.detail?.shouldHide;
       if (!mode || !["undriven", "driven", "all"].includes(mode)) {
         return;
       }
 
-      // Persist as an exclusive selection so changing coverage areas can re-load the active mode.
-      utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, {
-        undriven: mode === "undriven",
-        driven: mode === "driven",
-        all: mode === "all",
-      });
+      const streetModes = ["undriven", "driven", "all"];
+      const nextStates = streetModes.reduce((acc, currentMode) => {
+        acc[currentMode] = shouldHide ? false : currentMode === mode;
+        return acc;
+      }, {});
 
-      // Quick actions behave like a radio group: show only the selected street layer.
-      for (const otherMode of ["undriven", "driven", "all"]) {
-        if (otherMode !== mode) {
-          await this.handleStreetViewModeChange(otherMode, true);
-        }
+      utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, nextStates);
+
+      for (const currentMode of streetModes) {
+        await this.handleStreetViewModeChange(currentMode, !nextStates[currentMode]);
       }
-
-      await this.handleStreetViewModeChange(mode, false);
     });
 
     // Street view mode toggle buttons
