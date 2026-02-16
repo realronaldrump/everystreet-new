@@ -304,8 +304,9 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
     Add a vehicle to the local database and (optionally) authorize it for trip sync.
 
     Note: The Bouncie REST API exposes vehicle search (`GET /v1/vehicles`) but does
-    not support creating vehicles in the user's Bouncie account. This endpoint
-    validates the IMEI against the Bouncie account, stores/updates a local vehicle
+    not support creating vehicles in the user's Bouncie account. Some authorized
+    devices may not appear in `/v1/vehicles` (for example IMEI-only/manual devices).
+    This endpoint always supports IMEI-only add, stores/updates a local vehicle
     record, and updates the `authorized_devices` list used for trip fetch.
     """
     imei = (payload.imei or "").strip()
@@ -372,28 +373,26 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
             detail="Failed to fetch vehicle details from Bouncie.",
         ) from exc
 
-    if not bouncie_vehicle:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                "Vehicle not found in your Bouncie account (or not authorized for this app). "
-                "Double-check the IMEI, verify the device appears under Users & Devices in the "
-                "Bouncie Developer Portal for your application, then try syncing vehicles again."
-            ),
+    vehicle_found = isinstance(bouncie_vehicle, dict) and bool(bouncie_vehicle)
+    vehicle_payload: dict[str, Any] = bouncie_vehicle if vehicle_found else {}
+    if not vehicle_found:
+        logger.info(
+            "Vehicle %s not returned by /v1/vehicles; creating/updating IMEI-only local record",
+            imei,
         )
 
-    model_data = bouncie_vehicle.get("model")
+    model_data = vehicle_payload.get("model")
     if isinstance(model_data, dict):
         model_name = model_data.get("name")
-        make = bouncie_vehicle.get("make") or model_data.get("make")
-        year = bouncie_vehicle.get("year") or model_data.get("year")
+        make = vehicle_payload.get("make") or model_data.get("make")
+        year = vehicle_payload.get("year") or model_data.get("year")
     else:
         model_name = model_data
-        make = bouncie_vehicle.get("make")
-        year = bouncie_vehicle.get("year")
+        make = vehicle_payload.get("make")
+        year = vehicle_payload.get("year")
 
     derived_name = (
-        bouncie_vehicle.get("nickName")
+        vehicle_payload.get("nickName")
         or f"{year or ''} {make or ''} {model_name or ''}".strip()
         or f"Vehicle {imei}"
     )
@@ -401,35 +400,42 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
 
     vehicle = await Vehicle.find_one(Vehicle.imei == imei)
     if vehicle:
-        vehicle.vin = bouncie_vehicle.get("vin")
-        vehicle.make = make
-        vehicle.model = model_name
-        vehicle.year = year
-        vehicle.nickName = bouncie_vehicle.get("nickName")
-        vehicle.standardEngine = bouncie_vehicle.get("standardEngine")
+        if vehicle_found:
+            vehicle.vin = vehicle_payload.get("vin")
+            vehicle.make = make
+            vehicle.model = model_name
+            vehicle.year = year
+            vehicle.nickName = vehicle_payload.get("nickName")
+            vehicle.standardEngine = vehicle_payload.get("standardEngine")
+            vehicle.last_synced_at = now
+            vehicle.bouncie_data = vehicle_payload
         vehicle.custom_name = display_name
         vehicle.is_active = True
         vehicle.updated_at = now
-        vehicle.last_synced_at = now
-        vehicle.bouncie_data = bouncie_vehicle
         await vehicle.save()
         created = False
     else:
-        vehicle = Vehicle(
-            imei=imei,
-            vin=bouncie_vehicle.get("vin"),
-            make=make,
-            model=model_name,
-            year=year,
-            nickName=bouncie_vehicle.get("nickName"),
-            standardEngine=bouncie_vehicle.get("standardEngine"),
-            custom_name=display_name,
-            is_active=True,
-            created_at=now,
-            updated_at=now,
-            last_synced_at=now,
-            bouncie_data=bouncie_vehicle,
-        )
+        vehicle_payload_for_create: dict[str, Any] = {
+            "imei": imei,
+            "custom_name": display_name,
+            "is_active": True,
+            "created_at": now,
+            "updated_at": now,
+        }
+        if vehicle_found:
+            vehicle_payload_for_create.update(
+                {
+                    "vin": vehicle_payload.get("vin"),
+                    "make": make,
+                    "model": model_name,
+                    "year": year,
+                    "nickName": vehicle_payload.get("nickName"),
+                    "standardEngine": vehicle_payload.get("standardEngine"),
+                    "last_synced_at": now,
+                    "bouncie_data": vehicle_payload,
+                },
+            )
+        vehicle = Vehicle(**vehicle_payload_for_create)
         await vehicle.insert()
         created = True
 
@@ -482,6 +488,8 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
     message = "Vehicle added."
     if created:
         message = "Vehicle added."
+    if not vehicle_found:
+        message = "Vehicle added as IMEI-only (device not listed by Bouncie vehicles API)."
 
     if trip_sync_job_id:
         message = f"{message} Trip sync queued."

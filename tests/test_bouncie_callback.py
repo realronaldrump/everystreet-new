@@ -429,6 +429,38 @@ class TestSyncVehiclesAfterAuth:
     """Tests for the automatic vehicle sync."""
 
     @pytest.mark.asyncio
+    async def test_sync_preserves_existing_authorized_devices(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """OAuth callback sync should merge, not replace, authorized IMEIs."""
+        sync_mock = AsyncMock(
+            return_value={
+                "vehicles": [],
+                "authorized_devices": ["manual-imei", "api-imei"],
+                "imeis": ["api-imei"],
+            },
+        )
+        monkeypatch.setattr("setup.api.bouncie.sync_bouncie_vehicles", sync_mock)
+
+        mock_session = MagicMock()
+        credentials = {"authorized_devices": ["manual-imei"]}
+        count = await _sync_vehicles_after_auth(
+            mock_session,
+            "test_token",
+            credentials=credentials,
+        )
+
+        assert count == 1
+        sync_mock.assert_awaited_once_with(
+            mock_session,
+            "test_token",
+            credentials=credentials,
+            merge_authorized_devices=True,
+            update_authorized_devices=True,
+        )
+
+    @pytest.mark.asyncio
     async def test_sync_no_vehicles(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test sync when no vehicles are returned."""
         monkeypatch.setattr(
