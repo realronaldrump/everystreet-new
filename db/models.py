@@ -420,6 +420,8 @@ class CoverageArea(Document):
     undriveable_length_miles: float = 0.0
     area_version: int = 1
     osm_fetched_at: datetime | None = None
+    road_filter_version: str | None = None
+    road_filter_stats: dict[str, Any] = Field(default_factory=dict)
     last_error: str | None = None
     optimal_route: dict[str, Any] | None = None
     optimal_route_generated_at: datetime | None = None

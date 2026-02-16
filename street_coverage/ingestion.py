@@ -32,7 +32,14 @@ from street_coverage.constants import (
     RETRY_BASE_DELAY_SECONDS,
     SEGMENT_LENGTH_METERS,
 )
-from street_coverage.osm_filters import get_driveable_highway
+from street_coverage.public_road_filter import (
+    GRAPH_ROAD_FILTER_SIGNATURE_KEY,
+    GRAPH_ROAD_FILTER_STATS_KEY,
+    PublicRoadFilterAudit,
+    classify_public_road,
+    extract_relevant_tags,
+    get_public_road_filter_signature,
+)
 from street_coverage.stats import update_area_stats
 
 if TYPE_CHECKING:
@@ -200,6 +207,8 @@ async def rebuild_area(area_id: PydanticObjectId) -> Job:
     area.optimal_route = None
     area.optimal_route_generated_at = None
     area.last_error = None
+    area.road_filter_version = None
+    area.road_filter_stats = {}
     area.last_synced = None
     area.total_length_miles = 0.0
     area.driveable_length_miles = 0.0
@@ -439,6 +448,7 @@ async def _run_ingestion_pipeline(
             started_at: datetime | None = None,
             completed_at: datetime | None = None,
             retry_count: int | None = None,
+            result: dict[str, Any] | None = None,
         ) -> None:
             job = await Job.get(job_id)
             if not job:
@@ -465,6 +475,8 @@ async def _run_ingestion_pipeline(
                 updates["completed_at"] = completed_at
             if retry_count is not None:
                 updates["retry_count"] = int(retry_count)
+            if result is not None:
+                updates["result"] = result
 
             await job.set(updates)
 
@@ -503,11 +515,21 @@ async def _run_ingestion_pipeline(
             message="Loading graph data",
         )
 
-        osm_ways = await _load_osm_streets_from_graph(area, job_id)
+        osm_ways, road_filter_stats = await _load_osm_streets_from_graph(area, job_id)
         logger.info(
             "Loaded %s ways from local graph for %s",
             len(osm_ways),
             area.display_name,
+        )
+        logger.info(
+            (
+                "Road filter stats for %s: included=%s excluded=%s "
+                "ambiguous_included=%s"
+            ),
+            area.display_name,
+            road_filter_stats.get("included_count", 0),
+            road_filter_stats.get("excluded_count", 0),
+            road_filter_stats.get("ambiguous_included_count", 0),
         )
 
         # Stage 3: Segment streets
@@ -526,7 +548,12 @@ async def _run_ingestion_pipeline(
             area.display_name,
         )
 
-        await update_job(message=f"Created {len(segments):,} segments")
+        await update_job(
+            message=(
+                f"Created {len(segments):,} segments "
+                f"(excluded {road_filter_stats.get('excluded_count', 0):,} ways)"
+            ),
+        )
 
         # Stage 4: Clear any partial data for this version
         await update_job(
@@ -564,7 +591,16 @@ async def _run_ingestion_pipeline(
             message="Aggregating coverage stats",
         )
 
-        await area.set({"osm_fetched_at": datetime.now(UTC)})
+        await area.set(
+            {
+                "osm_fetched_at": datetime.now(UTC),
+                "road_filter_version": road_filter_stats.get(
+                    "road_filter_signature",
+                    get_public_road_filter_signature(),
+                ),
+                "road_filter_stats": road_filter_stats,
+            },
+        )
         stats_area = await update_area_stats(area_doc_id)
         if stats_area:
             await update_job(
@@ -651,12 +687,30 @@ async def _run_ingestion_pipeline(
                 f"{backfill_state['segments_updated']:,} segments from "
                 f"{backfill_state['matched_trips']:,} trips"
             )
+        job_result = {
+            "road_filter_version": road_filter_stats.get("road_filter_version"),
+            "road_filter_signature": road_filter_stats.get("road_filter_signature"),
+            "included_count": int(road_filter_stats.get("included_count", 0) or 0),
+            "excluded_count": int(road_filter_stats.get("excluded_count", 0) or 0),
+            "ambiguous_included_count": int(
+                road_filter_stats.get("ambiguous_included_count", 0) or 0,
+            ),
+            "excluded_by_reason": dict(road_filter_stats.get("excluded_by_reason") or {}),
+            "sample_excluded_osm_ids": list(
+                road_filter_stats.get("sample_excluded_osm_ids") or [],
+            ),
+            "backfill_processed_trips": int(backfill_state.get("processed_trips", 0) or 0),
+            "backfill_total_trips": backfill_state.get("total_trips"),
+            "backfill_matched_trips": int(backfill_state.get("matched_trips", 0) or 0),
+            "backfill_segments_updated": int(backfill_state.get("segments_updated", 0) or 0),
+        }
         await update_job(
             status="completed",
             stage="Complete",
             progress=100,
             message=message,
             completed_at=datetime.now(UTC),
+            result=job_result,
         )
 
         await area.set(
@@ -941,7 +995,33 @@ async def _ensure_area_graph(
 
     graph_path = GRAPH_STORAGE_DIR / f"{area.id}.graphml"
     if graph_path.exists():
-        return graph_path
+        from core.osmnx_graphml import load_graphml_robust
+
+        expected_signature = get_public_road_filter_signature()
+        try:
+            graph = load_graphml_robust(graph_path)
+            stored_signature = str(
+                graph.graph.get(GRAPH_ROAD_FILTER_SIGNATURE_KEY) or "",
+            ).strip()
+            if stored_signature == expected_signature:
+                return graph_path
+            logger.info(
+                (
+                    "Graph road-filter signature mismatch for %s "
+                    "(stored=%s expected=%s); rebuilding graph."
+                ),
+                area.display_name,
+                stored_signature or "missing",
+                expected_signature,
+            )
+        except Exception:
+            logger.warning(
+                "Unable to validate existing graph metadata for %s; rebuilding.",
+                area.display_name,
+                exc_info=True,
+            )
+        with contextlib.suppress(FileNotFoundError):
+            graph_path.unlink()
 
     from street_coverage.preprocessing import preprocess_streets
 
@@ -965,7 +1045,7 @@ async def _ensure_area_graph(
 async def _load_osm_streets_from_graph(
     area: Any,
     job_id: PydanticObjectId | None = None,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Load street ways from the local graph built from self-hosted OSM data."""
     import networkx as nx
     import osmnx as ox
@@ -985,10 +1065,15 @@ async def _load_osm_streets_from_graph(
     boundary_shape = shape(boundary_geojson) if boundary_geojson else None
 
     result: list[dict[str, Any]] = []
+    road_filter_audit = PublicRoadFilterAudit()
     for u, v, _k, data in Gu.edges(keys=True, data=True):
-        highway_type = get_driveable_highway(data.get("highway"))
-        if highway_type is None:
+        tags = extract_relevant_tags(data)
+        decision = classify_public_road(tags)
+        road_filter_audit.record(decision, osm_id=data.get("osmid") or data.get("id"))
+
+        if not decision.include:
             continue
+        highway_type = decision.highway_type or "unclassified"
 
         line = _edge_geometry(Gu, u, v, data)
         if line is None:
@@ -1006,14 +1091,35 @@ async def _load_osm_streets_from_graph(
                 # Pyrosm graphs sometimes use `id` instead of `osmid`.
                 "osm_id": _coerce_osm_id(data.get("osmid") or data.get("id")),
                 "tags": {
-                    "name": _coerce_name(data.get("name")),
+                    "name": _coerce_name(tags.get("name") or data.get("name")),
                     "highway": highway_type,
                 },
                 "geometry": mapping(line),
             },
         )
 
-    return result
+    graph_stats_raw = G.graph.get(GRAPH_ROAD_FILTER_STATS_KEY)
+    graph_stats: dict[str, Any] = {}
+    if isinstance(graph_stats_raw, dict):
+        graph_stats = dict(graph_stats_raw)
+    elif isinstance(graph_stats_raw, str) and graph_stats_raw.strip():
+        try:
+            import json
+
+            parsed = json.loads(graph_stats_raw)
+            if isinstance(parsed, dict):
+                graph_stats = parsed
+        except Exception:
+            logger.warning(
+                "Invalid graph road-filter stats metadata for %s",
+                area.display_name,
+            )
+
+    audit_stats = road_filter_audit.to_dict()
+    if graph_stats:
+        audit_stats.setdefault("graph_build_filter_stats", graph_stats)
+
+    return result, audit_stats
 
 
 def _segment_streets(

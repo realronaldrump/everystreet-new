@@ -1,37 +1,33 @@
-"""
-Shared OSM filtering helpers for coverage and routing.
+"""Legacy OSM filtering compatibility helpers.
 
-Keeps driveable highway classification consistent across the pipeline.
+Public-road filtering now lives in ``street_coverage.public_road_filter``.
+This module remains as a backwards-compatible adapter.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-DRIVEABLE_HIGHWAY_TYPES = {
-    "motorway",
-    "trunk",
-    "primary",
-    "secondary",
-    "tertiary",
-    "unclassified",
-    "residential",
-    "motorway_link",
-    "trunk_link",
-    "primary_link",
-    "secondary_link",
-    "tertiary_link",
-    "living_street",
-    "service",
-}
+from street_coverage.public_road_filter import (
+    LEGACY_DRIVEABLE_HIGHWAY_TYPES as DRIVEABLE_HIGHWAY_TYPES,
+)
 
 
 def normalize_tag_values(value: Any) -> list[str]:
     if value is None:
         return []
     if isinstance(value, list | tuple | set):
-        return [str(item) for item in value if item is not None]
-    return [str(value)]
+        return [str(item).strip().lower() for item in value if item is not None]
+    raw = str(value)
+    if ";" not in raw:
+        token = raw.strip().lower()
+        return [token] if token else []
+    values: list[str] = []
+    for part in raw.split(";"):
+        token = part.strip().lower()
+        if token:
+            values.append(token)
+    return values
 
 
 def get_driveable_highway(value: Any) -> str | None:

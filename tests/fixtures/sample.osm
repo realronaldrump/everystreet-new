@@ -4,6 +4,24 @@
   <node id="2" lat="31.5490" lon="-97.1450" />
   <node id="3" lat="31.5500" lon="-97.1460" />
   <node id="4" lat="31.5500" lon="-97.1450" />
+  <node id="5" lat="31.5492" lon="-97.1465" />
+  <node id="6" lat="31.5492" lon="-97.1455" />
+  <node id="7" lat="31.5494" lon="-97.1465" />
+  <node id="8" lat="31.5494" lon="-97.1455" />
+  <node id="9" lat="31.5496" lon="-97.1465" />
+  <node id="10" lat="31.5496" lon="-97.1455" />
+  <node id="11" lat="31.5498" lon="-97.1465" />
+  <node id="12" lat="31.5498" lon="-97.1455" />
+  <node id="13" lat="31.5502" lon="-97.1465" />
+  <node id="14" lat="31.5502" lon="-97.1455" />
+  <node id="15" lat="31.5504" lon="-97.1465" />
+  <node id="16" lat="31.5504" lon="-97.1455" />
+  <node id="17" lat="31.5506" lon="-97.1465" />
+  <node id="18" lat="31.5506" lon="-97.1455" />
+  <node id="19" lat="31.5508" lon="-97.1468" />
+  <node id="20" lat="31.5508" lon="-97.1458" />
+  <node id="21" lat="31.5509" lon="-97.1468" />
+  <node id="22" lat="31.5509" lon="-97.1458" />
 
   <way id="100">
     <nd ref="1" />
@@ -17,5 +35,76 @@
     <nd ref="4" />
     <tag k="highway" v="footway" />
     <tag k="name" v="Footpath" />
+  </way>
+
+  <way id="300">
+    <nd ref="5" />
+    <nd ref="6" />
+    <tag k="highway" v="service" />
+    <tag k="service" v="parking_aisle" />
+    <tag k="name" v="Parking Aisle" />
+  </way>
+
+  <way id="400">
+    <nd ref="7" />
+    <nd ref="8" />
+    <tag k="highway" v="residential" />
+    <tag k="access" v="private" />
+    <tag k="name" v="Private Road" />
+  </way>
+
+  <way id="500">
+    <nd ref="9" />
+    <nd ref="10" />
+    <tag k="highway" v="track" />
+    <tag k="motor_vehicle" v="yes" />
+    <tag k="name" v="Public Track" />
+  </way>
+
+  <way id="600">
+    <nd ref="11" />
+    <nd ref="12" />
+    <tag k="highway" v="track" />
+    <tag k="name" v="Unverified Track" />
+  </way>
+
+  <way id="700">
+    <nd ref="13" />
+    <nd ref="14" />
+    <tag k="highway" v="service" />
+    <tag k="service" v="alley" />
+    <tag k="name" v="Service Alley" />
+  </way>
+
+  <way id="800">
+    <nd ref="15" />
+    <nd ref="16" />
+    <tag k="highway" v="residential" />
+    <tag k="access" v="destination" />
+    <tag k="name" v="Destination Access Road" />
+  </way>
+
+  <way id="900">
+    <nd ref="17" />
+    <nd ref="18" />
+    <tag k="highway" v="residential" />
+    <tag k="access:conditional" v="yes @ (Mo-Fr 08:00-17:00)" />
+    <tag k="name" v="Conditional Access Road" />
+  </way>
+
+  <way id="1000">
+    <nd ref="19" />
+    <nd ref="20" />
+    <tag k="highway" v="residential" />
+    <tag k="vehicle" v="delivery" />
+    <tag k="name" v="Delivery Only Road" />
+  </way>
+
+  <way id="1100">
+    <nd ref="21" />
+    <nd ref="22" />
+    <tag k="highway" v="residential" />
+    <tag k="area" v="yes" />
+    <tag k="name" v="Road Area Polygon" />
   </way>
 </osm>

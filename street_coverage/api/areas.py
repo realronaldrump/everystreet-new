@@ -130,6 +130,8 @@ class AreaResponse(BaseModel):
     last_synced: str | None
     optimal_route_generated_at: str | None
     has_optimal_route: bool
+    road_filter_version: str | None = None
+    road_filter_stats: dict[str, Any] = Field(default_factory=dict)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -465,6 +467,8 @@ async def list_areas():
                     else None
                 ),
                 has_optimal_route=area.optimal_route is not None,
+                road_filter_version=area.road_filter_version,
+                road_filter_stats=area.road_filter_stats or {},
             )
             for area in areas
         ]
@@ -515,6 +519,8 @@ async def get_area(area_id: PydanticObjectId):
                 else None
             ),
             has_optimal_route=area.optimal_route is not None,
+            road_filter_version=area.road_filter_version,
+            road_filter_stats=area.road_filter_stats or {},
         ),
         bounding_box=area.bounding_box if area.bounding_box else None,
         has_optimal_route=area.optimal_route is not None,

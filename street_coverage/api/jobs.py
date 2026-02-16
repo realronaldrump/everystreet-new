@@ -6,6 +6,7 @@ Provides endpoints for checking background job progress.
 
 import logging
 from datetime import UTC, datetime
+from typing import Any
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, status
@@ -41,6 +42,7 @@ class JobStatusResponse(BaseModel):
     created_at: str
     started_at: str | None = None
     completed_at: str | None = None
+    result: dict[str, Any] | None = None
 
 
 class JobListResponse(BaseModel):
@@ -91,6 +93,7 @@ async def get_job_status(job_id: PydanticObjectId):
         created_at=job.created_at.isoformat(),
         started_at=job.started_at.isoformat() if job.started_at else None,
         completed_at=job.completed_at.isoformat() if job.completed_at else None,
+        result=job.result,
     )
 
 
@@ -123,6 +126,7 @@ async def get_area_jobs(area_id: PydanticObjectId, limit: int = 10):
                 created_at=job.created_at.isoformat(),
                 started_at=job.started_at.isoformat() if job.started_at else None,
                 completed_at=job.completed_at.isoformat() if job.completed_at else None,
+                result=job.result,
             )
             for job in jobs
         ],
@@ -167,6 +171,7 @@ async def list_active_jobs():
                 created_at=job.created_at.isoformat(),
                 started_at=job.started_at.isoformat() if job.started_at else None,
                 completed_at=job.completed_at.isoformat() if job.completed_at else None,
+                result=job.result,
             )
             for job in jobs
         ],

@@ -34,7 +34,16 @@ from shapely.geometry import box, mapping, shape
 from config import get_osm_extracts_path, require_osm_data_path, resolve_osm_data_path
 from core.spatial import buffer_polygon_for_routing
 from routing.constants import GRAPH_STORAGE_DIR, ROUTING_BUFFER_FT
-from street_coverage.osm_filters import get_driveable_highway
+from street_coverage.public_road_filter import (
+    GRAPH_ROAD_FILTER_SIGNATURE_KEY,
+    GRAPH_ROAD_FILTER_STATS_KEY,
+    GRAPH_ROAD_FILTER_VERSION_KEY,
+    PublicRoadFilterAudit,
+    classify_public_road,
+    extract_relevant_tags,
+    get_public_road_filter_signature,
+    get_public_road_filter_version,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +57,42 @@ DEFAULT_GRAPH_TILE_OVERLAP_RATIO = 0.03
 DEFAULT_GRAPH_TILE_OVERLAP_MIN_DEG = 0.0005
 _TRUE_LITERALS = {"true", "t", "1", "yes", "y", "on"}
 _FALSE_LITERALS = {"false", "f", "0", "no", "n", "off"}
+
+_REQUIRED_OSMNX_WAY_TAGS = {
+    "highway",
+    "name",
+    "service",
+    "access",
+    "vehicle",
+    "motor_vehicle",
+    "motorcar",
+    "access:conditional",
+    "area",
+}
+
+_RELEVANT_EDGE_TAG_KEYS = (
+    "highway",
+    "name",
+    "service",
+    "access",
+    "vehicle",
+    "motor_vehicle",
+    "motorcar",
+    "access:conditional",
+    "area",
+)
+
+_PYROSM_EXTRA_ATTRIBUTES = [
+    "name",
+    "highway",
+    "service",
+    "access",
+    "vehicle",
+    "motor_vehicle",
+    "motorcar",
+    "access:conditional",
+    "area",
+]
 
 
 def _get_area_extract_threshold_mb() -> int:
@@ -350,6 +395,23 @@ def _get_osmnx():
     return ox
 
 
+def _ensure_osmnx_useful_way_tags(ox: Any) -> None:
+    """
+    Ensure graph builders retain tags required for public-road classification.
+    """
+    current = getattr(ox.settings, "useful_tags_way", None)
+    if not isinstance(current, list):
+        current = list(current or [])
+    merged = list(current)
+    seen = set(current)
+    for key in _REQUIRED_OSMNX_WAY_TAGS:
+        if key in seen:
+            continue
+        merged.append(key)
+        seen.add(key)
+    ox.settings.useful_tags_way = merged
+
+
 def _coerce_osmnx_bool(value: Any) -> bool | None:
     # OSMnx's GraphML loader only accepts "True"/"False" (or bool) for bool attrs.
     if value is None:
@@ -418,9 +480,16 @@ def _graph_from_pbf(osm_path: Path) -> nx.MultiDiGraph:
 
     osm = OSM(str(osm_path))
     try:
-        network = osm.get_network(network_type="driving", nodes=True)
+        network = osm.get_network(
+            network_type="driving",
+            nodes=True,
+            extra_attributes=_PYROSM_EXTRA_ATTRIBUTES,
+        )
     except TypeError:
-        network = osm.get_network(network_type="driving")
+        try:
+            network = osm.get_network(network_type="driving", nodes=True)
+        except TypeError:
+            network = osm.get_network(network_type="driving")
 
     if isinstance(network, nx.MultiDiGraph):
         return network
@@ -438,15 +507,54 @@ def _graph_from_pbf(osm_path: Path) -> nx.MultiDiGraph:
     raise RuntimeError(msg)
 
 
-def _prune_non_driveable_edges(G: nx.MultiDiGraph) -> None:
-    non_driveable = [
-        (u, v, k)
-        for u, v, k, data in G.edges(keys=True, data=True)
-        if get_driveable_highway(data.get("highway")) is None
-    ]
-    if non_driveable:
-        G.remove_edges_from(non_driveable)
+def _to_graphml_scalar(value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, list | tuple | set):
+        return ";".join(str(item) for item in value if item is not None)
+    if isinstance(value, dict):
+        return json.dumps(value, sort_keys=True)
+    return value
+
+
+def _prune_non_driveable_edges(G: nx.MultiDiGraph) -> dict[str, Any]:
+    """
+    Remove non-public roads based on v2 public-road classifier rules.
+
+    Returns an audit payload with include/exclude diagnostics.
+    """
+    audit = PublicRoadFilterAudit()
+    non_public: list[tuple[Any, Any, Any]] = []
+
+    for u, v, k, data in G.edges(keys=True, data=True):
+        tags = extract_relevant_tags(data)
+        decision = classify_public_road(tags)
+        audit.record(decision, osm_id=data.get("osmid") or data.get("id"))
+
+        if not decision.include:
+            non_public.append((u, v, k))
+            continue
+
+        if decision.highway_type:
+            data["highway"] = decision.highway_type
+
+        for key in _RELEVANT_EDGE_TAG_KEYS:
+            if key in data:
+                continue
+            value = tags.get(key)
+            scalar = _to_graphml_scalar(value)
+            if scalar is not None:
+                data[key] = scalar
+
+    if non_public:
+        G.remove_edges_from(non_public)
         G.remove_nodes_from(list(nx.isolates(G)))
+
+    stats = audit.to_dict()
+    G.graph[GRAPH_ROAD_FILTER_VERSION_KEY] = get_public_road_filter_version()
+    G.graph[GRAPH_ROAD_FILTER_SIGNATURE_KEY] = get_public_road_filter_signature()
+    G.graph[GRAPH_ROAD_FILTER_STATS_KEY] = json.dumps(stats, sort_keys=True)
+    return stats
 
 
 def _ensure_edge_lengths(G: nx.MultiDiGraph) -> nx.MultiDiGraph:
@@ -852,6 +960,7 @@ def _normalize_pyrosm_gdfs(nodes_gdf: Any, edges_gdf: Any) -> tuple[Any, Any]:
 
 def _load_graph_from_extract(osm_path: Path, routing_polygon: Any) -> nx.MultiDiGraph:
     ox = _get_osmnx()
+    _ensure_osmnx_useful_way_tags(ox)
     suffix = osm_path.suffix.lower()
     if suffix in {".osm", ".xml"}:
         G = ox.graph_from_xml(
