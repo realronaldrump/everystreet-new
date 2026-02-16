@@ -239,12 +239,17 @@ export function displayTripsInModal(trips, opts = {}) {
   }
 
   if (!sortedTrips || sortedTrips.length === 0) {
-    grid.innerHTML = '<div class="modal-trip-empty">No trips found for this drilldown.</div>';
+    grid.innerHTML = '<div class="modal-trip-empty"><i class="fas fa-route" style="font-size:1.5rem;margin-bottom:0.5rem;opacity:0.4"></i><span>No trips found</span></div>';
   } else {
+    // Compute max value for the bar chart fill
+    const maxVal = sortedTrips.reduce(
+      (mx, t) => Math.max(mx, Math.abs(getTripSortValue(insightKind || "trips", t))),
+      0,
+    );
+
     grid.innerHTML = sortedTrips
-      .map((trip) => {
+      .map((trip, idx) => {
         const startTime = formatDateTime(trip.startTime);
-        const endTime = formatDateTime(trip.endTime);
         const duration = formatDuration(Number(trip.duration) || 0);
         const distanceVal = Number(trip.distance);
         const distance =
@@ -256,35 +261,46 @@ export function displayTripsInModal(trips, opts = {}) {
         const maxSpeedVal = Number(trip.maxSpeed);
         const maxSpeed =
           Number.isFinite(maxSpeedVal) && maxSpeedVal > 0
-            ? `${maxSpeedVal.toFixed(1)} mph`
+            ? `${maxSpeedVal.toFixed(0)} mph`
             : "-";
         const insightValue = formatInsightValue(insightKind, trip);
-        const insight = escapeHtml(insightValue === "-" ? "Trip" : insightValue);
+        const insight = escapeHtml(insightValue === "-" ? distance : insightValue);
         const tripId = trip.transactionId || trip._id?.$oid || trip._id || "-";
+        const tripUrl = `/trips?highlight=${encodeURIComponent(tripId)}`;
+
+        // Bar fill percentage based on the metric
+        const sortVal = Math.abs(getTripSortValue(insightKind || "trips", trip));
+        const fillPct = maxVal > 0 ? Math.round((sortVal / maxVal) * 100) : 0;
+
+        // Rank badge for top 3
+        const rank = idx + 1;
+        const rankBadge =
+          rank <= 3
+            ? `<span class="modal-trip-rank rank-${rank}">${rank}</span>`
+            : `<span class="modal-trip-rank">${rank}</span>`;
 
         return `
-          <article class="modal-trip-card">
-            <header class="modal-trip-head">
-              <p class="modal-trip-time">${escapeHtml(startTime)}</p>
-              <span class="modal-trip-insight">${insight}</span>
-            </header>
-            <p class="modal-trip-route">
-              <span>${escapeHtml(startLoc)}</span>
-              <i class="fas fa-arrow-right"></i>
-              <span>${escapeHtml(destLoc)}</span>
-            </p>
-            <div class="modal-trip-stats">
-              <span><strong>${distance}</strong><small>distance</small></span>
-              <span><strong>${duration}</strong><small>duration</small></span>
-              <span><strong>${maxSpeed}</strong><small>max speed</small></span>
-              <span><strong>${escapeHtml(endTime)}</strong><small>end</small></span>
+          <a href="${tripUrl}" class="modal-trip-card" target="_blank" rel="noopener noreferrer">
+            <div class="modal-trip-bar" style="--fill:${fillPct}%"></div>
+            <div class="modal-trip-content">
+              <div class="modal-trip-head">
+                ${rankBadge}
+                <span class="modal-trip-hero">${insight}</span>
+                <span class="modal-trip-date">${escapeHtml(startTime)}</span>
+              </div>
+              <div class="modal-trip-route">
+                <span class="modal-trip-loc">${escapeHtml(startLoc)}</span>
+                <i class="fas fa-long-arrow-alt-right"></i>
+                <span class="modal-trip-loc">${escapeHtml(destLoc)}</span>
+              </div>
+              <div class="modal-trip-meta">
+                <span><i class="fas fa-road"></i>${distance}</span>
+                <span><i class="fas fa-clock"></i>${duration}</span>
+                <span><i class="fas fa-tachometer-alt"></i>${maxSpeed}</span>
+              </div>
             </div>
-            <footer class="modal-trip-actions">
-              <a href="/trips?highlight=${encodeURIComponent(tripId)}" class="btn btn-sm btn-primary" target="_blank" rel="noopener noreferrer">
-                Open Trip
-              </a>
-            </footer>
-          </article>
+            <i class="fas fa-chevron-right modal-trip-arrow"></i>
+          </a>
         `;
       })
       .join("");

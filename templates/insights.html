@@ -404,7 +404,7 @@ Milestones from your selected range, presented as quick timeline cards
        tabindex="-1"
        aria-labelledby="tripDetailsModalLabel"
        aria-hidden="true">
-    <div class="modal-dialog modal-xl">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header">
           <div>
@@ -415,13 +415,11 @@ Milestones from your selected range, presented as quick timeline cards
         </div>
         <div class="modal-body">
           <div class="modal-trips-grid" id="modal-trips-grid">
-            <div class="modal-trip-empty">No trips found for this drilldown.</div>
+            <div class="modal-trip-empty">
+              <i class="fas fa-route" style="font-size:1.5rem;opacity:0.4"></i>
+              <span>No trips found</span>
+            </div>
           </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-Close
-          </button>
         </div>
       </div>
     </div>
