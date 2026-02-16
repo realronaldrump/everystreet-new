@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from beanie import PydanticObjectId
 from pydantic import ValidationError
 
+from analytics.services.mobility_insights_service import MobilityInsightsService
 from core.coverage import update_coverage_for_trip
 from core.date_utils import get_current_utc_time, parse_timestamp
 from core.spatial import GeometryService, derive_geo_points, is_valid_geojson_geometry
@@ -228,6 +229,15 @@ class TripPipeline:
         else:
             await final_trip.insert()
 
+        try:
+            await MobilityInsightsService.sync_trip(final_trip)
+        except Exception as exc:
+            logger.warning(
+                "Failed to sync mobility insights for trip %s: %s",
+                transaction_id,
+                exc,
+            )
+
         logger.debug("Saved trip %s successfully", transaction_id)
         return final_trip
 
@@ -350,6 +360,15 @@ class TripPipeline:
                     transaction_id,
                     exc,
                 )
+
+        try:
+            await MobilityInsightsService.sync_trip(final_trip)
+        except Exception as exc:
+            logger.warning(
+                "Failed to sync mobility insights for trip %s: %s",
+                transaction_id,
+                exc,
+            )
 
         logger.debug("Inserted trip %s successfully (insert-only)", transaction_id)
         return final_trip

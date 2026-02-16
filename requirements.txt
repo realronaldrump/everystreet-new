@@ -18,6 +18,7 @@ python_dateutil
 pytz
 redis[hiredis]
 Shapely
+h3
 uvicorn[standard]
 jinja2
 python-multipart

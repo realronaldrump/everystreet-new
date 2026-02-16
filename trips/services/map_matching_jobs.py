@@ -8,6 +8,7 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
+from analytics.services.mobility_insights_service import MobilityInsightsService
 from core.date_utils import get_current_utc_time, normalize_calendar_date
 from core.jobs import JobHandle, create_job, find_job
 from core.spatial import GeometryService, extract_timestamps_for_coordinates
@@ -736,7 +737,15 @@ class MapMatchingJobRunner:
             trip.matchedGps = geometry
             trip.matchStatus = f"matched:{geometry.get('type', 'unknown').lower()}"
             trip.matched_at = get_current_utc_time()
+            trip.mobility_synced_at = None
             await trip.save()
+            try:
+                await MobilityInsightsService.sync_trip(trip)
+            except Exception:
+                logger.exception(
+                    "Failed to sync mobility profile after map match for trip %s",
+                    trip_id,
+                )
 
     async def _get_or_create_progress(self, job_id: str) -> Job:
         """Get existing progress or create new one."""

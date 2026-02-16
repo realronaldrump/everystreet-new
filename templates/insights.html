@@ -293,6 +293,72 @@ Your places arranged by frequency, distance, and recency
       </div>
     </section>
 
+    <!-- Street & Segment Movement Section -->
+    <section class="insights-section" data-accent="lime">
+      <div class="section-header">
+        <h2 class="section-title">
+          <i class="fas fa-grip-lines section-icon"></i>
+            Most driven streets and segments
+        </h2>
+        <p class="section-subtitle">
+Built automatically from your trip geometry using H3 segment aggregation
+        </p>
+      </div>
+
+      <div class="movement-layout">
+        <article class="movement-map-card">
+          <header class="movement-map-header">
+            <div class="movement-meta-strip">
+              <span class="movement-meta-pill" id="movement-trip-count">0 trips analyzed</span>
+              <span class="movement-meta-pill" id="movement-hex-count">0 active H3 cells</span>
+              <span class="movement-meta-pill" id="movement-sync-state">Auto-sync active</span>
+            </div>
+            <div class="toggle-group movement-toggle-group" id="movement-layer-toggle">
+              <button class="toggle-btn active"
+                      type="button"
+                      data-movement-layer="both"
+                      aria-pressed="true">
+Cells + Segments
+              </button>
+              <button class="toggle-btn"
+                      type="button"
+                      data-movement-layer="cells"
+                      aria-pressed="false">
+Cells
+              </button>
+              <button class="toggle-btn"
+                      type="button"
+                      data-movement-layer="segments"
+                      aria-pressed="false">
+Segments
+              </button>
+            </div>
+          </header>
+          <div class="movement-map-shell">
+            <div id="movement-map" role="img" aria-label="Most driven streets and segments map"></div>
+            <div class="movement-map-empty story-empty" id="movement-map-empty">
+              Not enough trip geometry in this range yet.
+            </div>
+          </div>
+        </article>
+
+        <aside class="movement-rankings">
+          <section class="movement-rank-card">
+            <h3 class="movement-rank-title">Top streets</h3>
+            <ol class="movement-rank-list" id="movement-top-streets">
+              <li class="story-empty">No streets resolved yet for this range.</li>
+            </ol>
+          </section>
+          <section class="movement-rank-card">
+            <h3 class="movement-rank-title">Top segments</h3>
+            <ol class="movement-rank-list" id="movement-top-segments">
+              <li class="story-empty">No segment traversals in this range yet.</li>
+            </ol>
+          </section>
+        </aside>
+      </div>
+    </section>
+
     <!-- Records Timeline Section -->
     <section class="insights-section" data-accent="coral">
       <div class="section-header">

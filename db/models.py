@@ -81,6 +81,7 @@ class Trip(Document):
     processing_state: str | None = None
     processing_history: list[dict[str, Any]] | None = None
     coverage_emitted_at: datetime | None = None
+    mobility_synced_at: datetime | None = None
 
     # Matched GPS data (consolidated from matched_trips)
     matchedGps: dict[str, Any] | None = None
@@ -108,6 +109,7 @@ class Trip(Document):
         "lastUpdate",
         "matched_at",
         "validated_at",
+        "mobility_synced_at",
         mode="before",
     )
     @classmethod
@@ -229,6 +231,129 @@ class Trip(Document):
                 [("recurringRouteId", 1), ("startTime", -1)],
                 name="trips_recurringRoute_startTime_desc_idx",
                 sparse=True,
+            ),
+            IndexModel(
+                [("mobility_synced_at", 1)],
+                name="trips_mobility_synced_at_idx",
+                sparse=True,
+            ),
+        ]
+
+    model_config = ConfigDict(extra="allow")
+
+
+class TripMobilityCellStat(BaseModel):
+    """Per-cell traversal statistics extracted from one trip."""
+
+    h3: str
+    traversals: int = 0
+    distance_miles: float = 0.0
+
+    model_config = ConfigDict(extra="allow")
+
+
+class TripMobilitySegmentStat(BaseModel):
+    """Per-segment traversal statistics extracted from one trip."""
+
+    segment_key: str
+    h3_a: str
+    h3_b: str
+    traversals: int = 0
+    distance_miles: float = 0.0
+
+    model_config = ConfigDict(extra="allow")
+
+
+class TripMobilityProfile(Document):
+    """
+    Precomputed movement profile for a single trip.
+
+    Stores H3 cell and H3-segment traversal counts so Insights can
+    aggregate "most driven" views without recomputing geometry for
+    every request.
+    """
+
+    trip_id: Indexed(PydanticObjectId, unique=True)
+    transaction_id: str | None = None
+    imei: str | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    h3_resolution: int = 11
+    sample_spacing_m: float = 30.0
+    source_geometry: str = "gps"  # matchedGps | gps
+    total_distance_miles: float = 0.0
+    cell_counts: list[TripMobilityCellStat] = Field(default_factory=list)
+    segment_counts: list[TripMobilitySegmentStat] = Field(default_factory=list)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("start_time", "end_time", "updated_at", mode="before")
+    @classmethod
+    def parse_datetime_fields(cls, v: Any) -> datetime | None:
+        if v is None:
+            return None
+        return parse_timestamp(v)
+
+    class Settings:
+        name = "trip_mobility_profiles"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [("trip_id", 1)],
+                name="trip_mobility_profiles_trip_id_unique_idx",
+                unique=True,
+            ),
+            IndexModel(
+                [("transaction_id", 1)],
+                name="trip_mobility_profiles_transaction_id_idx",
+                sparse=True,
+            ),
+            IndexModel(
+                [("start_time", -1)],
+                name="trip_mobility_profiles_start_time_desc_idx",
+            ),
+            IndexModel(
+                [("imei", 1), ("start_time", -1)],
+                name="trip_mobility_profiles_imei_start_time_desc_idx",
+                sparse=True,
+            ),
+            IndexModel(
+                [("updated_at", -1)],
+                name="trip_mobility_profiles_updated_at_desc_idx",
+            ),
+        ]
+
+    model_config = ConfigDict(extra="allow")
+
+
+class H3StreetLabelCache(Document):
+    """Cached reverse-geocoded street labels for H3 cells."""
+
+    h3_cell: Indexed(str, unique=True)
+    resolution: int
+    street_name: str | None = None
+    normalized_street_name: str | None = None
+    display_name: str | None = None
+    source: str = "nominatim"
+    fetched_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    last_used_at: datetime | None = None
+
+    @field_validator("fetched_at", "last_used_at", mode="before")
+    @classmethod
+    def parse_datetime_fields(cls, v: Any) -> datetime | None:
+        if v is None:
+            return None
+        return parse_timestamp(v)
+
+    class Settings:
+        name = "h3_street_label_cache"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [("h3_cell", 1)],
+                name="h3_street_label_cache_h3_cell_unique_idx",
+                unique=True,
+            ),
+            IndexModel(
+                [("last_used_at", -1)],
+                name="h3_street_label_cache_last_used_desc_idx",
             ),
         ]
 
@@ -1044,6 +1169,8 @@ class CountyTopology(Document):
 # List of all document models for Beanie initialization
 ALL_DOCUMENT_MODELS = [
     Trip,
+    TripMobilityProfile,
+    H3StreetLabelCache,
     RecurringRoute,
     TripIngestIssue,
     OsmData,

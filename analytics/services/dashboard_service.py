@@ -6,6 +6,7 @@ from typing import Any
 
 import pytz
 
+from analytics.services.mobility_insights_service import MobilityInsightsService
 from core.math_utils import calculate_circular_average_hour
 from db.aggregation import aggregate_to_list
 from db.aggregation_utils import (
@@ -301,6 +302,7 @@ class DashboardService:
             "most_visited": {},
             "top_destinations": [],
             "records": {},
+            "movement": {},
         }
 
         if trips_result and trips_result[0]:
@@ -434,6 +436,25 @@ class DashboardService:
 
             if records.get("longest_trip"):
                 combined["longest_trip_distance"] = records["longest_trip"]["distance"]
+
+        try:
+            combined["movement"] = await MobilityInsightsService.get_mobility_insights(
+                query,
+            )
+        except Exception:
+            logger.exception("Failed to build movement insights payload")
+            combined["movement"] = {
+                "h3_resolution": 11,
+                "sample_spacing_m": 30.0,
+                "trip_count": 0,
+                "profiled_trip_count": 0,
+                "synced_trips_this_request": 0,
+                "pending_trip_sync_count": 0,
+                "hex_cells": [],
+                "top_segments": [],
+                "top_streets": [],
+                "map_center": None,
+            }
 
         return combined
 

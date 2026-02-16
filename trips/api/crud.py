@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from beanie.operators import In
 from fastapi import APIRouter, HTTPException, Request, status
 
+from analytics.services.mobility_insights_service import MobilityInsightsService
 from core.api import api_route
 from db.models import CoverageState, Trip
 from trips.services import TripCostService
@@ -99,6 +100,8 @@ async def delete_trip(trip_id: str):
 
     # Clean up references in other collections before deleting
     coverage_updated = await _cleanup_trip_references([trip.id])
+    if trip.id is not None:
+        await MobilityInsightsService.remove_trip(trip.id)
 
     await trip.delete()
 
@@ -123,8 +126,16 @@ async def unmatch_trip(trip_id: str):
     trip.matchedGps = None
     trip.matchStatus = None
     trip.matched_at = None
+    trip.mobility_synced_at = None
     trip.last_modified = datetime.now(UTC)
     await trip.save()
+    try:
+        await MobilityInsightsService.sync_trip(trip)
+    except Exception:
+        logger.exception(
+            "Failed to sync mobility profile after unmatching trip %s",
+            trip_id,
+        )
     return {
         "status": "success",
         "message": "Matched data cleared",
@@ -157,6 +168,9 @@ async def bulk_delete_trips(request: Request):
 
     # Clean up references in other collections before deleting
     coverage_updated = await _cleanup_trip_references(trip_object_ids)
+    for trip_oid in trip_object_ids:
+        if trip_oid is not None:
+            await MobilityInsightsService.remove_trip(trip_oid)
 
     result = await Trip.find(In(Trip.transactionId, trip_ids)).delete()
 
@@ -186,8 +200,16 @@ async def bulk_unmatch_trips(request: Request):
         trip.matchedGps = None
         trip.matchStatus = None
         trip.matched_at = None
+        trip.mobility_synced_at = None
         trip.last_modified = datetime.now(UTC)
         await trip.save()
+        try:
+            await MobilityInsightsService.sync_trip(trip)
+        except Exception:
+            logger.exception(
+                "Failed syncing mobility profile after bulk unmatch for %s",
+                trip.transactionId,
+            )
 
     return {
         "status": "success",

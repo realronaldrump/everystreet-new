@@ -46,6 +46,7 @@ from db.models import (
     CoverageState,
     GasFillup,
     GooglePhotosCredentials,
+    H3StreetLabelCache,
     Job,
     OsmData,
     Place,
@@ -56,6 +57,7 @@ from db.models import (
     Trip,
     TripIngestIssue,
     TripMemoryPostcard,
+    TripMobilityProfile,
     TripPhotoMoment,
     Vehicle,
 )
@@ -80,13 +82,12 @@ __all__ = [
     "ALL_DOCUMENT_MODELS",
     "AppSettings",
     "BouncieCredentials",
-    # New coverage system models
     "CoverageArea",
     "CoverageState",
-    # Manager
     "DatabaseManager",
     "GasFillup",
     "GooglePhotosCredentials",
+    "H3StreetLabelCache",
     "Job",
     "OsmData",
     "Place",
@@ -95,14 +96,13 @@ __all__ = [
     "TaskConfig",
     "TaskHistory",
     "Trip",
-    # Beanie Models
     "TripIngestIssue",
     "TripMemoryPostcard",
+    "TripMobilityProfile",
     "TripPhotoMoment",
     "Vehicle",
     "build_calendar_date_expr",
     "build_query_from_request",
     "db_manager",
-    # Query Building
     "parse_query_date",
 ]

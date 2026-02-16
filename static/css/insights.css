@@ -1060,6 +1060,121 @@
 }
 
 /* ============================================
+   MOVEMENT INSIGHTS
+   ============================================ */
+
+.movement-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+.movement-map-card,
+.movement-rank-card {
+  border-radius: var(--radius-xl);
+  border: 1px solid rgb(var(--border-rgb) / 26%);
+  background: linear-gradient(145deg, rgb(var(--surface-rgb) / 94%), rgb(var(--surface-rgb) / 80%));
+  box-shadow: var(--shadow-sm);
+}
+
+.movement-map-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-bottom: 1px solid rgb(var(--border-rgb) / 18%);
+}
+
+.movement-meta-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.movement-meta-pill {
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-full);
+  border: 1px solid rgb(var(--border-rgb) / 26%);
+  background: rgb(var(--surface-rgb) / 45%);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.3;
+}
+
+.movement-toggle-group {
+  width: fit-content;
+}
+
+.movement-map-shell {
+  position: relative;
+  min-height: 340px;
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+  overflow: hidden;
+}
+
+#movement-map {
+  width: 100%;
+  min-height: 340px;
+  background:
+    radial-gradient(circle at 18% 12%, rgb(var(--cat-sky-rgb) / 14%), transparent 55%),
+    radial-gradient(circle at 82% 74%, rgb(var(--cat-lime-rgb) / 12%), transparent 55%),
+    rgb(12 16 22);
+}
+
+.movement-map-empty {
+  position: absolute;
+  inset: var(--space-3);
+  display: grid;
+  place-items: center;
+  z-index: 1;
+}
+
+.movement-map-empty.is-hidden {
+  display: none;
+}
+
+.movement-rankings {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+.movement-rank-card {
+  padding: var(--space-3);
+}
+
+.movement-rank-title {
+  margin: 0 0 var(--space-2);
+  color: var(--text-primary);
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-base);
+}
+
+.movement-rank-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.movement-rank-item {
+  display: grid;
+  gap: 0.1rem;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.movement-rank-item strong {
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.movement-rank-meta {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+/* ============================================
    RECORDS TIMELINE
    ============================================ */
 
@@ -1211,6 +1326,11 @@
     align-items: stretch;
   }
 
+  .movement-map-shell,
+  #movement-map {
+    min-height: 420px;
+  }
+
   .scene-chips {
     justify-content: flex-start;
   }
@@ -1247,6 +1367,11 @@
 
   .records-timeline {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .movement-layout {
+    grid-template-columns: 1.7fr 1fr;
+    align-items: stretch;
   }
 
   .modal-trips-grid {

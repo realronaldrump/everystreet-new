@@ -11,6 +11,11 @@ import * as InsightsExport from "../../insights/export.js";
 import * as InsightsFormatters from "../../insights/formatters.js";
 import * as InsightsMetrics from "../../insights/metrics.js";
 import { loadAndShowTripsForDrilldown } from "../../insights/modal.js";
+import {
+  bindMovementControls,
+  destroyMovementInsights,
+  renderMovementInsights,
+} from "../../insights/movement.js";
 import * as InsightsState from "../../insights/state.js";
 import * as InsightsStories from "../../insights/story-sections.js";
 
@@ -27,6 +32,7 @@ export default async function initInsightsPage({ signal, cleanup } = {}) {
     stopAutoRefresh();
     InsightsCharts.destroyCharts?.();
     InsightsStories.destroyStorySections?.();
+    destroyMovementInsights();
     tooltipInstances.forEach((instance) => instance?.dispose?.());
     tooltipInstances = [];
     pageSignal = null;
@@ -85,6 +91,8 @@ function setupEventListeners(signal) {
   document.querySelectorAll(".insights-drilldown-trigger").forEach((el) => {
     el.addEventListener("click", handleDrilldownClick, signal ? { signal } : false);
   });
+
+  bindMovementControls(signal);
 
   // FAB menu
   setupFabMenu(signal);
@@ -238,6 +246,7 @@ export async function loadAllData(signalOverride) {
     InsightsState.updateState({ prevRange: allData.previous });
 
     // Update UI
+    renderMovementInsights(allData.current?.insights?.movement || null);
     InsightsCharts.updateAllCharts();
     renderStorySectionsFromState();
     InsightsMetrics.updateAllMetrics();
