@@ -16,6 +16,7 @@ from tasks.cron import (
     cron_monitor_map_data_jobs,
     cron_periodic_fetch_trips,
     cron_remap_unmatched_trips,
+    cron_sync_mobility_profiles,
     cron_update_coverage_for_new_trips,
     cron_validate_trips,
 )
@@ -35,6 +36,7 @@ from tasks.map_data import (
     setup_map_data_task,
 )
 from tasks.map_matching import map_match_trips
+from tasks.mobility import sync_mobility_profiles
 from tasks.optimal_routes import generate_optimal_route
 from tasks.recurring_routes import build_recurring_routes
 
@@ -49,6 +51,9 @@ LOG_PURGE_TIMEOUT_SECONDS = int(
 )
 OPTIMAL_ROUTE_TIMEOUT_SECONDS = int(
     os.getenv("OPTIMAL_ROUTE_JOB_TIMEOUT_SECONDS", str(90 * 60)),
+)
+MOBILITY_SYNC_TIMEOUT_SECONDS = int(
+    os.getenv("MOBILITY_SYNC_JOB_TIMEOUT_SECONDS", str(20 * 60)),
 )
 
 
@@ -77,6 +82,7 @@ class WorkerSettings:
         remap_unmatched_trips,
         map_match_trips,
         update_coverage_for_new_trips,
+        func(sync_mobility_profiles, timeout=MOBILITY_SYNC_TIMEOUT_SECONDS),
         build_recurring_routes,
         func(generate_optimal_route, timeout=OPTIMAL_ROUTE_TIMEOUT_SECONDS),
         worker_heartbeat,
@@ -91,6 +97,7 @@ class WorkerSettings:
         cron(cron_validate_trips),
         cron(cron_remap_unmatched_trips),
         cron(cron_update_coverage_for_new_trips),
+        cron(cron_sync_mobility_profiles),
         cron(worker_heartbeat),
         cron(cron_monitor_map_data_jobs),
         cron(cron_auto_provision_map_data),

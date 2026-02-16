@@ -13,6 +13,7 @@ TASK_DEFINITIONS: dict[str, dict[str, object]] = {
                 "720",
             ),
         ),
+        "enabled_by_default": True,
         "dependencies": [],
         "description": "Fetches trips from the Bouncie API periodically",
     },
@@ -61,6 +62,21 @@ TASK_DEFINITIONS: dict[str, dict[str, object]] = {
         "dependencies": ["periodic_fetch_trips"],
         "description": "Updates coverage calculations incrementally for new trips",
     },
+    "sync_mobility_profiles": {
+        "display_name": "Sync Mobility Profiles",
+        "default_interval_minutes": int(
+            os.environ.get(
+                "MOBILITY_INSIGHTS_SYNC_INTERVAL_MINUTES",
+                "30",
+            ),
+        ),
+        "enabled_by_default": True,
+        "dependencies": [],
+        "description": (
+            "Continuously backfills and refreshes H3 mobility profiles for trips so "
+            "street and segment insights stay current without manual recalculation."
+        ),
+    },
     "monitor_map_data_jobs": {
         "display_name": "Monitor Map Services",
         "default_interval_minutes": 15,
@@ -95,6 +111,13 @@ TASK_DEFINITIONS: dict[str, dict[str, object]] = {
 
 def is_manual_only(task_id: str) -> bool:
     return bool(TASK_DEFINITIONS.get(task_id, {}).get("manual_only", False))
+
+
+def is_enabled_by_default(task_id: str) -> bool:
+    definition = TASK_DEFINITIONS.get(task_id, {})
+    if "enabled_by_default" in definition:
+        return bool(definition.get("enabled_by_default"))
+    return task_id == "periodic_fetch_trips"
 
 
 def get_dependencies(task_id: str) -> list[str]:

@@ -317,39 +317,60 @@ class DashboardService:
                 0,
             )
 
+        def _normalize_location_text(value: Any) -> str:
+            if value is None:
+                return ""
+            text = str(value).strip()
+            if not text:
+                return ""
+            if text.lower() in {"none", "null", "undefined", "n/a", "na"}:
+                return ""
+            return text
+
         def _format_location(value: Any) -> str:
             if isinstance(value, dict):
-                return (
-                    value.get("formatted_address")
-                    or value.get("name")
-                    or value.get("address")
-                    or str(value)
-                )
-            return str(value)
+                for candidate in (
+                    value.get("formatted_address"),
+                    value.get("formattedAddress"),
+                    value.get("name"),
+                    value.get("address"),
+                    value.get("label"),
+                ):
+                    normalized = _normalize_location_text(candidate)
+                    if normalized:
+                        return normalized
+                return ""
+            return _normalize_location_text(value)
 
         if trips_top:
-            # The first entry is also the "most visited" location
-            best = trips_top[0]
-            best_location = _format_location(best["_id"])
-            combined["most_visited"] = {
-                "location": best_location,
-                "count": best["visits"],
-                "lastVisit": best.get("last_visit"),
-                "isCustomPlace": best.get("isCustomPlace", False),
-            }
+            formatted_top_destinations: list[dict[str, Any]] = []
+            for destination in trips_top:
+                location = _format_location(destination.get("_id"))
+                if not location:
+                    continue
+                formatted_top_destinations.append(
+                    {
+                        "location": location,
+                        "visits": destination.get("visits", 0),
+                        "distance": round(destination.get("distance", 0.0), 2),
+                        "duration_seconds": round(
+                            destination.get("total_duration", 0.0),
+                            0,
+                        ),
+                        "lastVisit": destination.get("last_visit"),
+                        "isCustomPlace": destination.get("isCustomPlace", False),
+                    },
+                )
 
-            # Add formatted top destinations list
-            combined["top_destinations"] = [
-                {
-                    "location": _format_location(d["_id"]),
-                    "visits": d.get("visits", 0),
-                    "distance": round(d.get("distance", 0.0), 2),
-                    "duration_seconds": round(d.get("total_duration", 0.0), 0),
-                    "lastVisit": d.get("last_visit"),
-                    "isCustomPlace": d.get("isCustomPlace", False),
+            combined["top_destinations"] = formatted_top_destinations
+            if formatted_top_destinations:
+                best = formatted_top_destinations[0]
+                combined["most_visited"] = {
+                    "location": best["location"],
+                    "count": best["visits"],
+                    "lastVisit": best.get("lastVisit"),
+                    "isCustomPlace": best.get("isCustomPlace", False),
                 }
-                for d in trips_top
-            ]
 
         if record_results and record_results[0]:
             record_data = record_results[0]

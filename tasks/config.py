@@ -15,7 +15,7 @@ from typing import Any
 from beanie.operators import In
 
 from db.models import TaskConfig, TaskHistory
-from tasks.registry import TASK_DEFINITIONS, get_dependencies
+from tasks.registry import TASK_DEFINITIONS, get_dependencies, is_enabled_by_default
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ async def _get_or_create_task_config(task_id: str) -> TaskConfig:
     )
     task_config = TaskConfig(
         task_id=task_id,
-        enabled=(task_id == "periodic_fetch_trips"),
+        enabled=is_enabled_by_default(task_id),
         interval_minutes=default_interval,
         config={
             "last_error": None,
