@@ -13,6 +13,7 @@ import os
 import threading
 from datetime import UTC
 from typing import Any, Final, Self
+from urllib.parse import urlsplit, urlunsplit
 
 import certifi
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
@@ -27,6 +28,61 @@ _DEPRECATED_MONGO_ENV_VARS: Final[tuple[str, ...]] = (
     "MONGO_PORT",
 )
 _mongo_env_warned = False
+
+
+def _is_running_in_docker() -> bool:
+    return os.path.exists("/.dockerenv")
+
+
+def _normalize_mongo_uri_for_runtime(mongo_uri: str) -> str:
+    """Translate Docker-internal hostnames when running outside Docker."""
+    if _is_running_in_docker():
+        return mongo_uri
+
+    try:
+        parsed = urlsplit(mongo_uri)
+    except Exception:
+        return mongo_uri
+
+    if parsed.scheme != "mongodb" or not parsed.netloc:
+        return mongo_uri
+
+    auth_prefix = ""
+    hosts_part = parsed.netloc
+    if "@" in hosts_part:
+        auth, hosts_part = hosts_part.rsplit("@", 1)
+        auth_prefix = f"{auth}@"
+
+    normalized_hosts: list[str] = []
+    hosts = [host.strip() for host in hosts_part.split(",") if host.strip()]
+    if not hosts:
+        return mongo_uri
+
+    for host in hosts:
+        if host.startswith("["):
+            return mongo_uri
+        hostname, separator, port = host.partition(":")
+        if hostname.lower() != "mongo":
+            return mongo_uri
+        if separator and port and port != "27017":
+            return mongo_uri
+        normalized_hosts.append(f"localhost:{port}" if separator and port else "localhost")
+
+    rewritten_uri = urlunsplit(
+        (
+            parsed.scheme,
+            f"{auth_prefix}{','.join(normalized_hosts)}",
+            parsed.path,
+            parsed.query,
+            parsed.fragment,
+        ),
+    )
+    if rewritten_uri != mongo_uri:
+        logger.info(
+            "Running outside Docker; using MongoDB localhost fallback URI: %s",
+            rewritten_uri,
+        )
+    return rewritten_uri
 
 
 def _warn_deprecated_mongo_env_vars() -> None:
@@ -47,9 +103,9 @@ def _warn_deprecated_mongo_env_vars() -> None:
 def _get_mongo_uri() -> str:
     mongo_uri = os.getenv(MONGODB_URI_ENV_VAR, "").strip()
     if mongo_uri:
-        return mongo_uri
+        return _normalize_mongo_uri_for_runtime(mongo_uri)
     _warn_deprecated_mongo_env_vars()
-    return DEFAULT_MONGO_URI
+    return _normalize_mongo_uri_for_runtime(DEFAULT_MONGO_URI)
 
 
 class DatabaseManager:

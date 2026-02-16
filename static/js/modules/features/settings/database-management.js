@@ -6,16 +6,27 @@ import { escapeHtml } from "../../utils.js";
 
 export function initDatabaseManagement({ signal } = {}) {
   const refreshStorageBtn = document.getElementById("refresh-storage");
+  const storageTabButton = document.querySelector(".settings-tab[data-tab='storage']");
+  const storageTabContent = document.getElementById("storage-tab");
   const storageTotalEl = document.getElementById("storage-total-value");
   const storageDbEl = document.getElementById("storage-db-value");
   const storageUpdatedEl = document.getElementById("storage-updated-at");
   const storageSourcesContainer = document.getElementById("storage-sources-container");
   const storageSortSelect = document.getElementById("storage-sort-select");
   const collectionsSortSelect = document.getElementById("collections-sort-select");
+  const collectionsContainer = document.getElementById("collections-container");
 
   let currentAction = null;
   let currentCollection = null;
   let currentButton = null;
+  let storageSummaryLoading = false;
+
+  const hasInitialStorageSummary =
+    Number.isFinite(Number(storageTotalEl?.dataset?.bytes)) ||
+    Number.isFinite(Number(storageDbEl?.dataset?.bytes)) ||
+    Boolean(storageSourcesContainer?.querySelector(".storage-source-card")) ||
+    Boolean(collectionsContainer?.querySelector(".collection-card"));
+  let storageSummaryLoaded = hasInitialStorageSummary;
 
   const withSignal = (options = {}) => (signal ? { ...options, signal } : options);
 
@@ -267,13 +278,12 @@ export function initDatabaseManagement({ signal } = {}) {
   }
 
   function renderCollections(collections = []) {
-    const container = document.getElementById("collections-container");
-    if (!container) {
+    if (!collectionsContainer) {
       return;
     }
 
     if (!collections.length) {
-      container.innerHTML = `
+      collectionsContainer.innerHTML = `
         <div class="storage-empty-state">
           <i class="fas fa-inbox"></i>
           <p>No collections available.</p>
@@ -282,7 +292,7 @@ export function initDatabaseManagement({ signal } = {}) {
       return;
     }
 
-    container.innerHTML = collections
+    collectionsContainer.innerHTML = collections
       .map((collection) => {
         const sizeDisplay =
           collection.size_mb != null
@@ -364,8 +374,9 @@ export function initDatabaseManagement({ signal } = {}) {
   }
 
   function sortCollections(sortValue) {
-    const container = document.getElementById("collections-container");
-    const cards = Array.from(container?.querySelectorAll(".collection-card") || []);
+    const cards = Array.from(
+      collectionsContainer?.querySelectorAll(".collection-card") || []
+    );
     if (!cards.length) {
       return;
     }
@@ -396,7 +407,7 @@ export function initDatabaseManagement({ signal } = {}) {
       }
     });
 
-    cards.forEach((card) => container.appendChild(card));
+    cards.forEach((card) => collectionsContainer.appendChild(card));
   }
 
   function hydrateInitialStorage() {
@@ -417,8 +428,82 @@ export function initDatabaseManagement({ signal } = {}) {
     }
   }
 
+  function isStorageTabActive() {
+    return storageTabContent?.classList.contains("active") === true;
+  }
+
+  async function loadStorageSummary({
+    force = false,
+    showNotification = false,
+    showLoading = true,
+  } = {}) {
+    if ((!force && storageSummaryLoaded) || storageSummaryLoading) {
+      return;
+    }
+
+    storageSummaryLoading = true;
+    if (showLoading && refreshStorageBtn) {
+      setButtonLoading(refreshStorageBtn, true, "refresh");
+    }
+
+    try {
+      const data = await performDatabaseAction("/api/storage/summary");
+      updateStorageSummary(data);
+      renderStorageSources(data?.sources || []);
+      renderCollections(data?.collections || []);
+
+      if (storageSortSelect?.value) {
+        sortStorageSources(storageSortSelect.value);
+      }
+      if (collectionsSortSelect?.value) {
+        sortCollections(collectionsSortSelect.value);
+      }
+
+      storageSummaryLoaded = true;
+      if (showNotification) {
+        notificationManager.show("Storage information updated successfully", "success");
+      }
+    } catch (error) {
+      notificationManager.show(
+        error.message || "Failed to perform storage action",
+        "danger"
+      );
+    } finally {
+      storageSummaryLoading = false;
+      if (showLoading && refreshStorageBtn) {
+        setButtonLoading(refreshStorageBtn, false, "refresh");
+      }
+    }
+  }
+
   hydrateInitialStorage();
   initializeStorageSources();
+
+  if (isStorageTabActive() && !storageSummaryLoaded) {
+    loadStorageSummary({ showLoading: true });
+  }
+
+  if (storageTabButton) {
+    storageTabButton.addEventListener(
+      "click",
+      () => {
+        if (!storageSummaryLoaded) {
+          loadStorageSummary({ showLoading: true });
+        }
+      },
+      signal ? { signal } : false
+    );
+  }
+
+  window.addEventListener(
+    "hashchange",
+    () => {
+      if (window.location.hash === "#storage" && !storageSummaryLoaded) {
+        loadStorageSummary({ showLoading: true });
+      }
+    },
+    signal ? { signal } : false
+  );
 
   // Refresh button handler
   if (refreshStorageBtn) {
@@ -428,24 +513,11 @@ export function initDatabaseManagement({ signal } = {}) {
         if (typeof e.button === "number" && e.button !== 0) {
           return;
         }
-        try {
-          setButtonLoading(refreshStorageBtn, true, "refresh");
-          const data = await performDatabaseAction("/api/storage/summary");
-          updateStorageSummary(data);
-          renderStorageSources(data?.sources || []);
-          renderCollections(data?.collections || []);
-          notificationManager.show(
-            "Storage information updated successfully",
-            "success"
-          );
-        } catch (error) {
-          notificationManager.show(
-            error.message || "Failed to perform storage action",
-            "danger"
-          );
-        } finally {
-          setButtonLoading(refreshStorageBtn, false, "refresh");
-        }
+        await loadStorageSummary({
+          force: true,
+          showNotification: true,
+          showLoading: true,
+        });
       },
       signal ? { signal } : false
     );

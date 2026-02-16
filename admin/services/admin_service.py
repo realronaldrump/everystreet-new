@@ -18,6 +18,7 @@ from core.service_config import (
 )
 from db.manager import db_manager
 from db.models import (
+    ALL_DOCUMENT_MODELS,
     AppSettings,
     GasFillup,
     Job,
@@ -204,12 +205,63 @@ class AdminService:
         return snapshot
 
     @staticmethod
+    async def get_storage_summary() -> dict[str, Any]:
+        storage_info, collections = await asyncio.gather(
+            AdminService.get_storage_info(),
+            AdminService.get_collections_summary(),
+        )
+        storage_info["collections"] = collections
+        return storage_info
+
+    @staticmethod
+    async def get_collections_summary() -> list[dict[str, Any]]:
+        collection_models: dict[str, Any] = {}
+        for model in ALL_DOCUMENT_MODELS:
+            collection_models.setdefault(model.get_collection_name(), model)
+
+        collection_names = sorted(collection_models)
+        collection_sizes = await AdminService.get_collection_sizes_mb(collection_names)
+
+        async def _count_documents(collection_name: str) -> int:
+            model = collection_models[collection_name]
+            try:
+                return await model.find_all().count()
+            except Exception:
+                logger.exception(
+                    "Failed to count documents for collection %s",
+                    collection_name,
+                )
+                return 0
+
+        counts = await asyncio.gather(
+            *[_count_documents(collection_name) for collection_name in collection_names],
+        )
+
+        return [
+            {
+                "name": collection_name,
+                "document_count": counts[index],
+                "size_mb": collection_sizes.get(collection_name),
+            }
+            for index, collection_name in enumerate(collection_names)
+        ]
+
+    @staticmethod
     async def get_collection_sizes_mb(
         collection_names: Iterable[str],
     ) -> dict[str, float | None]:
-        db = db_manager.db
+        collection_name_list = list(collection_names)
+        try:
+            db = db_manager.db
+        except Exception as exc:
+            logger.warning(
+                "MongoDB unavailable while loading collection sizes: %s",
+                exc,
+            )
+            return {collection: None for collection in collection_name_list}
+
         sizes: dict[str, float | None] = {}
-        for collection in collection_names:
+        for collection in collection_name_list:
             try:
                 stats = await db.command({"collStats": collection})
             except OperationFailure as exc:

@@ -54,9 +54,9 @@ async def get_storage_info() -> dict[str, Any]:
 @router.get("/api/storage/summary", response_model=dict[str, Any])
 @api_route(logger)
 async def get_storage_summary() -> dict[str, Any]:
-    """Return storage usage metadata for the application."""
+    """Return storage usage metadata and collection summary."""
     try:
-        return await AdminService.get_storage_info()
+        return await AdminService.get_storage_summary()
     except Exception as exc:
         logger.exception("Error getting storage summary")
         return {

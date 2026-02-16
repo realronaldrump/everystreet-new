@@ -1,4 +1,3 @@
-import logging
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
@@ -6,18 +5,16 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from admin.services.admin_service import AdminService
 from config import validate_mapbox_token
 from core.jinja import register_template_filters
 from core.repo_info import get_repo_version_info
 from core.service_config import get_mapbox_token_async
-from db.models import ALL_DOCUMENT_MODELS, Vehicle
+from db.models import Vehicle
 from setup.services.bouncie_credentials import (
     get_bouncie_credentials,
     update_bouncie_credentials,
 )
 
-logger = logging.getLogger(__name__)
 router = APIRouter()
 
 templates = Jinja2Templates(directory="templates")
@@ -44,51 +41,6 @@ def _render_page(template_name: str, request: Request, **context: Any) -> HTMLRe
     )
 
 
-async def _storage_management_context() -> dict[str, Any]:
-    """Build storage management statistics context."""
-    try:
-        collections_info = []
-        collection_models = {}
-        for model in ALL_DOCUMENT_MODELS:
-            collection_models.setdefault(model.get_collection_name(), model)
-
-        collection_names = sorted(collection_models)
-        collection_sizes = await AdminService.get_collection_sizes_mb(collection_names)
-        storage_info = await AdminService.get_storage_info()
-
-        for collection_name in collection_names:
-            model = collection_models[collection_name]
-            document_count = await model.find_all().count()
-            collections_info.append(
-                {
-                    "name": collection_name,
-                    "document_count": document_count,
-                    "size_mb": collection_sizes.get(collection_name),
-                },
-            )
-
-        return {
-            "storage_snapshot": storage_info,
-            "storage_sources": storage_info.get("sources", []),
-            "storage_used_mb": storage_info.get("used_mb"),
-            "database_logical_mb": storage_info.get("database_logical_mb"),
-            "storage_updated_at": storage_info.get("updated_at"),
-            "collections": collections_info,
-            "storage_error": storage_info.get("error"),
-        }
-    except Exception as exc:
-        logger.exception("Error loading storage management data")
-        return {
-            "storage_snapshot": {},
-            "storage_sources": [],
-            "storage_used_mb": None,
-            "database_logical_mb": None,
-            "storage_updated_at": None,
-            "collections": [],
-            "storage_error": str(exc),
-        }
-
-
 @router.get("/", response_class=HTMLResponse)
 async def landing(request: Request):
     """Render landing page."""
@@ -111,7 +63,13 @@ async def settings_page(request: Request):
     return _render_page(
         "settings.html",
         request,
-        **(await _storage_management_context()),
+        storage_snapshot={},
+        storage_sources=[],
+        storage_used_mb=None,
+        database_logical_mb=None,
+        storage_updated_at=None,
+        collections=[],
+        storage_error=None,
     )
 
 
