@@ -1,4 +1,4 @@
-/* ===== Insights V2: Narrative Story Experience ===== */
+/* ===== Insights V2: Data-First Experience ===== */
 
 #insights-page {
   width: 100%;
@@ -295,6 +295,10 @@
 .toggle-btn:focus-visible,
 .orbit-node:focus-visible,
 .rhythm-story-card:focus-visible,
+.scene-card:focus-visible,
+.trends-drill-btn:focus-visible,
+.time-signature-action:focus-visible,
+.places-detail-action:focus-visible,
 .fab:focus-visible {
   outline: 2px solid rgb(var(--primary-rgb));
   outline-offset: 2px;
@@ -343,7 +347,7 @@
 }
 
 /* ============================================
-   JOURNEY + STORYRAIL
+   PERIOD ANALYTICS
    ============================================ */
 
 @keyframes revealIn {
@@ -458,6 +462,13 @@
 
 .story-narrative p + p {
   margin-top: var(--space-2);
+}
+
+.trends-narrative-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
 }
 
 .rhythm-panel {
@@ -611,6 +622,13 @@
 }
 
 .scene-card {
+  width: 100%;
+  border: 1px solid rgb(var(--border-rgb) / 24%);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(140deg, rgb(var(--surface-rgb) / 94%), rgb(var(--surface-rgb) / 78%));
+  appearance: none;
+  text-align: left;
+  cursor: pointer;
   padding: var(--space-4);
   transition:
     transform var(--transition-normal),
@@ -653,6 +671,13 @@
   color: var(--text-tertiary);
   font-size: var(--font-size-sm);
   line-height: 1.5;
+}
+
+.scene-action {
+  margin: var(--space-2) 0 0;
+  color: var(--primary-light);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
 }
 
 .scene-card.tone-mint .scene-icon {
@@ -761,6 +786,126 @@
 
 .signature-copy p + p {
   margin-top: var(--space-1);
+}
+
+/* ============================================
+   DRILLDOWN MODAL
+   ============================================ */
+
+#tripDetailsModal .modal-content {
+  border: 1px solid rgb(var(--border-rgb) / 25%);
+  background: linear-gradient(140deg, rgb(var(--surface-rgb) / 96%), rgb(var(--surface-rgb) / 84%));
+}
+
+#tripDetailsModal .modal-header,
+#tripDetailsModal .modal-footer {
+  border-color: rgb(var(--border-rgb) / 20%);
+}
+
+#tripDetailsModal .modal-title {
+  margin: 0;
+}
+
+.modal-subtitle {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+.modal-trips-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+.modal-trip-card {
+  border: 1px solid rgb(var(--border-rgb) / 24%);
+  border-radius: var(--radius-lg);
+  background: rgb(var(--surface-rgb) / 54%);
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.modal-trip-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.modal-trip-time {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.modal-trip-insight {
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-full);
+  border: 1px solid rgb(var(--primary-rgb) / 40%);
+  background: rgb(var(--primary-rgb) / 15%);
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+}
+
+.modal-trip-route {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.modal-trip-route span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal-trip-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.modal-trip-stats span {
+  display: grid;
+  gap: 0.1rem;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid rgb(var(--border-rgb) / 20%);
+  background: rgb(var(--surface-rgb) / 46%);
+}
+
+.modal-trip-stats strong {
+  color: var(--text-primary);
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-sm);
+}
+
+.modal-trip-stats small {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.modal-trip-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.modal-trip-empty {
+  min-height: 160px;
+  border: 1px dashed rgb(var(--border-rgb) / 30%);
+  border-radius: var(--radius-lg);
+  display: grid;
+  place-items: center;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
 }
 
 /* ============================================
@@ -1074,6 +1219,10 @@
     right: var(--space-6);
     bottom: var(--space-6);
   }
+
+  .modal-trips-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (min-width: 1024px) {
@@ -1097,6 +1246,10 @@
   }
 
   .records-timeline {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .modal-trips-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

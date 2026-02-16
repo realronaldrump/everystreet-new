@@ -2,7 +2,7 @@
 
 {% block title %}
 
-Your Driving Story
+Driving Insights
 {% endblock %}
 
 
@@ -22,15 +22,15 @@ Your Driving Story
       <div class="hero-content">
         <div class="hero-badge">
           <i class="fas fa-chart-line"></i>
-          <span>Your driving story</span>
+          <span>Your driving insights</span>
         </div>
         <h1 class="hero-title">
-          Your movement patterns,
+          Your driving patterns,
           <br />
-          <span class="highlight">told like a story</span>
+          <span class="highlight">broken down by data</span>
         </h1>
         <p class="hero-subtitle">
-          This page turns your trips into narrative scenes, rhythm cards, and place clusters so you can understand what changed and what stayed consistent.
+          Use period comparisons, time distributions, and destination concentration to inspect exactly what changed in your selected range.
         </p>
         <div class="hero-stat-card">
           <div class="hero-stat-value counter" id="hero-total-miles">
@@ -72,7 +72,7 @@ trips taken
             </button>
             <div class="metric-context">
               <i class="fas fa-info-circle"></i>
-              <span id="trips-context">Patterns will appear as your trip history grows.</span>
+              <span id="trips-context">Not enough trips in this range for derived ratios yet.</span>
             </div>
           </div>
         </div>
@@ -94,7 +94,7 @@ total distance
             </button>
             <div class="metric-context">
               <i class="fas fa-wave-square"></i>
-              <span id="distance-context">Long-form distance stories need more data.</span>
+              <span id="distance-context">Add more trips to improve long-range comparison detail.</span>
             </div>
           </div>
         </div>
@@ -144,15 +144,15 @@ fuel context
       </div>
     </section>
 
-    <!-- Journey + Rhythm Section -->
+    <!-- Period Analytics Section -->
     <section class="insights-section story-shell" data-accent="purple">
       <div class="section-header">
         <h2 class="section-title">
           <i class="fas fa-wave-square section-icon"></i>
-            Journey rhythm
+            Period analytics
         </h2>
         <p class="section-subtitle">
-Track daily movement and compare weekly/monthly momentum in narrative cards
+Compare daily, weekly, and monthly totals with direct links to underlying trips
         </p>
       </div>
 
@@ -187,14 +187,14 @@ Monthly
             <canvas id="trendsChart" style="display: none"></canvas>
           </div>
           <div class="story-narrative" id="trends-narrative">
-            Narrative summary will appear after a few trips in this range.
+            Comparison facts will appear after a few periods in this range.
           </div>
         </article>
 
         <article class="rhythm-panel">
           <div class="rhythm-header">
-            <h3>Journey Rhythm Storyrail</h3>
-            <div class="toggle-group" id="rhythm-period-toggle" aria-label="Rhythm period">
+            <h3>Period comparison</h3>
+            <div class="toggle-group" id="rhythm-period-toggle" aria-label="Comparison period">
               <button class="toggle-btn active" data-rhythm-view="weekly" aria-pressed="true">
 Weekly
               </button>
@@ -204,21 +204,21 @@ Monthly
             </div>
           </div>
           <div class="rhythm-storyrail" id="rhythm-storyrail" role="list">
-            <div class="story-empty">Not enough trip history yet to build period stories.</div>
+            <div class="story-empty">Not enough data in this range to compare periods yet.</div>
           </div>
         </article>
       </div>
     </section>
 
-    <!-- Insight Scenes Section -->
+    <!-- Pattern Cards Section -->
     <section class="insights-section" data-accent="amber">
       <div class="section-header">
         <h2 class="section-title">
           <i class="fas fa-lightbulb section-icon"></i>
-            Insight scenes
+            Pattern cards
         </h2>
         <p class="section-subtitle">
-A narrative readout of consistency, timing, exploration, and fuel context
+Data-driven summaries with one-click drilldowns
         </p>
       </div>
 
@@ -230,7 +230,7 @@ A narrative readout of consistency, timing, exploration, and fuel context
       </div>
 
       <div class="insight-scenes-grid" id="insight-scenes">
-        <div class="story-empty">No scenes yet. Drive a bit more to unlock insights.</div>
+        <div class="story-empty">Not enough data in this range to compute pattern cards yet.</div>
       </div>
     </section>
 
@@ -264,7 +264,7 @@ By Day
         </div>
 
         <aside class="time-signature-panel" id="time-signature">
-          <div class="story-empty">Time signature is building...</div>
+          <div class="story-empty">Not enough time-distribution data in this range yet.</div>
         </aside>
       </div>
     </section>
@@ -306,7 +306,7 @@ Milestones from your selected range, presented as quick timeline cards
       </div>
 
       <div class="records-timeline" id="records-timeline">
-        <div class="story-empty">No record highlights for this range yet.</div>
+        <div class="story-empty">No record-level outliers in this range yet.</div>
       </div>
     </section>
   </div>
@@ -341,49 +341,15 @@ Milestones from your selected range, presented as quick timeline cards
     <div class="modal-dialog modal-xl">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="tripDetailsModalLabel">
-Trips
-          </h5>
+          <div>
+            <h5 class="modal-title" id="tripDetailsModalLabel">Trips</h5>
+            <p class="modal-subtitle" id="tripDetailsModalCount">0 trips</p>
+          </div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <div class="table-responsive">
-            <table class="table table-striped" id="modal-trips-table">
-              <thead>
-                <tr>
-                  <th>
-Start Time
-                  </th>
-                  <th>
-End Time
-                  </th>
-                  <th>
-Duration
-                  </th>
-                  <th>
-Distance
-                  </th>
-                  <th>
-Start Location
-                  </th>
-                  <th>
-Destination
-                  </th>
-                  <th>
-Max Speed
-                  </th>
-                  <th>
-Insight
-                  </th>
-                  <th>
-Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <!-- Dynamic content -->
-              </tbody>
-            </table>
+          <div class="modal-trips-grid" id="modal-trips-grid">
+            <div class="modal-trip-empty">No trips found for this drilldown.</div>
           </div>
         </div>
         <div class="modal-footer">

@@ -1,18 +1,23 @@
 /**
  * Story Sections Module
- * Renders the narrative insights experience (storyrail, scenes, orbit, timeline).
+ * Renders the insights experience (period cards, pattern cards, orbit, timeline).
  */
 
 import { escapeHtml, formatHourLabel } from "../utils.js";
 import { fetchDrilldownTrips } from "./api.js";
 import { deriveInsightsSnapshot } from "./derived-insights.js";
 import { formatDuration, getDateRange } from "./formatters.js";
-import { displayTripsInModal, loadAndShowTripsForDrilldown } from "./modal.js";
+import {
+  displayTripsInModal,
+  loadAndShowTripsForDrilldown,
+  loadAndShowTripsForTimePeriod,
+} from "./modal.js";
 
 const storyState = {
   snapshot: null,
   periodMode: "weekly",
   selectedPlaceIndex: 0,
+  scenes: [],
 };
 
 function normalizePeriodMode(mode) {
@@ -80,14 +85,15 @@ function renderRhythmPeriodToggle(mode) {
   });
 }
 
-function renderRhythmStoryrail(periods = [], mode = "weekly") {
+function renderRhythmStoryrail(periods = []) {
   const container = document.getElementById("rhythm-storyrail");
   if (!container) {
     return;
   }
 
   if (!periods.length) {
-    container.innerHTML = '<div class="story-empty">Not enough trip history yet to build period stories.</div>';
+    container.innerHTML =
+      '<div class="story-empty">Not enough data in this range to compare periods yet.</div>';
     return;
   }
 
@@ -108,6 +114,11 @@ function renderRhythmStoryrail(periods = [], mode = "weekly") {
               ? "is-down"
               : "is-neutral";
 
+      const previousSummary =
+        period.previousTrips == null || period.previousDistance == null
+          ? "No prior period in selected range"
+          : `Previous: ${period.previousTrips} trips • ${Number(period.previousDistance).toFixed(1)} mi`;
+
       return `
         <button type="button"
                 class="rhythm-story-card ${deltaClass}"
@@ -121,11 +132,12 @@ function renderRhythmStoryrail(periods = [], mode = "weekly") {
           </div>
           <h3 class="storyrail-headline">${escapeHtml(period.headline)}</h3>
           <p class="storyrail-summary">${escapeHtml(period.summary)}</p>
+          <p class="storyrail-summary">${escapeHtml(previousSummary)}</p>
           ${sparklineSvg(sparkWindow)}
           <div class="storyrail-meta">
             <span>${period.trips} trips</span>
             <span>${period.distance.toFixed(1)} mi</span>
-            <span>${mode === "weekly" ? "week" : "month"}</span>
+            <span>${period.avgDistancePerTrip.toFixed(1)} mi/trip</span>
           </div>
         </button>
       `;
@@ -153,24 +165,45 @@ function renderInsightScenes(scenes = []) {
   if (!container) {
     return;
   }
+  storyState.scenes = scenes;
 
   if (!scenes.length) {
-    container.innerHTML = '<div class="story-empty">No scenes yet. Drive a bit more to unlock insights.</div>';
+    container.innerHTML =
+      '<div class="story-empty">Not enough data in this range to compute pattern cards yet.</div>';
     return;
   }
 
   container.innerHTML = scenes
     .map(
-      (scene) => `
-        <article class="scene-card tone-${scene.tone || "mint"}">
+      (scene, index) => `
+        <button type="button"
+                class="scene-card tone-${scene.tone || "mint"}"
+                data-scene-index="${index}"
+                aria-label="Open data for ${escapeHtml(scene.title || "pattern")}">
           <div class="scene-icon"><i class="fas ${escapeHtml(scene.icon || "fa-circle")}"></i></div>
-          <p class="scene-title">${escapeHtml(scene.title || "Insight")}</p>
+          <p class="scene-title">${escapeHtml(scene.title || "Pattern")}</p>
           <p class="scene-value">${escapeHtml(scene.value || "-")}</p>
           <p class="scene-detail">${escapeHtml(scene.detail || "")}</p>
-        </article>
+          <p class="scene-action">Open underlying trips</p>
+        </button>
       `
     )
     .join("");
+
+  if (container.dataset.bound !== "true") {
+    container.addEventListener("click", async (event) => {
+      const card = event.target.closest("[data-scene-index]");
+      if (!card) {
+        return;
+      }
+      const index = Number.parseInt(card.dataset.sceneIndex || "-1", 10);
+      if (index < 0 || index >= storyState.scenes.length) {
+        return;
+      }
+      await handleSceneAction(storyState.scenes[index]?.action);
+    });
+    container.dataset.bound = "true";
+  }
 }
 
 function locationText(place) {
@@ -247,6 +280,35 @@ async function openTripsForPlace(place) {
     title: `Trips to ${place.location} (${filtered.length})`,
     insightKind: "trips",
   });
+}
+
+async function handleSceneAction(action = {}) {
+  if (!action || typeof action !== "object") {
+    return;
+  }
+
+  if (action.type === "drilldown") {
+    loadAndShowTripsForDrilldown(action.kind || "trips");
+    return;
+  }
+
+  if (action.type === "time-period") {
+    const timeType = action.timeType === "day" ? "day" : "hour";
+    const rawValue = Number.parseInt(String(action.timeValue ?? 0), 10);
+    const maxValue = timeType === "day" ? 6 : 23;
+    const timeValue = Math.min(Math.max(Number.isFinite(rawValue) ? rawValue : 0, 0), maxValue);
+    loadAndShowTripsForTimePeriod(timeType, timeValue);
+    return;
+  }
+
+  if (action.type === "place") {
+    const place = storyState.snapshot?.exploration?.mostVisited;
+    if (place) {
+      await openTripsForPlace(place);
+      return;
+    }
+    loadAndShowTripsForDrilldown("trips");
+  }
 }
 
 function renderPlacesOrbit(exploration = {}) {
@@ -384,7 +446,7 @@ function renderRecordsTimeline(records = {}) {
   }
 
   if (!entries.length) {
-    container.innerHTML = '<div class="story-empty">No record highlights for this range yet.</div>';
+    container.innerHTML = '<div class="story-empty">No record-level outliers in this range yet.</div>';
     return;
   }
 
@@ -415,26 +477,41 @@ function renderTrendsNarrative(snapshot, mode, currentView) {
   const previous = periods.length > 1 ? periods[periods.length - 2] : null;
 
   if (!latest) {
-    container.textContent = "Narrative summary will appear after a few trips in this range.";
+    container.textContent = "Not enough periods in this range for a comparison yet.";
     return;
   }
 
-  const focus = currentView === "daily" ? "daily detail" : `${mode} rhythm`;
-  const trendText =
+  const focus = currentView === "daily" ? "Daily resolution" : `${mode[0].toUpperCase()}${mode.slice(1)} resolution`;
+  const avgDistance = latest.trips > 0 ? latest.distance / latest.trips : 0;
+  const previousAvgDistance = previous && previous.trips > 0 ? previous.distance / previous.trips : 0;
+  const pctText =
     latest.distanceDeltaPct == null
-      ? "This is your first comparable period in this range."
-      : latest.distanceDeltaPct >= 0
-        ? `Distance is up ${latest.distanceDeltaPct.toFixed(1)}% from the prior period.`
-        : `Distance is down ${Math.abs(latest.distanceDeltaPct).toFixed(1)}% from the prior period.`;
-
-  const previousText = previous
-    ? `Previous period logged ${previous.trips} trips across ${previous.distance.toFixed(1)} miles.`
-    : "More context appears as additional periods become available.";
+      ? "N/A"
+      : `${latest.distanceDeltaPct > 0 ? "+" : ""}${latest.distanceDeltaPct.toFixed(1)}%`;
 
   container.innerHTML = `
-    <p><strong>${escapeHtml(latest.headline)}</strong> (${escapeHtml(focus)}). ${escapeHtml(trendText)}</p>
-    <p>${escapeHtml(previousText)}</p>
+    <p><strong>${escapeHtml(focus)}</strong> • Current period: ${latest.trips} trips, ${latest.distance.toFixed(1)} mi, ${avgDistance.toFixed(1)} mi/trip.</p>
+    <p>Distance change vs previous: ${escapeHtml(pctText)}. Previous period: ${previous ? `${previous.trips} trips, ${previous.distance.toFixed(1)} mi, ${previousAvgDistance.toFixed(1)} mi/trip` : "N/A"}.</p>
+    <div class="trends-narrative-actions">
+      <button type="button" class="btn btn-outline-primary btn-sm trends-drill-btn"
+              data-start="${latest.start}" data-end="${latest.end}" data-label="${escapeHtml(latest.label)}">
+        View Current Period Trips
+      </button>
+      ${previous ? `<button type="button" class="btn btn-outline-secondary btn-sm trends-drill-btn" data-start="${previous.start}" data-end="${previous.end}" data-label="${escapeHtml(previous.label)}">View Previous Period Trips</button>` : ""}
+    </div>
   `;
+
+  container.onclick = (event) => {
+    const button = event.target.closest(".trends-drill-btn");
+    if (!button) {
+      return;
+    }
+    loadAndShowTripsForDrilldown("trips", {
+      start: button.dataset.start,
+      end: button.dataset.end,
+      title: `Trips for ${button.dataset.label}`,
+    });
+  };
 }
 
 function renderTimeSignature(timeSignature = {}, currentTimeView = "hour") {
@@ -463,8 +540,24 @@ function renderTimeSignature(timeSignature = {}, currentTimeView = "hour") {
       <h3>${escapeHtml(timeSignature.dominantDaypartLabel || "Daytime")}</h3>
       <p>Peak window: <strong>${escapeHtml(peakHourLabel)}</strong> • Quiet window: <strong>${escapeHtml(quietHourLabel)}</strong></p>
       <p>Peak weekday: <strong>${escapeHtml(timeSignature.peakDayLabel || "-")}</strong> • Quiet weekday: <strong>${escapeHtml(timeSignature.quietDayLabel || "-")}</strong></p>
+      <div class="trends-narrative-actions">
+        <button type="button" class="btn btn-outline-primary btn-sm time-signature-action" data-time-type="hour" data-time-value="${Number(timeSignature.peakHour || 0)}">Peak Hour Trips</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm time-signature-action" data-time-type="day" data-time-value="${Number(timeSignature.peakDay || 0)}">Peak Weekday Trips</button>
+      </div>
     </div>
   `;
+
+  container.onclick = (event) => {
+    const action = event.target.closest(".time-signature-action");
+    if (!action) {
+      return;
+    }
+    const timeType = action.dataset.timeType === "day" ? "day" : "hour";
+    const rawValue = Number.parseInt(action.dataset.timeValue || "0", 10);
+    const max = timeType === "day" ? 6 : 23;
+    const timeValue = Math.min(Math.max(Number.isFinite(rawValue) ? rawValue : 0, 0), max);
+    loadAndShowTripsForTimePeriod(timeType, timeValue);
+  };
 }
 
 export function renderAllStorySections(stateData = {}) {
@@ -476,8 +569,8 @@ export function renderAllStorySections(stateData = {}) {
   storyState.selectedPlaceIndex = 0;
 
   renderRhythmPeriodToggle(mode);
-  renderRhythmStoryrail(snapshot.periods[mode], mode);
-  renderInsightScenes(snapshot.narrativeScenes);
+  renderRhythmStoryrail(snapshot.periods[mode]);
+  renderInsightScenes(snapshot.patternCards);
   renderPlacesOrbit(snapshot.exploration);
   renderRecordsTimeline(stateData?.insights?.records || {});
   renderTrendsNarrative(snapshot, mode, stateData.currentView || "daily");
@@ -494,7 +587,7 @@ export function updatePeriodStory(mode, currentView = "daily") {
 
   storyState.periodMode = nextMode;
   renderRhythmPeriodToggle(nextMode);
-  renderRhythmStoryrail(storyState.snapshot.periods[nextMode], nextMode);
+  renderRhythmStoryrail(storyState.snapshot.periods[nextMode]);
   renderTrendsNarrative(storyState.snapshot, nextMode, currentView);
 }
 
@@ -505,12 +598,9 @@ export function updateTimeSignatureStory(currentTimeView = "hour") {
   renderTimeSignature(storyState.snapshot.timeSignature, currentTimeView);
 }
 
-export function getStorySnapshot() {
-  return storyState.snapshot;
-}
-
 export function destroyStorySections() {
   storyState.snapshot = null;
   storyState.periodMode = "weekly";
   storyState.selectedPlaceIndex = 0;
+  storyState.scenes = [];
 }

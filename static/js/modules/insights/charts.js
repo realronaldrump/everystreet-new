@@ -4,7 +4,7 @@
  * Chart initialization and update logic for the driving insights page
  */
 
-import { formatDate, formatHourLabel, formatMonth } from "./formatters.js";
+import { formatDate, formatHourLabel } from "./formatters.js";
 import {
   loadAndShowTripsForDrilldown,
   loadAndShowTripsForTimePeriod,
@@ -338,6 +338,8 @@ function initTrendsChart() {
           borderColor: "rgb(59, 138, 127)",
           backgroundColor: "rgba(59, 138, 127, 0.12)",
           yAxisID: "y",
+          pointRadius: 0,
+          pointHoverRadius: 4,
           tension: 0.3,
         },
         {
@@ -346,6 +348,8 @@ function initTrendsChart() {
           borderColor: "rgb(196, 84, 84)",
           backgroundColor: "rgba(196, 84, 84, 0.12)",
           yAxisID: "y1",
+          pointRadius: 0,
+          pointHoverRadius: 4,
           tension: 0.3,
         },
       ],
@@ -366,6 +370,11 @@ function initTrendsChart() {
         legend: {
           display: true,
           position: "top",
+        },
+        decimation: {
+          enabled: true,
+          algorithm: "lttb",
+          samples: 200,
         },
         tooltip: {
           callbacks: {
@@ -389,6 +398,12 @@ function initTrendsChart() {
         x: {
           grid: {
             display: false,
+          },
+          ticks: {
+            autoSkip: true,
+            maxTicksLimit: 14,
+            maxRotation: 0,
+            minRotation: 0,
           },
         },
         y: {
@@ -521,7 +536,40 @@ export function updateTrendsChart() {
   chart.data.labels = data.labels;
   chart.data.datasets[0].data = data.distances;
   chart.data.datasets[1].data = data.counts;
+  chart.data.datasets[0].tension = data.isCompressed ? 0.18 : 0.3;
+  chart.data.datasets[1].tension = data.isCompressed ? 0.18 : 0.3;
+  chart.data.datasets[0].pointHoverRadius = data.isCompressed ? 3 : 4;
+  chart.data.datasets[1].pointHoverRadius = data.isCompressed ? 3 : 4;
   chart._esBucketRanges = data.ranges;
+
+  const totalPoints = data.labels.length;
+  const maxTicksLimit =
+    totalPoints > 240 ? 6 : totalPoints > 160 ? 8 : totalPoints > 90 ? 10 : 14;
+  if (chart.options?.scales?.x?.ticks) {
+    chart.options.scales.x.ticks.maxTicksLimit = maxTicksLimit;
+    chart.options.scales.x.ticks.autoSkip = true;
+    chart.options.scales.x.ticks.maxRotation = totalPoints > 80 ? 0 : 30;
+    chart.options.scales.x.ticks.minRotation = 0;
+    chart.options.scales.x.ticks.callback = function callback(value) {
+      const label = this.getLabelForValue(value);
+      if (typeof label !== "string") {
+        return label;
+      }
+      return label.length > 18 ? `${label.slice(0, 17)}…` : label;
+    };
+  }
+
+  if (chart.options?.plugins?.decimation) {
+    chart.options.plugins.decimation.enabled = totalPoints > 80;
+    chart.options.plugins.decimation.samples = Math.min(
+      280,
+      Math.max(100, Math.floor(totalPoints * 0.7))
+    );
+  }
+  if (chart.options?.animation) {
+    chart.options.animation.duration = data.isCompressed ? 450 : 900;
+  }
+
   chart.update();
 }
 
@@ -565,12 +613,14 @@ export function updateTimeDistChart() {
  */
 function processTimeSeriesData(dailyData, viewType) {
   const aggregated = aggregateByView(dailyData, viewType);
+  const compressed = compressSeriesIfNeeded(aggregated, viewType);
 
   return {
-    labels: aggregated.map((d) => d.label),
-    distances: aggregated.map((d) => d.distance),
-    counts: aggregated.map((d) => d.count),
-    ranges: aggregated.map((d) => ({ start: d.start, end: d.end, label: d.label })),
+    labels: compressed.map((d) => d.label),
+    distances: compressed.map((d) => d.distance),
+    counts: compressed.map((d) => d.count),
+    ranges: compressed.map((d) => ({ start: d.start, end: d.end, label: d.label })),
+    isCompressed: compressed.length < aggregated.length,
   };
 }
 
@@ -582,16 +632,18 @@ function processTimeSeriesData(dailyData, viewType) {
  */
 function aggregateByView(dailyData, viewType) {
   if (viewType === "daily") {
-    return dailyData.map((d) => ({
-      label: new Date(d.date).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      }),
-      start: d.date,
-      end: d.date,
-      distance: d.distance || 0,
-      count: d.count || 0,
-    }));
+    return [...dailyData]
+      .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")))
+      .map((d) => ({
+        label: new Date(d.date).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        }),
+        start: d.date,
+        end: d.date,
+        distance: d.distance || 0,
+        count: d.count || 0,
+      }));
   }
 
   // Aggregate for weekly/monthly views
@@ -626,19 +678,84 @@ function aggregateByView(dailyData, viewType) {
     aggregated[key].count += d.count || 0;
   });
 
-  return Object.entries(aggregated).map(([key, value]) => {
-    const label =
-      viewType === "weekly"
-        ? `Week of ${new Date(key).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
-        : formatMonth(key);
-    return {
-      label,
-      start: value.start,
-      end: value.end,
-      distance: value.distance,
-      count: value.count,
-    };
+  return Object.entries(aggregated)
+    .map(([key, value]) => {
+      const label =
+        viewType === "weekly"
+          ? `Wk ${new Date(key).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+          : new Date(`${key}-01`).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+      return {
+        label,
+        start: value.start,
+        end: value.end,
+        distance: value.distance,
+        count: value.count,
+      };
+    })
+    .sort((a, b) => String(a.start || "").localeCompare(String(b.start || "")));
+}
+
+function formatRangeLabel(start, end, viewType) {
+  if (!start || !end || start === end) {
+    return start || end || "";
+  }
+
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return `${start} - ${end}`;
+  }
+
+  if (viewType === "monthly") {
+    const startText = startDate.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    const endText = endDate.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    return startText === endText ? startText : `${startText} - ${endText}`;
+  }
+
+  if (startDate.getMonth() === endDate.getMonth() && startDate.getFullYear() === endDate.getFullYear()) {
+    const month = startDate.toLocaleDateString("en-US", { month: "short" });
+    return `${month} ${startDate.getDate()}-${endDate.getDate()}`;
+  }
+
+  const sameYear = startDate.getFullYear() === endDate.getFullYear();
+  const startText = startDate.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
   });
+  const endText = endDate.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
+  return `${startText} - ${endText}`;
+}
+
+function compressSeriesIfNeeded(series, viewType) {
+  const maxPoints = viewType === "daily" ? 72 : viewType === "weekly" ? 60 : 48;
+  if (!Array.isArray(series) || series.length <= maxPoints) {
+    return series;
+  }
+
+  const bucketSize = Math.ceil(series.length / maxPoints);
+  const compressed = [];
+
+  for (let index = 0; index < series.length; index += bucketSize) {
+    const bucket = series.slice(index, index + bucketSize);
+    const first = bucket[0];
+    const last = bucket[bucket.length - 1];
+    const distance = bucket.reduce((sum, entry) => sum + (entry.distance || 0), 0);
+    const count = bucket.reduce((sum, entry) => sum + (entry.count || 0), 0);
+
+    compressed.push({
+      label: formatRangeLabel(first?.start, last?.end, viewType),
+      start: first?.start,
+      end: last?.end,
+      distance,
+      count,
+    });
+  }
+
+  return compressed;
 }
 
 /**

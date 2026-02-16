@@ -1,6 +1,6 @@
 /**
  * Derived Insights Module
- * Pure data derivations for the narrative insights experience.
+ * Pure data derivations for the insights experience.
  */
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -61,42 +61,45 @@ function pct(numerator, denominator) {
   return (numerator / denominator) * 100;
 }
 
+function formatSignedNumber(value, decimals = 0, unit = "") {
+  const numeric = toNumber(value);
+  const sign = numeric > 0 ? "+" : numeric < 0 ? "-" : "";
+  const absValue = Math.abs(numeric);
+  const base = decimals > 0 ? absValue.toFixed(decimals) : String(Math.round(absValue));
+  return `${sign}${base}${unit}`;
+}
+
+function formatHourAmPm(hourRaw) {
+  const hour = clamp(Math.round(toNumber(hourRaw, 0)), 0, 23);
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const display = hour % 12 || 12;
+  return `${display} ${suffix}`;
+}
+
 function selectMomentumLabel(distanceDeltaPct, tripsDelta) {
   if (!Number.isFinite(distanceDeltaPct)) {
-    return "Baseline";
+    return "No prior period";
   }
-  if (distanceDeltaPct >= 12) {
-    return "Surging";
+  if (Math.abs(distanceDeltaPct) < 1) {
+    return "Within 1%";
   }
-  if (distanceDeltaPct <= -12) {
-    return "Cooling";
+  if (distanceDeltaPct > 0 && tripsDelta > 0) {
+    return "Trips and distance up";
   }
-  if (tripsDelta >= 2) {
-    return "Busier";
+  if (distanceDeltaPct < 0 && tripsDelta < 0) {
+    return "Trips and distance down";
   }
-  if (tripsDelta <= -2) {
-    return "Lighter";
+  if (distanceDeltaPct > 0) {
+    return "Distance up";
   }
-  return "Steady";
+  return "Distance down";
 }
 
 function selectPeriodHeadline(distanceDelta, tripsDelta) {
   if (!Number.isFinite(distanceDelta) || !Number.isFinite(tripsDelta)) {
-    return "Establishing your rhythm";
+    return "No prior-period comparison available";
   }
-  if (tripsDelta > 0 && distanceDelta > 0) {
-    return "You got out more this period";
-  }
-  if (tripsDelta < 0 && distanceDelta > 0) {
-    return "Fewer trips, longer rides";
-  }
-  if (tripsDelta > 0 && distanceDelta < 0) {
-    return "More quick-hop driving";
-  }
-  if (tripsDelta < 0 && distanceDelta < 0) {
-    return "A quieter period on the road";
-  }
-  return "Your pattern stayed consistent";
+  return `Trips ${formatSignedNumber(tripsDelta)}, Distance ${formatSignedNumber(distanceDelta, 1, " mi")}`;
 }
 
 function buildPeriodSummary(period) {
@@ -195,6 +198,11 @@ export function computePeriodDeltas(periods = []) {
 
     return {
       ...period,
+      previousStart: previous?.start || null,
+      previousEnd: previous?.end || null,
+      previousTrips: previous?.trips ?? null,
+      previousDistance: previous?.distance ?? null,
+      previousAvgDistancePerTrip: previous?.avgDistancePerTrip ?? null,
       distanceDelta: Number.isFinite(distanceDelta) ? Number(distanceDelta.toFixed(2)) : null,
       tripsDelta: Number.isFinite(tripsDelta) ? tripsDelta : null,
       distanceDeltaPct: Number.isFinite(distanceDeltaPct)
@@ -367,8 +375,11 @@ export function computeTimeSignature(timeDistribution = [], weekdayDistribution 
     dominantDaypartLabel: daypartLabel,
     peakDay: peakDay.day,
     peakDayLabel: dayNames[peakDay.day] || dayNames[0],
+    peakDayCount: Math.max(0, peakDay.count),
     quietDay: quietDay.day,
     quietDayLabel: dayNames[quietDay.day] || dayNames[0],
+    quietDayCount: Number.isFinite(quietDay.count) ? quietDay.count : 0,
+    weightedHourLabel: formatHourAmPm(weightedHourRaw),
   };
 }
 
@@ -422,11 +433,11 @@ export function computeExplorationStats(topDestinations = [], totalTrips = 0) {
       ? normalizedDestinations[0].visits / toNumber(totalTrips)
       : normalizedDestinations[0].visits / Math.max(1, totalDestinationVisits);
 
-  let explorationLabel = "Balanced explorer";
+  let explorationLabel = "Mixed destination spread";
   if (explorationScore >= 68) {
-    explorationLabel = "Curious explorer";
+    explorationLabel = "Distributed destinations";
   } else if (explorationScore < 35) {
-    explorationLabel = "Strong routine";
+    explorationLabel = "Concentrated destinations";
   }
 
   return {
@@ -448,17 +459,11 @@ export function computeFuelLens(totalFuel = 0, totalDistance = 0, totalTrips = 0
   const fuelPerTrip = trips > 0 ? fuel / trips : 0;
   const distancePerTrip = trips > 0 ? distance / trips : 0;
 
-  let narrative = "Add more trip history to unlock a stronger fuel lens.";
+  let dataNote = "Fuel ratio unavailable: not enough trip or fuel data in this range.";
   if (mpg !== null) {
-    if (mpg >= 32) {
-      narrative = "Your fuel-to-distance ratio looks efficient for mixed driving.";
-    } else if (mpg >= 24) {
-      narrative = "Your fuel pattern is stable and in a healthy middle range.";
-    } else {
-      narrative = "Fuel usage is trending higher per mile than your recent baseline.";
-    }
+    dataNote = `Computed as ${distance.toFixed(1)} mi / ${fuel.toFixed(2)} gal = ${mpg.toFixed(1)} MPG.`;
   } else if (distance > 0) {
-    narrative = "Distance is recorded, but fuel entries are too sparse for a ratio.";
+    dataNote = "Distance exists, but fuel entries are missing so MPG cannot be computed.";
   }
 
   return {
@@ -468,11 +473,11 @@ export function computeFuelLens(totalFuel = 0, totalDistance = 0, totalTrips = 0
     mpg: mpg === null ? null : Number(mpg.toFixed(1)),
     fuelPerTrip: Number(fuelPerTrip.toFixed(2)),
     distancePerTrip: Number(distancePerTrip.toFixed(2)),
-    narrative,
+    dataNote,
   };
 }
 
-export function buildNarrativeScenes(derivedData = {}) {
+export function buildPatternCards(derivedData = {}) {
   const consistency = derivedData.consistency || {};
   const timeSignature = derivedData.timeSignature || {};
   const exploration = derivedData.exploration || {};
@@ -482,42 +487,55 @@ export function buildNarrativeScenes(derivedData = {}) {
     {
       id: "streak",
       icon: "fa-fire",
-      title: "Consistency streak",
+      title: "Drive-day streak",
       value: `${toNumber(consistency.longestStreak)} days`,
-      detail: `${toNumber(consistency.activeDaysRatio).toFixed(1)}% of days active`,
+      detail: `${toNumber(consistency.activeDays)} of ${toNumber(consistency.spanDays)} days had trips`,
       tone: "mint",
+      action: { type: "drilldown", kind: "trips" },
     },
     {
       id: "signature",
       icon: "fa-clock",
-      title: "Signature start window",
-      value: `${Math.round(toNumber(timeSignature.weightedHour))}:00`,
-      detail: `${timeSignature.dominantDaypartLabel || "Daytime"} is your strongest band`,
+      title: "Weighted start hour",
+      value: timeSignature.weightedHourLabel || "12 AM",
+      detail: `Peak: ${formatHourAmPm(timeSignature.peakHour)} (${toNumber(timeSignature.peakHourCount)} trips)`,
       tone: "sky",
+      action: {
+        type: "time-period",
+        timeType: "hour",
+        timeValue: clamp(toNumber(timeSignature.peakHour), 0, 23),
+      },
     },
     {
       id: "exploration",
       icon: "fa-compass",
-      title: "Exploration vs routine",
+      title: "Destination spread",
       value: `${toNumber(exploration.explorationScore).toFixed(0)} / 100`,
-      detail: exploration.explorationLabel || "Balanced explorer",
+      detail: `Top destination share: ${toNumber(exploration.topShareTrips).toFixed(1)}%`,
       tone: "amber",
+      action: { type: "place" },
     },
     {
       id: "weekday",
       icon: "fa-calendar-day",
       title: "Peak and quiet days",
       value: `${timeSignature.peakDayLabel || "-"} / ${timeSignature.quietDayLabel || "-"}`,
-      detail: "Your strongest and lightest weekday rhythm",
+      detail: `Trips: ${toNumber(timeSignature.peakDayCount)} vs ${toNumber(timeSignature.quietDayCount)}`,
       tone: "coral",
+      action: {
+        type: "time-period",
+        timeType: "day",
+        timeValue: clamp(toNumber(timeSignature.peakDay), 0, 6),
+      },
     },
     {
       id: "fuel",
       icon: "fa-gas-pump",
       title: "Fuel lens",
       value: fuelLens.mpg == null ? "Not enough fuel data" : `${fuelLens.mpg} MPG`,
-      detail: fuelLens.narrative || "Fuel context updates as trips accumulate.",
+      detail: fuelLens.dataNote || "MPG requires both distance and fuel entries.",
       tone: "purple",
+      action: { type: "drilldown", kind: "fuel" },
     },
   ];
 
@@ -565,6 +583,6 @@ export function deriveInsightsSnapshot(stateData = {}) {
 
   return {
     ...derived,
-    narrativeScenes: buildNarrativeScenes(derived),
+    patternCards: buildPatternCards(derived),
   };
 }

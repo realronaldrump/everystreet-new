@@ -36,10 +36,6 @@ function formatInsightValue(kind, trip) {
       return trip.totalIdleDuration
         ? formatDuration(Number(trip.totalIdleDuration) || 0)
         : "-";
-    case "hard_braking":
-      return trip.hardBrakingCounts !== undefined && trip.hardBrakingCounts !== null
-        ? `${trip.hardBrakingCounts}`
-        : "-";
     default:
       return "-";
   }
@@ -60,8 +56,6 @@ function titleForDrilldown(kind, dateRange) {
       return `Top trips by average speed (${rangeText})`;
     case "idle_time":
       return `Top trips by idle time (${rangeText})`;
-    case "hard_braking":
-      return `Top trips by hard braking (${rangeText})`;
     default:
       return `Trips (${rangeText})`;
   }
@@ -73,6 +67,37 @@ function parseDateMs(value) {
   }
   const t = Date.parse(value);
   return Number.isFinite(t) ? t : 0;
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+  return date.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function formatLocation(location) {
+  if (!location) {
+    return "Unknown";
+  }
+  if (typeof location === "string") {
+    return location;
+  }
+  if (typeof location === "object") {
+    return location.formatted_address || location.name || location.address || "Unknown";
+  }
+  return String(location);
 }
 
 function getTripSortValue(kind, trip) {
@@ -92,8 +117,6 @@ function getTripSortValue(kind, trip) {
       return Number(trip.avgSpeed) || 0;
     case "idle_time":
       return Number(trip.totalIdleDuration) || 0;
-    case "hard_braking":
-      return Number(trip.hardBrakingCounts) || 0;
     default:
       return parseDateMs(trip.startTime);
   }
@@ -193,7 +216,7 @@ export async function loadAndShowTripsForDrilldown(kind, opts = {}) {
  * @param {Array} trips - Trip data to display
  * @param {Object} opts
  * @param {string} [opts.title] - Modal title
- * @param {string} [opts.insightKind] - Kind used to populate the Insight column
+ * @param {string} [opts.insightKind] - Kind used to populate the insight badge
  */
 export function displayTripsInModal(trips, opts = {}) {
   const { title, insightKind } = opts;
@@ -205,60 +228,63 @@ export function displayTripsInModal(trips, opts = {}) {
     modalTitle.textContent = title || `Trips (${sortedTrips?.length || 0})`;
   }
 
-  // Build table rows
-  const tbody = document.querySelector("#modal-trips-table tbody");
-  if (!tbody) {
+  const countEl = document.getElementById("tripDetailsModalCount");
+  if (countEl) {
+    countEl.textContent = `${sortedTrips?.length || 0} trips`;
+  }
+
+  const grid = document.getElementById("modal-trips-grid");
+  if (!grid) {
     return;
   }
 
   if (!sortedTrips || sortedTrips.length === 0) {
-    tbody.innerHTML =
-      '<tr><td colspan="9" class="text-center">No trips found.</td></tr>';
+    grid.innerHTML = '<div class="modal-trip-empty">No trips found for this drilldown.</div>';
   } else {
-    tbody.innerHTML = sortedTrips
+    grid.innerHTML = sortedTrips
       .map((trip) => {
-        const startTime = trip.startTime
-          ? new Date(trip.startTime).toLocaleString("en-US", { hour12: true })
-          : "-";
-        const endTime = trip.endTime
-          ? new Date(trip.endTime).toLocaleString("en-US", { hour12: true })
-          : "-";
+        const startTime = formatDateTime(trip.startTime);
+        const endTime = formatDateTime(trip.endTime);
         const duration = formatDuration(Number(trip.duration) || 0);
         const distanceVal = Number(trip.distance);
         const distance =
           Number.isFinite(distanceVal) && distanceVal > 0
             ? `${distanceVal.toFixed(1)} mi`
             : "-";
-        const startLoc =
-          trip.startLocation?.formatted_address ||
-          trip.startLocation?.name ||
-          "Unknown";
-        const destLoc =
-          trip.destination?.formatted_address || trip.destination?.name || "Unknown";
+        const startLoc = formatLocation(trip.startLocation);
+        const destLoc = formatLocation(trip.destination);
         const maxSpeedVal = Number(trip.maxSpeed);
         const maxSpeed =
           Number.isFinite(maxSpeedVal) && maxSpeedVal > 0
             ? `${maxSpeedVal.toFixed(1)} mph`
             : "-";
-        const insight = escapeHtml(formatInsightValue(insightKind, trip));
+        const insightValue = formatInsightValue(insightKind, trip);
+        const insight = escapeHtml(insightValue === "-" ? "Trip" : insightValue);
         const tripId = trip.transactionId || trip._id?.$oid || trip._id || "-";
 
         return `
-          <tr>
-            <td>${startTime}</td>
-            <td>${endTime}</td>
-            <td>${duration}</td>
-            <td>${distance}</td>
-            <td>${escapeHtml(startLoc)}</td>
-            <td>${escapeHtml(destLoc)}</td>
-            <td>${maxSpeed}</td>
-            <td>${insight}</td>
-            <td>
-              <a href="/trips?highlight=${encodeURIComponent(tripId)}" class="btn btn-sm btn-primary" target="_blank">
-                <i class="fas fa-external-link-alt"></i>
+          <article class="modal-trip-card">
+            <header class="modal-trip-head">
+              <p class="modal-trip-time">${escapeHtml(startTime)}</p>
+              <span class="modal-trip-insight">${insight}</span>
+            </header>
+            <p class="modal-trip-route">
+              <span>${escapeHtml(startLoc)}</span>
+              <i class="fas fa-arrow-right"></i>
+              <span>${escapeHtml(destLoc)}</span>
+            </p>
+            <div class="modal-trip-stats">
+              <span><strong>${distance}</strong><small>distance</small></span>
+              <span><strong>${duration}</strong><small>duration</small></span>
+              <span><strong>${maxSpeed}</strong><small>max speed</small></span>
+              <span><strong>${escapeHtml(endTime)}</strong><small>end</small></span>
+            </div>
+            <footer class="modal-trip-actions">
+              <a href="/trips?highlight=${encodeURIComponent(tripId)}" class="btn btn-sm btn-primary" target="_blank" rel="noopener noreferrer">
+                Open Trip
               </a>
-            </td>
-          </tr>
+            </footer>
+          </article>
         `;
       })
       .join("");

@@ -59,7 +59,7 @@ function buildCsvSections(state) {
     const mode = state.rhythmView === "monthly" ? "monthly" : "weekly";
     const periods = derived.periods?.[mode] || [];
 
-    lines.push(`${mode[0].toUpperCase() + mode.slice(1)} Storyrail`);
+    lines.push(`${mode[0].toUpperCase() + mode.slice(1)} Period Comparison`);
     lines.push("Period,Trips,Distance (mi),Delta (%) ,Headline");
     periods.forEach((period) => {
       lines.push(
@@ -76,9 +76,9 @@ function buildCsvSections(state) {
     });
     lines.push("");
 
-    lines.push("Narrative Scenes");
-    lines.push("Scene,Value,Detail");
-    (derived.narrativeScenes || []).forEach((scene) => {
+    lines.push("Pattern Cards");
+    lines.push("Card,Value,Detail");
+    (derived.patternCards || []).forEach((scene) => {
       lines.push([scene.title, scene.value, scene.detail].map(csvEscape).join(","));
     });
     lines.push("");
@@ -103,7 +103,7 @@ function buildCsvSections(state) {
 }
 
 /**
- * Export narrative insights data as CSV
+ * Export insights data as CSV
  */
 export function exportData() {
   const state = getState();
@@ -117,11 +117,11 @@ export function exportData() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `insights-story-${formatDate(new Date())}.csv`;
+  a.download = `insights-data-${formatDate(new Date())}.csv`;
   a.click();
 
   URL.revokeObjectURL(url);
-  showNotification("Story data exported successfully", "success");
+  showNotification("Insights data exported successfully", "success");
 }
 
 /**
@@ -155,7 +155,7 @@ export function shareInsights() {
   const peakDay = derived?.timeSignature?.peakDayLabel;
 
   const shareData = {
-    title: "My Driving Story",
+    title: "My Driving Insights",
     text:
       `I logged ${insights.total_trips || 0} trips over ${Number(insights.total_distance || 0).toFixed(1)} miles.` +
       ` Active-day ratio: ${(consistency?.activeDaysRatio || 0).toFixed(1)}%.` +

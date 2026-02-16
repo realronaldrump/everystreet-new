@@ -98,12 +98,12 @@ export function updateAllMetrics() {
   animateCounter("hero-total-miles", Number(insights.total_distance) || 0, 1);
   updateTimeMetric("total-time", Number(metrics.total_duration_seconds) || 0);
 
-  // Narrative context copy sourced from derived insights
+  // Context copy sourced from derived insights
   const derived = state.derivedInsights;
   if (!derived) {
-    setText("trips-context", "Patterns will appear as your trip history grows.");
-    setText("distance-context", "Long-form distance stories need more data.");
-    setText("time-context", "Signature windows appear once time clusters emerge.");
+    setText("trips-context", "Not enough trips in this range for derived ratios yet.");
+    setText("distance-context", "Not enough period history for distance comparison yet.");
+    setText("time-context", "Not enough time-distribution data yet.");
     setText("fuel-context", "Fuel context appears when fuel entries are available.");
     return;
   }
