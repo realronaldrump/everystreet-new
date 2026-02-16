@@ -399,10 +399,12 @@ export function computeExplorationStats(topDestinations = [], totalTrips = 0) {
     return {
       destinations: [],
       topShareTrips: 0,
+      top3ShareTrips: 0,
       explorationScore: 0,
       routineScore: 0,
       explorationLabel: "No destination data",
       totalDestinationVisits: 0,
+      uniquePlaces: 0,
       mostVisited: null,
     };
   }
@@ -432,6 +434,13 @@ export function computeExplorationStats(topDestinations = [], totalTrips = 0) {
     toNumber(totalTrips) > 0
       ? normalizedDestinations[0].visits / toNumber(totalTrips)
       : normalizedDestinations[0].visits / Math.max(1, totalDestinationVisits);
+  const top3Visits = normalizedDestinations
+    .slice(0, 3)
+    .reduce((sum, destination) => sum + destination.visits, 0);
+  const top3ShareTrips =
+    toNumber(totalTrips) > 0
+      ? top3Visits / toNumber(totalTrips)
+      : top3Visits / Math.max(1, totalDestinationVisits);
 
   let explorationLabel = "Mixed destination spread";
   if (explorationScore >= 68) {
@@ -444,9 +453,11 @@ export function computeExplorationStats(topDestinations = [], totalTrips = 0) {
     destinations: normalizedDestinations,
     totalDestinationVisits,
     topShareTrips: Number((topShareTrips * 100).toFixed(1)),
+    top3ShareTrips: Number((top3ShareTrips * 100).toFixed(1)),
     explorationScore: Number(explorationScore.toFixed(1)),
     routineScore: Number(routineScore.toFixed(1)),
     explorationLabel,
+    uniquePlaces: normalizedDestinations.length,
     mostVisited: normalizedDestinations[0],
   };
 }
@@ -509,9 +520,9 @@ export function buildPatternCards(derivedData = {}) {
     {
       id: "exploration",
       icon: "fa-compass",
-      title: "Destination spread",
-      value: `${toNumber(exploration.explorationScore).toFixed(0)} / 100`,
-      detail: `Top destination share: ${toNumber(exploration.topShareTrips).toFixed(1)}%`,
+      title: "Destination concentration",
+      value: `${toNumber(exploration.top3ShareTrips).toFixed(1)}% in top 3`,
+      detail: `Top place: ${toNumber(exploration.topShareTrips).toFixed(1)}% • Tracked places: ${toNumber(exploration.uniquePlaces)}`,
       tone: "amber",
       action: { type: "place" },
     },

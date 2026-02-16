@@ -138,7 +138,7 @@ export function updateAllMetrics() {
   );
   setText(
     "scene-exploration-value",
-    `${Number(exploration.explorationScore || 0).toFixed(0)} exploration score`
+    `${Number(exploration.top3ShareTrips || 0).toFixed(1)}% top-3 concentration`
   );
   setText(
     "scene-signature-value",

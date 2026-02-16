@@ -240,7 +240,7 @@ function renderPlaceDetail(place, exploration, panel) {
         <div><span>Visits</span><strong>${place.visits}</strong></div>
         <div><span>Distance</span><strong>${place.distance.toFixed(1)} mi</strong></div>
         <div><span>Last visit</span><strong>${escapeHtml(formatShortDate(place.lastVisit))}</strong></div>
-        <div><span>Exploration score</span><strong>${exploration.explorationScore.toFixed(0)} / 100</strong></div>
+        <div><span>Top place share</span><strong>${Number(exploration.topShareTrips || 0).toFixed(1)}%</strong></div>
       </div>
       <button type="button" class="btn btn-outline-primary places-detail-action" data-place-action="open-trips">
         View Trips To This Place
@@ -353,7 +353,11 @@ function renderPlacesOrbit(exploration = {}) {
 
   container.innerHTML = `
     <div class="orbit-core" aria-hidden="true">
-      <span>${exploration.explorationLabel || "Driving orbit"}</span>
+      <span>
+        ${Number(exploration.top3ShareTrips || 0).toFixed(1)}% top 3
+        <br />
+        ${Number(exploration.uniquePlaces || 0)} places
+      </span>
     </div>
     ${nodesMarkup}
   `;
