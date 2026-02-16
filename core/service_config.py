@@ -23,6 +23,18 @@ _settings_cache: AppSettings | None = None
 _seeded_env_keys: set[str] = set()
 
 
+def _build_fallback_settings() -> AppSettings:
+    """
+    Build a non-persisted settings object without requiring Beanie initialization.
+
+    During partial runtime contexts (for example UI-only local checks), Beanie
+    collections may be unavailable. `model_construct` bypasses Document init.
+    """
+    from db.models import AppSettings
+
+    return AppSettings.model_construct()
+
+
 async def get_service_config() -> AppSettings:
     """
     Get service configuration from the database.
@@ -50,7 +62,7 @@ async def get_service_config() -> AppSettings:
     except Exception as e:
         logger.warning("Failed to load settings from DB, using defaults: %s", e)
         # Return a default settings object (not persisted)
-        settings = AppSettings()
+        settings = _build_fallback_settings()
         _apply_env_overrides(settings)
         _apply_settings_to_env(settings)
         return settings
