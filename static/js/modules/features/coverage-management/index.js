@@ -139,6 +139,22 @@ function setupEventListeners(signal) {
     .getElementById("quick-refresh-all")
     ?.addEventListener("click", loadAreas, signal ? { signal } : false);
 
+  document
+    .querySelectorAll('.widget[role="button"][tabindex="0"]')
+    .forEach((actionableElement) => {
+      actionableElement.addEventListener(
+        "keydown",
+        (event) => {
+          if (event.key !== "Enter" && event.key !== " ") {
+            return;
+          }
+          event.preventDefault();
+          actionableElement.click();
+        },
+        signal ? { signal } : false
+      );
+    });
+
   // Add area button
   document
     .getElementById("add-coverage-area")
@@ -834,6 +850,7 @@ async function deleteArea(areaId, displayName) {
   const confirmed = await confirmationDialog.show({
     title: "Delete Coverage Area",
     message: `Delete "<strong>${escapeHtml(displayName)}</strong>"?<br><br>This will remove all coverage data for this area.`,
+    allowHtml: true,
     confirmText: "Delete",
     confirmButtonClass: "btn-danger",
   });
@@ -889,6 +906,7 @@ async function rebuildArea(areaId, displayName = null) {
     title: "Rebuild Coverage Area",
     message:
       "Rebuild this area with fresh data from the local OSM extract?<br><br>This may take a few minutes.",
+    allowHtml: true,
     confirmText: "Rebuild",
     confirmButtonClass: "btn-warning",
   });
@@ -930,6 +948,7 @@ async function recalculateCoverage(areaId, displayName) {
     message:
       `Recalculate coverage for "<strong>${escapeHtml(displayName)}</strong>" by matching all existing trips?<br><br>` +
       `This will update coverage data without reloading the local OSM extract. Use this if coverage seems incomplete.`,
+    allowHtml: true,
     confirmText: "Recalculate",
     confirmButtonClass: "btn-info",
   });

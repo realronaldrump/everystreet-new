@@ -76,8 +76,8 @@
   height: 100%;
   background: radial-gradient(
     ellipse at top right,
-    rgb(var(--trips-primary-rgb) / 0.08) 0%,
-    rgb(var(--trips-mint-rgb) / 0.04) 50%,
+    rgb(var(--trips-primary-rgb) / 8%) 0%,
+    rgb(var(--trips-mint-rgb) / 4%) 50%,
     transparent 70%
   );
 }
@@ -189,7 +189,7 @@
   padding: var(--space-sm) var(--space-md);
   background: var(--trips-bg-warm);
   border-radius: var(--radius-pill);
-  border: 1px solid rgb(var(--trips-primary-rgb) / 0.15);
+  border: 1px solid rgb(var(--trips-primary-rgb) / 15%);
   font-size: 0.9375rem;
   transition:
     transform var(--transition-fast),
@@ -207,8 +207,8 @@
 }
 
 .stat-pill.filtered {
-  background: rgb(var(--trips-primary-rgb) / 0.08);
-  border-color: rgb(var(--trips-primary-rgb) / 0.3);
+  background: rgb(var(--trips-primary-rgb) / 8%);
+  border-color: rgb(var(--trips-primary-rgb) / 30%);
 }
 
 @keyframes statUpdate {
@@ -218,7 +218,7 @@
 
   50% {
     transform: scale(1.05);
-    background: rgb(var(--trips-primary-rgb) / 0.15);
+    background: rgb(var(--trips-primary-rgb) / 15%);
   }
 
   100% {
@@ -288,7 +288,7 @@
 }
 
 .sync-btn:hover {
-  background: rgb(var(--trips-primary-rgb) / 0.1);
+  background: rgb(var(--trips-primary-rgb) / 10%);
   color: var(--trips-primary);
 }
 
@@ -310,7 +310,7 @@
 
 .trips-search-section.has-filters {
   box-shadow:
-    0 0 0 2px rgb(var(--trips-primary-rgb) / 0.15),
+    0 0 0 2px rgb(var(--trips-primary-rgb) / 15%),
     var(--shadow-md);
 }
 
@@ -318,17 +318,17 @@
 @keyframes filterPulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgb(var(--trips-primary-rgb) / 0.4);
+    box-shadow: 0 0 0 0 rgb(var(--trips-primary-rgb) / 40%);
   }
 
   50% {
-    box-shadow: 0 0 0 8px rgb(var(--trips-primary-rgb) / 0);
+    box-shadow: 0 0 0 8px rgb(var(--trips-primary-rgb) / 0%);
   }
 }
 
 .filter-toggle-btn.has-filters {
   animation: filterPulse 0.6s ease-out;
-  background: rgb(var(--trips-primary-rgb) / 0.1);
+  background: rgb(var(--trips-primary-rgb) / 10%);
   border-color: var(--trips-primary);
   color: var(--trips-primary);
 }
@@ -359,12 +359,12 @@
   gap: var(--space-sm);
   min-height: 44px;
   padding: var(--space-xs) var(--space-sm) var(--space-xs) var(--space-md);
-  border: 1px solid rgb(var(--trips-primary-rgb) / 0.16);
+  border: 1px solid rgb(var(--trips-primary-rgb) / 16%);
   border-radius: var(--radius-pill);
   background: linear-gradient(
     135deg,
-    rgb(var(--trips-primary-rgb) / 0.12) 0%,
-    rgb(var(--trips-primary-rgb) / 0.03) 100%
+    rgb(var(--trips-primary-rgb) / 12%) 0%,
+    rgb(var(--trips-primary-rgb) / 3%) 100%
   );
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
 }
@@ -398,14 +398,14 @@ body.light-mode .trips-journal-page .sort-control {
   min-height: 40px;
   padding: calc(var(--space-sm) - 1px) calc(var(--space-xl) + var(--space-xs))
     calc(var(--space-sm) - 1px) var(--space-md);
-  border: 1px solid rgb(var(--trips-primary-rgb) / 0.24);
+  border: 1px solid rgb(var(--trips-primary-rgb) / 24%);
   border-radius: var(--radius-pill);
   background-color: var(--trips-bg-elevated);
   background-image:
     linear-gradient(
       180deg,
-      rgb(var(--trips-primary-rgb) / 0.07) 0%,
-      rgb(var(--trips-primary-rgb) / 0.02) 100%
+      rgb(var(--trips-primary-rgb) / 7%) 0%,
+      rgb(var(--trips-primary-rgb) / 2%) 100%
     ),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='rgba(245,242,236,0.9)' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
   background-repeat: no-repeat, no-repeat;
@@ -423,8 +423,8 @@ body.light-mode .trips-journal-page .sort-select {
   background-image:
     linear-gradient(
       180deg,
-      rgb(var(--trips-primary-rgb) / 0.09) 0%,
-      rgb(var(--trips-primary-rgb) / 0.03) 100%
+      rgb(var(--trips-primary-rgb) / 9%) 0%,
+      rgb(var(--trips-primary-rgb) / 3%) 100%
     ),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='rgba(28,26,23,0.8)' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
 }
@@ -436,12 +436,12 @@ body.light-mode .trips-journal-page .sort-select {
 .sort-select:focus {
   outline: none;
   border-color: var(--trips-primary);
-  box-shadow: 0 0 0 3px rgb(var(--trips-primary-rgb) / 0.15);
+  box-shadow: 0 0 0 3px rgb(var(--trips-primary-rgb) / 15%);
 }
 
 .sort-select.has-value {
-  border-color: rgb(var(--trips-primary-rgb) / 0.35);
-  background-color: rgb(var(--trips-primary-rgb) / 0.08);
+  border-color: rgb(var(--trips-primary-rgb) / 35%);
+  background-color: rgb(var(--trips-primary-rgb) / 8%);
 }
 
 .search-icon {
@@ -467,7 +467,7 @@ body.light-mode .trips-journal-page .sort-select {
   outline: none;
   border-color: var(--trips-primary);
   background: var(--trips-bg-elevated);
-  box-shadow: 0 0 0 4px rgb(var(--trips-primary-rgb) / 0.1);
+  box-shadow: 0 0 0 4px rgb(var(--trips-primary-rgb) / 10%);
 }
 
 .search-input::placeholder {
@@ -518,7 +518,7 @@ body.light-mode .trips-journal-page .sort-select {
 }
 
 .filter-toggle-btn.active {
-  background: rgb(var(--trips-primary-rgb) / 0.1);
+  background: rgb(var(--trips-primary-rgb) / 10%);
   border-color: var(--trips-primary);
   color: var(--trips-primary);
 }
@@ -543,7 +543,7 @@ body.light-mode .trips-journal-page .sort-select {
   background: linear-gradient(
     to bottom,
     var(--trips-bg-warm) 0%,
-    rgb(var(--trips-primary-rgb) / 0.02) 100%
+    rgb(var(--trips-primary-rgb) / 2%) 100%
   );
   max-height: 0;
   overflow: hidden;
@@ -563,7 +563,7 @@ body.light-mode .trips-journal-page .sort-select {
   background: linear-gradient(
     to bottom,
     var(--trips-bg-warm) 0%,
-    rgb(var(--trips-primary-rgb) / 0.05) 100%
+    rgb(var(--trips-primary-rgb) / 5%) 100%
   );
 }
 
@@ -591,7 +591,7 @@ body.light-mode .trips-journal-page .sort-select {
   justify-content: space-between;
   padding: var(--space-md) var(--space-lg);
   border-bottom: 1px solid var(--trips-bg-subtle);
-  background: rgb(var(--trips-primary-rgb) / 0.02);
+  background: rgb(var(--trips-primary-rgb) / 2%);
 }
 
 .filters-header-title {
@@ -676,13 +676,13 @@ body.light-mode .trips-journal-page .sort-select {
 .filter-group input:focus {
   outline: none;
   border-color: var(--trips-primary);
-  box-shadow: 0 0 0 3px rgb(var(--trips-primary-rgb) / 0.1);
+  box-shadow: 0 0 0 3px rgb(var(--trips-primary-rgb) / 10%);
 }
 
 .filter-select.has-value,
 .filter-group input.has-value {
-  border-color: rgb(var(--trips-primary-rgb) / 0.3);
-  background: rgb(var(--trips-primary-rgb) / 0.03);
+  border-color: rgb(var(--trips-primary-rgb) / 30%);
+  background: rgb(var(--trips-primary-rgb) / 3%);
 }
 
 body.light-mode .trips-journal-page .sort-select,
@@ -731,8 +731,8 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
-  background: rgb(var(--trips-primary-rgb) / 0.05);
-  border: 1px dashed rgb(var(--trips-primary-rgb) / 0.2);
+  background: rgb(var(--trips-primary-rgb) / 5%);
+  border: 1px dashed rgb(var(--trips-primary-rgb) / 20%);
   border-radius: var(--radius-md);
   font-size: 0.8125rem;
   color: var(--trips-text-secondary);
@@ -781,7 +781,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   background: var(--trips-primary);
   border-color: var(--trips-primary);
   color: var(--text-on-primary);
-  box-shadow: 0 2px 4px rgb(var(--trips-primary-rgb) / 0.3);
+  box-shadow: 0 2px 4px rgb(var(--trips-primary-rgb) / 30%);
 }
 
 .filter-actions {
@@ -851,8 +851,8 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-xs) var(--space-sm) var(--space-xs) var(--space-md);
-  background: rgb(var(--trips-primary-rgb) / 0.1);
-  border: 1px solid rgb(var(--trips-primary-rgb) / 0.2);
+  background: rgb(var(--trips-primary-rgb) / 10%);
+  border: 1px solid rgb(var(--trips-primary-rgb) / 20%);
   border-radius: var(--radius-pill);
   font-size: 0.875rem;
   color: var(--trips-text-primary);
@@ -860,8 +860,8 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .filter-chip:hover {
-  background: rgb(var(--trips-primary-rgb) / 0.15);
-  border-color: rgb(var(--trips-primary-rgb) / 0.3);
+  background: rgb(var(--trips-primary-rgb) / 15%);
+  border-color: rgb(var(--trips-primary-rgb) / 30%);
 }
 
 .filter-chip button {
@@ -878,7 +878,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .filter-chip button:hover {
-  background: rgb(var(--trips-danger-rgb) / 0.1);
+  background: rgb(var(--trips-danger-rgb) / 10%);
   color: var(--trips-danger);
 }
 
@@ -907,7 +907,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .insight-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-md);
-  border-color: rgb(var(--trips-primary-rgb) / 0.2);
+  border-color: rgb(var(--trips-primary-rgb) / 20%);
 }
 
 .insight-icon {
@@ -1014,12 +1014,12 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .trip-card:hover {
   transform: translateY(-4px) scale(1.01);
   box-shadow: var(--shadow-lg);
-  border-color: rgb(var(--trips-primary-rgb) / 0.2);
+  border-color: rgb(var(--trips-primary-rgb) / 20%);
 }
 
 .trip-card.selected {
   border-color: var(--trips-primary);
-  box-shadow: 0 0 0 3px rgb(var(--trips-primary-rgb) / 0.2);
+  box-shadow: 0 0 0 3px rgb(var(--trips-primary-rgb) / 20%);
 }
 
 .trip-card-checkbox {
@@ -1106,12 +1106,12 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .trip-badge.new {
-  background: rgb(var(--trips-mint-rgb) / 0.15);
+  background: rgb(var(--trips-mint-rgb) / 15%);
   color: var(--trips-mint);
 }
 
 .trip-badge.frequent {
-  background: rgb(var(--trips-gold-rgb) / 0.2);
+  background: rgb(var(--trips-gold-rgb) / 20%);
   color: var(--warning-dark);
 }
 
@@ -1219,7 +1219,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .trip-action-btn.delete:hover {
-  background: rgb(var(--trips-danger-rgb) / 0.1);
+  background: rgb(var(--trips-danger-rgb) / 10%);
   border-color: var(--trips-danger);
   color: var(--trips-danger);
 }
@@ -1494,8 +1494,8 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .bulk-btn.danger {
-  background: rgb(var(--trips-danger-rgb) / 0.1);
-  border-color: rgb(var(--trips-danger-rgb) / 0.3);
+  background: rgb(var(--trips-danger-rgb) / 10%);
+  border-color: rgb(var(--trips-danger-rgb) / 30%);
   color: var(--trips-danger);
 }
 
@@ -1855,7 +1855,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   backdrop-filter: blur(8px);
   box-shadow:
     0 10px 20px rgb(0 0 0 / 35%),
-    0 0 0 1px rgb(var(--marker-rgb) / 0.25);
+    0 0 0 1px rgb(var(--marker-rgb) / 25%);
 }
 
 .trip-route-marker__dot {
@@ -1865,7 +1865,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   background: var(--marker-color);
   border: 2px solid rgb(255 255 255 / 95%);
   box-shadow:
-    0 0 0 6px rgb(var(--marker-rgb) / 0.25),
+    0 0 0 6px rgb(var(--marker-rgb) / 25%),
     0 10px 18px rgb(0 0 0 / 45%);
   position: relative;
 }
@@ -2535,7 +2535,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 #shareModal .share-url-input:focus {
   background: var(--glass-2);
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.1);
+  box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 10%);
   outline: none;
 }
 

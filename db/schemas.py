@@ -9,7 +9,7 @@ documents.
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from db.models import Trip
 
@@ -135,8 +135,37 @@ class GasFillupCreateModel(BaseModel):
     odometer: float | None = None
     latitude: float | None = None
     longitude: float | None = None
-    is_full_tank: bool = True
+    is_full_tank: bool
     missed_previous: bool = False
+
+    model_config = ConfigDict(extra="allow")
+
+
+class GasFillupUpdateModel(BaseModel):
+    """Model for partially updating an existing gas fill-up record."""
+
+    imei: str | None = None
+    fillup_time: datetime | None = None
+    gallons: float | None = None
+    price_per_gallon: float | None = None
+    total_cost: float | None = None
+    odometer: float | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    is_full_tank: bool | None = None
+    missed_previous: bool | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_null_mpg_flags(cls, data: Any) -> Any:
+        """Allow omitted booleans for patch updates, but reject explicit null."""
+        if not isinstance(data, dict):
+            return data
+        for field in ("is_full_tank", "missed_previous"):
+            if field in data and data[field] is None:
+                msg = f"{field} cannot be null"
+                raise ValueError(msg)
+        return data
 
     model_config = ConfigDict(extra="allow")
 

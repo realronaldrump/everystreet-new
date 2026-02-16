@@ -78,3 +78,30 @@ test("updateMissionHistory escapes mission-controlled strings", () => {
     assert.ok(!historyContainer.innerHTML.includes("<script>alert('x')</script>"));
   });
 });
+
+test("updateSavedRoutes escapes area-controlled strings", () => {
+  const historyContainer = createContainer();
+
+  withMockDocument({ "route-history": historyContainer }, () => {
+    const ui = new OptimalRouteUI();
+    ui.updateSavedRoutes(
+      [
+        {
+          id: 'area-1" onclick="boom()"',
+          has_optimal_route: true,
+          display_name: "<img src=x onerror=alert(1)>",
+          optimal_route_generated_at: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+      () => {}
+    );
+
+    assert.ok(
+      historyContainer.innerHTML.includes("&lt;img src=x onerror=alert(1)&gt;")
+    );
+    assert.ok(
+      historyContainer.innerHTML.includes('area-1&quot; onclick=&quot;boom()&quot;')
+    );
+    assert.ok(!historyContainer.innerHTML.includes('<img src=x onerror=alert(1)>'));
+  });
+});

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Query
 
 from core.api import api_route
 from db.models import GasFillup
-from db.schemas import GasFillupCreateModel
+from db.schemas import GasFillupCreateModel, GasFillupUpdateModel
 from gas.services import FillupService
 
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ async def create_gas_fillup(fillup_data: GasFillupCreateModel) -> GasFillup:
 @api_route(logger)
 async def update_gas_fillup(
     fillup_id: str,
-    fillup_data: GasFillupCreateModel,
+    fillup_data: GasFillupUpdateModel,
 ) -> GasFillup:
     """Update a gas fill-up record."""
     # Use exclude_unset=True to know what the user actually sent

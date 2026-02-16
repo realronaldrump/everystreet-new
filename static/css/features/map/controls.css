@@ -443,6 +443,7 @@
 @media (width <= 768px) {
   .control-panel#map-controls {
     --sheet-offset: calc(100% - 60px);
+
     position: fixed;
     bottom: 0;
     left: 0;

@@ -415,7 +415,7 @@ const AppController = {
     // Quick-action street mode buttons (map controls). These dispatch a custom event.
     document.addEventListener("es:streetModeChange", async (e) => {
       const mode = e?.detail?.mode;
-      const shouldHide = !!e?.detail?.shouldHide;
+      const shouldHide = Boolean(e?.detail?.shouldHide);
       if (!mode || !["undriven", "driven", "all"].includes(mode)) {
         return;
       }

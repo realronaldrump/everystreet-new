@@ -1,7 +1,17 @@
 import { swupReady } from "../core/navigation.js";
 
 const pullToRefresh = {
+  initialized: false,
+
   init() {
+    if (this.initialized) {
+      return;
+    }
+    if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+    this.initialized = true;
+
     this.indicator = null;
     this.startY = 0;
     this.pullDistance = 0;
@@ -9,13 +19,17 @@ const pullToRefresh = {
     this.threshold = 80;
     this.maxPull = 140;
 
-    document.addEventListener("touchstart", (event) => this.onStart(event), {
+    this.handleTouchStart = (event) => this.onStart(event);
+    this.handleTouchMove = (event) => this.onMove(event);
+    this.handleTouchEnd = () => this.onEnd();
+
+    document.addEventListener("touchstart", this.handleTouchStart, {
       passive: true,
     });
-    document.addEventListener("touchmove", (event) => this.onMove(event), {
+    document.addEventListener("touchmove", this.handleTouchMove, {
       passive: false,
     });
-    document.addEventListener("touchend", () => this.onEnd(), { passive: true });
+    document.addEventListener("touchend", this.handleTouchEnd, { passive: true });
     swupReady
       .then((swup) => {
         swup.hooks.on("page:view", () => this.reset());
@@ -91,8 +105,10 @@ const pullToRefresh = {
 
     if (shouldRefresh) {
       this.indicator.classList.add("loading");
-      this.indicator.querySelector(".pull-to-refresh-text").textContent =
-        "Refreshing...";
+      const textEl = this.indicator.querySelector(".pull-to-refresh-text");
+      if (textEl) {
+        textEl.textContent = "Refreshing...";
+      }
       swupReady.then((swup) => {
         swup.navigate(window.location.href, {
           cache: { read: false, write: true },
@@ -116,11 +132,5 @@ const pullToRefresh = {
     }
   },
 };
-
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => pullToRefresh.init());
-} else {
-  pullToRefresh.init();
-}
 
 export default pullToRefresh;

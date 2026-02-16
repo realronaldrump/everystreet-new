@@ -639,7 +639,7 @@ const mapCore = {
    * @param {{persistPreference?: boolean}} options - Style change options
    * @returns {Promise<void>}
    */
-  async setStyle(styleType, options = {}) {
+  setStyle(styleType, options = {}) {
     styleChangeQueue = styleChangeQueue
       .catch(() => {})
       .then(() => this._setStyleInternal(styleType, options));

@@ -103,7 +103,7 @@ class VisitsActions {
     if (this.confirmationDialog) {
       confirmed = await this.confirmationDialog.show({
         title: "Delete Place",
-        message: `Are you sure you want to delete the place "<strong>${place.name}</strong>"? This cannot be undone.`,
+        message: `Are you sure you want to delete the place "${place.name}"? This cannot be undone.`,
         confirmText: "Delete",
         confirmButtonClass: "btn-danger",
       });

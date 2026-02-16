@@ -63,6 +63,8 @@ async function initializePage(signal, cleanup) {
 
     // Set current time as default
     setCurrentTime();
+    syncMpgRuleControls();
+    updateMpgReadiness();
 
     const teardown = () => {
       pageSignal = null;
@@ -314,6 +316,7 @@ async function updateLocationAndOdometer() {
     if (odometerDisplay) {
       odometerDisplay.textContent = "Last known: --";
     }
+    updateMpgReadiness();
     return;
   }
 
@@ -407,6 +410,8 @@ async function updateLocationAndOdometer() {
       odometerDisplay.textContent = "Last known: --";
     }
     currentLocation = null;
+  } finally {
+    updateMpgReadiness();
   }
 }
 
@@ -475,6 +480,98 @@ function parseOptionalNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+function getMpgReadinessData(override = null) {
+  const isNoOdo =
+    override?.isNoOdo ?? document.getElementById("odometer-not-recorded").checked;
+  const odometer = override?.odometer ?? parseOptionalNumber(document.getElementById("odometer").value);
+  const gallons = override?.gallons ?? parseOptionalNumber(document.getElementById("gallons").value);
+  const isFullTank =
+    override?.isFullTank ?? document.getElementById("full-tank").checked;
+  const missedPrevious =
+    override?.missedPrevious ?? document.getElementById("missed-previous").checked;
+
+  return {
+    hasGallons: Number.isFinite(gallons) && gallons > 0,
+    hasOdometer: !isNoOdo && Number.isFinite(odometer) && odometer >= 0,
+    isFullTank,
+    missedPrevious,
+  };
+}
+
+function getMpgReadiness(override = null) {
+  const state = getMpgReadinessData(override);
+
+  if (!state.hasGallons) {
+    return {
+      state: "warning",
+      title: "Enter gallons to continue",
+      body: "Gallons are required before this fill-up can be saved.",
+    };
+  }
+
+  if (!state.isFullTank) {
+    return {
+      state: "info",
+      title: "Saved as a partial fill",
+      body: "Costs and gallons will be tracked, but MPG is skipped for partial/top-off fill-ups.",
+    };
+  }
+
+  if (state.missedPrevious) {
+    return {
+      state: "warning",
+      title: "MPG paused for this entry",
+      body: "You marked a missed fill-up, so MPG is intentionally not calculated for accuracy.",
+    };
+  }
+
+  if (!state.hasOdometer) {
+    return {
+      state: "warning",
+      title: "Add an odometer reading",
+      body: "MPG needs an odometer reading on this fill-up.",
+    };
+  }
+
+  return {
+    state: "success",
+    title: "MPG eligible on save",
+    body: "This entry can calculate MPG using your latest full-tank anchor.",
+  };
+}
+
+function syncMpgRuleControls() {
+  const fullTank = document.getElementById("full-tank");
+  const missedPrevious = document.getElementById("missed-previous");
+  const missedLabel = document.getElementById("missed-previous-label");
+  if (!fullTank || !missedPrevious) {
+    return;
+  }
+
+  const disableMissed = !fullTank.checked;
+  if (disableMissed && missedPrevious.checked) {
+    missedPrevious.checked = false;
+  }
+  missedPrevious.disabled = disableMissed;
+  if (missedLabel) {
+    missedLabel.classList.toggle("is-disabled", disableMissed);
+  }
+}
+
+function updateMpgReadiness(override = null) {
+  const container = document.getElementById("mpg-readiness");
+  const title = document.getElementById("mpg-readiness-title");
+  const body = document.getElementById("mpg-readiness-body");
+  if (!container || !title || !body) {
+    return;
+  }
+
+  const readiness = getMpgReadiness(override);
+  container.dataset.state = readiness.state;
+  title.textContent = readiness.title;
+  body.textContent = readiness.body;
+}
+
 /**
  * Set current time in datetime input
  */
@@ -484,6 +581,7 @@ function setCurrentTime() {
   const localTime = new Date(now.getTime() - offset * 60 * 1000);
   const timeString = localTime.toISOString().slice(0, 16);
   document.getElementById("fillup-time").value = timeString;
+  updateMpgReadiness();
 }
 
 /**
@@ -520,12 +618,22 @@ function setupEventListeners(signal) {
   );
 
   // Calculate total cost when price or gallons change
-  document
-    .getElementById("gallons")
-    .addEventListener("input", calculateTotalCost, signal ? { signal } : false);
-  document
-    .getElementById("price-per-gallon")
-    .addEventListener("input", calculateTotalCost, signal ? { signal } : false);
+  document.getElementById("gallons").addEventListener(
+    "input",
+    () => {
+      calculateTotalCost();
+      updateMpgReadiness();
+    },
+    signal ? { signal } : false
+  );
+  document.getElementById("price-per-gallon").addEventListener(
+    "input",
+    () => {
+      calculateTotalCost();
+      updateMpgReadiness();
+    },
+    signal ? { signal } : false
+  );
 
   // Form submission
   document
@@ -550,9 +658,27 @@ function setupEventListeners(signal) {
         odoInput.disabled = false;
         odoInput.placeholder = "Miles";
       }
+      updateMpgReadiness();
     },
     signal ? { signal } : false
   );
+
+  document
+    .getElementById("odometer")
+    .addEventListener("input", updateMpgReadiness, signal ? { signal } : false);
+
+  document.getElementById("full-tank").addEventListener(
+    "change",
+    () => {
+      syncMpgRuleControls();
+      updateMpgReadiness();
+    },
+    signal ? { signal } : false
+  );
+
+  document
+    .getElementById("missed-previous")
+    .addEventListener("change", updateMpgReadiness, signal ? { signal } : false);
 
   // Auto-calc Odometer
   document
@@ -611,6 +737,9 @@ function setupEventListeners(signal) {
       signal ? { signal } : false
     );
   }
+
+  syncMpgRuleControls();
+  updateMpgReadiness();
 }
 
 /**
@@ -659,6 +788,7 @@ async function autoCalcOdometer() {
       showSuccess(
         `Estimated from ${result.method} (Anchor: ${result.anchor_odometer}, Diff: ${result.distance_diff} mi)`
       );
+      updateMpgReadiness();
     } else {
       showError("Could not estimate: No previous/next trusted odometer found.");
     }
@@ -668,6 +798,7 @@ async function autoCalcOdometer() {
     // Restore button
     autoCalcBtn.innerHTML = '<i class="fas fa-magic"></i>';
     autoCalcBtn.disabled = false;
+    updateMpgReadiness();
   }
 }
 
@@ -706,6 +837,13 @@ async function handleFormSubmit(e) {
       is_full_tank: document.getElementById("full-tank").checked,
       missed_previous: document.getElementById("missed-previous").checked,
     };
+    const readinessBeforeSave = getMpgReadiness({
+      isNoOdo,
+      odometer: formData.odometer,
+      gallons: formData.gallons,
+      isFullTank: formData.is_full_tank,
+      missedPrevious: formData.missed_previous,
+    });
 
     // Validate
     if (!formData.imei) {
@@ -754,6 +892,13 @@ async function handleFormSubmit(e) {
       setTimeout(() => {
         mpgDisplay.style.display = "none";
       }, 5000);
+    } else if (readinessBeforeSave.state !== "success") {
+      notificationManager.show(`Saved without MPG: ${readinessBeforeSave.body}`, "info");
+    } else {
+      notificationManager.show(
+        "Saved. MPG will appear once a valid previous full-tank anchor is available.",
+        "info"
+      );
     }
 
     // Reset form
@@ -797,6 +942,7 @@ function resetFormState() {
     "Select a vehicle to see location";
   document.getElementById("odometer-display").textContent = "Last known: --";
   document.getElementById("calculated-mpg").style.display = "none";
+  syncMpgRuleControls();
 
   // Collapse advanced section
   const advancedToggle = document.getElementById("advanced-toggle");
@@ -816,9 +962,11 @@ function resetFormState() {
         marker.remove();
       }
       updateLocationAndOdometer(); // Fetch fresh "now" data
+      updateMpgReadiness();
     }, 0);
   } else {
     setCurrentTime();
+    updateMpgReadiness();
   }
 }
 
@@ -902,6 +1050,7 @@ function createFillupItem(fillup) {
       : "--";
   const pricePerGallon =
     ppg != null && Number.isFinite(ppg) && ppg > 0 ? `$${ppg.toFixed(2)}` : "--";
+  const fillType = fillup.is_full_tank ? "Full" : "Partial";
 
   // Lookup vehicle name
   const vehicle = vehicles.find((v) => v.imei === fillup.imei);
@@ -935,6 +1084,10 @@ function createFillupItem(fillup) {
         <div class="fillup-detail">
           <span class="fillup-detail-label">Odometer</span>
           <span class="fillup-detail-value">${fillup.odometer != null ? `${Math.round(fillup.odometer).toLocaleString()} mi` : "--"}</span>
+        </div>
+        <div class="fillup-detail">
+          <span class="fillup-detail-label">Fill Type</span>
+          <span class="fillup-detail-value">${fillType}</span>
         </div>
       </div>
 
@@ -1007,8 +1160,10 @@ function editFillup(id) {
     odoInput.placeholder = "Miles";
   }
 
-  document.getElementById("full-tank").checked = fillup.is_full_tank !== false;
-  document.getElementById("missed-previous").checked = fillup.missed_previous === true;
+  document.getElementById("full-tank").checked = Boolean(fillup.is_full_tank);
+  document.getElementById("missed-previous").checked = Boolean(fillup.missed_previous);
+  syncMpgRuleControls();
+  updateMpgReadiness();
 
   // Set location state
   currentLocation = {

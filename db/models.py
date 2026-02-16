@@ -702,8 +702,8 @@ class GasFillup(Document):
     odometer: float | None = None
     latitude: float | None = None
     longitude: float | None = None
-    is_full_tank: bool | None = True
-    missed_previous: bool | None = False
+    is_full_tank: bool = True
+    missed_previous: bool = False
 
     # Derived MPG fields (maintained by FillupService).
     previous_odometer: float | None = None

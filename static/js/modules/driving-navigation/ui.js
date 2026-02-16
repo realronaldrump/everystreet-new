@@ -5,6 +5,15 @@
 
 import { LOCATION_SOURCE_LABELS, PROCESSING_STEPS } from "./constants.js";
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export class DrivingNavigationUI {
   /**
    * @param {Object} config - Configuration with element IDs
@@ -238,8 +247,8 @@ export class DrivingNavigationUI {
     if (!this.targetInfo) {
       return;
     }
-    const safeStreetName = streetName || "Unnamed Street";
-    const safeSegmentId = segmentId || "Unknown";
+    const safeStreetName = escapeHtml(streetName || "Unnamed Street");
+    const safeSegmentId = escapeHtml(segmentId || "Unknown");
 
     this.targetInfo.innerHTML = `
       <article class="target-card">

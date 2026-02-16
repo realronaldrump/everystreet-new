@@ -509,8 +509,8 @@
   list-style: none;
   padding: 0;
   margin: 0;
-  overflow: hidden;
-  max-height: 500px;
+  overflow: hidden auto;
+  max-height: min(70vh, calc(100vh - var(--header-height, 4rem) - var(--space-8)));
   transition:
     max-height var(--transition-slow),
     opacity var(--transition-normal);
@@ -528,6 +528,7 @@
 
 .drawer-nav-section-list.collapsed {
   max-height: 0;
+  overflow: hidden;
   opacity: 0;
 }
 

@@ -84,8 +84,9 @@ function initBottomNavInsets({ signal } = {}) {
 /**
  * Initialize collapsible sections in the control panel
  */
-function initCollapsibleSections() {
+function initCollapsibleSections({ signal } = {}) {
   const headers = document.querySelectorAll(".widget-header.collapsible");
+  const eventOptions = signal ? { signal } : false;
 
   headers.forEach((header) => {
     const toggleId = header.dataset.toggle;
@@ -124,16 +125,17 @@ function initCollapsibleSections() {
       }
     };
 
-    header.addEventListener("click", toggleHandler);
+    header.addEventListener("click", toggleHandler, eventOptions);
   });
 }
 
 /**
  * Initialize mobile panel toggle
  */
-function initMobilePanelToggle() {
+function initMobilePanelToggle({ signal } = {}) {
   const toggle = document.getElementById("mobile-panel-toggle");
   const panel = document.getElementById("control-panel");
+  const eventOptions = signal ? { signal } : false;
 
   if (!toggle || !panel) {
     return;
@@ -165,7 +167,7 @@ function initMobilePanelToggle() {
       toggle.setAttribute("aria-expanded", "true");
       localStorage.setItem(storageKey, "visible");
     }
-  });
+  }, eventOptions);
 
   const mapContainer = document.querySelector(".map-container");
   if (mapContainer) {
@@ -178,15 +180,16 @@ function initMobilePanelToggle() {
           localStorage.setItem(storageKey, "hidden");
         }
       }
-    });
+    }, eventOptions);
   }
 }
 
 /**
  * Initialize layer opacity controls
  */
-function initLayerControls() {
+function initLayerControls({ signal } = {}) {
   const layerItems = document.querySelectorAll(".layer-item");
+  const eventOptions = signal ? { signal } : false;
 
   layerItems.forEach((item) => {
     const range = item.querySelector('input[type="range"]');
@@ -195,7 +198,7 @@ function initLayerControls() {
     if (range && valueDisplay) {
       range.addEventListener("input", (e) => {
         valueDisplay.textContent = `${e.target.value}%`;
-      });
+      }, eventOptions);
     }
   });
 }
@@ -215,7 +218,7 @@ function initSmoothScroll() {
 /**
  * Handle responsive layout changes
  */
-function handleResponsiveLayout() {
+function handleResponsiveLayout({ signal } = {}) {
   const panel = document.getElementById("control-panel");
   const toggle = document.getElementById("mobile-panel-toggle");
 
@@ -237,16 +240,20 @@ function handleResponsiveLayout() {
     }
   };
 
-  mediaQuery.addEventListener("change", handleChange);
+  mediaQuery.addEventListener("change", handleChange, signal ? { signal } : false);
   handleChange(mediaQuery);
 }
 
 /**
  * Initialize keyboard shortcuts
  */
-function initKeyboardShortcuts() {
+function initKeyboardShortcuts({ signal } = {}) {
   document.addEventListener("keydown", (e) => {
-    if (e.target.matches("input, select, textarea")) {
+    const { target } = e;
+    if (
+      target instanceof Element &&
+      target.matches("input, select, textarea")
+    ) {
       return;
     }
 
@@ -265,7 +272,7 @@ function initKeyboardShortcuts() {
         }
       }
     }
-  });
+  }, signal ? { signal } : false);
 }
 
 /**
@@ -316,14 +323,17 @@ function switchTab(tabName) {
 /**
  * Initialize tab click handlers and restore persisted tab.
  */
-function initTabNavigation() {
+function initTabNavigation({ signal } = {}) {
   const tabs = document.querySelectorAll(".sidebar-tab");
-  if (!tabs.length) return;
+  const eventOptions = signal ? { signal } : false;
+  if (!tabs.length) {
+    return;
+  }
 
   tabs.forEach((tab) => {
     tab.addEventListener("click", () => {
       switchTab(tab.dataset.tab);
-    });
+    }, eventOptions);
   });
 
   // Restore last active tab
@@ -353,7 +363,9 @@ function initAutoTabSwitch({ signal } = {}) {
    * route-progress-container.
    */
   const isVisible = (el) => {
-    if (!el) return false;
+    if (!el) {
+      return false;
+    }
     // route-progress-container uses display:none in CSS, overridden by .active class
     if (el.id === "route-progress-container") {
       return el.classList.contains("active");
@@ -421,7 +433,9 @@ function initAutoTabSwitch({ signal } = {}) {
   ];
 
   for (const { el, cb } of watchTargets) {
-    if (!el) continue;
+    if (!el) {
+      continue;
+    }
     const obs = new MutationObserver(cb);
     obs.observe(el, {
       attributes: true,
@@ -433,7 +447,9 @@ function initAutoTabSwitch({ signal } = {}) {
   signal?.addEventListener(
     "abort",
     () => {
-      for (const obs of observers) obs.disconnect();
+      for (const obs of observers) {
+        obs.disconnect();
+      }
     },
     { once: true }
   );
@@ -448,10 +464,14 @@ function initAutoTabSwitch({ signal } = {}) {
  */
 function updateModeIndicator() {
   const root = document.querySelector(".coverage-navigator");
-  if (!root) return;
+  if (!root) {
+    return;
+  }
 
   const activeTab = document.querySelector(".sidebar-tab.active");
-  if (!activeTab) return;
+  if (!activeTab) {
+    return;
+  }
 
   const modeMap = {
     plan: "planning",
@@ -470,16 +490,16 @@ function initPage({ signal, cleanup } = {}) {
   initBottomNavInsets({ signal });
 
   // Initialize UI components
-  initCollapsibleSections();
-  initMobilePanelToggle();
-  initLayerControls();
+  initCollapsibleSections({ signal });
+  initMobilePanelToggle({ signal });
+  initLayerControls({ signal });
   initSmoothScroll();
-  handleResponsiveLayout();
-  initKeyboardShortcuts();
+  handleResponsiveLayout({ signal });
+  initKeyboardShortcuts({ signal });
   enhanceAccessibility();
 
   // Initialize tab system
-  initTabNavigation();
+  initTabNavigation({ signal });
   initAutoTabSwitch({ signal });
   updateModeIndicator();
 

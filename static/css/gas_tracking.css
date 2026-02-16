@@ -448,6 +448,12 @@
   margin-top: var(--space-2);
 }
 
+.checkbox-options--stacked {
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: 0;
+}
+
 .checkbox-label {
   display: flex;
   align-items: center;
@@ -469,6 +475,55 @@
   color: var(--text-primary);
 }
 
+.checkbox-label--panel {
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--surface-2);
+  gap: var(--space-3);
+}
+
+.checkbox-label--panel > span {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.checkbox-label--panel .checkbox-meta {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.checkbox-label--panel i {
+  margin-left: auto;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+}
+
+.checkbox-label--panel.warning {
+  border-color: rgb(var(--warning-rgb) / 30%);
+  background: rgb(var(--warning-rgb) / 10%);
+}
+
+.checkbox-label--panel.warning i {
+  color: var(--warning);
+}
+
+.checkbox-label--panel.warning input[type="checkbox"]:disabled + span {
+  opacity: 0.65;
+}
+
+.checkbox-label--panel.is-disabled {
+  opacity: 0.75;
+}
+
+.checkbox-label--panel.is-disabled i {
+  color: var(--text-tertiary);
+}
+
 .warning-option {
   padding: var(--space-3);
   background: rgb(var(--warning-rgb) / 10%);
@@ -484,6 +539,54 @@
   margin-left: var(--space-2);
   color: var(--warning);
   cursor: help;
+}
+
+.mpg-readiness {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.mpg-readiness-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.mpg-readiness-body {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.mpg-readiness[data-state="success"] {
+  border-color: rgb(var(--success-rgb) / 35%);
+  background: rgb(var(--success-rgb) / 10%);
+}
+
+.mpg-readiness[data-state="success"] .mpg-readiness-title {
+  color: var(--success);
+}
+
+.mpg-readiness[data-state="warning"] {
+  border-color: rgb(var(--warning-rgb) / 35%);
+  background: rgb(var(--warning-rgb) / 10%);
+}
+
+.mpg-readiness[data-state="warning"] .mpg-readiness-title {
+  color: var(--warning);
+}
+
+.mpg-readiness[data-state="info"] {
+  border-color: rgb(var(--info-rgb) / 35%);
+  background: rgb(var(--info-rgb) / 10%);
+}
+
+.mpg-readiness[data-state="info"] .mpg-readiness-title {
+  color: var(--info);
 }
 
 /* ===== MPG Result ===== */

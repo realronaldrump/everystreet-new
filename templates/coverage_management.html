@@ -56,6 +56,9 @@ Total Coverage Areas
              data-accent="lime"
              data-bs-toggle="modal"
              data-bs-target="#addAreaModal"
+             role="button"
+             tabindex="0"
+             aria-label="Add a new coverage area"
              style="cursor: pointer">
           <div class="widget-body text-center">
             <i class="fas fa-plus-circle fa-2x mb-2"></i>
@@ -69,7 +72,13 @@ Add New Area
         </div>
       </div>
       <div class="bento-span-6">
-        <div class="widget" data-accent="sky" id="quick-refresh-all" style="cursor: pointer">
+        <div class="widget"
+             data-accent="sky"
+             id="quick-refresh-all"
+             role="button"
+             tabindex="0"
+             aria-label="Refresh coverage data"
+             style="cursor: pointer">
           <div class="widget-body text-center">
             <i class="fas fa-sync-alt fa-2x mb-2"></i>
             <h5 class="card-title mt-2 mb-1">
@@ -90,13 +99,16 @@ Reload coverage statistics
           Coverage Areas
           </h3>
           <div class="d-flex gap-2">
-            <button class="btn btn-sm btn-outline-secondary"
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary"
                     id="refresh-table-btn"
                     data-bs-toggle="tooltip"
+                    aria-label="Refresh coverage table"
                     title="Refresh table">
-              <i class="fas fa-sync-alt"></i>
+              <i class="fas fa-sync-alt" aria-hidden="true"></i>
             </button>
-            <button class="btn btn-sm btn-success"
+            <button type="button"
+                    class="btn btn-sm btn-success"
                     data-bs-toggle="modal"
                     data-bs-target="#addAreaModal">
               <i class="fas fa-plus"></i> Add Area

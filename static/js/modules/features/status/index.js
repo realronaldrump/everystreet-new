@@ -637,6 +637,7 @@ async function restartService(serviceName) {
   const confirmed = await confirmationDialog.show({
     title: "Restart service?",
     message: `Restart <strong>${escapeHtml(serviceName)}</strong>?`,
+    allowHtml: true,
     confirmText: "Restart",
     cancelText: "Cancel",
     confirmButtonClass: "btn-danger",

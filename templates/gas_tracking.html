@@ -122,7 +122,7 @@ Choose your vehicle...
                        id="gallons"
                        name="gallons"
                        step="0.001"
-                       min="0"
+                       min="0.001"
                        placeholder="0.00"
                        required />
               </div>
@@ -159,6 +159,42 @@ Choose your vehicle...
                        placeholder="Auto-calculated"
                        readonly />
               </div>
+            </div>
+
+            <!-- MPG Rules (Always Visible) -->
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-gauge-high"></i> MPG Rules
+              </label>
+              <div class="checkbox-options checkbox-options--stacked">
+                <label class="checkbox-label checkbox-label--panel">
+                  <input type="checkbox" id="full-tank" name="is_full_tank" checked />
+                  <span>
+                    Full tank
+                    <small class="checkbox-meta">Uncheck for partial/top-off fill-ups.</small>
+                  </span>
+                </label>
+                <label class="checkbox-label checkbox-label--panel warning" id="missed-previous-label">
+                  <input type="checkbox" id="missed-previous" />
+                  <span>
+                    Missed a previous fill-up
+                    <small class="checkbox-meta">Use this if you forgot to log an earlier stop.</small>
+                  </span>
+                  <i class="fas fa-info-circle"
+                     data-bs-toggle="tooltip"
+                     title="Checking this prevents bad MPG values when your fuel chain is incomplete."></i>
+                </label>
+              </div>
+              <small class="form-hint">
+                MPG is computed on full-tank entries and can roll up partial fills between two full tanks.
+              </small>
+            </div>
+
+            <div class="mpg-readiness" id="mpg-readiness" data-state="warning">
+              <div class="mpg-readiness-title" id="mpg-readiness-title">MPG needs one more step</div>
+              <p class="mpg-readiness-body" id="mpg-readiness-body">
+                Add a valid odometer reading and keep this as a full tank to calculate MPG.
+              </p>
             </div>
 
             <!-- Collapsible Advanced Section -->
@@ -211,23 +247,8 @@ Location
                       <input type="checkbox" id="odometer-not-recorded" />
                       <span>Odometer not recorded</span>
                     </label>
-                    <label class="checkbox-label">
-                      <input type="checkbox" id="full-tank" name="is_full_tank" checked />
-                      <span>Full tank</span>
-                    </label>
                   </div>
                   <small class="form-hint odometer-hint" id="odometer-display">Last known: --</small>
-                </div>
-
-                <!-- Missed Fill-up Option -->
-                <div class="form-group warning-option">
-                  <label class="checkbox-label">
-                    <input type="checkbox" id="missed-previous" />
-                    <span>Missed a previous fill-up?</span>
-                    <i class="fas fa-info-circle"
-                       data-bs-toggle="tooltip"
-                       title="Check if you forgot to log a fill-up. This helps keep MPG calculations accurate."></i>
-                  </label>
                 </div>
               </div>
             </div>

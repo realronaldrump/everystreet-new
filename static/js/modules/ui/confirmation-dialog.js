@@ -62,6 +62,7 @@ class ConfirmationDialog {
   /**
    * Show a confirmation dialog
    * @param {Object} options
+   * @param {boolean} [options.allowHtml=false] - Render message as HTML when true
    * @returns {Promise<boolean>}
    */
   show(options = {}) {
@@ -78,7 +79,8 @@ class ConfirmationDialog {
       }
 
       const title = options.title || this.config.defaultTitle;
-      const message = options.message || this.config.defaultMessage;
+      const message = options.message ?? this.config.defaultMessage;
+      const allowHtml = options.allowHtml === true;
       const confirmText = options.confirmText || this.config.defaultConfirmText;
       const cancelText = options.cancelText || this.config.defaultCancelText;
       const confirmButtonClass =
@@ -86,7 +88,14 @@ class ConfirmationDialog {
       const showCancel = options.showCancel !== false; // Default true
 
       modalElement.querySelector(".modal-title").textContent = title;
-      modalElement.querySelector(".modal-body").innerHTML = message;
+      const modalBody = modalElement.querySelector(".modal-body");
+      if (modalBody) {
+        if (allowHtml) {
+          modalBody.innerHTML = String(message);
+        } else {
+          modalBody.textContent = String(message);
+        }
+      }
 
       const confirmBtn = modalElement.querySelector(".confirm-btn");
       const cancelBtn = modalElement.querySelector(".cancel-btn");

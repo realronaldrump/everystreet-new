@@ -101,11 +101,14 @@ export class OptimalRouteUI {
         const date = area.optimal_route_generated_at
           ? new Date(area.optimal_route_generated_at).toLocaleDateString()
           : "Unknown";
+        const safeAreaId = this.escapeHtml(area.id || area._id || "");
+        const safeAreaName = this.escapeHtml(area.display_name || "Unknown");
+        const safeDate = this.escapeHtml(date);
         return `
-          <div class="route-history-item" data-area-id="${area.id || area._id}">
+          <div class="route-history-item" data-area-id="${safeAreaId}">
             <div class="route-history-main">
-              <div class="route-name">${area.display_name || "Unknown"}</div>
-              <div class="route-date">${date}</div>
+              <div class="route-name">${safeAreaName}</div>
+              <div class="route-date">${safeDate}</div>
             </div>
             <span class="route-history-chevron" aria-hidden="true">
               <i class="fas fa-chevron-right"></i>
