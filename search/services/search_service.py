@@ -4,8 +4,11 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException
+from shapely.geometry import LineString, MultiLineString, mapping, shape
+from shapely.geometry.base import BaseGeometry
 
 from core.clients.nominatim import GeocodingService
+from core.http.nominatim import NominatimClient
 from db.models import CoverageArea, CoverageState, Street
 
 if TYPE_CHECKING:
@@ -18,6 +21,38 @@ class SearchService:
     """Search helpers for geocoding and street lookup."""
 
     _geo_service = GeocodingService()
+    _nominatim_client = NominatimClient()
+
+    @staticmethod
+    def _to_line_geometry(
+        geometry: BaseGeometry | None,
+    ) -> LineString | MultiLineString | None:
+        if geometry is None or geometry.is_empty:
+            return None
+
+        geom_type = geometry.geom_type
+        if geom_type == "LineString":
+            return geometry
+        if geom_type == "MultiLineString":
+            return geometry
+        if geom_type != "GeometryCollection":
+            return None
+
+        line_parts: list[LineString] = []
+        for part in geometry.geoms:
+            normalized = SearchService._to_line_geometry(part)
+            if normalized is None:
+                continue
+            if normalized.geom_type == "LineString":
+                line_parts.append(normalized)
+            elif normalized.geom_type == "MultiLineString":
+                line_parts.extend(list(normalized.geoms))
+
+        if not line_parts:
+            return None
+        if len(line_parts) == 1:
+            return line_parts[0]
+        return MultiLineString([list(line.coords) for line in line_parts])
 
     @staticmethod
     async def geocode_search(
@@ -132,6 +167,92 @@ class SearchService:
             location_name,
         )
         return features
+
+    @staticmethod
+    async def resolve_street_geometry(
+        osm_id: int | str,
+        osm_type: str,
+        location_id: PydanticObjectId | None = None,
+        clip_to_area: bool = True,
+    ) -> dict[str, Any]:
+        clipped = False
+
+        try:
+            lookup_results = await SearchService._nominatim_client.lookup_raw(
+                osm_id=osm_id,
+                osm_type=osm_type,
+                polygon_geojson=True,
+                addressdetails=True,
+            )
+        except Exception:
+            logger.warning(
+                "Street geometry lookup failed for osm_id=%s osm_type=%s",
+                osm_id,
+                osm_type,
+                exc_info=True,
+            )
+            return {"feature": None, "available": False, "clipped": False}
+
+        if not lookup_results:
+            return {"feature": None, "available": False, "clipped": False}
+
+        raw_geometry = lookup_results[0].get("geojson")
+        if not isinstance(raw_geometry, dict):
+            return {"feature": None, "available": False, "clipped": False}
+
+        try:
+            line_geometry = SearchService._to_line_geometry(shape(raw_geometry))
+        except Exception:
+            logger.warning(
+                "Invalid geometry payload from Nominatim for osm_id=%s osm_type=%s",
+                osm_id,
+                osm_type,
+                exc_info=True,
+            )
+            return {"feature": None, "available": False, "clipped": False}
+
+        if line_geometry is None:
+            return {"feature": None, "available": False, "clipped": False}
+
+        if location_id and clip_to_area:
+            area = await CoverageArea.get(location_id)
+            boundary = area.boundary if area else None
+            if isinstance(boundary, dict) and boundary:
+                boundary_geojson = (
+                    boundary.get("geometry")
+                    if str(boundary.get("type")).lower() == "feature"
+                    else boundary
+                )
+                try:
+                    if isinstance(boundary_geojson, dict):
+                        clipped_geometry = line_geometry.intersection(shape(boundary_geojson))
+                        line_geometry = SearchService._to_line_geometry(clipped_geometry)
+                        clipped = True
+                except Exception:
+                    logger.warning(
+                        "Failed to clip street geometry to area boundary for location_id=%s",
+                        location_id,
+                        exc_info=True,
+                    )
+
+        if line_geometry is None:
+            return {"feature": None, "available": False, "clipped": clipped}
+
+        try:
+            osm_id_value = int(osm_id)
+        except (TypeError, ValueError):
+            osm_id_value = None
+
+        feature = {
+            "type": "Feature",
+            "geometry": mapping(line_geometry),
+            "properties": {
+                "osm_id": osm_id_value,
+                "osm_type": str(osm_type).lower(),
+                "source": "nominatim_lookup",
+            },
+        }
+        return {"feature": feature, "available": True, "clipped": clipped}
 
 
 __all__ = ["SearchService"]

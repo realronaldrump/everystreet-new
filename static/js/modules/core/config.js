@@ -96,6 +96,7 @@ export const CONFIG = {
     // Search endpoints
     searchStreets: "/api/search/streets",
     searchGeocode: "/api/search/geocode",
+    searchStreetGeometry: "/api/search/street-geometry",
 
     // Vehicle endpoints
     vehicles: "/api/vehicles",

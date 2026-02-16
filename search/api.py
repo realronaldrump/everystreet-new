@@ -6,7 +6,7 @@ hosted Nominatim via a centralized GeocodingService.
 """
 
 import logging
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query
@@ -96,3 +96,42 @@ async def search_streets(
     except Exception as exc:
         logger.exception("Error in search_streets")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.get("/street-geometry", response_model=dict[str, Any])
+@api_route(logger)
+async def resolve_street_geometry(
+    osm_id: Annotated[int, Query(description="OSM feature ID for selected search result")],
+    osm_type: Annotated[
+        Literal["node", "way", "relation"],
+        Query(description="OSM feature type"),
+    ],
+    location_id: Annotated[
+        PydanticObjectId | None,
+        Query(description="Optional coverage area ID to clip geometry to"),
+    ] = None,
+    clip_to_area: Annotated[
+        bool,
+        Query(description="Clip result to selected area boundary when available"),
+    ] = True,
+):
+    """
+    Resolve line geometry for a street-like geocoding result by OSM identity.
+
+    Returns a GeoJSON feature when line geometry is available, otherwise
+    `available=false` with `feature=null`.
+    """
+    try:
+        return await SearchService.resolve_street_geometry(
+            osm_id=osm_id,
+            osm_type=osm_type,
+            location_id=location_id,
+            clip_to_area=clip_to_area,
+        )
+    except Exception:
+        logger.exception(
+            "Error resolving street geometry for osm_id=%s osm_type=%s",
+            osm_id,
+            osm_type,
+        )
+        return {"feature": None, "available": False, "clipped": False}

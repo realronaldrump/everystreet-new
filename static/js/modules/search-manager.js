@@ -21,6 +21,7 @@ const searchManager = {
   highlightLayerId: "search-highlight-layer",
   highlightSourceId: "search-highlight-source",
   searchMarkerId: null,
+  streetGeometryCache: new Map(),
   currentSearchId: 0, // Track search requests to handle race conditions
 
   initialize() {
@@ -263,6 +264,51 @@ const searchManager = {
     }
   },
 
+  _getStreetGeometryCacheKey(result, locationId) {
+    const osmId = result?.osm_id;
+    const osmType = String(result?.osm_type || "")
+      .trim()
+      .toLowerCase();
+    if (!osmId || !["node", "way", "relation"].includes(osmType)) {
+      return null;
+    }
+    return `${osmType}:${osmId}:${locationId || "none"}`;
+  },
+
+  async fetchStreetGeometry(result, locationId) {
+    const cacheKey = this._getStreetGeometryCacheKey(result, locationId);
+    if (!cacheKey) {
+      return null;
+    }
+
+    if (this.streetGeometryCache.has(cacheKey)) {
+      return this.streetGeometryCache.get(cacheKey);
+    }
+
+    try {
+      const osmType = String(result.osm_type).trim().toLowerCase();
+      let url =
+        `${CONFIG.API.searchStreetGeometry}?osm_id=${encodeURIComponent(result.osm_id)}` +
+        `&osm_type=${encodeURIComponent(osmType)}&clip_to_area=true`;
+      if (locationId) {
+        url += `&location_id=${encodeURIComponent(locationId)}`;
+      }
+
+      const controller = state.createAbortController("streetGeometry");
+      const response = await apiClient.get(url, { signal: controller.signal });
+      const cachedValue =
+        response?.available === true && response?.feature?.geometry ? response : null;
+      this.streetGeometryCache.set(cacheKey, cachedValue);
+      return cachedValue;
+    } catch (error) {
+      if (error.name === "AbortError") {
+        return null;
+      }
+      console.warn("Street geometry lookup failed:", error);
+      return null;
+    }
+  },
+
   displayResults(results) {
     this.searchResults.innerHTML = "";
 
@@ -393,8 +439,22 @@ const searchManager = {
     this.hideResults();
     this.searchInput.value = result.name;
 
-    if (result.type === "street" && result.geometry) {
-      await this.highlightStreet(result);
+    if (result.type === "street") {
+      if (result.geometry) {
+        await this.highlightStreet(result);
+      } else {
+        const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+        const resolved = await this.fetchStreetGeometry(result, selectedLocationId);
+        if (resolved?.feature?.geometry) {
+          await this.highlightStreet({
+            ...result,
+            geometry: resolved.feature.geometry,
+            feature: resolved.feature,
+          });
+        } else if (result.center) {
+          this.panToLocation(result, { showNotification: false });
+        }
+      }
     } else if (result.center) {
       this.panToLocation(result);
     }
@@ -481,7 +541,7 @@ const searchManager = {
     }
   },
 
-  panToLocation(result) {
+  panToLocation(result, { showNotification = true } = {}) {
     if (!state.map || !state.mapInitialized || !result.center) {
       return;
     }
@@ -526,11 +586,13 @@ const searchManager = {
       state.map.flyTo({ center: [lng, lat], zoom: 14, duration: 1000 });
     }
 
-    notificationManager.show(
-      `Navigated to: ${escapeHtml(result.name)}`,
-      "success",
-      3000
-    );
+    if (showNotification) {
+      notificationManager.show(
+        `Navigated to: ${escapeHtml(result.name)}`,
+        "success",
+        3000
+      );
+    }
   },
 
   clearHighlight() {
@@ -558,6 +620,7 @@ const searchManager = {
     this.hideClearButton();
     this.currentResults = [];
     state.cancelRequest("search");
+    state.cancelRequest("streetGeometry");
   },
 
   showLoading() {
