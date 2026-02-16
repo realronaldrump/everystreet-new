@@ -102,12 +102,16 @@
   left: 20px;
   z-index: var(--z-drawer);
   background: var(--surface-glass);
-  color: var(--text-on-dark);
+  color: var(--text-primary);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-pill);
   box-shadow: var(--shadow-lg);
   backdrop-filter: blur(var(--blur-subtle));
   border: 1px solid var(--glass-border-medium);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: min(420px, calc(100vw - 40px));
   cursor: pointer;
   transition: var(--transition-fast);
   animation: slideInUp 0.3s ease-out;
@@ -120,11 +124,21 @@
 }
 
 .minimized-progress-badge .minimized-location-name {
-  max-width: 150px;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: clamp(14rem, 26vw, 24rem);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 500;
+  color: var(--text-primary);
+}
+
+.minimized-progress-badge .minimized-progress-percent {
+  flex: 0 0 auto;
+  margin-left: var(--space-1);
+  color: var(--text-secondary) !important;
+  font-weight: var(--font-weight-semibold);
 }
 
 .minimized-progress-badge .fa-cog {
