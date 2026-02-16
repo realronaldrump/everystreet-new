@@ -40,7 +40,6 @@ function initBottomNavInsets({ signal } = {}) {
     const offset = Math.max(0, navHeight - safeArea);
 
     root.style.setProperty("--bottom-nav-height", `${navHeight}px`);
-    // Offset is nav height minus safe-area; CSS adds env(safe-area-inset-bottom) itself.
     root.style.setProperty("--bottom-nav-offset", `${Math.round(offset)}px`);
   };
 
@@ -51,12 +50,10 @@ function initBottomNavInsets({ signal } = {}) {
     rafId = requestAnimationFrame(apply);
   };
 
-  // Initial measure.
   schedule();
 
   window.addEventListener("resize", schedule, { passive: true, signal });
   if (window.visualViewport) {
-    // Address bar show/hide can change the viewport without a full window resize.
     window.visualViewport.addEventListener("resize", schedule, {
       passive: true,
       signal,
@@ -67,7 +64,6 @@ function initBottomNavInsets({ signal } = {}) {
     });
   }
 
-  // React to nav show/hide transitions or class toggles.
   const observer = new MutationObserver(schedule);
   observer.observe(bottomNav, {
     attributes: true,
@@ -86,21 +82,10 @@ function initBottomNavInsets({ signal } = {}) {
 }
 
 /**
- * Sections that should start collapsed on mobile to reduce scroll depth.
- * Only applies if the user has no saved preference.
- */
-const MOBILE_DEFAULT_COLLAPSED = new Set([
-  "section-planner",
-  "section-saved",
-  "section-results",
-]);
-
-/**
  * Initialize collapsible sections in the control panel
  */
 function initCollapsibleSections() {
   const headers = document.querySelectorAll(".widget-header.collapsible");
-  const isMobile = window.innerWidth < 1024;
 
   headers.forEach((header) => {
     const toggleId = header.dataset.toggle;
@@ -111,20 +96,14 @@ function initCollapsibleSections() {
       return;
     }
 
-    // Initialize state from localStorage, or use mobile defaults
+    // Initialize state from localStorage
     const saved = localStorage.getItem(`coverage-navigator-${toggleId}`);
-    const isCollapsed =
-      saved === "collapsed" ||
-      (saved === null && isMobile && MOBILE_DEFAULT_COLLAPSED.has(toggleId));
-
-    if (isCollapsed) {
+    if (saved === "collapsed") {
       content.classList.add("is-collapsed");
       collapseBtn.setAttribute("aria-expanded", "false");
     }
 
-    // Click handler for both header and button
     const toggleHandler = (e) => {
-      // Don't toggle if clicking on interactive elements (except collapse button)
       const isFormControl = e.target.closest(".form-switch, .form-check-input");
       const inHeaderActions = e.target.closest(".header-actions");
       const isCollapseButton = e.target.closest(".btn-collapse");
@@ -162,7 +141,6 @@ function initMobilePanelToggle() {
 
   const storageKey = "coverage-navigator-mobile-panel";
 
-  // Restore last state on mobile to prioritize map visibility.
   if (window.innerWidth < 1024) {
     const saved = localStorage.getItem(storageKey);
     if (saved === "hidden") {
@@ -172,7 +150,6 @@ function initMobilePanelToggle() {
     }
   }
 
-  // Check initial state
   const isPanelVisible = !panel.classList.contains("is-hidden");
   toggle.setAttribute("aria-expanded", isPanelVisible.toString());
 
@@ -190,11 +167,9 @@ function initMobilePanelToggle() {
     }
   });
 
-  // Auto-hide panel on mobile when clicking map
   const mapContainer = document.querySelector(".map-container");
   if (mapContainer) {
     mapContainer.addEventListener("click", (e) => {
-      // Only on mobile
       if (window.innerWidth < 1024) {
         const isExpanded = toggle.getAttribute("aria-expanded") === "true";
         if (isExpanded && !e.target.closest(".map-legend")) {
@@ -234,7 +209,6 @@ function initSmoothScroll() {
     return;
   }
 
-  // Add smooth scroll behavior
   panel.style.scrollBehavior = "smooth";
 }
 
@@ -253,11 +227,9 @@ function handleResponsiveLayout() {
 
   const handleChange = (e) => {
     if (e.matches) {
-      // Desktop: Always show panel
       panel.classList.remove("is-hidden");
       panel.style.transform = "";
     } else {
-      // Mobile: Check current state
       const isExpanded = toggle.getAttribute("aria-expanded") === "true";
       if (!isExpanded) {
         panel.classList.add("is-hidden");
@@ -266,7 +238,7 @@ function handleResponsiveLayout() {
   };
 
   mediaQuery.addEventListener("change", handleChange);
-  handleChange(mediaQuery); // Initial check
+  handleChange(mediaQuery);
 }
 
 /**
@@ -274,12 +246,10 @@ function handleResponsiveLayout() {
  */
 function initKeyboardShortcuts() {
   document.addEventListener("keydown", (e) => {
-    // Only handle shortcuts when not in input fields
     if (e.target.matches("input, select, textarea")) {
       return;
     }
 
-    // ESC to toggle panel on mobile
     if (e.key === "Escape") {
       const toggle = document.getElementById("mobile-panel-toggle");
       const panel = document.getElementById("control-panel");
@@ -302,20 +272,195 @@ function initKeyboardShortcuts() {
  * Enhance accessibility attributes
  */
 function enhanceAccessibility() {
-  // Add aria-live regions for dynamic content
   const statusMessage = document.getElementById("status-message");
   if (statusMessage) {
     statusMessage.setAttribute("aria-live", "polite");
     statusMessage.setAttribute("aria-atomic", "true");
   }
 
-  // Ensure all interactive elements have proper focus states
   const buttons = document.querySelectorAll(".btn-action, .btn-generate");
   buttons.forEach((btn) => {
     if (!btn.hasAttribute("tabindex")) {
       btn.setAttribute("tabindex", "0");
     }
   });
+}
+
+/* ==========================================================================
+   Tab Navigation System
+   ========================================================================== */
+
+const TAB_STORAGE_KEY = "coverage-navigator-active-tab";
+
+/**
+ * Switch to a tab by name, updating ARIA state and panel visibility.
+ */
+function switchTab(tabName) {
+  const tabs = document.querySelectorAll(".sidebar-tab");
+  const panels = document.querySelectorAll(".tab-panel");
+
+  tabs.forEach((tab) => {
+    const isActive = tab.dataset.tab === tabName;
+    tab.classList.toggle("active", isActive);
+    tab.setAttribute("aria-selected", isActive.toString());
+  });
+
+  panels.forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.tab === tabName);
+  });
+
+  localStorage.setItem(TAB_STORAGE_KEY, tabName);
+  updateModeIndicator();
+}
+
+/**
+ * Initialize tab click handlers and restore persisted tab.
+ */
+function initTabNavigation() {
+  const tabs = document.querySelectorAll(".sidebar-tab");
+  if (!tabs.length) return;
+
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      switchTab(tab.dataset.tab);
+    });
+  });
+
+  // Restore last active tab
+  const saved = localStorage.getItem(TAB_STORAGE_KEY);
+  if (saved && document.querySelector(`.sidebar-tab[data-tab="${saved}"]`)) {
+    switchTab(saved);
+  }
+}
+
+/**
+ * Watch for visibility changes on status/results elements and auto-switch tabs.
+ * Uses MutationObservers on style and class attributes.
+ */
+function initAutoTabSwitch({ signal } = {}) {
+  const progressSection = document.getElementById("progress-section");
+  const routeProgressContainer = document.getElementById(
+    "route-progress-container"
+  );
+  const resultsSection = document.getElementById("results-section");
+  const errorSection = document.getElementById("error-section");
+
+  const observers = [];
+
+  /**
+   * Returns true if the element is visible (not display:none and not hidden by
+   * class). Accounts for both inline style and the `.active` class on
+   * route-progress-container.
+   */
+  const isVisible = (el) => {
+    if (!el) return false;
+    // route-progress-container uses display:none in CSS, overridden by .active class
+    if (el.id === "route-progress-container") {
+      return el.classList.contains("active");
+    }
+    return el.style.display !== "none";
+  };
+
+  const checkStatusActivity = () => {
+    const hasActivity =
+      isVisible(progressSection) ||
+      isVisible(routeProgressContainer) ||
+      isVisible(errorSection);
+
+    const statusTab = document.querySelector('.sidebar-tab[data-tab="status"]');
+    if (statusTab) {
+      if (hasActivity) {
+        statusTab.setAttribute("data-has-activity", "");
+      } else {
+        statusTab.removeAttribute("data-has-activity");
+      }
+    }
+
+    // Hide/show the empty state in the Status tab
+    const emptyState = document.getElementById("status-empty-state");
+    if (emptyState) {
+      emptyState.style.display = hasActivity ? "none" : "";
+    }
+  };
+
+  const checkResultsActivity = () => {
+    const hasResults = isVisible(resultsSection);
+
+    // Hide/show the empty state in the Results tab
+    const emptyState = document.getElementById("results-empty-state");
+    if (emptyState) {
+      emptyState.style.display = hasResults ? "none" : "";
+    }
+  };
+
+  // Auto-switch to Status when processing starts
+  const onStatusVisible = () => {
+    if (
+      isVisible(progressSection) ||
+      isVisible(routeProgressContainer) ||
+      isVisible(errorSection)
+    ) {
+      switchTab("status");
+    }
+    checkStatusActivity();
+  };
+
+  // Auto-switch to Results when results appear
+  const onResultsVisible = () => {
+    if (isVisible(resultsSection)) {
+      switchTab("results");
+    }
+    checkResultsActivity();
+  };
+
+  const watchTargets = [
+    { el: progressSection, cb: onStatusVisible },
+    { el: routeProgressContainer, cb: onStatusVisible },
+    { el: errorSection, cb: onStatusVisible },
+    { el: resultsSection, cb: onResultsVisible },
+  ];
+
+  for (const { el, cb } of watchTargets) {
+    if (!el) continue;
+    const obs = new MutationObserver(cb);
+    obs.observe(el, {
+      attributes: true,
+      attributeFilter: ["style", "class"],
+    });
+    observers.push(obs);
+  }
+
+  signal?.addEventListener(
+    "abort",
+    () => {
+      for (const obs of observers) obs.disconnect();
+    },
+    { once: true }
+  );
+
+  // Initial check
+  checkStatusActivity();
+  checkResultsActivity();
+}
+
+/**
+ * Set data-mode on the root element based on current app state.
+ */
+function updateModeIndicator() {
+  const root = document.querySelector(".coverage-navigator");
+  if (!root) return;
+
+  const activeTab = document.querySelector(".sidebar-tab.active");
+  if (!activeTab) return;
+
+  const modeMap = {
+    plan: "planning",
+    navigate: "navigating",
+    status: "processing",
+    results: "results",
+  };
+
+  root.dataset.mode = modeMap[activeTab.dataset.tab] || "planning";
 }
 
 /**
@@ -332,6 +477,11 @@ function initPage({ signal, cleanup } = {}) {
   handleResponsiveLayout();
   initKeyboardShortcuts();
   enhanceAccessibility();
+
+  // Initialize tab system
+  initTabNavigation();
+  initAutoTabSwitch({ signal });
+  updateModeIndicator();
 
   // Initialize the main coverage navigator functionality
   initCoverageNavigatorPage({ cleanup });

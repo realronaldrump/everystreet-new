@@ -42,14 +42,14 @@
 /* Mobile-first: Stack layout by default */
 @media (width >= 1024px) {
   .coverage-navigator {
-    grid-template-columns: minmax(340px, 400px) 1fr;
+    grid-template-columns: minmax(360px, 440px) 1fr;
     grid-template-rows: 1fr;
   }
 }
 
 @media (width >= 1280px) {
   .coverage-navigator {
-    grid-template-columns: minmax(380px, 420px) 1fr;
+    grid-template-columns: minmax(400px, 460px) 1fr;
   }
 }
 
@@ -225,18 +225,202 @@
   box-shadow: var(--shadow-md);
 }
 
-.coverage-navigator .widget.is-compact {
+/* ==========================================================================
+   Sidebar Header & Tab Navigation
+   ========================================================================== */
+
+.coverage-navigator .sidebar-header {
+  padding: var(--space-3) var(--space-4) 0;
+  flex-shrink: 0;
+}
+
+.coverage-navigator .sidebar-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+.coverage-navigator .sidebar-title i {
+  font-size: 0.875rem;
+  opacity: 0.7;
+}
+
+.coverage-navigator .sidebar-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  padding: var(--space-2) var(--space-4);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-0);
+  flex-shrink: 0;
+}
+
+.coverage-navigator .sidebar-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.25rem;
   background: transparent;
   border: none;
-  box-shadow: none;
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+  position: relative;
+  min-height: 44px;
 }
 
-.coverage-navigator .widget.is-compact .widget-header {
-  padding: 0;
+.coverage-navigator .sidebar-tab i {
+  font-size: 0.875rem;
 }
 
-.coverage-navigator .widget.is-compact .widget-body {
-  padding: var(--space-2) 0 0 0;
+.coverage-navigator .sidebar-tab:hover {
+  color: var(--text-secondary);
+  background: var(--surface-2);
+}
+
+.coverage-navigator .sidebar-tab.active {
+  color: var(--primary);
+  background: rgb(var(--primary-rgb) / 8%);
+  font-weight: 600;
+}
+
+.coverage-navigator .sidebar-tab.active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: var(--primary);
+  border-radius: 1px;
+}
+
+.coverage-navigator .sidebar-tab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Status badge (pulsing dot) on the Status tab */
+.coverage-navigator .sidebar-tab[data-has-activity]::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: calc(50% - 16px);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warning);
+  box-shadow: 0 0 6px rgb(var(--warning-rgb) / 60%);
+  animation: status-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+/* Tab Panels */
+.coverage-navigator .tab-panel {
+  display: none;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.coverage-navigator .tab-panel.active {
+  display: flex;
+}
+
+/* Tab Empty States */
+.coverage-navigator .tab-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-8) var(--space-4);
+  gap: var(--space-3);
+}
+
+.coverage-navigator .tab-empty-icon {
+  font-size: 2.5rem;
+  color: var(--text-tertiary);
+  opacity: 0.35;
+}
+
+.coverage-navigator .tab-empty-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.coverage-navigator .tab-empty-hint {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  max-width: 240px;
+  line-height: 1.5;
+}
+
+/* Hide empty states when sibling widgets are visible */
+.coverage-navigator .tab-panel .widget[style*="display: block"] ~ .tab-empty-state,
+.coverage-navigator .tab-panel .widget[style*="display: flex"] ~ .tab-empty-state,
+.coverage-navigator .tab-panel .widget.active ~ .tab-empty-state {
+  display: none;
+}
+
+/* Mode indicator border on sidebar */
+.coverage-navigator[data-mode="planning"] .control-panel {
+  border-right-color: var(--primary);
+}
+
+.coverage-navigator[data-mode="navigating"] .control-panel {
+  border-right-color: var(--info);
+}
+
+.coverage-navigator[data-mode="processing"] .control-panel {
+  border-right-color: var(--warning);
+}
+
+.coverage-navigator[data-mode="results"] .control-panel {
+  border-right-color: var(--success);
+}
+
+/* Tabular numbers for stat values */
+.coverage-navigator .stat-value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Mobile tab bar: icon-only below 480px */
+@media (width <= 480px) {
+  .coverage-navigator .sidebar-tab .tab-label {
+    display: none;
+  }
+
+  .coverage-navigator .sidebar-tab {
+    padding: 0.625rem 0.25rem;
+  }
+
+  .coverage-navigator .sidebar-tab i {
+    font-size: 1rem;
+  }
+
+  .coverage-navigator .sidebar-header {
+    padding-top: 0;
+  }
+
+  .coverage-navigator .sidebar-title {
+    font-size: 0.875rem;
+  }
 }
 
 /* Widget Header with Collapsible Support */
@@ -1518,11 +1702,11 @@
 
 @media (width >= 1024px) {
   .coverage-navigator .map-container {
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     margin: var(--space-3);
     margin-left: 0;
-    border: 1px solid var(--border-color);
-    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--divider-color);
+    box-shadow: var(--shadow-md);
     min-height: 0;
   }
 }
@@ -1988,11 +2172,6 @@
     gap: var(--space-2);
   }
 
-  /* Hide the descriptive header widget on small screens to save space */
-  .coverage-navigator .widget.is-compact {
-    display: none;
-  }
-
   .coverage-navigator .widget-body {
     padding: var(--space-3);
   }
@@ -2070,7 +2249,8 @@
   .coverage-navigator .map-scanner-overlay::before,
   .coverage-navigator .map-scanner-overlay::after,
   .coverage-navigator .hud-dot,
-  .coverage-navigator .live-badge {
+  .coverage-navigator .live-badge,
+  .coverage-navigator .sidebar-tab[data-has-activity]::before {
     animation: none;
   }
 
@@ -2082,12 +2262,14 @@
     transition: none;
   }
 
-  .coverage-navigator .collapsible-content {
+  .coverage-navigator .collapsible-content,
+  .coverage-navigator .sidebar-tab {
     transition: none;
   }
 }
 
 /* Focus styles for accessibility */
+.coverage-navigator .sidebar-tab:focus-visible,
 .coverage-navigator .btn-action:focus-visible,
 .coverage-navigator .btn-generate:focus-visible,
 .coverage-navigator .btn-collapse:focus-visible,
