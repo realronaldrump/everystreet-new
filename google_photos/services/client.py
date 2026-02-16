@@ -45,21 +45,31 @@ def _as_float(value: Any) -> float | None:
 def normalize_picker_media_item(media_item: dict[str, Any]) -> dict[str, Any]:
     """Normalize a picker media item payload to a stable app shape."""
     metadata = media_item.get("mediaMetadata") or {}
-    creation_time = metadata.get("creationTime") or media_item.get("creationTime")
+    creation_time = (
+        metadata.get("creationTime")
+        or media_item.get("creationTime")
+        or media_item.get("capture_time")
+    )
     location = metadata.get("location") or media_item.get("location") or {}
+    lat = _as_float(location.get("latitude"))
+    lon = _as_float(location.get("longitude"))
+    if lat is None:
+        lat = _as_float(media_item.get("lat"))
+    if lon is None:
+        lon = _as_float(media_item.get("lon"))
     width = metadata.get("width") or media_item.get("width")
     height = metadata.get("height") or media_item.get("height")
 
     return {
         "id": media_item.get("id"),
-        "mime_type": media_item.get("mimeType"),
-        "file_name": media_item.get("filename"),
+        "mime_type": media_item.get("mimeType") or media_item.get("mime_type"),
+        "file_name": media_item.get("filename") or media_item.get("file_name"),
         "capture_time": parse_timestamp(creation_time),
-        "lat": _as_float(location.get("latitude")),
-        "lon": _as_float(location.get("longitude")),
+        "lat": lat,
+        "lon": lon,
         "width": int(width) if str(width).isdigit() else None,
         "height": int(height) if str(height).isdigit() else None,
-        "base_url": media_item.get("baseUrl"),
+        "base_url": media_item.get("baseUrl") or media_item.get("base_url"),
     }
 
 
@@ -236,4 +246,3 @@ __all__ = [
     "GooglePhotosClient",
     "normalize_picker_media_item",
 ]
-

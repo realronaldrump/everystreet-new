@@ -105,6 +105,7 @@ class GooglePhotosOAuth:
         redirect_uri: str,
         state: str,
         request_postcard_scopes: bool = False,
+        force_consent: bool = False,
     ) -> str:
         scopes = [GOOGLE_PHOTOS_SCOPE_PICKER_READONLY]
         if request_postcard_scopes:
@@ -122,10 +123,15 @@ class GooglePhotosOAuth:
             "scope": " ".join(scopes),
             "access_type": "offline",
             "include_granted_scopes": "true",
-            "prompt": "consent",
             "state": state,
         }
+        if force_consent:
+            params["prompt"] = "consent"
         return f"{GOOGLE_OAUTH_AUTHORIZE_URL}?{urlencode(params)}"
+
+    @staticmethod
+    def scopes_cover(granted_scopes: Iterable[str], required_scopes: Iterable[str]) -> bool:
+        return _scopes_cover(granted_scopes, required_scopes)
 
     @staticmethod
     async def exchange_authorization_code(

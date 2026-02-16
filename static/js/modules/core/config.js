@@ -79,6 +79,7 @@ export const CONFIG = {
       `/api/actions/trips/sync/history_import/${jobId}`,
     tripMemoryAtlas: (id) => `/api/trips/${id}/memory-atlas`,
     tripMemoryAtlasAttach: (id) => `/api/trips/${id}/memory-atlas/attach`,
+    tripMemoryAtlasAutoAssign: "/api/trips/memory-atlas/auto-assign",
     tripMemoryAtlasPostcard: (id) => `/api/trips/${id}/memory-atlas/postcard`,
     tripMemoryAtlasMoment: (id, momentId) =>
       `/api/trips/${id}/memory-atlas/moments/${momentId}`,

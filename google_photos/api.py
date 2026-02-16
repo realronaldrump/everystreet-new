@@ -26,6 +26,8 @@ from google_photos.services.credentials import (
     update_google_photos_credentials,
 )
 from google_photos.services.oauth import (
+    GOOGLE_PHOTOS_SCOPE_APPENDONLY,
+    GOOGLE_PHOTOS_SCOPE_EDIT_APPCREATED,
     GOOGLE_PHOTOS_SCOPE_PICKER_READONLY,
     GooglePhotosOAuth,
 )
@@ -143,19 +145,38 @@ async def google_photos_status() -> dict[str, Any]:
     credentials = await get_google_photos_credentials()
     expires_at = float(credentials.get("expires_at") or 0)
     now = time.time()
+    access_token = (credentials.get("access_token") or "").strip()
+    refresh_token = (credentials.get("refresh_token") or "").strip()
+    granted_scopes = list(credentials.get("granted_scopes") or [])
+    configured = bool(
+        credentials.get("client_id")
+        and credentials.get("client_secret")
+        and credentials.get("redirect_uri")
+    )
     token_fresh = expires_at > now + 120
+    connected = configured and bool(refresh_token or access_token)
+    picker_ready = GooglePhotosOAuth.scopes_cover(
+        granted_scopes,
+        [GOOGLE_PHOTOS_SCOPE_PICKER_READONLY],
+    )
+    postcard_export_ready = GooglePhotosOAuth.scopes_cover(
+        granted_scopes,
+        [
+            GOOGLE_PHOTOS_SCOPE_APPENDONLY,
+            GOOGLE_PHOTOS_SCOPE_EDIT_APPCREATED,
+        ],
+    )
 
     return {
         "status": "success",
-        "connected": bool(credentials.get("access_token") and token_fresh),
-        "configured": bool(
-            credentials.get("client_id")
-            and credentials.get("client_secret")
-            and credentials.get("redirect_uri")
-        ),
+        "connected": connected,
+        "configured": configured,
+        "needs_reconnect": configured and not connected,
         "expires_at": credentials.get("expires_at"),
         "token_fresh": token_fresh,
-        "granted_scopes": credentials.get("granted_scopes") or [],
+        "granted_scopes": granted_scopes,
+        "picker_ready": picker_ready,
+        "postcard_export_ready": postcard_export_ready,
         "postcard_export_enabled": bool(credentials.get("postcard_export_enabled")),
         "last_auth_error": credentials.get("last_auth_error"),
         "last_auth_error_detail": credentials.get("last_auth_error_detail"),
@@ -260,17 +281,46 @@ async def authorize_google_photos(
             expected_redirect,
         )
 
+    required_scopes = [GOOGLE_PHOTOS_SCOPE_PICKER_READONLY]
+    if mode == "postcard_export":
+        required_scopes.extend(
+            [
+                GOOGLE_PHOTOS_SCOPE_APPENDONLY,
+                GOOGLE_PHOTOS_SCOPE_EDIT_APPCREATED,
+            ],
+        )
+
+    granted_scopes = list(credentials.get("granted_scopes") or [])
+    has_required_scopes = GooglePhotosOAuth.scopes_cover(granted_scopes, required_scopes)
+    if has_required_scopes:
+        session = await get_session()
+        token = await GooglePhotosOAuth.get_access_token(
+            credentials=credentials,
+            required_scopes=required_scopes,
+            session=session,
+        )
+        if token:
+            return RedirectResponse(
+                url=f"{SETTINGS_PATH}?google_photos_connected=true",
+                status_code=302,
+            )
+
     state = GooglePhotosOAuth.generate_state()
     state_expires_at = time.time() + OAUTH_STATE_TTL_SECONDS
     await update_google_photos_credentials(
         {"oauth_state": state, "oauth_state_expires_at": state_expires_at},
     )
 
+    force_consent = not bool((credentials.get("refresh_token") or "").strip())
+    if mode == "postcard_export" and not has_required_scopes:
+        force_consent = True
+
     auth_url = GooglePhotosOAuth.build_authorize_url(
         client_id=client_id,
         redirect_uri=redirect_uri,
         state=state,
         request_postcard_scopes=(mode == "postcard_export"),
+        force_consent=force_consent,
     )
     return RedirectResponse(url=auth_url, status_code=302)
 

@@ -346,16 +346,32 @@ async function setupGooglePhotosCredentials({ signal } = {}) {
     try {
       const status = await fetchGooglePhotosStatus({ signal });
       if (status.connected) {
-        const scopeCount = Array.isArray(status.granted_scopes)
-          ? status.granted_scopes.length
-          : 0;
-        setStatus(`Connected. ${scopeCount} scope(s) granted.`, "success");
+        if (connectBtn) {
+          connectBtn.innerHTML = '<i class="fas fa-sync"></i> Reconnect / Upgrade Scopes';
+        }
+        if (status.picker_ready === false) {
+          setStatus(
+            "Connected, but picker permission is missing. Reconnect once to restore Smart Import.",
+            "warning"
+          );
+        } else {
+          setStatus(
+            "Connected. Smart Import should stay hands-off without reconnecting per trip.",
+            "success"
+          );
+        }
       } else if (status.last_auth_error) {
+        if (connectBtn) {
+          connectBtn.innerHTML = '<i class="fas fa-plug"></i> Connect Google Photos';
+        }
         setStatus(
           `Not connected. ${status.last_auth_error_detail || status.last_auth_error}.`,
           "warning"
         );
       } else {
+        if (connectBtn) {
+          connectBtn.innerHTML = '<i class="fas fa-plug"></i> Connect Google Photos';
+        }
         setStatus("Not connected yet. Save credentials, then connect.", "muted");
       }
     } catch (error) {

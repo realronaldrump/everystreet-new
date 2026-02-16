@@ -120,6 +120,45 @@ def _distance(a: list[float], b: list[float]) -> float:
     return math.hypot(b[0] - a[0], b[1] - a[1])
 
 
+def _haversine_meters(
+    lon1: float,
+    lat1: float,
+    lon2: float,
+    lat2: float,
+) -> float:
+    radius = 6_371_000.0
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    d_phi = math.radians(lat2 - lat1)
+    d_lambda = math.radians(lon2 - lon1)
+    a = (
+        math.sin(d_phi / 2.0) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2.0) ** 2
+    )
+    c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(max(1e-12, 1.0 - a)))
+    return radius * c
+
+
+def nearest_distance_to_coords_meters(
+    coords: list[list[float]],
+    lon: float,
+    lat: float,
+) -> float | None:
+    if len(coords) < 1:
+        return None
+    nearest = float("inf")
+    for point in coords:
+        if len(point) < 2:
+            continue
+        point_lon = float(point[0])
+        point_lat = float(point[1])
+        dist = _haversine_meters(lon, lat, point_lon, point_lat)
+        nearest = min(nearest, dist)
+    if nearest == float("inf"):
+        return None
+    return nearest
+
+
 def _cumulative_lengths(coords: list[list[float]]) -> tuple[list[float], float]:
     lengths = [0.0]
     total = 0.0
@@ -186,6 +225,158 @@ def _trip_time_bounds(trip: Any) -> tuple[datetime | None, datetime | None]:
     return parse_timestamp(_trip_value(trip, "startTime")), parse_timestamp(
         _trip_value(trip, "endTime"),
     )
+
+
+def select_best_trip_for_moment(
+    *,
+    trips: list[Trip],
+    coordinates_by_trip_id: dict[str, list[list[float]]],
+    capture_time: datetime | None,
+    lat: float | None,
+    lon: float | None,
+    max_time_gap_seconds: int = 3 * 60 * 60,
+    max_location_distance_meters: float = 1_500.0,
+) -> dict[str, Any]:
+    """
+    Pick the best trip candidate for a photo moment.
+
+    Strategy:
+    1) If capture time is within a trip time window, prioritize that trip.
+    2) Otherwise, use the nearest trip boundary within a configurable time gap.
+    3) If no usable timestamp match exists, fall back to route proximity.
+    """
+
+    if not trips:
+        return {
+            "trip": None,
+            "strategy": "no_trips",
+            "confidence": 0.0,
+            "time_delta_seconds": None,
+            "distance_meters": None,
+        }
+
+    candidates: list[dict[str, Any]] = []
+    has_location = lat is not None and lon is not None
+    for trip in trips:
+        trip_key = str(getattr(trip, "id", ""))
+        coords = coordinates_by_trip_id.get(trip_key) or []
+        distance_meters = (
+            nearest_distance_to_coords_meters(coords, float(lon), float(lat))
+            if has_location
+            else None
+        )
+
+        start_time, end_time = _trip_time_bounds(trip)
+        in_time_window = False
+        time_delta_seconds: float | None = None
+        if capture_time and start_time and end_time:
+            if start_time <= capture_time <= end_time:
+                in_time_window = True
+                time_delta_seconds = 0.0
+            else:
+                time_delta_seconds = min(
+                    abs((capture_time - start_time).total_seconds()),
+                    abs((capture_time - end_time).total_seconds()),
+                )
+
+        candidates.append(
+            {
+                "trip": trip,
+                "coords": coords,
+                "distance_meters": distance_meters,
+                "in_time_window": in_time_window,
+                "time_delta_seconds": time_delta_seconds,
+            },
+        )
+
+    window_matches = [entry for entry in candidates if entry["in_time_window"]]
+    if window_matches:
+        if has_location:
+            with_location = [
+                entry
+                for entry in window_matches
+                if entry["distance_meters"] is not None
+            ]
+            if with_location:
+                best = min(with_location, key=lambda entry: float(entry["distance_meters"]))
+                distance = float(best["distance_meters"])
+                confidence = 0.95 if distance <= 300 else 0.88
+                return {
+                    "trip": best["trip"],
+                    "strategy": "time_window_location",
+                    "confidence": confidence,
+                    "time_delta_seconds": 0.0,
+                    "distance_meters": distance,
+                }
+
+        best = min(
+            window_matches,
+            key=lambda entry: (
+                parse_timestamp(_trip_value(entry["trip"], "startTime"))
+                or datetime.max.replace(tzinfo=UTC),
+            ),
+        )
+        return {
+            "trip": best["trip"],
+            "strategy": "time_window",
+            "confidence": 0.84,
+            "time_delta_seconds": 0.0,
+            "distance_meters": best["distance_meters"],
+        }
+
+    if capture_time:
+        near_time = [
+            entry
+            for entry in candidates
+            if entry["time_delta_seconds"] is not None
+            and float(entry["time_delta_seconds"]) <= max_time_gap_seconds
+        ]
+        if near_time:
+            best = min(
+                near_time,
+                key=lambda entry: (
+                    float(entry["time_delta_seconds"]),
+                    float(entry["distance_meters"])
+                    if entry["distance_meters"] is not None
+                    else float("inf"),
+                ),
+            )
+            delta = float(best["time_delta_seconds"])
+            normalized_gap = max(0.0, min(1.0, 1.0 - (delta / max_time_gap_seconds)))
+            confidence = 0.45 + (normalized_gap * 0.28)
+            return {
+                "trip": best["trip"],
+                "strategy": "nearest_trip_time",
+                "confidence": confidence,
+                "time_delta_seconds": delta,
+                "distance_meters": best["distance_meters"],
+            }
+
+    if has_location:
+        geo_candidates = [
+            entry for entry in candidates if entry["distance_meters"] is not None
+        ]
+        if geo_candidates:
+            best = min(geo_candidates, key=lambda entry: float(entry["distance_meters"]))
+            distance = float(best["distance_meters"])
+            if distance <= max_location_distance_meters:
+                proximity = max(0.0, min(1.0, 1.0 - (distance / max_location_distance_meters)))
+                confidence = 0.38 + (proximity * 0.32)
+                return {
+                    "trip": best["trip"],
+                    "strategy": "nearest_route_location",
+                    "confidence": confidence,
+                    "time_delta_seconds": None,
+                    "distance_meters": distance,
+                }
+
+    return {
+        "trip": None,
+        "strategy": "no_match",
+        "confidence": 0.0,
+        "time_delta_seconds": None,
+        "distance_meters": None,
+    }
 
 
 def compute_moment_anchor(

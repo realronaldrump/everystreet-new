@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from collections import defaultdict
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,7 @@ from trips.services.memory_atlas_service import (
     download_moment_thumbnail,
     extract_trip_coordinates,
     nearest_fraction_for_coordinate,
+    select_best_trip_for_moment,
     storage_path_to_url,
 )
 
@@ -47,6 +49,16 @@ class MemoryAtlasAttachRequest(BaseModel):
     media_items: list[dict[str, Any]] | None = None
     clear_existing: bool = False
     download_thumbnails: bool = True
+
+
+class MemoryAtlasAutoAssignRequest(BaseModel):
+    """Auto-assign selected media items to likely trips."""
+
+    session_id: str | None = None
+    media_items: list[dict[str, Any]] | None = None
+    download_thumbnails: bool = True
+    max_time_gap_minutes: int = Field(default=180, ge=5, le=24 * 60)
+    max_location_distance_meters: int = Field(default=1500, ge=100, le=25_000)
 
 
 class MemoryAtlasPostcardRequest(BaseModel):
@@ -145,6 +157,128 @@ async def _collect_session_media_items(session_id: str) -> list[dict[str, Any]]:
     return all_items
 
 
+def _normalize_media_items(raw_items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    for item in raw_items:
+        entry = normalize_picker_media_item(item)
+        media_item_id = (entry.get("id") or "").strip()
+        if not media_item_id:
+            continue
+        entry["id"] = media_item_id
+        normalized.append(entry)
+    return normalized
+
+
+async def _clear_trip_moments(trip: Trip) -> None:
+    existing = await TripPhotoMoment.find(TripPhotoMoment.trip_id == trip.id).to_list()
+    for moment in existing:
+        delete_generated_file(moment.thumbnail_path)
+    await TripPhotoMoment.find(TripPhotoMoment.trip_id == trip.id).delete()
+
+
+async def _upsert_trip_photo_moment(
+    *,
+    trip: Trip,
+    normalized: dict[str, Any],
+    session_id: str | None,
+    fallback_fraction: float,
+    coordinates: list[list[float]],
+    download_thumbnails: bool,
+    http_session,
+    allow_reassignment: bool = False,
+    assignment_strategy: str | None = None,
+    assignment_confidence: float | None = None,
+) -> tuple[TripPhotoMoment, bool]:
+    media_item_id = str(normalized.get("id") or "").strip()
+    if not media_item_id:
+        raise ValueError("media item id is required")
+
+    capture_time = normalized.get("capture_time")
+    lat = normalized.get("lat")
+    lon = normalized.get("lon")
+    anchor = compute_moment_anchor(
+        trip=trip,
+        coordinates=coordinates,
+        lat=lat,
+        lon=lon,
+        capture_time=capture_time,
+        fallback_fraction=fallback_fraction,
+    )
+    if assignment_confidence is not None:
+        blended_confidence = max(
+            float(anchor["anchor_confidence"]),
+            float(assignment_confidence) * 0.9,
+        )
+        anchor["anchor_confidence"] = blended_confidence
+
+    thumbnail_path = None
+    if download_thumbnails:
+        try:
+            thumbnail_path = await download_moment_thumbnail(
+                session=http_session,
+                trip_transaction_id=trip.transactionId or str(trip.id),
+                media_item_id=media_item_id,
+                mime_type=normalized.get("mime_type"),
+                base_url=normalized.get("base_url"),
+            )
+        except GooglePhotosApiError as exc:
+            logger.warning(
+                "Thumbnail download failed for media item %s: %s",
+                media_item_id,
+                exc.message,
+            )
+        except Exception:
+            logger.exception("Thumbnail download failed for media item %s", media_item_id)
+
+    moment = await TripPhotoMoment.find_one(
+        TripPhotoMoment.trip_id == trip.id,
+        TripPhotoMoment.media_item_id == media_item_id,
+    )
+    if moment is None and allow_reassignment:
+        previous = await TripPhotoMoment.find_one(
+            TripPhotoMoment.media_item_id == media_item_id,
+        )
+        if previous is not None:
+            moment = previous
+
+    now = datetime.now(UTC)
+    is_existing = moment is not None
+    if moment is None:
+        moment = TripPhotoMoment(
+            trip_id=trip.id,
+            trip_transaction_id=trip.transactionId,
+            session_id=session_id,
+            media_item_id=media_item_id,
+            created_at=now,
+        )
+
+    moment.trip_id = trip.id
+    moment.trip_transaction_id = trip.transactionId
+    moment.updated_at = now
+    moment.session_id = session_id
+    moment.mime_type = normalized.get("mime_type")
+    moment.file_name = normalized.get("file_name")
+    moment.capture_time = capture_time
+    moment.lat = anchor["lat"]
+    moment.lon = anchor["lon"]
+    moment.anchor_strategy = anchor["anchor_strategy"]
+    moment.anchor_confidence = float(anchor["anchor_confidence"])
+    moment.anchor_fraction = anchor["anchor_fraction"]
+    if assignment_strategy:
+        moment.assignment_strategy = assignment_strategy
+    if assignment_confidence is not None:
+        moment.assignment_confidence = float(assignment_confidence)
+    if thumbnail_path:
+        moment.thumbnail_path = thumbnail_path
+
+    if is_existing:
+        await moment.save()
+    else:
+        await moment.insert()
+    unresolved = moment.anchor_strategy == "manual_review"
+    return moment, unresolved
+
+
 @router.post("/api/trips/{trip_id}/memory-atlas/attach", response_model=dict[str, Any])
 @api_route(logger)
 async def attach_trip_memory_atlas(
@@ -153,101 +287,42 @@ async def attach_trip_memory_atlas(
 ) -> dict[str, Any]:
     trip = await _load_trip_or_404(trip_id)
 
-    media_items = list(payload.media_items or [])
-    if payload.session_id and not media_items:
-        media_items = await _collect_session_media_items(payload.session_id)
-    if not media_items:
+    raw_media_items = list(payload.media_items or [])
+    if payload.session_id and not raw_media_items:
+        raw_media_items = await _collect_session_media_items(payload.session_id)
+    if not raw_media_items:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No media items were provided for attachment.",
         )
+    media_items = _normalize_media_items(raw_media_items)
+    if not media_items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No valid media items were found in the request.",
+        )
 
     if payload.clear_existing:
-        existing = await TripPhotoMoment.find(TripPhotoMoment.trip_id == trip.id).to_list()
-        for moment in existing:
-            delete_generated_file(moment.thumbnail_path)
-        await TripPhotoMoment.find(TripPhotoMoment.trip_id == trip.id).delete()
+        await _clear_trip_moments(trip)
 
     coordinates = extract_trip_coordinates(trip)
     total_items = max(1, len(media_items))
     attached = 0
-    skipped = 0
     unresolved = 0
 
-    session = await get_session()
-    for index, item in enumerate(media_items):
-        normalized = normalize_picker_media_item(item)
-        media_item_id = (normalized.get("id") or "").strip()
-        if not media_item_id:
-            skipped += 1
-            continue
-
-        capture_time = normalized.get("capture_time")
-        lat = normalized.get("lat")
-        lon = normalized.get("lon")
-        fallback_fraction = index / total_items
-        anchor = compute_moment_anchor(
+    http_session = await get_session()
+    for index, normalized in enumerate(media_items):
+        _, is_unresolved = await _upsert_trip_photo_moment(
             trip=trip,
+            normalized=normalized,
+            session_id=payload.session_id,
+            fallback_fraction=index / total_items,
             coordinates=coordinates,
-            lat=lat,
-            lon=lon,
-            capture_time=capture_time,
-            fallback_fraction=fallback_fraction,
+            download_thumbnails=payload.download_thumbnails,
+            http_session=http_session,
         )
-        if anchor["anchor_strategy"] == "manual_review":
+        if is_unresolved:
             unresolved += 1
-
-        thumbnail_path = None
-        if payload.download_thumbnails:
-            try:
-                thumbnail_path = await download_moment_thumbnail(
-                    session=session,
-                    trip_transaction_id=trip.transactionId or str(trip.id),
-                    media_item_id=media_item_id,
-                    mime_type=normalized.get("mime_type"),
-                    base_url=normalized.get("base_url"),
-                )
-            except GooglePhotosApiError as exc:
-                logger.warning(
-                    "Thumbnail download failed for media item %s: %s",
-                    media_item_id,
-                    exc.message,
-                )
-            except Exception:
-                logger.exception("Thumbnail download failed for media item %s", media_item_id)
-
-        moment = await TripPhotoMoment.find_one(
-            TripPhotoMoment.trip_id == trip.id,
-            TripPhotoMoment.media_item_id == media_item_id,
-        )
-        now = datetime.now(UTC)
-        is_existing = moment is not None
-        if moment is None:
-            moment = TripPhotoMoment(
-                trip_id=trip.id,
-                trip_transaction_id=trip.transactionId,
-                session_id=payload.session_id,
-                media_item_id=media_item_id,
-                created_at=now,
-            )
-
-        moment.updated_at = now
-        moment.session_id = payload.session_id
-        moment.mime_type = normalized.get("mime_type")
-        moment.file_name = normalized.get("file_name")
-        moment.capture_time = capture_time
-        moment.lat = anchor["lat"]
-        moment.lon = anchor["lon"]
-        moment.anchor_strategy = anchor["anchor_strategy"]
-        moment.anchor_confidence = float(anchor["anchor_confidence"])
-        moment.anchor_fraction = anchor["anchor_fraction"]
-        if thumbnail_path:
-            moment.thumbnail_path = thumbnail_path
-
-        if is_existing:
-            await moment.save()
-        else:
-            await moment.insert()
         attached += 1
 
     moments = await TripPhotoMoment.find(TripPhotoMoment.trip_id == trip.id).to_list()
@@ -256,9 +331,145 @@ async def attach_trip_memory_atlas(
         "status": "success",
         "message": f"Attached {attached} media items to trip memory atlas.",
         "attached_count": attached,
-        "skipped_count": skipped,
+        "skipped_count": len(raw_media_items) - len(media_items),
         "unresolved_count": unresolved,
         "moments": serialized,
+    }
+
+
+@router.post("/api/trips/memory-atlas/auto-assign", response_model=dict[str, Any])
+@api_route(logger)
+async def auto_assign_trip_memory_atlas(
+    payload: MemoryAtlasAutoAssignRequest,
+) -> dict[str, Any]:
+    raw_media_items = list(payload.media_items or [])
+    if payload.session_id and not raw_media_items:
+        raw_media_items = await _collect_session_media_items(payload.session_id)
+    if not raw_media_items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No media items were provided for auto-assignment.",
+        )
+
+    media_items = _normalize_media_items(raw_media_items)
+    if not media_items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No valid media items were found for auto-assignment.",
+        )
+
+    max_gap_seconds = int(payload.max_time_gap_minutes) * 60
+    max_gap_delta = timedelta(seconds=max_gap_seconds)
+    capture_times = [
+        item["capture_time"] for item in media_items if item.get("capture_time") is not None
+    ]
+    if capture_times:
+        query_start = min(capture_times) - max_gap_delta
+        query_end = max(capture_times) + max_gap_delta
+        trips = await Trip.find(
+            {
+                "endTime": {"$gte": query_start},
+                "startTime": {"$lte": query_end},
+            },
+        ).sort((Trip.startTime, 1)).to_list()
+    else:
+        trips = await Trip.find_all().sort((Trip.startTime, 1)).to_list()
+
+    if not trips:
+        unmatched_count = len(media_items)
+        return {
+            "status": "success",
+            "message": "No trips were found for automatic memory assignment.",
+            "assigned_count": 0,
+            "unmatched_count": unmatched_count,
+            "skipped_count": len(raw_media_items) - len(media_items),
+            "unresolved_count": 0,
+            "trips_updated": [],
+            "unmatched_media_item_ids": [item["id"] for item in media_items[:50]],
+        }
+
+    coordinates_by_trip_id = {str(trip.id): extract_trip_coordinates(trip) for trip in trips}
+    trips_by_id = {str(trip.id): trip for trip in trips}
+    assignments: dict[str, list[tuple[dict[str, Any], dict[str, Any]]]] = defaultdict(list)
+    unmatched_media_item_ids: list[str] = []
+
+    for item in media_items:
+        match = select_best_trip_for_moment(
+            trips=trips,
+            coordinates_by_trip_id=coordinates_by_trip_id,
+            capture_time=item.get("capture_time"),
+            lat=item.get("lat"),
+            lon=item.get("lon"),
+            max_time_gap_seconds=max_gap_seconds,
+            max_location_distance_meters=float(payload.max_location_distance_meters),
+        )
+        target_trip = match.get("trip")
+        if target_trip is None:
+            unmatched_media_item_ids.append(item["id"])
+            continue
+        assignments[str(target_trip.id)].append((item, match))
+
+    http_session = await get_session()
+    assigned_count = 0
+    unresolved_count = 0
+    trips_updated: list[dict[str, Any]] = []
+
+    for trip_key, assigned_items in assignments.items():
+        trip = trips_by_id.get(trip_key)
+        if trip is None:
+            continue
+        coordinates = coordinates_by_trip_id.get(trip_key) or []
+        per_trip_total = max(1, len(assigned_items))
+        per_trip_attached = 0
+        per_trip_unresolved = 0
+
+        for idx, (normalized, match) in enumerate(assigned_items):
+            _, is_unresolved = await _upsert_trip_photo_moment(
+                trip=trip,
+                normalized=normalized,
+                session_id=payload.session_id,
+                fallback_fraction=idx / per_trip_total,
+                coordinates=coordinates,
+                download_thumbnails=payload.download_thumbnails,
+                http_session=http_session,
+                allow_reassignment=True,
+                assignment_strategy=str(match.get("strategy") or "auto"),
+                assignment_confidence=float(match.get("confidence") or 0.0),
+            )
+            assigned_count += 1
+            per_trip_attached += 1
+            if is_unresolved:
+                unresolved_count += 1
+                per_trip_unresolved += 1
+
+        trips_updated.append(
+            {
+                "trip_id": trip.transactionId,
+                "attached_count": per_trip_attached,
+                "unresolved_count": per_trip_unresolved,
+            },
+        )
+
+    trips_updated.sort(
+        key=lambda row: (
+            -int(row.get("attached_count", 0)),
+            str(row.get("trip_id") or ""),
+        ),
+    )
+    unmatched_count = len(unmatched_media_item_ids)
+    skipped_count = len(raw_media_items) - len(media_items)
+    return {
+        "status": "success",
+        "message": (
+            f"Auto-assigned {assigned_count} media item(s) across "
+            f"{len(trips_updated)} trip(s)."
+        ),
+        "assigned_count": assigned_count,
+        "unmatched_count": unmatched_count,
+        "skipped_count": skipped_count,
+        "unresolved_count": unresolved_count,
+        "trips_updated": trips_updated,
+        "unmatched_media_item_ids": unmatched_media_item_ids[:50],
     }
 
 

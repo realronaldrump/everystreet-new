@@ -1,10 +1,12 @@
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 from trips.services.memory_atlas_service import (
     build_postcard_image,
     compute_moment_anchor,
     delete_generated_file,
+    select_best_trip_for_moment,
 )
 
 
@@ -76,3 +78,75 @@ def test_build_postcard_image_writes_png_file() -> None:
         assert path.suffix.lower() in {".png", ".svg"}
     finally:
         delete_generated_file(output_path)
+
+
+def test_select_best_trip_for_moment_prefers_time_window_match() -> None:
+    trip_a = SimpleNamespace(
+        id="a",
+        transactionId="trip-a",
+        startTime=datetime(2025, 1, 1, 10, 0, tzinfo=UTC),
+        endTime=datetime(2025, 1, 1, 10, 30, tzinfo=UTC),
+        gps={
+            "type": "LineString",
+            "coordinates": [[-84.40, 33.74], [-84.35, 33.76]],
+        },
+    )
+    trip_b = SimpleNamespace(
+        id="b",
+        transactionId="trip-b",
+        startTime=datetime(2025, 1, 1, 12, 0, tzinfo=UTC),
+        endTime=datetime(2025, 1, 1, 12, 30, tzinfo=UTC),
+        gps={
+            "type": "LineString",
+            "coordinates": [[-84.20, 33.70], [-84.15, 33.72]],
+        },
+    )
+    match = select_best_trip_for_moment(
+        trips=[trip_a, trip_b],
+        coordinates_by_trip_id={
+            "a": [[-84.40, 33.74], [-84.35, 33.76]],
+            "b": [[-84.20, 33.70], [-84.15, 33.72]],
+        },
+        capture_time=datetime(2025, 1, 1, 10, 10, tzinfo=UTC),
+        lat=33.75,
+        lon=-84.37,
+    )
+    assert match["trip"] is trip_a
+    assert str(match["strategy"]).startswith("time_window")
+    assert float(match["confidence"]) >= 0.8
+
+
+def test_select_best_trip_for_moment_uses_location_fallback() -> None:
+    trip_a = SimpleNamespace(
+        id="a",
+        transactionId="trip-a",
+        startTime=datetime(2025, 1, 1, 8, 0, tzinfo=UTC),
+        endTime=datetime(2025, 1, 1, 8, 20, tzinfo=UTC),
+        gps={
+            "type": "LineString",
+            "coordinates": [[-84.40, 33.74], [-84.35, 33.76]],
+        },
+    )
+    trip_b = SimpleNamespace(
+        id="b",
+        transactionId="trip-b",
+        startTime=datetime(2025, 1, 1, 9, 0, tzinfo=UTC),
+        endTime=datetime(2025, 1, 1, 9, 20, tzinfo=UTC),
+        gps={
+            "type": "LineString",
+            "coordinates": [[-84.20, 33.70], [-84.15, 33.72]],
+        },
+    )
+    match = select_best_trip_for_moment(
+        trips=[trip_a, trip_b],
+        coordinates_by_trip_id={
+            "a": [[-84.40, 33.74], [-84.35, 33.76]],
+            "b": [[-84.20, 33.70], [-84.15, 33.72]],
+        },
+        capture_time=None,
+        lat=33.705,
+        lon=-84.195,
+        max_location_distance_meters=2500.0,
+    )
+    assert match["trip"] is trip_b
+    assert match["strategy"] == "nearest_route_location"

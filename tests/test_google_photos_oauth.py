@@ -1,5 +1,6 @@
 import time
 from unittest.mock import AsyncMock
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 from http_fakes import FakeResponse, FakeSession
@@ -125,3 +126,25 @@ async def test_exchange_authorization_code_saves_tokens(
     assert credentials["refresh_token"] == "refresh"
     assert GOOGLE_PHOTOS_SCOPE_PICKER_READONLY in credentials["granted_scopes"]
 
+
+def test_build_authorize_url_sets_prompt_only_when_forced() -> None:
+    no_prompt_url = GooglePhotosOAuth.build_authorize_url(
+        client_id="client",
+        redirect_uri="https://example.com/callback",
+        state="state-1",
+        request_postcard_scopes=False,
+        force_consent=False,
+    )
+    forced_prompt_url = GooglePhotosOAuth.build_authorize_url(
+        client_id="client",
+        redirect_uri="https://example.com/callback",
+        state="state-2",
+        request_postcard_scopes=False,
+        force_consent=True,
+    )
+
+    no_prompt_query = parse_qs(urlparse(no_prompt_url).query)
+    forced_prompt_query = parse_qs(urlparse(forced_prompt_url).query)
+
+    assert "prompt" not in no_prompt_query
+    assert forced_prompt_query.get("prompt") == ["consent"]

@@ -42,6 +42,7 @@ let modalRouteChipToken = 0;
 let memoryAtlasMoments = [];
 let memoryAtlasMarkers = [];
 let memoryAtlasConnected = false;
+let memoryAtlasPickerReady = false;
 let memoryAtlasBusy = false;
 let memoryAtlasPlacementMomentId = null;
 let playbackControlsBound = false;
@@ -93,6 +94,7 @@ function resetTripsState() {
   modalRouteActionsTripId = null;
   memoryAtlasMoments = [];
   memoryAtlasConnected = false;
+  memoryAtlasPickerReady = false;
   memoryAtlasBusy = false;
   memoryAtlasPlacementMomentId = null;
   playbackControlsBound = false;
@@ -1966,6 +1968,10 @@ function bindTripModalActions() {
     memoryConnectBtn.addEventListener(
       "click",
       () => {
+        if (memoryAtlasConnected) {
+          window.location.href = "/settings";
+          return;
+        }
         window.location.href = CONFIG.API.googlePhotosAuthorize("picker");
       },
       pageSignal ? { signal: pageSignal } : undefined
@@ -2527,10 +2533,14 @@ function setMemoryAtlasStatus(message, tone = "muted") {
 
 function setMemoryAtlasBusyState(isBusy) {
   memoryAtlasBusy = isBusy;
+  const connectBtn = document.getElementById("memory-atlas-connect-btn");
   const pickBtn = document.getElementById("memory-atlas-pick-btn");
   const postcardBtn = document.getElementById("memory-atlas-postcard-btn");
+  if (connectBtn) {
+    connectBtn.disabled = isBusy;
+  }
   if (pickBtn) {
-    pickBtn.disabled = isBusy;
+    pickBtn.disabled = isBusy || !memoryAtlasConnected || !memoryAtlasPickerReady;
   }
   if (postcardBtn) {
     postcardBtn.disabled = isBusy;
@@ -2701,6 +2711,7 @@ async function loadMemoryAtlas(tripId) {
   }
 
   const connectBtn = document.getElementById("memory-atlas-connect-btn");
+  const pickBtn = document.getElementById("memory-atlas-pick-btn");
   try {
     const [atlasData, photosStatus] = await Promise.all([
       apiGet(CONFIG.API.tripMemoryAtlas(tripId)),
@@ -2709,11 +2720,19 @@ async function loadMemoryAtlas(tripId) {
     memoryAtlasPlacementMomentId = null;
     memoryAtlasMoments = Array.isArray(atlasData?.moments) ? atlasData.moments : [];
     memoryAtlasConnected = Boolean(photosStatus?.connected);
+    memoryAtlasPickerReady = memoryAtlasConnected
+      ? photosStatus?.picker_ready !== false
+      : false;
 
     if (connectBtn) {
       connectBtn.innerHTML = memoryAtlasConnected
-        ? '<i class="fas fa-plug"></i><span>Reconnect Google Photos</span>'
+        ? '<i class="fas fa-cog"></i><span>Manage Connection</span>'
         : '<i class="fas fa-plug"></i><span>Connect Google Photos</span>';
+    }
+    if (pickBtn) {
+      pickBtn.innerHTML =
+        '<i class="fas fa-magic"></i><span>Smart Import</span>';
+      pickBtn.disabled = memoryAtlasBusy || !memoryAtlasConnected || !memoryAtlasPickerReady;
     }
 
     const unresolvedCount = memoryAtlasMoments.filter(
@@ -2727,18 +2746,23 @@ async function loadMemoryAtlas(tripId) {
         );
       } else {
         setMemoryAtlasStatus(
-          `${memoryAtlasMoments.length} memory moment(s) linked to this trip.`,
+          `${memoryAtlasMoments.length} memory moment(s) linked to this trip. Use Smart Import anytime to pull in more.`,
           "success"
         );
       }
+    } else if (memoryAtlasConnected && !memoryAtlasPickerReady) {
+      setMemoryAtlasStatus(
+        "Connected, but picker scope is missing. Open Manage Connection to re-authorize once.",
+        "warning"
+      );
     } else if (memoryAtlasConnected) {
       setMemoryAtlasStatus(
-        "Connected. Pick photos to attach memories to this route.",
+        "Connected once. Use Smart Import to auto-assign Google Photos across your trips.",
         "muted"
       );
     } else {
       setMemoryAtlasStatus(
-        "Connect Google Photos, then pick photos for this trip.",
+        "Connect Google Photos once, then use Smart Import.",
         "warning"
       );
     }
@@ -2772,11 +2796,16 @@ async function pickMemoryAtlasPhotos() {
       );
       return;
     }
+    if (status?.picker_ready === false) {
+      setMemoryAtlasStatus(
+        "Connected, but picker permission is missing. Use Manage Connection once.",
+        "warning"
+      );
+      return;
+    }
 
     setMemoryAtlasStatus("Creating Google Photos picker session...", "muted");
-    const sessionResp = await apiPost(CONFIG.API.googlePhotosPickerSessions, {
-      page_size: 100,
-    });
+    const sessionResp = await apiPost(CONFIG.API.googlePhotosPickerSessions, {});
     const picker = sessionResp?.session || {};
     const sessionId = picker?.id;
     const pickerUri = picker?.picker_uri;
@@ -2815,47 +2844,50 @@ async function pickMemoryAtlasPhotos() {
       throw new Error("Picker timed out before any photos were selected.");
     }
 
-    const allItems = [];
-    let pageToken = null;
-    do {
-      const search = new URLSearchParams();
-      if (pageToken) {
-        search.set("page_token", pageToken);
-      }
-      const pageUrl = `${CONFIG.API.googlePhotosPickerSessionMediaItems(sessionId)}${
-        search.toString() ? `?${search.toString()}` : ""
-      }`;
-      const page = await apiGet(pageUrl);
-      const pageItems = Array.isArray(page?.media_items) ? page.media_items : [];
-      allItems.push(...pageItems);
-      pageToken = page?.next_page_token || null;
-    } while (pageToken);
-
-    if (allItems.length === 0) {
-      setMemoryAtlasStatus("No photos selected in Google Photos.", "warning");
-      return;
-    }
-
-    setMemoryAtlasStatus(`Attaching ${allItems.length} memory items...`, "muted");
-    const attachResp = await apiPost(CONFIG.API.tripMemoryAtlasAttach(tripId), {
+    setMemoryAtlasStatus("Auto-assigning selected photos to trips...", "muted");
+    const assignResp = await apiPost(CONFIG.API.tripMemoryAtlasAutoAssign, {
       session_id: sessionId,
-      media_items: allItems,
       download_thumbnails: true,
     });
+    const updatedTrips = Array.isArray(assignResp?.trips_updated)
+      ? assignResp.trips_updated
+      : [];
+    const currentTripUpdate = updatedTrips.find((item) => item?.trip_id === tripId);
+    const attachedToCurrentTrip = Number(currentTripUpdate?.attached_count || 0);
+    const assignedCount = Number(assignResp?.assigned_count || 0);
+    const unmatchedCount = Number(assignResp?.unmatched_count || 0);
+
+    if (attachedToCurrentTrip > 0) {
+      setMemoryAtlasStatus(
+        `Smart Import linked ${attachedToCurrentTrip} memory item(s) to this trip.`,
+        "success"
+      );
+    } else if (assignedCount > 0) {
+      setMemoryAtlasStatus(
+        "Smart Import completed. New memories were matched to other trips.",
+        "muted"
+      );
+    } else if (unmatchedCount > 0) {
+      setMemoryAtlasStatus(
+        "Smart Import completed, but no selected items matched known trip routes/time windows.",
+        "warning"
+      );
+    }
 
     notificationManager.show(
-      attachResp?.message || "Memories attached to trip.",
-      "success"
+      assignResp?.message ||
+        `Smart Import processed ${assignedCount} item(s) across ${updatedTrips.length} trip(s).`,
+      assignedCount > 0 ? "success" : "warning"
     );
     await loadMemoryAtlas(tripId);
   } catch (error) {
     console.error("Failed to attach memory atlas photos:", error);
     setMemoryAtlasStatus(
-      error?.message || "Failed to attach photos from Google Photos.",
+      error?.message || "Failed to run Smart Import from Google Photos.",
       "danger"
     );
     notificationManager.show(
-      error?.message || "Failed to attach photos from Google Photos.",
+      error?.message || "Failed to run Smart Import from Google Photos.",
       "danger"
     );
   } finally {
