@@ -1,4 +1,3 @@
-/* global $ */
 /**
  * Insights Export Module
  * Handles export, sharing, and report generation for the driving insights page
@@ -36,38 +35,93 @@ export function exportChart() {
   showNotification("Chart exported successfully", "success");
 }
 
+function csvEscape(value) {
+  const text = String(value ?? "");
+  if (!/[",\n]/.test(text)) {
+    return text;
+  }
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function buildCsvSections(state) {
+  const lines = [];
+  const derived = state.derivedInsights;
+  const insights = state.data?.insights || {};
+
+  lines.push("Summary");
+  lines.push("Metric,Value");
+  lines.push(`Total Trips,${csvEscape(insights.total_trips || 0)}`);
+  lines.push(`Total Distance (mi),${csvEscape(Number(insights.total_distance || 0).toFixed(1))}`);
+  lines.push(`Total Fuel (gal),${csvEscape(Number(insights.total_fuel_consumed || 0).toFixed(2))}`);
+  lines.push("");
+
+  if (derived) {
+    const mode = state.rhythmView === "monthly" ? "monthly" : "weekly";
+    const periods = derived.periods?.[mode] || [];
+
+    lines.push(`${mode[0].toUpperCase() + mode.slice(1)} Storyrail`);
+    lines.push("Period,Trips,Distance (mi),Delta (%) ,Headline");
+    periods.forEach((period) => {
+      lines.push(
+        [
+          period.label,
+          period.trips,
+          period.distance.toFixed(1),
+          period.distanceDeltaPct == null ? "" : period.distanceDeltaPct.toFixed(1),
+          period.headline,
+        ]
+          .map(csvEscape)
+          .join(",")
+      );
+    });
+    lines.push("");
+
+    lines.push("Narrative Scenes");
+    lines.push("Scene,Value,Detail");
+    (derived.narrativeScenes || []).forEach((scene) => {
+      lines.push([scene.title, scene.value, scene.detail].map(csvEscape).join(","));
+    });
+    lines.push("");
+
+    lines.push("Places Orbit");
+    lines.push("Place,Visits,Distance (mi),Last Visit");
+    (derived.exploration?.destinations || []).forEach((destination) => {
+      lines.push(
+        [
+          destination.location,
+          destination.visits,
+          destination.distance.toFixed(1),
+          destination.lastVisit || "",
+        ]
+          .map(csvEscape)
+          .join(",")
+      );
+    });
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
 /**
- * Export analytics table data as CSV
+ * Export narrative insights data as CSV
  */
 export function exportData() {
-  // Check if DataTable is initialized
-  if (!$.fn.DataTable.isDataTable("#analytics-table")) {
+  const state = getState();
+  if (!state.data?.insights) {
     showNotification("No data to export", "error");
     return;
   }
 
-  const table = $("#analytics-table").DataTable();
-  const data = table.rows().data().toArray();
-
-  if (!data.length) {
-    showNotification("No data to export", "error");
-    return;
-  }
-
-  let csv = "Period,Trips,Distance,Duration,Fuel,Hard Events,Efficiency\n";
-  data.forEach((row) => {
-    csv += `${row[0]},${row[1]},${row[2]},${row[3]},${row[4]},${row[5]},${row[6]}\n`;
-  });
-
+  const csv = buildCsvSections(state);
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `driving-analytics-${formatDate(new Date())}.csv`;
+  a.download = `insights-story-${formatDate(new Date())}.csv`;
   a.click();
 
   URL.revokeObjectURL(url);
-  showNotification("Data exported successfully", "success");
+  showNotification("Story data exported successfully", "success");
 }
 
 /**
@@ -89,15 +143,24 @@ export function generateReport() {
 export function shareInsights() {
   const state = getState();
   const { insights } = state.data;
+  const derived = state.derivedInsights;
 
   if (!insights) {
     showNotification("No data to share", "error");
     return;
   }
 
+  const exploration = derived?.exploration;
+  const consistency = derived?.consistency;
+  const peakDay = derived?.timeSignature?.peakDayLabel;
+
   const shareData = {
-    title: "My Driving Insights",
-    text: `Total Distance: ${insights.total_distance || 0} miles | Trips: ${insights.total_trips || 0}`,
+    title: "My Driving Story",
+    text:
+      `I logged ${insights.total_trips || 0} trips over ${Number(insights.total_distance || 0).toFixed(1)} miles.` +
+      ` Active-day ratio: ${(consistency?.activeDaysRatio || 0).toFixed(1)}%.` +
+      ` Exploration score: ${(exploration?.explorationScore || 0).toFixed(0)}/100.` +
+      (peakDay ? ` Peak day: ${peakDay}.` : ""),
     url: window.location.href,
   };
 

@@ -12,7 +12,7 @@ import * as InsightsFormatters from "../../insights/formatters.js";
 import * as InsightsMetrics from "../../insights/metrics.js";
 import { loadAndShowTripsForDrilldown } from "../../insights/modal.js";
 import * as InsightsState from "../../insights/state.js";
-import * as InsightsTables from "../../insights/tables.js";
+import * as InsightsStories from "../../insights/story-sections.js";
 
 let tooltipInstances = [];
 let pageSignal = null;
@@ -25,16 +25,22 @@ export default async function initInsightsPage({ signal, cleanup } = {}) {
   const returnTeardown = typeof cleanup !== "function";
   const teardown = () => {
     stopAutoRefresh();
-    InsightsTables.destroyTables?.();
     InsightsCharts.destroyCharts?.();
+    InsightsStories.destroyStorySections?.();
     tooltipInstances.forEach((instance) => instance?.dispose?.());
     tooltipInstances = [];
     pageSignal = null;
   };
+
   if (!returnTeardown) {
     cleanup(teardown);
   }
+
   setupEventListeners(signal);
+  syncViewToggleButtons(InsightsState.getState().currentView);
+  syncRhythmToggleButtons(InsightsState.getState().rhythmView);
+  syncTimeToggleButtons(InsightsState.getState().currentTimeView);
+
   window.addEventListener("beforeunload", stopAutoRefresh, signal ? { signal } : false);
   initTooltips();
   InsightsCharts.initCharts();
@@ -177,6 +183,18 @@ function setupFabActions(signal) {
   }
 }
 
+function renderStorySectionsFromState() {
+  const state = InsightsState.getState();
+  const snapshot = InsightsStories.renderAllStorySections({
+    ...state.data,
+    currentView: state.currentView,
+    rhythmView: state.rhythmView,
+    currentTimeView: state.currentTimeView,
+  });
+
+  InsightsState.updateState({ derivedInsights: snapshot });
+}
+
 /**
  * Load all data for the insights page
  */
@@ -220,9 +238,9 @@ export async function loadAllData(signalOverride) {
     InsightsState.updateState({ prevRange: allData.previous });
 
     // Update UI
-    InsightsMetrics.updateAllMetrics();
     InsightsCharts.updateAllCharts();
-    InsightsTables.updateTables();
+    renderStorySectionsFromState();
+    InsightsMetrics.updateAllMetrics();
   } catch (error) {
     if (error?.name === "AbortError" || activeSignal?.aborted) {
       return;
@@ -235,26 +253,75 @@ export async function loadAllData(signalOverride) {
   }
 }
 
+function syncViewToggleButtons(activeView) {
+  document.querySelectorAll("[data-view]").forEach((button) => {
+    const isActive = button.dataset.view === activeView;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+}
+
+function syncRhythmToggleButtons(activeMode) {
+  document.querySelectorAll("[data-rhythm-view]").forEach((button) => {
+    const isActive = button.dataset.rhythmView === activeMode;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+}
+
+function syncTimeToggleButtons(activeMode) {
+  document.querySelectorAll("[data-time]").forEach((button) => {
+    const isActive = button.dataset.time === activeMode;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+}
+
 /**
  * Handle toggle button changes
  * @param {Event} e - Click event
  */
 function handleToggleChange(e) {
   const btn = e.currentTarget;
-  const parent = btn.parentElement;
-
-  // Update active state
-  parent.querySelectorAll(".toggle-btn").forEach((b) => {
-    b.classList.remove("active");
-  });
-  btn.classList.add("active");
 
   if (btn.dataset.view) {
-    InsightsState.updateState({ currentView: btn.dataset.view });
+    const nextView = btn.dataset.view;
+    const updates = { currentView: nextView };
+    if (nextView === "weekly" || nextView === "monthly") {
+      updates.rhythmView = nextView;
+    }
+    InsightsState.updateState(updates);
+
+    syncViewToggleButtons(nextView);
+    syncRhythmToggleButtons(InsightsState.getState().rhythmView);
+
     InsightsCharts.updateTrendsChart();
-  } else if (btn.dataset.time) {
-    InsightsState.updateState({ currentTimeView: btn.dataset.time });
+    InsightsStories.updatePeriodStory(
+      InsightsState.getState().rhythmView,
+      InsightsState.getState().currentView
+    );
+    return;
+  }
+
+  if (btn.dataset.rhythmView) {
+    const nextMode = btn.dataset.rhythmView;
+    InsightsState.updateState({ rhythmView: nextMode, currentView: nextMode });
+
+    syncRhythmToggleButtons(nextMode);
+    syncViewToggleButtons(nextMode);
+
+    InsightsCharts.updateTrendsChart();
+    InsightsStories.updatePeriodStory(nextMode, nextMode);
+    return;
+  }
+
+  if (btn.dataset.time) {
+    const nextTimeView = btn.dataset.time;
+    InsightsState.updateState({ currentTimeView: nextTimeView });
+    syncTimeToggleButtons(nextTimeView);
+
     InsightsCharts.updateTimeDistChart();
+    InsightsStories.updateTimeSignatureStory(nextTimeView);
   }
 }
 
@@ -303,8 +370,6 @@ export function hideLoadingStates() {
  * Start auto-refresh interval
  */
 function startAutoRefresh() {
-  const _state = InsightsState.getState();
-
   // Clear any existing interval
   stopAutoRefresh();
 

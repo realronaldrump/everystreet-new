@@ -13,8 +13,17 @@ function assertId(source, id) {
   assert.match(source, pattern, `insights.html missing required id: ${id}`);
 }
 
-test("Insights template includes required table IDs used by insights modules", () => {
+test("Insights template includes required narrative section IDs used by insights modules", () => {
   const source = fs.readFileSync(templatePath, "utf8");
 
-  ["destinations-table", "analytics-table"].forEach((id) => assertId(source, id));
+  [
+    "rhythm-storyrail",
+    "rhythm-period-toggle",
+    "insight-scenes",
+    "places-orbit",
+    "places-detail-panel",
+    "records-timeline",
+    "trendsChart",
+    "timeDistChart",
+  ].forEach((id) => assertId(source, id));
 });

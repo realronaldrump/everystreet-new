@@ -10,8 +10,6 @@ Your Driving Story
 
   <link rel="stylesheet"
         href="{{ url_for('static', path='css/insights.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
-  <link rel="stylesheet" href="{{ CDN.datatables_css }}" />
-  <link rel="stylesheet" href="{{ CDN.datatables_bs5_css }}" />
 
 {% endblock %}
 
@@ -27,19 +25,19 @@ Your Driving Story
           <span>Your driving story</span>
         </div>
         <h1 class="hero-title">
-          Here's what your time
+          Your movement patterns,
           <br />
-          <span class="highlight">on the road</span> reveals
+          <span class="highlight">told like a story</span>
         </h1>
         <p class="hero-subtitle">
-          Every trip tells a story. These insights help you understand your driving patterns, celebrate your progress, and discover interesting facts about your journeys.
+          This page turns your trips into narrative scenes, rhythm cards, and place clusters so you can understand what changed and what stayed consistent.
         </p>
         <div class="hero-stat-card">
           <div class="hero-stat-value counter" id="hero-total-miles">
 0
           </div>
           <div class="hero-stat-label">
-miles driven so far
+miles in the selected range
           </div>
         </div>
       </div>
@@ -53,14 +51,13 @@ miles driven so far
             At a glance
         </h2>
         <p class="section-subtitle">
-Quick highlights from your driving data
+Headline metrics with contextual cues from your latest patterns
         </p>
       </div>
 
       <div class="metrics-grid">
         <div class="metric-card" data-widget-id="trips">
-          <div class="metric-accent mint">
-          </div>
+          <div class="metric-accent mint"></div>
           <div class="metric-content">
             <div class="metric-icon">
               <i class="fas fa-route"></i>
@@ -75,14 +72,13 @@ trips taken
             </button>
             <div class="metric-context">
               <i class="fas fa-info-circle"></i>
-              <span id="trips-context">That's a lot of adventures!</span>
+              <span id="trips-context">Patterns will appear as your trip history grows.</span>
             </div>
           </div>
         </div>
 
         <div class="metric-card" data-widget-id="distance">
-          <div class="metric-accent coral">
-          </div>
+          <div class="metric-accent coral"></div>
           <div class="metric-content">
             <div class="metric-icon">
               <i class="fas fa-road"></i>
@@ -97,15 +93,14 @@ trips taken
 total distance
             </button>
             <div class="metric-context">
-              <i class="fas fa-map-marker-alt"></i>
-              <span id="distance-context">Keep exploring!</span>
+              <i class="fas fa-wave-square"></i>
+              <span id="distance-context">Long-form distance stories need more data.</span>
             </div>
           </div>
         </div>
 
         <div class="metric-card" data-widget-id="time">
-          <div class="metric-accent sky">
-          </div>
+          <div class="metric-accent sky"></div>
           <div class="metric-content">
             <div class="metric-icon">
               <i class="fas fa-clock"></i>
@@ -120,14 +115,13 @@ time driving
             </button>
             <div class="metric-context">
               <i class="fas fa-hourglass-half"></i>
-              <span id="time-context">Time well spent</span>
+              <span id="time-context">Signature windows appear once time clusters emerge.</span>
             </div>
           </div>
         </div>
 
         <div class="metric-card" data-widget-id="fuel">
-          <div class="metric-accent purple">
-          </div>
+          <div class="metric-accent purple"></div>
           <div class="metric-content">
             <div class="metric-icon">
               <i class="fas fa-gas-pump"></i>
@@ -139,129 +133,48 @@ time driving
             <button type="button"
                     class="metric-label insights-drilldown-trigger"
                     data-drilldown="fuel">
-fuel used
+fuel context
             </button>
             <div class="metric-context">
               <i class="fas fa-leaf"></i>
-              <span id="fuel-context">Efficient driving!</span>
+              <span id="fuel-context">Fuel context appears when fuel entries are available.</span>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Interesting Facts Section -->
-    <section class="insights-section" data-accent="amber">
-      <div class="section-header">
-        <h2 class="section-title">
-          <i class="fas fa-lightbulb section-icon"></i>
-            Did you know?
-        </h2>
-        <p class="section-subtitle">
-Interesting facts about your driving style
-        </p>
-      </div>
-
-      <div class="facts-grid">
-        <div class="fact-card" data-accent="coral">
-          <div class="fact-icon">
-            <i class="fas fa-exclamation-triangle"></i>
-          </div>
-          <div class="fact-content">
-            <button type="button"
-                    class="insights-drilldown-trigger insights-title-button"
-                    data-drilldown="hard_braking">
-Driving Events
-            </button>
-            <button type="button"
-                    class="fact-value insights-drilldown-trigger"
-                    data-drilldown="hard_braking">
-              <span class="counter" id="hard-braking">0</span> hard braking moments
-            </button>
-            <p class="fact-hint">
-                Smooth braking saves fuel and keeps everyone comfortable
-            </p>
-          </div>
-        </div>
-
-        <div class="fact-card" data-accent="amber">
-          <div class="fact-icon">
-            <i class="fas fa-tachometer-alt"></i>
-          </div>
-          <div class="fact-content">
-            <button type="button"
-                    class="insights-drilldown-trigger insights-title-button"
-                    data-drilldown="top_speed">
-Speed Insights
-            </button>
-            <button type="button"
-                    class="fact-value insights-drilldown-trigger"
-                    data-drilldown="top_speed">
-                Top speed: <span class="counter" id="max-speed">0</span> mph
-            </button>
-            <button type="button"
-                    class="fact-hint insights-drilldown-trigger"
-                    data-drilldown="avg_speed">
-                Average: <span class="counter" id="avg-speed">0</span> mph
-            </button>
-          </div>
-        </div>
-
-        <div class="fact-card" data-accent="sky">
-          <div class="fact-icon">
-            <i class="fas fa-pause-circle"></i>
-          </div>
-          <div class="fact-content">
-            <button type="button"
-                    class="insights-drilldown-trigger insights-title-button"
-                    data-drilldown="idle_time">
-Time at Rest
-            </button>
-            <button type="button"
-                    class="fact-value insights-drilldown-trigger"
-                    data-drilldown="idle_time"
-                    id="idle-time">
-0h 0m
-            </button>
-            <p class="fact-hint">
-                Time spent idling during your trips
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Charts Section -->
-    <section class="insights-section charts-section" data-accent="purple">
+    <!-- Journey + Rhythm Section -->
+    <section class="insights-section story-shell" data-accent="purple">
       <div class="section-header">
         <h2 class="section-title">
           <i class="fas fa-wave-square section-icon"></i>
-            How your driving changes over time
+            Journey rhythm
         </h2>
         <p class="section-subtitle">
-See patterns in your trips, distance, and habits
+Track daily movement and compare weekly/monthly momentum in narrative cards
         </p>
       </div>
 
-      <div class="charts-grid">
-        <div class="chart-card chart-large">
+      <div class="story-grid">
+        <article class="chart-card chart-large">
           <div class="chart-header">
             <h3 class="chart-title">
               <button type="button"
                       class="insights-drilldown-trigger insights-title-button"
                       data-drilldown="trips">
-Your driving journey
+Movement over time
               </button>
             </h3>
             <div class="chart-controls">
-              <div class="toggle-group">
-                <button class="toggle-btn active" data-view="daily">
+              <div class="toggle-group" aria-label="Trend resolution">
+                <button class="toggle-btn active" data-view="daily" aria-pressed="true">
 Daily
                 </button>
-                <button class="toggle-btn" data-view="weekly">
+                <button class="toggle-btn" data-view="weekly" aria-pressed="false">
 Weekly
                 </button>
-                <button class="toggle-btn" data-view="monthly">
+                <button class="toggle-btn" data-view="monthly" aria-pressed="false">
 Monthly
                 </button>
               </div>
@@ -269,226 +182,218 @@ Monthly
           </div>
           <div class="chart-body">
             <div class="chart-loading" id="trends-loading">
-              <div class="chart-loading-spinner">
-              </div>
+              <div class="chart-loading-spinner"></div>
             </div>
             <canvas id="trendsChart" style="display: none"></canvas>
           </div>
-        </div>
+          <div class="story-narrative" id="trends-narrative">
+            Narrative summary will appear after a few trips in this range.
+          </div>
+        </article>
+
+        <article class="rhythm-panel">
+          <div class="rhythm-header">
+            <h3>Journey Rhythm Storyrail</h3>
+            <div class="toggle-group" id="rhythm-period-toggle" aria-label="Rhythm period">
+              <button class="toggle-btn active" data-rhythm-view="weekly" aria-pressed="true">
+Weekly
+              </button>
+              <button class="toggle-btn" data-rhythm-view="monthly" aria-pressed="false">
+Monthly
+              </button>
+            </div>
+          </div>
+          <div class="rhythm-storyrail" id="rhythm-storyrail" role="list">
+            <div class="story-empty">Not enough trip history yet to build period stories.</div>
+          </div>
+        </article>
       </div>
     </section>
 
-    <!-- Period Summary Table -->
-    <section class="insights-section" data-accent="coral">
+    <!-- Insight Scenes Section -->
+    <section class="insights-section" data-accent="amber">
       <div class="section-header">
         <h2 class="section-title">
-          <i class="fas fa-table section-icon"></i>
-            Weekly and monthly summaries
+          <i class="fas fa-lightbulb section-icon"></i>
+            Insight scenes
         </h2>
         <p class="section-subtitle">
-See your trip totals, fuel usage, and efficiency by period
+A narrative readout of consistency, timing, exploration, and fuel context
         </p>
       </div>
 
-      <div class="locations-card">
-        <div class="table-responsive">
-          <table class="data-table friendly-table" id="analytics-table">
-            <thead>
-              <tr>
-                <th>
-Period
-                </th>
-                <th>
-Trips
-                </th>
-                <th>
-Distance
-                </th>
-                <th>
-Duration
-                </th>
-                <th>
-Fuel
-                </th>
-                <th>
-Events
-                </th>
-                <th>
-Efficiency
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Dynamic content -->
-            </tbody>
-          </table>
-        </div>
+      <div class="scene-chips" aria-hidden="true">
+        <span id="scene-streak-value">0 day streak</span>
+        <span id="scene-exploration-value">0 exploration score</span>
+        <span id="scene-signature-value">Daytime rhythm</span>
+        <span id="scene-active-ratio-value">0.0% active-day ratio</span>
+      </div>
+
+      <div class="insight-scenes-grid" id="insight-scenes">
+        <div class="story-empty">No scenes yet. Drive a bit more to unlock insights.</div>
       </div>
     </section>
 
-    <!-- Time Patterns Section -->
+    <!-- Time Signature Section -->
     <section class="insights-section" data-accent="sky">
       <div class="section-header">
         <h2 class="section-title">
           <i class="fas fa-clock section-icon"></i>
-            When you like to drive
+            Time signature
         </h2>
         <p class="section-subtitle">
-Discover your preferred driving times
+See when your starts cluster and how weekday rhythm shifts
         </p>
       </div>
 
-      <div class="chart-card">
-        <div class="chart-header">
-          <div class="toggle-group">
-            <button class="toggle-btn active" data-time="hour">
+      <div class="time-signature-layout">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="toggle-group" aria-label="Time distribution granularity">
+              <button class="toggle-btn active" data-time="hour" aria-pressed="true">
 By Hour
-            </button>
-            <button class="toggle-btn" data-time="day">
+              </button>
+              <button class="toggle-btn" data-time="day" aria-pressed="false">
 By Day
-            </button>
+              </button>
+            </div>
+          </div>
+          <div class="chart-body compact">
+            <canvas id="timeDistChart"></canvas>
           </div>
         </div>
-        <div class="chart-body">
-          <canvas id="timeDistChart"></canvas>
-        </div>
+
+        <aside class="time-signature-panel" id="time-signature">
+          <div class="story-empty">Time signature is building...</div>
+        </aside>
       </div>
     </section>
 
-    <!-- Favorite Places Section -->
+    <!-- Places Orbit Section -->
     <section class="insights-section" data-accent="mint">
       <div class="section-header">
         <h2 class="section-title">
           <i class="fas fa-map-marker-alt section-icon"></i>
-            Places you visit most
+            Places orbit
         </h2>
         <p class="section-subtitle">
-These are your regular destinations
+Your places arranged by frequency, distance, and recency
         </p>
       </div>
 
-      <div class="locations-card">
-        <div class="table-responsive">
-          <table class="data-table friendly-table" id="destinations-table">
-            <thead>
-              <tr>
-                <th>
-Where you've been
-                </th>
-                <th>
-How many times
-                </th>
-                <th>
-Distance to get there
-                </th>
-                <th>
-How long you stay
-                </th>
-                <th>
-Last visit
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Dynamic content -->
-            </tbody>
-          </table>
+      <div class="places-layout">
+        <div class="places-orbit" id="places-orbit" role="group" aria-label="Destination orbit">
+          <div class="story-empty">No destination clusters in this date range.</div>
         </div>
+        <aside class="places-detail-panel" id="places-detail-panel">
+          <div class="places-detail-empty">
+            <p>Select a place bubble to see details.</p>
+          </div>
+        </aside>
       </div>
     </section>
 
+    <!-- Records Timeline Section -->
+    <section class="insights-section" data-accent="coral">
+      <div class="section-header">
+        <h2 class="section-title">
+          <i class="fas fa-flag-checkered section-icon"></i>
+            Record timeline
+        </h2>
+        <p class="section-subtitle">
+Milestones from your selected range, presented as quick timeline cards
+        </p>
+      </div>
+
+      <div class="records-timeline" id="records-timeline">
+        <div class="story-empty">No record highlights for this range yet.</div>
+      </div>
+    </section>
   </div>
-</div>
-</div>
 
-
-
-<!-- Floating Action Button -->
-<div class="fab-container">
-  <div class="fab-menu" id="fab-menu">
-    <button class="fab mini-fab" title="Refresh Data" id="refresh-data">
-      <i class="fas fa-sync"></i>
-    </button>
-    <button class="fab mini-fab" title="Download Report" id="download-report">
-      <i class="fas fa-file-pdf"></i>
-    </button>
-    <button class="fab mini-fab" title="Share Insights" id="share-insights">
-      <i class="fas fa-share-alt"></i>
+  <!-- Floating Action Button -->
+  <div class="fab-container">
+    <div class="fab-menu" id="fab-menu">
+      <button class="fab mini-fab" title="Refresh Data" id="refresh-data">
+        <i class="fas fa-sync"></i>
+      </button>
+      <button class="fab mini-fab" title="Download Report" id="download-report">
+        <i class="fas fa-file-pdf"></i>
+      </button>
+      <button class="fab mini-fab" title="Share Insights" id="share-insights">
+        <i class="fas fa-share-alt"></i>
+      </button>
+    </div>
+    <button class="fab" id="fab-main">
+      <i class="fas fa-plus"></i>
     </button>
   </div>
-  <button class="fab" id="fab-main">
-    <i class="fas fa-plus"></i>
-  </button>
-</div>
 
-<!-- Custom tooltip -->
-<div class="custom-tooltip" id="custom-tooltip">
-</div>
+  <!-- Custom tooltip -->
+  <div class="custom-tooltip" id="custom-tooltip"></div>
 
-<!-- Trip Details Modal -->
-<div class="modal fade"
-     id="tripDetailsModal"
-     tabindex="-1"
-     aria-labelledby="tripDetailsModalLabel"
-     aria-hidden="true">
-  <div class="modal-dialog modal-xl">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="tripDetailsModalLabel">
+  <!-- Trip Details Modal -->
+  <div class="modal fade"
+       id="tripDetailsModal"
+       tabindex="-1"
+       aria-labelledby="tripDetailsModalLabel"
+       aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="tripDetailsModalLabel">
 Trips
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="table-responsive">
-          <table class="table table-striped" id="modal-trips-table">
-            <thead>
-              <tr>
-                <th>
-Start Time
-                </th>
-                <th>
-End Time
-                </th>
-                <th>
-Duration
-                </th>
-                <th>
-Distance
-                </th>
-                <th>
-Start Location
-                </th>
-                <th>
-Destination
-                </th>
-                <th>
-Max Speed
-                </th>
-                <th>
-Insight
-                </th>
-                <th>
-Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Dynamic content -->
-            </tbody>
-          </table>
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-striped" id="modal-trips-table">
+              <thead>
+                <tr>
+                  <th>
+Start Time
+                  </th>
+                  <th>
+End Time
+                  </th>
+                  <th>
+Duration
+                  </th>
+                  <th>
+Distance
+                  </th>
+                  <th>
+Start Location
+                  </th>
+                  <th>
+Destination
+                  </th>
+                  <th>
+Max Speed
+                  </th>
+                  <th>
+Insight
+                  </th>
+                  <th>
+Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Dynamic content -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
 Close
-        </button>
+          </button>
+        </div>
       </div>
     </div>
   </div>
-</div>
-</div>
 {% endblock %}
 
 

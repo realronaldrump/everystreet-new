@@ -6,8 +6,10 @@
 const state = {
   currentPeriod: 30,
   currentView: "daily",
+  rhythmView: "weekly",
   currentTimeView: "hour",
   charts: {},
+  derivedInsights: null,
   data: {
     behavior: null,
     insights: null,
@@ -86,7 +88,9 @@ export function getCounter(id) {
 export function resetState() {
   state.currentPeriod = 30;
   state.currentView = "daily";
+  state.rhythmView = "weekly";
   state.currentTimeView = "hour";
+  state.derivedInsights = null;
   state.data = {
     behavior: null,
     insights: null,
