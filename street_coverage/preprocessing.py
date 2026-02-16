@@ -18,6 +18,7 @@ import contextlib
 import json
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import warnings
@@ -39,6 +40,10 @@ OSM_EXTENSIONS = {".osm", ".xml", ".pbf"}
 DEFAULT_AREA_EXTRACT_THRESHOLD_MB = 256
 # Lowered from 4096 to reduce memory pressure on constrained systems
 DEFAULT_GRAPH_MEMORY_LIMIT_MB = 2048
+DEFAULT_GRAPH_TILE_START_GRID = 2
+DEFAULT_GRAPH_TILE_MAX_GRID = 6
+DEFAULT_GRAPH_TILE_OVERLAP_RATIO = 0.03
+DEFAULT_GRAPH_TILE_OVERLAP_MIN_DEG = 0.0005
 _TRUE_LITERALS = {"true", "t", "1", "yes", "y", "on"}
 _FALSE_LITERALS = {"false", "f", "0", "no", "n", "off"}
 
@@ -107,6 +112,37 @@ def _get_graph_memory_limit_mb() -> int:
         return auto_limit
 
     return DEFAULT_GRAPH_MEMORY_LIMIT_MB
+
+
+def _get_graph_tile_grid_start() -> int:
+    raw = os.getenv("COVERAGE_GRAPH_TILE_GRID_START", "").strip()
+    if not raw:
+        return DEFAULT_GRAPH_TILE_START_GRID
+    try:
+        return max(int(raw), 2)
+    except ValueError:
+        return DEFAULT_GRAPH_TILE_START_GRID
+
+
+def _get_graph_tile_grid_max() -> int:
+    raw = os.getenv("COVERAGE_GRAPH_TILE_GRID_MAX", "").strip()
+    if not raw:
+        return DEFAULT_GRAPH_TILE_MAX_GRID
+    try:
+        return max(int(raw), _get_graph_tile_grid_start())
+    except ValueError:
+        return DEFAULT_GRAPH_TILE_MAX_GRID
+
+
+def _get_graph_tile_overlap_ratio() -> float:
+    raw = os.getenv("COVERAGE_GRAPH_TILE_OVERLAP_RATIO", "").strip()
+    if not raw:
+        return DEFAULT_GRAPH_TILE_OVERLAP_RATIO
+    try:
+        value = float(raw)
+    except ValueError:
+        return DEFAULT_GRAPH_TILE_OVERLAP_RATIO
+    return min(max(value, 0.0), 0.25)
 
 
 def _write_geojson(path: Path, geometry: Any) -> None:
@@ -204,6 +240,96 @@ def _maybe_extract_area_pbf(
     return area_pbf
 
 
+def _run_osmium_extract(
+    source_path: Path,
+    polygon_geojson: Path,
+    output_pbf: Path,
+) -> subprocess.CompletedProcess[str]:
+    cmd = [
+        "osmium",
+        "extract",
+        "-p",
+        str(polygon_geojson),
+        "-o",
+        str(output_pbf),
+        "--overwrite",
+        str(source_path),
+    ]
+    return subprocess.run(cmd, capture_output=True, text=True, check=False)
+
+
+def _extract_polygon_pbf(
+    source_path: Path,
+    polygon: Any,
+    output_pbf: Path,
+) -> bool:
+    output_pbf.parent.mkdir(parents=True, exist_ok=True)
+    polygon_geojson = output_pbf.with_suffix(".geojson")
+    _write_geojson(polygon_geojson, polygon)
+
+    try:
+        result = _run_osmium_extract(source_path, polygon_geojson, output_pbf)
+    except FileNotFoundError as exc:
+        msg = (
+            "osmium is required for tiled graph builds after memory-limit failures. "
+            "Install osmium or increase COVERAGE_GRAPH_MAX_MB."
+        )
+        raise RuntimeError(msg) from exc
+
+    if result.returncode != 0:
+        err = (result.stderr or "").strip() or "osmium extract failed"
+        msg = f"Tile extract failed: {err}"
+        raise RuntimeError(msg)
+
+    return output_pbf.exists() and output_pbf.stat().st_size > 0
+
+
+def _looks_like_memory_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    patterns = (
+        "memory limit",
+        "exceeded memory",
+        "cannot allocate memory",
+        "std::bad_alloc",
+        "memoryerror",
+    )
+    return any(pattern in msg for pattern in patterns)
+
+
+def _iter_polygon_tiles(polygon: Any, grid_size: int) -> list[Any]:
+    if grid_size <= 1:
+        return [polygon]
+
+    minx, miny, maxx, maxy = polygon.bounds
+    width = float(maxx - minx)
+    height = float(maxy - miny)
+    if width <= 0 or height <= 0:
+        return [polygon]
+
+    dx = width / grid_size
+    dy = height / grid_size
+    overlap_ratio = _get_graph_tile_overlap_ratio()
+    overlap_x = max(dx * overlap_ratio, DEFAULT_GRAPH_TILE_OVERLAP_MIN_DEG)
+    overlap_y = max(dy * overlap_ratio, DEFAULT_GRAPH_TILE_OVERLAP_MIN_DEG)
+
+    tiles: list[Any] = []
+    for ix in range(grid_size):
+        left = minx + ix * dx - overlap_x
+        right = minx + (ix + 1) * dx + overlap_x
+        for iy in range(grid_size):
+            bottom = miny + iy * dy - overlap_y
+            top = miny + (iy + 1) * dy + overlap_y
+            tile = box(left, bottom, right, top)
+            clip = polygon.intersection(tile)
+            if clip.is_empty:
+                continue
+            if float(getattr(clip, "area", 0.0)) <= 0.0:
+                continue
+            tiles.append(clip)
+
+    return tiles or [polygon]
+
+
 def _get_osmnx():
     import osmnx as ox
 
@@ -298,6 +424,29 @@ def _graph_from_pbf(osm_path: Path) -> nx.MultiDiGraph:
     raise RuntimeError(msg)
 
 
+def _prune_non_driveable_edges(G: nx.MultiDiGraph) -> None:
+    non_driveable = [
+        (u, v, k)
+        for u, v, k, data in G.edges(keys=True, data=True)
+        if get_driveable_highway(data.get("highway")) is None
+    ]
+    if non_driveable:
+        G.remove_edges_from(non_driveable)
+        G.remove_nodes_from(list(nx.isolates(G)))
+
+
+def _ensure_edge_lengths(G: nx.MultiDiGraph) -> nx.MultiDiGraph:
+    if G.number_of_edges() <= 0:
+        return G
+    missing_length = any(
+        "length" not in data for _, _, _, data in G.edges(keys=True, data=True)
+    )
+    if not missing_length:
+        return G
+    ox = _get_osmnx()
+    return ox.distance.add_edge_lengths(G)
+
+
 def _build_graph_in_process(
     osm_path: Path,
     routing_polygon: Any,
@@ -307,14 +456,8 @@ def _build_graph_in_process(
     G = _load_graph_from_extract(osm_path, routing_polygon)
     if not isinstance(G, nx.MultiDiGraph):
         G = nx.MultiDiGraph(G)
-    non_driveable = [
-        (u, v, k)
-        for u, v, k, data in G.edges(keys=True, data=True)
-        if get_driveable_highway(data.get("highway")) is None
-    ]
-    if non_driveable:
-        G.remove_edges_from(non_driveable)
-        G.remove_nodes_from(list(nx.isolates(G)))
+    _prune_non_driveable_edges(G)
+    G = _ensure_edge_lengths(G)
 
     _sanitize_graph_for_graphml(G)
     ox.save_graphml(G, filepath=graph_path)
@@ -403,17 +546,159 @@ def _build_graph_in_subprocess(
         raise RuntimeError(msg)
 
 
+def _build_graph_with_tiled_fallback(
+    osm_path: Path,
+    routing_polygon: Any,
+    graph_path: Path,
+    max_mb: int,
+    *,
+    location_id: str,
+) -> nx.MultiDiGraph:
+    from core.osmnx_graphml import load_graphml_robust
+
+    ox = _get_osmnx()
+    tile_root = graph_path.parent / "_tile_build" / location_id
+    tile_root.mkdir(parents=True, exist_ok=True)
+
+    start_grid = _get_graph_tile_grid_start()
+    max_grid = _get_graph_tile_grid_max()
+    last_memory_error: Exception | None = None
+
+    try:
+        for grid_size in range(start_grid, max_grid + 1):
+            tiles = _iter_polygon_tiles(routing_polygon, grid_size)
+            logger.warning(
+                "Retrying graph build in tiled mode for %s: %dx%d grid (%d tiles)",
+                location_id,
+                grid_size,
+                grid_size,
+                len(tiles),
+            )
+
+            merged = nx.MultiDiGraph()
+            tile_fail_memory = False
+            built_tile_count = 0
+
+            for idx, tile_polygon in enumerate(tiles, start=1):
+                tile_prefix = tile_root / f"g{grid_size}_tile{idx}"
+                tile_extract = tile_prefix.with_suffix(".osm.pbf")
+                tile_graph = tile_prefix.with_suffix(".graphml")
+
+                try:
+                    has_extract = _extract_polygon_pbf(
+                        osm_path,
+                        tile_polygon,
+                        tile_extract,
+                    )
+                    if not has_extract:
+                        continue
+
+                    _build_graph_with_limit(
+                        tile_extract,
+                        tile_polygon,
+                        tile_graph,
+                        max_mb,
+                        location_id=f"{location_id}-g{grid_size}-{idx}",
+                        allow_tiled_fallback=False,
+                    )
+
+                    if not tile_graph.exists() or tile_graph.stat().st_size <= 0:
+                        continue
+
+                    tile_g = load_graphml_robust(tile_graph)
+                    if not isinstance(tile_g, nx.MultiDiGraph):
+                        tile_g = nx.MultiDiGraph(tile_g)
+                    merged = nx.compose(merged, tile_g)
+                    built_tile_count += 1
+                except Exception as exc:
+                    if _looks_like_memory_error(exc):
+                        logger.warning(
+                            "Tile %d/%d failed at %dx%d grid due to memory pressure: %s",
+                            idx,
+                            len(tiles),
+                            grid_size,
+                            grid_size,
+                            exc,
+                        )
+                        tile_fail_memory = True
+                        last_memory_error = exc
+                        break
+                    raise
+                finally:
+                    with contextlib.suppress(FileNotFoundError):
+                        tile_extract.unlink()
+                    with contextlib.suppress(FileNotFoundError):
+                        tile_extract.with_suffix(".geojson").unlink()
+                    with contextlib.suppress(FileNotFoundError):
+                        tile_graph.unlink()
+
+            if tile_fail_memory:
+                continue
+
+            if built_tile_count <= 0 or merged.number_of_edges() <= 0:
+                logger.warning(
+                    "Tiled graph build produced no usable edges at %dx%d grid.",
+                    grid_size,
+                    grid_size,
+                )
+                continue
+
+            merged = ox.truncate.truncate_graph_polygon(
+                merged,
+                routing_polygon,
+                truncate_by_edge=True,
+            )
+            _prune_non_driveable_edges(merged)
+            merged = _ensure_edge_lengths(merged)
+            _sanitize_graph_for_graphml(merged)
+            ox.save_graphml(merged, filepath=graph_path)
+            return merged
+    finally:
+        shutil.rmtree(tile_root, ignore_errors=True)
+
+    if last_memory_error is not None:
+        msg = (
+            "Graph build exceeded memory limits even with tiled fallback. "
+            "Increase COVERAGE_GRAPH_MAX_MB or reduce area size."
+        )
+        raise RuntimeError(msg) from last_memory_error
+
+    msg = "Tiled graph fallback did not produce a valid graph."
+    raise RuntimeError(msg)
+
+
 def _build_graph_with_limit(
     osm_path: Path,
     routing_polygon: Any,
     graph_path: Path,
     max_mb: int,
+    *,
+    location_id: str | None = None,
+    allow_tiled_fallback: bool = True,
 ) -> nx.MultiDiGraph | None:
     if max_mb <= 0:
         return _build_graph_in_process(osm_path, routing_polygon, graph_path)
 
-    _build_graph_in_subprocess(osm_path, routing_polygon, graph_path, max_mb)
-    return None
+    try:
+        _build_graph_in_subprocess(osm_path, routing_polygon, graph_path, max_mb)
+    except Exception as exc:
+        if not allow_tiled_fallback or not _looks_like_memory_error(exc):
+            raise
+        location_label = location_id or graph_path.stem
+        logger.warning(
+            "Graph build hit memory limit (%s). Switching to tiled fallback for %s.",
+            exc,
+            location_label,
+        )
+        return _build_graph_with_tiled_fallback(
+            osm_path,
+            routing_polygon,
+            graph_path,
+            max_mb,
+            location_id=location_label,
+        )
+    else:
+        return None
 
 
 def _coerce_nodes_edges(network: tuple[Any, Any]) -> tuple[Any, Any] | None:
@@ -680,6 +965,7 @@ async def preprocess_streets(
                 routing_polygon,
                 file_path,
                 _get_graph_memory_limit_mb(),
+                location_id=location_id,
             )
             return graph, file_path
 

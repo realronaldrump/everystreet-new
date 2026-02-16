@@ -1,6 +1,7 @@
 import contextlib
 import heapq
 import logging
+import math
 from collections.abc import Callable
 
 import networkx as nx
@@ -12,33 +13,228 @@ from .types import EdgeRef
 logger = logging.getLogger(__name__)
 
 
+def _identity_xy(x: float, y: float) -> tuple[float, float]:
+    return float(x), float(y)
+
+
+def _get_crs_obj(G: nx.Graph) -> object | None:
+    crs = getattr(G, "graph", {}).get("crs") if hasattr(G, "graph") else None
+    if crs is None:
+        return None
+    with contextlib.suppress(Exception):
+        import pyproj
+
+        return pyproj.CRS.from_user_input(crs)
+    return None
+
+
+def _is_projected_graph(G: nx.Graph) -> bool:
+    crs_obj = _get_crs_obj(G)
+    return bool(getattr(crs_obj, "is_projected", False))
+
+
+def _meters_per_graph_unit(G: nx.Graph) -> float | None:
+    crs_obj = _get_crs_obj(G)
+    if crs_obj is None or not getattr(crs_obj, "is_projected", False):
+        return None
+
+    axis_info = getattr(crs_obj, "axis_info", None) or []
+    if axis_info:
+        factor = getattr(axis_info[0], "unit_conversion_factor", None)
+        with contextlib.suppress(Exception):
+            if factor is not None and float(factor) > 0:
+                return float(factor)
+
+    # Most projected OSMnx graphs use meter units.
+    return 1.0
+
+
+def _reference_latitude(G: nx.Graph) -> float:
+    ys: list[float] = []
+    for _n, data in G.nodes(data=True):
+        y = data.get("y")
+        if y is None:
+            continue
+        with contextlib.suppress(Exception):
+            ys.append(float(y))
+        if len(ys) >= 256:
+            break
+    if not ys:
+        return 0.0
+    return float(sum(ys) / len(ys))
+
+
 def graph_units_to_feet(G: nx.Graph, distance: float) -> float:
     """
     Convert a distance measured in the graph's coordinate units to feet.
 
     OSMnx returns distances from nearest-node/edge queries in the same
-    units as the graph's CRS. For accurate distance-based thresholds,
-    graphs should be projected. In practice this app often operates on
-    EPSG:4326 graphs, so we also support a rough degrees->meters
-    conversion for validation/matching.
+    units as the graph's CRS. For accurate distance-based thresholds, use a
+    projected graph. This function still provides a latitude-aware fallback
+    when only geographic degrees are available.
     """
     try:
         distance = float(distance)
     except Exception:
         return float("inf")
 
-    crs = getattr(G, "graph", {}).get("crs") if hasattr(G, "graph") else None
-    if crs is not None:
+    meters_per_unit = _meters_per_graph_unit(G)
+    if meters_per_unit is not None:
+        return distance * meters_per_unit * FEET_PER_METER
+
+    lat = _reference_latitude(G)
+    lat_rad = math.radians(lat)
+    meters_per_lat = (
+        111_132.92
+        - 559.82 * math.cos(2 * lat_rad)
+        + 1.175 * math.cos(4 * lat_rad)
+    )
+    meters_per_lon = 111_412.84 * math.cos(lat_rad) - 93.5 * math.cos(3 * lat_rad)
+    meters_per_degree = (abs(meters_per_lat) + abs(meters_per_lon)) / 2.0
+    return distance * meters_per_degree * FEET_PER_METER
+
+
+def _build_point_projector(
+    src_crs: object | None,
+    dst_crs: object | None,
+) -> Callable[[float, float], tuple[float, float]] | None:
+    if src_crs is None or dst_crs is None:
+        return None
+    with contextlib.suppress(Exception):
+        if src_crs == dst_crs:
+            return _identity_xy
+
+    try:
+        import pyproj
+
+        transformer = pyproj.Transformer.from_crs(
+            src_crs,
+            dst_crs,
+            always_xy=True,
+        )
+    except Exception:
+        return None
+
+    def _project_xy(x: float, y: float) -> tuple[float, float]:
+        px, py = transformer.transform(float(x), float(y))
+        return float(px), float(py)
+
+    return _project_xy
+
+
+def prepare_spatial_matching_graph(
+    G: nx.MultiDiGraph,
+) -> tuple[nx.MultiDiGraph, Callable[[float, float], tuple[float, float]]]:
+    """
+    Return a projected graph plus point-projector for accurate matching.
+
+    Falls back to the original graph and identity projector if projection
+    cannot be prepared.
+    """
+    source_crs = None
+    with contextlib.suppress(Exception):
+        import pyproj
+
+        source_crs = pyproj.CRS.from_epsg(4326)
+
+    if _is_projected_graph(G):
+        projector = _build_point_projector(source_crs, _get_crs_obj(G))
+        if projector is None:
+            logger.warning(
+                "Projected graph is missing CRS transform metadata; using identity projector.",
+            )
+            return G, _identity_xy
+        return G, projector
+
+    try:
+        import osmnx as ox
+
+        projected = ox.projection.project_graph(G)
+    except Exception as exc:
+        logger.warning(
+            "Failed to project graph for spatial matching; using original CRS: %s",
+            exc,
+        )
+        return G, _identity_xy
+
+    projector = _build_point_projector(source_crs, _get_crs_obj(projected))
+    if projector is None:
+        logger.warning(
+            "Missing CRS metadata for projected matching; using original graph.",
+        )
+        return G, _identity_xy
+
+    return projected, projector
+
+
+def project_linestring_coords(
+    coords: list[list[float]],
+    project_xy: Callable[[float, float], tuple[float, float]],
+) -> list[list[float]] | None:
+    """Project a [x, y] coordinate sequence to the matching graph's CRS."""
+    projected: list[list[float]] = []
+    for pt in coords:
+        if not isinstance(pt, list | tuple) or len(pt) < 2:
+            continue
         with contextlib.suppress(Exception):
-            import pyproj
+            x, y = project_xy(float(pt[0]), float(pt[1]))
+            projected.append([float(x), float(y)])
+    if len(projected) < 2:
+        return None
+    return projected
 
-            crs_obj = pyproj.CRS.from_user_input(crs)
-            if crs_obj.is_projected:
-                # Assume projected units are meters.
-                return distance * FEET_PER_METER
 
-    # Geographic degrees (approx; ~111km per degree).
-    return distance * 111_000.0 * FEET_PER_METER
+def project_xy_point(
+    x: float,
+    y: float,
+    project_xy: Callable[[float, float], tuple[float, float]],
+) -> tuple[float, float] | None:
+    with contextlib.suppress(Exception):
+        px, py = project_xy(float(x), float(y))
+        return float(px), float(py)
+    return None
+
+
+def choose_consensus_edge_match(
+    candidates: list[tuple[EdgeRef, float]],
+) -> tuple[EdgeRef | None, float]:
+    """
+    Pick an edge by vote count first, then average distance tie-break.
+
+    This improves robustness in dense networks where mid/start/end samples may
+    snap to different but nearby edges.
+    """
+    if not candidates:
+        return None, float("inf")
+
+    grouped: dict[EdgeRef, list[float]] = {}
+    for edge, dist_ft in candidates:
+        with contextlib.suppress(Exception):
+            grouped.setdefault(edge, []).append(float(dist_ft))
+
+    if not grouped:
+        return None, float("inf")
+
+    best_edge: EdgeRef | None = None
+    best_votes = -1
+    best_avg = float("inf")
+    best_min = float("inf")
+
+    for edge, dists in grouped.items():
+        if not dists:
+            continue
+        votes = len(dists)
+        avg_dist = sum(dists) / votes
+        min_dist = min(dists)
+        rank = (-votes, avg_dist, min_dist)
+        best_rank = (-best_votes, best_avg, best_min)
+        if best_edge is None or rank < best_rank:
+            best_edge = edge
+            best_votes = votes
+            best_avg = avg_dist
+            best_min = min_dist
+
+    return best_edge, best_avg
 
 
 def _reconstruct_path_edges(

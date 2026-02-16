@@ -20,7 +20,15 @@ from .constants import (
 )
 from .core import make_req_id, solve_greedy_route
 from .gaps import fill_route_gaps
-from .graph import build_osmid_index, graph_units_to_feet, try_match_osmid
+from .graph import (
+    build_osmid_index,
+    choose_consensus_edge_match,
+    graph_units_to_feet,
+    prepare_spatial_matching_graph,
+    project_linestring_coords,
+    project_xy_point,
+    try_match_osmid,
+)
 from .validation import validate_route
 
 if TYPE_CHECKING:
@@ -305,12 +313,16 @@ async def _generate_optimal_route_with_progress_impl(
         skipped_mapping_distance = 0
         skipped_match_errors = 0
 
+        matching_graph, project_xy = prepare_spatial_matching_graph(G)
         node_xy: dict[int, tuple[float, float]] = {
-            n: (float(G.nodes[n]["x"]), float(G.nodes[n]["y"]))
-            for n in G.nodes
-            if "x" in G.nodes[n] and "y" in G.nodes[n]
+            n: (
+                float(matching_graph.nodes[n]["x"]),
+                float(matching_graph.nodes[n]["y"]),
+            )
+            for n in matching_graph.nodes
+            if "x" in matching_graph.nodes[n] and "y" in matching_graph.nodes[n]
         }
-        osmid_index = build_osmid_index(G)
+        osmid_index = build_osmid_index(matching_graph)
         edge_line_cache: dict[EdgeRef, LineString] = {}
 
         # Pre-process segments to extract necessary data for parallel execution
@@ -324,13 +336,26 @@ async def _generate_optimal_route_with_progress_impl(
                 seg_data_list.append(None)
                 continue
 
+            projected_coords = project_linestring_coords(coords, project_xy)
+            if not projected_coords:
+                skipped_match_errors += 1
+                seg_data_list.append(None)
+                continue
+
             osmid_raw = seg.get("properties", {}).get("osm_id")
             osmid = None
             if osmid_raw is not None:
                 with contextlib.suppress(Exception):
                     osmid = int(osmid_raw)
 
-            seg_data_list.append({"coords": coords, "osmid": osmid, "index": i})
+            seg_data_list.append(
+                {
+                    "coords": coords,
+                    "match_coords": projected_coords,
+                    "osmid": osmid,
+                    "index": i,
+                },
+            )
 
         # Phase 1: Try to match by OSM ID in parallel
         # This is CPU/IO bound (Shapely ops release GIL), so threading helps
@@ -341,8 +366,8 @@ async def _generate_optimal_route_with_progress_impl(
             if data is None:
                 return None
             return try_match_osmid(
-                G,
-                data["coords"],
+                matching_graph,
+                data["match_coords"],
                 data["osmid"],
                 osmid_index,
                 node_xy=node_xy,
@@ -492,7 +517,7 @@ async def _generate_optimal_route_with_progress_impl(
                 data = seg_data_list[idx]
                 if not data:
                     continue
-                coords = data.get("coords") or []
+                coords = data.get("match_coords") or []
                 if len(coords) < 2:
                     skipped_match_errors += 1
                     continue
@@ -524,7 +549,7 @@ async def _generate_optimal_route_with_progress_impl(
                 try:
                     ox = _get_osmnx()
                     nearest_edges, dists = ox.distance.nearest_edges(
-                        G,
+                        matching_graph,
                         X,
                         Y,
                         return_dist=True,
@@ -542,18 +567,22 @@ async def _generate_optimal_route_with_progress_impl(
                     )
                     for i, seg_idx in enumerate(fallback_seg_indices, start=1):
                         off = (i - 1) * 3
-                        best_edge: tuple[int, int, int] | None = None
-                        best_dist_ft = float("inf")
+                        candidates: list[tuple[EdgeRef, float]] = []
                         for j in range(3):
                             try:
                                 u, v, k = nearest_edges[off + j]
                                 dist_units = dists[off + j]
                             except Exception:
                                 continue
-                            dist_ft = graph_units_to_feet(G, dist_units)
-                            if dist_ft < best_dist_ft:
-                                best_dist_ft = dist_ft
-                                best_edge = (int(u), int(v), int(k))
+                            dist_ft = graph_units_to_feet(
+                                matching_graph,
+                                dist_units,
+                            )
+                            candidates.append(((int(u), int(v), int(k)), dist_ft))
+
+                        best_edge, best_dist_ft = choose_consensus_edge_match(
+                            candidates,
+                        )
 
                         if best_edge and best_dist_ft <= MAX_SPATIAL_MATCH_DISTANCE_FT:
                             rid, options = make_req_id(G, best_edge)
@@ -700,15 +729,23 @@ async def _generate_optimal_route_with_progress_impl(
                     if not isinstance(mid_pt, list | tuple) or len(mid_pt) < 2:
                         return seg_idx, None
 
+                    projected_mid = project_xy_point(
+                        float(mid_pt[0]),
+                        float(mid_pt[1]),
+                        project_xy,
+                    )
+                    if not projected_mid:
+                        return seg_idx, None
+
                     try:
                         ox = _get_osmnx()
                         (u, v, k), dist_units = ox.distance.nearest_edges(
-                            G,
-                            float(mid_pt[0]),
-                            float(mid_pt[1]),
+                            matching_graph,
+                            projected_mid[0],
+                            projected_mid[1],
                             return_dist=True,
                         )
-                        dist_ft = graph_units_to_feet(G, dist_units)
+                        dist_ft = graph_units_to_feet(matching_graph, dist_units)
                         if dist_ft > MAX_SPATIAL_MATCH_DISTANCE_FT:
                             return seg_idx, None
                         return seg_idx, (int(u), int(v), int(k))
