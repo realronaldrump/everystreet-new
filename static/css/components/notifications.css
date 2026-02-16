@@ -111,7 +111,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  max-width: min(420px, calc(100vw - 40px));
+  max-width: min(560px, calc(100vw - 40px));
   cursor: pointer;
   transition: var(--transition-fast);
   animation: slideInUp 0.3s ease-out;
@@ -126,10 +126,9 @@
 .minimized-progress-badge .minimized-location-name {
   flex: 1 1 auto;
   min-width: 0;
-  max-width: clamp(14rem, 26vw, 24rem);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
   font-weight: 500;
   color: var(--text-primary);
 }
