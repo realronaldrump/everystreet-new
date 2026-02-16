@@ -59,6 +59,20 @@ class ConfirmationDialog {
     document.body.appendChild(modal);
   }
 
+  _blurModalFocus(modalElement) {
+    if (!this.hasDom || !modalElement) {
+      return;
+    }
+    const activeElement = document.activeElement;
+    if (
+      activeElement &&
+      modalElement.contains(activeElement) &&
+      typeof activeElement.blur === "function"
+    ) {
+      activeElement.blur();
+    }
+  }
+
   /**
    * Show a confirmation dialog
    * @param {Object} options
@@ -112,7 +126,7 @@ class ConfirmationDialog {
       }
 
       const handleConfirm = () => {
-        confirmBtn?.blur();
+        this._blurModalFocus(modalElement);
         cleanup();
         this.activeModal?.hide();
         this.activeModal = null;
@@ -126,16 +140,10 @@ class ConfirmationDialog {
       };
 
       const handleHide = () => {
-        const focusedElement = modalElement.querySelector(":focus");
-        if (focusedElement) {
-          focusedElement.blur();
-        }
+        this._blurModalFocus(modalElement);
       };
 
-      const handleMouseDown = (e) => {
-        if (e.button !== 0) {
-          return;
-        }
+      const handleClick = () => {
         handleConfirm();
       };
 
@@ -151,13 +159,13 @@ class ConfirmationDialog {
       };
 
       function cleanup() {
-        confirmBtn?.removeEventListener("mousedown", handleMouseDown);
+        confirmBtn?.removeEventListener("click", handleClick);
         modalElement.removeEventListener("keydown", handleKeyDown);
         modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
         modalElement.removeEventListener("hide.bs.modal", handleHide);
       }
 
-      confirmBtn?.addEventListener("mousedown", handleMouseDown);
+      confirmBtn?.addEventListener("click", handleClick);
       modalElement.addEventListener("keydown", handleKeyDown);
 
       modalElement.addEventListener("hidden.bs.modal", handleDismiss);
@@ -290,7 +298,7 @@ class ConfirmationDialog {
           inputEl.focus();
           return;
         }
-        confirmBtn?.blur();
+        this._blurModalFocus(modalElement);
         cleanup();
         this.activeModal?.hide();
         this.activeModal = null;
@@ -304,14 +312,11 @@ class ConfirmationDialog {
       };
 
       const handleHide = () => {
-        const focusedElement = modalElement.querySelector(":focus");
-        if (focusedElement) {
-          focusedElement.blur();
-        }
+        this._blurModalFocus(modalElement);
       };
 
-      const handleMouseDown = (e) => {
-        if (e.button !== 0 || confirmBtn?.disabled) {
+      const handleClick = () => {
+        if (confirmBtn?.disabled) {
           return;
         }
         handleConfirm();
@@ -336,14 +341,14 @@ class ConfirmationDialog {
       };
 
       function cleanup() {
-        confirmBtn?.removeEventListener("mousedown", handleMouseDown);
+        confirmBtn?.removeEventListener("click", handleClick);
         inputEl.removeEventListener("input", handleInput);
         modalElement.removeEventListener("keydown", handleKeyDown);
         modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
         modalElement.removeEventListener("hide.bs.modal", handleHide);
       }
 
-      confirmBtn?.addEventListener("mousedown", handleMouseDown);
+      confirmBtn?.addEventListener("click", handleClick);
       inputEl.addEventListener("input", handleInput);
       modalElement.addEventListener("keydown", handleKeyDown);
       modalElement.addEventListener("hidden.bs.modal", handleDismiss);
@@ -367,6 +372,8 @@ class ConfirmationDialog {
 
   hide() {
     if (this.activeModal) {
+      const modalElement = document.getElementById(this.modalId);
+      this._blurModalFocus(modalElement);
       this.activeModal.hide();
       this.activeModal = null;
     }

@@ -350,16 +350,22 @@ export class OptimalRoutesManager {
       // already logged in api
     }
 
-    // Check for existing route
-    try {
-      const routeData = await this.api.loadExistingRoute(nextAreaId);
-      if (routeData?.coordinates) {
-        this.currentRouteData = routeData;
-        this.map.displayRoute(routeData.coordinates, routeData);
-        this.ui.showResults(routeData);
+    // Check for existing route only when metadata says one is saved.
+    // This avoids expected 404 noise for areas that have never generated a route.
+    const selectedArea = this.coverageAreas.find(
+      (area) => String(area?._id || area?.id || "") === nextAreaId
+    );
+    if (selectedArea?.has_optimal_route) {
+      try {
+        const routeData = await this.api.loadExistingRoute(nextAreaId);
+        if (routeData?.coordinates) {
+          this.currentRouteData = routeData;
+          this.map.displayRoute(routeData.coordinates, routeData);
+          this.ui.showResults(routeData);
+        }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
     }
 
     // Check for active task
@@ -430,19 +436,32 @@ export class OptimalRoutesManager {
     this.ui.updateProgress(data);
   }
 
-  async onGenerationComplete() {
+  async onGenerationComplete(progressData = {}) {
+    this.currentTaskId = null;
+
     // Load the full route data now
     const routeData = await this.api.loadExistingRoute(this.selectedAreaId);
     if (routeData?.coordinates) {
+      const selectedArea = this.coverageAreas.find(
+        (area) => String(area?._id || area?.id || "") === String(this.selectedAreaId)
+      );
+      if (selectedArea) {
+        selectedArea.has_optimal_route = true;
+      }
       this.currentRouteData = routeData;
       this.map.displayRoute(routeData.coordinates, routeData, true); // animate=true
       this.ui.showResults(routeData);
     } else {
-      this.ui.showError("Route completed but failed to load data");
+      this.ui.showError(
+        progressData?.error ||
+          progressData?.message ||
+          "Route completed but failed to load route data"
+      );
     }
   }
 
   onError(message) {
+    this.currentTaskId = null;
     this.ui.showError(message);
     this.ui.hideReplayButton();
   }
@@ -478,6 +497,12 @@ export class OptimalRoutesManager {
 
     if (this.selectedAreaId) {
       await this.api.clearRoute(this.selectedAreaId);
+      const selectedArea = this.coverageAreas.find(
+        (area) => String(area?._id || area?.id || "") === String(this.selectedAreaId)
+      );
+      if (selectedArea) {
+        selectedArea.has_optimal_route = false;
+      }
     }
   }
 

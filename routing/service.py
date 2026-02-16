@@ -109,6 +109,30 @@ async def _generate_optimal_route_with_progress_impl(
     def _raise_value_error(message: str) -> None:
         raise ValueError(message)
 
+    def _is_lonlat_bbox(
+        bounds: tuple[float, float, float, float] | list[float] | None,
+    ) -> bool:
+        if not bounds or len(bounds) != 4:
+            return False
+        try:
+            min_x, min_y, max_x, max_y = (float(bounds[0]), float(bounds[1]), float(bounds[2]), float(bounds[3]))
+        except Exception:
+            return False
+        return (
+            -180.0 <= min_x <= 180.0
+            and -180.0 <= max_x <= 180.0
+            and -90.0 <= min_y <= 90.0
+            and -90.0 <= max_y <= 90.0
+            and min_x <= max_x
+            and min_y <= max_y
+        )
+
+    def _bbox_intersects(
+        a: tuple[float, float, float, float],
+        b: tuple[float, float, float, float],
+    ) -> bool:
+        return not (a[2] < b[0] or b[2] < a[0] or a[3] < b[1] or b[3] < a[1])
+
     try:
         await update_progress("initializing", 0, "Starting optimal route generation...")
 
@@ -335,6 +359,44 @@ async def _generate_optimal_route_with_progress_impl(
                 logger.exception("Failed to load graph from disk")
                 msg = f"Failed to load street network: {e}"
                 _raise_value_error(msg)
+
+        graph_bbox: tuple[float, float, float, float] | None = None
+        min_x = float("inf")
+        min_y = float("inf")
+        max_x = float("-inf")
+        max_y = float("-inf")
+        for _, node_data in G.nodes(data=True):
+            try:
+                x = float(node_data.get("x"))
+                y = float(node_data.get("y"))
+            except Exception:
+                continue
+            min_x = min(min_x, x)
+            min_y = min(min_y, y)
+            max_x = max(max_x, x)
+            max_y = max(max_y, y)
+
+        if min_x != float("inf") and min_y != float("inf"):
+            graph_bbox = (min_x, min_y, max_x, max_y)
+
+        area_bbox = (
+            tuple(float(v) for v in coverage_area.bounding_box)
+            if coverage_area.bounding_box and len(coverage_area.bounding_box) == 4
+            else None
+        )
+        if (
+            graph_bbox
+            and area_bbox
+            and _is_lonlat_bbox(graph_bbox)
+            and _is_lonlat_bbox(area_bbox)
+            and not _bbox_intersects(graph_bbox, area_bbox)
+        ):
+            msg = (
+                "Street network does not overlap this coverage area. "
+                f"graph_bbox={graph_bbox}, area_bbox={area_bbox}. "
+                "Rebuild map data for this area and ensure the local OSM extract covers it."
+            )
+            _raise_value_error(msg)
 
         total_segments = len(undriven)
         await update_progress(
@@ -857,7 +919,26 @@ async def _generate_optimal_route_with_progress_impl(
         skipped_mapping_distance += len(unmatched_after_spatial)
 
         if not required_reqs:
-            msg = "Could not map any segments to street network"
+            mapping_summary = (
+                f"loaded_segments={total_segments}, "
+                f"invalid_geometry={skipped_invalid_geometry}, "
+                f"match_errors={skipped_match_errors}, "
+                f"unmatched_after_fallback={skipped_mapping_distance}, "
+                f"graph_nodes={G.number_of_nodes()}, "
+                f"graph_edges={G.number_of_edges()}"
+            )
+            if skipped_invalid_geometry + skipped_match_errors >= total_segments:
+                msg = (
+                    "Could not map any segments to street network because all loaded "
+                    f"segments failed geometry preparation ({mapping_summary})."
+                )
+            else:
+                msg = (
+                    "Could not map any segments to street network. "
+                    f"{mapping_summary}. "
+                    "This usually means the local street network graph does not overlap "
+                    "the selected coverage area or the graph cache is stale."
+                )
             _raise_value_error(msg)
 
         await update_progress(
