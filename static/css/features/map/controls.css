@@ -565,6 +565,23 @@
   }
 }
 
+/* === Mobile Landscape - Side sheet instead of bottom sheet === */
+@media (max-width: 768px) and (orientation: landscape) {
+  .control-panel#map-controls {
+    max-height: 100vh;
+    max-width: 320px;
+    left: 0;
+    right: auto;
+    bottom: 0;
+    border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
+    padding-bottom: 0;
+  }
+
+  .control-panel-body {
+    max-height: calc(100vh - 120px);
+  }
+}
+
 /* === Live Tracking Section - Clean === */
 .live-status-compact {
   display: flex;

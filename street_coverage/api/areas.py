@@ -177,6 +177,24 @@ def _normalize_area_type(area_type: str) -> str:
     return str(area_type or "").strip().lower()
 
 
+def _address_has_key(address: Any, keys: set[str]) -> bool:
+    if not isinstance(address, dict):
+        return False
+
+    for raw_key, raw_value in address.items():
+        key = str(raw_key or "").strip().lower()
+        if key not in keys:
+            continue
+        if isinstance(raw_value, str):
+            if raw_value.strip():
+                return True
+            continue
+        if raw_value is not None:
+            return True
+
+    return False
+
+
 def _parse_bounding_box(raw_bbox: Any) -> list[float] | None:
     if not isinstance(raw_bbox, list) or len(raw_bbox) != 4:
         return None
@@ -192,24 +210,42 @@ def _is_type_match(area_type: str, result: dict[str, Any]) -> bool:
     if not normalized:
         return True
 
-    result_type = str(result.get("type") or "").lower()
-    result_class = str(result.get("class") or "").lower()
+    result_type = str(result.get("type") or "").strip().lower()
+    result_addresstype = str(result.get("addresstype") or "").strip().lower()
+    result_class = str(result.get("class") or "").strip().lower()
     address = result.get("address") or {}
 
     if normalized == "city":
-        return result_type in {
+        city_types = {
             "city",
             "town",
             "village",
             "hamlet",
             "municipality",
             "locality",
-        } or (result_class == "place" and result_type not in {"state", "county"})
+        }
+        return (
+            result_type in city_types
+            or result_addresstype in city_types
+            or _address_has_key(
+                address,
+                {"city", "town", "village", "hamlet", "municipality"},
+            )
+            or (result_class == "place" and result_type not in {"state", "county"})
+        )
     if normalized == "county":
-        return result_type == "county" or bool(address.get("county"))
+        county_types = {"county", "parish"}
+        return (
+            result_type in county_types
+            or result_addresstype in county_types
+            or _address_has_key(address, {"county"})
+        )
     if normalized == "state":
-        return result_type in {"state", "province", "region"} or bool(
-            address.get("state"),
+        state_types = {"state", "province", "region"}
+        return (
+            result_type in state_types
+            or result_addresstype in state_types
+            or _address_has_key(address, {"state"})
         )
     return True
 

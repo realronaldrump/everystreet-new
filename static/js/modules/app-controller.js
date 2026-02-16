@@ -462,8 +462,8 @@ const AppController = {
       });
     }
 
-    // Map style reload event – re-apply layers
-    document.addEventListener("mapStyleLoaded", async () => {
+    // Map style reload – re-apply layers via serialized handler (priority 1 = runs first)
+    this._styleChangeHandlerRef = mapCore.registerStyleChangeHandler(1, async () => {
       if (!state.map || !state.mapInitialized) {
         return;
       }
@@ -471,10 +471,8 @@ const AppController = {
       loadingManager.pulse("Applying new map style...");
 
       try {
-        // Wait for style to be fully loaded
         await mapCore.waitForStyleLoad();
 
-        // Re-apply all visible layers with their data
         for (const [name, info] of Object.entries(state.mapLayers)) {
           if (info.visible && info.layer) {
             await layerManager.updateMapLayer(name, info.layer);

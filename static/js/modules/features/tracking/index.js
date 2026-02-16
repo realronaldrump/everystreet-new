@@ -1,6 +1,8 @@
 /* global mapboxgl */
 
 import apiClient from "../../core/api-client.js";
+import layerManager from "../../layer-manager.js";
+import mapCore from "../../map-core.js";
 import { getDeviceProfile, getStorage, setStorage } from "../../utils.js";
 import {
   COVERAGE_LAYER_IDS,
@@ -53,9 +55,26 @@ class LiveTripTracker {
     this.lineSourceId = LIVE_TRACKING_LAYER_IDS.lineSource;
     this.markerSourceId = LIVE_TRACKING_LAYER_IDS.markerSource;
     this.lineLayerId = LIVE_TRACKING_LAYER_IDS.line;
+    this.pulseLayerId = LIVE_TRACKING_LAYER_IDS.pulse;
     this.markerLayerId = LIVE_TRACKING_LAYER_IDS.marker;
     this.arrowLayerId = LIVE_TRACKING_LAYER_IDS.arrow;
     this.arrowImageId = LIVE_TRACKING_LAYER_IDS.arrowImage;
+
+    // Animation state
+    this._pulseAnimationId = null;
+
+    // Position interpolation state
+    this._interp = {
+      active: false,
+      fromCoord: null,
+      toCoord: null,
+      fromBearing: null,
+      toBearing: null,
+      startTime: 0,
+      duration: 3000,
+      frameId: null,
+      currentSpeed: 0,
+    };
 
     this.coverageLayerIds = [...COVERAGE_LAYER_IDS];
 
@@ -68,7 +87,7 @@ class LiveTripTracker {
     this.mapInteractionHandlers = [];
     this.lastUpdateTimestamp = null;
     this.freshnessTimer = null;
-    this.mapStyleListener = null;
+    this._styleChangeHandlerRef = null;
     this.primaryRgb = [59, 138, 127];
     this.primaryColor = LiveTripTracker.formatRgb(this.primaryRgb);
     this.refreshPrimaryColor();
@@ -96,10 +115,17 @@ class LiveTripTracker {
       return;
     }
 
+    if (!this.map.isStyleLoaded()) {
+      console.warn("Map style not loaded, deferring layer init");
+      this.map.once("style.load", () => this.initializeMapLayers());
+      return;
+    }
+
     try {
       this.refreshPrimaryColor();
       this._ensureLineLayers();
       this._ensureMarkerLayers();
+      this._ensurePulseLayer();
       this._ensureArrowLayer();
     } catch (error) {
       console.error("Error initializing map layers:", error);
@@ -117,29 +143,51 @@ class LiveTripTracker {
 
     if (!this.map.getLayer(this.lineLayerId)) {
       const color = this.primaryRgb;
+      // Insert line below map labels so it feels integrated
+      const beforeId = layerManager.getFirstSymbolLayerId();
       this.map.addLayer({
         id: this.lineLayerId,
         type: "line",
         source: this.lineSourceId,
         paint: {
-          "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 14, 2.5, 18, 4],
+          "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2, 14, 3, 18, 5],
+          "line-blur": ["interpolate", ["linear"], ["zoom"], 10, 0.4, 16, 0.15, 18, 0],
           "line-gradient": [
             "interpolate",
             ["linear"],
             ["line-progress"],
             0,
-            LiveTripTracker.formatRgba(color, 0.15),
-            0.4,
-            LiveTripTracker.formatRgba(color, 0.4),
-            0.75,
-            LiveTripTracker.formatRgba(color, 0.73),
+            LiveTripTracker.formatRgba(color, 0.06),
+            0.3,
+            LiveTripTracker.formatRgba(color, 0.2),
+            0.6,
+            LiveTripTracker.formatRgba(color, 0.5),
+            0.85,
+            LiveTripTracker.formatRgba(color, 0.78),
             1,
-            LiveTripTracker.formatRgba(color, 0.9),
+            LiveTripTracker.formatRgba(color, 0.95),
           ],
         },
         layout: {
           "line-cap": "round",
           "line-join": "round",
+        },
+      }, beforeId);
+    }
+  }
+
+  _ensurePulseLayer() {
+    // Pulse ring: animated circle behind the main marker for a living, breathing feel
+    if (!this.map.getLayer(this.pulseLayerId) && this.map.getSource(this.markerSourceId)) {
+      this.map.addLayer({
+        id: this.pulseLayerId,
+        type: "circle",
+        source: this.markerSourceId,
+        paint: {
+          "circle-radius": 14,
+          "circle-color": this.primaryColor,
+          "circle-opacity": 0.2,
+          "circle-blur": 0.6,
         },
       });
     }
@@ -159,11 +207,16 @@ class LiveTripTracker {
         type: "circle",
         source: this.markerSourceId,
         paint: {
-          "circle-radius": 6,
+          "circle-radius": [
+            "interpolate", ["linear"], ["get", "speed"],
+            0, 7,
+            30, 8,
+            60, 9,
+          ],
           "circle-color": this.primaryColor,
-          "circle-stroke-width": 2,
-          "circle-stroke-color": "#faf9f7",
-          "circle-blur": 0,
+          "circle-stroke-width": 2.5,
+          "circle-stroke-color": LiveTripTracker.formatRgba(this.primaryRgb, 0.35),
+          "circle-blur": 0.25,
         },
       });
     }
@@ -184,7 +237,7 @@ class LiveTripTracker {
         source: this.markerSourceId,
         layout: {
           "icon-image": this.arrowImageId,
-          "icon-size": 0.45,
+          "icon-size": 0.4,
           "icon-allow-overlap": true,
           "icon-ignore-placement": true,
           "icon-rotate": ["get", "heading"],
@@ -203,7 +256,7 @@ class LiveTripTracker {
 
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
-        <path d="M24 4L40 44L24 36L8 44Z" fill="black" />
+        <path d="M24 6L38 38L24 30L10 38Z" fill="black" stroke="black" stroke-width="1.5" stroke-linejoin="round"/>
       </svg>
     `;
 
@@ -316,6 +369,7 @@ class LiveTripTracker {
     }
 
     if (!isActive) {
+      this._stopPulseAnimation();
       const wasFollowing = this.followMode;
       this.followMode = false;
       this.updateFollowToggle(false, { disabled: true });
@@ -326,7 +380,120 @@ class LiveTripTracker {
       return;
     }
 
+    this._startPulseAnimation();
     this.updateFollowToggle(this.followMode, { disabled: false });
+  }
+
+  // --- Unified animation loop (pulse + interpolation) ---------------------
+  _startPulseAnimation() {
+    if (this._pulseAnimationId) {
+      return;
+    }
+
+    const animate = (timestamp) => {
+      if (!this.hasActiveTrip || !this.map) {
+        this._pulseAnimationId = null;
+        return;
+      }
+
+      // Pulse ring animation
+      const period = 2000;
+      const pt = (timestamp % period) / period;
+      const sineWave = Math.sin(pt * Math.PI * 2);
+      const radius = 14 + 4 * sineWave;
+      const opacity = 0.22 - 0.1 * sineWave;
+
+      if (this.map.getLayer(this.pulseLayerId)) {
+        this.map.setPaintProperty(this.pulseLayerId, "circle-radius", radius);
+        this.map.setPaintProperty(this.pulseLayerId, "circle-opacity", opacity);
+      }
+
+      // Position interpolation
+      if (this._interp.active) {
+        const pos = this._getCurrentInterpolatedPosition();
+        if (pos) {
+          const markerSource = this.map.getSource(this.markerSourceId);
+          if (markerSource) {
+            const feature = createMarkerFeature(
+              [{ lon: pos.lon, lat: pos.lat }],
+              pos.bearing,
+              this._interp.currentSpeed
+            );
+            markerSource.setData({
+              type: "FeatureCollection",
+              features: feature ? [feature] : [],
+            });
+          }
+
+          // Update camera follow with interpolated position
+          if (this.followMode) {
+            this.followVehicle({ lon: pos.lon, lat: pos.lat }, pos.bearing);
+          }
+
+          // Mark complete when done
+          if (pos.t >= 1) {
+            this._interp.active = false;
+          }
+        }
+      }
+
+      this._pulseAnimationId = requestAnimationFrame(animate);
+    };
+
+    this._pulseAnimationId = requestAnimationFrame(animate);
+  }
+
+  _stopPulseAnimation() {
+    if (this._pulseAnimationId) {
+      cancelAnimationFrame(this._pulseAnimationId);
+      this._pulseAnimationId = null;
+    }
+  }
+
+  // --- Position interpolation ---------------------------------------------
+  _startInterpolation(fromCoord, toCoord, fromBearing, toBearing, speed) {
+    this._stopInterpolation();
+
+    this._interp.active = true;
+    this._interp.fromCoord = fromCoord;
+    this._interp.toCoord = toCoord;
+    this._interp.fromBearing = fromBearing ?? toBearing;
+    this._interp.toBearing = toBearing;
+    this._interp.startTime = performance.now();
+    this._interp.currentSpeed = speed;
+
+    // Don't start a separate rAF — the unified animation loop handles it
+  }
+
+  _stopInterpolation() {
+    this._interp.active = false;
+    this._interp.fromCoord = null;
+    this._interp.toCoord = null;
+  }
+
+  _getCurrentInterpolatedPosition() {
+    if (!this._interp.active || !this._interp.fromCoord || !this._interp.toCoord) {
+      return null;
+    }
+
+    const elapsed = performance.now() - this._interp.startTime;
+    const t = Math.min(1, elapsed / this._interp.duration);
+    const eased = 1 - (1 - t) ** 3; // ease-out cubic
+
+    return {
+      lon: this._interp.fromCoord.lon + (this._interp.toCoord.lon - this._interp.fromCoord.lon) * eased,
+      lat: this._interp.fromCoord.lat + (this._interp.toCoord.lat - this._interp.fromCoord.lat) * eased,
+      bearing: LiveTripTracker._lerpBearing(this._interp.fromBearing, this._interp.toBearing, eased),
+      t,
+    };
+  }
+
+  static _lerpBearing(from, to, t) {
+    if (!Number.isFinite(from) || !Number.isFinite(to)) {
+      return to ?? from ?? 0;
+    }
+    const delta = ((to - from + 540) % 360) - 180;
+    return LiveTripTracker.normalizeBearing(from + delta * t);
   }
 
   updateFollowToggle(isActive, { disabled = false } = {}) {
@@ -528,25 +695,24 @@ class LiveTripTracker {
   }
 
   setupMapStyleListener() {
-    if (this.mapStyleListener) {
+    if (this._styleChangeHandlerRef) {
       return;
     }
 
-    this.mapStyleListener = () => {
+    // Priority 2 = runs after general layer restoration (priority 1)
+    this._styleChangeHandlerRef = mapCore.registerStyleChangeHandler(2, async () => {
       try {
         this.initializeMapLayers();
 
         if (this.activeTrip) {
-          this.updateTrip(this.activeTrip);
+          this.updateTrip(this.activeTrip, { allowDuringStyleChange: true });
         } else {
           this.clearTrip();
         }
       } catch (error) {
         console.warn("Failed to restore live trip layers after style load:", error);
       }
-    };
-
-    document.addEventListener("mapStyleLoaded", this.mapStyleListener);
+    });
   }
 
   async loadInitialTrip() {
@@ -643,8 +809,14 @@ class LiveTripTracker {
   }
 
   // --- Trip rendering ---------------------------------------------------
-  updateTrip(trip) {
+  updateTrip(trip, { allowDuringStyleChange = false } = {}) {
     if (!trip) {
+      return;
+    }
+
+    // Don't update sources while style change is restoring layers
+    if (mapCore.isStyleChangeInProgress() && !allowDuringStyleChange) {
+      this.activeTrip = trip;
       return;
     }
 
@@ -674,7 +846,7 @@ class LiveTripTracker {
       this.lastBearing = heading;
     }
 
-    // Update line source
+    // Update line source immediately (line grows in real-time)
     const lineFeature = createLineFeature(coords);
     const lineSource = this.map.getSource(this.lineSourceId);
     if (lineSource) {
@@ -684,14 +856,32 @@ class LiveTripTracker {
       });
     }
 
-    // Update marker source
-    const markerFeature = createMarkerFeature(coords, heading);
-    const markerSource = this.map.getSource(this.markerSourceId);
-    if (markerSource) {
-      markerSource.setData({
-        type: "FeatureCollection",
-        features: markerFeature ? [markerFeature] : [],
-      });
+    const currentSpeed = trip.currentSpeed || 0;
+    const newCoord = coords[coords.length - 1];
+
+    // Marker: interpolate smoothly between positions
+    if (isNewTrip || !this.lastCoord) {
+      // First update or new trip — set marker immediately, no interpolation
+      this._stopInterpolation();
+      const markerFeature = createMarkerFeature(coords, heading, currentSpeed);
+      const markerSource = this.map.getSource(this.markerSourceId);
+      if (markerSource) {
+        markerSource.setData({
+          type: "FeatureCollection",
+          features: markerFeature ? [markerFeature] : [],
+        });
+      }
+    } else {
+      // Continuing trip — interpolate from current position to new position
+      const interpPos = this._getCurrentInterpolatedPosition();
+      const fromCoord = interpPos
+        ? { lon: interpPos.lon, lat: interpPos.lat }
+        : this.lastCoord;
+      const fromBearing = interpPos
+        ? interpPos.bearing
+        : this.lastBearing;
+
+      this._startInterpolation(fromCoord, newCoord, fromBearing, heading, currentSpeed);
     }
 
     // Update HUD and metrics
@@ -702,15 +892,16 @@ class LiveTripTracker {
       this.setLiveTripActive(true);
       this.setFollowMode(this.followPreference, { persist: false, resetCamera: false });
       if (this.followMode) {
-        this.followVehicle(coords[coords.length - 1], heading, { immediate: true });
+        this.followVehicle(newCoord, heading, { immediate: true });
       } else {
         this.fitTripBounds(coords);
       }
-    } else if (this.followMode) {
-      this.followVehicle(coords[coords.length - 1], heading);
+    } else if (this.followMode && !this._interp.active) {
+      // If interpolation is active, the animation loop handles camera follow
+      this.followVehicle(newCoord, heading);
     }
 
-    this.lastCoord = coords[coords.length - 1];
+    this.lastCoord = newCoord;
     this.updateStatus(true, "Live tracking");
 
     document.dispatchEvent(
@@ -997,6 +1188,7 @@ class LiveTripTracker {
   }
 
   clearTrip() {
+    this._stopInterpolation();
     this.activeTrip = null;
     this.lastCoord = null;
     this.lastBearing = null;
@@ -1076,6 +1268,9 @@ class LiveTripTracker {
 
   destroy() {
     this.stopPolling();
+    this._stopInterpolation();
+    this._stopPulseAnimation();
+
     if (this.freshnessTimer) {
       clearInterval(this.freshnessTimer);
       this.freshnessTimer = null;
@@ -1090,9 +1285,9 @@ class LiveTripTracker {
       this.followToggle.removeEventListener("click", this.followToggleHandler);
     }
 
-    if (this.mapStyleListener) {
-      document.removeEventListener("mapStyleLoaded", this.mapStyleListener);
-      this.mapStyleListener = null;
+    if (this._styleChangeHandlerRef) {
+      mapCore.unregisterStyleChangeHandler(this._styleChangeHandlerRef);
+      this._styleChangeHandlerRef = null;
     }
 
     if (this.map && this.mapInteractionHandlers.length > 0) {
@@ -1104,8 +1299,8 @@ class LiveTripTracker {
 
     if (this.map) {
       try {
-        [this.arrowLayerId, this.lineLayerId, this.markerLayerId].forEach((layerId) =>
-          this._removeLayer(layerId)
+        [this.arrowLayerId, this.pulseLayerId, this.lineLayerId, this.markerLayerId].forEach(
+          (layerId) => this._removeLayer(layerId)
         );
         this._removeSource(this.lineSourceId);
         this._removeSource(this.markerSourceId);

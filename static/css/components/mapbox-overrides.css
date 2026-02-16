@@ -9,3 +9,48 @@
 #mapboxgl-ctrl-logo {
   display: none !important;
 }
+
+/* === Mobile: Enlarge Mapbox navigation controls for touch === */
+@media (max-width: 768px) {
+  .mapboxgl-ctrl-group,
+  .maplibregl-ctrl-group {
+    background: var(--glass-panel);
+    backdrop-filter: blur(var(--blur-strong));
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-glass-sm);
+  }
+
+  .mapboxgl-ctrl-group button,
+  .maplibregl-ctrl-group button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .mapboxgl-ctrl-group button + button,
+  .maplibregl-ctrl-group button + button {
+    border-top: 1px solid var(--glass-border-subtle);
+  }
+
+  /* Scale up the SVG icons inside buttons */
+  .mapboxgl-ctrl-group button .mapboxgl-ctrl-icon,
+  .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+    transform: scale(1.15);
+  }
+
+  /* Reposition to avoid header and bottom sheet */
+  .mapboxgl-ctrl-top-right,
+  .maplibregl-ctrl-top-right {
+    top: calc(var(--header-height, 64px) + var(--space-3));
+    right: var(--space-3);
+  }
+}
+
+/* === Landscape mobile: compact positioning === */
+@media (max-width: 768px) and (orientation: landscape) {
+  .mapboxgl-ctrl-top-right,
+  .maplibregl-ctrl-top-right {
+    top: var(--space-3);
+    right: var(--space-3);
+  }
+}

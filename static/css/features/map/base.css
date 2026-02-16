@@ -35,6 +35,12 @@
   inset: 0;
   height: 100%;
   width: 100%;
+  touch-action: manipulation; /* Disable double-tap zoom delay without blocking map gestures */
+}
+
+/* Prevent pull-to-refresh and overscroll on map page (CSS-only replacement for JS pan guard) */
+body.map-page {
+  overscroll-behavior: none;
 }
 
 /* === Map Init Error Overlay === */

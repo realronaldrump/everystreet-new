@@ -31,6 +31,31 @@ const layerManager = {
   _layerUpdateQueue: new Map(),
   _heatmapEventsBound: false,
   _heatmapRefreshHandler: null,
+  _cachedFirstSymbolLayerId: null,
+
+  /**
+   * Find the first symbol (label) layer in the current map style.
+   * Layers added with this as `beforeId` render below map labels,
+   * making them feel integrated into the cartography.
+   * @returns {string|undefined}
+   */
+  getFirstSymbolLayerId() {
+    if (!store.map) {
+      return undefined;
+    }
+    try {
+      const layers = store.map.getStyle().layers;
+      for (const layer of layers) {
+        if (layer.type === "symbol" && layer.layout?.["text-field"]) {
+          this._cachedFirstSymbolLayerId = layer.id;
+          return layer.id;
+        }
+      }
+    } catch {
+      // Style may not be loaded yet
+    }
+    return this._cachedFirstSymbolLayerId || undefined;
+  },
 
   // Callbacks for trip style refresh (set by app-controller to avoid circular deps)
   _onTripStyleRefresh: null,
@@ -1129,7 +1154,9 @@ const layerManager = {
       layerConfig.paint["line-dasharray"] = [2, 2];
     }
 
-    store.map.addLayer(layerConfig);
+    // Insert below map labels so layers feel integrated, not superimposed
+    const beforeId = this.getFirstSymbolLayerId();
+    store.map.addLayer(layerConfig, beforeId);
   },
 
   // ============================================================
@@ -1281,6 +1308,8 @@ const layerManager = {
         return;
       }
 
+      // Insert heatmap glow layers below map labels
+      const glowBeforeId = this.getFirstSymbolLayerId();
       store.map.addLayer({
         id: glowLayerId,
         type: "line",
@@ -1293,7 +1322,7 @@ const layerManager = {
           "line-cap": "round",
         },
         paint: glowConfig.paint,
-      });
+      }, glowBeforeId);
     });
 
     layerInfo.layer = data;

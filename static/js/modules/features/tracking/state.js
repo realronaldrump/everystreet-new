@@ -7,6 +7,7 @@ const LIVE_TRACKING_LAYER_IDS = {
   lineSource: "live-trip-line-source",
   markerSource: "live-trip-marker-source",
   line: "live-trip-line",
+  pulse: "live-trip-pulse",
   marker: "live-trip-marker",
   arrow: "live-trip-arrow",
   arrowImage: "live-trip-arrow-icon",

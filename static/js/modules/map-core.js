@@ -28,6 +28,11 @@ const readyCallbacks = [];
 let styleChangeQueue = Promise.resolve();
 let activeStyleType = null;
 
+// Serialized style-change handler registry
+// Handlers run sequentially by priority (lower number = runs first) after a style change.
+const styleChangeHandlers = [];
+let styleChangeInProgress = false;
+
 /**
  * MapCore singleton - manages map lifecycle
  */
@@ -41,6 +46,40 @@ const mapCore = {
    */
   isReady() {
     return state.map !== null && state.mapInitialized === true;
+  },
+
+  /**
+   * Whether a style change is currently in progress (layers being restored).
+   * Callers (e.g. LiveTripTracker.updateTrip) should defer work while true.
+   * @returns {boolean}
+   */
+  isStyleChangeInProgress() {
+    return styleChangeInProgress;
+  },
+
+  /**
+   * Register an async handler that runs after every map style change.
+   * Handlers run sequentially in priority order (lower number first).
+   * @param {number} priority - Execution order (1 = first, 2 = second, etc.)
+   * @param {Function} handler - Async function (styleType) => Promise<void>
+   * @returns {Object} Reference for unregistering
+   */
+  registerStyleChangeHandler(priority, handler) {
+    const entry = { priority, handler };
+    styleChangeHandlers.push(entry);
+    styleChangeHandlers.sort((a, b) => a.priority - b.priority);
+    return entry;
+  },
+
+  /**
+   * Remove a previously registered style-change handler.
+   * @param {Object} ref - The reference returned by registerStyleChangeHandler
+   */
+  unregisterStyleChangeHandler(ref) {
+    const idx = styleChangeHandlers.indexOf(ref);
+    if (idx !== -1) {
+      styleChangeHandlers.splice(idx, 1);
+    }
   },
 
   /**
@@ -623,7 +662,21 @@ const mapCore = {
 
     activeStyleType = requestedStyleType;
 
-    // Dispatch event for layer restoration
+    // Run registered style-change handlers sequentially by priority
+    styleChangeInProgress = true;
+    try {
+      for (const entry of [...styleChangeHandlers]) {
+        try {
+          await entry.handler(requestedStyleType);
+        } catch (err) {
+          console.warn("Style change handler error:", err);
+        }
+      }
+    } finally {
+      styleChangeInProgress = false;
+    }
+
+    // Dispatch notification events (non-critical listeners only)
     document.dispatchEvent(
       new CustomEvent("mapStyleLoaded", { detail: { styleType: requestedStyleType } })
     );
@@ -666,6 +719,8 @@ const mapCore = {
     initializationError = null;
     styleChangeQueue = Promise.resolve();
     activeStyleType = null;
+    styleChangeInProgress = false;
+    styleChangeHandlers.length = 0;
     readyCallbacks.length = 0;
   },
 

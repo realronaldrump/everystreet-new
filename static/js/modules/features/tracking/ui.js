@@ -12,12 +12,12 @@ export function createLineFeature(coords) {
   };
 }
 
-export function createMarkerFeature(coords, heading = null) {
+export function createMarkerFeature(coords, heading = null, speed = 0) {
   if (coords.length === 0) {
     return null;
   }
   const last = coords[coords.length - 1];
-  const props = {};
+  const props = { speed: typeof speed === "number" ? Math.max(0, speed) : 0 };
   if (typeof heading === "number") {
     props.heading = heading;
   }

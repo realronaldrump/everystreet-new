@@ -42,8 +42,8 @@ class MobileMapInterface {
     this.dragStartOffset = 0;
     this.dragStartY = 0;
     this.dragCandidateStartY = 0;
-    this.dragStartThreshold = 8;
-    this.tapThreshold = 8;
+    this.dragStartThreshold = 16;
+    this.tapThreshold = 10;
     this.isDragging = false;
     this.flingThreshold = 80;
     this.minStateGap = 40;
@@ -73,12 +73,19 @@ class MobileMapInterface {
     this.setState(this.currentState, { immediate: true });
 
     this.setupDragInteractions();
-    this.setupMapPanGuard();
     this.setupProgrammaticToggle();
 
     window.addEventListener("resize", this.resizeHandler);
     this.cleanupCallbacks.push(() =>
       window.removeEventListener("resize", this.resizeHandler)
+    );
+
+    // Listen for orientation changes (triggers faster layout recalc for landscape)
+    this.orientationQuery = window.matchMedia("(orientation: landscape)");
+    this.orientationHandler = MobileMapInterface.debounce(() => this.recomputeLayout(), 100);
+    this.orientationQuery.addEventListener("change", this.orientationHandler);
+    this.cleanupCallbacks.push(() =>
+      this.orientationQuery.removeEventListener("change", this.orientationHandler)
     );
   }
 
@@ -96,44 +103,6 @@ class MobileMapInterface {
     this.bodyClassApplied = true;
     this.cleanupCallbacks.push(() => {
       document.body.classList.remove("map-page");
-    });
-  }
-
-  setupMapPanGuard() {
-    const mapCanvas = document.getElementById("map-canvas");
-    if (!mapCanvas) {
-      return;
-    }
-
-    let touchStartY = 0;
-    let touchStartX = 0;
-
-    const onTouchStart = (event) => {
-      if (!event.touches || event.touches.length !== 1) {
-        return;
-      }
-      touchStartX = event.touches[0].clientX;
-      touchStartY = event.touches[0].clientY;
-    };
-
-    const onTouchMove = (event) => {
-      if (!event.touches || event.touches.length !== 1) {
-        return;
-      }
-      const deltaX = event.touches[0].clientX - touchStartX;
-      const deltaY = event.touches[0].clientY - touchStartY;
-      const downwardVerticalSwipe = deltaY > 0 && Math.abs(deltaY) > Math.abs(deltaX);
-      if (downwardVerticalSwipe && window.scrollY === 0) {
-        event.preventDefault();
-      }
-    };
-
-    mapCanvas.addEventListener("touchstart", onTouchStart, { passive: true });
-    mapCanvas.addEventListener("touchmove", onTouchMove, { passive: false });
-
-    this.cleanupCallbacks.push(() => {
-      mapCanvas.removeEventListener("touchstart", onTouchStart);
-      mapCanvas.removeEventListener("touchmove", onTouchMove);
     });
   }
 

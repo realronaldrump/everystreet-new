@@ -44,6 +44,162 @@ def test_validate_area_returns_candidates() -> None:
     assert data["candidates"][0]["bounding_box"] == [-97.3, 31.4, -97.1, 31.6]
 
 
+def test_validate_area_city_family_matches_boundary_administrative() -> None:
+    app = _create_app()
+    search_results = [
+        {
+            "display_name": "Waco, McLennan County, Texas, USA",
+            "osm_id": 901,
+            "osm_type": "relation",
+            "type": "administrative",
+            "addresstype": "city",
+            "class": "boundary",
+            "address": {"city": "Waco", "county": "McLennan County", "state": "Texas"},
+        },
+    ]
+
+    with patch(
+        "street_coverage.api.areas.NominatimClient.search_raw",
+        new=AsyncMock(return_value=search_results),
+    ):
+        client = TestClient(app)
+        response = client.post(
+            "/api/coverage/areas/validate",
+            json={"location": "Waco", "area_type": "city", "limit": 5},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["candidates"][0]["type_match"] is True
+
+
+def test_validate_area_county_family_matches_address_county() -> None:
+    app = _create_app()
+    search_results = [
+        {
+            "display_name": "McLennan County, Texas, USA",
+            "osm_id": 902,
+            "osm_type": "relation",
+            "type": "administrative",
+            "addresstype": "county",
+            "class": "boundary",
+            "address": {"county": "McLennan County", "state": "Texas"},
+        },
+    ]
+
+    with patch(
+        "street_coverage.api.areas.NominatimClient.search_raw",
+        new=AsyncMock(return_value=search_results),
+    ):
+        client = TestClient(app)
+        response = client.post(
+            "/api/coverage/areas/validate",
+            json={"location": "McLennan County", "area_type": "county", "limit": 5},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["candidates"][0]["type_match"] is True
+
+
+def test_validate_area_state_family_matches_address_state() -> None:
+    app = _create_app()
+    search_results = [
+        {
+            "display_name": "Texas, USA",
+            "osm_id": 903,
+            "osm_type": "relation",
+            "type": "administrative",
+            "addresstype": "state",
+            "class": "boundary",
+            "address": {"state": "Texas"},
+        },
+    ]
+
+    with patch(
+        "street_coverage.api.areas.NominatimClient.search_raw",
+        new=AsyncMock(return_value=search_results),
+    ):
+        client = TestClient(app)
+        response = client.post(
+            "/api/coverage/areas/validate",
+            json={"location": "Texas", "area_type": "state", "limit": 5},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["candidates"][0]["type_match"] is True
+
+
+def test_validate_area_city_family_rejects_state_level_result() -> None:
+    app = _create_app()
+    search_results = [
+        {
+            "display_name": "Texas, USA",
+            "osm_id": 904,
+            "osm_type": "relation",
+            "type": "administrative",
+            "addresstype": "state",
+            "class": "boundary",
+            "address": {"state": "Texas"},
+        },
+    ]
+
+    with patch(
+        "street_coverage.api.areas.NominatimClient.search_raw",
+        new=AsyncMock(return_value=search_results),
+    ):
+        client = TestClient(app)
+        response = client.post(
+            "/api/coverage/areas/validate",
+            json={"location": "Texas", "area_type": "city", "limit": 5},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["candidates"][0]["type_match"] is False
+
+
+def test_validate_area_sets_note_when_all_candidates_mismatch() -> None:
+    app = _create_app()
+    search_results = [
+        {
+            "display_name": "Texas, USA",
+            "osm_id": 905,
+            "osm_type": "relation",
+            "type": "administrative",
+            "addresstype": "state",
+            "class": "boundary",
+            "address": {"state": "Texas"},
+        },
+        {
+            "display_name": "McLennan County, Texas, USA",
+            "osm_id": 906,
+            "osm_type": "relation",
+            "type": "administrative",
+            "addresstype": "county",
+            "class": "boundary",
+            "address": {"county": "McLennan County", "state": "Texas"},
+        },
+    ]
+
+    with patch(
+        "street_coverage.api.areas.NominatimClient.search_raw",
+        new=AsyncMock(return_value=search_results),
+    ):
+        client = TestClient(app)
+        response = client.post(
+            "/api/coverage/areas/validate",
+            json={"location": "Texas", "area_type": "city", "limit": 5},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert all(candidate["type_match"] is False for candidate in data["candidates"])
+    assert data["note"] is not None
+    assert "No matches for the selected area type." in data["note"]
+
+
 def test_validate_area_returns_404_on_no_match() -> None:
     app = _create_app()
 
