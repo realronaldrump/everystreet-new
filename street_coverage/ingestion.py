@@ -951,6 +951,7 @@ async def _ensure_area_graph(
         "display_name": area.display_name,
         "boundary": area.boundary,
         "bounding_box": area.bounding_box,
+        "area_version": area.area_version,
     }
     await preprocess_streets(loc_data, task_id=str(job_id) if job_id else None)
 

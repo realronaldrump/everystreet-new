@@ -1,8 +1,10 @@
 import contextlib
 import logging
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import networkx as nx
@@ -62,6 +64,8 @@ async def _generate_optimal_route_with_progress_impl(
     location_id: str | PydanticObjectId,
     task_id: str,
     start_coords: tuple[float, float] | None = None,  # (lon, lat)
+    *,
+    mapping_retry_attempted: bool = False,
 ) -> dict[str, Any]:
     location_id_str = str(location_id)
     existing_job = await find_job("optimal_route", task_id=task_id)
@@ -108,6 +112,34 @@ async def _generate_optimal_route_with_progress_impl(
 
     def _raise_value_error(message: str) -> None:
         raise ValueError(message)
+
+    def _purge_cached_area_extracts(area_id_str: str) -> int:
+        try:
+            from config import get_osm_extracts_path
+        except Exception:
+            return 0
+
+        extracts_root = (get_osm_extracts_path() or "").strip()
+        if not extracts_root:
+            return 0
+
+        area_extract_dir = Path(extracts_root) / "coverage" / "areas"
+        if not area_extract_dir.exists():
+            return 0
+
+        removed = 0
+        patterns = (
+            f"{area_id_str}.osm.pbf",
+            f"{area_id_str}.geojson",
+            f"{area_id_str}-v*.osm.pbf",
+            f"{area_id_str}-v*.geojson",
+        )
+        for pattern in patterns:
+            for path in area_extract_dir.glob(pattern):
+                with contextlib.suppress(OSError):
+                    path.unlink()
+                    removed += 1
+        return removed
 
     def _is_lonlat_bbox(
         bounds: tuple[float, float, float, float] | list[float] | None,
@@ -169,6 +201,7 @@ async def _generate_optimal_route_with_progress_impl(
             "display_name": coverage_area.display_name,
             "boundary": coverage_area.boundary,
             "bounding_box": coverage_area.bounding_box,
+            "area_version": coverage_area.area_version,
             "geojson": geojson,
         }
 
@@ -484,14 +517,36 @@ async def _generate_optimal_route_with_progress_impl(
 
         osm_matched = 0
         fallback_matched = 0
-        with ThreadPoolExecutor() as executor:
-            total_for_progress = max(1, len(seg_data_list))
-            progress_interval = max(25, total_for_progress // 40)
-            last_update = time.monotonic()
+        total_for_progress = max(1, len(seg_data_list))
+        progress_interval = max(25, total_for_progress // 40)
+        last_update = time.monotonic()
 
-            for i, edge in enumerate(
-                executor.map(process_segment_osmid, seg_data_list),
-            ):
+        configured_workers = os.getenv("ROUTE_MATCH_MAX_WORKERS", "").strip()
+        with contextlib.suppress(Exception):
+            configured_workers = str(int(configured_workers))
+        max_match_workers = int(configured_workers) if configured_workers else 4
+        max_match_workers = max(1, min(max_match_workers, 8))
+
+        executor: ThreadPoolExecutor | None = None
+        edge_iter = None
+        if max_match_workers > 1:
+            try:
+                executor = ThreadPoolExecutor(
+                    max_workers=max_match_workers,
+                    thread_name_prefix="route-osmid",
+                )
+                edge_iter = executor.map(process_segment_osmid, seg_data_list)
+            except RuntimeError as thread_err:
+                logger.warning(
+                    "Thread pool unavailable for OSM matching (%s); falling back to single-threaded mode.",
+                    thread_err,
+                )
+                edge_iter = None
+
+        if edge_iter is None:
+            edge_iter = map(process_segment_osmid, seg_data_list)
+
+        for i, edge in enumerate(edge_iter):
                 processed_segments = i + 1
                 if seg_data_list[i] is None:
                     if (
@@ -566,6 +621,9 @@ async def _generate_optimal_route_with_progress_impl(
                         },
                     )
                     last_update = time.monotonic()
+
+        if executor is not None:
+            executor.shutdown(wait=True)
 
         await update_progress(
             "mapping_segments",
@@ -927,6 +985,26 @@ async def _generate_optimal_route_with_progress_impl(
                 f"graph_nodes={G.number_of_nodes()}, "
                 f"graph_edges={G.number_of_edges()}"
             )
+            if not mapping_retry_attempted:
+                removed_extracts = _purge_cached_area_extracts(location_id_str)
+                with contextlib.suppress(OSError):
+                    graph_path.unlink()
+                await update_progress(
+                    "loading_graph",
+                    44,
+                    "No segments matched. Refreshing graph/extract cache and retrying once...",
+                )
+                logger.warning(
+                    "Retrying optimal-route mapping once for area %s after zero matches. Purged graph cache and %d area extract file(s).",
+                    location_id_str,
+                    removed_extracts,
+                )
+                return await _generate_optimal_route_with_progress_impl(
+                    location_id=location_id,
+                    task_id=task_id,
+                    start_coords=start_coords,
+                    mapping_retry_attempted=True,
+                )
             if skipped_invalid_geometry + skipped_match_errors >= total_segments:
                 msg = (
                     "Could not map any segments to street network because all loaded "

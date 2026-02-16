@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
 import json
 import logging
 import os
@@ -153,10 +154,22 @@ def _write_geojson(path: Path, geometry: Any) -> None:
     path.write_text(json.dumps(data), encoding="utf-8")
 
 
+def _build_extract_cache_key(location_id: str, area_version: Any | None) -> str:
+    if area_version is None:
+        return location_id
+    with contextlib.suppress(Exception):
+        return f"{location_id}-v{int(area_version)}"
+    raw = str(area_version).strip()
+    if not raw:
+        return location_id
+    digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:8]
+    return f"{location_id}-v{digest}"
+
+
 def _maybe_extract_area_pbf(
     source_path: Path,
     routing_polygon: Any,
-    location_id: str,
+    extract_cache_key: str,
     *,
     require_extract: bool = False,
     threshold_mb: int | None = None,
@@ -182,15 +195,15 @@ def _maybe_extract_area_pbf(
     extracts_root = Path(extracts_root_str)
     area_dir = extracts_root / "coverage" / "areas"
     area_dir.mkdir(parents=True, exist_ok=True)
-    area_pbf = area_dir / f"{location_id}.osm.pbf"
-    area_geojson = area_dir / f"{location_id}.geojson"
+    area_pbf = area_dir / f"{extract_cache_key}.osm.pbf"
+    area_geojson = area_dir / f"{extract_cache_key}.geojson"
     if area_pbf.exists() and area_pbf.stat().st_size > 0:
         logger.info("Using cached area extract: %s", area_pbf)
         return area_pbf
 
     _write_geojson(area_geojson, routing_polygon)
     # Use .tmp.osm.pbf (not .osm.pbf.tmp) - osmium detects format from extension
-    tmp_pbf = area_dir / f"{location_id}.tmp.osm.pbf"
+    tmp_pbf = area_dir / f"{extract_cache_key}.tmp.osm.pbf"
     cmd = [
         "osmium",
         "extract",
@@ -901,6 +914,7 @@ async def preprocess_streets(
     """
     location_id = str(location.get("_id") or location.get("id") or "unknown")
     location_name = location.get("display_name", "Unknown Location")
+    area_version = location.get("area_version")
 
     if task_id:
         logger.info(
@@ -967,7 +981,7 @@ async def preprocess_streets(
             area_extract = _maybe_extract_area_pbf(
                 osm_path,
                 routing_polygon,
-                location_id,
+                _build_extract_cache_key(location_id, area_version),
                 require_extract=require_extract,
                 threshold_mb=threshold_mb,
             )
@@ -1019,6 +1033,7 @@ async def preprocess_all_graphs() -> None:
             "display_name": area.display_name,
             "boundary": area.boundary,
             "bounding_box": area.bounding_box,
+            "area_version": area.area_version,
         }
 
         await preprocess_streets(loc_data)
