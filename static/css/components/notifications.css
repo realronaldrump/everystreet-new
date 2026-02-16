@@ -95,6 +95,42 @@
   color: var(--text-secondary);
 }
 
+/* Minimized coverage-job progress badge (global) */
+.minimized-progress-badge {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: var(--z-drawer);
+  background: var(--surface-glass);
+  color: var(--text-on-dark);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(var(--blur-subtle));
+  border: 1px solid var(--glass-border-medium);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  animation: slideInUp 0.3s ease-out;
+}
+
+.minimized-progress-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-xl);
+  background: var(--surface-elevated);
+}
+
+.minimized-progress-badge .minimized-location-name {
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.minimized-progress-badge .fa-cog {
+  color: var(--info);
+}
+
 /* Notification variants */
 .notification-success {
   border-left-color: var(--success);
