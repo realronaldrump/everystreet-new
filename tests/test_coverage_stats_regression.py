@@ -4,8 +4,8 @@ import pytest
 from beanie import init_beanie
 from mongomock_motor import AsyncMongoMockClient
 
-from db.models import CoverageArea, CoverageState, Street
-from street_coverage.stats import update_area_stats
+from db.models import CoverageArea
+from street_coverage.stats import apply_area_stats_delta
 
 
 @pytest.fixture
@@ -14,53 +14,42 @@ async def coverage_stats_db():
     db = client["test_db"]
     await init_beanie(
         database=db,
-        document_models=[CoverageArea, CoverageState, Street],
+        document_models=[CoverageArea],
     )
     return db
 
 
 @pytest.mark.asyncio
-async def test_update_area_stats_respects_driveable_denominator(coverage_stats_db) -> None:
+async def test_apply_area_stats_delta_respects_driveable_denominator(
+    coverage_stats_db,
+) -> None:
     _ = coverage_stats_db
 
     area = CoverageArea(
         display_name="Stats Area",
         status="ready",
         health="healthy",
+        total_length_miles=3.0,
+        driveable_length_miles=3.0,
+        driven_length_miles=1.0,
+        driven_segments=1,
+        undriveable_segments=0,
+        undriveable_length_miles=0.0,
+        total_segments=3,
     )
     await area.insert()
     assert area.id is not None
 
-    segment_ids = [f"{area.id}-{area.area_version}-{idx}" for idx in range(3)]
-    for segment_id in segment_ids:
-        await Street(
-            segment_id=segment_id,
-            area_id=area.id,
-            area_version=area.area_version,
-            geometry={
-                "type": "LineString",
-                "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
-            },
-            length_miles=1.0,
-        ).insert()
+    refreshed = await apply_area_stats_delta(
+        area.id,
+        undriveable_segments_delta=1,
+        undriveable_length_miles_delta=1.0,
+        update_last_synced=False,
+    )
 
-    await CoverageState(
-        area_id=area.id,
-        segment_id=segment_ids[0],
-        status="driven",
-    ).insert()
-    await CoverageState(
-        area_id=area.id,
-        segment_id=segment_ids[1],
-        status="undriveable",
-    ).insert()
-
-    refreshed = await update_area_stats(area.id)
     assert refreshed is not None
-    assert refreshed.total_segments == 3
-    assert refreshed.driven_segments == 1
-    assert refreshed.undriveable_segments == 1
     assert refreshed.total_length_miles == 3.0
-    assert refreshed.driveable_length_miles == 2.0
     assert refreshed.driven_length_miles == 1.0
+    assert refreshed.undriveable_length_miles == 1.0
+    assert refreshed.driveable_length_miles == 2.0
     assert refreshed.coverage_percentage == 50.0

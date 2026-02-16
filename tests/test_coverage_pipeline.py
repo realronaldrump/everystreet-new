@@ -6,7 +6,6 @@ import networkx as nx
 import pytest
 
 import street_coverage.preprocessing as preprocess_module
-from core.osmnx_graphml import load_graphml_robust
 from routing import constants as routing_constants
 from street_coverage import ingestion as coverage_ingestion
 from street_coverage.preprocessing import preprocess_streets
@@ -123,6 +122,7 @@ async def test_preprocess_filters_mocked_pbf_network(tmp_path: Path) -> None:
     try:
         def fake_graph_from_pbf(_path: Path) -> nx.MultiDiGraph:
             graph = nx.MultiDiGraph()
+            graph.graph["crs"] = "epsg:4326"
             graph.add_node(1, x=-97.1460, y=31.5490)
             graph.add_node(2, x=-97.1455, y=31.5490)
             graph.add_node(3, x=-97.1460, y=31.5492)
@@ -260,10 +260,10 @@ async def test_graph_rebuilds_when_filter_signature_changes(tmp_path: Path) -> N
         assert graph_path == stale_graph_path
         assert called["value"] is True
 
-        rebuilt = load_graphml_robust(stale_graph_path)
-        assert rebuilt.graph.get(
-            GRAPH_ROAD_FILTER_SIGNATURE_KEY,
-        ) == get_public_road_filter_signature()
+        rebuilt = nx.read_graphml(stale_graph_path)
+        assert rebuilt.graph.get(GRAPH_ROAD_FILTER_SIGNATURE_KEY) == (
+            get_public_road_filter_signature()
+        )
     finally:
         routing_constants.GRAPH_STORAGE_DIR = original_graph_dir
         preprocess_module.GRAPH_STORAGE_DIR = original_graph_dir
