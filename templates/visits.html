@@ -65,7 +65,7 @@ Visits captured
 This month
             </div>
           </div>
-          <div class="stat-card highlight" id="streak-card" style="display: none">
+          <div class="stat-card highlight is-hidden-initial" id="streak-card">
             <div class="stat-number" id="visit-streak">
 -
             </div>
@@ -113,7 +113,7 @@ Loading your places...
       </div>
 
       <!-- List View (Hidden by default) -->
-      <div class="places-list-view" id="places-list-view" style="display: none">
+      <div class="places-list-view is-hidden-initial" id="places-list-view">
         <div class="table-responsive">
           <table id="visits-table" class="table visits-table" style="width: 100%">
             <thead>
@@ -142,7 +142,7 @@ Avg Duration
       </div>
 
       <!-- Empty State -->
-      <div class="empty-state" id="places-empty-state" style="display: none">
+      <div class="empty-state is-hidden-initial" id="places-empty-state">
         <i class="fas fa-map-marked-alt empty-icon"></i>
         <h3>
 No places yet
@@ -158,10 +158,10 @@ No places yet
     </section>
 
     <!-- Patterns Section -->
-    <section class="visits-section patterns-section"
+    <section class="visits-section patterns-section is-hidden-initial"
              data-accent="purple"
              id="patterns-section"
-             style="display: none">
+            >
       <div class="section-header">
         <div class="section-title-wrapper">
           <h2 class="section-title">
@@ -180,10 +180,10 @@ No places yet
     </section>
 
     <!-- Discoveries Section -->
-    <section class="visits-section discoveries-section"
+    <section class="visits-section discoveries-section is-hidden-initial"
              data-accent="sky"
              id="discoveries-section"
-             style="display: none">
+            >
       <div class="section-header">
         <div class="section-title-wrapper">
           <h2 class="section-title">
@@ -224,9 +224,9 @@ Analyzing your trips for patterns...
         </div>
       </div>
 
-      <div class="discoveries-pagination"
+      <div class="discoveries-pagination is-hidden-initial"
            id="discoveries-pagination"
-           style="display: none">
+          >
         <button class="pagination-btn"
                 id="discoveries-prev"
                 type="button"
@@ -246,7 +246,7 @@ Analyzing your trips for patterns...
       </div>
 
       <!-- Empty State -->
-      <div class="empty-state" id="discoveries-empty-state" style="display: none">
+      <div class="empty-state is-hidden-initial" id="discoveries-empty-state">
         <i class="fas fa-search empty-icon"></i>
         <h3>
 No discoveries yet
@@ -317,7 +317,7 @@ No discoveries yet
             <span>Style</span>
           </button>
         </div>
-        <div id="map-loading" class="map-loading-overlay" style="display: none">
+        <div id="map-loading" class="map-loading-overlay is-hidden-initial">
           <div class="text-center">
             <div class="spinner-border text-primary mb-3" role="status">
             </div>
@@ -338,7 +338,7 @@ Draw a new boundary, or click Edit and then a saved place boundary to modify it.
       </div>
 
       <!-- Drawing Instructions -->
-      <div class="drawing-toast" id="drawing-toast" style="display: none">
+      <div class="drawing-toast is-hidden-initial" id="drawing-toast">
         <div class="drawing-toast-content">
           <i class="fas fa-info-circle text-warning"></i>
           <span id="drawing-toast-message">Click points to draw a boundary. Press Enter
@@ -350,7 +350,7 @@ Draw a new boundary, or click Edit and then a saved place boundary to modify it.
       </div>
 
       <!-- Save Place Form (appears after drawing) -->
-      <div class="save-place-form" id="save-place-form" style="display: none">
+      <div class="save-place-form is-hidden-initial" id="save-place-form">
         <div class="form-group">
           <label for="place-name" id="place-name-label">
 Name this place
@@ -412,10 +412,10 @@ Please enter a name for this place.
     </section>
 
     <!-- Other Stops Section -->
-    <section class="visits-section other-stops-section"
+    <section class="visits-section other-stops-section is-hidden-initial"
              data-accent="slate"
              id="other-stops-section"
-             style="display: none">
+            >
       <div class="section-header">
         <div class="section-title-wrapper">
           <h2 class="section-title">
@@ -434,10 +434,10 @@ Please enter a name for this place.
     </section>
 
     <!-- Trips for Place Section (shown when viewing specific place) -->
-    <section class="visits-section trips-section"
+    <section class="visits-section trips-section is-hidden-initial"
              data-accent="amber"
              id="trips-section"
-             style="display: none">
+            >
       <div class="section-header">
         <div class="section-title-wrapper">
           <h2 class="section-title">
@@ -551,9 +551,9 @@ Actions
             <!-- Timeline will be rendered here -->
           </div>
           <button type="button"
-                  class="timeline-show-more"
+                  class="timeline-show-more is-hidden-initial"
                   id="modal-timeline-show-more"
-                  style="display: none">
+                 >
             <i class="fas fa-chevron-down me-2"></i>Show more visits
           </button>
         </div>

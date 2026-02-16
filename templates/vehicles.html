@@ -107,7 +107,7 @@ Loading vehicles...
     </div>
 
     <!-- Empty State -->
-    <div class="bento-span-12" id="empty-state" style="display: none">
+    <div class="bento-span-12 is-hidden-initial" id="empty-state">
       <div class="widget" data-accent="sky">
         <div class="widget-body text-center py-5">
           <div class="empty-icon mb-4">
@@ -135,7 +135,7 @@ No Vehicles Yet
     </div>
 
     <!-- Vehicle Content (hidden until loaded) -->
-    <div class="bento-span-12" id="vehicle-content" style="display: none">
+    <div class="bento-span-12 is-hidden-initial" id="vehicle-content">
       <div class="bento-grid vehicles-layout">
 
         <!-- Left: Vehicle List Sidebar -->
@@ -329,9 +329,9 @@ Inactive vehicles won't sync trips.
 
                   <!-- Delete (only for manually added vehicles, hidden by JS for Bouncie) -->
                   <button type="button"
-                          class="btn btn-outline-danger w-100 mt-2"
+                          class="btn btn-outline-danger w-100 mt-2 is-hidden-initial"
                           id="delete-vehicle-btn"
-                          style="display: none">
+                         >
                     <i class="fas fa-trash-alt me-1"></i> Remove Vehicle
                   </button>
                 </div>

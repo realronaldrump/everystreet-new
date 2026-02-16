@@ -3,6 +3,12 @@ import apiClient from "../core/api-client.js";
 export class OptimalRouteAPI {
   constructor(options = {}) {
     this.eventSource = null;
+    this.progressPollTimer = null;
+    this.progressPollInFlight = false;
+    this.progressPollFailures = 0;
+    this.currentTaskId = null;
+    this.progressPollIntervalMs = options.progressPollIntervalMs || 2000;
+    this.maxProgressPollFailures = options.maxProgressPollFailures || 20;
     this.onProgress = options.onProgress || (() => {});
     this.onComplete = options.onComplete || (() => {});
     this.onError = options.onError || (() => {});
@@ -81,7 +87,10 @@ export class OptimalRouteAPI {
       const data = await apiClient.get(`/api/coverage/areas/${areaId}/optimal-route`);
       return data;
     } catch (error) {
-      if (error.message?.includes("404")) {
+      if (
+        error?.status === 404 ||
+        error?.message?.includes("No optimal route generated yet")
+      ) {
         return null;
       }
       console.error("Error loading existing route:", error);
@@ -146,10 +155,7 @@ export class OptimalRouteAPI {
     }
 
     try {
-      if (this.eventSource) {
-        this.eventSource.close();
-        this.eventSource = null;
-      }
+      this.disconnectSSE();
 
       const data = await apiClient.delete(`/api/optimal-routes/${taskId}`);
       this.onCancel(data);
@@ -203,8 +209,13 @@ export class OptimalRouteAPI {
   }
 
   connectSSE(taskId) {
-    if (this.eventSource) {
-      this.eventSource.close();
+    this.disconnectSSE();
+    this.currentTaskId = taskId;
+
+    if (typeof EventSource === "undefined") {
+      console.warn("EventSource unavailable, using progress polling fallback");
+      this.startProgressPolling(taskId);
+      return;
     }
 
     this.eventSource = new EventSource(`/api/optimal-routes/${taskId}/progress/sse`);
@@ -212,24 +223,9 @@ export class OptimalRouteAPI {
     this.eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        this.progressPollFailures = 0;
         this.onProgress(data);
-
-        const status = (data.status || "").toLowerCase();
-        const stage = (data.stage || "").toLowerCase();
-
-        if (status === "completed" || stage === "complete" || data.progress >= 100) {
-          this.eventSource.close();
-          this.eventSource = null;
-          this.onComplete(data);
-        } else if (status === "failed") {
-          this.eventSource.close();
-          this.eventSource = null;
-          this.onError(data.error || data.message || "Route generation failed");
-        } else if (status === "cancelled") {
-          this.eventSource.close();
-          this.eventSource = null;
-          this.onCancel(data);
-        }
+        this.handleTerminalState(data);
       } catch (e) {
         console.error("SSE parse error:", e);
       }
@@ -240,20 +236,95 @@ export class OptimalRouteAPI {
         this.eventSource.close();
         this.eventSource = null;
       }
+      if (this.currentTaskId === taskId) {
+        this.startProgressPolling(taskId);
+      }
     });
 
     this.eventSource.onerror = (error) => {
-      console.error("SSE connection error:", error);
+      console.warn("SSE connection error; switching to polling fallback:", error);
       if (this.eventSource) {
         this.eventSource.close();
         this.eventSource = null;
       }
-      // Depending on logic, we might want to treat this as an error or just a disconnect
-      // The original code handled "waiting" timeout logic separately in the UI layer roughly
-      // We'll let the UI handle the "stopped receiving updates" implication if needed, or emit an error here.
-      // For now, let's treat it as a stream error.
-      this.onError("Connection lost");
+      if (this.currentTaskId === taskId) {
+        this.startProgressPolling(taskId);
+      }
     };
+  }
+
+  handleTerminalState(data = {}) {
+    const status = (data.status || "").toLowerCase();
+    const stage = (data.stage || "").toLowerCase();
+
+    if (status === "completed" || stage === "complete" || data.progress >= 100) {
+      this.disconnectSSE();
+      this.onComplete(data);
+      return true;
+    }
+
+    if (status === "failed" || status === "error") {
+      this.disconnectSSE();
+      this.onError(data.error || data.message || "Route generation failed");
+      return true;
+    }
+
+    if (status === "cancelled") {
+      this.disconnectSSE();
+      this.onCancel(data);
+      return true;
+    }
+
+    return false;
+  }
+
+  startProgressPolling(taskId) {
+    if (!taskId || this.progressPollTimer) {
+      return;
+    }
+
+    const pollProgress = async () => {
+      if (this.progressPollInFlight || this.currentTaskId !== taskId) {
+        return;
+      }
+
+      this.progressPollInFlight = true;
+      try {
+        const data = await apiClient.get(`/api/optimal-routes/${taskId}/progress`, {
+          retry: false,
+          timeout: 15000,
+        });
+        this.progressPollFailures = 0;
+        this.onProgress(data);
+        this.handleTerminalState(data);
+      } catch (error) {
+        if (error?.status === 404) {
+          return;
+        }
+        this.progressPollFailures += 1;
+        console.warn("Progress polling error:", error);
+        if (this.progressPollFailures >= this.maxProgressPollFailures) {
+          this.disconnectSSE();
+          this.onError("Connection lost");
+        }
+      } finally {
+        this.progressPollInFlight = false;
+      }
+    };
+
+    void pollProgress();
+    this.progressPollTimer = setInterval(() => {
+      void pollProgress();
+    }, this.progressPollIntervalMs);
+  }
+
+  stopProgressPolling() {
+    if (this.progressPollTimer) {
+      clearInterval(this.progressPollTimer);
+      this.progressPollTimer = null;
+    }
+    this.progressPollInFlight = false;
+    this.progressPollFailures = 0;
   }
 
   disconnectSSE() {
@@ -261,5 +332,7 @@ export class OptimalRouteAPI {
       this.eventSource.close();
       this.eventSource = null;
     }
+    this.stopProgressPolling();
+    this.currentTaskId = null;
   }
 }

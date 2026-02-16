@@ -206,7 +206,7 @@ const personalization = {
   },
 
   rgbToString({ r, g, b }) {
-    return `${r}, ${g}, ${b}`;
+    return `${r} ${g} ${b}`;
   },
 
   blend(color, target, amount) {

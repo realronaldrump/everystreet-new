@@ -84,7 +84,7 @@ block extra_css %}
                    class="search-input"
                    placeholder="Search trips, places, or vehicles..."
                    autocomplete="off" />
-            <button class="search-clear" id="search-clear-btn" style="display: none">
+            <button class="search-clear is-hidden-initial" id="search-clear-btn">
               <i class="fas fa-times"></i>
             </button>
           </div>
@@ -145,7 +145,7 @@ Duration (low to high)
               <i class="fas fa-filter"></i>
             Filter Options
             </span>
-            <span class="filters-header-status" id="filters-status" style="display: none">
+            <span class="filters-header-status is-hidden-initial" id="filters-status">
               <span class="status-dot"></span>
             Active
             </span>
@@ -185,11 +185,11 @@ All vehicles
 
             <div class="filter-actions">
               <button class="btn-apply" id="trip-filter-apply">
-                <i class="fas fa-check" style="margin-right: 6px"></i>
+                <i class="fas fa-check me-1"></i>
               Apply Filters
               </button>
               <button class="btn-reset" id="trip-filter-reset">
-                <i class="fas fa-undo" style="margin-right: 6px"></i>
+                <i class="fas fa-undo me-1"></i>
               Reset
               </button>
               <span class="filter-results-preview" id="filter-results-preview"></span>
@@ -287,7 +287,7 @@ All vehicles
       </div>
 
       <!-- Empty State -->
-      <div class="trips-empty" id="trips-empty" style="display: none">
+      <div class="trips-empty is-hidden-initial" id="trips-empty">
         <div class="empty-illustration">
           <span class="empty-icon"><i class="fas fa-car"></i></span>
         </div>
@@ -421,7 +421,7 @@ Route
                         </div>
                       </div>
                     </div>
-                    <div class="route-actions" id="modal-route-actions" style="display: none">
+                    <div class="route-actions is-hidden-initial" id="modal-route-actions">
                       <button class="btn-route-action" id="modal-regeocode-btn" type="button">
                         <i class="fas fa-map-marked-alt"></i>
                         <span class="btn-route-action__text">Geocode this trip</span>
@@ -490,7 +490,7 @@ Route
     </div>
 
     <!-- Bulk Actions Bar -->
-    <div class="bulk-actions-bar" id="bulk-actions-bar" style="display: none">
+    <div class="bulk-actions-bar is-hidden-initial" id="bulk-actions-bar">
       <div class="bulk-info">
         <span class="bulk-count" id="bulk-count">0 selected</span>
       </div>

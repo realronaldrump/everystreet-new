@@ -25,7 +25,7 @@
    - 4px grid (0.25rem - 4rem)
 
    Typography
-   - Display: Geist/Cal Sans (headlines)
+   - Display: Chivo (headlines)
    - Body: IBM Plex Sans (excellent data legibility)
    - Mono: JetBrains Mono (superior number clarity)
    ============================ */
@@ -50,10 +50,13 @@
   --cat-lime-rgb: 122 170 88;
   --cat-amber: #c49050;
   --cat-amber-rgb: 196 144 80;
+  --amber-rgb: var(--cat-amber-rgb);
   --cat-coral: #c47050;
   --cat-coral-rgb: 196 112 80;
   --cat-mint: #4a9a8a;
   --cat-mint-rgb: 74 154 138;
+  --cat-red: var(--cat-rose);
+  --cat-red-rgb: var(--cat-rose-rgb);
   --cat-purple: #8a7ab0;
   --cat-purple-rgb: 138 122 176;
   --cat-indigo: #6a72a0;
@@ -63,6 +66,7 @@
   --primary: var(--cat-sage);
   --primary-light: #4da396;
   --primary-dark: #2d6e65;
+  --primary-hover: var(--primary-dark);
   --primary-rgb: var(--cat-sage-rgb);
   --secondary: var(--cat-slate);
   --secondary-light: #8c949e;
@@ -122,7 +126,7 @@
 
   /* Typography - Refined (Phase 1) */
   --font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
-  --font-family-display: "Geist", "Cal Sans", "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --font-family-display: "Chivo", "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --font-family-mono:
     "JetBrains Mono", "IBM Plex Mono", ui-monospace, sfmono-regular, menlo, monaco, consolas,
     monospace;
@@ -140,6 +144,7 @@
   --font-size-display: clamp(2.2rem, 2rem + 1.2vw, 3.6rem);
   --font-weight-light: 300;
   --font-weight-regular: 400;
+  --font-weight-normal: var(--font-weight-regular);
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
@@ -197,7 +202,11 @@
 
   /* Subtle glows for interactive states */
   --glow-primary: 0 0 12px rgb(var(--primary-rgb) / 10%);
+  --glow-primary-intense: 0 0 18px rgb(var(--primary-rgb) / 22%);
   --glow-success: 0 0 10px rgb(var(--success-rgb) / 10%);
+  --glow-success-intense: 0 0 18px rgb(var(--success-rgb) / 24%);
+  --glow-warning: 0 0 12px rgb(var(--warning-rgb) / 18%);
+  --glow-danger: 0 0 12px rgb(var(--danger-rgb) / 18%);
   --glow-accent: 0 0 8px rgb(var(--accent-rgb) / 8%);
 
   /* Gradient surfaces for glassmorphism */
@@ -258,6 +267,7 @@
   --radius-md: 7px;
   --radius-lg: 9px;
   --radius-xl: 12px;
+  --radius-2xl: 16px;
   --radius-full: 9999px;
   --radius-pill: 9999px;
 
@@ -290,7 +300,9 @@
   /* Utility Aliases */
   --text-color: var(--text-primary);
   --primary-color: var(--primary);
+  --accent-color: var(--accent);
   --font-mono: var(--font-family-mono);
+  --border-hover: var(--border-color-light);
 
   /* Bootstrap Bridge */
   --bs-body-font-family: var(--font-family);

@@ -29,6 +29,7 @@ export class OptimalRouteMap {
 
     const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
     const styleUrl = CONFIG.MAP.styles[theme] || CONFIG.MAP.styles.dark;
+    this.disableTelemetry();
 
     this.map = new mapboxgl.Map({
       container: this.containerId,
@@ -44,6 +45,29 @@ export class OptimalRouteMap {
 
     this.ownsMap = true;
     return this.bindMapLoad();
+  }
+
+  disableTelemetry() {
+    if (typeof mapboxgl?.setTelemetryEnabled === "function") {
+      mapboxgl.setTelemetryEnabled(false);
+    }
+    if (typeof mapboxgl?.config === "object") {
+      try {
+        mapboxgl.config.REPORT_MAP_LOAD_TIMES = false;
+      } catch {
+        // Ignore Mapbox config API differences.
+      }
+      try {
+        mapboxgl.config.COLLECT_RESOURCE_TIMING = false;
+      } catch {
+        // Ignore Mapbox config API differences.
+      }
+      try {
+        mapboxgl.config.EVENTS_URL = null;
+      } catch {
+        // Ignore Mapbox config API differences.
+      }
+    }
   }
 
   bindMapLoad() {

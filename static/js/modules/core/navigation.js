@@ -118,7 +118,7 @@ function applyThemeFromStorage() {
 
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
-      meta.setAttribute("content", isLight ? "#fafafa" : "#0a0f14");
+      meta.setAttribute("content", isLight ? "#fafafa" : "#0a0a0c");
     }
   } catch {
     // Theme is best-effort.

@@ -1674,7 +1674,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 .routes-map-toggle-btn.active {
   background: rgb(var(--routes-primary-rgb) / 18%);
   border-color: rgb(var(--routes-primary-rgb) / 40%);
-  color: #fff;
+  color: var(--text-on-primary);
 }
 
 .routes-modal-tabs {

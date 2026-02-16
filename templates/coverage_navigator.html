@@ -117,7 +117,7 @@ Select a coverage area...
               <i class="fas fa-map-marker-alt select-icon" aria-hidden="true"></i>
             </div>
 
-            <div id="area-stats" class="area-stats" style="display: none">
+            <div id="area-stats" class="area-stats is-hidden-initial">
               <div class="stats-row">
                 <div class="stat-item">
                   <span class="stat-label">Coverage</span>
@@ -326,9 +326,9 @@ Auto-Follow
 
         <!-- Live Progress Section (Hidden by default) -->
         <div id="progress-section"
-             class="widget control-section is-live"
+             class="widget control-section is-live is-hidden-initial"
              data-accent="amber"
-             style="display: none">
+            >
           <div class="widget-header">
             <h3 class="widget-title">
               <i class="fas fa-satellite-dish fa-pulse" aria-hidden="true"></i>
@@ -416,9 +416,9 @@ Initializing...
 
         <!-- Error Section (Hidden by default) -->
         <div id="error-section"
-             class="widget control-section is-error"
+             class="widget control-section is-error is-hidden-initial"
              data-accent="coral"
-             style="display: none">
+            >
           <div class="widget-header">
             <h3 class="widget-title">
               <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
@@ -459,9 +459,9 @@ An error occurred.
 
         <!-- Results Section (Hidden by default) -->
         <div id="results-section"
-             class="widget control-section is-results"
+             class="widget control-section is-results is-hidden-initial"
              data-accent="sky"
-             style="display: none">
+            >
           <div class="widget-header collapsible" data-toggle="section-results">
             <h3 class="widget-title">
               <i class="fas fa-chart-bar" aria-hidden="true"></i>
@@ -550,7 +550,7 @@ Map Layers
                 <div class="layer-item" data-layer-id="route">
                   <div class="layer-main">
                     <div class="layer-info">
-                      <span class="layer-color" style="background: var(--cat-purple)"></span>
+                      <span class="layer-color layer-color--route"></span>
                       <span class="layer-name">Optimal Route</span>
                     </div>
                     <div class="layer-toggle">
@@ -576,7 +576,7 @@ Map Layers
                 <div class="layer-item" data-layer-id="driven">
                   <div class="layer-main">
                     <div class="layer-info">
-                      <span class="layer-color" style="background: var(--success)"></span>
+                      <span class="layer-color layer-color--driven"></span>
                       <span class="layer-name">Driven Streets</span>
                     </div>
                     <div class="layer-toggle">
@@ -602,7 +602,7 @@ Map Layers
                 <div class="layer-item" data-layer-id="undriven">
                   <div class="layer-main">
                     <div class="layer-info">
-                      <span class="layer-color" style="background: var(--danger)"></span>
+                      <span class="layer-color layer-color--undriven"></span>
                       <span class="layer-name">Undriven Streets</span>
                     </div>
                     <div class="layer-toggle">
@@ -631,9 +631,9 @@ Map Layers
 
         <!-- Route Details Section (Hidden by default) -->
         <div id="route-details"
-             class="widget control-section"
+             class="widget control-section is-hidden-initial"
              data-accent="slate"
-             style="display: none">
+             >
           <div class="widget-header collapsible" data-toggle="section-details">
             <h3 class="widget-title">
               <i class="fas fa-list-ul" aria-hidden="true"></i>
@@ -713,21 +713,21 @@ Initializing...
       </div>
 
       <!-- Map Legend -->
-      <div class="map-legend" id="map-legend" style="display: none">
+      <div class="map-legend is-hidden-initial" id="map-legend">
         <h6>
 Legend
         </h6>
         <div class="legend-items">
           <div class="legend-item">
-            <span class="legend-color" style="background: var(--success)"></span>
+            <span class="legend-color legend-color--driven"></span>
             <span class="legend-label">Driven Streets</span>
           </div>
           <div class="legend-item">
-            <span class="legend-color" style="background: var(--danger)"></span>
+            <span class="legend-color legend-color--undriven"></span>
             <span class="legend-label">Undriven Streets</span>
           </div>
           <div class="legend-item">
-            <span class="legend-color is-route" style="background: var(--cat-purple)"></span>
+            <span class="legend-color legend-color--route is-route"></span>
             <span class="legend-label">Optimal Route</span>
           </div>
         </div>

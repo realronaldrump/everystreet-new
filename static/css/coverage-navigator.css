@@ -1497,6 +1497,18 @@
   flex-shrink: 0;
 }
 
+.coverage-navigator .layer-color--route {
+  background: var(--cat-purple);
+}
+
+.coverage-navigator .layer-color--driven {
+  background: var(--success);
+}
+
+.coverage-navigator .layer-color--undriven {
+  background: var(--danger);
+}
+
 .coverage-navigator .layer-name {
   font-size: 0.8125rem;
   font-weight: 500;
@@ -2092,9 +2104,22 @@
   flex-shrink: 0;
 }
 
+.coverage-navigator .legend-color--driven {
+  background: var(--success);
+}
+
+.coverage-navigator .legend-color--undriven {
+  background: var(--danger);
+}
+
+.coverage-navigator .legend-color--route {
+  background: var(--cat-purple);
+}
+
 .coverage-navigator .legend-color.is-route {
   height: 5px;
 }
+
 
 .coverage-navigator .legend-label {
   font-size: 0.75rem;

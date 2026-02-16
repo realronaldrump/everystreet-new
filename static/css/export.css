@@ -233,6 +233,10 @@
   cursor: not-allowed;
 }
 
+.export-filter-control-wide {
+  min-width: min(200px, 100%);
+}
+
 /* === Toggle Switch === */
 .export-toggle-row {
   display: flex;
@@ -243,6 +247,10 @@
   background: var(--surface-2);
   border-radius: var(--radius-md);
   margin-top: var(--space-3);
+}
+
+.export-toggle-row-spacious {
+  margin-top: var(--space-4);
 }
 
 .export-toggle-label {
@@ -314,6 +322,10 @@
 .export-btn-secondary:hover {
   background: var(--surface-3);
   color: var(--text-primary);
+}
+
+.export-note {
+  margin-top: var(--space-3);
 }
 
 /* === Status Panel === */

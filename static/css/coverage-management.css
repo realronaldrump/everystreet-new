@@ -380,6 +380,30 @@
   position: relative;
 }
 
+.coverage-map-legend-item {
+  display: flex;
+  align-items: center;
+}
+
+.coverage-map-legend-swatch {
+  width: 20px;
+  height: 3px;
+  margin-right: 8px;
+  border-radius: var(--radius-pill);
+}
+
+.coverage-map-legend-swatch--undriven {
+  background: var(--danger);
+}
+
+.coverage-map-legend-swatch--driven {
+  background: var(--success);
+}
+
+.coverage-map-legend-swatch--undriveable {
+  background: var(--text-tertiary);
+}
+
 /* Coverage segment popup */
 .coverage-segment-popup .mapboxgl-popup-content,
 .coverage-segment-popup .maplibregl-popup-content {
@@ -500,7 +524,7 @@
 }
 
 .coverage-segment-popup .segment-id {
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-family-mono);
   font-weight: 500;
   font-size: 0.75rem;
 }
@@ -569,7 +593,7 @@
   border-radius: var(--radius-lg);
   padding: var(--space-3);
   font-size: var(--font-size-sm);
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-family-mono);
   line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: break-word;

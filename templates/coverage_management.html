@@ -180,10 +180,10 @@ Error details
       </div>
 
       <!-- Coverage Dashboard Section -->
-      <div class="bento-span-12 widget"
+      <div class="bento-span-12 widget is-hidden-initial"
            id="coverage-dashboard"
            data-accent="sky"
-           style="display: none">
+          >
         <div class="widget-header">
           <h3 class="widget-title">
             <i class="fas fa-chart-line" aria-hidden="true"></i>
@@ -307,21 +307,18 @@ Coverage
                 </div>
                 <div class="card-footer">
                   <div class="map-legend d-flex gap-4 justify-content-center">
-                    <div class="d-flex align-items-center">
-                      <div style="width: 20px; height: 3px; background: var(--danger); margin-right: 8px">
+                    <div class="coverage-map-legend-item">
+                      <div class="coverage-map-legend-swatch coverage-map-legend-swatch--undriven">
                       </div>
                       <small>Undriven</small>
                     </div>
-                    <div class="d-flex align-items-center">
-                      <div style="width: 20px; height: 3px; background: var(--success); margin-right: 8px">
+                    <div class="coverage-map-legend-item">
+                      <div class="coverage-map-legend-swatch coverage-map-legend-swatch--driven">
                       </div>
                       <small>Driven</small>
                     </div>
-                    <div class="d-flex align-items-center">
-                      <div style="width: 20px;
-                                  height: 3px;
-                                  background: var(--text-tertiary);
-                                  margin-right: 8px">
+                    <div class="coverage-map-legend-item">
+                      <div class="coverage-map-legend-swatch coverage-map-legend-swatch--undriveable">
                       </div>
                       <small>Undriveable</small>
                     </div>

@@ -47,6 +47,9 @@ HISTORY_IMPORT_TIMEOUT_SECONDS = int(
 LOG_PURGE_TIMEOUT_SECONDS = int(
     os.getenv("LOG_PURGE_JOB_TIMEOUT_SECONDS", str(30 * 60)),
 )
+OPTIMAL_ROUTE_TIMEOUT_SECONDS = int(
+    os.getenv("OPTIMAL_ROUTE_JOB_TIMEOUT_SECONDS", str(90 * 60)),
+)
 
 
 async def on_startup(ctx: dict) -> None:
@@ -75,7 +78,7 @@ class WorkerSettings:
         map_match_trips,
         update_coverage_for_new_trips,
         build_recurring_routes,
-        generate_optimal_route,
+        func(generate_optimal_route, timeout=OPTIMAL_ROUTE_TIMEOUT_SECONDS),
         worker_heartbeat,
         func(purge_server_logs_before, timeout=LOG_PURGE_TIMEOUT_SECONDS),
         # Map services setup tasks

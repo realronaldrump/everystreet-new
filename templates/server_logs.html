@@ -274,8 +274,8 @@ Loading logs...
 Log Statistics (Client-Side)
             </h2>
             <button id="refresh-docker-stats"
-                    class="btn btn-sm btn-outline-primary"
-                    style="display: none">
+                    class="btn btn-sm btn-outline-primary is-hidden-initial"
+                   >
               <!-- This button might not be needed if stats update with logs, but keeping for symmetry/potential future use -->
               <i class="fas fa-sync-alt"></i> Refresh
             </button>
@@ -514,7 +514,7 @@ Last 7 days
         </div>
 
         <!-- Container Status Card (Hidden initially) -->
-        <div class="card log-card mb-4" id="container-status-card" style="display: none">
+        <div class="card log-card mb-4 is-hidden-initial" id="container-status-card">
           <div class="card-body py-2">
             <div class="d-flex align-items-center">
               <span class="badge rounded-pill me-2" id="container-status-badge">Unknown</span>

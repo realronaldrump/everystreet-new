@@ -8,6 +8,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import time
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -359,6 +360,7 @@ async def stream_optimal_route_progress(task_id: str):
         last_stage = None
         last_message = None
         last_metrics = None
+        last_emit_at = time.monotonic()
         poll_count = 0
         max_polls = 1800  # 30 minutes at 1 second intervals
 
@@ -378,6 +380,7 @@ async def stream_optimal_route_progress(task_id: str):
                         "message": "Waiting for task to start...",
                     }
                     yield f"data: {json.dumps(data)}\n\n"
+                    last_emit_at = time.monotonic()
                     await asyncio.sleep(1)
                     continue
 
@@ -417,6 +420,11 @@ async def stream_optimal_route_progress(task_id: str):
                         ),
                     }
                     yield f"data: {json.dumps(data)}\n\n"
+                    last_emit_at = time.monotonic()
+                elif time.monotonic() - last_emit_at >= 10:
+                    # Keep the stream alive through intermediaries during long compute phases.
+                    yield "event: ping\ndata: {}\n\n"
+                    last_emit_at = time.monotonic()
 
                 if current_status in ("completed", "failed", "error", "cancelled"):
                     final_data = {
@@ -433,12 +441,14 @@ async def stream_optimal_route_progress(task_id: str):
                         ),
                     }
                     yield f"data: {json.dumps(final_data)}\n\n"
+                    last_emit_at = time.monotonic()
                     break
 
             except Exception as e:
                 logger.exception("SSE progress error")
                 error_data = {"error": str(e), "status": "failed"}
                 yield f"data: {json.dumps(error_data)}\n\n"
+                last_emit_at = time.monotonic()
                 # If we hit a critical error, maybe we should break?
                 # But temporary DB glitches might recover.
                 await asyncio.sleep(1)
@@ -452,9 +462,6 @@ async def stream_optimal_route_progress(task_id: str):
         media_type="text/event-stream; charset=utf-8",
         headers={
             "Cache-Control": "no-cache, no-transform",
-            "Connection": "keep-alive",
             "X-Accel-Buffering": "no",  # Disable nginx buffering
-            "Content-Encoding": "identity",  # Disable compression
-            "Transfer-Encoding": "chunked",  # Use chunked transfer for streaming
         },
     )
