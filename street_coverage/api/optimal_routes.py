@@ -56,6 +56,22 @@ async def start_optimal_route_generation(
             detail=f"Coverage area is not ready (status: {coverage_area.status}).",
         )
 
+    existing_task = await Job.find_one(
+        {
+            "job_type": "optimal_route",
+            "location": str(area_id),
+            "status": {"$in": ["queued", "running", "pending", "initializing"]},
+        },
+        sort=[("created_at", -1)],
+    )
+    if existing_task and existing_task.task_id:
+        logger.info(
+            "Reusing active optimal route task %s for location %s",
+            existing_task.task_id,
+            area_id,
+        )
+        return {"task_id": existing_task.task_id, "status": "already_running"}
+
     enqueue_result = await enqueue_task(
         "generate_optimal_route",
         location_id=str(area_id),

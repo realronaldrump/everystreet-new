@@ -238,12 +238,11 @@ async def _generate_optimal_route_with_progress_impl(
 
         graph_path = GRAPH_STORAGE_DIR / f"{location_id}.graphml"
 
-        # Auto-generate graph if it doesn't exist
-        if not graph_path.exists():
+        async def _build_graph_from_extract(progress_message: str) -> None:
             await update_progress(
                 "loading_graph",
                 42,
-                "Building street network from local OSM extract (one-time setup)...",
+                progress_message,
             )
 
             try:
@@ -272,6 +271,19 @@ async def _generate_optimal_route_with_progress_impl(
                 )
                 _raise_value_error(msg)
 
+        # Auto-generate graph if it doesn't exist (or is obviously empty/corrupt)
+        graph_needs_build = not graph_path.exists()
+        if not graph_needs_build:
+            with contextlib.suppress(OSError):
+                if graph_path.stat().st_size <= 0:
+                    graph_path.unlink()
+                    graph_needs_build = True
+
+        if graph_needs_build:
+            await _build_graph_from_extract(
+                "Building street network from local OSM extract (one-time setup)...",
+            )
+
         try:
             from core.osmnx_graphml import load_graphml_robust
 
@@ -286,9 +298,43 @@ async def _generate_optimal_route_with_progress_impl(
                 f"Loaded network: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges",
             )
         except Exception as e:
-            logger.exception("Failed to load graph from disk")
-            msg = f"Failed to load street network: {e}"
-            _raise_value_error(msg)
+            message = str(e).lower()
+            looks_corrupt = (
+                "no element found" in message
+                or "parseerror" in message
+                or "not well-formed" in message
+            )
+            if looks_corrupt:
+                logger.warning(
+                    "Graph cache appears corrupted for %s (%s). Rebuilding.",
+                    location_id,
+                    e,
+                )
+                with contextlib.suppress(OSError):
+                    graph_path.unlink()
+
+                await _build_graph_from_extract(
+                    "Detected corrupted graph cache, rebuilding street network...",
+                )
+                try:
+                    from core.osmnx_graphml import load_graphml_robust
+
+                    G = load_graphml_robust(graph_path)
+                    if not isinstance(G, nx.MultiDiGraph):
+                        G = nx.MultiDiGraph(G)
+                    await update_progress(
+                        "loading_graph",
+                        45,
+                        f"Loaded network: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges",
+                    )
+                except Exception as rebuild_error:
+                    logger.exception("Failed to load graph after rebuilding cache")
+                    msg = f"Failed to load street network: {rebuild_error}"
+                    _raise_value_error(msg)
+            else:
+                logger.exception("Failed to load graph from disk")
+                msg = f"Failed to load street network: {e}"
+                _raise_value_error(msg)
 
         total_segments = len(undriven)
         await update_progress(

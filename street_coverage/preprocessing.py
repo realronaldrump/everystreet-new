@@ -21,6 +21,7 @@ import os
 import shutil
 import subprocess
 import sys
+import uuid
 import warnings
 from pathlib import Path
 from typing import Any
@@ -447,12 +448,28 @@ def _ensure_edge_lengths(G: nx.MultiDiGraph) -> nx.MultiDiGraph:
     return ox.distance.add_edge_lengths(G)
 
 
+def _atomic_save_graphml(G: nx.MultiDiGraph, graph_path: Path) -> None:
+    graph_path = Path(graph_path)
+    graph_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = graph_path.with_name(
+        f".{graph_path.name}.{uuid.uuid4().hex}.tmp.graphml",
+    )
+    try:
+        _get_osmnx().save_graphml(G, filepath=tmp_path)
+        if not tmp_path.exists() or tmp_path.stat().st_size <= 0:
+            msg = f"GraphML write produced empty file: {tmp_path}"
+            raise RuntimeError(msg)
+        tmp_path.replace(graph_path)
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            tmp_path.unlink()
+
+
 def _build_graph_in_process(
     osm_path: Path,
     routing_polygon: Any,
     graph_path: Path,
 ) -> nx.MultiDiGraph:
-    ox = _get_osmnx()
     G = _load_graph_from_extract(osm_path, routing_polygon)
     if not isinstance(G, nx.MultiDiGraph):
         G = nx.MultiDiGraph(G)
@@ -460,7 +477,7 @@ def _build_graph_in_process(
     G = _ensure_edge_lengths(G)
 
     _sanitize_graph_for_graphml(G)
-    ox.save_graphml(G, filepath=graph_path)
+    _atomic_save_graphml(G, graph_path)
     return G
 
 
@@ -651,7 +668,7 @@ def _build_graph_with_tiled_fallback(
             _prune_non_driveable_edges(merged)
             merged = _ensure_edge_lengths(merged)
             _sanitize_graph_for_graphml(merged)
-            ox.save_graphml(merged, filepath=graph_path)
+            _atomic_save_graphml(merged, graph_path)
             return merged
     finally:
         shutil.rmtree(tile_root, ignore_errors=True)
