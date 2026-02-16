@@ -10,21 +10,22 @@ from datetime import UTC, datetime
 from typing import Any
 
 from beanie.operators import In
+
 from admin.services.admin_service import AdminService
 from config import get_bouncie_config
 from core.clients.bouncie import BouncieClient
 from core.date_utils import ensure_utc
-from core.jobs import JobHandle
 from core.http.session import get_session
+from core.jobs import JobHandle
 from db.models import Vehicle
 from setup.services.bouncie_oauth import BouncieOAuth
 from trips.pipeline import TripPipeline
-
 from trips.services.trip_history_import_service_config import (
     IMPORT_DO_COVERAGE,
     IMPORT_DO_GEOCODE,
     _vehicle_label,
     build_import_windows,
+    resolve_import_imeis,
 )
 from trips.services.trip_history_import_service_fetch import (
     _fetch_device_window,
@@ -225,9 +226,13 @@ async def _build_import_setup(
     *,
     start_dt: datetime,
     end_dt: datetime,
+    selected_imeis: list[str] | None = None,
 ) -> ImportSetup:
     credentials = await get_bouncie_config()
-    imeis = list(credentials.get("authorized_devices") or [])
+    imeis = resolve_import_imeis(
+        list(credentials.get("authorized_devices") or []),
+        selected_imeis=selected_imeis,
+    )
     fetch_concurrency = credentials.get("fetch_concurrency", 12)
     if not isinstance(fetch_concurrency, int) or fetch_concurrency < 1:
         fetch_concurrency = 12
@@ -412,11 +417,19 @@ async def _finalize_import_failure(
     )
 
 
+def _validate_import_setup(setup: ImportSetup) -> None:
+    if setup.imeis:
+        return
+    msg = "No eligible vehicles selected for history import."
+    raise RuntimeError(msg)
+
+
 async def run_import(
     *,
     progress_job_id: str | None,
     start_dt: datetime,
     end_dt: datetime,
+    selected_imeis: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     Run the history import.
@@ -425,7 +438,11 @@ async def run_import(
     """
     start_dt = ensure_utc(start_dt) or start_dt
     end_dt = ensure_utc(end_dt) or end_dt
-    setup = await _build_import_setup(start_dt=start_dt, end_dt=end_dt)
+    setup = await _build_import_setup(
+        start_dt=start_dt,
+        end_dt=end_dt,
+        selected_imeis=selected_imeis,
+    )
     progress_ctx = await _build_progress_context(
         progress_job_id=progress_job_id,
         start_dt=start_dt,
@@ -451,6 +468,7 @@ async def run_import(
     windows_completed = 0
     session = await get_session()
     try:
+        _validate_import_setup(setup)
         token = await _authenticate_import(
             session=session,
             credentials=setup.credentials,
@@ -542,13 +560,13 @@ async def run_import(
 
 __all__ = [
     "ImportRuntime",
-    "_process_import_window",
     "ImportSetup",
+    "_authenticate_import",
     "_build_import_setup",
     "_build_progress_context",
-    "_authenticate_import",
-    "_run_import_windows",
-    "_finalize_import_success",
     "_finalize_import_failure",
+    "_finalize_import_success",
+    "_process_import_window",
+    "_run_import_windows",
     "run_import",
 ]

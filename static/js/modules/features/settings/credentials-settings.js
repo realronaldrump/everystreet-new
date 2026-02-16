@@ -1,9 +1,13 @@
 import apiClient from "../../core/api-client.js";
 import {
+  disconnectGooglePhotos,
   fetchBouncieCredentials,
+  fetchGooglePhotosCredentials,
+  fetchGooglePhotosStatus,
   fetchMapboxToken,
   isValidMapboxToken,
   saveBouncieCredentials,
+  saveGooglePhotosCredentials,
   saveMapboxToken,
   syncBouncieVehicles,
 } from "../../settings/credentials.js";
@@ -45,6 +49,7 @@ function validateFetchConcurrency(value) {
 export function setupCredentialsSettings({ signal } = {}) {
   setupMapboxCredentials({ signal });
   setupBouncieCredentials({ signal });
+  setupGooglePhotosCredentials({ signal });
   setupBouncieVehicles({ signal });
 }
 
@@ -273,6 +278,177 @@ async function setupBouncieCredentials({ signal } = {}) {
         } finally {
           syncBtn.innerHTML = '<i class="fas fa-sync"></i> Sync Vehicles';
           syncBtn.disabled = false;
+        }
+      },
+      eventOptions
+    );
+  }
+}
+
+async function setupGooglePhotosCredentials({ signal } = {}) {
+  const eventOptions = signal ? { signal } : false;
+  const clientIdInput = document.getElementById("google-photos-client-id-input");
+  const clientSecretInput = document.getElementById(
+    "google-photos-client-secret-input"
+  );
+  const redirectUriInput = document.getElementById(
+    "google-photos-redirect-uri-input"
+  );
+  const exportToggle = document.getElementById("google-photos-export-toggle");
+  const saveBtn = document.getElementById("google-photos-save-btn");
+  const connectBtn = document.getElementById("google-photos-connect-btn");
+  const disconnectBtn = document.getElementById("google-photos-disconnect-btn");
+  const statusEl = document.getElementById("google-photos-status");
+
+  if (
+    !clientIdInput ||
+    !clientSecretInput ||
+    !redirectUriInput ||
+    !saveBtn ||
+    !connectBtn
+  ) {
+    return;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const connectedFlag = params.get("google_photos_connected");
+  const errorFlag = params.get("google_photos_error");
+  if (connectedFlag) {
+    notificationManager.show("Google Photos connected successfully.", "success");
+    params.delete("google_photos_connected");
+  }
+  if (errorFlag) {
+    notificationManager.show(`Google Photos error: ${errorFlag}`, "danger");
+    params.delete("google_photos_error");
+  }
+  if (connectedFlag || errorFlag) {
+    const url = new URL(window.location.href);
+    url.search = params.toString();
+    window.history.replaceState({}, "", url.toString());
+  }
+
+  const setStatus = (message, tone = "muted") => {
+    if (!statusEl) {
+      return;
+    }
+    statusEl.className = `form-text text-${tone}`;
+    statusEl.textContent = message;
+  };
+
+  const readPayload = () => ({
+    client_id: clientIdInput.value,
+    client_secret: clientSecretInput.value,
+    redirect_uri: redirectUriInput.value,
+    postcard_export_enabled: Boolean(exportToggle?.checked),
+  });
+
+  const refreshStatus = async () => {
+    try {
+      const status = await fetchGooglePhotosStatus({ signal });
+      if (status.connected) {
+        const scopeCount = Array.isArray(status.granted_scopes)
+          ? status.granted_scopes.length
+          : 0;
+        setStatus(`Connected. ${scopeCount} scope(s) granted.`, "success");
+      } else if (status.last_auth_error) {
+        setStatus(
+          `Not connected. ${status.last_auth_error_detail || status.last_auth_error}.`,
+          "warning"
+        );
+      } else {
+        setStatus("Not connected yet. Save credentials, then connect.", "muted");
+      }
+    } catch (error) {
+      if (!isAbortError(error)) {
+        setStatus("Unable to load Google Photos status.", "danger");
+      }
+    }
+  };
+
+  try {
+    const creds = await fetchGooglePhotosCredentials({ signal });
+    clientIdInput.value = creds.client_id || "";
+    clientSecretInput.value = creds.client_secret || "";
+    redirectUriInput.value =
+      creds.redirect_uri || `${window.location.origin}/api/google-photos/callback`;
+    if (exportToggle) {
+      exportToggle.checked = Boolean(creds.postcard_export_enabled);
+    }
+  } catch (error) {
+    if (!isAbortError(error)) {
+      notificationManager.show(
+        `Failed to load Google Photos credentials: ${error.message}`,
+        "danger"
+      );
+    }
+  }
+
+  await refreshStatus();
+
+  saveBtn.addEventListener(
+    "click",
+    async () => {
+      const originalHtml = saveBtn.innerHTML;
+      try {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        const response = await saveGooglePhotosCredentials(readPayload(), { signal });
+        notificationManager.show(
+          response?.message || "Google Photos credentials saved.",
+          "success"
+        );
+        saveBtn.innerHTML = '<i class="fas fa-check"></i> Saved';
+        await refreshStatus();
+      } catch (error) {
+        if (!isAbortError(error)) {
+          notificationManager.show(error.message, "danger");
+        }
+      } finally {
+        setTimeout(() => {
+          saveBtn.innerHTML = originalHtml;
+          saveBtn.disabled = false;
+        }, 800);
+      }
+    },
+    eventOptions
+  );
+
+  connectBtn.addEventListener(
+    "click",
+    async (event) => {
+      event.preventDefault();
+      try {
+        await saveGooglePhotosCredentials(readPayload(), { signal });
+      } catch (error) {
+        if (!isAbortError(error)) {
+          notificationManager.show(error.message, "danger");
+        }
+        return;
+      }
+      const mode = exportToggle?.checked ? "postcard_export" : "picker";
+      window.location.href = `/api/google-photos/authorize?mode=${encodeURIComponent(mode)}`;
+    },
+    eventOptions
+  );
+
+  if (disconnectBtn) {
+    disconnectBtn.addEventListener(
+      "click",
+      async () => {
+        const purgeData = window.confirm(
+          "Also remove all Memory Atlas moments and postcards from this app?"
+        );
+        try {
+          const response = await disconnectGooglePhotos({ signal, purgeData });
+          notificationManager.show(
+            response?.message || "Google Photos disconnected.",
+            "success"
+          );
+          await refreshStatus();
+        } catch (error) {
+          if (!isAbortError(error)) {
+            notificationManager.show(error.message, "danger");
+          }
         }
       },
       eventOptions

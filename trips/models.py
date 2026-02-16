@@ -79,6 +79,7 @@ class TripSyncRequest(BaseModel):
     mode: Literal["recent", "history", "range"] = "recent"
     start_date: datetime | None = None
     end_date: datetime | None = None
+    selected_imeis: list[str] | None = None
     map_match: bool = False
     force: bool = False
     trigger_source: str | None = None

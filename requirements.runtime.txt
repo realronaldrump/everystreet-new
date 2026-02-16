@@ -25,4 +25,4 @@ osmnx
 networkx
 tenacity
 aiofiles
-
+Pillow

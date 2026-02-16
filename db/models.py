@@ -909,6 +909,100 @@ class BouncieCredentials(Document):
     model_config = ConfigDict(extra="allow")
 
 
+class GooglePhotosCredentials(Document):
+    """Google Photos OAuth credentials and scope state."""
+
+    id: str = "google_photos_credentials"
+    client_id: str | None = None
+    client_secret: str | None = None
+    redirect_uri: str | None = None
+    access_token: str | None = None
+    refresh_token: str | None = None
+    expires_at: float | None = None
+    oauth_state: str | None = None
+    oauth_state_expires_at: float | None = None
+    granted_scopes: list[str] = Field(default_factory=list)
+    postcard_export_enabled: bool = False
+    last_auth_error: str | None = None
+    last_auth_error_detail: str | None = None
+    last_auth_error_at: float | None = None
+
+    class Settings:
+        name = "google_photos_credentials"
+        indexes: ClassVar[list[IndexModel]] = [IndexModel([("id", 1)], unique=True)]
+
+    model_config = ConfigDict(extra="allow")
+
+
+class TripPhotoMoment(Document):
+    """Google Photos media item attached to a trip."""
+
+    trip_id: Indexed(PydanticObjectId)
+    trip_transaction_id: str | None = None
+    session_id: str | None = None
+    media_item_id: str
+    mime_type: str | None = None
+    file_name: str | None = None
+    capture_time: datetime | None = None
+    lat: float | None = None
+    lon: float | None = None
+    anchor_strategy: str = "manual_review"
+    anchor_confidence: float = 0.0
+    anchor_fraction: float | None = None
+    thumbnail_path: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("capture_time", mode="before")
+    @classmethod
+    def parse_capture_time(cls, v: Any) -> datetime | None:
+        if v is None:
+            return None
+        return parse_timestamp(v)
+
+    class Settings:
+        name = "trip_photo_moments"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [("trip_id", 1), ("media_item_id", 1)],
+                name="trip_photo_moments_trip_media_unique_idx",
+                unique=True,
+            ),
+            IndexModel(
+                [("trip_id", 1), ("capture_time", 1)],
+                name="trip_photo_moments_trip_capture_idx",
+            ),
+            IndexModel(
+                [("created_at", -1)],
+                name="trip_photo_moments_created_desc_idx",
+            ),
+        ]
+
+    model_config = ConfigDict(extra="allow")
+
+
+class TripMemoryPostcard(Document):
+    """Generated memory atlas postcard for a trip."""
+
+    trip_id: Indexed(PydanticObjectId)
+    trip_transaction_id: str | None = None
+    image_storage_path: str
+    google_album_id: str | None = None
+    google_media_item_id: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    class Settings:
+        name = "trip_memory_postcards"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [("trip_id", 1), ("created_at", -1)],
+                name="trip_memory_postcards_trip_created_idx",
+            ),
+        ]
+
+    model_config = ConfigDict(extra="allow")
+
+
 class CountyVisitedCache(Document):
     """Cache document for visited county data."""
 
@@ -960,6 +1054,9 @@ ALL_DOCUMENT_MODELS = [
     AppSettings,
     ServerLog,
     BouncieCredentials,
+    GooglePhotosCredentials,
+    TripPhotoMoment,
+    TripMemoryPostcard,
     CountyVisitedCache,
     CountyTopology,
     # Coverage system models

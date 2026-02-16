@@ -59,7 +59,11 @@ function formatIsoToLocal(value) {
   }
 }
 
-function renderDevicesList(container, devices) {
+function renderDevicesList(
+  container,
+  devices,
+  { selectedImeis = new Set(), onToggle = null } = {}
+) {
   if (!container) {
     return;
   }
@@ -71,16 +75,49 @@ function renderDevicesList(container, devices) {
   }
 
   const frag = document.createDocumentFragment();
-  devices.forEach((device) => {
+  devices.forEach((device, index) => {
     const imei = device?.imei || "";
     const name = device?.name || "Unknown vehicle";
+    const isSelected = Boolean(imei && selectedImeis.has(imei));
     const row = document.createElement("div");
     row.className = "trip-import-device";
+    row.classList.toggle("is-disabled", !isSelected);
     row.setAttribute("role", "listitem");
-    row.innerHTML = `
-      <div class="trip-import-device-name">${escapeHtml(name)}</div>
-      <div class="trip-import-device-meta">${escapeHtml(imei)}</div>
-    `;
+
+    const label = document.createElement("label");
+    label.className = "trip-import-device-toggle";
+    label.setAttribute("for", `trip-import-device-checkbox-${index}`);
+
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.id = `trip-import-device-checkbox-${index}`;
+    input.className = "form-check-input trip-import-device-check";
+    input.checked = isSelected;
+    input.disabled = !imei;
+
+    const body = document.createElement("div");
+    body.className = "trip-import-device-body";
+
+    const nameEl = document.createElement("div");
+    nameEl.className = "trip-import-device-name";
+    nameEl.textContent = name;
+
+    const metaEl = document.createElement("div");
+    metaEl.className = "trip-import-device-meta";
+    metaEl.textContent = imei;
+
+    body.append(nameEl, metaEl);
+    label.append(input, body);
+    row.appendChild(label);
+
+    input.addEventListener("change", () => {
+      if (!imei || typeof onToggle !== "function") {
+        return;
+      }
+      onToggle(imei, input.checked);
+      row.classList.toggle("is-disabled", !input.checked);
+    });
+
     frag.appendChild(row);
   });
   container.appendChild(frag);
@@ -307,6 +344,8 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   const planConcurrency = getEl("trip-import-plan-concurrency");
   const devicesCount = getEl("trip-import-devices-count");
   const devicesList = getEl("trip-import-devices-list");
+  const selectAllDevicesBtn = getEl("trip-import-select-all-btn");
+  const clearAllDevicesBtn = getEl("trip-import-clear-all-btn");
 
   const stageEl = getEl("trip-import-stage");
   const messageEl = getEl("trip-import-message");
@@ -345,6 +384,51 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   let lastPlan = null;
   let activeSyncJobId = null;
   let activeSyncTaskId = null;
+  let allDevices = [];
+  let selectedImeis = new Set();
+  let hasLoadedPlan = false;
+  let isPlanLoading = false;
+  let isStartSubmitting = false;
+  let isConfigBlocked = false;
+
+  const getSelectedImeis = () =>
+    allDevices
+      .map((device) => String(device?.imei || "").trim())
+      .filter((imei) => imei && selectedImeis.has(imei));
+
+  const updateStartButtonState = () => {
+    if (!startBtn) {
+      return;
+    }
+    const selectedCount = getSelectedImeis().length;
+    const hasDevices = allDevices.length > 0;
+    const lacksSelection = hasDevices && selectedCount < 1;
+    startBtn.disabled =
+      isPlanLoading || isStartSubmitting || isConfigBlocked || !hasDevices || lacksSelection;
+  };
+
+  const updateDeviceSelectionUi = () => {
+    const total = allDevices.length;
+    const selectedCount = getSelectedImeis().length;
+
+    if (devicesCount) {
+      devicesCount.textContent = total > 0 ? `${selectedCount}/${total} selected` : "--";
+    }
+    if (selectAllDevicesBtn) {
+      selectAllDevicesBtn.disabled = total < 1 || selectedCount === total;
+    }
+    if (clearAllDevicesBtn) {
+      clearAllDevicesBtn.disabled = selectedCount < 1;
+    }
+
+    if (lastPlan && Number.isFinite(Number(lastPlan.windows_total))) {
+      setText(planRequests, Number(lastPlan.windows_total) * selectedCount);
+    } else {
+      setText(planRequests, lastPlan?.estimated_requests ?? "--");
+    }
+
+    updateStartButtonState();
+  };
 
   const cleanupStreaming = () => {
     if (es) {
@@ -375,6 +459,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   const showSyncInProgress = (status) => {
     activeSyncJobId = status?.current_job_id || null;
     activeSyncTaskId = status?.active_task_id || null;
+    isConfigBlocked = true;
 
     const parts = ["Trip sync is already in progress."];
     if (activeSyncTaskId) {
@@ -390,9 +475,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
 
     setConfigError(parts.join(" "));
     setConfigActionsVisible(Boolean(activeSyncJobId));
-    if (startBtn) {
-      startBtn.disabled = true;
-    }
+    updateStartButtonState();
   };
 
   const setProgressError = (message) => {
@@ -426,31 +509,58 @@ export function initTripHistoryImportWizard({ signal } = {}) {
 
     if (footerHint) {
       footerHint.textContent = isConfig
-        ? "Pick a start date, review the plan, then start the import."
+        ? "Pick a start date, choose vehicles, review the plan, then start the import."
         : isImport
           ? "You can close this window; the import continues in the background."
           : "";
     }
   };
 
+  const rerenderSelectableDevices = () => {
+    renderDevicesList(devicesList, allDevices, {
+      selectedImeis,
+      onToggle: (imei, checked) => {
+        if (checked) {
+          selectedImeis.add(imei);
+        } else {
+          selectedImeis.delete(imei);
+        }
+        updateDeviceSelectionUi();
+      },
+    });
+    updateDeviceSelectionUi();
+  };
+
   const renderPlan = (plan) => {
     lastPlan = plan;
+    allDevices = Array.isArray(plan?.devices) ? [...plan.devices] : [];
+    const selectableImeis = allDevices
+      .map((device) => String(device?.imei || "").trim())
+      .filter(Boolean);
+    const allowedImeis = new Set(selectableImeis);
+
+    if (!hasLoadedPlan) {
+      selectedImeis = new Set(selectableImeis);
+      hasLoadedPlan = true;
+    } else {
+      const nextSelection = new Set();
+      selectedImeis.forEach((imei) => {
+        if (allowedImeis.has(imei)) {
+          nextSelection.add(imei);
+        }
+      });
+      selectedImeis = nextSelection;
+    }
+
     setText(planWindows, plan?.windows_total ?? "--");
-    setText(planRequests, plan?.estimated_requests ?? "--");
     setText(planConcurrency, plan?.fetch_concurrency ?? "--");
-    const devices = plan?.devices || [];
-    setText(
-      devicesCount,
-      Array.isArray(devices) ? `${devices.length} device(s)` : "--"
-    );
-    renderDevicesList(devicesList, devices);
+    rerenderSelectableDevices();
   };
 
   const loadPlan = async () => {
     setConfigError("");
-    if (startBtn) {
-      startBtn.disabled = true;
-    }
+    isPlanLoading = true;
+    updateStartButtonState();
     try {
       const startDate = parseLocalDateTime(startInput?.value);
       const qs = startDate
@@ -460,14 +570,14 @@ export function initTripHistoryImportWizard({ signal } = {}) {
         signal,
       });
       renderPlan(plan);
-      if (startBtn) {
-        startBtn.disabled = false;
-      }
     } catch (error) {
       setConfigError(error.message || "Failed to load import plan.");
-      if (startBtn) {
-        startBtn.disabled = true;
-      }
+      allDevices = [];
+      selectedImeis = new Set();
+      rerenderSelectableDevices();
+    } finally {
+      isPlanLoading = false;
+      updateStartButtonState();
     }
   };
 
@@ -501,7 +611,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     setText(countFetchErr, counters.fetch_errors);
     setText(countProcessErr, counters.process_errors);
 
-    const devices = lastPlan?.devices || job?.metadata?.devices || [];
+    const devices = job?.metadata?.devices || lastPlan?.devices || [];
     renderPerDeviceTable(vehiclesTbody, devices, job?.metadata?.per_device || {});
     renderEvents(eventsEl, job?.metadata?.events || []);
     renderFailureSummary(failureSummaryEl, job?.metadata?.failure_reasons || {});
@@ -628,6 +738,13 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     finished = false;
     activeSyncJobId = null;
     activeSyncTaskId = null;
+    allDevices = [];
+    selectedImeis = new Set();
+    hasLoadedPlan = false;
+    isPlanLoading = false;
+    isStartSubmitting = false;
+    isConfigBlocked = false;
+    lastPlan = null;
     setConfigError("");
     setConfigActionsVisible(false);
     setProgressError("");
@@ -638,7 +755,11 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     setText(messageEl, "Waiting to start...");
     setText(windowEl, "--");
     setText(windowsEl, "--");
+    setText(planWindows, "--");
+    setText(planRequests, "--");
+    setText(planConcurrency, "--");
     renderEvents(eventsEl, []);
+    rerenderSelectableDevices();
     if (vehiclesTbody) {
       vehiclesTbody.innerHTML = "";
     }
@@ -660,20 +781,22 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     if (goTrips) {
       goTrips.classList.add("d-none");
     }
+    updateStartButtonState();
   };
 
   const openWizard = async () => {
     resetUi();
     modal.show();
+    isConfigBlocked = false;
+    updateStartButtonState();
 
     let status = null;
     try {
       status = await apiClient.get(CONFIG.API.tripSyncStatus, { signal });
       if (status?.state === "paused") {
+        isConfigBlocked = true;
         setConfigError(status?.error?.message || "Trip sync is paused.");
-        if (startBtn) {
-          startBtn.disabled = true;
-        }
+        updateStartButtonState();
         return;
       }
       if (status?.state === "syncing" && status?.history_import_progress_job_id) {
@@ -682,6 +805,8 @@ export function initTripHistoryImportWizard({ signal } = {}) {
       }
       if (status?.state === "syncing") {
         showSyncInProgress(status);
+      } else {
+        isConfigBlocked = false;
       }
     } catch {
       // If status fails, still allow user to attempt plan fetch.
@@ -708,16 +833,22 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     setConfigError("");
     setConfigActionsVisible(false);
     setProgressError("");
-    if (startBtn) {
-      startBtn.disabled = true;
-    }
+    isStartSubmitting = true;
+    updateStartButtonState();
 
     const startDate = parseLocalDateTime(startInput?.value);
     if (!startDate) {
       setConfigError("Please choose a valid start date.");
-      if (startBtn) {
-        startBtn.disabled = false;
-      }
+      isStartSubmitting = false;
+      updateStartButtonState();
+      return;
+    }
+
+    const selectedForImport = getSelectedImeis();
+    if (selectedForImport.length < 1) {
+      setConfigError("Select at least one vehicle to import.");
+      isStartSubmitting = false;
+      updateStartButtonState();
       return;
     }
 
@@ -727,6 +858,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
         {
           mode: "history",
           start_date: startDate.toISOString(),
+          selected_imeis: selectedForImport,
           trigger_source: "wizard",
         },
         { signal }
@@ -779,9 +911,9 @@ export function initTripHistoryImportWizard({ signal } = {}) {
       }
 
       setConfigError(error.message || "Failed to start import.");
-      if (startBtn) {
-        startBtn.disabled = false;
-      }
+    } finally {
+      isStartSubmitting = false;
+      updateStartButtonState();
     }
   };
 
@@ -820,6 +952,19 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     await loadPlan();
   };
 
+  const handleSelectAllDevices = () => {
+    const imeis = allDevices
+      .map((device) => String(device?.imei || "").trim())
+      .filter(Boolean);
+    selectedImeis = new Set(imeis);
+    rerenderSelectableDevices();
+  };
+
+  const handleClearAllDevices = () => {
+    selectedImeis = new Set();
+    rerenderSelectableDevices();
+  };
+
   const handleStopSync = async () => {
     if (!activeSyncJobId) {
       return;
@@ -855,11 +1000,14 @@ export function initTripHistoryImportWizard({ signal } = {}) {
         if (status?.state === "syncing") {
           showSyncInProgress(status);
         } else {
+          isConfigBlocked = false;
           setConfigActionsVisible(false);
+          updateStartButtonState();
         }
       } else {
         activeSyncJobId = null;
         activeSyncTaskId = null;
+        isConfigBlocked = false;
         setConfigActionsVisible(false);
         await loadPlan();
       }
@@ -884,6 +1032,8 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   startBtn?.addEventListener("click", handleStart, eventOptions);
   cancelBtn?.addEventListener("click", handleCancel, eventOptions);
   newBtn?.addEventListener("click", handleStartAnother, eventOptions);
+  selectAllDevicesBtn?.addEventListener("click", handleSelectAllDevices, eventOptions);
+  clearAllDevicesBtn?.addEventListener("click", handleClearAllDevices, eventOptions);
   stopSyncBtn?.addEventListener("click", handleStopSync, eventOptions);
   startInput?.addEventListener("change", handleStartChange, eventOptions);
   startInput?.addEventListener("input", handleStartChange, eventOptions);

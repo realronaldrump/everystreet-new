@@ -77,6 +77,11 @@ export const CONFIG = {
       `/api/actions/trips/sync/history_import/${jobId}/sse`,
     tripSyncHistoryImportCancel: (jobId) =>
       `/api/actions/trips/sync/history_import/${jobId}`,
+    tripMemoryAtlas: (id) => `/api/trips/${id}/memory-atlas`,
+    tripMemoryAtlasAttach: (id) => `/api/trips/${id}/memory-atlas/attach`,
+    tripMemoryAtlasPostcard: (id) => `/api/trips/${id}/memory-atlas/postcard`,
+    tripMemoryAtlasMoment: (id, momentId) =>
+      `/api/trips/${id}/memory-atlas/moments/${momentId}`,
 
     // Coverage endpoints
     coverageAreas: "/api/coverage/areas",
@@ -93,6 +98,18 @@ export const CONFIG = {
 
     // Vehicle endpoints
     vehicles: "/api/vehicles",
+
+    // Google Photos endpoints
+    googlePhotosStatus: "/api/google-photos/status",
+    googlePhotosCredentials: "/api/google-photos/credentials",
+    googlePhotosAuthorize: (mode = "picker") =>
+      `/api/google-photos/authorize?mode=${encodeURIComponent(mode)}`,
+    googlePhotosDisconnect: "/api/google-photos/disconnect",
+    googlePhotosPickerSessions: "/api/google-photos/picker/sessions",
+    googlePhotosPickerSession: (sessionId) =>
+      `/api/google-photos/picker/sessions/${encodeURIComponent(sessionId)}`,
+    googlePhotosPickerSessionMediaItems: (sessionId) =>
+      `/api/google-photos/picker/sessions/${encodeURIComponent(sessionId)}/media-items`,
 
     // Caching and retry settings
     cacheTime: 30000,

@@ -39,6 +39,11 @@ let currentTripData = null;
 let regeocodeInFlight = false;
 let modalRouteActionsTripId = null;
 let modalRouteChipToken = 0;
+let memoryAtlasMoments = [];
+let memoryAtlasMarkers = [];
+let memoryAtlasConnected = false;
+let memoryAtlasBusy = false;
+let memoryAtlasPlacementMomentId = null;
 let playbackControlsBound = false;
 let modalActionsBound = false;
 let pageSignal = null;
@@ -70,6 +75,8 @@ const withSignal = (options = {}) =>
 const apiGet = (url, options = {}) => apiClient.get(url, withSignal(options));
 const apiPost = (url, body, options = {}) =>
   apiClient.post(url, body, withSignal(options));
+const apiPatch = (url, body, options = {}) =>
+  apiClient.patch(url, body, withSignal(options));
 const apiDelete = (url, options = {}) => apiClient.delete(url, withSignal(options));
 
 function resetTripsState() {
@@ -84,6 +91,10 @@ function resetTripsState() {
   currentTripData = null;
   regeocodeInFlight = false;
   modalRouteActionsTripId = null;
+  memoryAtlasMoments = [];
+  memoryAtlasConnected = false;
+  memoryAtlasBusy = false;
+  memoryAtlasPlacementMomentId = null;
   playbackControlsBound = false;
   modalActionsBound = false;
   appliedTripSort = DEFAULT_TRIP_SORT;
@@ -119,6 +130,14 @@ function resetTripsState() {
   playbackState.speed = PLAYBACK_SPEED_BASE;
   playbackState.isPlaying = false;
   playbackState.isComplete = false;
+  memoryAtlasMarkers.forEach((marker) => {
+    try {
+      marker.remove();
+    } catch {
+      // Ignore marker cleanup errors.
+    }
+  });
+  memoryAtlasMarkers = [];
 
   if (tripModalMap) {
     try {
@@ -1839,6 +1858,17 @@ function openTripModal(tripId) {
         currentTripData = null;
         regeocodeInFlight = false;
         modalRouteActionsTripId = null;
+        memoryAtlasMoments = [];
+        memoryAtlasPlacementMomentId = null;
+        memoryAtlasMarkers.forEach((marker) => {
+          try {
+            marker.remove();
+          } catch {
+            // Ignore marker cleanup errors.
+          }
+        });
+        memoryAtlasMarkers = [];
+        renderMemoryAtlasMoments();
         if (tripModalMap) {
           const src = tripModalMap.getSource("modal-trip");
           if (src) {
@@ -1872,8 +1902,18 @@ function bindTripModalActions() {
   const shareBtn = document.getElementById("modal-share-btn");
   const deleteBtn = document.getElementById("modal-delete-btn");
   const regeocodeBtn = document.getElementById("modal-regeocode-btn");
+  const memoryConnectBtn = document.getElementById("memory-atlas-connect-btn");
+  const memoryPickBtn = document.getElementById("memory-atlas-pick-btn");
+  const memoryPostcardBtn = document.getElementById("memory-atlas-postcard-btn");
 
-  if (!shareBtn && !deleteBtn && !regeocodeBtn) {
+  if (
+    !shareBtn &&
+    !deleteBtn &&
+    !regeocodeBtn &&
+    !memoryConnectBtn &&
+    !memoryPickBtn &&
+    !memoryPostcardBtn
+  ) {
     console.warn("Trip modal action buttons not found");
     return;
   }
@@ -1916,6 +1956,39 @@ function bindTripModalActions() {
       "click",
       async () => {
         await regeocodeCurrentTrip();
+      },
+      pageSignal ? { signal: pageSignal } : undefined
+    );
+  }
+
+  if (memoryConnectBtn) {
+    memoryConnectBtn.type = "button";
+    memoryConnectBtn.addEventListener(
+      "click",
+      () => {
+        window.location.href = CONFIG.API.googlePhotosAuthorize("picker");
+      },
+      pageSignal ? { signal: pageSignal } : undefined
+    );
+  }
+
+  if (memoryPickBtn) {
+    memoryPickBtn.type = "button";
+    memoryPickBtn.addEventListener(
+      "click",
+      async () => {
+        await pickMemoryAtlasPhotos();
+      },
+      pageSignal ? { signal: pageSignal } : undefined
+    );
+  }
+
+  if (memoryPostcardBtn) {
+    memoryPostcardBtn.type = "button";
+    memoryPostcardBtn.addEventListener(
+      "click",
+      async () => {
+        await generateMemoryAtlasPostcard();
       },
       pageSignal ? { signal: pageSignal } : undefined
     );
@@ -2210,6 +2283,10 @@ function initTripModalMap() {
         });
       }
 
+      tripModalMap.on("click", async (event) => {
+        await handleMemoryAtlasMapClick(event);
+      });
+
       setupTripPlaybackControls();
       loadTripData(currentTripId);
     });
@@ -2232,6 +2309,7 @@ async function loadTripData(tripId) {
     updateModalContent(trip);
 
     renderTripOnMap(trip);
+    await loadMemoryAtlas(trip.transactionId || tripId);
   } catch (err) {
     console.error("Failed to load trip data:", err);
     notificationManager.show("Failed to load trip details", "danger");
@@ -2428,6 +2506,405 @@ function renderTripOnMap(trip) {
       duration: 1000,
       essential: true,
     });
+  }
+}
+
+function setMemoryAtlasStatus(message, tone = "muted") {
+  const statusEl = document.getElementById("memory-atlas-status");
+  if (!statusEl) {
+    return;
+  }
+  statusEl.textContent = message;
+  statusEl.classList.remove("text-muted", "text-success", "text-warning", "text-danger");
+  const classByTone = {
+    muted: "text-muted",
+    success: "text-success",
+    warning: "text-warning",
+    danger: "text-danger",
+  };
+  statusEl.classList.add(classByTone[tone] || "text-muted");
+}
+
+function setMemoryAtlasBusyState(isBusy) {
+  memoryAtlasBusy = isBusy;
+  const pickBtn = document.getElementById("memory-atlas-pick-btn");
+  const postcardBtn = document.getElementById("memory-atlas-postcard-btn");
+  if (pickBtn) {
+    pickBtn.disabled = isBusy;
+  }
+  if (postcardBtn) {
+    postcardBtn.disabled = isBusy;
+  }
+}
+
+async function handleMemoryAtlasMapClick(event) {
+  if (!memoryAtlasPlacementMomentId || !currentTripId || memoryAtlasBusy) {
+    return;
+  }
+  const lon = Number(event?.lngLat?.lng);
+  const lat = Number(event?.lngLat?.lat);
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+    return;
+  }
+
+  const momentId = memoryAtlasPlacementMomentId;
+  memoryAtlasPlacementMomentId = null;
+  setMemoryAtlasBusyState(true);
+  try {
+    setMemoryAtlasStatus("Saving manual memory placement...", "muted");
+    await apiPatch(CONFIG.API.tripMemoryAtlasMoment(currentTripId, momentId), {
+      lat,
+      lon,
+    });
+    await loadMemoryAtlas(currentTripId);
+    setMemoryAtlasStatus("Manual placement saved.", "success");
+  } catch (error) {
+    console.error("Failed to save manual moment placement:", error);
+    setMemoryAtlasStatus(
+      error?.message || "Unable to save manual placement.",
+      "danger"
+    );
+  } finally {
+    setMemoryAtlasBusyState(false);
+  }
+}
+
+function focusMemoryAtlasMoment(moment) {
+  if (!tripModalMap) {
+    return;
+  }
+  const lon = Number(moment?.lon);
+  const lat = Number(moment?.lat);
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+    return;
+  }
+  tripModalMap.easeTo({
+    center: [lon, lat],
+    zoom: Math.max(tripModalMap.getZoom(), 12),
+    duration: 700,
+    essential: true,
+  });
+}
+
+function updateMemoryAtlasMarkers() {
+  memoryAtlasMarkers.forEach((marker) => {
+    try {
+      marker.remove();
+    } catch {
+      // Ignore marker cleanup errors.
+    }
+  });
+  memoryAtlasMarkers = [];
+
+  if (!tripModalMap) {
+    return;
+  }
+
+  memoryAtlasMoments.forEach((moment) => {
+    const lon = Number(moment?.lon);
+    const lat = Number(moment?.lat);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+      return;
+    }
+
+    const markerEl = document.createElement("button");
+    markerEl.type = "button";
+    markerEl.className = "memory-atlas-marker";
+    markerEl.title = "Trip memory";
+    markerEl.addEventListener("click", () => {
+      focusMemoryAtlasMoment(moment);
+    });
+
+    const marker = new mapboxgl.Marker({
+      element: markerEl,
+      anchor: "center",
+    }).setLngLat([lon, lat]);
+    marker.addTo(tripModalMap);
+    memoryAtlasMarkers.push(marker);
+  });
+}
+
+function renderMemoryAtlasMoments() {
+  const listEl = document.getElementById("memory-atlas-thumbnails");
+  if (!listEl) {
+    return;
+  }
+  listEl.innerHTML = "";
+
+  if (!memoryAtlasMoments.length) {
+    const empty = document.createElement("div");
+    empty.className = "memory-atlas-thumb";
+    empty.innerHTML = '<div class="memory-atlas-thumb-fallback">No moments yet</div>';
+    listEl.appendChild(empty);
+    updateMemoryAtlasMarkers();
+    return;
+  }
+
+  memoryAtlasMoments.forEach((moment) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "memory-atlas-thumb";
+    const hasCoords = Number.isFinite(Number(moment?.lon)) && Number.isFinite(Number(moment?.lat));
+    if (!hasCoords) {
+      btn.classList.add("memory-atlas-thumb--needs-placement");
+    }
+    if (moment?.id && moment.id === memoryAtlasPlacementMomentId) {
+      btn.classList.add("memory-atlas-thumb--pending");
+    }
+    const thumbnailUrl = moment?.thumbnail_url || null;
+    if (thumbnailUrl) {
+      const img = document.createElement("img");
+      img.src = thumbnailUrl;
+      img.alt = "Trip memory";
+      img.loading = "lazy";
+      btn.appendChild(img);
+    } else {
+      const fallback = document.createElement("div");
+      fallback.className = "memory-atlas-thumb-fallback";
+      fallback.innerHTML = '<i class="fas fa-image"></i>';
+      btn.appendChild(fallback);
+    }
+
+    const caption = document.createElement("div");
+    caption.className = "memory-atlas-thumb-caption";
+    if (moment?.capture_time) {
+      caption.textContent = formatDateTime(moment.capture_time);
+    } else if (moment?.file_name) {
+      caption.textContent = moment.file_name;
+    } else {
+      caption.textContent = "Memory";
+    }
+    btn.appendChild(caption);
+
+    btn.addEventListener("click", () => {
+      if (!hasCoords && moment?.id) {
+        memoryAtlasPlacementMomentId = moment.id;
+        renderMemoryAtlasMoments();
+        setMemoryAtlasStatus(
+          "Manual placement mode: click the route map where this memory happened.",
+          "warning"
+        );
+        return;
+      }
+      focusMemoryAtlasMoment(moment);
+    });
+
+    listEl.appendChild(btn);
+  });
+
+  updateMemoryAtlasMarkers();
+}
+
+async function loadMemoryAtlas(tripId) {
+  if (!tripId) {
+    return;
+  }
+
+  const connectBtn = document.getElementById("memory-atlas-connect-btn");
+  try {
+    const [atlasData, photosStatus] = await Promise.all([
+      apiGet(CONFIG.API.tripMemoryAtlas(tripId)),
+      apiGet(CONFIG.API.googlePhotosStatus),
+    ]);
+    memoryAtlasPlacementMomentId = null;
+    memoryAtlasMoments = Array.isArray(atlasData?.moments) ? atlasData.moments : [];
+    memoryAtlasConnected = Boolean(photosStatus?.connected);
+
+    if (connectBtn) {
+      connectBtn.innerHTML = memoryAtlasConnected
+        ? '<i class="fas fa-plug"></i><span>Reconnect Google Photos</span>'
+        : '<i class="fas fa-plug"></i><span>Connect Google Photos</span>';
+    }
+
+    const unresolvedCount = memoryAtlasMoments.filter(
+      (moment) => moment?.anchor_strategy === "manual_review"
+    ).length;
+    if (memoryAtlasMoments.length > 0) {
+      if (unresolvedCount > 0) {
+        setMemoryAtlasStatus(
+          `${memoryAtlasMoments.length} moments linked (${unresolvedCount} need manual placement). Click those thumbnails, then click the map.`,
+          "warning"
+        );
+      } else {
+        setMemoryAtlasStatus(
+          `${memoryAtlasMoments.length} memory moment(s) linked to this trip.`,
+          "success"
+        );
+      }
+    } else if (memoryAtlasConnected) {
+      setMemoryAtlasStatus(
+        "Connected. Pick photos to attach memories to this route.",
+        "muted"
+      );
+    } else {
+      setMemoryAtlasStatus(
+        "Connect Google Photos, then pick photos for this trip.",
+        "warning"
+      );
+    }
+
+    renderMemoryAtlasMoments();
+  } catch (error) {
+    console.warn("Failed to load memory atlas:", error);
+    memoryAtlasMoments = [];
+    renderMemoryAtlasMoments();
+    setMemoryAtlasStatus("Unable to load memory atlas for this trip.", "danger");
+  }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function pickMemoryAtlasPhotos() {
+  const tripId = currentTripData?.transactionId || currentTripId;
+  if (!tripId || memoryAtlasBusy) {
+    return;
+  }
+
+  setMemoryAtlasBusyState(true);
+  try {
+    const status = await apiGet(CONFIG.API.googlePhotosStatus);
+    if (!status?.connected) {
+      setMemoryAtlasStatus(
+        "Google Photos is not connected. Use Connect first.",
+        "warning"
+      );
+      return;
+    }
+
+    setMemoryAtlasStatus("Creating Google Photos picker session...", "muted");
+    const sessionResp = await apiPost(CONFIG.API.googlePhotosPickerSessions, {
+      page_size: 100,
+    });
+    const picker = sessionResp?.session || {};
+    const sessionId = picker?.id;
+    const pickerUri = picker?.picker_uri;
+    if (!sessionId || !pickerUri) {
+      throw new Error("Picker session did not return a valid URI.");
+    }
+
+    const popup = window.open(
+      pickerUri,
+      "googlePhotosPicker",
+      "popup=yes,width=1100,height=840"
+    );
+    if (!popup) {
+      notificationManager.show(
+        "Popup blocked. Allow popups and try again.",
+        "warning"
+      );
+    }
+
+    const pollMs = Number(picker?.polling?.poll_interval_seconds || 2) * 1000;
+    const timeoutMs = Number(picker?.polling?.timeout_seconds || 300) * 1000;
+    const startedAt = Date.now();
+    let mediaItemsSet = false;
+
+    setMemoryAtlasStatus("Waiting for selections in Google Photos...", "muted");
+    while (Date.now() - startedAt < timeoutMs) {
+      await sleep(Math.max(1000, pollMs));
+      const poll = await apiGet(CONFIG.API.googlePhotosPickerSession(sessionId));
+      if (poll?.session?.media_items_set) {
+        mediaItemsSet = true;
+        break;
+      }
+    }
+
+    if (!mediaItemsSet) {
+      throw new Error("Picker timed out before any photos were selected.");
+    }
+
+    const allItems = [];
+    let pageToken = null;
+    do {
+      const search = new URLSearchParams();
+      if (pageToken) {
+        search.set("page_token", pageToken);
+      }
+      const pageUrl = `${CONFIG.API.googlePhotosPickerSessionMediaItems(sessionId)}${
+        search.toString() ? `?${search.toString()}` : ""
+      }`;
+      const page = await apiGet(pageUrl);
+      const pageItems = Array.isArray(page?.media_items) ? page.media_items : [];
+      allItems.push(...pageItems);
+      pageToken = page?.next_page_token || null;
+    } while (pageToken);
+
+    if (allItems.length === 0) {
+      setMemoryAtlasStatus("No photos selected in Google Photos.", "warning");
+      return;
+    }
+
+    setMemoryAtlasStatus(`Attaching ${allItems.length} memory items...`, "muted");
+    const attachResp = await apiPost(CONFIG.API.tripMemoryAtlasAttach(tripId), {
+      session_id: sessionId,
+      media_items: allItems,
+      download_thumbnails: true,
+    });
+
+    notificationManager.show(
+      attachResp?.message || "Memories attached to trip.",
+      "success"
+    );
+    await loadMemoryAtlas(tripId);
+  } catch (error) {
+    console.error("Failed to attach memory atlas photos:", error);
+    setMemoryAtlasStatus(
+      error?.message || "Failed to attach photos from Google Photos.",
+      "danger"
+    );
+    notificationManager.show(
+      error?.message || "Failed to attach photos from Google Photos.",
+      "danger"
+    );
+  } finally {
+    setMemoryAtlasBusyState(false);
+  }
+}
+
+async function generateMemoryAtlasPostcard() {
+  const tripId = currentTripData?.transactionId || currentTripId;
+  if (!tripId || memoryAtlasBusy) {
+    return;
+  }
+  const uploadToGoogle = window.confirm(
+    "Upload this postcard to your Google Photos app-created album?"
+  );
+
+  setMemoryAtlasBusyState(true);
+  try {
+    setMemoryAtlasStatus("Generating postcard image...", "muted");
+    const response = await apiPost(CONFIG.API.tripMemoryAtlasPostcard(tripId), {
+      upload_to_google_photos: uploadToGoogle,
+    });
+    const postcardUrl = response?.postcard?.image_url;
+    if (postcardUrl) {
+      window.open(postcardUrl, "_blank", "noopener");
+    }
+    if (response?.upload_error) {
+      notificationManager.show(
+        `Postcard created, but Google Photos upload failed: ${response.upload_error}`,
+        "warning"
+      );
+      setMemoryAtlasStatus("Postcard generated. Upload failed.", "warning");
+    } else {
+      notificationManager.show("Memory postcard generated.", "success");
+      setMemoryAtlasStatus("Postcard generated successfully.", "success");
+    }
+    await loadMemoryAtlas(tripId);
+  } catch (error) {
+    console.error("Failed to generate memory atlas postcard:", error);
+    setMemoryAtlasStatus(
+      error?.message || "Failed to generate postcard.",
+      "danger"
+    );
+    notificationManager.show(
+      error?.message || "Failed to generate postcard.",
+      "danger"
+    );
+  } finally {
+    setMemoryAtlasBusyState(false);
   }
 }
 

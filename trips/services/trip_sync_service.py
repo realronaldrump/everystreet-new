@@ -604,8 +604,22 @@ class TripSyncService:
                 start_dt.isoformat(),
             )
 
-            plan = await build_import_plan(start_dt=start_dt, end_dt=end_dt)
+            plan = await build_import_plan(
+                start_dt=start_dt,
+                end_dt=end_dt,
+                selected_imeis=request.selected_imeis,
+            )
             devices = list(plan.get("devices") or [])
+            selected_imeis = [
+                str(device.get("imei"))
+                for device in devices
+                if device.get("imei")
+            ]
+            if not selected_imeis:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Select at least one vehicle for history import.",
+                )
 
             now = datetime.now(UTC)
             job = Job(
@@ -624,6 +638,7 @@ class TripSyncService:
                     "overlap_hours": plan.get("overlap_hours"),
                     "step_hours": plan.get("step_hours"),
                     "devices": devices,
+                    "selected_imeis": selected_imeis,
                     "windows_total": plan.get("windows_total", 0),
                     "windows_completed": 0,
                     "current_window": None,
@@ -668,6 +683,7 @@ class TripSyncService:
                 manual_run=True,
                 start_iso=start_dt.isoformat(),
                 progress_job_id=str(job.id),
+                selected_imeis=selected_imeis,
             )
 
             job.operation_id = result.get("job_id")

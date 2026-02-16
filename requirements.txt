@@ -33,3 +33,4 @@ pytest-asyncio
 pytest-cov
 mongomock-motor
 aiofiles
+Pillow

@@ -66,6 +66,42 @@ def test_trip_sync_start_endpoint_history_returns_progress_job_id() -> None:
     assert response.json()["progress_job_id"] == "65b1b5b6b5b6b5b6b5b6b5b6"
 
 
+def test_trip_history_import_plan_endpoint_scopes_selected_imeis() -> None:
+    app = _create_app()
+    captured_selected: dict[str, list[str] | None] = {"value": None}
+
+    async def fake_build_plan(*, start_dt, end_dt, selected_imeis=None):
+        del start_dt, end_dt
+        captured_selected["value"] = selected_imeis
+        return {
+            "status": "success",
+            "start_iso": "2024-01-01T00:00:00+00:00",
+            "end_iso": "2024-01-08T00:00:00+00:00",
+            "window_days": 7,
+            "overlap_hours": 24,
+            "step_hours": 144,
+            "windows_total": 1,
+            "estimated_requests": 1,
+            "fetch_concurrency": 2,
+            "devices": [{"imei": "123", "name": "Car"}],
+        }
+
+    with (
+        patch(
+            "trips.api.sync.resolve_import_start_dt_from_db",
+            new=AsyncMock(return_value=datetime(2024, 1, 1, tzinfo=UTC)),
+        ),
+        patch("trips.api.sync.build_import_plan", new=AsyncMock(side_effect=fake_build_plan)),
+    ):
+        client = TestClient(app)
+        response = client.get(
+            "/api/actions/trips/sync/history_import/plan?selected_imeis=123,456",
+        )
+
+    assert response.status_code == 200
+    assert captured_selected["value"] == ["123", "456"]
+
+
 def test_trip_history_import_status_endpoint_returns_metadata() -> None:
     app = _create_app()
 

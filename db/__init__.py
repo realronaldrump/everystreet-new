@@ -45,6 +45,7 @@ from db.models import (
     CoverageArea,
     CoverageState,
     GasFillup,
+    GooglePhotosCredentials,
     Job,
     OsmData,
     Place,
@@ -54,6 +55,8 @@ from db.models import (
     TaskHistory,
     Trip,
     TripIngestIssue,
+    TripMemoryPostcard,
+    TripPhotoMoment,
     Vehicle,
 )
 
@@ -83,6 +86,7 @@ __all__ = [
     # Manager
     "DatabaseManager",
     "GasFillup",
+    "GooglePhotosCredentials",
     "Job",
     "OsmData",
     "Place",
@@ -93,6 +97,8 @@ __all__ = [
     "Trip",
     # Beanie Models
     "TripIngestIssue",
+    "TripMemoryPostcard",
+    "TripPhotoMoment",
     "Vehicle",
     "build_calendar_date_expr",
     "build_query_from_request",

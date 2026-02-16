@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from beanie import PydanticObjectId, init_beanie
+from fastapi import HTTPException
 from mongomock_motor import AsyncMongoMockClient
 
 from db.models import BouncieCredentials, Job, TaskConfig, TaskHistory, Trip, Vehicle
@@ -154,11 +155,15 @@ async def test_start_sync_enqueues_history_with_progress_job(
 ) -> None:
     await seed_credentials()
     await Vehicle(imei="device-123", custom_name="Test Car").insert()
+    enqueue_kwargs: dict[str, object] = {}
 
     async def fake_enqueue(task_id, *args, **kwargs):
+        del task_id, args
+        enqueue_kwargs.update(kwargs)
         return {"job_id": "arq-job-123"}
 
-    async def fake_plan(*, start_dt, end_dt):
+    async def fake_plan(*, start_dt, end_dt, selected_imeis=None):
+        del start_dt, end_dt, selected_imeis
         return {
             "status": "success",
             "start_iso": "2024-01-01T00:00:00+00:00",
@@ -193,6 +198,91 @@ async def test_start_sync_enqueues_history_with_progress_job(
     assert job.metadata.get("window_days") == 7
     assert job.metadata.get("overlap_hours") == 24
     assert job.metadata.get("devices") == [{"imei": "device-123", "name": "Test Car"}]
+    assert job.metadata.get("selected_imeis") == ["device-123"]
+    assert enqueue_kwargs.get("selected_imeis") == ["device-123"]
+
+
+@pytest.mark.asyncio
+async def test_start_sync_history_scopes_selected_imeis(
+    beanie_db_with_history_import,
+    monkeypatch,
+) -> None:
+    await seed_credentials()
+
+    plan_selected_imeis: list[str] | None = None
+    enqueue_kwargs: dict[str, object] = {}
+
+    async def fake_enqueue(task_id, *args, **kwargs):
+        del task_id, args
+        enqueue_kwargs.update(kwargs)
+        return {"job_id": "arq-job-123"}
+
+    async def fake_plan(*, start_dt, end_dt, selected_imeis=None):
+        del start_dt, end_dt
+        nonlocal plan_selected_imeis
+        plan_selected_imeis = selected_imeis
+        return {
+            "status": "success",
+            "start_iso": "2024-01-01T00:00:00+00:00",
+            "end_iso": "2024-01-10T00:00:00+00:00",
+            "window_days": 7,
+            "overlap_hours": 24,
+            "step_hours": 144,
+            "windows_total": 2,
+            "estimated_requests": 2,
+            "fetch_concurrency": 12,
+            "devices": [{"imei": "device-123", "name": "Test Car"}],
+        }
+
+    monkeypatch.setattr(trip_sync_service, "enqueue_task", fake_enqueue)
+    monkeypatch.setattr(trip_sync_service, "build_import_plan", fake_plan)
+
+    await TripSyncService.start_sync(
+        TripSyncRequest(
+            mode="history",
+            start_date=datetime(2024, 1, 1, tzinfo=UTC),
+            selected_imeis=["device-123", "unknown-imei"],
+        ),
+    )
+
+    assert plan_selected_imeis == ["device-123", "unknown-imei"]
+    assert enqueue_kwargs.get("selected_imeis") == ["device-123"]
+
+
+@pytest.mark.asyncio
+async def test_start_sync_history_requires_at_least_one_selected_vehicle(
+    beanie_db_with_history_import,
+    monkeypatch,
+) -> None:
+    await seed_credentials()
+
+    async def fake_plan(*, start_dt, end_dt, selected_imeis=None):
+        del start_dt, end_dt, selected_imeis
+        return {
+            "status": "success",
+            "start_iso": "2024-01-01T00:00:00+00:00",
+            "end_iso": "2024-01-10T00:00:00+00:00",
+            "window_days": 7,
+            "overlap_hours": 24,
+            "step_hours": 144,
+            "windows_total": 2,
+            "estimated_requests": 0,
+            "fetch_concurrency": 12,
+            "devices": [],
+        }
+
+    monkeypatch.setattr(trip_sync_service, "build_import_plan", fake_plan)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await TripSyncService.start_sync(
+            TripSyncRequest(
+                mode="history",
+                start_date=datetime(2024, 1, 1, tzinfo=UTC),
+                selected_imeis=[],
+            ),
+        )
+
+    assert exc_info.value.status_code == 400
 
 
 @pytest.mark.asyncio

@@ -129,12 +129,32 @@ async def get_trip_history_import_plan(
             description="Optional import start datetime (ISO 8601). Defaults to earliest stored trip.",
         ),
     ] = None,
+    selected_imeis: Annotated[
+        str | None,
+        Query(
+            description=(
+                "Optional comma-separated IMEI list to preview a scoped import plan. "
+                "When omitted, all authorized vehicles are included."
+            ),
+        ),
+    ] = None,
 ):
     """Preview a trip history import plan (windows, requests, devices)."""
     parsed = parse_timestamp(start_date) if start_date else None
     start_dt = await resolve_import_start_dt_from_db(parsed)
     end_dt = datetime.now(UTC)
-    return await build_import_plan(start_dt=start_dt, end_dt=end_dt)
+    selected = None
+    if selected_imeis is not None:
+        selected = [
+            imei.strip()
+            for imei in selected_imeis.split(",")
+            if imei and imei.strip()
+        ]
+    return await build_import_plan(
+        start_dt=start_dt,
+        end_dt=end_dt,
+        selected_imeis=selected,
+    )
 
 
 @router.get(

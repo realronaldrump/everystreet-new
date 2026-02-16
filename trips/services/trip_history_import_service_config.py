@@ -135,13 +135,43 @@ def _vehicle_label(vehicle: Vehicle | None, imei: str) -> str:
     return f"Device {suffix}"
 
 
+def resolve_import_imeis(
+    authorized_imeis: list[str] | None,
+    selected_imeis: list[str] | None = None,
+) -> list[str]:
+    """Return a de-duplicated, authorized import IMEI list."""
+    normalized_authorized: list[str] = []
+    seen_authorized: set[str] = set()
+    for raw in authorized_imeis or []:
+        imei = str(raw or "").strip()
+        if not imei or imei in seen_authorized:
+            continue
+        seen_authorized.add(imei)
+        normalized_authorized.append(imei)
+
+    if selected_imeis is None:
+        return normalized_authorized
+
+    selected_set = {
+        str(raw or "").strip() for raw in selected_imeis if str(raw or "").strip()
+    }
+    if not selected_set:
+        return []
+
+    return [imei for imei in normalized_authorized if imei in selected_set]
+
+
 async def build_import_plan(
     *,
     start_dt: datetime,
     end_dt: datetime,
+    selected_imeis: list[str] | None = None,
 ) -> dict[str, Any]:
     credentials = await get_bouncie_config()
-    imeis = list(credentials.get("authorized_devices") or [])
+    imeis = resolve_import_imeis(
+        list(credentials.get("authorized_devices") or []),
+        selected_imeis=selected_imeis,
+    )
     fetch_concurrency = credentials.get("fetch_concurrency", 12)
     if not isinstance(fetch_concurrency, int) or fetch_concurrency < 1:
         fetch_concurrency = 12
@@ -172,24 +202,25 @@ async def build_import_plan(
 
 
 __all__ = [
-    "WINDOW_DAYS",
-    "OVERLAP_HOURS",
-    "STEP_HOURS",
-    "_MIN_WINDOW_HOURS",
-    "MIN_WINDOW_HOURS",
-    "_SPLIT_CHUNK_HOURS",
-    "SPLIT_CHUNK_HOURS",
-    "_REQUEST_TIMEOUT_SECONDS",
-    "REQUEST_TIMEOUT_SECONDS",
-    "_DEVICE_FETCH_TIMEOUT_SECONDS",
     "DEVICE_FETCH_TIMEOUT_SECONDS",
-    "_REQUEST_PAUSE_SECONDS",
-    "REQUEST_PAUSE_SECONDS",
-    "IMPORT_DO_GEOCODE",
     "IMPORT_DO_COVERAGE",
-    "resolve_import_start_dt",
-    "resolve_import_start_dt_from_db",
-    "build_import_windows",
+    "IMPORT_DO_GEOCODE",
+    "MIN_WINDOW_HOURS",
+    "OVERLAP_HOURS",
+    "REQUEST_PAUSE_SECONDS",
+    "REQUEST_TIMEOUT_SECONDS",
+    "SPLIT_CHUNK_HOURS",
+    "STEP_HOURS",
+    "WINDOW_DAYS",
+    "_DEVICE_FETCH_TIMEOUT_SECONDS",
+    "_MIN_WINDOW_HOURS",
+    "_REQUEST_PAUSE_SECONDS",
+    "_REQUEST_TIMEOUT_SECONDS",
+    "_SPLIT_CHUNK_HOURS",
     "_vehicle_label",
     "build_import_plan",
+    "build_import_windows",
+    "resolve_import_imeis",
+    "resolve_import_start_dt",
+    "resolve_import_start_dt_from_db",
 ]

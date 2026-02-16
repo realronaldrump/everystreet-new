@@ -1829,10 +1829,38 @@
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
   background: var(--surface-1);
+}
+
+.trip-import-device-toggle {
   display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+.trip-import-device-check {
+  margin-top: 0.15rem;
+}
+
+.trip-import-device-body {
+  min-width: 0;
+  display: flex;
+  flex: 1 1 auto;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-2);
+}
+
+.trip-import-device.is-disabled {
+  opacity: 0.62;
+}
+
+@media (width <= 575px) {
+  .trip-import-device-body {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .trip-import-device-name {

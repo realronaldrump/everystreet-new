@@ -407,6 +407,7 @@ async def _fetch_all_missing_trips_logic(
     manual_run: bool = False,
     start_iso: str | None = None,
     progress_job_id: str | None = None,
+    selected_imeis: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     Import trips from Bouncie for the full history range.
@@ -433,6 +434,7 @@ async def _fetch_all_missing_trips_logic(
         progress_job_id=progress_job_id,
         start_dt=start_dt,
         end_dt=end_dt,
+        selected_imeis=selected_imeis,
     )
 
 
@@ -441,6 +443,7 @@ async def fetch_all_missing_trips(
     manual_run: bool = True,
     start_iso: str | None = None,
     progress_job_id: str | None = None,
+    selected_imeis: list[str] | None = None,
 ):
     """ARQ job for fetching all missing trips."""
     return await run_task_with_history(
@@ -450,6 +453,7 @@ async def fetch_all_missing_trips(
             manual_run=manual_run,
             start_iso=start_iso,
             progress_job_id=progress_job_id,
+            selected_imeis=selected_imeis,
         ),
         manual_run=manual_run,
     )
