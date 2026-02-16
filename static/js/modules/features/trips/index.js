@@ -1279,7 +1279,12 @@ function setupSearchAndFilters() {
     currentPage = 1;
     loadTrips();
     updateFilterChips();
-    showFilterFeedback();
+    const { hasLocalFilters } = getFilterState();
+    if (hasLocalFilters) {
+      showFilterFeedback();
+    } else {
+      clearFilterFeedback();
+    }
 
     if (shouldUseClientStats()) {
       updateFilteredStats();
@@ -1298,11 +1303,6 @@ function setupSearchAndFilters() {
   // Reset filters
   document.getElementById("trip-filter-reset")?.addEventListener("click", () => {
     document.querySelectorAll(".filter-select, .filter-group input").forEach((el) => {
-      if (el.id === "trip-sort-select") {
-        el.value = DEFAULT_TRIP_SORT;
-        el.classList.remove("has-value");
-        return;
-      }
       if (el.type === "checkbox") {
         el.checked = false;
       } else {
@@ -1311,7 +1311,6 @@ function setupSearchAndFilters() {
       el.classList.remove("has-value");
     });
 
-    setStorage(CONFIG.STORAGE_KEYS.tripsSort, null);
     setStorage(CONFIG.STORAGE_KEYS.selectedVehicle, null);
     store.updateFilters({ vehicle: null }, { source: "vehicle" });
 
@@ -1324,13 +1323,7 @@ function setupSearchAndFilters() {
       loadTripStats();
     }
 
-    // Reset visual feedback
-    document.querySelectorAll(".stat-pill").forEach((pill) => {
-      pill.classList.remove("filtered");
-    });
-    filtersPanel?.classList.remove("has-filters");
-    document.querySelector(".trips-search-section")?.classList.remove("has-filters");
-    document.getElementById("filters-status")?.style.setProperty("display", "none");
+    clearFilterFeedback();
   });
 
   // Sort selection
@@ -1364,6 +1357,15 @@ function setupSearchAndFilters() {
   });
 
   updateFilterChips();
+}
+
+function clearFilterFeedback() {
+  document.querySelectorAll(".stat-pill").forEach((pill) => {
+    pill.classList.remove("filtered");
+  });
+  document.getElementById("trips-filters-panel")?.classList.remove("has-filters");
+  document.querySelector(".trips-search-section")?.classList.remove("has-filters");
+  document.getElementById("filters-status")?.style.setProperty("display", "none");
 }
 
 function showFilterFeedback() {
@@ -1574,8 +1576,13 @@ function updateFilterChips() {
     const vehicleName =
       vehicleSelect?.options[vehicleSelect.selectedIndex]?.text || filters.imei;
     addChip(`Vehicle: ${vehicleName}`, () => {
-      document.getElementById("trip-filter-vehicle").value = "";
+      const el = document.getElementById("trip-filter-vehicle");
+      if (el) {
+        el.value = "";
+        el.classList.remove("has-value");
+      }
       setStorage(CONFIG.STORAGE_KEYS.selectedVehicle, null);
+      store.updateFilters({ vehicle: null }, { source: "vehicle" });
     });
   }
 
@@ -1583,22 +1590,18 @@ function updateFilterChips() {
     addChip(
       `Distance: ${filters.distance_min || "0"} - ${filters.distance_max || "∞"} mi`,
       () => {
-        document.getElementById("trip-filter-distance-min").value = "";
-        document.getElementById("trip-filter-distance-max").value = "";
+        const minEl = document.getElementById("trip-filter-distance-min");
+        const maxEl = document.getElementById("trip-filter-distance-max");
+        if (minEl) {
+          minEl.value = "";
+          minEl.classList.remove("has-value");
+        }
+        if (maxEl) {
+          maxEl.value = "";
+          maxEl.classList.remove("has-value");
+        }
       }
     );
-  }
-
-  const sort = getTripSortValue();
-  if (sort && sort !== DEFAULT_TRIP_SORT) {
-    addChip(`Sort: ${getTripSortLabel(sort)}`, () => {
-      const sortSelect = document.getElementById("trip-sort-select");
-      if (sortSelect) {
-        sortSelect.value = DEFAULT_TRIP_SORT;
-        sortSelect.classList.remove("has-value");
-      }
-      setStorage(CONFIG.STORAGE_KEYS.tripsSort, null);
-    });
   }
 
   // Update badge count

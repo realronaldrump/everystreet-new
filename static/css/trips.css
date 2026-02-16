@@ -347,6 +347,103 @@
   align-items: center;
 }
 
+.search-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.sort-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 44px;
+  padding: var(--space-xs) var(--space-sm) var(--space-xs) var(--space-md);
+  border: 1px solid rgb(var(--trips-primary-rgb), 0.16);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--trips-primary-rgb), 0.12) 0%,
+    rgb(var(--trips-primary-rgb), 0.03) 100%
+  );
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
+}
+
+body.light-mode .trips-journal-page .sort-control {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 60%);
+}
+
+.sort-control-label {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--trips-text-secondary);
+  white-space: nowrap;
+}
+
+.sort-control-label i {
+  font-size: 0.8125rem;
+  color: var(--trips-primary);
+}
+
+.sort-select {
+  appearance: none;
+  color-scheme: dark;
+  min-width: 15rem;
+  min-height: 40px;
+  padding: calc(var(--space-sm) - 1px) calc(var(--space-xl) + var(--space-xs))
+    calc(var(--space-sm) - 1px) var(--space-md);
+  border: 1px solid rgb(var(--trips-primary-rgb), 0.24);
+  border-radius: var(--radius-pill);
+  background-color: var(--trips-bg-elevated);
+  background-image:
+    linear-gradient(
+      180deg,
+      rgb(var(--trips-primary-rgb), 0.07) 0%,
+      rgb(var(--trips-primary-rgb), 0.02) 100%
+    ),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='rgba(245,242,236,0.9)' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat, no-repeat;
+  background-size: 100% 100%, 12px 8px;
+  background-position: 0 0, right 0.875rem center;
+  color: var(--trips-text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+body.light-mode .trips-journal-page .sort-select {
+  background-image:
+    linear-gradient(
+      180deg,
+      rgb(var(--trips-primary-rgb), 0.09) 0%,
+      rgb(var(--trips-primary-rgb), 0.03) 100%
+    ),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='rgba(28,26,23,0.8)' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+}
+
+.sort-select:hover {
+  border-color: var(--trips-primary-light);
+}
+
+.sort-select:focus {
+  outline: none;
+  border-color: var(--trips-primary);
+  box-shadow: 0 0 0 3px rgb(var(--trips-primary-rgb), 0.15);
+}
+
+.sort-select.has-value {
+  border-color: rgb(var(--trips-primary-rgb), 0.35);
+  background-color: rgb(var(--trips-primary-rgb), 0.08);
+}
+
 .search-icon {
   position: absolute;
   left: var(--space-md);
@@ -401,6 +498,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
+  min-height: 44px;
   padding: var(--space-md) var(--space-lg);
   background: var(--trips-bg-subtle);
   border: 2px solid transparent;
@@ -564,6 +662,7 @@
   background: var(--trips-bg-elevated);
   font-size: 0.9375rem;
   color: var(--trips-text-primary);
+  color-scheme: dark;
   transition: all var(--transition-fast);
   width: 100%;
 }
@@ -584,6 +683,29 @@
 .filter-group input.has-value {
   border-color: rgb(var(--trips-primary-rgb), 0.3);
   background: rgb(var(--trips-primary-rgb), 0.03);
+}
+
+body.light-mode .trips-journal-page .sort-select,
+body.light-mode .trips-journal-page .filter-select {
+  color-scheme: light;
+}
+
+.sort-select option,
+.filter-select option {
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+
+body.light-mode .trips-journal-page .sort-select option,
+body.light-mode .trips-journal-page .filter-select option {
+  background: #fff;
+  color: rgb(28 26 23 / 96%);
+}
+
+body:not(.light-mode) .trips-journal-page .sort-select option,
+body:not(.light-mode) .trips-journal-page .filter-select option {
+  background: #18181b;
+  color: rgb(245 242 236 / 94%);
 }
 
 .range-inputs {
@@ -2191,6 +2313,30 @@
 
   .search-input-wrap {
     width: 100%;
+  }
+
+  .search-actions {
+    width: 100%;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .sort-control {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
+    padding: var(--space-sm);
+    border-radius: var(--radius-lg);
+  }
+
+  .sort-control-label {
+    font-size: 0.6875rem;
+  }
+
+  .sort-select {
+    width: 100%;
+    min-width: 0;
   }
 
   .filter-toggle-btn {

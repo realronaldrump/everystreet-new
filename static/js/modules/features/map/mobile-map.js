@@ -8,6 +8,8 @@
  * Note: No sync logic needed - DOM is unified between desktop and mobile
  */
 
+const MOBILE_TOGGLE_EVENT = "es:mapControls:toggle";
+
 class MobileMapInterface {
   constructor() {
     this.isMobile = MobileMapInterface.detectMobileViewport();
@@ -34,12 +36,14 @@ class MobileMapInterface {
     this.activeStates = [];
     this.currentState = "collapsed";
     this.currentOffset = 0;
+    this.sheetHeight = 0;
 
     // Drag handling
     this.dragStartOffset = 0;
     this.dragStartY = 0;
     this.dragCandidateStartY = 0;
     this.dragStartThreshold = 8;
+    this.tapThreshold = 8;
     this.isDragging = false;
     this.flingThreshold = 80;
     this.minStateGap = 40;
@@ -70,6 +74,7 @@ class MobileMapInterface {
 
     this.setupDragInteractions();
     this.setupMapPanGuard();
+    this.setupProgrammaticToggle();
 
     window.addEventListener("resize", this.resizeHandler);
     this.cleanupCallbacks.push(() =>
@@ -95,17 +100,19 @@ class MobileMapInterface {
   }
 
   setupMapPanGuard() {
-    const map = document.getElementById("map");
-    if (!map) {
+    const mapCanvas = document.getElementById("map-canvas");
+    if (!mapCanvas) {
       return;
     }
 
     let touchStartY = 0;
+    let touchStartX = 0;
 
     const onTouchStart = (event) => {
       if (!event.touches || event.touches.length !== 1) {
         return;
       }
+      touchStartX = event.touches[0].clientX;
       touchStartY = event.touches[0].clientY;
     };
 
@@ -113,18 +120,20 @@ class MobileMapInterface {
       if (!event.touches || event.touches.length !== 1) {
         return;
       }
+      const deltaX = event.touches[0].clientX - touchStartX;
       const deltaY = event.touches[0].clientY - touchStartY;
-      if (deltaY > 0 && window.scrollY === 0) {
+      const downwardVerticalSwipe = deltaY > 0 && Math.abs(deltaY) > Math.abs(deltaX);
+      if (downwardVerticalSwipe && window.scrollY === 0) {
         event.preventDefault();
       }
     };
 
-    map.addEventListener("touchstart", onTouchStart, { passive: true });
-    map.addEventListener("touchmove", onTouchMove, { passive: false });
+    mapCanvas.addEventListener("touchstart", onTouchStart, { passive: true });
+    mapCanvas.addEventListener("touchmove", onTouchMove, { passive: false });
 
     this.cleanupCallbacks.push(() => {
-      map.removeEventListener("touchstart", onTouchStart);
-      map.removeEventListener("touchmove", onTouchMove);
+      mapCanvas.removeEventListener("touchstart", onTouchStart);
+      mapCanvas.removeEventListener("touchmove", onTouchMove);
     });
   }
 
@@ -153,19 +162,18 @@ class MobileMapInterface {
         if (event.target.closest("button, a, input, select")) {
           return;
         }
-        const collapsedState = this.sortedStates[0]?.state || "collapsed";
-        const expandedState =
-          this.sortedStates[this.sortedStates.length - 1]?.state || "expanded";
-
-        if (this.currentState === collapsedState) {
-          this.setState(this.getNextStateUp(collapsedState));
-        } else if (this.currentState === expandedState) {
-          this.setState(collapsedState);
-        } else {
-          this.setState(this.getNextStateUp(this.currentState));
-        }
+        this.toggleState();
       };
       this.bind(this.header, "click", onHeaderClick);
+    }
+
+    if (this.handle) {
+      this.bind(this.handle, "click", (event) => {
+        if (event.target.closest("button, a, input, select")) {
+          return;
+        }
+        this.toggleState();
+      });
     }
 
     // Backdrop click to collapse
@@ -287,12 +295,16 @@ class MobileMapInterface {
     this.currentOffset = this.clampOffset(this.dragStartOffset + deltaY);
     this.applySheetOffset(this.currentOffset, { immediate: false });
 
-    const targetState =
-      Math.abs(deltaY) > this.flingThreshold
-        ? deltaY > 0
+    const absoluteDelta = Math.abs(deltaY);
+    let targetState = this.getNearestState(this.currentOffset);
+    if (absoluteDelta <= this.tapThreshold) {
+      targetState = this.getTapTargetState();
+    } else if (absoluteDelta > this.flingThreshold) {
+      targetState =
+        deltaY > 0
           ? this.getNextStateDown(this.currentState)
-          : this.getNextStateUp(this.currentState)
-        : this.getNearestState(this.currentOffset);
+          : this.getNextStateUp(this.currentState);
+    }
 
     this.setState(targetState);
   }
@@ -321,6 +333,22 @@ class MobileMapInterface {
     } else {
       this.sheet.style.setProperty("--sheet-offset", value);
     }
+    this.updateVisibleHeight(offset);
+  }
+
+  updateVisibleHeight(offset = this.currentOffset) {
+    const measuredHeight =
+      this.sheetHeight ||
+      this.sheet?.getBoundingClientRect?.().height ||
+      window.innerHeight * 0.7;
+    const visibleHeight = Math.max(
+      0,
+      Math.round(Math.max(0, measuredHeight - Math.max(0, offset)))
+    );
+    document.documentElement.style.setProperty(
+      "--map-sheet-visible-height",
+      `${visibleHeight}px`
+    );
   }
 
   updateBackdropForOffset(offset) {
@@ -358,6 +386,31 @@ class MobileMapInterface {
     this.updateSheetClasses(validState);
     this.applySheetOffset(this.currentOffset, { immediate });
     this.updateBackdropForOffset(this.currentOffset);
+  }
+
+  toggleState() {
+    const targetState = this.getTapTargetState();
+    this.setState(targetState);
+  }
+
+  getTapTargetState() {
+    const collapsedState = this.sortedStates[0]?.state || "collapsed";
+    const expandedState =
+      this.sortedStates[this.sortedStates.length - 1]?.state || "expanded";
+    if (this.currentState === expandedState) {
+      return collapsedState;
+    }
+    return this.getNextStateUp(this.currentState);
+  }
+
+  setupProgrammaticToggle() {
+    const onToggleRequest = () => {
+      this.toggleState();
+    };
+    document.addEventListener(MOBILE_TOGGLE_EVENT, onToggleRequest);
+    this.cleanupCallbacks.push(() => {
+      document.removeEventListener(MOBILE_TOGGLE_EVENT, onToggleRequest);
+    });
   }
 
   updateSheetClasses(state) {
@@ -423,6 +476,7 @@ class MobileMapInterface {
       window.innerHeight || document.documentElement.clientHeight || 0;
     const sheetRect = this.sheet.getBoundingClientRect();
     const sheetHeight = sheetRect.height || viewportHeight * 0.85 || 0;
+    this.sheetHeight = sheetHeight;
 
     const collapsedVisible = Math.min(
       sheetHeight,
@@ -502,6 +556,7 @@ class MobileMapInterface {
       }
     });
     this.cleanupCallbacks = [];
+    document.documentElement.style.removeProperty("--map-sheet-visible-height");
   }
 }
 

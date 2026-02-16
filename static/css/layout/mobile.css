@@ -37,6 +37,11 @@
     overscroll-behavior-y: auto;
   }
 
+  body[data-route="/map"] {
+    overscroll-behavior-y: none;
+    overflow-y: hidden;
+  }
+
   .panel-body,
   .side-panel,
   .control-panel-body,

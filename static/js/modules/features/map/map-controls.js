@@ -1,7 +1,11 @@
 /**
- * Map Controls - Optimized Interaction Script
- * Fast, minimal, clean
+ * Map Controls - Desktop panel state + shared map control actions.
+ *
+ * Mobile sheet drag/toggle behavior is owned by mobile-map.js.
  */
+
+const MOBILE_BREAKPOINT = "(max-width: 768px)";
+const MOBILE_TOGGLE_EVENT = "es:mapControls:toggle";
 
 export default function initMapControls({ signal, cleanup } = {}) {
   const noopTeardown = () => {};
@@ -14,42 +18,67 @@ export default function initMapControls({ signal, cleanup } = {}) {
     return noopTeardown;
   }
 
-  let isExpanded = true;
+  let isExpandedDesktop = true;
   let resizeTimeout = null;
-  let touchStartY = 0;
-  let currentY = 0;
 
-  const isMobile = () => window.innerWidth <= 768;
+  const isMobile = () =>
+    window.matchMedia
+      ? window.matchMedia(MOBILE_BREAKPOINT).matches
+      : window.innerWidth <= 768;
+
+  const getDesktopSections = () => ({
+    body: controls.querySelector(".control-panel-body"),
+    quickActions: controls.querySelector(".control-panel-quick-actions"),
+  });
 
   const updateToggleButton = () => {
     if (!toggleBtn) {
       return;
     }
-    toggleBtn.setAttribute("aria-expanded", isExpanded);
+    const expanded = isMobile() ? controls.classList.contains("expanded") : isExpandedDesktop;
+    toggleBtn.setAttribute("aria-expanded", expanded.toString());
     const icon = toggleBtn.querySelector("i");
     if (icon) {
-      icon.style.transform = isExpanded ? "rotate(0deg)" : "rotate(180deg)";
+      icon.style.transform = expanded ? "rotate(0deg)" : "rotate(180deg)";
     }
   };
 
-  const toggleMapControls = () => {
-    isExpanded = !isExpanded;
-
-    if (isMobile()) {
-      controls.classList.toggle("expanded", isExpanded);
-    } else {
-      const body = controls.querySelector(".control-panel-body");
-      const quickActions = controls.querySelector(".control-panel-quick-actions");
-
-      if (body) {
-        body.style.display = isExpanded ? "block" : "none";
-      }
-      if (quickActions) {
-        quickActions.style.display = isExpanded ? "flex" : "none";
-      }
+  const setDesktopExpanded = (expanded) => {
+    const { body, quickActions } = getDesktopSections();
+    isExpandedDesktop = expanded;
+    if (body) {
+      body.style.display = expanded ? "block" : "none";
     }
-
+    if (quickActions) {
+      quickActions.style.display = expanded ? "flex" : "none";
+    }
     updateToggleButton();
+  };
+
+  const clearDesktopInlineStyles = () => {
+    const { body, quickActions } = getDesktopSections();
+    if (body) {
+      body.style.display = "";
+    }
+    if (quickActions) {
+      quickActions.style.display = "";
+    }
+  };
+
+  const requestMobileToggle = () => {
+    document.dispatchEvent(
+      new CustomEvent(MOBILE_TOGGLE_EVENT, {
+        bubbles: true,
+      })
+    );
+  };
+
+  const toggleMapControls = () => {
+    if (isMobile()) {
+      requestMobileToggle();
+      return;
+    }
+    setDesktopExpanded(!isExpandedDesktop);
   };
 
   const setStreetMode = (mode) => {
@@ -65,70 +94,27 @@ export default function initMapControls({ signal, cleanup } = {}) {
     );
   };
 
+  const initState = () => {
+    if (isMobile()) {
+      clearDesktopInlineStyles();
+      updateToggleButton();
+      return;
+    }
+    setDesktopExpanded(true);
+  };
+
+  const onToggleClick = (event) => {
+    event.preventDefault();
+    toggleMapControls();
+  };
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener("click", onToggleClick, signal ? { signal } : false);
+  }
+
   window.toggleMapControls = toggleMapControls;
   window.setStreetMode = setStreetMode;
-
-  const initMobileState = () => {
-    if (isMobile()) {
-      isExpanded = false;
-      controls.classList.remove("expanded");
-    } else {
-      isExpanded = true;
-      controls.classList.remove("expanded");
-      controls.style.transform = "";
-    }
-    updateToggleButton();
-  };
-
-  initMobileState();
-
-  const onTouchStart = (e) => {
-    if (!isMobile() || !e.touches || e.touches.length < 1) {
-      return;
-    }
-    touchStartY = e.touches[0].clientY;
-    currentY = touchStartY;
-    controls.style.transition = "none";
-  };
-
-  const onTouchMove = (e) => {
-    if (!isMobile() || !e.touches || e.touches.length < 1) {
-      return;
-    }
-    currentY = e.touches[0].clientY;
-    const delta = currentY - touchStartY;
-
-    if (isExpanded && delta > 0) {
-      controls.style.transform = `translateY(${delta}px)`;
-    } else if (!isExpanded && delta < 0) {
-      const offset = Math.min(Math.abs(delta), window.innerHeight * 0.7);
-      controls.style.transform = `translateY(calc(100% - 60px - ${offset}px))`;
-    }
-  };
-
-  const onTouchEnd = () => {
-    if (!isMobile()) {
-      return;
-    }
-    controls.style.transition = "";
-    const delta = currentY - touchStartY;
-
-    if (Math.abs(delta) > 50) {
-      if (delta > 0 && isExpanded) {
-        toggleMapControls();
-      } else if (delta < 0 && !isExpanded) {
-        toggleMapControls();
-      }
-    } else {
-      controls.classList.toggle("expanded", isExpanded);
-    }
-  };
-
-  const touchOptions = signal ? { passive: true, signal } : { passive: true };
-  const touchEndOptions = signal ? { signal } : false;
-  controls.addEventListener("touchstart", onTouchStart, touchOptions);
-  controls.addEventListener("touchmove", onTouchMove, touchOptions);
-  controls.addEventListener("touchend", onTouchEnd, touchEndOptions);
+  initState();
 
   const onResize = () => {
     if (resizeTimeout) {
@@ -138,19 +124,13 @@ export default function initMapControls({ signal, cleanup } = {}) {
       if (!controls) {
         return;
       }
-      controls.style.transition = "none";
 
-      if (window.innerWidth > 768) {
-        controls.classList.remove("expanded");
-        controls.style.transform = "";
-        isExpanded = true;
+      if (isMobile()) {
+        clearDesktopInlineStyles();
       } else {
-        controls.classList.toggle("expanded", isExpanded);
+        setDesktopExpanded(isExpandedDesktop);
       }
-
-      setTimeout(() => {
-        controls.style.transition = "";
-      }, 50);
+      updateToggleButton();
     }, 100);
   };
 
@@ -161,9 +141,9 @@ export default function initMapControls({ signal, cleanup } = {}) {
       clearTimeout(resizeTimeout);
       resizeTimeout = null;
     }
-    controls.removeEventListener("touchstart", onTouchStart);
-    controls.removeEventListener("touchmove", onTouchMove);
-    controls.removeEventListener("touchend", onTouchEnd);
+    if (toggleBtn) {
+      toggleBtn.removeEventListener("click", onToggleClick);
+    }
     window.removeEventListener("resize", onResize);
     if (window.toggleMapControls === toggleMapControls) {
       window.toggleMapControls = undefined;

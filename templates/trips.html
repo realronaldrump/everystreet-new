@@ -88,35 +88,13 @@ block extra_css %}
               <i class="fas fa-times"></i>
             </button>
           </div>
-          <button class="filter-toggle-btn"
-                  id="filter-toggle-btn"
-                  aria-controls="trips-filters-panel"
-                  aria-expanded="false">
-            <i class="fas fa-sliders-h"></i>
-            <span>Filters</span>
-            <span class="filter-badge" id="active-filter-count">0</span>
-          </button>
-        </div>
-
-        <!-- Expandable Filters Panel -->
-        <div class="filters-panel" id="trips-filters-panel">
-          <div class="filters-header">
-            <span class="filters-header-title">
-              <i class="fas fa-filter"></i>
-            Filter Options
-            </span>
-            <span class="filters-header-status" id="filters-status" style="display: none">
-              <span class="status-dot"></span>
-            Active
-            </span>
-          </div>
-          <div class="filters-content">
-            <div class="filter-group">
-              <label class="filter-label">
-                <i class="fas fa-sort"></i>
+          <div class="search-actions">
+            <div class="sort-control">
+              <label class="sort-control-label" for="trip-sort-select">
+                <i class="fas fa-arrow-down-wide-short"></i>
               Sort
               </label>
-              <select id="trip-sort-select" class="filter-select">
+              <select id="trip-sort-select" class="sort-select">
                 <option value="date_desc">
 Date (newest first) (default)
                 </option>
@@ -149,7 +127,30 @@ Duration (low to high)
                 </option>
               </select>
             </div>
+            <button class="filter-toggle-btn"
+                    id="filter-toggle-btn"
+                    aria-controls="trips-filters-panel"
+                    aria-expanded="false">
+              <i class="fas fa-sliders-h"></i>
+              <span>Filters</span>
+              <span class="filter-badge" id="active-filter-count">0</span>
+            </button>
+          </div>
+        </div>
 
+        <!-- Expandable Filters Panel -->
+        <div class="filters-panel" id="trips-filters-panel">
+          <div class="filters-header">
+            <span class="filters-header-title">
+              <i class="fas fa-filter"></i>
+            Filter Options
+            </span>
+            <span class="filters-header-status" id="filters-status" style="display: none">
+              <span class="status-dot"></span>
+            Active
+            </span>
+          </div>
+          <div class="filters-content">
             <div class="filter-group">
               <label class="filter-label">
                 <i class="fas fa-car"></i>
