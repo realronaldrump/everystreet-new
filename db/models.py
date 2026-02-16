@@ -743,8 +743,8 @@ class Vehicle(Document):
     model: str | None = None
     year: int | None = None
     is_active: bool = True
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Odometer tracking
     odometer_reading: float | None = None  # Current/last known odometer reading
