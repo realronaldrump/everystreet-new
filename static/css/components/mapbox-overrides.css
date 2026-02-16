@@ -1,7 +1,11 @@
 /* Hide Mapbox attribution and logo controls globally. */
 .mapboxgl-ctrl-attrib,
-.maplibregl-ctrl-attrib,
+.mapboxgl-ctrl-attrib-inner,
 .mapboxgl-ctrl-logo,
-.maplibregl-ctrl-logo {
-  display: none;
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-logo,
+.maplibregl-ctrl-attrib-inner,
+#mapboxgl-ctrl-attrib,
+#mapboxgl-ctrl-logo {
+  display: none !important;
 }
