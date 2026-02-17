@@ -20,7 +20,8 @@ export const CONFIG = {
       streets: "mapbox://styles/mapbox/streets-v12",
     },
     performanceOptions: {
-      trackResize: false,
+      // Keep map canvas dimensions in sync with viewport changes.
+      trackResize: true,
       refreshExpiredTiles: false,
       fadeDuration: 300,
       antialias: false,

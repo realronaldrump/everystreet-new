@@ -4,6 +4,8 @@
 .map-wrapper {
   /* If you have a wrapper around the map */
   flex-grow: 1;
+  height: 100%;
+  min-height: 0;
   display: flex;
   position: relative; /* For absolutely positioned children like controls */
   overflow: hidden; /* Prevent scrollbars if map resizes weirdly */
@@ -17,12 +19,14 @@
   display: flex;
   width: 100%;
   flex: 1; /* Inherit available height from flex parent (.map-wrapper/.main-content) */
+  min-height: 0;
 }
 
 #map {
   /* The Mapbox map container ID */
   flex-grow: 1;
   height: 100%; /* Ensure it fills its wrapper */
+  min-height: 0;
   width: 100%;
   position: relative; /* Anchor absolute children like #map-canvas + error overlays */
   background-color: var(--surface-1); /* Default background */
@@ -35,12 +39,23 @@
   inset: 0;
   height: 100%;
   width: 100%;
-  touch-action: manipulation; /* Disable double-tap zoom delay without blocking map gestures */
 }
 
 /* Prevent pull-to-refresh and overscroll on map page (CSS-only replacement for JS pan guard) */
 body.map-page {
   overscroll-behavior: none;
+}
+
+body[data-route="/map"] .main-content {
+  padding-bottom: 0;
+}
+
+body[data-route="/map"] .persistent-shell {
+  min-height: 0;
+}
+
+body[data-route="/map"] .app-footer {
+  display: none;
 }
 
 /* === Map Init Error Overlay === */

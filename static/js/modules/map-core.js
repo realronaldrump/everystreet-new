@@ -226,6 +226,7 @@ const mapCore = {
 
       // Wait for map to fully load
       await this._waitForMapLoad(map);
+      this._forceResizePass(map);
 
       // Mark as initialized
       state.mapInitialized = true;
@@ -551,6 +552,34 @@ const mapCore = {
         map.once("load", onLoad);
       }
     });
+  },
+
+  /**
+   * Run a small burst of resizes so canvas dimensions settle even if
+   * layout/viewport updates land shortly after map init.
+   * @private
+   */
+  _forceResizePass(map) {
+    if (!map || typeof map.resize !== "function") {
+      return;
+    }
+
+    const safeResize = () => {
+      try {
+        map.resize();
+      } catch (error) {
+        console.warn("Map resize pass failed:", error);
+      }
+    };
+
+    const nextFrame =
+      typeof requestAnimationFrame === "function"
+        ? requestAnimationFrame
+        : (callback) => window.setTimeout(callback, 16);
+
+    safeResize();
+    nextFrame(() => safeResize());
+    window.setTimeout(() => safeResize(), 180);
   },
 
   /**

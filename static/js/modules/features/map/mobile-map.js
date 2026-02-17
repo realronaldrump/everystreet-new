@@ -54,11 +54,17 @@ class MobileMapInterface {
   }
 
   static detectMobileViewport() {
-    const touchCapable = "ontouchstart" in window || navigator.maxTouchPoints > 1;
     const narrowScreen = window.matchMedia
       ? window.matchMedia("(max-width: 768px)").matches
       : window.innerWidth <= 768;
-    return narrowScreen || touchCapable;
+    if (narrowScreen) {
+      return true;
+    }
+
+    // Avoid forcing desktop/touch-hybrid devices into mobile sheet mode.
+    const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+    const compactViewport = window.innerWidth <= 1024 && window.innerHeight <= 900;
+    return coarsePointer && compactViewport;
   }
 
   init() {
@@ -449,15 +455,15 @@ class MobileMapInterface {
 
     const collapsedVisible = Math.min(
       sheetHeight,
-      Math.max(150, Math.round(viewportHeight * 0.25))
+      Math.max(88, Math.round(viewportHeight * 0.16))
     );
     const peekVisible = Math.min(
       sheetHeight,
-      Math.max(collapsedVisible + 80, Math.round(viewportHeight * 0.45))
+      Math.max(collapsedVisible + 96, Math.round(viewportHeight * 0.4))
     );
     const halfVisible = Math.min(
       sheetHeight,
-      Math.max(peekVisible + 80, Math.round(viewportHeight * 0.65))
+      Math.max(peekVisible + 96, Math.round(viewportHeight * 0.62))
     );
 
     const offsets = {

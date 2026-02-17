@@ -3,6 +3,11 @@ import initMapControls from "./map-controls.js";
 import { initMobileMap } from "./mobile-map.js";
 
 function setupMapTilt(signal) {
+  const prefersCoarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches;
+  if (prefersCoarsePointer) {
+    return;
+  }
+
   const { map } = window;
   if (!map || typeof map.easeTo !== "function") {
     return;
@@ -38,6 +43,112 @@ function setupMapTilt(signal) {
   );
 }
 
+function setupMapViewportSync() {
+  const mapElement = document.getElementById("map");
+  const mapCanvas = document.getElementById("map-canvas");
+  if (!mapElement || !mapCanvas) {
+    return () => {};
+  }
+
+  let rafId = null;
+  const timeoutIds = new Set();
+  const teardownFns = [];
+
+  const safeResize = () => {
+    const activeMap = store.map || window.map;
+    if (!activeMap || typeof activeMap.resize !== "function") {
+      return;
+    }
+    try {
+      activeMap.resize();
+    } catch (error) {
+      console.warn("Map viewport sync resize failed", error);
+    }
+  };
+
+  const requestResize = () => {
+    if (rafId !== null) {
+      return;
+    }
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      safeResize();
+    });
+  };
+
+  const scheduleResize = (delay = 0) => {
+    const timeoutId = window.setTimeout(() => {
+      timeoutIds.delete(timeoutId);
+      requestResize();
+    }, delay);
+    timeoutIds.add(timeoutId);
+  };
+
+  const runResizeBurst = () => {
+    [0, 90, 220].forEach((delay) => scheduleResize(delay));
+  };
+
+  const bind = (target, eventName, handler, options = undefined) => {
+    if (!target || typeof target.addEventListener !== "function") {
+      return;
+    }
+    target.addEventListener(eventName, handler, options);
+    teardownFns.push(() => {
+      target.removeEventListener(eventName, handler, options);
+    });
+  };
+
+  bind(window, "resize", requestResize, { passive: true });
+  bind(window, "orientationchange", runResizeBurst);
+  bind(document, "mapInitialized", runResizeBurst);
+  bind(document, "visibilitychange", () => {
+    if (!document.hidden) {
+      runResizeBurst();
+    }
+  });
+
+  const visualViewport = window.visualViewport;
+  if (visualViewport) {
+    bind(visualViewport, "resize", requestResize, { passive: true });
+    bind(visualViewport, "scroll", requestResize, { passive: true });
+  }
+
+  if (typeof ResizeObserver === "function") {
+    const observer = new ResizeObserver(() => requestResize());
+    observer.observe(mapElement);
+    observer.observe(mapCanvas);
+    teardownFns.push(() => observer.disconnect());
+  }
+
+  const controlsPanel = document.getElementById("map-controls");
+  if (controlsPanel) {
+    bind(controlsPanel, "transitionend", (event) => {
+      const prop = event?.propertyName || "";
+      if (prop === "transform" || prop === "height" || prop === "max-height") {
+        requestResize();
+      }
+    });
+  }
+
+  runResizeBurst();
+
+  return () => {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+    timeoutIds.forEach((id) => clearTimeout(id));
+    timeoutIds.clear();
+    teardownFns.forEach((fn) => {
+      try {
+        fn();
+      } catch (error) {
+        console.warn("Map viewport sync cleanup failed", error);
+      }
+    });
+  };
+}
+
 export default function initMapPage({ signal, cleanup } = {}) {
   const cleanupFns = [];
   const registerCleanup = (fn) => {
@@ -60,6 +171,7 @@ export default function initMapPage({ signal, cleanup } = {}) {
   }
 
   setupMapTilt(signal);
+  registerCleanup(setupMapViewportSync());
 
   initMapControls({ signal, cleanup: registerCleanup });
   initMobileMap({ cleanup: registerCleanup });

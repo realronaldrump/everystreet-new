@@ -37,11 +37,13 @@ function setupGlobalUI() {
   const minimizeBtn = document.getElementById("minimize-progress-modal");
   const cancelBtn = document.getElementById("cancel-progress-modal");
   const badgeEl = document.getElementById("minimized-progress-badge");
+  const modalEl = document.getElementById("taskProgressModal");
 
   minimizeBtn?.addEventListener("click", minimizeJob);
   cancelBtn?.addEventListener("click", cancelActiveJob);
 
   badgeEl?.addEventListener("click", restoreJobModal);
+  modalEl?.addEventListener("hide.bs.modal", () => releaseModalFocus(modalEl));
 
   // Listen for custom events to start tracking from other pages
   document.addEventListener("coverage:job-started", (e) => {
@@ -316,6 +318,44 @@ function updateBadgeUI() {
   }
 }
 
+function releaseModalFocus(modalElement) {
+  if (!modalElement) {
+    return;
+  }
+
+  const activeElement = document.activeElement;
+  if (!activeElement || !modalElement.contains(activeElement)) {
+    return;
+  }
+
+  if (typeof activeElement.blur === "function") {
+    activeElement.blur();
+  }
+
+  if (!modalElement.contains(document.activeElement)) {
+    return;
+  }
+
+  const body = document.body;
+  if (!body || typeof body.focus !== "function") {
+    return;
+  }
+
+  const hadTabIndex = body.hasAttribute("tabindex");
+  const previousTabIndex = body.getAttribute("tabindex");
+
+  body.setAttribute("tabindex", "-1");
+  body.focus({ preventScroll: true });
+
+  if (hadTabIndex) {
+    if (previousTabIndex !== null) {
+      body.setAttribute("tabindex", previousTabIndex);
+    }
+  } else {
+    body.removeAttribute("tabindex");
+  }
+}
+
 function showProgressModal() {
   const el = document.getElementById("taskProgressModal");
   if (!el) {
@@ -330,11 +370,7 @@ function hideProgressModal() {
   if (!el) {
     return;
   }
-  // Blur focused element before hiding to prevent aria-hidden accessibility warning
-  const focusedElement = el.querySelector(":focus");
-  if (focusedElement) {
-    focusedElement.blur();
-  }
+  releaseModalFocus(el);
   const modal = bootstrap.Modal.getInstance(el);
   modal?.hide();
 }
