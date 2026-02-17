@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import Annotated, Any
 
+from beanie import PydanticObjectId
 from fastapi import APIRouter, Query
 
 from core.api import api_route
 from driving.services.driving_service import DrivingNavigationRequest, DrivingService
-
-if TYPE_CHECKING:
-    from beanie import PydanticObjectId
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["driving"])
