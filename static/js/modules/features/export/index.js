@@ -30,7 +30,6 @@ function cacheElements() {
     tripAllTime: document.getElementById("trip-all-time"),
     tripStatus: document.getElementById("trip-status"),
     tripVehicle: document.getElementById("trip-vehicle"),
-    vehicleOptions: document.getElementById("vehicle-options"),
     tripIncludeInvalid: document.getElementById("trip-include-invalid"),
     exportStreets: document.getElementById("export-streets"),
     exportBoundaries: document.getElementById("export-boundaries"),
@@ -394,10 +393,15 @@ async function loadCoverageAreas(elements, signal) {
 }
 
 async function loadVehicles(elements, signal) {
-  if (!elements.vehicleOptions) return;
+  if (!elements.tripVehicle) return;
 
   const vehicles = await fetchVehicles(signal);
-  elements.vehicleOptions.innerHTML = "";
+  elements.tripVehicle.innerHTML = "";
+
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = "Any vehicle";
+  elements.tripVehicle.appendChild(defaultOption);
 
   vehicles.forEach((vehicle) => {
     if (!vehicle?.imei) return;
@@ -405,7 +409,7 @@ async function loadVehicles(elements, signal) {
     const label = vehicle.custom_name || vehicle.vin || vehicle.imei;
     option.value = vehicle.imei;
     option.textContent = label;
-    elements.vehicleOptions.appendChild(option);
+    elements.tripVehicle.appendChild(option);
   });
 }
 
