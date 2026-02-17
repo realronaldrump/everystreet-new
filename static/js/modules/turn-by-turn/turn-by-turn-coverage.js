@@ -42,7 +42,6 @@ class TurnByTurnCoverage {
     this.persistSegmentsTimeout = null;
     this.persistRetryTimeout = null;
     this.selectedAreaId = null;
-    this.activeMissionId = null;
     this.consecutivePersistFailures = 0;
     this.persistRetryBaseMs = 5000;
     this.persistRetryMaxMs = 30000;
@@ -54,7 +53,6 @@ class TurnByTurnCoverage {
     // Callbacks
     this.onMapUpdate = null;
     this.onCoverageUpdate = null;
-    this.onMissionDelta = null;
     this.onPersistenceIssue = null;
   }
 
@@ -143,10 +141,9 @@ class TurnByTurnCoverage {
    * Set callbacks for UI updates
    * @param {Object} callbacks
    */
-  setCallbacks({ onMapUpdate, onCoverageUpdate, onMissionDelta, onPersistenceIssue }) {
+  setCallbacks({ onMapUpdate, onCoverageUpdate, onPersistenceIssue }) {
     this.onMapUpdate = onMapUpdate;
     this.onCoverageUpdate = onCoverageUpdate;
-    this.onMissionDelta = onMissionDelta;
     this.onPersistenceIssue = onPersistenceIssue;
   }
 
@@ -169,14 +166,6 @@ class TurnByTurnCoverage {
     this.persistRetryTimeout = setTimeout(() => {
       this.persistDrivenSegments();
     }, safeDelay);
-  }
-
-  /**
-   * Set mission context for persistence updates.
-   * @param {string|null} missionId
-   */
-  setMissionContext(missionId) {
-    this.activeMissionId = missionId ? String(missionId) : null;
   }
 
   /**
@@ -444,48 +433,15 @@ class TurnByTurnCoverage {
     this.pendingSegmentUpdates.clear();
 
     try {
-      const response = this.activeMissionId
-        ? await TurnByTurnAPI.persistDrivenSegmentsForMission(
-            segmentIds,
-            this.selectedAreaId,
-            this.activeMissionId
-          )
-        : await TurnByTurnAPI.persistDrivenSegments(segmentIds, this.selectedAreaId);
-
-      if (response?.mission_delta && this.onMissionDelta) {
-        this.onMissionDelta(response.mission_delta);
-      }
+      await TurnByTurnAPI.persistDrivenSegments(segmentIds, this.selectedAreaId);
       this.consecutivePersistFailures = 0;
       clearTimeout(this.persistRetryTimeout);
     } catch (error) {
-      if (this.activeMissionId) {
-        try {
-          // Mission failures should not block base coverage persistence.
-          await TurnByTurnAPI.persistDrivenSegments(segmentIds, this.selectedAreaId);
-          this.activeMissionId = null;
-          this.consecutivePersistFailures = 0;
-          clearTimeout(this.persistRetryTimeout);
-          this.notifyPersistenceIssue({
-            type: "mission_detached",
-            segmentCount: segmentIds.length,
-            message: "Mission persistence failed; continuing without mission tracking.",
-          });
-          return;
-        } catch (baseError) {
-          this.notifyPersistenceIssue({
-            type: "mission_and_base_failed",
-            segmentCount: segmentIds.length,
-            message: `Mission and base persistence failed (${baseError?.message || "unknown error"}).`,
-          });
-          // Fall through to re-queue.
-        }
-      } else {
-        this.notifyPersistenceIssue({
-          type: "base_failed",
-          segmentCount: segmentIds.length,
-          message: `Coverage persistence failed (${error?.message || "unknown error"}).`,
-        });
-      }
+      this.notifyPersistenceIssue({
+        type: "base_failed",
+        segmentCount: segmentIds.length,
+        message: `Coverage persistence failed (${error?.message || "unknown error"}).`,
+      });
       // Re-queue failed segments
       for (const id of segmentIds) {
         this.pendingSegmentUpdates.add(id);
@@ -537,7 +493,6 @@ class TurnByTurnCoverage {
     this.pendingSegmentUpdates.clear();
     clearTimeout(this.persistSegmentsTimeout);
     clearTimeout(this.persistRetryTimeout);
-    this.activeMissionId = null;
     this.consecutivePersistFailures = 0;
   }
 

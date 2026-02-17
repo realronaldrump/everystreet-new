@@ -145,7 +145,7 @@ ignore = [
 max-doc-length = 88
 
 [tool.ruff.lint.isort]
-# Make isort compatible with black
+# Keep import sorting aligned with black formatting.
 combine-as-imports = true
 force-wrap-aliases = true
 known-first-party = ["api", "core", "db", "routing", "tasks", "trips", "visits", "exports", "analytics", "user_profile"]
@@ -243,10 +243,6 @@ min_confidence = 60
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-filterwarnings = [
-    # mongomock uses deprecated datetime.utcnow() - upstream issue, ignore it
-    "ignore:datetime.datetime.utcnow\\(\\) is deprecated:DeprecationWarning:mongomock",
-]
 # Use package paths (not module names) to avoid triggering import-time issues in
 # C-extension heavy stacks (numpy/pyproj) when pytest-cov configures sources.
 addopts = "-ra --cov=core --cov=db --cov=exports --cov=api --cov=setup --cov=tracking --cov-report=term-missing --cov-report=lcov:coverage.lcov --cov-fail-under=80 -m 'not integration'"

@@ -1,13 +1,11 @@
 {% extends "base.html" %}
 
 {% block title %}
-
 Every Street - Export Data
 {% endblock %}
 
 
 {% block extra_css %}
-
   <link rel="stylesheet"
         href="{{ url_for('static', path='css/export.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
@@ -18,7 +16,6 @@ Every Street - Export Data
 
   <div class="export-page">
     <div class="bento-grid" data-stagger>
-      <!-- Header Widget -->
       <div class="bento-span-12 widget" data-accent="mint">
         <div class="widget-header">
           <div>
@@ -27,294 +24,175 @@ Every Street - Export Data
               Export Data
             </h1>
             <div class="widget-meta">
-              Export trips, coverage data, and boundaries in multiple formats.
-            </div>
-          </div>
-          <div class="export-hero-meta">
-            <div class="meta-label">
-Output Format
-            </div>
-            <div class="meta-value">
-Zip bundle with manifest.json
+              Download your trips and coverage data
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Main Configuration Panel -->
       <div class="bento-span-8 widget" data-accent="purple">
-        <div class="widget-header">
-          <h2 class="widget-title">
-            <i class="fas fa-sliders-h" aria-hidden="true"></i>
-            Export Configuration
-          </h2>
-        </div>
         <div class="widget-body">
           <form id="export-form">
-            <!-- Trip Data Section -->
-            <div class="export-section-card">
-              <div class="export-section-title">
-                <i class="fas fa-route"></i>
-                Trip Data
-              </div>
-
-              <div class="export-options-grid">
-                <label class="export-option-card" id="trips-option">
-                  <input type="checkbox" id="export-trips" checked />
-                  <div class="export-option-check">
-                    <i class="fas fa-check"></i>
-                  </div>
-                  <div class="export-option-header">
-                    <div class="export-option-icon">
+            <div class="export-category">
+              <button type="button" class="export-category-header" aria-expanded="true" data-target="trips-section">
+                <div class="export-category-title">
+                  <i class="fas fa-car"></i>
+                  <span>Trip Data</span>
+                </div>
+                <i class="fas fa-chevron-down export-category-chevron"></i>
+              </button>
+              <div class="export-category-body" id="trips-section">
+                <p class="export-category-desc">
+                  Export your driving trips with optional map-matched geometry.
+                </p>
+                
+                <div class="export-quick-select">
+                  <label class="export-quick-option">
+                    <input type="checkbox" id="export-trips" checked />
+                    <span class="export-quick-option-content">
                       <i class="fas fa-car"></i>
-                    </div>
-                    <div class="export-option-title">
-Trips
-                    </div>
-                  </div>
-                  <div class="export-option-desc">
-                    Raw GPS trips as stored in database.
-                  </div>
-                </label>
-
-                <label class="export-option-card" id="matched-trips-option">
-                  <input type="checkbox" id="export-matched-trips" />
-                  <div class="export-option-check">
-                    <i class="fas fa-check"></i>
-                  </div>
-                  <div class="export-option-header">
-                    <div class="export-option-icon">
+                      <span>Trips</span>
+                    </span>
+                  </label>
+                  <label class="export-quick-option">
+                    <input type="checkbox" id="export-matched-trips" />
+                    <span class="export-quick-option-content">
                       <i class="fas fa-map-marked-alt"></i>
-                    </div>
-                    <div class="export-option-title">
-Matched Trips
-                    </div>
-                  </div>
-                  <div class="export-option-desc">
-                    Trips with map-matched geometry.
-                  </div>
-                </label>
-              </div>
+                      <span>Matched Trips</span>
+                    </span>
+                  </label>
+                </div>
 
-              <div class="export-toggle-row export-toggle-row-spacious">
-                <div class="export-toggle-label">
-                  <div class="export-toggle-title">
-Export Format
+                <div class="export-subsection">
+                  <div class="export-subsection-header">
+                    <span>Format</span>
                   </div>
-                </div>
-                <div class="format-selector">
-                  <label class="format-pill">
-                    <input type="radio" name="trip-format-radio" value="json" checked />
-                    JSON
-                  </label>
-                  <label class="format-pill">
-                    <input type="radio" name="trip-format-radio" value="csv" />
-                    CSV
-                  </label>
-                  <label class="format-pill">
-                    <input type="radio" name="trip-format-radio" value="geojson" />
-                    GeoJSON
-                  </label>
-                  <label class="format-pill">
-                    <input type="radio" name="trip-format-radio" value="gpx" />
-                    GPX
-                  </label>
-                </div>
-              </div>
-
-              <div class="export-toggle-row">
-                <div class="export-toggle-label">
-                  <div class="export-toggle-title">
-Include Geometry
-                  </div>
-                  <div class="export-toggle-desc">
-Include coordinates in JSON/CSV exports
-                  </div>
-                </div>
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" id="include-trip-geometry" checked />
-                </div>
-              </div>
-            </div>
-
-            <!-- Trip Filters Section -->
-            <div class="export-section-card">
-              <div class="export-section-title">
-                <i class="fas fa-filter"></i>
-                Trip Filters
-              </div>
-
-              <div class="export-filters">
-                <div class="export-filter-group">
-                  <label class="export-filter-label" for="trip-start-date">
-Start Date
-                  </label>
-                  <input type="date" class="export-filter-control" id="trip-start-date" />
-                </div>
-                <div class="export-filter-group">
-                  <label class="export-filter-label" for="trip-end-date">
-End Date
-                  </label>
-                  <input type="date" class="export-filter-control" id="trip-end-date" />
-                </div>
-                <div class="export-filter-group">
-                  <label class="export-filter-label" for="trip-status">
-Status
-                  </label>
-                  <select class="export-filter-control" id="trip-status">
-                    <option value="">
-All statuses
-                    </option>
-                    <option value="processed">
-Processed
-                    </option>
-                    <option value="completed">
-Completed
-                    </option>
-                    <option value="active">
-Active
-                    </option>
+                  <select class="export-format-select" id="trip-format">
+                    <option value="json">JSON</option>
+                    <option value="csv">CSV (Spreadsheet)</option>
+                    <option value="geojson">GeoJSON (Map Data)</option>
+                    <option value="gpx">GPX (GPS Device)</option>
                   </select>
                 </div>
-                <div class="export-filter-group">
-                  <label class="export-filter-label" for="trip-vehicle">
-Vehicle
+
+                <div class="export-subsection">
+                  <div class="export-subsection-header">
+                    <span>Options</span>
+                  </div>
+                  <label class="export-simple-toggle">
+                    <span>Include coordinates</span>
+                    <input class="form-check-input" type="checkbox" id="include-trip-geometry" checked />
                   </label>
-                  <input class="export-filter-control"
-                         id="trip-vehicle"
-                         list="vehicle-options"
-                         placeholder="All vehicles" />
-                  <datalist id="vehicle-options"></datalist>
                 </div>
-              </div>
 
-              <div class="export-toggle-row">
-                <div class="export-toggle-label">
-                  <div class="export-toggle-title">
-All Time
+                <div class="export-subsection export-subsection-filters">
+                  <div class="export-subsection-header">
+                    <span>Filters</span>
+                    <span class="export-subsection-hint">Optional</span>
                   </div>
-                  <div class="export-toggle-desc">
-Ignore date range filters
+                  <div class="export-filters-compact">
+                    <div class="export-filter-field">
+                      <label for="trip-start-date">From</label>
+                      <input type="date" class="export-filter-input" id="trip-start-date" />
+                    </div>
+                    <div class="export-filter-field">
+                      <label for="trip-end-date">To</label>
+                      <input type="date" class="export-filter-input" id="trip-end-date" />
+                    </div>
+                    <div class="export-filter-field">
+                      <label for="trip-status">Status</label>
+                      <select class="export-filter-input" id="trip-status">
+                        <option value="">All</option>
+                        <option value="processed">Processed</option>
+                        <option value="completed">Completed</option>
+                        <option value="active">Active</option>
+                      </select>
+                    </div>
+                    <div class="export-filter-field">
+                      <label for="trip-vehicle">Vehicle</label>
+                      <input class="export-filter-input" id="trip-vehicle" list="vehicle-options" placeholder="Any" />
+                      <datalist id="vehicle-options"></datalist>
+                    </div>
                   </div>
-                </div>
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" id="trip-all-time" />
-                </div>
-              </div>
-
-              <div class="export-toggle-row">
-                <div class="export-toggle-label">
-                  <div class="export-toggle-title">
-Include Invalid Trips
+                  <div class="export-filter-toggles">
+                    <label class="export-simple-toggle export-simple-toggle-small">
+                      <span>All time</span>
+                      <input class="form-check-input" type="checkbox" id="trip-all-time" />
+                    </label>
+                    <label class="export-simple-toggle export-simple-toggle-small">
+                      <span>Include invalid</span>
+                      <input class="form-check-input" type="checkbox" id="trip-include-invalid" />
+                    </label>
                   </div>
-                  <div class="export-toggle-desc">
-Include trips marked as invalid
-                  </div>
-                </div>
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" id="trip-include-invalid" />
                 </div>
               </div>
             </div>
 
-            <!-- Coverage Data Section -->
-            <div class="export-section-card">
-              <div class="export-section-title">
-                <i class="fas fa-map"></i>
-                Coverage Data
-              </div>
-
-              <div class="export-options-grid">
-                <label class="export-option-card" id="streets-option">
-                  <input type="checkbox" id="export-streets" />
-                  <div class="export-option-check">
-                    <i class="fas fa-check"></i>
-                  </div>
-                  <div class="export-option-header">
-                    <div class="export-option-icon">
+            <div class="export-category">
+              <button type="button" class="export-category-header" aria-expanded="false" data-target="coverage-section">
+                <div class="export-category-title">
+                  <i class="fas fa-map"></i>
+                  <span>Coverage Data</span>
+                </div>
+                <i class="fas fa-chevron-down export-category-chevron"></i>
+              </button>
+              <div class="export-category-body collapsed" id="coverage-section">
+                <p class="export-category-desc">
+                  Export street coverage data for your defined areas.
+                </p>
+                
+                <div class="export-quick-select">
+                  <label class="export-quick-option">
+                    <input type="checkbox" id="export-streets" />
+                    <span class="export-quick-option-content">
                       <i class="fas fa-road"></i>
-                    </div>
-                    <div class="export-option-title">
-Streets
-                    </div>
-                  </div>
-                  <div class="export-option-desc">
-                    All street segments with status.
-                  </div>
-                </label>
-
-                <label class="export-option-card" id="boundaries-option">
-                  <input type="checkbox" id="export-boundaries" />
-                  <div class="export-option-check">
-                    <i class="fas fa-check"></i>
-                  </div>
-                  <div class="export-option-header">
-                    <div class="export-option-icon">
+                      <span>All Streets</span>
+                    </span>
+                  </label>
+                  <label class="export-quick-option">
+                    <input type="checkbox" id="export-boundaries" />
+                    <span class="export-quick-option-content">
                       <i class="fas fa-draw-polygon"></i>
-                    </div>
-                    <div class="export-option-title">
-Boundary
-                    </div>
-                  </div>
-                  <div class="export-option-desc">
-                    Area polygon boundary.
-                  </div>
-                </label>
-
-                <label class="export-option-card" id="undriven-option">
-                  <input type="checkbox" id="export-undriven" />
-                  <div class="export-option-check">
-                    <i class="fas fa-check"></i>
-                  </div>
-                  <div class="export-option-header">
-                    <div class="export-option-icon">
+                      <span>Boundary</span>
+                    </span>
+                  </label>
+                  <label class="export-quick-option">
+                    <input type="checkbox" id="export-undriven" />
+                    <span class="export-quick-option-content">
                       <i class="fas fa-route"></i>
-                    </div>
-                    <div class="export-option-title">
-Undriven Streets
-                    </div>
-                  </div>
-                  <div class="export-option-desc">
-                    Only undriven segments.
-                  </div>
-                </label>
-              </div>
-
-              <div class="export-toggle-row export-toggle-row-spacious">
-                <div class="export-toggle-label">
-                  <div class="export-toggle-title">
-Coverage Area
-                  </div>
-                  <div class="export-toggle-desc">
-Required for coverage exports
-                  </div>
+                      <span>Undriven</span>
+                    </span>
+                  </label>
                 </div>
-                <select class="export-filter-control export-filter-control-wide" id="coverage-area">
-                  <option value="">
-Select an area
-                  </option>
-                </select>
-              </div>
 
-              <div class="text-secondary small export-note">
-                <i class="fas fa-info-circle me-1"></i>
-                Coverage exports are always in GeoJSON format.
+                <div class="export-subsection">
+                  <div class="export-subsection-header">
+                    <span>Coverage Area</span>
+                    <span class="export-subsection-hint">Required</span>
+                  </div>
+                  <select class="export-filter-input" id="coverage-area">
+                    <option value="">Select an area...</option>
+                  </select>
+                </div>
+
+                <div class="export-info-note">
+                  <i class="fas fa-info-circle"></i>
+                  Coverage exports are in GeoJSON format
+                </div>
               </div>
             </div>
 
-            <!-- Actions -->
             <div class="export-actions">
               <div class="export-error hidden" role="alert" id="export-error">
                 <i class="fas fa-exclamation-circle"></i>
                 <span id="export-error-text"></span>
               </div>
-              <div class="export-actions-primary">
+              <div class="export-actions-buttons">
                 <button type="submit" class="export-btn export-btn-primary" id="export-submit">
                   <i class="fas fa-download"></i>
                   Create Export
                 </button>
                 <button type="button" class="export-btn export-btn-secondary" id="export-reset">
-                  <i class="fas fa-undo"></i>
                   Reset
                 </button>
               </div>
@@ -323,47 +201,42 @@ Select an area
         </div>
       </div>
 
-      <!-- Status Panel -->
       <div class="bento-span-4 widget" data-accent="sky">
         <div class="widget-header">
           <h2 class="widget-title">
-            <i class="fas fa-signal" aria-hidden="true"></i>
-            Export Status
+            <i class="fas fa-clipboard-list" aria-hidden="true"></i>
+            Summary
           </h2>
         </div>
         <div class="widget-body">
-          <div class="export-summary">
-            <div class="export-summary-title">
-Selected Items
+          <div class="export-summary" id="export-summary">
+            <div class="export-summary-empty">
+              <i class="fas fa-folder-open"></i>
+              <p>No items selected</p>
             </div>
-            <ul class="export-summary-list" id="export-summary-list">
-              <li class="empty">
-No items selected yet.
-              </li>
+            <ul class="export-summary-list hidden" id="export-summary-list">
             </ul>
           </div>
 
-          <div class="export-progress" id="export-progress">
-            <div class="export-progress-header">
-              <span class="export-progress-text" id="export-status-text">No export running</span>
-              <span class="export-progress-percent" id="export-progress-percent">0%</span>
-            </div>
+          <div class="export-progress hidden" id="export-progress">
+            <div class="export-progress-text" id="export-status-text">Preparing...</div>
             <div class="export-progress-bar-container">
-              <div class="export-progress-bar" id="export-progress-bar" style="width: 0%">
-              </div>
+              <div class="export-progress-bar" id="export-progress-bar" style="width: 0%"></div>
             </div>
+            <div class="export-progress-percent" id="export-progress-percent">0%</div>
           </div>
 
-          <div class="export-result" id="export-result">
-            <div class="export-result-title">
-Latest Export
+          <div class="export-result hidden" id="export-result">
+            <div class="export-result-icon">
+              <i class="fas fa-check-circle"></i>
             </div>
-            <div class="export-result-details" id="export-result-details">
-              No export generated yet.
+            <div class="export-result-info">
+              <div class="export-result-title">Export Ready</div>
+              <div class="export-result-details" id="export-result-details"></div>
             </div>
-            <a class="export-download-btn d-none" id="export-download" href="#">
+            <a class="export-download-btn" id="export-download" href="#">
               <i class="fas fa-file-archive"></i>
-              Download Zip
+              Download
             </a>
           </div>
         </div>
@@ -371,9 +244,4 @@ Latest Export
 
     </div>
   </div>
-</div>
 {% endblock %}
-
-
-
-{# Page scripts are loaded via route-loader + swup. #}

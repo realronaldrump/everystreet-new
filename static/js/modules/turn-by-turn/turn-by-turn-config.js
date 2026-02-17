@@ -37,7 +37,7 @@ export const TURN_BY_TURN_DEFAULTS = {
   resumeSearchRadiusMeters: 500,
   // Progress smoothing
   maxProgressHistoryLength: 5,
-  maxBackwardJumpMeters: 50,
+  maxReverseJumpMeters: 50,
   maxSpeedMps: 50, // ~112 mph
 };
 

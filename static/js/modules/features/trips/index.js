@@ -158,25 +158,6 @@ function normalizeTripSort(value) {
   }
 
   const normalized = value.trim();
-  // Classic values (kept for compatibility with older localStorage)
-  if (normalized === "new_to_old") {
-    return "date_desc";
-  }
-  if (normalized === "old_to_new") {
-    return "date_asc";
-  }
-  if (normalized === "distance") {
-    return "distance_desc";
-  }
-  if (normalized === "speed") {
-    return "speed_desc";
-  }
-  if (normalized === "fuel") {
-    return "fuel_desc";
-  }
-  if (normalized === "duration") {
-    return "duration_desc";
-  }
 
   switch (normalized) {
     case "date_desc":

@@ -90,7 +90,7 @@ def build_import_windows(
     window_days: int = WINDOW_DAYS,
     overlap_hours: int = OVERLAP_HOURS,
 ) -> list[tuple[datetime, datetime]]:
-    """Build Bouncie-compatible windows (<= 7 days) with a safety overlap."""
+    """Build Bouncie request windows (<= 7 days) with a safety overlap."""
     start_dt = ensure_utc(start_dt) or start_dt
     end_dt = ensure_utc(end_dt) or end_dt
 

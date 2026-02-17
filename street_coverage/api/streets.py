@@ -20,7 +20,6 @@ from core.coverage import (
 )
 from db.models import CoverageArea, CoverageState, Street
 from street_coverage.constants import MAX_VIEWPORT_FEATURES
-from street_coverage.services.missions import CoverageMissionService
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/coverage", tags=["coverage-streets"])
@@ -58,7 +57,6 @@ class MarkDrivenSegmentsRequest(BaseModel):
     """Request to mark multiple segments as driven."""
 
     segment_ids: list[str]
-    mission_id: str | None = None
 
 
 class StreetRenderProjection(BaseModel):
@@ -396,55 +394,10 @@ async def mark_segments_driven(
             detail="Coverage area not found",
         )
 
-    mission_oid: PydanticObjectId | None = None
-    if request.mission_id:
-        try:
-            mission_oid = PydanticObjectId(str(request.mission_id))
-        except Exception as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid mission_id",
-            ) from exc
-        try:
-            await CoverageMissionService.validate_progress_context(
-                mission_id=mission_oid,
-                area_id=area_id,
-            )
-        except LookupError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=str(exc),
-            ) from exc
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=str(exc),
-            ) from exc
-
     result = await update_coverage_for_segments(
         area_id=area_id,
         segment_ids=request.segment_ids,
     )
-
-    mission_delta: dict[str, Any] | None = None
-    if mission_oid:
-        try:
-            mission_delta = await CoverageMissionService.apply_segment_progress(
-                mission_id=mission_oid,
-                area_id=area_id,
-                segment_ids=result.newly_driven_segment_ids,
-                note="Segments marked driven from turn-by-turn session.",
-            )
-        except LookupError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=str(exc),
-            ) from exc
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=str(exc),
-            ) from exc
 
     return {
         "success": True,
@@ -452,7 +405,6 @@ async def mark_segments_driven(
         "newly_driven": len(result.newly_driven_segment_ids),
         "newly_driven_segment_ids": result.newly_driven_segment_ids,
         "newly_driven_length_miles": result.newly_driven_length_miles,
-        "mission_delta": mission_delta,
     }
 
 

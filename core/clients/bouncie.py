@@ -24,7 +24,7 @@ def format_bouncie_datetime_param(dt: datetime) -> str:
     Format datetimes for Bouncie query params.
 
     Bouncie expects RFC3339/ISO-8601 "date-time" strings. Use explicit
-    UTC + 'Z' with second precision for maximal compatibility.
+    UTC + 'Z' with second precision.
     """
 
     utc = ensure_utc(dt) or dt

@@ -3,7 +3,6 @@ import store from "../core/store.js";
 import { moveModalsToContainer, utils } from "../utils.js";
 import contextualUI from "./contextual-ui.js";
 import dateManager from "./date-manager.js";
-import filterIndicatorManager from "./filter-indicator-manager.js";
 import interactions from "./interactions.js";
 import mapControlsManager from "./map-controls-manager.js";
 import metricAnimator from "./metric-animator.js";
@@ -61,7 +60,6 @@ function init() {
     personalization.init?.();
     contextualUI.init?.();
     mapControlsManager.init?.();
-    filterIndicatorManager.init?.();
     setupRequired.init?.();
 
     // Pause animations when tab is hidden (saves CPU)

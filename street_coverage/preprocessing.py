@@ -650,7 +650,7 @@ def _normalize_pyrosm_gdfs(nodes_gdf: Any, edges_gdf: Any) -> tuple[Any, Any]:
     ) != ["u", "v", "key"]
 
     if needs_edge_index:
-        # Ensure u/v are present as columns so we can build an OSMnx-compatible
+        # Ensure u/v are present as columns so we can build an OSMnx
         # MultiIndex, even if the incoming dataframe used them as index levels.
         if "u" not in edges.columns or "v" not in edges.columns:
             edges = edges.reset_index()

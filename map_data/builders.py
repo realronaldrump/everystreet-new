@@ -2,7 +2,7 @@
 Build orchestration for Nominatim and Valhalla.
 
 The implementation lives in dedicated modules; this file preserves the public
-compatibility surface used across the codebase.
+build entrypoints used across the codebase.
 """
 
 from __future__ import annotations

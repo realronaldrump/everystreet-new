@@ -1,4 +1,4 @@
-"""Aggregation helpers compatible with Motor or PyMongo async collections."""
+"""Aggregation helpers for Motor and PyMongo async collections."""
 
 from __future__ import annotations
 

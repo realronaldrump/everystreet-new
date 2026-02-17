@@ -58,8 +58,7 @@ class VisitsStatsManager {
   }
 
   updateInsights(_stats) {
-    // These insights are now displayed in the new design via VisitsPageController.
-    // Keeping this method for compatibility.
+    // Insights are rendered by VisitsPageController.
   }
 
   destroy() {

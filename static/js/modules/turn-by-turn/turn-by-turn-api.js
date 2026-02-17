@@ -5,13 +5,10 @@
 
 import apiClient from "../core/api-client.js";
 
-export function buildTurnByTurnUrl({ areaId, missionId = null, autoStart = false } = {}) {
+export function buildTurnByTurnUrl({ areaId, autoStart = false } = {}) {
   const params = new URLSearchParams();
   if (areaId) {
     params.set("areaId", String(areaId));
-  }
-  if (missionId) {
-    params.set("missionId", String(missionId));
   }
   if (autoStart) {
     params.set("autoStart", "true");
@@ -148,127 +145,6 @@ const TurnByTurnAPI = {
     await apiClient.post(`/api/coverage/areas/${locationId}/streets/mark-driven`, {
       segment_ids: segmentIds,
     });
-  },
-
-  /**
-   * Persist driven segments with mission context.
-   * @param {Array<string>} segmentIds
-   * @param {string} locationId
-   * @param {string|null} missionId
-   * @returns {Promise<Object>}
-   */
-  persistDrivenSegmentsForMission(segmentIds, locationId, missionId) {
-    return apiClient.post(`/api/coverage/areas/${locationId}/streets/mark-driven`, {
-      segment_ids: segmentIds,
-      mission_id: missionId || null,
-    });
-  },
-
-  /**
-   * Create mission (or resume existing active mission for area).
-   * @param {Object} payload
-   * @returns {Promise<Object>}
-   */
-  createMission(payload) {
-    return apiClient.post("/api/coverage/missions", payload);
-  },
-
-  /**
-   * Fetch currently active mission for area.
-   * @param {string} areaId
-   * @returns {Promise<Object|null>}
-   */
-  async fetchActiveMission(areaId) {
-    const data = await apiClient.get(
-      `/api/coverage/missions/active?area_id=${encodeURIComponent(areaId)}`
-    );
-    return data?.mission || null;
-  },
-
-  /**
-   * Fetch mission by ID.
-   * @param {string} missionId
-   * @returns {Promise<Object>}
-   */
-  async fetchMission(missionId) {
-    const data = await apiClient.get(`/api/coverage/missions/${missionId}`);
-    return data?.mission;
-  },
-
-  /**
-   * List missions for an area.
-   * @param {Object} opts
-   * @returns {Promise<Object>}
-   */
-  listMissions({ areaId, status = null, limit = 20, offset = 0 } = {}) {
-    const params = new URLSearchParams();
-    if (areaId) {
-      params.set("area_id", String(areaId));
-    }
-    if (status) {
-      params.set("status", String(status));
-    }
-    params.set("limit", String(limit));
-    params.set("offset", String(offset));
-    return apiClient.get(`/api/coverage/missions?${params.toString()}`);
-  },
-
-  /**
-   * Send mission heartbeat.
-   * @param {string} missionId
-   * @param {Object} payload
-   * @returns {Promise<Object>}
-   */
-  async heartbeatMission(missionId, payload = {}) {
-    const data = await apiClient.post(`/api/coverage/missions/${missionId}/heartbeat`, payload);
-    return data?.mission;
-  },
-
-  /**
-   * Pause mission.
-   * @param {string} missionId
-   * @param {Object} payload
-   * @returns {Promise<Object>}
-   */
-  async pauseMission(missionId, payload = {}) {
-    const data = await apiClient.post(`/api/coverage/missions/${missionId}/pause`, payload);
-    return data?.mission;
-  },
-
-  /**
-   * Resume mission.
-   * @param {string} missionId
-   * @param {Object} payload
-   * @returns {Promise<Object>}
-   */
-  async resumeMission(missionId, payload = {}) {
-    const data = await apiClient.post(`/api/coverage/missions/${missionId}/resume`, payload);
-    return data?.mission;
-  },
-
-  /**
-   * Complete mission.
-   * @param {string} missionId
-   * @param {Object} payload
-   * @returns {Promise<Object>}
-   */
-  async completeMission(missionId, payload = {}) {
-    const data = await apiClient.post(
-      `/api/coverage/missions/${missionId}/complete`,
-      payload
-    );
-    return data?.mission;
-  },
-
-  /**
-   * Cancel mission.
-   * @param {string} missionId
-   * @param {Object} payload
-   * @returns {Promise<Object>}
-   */
-  async cancelMission(missionId, payload = {}) {
-    const data = await apiClient.post(`/api/coverage/missions/${missionId}/cancel`, payload);
-    return data?.mission;
   },
 };
 

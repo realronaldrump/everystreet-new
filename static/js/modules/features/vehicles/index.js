@@ -422,11 +422,6 @@ function selectVehicle(imei) {
   setStorage(STORAGE_KEY, imei);
   store.updateFilters({ vehicle: imei }, { source: "vehicle" });
 
-  // Update dropdown selection
-  if (elements.vehicleSelect) {
-    elements.vehicleSelect.value = imei;
-  }
-
   // Display the vehicle
   displayVehicle(vehicle);
 

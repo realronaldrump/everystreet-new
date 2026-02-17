@@ -107,7 +107,8 @@ class FillupService:
 
         MPG rule:
         - Current fill-up must be full and not flagged missed_previous.
-        - Walk backwards through prior fill-ups until a previous full-tank anchor.
+        - Walk through prior fill-ups in reverse chronological order until a
+          previous full-tank anchor.
         - Sum gallons from all fill-ups between anchor and current (inclusive current).
         - Abort if chain is broken by any missed_previous flag or missing anchor odometer.
         """

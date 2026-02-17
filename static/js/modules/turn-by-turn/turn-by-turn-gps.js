@@ -13,7 +13,7 @@ class TurnByTurnGPS {
   constructor(config = {}) {
     this.config = {
       maxProgressHistoryLength: 5,
-      maxBackwardJumpMeters: 50,
+      maxReverseJumpMeters: 50,
       maxSpeedMps: 50, // ~112 mph
       maxSpeedSamples: 6,
       ...config,
@@ -197,14 +197,14 @@ class TurnByTurnGPS {
       this.progressHistory.shift();
     }
 
-    // Rule 1: Reject large backward jumps unless confirmed by multiple samples
-    if (this.lastValidProgress - rawProgress > this.config.maxBackwardJumpMeters) {
-      const backwardCount = this.progressHistory.filter(
-        (p) => p < this.lastValidProgress - this.config.maxBackwardJumpMeters
+    // Rule 1: Reject large reverse jumps unless confirmed by multiple samples
+    if (this.lastValidProgress - rawProgress > this.config.maxReverseJumpMeters) {
+      const reverseCount = this.progressHistory.filter(
+        (p) => p < this.lastValidProgress - this.config.maxReverseJumpMeters
       ).length;
 
       // Require 3+ confirmations before accepting regression
-      if (backwardCount < 3) {
+      if (reverseCount < 3) {
         return this.lastValidProgress;
       }
     }

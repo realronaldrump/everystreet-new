@@ -82,9 +82,6 @@ class TurnByTurnUI {
     this.elements.etaLabel = document.getElementById("nav-eta");
     this.elements.speedLabel = document.getElementById("nav-speed");
     this.elements.navStatus = document.getElementById("nav-status");
-    this.elements.missionSummary = document.getElementById("nav-mission-summary");
-    this.elements.missionState = document.getElementById("nav-mission-state");
-    this.elements.missionMetrics = document.getElementById("nav-mission-metrics");
 
     // Resume prompt
     this.elements.resumePrompt = document.getElementById("nav-resume-prompt");
@@ -570,57 +567,6 @@ class TurnByTurnUI {
     }
   }
 
-  // === Mission Summary ===
-
-  updateMissionSummary(mission) {
-    const stateEl = this.elements.missionState;
-    const metricsEl = this.elements.missionMetrics;
-    if (!stateEl || !metricsEl) {
-      return;
-    }
-
-    if (!mission || !mission.id) {
-      this.resetMissionSummary();
-      return;
-    }
-
-    const status = String(mission.status || "").toLowerCase();
-    const segments = Number(mission.session_segments_completed || 0);
-    const miles = Number(mission.session_gain_miles || 0);
-
-    stateEl.dataset.status = status;
-    stateEl.textContent = status ? `Mission ${status}` : "Mission";
-    metricsEl.textContent = `${segments} segments | ${miles.toFixed(2)} mi`;
-  }
-
-  applyMissionDelta(delta) {
-    if (!delta) {
-      return;
-    }
-    const stateEl = this.elements.missionState;
-    const metricsEl = this.elements.missionMetrics;
-    if (!stateEl || !metricsEl) {
-      return;
-    }
-
-    const totalSegments = Number(delta.total_segments || 0);
-    const totalMiles = Number(delta.total_miles || 0);
-    stateEl.dataset.status = "active";
-    stateEl.textContent = "Mission active";
-    metricsEl.textContent = `${totalSegments} segments | ${totalMiles.toFixed(2)} mi`;
-  }
-
-  resetMissionSummary() {
-    const stateEl = this.elements.missionState;
-    const metricsEl = this.elements.missionMetrics;
-    if (!stateEl || !metricsEl) {
-      return;
-    }
-    stateEl.dataset.status = "none";
-    stateEl.textContent = "No mission";
-    metricsEl.textContent = "0 segments | 0.00 mi";
-  }
-
   // === Reset UI ===
 
   resetGuidanceUI() {
@@ -657,7 +603,6 @@ class TurnByTurnUI {
       this.elements.speedLabel.textContent = "--";
     }
 
-    this.resetMissionSummary();
   }
 
   // === Utilities ===

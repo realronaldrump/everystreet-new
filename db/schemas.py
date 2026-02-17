@@ -171,7 +171,7 @@ class GasFillupUpdateModel(BaseModel):
 
 
 # ============================================================================
-# Place Response Models - Beanie-compatible with automatic datetime serialization
+# Place response models with automatic datetime serialization
 # ============================================================================
 
 

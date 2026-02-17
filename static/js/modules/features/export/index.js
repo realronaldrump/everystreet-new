@@ -23,9 +23,7 @@ function cacheElements() {
     form: document.getElementById("export-form"),
     exportTrips: document.getElementById("export-trips"),
     exportMatchedTrips: document.getElementById("export-matched-trips"),
-    tripFormatRadios: Array.from(
-      document.querySelectorAll('input[name="trip-format-radio"]')
-    ).filter((radio) => radio instanceof HTMLInputElement),
+    tripFormatSelect: document.getElementById("trip-format"),
     includeTripGeometry: document.getElementById("include-trip-geometry"),
     tripStartDate: document.getElementById("trip-start-date"),
     tripEndDate: document.getElementById("trip-end-date"),
@@ -39,10 +37,13 @@ function cacheElements() {
     exportUndriven: document.getElementById("export-undriven"),
     coverageArea: document.getElementById("coverage-area"),
     exportError: document.getElementById("export-error"),
+    exportSummary: document.getElementById("export-summary"),
     exportSummaryList: document.getElementById("export-summary-list"),
+    exportProgress: document.getElementById("export-progress"),
     exportStatusText: document.getElementById("export-status-text"),
     exportProgressBar: document.getElementById("export-progress-bar"),
     exportProgressPercent: document.getElementById("export-progress-percent"),
+    exportResult: document.getElementById("export-result"),
     exportResultDetails: document.getElementById("export-result-details"),
     exportDownload: document.getElementById("export-download"),
     exportReset: document.getElementById("export-reset"),
@@ -50,22 +51,15 @@ function cacheElements() {
 }
 
 function getTripFormat(elements) {
-  const checked = elements.tripFormatRadios.find((radio) => radio.checked);
-  return checked?.value || "json";
-}
-
-function setTripFormat(elements, format) {
-  elements.tripFormatRadios.forEach((radio) => {
-    radio.checked = radio.value === format;
-  });
+  return elements.tripFormatSelect?.value || "json";
 }
 
 function getSelectedItems(elements) {
   const items = [];
   const format = getTripFormat(elements);
-  const includeGeometry = elements.includeTripGeometry.checked;
+  const includeGeometry = elements.includeTripGeometry?.checked ?? true;
 
-  if (elements.exportTrips.checked) {
+  if (elements.exportTrips?.checked) {
     items.push({
       entity: "trips",
       format,
@@ -73,7 +67,7 @@ function getSelectedItems(elements) {
     });
   }
 
-  if (elements.exportMatchedTrips.checked) {
+  if (elements.exportMatchedTrips?.checked) {
     items.push({
       entity: "matched_trips",
       format,
@@ -81,15 +75,15 @@ function getSelectedItems(elements) {
     });
   }
 
-  if (elements.exportStreets.checked) {
+  if (elements.exportStreets?.checked) {
     items.push({ entity: "streets", format: "geojson" });
   }
 
-  if (elements.exportBoundaries.checked) {
+  if (elements.exportBoundaries?.checked) {
     items.push({ entity: "boundaries", format: "geojson" });
   }
 
-  if (elements.exportUndriven.checked) {
+  if (elements.exportUndriven?.checked) {
     items.push({ entity: "undriven_streets", format: "geojson" });
   }
 
@@ -99,20 +93,18 @@ function getSelectedItems(elements) {
 function updateGeometryToggle(elements) {
   const format = getTripFormat(elements);
   const hasTripExports =
-    elements.exportTrips.checked || elements.exportMatchedTrips.checked;
+    elements.exportTrips?.checked || elements.exportMatchedTrips?.checked;
 
-  if (!hasTripExports) {
-    elements.tripFormatRadios.forEach((radio) => {
-      radio.disabled = true;
-    });
-    elements.includeTripGeometry.disabled = true;
+  if (!hasTripExports || !elements.tripFormatSelect) {
+    if (elements.tripFormatSelect) elements.tripFormatSelect.disabled = true;
+    if (elements.includeTripGeometry) elements.includeTripGeometry.disabled = true;
     return;
   }
 
-  elements.tripFormatRadios.forEach((radio) => {
-    radio.disabled = false;
-  });
-  elements.includeTripGeometry.disabled = format === "geojson" || format === "gpx";
+  if (elements.tripFormatSelect) elements.tripFormatSelect.disabled = false;
+  if (elements.includeTripGeometry) {
+    elements.includeTripGeometry.disabled = format === "geojson" || format === "gpx";
+  }
 }
 
 function setDateDefaults(elements) {
@@ -122,37 +114,46 @@ function setDateDefaults(elements) {
   start.setDate(today.getDate() - DEFAULT_RANGE_DAYS);
   const startValue = start.toISOString().slice(0, 10);
 
-  elements.tripStartDate.value = startValue;
-  elements.tripEndDate.value = endValue;
+  if (elements.tripStartDate) elements.tripStartDate.value = startValue;
+  if (elements.tripEndDate) elements.tripEndDate.value = endValue;
 }
 
 function toggleDateInputs(elements) {
-  const disabled = elements.tripAllTime.checked;
-  elements.tripStartDate.disabled = disabled;
-  elements.tripEndDate.disabled = disabled;
+  const disabled = elements.tripAllTime?.checked ?? false;
+  if (elements.tripStartDate) elements.tripStartDate.disabled = disabled;
+  if (elements.tripEndDate) elements.tripEndDate.disabled = disabled;
 }
 
 function setError(elements, message) {
+  if (!elements.exportError) return;
+
+  const errorText = document.getElementById("export-error-text");
+
   if (!message) {
-    elements.exportError.classList.add("d-none");
-    elements.exportError.textContent = "";
+    elements.exportError.classList.add("hidden");
+    if (errorText) errorText.textContent = "";
     return;
   }
-  elements.exportError.textContent = message;
-  elements.exportError.classList.remove("d-none");
+  if (errorText) errorText.textContent = message;
+  elements.exportError.classList.remove("hidden");
 }
 
 function updateSummary(elements) {
   const items = getSelectedItems(elements);
+  const emptyState = elements.exportSummary?.querySelector(".export-summary-empty");
+
+  if (!elements.exportSummaryList) return;
+
   elements.exportSummaryList.innerHTML = "";
 
   if (!items.length) {
-    const li = document.createElement("li");
-    li.className = "text-secondary";
-    li.textContent = "No items selected yet.";
-    elements.exportSummaryList.appendChild(li);
+    elements.exportSummaryList.classList.add("hidden");
+    if (emptyState) emptyState.classList.remove("hidden");
     return;
   }
+
+  if (emptyState) emptyState.classList.add("hidden");
+  elements.exportSummaryList.classList.remove("hidden");
 
   items.forEach((item) => {
     const li = document.createElement("li");
@@ -164,23 +165,23 @@ function updateSummary(elements) {
 
 function buildTripFilters(elements) {
   const filters = {
-    include_invalid: elements.tripIncludeInvalid.checked,
+    include_invalid: elements.tripIncludeInvalid?.checked ?? false,
   };
 
-  if (!elements.tripAllTime.checked) {
-    if (elements.tripStartDate.value) {
+  if (!elements.tripAllTime?.checked) {
+    if (elements.tripStartDate?.value) {
       filters.start_date = elements.tripStartDate.value;
     }
-    if (elements.tripEndDate.value) {
+    if (elements.tripEndDate?.value) {
       filters.end_date = elements.tripEndDate.value;
     }
   }
 
-  if (elements.tripStatus.value) {
+  if (elements.tripStatus?.value) {
     filters.status = [elements.tripStatus.value];
   }
 
-  const imei = elements.tripVehicle.value.trim();
+  const imei = elements.tripVehicle?.value?.trim();
   if (imei) {
     filters.imei = imei;
   }
@@ -195,7 +196,7 @@ function buildPayload(elements) {
   );
   const payload = {
     items,
-    area_id: elements.coverageArea.value || null,
+    area_id: elements.coverageArea?.value || null,
     trip_filters: hasTrips ? buildTripFilters(elements) : null,
   };
 
@@ -205,38 +206,65 @@ function buildPayload(elements) {
 function validateSelection(elements) {
   const items = getSelectedItems(elements);
   if (!items.length) {
-    return "Select at least one export item.";
+    return "Select at least one item to export.";
   }
 
   const needsArea = items.some((item) =>
     ["streets", "boundaries", "undriven_streets"].includes(item.entity)
   );
-  if (needsArea && !elements.coverageArea.value) {
+  if (needsArea && !elements.coverageArea?.value) {
     return "Select a coverage area for coverage exports.";
   }
 
   return null;
 }
 
-function updateStatus(elements, status) {
+function showProgress(elements) {
+  if (elements.exportProgress) {
+    elements.exportProgress.classList.remove("hidden");
+  }
+  if (elements.exportResult) {
+    elements.exportResult.classList.add("hidden");
+  }
+}
+
+function hideProgress(elements) {
+  if (elements.exportProgress) {
+    elements.exportProgress.classList.add("hidden");
+  }
+}
+
+function showResult(elements) {
+  if (elements.exportResult) {
+    elements.exportResult.classList.remove("hidden");
+  }
+}
+
+function updateProgress(elements, status) {
   if (!status) {
-    elements.exportStatusText.textContent = "No export running";
-    elements.exportProgressPercent.textContent = "0%";
-    elements.exportProgressBar.style.width = "0%";
+    if (elements.exportStatusText)
+      elements.exportStatusText.textContent = "Preparing...";
+    if (elements.exportProgressPercent)
+      elements.exportProgressPercent.textContent = "0%";
+    if (elements.exportProgressBar) elements.exportProgressBar.style.width = "0%";
     return;
   }
 
   const percent = Math.round(status.progress || 0);
-  elements.exportStatusText.textContent = status.message || status.status;
-  elements.exportProgressPercent.textContent = `${percent}%`;
-  elements.exportProgressBar.style.width = `${percent}%`;
+  if (elements.exportStatusText) {
+    elements.exportStatusText.textContent =
+      status.message || status.status || "Processing...";
+  }
+  if (elements.exportProgressPercent) {
+    elements.exportProgressPercent.textContent = `${percent}%`;
+  }
+  if (elements.exportProgressBar) {
+    elements.exportProgressBar.style.width = `${percent}%`;
+  }
 }
 
 function updateResult(elements, status) {
   if (!status || status.status !== "completed") {
-    elements.exportResultDetails.textContent = "No export generated yet.";
-    elements.exportDownload.classList.add("d-none");
-    elements.exportDownload.removeAttribute("href");
     return;
   }
 
@@ -245,13 +273,14 @@ function updateResult(elements, status) {
     ([entity, count]) => `${ENTITY_LABELS[entity] || entity}: ${count}`
   );
 
-  elements.exportResultDetails.textContent = parts.length
-    ? parts.join(" | ")
-    : "Export completed.";
+  if (elements.exportResultDetails) {
+    elements.exportResultDetails.textContent = parts.length
+      ? parts.join(" | ")
+      : "Export completed";
+  }
 
-  if (status.download_url) {
+  if (status.download_url && elements.exportDownload) {
     elements.exportDownload.href = status.download_url;
-    elements.exportDownload.classList.remove("d-none");
   }
 }
 
@@ -267,9 +296,7 @@ function startPolling(elements, jobId, signal) {
   activePoll = { stop };
 
   const poll = async () => {
-    if (!polling) {
-      return;
-    }
+    if (!polling) return;
     if (signal?.aborted) {
       polling = false;
       activePoll = null;
@@ -278,15 +305,19 @@ function startPolling(elements, jobId, signal) {
 
     try {
       const status = await fetchExportStatus(jobId, signal);
-      updateStatus(elements, status);
-      updateResult(elements, status);
+      updateProgress(elements, status);
 
       if (["completed", "failed"].includes(status.status)) {
         polling = false;
         activePoll = null;
+        hideProgress(elements);
+
         if (status.status === "failed") {
+          setError(elements, status.error || "Export failed");
           showNotification(`Export failed: ${status.error}`, "danger");
         } else {
+          updateResult(elements, status);
+          showResult(elements);
           showNotification("Export ready to download", "success");
         }
         announce(status.message || `Export ${status.status}`, "polite");
@@ -300,6 +331,7 @@ function startPolling(elements, jobId, signal) {
       }
       polling = false;
       activePoll = null;
+      hideProgress(elements);
       setError(elements, error.message || "Failed to check export status.");
       showNotification("Export status check failed", "danger");
       return;
@@ -312,6 +344,8 @@ function startPolling(elements, jobId, signal) {
 }
 
 async function loadCoverageAreas(elements, signal) {
+  if (!elements.coverageArea) return;
+
   try {
     const areas = await fetchCoverageAreas(signal);
     elements.coverageArea.innerHTML = "";
@@ -328,7 +362,7 @@ async function loadCoverageAreas(elements, signal) {
 
     const placeholder = document.createElement("option");
     placeholder.value = "";
-    placeholder.textContent = "Select an area";
+    placeholder.textContent = "Select an area...";
     elements.coverageArea.appendChild(placeholder);
 
     let selectedReady = false;
@@ -360,13 +394,13 @@ async function loadCoverageAreas(elements, signal) {
 }
 
 async function loadVehicles(elements, signal) {
+  if (!elements.vehicleOptions) return;
+
   const vehicles = await fetchVehicles(signal);
   elements.vehicleOptions.innerHTML = "";
 
   vehicles.forEach((vehicle) => {
-    if (!vehicle?.imei) {
-      return;
-    }
+    if (!vehicle?.imei) return;
     const option = document.createElement("option");
     const label = vehicle.custom_name || vehicle.vin || vehicle.imei;
     option.value = vehicle.imei;
@@ -376,24 +410,45 @@ async function loadVehicles(elements, signal) {
 }
 
 function resetForm(elements) {
-  elements.exportTrips.checked = true;
-  elements.exportMatchedTrips.checked = false;
-  elements.exportStreets.checked = false;
-  elements.exportBoundaries.checked = false;
-  elements.exportUndriven.checked = false;
-  setTripFormat(elements, "json");
-  elements.includeTripGeometry.checked = true;
-  elements.tripAllTime.checked = false;
+  if (elements.exportTrips) elements.exportTrips.checked = true;
+  if (elements.exportMatchedTrips) elements.exportMatchedTrips.checked = false;
+  if (elements.exportStreets) elements.exportStreets.checked = false;
+  if (elements.exportBoundaries) elements.exportBoundaries.checked = false;
+  if (elements.exportUndriven) elements.exportUndriven.checked = false;
+  if (elements.tripFormatSelect) elements.tripFormatSelect.value = "json";
+  if (elements.includeTripGeometry) elements.includeTripGeometry.checked = true;
+  if (elements.tripAllTime) elements.tripAllTime.checked = false;
   setDateDefaults(elements);
   toggleDateInputs(elements);
-  elements.tripStatus.value = "";
-  elements.tripVehicle.value = "";
-  elements.tripIncludeInvalid.checked = false;
+  if (elements.tripStatus) elements.tripStatus.value = "";
+  if (elements.tripVehicle) elements.tripVehicle.value = "";
+  if (elements.tripIncludeInvalid) elements.tripIncludeInvalid.checked = false;
   setError(elements, null);
+  hideProgress(elements);
+  if (elements.exportResult) elements.exportResult.classList.add("hidden");
   updateSummary(elements);
-  updateStatus(elements, null);
-  updateResult(elements, null);
   updateGeometryToggle(elements);
+}
+
+function bindCollapsibleSections(signal) {
+  const eventOptions = signal ? { signal } : false;
+
+  document.querySelectorAll(".export-category-header").forEach((header) => {
+    header.addEventListener(
+      "click",
+      () => {
+        const expanded = header.getAttribute("aria-expanded") === "true";
+        const targetId = header.dataset.target;
+        const body = document.getElementById(targetId);
+
+        if (!body) return;
+
+        header.setAttribute("aria-expanded", !expanded);
+        body.classList.toggle("collapsed", expanded);
+      },
+      eventOptions
+    );
+  });
 }
 
 function registerEventListeners(elements, signal) {
@@ -404,15 +459,12 @@ function registerEventListeners(elements, signal) {
     elements.exportStreets,
     elements.exportBoundaries,
     elements.exportUndriven,
-    ...elements.tripFormatRadios,
+    elements.tripFormatSelect,
     elements.includeTripGeometry,
     elements.tripAllTime,
-  ];
+  ].filter(Boolean);
 
   inputs.forEach((input) => {
-    if (!input) {
-      return;
-    }
     input.addEventListener(
       "change",
       () => {
@@ -424,13 +476,13 @@ function registerEventListeners(elements, signal) {
     );
   });
 
-  elements.exportReset.addEventListener(
+  elements.exportReset?.addEventListener(
     "click",
     () => resetForm(elements),
     eventOptions
   );
 
-  elements.form.addEventListener(
+  elements.form?.addEventListener(
     "submit",
     async (event) => {
       event.preventDefault();
@@ -445,17 +497,19 @@ function registerEventListeners(elements, signal) {
 
       const payload = buildPayload(elements);
       const submitButton = document.getElementById("export-submit");
-      submitButton.disabled = true;
-      submitButton.textContent = "Starting export...";
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+      }
 
       try {
         const job = await createExportJob(payload, signal);
-        updateStatus(elements, {
+        showProgress(elements);
+        updateProgress(elements, {
           status: job.status,
           progress: job.progress,
           message: job.message,
         });
-        updateResult(elements, null);
         announce("Export started", "polite");
         showNotification("Export started", "info");
         startPolling(elements, job.id, signal);
@@ -463,67 +517,14 @@ function registerEventListeners(elements, signal) {
         setError(elements, error.message || "Failed to start export.");
         showNotification("Failed to start export", "danger");
       } finally {
-        submitButton.disabled = false;
-        submitButton.innerHTML = '<i class="fas fa-download me-2"></i>Create Export';
+        if (submitButton) {
+          submitButton.disabled = false;
+          submitButton.innerHTML = '<i class="fas fa-download"></i> Create Export';
+        }
       }
     },
     eventOptions
   );
-}
-
-function bindFormatPills(elements, signal) {
-  const eventOptions = signal ? { signal } : false;
-  const radios = elements.tripFormatRadios;
-  if (!radios.length) {
-    return;
-  }
-
-  const updatePillActiveStates = () => {
-    document.querySelectorAll(".format-pill").forEach((pill) => {
-      pill.classList.remove("active");
-    });
-    const checked = radios.find((radio) => radio.checked);
-    checked?.closest?.(".format-pill")?.classList?.add("active");
-  };
-
-  radios.forEach((radio) => {
-    radio.addEventListener(
-      "change",
-      () => {
-        if (!radio.checked) {
-          return;
-        }
-        updateGeometryToggle(elements);
-        updateSummary(elements);
-        updatePillActiveStates();
-      },
-      eventOptions
-    );
-  });
-
-  updatePillActiveStates();
-}
-
-function bindOptionCardSelection(signal) {
-  const eventOptions = signal ? { signal } : false;
-  document
-    .querySelectorAll('.export-option-card input[type="checkbox"]')
-    .forEach((checkbox) => {
-      if (!(checkbox instanceof HTMLInputElement)) {
-        return;
-      }
-      const card = checkbox.closest(".export-option-card");
-      if (!card) {
-        return;
-      }
-
-      const update = () => {
-        card.classList.toggle("selected", checkbox.checked);
-      };
-
-      checkbox.addEventListener("change", update, eventOptions);
-      update();
-    });
 }
 
 export default function initExportPage({ signal, cleanup } = {}) {
@@ -544,8 +545,7 @@ export default function initExportPage({ signal, cleanup } = {}) {
   loadCoverageAreas(elements, signal);
   loadVehicles(elements, signal);
   registerEventListeners(elements, signal);
-  bindFormatPills(elements, signal);
-  bindOptionCardSelection(signal);
+  bindCollapsibleSections(signal);
 
   const teardown = () => {
     if (activePoll) {
