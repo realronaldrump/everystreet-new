@@ -1190,6 +1190,12 @@
   box-shadow: var(--shadow-sm);
 }
 
+.movement-map-card {
+  display: flex;
+  flex-direction: column;
+  align-self: flex-start;
+}
+
 .movement-map-header {
   display: flex;
   flex-direction: column;
@@ -1229,7 +1235,7 @@
 
 .movement-map-shell {
   position: relative;
-  min-height: 340px;
+  min-height: 285px;
   border-radius: 0 0 var(--radius-xl) var(--radius-xl);
   overflow: hidden;
   border-top: 1px solid rgb(var(--border-rgb) / 12%);
@@ -1237,7 +1243,7 @@
 
 #movement-map {
   width: 100%;
-  min-height: 340px;
+  min-height: 285px;
   background:
     radial-gradient(circle at 18% 12%, rgb(var(--cat-sky-rgb) / 18%), transparent 56%),
     radial-gradient(circle at 82% 74%, rgb(var(--cat-lime-rgb) / 10%), transparent 52%),
@@ -1275,19 +1281,57 @@
 
 .movement-rank-list {
   margin: 0;
-  padding-left: 1.15rem;
+  padding-left: 0;
+  list-style: none;
   display: grid;
   gap: var(--space-2);
 }
 
 .movement-rank-item {
-  display: grid;
-  gap: 0.14rem;
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
+  margin: 0;
 }
 
-.movement-rank-item strong {
+.movement-rank-btn {
+  width: 100%;
+  border: 1px solid rgb(var(--border-rgb) / 24%);
+  border-radius: var(--radius-md);
+  background: rgb(var(--surface-rgb) / 34%);
+  padding: 0.52rem 0.58rem;
+  display: grid;
+  gap: 0.14rem;
+  text-align: left;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.movement-rank-btn:hover {
+  border-color: rgb(var(--cat-sky-rgb) / 52%);
+  background: rgb(var(--surface-rgb) / 58%);
+  transform: translateY(-1px);
+}
+
+.movement-rank-btn.is-active {
+  border-color: rgb(var(--cat-sky-rgb) / 70%);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--cat-sky-rgb) / 26%),
+    rgb(var(--cat-mint-rgb) / 18%)
+  );
+  box-shadow: 0 8px 18px rgb(var(--cat-sky-rgb) / 22%);
+}
+
+.movement-rank-btn:focus-visible {
+  outline: 2px solid rgb(var(--cat-sky-rgb) / 80%);
+  outline-offset: 2px;
+}
+
+.movement-rank-btn strong {
   color: var(--text-primary);
   font-size: var(--font-size-sm);
 }
@@ -1451,7 +1495,7 @@
 
   .movement-map-shell,
   #movement-map {
-    min-height: 420px;
+    min-height: 330px;
   }
 
   .scene-chips {
@@ -1505,7 +1549,7 @@
 
   .movement-layout {
     grid-template-columns: 1.7fr 1fr;
-    align-items: stretch;
+    align-items: start;
   }
 
 }
