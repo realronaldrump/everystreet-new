@@ -119,6 +119,9 @@ async def test_get_driving_insights_movement_fallback_includes_metric_basis(
     movement = result["movement"]
     assert movement["trip_count"] == 0
     assert movement["profiled_trip_count"] == 0
-    assert movement["metric_basis"]["top_streets_primary"] == "trip_count"
-    assert movement["metric_basis"]["top_segments_primary"] == "traversals"
-    assert movement["metric_basis"]["map_cells_intensity"] == "traversals"
+    assert movement["analyzed_trip_count"] == 0
+    assert movement["analysis_scope"]["geometry_source"] == "matchedGps"
+    assert movement["metric_basis"]["top_streets_primary"] == "times_driven"
+    assert movement["metric_basis"]["top_segments_primary"] == "times_driven"
+    assert movement["metric_basis"]["map_cells_intensity"] == "times_driven"
+    assert movement["validation"]["errors"] == []

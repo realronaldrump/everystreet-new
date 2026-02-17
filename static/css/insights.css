@@ -1175,6 +1175,10 @@
    MOVEMENT INSIGHTS
    ============================================ */
 
+.movement-section .section-subtitle {
+  max-width: 76ch;
+}
+
 .movement-layout {
   display: grid;
   grid-template-columns: 1fr;
@@ -1182,10 +1186,15 @@
 }
 
 .movement-map-card,
+.movement-rankings,
 .movement-rank-card {
   border-radius: var(--radius-xl);
   border: 1px solid rgb(var(--border-rgb) / 26%);
-  background: linear-gradient(145deg, rgb(var(--surface-rgb) / 94%), rgb(var(--surface-rgb) / 80%));
+  background: linear-gradient(
+    145deg,
+    rgb(var(--surface-rgb) / 94%),
+    rgb(var(--surface-rgb) / 80%)
+  );
   box-shadow: var(--shadow-sm);
 }
 
@@ -1223,26 +1232,32 @@
 }
 
 .movement-toggle-group {
-  width: fit-content;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgb(var(--border-rgb) / 24%);
+  background: rgb(var(--surface-rgb) / 48%);
 }
 
 .movement-map-caption {
   margin: 0;
   color: var(--text-tertiary);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
 }
 
 .movement-map-shell {
   position: relative;
-  min-height: 285px;
-  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+  min-height: clamp(19rem, 44vh, 33rem);
   overflow: hidden;
   border-top: 1px solid rgb(var(--border-rgb) / 12%);
 }
 
 #movement-map {
   width: 100%;
-  min-height: 285px;
+  height: clamp(19rem, 44vh, 33rem);
   background:
     radial-gradient(circle at 18% 12%, rgb(var(--cat-sky-rgb) / 18%), transparent 56%),
     radial-gradient(circle at 82% 74%, rgb(var(--cat-lime-rgb) / 10%), transparent 52%),
@@ -1261,14 +1276,78 @@
   display: none;
 }
 
+.movement-detail-panel {
+  border-top: 1px solid rgb(var(--border-rgb) / 16%);
+  padding: var(--space-3);
+}
+
+.movement-detail-empty {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.movement-detail-content {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.movement-detail-label {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.movement-detail-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-lg);
+}
+
+.movement-detail-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.movement-detail-stats div {
+  border: 1px solid rgb(var(--border-rgb) / 20%);
+  border-radius: var(--radius-md);
+  background: rgb(var(--surface-rgb) / 42%);
+  padding: var(--space-2);
+}
+
+.movement-detail-stats span {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+.movement-detail-stats strong {
+  color: var(--text-primary);
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-base);
+}
+
 .movement-rankings {
   display: grid;
-  grid-template-columns: 1fr;
   gap: var(--space-3);
+  padding: var(--space-3);
+  align-content: start;
 }
 
 .movement-rank-card {
-  padding: var(--space-3);
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  display: none;
+}
+
+.movement-rank-card.is-active {
+  display: block;
 }
 
 .movement-rank-title {
@@ -1283,7 +1362,7 @@
   padding-left: 0;
   list-style: none;
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .movement-rank-item {
@@ -1295,9 +1374,10 @@
   border: 1px solid rgb(var(--border-rgb) / 24%);
   border-radius: var(--radius-md);
   background: rgb(var(--surface-rgb) / 34%);
-  padding: 0.52rem 0.58rem;
+  min-height: 44px;
+  padding: 0.58rem 0.62rem;
   display: grid;
-  gap: 0.14rem;
+  gap: 0.2rem;
   text-align: left;
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
@@ -1313,6 +1393,10 @@
   border-color: rgb(var(--cat-sky-rgb) / 52%);
   background: rgb(var(--surface-rgb) / 58%);
   transform: translateY(-1px);
+}
+
+.movement-rank-btn.is-hover {
+  border-color: rgb(var(--cat-lime-rgb) / 48%);
 }
 
 .movement-rank-btn.is-active {
@@ -1338,6 +1422,25 @@
 .movement-rank-meta {
   color: var(--text-tertiary);
   font-size: var(--font-size-xs);
+}
+
+.movement-more-btn {
+  width: 100%;
+  min-height: 44px;
+  margin-top: var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid rgb(var(--border-rgb) / 28%);
+  background: rgb(var(--surface-rgb) / 40%);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.movement-more-btn:hover {
+  border-color: rgb(var(--cat-sky-rgb) / 44%);
+  background: rgb(var(--surface-rgb) / 58%);
 }
 
 /* ============================================
@@ -1434,7 +1537,7 @@
 
   .movement-map-shell,
   #movement-map {
-    min-height: 330px;
+    height: clamp(22rem, 52vh, 35rem);
   }
 
   .scene-chips {
@@ -1481,8 +1584,13 @@
   }
 
   .movement-layout {
-    grid-template-columns: 1.7fr 1fr;
+    grid-template-columns: 1.9fr minmax(19rem, 1fr);
     align-items: start;
+  }
+
+  .movement-rankings {
+    position: sticky;
+    top: calc(var(--space-4) + 2.5rem);
   }
 
 }

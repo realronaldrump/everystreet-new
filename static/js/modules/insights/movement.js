@@ -1,55 +1,58 @@
 /**
  * Insights Movement Module
- * Renders most-driven street areas and route links with deck.gl.
+ * Renders matched-geometry street and segment paths with deck.gl.
  */
 
 import { escapeHtml } from "../utils.js";
 
 let movementDeck = null;
-let activeLayerMode = "both";
+let activePanel = "streets";
 let latestMovementPayload = null;
-let selectedStreetKey = "";
-let selectedSegmentKey = "";
-const hexPolygonCache = new Map();
+let selectedEntity = null;
+let hoveredEntity = null;
 
-const MAX_STREETS_IN_LIST = 14;
-const MAX_SEGMENTS_IN_LIST = 12;
-
-function normalizeStreetName(value) {
-  if (value == null) {
-    return "";
-  }
-  return String(value).trim().replace(/\s+/g, " ").toLowerCase();
-}
+const INITIAL_VISIBLE_COUNT = 10;
+const VIEW_MORE_STEP = 10;
+const DEFAULT_VIEW_STATE = {
+  longitude: -95.7,
+  latitude: 37.09,
+  zoom: 10.5,
+  pitch: 0,
+  bearing: 0,
+};
+const visibleCounts = {
+  streets: INITIAL_VISIBLE_COUNT,
+  segments: INITIAL_VISIBLE_COUNT,
+};
 
 function asNumber(value) {
   const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : null;
-}
-
-function pluralize(value, unit) {
-  const amount = Number(value || 0);
-  return `${formatInt(amount)} ${unit}${amount === 1 ? "" : "s"}`;
-}
-
-function formatTripCount(value) {
-  const numeric = asNumber(value);
-  return numeric == null ? "" : pluralize(numeric, "trip");
-}
-
-function formatTraversalCount(value) {
-  const numeric = asNumber(value);
-  return numeric == null ? "" : pluralize(numeric, "traversal");
-}
-
-function formatMiles(value) {
-  const numeric = Number(value || 0);
-  return `${numeric.toFixed(1)} mi`;
+  return Number.isFinite(numeric) ? numeric : 0;
 }
 
 function formatInt(value) {
-  const numeric = Number(value || 0);
-  return Number.isFinite(numeric) ? Math.round(numeric).toLocaleString() : "0";
+  return Math.round(asNumber(value)).toLocaleString();
+}
+
+function pluralize(value, unit) {
+  const amount = asNumber(value);
+  return `${formatInt(amount)} ${unit}${amount === 1 ? "" : "s"}`;
+}
+
+function formatMiles(value) {
+  return `${asNumber(value).toFixed(1)} mi`;
+}
+
+function normalizeStreetKey(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function resetVisibleCounts() {
+  visibleCounts.streets = INITIAL_VISIBLE_COUNT;
+  visibleCounts.segments = INITIAL_VISIBLE_COUNT;
 }
 
 function getCurrentTheme() {
@@ -108,15 +111,88 @@ function getTooltipStyle() {
   };
 }
 
+function isValidPoint(point) {
+  return (
+    Array.isArray(point) &&
+    point.length >= 2 &&
+    Number.isFinite(Number(point[0])) &&
+    Number.isFinite(Number(point[1])) &&
+    Math.abs(Number(point[0])) <= 180 &&
+    Math.abs(Number(point[1])) <= 90
+  );
+}
+
+function normalizePath(path) {
+  if (!Array.isArray(path)) {
+    return [];
+  }
+  const cleaned = [];
+  path.forEach((point) => {
+    if (!isValidPoint(point)) {
+      return;
+    }
+    const normalized = [Number(point[0]), Number(point[1])];
+    if (!cleaned.length || cleaned[cleaned.length - 1][0] !== normalized[0] || cleaned[cleaned.length - 1][1] !== normalized[1]) {
+      cleaned.push(normalized);
+    }
+  });
+  return cleaned.length >= 2 ? cleaned : [];
+}
+
+function getStreetKey(item) {
+  return normalizeStreetKey(item?.street_key || item?.street_name);
+}
+
+function getSegmentKey(item) {
+  return String(item?.segment_key || "").trim();
+}
+
+function getModeItems(payload, mode) {
+  if (mode === "segments") {
+    return Array.isArray(payload?.top_segments) ? payload.top_segments : [];
+  }
+  return Array.isArray(payload?.top_streets) ? payload.top_streets : [];
+}
+
+function getEntityKey(item, mode) {
+  return mode === "segments" ? getSegmentKey(item) : getStreetKey(item);
+}
+
+function getEntityLabel(item, mode) {
+  if (mode === "segments") {
+    return String(item?.label || "Street segment");
+  }
+  return String(item?.street_name || "Unnamed street");
+}
+
+function getTimesDriven(item) {
+  return asNumber(item?.times_driven || item?.traversals);
+}
+
+function getEntityBySelection(payload, selection) {
+  if (!selection || !selection.key || !selection.type) {
+    return null;
+  }
+  const items = getModeItems(payload, selection.type);
+  return (
+    items.find((item) => getEntityKey(item, selection.type) === selection.key) || null
+  );
+}
+
 function setLayerToggleState(mode) {
-  const container = document.getElementById("movement-layer-toggle");
-  if (!container) {
+  const toggle = document.getElementById("movement-layer-toggle");
+  if (!toggle) {
     return;
   }
-  container.querySelectorAll("[data-movement-layer]").forEach((button) => {
+
+  toggle.querySelectorAll("[data-movement-layer]").forEach((button) => {
     const isActive = button.dataset.movementLayer === mode;
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+
+  document.querySelectorAll(".movement-rank-card[data-rank-panel]").forEach((panel) => {
+    panel.classList.toggle("is-active", panel.dataset.rankPanel === mode);
   });
 }
 
@@ -125,56 +201,65 @@ function updateRankSelectionState() {
     "#movement-top-streets .movement-rank-btn[data-street-key]"
   );
   streetButtons.forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.streetKey === selectedStreetKey);
+    const key = button.dataset.streetKey || "";
+    const isSelected = selectedEntity?.type === "streets" && selectedEntity?.key === key;
+    const isHovered = hoveredEntity?.type === "streets" && hoveredEntity?.key === key;
+    button.classList.toggle("is-active", Boolean(isSelected));
+    button.classList.toggle("is-hover", Boolean(isHovered));
   });
 
   const segmentButtons = document.querySelectorAll(
     "#movement-top-segments .movement-rank-btn[data-segment-key]"
   );
   segmentButtons.forEach((button) => {
-    button.classList.toggle(
-      "is-active",
-      button.dataset.segmentKey === selectedSegmentKey
-    );
+    const key = button.dataset.segmentKey || "";
+    const isSelected = selectedEntity?.type === "segments" && selectedEntity?.key === key;
+    const isHovered = hoveredEntity?.type === "segments" && hoveredEntity?.key === key;
+    button.classList.toggle("is-active", Boolean(isSelected));
+    button.classList.toggle("is-hover", Boolean(isHovered));
   });
 }
 
 function updateSummaryPills(payload) {
   const tripCountEl = document.getElementById("movement-trip-count");
-  const hexCountEl = document.getElementById("movement-hex-count");
+  const featureCountEl = document.getElementById("movement-feature-count");
   const syncStateEl = document.getElementById("movement-sync-state");
 
-  const tripCount = Number(payload?.trip_count || 0);
-  const profiled = Number(payload?.profiled_trip_count || 0);
-  const hexCount = Array.isArray(payload?.hex_cells) ? payload.hex_cells.length : 0;
-  const synced = Number(payload?.synced_trips_this_request || 0);
-  const pending = Number(payload?.pending_trip_sync_count || 0);
+  const analyzed = asNumber(payload?.analyzed_trip_count || payload?.profiled_trip_count);
+  const totalTrips = asNumber(payload?.trip_count);
+  const streets = getModeItems(payload, "streets").length;
+  const segments = getModeItems(payload, "segments").length;
+  const warnings = Array.isArray(payload?.validation?.warnings)
+    ? payload.validation.warnings.length
+    : 0;
+  const synced = asNumber(payload?.synced_trips_this_request);
+  const pending = asNumber(payload?.pending_trip_sync_count);
 
   if (tripCountEl) {
-    if (tripCount <= 0) {
-      tripCountEl.textContent = "No trips in this range yet";
-    } else if (profiled < tripCount) {
-      tripCountEl.textContent = `Route detail ready for ${formatInt(profiled)} of ${formatInt(
-        tripCount
-      )} trips`;
+    if (analyzed <= 0) {
+      if (totalTrips > 0) {
+        tripCountEl.textContent = `${formatInt(totalTrips)} matched trips found, no movement geometry ready yet`;
+      } else {
+        tripCountEl.textContent = "No matched trips in this range";
+      }
     } else {
-      tripCountEl.textContent = `Route detail ready for ${formatInt(profiled)} trips`;
+      tripCountEl.textContent = `Analyzed ${pluralize(analyzed, "matched trip")}`;
     }
   }
 
-  if (hexCountEl) {
-    hexCountEl.textContent = `${pluralize(hexCount, "traversal hotspot area")} highlighted`;
+  if (featureCountEl) {
+    featureCountEl.textContent = `${formatInt(streets)} streets + ${formatInt(segments)} segments shown`;
   }
 
   if (syncStateEl) {
     if (pending > 0) {
-      syncStateEl.textContent = `Background update running (${formatInt(
-        pending
-      )} trips remaining)`;
+      syncStateEl.textContent = `Sync in progress (${formatInt(pending)} trips remaining)`;
     } else if (synced > 0) {
-      syncStateEl.textContent = `Updated with ${pluralize(synced, "new trip")} this load`;
+      syncStateEl.textContent = `Updated with ${pluralize(synced, "trip")}`;
+    } else if (warnings > 0) {
+      syncStateEl.textContent = `${pluralize(warnings, "geometry warning")}`;
     } else {
-      syncStateEl.textContent = "Auto-updating (up to date)";
+      syncStateEl.textContent = "Matched trip geometry only";
     }
   }
 }
@@ -184,96 +269,168 @@ function updateMovementCaption(payload) {
   if (!caption) {
     return;
   }
-  const topStreetsPrimary = String(payload?.metric_basis?.top_streets_primary || "trip_count");
-  if (topStreetsPrimary === "traversals_fallback") {
+
+  const geometrySource = String(payload?.analysis_scope?.geometry_source || "matchedGps");
+  if (geometrySource === "matchedGps") {
     caption.textContent =
-      "Area brightness reflects traversal intensity. Street list currently uses traversal totals because trip-dedupe data is unavailable.";
+      "Showing matched trip street geometry. Line thickness reflects times driven. Hover to preview and click to lock details.";
     return;
   }
+
   caption.textContent =
-    "Area brightness reflects traversal intensity. Streets are ranked by distinct trips, and links are ranked by traversals.";
+    "Showing street geometry from your trips. Line thickness reflects times driven.";
 }
 
-function renderTopStreets(payload) {
-  const list = document.getElementById("movement-top-streets");
+function renderDetailPanel(payload) {
+  const panel = document.getElementById("movement-detail-panel");
+  if (!panel) {
+    return;
+  }
+
+  const selected = getEntityBySelection(payload, selectedEntity);
+  if (!selected) {
+    panel.innerHTML =
+      '<div class="movement-detail-empty">Select a street or segment to see times driven, trips, and distance.</div>';
+    return;
+  }
+
+  const mode = selectedEntity?.type === "segments" ? "segments" : "streets";
+  const label = getEntityLabel(selected, mode);
+  const timesDriven = pluralize(getTimesDriven(selected), "time driven");
+  const trips = pluralize(selected?.trip_count, "trip");
+  const distance = formatMiles(selected?.distance_miles);
+  const typeLabel = mode === "segments" ? "Street segment" : "Street";
+
+  panel.innerHTML = `
+    <div class="movement-detail-content">
+      <p class="movement-detail-label">${escapeHtml(typeLabel)}</p>
+      <h4 class="movement-detail-title">${escapeHtml(label)}</h4>
+      <div class="movement-detail-stats">
+        <div>
+          <span>Times driven</span>
+          <strong>${escapeHtml(timesDriven)}</strong>
+        </div>
+        <div>
+          <span>Trips</span>
+          <strong>${escapeHtml(trips)}</strong>
+        </div>
+        <div>
+          <span>Distance driven</span>
+          <strong>${escapeHtml(distance)}</strong>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderRankingList(mode, payload) {
+  const listId = mode === "segments" ? "movement-top-segments" : "movement-top-streets";
+  const list = document.getElementById(listId);
   if (!list) {
     return;
   }
-  const streets = Array.isArray(payload?.top_streets) ? payload.top_streets : [];
-  if (!streets.length) {
+
+  const moreButtonId =
+    mode === "segments" ? "movement-segments-more" : "movement-streets-more";
+  const moreButton = document.getElementById(moreButtonId);
+  const items = getModeItems(payload, mode);
+  const visible = Math.min(visibleCounts[mode], items.length);
+
+  if (!items.length) {
     list.innerHTML =
-      '<li class="story-empty">Street names could not be resolved for this range yet.</li>';
+      mode === "segments"
+        ? '<li class="story-empty">No ranked street segments for this range yet.</li>'
+        : '<li class="story-empty">No ranked streets for this range yet.</li>';
+    if (moreButton) {
+      moreButton.hidden = true;
+      moreButton.disabled = true;
+    }
     return;
   }
-  const metricBasis = String(payload?.metric_basis?.top_streets_primary || "trip_count");
 
-  list.innerHTML = streets
-    .slice(0, MAX_STREETS_IN_LIST)
-    .map((street) => {
-      const name = String(street.street_name || "Unnamed street");
-      const normalized = normalizeStreetName(name);
-      const tripCount = formatTripCount(street.trip_count);
-      const traversals = formatTraversalCount(street.traversals);
-      const distance = formatMiles(street.distance_miles);
-      const cells = pluralize(street.cells, "area");
-      const primary =
-        metricBasis === "traversals_fallback" || !tripCount ? traversals : tripCount;
-      const secondary = metricBasis === "traversals_fallback" || !tripCount
-        ? [distance, cells]
-        : [traversals, distance, cells];
-      const details = [primary, ...secondary].filter(Boolean).join(" • ");
+  const keyAttr = mode === "segments" ? "data-segment-key" : "data-street-key";
+  const keyName = mode === "segments" ? "segment" : "street";
+
+  list.innerHTML = items
+    .slice(0, visible)
+    .map((item) => {
+      const key = getEntityKey(item, mode);
+      const label = getEntityLabel(item, mode);
+      const timesDriven = pluralize(getTimesDriven(item), "time driven");
+      const trips = pluralize(item?.trip_count, "trip");
+      const distance = formatMiles(item?.distance_miles);
       return `
         <li class="movement-rank-item">
           <button
             type="button"
             class="movement-rank-btn"
-            data-street-key="${escapeHtml(normalized)}"
-            title="Focus ${escapeHtml(name)} on map"
-          >
-            <strong>${escapeHtml(name)}</strong>
-            <span class="movement-rank-meta">${details}</span>
-          </button>
-        </li>
-      `;
-    })
-    .join("");
-}
-
-function renderTopSegments(payload) {
-  const list = document.getElementById("movement-top-segments");
-  if (!list) {
-    return;
-  }
-  const segments = Array.isArray(payload?.top_segments) ? payload.top_segments : [];
-  if (!segments.length) {
-    list.innerHTML = '<li class="story-empty">No traversed links in this range yet.</li>';
-    return;
-  }
-
-  list.innerHTML = segments
-    .slice(0, MAX_SEGMENTS_IN_LIST)
-    .map((segment) => {
-      const traversals = formatTraversalCount(segment.traversals);
-      const trips = formatTripCount(segment.trip_count);
-      const distance = formatMiles(segment.distance_miles);
-      const label = String(segment.label || "Frequent route link");
-      const segmentKey = String(segment.segment_key || "");
-      const details = trips ? `${traversals} • ${trips} • ${distance}` : `${traversals} • ${distance}`;
-      return `
-        <li class="movement-rank-item">
-          <button
-            type="button"
-            class="movement-rank-btn"
-            data-segment-key="${escapeHtml(segmentKey)}"
-            title="Focus ${escapeHtml(label)} on map"
+            ${keyAttr}="${escapeHtml(key)}"
+            title="Highlight ${escapeHtml(label)} on map"
           >
             <strong>${escapeHtml(label)}</strong>
-            <span class="movement-rank-meta">${details}</span>
+            <span class="movement-rank-meta">${escapeHtml(
+              `${timesDriven} • ${trips} • ${distance}`
+            )}</span>
           </button>
         </li>
       `;
     })
     .join("");
+
+  if (moreButton) {
+    const canGrow = visible < items.length;
+    moreButton.hidden = !canGrow;
+    moreButton.disabled = !canGrow;
+    if (canGrow) {
+      moreButton.textContent =
+        mode === "segments"
+          ? `View ${Math.min(VIEW_MORE_STEP, items.length - visible)} more segments`
+          : `View ${Math.min(VIEW_MORE_STEP, items.length - visible)} more streets`;
+    }
+  }
+
+  updateRankSelectionState();
+}
+
+function setEmptyState(isEmpty) {
+  const empty = document.getElementById("movement-map-empty");
+  if (!empty) {
+    return;
+  }
+  empty.classList.toggle("is-hidden", !isEmpty);
+}
+
+function flattenEntityPaths(payload, mode) {
+  const items = getModeItems(payload, mode);
+  const features = [];
+
+  items.forEach((item) => {
+    const key = getEntityKey(item, mode);
+    const label = getEntityLabel(item, mode);
+    const timesDriven = getTimesDriven(item);
+    const tripCount = asNumber(item?.trip_count);
+    const distanceMiles = asNumber(item?.distance_miles);
+    const paths = Array.isArray(item?.paths) ? item.paths : [];
+
+    paths.forEach((path, pathIndex) => {
+      const normalizedPath = normalizePath(path);
+      if (normalizedPath.length < 2) {
+        return;
+      }
+      features.push({
+        id: `${mode}-${key}-${pathIndex}`,
+        entityType: mode,
+        entityKey: key,
+        label,
+        timesDriven,
+        tripCount,
+        distanceMiles,
+        path: normalizedPath,
+      });
+    });
+  });
+
+  return features;
 }
 
 function makeBaseTileLayer(deckGlobal) {
@@ -299,189 +456,59 @@ function makeBaseTileLayer(deckGlobal) {
   });
 }
 
-function getCellCenter(hexId) {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  const h3 = window.h3;
-  if (!h3) {
-    return null;
-  }
-
-  try {
-    if (typeof h3.cellToLatLng === "function") {
-      const [lat, lon] = h3.cellToLatLng(hexId);
-      return Number.isFinite(lat) && Number.isFinite(lon) ? [lon, lat] : null;
-    }
-    if (typeof h3.cellToLatlng === "function") {
-      const [lat, lon] = h3.cellToLatlng(hexId);
-      return Number.isFinite(lat) && Number.isFinite(lon) ? [lon, lat] : null;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-function normalizeLngLatPair(pair) {
-  if (!Array.isArray(pair) || pair.length < 2) {
-    return null;
-  }
-  const a = Number(pair[0]);
-  const b = Number(pair[1]);
-  if (!Number.isFinite(a) || !Number.isFinite(b)) {
-    return null;
-  }
-
-  // Most H3 APIs return [lat, lng]. Some variants may already be [lng, lat].
-  if (Math.abs(a) <= 90 && Math.abs(b) <= 180) {
-    return [b, a];
-  }
-  if (Math.abs(a) <= 180 && Math.abs(b) <= 90) {
-    return [a, b];
-  }
-  return null;
-}
-
-function getCellPolygon(hexId) {
-  const key = String(hexId || "");
-  if (!key) {
-    return null;
-  }
-
-  if (hexPolygonCache.has(key)) {
-    return hexPolygonCache.get(key) || null;
-  }
-
-  if (typeof window === "undefined" || !window.h3) {
-    return null;
-  }
-  const h3 = window.h3;
-
-  let boundary = null;
-  try {
-    if (typeof h3.cellToBoundary === "function") {
-      boundary = h3.cellToBoundary(key);
-    } else if (typeof h3.h3ToGeoBoundary === "function") {
-      boundary = h3.h3ToGeoBoundary(key, false);
-    }
-  } catch {
-    boundary = null;
-  }
-
-  if (!Array.isArray(boundary) || !boundary.length) {
-    return null;
-  }
-
-  const polygon = boundary
-    .map((pair) => normalizeLngLatPair(pair))
-    .filter((pair) => Array.isArray(pair));
-
-  if (polygon.length < 3) {
-    return null;
-  }
-
-  const first = polygon[0];
-  const last = polygon[polygon.length - 1];
-  if (!last || last[0] !== first[0] || last[1] !== first[1]) {
-    polygon.push([first[0], first[1]]);
-  }
-
-  hexPolygonCache.set(key, polygon);
-  return polygon;
-}
-
-function makeH3Layer(
+function makePathLayer(
   deckGlobal,
-  hexCells,
-  { idSuffix = "base", alphaScale = 1, selected = false } = {}
+  id,
+  features,
+  {
+    mode,
+    alpha = 220,
+    widthScale = 1,
+    minPixels = 1,
+    maxPixels = 9,
+    selected = false,
+    hovered = false,
+  } = {}
 ) {
-  const polygonData = hexCells
-    .map((cell) => {
-      const polygon = getCellPolygon(cell.hex);
-      return polygon ? { ...cell, polygon } : null;
-    })
-    .filter((cell) => Boolean(cell?.polygon));
+  const maxTimesDriven = Math.max(...features.map((feature) => feature.timesDriven), 1);
 
-  if (!polygonData.length) {
-    return null;
-  }
-
-  const maxTraversals = Math.max(
-    ...polygonData.map((cell) => Number(cell.traversals || 0)),
-    1
-  );
-  const isLight = getCurrentTheme() === "light";
-
-  return new deckGlobal.PolygonLayer({
-    id: `movement-h3-layer-${idSuffix}`,
-    data: polygonData,
-    getPolygon: (d) => d.polygon,
-    filled: true,
-    stroked: false,
-    extruded: false,
+  return new deckGlobal.PathLayer({
+    id,
+    data: features,
     pickable: true,
-    getFillColor: (d) => {
-      const traversals = Number(d.traversals || 0);
-      const ratio = Math.min(1, traversals / maxTraversals);
-      const alpha = Math.round((selected ? 220 : 180) * alphaScale);
-      if (isLight) {
-        return selected
-          ? [26, 138, 210, alpha]
-          : [
-              Math.round(30 + ratio * 78),
-              Math.round(126 + ratio * 62),
-              Math.round(172 + ratio * 40),
-              alpha,
-            ];
-      }
-      return selected
-        ? [44, 188, 242, alpha]
-        : [
-            Math.round(34 + ratio * 86),
-            Math.round(118 + ratio * 68),
-            Math.round(190 + ratio * 36),
-            alpha,
-          ];
-    },
-    updateTriggers: {
-      getFillColor: [maxTraversals, isLight, alphaScale, selected],
-    },
-  });
-}
-
-function makeSegmentLayer(
-  deckGlobal,
-  topSegments,
-  { idSuffix = "base", alphaScale = 1, widthScale = 1, selected = false } = {}
-) {
-  const maxTraversals = Math.max(
-    ...topSegments.map((segment) => Number(segment.traversals || 0)),
-    1
-  );
-  return new deckGlobal.LineLayer({
-    id: `movement-segment-layer-${idSuffix}`,
-    data: topSegments,
-    pickable: true,
-    getSourcePosition: (d) => d.coordinates?.[0],
-    getTargetPosition: (d) => d.coordinates?.[1],
-    getWidth: (d) => {
-      const ratio = Math.min(1, Number(d.traversals || 0) / maxTraversals);
-      return (selected ? 2.8 : 1.2 + ratio * 4.4) * widthScale;
-    },
+    capRounded: true,
+    jointRounded: true,
     widthUnits: "pixels",
-    widthMinPixels: selected ? 2 : 1,
-    widthMaxPixels: selected ? 10 : 8,
+    widthMinPixels: minPixels,
+    widthMaxPixels: maxPixels,
+    getPath: (d) => d.path,
+    getWidth: (d) => {
+      const ratio = Math.min(1, d.timesDriven / maxTimesDriven);
+      const base = mode === "segments" ? 1.6 : 1.8;
+      const extra = mode === "segments" ? 4.4 : 5.0;
+      const selectedBoost = selected ? 2.8 : hovered ? 1.6 : 1;
+      return (base + ratio * extra) * widthScale * selectedBoost;
+    },
     getColor: (d) => {
-      const ratio = Math.min(1, Number(d.traversals || 0) / maxTraversals);
-      const alpha = Math.round((selected ? 244 : 220) * alphaScale);
+      const ratio = Math.min(1, d.timesDriven / maxTimesDriven);
       if (selected) {
-        return [247, 182, 66, alpha];
+        return mode === "segments" ? [255, 184, 71, 248] : [66, 210, 246, 248];
+      }
+      if (hovered) {
+        return mode === "segments" ? [245, 162, 60, 240] : [48, 176, 236, 240];
+      }
+      if (mode === "segments") {
+        return [
+          Math.round(233 + ratio * 16),
+          Math.round(122 + ratio * 48),
+          Math.round(60 + ratio * 22),
+          alpha,
+        ];
       }
       return [
-        Math.round(246 - ratio * 18),
-        Math.round(145 + ratio * 54),
-        Math.round(72 + ratio * 18),
+        Math.round(40 + ratio * 40),
+        Math.round(124 + ratio * 70),
+        Math.round(178 + ratio * 44),
         alpha,
       ];
     },
@@ -489,8 +516,8 @@ function makeSegmentLayer(
       depthTest: false,
     },
     updateTriggers: {
-      getWidth: [maxTraversals, widthScale, selected],
-      getColor: [maxTraversals, alphaScale, selected],
+      getWidth: [mode, maxTimesDriven, widthScale, selected, hovered],
+      getColor: [mode, maxTimesDriven, alpha, selected, hovered],
     },
   });
 }
@@ -501,272 +528,51 @@ function getTooltip(info) {
     return null;
   }
 
-  if (object.hex) {
-    const streetName = escapeHtml(object.street_name || "Street area");
-    const traversals = formatTraversalCount(object.traversals);
-    const trips = formatTripCount(object.trip_count);
-    return {
-      html: `
-        <div>
-          <strong>${streetName}</strong><br />
-          ${traversals}<br />
-          ${trips ? `${trips}<br />` : ""}
-          ${formatMiles(object.distance_miles)}
-        </div>
-      `,
-      style: getTooltipStyle(),
-    };
-  }
-
-  if (object.segment_key) {
-    const label = escapeHtml(object.label || "Frequent route link");
-    const traversals = formatTraversalCount(object.traversals);
-    const trips = formatTripCount(object.trip_count);
-    return {
-      html: `
-        <div>
-          <strong>${label}</strong><br />
-          ${traversals}<br />
-          ${trips ? `${trips}<br />` : ""}
-          ${formatMiles(object.distance_miles)}
-        </div>
-      `,
-      style: getTooltipStyle(),
-    };
-  }
-
-  return null;
-}
-
-function getSelectionData(payload) {
-  const allHexCells = Array.isArray(payload?.hex_cells) ? payload.hex_cells : [];
-  const allSegments = Array.isArray(payload?.top_segments) ? payload.top_segments : [];
-
-  if (selectedSegmentKey) {
-    const matched = allSegments.filter(
-      (segment) => String(segment.segment_key || "") === selectedSegmentKey
-    );
-    const hexIds = new Set();
-    matched.forEach((segment) => {
-      if (segment.h3_a) {
-        hexIds.add(String(segment.h3_a));
-      }
-      if (segment.h3_b) {
-        hexIds.add(String(segment.h3_b));
-      }
-    });
-    const selectedHexCells = allHexCells.filter((cell) => hexIds.has(String(cell.hex || "")));
-    return {
-      allHexCells,
-      allSegments,
-      selectedHexCells,
-      selectedSegments: matched,
-    };
-  }
-
-  if (selectedStreetKey) {
-    const selectedHexCells = allHexCells.filter(
-      (cell) => normalizeStreetName(cell.street_name) === selectedStreetKey
-    );
-    const selectedSegments = allSegments.filter((segment) => {
-      const a = normalizeStreetName(segment.street_a);
-      const b = normalizeStreetName(segment.street_b);
-      const label = normalizeStreetName(segment.label);
-      return (
-        a === selectedStreetKey ||
-        b === selectedStreetKey ||
-        (label && label.includes(selectedStreetKey))
-      );
-    });
-    return {
-      allHexCells,
-      allSegments,
-      selectedHexCells,
-      selectedSegments,
-    };
-  }
-
   return {
-    allHexCells,
-    allSegments,
-    selectedHexCells: [],
-    selectedSegments: [],
+    html: `
+      <div>
+        <strong>${escapeHtml(object.label || "Street")}</strong><br />
+        ${escapeHtml(pluralize(object.timesDriven, "time driven"))}<br />
+        ${escapeHtml(pluralize(object.tripCount, "trip"))}<br />
+        ${escapeHtml(formatMiles(object.distanceMiles))}
+      </div>
+    `,
+    style: getTooltipStyle(),
   };
 }
 
-function applyDeckLayers(payload) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  const deckGlobal = window.deck;
-  if (!deckGlobal) {
-    return;
-  }
-
-  const mapContainer = document.getElementById("movement-map");
-  if (!mapContainer) {
-    return;
-  }
-
-  const { allHexCells, allSegments, selectedHexCells, selectedSegments } =
-    getSelectionData(payload);
-  const hasSelection = selectedHexCells.length > 0 || selectedSegments.length > 0;
-
-  const layers = [makeBaseTileLayer(deckGlobal)];
-  const showCells = activeLayerMode === "both" || activeLayerMode === "cells";
-  const showSegments = activeLayerMode === "both" || activeLayerMode === "segments";
-
-  if (showCells && allHexCells.length) {
-    if (hasSelection) {
-      const contextLayer = makeH3Layer(deckGlobal, allHexCells, {
-        idSuffix: "context",
-        alphaScale: 0.2,
-        selected: false,
-      });
-      if (contextLayer) {
-        layers.push(contextLayer);
-      }
-      if (selectedHexCells.length) {
-        const selectedLayer = makeH3Layer(deckGlobal, selectedHexCells, {
-          idSuffix: "selected",
-          alphaScale: 1,
-          selected: true,
-        });
-        if (selectedLayer) {
-          layers.push(selectedLayer);
-        }
-      }
-    } else {
-      const baseLayer = makeH3Layer(deckGlobal, allHexCells, {
-        idSuffix: "base",
-        alphaScale: 1,
-        selected: false,
-      });
-      if (baseLayer) {
-        layers.push(baseLayer);
-      }
-    }
-  }
-
-  if (showSegments && allSegments.length) {
-    if (hasSelection) {
-      layers.push(
-        makeSegmentLayer(deckGlobal, allSegments, {
-          idSuffix: "context",
-          alphaScale: 0.2,
-          widthScale: 0.9,
-          selected: false,
-        })
-      );
-      if (selectedSegments.length) {
-        layers.push(
-          makeSegmentLayer(deckGlobal, selectedSegments, {
-            idSuffix: "selected",
-            alphaScale: 1,
-            widthScale: 1.2,
-            selected: true,
-          })
-        );
-      }
-    } else {
-      layers.push(
-        makeSegmentLayer(deckGlobal, allSegments, {
-          idSuffix: "base",
-          alphaScale: 1,
-          widthScale: 1,
-          selected: false,
-        })
-      );
-    }
-  }
-
-  const center = payload?.map_center || {};
-  const initialViewState = {
-    longitude: Number(center.lon) || -95.7,
-    latitude: Number(center.lat) || 37.09,
-    zoom: Number(center.zoom) || 10.5,
-    pitch: 0,
-    bearing: 0,
-  };
-
-  if (!movementDeck) {
-    movementDeck = new deckGlobal.Deck({
-      parent: mapContainer,
-      controller: true,
-      initialViewState,
-      views: new deckGlobal.MapView({ repeat: true }),
-      getTooltip,
-      layers,
-      onClick: ({ object }) => {
-        if (!object) {
-          return;
-        }
-        if (object.segment_key) {
-          selectedSegmentKey = String(object.segment_key || "");
-          selectedStreetKey = "";
-        } else if (object.hex && object.street_name) {
-          selectedStreetKey = normalizeStreetName(object.street_name);
-          selectedSegmentKey = "";
-        } else {
-          return;
-        }
-        updateRankSelectionState();
-        applyDeckLayers(latestMovementPayload || {});
-        focusSelectionOnMap(latestMovementPayload || {});
-      },
-    });
-    return;
-  }
-
-  movementDeck.setProps({
-    layers,
-    getTooltip,
-  });
+function selectionExists(payload, selection) {
+  return Boolean(getEntityBySelection(payload, selection));
 }
 
-function setEmptyState(isEmpty) {
-  const empty = document.getElementById("movement-map-empty");
-  if (!empty) {
-    return;
+function clearSelectionIfMissing(payload) {
+  if (selectedEntity && !selectionExists(payload, selectedEntity)) {
+    selectedEntity = null;
   }
-  empty.classList.toggle("is-hidden", !isEmpty);
+  if (hoveredEntity && !selectionExists(payload, hoveredEntity)) {
+    hoveredEntity = null;
+  }
 }
 
-function collectSelectionPoints(payload) {
-  const { selectedHexCells, selectedSegments } = getSelectionData(payload);
-  const points = [];
+function collectPointsForSelection(payload, selection) {
+  const entity = getEntityBySelection(payload, selection);
+  if (!entity || !Array.isArray(entity.paths)) {
+    return [];
+  }
 
-  selectedSegments.forEach((segment) => {
-    if (Array.isArray(segment.coordinates?.[0])) {
-      points.push(segment.coordinates[0]);
-    }
-    if (Array.isArray(segment.coordinates?.[1])) {
-      points.push(segment.coordinates[1]);
-    }
-  });
-
-  selectedHexCells.forEach((cell) => {
-    const center = getCellCenter(String(cell.hex || ""));
-    if (center) {
-      points.push(center);
-    }
-  });
-
-  return points.filter(
-    (point) =>
-      Array.isArray(point) &&
-      point.length >= 2 &&
-      Number.isFinite(point[0]) &&
-      Number.isFinite(point[1])
-  );
+  return entity.paths
+    .flatMap((path) => normalizePath(path))
+    .filter((point) => isValidPoint(point));
 }
 
-function focusSelectionOnMap(payload) {
-  if (!movementDeck || !payload) {
-    return;
-  }
-  const points = collectSelectionPoints(payload);
-  if (!points.length) {
+function collectPointsForMode(payload, mode) {
+  return flattenEntityPaths(payload, mode)
+    .flatMap((feature) => feature.path)
+    .filter((point) => isValidPoint(point));
+}
+
+function fitMapToPoints(points) {
+  if (!movementDeck || !Array.isArray(points) || points.length < 1) {
     return;
   }
 
@@ -774,7 +580,7 @@ function focusSelectionOnMap(payload) {
   if (!container) {
     return;
   }
-  const deckGlobal = window.deck;
+
   const lons = points.map((point) => Number(point[0]));
   const lats = points.map((point) => Number(point[1]));
   const west = Math.min(...lons);
@@ -797,8 +603,8 @@ function focusSelectionOnMap(payload) {
   }
 
   try {
-    if (deckGlobal?.WebMercatorViewport) {
-      const viewport = new deckGlobal.WebMercatorViewport({
+    if (window.deck?.WebMercatorViewport) {
+      const viewport = new window.deck.WebMercatorViewport({
         width: Math.max(1, container.clientWidth),
         height: Math.max(1, container.clientHeight),
       });
@@ -813,7 +619,7 @@ function focusSelectionOnMap(payload) {
         initialViewState: {
           longitude: fitted.longitude,
           latitude: fitted.latitude,
-          zoom: Math.min(15.5, fitted.zoom),
+          zoom: Math.min(16, fitted.zoom),
           pitch: 0,
           bearing: 0,
           transitionDuration: 650,
@@ -821,66 +627,265 @@ function focusSelectionOnMap(payload) {
       });
     }
   } catch {
-    // Keep current view if fit-bounds fails.
+    // Keep existing view if fit fails.
   }
 }
 
-function clearSelectionIfMissing(payload) {
-  const streets = Array.isArray(payload?.top_streets) ? payload.top_streets : [];
-  const segments = Array.isArray(payload?.top_segments) ? payload.top_segments : [];
-
-  if (
-    selectedStreetKey &&
-    !streets.some(
-      (street) => normalizeStreetName(street.street_name) === selectedStreetKey
-    )
-  ) {
-    selectedStreetKey = "";
-  }
-
-  if (
-    selectedSegmentKey &&
-    !segments.some(
-      (segment) => String(segment.segment_key || "") === selectedSegmentKey
-    )
-  ) {
-    selectedSegmentKey = "";
-  }
-}
-
-function handleStreetRankClick(event) {
-  const button = event.target.closest(".movement-rank-btn[data-street-key]");
-  if (!button) {
+function focusSelectionOnMap(payload) {
+  if (!selectedEntity) {
     return;
   }
-  const key = button.dataset.streetKey || "";
+  const points = collectPointsForSelection(payload, selectedEntity);
+  if (points.length) {
+    fitMapToPoints(points);
+  }
+}
+
+function focusModeOnMap(payload) {
+  const points = collectPointsForMode(payload, activePanel);
+  if (points.length) {
+    fitMapToPoints(points);
+  }
+}
+
+function applyDeckLayers(payload) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const deckGlobal = window.deck;
+  if (!deckGlobal) {
+    return;
+  }
+
+  const mapContainer = document.getElementById("movement-map");
+  if (!mapContainer) {
+    return;
+  }
+
+  const features = flattenEntityPaths(payload, activePanel);
+  const layers = [makeBaseTileLayer(deckGlobal)];
+  const hasData = features.length > 0;
+  setEmptyState(!hasData);
+
+  const selectedKey = selectedEntity?.type === activePanel ? selectedEntity.key : "";
+  const hoveredKey = hoveredEntity?.type === activePanel ? hoveredEntity.key : "";
+
+  if (hasData) {
+    const selectedFeatures = selectedKey
+      ? features.filter((feature) => feature.entityKey === selectedKey)
+      : [];
+    const hoveredFeatures = hoveredKey
+      ? features.filter((feature) => feature.entityKey === hoveredKey)
+      : [];
+
+    if (selectedFeatures.length || hoveredFeatures.length) {
+      layers.push(
+        makePathLayer(deckGlobal, `movement-${activePanel}-context`, features, {
+          mode: activePanel,
+          alpha: 62,
+          widthScale: 0.9,
+          minPixels: 1,
+          maxPixels: 6,
+        })
+      );
+
+      if (hoveredFeatures.length && hoveredKey !== selectedKey) {
+        layers.push(
+          makePathLayer(deckGlobal, `movement-${activePanel}-hover`, hoveredFeatures, {
+            mode: activePanel,
+            alpha: 236,
+            widthScale: 1.2,
+            minPixels: 2,
+            maxPixels: 10,
+            hovered: true,
+          })
+        );
+      }
+
+      if (selectedFeatures.length) {
+        layers.push(
+          makePathLayer(deckGlobal, `movement-${activePanel}-selected`, selectedFeatures, {
+            mode: activePanel,
+            alpha: 246,
+            widthScale: 1.35,
+            minPixels: 2,
+            maxPixels: 12,
+            selected: true,
+          })
+        );
+      }
+    } else {
+      layers.push(
+        makePathLayer(deckGlobal, `movement-${activePanel}-base`, features, {
+          mode: activePanel,
+          alpha: 220,
+          widthScale: 1,
+          minPixels: 1,
+          maxPixels: 10,
+        })
+      );
+    }
+  }
+
+  const center = payload?.map_center || {};
+  const initialViewState = {
+    ...DEFAULT_VIEW_STATE,
+    longitude: Number(center.lon) || DEFAULT_VIEW_STATE.longitude,
+    latitude: Number(center.lat) || DEFAULT_VIEW_STATE.latitude,
+    zoom: Number(center.zoom) || DEFAULT_VIEW_STATE.zoom,
+  };
+
+  if (!movementDeck) {
+    movementDeck = new deckGlobal.Deck({
+      parent: mapContainer,
+      controller: true,
+      initialViewState,
+      views: new deckGlobal.MapView({ repeat: true }),
+      getTooltip,
+      layers,
+      onClick: ({ object }) => {
+        if (!object) {
+          selectedEntity = null;
+          hoveredEntity = null;
+          updateRankSelectionState();
+          renderDetailPanel(latestMovementPayload || {});
+          applyDeckLayers(latestMovementPayload || {});
+          return;
+        }
+        selectedEntity = {
+          type: object.entityType,
+          key: object.entityKey,
+        };
+        hoveredEntity = null;
+        updateRankSelectionState();
+        renderDetailPanel(latestMovementPayload || {});
+        applyDeckLayers(latestMovementPayload || {});
+        focusSelectionOnMap(latestMovementPayload || {});
+      },
+      onHover: ({ object }) => {
+        const nextHovered = object
+          ? {
+              type: object.entityType,
+              key: object.entityKey,
+            }
+          : null;
+        const didChange =
+          (nextHovered?.type || "") !== (hoveredEntity?.type || "") ||
+          (nextHovered?.key || "") !== (hoveredEntity?.key || "");
+        if (!didChange) {
+          return;
+        }
+        hoveredEntity = nextHovered;
+        updateRankSelectionState();
+        applyDeckLayers(latestMovementPayload || {});
+      },
+    });
+    return;
+  }
+
+  movementDeck.setProps({
+    layers,
+    getTooltip,
+  });
+}
+
+function setSelection(type, key) {
   if (!key) {
     return;
   }
-  selectedStreetKey = selectedStreetKey === key ? "" : key;
-  selectedSegmentKey = "";
+  if (selectedEntity?.type === type && selectedEntity?.key === key) {
+    selectedEntity = null;
+    return;
+  }
+  selectedEntity = { type, key };
+}
+
+function handleRankClick(event, type) {
+  const selector =
+    type === "segments"
+      ? ".movement-rank-btn[data-segment-key]"
+      : ".movement-rank-btn[data-street-key]";
+  const button = event.target.closest(selector);
+  if (!button) {
+    return;
+  }
+
+  const key =
+    type === "segments"
+      ? String(button.dataset.segmentKey || "")
+      : String(button.dataset.streetKey || "");
+  if (!key) {
+    return;
+  }
+
+  setSelection(type, key);
+  hoveredEntity = null;
   updateRankSelectionState();
+  renderDetailPanel(latestMovementPayload || {});
   if (latestMovementPayload) {
     applyDeckLayers(latestMovementPayload);
     focusSelectionOnMap(latestMovementPayload);
   }
 }
 
-function handleSegmentRankClick(event) {
-  const button = event.target.closest(".movement-rank-btn[data-segment-key]");
+function handleRankHover(event, type, entering) {
+  const selector =
+    type === "segments"
+      ? ".movement-rank-btn[data-segment-key]"
+      : ".movement-rank-btn[data-street-key]";
+  const button = event.target.closest(selector);
   if (!button) {
     return;
   }
-  const key = button.dataset.segmentKey || "";
+
+  if (!entering) {
+    hoveredEntity = null;
+    updateRankSelectionState();
+    if (latestMovementPayload) {
+      applyDeckLayers(latestMovementPayload);
+    }
+    return;
+  }
+
+  const key =
+    type === "segments"
+      ? String(button.dataset.segmentKey || "")
+      : String(button.dataset.streetKey || "");
   if (!key) {
     return;
   }
-  selectedSegmentKey = selectedSegmentKey === key ? "" : key;
-  selectedStreetKey = "";
+
+  hoveredEntity = { type, key };
   updateRankSelectionState();
   if (latestMovementPayload) {
     applyDeckLayers(latestMovementPayload);
-    focusSelectionOnMap(latestMovementPayload);
+  }
+}
+
+function bindViewMoreButtons(signal) {
+  const streetMore = document.getElementById("movement-streets-more");
+  if (streetMore) {
+    streetMore.addEventListener(
+      "click",
+      () => {
+        visibleCounts.streets += VIEW_MORE_STEP;
+        renderRankingList("streets", latestMovementPayload || {});
+      },
+      signal ? { signal } : false
+    );
+  }
+
+  const segmentMore = document.getElementById("movement-segments-more");
+  if (segmentMore) {
+    segmentMore.addEventListener(
+      "click",
+      () => {
+        visibleCounts.segments += VIEW_MORE_STEP;
+        renderRankingList("segments", latestMovementPayload || {});
+      },
+      signal ? { signal } : false
+    );
   }
 }
 
@@ -891,14 +896,25 @@ export function bindMovementControls(signal) {
       button.addEventListener(
         "click",
         (event) => {
-          const layerMode = event.currentTarget?.dataset?.movementLayer;
-          if (!layerMode || layerMode === activeLayerMode) {
+          const nextMode = event.currentTarget?.dataset?.movementLayer;
+          if (!nextMode || nextMode === activePanel) {
             return;
           }
-          activeLayerMode = layerMode;
-          setLayerToggleState(activeLayerMode);
+          activePanel = nextMode;
+          hoveredEntity = null;
+          if (selectedEntity?.type !== activePanel) {
+            selectedEntity = null;
+          }
+          setLayerToggleState(activePanel);
+          updateRankSelectionState();
+          renderDetailPanel(latestMovementPayload || {});
           if (latestMovementPayload) {
             applyDeckLayers(latestMovementPayload);
+            if (selectedEntity) {
+              focusSelectionOnMap(latestMovementPayload);
+            } else {
+              focusModeOnMap(latestMovementPayload);
+            }
           }
         },
         signal ? { signal } : false
@@ -910,7 +926,17 @@ export function bindMovementControls(signal) {
   if (streetsList) {
     streetsList.addEventListener(
       "click",
-      handleStreetRankClick,
+      (event) => handleRankClick(event, "streets"),
+      signal ? { signal } : false
+    );
+    streetsList.addEventListener(
+      "mouseover",
+      (event) => handleRankHover(event, "streets", true),
+      signal ? { signal } : false
+    );
+    streetsList.addEventListener(
+      "mouseout",
+      (event) => handleRankHover(event, "streets", false),
       signal ? { signal } : false
     );
   }
@@ -919,10 +945,22 @@ export function bindMovementControls(signal) {
   if (segmentsList) {
     segmentsList.addEventListener(
       "click",
-      handleSegmentRankClick,
+      (event) => handleRankClick(event, "segments"),
+      signal ? { signal } : false
+    );
+    segmentsList.addEventListener(
+      "mouseover",
+      (event) => handleRankHover(event, "segments", true),
+      signal ? { signal } : false
+    );
+    segmentsList.addEventListener(
+      "mouseout",
+      (event) => handleRankHover(event, "segments", false),
       signal ? { signal } : false
     );
   }
+
+  bindViewMoreButtons(signal);
 
   document.addEventListener(
     "themeChanged",
@@ -936,37 +974,47 @@ export function bindMovementControls(signal) {
 }
 
 export function renderMovementInsights(payload) {
-  latestMovementPayload = payload || null;
-  clearSelectionIfMissing(payload || {});
-  setLayerToggleState(activeLayerMode);
-  updateSummaryPills(payload || {});
-  updateMovementCaption(payload || {});
-  renderTopStreets(payload || {});
-  renderTopSegments(payload || {});
+  latestMovementPayload = payload || {};
+  resetVisibleCounts();
+  clearSelectionIfMissing(latestMovementPayload);
+
+  setLayerToggleState(activePanel);
+  updateSummaryPills(latestMovementPayload);
+  updateMovementCaption(latestMovementPayload);
+
+  renderRankingList("streets", latestMovementPayload);
+  renderRankingList("segments", latestMovementPayload);
   updateRankSelectionState();
+  renderDetailPanel(latestMovementPayload);
 
-  const hasCells = Array.isArray(payload?.hex_cells) && payload.hex_cells.length > 0;
-  const hasSegments =
-    Array.isArray(payload?.top_segments) && payload.top_segments.length > 0;
-  const hasData = hasCells || hasSegments;
+  const hasStreetFeatures = flattenEntityPaths(latestMovementPayload, "streets").length > 0;
+  const hasSegmentFeatures =
+    flattenEntityPaths(latestMovementPayload, "segments").length > 0;
+  const hasAnyData = hasStreetFeatures || hasSegmentFeatures;
 
-  setEmptyState(!hasData);
-  if (!hasData) {
-    selectedStreetKey = "";
-    selectedSegmentKey = "";
+  setEmptyState(!hasAnyData);
+  if (!hasAnyData) {
+    selectedEntity = null;
+    hoveredEntity = null;
     if (movementDeck) {
       movementDeck.setProps({ layers: [] });
     }
     return;
   }
 
-  applyDeckLayers(payload);
+  applyDeckLayers(latestMovementPayload);
+  if (selectedEntity) {
+    focusSelectionOnMap(latestMovementPayload);
+  } else {
+    focusModeOnMap(latestMovementPayload);
+  }
 }
 
 export function destroyMovementInsights() {
   latestMovementPayload = null;
-  selectedStreetKey = "";
-  selectedSegmentKey = "";
+  selectedEntity = null;
+  hoveredEntity = null;
+  resetVisibleCounts();
   if (movementDeck) {
     movementDeck.finalize();
     movementDeck = null;

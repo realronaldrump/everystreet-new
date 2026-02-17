@@ -35,6 +35,8 @@ MAX_SEGMENTS = 300
 MAX_STREETS = 25
 MAX_HEX_STREET_LOOKUPS = 160
 MAX_SEGMENT_LABEL_LOOKUPS = 20
+MAX_PATH_TRIPS_FOR_RENDER = 1200
+MAX_PATHS_PER_ENTITY = 220
 METERS_TO_MILES = 0.000621371
 
 
@@ -121,6 +123,52 @@ def _normalize_street_name(value: str | None) -> str | None:
     if not cleaned:
         return None
     return " ".join(cleaned.split())
+
+
+def _normalize_street_key(value: str | None) -> str:
+    normalized = _normalize_street_name(value)
+    return normalized.casefold() if isinstance(normalized, str) else ""
+
+
+def _sanitize_path(path: list[list[float]]) -> list[list[float]]:
+    cleaned: list[list[float]] = []
+    for point in path:
+        is_valid, pair = GeometryService.validate_coordinate_pair(point)
+        if not is_valid or pair is None:
+            continue
+        if not cleaned or pair != cleaned[-1]:
+            cleaned.append(pair)
+    return cleaned
+
+
+def _append_path_segment(
+    container: dict[str, list[list[list[float]]]],
+    key: str,
+    segment: list[list[float]],
+    *,
+    max_paths_per_key: int = MAX_PATHS_PER_ENTITY,
+) -> None:
+    if not key:
+        return
+    cleaned = _sanitize_path(segment)
+    if len(cleaned) < 2:
+        return
+    paths = container.setdefault(key, [])
+    if paths and paths[-1] and paths[-1][-1] == cleaned[0]:
+        merged = _sanitize_path([*paths[-1], *cleaned[1:]])
+        if len(merged) >= 2:
+            paths[-1] = merged
+        return
+    if len(paths) >= max_paths_per_key:
+        return
+    paths.append(cleaned)
+
+
+def _entity_has_paths(item: dict[str, Any]) -> bool:
+    paths = item.get("paths")
+    return isinstance(paths, list) and any(
+        isinstance(path, list) and len(path) >= 2 for path in paths
+    )
 
 
 class MobilityInsightsService:
@@ -412,6 +460,7 @@ class MobilityInsightsService:
         resolution: int,
         street_limit: int = MAX_STREETS,
         street_names_by_cell: dict[str, str | None] | None = None,
+        source_geometry: str | None = None,
     ) -> list[dict[str, Any]]:
         ranked_cells = hex_cells[:MAX_HEX_STREET_LOOKUPS]
         if not ranked_cells:
@@ -462,6 +511,11 @@ class MobilityInsightsService:
                 },
             },
             {"$unwind": "$mobility"},
+            *(
+                [{"$match": {"mobility.source_geometry": source_geometry}}]
+                if source_geometry
+                else []
+            ),
             {"$unwind": "$mobility.cell_counts"},
             {"$match": {"mobility.cell_counts.h3": {"$in": candidate_cells}}},
             {
@@ -520,17 +574,19 @@ class MobilityInsightsService:
             (
                 {
                     "street_name": bucket["street_name"],
+                    "street_key": _normalize_street_key(bucket["street_name"]),
                     "trip_count": len(bucket["trip_ids"]),
                     "traversals": int(bucket["traversals"]),
+                    "times_driven": int(bucket["traversals"]),
                     "distance_miles": round(float(bucket["distance_miles"]), 2),
                     "cells": len(bucket["cell_ids"]),
                 }
                 for bucket in grouped.values()
             ),
             key=lambda row: (
-                -int(row["trip_count"]),
-                -float(row["distance_miles"]),
                 -int(row["traversals"]),
+                -float(row["distance_miles"]),
+                -int(row["trip_count"]),
             ),
         )[:street_limit]
         return top_streets
@@ -589,6 +645,8 @@ class MobilityInsightsService:
             key=lambda row: (-int(row["traversals"]), -float(row["distance_miles"])),
         )[:street_limit]
         for row in top_streets:
+            row["street_key"] = _normalize_street_key(row.get("street_name"))
+            row["times_driven"] = int(row.get("traversals") or 0)
             row["distance_miles"] = round(float(row["distance_miles"]), 2)
         return top_streets
 
@@ -625,6 +683,173 @@ class MobilityInsightsService:
         return dict(resolved_pairs)
 
     @classmethod
+    async def _build_entity_paths(
+        cls,
+        query: dict[str, Any],
+        *,
+        street_cell_ids_by_key: dict[str, set[str]],
+        segment_keys: set[str],
+        resolution: int,
+        spacing_m: float,
+    ) -> tuple[
+        dict[str, list[list[list[float]]]],
+        dict[str, list[list[list[float]]]],
+        list[str],
+    ]:
+        warnings: list[str] = []
+        target_street_keys = {
+            key for key, cells in street_cell_ids_by_key.items() if key and cells
+        }
+        target_segment_keys = {key for key in segment_keys if key}
+        if not target_street_keys and not target_segment_keys:
+            return {}, {}, warnings
+
+        trip_query = _combine_query(
+            query,
+            {"invalid": {"$ne": True}},
+            {"matchedGps": {"$ne": None}},
+        )
+        candidate_count = await Trip.find(trip_query).count()
+        if candidate_count > MAX_PATH_TRIPS_FOR_RENDER:
+            warnings.append(
+                (
+                    "Movement geometry used the most recent "
+                    f"{MAX_PATH_TRIPS_FOR_RENDER:,} matched trips out of "
+                    f"{candidate_count:,} in range."
+                ),
+            )
+
+        trips = (
+            await Trip.find(trip_query)
+            .sort([("startTime", -1)])
+            .limit(MAX_PATH_TRIPS_FOR_RENDER)
+            .to_list()
+        )
+        if not trips:
+            return {}, {}, warnings
+
+        street_key_by_cell: dict[str, str] = {}
+        for street_key, cells in street_cell_ids_by_key.items():
+            for cell_id in cells:
+                if cell_id and cell_id not in street_key_by_cell:
+                    street_key_by_cell[cell_id] = street_key
+
+        street_paths: dict[str, list[list[list[float]]]] = {}
+        segment_paths: dict[str, list[list[list[float]]]] = {}
+
+        for trip in trips:
+            trip_data = trip.model_dump()
+            matched = GeometryService.parse_geojson(trip_data.get("matchedGps"))
+            if not isinstance(matched, dict):
+                continue
+            line_sequences = _line_sequences_from_geometry(matched)
+            for line_coords in line_sequences:
+                sampled_points_raw = _sample_line_points(line_coords, spacing_m)
+                if len(sampled_points_raw) < 2:
+                    continue
+
+                sampled_points: list[list[float]] = []
+                sampled_cells: list[str] = []
+                for point in sampled_points_raw:
+                    is_valid, pair = GeometryService.validate_coordinate_pair(point)
+                    if not is_valid or pair is None:
+                        continue
+                    lon, lat = pair
+                    try:
+                        cell = h3.latlng_to_cell(lat, lon, resolution)
+                    except Exception:
+                        continue
+                    sampled_points.append(pair)
+                    sampled_cells.append(str(cell))
+
+                if len(sampled_points) < 2 or len(sampled_cells) < 2:
+                    continue
+
+                for idx in range(1, len(sampled_cells)):
+                    prev_cell = sampled_cells[idx - 1]
+                    curr_cell = sampled_cells[idx]
+                    prev_point = sampled_points[idx - 1]
+                    curr_point = sampled_points[idx]
+
+                    prev_street_key = street_key_by_cell.get(prev_cell, "")
+                    curr_street_key = street_key_by_cell.get(curr_cell, "")
+                    if prev_street_key in target_street_keys:
+                        _append_path_segment(
+                            street_paths,
+                            prev_street_key,
+                            [prev_point, curr_point],
+                        )
+                    if (
+                        curr_street_key in target_street_keys
+                        and curr_street_key != prev_street_key
+                    ):
+                        _append_path_segment(
+                            street_paths,
+                            curr_street_key,
+                            [prev_point, curr_point],
+                        )
+
+                    if prev_cell == curr_cell:
+                        continue
+                    segment_key, _, _ = _segment_key(prev_cell, curr_cell)
+                    if segment_key in target_segment_keys:
+                        _append_path_segment(
+                            segment_paths,
+                            segment_key,
+                            [prev_point, curr_point],
+                        )
+
+        return street_paths, segment_paths, warnings
+
+    @classmethod
+    def _build_map_center_from_paths(
+        cls,
+        top_streets: list[dict[str, Any]],
+        top_segments: list[dict[str, Any]],
+        fallback_hex_cells: list[dict[str, Any]],
+    ) -> dict[str, float] | None:
+        weighted_lon = 0.0
+        weighted_lat = 0.0
+        total_weight = 0.0
+
+        for item in [*top_streets, *top_segments]:
+            weight = max(1.0, float(item.get("times_driven") or item.get("traversals") or 0))
+            paths = item.get("paths")
+            if not isinstance(paths, list):
+                continue
+            for path in paths:
+                if not isinstance(path, list):
+                    continue
+                for point in path:
+                    is_valid, pair = GeometryService.validate_coordinate_pair(point)
+                    if not is_valid or pair is None:
+                        continue
+                    weighted_lon += pair[0] * weight
+                    weighted_lat += pair[1] * weight
+                    total_weight += weight
+
+        if total_weight > 0:
+            return {
+                "lon": round(weighted_lon / total_weight, 6),
+                "lat": round(weighted_lat / total_weight, 6),
+                "zoom": 11.5,
+            }
+        return cls._build_map_center(fallback_hex_cells)
+
+    @classmethod
+    def _collect_duplicate_values(cls, values: list[str]) -> list[str]:
+        duplicates: set[str] = set()
+        seen: set[str] = set()
+        for raw in values:
+            value = str(raw or "").strip()
+            if not value:
+                continue
+            if value in seen:
+                duplicates.add(value)
+            seen.add(value)
+        return sorted(duplicates)
+
+    @classmethod
     def _segment_label(
         cls,
         street_a: str | None,
@@ -640,7 +865,7 @@ class MobilityInsightsService:
             return left
         if right:
             return right
-        return "Frequent route link"
+        return "Most driven segment"
 
     @classmethod
     def _build_map_center(cls, hex_cells: list[dict[str, Any]]) -> dict[str, float] | None:
@@ -677,8 +902,13 @@ class MobilityInsightsService:
         This syncs a bounded number of unsynced trips automatically so
         Insights reflects recent imports without manual backfill.
         """
-        synced_count, pending_unsynced = await cls.sync_unsynced_trips_for_query(query)
-        trip_query = _combine_query(query, {"invalid": {"$ne": True}})
+        sync_query = _combine_query(query, {"matchedGps": {"$ne": None}})
+        synced_count, pending_unsynced = await cls.sync_unsynced_trips_for_query(sync_query)
+        trip_query = _combine_query(
+            query,
+            {"invalid": {"$ne": True}},
+            {"matchedGps": {"$ne": None}},
+        )
 
         count_pipeline = [
             {"$match": trip_query},
@@ -691,13 +921,29 @@ class MobilityInsightsService:
                 },
             },
             {
+                "$addFields": {
+                    "matched_mobility": {
+                        "$filter": {
+                            "input": "$mobility",
+                            "as": "profile",
+                            "cond": {
+                                "$eq": [
+                                    "$$profile.source_geometry",
+                                    "matchedGps",
+                                ],
+                            },
+                        },
+                    },
+                },
+            },
+            {
                 "$group": {
                     "_id": None,
                     "trip_count": {"$sum": 1},
                     "profiled_trip_count": {
                         "$sum": {
                             "$cond": [
-                                {"$gt": [{"$size": "$mobility"}, 0]},
+                                {"$gt": [{"$size": "$matched_mobility"}, 0]},
                                 1,
                                 0,
                             ],
@@ -720,6 +966,7 @@ class MobilityInsightsService:
                 },
             },
             {"$unwind": "$mobility"},
+            {"$match": {"mobility.source_geometry": "matchedGps"}},
             {"$unwind": "$mobility.cell_counts"},
             {
                 "$group": {
@@ -745,6 +992,7 @@ class MobilityInsightsService:
                 },
             },
             {"$unwind": "$mobility"},
+            {"$match": {"mobility.source_geometry": "matchedGps"}},
             {"$unwind": "$mobility.segment_counts"},
             {
                 "$group": {
@@ -766,6 +1014,7 @@ class MobilityInsightsService:
                 "hex": str(item.get("_id")),
                 "trip_count": int(item.get("trip_count") or 0),
                 "traversals": int(item.get("traversals") or 0),
+                "times_driven": int(item.get("traversals") or 0),
                 "distance_miles": round(float(item.get("distance_miles") or 0.0), 2),
             }
             for item in hex_results
@@ -798,17 +1047,13 @@ class MobilityInsightsService:
             )
             if street_name:
                 cell["street_name"] = street_name
+                cell["street_key"] = _normalize_street_key(street_name)
 
         top_segments: list[dict[str, Any]] = []
         for item in segment_results:
             h3_a = str(item.get("h3_a") or "")
             h3_b = str(item.get("h3_b") or "")
             if not h3_a or not h3_b:
-                continue
-            try:
-                lat_a, lon_a = h3.cell_to_latlng(h3_a)
-                lat_b, lon_b = h3.cell_to_latlng(h3_b)
-            except Exception:
                 continue
             street_a = _normalize_street_name(street_names_by_cell.get(h3_a))
             street_b = _normalize_street_name(street_names_by_cell.get(h3_b))
@@ -822,16 +1067,12 @@ class MobilityInsightsService:
                     "street_b": street_b,
                     "trip_count": int(item.get("trip_count") or 0),
                     "traversals": int(item.get("traversals") or 0),
+                    "times_driven": int(item.get("traversals") or 0),
                     "distance_miles": round(float(item.get("distance_miles") or 0.0), 2),
-                    "coordinates": [[lon_a, lat_a], [lon_b, lat_b]],
-                    "midpoint": {
-                        "lon": round((lon_a + lon_b) / 2.0, 6),
-                        "lat": round((lat_a + lat_b) / 2.0, 6),
-                    },
+                    "paths": [],
                 },
             )
 
-        top_streets_primary = "trip_count"
         try:
             top_streets = await cls._build_top_streets(
                 query,
@@ -839,10 +1080,10 @@ class MobilityInsightsService:
                 resolution=H3_RESOLUTION,
                 street_limit=MAX_STREETS,
                 street_names_by_cell=street_names_by_cell,
+                source_geometry="matchedGps",
             )
         except Exception:
             logger.exception("Mobility street trip-dedupe aggregation failed")
-            top_streets_primary = "traversals_fallback"
             top_streets = await cls._build_top_streets_fallback(
                 hex_cells,
                 resolution=H3_RESOLUTION,
@@ -850,20 +1091,125 @@ class MobilityInsightsService:
                 street_names_by_cell=street_names_by_cell,
             )
 
+        street_cells_by_key: dict[str, set[str]] = defaultdict(set)
+        for cell in hex_cells:
+            street_key = str(cell.get("street_key") or "")
+            cell_id = str(cell.get("hex") or "")
+            if street_key and cell_id:
+                street_cells_by_key[street_key].add(cell_id)
+
+        segment_keys = {
+            str(item.get("segment_key") or "")
+            for item in top_segments
+            if item.get("segment_key")
+        }
+        street_paths_by_key, segment_paths_by_key, path_warnings = (
+            await cls._build_entity_paths(
+                query,
+                street_cell_ids_by_key=street_cells_by_key,
+                segment_keys=segment_keys,
+                resolution=H3_RESOLUTION,
+                spacing_m=H3_SAMPLE_SPACING_M,
+            )
+        )
+
+        ranked_street_count = len(top_streets)
+        ranked_segment_count = len(top_segments)
+        validation_warnings = list(path_warnings)
+        validation_errors: list[str] = []
+
+        duplicate_street_keys = cls._collect_duplicate_values(
+            [str(item.get("street_key") or "") for item in top_streets],
+        )
+        if duplicate_street_keys:
+            validation_errors.append(
+                "Duplicate street identifiers in ranking payload: "
+                + ", ".join(duplicate_street_keys[:5]),
+            )
+
+        duplicate_segment_keys = cls._collect_duplicate_values(
+            [str(item.get("segment_key") or "") for item in top_segments],
+        )
+        if duplicate_segment_keys:
+            validation_errors.append(
+                "Duplicate segment identifiers in ranking payload: "
+                + ", ".join(duplicate_segment_keys[:5]),
+            )
+
+        renderable_top_streets: list[dict[str, Any]] = []
+        for street in top_streets:
+            street_key = str(street.get("street_key") or "")
+            street["times_driven"] = int(street.get("traversals") or 0)
+            street["paths"] = street_paths_by_key.get(street_key, [])
+            if _entity_has_paths(street):
+                renderable_top_streets.append(street)
+            else:
+                validation_warnings.append(
+                    (
+                        "Dropped ranked street from map because no matched "
+                        f"polyline segments were available: {street.get('street_name')}"
+                    ),
+                )
+
+        renderable_top_segments: list[dict[str, Any]] = []
+        for segment in top_segments:
+            segment_key = str(segment.get("segment_key") or "")
+            segment["times_driven"] = int(segment.get("traversals") or 0)
+            segment["paths"] = segment_paths_by_key.get(segment_key, [])
+            if _entity_has_paths(segment):
+                renderable_top_segments.append(segment)
+            else:
+                validation_warnings.append(
+                    (
+                        "Dropped ranked segment from map because no matched "
+                        f"polyline segments were available: {segment_key}"
+                    ),
+                )
+
+        analyzed_trip_count = int(summary.get("profiled_trip_count") or 0)
+
         return {
             "h3_resolution": H3_RESOLUTION,
             "sample_spacing_m": H3_SAMPLE_SPACING_M,
             "trip_count": int(summary.get("trip_count") or 0),
             "profiled_trip_count": int(summary.get("profiled_trip_count") or 0),
+            "analyzed_trip_count": analyzed_trip_count,
+            "analysis_scope": {
+                "geometry_source": "matchedGps",
+                "street_ranking": "times_driven",
+                "segment_ranking": "times_driven",
+            },
             "synced_trips_this_request": synced_count,
             "pending_trip_sync_count": pending_unsynced,
             "metric_basis": {
-                "top_streets_primary": top_streets_primary,
-                "top_segments_primary": "traversals",
-                "map_cells_intensity": "traversals",
+                "top_streets_primary": "times_driven",
+                "top_segments_primary": "times_driven",
+                "map_cells_intensity": "times_driven",
             },
             "hex_cells": hex_cells,
-            "top_segments": top_segments,
-            "top_streets": top_streets,
-            "map_center": cls._build_map_center(hex_cells),
+            "top_segments": renderable_top_segments,
+            "top_streets": renderable_top_streets,
+            "validation": {
+                "warnings": validation_warnings,
+                "errors": validation_errors,
+                "consistency": {
+                    "ranked_street_count": ranked_street_count,
+                    "map_renderable_street_count": len(renderable_top_streets),
+                    "dropped_street_count": max(
+                        0,
+                        ranked_street_count - len(renderable_top_streets),
+                    ),
+                    "ranked_segment_count": ranked_segment_count,
+                    "map_renderable_segment_count": len(renderable_top_segments),
+                    "dropped_segment_count": max(
+                        0,
+                        ranked_segment_count - len(renderable_top_segments),
+                    ),
+                },
+            },
+            "map_center": cls._build_map_center_from_paths(
+                renderable_top_streets,
+                renderable_top_segments,
+                hex_cells,
+            ),
         }
