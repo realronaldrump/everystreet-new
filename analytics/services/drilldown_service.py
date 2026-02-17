@@ -72,7 +72,7 @@ class DrilldownService:
         pipeline = [
             {"$match": match_query},
             build_trip_numeric_fields_stage(),
-            build_trip_duration_fields_stage(fallback_duration_field="$duration"),
+            build_trip_duration_fields_stage(default_duration_field="$duration"),
             {"$sort": sort_spec},
             {"$limit": limit},
             {

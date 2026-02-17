@@ -246,7 +246,7 @@ def build_place_link(
     place_id: str | None,
     *,
     places_by_id: dict[str, Place],
-    fallback_label: str | None = None,
+    default_label: str | None = None,
 ) -> dict[str, Any] | None:
     cleaned_id = coerce_place_id(place_id)
     if not cleaned_id:
@@ -256,7 +256,7 @@ def build_place_link(
     if not place or not place.id:
         return None
 
-    label = (place.name or "").strip() or (fallback_label or "").strip() or cleaned_id
+    label = (place.name or "").strip() or (default_label or "").strip() or cleaned_id
     return {
         "id": cleaned_id,
         "name": place.name,
@@ -324,12 +324,12 @@ async def resolve_route_place_links(route: RecurringRoute) -> dict[str, Any]:
     links["start"] = build_place_link(
         start_place_id,
         places_by_id=places_by_id,
-        fallback_label=route.start_label,
+        default_label=route.start_label,
     )
     links["end"] = build_place_link(
         end_place_id,
         places_by_id=places_by_id,
-        fallback_label=route.end_label,
+        default_label=route.end_label,
     )
     return links
 

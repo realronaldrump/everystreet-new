@@ -119,7 +119,7 @@ function parseHttpishError(message) {
   return { status, statusText, url, host };
 }
 
-function extractWindowInfo(details, fallbackUrl) {
+function extractWindowInfo(details, defaultUrl) {
   const out = {
     windowIndex: null,
     startIso: null,
@@ -134,9 +134,9 @@ function extractWindowInfo(details, fallbackUrl) {
     out.endIso = details.window_end ?? details.windowEnd ?? details.end_iso ?? null;
   }
 
-  if (!out.startIso && fallbackUrl) {
+  if (!out.startIso && defaultUrl) {
     try {
-      const u = new URL(fallbackUrl);
+      const u = new URL(defaultUrl);
       out.startIso = u.searchParams.get("starts-after");
       out.endIso = u.searchParams.get("ends-before");
     } catch {

@@ -571,7 +571,7 @@ async function getExpectedRedirectUri() {
       return data.redirect_uri;
     }
   } catch {
-    // Fall back to origin-based redirect URI.
+    // use origin-based redirect URI.
   }
   return buildRedirectUri();
 }

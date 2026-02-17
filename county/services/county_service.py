@@ -452,7 +452,7 @@ def _extract_stop_points(
     gps_data,
     trip_start_time,
     trip_end_time,
-    fallback_time,
+    default_time,
 ):
     stop_points = []
 
@@ -465,7 +465,7 @@ def _extract_stop_points(
     if gps_type == "Point":
         point_coords = _coerce_point_coords(coords)
         if point_coords:
-            stop_points.append((Point(point_coords[0], point_coords[1]), fallback_time))
+            stop_points.append((Point(point_coords[0], point_coords[1]), default_time))
         return stop_points
 
     if gps_type == "LineString" and isinstance(coords, list) and coords:
@@ -473,11 +473,11 @@ def _extract_stop_points(
         end_coords = _coerce_point_coords(coords[-1])
 
         if start_coords:
-            start_time = trip_start_time or fallback_time
+            start_time = trip_start_time or default_time
             stop_points.append((Point(start_coords[0], start_coords[1]), start_time))
 
         if end_coords and (not start_coords or end_coords != start_coords):
-            end_time = trip_end_time or fallback_time
+            end_time = trip_end_time or default_time
             stop_points.append((Point(end_coords[0], end_coords[1]), end_time))
 
     return stop_points

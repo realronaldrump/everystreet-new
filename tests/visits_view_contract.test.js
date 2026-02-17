@@ -38,6 +38,6 @@ test("Visits detail view contract remains aligned between template and UI manage
   assert.match(
     uiManagerSource,
     /document\.getElementById\("trips-section"\)/,
-    "visits-ui-manager.js should gracefully fall back to #trips-section when legacy containers are absent"
+    "visits-ui-manager.js should gracefully use #trips-section when classic containers are absent"
   );
 });

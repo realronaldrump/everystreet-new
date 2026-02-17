@@ -2,9 +2,7 @@
 Service configuration loader.
 
 Provides async functions to load user-specific configuration from the
-database with environment variable fallbacks. This allows runtime
-configuration through the UI while maintaining backward compatibility
-with .env files.
+database.
 """
 
 from __future__ import annotations
@@ -23,24 +21,11 @@ _settings_cache: AppSettings | None = None
 _seeded_env_keys: set[str] = set()
 
 
-def _build_fallback_settings() -> AppSettings:
-    """
-    Build a non-persisted settings object without requiring Beanie initialization.
-
-    During partial runtime contexts (for example UI-only local checks), Beanie
-    collections may be unavailable. `model_construct` bypasses Document init.
-    """
-    from db.models import AppSettings
-
-    return AppSettings.model_construct()
-
-
 async def get_service_config() -> AppSettings:
     """
     Get service configuration from the database.
 
-    Returns AppSettings document with user-specific settings. Falls back
-    to defaults if no settings are saved yet.
+    Returns AppSettings document with user-specific settings.
 
     This function caches the settings for the lifetime of the process.
     Use clear_config_cache() to force a reload.
@@ -52,50 +37,15 @@ async def get_service_config() -> AppSettings:
 
     from db.models import AppSettings
 
-    try:
-        settings = await AppSettings.find_one()
-        if settings is None:
-            # Create default settings
-            settings = AppSettings()
-            await settings.insert()
-            logger.info("Created default AppSettings document")
-    except Exception as e:
-        logger.warning("Failed to load settings from DB, using defaults: %s", e)
-        # Return a default settings object (not persisted)
-        settings = _build_fallback_settings()
-        _apply_env_overrides(settings)
-        _apply_settings_to_env(settings)
-        return settings
-    else:
-        # Apply environment variable overrides for backward compatibility
-        # Environment variables take precedence if set
-        _apply_env_overrides(settings)
-        _apply_settings_to_env(settings)
+    settings = await AppSettings.find_one()
+    if settings is None:
+        settings = AppSettings()
+        await settings.insert()
+        logger.info("Created default AppSettings document")
 
-        _settings_cache = settings
-        return settings
-
-
-def _apply_env_overrides(settings: AppSettings) -> None:
-    """
-    Apply environment variable overrides to settings.
-
-    Environment variables take precedence over database settings for
-    backward compatibility with existing .env deployments.
-    """
-    # Mapbox
-    env_mapbox = os.getenv("MAPBOX_TOKEN", "").strip()
-    if env_mapbox:
-        settings.mapbox_token = env_mapbox
-
-    # OSM/Geofabrik
-    env_geofabrik = os.getenv("GEOFABRIK_MIRROR", "").strip()
-    if env_geofabrik:
-        settings.geofabrik_mirror = env_geofabrik
-
-    env_osm_path = os.getenv("OSM_EXTRACTS_PATH", "").strip()
-    if env_osm_path:
-        settings.osm_extracts_path = env_osm_path
+    _apply_settings_to_env(settings)
+    _settings_cache = settings
+    return settings
 
 
 def _set_env_value(key: str, value: str | None, *, force: bool = False) -> None:

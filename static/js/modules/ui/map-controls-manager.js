@@ -7,7 +7,7 @@
  * - Style preference persistence
  *
  * Initialization is coordinated by app-controller via mapInitialized event.
- * No polling fallbacks - relies on deterministic event-based initialization.
+ * No polling defaults - relies on deterministic event-based initialization.
  */
 
 import { CONFIG } from "../core/config.js";

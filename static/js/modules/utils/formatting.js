@@ -88,14 +88,14 @@ export function formatDistance(miles, options = 1) {
   const {
     decimals = 1,
     unit = "mi",
-    fallback = "--",
+    default: defaultValue = "--",
   } = typeof options === "number" ? { decimals: options } : options;
   if (miles === null || miles === undefined) {
-    return fallback;
+    return defaultValue;
   }
   const numeric = Number(miles);
   if (!Number.isFinite(numeric)) {
-    return fallback;
+    return defaultValue;
   }
   return `${numeric.toFixed(decimals)} ${unit}`;
 }
@@ -282,7 +282,7 @@ export function formatDateToString(date) {
     return d.format("YYYY-MM-DD");
   }
 
-  // Fallback without dayjs
+  // Default without dayjs
   const dateObj = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(dateObj.getTime())) {
     return null;
@@ -423,19 +423,19 @@ export function formatTimeAgo(dateInput, abbreviated = false) {
  * @param {Object} [options]
  * @param {string} [options.suffix] - Optional suffix (e.g., " ago")
  * @param {boolean} [options.capitalize] - Capitalize "just now"
- * @param {string} [options.fallback] - Fallback string for invalid inputs
+ * @param {string} [options.default] - Default string for invalid inputs
  * @returns {string} Relative time string
  */
 export function formatRelativeTimeShort(
   dateInput,
-  { suffix = "", capitalize = false, fallback = "" } = {}
+  { suffix = "", capitalize = false, default: defaultValue = "" } = {}
 ) {
   if (!dateInput) {
-    return fallback;
+    return defaultValue;
   }
   const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
   if (Number.isNaN(date.getTime())) {
-    return fallback;
+    return defaultValue;
   }
 
   const now = new Date();
@@ -468,19 +468,19 @@ export function formatRelativeTimeShort(
  * @param {Object} [options]
  * @param {boolean} [options.capitalize] - Capitalize "just now"
  * @param {number} [options.maxDays] - Max day count before showing date string
- * @param {string} [options.fallback] - Fallback string for invalid inputs
+ * @param {string} [options.default] - Default string for invalid inputs
  * @returns {string} Relative time string
  */
 export function formatRelativeTimeLong(
   dateInput,
-  { capitalize = false, maxDays = 7, fallback = "" } = {}
+  { capitalize = false, maxDays = 7, default: defaultValue = "" } = {}
 ) {
   if (!dateInput) {
-    return fallback;
+    return defaultValue;
   }
   const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
   if (Number.isNaN(date.getTime())) {
-    return fallback;
+    return defaultValue;
   }
 
   const now = new Date();

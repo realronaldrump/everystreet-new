@@ -275,13 +275,13 @@ class LiveTripTracker {
   }
 
   refreshPrimaryColor() {
-    const fallbackRgb = [59, 138, 127];
+    const defaultRgb = [59, 138, 127];
     const primaryRgbVar = LiveTripTracker.getCssVar("--primary-rgb", "").trim();
     const primaryVar = LiveTripTracker.getCssVar("--primary", "#3b8a7f");
     const resolvedRgb =
       (primaryRgbVar && LiveTripTracker.resolveRgbChannels(`rgb(${primaryRgbVar})`)) ||
       LiveTripTracker.resolveRgbChannels(primaryVar) ||
-      fallbackRgb;
+      defaultRgb;
 
     this.primaryRgb = resolvedRgb;
     this.primaryColor = LiveTripTracker.formatRgb(resolvedRgb);
@@ -776,7 +776,7 @@ class LiveTripTracker {
     if (this.pollingTimer) {
       return;
     }
-    console.info("Starting polling fallback");
+    console.info("Starting polling default");
     this.poll();
   }
 
@@ -936,7 +936,7 @@ class LiveTripTracker {
     }
 
     if (coords.length === 0) {
-      const fallbackPoint = [
+      const defaultPoint = [
         trip.currentLocation,
         trip.current_position,
         trip.location,
@@ -945,8 +945,8 @@ class LiveTripTracker {
         .map((candidate) => LiveTripTracker.normalizeCoordinate(candidate))
         .find(Boolean);
 
-      if (fallbackPoint) {
-        coords = [fallbackPoint];
+      if (defaultPoint) {
+        coords = [defaultPoint];
       }
     }
 
@@ -1061,14 +1061,14 @@ class LiveTripTracker {
     return LiveTripTracker.normalizeBearing(previous + delta * weight);
   }
 
-  static getCssVar(name, fallback) {
+  static getCssVar(name, defaultValue) {
     try {
       const value = getComputedStyle(document.documentElement)
         .getPropertyValue(name)
         .trim();
-      return value || fallback;
+      return value || defaultValue;
     } catch {
-      return fallback;
+      return defaultValue;
     }
   }
 

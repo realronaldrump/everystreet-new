@@ -70,7 +70,7 @@ class TimeAnalyticsService:
             {"$match": query},
             build_trip_duration_fields_stage(
                 tz_expr,
-                fallback_duration_field="$duration",
+                default_duration_field="$duration",
             ),
             {
                 "$project": {

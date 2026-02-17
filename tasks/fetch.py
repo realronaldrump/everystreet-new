@@ -62,75 +62,47 @@ async def _periodic_fetch_trips_logic(
         try:
             start_date_fetch = parse_timestamp(start_time_iso)
             end_date_fetch = parse_timestamp(end_time_iso)
-        except Exception:
-            logger.exception(
-                "Failed to parse provided date range. Falling back to default logic.",
-            )
-            start_date_fetch = None
-        else:
-            if not start_date_fetch or not end_date_fetch:
-                logger.warning(
-                    "Invalid start or end time format. Falling back to default logic.",
-                )
-                start_date_fetch = None
-            else:
-                logger.info(
-                    "Range Fetch (%s): Using provided range %s to %s",
-                    trigger_source,
-                    start_date_fetch.isoformat(),
-                    end_date_fetch.isoformat(),
-                )
+        except Exception as exc:
+            msg = "Invalid provided date range."
+            raise ValueError(msg) from exc
+
+        if not start_date_fetch or not end_date_fetch:
+            msg = "Invalid start or end time format."
+            raise ValueError(msg)
+
+        logger.info(
+            "Range Fetch (%s): Using provided range %s to %s",
+            trigger_source,
+            start_date_fetch.isoformat(),
+            end_date_fetch.isoformat(),
+        )
     else:
         start_date_fetch = None
 
-    # Fallback/Default Logic (Periodic Mode)
+    # Default periodic fetch window.
     if not start_date_fetch:
-        try:
-            logger.info("Looking for the most recent trip in the database (any source)")
-            # Use Beanie to find latest trip
-            latest_trip = await Trip.find().sort("-endTime").first_or_none()
+        logger.info("Looking for the most recent trip in the database (any source)")
+        latest_trip = await Trip.find().sort("-endTime").first_or_none()
+        bootstrap_start = now_utc - timedelta(hours=48)
 
-            if latest_trip:
-                latest_trip_id = latest_trip.transactionId or "unknown"
-                # 'source' field is not explicitly in Trip model but extra fields allowed
-                latest_trip_source = getattr(latest_trip, "source", "unknown")
-                latest_trip_end = latest_trip.endTime
-
-                logger.info(
-                    "Found most recent trip: id=%s, source=%s, endTime=%s",
-                    latest_trip_id,
-                    latest_trip_source,
-                    latest_trip_end,
-                )
-
-                if latest_trip_end:
-                    start_date_fetch = latest_trip_end
-                    logger.info(
-                        "Using latest trip endTime as start_date_fetch: %s",
-                        start_date_fetch.isoformat(),
-                    )
-                else:
-                    logger.warning("Latest trip has no endTime, using fallback")
-                    start_date_fetch = now_utc - timedelta(hours=48)
-                    logger.info(
-                        "Using fallback start date (48 hours ago): %s",
-                        start_date_fetch.isoformat(),
-                    )
-            else:
-                logger.warning("No trips found in database, using fallback date range")
-                start_date_fetch = now_utc - timedelta(hours=48)
-                logger.info(
-                    "Using fallback start date (48 hours ago): %s",
-                    start_date_fetch.isoformat(),
-                )
-
-        except Exception:
-            logger.exception("Error finding latest trip")
-
-        if not start_date_fetch:
-            start_date_fetch = now_utc - timedelta(hours=48)
+        if latest_trip and latest_trip.endTime:
+            latest_trip_id = latest_trip.transactionId or "unknown"
+            latest_trip_source = getattr(latest_trip, "source", "unknown")
             logger.info(
-                "Using fallback start date after error (48 hours ago): %s",
+                "Found most recent trip: id=%s, source=%s, endTime=%s",
+                latest_trip_id,
+                latest_trip_source,
+                latest_trip.endTime,
+            )
+            start_date_fetch = latest_trip.endTime
+            logger.info(
+                "Using latest trip endTime as start_date_fetch: %s",
+                start_date_fetch.isoformat(),
+            )
+        else:
+            start_date_fetch = bootstrap_start
+            logger.info(
+                "Using bootstrap start date (48 hours ago): %s",
                 start_date_fetch.isoformat(),
             )
 

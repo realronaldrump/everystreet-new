@@ -62,7 +62,7 @@ def resolve_import_start_dt(start_dt: datetime | None) -> datetime:
         resolved = ensure_utc(start_dt)
         if resolved is not None:
             return resolved
-    # Fallback: 2020-01-01
+    # Default start date.
     return datetime(2020, 1, 1, tzinfo=UTC)
 
 

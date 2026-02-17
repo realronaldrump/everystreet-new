@@ -2494,7 +2494,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
    Share Modal Styles
    ============================ */
 
-/* stylelint-disable selector-id-pattern -- legacy ID must match template markup */
+/* stylelint-disable selector-id-pattern -- classic ID must match template markup */
 #shareModal .modal-dialog {
   max-width: 380px;
 }
@@ -2616,7 +2616,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   display: block;
 }
 
-.memory-atlas-thumb .memory-atlas-thumb-fallback {
+.memory-atlas-thumb .memory-atlas-thumb-default {
   width: 100%;
   height: 100%;
   min-height: 64px;

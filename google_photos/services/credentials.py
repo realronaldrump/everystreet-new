@@ -34,12 +34,6 @@ async def get_google_photos_credentials() -> dict[str, Any]:
         doc = await GooglePhotosCredentials.find_one(
             GooglePhotosCredentials.id == "google_photos_credentials",
         )
-        if doc is None:
-            doc = await GooglePhotosCredentials.find_one()
-            if doc is not None:
-                logger.warning(
-                    "Google Photos credentials found without expected id; using fallback document",
-                )
     except Exception:
         logger.exception("Error retrieving Google Photos credentials")
         return _default_credentials()
@@ -71,9 +65,7 @@ async def update_google_photos_credentials(payload: dict[str, Any]) -> bool:
             GooglePhotosCredentials.id == "google_photos_credentials",
         )
         if doc is None:
-            doc = await GooglePhotosCredentials.find_one()
-            if doc is None:
-                doc = GooglePhotosCredentials(id="google_photos_credentials")
+            doc = GooglePhotosCredentials(id="google_photos_credentials")
 
         for key, value in payload.items():
             if key == "client_id":
@@ -124,4 +116,3 @@ __all__ = [
     "get_google_photos_credentials",
     "update_google_photos_credentials",
 ]
-

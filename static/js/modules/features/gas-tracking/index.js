@@ -111,7 +111,7 @@ async function initializeMap() {
       attributionControl: false,
     });
   } else {
-    // Fallback if factory not found
+    // Default if factory not found
     if (token) {
       mapboxgl.accessToken = token;
     }

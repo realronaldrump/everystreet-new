@@ -193,7 +193,7 @@ async def active_trip_endpoint():
 @api_route(logger)
 async def trip_updates_endpoint(response: Response):
     """
-    Polling fallback endpoint for trip updates.
+    Polling endpoint for trip updates.
 
     Returns current active trip if available.
     """

@@ -305,7 +305,7 @@ def extract_display_label(value: Any) -> str | None:
             candidate = value.get(key)
             if isinstance(candidate, str) and candidate.strip():
                 return candidate.strip()
-        # Fallback to a compact address_components join
+        # Use a compact address_components join
         components = value.get("address_components")
         if isinstance(components, dict):
             parts = [

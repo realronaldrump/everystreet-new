@@ -158,7 +158,7 @@ function normalizeTripSort(value) {
   }
 
   const normalized = value.trim();
-  // Legacy values (kept for backward compatibility with older localStorage)
+  // Classic values (kept for compatibility with older localStorage)
   if (normalized === "new_to_old") {
     return "date_desc";
   }
@@ -654,12 +654,12 @@ async function loadTripStats() {
       return;
     }
 
-    const toNumber = (value, fallback = 0) => {
+    const toNumber = (value, defaultValue = 0) => {
       if (value === null || value === undefined) {
-        return fallback;
+        return defaultValue;
       }
       const num = typeof value === "number" ? value : Number.parseFloat(value);
-      return Number.isFinite(num) ? num : fallback;
+      return Number.isFinite(num) ? num : defaultValue;
     };
 
     const totalMiles = toNumber(metrics?.total_distance ?? insights?.total_distance, 0);
@@ -1132,14 +1132,14 @@ function sanitizeSvgPath(value) {
   return cleaned.length > 0 ? cleaned : null;
 }
 
-function getThemeColor(variable, fallback) {
+function getThemeColor(variable, defaultColor) {
   if (typeof window === "undefined") {
-    return fallback;
+    return defaultColor;
   }
   const value = getComputedStyle(document.documentElement)
     .getPropertyValue(variable)
     .trim();
-  return value || fallback;
+  return value || defaultColor;
 }
 
 function getTripUiColors() {
@@ -2110,7 +2110,7 @@ function showShareModal() {
         if (err?.name === "AbortError") {
           return;
         }
-        // Native share failed, fall back to copy modal
+        // Native share failed, use copy modal
         console.warn("Native share failed, showing copy modal:", err);
         displayShareModalUI(shareData);
       });
@@ -2174,7 +2174,7 @@ function displayShareModalUI(shareData) {
         shareModal.hide();
       }, 1000);
     } catch {
-      // Fallback for older browsers
+      // Default for older browsers
       urlInput.select();
       urlInput.setSelectionRange(0, 99999);
       document.execCommand("copy");
@@ -2644,7 +2644,7 @@ function renderMemoryAtlasMoments() {
   if (!memoryAtlasMoments.length) {
     const empty = document.createElement("div");
     empty.className = "memory-atlas-thumb";
-    empty.innerHTML = '<div class="memory-atlas-thumb-fallback">No moments yet</div>';
+    empty.innerHTML = '<div class="memory-atlas-thumb-default">No moments yet</div>';
     listEl.appendChild(empty);
     updateMemoryAtlasMarkers();
     return;
@@ -2669,10 +2669,10 @@ function renderMemoryAtlasMoments() {
       img.loading = "lazy";
       btn.appendChild(img);
     } else {
-      const fallback = document.createElement("div");
-      fallback.className = "memory-atlas-thumb-fallback";
-      fallback.innerHTML = '<i class="fas fa-image"></i>';
-      btn.appendChild(fallback);
+      const placeholder = document.createElement("div");
+      placeholder.className = "memory-atlas-thumb-default";
+      placeholder.innerHTML = '<i class="fas fa-image"></i>';
+      btn.appendChild(placeholder);
     }
 
     const caption = document.createElement("div");

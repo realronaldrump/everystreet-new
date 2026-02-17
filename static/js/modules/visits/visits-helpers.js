@@ -110,7 +110,7 @@ const VisitsHelpers = {
       }
     }
 
-    // Fall back to creating line from start/destination points
+    // use creating line from start/destination points
     if (trip.startGeoPoint?.coordinates && trip.destinationGeoPoint?.coordinates) {
       trip.geometry = {
         type: "LineString",

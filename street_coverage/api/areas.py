@@ -296,7 +296,7 @@ def _extract_boundary(result: dict[str, Any], label: str) -> dict[str, Any]:
                     ],
                 }
                 logger.warning(
-                    "Using bounding box fallback for %s due to missing polygon",
+                    "Using bounding box geometry for %s due to missing polygon",
                     label,
                 )
             except (TypeError, ValueError):

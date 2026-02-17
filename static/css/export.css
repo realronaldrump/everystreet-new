@@ -587,7 +587,7 @@
   color: var(--text-primary);
 }
 
-/* === Legacy Fieldset Overrides === */
+/* === Classic Fieldset Overrides === */
 .export-section {
   border: none;
   padding: 0;

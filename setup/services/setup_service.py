@@ -451,17 +451,6 @@ async def get_service_logs(service_name: str, tail: int = 100) -> dict[str, Any]
         error_out = stderr.decode("utf-8", errors="replace")
 
         if process.returncode != 0:
-            # Fallback to simple docker logs if compose fails or container not found via compose
-            # (Sometimes service names differ from container names)
-            [
-                "docker",
-                "logs",
-                "--tail",
-                str(tail),
-                f"everystreet-{target_container}-1",
-            ]
-            # This is a bit guessing, let's just return the error if compose failed for now
-            # or try to interpret standard docker logs
             return {
                 "success": False,
                 "logs": f"Failed to fetch logs: {error_out}",

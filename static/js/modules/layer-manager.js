@@ -638,7 +638,7 @@ const layerManager = {
    * Fade layer in/out with animation
    * @private
    */
-  _fadeLayer(layerId, visible, fallbackOpacity = 1) {
+  _fadeLayer(layerId, visible, defaultOpacity = 1) {
     if (!store.map?.getLayer(layerId)) {
       return;
     }
@@ -652,7 +652,7 @@ const layerManager = {
     }
 
     const transition = { duration: FADE_DURATION, delay: 0 };
-    const targetOpacity = visible ? fallbackOpacity : 0;
+    const targetOpacity = visible ? defaultOpacity : 0;
 
     if (visible) {
       store.map.setLayoutProperty(layerId, "visibility", "visible");
@@ -766,14 +766,14 @@ const layerManager = {
    * Get count of unique trips visible in current viewport
    * @private
    */
-  _getHeatmapTripCountInView(layerName, fallbackCount) {
+  _getHeatmapTripCountInView(layerName, defaultCount) {
     if (!store.map || !store.mapInitialized) {
-      return fallbackCount;
+      return defaultCount;
     }
 
     const layerId = `${layerName}-layer-1`;
     if (!store.map.getLayer(layerId)) {
-      return fallbackCount;
+      return defaultCount;
     }
 
     const rendered = store.map.queryRenderedFeatures({ layers: [layerId] });
@@ -961,7 +961,7 @@ const layerManager = {
         }
       }
 
-      // Fallback: rebuild layer from scratch
+      // Default: rebuild layer from scratch
       await this._rebuildLayer(layerName, layerId, sourceId, layerInfo, data);
     } catch (error) {
       console.error(`Error updating ${layerName} layer:`, error);
@@ -983,7 +983,7 @@ const layerManager = {
           }
         };
         store.map.on("styledata", onStyleData);
-        // Fallback timeout
+        // Default timeout
         setTimeout(() => {
           store.map.off("styledata", onStyleData);
           resolve();

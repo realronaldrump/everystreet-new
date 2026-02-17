@@ -186,7 +186,7 @@ async def process_trip_start(data: dict[str, Any]) -> None:
     start_time = _parse_timestamp(start_data.get("timestamp"))
     if not start_time:
         start_time = datetime.now(UTC)
-        logger.warning("Trip %s: Using current time as fallback", transaction_id)
+        logger.warning("Trip %s: Using current time as default", transaction_id)
 
     # Check if trip already exists using Beanie
     existing_trip = await Trip.find_one(Trip.transactionId == transaction_id)

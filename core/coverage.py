@@ -50,31 +50,12 @@ async def _bulk_write_updates(
 ) -> tuple[int, int]:
     """
     Run a batch of update operations efficiently.
-
-    Uses bulk_write when supported by the backend. Falls back to N
-    update_one calls for test backends (mongomock) that don't fully
-    implement pymongo's bulk API.
     """
     if not updates:
         return 0, 0
 
     operations = [UpdateOne(flt, doc, upsert=upsert) for flt, doc, upsert in updates]
-    try:
-        result = await collection.bulk_write(operations, ordered=ordered)
-    except TypeError as exc:
-        # mongomock's bulk_write doesn't accept the newer pymongo UpdateOne "sort"
-        # kwarg, even when it's None. Fall back to N update_one calls.
-        if "unexpected keyword argument 'sort'" not in str(exc):
-            raise
-
-        modified = 0
-        upserted = 0
-        for flt, doc, upsert in updates:
-            res = await collection.update_one(flt, doc, upsert=upsert)
-            modified += int(getattr(res, "modified_count", 0) or 0)
-            if getattr(res, "upserted_id", None) is not None:
-                upserted += 1
-        return modified, upserted
+    result = await collection.bulk_write(operations, ordered=ordered)
 
     upserted_count = getattr(result, "upserted_count", None)
     if upserted_count is None:
@@ -933,14 +914,7 @@ async def backfill_coverage_for_area(
     if since:
         query["endTime"] = {"$gte": since}
 
-    # Geo queries are great in production, but some test backends may not
-    # implement them. If we can't count with the geo filter, fall back to
-    # scanning all valid trips (we still do precise STRtree matching).
-    try:
-        total_trip_count = await Trip.find(query).count()
-    except Exception:
-        gps_filter.pop("$geoIntersects", None)
-        total_trip_count = await Trip.find(query).count()
+    total_trip_count = await Trip.find(query).count()
 
     logger.info(
         "Processing %d trips for area %s",

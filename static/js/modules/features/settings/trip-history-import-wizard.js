@@ -725,7 +725,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
       const job = await apiClient.get(progressUrl, { signal });
       renderJob(job);
     } catch {
-      // If the first fetch fails, SSE/poll fallback will still try.
+      // If the first fetch fails, SSE/poll default will still try.
     }
 
     startSse();
@@ -812,7 +812,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
       // If status fails, still allow user to attempt plan fetch.
     }
 
-    // Default start date from /api/first_trip_date (fallback handled server-side too).
+    // Default start date from /api/first_trip_date (default handled server-side too).
     if (startInput && !startInput.value) {
       try {
         const first = await apiClient.get("/api/first_trip_date", { signal });
@@ -906,7 +906,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
             return;
           }
         } catch {
-          // fall back to generic error
+          // use generic error
         }
       }
 

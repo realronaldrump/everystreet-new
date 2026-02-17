@@ -9,11 +9,6 @@ export function setupTabSwitching({ signal } = {}) {
   const tabs = document.querySelectorAll(".settings-tab");
   const tabContents = document.querySelectorAll(".settings-tab-content");
   const TAB_STORAGE_KEY = "es:settings-active-tab";
-  const LEGACY_TAB_MAP = {
-    "background-tasks": "sync-settings",
-    bouncie: "credentials",
-    database: "storage",
-  };
 
   const normalizeTabName = (value) => {
     if (!value) {
@@ -21,7 +16,7 @@ export function setupTabSwitching({ signal } = {}) {
     }
     const name = value.replace(/^#/, "").trim();
     const normalized = name.endsWith("-tab") ? name.slice(0, -4) : name;
-    return LEGACY_TAB_MAP[normalized] || normalized;
+    return normalized;
   };
 
   function setActiveTab(tabName, { persist = true, updateHash = false } = {}) {

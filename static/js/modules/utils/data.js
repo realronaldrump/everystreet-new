@@ -1,6 +1,6 @@
 import apiClient from "../core/api-client.js";
 import { CONFIG } from "../core/config.js";
-import store, { LEGACY_KEY_MAP } from "../core/store.js";
+import store from "../core/store.js";
 import notificationManager from "../ui/notifications.js";
 
 // ============================================================================
@@ -72,10 +72,6 @@ export function throttle(func, limit) {
  */
 export function getStorage(key, defaultValue = null) {
   try {
-    if (Object.hasOwn(LEGACY_KEY_MAP, key)) {
-      const value = store.getLegacy(key);
-      return value ?? defaultValue;
-    }
     const value = localStorage.getItem(key);
     if (value === null) {
       return defaultValue;
@@ -99,10 +95,6 @@ export function getStorage(key, defaultValue = null) {
  */
 export function setStorage(key, value) {
   try {
-    if (Object.hasOwn(LEGACY_KEY_MAP, key)) {
-      store.setLegacy(key, value, { source: "utils" });
-      return true;
-    }
     const stringValue =
       typeof value === "object" ? JSON.stringify(value) : String(value);
     localStorage.setItem(key, stringValue);
@@ -128,10 +120,6 @@ export function setStorage(key, value) {
  */
 export function removeStorage(key) {
   try {
-    if (Object.hasOwn(LEGACY_KEY_MAP, key)) {
-      store.removeLegacy(key);
-      return true;
-    }
     localStorage.removeItem(key);
     return true;
   } catch (error) {

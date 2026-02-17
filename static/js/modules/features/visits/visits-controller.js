@@ -655,7 +655,7 @@ class VisitsPageController {
         <div class="place-card" data-place-id="${placeId}" onclick="visitsPage.showPlaceDetail('${placeId}')">
           <div class="place-card-header ${accent}">
             <div class="place-map-preview" id="${mapId}">
-              <div class="map-preview-fallback">
+              <div class="map-preview-default">
                 <i class="fas fa-draw-polygon"></i>
                 <span>${geometry ? "Loading boundary preview..." : "Boundary unavailable"}</span>
               </div>
@@ -788,7 +788,7 @@ class VisitsPageController {
         return `
         <div class="discovery-card" data-suggestion-index="${index}">
           <div class="discovery-map-preview" id="discovery-map-${index}">
-            <div class="map-preview-fallback">
+            <div class="map-preview-default">
               <i class="fas fa-map-marked-alt"></i>
               <span>Map preview unavailable</span>
             </div>

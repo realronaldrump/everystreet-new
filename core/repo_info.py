@@ -1,22 +1,15 @@
 from __future__ import annotations
 
 import json
-import os
-import re
 import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 # Path to version file generated at build time
 VERSION_FILE = Path(__file__).parent.parent / "version.json"
-GITHUB_REPO = os.getenv("GITHUB_REPO", "realronaldrump/everystreet-new")
-GITHUB_BRANCH = os.getenv("GITHUB_BRANCH", "main")
-GITHUB_API_TIMEOUT_SECONDS = 3
 
 
 @dataclass(frozen=True)
@@ -71,53 +64,6 @@ def _run_git_command(args: list[str]) -> str | None:
     return result.stdout.strip() or None
 
 
-def _get_github_repo_info() -> tuple[str | None, str | None]:
-    if not GITHUB_REPO:
-        return None, None
-    url = (
-        f"https://api.github.com/repos/{GITHUB_REPO}/commits"
-        f"?sha={GITHUB_BRANCH}&per_page=1"
-    )
-    request = Request(
-        url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Cache-Control": "no-cache",
-            "User-Agent": "everystreet-repo-info",
-        },
-    )
-    try:
-        with urlopen(request, timeout=GITHUB_API_TIMEOUT_SECONDS) as response:
-            link_header = response.headers.get("Link", "")
-            body = response.read()
-    except (HTTPError, URLError, TimeoutError, ValueError):
-        return None, None
-
-    commit_count = None
-    if link_header:
-        for part in link_header.split(","):
-            if 'rel="last"' in part:
-                match = re.search(r"[?&]page=(\d+)", part)
-                if match:
-                    commit_count = match.group(1)
-                    break
-
-    try:
-        data = json.loads(body)
-    except json.JSONDecodeError:
-        return commit_count, None
-
-    latest_iso = None
-    if isinstance(data, list) and data:
-        latest = data[0]
-        commit = latest.get("commit", {})
-        committer = commit.get("committer") or commit.get("author") or {}
-        latest_iso = committer.get("date")
-        if commit_count is None:
-            commit_count = str(len(data))
-    return commit_count, latest_iso
-
-
 def _format_commit_datetime(commit_iso: str | None) -> str:
     if not commit_iso:
         return "Unknown"
@@ -134,7 +80,6 @@ def get_repo_version_info() -> RepoVersionInfo:
     Get repository version information with the following priority:
     1. version.json (generated during build)
     2. Local git command (for development)
-    3. GitHub API (fallback)
     """
     # 1. Try version file (fastest, for Docker/Prod)
     version_info = _read_version_file()
@@ -155,23 +100,8 @@ def get_repo_version_info() -> RepoVersionInfo:
             last_updated=last_updated,
         )
 
-    # 3. Fallback to GitHub API (slowest, discouraged)
-    github_commit_count, github_commit_iso = _get_github_repo_info()
-    github_last_updated = (
-        _format_display_date(github_commit_iso) if github_commit_iso else "Unknown"
-    )
-
-    # Use whatever we found, or defaults from version file if partially successful
-    final_count = github_commit_count or (
-        version_info.commit_count if version_info else "Unknown"
-    )
-    final_hash = version_info.commit_hash if version_info else "Unknown"
-    final_updated = github_last_updated or (
-        version_info.last_updated if version_info else "Unknown"
-    )
-
-    return RepoVersionInfo(
-        commit_count=final_count,
-        commit_hash=final_hash,
-        last_updated=final_updated,
+    return version_info or RepoVersionInfo(
+        commit_count="Unknown",
+        commit_hash="Unknown",
+        last_updated="Unknown",
     )

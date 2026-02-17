@@ -82,7 +82,7 @@ async def test_get_driving_insights_skips_placeholder_destination_labels(
 
 
 @pytest.mark.asyncio
-async def test_get_driving_insights_movement_fallback_includes_metric_basis(
+async def test_get_driving_insights_movement_default_includes_metric_basis(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     aggregate_results = [

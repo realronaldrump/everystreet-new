@@ -17,8 +17,7 @@ GRAPH_ROAD_FILTER_VERSION_KEY = "coverage_road_filter_version"
 GRAPH_ROAD_FILTER_SIGNATURE_KEY = "coverage_road_filter_signature"
 GRAPH_ROAD_FILTER_STATS_KEY = "coverage_road_filter_stats"
 
-# Legacy behavior used prior to v2 public-road filtering.
-LEGACY_DRIVEABLE_HIGHWAY_TYPES = {
+DRIVEABLE_HIGHWAY_TYPES = {
     "motorway",
     "trunk",
     "primary",
@@ -33,9 +32,8 @@ LEGACY_DRIVEABLE_HIGHWAY_TYPES = {
     "tertiary_link",
     "living_street",
     "service",
+    "track",
 }
-
-DRIVEABLE_HIGHWAY_TYPES = LEGACY_DRIVEABLE_HIGHWAY_TYPES | {"track"}
 
 HARD_RESTRICTION_VALUES = {
     "private",
@@ -91,8 +89,7 @@ TAG_ALIASES = {
 
 MODE_BALANCED = "balanced"
 MODE_STRICT = "strict"
-MODE_LEGACY = "legacy"
-VALID_MODES = {MODE_BALANCED, MODE_STRICT, MODE_LEGACY}
+VALID_MODES = {MODE_BALANCED, MODE_STRICT}
 
 TRACK_CONDITIONAL = "conditional"
 TRACK_EXCLUDE = "exclude"
@@ -248,9 +245,6 @@ def classify_public_road(
     effective_track_policy = get_track_policy(track_policy)
     values = extract_relevant_tags(tags)
 
-    if effective_mode == MODE_LEGACY:
-        return _classify_legacy(values)
-
     highway = _pick_driveable_highway(values.get("highway"))
     if highway is None:
         return PublicRoadDecision(
@@ -338,25 +332,8 @@ def classify_public_road(
     )
 
 
-def _classify_legacy(tags: Mapping[str, Any] | None) -> PublicRoadDecision:
-    highway = _pick_driveable_highway((tags or {}).get("highway"), legacy=True)
-    if highway is None:
-        return PublicRoadDecision(
-            include=False,
-            reason_code="exclude_legacy_non_driveable_highway",
-            confidence=1.0,
-            highway_type=None,
-        )
-    return PublicRoadDecision(
-        include=True,
-        reason_code="include_legacy_driveable_highway",
-        confidence=0.8,
-        highway_type=highway,
-    )
-
-
-def _pick_driveable_highway(value: Any, *, legacy: bool = False) -> str | None:
-    candidates = LEGACY_DRIVEABLE_HIGHWAY_TYPES if legacy else DRIVEABLE_HIGHWAY_TYPES
+def _pick_driveable_highway(value: Any) -> str | None:
+    candidates = DRIVEABLE_HIGHWAY_TYPES
     for token in normalize_tag_values(value):
         if token in candidates:
             return token

@@ -265,15 +265,15 @@ class StorageService:
             )
 
         if not volume_names and not docker_error:
-            fallback_names: set[str] = set()
+            discovered_names: set[str] = set()
             for volume_label in EXPECTED_VOLUMES:
                 names, err = await _list_volumes(
                     ["--filter", f"label=com.docker.compose.volume={volume_label}"],
                 )
                 if err and not docker_error:
                     docker_error = err
-                fallback_names.update(names)
-            volume_names = sorted(fallback_names)
+                discovered_names.update(names)
+            volume_names = sorted(discovered_names)
 
         if docker_error and _is_docker_unavailable(docker_error):
             for volume_label, friendly in EXPECTED_VOLUMES.items():

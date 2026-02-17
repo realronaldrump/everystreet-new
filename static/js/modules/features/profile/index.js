@@ -360,7 +360,7 @@ async function getExpectedRedirectUri() {
       return data.redirect_uri;
     }
   } catch {
-    // Fall back to constructing from window.location
+    // use constructing from window.location
   }
   return `${window.location.origin}/api/bouncie/callback`;
 }
@@ -702,7 +702,7 @@ function handleNavigationAttempt(event) {
       try {
         url = new URL(anchor.href, window.location.origin);
       } catch {
-        // Ignore parsing errors and fall back to a normal navigation.
+        // Ignore parsing errors and use a normal navigation.
       }
 
       if (!allowSwup || !url || url.origin !== window.location.origin) {

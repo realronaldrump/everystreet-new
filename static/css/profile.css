@@ -109,7 +109,7 @@
   min-width: 0;
 }
 
-/* stylelint-disable selector-id-pattern -- legacy ID must match template markup */
+/* stylelint-disable selector-id-pattern -- classic ID must match template markup */
 #bouncieCredentialsForm[data-editing="false"] .edit-only {
   display: none;
 }

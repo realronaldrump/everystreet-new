@@ -94,7 +94,7 @@ async def _infer_compose_project(service_name: str) -> str | None:
         "--format",
         '{{.Label "com.docker.compose.project"}}',
     ]
-    rc, stdout, stderr = await run_docker(cmd, timeout=DOCKER_CMD_TIMEOUT)
+    rc, stdout, stderr = await run_docker(cmd, timeout_seconds=DOCKER_CMD_TIMEOUT)
     if rc != 0:
         if is_docker_unavailable_error(stderr):
             return None
@@ -121,7 +121,7 @@ async def _find_container_names(service_name: str) -> tuple[list[str], str | Non
             "--format",
             "{{.Names}}",
         ]
-        rc, stdout, stderr = await run_docker(cmd, timeout=DOCKER_CMD_TIMEOUT)
+        rc, stdout, stderr = await run_docker(cmd, timeout_seconds=DOCKER_CMD_TIMEOUT)
         if rc == 0 and stdout:
             return stdout.splitlines(), None
         if is_docker_unavailable_error(stderr):
@@ -136,7 +136,7 @@ async def _find_container_names(service_name: str) -> tuple[list[str], str | Non
         "--format",
         "{{.Names}}",
     ]
-    rc, stdout, stderr = await run_docker(cmd, timeout=DOCKER_CMD_TIMEOUT)
+    rc, stdout, stderr = await run_docker(cmd, timeout_seconds=DOCKER_CMD_TIMEOUT)
     if rc == 0 and stdout:
         return stdout.splitlines(), None
     if is_docker_unavailable_error(stderr):
@@ -146,7 +146,7 @@ async def _find_container_names(service_name: str) -> tuple[list[str], str | Non
 
 async def _inspect_container(container_name: str) -> dict[str, Any]:
     cmd = ["docker", "inspect", container_name]
-    rc, stdout, stderr = await run_docker(cmd, timeout=DOCKER_CMD_TIMEOUT)
+    rc, stdout, stderr = await run_docker(cmd, timeout_seconds=DOCKER_CMD_TIMEOUT)
     if rc != 0:
         if is_docker_unavailable_error(stderr):
             return {"error": stderr or "docker unavailable"}
@@ -166,9 +166,7 @@ async def check_container_status(service_name: str) -> dict[str, Any]:
     """
     Check if a docker compose service container is running.
 
-    Tries Docker Compose v2 (docker compose) first, then falls back to
-    Docker Compose v1 (docker-compose) if unavailable, then finally
-    falls back to docker ps if both fail.
+    Inspects docker containers directly via `docker ps` and `docker inspect`.
 
     Uses asyncio subprocesses to avoid blocking the event loop.
     """

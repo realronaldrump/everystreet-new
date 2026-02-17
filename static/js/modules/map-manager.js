@@ -323,13 +323,13 @@ const mapManager = {
       properties: matchingFeature.properties || {},
     };
 
-    const fallbackHighlight = selectedLayer === "matchedTrips" ? "#4da396" : "#d09868";
+    const defaultHighlight = selectedLayer === "matchedTrips" ? "#4da396" : "#d09868";
     const highlightColor =
       (selectedLayer === "matchedTrips"
         ? MapStyles.MAP_LAYER_COLORS?.matchedTrips?.highlight
         : MapStyles.MAP_LAYER_COLORS?.trips?.selected) ||
       layerInfo.highlightColor ||
-      fallbackHighlight;
+      defaultHighlight;
 
     const highlightWidth = [
       "interpolate",

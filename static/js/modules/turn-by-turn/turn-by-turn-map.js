@@ -7,14 +7,14 @@
 
 import { MAP_STYLES } from "./turn-by-turn-config.js";
 
-const getThemeColor = (variable, fallback) => {
+const getThemeColor = (variable, defaultColor) => {
   if (typeof window === "undefined") {
-    return fallback;
+    return defaultColor;
   }
   const value = getComputedStyle(document.documentElement)
     .getPropertyValue(variable)
     .trim();
-  return value || fallback;
+  return value || defaultColor;
 };
 
 /**

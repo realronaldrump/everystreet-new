@@ -776,7 +776,7 @@
   line-height: 1.5;
 }
 
-/* Legacy styles - kept for compatibility */
+/* Classic styles - kept for compatibility */
 .storage-summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

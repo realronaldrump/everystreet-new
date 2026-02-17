@@ -3,7 +3,6 @@ from __future__ import annotations
 import time
 
 from street_coverage.public_road_filter import (
-    MODE_LEGACY,
     MODE_STRICT,
     TRACK_CONDITIONAL,
     classify_public_road,
@@ -81,15 +80,6 @@ def test_classify_ambiguous_access_strict_mode_excludes() -> None:
     )
     assert decision.include is False
     assert decision.reason_code == "exclude_ambiguous_access_strict"
-
-
-def test_classify_legacy_mode_mimics_highway_only_filter() -> None:
-    decision = classify_public_road(
-        {"highway": "residential", "access": "private"},
-        mode=MODE_LEGACY,
-    )
-    assert decision.include is True
-    assert decision.reason_code == "include_legacy_driveable_highway"
 
 
 def test_classifier_performance_guard() -> None:

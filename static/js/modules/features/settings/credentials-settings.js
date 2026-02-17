@@ -567,7 +567,7 @@ async function getExpectedRedirectUri({ signal } = {}) {
       return data.redirect_uri;
     }
   } catch {
-    // Fall back to constructing from window.location
+    // use constructing from window.location
   }
   return `${window.location.origin}/api/bouncie/callback`;
 }

@@ -83,7 +83,7 @@ export class DrivingNavigationMap {
     this.ownsMap = false;
     this.interactivityHandlers = null;
 
-    // Get colors with fallbacks from MapStyles if available
+    // Get colors with defaults from MapStyles if available
     this.clusterColors = normalizeClusterColors(MapStyles.MAP_LAYER_COLORS?.clusters);
     this.streetColors = normalizeStreetColors(MapStyles.MAP_LAYER_COLORS?.streets);
     this.routeColors = normalizeRouteColors(MapStyles.MAP_LAYER_COLORS?.routes);
@@ -386,7 +386,7 @@ export class DrivingNavigationMap {
         features: [features[0]],
       });
     } else {
-      // Fallback: search through all features
+      // Default: search through all features
       const allFeatures = this.querySourceFeatures("undriven-streets");
       const targetFeature = allFeatures.find(
         (f) => f.properties?.segment_id === segmentId

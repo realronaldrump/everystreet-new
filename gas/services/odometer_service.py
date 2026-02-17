@@ -46,8 +46,8 @@ class OdometerService:
                 logger.info("Using real-time Bouncie data for IMEI %s", imei)
                 return bouncie_data
 
-            # Fallback to most recent trip if Bouncie API fails
-            logger.info("Falling back to local trip data for IMEI %s", imei)
+            # Use most recent trip data if real-time data is unavailable.
+            logger.info("Using local trip data for IMEI %s", imei)
             trip = (
                 await Trip.find(Trip.imei == imei).sort(-Trip.endTime).first_or_none()
             )
@@ -131,21 +131,21 @@ class OdometerService:
                 location_data,
             )
 
-        # 3. Start Location (Fallback if trip has no movement)
+        # 3. Start Location (if trip has no movement)
         if location_data["latitude"] is None and trip.startLocation:
             location_data = OdometerService._extract_start_location(
                 trip.startLocation,
                 location_data,
             )
 
-        # Odometer Fallback
+        # Odometer defaults
         if location_data["odometer"] is None:
             if trip.endOdometer:
                 location_data["odometer"] = trip.endOdometer
             elif trip.startOdometer:
                 location_data["odometer"] = trip.startOdometer
                 logger.info(
-                    "Vehicle Loc Debug: Fallback to startOdometer %s",
+                    "Vehicle Loc Debug: Using startOdometer %s",
                     location_data["odometer"],
                 )
 
@@ -206,7 +206,7 @@ class OdometerService:
             if is_valid and validated is not None:
                 location_data["longitude"] = validated[0]
                 location_data["latitude"] = validated[1]
-                logger.info("Vehicle Loc Debug: Used endLocation fallback")
+                logger.info("Vehicle Loc Debug: Used endLocation value")
 
         return location_data
 
@@ -232,7 +232,7 @@ class OdometerService:
             if is_valid and validated is not None:
                 location_data["longitude"] = validated[0]
                 location_data["latitude"] = validated[1]
-                logger.info("Vehicle Loc Debug: Used startLocation fallback")
+                logger.info("Vehicle Loc Debug: Used startLocation value")
 
         return location_data
 

@@ -28,7 +28,7 @@ export const DEFAULT_CLUSTER_COLORS = [
 ];
 
 /**
- * Default street colors with fallbacks.
+ * Default street colors with defaults.
  */
 export const DEFAULT_STREET_COLORS = {
   undriven: "#c47050",
@@ -36,7 +36,7 @@ export const DEFAULT_STREET_COLORS = {
 };
 
 /**
- * Default route colors with fallbacks.
+ * Default route colors with defaults.
  */
 export const DEFAULT_ROUTE_COLORS = {
   calculated: "#3b8a7f",

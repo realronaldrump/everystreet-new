@@ -28,7 +28,7 @@ function pathnameFromSwupUrl(urlish) {
       return trimmed.split("#")[0].split("?")[0] || null;
     }
   }
-  // Backward/defensive: tolerate URL-like objects.
+  // Tolerate URL-like objects.
   if (typeof urlish === "object") {
     if (typeof urlish.pathname === "string" && urlish.pathname) {
       return urlish.pathname;
@@ -60,27 +60,6 @@ function urlFromSwupUrl(urlish) {
     }
   }
   return null;
-}
-
-function createSwupFallback() {
-  const hooks = {
-    on() {},
-    off() {},
-  };
-  return {
-    hooks,
-    // Match Swup's navigate signature; options are ignored.
-    navigate(href) {
-      if (typeof href !== "string" || !href) {
-        return;
-      }
-      try {
-        window.location.assign(href);
-      } catch {
-        window.location.href = href;
-      }
-    },
-  };
 }
 
 async function loadSwupDeps() {
@@ -406,15 +385,7 @@ export async function initNavigation() {
       SwupA11yPlugin,
     } = await loadSwupDeps());
   } catch (error) {
-    console.warn("Swup failed to load; falling back to full page navigation.", error);
-
-    swup = createSwupFallback();
-    // Initial route module and state (no SPA transitions).
-    await ensureRouteModule(window.location.pathname);
-    setRouteState(window.location.pathname);
-    updateHistoryAndBreadcrumb(window.location.pathname);
-    resolveReady?.(swup);
-    return swup;
+    throw new Error(`Swup failed to load: ${error instanceof Error ? error.message : error}`);
   }
 
   const missing = [];
@@ -438,15 +409,7 @@ export async function initNavigation() {
   }
 
   if (missing.length > 0) {
-    console.warn(
-      `Swup dependencies missing (${missing.join(", ")}); disabling SPA navigation.`
-    );
-    swup = createSwupFallback();
-    await ensureRouteModule(window.location.pathname);
-    setRouteState(window.location.pathname);
-    updateHistoryAndBreadcrumb(window.location.pathname);
-    resolveReady?.(swup);
-    return swup;
+    throw new Error(`Swup dependencies missing: ${missing.join(", ")}`);
   }
 
   swup = new Swup({

@@ -4,7 +4,7 @@ import test from "node:test";
 import TurnByTurnAPI from "../static/js/modules/turn-by-turn/turn-by-turn-api.js";
 import TurnByTurnCoverage from "../static/js/modules/turn-by-turn/turn-by-turn-coverage.js";
 
-test("persistDrivenSegments falls back to base persistence when mission write fails", async () => {
+test("persistDrivenSegments uses base persistence when mission write fails", async () => {
   const coverage = new TurnByTurnCoverage();
   coverage.selectedAreaId = "area-1";
   coverage.setMissionContext("mission-1");
@@ -105,7 +105,7 @@ test("persistDrivenSegments emits mission delta callback on mission success", as
   }
 });
 
-test("persistDrivenSegments notifies mission detachment when fallback to base succeeds", async () => {
+test("persistDrivenSegments notifies mission detachment when default to base succeeds", async () => {
   const coverage = new TurnByTurnCoverage();
   coverage.selectedAreaId = "area-4";
   coverage.setMissionContext("mission-4");

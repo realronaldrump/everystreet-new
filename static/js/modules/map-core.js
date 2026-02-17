@@ -3,7 +3,7 @@
  *
  * This module is the single entry point for map creation and initialization.
  * It consolidates token handling, map creation, and provides a deterministic
- * ready state without polling fallbacks.
+ * ready state without polling defaults.
  *
  * Usage:
  *   import mapCore from './map-core.js';
@@ -217,7 +217,7 @@ const mapCore = {
 
       // Store references
       state.map = map;
-      window.map = map; // Legacy support
+      window.map = map; // Classic support
 
       loadingManager?.updateMessage("Adding controls...");
 

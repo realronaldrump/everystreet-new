@@ -39,7 +39,7 @@ def test_compute_moment_anchor_prefers_exif_location() -> None:
         lat=33.755,
         lon=-84.38,
         capture_time=None,
-        fallback_fraction=0.5,
+        sequence_fraction=0.5,
     )
 
     assert result["anchor_strategy"] == "exif_gps"
@@ -48,7 +48,7 @@ def test_compute_moment_anchor_prefers_exif_location() -> None:
     assert result["lon"] == -84.38
 
 
-def test_compute_moment_anchor_falls_back_to_timestamp() -> None:
+def test_compute_moment_anchor_uses_timestamp_interpolation() -> None:
     trip = _sample_trip()
     coords = trip["gps"]["coordinates"]
     capture_time = datetime(2025, 1, 1, 12, 15, tzinfo=UTC)
@@ -59,7 +59,7 @@ def test_compute_moment_anchor_falls_back_to_timestamp() -> None:
         lat=None,
         lon=None,
         capture_time=capture_time,
-        fallback_fraction=0.2,
+        sequence_fraction=0.2,
     )
 
     assert result["anchor_strategy"] == "timestamp_interp"
@@ -116,7 +116,7 @@ def test_select_best_trip_for_moment_prefers_time_window_match() -> None:
     assert float(match["confidence"]) >= 0.8
 
 
-def test_select_best_trip_for_moment_uses_location_fallback() -> None:
+def test_select_best_trip_for_moment_uses_location_default() -> None:
     trip_a = SimpleNamespace(
         id="a",
         transactionId="trip-a",

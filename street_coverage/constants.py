@@ -42,7 +42,7 @@ MAX_VIEWPORT_FEATURES = 5000
 
 
 def _get_int_env(name: str, default: int) -> int:
-    """Get an integer from environment variable with fallback."""
+    """Get an integer from environment variable with default."""
     import os
 
     raw = os.getenv(name, "").strip()

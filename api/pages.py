@@ -78,7 +78,7 @@ async def settings_add_vehicle(
     imei: Annotated[str, Form()] = "",
     custom_name: Annotated[str | None, Form()] = None,
 ) -> RedirectResponse:
-    """Fallback handler for the Credentials -> Add Vehicle form (non-JS)."""
+    """Handle Credentials -> Add Vehicle form submission."""
     imei_value = (imei or "").strip()
     name_value = (custom_name or "").strip() or None
 
@@ -121,7 +121,7 @@ async def vehicles_add_vehicle(
     imei: Annotated[str, Form()] = "",
     custom_name: Annotated[str | None, Form()] = None,
 ) -> RedirectResponse:
-    """Fallback handler for the My Vehicles -> Add Vehicle form (non-JS)."""
+    """Handle My Vehicles -> Add Vehicle form submission."""
     imei_value = (imei or "").strip()
     name_value = (custom_name or "").strip() or None
 
@@ -230,14 +230,6 @@ async def database_management_page():
     return RedirectResponse(url="/settings#storage", status_code=301)
 
 
-@router.get("/app-settings", response_class=HTMLResponse)
-async def app_settings_page():
-    """Redirect old app-settings to unified settings page."""
-    from fastapi.responses import RedirectResponse
-
-    return RedirectResponse(url="/settings", status_code=301)
-
-
 @router.get("/server-logs", response_class=HTMLResponse)
 async def server_logs_page(request: Request):
     """Render server logs viewing page."""
@@ -309,12 +301,6 @@ async def county_map_page(request: Request):
 async def setup_wizard_page(request: Request):
     """Render the setup wizard."""
     return _render_page("setup_wizard.html", request)
-
-
-@router.get("/setup", response_class=RedirectResponse)
-async def setup_wizard_redirect():
-    """Redirect legacy setup path to the current wizard route."""
-    return RedirectResponse(url="/setup-wizard", status_code=308)
 
 
 @router.get("/status", response_class=HTMLResponse)

@@ -1,7 +1,5 @@
 import contextlib
 import heapq
-import logging
-import math
 from collections.abc import Callable
 
 import networkx as nx
@@ -9,8 +7,6 @@ from shapely.geometry import LineString
 
 from .constants import FEET_PER_METER, MAX_OSM_MATCH_DISTANCE_FT
 from .types import EdgeRef
-
-logger = logging.getLogger(__name__)
 
 
 def _identity_xy(x: float, y: float) -> tuple[float, float]:
@@ -49,29 +45,13 @@ def _meters_per_graph_unit(G: nx.Graph) -> float | None:
     return 1.0
 
 
-def _reference_latitude(G: nx.Graph) -> float:
-    ys: list[float] = []
-    for _n, data in G.nodes(data=True):
-        y = data.get("y")
-        if y is None:
-            continue
-        with contextlib.suppress(Exception):
-            ys.append(float(y))
-        if len(ys) >= 256:
-            break
-    if not ys:
-        return 0.0
-    return float(sum(ys) / len(ys))
-
-
 def graph_units_to_feet(G: nx.Graph, distance: float) -> float:
     """
     Convert a distance measured in the graph's coordinate units to feet.
 
     OSMnx returns distances from nearest-node/edge queries in the same
     units as the graph's CRS. For accurate distance-based thresholds, use a
-    projected graph. This function still provides a latitude-aware fallback
-    when only geographic degrees are available.
+    projected graph.
     """
     try:
         distance = float(distance)
@@ -82,16 +62,8 @@ def graph_units_to_feet(G: nx.Graph, distance: float) -> float:
     if meters_per_unit is not None:
         return distance * meters_per_unit * FEET_PER_METER
 
-    lat = _reference_latitude(G)
-    lat_rad = math.radians(lat)
-    meters_per_lat = (
-        111_132.92
-        - 559.82 * math.cos(2 * lat_rad)
-        + 1.175 * math.cos(4 * lat_rad)
-    )
-    meters_per_lon = 111_412.84 * math.cos(lat_rad) - 93.5 * math.cos(3 * lat_rad)
-    meters_per_degree = (abs(meters_per_lat) + abs(meters_per_lon)) / 2.0
-    return distance * meters_per_degree * FEET_PER_METER
+    msg = "Routing graph must be projected to convert graph units to feet."
+    raise ValueError(msg)
 
 
 def _build_point_projector(
@@ -128,8 +100,7 @@ def prepare_spatial_matching_graph(
     """
     Return a projected graph plus point-projector for accurate matching.
 
-    Falls back to the original graph and identity projector if projection
-    cannot be prepared.
+    Raises when projection metadata is missing or projection fails.
     """
     source_crs = None
     with contextlib.suppress(Exception):
@@ -140,29 +111,18 @@ def prepare_spatial_matching_graph(
     if _is_projected_graph(G):
         projector = _build_point_projector(source_crs, _get_crs_obj(G))
         if projector is None:
-            logger.warning(
-                "Projected graph is missing CRS transform metadata; using identity projector.",
-            )
-            return G, _identity_xy
+            msg = "Projected graph is missing CRS transform metadata."
+            raise RuntimeError(msg)
         return G, projector
 
-    try:
-        import osmnx as ox
+    import osmnx as ox
 
-        projected = ox.projection.project_graph(G)
-    except Exception as exc:
-        logger.warning(
-            "Failed to project graph for spatial matching; using original CRS: %s",
-            exc,
-        )
-        return G, _identity_xy
+    projected = ox.projection.project_graph(G)
 
     projector = _build_point_projector(source_crs, _get_crs_obj(projected))
     if projector is None:
-        logger.warning(
-            "Missing CRS metadata for projected matching; using original graph.",
-        )
-        return G, _identity_xy
+        msg = "Missing CRS metadata for projected graph."
+        raise RuntimeError(msg)
 
     return projected, projector
 
@@ -301,22 +261,9 @@ def get_edge_geometry(
     """
     coords: list[list[float]] = []
 
-    # Fallback: straight line between node coordinates
-    def _fallback() -> list[list[float]]:
-        if node_xy and u in node_xy and v in node_xy:
-            ux, uy = node_xy[u]
-            vx, vy = node_xy[v]
-            return [[ux, uy], [vx, vy]]
-        if u in G.nodes and v in G.nodes:
-            return [
-                [G.nodes[u]["x"], G.nodes[u]["y"]],
-                [G.nodes[v]["x"], G.nodes[v]["y"]],
-            ]
-        return []
-
     try:
         if not G.has_edge(u, v):
-            return _fallback()
+            return []
 
         if G.is_multigraph():
             if key is None:
@@ -331,10 +278,8 @@ def get_edge_geometry(
                 coords = [[float(x), float(y)] for (x, y) in geom.coords]
             except Exception:
                 coords = []
-        if not coords:
-            coords = _fallback()
     except Exception:
-        coords = _fallback()
+        coords = []
 
     # Ensure orientation is u->v (reverse if needed)
     if coords and node_xy and u in node_xy:

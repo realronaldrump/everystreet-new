@@ -10,7 +10,7 @@ export async function readJsonResponse(response) {
   }
 }
 
-export function responseErrorMessage(response, data, fallback) {
+export function responseErrorMessage(response, data, defaultMessage) {
   if (data && typeof data === "object") {
     const detail = data.detail || data.message || data.error;
     if (detail) {
@@ -23,5 +23,5 @@ export function responseErrorMessage(response, data, fallback) {
     }
   }
   const statusText = response.statusText ? ` ${response.statusText}` : "";
-  return fallback || `Request failed (${response.status}${statusText})`;
+  return defaultMessage || `Request failed (${response.status}${statusText})`;
 }

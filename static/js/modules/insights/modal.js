@@ -189,10 +189,10 @@ export async function loadAndShowTripsForTimePeriod(timeType, timeValue) {
  */
 export async function loadAndShowTripsForDrilldown(kind, opts = {}) {
   try {
-    const fallback = getDateRange();
+    const defaultRange = getDateRange();
     const dateRange = {
-      start: opts.start || fallback.start,
-      end: opts.end || fallback.end,
+      start: opts.start || defaultRange.start,
+      end: opts.end || defaultRange.end,
     };
 
     const params = new URLSearchParams({

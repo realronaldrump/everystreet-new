@@ -279,7 +279,7 @@ async def get_bouncie_config() -> dict[str, Any]:
     Get Bouncie API configuration from database.
 
     This is a single-user app. All Bouncie credentials are stored in MongoDB
-    and configured via the Settings page. No environment variable fallbacks.
+    and configured via the Settings page. No environment variable overrides.
 
     Returns:
         Dictionary containing:

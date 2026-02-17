@@ -846,14 +846,14 @@ function attachCoverageSettingsListeners() {
   });
 }
 
-function sanitizeNumber(value, fallback) {
+function sanitizeNumber(value, defaultValue) {
   const parsed = parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
+  return Number.isFinite(parsed) ? parsed : defaultValue;
 }
 
-function sanitizeInt(value, fallback) {
+function sanitizeInt(value, defaultValue) {
   const parsed = parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : fallback;
+  return Number.isFinite(parsed) ? parsed : defaultValue;
 }
 
 /**

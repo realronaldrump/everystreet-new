@@ -898,7 +898,7 @@ async def _fetch_boundary(location_name: str) -> dict[str, Any]:
                     ],
                 }
                 logger.warning(
-                    "Using bounding box fallback for %s due to missing polygon",
+                    "Using bounding box geometry for %s due to missing polygon",
                     location_name,
                 )
             except (TypeError, ValueError):

@@ -3,19 +3,6 @@ import { CONFIG } from "./config.js";
 const STORAGE_KEY = "es:state";
 const VERSION = 1;
 
-const LEGACY_KEY_MAP = {
-  startDate: "filters.startDate",
-  endDate: "filters.endDate",
-  selectedLocation: "map.selectedLocation",
-  mapView: "map.view",
-  mapType: "map.style",
-  layerVisibility: "layers.visibility",
-  layerSettings: "layers.settings",
-  streetViewMode: "map.streetViewMode",
-  selectedVehicleImei: "filters.vehicle",
-  selectedVehicle: "filters.vehicle",
-};
-
 const URL_PARAM_MAP = {
   start: "filters.startDate",
   end: "filters.endDate",
@@ -83,7 +70,7 @@ const parseJson = (value) => {
 
 class ESStore {
   constructor() {
-    // Map + data state (legacy AppState)
+    // Map + data state
     this.map = null;
     this.mapInitialized = false;
     this.mapLayers = deepClone(CONFIG.LAYER_DEFAULTS);
@@ -305,7 +292,6 @@ class ESStore {
       this.state = { ...deepClone(DEFAULT_STATE), ...saved };
     } else {
       this.state = deepClone(DEFAULT_STATE);
-      this._migrateFromLocalStorage();
     }
 
     this._applyUIState(this.state.ui || {});
@@ -313,22 +299,6 @@ class ESStore {
     this.applyUrlParams(url, { emit: false });
     this._persist();
     this.initialized = true;
-  }
-
-  _migrateFromLocalStorage() {
-    Object.entries(LEGACY_KEY_MAP).forEach(([legacyKey, path]) => {
-      if (!path) {
-        return;
-      }
-      const raw = localStorage.getItem(legacyKey);
-      if (raw === null) {
-        return;
-      }
-      const parsed = parseJson(raw);
-      setByPath(this.state, path, parsed ?? raw);
-    });
-
-    this._applyUIState(this.state.ui || {});
   }
 
   _persist() {
@@ -420,32 +390,6 @@ class ESStore {
         source: options.source || "update",
       });
     }
-  }
-
-  getLegacy(key) {
-    const path = LEGACY_KEY_MAP[key];
-    if (!path) {
-      return undefined;
-    }
-    return getByPath(this.state, path);
-  }
-
-  setLegacy(key, value, options = {}) {
-    const path = LEGACY_KEY_MAP[key];
-    if (!path) {
-      return false;
-    }
-    this.set(path, value, options);
-    return true;
-  }
-
-  removeLegacy(key) {
-    const path = LEGACY_KEY_MAP[key];
-    if (!path) {
-      return false;
-    }
-    this.set(path, null, { persist: true, source: "remove" });
-    return true;
   }
 
   updateFilters(filters, options = {}) {
@@ -657,4 +601,4 @@ export async function optimisticAction({ optimistic, request, commit, rollback }
 const store = new ESStore();
 
 export default store;
-export { LEGACY_KEY_MAP, URL_PARAM_MAP };
+export { URL_PARAM_MAP };

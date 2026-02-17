@@ -202,7 +202,7 @@ class GeolocationService {
         const result = await navigator.permissions.query({ name: "geolocation" });
         return result.state; // 'granted', 'denied', or 'prompt'
       } catch {
-        // Permissions API not fully supported, fall back to trying getCurrentPosition
+        // Permissions API not fully supported, use trying getCurrentPosition
         return "prompt";
       }
     }
@@ -210,18 +210,18 @@ class GeolocationService {
   }
 
   /**
-   * Get position with timeout and fallback
+   * Get position with timeout and default
    */
-  async getPositionWithFallback(primaryOptions = {}, fallbackOptions = {}) {
+  async getPositionWithDefault(primaryOptions = {}, defaultOptions = {}) {
     try {
       return await this.getCurrentPosition(primaryOptions);
     } catch {
-      // Try with less strict options as fallback
+      // Try with less strict options as default
       const relaxedOptions = {
         enableHighAccuracy: false,
         timeout: 15000,
         maximumAge: 60000, // Accept cached position up to 1 minute old
-        ...fallbackOptions,
+        ...defaultOptions,
       };
       return this.getCurrentPosition(relaxedOptions);
     }

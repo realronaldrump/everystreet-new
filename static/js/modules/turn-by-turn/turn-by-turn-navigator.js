@@ -207,7 +207,7 @@ class TurnByTurnNavigator {
     // Apply initial selection from URL/storage
     await this.applyInitialSelection();
 
-    // Live tracking fallback event
+    // Live tracking default event
     document.addEventListener("liveTrackingUpdated", (event) =>
       this.handleLiveTrackingUpdate(event)
     );
@@ -751,7 +751,7 @@ class TurnByTurnNavigator {
     if (duration) {
       this.estimatedDriveTime = duration;
     } else {
-      // Fallback: assume 25 mph average
+      // Default: assume 25 mph average
       this.estimatedDriveTime = (this.totalDistance / 1609.344 / 25) * 3600;
     }
   }
@@ -966,7 +966,7 @@ class TurnByTurnNavigator {
       this.ui.hideSetupPanel();
       this.ui.setNavStatus("Device GPS unavailable. Waiting for live tracking.", true);
       this.startMissionHeartbeat();
-      this.sendMissionHeartbeat({ source: "live_tracking_fallback" });
+      this.sendMissionHeartbeat({ source: "live_tracking_default" });
       return;
     }
 
@@ -1045,7 +1045,7 @@ class TurnByTurnNavigator {
   }
 
   /**
-   * Handle live tracking event (fallback for when GPS isn't available)
+   * Handle live tracking event (default for when GPS isn't available)
    */
   handleLiveTrackingUpdate(event) {
     if (!this.isNavigating || this.gps.watchId) {

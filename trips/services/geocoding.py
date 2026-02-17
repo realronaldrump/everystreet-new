@@ -209,11 +209,11 @@ class TripGeocoder:
     @staticmethod
     def _extract_coords_from_geometry(
         geometry: dict[str, Any] | None,
-        fallback_coords: list[float],
+        default_coords: list[float],
         transaction_id: str,
     ) -> list[float]:
         if not geometry or "coordinates" not in geometry:
-            return fallback_coords
+            return default_coords
 
         geom_type = geometry.get("type", "Point")
         coords = geometry["coordinates"]
@@ -239,7 +239,7 @@ class TripGeocoder:
                 transaction_id,
             )
 
-        return fallback_coords
+        return default_coords
 
 
 __all__ = ["TripGeocoder"]

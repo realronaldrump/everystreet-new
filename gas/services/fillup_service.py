@@ -435,7 +435,7 @@ class FillupService:
             "imei",
         ]
         if any(f in update_data for f in fields_affecting_mpg):
-            # Use new values or fallback to existing
+            # Use new values or existing values
             current_odometer = (
                 update_data.get("odometer", fillup.odometer)
                 if "odometer" in update_data

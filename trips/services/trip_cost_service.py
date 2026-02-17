@@ -18,7 +18,7 @@ class TripCostService:
 
         Effective price is derived as:
         - Prefer `total_cost / gallons` when available (captures taxes/rounding).
-        - Fall back to `price_per_gallon` when total_cost is missing.
+        - use `price_per_gallon` when total_cost is missing.
 
         Args:
             query: Optional MongoDB query filter
@@ -94,7 +94,7 @@ class TripCostService:
 
         Args:
             trip (dict): Trip document with 'fuelConsumed', 'imei', and timestamps
-                (`endTime` preferred, fallback to `startTime`)
+                (`endTime` preferred, otherwise `startTime`)
             price_map (dict): Output from get_fillup_price_map
 
         Returns:
@@ -121,7 +121,7 @@ class TripCostService:
                 relevant_price = prices[idx - 1]
                 return safe_float(fuel_consumed, 0) * safe_float(relevant_price, 0)
         except (TypeError, ValueError):
-            # Fallback for any remaining type comparison issues
+            # Return no estimate on type comparison issues.
             return None
 
         return None

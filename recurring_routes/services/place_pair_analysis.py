@@ -383,7 +383,7 @@ async def _aggregate_facets_for_trip_ids(trip_ids: list[Any]) -> dict[str, Any]:
     return result[0] if result else {}
 
 
-def _fallback_facets(trips: list[dict[str, Any]]) -> dict[str, Any]:
+def _compute_facets_from_trips(trips: list[dict[str, Any]]) -> dict[str, Any]:
     by_hour: defaultdict[int, dict[str, Any]] = defaultdict(
         lambda: {"count": 0, "dist": 0.0, "dur": 0.0, "distN": 0, "durN": 0},
     )
@@ -669,12 +669,12 @@ def _to_sample_trip(
     start_link = build_place_link(
         start_place_id,
         places_by_id=places_by_id,
-        fallback_label=start_label,
+        default_label=start_label,
     )
     end_link = build_place_link(
         destination_place_id,
         places_by_id=places_by_id,
-        fallback_label=end_label,
+        default_label=end_label,
     )
 
     return {
@@ -775,12 +775,12 @@ async def analyze_place_pair(
     start_link = build_place_link(
         str(start_place.id),
         places_by_id=places_by_id,
-        fallback_label=start_place.name,
+        default_label=start_place.name,
     )
     end_link = build_place_link(
         str(end_place.id),
         places_by_id=places_by_id,
-        fallback_label=end_place.name,
+        default_label=end_place.name,
     )
 
     if not matched_trips:
@@ -792,7 +792,6 @@ async def analyze_place_pair(
             "trips_per_week": None,
             "first_trip": None,
             "last_trip": None,
-            # Backward-compatible aliases
             "totalTrips": 0,
             "totalDistance": 0,
             "totalDuration": 0,
@@ -847,7 +846,7 @@ async def analyze_place_pair(
         else {}
     )
     if not facets:
-        facets = _fallback_facets(matched_trips)
+        facets = _compute_facets_from_trips(matched_trips)
 
     hour_map = {item.get("_id"): item for item in facets.get("byHour", [])}
     by_hour: list[dict[str, Any]] = []
@@ -934,7 +933,6 @@ async def analyze_place_pair(
         "trips_per_week": trips_per_week,
         "first_trip": _serialize_dt(first_trip),
         "last_trip": _serialize_dt(last_trip),
-        # Backward-compatible aliases
         "totalTrips": total_trips,
         "totalDistance": stats.get("totalDistance"),
         "totalDuration": stats.get("totalDuration"),

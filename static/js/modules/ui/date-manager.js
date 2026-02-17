@@ -39,13 +39,13 @@ const dateManager = {
     }
   },
 
-  restoreElementPlacement(key, element, fallbackParent = null) {
+  restoreElementPlacement(key, element, defaultParent = null) {
     if (!element) {
       return;
     }
     const placement = this.portalPlacements[key];
     const targetParent =
-      (placement?.parent && placement.parent.isConnected ? placement.parent : fallbackParent) ||
+      (placement?.parent && placement.parent.isConnected ? placement.parent : defaultParent) ||
       null;
     if (!targetParent || element.parentElement === targetParent) {
       return;
@@ -305,7 +305,7 @@ const dateManager = {
       startInputEl._flatpickr.set("maxDate", endDate);
       endInputEl._flatpickr.set("minDate", startDate);
     } else {
-      // Fallback
+      // Default
       if (startInputEl) {
         if (startInputEl._flatpickr) {
           startInputEl._flatpickr.setDate(startDate, true);

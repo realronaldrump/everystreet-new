@@ -136,7 +136,7 @@ async def list_recurring_routes(
     )
     route_docs = [r async for r in cursor]
 
-    needs_centroid_fallback = any(
+    needs_centroid_lookup = any(
         (
             _route_place_id(route, "start_place_id", "startPlaceId") is None
             and isinstance(route.start_centroid, list)
@@ -150,7 +150,7 @@ async def list_recurring_routes(
         for route in route_docs
     )
     all_places: list[Place] = (
-        await Place.find_all().to_list() if needs_centroid_fallback else []
+        await Place.find_all().to_list() if needs_centroid_lookup else []
     )
 
     resolved_place_ids: list[tuple[str | None, str | None]] = []
@@ -191,12 +191,12 @@ async def list_recurring_routes(
         start_link = build_place_link(
             start_place_id,
             places_by_id=places_by_id,
-            fallback_label=route.start_label,
+            default_label=route.start_label,
         )
         end_link = build_place_link(
             end_place_id,
             places_by_id=places_by_id,
-            fallback_label=route.end_label,
+            default_label=route.end_label,
         )
         if start_link:
             item["start_label"] = start_link.get("label") or item.get("start_label")
@@ -304,12 +304,12 @@ async def list_trips_for_route(
         start_link = build_place_link(
             start_place_id,
             places_by_id=places_by_id,
-            fallback_label=start_label,
+            default_label=start_label,
         )
         destination_link = build_place_link(
             destination_place_id,
             places_by_id=places_by_id,
-            fallback_label=destination_label,
+            default_label=destination_label,
         )
 
         trip_data = {

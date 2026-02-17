@@ -243,7 +243,7 @@ def select_best_trip_for_moment(
     Strategy:
     1) If capture time is within a trip time window, prioritize that trip.
     2) Otherwise, use the nearest trip boundary within a configurable time gap.
-    3) If no usable timestamp match exists, fall back to route proximity.
+    3) If no usable timestamp match exists, use route proximity.
     """
 
     if not trips:
@@ -386,7 +386,7 @@ def compute_moment_anchor(
     lat: float | None,
     lon: float | None,
     capture_time: datetime | None,
-    fallback_fraction: float,
+    sequence_fraction: float,
 ) -> dict[str, Any]:
     if lat is not None and lon is not None:
         fraction = nearest_fraction_for_coordinate(coordinates, lon, lat)
@@ -415,15 +415,15 @@ def compute_moment_anchor(
                     "anchor_fraction": max(0.0, min(1.0, fraction)),
                 }
 
-    point = interpolate_trip_coordinate(coordinates, fallback_fraction)
+    point = interpolate_trip_coordinate(coordinates, sequence_fraction)
     if point:
         lon_val, lat_val = point
         return {
             "lat": lat_val,
             "lon": lon_val,
-            "anchor_strategy": "sequence_fallback",
+            "anchor_strategy": "sequence",
             "anchor_confidence": 0.35,
-            "anchor_fraction": max(0.0, min(1.0, fallback_fraction)),
+            "anchor_fraction": max(0.0, min(1.0, sequence_fraction)),
         }
 
     return {
@@ -545,7 +545,7 @@ def _build_svg_postcard(
 <text x="40" y="94" font-size="20" fill="#dbe7f5">Trip {_trip_value(trip, "transactionId")}</text>
 <rect x="50" y="160" width="880" height="680" fill="#f5f3ed" stroke="#cbc5b8" stroke-width="2"/>
 <text x="980" y="180" font-size="24" fill="#383840">Moments: {len(moments)}</text>
-<text x="980" y="220" font-size="18" fill="#383840">Pillow not installed - SVG fallback</text>
+<text x="980" y="220" font-size="18" fill="#383840">Pillow not installed - SVG renderer</text>
 </svg>"""
     output_path.write_text(svg, encoding="utf-8")
     return output_path.as_posix()
@@ -560,7 +560,7 @@ def build_postcard_image(
     try:
         from PIL import Image, ImageDraw
     except ImportError:
-        logger.warning("Pillow is unavailable; generating SVG postcard fallback")
+        logger.warning("Pillow is unavailable; generating SVG postcard")
         return _build_svg_postcard(trip=trip, moments=moments)
 
     _ensure_generated_dirs()

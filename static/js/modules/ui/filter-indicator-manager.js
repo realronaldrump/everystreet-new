@@ -1,5 +1,5 @@
 // Filter indicator functionality is now built into the date picker dropdown trigger
-// This module is kept as a no-op for backward compatibility
+// This module is kept as a no-op for compatibility
 
 const filterIndicatorManager = {
   init() {

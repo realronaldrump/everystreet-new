@@ -388,7 +388,7 @@ class TripQueryService:
             # Use Beanie query builder for standard sorts
             trips_query = Trip.find(query)
             if sort_column == "vehicleLabel":
-                # Fallback if somehow we get here without aggregation logic (pre-refactor safety)
+                # Keep this branch deterministic when aggregation is skipped.
                 sort_column = "imei"
 
             if sort_direction == -1:

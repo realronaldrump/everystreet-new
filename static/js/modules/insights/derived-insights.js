@@ -5,9 +5,9 @@
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-function toNumber(value, fallback = 0) {
+function toNumber(value, defaultValue = 0) {
   const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
+  return Number.isFinite(parsed) ? parsed : defaultValue;
 }
 
 function parseYmdUtc(value) {

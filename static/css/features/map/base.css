@@ -25,7 +25,7 @@
   height: 100%; /* Ensure it fills its wrapper */
   width: 100%;
   position: relative; /* Anchor absolute children like #map-canvas + error overlays */
-  background-color: var(--surface-1); /* Fallback background */
+  background-color: var(--surface-1); /* Default background */
   z-index: var(--z-base);
   outline: none; /* Remove focus outline from map container */
 }

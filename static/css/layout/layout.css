@@ -235,7 +235,7 @@ body.light-mode .hero-section::before {
 
 /* Note: Main status-indicator styles are in features/map/controls.css */
 
-/* This provides fallback/simple status indicators for non-map contexts */
+/* This provides default/simple status indicators for non-map contexts */
 .status-indicator-simple {
   display: inline-block;
   width: 10px;

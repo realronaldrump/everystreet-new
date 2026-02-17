@@ -59,7 +59,7 @@ class VisitsStatsManager {
 
   updateInsights(_stats) {
     // These insights are now displayed in the new design via VisitsPageController.
-    // Keeping this method for backward compatibility.
+    // Keeping this method for compatibility.
   }
 
   destroy() {

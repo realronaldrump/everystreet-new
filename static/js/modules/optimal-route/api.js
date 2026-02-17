@@ -213,7 +213,7 @@ export class OptimalRouteAPI {
     this.currentTaskId = taskId;
 
     if (typeof EventSource === "undefined") {
-      console.warn("EventSource unavailable, using progress polling fallback");
+      console.warn("EventSource unavailable, using progress polling default");
       this.startProgressPolling(taskId);
       return;
     }
@@ -242,7 +242,7 @@ export class OptimalRouteAPI {
     });
 
     this.eventSource.onerror = (error) => {
-      console.warn("SSE connection error; switching to polling fallback:", error);
+      console.warn("SSE connection error; switching to polling default:", error);
       if (this.eventSource) {
         this.eventSource.close();
         this.eventSource = null;

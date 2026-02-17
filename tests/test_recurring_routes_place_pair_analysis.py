@@ -36,7 +36,7 @@ def _line(coords: list[list[float]]) -> dict:
 
 
 @pytest.mark.asyncio
-async def test_place_pair_analysis_honors_90d_timeframe_and_place_fallback(
+async def test_place_pair_analysis_honors_90d_timeframe_and_place_default(
     place_pair_db,
 ) -> None:
     # Runtime-relative anchor avoids 90d cutoff drift while keeping week buckets stable.
@@ -77,7 +77,7 @@ async def test_place_pair_analysis_honors_90d_timeframe_and_place_fallback(
         recurringRouteId=route.id,
     ).insert()
 
-    # Forward, recent, destinationPlaceId fallback (no destinationGeoPoint).
+    # Forward, recent, destinationPlaceId default (no destinationGeoPoint).
     await Trip(
         transactionId="pp-forward-2",
         imei="imei-1",
@@ -124,7 +124,7 @@ async def test_place_pair_analysis_honors_90d_timeframe_and_place_fallback(
         destinationPlaceId=str(end_place.id),
     ).insert()
 
-    # Forward, gps-only endpoint fallback (no place ids or explicit GeoPoints).
+    # Forward, gps-only endpoint default (no place ids or explicit GeoPoints).
     await Trip(
         transactionId="pp-forward-gps-only",
         imei="imei-1",
@@ -302,7 +302,7 @@ async def test_place_pair_analysis_include_reverse_all_and_limit(place_pair_db) 
     directions = {trip["direction"] for trip in body["sampleTrips"]}
     assert "reverse" in directions
 
-    # Grouping prefers recurringRouteId when present, with fallback for unlinked trips.
+    # Grouping prefers recurringRouteId when present, with default for unlinked trips.
     variants = body["variants"]
     assert any(v.get("route_id") == str(linked_route.id) for v in variants)
     assert any(v.get("route_id") is None for v in variants)

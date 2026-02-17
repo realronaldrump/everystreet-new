@@ -433,7 +433,7 @@ class MobilityInsightsService:
         street_name = _normalize_street_name(street_name)
         display_name = _normalize_street_name(display_name)
         if street_name is None and display_name:
-            # Use the first display-name token as a fallback label.
+            # Use the first display-name token when no street field is available.
             street_name = _normalize_street_name(display_name.split(",")[0])
 
         cache_doc = H3StreetLabelCache(
@@ -592,65 +592,6 @@ class MobilityInsightsService:
         return top_streets
 
     @classmethod
-    async def _build_top_streets_fallback(
-        cls,
-        hex_cells: list[dict[str, Any]],
-        *,
-        resolution: int,
-        street_limit: int = MAX_STREETS,
-        street_names_by_cell: dict[str, str | None] | None = None,
-    ) -> list[dict[str, Any]]:
-        ranked_cells = hex_cells[:MAX_HEX_STREET_LOOKUPS]
-        if not ranked_cells:
-            return []
-
-        semaphore = asyncio.Semaphore(8)
-
-        async def resolve(cell: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
-            cell_id = str(cell.get("hex") or "")
-            if street_names_by_cell is not None:
-                resolved = _normalize_street_name(street_names_by_cell.get(cell_id))
-                if resolved:
-                    return resolved, cell
-
-            async with semaphore:
-                street = await cls._street_name_for_cell(
-                    cell_id,
-                    resolution=resolution,
-                )
-                return _normalize_street_name(street), cell
-
-        grouped: dict[str, dict[str, Any]] = {}
-        for street, cell in await asyncio.gather(*(resolve(cell) for cell in ranked_cells)):
-            normalized = _normalize_street_name(street)
-            if not normalized:
-                continue
-            key = normalized.casefold()
-            bucket = grouped.get(key)
-            if bucket is None:
-                bucket = {
-                    "street_name": normalized,
-                    "traversals": 0,
-                    "distance_miles": 0.0,
-                    "cells": 0,
-                    "trip_count": None,
-                }
-                grouped[key] = bucket
-            bucket["traversals"] += int(cell.get("traversals") or 0)
-            bucket["distance_miles"] += float(cell.get("distance_miles") or 0.0)
-            bucket["cells"] += 1
-
-        top_streets = sorted(
-            grouped.values(),
-            key=lambda row: (-int(row["traversals"]), -float(row["distance_miles"])),
-        )[:street_limit]
-        for row in top_streets:
-            row["street_key"] = _normalize_street_key(row.get("street_name"))
-            row["times_driven"] = int(row.get("traversals") or 0)
-            row["distance_miles"] = round(float(row["distance_miles"]), 2)
-        return top_streets
-
-    @classmethod
     async def _resolve_street_names_for_cells(
         cls,
         cells: list[str],
@@ -806,7 +747,7 @@ class MobilityInsightsService:
         cls,
         top_streets: list[dict[str, Any]],
         top_segments: list[dict[str, Any]],
-        fallback_hex_cells: list[dict[str, Any]],
+        seed_hex_cells: list[dict[str, Any]],
     ) -> dict[str, float] | None:
         weighted_lon = 0.0
         weighted_lat = 0.0
@@ -834,7 +775,7 @@ class MobilityInsightsService:
                 "lat": round(weighted_lat / total_weight, 6),
                 "zoom": 11.5,
             }
-        return cls._build_map_center(fallback_hex_cells)
+        return cls._build_map_center(seed_hex_cells)
 
     @classmethod
     def _collect_duplicate_values(cls, values: list[str]) -> list[str]:
@@ -1073,23 +1014,14 @@ class MobilityInsightsService:
                 },
             )
 
-        try:
-            top_streets = await cls._build_top_streets(
-                query,
-                hex_cells,
-                resolution=H3_RESOLUTION,
-                street_limit=MAX_STREETS,
-                street_names_by_cell=street_names_by_cell,
-                source_geometry="matchedGps",
-            )
-        except Exception:
-            logger.exception("Mobility street trip-dedupe aggregation failed")
-            top_streets = await cls._build_top_streets_fallback(
-                hex_cells,
-                resolution=H3_RESOLUTION,
-                street_limit=MAX_STREETS,
-                street_names_by_cell=street_names_by_cell,
-            )
+        top_streets = await cls._build_top_streets(
+            query,
+            hex_cells,
+            resolution=H3_RESOLUTION,
+            street_limit=MAX_STREETS,
+            street_names_by_cell=street_names_by_cell,
+            source_geometry="matchedGps",
+        )
 
         street_cells_by_key: dict[str, set[str]] = defaultdict(set)
         for cell in hex_cells:

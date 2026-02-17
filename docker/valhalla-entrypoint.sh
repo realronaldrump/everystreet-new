@@ -33,7 +33,7 @@ generate_config() {
         > "$VALHALLA_CONFIG" 2>/dev/null || log "valhalla_build_config warning"
     fi
 
-    # If config still doesn't exist, fall back to configure script.
+    # If config still doesn't exist, use configure script.
     if [ ! -f "$VALHALLA_CONFIG" ] && [ -x /valhalla/scripts/configure_valhalla.sh ]; then
       /valhalla/scripts/configure_valhalla.sh 2>&1 || log "configure_valhalla.sh warning"
     fi
@@ -95,7 +95,7 @@ start_service() {
     fi
   fi
 
-  # Fall back to bundled run scripts if valhalla_service is unavailable
+  # use bundled run scripts if valhalla_service is unavailable
   if [ -x /valhalla/scripts/run.sh ]; then
     exec /valhalla/scripts/run.sh "$VALHALLA_CONFIG"
   elif [ -x /valhalla/scripts/valhalla_run.sh ]; then

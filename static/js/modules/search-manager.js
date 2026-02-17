@@ -144,7 +144,7 @@ const searchManager = {
 
       results = streetResults;
 
-      // Only fall back to geocoding if no street results found
+      // Only use geocoding if no street results found
       if (results.length === 0) {
         results = await this.geocodeSearch(query, searchId);
 

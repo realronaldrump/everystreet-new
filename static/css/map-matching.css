@@ -1560,7 +1560,7 @@
   }
 }
 
-/* === Legacy compatibility - hidden elements === */
+/* === Classic compatibility - hidden elements === */
 .map-matching-hero,
 .map-matching-form,
 .map-matching-progress,
@@ -1570,7 +1570,7 @@
   display: none !important;
 }
 
-/* Selection card styles for backward compat with JS */
+/* Selection card styles for compat with JS */
 .selection-card {
   display: none;
 }

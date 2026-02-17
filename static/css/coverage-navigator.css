@@ -30,7 +30,7 @@
   min-height: 0;
 }
 
-/* Phone-sized viewports typically show the fixed bottom nav. Provide a safe fallback
+/* Phone-sized viewports typically show the fixed bottom nav. Provide a safe default
    so the panel toggle isn't initially rendered under it before JS measures height. */
 @media (width <= 768px) {
   .coverage-navigator {

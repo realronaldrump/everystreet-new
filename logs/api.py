@@ -152,7 +152,7 @@ async def clear_server_logs(
                 ).insert()
 
             # Best-effort background purge via ARQ; if Redis/worker isn't available,
-            # fall back to a local background task so the request still returns fast.
+            # use a local background task so the request still returns fast.
             purge_job_id: str | None = None
 
             async def _local_purge() -> None:

@@ -181,7 +181,7 @@ async def _upsert_trip_photo_moment(
     trip: Trip,
     normalized: dict[str, Any],
     session_id: str | None,
-    fallback_fraction: float,
+    sequence_fraction: float,
     coordinates: list[list[float]],
     download_thumbnails: bool,
     http_session,
@@ -202,7 +202,7 @@ async def _upsert_trip_photo_moment(
         lat=lat,
         lon=lon,
         capture_time=capture_time,
-        fallback_fraction=fallback_fraction,
+        sequence_fraction=sequence_fraction,
     )
     if assignment_confidence is not None:
         blended_confidence = max(
@@ -316,7 +316,7 @@ async def attach_trip_memory_atlas(
             trip=trip,
             normalized=normalized,
             session_id=payload.session_id,
-            fallback_fraction=index / total_items,
+            sequence_fraction=index / total_items,
             coordinates=coordinates,
             download_thumbnails=payload.download_thumbnails,
             http_session=http_session,
@@ -428,7 +428,7 @@ async def auto_assign_trip_memory_atlas(
                 trip=trip,
                 normalized=normalized,
                 session_id=payload.session_id,
-                fallback_fraction=idx / per_trip_total,
+                sequence_fraction=idx / per_trip_total,
                 coordinates=coordinates,
                 download_thumbnails=payload.download_thumbnails,
                 http_session=http_session,

@@ -37,7 +37,7 @@ export class OptimalRouteUI {
       submessage: document.getElementById("hud-submessage"),
       segments: document.getElementById("hud-segments"),
       matched: document.getElementById("hud-matched"),
-      fallback: document.getElementById("hud-fallback"),
+      default: document.getElementById("hud-default"),
       elapsed: document.getElementById("hud-elapsed"),
       activity: document.getElementById("hud-activity"),
     };
@@ -381,10 +381,10 @@ export class OptimalRouteUI {
     const total = metrics.total_segments ?? metrics.segment_count ?? null;
     const processed = metrics.processed_segments ?? null;
     const osmMatched = metrics.osm_matched ?? null;
-    const fallbackTotal = metrics.fallback_total ?? null;
-    const fallbackMatched = metrics.fallback_matched ?? null;
+    const defaultTotal = metrics.default_total ?? null;
+    const defaultMatched = metrics.default_matched ?? null;
     const mappedSegments =
-      metrics.mapped_segments ?? Number(osmMatched || 0) + Number(fallbackMatched || 0);
+      metrics.mapped_segments ?? Number(osmMatched || 0) + Number(defaultMatched || 0);
 
     if (this.hud.segments) {
       this.hud.segments.textContent = hasMetrics
@@ -398,12 +398,12 @@ export class OptimalRouteUI {
           : this.formatCount(mappedSegments)
         : "--";
     }
-    if (this.hud.fallback) {
-      this.hud.fallback.textContent = hasMetrics
-        ? fallbackTotal
-          ? `${this.formatCount(fallbackMatched || 0)}/${this.formatCount(fallbackTotal)}`
-          : fallbackMatched != null
-            ? this.formatCount(fallbackMatched)
+    if (this.hud.default) {
+      this.hud.default.textContent = hasMetrics
+        ? defaultTotal
+          ? `${this.formatCount(defaultMatched || 0)}/${this.formatCount(defaultTotal)}`
+          : defaultMatched != null
+            ? this.formatCount(defaultMatched)
             : "--"
         : "--";
     }

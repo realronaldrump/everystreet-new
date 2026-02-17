@@ -52,7 +52,7 @@ async def get_service_logs(service_name: str) -> dict[str, Any]:
         except Exception:
             logger.exception("Failed to load server log cutoff")
 
-        # Fallback to ServerLog - this only captures Python logs that go through the handler
+        # Use ServerLog entries captured by the Python logging handler.
         db_logs = await (
             ServerLog.find(query_filter).sort("-timestamp").limit(limit).to_list()
         )

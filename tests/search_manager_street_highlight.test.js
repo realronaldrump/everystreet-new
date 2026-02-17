@@ -180,7 +180,7 @@ test("street result without geometry resolves via API, highlights, and caches", 
   assert.ok(lastApiUrl.includes("location_id=507f1f77bcf86cd799439011"));
 });
 
-test("unavailable resolved geometry falls back to silent pin behavior", async () => {
+test("unavailable resolved geometry uses silent pin behavior", async () => {
   resetSearchManagerState();
 
   const originalHideResults = searchManager.hideResults;
@@ -211,7 +211,7 @@ test("unavailable resolved geometry falls back to silent pin behavior", async ()
   try {
     await searchManager.selectResult({
       type: "street",
-      name: "Fallback Street",
+      name: "Default Street",
       center: [-97.1, 31.5],
       osm_id: 202,
       osm_type: "way",

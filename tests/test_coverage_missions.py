@@ -298,12 +298,12 @@ async def test_apply_segment_progress_rejects_non_ready_area_status(
 
 
 @pytest.mark.asyncio
-async def test_apply_segment_progress_handles_legacy_missing_completed_ids(
+async def test_apply_segment_progress_handles_classic_missing_completed_ids(
     coverage_mission_db,
 ) -> None:
-    area = await _insert_ready_area("Legacy Mission Area")
+    area = await _insert_ready_area("Classic Mission Area")
     mission, _ = await CoverageMissionService.create_mission(area_id=area.id)
-    segment_id = f"{area.id}-{area.area_version}-legacy"
+    segment_id = f"{area.id}-{area.area_version}-classic"
     await _insert_street(
         area_id=area.id,
         area_version=area.area_version,

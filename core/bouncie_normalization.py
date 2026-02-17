@@ -176,7 +176,7 @@ def normalize_rest_trip_payload(trip: dict[str, Any]) -> dict[str, Any]:
     normalized["status"] = "processed"
     normalized["source"] = "bouncie"
 
-    # Strip legacy keys to avoid propagating aliases.
+    # Strip superseded keys to avoid propagating aliases.
     for key in (
         "averageSpeed",
         "hardBrakingCount",

@@ -524,7 +524,7 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
   const dockerSelectAllBtn = document.getElementById("docker-select-all");
   const dockerClearSelectionBtn = document.getElementById("docker-clear-selection");
 
-  // Legacy select element (kept for reference or if needed, but we use the custom one now)
+  // Classic select element (kept for reference or if needed, but we use the custom one now)
   // const containerSelect = document.getElementById("container-select");
 
   const dockerLevelFilter = document.getElementById("docker-level-filter");
@@ -871,7 +871,7 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
         if (counts[level] !== undefined) {
           counts[level]++;
         } else {
-          // Fallback
+          // Default
           counts.INFO++;
         }
       });

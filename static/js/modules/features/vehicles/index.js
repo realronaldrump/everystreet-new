@@ -225,7 +225,7 @@ async function loadVehicle() {
       vehicleToDisplay = allVehicles.find((v) => v.imei === savedImei);
     }
 
-    // Fall back to first active vehicle, or first vehicle
+    // use first active vehicle, or first vehicle
     if (!vehicleToDisplay) {
       vehicleToDisplay = allVehicles.find((v) => v.is_active) || allVehicles[0];
     }

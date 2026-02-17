@@ -636,19 +636,19 @@ const AppController = {
       .map(([mode]) => mode);
 
     // New map controls use quick-action buttons; if nothing is persisted yet,
-    // fall back to whichever mode is currently active in the UI.
+    // use whichever mode is currently active in the UI.
     if (activeModes.length === 0) {
       const activeBtn = document.querySelector(
         ".quick-action-btn.active[data-street-mode]"
       );
-      const fallbackMode = activeBtn?.dataset?.streetMode;
-      if (fallbackMode && ["undriven", "driven", "all"].includes(fallbackMode)) {
+      const defaultMode = activeBtn?.dataset?.streetMode;
+      if (defaultMode && ["undriven", "driven", "all"].includes(defaultMode)) {
         utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, {
-          undriven: fallbackMode === "undriven",
-          driven: fallbackMode === "driven",
-          all: fallbackMode === "all",
+          undriven: defaultMode === "undriven",
+          driven: defaultMode === "driven",
+          all: defaultMode === "all",
         });
-        await this.handleStreetViewModeChange(fallbackMode, false);
+        await this.handleStreetViewModeChange(defaultMode, false);
       }
       return;
     }

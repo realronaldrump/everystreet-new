@@ -15,13 +15,13 @@ export function setMetricValue(elementId, value, { decimals = 0, suffix = "" } =
 }
 
 export function formatMiles(miles) {
-  return formatDistance(miles, { decimals: 2, fallback: "0 mi" });
+  return formatDistance(miles, { decimals: 2, default: "0 mi" });
 }
 
 export function formatRelativeTime(isoString) {
   return formatRelativeTimeShort(isoString, {
     suffix: " ago",
     capitalize: true,
-    fallback: "Just now",
+    default: "Just now",
   });
 }

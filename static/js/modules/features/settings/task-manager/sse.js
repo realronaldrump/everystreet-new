@@ -1,6 +1,6 @@
 /**
  * Task Manager SSE (Server-Sent Events)
- * Handles real-time task updates via SSE and fallback polling
+ * Handles real-time task updates via SSE and default polling
  */
 
 import { API_ENDPOINTS, POLLING_INTERVALS } from "./constants.js";

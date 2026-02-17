@@ -113,7 +113,7 @@ class TurnByTurnGPS {
    * Resolve heading from fix or calculate from last position
    * @param {Object} fix - Current position fix
    * @param {Object} closest - Closest point on route info
-   * @param {Array<[number, number]>} routeCoords - Route coordinates for fallback
+   * @param {Array<[number, number]>} routeCoords - Route coordinates for default
    * @returns {number|null}
    */
   resolveHeading(fix, closest, routeCoords) {

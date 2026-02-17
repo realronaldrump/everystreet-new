@@ -235,7 +235,7 @@ export class DrivingNavigation {
       if (areaMatch) {
         this.selectedArea = areaMatch;
       } else if (selectedValue.trim().startsWith("{")) {
-        // Fallback: try parsing if it looks like a JSON object
+        // Default: try parsing if it looks like a JSON object
         this.selectedArea = JSON.parse(selectedValue);
       } else {
         console.warn("Could not find area for ID:", selectedValue);

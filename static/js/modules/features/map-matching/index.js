@@ -419,7 +419,7 @@ function setModeUI(mode) {
     }
   });
 
-  // Legacy: Update selection cards
+  // Classic: Update selection cards
   document.querySelectorAll(".selection-card").forEach((card) => {
     const cardMode = card.dataset.mode;
     card.classList.toggle("is-selected", cardMode === mode);
@@ -477,7 +477,7 @@ function updateProgressUI(progress) {
     elements.progressPercent.textContent = `${pct}%`;
   }
 
-  // Update legacy progress bar (hidden but kept for compatibility)
+  // Update classic progress bar (hidden but kept for compatibility)
   if (elements.progressBar) {
     elements.progressBar.style.width = `${pct}%`;
     elements.progressBar.textContent = `${pct}%`;
@@ -668,7 +668,7 @@ function renderJobs(jobs) {
     }
   }
 
-  // Also update legacy table for compatibility
+  // Also update classic table for compatibility
   if (elements.jobsBody) {
     elements.jobsBody.innerHTML = jobs
       .map((job) => {
@@ -763,7 +763,7 @@ function renderPreview(data) {
     elements.previewSummary.textContent = `${total} trip${total !== 1 ? "s" : ""} ready to improve`;
   }
 
-  // Render sample in hidden table for legacy compatibility
+  // Render sample in hidden table for classic compatibility
   const sample = data.sample || [];
   if (elements.previewBody) {
     elements.previewBody.innerHTML = sample
@@ -858,7 +858,7 @@ function wireEvents(signal) {
     );
   });
 
-  // Legacy: Selection cards
+  // Classic: Selection cards
   document.querySelectorAll(".selection-card").forEach((card) => {
     card.addEventListener(
       "click",
@@ -893,12 +893,12 @@ function wireEvents(signal) {
           b.classList.toggle("is-active", b === btn);
         });
 
-        // Legacy quick-pick-btn compatibility
+        // Classic quick-pick-btn compatibility
         document.querySelectorAll(".quick-pick-btn").forEach((b) => {
           b.classList.toggle("is-active", parseInt(b.dataset.days, 10) === days);
         });
 
-        // Update legacy selects for compatibility
+        // Update classic selects for compatibility
         if (elements.dateModeSelect) {
           elements.dateModeSelect.value = "interval";
         }
@@ -912,7 +912,7 @@ function wireEvents(signal) {
     );
   });
 
-  // Legacy: Quick pick buttons
+  // Classic: Quick pick buttons
   document.querySelectorAll(".quick-pick-btn").forEach((btn) => {
     btn.addEventListener(
       "click",
@@ -928,12 +928,12 @@ function wireEvents(signal) {
           elements.endInput.value = "";
         }
 
-        // Update button states (both new and legacy)
+        // Update button states (both new and classic)
         document.querySelectorAll(".quick-pick-btn, .mm-quick-pick").forEach((b) => {
           b.classList.toggle("is-active", parseInt(b.dataset.days, 10) === days);
         });
 
-        // Update legacy selects for compatibility
+        // Update classic selects for compatibility
         if (elements.dateModeSelect) {
           elements.dateModeSelect.value = "interval";
         }
@@ -1024,7 +1024,7 @@ function wireEvents(signal) {
     eventOptions
   );
 
-  // Legacy: History toggle (collapse/expand) - now just open drawer
+  // Classic: History toggle (collapse/expand) - now just open drawer
   elements.historyToggle?.addEventListener(
     "click",
     (e) => {
@@ -1066,7 +1066,7 @@ function wireEvents(signal) {
     eventOptions
   );
 
-  // Legacy support
+  // Classic support
   elements.modeSelect?.addEventListener(
     "change",
     (e) => {
@@ -1151,7 +1151,7 @@ function wireEvents(signal) {
     eventOptions
   );
 
-  // Legacy table events
+  // Classic table events
   elements.jobsBody?.addEventListener(
     "click",
     (event) => {
@@ -1224,7 +1224,7 @@ function wireEvents(signal) {
     eventOptions
   );
 
-  // Legacy table for matched preview
+  // Classic table for matched preview
   elements.previewMapBody?.addEventListener(
     "click",
     (event) => {
@@ -1792,7 +1792,7 @@ function updateMatchedPreviewTable(data) {
       .join("");
   }
 
-  // Legacy table
+  // Classic table
   if (elements.previewMapBody) {
     elements.previewMapBody.innerHTML = sample
       .map((trip) => {

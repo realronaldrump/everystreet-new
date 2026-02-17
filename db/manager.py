@@ -79,7 +79,7 @@ def _normalize_mongo_uri_for_runtime(mongo_uri: str) -> str:
     )
     if rewritten_uri != mongo_uri:
         logger.info(
-            "Running outside Docker; using MongoDB localhost fallback URI: %s",
+            "Running outside Docker; using MongoDB localhost URI: %s",
             rewritten_uri,
         )
     return rewritten_uri

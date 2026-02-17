@@ -125,14 +125,14 @@ def _state_download_url(geofabrik_id: str) -> str:
     return f"{mirror}/{path}-latest.osm.pbf"
 
 
-def _format_extract_label(geofabrik_id: str, fallback: str) -> str:
+def _format_extract_label(geofabrik_id: str, default_label: str) -> str:
     parts = [part for part in geofabrik_id.split("/") if part]
     if parts and parts[0] == "north-america":
         parts = parts[1:]
     if parts[:1] == ["us"] and len(parts) > 1:
         parts = parts[1:]
     if not parts:
-        return fallback
+        return default_label
     return " / ".join(segment.replace("-", " ").title() for segment in parts)
 
 

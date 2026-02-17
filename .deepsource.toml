@@ -15,7 +15,7 @@ name = "python"
   [analyzers.config]
   exclude_rules = ["E501"]
   test_patterns = ["test_.*.py", "tests/"]
-  ignore_patterns = ["migrations/", "build/", "scripts/"]
+  ignore_patterns = ["build/", "scripts/"]
 
 [[transformers]]
 name = "black"
