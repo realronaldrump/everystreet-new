@@ -35,23 +35,39 @@ Coverage Navigator
     </button>
 
     <aside class="control-panel" id="control-panel">
+
       <!-- Sidebar Header -->
       <div class="sidebar-header">
-        <h2 class="sidebar-title">
-          <i class="fas fa-route" aria-hidden="true"></i>
-          Coverage Navigator
-        </h2>
+        <div class="sidebar-identity">
+          <div class="sidebar-identity-icon">
+            <i class="fas fa-route" aria-hidden="true"></i>
+          </div>
+          <div class="sidebar-identity-text">
+            <h2 class="sidebar-title">Coverage Navigator</h2>
+            <p class="sidebar-subtitle" id="sidebar-subtitle">Select an area to begin planning</p>
+          </div>
+        </div>
+        <div class="sidebar-coverage-ring" id="sidebar-coverage-ring" style="display:none" aria-hidden="true">
+          <svg class="coverage-ring-svg" viewBox="0 0 48 48">
+            <circle class="ring-track" cx="24" cy="24" r="19" fill="none" stroke-width="5"/>
+            <circle class="ring-fill" cx="24" cy="24" r="19"
+                    fill="none" stroke-width="5"
+                    stroke-dasharray="119.38" stroke-dashoffset="119.38"
+                    id="sidebar-ring-fill"/>
+          </svg>
+          <span class="ring-pct" id="sidebar-ring-pct">0%</span>
+        </div>
       </div>
 
       <!-- Tab Navigation -->
-      <nav class="sidebar-tabs" aria-label="Sidebar sections">
+      <nav class="sidebar-tabs" aria-label="Sidebar sections" role="tablist">
         <button type="button"
                 class="sidebar-tab active"
                 data-tab="plan"
                 aria-selected="true"
                 aria-controls="tab-panel-plan"
                 role="tab">
-          <i class="fas fa-map" aria-hidden="true"></i>
+          <i class="fas fa-map-location-dot" aria-hidden="true"></i>
           <span class="tab-label">Plan</span>
         </button>
         <button type="button"
@@ -60,8 +76,8 @@ Coverage Navigator
                 aria-selected="false"
                 aria-controls="tab-panel-navigate"
                 role="tab">
-          <i class="fas fa-compass" aria-hidden="true"></i>
-          <span class="tab-label">Navigate</span>
+          <i class="fas fa-crosshairs" aria-hidden="true"></i>
+          <span class="tab-label">Find</span>
         </button>
         <button type="button"
                 class="sidebar-tab"
@@ -69,7 +85,7 @@ Coverage Navigator
                 aria-selected="false"
                 aria-controls="tab-panel-status"
                 role="tab">
-          <i class="fas fa-spinner" aria-hidden="true"></i>
+          <i class="fas fa-wave-square" aria-hidden="true"></i>
           <span class="tab-label">Status</span>
         </button>
         <button type="button"
@@ -78,22 +94,53 @@ Coverage Navigator
                 aria-selected="false"
                 aria-controls="tab-panel-results"
                 role="tab">
-          <i class="fas fa-chart-bar" aria-hidden="true"></i>
+          <i class="fas fa-chart-simple" aria-hidden="true"></i>
           <span class="tab-label">Results</span>
         </button>
       </nav>
 
-      <!-- Tab Panel: Plan -->
+      <!-- Workflow Stepper -->
+      <div class="workflow-stepper" id="workflow-stepper" role="list" aria-label="Planning progress">
+        <div class="workflow-step active" data-step="1" role="listitem" aria-label="Step 1: Select area">
+          <div class="ws-node">
+            <span class="ws-number">1</span>
+          </div>
+          <span class="ws-label">Select</span>
+        </div>
+        <div class="ws-connector"></div>
+        <div class="workflow-step" data-step="2" role="listitem" aria-label="Step 2: Generate route">
+          <div class="ws-node">
+            <span class="ws-number">2</span>
+          </div>
+          <span class="ws-label">Generate</span>
+        </div>
+        <div class="ws-connector"></div>
+        <div class="workflow-step" data-step="3" role="listitem" aria-label="Step 3: Review results">
+          <div class="ws-node">
+            <span class="ws-number">3</span>
+          </div>
+          <span class="ws-label">Review</span>
+        </div>
+        <div class="ws-connector"></div>
+        <div class="workflow-step" data-step="4" role="listitem" aria-label="Step 4: Start navigation">
+          <div class="ws-node">
+            <span class="ws-number">4</span>
+          </div>
+          <span class="ws-label">Navigate</span>
+        </div>
+      </div>
+
+      <!-- ===== Tab Panel: Plan ===== -->
       <div class="tab-panel active"
            id="tab-panel-plan"
            role="tabpanel"
            data-tab="plan">
 
-        <!-- Area Selection Section -->
-        <div class="widget control-section" data-accent="mint">
+        <!-- Area Selection Widget -->
+        <div class="widget control-section area-selector-widget" data-accent="mint">
           <div class="widget-header collapsible" data-toggle="section-area">
             <h3 class="widget-title">
-              <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
+              <i class="fas fa-map-location-dot" aria-hidden="true"></i>
               Coverage Area
             </h3>
             <button type="button"
@@ -105,10 +152,7 @@ Coverage Navigator
             </button>
           </div>
           <div class="widget-body collapsible-content" id="section-area">
-            <label for="area-select" class="form-label">
-              <span class="label-text">Select Area</span>
-              <span class="label-hint">Choose a coverage area to navigate</span>
-            </label>
+
             <div class="select-wrapper">
               <select id="area-select" class="form-select">
                 <option value="">
@@ -118,27 +162,66 @@ Select a coverage area...
               <i class="fas fa-map-marker-alt select-icon" aria-hidden="true"></i>
             </div>
 
-            <div id="area-stats" class="area-stats" style="display: none">
-              <div class="stats-row">
-                <div class="stat-item">
-                  <span class="stat-label">Coverage</span>
-                  <span id="area-coverage" class="stat-value" data-coverage-percent data-value-flash>--</span>
+            <!-- Area context panel — shown when area is selected -->
+            <div id="area-stats" class="area-context-panel" style="display: none">
+              <div class="area-context-body">
+                <div class="area-donut-wrap">
+                  <svg class="area-donut" viewBox="0 0 80 80" aria-hidden="true">
+                    <circle class="donut-track" cx="40" cy="40" r="32" fill="none" stroke-width="8"/>
+                    <circle class="donut-driven" cx="40" cy="40" r="32"
+                            fill="none" stroke-width="8"
+                            stroke-dasharray="201.06" stroke-dashoffset="201.06"
+                            id="donut-driven-arc"/>
+                  </svg>
+                  <div class="area-donut-label">
+                    <span id="area-coverage" class="donut-pct" data-coverage-percent data-value-flash>--</span>
+                    <span class="donut-sublabel">covered</span>
+                  </div>
                 </div>
-                <div class="stat-item">
-                  <span class="stat-label">Remaining</span>
-                  <span id="area-remaining" class="stat-value" data-value-flash>--</span>
+                <div class="area-context-stats">
+                  <div class="acstat acstat--remaining">
+                    <span class="acstat-icon"><i class="fas fa-road" aria-hidden="true"></i></span>
+                    <div class="acstat-body">
+                      <span class="acstat-label">Remaining</span>
+                      <span id="area-remaining" class="acstat-value" data-value-flash>--</span>
+                    </div>
+                  </div>
+                  <div class="acstat acstat--driven">
+                    <span class="acstat-icon"><i class="fas fa-check" aria-hidden="true"></i></span>
+                    <div class="acstat-body">
+                      <span class="acstat-label">Driven</span>
+                      <span class="acstat-value acstat-driven-val">--</span>
+                    </div>
+                  </div>
+                  <div class="acstat acstat--total">
+                    <span class="acstat-icon"><i class="fas fa-layer-group" aria-hidden="true"></i></span>
+                    <div class="acstat-body">
+                      <span class="acstat-label">Total Streets</span>
+                      <span class="acstat-value acstat-total-val">--</span>
+                    </div>
+                  </div>
                 </div>
               </div>
+              <div class="coverage-bar-track" aria-hidden="true">
+                <div class="coverage-bar-fill" id="area-coverage-bar"></div>
+              </div>
             </div>
+
+            <!-- Empty hint shown when no area selected -->
+            <div class="area-empty-hint" id="area-empty-hint">
+              <i class="fas fa-hand-pointer" aria-hidden="true"></i>
+              <span>Choose an area above to see your coverage stats and plan a route</span>
+            </div>
+
           </div>
         </div>
 
-        <!-- Optimal Route Planner Section -->
-        <div class="widget control-section" data-accent="purple">
+        <!-- Route Planner Widget -->
+        <div class="widget control-section route-planner-widget" data-accent="purple">
           <div class="widget-header collapsible" data-toggle="section-planner">
             <h3 class="widget-title">
-              <i class="fas fa-magic" aria-hidden="true"></i>
-              Optimal Route Planner
+              <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
+              Route Planner
             </h3>
             <button type="button"
                     class="btn-collapse"
@@ -149,25 +232,68 @@ Select a coverage area...
             </button>
           </div>
           <div class="widget-body collapsible-content" id="section-planner">
-            <button id="generate-route-btn" class="btn btn-primary btn-generate" disabled>
-              <span class="generate-icon"><i class="fas fa-magic" aria-hidden="true"></i></span>
+
+            <button id="generate-route-btn" class="btn btn-primary btn-generate" disabled data-state="idle">
+              <span class="generate-icon" aria-hidden="true">
+                <i class="icon-idle fas fa-wand-magic-sparkles"></i>
+                <i class="icon-ready fas fa-bolt"></i>
+                <i class="icon-done fas fa-rotate-right"></i>
+              </span>
               <span class="generate-text">
-                <span class="generate-title">Generate Optimal Route</span>
-                <span class="generate-subtitle">Minimize deadhead driving</span>
+                <span class="generate-title">
+                  <span class="state-idle">Generate Optimal Route</span>
+                  <span class="state-ready">Generate — Area Ready</span>
+                  <span class="state-done">Regenerate Route</span>
+                </span>
+                <span class="generate-subtitle">
+                  <span class="state-idle">Select an area first</span>
+                  <span class="state-ready">Minimize deadhead driving</span>
+                  <span class="state-done">Previous route saved to history</span>
+                </span>
               </span>
             </button>
-            <div class="planner-info">
-              <i class="fas fa-info-circle" aria-hidden="true"></i>
-              <span>Uses Rural Postman Problem algorithm for efficient routing</span>
+
+            <!-- Algorithm explainer (collapsible) -->
+            <div class="algo-explainer" id="algo-explainer" hidden>
+              <div class="algo-steps">
+                <div class="algo-step">
+                  <span class="algo-step-icon"><i class="fas fa-project-diagram" aria-hidden="true"></i></span>
+                  <span class="algo-step-text">Map all undriven streets as a network graph</span>
+                </div>
+                <div class="algo-step">
+                  <span class="algo-step-icon"><i class="fas fa-shuffle" aria-hidden="true"></i></span>
+                  <span class="algo-step-text">Solve the Rural Postman Problem to find the best path</span>
+                </div>
+                <div class="algo-step">
+                  <span class="algo-step-icon"><i class="fas fa-route" aria-hidden="true"></i></span>
+                  <span class="algo-step-text">Return the route that minimizes extra (deadhead) driving</span>
+                </div>
+              </div>
             </div>
+
+            <button type="button"
+                    class="btn-algo-info"
+                    aria-controls="algo-explainer"
+                    aria-expanded="false"
+                    onclick="
+                      const el = document.getElementById('algo-explainer');
+                      const expanded = this.getAttribute('aria-expanded') === 'true';
+                      el.hidden = expanded;
+                      this.setAttribute('aria-expanded', !expanded);
+                      this.querySelector('.btn-algo-info-text').textContent = expanded ? 'How does this work?' : 'Hide explanation';
+                    ">
+              <i class="fas fa-circle-info" aria-hidden="true"></i>
+              <span class="btn-algo-info-text">How does this work?</span>
+            </button>
+
           </div>
         </div>
 
-        <!-- Saved Routes Section -->
+        <!-- Saved Routes Widget -->
         <div class="widget control-section is-saved-routes" data-accent="purple">
           <div class="widget-header collapsible" data-toggle="section-saved">
             <h3 class="widget-title">
-              <i class="fas fa-history" aria-hidden="true"></i>
+              <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
               Saved Routes
             </h3>
             <button type="button"
@@ -181,26 +307,38 @@ Select a coverage area...
           <div class="widget-body collapsible-content" id="section-saved">
             <div id="route-history" class="route-history">
               <div class="empty-state">
-                <i class="fas fa-route" aria-hidden="true"></i>
-                <span>No saved routes yet</span>
+                <div class="empty-state-art" aria-hidden="true">
+                  <svg width="56" height="48" viewBox="0 0 56 48" fill="none">
+                    <rect x="4" y="10" width="48" height="32" rx="5"
+                          stroke="currentColor" stroke-width="1.5" opacity="0.22"/>
+                    <path d="M12 36 Q20 20 28 28 Q36 36 44 20"
+                          stroke="var(--cat-mint)" stroke-width="2"
+                          stroke-dasharray="5 3.5" stroke-linecap="round" fill="none"/>
+                    <circle cx="12" cy="36" r="3.5" fill="var(--cat-mint)" opacity="0.8"/>
+                    <circle cx="44" cy="20" r="3.5" fill="var(--cat-purple)" opacity="0.8"/>
+                  </svg>
+                </div>
+                <p class="empty-state-title">No saved routes yet</p>
+                <p class="empty-state-hint">Generate your first optimal route above to get started</p>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Tab Panel: Navigate -->
+      </div><!-- /tab-panel-plan -->
+
+
+      <!-- ===== Tab Panel: Find (was Navigate) ===== -->
       <div class="tab-panel"
            id="tab-panel-navigate"
            role="tabpanel"
            data-tab="navigate">
 
-        <!-- Navigation Controls Section -->
         <div class="widget control-section" data-accent="sky">
-          <div class="widget-header collapsible" data-toggle="section-nav">
+          <div class="widget-header">
             <h3 class="widget-title">
-              <i class="fas fa-compass" aria-hidden="true"></i>
-              Navigate Now
+              <i class="fas fa-crosshairs" aria-hidden="true"></i>
+              Quick Find
             </h3>
             <div class="header-actions">
               <div class="form-check form-switch form-switch-sm">
@@ -209,36 +347,31 @@ Select a coverage area...
 Auto-Follow
                 </label>
               </div>
-              <button type="button"
-                      class="btn-collapse"
-                      aria-expanded="true"
-                      aria-controls="section-nav"
-                      aria-label="Toggle section">
-                <i class="fas fa-chevron-up" aria-hidden="true"></i>
-              </button>
             </div>
           </div>
-          <div class="widget-body collapsible-content" id="section-nav">
-            <div class="action-buttons">
-              <button id="find-next-street-btn" class="btn btn-primary btn-action" disabled>
-                <span class="btn-icon"><i class="fas fa-route"></i></span>
-                <span class="btn-text">
-                  <span class="btn-title">Find Nearest Street</span>
-                  <span class="btn-subtitle">Navigate to closest undriven road</span>
+          <div class="widget-body">
+
+            <!-- Find action tiles -->
+            <div class="find-action-grid">
+              <button id="find-next-street-btn" class="find-tile" disabled>
+                <span class="find-tile-icon">
+                  <i class="fas fa-route" aria-hidden="true"></i>
                 </span>
+                <span class="find-tile-title">Nearest Street</span>
+                <span class="find-tile-hint">Closest undriven road to you</span>
               </button>
-              <button id="find-efficient-street-btn" class="btn btn-info btn-action" disabled>
-                <span class="btn-icon"><i class="fas fa-layer-group"></i></span>
-                <span class="btn-text">
-                  <span class="btn-title">Find Clusters</span>
-                  <span class="btn-subtitle">Discover efficient route groups</span>
+              <button id="find-efficient-street-btn" class="find-tile find-tile--clusters" disabled>
+                <span class="find-tile-icon">
+                  <i class="fas fa-layer-group" aria-hidden="true"></i>
                 </span>
+                <span class="find-tile-title">Find Clusters</span>
+                <span class="find-tile-hint">Groups of nearby undriven streets</span>
               </button>
             </div>
 
             <div id="status-message" class="status-message info">
               <i class="fas fa-info-circle" aria-hidden="true"></i>
-              <span>Select a coverage area to begin navigation</span>
+              <span>Select a coverage area to begin</span>
             </div>
 
             <div id="target-info" class="target-info">
@@ -262,17 +395,38 @@ Auto-Follow
                 </button>
               </div>
             </div>
+
           </div>
         </div>
-      </div>
 
-      <!-- Tab Panel: Status -->
+        <!-- Find tab helper card -->
+        <div class="widget find-helper-card" data-accent="slate">
+          <div class="widget-body">
+            <div class="find-helper-content">
+              <div class="find-helper-icon" aria-hidden="true">
+                <i class="fas fa-lightbulb"></i>
+              </div>
+              <div class="find-helper-text">
+                <p class="find-helper-title">Planning vs. Navigating</p>
+                <p class="find-helper-desc">
+                  Use <strong>Find</strong> to spot streets to prioritize on your map.
+                  When you're ready to drive, use <strong>Turn-by-Turn</strong> from the Results tab for GPS guidance.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /tab-panel-navigate -->
+
+
+      <!-- ===== Tab Panel: Status ===== -->
       <div class="tab-panel"
            id="tab-panel-status"
            role="tabpanel"
            data-tab="status">
 
-        <!-- Route Progress Section (Hidden by default) -->
+        <!-- Route Progress Section (shown during simple processing) -->
         <div id="route-progress-container"
              class="widget control-section is-processing"
              data-accent="amber">
@@ -285,18 +439,15 @@ Auto-Follow
           <div class="widget-body">
             <div class="progress-steps">
               <div id="step-clustering" class="step" data-step="1">
-                <div class="step-indicator">
-                </div>
+                <div class="step-indicator"></div>
                 <span class="step-label">Clustering</span>
               </div>
               <div id="step-optimizing" class="step" data-step="2">
-                <div class="step-indicator">
-                </div>
+                <div class="step-indicator"></div>
                 <span class="step-label">Optimizing</span>
               </div>
               <div id="step-rendering" class="step" data-step="3">
-                <div class="step-indicator">
-                </div>
+                <div class="step-indicator"></div>
                 <span class="step-label">Rendering</span>
               </div>
             </div>
@@ -316,7 +467,7 @@ Auto-Follow
           </div>
         </div>
 
-        <!-- Live Progress Section (Hidden by default) -->
+        <!-- Live Progress Section (route solver streaming) -->
         <div id="progress-section"
              class="widget control-section is-live"
              data-accent="amber"
@@ -329,47 +480,67 @@ Auto-Follow
             <span class="live-badge">LIVE</span>
           </div>
           <div class="widget-body">
-            <p class="live-description">
-Mapping, connecting, and plotting the circuit in real time.
-            </p>
 
-            <div class="progress-stages">
+            <!-- Vertical solver pipeline -->
+            <div class="solver-pipeline">
               <div class="stage" data-stage="queued,waiting,initializing">
-                <div class="stage-icon">
+                <div class="stage-node">
                   <i class="fas fa-play" aria-hidden="true"></i>
                 </div>
-                <span class="stage-label">Starting</span>
+                <div class="stage-content">
+                  <span class="stage-label">Starting</span>
+                  <span class="stage-detail">Initializing the route solver</span>
+                </div>
               </div>
-              <div class="stage"
-                   data-stage="loading_area,loading_segments,loading_graph,fetching_osm">
-                <div class="stage-icon">
+              <div class="pipeline-connector"></div>
+              <div class="stage" data-stage="loading_area,loading_segments,loading_graph,fetching_osm">
+                <div class="stage-node">
                   <i class="fas fa-database" aria-hidden="true"></i>
                 </div>
-                <span class="stage-label">Loading</span>
+                <div class="stage-content">
+                  <span class="stage-label">Loading Data</span>
+                  <span class="stage-detail">Fetching streets and map data</span>
+                </div>
               </div>
+              <div class="pipeline-connector"></div>
               <div class="stage" data-stage="mapping_segments">
-                <div class="stage-icon">
+                <div class="stage-node">
                   <i class="fas fa-project-diagram" aria-hidden="true"></i>
                 </div>
-                <span class="stage-label">Mapping</span>
+                <div class="stage-content">
+                  <span class="stage-label">Mapping Segments</span>
+                  <span class="stage-detail">Building street network graph</span>
+                </div>
               </div>
+              <div class="pipeline-connector"></div>
               <div class="stage" data-stage="connectivity_check">
-                <div class="stage-icon">
+                <div class="stage-node">
                   <i class="fas fa-network-wired" aria-hidden="true"></i>
                 </div>
-                <span class="stage-label">Linking</span>
+                <div class="stage-content">
+                  <span class="stage-label">Linking Streets</span>
+                  <span class="stage-detail">Checking network connectivity</span>
+                </div>
               </div>
+              <div class="pipeline-connector"></div>
               <div class="stage" data-stage="routing">
-                <div class="stage-icon">
+                <div class="stage-node">
                   <i class="fas fa-route" aria-hidden="true"></i>
                 </div>
-                <span class="stage-label">Routing</span>
+                <div class="stage-content">
+                  <span class="stage-label">Computing Route</span>
+                  <span class="stage-detail">Solving for optimal path</span>
+                </div>
               </div>
+              <div class="pipeline-connector"></div>
               <div class="stage" data-stage="finalizing,complete">
-                <div class="stage-icon">
+                <div class="stage-node">
                   <i class="fas fa-check" aria-hidden="true"></i>
                 </div>
-                <span class="stage-label">Finalize</span>
+                <div class="stage-content">
+                  <span class="stage-label">Finalizing</span>
+                  <span class="stage-detail">Preparing route for display</span>
+                </div>
               </div>
             </div>
 
@@ -406,7 +577,7 @@ Initializing...
           </div>
         </div>
 
-        <!-- Error Section (Hidden by default) -->
+        <!-- Error Section -->
         <div id="error-section"
              class="widget control-section is-error"
              data-accent="coral"
@@ -414,49 +585,79 @@ Initializing...
           <div class="widget-header">
             <h3 class="widget-title">
               <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
-              Issue Detected
+              Something Went Wrong
             </h3>
           </div>
           <div class="widget-body">
             <div class="error-content">
-              <div class="error-icon">
-                <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+              <div class="error-illustration" aria-hidden="true">
+                <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                  <circle cx="32" cy="32" r="28" stroke="rgb(var(--danger-rgb) / 25%)" stroke-width="2"/>
+                  <circle cx="32" cy="32" r="20" stroke="rgb(var(--danger-rgb) / 15%)" stroke-width="1.5"/>
+                  <path d="M20 32 L27 25 M27 25 L34 32 M34 32 L41 25"
+                        stroke="var(--danger)" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="41" cy="25" r="3.5" fill="var(--danger)" opacity="0.7"/>
+                  <path d="M24 42 Q32 38 40 42" stroke="rgb(var(--danger-rgb) / 50%)"
+                        stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                </svg>
               </div>
               <div id="error-message" class="error-message">
 An error occurred.
               </div>
-              <button id="retry-btn" class="btn btn-outline-danger btn-sm">
-                <i class="fas fa-redo" aria-hidden="true"></i>
-                Try Again
-              </button>
+              <div class="error-actions">
+                <button id="retry-btn" class="btn btn-danger btn-sm">
+                  <i class="fas fa-rotate" aria-hidden="true"></i>
+                  Try Again
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        onclick="document.querySelector('.sidebar-tab[data-tab=plan]').click()">
+                  <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                  Back to Plan
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Empty state for Status tab -->
-        <div class="tab-empty-state" id="status-empty-state">
-          <div class="tab-empty-icon">
-            <i class="fas fa-hourglass" aria-hidden="true"></i>
+        <div class="tab-empty-state processing-ready-state" id="status-empty-state">
+          <div class="ready-animation" aria-hidden="true">
+            <div class="ready-ring ready-ring--1"></div>
+            <div class="ready-ring ready-ring--2"></div>
+            <div class="ready-icon">
+              <i class="fas fa-wand-magic-sparkles"></i>
+            </div>
           </div>
-          <div class="tab-empty-title">No Active Process</div>
-          <div class="tab-empty-hint">Progress will appear here when you generate a route</div>
+          <div class="tab-empty-title">Ready to Compute</div>
+          <div class="tab-empty-hint">
+            Generate a route from the Plan tab — live progress will appear here
+          </div>
+          <button type="button"
+                  class="btn btn-outline-primary btn-sm status-go-plan-btn"
+                  onclick="document.querySelector('.sidebar-tab[data-tab=plan]').click()">
+            <i class="fas fa-map-location-dot" aria-hidden="true"></i>
+            Go to Plan
+          </button>
         </div>
-      </div>
 
-      <!-- Tab Panel: Results -->
+      </div><!-- /tab-panel-status -->
+
+
+      <!-- ===== Tab Panel: Results ===== -->
       <div class="tab-panel"
            id="tab-panel-results"
            role="tabpanel"
            data-tab="results">
 
-        <!-- Results Section (Hidden by default) -->
+        <!-- Results Section -->
         <div id="results-section"
              class="widget control-section is-results"
              data-accent="sky"
              style="display: none">
           <div class="widget-header collapsible" data-toggle="section-results">
             <h3 class="widget-title">
-              <i class="fas fa-chart-bar" aria-hidden="true"></i>
+              <i class="fas fa-chart-simple" aria-hidden="true"></i>
               Route Statistics
             </h3>
             <button type="button"
@@ -468,7 +669,31 @@ An error occurred.
             </button>
           </div>
           <div class="widget-body collapsible-content" id="section-results">
-            <div class="stats-grid">
+
+            <!-- Hero efficiency card -->
+            <div class="results-hero-card stat-card is-efficiency" data-stat="efficiency">
+              <div class="hero-eff-ring" aria-hidden="true">
+                <svg class="eff-ring-svg" viewBox="0 0 72 72">
+                  <circle class="eff-ring-track" cx="36" cy="36" r="30" fill="none" stroke-width="6"/>
+                  <circle class="eff-ring-fill" cx="36" cy="36" r="30"
+                          fill="none" stroke-width="6"
+                          stroke-dasharray="188.5" stroke-dashoffset="188.5"
+                          id="eff-ring-fill"/>
+                </svg>
+                <div class="hero-eff-center">
+                  <span id="stat-deadhead-percent" class="hero-eff-value">--</span>
+                  <span class="hero-eff-unit">efficient</span>
+                </div>
+              </div>
+              <div class="hero-eff-details">
+                <div class="hero-eff-label">Route Efficiency</div>
+                <div class="hero-eff-desc">How much of your driving covers required streets vs. connecting segments</div>
+                <div class="hero-eff-grade" id="eff-grade" style="display:none"></div>
+              </div>
+            </div>
+
+            <!-- 2×2 supporting stat grid -->
+            <div class="stats-grid results-supporting-grid">
               <div class="stat-card" data-stat="total">
                 <div class="stat-icon">
                   <i class="fas fa-road" aria-hidden="true"></i>
@@ -505,29 +730,28 @@ An error occurred.
                   <span class="stat-label">Deadhead</span>
                 </div>
               </div>
-              <div class="stat-card is-efficiency" data-stat="efficiency">
-                <div class="stat-icon">
-                  <i class="fas fa-percentage" aria-hidden="true"></i>
-                </div>
-                <div class="stat-content">
-                  <span id="stat-deadhead-percent" class="stat-value">--</span>
-                  <span class="stat-label">Efficiency</span>
-                </div>
-              </div>
             </div>
 
-            <div class="export-actions">
+            <!-- Primary CTA: Start Navigation -->
+            <div class="results-cta-primary">
+              <button id="start-turn-by-turn-btn" class="btn btn-primary btn-results-nav" disabled>
+                <i class="fas fa-location-arrow" aria-hidden="true"></i>
+                <span class="btn-cta-text">
+                  <span class="btn-cta-title">Start Turn-by-Turn</span>
+                  <span class="btn-cta-sub">Opens GPS navigation mode</span>
+                </span>
+              </button>
+            </div>
+
+            <!-- Secondary action row -->
+            <div class="export-actions results-secondary-actions">
               <button id="export-gpx-btn" class="btn btn-outline-primary btn-sm">
                 <i class="fas fa-download" aria-hidden="true"></i>
                 Export GPX
               </button>
               <button id="replay-animation-btn" class="btn btn-outline-primary btn-sm" disabled>
-                <i class="fas fa-redo" aria-hidden="true"></i>
+                <i class="fas fa-play" aria-hidden="true"></i>
                 Replay
-              </button>
-              <button id="start-turn-by-turn-btn" class="btn btn-outline-primary btn-sm" disabled>
-                <i class="fas fa-location-arrow" aria-hidden="true"></i>
-                Turn-by-Turn
               </button>
               <button id="clear-route-btn" class="btn btn-outline-secondary btn-sm">
                 <i class="fas fa-times" aria-hidden="true"></i>
@@ -535,6 +759,7 @@ An error occurred.
               </button>
             </div>
 
+            <!-- Layer controls -->
             <div class="layer-controls">
               <h4 class="layer-controls-title">
 Map Layers
@@ -619,14 +844,15 @@ Map Layers
                 </div>
               </div>
             </div>
+
           </div>
         </div>
 
-        <!-- Route Details Section (Hidden by default) -->
+        <!-- Route Details Section -->
         <div id="route-details"
              class="widget control-section"
              data-accent="slate"
-              style="display: none">
+             style="display: none">
           <div class="widget-header collapsible" data-toggle="section-details">
             <h3 class="widget-title">
               <i class="fas fa-list-ul" aria-hidden="true"></i>
@@ -647,14 +873,36 @@ Map Layers
         </div>
 
         <!-- Empty state for Results tab -->
-        <div class="tab-empty-state" id="results-empty-state">
-          <div class="tab-empty-icon">
-            <i class="fas fa-chart-pie" aria-hidden="true"></i>
+        <div class="tab-empty-state results-empty-state" id="results-empty-state">
+          <div class="tab-empty-icon results-empty-art" aria-hidden="true">
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+              <rect x="8" y="14" width="48" height="36" rx="5"
+                    stroke="currentColor" stroke-width="1.5" opacity="0.22"/>
+              <rect x="16" y="34" width="7" height="10" rx="1.5"
+                    fill="currentColor" opacity="0.2"/>
+              <rect x="28.5" y="26" width="7" height="18" rx="1.5"
+                    fill="currentColor" opacity="0.35"/>
+              <rect x="41" y="30" width="7" height="14" rx="1.5"
+                    fill="currentColor" opacity="0.25"/>
+              <path d="M16 22 L24 18 L36 22 L44 16"
+                    stroke="var(--cat-mint)" stroke-width="1.5"
+                    stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
           </div>
           <div class="tab-empty-title">No Results Yet</div>
-          <div class="tab-empty-hint">Route statistics and export options will appear here after generation</div>
+          <div class="tab-empty-hint">
+            Generate a route to see statistics, export options, and launch GPS navigation
+          </div>
+          <button type="button"
+                  class="btn btn-outline-primary btn-sm results-go-plan-btn"
+                  onclick="document.querySelector('.sidebar-tab[data-tab=plan]').click()">
+            <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
+            Generate a Route
+          </button>
         </div>
-      </div>
+
+      </div><!-- /tab-panel-results -->
+
     </aside>
 
     <!-- Map Container -->
