@@ -240,6 +240,6 @@ export function renderAreaCards({ areas, activeJobsByAreaId, areaErrorById, area
     .map((area) => renderAreaCard(area, activeJobsByAreaId.get(area.id)))
     .join("");
 
-  grid.style.display = "";
+  grid.style.display = "grid";
   return { hasAreas: true };
 }
