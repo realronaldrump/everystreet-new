@@ -13,6 +13,12 @@ Driving Insights
 
 {% endblock %}
 
+{% block head_content %}
+
+  <meta name="mapbox-access-token" content="{{ MAPBOX_ACCESS_TOKEN }}" />
+
+{% endblock %}
+
 
 {% block content %}
 
@@ -301,7 +307,7 @@ Your places arranged by frequency, distance, and recency
             Most driven streets and segments
         </h2>
         <p class="section-subtitle">
-Built automatically from your trip geometry using H3 segment aggregation
+Built automatically from your trip paths. Brighter areas and lines mean you drive there more often.
         </p>
       </div>
 
@@ -310,29 +316,32 @@ Built automatically from your trip geometry using H3 segment aggregation
           <header class="movement-map-header">
             <div class="movement-meta-strip">
               <span class="movement-meta-pill" id="movement-trip-count">0 trips analyzed</span>
-              <span class="movement-meta-pill" id="movement-hex-count">0 active H3 cells</span>
-              <span class="movement-meta-pill" id="movement-sync-state">Auto-sync active</span>
+              <span class="movement-meta-pill" id="movement-hex-count">0 high-use areas</span>
+              <span class="movement-meta-pill" id="movement-sync-state">Auto-updating</span>
             </div>
             <div class="toggle-group movement-toggle-group" id="movement-layer-toggle">
               <button class="toggle-btn active"
                       type="button"
                       data-movement-layer="both"
                       aria-pressed="true">
-Cells + Segments
+Overview
               </button>
               <button class="toggle-btn"
                       type="button"
                       data-movement-layer="cells"
                       aria-pressed="false">
-Cells
+Areas
               </button>
               <button class="toggle-btn"
                       type="button"
                       data-movement-layer="segments"
                       aria-pressed="false">
-Segments
+Links
               </button>
             </div>
+            <p class="movement-map-caption">
+Heavier orange links indicate the road connections you repeat most.
+            </p>
           </header>
           <div class="movement-map-shell">
             <div id="movement-map" role="img" aria-label="Most driven streets and segments map"></div>
@@ -350,7 +359,7 @@ Segments
             </ol>
           </section>
           <section class="movement-rank-card">
-            <h3 class="movement-rank-title">Top segments</h3>
+            <h3 class="movement-rank-title">Most repeated links</h3>
             <ol class="movement-rank-list" id="movement-top-segments">
               <li class="story-empty">No segment traversals in this range yet.</li>
             </ol>

@@ -94,9 +94,14 @@ async def test_get_mobility_insights_aggregates_segments_and_streets(mobility_db
     assert insights["profiled_trip_count"] == 1
     assert insights["hex_cells"]
     assert insights["top_segments"]
+    assert "label" in insights["top_segments"][0]
+    assert "|" not in insights["top_segments"][0]["label"]
     assert insights["map_center"] is not None
+    assert any(
+        cell.get("street_name") == "Market Street"
+        for cell in insights.get("hex_cells", [])
+    )
     assert any(
         row.get("street_name") == "Market Street"
         for row in insights.get("top_streets", [])
     )
-

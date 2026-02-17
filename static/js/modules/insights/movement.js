@@ -1,6 +1,6 @@
 /**
  * Insights Movement Module
- * Renders H3 street/segment movement visuals via deck.gl.
+ * Renders most-driven street areas and route links with deck.gl.
  */
 
 import { escapeHtml } from "../utils.js";
@@ -8,6 +8,13 @@ import { escapeHtml } from "../utils.js";
 let movementDeck = null;
 let activeLayerMode = "both";
 let latestMovementPayload = null;
+
+const MAX_SEGMENTS_IN_LIST = 12;
+
+function pluralize(value, unit) {
+  const amount = Number(value || 0);
+  return `${formatInt(amount)} ${unit}${amount === 1 ? "" : "s"}`;
+}
 
 function formatMiles(value) {
   const numeric = Number(value || 0);
@@ -17,6 +24,62 @@ function formatMiles(value) {
 function formatInt(value) {
   const numeric = Number(value || 0);
   return Number.isFinite(numeric) ? Math.round(numeric).toLocaleString() : "0";
+}
+
+function getCurrentTheme() {
+  if (typeof document === "undefined") {
+    return "dark";
+  }
+  return document.documentElement.getAttribute("data-bs-theme") === "light"
+    ? "light"
+    : "dark";
+}
+
+function getMapboxToken() {
+  if (typeof document === "undefined") {
+    return "";
+  }
+  const tokenMeta = document.querySelector('meta[name="mapbox-access-token"]');
+  return tokenMeta?.content?.trim() || "";
+}
+
+function getBasemapTileUrl() {
+  const theme = getCurrentTheme();
+  const token = getMapboxToken();
+  if (token) {
+    const styleId = theme === "light" ? "light-v11" : "dark-v11";
+    return (
+      `https://api.mapbox.com/styles/v1/mapbox/${styleId}/tiles/256/{z}/{x}/{y}@2x` +
+      `?access_token=${encodeURIComponent(token)}`
+    );
+  }
+  return theme === "light"
+    ? "https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
+    : "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png";
+}
+
+function getTooltipStyle() {
+  const isLight = getCurrentTheme() === "light";
+  if (isLight) {
+    return {
+      backgroundColor: "rgba(255, 255, 255, 0.96)",
+      color: "#102133",
+      border: "1px solid rgba(14, 36, 56, 0.15)",
+      borderRadius: "10px",
+      fontSize: "12px",
+      lineHeight: "1.4",
+      padding: "8px 10px",
+    };
+  }
+  return {
+    backgroundColor: "rgba(9, 15, 24, 0.94)",
+    color: "#dbe8f4",
+    border: "1px solid rgba(111, 151, 188, 0.25)",
+    borderRadius: "10px",
+    fontSize: "12px",
+    lineHeight: "1.4",
+    padding: "8px 10px",
+  };
 }
 
 function setLayerToggleState(mode) {
@@ -36,24 +99,33 @@ function updateSummaryPills(payload) {
   const hexCountEl = document.getElementById("movement-hex-count");
   const syncStateEl = document.getElementById("movement-sync-state");
 
+  const tripCount = Number(payload?.trip_count || 0);
+  const profiled = Number(payload?.profiled_trip_count || 0);
+  const hexCount = Array.isArray(payload?.hex_cells) ? payload.hex_cells.length : 0;
+  const synced = Number(payload?.synced_trips_this_request || 0);
+  const pending = Number(payload?.pending_trip_sync_count || 0);
+
   if (tripCountEl) {
-    const tripCount = Number(payload?.trip_count || 0);
-    const profiled = Number(payload?.profiled_trip_count || 0);
-    tripCountEl.textContent = `${formatInt(profiled)}/${formatInt(tripCount)} trips analyzed`;
+    if (tripCount <= 0) {
+      tripCountEl.textContent = "No trips in this range yet";
+    } else if (profiled < tripCount) {
+      tripCountEl.textContent = `Route detail ready for ${formatInt(profiled)} of ${formatInt(tripCount)} trips`;
+    } else {
+      tripCountEl.textContent = `Route detail ready for ${formatInt(profiled)} trips`;
+    }
   }
 
   if (hexCountEl) {
-    const hexCount = Array.isArray(payload?.hex_cells) ? payload.hex_cells.length : 0;
-    hexCountEl.textContent = `${formatInt(hexCount)} active H3 cells`;
+    hexCountEl.textContent = `${pluralize(hexCount, "high-use area")} highlighted`;
   }
 
   if (syncStateEl) {
-    const synced = Number(payload?.synced_trips_this_request || 0);
-    const pending = Number(payload?.pending_trip_sync_count || 0);
     if (pending > 0) {
-      syncStateEl.textContent = `Auto-sync: +${formatInt(synced)} this load, ${formatInt(pending)} pending`;
+      syncStateEl.textContent = `Background update running (${formatInt(pending)} trips remaining)`;
+    } else if (synced > 0) {
+      syncStateEl.textContent = `Updated with ${pluralize(synced, "new trip")} this load`;
     } else {
-      syncStateEl.textContent = synced > 0 ? `Auto-sync: +${formatInt(synced)} this load` : "Auto-sync active";
+      syncStateEl.textContent = "Auto-updating (up to date)";
     }
   }
 }
@@ -65,20 +137,20 @@ function renderTopStreets(payload) {
   }
   const streets = Array.isArray(payload?.top_streets) ? payload.top_streets : [];
   if (!streets.length) {
-    list.innerHTML = '<li class="story-empty">No streets resolved yet for this range.</li>';
+    list.innerHTML = '<li class="story-empty">No street names are available for this range yet.</li>';
     return;
   }
 
   list.innerHTML = streets
     .map((street) => {
-      const name = escapeHtml(street.street_name || "Unknown street");
-      const traversals = formatInt(street.traversals);
+      const name = escapeHtml(street.street_name || "Unnamed street");
+      const traversals = pluralize(street.traversals, "pass");
       const distance = formatMiles(street.distance_miles);
-      const cells = formatInt(street.cells);
+      const cells = pluralize(street.cells, "area");
       return `
         <li class="movement-rank-item">
           <strong>${name}</strong>
-          <span class="movement-rank-meta">${traversals} traversals • ${distance} • ${cells} cells</span>
+          <span class="movement-rank-meta">${traversals} • ${distance} • ${cells}</span>
         </li>
       `;
     })
@@ -92,20 +164,20 @@ function renderTopSegments(payload) {
   }
   const segments = Array.isArray(payload?.top_segments) ? payload.top_segments : [];
   if (!segments.length) {
-    list.innerHTML = '<li class="story-empty">No segment traversals in this range yet.</li>';
+    list.innerHTML = '<li class="story-empty">No repeated road links in this range yet.</li>';
     return;
   }
 
   list.innerHTML = segments
-    .slice(0, 20)
-    .map((segment, index) => {
-      const traversals = formatInt(segment.traversals);
+    .slice(0, MAX_SEGMENTS_IN_LIST)
+    .map((segment) => {
+      const traversals = pluralize(segment.traversals, "pass");
       const distance = formatMiles(segment.distance_miles);
-      const id = escapeHtml(segment.segment_key || `segment-${index + 1}`);
+      const label = escapeHtml(segment.label || "Frequent route link");
       return `
         <li class="movement-rank-item">
-          <strong>#${index + 1} ${id}</strong>
-          <span class="movement-rank-meta">${traversals} traversals • ${distance}</span>
+          <strong>${label}</strong>
+          <span class="movement-rank-meta">${traversals} • ${distance}</span>
         </li>
       `;
     })
@@ -113,18 +185,20 @@ function renderTopSegments(payload) {
 }
 
 function makeBaseTileLayer(deckGlobal) {
+  const basemapUrl = getBasemapTileUrl();
+  const theme = getCurrentTheme();
   return new deckGlobal.TileLayer({
-    id: "movement-osm-base",
-    data: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    id: `movement-base-${theme}`,
+    data: basemapUrl,
     minZoom: 0,
-    maxZoom: 19,
+    maxZoom: 20,
     tileSize: 256,
     renderSubLayers: (props) => {
       const {
         bbox: { west, south, east, north },
       } = props.tile;
       return new deckGlobal.BitmapLayer(props, {
-        id: `movement-osm-${props.tile.index.x}-${props.tile.index.y}-${props.tile.index.z}`,
+        id: `movement-base-bitmap-${props.tile.index.x}-${props.tile.index.y}-${props.tile.index.z}`,
         data: null,
         image: props.data,
         bounds: [west, south, east, north],
@@ -135,6 +209,7 @@ function makeBaseTileLayer(deckGlobal) {
 
 function makeH3Layer(deckGlobal, hexCells) {
   const maxTraversals = Math.max(...hexCells.map((cell) => Number(cell.traversals || 0)), 1);
+  const isLight = getCurrentTheme() === "light";
   return new deckGlobal.H3HexagonLayer({
     id: "movement-h3-layer",
     data: hexCells,
@@ -146,15 +221,23 @@ function makeH3Layer(deckGlobal, hexCells) {
     getFillColor: (d) => {
       const traversals = Number(d.traversals || 0);
       const ratio = Math.min(1, traversals / maxTraversals);
+      if (isLight) {
+        return [
+          Math.round(28 + ratio * 86),
+          Math.round(126 + ratio * 68),
+          Math.round(176 + ratio * 44),
+          Math.round(52 + ratio * 130),
+        ];
+      }
       return [
-        Math.round(50 + ratio * 190),
-        Math.round(140 + ratio * 90),
-        Math.round(210 - ratio * 100),
-        Math.round(70 + ratio * 140),
+        Math.round(30 + ratio * 92),
+        Math.round(118 + ratio * 74),
+        Math.round(190 + ratio * 38),
+        Math.round(58 + ratio * 132),
       ];
     },
     updateTriggers: {
-      getFillColor: [maxTraversals],
+      getFillColor: [maxTraversals, isLight],
     },
   });
 }
@@ -172,7 +255,7 @@ function makeSegmentLayer(deckGlobal, topSegments) {
     getTargetPosition: (d) => d.coordinates?.[1],
     getWidth: (d) => {
       const ratio = Math.min(1, Number(d.traversals || 0) / maxTraversals);
-      return 1 + ratio * 4.5;
+      return 1.25 + ratio * 4.75;
     },
     widthUnits: "pixels",
     widthMinPixels: 1,
@@ -180,10 +263,10 @@ function makeSegmentLayer(deckGlobal, topSegments) {
     getColor: (d) => {
       const ratio = Math.min(1, Number(d.traversals || 0) / maxTraversals);
       return [
-        Math.round(255 - ratio * 40),
-        Math.round(130 + ratio * 60),
-        Math.round(80 + ratio * 30),
-        Math.round(110 + ratio * 120),
+        Math.round(246 - ratio * 18),
+        Math.round(145 + ratio * 54),
+        Math.round(72 + ratio * 18),
+        Math.round(112 + ratio * 124),
       ];
     },
     parameters: {
@@ -203,28 +286,30 @@ function getTooltip(info) {
   }
 
   if (object.hex) {
+    const streetName = escapeHtml(object.street_name || "Street area");
     return {
       html: `
         <div>
-          <strong>H3 Cell</strong><br />
-          ${escapeHtml(object.hex)}<br />
-          ${formatInt(object.traversals)} traversals<br />
+          <strong>${streetName}</strong><br />
+          ${pluralize(object.traversals, "pass")}<br />
           ${formatMiles(object.distance_miles)}
         </div>
       `,
+      style: getTooltipStyle(),
     };
   }
 
   if (object.segment_key) {
+    const label = escapeHtml(object.label || "Frequent route link");
     return {
       html: `
         <div>
-          <strong>Segment</strong><br />
-          ${escapeHtml(object.segment_key)}<br />
-          ${formatInt(object.traversals)} traversals<br />
+          <strong>${label}</strong><br />
+          ${pluralize(object.traversals, "pass")}<br />
           ${formatMiles(object.distance_miles)}
         </div>
       `,
+      style: getTooltipStyle(),
     };
   }
 
@@ -249,15 +334,14 @@ function applyDeckLayers(payload) {
   const segments = Array.isArray(payload?.top_segments) ? payload.top_segments : [];
 
   const layers = [makeBaseTileLayer(deckGlobal)];
-  if (activeLayerMode === "both" || activeLayerMode === "cells") {
-    if (hexCells.length) {
-      layers.push(makeH3Layer(deckGlobal, hexCells));
-    }
+  if ((activeLayerMode === "both" || activeLayerMode === "cells") && hexCells.length) {
+    layers.push(makeH3Layer(deckGlobal, hexCells));
   }
-  if (activeLayerMode === "both" || activeLayerMode === "segments") {
-    if (segments.length) {
-      layers.push(makeSegmentLayer(deckGlobal, segments));
-    }
+  if (
+    (activeLayerMode === "both" || activeLayerMode === "segments") &&
+    segments.length
+  ) {
+    layers.push(makeSegmentLayer(deckGlobal, segments));
   }
 
   const center = payload?.map_center || {};
@@ -265,7 +349,7 @@ function applyDeckLayers(payload) {
     longitude: Number(center.lon) || -95.7,
     latitude: Number(center.lat) || 37.09,
     zoom: Number(center.zoom) || 10.5,
-    pitch: 30,
+    pitch: 0,
     bearing: 0,
   };
 
@@ -318,6 +402,16 @@ export function bindMovementControls(signal) {
       signal ? { signal } : false
     );
   });
+
+  document.addEventListener(
+    "themeChanged",
+    () => {
+      if (latestMovementPayload) {
+        applyDeckLayers(latestMovementPayload);
+      }
+    },
+    signal ? { signal } : false
+  );
 }
 
 export function renderMovementInsights(payload) {
@@ -350,4 +444,3 @@ export function destroyMovementInsights() {
     movementDeck = null;
   }
 }
-

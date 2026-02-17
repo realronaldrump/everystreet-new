@@ -33,6 +33,7 @@ MAX_HEX_CELLS = 800
 MAX_SEGMENTS = 300
 MAX_STREETS = 25
 MAX_HEX_STREET_LOOKUPS = 160
+MAX_SEGMENT_LABEL_LOOKUPS = 20
 METERS_TO_MILES = 0.000621371
 
 
@@ -408,6 +409,7 @@ class MobilityInsightsService:
         *,
         resolution: int,
         street_limit: int = MAX_STREETS,
+        street_names_by_cell: dict[str, str | None] | None = None,
     ) -> list[dict[str, Any]]:
         ranked_cells = hex_cells[:MAX_HEX_STREET_LOOKUPS]
         if not ranked_cells:
@@ -416,12 +418,18 @@ class MobilityInsightsService:
         semaphore = asyncio.Semaphore(8)
 
         async def resolve(cell: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
+            cell_id = str(cell.get("hex") or "")
+            if street_names_by_cell is not None:
+                resolved = _normalize_street_name(street_names_by_cell.get(cell_id))
+                if resolved:
+                    return resolved, cell
+
             async with semaphore:
                 street = await cls._street_name_for_cell(
-                    str(cell.get("hex")),
+                    cell_id,
                     resolution=resolution,
                 )
-                return street, cell
+                return _normalize_street_name(street), cell
 
         grouped: dict[str, dict[str, Any]] = {}
         for street, cell in await asyncio.gather(
@@ -451,6 +459,56 @@ class MobilityInsightsService:
         for row in top_streets:
             row["distance_miles"] = round(float(row["distance_miles"]), 2)
         return top_streets
+
+    @classmethod
+    async def _resolve_street_names_for_cells(
+        cls,
+        cells: list[str],
+        *,
+        resolution: int,
+    ) -> dict[str, str | None]:
+        ordered_unique: list[str] = []
+        seen: set[str] = set()
+        for raw in cells:
+            cell_id = str(raw or "").strip()
+            if not cell_id or cell_id in seen:
+                continue
+            seen.add(cell_id)
+            ordered_unique.append(cell_id)
+
+        if not ordered_unique:
+            return {}
+
+        semaphore = asyncio.Semaphore(8)
+
+        async def resolve(cell_id: str) -> tuple[str, str | None]:
+            async with semaphore:
+                street = await cls._street_name_for_cell(
+                    cell_id,
+                    resolution=resolution,
+                )
+                return cell_id, _normalize_street_name(street)
+
+        resolved_pairs = await asyncio.gather(*(resolve(cell_id) for cell_id in ordered_unique))
+        return dict(resolved_pairs)
+
+    @classmethod
+    def _segment_label(
+        cls,
+        street_a: str | None,
+        street_b: str | None,
+    ) -> str:
+        left = _normalize_street_name(street_a)
+        right = _normalize_street_name(street_b)
+        if left and right:
+            if left.casefold() == right.casefold():
+                return left
+            return f"{left} ↔ {right}"
+        if left:
+            return left
+        if right:
+            return right
+        return "Frequent route link"
 
     @classmethod
     def _build_map_center(cls, hex_cells: list[dict[str, Any]]) -> dict[str, float] | None:
@@ -579,6 +637,33 @@ class MobilityInsightsService:
             if item.get("_id")
         ]
 
+        street_names_by_cell = await cls._resolve_street_names_for_cells(
+            [str(cell.get("hex") or "") for cell in hex_cells[:MAX_HEX_STREET_LOOKUPS]],
+            resolution=H3_RESOLUTION,
+        )
+        segment_label_lookup_cells: list[str] = []
+        for item in segment_results[:MAX_SEGMENT_LABEL_LOOKUPS]:
+            h3_a = str(item.get("h3_a") or "")
+            h3_b = str(item.get("h3_b") or "")
+            if h3_a and h3_a not in street_names_by_cell:
+                segment_label_lookup_cells.append(h3_a)
+            if h3_b and h3_b not in street_names_by_cell:
+                segment_label_lookup_cells.append(h3_b)
+        if segment_label_lookup_cells:
+            street_names_by_cell.update(
+                await cls._resolve_street_names_for_cells(
+                    segment_label_lookup_cells,
+                    resolution=H3_RESOLUTION,
+                ),
+            )
+
+        for cell in hex_cells:
+            street_name = _normalize_street_name(
+                street_names_by_cell.get(str(cell.get("hex") or "")),
+            )
+            if street_name:
+                cell["street_name"] = street_name
+
         top_segments: list[dict[str, Any]] = []
         for item in segment_results:
             h3_a = str(item.get("h3_a") or "")
@@ -590,11 +675,16 @@ class MobilityInsightsService:
                 lat_b, lon_b = h3.cell_to_latlng(h3_b)
             except Exception:
                 continue
+            street_a = _normalize_street_name(street_names_by_cell.get(h3_a))
+            street_b = _normalize_street_name(street_names_by_cell.get(h3_b))
             top_segments.append(
                 {
                     "segment_key": str(item.get("_id") or ""),
                     "h3_a": h3_a,
                     "h3_b": h3_b,
+                    "label": cls._segment_label(street_a, street_b),
+                    "street_a": street_a,
+                    "street_b": street_b,
                     "traversals": int(item.get("traversals") or 0),
                     "distance_miles": round(float(item.get("distance_miles") or 0.0), 2),
                     "coordinates": [[lon_a, lat_a], [lon_b, lat_b]],
@@ -609,6 +699,7 @@ class MobilityInsightsService:
             hex_cells,
             resolution=H3_RESOLUTION,
             street_limit=MAX_STREETS,
+            street_names_by_cell=street_names_by_cell,
         )
 
         return {
