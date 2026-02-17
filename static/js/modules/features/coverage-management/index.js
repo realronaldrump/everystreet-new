@@ -30,9 +30,16 @@ let activeStreetPopup = null;
 let highlightedSegmentId = null;
 let currentMapFilter = "all";
 let currentAreaSyncToken = null;
+let currentAreaRoadFilterVersion = null;
 const areaErrorById = new Map();
 const areaNameById = new Map();
+const areaRoadFilterVersionById = new Map();
 let activeErrorAreaId = null;
+
+const INCLUDE_SERVICE_TOGGLE_IDS = [
+  "include-service-roads-toggle",
+  "dashboard-include-service-roads-toggle",
+];
 
 const VALIDATION_DEBOUNCE_MS = 500;
 const validationState = {
@@ -116,10 +123,12 @@ export default async function initCoverageManagementPage({ signal, cleanup } = {
     highlightedSegmentId = null;
     currentMapFilter = "all";
     currentAreaSyncToken = null;
+    currentAreaRoadFilterVersion = null;
     streetsCacheKey = null;
     streetsCacheGeojson = null;
     renderedStreetsCacheKey = null;
     activeJobsByAreaId = new Map();
+    areaRoadFilterVersionById.clear();
     activeErrorAreaId = null;
   };
 
@@ -164,8 +173,11 @@ function setupEventListeners(signal) {
 
   const locationInput = document.getElementById("location-input");
   const locationType = document.getElementById("location-type");
-  const includeServiceToggle = document.getElementById(
+  const includeServiceModalToggle = document.getElementById(
     "include-service-roads-toggle"
+  );
+  const includeServiceDashboardToggle = document.getElementById(
+    "dashboard-include-service-roads-toggle"
   );
   const candidatesContainer = document.getElementById("location-validation-candidates");
   const addAreaModal = document.getElementById("addAreaModal");
@@ -206,7 +218,12 @@ function setupEventListeners(signal) {
     handleValidationTrigger,
     signal ? { signal } : false
   );
-  includeServiceToggle?.addEventListener(
+  includeServiceModalToggle?.addEventListener(
+    "change",
+    handleIncludeServiceRoadsToggle,
+    signal ? { signal } : false
+  );
+  includeServiceDashboardToggle?.addEventListener(
     "change",
     handleIncludeServiceRoadsToggle,
     signal ? { signal } : false
@@ -246,6 +263,7 @@ function setupEventListeners(signal) {
     () => {
       document.getElementById("coverage-dashboard").style.display = "none";
       currentAreaId = null;
+      currentAreaRoadFilterVersion = null;
     },
     signal ? { signal } : false
   );
@@ -409,9 +427,34 @@ function apiDelete(endpoint) {
   return apiClient.delete(`${API_BASE}${endpoint}`, withSignal());
 }
 
+function getIncludeServiceRoadsToggles() {
+  return INCLUDE_SERVICE_TOGGLE_IDS.map((id) => document.getElementById(id)).filter(
+    Boolean
+  );
+}
+
+function setIncludeServiceRoadsToggleState({ checked, disabled } = {}) {
+  getIncludeServiceRoadsToggles().forEach((toggleEl) => {
+    if (typeof checked === "boolean") {
+      toggleEl.checked = checked;
+    }
+    if (typeof disabled === "boolean") {
+      toggleEl.disabled = disabled;
+    }
+  });
+}
+
+function getIncludeServiceRoadsSelection() {
+  const toggles = getIncludeServiceRoadsToggles();
+  if (!toggles.length) {
+    return true;
+  }
+  return Boolean(toggles[0].checked);
+}
+
 function setIncludeServiceRoadsStatus(message, tone = "secondary") {
-  const statusEl = document.getElementById("include-service-roads-status");
-  if (!statusEl) {
+  const statusEls = document.querySelectorAll("[data-include-service-status]");
+  if (!statusEls.length) {
     return;
   }
   const tones = {
@@ -421,24 +464,48 @@ function setIncludeServiceRoadsStatus(message, tone = "secondary") {
     danger: "text-danger",
   };
   const toneClass = tones[tone] || tones.secondary;
-  statusEl.className = `form-text d-block mt-1 ${toneClass}`;
-  statusEl.textContent = message;
+  statusEls.forEach((statusEl) => {
+    statusEl.className = `form-text d-block mt-1 ${toneClass}`;
+    statusEl.textContent = message;
+  });
+}
+
+function parseIncludeServiceFromFilterSignature(signature) {
+  if (typeof signature !== "string" || !signature.trim()) {
+    return null;
+  }
+  const match = signature.match(/(?:^|\|)service=(include|exclude)(?:\||$)/);
+  if (!match) {
+    return null;
+  }
+  return match[1] === "include";
+}
+
+function shouldRebuildForServiceFilter(areaId, includeServiceRoads) {
+  const signature =
+    areaRoadFilterVersionById.get(areaId) ||
+    (currentAreaId === areaId ? currentAreaRoadFilterVersion : null);
+  const areaIncludesService = parseIncludeServiceFromFilterSignature(signature);
+  if (areaIncludesService === null) {
+    return true;
+  }
+  return areaIncludesService !== includeServiceRoads;
 }
 
 async function loadCoverageFilterSettings() {
-  const toggle = document.getElementById("include-service-roads-toggle");
-  if (!toggle) {
+  const toggles = getIncludeServiceRoadsToggles();
+  if (!toggles.length) {
     return;
   }
 
-  toggle.disabled = true;
+  setIncludeServiceRoadsToggleState({ disabled: true });
   setIncludeServiceRoadsStatus("Loading filter settings...", "info");
 
   try {
     const settings = await apiClient.get(APP_SETTINGS_API, withSignal());
     const includeServiceRoads =
       settings?.coverageIncludeServiceRoads !== false;
-    toggle.checked = includeServiceRoads;
+    setIncludeServiceRoadsToggleState({ checked: includeServiceRoads });
     setIncludeServiceRoadsStatus(
       includeServiceRoads
         ? "Service roads are included for new area builds."
@@ -447,13 +514,13 @@ async function loadCoverageFilterSettings() {
     );
   } catch (error) {
     console.error("Failed to load coverage filter settings:", error);
-    toggle.checked = true;
+    setIncludeServiceRoadsToggleState({ checked: true });
     setIncludeServiceRoadsStatus(
       "Using default: include service roads.",
       "secondary"
     );
   } finally {
-    toggle.disabled = false;
+    setIncludeServiceRoadsToggleState({ disabled: false });
   }
 }
 
@@ -465,7 +532,10 @@ async function handleIncludeServiceRoadsToggle(event) {
 
   const includeServiceRoads = Boolean(toggle.checked);
   const previousValue = !includeServiceRoads;
-  toggle.disabled = true;
+  setIncludeServiceRoadsToggleState({
+    checked: includeServiceRoads,
+    disabled: true,
+  });
   setIncludeServiceRoadsStatus("Saving filter setting...", "info");
 
   try {
@@ -481,16 +551,16 @@ async function handleIncludeServiceRoadsToggle(event) {
       "success"
     );
     showNotification(
-      "Street filter saved. Rebuild an area to apply to existing streets.",
+      "Street filter saved. Use Recalculate Coverage to apply it to an existing area.",
       "success"
     );
   } catch (error) {
     console.error("Failed to save coverage filter settings:", error);
-    toggle.checked = previousValue;
+    setIncludeServiceRoadsToggleState({ checked: previousValue });
     setIncludeServiceRoadsStatus("Save failed. Keeping previous setting.", "danger");
     showNotification(`Failed to save filter setting: ${error.message}`, "danger");
   } finally {
-    toggle.disabled = false;
+    setIncludeServiceRoadsToggleState({ disabled: false });
   }
 }
 
@@ -820,6 +890,13 @@ async function loadAreas() {
       return;
     }
 
+    areaRoadFilterVersionById.clear();
+    (areasData.areas || []).forEach((area) => {
+      if (area?.id) {
+        areaRoadFilterVersionById.set(area.id, area.road_filter_version || null);
+      }
+    });
+
     const { hasAreas } = renderAreasTable({
       areas: areasData.areas,
       activeJobsByAreaId,
@@ -977,6 +1054,7 @@ async function deleteArea(areaId, displayName) {
     if (currentAreaId === areaId) {
       document.getElementById("coverage-dashboard").style.display = "none";
       currentAreaId = null;
+      currentAreaRoadFilterVersion = null;
     }
 
     await loadAreas();
@@ -1038,14 +1116,26 @@ async function rebuildArea(areaId, displayName = null) {
 }
 
 async function recalculateCoverage(areaId, displayName) {
+  const includeServiceRoads = getIncludeServiceRoadsSelection();
+  const needsStreetRebuild = shouldRebuildForServiceFilter(
+    areaId,
+    includeServiceRoads
+  );
+  const servicePolicyLabel = includeServiceRoads ? "include" : "exclude";
+
   const confirmed = await confirmationDialog.show({
     title: "Recalculate Coverage",
     message:
-      `Recalculate coverage for "<strong>${escapeHtml(displayName)}</strong>" by matching all existing trips?<br><br>` +
-      `This will update coverage data without reloading the local OSM extract. Use this if coverage seems incomplete.`,
+      needsStreetRebuild
+        ? `Recalculate coverage for "<strong>${escapeHtml(displayName)}</strong>" using the current service-road policy (<strong>${servicePolicyLabel}</strong>)?<br><br>` +
+          "This will rebuild streets from OSM, then rematch trips. This takes longer but applies filter changes."
+        : `Recalculate coverage for "<strong>${escapeHtml(displayName)}</strong>" by matching all existing trips?<br><br>` +
+          "Street filters already match this area's settings, so this will run a fast backfill without rebuilding streets.",
     allowHtml: true,
-    confirmText: "Recalculate",
-    confirmButtonClass: "btn-info",
+    confirmText: needsStreetRebuild
+      ? "Recalculate + Rebuild Streets"
+      : "Recalculate",
+    confirmButtonClass: needsStreetRebuild ? "btn-warning" : "btn-info",
   });
 
   if (!confirmed) {
@@ -1053,6 +1143,34 @@ async function recalculateCoverage(areaId, displayName) {
   }
 
   try {
+    if (needsStreetRebuild) {
+      showNotification(
+        "Rebuilding streets and recalculating coverage... This may take a few minutes.",
+        "info"
+      );
+
+      const result = await apiPost(`/areas/${areaId}/rebuild`, {});
+      await loadAreas();
+
+      if (result.job_id) {
+        GlobalJobTracker.start({
+          jobId: result.job_id,
+          jobType: "area_rebuild",
+          areaId,
+          areaName: displayName,
+          initialMessage:
+            result.message || "Rebuilding area and recalculating coverage...",
+        });
+      }
+
+      showNotification(
+        result.message ||
+          "Rebuild started in the background. Coverage will refresh when complete.",
+        "info"
+      );
+      return;
+    }
+
     showNotification("Recalculating coverage... This may take a moment.", "info");
 
     const result = await apiPost(`/areas/${areaId}/backfill`, {});
@@ -1191,6 +1309,10 @@ async function viewArea(areaId) {
     const data = await apiGet(`/areas/${areaId}`);
     const { area } = data;
     currentAreaSyncToken = area?.last_synced || area?.created_at || null;
+    currentAreaRoadFilterVersion = area?.road_filter_version || null;
+    if (area?.id) {
+      areaRoadFilterVersionById.set(area.id, currentAreaRoadFilterVersion);
+    }
 
     // Update stats
     document.getElementById("dashboard-location-name").textContent = area.display_name;

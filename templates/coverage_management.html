@@ -277,6 +277,19 @@ Coverage
                   </h4>
                 </div>
                 <div class="card-body">
+                  <div class="form-check form-switch mb-3">
+                    <input type="checkbox"
+                           id="dashboard-include-service-roads-toggle"
+                           class="form-check-input"
+                           role="switch"
+                           checked />
+                    <label class="form-check-label" for="dashboard-include-service-roads-toggle">
+                      Include <code>highway=service</code> roads
+                    </label>
+                  </div>
+                  <small class="form-text text-secondary d-block mb-2"
+                         data-include-service-status>
+                  </small>
                   <button class="btn btn-info btn-sm w-100 mb-2" id="recalculate-coverage-btn">
                     <i class="fas fa-calculator me-1"></i>Recalculate Coverage
                   </button>
@@ -410,6 +423,7 @@ State / Region
               </small>
               <small class="form-text text-secondary d-block mt-1"
                      id="include-service-roads-status"
+                     data-include-service-status
                      aria-live="polite">
               </small>
             </div>
