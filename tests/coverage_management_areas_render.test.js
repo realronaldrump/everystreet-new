@@ -1,31 +1,41 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-test("renderAreasTable tolerates missing coverage percentage values", async () => {
-  const tbody = { innerHTML: "" };
+test("renderAreaCards normalizes missing coverage percentage values", async () => {
+  const grid = { innerHTML: "", style: { display: "none" } };
+  const loading = { style: { display: "block" } };
+  const emptyState = { classList: { add: () => {}, remove: () => {} } };
+
   const originalDocument = global.document;
   const originalWindow = global.window;
   global.document = {
     readyState: "loading",
     addEventListener: () => {},
-    querySelector: (selector) =>
-      selector === "#coverage-areas-table tbody" ? tbody : null,
+    getElementById: (id) => {
+      if (id === "area-cards-grid") return grid;
+      if (id === "area-cards-loading") return loading;
+      if (id === "area-empty-state") return emptyState;
+      return null;
+    },
   };
   global.window = {
     matchMedia: () => ({ matches: false }),
   };
 
   try {
-    const { renderAreasTable } = await import(
+    const { renderAreaCards } = await import(
       "../static/js/modules/features/coverage-management/areas.js"
     );
-    const result = renderAreasTable({
+    const result = renderAreaCards({
       areas: [
         {
           id: "area-1",
           display_name: "Demo Area",
           area_type: "city",
           status: "ready",
+          total_segments: 10,
+          driven_segments: 3,
+          undriveable_segments: 0,
           total_length_miles: 10,
           driven_length_miles: 3,
           coverage_percentage: null,
@@ -38,8 +48,9 @@ test("renderAreasTable tolerates missing coverage percentage values", async () =
     });
 
     assert.equal(result.hasAreas, true);
-    assert.match(tbody.innerHTML, /width: 0%/);
-    assert.match(tbody.innerHTML, /0\.00%/);
+    assert.equal(grid.style.display, "grid");
+    assert.match(grid.innerHTML, /0\.0%/);
+    assert.match(grid.innerHTML, /stroke-dashoffset:\s*125\.66;/);
   } finally {
     global.document = originalDocument;
     global.window = originalWindow;
