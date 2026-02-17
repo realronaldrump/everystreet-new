@@ -4,10 +4,8 @@
  * Main initialization and event handling for the driving insights page
  */
 
-import { swupReady } from "../../core/navigation.js";
 import * as InsightsAPI from "../../insights/api.js";
 import * as InsightsCharts from "../../insights/charts.js";
-import * as InsightsExport from "../../insights/export.js";
 import * as InsightsFormatters from "../../insights/formatters.js";
 import * as InsightsMetrics from "../../insights/metrics.js";
 import { loadAndShowTripsForDrilldown } from "../../insights/modal.js";
@@ -18,6 +16,7 @@ import {
 } from "../../insights/movement.js";
 import * as InsightsState from "../../insights/state.js";
 import * as InsightsStories from "../../insights/story-sections.js";
+import notificationManager from "../../ui/notifications.js";
 
 let tooltipInstances = [];
 let pageSignal = null;
@@ -93,102 +92,6 @@ function setupEventListeners(signal) {
   });
 
   bindMovementControls(signal);
-
-  // FAB menu
-  setupFabMenu(signal);
-
-  // FAB actions
-  setupFabActions(signal);
-}
-
-/**
- * Setup floating action button menu
- */
-function setupFabMenu(signal) {
-  const fabMain = document.getElementById("fab-main");
-  const fabMenu = document.getElementById("fab-menu");
-
-  if (fabMain && fabMenu) {
-    fabMain.addEventListener(
-      "click",
-      () => {
-        fabMenu.classList.toggle("show");
-        const icon = fabMain.querySelector("i");
-        if (icon) {
-          icon.classList.toggle("fa-plus");
-          icon.classList.toggle("fa-times");
-        }
-      },
-      signal ? { signal } : false
-    );
-  }
-}
-
-/**
- * Setup floating action button actions
- */
-function setupFabActions(signal) {
-  const refreshBtn = document.getElementById("refresh-data");
-  const downloadBtn = document.getElementById("download-report");
-  const shareBtn = document.getElementById("share-insights");
-  const exportChartBtn = document.getElementById("export-chart");
-  const exportDataBtn = document.getElementById("export-data");
-  const viewMapBtn = document.getElementById("view-map");
-
-  if (refreshBtn) {
-    refreshBtn.addEventListener(
-      "click",
-      () => {
-        loadAllData();
-        InsightsExport.showNotification("Data refreshed successfully", "success");
-      },
-      signal ? { signal } : false
-    );
-  }
-
-  if (downloadBtn) {
-    downloadBtn.addEventListener(
-      "click",
-      InsightsExport.generateReport,
-      signal ? { signal } : false
-    );
-  }
-
-  if (shareBtn) {
-    shareBtn.addEventListener(
-      "click",
-      InsightsExport.shareInsights,
-      signal ? { signal } : false
-    );
-  }
-
-  if (exportChartBtn) {
-    exportChartBtn.addEventListener(
-      "click",
-      InsightsExport.exportChart,
-      signal ? { signal } : false
-    );
-  }
-
-  if (exportDataBtn) {
-    exportDataBtn.addEventListener(
-      "click",
-      InsightsExport.exportData,
-      signal ? { signal } : false
-    );
-  }
-
-  if (viewMapBtn) {
-    viewMapBtn.addEventListener(
-      "click",
-      () => {
-        swupReady.then((swup) => {
-          swup.navigate("/trips");
-        });
-      },
-      signal ? { signal } : false
-    );
-  }
 }
 
 function renderStorySectionsFromState() {
@@ -255,7 +158,7 @@ export async function loadAllData(signalOverride) {
       return;
     }
     console.error("Error loading data:", error);
-    InsightsExport.showNotification("Error loading data. Please try again.", "error");
+    notificationManager.show("Error loading data. Please try again.", "error");
   } finally {
     InsightsState.updateState({ isLoading: false });
     hideLoadingStates();

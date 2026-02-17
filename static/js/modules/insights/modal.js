@@ -5,8 +5,8 @@
  */
 
 import { escapeHtml } from "../utils.js";
+import notificationManager from "../ui/notifications.js";
 import { fetchDrilldownTrips, fetchTimePeriodTrips } from "./api.js";
-import { showNotification } from "./export.js";
 import { formatDuration, formatHourLabel, getDateRange } from "./formatters.js";
 
 function formatInsightValue(kind, trip) {
@@ -174,7 +174,7 @@ export async function loadAndShowTripsForTimePeriod(timeType, timeValue) {
     displayTripsInModal(trips, { title });
   } catch (error) {
     console.error("Error loading trips:", error);
-    showNotification("Error loading trips. Please try again.", "error");
+    notificationManager.show("Error loading trips. Please try again.", "error");
   }
 }
 
@@ -207,7 +207,7 @@ export async function loadAndShowTripsForDrilldown(kind, opts = {}) {
     displayTripsInModal(trips, { title, insightKind: kind });
   } catch (error) {
     console.error("Error loading drilldown trips:", error);
-    showNotification("Error loading trips. Please try again.", "error");
+    notificationManager.show("Error loading trips. Please try again.", "error");
   }
 }
 
