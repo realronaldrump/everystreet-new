@@ -471,6 +471,11 @@ class DashboardService:
                 "profiled_trip_count": 0,
                 "synced_trips_this_request": 0,
                 "pending_trip_sync_count": 0,
+                "metric_basis": {
+                    "top_streets_primary": "trip_count",
+                    "top_segments_primary": "traversals",
+                    "map_cells_intensity": "traversals",
+                },
                 "hex_cells": [],
                 "top_segments": [],
                 "top_streets": [],

@@ -23,6 +23,7 @@ test("Insights template includes required section IDs used by insights modules",
     "places-orbit",
     "places-detail-panel",
     "movement-map",
+    "movement-map-caption",
     "movement-top-streets",
     "movement-top-segments",
     "movement-layer-toggle",
@@ -30,4 +31,10 @@ test("Insights template includes required section IDs used by insights modules",
     "trendsChart",
     "timeDistChart",
   ].forEach((id) => assertId(source, id));
+});
+
+test("Insights movement section copy describes trip-vs-traversal semantics", () => {
+  const source = fs.readFileSync(templatePath, "utf8");
+  assert.match(source, /Streets are ranked by distinct trips/i);
+  assert.match(source, /Most traversed links/i);
 });

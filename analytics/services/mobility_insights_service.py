@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections import defaultdict
 from contextlib import suppress
 from datetime import UTC, datetime
@@ -405,6 +406,138 @@ class MobilityInsightsService:
     @classmethod
     async def _build_top_streets(
         cls,
+        query: dict[str, Any],
+        hex_cells: list[dict[str, Any]],
+        *,
+        resolution: int,
+        street_limit: int = MAX_STREETS,
+        street_names_by_cell: dict[str, str | None] | None = None,
+    ) -> list[dict[str, Any]]:
+        ranked_cells = hex_cells[:MAX_HEX_STREET_LOOKUPS]
+        if not ranked_cells:
+            return []
+
+        semaphore = asyncio.Semaphore(8)
+
+        async def resolve_street_name(cell_id: str) -> str | None:
+            if street_names_by_cell is not None:
+                resolved = _normalize_street_name(street_names_by_cell.get(cell_id))
+                if resolved:
+                    return resolved
+            async with semaphore:
+                street = await cls._street_name_for_cell(
+                    cell_id,
+                    resolution=resolution,
+                )
+                return _normalize_street_name(street)
+
+        candidate_cells = [str(cell.get("hex") or "") for cell in ranked_cells if cell.get("hex")]
+        if not candidate_cells:
+            return []
+
+        missing_labels = [
+            cell_id
+            for cell_id in candidate_cells
+            if not _normalize_street_name((street_names_by_cell or {}).get(cell_id))
+        ]
+        if missing_labels:
+            resolved_pairs = await asyncio.gather(
+                *(resolve_street_name(cell_id) for cell_id in missing_labels),
+            )
+            if street_names_by_cell is None:
+                street_names_by_cell = {}
+            for idx, cell_id in enumerate(missing_labels):
+                street_names_by_cell[cell_id] = resolved_pairs[idx]
+
+        start_time = time.perf_counter()
+        trip_query = _combine_query(query, {"invalid": {"$ne": True}})
+        street_trip_pipeline = [
+            {"$match": trip_query},
+            {
+                "$lookup": {
+                    "from": "trip_mobility_profiles",
+                    "localField": "_id",
+                    "foreignField": "trip_id",
+                    "as": "mobility",
+                },
+            },
+            {"$unwind": "$mobility"},
+            {"$unwind": "$mobility.cell_counts"},
+            {"$match": {"mobility.cell_counts.h3": {"$in": candidate_cells}}},
+            {
+                "$group": {
+                    "_id": {
+                        "trip_id": "$_id",
+                        "h3": "$mobility.cell_counts.h3",
+                    },
+                    "traversals": {"$sum": "$mobility.cell_counts.traversals"},
+                    "distance_miles": {"$sum": "$mobility.cell_counts.distance_miles"},
+                },
+            },
+        ]
+
+        dedupe_rows = await aggregate_to_list(Trip, street_trip_pipeline)
+
+        grouped: dict[str, dict[str, Any]] = {}
+        for row in dedupe_rows:
+            row_id = row.get("_id") or {}
+            trip_id = row_id.get("trip_id")
+            cell_id = str(row_id.get("h3") or "")
+            if not trip_id or not cell_id:
+                continue
+
+            street_name = _normalize_street_name((street_names_by_cell or {}).get(cell_id))
+            if not street_name:
+                continue
+
+            key = street_name.casefold()
+            bucket = grouped.get(key)
+            if bucket is None:
+                bucket = {
+                    "street_name": street_name,
+                    "trip_ids": set(),
+                    "cell_ids": set(),
+                    "traversals": 0,
+                    "distance_miles": 0.0,
+                }
+                grouped[key] = bucket
+
+            bucket["trip_ids"].add(str(trip_id))
+            bucket["cell_ids"].add(cell_id)
+            bucket["traversals"] += int(row.get("traversals") or 0)
+            bucket["distance_miles"] += float(row.get("distance_miles") or 0.0)
+
+        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+        logger.debug(
+            "Mobility street dedupe computed in %.1fms (candidate_cells=%d rows=%d streets=%d)",
+            elapsed_ms,
+            len(candidate_cells),
+            len(dedupe_rows),
+            len(grouped),
+        )
+
+        top_streets = sorted(
+            (
+                {
+                    "street_name": bucket["street_name"],
+                    "trip_count": len(bucket["trip_ids"]),
+                    "traversals": int(bucket["traversals"]),
+                    "distance_miles": round(float(bucket["distance_miles"]), 2),
+                    "cells": len(bucket["cell_ids"]),
+                }
+                for bucket in grouped.values()
+            ),
+            key=lambda row: (
+                -int(row["trip_count"]),
+                -float(row["distance_miles"]),
+                -int(row["traversals"]),
+            ),
+        )[:street_limit]
+        return top_streets
+
+    @classmethod
+    async def _build_top_streets_fallback(
+        cls,
         hex_cells: list[dict[str, Any]],
         *,
         resolution: int,
@@ -432,9 +565,7 @@ class MobilityInsightsService:
                 return _normalize_street_name(street), cell
 
         grouped: dict[str, dict[str, Any]] = {}
-        for street, cell in await asyncio.gather(
-            *(resolve(cell) for cell in ranked_cells),
-        ):
+        for street, cell in await asyncio.gather(*(resolve(cell) for cell in ranked_cells)):
             normalized = _normalize_street_name(street)
             if not normalized:
                 continue
@@ -446,6 +577,7 @@ class MobilityInsightsService:
                     "traversals": 0,
                     "distance_miles": 0.0,
                     "cells": 0,
+                    "trip_count": None,
                 }
                 grouped[key] = bucket
             bucket["traversals"] += int(cell.get("traversals") or 0)
@@ -454,7 +586,7 @@ class MobilityInsightsService:
 
         top_streets = sorted(
             grouped.values(),
-            key=lambda row: (-row["traversals"], -row["distance_miles"]),
+            key=lambda row: (-int(row["traversals"]), -float(row["distance_miles"])),
         )[:street_limit]
         for row in top_streets:
             row["distance_miles"] = round(float(row["distance_miles"]), 2)
@@ -592,6 +724,7 @@ class MobilityInsightsService:
             {
                 "$group": {
                     "_id": "$mobility.cell_counts.h3",
+                    "trip_count": {"$sum": 1},
                     "traversals": {"$sum": "$mobility.cell_counts.traversals"},
                     "distance_miles": {"$sum": "$mobility.cell_counts.distance_miles"},
                 },
@@ -618,6 +751,7 @@ class MobilityInsightsService:
                     "_id": "$mobility.segment_counts.segment_key",
                     "h3_a": {"$first": "$mobility.segment_counts.h3_a"},
                     "h3_b": {"$first": "$mobility.segment_counts.h3_b"},
+                    "trip_count": {"$sum": 1},
                     "traversals": {"$sum": "$mobility.segment_counts.traversals"},
                     "distance_miles": {"$sum": "$mobility.segment_counts.distance_miles"},
                 },
@@ -630,6 +764,7 @@ class MobilityInsightsService:
         hex_cells = [
             {
                 "hex": str(item.get("_id")),
+                "trip_count": int(item.get("trip_count") or 0),
                 "traversals": int(item.get("traversals") or 0),
                 "distance_miles": round(float(item.get("distance_miles") or 0.0), 2),
             }
@@ -685,6 +820,7 @@ class MobilityInsightsService:
                     "label": cls._segment_label(street_a, street_b),
                     "street_a": street_a,
                     "street_b": street_b,
+                    "trip_count": int(item.get("trip_count") or 0),
                     "traversals": int(item.get("traversals") or 0),
                     "distance_miles": round(float(item.get("distance_miles") or 0.0), 2),
                     "coordinates": [[lon_a, lat_a], [lon_b, lat_b]],
@@ -695,12 +831,24 @@ class MobilityInsightsService:
                 },
             )
 
-        top_streets = await cls._build_top_streets(
-            hex_cells,
-            resolution=H3_RESOLUTION,
-            street_limit=MAX_STREETS,
-            street_names_by_cell=street_names_by_cell,
-        )
+        top_streets_primary = "trip_count"
+        try:
+            top_streets = await cls._build_top_streets(
+                query,
+                hex_cells,
+                resolution=H3_RESOLUTION,
+                street_limit=MAX_STREETS,
+                street_names_by_cell=street_names_by_cell,
+            )
+        except Exception:
+            logger.exception("Mobility street trip-dedupe aggregation failed")
+            top_streets_primary = "traversals_fallback"
+            top_streets = await cls._build_top_streets_fallback(
+                hex_cells,
+                resolution=H3_RESOLUTION,
+                street_limit=MAX_STREETS,
+                street_names_by_cell=street_names_by_cell,
+            )
 
         return {
             "h3_resolution": H3_RESOLUTION,
@@ -709,6 +857,11 @@ class MobilityInsightsService:
             "profiled_trip_count": int(summary.get("profiled_trip_count") or 0),
             "synced_trips_this_request": synced_count,
             "pending_trip_sync_count": pending_unsynced,
+            "metric_basis": {
+                "top_streets_primary": top_streets_primary,
+                "top_segments_primary": "traversals",
+                "map_cells_intensity": "traversals",
+            },
             "hex_cells": hex_cells,
             "top_segments": top_segments,
             "top_streets": top_streets,

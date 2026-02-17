@@ -316,7 +316,7 @@ Built automatically from your trip paths. Brighter areas and lines mean you driv
           <header class="movement-map-header">
             <div class="movement-meta-strip">
               <span class="movement-meta-pill" id="movement-trip-count">0 trips analyzed</span>
-              <span class="movement-meta-pill" id="movement-hex-count">0 high-use areas</span>
+              <span class="movement-meta-pill" id="movement-hex-count">0 traversal hotspot areas</span>
               <span class="movement-meta-pill" id="movement-sync-state">Auto-updating</span>
             </div>
             <div class="toggle-group movement-toggle-group" id="movement-layer-toggle">
@@ -339,8 +339,8 @@ Areas
 Links
               </button>
             </div>
-            <p class="movement-map-caption">
-Heavier orange links indicate the road connections you repeat most.
+            <p class="movement-map-caption" id="movement-map-caption">
+Area brightness reflects traversal intensity. Streets are ranked by distinct trips, and links are ranked by traversals.
             </p>
           </header>
           <div class="movement-map-shell">
@@ -359,7 +359,7 @@ Heavier orange links indicate the road connections you repeat most.
             </ol>
           </section>
           <section class="movement-rank-card">
-            <h3 class="movement-rank-title">Most repeated links</h3>
+            <h3 class="movement-rank-title">Most traversed links</h3>
             <ol class="movement-rank-list" id="movement-top-segments">
               <li class="story-empty">No segment traversals in this range yet.</li>
             </ol>

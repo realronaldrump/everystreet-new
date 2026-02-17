@@ -22,9 +22,24 @@ function normalizeStreetName(value) {
   return String(value).trim().replace(/\s+/g, " ").toLowerCase();
 }
 
+function asNumber(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
 function pluralize(value, unit) {
   const amount = Number(value || 0);
   return `${formatInt(amount)} ${unit}${amount === 1 ? "" : "s"}`;
+}
+
+function formatTripCount(value) {
+  const numeric = asNumber(value);
+  return numeric == null ? "" : pluralize(numeric, "trip");
+}
+
+function formatTraversalCount(value) {
+  const numeric = asNumber(value);
+  return numeric == null ? "" : pluralize(numeric, "traversal");
 }
 
 function formatMiles(value) {
@@ -148,7 +163,7 @@ function updateSummaryPills(payload) {
   }
 
   if (hexCountEl) {
-    hexCountEl.textContent = `${pluralize(hexCount, "high-use area")} highlighted`;
+    hexCountEl.textContent = `${pluralize(hexCount, "traversal hotspot area")} highlighted`;
   }
 
   if (syncStateEl) {
@@ -164,6 +179,21 @@ function updateSummaryPills(payload) {
   }
 }
 
+function updateMovementCaption(payload) {
+  const caption = document.getElementById("movement-map-caption");
+  if (!caption) {
+    return;
+  }
+  const topStreetsPrimary = String(payload?.metric_basis?.top_streets_primary || "trip_count");
+  if (topStreetsPrimary === "traversals_fallback") {
+    caption.textContent =
+      "Area brightness reflects traversal intensity. Street list currently uses traversal totals because trip-dedupe data is unavailable.";
+    return;
+  }
+  caption.textContent =
+    "Area brightness reflects traversal intensity. Streets are ranked by distinct trips, and links are ranked by traversals.";
+}
+
 function renderTopStreets(payload) {
   const list = document.getElementById("movement-top-streets");
   if (!list) {
@@ -171,18 +201,27 @@ function renderTopStreets(payload) {
   }
   const streets = Array.isArray(payload?.top_streets) ? payload.top_streets : [];
   if (!streets.length) {
-    list.innerHTML = '<li class="story-empty">No street names are available for this range yet.</li>';
+    list.innerHTML =
+      '<li class="story-empty">Street names could not be resolved for this range yet.</li>';
     return;
   }
+  const metricBasis = String(payload?.metric_basis?.top_streets_primary || "trip_count");
 
   list.innerHTML = streets
     .slice(0, MAX_STREETS_IN_LIST)
     .map((street) => {
       const name = String(street.street_name || "Unnamed street");
       const normalized = normalizeStreetName(name);
-      const traversals = pluralize(street.traversals, "pass");
+      const tripCount = formatTripCount(street.trip_count);
+      const traversals = formatTraversalCount(street.traversals);
       const distance = formatMiles(street.distance_miles);
       const cells = pluralize(street.cells, "area");
+      const primary =
+        metricBasis === "traversals_fallback" || !tripCount ? traversals : tripCount;
+      const secondary = metricBasis === "traversals_fallback" || !tripCount
+        ? [distance, cells]
+        : [traversals, distance, cells];
+      const details = [primary, ...secondary].filter(Boolean).join(" • ");
       return `
         <li class="movement-rank-item">
           <button
@@ -192,7 +231,7 @@ function renderTopStreets(payload) {
             title="Focus ${escapeHtml(name)} on map"
           >
             <strong>${escapeHtml(name)}</strong>
-            <span class="movement-rank-meta">${traversals} • ${distance} • ${cells}</span>
+            <span class="movement-rank-meta">${details}</span>
           </button>
         </li>
       `;
@@ -207,17 +246,19 @@ function renderTopSegments(payload) {
   }
   const segments = Array.isArray(payload?.top_segments) ? payload.top_segments : [];
   if (!segments.length) {
-    list.innerHTML = '<li class="story-empty">No repeated road links in this range yet.</li>';
+    list.innerHTML = '<li class="story-empty">No traversed links in this range yet.</li>';
     return;
   }
 
   list.innerHTML = segments
     .slice(0, MAX_SEGMENTS_IN_LIST)
     .map((segment) => {
-      const traversals = pluralize(segment.traversals, "pass");
+      const traversals = formatTraversalCount(segment.traversals);
+      const trips = formatTripCount(segment.trip_count);
       const distance = formatMiles(segment.distance_miles);
       const label = String(segment.label || "Frequent route link");
       const segmentKey = String(segment.segment_key || "");
+      const details = trips ? `${traversals} • ${trips} • ${distance}` : `${traversals} • ${distance}`;
       return `
         <li class="movement-rank-item">
           <button
@@ -227,7 +268,7 @@ function renderTopSegments(payload) {
             title="Focus ${escapeHtml(label)} on map"
           >
             <strong>${escapeHtml(label)}</strong>
-            <span class="movement-rank-meta">${traversals} • ${distance}</span>
+            <span class="movement-rank-meta">${details}</span>
           </button>
         </li>
       `;
@@ -462,11 +503,14 @@ function getTooltip(info) {
 
   if (object.hex) {
     const streetName = escapeHtml(object.street_name || "Street area");
+    const traversals = formatTraversalCount(object.traversals);
+    const trips = formatTripCount(object.trip_count);
     return {
       html: `
         <div>
           <strong>${streetName}</strong><br />
-          ${pluralize(object.traversals, "pass")}<br />
+          ${traversals}<br />
+          ${trips ? `${trips}<br />` : ""}
           ${formatMiles(object.distance_miles)}
         </div>
       `,
@@ -476,11 +520,14 @@ function getTooltip(info) {
 
   if (object.segment_key) {
     const label = escapeHtml(object.label || "Frequent route link");
+    const traversals = formatTraversalCount(object.traversals);
+    const trips = formatTripCount(object.trip_count);
     return {
       html: `
         <div>
           <strong>${label}</strong><br />
-          ${pluralize(object.traversals, "pass")}<br />
+          ${traversals}<br />
+          ${trips ? `${trips}<br />` : ""}
           ${formatMiles(object.distance_miles)}
         </div>
       `,
@@ -893,6 +940,7 @@ export function renderMovementInsights(payload) {
   clearSelectionIfMissing(payload || {});
   setLayerToggleState(activeLayerMode);
   updateSummaryPills(payload || {});
+  updateMovementCaption(payload || {});
   renderTopStreets(payload || {});
   renderTopSegments(payload || {});
   updateRankSelectionState();
