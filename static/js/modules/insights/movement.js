@@ -10,6 +10,7 @@ let activeLayerMode = "both";
 let latestMovementPayload = null;
 let selectedStreetKey = "";
 let selectedSegmentKey = "";
+const hexPolygonCache = new Map();
 
 const MAX_STREETS_IN_LIST = 14;
 const MAX_SEGMENTS_IN_LIST = 12;
@@ -257,18 +258,124 @@ function makeBaseTileLayer(deckGlobal) {
   });
 }
 
+function getCellCenter(hexId) {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const h3 = window.h3;
+  if (!h3) {
+    return null;
+  }
+
+  try {
+    if (typeof h3.cellToLatLng === "function") {
+      const [lat, lon] = h3.cellToLatLng(hexId);
+      return Number.isFinite(lat) && Number.isFinite(lon) ? [lon, lat] : null;
+    }
+    if (typeof h3.cellToLatlng === "function") {
+      const [lat, lon] = h3.cellToLatlng(hexId);
+      return Number.isFinite(lat) && Number.isFinite(lon) ? [lon, lat] : null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function normalizeLngLatPair(pair) {
+  if (!Array.isArray(pair) || pair.length < 2) {
+    return null;
+  }
+  const a = Number(pair[0]);
+  const b = Number(pair[1]);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    return null;
+  }
+
+  // Most H3 APIs return [lat, lng]. Some variants may already be [lng, lat].
+  if (Math.abs(a) <= 90 && Math.abs(b) <= 180) {
+    return [b, a];
+  }
+  if (Math.abs(a) <= 180 && Math.abs(b) <= 90) {
+    return [a, b];
+  }
+  return null;
+}
+
+function getCellPolygon(hexId) {
+  const key = String(hexId || "");
+  if (!key) {
+    return null;
+  }
+
+  if (hexPolygonCache.has(key)) {
+    return hexPolygonCache.get(key) || null;
+  }
+
+  if (typeof window === "undefined" || !window.h3) {
+    return null;
+  }
+  const h3 = window.h3;
+
+  let boundary = null;
+  try {
+    if (typeof h3.cellToBoundary === "function") {
+      boundary = h3.cellToBoundary(key);
+    } else if (typeof h3.h3ToGeoBoundary === "function") {
+      boundary = h3.h3ToGeoBoundary(key, false);
+    }
+  } catch {
+    boundary = null;
+  }
+
+  if (!Array.isArray(boundary) || !boundary.length) {
+    return null;
+  }
+
+  const polygon = boundary
+    .map((pair) => normalizeLngLatPair(pair))
+    .filter((pair) => Array.isArray(pair));
+
+  if (polygon.length < 3) {
+    return null;
+  }
+
+  const first = polygon[0];
+  const last = polygon[polygon.length - 1];
+  if (!last || last[0] !== first[0] || last[1] !== first[1]) {
+    polygon.push([first[0], first[1]]);
+  }
+
+  hexPolygonCache.set(key, polygon);
+  return polygon;
+}
+
 function makeH3Layer(
   deckGlobal,
   hexCells,
   { idSuffix = "base", alphaScale = 1, selected = false } = {}
 ) {
-  const maxTraversals = Math.max(...hexCells.map((cell) => Number(cell.traversals || 0)), 1);
+  const polygonData = hexCells
+    .map((cell) => {
+      const polygon = getCellPolygon(cell.hex);
+      return polygon ? { ...cell, polygon } : null;
+    })
+    .filter((cell) => Boolean(cell?.polygon));
+
+  if (!polygonData.length) {
+    return null;
+  }
+
+  const maxTraversals = Math.max(
+    ...polygonData.map((cell) => Number(cell.traversals || 0)),
+    1
+  );
   const isLight = getCurrentTheme() === "light";
 
-  return new deckGlobal.H3HexagonLayer({
+  return new deckGlobal.PolygonLayer({
     id: `movement-h3-layer-${idSuffix}`,
-    data: hexCells,
-    getHexagon: (d) => d.hex,
+    data: polygonData,
+    getPolygon: (d) => d.polygon,
     filled: true,
     stroked: false,
     extruded: false,
@@ -384,30 +491,6 @@ function getTooltip(info) {
   return null;
 }
 
-function getCellCenter(hexId) {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  const h3 = window.h3;
-  if (!h3) {
-    return null;
-  }
-
-  try {
-    if (typeof h3.cellToLatLng === "function") {
-      const [lat, lon] = h3.cellToLatLng(hexId);
-      return Number.isFinite(lat) && Number.isFinite(lon) ? [lon, lat] : null;
-    }
-    if (typeof h3.cellToLatlng === "function") {
-      const [lat, lon] = h3.cellToLatlng(hexId);
-      return Number.isFinite(lat) && Number.isFinite(lon) ? [lon, lat] : null;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
 function getSelectionData(payload) {
   const allHexCells = Array.isArray(payload?.hex_cells) ? payload.hex_cells : [];
   const allSegments = Array.isArray(payload?.top_segments) ? payload.top_segments : [];
@@ -488,30 +571,33 @@ function applyDeckLayers(payload) {
 
   if (showCells && allHexCells.length) {
     if (hasSelection) {
-      layers.push(
-        makeH3Layer(deckGlobal, allHexCells, {
-          idSuffix: "context",
-          alphaScale: 0.2,
-          selected: false,
-        })
-      );
+      const contextLayer = makeH3Layer(deckGlobal, allHexCells, {
+        idSuffix: "context",
+        alphaScale: 0.2,
+        selected: false,
+      });
+      if (contextLayer) {
+        layers.push(contextLayer);
+      }
       if (selectedHexCells.length) {
-        layers.push(
-          makeH3Layer(deckGlobal, selectedHexCells, {
-            idSuffix: "selected",
-            alphaScale: 1,
-            selected: true,
-          })
-        );
+        const selectedLayer = makeH3Layer(deckGlobal, selectedHexCells, {
+          idSuffix: "selected",
+          alphaScale: 1,
+          selected: true,
+        });
+        if (selectedLayer) {
+          layers.push(selectedLayer);
+        }
       }
     } else {
-      layers.push(
-        makeH3Layer(deckGlobal, allHexCells, {
-          idSuffix: "base",
-          alphaScale: 1,
-          selected: false,
-        })
-      );
+      const baseLayer = makeH3Layer(deckGlobal, allHexCells, {
+        idSuffix: "base",
+        alphaScale: 1,
+        selected: false,
+      });
+      if (baseLayer) {
+        layers.push(baseLayer);
+      }
     }
   }
 
