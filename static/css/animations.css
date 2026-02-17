@@ -72,7 +72,7 @@
 /* Stagger animation utility classes */
 .stagger-container > * {
   opacity: 0;
-  animation: fadeInUp var(--transition-smooth) cubic-bezier(0, 0, 0.2, 1) forwards;
+  animation: fadeInUp var(--transition-smooth) forwards;
 }
 
 .stagger-container > *:nth-child(1) {
@@ -149,12 +149,12 @@ html.swup-native::view-transition-new(root) {
 
 html.swup-native::view-transition-old(route-content),
 html.swup-native::view-transition-old(route-shell) {
-  animation: spaFadeOut var(--transition-normal) cubic-bezier(0.4, 0, 1, 1) both;
+  animation: spaFadeOut var(--transition-normal) both;
 }
 
 html.swup-native::view-transition-new(route-content),
 html.swup-native::view-transition-new(route-shell) {
-  animation: spaFadeIn var(--transition-smooth) cubic-bezier(0, 0, 0.2, 1) both;
+  animation: spaFadeIn var(--transition-smooth) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
