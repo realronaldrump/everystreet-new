@@ -126,19 +126,6 @@ What would you like to match?
               </label>
             </div>
 
-            <!-- Hidden select for JS compatibility -->
-            <select id="map-match-mode" class="visually-hidden" aria-hidden="true">
-              <option value="unmatched">
-Unmatched trips
-              </option>
-              <option value="date_range">
-Date range
-              </option>
-              <option value="trip_id">
-Specific trip
-              </option>
-            </select>
-
             <!-- Date Range Options (shown when date_range selected) -->
             <div id="map-match-date-controls" class="mm-date-panel d-none">
               <div class="mm-quick-picks">
@@ -184,34 +171,6 @@ Specific trip
               </label>
             </div>
 
-            <!-- Hidden elements for classic JS compatibility -->
-            <select id="map-match-date-mode" class="visually-hidden" aria-hidden="true">
-              <option value="interval" selected>
-Interval
-              </option>
-              <option value="date">
-Date range
-              </option>
-            </select>
-            <select id="map-match-interval-select" class="visually-hidden" aria-hidden="true">
-              <option value="7">
-Last Week
-              </option>
-              <option value="30">
-Last Month
-              </option>
-              <option value="90">
-Last 3 Months
-              </option>
-              <option value="365">
-Last Year
-              </option>
-            </select>
-            <div id="map-match-date-range" class="d-none">
-            </div>
-            <div id="map-match-interval" class="d-none">
-            </div>
-
             <!-- Advanced: Specific Trip (hidden by default) -->
             <div id="map-match-trip-controls" class="mm-trip-panel d-none">
               <label class="mm-input-label" for="map-match-trip-id">
@@ -227,13 +186,6 @@ Trip ID
             <div id="map-match-preview-panel" class="mm-preview-badge d-none">
               <span class="mm-preview-icon"><i class="fas fa-check-circle"></i></span>
               <span class="mm-preview-text" id="map-match-preview-summary"></span>
-              <!-- Hidden table for classic compatibility -->
-              <div class="d-none">
-                <table class="preview-table-mini">
-                  <tbody id="map-match-preview-body">
-                  </tbody>
-                </table>
-              </div>
             </div>
 
             <!-- Main Actions -->
@@ -288,7 +240,7 @@ Trip ID
 Processing routes
           </h2>
 
-          <!-- Hidden empty state for JS compatibility -->
+          <!-- Empty state shown when no job is active -->
           <div id="map-match-current-empty" class="d-none">
             <span class="empty-text">Ready when you are</span>
           </div>
@@ -321,15 +273,6 @@ Processing routes
               </button>
             </div>
 
-            <!-- Hidden classic progress bar for JS compatibility -->
-            <div class="progress d-none" style="height: 22px">
-              <div id="map-match-progress-bar"
-                   class="progress-bar progress-bar-striped progress-bar-animated"
-                   role="progressbar"
-                   style="width: 0%">
-              0%
-              </div>
-            </div>
           </div>
         </div>
       </section>
@@ -478,32 +421,6 @@ Failed Trips
               <div class="mm-results-trips" id="map-match-results-trips">
                 <!-- Trip cards will be rendered here -->
               </div>
-              <!-- Hidden table for JS compatibility -->
-              <table class="d-none">
-                <thead>
-                  <tr>
-                    <th class="matched-preview-select-col">
-                    </th>
-                    <th>
-Trip ID
-                    </th>
-                    <th>
-Matched
-                    </th>
-                    <th>
-Distance
-                    </th>
-                    <th>
-Status
-                    </th>
-                    <th class="matched-preview-actions-col">
-Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody id="map-match-preview-map-body">
-                </tbody>
-              </table>
             </div>
             <div class="mm-results-list-footer" id="map-match-results-footer">
               <label class="mm-select-all">
@@ -593,11 +510,6 @@ Actions
         <div class="mm-history-list" id="map-match-jobs-list">
           <!-- Jobs will be rendered here -->
         </div>
-        <!-- Hidden table for JS compatibility -->
-        <table class="d-none">
-          <tbody id="map-match-jobs-body">
-          </tbody>
-        </table>
       </div>
     </aside>
     <div class="mm-drawer-backdrop" id="mm-drawer-backdrop">
@@ -609,9 +521,6 @@ Actions
       <span class="mm-fab-badge" id="map-match-history-count">0</span>
     </button>
 
-    <!-- Classic hidden elements for compatibility -->
-    <div class="d-none" id="map-match-history-toggle">
-    </div>
   </div>
 {% endblock %}
 

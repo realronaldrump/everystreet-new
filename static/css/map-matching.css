@@ -1559,18 +1559,3 @@
     opacity: 1;
   }
 }
-
-/* === Classic compatibility - hidden elements === */
-.map-matching-hero,
-.map-matching-form,
-.map-matching-progress,
-.map-matching-history,
-.map-matching-preview,
-.bento-grid {
-  display: none !important;
-}
-
-/* Selection card styles for compat with JS */
-.selection-card {
-  display: none;
-}

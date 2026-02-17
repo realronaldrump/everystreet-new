@@ -97,9 +97,6 @@ function cacheElements() {
     saveManualOdometerBtn: document.getElementById("save-manual-odometer-btn"),
     saveSettingsBtn: document.getElementById("save-settings-btn"),
     deleteVehicleBtn: document.getElementById("delete-vehicle-btn"),
-
-    // Hidden vehicle selector (kept for store compat)
-    vehicleSelect: document.getElementById("vehicle-select"),
   };
 }
 
@@ -213,9 +210,6 @@ async function loadVehicle() {
       return;
     }
 
-    // Populate hidden select for store compat
-    populateVehicleSelector(allVehicles);
-
     // Determine which vehicle to display
     const savedImei = getStorage(STORAGE_KEY);
     let vehicleToDisplay = null;
@@ -243,24 +237,6 @@ async function loadVehicle() {
     showEmpty();
     notify.error("Failed to load vehicle data");
   }
-}
-
-/**
- * Populate the hidden vehicle selector for store compat
- */
-function populateVehicleSelector(vehicles) {
-  if (!elements.vehicleSelect) {
-    return;
-  }
-
-  elements.vehicleSelect.innerHTML = "";
-
-  vehicles.forEach((vehicle) => {
-    const option = document.createElement("option");
-    option.value = vehicle.imei;
-    option.textContent = getVehicleDisplayName(vehicle);
-    elements.vehicleSelect.appendChild(option);
-  });
 }
 
 /**

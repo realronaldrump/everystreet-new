@@ -23,7 +23,9 @@ function cacheElements() {
     form: document.getElementById("export-form"),
     exportTrips: document.getElementById("export-trips"),
     exportMatchedTrips: document.getElementById("export-matched-trips"),
-    tripFormat: document.getElementById("trip-format"),
+    tripFormatRadios: Array.from(
+      document.querySelectorAll('input[name="trip-format-radio"]')
+    ).filter((radio) => radio instanceof HTMLInputElement),
     includeTripGeometry: document.getElementById("include-trip-geometry"),
     tripStartDate: document.getElementById("trip-start-date"),
     tripEndDate: document.getElementById("trip-end-date"),
@@ -47,9 +49,20 @@ function cacheElements() {
   };
 }
 
+function getTripFormat(elements) {
+  const checked = elements.tripFormatRadios.find((radio) => radio.checked);
+  return checked?.value || "json";
+}
+
+function setTripFormat(elements, format) {
+  elements.tripFormatRadios.forEach((radio) => {
+    radio.checked = radio.value === format;
+  });
+}
+
 function getSelectedItems(elements) {
   const items = [];
-  const format = elements.tripFormat.value;
+  const format = getTripFormat(elements);
   const includeGeometry = elements.includeTripGeometry.checked;
 
   if (elements.exportTrips.checked) {
@@ -84,17 +97,21 @@ function getSelectedItems(elements) {
 }
 
 function updateGeometryToggle(elements) {
-  const format = elements.tripFormat.value;
+  const format = getTripFormat(elements);
   const hasTripExports =
     elements.exportTrips.checked || elements.exportMatchedTrips.checked;
 
   if (!hasTripExports) {
-    elements.tripFormat.disabled = true;
+    elements.tripFormatRadios.forEach((radio) => {
+      radio.disabled = true;
+    });
     elements.includeTripGeometry.disabled = true;
     return;
   }
 
-  elements.tripFormat.disabled = false;
+  elements.tripFormatRadios.forEach((radio) => {
+    radio.disabled = false;
+  });
   elements.includeTripGeometry.disabled = format === "geojson" || format === "gpx";
 }
 
@@ -364,7 +381,7 @@ function resetForm(elements) {
   elements.exportStreets.checked = false;
   elements.exportBoundaries.checked = false;
   elements.exportUndriven.checked = false;
-  elements.tripFormat.value = "json";
+  setTripFormat(elements, "json");
   elements.includeTripGeometry.checked = true;
   elements.tripAllTime.checked = false;
   setDateDefaults(elements);
@@ -387,7 +404,7 @@ function registerEventListeners(elements, signal) {
     elements.exportStreets,
     elements.exportBoundaries,
     elements.exportUndriven,
-    elements.tripFormat,
+    ...elements.tripFormatRadios,
     elements.includeTripGeometry,
     elements.tripAllTime,
   ];
@@ -456,14 +473,10 @@ function registerEventListeners(elements, signal) {
 
 function bindFormatPills(elements, signal) {
   const eventOptions = signal ? { signal } : false;
-  const formatSelect = elements.tripFormat;
-  if (!formatSelect) {
+  const radios = elements.tripFormatRadios;
+  if (!radios.length) {
     return;
   }
-
-  const radios = Array.from(
-    document.querySelectorAll('input[name="trip-format-radio"]')
-  ).filter((radio) => radio instanceof HTMLInputElement);
 
   const updatePillActiveStates = () => {
     document.querySelectorAll(".format-pill").forEach((pill) => {
@@ -480,8 +493,8 @@ function bindFormatPills(elements, signal) {
         if (!radio.checked) {
           return;
         }
-        formatSelect.value = radio.value;
-        formatSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        updateGeometryToggle(elements);
+        updateSummary(elements);
         updatePillActiveStates();
       },
       eventOptions

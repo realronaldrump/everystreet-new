@@ -261,6 +261,16 @@ def get_edge_geometry(
     """
     coords: list[list[float]] = []
 
+    def _node_coords(node_id: int) -> tuple[float, float] | None:
+        if node_xy and node_id in node_xy:
+            return node_xy[node_id]
+        with contextlib.suppress(Exception):
+            return (
+                float(G.nodes[node_id]["x"]),
+                float(G.nodes[node_id]["y"]),
+            )
+        return None
+
     try:
         if not G.has_edge(u, v):
             return []
@@ -280,6 +290,17 @@ def get_edge_geometry(
                 coords = []
     except Exception:
         coords = []
+
+    # Some graph builders omit per-edge geometry. Fall back to straight-line
+    # node coordinates so OSM-ID matching still works.
+    if len(coords) < 2:
+        u_coords = _node_coords(u)
+        v_coords = _node_coords(v)
+        if u_coords and v_coords:
+            coords = [
+                [float(u_coords[0]), float(u_coords[1])],
+                [float(v_coords[0]), float(v_coords[1])],
+            ]
 
     # Ensure orientation is u->v (reverse if needed)
     if coords and node_xy and u in node_xy:

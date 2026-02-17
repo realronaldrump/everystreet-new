@@ -23,15 +23,9 @@ let _currentPhase = PHASES.SELECT;
 function cacheElements() {
   elements = {
     form: document.getElementById("map-matching-form"),
-    modeSelect: document.getElementById("map-match-mode"),
-    selectionCards: document.getElementById("map-match-selection-cards"),
-    dateModeSelect: document.getElementById("map-match-date-mode"),
     dateControls: document.getElementById("map-match-date-controls"),
-    dateRange: document.getElementById("map-match-date-range"),
-    interval: document.getElementById("map-match-interval"),
     startInput: document.getElementById("map-match-start"),
     endInput: document.getElementById("map-match-end"),
-    intervalSelect: document.getElementById("map-match-interval-select"),
     unmatchedOnly: document.getElementById("map-match-unmatched-only"),
     tripControls: document.getElementById("map-match-trip-controls"),
     tripIdInput: document.getElementById("map-match-trip-id"),
@@ -39,11 +33,9 @@ function cacheElements() {
     previewStatus: document.getElementById("map-match-preview-status"),
     previewPanel: document.getElementById("map-match-preview-panel"),
     previewSummary: document.getElementById("map-match-preview-summary"),
-    previewBody: document.getElementById("map-match-preview-body"),
     previewMapBtn: document.getElementById("map-match-preview-map-btn"),
     previewMapStatus: document.getElementById("map-match-preview-map-status"),
     previewMapSummary: document.getElementById("map-match-preview-map-summary"),
-    previewMapBody: document.getElementById("map-match-preview-map-body"),
     previewMapEmpty: document.getElementById("map-match-preview-map-empty"),
     previewMap: document.getElementById("map-match-preview-map"),
     submitStatus: document.getElementById("map-match-submit-status"),
@@ -51,14 +43,11 @@ function cacheElements() {
     refreshBtn: document.getElementById("map-match-refresh"),
     historyClearBtn: document.getElementById("map-match-history-clear"),
     historyStatus: document.getElementById("map-match-history-status"),
-    historyToggle: document.getElementById("map-match-history-toggle"),
     historyBody: document.getElementById("map-match-history-body"),
     historyCount: document.getElementById("map-match-history-count"),
     jobsList: document.getElementById("map-match-jobs-list"),
-    jobsBody: document.getElementById("map-match-jobs-body"),
     currentEmpty: document.getElementById("map-match-current-empty"),
     currentPanel: document.getElementById("map-match-current-panel"),
-    progressBar: document.getElementById("map-match-progress-bar"),
     progressRing: document.getElementById("map-match-progress-ring"),
     progressPercent: document.getElementById("map-match-progress-percent"),
     progressMessage: document.getElementById("map-match-progress-message"),
@@ -403,6 +392,11 @@ function formatTripDate(startTime, _endTime) {
   return `${dateStr} at ${timeStr}`;
 }
 
+function getSelectedMode() {
+  const selected = document.querySelector('input[name="match-mode"]:checked');
+  return selected?.value || "unmatched";
+}
+
 function setModeUI(mode) {
   const isDate = mode === "date_range";
   const isTrip = mode === "trip_id";
@@ -419,28 +413,6 @@ function setModeUI(mode) {
     }
   });
 
-  // Classic: Update selection cards
-  document.querySelectorAll(".selection-card").forEach((card) => {
-    const cardMode = card.dataset.mode;
-    card.classList.toggle("is-selected", cardMode === mode);
-    const radio = card.querySelector('input[type="radio"]');
-    if (radio) {
-      radio.checked = cardMode === mode;
-    }
-  });
-
-  // Sync hidden select
-  if (elements.modeSelect) {
-    elements.modeSelect.value = mode;
-  }
-
-  invalidatePreview();
-}
-
-function setDateModeUI(mode) {
-  const isInterval = mode === "interval";
-  elements.dateRange?.classList.toggle("d-none", isInterval);
-  elements.interval?.classList.toggle("d-none", !isInterval);
   invalidatePreview();
 }
 
@@ -475,13 +447,6 @@ function updateProgressUI(progress) {
   updateProgressRing(pct);
   if (elements.progressPercent) {
     elements.progressPercent.textContent = `${pct}%`;
-  }
-
-  // Update classic progress bar (hidden but kept for compatibility)
-  if (elements.progressBar) {
-    elements.progressBar.style.width = `${pct}%`;
-    elements.progressBar.textContent = `${pct}%`;
-    elements.progressBar.setAttribute("aria-valuenow", `${pct}`);
   }
 
   // Friendly message
@@ -668,36 +633,10 @@ function renderJobs(jobs) {
     }
   }
 
-  // Also update classic table for compatibility
-  if (elements.jobsBody) {
-    elements.jobsBody.innerHTML = jobs
-      .map((job) => {
-        const status = job.stage || "unknown";
-        const progress = job.progress ?? 0;
-        const updated = job.updated_at ? new Date(job.updated_at).toLocaleString() : "";
-        const isTerminal = isTerminalStage(status);
-        return `
-          <tr>
-            <td class="text-truncate" style="max-width: 220px">${job.job_id || ""}</td>
-            <td>${status}</td>
-            <td>${progress}%</td>
-            <td>${updated}</td>
-            <td class="text-truncate" style="max-width: 260px">${job.message || ""}</td>
-            <td>
-              <button class="btn btn-sm btn-outline-secondary" data-job-id="${job.job_id}">View</button>
-              <button class="btn btn-sm btn-outline-primary ms-2" data-preview-job-id="${job.job_id}" ${!isTerminal ? "disabled" : ""}>Preview</button>
-              <button class="btn btn-sm btn-outline-danger ms-2" data-cancel-job-id="${job.job_id}" ${isTerminal ? "disabled" : ""}>Cancel</button>
-              <button class="btn btn-sm btn-outline-danger ms-2" data-delete-job-id="${job.job_id}" ${!isTerminal ? "disabled" : ""}>Remove</button>
-            </td>
-          </tr>
-        `;
-      })
-      .join("");
-  }
 }
 
 function buildPayload() {
-  const mode = elements.modeSelect?.value || "unmatched";
+  const mode = getSelectedMode();
   if (mode === "unmatched") {
     return { mode: "unmatched" };
   }
@@ -741,9 +680,6 @@ function invalidatePreview() {
   clearInlineStatus(elements.previewStatus);
   clearInlineStatus(elements.submitStatus);
   elements.previewPanel?.classList.add("d-none");
-  if (elements.previewBody) {
-    elements.previewBody.innerHTML = "";
-  }
   if (elements.previewSummary) {
     elements.previewSummary.textContent = "";
   }
@@ -761,26 +697,6 @@ function renderPreview(data) {
     }
   } else if (elements.previewSummary) {
     elements.previewSummary.textContent = `${total} trip${total !== 1 ? "s" : ""} ready to improve`;
-  }
-
-  // Render sample in hidden table for classic compatibility
-  const sample = data.sample || [];
-  if (elements.previewBody) {
-    elements.previewBody.innerHTML = sample
-      .map((trip) => {
-        const dateStr = formatTripDate(trip.startTime);
-        let distance = "";
-        if (trip.distance != null && !Number.isNaN(Number(trip.distance))) {
-          distance = `${Number(trip.distance).toFixed(1)} mi`;
-        }
-        return `
-          <tr>
-            <td>${dateStr}</td>
-            <td style="text-align: right; color: var(--text-tertiary);">${distance}</td>
-          </tr>
-        `;
-      })
-      .join("");
   }
 
   elements.previewPanel.classList.remove("d-none");
@@ -858,14 +774,12 @@ function wireEvents(signal) {
     );
   });
 
-  // Classic: Selection cards
-  document.querySelectorAll(".selection-card").forEach((card) => {
-    card.addEventListener(
-      "click",
+  document.querySelectorAll('input[name="match-mode"]').forEach((input) => {
+    input.addEventListener(
+      "change",
       () => {
-        const { mode } = card.dataset;
-        if (mode) {
-          setModeUI(mode);
+        if (input.checked) {
+          setModeUI(input.value);
         }
       },
       eventOptions
@@ -893,54 +807,6 @@ function wireEvents(signal) {
           b.classList.toggle("is-active", b === btn);
         });
 
-        // Classic quick-pick-btn compatibility
-        document.querySelectorAll(".quick-pick-btn").forEach((b) => {
-          b.classList.toggle("is-active", parseInt(b.dataset.days, 10) === days);
-        });
-
-        // Update classic selects for compatibility
-        if (elements.dateModeSelect) {
-          elements.dateModeSelect.value = "interval";
-        }
-        if (elements.intervalSelect) {
-          elements.intervalSelect.value = String(days);
-        }
-
-        invalidatePreview();
-      },
-      eventOptions
-    );
-  });
-
-  // Classic: Quick pick buttons
-  document.querySelectorAll(".quick-pick-btn").forEach((btn) => {
-    btn.addEventListener(
-      "click",
-      () => {
-        const days = parseInt(btn.dataset.days, 10);
-        selectedQuickPick = days;
-
-        // Clear custom date inputs
-        if (elements.startInput) {
-          elements.startInput.value = "";
-        }
-        if (elements.endInput) {
-          elements.endInput.value = "";
-        }
-
-        // Update button states (both new and classic)
-        document.querySelectorAll(".quick-pick-btn, .mm-quick-pick").forEach((b) => {
-          b.classList.toggle("is-active", parseInt(b.dataset.days, 10) === days);
-        });
-
-        // Update classic selects for compatibility
-        if (elements.dateModeSelect) {
-          elements.dateModeSelect.value = "interval";
-        }
-        if (elements.intervalSelect) {
-          elements.intervalSelect.value = String(days);
-        }
-
         invalidatePreview();
       },
       eventOptions
@@ -954,12 +820,9 @@ function wireEvents(signal) {
         "change",
         () => {
           selectedQuickPick = null;
-          document.querySelectorAll(".quick-pick-btn, .mm-quick-pick").forEach((b) => {
+          document.querySelectorAll(".mm-quick-pick").forEach((b) => {
             b.classList.remove("is-active");
           });
-          if (elements.dateModeSelect) {
-            elements.dateModeSelect.value = "date";
-          }
           invalidatePreview();
         },
         eventOptions
@@ -1024,19 +887,6 @@ function wireEvents(signal) {
     eventOptions
   );
 
-  // Classic: History toggle (collapse/expand) - now just open drawer
-  elements.historyToggle?.addEventListener(
-    "click",
-    (e) => {
-      // Don't toggle if clicking on action buttons
-      if (e.target.closest("button")) {
-        return;
-      }
-      openHistoryDrawer();
-    },
-    eventOptions
-  );
-
   // History job actions
   elements.jobsList?.addEventListener(
     "click",
@@ -1062,23 +912,6 @@ function wireEvents(signal) {
       } else if (action === "delete" && jobId) {
         deleteJobHistory(jobId);
       }
-    },
-    eventOptions
-  );
-
-  // Classic support
-  elements.modeSelect?.addEventListener(
-    "change",
-    (e) => {
-      setModeUI(e.target.value);
-    },
-    eventOptions
-  );
-
-  elements.dateModeSelect?.addEventListener(
-    "change",
-    (e) => {
-      setDateModeUI(e.target.value);
     },
     eventOptions
   );
@@ -1151,48 +984,6 @@ function wireEvents(signal) {
     eventOptions
   );
 
-  // Classic table events
-  elements.jobsBody?.addEventListener(
-    "click",
-    (event) => {
-      const button = event.target.closest("button[data-job-id]");
-      const previewButton = event.target.closest("button[data-preview-job-id]");
-      const cancelButton = event.target.closest("button[data-cancel-job-id]");
-      const deleteButton = event.target.closest("button[data-delete-job-id]");
-      if (deleteButton) {
-        const jobId = deleteButton.dataset.deleteJobId;
-        if (jobId) {
-          deleteJobHistory(jobId);
-        }
-        return;
-      }
-      if (cancelButton) {
-        const jobId = cancelButton.dataset.cancelJobId;
-        if (jobId) {
-          cancelJob(jobId);
-        }
-        return;
-      }
-      if (previewButton) {
-        const jobId = previewButton.dataset.previewJobId;
-        if (jobId) {
-          setPhase(PHASES.RESULTS);
-          currentJobId = jobId;
-          loadMatchedPreview(jobId);
-        }
-        return;
-      }
-      if (!button) {
-        return;
-      }
-      const { jobId } = button.dataset;
-      if (jobId) {
-        startPolling(jobId);
-      }
-    },
-    eventOptions
-  );
-
   // Results trip cards
   elements.resultsTrips?.addEventListener(
     "click",
@@ -1220,49 +1011,6 @@ function wireEvents(signal) {
         const { tripId } = card.dataset;
         focusMatchedPreviewTrip(tripId);
       }
-    },
-    eventOptions
-  );
-
-  // Classic table for matched preview
-  elements.previewMapBody?.addEventListener(
-    "click",
-    (event) => {
-      const actionButton = event.target.closest("button[data-action]");
-      if (actionButton) {
-        const { tripId } = actionButton.dataset;
-        const { action } = actionButton.dataset;
-        if (tripId && action === "unmatch") {
-          clearMatchedTrips([tripId]);
-        } else if (tripId && action === "delete") {
-          deleteTrips([tripId]);
-        }
-        return;
-      }
-
-      const checkbox = event.target.closest(".matched-preview-select");
-      if (checkbox) {
-        return;
-      }
-
-      const row = event.target.closest("tr[data-trip-id]");
-      if (!row) {
-        return;
-      }
-      const { tripId } = row.dataset;
-      focusMatchedPreviewTrip(tripId);
-    },
-    eventOptions
-  );
-
-  elements.previewMapBody?.addEventListener(
-    "change",
-    (event) => {
-      const checkbox = event.target.closest(".matched-preview-select");
-      if (!checkbox) {
-        return;
-      }
-      setSelection(checkbox.dataset.tripId, checkbox.checked);
     },
     eventOptions
   );
@@ -1400,11 +1148,8 @@ function wireEvents(signal) {
   );
 
   const invalidateTargets = [
-    elements.modeSelect,
-    elements.dateModeSelect,
     elements.startInput,
     elements.endInput,
-    elements.intervalSelect,
     elements.unmatchedOnly,
     elements.tripIdInput,
   ];
@@ -1539,17 +1284,6 @@ function syncSelectionStyles() {
       }
     });
   }
-  if (elements.previewMapBody) {
-    elements.previewMapBody.querySelectorAll("tr[data-trip-id]").forEach((row) => {
-      const tripId = String(row.dataset.tripId || "");
-      const isSelected = matchedSelection.has(tripId);
-      row.classList.toggle("is-selected", isSelected);
-      const checkbox = row.querySelector(".matched-preview-select");
-      if (checkbox) {
-        checkbox.checked = isSelected;
-      }
-    });
-  }
 }
 
 function setFocusedTripUI(tripId) {
@@ -1559,13 +1293,6 @@ function setFocusedTripUI(tripId) {
       const cardId = String(card.dataset.tripId || "");
       const isFocused = normalized !== null && cardId === normalized;
       card.classList.toggle("is-focused", isFocused);
-    });
-  }
-  if (elements.previewMapBody) {
-    elements.previewMapBody.querySelectorAll("tr[data-trip-id]").forEach((row) => {
-      const rowId = String(row.dataset.tripId || "");
-      const isFocused = normalized !== null && rowId === normalized;
-      row.classList.toggle("is-focused", isFocused);
     });
   }
 }
@@ -1605,16 +1332,6 @@ function selectAllVisible(checked) {
   if (checked && elements.resultsTrips) {
     elements.resultsTrips
       .querySelectorAll(".result-trip-select input")
-      .forEach((checkbox) => {
-        const tripId = String(checkbox.dataset.tripId || "");
-        if (tripId) {
-          matchedSelection.add(tripId);
-        }
-      });
-  }
-  if (checked && elements.previewMapBody) {
-    elements.previewMapBody
-      .querySelectorAll(".matched-preview-select")
       .forEach((checkbox) => {
         const tripId = String(checkbox.dataset.tripId || "");
         if (tripId) {
@@ -1787,39 +1504,6 @@ function updateMatchedPreviewTable(data) {
               </button>
             </div>
           </div>
-        `;
-      })
-      .join("");
-  }
-
-  // Classic table
-  if (elements.previewMapBody) {
-    elements.previewMapBody.innerHTML = sample
-      .map((trip) => {
-        const tripId = trip.transactionId || "";
-        const matchedAt = trip.matched_at
-          ? new Date(trip.matched_at).toLocaleString()
-          : "--";
-        let distance = "--";
-        if (trip.distance != null && !Number.isNaN(Number(trip.distance))) {
-          distance = `${Number(trip.distance).toFixed(2)} mi`;
-        }
-        const status = trip.matchStatus || (trip.matchedGps ? "Matched" : "Unmatched");
-        const isSelected = matchedSelection.has(String(tripId));
-        return `
-          <tr data-trip-id="${tripId}">
-            <td class="matched-preview-select-cell">
-              <input class="form-check-input matched-preview-select" type="checkbox" data-trip-id="${tripId}" aria-label="Select trip ${tripId}" ${isSelected ? "checked" : ""} />
-            </td>
-            <td class="text-truncate" style="max-width: 200px">${tripId}</td>
-            <td>${matchedAt}</td>
-            <td>${distance}</td>
-            <td>${status}</td>
-            <td class="matched-preview-actions-cell">
-              <button class="btn btn-sm btn-outline-secondary" data-action="unmatch" data-trip-id="${tripId}">Clear</button>
-              <button class="btn btn-sm btn-outline-danger" data-action="delete" data-trip-id="${tripId}">Delete</button>
-            </td>
-          </tr>
         `;
       })
       .join("");
@@ -2479,7 +2163,7 @@ export default async function initMapMatchingPage({ signal, cleanup } = {}) {
   cacheElements();
   resetState();
 
-  if (!elements.form || !elements.modeSelect) {
+  if (!elements.form) {
     const teardown = () => {
       stopPolling();
       resetState();
@@ -2496,7 +2180,7 @@ export default async function initMapMatchingPage({ signal, cleanup } = {}) {
 
   // Initialize phase
   setPhase(PHASES.SELECT);
-  setModeUI(elements.modeSelect.value);
+  setModeUI(getSelectedMode());
   invalidatePreview();
   updateMatchedSelectionUI();
   wireEvents(signal);

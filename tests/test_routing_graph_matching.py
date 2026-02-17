@@ -5,10 +5,12 @@ import math
 import networkx as nx
 
 from routing.graph import (
+    build_osmid_index,
     choose_consensus_edge_match,
     graph_units_to_feet,
     prepare_spatial_matching_graph,
     project_linestring_coords,
+    try_match_osmid,
 )
 
 
@@ -63,3 +65,35 @@ def test_project_linestring_coords_projects_points() -> None:
     coords = [[1.0, 2.0], [3.0, 4.0]]
     projected = project_linestring_coords(coords, lambda x, y: (x + 10.0, y - 5.0))
     assert projected == [[11.0, -3.0], [13.0, -1.0]]
+
+
+def test_try_match_osmid_uses_node_coords_when_geometry_missing() -> None:
+    G = nx.MultiDiGraph()
+    G.graph["crs"] = "EPSG:4326"
+    G.add_node(1, x=-97.0, y=31.0)
+    G.add_node(2, x=-97.001, y=31.0)
+    G.add_edge(1, 2, key=0, osmid=123, length=100.0)
+
+    matching_graph, project_xy = prepare_spatial_matching_graph(G)
+    node_xy = {
+        n: (
+            float(matching_graph.nodes[n]["x"]),
+            float(matching_graph.nodes[n]["y"]),
+        )
+        for n in matching_graph.nodes
+    }
+    osmid_index = build_osmid_index(matching_graph)
+    segment_coords = project_linestring_coords(
+        [[-97.0, 31.0], [-97.001, 31.0]],
+        project_xy,
+    )
+    assert segment_coords is not None
+
+    edge = try_match_osmid(
+        matching_graph,
+        segment_coords,
+        123,
+        osmid_index,
+        node_xy=node_xy,
+    )
+    assert edge == (1, 2, 0)

@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Annotated, Any
 from fastapi import APIRouter, Body, HTTPException
 
 from admin.services.admin_service import (
-    DEPRECATED_APP_SETTINGS_FIELDS,
     MAPBOX_SETTINGS_ERROR,
     AdminService,
 )
@@ -53,15 +52,6 @@ async def update_app_settings_endpoint(
             status_code=400,
             detail=MAPBOX_SETTINGS_ERROR,
         )
-
-    deprecated_keys = [key for key in DEPRECATED_APP_SETTINGS_FIELDS if key in settings]
-    if deprecated_keys:
-        logger.warning(
-            "Ignoring deprecated app settings fields: %s",
-            ", ".join(sorted(deprecated_keys)),
-        )
-        for key in deprecated_keys:
-            settings.pop(key, None)
 
     return await AdminService.update_app_settings(settings)
 

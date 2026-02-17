@@ -99,21 +99,6 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "setup_completed_at": None,
 }
 
-DEPRECATED_APP_SETTINGS_FIELDS = {
-    "nominatim_base_url",
-    "nominatim_search_url",
-    "nominatim_reverse_url",
-    "valhalla_base_url",
-    "valhalla_status_url",
-    "valhalla_route_url",
-    "valhalla_trace_route_url",
-    "valhalla_trace_attributes_url",
-    "showLiveTracking",
-    "polylineColor",
-    "polylineOpacity",
-}
-
-
 class AdminService:
     """Admin service helpers for settings and collection maintenance."""
 
@@ -135,8 +120,6 @@ class AdminService:
         settings = await AdminService.get_persisted_app_settings()
         payload = settings.model_dump()
         payload.pop("mapbox_access_token", None)
-        for key in DEPRECATED_APP_SETTINGS_FIELDS:
-            payload.pop(key, None)
         try:
             effective = await get_service_config()
             if effective.mapbox_token:
@@ -335,7 +318,6 @@ class AdminService:
 __all__ = [
     "COLLECTION_TO_MODEL",
     "DEFAULT_APP_SETTINGS",
-    "DEPRECATED_APP_SETTINGS_FIELDS",
     "MAPBOX_SETTINGS_ERROR",
     "AdminService",
 ]

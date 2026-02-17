@@ -44,33 +44,6 @@ DEFAULT_OSM_EXTRACTS_PATH: Final[str] = "/osm"
 
 logger = logging.getLogger(__name__)
 
-_DEPRECATED_SERVICE_ENV_VARS: Final[tuple[str, ...]] = (
-    VALHALLA_BASE_URL_ENV_VAR,
-    VALHALLA_STATUS_URL_ENV_VAR,
-    VALHALLA_ROUTE_URL_ENV_VAR,
-    VALHALLA_TRACE_ROUTE_URL_ENV_VAR,
-    NOMINATIM_BASE_URL_ENV_VAR,
-    NOMINATIM_SEARCH_URL_ENV_VAR,
-    NOMINATIM_REVERSE_URL_ENV_VAR,
-)
-_deprecated_env_warned = False
-
-
-def _warn_deprecated_service_env_vars() -> None:
-    global _deprecated_env_warned
-    if _deprecated_env_warned:
-        return
-    configured = [
-        env_name for env_name in _DEPRECATED_SERVICE_ENV_VARS if os.getenv(env_name)
-    ]
-    if configured:
-        logger.warning(
-            "Deprecated geo service env vars are ignored: %s. "
-            "Using internal Docker DNS endpoints instead.",
-            ", ".join(configured),
-        )
-    _deprecated_env_warned = True
-
 
 def get_mapbox_token() -> str:
     """
@@ -112,22 +85,18 @@ def require_mapbox_token() -> str:
 
 
 def get_valhalla_base_url() -> str:
-    _warn_deprecated_service_env_vars()
     return DEFAULT_VALHALLA_URL
 
 
 def get_valhalla_status_url() -> str:
-    _warn_deprecated_service_env_vars()
     return f"{DEFAULT_VALHALLA_URL}/status"
 
 
 def get_valhalla_route_url() -> str:
-    _warn_deprecated_service_env_vars()
     return f"{DEFAULT_VALHALLA_URL}/route"
 
 
 def get_valhalla_trace_route_url() -> str:
-    _warn_deprecated_service_env_vars()
     return f"{DEFAULT_VALHALLA_URL}/trace_route"
 
 
@@ -164,17 +133,14 @@ def require_valhalla_trace_route_url() -> str:
 
 
 def get_nominatim_base_url() -> str:
-    _warn_deprecated_service_env_vars()
     return DEFAULT_NOMINATIM_URL
 
 
 def get_nominatim_search_url() -> str:
-    _warn_deprecated_service_env_vars()
     return f"{DEFAULT_NOMINATIM_URL}/search"
 
 
 def get_nominatim_reverse_url() -> str:
-    _warn_deprecated_service_env_vars()
     return f"{DEFAULT_NOMINATIM_URL}/reverse"
 
 

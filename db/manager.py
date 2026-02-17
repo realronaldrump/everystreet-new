@@ -22,12 +22,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MONGO_URI: Final[str] = "mongodb://mongo:27017"
 MONGODB_URI_ENV_VAR: Final[str] = "MONGODB_URI"
-_DEPRECATED_MONGO_ENV_VARS: Final[tuple[str, ...]] = (
-    "MONGO_URI",
-    "MONGO_HOST",
-    "MONGO_PORT",
-)
-_mongo_env_warned = False
 
 
 def _is_running_in_docker() -> bool:
@@ -85,26 +79,10 @@ def _normalize_mongo_uri_for_runtime(mongo_uri: str) -> str:
     return rewritten_uri
 
 
-def _warn_deprecated_mongo_env_vars() -> None:
-    global _mongo_env_warned
-    if _mongo_env_warned:
-        return
-    configured = [env for env in _DEPRECATED_MONGO_ENV_VARS if os.getenv(env)]
-    if configured:
-        logger.warning(
-            "Deprecated MongoDB env vars are ignored: %s. "
-            "Set %s to override the MongoDB connection.",
-            ", ".join(configured),
-            MONGODB_URI_ENV_VAR,
-        )
-    _mongo_env_warned = True
-
-
 def _get_mongo_uri() -> str:
     mongo_uri = os.getenv(MONGODB_URI_ENV_VAR, "").strip()
     if mongo_uri:
         return _normalize_mongo_uri_for_runtime(mongo_uri)
-    _warn_deprecated_mongo_env_vars()
     return _normalize_mongo_uri_for_runtime(DEFAULT_MONGO_URI)
 
 
