@@ -1,15 +1,12 @@
 {% extends "base.html" %}
 
 {% block title %}
-
 Coverage Navigator
 {% endblock %}
 
 
 {% block head_content %}
-
   <meta name="mapbox-access-token" content="{{ MAPBOX_ACCESS_TOKEN }}" />
-  <!-- Mapbox GL CSS -->
   <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
   <link rel="stylesheet"
         href="{{ url_for('static', path='css/coverage-navigator.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
@@ -17,684 +14,519 @@ Coverage Navigator
 
 
 {% block content %}
+  <div class="coverage-navigator" id="coverage-navigator" data-mode="select">
+    <h1 class="visually-hidden">Coverage Navigator</h1>
 
-  <div class="coverage-navigator">
-    <h1 class="visually-hidden">
-Coverage Navigator
-    </h1>
-
-    <!-- Mobile Toggle Button -->
+    <!-- Mobile Panel Toggle -->
     <button type="button"
             class="mobile-panel-toggle"
             id="mobile-panel-toggle"
-            aria-expanded="true"
+            aria-expanded="false"
             aria-controls="control-panel"
             aria-label="Toggle control panel">
-      <i class="fas fa-chevron-up" aria-hidden="true"></i>
-      <span class="toggle-text">Hide Controls</span>
+      <i class="fas fa-sliders" aria-hidden="true"></i>
+      <span class="toggle-text">Controls</span>
     </button>
 
     <aside class="control-panel" id="control-panel">
-      <!-- Sidebar Header -->
-      <div class="sidebar-header">
-        <h2 class="sidebar-title">
-          <i class="fas fa-route" aria-hidden="true"></i>
-          Coverage Navigator
-        </h2>
-      </div>
-
-      <!-- Tab Navigation -->
-      <nav class="sidebar-tabs" aria-label="Sidebar sections">
-        <button type="button"
-                class="sidebar-tab active"
-                data-tab="plan"
-                aria-selected="true"
-                aria-controls="tab-panel-plan"
-                role="tab">
-          <i class="fas fa-map" aria-hidden="true"></i>
-          <span class="tab-label">Plan</span>
-        </button>
-        <button type="button"
-                class="sidebar-tab"
-                data-tab="navigate"
-                aria-selected="false"
-                aria-controls="tab-panel-navigate"
-                role="tab">
-          <i class="fas fa-compass" aria-hidden="true"></i>
-          <span class="tab-label">Navigate</span>
-        </button>
-        <button type="button"
-                class="sidebar-tab"
-                data-tab="status"
-                aria-selected="false"
-                aria-controls="tab-panel-status"
-                role="tab">
-          <i class="fas fa-spinner" aria-hidden="true"></i>
-          <span class="tab-label">Status</span>
-        </button>
-        <button type="button"
-                class="sidebar-tab"
-                data-tab="results"
-                aria-selected="false"
-                aria-controls="tab-panel-results"
-                role="tab">
-          <i class="fas fa-chart-bar" aria-hidden="true"></i>
-          <span class="tab-label">Results</span>
-        </button>
-      </nav>
-
-      <!-- Tab Panel: Plan -->
-      <div class="tab-panel active"
-           id="tab-panel-plan"
-           role="tabpanel"
-           data-tab="plan">
-
-        <!-- Area Selection Section -->
-        <div class="widget control-section" data-accent="mint">
-          <div class="widget-header collapsible" data-toggle="section-area">
-            <h3 class="widget-title">
-              <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
-              Coverage Area
-            </h3>
-            <button type="button"
-                    class="btn-collapse"
-                    aria-expanded="true"
-                    aria-controls="section-area"
-                    aria-label="Toggle section">
-              <i class="fas fa-chevron-up" aria-hidden="true"></i>
-            </button>
+      <!-- Hero Section: Coverage Area Selection -->
+      <section class="nav-hero" data-section="hero">
+        <div class="nav-hero-header">
+          <div class="nav-hero-badge">
+            <i class="fas fa-route" aria-hidden="true"></i>
+            <span>Coverage Navigator</span>
           </div>
-          <div class="widget-body collapsible-content" id="section-area">
-            <label for="area-select" class="form-label">
-              <span class="label-text">Select Area</span>
-              <span class="label-hint">Choose a coverage area to navigate</span>
-            </label>
-            <div class="select-wrapper">
-              <select id="area-select" class="form-select">
-                <option value="">
-Select a coverage area...
-                </option>
-              </select>
-              <i class="fas fa-map-marker-alt select-icon" aria-hidden="true"></i>
-            </div>
+        </div>
 
-            <div id="area-stats" class="area-stats" style="display: none">
-              <div class="stats-row">
-                <div class="stat-item">
-                  <span class="stat-label">Coverage</span>
-                  <span id="area-coverage" class="stat-value" data-coverage-percent data-value-flash>--</span>
-                </div>
-                <div class="stat-item">
-                  <span class="stat-label">Remaining</span>
-                  <span id="area-remaining" class="stat-value" data-value-flash>--</span>
-                </div>
+        <div class="nav-hero-body">
+          <label for="area-select" class="nav-hero-label">
+            <span class="label-text">Coverage Area</span>
+          </label>
+          <div class="area-select-wrapper">
+            <select id="area-select" class="area-select">
+              <option value="">Select a coverage area...</option>
+            </select>
+            <i class="fas fa-chevron-down select-chevron" aria-hidden="true"></i>
+          </div>
+
+          <!-- Coverage Stats (shown when area selected) -->
+          <div id="area-stats" class="hero-stats" hidden>
+            <div class="hero-stat hero-stat--primary">
+              <div class="hero-stat-ring">
+                <svg viewBox="0 0 36 36" class="progress-ring">
+                  <path class="progress-ring-bg"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                  <path class="progress-ring-fill"
+                        id="coverage-ring-fill"
+                        stroke-dasharray="0, 100"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                </svg>
+                <span class="hero-stat-value" id="area-coverage" data-coverage-percent>0%</span>
               </div>
+              <span class="hero-stat-label">Coverage</span>
             </div>
+            <div class="hero-stat">
+              <span class="hero-stat-value" id="area-remaining" data-value-flash>--</span>
+              <span class="hero-stat-label">Remaining</span>
+            </div>
+            <div class="hero-stat">
+              <span class="hero-stat-value" id="area-total">--</span>
+              <span class="hero-stat-label">Total</span>
+            </div>
+          </div>
+
+          <!-- Primary Action -->
+          <button id="generate-route-btn" class="nav-hero-action" disabled>
+            <span class="action-icon">
+              <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
+            </span>
+            <span class="action-content">
+              <span class="action-title">Generate Optimal Route</span>
+              <span class="action-subtitle">Minimize deadhead driving with RPP algorithm</span>
+            </span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Route Generation Progress (inline, shown during processing) -->
+      <section class="nav-progress" id="route-progress" hidden>
+        <div class="nav-progress-header">
+          <div class="progress-title">
+            <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+            <span>Generating Route</span>
+          </div>
+          <span class="progress-stage" id="progress-stage">Initializing...</span>
+        </div>
+
+        <div class="nav-progress-steps">
+          <div class="progress-step" data-step="1" id="step-clustering">
+            <div class="step-dot"></div>
+            <span class="step-label">Cluster</span>
+          </div>
+          <div class="progress-step" data-step="2" id="step-optimizing">
+            <div class="step-dot"></div>
+            <span class="step-label">Optimize</span>
+          </div>
+          <div class="progress-step" data-step="3" id="step-rendering">
+            <div class="step-dot"></div>
+            <span class="step-label">Render</span>
           </div>
         </div>
 
-        <!-- Optimal Route Planner Section -->
-        <div class="widget control-section" data-accent="purple">
-          <div class="widget-header collapsible" data-toggle="section-planner">
-            <h3 class="widget-title">
-              <i class="fas fa-magic" aria-hidden="true"></i>
-              Optimal Route Planner
-            </h3>
-            <button type="button"
-                    class="btn-collapse"
-                    aria-expanded="true"
-                    aria-controls="section-planner"
-                    aria-label="Toggle section">
-              <i class="fas fa-chevron-up" aria-hidden="true"></i>
-            </button>
+        <div class="nav-progress-bar">
+          <div class="progress-track">
+            <div class="progress-fill" id="route-progress-fill" style="width: 0%"></div>
           </div>
-          <div class="widget-body collapsible-content" id="section-planner">
-            <button id="generate-route-btn" class="btn btn-primary btn-generate" disabled>
-              <span class="generate-icon"><i class="fas fa-magic" aria-hidden="true"></i></span>
-              <span class="generate-text">
-                <span class="generate-title">Generate Optimal Route</span>
-                <span class="generate-subtitle">Minimize deadhead driving</span>
-              </span>
-            </button>
-            <div class="planner-info">
-              <i class="fas fa-info-circle" aria-hidden="true"></i>
-              <span>Uses Rural Postman Problem algorithm for efficient routing</span>
-            </div>
+          <span class="progress-percent" id="route-progress-percent">0%</span>
+        </div>
+
+        <div class="nav-progress-detail">
+          <span class="progress-message" id="progress-message">Preparing...</span>
+          <span class="progress-elapsed" id="progress-elapsed">
+            <i class="fas fa-clock" aria-hidden="true"></i>
+            <span id="elapsed-value">0:00</span>
+          </span>
+        </div>
+
+        <button type="button" class="nav-progress-cancel" id="cancel-task-btn">
+          <i class="fas fa-times" aria-hidden="true"></i>
+          Cancel
+        </button>
+      </section>
+
+      <!-- Live Solver Progress (for advanced processing) -->
+      <section class="nav-live" id="progress-section" hidden>
+        <div class="nav-live-header">
+          <div class="live-indicator">
+            <span class="live-dot"></span>
+            <span class="live-label">Route Solver</span>
+          </div>
+          <span class="live-badge">LIVE</span>
+        </div>
+
+        <p class="nav-live-description">
+          Mapping, connecting, and plotting the circuit in real time.
+        </p>
+
+        <div class="nav-live-stages">
+          <div class="live-stage" data-stages="queued,waiting,initializing">
+            <i class="fas fa-play" aria-hidden="true"></i>
+            <span>Start</span>
+          </div>
+          <div class="live-stage" data-stages="loading_area,loading_segments,loading_graph,fetching_osm">
+            <i class="fas fa-database" aria-hidden="true"></i>
+            <span>Load</span>
+          </div>
+          <div class="live-stage" data-stages="mapping_segments">
+            <i class="fas fa-project-diagram" aria-hidden="true"></i>
+            <span>Map</span>
+          </div>
+          <div class="live-stage" data-stages="connectivity_check">
+            <i class="fas fa-network-wired" aria-hidden="true"></i>
+            <span>Link</span>
+          </div>
+          <div class="live-stage" data-stages="routing">
+            <i class="fas fa-route" aria-hidden="true"></i>
+            <span>Route</span>
+          </div>
+          <div class="live-stage" data-stages="finalizing,complete">
+            <i class="fas fa-check" aria-hidden="true"></i>
+            <span>Done</span>
           </div>
         </div>
 
-        <!-- Saved Routes Section -->
-        <div class="widget control-section is-saved-routes" data-accent="purple">
-          <div class="widget-header collapsible" data-toggle="section-saved">
-            <h3 class="widget-title">
-              <i class="fas fa-history" aria-hidden="true"></i>
-              Saved Routes
-            </h3>
-            <button type="button"
-                    class="btn-collapse"
-                    aria-expanded="true"
-                    aria-controls="section-saved"
-                    aria-label="Toggle section">
-              <i class="fas fa-chevron-up" aria-hidden="true"></i>
-            </button>
+        <div class="nav-live-bar">
+          <div class="progress-track">
+            <div class="progress-fill progress-fill--animated" id="progress-bar" style="width: 0%"></div>
           </div>
-          <div class="widget-body collapsible-content" id="section-saved">
-            <div id="active-mission-card" class="route-history mb-3">
-              <div class="empty-state">
+        </div>
+
+        <div class="nav-live-messages">
+          <div class="live-message-primary" id="progress-message-primary">Initializing...</div>
+          <div class="live-message-secondary" id="progress-message-secondary"></div>
+        </div>
+
+        <div class="nav-live-elapsed">
+          <i class="fas fa-clock" aria-hidden="true"></i>
+          Elapsed: <span id="elapsed-value-live">0:00</span>
+        </div>
+
+        <button type="button" class="nav-progress-cancel" id="cancel-live-btn">
+          <i class="fas fa-times" aria-hidden="true"></i>
+          Cancel Task
+        </button>
+      </section>
+
+      <!-- Error State -->
+      <section class="nav-error" id="error-section" hidden>
+        <div class="nav-error-icon">
+          <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+        </div>
+        <div class="nav-error-title">Issue Detected</div>
+        <div class="nav-error-message" id="error-message">An error occurred.</div>
+        <button type="button" class="nav-error-retry" id="retry-btn">
+          <i class="fas fa-redo" aria-hidden="true"></i>
+          Try Again
+        </button>
+      </section>
+
+      <!-- Route History Section -->
+      <section class="nav-section" id="route-history-section" data-section="history">
+        <button type="button"
+                class="nav-section-header"
+                aria-expanded="true"
+                aria-controls="section-history-content">
+          <div class="section-header-left">
+            <i class="fas fa-history" aria-hidden="true"></i>
+            <span class="section-title">Route History</span>
+          </div>
+          <i class="fas fa-chevron-down section-chevron" aria-hidden="true"></i>
+        </button>
+        <div class="nav-section-content" id="section-history-content">
+          <!-- Active Mission -->
+          <div class="history-group">
+            <div class="history-group-label">Active Mission</div>
+            <div id="active-mission-card" class="history-list">
+              <div class="history-empty">
                 <i class="fas fa-flag-checkered" aria-hidden="true"></i>
                 <span>No active mission</span>
               </div>
             </div>
-            <div id="mission-history" class="route-history mb-3">
-              <div class="empty-state">
+          </div>
+
+          <!-- Mission History -->
+          <div class="history-group">
+            <div class="history-group-label">Recent Missions</div>
+            <div id="mission-history" class="history-list">
+              <div class="history-empty">
                 <i class="fas fa-list-check" aria-hidden="true"></i>
                 <span>No mission history yet</span>
               </div>
             </div>
-            <div id="route-history" class="route-history">
-              <div class="empty-state">
+          </div>
+
+          <!-- Saved Routes -->
+          <div class="history-group">
+            <div class="history-group-label">Saved Routes</div>
+            <div id="route-history" class="history-list">
+              <div class="history-empty">
                 <i class="fas fa-route" aria-hidden="true"></i>
                 <span>No saved routes yet</span>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- Tab Panel: Navigate -->
-      <div class="tab-panel"
-           id="tab-panel-navigate"
-           role="tabpanel"
-           data-tab="navigate">
-
-        <!-- Navigation Controls Section -->
-        <div class="widget control-section" data-accent="sky">
-          <div class="widget-header collapsible" data-toggle="section-nav">
-            <h3 class="widget-title">
-              <i class="fas fa-compass" aria-hidden="true"></i>
-              Navigate Now
-            </h3>
-            <div class="header-actions">
-              <div class="form-check form-switch form-switch-sm">
-                <input class="form-check-input" type="checkbox" role="switch" id="auto-follow-toggle" />
-                <label class="form-check-label" for="auto-follow-toggle">
-Auto-Follow
-                </label>
-              </div>
-              <button type="button"
-                      class="btn-collapse"
-                      aria-expanded="true"
-                      aria-controls="section-nav"
-                      aria-label="Toggle section">
-                <i class="fas fa-chevron-up" aria-hidden="true"></i>
-              </button>
-            </div>
+      <!-- Navigation Tools Section -->
+      <section class="nav-section" id="nav-tools-section" data-section="navigate" hidden>
+        <button type="button"
+                class="nav-section-header"
+                aria-expanded="true"
+                aria-controls="section-navigate-content">
+          <div class="section-header-left">
+            <i class="fas fa-compass" aria-hidden="true"></i>
+            <span class="section-title">Navigation Tools</span>
           </div>
-          <div class="widget-body collapsible-content" id="section-nav">
-            <div class="action-buttons">
-              <button id="find-next-street-btn" class="btn btn-primary btn-action" disabled>
-                <span class="btn-icon"><i class="fas fa-route"></i></span>
-                <span class="btn-text">
-                  <span class="btn-title">Find Nearest Street</span>
-                  <span class="btn-subtitle">Navigate to closest undriven road</span>
-                </span>
-              </button>
-              <button id="find-efficient-street-btn" class="btn btn-info btn-action" disabled>
-                <span class="btn-icon"><i class="fas fa-layer-group"></i></span>
-                <span class="btn-text">
-                  <span class="btn-title">Find Clusters</span>
-                  <span class="btn-subtitle">Discover efficient route groups</span>
-                </span>
-              </button>
-            </div>
-
-            <div id="status-message" class="status-message info">
-              <i class="fas fa-info-circle" aria-hidden="true"></i>
-              <span>Select a coverage area to begin navigation</span>
-            </div>
-
-            <div id="target-info" class="target-info">
-            </div>
-
-            <div id="route-info" class="route-info">
-              <div class="route-info-header">
+          <i class="fas fa-chevron-down section-chevron" aria-hidden="true"></i>
+        </button>
+        <div class="nav-section-content" id="section-navigate-content">
+          <div class="nav-tools-grid">
+            <button id="find-next-street-btn" class="nav-tool-btn" disabled>
+              <span class="tool-icon">
                 <i class="fas fa-route" aria-hidden="true"></i>
-                <span>Active Guidance</span>
-              </div>
-              <div id="route-details-content" class="route-details-content">
-              </div>
-              <div class="route-actions">
-                <button id="open-google-maps-btn" class="btn btn-outline-light btn-sm" disabled>
-                  <i class="fab fa-google" aria-hidden="true"></i>
-                  Google Maps
-                </button>
-                <button id="open-apple-maps-btn" class="btn btn-outline-light btn-sm" disabled>
-                  <i class="fab fa-apple" aria-hidden="true"></i>
-                  Apple Maps
-                </button>
-              </div>
+              </span>
+              <span class="tool-content">
+                <span class="tool-title">Find Nearest Street</span>
+                <span class="tool-subtitle">Navigate to closest undriven road</span>
+              </span>
+            </button>
+            <button id="find-efficient-street-btn" class="nav-tool-btn nav-tool-btn--secondary" disabled>
+              <span class="tool-icon">
+                <i class="fas fa-layer-group" aria-hidden="true"></i>
+              </span>
+              <span class="tool-content">
+                <span class="tool-title">Find Clusters</span>
+                <span class="tool-subtitle">Discover efficient route groups</span>
+              </span>
+            </button>
+          </div>
+
+          <div id="status-message" class="nav-status-message info">
+            <i class="fas fa-info-circle" aria-hidden="true"></i>
+            <span>Select a coverage area to begin navigation</span>
+          </div>
+
+          <div id="target-info" class="nav-target-info"></div>
+
+          <div id="route-info" class="nav-route-info">
+            <div class="route-info-header">
+              <i class="fas fa-route" aria-hidden="true"></i>
+              <span>Active Guidance</span>
+            </div>
+            <div id="route-details-content" class="route-info-content"></div>
+            <div class="route-info-actions">
+              <button id="open-google-maps-btn" class="route-map-btn" disabled>
+                <i class="fab fa-google" aria-hidden="true"></i>
+                Google Maps
+              </button>
+              <button id="open-apple-maps-btn" class="route-map-btn" disabled>
+                <i class="fab fa-apple" aria-hidden="true"></i>
+                Apple Maps
+              </button>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- Tab Panel: Status -->
-      <div class="tab-panel"
-           id="tab-panel-status"
-           role="tabpanel"
-           data-tab="status">
-
-        <!-- Route Progress Section (Hidden by default) -->
-        <div id="route-progress-container"
-             class="widget control-section is-processing"
-             data-accent="amber">
-          <div class="widget-header">
-            <h3 class="widget-title">
-              <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
-              Route Progress
-            </h3>
+      <!-- Results Section (shown after route generation) -->
+      <section class="nav-results" id="results-section" hidden>
+        <div class="nav-results-header">
+          <div class="results-title">
+            <i class="fas fa-chart-bar" aria-hidden="true"></i>
+            <span>Route Statistics</span>
           </div>
-          <div class="widget-body">
-            <div class="progress-steps">
-              <div id="step-clustering" class="step" data-step="1">
-                <div class="step-indicator">
-                </div>
-                <span class="step-label">Clustering</span>
-              </div>
-              <div id="step-optimizing" class="step" data-step="2">
-                <div class="step-indicator">
-                </div>
-                <span class="step-label">Optimizing</span>
-              </div>
-              <div id="step-rendering" class="step" data-step="3">
-                <div class="step-indicator">
-                </div>
-                <span class="step-label">Rendering</span>
-              </div>
-            </div>
-            <div class="progress-bar-container">
-              <div class="progress">
-                <div id="route-progress-bar"
-                     class="progress-bar progress-bar-striped progress-bar-animated"
-                     role="progressbar"
-                     style="width: 0%"
-                     aria-valuenow="0"
-                     aria-valuemin="0"
-                     aria-valuemax="100">
-                </div>
-              </div>
-              <span id="processing-status" class="progress-status">Preparing...</span>
-            </div>
-          </div>
+          <button type="button"
+                  class="nav-section-toggle"
+                  id="toggle-results"
+                  aria-expanded="true"
+                  aria-controls="results-content">
+            <i class="fas fa-chevron-up" aria-hidden="true"></i>
+          </button>
         </div>
 
-        <!-- Live Progress Section (Hidden by default) -->
-        <div id="progress-section"
-             class="widget control-section is-live"
-             data-accent="amber"
-             style="display: none">
-          <div class="widget-header">
-            <h3 class="widget-title">
-              <i class="fas fa-satellite-dish fa-pulse" aria-hidden="true"></i>
-              Route Solver Live
-            </h3>
-            <span class="live-badge">LIVE</span>
+        <div class="nav-results-content" id="results-content">
+          <div class="results-stats">
+            <div class="result-stat" data-stat="total">
+              <div class="result-stat-icon">
+                <i class="fas fa-road" aria-hidden="true"></i>
+              </div>
+              <div class="result-stat-content">
+                <span class="result-stat-value" id="stat-total-distance">--</span>
+                <span class="result-stat-label">Total Route</span>
+              </div>
+            </div>
+            <div class="result-stat" data-stat="required">
+              <div class="result-stat-icon result-stat-icon--success">
+                <i class="fas fa-check-circle" aria-hidden="true"></i>
+              </div>
+              <div class="result-stat-content">
+                <span class="result-stat-value" id="stat-required-distance">--</span>
+                <span class="result-stat-label">Required</span>
+              </div>
+            </div>
+            <div class="result-stat" data-stat="coverage">
+              <div class="result-stat-icon result-stat-icon--primary">
+                <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
+              </div>
+              <div class="result-stat-content">
+                <span class="result-stat-value" id="stat-covered-distance">--</span>
+                <span class="result-stat-label">Coverage</span>
+              </div>
+            </div>
+            <div class="result-stat" data-stat="deadhead">
+              <div class="result-stat-icon result-stat-icon--warning">
+                <i class="fas fa-car-side" aria-hidden="true"></i>
+              </div>
+              <div class="result-stat-content">
+                <span class="result-stat-value" id="stat-deadhead-distance">--</span>
+                <span class="result-stat-label">Deadhead</span>
+              </div>
+            </div>
+            <div class="result-stat result-stat--efficiency" data-stat="efficiency">
+              <div class="result-stat-icon result-stat-icon--success">
+                <i class="fas fa-percentage" aria-hidden="true"></i>
+              </div>
+              <div class="result-stat-content">
+                <span class="result-stat-value" id="stat-deadhead-percent">--</span>
+                <span class="result-stat-label">Efficiency</span>
+              </div>
+            </div>
           </div>
-          <div class="widget-body">
-            <p class="live-description">
-Mapping, connecting, and plotting the circuit in real time.
-            </p>
 
-            <div class="progress-stages">
-              <div class="stage" data-stage="queued,waiting,initializing">
-                <div class="stage-icon">
-                  <i class="fas fa-play" aria-hidden="true"></i>
-                </div>
-                <span class="stage-label">Starting</span>
-              </div>
-              <div class="stage"
-                   data-stage="loading_area,loading_segments,loading_graph,fetching_osm">
-                <div class="stage-icon">
-                  <i class="fas fa-database" aria-hidden="true"></i>
-                </div>
-                <span class="stage-label">Loading</span>
-              </div>
-              <div class="stage" data-stage="mapping_segments">
-                <div class="stage-icon">
-                  <i class="fas fa-project-diagram" aria-hidden="true"></i>
-                </div>
-                <span class="stage-label">Mapping</span>
-              </div>
-              <div class="stage" data-stage="connectivity_check">
-                <div class="stage-icon">
-                  <i class="fas fa-network-wired" aria-hidden="true"></i>
-                </div>
-                <span class="stage-label">Linking</span>
-              </div>
-              <div class="stage" data-stage="routing">
-                <div class="stage-icon">
-                  <i class="fas fa-route" aria-hidden="true"></i>
-                </div>
-                <span class="stage-label">Routing</span>
-              </div>
-              <div class="stage" data-stage="finalizing,complete">
-                <div class="stage-icon">
-                  <i class="fas fa-check" aria-hidden="true"></i>
-                </div>
-                <span class="stage-label">Finalize</span>
-              </div>
-            </div>
-
-            <div class="progress-bar-container">
-              <div class="progress">
-                <div id="progress-bar"
-                     class="progress-bar progress-bar-striped progress-bar-animated"
-                     role="progressbar"
-                     style="width: 0%"
-                     aria-valuenow="0"
-                     aria-valuemin="0"
-                     aria-valuemax="100">
-                </div>
-              </div>
-            </div>
-
-            <div class="progress-messages">
-              <div id="progress-message-primary" class="message-primary">
-Initializing...
-              </div>
-              <div id="progress-message-secondary" class="message-secondary">
-              </div>
-            </div>
-
-            <div class="elapsed-time">
-              <i class="fas fa-clock" aria-hidden="true"></i>
-              <span>Elapsed: <span id="elapsed-value">0:00</span></span>
-            </div>
-
-            <button id="cancel-task-btn" class="btn btn-outline-danger btn-sm btn-cancel">
+          <!-- Export & Actions -->
+          <div class="results-actions">
+            <button id="export-gpx-btn" class="results-action-btn">
+              <i class="fas fa-download" aria-hidden="true"></i>
+              <span>Export GPX</span>
+            </button>
+            <button id="replay-animation-btn" class="results-action-btn" disabled>
+              <i class="fas fa-redo" aria-hidden="true"></i>
+              <span>Replay</span>
+            </button>
+            <button id="start-turn-by-turn-btn" class="results-action-btn results-action-btn--primary" disabled>
+              <i class="fas fa-location-arrow" aria-hidden="true"></i>
+              <span>Navigate</span>
+            </button>
+            <button id="clear-route-btn" class="results-action-btn results-action-btn--secondary">
               <i class="fas fa-times" aria-hidden="true"></i>
-              Cancel Task
+              <span>Clear</span>
             </button>
           </div>
-        </div>
 
-        <!-- Error Section (Hidden by default) -->
-        <div id="error-section"
-             class="widget control-section is-error"
-             data-accent="coral"
-             style="display: none">
-          <div class="widget-header">
-            <h3 class="widget-title">
-              <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
-              Issue Detected
-            </h3>
-          </div>
-          <div class="widget-body">
-            <div class="error-content">
-              <div class="error-icon">
-                <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
-              </div>
-              <div id="error-message" class="error-message">
-An error occurred.
-              </div>
-              <button id="retry-btn" class="btn btn-outline-danger btn-sm">
-                <i class="fas fa-redo" aria-hidden="true"></i>
-                Try Again
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Empty state for Status tab -->
-        <div class="tab-empty-state" id="status-empty-state">
-          <div class="tab-empty-icon">
-            <i class="fas fa-hourglass" aria-hidden="true"></i>
-          </div>
-          <div class="tab-empty-title">No Active Process</div>
-          <div class="tab-empty-hint">Progress will appear here when you generate a route</div>
-        </div>
-      </div>
-
-      <!-- Tab Panel: Results -->
-      <div class="tab-panel"
-           id="tab-panel-results"
-           role="tabpanel"
-           data-tab="results">
-
-        <!-- Results Section (Hidden by default) -->
-        <div id="results-section"
-             class="widget control-section is-results"
-             data-accent="sky"
-             style="display: none">
-          <div class="widget-header collapsible" data-toggle="section-results">
-            <h3 class="widget-title">
-              <i class="fas fa-chart-bar" aria-hidden="true"></i>
-              Route Statistics
-            </h3>
-            <button type="button"
-                    class="btn-collapse"
-                    aria-expanded="true"
-                    aria-controls="section-results"
-                    aria-label="Toggle section">
-              <i class="fas fa-chevron-up" aria-hidden="true"></i>
-            </button>
-          </div>
-          <div class="widget-body collapsible-content" id="section-results">
-            <div class="stats-grid">
-              <div class="stat-card" data-stat="total">
-                <div class="stat-icon">
-                  <i class="fas fa-road" aria-hidden="true"></i>
-                </div>
-                <div class="stat-content">
-                  <span id="stat-total-distance" class="stat-value">--</span>
-                  <span class="stat-label">Total Route</span>
-                </div>
-              </div>
-              <div class="stat-card" data-stat="required">
-                <div class="stat-icon">
-                  <i class="fas fa-check-circle" aria-hidden="true"></i>
-                </div>
-                <div class="stat-content">
-                  <span id="stat-required-distance" class="stat-value">--</span>
-                  <span class="stat-label">Required</span>
-                </div>
-              </div>
-              <div class="stat-card" data-stat="coverage">
-                <div class="stat-icon">
-                  <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
-                </div>
-                <div class="stat-content">
-                  <span id="stat-covered-distance" class="stat-value">--</span>
-                  <span class="stat-label">Coverage</span>
-                </div>
-              </div>
-              <div class="stat-card" data-stat="deadhead">
-                <div class="stat-icon">
-                  <i class="fas fa-car-side" aria-hidden="true"></i>
-                </div>
-                <div class="stat-content">
-                  <span id="stat-deadhead-distance" class="stat-value">--</span>
-                  <span class="stat-label">Deadhead</span>
-                </div>
-              </div>
-              <div class="stat-card is-efficiency" data-stat="efficiency">
-                <div class="stat-icon">
-                  <i class="fas fa-percentage" aria-hidden="true"></i>
-                </div>
-                <div class="stat-content">
-                  <span id="stat-deadhead-percent" class="stat-value">--</span>
-                  <span class="stat-label">Efficiency</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="export-actions">
-              <button id="export-gpx-btn" class="btn btn-outline-primary btn-sm">
-                <i class="fas fa-download" aria-hidden="true"></i>
-                Export GPX
-              </button>
-              <button id="replay-animation-btn" class="btn btn-outline-primary btn-sm" disabled>
-                <i class="fas fa-redo" aria-hidden="true"></i>
-                Replay
-              </button>
-              <button id="start-turn-by-turn-btn" class="btn btn-outline-primary btn-sm" disabled>
-                <i class="fas fa-location-arrow" aria-hidden="true"></i>
-                Turn-by-Turn
-              </button>
-              <button id="clear-route-btn" class="btn btn-outline-secondary btn-sm">
-                <i class="fas fa-times" aria-hidden="true"></i>
-                Clear
-              </button>
-            </div>
-
-            <div class="layer-controls">
-              <h4 class="layer-controls-title">
-Map Layers
-              </h4>
-              <div id="layer-list" class="layer-list">
-                <div class="layer-item" data-layer-id="route">
-                  <div class="layer-main">
-                    <div class="layer-info">
-                      <span class="layer-color layer-color--route"></span>
-                      <span class="layer-name">Optimal Route</span>
-                    </div>
-                    <div class="layer-toggle">
-                      <div class="form-check form-switch form-switch-sm">
-                        <input class="form-check-input" type="checkbox" id="toggle-route-layer" checked />
-                      </div>
-                    </div>
-                  </div>
-                  <div class="layer-opacity">
-                    <label class="opacity-label">
-                      <span>Opacity</span>
-                      <span class="opacity-value">100%</span>
-                    </label>
-                    <input type="range"
-                           class="form-range"
-                           id="opacity-route-layer"
-                           min="0"
-                           max="100"
-                           value="100" />
+          <!-- Layer Controls -->
+          <div class="results-layers">
+            <div class="layers-title">Map Layers</div>
+            <div class="layers-list" id="layer-list">
+              <div class="layer-item" data-layer-id="route">
+                <div class="layer-main">
+                  <span class="layer-color layer-color--route"></span>
+                  <span class="layer-name">Optimal Route</span>
+                  <div class="layer-controls">
+                    <button type="button"
+                            class="layer-toggle active"
+                            id="toggle-route-layer"
+                            aria-pressed="true"
+                            aria-label="Toggle route layer">
+                      <i class="fas fa-eye" aria-hidden="true"></i>
+                    </button>
                   </div>
                 </div>
+                <div class="layer-opacity">
+                  <input type="range"
+                         class="opacity-slider"
+                         id="opacity-route-layer"
+                         min="0"
+                         max="100"
+                         value="100"
+                         aria-label="Route opacity" />
+                  <span class="opacity-value">100%</span>
+                </div>
+              </div>
 
-                <div class="layer-item" data-layer-id="driven">
-                  <div class="layer-main">
-                    <div class="layer-info">
-                      <span class="layer-color layer-color--driven"></span>
-                      <span class="layer-name">Driven Streets</span>
-                    </div>
-                    <div class="layer-toggle">
-                      <div class="form-check form-switch form-switch-sm">
-                        <input class="form-check-input" type="checkbox" id="toggle-driven-layer" checked />
-                      </div>
-                    </div>
-                  </div>
-                  <div class="layer-opacity">
-                    <label class="opacity-label">
-                      <span>Opacity</span>
-                      <span class="opacity-value">60%</span>
-                    </label>
-                    <input type="range"
-                           class="form-range"
-                           id="opacity-driven-layer"
-                           min="0"
-                           max="100"
-                           value="60" />
+              <div class="layer-item" data-layer-id="driven">
+                <div class="layer-main">
+                  <span class="layer-color layer-color--driven"></span>
+                  <span class="layer-name">Driven Streets</span>
+                  <div class="layer-controls">
+                    <button type="button"
+                            class="layer-toggle active"
+                            id="toggle-driven-layer"
+                            aria-pressed="true"
+                            aria-label="Toggle driven layer">
+                      <i class="fas fa-eye" aria-hidden="true"></i>
+                    </button>
                   </div>
                 </div>
+                <div class="layer-opacity">
+                  <input type="range"
+                         class="opacity-slider"
+                         id="opacity-driven-layer"
+                         min="0"
+                         max="100"
+                         value="60"
+                         aria-label="Driven streets opacity" />
+                  <span class="opacity-value">60%</span>
+                </div>
+              </div>
 
-                <div class="layer-item" data-layer-id="undriven">
-                  <div class="layer-main">
-                    <div class="layer-info">
-                      <span class="layer-color layer-color--undriven"></span>
-                      <span class="layer-name">Undriven Streets</span>
-                    </div>
-                    <div class="layer-toggle">
-                      <div class="form-check form-switch form-switch-sm">
-                        <input class="form-check-input" type="checkbox" id="toggle-undriven-layer" checked />
-                      </div>
-                    </div>
+              <div class="layer-item" data-layer-id="undriven">
+                <div class="layer-main">
+                  <span class="layer-color layer-color--undriven"></span>
+                  <span class="layer-name">Undriven Streets</span>
+                  <div class="layer-controls">
+                    <button type="button"
+                            class="layer-toggle active"
+                            id="toggle-undriven-layer"
+                            aria-pressed="true"
+                            aria-label="Toggle undriven layer">
+                      <i class="fas fa-eye" aria-hidden="true"></i>
+                    </button>
                   </div>
-                  <div class="layer-opacity">
-                    <label class="opacity-label">
-                      <span>Opacity</span>
-                      <span class="opacity-value">80%</span>
-                    </label>
-                    <input type="range"
-                           class="form-range"
-                           id="opacity-undriven-layer"
-                           min="0"
-                           max="100"
-                           value="80" />
-                  </div>
+                </div>
+                <div class="layer-opacity">
+                  <input type="range"
+                         class="opacity-slider"
+                         id="opacity-undriven-layer"
+                         min="0"
+                         max="100"
+                         value="80"
+                         aria-label="Undriven streets opacity" />
+                  <span class="opacity-value">80%</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      </section>
 
-        <!-- Route Details Section (Hidden by default) -->
-        <div id="route-details"
-             class="widget control-section"
-             data-accent="slate"
-              style="display: none">
-          <div class="widget-header collapsible" data-toggle="section-details">
-            <h3 class="widget-title">
-              <i class="fas fa-list-ul" aria-hidden="true"></i>
-              Route Details
-            </h3>
-            <button type="button"
-                    class="btn-collapse"
-                    aria-expanded="true"
-                    aria-controls="section-details"
-                    aria-label="Toggle section">
-              <i class="fas fa-chevron-up" aria-hidden="true"></i>
-            </button>
+      <!-- Route Details Section -->
+      <section class="nav-section nav-section--details" id="route-details" hidden>
+        <button type="button"
+                class="nav-section-header"
+                aria-expanded="true"
+                aria-controls="section-details-content">
+          <div class="section-header-left">
+            <i class="fas fa-list-ul" aria-hidden="true"></i>
+            <span class="section-title">Route Details</span>
           </div>
-          <div class="widget-body collapsible-content" id="section-details">
-            <div id="route-stats" class="route-stats">
-            </div>
-          </div>
+          <i class="fas fa-chevron-down section-chevron" aria-hidden="true"></i>
+        </button>
+        <div class="nav-section-content" id="section-details-content">
+          <div id="route-stats" class="route-stats-grid"></div>
         </div>
-
-        <!-- Empty state for Results tab -->
-        <div class="tab-empty-state" id="results-empty-state">
-          <div class="tab-empty-icon">
-            <i class="fas fa-chart-pie" aria-hidden="true"></i>
-          </div>
-          <div class="tab-empty-title">No Results Yet</div>
-          <div class="tab-empty-hint">Route statistics and export options will appear here after generation</div>
-        </div>
-      </div>
+      </section>
     </aside>
 
     <!-- Map Container -->
     <div class="map-container">
-      <div id="coverage-map">
-      </div>
+      <div id="coverage-map"></div>
 
       <!-- Map Scanner Overlay -->
-      <div id="map-scanner-overlay" class="map-scanner-overlay" aria-hidden="true">
-      </div>
+      <div id="map-scanner-overlay" class="map-scanner-overlay" aria-hidden="true"></div>
 
       <!-- Route Solver HUD -->
-      <div id="route-solver-hud" class="route-solver-hud" aria-live="polite">
+      <div id="route-solver-hud" class="route-solver-hud" aria-live="polite" hidden>
         <div class="hud-panel">
           <div class="hud-header">
             <div class="hud-signal">
               <span class="hud-dot"></span>
               <span class="hud-title">Route Solver</span>
             </div>
-            <div id="hud-stage" class="hud-stage">
-Initializing
-            </div>
+            <div id="hud-stage" class="hud-stage">Initializing</div>
           </div>
-          <div id="hud-message" class="hud-message">
-Initializing...
-          </div>
-          <div id="hud-submessage" class="hud-submessage">
-          </div>
+          <div id="hud-message" class="hud-message">Initializing...</div>
+          <div id="hud-submessage" class="hud-submessage"></div>
           <div class="hud-metrics">
             <div class="hud-metric">
               <span class="metric-label">Segments</span>
@@ -705,24 +537,21 @@ Initializing...
               <span id="hud-matched" class="metric-value">--</span>
             </div>
             <div class="hud-metric">
-              <span class="metric-label">Fallback</span>
-              <span id="hud-fallback" class="metric-value">--</span>
+              <span class="metric-label">Default</span>
+              <span id="hud-default" class="metric-value">--</span>
             </div>
             <div class="hud-metric">
               <span class="metric-label">Elapsed</span>
               <span id="hud-elapsed" class="metric-value">0:00</span>
             </div>
           </div>
-          <div id="hud-activity" class="hud-activity">
-          </div>
+          <div id="hud-activity" class="hud-activity"></div>
         </div>
       </div>
 
       <!-- Map Legend -->
-      <div class="map-legend" id="map-legend" style="display: none">
-        <h6>
-Legend
-        </h6>
+      <div class="map-legend" id="map-legend" hidden>
+        <div class="legend-title">Legend</div>
         <div class="legend-items">
           <div class="legend-item">
             <span class="legend-color legend-color--driven"></span>
@@ -733,7 +562,7 @@ Legend
             <span class="legend-label">Undriven Streets</span>
           </div>
           <div class="legend-item">
-            <span class="legend-color legend-color--route is-route"></span>
+            <span class="legend-color legend-color--route"></span>
             <span class="legend-label">Optimal Route</span>
           </div>
         </div>
@@ -741,6 +570,3 @@ Legend
     </div>
   </div>
 {% endblock %}
-
-
-{# Page scripts are loaded via route-loader + swup. #}
