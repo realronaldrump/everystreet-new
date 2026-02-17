@@ -66,6 +66,7 @@ const INITIAL_STATE = () => ({
   areaNameById: new Map(),
   areaRoadFilterVersionById: new Map(),
   activeErrorAreaId: null,
+  areaViewRequestId: 0,
 
   // Milestone
   previousCoveragePercent: null,
@@ -202,12 +203,29 @@ function setupEventListeners(signal) {
   const debouncedValidate = debounce(validateLocationInput, VALIDATION_DEBOUNCE_MS);
 
   const handleValidationTrigger = () => {
+    validationState.requestId += 1;
     clearValidationSelection();
     const query = locationInput?.value.trim() || "";
     if (!query) {
       setValidationStatus({ icon: "fa-location-dot", message: "Enter a location to validate.", tone: "neutral" });
+      validationState.lastQuery = "";
+      validationState.lastType = "";
+      validationState.candidates = [];
+      renderValidationCandidates([]);
+      if (validationElements?.note) {
+        validationElements.note.textContent = "";
+        validationElements.note.classList.add("d-none");
+      }
     } else if (query.length < 2) {
       setValidationStatus({ icon: "fa-pen", message: "Keep typing to validate.", tone: "neutral" });
+      validationState.lastQuery = "";
+      validationState.lastType = "";
+      validationState.candidates = [];
+      renderValidationCandidates([]);
+      if (validationElements?.note) {
+        validationElements.note.textContent = "";
+        validationElements.note.classList.add("d-none");
+      }
     } else {
       setValidationStatus({ icon: "fa-spinner fa-spin", message: "Validating location…", tone: "info" });
     }
@@ -408,6 +426,7 @@ async function switchView(viewName) {
 
 async function backToList() {
   closeStreetDetailPanel();
+  state.areaViewRequestId += 1;
 
   // Reset area-view state
   state.previousCoveragePercent = null;
@@ -577,21 +596,23 @@ async function loadAreas() {
 }
 
 function handleAreaCardClick(event) {
-  // Area actions from card
-  const btn = event.target.closest("[data-area-action]");
+  // Area actions from card + explicit error details trigger
+  const btn = event.target.closest("[data-area-action], [data-error-action]");
   if (!btn) return;
 
-  const action = btn.dataset.areaAction;
   const areaId = btn.dataset.areaId;
-  if (!action || !areaId) return;
+  if (!areaId) return;
 
   const areaName = btn.dataset.areaName || state.areaNameById.get(areaId) || "Coverage area";
+  const action = btn.dataset.areaAction;
 
   // Handle error trigger (card status click)
   if (btn.dataset.errorAction === "show") {
     showCoverageErrorDetails(areaId, areaName);
     return;
   }
+
+  if (!action) return;
 
   switch (action) {
     case "view":        viewArea(areaId); break;
@@ -767,6 +788,7 @@ async function recalculateCoverage(areaId, displayName) {
 // =============================================================================
 
 async function viewArea(areaId) {
+  const requestId = ++state.areaViewRequestId;
   state.currentAreaId = areaId;
   state.previousCoveragePercent = null;
   closeStreetDetailPanel();
@@ -781,7 +803,12 @@ async function viewArea(areaId) {
       apiGet(`/areas/${areaId}/streets/summary`),
     ]);
 
+    if (requestId !== state.areaViewRequestId || state.currentAreaId !== areaId) return;
+
     const { area } = data;
+    if (!area) {
+      throw new Error("Area details are unavailable.");
+    }
     state.currentAreaSyncToken = area?.last_synced || area?.created_at || null;
     state.currentAreaRoadFilterVersion = area?.road_filter_version || null;
     state.currentAreaData = area;
@@ -807,6 +834,7 @@ async function viewArea(areaId) {
       await initOrUpdateMap(areaId, data.bounding_box, state.currentAreaSyncToken);
     }
   } catch (error) {
+    if (requestId !== state.areaViewRequestId || state.currentAreaId !== areaId) return;
     console.error("Failed to load area:", error);
     notificationManager.show(`Failed to load area details: ${error.message}`, "danger");
   }
@@ -818,7 +846,9 @@ async function refreshDashboardStats(areaId) {
       apiGet(`/areas/${areaId}`),
       apiGet(`/areas/${areaId}/streets/summary`),
     ]);
+    if (areaId !== state.currentAreaId) return;
     const { area } = data;
+    if (!area) return;
     const prevPct = state.previousCoveragePercent;
     const newPct = normalizeCoveragePercent(area.coverage_percentage);
 
@@ -865,8 +895,8 @@ function updateStatsUI(area, summary) {
 
   // Last activity
   const lastActivityEl = document.getElementById("qs-last-activity");
-  if (lastActivityEl && area.last_synced) {
-    lastActivityEl.textContent = formatRelativeTime(area.last_synced);
+  if (lastActivityEl) {
+    lastActivityEl.textContent = area.last_synced ? formatRelativeTime(area.last_synced) : "—";
   }
 }
 
@@ -933,8 +963,6 @@ function showMilestoneCelebration({ icon, title, sub }) {
 // =============================================================================
 
 async function initOrUpdateMap(areaId, bbox, areaSyncToken = null) {
-  const container = document.getElementById("coverage-map");
-
   if (!state.map) {
     // Remove loading spinner
     const loadingEl = document.getElementById("map-loading-state");
@@ -1071,32 +1099,8 @@ function setupStreetInteractivity() {
   STREET_LAYERS.forEach((layerId) => {
     if (!state.map.getLayer(layerId)) return;
     state.map.on("click", layerId, handleStreetClick);
-  });
-
-  // Hover → update hover layer + tooltip
-  state.map.on("mousemove", STREET_LAYERS, (e) => {
-    const feature = e.features?.[0];
-    if (!feature) return;
-
-    const sid = feature.properties?.segment_id;
-    if (sid !== state.hoveredSegmentId) {
-      state.hoveredSegmentId = sid;
-      state.map.setFilter(HOVER_LAYER_ID, ["==", ["get", "segment_id"], sid || ""]);
-      state.map.getCanvas().style.cursor = "pointer";
-
-      // Show lightweight name tooltip
-      const name = feature.properties?.street_name || "Unnamed Street";
-      state.hoverPopup.setLngLat(e.lngLat).setHTML(`<span>${escapeHtml(name)}</span>`).addTo(state.map);
-    } else {
-      state.hoverPopup.setLngLat(e.lngLat);
-    }
-  });
-
-  state.map.on("mouseleave", STREET_LAYERS, () => {
-    state.hoveredSegmentId = null;
-    state.map.setFilter(HOVER_LAYER_ID, ["==", ["get", "segment_id"], ""]);
-    state.map.getCanvas().style.cursor = "";
-    state.hoverPopup.remove();
+    state.map.on("mousemove", layerId, handleStreetMouseMove);
+    state.map.on("mouseleave", layerId, handleStreetMouseLeave);
   });
 
   // Click on empty map → close detail panel
@@ -1106,9 +1110,37 @@ function setupStreetInteractivity() {
   });
 }
 
+function handleStreetMouseMove(e) {
+  if (!state.map) return;
+  const feature = e.features?.[0];
+  if (!feature) return;
+
+  const sid = feature.properties?.segment_id;
+  if (sid !== state.hoveredSegmentId) {
+    state.hoveredSegmentId = sid;
+    state.map.setFilter(HOVER_LAYER_ID, ["==", ["get", "segment_id"], sid || ""]);
+    state.map.getCanvas().style.cursor = "pointer";
+
+    // Show lightweight name tooltip
+    const name = getStreetDisplayName(feature.properties?.street_name, sid);
+    state.hoverPopup.setLngLat(e.lngLat).setHTML(`<span>${escapeHtml(name)}</span>`).addTo(state.map);
+  } else {
+    state.hoverPopup.setLngLat(e.lngLat);
+  }
+}
+
+function handleStreetMouseLeave() {
+  if (!state.map) return;
+  state.hoveredSegmentId = null;
+  state.map.setFilter(HOVER_LAYER_ID, ["==", ["get", "segment_id"], ""]);
+  state.map.getCanvas().style.cursor = "";
+  state.hoverPopup?.remove();
+}
+
 function handleStreetClick(event) {
   const feature = event.features?.[0];
   if (!feature || !state.map) return;
+  state.hoverPopup?.remove();
   openStreetDetailPanel(feature);
 }
 
@@ -1171,7 +1203,7 @@ function openStreetDetailPanel(feature) {
 
   // Populate panel fields
   const nameEl = document.getElementById("street-detail-name");
-  if (nameEl) nameEl.textContent = props.street_name || "Unnamed Street";
+  if (nameEl) nameEl.textContent = getStreetDisplayName(props.street_name, segmentId);
 
   const statusPillEl = document.getElementById("street-detail-status-pill");
   if (statusPillEl) {
@@ -1227,6 +1259,10 @@ function closeStreetDetailPanel() {
 // =============================================================================
 
 async function markSegmentDriven(areaId, segmentId) {
+  if (!segmentId) {
+    notificationManager.show("Cannot mark segment: missing segment identifier.", "danger");
+    return;
+  }
   try {
     await apiPost(`/areas/${areaId}/streets/mark-driven`, { segment_ids: [segmentId] });
     notificationManager.show("Segment marked as driven", "success");
@@ -1239,6 +1275,10 @@ async function markSegmentDriven(areaId, segmentId) {
 }
 
 async function markSegmentUndriveable(areaId, segmentId) {
+  if (!segmentId) {
+    notificationManager.show("Cannot mark segment: missing segment identifier.", "danger");
+    return;
+  }
   try {
     await apiPatch(`/areas/${areaId}/streets/${segmentId}`, { status: "undriveable" });
     notificationManager.show("Segment marked as undriveable", "success");
@@ -1251,6 +1291,10 @@ async function markSegmentUndriveable(areaId, segmentId) {
 }
 
 async function markSegmentUndriven(areaId, segmentId) {
+  if (!segmentId) {
+    notificationManager.show("Cannot reset segment: missing segment identifier.", "danger");
+    return;
+  }
   try {
     await apiPatch(`/areas/${areaId}/streets/${segmentId}`, { status: "undriven" });
     notificationManager.show("Segment reset to undriven", "success");
@@ -1304,8 +1348,10 @@ async function loadJobHistory(areaId) {
 
   try {
     const data = await apiGet(`/areas/${areaId}/jobs`);
+    if (areaId !== state.currentAreaId) return;
     renderJobHistory(data.jobs || []);
   } catch {
+    if (areaId !== state.currentAreaId) return;
     container.innerHTML = '<p class="text-secondary small text-center mt-4">Could not load job history.</p>';
   }
 }
@@ -1566,6 +1612,7 @@ function setValidationStatus({ icon, message, tone = "neutral" }) {
 }
 
 function clearValidationSelection() {
+  validationState.resolveRequestId += 1;
   validationState.selectedCandidate = null;
   validationState.confirmedCandidate = null;
   validationState.confirmedBoundary = null;
@@ -1630,7 +1677,7 @@ async function validateLocationInput() {
     if (requestId !== validationState.requestId) return;
 
     validationState.candidates = result.candidates || [];
-    renderValidationCandidates(validationState.candidates, areaType);
+    renderValidationCandidates(validationState.candidates);
 
     if (validationState.candidates.length === 0) {
       setValidationStatus({ icon: "fa-triangle-exclamation", message: "No matches found. Try a different spelling or area type.", tone: "warning" });
@@ -1641,6 +1688,9 @@ async function validateLocationInput() {
     if (result.note && validationElements?.note) {
       validationElements.note.textContent = result.note;
       validationElements.note.classList.remove("d-none");
+    } else if (validationElements?.note) {
+      validationElements.note.textContent = "";
+      validationElements.note.classList.add("d-none");
     }
   } catch (error) {
     if (requestId !== validationState.requestId) return;
@@ -1648,7 +1698,7 @@ async function validateLocationInput() {
   }
 }
 
-function renderValidationCandidates(candidates, areaType) {
+function renderValidationCandidates(candidates) {
   if (!validationElements?.candidates) return;
   if (!candidates.length) {
     validationElements.candidates.innerHTML = "";
@@ -1684,6 +1734,13 @@ async function handleCandidateClick(event) {
   if (!candidate) return;
 
   validationState.selectedCandidate = candidate;
+  validationState.confirmedCandidate = null;
+  validationState.confirmedBoundary = null;
+  setAddButtonEnabled(false);
+  if (validationElements?.confirmation) {
+    validationElements.confirmation.classList.add("d-none");
+    validationElements.confirmation.textContent = "";
+  }
 
   // Mark selected
   validationElements?.candidates?.querySelectorAll(".validation-candidate").forEach((el, i) => {
@@ -1733,6 +1790,14 @@ function formatStatus(statusKey) {
 function formatHighwayType(type) {
   if (!type) return "Unknown";
   return String(type).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function getStreetDisplayName(streetName, segmentId = "") {
+  const normalizedName = typeof streetName === "string" ? streetName.trim() : "";
+  if (normalizedName) return normalizedName;
+  const normalizedSegmentId = typeof segmentId === "string" ? segmentId.trim() : "";
+  if (normalizedSegmentId) return `Unnamed Street (${normalizedSegmentId})`;
+  return "Unnamed Street";
 }
 
 function formatPopupDate(value, statusKey) {
