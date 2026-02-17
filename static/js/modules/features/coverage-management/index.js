@@ -21,6 +21,7 @@ import { renderAreasTable } from "./areas.js";
 import { setMetricValue } from "./stats.js";
 
 const API_BASE = "/api/coverage";
+const APP_SETTINGS_API = "/api/app_settings";
 
 // State
 let currentAreaId = null;
@@ -75,6 +76,7 @@ export default async function initCoverageManagementPage({ signal, cleanup } = {
   setupEventListeners(signal);
   setupBackgroundJobUI();
   initValidationUI();
+  await loadCoverageFilterSettings();
 
   // Move modal outside the layout-wrapper to prevent z-index stacking issues
   // The layout-wrapper creates a stacking context that can trap modals behind the backdrop
@@ -162,6 +164,9 @@ function setupEventListeners(signal) {
 
   const locationInput = document.getElementById("location-input");
   const locationType = document.getElementById("location-type");
+  const includeServiceToggle = document.getElementById(
+    "include-service-roads-toggle"
+  );
   const candidatesContainer = document.getElementById("location-validation-candidates");
   const addAreaModal = document.getElementById("addAreaModal");
   const debouncedValidate = debounce(validateLocationInput, VALIDATION_DEBOUNCE_MS);
@@ -199,6 +204,11 @@ function setupEventListeners(signal) {
   locationType?.addEventListener(
     "change",
     handleValidationTrigger,
+    signal ? { signal } : false
+  );
+  includeServiceToggle?.addEventListener(
+    "change",
+    handleIncludeServiceRoadsToggle,
     signal ? { signal } : false
   );
   candidatesContainer?.addEventListener(
@@ -397,6 +407,91 @@ function apiPost(endpoint, data) {
 
 function apiDelete(endpoint) {
   return apiClient.delete(`${API_BASE}${endpoint}`, withSignal());
+}
+
+function setIncludeServiceRoadsStatus(message, tone = "secondary") {
+  const statusEl = document.getElementById("include-service-roads-status");
+  if (!statusEl) {
+    return;
+  }
+  const tones = {
+    secondary: "text-secondary",
+    info: "text-info",
+    success: "text-success",
+    danger: "text-danger",
+  };
+  const toneClass = tones[tone] || tones.secondary;
+  statusEl.className = `form-text d-block mt-1 ${toneClass}`;
+  statusEl.textContent = message;
+}
+
+async function loadCoverageFilterSettings() {
+  const toggle = document.getElementById("include-service-roads-toggle");
+  if (!toggle) {
+    return;
+  }
+
+  toggle.disabled = true;
+  setIncludeServiceRoadsStatus("Loading filter settings...", "info");
+
+  try {
+    const settings = await apiClient.get(APP_SETTINGS_API, withSignal());
+    const includeServiceRoads =
+      settings?.coverageIncludeServiceRoads !== false;
+    toggle.checked = includeServiceRoads;
+    setIncludeServiceRoadsStatus(
+      includeServiceRoads
+        ? "Service roads are included for new area builds."
+        : "Service roads are excluded for new area builds.",
+      "secondary"
+    );
+  } catch (error) {
+    console.error("Failed to load coverage filter settings:", error);
+    toggle.checked = true;
+    setIncludeServiceRoadsStatus(
+      "Using default: include service roads.",
+      "secondary"
+    );
+  } finally {
+    toggle.disabled = false;
+  }
+}
+
+async function handleIncludeServiceRoadsToggle(event) {
+  const toggle = event?.currentTarget;
+  if (!toggle) {
+    return;
+  }
+
+  const includeServiceRoads = Boolean(toggle.checked);
+  const previousValue = !includeServiceRoads;
+  toggle.disabled = true;
+  setIncludeServiceRoadsStatus("Saving filter setting...", "info");
+
+  try {
+    await apiClient.post(
+      APP_SETTINGS_API,
+      { coverageIncludeServiceRoads: includeServiceRoads },
+      withSignal()
+    );
+    setIncludeServiceRoadsStatus(
+      includeServiceRoads
+        ? "Service roads are included for new area builds."
+        : "Service roads are excluded for new area builds.",
+      "success"
+    );
+    showNotification(
+      "Street filter saved. Rebuild an area to apply to existing streets.",
+      "success"
+    );
+  } catch (error) {
+    console.error("Failed to save coverage filter settings:", error);
+    toggle.checked = previousValue;
+    setIncludeServiceRoadsStatus("Save failed. Keeping previous setting.", "danger");
+    showNotification(`Failed to save filter setting: ${error.message}`, "danger");
+  } finally {
+    toggle.disabled = false;
+  }
 }
 
 // =============================================================================

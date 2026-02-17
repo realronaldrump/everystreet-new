@@ -389,6 +389,30 @@ State / Region
               Used as a type-family hint for validation matching
               </small>
             </div>
+            <div class="mb-3">
+              <label for="include-service-roads-toggle"
+                     class="form-label d-flex justify-content-between align-items-center">
+                <span>Service Roads</span>
+                <span class="badge text-bg-secondary">Street Generation</span>
+              </label>
+              <div class="form-check form-switch">
+                <input type="checkbox"
+                       id="include-service-roads-toggle"
+                       class="form-check-input"
+                       role="switch"
+                       checked />
+                <label class="form-check-label" for="include-service-roads-toggle">
+                  Include <code>highway=service</code> roads
+                </label>
+              </div>
+              <small class="form-text text-secondary d-block">
+              Applies to new area builds/rebuilds. Backfill/recalculate uses existing streets.
+              </small>
+              <small class="form-text text-secondary d-block mt-1"
+                     id="include-service-roads-status"
+                     aria-live="polite">
+              </small>
+            </div>
 
             <div class="coverage-validation" id="coverage-validation-panel">
               <div id="location-validation-status"

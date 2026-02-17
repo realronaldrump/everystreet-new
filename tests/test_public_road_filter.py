@@ -6,6 +6,7 @@ from street_coverage.public_road_filter import (
     MODE_STRICT,
     TRACK_CONDITIONAL,
     classify_public_road,
+    get_public_road_filter_signature,
 )
 
 
@@ -37,6 +38,15 @@ def test_classify_excludes_parking_aisle_and_alley() -> None:
     assert parking.reason_code == "exclude_service_subtype"
     assert alley.include is False
     assert alley.reason_code == "exclude_service_subtype"
+
+
+def test_classify_excludes_service_when_service_policy_disabled() -> None:
+    decision = classify_public_road(
+        {"highway": "service", "name": "Local Service Road"},
+        include_service=False,
+    )
+    assert decision.include is False
+    assert decision.reason_code == "exclude_service_policy"
 
 
 def test_classify_track_conditional() -> None:
@@ -100,3 +110,12 @@ def test_classifier_performance_guard() -> None:
     assert len(decisions) == 20000
     # Guard against pathological slowdowns without making CI timing fragile.
     assert elapsed < 10.0
+
+
+def test_signature_includes_service_policy() -> None:
+    include_sig = get_public_road_filter_signature(include_service=True)
+    exclude_sig = get_public_road_filter_signature(include_service=False)
+
+    assert include_sig != exclude_sig
+    assert "|service=include" in include_sig
+    assert "|service=exclude" in exclude_sig

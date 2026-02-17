@@ -62,6 +62,11 @@ def _apply_settings_to_env(settings: AppSettings, *, force: bool = False) -> Non
     _set_env_value("MAPBOX_TOKEN", settings.mapbox_token, force=force)
     _set_env_value("GEOFABRIK_MIRROR", settings.geofabrik_mirror, force=force)
     _set_env_value("OSM_EXTRACTS_PATH", settings.osm_extracts_path, force=force)
+    _set_env_value(
+        "COVERAGE_INCLUDE_SERVICE_ROADS",
+        "1" if settings.coverageIncludeServiceRoads else "0",
+        force=force,
+    )
 
 
 def apply_settings_to_env(settings: AppSettings, *, force: bool = False) -> None:

@@ -96,6 +96,9 @@ TRACK_EXCLUDE = "exclude"
 TRACK_INCLUDE = "include"
 VALID_TRACK_POLICIES = {TRACK_CONDITIONAL, TRACK_EXCLUDE, TRACK_INCLUDE}
 
+TRUE_LITERALS = {"true", "t", "1", "yes", "y", "on"}
+FALSE_LITERALS = {"false", "f", "0", "no", "n", "off"}
+
 
 @dataclass(frozen=True, slots=True)
 class PublicRoadDecision:
@@ -173,14 +176,35 @@ def get_track_policy(raw: str | None = None) -> str:
     return TRACK_CONDITIONAL
 
 
+def get_include_service_roads(raw: Any | None = None) -> bool:
+    if isinstance(raw, bool):
+        return raw
+
+    source: str
+    if raw is None:
+        source = os.getenv("COVERAGE_INCLUDE_SERVICE_ROADS", "")
+    else:
+        source = str(raw)
+    value = source.strip().lower()
+    if value in TRUE_LITERALS:
+        return True
+    return value not in FALSE_LITERALS
+
+
 def get_public_road_filter_signature(
     *,
     mode: str | None = None,
     track_policy: str | None = None,
+    include_service: Any | None = None,
 ) -> str:
     resolved_mode = get_public_road_filter_mode(mode)
     resolved_track = get_track_policy(track_policy)
-    return f"{ROAD_FILTER_VERSION}|mode={resolved_mode}|track={resolved_track}"
+    resolved_include_service = get_include_service_roads(include_service)
+    service_value = "include" if resolved_include_service else "exclude"
+    return (
+        f"{ROAD_FILTER_VERSION}|mode={resolved_mode}|track={resolved_track}"
+        f"|service={service_value}"
+    )
 
 
 def normalize_tag_values(value: Any) -> list[str]:
@@ -238,11 +262,13 @@ def classify_public_road(
     *,
     mode: str | None = None,
     track_policy: str | None = None,
+    include_service: Any | None = None,
 ) -> PublicRoadDecision:
     """Classify an OSM way as public-road include/exclude."""
 
     effective_mode = get_public_road_filter_mode(mode)
     effective_track_policy = get_track_policy(track_policy)
+    effective_include_service = get_include_service_roads(include_service)
     values = extract_relevant_tags(tags)
 
     highway = _pick_driveable_highway(values.get("highway"))
@@ -266,6 +292,14 @@ def classify_public_road(
         return PublicRoadDecision(
             include=False,
             reason_code="exclude_hard_restriction",
+            confidence=0.99,
+            highway_type=highway,
+        )
+
+    if highway == "service" and not effective_include_service:
+        return PublicRoadDecision(
+            include=False,
+            reason_code="exclude_service_policy",
             confidence=0.99,
             highway_type=highway,
         )

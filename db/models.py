@@ -910,6 +910,7 @@ class AppSettings(Document):
     mapCoverageSimplifyFeet: float = 150.0
     mapCoverageMaxPointsPerTrip: int = 2000
     mapCoverageBatchSize: int = 200
+    coverageIncludeServiceRoads: bool = True
 
     # Logs
     # When set, server log queries should hide entries older than this cutoff.

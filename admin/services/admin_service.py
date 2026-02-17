@@ -95,6 +95,7 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "mapCoverageSimplifyFeet": 150.0,
     "mapCoverageMaxPointsPerTrip": 2000,
     "mapCoverageBatchSize": 200,
+    "coverageIncludeServiceRoads": True,
     "setup_completed": False,
     "setup_completed_at": None,
 }
@@ -241,7 +242,7 @@ class AdminService:
                 "MongoDB unavailable while loading collection sizes: %s",
                 exc,
             )
-            return {collection: None for collection in collection_name_list}
+            return dict.fromkeys(collection_name_list, None)
 
         sizes: dict[str, float | None] = {}
         for collection in collection_name_list:
