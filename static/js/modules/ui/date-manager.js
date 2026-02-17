@@ -15,6 +15,17 @@ const dateManager = {
   usingMobilePortal: false,
   viewportSyncHandler: null,
 
+  getSelectedDateRange() {
+    const today = dateUtils.getCurrentDate();
+    const startDate =
+      store.get("filters.startDate") ||
+      utils.getStorage(CONFIG.STORAGE_KEYS.startDate) ||
+      today;
+    const endDate =
+      store.get("filters.endDate") || utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || today;
+    return { startDate, endDate };
+  },
+
   isMobileViewport() {
     return window.matchMedia("(max-width: 768px)").matches;
   },
@@ -112,14 +123,7 @@ const dateManager = {
     this.syncMobilePortal();
     this.bindViewportSync();
 
-    const startDate =
-      store.get("filters.startDate") ||
-      utils.getStorage(CONFIG.STORAGE_KEYS.startDate) ||
-      dateUtils.getCurrentDate();
-    const endDate =
-      store.get("filters.endDate") ||
-      utils.getStorage(CONFIG.STORAGE_KEYS.endDate) ||
-      dateUtils.getCurrentDate();
+    const { startDate, endDate } = this.getSelectedDateRange();
     this.flatpickrInstances = new Map();
 
     const fpConfig = {
@@ -172,8 +176,9 @@ const dateManager = {
       if (detail.source === "filters") {
         return;
       }
-      const nextStart = detail.startDate || store.get("filters.startDate") || startDate;
-      const nextEnd = detail.endDate || store.get("filters.endDate") || endDate;
+      const currentRange = this.getSelectedDateRange();
+      const nextStart = detail.startDate || store.get("filters.startDate") || currentRange.startDate;
+      const nextEnd = detail.endDate || store.get("filters.endDate") || currentRange.endDate;
       if (!nextStart || !nextEnd) {
         return;
       }
@@ -397,10 +402,7 @@ const dateManager = {
   },
 
   highlightActivePreset(preset = null) {
-    const savedStartDate =
-      utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || dateUtils.getCurrentDate();
-    const savedEndDate =
-      utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || dateUtils.getCurrentDate();
+    const { startDate: savedStartDate, endDate: savedEndDate } = this.getSelectedDateRange();
 
     const activePreset = preset || this.detectPreset(savedStartDate, savedEndDate);
 
@@ -419,10 +421,7 @@ const dateManager = {
       return;
     }
 
-    const savedStartDate =
-      utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || dateUtils.getCurrentDate();
-    const savedEndDate =
-      utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || dateUtils.getCurrentDate();
+    const { startDate: savedStartDate, endDate: savedEndDate } = this.getSelectedDateRange();
     const today = dateUtils.getCurrentDate();
 
     const fmt = (d) => dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;

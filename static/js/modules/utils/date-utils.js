@@ -1,4 +1,5 @@
 import apiClient from "../core/api-client.js";
+import store from "../core/store.js";
 import { getStorage, setStorage } from "./data.js";
 import {
   formatDateToString,
@@ -43,11 +44,19 @@ const DateUtils = {
   },
 
   getStartDate() {
-    return getStorage(DATE_STORAGE_KEYS.startDate) || this.getCurrentDate();
+    return (
+      store.get("filters.startDate") ||
+      getStorage(DATE_STORAGE_KEYS.startDate) ||
+      this.getCurrentDate()
+    );
   },
 
   getEndDate() {
-    return getStorage(DATE_STORAGE_KEYS.endDate) || this.getCurrentDate();
+    return (
+      store.get("filters.endDate") ||
+      getStorage(DATE_STORAGE_KEYS.endDate) ||
+      this.getCurrentDate()
+    );
   },
 
   async getDateRangePreset(range) {
