@@ -22,7 +22,6 @@ from setup.services.bouncie_oauth import BouncieOAuth
 from trips.pipeline import TripPipeline
 from trips.services.trip_history_import_service_config import (
     IMPORT_DO_COVERAGE,
-    IMPORT_DO_GEOCODE,
     _vehicle_label,
     build_import_windows,
     resolve_import_imeis,
@@ -478,10 +477,9 @@ async def run_import(
         pipeline = TripPipeline()
         client = BouncieClient(session)
         app_settings = await AdminService.get_persisted_app_settings()
-        _geocode_enabled_in_settings = bool(
+        geocode_enabled_in_settings = bool(
             getattr(app_settings, "geocodeTripsOnFetch", True),
         )
-        del _geocode_enabled_in_settings
 
         runtime = ImportRuntime(
             client=client,
@@ -493,7 +491,7 @@ async def run_import(
             counters=setup.counters,
             per_device=setup.per_device,
             pipeline=pipeline,
-            do_geocode=bool(IMPORT_DO_GEOCODE),
+            do_geocode=geocode_enabled_in_settings,
             do_coverage=bool(IMPORT_DO_COVERAGE),
             seen_transaction_ids=set(),
             add_event=progress_ctx.add_event,

@@ -88,6 +88,14 @@ class TripService:
         require_nominatim_reverse_url()
         self._pipeline = TripPipeline()
 
+    @staticmethod
+    def _has_full_location_data(existing_trip: dict[str, Any] | None) -> bool:
+        if not isinstance(existing_trip, dict):
+            return False
+        return TripPipeline._has_meaningful_location(
+            existing_trip.get("startLocation"),
+        ) and TripPipeline._has_meaningful_location(existing_trip.get("destination"))
+
     @with_comprehensive_handling
     async def get_trip_by_id(self, trip_id: str) -> Trip | None:
         """Retrieve a trip by its ID."""
@@ -212,9 +220,8 @@ class TripService:
         try:
             # Get app settings to check geocoding preference
             app_settings = await AdminService.get_persisted_app_settings()
-            geocode_enabled = app_settings.model_dump().get(
-                "geocodeTripsOnFetch",
-                True,
+            geocode_enabled = bool(
+                app_settings.model_dump().get("geocodeTripsOnFetch", True),
             )
 
             # Deduplicate inputs by transactionId
@@ -309,9 +316,15 @@ class TripService:
                     existing_status == "processed"
                     or existing_processing_state in {"completed", "map_matched"}
                 )
+                needs_geocode_repair = bool(
+                    geocode_enabled
+                    and existing_trip
+                    and not self._has_full_location_data(existing_trip)
+                )
                 needs_processing = (
                     not existing_trip
                     or not existing_processed
+                    or needs_geocode_repair
                     or (do_map_match and not existing_trip.get("matchedGps"))
                 )
 
@@ -342,7 +355,7 @@ class TripService:
                             trip,
                             source="bouncie",
                             do_map_match=do_map_match,
-                            do_geocode=bool(geocode_enabled),
+                            do_geocode=geocode_enabled,
                             do_coverage=True,
                         )
                     except Exception as exc:

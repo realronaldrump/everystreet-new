@@ -15,6 +15,8 @@ class TripStatusProjection(BaseModel):
     status: str | None = None
     processing_state: str | None = None
     matchedGps: Any | None = None
+    startLocation: Any | None = None
+    destination: Any | None = None
 
     model_config = ConfigDict(extra="ignore")
 

@@ -20,6 +20,34 @@ class TripGeocoder:
     def __init__(self, geocoding_service: GeocodingService | None = None) -> None:
         self.geocoding_service = geocoding_service or GeocodingService()
 
+    async def _reverse_geocode_safe(
+        self,
+        *,
+        lat: float,
+        lon: float,
+        transaction_id: str,
+        label: str,
+        service_marked_unhealthy: bool,
+    ) -> dict[str, Any] | None:
+        try:
+            return await self.geocoding_service.reverse_geocode(lat, lon)
+        except Exception as exc:
+            if service_marked_unhealthy:
+                logger.debug(
+                    "Trip %s: reverse geocode skipped for %s while service marked unhealthy (%s)",
+                    transaction_id,
+                    label,
+                    exc,
+                )
+            else:
+                logger.warning(
+                    "Trip %s: reverse geocode failed for %s (%s)",
+                    transaction_id,
+                    label,
+                    exc,
+                )
+            return None
+
     async def geocode(self, processed_data: dict[str, Any]) -> dict[str, Any]:
         try:
             transaction_id = processed_data.get("transactionId", "unknown")
@@ -70,17 +98,13 @@ class TripGeocoder:
                     )
                     processed_data["startPlaceId"] = str(getattr(place_obj, "id", ""))
                 else:
-                    rev_start = None
-                    if nominatim_available:
-                        rev_start = await self.geocoding_service.reverse_geocode(
-                            start_coord[1],
-                            start_coord[0],
-                        )
-                    else:
-                        logger.warning(
-                            "Trip %s: Nominatim unavailable, skipping start geocode",
-                            transaction_id,
-                        )
+                    rev_start = await self._reverse_geocode_safe(
+                        lat=start_coord[1],
+                        lon=start_coord[0],
+                        transaction_id=transaction_id,
+                        label="start",
+                        service_marked_unhealthy=not nominatim_available,
+                    )
                     if rev_start:
                         processed_data["startLocation"] = (
                             self.geocoding_service.parse_geocode_response(
@@ -107,17 +131,13 @@ class TripGeocoder:
                         getattr(place_obj, "id", ""),
                     )
                 else:
-                    rev_end = None
-                    if nominatim_available:
-                        rev_end = await self.geocoding_service.reverse_geocode(
-                            end_coord[1],
-                            end_coord[0],
-                        )
-                    else:
-                        logger.warning(
-                            "Trip %s: Nominatim unavailable, skipping destination geocode",
-                            transaction_id,
-                        )
+                    rev_end = await self._reverse_geocode_safe(
+                        lat=end_coord[1],
+                        lon=end_coord[0],
+                        transaction_id=transaction_id,
+                        label="destination",
+                        service_marked_unhealthy=not nominatim_available,
+                    )
                     if rev_end:
                         processed_data["destination"] = (
                             self.geocoding_service.parse_geocode_response(
@@ -125,7 +145,7 @@ class TripGeocoder:
                                 end_coord,
                             )
                         )
-                    else:
+                    elif nominatim_available:
                         logger.warning(
                             "Trip %s: Failed to geocode destination",
                             transaction_id,

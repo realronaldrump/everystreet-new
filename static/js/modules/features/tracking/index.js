@@ -51,6 +51,20 @@ class LiveTripTracker {
     this.ws = null;
     this.pollingTimer = null;
     this.pollingInterval = LIVE_TRACKING_DEFAULTS.pollingInterval;
+    this.staleRecoveryThresholdMs =
+      LIVE_TRACKING_DEFAULTS.staleRecoveryThresholdMs ?? 12000;
+    this.staleClearThresholdMs =
+      LIVE_TRACKING_DEFAULTS.staleClearThresholdMs ?? 6 * 60 * 60 * 1000;
+    this.reconnectDelayMs = 2500;
+    this.reconnectTimer = null;
+    this.noUpdatePollCount = 0;
+    this.lastStreamEventAt = 0;
+    this.lastTripSignature = null;
+    this.recoveryInFlight = false;
+    this.isDestroyed = false;
+    this._manualCloseSocket = null;
+    this.activeTripSnapshotKey = "liveTripSnapshot";
+    this.activeTripSnapshotMaxAgeMs = 12 * 60 * 60 * 1000;
 
     this.lineSourceId = LIVE_TRACKING_LAYER_IDS.lineSource;
     this.markerSourceId = LIVE_TRACKING_LAYER_IDS.markerSource;
@@ -305,6 +319,9 @@ class LiveTripTracker {
 
     try {
       const autoCenter = localStorage.getItem("autoCenter");
+      if (autoCenter === "true") {
+        return true;
+      }
       if (autoCenter === "false") {
         return false;
       }
@@ -312,7 +329,8 @@ class LiveTripTracker {
       // Ignore storage errors
     }
 
-    return true;
+    // Default to manual map exploration unless user explicitly opts into follow mode.
+    return false;
   }
 
   // --- HUD & follow -----------------------------------------------------
@@ -685,6 +703,7 @@ class LiveTripTracker {
   async initialize() {
     try {
       await this.loadInitialTrip();
+      this.startPolling();
       this.connectWebSocket();
       this.setupMapStyleListener();
     } catch (error) {
@@ -722,39 +741,73 @@ class LiveTripTracker {
       if (data.status === "success" && data.has_active_trip && data.trip) {
         console.info(`Initial trip loaded: ${data.trip.transactionId}`);
         this.updateTrip(data.trip);
-      } else {
+      } else if (!this.restoreTripFromSnapshot()) {
         this.clearTrip();
+      } else {
+        this.updateStatus(false, "Restored live trip");
       }
     } catch (error) {
       console.error("Failed to load initial trip:", error);
-      throw error;
+      if (!this.restoreTripFromSnapshot()) {
+        throw error;
+      }
+      this.updateStatus(false, "Restored live trip");
     }
   }
 
   connectWebSocket() {
+    if (this.isDestroyed) {
+      return;
+    }
+
     if (this.ws) {
+      this._manualCloseSocket = this.ws;
       this.ws.close();
       this.ws = null;
     }
 
     try {
-      this.ws = connectLiveWebSocket({
+      const socket = connectLiveWebSocket({
         onOpen: () => {
-          this.stopPolling();
+          if (this.isDestroyed || this.ws !== socket) {
+            return;
+          }
+          this.lastStreamEventAt = Date.now();
+          this.noUpdatePollCount = 0;
           this.updateStatus(true);
         },
         onMessage: (data) => this.handleSocketMessage(data),
         onClose: (event) => {
+          if (this.isDestroyed) {
+            return;
+          }
+          const wasManualClose = this._manualCloseSocket === socket;
+          if (wasManualClose) {
+            this._manualCloseSocket = null;
+          }
+          if (this.ws !== socket) {
+            return;
+          }
           console.warn("WebSocket closed, switching to polling", event);
           this.ws = null;
+          if (wasManualClose) {
+            return;
+          }
           this.updateStatus(false, "Reconnecting...");
-          this.startPolling();
+          this.scheduleWebSocketReconnect();
         },
         onError: (error) => {
+          if (this.isDestroyed || this.ws !== socket) {
+            return;
+          }
           console.error("WebSocket error:", error);
           this.updateStatus(false, "Connection error");
+          if (!this.isWebSocketConnected()) {
+            this.scheduleWebSocketReconnect();
+          }
         },
       });
+      this.ws = socket;
 
       if (!this.ws) {
         console.warn("WebSocket not supported, using polling");
@@ -762,18 +815,70 @@ class LiveTripTracker {
       }
     } catch (error) {
       console.error("Failed to create WebSocket:", error);
+      this.ws = null;
+      this.scheduleWebSocketReconnect();
       this.startPolling();
     }
   }
 
+  isWebSocketConnected() {
+    return (
+      this.ws &&
+      typeof WebSocket !== "undefined" &&
+      this.ws.readyState === WebSocket.OPEN
+    );
+  }
+
+  scheduleWebSocketReconnect(delayMs = this.reconnectDelayMs) {
+    if (this.isDestroyed || this.reconnectTimer) {
+      return;
+    }
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.connectWebSocket();
+    }, delayMs);
+  }
+
+  reconnectWebSocket({ immediate = false } = {}) {
+    if (this.isDestroyed) {
+      return;
+    }
+
+    if (this.ws) {
+      this._manualCloseSocket = this.ws;
+      try {
+        this.ws.close();
+      } catch (error) {
+        console.warn("WebSocket close failed during reconnect:", error);
+      }
+      this.ws = null;
+    }
+
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
+    if (immediate) {
+      this.connectWebSocket();
+    } else {
+      this.scheduleWebSocketReconnect();
+    }
+  }
+
   handleSocketMessage(data) {
+    if (this.isDestroyed) {
+      return;
+    }
     if (data.type === "trip_state" && data.trip) {
+      this.lastStreamEventAt = Date.now();
+      this.noUpdatePollCount = 0;
       this.updateTrip(data.trip);
     }
   }
 
   startPolling() {
-    if (this.pollingTimer) {
+    if (this.isDestroyed || this.pollingTimer) {
       return;
     }
     console.info("Starting polling default");
@@ -788,23 +893,45 @@ class LiveTripTracker {
     }
   }
 
-  async poll() {
+  async poll({ reschedule = true } = {}) {
+    if (this.isDestroyed) {
+      return;
+    }
+
     try {
       const data = await apiClient.get("/api/trip_updates");
+      if (this.isDestroyed) {
+        return;
+      }
 
       if (data.status === "success") {
         if (data.has_update && data.trip) {
+          this.lastStreamEventAt = Date.now();
+          this.noUpdatePollCount = 0;
           this.updateTrip(data.trip);
-        } else if (!data.has_update && !this.activeTrip) {
-          this.clearTrip();
+        } else if (!data.has_update) {
+          this.noUpdatePollCount += 1;
+          const hasVeryStaleTrip =
+            this.activeTrip &&
+            this.lastUpdateTimestamp &&
+            Date.now() - this.lastUpdateTimestamp > this.staleClearThresholdMs &&
+            this.noUpdatePollCount >= 3;
+          if (hasVeryStaleTrip) {
+            this.clearTrip();
+          }
         }
         this.updateStatus(true);
       }
     } catch (error) {
+      if (this.isDestroyed) {
+        return;
+      }
       console.error("Polling error:", error);
       this.updateStatus(false, "Connection lost");
     } finally {
-      this.pollingTimer = setTimeout(() => this.poll(), this.pollingInterval);
+      if (!this.isDestroyed && reschedule) {
+        this.pollingTimer = setTimeout(() => this.poll(), this.pollingInterval);
+      }
     }
   }
 
@@ -823,6 +950,11 @@ class LiveTripTracker {
     if (trip.status === "completed") {
       console.info(`Trip ${trip.transactionId} completed`);
       this.clearTrip();
+      return;
+    }
+
+    const signature = this._buildTripSignature(trip);
+    if (signature && signature === this.lastTripSignature) {
       return;
     }
 
@@ -902,6 +1034,10 @@ class LiveTripTracker {
     }
 
     this.lastCoord = newCoord;
+    this.lastTripSignature = signature;
+    this.lastStreamEventAt = Date.now();
+    this.noUpdatePollCount = 0;
+    this.persistActiveTripSnapshot(trip);
     this.updateStatus(true, "Live tracking");
 
     document.dispatchEvent(
@@ -909,6 +1045,103 @@ class LiveTripTracker {
         detail: { trip, coords },
       })
     );
+  }
+
+  _buildTripSignature(trip) {
+    if (!trip || typeof trip !== "object") {
+      return "";
+    }
+    const transactionId = trip.transactionId || "";
+    const status = trip.status || "";
+    const pointsRecorded = Number(
+      trip.pointsRecorded ??
+        (Array.isArray(trip.coordinates) ? trip.coordinates.length : 0)
+    );
+    const lastUpdateValue = trip.lastUpdate ?? trip.updatedAt ?? "";
+    const lastUpdateMs = lastUpdateValue ? new Date(lastUpdateValue).getTime() : 0;
+    const distance = Number(trip.distance ?? 0).toFixed(3);
+    const speed = Number(trip.currentSpeed ?? 0).toFixed(2);
+    return [
+      transactionId,
+      status,
+      Number.isFinite(lastUpdateMs) ? lastUpdateMs : 0,
+      Number.isFinite(pointsRecorded) ? pointsRecorded : 0,
+      distance,
+      speed,
+    ].join("|");
+  }
+
+  persistActiveTripSnapshot(trip) {
+    if (!trip || typeof trip !== "object") {
+      return;
+    }
+
+    try {
+      const coordinates = LiveTripTracker.extractCoordinates(trip)
+        .slice(-240)
+        .map((coord) => ({ ...coord }));
+
+      const snapshot = {
+        transactionId: trip.transactionId || null,
+        status: trip.status || "active",
+        startTime: trip.startTime || null,
+        lastUpdate: trip.lastUpdate || null,
+        currentSpeed: trip.currentSpeed ?? 0,
+        distance: trip.distance ?? 0,
+        duration: trip.duration ?? 0,
+        pointsRecorded:
+          trip.pointsRecorded ??
+          (Array.isArray(trip.coordinates) ? trip.coordinates.length : coordinates.length),
+        coordinates,
+        snapshotAt: new Date().toISOString(),
+      };
+
+      setStorage(this.activeTripSnapshotKey, snapshot);
+    } catch (error) {
+      console.warn("Failed to persist live trip snapshot:", error);
+    }
+  }
+
+  restoreTripFromSnapshot() {
+    try {
+      const snapshot = getStorage(this.activeTripSnapshotKey);
+      if (!snapshot || typeof snapshot !== "object") {
+        return false;
+      }
+
+      if (snapshot.status === "completed") {
+        return false;
+      }
+
+      const snapshotAtMs = snapshot.snapshotAt
+        ? new Date(snapshot.snapshotAt).getTime()
+        : 0;
+      if (
+        Number.isFinite(snapshotAtMs) &&
+        snapshotAtMs > 0 &&
+        Date.now() - snapshotAtMs > this.activeTripSnapshotMaxAgeMs
+      ) {
+        return false;
+      }
+
+      const restoredTrip = {
+        ...snapshot,
+        status: "active",
+      };
+      this.updateTrip(restoredTrip);
+      return true;
+    } catch (error) {
+      console.warn("Failed to restore live trip snapshot:", error);
+      return false;
+    }
+  }
+
+  clearActiveTripSnapshot() {
+    try {
+      localStorage.removeItem(this.activeTripSnapshotKey);
+    } catch (error) {
+      console.warn("Failed to clear live trip snapshot:", error);
+    }
   }
 
   static extractCoordinates(trip) {
@@ -1187,13 +1420,18 @@ class LiveTripTracker {
     }
   }
 
-  clearTrip() {
+  clearTrip({ silent = false, preserveSnapshot = false } = {}) {
     this._stopInterpolation();
     this.activeTrip = null;
     this.lastCoord = null;
     this.lastBearing = null;
     this.lastUpdateTimestamp = null;
+    this.lastTripSignature = null;
+    this.noUpdatePollCount = 0;
     this.updateFreshnessState();
+    if (!preserveSnapshot) {
+      this.clearActiveTripSnapshot();
+    }
 
     const lineSource = this.map.getSource(this.lineSourceId);
     if (lineSource) {
@@ -1205,7 +1443,9 @@ class LiveTripTracker {
     }
 
     this.setLiveTripActive(false);
-    this.updateStatus(true, "Idle");
+    if (!silent) {
+      this.updateStatus(true, "Idle");
+    }
   }
 
   updateStatus(connected, message) {
@@ -1231,7 +1471,10 @@ class LiveTripTracker {
     if (this.freshnessTimer) {
       clearInterval(this.freshnessTimer);
     }
-    this.freshnessTimer = setInterval(() => this.updateFreshnessState(), 4000);
+    this.freshnessTimer = setInterval(() => {
+      this.updateFreshnessState();
+      this.recoverIfStale();
+    }, 4000);
   }
 
   updateFreshnessState() {
@@ -1251,6 +1494,41 @@ class LiveTripTracker {
     }
   }
 
+  recoverIfStale() {
+    if (this.isDestroyed || this.recoveryInFlight || !this.hasActiveTrip) {
+      return;
+    }
+
+    const now = Date.now();
+    const staleByDataAge =
+      this.lastUpdateTimestamp !== null &&
+      now - this.lastUpdateTimestamp > this.staleRecoveryThresholdMs;
+    const staleByStreamAge =
+      this.lastStreamEventAt > 0 &&
+      now - this.lastStreamEventAt > this.staleRecoveryThresholdMs;
+
+    if (!staleByDataAge && !staleByStreamAge) {
+      return;
+    }
+
+    this.recoveryInFlight = true;
+    this.updateStatus(false, "Syncing live trip...");
+
+    Promise.resolve()
+      .then(async () => {
+        await this.poll({ reschedule: false });
+        if (!this.isWebSocketConnected() || staleByStreamAge) {
+          this.reconnectWebSocket({ immediate: true });
+        }
+      })
+      .catch((error) => {
+        console.warn("Live trip recovery failed:", error);
+      })
+      .finally(() => {
+        this.recoveryInFlight = false;
+      });
+  }
+
   // --- Cleanup ----------------------------------------------------------
   _removeLayer(layerId) {
     if (!this.map?.getLayer(layerId)) {
@@ -1267,9 +1545,15 @@ class LiveTripTracker {
   }
 
   destroy() {
+    this.isDestroyed = true;
     this.stopPolling();
     this._stopInterpolation();
     this._stopPulseAnimation();
+
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
 
     if (this.freshnessTimer) {
       clearInterval(this.freshnessTimer);
@@ -1277,6 +1561,7 @@ class LiveTripTracker {
     }
 
     if (this.ws) {
+      this._manualCloseSocket = this.ws;
       this.ws.close();
       this.ws = null;
     }
@@ -1309,7 +1594,7 @@ class LiveTripTracker {
       }
     }
 
-    this.clearTrip();
+    this.clearTrip({ silent: true, preserveSnapshot: true });
     this.updateStatus(false, "Disconnected");
 
     if (LiveTripTracker.instance === this) {

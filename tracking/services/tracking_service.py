@@ -260,21 +260,56 @@ async def process_trip_data(data: dict[str, Any]) -> None:
         logger.warning("Invalid tripData payload: %s", data)
         return
 
-    # Fetch existing trip
+    # Extract new coordinates
+    new_coords = _extract_coordinates_from_data(data_points)
+    if not new_coords:
+        logger.debug("Trip %s: No valid coordinates in tripData", transaction_id)
+        return
+
+    # Fetch existing active trip. If tripStart was delayed/missed, synthesize an
+    # active trip from tripData so live tracking stays available.
     trip = await Trip.find_one(
         Trip.transactionId == transaction_id,
         Trip.status == "active",
     )
 
     if not trip:
-        logger.warning("Trip %s not found for tripData", transaction_id)
-        return
+        existing_trip = await Trip.find_one(Trip.transactionId == transaction_id)
+        if existing_trip and existing_trip.status in {"completed", "processed"}:
+            logger.info(
+                "Trip %s already finalized, ignoring late tripData",
+                transaction_id,
+            )
+            return
 
-    # Extract new coordinates
-    new_coords = _extract_coordinates_from_data(data_points)
-    if not new_coords:
-        logger.debug("Trip %s: No valid coordinates in tripData", transaction_id)
-        return
+        inferred_start = (
+            new_coords[0]["timestamp"] if new_coords else datetime.now(UTC)
+        )
+        if existing_trip:
+            trip = existing_trip
+            trip.status = "active"
+            trip.startTime = trip.startTime or inferred_start
+            trip.startTimeZone = trip.startTimeZone or "UTC"
+        else:
+            trip = Trip(
+                transactionId=transaction_id,
+                vin=data.get("vin"),
+                imei=data.get("imei"),
+                status="active",
+                startTime=inferred_start,
+                startTimeZone="UTC",
+                coordinates=[],
+                distance=0.0,
+                currentSpeed=0.0,
+                maxSpeed=0.0,
+                avgSpeed=0.0,
+                duration=0.0,
+                pointsRecorded=0,
+                totalIdleDuration=0.0,
+                hardBrakingCounts=0,
+                hardAccelerationCounts=0,
+                source="webhook",
+            )
 
     # Merge with existing, deduplicate
     # Access extra fields via getattr/setattr or dict access if supported
