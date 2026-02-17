@@ -876,9 +876,9 @@ function renderProgressRing(fillEl, pct) {
 
   // Update tier class
   const tierClass = getCoverageTierClass(pct);
-  fillEl.className = fillEl.className
-    .replace(/\btier-\S+/g, "")
-    .trim();
+  Array.from(fillEl.classList)
+    .filter((className) => className.startsWith("tier-"))
+    .forEach((className) => fillEl.classList.remove(className));
   fillEl.classList.add("progress-ring-fill", tierClass);
 }
 
