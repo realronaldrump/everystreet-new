@@ -905,7 +905,8 @@ async def backfill_coverage_for_area(
                 ],
             ],
         }
-        gps_filter["$geoIntersects"] = {"$geometry": bbox_polygon}
+        # Mongo expects a pure geospatial clause for this field predicate.
+        gps_filter = {"$geoIntersects": {"$geometry": bbox_polygon}}
 
     query: dict[str, Any] = {
         "gps": gps_filter,

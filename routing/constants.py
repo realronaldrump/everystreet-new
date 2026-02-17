@@ -12,6 +12,11 @@ MAX_DEADHEAD_RATIO_ERROR = 10.0
 DEADHEAD_RATIO_REQUIRED_DISTANCE_FLOOR_M = 5000.0  # ~3.1 miles
 MIN_SEGMENT_COVERAGE_RATIO = 0.9
 MAX_OSM_MATCH_DISTANCE_FT = 1640.0  # ~500m - max distance for OSM ID matching
+# Spatial fallback should never blindly match a segment to a far-away edge.
+MAX_SPATIAL_MATCH_DISTANCE_FT = 1640.0  # keep consistent with OSM ID threshold
+
+# Optional Valhalla trace_route fallback for hard-to-match segments.
+VALHALLA_TRACE_FALLBACK_MAX_SEGMENTS = 250
 
 # If the solver skips required segments (typically due to disconnected graph components),
 # treat it as a quality issue. Warn on any skip; error if it's meaningfully large.

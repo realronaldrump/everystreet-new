@@ -11,18 +11,24 @@ import networkx as nx
 from beanie import PydanticObjectId
 
 from core.jobs import JobHandle, create_job, find_job
+from core.spatial import segment_midpoint
 from db.models import CoverageArea, CoverageState, Street
 
 from .constants import (
     GRAPH_STORAGE_DIR,
     MAX_SEGMENTS,
+    MAX_SPATIAL_MATCH_DISTANCE_FT,
+    VALHALLA_TRACE_FALLBACK_MAX_SEGMENTS,
 )
 from .core import make_req_id, solve_greedy_route
 from .gaps import fill_route_gaps
 from .graph import (
     build_osmid_index,
+    choose_consensus_edge_match,
+    graph_units_to_feet,
     prepare_spatial_matching_graph,
     project_linestring_coords,
+    project_xy_point,
     try_match_osmid,
 )
 from .validation import validate_route
@@ -434,6 +440,10 @@ async def _generate_optimal_route_with_progress_impl(
                 "total_segments": total_segments,
                 "processed_segments": 0,
                 "osm_matched": 0,
+                "default_total": 0,
+                "default_matched": 0,
+                "fallback_total": 0,
+                "fallback_matched": 0,
                 "unmatched_segments": total_segments,
                 "skipped_segments": 0,
                 "mapped_segments": 0,
@@ -509,6 +519,7 @@ async def _generate_optimal_route_with_progress_impl(
             )
 
         osm_matched = 0
+        fallback_matched = 0
         total_for_progress = max(1, len(seg_data_list))
         progress_interval = max(25, total_for_progress // 40)
         last_update = time.monotonic()
@@ -557,6 +568,10 @@ async def _generate_optimal_route_with_progress_impl(
                                 "total_segments": total_segments,
                                 "processed_segments": processed_segments,
                                 "osm_matched": osm_matched,
+                                "default_total": 0,
+                                "default_matched": fallback_matched,
+                                "fallback_total": 0,
+                                "fallback_matched": fallback_matched,
                                 "unmatched_segments": len(unmatched_indices),
                                 "skipped_segments": (
                                     skipped_invalid_geometry
@@ -566,7 +581,7 @@ async def _generate_optimal_route_with_progress_impl(
                                 "skipped_invalid_geometry": skipped_invalid_geometry,
                                 "skipped_mapping_distance": skipped_mapping_distance,
                                 "skipped_match_errors": skipped_match_errors,
-                                "mapped_segments": osm_matched,
+                                "mapped_segments": osm_matched + fallback_matched,
                             },
                         )
                         last_update = time.monotonic()
@@ -598,6 +613,10 @@ async def _generate_optimal_route_with_progress_impl(
                             "total_segments": total_segments,
                             "processed_segments": processed_segments,
                             "osm_matched": osm_matched,
+                            "default_total": 0,
+                            "default_matched": fallback_matched,
+                            "fallback_total": 0,
+                            "fallback_matched": fallback_matched,
                             "unmatched_segments": len(unmatched_indices),
                             "skipped_segments": (
                                 skipped_invalid_geometry
@@ -607,7 +626,7 @@ async def _generate_optimal_route_with_progress_impl(
                             "skipped_invalid_geometry": skipped_invalid_geometry,
                             "skipped_mapping_distance": skipped_mapping_distance,
                             "skipped_match_errors": skipped_match_errors,
-                            "mapped_segments": osm_matched,
+                            "mapped_segments": osm_matched + fallback_matched,
                         },
                     )
                     last_update = time.monotonic()
@@ -618,11 +637,15 @@ async def _generate_optimal_route_with_progress_impl(
         await update_progress(
             "mapping_segments",
             60,
-            f"OSM ID match complete. {len(unmatched_indices)} segments remain unmatched.",
+            f"OSM ID match complete. {len(unmatched_indices)} segments need spatial fallback...",
             metrics={
                 "total_segments": total_segments,
                 "processed_segments": total_segments,
                 "osm_matched": osm_matched,
+                "default_total": len(unmatched_indices),
+                "default_matched": fallback_matched,
+                "fallback_total": len(unmatched_indices),
+                "fallback_matched": fallback_matched,
                 "unmatched_segments": len(unmatched_indices),
                 "skipped_segments": (
                     skipped_invalid_geometry
@@ -632,12 +655,350 @@ async def _generate_optimal_route_with_progress_impl(
                 "skipped_invalid_geometry": skipped_invalid_geometry,
                 "skipped_mapping_distance": skipped_mapping_distance,
                 "skipped_match_errors": skipped_match_errors,
-                "mapped_segments": osm_matched,
+                "mapped_segments": osm_matched + fallback_matched,
             },
         )
 
-        unmatched_total = len(unmatched_indices)
-        skipped_mapping_distance += unmatched_total
+        # Phase 2: Spatial fallback for remaining segments.
+        # Use multiple points along the segment (mid/start/end) and apply a max-distance
+        # cutoff so we don't incorrectly map a segment to a far-away edge.
+        fallback_total = len(unmatched_indices)
+        unmatched_after_spatial: list[int] = []
+        if fallback_total:
+            await update_progress(
+                "mapping_segments",
+                62,
+                f"Running spatial fallback for {fallback_total} segments...",
+                metrics={
+                    "total_segments": total_segments,
+                    "processed_segments": total_segments,
+                    "osm_matched": osm_matched,
+                    "default_total": fallback_total,
+                    "default_matched": fallback_matched,
+                    "fallback_total": fallback_total,
+                    "fallback_matched": fallback_matched,
+                    "unmatched_segments": max(0, fallback_total - fallback_matched),
+                    "skipped_segments": (
+                        skipped_invalid_geometry
+                        + skipped_match_errors
+                        + skipped_mapping_distance
+                    ),
+                    "skipped_invalid_geometry": skipped_invalid_geometry,
+                    "skipped_mapping_distance": skipped_mapping_distance,
+                    "skipped_match_errors": skipped_match_errors,
+                    "mapped_segments": osm_matched + fallback_matched,
+                },
+            )
+
+            X: list[float] = []
+            Y: list[float] = []
+            fallback_seg_indices: list[int] = []
+
+            for idx in unmatched_indices:
+                data = seg_data_list[idx]
+                if not data:
+                    continue
+                coords = data.get("match_coords") or []
+                if len(coords) < 2:
+                    skipped_match_errors += 1
+                    continue
+
+                try:
+                    start = coords[0]
+                    end = coords[-1]
+                    mid = segment_midpoint(coords)
+                    if not mid:
+                        mid = (
+                            float((start[0] + end[0]) / 2.0),
+                            float((start[1] + end[1]) / 2.0),
+                        )
+                    pts = [
+                        (float(mid[0]), float(mid[1])),
+                        (float(start[0]), float(start[1])),
+                        (float(end[0]), float(end[1])),
+                    ]
+                except Exception:
+                    skipped_match_errors += 1
+                    continue
+
+                for x, y in pts:
+                    X.append(x)
+                    Y.append(y)
+                fallback_seg_indices.append(idx)
+
+            if X:
+                try:
+                    ox = _get_osmnx()
+                    nearest_edges, dists = ox.distance.nearest_edges(
+                        matching_graph,
+                        X,
+                        Y,
+                        return_dist=True,
+                    )
+                except Exception:
+                    logger.exception("Batch spatial lookup failed")
+                    nearest_edges = None
+                    dists = None
+
+                if nearest_edges is not None and dists is not None:
+                    last_update = time.monotonic()
+                    progress_interval = max(
+                        10,
+                        max(1, len(fallback_seg_indices)) // 25,
+                    )
+                    for i, seg_idx in enumerate(fallback_seg_indices, start=1):
+                        off = (i - 1) * 3
+                        candidates: list[tuple[EdgeRef, float]] = []
+                        for j in range(3):
+                            try:
+                                u, v, k = nearest_edges[off + j]
+                                dist_units = dists[off + j]
+                            except Exception:
+                                continue
+                            dist_ft = graph_units_to_feet(
+                                matching_graph,
+                                dist_units,
+                            )
+                            candidates.append(((int(u), int(v), int(k)), dist_ft))
+
+                        best_edge, best_dist_ft = choose_consensus_edge_match(
+                            candidates,
+                        )
+
+                        if best_edge and best_dist_ft <= MAX_SPATIAL_MATCH_DISTANCE_FT:
+                            rid, options = make_req_id(G, best_edge)
+                            if rid not in required_reqs:
+                                required_reqs[rid] = options
+                                req_segment_counts[rid] = 1
+                            else:
+                                req_segment_counts[rid] += 1
+                            mapped_segments += 1
+                            fallback_matched += 1
+                        else:
+                            unmatched_after_spatial.append(seg_idx)
+
+                        if (
+                            i == len(fallback_seg_indices)
+                            or i % progress_interval == 0
+                            or time.monotonic() - last_update >= 1.0
+                        ):
+                            progress_pct = 62 + int(
+                                3 * i / max(1, len(fallback_seg_indices)),
+                            )
+                            await update_progress(
+                                "mapping_segments",
+                                progress_pct,
+                                f"Spatial fallback {i}/{len(fallback_seg_indices)}...",
+                                metrics={
+                                    "total_segments": total_segments,
+                                    "processed_segments": total_segments,
+                                    "osm_matched": osm_matched,
+                                    "default_total": fallback_total,
+                                    "default_matched": fallback_matched,
+                                    "fallback_total": fallback_total,
+                                    "fallback_matched": fallback_matched,
+                                    "unmatched_segments": max(0, fallback_total - fallback_matched),
+                                    "skipped_segments": (
+                                        skipped_invalid_geometry
+                                        + skipped_match_errors
+                                        + skipped_mapping_distance
+                                    ),
+                                    "skipped_invalid_geometry": skipped_invalid_geometry,
+                                    "skipped_mapping_distance": skipped_mapping_distance,
+                                    "skipped_match_errors": skipped_match_errors,
+                                    "mapped_segments": osm_matched + fallback_matched,
+                                },
+                            )
+                            last_update = time.monotonic()
+                else:
+                    unmatched_after_spatial = list(fallback_seg_indices)
+            else:
+                unmatched_after_spatial = list(unmatched_indices)
+
+        # Optional Phase 3: Valhalla trace_route fallback for the hardest-to-match segments.
+        valhalla_trace_attempted = 0
+        valhalla_trace_matched = 0
+        if unmatched_after_spatial:
+            trace_candidates = unmatched_after_spatial[
+                :VALHALLA_TRACE_FALLBACK_MAX_SEGMENTS
+            ]
+            trace_leftover = unmatched_after_spatial[
+                VALHALLA_TRACE_FALLBACK_MAX_SEGMENTS:
+            ]
+
+            try:
+                import asyncio
+
+                from routing.graph_connectivity import (
+                    get_api_semaphore,
+                    get_valhalla_client,
+                )
+            except Exception:
+                trace_candidates = []
+                trace_leftover = unmatched_after_spatial
+
+            if trace_candidates:
+                await update_progress(
+                    "mapping_segments",
+                    64,
+                    f"Running Valhalla map-match fallback for {len(trace_candidates)} segments...",
+                    metrics={
+                        "total_segments": total_segments,
+                        "processed_segments": total_segments,
+                        "osm_matched": osm_matched,
+                        "default_total": fallback_total,
+                        "default_matched": fallback_matched,
+                        "fallback_total": fallback_total,
+                        "fallback_matched": fallback_matched,
+                        "unmatched_segments": max(0, fallback_total - fallback_matched),
+                        "valhalla_trace_attempted": valhalla_trace_attempted,
+                        "valhalla_trace_matched": valhalla_trace_matched,
+                        "skipped_segments": (
+                            skipped_invalid_geometry
+                            + skipped_match_errors
+                            + skipped_mapping_distance
+                        ),
+                        "skipped_invalid_geometry": skipped_invalid_geometry,
+                        "skipped_mapping_distance": skipped_mapping_distance,
+                        "skipped_match_errors": skipped_match_errors,
+                        "mapped_segments": osm_matched + fallback_matched,
+                    },
+                )
+
+                async def _trace_and_match(
+                    seg_idx: int,
+                ) -> tuple[int, tuple[int, int, int] | None]:
+                    data = seg_data_list[seg_idx]
+                    if not data:
+                        return seg_idx, None
+                    coords = data.get("coords") or []
+                    if len(coords) < 2:
+                        return seg_idx, None
+
+                    try:
+                        start = coords[0]
+                        end = coords[-1]
+                        mid = segment_midpoint(coords)
+                        if not mid:
+                            mid = (
+                                float((start[0] + end[0]) / 2.0),
+                                float((start[1] + end[1]) / 2.0),
+                            )
+                        shape = [
+                            {"lon": float(start[0]), "lat": float(start[1])},
+                            {"lon": float(mid[0]), "lat": float(mid[1])},
+                            {"lon": float(end[0]), "lat": float(end[1])},
+                        ]
+                    except Exception:
+                        return seg_idx, None
+
+                    try:
+                        loop = asyncio.get_running_loop()
+                        semaphore = get_api_semaphore(loop)
+                        async with semaphore:
+                            client = await get_valhalla_client()
+                            result = await client.trace_route(shape, costing="auto")
+                    except Exception:
+                        return seg_idx, None
+
+                    geometry = (
+                        result.get("geometry") if isinstance(result, dict) else None
+                    )
+                    snapped = (
+                        geometry.get("coordinates")
+                        if isinstance(geometry, dict)
+                        else []
+                    )
+                    if not snapped:
+                        return seg_idx, None
+
+                    mid_pt = snapped[len(snapped) // 2]
+                    if not isinstance(mid_pt, list | tuple) or len(mid_pt) < 2:
+                        return seg_idx, None
+
+                    projected_mid = project_xy_point(
+                        float(mid_pt[0]),
+                        float(mid_pt[1]),
+                        project_xy,
+                    )
+                    if not projected_mid:
+                        return seg_idx, None
+
+                    try:
+                        ox = _get_osmnx()
+                        (u, v, k), dist_units = ox.distance.nearest_edges(
+                            matching_graph,
+                            projected_mid[0],
+                            projected_mid[1],
+                            return_dist=True,
+                        )
+                        dist_ft = graph_units_to_feet(matching_graph, dist_units)
+                        if dist_ft > MAX_SPATIAL_MATCH_DISTANCE_FT:
+                            return seg_idx, None
+                        return seg_idx, (int(u), int(v), int(k))
+                    except Exception:
+                        return seg_idx, None
+
+                tasks = [
+                    asyncio.create_task(_trace_and_match(idx))
+                    for idx in trace_candidates
+                ]
+                still_unmatched: list[int] = []
+                last_update = time.monotonic()
+                progress_interval = max(10, max(1, len(tasks)) // 25)
+                for i, fut in enumerate(asyncio.as_completed(tasks), start=1):
+                    seg_idx, edge = await fut
+                    valhalla_trace_attempted += 1
+                    if edge:
+                        rid, options = make_req_id(G, edge)
+                        if rid not in required_reqs:
+                            required_reqs[rid] = options
+                            req_segment_counts[rid] = 1
+                        else:
+                            req_segment_counts[rid] += 1
+                        mapped_segments += 1
+                        fallback_matched += 1
+                        valhalla_trace_matched += 1
+                    else:
+                        still_unmatched.append(seg_idx)
+
+                    if (
+                        i == len(tasks)
+                        or i % progress_interval == 0
+                        or time.monotonic() - last_update >= 1.0
+                    ):
+                        await update_progress(
+                            "mapping_segments",
+                            64,
+                            f"Valhalla map-match {i}/{len(tasks)}...",
+                            metrics={
+                                "total_segments": total_segments,
+                                "processed_segments": total_segments,
+                                "osm_matched": osm_matched,
+                                "default_total": fallback_total,
+                                "default_matched": fallback_matched,
+                                "fallback_total": fallback_total,
+                                "fallback_matched": fallback_matched,
+                                "unmatched_segments": max(0, fallback_total - fallback_matched),
+                                "valhalla_trace_attempted": valhalla_trace_attempted,
+                                "valhalla_trace_matched": valhalla_trace_matched,
+                                "skipped_segments": (
+                                    skipped_invalid_geometry
+                                    + skipped_match_errors
+                                    + skipped_mapping_distance
+                                ),
+                                "skipped_invalid_geometry": skipped_invalid_geometry,
+                                "skipped_mapping_distance": skipped_mapping_distance,
+                                "skipped_match_errors": skipped_match_errors,
+                                "mapped_segments": osm_matched + fallback_matched,
+                            },
+                        )
+                        last_update = time.monotonic()
+
+                unmatched_after_spatial = still_unmatched + trace_leftover
+
+        # Remaining unmatched segments count against mapping coverage.
+        skipped_mapping_distance += len(unmatched_after_spatial)
 
         if not required_reqs:
             mapping_summary = (
@@ -696,7 +1057,13 @@ async def _generate_optimal_route_with_progress_impl(
                 "total_segments": total_segments,
                 "processed_segments": total_segments,
                 "osm_matched": osm_matched,
-                "unmatched_segments": unmatched_total,
+                "default_total": fallback_total,
+                "default_matched": fallback_matched,
+                "fallback_total": fallback_total,
+                "fallback_matched": fallback_matched,
+                "unmatched_segments": skipped_mapping_distance,
+                "valhalla_trace_attempted": valhalla_trace_attempted,
+                "valhalla_trace_matched": valhalla_trace_matched,
                 "skipped_segments": (
                     skipped_invalid_geometry
                     + skipped_match_errors
@@ -705,7 +1072,7 @@ async def _generate_optimal_route_with_progress_impl(
                 "skipped_invalid_geometry": skipped_invalid_geometry,
                 "skipped_mapping_distance": skipped_mapping_distance,
                 "skipped_match_errors": skipped_match_errors,
-                "mapped_segments": osm_matched,
+                "mapped_segments": osm_matched + fallback_matched,
             },
         )
 

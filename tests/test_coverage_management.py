@@ -409,6 +409,66 @@ async def test_backfill_uses_raw_gps_not_matched_gps(coverage_db) -> None:
 
 
 @pytest.mark.asyncio
+async def test_backfill_bbox_query_uses_geo_intersects_without_ne(coverage_db) -> None:
+    area = CoverageArea(
+        display_name="Coverage BBox Query Area",
+        status="ready",
+        health="healthy",
+        bounding_box=[-97.1694267, 31.5124059, -97.1381935, 31.5315442],
+    )
+    await area.insert()
+    assert area.id is not None
+
+    class EmptyTripCursor:
+        async def count(self) -> int:
+            return 0
+
+        def sort(self, *_args, **_kwargs) -> EmptyTripCursor:
+            return self
+
+        def __aiter__(self) -> EmptyTripCursor:
+            return self
+
+        async def __anext__(self) -> Trip:
+            raise StopAsyncIteration
+
+    captured_queries: list[dict] = []
+
+    def fake_trip_find(query: dict) -> EmptyTripCursor:
+        captured_queries.append(query)
+        return EmptyTripCursor()
+
+    with (
+        patch(
+            "core.coverage.get_area_segment_index",
+            new=AsyncMock(),
+        ),
+        patch("core.coverage.Trip.find", side_effect=fake_trip_find),
+    ):
+        updated = await backfill_coverage_for_area(area.id)
+
+    assert updated == 0
+    assert len(captured_queries) == 2
+    expected_polygon = {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [-97.1694267, 31.5124059],
+                [-97.1381935, 31.5124059],
+                [-97.1381935, 31.5315442],
+                [-97.1694267, 31.5315442],
+                [-97.1694267, 31.5124059],
+            ],
+        ],
+    }
+
+    first_query = captured_queries[0]
+    assert first_query["invalid"] == {"$ne": True}
+    assert first_query["gps"] == {"$geoIntersects": {"$geometry": expected_polygon}}
+    assert "$ne" not in first_query["gps"]
+
+
+@pytest.mark.asyncio
 async def test_ingestion_pipeline_respects_cancelled_job(
     coverage_db,
     tmp_path: Path,
