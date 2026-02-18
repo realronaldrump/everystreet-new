@@ -219,10 +219,7 @@ const mapCore = {
       state.map = map;
       window.map = map; // Classic support
 
-      loadingManager?.updateMessage("Adding controls...");
-
-      // Add navigation control
-      map.addControl(new mapboxgl.NavigationControl(), "top-right");
+      loadingManager?.updateMessage("Finalizing map setup...");
 
       // Wait for map to fully load
       await this._waitForMapLoad(map);
