@@ -12,6 +12,7 @@ import logging
 import os
 import threading
 from datetime import UTC
+from pathlib import Path
 from typing import Any, Final, Self
 from urllib.parse import urlsplit, urlunsplit
 
@@ -25,7 +26,7 @@ MONGODB_URI_ENV_VAR: Final[str] = "MONGODB_URI"
 
 
 def _is_running_in_docker() -> bool:
-    return os.path.exists("/.dockerenv")
+    return Path("/.dockerenv").exists()
 
 
 def _normalize_mongo_uri_for_runtime(mongo_uri: str) -> str:
@@ -60,7 +61,9 @@ def _normalize_mongo_uri_for_runtime(mongo_uri: str) -> str:
             return mongo_uri
         if separator and port and port != "27017":
             return mongo_uri
-        normalized_hosts.append(f"localhost:{port}" if separator and port else "localhost")
+        normalized_hosts.append(
+            f"localhost:{port}" if separator and port else "localhost"
+        )
 
     rewritten_uri = urlunsplit(
         (

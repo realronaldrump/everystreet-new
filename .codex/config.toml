@@ -1,6 +1,6 @@
 [features]
 web_browsing = true
-collaboration_modes = true
+multi_agent = true
 
 [mcp_servers.context7]
 url = "https://mcp.context7.com/mcp"
