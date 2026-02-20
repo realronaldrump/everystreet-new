@@ -33,18 +33,19 @@ const layerManager = {
   _heatmapRefreshHandler: null,
   _cachedFirstSymbolLayerId: null,
 
-  /**
-   * Find the first symbol (label) layer in the current map style.
-   * Layers added with this as `beforeId` render below map labels,
-   * making them feel integrated into the cartography.
-   * @returns {string|undefined}
-   */
   getFirstSymbolLayerId() {
     if (!store.map) {
       return undefined;
     }
     try {
       const layers = store.map.getStyle().layers;
+      
+      // Prioritize inserting historic layers below the live tracking line
+      const liveTripLine = layers.find((l) => l.id === "live-trip-line");
+      if (liveTripLine) {
+        return liveTripLine.id;
+      }
+
       for (const layer of layers) {
         if (layer.type === "symbol" && layer.layout?.["text-field"]) {
           this._cachedFirstSymbolLayerId = layer.id;
