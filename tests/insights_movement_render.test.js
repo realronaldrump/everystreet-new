@@ -264,7 +264,8 @@ function createEnvironment() {
     getElementById(id) {
       return elements.get(id) || null;
     },
-    querySelector(_selector) {
+    querySelector(selector) {
+      void selector;
       return null;
     },
     querySelectorAll(selector) {
