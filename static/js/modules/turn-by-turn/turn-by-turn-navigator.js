@@ -282,7 +282,7 @@ class TurnByTurnNavigator {
     const selectedValue = this.ui.getSelectedAreaId();
 
     if (!selectedValue) {
-      this.cancelGeneration();
+      await this.cancelGeneration();
       this.resetRouteState();
       this.selectedAreaId = null;
       this.selectedAreaName = null;
@@ -292,7 +292,7 @@ class TurnByTurnNavigator {
       return;
     }
 
-    this.cancelGeneration();
+    await this.cancelGeneration();
     this.resetRouteState();
     this.selectedAreaId = selectedValue;
     this.selectedAreaName = this.ui.getSelectedAreaName();

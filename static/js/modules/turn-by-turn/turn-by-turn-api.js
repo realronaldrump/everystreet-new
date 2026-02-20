@@ -187,10 +187,23 @@ const TurnByTurnAPI = {
    * Connect to SSE stream for generation progress
    * @param {string} taskId
    * @param {Object} callbacks - {onProgress, onComplete, onError}
-   * @returns {EventSource}
+   * @returns {{close: Function, cancel: Function}}
    */
   connectProgressSSE(taskId, { onProgress, onComplete, onError }) {
     const es = new EventSource(`/api/optimal-routes/${taskId}/progress/sse`);
+    let sseOpen = true;
+    let pollHandle = null;
+
+    const closeConnection = () => {
+      if (sseOpen) {
+        es.close();
+        sseOpen = false;
+      }
+      if (pollHandle && typeof pollHandle.cancel === "function") {
+        pollHandle.cancel();
+        pollHandle = null;
+      }
+    };
 
     es.onmessage = (event) => {
       try {
@@ -199,19 +212,19 @@ const TurnByTurnAPI = {
         const stage = (data.stage || "").toLowerCase();
 
         if (status === "completed" || stage === "complete" || data.progress >= 100) {
-          es.close();
+          closeConnection();
           onComplete(data);
           return;
         }
 
         if (status === "failed" || status === "error") {
-          es.close();
+          closeConnection();
           onError(data.error || data.message || "Route generation failed");
           return;
         }
 
         if (status === "cancelled") {
-          es.close();
+          closeConnection();
           onError("Generation cancelled");
           return;
         }
@@ -223,16 +236,35 @@ const TurnByTurnAPI = {
     };
 
     es.addEventListener("done", () => {
-      es.close();
+      closeConnection();
     });
 
     es.onerror = () => {
-      es.close();
+      if (pollHandle) {
+        return;
+      }
+      if (sseOpen) {
+        es.close();
+        sseOpen = false;
+      }
       // Fall back to polling
-      TurnByTurnAPI._pollProgress(taskId, { onProgress, onComplete, onError });
+      pollHandle = TurnByTurnAPI._pollProgress(taskId, {
+        onProgress,
+        onComplete: (data) => {
+          closeConnection();
+          onComplete(data);
+        },
+        onError: (err) => {
+          closeConnection();
+          onError(err);
+        },
+      });
     };
 
-    return es;
+    return {
+      close: closeConnection,
+      cancel: closeConnection,
+    };
   },
 
   /**
@@ -240,24 +272,34 @@ const TurnByTurnAPI = {
    * @private
    */
   _pollProgress(taskId, { onProgress, onComplete, onError }) {
+    let cancelled = false;
     let failures = 0;
     const timer = setInterval(async () => {
+      if (cancelled) {
+        return;
+      }
       try {
         const data = await apiClient.get(`/api/optimal-routes/${taskId}/progress`);
+        if (cancelled) {
+          return;
+        }
         const status = (data.status || "").toLowerCase();
         const stage = (data.stage || "").toLowerCase();
 
         if (status === "completed" || stage === "complete" || data.progress >= 100) {
+          cancelled = true;
           clearInterval(timer);
           onComplete(data);
           return;
         }
         if (status === "failed" || status === "error") {
+          cancelled = true;
           clearInterval(timer);
           onError(data.error || "Generation failed");
           return;
         }
         if (status === "cancelled") {
+          cancelled = true;
           clearInterval(timer);
           onError("Generation cancelled");
           return;
@@ -265,14 +307,23 @@ const TurnByTurnAPI = {
         failures = 0;
         onProgress(data);
       } catch {
+        if (cancelled) {
+          return;
+        }
         failures++;
         if (failures >= 15) {
+          cancelled = true;
           clearInterval(timer);
           onError("Connection lost");
         }
       }
     }, 2500);
-    return { cancel: () => clearInterval(timer) };
+    return {
+      cancel: () => {
+        cancelled = true;
+        clearInterval(timer);
+      },
+    };
   },
 };
 

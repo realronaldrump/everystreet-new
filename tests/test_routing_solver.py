@@ -25,7 +25,7 @@ def test_solver_teleports_between_disconnected_components_and_counts_it() -> Non
         required_reqs[rid] = options
         req_counts[rid] = 1
 
-    coords, stats, _edges = solve_greedy_route(
+    coords, stats, _edges, _sequence = solve_greedy_route(
         G,
         required_reqs,
         start_node=1,

@@ -17,7 +17,6 @@
  */
 
 import apiClient from "../../core/api-client.js";
-import { CONFIG } from "../../core/config.js";
 import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
 import { createMap } from "../../map-base.js";
 import { isMapboxStyleUrl, waitForMapboxToken } from "../../mapbox-token.js";
