@@ -812,18 +812,85 @@ async def _generate_optimal_route_with_progress_impl(
             if X:
                 try:
                     ox = _get_osmnx()
+                    if total_segments <= 50:
+                        logger.info(
+                            "Spatial fallback: querying %d points, X range=[%.4f, %.4f], Y range=[%.4f, %.4f]",
+                            len(X), min(X), max(X), min(Y), max(Y),
+                        )
+                        # Also log a sample of graph node coordinates for comparison
+                        sample_nodes = list(node_xy.items())[:3]
+                        for nid, (nx_, ny_) in sample_nodes:
+                            logger.info("  graph node[%s] x=%.4f y=%.4f", nid, nx_, ny_)
                     nearest_edges, dists = ox.distance.nearest_edges(
                         matching_graph,
                         X,
                         Y,
                         return_dist=True,
                     )
+                    if total_segments <= 50 and dists is not None:
+                        import numpy as np
+                        d_arr = np.asarray(dists)
+                        logger.info(
+                            "Spatial fallback results: min_dist=%.2f, max_dist=%.2f, median_dist=%.2f (graph units)",
+                            float(d_arr.min()), float(d_arr.max()), float(np.median(d_arr)),
+                        )
                 except Exception:
-                    logger.exception("Batch spatial lookup failed")
+                    logger.exception("Batch spatial lookup failed; will try per-segment node fallback")
                     nearest_edges = None
                     dists = None
 
-                if nearest_edges is not None and dists is not None:
+                if nearest_edges is None or dists is None:
+                    # Per-segment nearest-node fallback when batch nearest_edges fails
+                    logger.info("Attempting per-segment nearest-node matching for %d segments", len(fallback_seg_indices))
+                    for seg_idx in fallback_seg_indices:
+                        data = seg_data_list[seg_idx]
+                        if not data:
+                            unmatched_after_spatial.append(seg_idx)
+                            continue
+                        proj_coords = data.get("match_coords") or []
+                        if len(proj_coords) < 2:
+                            unmatched_after_spatial.append(seg_idx)
+                            continue
+                        mid_idx = len(proj_coords) // 2
+                        mx, my = float(proj_coords[mid_idx][0]), float(proj_coords[mid_idx][1])
+                        try:
+                            nn = ox.distance.nearest_nodes(matching_graph, mx, my)
+                            # Get all edges connected to this node
+                            best_edge_found: EdgeRef | None = None
+                            best_dist_found = float("inf")
+                            seg_line = None
+                            with contextlib.suppress(Exception):
+                                from shapely.geometry import LineString as _LS
+                                seg_line = _LS(proj_coords)
+                            for u2, v2, k2, edata in matching_graph.edges(nn, keys=True, data=True):
+                                edge_geom = edata.get("geometry")
+                                if seg_line and edge_geom:
+                                    d = seg_line.distance(edge_geom)
+                                else:
+                                    # Use node distance as approximation
+                                    v2x = float(matching_graph.nodes[v2].get("x", mx))
+                                    v2y = float(matching_graph.nodes[v2].get("y", my))
+                                    d = ((mx - v2x) ** 2 + (my - v2y) ** 2) ** 0.5
+                                d_ft = graph_units_to_feet(matching_graph, d)
+                                if d_ft < best_dist_found:
+                                    best_dist_found = d_ft
+                                    best_edge_found = (int(u2), int(v2), int(k2))
+                            if best_edge_found and best_dist_found <= MAX_SPATIAL_MATCH_DISTANCE_FT:
+                                rid, options = make_req_id(G, best_edge_found)
+                                if rid not in required_reqs:
+                                    required_reqs[rid] = options
+                                    req_segment_counts[rid] = 1
+                                else:
+                                    req_segment_counts[rid] += 1
+                                mapped_segments += 1
+                                fallback_matched += 1
+                                newly_matched_edges[seg_idx] = best_edge_found
+                            else:
+                                unmatched_after_spatial.append(seg_idx)
+                        except Exception:
+                            unmatched_after_spatial.append(seg_idx)
+
+                elif nearest_edges is not None and dists is not None:
                     last_update = time.monotonic()
                     progress_interval = max(
                         10,
@@ -899,8 +966,6 @@ async def _generate_optimal_route_with_progress_impl(
                                 },
                             )
                             last_update = time.monotonic()
-                else:
-                    unmatched_after_spatial = list(fallback_seg_indices)
             else:
                 unmatched_after_spatial = list(unmatched_indices)
 
