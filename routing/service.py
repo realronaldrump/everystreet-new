@@ -512,6 +512,13 @@ async def _generate_optimal_route_with_progress_impl(
             if "x" in matching_graph.nodes[n] and "y" in matching_graph.nodes[n]
         }
         osmid_index = build_osmid_index(matching_graph)
+        logger.info(
+            "Matching setup: osmid_index_size=%d, graph_edges=%d, node_xy_count=%d, graph_crs=%s",
+            len(osmid_index),
+            matching_graph.number_of_edges(),
+            len(node_xy),
+            matching_graph.graph.get("crs", "none"),
+        )
         edge_line_cache: dict[EdgeRef, LineString] = {}
 
         # Track newly matched edges for cache write-back
@@ -554,6 +561,27 @@ async def _generate_optimal_route_with_progress_impl(
                     "index": i,
                 },
             )
+
+        # Log per-segment diagnostics for small batches to help debug matching
+        if total_segments <= 50:
+            valid_count = sum(1 for d in seg_data_list if d is not None)
+            osm_ids_present = sum(1 for d in seg_data_list if d is not None and d.get("osmid") is not None)
+            logger.info(
+                "Segment prep: total=%d, valid=%d, with_osmid=%d, skipped_geom=%d, skipped_proj=%d",
+                total_segments, valid_count, osm_ids_present,
+                skipped_invalid_geometry, skipped_match_errors,
+            )
+            for d in seg_data_list:
+                if d is None:
+                    continue
+                raw_c = d["coords"]
+                proj_c = d["match_coords"]
+                logger.debug(
+                    "  seg[%d] osmid=%s raw_coords[0]=%s proj_coords[0]=%s",
+                    d["index"], d["osmid"],
+                    raw_c[0] if raw_c else "none",
+                    proj_c[0] if proj_c else "none",
+                )
 
         # Phase 1: Try to match by OSM ID in parallel
         # This is CPU/IO bound (Shapely ops release GIL), so threading helps
@@ -832,6 +860,11 @@ async def _generate_optimal_route_with_progress_impl(
                             newly_matched_edges[seg_idx] = best_edge
                         else:
                             unmatched_after_spatial.append(seg_idx)
+                            if total_segments <= 50:
+                                logger.info(
+                                    "Spatial fallback reject seg[%d]: best_edge=%s, best_dist_ft=%.1f, threshold=%.1f",
+                                    seg_idx, best_edge, best_dist_ft, MAX_SPATIAL_MATCH_DISTANCE_FT,
+                                )
 
                         if (
                             i == len(fallback_seg_indices)

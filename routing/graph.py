@@ -379,18 +379,72 @@ def edge_linestring(
     return line
 
 
+def _parse_osmid_values(raw: object) -> list[int]:
+    """
+    Parse OSM ID(s) from a graph edge attribute.
+
+    Handles all common formats after GraphML round-trip:
+    - int / float: ``12345``
+    - str of int: ``"12345"``
+    - OSMnx serialized list: ``"[12345, 67890]"``
+    - Semicolon-separated: ``"12345;67890"``
+    - Python list/tuple/set of ints or strings
+    """
+    if raw is None:
+        return []
+
+    if isinstance(raw, int):
+        return [raw]
+
+    if isinstance(raw, float):
+        with contextlib.suppress(Exception):
+            return [int(raw)]
+        return []
+
+    if isinstance(raw, list | tuple | set):
+        result: list[int] = []
+        for item in raw:
+            with contextlib.suppress(Exception):
+                result.append(int(item))
+        return result
+
+    if isinstance(raw, str):
+        s = raw.strip()
+        if not s:
+            return []
+
+        # Try simple int parse first (most common after GraphML load)
+        with contextlib.suppress(ValueError):
+            return [int(s)]
+
+        # Handle "[123, 456]" format (OSMnx list serialization)
+        if s.startswith("[") and s.endswith("]"):
+            s = s[1:-1]
+
+        # Handle semicolon-separated "123;456" and comma-separated "123, 456"
+        parts: list[str] = []
+        if ";" in s:
+            parts = s.split(";")
+        elif "," in s:
+            parts = s.split(",")
+
+        if parts:
+            result = []
+            for part in parts:
+                with contextlib.suppress(ValueError):
+                    result.append(int(part.strip()))
+            return result
+
+    return []
+
+
 def build_osmid_index(G: nx.MultiDiGraph) -> dict[int, list[EdgeRef]]:
     """Index OSM IDs to edges in the routing graph."""
     index: dict[int, list[EdgeRef]] = {}
     for u, v, k, data in G.edges(keys=True, data=True):
-        osmids = data.get("osmid") or data.get("id")
-        if osmids is None:
-            continue
-        candidates = osmids if isinstance(osmids, list | set | tuple) else [osmids]
-        for osmid in candidates:
-            with contextlib.suppress(Exception):
-                oid = int(osmid)
-                index.setdefault(oid, []).append((int(u), int(v), int(k)))
+        raw = data.get("osmid") or data.get("id")
+        for oid in _parse_osmid_values(raw):
+            index.setdefault(oid, []).append((int(u), int(v), int(k)))
     return index
 
 
