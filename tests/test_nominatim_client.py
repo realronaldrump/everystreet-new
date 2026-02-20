@@ -25,6 +25,7 @@ async def test_nominatim_search_normalizes_results(
                 "address": {"state": "Texas"},
                 "importance": 0.9,
                 "boundingbox": ["31.4", "31.6", "-97.2", "-97.0"],
+                "class": "place",
             },
         ],
     )
@@ -40,7 +41,10 @@ async def test_nominatim_search_normalizes_results(
     assert results[0]["place_name"] == "Waco, Texas"
     assert results[0]["center"] == [-97.1467, 31.5493]
     assert results[0]["place_type"] == ["city"]
-    assert session.requests[0][2]["params"]["bounded"] == 1
+    assert "bounded" not in session.requests[0][2]["params"]
+    assert results[0]["bbox"] == [-97.2, 31.4, -97.0, 31.6]
+    assert results[0]["class"] == "place"
+    assert results[0]["source"] == "nominatim"
 
 
 @pytest.mark.asyncio
@@ -60,6 +64,45 @@ async def test_nominatim_search_raises_on_error(
         await client.search("Waco")
 
     assert "Nominatim search" in raised.value.message
+
+
+@pytest.mark.asyncio
+async def test_nominatim_search_sets_bounded_when_strict_bounds_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    response = FakeResponse(
+        status=200,
+        json_data=[
+            {
+                "display_name": "Austin, Texas",
+                "lon": "-97.7431",
+                "lat": "30.2672",
+                "type": "city",
+                "name": "Austin",
+                "osm_id": 456,
+                "osm_type": "relation",
+                "address": {"state": "Texas"},
+                "importance": 0.95,
+            },
+        ],
+    )
+    session = FakeSession(get_responses=[response])
+    monkeypatch.setattr(
+        "core.http.nominatim.get_session",
+        AsyncMock(return_value=session),
+    )
+
+    client = NominatimClient()
+    await client.search(
+        "Austin",
+        proximity=(-97.7431, 30.2672),
+        strict_bounds=True,
+        country_codes=None,
+    )
+
+    params = session.requests[0][2]["params"]
+    assert params["bounded"] == 1
+    assert "countrycodes" not in params
 
 
 @pytest.mark.asyncio

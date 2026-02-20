@@ -261,3 +261,39 @@ test("non-street place keeps normal pan behavior", async () => {
   assert.equal(panCalled, true);
   assert.equal(receivedOptions, undefined);
 });
+
+test("mergeAndRankResults prioritizes exact place match and dedupes by OSM id", () => {
+  resetSearchManagerState();
+
+  const results = searchManager.mergeAndRankResults(
+    "starbucks",
+    [
+      {
+        type: "street",
+        name: "Main Street",
+        subtitle: "Waco",
+      },
+    ],
+    [
+      {
+        type: "place",
+        name: "Starbucks",
+        subtitle: "Starbucks, Waco, Texas",
+        osm_id: 1001,
+        osm_type: "node",
+        source: "nominatim",
+      },
+      {
+        type: "place",
+        name: "Starbucks Duplicate",
+        subtitle: "Duplicate record",
+        osm_id: 1001,
+        osm_type: "node",
+        source: "nominatim",
+      },
+    ]
+  );
+
+  assert.equal(results.length, 2);
+  assert.equal(results[0].name, "Starbucks");
+});

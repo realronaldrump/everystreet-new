@@ -24,6 +24,70 @@ class SearchService:
     _nominatim_client = NominatimClient()
 
     @staticmethod
+    def _normalize_query_text(value: str | None) -> str:
+        if not value:
+            return ""
+        return " ".join(str(value).strip().lower().split())
+
+    @staticmethod
+    def _geocode_result_key(result: dict[str, Any]) -> str:
+        osm_id = result.get("osm_id")
+        osm_type = str(result.get("osm_type") or "").strip().lower()
+        if osm_id is not None and osm_type:
+            return f"osm:{osm_type}:{osm_id}"
+
+        center = result.get("center")
+        if isinstance(center, list) and len(center) == 2:
+            try:
+                lon = round(float(center[0]), 5)
+                lat = round(float(center[1]), 5)
+                name = SearchService._normalize_query_text(
+                    str(result.get("text") or result.get("place_name") or ""),
+                )
+                return f"coord:{lon}:{lat}:{name}"
+            except (TypeError, ValueError):
+                pass
+
+        fallback = SearchService._normalize_query_text(
+            str(result.get("display_name") or result.get("place_name") or ""),
+        )
+        return f"raw:{fallback}"
+
+    @staticmethod
+    def _score_geocode_result(query: str, result: dict[str, Any]) -> float:
+        query_text = SearchService._normalize_query_text(query)
+        name = SearchService._normalize_query_text(
+            str(result.get("text") or result.get("place_name") or ""),
+        )
+        subtitle = SearchService._normalize_query_text(str(result.get("place_name") or ""))
+
+        score = 0.0
+        if name and query_text:
+            if name == query_text:
+                score += 120.0
+            elif name.startswith(query_text):
+                score += 90.0
+            elif query_text in name:
+                score += 70.0
+
+        if query_text and subtitle:
+            if query_text in subtitle:
+                score += 35.0
+
+        raw_importance = result.get("importance", 0.0)
+        try:
+            importance = max(0.0, min(float(raw_importance), 1.0))
+        except (TypeError, ValueError):
+            importance = 0.0
+        score += importance * 20.0
+
+        feature_class = str(result.get("class") or "").strip().lower()
+        if feature_class in {"amenity", "shop", "tourism", "office", "leisure"}:
+            score += 10.0
+
+        return score
+
+    @staticmethod
     def _to_line_geometry(
         geometry: BaseGeometry | None,
     ) -> LineString | MultiLineString | None:
@@ -67,20 +131,47 @@ class SearchService:
                 detail="Query must be at least 2 characters",
             )
 
-        logger.debug("Geocoding search for: %s", query)
+        query_text = query.strip()
+        logger.debug("Geocoding search for: %s", query_text)
 
         proximity = None
         if proximity_lon is not None and proximity_lat is not None:
             proximity = (proximity_lon, proximity_lat)
 
-        results = await SearchService._geo_service.forward_geocode(
-            query,
-            limit,
+        primary_limit = max(limit, 10)
+        primary_results = await SearchService._geo_service.forward_geocode(
+            query_text,
+            primary_limit,
             proximity,
+            strict_bounds=False,
         )
 
-        logger.info("Found %d results for query: %s", len(results), query)
-        return {"results": results, "query": query}
+        merged: dict[str, dict[str, Any]] = {}
+        for result in primary_results:
+            key = SearchService._geocode_result_key(result)
+            merged[key] = result
+
+        if proximity and len(merged) < limit:
+            fallback_results = await SearchService._geo_service.forward_geocode(
+                query_text,
+                primary_limit,
+                proximity=None,
+                strict_bounds=False,
+            )
+            for result in fallback_results:
+                key = SearchService._geocode_result_key(result)
+                if key not in merged:
+                    merged[key] = result
+
+        ranked_results = sorted(
+            merged.values(),
+            key=lambda result: SearchService._score_geocode_result(query_text, result),
+            reverse=True,
+        )
+        results = ranked_results[:limit]
+
+        logger.info("Found %d geocode results for query: %s", len(results), query_text)
+        return {"results": results, "query": query_text}
 
     @staticmethod
     async def search_streets(

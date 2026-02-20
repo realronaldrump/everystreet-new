@@ -92,13 +92,15 @@ class GeocodingService:
         query: str,
         limit: int = 5,
         proximity: tuple[float, float] | None = None,
-        country_codes: str = "us",
+        country_codes: str | None = "us",
+        strict_bounds: bool = False,
     ) -> list[dict[str, Any]]:
         return await self._client.search(
             query,
             limit=limit,
             proximity=proximity,
             country_codes=country_codes,
+            strict_bounds=strict_bounds,
         )
 
 

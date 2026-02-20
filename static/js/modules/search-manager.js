@@ -7,6 +7,7 @@
 
 import apiClient from "./core/api-client.js";
 import { CONFIG } from "./core/config.js";
+import { getMapboxToken } from "./mapbox-token.js";
 import state from "./core/store.js";
 import MapStyles from "./map-styles.js";
 import notificationManager from "./ui/notifications.js";
@@ -23,6 +24,7 @@ const searchManager = {
   searchMarkerId: null,
   streetGeometryCache: new Map(),
   currentSearchId: 0, // Track search requests to handle race conditions
+  maxSearchResults: 12,
 
   initialize() {
     this.searchInput = document.getElementById("map-search-input");
@@ -119,45 +121,156 @@ const searchManager = {
     });
   },
 
+  cancelSearchRequests() {
+    state.cancelRequest("searchStreets");
+    state.cancelRequest("searchGeocode");
+    state.cancelRequest("searchMapbox");
+  },
+
+  normalizeSearchText(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+  },
+
+  buildResultKey(result) {
+    if (result?.osm_id && result?.osm_type) {
+      return `osm:${String(result.osm_type).toLowerCase()}:${result.osm_id}`;
+    }
+    if (result?.mapbox_id) {
+      return `mapbox:${result.mapbox_id}`;
+    }
+    if (Array.isArray(result?.center) && result.center.length === 2) {
+      const [lng, lat] = result.center;
+      const safeLng = Number.parseFloat(lng);
+      const safeLat = Number.parseFloat(lat);
+      if (Number.isFinite(safeLng) && Number.isFinite(safeLat)) {
+        return [
+          this.normalizeSearchText(result.name),
+          safeLng.toFixed(4),
+          safeLat.toFixed(4),
+        ].join(":");
+      }
+    }
+    return [
+      result?.type || "unknown",
+      this.normalizeSearchText(result?.name),
+      this.normalizeSearchText(result?.subtitle),
+    ].join(":");
+  },
+
+  scoreResult(query, result) {
+    const queryText = this.normalizeSearchText(query);
+    const nameText = this.normalizeSearchText(result?.name);
+    const subtitleText = this.normalizeSearchText(result?.subtitle);
+
+    let score = 0;
+    if (nameText && queryText) {
+      if (nameText === queryText) {
+        score += 120;
+      } else if (nameText.startsWith(queryText)) {
+        score += 90;
+      } else if (nameText.includes(queryText)) {
+        score += 70;
+      }
+    }
+    if (subtitleText && queryText && subtitleText.includes(queryText)) {
+      score += 30;
+    }
+
+    if (result?.type === "street" && result?.geometry) {
+      score += 8;
+    }
+
+    const importance = Number.parseFloat(result?.importance);
+    if (Number.isFinite(importance)) {
+      const clampedImportance = Math.max(0, Math.min(importance, 1));
+      score += clampedImportance * 20;
+    }
+
+    if (result?.source === "mapbox_searchbox") {
+      score += 12;
+    } else if (result?.source === "nominatim") {
+      score += 6;
+    }
+
+    return score;
+  },
+
+  mergeAndRankResults(query, ...resultGroups) {
+    const deduped = new Map();
+    for (const group of resultGroups) {
+      for (const result of group || []) {
+        if (!result?.name) {
+          continue;
+        }
+
+        const normalized = {
+          ...result,
+          type:
+            result.type === "street" || result.type === "address"
+              ? result.type
+              : "place",
+        };
+        const key = this.buildResultKey(normalized);
+        const score = this.scoreResult(query, normalized);
+        const existing = deduped.get(key);
+        if (!existing || score > existing._score) {
+          deduped.set(key, { ...normalized, _score: score });
+        }
+      }
+    }
+
+    return [...deduped.values()]
+      .sort((a, b) => b._score - a._score)
+      .slice(0, this.maxSearchResults)
+      .map(({ _score, ...result }) => result);
+  },
+
   async performSearch(query) {
     // Cancel any pending search requests to prevent race conditions
     const searchId = ++this.currentSearchId;
-    state.cancelRequest("search");
+    this.cancelSearchRequests();
 
     try {
       this.showLoading();
 
       const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-      let results = [];
 
-      // Search streets first
-      const streetResults = await this.searchStreets(
-        query,
-        selectedLocationId,
-        searchId
-      );
+      const [streetSettled, geocodeSettled] = await Promise.allSettled([
+        this.searchStreets(query, selectedLocationId, searchId),
+        this.geocodeSearch(query, searchId),
+      ]);
 
-      // Check if this search is still current
       if (searchId !== this.currentSearchId) {
-        return; // A newer search has started, discard these results
+        return;
       }
 
-      results = streetResults;
+      const streetResults =
+        streetSettled.status === "fulfilled" ? streetSettled.value : [];
+      const geocodeResults =
+        geocodeSettled.status === "fulfilled" ? geocodeSettled.value : [];
 
-      // Only use geocoding if no street results found
-      if (results.length === 0) {
-        results = await this.geocodeSearch(query, searchId);
+      let results = this.mergeAndRankResults(query, streetResults, geocodeResults);
 
-        // Check again if this search is still current
+      if (results.length < 6 && query.length >= 3) {
+        const mapboxResults = await this.mapboxSearch(query, searchId);
         if (searchId !== this.currentSearchId) {
           return;
         }
+        results = this.mergeAndRankResults(
+          query,
+          streetResults,
+          geocodeResults,
+          mapboxResults
+        );
       }
 
-      this.currentResults = results;
-      this.displayResults(results);
+      this.currentResults = results.slice(0, this.maxSearchResults);
+      this.displayResults(this.currentResults);
 
-      if (!results || results.length === 0) {
+      if (!this.currentResults || this.currentResults.length === 0) {
         notificationManager.show("No results found", "info", 2000);
       }
     } catch (error) {
@@ -176,7 +289,7 @@ const searchManager = {
         url += `&location_id=${locationId}`;
       }
 
-      const controller = state.createAbortController("search");
+      const controller = state.createAbortController("searchStreets");
       const data = await apiClient.get(url, { signal: controller.signal });
 
       // Check if this search is still current
@@ -184,7 +297,7 @@ const searchManager = {
         return [];
       }
 
-      const features = data.features || [];
+      const features = Array.isArray(data) ? data : data.features || [];
 
       return features.map((feature) => {
         const locationName =
@@ -204,6 +317,7 @@ const searchManager = {
           geometry: feature.geometry,
           feature,
           locationId,
+          source: "coverage_street",
         };
       });
     } catch (error) {
@@ -223,9 +337,9 @@ const searchManager = {
         proximityParams = `&proximity_lon=${center.lng}&proximity_lat=${center.lat}`;
       }
 
-      const controller = state.createAbortController("search");
+      const controller = state.createAbortController("searchGeocode");
       const data = await apiClient.get(
-        `${CONFIG.API.searchGeocode}?query=${encodeURIComponent(query)}&limit=5${proximityParams}`,
+        `${CONFIG.API.searchGeocode}?query=${encodeURIComponent(query)}&limit=10${proximityParams}`,
         { signal: controller.signal }
       );
 
@@ -252,6 +366,8 @@ const searchManager = {
           bbox: result.bbox,
           osm_id: result.osm_id,
           osm_type: result.osm_type,
+          importance: result.importance,
+          source: result.source || "nominatim",
           raw: result,
         };
       });
@@ -261,6 +377,93 @@ const searchManager = {
       }
       console.error("Geocode search failed:", error);
       throw error;
+    }
+  },
+
+  async mapboxSearch(query, searchId) {
+    const token = getMapboxToken();
+    if (!token) {
+      return [];
+    }
+
+    try {
+      const params = new URLSearchParams({
+        q: query,
+        limit: "8",
+        country: "us",
+        access_token: token,
+      });
+
+      if (state.map) {
+        const center = state.map.getCenter();
+        params.set("proximity", `${center.lng},${center.lat}`);
+      }
+
+      const controller = state.createAbortController("searchMapbox");
+      const data = await apiClient.get(
+        `https://api.mapbox.com/search/searchbox/v1/forward?${params.toString()}`,
+        {
+          signal: controller.signal,
+          retry: false,
+          cache: true,
+          cacheDuration: 2 * 60 * 1000,
+        }
+      );
+
+      if (searchId !== this.currentSearchId) {
+        return [];
+      }
+
+      const features = Array.isArray(data?.features) ? data.features : [];
+      return features
+        .map((feature) => {
+          const props = feature?.properties || {};
+          const geometryCenter = feature?.geometry?.coordinates;
+          const coordinateCenter = [
+            props?.coordinates?.longitude,
+            props?.coordinates?.latitude,
+          ];
+
+          const center =
+            Array.isArray(geometryCenter) && geometryCenter.length === 2
+              ? geometryCenter
+              : coordinateCenter;
+
+          if (!Array.isArray(center) || center.length !== 2) {
+            return null;
+          }
+          const lng = Number(center[0]);
+          const lat = Number(center[1]);
+          if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+            return null;
+          }
+
+          const featureType = String(props.feature_type || "").toLowerCase();
+          const type = ["street", "address"].includes(featureType) ? "address" : "place";
+          const placeName =
+            props.name || props.full_address || props.place_formatted || "Unknown";
+          const subtitle =
+            props.full_address || props.place_formatted || props.address || "Mapbox";
+
+          return {
+            type,
+            name: placeName,
+            subtitle: `${subtitle} \u00b7 Mapbox`,
+            center: [lng, lat],
+            bbox: feature.bbox,
+            mapbox_id: props.mapbox_id,
+            importance: props.match_code?.confidence,
+            source: "mapbox_searchbox",
+            raw: feature,
+          };
+        })
+        .filter(Boolean);
+    } catch (error) {
+      if (error.name === "AbortError") {
+        throw error;
+      }
+      console.warn("Mapbox search fallback failed:", error);
+      return [];
     }
   },
 
@@ -619,7 +822,7 @@ const searchManager = {
     this.clearHighlight();
     this.hideClearButton();
     this.currentResults = [];
-    state.cancelRequest("search");
+    this.cancelSearchRequests();
     state.cancelRequest("streetGeometry");
   },
 

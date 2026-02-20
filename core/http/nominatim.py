@@ -35,6 +35,25 @@ class NominatimClient:
         return {"User-Agent": self._user_agent}
 
     @staticmethod
+    def _normalize_bounding_box(raw_bbox: Any) -> list[float] | None:
+        """
+        Convert Nominatim boundingbox into [west, south, east, north].
+
+        Nominatim search responses return bounding boxes as:
+        [south, north, west, east] (string values).
+        """
+        if not isinstance(raw_bbox, list) or len(raw_bbox) != 4:
+            return None
+        try:
+            south = float(raw_bbox[0])
+            north = float(raw_bbox[1])
+            west = float(raw_bbox[2])
+            east = float(raw_bbox[3])
+        except (TypeError, ValueError):
+            return None
+        return [west, south, east, north]
+
+    @staticmethod
     def _lookup_prefix(osm_type: str) -> str | None:
         type_value = str(osm_type or "").strip().lower()
         if not type_value:
@@ -129,19 +148,22 @@ class NominatimClient:
         *,
         limit: int = 5,
         proximity: tuple[float, float] | None = None,
-        country_codes: str = "us",
+        country_codes: str | None = "us",
+        strict_bounds: bool = False,
     ) -> list[dict[str, Any]]:
         params: dict[str, Any] = {
             "q": query,
             "format": "json",
             "limit": limit,
             "addressdetails": 1,
-            "countrycodes": country_codes,
         }
+        if country_codes:
+            params["countrycodes"] = country_codes
         if proximity:
             lon, lat = proximity
             params["viewbox"] = f"{lon - 2},{lat + 2},{lon + 2},{lat - 2}"
-            params["bounded"] = 1
+            if strict_bounds:
+                params["bounded"] = 1
         else:
             params["viewbox"] = "-125,49,-66,24"
 
@@ -167,12 +189,15 @@ class NominatimClient:
                 "osm_id": result.get("osm_id"),
                 "osm_type": result.get("osm_type"),
                 "type": result.get("type"),
+                "class": result.get("class"),
+                "category": result.get("category") or result.get("class"),
                 "lat": result.get("lat"),
                 "lon": result.get("lon"),
                 "display_name": result.get("display_name"),
                 "address": result.get("address", {}),
                 "importance": result.get("importance", 0),
-                "bbox": result.get("boundingbox"),
+                "bbox": self._normalize_bounding_box(result.get("boundingbox")),
+                "source": "nominatim",
             }
             for result in results
         ]
