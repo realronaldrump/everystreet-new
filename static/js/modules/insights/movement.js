@@ -329,7 +329,6 @@ function renderRankingList(mode, payload) {
   }
 
   const keyAttr = mode === "segments" ? "data-segment-key" : "data-street-key";
-  const keyName = mode === "segments" ? "segment" : "street";
 
   list.innerHTML = items
     .slice(0, visible)

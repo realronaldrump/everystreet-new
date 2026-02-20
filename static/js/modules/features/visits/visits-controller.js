@@ -2,7 +2,6 @@
  * Integrates with real API endpoints and uses imperial units
  */
 
-import { CONFIG } from "../../core/config.js";
 import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import { VisitsGeometry } from "../../visits/geometry.js";
