@@ -512,12 +512,18 @@ async def _generate_optimal_route_with_progress_impl(
             if "x" in matching_graph.nodes[n] and "y" in matching_graph.nodes[n]
         }
         osmid_index = build_osmid_index(matching_graph)
+        # Log graph edge osmid sample for debugging
+        osmid_sample: list[str] = []
+        for _u, _v, _k, _d in list(matching_graph.edges(keys=True, data=True))[:5]:
+            raw_id = _d.get("osmid") or _d.get("id")
+            osmid_sample.append(f"{type(raw_id).__name__}={raw_id!r}")
         logger.info(
-            "Matching setup: osmid_index_size=%d, graph_edges=%d, node_xy_count=%d, graph_crs=%s",
+            "Matching setup: osmid_index_size=%d, graph_edges=%d, node_xy_count=%d, graph_crs=%s, edge_osmid_sample=%s",
             len(osmid_index),
             matching_graph.number_of_edges(),
             len(node_xy),
             matching_graph.graph.get("crs", "none"),
+            osmid_sample[:3],
         )
         edge_line_cache: dict[EdgeRef, LineString] = {}
 
