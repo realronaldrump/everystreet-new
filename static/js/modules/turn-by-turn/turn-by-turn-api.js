@@ -146,6 +146,134 @@ const TurnByTurnAPI = {
       segment_ids: segmentIds,
     });
   },
+
+  /**
+   * Start route generation for a coverage area
+   * @param {string} areaId
+   * @returns {Promise<string>} task_id
+   */
+  async startRouteGeneration(areaId) {
+    const data = await apiClient.post(`/api/coverage/areas/${areaId}/optimal-route`);
+    return data.task_id;
+  },
+
+  /**
+   * Check for an active route generation task
+   * @param {string} areaId
+   * @returns {Promise<Object|null>} {active, task_id, progress, stage} or null
+   */
+  async checkActiveTask(areaId) {
+    try {
+      const data = await apiClient.get(`/api/coverage/areas/${areaId}/active-task`);
+      if (data.active && data.task_id) {
+        return data;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * Cancel a route generation task
+   * @param {string} taskId
+   * @returns {Promise<Object>}
+   */
+  async cancelRouteGeneration(taskId) {
+    return await apiClient.delete(`/api/optimal-routes/${taskId}`);
+  },
+
+  /**
+   * Connect to SSE stream for generation progress
+   * @param {string} taskId
+   * @param {Object} callbacks - {onProgress, onComplete, onError}
+   * @returns {EventSource}
+   */
+  connectProgressSSE(taskId, { onProgress, onComplete, onError }) {
+    const es = new EventSource(`/api/optimal-routes/${taskId}/progress/sse`);
+
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const status = (data.status || "").toLowerCase();
+        const stage = (data.stage || "").toLowerCase();
+
+        if (status === "completed" || stage === "complete" || data.progress >= 100) {
+          es.close();
+          onComplete(data);
+          return;
+        }
+
+        if (status === "failed" || status === "error") {
+          es.close();
+          onError(data.error || data.message || "Route generation failed");
+          return;
+        }
+
+        if (status === "cancelled") {
+          es.close();
+          onError("Generation cancelled");
+          return;
+        }
+
+        onProgress(data);
+      } catch (e) {
+        console.error("SSE parse error:", e);
+      }
+    };
+
+    es.addEventListener("done", () => {
+      es.close();
+    });
+
+    es.onerror = () => {
+      es.close();
+      // Fall back to polling
+      TurnByTurnAPI._pollProgress(taskId, { onProgress, onComplete, onError });
+    };
+
+    return es;
+  },
+
+  /**
+   * Fallback polling when SSE fails
+   * @private
+   */
+  _pollProgress(taskId, { onProgress, onComplete, onError }) {
+    let failures = 0;
+    const timer = setInterval(async () => {
+      try {
+        const data = await apiClient.get(`/api/optimal-routes/${taskId}/progress`);
+        const status = (data.status || "").toLowerCase();
+        const stage = (data.stage || "").toLowerCase();
+
+        if (status === "completed" || stage === "complete" || data.progress >= 100) {
+          clearInterval(timer);
+          onComplete(data);
+          return;
+        }
+        if (status === "failed" || status === "error") {
+          clearInterval(timer);
+          onError(data.error || "Generation failed");
+          return;
+        }
+        if (status === "cancelled") {
+          clearInterval(timer);
+          onError("Generation cancelled");
+          return;
+        }
+        failures = 0;
+        onProgress(data);
+      } catch {
+        failures++;
+        if (failures >= 15) {
+          clearInterval(timer);
+          onError("Connection lost");
+        }
+      }
+    }, 2500);
+    return { cancel: () => clearInterval(timer) };
+  },
 };
 
 export default TurnByTurnAPI;

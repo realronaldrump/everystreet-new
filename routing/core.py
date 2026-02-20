@@ -156,6 +156,10 @@ class GreedySolverState:
     route_edges: list[EdgeRef] = field(default_factory=list)
     edge_geo_cache: dict[EdgeRef, list[list[float]]] = field(default_factory=dict)
     skipped_disconnected: set[ReqId] = field(default_factory=set)
+    service_sequence: list[tuple[ReqId, EdgeRef]] = field(default_factory=list)
+    teleport_pairs: list[tuple[tuple[float, float], tuple[float, float]]] = field(
+        default_factory=list,
+    )
     total_dist: float = 0.0
     service_dist: float = 0.0
     deadhead_dist: float = 0.0
@@ -238,6 +242,7 @@ class GreedySolverState:
         if rid is not None and rid in self.unvisited:
             self.service_dist += length_m
             self.total_dist += length_m
+            self.service_sequence.append((rid, edge))
             self.mark_completed(rid, opportunistic=opportunistic)
             return
         self.deadhead_dist += length_m
@@ -277,6 +282,9 @@ class GreedySolverState:
         if best_start is None:
             return None
         self.teleports += 1
+        new_xy = self.node_xy.get(best_start)
+        if old_xy and new_xy:
+            self.teleport_pairs.append((old_xy, new_xy))
         self.current_node = best_start
         log_jump_distance(old_node, best_start, self.node_xy)
         return best_start
@@ -604,4 +612,4 @@ def solve_greedy_route(
         required_dist_all=required_dist_all,
         required_reqs_count=len(required_reqs),
     )
-    return state.route_coords, stats, state.route_edges
+    return state.route_coords, stats, state.route_edges, state.service_sequence

@@ -244,6 +244,11 @@ async def _generate_optimal_route_with_progress_impl(
 
         # Query streets for this area
         undriven_objs = []
+        # Track cached graph_edge mappings and Street doc IDs for cache write-back
+        cached_edge_mappings: list[tuple[int, dict]] = []  # (index, graph_edge)
+        street_doc_ids: dict[int, PydanticObjectId] = {}  # seg_index -> Street._id
+        current_area_version = coverage_area.area_version
+        seg_index = 0
         async for street in Street.find(
             Street.area_id == location_id,
             Street.area_version == coverage_area.area_version,
@@ -254,6 +259,18 @@ async def _generate_optimal_route_with_progress_impl(
                 continue
             if street.segment_id in undriveable_segment_ids:
                 continue
+
+            # Check for cached graph_edge mapping
+            ge = street.graph_edge
+            if (
+                ge
+                and isinstance(ge, dict)
+                and ge.get("area_version") == current_area_version
+                and ge.get("u") is not None
+            ):
+                cached_edge_mappings.append((seg_index, ge))
+
+            street_doc_ids[seg_index] = street.id
 
             # Convert to downstream format for route generation
             undriven_objs.append(
@@ -269,6 +286,7 @@ async def _generate_optimal_route_with_progress_impl(
                     },
                 },
             )
+            seg_index += 1
 
         # Convert to list of dicts to match expected structure
         undriven = [
@@ -457,6 +475,33 @@ async def _generate_optimal_route_with_progress_impl(
         skipped_mapping_distance = 0
         skipped_match_errors = 0
 
+        # Pre-populate from cached graph_edge mappings (skip matching for these)
+        cache_hits = 0
+        cached_seg_indices: set[int] = set()
+        for seg_idx, ge in cached_edge_mappings:
+            try:
+                u, v, k = int(ge["u"]), int(ge["v"]), int(ge["k"])
+                edge: EdgeRef = (u, v, k)
+                if G.has_edge(u, v):
+                    rid, options = make_req_id(G, edge)
+                    if rid not in required_reqs:
+                        required_reqs[rid] = options
+                        req_segment_counts[rid] = 1
+                    else:
+                        req_segment_counts[rid] += 1
+                    mapped_segments += 1
+                    cache_hits += 1
+                    cached_seg_indices.add(seg_idx)
+            except Exception:
+                pass  # Invalid cache entry, will be re-matched
+
+        if cache_hits:
+            logger.info(
+                "Pre-populated %d/%d segments from graph_edge cache",
+                cache_hits,
+                total_segments,
+            )
+
         matching_graph, project_xy = prepare_spatial_matching_graph(G)
         node_xy: dict[int, tuple[float, float]] = {
             n: (
@@ -469,10 +514,19 @@ async def _generate_optimal_route_with_progress_impl(
         osmid_index = build_osmid_index(matching_graph)
         edge_line_cache: dict[EdgeRef, LineString] = {}
 
+        # Track newly matched edges for cache write-back
+        newly_matched_edges: dict[int, EdgeRef] = {}  # seg_index -> (u, v, k)
+
         # Pre-process segments to extract necessary data for parallel execution
         # We need geometry and OSM ID for each segment
+        # Skip segments already resolved from cache
         seg_data_list = []
         for i, seg in enumerate(undriven):
+            # Skip segments already resolved from cache
+            if i in cached_seg_indices:
+                seg_data_list.append(None)
+                continue
+
             geom = seg.get("geometry", {})
             coords = geom.get("coordinates", [])
             if not coords or len(coords) < 2:
@@ -596,6 +650,7 @@ async def _generate_optimal_route_with_progress_impl(
                         req_segment_counts[rid] += 1
                     mapped_segments += 1
                     osm_matched += 1
+                    newly_matched_edges[i] = edge
                 else:
                     unmatched_indices.append(i)
 
@@ -774,6 +829,7 @@ async def _generate_optimal_route_with_progress_impl(
                                 req_segment_counts[rid] += 1
                             mapped_segments += 1
                             fallback_matched += 1
+                            newly_matched_edges[seg_idx] = best_edge
                         else:
                             unmatched_after_spatial.append(seg_idx)
 
@@ -959,6 +1015,7 @@ async def _generate_optimal_route_with_progress_impl(
                         mapped_segments += 1
                         fallback_matched += 1
                         valhalla_trace_matched += 1
+                        newly_matched_edges[seg_idx] = edge
                     else:
                         still_unmatched.append(seg_idx)
 
@@ -1076,6 +1133,42 @@ async def _generate_optimal_route_with_progress_impl(
             },
         )
 
+        # Write newly matched edges back to Street cache (fire-and-forget)
+        if newly_matched_edges:
+            try:
+                from pymongo import UpdateOne
+
+                bulk_ops = []
+                for seg_idx, matched_edge in newly_matched_edges.items():
+                    doc_id = street_doc_ids.get(seg_idx)
+                    if doc_id is None:
+                        continue
+                    u, v, k = matched_edge
+                    bulk_ops.append(
+                        UpdateOne(
+                            {"_id": doc_id},
+                            {
+                                "$set": {
+                                    "graph_edge": {
+                                        "u": int(u),
+                                        "v": int(v),
+                                        "k": int(k),
+                                        "area_version": current_area_version,
+                                    },
+                                },
+                            },
+                        ),
+                    )
+                if bulk_ops:
+                    collection = Street.get_motor_collection()
+                    await collection.bulk_write(bulk_ops, ordered=False)
+                    logger.info(
+                        "Cached %d graph_edge mappings for future route generations",
+                        len(bulk_ops),
+                    )
+            except Exception:
+                logger.warning("Failed to cache graph_edge mappings (non-fatal)", exc_info=True)
+
         # Determine start node
         start_node_id: int | None = None
         if start_coords:
@@ -1091,27 +1184,109 @@ async def _generate_optimal_route_with_progress_impl(
         # NOTE: We no longer pre-bridge disconnected clusters with OSM downloads.
         # Instead, we generate the route and fill gaps afterwards with Valhalla routes.
         # This is much faster and simpler.
-        await update_progress(
-            "routing",
-            75,
-            f"Computing optimal route for {len(required_reqs)} required edges...",
-        )
+        from .constants import ZONE_DECOMPOSITION_THRESHOLD
 
-        try:
-            route_coords, stats, _ = solve_greedy_route(
-                G,
-                required_reqs,
-                start_node_id,
-                req_segment_counts=req_segment_counts,
+        use_zones = len(required_reqs) > ZONE_DECOMPOSITION_THRESHOLD
+
+        if use_zones:
+            await update_progress(
+                "routing",
+                70,
+                f"Decomposing {len(required_reqs)} edges into zones for parallel solving...",
             )
-        except Exception as e:
-            logger.exception("Greedy solver failed")
-            msg = f"Route solver failed: {e}"
-            _raise_value_error(msg)
+            try:
+                from .zones import decompose_into_zones, order_zones, solve_zones
+
+                zones = decompose_into_zones(
+                    G,
+                    required_reqs,
+                    req_segment_counts,
+                    node_xy or {},
+                )
+                start_xy = None
+                if start_node_id and node_xy and start_node_id in {
+                    n for n in G.nodes if "x" in G.nodes[n]
+                }:
+                    start_xy = (
+                        float(G.nodes[start_node_id]["x"]),
+                        float(G.nodes[start_node_id]["y"]),
+                    )
+                zones = order_zones(zones, start_xy)
+                await update_progress(
+                    "routing",
+                    72,
+                    f"Solving {len(zones)} zones...",
+                )
+                route_coords, stats, service_sequence = solve_zones(
+                    G,
+                    zones,
+                    start_node_id,
+                    node_xy=node_xy,
+                )
+            except Exception as e:
+                logger.exception("Zone-based solver failed; falling back to single solve")
+                use_zones = False
+
+        if not use_zones:
+            await update_progress(
+                "routing",
+                75,
+                f"Computing optimal route for {len(required_reqs)} required edges...",
+            )
+            try:
+                route_coords, stats, _, service_sequence = solve_greedy_route(
+                    G,
+                    required_reqs,
+                    start_node_id,
+                    req_segment_counts=req_segment_counts,
+                )
+            except Exception as e:
+                logger.exception("Greedy solver failed")
+                msg = f"Route solver failed: {e}"
+                _raise_value_error(msg)
 
         if not route_coords:
             msg = "Failed to generate route coordinates"
             _raise_value_error(msg)
+
+        # 2-opt local search improvement
+        from .constants import LOCAL_SEARCH_MIN_REQS, LOCAL_SEARCH_TIME_BUDGET_S
+
+        if service_sequence and len(service_sequence) >= LOCAL_SEARCH_MIN_REQS:
+            await update_progress(
+                "optimizing",
+                80,
+                f"Optimizing route with local search ({len(service_sequence)} service edges)...",
+            )
+            try:
+                from .local_search import improve_route_2opt
+
+                improved_coords, improved_stats, improved_sequence = improve_route_2opt(
+                    G,
+                    service_sequence,
+                    required_reqs,
+                    node_xy=node_xy,
+                    time_budget_s=LOCAL_SEARCH_TIME_BUDGET_S,
+                )
+                if improved_coords and improved_stats["total_distance"] < stats["total_distance"]:
+                    improvement_pct = (
+                        (stats["deadhead_distance"] - improved_stats["deadhead_distance"])
+                        / max(stats["deadhead_distance"], 1.0)
+                        * 100
+                    )
+                    logger.info(
+                        "2-opt improved route: deadhead %.1f%% -> %.1f%% (%.1f%% reduction)",
+                        stats["deadhead_percentage"],
+                        improved_stats["deadhead_percentage"],
+                        improvement_pct,
+                    )
+                    route_coords = improved_coords
+                    stats = improved_stats
+                    service_sequence = improved_sequence
+                else:
+                    logger.info("2-opt did not improve the route; keeping original")
+            except Exception:
+                logger.warning("2-opt optimization failed (keeping original route)", exc_info=True)
 
         # Fill gaps in the route with Valhalla driving directions
         await update_progress(
@@ -1127,9 +1302,11 @@ async def _generate_optimal_route_with_progress_impl(
                 overall_pct = 85 + int(pct * 0.1)
                 await update_progress("filling_gaps", overall_pct, msg)
 
+            from .constants import GAP_FILL_THRESHOLD_FT
+
             route_coords, gap_fill_stats = await fill_route_gaps(
                 route_coords,
-                max_gap_ft=1000.0,  # Fill gaps > 1000ft (~0.2 miles)
+                max_gap_ft=GAP_FILL_THRESHOLD_FT,
                 progress_callback=gap_progress,
             )
         except Exception as e:

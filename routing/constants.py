@@ -2,7 +2,7 @@ from pathlib import Path
 
 # Distance constants in FEET (user preference: imperial units)
 FEET_PER_METER = 3.28084
-MAX_SEGMENTS = 5000
+MAX_SEGMENTS = 50000
 ROUTING_BUFFER_FT = 6500.0  # ~2000m - buffer to include connecting highways/roads
 MAX_ROUTE_GAP_FT = 10000.0  # ~3000m (~1.9 miles) - max allowed gap between route points
 MAX_DEADHEAD_RATIO_WARN = 6.0
@@ -23,3 +23,14 @@ VALHALLA_TRACE_FALLBACK_MAX_SEGMENTS = 250
 MAX_SKIPPED_REQ_RATIO_ERROR = 0.02  # 2%
 MAX_SKIPPED_REQ_COUNT_ERROR = 50
 GRAPH_STORAGE_DIR = Path("data/graphs")
+
+# 2-opt local search configuration
+LOCAL_SEARCH_TIME_BUDGET_S = 30
+LOCAL_SEARCH_MIN_REQS = 10  # skip for tiny routes
+
+# Zone decomposition for large areas
+ZONE_DECOMPOSITION_THRESHOLD = 2000
+ZONE_MAX_SIZE = 1500
+
+# Gap-filling threshold (bridge discontinuities with Valhalla)
+GAP_FILL_THRESHOLD_FT = 200.0

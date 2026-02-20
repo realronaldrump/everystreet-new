@@ -8,6 +8,7 @@
  */
 export const NAV_STATES = {
   SETUP: "setup", // Initial state, area selection
+  GENERATING: "generating", // Route generation in progress (SSE)
   ROUTE_PREVIEW: "preview", // Route loaded, showing preview with ETA
   NAVIGATING_TO_START: "nav_to_start", // Guiding user to route start point
   ARRIVED_AT_START: "at_start", // User within threshold of start

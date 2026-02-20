@@ -73,6 +73,10 @@ class TurnByTurnNavigator {
     this.navigateToStartRoute = null;
     this.optimalRouteStats = null;
 
+    // Route generation
+    this.generationTaskId = null;
+    this.generationEventSource = null;
+
     // Index tracking
     this.lastClosestIndex = 0;
 
@@ -92,6 +96,10 @@ class TurnByTurnNavigator {
         // Show a usable start action immediately, then refine based on proximity.
         this.ui.showBeginButton();
         this.checkStartProximity();
+      }
+
+      if (newState === NAV_STATES.GENERATING) {
+        this.ui.setNavStatus("Generating route...");
       }
     });
 
@@ -137,6 +145,8 @@ class TurnByTurnNavigator {
    */
   getStateData(state) {
     switch (state) {
+      case NAV_STATES.GENERATING:
+        return { stage: "Starting...", progress: 0 };
       case NAV_STATES.ROUTE_PREVIEW:
         return {
           totalDistance: this.totalDistance,
@@ -211,6 +221,9 @@ class TurnByTurnNavigator {
       onShowSetup: () => this.state.transitionTo(NAV_STATES.SETUP),
       onResumeFromAhead: () => this.resumeFromAhead(),
       onDismissResume: () => this.dismissResumePrompt(),
+      onCancelGeneration: () => this.cancelGeneration(),
+      onRegenerateRoute: () => this.regenerateRoute(),
+      onDismissStale: () => this.ui.hideStaleBanner(),
     });
   }
 
@@ -248,21 +261,28 @@ class TurnByTurnNavigator {
     }
 
     this.ui.setAreaSelectValue(areaId);
-    this.handleAreaChange();
+    this.selectedAreaId = areaId;
+    this.selectedAreaName = this.ui.getSelectedAreaName();
 
-    // Auto-load if explicitly requested via URL
-    if (queryArea && params.get("autoStart") === "true") {
-      await this.loadRoute();
+    // Check for in-progress generation first
+    const activeTask = await TurnByTurnAPI.checkActiveTask(areaId);
+    if (activeTask) {
+      this.reconnectToGeneration(activeTask.task_id);
+      return;
     }
+
+    // Auto-load route
+    await this.loadRoute();
   }
 
   /**
    * Handle area selection change
    */
-  handleAreaChange() {
+  async handleAreaChange() {
     const selectedValue = this.ui.getSelectedAreaId();
 
     if (!selectedValue) {
+      this.cancelGeneration();
       this.resetRouteState();
       this.selectedAreaId = null;
       this.selectedAreaName = null;
@@ -272,13 +292,16 @@ class TurnByTurnNavigator {
       return;
     }
 
+    this.cancelGeneration();
     this.resetRouteState();
     this.selectedAreaId = selectedValue;
     this.selectedAreaName = this.ui.getSelectedAreaName();
+    window.localStorage.setItem("turnByTurnAreaId", selectedValue);
 
     this.ui.setLoadRouteEnabled(true);
-    this.ui.setSetupStatus("Ready to load the optimal route.");
-    this.ui.setNavStatus("Ready to load route.");
+
+    // Auto-load route immediately on area selection
+    await this.loadRoute();
   }
 
   /**
@@ -369,15 +392,175 @@ class TurnByTurnNavigator {
       // Fetch ETA and show preview
       await this.fetchRouteETA();
       this.state.transitionTo(NAV_STATES.ROUTE_PREVIEW);
+
+      // Check if route is stale
+      this.checkRouteStale(routeData);
     } catch (error) {
       this.map.clearRouteLayers();
       this.ui.resetGuidanceUI();
       this.routeLoaded = false;
+
+      // Auto-generate if no route exists
+      const isNoRoute =
+        error.message?.includes("No optimal route") ||
+        error.message?.includes("404");
+      if (isNoRoute && this.selectedAreaId) {
+        this.ui.setLoadRouteLoading(false);
+        await this.autoGenerateRoute();
+        return;
+      }
+
       this.ui.setSetupStatus(error.message, true);
       this.ui.setNavStatus(error.message, true);
     } finally {
       this.ui.setLoadRouteLoading(false);
     }
+  }
+
+  // === Route Generation ===
+
+  /**
+   * Auto-generate a route when none exists
+   */
+  async autoGenerateRoute() {
+    if (!this.selectedAreaId) {
+      return;
+    }
+
+    try {
+      const taskId = await TurnByTurnAPI.startRouteGeneration(this.selectedAreaId);
+      this.generationTaskId = taskId;
+      this.state.transitionTo(NAV_STATES.GENERATING);
+
+      this.generationEventSource = TurnByTurnAPI.connectProgressSSE(taskId, {
+        onProgress: (data) => this.handleGenerationProgress(data),
+        onComplete: () => this.handleGenerationComplete(),
+        onError: (err) => this.handleGenerationError(err),
+      });
+    } catch (error) {
+      this.ui.setSetupStatus(`Failed to start generation: ${error.message}`, true);
+      this.ui.setNavStatus(error.message, true);
+      this.state.transitionTo(NAV_STATES.SETUP);
+    }
+  }
+
+  /**
+   * Reconnect to an in-progress generation task
+   */
+  reconnectToGeneration(taskId) {
+    // Close any existing connection first
+    if (this.generationEventSource) {
+      if (typeof this.generationEventSource.close === "function") {
+        this.generationEventSource.close();
+      } else if (typeof this.generationEventSource.cancel === "function") {
+        this.generationEventSource.cancel();
+      }
+    }
+
+    this.generationTaskId = taskId;
+    this.state.transitionTo(NAV_STATES.GENERATING);
+
+    this.generationEventSource = TurnByTurnAPI.connectProgressSSE(taskId, {
+      onProgress: (data) => this.handleGenerationProgress(data),
+      onComplete: () => this.handleGenerationComplete(),
+      onError: (err) => this.handleGenerationError(err),
+    });
+  }
+
+  /**
+   * Handle generation progress updates from SSE
+   */
+  handleGenerationProgress(data) {
+    this.ui.updateGenerationProgress(data);
+  }
+
+  /**
+   * Handle generation completion
+   */
+  async handleGenerationComplete() {
+    this.generationTaskId = null;
+    this.generationEventSource = null;
+    // Load the newly generated route
+    await this.loadRoute();
+  }
+
+  /**
+   * Handle generation error
+   */
+  handleGenerationError(err) {
+    this.generationTaskId = null;
+    this.generationEventSource = null;
+    const msg = typeof err === "string" ? err : err?.message || "Generation failed";
+    this.ui.setSetupStatus(msg, true);
+    this.ui.setNavStatus(msg, true);
+    this.state.transitionTo(NAV_STATES.SETUP);
+  }
+
+  /**
+   * Cancel in-progress route generation
+   */
+  async cancelGeneration() {
+    if (this.generationEventSource) {
+      if (typeof this.generationEventSource.close === "function") {
+        this.generationEventSource.close();
+      } else if (typeof this.generationEventSource.cancel === "function") {
+        this.generationEventSource.cancel();
+      }
+      this.generationEventSource = null;
+    }
+
+    if (this.generationTaskId) {
+      try {
+        await TurnByTurnAPI.cancelRouteGeneration(this.generationTaskId);
+      } catch {
+        // Ignore cancel errors
+      }
+      this.generationTaskId = null;
+    }
+
+    if (this.state.isGenerating()) {
+      this.state.transitionTo(NAV_STATES.SETUP);
+    }
+  }
+
+  /**
+   * Check if the loaded route is stale and show banner if so
+   */
+  checkRouteStale(routeData) {
+    this.ui.hideStaleBanner();
+
+    if (!routeData) {
+      return;
+    }
+
+    const generatedAt = routeData.generated_at;
+    if (!generatedAt) {
+      return;
+    }
+
+    const generatedTime = new Date(generatedAt).getTime();
+    if (!Number.isFinite(generatedTime)) {
+      return;
+    }
+
+    const ageMs = Date.now() - generatedTime;
+    const ageHours = ageMs / (1000 * 60 * 60);
+
+    // Show stale banner if route is older than 24 hours
+    if (ageHours > 24) {
+      const ageDays = Math.floor(ageHours / 24);
+      const label = ageDays === 1 ? "1 day" : `${ageDays} days`;
+      this.ui.showStaleBanner(`Route generated ${label} ago. Tap to regenerate.`);
+    }
+  }
+
+  /**
+   * Regenerate the route (triggered from stale banner)
+   */
+  async regenerateRoute() {
+    this.ui.hideStaleBanner();
+    this.resetRouteState();
+    await this.autoGenerateRoute();
   }
 
   /**
@@ -1043,6 +1226,7 @@ class TurnByTurnNavigator {
     this.map.clearNavigateToStartRoute();
 
     this.ui.resetGuidanceUI();
+    this.ui.hideStaleBanner();
     this.ui.setNavStatus("Waiting for route");
     this.state.transitionTo(NAV_STATES.SETUP);
   }
@@ -1051,6 +1235,7 @@ class TurnByTurnNavigator {
    * Cleanup resources
    */
   destroy() {
+    this.cancelGeneration();
     this.gps.reset();
     this.coverage.destroy();
     this.map.destroy();

@@ -580,6 +580,7 @@ class Street(Document):
     highway_type: str = "unclassified"
     osm_id: int | None = None
     length_miles: float = 0.0
+    graph_edge: dict[str, Any] | None = None
 
     class Settings:
         name = "streets"

@@ -203,6 +203,14 @@ class TurnByTurnState {
   /**
    * Reset state machine
    */
+  /**
+   * Check if currently in generating state
+   * @returns {boolean}
+   */
+  isGenerating() {
+    return this.currentState === NAV_STATES.GENERATING;
+  }
+
   reset() {
     this.currentState = NAV_STATES.SETUP;
     this.previousState = null;

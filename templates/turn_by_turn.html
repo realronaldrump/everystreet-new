@@ -49,7 +49,7 @@ Turn-by-Turn Navigation
 Ready
           </div>
           <div class="nav-primary" id="nav-primary-instruction">
-          Load the optimal coverage route to begin
+          Select a coverage area to begin
           </div>
           <div class="nav-road" id="nav-road-name">
 --
@@ -207,6 +207,41 @@ Route Preview
       </div>
     </div>
 
+    <!-- Stale Route Banner -->
+    <div class="nav-stale-banner" id="nav-stale-banner" hidden>
+      <div class="nav-stale-content">
+        <i class="fas fa-sync-alt" aria-hidden="true"></i>
+        <span id="nav-stale-text">Route may be outdated.</span>
+      </div>
+      <div class="nav-stale-actions">
+        <button class="nav-stale-regen" id="nav-stale-regen" type="button">Regenerate</button>
+        <button class="nav-stale-dismiss" id="nav-stale-dismiss" type="button">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Route Generation Panel -->
+    <div class="nav-generating" id="nav-generating" hidden>
+      <div class="nav-generating-card">
+        <div class="nav-generating-header">
+          <div class="nav-generating-icon">
+            <i class="fas fa-route" aria-hidden="true"></i>
+          </div>
+          <div class="nav-generating-title">Generating Route</div>
+        </div>
+        <div class="nav-generating-stage" id="nav-gen-stage">Preparing...</div>
+        <div class="nav-generating-progress-bar">
+          <div class="nav-generating-fill" id="nav-gen-fill"></div>
+        </div>
+        <div class="nav-generating-percent" id="nav-gen-percent">0%</div>
+        <button class="nav-primary-btn secondary nav-gen-cancel" id="nav-gen-cancel" type="button">
+          <i class="fas fa-times" aria-hidden="true"></i>
+          <span>Cancel</span>
+        </button>
+      </div>
+    </div>
+
     <!-- Resume From Ahead Prompt -->
     <div class="nav-resume-prompt" id="nav-resume-prompt" hidden>
       <div class="nav-resume-header">
@@ -243,7 +278,7 @@ Resume from nearest point ahead?
 Turn-by-Turn Navigation
           </div>
           <p class="nav-setup-subtitle">
-          Select a coverage area, then load the optimal route for live guidance.
+          Select a coverage area to automatically load or generate the optimal route.
           </p>
         </div>
         <label for="nav-area-select" class="nav-label">

@@ -88,6 +88,19 @@ class TurnByTurnUI {
     this.elements.resumeDistanceText = document.getElementById("resume-distance-text");
     this.elements.resumeBtn = document.getElementById("nav-resume-btn");
     this.elements.dismissResumeBtn = document.getElementById("nav-dismiss-resume");
+
+    // Stale route banner
+    this.elements.staleBanner = document.getElementById("nav-stale-banner");
+    this.elements.staleText = document.getElementById("nav-stale-text");
+    this.elements.staleRegenBtn = document.getElementById("nav-stale-regen");
+    this.elements.staleDismissBtn = document.getElementById("nav-stale-dismiss");
+
+    // Generation panel
+    this.elements.generatingPanel = document.getElementById("nav-generating");
+    this.elements.genStage = document.getElementById("nav-gen-stage");
+    this.elements.genFill = document.getElementById("nav-gen-fill");
+    this.elements.genPercent = document.getElementById("nav-gen-percent");
+    this.elements.genCancelBtn = document.getElementById("nav-gen-cancel");
   }
 
   /**
@@ -111,6 +124,9 @@ class TurnByTurnUI {
 
     elements.resumeBtn?.addEventListener("click", callbacks.onResumeFromAhead);
     elements.dismissResumeBtn?.addEventListener("click", callbacks.onDismissResume);
+    elements.genCancelBtn?.addEventListener("click", callbacks.onCancelGeneration);
+    elements.staleRegenBtn?.addEventListener("click", callbacks.onRegenerateRoute);
+    elements.staleDismissBtn?.addEventListener("click", callbacks.onDismissStale);
   }
 
   /**
@@ -156,10 +172,15 @@ class TurnByTurnUI {
     this.elements.setupPanel?.classList.add("hidden");
     this.elements.previewPanel?.setAttribute("hidden", "");
     this.elements.resumePrompt?.setAttribute("hidden", "");
+    this.elements.generatingPanel?.setAttribute("hidden", "");
 
     switch (state) {
       case NAV_STATES.SETUP:
         this.showSetupPanel();
+        break;
+
+      case NAV_STATES.GENERATING:
+        this.showGeneratingState(data);
         break;
 
       case NAV_STATES.ROUTE_PREVIEW:
@@ -192,6 +213,27 @@ class TurnByTurnUI {
 
       default:
         break;
+    }
+  }
+
+  showGeneratingState(data = {}) {
+    this.hideSetupPanel();
+    this.elements.generatingPanel?.removeAttribute("hidden");
+    this.updateGenerationProgress(data);
+  }
+
+  updateGenerationProgress(data = {}) {
+    const stage = data.stage || data.message || "Preparing...";
+    const progress = Math.min(data.progress || 0, 100);
+
+    if (this.elements.genStage) {
+      this.elements.genStage.textContent = stage;
+    }
+    if (this.elements.genFill) {
+      this.elements.genFill.style.width = `${progress}%`;
+    }
+    if (this.elements.genPercent) {
+      this.elements.genPercent.textContent = `${Math.round(progress)}%`;
     }
   }
 
@@ -567,6 +609,19 @@ class TurnByTurnUI {
     }
   }
 
+  // === Stale Route Banner ===
+
+  showStaleBanner(message) {
+    if (this.elements.staleText) {
+      this.elements.staleText.textContent = message;
+    }
+    this.elements.staleBanner?.removeAttribute("hidden");
+  }
+
+  hideStaleBanner() {
+    this.elements.staleBanner?.setAttribute("hidden", "");
+  }
+
   // === Reset UI ===
 
   resetGuidanceUI() {
@@ -576,7 +631,7 @@ class TurnByTurnUI {
       distanceToTurn.textContent = "Ready";
     }
     if (primaryInstruction) {
-      primaryInstruction.textContent = "Load the optimal coverage route to begin";
+      primaryInstruction.textContent = "Select a coverage area to begin";
     }
     if (roadName) {
       roadName.textContent = "--";
