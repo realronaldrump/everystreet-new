@@ -738,7 +738,7 @@ class LiveTripTracker {
     try {
       const data = await apiClient.get("/api/active_trip");
 
-      if (data.status === "success" && data.has_active_trip && data.trip) {
+      if (data.status === "success" && data.has_active_trip && data.trip && data.trip.status !== "completed") {
         console.info(`Initial trip loaded: ${data.trip.transactionId}`);
         this.updateTrip(data.trip);
       } else if (!this.restoreTripFromSnapshot()) {
@@ -774,7 +774,7 @@ class LiveTripTracker {
           }
           this.lastStreamEventAt = Date.now();
           this.noUpdatePollCount = 0;
-          this.updateStatus(true);
+          this.updateStatus(true, this.hasActiveTrip ? "Live tracking" : "Idle");
         },
         onMessage: (data) => this.handleSocketMessage(data),
         onClose: (event) => {
@@ -905,7 +905,7 @@ class LiveTripTracker {
       }
 
       if (data.status === "success") {
-        if (data.has_update && data.trip) {
+        if (data.has_update && data.trip && data.trip.status !== "completed") {
           this.lastStreamEventAt = Date.now();
           this.noUpdatePollCount = 0;
           this.updateTrip(data.trip);
@@ -920,7 +920,7 @@ class LiveTripTracker {
             this.clearTrip();
           }
         }
-        this.updateStatus(true);
+        this.updateStatus(true, this.hasActiveTrip ? "Live tracking" : "Idle");
       }
     } catch (error) {
       if (this.isDestroyed) {

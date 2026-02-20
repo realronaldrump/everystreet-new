@@ -282,9 +282,7 @@ async def process_trip_data(data: dict[str, Any]) -> None:
             )
             return
 
-        inferred_start = (
-            new_coords[0]["timestamp"] if new_coords else datetime.now(UTC)
-        )
+        inferred_start = new_coords[0]["timestamp"] if new_coords else datetime.now(UTC)
         if existing_trip:
             trip = existing_trip
             trip.status = "active"
@@ -463,11 +461,57 @@ async def process_trip_end(data: dict[str, Any]) -> None:
 
 
 async def get_active_trip() -> Trip | None:
-    """Get the currently active trip."""
+    """Get the currently active trip.
+
+    If the active trip has not received an update in over 30 minutes,
+    assume the tripEnd webhook was missed, mark it as completed, and
+    return None.
+    """
     try:
-        return (
+        trip = (
             await Trip.find(Trip.status == "active").sort("-lastUpdate").first_or_none()
         )
+        if not trip:
+            return None
+
+        # Check for stale trip (missed tripEnd webhook)
+        if trip.lastUpdate:
+            staleness = (datetime.now(UTC) - trip.lastUpdate).total_seconds()
+            if staleness > 30 * 60:  # 30 minutes
+                logger.warning(
+                    "Active trip %s is stale (>30m). Auto-completing.",
+                    trip.transactionId,
+                )
+                trip.status = "completed"
+                # Keep existing endTime if present, else use lastUpdate
+                if not trip.endTime:
+                    trip.endTime = trip.lastUpdate
+
+                # Fix duration using endTime and startTime
+                if getattr(trip, "startTime", None) and getattr(trip, "endTime", None):
+                    trip.duration = (trip.endTime - trip.startTime).total_seconds()
+
+                # Build GPS if missing
+                coords = getattr(trip, "coordinates", [])
+                if coords and not getattr(trip, "gps", None):
+                    from core.spatial import GeometryService
+
+                    trip_gps = GeometryService.geometry_from_coordinate_dicts(coords)
+                    if trip_gps:
+                        trip.gps = trip_gps
+
+                await trip.save()
+
+                # Try publishing the completed state so clients drop it
+                try:
+                    await _publish_trip_snapshot(trip, status="completed")
+                except Exception as e:
+                    logger.debug("Failed to publish stale trip completion: %s", e)
+
+                return None
+
+        else:
+            return trip
     except Exception:
         logger.exception("Error fetching active trip")
         return None
