@@ -1265,6 +1265,7 @@ async def _generate_optimal_route_with_progress_impl(
                     G,
                     service_sequence,
                     required_reqs,
+                    start_node=start_node_id,
                     node_xy=node_xy,
                     time_budget_s=LOCAL_SEARCH_TIME_BUDGET_S,
                 )
