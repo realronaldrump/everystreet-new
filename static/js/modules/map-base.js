@@ -1,6 +1,6 @@
 /* global mapboxgl */
 
-import { CONFIG } from "./core/config.js";
+import { getCurrentTheme, resolveMapStyle } from "./core/map-style-resolver.js";
 import { getMapboxToken, isMapboxStyleUrl } from "./mapbox-token.js";
 
 // Factory for creating maps using Mapbox GL JS
@@ -23,8 +23,7 @@ function createMap(containerId, options = {}) {
     mapboxgl.setTelemetryEnabled(false);
   }
 
-  const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-  const themeStyle = CONFIG?.MAP?.styles?.[theme] || CONFIG?.MAP?.styles?.dark;
+  const { styleUrl: themeStyle } = resolveMapStyle({ theme: getCurrentTheme() });
   const defaultStyle = style || themeStyle;
 
   // Mapbox tokens should only be required for Mapbox-hosted styles.

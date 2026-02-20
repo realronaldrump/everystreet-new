@@ -5,7 +5,7 @@
  * Handles map initialization, layers, and map interactions.
  */
 
-import { CONFIG } from "../core/config.js";
+import { getCurrentTheme, resolveMapStyle } from "../core/map-style-resolver.js";
 import MapStyles from "../map-styles.js";
 import {
   DEFAULT_CLUSTER_COLORS,
@@ -108,8 +108,7 @@ export class DrivingNavigationMap {
         }
 
         // OpenFreeMap styles do not require a Mapbox token.
-        const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-        const styleUrl = CONFIG.MAP.styles[theme] || CONFIG.MAP.styles.dark;
+        const { styleUrl } = resolveMapStyle({ theme: getCurrentTheme() });
         this.map = new mapboxgl.Map({
           container: this.containerId,
           style: styleUrl,

@@ -6,9 +6,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from config import validate_mapbox_token
 from core.repo_info import get_repo_version_info
-from core.service_config import get_mapbox_token_async
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -21,14 +19,10 @@ async def _render_trips_page(
     trip_id: str | None = None,
 ) -> HTMLResponse:
     """Render the trips page with optional preloaded trip details."""
-    token = await get_mapbox_token_async()
-    validate_mapbox_token(token)
-
     return templates.TemplateResponse(
         "trips.html",
         {
             "request": request,
-            "MAPBOX_ACCESS_TOKEN": token,
             "repo_version": get_repo_version_info(),
             "trip_id": trip_id,
         },

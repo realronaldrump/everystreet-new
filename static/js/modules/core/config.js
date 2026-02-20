@@ -9,6 +9,8 @@ export const CONFIG = {
     defaultCenter: [-95.7129, 37.0902],
     defaultZoom: 4,
     maxZoom: 19,
+    // Canonical front-end Mapbox token source.
+    accessToken: "pk.your-public-mapbox-token",
     recentTripThreshold: 6 * 60 * 60 * 1000, // 6 hours
     recencyWindowMs: 30 * 24 * 60 * 60 * 1000, // 30 days
     debounceDelay: 150,

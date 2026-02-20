@@ -3,7 +3,6 @@
 {% block title %}Coverage Management{% endblock %}
 
 {% block head_content %}
-  <meta name="mapbox-access-token" content="{{ MAPBOX_ACCESS_TOKEN }}" />
   <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
   <link rel="stylesheet"
         href="{{ url_for('static', path='css/coverage-management.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />

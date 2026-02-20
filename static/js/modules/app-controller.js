@@ -186,6 +186,9 @@ const AppController = {
           mapManager.refreshTripStyles();
         });
 
+        // Keep initial map load scoped to the current day unless URL params override it.
+        this._applyDefaultDateRange();
+
         // Phase 3: Initialize supporting modules
         await initializeLocationDropdown();
         initializeLiveTracker();
@@ -201,7 +204,7 @@ const AppController = {
 
         // Phase 5: Restore saved state
         restoreLayerVisibility();
-        await this._restoreStreetViewModes();
+        await this._initializeStreetViewModes();
 
         // Phase 6: Load initial data
         mapLoading?.update("Loading map data...");
@@ -235,36 +238,75 @@ const AppController = {
   },
 
   /**
-   * Restore street view mode selections
+   * Default date range to today for initial map loads unless URL params override it.
    * @private
    */
-  _restoreStreetViewModes() {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-    if (!selectedLocationId) {
+  _applyDefaultDateRange() {
+    const params = new URLSearchParams(window.location.search);
+    const hasExplicitDateRange =
+      params.has("start") ||
+      params.has("end") ||
+      params.has("start_date") ||
+      params.has("end_date");
+
+    if (hasExplicitDateRange) {
       return;
     }
 
-    const savedStates = getSavedStreetViewModes();
-    const hasStoredStates = Object.keys(savedStates || {}).length > 0;
+    const today = DateUtils.getCurrentDate();
+    const currentStart = state.get("filters.startDate");
+    const currentEnd = state.get("filters.endDate");
+    if (currentStart === today && currentEnd === today) {
+      return;
+    }
 
-    // Delay to allow map to settle
-    setTimeout(() => {
-      if (hasStoredStates) {
-        const quickActionButtons = document.querySelectorAll(".quick-action-btn");
-        quickActionButtons.forEach((btn) => {
-          btn.classList.toggle(
-            "active",
-            savedStates[btn.dataset.streetMode] === true
-          );
-        });
+    state.updateFilters(
+      {
+        startDate: today,
+        endDate: today,
+      },
+      {
+        emit: false,
+        syncUrl: false,
+        source: "app-init-default-date",
       }
+    );
 
-      Object.entries(savedStates).forEach(([mode, isActive]) => {
-        if (isActive) {
-          this.handleStreetViewModeChange(mode, false);
-        }
-      });
-    }, 500);
+    utils.setStorage(CONFIG.STORAGE_KEYS.startDate, today);
+    utils.setStorage(CONFIG.STORAGE_KEYS.endDate, today);
+    utils.setStorage("cached_date_range", null);
+
+    document.dispatchEvent(
+      new CustomEvent("es:filters-change", {
+        detail: {
+          startDate: today,
+          endDate: today,
+          source: "app-init-default-date",
+        },
+      })
+    );
+  },
+
+  /**
+   * Ensure street quick-actions and visibility default to all hidden on load.
+   * @private
+   */
+  async _initializeStreetViewModes() {
+    const hiddenStates = {
+      undriven: false,
+      driven: false,
+      all: false,
+    };
+    utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, hiddenStates);
+
+    const quickActionButtons = document.querySelectorAll(".quick-action-btn");
+    quickActionButtons.forEach((btn) => {
+      btn.classList.remove("active");
+    });
+
+    await this.handleStreetViewModeChange("undriven", true);
+    await this.handleStreetViewModeChange("driven", true);
+    await this.handleStreetViewModeChange("all", true);
   },
 
   /**
@@ -306,7 +348,7 @@ const AppController = {
     if (preloadTripId) {
       requestAnimationFrame(() => mapManager.zoomToTrip(preloadTripId));
     } else {
-      requestAnimationFrame(() => mapManager.zoomToLastTrip());
+      requestAnimationFrame(() => mapManager.fitBounds(false));
     }
   },
 
@@ -635,21 +677,7 @@ const AppController = {
       .filter(([, isActive]) => isActive)
       .map(([mode]) => mode);
 
-    // New map controls use quick-action buttons; if nothing is persisted yet,
-    // use whichever mode is currently active in the UI.
     if (activeModes.length === 0) {
-      const activeBtn = document.querySelector(
-        ".quick-action-btn.active[data-street-mode]"
-      );
-      const defaultMode = activeBtn?.dataset?.streetMode;
-      if (defaultMode && ["undriven", "driven", "all"].includes(defaultMode)) {
-        utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, {
-          undriven: defaultMode === "undriven",
-          driven: defaultMode === "driven",
-          all: defaultMode === "all",
-        });
-        await this.handleStreetViewModeChange(defaultMode, false);
-      }
       return;
     }
 

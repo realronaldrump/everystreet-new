@@ -15,6 +15,7 @@
 /* global mapboxgl */
 
 import { CONFIG } from "./core/config.js";
+import { getCurrentTheme, resolveMapStyle } from "./core/map-style-resolver.js";
 import state from "./core/store.js";
 import { waitForMapboxToken } from "./mapbox-token.js";
 import loadingManager from "./ui/loading-manager.js";
@@ -186,10 +187,12 @@ const mapCore = {
       this._disableTelemetry();
 
       // Determine theme and style
-      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const theme = getCurrentTheme();
       const storedMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType);
-      const mapType = storedMapType || theme;
-      const mapStyle = CONFIG.MAP.styles[mapType] || CONFIG.MAP.styles[theme];
+      const { styleType: mapType, styleUrl: mapStyle } = resolveMapStyle({
+        requestedType: storedMapType || theme,
+        theme,
+      });
       activeStyleType = mapType;
 
       // Determine initial view (URL params > saved state > defaults)
@@ -651,18 +654,15 @@ const mapCore = {
     }
 
     const { persistPreference = true } = options;
-    const requestedStyleType =
-      typeof styleType === "string" && styleType in CONFIG.MAP.styles
-        ? styleType
-        : "dark";
+    const theme = getCurrentTheme();
+    const { styleType: requestedStyleType, styleUrl } = resolveMapStyle({
+      requestedType: styleType,
+      theme,
+    });
 
     if (activeStyleType === requestedStyleType && map.isStyleLoaded()) {
       return;
     }
-
-    const styleUrl =
-      CONFIG.MAP.styles[requestedStyleType] ||
-      `mapbox://styles/mapbox/${requestedStyleType}-v11`;
 
     // Save current view
     const currentView = {

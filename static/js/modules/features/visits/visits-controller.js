@@ -3,6 +3,7 @@
  */
 
 import { CONFIG } from "../../core/config.js";
+import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import { VisitsGeometry } from "../../visits/geometry.js";
 import VisitsManager from "../../visits/visits-manager.js";
@@ -1353,8 +1354,8 @@ class VisitsPageController {
   }
 
   getPreviewMapStyle() {
-    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-    return CONFIG.MAP.styles[theme] || CONFIG.MAP.styles.dark;
+    const { styleUrl } = resolveMapStyle({ theme: getCurrentTheme() });
+    return styleUrl;
   }
 
   getPlacePreviewColors(accent = "slate") {

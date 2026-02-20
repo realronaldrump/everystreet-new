@@ -160,6 +160,7 @@ def improve_route_2opt(
     service_sequence: list[tuple[ReqId, EdgeRef]],
     required_reqs: dict[ReqId, list[EdgeRef]],
     *,
+    start_node: int | None = None,
     node_xy: dict[int, tuple[float, float]] | None = None,
     time_budget_s: float = 30.0,
 ) -> tuple[list[list[float]], dict[str, float], list[tuple[ReqId, EdgeRef]]]:
@@ -173,20 +174,22 @@ def improve_route_2opt(
     Returns:
         (route_coords, stats, improved_sequence)
     """
+    route_start_node = (
+        start_node if start_node is not None else (service_sequence[0][1][0] if service_sequence else 0)
+    )
+
     if len(service_sequence) < 3:
-        start_node = service_sequence[0][1][0] if service_sequence else 0
-        coords = _rebuild_route_coords(G, service_sequence, start_node, node_xy)
-        stats = _build_stats(G, service_sequence, start_node, required_reqs)
+        coords = _rebuild_route_coords(G, service_sequence, route_start_node, node_xy)
+        stats = _build_stats(G, service_sequence, route_start_node, required_reqs)
         return coords, stats, service_sequence
 
-    start_node = service_sequence[0][1][0]
     best_sequence = list(service_sequence)
-    best_cost = _sequence_total_cost(G, best_sequence, start_node)
+    best_cost = _sequence_total_cost(G, best_sequence, route_start_node)
 
     if best_cost is None:
         logger.warning("Cannot compute initial cost for 2-opt; returning original")
-        coords = _rebuild_route_coords(G, service_sequence, start_node, node_xy)
-        stats = _build_stats(G, service_sequence, start_node, required_reqs)
+        coords = _rebuild_route_coords(G, service_sequence, route_start_node, node_xy)
+        stats = _build_stats(G, service_sequence, route_start_node, required_reqs)
         return coords, stats, service_sequence
 
     deadline = time.monotonic() + time_budget_s
@@ -208,7 +211,7 @@ def improve_route_2opt(
             for j in range(i + 2, max_j):
                 # Reverse the sub-sequence between i and j
                 candidate = best_sequence[:i] + best_sequence[i : j + 1][::-1] + best_sequence[j + 1 :]
-                cost = _sequence_total_cost(G, candidate, start_node)
+                cost = _sequence_total_cost(G, candidate, route_start_node)
                 if cost is not None and cost < best_cost:
                     best_cost = cost
                     best_sequence = candidate
@@ -222,6 +225,6 @@ def improve_route_2opt(
         time.monotonic() - (deadline - time_budget_s),
     )
 
-    coords = _rebuild_route_coords(G, best_sequence, start_node, node_xy)
-    stats = _build_stats(G, best_sequence, start_node, required_reqs)
+    coords = _rebuild_route_coords(G, best_sequence, route_start_node, node_xy)
+    stats = _build_stats(G, best_sequence, route_start_node, required_reqs)
     return coords, stats, best_sequence

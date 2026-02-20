@@ -1,6 +1,6 @@
 /* global mapboxgl */
 
-import { CONFIG } from "../core/config.js";
+import { getCurrentTheme, resolveMapStyle } from "../core/map-style-resolver.js";
 
 export class OptimalRouteMap {
   constructor(containerId, options = {}) {
@@ -27,8 +27,7 @@ export class OptimalRouteMap {
       return Promise.resolve();
     }
 
-    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-    const styleUrl = CONFIG.MAP.styles[theme] || CONFIG.MAP.styles.dark;
+    const { styleUrl } = resolveMapStyle({ theme: getCurrentTheme() });
     this.disableTelemetry();
 
     this.map = new mapboxgl.Map({

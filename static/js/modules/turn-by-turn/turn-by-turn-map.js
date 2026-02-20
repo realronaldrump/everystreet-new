@@ -5,7 +5,7 @@
 
 /* global mapboxgl */
 
-import { MAP_STYLES } from "./turn-by-turn-config.js";
+import { getCurrentTheme, resolveMapStyle } from "../core/map-style-resolver.js";
 
 const getThemeColor = (variable, defaultColor) => {
   if (typeof window === "undefined") {
@@ -24,6 +24,7 @@ class TurnByTurnMap {
   constructor() {
     this.map = null;
     this.mapReady = false;
+    this.mapStyleType = "dark";
     this.themeObserver = null;
 
     // Coverage overlay state (re-applied after style changes)
@@ -61,9 +62,12 @@ class TurnByTurnMap {
       mapboxgl.setTelemetryEnabled(false);
     }
 
+    const { styleType, styleUrl } = resolveMapStyle({ theme: getCurrentTheme() });
+    this.mapStyleType = styleType;
+
     this.map = new mapboxgl.Map({
       container: containerId,
-      style: this.getMapStyle(),
+      style: styleUrl,
       center: [-96, 37.8],
       zoom: 4,
       pitch: 45,
@@ -93,8 +97,7 @@ class TurnByTurnMap {
    * @returns {string}
    */
   getMapStyle() {
-    const isLightMode = document.body.classList.contains("light-mode");
-    return isLightMode ? MAP_STYLES.light : MAP_STYLES.dark;
+    return resolveMapStyle({ theme: getCurrentTheme() });
   }
 
   /**
@@ -119,17 +122,13 @@ class TurnByTurnMap {
     this.themeObserver = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.attributeName === "class" && this.map) {
-          const newStyle = this.getMapStyle();
-          const currentStyle = this.map.getStyle();
-          // Only change if style actually changed
-          if (
-            currentStyle &&
-            !currentStyle.sprite?.includes(newStyle.split("/").pop()?.replace("-v11", ""))
-          ) {
+          const { styleType, styleUrl } = this.getMapStyle();
+          if (styleType !== this.mapStyleType) {
+            this.mapStyleType = styleType;
             this.map.once("style.load", () => {
               this.setupMapLayers();
             });
-            this.map.setStyle(newStyle);
+            this.map.setStyle(styleUrl);
           }
         }
       });

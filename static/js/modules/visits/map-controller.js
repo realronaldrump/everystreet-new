@@ -1,6 +1,6 @@
 /* global mapboxgl */
 
-import { CONFIG } from "../core/config.js";
+import { resolveMapStyle } from "../core/map-style-resolver.js";
 import { createMap } from "../map-base.js";
 import MapStyles from "../map-styles.js";
 import { VisitsGeometry } from "./geometry.js";
@@ -25,10 +25,11 @@ class VisitsMapController {
   initialize(theme) {
     return new Promise((resolve, reject) => {
       try {
-        this.mapStyle = theme || "dark";
+        const initialStyle = resolveMapStyle({ requestedType: theme || "dark", theme });
+        this.mapStyle = initialStyle.styleType;
         this.map = createMap("map", {
           library: "mapbox",
-          style: CONFIG.MAP.styles[this.mapStyle] || CONFIG.MAP.styles.dark,
+          style: initialStyle.styleUrl,
           center: [-95.7129, 37.0902],
           zoom: 4,
           attributionControl: false,
@@ -172,11 +173,9 @@ class VisitsMapController {
   }
 
   toggleMapStyle() {
-    this.mapStyle = this.mapStyle === "satellite" ? "dark" : "satellite";
-    const styleUrl =
-      this.mapStyle === "satellite"
-        ? CONFIG.MAP.styles.satellite || CONFIG.MAP.styles.dark
-        : CONFIG.MAP.styles.dark;
+    const nextStyleType = this.mapStyle === "satellite" ? "dark" : "satellite";
+    const { styleType, styleUrl } = resolveMapStyle({ requestedType: nextStyleType });
+    this.mapStyle = styleType;
 
     this.map.setStyle(styleUrl);
     this.map.once("style.load", () => {
@@ -188,9 +187,11 @@ class VisitsMapController {
   }
 
   updateTheme(theme) {
-    this.mapStyle = theme === "light" ? "light" : "dark";
-    const styleUrl =
-      this.mapStyle === "light" ? CONFIG.MAP.styles.light : CONFIG.MAP.styles.dark;
+    const { styleType, styleUrl } = resolveMapStyle({
+      requestedType: theme === "light" ? "light" : "dark",
+      theme,
+    });
+    this.mapStyle = styleType;
 
     const center = this.map?.getCenter();
     const zoom = this.map?.getZoom();

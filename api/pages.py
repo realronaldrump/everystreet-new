@@ -5,10 +5,8 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from config import validate_mapbox_token
 from core.jinja import register_template_filters
 from core.repo_info import get_repo_version_info
-from core.service_config import get_mapbox_token_async
 from db.models import Vehicle
 from setup.services.bouncie_credentials import (
     get_bouncie_credentials,
@@ -19,15 +17,6 @@ router = APIRouter()
 
 templates = Jinja2Templates(directory="templates")
 register_template_filters(templates)
-
-# Get Mapbox access token from centralized config (map rendering only)
-
-
-async def _mapbox_token_for_render() -> str:
-    token = await get_mapbox_token_async()
-    validate_mapbox_token(token)
-    return token
-
 
 def _render_page(template_name: str, request: Request, **context: Any) -> HTMLResponse:
     """Render a Jinja template with a consistent base context."""
@@ -50,11 +39,7 @@ async def landing(request: Request):
 @router.get("/map", response_class=HTMLResponse)
 async def map_page(request: Request):
     """Render main map page."""
-    return _render_page(
-        "index.html",
-        request,
-        MAPBOX_ACCESS_TOKEN=await _mapbox_token_for_render(),
-    )
+    return _render_page("index.html", request)
 
 
 @router.get("/settings", response_class=HTMLResponse)
@@ -178,21 +163,13 @@ async def insights_page(request: Request):
 @router.get("/visits", response_class=HTMLResponse)
 async def visits_page(request: Request):
     """Render visits page."""
-    return _render_page(
-        "visits.html",
-        request,
-        MAPBOX_ACCESS_TOKEN=await _mapbox_token_for_render(),
-    )
+    return _render_page("visits.html", request)
 
 
 @router.get("/gas-tracking", response_class=HTMLResponse)
 async def gas_tracking_page(request: Request):
     """Render gas tracking page."""
-    return _render_page(
-        "gas_tracking.html",
-        request,
-        MAPBOX_ACCESS_TOKEN=await _mapbox_token_for_render(),
-    )
+    return _render_page("gas_tracking.html", request)
 
 
 @router.get("/export", response_class=HTMLResponse)
@@ -204,11 +181,7 @@ async def export_page(request: Request):
 @router.get("/map-matching", response_class=HTMLResponse)
 async def map_matching_page(request: Request):
     """Render map matching job page."""
-    return _render_page(
-        "map_matching.html",
-        request,
-        MAPBOX_ACCESS_TOKEN=await _mapbox_token_for_render(),
-    )
+    return _render_page("map_matching.html", request)
 
 
 @router.get(
@@ -217,11 +190,7 @@ async def map_matching_page(request: Request):
 )
 async def coverage_management_page(request: Request):
     """Render coverage management page."""
-    return _render_page(
-        "coverage_management.html",
-        request,
-        MAPBOX_ACCESS_TOKEN=await _mapbox_token_for_render(),
-    )
+    return _render_page("coverage_management.html", request)
 
 
 @router.get("/database-management", response_class=RedirectResponse)
@@ -242,11 +211,7 @@ async def server_logs_page(request: Request):
 )
 async def coverage_navigator_page(request: Request):
     """Render the consolidated coverage navigation page."""
-    return _render_page(
-        "coverage_navigator.html",
-        request,
-        MAPBOX_ACCESS_TOKEN=await _mapbox_token_for_render(),
-    )
+    return _render_page("coverage_navigator.html", request)
 
 
 @router.get(
@@ -255,11 +220,7 @@ async def coverage_navigator_page(request: Request):
 )
 async def turn_by_turn_page(request: Request):
     """Render the turn-by-turn navigation experience."""
-    return _render_page(
-        "turn_by_turn.html",
-        request,
-        MAPBOX_ACCESS_TOKEN=await _mapbox_token_for_render(),
-    )
+    return _render_page("turn_by_turn.html", request)
 
 
 @router.get(
@@ -290,11 +251,7 @@ async def optimal_routes_page():
 )
 async def county_map_page(request: Request):
     """Render the county map visualization page."""
-    return _render_page(
-        "county_map.html",
-        request,
-        MAPBOX_ACCESS_TOKEN=await _mapbox_token_for_render(),
-    )
+    return _render_page("county_map.html", request)
 
 
 @router.get("/setup-wizard", response_class=HTMLResponse)

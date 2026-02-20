@@ -4,6 +4,12 @@
  */
 
 import { escapeHtml } from "../utils.js";
+import {
+  buildMapboxRasterTileUrl,
+  getCurrentTheme,
+  resolveMapStyle,
+} from "../core/map-style-resolver.js";
+import { getMapboxToken } from "../mapbox-token.js";
 
 let movementDeck = null;
 let activePanel = "streets";
@@ -55,36 +61,10 @@ function resetVisibleCounts() {
   visibleCounts.segments = INITIAL_VISIBLE_COUNT;
 }
 
-function getCurrentTheme() {
-  if (typeof document === "undefined") {
-    return "dark";
-  }
-  return document.documentElement.getAttribute("data-bs-theme") === "light"
-    ? "light"
-    : "dark";
-}
-
-function getMapboxToken() {
-  if (typeof document === "undefined") {
-    return "";
-  }
-  const tokenMeta = document.querySelector('meta[name="mapbox-access-token"]');
-  return tokenMeta?.content?.trim() || "";
-}
-
 function getBasemapTileUrl() {
-  const theme = getCurrentTheme();
+  const { styleUrl } = resolveMapStyle({ theme: getCurrentTheme() });
   const token = getMapboxToken();
-  if (token) {
-    const styleId = theme === "light" ? "light-v11" : "dark-v11";
-    return (
-      `https://api.mapbox.com/styles/v1/mapbox/${styleId}/tiles/256/{z}/{x}/{y}@2x` +
-      `?access_token=${encodeURIComponent(token)}`
-    );
-  }
-  return theme === "light"
-    ? "https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
-    : "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png";
+  return buildMapboxRasterTileUrl({ styleUrl, token });
 }
 
 function getTooltipStyle() {

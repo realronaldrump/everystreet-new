@@ -1,4 +1,5 @@
 import { CONFIG } from "../core/config.js";
+import { resolveMapStyle } from "../core/map-style-resolver.js";
 import store from "../core/store.js";
 import mapCore from "../map-core.js";
 import { utils } from "../utils.js";
@@ -71,13 +72,12 @@ const themeManager = {
       return;
     }
 
-    if (CONFIG.MAP.styles?.[theme]) {
-      void mapCore
-        .setStyle(theme, { persistPreference: false })
-        .catch((error) => {
-          console.warn("Theme map style update failed:", error);
-        });
-    }
+    const { styleType } = resolveMapStyle({ requestedType: theme, theme });
+    void mapCore
+      .setStyle(styleType, { persistPreference: false })
+      .catch((error) => {
+        console.warn("Theme map style update failed:", error);
+      });
     document.dispatchEvent(new CustomEvent("mapThemeChanged", { detail: { theme } }));
   },
 

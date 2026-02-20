@@ -572,7 +572,7 @@ def solve_greedy_route(
     start_node: int | None = None,
     req_segment_counts: dict[ReqId, int] | None = None,
     node_xy: dict[int, tuple[float, float]] | None = None,
-) -> tuple[list[list[float]], dict[str, float], list[EdgeRef]]:
+) -> tuple[list[list[float]], dict[str, float], list[EdgeRef], list[tuple[ReqId, EdgeRef]]]:
     """
     Solve with connectivity-first greedy strategy:
 

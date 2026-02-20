@@ -18,6 +18,7 @@
 
 import apiClient from "../../core/api-client.js";
 import { CONFIG } from "../../core/config.js";
+import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
 import { createMap } from "../../map-base.js";
 import { isMapboxStyleUrl, waitForMapboxToken } from "../../mapbox-token.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
@@ -968,8 +969,7 @@ async function initOrUpdateMap(areaId, bbox, areaSyncToken = null) {
     const loadingEl = document.getElementById("map-loading-state");
     if (loadingEl) loadingEl.style.display = "none";
 
-    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-    const styleUrl = CONFIG.MAP.styles[theme] || CONFIG.MAP.styles.dark;
+    const { styleUrl } = resolveMapStyle({ theme: getCurrentTheme() });
     let accessToken;
     if (isMapboxStyleUrl(styleUrl)) {
       accessToken = await waitForMapboxToken({ timeoutMs: 5000 });
