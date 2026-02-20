@@ -147,7 +147,12 @@ async def _generate_optimal_route_with_progress_impl(
         if not bounds or len(bounds) != 4:
             return False
         try:
-            min_x, min_y, max_x, max_y = (float(bounds[0]), float(bounds[1]), float(bounds[2]), float(bounds[3]))
+            min_x, min_y, max_x, max_y = (
+                float(bounds[0]),
+                float(bounds[1]),
+                float(bounds[2]),
+                float(bounds[3]),
+            )
         except Exception:
             return False
         return (
@@ -571,11 +576,16 @@ async def _generate_optimal_route_with_progress_impl(
         # Log per-segment diagnostics for small batches to help debug matching
         if total_segments <= 50:
             valid_count = sum(1 for d in seg_data_list if d is not None)
-            osm_ids_present = sum(1 for d in seg_data_list if d is not None and d.get("osmid") is not None)
+            osm_ids_present = sum(
+                1 for d in seg_data_list if d is not None and d.get("osmid") is not None
+            )
             logger.info(
                 "Segment prep: total=%d, valid=%d, with_osmid=%d, skipped_geom=%d, skipped_proj=%d",
-                total_segments, valid_count, osm_ids_present,
-                skipped_invalid_geometry, skipped_match_errors,
+                total_segments,
+                valid_count,
+                osm_ids_present,
+                skipped_invalid_geometry,
+                skipped_match_errors,
             )
             for d in seg_data_list:
                 if d is None:
@@ -584,7 +594,8 @@ async def _generate_optimal_route_with_progress_impl(
                 proj_c = d["match_coords"]
                 logger.debug(
                     "  seg[%d] osmid=%s raw_coords[0]=%s proj_coords[0]=%s",
-                    d["index"], d["osmid"],
+                    d["index"],
+                    d["osmid"],
                     raw_c[0] if raw_c else "none",
                     proj_c[0] if proj_c else "none",
                 )
@@ -638,62 +649,16 @@ async def _generate_optimal_route_with_progress_impl(
             edge_iter = map(process_segment_osmid, seg_data_list)
 
         for i, edge in enumerate(edge_iter):
-                processed_segments = i + 1
-                if seg_data_list[i] is None:
-                    if (
-                        processed_segments == total_for_progress
-                        or processed_segments % progress_interval == 0
-                        or time.monotonic() - last_update >= 1.0
-                    ):
-                        progress_pct = 50 + int(
-                            8 * processed_segments / total_for_progress,
-                        )
-                        await update_progress(
-                            "mapping_segments",
-                            progress_pct,
-                            f"Matching segments by OSM ID {processed_segments}/{total_segments}...",
-                            metrics={
-                                "total_segments": total_segments,
-                                "processed_segments": processed_segments,
-                                "osm_matched": osm_matched,
-                                "default_total": 0,
-                                "default_matched": fallback_matched,
-                                "fallback_total": 0,
-                                "fallback_matched": fallback_matched,
-                                "unmatched_segments": len(unmatched_indices),
-                                "skipped_segments": (
-                                    skipped_invalid_geometry
-                                    + skipped_match_errors
-                                    + skipped_mapping_distance
-                                ),
-                                "skipped_invalid_geometry": skipped_invalid_geometry,
-                                "skipped_mapping_distance": skipped_mapping_distance,
-                                "skipped_match_errors": skipped_match_errors,
-                                "mapped_segments": osm_matched + fallback_matched,
-                            },
-                        )
-                        last_update = time.monotonic()
-                    continue
-
-                if edge:
-                    rid, options = make_req_id(G, edge)
-                    if rid not in required_reqs:
-                        required_reqs[rid] = options
-                        req_segment_counts[rid] = 1
-                    else:
-                        req_segment_counts[rid] += 1
-                    mapped_segments += 1
-                    osm_matched += 1
-                    newly_matched_edges[i] = edge
-                else:
-                    unmatched_indices.append(i)
-
+            processed_segments = i + 1
+            if seg_data_list[i] is None:
                 if (
                     processed_segments == total_for_progress
                     or processed_segments % progress_interval == 0
                     or time.monotonic() - last_update >= 1.0
                 ):
-                    progress_pct = 50 + int(8 * processed_segments / total_for_progress)
+                    progress_pct = 50 + int(
+                        8 * processed_segments / total_for_progress,
+                    )
                     await update_progress(
                         "mapping_segments",
                         progress_pct,
@@ -719,6 +684,52 @@ async def _generate_optimal_route_with_progress_impl(
                         },
                     )
                     last_update = time.monotonic()
+                continue
+
+            if edge:
+                rid, options = make_req_id(G, edge)
+                if rid not in required_reqs:
+                    required_reqs[rid] = options
+                    req_segment_counts[rid] = 1
+                else:
+                    req_segment_counts[rid] += 1
+                mapped_segments += 1
+                osm_matched += 1
+                newly_matched_edges[i] = edge
+            else:
+                unmatched_indices.append(i)
+
+            if (
+                processed_segments == total_for_progress
+                or processed_segments % progress_interval == 0
+                or time.monotonic() - last_update >= 1.0
+            ):
+                progress_pct = 50 + int(8 * processed_segments / total_for_progress)
+                await update_progress(
+                    "mapping_segments",
+                    progress_pct,
+                    f"Matching segments by OSM ID {processed_segments}/{total_segments}...",
+                    metrics={
+                        "total_segments": total_segments,
+                        "processed_segments": processed_segments,
+                        "osm_matched": osm_matched,
+                        "default_total": 0,
+                        "default_matched": fallback_matched,
+                        "fallback_total": 0,
+                        "fallback_matched": fallback_matched,
+                        "unmatched_segments": len(unmatched_indices),
+                        "skipped_segments": (
+                            skipped_invalid_geometry
+                            + skipped_match_errors
+                            + skipped_mapping_distance
+                        ),
+                        "skipped_invalid_geometry": skipped_invalid_geometry,
+                        "skipped_mapping_distance": skipped_mapping_distance,
+                        "skipped_match_errors": skipped_match_errors,
+                        "mapped_segments": osm_matched + fallback_matched,
+                    },
+                )
+                last_update = time.monotonic()
 
         if executor is not None:
             executor.shutdown(wait=True)
@@ -821,7 +832,11 @@ async def _generate_optimal_route_with_progress_impl(
                     if total_segments <= 50:
                         logger.info(
                             "Spatial fallback: querying %d points, X range=[%.4f, %.4f], Y range=[%.4f, %.4f]",
-                            len(X), min(X), max(X), min(Y), max(Y),
+                            len(X),
+                            min(X),
+                            max(X),
+                            min(Y),
+                            max(Y),
                         )
                         # Also log a sample of graph node coordinates for comparison
                         sample_nodes = list(node_xy.items())[:3]
@@ -835,19 +850,27 @@ async def _generate_optimal_route_with_progress_impl(
                     )
                     if total_segments <= 50 and dists is not None:
                         import numpy as np
+
                         d_arr = np.asarray(dists)
                         logger.info(
                             "Spatial fallback results: min_dist=%.2f, max_dist=%.2f, median_dist=%.2f (graph units)",
-                            float(d_arr.min()), float(d_arr.max()), float(np.median(d_arr)),
+                            float(d_arr.min()),
+                            float(d_arr.max()),
+                            float(np.median(d_arr)),
                         )
                 except Exception:
-                    logger.exception("Batch spatial lookup failed; will try per-segment node fallback")
+                    logger.exception(
+                        "Batch spatial lookup failed; will try per-segment node fallback"
+                    )
                     nearest_edges = None
                     dists = None
 
                 if nearest_edges is None or dists is None:
                     # Per-segment nearest-node fallback when batch nearest_edges fails
-                    logger.info("Attempting per-segment nearest-node matching for %d segments", len(fallback_seg_indices))
+                    logger.info(
+                        "Attempting per-segment nearest-node matching for %d segments",
+                        len(fallback_seg_indices),
+                    )
                     for seg_idx in fallback_seg_indices:
                         data = seg_data_list[seg_idx]
                         if not data:
@@ -858,7 +881,10 @@ async def _generate_optimal_route_with_progress_impl(
                             unmatched_after_spatial.append(seg_idx)
                             continue
                         mid_idx = len(proj_coords) // 2
-                        mx, my = float(proj_coords[mid_idx][0]), float(proj_coords[mid_idx][1])
+                        mx, my = (
+                            float(proj_coords[mid_idx][0]),
+                            float(proj_coords[mid_idx][1]),
+                        )
                         try:
                             nn = ox.distance.nearest_nodes(matching_graph, mx, my)
                             # Get all edges connected to this node
@@ -866,9 +892,12 @@ async def _generate_optimal_route_with_progress_impl(
                             best_dist_found = float("inf")
                             seg_line = None
                             with contextlib.suppress(Exception):
-                                from shapely.geometry import LineString as _LS
-                                seg_line = _LS(proj_coords)
-                            for u2, v2, k2, edata in matching_graph.edges(nn, keys=True, data=True):
+                                from shapely.geometry import LineString
+
+                                seg_line = LineString(proj_coords)
+                            for u2, v2, k2, edata in matching_graph.edges(
+                                nn, keys=True, data=True
+                            ):
                                 edge_geom = edata.get("geometry")
                                 if seg_line and edge_geom:
                                     d = seg_line.distance(edge_geom)
@@ -881,7 +910,10 @@ async def _generate_optimal_route_with_progress_impl(
                                 if d_ft < best_dist_found:
                                     best_dist_found = d_ft
                                     best_edge_found = (int(u2), int(v2), int(k2))
-                            if best_edge_found and best_dist_found <= MAX_SPATIAL_MATCH_DISTANCE_FT:
+                            if (
+                                best_edge_found
+                                and best_dist_found <= MAX_SPATIAL_MATCH_DISTANCE_FT
+                            ):
                                 rid, options = make_req_id(G, best_edge_found)
                                 if rid not in required_reqs:
                                     required_reqs[rid] = options
@@ -936,7 +968,10 @@ async def _generate_optimal_route_with_progress_impl(
                             if total_segments <= 50:
                                 logger.info(
                                     "Spatial fallback reject seg[%d]: best_edge=%s, best_dist_ft=%.1f, threshold=%.1f",
-                                    seg_idx, best_edge, best_dist_ft, MAX_SPATIAL_MATCH_DISTANCE_FT,
+                                    seg_idx,
+                                    best_edge,
+                                    best_dist_ft,
+                                    MAX_SPATIAL_MATCH_DISTANCE_FT,
                                 )
 
                         if (
@@ -959,7 +994,9 @@ async def _generate_optimal_route_with_progress_impl(
                                     "default_matched": fallback_matched,
                                     "fallback_total": fallback_total,
                                     "fallback_matched": fallback_matched,
-                                    "unmatched_segments": max(0, fallback_total - fallback_matched),
+                                    "unmatched_segments": max(
+                                        0, fallback_total - fallback_matched
+                                    ),
                                     "skipped_segments": (
                                         skipped_invalid_geometry
                                         + skipped_match_errors
@@ -1140,7 +1177,9 @@ async def _generate_optimal_route_with_progress_impl(
                                 "default_matched": fallback_matched,
                                 "fallback_total": fallback_total,
                                 "fallback_matched": fallback_matched,
-                                "unmatched_segments": max(0, fallback_total - fallback_matched),
+                                "unmatched_segments": max(
+                                    0, fallback_total - fallback_matched
+                                ),
                                 "valhalla_trace_attempted": valhalla_trace_attempted,
                                 "valhalla_trace_matched": valhalla_trace_matched,
                                 "skipped_segments": (
@@ -1271,7 +1310,9 @@ async def _generate_optimal_route_with_progress_impl(
                         len(bulk_ops),
                     )
             except Exception:
-                logger.warning("Failed to cache graph_edge mappings (non-fatal)", exc_info=True)
+                logger.warning(
+                    "Failed to cache graph_edge mappings (non-fatal)", exc_info=True
+                )
 
         # Determine start node
         start_node_id: int | None = None
@@ -1308,9 +1349,11 @@ async def _generate_optimal_route_with_progress_impl(
                     node_xy or {},
                 )
                 start_xy = None
-                if start_node_id and node_xy and start_node_id in {
-                    n for n in G.nodes if "x" in G.nodes[n]
-                }:
+                if (
+                    start_node_id
+                    and node_xy
+                    and start_node_id in {n for n in G.nodes if "x" in G.nodes[n]}
+                ):
                     start_xy = (
                         float(G.nodes[start_node_id]["x"]),
                         float(G.nodes[start_node_id]["y"]),
@@ -1327,8 +1370,10 @@ async def _generate_optimal_route_with_progress_impl(
                     start_node_id,
                     node_xy=node_xy,
                 )
-            except Exception as e:
-                logger.exception("Zone-based solver failed; falling back to single solve")
+            except Exception:
+                logger.exception(
+                    "Zone-based solver failed; falling back to single solve"
+                )
                 use_zones = False
 
         if not use_zones:
@@ -1373,9 +1418,15 @@ async def _generate_optimal_route_with_progress_impl(
                     node_xy=node_xy,
                     time_budget_s=LOCAL_SEARCH_TIME_BUDGET_S,
                 )
-                if improved_coords and improved_stats["total_distance"] < stats["total_distance"]:
+                if (
+                    improved_coords
+                    and improved_stats["total_distance"] < stats["total_distance"]
+                ):
                     improvement_pct = (
-                        (stats["deadhead_distance"] - improved_stats["deadhead_distance"])
+                        (
+                            stats["deadhead_distance"]
+                            - improved_stats["deadhead_distance"]
+                        )
                         / max(stats["deadhead_distance"], 1.0)
                         * 100
                     )
@@ -1391,7 +1442,9 @@ async def _generate_optimal_route_with_progress_impl(
                 else:
                     logger.info("2-opt did not improve the route; keeping original")
             except Exception:
-                logger.warning("2-opt optimization failed (keeping original route)", exc_info=True)
+                logger.warning(
+                    "2-opt optimization failed (keeping original route)", exc_info=True
+                )
 
         # Fill gaps in the route with Valhalla driving directions
         await update_progress(
