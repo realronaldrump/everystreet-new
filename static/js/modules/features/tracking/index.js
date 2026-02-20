@@ -141,6 +141,11 @@ class LiveTripTracker {
       this._ensureMarkerLayers();
       this._ensurePulseLayer();
       this._ensureArrowLayer();
+
+      if (this.activeTrip) {
+        this.lastTripSignature = null;
+        this.updateTrip(this.activeTrip, { allowDuringStyleChange: true });
+      }
     } catch (error) {
       console.error("Error initializing map layers:", error);
     }
@@ -724,6 +729,7 @@ class LiveTripTracker {
         this.initializeMapLayers();
 
         if (this.activeTrip) {
+          this.lastTripSignature = null;
           this.updateTrip(this.activeTrip, { allowDuringStyleChange: true });
         } else {
           this.clearTrip();
