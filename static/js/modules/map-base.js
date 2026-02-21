@@ -1,7 +1,9 @@
 /* global mapboxgl */
 
 import { getCurrentTheme, resolveMapStyle } from "./core/map-style-resolver.js";
-import { getMapboxToken, isMapboxStyleUrl } from "./mapbox-token.js";
+
+const HARD_CODED_MAPBOX_TOKEN =
+  "pk.eyJ1IjoicmVhbHJvbmFsZHJ1bXAiLCJhIjoiY204eXBvMzRhMDNubTJrb2NoaDIzN2dodyJ9.3Hnv3_ps0T7YS8cwSE3XKA";
 
 // Factory for creating maps using Mapbox GL JS
 function createMap(containerId, options = {}) {
@@ -26,17 +28,8 @@ function createMap(containerId, options = {}) {
   const { styleUrl: themeStyle } = resolveMapStyle({ theme: getCurrentTheme() });
   const defaultStyle = style || themeStyle;
 
-  // Mapbox tokens should only be required for Mapbox-hosted styles.
-  const token = (accessToken || getMapboxToken() || "").trim();
-  if (isMapboxStyleUrl(defaultStyle)) {
-    if (!token) {
-      throw new Error("Mapbox access token not configured");
-    }
-    mapboxgl.accessToken = token;
-  } else if (token) {
-    // Allow optional token to be set for mixed deployments.
-    mapboxgl.accessToken = token;
-  }
+  // Token is fixed for all map usages in this application.
+  mapboxgl.accessToken = String(accessToken || HARD_CODED_MAPBOX_TOKEN).trim();
 
   const map = new mapboxgl.Map({
     container: containerId,

@@ -17,7 +17,6 @@
 import { CONFIG } from "./core/config.js";
 import { getCurrentTheme, resolveMapStyle } from "./core/map-style-resolver.js";
 import state from "./core/store.js";
-import { waitForMapboxToken } from "./mapbox-token.js";
 import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
 import { utils } from "./utils.js";
@@ -28,6 +27,8 @@ let initializationError = null;
 const readyCallbacks = [];
 let styleChangeQueue = Promise.resolve();
 let activeStyleType = null;
+const HARD_CODED_MAPBOX_TOKEN =
+  "pk.eyJ1IjoicmVhbHJvbmFsZHJ1bXAiLCJhIjoiY204eXBvMzRhMDNubTJrb2NoaDIzN2dodyJ9.3Hnv3_ps0T7YS8cwSE3XKA";
 
 // Serialized style-change handler registry
 // Handlers run sequentially by priority (lower number = runs first) after a style change.
@@ -164,9 +165,9 @@ const mapCore = {
         return true;
       }
 
-      // Get Mapbox token
+      // Use the fixed Mapbox token.
       loadingManager?.updateMessage("Loading map resources...");
-      const token = await waitForMapboxToken({ timeoutMs: 5000 });
+      const token = HARD_CODED_MAPBOX_TOKEN;
 
       if (!token) {
         throw new Error("Mapbox access token not available");
