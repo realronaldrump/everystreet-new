@@ -24,7 +24,6 @@ from db.logging_handler import MongoDBHandler
 from driving import router as driving_api_router
 from exports import router as export_api_router
 from gas import router as gas_api_router
-from google_photos import router as google_photos_router
 from logs import router as logs_api_router
 from map_data.api import router as map_data_router
 from processing import router as processing_api_router
@@ -192,7 +191,6 @@ app.include_router(processing_api_router)
 app.include_router(profile_api_router)
 app.include_router(search_api_router)
 app.include_router(setup_api_router)
-app.include_router(google_photos_router)
 app.include_router(status_router)
 app.include_router(tasks_api_router)
 app.include_router(trips_router)

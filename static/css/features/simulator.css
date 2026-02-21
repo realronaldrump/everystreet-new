@@ -1,0 +1,443 @@
+/* ============================
+   Bouncie Simulator Panel
+   ============================ */
+
+/* --- Toggle Button (bottom-right of map) --- */
+.sim-toggle-btn {
+  position: absolute;
+  bottom: var(--space-4);
+  right: var(--space-4);
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full);
+  background: var(--glass-panel);
+  backdrop-filter: blur(var(--blur-strong));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-glass-sm);
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: var(--z-dropdown);
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+  font-size: var(--font-size-sm);
+  padding: 0;
+}
+
+.sim-toggle-btn:hover {
+  color: var(--text-primary);
+  box-shadow: var(--shadow-glass-md);
+}
+
+.sim-toggle-btn.active {
+  color: var(--primary);
+  border-color: rgb(59 138 127 / 40%);
+}
+
+/* --- Panel Container --- */
+.sim-panel {
+  position: absolute;
+  bottom: var(--space-4);
+  right: var(--space-4);
+  width: 300px;
+  max-height: calc(100vh - var(--header-height) - var(--space-8));
+  z-index: var(--z-dropdown);
+  border-radius: var(--radius-lg);
+  background: var(--glass-panel);
+  backdrop-filter: blur(var(--blur-strong));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-glass-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  contain: layout style paint;
+  animation: simPanelIn 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.sim-panel.hidden {
+  display: none;
+}
+
+@keyframes simPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* --- Header --- */
+.sim-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--glass-border-subtle);
+  flex-shrink: 0;
+}
+
+.sim-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sim-header-icon {
+  color: var(--primary);
+  font-size: var(--font-size-sm);
+}
+
+.sim-header-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.sim-header-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.sim-btn-icon {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  transition: all 150ms ease;
+  padding: 0;
+}
+
+.sim-btn-icon:hover {
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+
+/* --- Body --- */
+.sim-body {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--glass-border) transparent;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* --- Progress Bar --- */
+.sim-progress-bar {
+  height: 2px;
+  background: var(--glass-border-subtle);
+  border-radius: 1px;
+  overflow: hidden;
+  margin: calc(var(--space-1) * -1) 0 0;
+}
+
+.sim-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--primary);
+  border-radius: 1px;
+  transition: width 300ms ease;
+}
+
+/* --- Sections --- */
+.sim-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sim-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* --- Select --- */
+.sim-select {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-1);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 150ms ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+}
+
+.sim-select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.sim-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sim-route-info {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  min-height: 1em;
+}
+
+/* --- Speed Buttons --- */
+.sim-speed-btns {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.sim-speed-btn {
+  flex: 1;
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  font-family: var(--font-family-mono);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.sim-speed-btn:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.sim-speed-btn.active {
+  background: rgb(59 138 127 / 18%);
+  border-color: rgb(59 138 127 / 40%);
+  color: var(--primary);
+}
+
+/* --- Action Buttons --- */
+.sim-actions {
+  flex-direction: row;
+  gap: var(--space-2);
+}
+
+.sim-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: all 150ms ease;
+  font-family: inherit;
+}
+
+.sim-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sim-btn-start {
+  background: rgb(77 154 106 / 14%);
+  border-color: rgb(77 154 106 / 30%);
+  color: var(--success);
+}
+
+.sim-btn-start:hover:not(:disabled) {
+  background: rgb(77 154 106 / 24%);
+}
+
+.sim-btn-stop {
+  background: rgb(196 84 84 / 14%);
+  border-color: rgb(196 84 84 / 30%);
+  color: var(--danger);
+}
+
+.sim-btn-stop:hover:not(:disabled) {
+  background: rgb(196 84 84 / 24%);
+}
+
+/* --- Status --- */
+.sim-status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-1);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border-subtle);
+}
+
+.sim-status-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sim-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sim-status-dot.idle {
+  background: var(--text-tertiary);
+}
+
+.sim-status-dot.picking {
+  background: var(--warning);
+  animation: pulse-subtle 1.5s infinite;
+}
+
+.sim-status-dot.sending {
+  background: var(--info);
+  animation: pulse-subtle 0.8s infinite;
+}
+
+.sim-status-dot.active {
+  background: var(--success);
+  animation: pulse-subtle 1.5s infinite;
+}
+
+.sim-status-dot.error {
+  background: var(--danger);
+}
+
+@keyframes pulse-subtle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.sim-status-text {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.sim-status-metrics {
+  display: flex;
+  gap: var(--space-3);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+/* --- Event Log --- */
+.sim-log-section {
+  min-height: 0;
+}
+
+.sim-log {
+  max-height: 100px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--glass-border) transparent;
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+  border: 1px solid var(--glass-border-subtle);
+}
+
+.sim-log-entry {
+  display: flex;
+  gap: var(--space-2);
+  padding: 2px var(--space-2);
+  border-bottom: 1px solid rgb(255 255 255 / 3%);
+  font-family: var(--font-family-mono);
+  font-size: 0.68rem;
+  line-height: 1.6;
+}
+
+.sim-log-entry:last-child {
+  border-bottom: none;
+}
+
+.sim-log-time {
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.sim-log-event {
+  color: var(--primary);
+  font-weight: var(--font-weight-medium);
+  min-width: 70px;
+}
+
+.sim-log-status.ok {
+  color: var(--success);
+}
+
+.sim-log-status.err {
+  color: var(--danger);
+}
+
+.sim-log-detail {
+  color: var(--text-tertiary);
+}
+
+/* --- Route Picker Markers --- */
+.sim-route-marker {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
+  font-family: var(--font-family-mono);
+}
+
+/* --- Mobile --- */
+@media (width <= 768px) {
+  .sim-toggle-btn {
+    bottom: var(--space-3);
+    right: var(--space-3);
+    width: 36px;
+    height: 36px;
+  }
+
+  .sim-panel {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    width: auto;
+    max-height: 55vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    z-index: var(--z-drawer);
+  }
+}
