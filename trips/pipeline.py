@@ -14,6 +14,7 @@ from core.coverage import update_coverage_for_trip
 from core.date_utils import get_current_utc_time, parse_timestamp
 from core.spatial import GeometryService, derive_geo_points, is_valid_geojson_geometry
 from db.models import Trip
+from core.trip_source_policy import BOUNCIE_SOURCE
 from trips.services.geocoding import TripGeocoder
 from trips.services.matching import TripMapMatcher
 
@@ -769,8 +770,12 @@ class TripPipeline:
         if "processing_history" in incoming and incoming.get("processing_history"):
             trip.processing_history = incoming["processing_history"]
 
-        if not existing.get("source") and incoming.get("source"):
-            trip.source = incoming.get("source")
+        incoming_source = incoming.get("source")
+        existing_source = existing.get("source")
+        if incoming_source and (
+            not existing_source or incoming_source == BOUNCIE_SOURCE
+        ):
+            trip.source = incoming_source
 
         if not existing.get("coverage_emitted_at") and incoming.get(
             "coverage_emitted_at",

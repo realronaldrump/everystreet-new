@@ -23,6 +23,7 @@ from core.spatial import (
 )
 from db.aggregation import aggregate_to_list
 from db.models import H3StreetLabelCache, Trip, TripMobilityProfile
+from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 
@@ -367,6 +368,7 @@ class MobilityInsightsService:
         limit: int = MAX_SYNC_TRIPS_PER_REQUEST,
     ) -> tuple[int, int]:
         """Sync a bounded batch of unsynced trips matching the date/vehicle query."""
+        query = enforce_bouncie_source(query)
         base_query = _combine_query(
             query,
             {"invalid": {"$ne": True}},
@@ -462,6 +464,7 @@ class MobilityInsightsService:
         street_names_by_cell: dict[str, str | None] | None = None,
         source_geometry: str | None = None,
     ) -> list[dict[str, Any]]:
+        query = enforce_bouncie_source(query)
         ranked_cells = hex_cells[:MAX_HEX_STREET_LOOKUPS]
         if not ranked_cells:
             return []
@@ -637,6 +640,7 @@ class MobilityInsightsService:
         dict[str, list[list[list[float]]]],
         list[str],
     ]:
+        query = enforce_bouncie_source(query)
         warnings: list[str] = []
         target_street_keys = {
             key for key, cells in street_cell_ids_by_key.items() if key and cells
@@ -843,6 +847,7 @@ class MobilityInsightsService:
         This syncs a bounded number of unsynced trips automatically so
         Insights reflects recent imports without manual backfill.
         """
+        query = enforce_bouncie_source(query)
         sync_query = _combine_query(query, {"matchedGps": {"$ne": None}})
         synced_count, pending_unsynced = await cls.sync_unsynced_trips_for_query(sync_query)
         trip_query = _combine_query(

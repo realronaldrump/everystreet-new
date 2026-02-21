@@ -6,6 +6,7 @@ from typing import Any
 from db.aggregation import aggregate_to_list
 from db.aggregation_utils import build_driver_behavior_fields_stage, get_mongo_tz_expr
 from db.models import Trip
+from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 # trips_collection removed, use Trip model directly
@@ -25,6 +26,7 @@ class TripAnalyticsService:
         Returns:
             Dictionary containing daily distances, time distribution, and weekday distribution
         """
+        query = enforce_bouncie_source(query)
         tz_expr = get_mongo_tz_expr()
 
         pipeline = [
@@ -143,6 +145,7 @@ class TripAnalyticsService:
         Returns:
             Dictionary containing totals, weekly, and monthly driving behavior statistics
         """
+        query = enforce_bouncie_source(query)
         tz_expr = get_mongo_tz_expr()
 
         pipeline = [
@@ -326,7 +329,7 @@ class TripAnalyticsService:
             List of recent trip documents
         """
         pipeline = [
-            {"$match": {"invalid": {"$ne": True}}},
+            {"$match": enforce_bouncie_source({"invalid": {"$ne": True}})},
             {"$sort": {"endTime": -1}},
             {"$limit": limit},
             {

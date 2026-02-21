@@ -17,6 +17,7 @@ from typing import Any
 from map_data.models import MapServiceConfig
 from map_data.progress import MapBuildProgress
 from map_data.us_states import get_state, list_states
+from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +126,7 @@ async def detect_trip_states() -> dict[str, Any]:
 
     collection = Trip.get_pymongo_collection()
     cursor = collection.find(
-        {"gps": {"$exists": True, "$ne": None}},
+        enforce_bouncie_source({"gps": {"$exists": True, "$ne": None}}),
         {"gps": 1, "destinationGeoPoint": 1, "_id": 0},
     )
     async for trip_doc in cursor:

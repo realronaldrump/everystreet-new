@@ -72,6 +72,17 @@ const themeManager = {
       return;
     }
 
+    // Respect an explicit map-style choice from the map controls.
+    const storedMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType);
+    const hasExplicitMapStylePreference =
+      typeof storedMapType === "string" &&
+      Object.prototype.hasOwnProperty.call(CONFIG.MAP.styles, storedMapType);
+
+    if (hasExplicitMapStylePreference) {
+      document.dispatchEvent(new CustomEvent("mapThemeChanged", { detail: { theme } }));
+      return;
+    }
+
     const { styleType } = resolveMapStyle({ requestedType: theme, theme });
     void mapCore
       .setStyle(styleType, { persistPreference: false })

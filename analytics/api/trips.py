@@ -12,6 +12,7 @@ from analytics.services import (
 )
 from core.api import api_route
 from db import build_query_from_request
+from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -22,6 +23,7 @@ router = APIRouter()
 async def get_trip_analytics(request: Request):
     """Get analytics on trips over time."""
     query = await build_query_from_request(request)
+    query = enforce_bouncie_source(query)
 
     if "$expr" not in query and (
         request.query_params.get("start_date") is None
@@ -40,6 +42,7 @@ async def get_trip_analytics(request: Request):
 async def get_time_period_trips(request: Request):
     """Get trips for a specific time period (hour or day of week)."""
     query = await build_query_from_request(request)
+    query = enforce_bouncie_source(query)
 
     time_type = request.query_params.get("time_type")
     time_value = request.query_params.get("time_value")
@@ -76,6 +79,7 @@ async def get_time_period_trips(request: Request):
 async def get_drilldown_trips(request: Request):
     """Get a small list of trips for drill-down insights modals."""
     query = await build_query_from_request(request)
+    query = enforce_bouncie_source(query)
 
     kind = request.query_params.get("kind", "trips")
     limit_raw = request.query_params.get("limit", "100")
@@ -107,6 +111,7 @@ async def driver_behavior_analytics(request: Request):
     If no filters are provided, all trips are considered.
     """
     query = await build_query_from_request(request)
+    query = enforce_bouncie_source(query)
     return await TripAnalyticsService.get_driver_behavior_analytics(query)
 
 

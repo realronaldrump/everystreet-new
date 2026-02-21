@@ -14,6 +14,7 @@ class TripStatusProjection(BaseModel):
     transactionId: str | None = None
     status: str | None = None
     processing_state: str | None = None
+    source: str | None = None
     matchedGps: Any | None = None
     startLocation: Any | None = None
     destination: Any | None = None

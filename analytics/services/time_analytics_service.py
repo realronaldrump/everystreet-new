@@ -6,6 +6,7 @@ from typing import Any
 from db.aggregation import aggregate_to_list
 from db.aggregation_utils import build_trip_duration_fields_stage, get_mongo_tz_expr
 from db.models import Trip
+from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class TimeAnalyticsService:
         Raises:
             ValueError: If time_type is invalid
         """
+        query = enforce_bouncie_source(query)
         tz_expr = get_mongo_tz_expr()
 
         # Add time-specific filter to query

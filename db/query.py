@@ -11,6 +11,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from core.date_utils import normalize_calendar_date, normalize_to_utc_datetime
+from core.trip_source_policy import enforce_bouncie_source
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -240,4 +241,4 @@ async def build_query_from_request(
     if additional_filters:
         query.update(additional_filters)
 
-    return query
+    return enforce_bouncie_source(query)

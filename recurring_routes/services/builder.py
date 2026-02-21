@@ -30,6 +30,7 @@ from recurring_routes.services.fingerprint import (
     extract_polyline,
 )
 from trips.services.trip_cost_service import TripCostService
+from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 
@@ -234,7 +235,7 @@ class RecurringRoutesBuilder:
 
         try:
             # Compute total upfront for progress; avoids a second scan later.
-            query = {"invalid": {"$ne": True}}
+            query = enforce_bouncie_source({"invalid": {"$ne": True}})
             total_trips = await Trip.find(query).count()
 
             await handle.update(
@@ -645,7 +646,7 @@ class RecurringRoutesBuilder:
             trips_coll = Trip.get_pymongo_collection()
             await trips_coll.update_many(
                 # Keep the sparse index effective: sparse skips missing fields, not explicit nulls.
-                {"recurringRouteId": {"$exists": True}},
+                enforce_bouncie_source({"recurringRouteId": {"$exists": True}}),
                 {"$unset": {"recurringRouteId": ""}},
             )
 
@@ -676,7 +677,7 @@ class RecurringRoutesBuilder:
                 for start in range(0, len(trip_ids), chunk_size):
                     chunk = trip_ids[start : start + chunk_size]
                     result = await trips_coll.update_many(
-                        {"transactionId": {"$in": chunk}},
+                        enforce_bouncie_source({"transactionId": {"$in": chunk}}),
                         {"$set": {"recurringRouteId": route_id}},
                     )
                     assigned += int(getattr(result, "modified_count", 0) or 0)

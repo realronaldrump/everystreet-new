@@ -18,6 +18,7 @@ from config import get_bouncie_config
 from core.date_utils import parse_timestamp
 from db.models import Trip
 from tasks.ops import run_task_with_history
+from core.trip_source_policy import enforce_bouncie_source
 from trips.services.bouncie_fetcher import (
     fetch_bouncie_trip_by_transaction_id,
     fetch_bouncie_trips_in_range,
@@ -81,8 +82,10 @@ async def _periodic_fetch_trips_logic(
 
     # Default periodic fetch window.
     if not start_date_fetch:
-        logger.info("Looking for the most recent trip in the database (any source)")
-        latest_trip = await Trip.find().sort("-endTime").first_or_none()
+        logger.info("Looking for the most recent Bouncie trip in the database")
+        latest_trip = (
+            await Trip.find(enforce_bouncie_source({})).sort("-endTime").first_or_none()
+        )
         bootstrap_start = now_utc - timedelta(hours=48)
 
         if latest_trip and latest_trip.endTime:
@@ -366,8 +369,11 @@ async def manual_fetch_trips_range(
 async def get_earliest_trip_date() -> datetime | None:
     """Find the start time of the earliest trip in the database."""
     try:
-        # Use Beanie
-        earliest_trip = await Trip.find().sort("startTime").first_or_none()
+        earliest_trip = (
+            await Trip.find(enforce_bouncie_source({}))
+            .sort("startTime")
+            .first_or_none()
+        )
         if earliest_trip and earliest_trip.startTime:
             return earliest_trip.startTime
     except Exception:

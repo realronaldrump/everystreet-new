@@ -20,6 +20,9 @@ import eventManager from "./event-manager.js";
 const mapControlsManager = {
   _initialized: false,
   _styleChangeId: 0,
+  _styleSyncBound: false,
+  _mapTypeSelect: null,
+  _onMapStyleChanged: null,
 
   /**
    * Initialize map controls
@@ -35,11 +38,18 @@ const mapControlsManager = {
       return;
     }
 
+    this._mapTypeSelect = mapTypeSelect;
     this._initialized = true;
+    this._bindStyleSyncListener();
 
     // Set initial value from stored preference or theme
     const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-    const defaultMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType) || theme;
+    const storedMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType);
+    const defaultMapType =
+      typeof storedMapType === "string" &&
+      Object.prototype.hasOwnProperty.call(CONFIG.MAP.styles, storedMapType)
+        ? storedMapType
+        : theme;
     mapTypeSelect.value = defaultMapType;
 
     // Set up change handler
@@ -60,7 +70,7 @@ const mapControlsManager = {
   _applyInitialStyle(mapType) {
     // Only apply if different from current
     const map = store.map || window.map;
-    if (!map) {
+    if (!map || typeof mapType !== "string") {
       return;
     }
 
@@ -71,6 +81,30 @@ const mapControlsManager = {
     if (!currentStyle.includes(requestedStyle)) {
       this.updateMapType(mapType);
     }
+  },
+
+  /**
+   * Keep the selector synchronized with externally-triggered style changes.
+   * @private
+   */
+  _bindStyleSyncListener() {
+    if (this._styleSyncBound) {
+      return;
+    }
+
+    this._onMapStyleChanged = (event) => {
+      const styleType = event?.detail?.styleType;
+      if (typeof styleType !== "string" || !this._mapTypeSelect) {
+        return;
+      }
+
+      if (this._mapTypeSelect.value !== styleType) {
+        this._mapTypeSelect.value = styleType;
+      }
+    };
+
+    this._styleSyncBound = true;
+    document.addEventListener("mapStyleChanged", this._onMapStyleChanged);
   },
 
   /**
@@ -93,7 +127,14 @@ const mapControlsManager = {
    * @param {string} type - Style type (dark, light, satellite, streets)
    */
   updateMapType(type = "dark") {
+    const normalizedType =
+      typeof type === "string" ? type.trim().toLowerCase() : "dark";
     const map = store.map || window.map;
+
+    if (!Object.prototype.hasOwnProperty.call(CONFIG.MAP.styles, normalizedType)) {
+      console.warn("Unsupported map style type:", normalizedType);
+      return;
+    }
 
     if (!map || !store.mapInitialized) {
       console.warn("Map not ready for style change");
@@ -106,7 +147,7 @@ const mapControlsManager = {
     }
 
     // Save preference
-    utils.setStorage(CONFIG.STORAGE_KEYS.mapType, type);
+    utils.setStorage(CONFIG.STORAGE_KEYS.mapType, normalizedType);
 
     // Track style change to prevent stale callbacks
     this._styleChangeId += 1;
@@ -114,13 +155,13 @@ const mapControlsManager = {
 
     try {
       void mapCore
-        .setStyle(type)
+        .setStyle(normalizedType)
         .then(() => {
           // Ignore if a newer style change was initiated
           if (this._styleChangeId !== styleChangeId) {
             return;
           }
-          eventManager.emit("mapTypeChanged", { type });
+          eventManager.emit("mapTypeChanged", { type: normalizedType });
         })
         .catch((error) => {
           console.error("Error updating map type:", error);
@@ -134,8 +175,14 @@ const mapControlsManager = {
    * Reset initialization state (for testing)
    */
   reset() {
+    if (this._onMapStyleChanged) {
+      document.removeEventListener("mapStyleChanged", this._onMapStyleChanged);
+    }
     this._initialized = false;
     this._styleChangeId = 0;
+    this._styleSyncBound = false;
+    this._mapTypeSelect = null;
+    this._onMapStyleChanged = null;
   },
 };
 

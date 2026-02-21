@@ -171,9 +171,14 @@ async def active_trip_endpoint():
         if not active_trip_doc:
             return NoActiveTripResponse(server_time=datetime.now(UTC))
 
-        # Use Beanie model directly
+        active_trip_payload = (
+            active_trip_doc.model_dump()
+            if hasattr(active_trip_doc, "model_dump")
+            else dict(active_trip_doc)
+        )
+
         return ActiveTripSuccessResponse(
-            trip=active_trip_doc,
+            trip=active_trip_payload,
             server_time=datetime.now(UTC),
         )
 

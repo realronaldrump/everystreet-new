@@ -33,6 +33,7 @@ from street_coverage.constants import (
     SHORT_SEGMENT_OVERLAP_RATIO,
 )
 from street_coverage.stats import apply_area_stats_delta
+from core.trip_source_policy import enforce_bouncie_source
 
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
@@ -914,6 +915,7 @@ async def backfill_coverage_for_area(
     }
     if since:
         query["endTime"] = {"$gte": since}
+    query = enforce_bouncie_source(query)
 
     total_trip_count = await Trip.find(query).count()
 

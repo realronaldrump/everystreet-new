@@ -21,6 +21,7 @@ from shapely.geometry import LineString, Point, mapping
 from shapely.ops import transform, unary_union
 
 from config import get_osm_extracts_path
+from core.trip_source_policy import enforce_bouncie_source
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -122,7 +123,7 @@ async def build_trip_coverage_polygon(
 
     collection = Trip.get_pymongo_collection()
     cursor = collection.find(
-        {"gps": {"$exists": True, "$ne": None}},
+        enforce_bouncie_source({"gps": {"$exists": True, "$ne": None}}),
         {"gps": 1, "_id": 0},
     )
 
@@ -286,7 +287,7 @@ async def build_trip_coverage_extract(
 
     collection = Trip.get_pymongo_collection()
     has_trip = await collection.find_one(
-        {"gps": {"$exists": True, "$ne": None}},
+        enforce_bouncie_source({"gps": {"$exists": True, "$ne": None}}),
         {"_id": 1},
     )
     if not has_trip:

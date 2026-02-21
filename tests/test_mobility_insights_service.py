@@ -69,6 +69,7 @@ async def _seed_trip_with_profile(
     trip = Trip(
         transactionId=transaction_id,
         imei=imei,
+        source="bouncie",
         startTime=now - timedelta(minutes=30),
         endTime=now - timedelta(minutes=10),
         gps=geometry,
@@ -101,6 +102,7 @@ async def test_sync_trip_creates_profile_and_marks_trip_synced(mobility_db) -> N
     trip = Trip(
         transactionId="trip-sync-1",
         imei="imei-a",
+        source="bouncie",
         startTime=now - timedelta(minutes=20),
         endTime=now - timedelta(minutes=5),
         gps={
@@ -138,11 +140,21 @@ async def test_sync_trip_creates_profile_and_marks_trip_synced(mobility_db) -> N
 
 
 @pytest.mark.asyncio
-async def test_get_mobility_insights_aggregates_segments_and_streets(mobility_db) -> None:
+async def test_get_mobility_insights_aggregates_segments_and_streets(
+    mobility_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        MobilityInsightsService,
+        "_street_name_for_cell",
+        AsyncMock(return_value="Market Street"),
+    )
+
     now = datetime.now(UTC)
     trip = Trip(
         transactionId="trip-sync-2",
         imei="imei-b",
+        source="bouncie",
         startTime=now - timedelta(hours=1),
         endTime=now - timedelta(minutes=30),
         gps={
@@ -342,6 +354,7 @@ async def test_top_segments_include_trip_count_and_traversal_contract(
         trip = Trip(
             transactionId=f"trip-segment-{idx + 1}",
             imei=f"imei-seg-{idx + 1}",
+            source="bouncie",
             startTime=now - timedelta(hours=idx + 1),
             endTime=now - timedelta(hours=idx + 1) + timedelta(minutes=20),
             gps={

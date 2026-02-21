@@ -11,8 +11,6 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from db.models import Trip
-
 
 class LocationModel(BaseModel):
     """Model for location data."""
@@ -103,12 +101,43 @@ class CoordinatePointModel(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
+class LiveTripPayload(BaseModel):
+    """Ephemeral live trip payload returned by tracking endpoints."""
+
+    transactionId: str
+    status: str = "active"
+    vin: str | None = None
+    imei: str | None = None
+    startTime: datetime | None = None
+    startTimeZone: str | None = None
+    startOdometer: float | None = None
+    endTime: datetime | None = None
+    endTimeZone: str | None = None
+    endOdometer: float | None = None
+    fuelConsumed: float | None = None
+    gps: dict[str, Any] | None = None
+    coordinates: list[dict[str, Any]] | None = None
+    lastUpdate: datetime | None = None
+    distance: float | None = None
+    currentSpeed: float | None = None
+    maxSpeed: float | None = None
+    avgSpeed: float | None = None
+    duration: float | None = None
+    pointsRecorded: int | None = None
+    totalIdleDuration: float | None = None
+    hardBrakingCounts: int | None = None
+    hardAccelerationCounts: int | None = None
+    source: str | None = None
+
+    model_config = ConfigDict(extra="allow")
+
+
 class ActiveTripSuccessResponse(BaseModel):
     """Response model for when an active trip is successfully found."""
 
     status: str = "success"
     has_active_trip: bool = True
-    trip: Trip  # Use Beanie Trip model directly
+    trip: LiveTripPayload
     server_time: datetime
 
 

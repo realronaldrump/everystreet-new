@@ -85,6 +85,7 @@ async def test_build_query_from_request() -> None:
     assert "$expr" in query
     assert query["imei"] == "abc"
     assert query["status"] == "ok"
+    assert query["source"] == "bouncie"
 
 
 @pytest.mark.asyncio
@@ -94,3 +95,4 @@ async def test_build_query_from_request_skips_imei() -> None:
 
     query = await build_query_from_request(request, include_imei=False)
     assert "imei" not in query
+    assert query["source"] == "bouncie"

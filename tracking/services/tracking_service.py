@@ -1,9 +1,9 @@
 """
 Live trip tracking for Bouncie webhook events.
 
-Simplified single-user implementation for real-time trip visualization.
-Trips are stored in the trips collection for unified live and historical
-access.
+Live trips are ephemeral and stored in Redis only. They are used for
+real-time map display and are never persisted to the historical trips
+collection.
 """
 
 import logging
@@ -17,7 +17,15 @@ from core.bouncie_normalization import (
 )
 from core.date_utils import parse_timestamp
 from core.spatial import GeometryService
-from db.models import BouncieCredentials, Trip
+from db.models import BouncieCredentials
+from tracking.services.live_trip_store import (
+    clear_trip_snapshot,
+    get_active_trip_snapshot,
+    get_trip_snapshot,
+    is_trip_marked_closed,
+    live_trip_is_stale,
+    save_trip_snapshot,
+)
 from trips.events import publish_trip_state
 
 logger = logging.getLogger(__name__)
@@ -29,11 +37,11 @@ _last_saved_at: datetime | None = None
 
 
 async def _publish_trip_snapshot(
-    trip_doc: dict[str, Any] | Trip,
+    trip_doc: dict[str, Any],
     status: str = "active",
 ) -> None:
     """Publish trip update to WebSocket clients via Redis."""
-    trip_dict = trip_doc.model_dump() if isinstance(trip_doc, Trip) else dict(trip_doc)
+    trip_dict = dict(trip_doc)
 
     transaction_id = trip_dict.get("transactionId")
     if not transaction_id:
@@ -46,12 +54,12 @@ async def _publish_trip_snapshot(
         logger.exception("Failed to publish trip %s", transaction_id)
 
 
-def _parse_timestamp(timestamp_str: str | None) -> datetime | None:
-    """Parse ISO timestamp string to datetime."""
-    if not timestamp_str:
+def _parse_timestamp(timestamp_value: Any) -> datetime | None:
+    """Parse timestamp values to timezone-aware datetimes."""
+    if timestamp_value is None:
         return None
     try:
-        return parse_timestamp(timestamp_str)
+        return parse_timestamp(timestamp_value)
     except Exception:
         return None
 
@@ -59,8 +67,6 @@ def _parse_timestamp(timestamp_str: str | None) -> datetime | None:
 def _extract_coordinates_from_data(data_points: list[dict]) -> list[dict[str, Any]]:
     """
     Extract and normalize coordinates from Bouncie tripData payload.
-
-    Uses centralized coordinate validation to ensure consistency.
 
     Returns list of dicts with keys: timestamp, lat, lon, speed (optional)
     """
@@ -77,7 +83,6 @@ def _deduplicate_coordinates(
     Bouncie sends duplicate data across real-time and periodic streams.
     Use timestamp as unique key, preferring newer data.
     """
-    # Build dict keyed by ISO timestamp
     coords_map: dict[str, dict] = {}
 
     existing_coords = normalize_existing_coordinates(
@@ -92,7 +97,6 @@ def _deduplicate_coordinates(
             key = ts.isoformat()
             coords_map[key] = coord
 
-    # Sort by timestamp
     return sorted(coords_map.values(), key=lambda c: c["timestamp"])
 
 
@@ -115,7 +119,6 @@ def _calculate_trip_metrics(
     max_speed = 0.0
     current_speed = 0.0
 
-    # Calculate distance between consecutive points
     for i in range(1, len(coordinates)):
         prev = coordinates[i - 1]
         curr = coordinates[i]
@@ -129,17 +132,14 @@ def _calculate_trip_metrics(
         )
         distance_miles += segment_dist
 
-        # Calculate speed from distance/time
         time_diff = (curr["timestamp"] - prev["timestamp"]).total_seconds()
         if time_diff > 0:
-            segment_speed = (segment_dist / time_diff) * 3600  # mph
+            segment_speed = (segment_dist / time_diff) * 3600
             max_speed = max(max_speed, segment_speed)
 
-    # Current speed from last point or last segment
     if coordinates[-1].get("speed") is not None:
         current_speed = coordinates[-1]["speed"]
     elif len(coordinates) > 1:
-        # Calculate from last segment
         prev = coordinates[-2]
         curr = coordinates[-1]
         time_diff = (curr["timestamp"] - prev["timestamp"]).total_seconds()
@@ -153,7 +153,6 @@ def _calculate_trip_metrics(
             )
             current_speed = (last_dist / time_diff) * 3600
 
-    # Duration and average speed
     last_time = coordinates[-1]["timestamp"]
     duration = (last_time - start_time).total_seconds()
     avg_speed = (distance_miles / (duration / 3600)) if duration > 0 else 0.0
@@ -175,7 +174,7 @@ def _calculate_trip_metrics(
 
 
 async def process_trip_start(data: dict[str, Any]) -> None:
-    """Process tripStart event - initialize new trip using Beanie."""
+    """Process tripStart event - initialize or refresh ephemeral live trip state."""
     transaction_id = data.get("transactionId")
     start_data = data.get("start", {})
 
@@ -183,76 +182,59 @@ async def process_trip_start(data: dict[str, Any]) -> None:
         logger.error("Invalid tripStart payload: %s", data)
         return
 
+    if await is_trip_marked_closed(transaction_id):
+        logger.info("Trip %s already closed, ignoring tripStart", transaction_id)
+        return
+
     start_time = _parse_timestamp(start_data.get("timestamp"))
     if not start_time:
         start_time = datetime.now(UTC)
         logger.warning("Trip %s: Using current time as default", transaction_id)
 
-    # Check if trip already exists using Beanie
-    existing_trip = await Trip.find_one(Trip.transactionId == transaction_id)
-    if existing_trip and existing_trip.status in {"completed", "processed"}:
-        logger.info(
-            "Trip %s already completed, ignoring tripStart",
-            transaction_id,
-        )
+    trip = await get_trip_snapshot(transaction_id)
+    if trip and trip.get("status") in {"completed", "processed"}:
+        logger.info("Trip %s already finalized, ignoring tripStart", transaction_id)
         return
 
-    if existing_trip:
-        logger.info("Trip %s already exists, updating start data", transaction_id)
-        trip = existing_trip
-        trip.status = "active"
-        if not trip.startTime:
-            trip.startTime = start_time
-        trip.startTimeZone = start_data.get(
-            "timeZone",
-            getattr(trip, "startTimeZone", None) or "UTC",
-        )
+    if trip:
+        logger.info("Trip %s already active, updating start data", transaction_id)
+        trip["status"] = "active"
+        trip.setdefault("startTime", start_time)
+        trip["startTimeZone"] = start_data.get("timeZone", trip.get("startTimeZone") or "UTC")
         if start_data.get("odometer") is not None:
-            trip.startOdometer = start_data.get("odometer")
-        if not getattr(trip, "source", None):
-            trip.source = "webhook"
-        trip.lastUpdate = start_time
+            trip["startOdometer"] = start_data.get("odometer")
+        trip.setdefault("source", "webhook")
+        trip["lastUpdate"] = start_time
     else:
-        trip = Trip(
-            transactionId=transaction_id,
-            vin=data.get("vin"),
-            imei=data.get("imei"),
-            status="active",
-            startTime=start_time,
-            startTimeZone=start_data.get("timeZone", "UTC"),
-            startOdometer=start_data.get("odometer"),
-            coordinates=[],
-            distance=0.0,
-            currentSpeed=0.0,
-            maxSpeed=0.0,
-            avgSpeed=0.0,
-            duration=0.0,
-            pointsRecorded=0,
-            totalIdleDuration=0.0,
-            hardBrakingCounts=0,
-            hardAccelerationCounts=0,
-            lastUpdate=start_time,
-            source="webhook",
-        )
+        trip = {
+            "transactionId": transaction_id,
+            "vin": data.get("vin"),
+            "imei": data.get("imei"),
+            "status": "active",
+            "startTime": start_time,
+            "startTimeZone": start_data.get("timeZone", "UTC"),
+            "startOdometer": start_data.get("odometer"),
+            "coordinates": [],
+            "distance": 0.0,
+            "currentSpeed": 0.0,
+            "maxSpeed": 0.0,
+            "avgSpeed": 0.0,
+            "duration": 0.0,
+            "pointsRecorded": 0,
+            "totalIdleDuration": 0.0,
+            "hardBrakingCounts": 0,
+            "hardAccelerationCounts": 0,
+            "lastUpdate": start_time,
+            "source": "webhook",
+        }
 
-    try:
-        await trip.save()
-    except Exception as save_err:
-        if save_err.__class__.__name__ == "DuplicateKeyError":
-            trip = await Trip.find_one(Trip.transactionId == transaction_id)
-            if trip:
-                trip.status = "active"
-                trip.lastUpdate = start_time
-                await trip.save()
-        else:
-            raise
-
-    logger.info("Trip %s started", transaction_id)
+    await save_trip_snapshot(trip)
+    logger.info("Trip %s started (ephemeral)", transaction_id)
     await _publish_trip_snapshot(trip, status="active")
 
 
 async def process_trip_data(data: dict[str, Any]) -> None:
-    """Process tripData event - update coordinates and metrics."""
+    """Process tripData event - update coordinates and metrics in ephemeral state."""
     transaction_id = data.get("transactionId")
     data_points = data.get("data", [])
 
@@ -260,73 +242,59 @@ async def process_trip_data(data: dict[str, Any]) -> None:
         logger.warning("Invalid tripData payload: %s", data)
         return
 
-    # Extract new coordinates
+    if await is_trip_marked_closed(transaction_id):
+        logger.info("Trip %s already closed, ignoring late tripData", transaction_id)
+        return
+
     new_coords = _extract_coordinates_from_data(data_points)
     if not new_coords:
         logger.debug("Trip %s: No valid coordinates in tripData", transaction_id)
         return
 
-    # Fetch existing active trip. If tripStart was delayed/missed, synthesize an
-    # active trip from tripData so live tracking stays available.
-    trip = await Trip.find_one(
-        Trip.transactionId == transaction_id,
-        Trip.status == "active",
-    )
-
+    trip = await get_trip_snapshot(transaction_id)
     if not trip:
-        existing_trip = await Trip.find_one(Trip.transactionId == transaction_id)
-        if existing_trip and existing_trip.status in {"completed", "processed"}:
-            logger.info(
-                "Trip %s already finalized, ignoring late tripData",
-                transaction_id,
-            )
-            return
-
         inferred_start = new_coords[0]["timestamp"] if new_coords else datetime.now(UTC)
-        if existing_trip:
-            trip = existing_trip
-            trip.status = "active"
-            trip.startTime = trip.startTime or inferred_start
-            trip.startTimeZone = trip.startTimeZone or "UTC"
-        else:
-            trip = Trip(
-                transactionId=transaction_id,
-                vin=data.get("vin"),
-                imei=data.get("imei"),
-                status="active",
-                startTime=inferred_start,
-                startTimeZone="UTC",
-                coordinates=[],
-                distance=0.0,
-                currentSpeed=0.0,
-                maxSpeed=0.0,
-                avgSpeed=0.0,
-                duration=0.0,
-                pointsRecorded=0,
-                totalIdleDuration=0.0,
-                hardBrakingCounts=0,
-                hardAccelerationCounts=0,
-                source="webhook",
-            )
+        trip = {
+            "transactionId": transaction_id,
+            "vin": data.get("vin"),
+            "imei": data.get("imei"),
+            "status": "active",
+            "startTime": inferred_start,
+            "startTimeZone": "UTC",
+            "coordinates": [],
+            "distance": 0.0,
+            "currentSpeed": 0.0,
+            "maxSpeed": 0.0,
+            "avgSpeed": 0.0,
+            "duration": 0.0,
+            "pointsRecorded": 0,
+            "totalIdleDuration": 0.0,
+            "hardBrakingCounts": 0,
+            "hardAccelerationCounts": 0,
+            "source": "webhook",
+        }
 
-    # Merge with existing, deduplicate
-    # Access extra fields via getattr/setattr or dict access if supported
-    existing_coords = getattr(trip, "coordinates", None)
-    all_coords = _deduplicate_coordinates(existing_coords, new_coords)
+    if trip.get("status") in {"completed", "processed"}:
+        logger.info("Trip %s already finalized, ignoring late tripData", transaction_id)
+        return
 
-    # Calculate metrics
-    start_time = trip.startTime
+    all_coords = _deduplicate_coordinates(trip.get("coordinates"), new_coords)
+
+    start_time = _parse_timestamp(trip.get("startTime"))
     if not isinstance(start_time, datetime):
         start_time = all_coords[0]["timestamp"]
 
     metrics = _calculate_trip_metrics(all_coords, start_time)
 
-    # Update trip fields
-    trip.coordinates = all_coords
+    trip["status"] = "active"
+    trip["coordinates"] = all_coords
+    trip["startTime"] = trip.get("startTime") or start_time
+    trip["startTimeZone"] = trip.get("startTimeZone") or "UTC"
+    trip.setdefault("source", "webhook")
     for key, value in metrics.items():
-        setattr(trip, key, value)
+        trip[key] = value
 
-    await trip.save()
+    await save_trip_snapshot(trip)
 
     logger.info(
         "Trip %s updated: %d points, %.2fmi",
@@ -338,7 +306,7 @@ async def process_trip_data(data: dict[str, Any]) -> None:
 
 
 async def process_trip_metrics(data: dict[str, Any]) -> None:
-    """Process tripMetrics event - update summary metrics from Bouncie."""
+    """Process tripMetrics event - update summary metrics in ephemeral state."""
     transaction_id = data.get("transactionId")
     metrics_data = data.get("metrics", {})
 
@@ -346,9 +314,11 @@ async def process_trip_metrics(data: dict[str, Any]) -> None:
         logger.warning("Invalid tripMetrics payload: %s", data)
         return
 
-    # Check if trip exists
-    trip = await Trip.find_one(Trip.transactionId == transaction_id)
+    if await is_trip_marked_closed(transaction_id):
+        logger.info("Trip %s already closed, ignoring late tripMetrics", transaction_id)
+        return
 
+    trip = await get_trip_snapshot(transaction_id)
     if not trip:
         logger.info("Trip %s not found for tripMetrics", transaction_id)
         return
@@ -361,23 +331,23 @@ async def process_trip_metrics(data: dict[str, Any]) -> None:
 
     for key, value in normalized.items():
         if key == "maxSpeed":
-            current_max = getattr(trip, "maxSpeed", 0.0) or 0.0
+            current_max = trip.get("maxSpeed", 0.0) or 0.0
             if value > current_max:
-                trip.maxSpeed = value
+                trip["maxSpeed"] = value
                 updates_made = True
             continue
 
-        setattr(trip, key, value)
+        trip[key] = value
         updates_made = True
 
     if updates_made:
-        await trip.save()
+        await save_trip_snapshot(trip)
         logger.info("Trip %s metrics updated", transaction_id)
         await _publish_trip_snapshot(trip, status="active")
 
 
 async def process_trip_end(data: dict[str, Any]) -> None:
-    """Process tripEnd event - mark trip as completed."""
+    """Process tripEnd event - publish completion and clear ephemeral live state."""
     transaction_id = data.get("transactionId")
     end_data = data.get("end", {})
 
@@ -385,74 +355,59 @@ async def process_trip_end(data: dict[str, Any]) -> None:
         logger.error("Invalid tripEnd payload: %s", data)
         return
 
+    if await is_trip_marked_closed(transaction_id):
+        logger.info("Trip %s already closed, ignoring tripEnd", transaction_id)
+        return
+
     end_time = _parse_timestamp(end_data.get("timestamp"))
     if not end_time:
         end_time = datetime.now(UTC)
         logger.warning("Trip %s: Using current time for end", transaction_id)
 
-    # Fetch trip
-    trip = await Trip.find_one(Trip.transactionId == transaction_id)
-
+    trip = await get_trip_snapshot(transaction_id)
     if not trip:
         logger.warning("Trip %s not found for tripEnd", transaction_id)
         return
-    if trip.status == "processed":
+
+    if trip.get("status") == "processed":
         logger.info("Trip %s already processed, ignoring tripEnd", transaction_id)
         return
 
-    # Calculate final duration
-    start_time = trip.startTime
+    start_time = _parse_timestamp(trip.get("startTime"))
     if isinstance(start_time, datetime):
         duration = (end_time - start_time).total_seconds()
     else:
-        duration = getattr(trip, "duration", 0.0)
+        duration = float(trip.get("duration") or 0.0)
 
-    # Convert coordinates to GeoJSON for storage
-    coordinates = getattr(trip, "coordinates", [])
+    coordinates = normalize_existing_coordinates(
+        trip.get("coordinates") or [],
+        validate_coords=True,
+    )
     gps = (
         GeometryService.geometry_from_coordinate_dicts(coordinates)
         if coordinates
-        else None
+        else trip.get("gps")
     )
 
-    # Update trip as completed
-    trip.status = "completed"
-    trip.endTime = end_time
-    trip.endTimeZone = end_data.get("timeZone", "UTC")
-    trip.endOdometer = end_data.get("odometer")
-    trip.fuelConsumed = end_data.get("fuelConsumed")
-    trip.duration = duration
-    trip.lastUpdate = end_time
+    trip["status"] = "completed"
+    trip["endTime"] = end_time
+    trip["endTimeZone"] = end_data.get("timeZone", "UTC")
+    trip["endOdometer"] = end_data.get("odometer")
+    trip["fuelConsumed"] = end_data.get("fuelConsumed")
+    trip["duration"] = duration
+    trip["lastUpdate"] = end_time
     if gps:
-        trip.gps = gps
-
-    await trip.save()
+        trip["gps"] = gps
 
     logger.info(
         "Trip %s completed: %.0fs, %.2fmi",
         transaction_id,
         duration,
-        getattr(trip, "distance", 0),
+        float(trip.get("distance") or 0.0),
     )
+
     await _publish_trip_snapshot(trip, status="completed")
-
-    # Emit coverage event for automatic street coverage updates (only once)
-    if not getattr(trip, "coverage_emitted_at", None) and getattr(trip, "gps", None):
-        try:
-            from core.coverage import update_coverage_for_trip
-
-            trip_data = trip.model_dump()
-            await update_coverage_for_trip(trip_data, trip.id)
-            trip.coverage_emitted_at = datetime.now(UTC)
-            await trip.save()
-        except Exception as coverage_err:
-            logger.warning(
-                "Failed to emit coverage event for trip %s: %s",
-                transaction_id,
-                coverage_err,
-            )
-
-    # Periodic REST backfill handles reconciliation for any missed data.
+    await clear_trip_snapshot(transaction_id, mark_closed=True)
 
 
 # ============================================================================
@@ -460,58 +415,50 @@ async def process_trip_end(data: dict[str, Any]) -> None:
 # ============================================================================
 
 
-async def get_active_trip() -> Trip | None:
-    """Get the currently active trip.
-
-    If the active trip has not received an update in over 30 minutes,
-    assume the tripEnd webhook was missed, mark it as completed, and
-    return None.
-    """
+async def get_active_trip() -> dict[str, Any] | None:
+    """Get the currently active live trip from ephemeral storage."""
     try:
-        trip = (
-            await Trip.find(Trip.status == "active").sort("-lastUpdate").first_or_none()
-        )
+        trip = await get_active_trip_snapshot()
         if not trip:
             return None
 
-        # Check for stale trip (missed tripEnd webhook)
-        if trip.lastUpdate:
-            staleness = (datetime.now(UTC) - trip.lastUpdate).total_seconds()
-            if staleness > 30 * 60:  # 30 minutes
-                logger.warning(
-                    "Active trip %s is stale (>30m). Auto-completing.",
-                    trip.transactionId,
-                )
-                trip.status = "completed"
-                # Keep existing endTime if present, else use lastUpdate
-                if not trip.endTime:
-                    trip.endTime = trip.lastUpdate
+        transaction_id = str(trip.get("transactionId") or "").strip()
+        if not transaction_id:
+            return None
 
-                # Fix duration using endTime and startTime
-                if getattr(trip, "startTime", None) and getattr(trip, "endTime", None):
-                    trip.duration = (trip.endTime - trip.startTime).total_seconds()
+        if trip.get("status") == "completed":
+            await clear_trip_snapshot(transaction_id, mark_closed=True)
+            return None
 
-                # Build GPS if missing
-                coords = getattr(trip, "coordinates", [])
-                if coords and not getattr(trip, "gps", None):
-                    from core.spatial import GeometryService
+        if live_trip_is_stale(trip):
+            logger.warning(
+                "Active trip %s is stale (>30m). Auto-completing.",
+                transaction_id,
+            )
+            completed = dict(trip)
+            completed["status"] = "completed"
+            if not completed.get("endTime"):
+                completed["endTime"] = completed.get("lastUpdate") or datetime.now(UTC)
 
-                    trip_gps = GeometryService.geometry_from_coordinate_dicts(coords)
-                    if trip_gps:
-                        trip.gps = trip_gps
+            start_time = _parse_timestamp(completed.get("startTime"))
+            end_time = _parse_timestamp(completed.get("endTime"))
+            if isinstance(start_time, datetime) and isinstance(end_time, datetime):
+                completed["duration"] = (end_time - start_time).total_seconds()
 
-                await trip.save()
+            coords = normalize_existing_coordinates(
+                completed.get("coordinates") or [],
+                validate_coords=True,
+            )
+            if coords and not completed.get("gps"):
+                trip_gps = GeometryService.geometry_from_coordinate_dicts(coords)
+                if trip_gps:
+                    completed["gps"] = trip_gps
 
-                # Try publishing the completed state so clients drop it
-                try:
-                    await _publish_trip_snapshot(trip, status="completed")
-                except Exception as e:
-                    logger.debug("Failed to publish stale trip completion: %s", e)
+            await _publish_trip_snapshot(completed, status="completed")
+            await clear_trip_snapshot(transaction_id, mark_closed=True)
+            return None
 
-                return None
-
-        else:
-            return trip
+        return trip
     except Exception:
         logger.exception("Error fetching active trip")
         return None
@@ -530,7 +477,7 @@ async def get_trip_updates(_last_sequence: int = 0) -> dict[str, Any]:
         return {
             "status": "success",
             "has_update": True,
-            "trip": trip.model_dump(),
+            "trip": trip,
         }
     return {
         "status": "success",
@@ -599,11 +546,11 @@ class TrackingService:
     """Live tracking service facade."""
 
     @staticmethod
-    async def get_active_trip():
+    async def get_active_trip() -> dict[str, Any] | None:
         return await get_active_trip()
 
     @staticmethod
-    async def get_trip_updates():
+    async def get_trip_updates() -> dict[str, Any]:
         return await get_trip_updates()
 
     @staticmethod

@@ -11,6 +11,7 @@ from beanie.operators import In
 from config import get_bouncie_config
 from core.date_utils import ensure_utc
 from db.models import Trip, Vehicle
+from core.trip_source_policy import enforce_bouncie_source
 
 WINDOW_DAYS = 7
 OVERLAP_HOURS = 24
@@ -74,7 +75,9 @@ async def resolve_import_start_dt_from_db(
         if resolved is not None:
             return resolved
 
-    earliest_trip = await Trip.find().sort("startTime").first_or_none()
+    earliest_trip = (
+        await Trip.find(enforce_bouncie_source({})).sort("startTime").first_or_none()
+    )
     if earliest_trip and earliest_trip.startTime:
         resolved = ensure_utc(earliest_trip.startTime)
         if resolved is not None:

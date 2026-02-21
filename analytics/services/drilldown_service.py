@@ -9,6 +9,7 @@ from db.aggregation_utils import (
     build_trip_numeric_fields_stage,
 )
 from db.models import Trip
+from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ class DrilldownService:
         The base `query` is typically produced by `build_query_from_request()` and may
         include an `$expr` for date filters (start_date/end_date).
         """
+        query = enforce_bouncie_source(query)
         if kind not in DrilldownService.SUPPORTED_KINDS:
             msg = f"Unsupported drilldown kind: {kind}"
             raise ValueError(msg)

@@ -13,6 +13,7 @@ from core.serialization import serialize_datetime
 from core.spatial import GeometryService
 from db.models import Place, RecurringRoute, Trip
 from recurring_routes.services.fingerprint import extract_display_label
+from core.trip_source_policy import enforce_bouncie_source
 
 try:
     from shapely.geometry import (
@@ -281,7 +282,11 @@ async def resolve_route_place_links(route: RecurringRoute) -> dict[str, Any]:
 
     if route.id and (not start_place_id or not end_place_id):
         trips = (
-            await Trip.find({"recurringRouteId": route.id, "invalid": {"$ne": True}})
+            await Trip.find(
+                enforce_bouncie_source(
+                    {"recurringRouteId": route.id, "invalid": {"$ne": True}},
+                ),
+            )
             .sort("-startTime")
             .limit(300)
             .to_list()

@@ -8,6 +8,7 @@ from typing import Any, TYPE_CHECKING
 from beanie.operators import In
 from db.models import Trip
 from trips.models import TripStatusProjection
+from core.trip_source_policy import BOUNCIE_SOURCE
 from trips.services.trip_ingest_issue_service import TripIngestIssueService
 
 if TYPE_CHECKING:
@@ -62,6 +63,7 @@ async def _load_existing_transaction_ids(
         doc.transactionId
         for doc in existing_docs
         if getattr(doc, "transactionId", None)
+        and str(getattr(doc, "source", "") or "").strip().lower() == BOUNCIE_SOURCE
     }
 
 
@@ -233,13 +235,12 @@ async def _process_new_trips_batch(
             continue
 
         try:
-            inserted = await runtime.pipeline.process_raw_trip_insert_only(
+            inserted = await runtime.pipeline.process_raw_trip(
                 trip,
                 source="bouncie",
                 do_map_match=False,
                 do_geocode=runtime.do_geocode,
                 do_coverage=runtime.do_coverage,
-                skip_existing_check=True,
             )
         except Exception as exc:
             await _record_process_failure(

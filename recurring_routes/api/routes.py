@@ -32,6 +32,7 @@ from recurring_routes.services.service import (
 )
 from tasks.config import update_task_history_entry
 from tasks.ops import abort_job, enqueue_task
+from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -83,20 +84,24 @@ async def _resolve_raw_route_geometry(route: RecurringRoute) -> dict[str, Any] |
 
     if rep_trip_id:
         trip = await Trip.find_one(
-            {
-                "transactionId": rep_trip_id,
-                "invalid": {"$ne": True},
-            },
+            enforce_bouncie_source(
+                {
+                    "transactionId": rep_trip_id,
+                    "invalid": {"$ne": True},
+                },
+            ),
         )
 
     if trip is None and route.id:
         trip = (
             await Trip.find(
-                {
-                    "recurringRouteId": route.id,
-                    "invalid": {"$ne": True},
-                    "gps": {"$ne": None},
-                },
+                enforce_bouncie_source(
+                    {
+                        "recurringRouteId": route.id,
+                        "invalid": {"$ne": True},
+                        "gps": {"$ne": None},
+                    },
+                ),
             )
             .sort("-startTime")
             .limit(1)
@@ -275,7 +280,7 @@ async def list_trips_for_route(
     if not route:
         raise HTTPException(status_code=404, detail="Route not found")
 
-    query = {"recurringRouteId": oid, "invalid": {"$ne": True}}
+    query = enforce_bouncie_source({"recurringRouteId": oid, "invalid": {"$ne": True}})
     trips_cursor = Trip.find(query).sort("-startTime").skip(offset).limit(limit)
 
     raw_trips: list[dict[str, Any]] = []
@@ -364,7 +369,11 @@ async def get_route_analytics(route_id: str):
 
     # Aggregate time patterns from all trips on this route
     pipeline = [
-        {"$match": {"recurringRouteId": oid, "invalid": {"$ne": True}}},
+        {
+            "$match": enforce_bouncie_source(
+                {"recurringRouteId": oid, "invalid": {"$ne": True}},
+            ),
+        },
         {
             "$project": {
                 "startTime": 1,

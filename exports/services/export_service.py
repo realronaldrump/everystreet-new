@@ -35,6 +35,7 @@ from exports.services.export_writer import (
     write_gpx_tracks,
     write_json_array,
 )
+from core.trip_source_policy import enforce_bouncie_source
 
 if TYPE_CHECKING:
     from exports.models import ExportItem, ExportRequest
@@ -543,7 +544,7 @@ class ExportService:
         if matched_only:
             query["matchedGps"] = {"$ne": None}
 
-        return query
+        return enforce_bouncie_source(query)
 
     @staticmethod
     def _prepare_export_dir(job_id: str) -> Path:

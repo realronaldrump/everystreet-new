@@ -200,6 +200,14 @@ class Trip(Document):
             IndexModel([("startTime", 1)], name="trips_startTime_asc_idx"),
             IndexModel([("endTime", 1)], name="trips_endTime_asc_idx"),
             IndexModel([("endTime", -1)], name="trips_endTime_desc_idx"),
+            IndexModel(
+                [("source", 1), ("endTime", -1)],
+                name="trips_source_endTime_desc_idx",
+            ),
+            IndexModel(
+                [("source", 1), ("startTime", -1)],
+                name="trips_source_startTime_desc_idx",
+            ),
             IndexModel([("gps", "2dsphere")], name="trips_gps_2dsphere_idx"),
             IndexModel(
                 [("startGeoPoint", "2dsphere")],

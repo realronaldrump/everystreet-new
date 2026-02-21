@@ -19,6 +19,7 @@ from tasks.config import (
     update_task_schedule,
 )
 from tasks.ops import abort_job, enqueue_task
+from core.trip_source_policy import enforce_bouncie_source
 from trips.services.trip_history_import_service import (
     build_import_plan,
     resolve_import_start_dt_from_db,
@@ -264,7 +265,7 @@ class TripSyncService:
         devices_ready = _devices_configured(credentials)
         last_auth_error = credentials.get("last_auth_error")
         global_disabled = await get_global_disable()
-        trip_count = await Trip.count()
+        trip_count = await Trip.find(enforce_bouncie_source({})).count()
 
         task_config = await get_task_config_entry("periodic_fetch_trips")
         auto_sync_enabled = bool(task_config.enabled)

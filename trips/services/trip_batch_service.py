@@ -316,6 +316,14 @@ class TripService:
                     existing_status == "processed"
                     or existing_processing_state in {"completed", "map_matched"}
                 )
+                existing_source = (
+                    str(existing_trip.get("source") or "").strip().lower()
+                    if existing_trip
+                    else ""
+                )
+                needs_source_reconciliation = bool(
+                    existing_trip and existing_source != "bouncie",
+                )
                 needs_geocode_repair = bool(
                     geocode_enabled
                     and existing_trip
@@ -324,6 +332,7 @@ class TripService:
                 needs_processing = (
                     not existing_trip
                     or not existing_processed
+                    or needs_source_reconciliation
                     or needs_geocode_repair
                     or (do_map_match and not existing_trip.get("matchedGps"))
                 )

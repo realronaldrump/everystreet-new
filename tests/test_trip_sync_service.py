@@ -89,6 +89,28 @@ async def test_sync_status_requires_devices(beanie_db_with_tasks) -> None:
 
 
 @pytest.mark.asyncio
+async def test_sync_status_trip_count_only_counts_bouncie_owned_trips(
+    beanie_db_with_tasks,
+) -> None:
+    await seed_credentials()
+    await Trip(
+        transactionId="tx-count-bouncie",
+        source="bouncie",
+        startTime=datetime(2025, 1, 1, 10, 0, tzinfo=UTC),
+        endTime=datetime(2025, 1, 1, 10, 10, tzinfo=UTC),
+    ).insert()
+    await Trip(
+        transactionId="tx-count-webhook",
+        source="webhook",
+        startTime=datetime(2025, 1, 1, 11, 0, tzinfo=UTC),
+        endTime=datetime(2025, 1, 1, 11, 10, tzinfo=UTC),
+    ).insert()
+
+    status = await TripSyncService.get_sync_status()
+    assert status["trip_count"] == 1
+
+
+@pytest.mark.asyncio
 async def test_sync_status_running(beanie_db_with_tasks) -> None:
     await seed_credentials()
     now = datetime.now(UTC)

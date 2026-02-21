@@ -178,11 +178,6 @@ Avg Duration
           Map Controls
         </h2>
         <div class="control-panel-actions">
-          <!-- Mobile live badge -->
-          <span class="mobile-live-badge" id="live-status-badge">
-            <span class="pulse-dot"></span>
-            <span>Live</span>
-          </span>
           <!-- Desktop toggle -->
           <button id="controls-toggle"
                   class="btn btn-sm btn-icon-only"
@@ -215,51 +210,47 @@ Avg Duration
 
       <!-- Panel Body -->
       <div class="control-panel-body">
-        <!-- Search -->
-        <div class="search-container">
-          <div class="search-wrapper">
-            <i class="fas fa-search search-icon" aria-hidden="true"></i>
-            <input type="text"
-                   id="map-search-input"
-                   class="search-input"
-                   placeholder="Search places, addresses..."
-                   autocomplete="off"
-                   aria-label="Search map" />
+        <!-- Location Selector -->
+        <div class="control-section" id="location-selector-container">
+          <div class="layer-group">
+            <h3 class="layer-group-title">
+Coverage Area
+            </h3>
+            <select id="streets-location" class="search-input">
+              <option value="">
+Select location...
+              </option>
+            </select>
           </div>
         </div>
 
-        <!-- Live Tracking -->
-        <div class="control-section" id="live-tracking-panel">
-          <div class="live-status-compact">
-            <div class="live-status-indicator">
-              <span class="live-status-dot" id="live-status-dot"></span>
-              <span class="live-status-text" id="live-status-text">Connecting...</span>
+        <!-- Map Style -->
+        <div class="control-section">
+          <div class="layer-group map-style-group">
+            <div class="map-style-header">
+              <h3 class="layer-group-title">
+Map Style
+              </h3>
+              <span class="map-style-hint">
+Basemap
+              </span>
             </div>
-          </div>
-          <div class="live-metrics-compact" id="live-metrics">
-            <div class="live-metric">
-              <div class="live-metric-value" id="live-metric-speed">
---
-              </div>
-              <div class="live-metric-label">
-mph
-              </div>
-            </div>
-            <div class="live-metric">
-              <div class="live-metric-value" id="live-metric-distance">
---
-              </div>
-              <div class="live-metric-label">
-mi
-              </div>
-            </div>
-            <div class="live-metric">
-              <div class="live-metric-value" id="live-metric-duration">
---
-              </div>
-              <div class="live-metric-label">
-min
-              </div>
+            <div class="map-style-select-wrap">
+              <i class="fas fa-palette map-style-select-icon" aria-hidden="true"></i>
+              <select id="map-type-select" class="map-style-select" aria-label="Select map style">
+                <option value="dark">
+Dark
+                </option>
+                <option value="light">
+Light
+                </option>
+                <option value="streets">
+Streets
+                </option>
+                <option value="satellite">
+Satellite
+                </option>
+              </select>
             </div>
           </div>
         </div>
@@ -276,17 +267,16 @@ Layers
           </div>
         </div>
 
-        <!-- Location Selector -->
-        <div class="control-section" id="location-selector-container">
-          <div class="layer-group">
-            <h3 class="layer-group-title">
-Coverage Area
-            </h3>
-            <select id="streets-location" class="search-input">
-              <option value="">
-Select location...
-              </option>
-            </select>
+        <!-- Search -->
+        <div class="search-container">
+          <div class="search-wrapper">
+            <i class="fas fa-search search-icon" aria-hidden="true"></i>
+            <input type="text"
+                   id="map-search-input"
+                   class="search-input"
+                   placeholder="Search places, addresses..."
+                   autocomplete="off"
+                   aria-label="Search map" />
           </div>
         </div>
 

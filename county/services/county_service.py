@@ -18,6 +18,7 @@ from shapely.geometry import Point, shape
 from core.date_utils import parse_timestamp
 from county.services.county_data_service import get_county_topology_document
 from db.models import CountyVisitedCache, Trip
+from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 
@@ -184,13 +185,15 @@ async def calculate_visited_counties_task() -> None:
 
         # Query all valid trips with GPS data using Beanie
         trips_cursor = Trip.find(
-            {
-                "isInvalid": {"$ne": True},
-                "$or": [
-                    {"gps.type": {"$in": ["LineString", "Point"]}},
-                    {"matchedGps.type": {"$in": ["LineString", "Point"]}},
-                ],
-            },
+            enforce_bouncie_source(
+                {
+                    "isInvalid": {"$ne": True},
+                    "$or": [
+                        {"gps.type": {"$in": ["LineString", "Point"]}},
+                        {"matchedGps.type": {"$in": ["LineString", "Point"]}},
+                    ],
+                },
+            ),
         )
 
         trips_analyzed = 0

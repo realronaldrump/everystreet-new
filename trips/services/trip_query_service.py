@@ -11,6 +11,7 @@ from core.spatial import GeometryService
 from db import build_calendar_date_expr
 from db.aggregation import aggregate_to_list
 from db.models import Trip, Vehicle
+from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +144,7 @@ class TripQueryService:
         if not isinstance(columns, list):
             columns = []
 
-        base_query = {"invalid": {"$ne": True}}
+        base_query = enforce_bouncie_source({"invalid": {"$ne": True}})
         query = dict(base_query)
 
         if start_date or end_date:
@@ -497,7 +498,7 @@ class TripQueryService:
         # Use Beanie projection
         trips = (
             await Trip.find(
-                Trip.invalid == True,  # noqa: E712
+                enforce_bouncie_source({"invalid": True}),
                 projection_model=None,  # Use dict projection
             )
             .sort(-Trip.validated_at)

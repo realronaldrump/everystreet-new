@@ -9,6 +9,7 @@ from core.spatial import GeometryService
 from db.aggregation import aggregate_to_list
 from db.models import GasFillup, Trip
 from gas.services.bouncie_service import BouncieService
+from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,9 @@ class OdometerService:
             # Use most recent trip data if real-time data is unavailable.
             logger.info("Using local trip data for IMEI %s", imei)
             trip = (
-                await Trip.find(Trip.imei == imei).sort(-Trip.endTime).first_or_none()
+                await Trip.find(enforce_bouncie_source({"imei": imei}))
+                .sort(-Trip.endTime)
+                .first_or_none()
             )
         else:
             # Parse timestamp
@@ -61,17 +64,25 @@ class OdometerService:
             # Find the trip closest to this timestamp
             # First, try to find a trip that contains this timestamp
             trip = await Trip.find_one(
-                Trip.imei == imei,
-                Trip.startTime <= target_time,
-                Trip.endTime >= target_time,
+                enforce_bouncie_source(
+                    {
+                        "imei": imei,
+                        "startTime": {"$lte": target_time},
+                        "endTime": {"$gte": target_time},
+                    },
+                ),
             )
 
             # If no trip contains the timestamp, find the closest trip before it
             if not trip:
                 trip = (
                     await Trip.find(
-                        Trip.imei == imei,
-                        Trip.endTime <= target_time,
+                        enforce_bouncie_source(
+                            {
+                                "imei": imei,
+                                "endTime": {"$lte": target_time},
+                            },
+                        ),
                     )
                     .sort(-Trip.endTime)
                     .first_or_none()
@@ -81,8 +92,12 @@ class OdometerService:
             if not trip:
                 trip = (
                     await Trip.find(
-                        Trip.imei == imei,
-                        Trip.startTime >= target_time,
+                        enforce_bouncie_source(
+                            {
+                                "imei": imei,
+                                "startTime": {"$gte": target_time},
+                            },
+                        ),
                     )
                     .sort(Trip.startTime)
                     .first_or_none()
@@ -313,9 +328,13 @@ class OdometerService:
         if not best_anchor:
             prev_trip = await (
                 Trip.find(
-                    Trip.imei == imei,
-                    Trip.endTime <= target_time,
-                    Trip.endOdometer != None,  # noqa: E711
+                    enforce_bouncie_source(
+                        {
+                            "imei": imei,
+                            "endTime": {"$lte": target_time},
+                            "endOdometer": {"$ne": None},
+                        },
+                    ),
                 )
                 .sort(-Trip.endTime)
                 .first_or_none()
@@ -339,6 +358,7 @@ class OdometerService:
         else:  # next
             query["startTime"] = {"$gte": target_time}
             query["endTime"] = {"$lte": best_anchor["fillup_time"]}
+        query = enforce_bouncie_source(query)
 
         # Aggregation to sum distance
         pipeline = [

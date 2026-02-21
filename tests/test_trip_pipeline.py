@@ -182,3 +182,33 @@ async def test_trip_pipeline_insert_only_skips_existing_trip_without_modificatio
     assert saved is not None
     assert saved.source == "seed"
     assert saved.matchStatus == "seed-match"
+
+
+@pytest.mark.asyncio
+async def test_trip_pipeline_prefers_bouncie_source_when_merging_existing_trip(
+    beanie_db,
+) -> None:
+    del beanie_db
+
+    pipeline = TripPipeline(
+        geo_service=StubGeocoder(),
+        matcher=StubMatcher(),
+        coverage_service=_noop_coverage,
+    )
+
+    existing = Trip(**_build_raw_trip("tx-reconcile-source-1"))
+    existing.source = "webhook"
+    existing.status = "processed"
+    existing.processing_state = "completed"
+    await existing.insert()
+
+    saved = await pipeline.process_raw_trip(
+        _build_raw_trip("tx-reconcile-source-1"),
+        source="bouncie",
+        do_map_match=False,
+        do_geocode=False,
+        do_coverage=False,
+    )
+
+    assert saved is not None
+    assert saved.source == "bouncie"

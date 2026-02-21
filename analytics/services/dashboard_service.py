@@ -15,6 +15,7 @@ from db.aggregation_utils import (
     get_mongo_tz_expr,
 )
 from db.models import Trip
+from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class DashboardService:
         Returns:
             Dictionary containing driving insights and top destinations
         """
+        query = enforce_bouncie_source(query)
         # Main aggregation pipeline
         pipeline = [
             {"$match": query},
@@ -513,6 +515,7 @@ class DashboardService:
         Returns:
             Dictionary containing trip metrics including totals, averages, and statistics
         """
+        query = enforce_bouncie_source(query)
         target_timezone_str = "America/Chicago"
         target_tz = pytz.timezone(target_timezone_str)
 

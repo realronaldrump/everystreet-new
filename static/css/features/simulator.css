@@ -499,21 +499,11 @@
 /* --- Mobile --- */
 @media (width <= 768px) {
   .sim-toggle-btn {
-    bottom: var(--space-3);
-    right: var(--space-3);
-    width: 36px;
-    height: 36px;
+    display: none;
   }
 
   .sim-panel {
-    position: fixed;
-    bottom: 0;
-    right: 0;
-    left: 0;
-    width: auto;
-    max-height: 55vh;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    z-index: var(--z-drawer);
+    display: none;
   }
 
   .sim-status-metrics {

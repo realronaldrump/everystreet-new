@@ -105,6 +105,60 @@ async def test_process_bouncie_trips_reprocesses_existing_unknown_locations(
 
 
 @pytest.mark.asyncio
+async def test_process_bouncie_trips_reconciles_existing_non_bouncie_source(
+    beanie_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    del beanie_db
+
+    existing = Trip(
+        transactionId="tx-webhook-existing",
+        source="webhook",
+        status="processed",
+        processing_state="completed",
+        startTime=datetime(2025, 1, 1, 12, 0, tzinfo=UTC),
+        endTime=datetime(2025, 1, 1, 12, 30, tzinfo=UTC),
+        gps={
+            "type": "LineString",
+            "coordinates": [[-97.0, 32.0], [-97.1, 32.1]],
+        },
+        startLocation={"formatted_address": "Start"},
+        destination={"formatted_address": "End"},
+    )
+    await existing.insert()
+
+    async def fake_get_settings() -> _SettingsStub:
+        return _SettingsStub(geocode_on_fetch=False)
+
+    monkeypatch.setattr(
+        trip_batch_service.AdminService,
+        "get_persisted_app_settings",
+        fake_get_settings,
+    )
+
+    service = TripService()
+    pipeline_stub = _PipelineStub()
+    service._pipeline = pipeline_stub
+
+    incoming = {
+        "transactionId": "tx-webhook-existing",
+        "imei": "imei-1",
+        "startTime": "2025-01-01T12:00:00Z",
+        "endTime": "2025-01-01T12:30:00Z",
+        "gps": {
+            "type": "LineString",
+            "coordinates": [[-97.0, 32.0], [-97.1, 32.1]],
+        },
+    }
+
+    processed_ids = await service.process_bouncie_trips([incoming], do_map_match=False)
+
+    assert processed_ids == ["tx-webhook-existing"]
+    assert len(pipeline_stub.process_calls) == 1
+    assert pipeline_stub.process_calls[0]["source"] == "bouncie"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("geocode_on_fetch", [True, False])
 async def test_history_import_runtime_uses_geocode_setting(
     monkeypatch: pytest.MonkeyPatch,
