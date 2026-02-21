@@ -52,7 +52,7 @@ async def _get_redis_client() -> aioredis.Redis:
             return _RedisState.client
 
     redis_url = get_redis_url()
-    _RedisState.client = await aioredis.from_url(redis_url, decode_responses=True)
+    _RedisState.client = aioredis.from_url(redis_url, decode_responses=True)
     await _RedisState.client.ping()
     return _RedisState.client
 

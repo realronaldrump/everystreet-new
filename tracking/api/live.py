@@ -89,7 +89,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
         # Subscribe to Redis updates
         redis_url = get_redis_url()
-        redis_client = await aioredis.from_url(redis_url, decode_responses=True)
+        redis_client = aioredis.from_url(redis_url, decode_responses=True)
         pubsub = redis_client.pubsub()
         await pubsub.subscribe(TRIP_UPDATES_CHANNEL)
 

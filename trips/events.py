@@ -54,7 +54,7 @@ async def get_redis_client() -> aioredis.Redis:
     redis_url = get_redis_url()
 
     try:
-        RedisClientState.client = await aioredis.from_url(
+        RedisClientState.client = aioredis.from_url(
             redis_url,
             decode_responses=True,
         )

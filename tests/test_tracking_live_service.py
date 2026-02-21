@@ -191,3 +191,52 @@ async def test_get_active_trip_auto_completes_stale_state(
 
     statuses = [call.kwargs.get("status") for call in publish_mock.await_args_list]
     assert statuses == ["completed"]
+
+
+@pytest.mark.asyncio
+async def test_trip_end_without_snapshot_marks_closed_and_ignores_late_events(
+    live_store_state: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    publish_mock = AsyncMock()
+    monkeypatch.setattr(tracking_service, "publish_trip_state", publish_mock)
+
+    await tracking_service.process_trip_end(
+        {
+            "eventType": "tripEnd",
+            "transactionId": "tx-late-1",
+            "end": {
+                "timestamp": "2026-02-21T12:03:00Z",
+                "timeZone": "UTC",
+                "odometer": 1235.0,
+                "fuelConsumed": 0.2,
+            },
+        },
+    )
+
+    clear_calls = live_store_state["clear_calls"]
+    assert isinstance(clear_calls, list)
+    assert clear_calls[-1] == ("tx-late-1", True)
+
+    closed = live_store_state["closed"]
+    assert isinstance(closed, set)
+    assert "tx-late-1" in closed
+
+    await tracking_service.process_trip_data(
+        {
+            "eventType": "tripData",
+            "transactionId": "tx-late-1",
+            "data": [
+                {
+                    "timestamp": "2026-02-21T12:04:00Z",
+                    "gps": {"lat": 32.0, "lon": -97.0},
+                    "speed": 20.0,
+                },
+            ],
+        },
+    )
+
+    snapshots = live_store_state["snapshots"]
+    assert isinstance(snapshots, dict)
+    assert "tx-late-1" not in snapshots
+    publish_mock.assert_not_awaited()

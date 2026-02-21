@@ -2,6 +2,7 @@
  * Map Controls - Desktop panel state + shared map control actions.
  *
  * Mobile sheet drag/toggle behavior is owned by mobile-map.js.
+ * Desktop uses CSS class `.desktop-collapsed` for smooth animated collapse.
  */
 
 const MOBILE_BREAKPOINT = "(max-width: 768px)";
@@ -26,16 +27,11 @@ export default function initMapControls({ signal, cleanup } = {}) {
       ? window.matchMedia(MOBILE_BREAKPOINT).matches
       : window.innerWidth <= 768;
 
-  const getDesktopSections = () => ({
-    body: controls.querySelector(".control-panel-body"),
-    quickActions: controls.querySelector(".control-panel-quick-actions"),
-  });
-
   const updateToggleButton = () => {
-    if (!toggleBtn) {
-      return;
-    }
-    const expanded = isMobile() ? controls.classList.contains("expanded") : isExpandedDesktop;
+    if (!toggleBtn) return;
+    const expanded = isMobile()
+      ? controls.classList.contains("expanded")
+      : isExpandedDesktop;
     toggleBtn.setAttribute("aria-expanded", expanded.toString());
     const icon = toggleBtn.querySelector("i");
     if (icon) {
@@ -44,32 +40,14 @@ export default function initMapControls({ signal, cleanup } = {}) {
   };
 
   const setDesktopExpanded = (expanded) => {
-    const { body, quickActions } = getDesktopSections();
     isExpandedDesktop = expanded;
-    if (body) {
-      body.style.display = expanded ? "block" : "none";
-    }
-    if (quickActions) {
-      quickActions.style.display = expanded ? "flex" : "none";
-    }
+    controls.classList.toggle("desktop-collapsed", !expanded);
     updateToggleButton();
-  };
-
-  const clearDesktopInlineStyles = () => {
-    const { body, quickActions } = getDesktopSections();
-    if (body) {
-      body.style.display = "";
-    }
-    if (quickActions) {
-      quickActions.style.display = "";
-    }
   };
 
   const requestMobileToggle = () => {
     document.dispatchEvent(
-      new CustomEvent(MOBILE_TOGGLE_EVENT, {
-        bubbles: true,
-      })
+      new CustomEvent(MOBILE_TOGGLE_EVENT, { bubbles: true }),
     );
   };
 
@@ -84,7 +62,7 @@ export default function initMapControls({ signal, cleanup } = {}) {
   const setStreetMode = (mode) => {
     const buttons = document.querySelectorAll(".quick-action-btn");
     const currentlyActive = [...buttons].some(
-      (btn) => btn.classList.contains("active") && btn.dataset.streetMode === mode
+      (btn) => btn.classList.contains("active") && btn.dataset.streetMode === mode,
     );
 
     buttons.forEach((btn) => {
@@ -100,13 +78,14 @@ export default function initMapControls({ signal, cleanup } = {}) {
       new CustomEvent("es:streetModeChange", {
         detail: { mode, shouldHide: currentlyActive },
         bubbles: true,
-      })
+      }),
     );
   };
 
   const initState = () => {
     if (isMobile()) {
-      clearDesktopInlineStyles();
+      // Ensure no desktop-collapsed class lingers on mobile
+      controls.classList.remove("desktop-collapsed");
       updateToggleButton();
       return;
     }
@@ -127,16 +106,11 @@ export default function initMapControls({ signal, cleanup } = {}) {
   initState();
 
   const onResize = () => {
-    if (resizeTimeout) {
-      clearTimeout(resizeTimeout);
-    }
+    if (resizeTimeout) clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
-      if (!controls) {
-        return;
-      }
-
+      if (!controls) return;
       if (isMobile()) {
-        clearDesktopInlineStyles();
+        controls.classList.remove("desktop-collapsed");
       } else {
         setDesktopExpanded(isExpandedDesktop);
       }

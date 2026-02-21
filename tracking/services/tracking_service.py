@@ -367,6 +367,7 @@ async def process_trip_end(data: dict[str, Any]) -> None:
     trip = await get_trip_snapshot(transaction_id)
     if not trip:
         logger.warning("Trip %s not found for tripEnd", transaction_id)
+        await clear_trip_snapshot(transaction_id, mark_closed=True)
         return
 
     if trip.get("status") == "processed":
