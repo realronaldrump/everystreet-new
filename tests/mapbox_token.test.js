@@ -1,36 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { CONFIG } from "../static/js/modules/core/config.js";
+import { MAPBOX_PUBLIC_ACCESS_TOKEN } from "../static/js/modules/core/config.js";
 import {
   getMapboxToken,
   isMapboxStyleUrl,
   waitForMapboxToken,
 } from "../static/js/modules/mapbox-token.js";
 
-const ORIGINAL_TOKEN = CONFIG.MAP.accessToken;
-
-test.afterEach(() => {
-  CONFIG.MAP.accessToken = ORIGINAL_TOKEN;
+test("getMapboxToken returns the hard-coded token", () => {
+  assert.equal(getMapboxToken(), MAPBOX_PUBLIC_ACCESS_TOKEN);
 });
 
-test("getMapboxToken returns the configured token", () => {
-  CONFIG.MAP.accessToken = "pk.config-token-12345678901234567890";
-  assert.equal(getMapboxToken(), "pk.config-token-12345678901234567890");
-});
-
-test("waitForMapboxToken resolves immediately with configured token", async () => {
-  CONFIG.MAP.accessToken = "pk.immediate-token-12345678901234567890";
+test("waitForMapboxToken resolves immediately with hard-coded token", async () => {
   const token = await waitForMapboxToken({ timeoutMs: 1 });
-  assert.equal(token, "pk.immediate-token-12345678901234567890");
-});
-
-test("waitForMapboxToken throws when token is not configured", async () => {
-  CONFIG.MAP.accessToken = "";
-  await assert.rejects(
-    () => waitForMapboxToken({ timeoutMs: 1 }),
-    /Mapbox access token not configured/
-  );
+  assert.equal(token, MAPBOX_PUBLIC_ACCESS_TOKEN);
 });
 
 test("isMapboxStyleUrl detects mapbox styles and API URLs", () => {
@@ -39,4 +23,3 @@ test("isMapboxStyleUrl detects mapbox styles and API URLs", () => {
   assert.equal(isMapboxStyleUrl("https://example.com/style.json"), false);
   assert.equal(isMapboxStyleUrl(""), false);
 });
-

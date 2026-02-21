@@ -51,13 +51,17 @@ class MapboxConfigTests(unittest.TestCase):
         with pytest.raises(RuntimeError):
             config.validate_mapbox_token("pk.short")
 
-    def test_require_mapbox_token_reads_env(self) -> None:
+    def test_validate_mapbox_token_requires_hardcoded_value(self) -> None:
+        with pytest.raises(RuntimeError):
+            config.validate_mapbox_token("pk.test-token-12345678901234567890")
+
+    def test_require_mapbox_token_returns_hardcoded_token(self) -> None:
         with patch.dict(
             os.environ,
-            {"MAPBOX_TOKEN": "pk.test-token-12345678901234567890"},
+            {"MAPBOX_TOKEN": "pk.other-token-12345678901234567890"},
             clear=True,
         ):
-            assert config.require_mapbox_token() == "pk.test-token-12345678901234567890"
+            assert config.require_mapbox_token() == config.MAPBOX_PUBLIC_ACCESS_TOKEN
 
 
 class OsmDataPathTests(unittest.TestCase):

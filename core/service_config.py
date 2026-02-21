@@ -11,6 +11,8 @@ import logging
 import os
 from typing import TYPE_CHECKING
 
+from config import get_mapbox_token
+
 if TYPE_CHECKING:
     from db.models import AppSettings
 
@@ -59,7 +61,6 @@ def _set_env_value(key: str, value: str | None, *, force: bool = False) -> None:
 
 def _apply_settings_to_env(settings: AppSettings, *, force: bool = False) -> None:
     """Seed environment variables from stored settings."""
-    _set_env_value("MAPBOX_TOKEN", settings.mapbox_token, force=force)
     _set_env_value("GEOFABRIK_MIRROR", settings.geofabrik_mirror, force=force)
     _set_env_value("OSM_EXTRACTS_PATH", settings.osm_extracts_path, force=force)
     _set_env_value(
@@ -86,6 +87,5 @@ def clear_config_cache() -> None:
 
 # Convenience async getters for commonly used values
 async def get_mapbox_token_async() -> str:
-    """Get Mapbox token from settings."""
-    config = await get_service_config()
-    return config.mapbox_token or ""
+    """Get the application's immutable Mapbox token."""
+    return get_mapbox_token()

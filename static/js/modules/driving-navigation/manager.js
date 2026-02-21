@@ -40,7 +40,12 @@ export class DrivingNavigation {
     this.currentRoute = null;
     this.abortController = new AbortController();
 
-    this.initialize();
+    this.initializationPromise = this.initialize().catch((error) => {
+      if (error?.name === "AbortError" || this.abortController.signal.aborted) {
+        return;
+      }
+      console.error("DrivingNavigation initialization failed:", error);
+    });
   }
 
   /**

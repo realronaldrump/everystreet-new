@@ -1,6 +1,6 @@
 import apiClient from "../core/api-client.js";
+import { MAPBOX_PUBLIC_ACCESS_TOKEN } from "../core/config.js";
 
-const APP_SETTINGS_API = "/api/app_settings";
 const BOUNCIE_CREDENTIALS_API = "/api/profile/bouncie-credentials";
 const BOUNCIE_UNMASK_API = "/api/profile/bouncie-credentials/unmask";
 const BOUNCIE_SYNC_API = "/api/profile/bouncie-credentials/sync-vehicles";
@@ -11,24 +11,24 @@ const GOOGLE_PHOTOS_DISCONNECT_API = "/api/google-photos/disconnect";
 export const MAPBOX_TOKEN_MIN_LENGTH = 20;
 
 export function isValidMapboxToken(token) {
-  return Boolean(token?.startsWith("pk.") && token.length >= MAPBOX_TOKEN_MIN_LENGTH);
+  return String(token || "").trim() === MAPBOX_PUBLIC_ACCESS_TOKEN;
 }
 
 export async function fetchMapboxToken({ signal } = {}) {
-  const data = await apiClient.get(APP_SETTINGS_API, { signal });
-  return data?.mapbox_token || "";
+  if (signal?.aborted) {
+    throw new DOMException("signal is aborted without reason", "AbortError");
+  }
+  return MAPBOX_PUBLIC_ACCESS_TOKEN;
 }
 
 export async function saveMapboxToken(token, { signal } = {}) {
-  if (!isValidMapboxToken(token)) {
-    throw new Error("Mapbox token must start with 'pk.' and be valid length.");
+  if (signal?.aborted) {
+    throw new DOMException("signal is aborted without reason", "AbortError");
   }
-  const data = await apiClient.post(
-    APP_SETTINGS_API,
-    { mapbox_token: token },
-    { signal }
-  );
-  return data;
+  if (!isValidMapboxToken(token)) {
+    throw new Error("Mapbox token is hard-coded and cannot be changed.");
+  }
+  return { mapbox_token: MAPBOX_PUBLIC_ACCESS_TOKEN, immutable: true };
 }
 
 export async function fetchBouncieCredentials({ signal, unmask = true } = {}) {

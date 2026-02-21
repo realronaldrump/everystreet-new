@@ -8,8 +8,8 @@ from typing import Any, cast
 
 from fastapi import HTTPException, status
 
-from config import validate_mapbox_token
-from core.service_config import clear_config_cache, get_service_config
+from config import get_mapbox_token, validate_mapbox_token
+from core.service_config import clear_config_cache
 from db.models import AppSettings, TaskConfig, TaskHistory
 from map_data.models import MapServiceConfig
 from map_data.services import check_service_health
@@ -54,16 +54,14 @@ async def get_setup_status() -> dict[str, Any]:
 
     bouncie_complete = len(bouncie_missing) == 0
 
-    mapbox_token = (await get_service_config()).mapbox_token or ""
-    mapbox_complete = False
+    mapbox_token = get_mapbox_token()
+    mapbox_complete = True
     mapbox_error = None
-    if mapbox_token:
-        try:
-            validate_mapbox_token(mapbox_token)
-        except RuntimeError as exc:
-            mapbox_error = str(exc)
-        else:
-            mapbox_complete = True
+    try:
+        validate_mapbox_token(mapbox_token)
+    except RuntimeError as exc:
+        mapbox_complete = False
+        mapbox_error = str(exc)
 
     map_config = await MapServiceConfig.get_or_create()
     coverage_complete = map_config.status == MapServiceConfig.STATUS_READY and bool(
@@ -86,7 +84,7 @@ async def get_setup_status() -> dict[str, Any]:
             },
             "mapbox": {
                 "complete": mapbox_complete,
-                "missing": ["mapbox_token"] if not mapbox_complete else [],
+                "missing": ["hardcoded_token"] if not mapbox_complete else [],
                 "error": mapbox_error,
                 "required": True,
             },
@@ -127,7 +125,7 @@ async def complete_setup() -> dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                "Complete Bouncie credentials, Mapbox token, and map coverage "
+                "Complete Bouncie credentials and map coverage "
                 "before finishing setup."
             ),
         )

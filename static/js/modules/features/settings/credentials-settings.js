@@ -5,10 +5,8 @@ import {
   fetchGooglePhotosCredentials,
   fetchGooglePhotosStatus,
   fetchMapboxToken,
-  isValidMapboxToken,
   saveBouncieCredentials,
   saveGooglePhotosCredentials,
-  saveMapboxToken,
   syncBouncieVehicles,
 } from "../../settings/credentials.js";
 import notificationManager from "../../ui/notifications.js";
@@ -54,19 +52,31 @@ export function setupCredentialsSettings({ signal } = {}) {
 }
 
 async function setupMapboxCredentials({ signal } = {}) {
-  const eventOptions = signal ? { signal } : false;
   const tokenInput = document.getElementById("mapbox-token-input");
   const saveBtn = document.getElementById("save-mapbox-token-btn");
   const toggleBtn = document.getElementById("toggle-mapbox-token");
+  const helperText = tokenInput
+    ?.closest(".mapbox-config-section")
+    ?.querySelector(".form-text");
 
-  if (!tokenInput || !saveBtn) {
+  if (!tokenInput) {
     return;
   }
 
   try {
     const token = await fetchMapboxToken({ signal });
     tokenInput.value = token;
-    saveBtn.disabled = true;
+    tokenInput.readOnly = true;
+    tokenInput.setAttribute("aria-readonly", "true");
+    tokenInput.setAttribute("type", "text");
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<i class="fas fa-lock"></i> Fixed Token';
+      saveBtn.title = "Mapbox token is hard-coded in the app.";
+    }
+    if (helperText) {
+      helperText.textContent = "This token is hard-coded and cannot be edited.";
+    }
   } catch (error) {
     if (!isAbortError(error)) {
       notificationManager.show(
@@ -76,52 +86,8 @@ async function setupMapboxCredentials({ signal } = {}) {
     }
   }
 
-  tokenInput.addEventListener(
-    "input",
-    () => {
-      const nextValue = tokenInput.value.trim();
-      saveBtn.disabled = !isValidMapboxToken(nextValue);
-    },
-    eventOptions
-  );
-
-  saveBtn.addEventListener(
-    "click",
-    async () => {
-      const token = tokenInput.value.trim();
-      try {
-        saveBtn.disabled = true;
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-        await saveMapboxToken(token, { signal });
-        notificationManager.show("Mapbox token saved successfully", "success");
-        saveBtn.innerHTML = '<i class="fas fa-check"></i> Saved';
-        setTimeout(() => {
-          saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Token';
-          saveBtn.disabled = !isValidMapboxToken(tokenInput.value.trim());
-        }, 2000);
-      } catch (error) {
-        if (!isAbortError(error)) {
-          notificationManager.show(error.message, "danger");
-        }
-        saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Token';
-        saveBtn.disabled = !isValidMapboxToken(tokenInput.value.trim());
-      }
-    },
-    eventOptions
-  );
-
   if (toggleBtn) {
-    toggleBtn.addEventListener(
-      "click",
-      () => {
-        const type =
-          tokenInput.getAttribute("type") === "password" ? "text" : "password";
-        tokenInput.setAttribute("type", type);
-        toggleBtn.querySelector("i")?.classList.toggle("fa-eye");
-        toggleBtn.querySelector("i")?.classList.toggle("fa-eye-slash");
-      },
-      eventOptions
-    );
+    toggleBtn.remove();
   }
 }
 

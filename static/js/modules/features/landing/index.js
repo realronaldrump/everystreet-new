@@ -43,6 +43,8 @@ const withSignal = (options = {}) =>
   pageSignal ? { ...options, signal: pageSignal } : options;
 const apiGet = (url, options = {}) => apiClient.get(url, withSignal(options));
 const apiRaw = (url, options = {}) => apiClient.raw(url, withSignal(options));
+const isAbortError = (error) =>
+  error?.name === "AbortError" || pageSignal?.aborted === true;
 
 /**
  * Initialize the landing page
@@ -121,7 +123,9 @@ async function loadAllData() {
       loadWeather(),
     ]);
   } catch (error) {
-    console.warn("Failed to load landing data", error);
+    if (!isAbortError(error)) {
+      console.warn("Failed to load landing data", error);
+    }
   }
 }
 
@@ -238,7 +242,9 @@ async function loadCountyStats() {
       setRecordSource("counties", data);
     }
   } catch (error) {
-    console.warn("Failed to load county stats", error);
+    if (!isAbortError(error)) {
+      console.warn("Failed to load county stats", error);
+    }
   }
 }
 
@@ -249,7 +255,9 @@ async function loadCoverageStats() {
       setRecordSource("coverage", data);
     }
   } catch (error) {
-    console.warn("Failed to load coverage stats", error);
+    if (!isAbortError(error)) {
+      console.warn("Failed to load coverage stats", error);
+    }
   }
 }
 
@@ -778,7 +786,9 @@ async function loadInsights() {
     const data = await apiGet("/api/driving-insights");
     setRecordSource("insights", data);
   } catch (error) {
-    console.warn("Failed to load driving insights", error);
+    if (!isAbortError(error)) {
+      console.warn("Failed to load driving insights", error);
+    }
   }
 }
 
@@ -797,7 +807,9 @@ async function loadGasStats() {
       }
     }
   } catch (error) {
-    console.warn("Failed to load gas stats", error);
+    if (!isAbortError(error)) {
+      console.warn("Failed to load gas stats", error);
+    }
   }
 }
 

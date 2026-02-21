@@ -19,11 +19,8 @@ async def setup_db():
 
 @pytest.fixture(autouse=True)
 def _mock_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def fake_service_config():
-        class FakeConfig:
-            mapbox_token = "pk.testtoken1234567890"
-
-        return FakeConfig()
+    def fake_get_mapbox_token() -> str:
+        return "pk.testtoken1234567890"
 
     def fake_validate_mapbox_token(_token: str) -> None:
         return None
@@ -36,7 +33,7 @@ def _mock_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
             "authorized_devices": ["device-1"],
         }
 
-    monkeypatch.setattr(setup_service, "get_service_config", fake_service_config)
+    monkeypatch.setattr(setup_service, "get_mapbox_token", fake_get_mapbox_token)
     monkeypatch.setattr(
         setup_service,
         "validate_mapbox_token",

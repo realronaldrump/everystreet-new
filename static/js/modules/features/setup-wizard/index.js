@@ -4,7 +4,6 @@ import {
   fetchBouncieCredentials as fetchBouncieCredentialsShared,
   fetchMapboxToken,
   saveBouncieCredentials as saveBouncieCredentialsShared,
-  saveMapboxToken,
 } from "../../settings/credentials.js";
 import notificationManager from "../../ui/notifications.js";
 import { getBouncieFormValues } from "./steps/bouncie.js";
@@ -101,10 +100,6 @@ function bindEvents(signal) {
       () => togglePasswordVisibility("clientSecret"),
       eventOptions
     );
-
-  document
-    .getElementById("mapboxToken")
-    ?.addEventListener("input", handleMapboxInput, eventOptions);
 
   document
     .getElementById("map-setup-btn")
@@ -215,6 +210,9 @@ async function loadMapboxSettings() {
     const input = document.getElementById("mapboxToken");
     if (input) {
       input.value = token;
+      input.readOnly = true;
+      input.setAttribute("aria-readonly", "true");
+      input.setAttribute("type", "text");
     }
     handleMapboxInput();
   } catch {
@@ -508,19 +506,13 @@ async function saveBouncieCredentials() {
 }
 
 async function saveMapboxSettings() {
-  const token = document.getElementById("mapboxToken")?.value.trim();
+  const token = document.getElementById("mapboxToken")?.value.trim() || "";
   if (!isValidMapboxToken(token)) {
-    showStatus("credentials-status", "Enter a valid Mapbox token.", true);
+    showStatus("credentials-status", "Mapbox token is not available.", true);
     return false;
   }
-  try {
-    await saveMapboxToken(token, withSignal());
-    showStatus("credentials-status", "Mapbox settings saved.", false);
-    return true;
-  } catch (error) {
-    showStatus("credentials-status", error.message, true);
-    return false;
-  }
+  showStatus("credentials-status", "Mapbox token is preconfigured.", false);
+  return true;
 }
 
 async function syncVehicles() {

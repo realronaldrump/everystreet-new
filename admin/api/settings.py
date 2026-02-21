@@ -46,8 +46,8 @@ async def update_app_settings_endpoint(
     """Persist application settings changes."""
     if not isinstance(settings, dict):
         raise HTTPException(status_code=400, detail="Invalid payload")
-    # Block the removed field name
-    if "mapbox_access_token" in settings:
+    # Mapbox token is immutable and cannot be updated through this endpoint.
+    if "mapbox_access_token" in settings or "mapbox_token" in settings:
         raise HTTPException(
             status_code=400,
             detail=MAPBOX_SETTINGS_ERROR,

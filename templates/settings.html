@@ -592,22 +592,20 @@ Map Match Trips on Fetch
               <label for="mapbox-token-input" class="form-label mb-0 fw-bold">
               Mapbox Access Token
               </label>
-              <button class="btn btn-sm btn-outline-primary" id="save-mapbox-token-btn" disabled>
-                <i class="fas fa-save"></i> Save Token
+              <button class="btn btn-sm btn-outline-secondary" id="save-mapbox-token-btn" disabled>
+                <i class="fas fa-lock"></i> Fixed Token
               </button>
             </div>
             <div class="input-group">
               <span class="input-group-text"><i class="fas fa-key"></i></span>
-              <input type="password"
+              <input type="text"
                      class="form-control"
                      id="mapbox-token-input"
+                     readonly
                      placeholder="pk.eyJ..." />
-              <button class="btn btn-outline-secondary" type="button" id="toggle-mapbox-token">
-                <i class="fas fa-eye"></i>
-              </button>
             </div>
             <div class="form-text">
-Changes take effect immediately after saving.
+This token is hard-coded in the application and cannot be edited.
             </div>
           </div>
         </div>

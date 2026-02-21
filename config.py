@@ -2,9 +2,7 @@
 Centralized configuration for network APIs.
 
 This module is the single source of truth for configuration used across
-the application. Sensitive tokens are sourced from environment variables
-(or a secrets manager) and are never stored in user-editable settings or
-the database.
+the application.
 """
 
 from __future__ import annotations
@@ -17,7 +15,10 @@ from typing import Any, Final
 # --- Bouncie API Endpoints (constants, not credentials) ---
 AUTH_URL: Final[str] = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL: Final[str] = "https://api.bouncie.dev/v1"
-MAPBOX_TOKEN_ENV_VAR: Final[str] = "MAPBOX_TOKEN"
+MAPBOX_PUBLIC_ACCESS_TOKEN: Final[str] = (
+    "pk.eyJ1IjoicmVhbHJvbmFsZHJ1bXAiLCJhIjoiY204eXBvMzRhMDNubTJrb2NoaDIzN2dodyJ9."
+    "3Hnv3_ps0T7YS8cwSE3XKA"
+)
 MAPBOX_TOKEN_MIN_LENGTH: Final[int] = 20
 
 VALHALLA_MAX_SHAPE_POINTS_ENV_VAR: Final[str] = "VALHALLA_MAX_SHAPE_POINTS"
@@ -40,18 +41,15 @@ logger = logging.getLogger(__name__)
 
 def get_mapbox_token() -> str:
     """
-    Get the Mapbox access token from environment variables.
-
-    This does not validate the token. Call require_mapbox_token() when a
-    structurally valid public token is required.
+    Return the immutable Mapbox public token used by the application.
     """
-    return os.getenv(MAPBOX_TOKEN_ENV_VAR, "").strip()
+    return MAPBOX_PUBLIC_ACCESS_TOKEN
 
 
 def validate_mapbox_token(token: str) -> None:
-    """Validate that the Mapbox token looks like a public token."""
+    """Validate the token and enforce the application's fixed Mapbox token."""
     if not token:
-        msg = "MAPBOX_TOKEN is not set. Configure it in the environment before startup."
+        msg = "Mapbox token is required."
         raise RuntimeError(
             msg,
         )
@@ -64,7 +62,13 @@ def validate_mapbox_token(token: str) -> None:
             msg,
         )
     if len(token) < MAPBOX_TOKEN_MIN_LENGTH:
-        msg = "MAPBOX_TOKEN looks too short to be valid. Check the configured value."
+        msg = "Mapbox token looks too short to be valid."
+        raise RuntimeError(
+            msg,
+        )
+
+    if token != MAPBOX_PUBLIC_ACCESS_TOKEN:
+        msg = "Mapbox token is fixed in code and cannot be changed."
         raise RuntimeError(
             msg,
         )

@@ -796,6 +796,9 @@ function populateServiceConfigForm(settings) {
 
   if (mapboxToken) {
     mapboxToken.value = settings.mapbox_token || "";
+    mapboxToken.readOnly = true;
+    mapboxToken.setAttribute("aria-readonly", "true");
+    mapboxToken.setAttribute("type", "text");
   }
 }
 
@@ -808,24 +811,8 @@ async function handleSaveServiceConfig(event) {
     return;
   }
 
-  const mapboxToken = document.getElementById("mapboxToken")?.value.trim() || null;
-
-  // Validate Mapbox token format if provided
-  if (mapboxToken && !mapboxToken.startsWith("pk.")) {
-    notify.error("Mapbox token must start with 'pk.'");
-    return;
-  }
-
   try {
-    notify.info("Saving service configuration...");
-
-    await apiClient.post(
-      "/api/app_settings",
-      { mapbox_token: mapboxToken },
-      withSignal()
-    );
-
-    notify.success("Service configuration saved successfully!");
+    notify.info("Mapbox token is hard-coded and cannot be changed.");
   } catch (error) {
     if (pageSignal?.aborted) {
       return;
