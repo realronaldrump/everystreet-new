@@ -204,6 +204,51 @@
   min-height: 1em;
 }
 
+/* --- Config Grid --- */
+.sim-config-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.sim-config-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sim-config-label {
+  font-size: 0.68rem;
+  color: var(--text-tertiary);
+}
+
+.sim-config-select {
+  padding: var(--space-1) var(--space-2);
+  background: var(--surface-1);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  font-family: var(--font-family-mono);
+  cursor: pointer;
+  transition: border-color 150ms ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  padding-right: 22px;
+}
+
+.sim-config-select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.sim-config-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* --- Speed Buttons --- */
 .sim-speed-btns {
   display: flex;
@@ -224,9 +269,14 @@
   transition: all 150ms ease;
 }
 
-.sim-speed-btn:hover {
+.sim-speed-btn:hover:not(:disabled) {
   background: var(--surface-2);
   color: var(--text-primary);
+}
+
+.sim-speed-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .sim-speed-btn.active {
@@ -286,7 +336,7 @@
 .sim-status {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   background: var(--surface-1);
   border-radius: var(--radius-md);
@@ -310,26 +360,31 @@
   background: var(--text-tertiary);
 }
 
+.sim-status-dot.loading {
+  background: var(--info);
+  animation: sim-pulse 0.8s infinite;
+}
+
 .sim-status-dot.picking {
   background: var(--warning);
-  animation: pulse-subtle 1.5s infinite;
+  animation: sim-pulse 1.5s infinite;
 }
 
 .sim-status-dot.sending {
   background: var(--info);
-  animation: pulse-subtle 0.8s infinite;
+  animation: sim-pulse 0.8s infinite;
 }
 
 .sim-status-dot.active {
   background: var(--success);
-  animation: pulse-subtle 1.5s infinite;
+  animation: sim-pulse 1.5s infinite;
 }
 
 .sim-status-dot.error {
   background: var(--danger);
 }
 
-@keyframes pulse-subtle {
+@keyframes sim-pulse {
   0%,
   100% {
     opacity: 1;
@@ -345,11 +400,31 @@
 }
 
 .sim-status-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+  text-align: center;
+}
+
+.sim-metric-col {
   display: flex;
-  gap: var(--space-3);
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sim-metric-val {
   font-family: var(--font-family-mono);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.sim-metric-unit {
+  font-size: 0.62rem;
   color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 /* --- Event Log --- */
@@ -439,5 +514,9 @@
     max-height: 55vh;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     z-index: var(--z-drawer);
+  }
+
+  .sim-status-metrics {
+    grid-template-columns: repeat(4, 1fr);
   }
 }

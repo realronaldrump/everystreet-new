@@ -1,8 +1,9 @@
 /**
  * Bouncie Simulator — simulates live trip webhooks for testing.
  *
- * Sends real webhook payloads to /webhook/bouncie with the correct auth
- * header, exercising the full tracking pipeline end-to-end.
+ * Every route is resolved via the Mapbox Directions API so coordinates
+ * follow the real road network.  Per-segment speed / duration / distance
+ * annotations from the API drive realistic pacing.
  */
 
 import {
@@ -15,7 +16,7 @@ import {
 } from "./payloads.js";
 import {
   enableRoutePickerMode,
-  getPresetRouteById,
+  fetchPresetRoute,
   getPresetRoutes,
 } from "./routes.js";
 
@@ -23,43 +24,36 @@ import {
 // Geometry helpers
 // ---------------------------------------------------------------------------
 
-function toRad(deg) {
-  return (deg * Math.PI) / 180;
-}
-function toDeg(rad) {
-  return (rad * 180) / Math.PI;
-}
+const DEG2RAD = Math.PI / 180;
+const RAD2DEG = 180 / Math.PI;
+const MPS_TO_MPH = 2.23694;
+const M_TO_MI = 0.000621371;
 
-/** Haversine distance in miles. */
-function haversine(lat1, lon1, lat2, lon2) {
-  const R = 3958.8;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-/** Bearing from point A to point B in degrees [0, 360). */
+/** Bearing from A→B in degrees [0, 360). */
 function bearing(lat1, lon1, lat2, lon2) {
-  const dLon = toRad(lon2 - lon1);
-  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+  const dLon = (lon2 - lon1) * DEG2RAD;
+  const y = Math.sin(dLon) * Math.cos(lat2 * DEG2RAD);
   const x =
-    Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
-    Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
-  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    Math.cos(lat1 * DEG2RAD) * Math.sin(lat2 * DEG2RAD) -
+    Math.sin(lat1 * DEG2RAD) * Math.cos(lat2 * DEG2RAD) * Math.cos(dLon);
+  return (Math.atan2(y, x) * RAD2DEG + 360) % 360;
 }
 
 // ---------------------------------------------------------------------------
-// Speed profiles — target speeds by route type (mph)
+// Configuration defaults
 // ---------------------------------------------------------------------------
 
-const SPEED_PROFILES = {
-  "downtown-loop": { min: 15, max: 40, avg: 28 },
-  "highway-run": { min: 45, max: 72, avg: 60 },
-  neighborhood: { min: 10, max: 30, avg: 20 },
-  custom: { min: 20, max: 50, avg: 35 },
+const DEFAULT_CONFIG = {
+  /** How often Bouncie batches data (real-world seconds between sends). */
+  dataIntervalSec: 3,
+  /** How many coordinate points per tripData webhook (1–5, like real Bouncie). */
+  batchSize: 3,
+  /** Starting fuel level 0-100. */
+  fuelStart: 82,
+  /** Fuel consumption per mile (% of tank). */
+  fuelPerMile: 0.35,
+  /** Starting odometer reading. */
+  odometerStart: 45678.9,
 };
 
 // ---------------------------------------------------------------------------
@@ -69,34 +63,40 @@ const SPEED_PROFILES = {
 export class BouncieSimulator {
   constructor(map) {
     this.map = map;
-    this.status = "idle"; // idle | picking | simulating
+    this.status = "idle"; // idle | loading | picking | simulating
+    this.route = null; // ResolvedRoute from routes.js
     this.transactionId = null;
-    this.routeId = null;
-    this.routeCoords = null;
-    this.routeMeta = null;
     this.currentIndex = 0;
     this.speedMultiplier = 2;
-    this.intervalId = null;
-    this.startTime = null;
-    this.totalDistance = 0;
-    this.maxSpeed = 0;
-    this.lastSpeed = 0;
-    this.fuelLevel = 82;
-    this.eventLog = [];
+    this.config = { ...DEFAULT_CONFIG };
+    this.tickTimer = null;
     this.picker = null;
     this.panel = null;
+
+    // Running trip state
+    this._tripStartTime = null;
+    this._simElapsedSec = 0; // simulated elapsed seconds
+    this._totalDistMi = 0;
+    this._maxSpeedMph = 0;
+    this._fuelLevel = this.config.fuelStart;
+    this._eventLog = [];
 
     this._buildPanel();
   }
 
   // =========================================================================
-  // Panel DOM Construction
+  // Panel DOM
   // =========================================================================
 
   _buildPanel() {
     const panel = document.createElement("div");
     panel.className = "sim-panel";
     panel.id = "sim-panel";
+
+    const presetOptions = getPresetRoutes()
+      .map((r) => `<option value="${r.id}">${r.name}</option>`)
+      .join("");
+
     panel.innerHTML = `
       <div class="sim-header">
         <div class="sim-header-left">
@@ -115,23 +115,20 @@ export class BouncieSimulator {
       <div class="sim-body">
         <div class="sim-progress-bar"><div class="sim-progress-fill"></div></div>
 
+        <!-- Route -->
         <div class="sim-section">
           <label class="sim-label">Route</label>
           <select class="sim-select" data-ref="routeSelect">
             <option value="">Select a route...</option>
-            ${getPresetRoutes()
-              .map(
-                (r) =>
-                  `<option value="${r.id}">${r.name} (${r.pointCount} pts)</option>`,
-              )
-              .join("")}
+            ${presetOptions}
             <option value="__pick__">Pick on Map...</option>
           </select>
           <div class="sim-route-info" data-ref="routeInfo"></div>
         </div>
 
+        <!-- Config -->
         <div class="sim-section">
-          <label class="sim-label">Speed</label>
+          <label class="sim-label">Simulation Speed</label>
           <div class="sim-speed-btns" data-ref="speedBtns">
             <button class="sim-speed-btn" data-speed="1">1x</button>
             <button class="sim-speed-btn active" data-speed="2">2x</button>
@@ -140,6 +137,31 @@ export class BouncieSimulator {
           </div>
         </div>
 
+        <div class="sim-section">
+          <label class="sim-label">Options</label>
+          <div class="sim-config-grid">
+            <div class="sim-config-item">
+              <span class="sim-config-label">Data interval</span>
+              <select class="sim-config-select" data-ref="cfgInterval">
+                <option value="2">2 sec</option>
+                <option value="3" selected>3 sec</option>
+                <option value="5">5 sec</option>
+                <option value="10">10 sec</option>
+              </select>
+            </div>
+            <div class="sim-config-item">
+              <span class="sim-config-label">Batch size</span>
+              <select class="sim-config-select" data-ref="cfgBatch">
+                <option value="1">1 pt</option>
+                <option value="2">2 pts</option>
+                <option value="3" selected>3 pts</option>
+                <option value="5">5 pts</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
         <div class="sim-section sim-actions">
           <button class="sim-btn sim-btn-start" data-ref="startBtn" disabled>
             <i class="fas fa-play"></i> Start Trip
@@ -149,18 +171,33 @@ export class BouncieSimulator {
           </button>
         </div>
 
+        <!-- Status -->
         <div class="sim-status" data-ref="statusArea">
           <div class="sim-status-row">
             <span class="sim-status-dot idle"></span>
             <span class="sim-status-text" data-ref="statusText">Idle</span>
           </div>
-          <div class="sim-status-metrics" data-ref="metrics">
-            <span data-ref="metricCoord">--</span>
-            <span data-ref="metricSpeed">-- mph</span>
-            <span data-ref="metricProgress">0%</span>
+          <div class="sim-status-metrics">
+            <div class="sim-metric-col">
+              <span class="sim-metric-val" data-ref="metricSpeed">--</span>
+              <span class="sim-metric-unit">mph</span>
+            </div>
+            <div class="sim-metric-col">
+              <span class="sim-metric-val" data-ref="metricDist">--</span>
+              <span class="sim-metric-unit">mi</span>
+            </div>
+            <div class="sim-metric-col">
+              <span class="sim-metric-val" data-ref="metricTime">--</span>
+              <span class="sim-metric-unit">min</span>
+            </div>
+            <div class="sim-metric-col">
+              <span class="sim-metric-val" data-ref="metricPct">--%</span>
+              <span class="sim-metric-unit">done</span>
+            </div>
           </div>
         </div>
 
+        <!-- Event log -->
         <div class="sim-section sim-log-section">
           <label class="sim-label">Event Log</label>
           <div class="sim-log" data-ref="log"></div>
@@ -170,15 +207,11 @@ export class BouncieSimulator {
 
     this.panel = panel;
     this.refs = {};
-
-    // Cache element references
     panel.querySelectorAll("[data-ref]").forEach((el) => {
       this.refs[el.dataset.ref] = el;
     });
 
     this._bindEvents();
-
-    // Insert into map container
     const mapEl = document.getElementById("map");
     if (mapEl) mapEl.appendChild(panel);
   }
@@ -186,21 +219,17 @@ export class BouncieSimulator {
   _bindEvents() {
     const panel = this.panel;
 
-    // Collapse / close
     panel.addEventListener("mousedown", (e) => {
       const btn = e.target.closest("[data-action]");
       if (!btn) return;
-      const action = btn.dataset.action;
-      if (action === "collapse") this._toggleCollapse();
-      if (action === "close") this.hide();
+      if (btn.dataset.action === "collapse") this._toggleCollapse();
+      if (btn.dataset.action === "close") this.hide();
     });
 
-    // Route select
-    this.refs.routeSelect.addEventListener("change", (e) => {
-      this._onRouteChange(e.target.value);
-    });
+    this.refs.routeSelect.addEventListener("change", (e) =>
+      this._onRouteChange(e.target.value),
+    );
 
-    // Speed buttons
     this.refs.speedBtns.addEventListener("mousedown", (e) => {
       const btn = e.target.closest("[data-speed]");
       if (!btn) return;
@@ -210,54 +239,52 @@ export class BouncieSimulator {
         .forEach((b) => b.classList.toggle("active", b === btn));
     });
 
-    // Start / Stop
+    this.refs.cfgInterval.addEventListener("change", (e) => {
+      this.config.dataIntervalSec = Number(e.target.value);
+    });
+    this.refs.cfgBatch.addEventListener("change", (e) => {
+      this.config.batchSize = Number(e.target.value);
+    });
+
     this.refs.startBtn.addEventListener("mousedown", () => this.startTrip());
     this.refs.stopBtn.addEventListener("mousedown", () => this.stopTrip());
   }
 
   // =========================================================================
-  // Panel Visibility
+  // Panel visibility
   // =========================================================================
 
   toggle() {
     if (!this.panel) return;
-    const isVisible = !this.panel.classList.contains("hidden");
-    if (isVisible) this.hide();
-    else this.show();
+    this.panel.classList.contains("hidden") ? this.show() : this.hide();
   }
 
   show() {
     if (!this.panel) return;
     this.panel.classList.remove("hidden");
-    const toggleBtn = document.getElementById("sim-toggle");
-    if (toggleBtn) toggleBtn.classList.add("active");
+    document.getElementById("sim-toggle")?.classList.add("active");
   }
 
   hide() {
     if (!this.panel) return;
     this.panel.classList.add("hidden");
-    const toggleBtn = document.getElementById("sim-toggle");
-    if (toggleBtn) toggleBtn.classList.remove("active");
+    document.getElementById("sim-toggle")?.classList.remove("active");
   }
 
   _toggleCollapse() {
-    if (!this.panel) return;
-    const body = this.panel.querySelector(".sim-body");
-    const icon = this.panel.querySelector("[data-action='collapse'] i");
+    const body = this.panel?.querySelector(".sim-body");
+    const icon = this.panel?.querySelector("[data-action='collapse'] i");
     if (!body) return;
-
     const collapsed = body.style.display === "none";
     body.style.display = collapsed ? "" : "none";
-    if (icon) {
-      icon.className = collapsed ? "fas fa-chevron-down" : "fas fa-chevron-up";
-    }
+    if (icon) icon.className = collapsed ? "fas fa-chevron-down" : "fas fa-chevron-up";
   }
 
   // =========================================================================
-  // Route Selection
+  // Route selection
   // =========================================================================
 
-  _onRouteChange(value) {
+  async _onRouteChange(value) {
     if (this.picker) {
       this.picker.cancel();
       this.picker = null;
@@ -269,22 +296,29 @@ export class BouncieSimulator {
     }
 
     if (!value) {
-      this.routeCoords = null;
-      this.routeId = null;
-      this.routeMeta = null;
+      this.route = null;
       this.refs.routeInfo.textContent = "";
       this.refs.startBtn.disabled = true;
       return;
     }
 
-    const route = getPresetRouteById(value);
-    if (!route) return;
+    // Fetch preset from Directions API (real roads)
+    this._setStatus("loading", "Fetching route...");
+    this.refs.startBtn.disabled = true;
+    this.refs.routeSelect.disabled = true;
 
-    this.routeId = route.id;
-    this.routeCoords = route.coordinates;
-    this.routeMeta = { distance: null, duration: null };
-    this.refs.routeInfo.textContent = route.description;
-    this.refs.startBtn.disabled = false;
+    try {
+      this.route = await fetchPresetRoute(value);
+      this._showRouteInfo(this.route);
+      this.refs.startBtn.disabled = false;
+      this._setStatus("idle", "Route ready");
+    } catch (err) {
+      console.error("Route fetch failed:", err);
+      this._setStatus("error", `Route failed: ${err.message}`);
+      this.route = null;
+    } finally {
+      this.refs.routeSelect.disabled = false;
+    }
   }
 
   _startRoutePicker() {
@@ -300,46 +334,49 @@ export class BouncieSimulator {
         this.refs.routeSelect.value = "";
         return;
       }
-
-      this.routeId = "custom";
-      this.routeCoords = route.coordinates;
-      this.routeMeta = {
-        distance: route.distance,
-        duration: route.duration,
-      };
-      this.refs.routeInfo.textContent = `Custom route: ${route.coordinates.length} pts, ${(route.distance / 1609.34).toFixed(1)} mi`;
+      this.route = route;
+      this._showRouteInfo(route);
       this.refs.startBtn.disabled = false;
       this.status = "idle";
       this._setStatus("idle", "Route ready");
     });
   }
 
+  _showRouteInfo(route) {
+    const mi = (route.totalDistance * M_TO_MI).toFixed(1);
+    const mins = Math.round(route.totalDuration / 60);
+    const pts = route.segments.length;
+    this.refs.routeInfo.textContent = `${mi} mi · ~${mins} min · ${pts} road points`;
+  }
+
   // =========================================================================
-  // Simulation Lifecycle
+  // Simulation lifecycle
   // =========================================================================
 
   async startTrip() {
-    if (this.status === "simulating" || !this.routeCoords?.length) return;
+    if (this.status === "simulating" || !this.route?.segments?.length) return;
 
     this.status = "simulating";
     this.currentIndex = 0;
-    this.totalDistance = 0;
-    this.maxSpeed = 0;
-    this.lastSpeed = 0;
-    this.fuelLevel = 82;
+    this._tripStartTime = new Date();
+    this._simElapsedSec = 0;
+    this._totalDistMi = 0;
+    this._maxSpeedMph = 0;
+    this._fuelLevel = this.config.fuelStart;
     this.transactionId = generateTransactionId();
-    this.startTime = new Date();
-    this.eventLog = [];
+    this._eventLog = [];
 
     this.refs.startBtn.disabled = true;
     this.refs.stopBtn.disabled = false;
     this.refs.routeSelect.disabled = true;
+    this._setConfigEnabled(false);
 
-    // Send tripStart
+    // --- tripStart ---
     this._setStatus("sending", "Sending tripStart...");
     const startPayload = buildTripStartPayload({
       transactionId: this.transactionId,
-      timestamp: this.startTime,
+      timestamp: this._tripStartTime,
+      odometer: this.config.odometerStart,
     });
     const startResult = await sendWebhookPayload(startPayload);
     this._logEvent("tripStart", startResult);
@@ -350,165 +387,219 @@ export class BouncieSimulator {
       return;
     }
 
-    // Begin tick loop
-    const baseIntervalMs = 3000;
-    const intervalMs = Math.max(baseIntervalMs / this.speedMultiplier, 200);
-
+    // --- begin tick loop ---
     this._setStatus("active", "Simulating...");
-    this.intervalId = setInterval(() => this._tick(), intervalMs);
+    this._scheduleTick();
 
-    // Send first data immediately
+    // First data immediately
     await this._tick();
   }
 
   async stopTrip() {
     if (this.status !== "simulating") return;
-    clearInterval(this.intervalId);
-    this.intervalId = null;
-
+    this._clearTick();
     await this._finishTrip();
   }
 
-  async _finishTrip() {
-    const endTime = new Date();
-    const tripTimeSec = (endTime - this.startTime) / 1000;
-
-    this._setStatus("sending", "Sending tripMetrics...");
-
-    // tripMetrics
-    const metricsPayload = buildTripMetricsPayload({
-      transactionId: this.transactionId,
-      timestamp: endTime,
-      tripTime: Math.round(tripTimeSec * this.speedMultiplier),
-      tripDistance: parseFloat(this.totalDistance.toFixed(2)),
-      totalIdlingTime: 0,
-      maxSpeed: parseFloat(this.maxSpeed.toFixed(1)),
-      averageDriveSpeed: parseFloat(
-        (this.totalDistance / (tripTimeSec * this.speedMultiplier / 3600) || 0).toFixed(1),
-      ),
-      hardBrakingCounts: Math.floor(Math.random() * 3),
-      hardAccelerationCounts: Math.floor(Math.random() * 2),
-    });
-    const metricsResult = await sendWebhookPayload(metricsPayload);
-    this._logEvent("tripMetrics", metricsResult);
-
-    // tripEnd
-    this._setStatus("sending", "Sending tripEnd...");
-    const endPayload = buildTripEndPayload({
-      transactionId: this.transactionId,
-      timestamp: endTime,
-      odometer: 45678.9 + this.totalDistance,
-      fuelConsumed: parseFloat(((82 - this.fuelLevel) * 0.08).toFixed(2)),
-    });
-    const endResult = await sendWebhookPayload(endPayload);
-    this._logEvent("tripEnd", endResult);
-
-    this.status = "idle";
-    this._setStatus("idle", "Trip completed");
-    this._setProgress(100);
-    this._resetControls();
+  _scheduleTick() {
+    this._clearTick();
+    const wallIntervalMs =
+      (this.config.dataIntervalSec / this.speedMultiplier) * 1000;
+    this.tickTimer = setTimeout(() => this._tick(), Math.max(wallIntervalMs, 150));
   }
 
-  async _tick() {
-    if (this.status !== "simulating" || !this.routeCoords) return;
+  _clearTick() {
+    if (this.tickTimer) {
+      clearTimeout(this.tickTimer);
+      this.tickTimer = null;
+    }
+  }
 
-    const coords = this.routeCoords;
-    const total = coords.length;
+  // =========================================================================
+  // Simulation tick — uses Directions API annotations for realistic pacing
+  // =========================================================================
+
+  async _tick() {
+    if (this.status !== "simulating" || !this.route) return;
+
+    const segs = this.route.segments;
+    const total = segs.length;
 
     if (this.currentIndex >= total - 1) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
+      this._clearTick();
       await this._finishTrip();
       return;
     }
 
-    // Batch 1–3 points per tick
-    const batchSize = Math.min(
-      1 + Math.floor(Math.random() * 3),
-      total - 1 - this.currentIndex,
-    );
+    // Determine how many segments to advance this tick.
+    // We advance enough segments to cover `dataIntervalSec` of simulated time.
+    const targetSimSec = this.config.dataIntervalSec;
+    let simSecThisTick = 0;
+    let advanceCount = 0;
 
-    const profile =
-      SPEED_PROFILES[this.routeId] ?? SPEED_PROFILES.custom;
+    for (let i = this.currentIndex + 1; i < total; i++) {
+      const segDur = segs[i].durationS;
+      if (simSecThisTick + segDur > targetSimSec && advanceCount > 0) break;
+      simSecThisTick += segDur;
+      advanceCount++;
+      if (advanceCount >= this.config.batchSize) break;
+    }
 
+    // If no segments could be consumed (very tiny durations), advance at least 1
+    if (advanceCount === 0) {
+      advanceCount = Math.min(1, total - 1 - this.currentIndex);
+      if (advanceCount === 0) {
+        this._clearTick();
+        await this._finishTrip();
+        return;
+      }
+    }
+
+    // Build data points for webhook payload
     const dataPoints = [];
-    const elapsed = (Date.now() - this.startTime.getTime()) / 1000;
+    for (let i = 0; i < advanceCount; i++) {
+      const segIdx = this.currentIndex + 1 + i;
+      if (segIdx >= total) break;
 
-    for (let i = 0; i < batchSize; i++) {
-      const idx = this.currentIndex + i;
-      if (idx >= total - 1) break;
+      const seg = segs[segIdx];
+      const prev = segs[segIdx - 1];
 
-      const curr = coords[idx];
-      const next = coords[idx + 1];
-      const dist = haversine(curr.lat, curr.lon, next.lat, next.lon);
-      const hdg = bearing(curr.lat, curr.lon, next.lat, next.lon);
+      // Accumulate simulated elapsed time
+      this._simElapsedSec += seg.durationS;
 
-      // Simulate speed with some variance
-      const targetSpeed =
-        profile.avg + (Math.random() - 0.5) * (profile.max - profile.min) * 0.4;
-      const speed = Math.max(
-        profile.min,
-        Math.min(profile.max, targetSpeed),
-      );
+      // Distance
+      const distMi = seg.distanceM * M_TO_MI;
+      this._totalDistMi += distMi;
 
-      this.totalDistance += dist;
-      this.maxSpeed = Math.max(this.maxSpeed, speed);
-      this.lastSpeed = speed;
-      this.fuelLevel = Math.max(0, this.fuelLevel - dist * 0.03);
+      // Speed: use Directions API speed (m/s → mph) with slight jitter
+      const baseSpeedMph = seg.speedMps * MPS_TO_MPH;
+      const jitter = 1 + (Math.random() - 0.5) * 0.08; // ±4%
+      const speedMph = Math.max(0, baseSpeedMph * jitter);
+      this._maxSpeedMph = Math.max(this._maxSpeedMph, speedMph);
 
-      // Timestamp: startTime + scaled elapsed time
+      // Fuel
+      this._fuelLevel = Math.max(0, this._fuelLevel - distMi * this.config.fuelPerMile);
+
+      // Heading
+      const hdg = bearing(prev.lat, prev.lon, seg.lat, seg.lon);
+
+      // Timestamp: trip start + simulated elapsed time
       const ptTime = new Date(
-        this.startTime.getTime() +
-          (elapsed + i * (3 / this.speedMultiplier)) * 1000 * this.speedMultiplier,
+        this._tripStartTime.getTime() + this._simElapsedSec * 1000,
       );
 
       dataPoints.push({
         timestamp: ptTime,
-        lat: next.lat,
-        lon: next.lon,
+        lat: seg.lat,
+        lon: seg.lon,
         heading: Math.round(hdg),
-        speed: parseFloat(speed.toFixed(1)),
-        fuelLevelInput: parseFloat(this.fuelLevel.toFixed(1)),
+        speed: parseFloat(speedMph.toFixed(1)),
+        fuelLevelInput: parseFloat(this._fuelLevel.toFixed(1)),
       });
     }
 
-    this.currentIndex += batchSize;
+    this.currentIndex += advanceCount;
 
-    // Send tripData
+    // Send tripData webhook
     const payload = buildTripDataPayload({
       transactionId: this.transactionId,
       dataPoints,
     });
     const result = await sendWebhookPayload(payload);
-    this._logEvent("tripData", result, `${batchSize} pts`);
+    this._logEvent("tripData", result, `${dataPoints.length} pts`);
 
     // Update UI
+    this._updateMetrics(dataPoints);
+
+    // Schedule next tick
+    if (this.status === "simulating") this._scheduleTick();
+  }
+
+  // =========================================================================
+  // Trip end
+  // =========================================================================
+
+  async _finishTrip() {
+    const endTime = new Date(
+      this._tripStartTime.getTime() + this._simElapsedSec * 1000,
+    );
+
+    // --- tripMetrics ---
+    this._setStatus("sending", "Sending tripMetrics...");
+    const avgSpeed =
+      this._simElapsedSec > 0
+        ? this._totalDistMi / (this._simElapsedSec / 3600)
+        : 0;
+
+    const metricsPayload = buildTripMetricsPayload({
+      transactionId: this.transactionId,
+      timestamp: endTime,
+      tripTime: Math.round(this._simElapsedSec),
+      tripDistance: parseFloat(this._totalDistMi.toFixed(2)),
+      totalIdlingTime: 0,
+      maxSpeed: parseFloat(this._maxSpeedMph.toFixed(1)),
+      averageDriveSpeed: parseFloat(avgSpeed.toFixed(1)),
+      hardBrakingCounts: Math.floor(Math.random() * 3),
+      hardAccelerationCounts: Math.floor(Math.random() * 2),
+    });
+    const mResult = await sendWebhookPayload(metricsPayload);
+    this._logEvent("tripMetrics", mResult);
+
+    // --- tripEnd ---
+    this._setStatus("sending", "Sending tripEnd...");
+    const endPayload = buildTripEndPayload({
+      transactionId: this.transactionId,
+      timestamp: endTime,
+      odometer: this.config.odometerStart + this._totalDistMi,
+      fuelConsumed: parseFloat(
+        ((this.config.fuelStart - this._fuelLevel) * 0.08).toFixed(2),
+      ),
+    });
+    const eResult = await sendWebhookPayload(endPayload);
+    this._logEvent("tripEnd", eResult);
+
+    this.status = "idle";
+    this._setProgress(100);
+    this._setStatus("idle", "Trip completed");
+    this._resetControls();
+  }
+
+  // =========================================================================
+  // UI helpers
+  // =========================================================================
+
+  _updateMetrics(dataPoints) {
+    if (!dataPoints.length) return;
     const last = dataPoints[dataPoints.length - 1];
+    const total = this.route.segments.length;
     const pct = Math.round((this.currentIndex / (total - 1)) * 100);
+    const mins = (this._simElapsedSec / 60).toFixed(1);
+
+    this.refs.metricSpeed.textContent = last.speed.toFixed(0);
+    this.refs.metricDist.textContent = this._totalDistMi.toFixed(2);
+    this.refs.metricTime.textContent = mins;
+    this.refs.metricPct.textContent = `${pct}%`;
     this._setProgress(pct);
-    this.refs.metricCoord.textContent = `${last.lat.toFixed(4)}, ${last.lon.toFixed(4)}`;
-    this.refs.metricSpeed.textContent = `${last.speed} mph`;
-    this.refs.metricProgress.textContent = `${pct}%`;
     this._setStatus("active", `Simulating... ${pct}%`);
   }
 
-  // =========================================================================
-  // UI Helpers
-  // =========================================================================
-
   _setStatus(state, text) {
-    const dot = this.panel.querySelector(".sim-status-dot");
-    if (dot) {
-      dot.className = `sim-status-dot ${state}`;
-    }
-    if (this.refs.statusText) {
-      this.refs.statusText.textContent = text;
-    }
+    const dot = this.panel?.querySelector(".sim-status-dot");
+    if (dot) dot.className = `sim-status-dot ${state}`;
+    if (this.refs.statusText) this.refs.statusText.textContent = text;
   }
 
   _setProgress(pct) {
-    const fill = this.panel.querySelector(".sim-progress-fill");
+    const fill = this.panel?.querySelector(".sim-progress-fill");
     if (fill) fill.style.width = `${pct}%`;
+  }
+
+  _setConfigEnabled(enabled) {
+    this.refs.cfgInterval.disabled = !enabled;
+    this.refs.cfgBatch.disabled = !enabled;
+    this.refs.speedBtns.querySelectorAll("button").forEach((b) => {
+      b.disabled = !enabled;
+    });
   }
 
   _logEvent(eventType, result, extra = "") {
@@ -518,8 +609,7 @@ export class BouncieSimulator {
       minute: "2-digit",
       second: "2-digit",
     });
-    const statusClass = result.ok ? "ok" : "err";
-    const statusText = result.ok ? result.status : `ERR ${result.status}`;
+    const ok = result.ok;
     const detail = extra ? ` (${extra})` : "";
 
     const entry = document.createElement("div");
@@ -527,23 +617,23 @@ export class BouncieSimulator {
     entry.innerHTML = `
       <span class="sim-log-time">${time}</span>
       <span class="sim-log-event">${eventType}</span>
-      <span class="sim-log-status ${statusClass}">${statusText}</span>
+      <span class="sim-log-status ${ok ? "ok" : "err"}">${ok ? result.status : `ERR ${result.status}`}</span>
       <span class="sim-log-detail">${detail}</span>
     `;
 
     const log = this.refs.log;
     if (log) {
       log.appendChild(entry);
-      // Keep last 50 entries
       while (log.children.length > 50) log.removeChild(log.firstChild);
       log.scrollTop = log.scrollHeight;
     }
   }
 
   _resetControls() {
-    this.refs.startBtn.disabled = !this.routeCoords;
+    this.refs.startBtn.disabled = !this.route;
     this.refs.stopBtn.disabled = true;
     this.refs.routeSelect.disabled = false;
+    this._setConfigEnabled(true);
     this.status = "idle";
   }
 
@@ -552,7 +642,7 @@ export class BouncieSimulator {
   // =========================================================================
 
   destroy() {
-    if (this.intervalId) clearInterval(this.intervalId);
+    this._clearTick();
     if (this.picker) this.picker.cancel();
     if (this.panel) this.panel.remove();
     this.panel = null;
