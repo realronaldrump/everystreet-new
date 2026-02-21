@@ -4,7 +4,6 @@ import {
   fetchBouncieCredentials,
   fetchGooglePhotosCredentials,
   fetchGooglePhotosStatus,
-  fetchMapboxToken,
   saveBouncieCredentials,
   saveGooglePhotosCredentials,
   syncBouncieVehicles,
@@ -45,50 +44,9 @@ function validateFetchConcurrency(value) {
 }
 
 export function setupCredentialsSettings({ signal } = {}) {
-  setupMapboxCredentials({ signal });
   setupBouncieCredentials({ signal });
   setupGooglePhotosCredentials({ signal });
   setupBouncieVehicles({ signal });
-}
-
-async function setupMapboxCredentials({ signal } = {}) {
-  const tokenInput = document.getElementById("mapbox-token-input");
-  const saveBtn = document.getElementById("save-mapbox-token-btn");
-  const toggleBtn = document.getElementById("toggle-mapbox-token");
-  const helperText = tokenInput
-    ?.closest(".mapbox-config-section")
-    ?.querySelector(".form-text");
-
-  if (!tokenInput) {
-    return;
-  }
-
-  try {
-    const token = await fetchMapboxToken({ signal });
-    tokenInput.value = token;
-    tokenInput.readOnly = true;
-    tokenInput.setAttribute("aria-readonly", "true");
-    tokenInput.setAttribute("type", "text");
-    if (saveBtn) {
-      saveBtn.disabled = true;
-      saveBtn.innerHTML = '<i class="fas fa-lock"></i> Fixed Token';
-      saveBtn.title = "Mapbox token is hard-coded in the app.";
-    }
-    if (helperText) {
-      helperText.textContent = "This token is hard-coded and cannot be edited.";
-    }
-  } catch (error) {
-    if (!isAbortError(error)) {
-      notificationManager.show(
-        `Failed to load Mapbox token: ${error.message}`,
-        "danger"
-      );
-    }
-  }
-
-  if (toggleBtn) {
-    toggleBtn.remove();
-  }
 }
 
 async function setupBouncieCredentials({ signal } = {}) {

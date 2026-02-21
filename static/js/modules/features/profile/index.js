@@ -40,7 +40,6 @@ export default function initProfilePage({ signal, cleanup } = {}) {
   }
 
   initializeEventListeners(signal);
-  initServiceConfigForm(signal);
   applyEditorStateUI();
   loadCredentials();
 
@@ -756,78 +755,3 @@ async function syncVehiclesFromBouncie() {
 /**
  * Initialize service configuration form
  */
-function initServiceConfigForm(signal) {
-  const form = document.getElementById("serviceConfigForm");
-  if (!form) {
-    return;
-  }
-
-  form.addEventListener("submit", handleSaveServiceConfig, signal ? { signal } : false);
-
-  const reloadBtn = document.getElementById("reloadServiceConfigBtn");
-  if (reloadBtn) {
-    reloadBtn.addEventListener("click", loadServiceConfig, signal ? { signal } : false);
-  }
-
-  // Load settings on page load
-  loadServiceConfig();
-}
-
-/**
- * Load service configuration from the server
- */
-async function loadServiceConfig() {
-  try {
-    const settings = await apiClient.get("/api/app_settings", withSignal());
-    populateServiceConfigForm(settings);
-  } catch (error) {
-    if (pageSignal?.aborted) {
-      return;
-    }
-    notify.error(`Error loading settings: ${error.message}`);
-  }
-}
-
-/**
- * Populate service config form with settings
- */
-function populateServiceConfigForm(settings) {
-  const mapboxToken = document.getElementById("mapboxToken");
-
-  if (mapboxToken) {
-    mapboxToken.value = settings.mapbox_token || "";
-    mapboxToken.readOnly = true;
-    mapboxToken.setAttribute("aria-readonly", "true");
-    mapboxToken.setAttribute("type", "text");
-  }
-}
-
-/**
- * Handle save service configuration
- */
-async function handleSaveServiceConfig(event) {
-  event.preventDefault();
-  if (pageSignal?.aborted) {
-    return;
-  }
-
-  try {
-    notify.info("Mapbox token is hard-coded and cannot be changed.");
-  } catch (error) {
-    if (pageSignal?.aborted) {
-      return;
-    }
-    notify.error(`Error saving settings: ${error.message}`);
-  }
-}
-
-/**
- * Show service config status message
- */
-/**
- * Deleted showServiceConfigStatus as it is replaced by notify module
- */
-
-if (document.getElementById("serviceConfigForm")) {
-  initServiceConfigForm(pageSignal);
-}

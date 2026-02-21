@@ -2,16 +2,10 @@ import apiClient from "../../core/api-client.js";
 import { swupReady } from "../../core/navigation.js";
 import {
   fetchBouncieCredentials as fetchBouncieCredentialsShared,
-  fetchMapboxToken,
   saveBouncieCredentials as saveBouncieCredentialsShared,
 } from "../../settings/credentials.js";
 import notificationManager from "../../ui/notifications.js";
 import { getBouncieFormValues } from "./steps/bouncie.js";
-import {
-  destroyMapPreview,
-  isValidMapboxToken,
-  renderMapPreview,
-} from "./steps/mapbox.js";
 import { readJsonResponse, responseErrorMessage } from "./validation.js";
 
 const SETUP_STATUS_API = "/api/setup/status";
@@ -23,7 +17,6 @@ const TRIP_SYNC_STATUS_API = "/api/actions/trips/sync/status";
 const TRIP_SYNC_START_API = "/api/actions/trips/sync";
 
 let pageSignal = null;
-let mapPreview = null;
 let setupStatus = null;
 let mapServiceStatus = null;
 let stateCatalog = null;
@@ -44,7 +37,6 @@ export default function initSetupWizardPage({ signal, cleanup } = {}) {
   initializeSetup();
   const teardown = () => {
     pageSignal = null;
-    mapPreview = destroyMapPreview(mapPreview);
     stopStatusPolling();
   };
   if (typeof cleanup === "function") {
@@ -67,7 +59,6 @@ async function initializeSetup() {
   bindEvents(pageSignal);
   await Promise.all([
     loadSetupStatus(),
-    loadMapboxSettings(),
     loadBouncieCredentials(),
     loadCoverageSettings(),
     loadTripSyncStatus(),
@@ -202,22 +193,6 @@ async function loadTripSyncStatus() {
     tripSyncStatus = null;
   }
   updateTripSyncStatusUI();
-}
-
-async function loadMapboxSettings() {
-  try {
-    const token = await fetchMapboxToken(withSignal());
-    const input = document.getElementById("mapboxToken");
-    if (input) {
-      input.value = token;
-      input.readOnly = true;
-      input.setAttribute("aria-readonly", "true");
-      input.setAttribute("type", "text");
-    }
-    handleMapboxInput();
-  } catch {
-    showStatus("credentials-status", "Unable to load Mapbox settings.", true);
-  }
 }
 
 async function loadBouncieCredentials() {
@@ -397,34 +372,6 @@ function togglePasswordVisibility(inputId) {
   input.type = input.type === "password" ? "text" : "password";
 }
 
-function handleMapboxInput() {
-  const token = document.getElementById("mapboxToken")?.value.trim();
-  if (!token) {
-    mapPreview = destroyMapPreview(mapPreview);
-    return;
-  }
-  if (!isValidMapboxToken(token)) {
-    mapPreview = destroyMapPreview(mapPreview);
-    showStatus(
-      "credentials-status",
-      "Mapbox token must start with pk. and be valid length.",
-      true
-    );
-    return;
-  }
-  mapPreview = destroyMapPreview(mapPreview);
-  mapPreview = renderMapPreview({
-    token,
-    onError: () => {
-      showStatus(
-        "credentials-status",
-        "Map preview failed to load. Double-check the token.",
-        true
-      );
-    },
-  });
-}
-
 async function handleCredentialsContinue() {
   const bouncieOk = await saveBouncieCredentials();
   if (!bouncieOk) {
@@ -433,13 +380,8 @@ async function handleCredentialsContinue() {
     return;
   }
 
-  const mapboxOk = await saveMapboxSettings();
   await loadSetupStatus();
   updateStepState();
-
-  if (!mapboxOk) {
-    return;
-  }
 
   const bouncieComplete = setupStatus?.steps?.bouncie?.complete;
   const mapboxComplete = setupStatus?.steps?.mapbox?.complete;
@@ -479,7 +421,7 @@ async function handleCredentialsContinue() {
     const mapboxError = setupStatus?.steps?.mapbox?.error;
     showStatus(
       "credentials-status",
-      mapboxError || "Enter a valid Mapbox token before continuing.",
+      mapboxError || "Mapbox configuration is invalid.",
       true
     );
     return;
@@ -503,16 +445,6 @@ async function saveBouncieCredentials() {
     showStatus("credentials-status", error.message, true);
     return false;
   }
-}
-
-async function saveMapboxSettings() {
-  const token = document.getElementById("mapboxToken")?.value.trim() || "";
-  if (!isValidMapboxToken(token)) {
-    showStatus("credentials-status", "Mapbox token is not available.", true);
-    return false;
-  }
-  showStatus("credentials-status", "Mapbox token is preconfigured.", false);
-  return true;
 }
 
 async function syncVehicles() {

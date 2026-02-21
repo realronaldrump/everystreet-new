@@ -1,5 +1,4 @@
 import apiClient from "../core/api-client.js";
-import { MAPBOX_PUBLIC_ACCESS_TOKEN } from "../core/config.js";
 
 const BOUNCIE_CREDENTIALS_API = "/api/profile/bouncie-credentials";
 const BOUNCIE_UNMASK_API = "/api/profile/bouncie-credentials/unmask";
@@ -7,29 +6,6 @@ const BOUNCIE_SYNC_API = "/api/profile/bouncie-credentials/sync-vehicles";
 const GOOGLE_PHOTOS_CREDENTIALS_API = "/api/google-photos/credentials";
 const GOOGLE_PHOTOS_STATUS_API = "/api/google-photos/status";
 const GOOGLE_PHOTOS_DISCONNECT_API = "/api/google-photos/disconnect";
-
-export const MAPBOX_TOKEN_MIN_LENGTH = 20;
-
-export function isValidMapboxToken(token) {
-  return String(token || "").trim() === MAPBOX_PUBLIC_ACCESS_TOKEN;
-}
-
-export async function fetchMapboxToken({ signal } = {}) {
-  if (signal?.aborted) {
-    throw new DOMException("signal is aborted without reason", "AbortError");
-  }
-  return MAPBOX_PUBLIC_ACCESS_TOKEN;
-}
-
-export async function saveMapboxToken(token, { signal } = {}) {
-  if (signal?.aborted) {
-    throw new DOMException("signal is aborted without reason", "AbortError");
-  }
-  if (!isValidMapboxToken(token)) {
-    throw new Error("Mapbox token is hard-coded and cannot be changed.");
-  }
-  return { mapbox_token: MAPBOX_PUBLIC_ACCESS_TOKEN, immutable: true };
-}
 
 export async function fetchBouncieCredentials({ signal, unmask = true } = {}) {
   const url = unmask ? BOUNCIE_UNMASK_API : BOUNCIE_CREDENTIALS_API;
