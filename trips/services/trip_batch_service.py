@@ -39,6 +39,16 @@ class ProcessingOptions:
         self.geocode_only = geocode_only
 
 
+def is_duplicate_trip_error(exc: Exception) -> bool:
+    if exc.__class__.__name__ == "DuplicateKeyError":
+        return True
+    if isinstance(exc, HTTPException) and exc.status_code == status.HTTP_409_CONFLICT:
+        detail = str(getattr(exc, "detail", "") or "").lower()
+        return "already exists" in detail or "duplicate" in detail
+    msg = str(exc).lower()
+    return "duplicate key" in msg or "e11000" in msg
+
+
 def with_comprehensive_handling(func: Callable) -> Callable:
     """Decorator for comprehensive error handling and logging."""
 
@@ -389,6 +399,35 @@ class TripService:
                             prevalidated_state=processing_status.get("state"),
                         )
                     except Exception as exc:
+                        if is_duplicate_trip_error(exc):
+                            existing_doc_after_race = await Trip.find_one(
+                                Trip.transactionId == transaction_id,
+                            )
+                            if existing_doc_after_race:
+                                existing_source = str(
+                                    getattr(existing_doc_after_race, "source", "") or "",
+                                ).strip().lower()
+                                if existing_source == "bouncie":
+                                    processed_trip_ids.append(transaction_id)
+                                    merged_count += 1
+                                    logger.info(
+                                        "Trip %s already inserted concurrently; treating as idempotent success.",
+                                        transaction_id,
+                                    )
+                                    continue
+                                merged = await self._merge_existing_trip(
+                                    existing_doc_after_race,
+                                    trip,
+                                    source="bouncie",
+                                )
+                                if merged:
+                                    processed_trip_ids.append(transaction_id)
+                                    merged_count += 1
+                                    logger.info(
+                                        "Trip %s merged after duplicate race with existing non-bouncie row.",
+                                        transaction_id,
+                                    )
+                                    continue
                         logger.exception(
                             "Failed to process Bouncie trip %s",
                             transaction_id,
@@ -403,6 +442,7 @@ class TripService:
                                 "transactionId": transaction_id,
                                 "imei": trip.get("imei"),
                                 "error": str(exc),
+                                "duplicate_race": is_duplicate_trip_error(exc),
                             },
                         )
                     else:
@@ -442,6 +482,11 @@ class TripService:
                 skipped_count,
             )
         except Exception as exc:
+            if is_duplicate_trip_error(exc):
+                logger.info(
+                    "Duplicate race bubbled out of batch processing; returning partial processed ids.",
+                )
+                return processed_trip_ids
             if progress_section is not None:
                 progress_section["status"] = "failed"
                 progress_section["message"] = f"Failed to process trips: {exc}"

@@ -41,7 +41,11 @@ class _PipelineStub:
         do_map_match: bool,
         do_geocode: bool,
         do_coverage: bool,
+        prevalidated_data: dict[str, Any] | None = None,
+        prevalidated_history: list[dict[str, Any]] | None = None,
+        prevalidated_state: str | None = None,
     ) -> Any:
+        del prevalidated_data, prevalidated_history, prevalidated_state
         self.process_calls.append(
             {
                 "transactionId": trip.get("transactionId"),
@@ -52,6 +56,61 @@ class _PipelineStub:
             },
         )
         return SimpleNamespace(id="saved-id")
+
+
+class _DuplicateKeyError(Exception):
+    pass
+
+
+class _RaceDuplicatePipelineStub:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def validate_raw_trip_with_basic(
+        self,
+        trip: dict[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            "success": True,
+            "processed_data": trip,
+            "processing_status": {"history": [], "state": "validated"},
+        }
+
+    async def process_raw_trip(
+        self,
+        trip: dict[str, Any],
+        *,
+        source: str,
+        do_map_match: bool,
+        do_geocode: bool,
+        do_coverage: bool,
+        prevalidated_data: dict[str, Any] | None = None,
+        prevalidated_history: list[dict[str, Any]] | None = None,
+        prevalidated_state: str | None = None,
+    ) -> Any:
+        del (
+            source,
+            do_map_match,
+            do_geocode,
+            do_coverage,
+            prevalidated_data,
+            prevalidated_history,
+            prevalidated_state,
+        )
+        self.calls += 1
+        tx = str(trip.get("transactionId") or "").strip()
+        if tx:
+            existing = await Trip.find_one(Trip.transactionId == tx)
+            if existing is None:
+                await Trip(
+                    transactionId=tx,
+                    source="bouncie",
+                    status="processed",
+                    processing_state="completed",
+                    startTime=datetime(2025, 1, 2, 12, 0, tzinfo=UTC),
+                    endTime=datetime(2025, 1, 2, 12, 30, tzinfo=UTC),
+                ).insert()
+        raise _DuplicateKeyError("E11000 duplicate key error")
 
 
 @pytest.mark.asyncio
@@ -162,6 +221,59 @@ async def test_process_bouncie_trips_reconciles_existing_non_bouncie_source(
 
 
 @pytest.mark.asyncio
+async def test_process_bouncie_trips_treats_duplicate_race_as_idempotent_success(
+    beanie_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    del beanie_db
+
+    async def fake_get_settings() -> _SettingsStub:
+        return _SettingsStub(geocode_on_fetch=False)
+
+    monkeypatch.setattr(
+        trip_batch_service.AdminService,
+        "get_persisted_app_settings",
+        fake_get_settings,
+    )
+
+    recorded_issues: list[dict[str, Any]] = []
+
+    async def fake_record_issue(**kwargs: Any) -> None:
+        recorded_issues.append(kwargs)
+
+    monkeypatch.setattr(
+        trip_batch_service.TripIngestIssueService,
+        "record_issue",
+        fake_record_issue,
+    )
+
+    service = TripService()
+    pipeline_stub = _RaceDuplicatePipelineStub()
+    service._pipeline = pipeline_stub
+
+    incoming = {
+        "transactionId": "tx-race-duplicate",
+        "imei": "imei-1",
+        "startTime": "2025-01-02T12:00:00Z",
+        "endTime": "2025-01-02T12:30:00Z",
+        "gps": {
+            "type": "LineString",
+            "coordinates": [[-97.0, 32.0], [-97.1, 32.1]],
+        },
+    }
+
+    processed_ids = await service.process_bouncie_trips([incoming], do_map_match=False)
+
+    assert processed_ids == ["tx-race-duplicate"]
+    assert pipeline_stub.calls == 1
+    assert not recorded_issues
+
+    persisted = await Trip.find_one(Trip.transactionId == "tx-race-duplicate")
+    assert persisted is not None
+    assert persisted.source == "bouncie"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("geocode_on_fetch", [True, False])
 async def test_history_import_runtime_uses_geocode_setting(
     monkeypatch: pytest.MonkeyPatch,
@@ -207,9 +319,6 @@ async def test_history_import_runtime_uses_geocode_setting(
     async def fake_build_progress_context(**_kwargs: Any) -> _ProgressStub:
         return _ProgressStub()
 
-    async def fake_get_settings() -> Any:
-        return SimpleNamespace(geocodeTripsOnFetch=geocode_on_fetch)
-
     async def fake_authenticate_import(**_kwargs: Any) -> str:
         return "token"
 
@@ -229,11 +338,7 @@ async def test_history_import_runtime_uses_geocode_setting(
         "_build_progress_context",
         fake_build_progress_context,
     )
-    monkeypatch.setattr(
-        import_runtime.AdminService,
-        "get_persisted_app_settings",
-        fake_get_settings,
-    )
+    monkeypatch.setattr(import_runtime, "IMPORT_DO_GEOCODE", geocode_on_fetch)
     monkeypatch.setattr(
         import_runtime,
         "_authenticate_import",

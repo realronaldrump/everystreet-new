@@ -12,11 +12,36 @@ from datetime import datetime, timedelta
 from config import get_bouncie_config
 from core.clients.bouncie import BouncieClient
 from core.http.session import get_session
+from db.models import Trip
 from setup.services.bouncie_oauth import BouncieOAuth
-from trips.services.trip_batch_service import TripService
+from trips.services.trip_batch_service import TripService, is_duplicate_trip_error
 from trips.services.trip_ingest_issue_service import TripIngestIssueService
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_transaction_ids(raw_trips: list[dict]) -> list[str]:
+    tx_ids: set[str] = set()
+    for trip in raw_trips:
+        if not isinstance(trip, dict):
+            continue
+        tx = str(trip.get("transactionId") or "").strip()
+        if tx:
+            tx_ids.add(tx)
+    return list(tx_ids)
+
+
+async def _recover_bouncie_transaction_ids(raw_trips: list[dict]) -> list[str]:
+    tx_ids = _extract_transaction_ids(raw_trips)
+    if not tx_ids:
+        return []
+    docs = await Trip.find({"source": "bouncie", "transactionId": {"$in": tx_ids}}).to_list()
+    existing_ids: list[str] = []
+    for doc in docs:
+        tx = str(getattr(doc, "transactionId", "") or "").strip()
+        if tx:
+            existing_ids.append(tx)
+    return existing_ids
 
 
 async def fetch_trips_for_device(
@@ -121,6 +146,12 @@ async def fetch_bouncie_trip_by_transaction_id(
             progress_tracker=progress_tracker,
         )
     except Exception as e:
+        if is_duplicate_trip_error(e):
+            logger.info(
+                "Trip %s already exists; treating fetch-by-transaction as idempotent.",
+                transaction_id,
+            )
+            return [transaction_id]
         logger.exception("Error in fetch_bouncie_trip_by_transaction_id")
         if progress_tracker is not None:
             progress_tracker["fetch_and_store_trips"]["status"] = "failed"
@@ -248,6 +279,29 @@ async def fetch_bouncie_trips_in_range(
                                 )
                             )
                         except Exception as exc:
+                            if is_duplicate_trip_error(exc):
+                                recovered_ids = await _recover_bouncie_transaction_ids(
+                                    raw_trips_chunk,
+                                )
+                                if recovered_ids:
+                                    logger.info(
+                                        "Trip processing duplicate race for device %s (%s to %s); recovered %d persisted ids.",
+                                        imei,
+                                        s.isoformat(),
+                                        e.isoformat(),
+                                        len(recovered_ids),
+                                    )
+                                    return [
+                                        {"transactionId": tx, "imei": imei}
+                                        for tx in recovered_ids
+                                    ]
+                                logger.info(
+                                    "Trip processing duplicate race for device %s (%s to %s); no recoverable persisted ids yet.",
+                                    imei,
+                                    s.isoformat(),
+                                    e.isoformat(),
+                                )
+                                return []
                             logger.exception(
                                 "Trip processing failed for device %s (%s to %s)",
                                 imei,
