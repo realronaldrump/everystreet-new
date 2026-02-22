@@ -8,10 +8,10 @@ from beanie.operators import In
 from core.casting import safe_float
 from core.date_utils import parse_timestamp
 from core.spatial import GeometryService
+from core.trip_source_policy import enforce_bouncie_source
 from db import build_calendar_date_expr
 from db.aggregation import aggregate_to_list
 from db.models import Trip, Vehicle
-from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 
@@ -245,8 +245,8 @@ class TripQueryService:
                     {
                         "$lookup": {
                             "from": "vehicles",
-                            "localField": "imei",
-                            "foreignField": "imei",
+                            "localField": "vin",
+                            "foreignField": "vin",
                             "as": "vehicle_docs",
                         },
                     },
@@ -430,6 +430,7 @@ class TripQueryService:
             formatted_trip = {
                 "transactionId": trip_dict.get("transactionId", ""),
                 "imei": imei,
+                "vin": trip_dict.get("vin"),
                 "startTime": start_time.isoformat() if start_time else None,
                 "endTime": end_time.isoformat() if end_time else None,
                 "duration": duration,
@@ -448,17 +449,40 @@ class TripQueryService:
             formatted_data.append(formatted_trip)
 
         # Enrich with vehicle metadata if available
-        imeis = {trip.get("imei") for trip in formatted_data if trip.get("imei")}
-        vehicle_map: dict[str, dict] = {}
-        if imeis:
-            vehicles = await Vehicle.find(In(Vehicle.imei, list(imeis))).to_list()
-            for vehicle in vehicles:
-                vehicle_map[vehicle.imei] = vehicle.model_dump()
+        vins = {trip.get("vin") for trip in formatted_data if trip.get("vin")}
+        fallback_imeis = {
+            trip.get("imei")
+            for trip in formatted_data
+            if not trip.get("vin") and trip.get("imei")
+        }
+
+        vehicle_by_vin: dict[str, dict] = {}
+        vehicle_by_imei: dict[str, dict] = {}
+
+        if vins:
+            vehicles_vin = await Vehicle.find(In(Vehicle.vin, list(vins))).to_list()
+            for vehicle in vehicles_vin:
+                if vehicle.vin:
+                    vehicle_by_vin[vehicle.vin] = vehicle.model_dump()
+
+        if fallback_imeis:
+            vehicles_imei = await Vehicle.find(
+                In(Vehicle.imei, list(fallback_imeis))
+            ).to_list()
+            for vehicle in vehicles_imei:
+                vehicle_by_imei[vehicle.imei] = vehicle.model_dump()
 
         for trip in formatted_data:
+            vin = trip.get("vin")
             imei = trip.get("imei")
-            vehicle = vehicle_map.get(imei) if imei else None
-            vin = vehicle.get("vin") if vehicle else None
+
+            vehicle = None
+            if vin and vin in vehicle_by_vin:
+                vehicle = vehicle_by_vin[vin]
+            elif imei and imei in vehicle_by_imei:
+                vehicle = vehicle_by_imei[imei]
+
+            trip_vin = vin or (vehicle.get("vin") if vehicle else None)
             custom_name = vehicle.get("custom_name") if vehicle else None
             make = (vehicle or {}).get("make")
             model = (vehicle or {}).get("model")
@@ -470,15 +494,15 @@ class TripQueryService:
                 vehicle_label = " ".join(
                     str(part) for part in [year, make, model] if part
                 ).strip()
-            elif vin:
-                vehicle_label = f"VIN {vin}"
+            elif trip_vin:
+                vehicle_label = f"VIN {trip_vin}"
             elif imei:
                 vehicle_label = f"IMEI {imei}"
             else:
                 vehicle_label = "Unknown vehicle"
 
             trip["vehicleLabel"] = vehicle_label
-            trip["vin"] = vin
+            trip["vin"] = trip_vin
 
         return {
             "draw": draw,

@@ -117,8 +117,15 @@ async def sync_bouncie_vehicles(
             "bouncie_data": v,
         }
 
-        existing_vehicle = await Vehicle.find_one({"imei": imei})
+        existing_vehicle = None
+        vin_val = vehicle_doc.get("vin")
+        if vin_val:
+            existing_vehicle = await Vehicle.find_one({"vin": vin_val})
+        if not existing_vehicle:
+            existing_vehicle = await Vehicle.find_one({"imei": imei})
+
         if existing_vehicle:
+            existing_vehicle.imei = vehicle_doc["imei"]
             existing_vehicle.vin = vehicle_doc["vin"]
             existing_vehicle.make = vehicle_doc["make"]
             existing_vehicle.model = vehicle_doc["model"]

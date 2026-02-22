@@ -10,8 +10,8 @@ from beanie.operators import In
 
 from config import get_bouncie_config
 from core.date_utils import ensure_utc
-from db.models import Trip, Vehicle
 from core.trip_source_policy import enforce_bouncie_source
+from db.models import Trip, Vehicle
 
 WINDOW_DAYS = 7
 OVERLAP_HOURS = 24
@@ -30,10 +30,10 @@ except ValueError:
 SPLIT_CHUNK_HOURS = max(1, _SPLIT_CHUNK_HOURS)
 try:
     _REQUEST_TIMEOUT_SECONDS = int(
-        os.getenv("TRIP_HISTORY_IMPORT_REQUEST_TIMEOUT_SECONDS", "8"),
+        os.getenv("TRIP_HISTORY_IMPORT_REQUEST_TIMEOUT_SECONDS", "60"),
     )
 except ValueError:
-    _REQUEST_TIMEOUT_SECONDS = 8
+    _REQUEST_TIMEOUT_SECONDS = 60
 REQUEST_TIMEOUT_SECONDS = max(3, _REQUEST_TIMEOUT_SECONDS)
 try:
     _DEVICE_FETCH_TIMEOUT_SECONDS = int(
@@ -134,6 +134,8 @@ def _vehicle_label(vehicle: Vehicle | None, imei: str) -> str:
         make_model = " ".join([p for p in parts if p])
         if make_model.strip():
             return make_model.strip()
+        if getattr(vehicle, "vin", None):
+            return f"VIN {vehicle.vin}"
     suffix = imei[-6:] if imei else "unknown"
     return f"Device {suffix}"
 

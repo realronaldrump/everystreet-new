@@ -829,8 +829,8 @@ class Vehicle(Document):
     class Settings:
         name = "vehicles"
         indexes: ClassVar[list[IndexModel]] = [
-            IndexModel([("imei", 1)], name="vehicles_imei_idx", unique=True),
-            IndexModel([("vin", 1)], name="vehicles_vin_idx", sparse=True),
+            IndexModel([("imei", 1)], name="vehicles_imei_idx"),
+            IndexModel([("vin", 1)], name="vehicles_vin_idx", unique=True, sparse=True),
             IndexModel([("is_active", 1)], name="vehicles_is_active_idx"),
         ]
 
