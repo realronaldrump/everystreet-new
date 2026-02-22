@@ -68,7 +68,6 @@ from trips.services.trip_history_import_service_runtime import (
     _build_progress_context,
     _finalize_import_failure,
     _finalize_import_success,
-    _process_import_window,
     _run_import_windows,
     run_import,
 )
@@ -108,7 +107,6 @@ __all__ = [
     "_finalize_import_success",
     "_load_existing_transaction_ids",
     "_load_progress_job",
-    "_process_import_window",
     "_process_new_trips_batch",
     "_record_failure_reason",
     "_record_per_device_unique_counts",
