@@ -266,7 +266,7 @@ async def _generate_optimal_route_with_progress_impl(
                 continue
 
             # Check for cached graph_edge mapping
-            ge = street.graph_edge
+            ge = getattr(street, "graph_edge", None)
             if (
                 ge
                 and isinstance(ge, dict)
@@ -1388,12 +1388,22 @@ async def _generate_optimal_route_with_progress_impl(
                 f"Computing optimal route for {len(required_reqs)} required edges...",
             )
             try:
-                route_coords, stats, _, service_sequence = solve_greedy_route(
+                solver_result = solve_greedy_route(
                     G,
                     required_reqs,
                     start_node_id,
                     req_segment_counts=req_segment_counts,
                 )
+                if len(solver_result) == 4:
+                    route_coords, stats, _, service_sequence = solver_result
+                elif len(solver_result) == 3:
+                    route_coords, stats, service_sequence = solver_result
+                else:
+                    msg = (
+                        "solve_greedy_route returned an unexpected result shape "
+                        f"({len(solver_result)} values)"
+                    )
+                    raise ValueError(msg)
             except Exception as e:
                 logger.exception("Greedy solver failed")
                 msg = f"Route solver failed: {e}"

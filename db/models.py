@@ -76,7 +76,7 @@ class Trip(Document):
     hardAccelerationCounts: int | None = None
     fuelConsumed: float | None = None
     closed_reason: str | None = None
-    source: str | None = None
+    source: str | None = "bouncie"
     saved_at: datetime | None = None
     processing_state: str | None = None
     processing_history: list[dict[str, Any]] | None = None

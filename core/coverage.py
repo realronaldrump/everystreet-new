@@ -54,7 +54,22 @@ async def _bulk_write_updates(
         return 0, 0
 
     operations = [UpdateOne(flt, doc, upsert=upsert) for flt, doc, upsert in updates]
-    result = await collection.bulk_write(operations, ordered=ordered)
+    try:
+        result = await collection.bulk_write(operations, ordered=ordered)
+    except TypeError as exc:
+        # pymongo>=4.11 passes `sort=` to UpdateOne bulk internals; older
+        # mongomock implementations don't accept this kwarg. Fall back to
+        # per-update writes in test environments.
+        if "unexpected keyword argument 'sort'" not in str(exc):
+            raise
+        modified = 0
+        upserted = 0
+        for flt, doc, upsert in updates:
+            single_result = await collection.update_one(flt, doc, upsert=upsert)
+            modified += int(getattr(single_result, "modified_count", 0) or 0)
+            if getattr(single_result, "upserted_id", None) is not None:
+                upserted += 1
+        return modified, upserted
 
     upserted_count = getattr(result, "upserted_count", None)
     if upserted_count is None:

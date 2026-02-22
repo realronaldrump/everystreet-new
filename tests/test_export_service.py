@@ -43,7 +43,7 @@ def test_build_trip_query_defaults_to_exclude_invalid() -> None:
     """Empty filters should still exclude invalid trips."""
     query = ExportService._build_trip_query({}, matched_only=False)
 
-    assert query == {"invalid": {"$ne": True}}
+    assert query == {"invalid": {"$ne": True}, "source": "bouncie"}
 
 
 def test_build_trip_query_adds_matched_gps_filter() -> None:
