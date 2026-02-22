@@ -46,6 +46,8 @@ async def _fetch_trips_for_window(
     window_end: datetime,
     _min_window_hours: float = MIN_WINDOW_HOURS,
     _split_chunk_hours: int = SPLIT_CHUNK_HOURS,
+    add_event: Callable[[str, str, dict[str, Any] | None], None] | None = None,
+    chunk_semaphore: asyncio.Semaphore | None = None,
 ) -> list[dict[str, Any]]:
     """
     Fetch trips for a window using BouncieClient (geojson, with retry).
@@ -61,14 +63,18 @@ async def _fetch_trips_for_window(
     if query_end - query_start > max_span:
         query_end = query_start + max_span
 
+    if chunk_semaphore is None:
+        chunk_semaphore = asyncio.Semaphore(15)
+
     try:
         async with asyncio.timeout(REQUEST_TIMEOUT_SECONDS):
-            raw_trips = await client.fetch_trips_for_device_resilient(
-                token,
-                imei,
-                query_start,
-                query_end,
-            )
+            async with chunk_semaphore:
+                raw_trips = await client.fetch_trips_for_device_resilient(
+                    token,
+                    imei,
+                    query_start,
+                    query_end,
+                )
         return [
             normalize_rest_trip_payload(t) for t in raw_trips if isinstance(t, dict)
         ]
@@ -108,16 +114,18 @@ async def _fetch_trips_for_window(
                 (midpoint, window_end),
             ]
 
-        logger.warning(
-            "Window failed after retries (imei=%s), splitting %s - %s into %s chunks",
-            imei,
-            window_start.isoformat(),
-            window_end.isoformat(),
-            len(sub_windows),
-        )
+        msg = f"Window failed after retries (imei={imei}), splitting {window_start.isoformat()} - {window_end.isoformat()} into {len(sub_windows)} chunks"
+        logger.warning(msg)
+        if add_event:
+            add_event(
+                "warning",
+                f"Splitting failing window for {imei} into {len(sub_windows)} chunks",
+                {"imei": imei, "chunks": len(sub_windows)},
+            )
 
-        results: list[dict[str, Any]] = []
-        for sub_start, sub_end in sub_windows:
+        async def fetch_sub(
+            sub_start: datetime, sub_end: datetime
+        ) -> list[dict[str, Any]]:
             try:
                 chunk = await _fetch_trips_for_window(
                     client,
@@ -127,8 +135,20 @@ async def _fetch_trips_for_window(
                     window_end=sub_end,
                     _min_window_hours=_min_window_hours,
                     _split_chunk_hours=_split_chunk_hours,
+                    add_event=add_event,
+                    chunk_semaphore=chunk_semaphore,
                 )
-                results.extend(chunk)
+                if add_event and chunk:
+                    add_event(
+                        "info",
+                        f"Fetched {len(chunk)} trips from sub-chunk",
+                        {
+                            "imei": imei,
+                            "start": sub_start.isoformat(),
+                            "end": sub_end.isoformat(),
+                        },
+                    )
+                return chunk
             except Exception:
                 logger.exception(
                     "Sub-window fetch failed (imei=%s, %s - %s)",
@@ -136,6 +156,21 @@ async def _fetch_trips_for_window(
                     sub_start.isoformat(),
                     sub_end.isoformat(),
                 )
+                if add_event:
+                    add_event(
+                        "error",
+                        f"Sub-window fetch failed for {imei}",
+                        {"start": sub_start.isoformat(), "end": sub_end.isoformat()},
+                    )
+                return []
+
+        tasks = [fetch_sub(sub_start, sub_end) for sub_start, sub_end in sub_windows]
+        results_lists = await asyncio.gather(*tasks)
+
+        results: list[dict[str, Any]] = []
+        for chunk in results_lists:
+            results.extend(chunk)
+
         return results
 
 
@@ -208,6 +243,7 @@ async def _fetch_device_window(
                     imei=imei,
                     window_start=window_start,
                     window_end=window_end,
+                    add_event=add_event,
                 )
             trips = _dedupe_trips_by_transaction_id(trips)
             before_count = len(trips)
@@ -229,8 +265,7 @@ async def _fetch_device_window(
             error_text = str(exc) or exc.__class__.__name__
             if isinstance(exc, TimeoutError):
                 error_text = (
-                    "Device window fetch exceeded "
-                    f"{DEVICE_FETCH_TIMEOUT_SECONDS}s"
+                    f"Device window fetch exceeded {DEVICE_FETCH_TIMEOUT_SECONDS}s"
                 )
             async with lock:
                 counters["fetch_errors"] += 1
