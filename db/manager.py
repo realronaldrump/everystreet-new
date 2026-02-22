@@ -62,7 +62,7 @@ def _normalize_mongo_uri_for_runtime(mongo_uri: str) -> str:
         if separator and port and port != "27017":
             return mongo_uri
         normalized_hosts.append(
-            f"localhost:{port}" if separator and port else "localhost"
+            f"localhost:{port}" if separator and port else "localhost",
         )
 
     rewritten_uri = urlunsplit(

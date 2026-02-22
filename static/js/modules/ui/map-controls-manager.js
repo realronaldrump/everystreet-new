@@ -47,7 +47,7 @@ const mapControlsManager = {
     const storedMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType);
     const defaultMapType =
       typeof storedMapType === "string" &&
-      Object.prototype.hasOwnProperty.call(CONFIG.MAP.styles, storedMapType)
+      Object.hasOwn(CONFIG.MAP.styles, storedMapType)
         ? storedMapType
         : theme;
     mapTypeSelect.value = defaultMapType;
@@ -131,7 +131,7 @@ const mapControlsManager = {
       typeof type === "string" ? type.trim().toLowerCase() : "dark";
     const map = store.map || window.map;
 
-    if (!Object.prototype.hasOwnProperty.call(CONFIG.MAP.styles, normalizedType)) {
+    if (!Object.hasOwn(CONFIG.MAP.styles, normalizedType)) {
       console.warn("Unsupported map style type:", normalizedType);
       return;
     }

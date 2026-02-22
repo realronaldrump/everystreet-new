@@ -5,10 +5,7 @@ from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Body, HTTPException
 
-from admin.services.admin_service import (
-    MAPBOX_SETTINGS_ERROR,
-    AdminService,
-)
+from admin.services.admin_service import MAPBOX_SETTINGS_ERROR, AdminService
 from core.api import api_route
 from db.models import AppSettings
 

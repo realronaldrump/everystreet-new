@@ -16,9 +16,9 @@ from shapely import STRtree
 from shapely.geometry import Point, shape
 
 from core.date_utils import parse_timestamp
+from core.trip_source_policy import enforce_bouncie_source
 from county.services.county_data_service import get_county_topology_document
 from db.models import CountyVisitedCache, Trip
-from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 

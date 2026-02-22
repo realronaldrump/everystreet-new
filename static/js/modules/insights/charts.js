@@ -695,7 +695,10 @@ function aggregateByView(dailyData, viewType) {
       const label =
         viewType === "weekly"
           ? `Wk ${new Date(key).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
-          : new Date(`${key}-01`).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+          : new Date(`${key}-01`).toLocaleDateString("en-US", {
+              month: "short",
+              year: "numeric",
+            });
       return {
         label,
         start: value.start,
@@ -719,12 +722,21 @@ function formatRangeLabel(start, end, viewType) {
   }
 
   if (viewType === "monthly") {
-    const startText = startDate.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-    const endText = endDate.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    const startText = startDate.toLocaleDateString("en-US", {
+      month: "short",
+      year: "numeric",
+    });
+    const endText = endDate.toLocaleDateString("en-US", {
+      month: "short",
+      year: "numeric",
+    });
     return startText === endText ? startText : `${startText} - ${endText}`;
   }
 
-  if (startDate.getMonth() === endDate.getMonth() && startDate.getFullYear() === endDate.getFullYear()) {
+  if (
+    startDate.getMonth() === endDate.getMonth() &&
+    startDate.getFullYear() === endDate.getFullYear()
+  ) {
     const month = startDate.toLocaleDateString("en-US", { month: "short" });
     return `${month} ${startDate.getDate()}-${endDate.getDate()}`;
   }

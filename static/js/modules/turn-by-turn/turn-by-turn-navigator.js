@@ -402,8 +402,7 @@ class TurnByTurnNavigator {
 
       // Auto-generate if no route exists
       const isNoRoute =
-        error.message?.includes("No optimal route") ||
-        error.message?.includes("404");
+        error.message?.includes("No optimal route") || error.message?.includes("404");
       if (isNoRoute && this.selectedAreaId) {
         this.ui.setLoadRouteLoading(false);
         await this.autoGenerateRoute();

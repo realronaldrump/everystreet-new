@@ -12,10 +12,7 @@ from admin.services.storage_service import StorageService
 from config import get_mapbox_token
 from core.date_utils import ensure_utc
 from core.http.geocoding import validate_location_osm
-from core.service_config import (
-    apply_settings_to_env,
-    clear_config_cache,
-)
+from core.service_config import apply_settings_to_env, clear_config_cache
 from db.manager import db_manager
 from db.models import (
     ALL_DOCUMENT_MODELS,
@@ -98,6 +95,7 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "setup_completed": False,
     "setup_completed_at": None,
 }
+
 
 class AdminService:
     """Admin service helpers for settings and collection maintenance."""
@@ -214,7 +212,10 @@ class AdminService:
                 return 0
 
         counts = await asyncio.gather(
-            *[_count_documents(collection_name) for collection_name in collection_names],
+            *[
+                _count_documents(collection_name)
+                for collection_name in collection_names
+            ],
         )
 
         return [

@@ -107,7 +107,7 @@ function setupMapViewportSync() {
     }
   });
 
-  const visualViewport = window.visualViewport;
+  const { visualViewport } = window;
   if (visualViewport) {
     bind(visualViewport, "resize", requestResize, { passive: true });
     bind(visualViewport, "scroll", requestResize, { passive: true });
@@ -199,9 +199,7 @@ export default function initMapPage({ signal, cleanup } = {}) {
       }
     };
     simToggle.addEventListener("mousedown", handleSimToggle);
-    registerCleanup(() =>
-      simToggle.removeEventListener("mousedown", handleSimToggle),
-    );
+    registerCleanup(() => simToggle.removeEventListener("mousedown", handleSimToggle));
   }
 
   const teardown = () => {

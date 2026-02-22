@@ -34,7 +34,7 @@ test("displayTargetInfo escapes street-controlled strings", () => {
       )
     );
     assert.ok(
-      targetInfo.innerHTML.includes('segment-1&quot; onclick=&quot;boom()&quot;')
+      targetInfo.innerHTML.includes("segment-1&quot; onclick=&quot;boom()&quot;")
     );
     assert.ok(!targetInfo.innerHTML.includes('<img src=x onerror=alert("street")>'));
   });

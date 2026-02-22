@@ -62,9 +62,7 @@ export function buildTripDataPayload({
         lon: pt.lon,
         heading: pt.heading ?? 0,
       },
-      ...(pt.fuelLevelInput != null
-        ? { fuelLevelInput: pt.fuelLevelInput }
-        : {}),
+      ...(pt.fuelLevelInput != null ? { fuelLevelInput: pt.fuelLevelInput } : {}),
     })),
   };
 }

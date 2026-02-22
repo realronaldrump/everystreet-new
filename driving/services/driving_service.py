@@ -9,10 +9,10 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from core.http.valhalla import ValhallaClient
 from core.spatial import GeometryService
+from core.trip_source_policy import enforce_bouncie_source
 from db.models import CoverageArea, CoverageState, Street, Trip
 from street_coverage.constants import MILES_TO_METERS
 from tracking.services.tracking_service import TrackingService
-from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 

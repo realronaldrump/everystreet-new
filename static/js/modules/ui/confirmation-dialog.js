@@ -63,7 +63,7 @@ class ConfirmationDialog {
     if (!this.hasDom || !modalElement) {
       return;
     }
-    const activeElement = document.activeElement;
+    const { activeElement } = document;
     if (
       activeElement &&
       modalElement.contains(activeElement) &&

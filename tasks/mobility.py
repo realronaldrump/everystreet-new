@@ -41,7 +41,10 @@ async def _sync_mobility_profiles_logic() -> dict[str, Any]:
     batches_processed = 0
 
     for _ in range(MOBILITY_SYNC_BATCHES_PER_RUN):
-        synced_count, pending_count = await MobilityInsightsService.sync_unsynced_trips_for_query(
+        (
+            synced_count,
+            pending_count,
+        ) = await MobilityInsightsService.sync_unsynced_trips_for_query(
             {},
             limit=MOBILITY_SYNC_BATCH_SIZE,
         )

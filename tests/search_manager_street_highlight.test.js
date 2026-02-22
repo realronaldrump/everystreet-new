@@ -99,7 +99,13 @@ test("street result with geometry highlights directly", async () => {
     await searchManager.selectResult({
       type: "street",
       name: "Main St",
-      geometry: { type: "LineString", coordinates: [[-97.2, 31.4], [-97.1, 31.5]] },
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [-97.2, 31.4],
+          [-97.1, 31.5],
+        ],
+      },
     });
   } finally {
     searchManager.hideResults = originalHideResults;
@@ -144,7 +150,10 @@ test("street result without geometry resolves via API, highlights, and caches", 
         type: "Feature",
         geometry: {
           type: "LineString",
-          coordinates: [[-97.0, 31.0], [-96.9, 31.1]],
+          coordinates: [
+            [-97.0, 31.0],
+            [-96.9, 31.1],
+          ],
         },
         properties: { osm_id: 101, osm_type: "way" },
       },

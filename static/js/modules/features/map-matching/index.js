@@ -632,7 +632,6 @@ function renderJobs(jobs) {
         .join("");
     }
   }
-
 }
 
 function buildPayload() {

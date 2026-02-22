@@ -102,7 +102,10 @@ export function updateAllMetrics() {
   const derived = state.derivedInsights;
   if (!derived) {
     setText("trips-context", "Not enough trips in this range for derived ratios yet.");
-    setText("distance-context", "Not enough period history for distance comparison yet.");
+    setText(
+      "distance-context",
+      "Not enough period history for distance comparison yet."
+    );
     setText("time-context", "Not enough time-distribution data yet.");
     setText("fuel-context", "Fuel context appears when fuel entries are available.");
     return;
@@ -132,10 +135,7 @@ export function updateAllMetrics() {
       : `${fuelLens.mpg.toFixed(1)} MPG with ${fuelLens.fuelPerTrip.toFixed(2)} gal/trip`;
   setText("fuel-context", fuelText);
 
-  setText(
-    "scene-streak-value",
-    `${Number(consistency.longestStreak) || 0} day streak`
-  );
+  setText("scene-streak-value", `${Number(consistency.longestStreak) || 0} day streak`);
   setText(
     "scene-exploration-value",
     `${Number(exploration.top3ShareTrips || 0).toFixed(1)}% top-3 concentration`

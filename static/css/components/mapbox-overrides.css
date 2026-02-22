@@ -11,7 +11,7 @@
 }
 
 /* === Mobile: Enlarge Mapbox navigation controls for touch === */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .mapboxgl-ctrl-group,
   .maplibregl-ctrl-group {
     background: var(--glass-panel);
@@ -47,7 +47,7 @@
 }
 
 /* === Landscape mobile: compact positioning === */
-@media (max-width: 768px) and (orientation: landscape) {
+@media (width <= 768px) and (orientation: landscape) {
   .mapboxgl-ctrl-top-right,
   .maplibregl-ctrl-top-right {
     top: var(--space-3);

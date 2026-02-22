@@ -358,7 +358,9 @@
   font-size: 0.6875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: color 0.15s ease, background-color 0.15s ease;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
   position: relative;
   min-height: 44px;
 }
@@ -409,7 +411,8 @@
 }
 
 @keyframes status-pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
@@ -512,12 +515,15 @@
 }
 
 @keyframes ws-pulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 0 3px rgb(var(--primary-rgb) / 25%);
   }
 
   50% {
-    box-shadow: 0 0 0 6px rgb(var(--primary-rgb) / 10%), 0 0 12px rgb(var(--primary-rgb) / 20%);
+    box-shadow:
+      0 0 0 6px rgb(var(--primary-rgb) / 10%),
+      0 0 12px rgb(var(--primary-rgb) / 20%);
   }
 }
 
@@ -1078,14 +1084,24 @@
 }
 
 /* Multi-state: show only one icon at a time */
-.coverage-navigator .generate-icon i { display: none; }
+.coverage-navigator .generate-icon i {
+  display: none;
+}
 
-.coverage-navigator .btn-generate[data-state="idle"] .icon-idle { display: flex; }
-.coverage-navigator .btn-generate[data-state="ready"] .icon-ready { display: flex; }
-.coverage-navigator .btn-generate[data-state="done"] .icon-done { display: flex; }
+.coverage-navigator .btn-generate[data-state="idle"] .icon-idle {
+  display: flex;
+}
+.coverage-navigator .btn-generate[data-state="ready"] .icon-ready {
+  display: flex;
+}
+.coverage-navigator .btn-generate[data-state="done"] .icon-done {
+  display: flex;
+}
 
 /* Default to idle if no data-state set */
-.coverage-navigator .btn-generate:not([data-state]) .icon-idle { display: flex; }
+.coverage-navigator .btn-generate:not([data-state]) .icon-idle {
+  display: flex;
+}
 
 .coverage-navigator .generate-text {
   display: flex;
@@ -1111,14 +1127,24 @@
 /* State text — only show matching state */
 .coverage-navigator .state-idle,
 .coverage-navigator .state-ready,
-.coverage-navigator .state-done { display: none; }
+.coverage-navigator .state-done {
+  display: none;
+}
 
-.coverage-navigator .btn-generate[data-state="idle"] .state-idle { display: block; }
-.coverage-navigator .btn-generate[data-state="ready"] .state-ready { display: block; }
-.coverage-navigator .btn-generate[data-state="done"] .state-done { display: block; }
+.coverage-navigator .btn-generate[data-state="idle"] .state-idle {
+  display: block;
+}
+.coverage-navigator .btn-generate[data-state="ready"] .state-ready {
+  display: block;
+}
+.coverage-navigator .btn-generate[data-state="done"] .state-done {
+  display: block;
+}
 
 /* Default to idle state text */
-.coverage-navigator .btn-generate:not([data-state]) .state-idle { display: block; }
+.coverage-navigator .btn-generate:not([data-state]) .state-idle {
+  display: block;
+}
 
 /* ==========================================================================
    Algorithm Explainer
@@ -1258,7 +1284,6 @@
 
 .coverage-navigator .route-history-item:hover {
   border-color: var(--border-hover);
-  border-left-color: var(--border-hover);
   background: var(--surface-3);
   box-shadow: var(--shadow-sm);
 }
@@ -1364,7 +1389,10 @@
   max-height: 0;
   overflow: hidden;
   opacity: 0;
-  transition: max-height 200ms ease, opacity 200ms ease, margin-top 200ms ease;
+  transition:
+    max-height 200ms ease,
+    opacity 200ms ease,
+    margin-top 200ms ease;
 }
 
 .coverage-navigator .route-history-item:hover .route-actions-inline,
@@ -1932,8 +1960,13 @@
 }
 
 @keyframes pulse-badge {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 
 /* Vertical pipeline */
@@ -1992,12 +2025,15 @@
 }
 
 @keyframes node-pulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 0 4px rgb(var(--warning-rgb) / 18%);
   }
 
   50% {
-    box-shadow: 0 0 0 8px rgb(var(--warning-rgb) / 8%), 0 0 20px rgb(var(--warning-rgb) / 25%);
+    box-shadow:
+      0 0 0 8px rgb(var(--warning-rgb) / 8%),
+      0 0 20px rgb(var(--warning-rgb) / 25%);
   }
 }
 
@@ -2738,8 +2774,12 @@
 }
 
 @keyframes scan-sweep {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ==========================================================================
@@ -2816,7 +2856,8 @@
 }
 
 @keyframes hud-pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(0.85);
     opacity: 0.6;
   }
@@ -3098,8 +3139,7 @@
   }
 
   .coverage-navigator .area-context-stats {
-    flex-direction: row;
-    flex-wrap: wrap;
+    flex-flow: row wrap;
     gap: var(--space-3);
     width: 100%;
   }

@@ -214,7 +214,10 @@ async def test_get_mobility_insights_aggregates_segments_and_streets(
     assert insights["metric_basis"]["top_streets_primary"] == "times_driven"
     assert insights["metric_basis"]["top_segments_primary"] == "times_driven"
     assert insights["metric_basis"]["map_cells_intensity"] == "times_driven"
-    assert insights["top_streets"][0]["times_driven"] == insights["top_streets"][0]["traversals"]
+    assert (
+        insights["top_streets"][0]["times_driven"]
+        == insights["top_streets"][0]["traversals"]
+    )
     assert insights["top_streets"][0]["paths"]
     assert insights["top_segments"][0]["paths"]
     assert insights["validation"]["consistency"]["ranked_street_count"] >= len(
@@ -342,9 +345,7 @@ async def test_top_segments_include_trip_count_and_traversal_contract(
     )
 
     seg_a = h3.latlng_to_cell(37.7680, -122.4450, 11)
-    seg_b = next(
-        cell for cell in h3.grid_disk(seg_a, 1) if str(cell) != str(seg_a)
-    )
+    seg_b = next(cell for cell in h3.grid_disk(seg_a, 1) if str(cell) != str(seg_a))
 
     lat_a, lon_a = h3.cell_to_latlng(seg_a)
     lat_b, lon_b = h3.cell_to_latlng(seg_b)

@@ -103,7 +103,8 @@ async def test_get_driving_insights_movement_default_includes_metric_basis(
         return result
 
     async def failing_mobility(_query):
-        raise RuntimeError("mobility failed")
+        msg = "mobility failed"
+        raise RuntimeError(msg)
 
     monkeypatch.setattr(
         "analytics.services.dashboard_service.aggregate_to_list",

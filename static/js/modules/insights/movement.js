@@ -3,13 +3,13 @@
  * Renders matched-geometry street and segment paths with deck.gl.
  */
 
-import { escapeHtml } from "../utils.js";
 import {
   buildMapboxRasterTileUrl,
   getCurrentTheme,
   resolveMapStyle,
 } from "../core/map-style-resolver.js";
 import { getMapboxToken } from "../mapbox-token.js";
+import { escapeHtml } from "../utils.js";
 
 let movementDeck = null;
 let activePanel = "streets";
@@ -112,7 +112,11 @@ function normalizePath(path) {
       return;
     }
     const normalized = [Number(point[0]), Number(point[1])];
-    if (!cleaned.length || cleaned[cleaned.length - 1][0] !== normalized[0] || cleaned[cleaned.length - 1][1] !== normalized[1]) {
+    if (
+      !cleaned.length ||
+      cleaned[cleaned.length - 1][0] !== normalized[0] ||
+      cleaned[cleaned.length - 1][1] !== normalized[1]
+    ) {
       cleaned.push(normalized);
     }
   });
@@ -182,7 +186,8 @@ function updateRankSelectionState() {
   );
   streetButtons.forEach((button) => {
     const key = button.dataset.streetKey || "";
-    const isSelected = selectedEntity?.type === "streets" && selectedEntity?.key === key;
+    const isSelected =
+      selectedEntity?.type === "streets" && selectedEntity?.key === key;
     const isHovered = hoveredEntity?.type === "streets" && hoveredEntity?.key === key;
     button.classList.toggle("is-active", Boolean(isSelected));
     button.classList.toggle("is-hover", Boolean(isHovered));
@@ -193,7 +198,8 @@ function updateRankSelectionState() {
   );
   segmentButtons.forEach((button) => {
     const key = button.dataset.segmentKey || "";
-    const isSelected = selectedEntity?.type === "segments" && selectedEntity?.key === key;
+    const isSelected =
+      selectedEntity?.type === "segments" && selectedEntity?.key === key;
     const isHovered = hoveredEntity?.type === "segments" && hoveredEntity?.key === key;
     button.classList.toggle("is-active", Boolean(isSelected));
     button.classList.toggle("is-hover", Boolean(isHovered));
@@ -205,7 +211,9 @@ function updateSummaryPills(payload) {
   const featureCountEl = document.getElementById("movement-feature-count");
   const syncStateEl = document.getElementById("movement-sync-state");
 
-  const analyzed = asNumber(payload?.analyzed_trip_count || payload?.profiled_trip_count);
+  const analyzed = asNumber(
+    payload?.analyzed_trip_count || payload?.profiled_trip_count
+  );
   const totalTrips = asNumber(payload?.trip_count);
   const streets = getModeItems(payload, "streets").length;
   const segments = getModeItems(payload, "segments").length;
@@ -250,7 +258,9 @@ function updateMovementCaption(payload) {
     return;
   }
 
-  const geometrySource = String(payload?.analysis_scope?.geometry_source || "matchedGps");
+  const geometrySource = String(
+    payload?.analysis_scope?.geometry_source || "matchedGps"
+  );
   if (geometrySource === "matchedGps") {
     caption.textContent =
       "Showing matched trip street geometry. Line thickness reflects times driven. Hover to preview and click to lock details.";
@@ -684,14 +694,19 @@ function applyDeckLayers(payload) {
 
       if (selectedFeatures.length) {
         layers.push(
-          makePathLayer(deckGlobal, `movement-${activePanel}-selected`, selectedFeatures, {
-            mode: activePanel,
-            alpha: 246,
-            widthScale: 1.35,
-            minPixels: 2,
-            maxPixels: 12,
-            selected: true,
-          })
+          makePathLayer(
+            deckGlobal,
+            `movement-${activePanel}-selected`,
+            selectedFeatures,
+            {
+              mode: activePanel,
+              alpha: 246,
+              widthScale: 1.35,
+              minPixels: 2,
+              maxPixels: 12,
+              selected: true,
+            }
+          )
         );
       }
     } else {
@@ -966,7 +981,8 @@ export function renderMovementInsights(payload) {
   updateRankSelectionState();
   renderDetailPanel(latestMovementPayload);
 
-  const hasStreetFeatures = flattenEntityPaths(latestMovementPayload, "streets").length > 0;
+  const hasStreetFeatures =
+    flattenEntityPaths(latestMovementPayload, "streets").length > 0;
   const hasSegmentFeatures =
     flattenEntityPaths(latestMovementPayload, "segments").length > 0;
   const hasAnyData = hasStreetFeatures || hasSegmentFeatures;

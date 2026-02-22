@@ -104,8 +104,8 @@ class BouncieClient:
         """
         Fetch trips with light retry for history import / backfill.
 
-        History import already uses recursive window-splitting.
-        Avoid client-side retries here so failing windows split immediately
+        History import already uses recursive window-splitting. Avoid
+        client-side retries here so failing windows split immediately
         instead of burning time on repeated requests.
         """
         headers = {

@@ -5,8 +5,8 @@ import logging
 from fastapi import APIRouter, HTTPException, Request, status
 
 from analytics.services import DashboardService
-from db import build_query_from_request
 from core.trip_source_policy import enforce_bouncie_source
+from db import build_query_from_request
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

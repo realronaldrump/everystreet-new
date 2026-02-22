@@ -14,10 +14,10 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from core.trip_source_policy import enforce_bouncie_source
 from map_data.models import MapServiceConfig
 from map_data.progress import MapBuildProgress
 from map_data.us_states import get_state, list_states
-from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 

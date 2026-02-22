@@ -155,32 +155,40 @@ function initMobilePanelToggle({ signal } = {}) {
   const isPanelVisible = !panel.classList.contains("is-hidden");
   toggle.setAttribute("aria-expanded", isPanelVisible.toString());
 
-  toggle.addEventListener("click", () => {
-    const isExpanded = toggle.getAttribute("aria-expanded") === "true";
+  toggle.addEventListener(
+    "click",
+    () => {
+      const isExpanded = toggle.getAttribute("aria-expanded") === "true";
 
-    if (isExpanded) {
-      panel.classList.add("is-hidden");
-      toggle.setAttribute("aria-expanded", "false");
-      localStorage.setItem(storageKey, "hidden");
-    } else {
-      panel.classList.remove("is-hidden");
-      toggle.setAttribute("aria-expanded", "true");
-      localStorage.setItem(storageKey, "visible");
-    }
-  }, eventOptions);
+      if (isExpanded) {
+        panel.classList.add("is-hidden");
+        toggle.setAttribute("aria-expanded", "false");
+        localStorage.setItem(storageKey, "hidden");
+      } else {
+        panel.classList.remove("is-hidden");
+        toggle.setAttribute("aria-expanded", "true");
+        localStorage.setItem(storageKey, "visible");
+      }
+    },
+    eventOptions
+  );
 
   const mapContainer = document.querySelector(".map-container");
   if (mapContainer) {
-    mapContainer.addEventListener("click", (e) => {
-      if (window.innerWidth < 1024) {
-        const isExpanded = toggle.getAttribute("aria-expanded") === "true";
-        if (isExpanded && !e.target.closest(".map-legend")) {
-          panel.classList.add("is-hidden");
-          toggle.setAttribute("aria-expanded", "false");
-          localStorage.setItem(storageKey, "hidden");
+    mapContainer.addEventListener(
+      "click",
+      (e) => {
+        if (window.innerWidth < 1024) {
+          const isExpanded = toggle.getAttribute("aria-expanded") === "true";
+          if (isExpanded && !e.target.closest(".map-legend")) {
+            panel.classList.add("is-hidden");
+            toggle.setAttribute("aria-expanded", "false");
+            localStorage.setItem(storageKey, "hidden");
+          }
         }
-      }
-    }, eventOptions);
+      },
+      eventOptions
+    );
   }
 }
 
@@ -196,9 +204,13 @@ function initLayerControls({ signal } = {}) {
     const valueDisplay = item.querySelector(".opacity-value");
 
     if (range && valueDisplay) {
-      range.addEventListener("input", (e) => {
-        valueDisplay.textContent = `${e.target.value}%`;
-      }, eventOptions);
+      range.addEventListener(
+        "input",
+        (e) => {
+          valueDisplay.textContent = `${e.target.value}%`;
+        },
+        eventOptions
+      );
     }
   });
 }
@@ -248,31 +260,32 @@ function handleResponsiveLayout({ signal } = {}) {
  * Initialize keyboard shortcuts
  */
 function initKeyboardShortcuts({ signal } = {}) {
-  document.addEventListener("keydown", (e) => {
-    const { target } = e;
-    if (
-      target instanceof Element &&
-      target.matches("input, select, textarea")
-    ) {
-      return;
-    }
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      const { target } = e;
+      if (target instanceof Element && target.matches("input, select, textarea")) {
+        return;
+      }
 
-    if (e.key === "Escape") {
-      const toggle = document.getElementById("mobile-panel-toggle");
-      const panel = document.getElementById("control-panel");
+      if (e.key === "Escape") {
+        const toggle = document.getElementById("mobile-panel-toggle");
+        const panel = document.getElementById("control-panel");
 
-      if (toggle && panel && window.innerWidth < 1024) {
-        const isExpanded = toggle.getAttribute("aria-expanded") === "true";
-        if (isExpanded) {
-          panel.classList.add("is-hidden");
-          toggle.setAttribute("aria-expanded", "false");
-        } else {
-          panel.classList.remove("is-hidden");
-          toggle.setAttribute("aria-expanded", "true");
+        if (toggle && panel && window.innerWidth < 1024) {
+          const isExpanded = toggle.getAttribute("aria-expanded") === "true";
+          if (isExpanded) {
+            panel.classList.add("is-hidden");
+            toggle.setAttribute("aria-expanded", "false");
+          } else {
+            panel.classList.remove("is-hidden");
+            toggle.setAttribute("aria-expanded", "true");
+          }
         }
       }
-    }
-  }, signal ? { signal } : false);
+    },
+    signal ? { signal } : false
+  );
 }
 
 /**
@@ -331,9 +344,13 @@ function initTabNavigation({ signal } = {}) {
   }
 
   tabs.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      switchTab(tab.dataset.tab);
-    }, eventOptions);
+    tab.addEventListener(
+      "click",
+      () => {
+        switchTab(tab.dataset.tab);
+      },
+      eventOptions
+    );
   });
 
   // Restore last active tab
@@ -349,9 +366,7 @@ function initTabNavigation({ signal } = {}) {
  */
 function initAutoTabSwitch({ signal } = {}) {
   const progressSection = document.getElementById("progress-section");
-  const routeProgressContainer = document.getElementById(
-    "route-progress-container"
-  );
+  const routeProgressContainer = document.getElementById("route-progress-container");
   const resultsSection = document.getElementById("results-section");
   const errorSection = document.getElementById("error-section");
 

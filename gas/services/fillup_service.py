@@ -86,9 +86,7 @@ class FillupService:
             query["_id"] = {"$ne": exclude_id}
 
         return await (
-            GasFillup.find(query)
-            .sort(FillupService._sort_asc())
-            .first_or_none()
+            GasFillup.find(query).sort(FillupService._sort_asc()).first_or_none()
         )
 
     @staticmethod
@@ -295,16 +293,18 @@ class FillupService:
         vin = vehicle.vin if vehicle else None
 
         # Calculate derived stats.
-        calculated_mpg, miles_since_last, previous_odometer = (
-            await FillupService._calculate_fillup_stats(
-                imei=imei,
-                fillup_time=fillup_time,
-                current_id=None,
-                current_odometer=fillup_data.get("odometer"),
-                current_gallons=gallons,
-                is_full_tank=is_full_tank,
-                missed_previous=missed_previous,
-            )
+        (
+            calculated_mpg,
+            miles_since_last,
+            previous_odometer,
+        ) = await FillupService._calculate_fillup_stats(
+            imei=imei,
+            fillup_time=fillup_time,
+            current_id=None,
+            current_odometer=fillup_data.get("odometer"),
+            current_gallons=gallons,
+            is_full_tank=is_full_tank,
+            missed_previous=missed_previous,
         )
 
         # Calculate total cost if not provided
@@ -410,7 +410,10 @@ class FillupService:
                 msg = "total_cost must be greater than or equal to 0"
                 raise ValidationException(msg)
 
-        if "is_full_tank" in update_data and not isinstance(update_data["is_full_tank"], bool):
+        if "is_full_tank" in update_data and not isinstance(
+            update_data["is_full_tank"],
+            bool,
+        ):
             msg = "is_full_tank must be a boolean"
             raise ValidationException(msg)
 
@@ -447,19 +450,24 @@ class FillupService:
             # Get current flags
             curr_is_full = update_data.get("is_full_tank", fillup.is_full_tank)
 
-            curr_missed_prev = update_data.get("missed_previous", fillup.missed_previous)
+            curr_missed_prev = update_data.get(
+                "missed_previous",
+                fillup.missed_previous,
+            )
 
             if current_time is not None:
-                calculated_mpg, miles_since_last, previous_odometer = (
-                    await FillupService._calculate_fillup_stats(
-                        imei=imei,
-                        fillup_time=current_time,
-                        current_id=fillup.id,
-                        current_odometer=current_odometer,
-                        current_gallons=current_gallons,
-                        is_full_tank=curr_is_full,
-                        missed_previous=curr_missed_prev,
-                    )
+                (
+                    calculated_mpg,
+                    miles_since_last,
+                    previous_odometer,
+                ) = await FillupService._calculate_fillup_stats(
+                    imei=imei,
+                    fillup_time=current_time,
+                    current_id=fillup.id,
+                    current_odometer=current_odometer,
+                    current_gallons=current_gallons,
+                    is_full_tank=curr_is_full,
+                    missed_previous=curr_missed_prev,
                 )
             else:
                 calculated_mpg, miles_since_last, previous_odometer = (None, None, None)
@@ -570,16 +578,18 @@ class FillupService:
             if not next_fillup or next_fillup.fillup_time is None:
                 return
 
-            calculated_mpg, miles_since_last, previous_odometer = (
-                await FillupService._calculate_fillup_stats(
-                    imei=imei,
-                    fillup_time=next_fillup.fillup_time,
-                    current_id=next_fillup.id,
-                    current_odometer=next_fillup.odometer,
-                    current_gallons=next_fillup.gallons,
-                    is_full_tank=next_fillup.is_full_tank,
-                    missed_previous=next_fillup.missed_previous,
-                )
+            (
+                calculated_mpg,
+                miles_since_last,
+                previous_odometer,
+            ) = await FillupService._calculate_fillup_stats(
+                imei=imei,
+                fillup_time=next_fillup.fillup_time,
+                current_id=next_fillup.id,
+                current_odometer=next_fillup.odometer,
+                current_gallons=next_fillup.gallons,
+                is_full_tank=next_fillup.is_full_tank,
+                missed_previous=next_fillup.missed_previous,
             )
 
             next_fillup.calculated_mpg = calculated_mpg

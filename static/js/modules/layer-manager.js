@@ -38,8 +38,8 @@ const layerManager = {
       return undefined;
     }
     try {
-      const layers = store.map.getStyle().layers;
-      
+      const { layers } = store.map.getStyle();
+
       // Prioritize inserting historic layers below the live tracking line
       const liveTripLine = layers.find((l) => l.id === "live-trip-line");
       if (liveTripLine) {
@@ -1311,19 +1311,22 @@ const layerManager = {
 
       // Insert heatmap glow layers below map labels
       const glowBeforeId = this.getFirstSymbolLayerId();
-      store.map.addLayer({
-        id: glowLayerId,
-        type: "line",
-        source: sourceId,
-        minzoom: layerInfo.minzoom || 0,
-        maxzoom: layerInfo.maxzoom || 22,
-        layout: {
-          visibility: layerInfo.visible ? "visible" : "none",
-          "line-join": "round",
-          "line-cap": "round",
+      store.map.addLayer(
+        {
+          id: glowLayerId,
+          type: "line",
+          source: sourceId,
+          minzoom: layerInfo.minzoom || 0,
+          maxzoom: layerInfo.maxzoom || 22,
+          layout: {
+            visibility: layerInfo.visible ? "visible" : "none",
+            "line-join": "round",
+            "line-cap": "round",
+          },
+          paint: glowConfig.paint,
         },
-        paint: glowConfig.paint,
-      }, glowBeforeId);
+        glowBeforeId
+      );
     });
 
     layerInfo.layer = data;

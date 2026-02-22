@@ -4,8 +4,8 @@
  * Handles the trip details modal for the driving insights page
  */
 
-import { escapeHtml } from "../utils.js";
 import notificationManager from "../ui/notifications.js";
+import { escapeHtml } from "../utils.js";
 import { fetchDrilldownTrips, fetchTimePeriodTrips } from "./api.js";
 import { formatDuration, formatHourLabel, getDateRange } from "./formatters.js";
 
@@ -239,12 +239,13 @@ export function displayTripsInModal(trips, opts = {}) {
   }
 
   if (!sortedTrips || sortedTrips.length === 0) {
-    grid.innerHTML = '<div class="modal-trip-empty"><i class="fas fa-route" style="font-size:1.5rem;margin-bottom:0.5rem;opacity:0.4"></i><span>No trips found</span></div>';
+    grid.innerHTML =
+      '<div class="modal-trip-empty"><i class="fas fa-route" style="font-size:1.5rem;margin-bottom:0.5rem;opacity:0.4"></i><span>No trips found</span></div>';
   } else {
     // Compute max value for the bar chart fill
     const maxVal = sortedTrips.reduce(
       (mx, t) => Math.max(mx, Math.abs(getTripSortValue(insightKind || "trips", t))),
-      0,
+      0
     );
 
     grid.innerHTML = sortedTrips

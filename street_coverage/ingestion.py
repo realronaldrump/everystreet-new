@@ -522,10 +522,7 @@ async def _run_ingestion_pipeline(
             area.display_name,
         )
         logger.info(
-            (
-                "Road filter stats for %s: included=%s excluded=%s "
-                "ambiguous_included=%s"
-            ),
+            ("Road filter stats for %s: included=%s excluded=%s ambiguous_included=%s"),
             area.display_name,
             road_filter_stats.get("included_count", 0),
             road_filter_stats.get("excluded_count", 0),
@@ -695,14 +692,20 @@ async def _run_ingestion_pipeline(
             "ambiguous_included_count": int(
                 road_filter_stats.get("ambiguous_included_count", 0) or 0,
             ),
-            "excluded_by_reason": dict(road_filter_stats.get("excluded_by_reason") or {}),
+            "excluded_by_reason": dict(
+                road_filter_stats.get("excluded_by_reason") or {},
+            ),
             "sample_excluded_osm_ids": list(
                 road_filter_stats.get("sample_excluded_osm_ids") or [],
             ),
-            "backfill_processed_trips": int(backfill_state.get("processed_trips", 0) or 0),
+            "backfill_processed_trips": int(
+                backfill_state.get("processed_trips", 0) or 0,
+            ),
             "backfill_total_trips": backfill_state.get("total_trips"),
             "backfill_matched_trips": int(backfill_state.get("matched_trips", 0) or 0),
-            "backfill_segments_updated": int(backfill_state.get("segments_updated", 0) or 0),
+            "backfill_segments_updated": int(
+                backfill_state.get("segments_updated", 0) or 0,
+            ),
         }
         await update_job(
             status="completed",

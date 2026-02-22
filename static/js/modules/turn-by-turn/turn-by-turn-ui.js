@@ -657,7 +657,6 @@ class TurnByTurnUI {
     if (this.elements.speedLabel) {
       this.elements.speedLabel.textContent = "--";
     }
-
   }
 
   // === Utilities ===

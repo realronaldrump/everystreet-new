@@ -3,8 +3,8 @@
  * Handles map layer creation and management
  */
 
-import { COLORS } from "./constants.js";
 import { getCurrentTheme, resolveMapStyle } from "../core/map-style-resolver.js";
+import { COLORS } from "./constants.js";
 import * as CountyMapState from "./state.js";
 
 /**

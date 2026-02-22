@@ -11,8 +11,8 @@ from analytics.services import (
     TripAnalyticsService,
 )
 from core.api import api_route
-from db import build_query_from_request
 from core.trip_source_policy import enforce_bouncie_source
+from db import build_query_from_request
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

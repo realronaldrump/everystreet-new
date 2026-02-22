@@ -42,17 +42,21 @@ Coverage Navigator
             <i class="fas fa-route" aria-hidden="true"></i>
           </div>
           <div class="sidebar-identity-text">
-            <h2 class="sidebar-title">Coverage Navigator</h2>
-            <p class="sidebar-subtitle" id="sidebar-subtitle">Select an area to begin planning</p>
+            <h2 class="sidebar-title">
+Coverage Navigator
+            </h2>
+            <p class="sidebar-subtitle" id="sidebar-subtitle">
+Select an area to begin planning
+            </p>
           </div>
         </div>
-        <div class="sidebar-coverage-ring" id="sidebar-coverage-ring" style="display:none" aria-hidden="true">
+        <div class="sidebar-coverage-ring"
+             id="sidebar-coverage-ring"
+             style="display:none"
+             aria-hidden="true">
           <svg class="coverage-ring-svg" viewBox="0 0 48 48">
-            <circle class="ring-track" cx="24" cy="24" r="19" fill="none" stroke-width="5"/>
-            <circle class="ring-fill" cx="24" cy="24" r="19"
-                    fill="none" stroke-width="5"
-                    stroke-dasharray="119.38" stroke-dashoffset="119.38"
-                    id="sidebar-ring-fill"/>
+<circle class="ring-track" cx="24" cy="24" r="19" fill="none" stroke-width="5" />
+<circle class="ring-fill" cx="24" cy="24" r="19" fill="none" stroke-width="5" stroke-dasharray="119.38" stroke-dashoffset="119.38" id="sidebar-ring-fill" />
           </svg>
           <span class="ring-pct" id="sidebar-ring-pct">0%</span>
         </div>
@@ -99,29 +103,47 @@ Coverage Navigator
       </nav>
 
       <!-- Workflow Stepper -->
-      <div class="workflow-stepper" id="workflow-stepper" role="list" aria-label="Planning progress">
-        <div class="workflow-step active" data-step="1" role="listitem" aria-label="Step 1: Select area">
+      <div class="workflow-stepper"
+           id="workflow-stepper"
+           role="list"
+           aria-label="Planning progress">
+        <div class="workflow-step active"
+             data-step="1"
+             role="listitem"
+             aria-label="Step 1: Select area">
           <div class="ws-node">
             <span class="ws-number">1</span>
           </div>
           <span class="ws-label">Select</span>
         </div>
-        <div class="ws-connector"></div>
-        <div class="workflow-step" data-step="2" role="listitem" aria-label="Step 2: Generate route">
+        <div class="ws-connector">
+        </div>
+        <div class="workflow-step"
+             data-step="2"
+             role="listitem"
+             aria-label="Step 2: Generate route">
           <div class="ws-node">
             <span class="ws-number">2</span>
           </div>
           <span class="ws-label">Generate</span>
         </div>
-        <div class="ws-connector"></div>
-        <div class="workflow-step" data-step="3" role="listitem" aria-label="Step 3: Review results">
+        <div class="ws-connector">
+        </div>
+        <div class="workflow-step"
+             data-step="3"
+             role="listitem"
+             aria-label="Step 3: Review results">
           <div class="ws-node">
             <span class="ws-number">3</span>
           </div>
           <span class="ws-label">Review</span>
         </div>
-        <div class="ws-connector"></div>
-        <div class="workflow-step" data-step="4" role="listitem" aria-label="Step 4: Start navigation">
+        <div class="ws-connector">
+        </div>
+        <div class="workflow-step"
+             data-step="4"
+             role="listitem"
+             aria-label="Step 4: Start navigation">
           <div class="ws-node">
             <span class="ws-number">4</span>
           </div>
@@ -130,10 +152,7 @@ Coverage Navigator
       </div>
 
       <!-- ===== Tab Panel: Plan ===== -->
-      <div class="tab-panel active"
-           id="tab-panel-plan"
-           role="tabpanel"
-           data-tab="plan">
+      <div class="tab-panel active" id="tab-panel-plan" role="tabpanel" data-tab="plan">
 
         <!-- Area Selection Widget -->
         <div class="widget control-section area-selector-widget" data-accent="mint">
@@ -166,11 +185,8 @@ Select a coverage area...
               <div class="area-context-body">
                 <div class="area-donut-wrap">
                   <svg class="area-donut" viewBox="0 0 80 80" aria-hidden="true">
-                    <circle class="donut-track" cx="40" cy="40" r="32" fill="none" stroke-width="8"/>
-                    <circle class="donut-driven" cx="40" cy="40" r="32"
-                            fill="none" stroke-width="8"
-                            stroke-dasharray="201.06" stroke-dashoffset="201.06"
-                            id="donut-driven-arc"/>
+<circle class="donut-track" cx="40" cy="40" r="32" fill="none" stroke-width="8" />
+<circle class="donut-driven" cx="40" cy="40" r="32" fill="none" stroke-width="8" stroke-dasharray="201.06" stroke-dashoffset="201.06" id="donut-driven-arc" />
                   </svg>
                   <div class="area-donut-label">
                     <span id="area-coverage" class="donut-pct" data-coverage-percent data-value-flash>--</span>
@@ -202,7 +218,8 @@ Select a coverage area...
                 </div>
               </div>
               <div class="coverage-bar-track" aria-hidden="true">
-                <div class="coverage-bar-fill" id="area-coverage-bar"></div>
+                <div class="coverage-bar-fill" id="area-coverage-bar">
+                </div>
               </div>
             </div>
 
@@ -232,7 +249,10 @@ Select a coverage area...
           </div>
           <div class="widget-body collapsible-content" id="section-planner">
 
-            <button id="generate-route-btn" class="btn btn-primary btn-generate" disabled data-state="idle">
+            <button id="generate-route-btn"
+                    class="btn btn-primary btn-generate"
+                    disabled
+                    data-state="idle">
               <span class="generate-icon" aria-hidden="true">
                 <i class="icon-idle fas fa-wand-magic-sparkles"></i>
                 <i class="icon-ready fas fa-bolt"></i>
@@ -274,13 +294,7 @@ Select a coverage area...
                     class="btn-algo-info"
                     aria-controls="algo-explainer"
                     aria-expanded="false"
-                    onclick="
-                      const el = document.getElementById('algo-explainer');
-                      const expanded = this.getAttribute('aria-expanded') === 'true';
-                      el.hidden = expanded;
-                      this.setAttribute('aria-expanded', !expanded);
-                      this.querySelector('.btn-algo-info-text').textContent = expanded ? 'How does this work?' : 'Hide explanation';
-                    ">
+                    onclick=" const el = document.getElementById('algo-explainer'); const expanded = this.getAttribute('aria-expanded') === 'true'; el.hidden = expanded; this.setAttribute('aria-expanded', !expanded); this.querySelector('.btn-algo-info-text').textContent = expanded ? 'How does this work?' : 'Hide explanation'; ">
               <i class="fas fa-circle-info" aria-hidden="true"></i>
               <span class="btn-algo-info-text">How does this work?</span>
             </button>
@@ -308,30 +322,29 @@ Select a coverage area...
               <div class="empty-state">
                 <div class="empty-state-art" aria-hidden="true">
                   <svg width="56" height="48" viewBox="0 0 56 48" fill="none">
-                    <rect x="4" y="10" width="48" height="32" rx="5"
-                          stroke="currentColor" stroke-width="1.5" opacity="0.22"/>
-                    <path d="M12 36 Q20 20 28 28 Q36 36 44 20"
-                          stroke="var(--cat-mint)" stroke-width="2"
-                          stroke-dasharray="5 3.5" stroke-linecap="round" fill="none"/>
-                    <circle cx="12" cy="36" r="3.5" fill="var(--cat-mint)" opacity="0.8"/>
-                    <circle cx="44" cy="20" r="3.5" fill="var(--cat-purple)" opacity="0.8"/>
+<rect x="4" y="10" width="48" height="32" rx="5" stroke="currentColor" stroke-width="1.5" opacity="0.22" />
+<path d="M12 36 Q20 20 28 28 Q36 36 44 20" stroke="var(--cat-mint)" stroke-width="2" stroke-dasharray="5 3.5" stroke-linecap="round" fill="none" />
+<circle cx="12" cy="36" r="3.5" fill="var(--cat-mint)" opacity="0.8" />
+<circle cx="44" cy="20" r="3.5" fill="var(--cat-purple)" opacity="0.8" />
                   </svg>
                 </div>
-                <p class="empty-state-title">No saved routes yet</p>
-                <p class="empty-state-hint">Generate your first optimal route above to get started</p>
+                <p class="empty-state-title">
+No saved routes yet
+                </p>
+                <p class="empty-state-hint">
+Generate your first optimal route above to get started
+                </p>
               </div>
             </div>
           </div>
         </div>
 
-      </div><!-- /tab-panel-plan -->
+      </div>
+      <!-- /tab-panel-plan -->
 
 
       <!-- ===== Tab Panel: Find (was Navigate) ===== -->
-      <div class="tab-panel"
-           id="tab-panel-navigate"
-           role="tabpanel"
-           data-tab="navigate">
+      <div class="tab-panel" id="tab-panel-navigate" role="tabpanel" data-tab="navigate">
 
         <div class="widget control-section" data-accent="sky">
           <div class="widget-header">
@@ -406,7 +419,9 @@ Auto-Follow
                 <i class="fas fa-lightbulb"></i>
               </div>
               <div class="find-helper-text">
-                <p class="find-helper-title">Planning vs. Navigating</p>
+                <p class="find-helper-title">
+Planning vs. Navigating
+                </p>
                 <p class="find-helper-desc">
                   Use <strong>Find</strong> to spot streets to prioritize on your map.
                   When you're ready to drive, use <strong>Turn-by-Turn</strong> from the Results tab for GPS guidance.
@@ -416,14 +431,12 @@ Auto-Follow
           </div>
         </div>
 
-      </div><!-- /tab-panel-navigate -->
+      </div>
+      <!-- /tab-panel-navigate -->
 
 
       <!-- ===== Tab Panel: Status ===== -->
-      <div class="tab-panel"
-           id="tab-panel-status"
-           role="tabpanel"
-           data-tab="status">
+      <div class="tab-panel" id="tab-panel-status" role="tabpanel" data-tab="status">
 
         <!-- Route Progress Section (shown during simple processing) -->
         <div id="route-progress-container"
@@ -438,15 +451,18 @@ Auto-Follow
           <div class="widget-body">
             <div class="progress-steps">
               <div id="step-clustering" class="step" data-step="1">
-                <div class="step-indicator"></div>
+                <div class="step-indicator">
+                </div>
                 <span class="step-label">Clustering</span>
               </div>
               <div id="step-optimizing" class="step" data-step="2">
-                <div class="step-indicator"></div>
+                <div class="step-indicator">
+                </div>
                 <span class="step-label">Optimizing</span>
               </div>
               <div id="step-rendering" class="step" data-step="3">
-                <div class="step-indicator"></div>
+                <div class="step-indicator">
+                </div>
                 <span class="step-label">Rendering</span>
               </div>
             </div>
@@ -491,8 +507,10 @@ Auto-Follow
                   <span class="stage-detail">Initializing the route solver</span>
                 </div>
               </div>
-              <div class="pipeline-connector"></div>
-              <div class="stage" data-stage="loading_area,loading_segments,loading_graph,fetching_osm">
+              <div class="pipeline-connector">
+              </div>
+              <div class="stage"
+                   data-stage="loading_area,loading_segments,loading_graph,fetching_osm">
                 <div class="stage-node">
                   <i class="fas fa-database" aria-hidden="true"></i>
                 </div>
@@ -501,7 +519,8 @@ Auto-Follow
                   <span class="stage-detail">Fetching streets and map data</span>
                 </div>
               </div>
-              <div class="pipeline-connector"></div>
+              <div class="pipeline-connector">
+              </div>
               <div class="stage" data-stage="mapping_segments">
                 <div class="stage-node">
                   <i class="fas fa-project-diagram" aria-hidden="true"></i>
@@ -511,7 +530,8 @@ Auto-Follow
                   <span class="stage-detail">Building street network graph</span>
                 </div>
               </div>
-              <div class="pipeline-connector"></div>
+              <div class="pipeline-connector">
+              </div>
               <div class="stage" data-stage="connectivity_check">
                 <div class="stage-node">
                   <i class="fas fa-network-wired" aria-hidden="true"></i>
@@ -521,7 +541,8 @@ Auto-Follow
                   <span class="stage-detail">Checking network connectivity</span>
                 </div>
               </div>
-              <div class="pipeline-connector"></div>
+              <div class="pipeline-connector">
+              </div>
               <div class="stage" data-stage="routing">
                 <div class="stage-node">
                   <i class="fas fa-route" aria-hidden="true"></i>
@@ -531,7 +552,8 @@ Auto-Follow
                   <span class="stage-detail">Solving for optimal path</span>
                 </div>
               </div>
-              <div class="pipeline-connector"></div>
+              <div class="pipeline-connector">
+              </div>
               <div class="stage" data-stage="finalizing,complete">
                 <div class="stage-node">
                   <i class="fas fa-check" aria-hidden="true"></i>
@@ -591,14 +613,11 @@ Initializing...
             <div class="error-content">
               <div class="error-illustration" aria-hidden="true">
                 <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-                  <circle cx="32" cy="32" r="28" stroke="rgb(var(--danger-rgb) / 25%)" stroke-width="2"/>
-                  <circle cx="32" cy="32" r="20" stroke="rgb(var(--danger-rgb) / 15%)" stroke-width="1.5"/>
-                  <path d="M20 32 L27 25 M27 25 L34 32 M34 32 L41 25"
-                        stroke="var(--danger)" stroke-width="2.5"
-                        stroke-linecap="round" stroke-linejoin="round"/>
-                  <circle cx="41" cy="25" r="3.5" fill="var(--danger)" opacity="0.7"/>
-                  <path d="M24 42 Q32 38 40 42" stroke="rgb(var(--danger-rgb) / 50%)"
-                        stroke-width="1.5" stroke-linecap="round" fill="none"/>
+<circle cx="32" cy="32" r="28" stroke="rgb(var(--danger-rgb) / 25%)" stroke-width="2" />
+<circle cx="32" cy="32" r="20" stroke="rgb(var(--danger-rgb) / 15%)" stroke-width="1.5" />
+<path d="M20 32 L27 25 M27 25 L34 32 M34 32 L41 25" stroke="var(--danger)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+<circle cx="41" cy="25" r="3.5" fill="var(--danger)" opacity="0.7" />
+<path d="M24 42 Q32 38 40 42" stroke="rgb(var(--danger-rgb) / 50%)" stroke-width="1.5" stroke-linecap="round" fill="none" />
                 </svg>
               </div>
               <div id="error-message" class="error-message">
@@ -609,7 +628,8 @@ An error occurred.
                   <i class="fas fa-rotate" aria-hidden="true"></i>
                   Try Again
                 </button>
-                <button type="button" class="btn btn-outline-secondary btn-sm"
+                <button type="button"
+                        class="btn btn-outline-secondary btn-sm"
                         onclick="document.querySelector('.sidebar-tab[data-tab=plan]').click()">
                   <i class="fas fa-arrow-left" aria-hidden="true"></i>
                   Back to Plan
@@ -622,13 +642,17 @@ An error occurred.
         <!-- Empty state for Status tab -->
         <div class="tab-empty-state processing-ready-state" id="status-empty-state">
           <div class="ready-animation" aria-hidden="true">
-            <div class="ready-ring ready-ring--1"></div>
-            <div class="ready-ring ready-ring--2"></div>
+            <div class="ready-ring ready-ring--1">
+            </div>
+            <div class="ready-ring ready-ring--2">
+            </div>
             <div class="ready-icon">
               <i class="fas fa-wand-magic-sparkles"></i>
             </div>
           </div>
-          <div class="tab-empty-title">Ready to Compute</div>
+          <div class="tab-empty-title">
+Ready to Compute
+          </div>
           <div class="tab-empty-hint">
             Generate a route from the Plan tab — live progress will appear here
           </div>
@@ -640,14 +664,12 @@ An error occurred.
           </button>
         </div>
 
-      </div><!-- /tab-panel-status -->
+      </div>
+      <!-- /tab-panel-status -->
 
 
       <!-- ===== Tab Panel: Results ===== -->
-      <div class="tab-panel"
-           id="tab-panel-results"
-           role="tabpanel"
-           data-tab="results">
+      <div class="tab-panel" id="tab-panel-results" role="tabpanel" data-tab="results">
 
         <!-- Results Section -->
         <div id="results-section"
@@ -673,11 +695,8 @@ An error occurred.
             <div class="results-hero-card stat-card is-efficiency" data-stat="efficiency">
               <div class="hero-eff-ring" aria-hidden="true">
                 <svg class="eff-ring-svg" viewBox="0 0 72 72">
-                  <circle class="eff-ring-track" cx="36" cy="36" r="30" fill="none" stroke-width="6"/>
-                  <circle class="eff-ring-fill" cx="36" cy="36" r="30"
-                          fill="none" stroke-width="6"
-                          stroke-dasharray="188.5" stroke-dashoffset="188.5"
-                          id="eff-ring-fill"/>
+<circle class="eff-ring-track" cx="36" cy="36" r="30" fill="none" stroke-width="6" />
+<circle class="eff-ring-fill" cx="36" cy="36" r="30" fill="none" stroke-width="6" stroke-dasharray="188.5" stroke-dashoffset="188.5" id="eff-ring-fill" />
                 </svg>
                 <div class="hero-eff-center">
                   <span id="stat-deadhead-percent" class="hero-eff-value">--</span>
@@ -685,9 +704,14 @@ An error occurred.
                 </div>
               </div>
               <div class="hero-eff-details">
-                <div class="hero-eff-label">Route Efficiency</div>
-                <div class="hero-eff-desc">How much of your driving covers required streets vs. connecting segments</div>
-                <div class="hero-eff-grade" id="eff-grade" style="display:none"></div>
+                <div class="hero-eff-label">
+Route Efficiency
+                </div>
+                <div class="hero-eff-desc">
+How much of your driving covers required streets vs. connecting segments
+                </div>
+                <div class="hero-eff-grade" id="eff-grade" style="display:none">
+                </div>
               </div>
             </div>
 
@@ -875,20 +899,16 @@ Map Layers
         <div class="tab-empty-state results-empty-state" id="results-empty-state">
           <div class="tab-empty-icon results-empty-art" aria-hidden="true">
             <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-              <rect x="8" y="14" width="48" height="36" rx="5"
-                    stroke="currentColor" stroke-width="1.5" opacity="0.22"/>
-              <rect x="16" y="34" width="7" height="10" rx="1.5"
-                    fill="currentColor" opacity="0.2"/>
-              <rect x="28.5" y="26" width="7" height="18" rx="1.5"
-                    fill="currentColor" opacity="0.35"/>
-              <rect x="41" y="30" width="7" height="14" rx="1.5"
-                    fill="currentColor" opacity="0.25"/>
-              <path d="M16 22 L24 18 L36 22 L44 16"
-                    stroke="var(--cat-mint)" stroke-width="1.5"
-                    stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+<rect x="8" y="14" width="48" height="36" rx="5" stroke="currentColor" stroke-width="1.5" opacity="0.22" />
+<rect x="16" y="34" width="7" height="10" rx="1.5" fill="currentColor" opacity="0.2" />
+<rect x="28.5" y="26" width="7" height="18" rx="1.5" fill="currentColor" opacity="0.35" />
+<rect x="41" y="30" width="7" height="14" rx="1.5" fill="currentColor" opacity="0.25" />
+<path d="M16 22 L24 18 L36 22 L44 16" stroke="var(--cat-mint)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
             </svg>
           </div>
-          <div class="tab-empty-title">No Results Yet</div>
+          <div class="tab-empty-title">
+No Results Yet
+          </div>
           <div class="tab-empty-hint">
             Generate a route to see statistics, export options, and launch GPS navigation
           </div>
@@ -900,7 +920,8 @@ Map Layers
           </button>
         </div>
 
-      </div><!-- /tab-panel-results -->
+      </div>
+      <!-- /tab-panel-results -->
 
     </aside>
 

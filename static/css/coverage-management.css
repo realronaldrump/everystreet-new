@@ -31,12 +31,21 @@
 }
 
 @keyframes cvExitUp {
-  to { opacity: 0; transform: translateY(-8px); }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
 }
 
 @keyframes cvEnterUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* =============================================================================
@@ -133,12 +142,24 @@
   background: var(--card-accent-color, var(--primary));
 }
 
-.area-card[data-accent="danger"]   { --card-accent-color: var(--danger); }
-.area-card[data-accent="warning"]  { --card-accent-color: var(--warning); }
-.area-card[data-accent="info"]     { --card-accent-color: var(--info); }
-.area-card[data-accent="success"]  { --card-accent-color: var(--success); }
-.area-card[data-accent="amber"]    { --card-accent-color: var(--cat-amber, #d97706); }
-.area-card[data-accent="secondary"]{ --card-accent-color: var(--text-secondary); }
+.area-card[data-accent="danger"] {
+  --card-accent-color: var(--danger);
+}
+.area-card[data-accent="warning"] {
+  --card-accent-color: var(--warning);
+}
+.area-card[data-accent="info"] {
+  --card-accent-color: var(--info);
+}
+.area-card[data-accent="success"] {
+  --card-accent-color: var(--success);
+}
+.area-card[data-accent="amber"] {
+  --card-accent-color: var(--cat-amber, #d97706);
+}
+.area-card[data-accent="secondary"] {
+  --card-accent-color: var(--text-secondary);
+}
 
 /* Card header */
 .area-card-header {
@@ -194,15 +215,27 @@
 }
 
 .ring-fill {
-  transition: stroke-dashoffset 1s ease, stroke 0.4s ease;
+  transition:
+    stroke-dashoffset 1s ease,
+    stroke 0.4s ease;
   stroke: var(--primary);
 }
 
-.ring-fill.tier-danger   { stroke: var(--danger); }
-.ring-fill.tier-warning  { stroke: var(--warning); }
-.ring-fill.tier-info     { stroke: var(--info); }
-.ring-fill.tier-success  { stroke: var(--success); }
-.ring-fill.tier-complete { stroke: var(--cat-amber, #d97706); }
+.ring-fill.tier-danger {
+  stroke: var(--danger);
+}
+.ring-fill.tier-warning {
+  stroke: var(--warning);
+}
+.ring-fill.tier-info {
+  stroke: var(--info);
+}
+.ring-fill.tier-success {
+  stroke: var(--success);
+}
+.ring-fill.tier-complete {
+  stroke: var(--cat-amber, #d97706);
+}
 
 .area-progress-text {
   flex: 1;
@@ -441,11 +474,21 @@
     stroke 0.4s ease;
 }
 
-.progress-ring-fill.tier-danger   { stroke: var(--danger); }
-.progress-ring-fill.tier-warning  { stroke: var(--warning); }
-.progress-ring-fill.tier-info     { stroke: var(--info); }
-.progress-ring-fill.tier-success  { stroke: var(--success); }
-.progress-ring-fill.tier-complete { stroke: var(--cat-amber, #d97706); }
+.progress-ring-fill.tier-danger {
+  stroke: var(--danger);
+}
+.progress-ring-fill.tier-warning {
+  stroke: var(--warning);
+}
+.progress-ring-fill.tier-info {
+  stroke: var(--info);
+}
+.progress-ring-fill.tier-success {
+  stroke: var(--success);
+}
+.progress-ring-fill.tier-complete {
+  stroke: var(--cat-amber, #d97706);
+}
 
 .progress-ring-center {
   position: absolute;
@@ -553,9 +596,15 @@
   margin: 0 auto;
 }
 
-.breakdown-dot--driven      { background: var(--success); }
-.breakdown-dot--undriven    { background: var(--danger); }
-.breakdown-dot--undriveable { background: var(--text-tertiary); }
+.breakdown-dot--driven {
+  background: var(--success);
+}
+.breakdown-dot--undriven {
+  background: var(--danger);
+}
+.breakdown-dot--undriveable {
+  background: var(--text-tertiary);
+}
 
 .breakdown-icon {
   font-size: var(--font-size-xs);
@@ -703,7 +752,7 @@
   z-index: 10;
   background: var(--glass-panel);
   backdrop-filter: blur(var(--blur-strong));
-  -webkit-backdrop-filter: blur(var(--blur-strong));
+  backdrop-filter: blur(var(--blur-strong));
   border: 1px solid var(--glass-border-medium);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-glass-md);
@@ -779,9 +828,15 @@
   flex-shrink: 0;
 }
 
-.map-legend-swatch--driven      { background: var(--color-driven, #4d9a6a); }
-.map-legend-swatch--undriven    { background: var(--color-undriven, #c47050); }
-.map-legend-swatch--undriveable { background: var(--text-tertiary); }
+.map-legend-swatch--driven {
+  background: var(--color-driven, #4d9a6a);
+}
+.map-legend-swatch--undriven {
+  background: var(--color-undriven, #c47050);
+}
+.map-legend-swatch--undriveable {
+  background: var(--text-tertiary);
+}
 
 .map-legend-text {
   font-size: var(--font-size-xs);
@@ -812,7 +867,7 @@
   z-index: 15;
   background: var(--glass-panel);
   backdrop-filter: blur(var(--blur-strong));
-  -webkit-backdrop-filter: blur(var(--blur-strong));
+  backdrop-filter: blur(var(--blur-strong));
   border: 1px solid var(--glass-border-medium);
   border-radius: var(--radius-md);
   padding: var(--space-1) var(--space-3);
@@ -866,7 +921,7 @@
   opacity: 0;
   background: rgb(var(--surface-rgb) / 40%);
   backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
   transition: opacity 300ms ease;
 }
 
@@ -877,14 +932,18 @@
 }
 
 @keyframes milestoneIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .milestone-content {
   background: var(--glass-dropdown, var(--surface-2));
   backdrop-filter: blur(var(--blur-modal));
-  -webkit-backdrop-filter: blur(var(--blur-modal));
+  backdrop-filter: blur(var(--blur-modal));
   border: 1px solid var(--glass-border-medium);
   border-radius: var(--radius-2xl);
   padding: var(--space-10) var(--space-12);
@@ -929,7 +988,7 @@
   background: var(--glass-panel, rgb(255 255 255 / 95%));
   color: var(--text-primary, #1f2937);
   backdrop-filter: blur(var(--blur-strong));
-  -webkit-backdrop-filter: blur(var(--blur-strong));
+  backdrop-filter: blur(var(--blur-strong));
   border-left: 1px solid var(--glass-border-medium);
   box-shadow: var(--shadow-glass-lg, var(--shadow-xl));
   z-index: 20;
@@ -1307,10 +1366,7 @@
 
   .street-detail-panel {
     width: 100%;
-    top: auto;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: auto 0 0;
     height: 60vh;
     transform: translateY(100%);
     border-left: none;

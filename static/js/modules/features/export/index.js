@@ -95,12 +95,18 @@ function updateGeometryToggle(elements) {
     elements.exportTrips?.checked || elements.exportMatchedTrips?.checked;
 
   if (!hasTripExports || !elements.tripFormatSelect) {
-    if (elements.tripFormatSelect) elements.tripFormatSelect.disabled = true;
-    if (elements.includeTripGeometry) elements.includeTripGeometry.disabled = true;
+    if (elements.tripFormatSelect) {
+      elements.tripFormatSelect.disabled = true;
+    }
+    if (elements.includeTripGeometry) {
+      elements.includeTripGeometry.disabled = true;
+    }
     return;
   }
 
-  if (elements.tripFormatSelect) elements.tripFormatSelect.disabled = false;
+  if (elements.tripFormatSelect) {
+    elements.tripFormatSelect.disabled = false;
+  }
   if (elements.includeTripGeometry) {
     elements.includeTripGeometry.disabled = format === "geojson" || format === "gpx";
   }
@@ -113,27 +119,41 @@ function setDateDefaults(elements) {
   start.setDate(today.getDate() - DEFAULT_RANGE_DAYS);
   const startValue = start.toISOString().slice(0, 10);
 
-  if (elements.tripStartDate) elements.tripStartDate.value = startValue;
-  if (elements.tripEndDate) elements.tripEndDate.value = endValue;
+  if (elements.tripStartDate) {
+    elements.tripStartDate.value = startValue;
+  }
+  if (elements.tripEndDate) {
+    elements.tripEndDate.value = endValue;
+  }
 }
 
 function toggleDateInputs(elements) {
   const disabled = elements.tripAllTime?.checked ?? false;
-  if (elements.tripStartDate) elements.tripStartDate.disabled = disabled;
-  if (elements.tripEndDate) elements.tripEndDate.disabled = disabled;
+  if (elements.tripStartDate) {
+    elements.tripStartDate.disabled = disabled;
+  }
+  if (elements.tripEndDate) {
+    elements.tripEndDate.disabled = disabled;
+  }
 }
 
 function setError(elements, message) {
-  if (!elements.exportError) return;
+  if (!elements.exportError) {
+    return;
+  }
 
   const errorText = document.getElementById("export-error-text");
 
   if (!message) {
     elements.exportError.classList.add("hidden");
-    if (errorText) errorText.textContent = "";
+    if (errorText) {
+      errorText.textContent = "";
+    }
     return;
   }
-  if (errorText) errorText.textContent = message;
+  if (errorText) {
+    errorText.textContent = message;
+  }
   elements.exportError.classList.remove("hidden");
 }
 
@@ -141,17 +161,23 @@ function updateSummary(elements) {
   const items = getSelectedItems(elements);
   const emptyState = elements.exportSummary?.querySelector(".export-summary-empty");
 
-  if (!elements.exportSummaryList) return;
+  if (!elements.exportSummaryList) {
+    return;
+  }
 
   elements.exportSummaryList.innerHTML = "";
 
   if (!items.length) {
     elements.exportSummaryList.classList.add("hidden");
-    if (emptyState) emptyState.classList.remove("hidden");
+    if (emptyState) {
+      emptyState.classList.remove("hidden");
+    }
     return;
   }
 
-  if (emptyState) emptyState.classList.add("hidden");
+  if (emptyState) {
+    emptyState.classList.add("hidden");
+  }
   elements.exportSummaryList.classList.remove("hidden");
 
   items.forEach((item) => {
@@ -241,11 +267,15 @@ function showResult(elements) {
 
 function updateProgress(elements, status) {
   if (!status) {
-    if (elements.exportStatusText)
+    if (elements.exportStatusText) {
       elements.exportStatusText.textContent = "Preparing...";
-    if (elements.exportProgressPercent)
+    }
+    if (elements.exportProgressPercent) {
       elements.exportProgressPercent.textContent = "0%";
-    if (elements.exportProgressBar) elements.exportProgressBar.style.width = "0%";
+    }
+    if (elements.exportProgressBar) {
+      elements.exportProgressBar.style.width = "0%";
+    }
     return;
   }
 
@@ -295,7 +325,9 @@ function startPolling(elements, jobId, signal) {
   activePoll = { stop };
 
   const poll = async () => {
-    if (!polling) return;
+    if (!polling) {
+      return;
+    }
     if (signal?.aborted) {
       polling = false;
       activePoll = null;
@@ -343,7 +375,9 @@ function startPolling(elements, jobId, signal) {
 }
 
 async function loadCoverageAreas(elements, signal) {
-  if (!elements.coverageArea) return;
+  if (!elements.coverageArea) {
+    return;
+  }
 
   try {
     const areas = await fetchCoverageAreas(signal);
@@ -393,7 +427,9 @@ async function loadCoverageAreas(elements, signal) {
 }
 
 async function loadVehicles(elements, signal) {
-  if (!elements.tripVehicle) return;
+  if (!elements.tripVehicle) {
+    return;
+  }
 
   const vehicles = await fetchVehicles(signal);
   elements.tripVehicle.innerHTML = "";
@@ -404,7 +440,9 @@ async function loadVehicles(elements, signal) {
   elements.tripVehicle.appendChild(defaultOption);
 
   vehicles.forEach((vehicle) => {
-    if (!vehicle?.imei) return;
+    if (!vehicle?.imei) {
+      return;
+    }
     const option = document.createElement("option");
     const label = vehicle.custom_name || vehicle.vin || vehicle.imei;
     option.value = vehicle.imei;
@@ -414,22 +452,46 @@ async function loadVehicles(elements, signal) {
 }
 
 function resetForm(elements) {
-  if (elements.exportTrips) elements.exportTrips.checked = true;
-  if (elements.exportMatchedTrips) elements.exportMatchedTrips.checked = false;
-  if (elements.exportStreets) elements.exportStreets.checked = false;
-  if (elements.exportBoundaries) elements.exportBoundaries.checked = false;
-  if (elements.exportUndriven) elements.exportUndriven.checked = false;
-  if (elements.tripFormatSelect) elements.tripFormatSelect.value = "json";
-  if (elements.includeTripGeometry) elements.includeTripGeometry.checked = true;
-  if (elements.tripAllTime) elements.tripAllTime.checked = false;
+  if (elements.exportTrips) {
+    elements.exportTrips.checked = true;
+  }
+  if (elements.exportMatchedTrips) {
+    elements.exportMatchedTrips.checked = false;
+  }
+  if (elements.exportStreets) {
+    elements.exportStreets.checked = false;
+  }
+  if (elements.exportBoundaries) {
+    elements.exportBoundaries.checked = false;
+  }
+  if (elements.exportUndriven) {
+    elements.exportUndriven.checked = false;
+  }
+  if (elements.tripFormatSelect) {
+    elements.tripFormatSelect.value = "json";
+  }
+  if (elements.includeTripGeometry) {
+    elements.includeTripGeometry.checked = true;
+  }
+  if (elements.tripAllTime) {
+    elements.tripAllTime.checked = false;
+  }
   setDateDefaults(elements);
   toggleDateInputs(elements);
-  if (elements.tripStatus) elements.tripStatus.value = "";
-  if (elements.tripVehicle) elements.tripVehicle.value = "";
-  if (elements.tripIncludeInvalid) elements.tripIncludeInvalid.checked = false;
+  if (elements.tripStatus) {
+    elements.tripStatus.value = "";
+  }
+  if (elements.tripVehicle) {
+    elements.tripVehicle.value = "";
+  }
+  if (elements.tripIncludeInvalid) {
+    elements.tripIncludeInvalid.checked = false;
+  }
   setError(elements, null);
   hideProgress(elements);
-  if (elements.exportResult) elements.exportResult.classList.add("hidden");
+  if (elements.exportResult) {
+    elements.exportResult.classList.add("hidden");
+  }
   updateSummary(elements);
   updateGeometryToggle(elements);
 }
@@ -445,7 +507,9 @@ function bindCollapsibleSections(signal) {
         const targetId = header.dataset.target;
         const body = document.getElementById(targetId);
 
-        if (!body) return;
+        if (!body) {
+          return;
+        }
 
         header.setAttribute("aria-expanded", !expanded);
         body.classList.toggle("collapsed", expanded);

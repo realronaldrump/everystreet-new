@@ -200,7 +200,10 @@ async def process_trip_start(data: dict[str, Any]) -> None:
         logger.info("Trip %s already active, updating start data", transaction_id)
         trip["status"] = "active"
         trip.setdefault("startTime", start_time)
-        trip["startTimeZone"] = start_data.get("timeZone", trip.get("startTimeZone") or "UTC")
+        trip["startTimeZone"] = start_data.get(
+            "timeZone",
+            trip.get("startTimeZone") or "UTC",
+        )
         if start_data.get("odometer") is not None:
             trip["startOdometer"] = start_data.get("odometer")
         trip.setdefault("source", "webhook")

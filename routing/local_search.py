@@ -2,7 +2,8 @@
 2-opt local search improvement for greedy route solutions.
 
 Takes the ordered sequence of service edges from the greedy solver and
-attempts pairwise reversals of sub-sequences to reduce total deadhead distance.
+attempts pairwise reversals of sub-sequences to reduce total deadhead
+distance.
 """
 
 import logging
@@ -21,7 +22,11 @@ def _connecting_distance(
     from_node: int,
     to_node: int,
 ) -> float | None:
-    """Compute shortest-path distance between two nodes. Returns None if unreachable."""
+    """
+    Compute shortest-path distance between two nodes.
+
+    Returns None if unreachable.
+    """
     if from_node == to_node:
         return 0.0
     result = dijkstra_to_best_target(
@@ -143,9 +148,15 @@ def _build_stats(
         "required_distance_completed": service_dist,
         "service_distance": service_dist,
         "deadhead_distance": deadhead_dist,
-        "deadhead_percentage": (deadhead_dist / total_dist * 100.0) if total_dist > 0 else 0.0,
-        "deadhead_ratio_all": (total_dist / required_dist) if required_dist > 0 else 0.0,
-        "deadhead_ratio_completed": (total_dist / service_dist) if service_dist > 0 else 0.0,
+        "deadhead_percentage": (
+            (deadhead_dist / total_dist * 100.0) if total_dist > 0 else 0.0
+        ),
+        "deadhead_ratio_all": (
+            (total_dist / required_dist) if required_dist > 0 else 0.0
+        ),
+        "deadhead_ratio_completed": (
+            (total_dist / service_dist) if service_dist > 0 else 0.0
+        ),
         "required_reqs": float(len(required_reqs)),
         "completed_reqs": float(len(sequence)),
         "skipped_disconnected": float(max(0, len(required_reqs) - len(sequence))),
@@ -175,7 +186,9 @@ def improve_route_2opt(
         (route_coords, stats, improved_sequence)
     """
     route_start_node = (
-        start_node if start_node is not None else (service_sequence[0][1][0] if service_sequence else 0)
+        start_node
+        if start_node is not None
+        else (service_sequence[0][1][0] if service_sequence else 0)
     )
 
     if len(service_sequence) < 3:
@@ -210,7 +223,11 @@ def improve_route_2opt(
             max_j = min(n, i + 50) if n > 100 else n
             for j in range(i + 2, max_j):
                 # Reverse the sub-sequence between i and j
-                candidate = best_sequence[:i] + best_sequence[i : j + 1][::-1] + best_sequence[j + 1 :]
+                candidate = (
+                    best_sequence[:i]
+                    + best_sequence[i : j + 1][::-1]
+                    + best_sequence[j + 1 :]
+                )
                 cost = _sequence_total_cost(G, candidate, route_start_node)
                 if cost is not None and cost < best_cost:
                     best_cost = cost

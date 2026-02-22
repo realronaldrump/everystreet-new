@@ -8,7 +8,9 @@ from tasks import mobility
 
 
 @pytest.mark.asyncio
-async def test_sync_mobility_profiles_logic_drains_multiple_batches(monkeypatch) -> None:
+async def test_sync_mobility_profiles_logic_drains_multiple_batches(
+    monkeypatch,
+) -> None:
     sync_mock = AsyncMock(
         side_effect=[
             (4, 6),

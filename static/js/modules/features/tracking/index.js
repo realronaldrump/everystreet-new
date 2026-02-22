@@ -164,40 +164,56 @@ class LiveTripTracker {
       const color = this.primaryRgb;
       // Insert line below map labels so it feels integrated
       const beforeId = layerManager.getFirstSymbolLayerId();
-      this.map.addLayer({
-        id: this.lineLayerId,
-        type: "line",
-        source: this.lineSourceId,
-        paint: {
-          "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2, 14, 3, 18, 5],
-          "line-blur": ["interpolate", ["linear"], ["zoom"], 10, 0.4, 16, 0.15, 18, 0],
-          "line-gradient": [
-            "interpolate",
-            ["linear"],
-            ["line-progress"],
-            0,
-            LiveTripTracker.formatRgba(color, 0.06),
-            0.3,
-            LiveTripTracker.formatRgba(color, 0.2),
-            0.6,
-            LiveTripTracker.formatRgba(color, 0.5),
-            0.85,
-            LiveTripTracker.formatRgba(color, 0.78),
-            1,
-            LiveTripTracker.formatRgba(color, 0.95),
-          ],
+      this.map.addLayer(
+        {
+          id: this.lineLayerId,
+          type: "line",
+          source: this.lineSourceId,
+          paint: {
+            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2, 14, 3, 18, 5],
+            "line-blur": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              10,
+              0.4,
+              16,
+              0.15,
+              18,
+              0,
+            ],
+            "line-gradient": [
+              "interpolate",
+              ["linear"],
+              ["line-progress"],
+              0,
+              LiveTripTracker.formatRgba(color, 0.06),
+              0.3,
+              LiveTripTracker.formatRgba(color, 0.2),
+              0.6,
+              LiveTripTracker.formatRgba(color, 0.5),
+              0.85,
+              LiveTripTracker.formatRgba(color, 0.78),
+              1,
+              LiveTripTracker.formatRgba(color, 0.95),
+            ],
+          },
+          layout: {
+            "line-cap": "round",
+            "line-join": "round",
+          },
         },
-        layout: {
-          "line-cap": "round",
-          "line-join": "round",
-        },
-      }, beforeId);
+        beforeId
+      );
     }
   }
 
   _ensurePulseLayer() {
     // Pulse ring: animated circle behind the main marker for a living, breathing feel
-    if (!this.map.getLayer(this.pulseLayerId) && this.map.getSource(this.markerSourceId)) {
+    if (
+      !this.map.getLayer(this.pulseLayerId) &&
+      this.map.getSource(this.markerSourceId)
+    ) {
       this.map.addLayer({
         id: this.pulseLayerId,
         type: "circle",
@@ -227,10 +243,15 @@ class LiveTripTracker {
         source: this.markerSourceId,
         paint: {
           "circle-radius": [
-            "interpolate", ["linear"], ["get", "speed"],
-            0, 7,
-            30, 8,
-            60, 9,
+            "interpolate",
+            ["linear"],
+            ["get", "speed"],
+            0,
+            7,
+            30,
+            8,
+            60,
+            9,
           ],
           "circle-color": this.primaryColor,
           "circle-stroke-width": 2.5,
@@ -504,9 +525,17 @@ class LiveTripTracker {
     const eased = 1 - (1 - t) ** 3; // ease-out cubic
 
     return {
-      lon: this._interp.fromCoord.lon + (this._interp.toCoord.lon - this._interp.fromCoord.lon) * eased,
-      lat: this._interp.fromCoord.lat + (this._interp.toCoord.lat - this._interp.fromCoord.lat) * eased,
-      bearing: LiveTripTracker._lerpBearing(this._interp.fromBearing, this._interp.toBearing, eased),
+      lon:
+        this._interp.fromCoord.lon +
+        (this._interp.toCoord.lon - this._interp.fromCoord.lon) * eased,
+      lat:
+        this._interp.fromCoord.lat +
+        (this._interp.toCoord.lat - this._interp.fromCoord.lat) * eased,
+      bearing: LiveTripTracker._lerpBearing(
+        this._interp.fromBearing,
+        this._interp.toBearing,
+        eased
+      ),
       t,
     };
   }
@@ -744,7 +773,12 @@ class LiveTripTracker {
     try {
       const data = await apiClient.get("/api/active_trip");
 
-      if (data.status === "success" && data.has_active_trip && data.trip && data.trip.status !== "completed") {
+      if (
+        data.status === "success" &&
+        data.has_active_trip &&
+        data.trip &&
+        data.trip.status !== "completed"
+      ) {
         console.info(`Initial trip loaded: ${data.trip.transactionId}`);
         this.updateTrip(data.trip);
       } else if (!this.restoreTripFromSnapshot()) {
@@ -1015,9 +1049,7 @@ class LiveTripTracker {
       const fromCoord = interpPos
         ? { lon: interpPos.lon, lat: interpPos.lat }
         : this.lastCoord;
-      const fromBearing = interpPos
-        ? interpPos.bearing
-        : this.lastBearing;
+      const fromBearing = interpPos ? interpPos.bearing : this.lastBearing;
 
       this._startInterpolation(fromCoord, newCoord, fromBearing, heading, currentSpeed);
     }
@@ -1097,7 +1129,9 @@ class LiveTripTracker {
         duration: trip.duration ?? 0,
         pointsRecorded:
           trip.pointsRecorded ??
-          (Array.isArray(trip.coordinates) ? trip.coordinates.length : coordinates.length),
+          (Array.isArray(trip.coordinates)
+            ? trip.coordinates.length
+            : coordinates.length),
         coordinates,
         snapshotAt: new Date().toISOString(),
       };
@@ -1196,8 +1230,7 @@ class LiveTripTracker {
     if (value === null || value === undefined || value === "") {
       return null;
     }
-    const parsed =
-      typeof value === "number" ? value : Number.parseFloat(String(value));
+    const parsed = typeof value === "number" ? value : Number.parseFloat(String(value));
     return Number.isFinite(parsed) ? parsed : null;
   }
 
@@ -1590,9 +1623,12 @@ class LiveTripTracker {
 
     if (this.map) {
       try {
-        [this.arrowLayerId, this.pulseLayerId, this.lineLayerId, this.markerLayerId].forEach(
-          (layerId) => this._removeLayer(layerId)
-        );
+        [
+          this.arrowLayerId,
+          this.pulseLayerId,
+          this.lineLayerId,
+          this.markerLayerId,
+        ].forEach((layerId) => this._removeLayer(layerId));
         this._removeSource(this.lineSourceId);
         this._removeSource(this.markerSourceId);
       } catch (error) {

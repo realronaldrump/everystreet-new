@@ -1,4 +1,5 @@
-"""Trip history import (Bouncie backfill) utilities.
+"""
+Trip history import (Bouncie backfill) utilities.
 
 This module powers the Settings -> Trip Sync -> Import history wizard.
 

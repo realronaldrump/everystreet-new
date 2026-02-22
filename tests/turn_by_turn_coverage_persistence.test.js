@@ -60,7 +60,10 @@ test("persistDrivenSegments re-queues segments and schedules retry on failure", 
       issues.some((issue) => issue?.type === "retry_scheduled"),
       true
     );
-    assert.deepEqual(Array.from(coverage.pendingSegmentUpdates).sort(), ["seg-a", "seg-b"]);
+    assert.deepEqual(Array.from(coverage.pendingSegmentUpdates).sort(), [
+      "seg-a",
+      "seg-b",
+    ]);
   } finally {
     clearTimeout(coverage.persistRetryTimeout);
     TurnByTurnAPI.persistDrivenSegments = originalBasePersist;

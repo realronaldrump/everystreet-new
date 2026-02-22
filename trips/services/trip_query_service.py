@@ -467,7 +467,7 @@ class TripQueryService:
 
         if fallback_imeis:
             vehicles_imei = await Vehicle.find(
-                In(Vehicle.imei, list(fallback_imeis))
+                In(Vehicle.imei, list(fallback_imeis)),
             ).to_list()
             for vehicle in vehicles_imei:
                 vehicle_by_imei[vehicle.imei] = vehicle.model_dump()

@@ -3,13 +3,13 @@
 import logging
 from typing import Any, ClassVar
 
+from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
 from db.aggregation_utils import (
     build_trip_duration_fields_stage,
     build_trip_numeric_fields_stage,
 )
 from db.models import Trip
-from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 

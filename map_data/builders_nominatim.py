@@ -1,6 +1,4 @@
-"""
-Nominatim import helpers.
-"""
+"""Nominatim import helpers."""
 
 from __future__ import annotations
 
@@ -10,8 +8,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from map_data.builders_common import (
-    PROGRESS_UPDATE_INTERVAL,
     _OUTPUT_LINE_OVERFLOW_BYTES,
+    PROGRESS_UPDATE_INTERVAL,
     _get_int_env,
     _raise_error,
     _resolve_pbf_path,
@@ -229,10 +227,7 @@ async def build_nominatim_data(
                                     "Import in progress...",
                                 )
                         else:
-                            if (
-                                "Importing OSM" in decoded
-                                or "Loading data" in decoded
-                            ):
+                            if "Importing OSM" in decoded or "Loading data" in decoded:
                                 progress = max(progress, 25)
                             elif "Building index" in decoded or "Indexing" in decoded:
                                 progress = max(progress, 50)

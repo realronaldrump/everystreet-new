@@ -3,7 +3,7 @@ import { CONFIG } from "./config.js";
 const DEFAULT_STYLE_TYPE = "dark";
 const MAPBOX_STYLE_PREFIX = "mapbox://styles/";
 
-const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+const hasOwn = (obj, key) => Object.hasOwn(obj, key);
 
 const normalizeTheme = (theme) => (theme === "light" ? "light" : DEFAULT_STYLE_TYPE);
 
@@ -63,7 +63,9 @@ function parseMapboxStyleUrl(styleUrl) {
 export function buildMapboxRasterTileUrl({ styleUrl, token, tileSize = 256 } = {}) {
   const parsed = parseMapboxStyleUrl(styleUrl);
   if (!parsed) {
-    throw new Error(`Invalid Mapbox style URL for raster tiles: ${String(styleUrl || "")}`);
+    throw new Error(
+      `Invalid Mapbox style URL for raster tiles: ${String(styleUrl || "")}`
+    );
   }
   const normalizedToken = String(token || "").trim();
   if (!normalizedToken) {
@@ -76,4 +78,3 @@ export function buildMapboxRasterTileUrl({ styleUrl, token, tileSize = 256 } = {
     `?access_token=${encodeURIComponent(normalizedToken)}`
   );
 }
-

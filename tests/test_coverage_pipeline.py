@@ -120,6 +120,7 @@ async def test_preprocess_filters_mocked_pbf_network(tmp_path: Path) -> None:
     preprocess_module.GRAPH_STORAGE_DIR = graph_dir
 
     try:
+
         def fake_graph_from_pbf(_path: Path) -> nx.MultiDiGraph:
             graph = nx.MultiDiGraph()
             graph.graph["crs"] = "epsg:4326"
@@ -172,7 +173,11 @@ async def test_preprocess_filters_mocked_pbf_network(tmp_path: Path) -> None:
         with pytest.MonkeyPatch.context() as monkeypatch:
             monkeypatch.setenv("OSM_DATA_PATH", str(pbf_path))
             monkeypatch.setenv("COVERAGE_GRAPH_MAX_MB", "0")
-            monkeypatch.setattr(preprocess_module, "_graph_from_pbf", fake_graph_from_pbf)
+            monkeypatch.setattr(
+                preprocess_module,
+                "_graph_from_pbf",
+                fake_graph_from_pbf,
+            )
 
             location = _make_location("pbf-area")
             await preprocess_streets(location)

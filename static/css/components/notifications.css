@@ -145,7 +145,7 @@
 }
 
 /* Desktop-only: hide minimized coverage badge on tablet/mobile */
-@media (max-width: 991.98px) {
+@media (width <= 991.98px) {
   .minimized-progress-badge {
     display: none !important;
   }

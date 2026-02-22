@@ -1,5 +1,5 @@
-from pathlib import Path
 import re
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -9,7 +9,7 @@ from app import app
 def _content_block(template_name: str) -> str:
     template_path = Path(__file__).resolve().parents[1] / "templates" / template_name
     text = template_path.read_text(encoding="utf-8")
-    match = re.search(r"{% block content %}(.*){% endblock %}", text, re.S)
+    match = re.search(r"{% block content %}(.*){% endblock %}", text, re.DOTALL)
     assert match is not None, f"Missing content block in {template_name}"
     return match.group(1)
 

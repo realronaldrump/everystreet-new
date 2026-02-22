@@ -81,7 +81,10 @@ function renderRhythmPeriodToggle(mode) {
   const buttons = document.querySelectorAll("#rhythm-period-toggle [data-rhythm-view]");
   buttons.forEach((button) => {
     button.classList.toggle("active", button.dataset.rhythmView === mode);
-    button.setAttribute("aria-pressed", button.dataset.rhythmView === mode ? "true" : "false");
+    button.setAttribute(
+      "aria-pressed",
+      button.dataset.rhythmView === mode ? "true" : "false"
+    );
   });
 }
 
@@ -104,7 +107,10 @@ function renderRhythmStoryrail(periods = []) {
   container.innerHTML = visiblePeriods
     .map((period, localIndex) => {
       const globalIndex = startIndexOffset + localIndex;
-      const sparkWindow = allDistances.slice(Math.max(0, globalIndex - 5), globalIndex + 1);
+      const sparkWindow = allDistances.slice(
+        Math.max(0, globalIndex - 5),
+        globalIndex + 1
+      );
       const deltaClass =
         period.distanceDeltaPct == null
           ? "is-neutral"
@@ -296,7 +302,10 @@ async function handleSceneAction(action = {}) {
     const timeType = action.timeType === "day" ? "day" : "hour";
     const rawValue = Number.parseInt(String(action.timeValue ?? 0), 10);
     const maxValue = timeType === "day" ? 6 : 23;
-    const timeValue = Math.min(Math.max(Number.isFinite(rawValue) ? rawValue : 0, 0), maxValue);
+    const timeValue = Math.min(
+      Math.max(Number.isFinite(rawValue) ? rawValue : 0, 0),
+      maxValue
+    );
     loadAndShowTripsForTimePeriod(timeType, timeValue);
     return;
   }
@@ -323,7 +332,8 @@ function renderPlacesOrbit(exploration = {}) {
     : [];
 
   if (!destinations.length) {
-    container.innerHTML = '<div class="story-empty">No destination clusters in this date range.</div>';
+    container.innerHTML =
+      '<div class="story-empty">No destination clusters in this date range.</div>';
     renderPlaceDetail(null, exploration, panel);
     return;
   }
@@ -450,7 +460,8 @@ function renderRecordsTimeline(records = {}) {
   }
 
   if (!entries.length) {
-    container.innerHTML = '<div class="story-empty">No record-level outliers in this range yet.</div>';
+    container.innerHTML =
+      '<div class="story-empty">No record-level outliers in this range yet.</div>';
     return;
   }
 
@@ -485,9 +496,13 @@ function renderTrendsNarrative(snapshot, mode, currentView) {
     return;
   }
 
-  const focus = currentView === "daily" ? "Daily resolution" : `${mode[0].toUpperCase()}${mode.slice(1)} resolution`;
+  const focus =
+    currentView === "daily"
+      ? "Daily resolution"
+      : `${mode[0].toUpperCase()}${mode.slice(1)} resolution`;
   const avgDistance = latest.trips > 0 ? latest.distance / latest.trips : 0;
-  const previousAvgDistance = previous && previous.trips > 0 ? previous.distance / previous.trips : 0;
+  const previousAvgDistance =
+    previous && previous.trips > 0 ? previous.distance / previous.trips : 0;
   const pctText =
     latest.distanceDeltaPct == null
       ? "N/A"
@@ -524,7 +539,9 @@ function renderTimeSignature(timeSignature = {}, currentTimeView = "hour") {
     return;
   }
 
-  const hourly = Array.isArray(timeSignature.hourly) ? timeSignature.hourly : new Array(24).fill(0);
+  const hourly = Array.isArray(timeSignature.hourly)
+    ? timeSignature.hourly
+    : new Array(24).fill(0);
   const maxHour = Math.max(...hourly, 1);
 
   const bars = hourly
@@ -559,7 +576,10 @@ function renderTimeSignature(timeSignature = {}, currentTimeView = "hour") {
     const timeType = action.dataset.timeType === "day" ? "day" : "hour";
     const rawValue = Number.parseInt(action.dataset.timeValue || "0", 10);
     const max = timeType === "day" ? 6 : 23;
-    const timeValue = Math.min(Math.max(Number.isFinite(rawValue) ? rawValue : 0, 0), max);
+    const timeValue = Math.min(
+      Math.max(Number.isFinite(rawValue) ? rawValue : 0, 0),
+      max
+    );
     loadAndShowTripsForTimePeriod(timeType, timeValue);
   };
 }

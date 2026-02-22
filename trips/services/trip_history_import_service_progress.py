@@ -9,10 +9,14 @@ from datetime import UTC, datetime
 from typing import Any
 
 from beanie import PydanticObjectId
+
 from core.jobs import JobHandle
 from db.models import Job
-
-from trips.services.trip_history_import_service_config import OVERLAP_HOURS, STEP_HOURS, WINDOW_DAYS
+from trips.services.trip_history_import_service_config import (
+    OVERLAP_HOURS,
+    STEP_HOURS,
+    WINDOW_DAYS,
+)
 
 
 def _record_failure_reason(
@@ -181,10 +185,10 @@ class ImportProgressContext:
 
 
 __all__ = [
-    "_record_failure_reason",
-    "_add_progress_event",
-    "_trim_events",
-    "_load_progress_job",
-    "_write_cancelled_progress",
     "ImportProgressContext",
+    "_add_progress_event",
+    "_load_progress_job",
+    "_record_failure_reason",
+    "_trim_events",
+    "_write_cancelled_progress",
 ]

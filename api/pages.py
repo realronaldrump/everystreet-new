@@ -18,6 +18,7 @@ router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 register_template_filters(templates)
 
+
 def _render_page(template_name: str, request: Request, **context: Any) -> HTMLResponse:
     """Render a Jinja template with a consistent base context."""
     return templates.TemplateResponse(

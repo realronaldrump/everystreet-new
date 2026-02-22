@@ -27,7 +27,9 @@ const MIN_STATE_GAP = 50;
 class MobileMapInterface {
   constructor() {
     this.isMobile = MobileMapInterface.detectMobileViewport();
-    if (!this.isMobile) return;
+    if (!this.isMobile) {
+      return;
+    }
 
     // DOM
     this.sheet = null;
@@ -65,7 +67,9 @@ class MobileMapInterface {
     const narrowScreen = window.matchMedia
       ? window.matchMedia("(max-width: 768px)").matches
       : window.innerWidth <= 768;
-    if (narrowScreen) return true;
+    if (narrowScreen) {
+      return true;
+    }
 
     const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
     const compactViewport = window.innerWidth <= 1024 && window.innerHeight <= 900;
@@ -78,7 +82,9 @@ class MobileMapInterface {
 
   init() {
     this.cacheElements();
-    if (!this.sheet) return;
+    if (!this.sheet) {
+      return;
+    }
 
     document.body.classList.add("map-page");
     this.cleanupCallbacks.push(() => document.body.classList.remove("map-page"));
@@ -90,13 +96,18 @@ class MobileMapInterface {
     this.setupProgrammaticToggle();
 
     window.addEventListener("resize", this.resizeHandler);
-    this.cleanupCallbacks.push(() => window.removeEventListener("resize", this.resizeHandler));
+    this.cleanupCallbacks.push(() =>
+      window.removeEventListener("resize", this.resizeHandler)
+    );
 
     this.orientationQuery = window.matchMedia("(orientation: landscape)");
-    this.orientationHandler = MobileMapInterface.debounce(() => this.recomputeLayout(), 100);
+    this.orientationHandler = MobileMapInterface.debounce(
+      () => this.recomputeLayout(),
+      100
+    );
     this.orientationQuery.addEventListener("change", this.orientationHandler);
     this.cleanupCallbacks.push(() =>
-      this.orientationQuery.removeEventListener("change", this.orientationHandler),
+      this.orientationQuery.removeEventListener("change", this.orientationHandler)
     );
   }
 
@@ -134,7 +145,9 @@ class MobileMapInterface {
     // Tap on header / handle to toggle
     for (const target of [this.handle, this.header].filter(Boolean)) {
       this.bind(target, "click", (e) => {
-        if (e.target.closest("button, a, input, select")) return;
+        if (e.target.closest("button, a, input, select")) {
+          return;
+        }
         this.toggleState();
       });
     }
@@ -147,7 +160,9 @@ class MobileMapInterface {
     // Content scroll-to-drag: when scrolled to top, pull down to dismiss
     if (this.sheetContent) {
       const onStart = (e) => {
-        if (!e.touches || e.touches.length > 1) return;
+        if (!e.touches || e.touches.length > 1) {
+          return;
+        }
         this.dragCandidateStartY = e.touches[0].clientY;
       };
       const onMove = (e) => this.handleContentDrag(e);
@@ -167,7 +182,9 @@ class MobileMapInterface {
   }
 
   onTouchStart(event) {
-    if (!event.touches || event.touches.length > 1) return;
+    if (!event.touches || event.touches.length > 1) {
+      return;
+    }
 
     this.isDragging = true;
     this.dragStartY = event.touches[0].clientY;
@@ -182,7 +199,9 @@ class MobileMapInterface {
   }
 
   beginDragFromContent(currentY) {
-    if (this.isDragging) return;
+    if (this.isDragging) {
+      return;
+    }
     this.isDragging = true;
     this.dragStartY = currentY;
     this.dragStartOffset = this.currentOffset;
@@ -194,7 +213,9 @@ class MobileMapInterface {
   }
 
   handleContentDrag(event) {
-    if (!this.sheetContent || !event.touches || event.touches.length > 1) return;
+    if (!this.sheetContent || !event.touches || event.touches.length > 1) {
+      return;
+    }
 
     const touch = event.touches[0];
     const deltaY = touch.clientY - this.dragCandidateStartY;
@@ -212,7 +233,9 @@ class MobileMapInterface {
   }
 
   onTouchMove(event) {
-    if (!this.isDragging || !event.touches || event.touches.length > 1) return;
+    if (!this.isDragging || !event.touches || event.touches.length > 1) {
+      return;
+    }
 
     const touch = event.touches[0];
     const deltaY = touch.clientY - this.dragStartY;
@@ -235,7 +258,9 @@ class MobileMapInterface {
   }
 
   onTouchEnd(event) {
-    if (!this.isDragging) return;
+    if (!this.isDragging) {
+      return;
+    }
 
     let clientY = this.dragStartY;
     if (event.changedTouches?.length > 0) {
@@ -273,9 +298,7 @@ class MobileMapInterface {
     const targetOffset = this.stateOffsets[targetState] ?? 0;
     const distance = Math.abs(this.currentOffset - targetOffset);
     const speed = Math.max(Math.abs(velocity), 0.3); // px/ms floor
-    const dynamicDuration = Math.round(
-      Math.max(120, Math.min(400, distance / speed)),
-    );
+    const dynamicDuration = Math.round(Math.max(120, Math.min(400, distance / speed)));
 
     this.setStateAnimated(targetState, dynamicDuration);
   }
@@ -286,11 +309,15 @@ class MobileMapInterface {
 
   computeVelocity() {
     const s = this.velocitySamples;
-    if (s.length < 2) return 0;
+    if (s.length < 2) {
+      return 0;
+    }
     const first = s[0];
     const last = s[s.length - 1];
     const dt = last.t - first.t;
-    if (dt <= 0) return 0;
+    if (dt <= 0) {
+      return 0;
+    }
     return (last.y - first.y) / dt; // px/ms
   }
 
@@ -321,7 +348,9 @@ class MobileMapInterface {
   // ---------------------------------------------------------------------------
 
   applySheetOffset(offset, { immediate = false } = {}) {
-    if (!this.sheet) return;
+    if (!this.sheet) {
+      return;
+    }
     const value = `${Math.max(0, Math.round(offset))}px`;
     if (immediate) {
       const prev = this.sheet.style.transition;
@@ -344,12 +373,14 @@ class MobileMapInterface {
     const visible = Math.max(0, Math.round(h - Math.max(0, offset)));
     document.documentElement.style.setProperty(
       "--map-sheet-visible-height",
-      `${visible}px`,
+      `${visible}px`
     );
   }
 
   updateBackdropForOffset(offset) {
-    if (!this.backdrop) return;
+    if (!this.backdrop) {
+      return;
+    }
     const maxOffset = this.stateOffsets.collapsed;
     const denom = Number.isFinite(maxOffset) && maxOffset > 0 ? maxOffset : 1;
     const progress = Math.max(0, Math.min(1, 1 - offset / denom));
@@ -365,7 +396,9 @@ class MobileMapInterface {
   // ---------------------------------------------------------------------------
 
   setState(state, options = {}) {
-    if (!this.sheet) return;
+    if (!this.sheet) {
+      return;
+    }
     const validState = this.activeStates.includes(state)
       ? state
       : this.activeStates[0] || "collapsed";
@@ -383,7 +416,9 @@ class MobileMapInterface {
 
   /** Animate to a state with a custom duration (velocity-based) */
   setStateAnimated(state, durationMs) {
-    if (!this.sheet) return;
+    if (!this.sheet) {
+      return;
+    }
     const validState = this.activeStates.includes(state)
       ? state
       : this.activeStates[0] || "collapsed";
@@ -418,7 +453,8 @@ class MobileMapInterface {
 
   getTapTargetState() {
     const collapsed = this.sortedStates[0]?.state || "collapsed";
-    const expanded = this.sortedStates[this.sortedStates.length - 1]?.state || "expanded";
+    const expanded =
+      this.sortedStates[this.sortedStates.length - 1]?.state || "expanded";
     // If already at top, collapse; otherwise go one step up
     return this.currentState === expanded
       ? collapsed
@@ -429,12 +465,14 @@ class MobileMapInterface {
     const handler = () => this.toggleState();
     document.addEventListener(MOBILE_TOGGLE_EVENT, handler);
     this.cleanupCallbacks.push(() =>
-      document.removeEventListener(MOBILE_TOGGLE_EVENT, handler),
+      document.removeEventListener(MOBILE_TOGGLE_EVENT, handler)
     );
   }
 
   updateSheetClasses(state) {
-    if (!this.sheet) return;
+    if (!this.sheet) {
+      return;
+    }
     for (const name of ["collapsed", "half", "expanded"]) {
       this.sheet.classList.toggle(name, name === state);
     }
@@ -450,21 +488,31 @@ class MobileMapInterface {
   // ---------------------------------------------------------------------------
 
   getNextStateUp(state = this.currentState) {
-    if (!this.sortedStates.length) return state;
+    if (!this.sortedStates.length) {
+      return state;
+    }
     const idx = this.sortedStates.findIndex((s) => s.state === state);
-    if (idx === -1) return this.sortedStates[this.sortedStates.length - 1].state;
+    if (idx === -1) {
+      return this.sortedStates[this.sortedStates.length - 1].state;
+    }
     return this.sortedStates[Math.min(this.sortedStates.length - 1, idx + 1)].state;
   }
 
   getNextStateDown(state = this.currentState) {
-    if (!this.sortedStates.length) return state;
+    if (!this.sortedStates.length) {
+      return state;
+    }
     const idx = this.sortedStates.findIndex((s) => s.state === state);
-    if (idx === -1) return this.sortedStates[0].state;
+    if (idx === -1) {
+      return this.sortedStates[0].state;
+    }
     return this.sortedStates[Math.max(0, idx - 1)].state;
   }
 
   getNearestState(offset) {
-    if (!this.sortedStates.length) return this.currentState;
+    if (!this.sortedStates.length) {
+      return this.currentState;
+    }
     let nearest = this.sortedStates[0].state;
     let minDist = Infinity;
     for (const { state, offset: o } of this.sortedStates) {
@@ -487,7 +535,9 @@ class MobileMapInterface {
   }
 
   calculateSheetMetrics() {
-    if (!this.sheet) return;
+    if (!this.sheet) {
+      return;
+    }
 
     const vh = window.innerHeight || document.documentElement.clientHeight || 0;
     const sheetRect = this.sheet.getBoundingClientRect();
@@ -495,15 +545,12 @@ class MobileMapInterface {
     this.sheetHeight = sheetHeight;
 
     // Collapsed: handle + header visible (~88-100px)
-    const collapsedVisible = Math.min(
-      sheetHeight,
-      Math.max(88, Math.round(vh * 0.14)),
-    );
+    const collapsedVisible = Math.min(sheetHeight, Math.max(88, Math.round(vh * 0.14)));
 
     // Half: ~48% of viewport
     const halfVisible = Math.min(
       sheetHeight,
-      Math.max(collapsedVisible + 120, Math.round(vh * 0.48)),
+      Math.max(collapsedVisible + 120, Math.round(vh * 0.48))
     );
 
     const offsets = {
@@ -543,7 +590,9 @@ class MobileMapInterface {
   // ---------------------------------------------------------------------------
 
   bind(target, event, handler) {
-    if (!target) return;
+    if (!target) {
+      return;
+    }
     target.addEventListener(event, handler);
     this.cleanupCallbacks.push(() => target.removeEventListener(event, handler));
   }
@@ -551,7 +600,9 @@ class MobileMapInterface {
   static debounce(fn, wait = 150) {
     let id = null;
     return (...args) => {
-      if (id) clearTimeout(id);
+      if (id) {
+        clearTimeout(id);
+      }
       id = setTimeout(() => {
         id = null;
         fn(...args);
@@ -560,9 +611,15 @@ class MobileMapInterface {
   }
 
   destroy() {
-    if (!this.cleanupCallbacks) return;
+    if (!this.cleanupCallbacks) {
+      return;
+    }
     for (const fn of this.cleanupCallbacks) {
-      try { fn(); } catch (e) { console.warn("Cleanup failed", e); }
+      try {
+        fn();
+      } catch (e) {
+        console.warn("Cleanup failed", e);
+      }
     }
     this.cleanupCallbacks = [];
     document.body.classList.remove("sheet-open");

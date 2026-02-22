@@ -11,6 +11,7 @@ from fastapi import HTTPException, status
 
 from config import get_bouncie_config
 from core.serialization import serialize_datetime
+from core.trip_source_policy import enforce_bouncie_source
 from db.models import Job, TaskHistory, Trip
 from tasks.config import (
     get_global_disable,
@@ -19,7 +20,6 @@ from tasks.config import (
     update_task_schedule,
 )
 from tasks.ops import abort_job, enqueue_task
-from core.trip_source_policy import enforce_bouncie_source
 from trips.services.trip_history_import_service import (
     build_import_plan,
     resolve_import_start_dt_from_db,
@@ -612,9 +612,7 @@ class TripSyncService:
             )
             devices = list(plan.get("devices") or [])
             selected_imeis = [
-                str(device.get("imei"))
-                for device in devices
-                if device.get("imei")
+                str(device.get("imei")) for device in devices if device.get("imei")
             ]
             if not selected_imeis:
                 raise HTTPException(

@@ -125,8 +125,7 @@ async def complete_setup() -> dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                "Complete Bouncie credentials and map coverage "
-                "before finishing setup."
+                "Complete Bouncie credentials and map coverage before finishing setup."
             ),
         )
 

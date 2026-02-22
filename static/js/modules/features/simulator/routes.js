@@ -128,9 +128,15 @@ function parseDirectionsResponse(data) {
 
   for (const leg of route.legs) {
     const ann = leg.annotation || {};
-    if (ann.speed) speeds.push(...ann.speed);
-    if (ann.duration) durations.push(...ann.duration);
-    if (ann.distance) distances.push(...ann.distance);
+    if (ann.speed) {
+      speeds.push(...ann.speed);
+    }
+    if (ann.duration) {
+      durations.push(...ann.duration);
+    }
+    if (ann.distance) {
+      distances.push(...ann.distance);
+    }
   }
 
   // Build segments: first coord has zeroes, subsequent coords carry the
@@ -159,10 +165,14 @@ function parseDirectionsResponse(data) {
 export async function fetchRoute(waypoints) {
   const url = buildDirectionsUrl(waypoints);
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Directions API ${res.status}`);
+  if (!res.ok) {
+    throw new Error(`Directions API ${res.status}`);
+  }
 
   const data = await res.json();
-  if (!data.routes?.length) throw new Error("No route found");
+  if (!data.routes?.length) {
+    throw new Error("No route found");
+  }
 
   return parseDirectionsResponse(data);
 }
@@ -174,7 +184,9 @@ export async function fetchRoute(waypoints) {
  */
 export async function fetchPresetRoute(presetId) {
   const preset = getPresetById(presetId);
-  if (!preset) throw new Error(`Unknown preset: ${presetId}`);
+  if (!preset) {
+    throw new Error(`Unknown preset: ${presetId}`);
+  }
   return fetchRoute(preset.waypoints);
 }
 
@@ -205,7 +217,9 @@ export function enableRoutePickerMode(map, onRouteSelected) {
   };
 
   const handleClick = async (e) => {
-    if (cancelled) return;
+    if (cancelled) {
+      return;
+    }
 
     clickCount++;
     const lngLat = [e.lngLat.lng, e.lngLat.lat];
@@ -215,9 +229,7 @@ export function enableRoutePickerMode(map, onRouteSelected) {
     el.textContent = clickCount === 1 ? "A" : "B";
 
     /* global mapboxgl */
-    const marker = new mapboxgl.Marker({ element: el })
-      .setLngLat(lngLat)
-      .addTo(map);
+    const marker = new mapboxgl.Marker({ element: el }).setLngLat(lngLat).addTo(map);
     markers.push(marker);
 
     if (clickCount === 1) {

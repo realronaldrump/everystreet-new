@@ -12,6 +12,7 @@ from fastapi import APIRouter, Body, HTTPException, Query, status
 from core.api import api_route
 from core.jobs import JobHandle, create_job, find_job
 from core.spatial import GeometryService
+from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation_utils import get_mongo_tz_expr
 from db.models import Job, Place, RecurringRoute, Trip
 from recurring_routes.models import (
@@ -32,7 +33,6 @@ from recurring_routes.services.service import (
 )
 from tasks.config import update_task_history_entry
 from tasks.ops import abort_job, enqueue_task
-from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

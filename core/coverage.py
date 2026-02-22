@@ -21,6 +21,7 @@ from shapely.strtree import STRtree
 
 from core.date_utils import get_current_utc_time, normalize_to_utc_datetime
 from core.spatial import geodesic_distance_meters, get_local_transformers
+from core.trip_source_policy import enforce_bouncie_source
 from db.models import CoverageArea, CoverageState, Street, Trip
 from street_coverage.constants import (
     BACKFILL_BULK_WRITE_SIZE,
@@ -33,7 +34,6 @@ from street_coverage.constants import (
     SHORT_SEGMENT_OVERLAP_RATIO,
 )
 from street_coverage.stats import apply_area_stats_delta
-from core.trip_source_policy import enforce_bouncie_source
 
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
@@ -49,9 +49,7 @@ async def _bulk_write_updates(
     *,
     ordered: bool = False,
 ) -> tuple[int, int]:
-    """
-    Run a batch of update operations efficiently.
-    """
+    """Run a batch of update operations efficiently."""
     if not updates:
         return 0, 0
 
@@ -617,8 +615,7 @@ async def update_coverage_for_segments(
         },
     ).to_list()
     length_by_segment = {
-        str(street.segment_id): float(street.length_miles or 0.0)
-        for street in streets
+        str(street.segment_id): float(street.length_miles or 0.0) for street in streets
     }
     # Ignore unknown segment IDs to avoid inflating coverage counters.
     segment_ids = [sid for sid in segment_ids if sid in length_by_segment]
@@ -705,8 +702,7 @@ async def update_coverage_for_segments(
     # Sum lengths for newly driven segments to update cached area stats.
     if newly_driven_ids:
         newly_driven_length = sum(
-            length_by_segment.get(segment_id, 0.0)
-            for segment_id in newly_driven_ids
+            length_by_segment.get(segment_id, 0.0) for segment_id in newly_driven_ids
         )
         await apply_area_stats_delta(
             area_id,

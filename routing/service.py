@@ -860,7 +860,7 @@ async def _generate_optimal_route_with_progress_impl(
                         )
                 except Exception:
                     logger.exception(
-                        "Batch spatial lookup failed; will try per-segment node fallback"
+                        "Batch spatial lookup failed; will try per-segment node fallback",
                     )
                     nearest_edges = None
                     dists = None
@@ -896,7 +896,9 @@ async def _generate_optimal_route_with_progress_impl(
 
                                 seg_line = LineString(proj_coords)
                             for u2, v2, k2, edata in matching_graph.edges(
-                                nn, keys=True, data=True
+                                nn,
+                                keys=True,
+                                data=True,
                             ):
                                 edge_geom = edata.get("geometry")
                                 if seg_line and edge_geom:
@@ -995,7 +997,8 @@ async def _generate_optimal_route_with_progress_impl(
                                     "fallback_total": fallback_total,
                                     "fallback_matched": fallback_matched,
                                     "unmatched_segments": max(
-                                        0, fallback_total - fallback_matched
+                                        0,
+                                        fallback_total - fallback_matched,
                                     ),
                                     "skipped_segments": (
                                         skipped_invalid_geometry
@@ -1178,7 +1181,8 @@ async def _generate_optimal_route_with_progress_impl(
                                 "fallback_total": fallback_total,
                                 "fallback_matched": fallback_matched,
                                 "unmatched_segments": max(
-                                    0, fallback_total - fallback_matched
+                                    0,
+                                    fallback_total - fallback_matched,
                                 ),
                                 "valhalla_trace_attempted": valhalla_trace_attempted,
                                 "valhalla_trace_matched": valhalla_trace_matched,
@@ -1311,7 +1315,8 @@ async def _generate_optimal_route_with_progress_impl(
                     )
             except Exception:
                 logger.warning(
-                    "Failed to cache graph_edge mappings (non-fatal)", exc_info=True
+                    "Failed to cache graph_edge mappings (non-fatal)",
+                    exc_info=True,
                 )
 
         # Determine start node
@@ -1372,7 +1377,7 @@ async def _generate_optimal_route_with_progress_impl(
                 )
             except Exception:
                 logger.exception(
-                    "Zone-based solver failed; falling back to single solve"
+                    "Zone-based solver failed; falling back to single solve",
                 )
                 use_zones = False
 
@@ -1443,7 +1448,8 @@ async def _generate_optimal_route_with_progress_impl(
                     logger.info("2-opt did not improve the route; keeping original")
             except Exception:
                 logger.warning(
-                    "2-opt optimization failed (keeping original route)", exc_info=True
+                    "2-opt optimization failed (keeping original route)",
+                    exc_info=True,
                 )
 
         # Fill gaps in the route with Valhalla driving directions

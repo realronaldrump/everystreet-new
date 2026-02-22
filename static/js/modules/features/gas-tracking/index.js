@@ -482,8 +482,11 @@ function parseOptionalNumber(value) {
 function getMpgReadinessData(override = null) {
   const isNoOdo =
     override?.isNoOdo ?? document.getElementById("odometer-not-recorded").checked;
-  const odometer = override?.odometer ?? parseOptionalNumber(document.getElementById("odometer").value);
-  const gallons = override?.gallons ?? parseOptionalNumber(document.getElementById("gallons").value);
+  const odometer =
+    override?.odometer ??
+    parseOptionalNumber(document.getElementById("odometer").value);
+  const gallons =
+    override?.gallons ?? parseOptionalNumber(document.getElementById("gallons").value);
   const isFullTank =
     override?.isFullTank ?? document.getElementById("full-tank").checked;
   const missedPrevious =
@@ -892,7 +895,10 @@ async function handleFormSubmit(e) {
         mpgDisplay.style.display = "none";
       }, 5000);
     } else if (readinessBeforeSave.state !== "success") {
-      notificationManager.show(`Saved without MPG: ${readinessBeforeSave.body}`, "info");
+      notificationManager.show(
+        `Saved without MPG: ${readinessBeforeSave.body}`,
+        "info"
+      );
     } else {
       notificationManager.show(
         "Saved. MPG will appear once a valid previous full-tank anchor is available.",

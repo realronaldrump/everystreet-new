@@ -155,6 +155,7 @@ def _get_graph_memory_limit_mb() -> int:
 
     return DEFAULT_GRAPH_MEMORY_LIMIT_MB
 
+
 def _write_geojson(path: Path, geometry: Any) -> None:
     feature = {"type": "Feature", "properties": {}, "geometry": mapping(geometry)}
     data = {"type": "FeatureCollection", "features": [feature]}
@@ -269,9 +270,7 @@ def _get_osmnx():
 
 
 def _ensure_osmnx_useful_way_tags(ox: Any) -> None:
-    """
-    Ensure graph builders retain tags required for public-road classification.
-    """
+    """Ensure graph builders retain tags required for public-road classification."""
     current = getattr(ox.settings, "useful_tags_way", None)
     if not isinstance(current, list):
         current = list(current or [])

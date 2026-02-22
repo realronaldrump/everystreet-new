@@ -34,9 +34,21 @@ async def test_load_existing_transaction_ids_only_treats_bouncie_as_authoritativ
     ).insert()
 
     unique_trips = [
-        {"transactionId": "tx-bouncie", "imei": "imei-1", "endTime": "2025-01-01T12:30:00Z"},
-        {"transactionId": "tx-webhook", "imei": "imei-1", "endTime": "2025-01-02T12:30:00Z"},
-        {"transactionId": "tx-new", "imei": "imei-1", "endTime": "2025-01-03T12:30:00Z"},
+        {
+            "transactionId": "tx-bouncie",
+            "imei": "imei-1",
+            "endTime": "2025-01-01T12:30:00Z",
+        },
+        {
+            "transactionId": "tx-webhook",
+            "imei": "imei-1",
+            "endTime": "2025-01-02T12:30:00Z",
+        },
+        {
+            "transactionId": "tx-new",
+            "imei": "imei-1",
+            "endTime": "2025-01-03T12:30:00Z",
+        },
     ]
 
     existing_ids = await _load_existing_transaction_ids(unique_trips)
@@ -59,7 +71,10 @@ class _PipelineStub:
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
 
-    async def validate_raw_trip_with_basic(self, _trip: dict[str, Any]) -> dict[str, Any]:
+    async def validate_raw_trip_with_basic(
+        self,
+        _trip: dict[str, Any],
+    ) -> dict[str, Any]:
         return {"success": True}
 
     async def process_raw_trip(

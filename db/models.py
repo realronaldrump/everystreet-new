@@ -277,8 +277,8 @@ class TripMobilityProfile(Document):
     Precomputed movement profile for a single trip.
 
     Stores H3 cell and H3-segment traversal counts so Insights can
-    aggregate "most driven" views without recomputing geometry for
-    every request.
+    aggregate "most driven" views without recomputing geometry for every
+    request.
     """
 
     trip_id: Indexed(PydanticObjectId, unique=True)

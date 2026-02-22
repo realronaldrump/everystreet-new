@@ -27,7 +27,10 @@ class _PipelineStub:
     def __init__(self) -> None:
         self.process_calls: list[dict[str, Any]] = []
 
-    async def validate_raw_trip_with_basic(self, _trip: dict[str, Any]) -> dict[str, Any]:
+    async def validate_raw_trip_with_basic(
+        self,
+        _trip: dict[str, Any],
+    ) -> dict[str, Any]:
         return {"success": True}
 
     async def process_raw_trip(
@@ -231,7 +234,11 @@ async def test_history_import_runtime_uses_geocode_setting(
         "get_persisted_app_settings",
         fake_get_settings,
     )
-    monkeypatch.setattr(import_runtime, "_authenticate_import", fake_authenticate_import)
+    monkeypatch.setattr(
+        import_runtime,
+        "_authenticate_import",
+        fake_authenticate_import,
+    )
     monkeypatch.setattr(import_runtime, "_run_import_windows", fake_run_windows)
     monkeypatch.setattr(
         import_runtime,

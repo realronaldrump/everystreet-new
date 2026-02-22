@@ -327,7 +327,7 @@ class TripService:
                 needs_geocode_repair = bool(
                     geocode_enabled
                     and existing_trip
-                    and not self._has_full_location_data(existing_trip)
+                    and not self._has_full_location_data(existing_trip),
                 )
                 needs_processing = (
                     not existing_trip

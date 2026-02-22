@@ -154,14 +154,21 @@ class TurnByTurnCoverage {
     if (this.onPersistenceIssue) {
       this.onPersistenceIssue(issue);
     }
-    if (issue.message && typeof window !== "undefined" && typeof console?.warn === "function") {
+    if (
+      issue.message &&
+      typeof window !== "undefined" &&
+      typeof console?.warn === "function"
+    ) {
       // Keep a low-level trace for debugging without interrupting navigation.
       console.warn(`[turn-by-turn] ${issue.message}`);
     }
   }
 
   schedulePersistenceRetry(delayMs) {
-    const safeDelay = Math.max(1000, Math.min(Number(delayMs) || 0, this.persistRetryMaxMs));
+    const safeDelay = Math.max(
+      1000,
+      Math.min(Number(delayMs) || 0, this.persistRetryMaxMs)
+    );
     clearTimeout(this.persistRetryTimeout);
     this.persistRetryTimeout = setTimeout(() => {
       this.persistDrivenSegments();

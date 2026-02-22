@@ -1,7 +1,8 @@
 """
 Centralized Redis connection configuration.
 
-This module provides a single source of truth for Redis URL construction.
+This module provides a single source of truth for Redis URL
+construction.
 """
 
 import os

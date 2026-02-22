@@ -1,6 +1,4 @@
-"""
-Container lifecycle helpers used by map-data builders.
-"""
+"""Container lifecycle helpers used by map-data builders."""
 
 from __future__ import annotations
 
@@ -48,10 +46,13 @@ async def start_container_on_demand(
         )
         _stdout, stderr = await process.communicate()
     except FileNotFoundError as exc:
-        raise RuntimeError("Docker Compose v2 is required but unavailable.") from exc
+        msg = "Docker Compose v2 is required but unavailable."
+        raise RuntimeError(msg) from exc
 
     if process.returncode != 0:
-        error_msg = stderr.decode(errors="replace").strip() if stderr else "unknown error"
+        error_msg = (
+            stderr.decode(errors="replace").strip() if stderr else "unknown error"
+        )
         msg = f"Failed to start {service_name}: {error_msg}"
         raise RuntimeError(msg)
 
@@ -66,6 +67,7 @@ async def start_container_on_demand(
 
     msg = f"Container {service_name} did not start within {CONTAINER_START_TIMEOUT}s"
     _raise_error(msg)
+    return None
 
 
 async def check_container_running(service_name: str) -> bool:

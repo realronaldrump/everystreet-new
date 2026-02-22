@@ -310,7 +310,9 @@ export class DrivingNavigationUI {
   }
 
   buildClusterItemMarkup(cluster, color, index) {
-    const distanceLabel = this.formatClusterDistanceMeters(cluster.distance_to_cluster_m);
+    const distanceLabel = this.formatClusterDistanceMeters(
+      cluster.distance_to_cluster_m
+    );
     const safeColor = this.formatClusterColor(color);
     return `
       <div class="cluster-item">

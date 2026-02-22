@@ -8,6 +8,7 @@ import pytz
 
 from analytics.services.mobility_insights_service import MobilityInsightsService
 from core.math_utils import calculate_circular_average_hour
+from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
 from db.aggregation_utils import (
     build_trip_duration_fields_stage,
@@ -15,7 +16,6 @@ from db.aggregation_utils import (
     get_mongo_tz_expr,
 )
 from db.models import Trip
-from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 

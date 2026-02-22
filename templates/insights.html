@@ -73,18 +73,25 @@ Hover a ranked item to preview it on the map. Click an item or map line to lock 
             </p>
           </header>
           <div class="movement-map-shell">
-            <div id="movement-map" role="img" aria-label="Most driven streets and street segments map"></div>
+            <div id="movement-map"
+                 role="img"
+                 aria-label="Most driven streets and street segments map">
+            </div>
             <div class="movement-map-empty story-empty" id="movement-map-empty">
               Not enough matched trip geometry in this range yet.
             </div>
           </div>
           <aside class="movement-detail-panel" id="movement-detail-panel">
-            <div class="movement-detail-empty">Select a street or segment to see times driven, trips, and distance.</div>
+            <div class="movement-detail-empty">
+Select a street or segment to see times driven, trips, and distance.
+            </div>
           </aside>
         </article>
 
         <aside class="movement-rankings">
-          <div class="toggle-group movement-toggle-group" id="movement-layer-toggle" aria-label="Movement ranking type">
+          <div class="toggle-group movement-toggle-group"
+               id="movement-layer-toggle"
+               aria-label="Movement ranking type">
             <button class="toggle-btn active"
                     type="button"
                     data-movement-layer="streets"
@@ -100,9 +107,13 @@ Top segments
           </div>
 
           <section class="movement-rank-card is-active" data-rank-panel="streets">
-            <h3 class="movement-rank-title">Most driven streets</h3>
+            <h3 class="movement-rank-title">
+Most driven streets
+            </h3>
             <ol class="movement-rank-list" id="movement-top-streets">
-              <li class="story-empty">No ranked streets for this range yet.</li>
+              <li class="story-empty">
+No ranked streets for this range yet.
+              </li>
             </ol>
             <button type="button" class="movement-more-btn" id="movement-streets-more" hidden>
 View more streets
@@ -110,9 +121,13 @@ View more streets
           </section>
 
           <section class="movement-rank-card" data-rank-panel="segments">
-            <h3 class="movement-rank-title">Most driven street segments</h3>
+            <h3 class="movement-rank-title">
+Most driven street segments
+            </h3>
             <ol class="movement-rank-list" id="movement-top-segments">
-              <li class="story-empty">No ranked street segments for this range yet.</li>
+              <li class="story-empty">
+No ranked street segments for this range yet.
+              </li>
             </ol>
             <button type="button" class="movement-more-btn" id="movement-segments-more" hidden>
 View more segments
@@ -136,7 +151,8 @@ Headline metrics with contextual cues from your latest patterns
 
       <div class="metrics-grid">
         <div class="metric-card" data-widget-id="trips">
-          <div class="metric-accent mint"></div>
+          <div class="metric-accent mint">
+          </div>
           <div class="metric-content">
             <div class="metric-icon">
               <i class="fas fa-route"></i>
@@ -157,7 +173,8 @@ trips taken
         </div>
 
         <div class="metric-card" data-widget-id="distance">
-          <div class="metric-accent coral"></div>
+          <div class="metric-accent coral">
+          </div>
           <div class="metric-content">
             <div class="metric-icon">
               <i class="fas fa-road"></i>
@@ -179,7 +196,8 @@ total distance
         </div>
 
         <div class="metric-card" data-widget-id="time">
-          <div class="metric-accent sky"></div>
+          <div class="metric-accent sky">
+          </div>
           <div class="metric-content">
             <div class="metric-icon">
               <i class="fas fa-clock"></i>
@@ -200,7 +218,8 @@ time driving
         </div>
 
         <div class="metric-card" data-widget-id="fuel">
-          <div class="metric-accent purple"></div>
+          <div class="metric-accent purple">
+          </div>
           <div class="metric-content">
             <div class="metric-icon">
               <i class="fas fa-gas-pump"></i>
@@ -261,7 +280,8 @@ Monthly
           </div>
           <div class="chart-body">
             <div class="chart-loading" id="trends-loading">
-              <div class="chart-loading-spinner"></div>
+              <div class="chart-loading-spinner">
+              </div>
             </div>
             <canvas id="trendsChart" style="display: none"></canvas>
           </div>
@@ -272,7 +292,9 @@ Monthly
 
         <article class="rhythm-panel">
           <div class="rhythm-header">
-            <h3>Period comparison</h3>
+            <h3>
+Period comparison
+            </h3>
             <div class="toggle-group" id="rhythm-period-toggle" aria-label="Comparison period">
               <button class="toggle-btn active" data-rhythm-view="weekly" aria-pressed="true">
 Weekly
@@ -283,7 +305,9 @@ Monthly
             </div>
           </div>
           <div class="rhythm-storyrail" id="rhythm-storyrail" role="list">
-            <div class="story-empty">Not enough data in this range to compare periods yet.</div>
+            <div class="story-empty">
+Not enough data in this range to compare periods yet.
+            </div>
           </div>
         </article>
       </div>
@@ -309,7 +333,9 @@ Data-driven summaries with one-click drilldowns
       </div>
 
       <div class="insight-scenes-grid" id="insight-scenes">
-        <div class="story-empty">Not enough data in this range to compute pattern cards yet.</div>
+        <div class="story-empty">
+Not enough data in this range to compute pattern cards yet.
+        </div>
       </div>
     </section>
 
@@ -343,7 +369,9 @@ By Day
         </div>
 
         <aside class="time-signature-panel" id="time-signature">
-          <div class="story-empty">Not enough time-distribution data in this range yet.</div>
+          <div class="story-empty">
+Not enough time-distribution data in this range yet.
+          </div>
         </aside>
       </div>
     </section>
@@ -361,12 +389,19 @@ Your places arranged by frequency, distance, and recency
       </div>
 
       <div class="places-layout">
-        <div class="places-orbit" id="places-orbit" role="group" aria-label="Destination orbit">
-          <div class="story-empty">No destination clusters in this date range.</div>
+        <div class="places-orbit"
+             id="places-orbit"
+             role="group"
+             aria-label="Destination orbit">
+          <div class="story-empty">
+No destination clusters in this date range.
+          </div>
         </div>
         <aside class="places-detail-panel" id="places-detail-panel">
           <div class="places-detail-empty">
-            <p>Select a place bubble to see details.</p>
+            <p>
+Select a place bubble to see details.
+            </p>
           </div>
         </aside>
       </div>
@@ -385,13 +420,16 @@ Milestones from your selected range, presented as quick timeline cards
       </div>
 
       <div class="records-timeline" id="records-timeline">
-        <div class="story-empty">No record-level outliers in this range yet.</div>
+        <div class="story-empty">
+No record-level outliers in this range yet.
+        </div>
       </div>
     </section>
   </div>
 
   <!-- Custom tooltip -->
-  <div class="custom-tooltip" id="custom-tooltip"></div>
+  <div class="custom-tooltip" id="custom-tooltip">
+  </div>
 
   <!-- Trip Details Modal -->
   <div class="modal fade"
@@ -403,10 +441,15 @@ Milestones from your selected range, presented as quick timeline cards
       <div class="modal-content">
         <div class="modal-header">
           <div>
-            <h5 class="modal-title" id="tripDetailsModalLabel">Trips</h5>
-            <p class="modal-subtitle" id="tripDetailsModalCount">0 trips</p>
+            <h5 class="modal-title" id="tripDetailsModalLabel">
+Trips
+            </h5>
+            <p class="modal-subtitle" id="tripDetailsModalCount">
+0 trips
+            </p>
           </div>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+          </button>
         </div>
         <div class="modal-body">
           <div class="modal-trips-grid" id="modal-trips-grid">

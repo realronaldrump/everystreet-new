@@ -76,7 +76,7 @@ const themeManager = {
     const storedMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType);
     const hasExplicitMapStylePreference =
       typeof storedMapType === "string" &&
-      Object.prototype.hasOwnProperty.call(CONFIG.MAP.styles, storedMapType);
+      Object.hasOwn(CONFIG.MAP.styles, storedMapType);
 
     if (hasExplicitMapStylePreference) {
       document.dispatchEvent(new CustomEvent("mapThemeChanged", { detail: { theme } }));
@@ -84,11 +84,9 @@ const themeManager = {
     }
 
     const { styleType } = resolveMapStyle({ requestedType: theme, theme });
-    void mapCore
-      .setStyle(styleType, { persistPreference: false })
-      .catch((error) => {
-        console.warn("Theme map style update failed:", error);
-      });
+    void mapCore.setStyle(styleType, { persistPreference: false }).catch((error) => {
+      console.warn("Theme map style update failed:", error);
+    });
     document.dispatchEvent(new CustomEvent("mapThemeChanged", { detail: { theme } }));
   },
 

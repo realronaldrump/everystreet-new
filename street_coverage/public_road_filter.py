@@ -1,7 +1,8 @@
-"""Public-road filtering and audit helpers for coverage ingestion.
+"""
+Public-road filtering and audit helpers for coverage ingestion.
 
-This module centralizes road inclusion decisions so preprocessing and ingestion
-use the same classifier semantics.
+This module centralizes road inclusion decisions so preprocessing and
+ingestion use the same classifier semantics.
 """
 
 from __future__ import annotations
@@ -163,14 +164,22 @@ def get_public_road_filter_version() -> str:
 
 
 def get_public_road_filter_mode(raw: str | None = None) -> str:
-    value = (raw if raw is not None else os.getenv("COVERAGE_PUBLIC_ROAD_FILTER_MODE", "")).strip().lower()
+    value = (
+        (raw if raw is not None else os.getenv("COVERAGE_PUBLIC_ROAD_FILTER_MODE", ""))
+        .strip()
+        .lower()
+    )
     if value in VALID_MODES:
         return value
     return MODE_BALANCED
 
 
 def get_track_policy(raw: str | None = None) -> str:
-    value = (raw if raw is not None else os.getenv("COVERAGE_TRACK_POLICY", "")).strip().lower()
+    value = (
+        (raw if raw is not None else os.getenv("COVERAGE_TRACK_POLICY", ""))
+        .strip()
+        .lower()
+    )
     if value in VALID_TRACK_POLICIES:
         return value
     return TRACK_CONDITIONAL

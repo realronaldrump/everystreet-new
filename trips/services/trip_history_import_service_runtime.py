@@ -26,9 +26,7 @@ from trips.services.trip_history_import_service_config import (
     build_import_windows,
     resolve_import_imeis,
 )
-from trips.services.trip_history_import_service_fetch import (
-    _fetch_device_window,
-)
+from trips.services.trip_history_import_service_fetch import _fetch_device_window
 from trips.services.trip_history_import_service_processing import (
     _collect_new_trips,
     _collect_unique_window_trips,

@@ -21,9 +21,9 @@ from core.spatial import (
     geodesic_distance_meters,
     get_local_transformers,
 )
+from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
 from db.models import H3StreetLabelCache, Trip, TripMobilityProfile
-from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +79,10 @@ def _line_sequences_from_geometry(geometry: dict[str, Any]) -> list[list[list[fl
     return []
 
 
-def _sample_line_points(line_coords: list[list[float]], spacing_m: float) -> list[list[float]]:
+def _sample_line_points(
+    line_coords: list[list[float]],
+    spacing_m: float,
+) -> list[list[float]]:
     if len(line_coords) < 2:
         return []
 
@@ -290,14 +293,20 @@ class MobilityInsightsService:
             if values["traversals"] > 0
         ]
 
-        cell_counts.sort(key=lambda item: (-item["traversals"], -item["distance_miles"]))
+        cell_counts.sort(
+            key=lambda item: (-item["traversals"], -item["distance_miles"]),
+        )
         segment_counts.sort(
             key=lambda item: (-item["traversals"], -item["distance_miles"]),
         )
         return cell_counts, segment_counts, total_distance_m * METERS_TO_MILES
 
     @classmethod
-    async def _set_trip_synced(cls, trip_id: PydanticObjectId, synced_at: datetime) -> None:
+    async def _set_trip_synced(
+        cls,
+        trip_id: PydanticObjectId,
+        synced_at: datetime,
+    ) -> None:
         trip = await Trip.get(trip_id)
         if not trip:
             return
@@ -380,7 +389,12 @@ class MobilityInsightsService:
         if pending_before <= 0:
             return 0, 0
 
-        trips = await Trip.find(unsynced_query).sort([("startTime", 1)]).limit(limit).to_list()
+        trips = (
+            await Trip.find(unsynced_query)
+            .sort([("startTime", 1)])
+            .limit(limit)
+            .to_list()
+        )
         synced = 0
         for trip in trips:
             try:
@@ -483,7 +497,9 @@ class MobilityInsightsService:
                 )
                 return _normalize_street_name(street)
 
-        candidate_cells = [str(cell.get("hex") or "") for cell in ranked_cells if cell.get("hex")]
+        candidate_cells = [
+            str(cell.get("hex") or "") for cell in ranked_cells if cell.get("hex")
+        ]
         if not candidate_cells:
             return []
 
@@ -543,7 +559,9 @@ class MobilityInsightsService:
             if not trip_id or not cell_id:
                 continue
 
-            street_name = _normalize_street_name((street_names_by_cell or {}).get(cell_id))
+            street_name = _normalize_street_name(
+                (street_names_by_cell or {}).get(cell_id),
+            )
             if not street_name:
                 continue
 
@@ -573,7 +591,7 @@ class MobilityInsightsService:
             len(grouped),
         )
 
-        top_streets = sorted(
+        return sorted(
             (
                 {
                     "street_name": bucket["street_name"],
@@ -592,7 +610,6 @@ class MobilityInsightsService:
                 -int(row["trip_count"]),
             ),
         )[:street_limit]
-        return top_streets
 
     @classmethod
     async def _resolve_street_names_for_cells(
@@ -623,7 +640,9 @@ class MobilityInsightsService:
                 )
                 return cell_id, _normalize_street_name(street)
 
-        resolved_pairs = await asyncio.gather(*(resolve(cell_id) for cell_id in ordered_unique))
+        resolved_pairs = await asyncio.gather(
+            *(resolve(cell_id) for cell_id in ordered_unique),
+        )
         return dict(resolved_pairs)
 
     @classmethod
@@ -758,7 +777,10 @@ class MobilityInsightsService:
         total_weight = 0.0
 
         for item in [*top_streets, *top_segments]:
-            weight = max(1.0, float(item.get("times_driven") or item.get("traversals") or 0))
+            weight = max(
+                1.0,
+                float(item.get("times_driven") or item.get("traversals") or 0),
+            )
             paths = item.get("paths")
             if not isinstance(paths, list):
                 continue
@@ -813,7 +835,10 @@ class MobilityInsightsService:
         return "Most driven segment"
 
     @classmethod
-    def _build_map_center(cls, hex_cells: list[dict[str, Any]]) -> dict[str, float] | None:
+    def _build_map_center(
+        cls,
+        hex_cells: list[dict[str, Any]],
+    ) -> dict[str, float] | None:
         if not hex_cells:
             return None
         weighted_lon = 0.0
@@ -849,7 +874,9 @@ class MobilityInsightsService:
         """
         query = enforce_bouncie_source(query)
         sync_query = _combine_query(query, {"matchedGps": {"$ne": None}})
-        synced_count, pending_unsynced = await cls.sync_unsynced_trips_for_query(sync_query)
+        synced_count, pending_unsynced = await cls.sync_unsynced_trips_for_query(
+            sync_query,
+        )
         trip_query = _combine_query(
             query,
             {"invalid": {"$ne": True}},
@@ -947,7 +974,9 @@ class MobilityInsightsService:
                     "h3_b": {"$first": "$mobility.segment_counts.h3_b"},
                     "trip_count": {"$sum": 1},
                     "traversals": {"$sum": "$mobility.segment_counts.traversals"},
-                    "distance_miles": {"$sum": "$mobility.segment_counts.distance_miles"},
+                    "distance_miles": {
+                        "$sum": "$mobility.segment_counts.distance_miles",
+                    },
                 },
             },
             {"$sort": {"traversals": -1, "distance_miles": -1}},
@@ -1014,7 +1043,10 @@ class MobilityInsightsService:
                     "trip_count": int(item.get("trip_count") or 0),
                     "traversals": int(item.get("traversals") or 0),
                     "times_driven": int(item.get("traversals") or 0),
-                    "distance_miles": round(float(item.get("distance_miles") or 0.0), 2),
+                    "distance_miles": round(
+                        float(item.get("distance_miles") or 0.0),
+                        2,
+                    ),
                     "paths": [],
                 },
             )
@@ -1040,14 +1072,16 @@ class MobilityInsightsService:
             for item in top_segments
             if item.get("segment_key")
         }
-        street_paths_by_key, segment_paths_by_key, path_warnings = (
-            await cls._build_entity_paths(
-                query,
-                street_cell_ids_by_key=street_cells_by_key,
-                segment_keys=segment_keys,
-                resolution=H3_RESOLUTION,
-                spacing_m=H3_SAMPLE_SPACING_M,
-            )
+        (
+            street_paths_by_key,
+            segment_paths_by_key,
+            path_warnings,
+        ) = await cls._build_entity_paths(
+            query,
+            street_cell_ids_by_key=street_cells_by_key,
+            segment_keys=segment_keys,
+            resolution=H3_RESOLUTION,
+            spacing_m=H3_SAMPLE_SPACING_M,
         )
 
         ranked_street_count = len(top_streets)

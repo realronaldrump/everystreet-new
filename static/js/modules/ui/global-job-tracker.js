@@ -323,7 +323,7 @@ function releaseModalFocus(modalElement) {
     return;
   }
 
-  const activeElement = document.activeElement;
+  const { activeElement } = document;
   if (!activeElement || !modalElement.contains(activeElement)) {
     return;
   }
@@ -336,7 +336,7 @@ function releaseModalFocus(modalElement) {
     return;
   }
 
-  const body = document.body;
+  const { body } = document;
   if (!body || typeof body.focus !== "function") {
     return;
   }

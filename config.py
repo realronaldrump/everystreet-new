@@ -40,9 +40,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_mapbox_token() -> str:
-    """
-    Return the immutable Mapbox public token used by the application.
-    """
+    """Return the immutable Mapbox public token used by the application."""
     return MAPBOX_PUBLIC_ACCESS_TOKEN
 
 

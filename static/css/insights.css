@@ -726,12 +726,17 @@
 
 .signature-clock {
   --clock-size: 180px;
+
   position: relative;
   width: var(--clock-size);
   height: var(--clock-size);
   border-radius: 50%;
   border: 1px solid rgb(var(--border-rgb) / 30%);
-  background: radial-gradient(circle, rgb(var(--surface-rgb) / 75%) 35%, rgb(var(--surface-rgb) / 52%) 100%);
+  background: radial-gradient(
+    circle,
+    rgb(var(--surface-rgb) / 75%) 35%,
+    rgb(var(--surface-rgb) / 52%) 100%
+  );
 }
 
 .clock-center {
@@ -1077,7 +1082,11 @@
   height: var(--node-size);
   border-radius: 50%;
   border: 1px solid rgb(var(--cat-mint-rgb) / 55%);
-  background: radial-gradient(circle at 30% 30%, rgb(var(--cat-mint-rgb) / 48%), rgb(var(--cat-sky-rgb) / 18%));
+  background: radial-gradient(
+    circle at 30% 30%,
+    rgb(var(--cat-mint-rgb) / 48%),
+    rgb(var(--cat-sky-rgb) / 18%)
+  );
   color: var(--text-primary);
   display: flex;
   flex-direction: column;
@@ -1192,11 +1201,7 @@
 .movement-rank-card {
   border-radius: var(--radius-xl);
   border: 1px solid rgb(var(--border-rgb) / 26%);
-  background: linear-gradient(
-    145deg,
-    rgb(var(--surface-rgb) / 94%),
-    rgb(var(--surface-rgb) / 80%)
-  );
+  background: linear-gradient(145deg, rgb(var(--surface-rgb) / 94%), rgb(var(--surface-rgb) / 80%));
   box-shadow: var(--shadow-sm);
 }
 
@@ -1498,7 +1503,7 @@
    RESPONSIVE
    ============================================ */
 
-@media (min-width: 640px) {
+@media (width >= 640px) {
   #insights-page {
     padding: var(--space-4);
   }
@@ -1520,7 +1525,7 @@
   }
 }
 
-@media (min-width: 768px) {
+@media (width >= 768px) {
   .insights-hero {
     padding: var(--space-8) var(--space-6);
   }
@@ -1547,7 +1552,7 @@
   }
 }
 
-@media (max-width: 639px) {
+@media (width <= 639px) {
   .modal-trip-card {
     padding: var(--space-2) var(--space-3);
   }
@@ -1561,7 +1566,7 @@
   }
 }
 
-@media (min-width: 1024px) {
+@media (width >= 1024px) {
   .story-grid {
     grid-template-columns: 1.6fr 1fr;
   }
@@ -1594,10 +1599,9 @@
     position: sticky;
     top: calc(var(--space-4) + 2.5rem);
   }
-
 }
 
-@media (min-width: 1400px) {
+@media (width >= 1400px) {
   .records-timeline {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }

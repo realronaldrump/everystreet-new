@@ -7,9 +7,9 @@
 
 import apiClient from "./core/api-client.js";
 import { CONFIG } from "./core/config.js";
-import { getMapboxToken } from "./mapbox-token.js";
 import state from "./core/store.js";
 import MapStyles from "./map-styles.js";
+import { getMapboxToken } from "./mapbox-token.js";
 import notificationManager from "./ui/notifications.js";
 import { createElement, escapeHtml, utils } from "./utils.js";
 
@@ -439,7 +439,9 @@ const searchManager = {
           }
 
           const featureType = String(props.feature_type || "").toLowerCase();
-          const type = ["street", "address"].includes(featureType) ? "address" : "place";
+          const type = ["street", "address"].includes(featureType)
+            ? "address"
+            : "place";
           const placeName =
             props.name || props.full_address || props.place_formatted || "Unknown";
           const subtitle =
@@ -646,7 +648,9 @@ const searchManager = {
       if (result.geometry) {
         await this.highlightStreet(result);
       } else {
-        const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+        const selectedLocationId = utils.getStorage(
+          CONFIG.STORAGE_KEYS.selectedLocation
+        );
         const resolved = await this.fetchStreetGeometry(result, selectedLocationId);
         if (resolved?.feature?.geometry) {
           await this.highlightStreet({

@@ -6,10 +6,18 @@ import { formatDistance, formatRelativeTimeShort } from "../../utils.js";
  * Used by both the area card mini-rings and the sidebar large ring.
  */
 export function getCoverageTierClass(pct) {
-  if (pct >= 100) return "tier-complete";
-  if (pct >= 76) return "tier-success";
-  if (pct >= 51) return "tier-info";
-  if (pct >= 26) return "tier-warning";
+  if (pct >= 100) {
+    return "tier-complete";
+  }
+  if (pct >= 76) {
+    return "tier-success";
+  }
+  if (pct >= 51) {
+    return "tier-info";
+  }
+  if (pct >= 26) {
+    return "tier-warning";
+  }
   return "tier-danger";
 }
 
@@ -18,7 +26,9 @@ export function getCoverageTierClass(pct) {
  */
 export function normalizeCoveragePercent(value) {
   const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return 0;
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
   return Math.max(0, Math.min(100, numeric));
 }
 

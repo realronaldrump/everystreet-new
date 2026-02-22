@@ -22,7 +22,9 @@ const dateManager = {
       utils.getStorage(CONFIG.STORAGE_KEYS.startDate) ||
       today;
     const endDate =
-      store.get("filters.endDate") || utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || today;
+      store.get("filters.endDate") ||
+      utils.getStorage(CONFIG.STORAGE_KEYS.endDate) ||
+      today;
     return { startDate, endDate };
   },
 
@@ -56,8 +58,7 @@ const dateManager = {
     }
     const placement = this.portalPlacements[key];
     const targetParent =
-      (placement?.parent && placement.parent.isConnected ? placement.parent : defaultParent) ||
-      null;
+      (placement?.parent?.isConnected ? placement.parent : defaultParent) || null;
     if (!targetParent || element.parentElement === targetParent) {
       return;
     }
@@ -177,8 +178,10 @@ const dateManager = {
         return;
       }
       const currentRange = this.getSelectedDateRange();
-      const nextStart = detail.startDate || store.get("filters.startDate") || currentRange.startDate;
-      const nextEnd = detail.endDate || store.get("filters.endDate") || currentRange.endDate;
+      const nextStart =
+        detail.startDate || store.get("filters.startDate") || currentRange.startDate;
+      const nextEnd =
+        detail.endDate || store.get("filters.endDate") || currentRange.endDate;
       if (!nextStart || !nextEnd) {
         return;
       }
@@ -402,7 +405,8 @@ const dateManager = {
   },
 
   highlightActivePreset(preset = null) {
-    const { startDate: savedStartDate, endDate: savedEndDate } = this.getSelectedDateRange();
+    const { startDate: savedStartDate, endDate: savedEndDate } =
+      this.getSelectedDateRange();
 
     const activePreset = preset || this.detectPreset(savedStartDate, savedEndDate);
 
@@ -421,7 +425,8 @@ const dateManager = {
       return;
     }
 
-    const { startDate: savedStartDate, endDate: savedEndDate } = this.getSelectedDateRange();
+    const { startDate: savedStartDate, endDate: savedEndDate } =
+      this.getSelectedDateRange();
     const today = dateUtils.getCurrentDate();
 
     const fmt = (d) => dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;

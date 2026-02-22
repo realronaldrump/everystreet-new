@@ -1,9 +1,9 @@
 import { swupReady } from "../core/navigation.js";
+import { buildTurnByTurnUrl } from "../turn-by-turn/turn-by-turn-api.js";
 import { OptimalRouteAPI } from "./api.js";
 import { OPTIMAL_ROUTES_DEFAULTS } from "./constants.js";
 import { OptimalRouteMap } from "./map.js";
 import { OptimalRouteUI } from "./ui.js";
-import { buildTurnByTurnUrl } from "../turn-by-turn/turn-by-turn-api.js";
 
 export class OptimalRoutesManager {
   constructor(options = {}) {

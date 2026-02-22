@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict
 from core.casting import safe_float
 from core.jobs import JobHandle, create_job, find_job
 from core.spatial import GeometryService
+from core.trip_source_policy import enforce_bouncie_source
 from db.models import Job, Place, RecurringRoute, Trip
 from recurring_routes.models import BuildRecurringRoutesRequest
 from recurring_routes.services.fingerprint import (
@@ -30,7 +31,6 @@ from recurring_routes.services.fingerprint import (
     extract_polyline,
 )
 from trips.services.trip_cost_service import TripCostService
-from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 

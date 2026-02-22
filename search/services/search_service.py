@@ -59,7 +59,9 @@ class SearchService:
         name = SearchService._normalize_query_text(
             str(result.get("text") or result.get("place_name") or ""),
         )
-        subtitle = SearchService._normalize_query_text(str(result.get("place_name") or ""))
+        subtitle = SearchService._normalize_query_text(
+            str(result.get("place_name") or ""),
+        )
 
         score = 0.0
         if name and query_text:
@@ -70,9 +72,8 @@ class SearchService:
             elif query_text in name:
                 score += 70.0
 
-        if query_text and subtitle:
-            if query_text in subtitle:
-                score += 35.0
+        if query_text and subtitle and query_text in subtitle:
+            score += 35.0
 
         raw_importance = result.get("importance", 0.0)
         try:
@@ -316,8 +317,12 @@ class SearchService:
                 )
                 try:
                     if isinstance(boundary_geojson, dict):
-                        clipped_geometry = line_geometry.intersection(shape(boundary_geojson))
-                        line_geometry = SearchService._to_line_geometry(clipped_geometry)
+                        clipped_geometry = line_geometry.intersection(
+                            shape(boundary_geojson),
+                        )
+                        line_geometry = SearchService._to_line_geometry(
+                            clipped_geometry,
+                        )
                         clipped = True
                 except Exception:
                     logger.warning(

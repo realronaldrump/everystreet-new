@@ -11,12 +11,12 @@ from shapely.geometry import LineString
 
 import core.osmnx_graphml as osmnx_graphml_module
 import routing.graph_connectivity as graph_connectivity_module
-import routing.service as service
 import street_coverage.preprocessing as preprocessing_module
+from routing import service
 
 
 class _AsyncIter:
-    def __init__(self, items):
+    def __init__(self, items) -> None:
         self._items = list(items)
 
     def __aiter__(self):
@@ -142,7 +142,7 @@ def _install_common_mocks(
     monkeypatch.setattr(service, "graph_units_to_feet", lambda _g, d: float(d))
 
     class _DistanceApi:
-        def nearest_edges(self, _graph, X, Y, *, return_dist=False):
+        def nearest_edges(self, _graph, X, Y, *, return_dist: bool = False):
             if isinstance(X, list):
                 edges = [(1, 2, 0)] * len(X)
                 dists = [spatial_distance] * len(X)
@@ -150,7 +150,7 @@ def _install_common_mocks(
             edge = (1, 2, 0)
             return (edge, trace_distance) if return_dist else edge
 
-        def nearest_nodes(self, _graph, _x, _y):
+        def nearest_nodes(self, _graph, _x, _y) -> int:
             return 1
 
     monkeypatch.setattr(
@@ -160,7 +160,7 @@ def _install_common_mocks(
     )
 
     class _TraceClient:
-        async def trace_route(self, _shape, costing="auto"):
+        async def trace_route(self, _shape, costing: str = "auto"):
             if not trace_returns_geometry:
                 return {}
             _ = costing
@@ -230,7 +230,10 @@ def _install_common_mocks(
 
 
 @pytest.mark.asyncio
-async def test_spatial_fallback_maps_when_osm_phase_misses(monkeypatch, tmp_path) -> None:
+async def test_spatial_fallback_maps_when_osm_phase_misses(
+    monkeypatch,
+    tmp_path,
+) -> None:
     job_handle, area_id = _install_common_mocks(
         monkeypatch,
         tmp_path,
@@ -276,7 +279,10 @@ async def test_valhalla_trace_fallback_maps_when_spatial_too_far(
 
 
 @pytest.mark.asyncio
-async def test_zero_matches_raises_after_retry_with_summary(monkeypatch, tmp_path) -> None:
+async def test_zero_matches_raises_after_retry_with_summary(
+    monkeypatch,
+    tmp_path,
+) -> None:
     job_handle, area_id = _install_common_mocks(
         monkeypatch,
         tmp_path,
@@ -327,7 +333,8 @@ async def test_mapping_progress_metrics_include_default_and_fallback_aliases(
     mapping_updates = [
         update
         for update in job_handle.updates
-        if update.get("stage") == "mapping_segments" and isinstance(update.get("metrics"), dict)
+        if update.get("stage") == "mapping_segments"
+        and isinstance(update.get("metrics"), dict)
     ]
     assert mapping_updates
 

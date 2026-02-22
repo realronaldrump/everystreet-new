@@ -91,7 +91,10 @@ def test_trip_history_import_plan_endpoint_scopes_selected_imeis() -> None:
             "trips.api.sync.resolve_import_start_dt_from_db",
             new=AsyncMock(return_value=datetime(2024, 1, 1, tzinfo=UTC)),
         ),
-        patch("trips.api.sync.build_import_plan", new=AsyncMock(side_effect=fake_build_plan)),
+        patch(
+            "trips.api.sync.build_import_plan",
+            new=AsyncMock(side_effect=fake_build_plan),
+        ),
     ):
         client = TestClient(app)
         response = client.get(

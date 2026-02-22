@@ -166,7 +166,8 @@ async def check_container_status(service_name: str) -> dict[str, Any]:
     """
     Check if a docker compose service container is running.
 
-    Inspects docker containers directly via `docker ps` and `docker inspect`.
+    Inspects docker containers directly via `docker ps` and `docker
+    inspect`.
 
     Uses asyncio subprocesses to avoid blocking the event loop.
     """

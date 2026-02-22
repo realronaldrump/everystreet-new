@@ -101,7 +101,10 @@ async def search_streets(
 @router.get("/street-geometry", response_model=dict[str, Any])
 @api_route(logger)
 async def resolve_street_geometry(
-    osm_id: Annotated[int, Query(description="OSM feature ID for selected search result")],
+    osm_id: Annotated[
+        int,
+        Query(description="OSM feature ID for selected search result"),
+    ],
     osm_type: Annotated[
         Literal["node", "way", "relation"],
         Query(description="OSM feature type"),

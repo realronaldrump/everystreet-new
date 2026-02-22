@@ -116,13 +116,13 @@ export async function loadAllData(signalOverride) {
   if (baseSignal?.aborted) {
     return;
   }
-  
+
   if (currentDataController) {
     currentDataController.abort();
   }
   currentDataController = new AbortController();
   const activeSignal = currentDataController.signal;
-  
+
   const onBaseAbort = () => currentDataController.abort();
   if (baseSignal) {
     baseSignal.addEventListener("abort", onBaseAbort, { once: true });

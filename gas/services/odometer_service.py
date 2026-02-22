@@ -6,10 +6,10 @@ from typing import Any
 from core.date_utils import parse_timestamp
 from core.exceptions import ValidationException
 from core.spatial import GeometryService
+from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
 from db.models import GasFillup, Trip
 from gas.services.bouncie_service import BouncieService
-from core.trip_source_policy import enforce_bouncie_source
 
 logger = logging.getLogger(__name__)
 

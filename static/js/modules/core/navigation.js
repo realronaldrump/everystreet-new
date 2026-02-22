@@ -385,7 +385,9 @@ export async function initNavigation() {
       SwupA11yPlugin,
     } = await loadSwupDeps());
   } catch (error) {
-    throw new Error(`Swup failed to load: ${error instanceof Error ? error.message : error}`);
+    throw new Error(
+      `Swup failed to load: ${error instanceof Error ? error.message : error}`
+    );
   }
 
   const missing = [];

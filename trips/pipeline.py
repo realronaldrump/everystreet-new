@@ -13,8 +13,8 @@ from analytics.services.mobility_insights_service import MobilityInsightsService
 from core.coverage import update_coverage_for_trip
 from core.date_utils import get_current_utc_time, parse_timestamp
 from core.spatial import GeometryService, derive_geo_points, is_valid_geojson_geometry
-from db.models import Trip
 from core.trip_source_policy import BOUNCIE_SOURCE
+from db.models import Trip
 from trips.services.geocoding import TripGeocoder
 from trips.services.matching import TripMapMatcher
 

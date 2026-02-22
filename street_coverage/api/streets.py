@@ -254,23 +254,31 @@ async def get_all_streets(
         # Undriven is the default state; CoverageState rows may be omitted entirely.
         # To keep this endpoint fast, only load non-default statuses and default
         # missing statuses to undriven.
-        streets = await Street.find(
-            {
-                "area_id": area_id,
-                "area_version": area.area_version,
-            },
-        ).project(StreetRenderProjection).to_list()
+        streets = (
+            await Street.find(
+                {
+                    "area_id": area_id,
+                    "area_version": area.area_version,
+                },
+            )
+            .project(StreetRenderProjection)
+            .to_list()
+        )
 
         if not streets:
             return {"type": "FeatureCollection", "features": []}
 
         street_ids = {s.segment_id for s in streets}
-        states = await CoverageState.find(
-            {
-                "area_id": area_id,
-                "status": {"$in": ["driven", "undriveable"]},
-            },
-        ).project(CoverageStateRenderProjection).to_list()
+        states = (
+            await CoverageState.find(
+                {
+                    "area_id": area_id,
+                    "status": {"$in": ["driven", "undriveable"]},
+                },
+            )
+            .project(CoverageStateRenderProjection)
+            .to_list()
+        )
         state_map = {s.segment_id: s for s in states if s.segment_id in street_ids}
 
         features = []
@@ -303,21 +311,29 @@ async def get_all_streets(
 
     # status_filter in {"driven", "undriveable"}: fetch matching CoverageState rows
     # first, then hydrate with the current Street geometries.
-    states = await CoverageState.find(
-        {"area_id": area_id, "status": status_filter},
-    ).project(CoverageStateRenderProjection).to_list()
+    states = (
+        await CoverageState.find(
+            {"area_id": area_id, "status": status_filter},
+        )
+        .project(CoverageStateRenderProjection)
+        .to_list()
+    )
     if not states:
         return {"type": "FeatureCollection", "features": []}
 
     state_map = {s.segment_id: s for s in states}
     segment_ids = list(state_map)
-    streets = await Street.find(
-        {
-            "area_id": area_id,
-            "area_version": area.area_version,
-            "segment_id": {"$in": segment_ids},
-        },
-    ).project(StreetRenderProjection).to_list()
+    streets = (
+        await Street.find(
+            {
+                "area_id": area_id,
+                "area_version": area.area_version,
+                "segment_id": {"$in": segment_ids},
+            },
+        )
+        .project(StreetRenderProjection)
+        .to_list()
+    )
 
     features = [
         {

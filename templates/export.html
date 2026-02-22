@@ -1,11 +1,13 @@
 {% extends "base.html" %}
 
 {% block title %}
+
 Every Street - Export Data
 {% endblock %}
 
 
 {% block extra_css %}
+
   <link rel="stylesheet"
         href="{{ url_for('static', path='css/export.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
@@ -34,7 +36,10 @@ Every Street - Export Data
         <div class="widget-body">
           <form id="export-form">
             <div class="export-category">
-              <button type="button" class="export-category-header" aria-expanded="true" data-target="trips-section">
+              <button type="button"
+                      class="export-category-header"
+                      aria-expanded="true"
+                      data-target="trips-section">
                 <div class="export-category-title">
                   <i class="fas fa-car"></i>
                   <span>Trip Data</span>
@@ -45,7 +50,7 @@ Every Street - Export Data
                 <p class="export-category-desc">
                   Export your driving trips with optional map-matched geometry.
                 </p>
-                
+
                 <div class="export-quick-select">
                   <label class="export-quick-option">
                     <input type="checkbox" id="export-trips" checked />
@@ -68,10 +73,18 @@ Every Street - Export Data
                     <span>Format</span>
                   </div>
                   <select class="export-format-select" id="trip-format">
-                    <option value="json">JSON</option>
-                    <option value="csv">CSV (Spreadsheet)</option>
-                    <option value="geojson">GeoJSON (Map Data)</option>
-                    <option value="gpx">GPX (GPS Device)</option>
+                    <option value="json">
+JSON
+                    </option>
+                    <option value="csv">
+CSV (Spreadsheet)
+                    </option>
+                    <option value="geojson">
+GeoJSON (Map Data)
+                    </option>
+                    <option value="gpx">
+GPX (GPS Device)
+                    </option>
                   </select>
                 </div>
 
@@ -92,26 +105,44 @@ Every Street - Export Data
                   </div>
                   <div class="export-filters-compact">
                     <div class="export-filter-field">
-                      <label for="trip-start-date">From</label>
+                      <label for="trip-start-date">
+From
+                      </label>
                       <input type="date" class="export-filter-input" id="trip-start-date" />
                     </div>
                     <div class="export-filter-field">
-                      <label for="trip-end-date">To</label>
+                      <label for="trip-end-date">
+To
+                      </label>
                       <input type="date" class="export-filter-input" id="trip-end-date" />
                     </div>
                     <div class="export-filter-field">
-                      <label for="trip-status">Status</label>
+                      <label for="trip-status">
+Status
+                      </label>
                       <select class="export-filter-input" id="trip-status">
-                        <option value="">All</option>
-                        <option value="processed">Processed</option>
-                        <option value="completed">Completed</option>
-                        <option value="active">Active</option>
+                        <option value="">
+All
+                        </option>
+                        <option value="processed">
+Processed
+                        </option>
+                        <option value="completed">
+Completed
+                        </option>
+                        <option value="active">
+Active
+                        </option>
                       </select>
                     </div>
                     <div class="export-filter-field">
-                      <label for="trip-vehicle">Vehicle</label>
+                      <label for="trip-vehicle">
+Vehicle
+                      </label>
                       <select class="export-filter-input" id="trip-vehicle">
-                        <option value="">Any vehicle</option>
+                        <option value="">
+Any vehicle
+                        </option>
                       </select>
                     </div>
                   </div>
@@ -130,7 +161,10 @@ Every Street - Export Data
             </div>
 
             <div class="export-category">
-              <button type="button" class="export-category-header" aria-expanded="false" data-target="coverage-section">
+              <button type="button"
+                      class="export-category-header"
+                      aria-expanded="false"
+                      data-target="coverage-section">
                 <div class="export-category-title">
                   <i class="fas fa-map"></i>
                   <span>Coverage Data</span>
@@ -141,7 +175,7 @@ Every Street - Export Data
                 <p class="export-category-desc">
                   Export street coverage data for your defined areas.
                 </p>
-                
+
                 <div class="export-quick-select">
                   <label class="export-quick-option">
                     <input type="checkbox" id="export-streets" />
@@ -172,7 +206,9 @@ Every Street - Export Data
                     <span class="export-subsection-hint">Required</span>
                   </div>
                   <select class="export-filter-input" id="coverage-area">
-                    <option value="">Select an area...</option>
+                    <option value="">
+Select an area...
+                    </option>
                   </select>
                 </div>
 
@@ -213,18 +249,25 @@ Every Street - Export Data
           <div class="export-summary" id="export-summary">
             <div class="export-summary-empty">
               <i class="fas fa-folder-open"></i>
-              <p>No items selected</p>
+              <p>
+No items selected
+              </p>
             </div>
             <ul class="export-summary-list hidden" id="export-summary-list">
             </ul>
           </div>
 
           <div class="export-progress hidden" id="export-progress">
-            <div class="export-progress-text" id="export-status-text">Preparing...</div>
-            <div class="export-progress-bar-container">
-              <div class="export-progress-bar" id="export-progress-bar" style="width: 0%"></div>
+            <div class="export-progress-text" id="export-status-text">
+Preparing...
             </div>
-            <div class="export-progress-percent" id="export-progress-percent">0%</div>
+            <div class="export-progress-bar-container">
+              <div class="export-progress-bar" id="export-progress-bar" style="width: 0%">
+              </div>
+            </div>
+            <div class="export-progress-percent" id="export-progress-percent">
+0%
+            </div>
           </div>
 
           <div class="export-result hidden" id="export-result">
@@ -232,8 +275,11 @@ Every Street - Export Data
               <i class="fas fa-check-circle"></i>
             </div>
             <div class="export-result-info">
-              <div class="export-result-title">Export Ready</div>
-              <div class="export-result-details" id="export-result-details"></div>
+              <div class="export-result-title">
+Export Ready
+              </div>
+              <div class="export-result-details" id="export-result-details">
+              </div>
             </div>
             <a class="export-download-btn" id="export-download" href="#">
               <i class="fas fa-file-archive"></i>

@@ -69,9 +69,9 @@ def graph_units_to_feet(G: nx.Graph, distance: float) -> float:
     Convert a distance measured in the graph's coordinate units to feet.
 
     OSMnx returns distances from nearest-node/edge queries in the same
-    units as the graph's CRS. For accurate distance-based thresholds, use a
-    projected graph. This function still provides a latitude-aware fallback
-    when only geographic degrees are available.
+    units as the graph's CRS. For accurate distance-based thresholds,
+    use a projected graph. This function still provides a latitude-aware
+    fallback when only geographic degrees are available.
     """
     try:
         distance = float(distance)
@@ -85,9 +85,7 @@ def graph_units_to_feet(G: nx.Graph, distance: float) -> float:
     lat = _reference_latitude(G)
     lat_rad = math.radians(lat)
     meters_per_lat = (
-        111_132.92
-        - 559.82 * math.cos(2 * lat_rad)
-        + 1.175 * math.cos(4 * lat_rad)
+        111_132.92 - 559.82 * math.cos(2 * lat_rad) + 1.175 * math.cos(4 * lat_rad)
     )
     meters_per_lon = 111_412.84 * math.cos(lat_rad) - 93.5 * math.cos(3 * lat_rad)
     meters_per_degree = (abs(meters_per_lat) + abs(meters_per_lon)) / 2.0
@@ -128,8 +126,8 @@ def prepare_spatial_matching_graph(
     """
     Return a projected graph plus point-projector for accurate matching.
 
-    Falls back to the original graph and identity projector if projection
-    cannot be prepared.
+    Falls back to the original graph and identity projector if
+    projection cannot be prepared.
     """
     source_crs = None
     with contextlib.suppress(Exception):
@@ -201,8 +199,8 @@ def choose_consensus_edge_match(
     """
     Pick an edge by vote count first, then average distance tie-break.
 
-    This improves robustness in dense networks where mid/start/end samples may
-    snap to different but nearby edges.
+    This improves robustness in dense networks where mid/start/end
+    samples may snap to different but nearby edges.
     """
     if not candidates:
         return None, float("inf")

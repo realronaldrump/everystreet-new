@@ -47,7 +47,10 @@ test("buildMapboxRasterTileUrl builds raster endpoint from style URL", () => {
     styleUrl: CONFIG.MAP.styles.dark,
     token: "pk.test-token-12345678901234567890",
   });
-  assert.match(url, /https:\/\/api\.mapbox\.com\/styles\/v1\/mapbox\/dark-v11\/tiles\/256/);
+  assert.match(
+    url,
+    /https:\/\/api\.mapbox\.com\/styles\/v1\/mapbox\/dark-v11\/tiles\/256/
+  );
   assert.match(url, /access_token=pk\.test-token-12345678901234567890/);
 });
 
@@ -72,4 +75,3 @@ test("buildMapboxRasterTileUrl throws when token missing", () => {
     /Mapbox access token not configured/
   );
 });
-

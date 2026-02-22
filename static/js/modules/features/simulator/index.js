@@ -14,11 +14,7 @@ import {
   generateTransactionId,
   sendWebhookPayload,
 } from "./payloads.js";
-import {
-  enableRoutePickerMode,
-  fetchPresetRoute,
-  getPresetRoutes,
-} from "./routes.js";
+import { enableRoutePickerMode, fetchPresetRoute, getPresetRoutes } from "./routes.js";
 
 // ---------------------------------------------------------------------------
 // Geometry helpers
@@ -213,26 +209,36 @@ export class BouncieSimulator {
 
     this._bindEvents();
     const mapEl = document.getElementById("map");
-    if (mapEl) mapEl.appendChild(panel);
+    if (mapEl) {
+      mapEl.appendChild(panel);
+    }
   }
 
   _bindEvents() {
-    const panel = this.panel;
+    const { panel } = this;
 
     panel.addEventListener("mousedown", (e) => {
       const btn = e.target.closest("[data-action]");
-      if (!btn) return;
-      if (btn.dataset.action === "collapse") this._toggleCollapse();
-      if (btn.dataset.action === "close") this.hide();
+      if (!btn) {
+        return;
+      }
+      if (btn.dataset.action === "collapse") {
+        this._toggleCollapse();
+      }
+      if (btn.dataset.action === "close") {
+        this.hide();
+      }
     });
 
     this.refs.routeSelect.addEventListener("change", (e) =>
-      this._onRouteChange(e.target.value),
+      this._onRouteChange(e.target.value)
     );
 
     this.refs.speedBtns.addEventListener("mousedown", (e) => {
       const btn = e.target.closest("[data-speed]");
-      if (!btn) return;
+      if (!btn) {
+        return;
+      }
       this.speedMultiplier = Number(btn.dataset.speed);
       this.refs.speedBtns
         .querySelectorAll(".sim-speed-btn")
@@ -255,18 +261,24 @@ export class BouncieSimulator {
   // =========================================================================
 
   toggle() {
-    if (!this.panel) return;
+    if (!this.panel) {
+      return;
+    }
     this.panel.classList.contains("hidden") ? this.show() : this.hide();
   }
 
   show() {
-    if (!this.panel) return;
+    if (!this.panel) {
+      return;
+    }
     this.panel.classList.remove("hidden");
     document.getElementById("sim-toggle")?.classList.add("active");
   }
 
   hide() {
-    if (!this.panel) return;
+    if (!this.panel) {
+      return;
+    }
     this.panel.classList.add("hidden");
     document.getElementById("sim-toggle")?.classList.remove("active");
   }
@@ -274,10 +286,14 @@ export class BouncieSimulator {
   _toggleCollapse() {
     const body = this.panel?.querySelector(".sim-body");
     const icon = this.panel?.querySelector("[data-action='collapse'] i");
-    if (!body) return;
+    if (!body) {
+      return;
+    }
     const collapsed = body.style.display === "none";
     body.style.display = collapsed ? "" : "none";
-    if (icon) icon.className = collapsed ? "fas fa-chevron-down" : "fas fa-chevron-up";
+    if (icon) {
+      icon.className = collapsed ? "fas fa-chevron-down" : "fas fa-chevron-up";
+    }
   }
 
   // =========================================================================
@@ -354,7 +370,9 @@ export class BouncieSimulator {
   // =========================================================================
 
   async startTrip() {
-    if (this.status === "simulating" || !this.route?.segments?.length) return;
+    if (this.status === "simulating" || !this.route?.segments?.length) {
+      return;
+    }
 
     this.status = "simulating";
     this.currentIndex = 0;
@@ -396,15 +414,16 @@ export class BouncieSimulator {
   }
 
   async stopTrip() {
-    if (this.status !== "simulating") return;
+    if (this.status !== "simulating") {
+      return;
+    }
     this._clearTick();
     await this._finishTrip();
   }
 
   _scheduleTick() {
     this._clearTick();
-    const wallIntervalMs =
-      (this.config.dataIntervalSec / this.speedMultiplier) * 1000;
+    const wallIntervalMs = (this.config.dataIntervalSec / this.speedMultiplier) * 1000;
     this.tickTimer = setTimeout(() => this._tick(), Math.max(wallIntervalMs, 150));
   }
 
@@ -420,7 +439,9 @@ export class BouncieSimulator {
   // =========================================================================
 
   async _tick() {
-    if (this.status !== "simulating" || !this.route) return;
+    if (this.status !== "simulating" || !this.route) {
+      return;
+    }
 
     const segs = this.route.segments;
     const total = segs.length;
@@ -439,10 +460,14 @@ export class BouncieSimulator {
 
     for (let i = this.currentIndex + 1; i < total; i++) {
       const segDur = segs[i].durationS;
-      if (simSecThisTick + segDur > targetSimSec && advanceCount > 0) break;
+      if (simSecThisTick + segDur > targetSimSec && advanceCount > 0) {
+        break;
+      }
       simSecThisTick += segDur;
       advanceCount++;
-      if (advanceCount >= this.config.batchSize) break;
+      if (advanceCount >= this.config.batchSize) {
+        break;
+      }
     }
 
     // If no segments could be consumed (very tiny durations), advance at least 1
@@ -459,7 +484,9 @@ export class BouncieSimulator {
     const dataPoints = [];
     for (let i = 0; i < advanceCount; i++) {
       const segIdx = this.currentIndex + 1 + i;
-      if (segIdx >= total) break;
+      if (segIdx >= total) {
+        break;
+      }
 
       const seg = segs[segIdx];
       const prev = segs[segIdx - 1];
@@ -485,7 +512,7 @@ export class BouncieSimulator {
 
       // Timestamp: trip start + simulated elapsed time
       const ptTime = new Date(
-        this._tripStartTime.getTime() + this._simElapsedSec * 1000,
+        this._tripStartTime.getTime() + this._simElapsedSec * 1000
       );
 
       dataPoints.push({
@@ -512,7 +539,9 @@ export class BouncieSimulator {
     this._updateMetrics(dataPoints);
 
     // Schedule next tick
-    if (this.status === "simulating") this._scheduleTick();
+    if (this.status === "simulating") {
+      this._scheduleTick();
+    }
   }
 
   // =========================================================================
@@ -521,15 +550,13 @@ export class BouncieSimulator {
 
   async _finishTrip() {
     const endTime = new Date(
-      this._tripStartTime.getTime() + this._simElapsedSec * 1000,
+      this._tripStartTime.getTime() + this._simElapsedSec * 1000
     );
 
     // --- tripMetrics ---
     this._setStatus("sending", "Sending tripMetrics...");
     const avgSpeed =
-      this._simElapsedSec > 0
-        ? this._totalDistMi / (this._simElapsedSec / 3600)
-        : 0;
+      this._simElapsedSec > 0 ? this._totalDistMi / (this._simElapsedSec / 3600) : 0;
 
     const metricsPayload = buildTripMetricsPayload({
       transactionId: this.transactionId,
@@ -552,7 +579,7 @@ export class BouncieSimulator {
       timestamp: endTime,
       odometer: this.config.odometerStart + this._totalDistMi,
       fuelConsumed: parseFloat(
-        ((this.config.fuelStart - this._fuelLevel) * 0.08).toFixed(2),
+        ((this.config.fuelStart - this._fuelLevel) * 0.08).toFixed(2)
       ),
     });
     const eResult = await sendWebhookPayload(endPayload);
@@ -569,7 +596,9 @@ export class BouncieSimulator {
   // =========================================================================
 
   _updateMetrics(dataPoints) {
-    if (!dataPoints.length) return;
+    if (!dataPoints.length) {
+      return;
+    }
     const last = dataPoints[dataPoints.length - 1];
     const total = this.route.segments.length;
     const pct = Math.round((this.currentIndex / (total - 1)) * 100);
@@ -585,13 +614,19 @@ export class BouncieSimulator {
 
   _setStatus(state, text) {
     const dot = this.panel?.querySelector(".sim-status-dot");
-    if (dot) dot.className = `sim-status-dot ${state}`;
-    if (this.refs.statusText) this.refs.statusText.textContent = text;
+    if (dot) {
+      dot.className = `sim-status-dot ${state}`;
+    }
+    if (this.refs.statusText) {
+      this.refs.statusText.textContent = text;
+    }
   }
 
   _setProgress(pct) {
     const fill = this.panel?.querySelector(".sim-progress-fill");
-    if (fill) fill.style.width = `${pct}%`;
+    if (fill) {
+      fill.style.width = `${pct}%`;
+    }
   }
 
   _setConfigEnabled(enabled) {
@@ -609,7 +644,7 @@ export class BouncieSimulator {
       minute: "2-digit",
       second: "2-digit",
     });
-    const ok = result.ok;
+    const { ok } = result;
     const detail = extra ? ` (${extra})` : "";
 
     const entry = document.createElement("div");
@@ -621,10 +656,12 @@ export class BouncieSimulator {
       <span class="sim-log-detail">${detail}</span>
     `;
 
-    const log = this.refs.log;
+    const { log } = this.refs;
     if (log) {
       log.appendChild(entry);
-      while (log.children.length > 50) log.removeChild(log.firstChild);
+      while (log.children.length > 50) {
+        log.removeChild(log.firstChild);
+      }
       log.scrollTop = log.scrollHeight;
     }
   }
@@ -643,8 +680,12 @@ export class BouncieSimulator {
 
   destroy() {
     this._clearTick();
-    if (this.picker) this.picker.cancel();
-    if (this.panel) this.panel.remove();
+    if (this.picker) {
+      this.picker.cancel();
+    }
+    if (this.panel) {
+      this.panel.remove();
+    }
     this.panel = null;
   }
 }

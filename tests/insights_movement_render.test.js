@@ -233,7 +233,10 @@ function createEnvironment() {
   const segmentsToggle = new FakeElement();
   segmentsToggle.dataset.movementLayer = "segments";
   segmentsToggle.classList.add("toggle-btn");
-  movementToggle.setQuerySelectorAll("[data-movement-layer]", [streetsToggle, segmentsToggle]);
+  movementToggle.setQuerySelectorAll("[data-movement-layer]", [
+    streetsToggle,
+    segmentsToggle,
+  ]);
 
   const requiredIds = [
     "movement-layer-toggle",
@@ -370,9 +373,14 @@ test("movement map creates path layers and keeps selection-linked layer updates"
 
   assert.equal(FakeDeck.instances.length, 1);
   const deckInstance = FakeDeck.instances[0];
-  const basemapLayer = deckInstance.props.layers.find((layer) => layer.kind === "TileLayer");
+  const basemapLayer = deckInstance.props.layers.find(
+    (layer) => layer.kind === "TileLayer"
+  );
   assert.ok(basemapLayer, "expected basemap tile layer");
-  assert.match(basemapLayer.props.data, /api\.mapbox\.com\/styles\/v1\/mapbox\/(light|dark)-v11/);
+  assert.match(
+    basemapLayer.props.data,
+    /api\.mapbox\.com\/styles\/v1\/mapbox\/(light|dark)-v11/
+  );
   assert.ok(
     basemapLayer.props.data.includes(
       `access_token=${encodeURIComponent(CONFIG.MAP.accessToken)}`

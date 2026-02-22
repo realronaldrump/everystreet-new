@@ -1,6 +1,4 @@
-"""
-Valhalla tile build helpers.
-"""
+"""Valhalla tile build helpers."""
 
 from __future__ import annotations
 
@@ -9,12 +7,11 @@ import logging
 import os
 import shlex
 from pathlib import Path
-
 from typing import TYPE_CHECKING, Any
 
 from map_data.builders_common import (
-    PROGRESS_UPDATE_INTERVAL,
     _OUTPUT_LINE_OVERFLOW_BYTES,
+    PROGRESS_UPDATE_INTERVAL,
     _raise_error,
     _resolve_pbf_path,
     _safe_callback,

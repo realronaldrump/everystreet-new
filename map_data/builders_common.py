@@ -1,6 +1,4 @@
-"""
-Shared helpers for map-data build orchestration.
-"""
+"""Shared helpers for map-data build orchestration."""
 
 from __future__ import annotations
 

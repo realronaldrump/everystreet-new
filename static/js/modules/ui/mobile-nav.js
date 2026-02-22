@@ -86,11 +86,7 @@ const mobileNav = {
       this.lastScrollY = current;
     };
 
-    window.addEventListener(
-      "scroll",
-      this.scrollHandler,
-      { passive: true }
-    );
+    window.addEventListener("scroll", this.scrollHandler, { passive: true });
   },
 };
 

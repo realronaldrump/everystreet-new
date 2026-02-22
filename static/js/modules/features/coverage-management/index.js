@@ -42,7 +42,7 @@ const APP_SETTINGS_API = "/api/app_settings";
 
 const INITIAL_STATE = () => ({
   // View
-  view: "list",               // "list" | "area"
+  view: "list", // "list" | "area"
   currentAreaId: null,
   currentAreaData: null,
 
@@ -58,7 +58,7 @@ const INITIAL_STATE = () => ({
   hoverPopup: null,
 
   // Street detail panel
-  selectedSegment: null,      // { segmentId, properties }
+  selectedSegment: null, // { segmentId, properties }
 
   // Jobs/area tracking
   activeJobsByAreaId: new Map(),
@@ -159,12 +159,20 @@ export default async function initCoverageManagementPage({ signal, cleanup } = {
 
     // Clean up map
     if (state.map) {
-      try { state.map.remove(); } catch { /* ignore */ }
+      try {
+        state.map.remove();
+      } catch {
+        /* ignore */
+      }
     }
 
     // Clean up hover popup
     if (state.hoverPopup) {
-      try { state.hoverPopup.remove(); } catch { /* ignore */ }
+      try {
+        state.hoverPopup.remove();
+      } catch {
+        /* ignore */
+      }
     }
 
     // Reset all state
@@ -186,16 +194,17 @@ function setupEventListeners(signal) {
   const opt = signal ? { signal } : false;
 
   // List view controls
-  document.getElementById("refresh-list-btn")
+  document
+    .getElementById("refresh-list-btn")
     ?.addEventListener("click", loadAreas, opt);
 
   // Area cards container (delegated)
-  document.getElementById("area-cards-grid")
+  document
+    .getElementById("area-cards-grid")
     ?.addEventListener("click", handleAreaCardClick, opt);
 
   // Add area button
-  document.getElementById("add-coverage-area")
-    ?.addEventListener("click", addArea, opt);
+  document.getElementById("add-coverage-area")?.addEventListener("click", addArea, opt);
 
   // Modal form inputs
   const locationInput = document.getElementById("location-input");
@@ -207,7 +216,11 @@ function setupEventListeners(signal) {
     clearValidationSelection();
     const query = locationInput?.value.trim() || "";
     if (!query) {
-      setValidationStatus({ icon: "fa-location-dot", message: "Enter a location to validate.", tone: "neutral" });
+      setValidationStatus({
+        icon: "fa-location-dot",
+        message: "Enter a location to validate.",
+        tone: "neutral",
+      });
       validationState.lastQuery = "";
       validationState.lastType = "";
       validationState.candidates = [];
@@ -217,7 +230,11 @@ function setupEventListeners(signal) {
         validationElements.note.classList.add("d-none");
       }
     } else if (query.length < 2) {
-      setValidationStatus({ icon: "fa-pen", message: "Keep typing to validate.", tone: "neutral" });
+      setValidationStatus({
+        icon: "fa-pen",
+        message: "Keep typing to validate.",
+        tone: "neutral",
+      });
       validationState.lastQuery = "";
       validationState.lastType = "";
       validationState.candidates = [];
@@ -227,7 +244,11 @@ function setupEventListeners(signal) {
         validationElements.note.classList.add("d-none");
       }
     } else {
-      setValidationStatus({ icon: "fa-spinner fa-spin", message: "Validating location…", tone: "info" });
+      setValidationStatus({
+        icon: "fa-spinner fa-spin",
+        message: "Validating location…",
+        tone: "info",
+      });
     }
     debouncedValidate();
   };
@@ -237,151 +258,230 @@ function setupEventListeners(signal) {
 
   // Service roads toggles
   INCLUDE_SERVICE_TOGGLE_IDS.forEach((id) => {
-    document.getElementById(id)
+    document
+      .getElementById(id)
       ?.addEventListener("change", handleIncludeServiceRoadsToggle, opt);
   });
 
   // Validation candidates
-  document.getElementById("location-validation-candidates")
+  document
+    .getElementById("location-validation-candidates")
     ?.addEventListener("click", handleCandidateClick, opt);
 
   // Reset validation on modal close
-  document.getElementById("addAreaModal")
+  document
+    .getElementById("addAreaModal")
     ?.addEventListener("hidden.bs.modal", () => resetValidationState(), opt);
 
   // Error panel dismiss
-  document.getElementById("coverage-error-dismiss")
+  document
+    .getElementById("coverage-error-dismiss")
     ?.addEventListener("click", hideCoverageErrorDetails, opt);
 
   // Sidebar back button
-  document.getElementById("sidebar-back-btn")
+  document
+    .getElementById("sidebar-back-btn")
     ?.addEventListener("click", backToList, opt);
 
   // Recalculate / rebuild buttons in sidebar
-  document.getElementById("recalculate-coverage-btn")?.addEventListener("click", () => {
-    if (state.currentAreaId) {
-      const name = state.areaNameById.get(state.currentAreaId) || "this area";
-      recalculateCoverage(state.currentAreaId, name);
-    }
-  }, opt);
+  document.getElementById("recalculate-coverage-btn")?.addEventListener(
+    "click",
+    () => {
+      if (state.currentAreaId) {
+        const name = state.areaNameById.get(state.currentAreaId) || "this area";
+        recalculateCoverage(state.currentAreaId, name);
+      }
+    },
+    opt
+  );
 
-  document.getElementById("rebuild-area-btn")?.addEventListener("click", () => {
-    if (state.currentAreaId) {
-      const name = state.areaNameById.get(state.currentAreaId) || "this area";
-      rebuildArea(state.currentAreaId, name);
-    }
-  }, opt);
+  document.getElementById("rebuild-area-btn")?.addEventListener(
+    "click",
+    () => {
+      if (state.currentAreaId) {
+        const name = state.areaNameById.get(state.currentAreaId) || "this area";
+        rebuildArea(state.currentAreaId, name);
+      }
+    },
+    opt
+  );
 
   // Map filter chips
-  document.getElementById("map-filter-overlay")?.addEventListener("click", (e) => {
-    const chip = e.target.closest("[data-filter]");
-    if (!chip) return;
-    applyMapFilter(chip.dataset.filter || "all");
-  }, opt);
+  document.getElementById("map-filter-overlay")?.addEventListener(
+    "click",
+    (e) => {
+      const chip = e.target.closest("[data-filter]");
+      if (!chip) {
+        return;
+      }
+      applyMapFilter(chip.dataset.filter || "all");
+    },
+    opt
+  );
 
   // Optimal route generate button
-  document.getElementById("generate-route-btn")?.addEventListener("click", () => {
-    if (state.currentAreaId) generateOptimalRoute(state.currentAreaId);
-  }, opt);
+  document.getElementById("generate-route-btn")?.addEventListener(
+    "click",
+    () => {
+      if (state.currentAreaId) {
+        generateOptimalRoute(state.currentAreaId);
+      }
+    },
+    opt
+  );
 
   // Show/hide route toggle
-  document.getElementById("show-route-toggle")?.addEventListener("change", (e) => {
-    toggleOptimalRouteVisibility(e.target.checked);
-  }, opt);
+  document.getElementById("show-route-toggle")?.addEventListener(
+    "change",
+    (e) => {
+      toggleOptimalRouteVisibility(e.target.checked);
+    },
+    opt
+  );
 
   // Window resize handler
   let resizeTimeout;
-  window.addEventListener("resize", () => {
-    if (state.map) {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => state.map.resize(), 200);
-    }
-  }, opt);
+  window.addEventListener(
+    "resize",
+    () => {
+      if (state.map) {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => state.map.resize(), 200);
+      }
+    },
+    opt
+  );
 }
 
 function setupSidebarTabs(signal) {
   const opt = signal ? { signal } : false;
   document.querySelectorAll(".sidebar-tab-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const targetId = btn.dataset.tabTarget;
-      if (!targetId) return;
+    btn.addEventListener(
+      "click",
+      () => {
+        const targetId = btn.dataset.tabTarget;
+        if (!targetId) {
+          return;
+        }
 
-      // Update tab buttons
-      document.querySelectorAll(".sidebar-tab-btn").forEach((b) => {
-        b.classList.toggle("is-active", b === btn);
-        b.setAttribute("aria-selected", b === btn ? "true" : "false");
-      });
+        // Update tab buttons
+        document.querySelectorAll(".sidebar-tab-btn").forEach((b) => {
+          b.classList.toggle("is-active", b === btn);
+          b.setAttribute("aria-selected", b === btn ? "true" : "false");
+        });
 
-      // Show/hide panels
-      document.querySelectorAll(".sidebar-tab-panel").forEach((panel) => {
-        panel.hidden = panel.id !== targetId;
-      });
+        // Show/hide panels
+        document.querySelectorAll(".sidebar-tab-panel").forEach((panel) => {
+          panel.hidden = panel.id !== targetId;
+        });
 
-      // Lazy-load history
-      if (targetId === "sidebar-tab-history" && state.currentAreaId) {
-        loadJobHistory(state.currentAreaId);
-      }
-    }, opt);
+        // Lazy-load history
+        if (targetId === "sidebar-tab-history" && state.currentAreaId) {
+          loadJobHistory(state.currentAreaId);
+        }
+      },
+      opt
+    );
   });
 }
 
 function setupStreetMarkingListeners(signal) {
   const opt = signal ? { signal } : false;
 
-  document.getElementById("street-mark-driven-btn")?.addEventListener("click", async () => {
-    if (!state.selectedSegment || !state.currentAreaId) return;
-    await markSegmentDriven(state.currentAreaId, state.selectedSegment.segmentId);
-  }, opt);
+  document.getElementById("street-mark-driven-btn")?.addEventListener(
+    "click",
+    async () => {
+      if (!state.selectedSegment || !state.currentAreaId) {
+        return;
+      }
+      await markSegmentDriven(state.currentAreaId, state.selectedSegment.segmentId);
+    },
+    opt
+  );
 
-  document.getElementById("street-mark-undriveable-btn")?.addEventListener("click", async () => {
-    if (!state.selectedSegment || !state.currentAreaId) return;
-    await markSegmentUndriveable(state.currentAreaId, state.selectedSegment.segmentId);
-  }, opt);
+  document.getElementById("street-mark-undriveable-btn")?.addEventListener(
+    "click",
+    async () => {
+      if (!state.selectedSegment || !state.currentAreaId) {
+        return;
+      }
+      await markSegmentUndriveable(
+        state.currentAreaId,
+        state.selectedSegment.segmentId
+      );
+    },
+    opt
+  );
 
-  document.getElementById("street-mark-undriven-btn")?.addEventListener("click", async () => {
-    if (!state.selectedSegment || !state.currentAreaId) return;
-    await markSegmentUndriven(state.currentAreaId, state.selectedSegment.segmentId);
-  }, opt);
+  document.getElementById("street-mark-undriven-btn")?.addEventListener(
+    "click",
+    async () => {
+      if (!state.selectedSegment || !state.currentAreaId) {
+        return;
+      }
+      await markSegmentUndriven(state.currentAreaId, state.selectedSegment.segmentId);
+    },
+    opt
+  );
 
-  document.getElementById("street-detail-close")?.addEventListener("click", () => {
-    closeStreetDetailPanel();
-  }, opt);
+  document.getElementById("street-detail-close")?.addEventListener(
+    "click",
+    () => {
+      closeStreetDetailPanel();
+    },
+    opt
+  );
 }
 
 function setupKeyboardShortcuts(signal) {
-  document.addEventListener("keydown", (e) => {
-    // Don't fire in inputs
-    const tag = e.target?.tagName?.toUpperCase();
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-    if (e.target?.isContentEditable) return;
-    if (e.defaultPrevented) return;
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      // Don't fire in inputs
+      const tag = e.target?.tagName?.toUpperCase();
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
+        return;
+      }
+      if (e.target?.isContentEditable) {
+        return;
+      }
+      if (e.defaultPrevented) {
+        return;
+      }
 
-    if (state.view === "area") {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        if (state.selectedSegment) {
-          closeStreetDetailPanel();
-        } else {
-          backToList();
+      if (state.view === "area") {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          if (state.selectedSegment) {
+            closeStreetDetailPanel();
+          } else {
+            backToList();
+          }
+        } else if (e.key === "1") {
+          e.preventDefault();
+          applyMapFilter("all");
+        } else if (e.key === "2") {
+          e.preventDefault();
+          applyMapFilter("driven");
+        } else if (e.key === "3") {
+          e.preventDefault();
+          applyMapFilter("undriven");
         }
-      } else if (e.key === "1") {
-        e.preventDefault(); applyMapFilter("all");
-      } else if (e.key === "2") {
-        e.preventDefault(); applyMapFilter("driven");
-      } else if (e.key === "3") {
-        e.preventDefault(); applyMapFilter("undriven");
+      } else if (state.view === "list") {
+        if (e.key === "a" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          e.preventDefault();
+          const modal = document.getElementById("addAreaModal");
+          if (modal) {
+            bootstrap.Modal.getOrCreateInstance(modal).show();
+          }
+        } else if (e.key === "r" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          e.preventDefault();
+          loadAreas();
+        }
       }
-    } else if (state.view === "list") {
-      if (e.key === "a" && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        const modal = document.getElementById("addAreaModal");
-        if (modal) bootstrap.Modal.getOrCreateInstance(modal).show();
-      } else if (e.key === "r" && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        loadAreas();
-      }
-    }
-  }, signal ? { signal } : false);
+    },
+    signal ? { signal } : false
+  );
 }
 
 // =============================================================================
@@ -396,7 +496,9 @@ async function switchView(viewName) {
     viewName === "list" ? "coverage-list-view" : "coverage-area-view"
   );
 
-  if (!currentViewEl || !nextViewEl) return;
+  if (!currentViewEl || !nextViewEl) {
+    return;
+  }
 
   // Exit current view
   currentViewEl.classList.add("is-exiting");
@@ -453,13 +555,19 @@ async function backToList() {
 // =============================================================================
 
 function getIncludeServiceRoadsToggles() {
-  return INCLUDE_SERVICE_TOGGLE_IDS.map((id) => document.getElementById(id)).filter(Boolean);
+  return INCLUDE_SERVICE_TOGGLE_IDS.map((id) => document.getElementById(id)).filter(
+    Boolean
+  );
 }
 
 function setIncludeServiceRoadsToggleState({ checked, disabled } = {}) {
   getIncludeServiceRoadsToggles().forEach((t) => {
-    if (typeof checked === "boolean") t.checked = checked;
-    if (typeof disabled === "boolean") t.disabled = disabled;
+    if (typeof checked === "boolean") {
+      t.checked = checked;
+    }
+    if (typeof disabled === "boolean") {
+      t.disabled = disabled;
+    }
   });
 }
 
@@ -469,7 +577,12 @@ function getIncludeServiceRoadsSelection() {
 }
 
 function setIncludeServiceRoadsStatus(message, tone = "secondary") {
-  const tones = { secondary: "text-secondary", info: "text-info", success: "text-success", danger: "text-danger" };
+  const tones = {
+    secondary: "text-secondary",
+    info: "text-info",
+    success: "text-success",
+    danger: "text-danger",
+  };
   const cls = tones[tone] || tones.secondary;
   document.querySelectorAll("[data-include-service-status]").forEach((el) => {
     el.className = `form-text d-block mt-1 ${cls}`;
@@ -478,16 +591,21 @@ function setIncludeServiceRoadsStatus(message, tone = "secondary") {
 }
 
 function parseIncludeServiceFromFilterSignature(sig) {
-  if (typeof sig !== "string" || !sig.trim()) return null;
+  if (typeof sig !== "string" || !sig.trim()) {
+    return null;
+  }
   const m = sig.match(/(?:^|\|)service=(include|exclude)(?:\||$)/);
   return m ? m[1] === "include" : null;
 }
 
 function shouldRebuildForServiceFilter(areaId, includeServiceRoads) {
-  const sig = state.areaRoadFilterVersionById.get(areaId) ||
+  const sig =
+    state.areaRoadFilterVersionById.get(areaId) ||
     (state.currentAreaId === areaId ? state.currentAreaRoadFilterVersion : null);
   const areaIncludes = parseIncludeServiceFromFilterSignature(sig);
-  if (areaIncludes === null) return true;
+  if (areaIncludes === null) {
+    return true;
+  }
   return areaIncludes !== includeServiceRoads;
 }
 
@@ -500,7 +618,9 @@ async function loadCoverageFilterSettings() {
     const include = settings?.coverageIncludeServiceRoads !== false;
     setIncludeServiceRoadsToggleState({ checked: include });
     setIncludeServiceRoadsStatus(
-      include ? "Service roads are included for new area builds." : "Service roads are excluded for new area builds.",
+      include
+        ? "Service roads are included for new area builds."
+        : "Service roads are excluded for new area builds.",
       "secondary"
     );
   } catch {
@@ -513,7 +633,9 @@ async function loadCoverageFilterSettings() {
 
 async function handleIncludeServiceRoadsToggle(event) {
   const toggle = event?.currentTarget;
-  if (!toggle) return;
+  if (!toggle) {
+    return;
+  }
 
   const include = Boolean(toggle.checked);
   const prev = !include;
@@ -521,16 +643,28 @@ async function handleIncludeServiceRoadsToggle(event) {
   setIncludeServiceRoadsStatus("Saving filter setting…", "info");
 
   try {
-    await apiClient.post(APP_SETTINGS_API, { coverageIncludeServiceRoads: include }, withSignal());
+    await apiClient.post(
+      APP_SETTINGS_API,
+      { coverageIncludeServiceRoads: include },
+      withSignal()
+    );
     setIncludeServiceRoadsStatus(
-      include ? "Service roads are included for new area builds." : "Service roads are excluded for new area builds.",
+      include
+        ? "Service roads are included for new area builds."
+        : "Service roads are excluded for new area builds.",
       "success"
     );
-    notificationManager.show("Street filter saved. Use Recalculate Coverage to apply it.", "success");
+    notificationManager.show(
+      "Street filter saved. Use Recalculate Coverage to apply it.",
+      "success"
+    );
   } catch (error) {
     setIncludeServiceRoadsToggleState({ checked: prev });
     setIncludeServiceRoadsStatus("Save failed. Keeping previous setting.", "danger");
-    notificationManager.show(`Failed to save filter setting: ${error.message}`, "danger");
+    notificationManager.show(
+      `Failed to save filter setting: ${error.message}`,
+      "danger"
+    );
   } finally {
     setIncludeServiceRoadsToggleState({ disabled: false });
   }
@@ -571,7 +705,9 @@ async function loadAreas() {
     // Build active jobs map
     state.activeJobsByAreaId = new Map();
     (jobsData?.jobs || []).forEach((job) => {
-      if (job.area_id) state.activeJobsByAreaId.set(job.area_id, job);
+      if (job.area_id) {
+        state.activeJobsByAreaId.set(job.area_id, job);
+      }
     });
 
     const { hasAreas } = renderAreaCards({
@@ -588,22 +724,32 @@ async function loadAreas() {
     }
 
     const countEl = document.getElementById("total-areas-count");
-    if (countEl) countEl.textContent = (areasData.areas || []).length;
+    if (countEl) {
+      countEl.textContent = (areasData.areas || []).length;
+    }
   } catch (error) {
     console.error("Failed to load areas:", error);
-    notificationManager.show(`Failed to load coverage areas: ${error.message}`, "danger");
+    notificationManager.show(
+      `Failed to load coverage areas: ${error.message}`,
+      "danger"
+    );
   }
 }
 
 function handleAreaCardClick(event) {
   // Area actions from card + explicit error details trigger
   const btn = event.target.closest("[data-area-action], [data-error-action]");
-  if (!btn) return;
+  if (!btn) {
+    return;
+  }
 
-  const areaId = btn.dataset.areaId;
-  if (!areaId) return;
+  const { areaId } = btn.dataset;
+  if (!areaId) {
+    return;
+  }
 
-  const areaName = btn.dataset.areaName || state.areaNameById.get(areaId) || "Coverage area";
+  const areaName =
+    btn.dataset.areaName || state.areaNameById.get(areaId) || "Coverage area";
   const action = btn.dataset.areaAction;
 
   // Handle error trigger (card status click)
@@ -612,13 +758,23 @@ function handleAreaCardClick(event) {
     return;
   }
 
-  if (!action) return;
+  if (!action) {
+    return;
+  }
 
   switch (action) {
-    case "view":        viewArea(areaId); break;
-    case "recalculate": recalculateCoverage(areaId, areaName); break;
-    case "rebuild":     rebuildArea(areaId, areaName); break;
-    case "delete":      deleteArea(areaId, areaName); break;
+    case "view":
+      viewArea(areaId);
+      break;
+    case "recalculate":
+      recalculateCoverage(areaId, areaName);
+      break;
+    case "rebuild":
+      rebuildArea(areaId, areaName);
+      break;
+    case "delete":
+      deleteArea(areaId, areaName);
+      break;
   }
 }
 
@@ -636,11 +792,15 @@ async function addArea() {
   }
 
   if (!validationState.confirmedBoundary || !validationState.confirmedCandidate) {
-    notificationManager.show("Please validate and confirm a location before adding.", "warning");
+    notificationManager.show(
+      "Please validate and confirm a location before adding.",
+      "warning"
+    );
     return;
   }
 
-  const displayName = validationState.confirmedCandidate.display_name || displayNameInput;
+  const displayName =
+    validationState.confirmedCandidate.display_name || displayNameInput;
 
   try {
     // Close modal
@@ -688,7 +848,9 @@ async function deleteArea(areaId, displayName) {
     confirmButtonClass: "btn-danger",
   });
 
-  if (!confirmed) return;
+  if (!confirmed) {
+    return;
+  }
 
   try {
     await apiDelete(`/areas/${areaId}`);
@@ -708,13 +870,16 @@ async function deleteArea(areaId, displayName) {
 async function rebuildArea(areaId, displayName) {
   const confirmed = await confirmationDialog.show({
     title: "Rebuild Coverage Area",
-    message: "Rebuild this area with fresh data from the local OSM extract?<br><br>This may take a few minutes.",
+    message:
+      "Rebuild this area with fresh data from the local OSM extract?<br><br>This may take a few minutes.",
     allowHtml: true,
     confirmText: "Rebuild",
     confirmButtonClass: "btn-warning",
   });
 
-  if (!confirmed) return;
+  if (!confirmed) {
+    return;
+  }
 
   try {
     const result = await apiPost(`/areas/${areaId}/rebuild`, {});
@@ -728,7 +893,10 @@ async function rebuildArea(areaId, displayName) {
         areaName: displayName,
         initialMessage: result.message || "Rebuilding area…",
       });
-      notificationManager.show(result.message || "Rebuild started in the background.", "info");
+      notificationManager.show(
+        result.message || "Rebuild started in the background.",
+        "info"
+      );
     }
   } catch (error) {
     console.error("Failed to rebuild area:", error);
@@ -751,7 +919,9 @@ async function recalculateCoverage(areaId, displayName) {
     confirmButtonClass: needsRebuild ? "btn-warning" : "btn-info",
   });
 
-  if (!confirmed) return;
+  if (!confirmed) {
+    return;
+  }
 
   try {
     if (needsRebuild) {
@@ -763,23 +933,33 @@ async function recalculateCoverage(areaId, displayName) {
           jobType: "area_rebuild",
           areaId,
           areaName: displayName,
-          initialMessage: result.message || "Rebuilding area and recalculating coverage…",
+          initialMessage:
+            result.message || "Rebuilding area and recalculating coverage…",
         });
       }
-      notificationManager.show(result.message || "Rebuild started in the background.", "info");
+      notificationManager.show(
+        result.message || "Rebuild started in the background.",
+        "info"
+      );
       return;
     }
 
     notificationManager.show("Recalculating coverage… This may take a moment.", "info");
     const result = await apiPost(`/areas/${areaId}/backfill`, {});
-    notificationManager.show(`Coverage recalculated! Updated ${result.segments_updated} segments.`, "success");
+    notificationManager.show(
+      `Coverage recalculated! Updated ${result.segments_updated} segments.`,
+      "success"
+    );
     await loadAreas();
     if (state.currentAreaId === areaId) {
       await refreshDashboardStats(areaId);
     }
   } catch (error) {
     console.error("Failed to recalculate coverage:", error);
-    notificationManager.show(`Failed to recalculate coverage: ${error.message}`, "danger");
+    notificationManager.show(
+      `Failed to recalculate coverage: ${error.message}`,
+      "danger"
+    );
   }
 }
 
@@ -803,7 +983,9 @@ async function viewArea(areaId) {
       apiGet(`/areas/${areaId}/streets/summary`),
     ]);
 
-    if (requestId !== state.areaViewRequestId || state.currentAreaId !== areaId) return;
+    if (requestId !== state.areaViewRequestId || state.currentAreaId !== areaId) {
+      return;
+    }
 
     const { area } = data;
     if (!area) {
@@ -819,9 +1001,13 @@ async function viewArea(areaId) {
 
     // Update sidebar header
     const sidebarNameEl = document.getElementById("sidebar-area-name");
-    if (sidebarNameEl) sidebarNameEl.textContent = area.display_name;
+    if (sidebarNameEl) {
+      sidebarNameEl.textContent = area.display_name;
+    }
     const sidebarTypeEl = document.getElementById("sidebar-area-type");
-    if (sidebarTypeEl) sidebarTypeEl.textContent = area.area_type || "";
+    if (sidebarTypeEl) {
+      sidebarTypeEl.textContent = area.area_type || "";
+    }
 
     // Set initial coverage percent for milestone tracking
     state.previousCoveragePercent = normalizeCoveragePercent(area.coverage_percentage);
@@ -834,7 +1020,9 @@ async function viewArea(areaId) {
       await initOrUpdateMap(areaId, data.bounding_box, state.currentAreaSyncToken);
     }
   } catch (error) {
-    if (requestId !== state.areaViewRequestId || state.currentAreaId !== areaId) return;
+    if (requestId !== state.areaViewRequestId || state.currentAreaId !== areaId) {
+      return;
+    }
     console.error("Failed to load area:", error);
     notificationManager.show(`Failed to load area details: ${error.message}`, "danger");
   }
@@ -846,9 +1034,13 @@ async function refreshDashboardStats(areaId) {
       apiGet(`/areas/${areaId}`),
       apiGet(`/areas/${areaId}/streets/summary`),
     ]);
-    if (areaId !== state.currentAreaId) return;
+    if (areaId !== state.currentAreaId) {
+      return;
+    }
     const { area } = data;
-    if (!area) return;
+    if (!area) {
+      return;
+    }
     const prevPct = state.previousCoveragePercent;
     const newPct = normalizeCoveragePercent(area.coverage_percentage);
 
@@ -869,23 +1061,38 @@ function updateStatsUI(area, summary) {
 
   // Large ring
   const ringFillEl = document.querySelector("#ring-svg .progress-ring-fill");
-  if (ringFillEl) renderProgressRing(ringFillEl, pct);
+  if (ringFillEl) {
+    renderProgressRing(ringFillEl, pct);
+  }
 
   // Ring center label
   const ringPctEl = document.getElementById("ring-pct-value");
-  if (ringPctEl) ringPctEl.textContent = `${pct.toFixed(1)}%`;
+  if (ringPctEl) {
+    ringPctEl.textContent = `${pct.toFixed(1)}%`;
+  }
 
   // Map coverage chip
   const mapPctEl = document.getElementById("map-coverage-pct");
-  if (mapPctEl) mapPctEl.textContent = `${pct.toFixed(1)}%`;
+  if (mapPctEl) {
+    mapPctEl.textContent = `${pct.toFixed(1)}%`;
+  }
 
   // Quick stat pills
-  const remaining = Math.max(0, (area.total_length_miles || 0) - (area.driven_length_miles || 0));
-  setMetricValue("qs-driven", area.driven_length_miles || 0, { decimals: 1, suffix: " mi" });
+  const remaining = Math.max(
+    0,
+    (area.total_length_miles || 0) - (area.driven_length_miles || 0)
+  );
+  setMetricValue("qs-driven", area.driven_length_miles || 0, {
+    decimals: 1,
+    suffix: " mi",
+  });
   setMetricValue("qs-remaining", remaining, { decimals: 1, suffix: " mi" });
-  setMetricValue("qs-total", area.total_length_miles || 0, { decimals: 1, suffix: " mi" });
+  setMetricValue("qs-total", area.total_length_miles || 0, {
+    decimals: 1,
+    suffix: " mi",
+  });
 
-  const undrivenSegs = (summary?.segment_counts?.undriven) || 0;
+  const undrivenSegs = summary?.segment_counts?.undriven || 0;
   setMetricValue("qs-segments-remaining", undrivenSegs);
 
   // Segment breakdown
@@ -896,7 +1103,9 @@ function updateStatsUI(area, summary) {
   // Last activity
   const lastActivityEl = document.getElementById("qs-last-activity");
   if (lastActivityEl) {
-    lastActivityEl.textContent = area.last_synced ? formatRelativeTime(area.last_synced) : "—";
+    lastActivityEl.textContent = area.last_synced
+      ? formatRelativeTime(area.last_synced)
+      : "—";
   }
 }
 
@@ -918,22 +1127,44 @@ function renderProgressRing(fillEl, pct) {
 
 const MILESTONES = [25, 50, 75, 100];
 const MILESTONE_MESSAGES = {
-  25:  { icon: "🌱", title: "25% Complete!",   sub: "Great start — a quarter of the way there." },
-  50:  { icon: "⚡", title: "Halfway There!",  sub: "You're right in the thick of it. Keep going!" },
-  75:  { icon: "🔥", title: "75% Done!",       sub: "Almost there — the finish line is in sight!" },
-  100: { icon: "🏆", title: "Every Street!",   sub: "You've driven every street in this area!" },
+  25: {
+    icon: "🌱",
+    title: "25% Complete!",
+    sub: "Great start — a quarter of the way there.",
+  },
+  50: {
+    icon: "⚡",
+    title: "Halfway There!",
+    sub: "You're right in the thick of it. Keep going!",
+  },
+  75: {
+    icon: "🔥",
+    title: "75% Done!",
+    sub: "Almost there — the finish line is in sight!",
+  },
+  100: {
+    icon: "🏆",
+    title: "Every Street!",
+    sub: "You've driven every street in this area!",
+  },
 };
 
 function checkMilestone(prevPct, newPct) {
-  if (prevPct === null || prevPct === undefined) return;
+  if (prevPct === null || prevPct === undefined) {
+    return;
+  }
   const crossed = MILESTONES.find((m) => prevPct < m && newPct >= m);
-  if (!crossed) return;
+  if (!crossed) {
+    return;
+  }
   showMilestoneCelebration(MILESTONE_MESSAGES[crossed]);
 }
 
 function showMilestoneCelebration({ icon, title, sub }) {
   const overlay = document.getElementById("milestone-overlay");
-  if (!overlay) return;
+  if (!overlay) {
+    return;
+  }
 
   overlay.innerHTML = `
     <div class="milestone-content">
@@ -946,10 +1177,14 @@ function showMilestoneCelebration({ icon, title, sub }) {
   overlay.classList.add("is-celebrating");
   overlay.setAttribute("aria-hidden", "false");
 
-  document.getElementById("milestone-dismiss-btn")?.addEventListener("click", () => {
-    overlay.classList.remove("is-celebrating");
-    overlay.setAttribute("aria-hidden", "true");
-  }, { once: true });
+  document.getElementById("milestone-dismiss-btn")?.addEventListener(
+    "click",
+    () => {
+      overlay.classList.remove("is-celebrating");
+      overlay.setAttribute("aria-hidden", "true");
+    },
+    { once: true }
+  );
 
   // Auto-dismiss after 8 seconds
   setTimeout(() => {
@@ -966,7 +1201,9 @@ async function initOrUpdateMap(areaId, bbox, areaSyncToken = null) {
   if (!state.map) {
     // Remove loading spinner
     const loadingEl = document.getElementById("map-loading-state");
-    if (loadingEl) loadingEl.style.display = "none";
+    if (loadingEl) {
+      loadingEl.style.display = "none";
+    }
 
     const { styleUrl } = resolveMapStyle({ theme: getCurrentTheme() });
     let accessToken;
@@ -977,7 +1214,10 @@ async function initOrUpdateMap(areaId, bbox, areaSyncToken = null) {
     state.map = createMap("coverage-map", {
       style: styleUrl,
       accessToken,
-      bounds: [[bbox[0], bbox[1]], [bbox[2], bbox[3]]],
+      bounds: [
+        [bbox[0], bbox[1]],
+        [bbox[2], bbox[3]],
+      ],
       fitBoundsOptions: { padding: 50 },
       attributionControl: false,
     });
@@ -989,7 +1229,13 @@ async function initOrUpdateMap(areaId, bbox, areaSyncToken = null) {
       state.map.resize();
     });
   } else {
-    state.map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 50 });
+    state.map.fitBounds(
+      [
+        [bbox[0], bbox[1]],
+        [bbox[2], bbox[3]],
+      ],
+      { padding: 50 }
+    );
     loadStreets(areaId, areaSyncToken);
     setTimeout(() => state.map.resize(), 100);
   }
@@ -1000,13 +1246,17 @@ function buildStreetsCacheKey(areaId, syncToken) {
 }
 
 async function loadStreets(areaId, areaSyncToken = null) {
-  if (!state.map || !areaId) return;
+  if (!state.map || !areaId) {
+    return;
+  }
 
   const requestId = ++state.streetsLoadRequestId;
   const cacheKey = buildStreetsCacheKey(areaId, areaSyncToken);
 
   // Already rendered this version
-  if (cacheKey === state.renderedStreetsCacheKey && state.map.getSource("streets")) return;
+  if (cacheKey === state.renderedStreetsCacheKey && state.map.getSource("streets")) {
+    return;
+  }
 
   try {
     let data = state.streetsCacheKey === cacheKey ? state.streetsCacheGeojson : null;
@@ -1016,7 +1266,13 @@ async function loadStreets(areaId, areaSyncToken = null) {
       state.streetsCacheGeojson = data;
     }
 
-    if (requestId !== state.streetsLoadRequestId || areaId !== state.currentAreaId || !state.map) return;
+    if (
+      requestId !== state.streetsLoadRequestId ||
+      areaId !== state.currentAreaId ||
+      !state.map
+    ) {
+      return;
+    }
 
     if (state.map.getSource("streets")) {
       state.map.getSource("streets").setData(data);
@@ -1083,7 +1339,9 @@ async function loadStreets(areaId, areaSyncToken = null) {
 }
 
 function setupStreetInteractivity() {
-  if (!state.map || state.streetInteractivityReady) return;
+  if (!state.map || state.streetInteractivityReady) {
+    return;
+  }
   state.streetInteractivityReady = true;
 
   // Create a lightweight hover popup (no close button, no pointer events)
@@ -1096,7 +1354,9 @@ function setupStreetInteractivity() {
 
   // Click → open detail panel
   STREET_LAYERS.forEach((layerId) => {
-    if (!state.map.getLayer(layerId)) return;
+    if (!state.map.getLayer(layerId)) {
+      return;
+    }
     state.map.on("click", layerId, handleStreetClick);
     state.map.on("mousemove", layerId, handleStreetMouseMove);
     state.map.on("mouseleave", layerId, handleStreetMouseLeave);
@@ -1104,15 +1364,23 @@ function setupStreetInteractivity() {
 
   // Click on empty map → close detail panel
   state.map.on("click", (e) => {
-    const features = state.map.queryRenderedFeatures(e.point, { layers: STREET_LAYERS });
-    if (!features.length) closeStreetDetailPanel();
+    const features = state.map.queryRenderedFeatures(e.point, {
+      layers: STREET_LAYERS,
+    });
+    if (!features.length) {
+      closeStreetDetailPanel();
+    }
   });
 }
 
 function handleStreetMouseMove(e) {
-  if (!state.map) return;
+  if (!state.map) {
+    return;
+  }
   const feature = e.features?.[0];
-  if (!feature) return;
+  if (!feature) {
+    return;
+  }
 
   const sid = feature.properties?.segment_id;
   if (sid !== state.hoveredSegmentId) {
@@ -1122,14 +1390,19 @@ function handleStreetMouseMove(e) {
 
     // Show lightweight name tooltip
     const name = getStreetDisplayName(feature.properties?.street_name, sid);
-    state.hoverPopup.setLngLat(e.lngLat).setHTML(`<span>${escapeHtml(name)}</span>`).addTo(state.map);
+    state.hoverPopup
+      .setLngLat(e.lngLat)
+      .setHTML(`<span>${escapeHtml(name)}</span>`)
+      .addTo(state.map);
   } else {
     state.hoverPopup.setLngLat(e.lngLat);
   }
 }
 
 function handleStreetMouseLeave() {
-  if (!state.map) return;
+  if (!state.map) {
+    return;
+  }
   state.hoveredSegmentId = null;
   state.map.setFilter(HOVER_LAYER_ID, ["==", ["get", "segment_id"], ""]);
   state.map.getCanvas().style.cursor = "";
@@ -1138,7 +1411,9 @@ function handleStreetMouseLeave() {
 
 function handleStreetClick(event) {
   const feature = event.features?.[0];
-  if (!feature || !state.map) return;
+  if (!feature || !state.map) {
+    return;
+  }
   state.hoverPopup?.remove();
   openStreetDetailPanel(feature);
 }
@@ -1154,12 +1429,20 @@ function applyMapFilter(filter) {
   });
 
   // Update layer visibility
-  if (!state.map) return;
+  if (!state.map) {
+    return;
+  }
   STREET_LAYERS.forEach((layerId) => {
-    if (!state.map.getLayer(layerId)) return;
+    if (!state.map.getLayer(layerId)) {
+      return;
+    }
     let visible = "visible";
-    if (filter === "driven"   && layerId !== "streets-driven")    visible = "none";
-    if (filter === "undriven" && layerId !== "streets-undriven")  visible = "none";
+    if (filter === "driven" && layerId !== "streets-driven") {
+      visible = "none";
+    }
+    if (filter === "undriven" && layerId !== "streets-undriven") {
+      visible = "none";
+    }
     state.map.setLayoutProperty(layerId, "visibility", visible);
   });
 
@@ -1167,7 +1450,9 @@ function applyMapFilter(filter) {
 }
 
 function setHighlightedSegment(segmentId) {
-  if (!state.map || !state.map.getLayer(HIGHLIGHT_LAYER_ID)) return;
+  if (!state.map || !state.map.getLayer(HIGHLIGHT_LAYER_ID)) {
+    return;
+  }
 
   if (!segmentId) {
     state.map.setFilter(HIGHLIGHT_LAYER_ID, ["==", ["get", "segment_id"], ""]);
@@ -1177,9 +1462,17 @@ function setHighlightedSegment(segmentId) {
   const baseFilter = ["==", ["get", "segment_id"], segmentId];
 
   if (state.currentMapFilter === "driven") {
-    state.map.setFilter(HIGHLIGHT_LAYER_ID, ["all", baseFilter, ["==", ["get", "status"], "driven"]]);
+    state.map.setFilter(HIGHLIGHT_LAYER_ID, [
+      "all",
+      baseFilter,
+      ["==", ["get", "status"], "driven"],
+    ]);
   } else if (state.currentMapFilter === "undriven") {
-    state.map.setFilter(HIGHLIGHT_LAYER_ID, ["all", baseFilter, ["==", ["get", "status"], "undriven"]]);
+    state.map.setFilter(HIGHLIGHT_LAYER_ID, [
+      "all",
+      baseFilter,
+      ["==", ["get", "status"], "undriven"],
+    ]);
   } else {
     state.map.setFilter(HIGHLIGHT_LAYER_ID, baseFilter);
   }
@@ -1196,13 +1489,16 @@ function updateHighlightFilter() {
 function openStreetDetailPanel(feature) {
   const props = feature.properties || {};
   const segmentId = props.segment_id;
-  const status = typeof props.status === "string" ? props.status.toLowerCase() : "unknown";
+  const status =
+    typeof props.status === "string" ? props.status.toLowerCase() : "unknown";
 
   state.selectedSegment = { segmentId, properties: props };
 
   // Populate panel fields
   const nameEl = document.getElementById("street-detail-name");
-  if (nameEl) nameEl.textContent = getStreetDisplayName(props.street_name, segmentId);
+  if (nameEl) {
+    nameEl.textContent = getStreetDisplayName(props.street_name, segmentId);
+  }
 
   const statusPillEl = document.getElementById("street-detail-status-pill");
   if (statusPillEl) {
@@ -1211,25 +1507,39 @@ function openStreetDetailPanel(feature) {
   }
 
   const typeEl = document.getElementById("street-detail-type");
-  if (typeEl) typeEl.textContent = formatHighwayType(props.highway_type);
+  if (typeEl) {
+    typeEl.textContent = formatHighwayType(props.highway_type);
+  }
 
   const lengthEl = document.getElementById("street-detail-length");
-  if (lengthEl) lengthEl.textContent = formatMiles(props.length_miles);
+  if (lengthEl) {
+    lengthEl.textContent = formatMiles(props.length_miles);
+  }
 
   const firstEl = document.getElementById("street-detail-first");
-  if (firstEl) firstEl.textContent = formatPopupDate(props.first_driven_at, status);
+  if (firstEl) {
+    firstEl.textContent = formatPopupDate(props.first_driven_at, status);
+  }
 
   const lastEl = document.getElementById("street-detail-last");
-  if (lastEl) lastEl.textContent = formatPopupDate(props.last_driven_at, status);
+  if (lastEl) {
+    lastEl.textContent = formatPopupDate(props.last_driven_at, status);
+  }
 
   // Show/hide action buttons based on current status
   const drivenBtn = document.getElementById("street-mark-driven-btn");
   const undriveableBtn = document.getElementById("street-mark-undriveable-btn");
   const undrivenBtn = document.getElementById("street-mark-undriven-btn");
 
-  if (drivenBtn) drivenBtn.classList.toggle("d-none", status === "driven");
-  if (undriveableBtn) undriveableBtn.classList.toggle("d-none", status === "undriveable");
-  if (undrivenBtn) undrivenBtn.classList.toggle("d-none", status === "undriven");
+  if (drivenBtn) {
+    drivenBtn.classList.toggle("d-none", status === "driven");
+  }
+  if (undriveableBtn) {
+    undriveableBtn.classList.toggle("d-none", status === "undriveable");
+  }
+  if (undrivenBtn) {
+    undrivenBtn.classList.toggle("d-none", status === "undriven");
+  }
 
   // Highlight segment on map
   setHighlightedSegment(segmentId);
@@ -1259,7 +1569,10 @@ function closeStreetDetailPanel() {
 
 async function markSegmentDriven(areaId, segmentId) {
   if (!segmentId) {
-    notificationManager.show("Cannot mark segment: missing segment identifier.", "danger");
+    notificationManager.show(
+      "Cannot mark segment: missing segment identifier.",
+      "danger"
+    );
     return;
   }
   try {
@@ -1275,7 +1588,10 @@ async function markSegmentDriven(areaId, segmentId) {
 
 async function markSegmentUndriveable(areaId, segmentId) {
   if (!segmentId) {
-    notificationManager.show("Cannot mark segment: missing segment identifier.", "danger");
+    notificationManager.show(
+      "Cannot mark segment: missing segment identifier.",
+      "danger"
+    );
     return;
   }
   try {
@@ -1285,13 +1601,19 @@ async function markSegmentUndriveable(areaId, segmentId) {
     closeStreetDetailPanel();
     await refreshDashboardStats(areaId);
   } catch (error) {
-    notificationManager.show(`Failed to mark as undriveable: ${error.message}`, "danger");
+    notificationManager.show(
+      `Failed to mark as undriveable: ${error.message}`,
+      "danger"
+    );
   }
 }
 
 async function markSegmentUndriven(areaId, segmentId) {
   if (!segmentId) {
-    notificationManager.show("Cannot reset segment: missing segment identifier.", "danger");
+    notificationManager.show(
+      "Cannot reset segment: missing segment identifier.",
+      "danger"
+    );
     return;
   }
   try {
@@ -1311,7 +1633,9 @@ async function markSegmentUndriven(areaId, segmentId) {
  */
 function updateStreetStatus(segmentId, newStatus) {
   const source = state.map?.getSource("streets");
-  if (!source || !state.streetsCacheGeojson?.features) return;
+  if (!source || !state.streetsCacheGeojson?.features) {
+    return;
+  }
 
   const feature = state.streetsCacheGeojson.features.find(
     (f) => f.properties?.segment_id === segmentId
@@ -1339,7 +1663,9 @@ function updateStreetStatus(segmentId, newStatus) {
 
 async function loadJobHistory(areaId) {
   const container = document.getElementById("job-history-container");
-  if (!container) return;
+  if (!container) {
+    return;
+  }
 
   container.innerHTML = `<p class="text-secondary small text-center mt-4">
     <i class="fas fa-spinner fa-spin me-1" aria-hidden="true"></i>Loading history…
@@ -1347,40 +1673,52 @@ async function loadJobHistory(areaId) {
 
   try {
     const data = await apiGet(`/areas/${areaId}/jobs`);
-    if (areaId !== state.currentAreaId) return;
+    if (areaId !== state.currentAreaId) {
+      return;
+    }
     renderJobHistory(data.jobs || []);
   } catch {
-    if (areaId !== state.currentAreaId) return;
-    container.innerHTML = '<p class="text-secondary small text-center mt-4">Could not load job history.</p>';
+    if (areaId !== state.currentAreaId) {
+      return;
+    }
+    container.innerHTML =
+      '<p class="text-secondary small text-center mt-4">Could not load job history.</p>';
   }
 }
 
 function renderJobHistory(jobs) {
   const container = document.getElementById("job-history-container");
-  if (!container) return;
+  if (!container) {
+    return;
+  }
 
   if (!jobs.length) {
-    container.innerHTML = '<p class="text-secondary small text-center mt-4">No recent jobs found.</p>';
+    container.innerHTML =
+      '<p class="text-secondary small text-center mt-4">No recent jobs found.</p>';
     return;
   }
 
   const typeLabels = {
     area_ingestion: "Area Setup",
-    area_rebuild:   "OSM Rebuild",
-    area_backfill:  "Coverage Recalculate",
-    optimal_route:  "Route Generation",
+    area_rebuild: "OSM Rebuild",
+    area_backfill: "Coverage Recalculate",
+    optimal_route: "Route Generation",
   };
 
   const statusIcons = {
-    completed: '<i class="fas fa-check-circle text-success" aria-label="Completed"></i>',
-    failed:    '<i class="fas fa-exclamation-circle text-danger" aria-label="Failed"></i>',
-    running:   '<i class="fas fa-spinner fa-spin text-info" aria-label="Running"></i>',
-    pending:   '<i class="fas fa-clock text-warning" aria-label="Pending"></i>',
-    cancelled: '<i class="fas fa-times-circle text-secondary" aria-label="Cancelled"></i>',
+    completed:
+      '<i class="fas fa-check-circle text-success" aria-label="Completed"></i>',
+    failed: '<i class="fas fa-exclamation-circle text-danger" aria-label="Failed"></i>',
+    running: '<i class="fas fa-spinner fa-spin text-info" aria-label="Running"></i>',
+    pending: '<i class="fas fa-clock text-warning" aria-label="Pending"></i>',
+    cancelled:
+      '<i class="fas fa-times-circle text-secondary" aria-label="Cancelled"></i>',
   };
 
   container.innerHTML = `<div class="job-history-list">
-    ${jobs.map((job) => `
+    ${jobs
+      .map(
+        (job) => `
       <div class="job-history-item">
         <div class="job-history-header">
           <span class="job-history-type">
@@ -1390,7 +1728,9 @@ function renderJobHistory(jobs) {
           <span class="job-history-time">${job.created_at ? formatRelativeTime(job.created_at) : ""}</span>
         </div>
         ${job.message ? `<div class="job-history-message">${escapeHtml(job.message)}</div>` : ""}
-      </div>`).join("")}
+      </div>`
+      )
+      .join("")}
   </div>`;
 }
 
@@ -1402,12 +1742,14 @@ async function generateOptimalRoute(areaId) {
   const btn = document.getElementById("generate-route-btn");
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1" aria-hidden="true"></i>Generating…';
+    btn.innerHTML =
+      '<i class="fas fa-spinner fa-spin me-1" aria-hidden="true"></i>Generating…';
   }
 
   const infoContainer = document.getElementById("route-info-container");
   if (infoContainer) {
-    infoContainer.innerHTML = '<p class="text-secondary small">Generating optimal route… This may take a minute.</p>';
+    infoContainer.innerHTML =
+      '<p class="text-secondary small">Generating optimal route… This may take a minute.</p>';
   }
 
   notificationManager.show("Generating optimal route…", "info");
@@ -1426,22 +1768,33 @@ async function generateOptimalRoute(areaId) {
     notificationManager.show(`Route generation failed: ${error.message}`, "danger");
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-magic me-1" aria-hidden="true"></i>Generate Optimal Route';
+      btn.innerHTML =
+        '<i class="fas fa-magic me-1" aria-hidden="true"></i>Generate Optimal Route';
     }
-    if (infoContainer) infoContainer.innerHTML = "";
+    if (infoContainer) {
+      infoContainer.innerHTML = "";
+    }
   }
 }
 
 function pollOptimalRoute(areaId, taskId) {
-  if (!taskId || !state.pageActive) return;
+  if (!taskId || !state.pageActive) {
+    return;
+  }
 
   const checkStatus = async () => {
-    if (!state.pageActive || state.currentAreaId !== areaId) return;
+    if (!state.pageActive || state.currentAreaId !== areaId) {
+      return;
+    }
 
     try {
       const job = await apiGet(`/jobs/${taskId}`);
-      const progress = job.status === "completed" ? 100
-        : typeof job.progress === "number" ? Math.round(job.progress) : 0;
+      const progress =
+        job.status === "completed"
+          ? 100
+          : typeof job.progress === "number"
+            ? Math.round(job.progress)
+            : 0;
 
       const infoContainer = document.getElementById("route-info-container");
       if (infoContainer && job.status !== "completed") {
@@ -1460,14 +1813,18 @@ function pollOptimalRoute(areaId, taskId) {
         const btn = document.getElementById("generate-route-btn");
         if (btn) {
           btn.disabled = false;
-          btn.innerHTML = '<i class="fas fa-sync me-1" aria-hidden="true"></i>Regenerate Route';
+          btn.innerHTML =
+            '<i class="fas fa-sync me-1" aria-hidden="true"></i>Regenerate Route';
         }
 
         const toggleWrapper = document.getElementById("show-route-toggle-wrapper");
-        if (toggleWrapper) toggleWrapper.style.display = "";
+        if (toggleWrapper) {
+          toggleWrapper.style.display = "";
+        }
 
         if (infoContainer) {
-          infoContainer.innerHTML = '<p class="text-success small"><i class="fas fa-check me-1"></i>Optimal route generated and displayed on map.</p>';
+          infoContainer.innerHTML =
+            '<p class="text-success small"><i class="fas fa-check me-1"></i>Optimal route generated and displayed on map.</p>';
         }
 
         notificationManager.show("Optimal route ready!", "success");
@@ -1478,10 +1835,14 @@ function pollOptimalRoute(areaId, taskId) {
         const btn = document.getElementById("generate-route-btn");
         if (btn) {
           btn.disabled = false;
-          btn.innerHTML = '<i class="fas fa-magic me-1" aria-hidden="true"></i>Generate Optimal Route';
+          btn.innerHTML =
+            '<i class="fas fa-magic me-1" aria-hidden="true"></i>Generate Optimal Route';
         }
         const infoEl = document.getElementById("route-info-container");
-        if (infoEl) infoEl.innerHTML = '<p class="text-danger small">Route generation failed.</p>';
+        if (infoEl) {
+          infoEl.innerHTML =
+            '<p class="text-danger small">Route generation failed.</p>';
+        }
         notificationManager.show("Route generation failed.", "danger");
         return;
       }
@@ -1499,7 +1860,9 @@ function pollOptimalRoute(areaId, taskId) {
 }
 
 function renderOptimalRouteOnMap(routeGeoJSON) {
-  if (!state.map) return;
+  if (!state.map) {
+    return;
+  }
 
   if (state.map.getSource("optimal-route")) {
     state.map.getSource("optimal-route").setData(routeGeoJSON);
@@ -1522,8 +1885,14 @@ function renderOptimalRouteOnMap(routeGeoJSON) {
 }
 
 function toggleOptimalRouteVisibility(visible) {
-  if (!state.map || !state.map.getLayer("optimal-route-line")) return;
-  state.map.setLayoutProperty("optimal-route-line", "visibility", visible ? "visible" : "none");
+  if (!state.map || !state.map.getLayer("optimal-route-line")) {
+    return;
+  }
+  state.map.setLayoutProperty(
+    "optimal-route-line",
+    "visibility",
+    visible ? "visible" : "none"
+  );
 }
 
 // =============================================================================
@@ -1531,40 +1900,57 @@ function toggleOptimalRouteVisibility(visible) {
 // =============================================================================
 
 function showCoverageErrorDetails(areaId, areaName, { scroll = true } = {}) {
-  if (!areaId) return;
+  if (!areaId) {
+    return;
+  }
 
   const panel = document.getElementById("coverage-error-panel");
-  if (!panel) return;
+  if (!panel) {
+    return;
+  }
 
-  const errorMessage = state.areaErrorById.get(areaId) || "No error details were recorded.";
+  const errorMessage =
+    state.areaErrorById.get(areaId) || "No error details were recorded.";
 
   const titleEl = document.getElementById("coverage-error-title");
-  if (titleEl) titleEl.textContent = "Coverage calculation error";
+  if (titleEl) {
+    titleEl.textContent = "Coverage calculation error";
+  }
 
   const areaEl = document.getElementById("coverage-error-area");
-  if (areaEl) areaEl.textContent = areaName ? `Area: ${areaName}` : "";
+  if (areaEl) {
+    areaEl.textContent = areaName ? `Area: ${areaName}` : "";
+  }
 
   const messageEl = document.getElementById("coverage-error-message");
-  if (messageEl) messageEl.textContent = errorMessage;
+  if (messageEl) {
+    messageEl.textContent = errorMessage;
+  }
 
   state.activeErrorAreaId = areaId;
   panel.classList.remove("d-none", "fade-in-up");
   void panel.offsetWidth;
   panel.classList.add("fade-in-up");
 
-  if (scroll) panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  if (scroll) {
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
 }
 
 function hideCoverageErrorDetails() {
   const panel = document.getElementById("coverage-error-panel");
-  if (!panel) return;
+  if (!panel) {
+    return;
+  }
   panel.classList.add("d-none");
   panel.classList.remove("fade-in-up");
   state.activeErrorAreaId = null;
 }
 
 function refreshCoverageErrorDetails(areas) {
-  if (!state.activeErrorAreaId) return;
+  if (!state.activeErrorAreaId) {
+    return;
+  }
   const area = areas?.find((a) => a.id === state.activeErrorAreaId);
   if (!area || area.status !== "error") {
     hideCoverageErrorDetails();
@@ -1589,19 +1975,23 @@ function initValidationUI() {
 }
 
 function setAddButtonEnabled(enabled) {
-  if (!validationElements?.addButton) return;
+  if (!validationElements?.addButton) {
+    return;
+  }
   validationElements.addButton.disabled = !enabled;
   validationElements.addButton.setAttribute("aria-disabled", String(!enabled));
 }
 
 function setValidationStatus({ icon, message, tone = "neutral" }) {
-  if (!validationElements?.status) return;
+  if (!validationElements?.status) {
+    return;
+  }
   const toneClassMap = {
     neutral: "text-secondary",
-    info:    "text-info",
+    info: "text-info",
     success: "text-success",
     warning: "text-warning",
-    danger:  "text-danger",
+    danger: "text-danger",
   };
   const toneClass = toneClassMap[tone] || toneClassMap.neutral;
   validationElements.status.className = `validation-status ${toneClass}`;
@@ -1622,9 +2012,11 @@ function clearValidationSelection() {
     validationElements.confirmation.textContent = "";
   }
   if (validationElements?.candidates) {
-    validationElements.candidates.querySelectorAll(".validation-candidate").forEach((el) => {
-      el.classList.remove("is-selected");
-    });
+    validationElements.candidates
+      .querySelectorAll(".validation-candidate")
+      .forEach((el) => {
+        el.classList.remove("is-selected");
+      });
   }
 }
 
@@ -1641,7 +2033,9 @@ function resetValidationState() {
     requestId: 0,
     resolveRequestId: 0,
   });
-  if (validationElements?.candidates) validationElements.candidates.innerHTML = "";
+  if (validationElements?.candidates) {
+    validationElements.candidates.innerHTML = "";
+  }
   if (validationElements?.note) {
     validationElements.note.textContent = "";
     validationElements.note.classList.add("d-none");
@@ -1651,16 +2045,24 @@ function resetValidationState() {
     validationElements.confirmation.textContent = "";
   }
   setAddButtonEnabled(false);
-  setValidationStatus({ icon: "fa-location-dot", message: "Enter a location to validate.", tone: "neutral" });
+  setValidationStatus({
+    icon: "fa-location-dot",
+    message: "Enter a location to validate.",
+    tone: "neutral",
+  });
 }
 
 async function validateLocationInput() {
   const query = document.getElementById("location-input")?.value.trim() || "";
   const areaType = document.getElementById("location-type")?.value || "city";
 
-  if (!query || query.length < 2) return;
+  if (!query || query.length < 2) {
+    return;
+  }
 
-  if (query === validationState.lastQuery && areaType === validationState.lastType) return;
+  if (query === validationState.lastQuery && areaType === validationState.lastType) {
+    return;
+  }
 
   validationState.lastQuery = query;
   validationState.lastType = areaType;
@@ -1673,15 +2075,25 @@ async function validateLocationInput() {
       withSignal()
     );
 
-    if (requestId !== validationState.requestId) return;
+    if (requestId !== validationState.requestId) {
+      return;
+    }
 
     validationState.candidates = result.candidates || [];
     renderValidationCandidates(validationState.candidates);
 
     if (validationState.candidates.length === 0) {
-      setValidationStatus({ icon: "fa-triangle-exclamation", message: "No matches found. Try a different spelling or area type.", tone: "warning" });
+      setValidationStatus({
+        icon: "fa-triangle-exclamation",
+        message: "No matches found. Try a different spelling or area type.",
+        tone: "warning",
+      });
     } else {
-      setValidationStatus({ icon: "fa-list", message: `Found ${validationState.candidates.length} match${validationState.candidates.length !== 1 ? "es" : ""}. Select one to confirm.`, tone: "info" });
+      setValidationStatus({
+        icon: "fa-list",
+        message: `Found ${validationState.candidates.length} match${validationState.candidates.length !== 1 ? "es" : ""}. Select one to confirm.`,
+        tone: "info",
+      });
     }
 
     if (result.note && validationElements?.note) {
@@ -1692,13 +2104,21 @@ async function validateLocationInput() {
       validationElements.note.classList.add("d-none");
     }
   } catch (error) {
-    if (requestId !== validationState.requestId) return;
-    setValidationStatus({ icon: "fa-exclamation-circle", message: `Validation error: ${error.message}`, tone: "danger" });
+    if (requestId !== validationState.requestId) {
+      return;
+    }
+    setValidationStatus({
+      icon: "fa-exclamation-circle",
+      message: `Validation error: ${error.message}`,
+      tone: "danger",
+    });
   }
 }
 
 function renderValidationCandidates(candidates) {
-  if (!validationElements?.candidates) return;
+  if (!validationElements?.candidates) {
+    return;
+  }
   if (!candidates.length) {
     validationElements.candidates.innerHTML = "";
     return;
@@ -1706,7 +2126,9 @@ function renderValidationCandidates(candidates) {
 
   validationElements.candidates.innerHTML = candidates
     .map((c, idx) => {
-      const typeMatch = c.type_match ? "" : '<span class="validation-badge badge-mismatch">Type mismatch</span>';
+      const typeMatch = c.type_match
+        ? ""
+        : '<span class="validation-badge badge-mismatch">Type mismatch</span>';
       const typeBadge = `<span class="validation-badge">${escapeHtml(c.osm_type || "")}</span>`;
       return `
         <button type="button"
@@ -1726,11 +2148,15 @@ function renderValidationCandidates(candidates) {
 
 async function handleCandidateClick(event) {
   const btn = event.target.closest("[data-candidate-index]");
-  if (!btn) return;
+  if (!btn) {
+    return;
+  }
 
   const idx = parseInt(btn.dataset.candidateIndex, 10);
   const candidate = validationState.candidates[idx];
-  if (!candidate) return;
+  if (!candidate) {
+    return;
+  }
 
   validationState.selectedCandidate = candidate;
   validationState.confirmedCandidate = null;
@@ -1742,12 +2168,18 @@ async function handleCandidateClick(event) {
   }
 
   // Mark selected
-  validationElements?.candidates?.querySelectorAll(".validation-candidate").forEach((el, i) => {
-    el.classList.toggle("is-selected", i === idx);
-    el.setAttribute("aria-selected", i === idx ? "true" : "false");
-  });
+  validationElements?.candidates
+    ?.querySelectorAll(".validation-candidate")
+    .forEach((el, i) => {
+      el.classList.toggle("is-selected", i === idx);
+      el.setAttribute("aria-selected", i === idx ? "true" : "false");
+    });
 
-  setValidationStatus({ icon: "fa-spinner fa-spin", message: "Resolving boundary…", tone: "info" });
+  setValidationStatus({
+    icon: "fa-spinner fa-spin",
+    message: "Resolving boundary…",
+    tone: "info",
+  });
 
   const resolveId = ++validationState.resolveRequestId;
 
@@ -1758,12 +2190,18 @@ async function handleCandidateClick(event) {
       withSignal()
     );
 
-    if (resolveId !== validationState.resolveRequestId) return;
+    if (resolveId !== validationState.resolveRequestId) {
+      return;
+    }
 
     validationState.confirmedCandidate = result;
     validationState.confirmedBoundary = result.boundary;
 
-    setValidationStatus({ icon: "fa-check-circle", message: `Confirmed: ${escapeHtml(result.display_name || candidate.display_name)}`, tone: "success" });
+    setValidationStatus({
+      icon: "fa-check-circle",
+      message: `Confirmed: ${escapeHtml(result.display_name || candidate.display_name)}`,
+      tone: "success",
+    });
 
     if (validationElements?.confirmation) {
       validationElements.confirmation.textContent = `Ready to add: ${result.display_name || candidate.display_name}`;
@@ -1772,8 +2210,14 @@ async function handleCandidateClick(event) {
 
     setAddButtonEnabled(true);
   } catch (error) {
-    if (resolveId !== validationState.resolveRequestId) return;
-    setValidationStatus({ icon: "fa-exclamation-circle", message: `Failed to resolve boundary: ${error.message}`, tone: "danger" });
+    if (resolveId !== validationState.resolveRequestId) {
+      return;
+    }
+    setValidationStatus({
+      icon: "fa-exclamation-circle",
+      message: `Failed to resolve boundary: ${error.message}`,
+      tone: "danger",
+    });
   }
 }
 
@@ -1787,25 +2231,43 @@ function formatStatus(statusKey) {
 }
 
 function formatHighwayType(type) {
-  if (!type) return "Unknown";
-  return String(type).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  if (!type) {
+    return "Unknown";
+  }
+  return String(type)
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function getStreetDisplayName(streetName, segmentId = "") {
   const normalizedName = typeof streetName === "string" ? streetName.trim() : "";
-  if (normalizedName) return normalizedName;
+  if (normalizedName) {
+    return normalizedName;
+  }
   const normalizedSegmentId = typeof segmentId === "string" ? segmentId.trim() : "";
-  if (normalizedSegmentId) return `Unnamed Street (${normalizedSegmentId})`;
+  if (normalizedSegmentId) {
+    return `Unnamed Street (${normalizedSegmentId})`;
+  }
   return "Unnamed Street";
 }
 
 function formatPopupDate(value, statusKey) {
   if (!value) {
-    if (statusKey === "driven")      return "Unknown";
-    if (statusKey === "undriveable") return "N/A";
+    if (statusKey === "driven") {
+      return "Unknown";
+    }
+    if (statusKey === "undriveable") {
+      return "N/A";
+    }
     return "Never";
   }
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Unknown";
-  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown";
+  }
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }

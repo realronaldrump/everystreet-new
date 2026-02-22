@@ -19,7 +19,10 @@ test("waitForMapboxToken resolves immediately with hard-coded token", async () =
 
 test("isMapboxStyleUrl detects mapbox styles and API URLs", () => {
   assert.equal(isMapboxStyleUrl("mapbox://styles/mapbox/dark-v11"), true);
-  assert.equal(isMapboxStyleUrl("https://api.mapbox.com/styles/v1/mapbox/light-v11"), true);
+  assert.equal(
+    isMapboxStyleUrl("https://api.mapbox.com/styles/v1/mapbox/light-v11"),
+    true
+  );
   assert.equal(isMapboxStyleUrl("https://example.com/style.json"), false);
   assert.equal(isMapboxStyleUrl(""), false);
 });

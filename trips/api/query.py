@@ -11,9 +11,9 @@ from core.api import api_route
 from core.casting import safe_float
 from core.date_utils import parse_timestamp
 from core.spatial import GeometryService
+from core.trip_source_policy import enforce_bouncie_source
 from db import build_query_from_request
 from db.models import Trip
-from core.trip_source_policy import enforce_bouncie_source
 from trips.services import TripCostService, TripQueryService
 from trips.services.trip_ingest_issue_service import TripIngestIssueService
 

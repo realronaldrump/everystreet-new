@@ -28,7 +28,9 @@ export default function initMapControls({ signal, cleanup } = {}) {
       : window.innerWidth <= 768;
 
   const updateToggleButton = () => {
-    if (!toggleBtn) return;
+    if (!toggleBtn) {
+      return;
+    }
     const expanded = isMobile()
       ? controls.classList.contains("expanded")
       : isExpandedDesktop;
@@ -46,9 +48,7 @@ export default function initMapControls({ signal, cleanup } = {}) {
   };
 
   const requestMobileToggle = () => {
-    document.dispatchEvent(
-      new CustomEvent(MOBILE_TOGGLE_EVENT, { bubbles: true }),
-    );
+    document.dispatchEvent(new CustomEvent(MOBILE_TOGGLE_EVENT, { bubbles: true }));
   };
 
   const toggleMapControls = () => {
@@ -62,7 +62,7 @@ export default function initMapControls({ signal, cleanup } = {}) {
   const setStreetMode = (mode) => {
     const buttons = document.querySelectorAll(".quick-action-btn");
     const currentlyActive = [...buttons].some(
-      (btn) => btn.classList.contains("active") && btn.dataset.streetMode === mode,
+      (btn) => btn.classList.contains("active") && btn.dataset.streetMode === mode
     );
 
     buttons.forEach((btn) => {
@@ -78,7 +78,7 @@ export default function initMapControls({ signal, cleanup } = {}) {
       new CustomEvent("es:streetModeChange", {
         detail: { mode, shouldHide: currentlyActive },
         bubbles: true,
-      }),
+      })
     );
   };
 
@@ -106,9 +106,13 @@ export default function initMapControls({ signal, cleanup } = {}) {
   initState();
 
   const onResize = () => {
-    if (resizeTimeout) clearTimeout(resizeTimeout);
+    if (resizeTimeout) {
+      clearTimeout(resizeTimeout);
+    }
     resizeTimeout = setTimeout(() => {
-      if (!controls) return;
+      if (!controls) {
+        return;
+      }
       if (isMobile()) {
         controls.classList.remove("desktop-collapsed");
       } else {

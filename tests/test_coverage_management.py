@@ -12,8 +12,8 @@ from core.coverage import (
     backfill_coverage_for_area,
     mark_segment_undriveable,
     mark_segment_undriven,
-    update_coverage_for_trip,
     update_coverage_for_segments,
+    update_coverage_for_trip,
 )
 from db.models import CoverageArea, CoverageState, Job, Street, Trip
 from street_coverage import ingestion as coverage_ingestion
@@ -159,7 +159,9 @@ async def test_update_coverage_for_segments_ignores_unknown_segment_ids(
 
 
 @pytest.mark.asyncio
-async def test_update_coverage_for_segments_noops_when_area_missing(coverage_db) -> None:
+async def test_update_coverage_for_segments_noops_when_area_missing(
+    coverage_db,
+) -> None:
     missing_area_id = PydanticObjectId()
     result = await update_coverage_for_segments(
         area_id=missing_area_id,

@@ -42,9 +42,12 @@ async def test_place_pair_analysis_honors_90d_timeframe_and_place_default(
     # Runtime-relative anchor avoids 90d cutoff drift while keeping week buckets stable.
     runtime_now = datetime.now(UTC)
     # Anchor to the most recent Wednesday at 08:00 UTC for deterministic trips/week.
-    now = (
-        runtime_now - timedelta(days=(runtime_now.weekday() - 2) % 7)
-    ).replace(hour=8, minute=0, second=0, microsecond=0)
+    now = (runtime_now - timedelta(days=(runtime_now.weekday() - 2) % 7)).replace(
+        hour=8,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
 
     start_place = Place(name="Home", geometry=_point(-122.401, 37.790), created_at=now)
     end_place = Place(name="Office", geometry=_point(-122.394, 37.781), created_at=now)

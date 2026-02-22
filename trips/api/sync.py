@@ -146,9 +146,7 @@ async def get_trip_history_import_plan(
     selected = None
     if selected_imeis is not None:
         selected = [
-            imei.strip()
-            for imei in selected_imeis.split(",")
-            if imei and imei.strip()
+            imei.strip() for imei in selected_imeis.split(",") if imei and imei.strip()
         ]
     return await build_import_plan(
         start_dt=start_dt,

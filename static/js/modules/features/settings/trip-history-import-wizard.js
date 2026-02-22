@@ -404,7 +404,11 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     const hasDevices = allDevices.length > 0;
     const lacksSelection = hasDevices && selectedCount < 1;
     startBtn.disabled =
-      isPlanLoading || isStartSubmitting || isConfigBlocked || !hasDevices || lacksSelection;
+      isPlanLoading ||
+      isStartSubmitting ||
+      isConfigBlocked ||
+      !hasDevices ||
+      lacksSelection;
   };
 
   const updateDeviceSelectionUi = () => {
@@ -412,7 +416,8 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     const selectedCount = getSelectedImeis().length;
 
     if (devicesCount) {
-      devicesCount.textContent = total > 0 ? `${selectedCount}/${total} selected` : "--";
+      devicesCount.textContent =
+        total > 0 ? `${selectedCount}/${total} selected` : "--";
     }
     if (selectAllDevicesBtn) {
       selectAllDevicesBtn.disabled = total < 1 || selectedCount === total;

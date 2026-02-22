@@ -1,5 +1,10 @@
 import { escapeHtml } from "../../utils.js";
-import { formatMiles, formatRelativeTime, getCoverageTierClass, normalizeCoveragePercent } from "./stats.js";
+import {
+  formatMiles,
+  formatRelativeTime,
+  getCoverageTierClass,
+  normalizeCoveragePercent,
+} from "./stats.js";
 
 export function isJobActiveStatus(status) {
   return ["pending", "running"].includes(status);
@@ -16,10 +21,10 @@ export function isJobTerminalStatus(status) {
 function renderStatus(area, job) {
   const status = area?.status;
   const statusConfig = {
-    ready:        { cls: "success", icon: "check-circle",   text: "Ready" },
-    initializing: { cls: "info",    icon: "spinner fa-spin", text: "Setting up…" },
-    rebuilding:   { cls: "warning", icon: "sync fa-spin",    text: "Rebuilding…" },
-    error:        { cls: "danger",  icon: "exclamation-circle", text: "Error" },
+    ready: { cls: "success", icon: "check-circle", text: "Ready" },
+    initializing: { cls: "info", icon: "spinner fa-spin", text: "Setting up…" },
+    rebuilding: { cls: "warning", icon: "sync fa-spin", text: "Rebuilding…" },
+    error: { cls: "danger", icon: "exclamation-circle", text: "Error" },
   };
 
   const config = statusConfig[status] || statusConfig.error;
@@ -41,8 +46,11 @@ function renderStatus(area, job) {
       </button>`;
   }
 
-  if (job && isJobActiveStatus(job.status) &&
-      (status === "initializing" || status === "rebuilding")) {
+  if (
+    job &&
+    isJobActiveStatus(job.status) &&
+    (status === "initializing" || status === "rebuilding")
+  ) {
     const percent = typeof job.progress === "number" ? Math.round(job.progress) : 0;
     const detailText = job.message ? escapeHtml(job.message) : "Processing";
     return `
@@ -67,12 +75,24 @@ function renderStatus(area, job) {
 // -----------------------------------------------------------------------------
 
 function getCoverageAccent(pct, status) {
-  if (status === "error") return "danger";
-  if (status !== "ready") return "secondary";
-  if (pct >= 100) return "amber";
-  if (pct >= 76)  return "success";
-  if (pct >= 51)  return "info";
-  if (pct >= 26)  return "warning";
+  if (status === "error") {
+    return "danger";
+  }
+  if (status !== "ready") {
+    return "secondary";
+  }
+  if (pct >= 100) {
+    return "amber";
+  }
+  if (pct >= 76) {
+    return "success";
+  }
+  if (pct >= 51) {
+    return "info";
+  }
+  if (pct >= 26) {
+    return "warning";
+  }
   return "danger";
 }
 
@@ -89,7 +109,10 @@ function renderAreaCard(area, job) {
   const totalSegments = area.total_segments || 0;
   const drivenSegments = area.driven_segments || 0;
   const undriveableSegments = area.undriveable_segments || 0;
-  const remainingSegments = Math.max(0, totalSegments - drivenSegments - undriveableSegments);
+  const remainingSegments = Math.max(
+    0,
+    totalSegments - drivenSegments - undriveableSegments
+  );
 
   // Small inline SVG ring (48px container, r=20, cx/cy=24)
   const MINI_R = 20;
@@ -208,15 +231,24 @@ function renderAreaCard(area, job) {
  * @param {Map}    options.areaNameById         - Map to populate: areaId → display name
  * @returns {{ hasAreas: boolean }}
  */
-export function renderAreaCards({ areas, activeJobsByAreaId, areaErrorById, areaNameById }) {
+export function renderAreaCards({
+  areas,
+  activeJobsByAreaId,
+  areaErrorById,
+  areaNameById,
+}) {
   const grid = document.getElementById("area-cards-grid");
   const loading = document.getElementById("area-cards-loading");
   const emptyState = document.getElementById("area-empty-state");
 
   // Hide skeleton loader once we have data
-  if (loading) loading.style.display = "none";
+  if (loading) {
+    loading.style.display = "none";
+  }
 
-  if (!grid) return { hasAreas: false };
+  if (!grid) {
+    return { hasAreas: false };
+  }
 
   if (!areas || areas.length === 0) {
     areaErrorById.clear();

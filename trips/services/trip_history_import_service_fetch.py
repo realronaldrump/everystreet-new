@@ -124,7 +124,8 @@ async def _fetch_trips_for_window(
             )
 
         async def fetch_sub(
-            sub_start: datetime, sub_end: datetime
+            sub_start: datetime,
+            sub_end: datetime,
         ) -> list[dict[str, Any]]:
             try:
                 chunk = await _fetch_trips_for_window(

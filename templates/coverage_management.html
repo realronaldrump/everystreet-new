@@ -1,551 +1,629 @@
 {% extends "base.html" %}
 
-{% block title %}Coverage Management{% endblock %}
+{% block title %}
+
+Coverage Management
+{% endblock %}
+
 
 {% block head_content %}
+
   <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
   <link rel="stylesheet"
         href="{{ url_for('static', path='css/coverage-management.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
+
 {% block content %}
 
-<!-- ============================================================
+  <!-- ============================================================
      VIEW 1: AREA LIST
      ============================================================ -->
-<div id="coverage-list-view" class="coverage-view coverage-view--list">
-  <div class="container-fluid">
-    <div class="bento-grid" data-stagger>
+  <div id="coverage-list-view" class="coverage-view coverage-view--list">
+    <div class="container-fluid">
+      <div class="bento-grid" data-stagger>
 
-      <!-- Page Header -->
-      <div class="bento-span-12 widget" data-accent="amber">
-        <div class="widget-header">
-          <div>
-            <h1 class="widget-title">
-              <i class="fas fa-route" aria-hidden="true"></i>
+        <!-- Page Header -->
+        <div class="bento-span-12 widget" data-accent="amber">
+          <div class="widget-header">
+            <div>
+              <h1 class="widget-title">
+                <i class="fas fa-route" aria-hidden="true"></i>
               Every Street
-            </h1>
-            <p class="widget-meta">Track your street coverage challenge — how much have you driven?</p>
-          </div>
-          <div class="list-header-actions">
-            <div class="total-areas-badge">
-              <span id="total-areas-count" class="total-areas-number">0</span>
-              <span class="total-areas-label">areas</span>
+              </h1>
+              <p class="widget-meta">
+Track your street coverage challenge — how much have you driven?
+              </p>
             </div>
-            <button class="btn btn-success btn-sm"
-                    data-bs-toggle="modal"
-                    data-bs-target="#addAreaModal"
-                    aria-label="Add a new coverage area">
-              <i class="fas fa-plus me-1" aria-hidden="true"></i>Add Area
-            </button>
-            <button class="btn btn-outline-secondary btn-sm"
-                    id="refresh-list-btn"
-                    aria-label="Refresh coverage data"
-                    title="Refresh">
-              <i class="fas fa-sync-alt" aria-hidden="true"></i>
-            </button>
+            <div class="list-header-actions">
+              <div class="total-areas-badge">
+                <span id="total-areas-count" class="total-areas-number">0</span>
+                <span class="total-areas-label">areas</span>
+              </div>
+              <button class="btn btn-success btn-sm"
+                      data-bs-toggle="modal"
+                      data-bs-target="#addAreaModal"
+                      aria-label="Add a new coverage area">
+                <i class="fas fa-plus me-1" aria-hidden="true"></i>Add Area
+              </button>
+              <button class="btn btn-outline-secondary btn-sm"
+                      id="refresh-list-btn"
+                      aria-label="Refresh coverage data"
+                      title="Refresh">
+                <i class="fas fa-sync-alt" aria-hidden="true"></i>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Alerts container -->
-      <div class="bento-span-12" id="alerts-container"></div>
-
-      <!-- Area Cards -->
-      <div class="bento-span-12">
-        <!-- Loading skeleton -->
-        <div class="area-cards-loading" id="area-cards-loading" aria-live="polite" aria-label="Loading coverage areas">
-          <div class="area-card-skeleton" aria-hidden="true"></div>
-          <div class="area-card-skeleton" aria-hidden="true"></div>
-          <div class="area-card-skeleton" aria-hidden="true"></div>
+        <!-- Alerts container -->
+        <div class="bento-span-12" id="alerts-container">
         </div>
 
-        <!-- Cards grid (populated by JS) -->
-        <div class="area-cards-grid stagger-container"
-             id="area-cards-grid"
-             role="list"
-             aria-label="Coverage areas"
-             style="display: none">
-        </div>
-
-        <!-- Empty state -->
-        <div class="empty-state-coverage d-none" id="area-empty-state">
-          <div class="empty-state-icon">
-            <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
+        <!-- Area Cards -->
+        <div class="bento-span-12">
+          <!-- Loading skeleton -->
+          <div class="area-cards-loading"
+               id="area-cards-loading"
+               aria-live="polite"
+               aria-label="Loading coverage areas">
+            <div class="area-card-skeleton" aria-hidden="true">
+            </div>
+            <div class="area-card-skeleton" aria-hidden="true">
+            </div>
+            <div class="area-card-skeleton" aria-hidden="true">
+            </div>
           </div>
-          <h3 class="empty-state-title">Start Your Street Challenge</h3>
-          <p class="empty-state-body">
+
+          <!-- Cards grid (populated by JS) -->
+          <div class="area-cards-grid stagger-container"
+               id="area-cards-grid"
+               role="list"
+               aria-label="Coverage areas"
+               style="display: none">
+          </div>
+
+          <!-- Empty state -->
+          <div class="empty-state-coverage d-none" id="area-empty-state">
+            <div class="empty-state-icon">
+              <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
+            </div>
+            <h3 class="empty-state-title">
+Start Your Street Challenge
+            </h3>
+            <p class="empty-state-body">
             Add a coverage area to begin tracking which streets you've driven.
             Coverage updates automatically every time you complete a trip.
-          </p>
-          <button class="btn btn-success btn-lg"
-                  data-bs-toggle="modal"
-                  data-bs-target="#addAreaModal">
-            <i class="fas fa-plus me-2" aria-hidden="true"></i>Add Your First Area
-          </button>
-        </div>
-      </div>
-
-      <!-- Error panel -->
-      <div class="bento-span-12 coverage-error-panel d-none"
-           id="coverage-error-panel"
-           role="alert"
-           aria-live="polite">
-        <div class="coverage-error-header">
-          <div class="coverage-error-title">
-            <span class="coverage-error-icon">
-              <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
-            </span>
-            <div>
-              <div id="coverage-error-title">Coverage calculation error</div>
-              <div class="coverage-error-area" id="coverage-error-area"></div>
-            </div>
+            </p>
+            <button class="btn btn-success btn-lg"
+                    data-bs-toggle="modal"
+                    data-bs-target="#addAreaModal">
+              <i class="fas fa-plus me-2" aria-hidden="true"></i>Add Your First Area
+            </button>
           </div>
-          <button type="button"
-                  class="btn btn-sm btn-outline-secondary coverage-error-dismiss"
-                  id="coverage-error-dismiss"
-                  aria-label="Dismiss error details">
-            <i class="fas fa-times" aria-hidden="true"></i>
-          </button>
         </div>
-        <div class="coverage-error-body">
-          <div class="coverage-error-label">Error details</div>
-          <pre class="coverage-error-message" id="coverage-error-message"></pre>
+
+        <!-- Error panel -->
+        <div class="bento-span-12 coverage-error-panel d-none"
+             id="coverage-error-panel"
+             role="alert"
+             aria-live="polite">
+          <div class="coverage-error-header">
+            <div class="coverage-error-title">
+              <span class="coverage-error-icon">
+                <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+              </span>
+              <div>
+                <div id="coverage-error-title">
+Coverage calculation error
+                </div>
+                <div class="coverage-error-area" id="coverage-error-area">
+                </div>
+              </div>
+            </div>
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary coverage-error-dismiss"
+                    id="coverage-error-dismiss"
+                    aria-label="Dismiss error details">
+              <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="coverage-error-body">
+            <div class="coverage-error-label">
+Error details
+            </div>
+            <pre class="coverage-error-message" id="coverage-error-message"></pre>
+          </div>
         </div>
+
       </div>
+      <!-- /.bento-grid -->
+    </div>
+    <!-- /.container-fluid -->
+  </div>
+  <!-- /#coverage-list-view -->
 
-    </div><!-- /.bento-grid -->
-  </div><!-- /.container-fluid -->
-</div><!-- /#coverage-list-view -->
 
-
-<!-- ============================================================
+  <!-- ============================================================
      VIEW 2: AREA DETAIL (full-viewport map + sidebar)
      ============================================================ -->
-<div id="coverage-area-view"
-     class="coverage-view coverage-view--area"
-     style="display: none"
-     aria-hidden="true">
+  <div id="coverage-area-view"
+       class="coverage-view coverage-view--area"
+       style="display: none"
+       aria-hidden="true">
 
-  <!-- LEFT SIDEBAR -->
-  <aside id="coverage-sidebar" class="coverage-sidebar" aria-label="Coverage details">
+    <!-- LEFT SIDEBAR -->
+    <aside id="coverage-sidebar" class="coverage-sidebar" aria-label="Coverage details">
 
-    <!-- Sidebar area header -->
-    <div class="sidebar-area-header">
-      <button id="sidebar-back-btn"
-              class="sidebar-back-btn"
-              aria-label="Back to coverage areas list"
-              title="Back to areas">
-        <i class="fas fa-arrow-left" aria-hidden="true"></i>
-      </button>
-      <div class="sidebar-area-name-group">
-        <span id="sidebar-area-name" class="sidebar-area-name">Loading…</span>
-        <span id="sidebar-area-type" class="sidebar-area-type"></span>
-      </div>
-    </div>
-
-    <!-- Sidebar tab strip -->
-    <div class="coverage-sidebar-tabs" role="tablist" aria-label="Coverage detail tabs">
-      <button class="sidebar-tab-btn is-active"
-              role="tab"
-              aria-selected="true"
-              aria-controls="sidebar-tab-stats"
-              data-tab-target="sidebar-tab-stats"
-              id="tab-btn-stats">
-        <i class="fas fa-chart-pie me-1" aria-hidden="true"></i>Stats
-      </button>
-      <button class="sidebar-tab-btn"
-              role="tab"
-              aria-selected="false"
-              aria-controls="sidebar-tab-history"
-              data-tab-target="sidebar-tab-history"
-              id="tab-btn-history">
-        <i class="fas fa-history me-1" aria-hidden="true"></i>History
-      </button>
-      <button class="sidebar-tab-btn"
-              role="tab"
-              aria-selected="false"
-              aria-controls="sidebar-tab-route"
-              data-tab-target="sidebar-tab-route"
-              id="tab-btn-route">
-        <i class="fas fa-directions me-1" aria-hidden="true"></i>Route
-      </button>
-    </div>
-
-    <!-- TAB PANEL: Stats -->
-    <div id="sidebar-tab-stats"
-         class="sidebar-tab-panel"
-         role="tabpanel"
-         aria-labelledby="tab-btn-stats">
-
-      <!-- Large circular progress ring -->
-      <div class="progress-ring-container" aria-label="Coverage percentage">
-        <svg id="ring-svg"
-             class="progress-ring-svg"
-             viewBox="0 0 140 140"
-             width="140"
-             height="140"
-             aria-hidden="true">
-          <circle class="progress-ring-track"
-                  cx="70" cy="70" r="60"
-                  fill="none"
-                  stroke-width="8" />
-          <circle class="progress-ring-fill"
-                  cx="70" cy="70" r="60"
-                  fill="none"
-                  stroke-width="8"
-                  stroke-linecap="round"
-                  transform="rotate(-90 70 70)"
-                  style="stroke-dasharray: 376.99; stroke-dashoffset: 376.99;" />
-        </svg>
-        <div class="progress-ring-center">
-          <span id="ring-pct-value" class="progress-ring-pct" aria-live="polite">0%</span>
-          <span class="progress-ring-label">covered</span>
+      <!-- Sidebar area header -->
+      <div class="sidebar-area-header">
+        <button id="sidebar-back-btn"
+                class="sidebar-back-btn"
+                aria-label="Back to coverage areas list"
+                title="Back to areas">
+          <i class="fas fa-arrow-left" aria-hidden="true"></i>
+        </button>
+        <div class="sidebar-area-name-group">
+          <span id="sidebar-area-name" class="sidebar-area-name">Loading…</span>
+          <span id="sidebar-area-type" class="sidebar-area-type"></span>
         </div>
       </div>
 
-      <!-- Quick stat pills -->
-      <div class="quick-stats-row">
-        <div class="quick-stat-pill">
-          <span id="qs-driven" class="qs-value" data-value-flash>0 mi</span>
-          <span class="qs-label">Driven</span>
-        </div>
-        <div class="quick-stat-pill">
-          <span id="qs-remaining" class="qs-value" data-value-flash>0 mi</span>
-          <span class="qs-label">Remaining</span>
-        </div>
-        <div class="quick-stat-pill">
-          <span id="qs-total" class="qs-value">0 mi</span>
-          <span class="qs-label">Total</span>
-        </div>
-        <div class="quick-stat-pill">
-          <span id="qs-segments-remaining" class="qs-value" data-value-flash>0</span>
-          <span class="qs-label">Segments left</span>
-        </div>
+      <!-- Sidebar tab strip -->
+      <div class="coverage-sidebar-tabs" role="tablist" aria-label="Coverage detail tabs">
+        <button class="sidebar-tab-btn is-active"
+                role="tab"
+                aria-selected="true"
+                aria-controls="sidebar-tab-stats"
+                data-tab-target="sidebar-tab-stats"
+                id="tab-btn-stats">
+          <i class="fas fa-chart-pie me-1" aria-hidden="true"></i>Stats
+        </button>
+        <button class="sidebar-tab-btn"
+                role="tab"
+                aria-selected="false"
+                aria-controls="sidebar-tab-history"
+                data-tab-target="sidebar-tab-history"
+                id="tab-btn-history">
+          <i class="fas fa-history me-1" aria-hidden="true"></i>History
+        </button>
+        <button class="sidebar-tab-btn"
+                role="tab"
+                aria-selected="false"
+                aria-controls="sidebar-tab-route"
+                data-tab-target="sidebar-tab-route"
+                id="tab-btn-route">
+          <i class="fas fa-directions me-1" aria-hidden="true"></i>Route
+        </button>
       </div>
 
-      <!-- Segment breakdown -->
-      <div class="segment-breakdown">
-        <h4 class="breakdown-title">Street Segments</h4>
-        <div class="breakdown-row">
-          <div class="breakdown-dot breakdown-dot--driven" aria-hidden="true"></div>
-          <span class="breakdown-label">Driven</span>
-          <span id="seg-driven" class="breakdown-count" aria-live="polite">0</span>
-        </div>
-        <div class="breakdown-row">
-          <div class="breakdown-dot breakdown-dot--undriven" aria-hidden="true"></div>
-          <span class="breakdown-label">Undriven</span>
-          <span id="seg-undriven" class="breakdown-count" aria-live="polite">0</span>
-        </div>
-        <div class="breakdown-row">
-          <div class="breakdown-dot breakdown-dot--undriveable" aria-hidden="true"></div>
-          <span class="breakdown-label">Undriveable</span>
-          <span id="seg-undriveable" class="breakdown-count" aria-live="polite">0</span>
-        </div>
-        <div class="breakdown-row breakdown-row--muted">
-          <i class="fas fa-clock breakdown-icon" aria-hidden="true"></i>
-          <span class="breakdown-label">Last updated</span>
-          <span id="qs-last-activity" class="breakdown-count">—</span>
-        </div>
-      </div>
+      <!-- TAB PANEL: Stats -->
+      <div id="sidebar-tab-stats"
+           class="sidebar-tab-panel"
+           role="tabpanel"
+           aria-labelledby="tab-btn-stats">
 
-      <!-- Actions -->
-      <div class="sidebar-actions">
-        <div class="sidebar-action-group">
-          <label class="sidebar-toggle-label" for="dashboard-include-service-roads-toggle">
-            <span class="toggle-text">Service Roads</span>
-            <div class="form-check form-switch mb-0">
-              <input type="checkbox"
-                     id="dashboard-include-service-roads-toggle"
-                     class="form-check-input"
-                     role="switch"
-                     checked />
+        <!-- Large circular progress ring -->
+        <div class="progress-ring-container" aria-label="Coverage percentage">
+          <svg id="ring-svg"
+               class="progress-ring-svg"
+               viewBox="0 0 140 140"
+               width="140"
+               height="140"
+               aria-hidden="true">
+<circle class="progress-ring-track" cx="70" cy="70" r="60" fill="none" stroke-width="8" />
+<circle class="progress-ring-fill" cx="70" cy="70" r="60" fill="none" stroke-width="8" stroke-linecap="round" transform="rotate(-90 70 70)" style="stroke-dasharray: 376.99; stroke-dashoffset: 376.99;" />
+          </svg>
+          <div class="progress-ring-center">
+            <span id="ring-pct-value" class="progress-ring-pct" aria-live="polite">0%</span>
+            <span class="progress-ring-label">covered</span>
+          </div>
+        </div>
+
+        <!-- Quick stat pills -->
+        <div class="quick-stats-row">
+          <div class="quick-stat-pill">
+            <span id="qs-driven" class="qs-value" data-value-flash>0 mi</span>
+            <span class="qs-label">Driven</span>
+          </div>
+          <div class="quick-stat-pill">
+            <span id="qs-remaining" class="qs-value" data-value-flash>0 mi</span>
+            <span class="qs-label">Remaining</span>
+          </div>
+          <div class="quick-stat-pill">
+            <span id="qs-total" class="qs-value">0 mi</span>
+            <span class="qs-label">Total</span>
+          </div>
+          <div class="quick-stat-pill">
+            <span id="qs-segments-remaining" class="qs-value" data-value-flash>0</span>
+            <span class="qs-label">Segments left</span>
+          </div>
+        </div>
+
+        <!-- Segment breakdown -->
+        <div class="segment-breakdown">
+          <h4 class="breakdown-title">
+Street Segments
+          </h4>
+          <div class="breakdown-row">
+            <div class="breakdown-dot breakdown-dot--driven" aria-hidden="true">
             </div>
-          </label>
-          <small class="form-text text-secondary d-block mt-1"
-                 data-include-service-status
-                 aria-live="polite"></small>
+            <span class="breakdown-label">Driven</span>
+            <span id="seg-driven" class="breakdown-count" aria-live="polite">0</span>
+          </div>
+          <div class="breakdown-row">
+            <div class="breakdown-dot breakdown-dot--undriven" aria-hidden="true">
+            </div>
+            <span class="breakdown-label">Undriven</span>
+            <span id="seg-undriven" class="breakdown-count" aria-live="polite">0</span>
+          </div>
+          <div class="breakdown-row">
+            <div class="breakdown-dot breakdown-dot--undriveable" aria-hidden="true">
+            </div>
+            <span class="breakdown-label">Undriveable</span>
+            <span id="seg-undriveable" class="breakdown-count" aria-live="polite">0</span>
+          </div>
+          <div class="breakdown-row breakdown-row--muted">
+            <i class="fas fa-clock breakdown-icon" aria-hidden="true"></i>
+            <span class="breakdown-label">Last updated</span>
+            <span id="qs-last-activity" class="breakdown-count">—</span>
+          </div>
         </div>
 
-        <button class="btn btn-info btn-sm w-100 mb-2" id="recalculate-coverage-btn">
-          <i class="fas fa-calculator me-1" aria-hidden="true"></i>Recalculate Coverage
-        </button>
-        <button class="btn btn-outline-warning btn-sm w-100" id="rebuild-area-btn">
-          <i class="fas fa-sync me-1" aria-hidden="true"></i>Rebuild from OSM
-        </button>
-      </div>
-
-    </div><!-- /#sidebar-tab-stats -->
-
-    <!-- TAB PANEL: History -->
-    <div id="sidebar-tab-history"
-         class="sidebar-tab-panel"
-         role="tabpanel"
-         aria-labelledby="tab-btn-history"
-         hidden>
-      <div id="job-history-container">
-        <p class="text-secondary small text-center mt-4">
-          <i class="fas fa-spinner fa-spin me-1" aria-hidden="true"></i>Loading history…
-        </p>
-      </div>
-    </div>
-
-    <!-- TAB PANEL: Route -->
-    <div id="sidebar-tab-route"
-         class="sidebar-tab-panel"
-         role="tabpanel"
-         aria-labelledby="tab-btn-route"
-         hidden>
-
-      <div class="route-intro">
-        <p class="text-secondary small">
-          Generate an optimized driving route to complete all remaining undriven streets in this area.
-        </p>
-      </div>
-
-      <button class="btn btn-primary w-100 mb-3" id="generate-route-btn">
-        <i class="fas fa-magic me-1" aria-hidden="true"></i>Generate Optimal Route
-      </button>
-
-      <div class="form-check form-switch mb-3" id="show-route-toggle-wrapper" style="display: none">
-        <input type="checkbox"
-               id="show-route-toggle"
-               class="form-check-input"
-               role="switch"
-               checked />
-        <label class="form-check-label small" for="show-route-toggle">
-          Show route on map
-        </label>
-      </div>
-
-      <div id="route-info-container"></div>
-
-    </div><!-- /#sidebar-tab-route -->
-
-  </aside><!-- /#coverage-sidebar -->
-
-
-  <!-- FULL-BLEED MAP AREA -->
-  <div id="coverage-map-wrapper" class="coverage-map-wrapper">
-
-    <!-- The map canvas -->
-    <div id="coverage-map" class="coverage-map" role="application" aria-label="Coverage map">
-      <div class="map-loading-state" id="map-loading-state" aria-live="polite">
-        <div class="spinner-border text-primary" role="status">
-          <span class="visually-hidden">Loading map…</span>
-        </div>
-        <span class="map-loading-label">Loading map…</span>
-      </div>
-    </div>
-
-    <!-- OVERLAY: Top-right filter chips -->
-    <div class="map-overlay map-overlay--top-right" id="map-filter-overlay" role="group" aria-label="Street filter">
-      <button class="map-filter-chip map-filter-chip--active"
-              data-filter="all"
-              aria-pressed="true">All</button>
-      <button class="map-filter-chip"
-              data-filter="driven"
-              aria-pressed="false">Driven</button>
-      <button class="map-filter-chip"
-              data-filter="undriven"
-              aria-pressed="false">Undriven</button>
-    </div>
-
-    <!-- OVERLAY: Bottom-left legend -->
-    <div class="map-overlay map-overlay--bottom-left" id="map-legend-overlay" aria-label="Map legend">
-      <div class="map-legend-item">
-        <span class="map-legend-swatch map-legend-swatch--driven" aria-hidden="true"></span>
-        <span class="map-legend-text">Driven</span>
-      </div>
-      <div class="map-legend-item">
-        <span class="map-legend-swatch map-legend-swatch--undriven" aria-hidden="true"></span>
-        <span class="map-legend-text">Undriven</span>
-      </div>
-      <div class="map-legend-item">
-        <span class="map-legend-swatch map-legend-swatch--undriveable" aria-hidden="true"></span>
-        <span class="map-legend-text">Undriveable</span>
-      </div>
-    </div>
-
-    <!-- OVERLAY: Bottom-right coverage chip -->
-    <div class="map-overlay map-overlay--bottom-right" id="map-coverage-chip" aria-live="polite">
-      <span id="map-coverage-pct" class="map-coverage-pct">0%</span>
-      <span class="map-coverage-label">covered</span>
-    </div>
-
-    <!-- Milestone celebration overlay -->
-    <div id="milestone-overlay"
-         class="milestone-overlay"
-         aria-hidden="true"
-         role="dialog"
-         aria-modal="true"
-         aria-label="Coverage milestone achievement">
-    </div>
-
-    <!-- Hover name tooltip (absolute positioned, pointer-events none) -->
-    <div id="map-street-tooltip" class="map-street-tooltip" aria-hidden="true"></div>
-
-  </div><!-- /#coverage-map-wrapper -->
-
-
-  <!-- STREET DETAIL PANEL (slides in from right) -->
-  <aside id="street-detail-panel"
-         class="street-detail-panel"
-         aria-hidden="true"
-         aria-label="Street segment details">
-
-    <div class="street-detail-header">
-      <div class="street-detail-title-group">
-        <h4 id="street-detail-name" class="street-detail-name">Street Name</h4>
-        <span id="street-detail-status-pill" class="street-status-pill"></span>
-      </div>
-      <button id="street-detail-close"
-              class="street-detail-close"
-              aria-label="Close street details">
-        <i class="fas fa-times" aria-hidden="true"></i>
-      </button>
-    </div>
-
-    <div class="street-detail-body">
-      <dl class="street-detail-grid">
-        <dt>Type</dt>
-        <dd id="street-detail-type">—</dd>
-        <dt>Length</dt>
-        <dd id="street-detail-length">—</dd>
-        <dt>First driven</dt>
-        <dd id="street-detail-first">—</dd>
-        <dt>Last driven</dt>
-        <dd id="street-detail-last">—</dd>
-      </dl>
-
-      <div class="street-detail-actions" id="street-detail-actions">
-        <button id="street-mark-driven-btn"
-                class="btn btn-success btn-sm w-100 mb-2 d-none"
-                aria-label="Mark this segment as driven">
-          <i class="fas fa-check me-1" aria-hidden="true"></i>Mark as Driven
-        </button>
-        <button id="street-mark-undriveable-btn"
-                class="btn btn-outline-secondary btn-sm w-100 mb-2 d-none"
-                aria-label="Mark this segment as undriveable">
-          <i class="fas fa-ban me-1" aria-hidden="true"></i>Mark as Undriveable
-        </button>
-        <button id="street-mark-undriven-btn"
-                class="btn btn-outline-danger btn-sm w-100 d-none"
-                aria-label="Reset this segment to undriven">
-          <i class="fas fa-undo me-1" aria-hidden="true"></i>Reset to Undriven
-        </button>
-      </div>
-    </div>
-
-  </aside><!-- /#street-detail-panel -->
-
-</div><!-- /#coverage-area-view -->
-
-
-<!-- ============================================================
-     ADD AREA MODAL
-     ============================================================ -->
-<div class="modal fade" id="addAreaModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">
-          <i class="fas fa-plus-circle me-2" aria-hidden="true"></i>Add Coverage Area
-        </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <form id="add-area-form" novalidate>
-          <div class="mb-3">
-            <label for="location-input" class="form-label">Location Name</label>
-            <input type="text"
-                   id="location-input"
-                   class="form-control"
-                   placeholder="e.g., Waco, TX"
-                   autocomplete="off"
-                   required />
-            <small class="form-text text-secondary">Enter a city, county, or state name</small>
-          </div>
-          <div class="mb-3">
-            <label for="location-type" class="form-label">Area Type</label>
-            <select id="location-type" class="form-select">
-              <option value="city" selected>City</option>
-              <option value="county">County</option>
-              <option value="state">State / Region</option>
-            </select>
-            <small class="form-text text-secondary">Used as a type hint for location matching</small>
-          </div>
-          <div class="mb-3">
-            <label for="include-service-roads-toggle"
-                   class="form-label d-flex justify-content-between align-items-center">
-              <span>Service Roads</span>
-              <span class="badge text-bg-secondary">Street Generation</span>
+        <!-- Actions -->
+        <div class="sidebar-actions">
+          <div class="sidebar-action-group">
+            <label class="sidebar-toggle-label" for="dashboard-include-service-roads-toggle">
+              <span class="toggle-text">Service Roads</span>
+              <div class="form-check form-switch mb-0">
+                <input type="checkbox"
+                       id="dashboard-include-service-roads-toggle"
+                       class="form-check-input"
+                       role="switch"
+                       checked />
+              </div>
             </label>
-            <div class="form-check form-switch">
-              <input type="checkbox"
-                     id="include-service-roads-toggle"
-                     class="form-check-input"
-                     role="switch"
-                     checked />
-              <label class="form-check-label" for="include-service-roads-toggle">
-                Include <code>highway=service</code> roads
-              </label>
-            </div>
-            <small class="form-text text-secondary d-block">
-              Applies to new area builds/rebuilds only.
-            </small>
             <small class="form-text text-secondary d-block mt-1"
-                   id="include-service-roads-status"
                    data-include-service-status
                    aria-live="polite"></small>
           </div>
 
-          <!-- Validation panel -->
-          <div class="coverage-validation" id="coverage-validation-panel">
-            <div id="location-validation-status"
-                 class="validation-status"
-                 role="status"
-                 aria-live="polite">
-              <span class="status-icon">
-                <i class="fas fa-location-dot" aria-hidden="true"></i>
-              </span>
-              <span>Enter a location to validate.</span>
-            </div>
-            <div id="location-validation-note"
-                 class="validation-note text-secondary small d-none"></div>
-            <div id="location-validation-candidates"
-                 class="validation-candidates"
-                 role="listbox"
-                 aria-label="Validation matches"></div>
-            <div id="location-validation-confirmation"
-                 class="alert alert-success validation-confirmation d-none"
-                 role="status"
-                 aria-live="polite"></div>
-            <small class="form-text text-secondary mt-2">
-              Validate and confirm the correct location before adding.
-            </small>
-          </div>
-        </form>
+          <button class="btn btn-info btn-sm w-100 mb-2" id="recalculate-coverage-btn">
+            <i class="fas fa-calculator me-1" aria-hidden="true"></i>Recalculate Coverage
+          </button>
+          <button class="btn btn-outline-warning btn-sm w-100" id="rebuild-area-btn">
+            <i class="fas fa-sync me-1" aria-hidden="true"></i>Rebuild from OSM
+          </button>
+        </div>
 
-        <div class="alert alert-info small mt-3" role="note">
-          <i class="fas fa-info-circle me-2" aria-hidden="true"></i>
-          After adding, the area will automatically load street data and calculate coverage from your existing trips.
+      </div>
+      <!-- /#sidebar-tab-stats -->
+
+      <!-- TAB PANEL: History -->
+      <div id="sidebar-tab-history"
+           class="sidebar-tab-panel"
+           role="tabpanel"
+           aria-labelledby="tab-btn-history"
+           hidden>
+        <div id="job-history-container">
+          <p class="text-secondary small text-center mt-4">
+            <i class="fas fa-spinner fa-spin me-1" aria-hidden="true"></i>Loading history…
+          </p>
         </div>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button"
-                id="add-coverage-area"
-                class="btn btn-success"
-                disabled
-                aria-disabled="true">
-          <i class="fas fa-plus me-1" aria-hidden="true"></i>Add Area
+
+      <!-- TAB PANEL: Route -->
+      <div id="sidebar-tab-route"
+           class="sidebar-tab-panel"
+           role="tabpanel"
+           aria-labelledby="tab-btn-route"
+           hidden>
+
+        <div class="route-intro">
+          <p class="text-secondary small">
+          Generate an optimized driving route to complete all remaining undriven streets in this area.
+          </p>
+        </div>
+
+        <button class="btn btn-primary w-100 mb-3" id="generate-route-btn">
+          <i class="fas fa-magic me-1" aria-hidden="true"></i>Generate Optimal Route
         </button>
+
+        <div class="form-check form-switch mb-3"
+             id="show-route-toggle-wrapper"
+             style="display: none">
+          <input type="checkbox"
+                 id="show-route-toggle"
+                 class="form-check-input"
+                 role="switch"
+                 checked />
+          <label class="form-check-label small" for="show-route-toggle">
+          Show route on map
+          </label>
+        </div>
+
+        <div id="route-info-container">
+        </div>
+
+      </div>
+      <!-- /#sidebar-tab-route -->
+
+    </aside>
+    <!-- /#coverage-sidebar -->
+
+
+    <!-- FULL-BLEED MAP AREA -->
+    <div id="coverage-map-wrapper" class="coverage-map-wrapper">
+
+      <!-- The map canvas -->
+      <div id="coverage-map"
+           class="coverage-map"
+           role="application"
+           aria-label="Coverage map">
+        <div class="map-loading-state" id="map-loading-state" aria-live="polite">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading map…</span>
+          </div>
+          <span class="map-loading-label">Loading map…</span>
+        </div>
+      </div>
+
+      <!-- OVERLAY: Top-right filter chips -->
+      <div class="map-overlay map-overlay--top-right"
+           id="map-filter-overlay"
+           role="group"
+           aria-label="Street filter">
+        <button class="map-filter-chip map-filter-chip--active"
+                data-filter="all"
+                aria-pressed="true">
+All
+        </button>
+        <button class="map-filter-chip" data-filter="driven" aria-pressed="false">
+Driven
+        </button>
+        <button class="map-filter-chip" data-filter="undriven" aria-pressed="false">
+Undriven
+        </button>
+      </div>
+
+      <!-- OVERLAY: Bottom-left legend -->
+      <div class="map-overlay map-overlay--bottom-left"
+           id="map-legend-overlay"
+           aria-label="Map legend">
+        <div class="map-legend-item">
+          <span class="map-legend-swatch map-legend-swatch--driven" aria-hidden="true"></span>
+          <span class="map-legend-text">Driven</span>
+        </div>
+        <div class="map-legend-item">
+          <span class="map-legend-swatch map-legend-swatch--undriven" aria-hidden="true"></span>
+          <span class="map-legend-text">Undriven</span>
+        </div>
+        <div class="map-legend-item">
+          <span class="map-legend-swatch map-legend-swatch--undriveable" aria-hidden="true"></span>
+          <span class="map-legend-text">Undriveable</span>
+        </div>
+      </div>
+
+      <!-- OVERLAY: Bottom-right coverage chip -->
+      <div class="map-overlay map-overlay--bottom-right"
+           id="map-coverage-chip"
+           aria-live="polite">
+        <span id="map-coverage-pct" class="map-coverage-pct">0%</span>
+        <span class="map-coverage-label">covered</span>
+      </div>
+
+      <!-- Milestone celebration overlay -->
+      <div id="milestone-overlay"
+           class="milestone-overlay"
+           aria-hidden="true"
+           role="dialog"
+           aria-modal="true"
+           aria-label="Coverage milestone achievement">
+      </div>
+
+      <!-- Hover name tooltip (absolute positioned, pointer-events none) -->
+      <div id="map-street-tooltip" class="map-street-tooltip" aria-hidden="true">
+      </div>
+
+    </div>
+    <!-- /#coverage-map-wrapper -->
+
+
+    <!-- STREET DETAIL PANEL (slides in from right) -->
+    <aside id="street-detail-panel"
+           class="street-detail-panel"
+           aria-hidden="true"
+           aria-label="Street segment details">
+
+      <div class="street-detail-header">
+        <div class="street-detail-title-group">
+          <h4 id="street-detail-name" class="street-detail-name">
+Street Name
+          </h4>
+          <span id="street-detail-status-pill" class="street-status-pill"></span>
+        </div>
+        <button id="street-detail-close"
+                class="street-detail-close"
+                aria-label="Close street details">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="street-detail-body">
+        <dl class="street-detail-grid">
+          <dt>
+Type
+          </dt>
+          <dd id="street-detail-type">
+—
+          </dd>
+          <dt>
+Length
+          </dt>
+          <dd id="street-detail-length">
+—
+          </dd>
+          <dt>
+First driven
+          </dt>
+          <dd id="street-detail-first">
+—
+          </dd>
+          <dt>
+Last driven
+          </dt>
+          <dd id="street-detail-last">
+—
+          </dd>
+        </dl>
+
+        <div class="street-detail-actions" id="street-detail-actions">
+          <button id="street-mark-driven-btn"
+                  class="btn btn-success btn-sm w-100 mb-2 d-none"
+                  aria-label="Mark this segment as driven">
+            <i class="fas fa-check me-1" aria-hidden="true"></i>Mark as Driven
+          </button>
+          <button id="street-mark-undriveable-btn"
+                  class="btn btn-outline-secondary btn-sm w-100 mb-2 d-none"
+                  aria-label="Mark this segment as undriveable">
+            <i class="fas fa-ban me-1" aria-hidden="true"></i>Mark as Undriveable
+          </button>
+          <button id="street-mark-undriven-btn"
+                  class="btn btn-outline-danger btn-sm w-100 d-none"
+                  aria-label="Reset this segment to undriven">
+            <i class="fas fa-undo me-1" aria-hidden="true"></i>Reset to Undriven
+          </button>
+        </div>
+      </div>
+
+    </aside>
+    <!-- /#street-detail-panel -->
+
+  </div>
+  <!-- /#coverage-area-view -->
+
+
+  <!-- ============================================================
+     ADD AREA MODAL
+     ============================================================ -->
+  <div class="modal fade" id="addAreaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="fas fa-plus-circle me-2" aria-hidden="true"></i>Add Coverage Area
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal">
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="add-area-form" novalidate>
+            <div class="mb-3">
+              <label for="location-input" class="form-label">
+Location Name
+              </label>
+              <input type="text"
+                     id="location-input"
+                     class="form-control"
+                     placeholder="e.g., Waco, TX"
+                     autocomplete="off"
+                     required />
+              <small class="form-text text-secondary">Enter a city, county, or state name</small>
+            </div>
+            <div class="mb-3">
+              <label for="location-type" class="form-label">
+Area Type
+              </label>
+              <select id="location-type" class="form-select">
+                <option value="city" selected>
+City
+                </option>
+                <option value="county">
+County
+                </option>
+                <option value="state">
+State / Region
+                </option>
+              </select>
+              <small class="form-text text-secondary">Used as a type hint for location matching</small>
+            </div>
+            <div class="mb-3">
+              <label for="include-service-roads-toggle"
+                     class="form-label d-flex justify-content-between align-items-center">
+                <span>Service Roads</span>
+                <span class="badge text-bg-secondary">Street Generation</span>
+              </label>
+              <div class="form-check form-switch">
+                <input type="checkbox"
+                       id="include-service-roads-toggle"
+                       class="form-check-input"
+                       role="switch"
+                       checked />
+                <label class="form-check-label" for="include-service-roads-toggle">
+                Include <code>highway=service</code> roads
+                </label>
+              </div>
+              <small class="form-text text-secondary d-block">
+              Applies to new area builds/rebuilds only.
+              </small>
+              <small class="form-text text-secondary d-block mt-1"
+                     id="include-service-roads-status"
+                     data-include-service-status
+                     aria-live="polite"></small>
+            </div>
+
+            <!-- Validation panel -->
+            <div class="coverage-validation" id="coverage-validation-panel">
+              <div id="location-validation-status"
+                   class="validation-status"
+                   role="status"
+                   aria-live="polite">
+                <span class="status-icon">
+                  <i class="fas fa-location-dot" aria-hidden="true"></i>
+                </span>
+                <span>Enter a location to validate.</span>
+              </div>
+              <div id="location-validation-note"
+                   class="validation-note text-secondary small d-none">
+              </div>
+              <div id="location-validation-candidates"
+                   class="validation-candidates"
+                   role="listbox"
+                   aria-label="Validation matches">
+              </div>
+              <div id="location-validation-confirmation"
+                   class="alert alert-success validation-confirmation d-none"
+                   role="status"
+                   aria-live="polite">
+              </div>
+              <small class="form-text text-secondary mt-2">
+              Validate and confirm the correct location before adding.
+              </small>
+            </div>
+          </form>
+
+          <div class="alert alert-info small mt-3" role="note">
+            <i class="fas fa-info-circle me-2" aria-hidden="true"></i>
+          After adding, the area will automatically load street data and calculate coverage from your existing trips.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+Cancel
+          </button>
+          <button type="button"
+                  id="add-coverage-area"
+                  class="btn btn-success"
+                  disabled
+                  aria-disabled="true">
+            <i class="fas fa-plus me-1" aria-hidden="true"></i>Add Area
+          </button>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
 {% endblock %}
+
 
 {# Page scripts are loaded via route-loader + swup. #}

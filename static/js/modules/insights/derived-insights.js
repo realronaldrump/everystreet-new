@@ -203,7 +203,9 @@ export function computePeriodDeltas(periods = []) {
       previousTrips: previous?.trips ?? null,
       previousDistance: previous?.distance ?? null,
       previousAvgDistancePerTrip: previous?.avgDistancePerTrip ?? null,
-      distanceDelta: Number.isFinite(distanceDelta) ? Number(distanceDelta.toFixed(2)) : null,
+      distanceDelta: Number.isFinite(distanceDelta)
+        ? Number(distanceDelta.toFixed(2))
+        : null,
       tripsDelta: Number.isFinite(tripsDelta) ? tripsDelta : null,
       distanceDeltaPct: Number.isFinite(distanceDeltaPct)
         ? Number(distanceDeltaPct.toFixed(1))
@@ -279,7 +281,9 @@ export function computeConsistencyStats(dailyDistances = []) {
     spanDays,
     quietDays: Math.max(0, spanDays - activeDays),
     activeDaysRatio: Number(pct(activeDays, spanDays).toFixed(1)),
-    avgTripsPerActiveDay: Number((activeDays > 0 ? totalTrips / activeDays : 0).toFixed(2)),
+    avgTripsPerActiveDay: Number(
+      (activeDays > 0 ? totalTrips / activeDays : 0).toFixed(2)
+    ),
     avgDistancePerActiveDay: Number(
       (activeDays > 0 ? totalDistance / activeDays : 0).toFixed(2)
     ),
@@ -338,7 +342,8 @@ export function computeTimeSignature(timeDistribution = [], weekdayDistribution 
       : 0;
 
   const topThreeHours = [...hourly].sort((a, b) => b - a).slice(0, 3);
-  const concentration = totalTrips > 0 ? topThreeHours.reduce((s, c) => s + c, 0) / totalTrips : 0;
+  const concentration =
+    totalTrips > 0 ? topThreeHours.reduce((s, c) => s + c, 0) / totalTrips : 0;
 
   const dayparts = {
     dawn: hourly.slice(5, 9).reduce((sum, count) => sum + count, 0),
@@ -346,7 +351,12 @@ export function computeTimeSignature(timeDistribution = [], weekdayDistribution 
     evening:
       hourly.slice(17, 22).reduce((sum, count) => sum + count, 0) +
       hourly.slice(0, 1).reduce((sum, count) => sum + count, 0),
-    lateNight: hourly.slice(22, 24).reduce((sum, count) => sum + count, 0) + hourly[1] + hourly[2] + hourly[3] + hourly[4],
+    lateNight:
+      hourly.slice(22, 24).reduce((sum, count) => sum + count, 0) +
+      hourly[1] +
+      hourly[2] +
+      hourly[3] +
+      hourly[4],
   };
 
   const dominantDaypart = Object.entries(dayparts).reduce(
@@ -427,7 +437,8 @@ export function computeExplorationStats(topDestinations = [], totalTrips = 0) {
     return sum - share * Math.log(share);
   }, 0);
 
-  const maxEntropy = normalizedDestinations.length > 1 ? Math.log(normalizedDestinations.length) : 1;
+  const maxEntropy =
+    normalizedDestinations.length > 1 ? Math.log(normalizedDestinations.length) : 1;
   const explorationScore = clamp((entropy / maxEntropy) * 100, 0, 100);
   const routineScore = 100 - explorationScore;
   const topShareTrips =
@@ -474,7 +485,8 @@ export function computeFuelLens(totalFuel = 0, totalDistance = 0, totalTrips = 0
   if (mpg !== null) {
     dataNote = `Computed as ${distance.toFixed(1)} mi / ${fuel.toFixed(2)} gal = ${mpg.toFixed(1)} MPG.`;
   } else if (distance > 0) {
-    dataNote = "Distance exists, but fuel entries are missing so MPG cannot be computed.";
+    dataNote =
+      "Distance exists, but fuel entries are missing so MPG cannot be computed.";
   }
 
   return {

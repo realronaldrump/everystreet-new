@@ -66,7 +66,9 @@ def test_classify_track_conditional() -> None:
 
 
 def test_classify_ambiguous_access_defaults_to_include() -> None:
-    destination = classify_public_road({"highway": "residential", "access": "destination"})
+    destination = classify_public_road(
+        {"highway": "residential", "access": "destination"},
+    )
     conditional = classify_public_road(
         {
             "highway": "residential",
@@ -101,10 +103,7 @@ def test_classifier_performance_guard() -> None:
     ]
 
     start = time.perf_counter()
-    decisions = [
-        classify_public_road(tags[idx % len(tags)])
-        for idx in range(20000)
-    ]
+    decisions = [classify_public_road(tags[idx % len(tags)]) for idx in range(20000)]
     elapsed = time.perf_counter() - start
 
     assert len(decisions) == 20000

@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
-from typing import Any, TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from beanie.operators import In
+
+from core.trip_source_policy import BOUNCIE_SOURCE
 from db.models import Trip
 from trips.models import TripStatusProjection
-from core.trip_source_policy import BOUNCIE_SOURCE
 from trips.services.trip_ingest_issue_service import TripIngestIssueService
 
 if TYPE_CHECKING:
     from trips.services.trip_history_import_service_runtime import ImportRuntime
-
 
 
 def _collect_unique_window_trips(
@@ -194,7 +194,7 @@ def _update_insert_result_counters(
 
 async def _process_new_trips_batch(
     *,
-    runtime: "ImportRuntime",
+    runtime: ImportRuntime,
     new_trips: list[dict[str, Any]],
     window_index: int,
     windows_completed: int,
@@ -276,7 +276,7 @@ async def _process_new_trips_batch(
 
 async def _write_window_insert_progress(
     *,
-    runtime: "ImportRuntime",
+    runtime: ImportRuntime,
     processed_count: int,
     total: int,
     window_index: int,
@@ -304,13 +304,13 @@ async def _write_window_insert_progress(
 
 
 __all__ = [
-    "_collect_unique_window_trips",
-    "_record_per_device_unique_counts",
-    "_load_existing_transaction_ids",
     "_collect_new_trips",
-    "_record_validation_failure",
-    "_record_process_failure",
-    "_update_insert_result_counters",
+    "_collect_unique_window_trips",
+    "_load_existing_transaction_ids",
     "_process_new_trips_batch",
+    "_record_per_device_unique_counts",
+    "_record_process_failure",
+    "_record_validation_failure",
+    "_update_insert_result_counters",
     "_write_window_insert_progress",
 ]

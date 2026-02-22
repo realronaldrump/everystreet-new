@@ -12,6 +12,7 @@ from beanie import PydanticObjectId
 from fastapi import HTTPException
 
 from core.spatial import GeometryService, extract_timestamps_for_coordinates
+from core.trip_source_policy import enforce_bouncie_source
 from db import CoverageArea, CoverageState, Street, Trip, build_calendar_date_expr
 from db.models import Job
 from exports.constants import (
@@ -35,7 +36,6 @@ from exports.services.export_writer import (
     write_gpx_tracks,
     write_json_array,
 )
-from core.trip_source_policy import enforce_bouncie_source
 
 if TYPE_CHECKING:
     from exports.models import ExportItem, ExportRequest

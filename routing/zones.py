@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 import networkx as nx
 
 from .core import solve_greedy_route
-from .graph import edge_length_m, get_edge_geometry
+from .graph import edge_length_m
 from .types import EdgeRef, ReqId
 
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ def _edge_midpoint(
     node_xy: dict[int, tuple[float, float]],
 ) -> tuple[float, float] | None:
     """Get the midpoint of an edge in lon/lat coordinates."""
-    u, v, k = edge
+    u, v, _k = edge
     ux = node_xy.get(u)
     vx = node_xy.get(v)
     if ux and vx:
@@ -54,7 +54,8 @@ def decompose_into_zones(
     """
     Decompose required edges into geographic zones using K-Means clustering.
 
-    Falls back to simple geographic grid splitting if sklearn is unavailable.
+    Falls back to simple geographic grid splitting if sklearn is
+    unavailable.
     """
     if len(required_reqs) <= max_zone_size:
         zone = Zone(zone_id=0)
@@ -92,22 +93,32 @@ def decompose_into_zones(
     except ImportError:
         logger.warning("sklearn not available; using grid-based zone decomposition")
     except Exception:
-        logger.warning("K-Means clustering failed; using grid-based decomposition", exc_info=True)
+        logger.warning(
+            "K-Means clustering failed; using grid-based decomposition",
+            exc_info=True,
+        )
 
     if labels is None:
         # Fallback: grid-based decomposition by sorting on x then chunking
-        sorted_indices = sorted(range(len(points)), key=lambda i: (points[i][0], points[i][1]))
+        sorted_indices = sorted(
+            range(len(points)),
+            key=lambda i: (points[i][0], points[i][1]),
+        )
         chunk_size = max(1, len(sorted_indices) // n_zones)
         labels = [0] * len(points)
         for chunk_idx in range(n_zones):
             start = chunk_idx * chunk_size
-            end = len(sorted_indices) if chunk_idx == n_zones - 1 else (chunk_idx + 1) * chunk_size
+            end = (
+                len(sorted_indices)
+                if chunk_idx == n_zones - 1
+                else (chunk_idx + 1) * chunk_size
+            )
             for i in range(start, end):
                 labels[sorted_indices[i]] = chunk_idx
 
     # Build zones from labels
     zone_map: dict[int, Zone] = {}
-    for i, (rid, label) in enumerate(zip(rid_list, labels)):
+    for i, (rid, label) in enumerate(zip(rid_list, labels, strict=False)):
         if label not in zone_map:
             zone_map[label] = Zone(zone_id=label)
         zone = zone_map[label]
@@ -126,7 +137,9 @@ def decompose_into_zones(
     assigned_rids = set()
     for zone in zone_map.values():
         assigned_rids.update(zone.required_reqs.keys())
-    unassigned = {rid: opts for rid, opts in required_reqs.items() if rid not in assigned_rids}
+    unassigned = {
+        rid: opts for rid, opts in required_reqs.items() if rid not in assigned_rids
+    }
     if unassigned:
         # Add to the first zone
         first_zone = next(iter(zone_map.values()))
@@ -250,8 +263,12 @@ def solve_zones(
     dead_dist = total_stats["deadhead_distance"]
     req_dist = total_stats["required_distance"]
     svc_dist = total_stats["service_distance"]
-    total_stats["deadhead_percentage"] = (dead_dist / total_dist * 100.0) if total_dist > 0 else 0.0
+    total_stats["deadhead_percentage"] = (
+        (dead_dist / total_dist * 100.0) if total_dist > 0 else 0.0
+    )
     total_stats["deadhead_ratio_all"] = (total_dist / req_dist) if req_dist > 0 else 0.0
-    total_stats["deadhead_ratio_completed"] = (total_dist / svc_dist) if svc_dist > 0 else 0.0
+    total_stats["deadhead_ratio_completed"] = (
+        (total_dist / svc_dist) if svc_dist > 0 else 0.0
+    )
 
     return all_coords, total_stats, all_service_sequence

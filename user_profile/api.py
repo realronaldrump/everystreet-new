@@ -489,7 +489,9 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
     if created:
         message = "Vehicle added."
     if not vehicle_found:
-        message = "Vehicle added as IMEI-only (device not listed by Bouncie vehicles API)."
+        message = (
+            "Vehicle added as IMEI-only (device not listed by Bouncie vehicles API)."
+        )
 
     if trip_sync_job_id:
         message = f"{message} Trip sync queued."
