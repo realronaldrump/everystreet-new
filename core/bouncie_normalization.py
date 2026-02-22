@@ -7,7 +7,7 @@ import logging
 from typing import Any
 
 from core.date_utils import parse_timestamp
-from core.spatial import GeometryService
+from core.spatial import GeometryService, sanitize_geojson_geometry
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +134,11 @@ def _normalize_rest_gps(value: Any) -> dict[str, Any] | None:
     # Prefer GeoJSON parsing.
     geojson = GeometryService.parse_geojson(value)
     if geojson is not None:
-        return geojson
+        normalized = sanitize_geojson_geometry(geojson)
+        if normalized is not None:
+            return normalized
+        logger.warning("Invalid gps GeoJSON from Bouncie REST payload")
+        return None
 
     # If we received a list of coordinate pairs, try to build geometry.
     if isinstance(value, list):

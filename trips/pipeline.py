@@ -12,7 +12,12 @@ from pydantic import ValidationError
 from analytics.services.mobility_insights_service import MobilityInsightsService
 from core.coverage import update_coverage_for_trip
 from core.date_utils import get_current_utc_time, parse_timestamp
-from core.spatial import GeometryService, derive_geo_points, is_valid_geojson_geometry
+from core.spatial import (
+    GeometryService,
+    derive_geo_points,
+    sanitize_geojson_geometry,
+    sanitize_geojson_point,
+)
 from core.trip_source_policy import BOUNCIE_SOURCE
 from db.models import Trip
 from trips.services.geocoding import TripGeocoder
@@ -176,19 +181,7 @@ class TripPipeline:
         processed_data["saved_at"] = get_current_utc_time()
         processed_data["status"] = "processed"
 
-        gps = processed_data.get("gps")
-        if gps is not None and not is_valid_geojson_geometry(gps):
-            logger.error(
-                "Trip %s: invalid gps geometry at save time; setting gps to null",
-                transaction_id,
-            )
-            processed_data["gps"] = None
-
-        start_geo, dest_geo = derive_geo_points(processed_data.get("gps"))
-        if start_geo:
-            processed_data["startGeoPoint"] = start_geo
-        if dest_geo:
-            processed_data["destinationGeoPoint"] = dest_geo
+        self._prepare_processed_geo_fields(processed_data, transaction_id=transaction_id)
 
         if "_id" in processed_data:
             processed_data.pop("_id", None)
@@ -224,6 +217,8 @@ class TripPipeline:
 
         if coverage_emitted_at:
             final_trip.coverage_emitted_at = coverage_emitted_at
+
+        self.sanitize_trip_document_geospatial_fields(final_trip)
 
         if existing_trip:
             await final_trip.save()
@@ -313,19 +308,7 @@ class TripPipeline:
         processed_data["saved_at"] = get_current_utc_time()
         processed_data["status"] = "processed"
 
-        gps = processed_data.get("gps")
-        if gps is not None and not is_valid_geojson_geometry(gps):
-            logger.error(
-                "Trip %s: invalid gps geometry at save time; setting gps to null",
-                transaction_id,
-            )
-            processed_data["gps"] = None
-
-        start_geo, dest_geo = derive_geo_points(processed_data.get("gps"))
-        if start_geo:
-            processed_data["startGeoPoint"] = start_geo
-        if dest_geo:
-            processed_data["destinationGeoPoint"] = dest_geo
+        self._prepare_processed_geo_fields(processed_data, transaction_id=transaction_id)
 
         if "_id" in processed_data:
             processed_data.pop("_id", None)
@@ -333,6 +316,7 @@ class TripPipeline:
         final_trip = Trip(**processed_data)
         if final_trip.id is None:
             final_trip.id = PydanticObjectId()
+        self.sanitize_trip_document_geospatial_fields(final_trip)
 
         try:
             await final_trip.insert()
@@ -354,6 +338,7 @@ class TripPipeline:
                         getattr(final_trip, "id", None),
                     )
                     final_trip.coverage_emitted_at = get_current_utc_time()
+                    self.sanitize_trip_document_geospatial_fields(final_trip)
                     await final_trip.save()
             except Exception as exc:
                 logger.warning(
@@ -466,26 +451,37 @@ class TripPipeline:
 
     @staticmethod
     def _basic_process(processed_data: dict[str, Any]) -> tuple[bool, str | None]:
-        gps_data = processed_data.get("gps")
-        processed_data.get("transactionId", "unknown")
+        transaction_id = str(processed_data.get("transactionId") or "unknown")
+        gps_data = sanitize_geojson_geometry(processed_data.get("gps"))
+
         if not gps_data:
-            return False, "Missing GPS data for basic processing"
+            # Some historical Bouncie trips include only partial telemetry.
+            # Keep the trip if geometry cannot be recovered; downstream
+            # features already tolerate missing GPS.
+            coords = processed_data.get("coordinates")
+            if isinstance(coords, list) and coords:
+                gps_data = GeometryService.geometry_from_coordinate_dicts(coords)
+            if not gps_data:
+                processed_data["gps"] = None
+                return True, None
+
+        processed_data["gps"] = gps_data
 
         gps_type = gps_data.get("type")
         gps_coords = gps_data.get("coordinates")
 
         if gps_type == "Point":
-            if not (
-                gps_coords and isinstance(gps_coords, list) and len(gps_coords) == 2
-            ):
+            if not (gps_coords and isinstance(gps_coords, list) and len(gps_coords) == 2):
                 return False, "Point GeoJSON has invalid coordinates"
             start_coord = gps_coords
             end_coord = gps_coords
-            processed_data["distance"] = 0.0
+            if processed_data.get("distance") is None:
+                processed_data["distance"] = 0.0
         elif gps_type == "LineString":
             if not (
                 gps_coords and isinstance(gps_coords, list) and len(gps_coords) >= 2
             ):
+                # Sanitization should already coerce one-point traces to Point.
                 return False, "LineString has insufficient coordinates"
             start_coord = gps_coords[0]
             end_coord = gps_coords[-1]
@@ -500,6 +496,7 @@ class TripPipeline:
         valid_start, _ = GeometryService.validate_coordinate_pair(start_coord)
         valid_end, _ = GeometryService.validate_coordinate_pair(end_coord)
         if not valid_start or not valid_end:
+            logger.debug("Trip %s has invalid start/end coordinates", transaction_id)
             return False, "Invalid start or end coordinates"
 
         if "totalIdleDuration" in processed_data:
@@ -578,10 +575,11 @@ class TripPipeline:
 
     @staticmethod
     def _gps_quality(gps: dict[str, Any] | None) -> tuple[int, int]:
-        if not isinstance(gps, dict):
+        sanitized = sanitize_geojson_geometry(gps)
+        if not isinstance(sanitized, dict):
             return (0, 0)
-        geom_type = gps.get("type")
-        coords = gps.get("coordinates")
+        geom_type = sanitized.get("type")
+        coords = sanitized.get("coordinates")
         if geom_type == "Point" and isinstance(coords, list) and len(coords) >= 2:
             return (1, 1)
         if geom_type == "LineString" and isinstance(coords, list):
@@ -722,6 +720,8 @@ class TripPipeline:
             "destinationPlaceId",
             "destinationPlaceName",
             "startPlaceId",
+            "startGeoPoint",
+            "destinationGeoPoint",
             "location_schema_version",
             "geocoded_at",
             "saved_at",
@@ -781,6 +781,55 @@ class TripPipeline:
             "coverage_emitted_at",
         ):
             trip.coverage_emitted_at = incoming.get("coverage_emitted_at")
+
+    @staticmethod
+    def _prepare_processed_geo_fields(
+        processed_data: dict[str, Any],
+        *,
+        transaction_id: str | None = None,
+    ) -> None:
+        tx = str(transaction_id or processed_data.get("transactionId") or "unknown")
+
+        gps = sanitize_geojson_geometry(processed_data.get("gps"))
+        if processed_data.get("gps") is not None and gps is None:
+            logger.debug("Trip %s: dropping invalid gps geometry before save", tx)
+        processed_data["gps"] = gps
+
+        start_geo = sanitize_geojson_point(processed_data.get("startGeoPoint"))
+        dest_geo = sanitize_geojson_point(processed_data.get("destinationGeoPoint"))
+        derived_start, derived_dest = derive_geo_points(gps)
+        if derived_start:
+            start_geo = derived_start
+        if derived_dest:
+            dest_geo = derived_dest
+
+        if start_geo:
+            processed_data["startGeoPoint"] = start_geo
+        else:
+            processed_data.pop("startGeoPoint", None)
+
+        if dest_geo:
+            processed_data["destinationGeoPoint"] = dest_geo
+        else:
+            processed_data.pop("destinationGeoPoint", None)
+
+    @staticmethod
+    def sanitize_trip_document_geospatial_fields(
+        trip: Trip,
+    ) -> None:
+        gps = sanitize_geojson_geometry(getattr(trip, "gps", None))
+        trip.gps = gps
+
+        start_geo = sanitize_geojson_point(getattr(trip, "startGeoPoint", None))
+        dest_geo = sanitize_geojson_point(getattr(trip, "destinationGeoPoint", None))
+        derived_start, derived_dest = derive_geo_points(gps)
+        if derived_start:
+            start_geo = derived_start
+        if derived_dest:
+            dest_geo = derived_dest
+
+        trip.startGeoPoint = start_geo
+        trip.destinationGeoPoint = dest_geo
 
     @staticmethod
     def _has_meaningful_location(value: Any) -> bool:

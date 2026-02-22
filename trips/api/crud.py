@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from analytics.services.mobility_insights_service import MobilityInsightsService
 from core.api import api_route
 from db.models import CoverageState, Trip
+from trips.pipeline import TripPipeline
 from trips.services import TripCostService
 
 logger = logging.getLogger(__name__)
@@ -128,6 +129,7 @@ async def unmatch_trip(trip_id: str):
     trip.matched_at = None
     trip.mobility_synced_at = None
     trip.last_modified = datetime.now(UTC)
+    TripPipeline.sanitize_trip_document_geospatial_fields(trip)
     await trip.save()
     try:
         await MobilityInsightsService.sync_trip(trip)
@@ -202,6 +204,7 @@ async def bulk_unmatch_trips(request: Request):
         trip.matched_at = None
         trip.mobility_synced_at = None
         trip.last_modified = datetime.now(UTC)
+        TripPipeline.sanitize_trip_document_geospatial_fields(trip)
         await trip.save()
         try:
             await MobilityInsightsService.sync_trip(trip)
@@ -232,6 +235,7 @@ async def restore_trip(trip_id: str):
     trip.invalid = None
     trip.validation_message = None
     trip.validated_at = None
+    TripPipeline.sanitize_trip_document_geospatial_fields(trip)
     await trip.save()
     return {"status": "success", "message": "Trip allocated as valid."}
 

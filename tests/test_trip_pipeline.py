@@ -117,6 +117,87 @@ async def test_trip_pipeline_handles_map_match_failure(beanie_db) -> None:
 
 
 @pytest.mark.asyncio
+async def test_trip_pipeline_salvages_single_point_linestring(beanie_db) -> None:
+    pipeline = TripPipeline(
+        geo_service=StubGeocoder(),
+        matcher=StubMatcher(),
+        coverage_service=_noop_coverage,
+    )
+
+    raw_trip = _build_raw_trip("tx-single-point-gps")
+    raw_trip["gps"] = {"type": "LineString", "coordinates": [[-97.0, 32.0]]}
+
+    trip = await pipeline.process_raw_trip(
+        raw_trip,
+        source="test",
+        do_map_match=False,
+        do_geocode=False,
+        do_coverage=False,
+    )
+
+    assert trip is not None
+    assert trip.gps == {"type": "Point", "coordinates": [-97.0, 32.0]}
+    assert trip.startGeoPoint == {"type": "Point", "coordinates": [-97.0, 32.0]}
+    assert trip.destinationGeoPoint == {"type": "Point", "coordinates": [-97.0, 32.0]}
+
+
+@pytest.mark.asyncio
+async def test_trip_pipeline_accepts_trip_without_gps_when_other_data_present(
+    beanie_db,
+) -> None:
+    pipeline = TripPipeline(
+        geo_service=StubGeocoder(),
+        matcher=StubMatcher(),
+        coverage_service=_noop_coverage,
+    )
+
+    raw_trip = {
+        "transactionId": "tx-no-gps",
+        "startTime": "2024-01-01T00:00:00Z",
+        "endTime": "2024-01-01T00:10:00Z",
+        "distance": 1.25,
+    }
+
+    trip = await pipeline.process_raw_trip(
+        raw_trip,
+        source="test",
+        do_map_match=False,
+        do_geocode=False,
+        do_coverage=False,
+    )
+
+    assert trip is not None
+    assert trip.gps is None
+    assert trip.startGeoPoint is None
+    assert trip.destinationGeoPoint is None
+
+
+@pytest.mark.asyncio
+async def test_trip_pipeline_sanitizes_invalid_geopoints_from_payload(beanie_db) -> None:
+    pipeline = TripPipeline(
+        geo_service=StubGeocoder(),
+        matcher=StubMatcher(),
+        coverage_service=_noop_coverage,
+    )
+
+    raw_trip = _build_raw_trip("tx-invalid-geopoints")
+    raw_trip["startGeoPoint"] = {"type": "Point", "coordinates": [999, 999]}
+    raw_trip["destinationGeoPoint"] = {"type": "Point", "coordinates": ["x", "y"]}
+
+    trip = await pipeline.process_raw_trip(
+        raw_trip,
+        source="test",
+        do_map_match=False,
+        do_geocode=False,
+        do_coverage=False,
+    )
+
+    assert trip is not None
+    assert trip.startGeoPoint == {"type": "Point", "coordinates": [-97.0, 32.0]}
+    assert trip.destinationGeoPoint == {"type": "Point", "coordinates": [-97.1, 32.1]}
+
+
+@pytest.mark.asyncio
 async def test_trip_pipeline_insert_only_inserts_new_trip(beanie_db) -> None:
     calls: list[tuple[dict[str, Any], Any]] = []
 

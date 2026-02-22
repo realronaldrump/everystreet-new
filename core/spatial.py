@@ -214,6 +214,90 @@ def is_valid_geojson_geometry(geojson_data: Any) -> bool:
     return False
 
 
+def sanitize_geojson_geometry(
+    geojson_data: Any,
+    *,
+    allow_point: bool = True,
+    allow_linestring: bool = True,
+    dedupe: bool = True,
+) -> dict[str, Any] | None:
+    """
+    Normalize geometry to a valid GeoJSON Point/LineString when possible.
+
+    Returns None when geometry is missing or cannot be salvaged.
+    """
+    geojson = GeometryService.parse_geojson(geojson_data)
+    if not isinstance(geojson, dict):
+        return None
+
+    geom_type = geojson.get("type")
+    coords = geojson.get("coordinates")
+
+    if geom_type == "Point":
+        if not allow_point:
+            return None
+        is_valid, pair = GeometryService.validate_coordinate_pair(coords)
+        if not is_valid or pair is None:
+            return None
+        return {"type": "Point", "coordinates": pair}
+
+    def _append_pair(
+        target: list[list[float]],
+        value: Any,
+        *,
+        dedupe_adjacent: bool,
+    ) -> None:
+        is_valid, pair = GeometryService.validate_coordinate_pair(value)
+        if not is_valid or pair is None:
+            return
+        if dedupe_adjacent and target and target[-1] == pair:
+            return
+        target.append(pair)
+
+    if geom_type == "LineString":
+        if not allow_linestring or not isinstance(coords, list):
+            return None
+        cleaned: list[list[float]] = []
+        for coord in coords:
+            _append_pair(cleaned, coord, dedupe_adjacent=dedupe)
+        if len(cleaned) >= 2:
+            return {"type": "LineString", "coordinates": cleaned}
+        if len(cleaned) == 1 and allow_point:
+            return {"type": "Point", "coordinates": cleaned[0]}
+        return None
+
+    if geom_type == "MultiLineString":
+        if not allow_linestring or not isinstance(coords, list):
+            return None
+        flattened: list[list[float]] = []
+        for line in coords:
+            if not isinstance(line, list):
+                continue
+            for coord in line:
+                _append_pair(flattened, coord, dedupe_adjacent=dedupe)
+        if len(flattened) >= 2:
+            return {"type": "LineString", "coordinates": flattened}
+        if len(flattened) == 1 and allow_point:
+            return {"type": "Point", "coordinates": flattened[0]}
+        return None
+
+    return None
+
+
+def sanitize_geojson_point(value: Any) -> dict[str, Any] | None:
+    """Normalize any geo input to a valid GeoJSON Point."""
+    geometry = sanitize_geojson_geometry(
+        value,
+        allow_point=True,
+        allow_linestring=False,
+    )
+    if not geometry:
+        return None
+    if geometry.get("type") != "Point":
+        return None
+    return geometry
+
+
 def derive_geo_points(
     gps: dict[str, Any] | None,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:

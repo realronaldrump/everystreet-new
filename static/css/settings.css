@@ -1943,7 +1943,31 @@
   margin-top: var(--space-3);
 }
 
-.trip-import-stats {
+/* Window info row (between header and progress bar) */
+.trip-import-window-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin-top: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.trip-import-window-label {
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: var(--font-weight-medium);
+}
+
+.trip-import-window-sep {
+  color: var(--text-tertiary);
+  opacity: 0.5;
+}
+
+/* Pipeline counter cards */
+.trip-import-pipeline {
   margin-top: var(--space-3);
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1951,32 +1975,105 @@
 }
 
 @media (width >= 768px) {
-  .trip-import-stats {
+  .trip-import-pipeline {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
-.trip-import-stat {
+.trip-import-pipeline-card {
   padding: var(--space-3);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
   background: var(--surface-0);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
-.trip-import-stat-k {
+.trip-import-pipeline-card-title {
   font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
+  font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-color);
 }
 
-.trip-import-stat-v {
-  margin-top: var(--space-1);
-  font-size: var(--font-size-xl);
+.trip-import-pipeline-card-title i {
+  font-size: var(--font-size-sm);
+  opacity: 0.7;
+}
+
+.trip-import-pipeline-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.trip-import-pipeline-k {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.trip-import-pipeline-v {
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
+
+.trip-import-pipeline-row--success .trip-import-pipeline-v {
+  color: var(--success);
+}
+
+.trip-import-pipeline-row--error .trip-import-pipeline-v {
+  color: var(--danger);
+}
+
+.trip-import-pipeline-row--warn .trip-import-pipeline-v {
+  color: var(--warning);
+}
+
+/* Collapsible event log */
+.trip-import-log-details {
+  cursor: default;
+}
+
+.trip-import-log-summary {
+  cursor: pointer;
+  user-select: none;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  list-style: none;
+}
+
+.trip-import-log-summary::-webkit-details-marker {
+  display: none;
+}
+
+.trip-import-log-summary::before {
+  content: "\f0da";
+  font-family: "Font Awesome 5 Free";
+  font-weight: 900;
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  transition: transform 0.15s ease;
+}
+
+.trip-import-log-details[open] > .trip-import-log-summary::before {
+  transform: rotate(90deg);
+}
+
 
 .trip-import-surface {
   padding: var(--space-4);

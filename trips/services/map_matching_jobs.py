@@ -22,6 +22,7 @@ from trips.models import (
     TripMapMatchProjection,
     TripPreviewProjection,
 )
+from trips.pipeline import TripPipeline
 from trips.services.matching import MapMatchingService
 
 logger = logging.getLogger(__name__)
@@ -724,6 +725,7 @@ class MapMatchingJobRunner:
         if trip:
             trip.matchStatus = status
             trip.matched_at = get_current_utc_time()
+            TripPipeline.sanitize_trip_document_geospatial_fields(trip)
             await trip.save()
 
     async def _update_trip_matched_gps(
@@ -738,6 +740,7 @@ class MapMatchingJobRunner:
             trip.matchStatus = f"matched:{geometry.get('type', 'unknown').lower()}"
             trip.matched_at = get_current_utc_time()
             trip.mobility_synced_at = None
+            TripPipeline.sanitize_trip_document_geospatial_fields(trip)
             await trip.save()
             try:
                 await MobilityInsightsService.sync_trip(trip)

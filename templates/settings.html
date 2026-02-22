@@ -1978,6 +1978,13 @@ Concurrency
 	                Waiting to start...
                 </span>
               </div>
+              <div class="trip-import-window-info">
+                <span class="trip-import-window-label">Window:</span>
+                <span id="trip-import-window">--</span>
+                <span class="trip-import-window-sep">·</span>
+                <span class="trip-import-window-label">Progress:</span>
+                <span id="trip-import-windows">--</span>
+              </div>
             </div>
 
             <div class="progress trip-import-progress-bar"
@@ -1990,119 +1997,94 @@ Concurrency
               </div>
             </div>
 
-            <div class="trip-import-stats" aria-label="Import counters">
-              <div class="trip-import-stat">
-                <div class="trip-import-stat-k">
-Found (raw)
+            <!-- Pipeline counters grouped by stage -->
+            <div class="trip-import-pipeline" aria-label="Import pipeline counters">
+
+              <!-- 1. Fetch -->
+              <div class="trip-import-pipeline-card">
+                <div class="trip-import-pipeline-card-title">
+                  <i class="fas fa-cloud-download-alt"></i> Fetch
                 </div>
-                <div class="trip-import-stat-v" id="trip-import-count-found-raw">
-0
+                <div class="trip-import-pipeline-row">
+                  <span class="trip-import-pipeline-k">API results</span>
+                  <span class="trip-import-pipeline-v" id="trip-import-count-found-raw">0</span>
                 </div>
-              </div>
-              <div class="trip-import-stat">
-                <div class="trip-import-stat-k">
-Unique
-                </div>
-                <div class="trip-import-stat-v" id="trip-import-count-found-unique">
-0
-                </div>
-              </div>
-              <div class="trip-import-stat">
-                <div class="trip-import-stat-k">
-Existing
-                </div>
-                <div class="trip-import-stat-v" id="trip-import-count-skipped-existing">
-0
+                <div class="trip-import-pipeline-row trip-import-pipeline-row--error">
+                  <span class="trip-import-pipeline-k">Fetch errors</span>
+                  <span class="trip-import-pipeline-v" id="trip-import-count-fetch-errors">0</span>
                 </div>
               </div>
-              <div class="trip-import-stat">
-                <div class="trip-import-stat-k">
-New
+
+              <!-- 2. Filter -->
+              <div class="trip-import-pipeline-card">
+                <div class="trip-import-pipeline-card-title">
+                  <i class="fas fa-filter"></i> Filter
                 </div>
-                <div class="trip-import-stat-v" id="trip-import-count-new-candidates">
-0
+                <div class="trip-import-pipeline-row">
+                  <span class="trip-import-pipeline-k">After dedup</span>
+                  <span class="trip-import-pipeline-v" id="trip-import-count-found-unique">0</span>
                 </div>
-              </div>
-              <div class="trip-import-stat">
-                <div class="trip-import-stat-k">
-Inserted
-                </div>
-                <div class="trip-import-stat-v" id="trip-import-count-inserted">
-0
-                </div>
-              </div>
-              <div class="trip-import-stat">
-                <div class="trip-import-stat-k">
-Missing endTime
-                </div>
-                <div class="trip-import-stat-v" id="trip-import-count-skipped-missing-end">
-0
+                <div class="trip-import-pipeline-row trip-import-pipeline-row--warn">
+                  <span class="trip-import-pipeline-k">No end time</span>
+                  <span class="trip-import-pipeline-v" id="trip-import-count-skipped-missing-end">0</span>
                 </div>
               </div>
-              <div class="trip-import-stat">
-                <div class="trip-import-stat-k">
-Invalid trips
+
+              <!-- 3. Compare -->
+              <div class="trip-import-pipeline-card">
+                <div class="trip-import-pipeline-card-title">
+                  <i class="fas fa-database"></i> Compare
                 </div>
-                <div class="trip-import-stat-v" id="trip-import-count-validation-failed">
-0
+                <div class="trip-import-pipeline-row">
+                  <span class="trip-import-pipeline-k">Already in DB</span>
+                  <span class="trip-import-pipeline-v" id="trip-import-count-skipped-existing">0</span>
                 </div>
-              </div>
-              <div class="trip-import-stat">
-                <div class="trip-import-stat-k">
-Fetch errors
-                </div>
-                <div class="trip-import-stat-v" id="trip-import-count-fetch-errors">
-0
-                </div>
-              </div>
-              <div class="trip-import-stat">
-                <div class="trip-import-stat-k">
-Process errors
-                </div>
-                <div class="trip-import-stat-v" id="trip-import-count-process-errors">
-0
+                <div class="trip-import-pipeline-row">
+                  <span class="trip-import-pipeline-k">New trips</span>
+                  <span class="trip-import-pipeline-v" id="trip-import-count-new-candidates">0</span>
                 </div>
               </div>
+
+              <!-- 4. Save -->
+              <div class="trip-import-pipeline-card">
+                <div class="trip-import-pipeline-card-title">
+                  <i class="fas fa-check-circle"></i> Save
+                </div>
+                <div class="trip-import-pipeline-row trip-import-pipeline-row--success">
+                  <span class="trip-import-pipeline-k">Saved</span>
+                  <span class="trip-import-pipeline-v" id="trip-import-count-inserted">0</span>
+                </div>
+                <div class="trip-import-pipeline-row trip-import-pipeline-row--error">
+                  <span class="trip-import-pipeline-k">Failed validation</span>
+                  <span class="trip-import-pipeline-v" id="trip-import-count-validation-failed">0</span>
+                </div>
+                <div class="trip-import-pipeline-row trip-import-pipeline-row--error">
+                  <span class="trip-import-pipeline-k">Processing errors</span>
+                  <span class="trip-import-pipeline-v" id="trip-import-count-process-errors">0</span>
+                </div>
+              </div>
+
             </div>
 
             <div class="trip-import-surface mt-3">
               <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <h6 class="mb-0">
-Vehicles
+                  <i class="fas fa-car"></i> Per-Vehicle Breakdown
                 </h6>
-                <small class="text-muted">Per-device results</small>
               </div>
               <div class="trip-import-table-wrap mt-2">
                 <table class="table table-sm table-striped align-middle mb-0 trip-import-table">
                   <thead>
                     <tr>
-                      <th scope="col">
-Device
-                      </th>
-                      <th scope="col">
-Windows
-                      </th>
-                      <th scope="col">
-Found
-                      </th>
-                      <th scope="col">
-Unique
-                      </th>
-                      <th scope="col">
-Existing
-                      </th>
-                      <th scope="col">
-Invalid
-                      </th>
-                      <th scope="col">
-New
-                      </th>
-                      <th scope="col">
-Inserted
-                      </th>
-                      <th scope="col">
-Errors
-                      </th>
+                      <th scope="col">Device</th>
+                      <th scope="col">Windows</th>
+                      <th scope="col">API results</th>
+                      <th scope="col">After dedup</th>
+                      <th scope="col">In DB</th>
+                      <th scope="col">Invalid</th>
+                      <th scope="col">New</th>
+                      <th scope="col">Saved</th>
+                      <th scope="col">Errors</th>
                     </tr>
                   </thead>
                   <tbody id="trip-import-vehicles-tbody">
@@ -2111,18 +2093,16 @@ Errors
               </div>
             </div>
 
-            <div class="trip-import-surface mt-3">
-              <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <h6 class="mb-0">
-Event log
-                </h6>
-                <small class="text-muted">Latest 60 entries (click for details)</small>
-              </div>
+            <details class="trip-import-surface trip-import-log-details mt-3">
+              <summary class="trip-import-log-summary">
+                <i class="fas fa-terminal"></i> Event Log
+                <small class="text-muted ms-2">Latest 60 entries</small>
+              </summary>
               <div class="trip-import-failure-summary mt-2" id="trip-import-failure-summary">
               </div>
               <div class="trip-import-events mt-2" id="trip-import-events" aria-live="polite">
               </div>
-            </div>
+            </details>
 
             <div class="trip-import-inline-error d-none mt-3"
                  id="trip-import-progress-error"
@@ -2142,7 +2122,7 @@ Event log
               <div class="trip-import-summary-grid">
                 <div class="trip-import-summary-item">
                   <div class="trip-import-summary-k">
-Inserted
+Saved
                   </div>
                   <div class="trip-import-summary-v" id="trip-import-summary-inserted">
 0
@@ -2150,7 +2130,7 @@ Inserted
                 </div>
                 <div class="trip-import-summary-item">
                   <div class="trip-import-summary-k">
-Existing
+Already in DB
                   </div>
                   <div class="trip-import-summary-v" id="trip-import-summary-existing">
 0
@@ -2158,7 +2138,7 @@ Existing
                 </div>
                 <div class="trip-import-summary-item">
                   <div class="trip-import-summary-k">
-Invalid trips
+Failed validation
                   </div>
                   <div class="trip-import-summary-v" id="trip-import-summary-validation-failed">
 0
@@ -2174,7 +2154,7 @@ Fetch errors
                 </div>
                 <div class="trip-import-summary-item">
                   <div class="trip-import-summary-k">
-Process errors
+Processing errors
                   </div>
                   <div class="trip-import-summary-v" id="trip-import-summary-process-errors">
 0

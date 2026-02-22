@@ -126,6 +126,7 @@ class TripService:
             mark_processed=False,
             processing_state=None,
         )
+        self._pipeline.sanitize_trip_document_geospatial_fields(existing_trip)
         await existing_trip.save()
         return True
 

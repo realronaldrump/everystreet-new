@@ -32,7 +32,7 @@ from beanie.odm.fields import IndexModel
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from core.date_utils import parse_timestamp
-from core.spatial import GeometryService
+from core.spatial import GeometryService, sanitize_geojson_geometry, sanitize_geojson_point
 from map_data.models import GeoServiceHealth, MapServiceConfig
 
 
@@ -122,7 +122,7 @@ class Trip(Document):
     @field_validator("gps", mode="before")
     @classmethod
     def validate_gps_data(cls, v: Any) -> dict[str, Any] | None:
-        """Validate GPS data is valid GeoJSON - store as-is from Bouncie."""
+        """Normalize GPS data to valid Point/LineString when possible."""
         if v is None:
             return None
 
@@ -146,11 +146,19 @@ class Trip(Document):
                 validate=True,
             )
 
-        # Handle dict input (GeoJSON) - store as-is
+        # Handle dict input (GeoJSON) - sanitize if possible
         if isinstance(v, dict):
-            return v
+            return sanitize_geojson_geometry(v)
 
         return None
+
+    @field_validator("startGeoPoint", "destinationGeoPoint", mode="before")
+    @classmethod
+    def validate_geo_point_fields(cls, v: Any) -> dict[str, Any] | None:
+        """Normalize indexed GeoJSON point fields to valid WGS84 points."""
+        if v is None:
+            return None
+        return sanitize_geojson_point(v)
 
     def validate_meaningful(self) -> tuple[bool, str | None]:
         """Validate that a trip represents actual driving."""

@@ -31,6 +31,24 @@ async def test_trip_gps_single_point_becomes_point(beanie_db) -> None:
 
 
 @pytest.mark.asyncio
+async def test_trip_gps_dict_linestring_single_point_is_salvaged(beanie_db) -> None:
+    trip = Trip(gps={"type": "LineString", "coordinates": [[-97.0, 32.0]]})
+    assert trip.gps is not None
+    assert trip.gps["type"] == "Point"
+    assert trip.gps["coordinates"] == [-97.0, 32.0]
+
+
+@pytest.mark.asyncio
+async def test_trip_indexed_geo_points_are_normalized(beanie_db) -> None:
+    trip = Trip(
+        startGeoPoint={"type": "Point", "coordinates": ["-97.0", "32.0"]},
+        destinationGeoPoint={"type": "Point", "coordinates": [300, 95]},
+    )
+    assert trip.startGeoPoint == {"type": "Point", "coordinates": [-97.0, 32.0]}
+    assert trip.destinationGeoPoint is None
+
+
+@pytest.mark.asyncio
 async def test_trip_validate_meaningful_flags_stationary(beanie_db) -> None:
     start = datetime(2024, 1, 1, tzinfo=UTC)
     end = start + timedelta(minutes=1)
