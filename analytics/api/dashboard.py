@@ -18,6 +18,7 @@ async def get_driving_insights(request: Request):
     try:
         query = await build_query_from_request(request)
         query = enforce_bouncie_source(query)
+        query["invalid"] = {"$ne": True}
         return await DashboardService.get_driving_insights(query)
     except Exception as e:
         logger.exception("Error in get_driving_insights")
@@ -33,6 +34,7 @@ async def get_metrics(request: Request):
     try:
         query = await build_query_from_request(request)
         query = enforce_bouncie_source(query)
+        query["invalid"] = {"$ne": True}
         return await DashboardService.get_metrics(query)
     except Exception as e:
         logger.exception("Error in get_metrics")

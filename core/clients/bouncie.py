@@ -86,10 +86,15 @@ class BouncieClient:
             raise TypeError(msg)
 
         for trip in trips:
-            if isinstance(trip, dict) and "startTime" in trip:
+            if not isinstance(trip, dict):
+                continue
+            if "startTime" in trip:
                 trip["startTime"] = parse_timestamp(trip["startTime"])
-            if isinstance(trip, dict) and "endTime" in trip:
+            if "endTime" in trip:
                 trip["endTime"] = parse_timestamp(trip["endTime"])
+            # Keep historical attribution stable even if upstream omits IMEI.
+            if not trip.get("imei"):
+                trip["imei"] = imei
 
         return trips
 
@@ -134,10 +139,14 @@ class BouncieClient:
             raise TypeError(msg)
 
         for trip in trips:
-            if isinstance(trip, dict) and "startTime" in trip:
+            if not isinstance(trip, dict):
+                continue
+            if "startTime" in trip:
                 trip["startTime"] = parse_timestamp(trip["startTime"])
-            if isinstance(trip, dict) and "endTime" in trip:
+            if "endTime" in trip:
                 trip["endTime"] = parse_timestamp(trip["endTime"])
+            if not trip.get("imei"):
+                trip["imei"] = imei
 
         return trips
 

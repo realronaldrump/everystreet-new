@@ -4,10 +4,17 @@
  */
 
 import apiClient from "../../core/api-client.js";
+import { CONFIG as APP_CONFIG } from "../../core/config.js";
 import { swupReady } from "../../core/navigation.js";
+import store from "../../core/store.js";
 import metricAnimator from "../../ui/metric-animator.js";
 import notificationManager from "../../ui/notifications.js";
-import { formatNumber, formatRelativeTimeShort } from "../../utils.js";
+import {
+  DateUtils,
+  formatNumber,
+  formatRelativeTimeShort,
+  getStorage,
+} from "../../utils.js";
 import { animateValue } from "./animations.js";
 import { bindWidgetEditToggle, updateGreeting } from "./hero.js";
 
@@ -709,12 +716,40 @@ function mapWeatherCode(code) {
   return "Clear";
 }
 
+function buildTripMetricsQueryParams() {
+  const params = new URLSearchParams();
+  const startDate = DateUtils.getStartDate?.();
+  const endDate = DateUtils.getEndDate?.();
+
+  if (startDate) {
+    params.set("start_date", startDate);
+  }
+  if (endDate) {
+    params.set("end_date", endDate);
+  }
+
+  const storeVehicle = store.get?.("filters.vehicle");
+  const savedVehicle = getStorage(APP_CONFIG.STORAGE_KEYS.selectedVehicle);
+  const imei =
+    (typeof storeVehicle === "string" && storeVehicle.trim()) ||
+    (typeof savedVehicle === "string" && savedVehicle.trim()) ||
+    null;
+
+  if (imei) {
+    params.set("imei", imei);
+  }
+
+  return params;
+}
+
 /**
  * Fetch trip metrics and update stats
  */
 async function loadMetrics() {
   try {
-    const data = await apiGet("/api/metrics");
+    const params = buildTripMetricsQueryParams();
+    const qs = params.toString();
+    const data = await apiGet(qs ? `/api/metrics?${qs}` : "/api/metrics");
 
     // Update stats with animation
     const miles = parseFloat(data.total_distance) || 0;
@@ -783,7 +818,11 @@ async function loadRecentTrips() {
  */
 async function loadInsights() {
   try {
-    const data = await apiGet("/api/driving-insights");
+    const params = buildTripMetricsQueryParams();
+    const qs = params.toString();
+    const data = await apiGet(
+      qs ? `/api/driving-insights?${qs}` : "/api/driving-insights"
+    );
     setRecordSource("insights", data);
   } catch (error) {
     if (!isAbortError(error)) {

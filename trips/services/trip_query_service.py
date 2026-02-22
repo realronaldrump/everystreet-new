@@ -105,6 +105,58 @@ def _build_preview_path(
     return " ".join(path_parts)
 
 
+def _normalize_identifier(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        cleaned = value.strip()
+        return cleaned or None
+    cleaned = str(value).strip()
+    return cleaned or None
+
+
+def _vehicle_recency_score(vehicle: dict[str, Any]) -> float:
+    for field in ("updated_at", "last_synced_at", "created_at"):
+        dt = parse_timestamp(vehicle.get(field))
+        if dt is not None:
+            return float(dt.timestamp())
+    return 0.0
+
+
+def _vehicle_priority(vehicle: dict[str, Any]) -> tuple[int, float]:
+    active = 1 if bool(vehicle.get("is_active")) else 0
+    return (active, _vehicle_recency_score(vehicle))
+
+
+def _is_preferred_vehicle_candidate(
+    candidate: dict[str, Any],
+    current: dict[str, Any],
+) -> bool:
+    return _vehicle_priority(candidate) > _vehicle_priority(current)
+
+
+def _select_vehicle_for_trip(
+    *,
+    vin: Any,
+    imei: Any,
+    vehicle_by_vin: dict[str, dict[str, Any]],
+    vehicle_by_imei: dict[str, dict[str, Any]],
+) -> dict[str, Any] | None:
+    vin_key = _normalize_identifier(vin)
+    imei_key = _normalize_identifier(imei)
+
+    vehicle_from_imei = vehicle_by_imei.get(imei_key) if imei_key else None
+    vehicle_from_vin = vehicle_by_vin.get(vin_key) if vin_key else None
+
+    if vehicle_from_imei and vehicle_from_vin:
+        vin_vehicle_imei = _normalize_identifier(vehicle_from_vin.get("imei"))
+        if imei_key and vin_vehicle_imei == imei_key:
+            return vehicle_from_vin
+        return vehicle_from_imei
+
+    return vehicle_from_imei or vehicle_from_vin
+
+
 class TripQueryService:
     """Service class for trip querying and filtering operations."""
 
@@ -449,40 +501,55 @@ class TripQueryService:
             formatted_data.append(formatted_trip)
 
         # Enrich with vehicle metadata if available
-        vins = {trip.get("vin") for trip in formatted_data if trip.get("vin")}
-        fallback_imeis = {
-            trip.get("imei")
-            for trip in formatted_data
-            if not trip.get("vin") and trip.get("imei")
-        }
+        vins: set[str] = set()
+        imeis: set[str] = set()
+        for trip in formatted_data:
+            vin = _normalize_identifier(trip.get("vin"))
+            imei = _normalize_identifier(trip.get("imei"))
+            if vin:
+                vins.add(vin)
+            if imei:
+                imeis.add(imei)
 
-        vehicle_by_vin: dict[str, dict] = {}
-        vehicle_by_imei: dict[str, dict] = {}
+        vehicle_by_vin: dict[str, dict[str, Any]] = {}
+        vehicle_by_imei: dict[str, dict[str, Any]] = {}
 
         if vins:
             vehicles_vin = await Vehicle.find(In(Vehicle.vin, list(vins))).to_list()
             for vehicle in vehicles_vin:
-                if vehicle.vin:
-                    vehicle_by_vin[vehicle.vin] = vehicle.model_dump()
+                vehicle_doc = vehicle.model_dump()
+                vin = _normalize_identifier(vehicle_doc.get("vin"))
+                if vin:
+                    vehicle_by_vin[vin] = vehicle_doc
 
-        if fallback_imeis:
+        if imeis:
             vehicles_imei = await Vehicle.find(
-                In(Vehicle.imei, list(fallback_imeis)),
+                In(Vehicle.imei, list(imeis)),
             ).to_list()
             for vehicle in vehicles_imei:
-                vehicle_by_imei[vehicle.imei] = vehicle.model_dump()
+                vehicle_doc = vehicle.model_dump()
+                imei = _normalize_identifier(vehicle_doc.get("imei"))
+                if not imei:
+                    continue
+                current = vehicle_by_imei.get(imei)
+                if current is None or _is_preferred_vehicle_candidate(
+                    vehicle_doc,
+                    current,
+                ):
+                    vehicle_by_imei[imei] = vehicle_doc
 
         for trip in formatted_data:
-            vin = trip.get("vin")
-            imei = trip.get("imei")
+            vin = _normalize_identifier(trip.get("vin"))
+            imei = _normalize_identifier(trip.get("imei"))
 
-            vehicle = None
-            if vin and vin in vehicle_by_vin:
-                vehicle = vehicle_by_vin[vin]
-            elif imei and imei in vehicle_by_imei:
-                vehicle = vehicle_by_imei[imei]
+            vehicle = _select_vehicle_for_trip(
+                vin=vin,
+                imei=imei,
+                vehicle_by_vin=vehicle_by_vin,
+                vehicle_by_imei=vehicle_by_imei,
+            )
 
-            trip_vin = vin or (vehicle.get("vin") if vehicle else None)
+            trip_vin = vin or _normalize_identifier((vehicle or {}).get("vin"))
             custom_name = vehicle.get("custom_name") if vehicle else None
             make = (vehicle or {}).get("make")
             model = (vehicle or {}).get("model")
