@@ -296,7 +296,9 @@ function updateHistoryAndBreadcrumb(pathname) {
     return;
   }
 
-  const label = document.title || pathname;
+  const label =
+    (document.title || pathname).replace(/\s*[-–—]\s*Every Street$/i, "").trim() ||
+    pathname;
   const now = Date.now();
 
   const history = loadRouteHistory();

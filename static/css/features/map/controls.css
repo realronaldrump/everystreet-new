@@ -793,6 +793,22 @@
   letter-spacing: 0.5px;
 }
 
+/* === Disabled Layer Controls === */
+.layer-control.layer-disabled {
+  opacity: 0.45;
+}
+
+.layer-control.layer-disabled .form-check-input,
+.layer-control.layer-disabled .fa-grip-vertical {
+  opacity: 1;
+}
+
+.layer-control.layer-disabled .form-range,
+.layer-control.layer-disabled .form-control-color {
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
 /* === Reduced Motion === */
 @media (prefers-reduced-motion: reduce) {
   .control-panel#map-controls {
