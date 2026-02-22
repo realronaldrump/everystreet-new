@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+from datetime import datetime
 from typing import Any
 
 from core.date_utils import parse_timestamp
@@ -154,10 +155,12 @@ def normalize_rest_trip_payload(trip: dict[str, Any]) -> dict[str, Any]:
     """Normalize REST /v1/trips payload into canonical trip fields."""
     normalized = dict(trip)
 
-    if normalized.get("startTime") is not None:
-        normalized["startTime"] = parse_timestamp(normalized.get("startTime"))
-    if normalized.get("endTime") is not None:
-        normalized["endTime"] = parse_timestamp(normalized.get("endTime"))
+    start_time = normalized.get("startTime")
+    if start_time is not None and not isinstance(start_time, datetime):
+        normalized["startTime"] = parse_timestamp(start_time)
+    end_time = normalized.get("endTime")
+    if end_time is not None and not isinstance(end_time, datetime):
+        normalized["endTime"] = parse_timestamp(end_time)
 
     if "averageSpeed" in normalized:
         with contextlib.suppress(TypeError, ValueError):

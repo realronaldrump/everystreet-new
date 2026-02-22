@@ -85,7 +85,15 @@ class _PipelineStub:
         do_map_match: bool,
         do_geocode: bool,
         do_coverage: bool,
+        prevalidated_data: dict[str, Any] | None = None,
+        prevalidated_history: list[dict[str, Any]] | None = None,
+        prevalidated_state: str | None = None,
+        sync_mobility: bool = True,
     ) -> Any:
+        del prevalidated_data
+        del prevalidated_history
+        del prevalidated_state
+        del sync_mobility
         self.calls.append(
             {
                 "transactionId": trip.get("transactionId"),

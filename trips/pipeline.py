@@ -102,6 +102,10 @@ class TripPipeline:
         do_geocode: bool = True,
         do_coverage: bool = True,
         force_map_match: bool = False,
+        prevalidated_data: dict[str, Any] | None = None,
+        prevalidated_history: list[ProcessingHistoryEntry] | None = None,
+        prevalidated_state: str | None = None,
+        sync_mobility: bool = True,
     ) -> Trip | None:
         """Process a raw trip through validation, matching, geocoding, coverage, and
         save.
@@ -110,16 +114,25 @@ class TripPipeline:
             logger.warning("No trip data provided to pipeline")
             return None
 
-        success, processed_data, history, state, error = self._validate_and_basic(
-            raw_data,
-        )
-        if not success:
-            logger.warning(
-                "Trip %s failed validation: %s",
-                raw_data.get("transactionId", "unknown"),
-                error,
+        if isinstance(prevalidated_data, dict):
+            processed_data = dict(prevalidated_data)
+            history = list(prevalidated_history or [])
+            state = str(
+                prevalidated_state
+                or (history[-1].get("to") if history else "processed"),
             )
-            return None
+            error = None
+        else:
+            success, processed_data, history, state, error = self._validate_and_basic(
+                raw_data,
+            )
+            if not success:
+                logger.warning(
+                    "Trip %s failed validation: %s",
+                    raw_data.get("transactionId", "unknown"),
+                    error,
+                )
+                return None
 
         transaction_id = processed_data.get("transactionId")
         if not transaction_id:
@@ -225,14 +238,15 @@ class TripPipeline:
         else:
             await final_trip.insert()
 
-        try:
-            await MobilityInsightsService.sync_trip(final_trip)
-        except Exception as exc:
-            logger.warning(
-                "Failed to sync mobility insights for trip %s: %s",
-                transaction_id,
-                exc,
-            )
+        if sync_mobility:
+            try:
+                await MobilityInsightsService.sync_trip(final_trip)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to sync mobility insights for trip %s: %s",
+                    transaction_id,
+                    exc,
+                )
 
         logger.debug("Saved trip %s successfully", transaction_id)
         return final_trip
@@ -246,6 +260,10 @@ class TripPipeline:
         do_geocode: bool = True,
         do_coverage: bool = True,
         skip_existing_check: bool = False,
+        prevalidated_data: dict[str, Any] | None = None,
+        prevalidated_history: list[ProcessingHistoryEntry] | None = None,
+        prevalidated_state: str | None = None,
+        sync_mobility: bool = True,
     ) -> Trip | None:
         """
         Process a raw trip and insert it only if it does not already exist.
@@ -258,16 +276,25 @@ class TripPipeline:
             logger.warning("No trip data provided to pipeline")
             return None
 
-        success, processed_data, history, state, error = self._validate_and_basic(
-            raw_data,
-        )
-        if not success:
-            logger.warning(
-                "Trip %s failed validation: %s",
-                raw_data.get("transactionId", "unknown"),
-                error,
+        if isinstance(prevalidated_data, dict):
+            processed_data = dict(prevalidated_data)
+            history = list(prevalidated_history or [])
+            state = str(
+                prevalidated_state
+                or (history[-1].get("to") if history else "processed"),
             )
-            return None
+            error = None
+        else:
+            success, processed_data, history, state, error = self._validate_and_basic(
+                raw_data,
+            )
+            if not success:
+                logger.warning(
+                    "Trip %s failed validation: %s",
+                    raw_data.get("transactionId", "unknown"),
+                    error,
+                )
+                return None
 
         transaction_id = processed_data.get("transactionId")
         if not transaction_id:
@@ -347,14 +374,15 @@ class TripPipeline:
                     exc,
                 )
 
-        try:
-            await MobilityInsightsService.sync_trip(final_trip)
-        except Exception as exc:
-            logger.warning(
-                "Failed to sync mobility insights for trip %s: %s",
-                transaction_id,
-                exc,
-            )
+        if sync_mobility:
+            try:
+                await MobilityInsightsService.sync_trip(final_trip)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to sync mobility insights for trip %s: %s",
+                    transaction_id,
+                    exc,
+                )
 
         logger.debug("Inserted trip %s successfully (insert-only)", transaction_id)
         return final_trip

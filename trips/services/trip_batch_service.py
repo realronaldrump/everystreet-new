@@ -231,15 +231,19 @@ class TripService:
             for t in trips_data:
                 if not isinstance(t, dict):
                     continue
+                raw_tx = str(t.get("transactionId") or "").strip()
+                if not raw_tx or raw_tx in seen_incoming:
+                    continue
+                seen_incoming.add(raw_tx)
                 normalized_trip = normalize_rest_trip_payload(t)
                 tx = normalized_trip.get("transactionId")
-                if not tx or tx in seen_incoming:
+                if not tx:
                     continue
-                seen_incoming.add(tx)
                 unique_trips.append(normalized_trip)
 
             trips_to_handle = []
             existing_by_id: dict[str, Any] = {}
+            existing_docs_by_id: dict[str, Trip] = {}
             if unique_trips:
                 incoming_ids = [
                     t.get("transactionId")
@@ -259,6 +263,15 @@ class TripService:
                     transaction_id = d_dict.get("transactionId")
                     if isinstance(transaction_id, str) and transaction_id:
                         existing_by_id[transaction_id] = d_dict
+
+                if existing_by_id:
+                    existing_docs_full = await Trip.find(
+                        In(Trip.transactionId, list(existing_by_id.keys())),
+                    ).to_list()
+                    for existing_doc in existing_docs_full:
+                        tx = str(getattr(existing_doc, "transactionId", "") or "").strip()
+                        if tx:
+                            existing_docs_by_id[tx] = existing_doc
 
                 for trip in unique_trips:
                     transaction_id = trip.get("transactionId")
@@ -361,12 +374,19 @@ class TripService:
                         continue
 
                     try:
+                        processing_status = validation.get("processing_status") or {}
+                        validated_trip_data = validation.get("processed_data")
+                        if not isinstance(validated_trip_data, dict):
+                            validated_trip_data = None
                         saved = await self._pipeline.process_raw_trip(
                             trip,
                             source="bouncie",
                             do_map_match=do_map_match,
                             do_geocode=geocode_enabled,
                             do_coverage=True,
+                            prevalidated_data=validated_trip_data,
+                            prevalidated_history=processing_status.get("history"),
+                            prevalidated_state=processing_status.get("state"),
                         )
                     except Exception as exc:
                         logger.exception(
@@ -404,9 +424,7 @@ class TripService:
                 else:
                     if not existing_trip:
                         continue
-                    existing_doc = await Trip.find_one(
-                        Trip.transactionId == transaction_id,
-                    )
+                    existing_doc = existing_docs_by_id.get(str(transaction_id))
                     if not existing_doc:
                         continue
                     merged = await self._merge_existing_trip(

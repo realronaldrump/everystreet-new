@@ -235,12 +235,20 @@ async def _process_new_trips_batch(
             continue
 
         try:
+            processing_status = validation.get("processing_status") or {}
+            validated_trip_data = validation.get("processed_data")
+            if not isinstance(validated_trip_data, dict):
+                validated_trip_data = None
             inserted = await runtime.pipeline.process_raw_trip(
                 trip,
                 source="bouncie",
                 do_map_match=False,
                 do_geocode=runtime.do_geocode,
                 do_coverage=runtime.do_coverage,
+                prevalidated_data=validated_trip_data,
+                prevalidated_history=processing_status.get("history"),
+                prevalidated_state=processing_status.get("state"),
+                sync_mobility=False,
             )
         except Exception as exc:
             await _record_process_failure(
