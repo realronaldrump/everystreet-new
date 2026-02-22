@@ -22,9 +22,9 @@ register_template_filters(templates)
 def _render_page(template_name: str, request: Request, **context: Any) -> HTMLResponse:
     """Render a Jinja template with a consistent base context."""
     return templates.TemplateResponse(
+        request,
         template_name,
         {
-            "request": request,
             "repo_version": get_repo_version_info(),
             **context,
         },

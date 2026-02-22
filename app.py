@@ -1,6 +1,7 @@
 import logging
 import os
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -72,7 +73,16 @@ class AppState:
 
 
 # Initialize FastAPI App
-app = FastAPI(title="Every Street")
+@asynccontextmanager
+async def app_lifespan(_app: FastAPI):
+    await startup_event()
+    try:
+        yield
+    finally:
+        await shutdown_event()
+
+
+app = FastAPI(title="Every Street", lifespan=app_lifespan)
 
 
 class CacheControlStaticFiles(StaticFiles):
@@ -204,8 +214,6 @@ app.include_router(recurring_routes_router)
 # Note: Raw collection initialization removed in favor of Beanie models
 
 
-# --- Application Lifecycle Events ---
-@app.on_event("startup")
 async def startup_event():
     """Initialize database indexes and components on application startup."""
     try:
@@ -262,7 +270,6 @@ async def startup_event():
         raise
 
 
-@app.on_event("shutdown")
 async def shutdown_event() -> None:
     """Clean up resources when shutting down."""
     await close_arq_pool()
@@ -287,9 +294,9 @@ async def not_found_handler(request: Request, exc: HTTPException):
         logger.warning("404 Not Found: %s. Detail: %s", request.url, exc.detail)
     if _prefers_html(request):
         return templates.TemplateResponse(
+            request,
             "404.html",
             {
-                "request": request,
                 "path": request.url.path,
                 "repo_version": get_repo_version_info(),
             },

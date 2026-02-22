@@ -250,3 +250,6 @@ asyncio_mode = "auto"
 markers = [
   "integration: tests that require live Valhalla/Nominatim services",
 ]
+filterwarnings = [
+  "ignore:datetime.datetime.utcnow\\(\\) is deprecated and scheduled for removal in a future version.*:DeprecationWarning:mongomock.helpers",
+]

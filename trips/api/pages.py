@@ -20,9 +20,9 @@ async def _render_trips_page(
 ) -> HTMLResponse:
     """Render the trips page with optional preloaded trip details."""
     return templates.TemplateResponse(
+        request,
         "trips.html",
         {
-            "request": request,
             "repo_version": get_repo_version_info(),
             "trip_id": trip_id,
         },

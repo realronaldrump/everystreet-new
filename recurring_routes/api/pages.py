@@ -19,9 +19,9 @@ async def _render_routes_page(
     route_id: str | None = None,
 ) -> HTMLResponse:
     return templates.TemplateResponse(
+        request,
         "routes.html",
         {
-            "request": request,
             "repo_version": get_repo_version_info(),
             "route_id": route_id,
         },
