@@ -358,8 +358,8 @@ async def _write_window_scan_progress(
 
 __all__ = [
     "_dedupe_trips_by_transaction_id",
+    "_fetch_device_window",
     "_fetch_trips_for_window",
     "_filter_trips_to_window",
-    "_fetch_device_window",
     "_write_window_scan_progress",
 ]
