@@ -65,37 +65,28 @@ class ImportRuntime:
     record_failure_reason: Callable[[str | None], None]
 
 
-async def _process_import_window(
+async def _process_device_import(
     *,
     runtime: ImportRuntime,
-    idx: int,
-    window_start: datetime,
-    window_end: datetime,
-    windows_completed: int,
-) -> tuple[bool, int]:
-    current_window = {
-        "index": idx,
-        "start_iso": window_start.isoformat(),
-        "end_iso": window_end.isoformat(),
-    }
-    runtime.add_event(
-        "info",
-        f"Scanning window {idx}/{runtime.windows_total}",
-        {"start": current_window["start_iso"], "end": current_window["end_iso"]},
-    )
-    await runtime.write_progress(
-        status="running",
-        stage="scanning",
-        message=f"Scanning window {idx}/{runtime.windows_total}",
-        progress=((idx - 1) / max(1, runtime.windows_total)) * 100.0,
-        current_window=current_window,
-        windows_completed=windows_completed,
-    )
-
-    devices_done_ref = {"done": 0}
+    imei: str,
+    windows: list[tuple[datetime, datetime]],
+) -> None:
+    current_device_windows_completed = runtime.per_device[imei]["windows_completed"]
+    devices_done_ref = {"done": 0}  # Required by _fetch_device_window signature
     total_devices = len(runtime.imeis)
-    fetch_tasks = [
-        _fetch_device_window(
+
+    for idx, (window_start, window_end) in enumerate(windows, start=1):
+        if await runtime.is_cancelled(force=False):
+            return
+
+        current_window = {
+            "index": idx,
+            "start_iso": window_start.isoformat(),
+            "end_iso": window_end.isoformat(),
+        }
+
+        # _fetch_device_window internally updates progress
+        raw_trips = await _fetch_device_window(
             client=runtime.client,
             token=runtime.token,
             imei=imei,
@@ -112,101 +103,56 @@ async def _process_import_window(
             total_devices=total_devices,
             windows_total=runtime.windows_total,
             current_window=current_window,
-            windows_completed=windows_completed,
+            windows_completed=sum(
+                d["windows_completed"] for d in runtime.per_device.values()
+            ),
             record_failure_reason=runtime.record_failure_reason,
         )
-        for imei in runtime.imeis
-    ]
-    raw_lists = await asyncio.gather(*fetch_tasks)
-    raw_trips = [
-        trip for sub in raw_lists for trip in (sub or []) if isinstance(trip, dict)
-    ]
 
-    unique_trips = _collect_unique_window_trips(
-        raw_trips,
-        seen_transaction_ids=runtime.seen_transaction_ids,
-        counters=runtime.counters,
-    )
-    _record_per_device_unique_counts(unique_trips, runtime.per_device)
+        if not raw_trips:
+            continue
 
-    if not unique_trips:
-        windows_completed += 1
-        await runtime.write_progress(
-            status="running",
-            stage="scanning",
-            message=f"No trips found (window {idx}/{runtime.windows_total})",
-            progress=(windows_completed / max(1, runtime.windows_total)) * 100.0,
-            current_window=current_window,
-            windows_completed=windows_completed,
-            important=True,
+        unique_trips = _collect_unique_window_trips(
+            raw_trips,
+            seen_transaction_ids=runtime.seen_transaction_ids,
+            counters=runtime.counters,
         )
-        return False, windows_completed
+        _record_per_device_unique_counts(unique_trips, runtime.per_device)
 
-    existing_ids = await _load_existing_transaction_ids(unique_trips)
-    new_trips = _collect_new_trips(
-        unique_trips=unique_trips,
-        existing_ids=existing_ids,
-        counters=runtime.counters,
-        per_device=runtime.per_device,
-    )
+        if not unique_trips:
+            continue
 
-    if await runtime.is_cancelled(force=True):
-        return True, windows_completed
+        existing_ids = await _load_existing_transaction_ids(unique_trips)
+        new_trips = _collect_new_trips(
+            unique_trips=unique_trips,
+            existing_ids=existing_ids,
+            counters=runtime.counters,
+            per_device=runtime.per_device,
+        )
 
-    if not new_trips:
+        if await runtime.is_cancelled(force=False):
+            return
+
+        if not new_trips:
+            continue
+
         runtime.add_event(
             "info",
-            "No new trips to insert in this window",
-            {"window_index": idx},
+            f"Inserting {len(new_trips)} new trips for {imei}",
+            {"window_index": idx, "imei": imei},
         )
-        windows_completed += 1
-        await runtime.write_progress(
-            status="running",
-            stage="processing",
-            message=f"No new trips (window {idx}/{runtime.windows_total})",
-            progress=(windows_completed / max(1, runtime.windows_total)) * 100.0,
+
+        cancelled = await _process_new_trips_batch(
+            runtime=runtime,
+            new_trips=new_trips,
+            window_index=idx,
+            windows_completed=sum(
+                d["windows_completed"] for d in runtime.per_device.values()
+            ),
             current_window=current_window,
-            windows_completed=windows_completed,
-            important=True,
         )
-        return False, windows_completed
-
-    runtime.add_event(
-        "info",
-        f"Processing {len(new_trips)} new trips",
-        {"window_index": idx},
-    )
-    await runtime.write_progress(
-        status="running",
-        stage="processing",
-        message=f"Inserting {len(new_trips)} new trips (window {idx}/{runtime.windows_total})",
-        progress=((idx - 1) / max(1, runtime.windows_total)) * 100.0,
-        current_window=current_window,
-        windows_completed=windows_completed,
-        important=True,
-    )
-
-    cancelled = await _process_new_trips_batch(
-        runtime=runtime,
-        new_trips=new_trips,
-        window_index=idx,
-        windows_completed=windows_completed,
-        current_window=current_window,
-    )
-    if cancelled:
-        return True, windows_completed
-
-    windows_completed += 1
-    await runtime.write_progress(
-        status="running",
-        stage="scanning",
-        message=f"Completed window {idx}/{runtime.windows_total}",
-        progress=min(99.0, (windows_completed / max(1, runtime.windows_total)) * 100.0),
-        current_window=current_window,
-        windows_completed=windows_completed,
-        important=True,
-    )
-    return False, windows_completed
+        if cancelled:
+            return
 
 
 @dataclass
@@ -349,20 +295,20 @@ async def _run_import_windows(
     windows: list[tuple[datetime, datetime]],
     progress_ctx: ImportProgressContext,
 ) -> tuple[bool, int]:
-    windows_completed = 0
-    for idx, (window_start, window_end) in enumerate(windows, start=1):
-        if await progress_ctx.is_cancelled(force=True):
-            return True, windows_completed
-        cancelled, windows_completed = await _process_import_window(
+    device_tasks = [
+        _process_device_import(
             runtime=runtime,
-            idx=idx,
-            window_start=window_start,
-            window_end=window_end,
-            windows_completed=windows_completed,
+            imei=imei,
+            windows=windows,
         )
-        if cancelled:
-            return True, windows_completed
-    return False, windows_completed
+        for imei in runtime.imeis
+    ]
+
+    await asyncio.gather(*device_tasks)
+
+    cancelled = await progress_ctx.is_cancelled(force=True)
+    windows_completed = sum(d["windows_completed"] for d in runtime.per_device.values())
+    return cancelled, windows_completed
 
 
 async def _finalize_import_success(
@@ -563,8 +509,7 @@ __all__ = [
     "_build_import_setup",
     "_build_progress_context",
     "_finalize_import_failure",
-    "_finalize_import_success",
-    "_process_import_window",
+    "_process_device_import",
     "_run_import_windows",
     "run_import",
 ]

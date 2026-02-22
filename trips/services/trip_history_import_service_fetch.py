@@ -339,19 +339,18 @@ async def _write_window_scan_progress(
     current_window: dict[str, Any],
     windows_completed: int,
 ) -> None:
-    if devices_done <= 0:
-        return
-    within = devices_done / max(1, total_devices)
-    overall = ((window_index - 1) + (0.35 * within)) / max(1, windows_total)
+    del devices_done
+    del window_index
+    del current_window
+    total_all_windows = max(1, total_devices * windows_total)
+    overall = windows_completed / total_all_windows
+
     await write_progress(
         status="running",
         stage="scanning",
-        message=(
-            f"Fetched devices {devices_done}/{total_devices} "
-            f"(window {window_index}/{windows_total})"
-        ),
+        message=f"Scanning history (Completed {windows_completed}/{total_all_windows} vehicle-windows)",
         progress=min(99.0, overall * 100.0),
-        current_window=current_window,
+        current_window=None,
         windows_completed=windows_completed,
     )
 
