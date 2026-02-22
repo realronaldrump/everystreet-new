@@ -462,6 +462,12 @@ class TripPipeline:
             if isinstance(coords, list) and coords:
                 gps_data = GeometryService.geometry_from_coordinate_dicts(coords)
             if not gps_data:
+                has_minimum_trip_data = any(
+                    processed_data.get(field) is not None
+                    for field in ("startTime", "endTime", "distance", "duration")
+                )
+                if not has_minimum_trip_data:
+                    return False, "Trip missing GPS geometry and minimum trip telemetry"
                 processed_data["gps"] = None
                 return True, None
 
