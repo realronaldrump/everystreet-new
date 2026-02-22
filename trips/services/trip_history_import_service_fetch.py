@@ -138,17 +138,6 @@ async def _fetch_trips_for_window(
                     add_event=add_event,
                     chunk_semaphore=chunk_semaphore,
                 )
-                if add_event and chunk:
-                    add_event(
-                        "info",
-                        f"Fetched {len(chunk)} trips from sub-chunk",
-                        {
-                            "imei": imei,
-                            "start": sub_start.isoformat(),
-                            "end": sub_end.isoformat(),
-                        },
-                    )
-                return chunk
             except Exception:
                 logger.exception(
                     "Sub-window fetch failed (imei=%s, %s - %s)",
@@ -163,6 +152,18 @@ async def _fetch_trips_for_window(
                         {"start": sub_start.isoformat(), "end": sub_end.isoformat()},
                     )
                 return []
+            else:
+                if add_event and chunk:
+                    add_event(
+                        "info",
+                        f"Fetched {len(chunk)} trips from sub-chunk",
+                        {
+                            "imei": imei,
+                            "start": sub_start.isoformat(),
+                            "end": sub_end.isoformat(),
+                        },
+                    )
+                return chunk
 
         tasks = [fetch_sub(sub_start, sub_end) for sub_start, sub_end in sub_windows]
         results_lists = await asyncio.gather(*tasks)

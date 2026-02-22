@@ -71,7 +71,6 @@ async def _process_device_import(
     imei: str,
     windows: list[tuple[datetime, datetime]],
 ) -> None:
-    current_device_windows_completed = runtime.per_device[imei]["windows_completed"]
     devices_done_ref = {"done": 0}  # Required by _fetch_device_window signature
     total_devices = len(runtime.imeis)
 
