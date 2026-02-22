@@ -106,17 +106,26 @@ function renderStorySectionsFromState() {
   InsightsState.updateState({ derivedInsights: snapshot });
 }
 
+let currentDataController = null;
+
 /**
  * Load all data for the insights page
  */
 export async function loadAllData(signalOverride) {
-  const activeSignal = signalOverride ?? pageSignal;
-  if (activeSignal?.aborted) {
+  const baseSignal = signalOverride ?? pageSignal;
+  if (baseSignal?.aborted) {
     return;
   }
-  const state = InsightsState.getState();
-  if (state.isLoading) {
-    return;
+  
+  if (currentDataController) {
+    currentDataController.abort();
+  }
+  currentDataController = new AbortController();
+  const activeSignal = currentDataController.signal;
+  
+  const onBaseAbort = () => currentDataController.abort();
+  if (baseSignal) {
+    baseSignal.addEventListener("abort", onBaseAbort, { once: true });
   }
 
   InsightsState.updateState({ isLoading: true });
@@ -160,8 +169,16 @@ export async function loadAllData(signalOverride) {
     console.error("Error loading data:", error);
     notificationManager.show("Error loading data. Please try again.", "error");
   } finally {
-    InsightsState.updateState({ isLoading: false });
-    hideLoadingStates();
+    if (baseSignal) {
+      baseSignal.removeEventListener("abort", onBaseAbort);
+    }
+    if (!activeSignal.aborted) {
+      InsightsState.updateState({ isLoading: false });
+      hideLoadingStates();
+      if (currentDataController?.signal === activeSignal) {
+        currentDataController = null;
+      }
+    }
   }
 }
 
