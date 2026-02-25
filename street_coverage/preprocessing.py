@@ -564,6 +564,7 @@ def _build_graph_with_limit(
     *,
     location_id: str | None = None,
 ) -> nx.MultiDiGraph | None:
+    _ = location_id
     if max_mb <= 0:
         return _build_graph_in_process(osm_path, routing_polygon, graph_path)
 

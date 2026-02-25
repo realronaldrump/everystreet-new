@@ -5,7 +5,7 @@ from trips.services.trip_query_service import (
 )
 
 
-def test_normalize_identifier_trims_and_handles_missing():
+def test_normalize_identifier_trims_and_handles_missing() -> None:
     assert _normalize_identifier(None) is None
     assert _normalize_identifier("") is None
     assert _normalize_identifier("  ") is None
@@ -13,7 +13,7 @@ def test_normalize_identifier_trims_and_handles_missing():
     assert _normalize_identifier(123) == "123"
 
 
-def test_select_vehicle_prefers_imei_when_vin_conflicts():
+def test_select_vehicle_prefers_imei_when_vin_conflicts() -> None:
     vehicle_by_vin = {
         "VIN-CONFLICT": {
             "imei": "imei-other",
@@ -38,7 +38,7 @@ def test_select_vehicle_prefers_imei_when_vin_conflicts():
     assert selected.get("custom_name") == "Expected Vehicle"
 
 
-def test_select_vehicle_accepts_matching_vin_and_imei():
+def test_select_vehicle_accepts_matching_vin_and_imei() -> None:
     vehicle = {
         "imei": "imei-123",
         "vin": "VIN-123",
@@ -54,7 +54,7 @@ def test_select_vehicle_accepts_matching_vin_and_imei():
     assert selected is vehicle
 
 
-def test_vehicle_candidate_priority_prefers_active_then_recent():
+def test_vehicle_candidate_priority_prefers_active_then_recent() -> None:
     inactive_recent = {
         "is_active": False,
         "updated_at": "2026-02-20T12:00:00Z",
@@ -70,4 +70,3 @@ def test_vehicle_candidate_priority_prefers_active_then_recent():
 
     assert _is_preferred_vehicle_candidate(active_older, inactive_recent)
     assert _is_preferred_vehicle_candidate(active_newer, active_older)
-

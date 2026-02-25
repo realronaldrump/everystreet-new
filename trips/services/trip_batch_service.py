@@ -279,7 +279,9 @@ class TripService:
                         In(Trip.transactionId, list(existing_by_id.keys())),
                     ).to_list()
                     for existing_doc in existing_docs_full:
-                        tx = str(getattr(existing_doc, "transactionId", "") or "").strip()
+                        tx = str(
+                            getattr(existing_doc, "transactionId", "") or "",
+                        ).strip()
                         if tx:
                             existing_docs_by_id[tx] = existing_doc
 
@@ -404,9 +406,14 @@ class TripService:
                                 Trip.transactionId == transaction_id,
                             )
                             if existing_doc_after_race:
-                                existing_source = str(
-                                    getattr(existing_doc_after_race, "source", "") or "",
-                                ).strip().lower()
+                                existing_source = (
+                                    str(
+                                        getattr(existing_doc_after_race, "source", "")
+                                        or "",
+                                    )
+                                    .strip()
+                                    .lower()
+                                )
                                 if existing_source == "bouncie":
                                     processed_trip_ids.append(transaction_id)
                                     merged_count += 1

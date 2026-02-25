@@ -462,10 +462,11 @@ async def get_active_trip() -> dict[str, Any] | None:
             await clear_trip_snapshot(transaction_id, mark_closed=True)
             return None
 
-        return trip
     except Exception:
         logger.exception("Error fetching active trip")
         return None
+    else:
+        return trip
 
 
 async def get_trip_updates(_last_sequence: int = 0) -> dict[str, Any]:

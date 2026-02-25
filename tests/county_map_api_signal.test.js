@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-
-import * as CountyMapAPI from "../static/js/modules/county-map/api.js";
 import apiClient from "../static/js/modules/core/api-client.js";
+import * as CountyMapAPI from "../static/js/modules/county-map/api.js";
 
 test("county map API forwards abort signals", async () => {
   const signal = AbortSignal.abort();

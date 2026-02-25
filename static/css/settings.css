@@ -2063,7 +2063,7 @@
 
 .trip-import-log-summary::before {
   content: "\f0da";
-  font-family: "Font Awesome 5 Free";
+  font-family: "Font Awesome 5 Free", sans-serif;
   font-weight: 900;
   font-size: var(--font-size-sm);
   color: var(--text-tertiary);
@@ -2073,7 +2073,6 @@
 .trip-import-log-details[open] > .trip-import-log-summary::before {
   transform: rotate(90deg);
 }
-
 
 .trip-import-surface {
   padding: var(--space-4);

@@ -798,29 +798,29 @@
    DRILLDOWN MODAL
    ============================================ */
 
-#tripDetailsModal .modal-content {
+[id="tripDetailsModal"] .modal-content {
   border: 1px solid rgb(var(--border-rgb) / 20%);
   background: rgb(var(--surface-rgb) / 97%);
   backdrop-filter: blur(var(--blur-modal));
 }
 
-#tripDetailsModal .modal-header {
+[id="tripDetailsModal"] .modal-header {
   border-color: rgb(var(--border-rgb) / 15%);
   padding: var(--space-4) var(--space-5);
 }
 
-#tripDetailsModal .modal-footer {
+[id="tripDetailsModal"] .modal-footer {
   border-color: rgb(var(--border-rgb) / 12%);
   padding: var(--space-3) var(--space-5);
 }
 
-#tripDetailsModal .modal-body {
+[id="tripDetailsModal"] .modal-body {
   padding: var(--space-4) var(--space-5);
   max-height: 70vh;
   overflow-y: auto;
 }
 
-#tripDetailsModal .modal-title {
+[id="tripDetailsModal"] .modal-title {
   margin: 0;
   font-family: var(--font-family-display);
   font-size: var(--font-size-lg);

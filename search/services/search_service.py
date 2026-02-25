@@ -41,12 +41,13 @@ class SearchService:
             try:
                 lon = round(float(center[0]), 5)
                 lat = round(float(center[1]), 5)
+            except (TypeError, ValueError):
+                pass
+            else:
                 name = SearchService._normalize_query_text(
                     str(result.get("text") or result.get("place_name") or ""),
                 )
                 return f"coord:{lon}:{lat}:{name}"
-            except (TypeError, ValueError):
-                pass
 
         fallback = SearchService._normalize_query_text(
             str(result.get("display_name") or result.get("place_name") or ""),

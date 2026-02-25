@@ -1091,9 +1091,11 @@
 .coverage-navigator .btn-generate[data-state="idle"] .icon-idle {
   display: flex;
 }
+
 .coverage-navigator .btn-generate[data-state="ready"] .icon-ready {
   display: flex;
 }
+
 .coverage-navigator .btn-generate[data-state="done"] .icon-done {
   display: flex;
 }
@@ -1134,9 +1136,11 @@
 .coverage-navigator .btn-generate[data-state="idle"] .state-idle {
   display: block;
 }
+
 .coverage-navigator .btn-generate[data-state="ready"] .state-ready {
   display: block;
 }
+
 .coverage-navigator .btn-generate[data-state="done"] .state-done {
   display: block;
 }
@@ -1964,6 +1968,7 @@
   100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.6;
   }
@@ -2777,6 +2782,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }

@@ -167,7 +167,10 @@ export function setupStateStatsToggle() {
       }
 
       const stateList = content.querySelector("#state-list");
-      if ((!isExpanded && content.innerHTML.trim() === "") || !stateList?.innerHTML.trim()) {
+      if (
+        (!isExpanded && content.innerHTML.trim() === "") ||
+        !stateList?.innerHTML.trim()
+      ) {
         renderStateStatsList();
       }
     });

@@ -182,7 +182,7 @@ export async function fetchRoute(waypoints) {
  * @param {string} presetId
  * @returns {Promise<ResolvedRoute>}
  */
-export async function fetchPresetRoute(presetId) {
+export function fetchPresetRoute(presetId) {
   const preset = getPresetById(presetId);
   if (!preset) {
     throw new Error(`Unknown preset: ${presetId}`);

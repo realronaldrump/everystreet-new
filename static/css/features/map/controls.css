@@ -536,7 +536,6 @@
     /* Solid background on mobile — avoids expensive backdrop-filter */
     background: var(--surface-1);
     backdrop-filter: none;
-    backdrop-filter: none;
     border: 1px solid var(--glass-border);
     border-bottom: none;
   }

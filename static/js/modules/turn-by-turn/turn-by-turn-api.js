@@ -179,8 +179,8 @@ const TurnByTurnAPI = {
    * @param {string} taskId
    * @returns {Promise<Object>}
    */
-  async cancelRouteGeneration(taskId) {
-    return await apiClient.delete(`/api/optimal-routes/${taskId}`);
+  cancelRouteGeneration(taskId) {
+    return apiClient.delete(`/api/optimal-routes/${taskId}`);
   },
 
   /**

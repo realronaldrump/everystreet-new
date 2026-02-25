@@ -753,7 +753,7 @@ class LiveTripTracker {
     }
 
     // Priority 2 = runs after general layer restoration (priority 1)
-    this._styleChangeHandlerRef = mapCore.registerStyleChangeHandler(2, async () => {
+    this._styleChangeHandlerRef = mapCore.registerStyleChangeHandler(2, () => {
       try {
         this.initializeMapLayers();
 

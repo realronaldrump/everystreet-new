@@ -194,7 +194,10 @@ class TripPipeline:
         processed_data["saved_at"] = get_current_utc_time()
         processed_data["status"] = "processed"
 
-        self._prepare_processed_geo_fields(processed_data, transaction_id=transaction_id)
+        self._prepare_processed_geo_fields(
+            processed_data,
+            transaction_id=transaction_id,
+        )
 
         if "_id" in processed_data:
             processed_data.pop("_id", None)
@@ -335,7 +338,10 @@ class TripPipeline:
         processed_data["saved_at"] = get_current_utc_time()
         processed_data["status"] = "processed"
 
-        self._prepare_processed_geo_fields(processed_data, transaction_id=transaction_id)
+        self._prepare_processed_geo_fields(
+            processed_data,
+            transaction_id=transaction_id,
+        )
 
         if "_id" in processed_data:
             processed_data.pop("_id", None)
@@ -505,7 +511,9 @@ class TripPipeline:
         gps_coords = gps_data.get("coordinates")
 
         if gps_type == "Point":
-            if not (gps_coords and isinstance(gps_coords, list) and len(gps_coords) == 2):
+            if not (
+                gps_coords and isinstance(gps_coords, list) and len(gps_coords) == 2
+            ):
                 return False, "Point GeoJSON has invalid coordinates"
             start_coord = gps_coords
             end_coord = gps_coords

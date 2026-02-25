@@ -122,6 +122,8 @@ def _install_common_mocks(
         def __eq__(self, _other):
             return self
 
+        __hash__ = object.__hash__
+
     class _StreetModel:
         area_id = _QueryField()
         area_version = _QueryField()

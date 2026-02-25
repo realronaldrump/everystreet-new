@@ -292,13 +292,21 @@ async function loadAndRenderCountyMap(map, { recovery = false } = {}) {
   try {
     updateLoadingText("Loading county boundaries...");
     await loadCountyData(requestSignal);
-    if (requestSignal.aborted || pageSignal?.aborted || map !== CountyMapState.getMap()) {
+    if (
+      requestSignal.aborted ||
+      pageSignal?.aborted ||
+      map !== CountyMapState.getMap()
+    ) {
       return;
     }
 
     updateLoadingText("Loading visited counties...");
     await loadVisitedCounties(requestSignal);
-    if (requestSignal.aborted || pageSignal?.aborted || map !== CountyMapState.getMap()) {
+    if (
+      requestSignal.aborted ||
+      pageSignal?.aborted ||
+      map !== CountyMapState.getMap()
+    ) {
       return;
     }
 
@@ -324,7 +332,7 @@ async function loadAndRenderCountyMap(map, { recovery = false } = {}) {
   }
 }
 
-async function recoverFromContextLoss() {
+function recoverFromContextLoss() {
   if (pageSignal?.aborted || contextRecoveryInProgress) {
     return;
   }

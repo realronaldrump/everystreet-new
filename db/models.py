@@ -32,7 +32,11 @@ from beanie.odm.fields import IndexModel
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from core.date_utils import parse_timestamp
-from core.spatial import GeometryService, sanitize_geojson_geometry, sanitize_geojson_point
+from core.spatial import (
+    GeometryService,
+    sanitize_geojson_geometry,
+    sanitize_geojson_point,
+)
 from map_data.models import GeoServiceHealth, MapServiceConfig
 
 

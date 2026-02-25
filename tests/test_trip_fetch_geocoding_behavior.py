@@ -110,7 +110,8 @@ class _RaceDuplicatePipelineStub:
                     startTime=datetime(2025, 1, 2, 12, 0, tzinfo=UTC),
                     endTime=datetime(2025, 1, 2, 12, 30, tzinfo=UTC),
                 ).insert()
-        raise _DuplicateKeyError("E11000 duplicate key error")
+        msg = "E11000 duplicate key error"
+        raise _DuplicateKeyError(msg)
 
 
 @pytest.mark.asyncio

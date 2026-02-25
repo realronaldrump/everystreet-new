@@ -343,9 +343,11 @@ const layerManager = {
       // Set initial disabled state for controls when layer is off
       if (!info.visible) {
         div.classList.add("layer-disabled");
-        div.querySelectorAll('input[type="range"], input[type="color"]').forEach((el) => {
-          el.disabled = true;
-        });
+        div
+          .querySelectorAll('input[type="range"], input[type="color"]')
+          .forEach((el) => {
+            el.disabled = true;
+          });
       }
 
       fragment.appendChild(div);
@@ -377,9 +379,11 @@ const layerManager = {
           const row = input.closest(".layer-control");
           if (row) {
             row.classList.toggle("layer-disabled", !input.checked);
-            row.querySelectorAll('input[type="range"], input[type="color"]').forEach((el) => {
-              el.disabled = !input.checked;
-            });
+            row
+              .querySelectorAll('input[type="range"], input[type="color"]')
+              .forEach((el) => {
+                el.disabled = !input.checked;
+              });
           }
         } else if (input.type === "color") {
           this.updateLayerStyle(layerName, "color", input.value);

@@ -20,8 +20,8 @@ from db.models import Vehicle
 from setup.services.bouncie_oauth import BouncieOAuth
 from trips.pipeline import TripPipeline
 from trips.services.trip_history_import_service_config import (
-    IMPORT_DO_GEOCODE,
     IMPORT_DO_COVERAGE,
+    IMPORT_DO_GEOCODE,
     _vehicle_label,
     build_import_windows,
     resolve_import_imeis,

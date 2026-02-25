@@ -30,4 +30,5 @@ def __getattr__(name: str):
         from trips.services.trip_sync_service import TripSyncService
 
         return TripSyncService
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)

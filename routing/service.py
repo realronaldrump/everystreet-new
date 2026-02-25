@@ -34,8 +34,6 @@ from .graph import (
 from .validation import validate_route
 
 if TYPE_CHECKING:
-    from shapely.geometry import LineString
-
     from .types import EdgeRef, ReqId
 
 logger = logging.getLogger(__name__)
@@ -530,7 +528,7 @@ async def _generate_optimal_route_with_progress_impl(
             matching_graph.graph.get("crs", "none"),
             osmid_sample[:3],
         )
-        edge_line_cache: dict[EdgeRef, LineString] = {}
+        edge_line_cache: dict[EdgeRef, Any] = {}
 
         # Track newly matched edges for cache write-back
         newly_matched_edges: dict[int, EdgeRef] = {}  # seg_index -> (u, v, k)
@@ -1403,7 +1401,7 @@ async def _generate_optimal_route_with_progress_impl(
                         "solve_greedy_route returned an unexpected result shape "
                         f"({len(solver_result)} values)"
                     )
-                    raise ValueError(msg)
+                    _raise_value_error(msg)
             except Exception as e:
                 logger.exception("Greedy solver failed")
                 msg = f"Route solver failed: {e}"

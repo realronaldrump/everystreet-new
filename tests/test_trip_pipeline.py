@@ -173,7 +173,9 @@ async def test_trip_pipeline_accepts_trip_without_gps_when_other_data_present(
 
 
 @pytest.mark.asyncio
-async def test_trip_pipeline_sanitizes_invalid_geopoints_from_payload(beanie_db) -> None:
+async def test_trip_pipeline_sanitizes_invalid_geopoints_from_payload(
+    beanie_db,
+) -> None:
     pipeline = TripPipeline(
         geo_service=StubGeocoder(),
         matcher=StubMatcher(),

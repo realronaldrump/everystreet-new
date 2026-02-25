@@ -84,12 +84,7 @@ export function buildCountyBorderWidthExpression(showStoppedCounties) {
     ];
   }
 
-  return [
-    "case",
-    ["boolean", ["feature-state", "visited"], false],
-    1,
-    0.5,
-  ];
+  return ["case", ["boolean", ["feature-state", "visited"], false], 1, 0.5];
 }
 
 function applyCountyLayerPaint(map, showStoppedCounties) {
@@ -214,10 +209,7 @@ export function applyCountyVisitFeatureState(map, countyVisits = {}, countyStops
   });
 
   mergedStateByFips.forEach((featureState, fips) => {
-    map.setFeatureState(
-      { source: COUNTIES_SOURCE_ID, id: fips },
-      featureState
-    );
+    map.setFeatureState({ source: COUNTIES_SOURCE_ID, id: fips }, featureState);
   });
 }
 

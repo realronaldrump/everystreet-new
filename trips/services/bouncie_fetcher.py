@@ -35,7 +35,9 @@ async def _recover_bouncie_transaction_ids(raw_trips: list[dict]) -> list[str]:
     tx_ids = _extract_transaction_ids(raw_trips)
     if not tx_ids:
         return []
-    docs = await Trip.find({"source": "bouncie", "transactionId": {"$in": tx_ids}}).to_list()
+    docs = await Trip.find(
+        {"source": "bouncie", "transactionId": {"$in": tx_ids}},
+    ).to_list()
     existing_ids: list[str] = []
     for doc in docs:
         tx = str(getattr(doc, "transactionId", "") or "").strip()

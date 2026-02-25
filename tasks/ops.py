@@ -106,9 +106,7 @@ async def _acquire_trip_sync_lock(
     except Exception:
         current_holder = None
     holder = (
-        _decode_redis_value(current_holder)
-        if current_holder is not None
-        else "unknown"
+        _decode_redis_value(current_holder) if current_holder is not None else "unknown"
     )
     return None, holder
 

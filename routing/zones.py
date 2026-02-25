@@ -31,7 +31,6 @@ class Zone:
 
 
 def _edge_midpoint(
-    G: nx.MultiDiGraph,
     edge: EdgeRef,
     node_xy: dict[int, tuple[float, float]],
 ) -> tuple[float, float] | None:
@@ -70,7 +69,7 @@ def decompose_into_zones(
     points: list[tuple[float, float]] = []
     for rid, opts in required_reqs.items():
         best_edge = min(opts, key=lambda e: edge_length_m(G, e[0], e[1], e[2]))
-        mid = _edge_midpoint(G, best_edge, node_xy)
+        mid = _edge_midpoint(best_edge, node_xy)
         if mid:
             rid_list.append(rid)
             points.append(mid)
@@ -118,7 +117,7 @@ def decompose_into_zones(
 
     # Build zones from labels
     zone_map: dict[int, Zone] = {}
-    for i, (rid, label) in enumerate(zip(rid_list, labels, strict=False)):
+    for rid, label in zip(rid_list, labels, strict=False):
         if label not in zone_map:
             zone_map[label] = Zone(zone_id=label)
         zone = zone_map[label]
