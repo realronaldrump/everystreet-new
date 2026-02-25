@@ -18,6 +18,18 @@ let countyData = null;
 /** @type {Object|null} GeoJSON states data */
 let statesData = null;
 
+/** @type {Object.<string, {stateFips: string, stateName: string}>} */
+let countyToState = {};
+
+/** @type {Object.<string, {name: string, total: number}>} */
+let stateTotals = {};
+
+/** @type {Object.<string, [[number, number], [number, number]]>} */
+let stateBounds = {};
+
+/** @type {number} */
+let totalCounties = 0;
+
 /** @type {boolean} Whether recalculation is in progress */
 let isRecalculating = false;
 
@@ -72,6 +84,43 @@ export function setStatesData(data) {
   statesData = data;
 }
 
+export function clearGeometryData() {
+  countyData = null;
+  statesData = null;
+}
+
+export function getCountyToState() {
+  return countyToState;
+}
+
+export function setCountyToState(index) {
+  countyToState = index || {};
+}
+
+export function getStateTotals() {
+  return stateTotals;
+}
+
+export function setStateTotals(totals) {
+  stateTotals = totals || {};
+}
+
+export function getStateBounds() {
+  return stateBounds;
+}
+
+export function setStateBounds(bounds) {
+  stateBounds = bounds || {};
+}
+
+export function getTotalCounties() {
+  return totalCounties;
+}
+
+export function setTotalCounties(value) {
+  totalCounties = Number.isFinite(value) ? value : 0;
+}
+
 // Recalculating state
 export function getIsRecalculating() {
   return isRecalculating;
@@ -108,6 +157,10 @@ export function resetState() {
   countyStops = {};
   countyData = null;
   statesData = null;
+  countyToState = {};
+  stateTotals = {};
+  stateBounds = {};
+  totalCounties = 0;
   isRecalculating = false;
   showStoppedCounties = false;
   recalcPollerActive = false;

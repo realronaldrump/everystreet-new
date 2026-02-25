@@ -7,6 +7,119 @@ import { getCurrentTheme, resolveMapStyle } from "../core/map-style-resolver.js"
 import { COLORS } from "./constants.js";
 import * as CountyMapState from "./state.js";
 
+const COUNTIES_SOURCE_ID = "counties";
+const STATES_SOURCE_ID = "states";
+const COUNTIES_FILL_LAYER_ID = "counties-fill";
+const COUNTIES_BORDER_LAYER_ID = "counties-border";
+
+export function buildCountyFillColorExpression(showStoppedCounties) {
+  if (showStoppedCounties) {
+    return [
+      "case",
+      ["boolean", ["feature-state", "stopped"], false],
+      COLORS.stopped.fill,
+      ["boolean", ["feature-state", "visited"], false],
+      COLORS.visited.fill,
+      COLORS.unvisited.fill,
+    ];
+  }
+
+  return [
+    "case",
+    ["boolean", ["feature-state", "visited"], false],
+    COLORS.visited.fill,
+    COLORS.unvisited.fill,
+  ];
+}
+
+export function buildCountyFillOpacityExpression(showStoppedCounties) {
+  if (showStoppedCounties) {
+    return [
+      "case",
+      ["boolean", ["feature-state", "stopped"], false],
+      COLORS.stopped.opacity,
+      ["boolean", ["feature-state", "visited"], false],
+      COLORS.visited.opacity,
+      1,
+    ];
+  }
+
+  return [
+    "case",
+    ["boolean", ["feature-state", "visited"], false],
+    COLORS.visited.opacity,
+    1,
+  ];
+}
+
+export function buildCountyBorderColorExpression(showStoppedCounties) {
+  if (showStoppedCounties) {
+    return [
+      "case",
+      ["boolean", ["feature-state", "stopped"], false],
+      COLORS.stopped.border,
+      ["boolean", ["feature-state", "visited"], false],
+      COLORS.visited.border,
+      COLORS.borders.county,
+    ];
+  }
+
+  return [
+    "case",
+    ["boolean", ["feature-state", "visited"], false],
+    COLORS.visited.border,
+    COLORS.borders.county,
+  ];
+}
+
+export function buildCountyBorderWidthExpression(showStoppedCounties) {
+  if (showStoppedCounties) {
+    return [
+      "case",
+      ["boolean", ["feature-state", "stopped"], false],
+      1,
+      ["boolean", ["feature-state", "visited"], false],
+      1,
+      0.5,
+    ];
+  }
+
+  return [
+    "case",
+    ["boolean", ["feature-state", "visited"], false],
+    1,
+    0.5,
+  ];
+}
+
+function applyCountyLayerPaint(map, showStoppedCounties) {
+  if (map.getLayer(COUNTIES_FILL_LAYER_ID)) {
+    map.setPaintProperty(
+      COUNTIES_FILL_LAYER_ID,
+      "fill-color",
+      buildCountyFillColorExpression(showStoppedCounties)
+    );
+    map.setPaintProperty(
+      COUNTIES_FILL_LAYER_ID,
+      "fill-opacity",
+      buildCountyFillOpacityExpression(showStoppedCounties)
+    );
+  }
+
+  if (map.getLayer(COUNTIES_BORDER_LAYER_ID)) {
+    map.setPaintProperty(
+      COUNTIES_BORDER_LAYER_ID,
+      "line-color",
+      buildCountyBorderColorExpression(showStoppedCounties)
+    );
+    map.setPaintProperty(
+      COUNTIES_BORDER_LAYER_ID,
+      "line-width",
+      buildCountyBorderWidthExpression(showStoppedCounties)
+    );
+  }
+}
+
 /**
  * Add all map layers for counties and states
  */
@@ -20,136 +133,105 @@ export function addMapLayers() {
     return;
   }
 
-  // Add counties source
-  map.addSource("counties", {
+  map.addSource(COUNTIES_SOURCE_ID, {
     type: "geojson",
     data: countyData,
+    promoteId: "fips",
   });
 
-  // Add states source for borders
-  map.addSource("states", {
+  map.addSource(STATES_SOURCE_ID, {
     type: "geojson",
     data: statesData,
   });
 
-  // Unvisited counties fill (subtle)
   map.addLayer({
-    id: "counties-unvisited-fill",
+    id: COUNTIES_FILL_LAYER_ID,
     type: "fill",
-    source: "counties",
-    filter: ["!=", ["get", "visited"], true],
+    source: COUNTIES_SOURCE_ID,
     paint: {
-      "fill-color": COLORS.unvisited.fill,
-      "fill-opacity": 1,
+      "fill-color": buildCountyFillColorExpression(showStoppedCounties),
+      "fill-opacity": buildCountyFillOpacityExpression(showStoppedCounties),
     },
   });
 
-  // Visited counties fill (green)
   map.addLayer({
-    id: "counties-visited-fill",
-    type: "fill",
-    source: "counties",
-    filter: ["==", ["get", "visited"], true],
-    paint: {
-      "fill-color": COLORS.visited.fill,
-      "fill-opacity": COLORS.visited.opacity,
-    },
-  });
-
-  // Stopped counties fill (optional highlight)
-  map.addLayer({
-    id: "counties-stopped-fill",
-    type: "fill",
-    source: "counties",
-    filter: ["==", ["get", "stopped"], true],
-    layout: {
-      visibility: showStoppedCounties ? "visible" : "none",
-    },
-    paint: {
-      "fill-color": COLORS.stopped.fill,
-      "fill-opacity": COLORS.stopped.opacity,
-    },
-  });
-
-  // County borders
-  map.addLayer({
-    id: "counties-border",
+    id: COUNTIES_BORDER_LAYER_ID,
     type: "line",
-    source: "counties",
+    source: COUNTIES_SOURCE_ID,
     paint: {
-      "line-color": COLORS.borders.county,
-      "line-width": 0.5,
+      "line-color": buildCountyBorderColorExpression(showStoppedCounties),
+      "line-width": buildCountyBorderWidthExpression(showStoppedCounties),
     },
   });
 
-  // Visited county borders (more prominent)
-  map.addLayer({
-    id: "counties-visited-border",
-    type: "line",
-    source: "counties",
-    filter: ["==", ["get", "visited"], true],
-    paint: {
-      "line-color": COLORS.visited.border,
-      "line-width": 1,
-    },
-  });
-
-  // Stopped county borders
-  map.addLayer({
-    id: "counties-stopped-border",
-    type: "line",
-    source: "counties",
-    filter: ["==", ["get", "stopped"], true],
-    layout: {
-      visibility: showStoppedCounties ? "visible" : "none",
-    },
-    paint: {
-      "line-color": COLORS.stopped.border,
-      "line-width": 1,
-    },
-  });
-
-  // State borders
   map.addLayer({
     id: "states-border",
     type: "line",
-    source: "states",
+    source: STATES_SOURCE_ID,
     paint: {
       "line-color": COLORS.borders.state,
       "line-width": 1.5,
     },
   });
 
-  // Hover highlight layer
   map.addLayer({
     id: "counties-hover",
     type: "fill",
-    source: "counties",
+    source: COUNTIES_SOURCE_ID,
     filter: ["==", ["get", "fips"], ""],
     paint: {
       "fill-color": COLORS.hover.fill,
       "fill-opacity": COLORS.hover.opacity,
     },
   });
+
+  // Release duplicated JS-side geometry after Mapbox has taken ownership.
+  CountyMapState.clearGeometryData();
 }
 
 /**
- * Update visibility of stopped counties layers
+ * Apply visited/stopped county state via Mapbox feature-state.
+ * @param {mapboxgl.Map} map
+ * @param {Object.<string, any>} countyVisits
+ * @param {Object.<string, any>} countyStops
+ */
+export function applyCountyVisitFeatureState(map, countyVisits = {}, countyStops = {}) {
+  if (!map || !map.getSource(COUNTIES_SOURCE_ID)) {
+    return;
+  }
+
+  if (typeof map.removeFeatureState === "function") {
+    map.removeFeatureState({ source: COUNTIES_SOURCE_ID });
+  }
+
+  const mergedStateByFips = new Map();
+  Object.keys(countyVisits || {}).forEach((fips) => {
+    mergedStateByFips.set(fips, { visited: true });
+  });
+  Object.keys(countyStops || {}).forEach((fips) => {
+    const existing = mergedStateByFips.get(fips) || {};
+    mergedStateByFips.set(fips, { ...existing, stopped: true });
+  });
+
+  mergedStateByFips.forEach((featureState, fips) => {
+    map.setFeatureState(
+      { source: COUNTIES_SOURCE_ID, id: fips },
+      featureState
+    );
+  });
+}
+
+/**
+ * Update stopped county styling based on toggle state.
  */
 export function updateStopLayerVisibility() {
   const map = CountyMapState.getMap();
   const showStoppedCounties = CountyMapState.getShowStoppedCounties();
-
   if (!map) {
     return;
   }
 
-  const visibility = showStoppedCounties ? "visible" : "none";
-  ["counties-stopped-fill", "counties-stopped-border"].forEach((layerId) => {
-    if (map.getLayer(layerId)) {
-      map.setLayoutProperty(layerId, "visibility", visibility);
-    }
-  });
+  applyCountyLayerPaint(map, showStoppedCounties);
 }
 
 /**
@@ -158,7 +240,7 @@ export function updateStopLayerVisibility() {
  */
 export function setHoverHighlight(fips) {
   const map = CountyMapState.getMap();
-  if (map) {
+  if (map?.getLayer("counties-hover")) {
     map.setFilter("counties-hover", ["==", ["get", "fips"], fips]);
   }
 }

@@ -6,22 +6,12 @@
 import * as CountyMapState from "./state.js";
 import { formatDate } from "./ui.js";
 
-/**
- * Flatten nested coordinate arrays
- * @param {Array} coords - Nested coordinate array
- * @returns {Array} Flattened array of [lng, lat] pairs
- */
-function flattenCoordinates(coords) {
-  const result = [];
-  function flatten(arr) {
-    if (typeof arr[0] === "number") {
-      result.push(arr);
-    } else {
-      arr.forEach(flatten);
-    }
+function parseVisitDate(value) {
+  if (!value) {
+    return null;
   }
-  flatten(coords);
-  return result;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 /**
@@ -29,67 +19,48 @@ function flattenCoordinates(coords) {
  * @returns {Array} Array of state statistics objects
  */
 export function calculateStateStats() {
-  const countyData = CountyMapState.getCountyData();
+  const countyToState = CountyMapState.getCountyToState();
+  const stateTotals = CountyMapState.getStateTotals();
   const countyVisits = CountyMapState.getCountyVisits();
 
-  if (!countyData) {
-    return [];
-  }
-
-  // Group counties by state
   const stateStats = {};
 
-  countyData.features.forEach((feature) => {
-    const { stateFips, stateName } = feature.properties;
+  Object.entries(stateTotals).forEach(([stateFips, totals]) => {
+    stateStats[stateFips] = {
+      name: totals?.name || "Unknown",
+      fips: stateFips,
+      total: Number.isFinite(totals?.total) ? totals.total : 0,
+      visited: 0,
+      firstVisit: null,
+      lastVisit: null,
+    };
+  });
 
-    if (!stateStats[stateFips]) {
-      stateStats[stateFips] = {
-        name: stateName,
-        fips: stateFips,
-        total: 0,
-        visited: 0,
-        firstVisit: null,
-        lastVisit: null,
-      };
+  Object.entries(countyVisits).forEach(([fips, visits]) => {
+    const countyMeta = countyToState[fips];
+    const stateFips = countyMeta?.stateFips;
+    if (!stateFips || !stateStats[stateFips]) {
+      return;
     }
 
-    stateStats[stateFips].total++;
+    const stats = stateStats[stateFips];
+    stats.visited += 1;
 
-    if (feature.properties.visited) {
-      stateStats[stateFips].visited++;
+    const firstVisit = parseVisitDate(visits?.firstVisit);
+    const lastVisit = parseVisitDate(visits?.lastVisit);
 
-      // Track earliest and latest visits for the state
-      const countyFips = feature.properties.fips;
-      const visits = countyVisits[countyFips];
-      if (visits) {
-        const firstVisit = visits.firstVisit ? new Date(visits.firstVisit) : null;
-        const lastVisit = visits.lastVisit ? new Date(visits.lastVisit) : null;
-
-        if (
-          firstVisit &&
-          (!stateStats[stateFips].firstVisit ||
-            firstVisit < stateStats[stateFips].firstVisit)
-        ) {
-          stateStats[stateFips].firstVisit = firstVisit;
-        }
-        if (
-          lastVisit &&
-          (!stateStats[stateFips].lastVisit ||
-            lastVisit > stateStats[stateFips].lastVisit)
-        ) {
-          stateStats[stateFips].lastVisit = lastVisit;
-        }
-      }
+    if (firstVisit && (!stats.firstVisit || firstVisit < stats.firstVisit)) {
+      stats.firstVisit = firstVisit;
+    }
+    if (lastVisit && (!stats.lastVisit || lastVisit > stats.lastVisit)) {
+      stats.lastVisit = lastVisit;
     }
   });
 
-  // Convert to array and calculate percentages
-  const stateList = Object.values(stateStats).map((state) => ({
+  return Object.values(stateStats).map((state) => ({
     ...state,
     percentage: state.total > 0 ? (state.visited / state.total) * 100 : 0,
   }));
-
-  return stateList;
 }
 
 /**
@@ -99,7 +70,6 @@ export function calculateStateStats() {
 export function renderStateStatsList(sortBy = "name") {
   const stateList = calculateStateStats();
 
-  // Sort based on selected option
   switch (sortBy) {
     case "coverage-desc":
       stateList.sort((a, b) => b.percentage - a.percentage);
@@ -114,9 +84,7 @@ export function renderStateStatsList(sortBy = "name") {
       stateList.sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  // Filter to only states with counties
   const filteredList = stateList.filter((s) => s.total > 0);
-
   const container = document.getElementById("state-list");
   if (!container) {
     return;
@@ -131,7 +99,7 @@ export function renderStateStatsList(sortBy = "name") {
       let dateInfo = "";
       if (hasVisits && state.firstVisit) {
         const firstDate = formatDate(state.firstVisit.toISOString());
-        const lastDate = formatDate(state.lastVisit.toISOString());
+        const lastDate = formatDate(state.lastVisit?.toISOString());
         if (firstDate === lastDate) {
           dateInfo = `<div class="state-date">Visited: ${firstDate}</div>`;
         } else {
@@ -157,7 +125,6 @@ export function renderStateStatsList(sortBy = "name") {
     })
     .join("");
 
-  // Add click handlers to zoom to state
   container.querySelectorAll(".state-stat-item").forEach((item) => {
     item.addEventListener("click", () => {
       const { stateFips } = item.dataset;
@@ -172,54 +139,14 @@ export function renderStateStatsList(sortBy = "name") {
  */
 export function zoomToState(stateFips) {
   const map = CountyMapState.getMap();
-  const countyData = CountyMapState.getCountyData();
+  const stateBounds = CountyMapState.getStateBounds();
+  const bounds = stateBounds[stateFips];
 
-  if (!map || !countyData) {
+  if (!map || !Array.isArray(bounds) || bounds.length !== 2) {
     return;
   }
 
-  // Get bounding box of all counties in this state
-  const stateCounties = countyData.features.filter(
-    (f) => f.properties.stateFips === stateFips
-  );
-
-  if (stateCounties.length === 0) {
-    return;
-  }
-
-  // Calculate bounds
-  let minLng = Infinity;
-  let minLat = Infinity;
-  let maxLng = -Infinity;
-  let maxLat = -Infinity;
-
-  stateCounties.forEach((county) => {
-    const coords = county.geometry.coordinates;
-    const flatCoords = flattenCoordinates(coords);
-    flatCoords.forEach(([lng, lat]) => {
-      if (lng < minLng) {
-        minLng = lng;
-      }
-      if (lng > maxLng) {
-        maxLng = lng;
-      }
-      if (lat < minLat) {
-        minLat = lat;
-      }
-      if (lat > maxLat) {
-        maxLat = lat;
-      }
-    });
-  });
-
-  // Fit map to bounds
-  map.fitBounds(
-    [
-      [minLng, minLat],
-      [maxLng, maxLat],
-    ],
-    { padding: 50, maxZoom: 8 }
-  );
+  map.fitBounds(bounds, { padding: 50, maxZoom: 8 });
 }
 
 /**
@@ -239,17 +166,13 @@ export function setupStateStatsToggle() {
         chevron.style.transform = isExpanded ? "rotate(0deg)" : "rotate(180deg)";
       }
 
-      // Render stats on first open
-      if (
-        (!isExpanded && content.innerHTML.trim() === "") ||
-        content.querySelector("#state-list").innerHTML.trim() === ""
-      ) {
+      const stateList = content.querySelector("#state-list");
+      if ((!isExpanded && content.innerHTML.trim() === "") || !stateList?.innerHTML.trim()) {
         renderStateStatsList();
       }
     });
   }
 
-  // Setup sort dropdown
   const sortSelect = document.getElementById("state-sort");
   if (sortSelect) {
     sortSelect.addEventListener("change", () => {

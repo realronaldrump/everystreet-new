@@ -51,6 +51,9 @@ export function updateRecalculateUi(isActive, message) {
 export function showRecalculatePrompt(onRecalculate) {
   const statsContent = document.getElementById("stats-content");
   if (statsContent) {
+    if (statsContent.querySelector(".recalculate-prompt")) {
+      return;
+    }
     const prompt = document.createElement("div");
     prompt.className = "recalculate-prompt";
     prompt.innerHTML = `
@@ -107,23 +110,19 @@ export function updateLastUpdated(isoString) {
  * Update statistics display
  */
 export function updateStats() {
-  const countyData = CountyMapState.getCountyData();
+  const countyToState = CountyMapState.getCountyToState();
   const countyVisits = CountyMapState.getCountyVisits();
-
-  if (!countyData) {
-    return;
-  }
-
-  const totalCounties = countyData.features.length;
+  const totalCounties = CountyMapState.getTotalCounties();
   const visitedCount = Object.keys(countyVisits).length;
   const percentage =
     totalCounties > 0 ? ((visitedCount / totalCounties) * 100).toFixed(1) : "0.0";
 
   // Count unique states
   const visitedStates = new Set();
-  countyData.features.forEach((feature) => {
-    if (feature.properties.visited) {
-      visitedStates.add(feature.properties.stateFips);
+  Object.keys(countyVisits).forEach((fips) => {
+    const countyMeta = countyToState[fips];
+    if (countyMeta?.stateFips) {
+      visitedStates.add(countyMeta.stateFips);
     }
   });
 

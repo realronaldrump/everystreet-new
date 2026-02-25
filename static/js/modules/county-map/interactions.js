@@ -138,12 +138,8 @@ export function setupInteractions() {
   }
 
   // Mouse move - show tooltip
-  map.on("mousemove", "counties-unvisited-fill", showTooltip);
-  map.on("mousemove", "counties-visited-fill", showTooltip);
-  map.on("mousemove", "counties-stopped-fill", showTooltip);
+  map.on("mousemove", "counties-fill", showTooltip);
 
   // Mouse leave - hide tooltip
-  map.on("mouseleave", "counties-unvisited-fill", hideTooltip);
-  map.on("mouseleave", "counties-visited-fill", hideTooltip);
-  map.on("mouseleave", "counties-stopped-fill", hideTooltip);
+  map.on("mouseleave", "counties-fill", hideTooltip);
 }
