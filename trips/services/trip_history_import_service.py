@@ -6,6 +6,11 @@ This module powers the Settings -> Trip Sync -> Import history wizard.
 Key guarantees:
 - Insert-only: existing trips are never modified.
 - Transparent progress: progress is recorded into Job.metadata for live UI updates.
+
+Implementation is split across three files:
+- trip_history_import_service_config.py  — configuration and planning helpers
+- trip_history_import_service_progress.py — progress context and cancellation
+- trip_history_import_service_core.py    — fetch, processing, and orchestration
 """
 
 from __future__ import annotations
@@ -34,23 +39,30 @@ from trips.services.trip_history_import_service_config import (
     resolve_import_start_dt,
     resolve_import_start_dt_from_db,
 )
-from trips.services.trip_history_import_service_fetch import (
+from trips.services.trip_history_import_service_core import (
+    ImportRuntime,
+    ImportSetup,
+    _authenticate_import,
+    _build_import_setup,
+    _build_progress_context,
+    _collect_new_trips,
+    _collect_unique_window_trips,
     _dedupe_trips_by_transaction_id,
     _fetch_device_window,
     _fetch_trips_for_window,
     _filter_trips_to_window,
-    _write_window_scan_progress,
-)
-from trips.services.trip_history_import_service_processing import (
-    _collect_new_trips,
-    _collect_unique_window_trips,
+    _finalize_import_failure,
+    _finalize_import_success,
     _load_existing_transaction_ids,
     _process_new_trips_batch,
     _record_per_device_unique_counts,
     _record_process_failure,
     _record_validation_failure,
+    _run_import_windows,
     _update_insert_result_counters,
-    _write_window_insert_progress,
+    _write_insert_progress,
+    _write_scan_progress,
+    run_import,
 )
 from trips.services.trip_history_import_service_progress import (
     ImportProgressContext,
@@ -60,17 +72,10 @@ from trips.services.trip_history_import_service_progress import (
     _trim_events,
     _write_cancelled_progress,
 )
-from trips.services.trip_history_import_service_runtime import (
-    ImportRuntime,
-    ImportSetup,
-    _authenticate_import,
-    _build_import_setup,
-    _build_progress_context,
-    _finalize_import_failure,
-    _finalize_import_success,
-    _run_import_windows,
-    run_import,
-)
+
+# Back-compat aliases for renamed progress helpers
+_write_window_scan_progress = _write_scan_progress
+_write_window_insert_progress = _write_insert_progress
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +122,8 @@ __all__ = [
     "_update_insert_result_counters",
     "_vehicle_label",
     "_write_cancelled_progress",
+    "_write_insert_progress",
+    "_write_scan_progress",
     "_write_window_insert_progress",
     "_write_window_scan_progress",
     "build_import_plan",

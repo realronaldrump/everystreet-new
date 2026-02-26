@@ -10,7 +10,7 @@ from fastapi import HTTPException, status
 from pydantic import ValidationError
 
 from admin.services.admin_service import AdminService
-from config import require_nominatim_reverse_url, require_valhalla_trace_route_url
+from config import get_nominatim_reverse_url, get_valhalla_trace_route_url
 from core.bouncie_normalization import normalize_rest_trip_payload
 from core.date_utils import get_current_utc_time
 from db.models import Trip
@@ -94,8 +94,8 @@ class TripService:
     """Centralized service for all trip processing operations."""
 
     def __init__(self) -> None:
-        require_valhalla_trace_route_url()
-        require_nominatim_reverse_url()
+        get_valhalla_trace_route_url()
+        get_nominatim_reverse_url()
         self._pipeline = TripPipeline()
 
     @staticmethod

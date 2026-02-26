@@ -3,6 +3,9 @@ const LIVE_TRACKING_DEFAULTS = {
   staleRecoveryThresholdMs: 12000,
   staleClearThresholdMs: 6 * 60 * 60 * 1000,
   followStorageKey: "autoFollowVehicle",
+  reconnectMinDelayMs: 1000,
+  reconnectMaxDelayMs: 30000,
+  reconnectMultiplier: 1.5,
 };
 
 const LIVE_TRACKING_LAYER_IDS = {

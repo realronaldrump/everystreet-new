@@ -10,10 +10,10 @@ import logging
 from typing import Any
 
 from config import (
-    require_nominatim_base_url,
-    require_nominatim_reverse_url,
-    require_nominatim_search_url,
-    require_nominatim_user_agent,
+    get_nominatim_base_url,
+    get_nominatim_reverse_url,
+    get_nominatim_search_url,
+    get_nominatim_user_agent,
 )
 from core.exceptions import ExternalServiceException
 from core.http.request import request_json
@@ -25,10 +25,10 @@ logger = logging.getLogger(__name__)
 
 class NominatimClient:
     def __init__(self) -> None:
-        self._base_url = require_nominatim_base_url()
-        self._search_url = require_nominatim_search_url()
-        self._reverse_url = require_nominatim_reverse_url()
-        self._user_agent = require_nominatim_user_agent()
+        self._base_url = get_nominatim_base_url()
+        self._search_url = get_nominatim_search_url()
+        self._reverse_url = get_nominatim_reverse_url()
+        self._user_agent = get_nominatim_user_agent()
         self._lookup_url = f"{self._base_url}/lookup"
 
     def _headers(self) -> dict[str, str]:

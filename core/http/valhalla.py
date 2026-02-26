@@ -11,9 +11,9 @@ import logging
 from typing import Any
 
 from config import (
-    require_valhalla_route_url,
-    require_valhalla_status_url,
-    require_valhalla_trace_route_url,
+    get_valhalla_route_url,
+    get_valhalla_status_url,
+    get_valhalla_trace_route_url,
 )
 from core.exceptions import ExternalServiceException
 from core.http.request import request_json
@@ -25,9 +25,9 @@ logger = logging.getLogger(__name__)
 
 class ValhallaClient:
     def __init__(self) -> None:
-        self._status_url = require_valhalla_status_url()
-        self._route_url = require_valhalla_route_url()
-        self._trace_route_url = require_valhalla_trace_route_url()
+        self._status_url = get_valhalla_status_url()
+        self._route_url = get_valhalla_route_url()
+        self._trace_route_url = get_valhalla_trace_route_url()
 
     @retry_async()
     async def status(self) -> dict[str, Any]:

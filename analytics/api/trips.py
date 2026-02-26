@@ -11,11 +11,22 @@ from analytics.services import (
     TripAnalyticsService,
 )
 from core.api import api_route
+from core.cache import cached
 from core.trip_source_policy import enforce_bouncie_source
 from db import build_query_from_request
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+@cached("trip_analytics", ttl_seconds=600)
+async def _trip_analytics_cached(query: dict):
+    return await TripAnalyticsService.get_trip_analytics(query)
+
+
+@cached("driver_behavior", ttl_seconds=600)
+async def _driver_behavior_cached(query: dict):
+    return await TripAnalyticsService.get_driver_behavior_analytics(query)
 
 
 @router.get("/api/trip-analytics")
@@ -34,7 +45,7 @@ async def get_trip_analytics(request: Request):
             detail="Missing date range",
         )
 
-    return await TripAnalyticsService.get_trip_analytics(query)
+    return await _trip_analytics_cached(query)
 
 
 @router.get("/api/time-period-trips")
@@ -112,7 +123,7 @@ async def driver_behavior_analytics(request: Request):
     """
     query = await build_query_from_request(request)
     query = enforce_bouncie_source(query)
-    return await TripAnalyticsService.get_driver_behavior_analytics(query)
+    return await _driver_behavior_cached(query)
 
 
 @router.get("/api/trips/history")

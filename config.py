@@ -111,20 +111,6 @@ def get_valhalla_max_shape_points() -> int:
     return DEFAULT_VALHALLA_MAX_SHAPE_POINTS
 
 
-def require_valhalla_base_url() -> str:
-    return get_valhalla_base_url()
-
-
-def require_valhalla_status_url() -> str:
-    return get_valhalla_status_url()
-
-
-def require_valhalla_route_url() -> str:
-    return get_valhalla_route_url()
-
-
-def require_valhalla_trace_route_url() -> str:
-    return get_valhalla_trace_route_url()
 
 
 def get_nominatim_base_url() -> str:
@@ -205,20 +191,6 @@ def get_osm_extracts_path() -> str:
     return os.getenv(OSM_EXTRACTS_PATH_ENV_VAR, DEFAULT_OSM_EXTRACTS_PATH).strip()
 
 
-def require_nominatim_base_url() -> str:
-    return get_nominatim_base_url()
-
-
-def require_nominatim_search_url() -> str:
-    return get_nominatim_search_url()
-
-
-def require_nominatim_reverse_url() -> str:
-    return get_nominatim_reverse_url()
-
-
-def require_nominatim_user_agent() -> str:
-    return get_nominatim_user_agent()
 
 
 def require_osm_data_path() -> str:
@@ -275,15 +247,7 @@ __all__ = [
     "get_valhalla_status_url",
     "get_valhalla_trace_route_url",
     "require_mapbox_token",
-    "require_nominatim_base_url",
-    "require_nominatim_reverse_url",
-    "require_nominatim_search_url",
-    "require_nominatim_user_agent",
     "require_osm_data_path",
-    "require_valhalla_base_url",
-    "require_valhalla_route_url",
-    "require_valhalla_status_url",
-    "require_valhalla_trace_route_url",
     "resolve_osm_data_path",
     "validate_mapbox_token",
 ]
