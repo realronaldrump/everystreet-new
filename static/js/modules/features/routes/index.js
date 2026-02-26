@@ -5,7 +5,7 @@
  */
 
 import apiClient from "../../core/api-client.js";
-import { createMap } from "../../map-base.js";
+import { createMap } from "../../map-core.js";
 import notificationManager from "../../ui/notifications.js";
 import { debounce, escapeHtml, formatDuration, sanitizeLocation } from "../../utils.js";
 

@@ -356,11 +356,33 @@ def trip_to_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
     """
     Convert a trip document to a Shapely LineString/MultiLineString.
 
-    Coverage matching intentionally uses the trip's raw GPS trace only
-    (trip["gps"]) and does not use map-matched geometry (matchedGps).
+    Prefers map-matched geometry (matchedGps) when available because it
+    is snapped to the road network and significantly more accurate for
+    coverage matching.  Falls back to raw GPS (trip["gps"]) when
+    matching was not performed or failed.
 
-    Returns None if trip has no valid raw GPS geometry.
+    Returns None if trip has no valid geometry.
     """
+    # Prefer map-matched geometry — it is snapped to the actual road
+    # network so coverage attribution is far more accurate, especially
+    # on parallel roads.
+    matched_gps = trip.get("matchedGps")
+    match_status = trip.get("matchStatus") or ""
+    if isinstance(matched_gps, dict) and match_status.startswith("matched"):
+        matched_lines = _extract_lines_from_geojson(matched_gps)
+        if matched_lines:
+            segments: list[LineString] = []
+            for line_coords in matched_lines:
+                # Map-matched geometry doesn't have GPS gaps so we can
+                # use the coordinates directly without gap splitting.
+                if len(line_coords) >= 2:
+                    segments.append(LineString(line_coords))
+            if segments:
+                if len(segments) == 1:
+                    return segments[0]
+                return MultiLineString(segments)
+
+    # Fall back to raw GPS trace.
     geom = trip.get("gps")
     if not isinstance(geom, dict):
         return None
@@ -369,15 +391,15 @@ def trip_to_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
     if not lines:
         return None
 
-    segments: list[LineString] = []
+    segments_raw: list[LineString] = []
     for line_coords in lines:
-        segments.extend(_split_coords_by_gap(line_coords))
+        segments_raw.extend(_split_coords_by_gap(line_coords))
 
-    if not segments:
+    if not segments_raw:
         return None
-    if len(segments) == 1:
-        return segments[0]
-    return MultiLineString(segments)
+    if len(segments_raw) == 1:
+        return segments_raw[0]
+    return MultiLineString(segments_raw)
 
 
 def buffer_trip_line(

@@ -1,6 +1,7 @@
 import apiClient from "../../core/api-client.js";
 import { CONFIG } from "../../core/config.js";
-import mapBase from "../../map-base.js";
+import { createMap as mapBaseCreateMap } from "../../map-core.js";
+const mapBase = { createMap: mapBaseCreateMap };
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
 import { DateUtils } from "../../utils.js";

@@ -3,8 +3,7 @@
 import apiClient from "../../core/api-client.js";
 import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
 import store from "../../core/store.js";
-import { createMap } from "../../map-base.js";
-import { getMapboxToken } from "../../mapbox-token.js";
+import { createMap, getMapboxToken } from "../../map-core.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
 import { formatVehicleName, getStorage, setStorage } from "../../utils.js";

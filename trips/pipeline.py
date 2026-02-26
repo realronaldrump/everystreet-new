@@ -48,7 +48,10 @@ class TripPipeline:
 
     async def validate_raw_trip(self, raw_data: dict[str, Any]) -> dict[str, Any]:
         """Validate and run basic processing without persistence."""
-        success, processed_data, history, state, error = self._validate_only(raw_data)
+        success, processed_data, history, state, error = self._validate(
+            raw_data,
+            run_basic=False,
+        )
         return {
             "success": success,
             "processed_data": processed_data,
@@ -75,9 +78,7 @@ class TripPipeline:
         process_raw_trip[_insert_only], but does not geocode, map-match,
         or write.
         """
-        success, processed_data, history, state, error = self._validate_and_basic(
-            raw_data,
-        )
+        success, processed_data, history, state, error = self._validate(raw_data)
         return {
             "success": success,
             "processed_data": processed_data,
@@ -123,9 +124,7 @@ class TripPipeline:
             )
             error = None
         else:
-            success, processed_data, history, state, error = self._validate_and_basic(
-                raw_data,
-            )
+            success, processed_data, history, state, error = self._validate(raw_data)
             if not success:
                 logger.warning(
                     "Trip %s failed validation: %s",
@@ -288,9 +287,7 @@ class TripPipeline:
             )
             error = None
         else:
-            success, processed_data, history, state, error = self._validate_and_basic(
-                raw_data,
-            )
+            success, processed_data, history, state, error = self._validate(raw_data)
             if not success:
                 logger.warning(
                     "Trip %s failed validation: %s",
@@ -393,9 +390,11 @@ class TripPipeline:
         logger.debug("Inserted trip %s successfully (insert-only)", transaction_id)
         return final_trip
 
-    def _validate_and_basic(
+    def _validate(
         self,
         raw_data: dict[str, Any],
+        *,
+        run_basic: bool = True,
     ) -> tuple[bool, dict[str, Any], list[ProcessingHistoryEntry], str, str | None]:
         history: list[ProcessingHistoryEntry] = []
         state = "new"
@@ -414,45 +413,13 @@ class TripPipeline:
 
             state = self._record_state(history, state, "validated")
 
-            basic_ok, error = self._basic_process(processed_data)
-            if not basic_ok:
-                state = self._record_state(history, state, "failed", error)
-                return False, processed_data, history, state, error
+            if run_basic:
+                basic_ok, error = self._basic_process(processed_data)
+                if not basic_ok:
+                    state = self._record_state(history, state, "failed", error)
+                    return False, processed_data, history, state, error
 
-            state = self._record_state(history, state, "processed")
-
-        except ValidationError as exc:
-            error = f"Validation error: {exc}"
-            logger.warning("Trip %s failed validation: %s", transaction_id, error)
-        except Exception as exc:
-            error = f"Unexpected validation error: {exc!s}"
-            logger.exception("Error validating trip %s", raw_data.get("transactionId"))
-        else:
-            return True, processed_data, history, state, None
-
-        state = self._record_state(history, state, "failed", error)
-        return False, processed_data, history, state, error
-
-    def _validate_only(
-        self,
-        raw_data: dict[str, Any],
-    ) -> tuple[bool, dict[str, Any], list[ProcessingHistoryEntry], str, str | None]:
-        history: list[ProcessingHistoryEntry] = []
-        state = "new"
-        error = None
-        processed_data: dict[str, Any] = {}
-        transaction_id = raw_data.get("transactionId", "unknown")
-
-        try:
-            validated_trip = Trip(**raw_data)
-            processed_data = validated_trip.model_dump(exclude_unset=True)
-
-            processed_data["validated_at"] = get_current_utc_time()
-            processed_data["validation_status"] = "validated"
-            processed_data["invalid"] = False
-            processed_data["validation_message"] = None
-
-            state = self._record_state(history, state, "validated")
+                state = self._record_state(history, state, "processed")
 
         except ValidationError as exc:
             error = f"Validation error: {exc}"
