@@ -570,6 +570,7 @@ class CoverageArea(Document):
     last_error: str | None = None
     optimal_route: dict[str, Any] | None = None
     optimal_route_generated_at: datetime | None = None
+    last_backfill_trip_endtime: datetime | None = None
 
     class Settings:
         name = "coverage_areas"
