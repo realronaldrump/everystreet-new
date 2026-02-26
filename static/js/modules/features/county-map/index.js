@@ -31,6 +31,7 @@ import {
   updateStats,
 } from "../../county-map/ui.js";
 import { getMapboxToken } from "../../mapbox-token.js";
+import { createMap } from "../../map-core.js";
 import notificationManager from "../../ui/notifications.js";
 
 const MAX_CONTEXT_RECOVERY_ATTEMPTS = 2;
@@ -99,13 +100,7 @@ function getCameraState(map) {
 }
 
 function createCountyMap(camera) {
-  const token = getMapboxToken();
-  if (token) {
-    mapboxgl.accessToken = token;
-  }
-
-  return new mapboxgl.Map({
-    container: "county-map",
+  return createMap("county-map", {
     style: getMapStyle(),
     center: camera?.center || MAP_CONFIG.center,
     zoom: Number.isFinite(camera?.zoom) ? camera.zoom : MAP_CONFIG.zoom,
@@ -113,7 +108,6 @@ function createCountyMap(camera) {
     pitch: Number.isFinite(camera?.pitch) ? camera.pitch : 0,
     minZoom: MAP_CONFIG.minZoom,
     maxZoom: MAP_CONFIG.maxZoom,
-    attributionControl: false,
     renderWorldCopies: false,
   });
 }

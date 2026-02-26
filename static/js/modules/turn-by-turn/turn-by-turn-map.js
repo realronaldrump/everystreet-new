@@ -6,6 +6,7 @@
 /* global mapboxgl */
 
 import { getCurrentTheme, resolveMapStyle } from "../core/map-style-resolver.js";
+import { createMap } from "../map-core.js";
 
 const getThemeColor = (variable, defaultColor) => {
   if (typeof window === "undefined") {
@@ -49,31 +50,15 @@ class TurnByTurnMap {
    * @returns {Promise<void>}
    */
   async initMap(containerId) {
-    const container = document.getElementById(containerId);
-    if (!container) {
-      throw new Error("Map container not found.");
-    }
-
-    if (typeof mapboxgl === "undefined") {
-      throw new Error("Map library failed to load.");
-    }
-
-    if (typeof mapboxgl.setTelemetryEnabled === "function") {
-      mapboxgl.setTelemetryEnabled(false);
-    }
-
-    const { styleType, styleUrl } = resolveMapStyle({ theme: getCurrentTheme() });
+    const { styleType } = resolveMapStyle({ theme: getCurrentTheme() });
     this.mapStyleType = styleType;
 
-    this.map = new mapboxgl.Map({
-      container: containerId,
-      style: styleUrl,
+    this.map = createMap(containerId, {
       center: [-96, 37.8],
       zoom: 4,
       pitch: 45,
       bearing: 0,
       antialias: true,
-      attributionControl: false,
     });
 
     this.map.dragRotate.disable();

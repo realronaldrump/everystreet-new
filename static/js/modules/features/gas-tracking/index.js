@@ -101,29 +101,10 @@ async function initializePage(signal, cleanup) {
 async function initializeMap() {
   const token = getMapboxToken(); // Optional when using non-Mapbox styles.
 
-  // Use the shared map factory if available to ensure consistent styling
-  if (createMap) {
-    map = createMap("fillup-map", {
-      center: [-95.7129, 37.0902],
-      zoom: 4,
-      accessToken: token || undefined,
-      attributionControl: false,
-    });
-  } else {
-    // Default if factory not found
-    if (token) {
-      mapboxgl.accessToken = token;
-    }
-    const { styleUrl } = resolveMapStyle({ theme: getCurrentTheme() });
-    map = new mapboxgl.Map({
-      container: "fillup-map",
-      style: styleUrl,
-      center: [-95.7129, 37.0902],
-      zoom: 4,
-      attributionControl: false,
-    });
-    map.addControl(new mapboxgl.NavigationControl(), "top-right");
-  }
+  map = createMap("fillup-map", {
+    center: [-95.7129, 37.0902],
+    zoom: 4,
+  });
 
   // Wait for map to load
   await new Promise((resolve) => map.on("load", resolve));

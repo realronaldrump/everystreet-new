@@ -1,6 +1,7 @@
 /* global bootstrap, mapboxgl */
 
 import { resolveMapStyle } from "../core/map-style-resolver.js";
+import { createMap } from "../map-core.js";
 import MapStyles from "../map-styles.js";
 import { DateUtils } from "../utils.js";
 import { VisitsGeometry } from "./geometry.js";
@@ -140,17 +141,9 @@ class TripViewer {
       mapContainer.innerHTML = "";
       mapContainer.appendChild(mapElement);
 
-      const { styleUrl } = resolveMapStyle({
-        requestedType: this.currentTheme,
-        theme: this.currentTheme,
-      });
-
-      this.tripViewMap = new mapboxgl.Map({
-        container: mapElement.id,
-        style: styleUrl,
+      this.tripViewMap = createMap(mapElement.id, {
         center: [-95.7129, 37.0902],
         zoom: 4,
-        attributionControl: false,
       });
 
       this.tripViewMap.on("load", () => this._updateTripMapData(trip));
