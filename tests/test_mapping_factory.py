@@ -74,7 +74,7 @@ async def test_get_mapping_provider_raises_when_collection_uninitialized(
     monkeypatch: pytest.MonkeyPatch,
 ):
     async def fake_find_one(_query):
-        raise CollectionWasNotInitialized()
+        raise CollectionWasNotInitialized
 
     monkeypatch.setattr(AppSettings, "find_one", fake_find_one)
 

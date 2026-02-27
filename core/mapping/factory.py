@@ -7,10 +7,10 @@ import logging
 from beanie.exceptions import CollectionWasNotInitialized
 
 from core.exceptions import ValidationException
-from db.models import AppSettings, MapProvider
-from core.mapping.interfaces import MappingProvider
-from core.mapping.local_provider import LocalProvider
 from core.mapping.google_provider import GoogleProvider
+from core.mapping.interfaces import Geocoder, MappingProvider, Router
+from core.mapping.local_provider import LocalProvider
+from db.models import AppSettings, MapProvider
 
 logger = logging.getLogger(__name__)
 _local_provider: LocalProvider | None = None
@@ -39,18 +39,18 @@ async def _load_mapping_settings() -> AppSettings:
             "initialized. Complete setup before using mapping services."
         )
         logger.warning(msg)
-        raise ValidationException(msg) from exc
+        raise ValidationException(msg, {"code": "settings_unavailable"}) from exc
     except Exception as exc:
         logger.exception("Failed to resolve AppSettings for mapping provider")
         msg = "Failed to load map provider settings."
-        raise ValidationException(msg) from exc
+        raise ValidationException(msg, {"code": "settings_load_failed"}) from exc
 
     if not settings:
         msg = (
             "Map provider settings are missing. Configure app settings before "
             "using mapping services."
         )
-        raise ValidationException(msg)
+        raise ValidationException(msg, {"code": "settings_missing"})
 
     return settings
 
@@ -77,17 +77,18 @@ async def get_mapping_provider() -> MappingProvider:
                 "Map provider is set to GOOGLE, but google_maps_api_key is missing or blank. "
                 "Set app_settings.google_maps_api_key to a valid key or switch map_provider "
                 "to self_hosted.",
+                {"code": "google_key_missing"},
             )
         return GoogleProvider(api_key=api_key)
 
     return _get_local_provider()
 
 
-async def get_geocoder() -> "Geocoder":
+async def get_geocoder() -> Geocoder:
     provider = await get_mapping_provider()
     return provider.geocoder
 
 
-async def get_router() -> "Router":
+async def get_router() -> Router:
     provider = await get_mapping_provider()
     return provider.router
