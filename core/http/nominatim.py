@@ -16,6 +16,7 @@ from config import (
     get_nominatim_user_agent,
 )
 from core.exceptions import ExternalServiceException
+from core.http.circuit_breaker import nominatim_breaker, with_circuit_breaker
 from core.http.request import request_json
 from core.http.retry import retry_async
 from core.http.session import get_session
@@ -109,6 +110,7 @@ class NominatimClient:
             raise ExternalServiceException(msg, {"url": self._lookup_url})
         return results
 
+    @with_circuit_breaker(nominatim_breaker)
     @retry_async()
     async def search_raw(
         self,
@@ -141,6 +143,7 @@ class NominatimClient:
             raise ExternalServiceException(msg, {"url": self._search_url})
         return results
 
+    @with_circuit_breaker(nominatim_breaker)
     @retry_async()
     async def search(
         self,
@@ -202,6 +205,7 @@ class NominatimClient:
             for result in results
         ]
 
+    @with_circuit_breaker(nominatim_breaker)
     @retry_async(max_retries=3, retry_delay=2.0)
     async def reverse(
         self,

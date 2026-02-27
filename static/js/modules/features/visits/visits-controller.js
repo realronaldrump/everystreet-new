@@ -705,11 +705,6 @@ class VisitsPageController {
     this.clearPlacePreviewMaps();
     this.elements.placesGrid.style.display = "none";
     this.elements.placesListView.style.display = "block";
-
-    // Trigger the existing table update through VisitsManager
-    if (this.visitsManager) {
-      this.visitsManager.updateVisitsTable?.(this.placesStats);
-    }
   }
 
   renderPatterns() {
