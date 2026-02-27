@@ -538,8 +538,9 @@ async def _run_ingestion_pipeline(
             )
 
         # Mark job as running
-        _emit("stage", stage="boundary", progress=0, message="Starting…",
-               status="running")
+        _emit(
+            "stage", stage="boundary", progress=0, message="Starting…", status="running"
+        )
         await update_job(
             status="running",
             started_at=datetime.now(UTC),
@@ -577,8 +578,7 @@ async def _run_ingestion_pipeline(
 
         # Stage 2: Load streets from OSM graph
         stage_start = datetime.now(UTC)
-        _emit("stage", stage="graph", progress=15,
-               message="Loading street network…")
+        _emit("stage", stage="graph", progress=15, message="Loading street network…")
         await update_job(
             stage="Loading street graph",
             progress=15,
@@ -615,8 +615,12 @@ async def _run_ingestion_pipeline(
 
         # Stage 3: Segment streets
         stage_start = datetime.now(UTC)
-        _emit("stage", stage="segmenting", progress=40,
-               message=f"Segmenting {len(osm_ways):,} streets…")
+        _emit(
+            "stage",
+            stage="segmenting",
+            progress=40,
+            message=f"Segmenting {len(osm_ways):,} streets…",
+        )
         await update_job(
             stage="Segmenting streets",
             progress=40,
@@ -626,7 +630,14 @@ async def _run_ingestion_pipeline(
 
         area_doc_id = _validate_area_id(area)
 
-        segments = _segment_streets(osm_ways, area_doc_id, area.area_version)
+        loop = asyncio.get_running_loop()
+        segments = await loop.run_in_executor(
+            None,
+            _segment_streets,
+            osm_ways,
+            area_doc_id,
+            area.area_version,
+        )
         segment_ms = (datetime.now(UTC) - stage_start).total_seconds() * 1000
 
         # Calculate total miles
@@ -651,8 +662,12 @@ async def _run_ingestion_pipeline(
 
         # Stage 4: Clear any partial data + Store segments
         stage_start = datetime.now(UTC)
-        _emit("stage", stage="storing", progress=55,
-               message=f"Saving {len(segments):,} segments…")
+        _emit(
+            "stage",
+            stage="storing",
+            progress=55,
+            message=f"Saving {len(segments):,} segments…",
+        )
         await update_job(
             stage="Saving to database",
             progress=55,
@@ -676,8 +691,12 @@ async def _run_ingestion_pipeline(
 
         # Stage 5: Update statistics
         stage_start = datetime.now(UTC)
-        _emit("stage", stage="statistics", progress=72,
-               message="Calculating coverage statistics…")
+        _emit(
+            "stage",
+            stage="statistics",
+            progress=72,
+            message="Calculating coverage statistics…",
+        )
         await update_job(
             stage="Calculating statistics",
             progress=72,
@@ -699,13 +718,15 @@ async def _run_ingestion_pipeline(
         stats_ms = (datetime.now(UTC) - stage_start).total_seconds() * 1000
         stats_metrics: dict[str, Any] = {"duration_ms": round(stats_ms)}
         if stats_area:
-            stats_metrics.update({
-                "coverage_pct": round(stats_area.coverage_percentage, 1),
-                "driven_miles": round(stats_area.driven_length_miles, 2),
-                "driveable_miles": round(stats_area.driveable_length_miles, 2),
-                "total_segments": stats_area.total_segments,
-                "driven_segments": stats_area.driven_segments,
-            })
+            stats_metrics.update(
+                {
+                    "coverage_pct": round(stats_area.coverage_percentage, 1),
+                    "driven_miles": round(stats_area.driven_length_miles, 2),
+                    "driveable_miles": round(stats_area.driveable_length_miles, 2),
+                    "total_segments": stats_area.total_segments,
+                    "driven_segments": stats_area.driven_segments,
+                }
+            )
             await update_job(
                 message=(
                     f"Coverage: {stats_area.coverage_percentage:.1f}% "
@@ -717,8 +738,12 @@ async def _run_ingestion_pipeline(
 
         # Stage 6: Backfill with historical trips
         stage_start = datetime.now(UTC)
-        _emit("stage", stage="backfill", progress=BACKFILL_PROGRESS_START,
-               message="Matching historical trips…")
+        _emit(
+            "stage",
+            stage="backfill",
+            progress=BACKFILL_PROGRESS_START,
+            message="Matching historical trips…",
+        )
         await update_job(
             stage="Matching historical trips",
             progress=BACKFILL_PROGRESS_START,
@@ -836,8 +861,9 @@ async def _run_ingestion_pipeline(
             "segments_total": len(segments),
             "total_miles": round(total_miles, 2),
         }
-        _emit("done", status="completed", progress=100, message=message,
-               result=job_result)
+        _emit(
+            "done", status="completed", progress=100, message=message, result=job_result
+        )
         await update_job(
             status="completed",
             stage="Complete",
@@ -882,8 +908,7 @@ async def _run_ingestion_pipeline(
         return
     except Exception as e:
         logger.exception("Ingestion failed for area %s", area_id)
-        _emit("done", status="failed", error=str(e),
-               message=f"Failed: {e}")
+        _emit("done", status="failed", error=str(e), message=f"Failed: {e}")
 
         job = await Job.get(job_id)
         if not job:
@@ -1316,81 +1341,88 @@ async def _load_osm_streets_from_graph(
     job_id: PydanticObjectId | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Load street ways from the area's OSM graph (local extract or Overpass)."""
-    import networkx as nx
-    import osmnx as ox
-
-    from core.osmnx_graphml import load_graphml_robust
-
     graph_path = await _ensure_area_graph(area, job_id)
-    G = load_graphml_robust(graph_path)
-    if not isinstance(G, nx.MultiDiGraph):
-        G = nx.MultiDiGraph(G)
-
-    Gu = ox.convert.to_undirected(G)
 
     boundary_geojson = area.boundary
     if isinstance(boundary_geojson, dict) and boundary_geojson.get("type") == "Feature":
         boundary_geojson = boundary_geojson.get("geometry")
-    boundary_shape = shape(boundary_geojson) if boundary_geojson else None
 
-    result: list[dict[str, Any]] = []
-    for u, v, _k, data in Gu.edges(keys=True, data=True):
-        # The graph was already filtered by the public-road classifier
-        # during preprocessing (_prune_non_driveable_edges). Trust the
-        # preprocessed result and skip redundant re-classification.
-        highway_type = data.get("highway", "unclassified")
-        if isinstance(highway_type, list):
-            highway_type = highway_type[0] if highway_type else "unclassified"
+    loop = asyncio.get_running_loop()
 
-        line = _edge_geometry(Gu, u, v, data)
-        if line is None:
-            continue
+    def _do_load() -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        import networkx as nx
+        import osmnx as ox
 
-        if boundary_shape is not None:
-            if not boundary_shape.intersects(line):
-                continue
-            line = _coerce_line_geometry(boundary_shape.intersection(line))
+        from core.osmnx_graphml import load_graphml_robust
+
+        G = load_graphml_robust(graph_path)
+        if not isinstance(G, nx.MultiDiGraph):
+            G = nx.MultiDiGraph(G)
+
+        Gu = ox.convert.to_undirected(G)
+
+        boundary_shape = shape(boundary_geojson) if boundary_geojson else None
+
+        result: list[dict[str, Any]] = []
+        for u, v, _k, data in Gu.edges(keys=True, data=True):
+            # The graph was already filtered by the public-road classifier
+            # during preprocessing (_prune_non_driveable_edges). Trust the
+            # preprocessed result and skip redundant re-classification.
+            highway_type = data.get("highway", "unclassified")
+            if isinstance(highway_type, list):
+                highway_type = highway_type[0] if highway_type else "unclassified"
+
+            line = _edge_geometry(Gu, u, v, data)
             if line is None:
                 continue
 
-        name = data.get("name")
-        if isinstance(name, list):
-            name = name[0] if name else None
+            if boundary_shape is not None:
+                if not boundary_shape.intersects(line):
+                    continue
+                line = _coerce_line_geometry(boundary_shape.intersection(line))
+                if line is None:
+                    continue
 
-        result.append(
-            {
-                # Pyrosm graphs sometimes use `id` instead of `osmid`.
-                "osm_id": _coerce_osm_id(data.get("osmid") or data.get("id")),
-                "tags": {
-                    "name": _coerce_name(name),
-                    "highway": highway_type,
+            name = data.get("name")
+            if isinstance(name, list):
+                name = name[0] if name else None
+
+            result.append(
+                {
+                    # Pyrosm graphs sometimes use `id` instead of `osmid`.
+                    "osm_id": _coerce_osm_id(data.get("osmid") or data.get("id")),
+                    "tags": {
+                        "name": _coerce_name(name),
+                        "highway": highway_type,
+                    },
+                    "geometry": mapping(line),
                 },
-                "geometry": mapping(line),
-            },
-        )
-
-    graph_stats_raw = G.graph.get(GRAPH_ROAD_FILTER_STATS_KEY)
-    graph_stats: dict[str, Any] = {}
-    if isinstance(graph_stats_raw, dict):
-        graph_stats = dict(graph_stats_raw)
-    elif isinstance(graph_stats_raw, str) and graph_stats_raw.strip():
-        try:
-            import json
-
-            parsed = json.loads(graph_stats_raw)
-            if isinstance(parsed, dict):
-                graph_stats = parsed
-        except Exception:
-            logger.warning(
-                "Invalid graph road-filter stats metadata for %s",
-                area.display_name,
             )
 
-    audit_stats = dict(graph_stats) if graph_stats else {}
-    if audit_stats:
-        audit_stats.setdefault("graph_build_filter_stats", dict(graph_stats))
+        graph_stats_raw = G.graph.get(GRAPH_ROAD_FILTER_STATS_KEY)
+        graph_stats: dict[str, Any] = {}
+        if isinstance(graph_stats_raw, dict):
+            graph_stats = dict(graph_stats_raw)
+        elif isinstance(graph_stats_raw, str) and graph_stats_raw.strip():
+            try:
+                import json
 
-    return result, audit_stats
+                parsed = json.loads(graph_stats_raw)
+                if isinstance(parsed, dict):
+                    graph_stats = parsed
+            except Exception:
+                logger.warning(
+                    "Invalid graph road-filter stats metadata for %s",
+                    area.display_name,
+                )
+
+        audit_stats = dict(graph_stats) if graph_stats else {}
+        if audit_stats:
+            audit_stats.setdefault("graph_build_filter_stats", dict(graph_stats))
+
+        return result, audit_stats
+
+    return await loop.run_in_executor(None, _do_load)
 
 
 def _segment_streets(
@@ -1559,5 +1591,3 @@ async def _clear_existing_area_data(area_id: PydanticObjectId) -> None:
     """
     await Street.find({"area_id": area_id}).delete()
     await CoverageState.find({"area_id": area_id}).delete()
-
-
