@@ -1,79 +1,60 @@
 {% extends "base.html" %}
 
 {% block title %}
-
- Every Street Setup
+  Every Street Setup
 {% endblock %}
 
-
-{% block
-extra_css %}
-
-
+{% block extra_css %}
   <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
   <link rel="stylesheet"
         href="{{ url_for('static', path='css/setup-wizard.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
-
 {% block content %}
-
-
   <div class="setup-page">
     <div class="container-fluid setup-shell">
-      <div class="setup-hero" data-stagger>
-        <div class="setup-hero-text">
-          <div class="setup-eyebrow">
-Every Street Setup
+
+      {# ── Progress bar ── #}
+      <div class="setup-progress-bar" aria-label="Setup progress">
+        <div class="setup-progress-track">
+          <div class="setup-progress-step is-active" data-progress-step="0">
+            <span class="setup-progress-dot"><i class="fas fa-key"></i></span>
+            <span class="setup-progress-label">Credentials</span>
           </div>
-          <h1 class="setup-title">
-Get your streets online in minutes.
-          </h1>
-          <p class="setup-subtitle">
-          Add your credentials once, import trips, and we will auto-detect coverage
-          while geocoding and routing are built in the background.
-          </p>
-          <div class="setup-hero-meta">
-            <div class="setup-hero-step">
-              <span class="setup-hero-step-label">Current step</span>
-              <span class="setup-hero-step-value" id="setup-current-step">1 of 2</span>
-            </div>
-            <div class="setup-hero-step">
-              <span class="setup-hero-step-label">What happens next</span>
-              <span class="setup-hero-step-value" id="setup-next-step">
-              Save credentials, then import trips for coverage.
-              </span>
-            </div>
+          <div class="setup-progress-connector">
+            <div class="setup-progress-connector-fill" id="progress-connector"></div>
           </div>
-        </div>
-        <div class="setup-hero-card">
-          <div class="setup-hero-card-label">
-This wizard will configure:
+          <div class="setup-progress-step" data-progress-step="1">
+            <span class="setup-progress-dot"><i class="fas fa-map"></i></span>
+            <span class="setup-progress-label">Map Coverage</span>
           </div>
-          <ul class="setup-hero-list">
-            <li>
-              <i class="fas fa-key"></i> Bouncie + Mapbox credentials
-            </li>
-            <li>
-              <i class="fas fa-map"></i> Trip-based coverage area
-            </li>
-          </ul>
         </div>
       </div>
 
+      {# ── Hero ── #}
+      <div class="setup-hero" data-stagger>
+        <div class="setup-hero-text">
+          <div class="setup-eyebrow">Every Street Setup</div>
+          <h1 class="setup-title">Get your streets online in&nbsp;minutes.</h1>
+          <p class="setup-subtitle">
+            Two quick steps: save your API credentials, then import trips so we
+            can build local coverage for geocoding and routing.
+          </p>
+        </div>
+      </div>
+
+      {# ── Main layout ── #}
       <div class="setup-layout">
+
+        {# ── Sidebar ── #}
         <aside class="setup-sidebar">
           <ol class="setup-step-list" aria-label="Setup steps">
             <li class="setup-step-item is-active" data-step="0" data-step-key="credentials">
               <button class="setup-step-button" type="button" data-step-target="0">
                 <span class="step-number">1</span>
                 <div>
-                  <div class="step-title">
-Credentials
-                  </div>
-                  <div class="step-note">
-Bouncie + Mapbox
-                  </div>
+                  <div class="step-title">Credentials</div>
+                  <div class="step-note">Bouncie + Mapbox</div>
                 </div>
               </button>
             </li>
@@ -81,102 +62,120 @@ Bouncie + Mapbox
               <button class="setup-step-button" type="button" data-step-target="1">
                 <span class="step-number">2</span>
                 <div>
-                  <div class="step-title">
-Map Coverage
-                  </div>
-                  <div class="step-note">
-Coverage area
-                  </div>
+                  <div class="step-title">Map Coverage</div>
+                  <div class="step-note">Import &amp; build</div>
                 </div>
               </button>
             </li>
           </ol>
-          <div class="setup-support">
-            <div class="setup-support-title">
-Need a quick check?
-            </div>
-            <p>
-Visit the live status dashboard to confirm service health.
-            </p>
-            <a href="/status" class="btn btn-outline-light btn-sm">
-              <i class="fas fa-heartbeat"></i> System Status
+          <div class="setup-sidebar-help">
+            <a href="/status" class="setup-sidebar-help-link">
+              <i class="fas fa-heartbeat"></i>
+              <span>System Status</span>
             </a>
           </div>
         </aside>
 
+        {# ════════════════════════════════════════════════════
+           STEP 1 — CREDENTIALS
+           ════════════════════════════════════════════════════ #}
         <main class="setup-content">
           <section class="setup-step is-active" data-step="0">
             <div class="setup-card">
+
               <div class="setup-card-header">
                 <div>
-                  <h2>
-Credentials
-                  </h2>
+                  <h2>Credentials</h2>
                   <p>
-                  Save your Bouncie OAuth details and Mapbox token once. We will
-                  validate everything before moving on.
-                  </p>
-                  <p class="text-muted small mb-0">
-                  Need to edit later? Manage credentials in
-                    <a href="/settings#credentials">Settings &gt; Credentials</a>.
+                    Save your Bouncie OAuth details and Mapbox token once.
+                    We'll validate everything before moving on.
                   </p>
                 </div>
               </div>
 
-              <div id="credentials-status" class="setup-status" role="status" aria-live="polite">
-              </div>
+              <div id="credentials-status" class="setup-status" role="status" aria-live="polite"></div>
 
-              <div class="setup-credentials-grid">
-                <div class="setup-card-section">
-                  <div class="setup-card-section-header">
-                    <div>
-                      <h3>
-Bouncie Credentials
-                      </h3>
-                      <p>
-                      Enter your Bouncie OAuth details and sync vehicle IMEIs.
-                        <a href="https://bouncie.dev" target="_blank" rel="noopener">
-                        Open the developer portal.
-                        </a>
-                      </p>
-                    </div>
-                    <a href="#" class="btn btn-success" id="connectBouncieBtn" role="button">
-                      <i class="fas fa-plug"></i> Connect with Bouncie
-                    </a>
-                    <button class="btn btn-outline-light" id="syncVehiclesBtn" type="button">
-                      <i class="fas fa-sync"></i> Sync Vehicles
-                    </button>
+              {# ── Bouncie Credentials ── #}
+              <div class="setup-card-section">
+                <div class="setup-card-section-header">
+                  <div>
+                    <h3>Bouncie Credentials</h3>
+                    <p>Enter your Bouncie OAuth app details to connect your devices.</p>
                   </div>
-
-                  <form id="bouncieCredentialsForm" class="setup-form" novalidate>
-                    <div class="row">
-                      <div class="col-md-6 mb-3">
-                        <label for="clientId" class="form-label">
- Client ID
-                        </label>
-                        <input type="text" class="form-control" id="clientId" required />
-                      </div>
-                      <div class="col-md-6 mb-3">
-                        <label for="clientSecret" class="form-label">
-                        Client Secret
-                        </label>
-                        <div class="input-group">
-                          <input type="password" class="form-control" id="clientSecret" required />
-                          <button class="btn btn-outline-secondary" type="button" id="toggleClientSecret">
-                            <i class="fas fa-eye"></i>
-                          </button>
-                        </div>
-                      </div>
-                      <div class="col-md-6 mb-3">
-                        <label for="redirectUri" class="form-label">
- Redirect URI
-                        </label>
-                        <input type="url" class="form-control" id="redirectUri" required />
-                      </div>
-                    </div>
-                  </form>
                 </div>
 
+                {# Collapsible help #}
+                <details class="setup-help-panel">
+                  <summary class="setup-help-toggle">
+                    <i class="fas fa-question-circle"></i>
+                    Where do I get these credentials?
+                  </summary>
+                  <div class="setup-help-content">
+                    <ol>
+                      <li>Go to <a href="https://bouncie.dev" target="_blank" rel="noopener">bouncie.dev</a> and sign in with your Bouncie account.</li>
+                      <li>Create a new app (or open an existing one).</li>
+                      <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> from the app dashboard.</li>
+                      <li>Set the <strong>Redirect URI</strong> below to match the one in your Bouncie app settings.</li>
+                    </ol>
+                    <div class="setup-help-tip">
+                      <i class="fas fa-lightbulb"></i>
+                      <span>The Redirect URI should point to this server's <code>/api/bouncie/callback</code> endpoint. We've pre-filled it for you.</span>
+                    </div>
+                  </div>
+                </details>
+
+                <form id="bouncieCredentialsForm" class="setup-form" novalidate>
+                  <div class="setup-form-grid">
+                    <div class="setup-field">
+                      <label for="clientId" class="form-label">Client ID</label>
+                      <input type="text" class="form-control" id="clientId" required
+                             placeholder="e.g. abc123def456" />
+                      <span class="setup-field-hint">Found in your Bouncie app dashboard</span>
+                    </div>
+                    <div class="setup-field">
+                      <label for="clientSecret" class="form-label">Client Secret</label>
+                      <div class="input-group">
+                        <input type="password" class="form-control" id="clientSecret" required
+                               placeholder="••••••••" />
+                        <button class="btn btn-outline-secondary" type="button" id="toggleClientSecret"
+                                aria-label="Toggle secret visibility">
+                          <i class="fas fa-eye"></i>
+                        </button>
+                      </div>
+                      <span class="setup-field-hint">Keep this private — never share it publicly</span>
+                    </div>
+                    <div class="setup-field">
+                      <label for="redirectUri" class="form-label">Redirect URI</label>
+                      <input type="url" class="form-control" id="redirectUri" required />
+                      <span class="setup-field-hint">Must match the URI registered in your Bouncie app</span>
+                    </div>
+                  </div>
+                </form>
+
+                {# Bouncie connect actions — shown after credentials are saved #}
+                <div class="setup-connect-actions" id="bouncie-connect-actions">
+                  <a href="#" class="btn btn-success" id="connectBouncieBtn" role="button">
+                    <i class="fas fa-plug"></i> Connect with Bouncie
+                  </a>
+                  <details class="setup-advanced-toggle">
+                    <summary>Advanced: Sync vehicles manually</summary>
+                    <div class="setup-advanced-content">
+                      <p class="text-muted small">
+                        Vehicles are synced automatically when you connect. Use this only
+                        if you need to re-sync after adding a new device.
+                      </p>
+                      <button class="btn btn-outline-light btn-sm" id="syncVehiclesBtn" type="button" disabled>
+                        <i class="fas fa-sync"></i> Sync Vehicles
+                      </button>
+                    </div>
+                  </details>
+                </div>
+              </div>
+
+              <div class="setup-card-footer-note">
+                <i class="fas fa-info-circle"></i>
+                Need to edit later? Manage credentials in
+                <a href="/settings#credentials">Settings&nbsp;&gt;&nbsp;Credentials</a>.
               </div>
 
               <div class="setup-actions">
@@ -184,223 +183,208 @@ Bouncie Credentials
                   <i class="fas fa-arrow-left"></i> Back to dashboard
                 </a>
                 <button class="btn btn-primary" id="credentials-continue-btn" type="button">
-                Verify & Continue
+                  Verify &amp; Continue
+                  <i class="fas fa-arrow-right"></i>
                 </button>
               </div>
             </div>
           </section>
 
+          {# ════════════════════════════════════════════════════
+             STEP 2 — MAP COVERAGE (unified flow)
+             ════════════════════════════════════════════════════ #}
           <section class="setup-step" data-step="1">
             <div class="setup-card">
+
               <div class="setup-card-header">
                 <div>
-                  <h2>
-Map Coverage
-                  </h2>
+                  <h2>Map Coverage</h2>
                   <p id="coverage-step-description">
-                  Coverage is built from your trips so geocoding stays local and fast.
-                  Import trips first, then we’ll auto-detect the right coverage.
+                    Import your recent trips so we can detect which states to download.
+                    Coverage data powers local geocoding and routing.
                   </p>
                 </div>
                 <div class="setup-pill-group">
-                  <div class="setup-pill" id="coverage-mode-pill">
-Trip coverage
-                  </div>
-                  <div class="setup-pill" id="coverage-status-pill">
-Not configured
-                  </div>
+                  <div class="setup-pill" id="coverage-mode-pill">Trip coverage</div>
+                  <div class="setup-pill is-muted" id="coverage-status-pill">Not configured</div>
                 </div>
               </div>
 
-              <div id="coverage-status" class="setup-status" role="status" aria-live="polite">
-              </div>
-              <div class="setup-banner d-none" id="coverage-trips-banner">
-                <div>
-                  <strong id="coverage-trips-title">Import trips first</strong>
-                  <div class="text-muted" id="coverage-trips-message">
-                  We need at least one trip to calculate coverage. Sync trips to
-                  continue.
+              <div id="coverage-status" class="setup-status" role="status" aria-live="polite"></div>
+
+              {# ── Phase: Import Trips ── #}
+              <div class="setup-phase" id="phase-import">
+                <div class="setup-phase-header">
+                  <div class="setup-phase-icon">
+                    <i class="fas fa-route"></i>
                   </div>
-                </div>
-                <button class="btn btn-outline-light btn-sm"
-                        id="coverage-import-trips-btn"
-                        type="button">
-                Import trips
-                </button>
-              </div>
-
-              <div class="setup-coverage-tabs" role="tablist" aria-label="Coverage flow">
-                <button class="setup-tab is-active" type="button" data-coverage-tab="select" role="tab">
-                1. Select
-                </button>
-                <button class="setup-tab" type="button" data-coverage-tab="review" role="tab">
-                2. Review
-                </button>
-                <button class="setup-tab" type="button" data-coverage-tab="run" role="tab">
-                3. Run
-                </button>
-              </div>
-
-              <div class="setup-coverage-view is-active" data-coverage-view="select">
-                <div class="setup-coverage-grid">
-                  <div class="setup-coverage-panel">
-                    <div class="setup-coverage-header">
-                      <div>
-                        <h3 id="coverage-select-title">
-Select states
-                        </h3>
-                        <p class="text-muted" id="coverage-select-description">
-                        Start with the states you need now. You can add more later.
-                        </p>
-                        <div class="setup-hint d-none" id="coverage-select-hint">
-                        Coverage is auto-detected from trips. We download the smallest
-                        extract that fully covers your trip area.
-                        </div>
-                      </div>
-                      <div class="setup-coverage-search" id="coverage-search">
-                        <label class="form-label" for="state-search">
-Search states
-                        </label>
-                        <input class="form-control"
-                               id="state-search"
-                               type="search"
-                               placeholder="Search by name" />
-                      </div>
-                    </div>
-
-                    <div class="state-selector" id="state-selection">
-                      <div class="text-muted">
-Loading states...
-                      </div>
-                    </div>
-                  </div>
-
-                  <aside class="setup-coverage-panel">
-                    <div class="setup-trip-status">
-                      <div class="setup-trip-status-header">
-                        <h3>
-Trip status
-                        </h3>
-                        <span class="setup-pill is-muted" id="trip-sync-state-pill">Idle</span>
-                      </div>
-                      <div class="setup-trip-status-grid">
-                        <div>
-                          <span class="coverage-label">Trips imported</span>
-                          <span class="setup-trip-value" id="trip-sync-count">--</span>
-                        </div>
-                        <div>
-                          <span class="coverage-label">Last sync</span>
-                          <span class="setup-trip-value" id="trip-sync-last-success">--</span>
-                        </div>
-                        <div>
-                          <span class="coverage-label">Last attempt</span>
-                          <span class="setup-trip-value" id="trip-sync-last-attempt">--</span>
-                        </div>
-                      </div>
-                      <div class="setup-hint d-none" id="trip-sync-hint">
-                      </div>
-                    </div>
-                    <h3>
-Selection summary
-                    </h3>
-                    <div class="coverage-summary">
-                      <div>
-                        <span class="coverage-label">Total size</span>
-                        <span id="coverage-total-size">--</span>
-                      </div>
-                      <div>
-                        <span class="coverage-label">Estimated time</span>
-                        <span id="coverage-time-estimate">--</span>
-                      </div>
-                    </div>
-                    <div class="setup-selection-list" id="coverage-summary-list">
-                      <div class="text-muted">
-No states selected yet.
-                      </div>
-                    </div>
-                    <button class="btn btn-primary" id="coverage-review-btn" type="button">
-                    Review selections
-                    </button>
-                  </aside>
-                </div>
-              </div>
-
-              <div class="setup-coverage-view" data-coverage-view="review">
-                <div class="setup-review-grid">
                   <div>
-                    <h3>
-Review before you run
-                    </h3>
-                    <p class="text-muted">
-                    Make sure this coverage list is correct. Once started, the build
-                    will run in the background.
-                    </p>
-                    <div class="setup-selection-list" id="coverage-review-list">
-                      <div class="text-muted">
-No states selected yet.
-                      </div>
-                    </div>
-                  </div>
-                  <div class="setup-review-meta">
-                    <div class="coverage-summary">
-                      <div>
-                        <span class="coverage-label">Total size</span>
-                        <span id="coverage-total-size-review">--</span>
-                      </div>
-                      <div>
-                        <span class="coverage-label">Estimated time</span>
-                        <span id="coverage-time-estimate-review">--</span>
-                      </div>
-                    </div>
-                    <div class="setup-review-actions">
-                      <button class="btn btn-outline-light" id="coverage-back-btn" type="button">
-                      Back to selection
-                      </button>
-                      <button class="btn btn-primary" id="coverage-run-btn" type="button">
-                      Start setup
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="setup-coverage-view" data-coverage-view="run">
-                <div class="setup-run-grid">
-                  <div>
-                    <h3>
-Setup progress
-                    </h3>
-                    <p class="text-muted">
-                    We are downloading and rebuilding routing data. You can keep using
-                    the app while this finishes.
+                    <h3>Import Recent Trips</h3>
+                    <p class="text-muted" id="import-description">
+                      We'll fetch your trips from <strong>the last 7 days</strong> from Bouncie.
+                      This tells us which states you've been driving in so we download
+                      only the coverage data you actually need.
                     </p>
                   </div>
-                  <div>
-                    <div class="setup-progress d-none" id="map-setup-progress">
-                      <div class="progress">
-                        <div class="progress-bar" id="map-setup-progress-bar" style="width: 0%">
-                        </div>
-                      </div>
-                      <div class="progress-meta">
-                        <span id="map-setup-progress-text"></span>
-                        <span id="map-setup-message">Select states to begin.</span>
-                      </div>
-                    </div>
+                </div>
+
+                <div class="setup-import-meta" id="import-meta">
+                  <div class="setup-import-meta-item">
+                    <span class="setup-import-meta-label">Trips imported</span>
+                    <span class="setup-import-meta-value" id="trip-sync-count">--</span>
+                  </div>
+                  <div class="setup-import-meta-item">
+                    <span class="setup-import-meta-label">Status</span>
+                    <span class="setup-pill is-muted" id="trip-sync-state-pill">Idle</span>
                   </div>
                 </div>
 
-                <div class="setup-actions">
-                  <button class="btn btn-primary" id="map-setup-btn" type="button">
-                  Start Setup
-                  </button>
-                  <button class="btn btn-outline-light d-none" id="map-cancel-btn" type="button">
-                  Cancel Setup
-                  </button>
-                  <button class="btn btn-success d-none" id="finish-setup-btn" type="button">
-                  Finish Setup
-                  </button>
+                {# Live activity log — visible during import #}
+                <div class="setup-import-activity d-none" id="import-activity">
+                  <div class="setup-import-activity-header">
+                    <i class="fas fa-stream"></i>
+                    <span>Import Activity</span>
+                  </div>
+                  <ul class="setup-import-activity-log" id="import-activity-log">
+                    {# JS will populate this with live status lines #}
+                  </ul>
+                </div>
+
+                <div class="setup-import-hint d-none" id="trip-sync-hint"></div>
+
+                <button class="btn btn-primary setup-import-btn" id="coverage-import-trips-btn" type="button">
+                  <i class="fas fa-download"></i>
+                  Import Recent Trips
+                </button>
+
+                <div class="setup-help-tip" id="import-tip">
+                  <i class="fas fa-lightbulb"></i>
+                  <span>Need more history? You can import your full trip history later from
+                    <a href="/settings#sync">Settings&nbsp;&gt;&nbsp;Sync</a>.</span>
                 </div>
               </div>
+
+              {# ── Phase: Detected Coverage ── #}
+              <div class="setup-phase d-none" id="phase-detected">
+                <div class="setup-phase-header">
+                  <div class="setup-phase-icon is-success">
+                    <i class="fas fa-check"></i>
+                  </div>
+                  <div>
+                    <h3 id="coverage-select-title">Detected Coverage</h3>
+                    <p class="text-muted" id="coverage-select-description">
+                      Based on your trips, we've identified the states below.
+                      Coverage data will be downloaded and built for these areas.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="setup-detected-states" id="state-selection">
+                  <div class="text-muted">Loading states...</div>
+                </div>
+
+                <div class="setup-coverage-summary">
+                  <div class="setup-coverage-summary-item">
+                    <span class="coverage-label">Total size</span>
+                    <span class="setup-coverage-summary-value" id="coverage-total-size">--</span>
+                  </div>
+                  <div class="setup-coverage-summary-item">
+                    <span class="coverage-label">Estimated time</span>
+                    <span class="setup-coverage-summary-value" id="coverage-time-estimate">--</span>
+                  </div>
+                </div>
+
+                <button class="btn btn-primary" id="map-setup-btn" type="button">
+                  <i class="fas fa-hammer"></i>
+                  Build Coverage
+                </button>
+
+                {# Hidden elements still needed by JS for compatibility #}
+                <span class="d-none" id="coverage-total-size-review"></span>
+                <span class="d-none" id="coverage-time-estimate-review"></span>
+                <span class="d-none" id="coverage-review-btn" disabled></span>
+                <span class="d-none" id="coverage-run-btn" disabled></span>
+                <span class="d-none" id="coverage-back-btn"></span>
+                <span class="d-none" id="coverage-summary-list"></span>
+                <span class="d-none" id="coverage-review-list"></span>
+                <span class="d-none" id="state-search" disabled></span>
+                <span class="d-none" id="coverage-search"></span>
+                <span class="d-none" id="coverage-select-hint"></span>
+                <span class="d-none" id="coverage-trips-banner"></span>
+                <span class="d-none" id="coverage-trips-title"></span>
+                <span class="d-none" id="coverage-trips-message"></span>
+                <span class="d-none" id="trip-sync-last-success"></span>
+                <span class="d-none" id="trip-sync-last-attempt"></span>
+              </div>
+
+              {# ── Phase: Building ── #}
+              <div class="setup-phase d-none" id="phase-building">
+                <div class="setup-phase-header">
+                  <div class="setup-phase-icon is-building">
+                    <i class="fas fa-cog fa-spin"></i>
+                  </div>
+                  <div>
+                    <h3>Building Coverage</h3>
+                    <p class="text-muted">
+                      Downloading and building routing data. This runs in the
+                      background — feel free to start exploring the app.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="setup-build-progress" id="map-setup-progress">
+                  <div class="progress">
+                    <div class="progress-bar" id="map-setup-progress-bar" style="width: 0%"></div>
+                  </div>
+                  <div class="progress-meta">
+                    <span id="map-setup-progress-text"></span>
+                    <span id="map-setup-message">Starting...</span>
+                  </div>
+                </div>
+
+                <div class="setup-build-actions">
+                  <a class="btn btn-primary" href="/" id="build-continue-btn">
+                    <i class="fas fa-arrow-right"></i> Continue to Dashboard
+                  </a>
+                  <button class="btn btn-outline-light" id="map-cancel-btn" type="button">
+                    <i class="fas fa-times"></i> Cancel Build
+                  </button>
+                </div>
+                <div class="setup-help-tip">
+                  <i class="fas fa-info-circle"></i>
+                  <span>Coverage will finish building in the background.
+                    You'll be able to see progress any time from
+                    <a href="/settings#coverage">Settings&nbsp;&gt;&nbsp;Coverage</a>.</span>
+                </div>
+              </div>
+
+              {# ── Phase: Ready / Finish ── #}
+              <div class="setup-phase d-none" id="phase-ready">
+                <div class="setup-phase-header">
+                  <div class="setup-phase-icon is-success is-celebrate">
+                    <i class="fas fa-check-circle"></i>
+                  </div>
+                  <div>
+                    <h3>You're All Set!</h3>
+                    <p class="text-muted">
+                      Coverage is built and ready. Your streets are now online with
+                      local geocoding and routing.
+                    </p>
+                  </div>
+                </div>
+
+                <button class="btn btn-success setup-finish-btn" id="finish-setup-btn" type="button">
+                  <i class="fas fa-rocket"></i>
+                  Go to Dashboard
+                </button>
+              </div>
+
+              <div class="setup-actions" id="coverage-actions">
+                <button class="setup-step-button-back btn btn-outline-light" type="button" data-step-target="0">
+                  <i class="fas fa-arrow-left"></i> Back to Credentials
+                </button>
+              </div>
+
             </div>
           </section>
         </main>
@@ -408,7 +392,6 @@ Setup progress
     </div>
   </div>
 
-                      {# Page scripts are loaded via route-loader + swup. #}
-
+  {# Page scripts are loaded via route-loader + swup. #}
 
 {% endblock %}

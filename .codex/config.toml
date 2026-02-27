@@ -1,6 +1,7 @@
 [features]
 web_browsing = true
 multi_agent = true
+default_mode_request_user_input = true
 
 [mcp_servers.context7]
 url = "https://mcp.context7.com/mcp"
