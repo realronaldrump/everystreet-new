@@ -1,18 +1,25 @@
 """
 Job status API endpoints.
 
-Provides endpoints for checking background job progress.
+Provides endpoints for checking background job progress,
+including a Server-Sent Events (SSE) stream for real-time updates.
 """
 
+import asyncio
+import json
 import logging
+import time
 from datetime import UTC, datetime
 from typing import Any
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from starlette.responses import StreamingResponse
 
 from db.models import CoverageArea, Job
+from street_coverage.events import publish, subscribe, unsubscribe
 from street_coverage.ingestion import cancel_ingestion_job
 
 logger = logging.getLogger(__name__)
@@ -228,3 +235,116 @@ async def cancel_job(job_id: PydanticObjectId):
         "success": True,
         "message": "Job cancelled",
     }
+
+
+# =============================================================================
+# Server-Sent Events stream
+# =============================================================================
+
+HEARTBEAT_INTERVAL = 15  # seconds
+SSE_TIMEOUT = 600  # 10 minutes max
+
+
+def _sse_format(event: str, data: Any) -> str:
+    """Format a single SSE frame."""
+    payload = json.dumps(data, default=str)
+    return f"event: {event}\ndata: {payload}\n\n"
+
+
+async def _job_event_stream(job_id: str):
+    """Async generator that yields SSE frames for a job."""
+    # Send initial snapshot
+    try:
+        job = await Job.get(job_id)
+    except Exception:
+        yield _sse_format("error", {"message": "Job not found"})
+        return
+
+    if not job:
+        yield _sse_format("error", {"message": "Job not found"})
+        return
+
+    area_name = None
+    if job.area_id:
+        area = await CoverageArea.get(job.area_id)
+        area_name = area.display_name if area else None
+
+    yield _sse_format("snapshot", {
+        "job_id": str(job.id),
+        "job_type": job.job_type,
+        "area_id": str(job.area_id) if job.area_id else None,
+        "area_name": area_name,
+        "status": job.status,
+        "stage": job.stage,
+        "progress": job.progress,
+        "message": job.message,
+        "error": job.error,
+        "result": job.result,
+        "created_at": job.created_at.isoformat() if job.created_at else None,
+        "started_at": job.started_at.isoformat() if job.started_at else None,
+    })
+
+    # If already terminal, no need to stream
+    if job.status in ("completed", "failed", "cancelled"):
+        yield _sse_format("done", {
+            "status": job.status,
+            "result": job.result,
+            "error": job.error,
+        })
+        return
+
+    # Subscribe to live events
+    q = subscribe(job_id)
+    last_heartbeat = time.monotonic()
+    start = time.monotonic()
+
+    try:
+        while True:
+            elapsed = time.monotonic() - start
+            if elapsed > SSE_TIMEOUT:
+                yield _sse_format("timeout", {"message": "Stream timeout"})
+                return
+
+            try:
+                event = await asyncio.wait_for(q.get(), timeout=HEARTBEAT_INTERVAL)
+            except asyncio.TimeoutError:
+                # Send heartbeat to keep connection alive
+                yield _sse_format("heartbeat", {"ts": time.time()})
+                last_heartbeat = time.monotonic()
+                continue
+
+            event_type = event.pop("_type", "progress")
+            yield _sse_format(event_type, event)
+
+            # Terminal events end the stream
+            if event_type == "done" or event.get("status") in (
+                "completed",
+                "failed",
+                "cancelled",
+            ):
+                return
+    finally:
+        unsubscribe(job_id, q)
+
+
+@router.get("/jobs/{job_id}/stream")
+async def stream_job_progress(job_id: PydanticObjectId):
+    """
+    Stream real-time job progress via Server-Sent Events.
+
+    Events:
+    - snapshot: Initial state on connect
+    - progress: Stage/progress updates with metrics
+    - stage: Stage transition with timing
+    - done: Job completed/failed/cancelled
+    - heartbeat: Keep-alive (every 15s)
+    """
+    return StreamingResponse(
+        _job_event_stream(str(job_id)),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

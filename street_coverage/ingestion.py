@@ -428,11 +428,57 @@ async def _run_ingestion_pipeline(
 
     This is the main orchestrator that runs all ingestion stages.
     """
+    from street_coverage.events import publish
+
     area = await CoverageArea.get(area_id)
 
     if not area:
         logger.error("Area %s not found for job %s", area_id, job_id)
         return
+
+    job_id_str = str(job_id)
+    pipeline_start = datetime.now(UTC)
+    stage_start = pipeline_start
+
+    # Ordered stage definitions for the frontend tracker
+    STAGES = [
+        "boundary",
+        "graph",
+        "segmenting",
+        "storing",
+        "statistics",
+        "backfill",
+    ]
+
+    def _emit(
+        event_type: str = "progress",
+        *,
+        stage: str | None = None,
+        progress: float | None = None,
+        message: str | None = None,
+        metrics: dict[str, Any] | None = None,
+        status: str | None = None,
+        error: str | None = None,
+        result: dict[str, Any] | None = None,
+    ) -> None:
+        """Publish an SSE event for live subscribers."""
+        evt: dict[str, Any] = {"_type": event_type}
+        if stage is not None:
+            evt["stage"] = stage
+        if progress is not None:
+            evt["progress"] = progress
+        if message is not None:
+            evt["message"] = message
+        if metrics is not None:
+            evt["metrics"] = metrics
+        if status is not None:
+            evt["status"] = status
+        if error is not None:
+            evt["error"] = error
+        if result is not None:
+            evt["result"] = result
+        evt["stages"] = STAGES
+        publish(job_id_str, evt)
 
     try:
 
@@ -446,6 +492,8 @@ async def _run_ingestion_pipeline(
             completed_at: datetime | None = None,
             retry_count: int | None = None,
             result: dict[str, Any] | None = None,
+            metrics: dict[str, Any] | None = None,
+            stage_key: str | None = None,
         ) -> None:
             job = await Job.get(job_id)
             if not job:
@@ -477,18 +525,35 @@ async def _run_ingestion_pipeline(
 
             await job.set(updates)
 
+            # Publish SSE event for live subscribers
+            _emit(
+                "progress",
+                stage=stage_key,
+                progress=progress,
+                message=message,
+                metrics=metrics,
+                status=status,
+                error=error,
+                result=result,
+            )
+
         # Mark job as running
+        _emit("stage", stage="boundary", progress=0, message="Starting…",
+               status="running")
         await update_job(
             status="running",
             started_at=datetime.now(UTC),
             message="Starting ingestion pipeline",
+            stage_key="boundary",
         )
 
         # Stage 1: Fetch boundary if needed
+        stage_start = datetime.now(UTC)
         await update_job(
-            stage="Fetching boundary",
+            stage="Resolving boundary",
             progress=5,
-            message="Checking boundary data",
+            message="Looking up area boundary…",
+            stage_key="boundary",
         )
 
         area_updated = False
@@ -503,16 +568,28 @@ async def _run_ingestion_pipeline(
         if area_updated:
             await area.save()
 
-        await update_job(message="Boundary ready")
+        boundary_ms = (datetime.now(UTC) - stage_start).total_seconds() * 1000
+        await update_job(
+            message="Boundary resolved",
+            stage_key="boundary",
+            metrics={"duration_ms": round(boundary_ms)},
+        )
 
         # Stage 2: Load streets from OSM graph
+        stage_start = datetime.now(UTC)
+        _emit("stage", stage="graph", progress=15,
+               message="Loading street network…")
         await update_job(
-            stage="Loading streets from OSM graph",
-            progress=20,
-            message="Loading graph data",
+            stage="Loading street graph",
+            progress=15,
+            message="Building street network from OSM data…",
+            stage_key="graph",
         )
 
         osm_ways, road_filter_stats = await _load_osm_streets_from_graph(area, job_id)
+        graph_ms = (datetime.now(UTC) - stage_start).total_seconds() * 1000
+        included = int(road_filter_stats.get("included_count", 0) or 0)
+        excluded = int(road_filter_stats.get("excluded_count", 0) or 0)
         logger.info(
             "Loaded %s ways from graph for %s",
             len(osm_ways),
@@ -521,21 +598,41 @@ async def _run_ingestion_pipeline(
         logger.info(
             ("Road filter stats for %s: included=%s excluded=%s ambiguous_included=%s"),
             area.display_name,
-            road_filter_stats.get("included_count", 0),
-            road_filter_stats.get("excluded_count", 0),
+            included,
+            excluded,
             road_filter_stats.get("ambiguous_included_count", 0),
+        )
+        await update_job(
+            message=f"Loaded {len(osm_ways):,} streets ({excluded:,} non-public excluded)",
+            stage_key="graph",
+            metrics={
+                "streets_loaded": len(osm_ways),
+                "streets_excluded": excluded,
+                "streets_included": included,
+                "duration_ms": round(graph_ms),
+            },
         )
 
         # Stage 3: Segment streets
+        stage_start = datetime.now(UTC)
+        _emit("stage", stage="segmenting", progress=40,
+               message=f"Segmenting {len(osm_ways):,} streets…")
         await update_job(
-            stage="Processing streets",
+            stage="Segmenting streets",
             progress=40,
-            message=f"Segmenting {len(osm_ways):,} OSM ways",
+            message=f"Creating coverage segments from {len(osm_ways):,} streets…",
+            stage_key="segmenting",
         )
 
         area_doc_id = _validate_area_id(area)
 
         segments = _segment_streets(osm_ways, area_doc_id, area.area_version)
+        segment_ms = (datetime.now(UTC) - stage_start).total_seconds() * 1000
+
+        # Calculate total miles
+        total_length_m = sum(s.get("length_meters", 0) for s in segments)
+        total_miles = total_length_m * METERS_TO_MILES
+
         logger.info(
             "Created %s segments for %s",
             len(segments),
@@ -543,45 +640,49 @@ async def _run_ingestion_pipeline(
         )
 
         await update_job(
-            message=(
-                f"Created {len(segments):,} segments "
-                f"(excluded {road_filter_stats.get('excluded_count', 0):,} ways)"
-            ),
+            message=f"Created {len(segments):,} segments ({total_miles:.1f} mi)",
+            stage_key="segmenting",
+            metrics={
+                "segments_created": len(segments),
+                "total_miles": round(total_miles, 2),
+                "duration_ms": round(segment_ms),
+            },
         )
 
-        # Stage 4: Clear any partial data for this version
+        # Stage 4: Clear any partial data + Store segments
+        stage_start = datetime.now(UTC)
+        _emit("stage", stage="storing", progress=55,
+               message=f"Saving {len(segments):,} segments…")
         await update_job(
-            stage="Clearing existing street data",
-            progress=45,
-            message="Clearing existing street data",
+            stage="Saving to database",
+            progress=55,
+            message=f"Storing {len(segments):,} segments…",
+            stage_key="storing",
         )
 
         await _clear_existing_area_data(area_doc_id)
-
-        # Stage 5: Store segments
-        await update_job(
-            stage="Storing street data",
-            progress=60,
-            message=f"Storing {len(segments):,} segments",
-        )
-
         await _store_segments(segments)
+        store_ms = (datetime.now(UTC) - stage_start).total_seconds() * 1000
 
-        # Stage 6: Initialize coverage state
         await update_job(
-            stage="Initializing coverage",
             progress=70,
-            message="Preparing coverage state",
+            message=f"Stored {len(segments):,} segments",
+            stage_key="storing",
+            metrics={
+                "segments_stored": len(segments),
+                "duration_ms": round(store_ms),
+            },
         )
 
-        # CoverageState documents are created only for non-default statuses
-        # (driven/undriveable). Missing states imply "undriven".
-
-        # Stage 7: Update statistics
+        # Stage 5: Update statistics
+        stage_start = datetime.now(UTC)
+        _emit("stage", stage="statistics", progress=72,
+               message="Calculating coverage statistics…")
         await update_job(
             stage="Calculating statistics",
-            progress=75,
-            message="Aggregating coverage stats",
+            progress=72,
+            message="Aggregating coverage stats…",
+            stage_key="statistics",
         )
 
         await area.set(
@@ -595,21 +696,34 @@ async def _run_ingestion_pipeline(
             },
         )
         stats_area = await update_area_stats(area_doc_id)
+        stats_ms = (datetime.now(UTC) - stage_start).total_seconds() * 1000
+        stats_metrics: dict[str, Any] = {"duration_ms": round(stats_ms)}
         if stats_area:
+            stats_metrics.update({
+                "coverage_pct": round(stats_area.coverage_percentage, 1),
+                "driven_miles": round(stats_area.driven_length_miles, 2),
+                "driveable_miles": round(stats_area.driveable_length_miles, 2),
+                "total_segments": stats_area.total_segments,
+                "driven_segments": stats_area.driven_segments,
+            })
             await update_job(
                 message=(
-                    "Coverage "
-                    f"{stats_area.coverage_percentage:.1f}% "
-                    f"({stats_area.driven_length_miles:.2f}/"
-                    f"{stats_area.driveable_length_miles:.2f} mi driveable)"
+                    f"Coverage: {stats_area.coverage_percentage:.1f}% "
+                    f"({stats_area.driven_length_miles:.1f}/{stats_area.driveable_length_miles:.1f} mi)"
                 ),
+                stage_key="statistics",
+                metrics=stats_metrics,
             )
 
-        # Stage 8: Backfill with historical trips
+        # Stage 6: Backfill with historical trips
+        stage_start = datetime.now(UTC)
+        _emit("stage", stage="backfill", progress=BACKFILL_PROGRESS_START,
+               message="Matching historical trips…")
         await update_job(
-            stage="Processing historical trips",
+            stage="Matching historical trips",
             progress=BACKFILL_PROGRESS_START,
-            message="Scanning trips for coverage matches",
+            message="Scanning trips for coverage matches…",
+            stage_key="backfill",
         )
 
         backfill_state = {
@@ -656,9 +770,16 @@ async def _run_ingestion_pipeline(
             last_backfill_progress = progress
 
             await update_job(
-                stage="Processing historical trips",
+                stage="Matching historical trips",
                 progress=progress,
                 message=format_backfill_message(backfill_state),
+                stage_key="backfill",
+                metrics={
+                    "processed_trips": int(processed),
+                    "total_trips": total,
+                    "matched_trips": int(backfill_state.get("matched_trips", 0)),
+                    "segments_updated": int(backfill_state.get("segments_updated", 0)),
+                },
             )
 
         segments_updated = await backfill_coverage_for_area(
@@ -666,19 +787,28 @@ async def _run_ingestion_pipeline(
             progress_callback=handle_backfill_progress,
         )
         backfill_state["segments_updated"] = segments_updated
+        backfill_ms = (datetime.now(UTC) - stage_start).total_seconds() * 1000
         await update_job(
-            stage="Processing historical trips",
+            stage="Matching historical trips",
             progress=BACKFILL_PROGRESS_END,
             message=format_backfill_message(backfill_state),
+            stage_key="backfill",
+            metrics={
+                "processed_trips": int(backfill_state.get("processed_trips", 0)),
+                "total_trips": backfill_state.get("total_trips"),
+                "matched_trips": int(backfill_state.get("matched_trips", 0)),
+                "segments_updated": segments_updated,
+                "duration_ms": round(backfill_ms),
+            },
         )
 
         # Complete
+        pipeline_ms = (datetime.now(UTC) - pipeline_start).total_seconds() * 1000
         message = "Complete"
         if backfill_state.get("matched_trips", 0) > 0:
             message = (
-                "Backfill updated "
-                f"{backfill_state['segments_updated']:,} segments from "
-                f"{backfill_state['matched_trips']:,} trips"
+                f"Done — matched {backfill_state['matched_trips']:,} trips, "
+                f"updated {segments_updated:,} segments"
             )
         job_result = {
             "road_filter_version": road_filter_stats.get("road_filter_version"),
@@ -702,7 +832,12 @@ async def _run_ingestion_pipeline(
             "backfill_segments_updated": int(
                 backfill_state.get("segments_updated", 0) or 0,
             ),
+            "pipeline_duration_ms": round(pipeline_ms),
+            "segments_total": len(segments),
+            "total_miles": round(total_miles, 2),
         }
+        _emit("done", status="completed", progress=100, message=message,
+               result=job_result)
         await update_job(
             status="completed",
             stage="Complete",
@@ -724,6 +859,7 @@ async def _run_ingestion_pipeline(
 
     except asyncio.CancelledError:
         logger.info("Ingestion cancelled for area %s (job %s)", area_id, job_id)
+        _emit("done", status="cancelled", message="Cancelled by user")
         now = datetime.now(UTC)
         job = await Job.get(job_id)
         if job:
@@ -746,6 +882,8 @@ async def _run_ingestion_pipeline(
         return
     except Exception as e:
         logger.exception("Ingestion failed for area %s", area_id)
+        _emit("done", status="failed", error=str(e),
+               message=f"Failed: {e}")
 
         job = await Job.get(job_id)
         if not job:
