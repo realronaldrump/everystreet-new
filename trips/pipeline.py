@@ -838,7 +838,7 @@ class TripPipeline:
     def _prepare_processed_geo_fields(
         processed_data: dict[str, Any],
         *,
-        transaction_id: str | None = None,
+        transaction_id: str | None = None,  # noqa: ARG004
     ) -> None:
         # GPS was already sanitized in _basic_process(); read it directly.
         gps = processed_data.get("gps")

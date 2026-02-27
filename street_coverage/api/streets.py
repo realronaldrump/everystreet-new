@@ -256,7 +256,7 @@ async def get_all_streets(
         {"area_id": area_id, "status": "undriveable"},
     ).count()
     etag_source = f"{area.area_version}:{driven_count}:{undriveable_count}:{status_filter or ''}"
-    etag = hashlib.md5(etag_source.encode()).hexdigest()  # noqa: S324
+    etag = hashlib.md5(etag_source.encode()).hexdigest()
 
     if_none_match = request.headers.get("if-none-match")
     if if_none_match and if_none_match.strip('"') == etag:
