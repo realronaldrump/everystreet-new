@@ -28,16 +28,13 @@ from map_data.us_states import get_state
 from street_coverage.constants import (
     BATCH_SIZE,
     MAX_INGESTION_RETRIES,
+    MAX_SEGMENT_LENGTH_METERS,
     METERS_TO_MILES,
     RETRY_BASE_DELAY_SECONDS,
-    SEGMENT_LENGTH_METERS,
 )
 from street_coverage.public_road_filter import (
     GRAPH_ROAD_FILTER_SIGNATURE_KEY,
     GRAPH_ROAD_FILTER_STATS_KEY,
-    PublicRoadFilterAudit,
-    classify_public_road,
-    extract_relevant_tags,
     get_public_road_filter_signature,
 )
 from street_coverage.stats import update_area_stats
@@ -508,16 +505,16 @@ async def _run_ingestion_pipeline(
 
         await update_job(message="Boundary ready")
 
-        # Stage 2: Load streets from local OSM graph
+        # Stage 2: Load streets from OSM graph
         await update_job(
-            stage="Loading streets from local OSM graph",
+            stage="Loading streets from OSM graph",
             progress=20,
             message="Loading graph data",
         )
 
         osm_ways, road_filter_stats = await _load_osm_streets_from_graph(area, job_id)
         logger.info(
-            "Loaded %s ways from local graph for %s",
+            "Loaded %s ways from graph for %s",
             len(osm_ways),
             area.display_name,
         )
@@ -579,7 +576,6 @@ async def _run_ingestion_pipeline(
 
         # CoverageState documents are created only for non-default statuses
         # (driven/undriveable). Missing states imply "undriven".
-        await _initialize_coverage_state(area_doc_id, segments)
 
         # Stage 7: Update statistics
         await update_job(
@@ -822,12 +818,71 @@ async def _delayed_retry(
 # =============================================================================
 
 
-async def _fetch_boundary(location_name: str) -> dict[str, Any]:
-    """Fetch boundary polygon from Nominatim geocoding."""
-    from core.http.nominatim import NominatimClient
+def _is_viewport_rectangle(geojson: dict[str, Any]) -> bool:
+    """Detect if a GeoJSON polygon is a simple bounding-box rectangle.
 
-    client = NominatimClient()
-    data: list[dict[str, Any]] = []
+    Google's geocoding API returns viewport rectangles instead of real
+    administrative boundaries.  A viewport rectangle has exactly 5
+    coordinate points forming an axis-aligned rectangle (only 2 unique
+    lat values and 2 unique lon values).
+    """
+    if geojson.get("type") != "Polygon":
+        return False
+    coords = geojson.get("coordinates")
+    if not coords or len(coords) != 1:
+        return False
+    ring = coords[0]
+    if len(ring) != 5:
+        return False
+    lons = {round(c[0], 8) for c in ring}
+    lats = {round(c[1], 8) for c in ring}
+    return len(lons) == 2 and len(lats) == 2
+
+
+async def _try_overpass_boundary(location_name: str) -> dict[str, Any] | None:
+    """Try to fetch a real admin boundary from OSMnx/Nominatim public API.
+
+    This is used as a boundary-enrichment fallback when the active
+    geocoder (e.g. Google) only returns viewport rectangles.  OSMnx
+    uses the public Nominatim API to fetch actual administrative
+    boundaries from OpenStreetMap.
+
+    Returns GeoJSON geometry dict, or None on failure.
+    """
+    try:
+        import osmnx as ox
+        from shapely.geometry import mapping as shapely_mapping
+
+        loop = asyncio.get_running_loop()
+
+        def _fetch():
+            gdf = ox.geocode_to_gdf(location_name)
+            if gdf is not None and not gdf.empty:
+                geom = gdf.geometry.iloc[0]
+                if (
+                    geom is not None
+                    and not geom.is_empty
+                    and geom.geom_type in ("Polygon", "MultiPolygon")
+                ):
+                    return shapely_mapping(geom)
+            return None
+
+        return await loop.run_in_executor(None, _fetch)
+    except Exception:
+        logger.debug(
+            "Overpass boundary lookup failed for %s",
+            location_name,
+            exc_info=True,
+        )
+        return None
+
+
+async def _fetch_boundary(location_name: str) -> dict[str, Any]:
+    """Fetch boundary polygon from the active geocoder."""
+    from core.mapping.factory import get_geocoder
+
+    client = await get_geocoder()
+    fallback_result: dict[str, Any] | None = None
 
     def _candidate_queries(name: str) -> list[str]:
         base = " ".join((name or "").split())
@@ -868,20 +923,59 @@ async def _fetch_boundary(location_name: str) -> dict[str, Any]:
         return candidates
 
     for query in _candidate_queries(location_name):
-        data = await client.search_raw(
-            query=query,
-            limit=1,
-            polygon_geojson=True,
-        )
-        if data:
-            break
+        try:
+            results = await client.search_raw(
+                query=query,
+                limit=5,
+                polygon_geojson=True,
+            )
+        except NotImplementedError:
+            results = await client.search(
+                query=query,
+                limit=5,
+            )
+        if not results:
+            continue
 
-    if not data:
+        if fallback_result is None:
+            first = results[0]
+            if isinstance(first, dict):
+                fallback_result = first
+
+        for candidate in results:
+            if not isinstance(candidate, dict):
+                continue
+            candidate_geojson = candidate.get("geojson")
+            if (
+                isinstance(candidate_geojson, dict)
+                and candidate_geojson.get("type") == "Feature"
+            ):
+                candidate_geojson = candidate_geojson.get("geometry")
+            if not isinstance(candidate_geojson, dict):
+                continue
+            candidate_geom_type = candidate_geojson.get("type")
+            if candidate_geom_type in ("Polygon", "MultiPolygon"):
+                # If this looks like a viewport rectangle (e.g. from
+                # Google), try to get a real admin boundary from OSMnx.
+                if _is_viewport_rectangle(candidate_geojson):
+                    enriched = await _try_overpass_boundary(location_name)
+                    if enriched is not None:
+                        logger.info(
+                            "Enriched viewport boundary with admin boundary "
+                            "from Nominatim for %s",
+                            location_name,
+                        )
+                        return enriched
+                return candidate_geojson
+
+    if fallback_result is None:
         msg = f"Location not found: {location_name}"
         raise ValueError(msg)
 
-    result = data[0]
+    result = fallback_result
     geojson = result.get("geojson")
+    if isinstance(geojson, dict) and geojson.get("type") == "Feature":
+        geojson = geojson.get("geometry")
 
     if not geojson:
         bbox = result.get("boundingbox")
@@ -912,10 +1006,21 @@ async def _fetch_boundary(location_name: str) -> dict[str, Any]:
         raise ValueError(msg)
 
     # Ensure it's a Polygon or MultiPolygon
-    geom_type = geojson.get("type")
+    geom_type = geojson.get("type") if isinstance(geojson, dict) else None
     if geom_type not in ("Polygon", "MultiPolygon"):
         msg = f"Invalid geometry type for boundary: {geom_type}"
         raise ValueError(msg)
+
+    # Final viewport-rectangle enrichment for fallback path
+    if _is_viewport_rectangle(geojson):
+        enriched = await _try_overpass_boundary(location_name)
+        if enriched is not None:
+            logger.info(
+                "Enriched fallback viewport boundary with admin boundary "
+                "from Nominatim for %s",
+                location_name,
+            )
+            return enriched
 
     return geojson
 
@@ -1049,7 +1154,7 @@ async def _load_osm_streets_from_graph(
     area: Any,
     job_id: PydanticObjectId | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Load street ways from the local graph built from self-hosted OSM data."""
+    """Load street ways from the area's OSM graph (local extract or Overpass)."""
     import networkx as nx
     import osmnx as ox
 
@@ -1068,15 +1173,13 @@ async def _load_osm_streets_from_graph(
     boundary_shape = shape(boundary_geojson) if boundary_geojson else None
 
     result: list[dict[str, Any]] = []
-    road_filter_audit = PublicRoadFilterAudit()
     for u, v, _k, data in Gu.edges(keys=True, data=True):
-        tags = extract_relevant_tags(data)
-        decision = classify_public_road(tags)
-        road_filter_audit.record(decision, osm_id=data.get("osmid") or data.get("id"))
-
-        if not decision.include:
-            continue
-        highway_type = decision.highway_type or "unclassified"
+        # The graph was already filtered by the public-road classifier
+        # during preprocessing (_prune_non_driveable_edges). Trust the
+        # preprocessed result and skip redundant re-classification.
+        highway_type = data.get("highway", "unclassified")
+        if isinstance(highway_type, list):
+            highway_type = highway_type[0] if highway_type else "unclassified"
 
         line = _edge_geometry(Gu, u, v, data)
         if line is None:
@@ -1089,12 +1192,16 @@ async def _load_osm_streets_from_graph(
             if line is None:
                 continue
 
+        name = data.get("name")
+        if isinstance(name, list):
+            name = name[0] if name else None
+
         result.append(
             {
                 # Pyrosm graphs sometimes use `id` instead of `osmid`.
                 "osm_id": _coerce_osm_id(data.get("osmid") or data.get("id")),
                 "tags": {
-                    "name": _coerce_name(tags.get("name") or data.get("name")),
+                    "name": _coerce_name(name),
                     "highway": highway_type,
                 },
                 "geometry": mapping(line),
@@ -1118,9 +1225,9 @@ async def _load_osm_streets_from_graph(
                 area.display_name,
             )
 
-    audit_stats = road_filter_audit.to_dict()
-    if graph_stats:
-        audit_stats.setdefault("graph_build_filter_stats", graph_stats)
+    audit_stats = dict(graph_stats) if graph_stats else {}
+    if audit_stats:
+        audit_stats.setdefault("graph_build_filter_stats", dict(graph_stats))
 
     return result, audit_stats
 
@@ -1130,7 +1237,16 @@ def _segment_streets(
     area_id: PydanticObjectId,
     area_version: int,
 ) -> list[dict[str, Any]]:
-    """Segment OSM ways into fixed-length segments."""
+    """Segment OSM ways into coverage segments.
+
+    Each OSM way is a graph edge between two intersections (OSMnx
+    simplifies the graph this way). We keep the natural edge geometry
+    as a single segment unless it exceeds MAX_SEGMENT_LENGTH_METERS,
+    in which case it is split into roughly equal sub-segments.
+
+    This produces long, natural road segments instead of uniform 150ft
+    chunks, matching how services like Wandrer Earth represent coverage.
+    """
     segments = []
     seq = 0
 
@@ -1156,7 +1272,7 @@ def _segment_streets(
             line_m = transform(to_meters, line)
             total_length = line_m.length
 
-            if total_length < SEGMENT_LENGTH_METERS:
+            if total_length < MAX_SEGMENT_LENGTH_METERS:
                 # Keep as single segment
                 segments.append(
                     {
@@ -1172,10 +1288,10 @@ def _segment_streets(
                 )
                 seq += 1
             else:
-                # Split into segments
+                # Split long edges into sub-segments ≤ MAX_SEGMENT_LENGTH_METERS
                 num_segments = max(
                     1,
-                    math.ceil(total_length / SEGMENT_LENGTH_METERS),
+                    math.ceil(total_length / MAX_SEGMENT_LENGTH_METERS),
                 )
                 segment_length = total_length / num_segments
 
@@ -1284,16 +1400,3 @@ async def _clear_existing_area_data(area_id: PydanticObjectId) -> None:
     await CoverageState.find({"area_id": area_id}).delete()
 
 
-async def _initialize_coverage_state(
-    area_id: PydanticObjectId,
-    segments: list[dict[str, Any]],
-) -> None:
-    """
-    Initialize coverage state for an area.
-
-    CoverageState rows are only stored for non-default statuses
-    (driven/undriveable). Missing rows imply "undriven", so there is
-    nothing to initialize here.
-    """
-    _ = area_id
-    _ = segments

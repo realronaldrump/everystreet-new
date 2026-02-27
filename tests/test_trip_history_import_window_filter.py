@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from trips.services.trip_history_import_service import _filter_trips_to_window
+from trips.services.trip_history_import_service_core import _filter_trips_to_window
 
 
 def test_filter_trips_to_window_includes_boundary_times() -> None:

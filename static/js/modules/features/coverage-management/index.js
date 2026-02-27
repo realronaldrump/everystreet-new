@@ -2078,7 +2078,7 @@ async function validateLocationInput() {
       return;
     }
 
-    validationState.candidates = result.candidates || [];
+    validationState.candidates = prioritizeBoundaryCandidates(result.candidates || []);
     renderValidationCandidates(validationState.candidates);
 
     if (validationState.candidates.length === 0) {
@@ -2093,6 +2093,13 @@ async function validateLocationInput() {
         message: `Found ${validationState.candidates.length} match${validationState.candidates.length !== 1 ? "es" : ""}. Select one to confirm.`,
         tone: "info",
       });
+    }
+
+    const preferredCandidateIndex = getPreferredValidationCandidateIndex(
+      validationState.candidates
+    );
+    if (preferredCandidateIndex >= 0) {
+      await resolveValidationCandidateAtIndex(preferredCandidateIndex, { auto: true });
     }
 
     if (result.note && validationElements?.note) {
@@ -2114,45 +2121,41 @@ async function validateLocationInput() {
   }
 }
 
-function renderValidationCandidates(candidates) {
-  if (!validationElements?.candidates) {
-    return;
-  }
-  if (!candidates.length) {
-    validationElements.candidates.innerHTML = "";
-    return;
-  }
-
-  validationElements.candidates.innerHTML = candidates
-    .map((c, idx) => {
-      const typeMatch = c.type_match
-        ? ""
-        : '<span class="validation-badge badge-mismatch">Type mismatch</span>';
-      const typeBadge = `<span class="validation-badge">${escapeHtml(c.osm_type || "")}</span>`;
-      return `
-        <button type="button"
-                class="validation-candidate"
-                data-candidate-index="${idx}"
-                role="option"
-                aria-selected="false">
-          <div>
-            <div class="candidate-title">${escapeHtml(c.display_name || "")}</div>
-            <div class="candidate-meta">${typeBadge}${typeMatch}</div>
-          </div>
-          <i class="fas fa-chevron-right text-secondary" aria-hidden="true"></i>
-        </button>`;
-    })
-    .join("");
+function isNodeValidationCandidate(candidate) {
+  return String(candidate?.osm_type || "")
+    .trim()
+    .toLowerCase() === "node";
 }
 
-async function handleCandidateClick(event) {
-  const btn = event.target.closest("[data-candidate-index]");
-  if (!btn) {
-    return;
+function prioritizeBoundaryCandidates(candidates) {
+  if (!Array.isArray(candidates) || candidates.length <= 1) {
+    return Array.isArray(candidates) ? candidates : [];
   }
 
-  const idx = parseInt(btn.dataset.candidateIndex, 10);
-  const candidate = validationState.candidates[idx];
+  return candidates
+    .map((candidate, index) => ({
+      candidate,
+      index,
+      isNode: isNodeValidationCandidate(candidate),
+    }))
+    .sort((a, b) => {
+      if (a.isNode !== b.isNode) {
+        return a.isNode ? 1 : -1;
+      }
+      return a.index - b.index;
+    })
+    .map(({ candidate }) => candidate);
+}
+
+function getPreferredValidationCandidateIndex(candidates) {
+  if (!Array.isArray(candidates) || candidates.length === 0) {
+    return -1;
+  }
+  return candidates.findIndex((candidate) => !isNodeValidationCandidate(candidate));
+}
+
+async function resolveValidationCandidateAtIndex(index, { auto = false } = {}) {
+  const candidate = validationState.candidates[index];
   if (!candidate) {
     return;
   }
@@ -2170,13 +2173,13 @@ async function handleCandidateClick(event) {
   validationElements?.candidates
     ?.querySelectorAll(".validation-candidate")
     .forEach((el, i) => {
-      el.classList.toggle("is-selected", i === idx);
-      el.setAttribute("aria-selected", i === idx ? "true" : "false");
+      el.classList.toggle("is-selected", i === index);
+      el.setAttribute("aria-selected", i === index ? "true" : "false");
     });
 
   setValidationStatus({
     icon: "fa-spinner fa-spin",
-    message: "Resolving boundary…",
+    message: auto ? "Resolving boundary for best match…" : "Resolving boundary…",
     tone: "info",
   });
 
@@ -2193,17 +2196,34 @@ async function handleCandidateClick(event) {
       return;
     }
 
-    validationState.confirmedCandidate = result;
-    validationState.confirmedBoundary = result.boundary;
+    const resolvedCandidate =
+      result && typeof result === "object" && result.candidate
+        ? result.candidate
+        : result;
+    const resolvedBoundary =
+      resolvedCandidate && typeof resolvedCandidate === "object"
+        ? resolvedCandidate.boundary
+        : null;
+
+    if (!resolvedBoundary) {
+      throw new Error("Resolved location did not include a boundary.");
+    }
+
+    validationState.confirmedCandidate = resolvedCandidate;
+    validationState.confirmedBoundary = resolvedBoundary;
 
     setValidationStatus({
       icon: "fa-check-circle",
-      message: `Confirmed: ${escapeHtml(result.display_name || candidate.display_name)}`,
+      message: `Confirmed: ${escapeHtml(
+        resolvedCandidate.display_name || candidate.display_name
+      )}`,
       tone: "success",
     });
 
     if (validationElements?.confirmation) {
-      validationElements.confirmation.textContent = `Ready to add: ${result.display_name || candidate.display_name}`;
+      validationElements.confirmation.textContent = `Ready to add: ${
+        resolvedCandidate.display_name || candidate.display_name
+      }`;
       validationElements.confirmation.classList.remove("d-none");
     }
 
@@ -2218,6 +2238,53 @@ async function handleCandidateClick(event) {
       tone: "danger",
     });
   }
+}
+
+function renderValidationCandidates(candidates) {
+  if (!validationElements?.candidates) {
+    return;
+  }
+  if (!candidates.length) {
+    validationElements.candidates.innerHTML = "";
+    return;
+  }
+
+  validationElements.candidates.innerHTML = candidates
+    .map((c, idx) => {
+      const typeMatch = c.type_match
+        ? ""
+        : '<span class="validation-badge badge-mismatch">Type mismatch</span>';
+      const pointOnly = isNodeValidationCandidate(c)
+        ? '<span class="validation-badge badge-node">Point only</span>'
+        : "";
+      const typeBadge = `<span class="validation-badge">${escapeHtml(c.osm_type || "")}</span>`;
+      return `
+        <button type="button"
+                class="validation-candidate"
+                data-candidate-index="${idx}"
+                role="option"
+                aria-selected="false">
+          <div>
+            <div class="candidate-title">${escapeHtml(c.display_name || "")}</div>
+            <div class="candidate-meta">${typeBadge}${pointOnly}${typeMatch}</div>
+          </div>
+          <i class="fas fa-chevron-right text-secondary" aria-hidden="true"></i>
+        </button>`;
+    })
+    .join("");
+}
+
+async function handleCandidateClick(event) {
+  const btn = event.target.closest("[data-candidate-index]");
+  if (!btn) {
+    return;
+  }
+
+  const idx = parseInt(btn.dataset.candidateIndex, 10);
+  if (Number.isNaN(idx)) {
+    return;
+  }
+  await resolveValidationCandidateAtIndex(idx);
 }
 
 // =============================================================================

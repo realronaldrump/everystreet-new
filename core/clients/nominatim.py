@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from core.http.nominatim import NominatimClient
+from core.mapping.factory import get_geocoder
 
 logger = logging.getLogger(__name__)
 
@@ -62,17 +62,15 @@ def parse_nominatim_response(
 
 
 class GeocodingService:
-    """Service for forward and reverse geocoding using Nominatim."""
-
-    def __init__(self) -> None:
-        self._client = NominatimClient()
+    """Service for forward and reverse geocoding using active mapping provider."""
 
     async def reverse_geocode(
         self,
         lat: float,
         lon: float,
     ) -> dict[str, Any] | None:
-        return await self._client.reverse(lat, lon)
+        client = await get_geocoder()
+        return await client.reverse(lat, lon)
 
     def parse_geocode_response(
         self,
@@ -95,7 +93,8 @@ class GeocodingService:
         country_codes: str | None = "us",
         strict_bounds: bool = False,
     ) -> list[dict[str, Any]]:
-        return await self._client.search(
+        client = await get_geocoder()
+        return await client.search(
             query,
             limit=limit,
             proximity=proximity,
@@ -106,7 +105,6 @@ class GeocodingService:
 
 __all__ = [
     "GeocodingService",
-    "NominatimClient",
     "get_empty_location_schema",
     "parse_nominatim_response",
 ]

@@ -1,7 +1,6 @@
-const HARD_CODED_MAPBOX_TOKEN =
-  "pk.eyJ1IjoicmVhbHJvbmFsZHJ1bXAiLCJhIjoiY204eXBvMzRhMDNubTJrb2NoaDIzN2dodyJ9.3Hnv3_ps0T7YS8cwSE3XKA";
+import { MAPBOX_PUBLIC_ACCESS_TOKEN } from "./core/config.js";
 
-const readConfiguredToken = () => HARD_CODED_MAPBOX_TOKEN;
+const readConfiguredToken = () => MAPBOX_PUBLIC_ACCESS_TOKEN;
 
 export const getMapboxToken = () => readConfiguredToken();
 

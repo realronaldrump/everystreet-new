@@ -17,7 +17,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from core.http.nominatim import NominatimClient
+from core.mapping.factory import get_geocoder
 from db.models import CoverageArea, Job
 from street_coverage.ingestion import (
     _calculate_bounding_box,
@@ -58,7 +58,7 @@ class ValidateCandidate(BaseModel):
     """Candidate match for a coverage area lookup."""
 
     display_name: str
-    osm_id: int | None = None
+    osm_id: int | str | None = None
     osm_type: str | None = None
     type: str | None = None
     class_: str | None = Field(default=None, alias="class")
@@ -94,7 +94,7 @@ class ResolveCandidate(BaseModel):
     type: str | None = None
     class_: str | None = Field(default=None, alias="class")
     address: dict[str, Any] | None = None
-    osm_id: int | None = None
+    osm_id: int | str | None = None
     osm_type: str | None = None
 
     model_config = ConfigDict(populate_by_name=True)
@@ -369,7 +369,7 @@ async def validate_area(request: ValidateAreaRequest):
     limit = request.limit or 5
     limit = max(1, min(int(limit), 10))
 
-    client = NominatimClient()
+    client = await get_geocoder()
     try:
         results = await client.search_raw(
             query=location,
@@ -377,6 +377,11 @@ async def validate_area(request: ValidateAreaRequest):
             polygon_geojson=False,
             addressdetails=True,
         )
+    except NotImplementedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The active map provider does not support coverage area validation.",
+        ) from exc
     except Exception as exc:
         logger.exception("Location validation failed for %s", location)
         raise HTTPException(
@@ -419,7 +424,7 @@ async def validate_area(request: ValidateAreaRequest):
 )
 async def resolve_area(request: ResolveAreaRequest):
     """Resolve a candidate boundary for confirmation."""
-    client = NominatimClient()
+    client = await get_geocoder()
     try:
         results = await client.lookup_raw(
             osm_id=request.osm_id,
@@ -427,6 +432,11 @@ async def resolve_area(request: ResolveAreaRequest):
             polygon_geojson=True,
             addressdetails=True,
         )
+    except NotImplementedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The active map provider does not support area boundary lookup.",
+        ) from exc
     except Exception as exc:
         logger.exception(
             "Location resolve failed for osm_id=%s osm_type=%s",
@@ -445,21 +455,63 @@ async def resolve_area(request: ResolveAreaRequest):
         )
 
     result = results[0]
+    label = str(result.get("display_name") or request.osm_id)
+    used_boundary_fallback = False
     try:
         boundary = _extract_boundary(
             result,
-            str(result.get("display_name") or request.osm_id),
+            label,
         )
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        ) from exc
+        try:
+            boundary = await _fetch_boundary(label)
+            used_boundary_fallback = True
+            logger.info(
+                "Resolved polygon boundary via search fallback for osm_id=%s osm_type=%s",
+                request.osm_id,
+                request.osm_type,
+            )
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+        except Exception:
+            logger.exception(
+                "Boundary fallback lookup failed for osm_id=%s osm_type=%s",
+                request.osm_id,
+                request.osm_type,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+
+    # If the boundary looks like a viewport rectangle (e.g. Google),
+    # try to enrich it with a real admin boundary from OSMnx/Nominatim.
+    from street_coverage.ingestion import (
+        _is_viewport_rectangle,
+        _try_overpass_boundary,
+    )
+
+    if _is_viewport_rectangle(boundary):
+        enriched = await _try_overpass_boundary(label)
+        if enriched is not None:
+            boundary = enriched
+            used_boundary_fallback = True
+            logger.info(
+                "Enriched viewport boundary with admin boundary for %s",
+                label,
+            )
 
     candidate = {
         "display_name": result.get("display_name") or result.get("name") or "",
         "boundary": boundary,
-        "bounding_box": _candidate_bounding_box(result, boundary),
+        "bounding_box": (
+            _calculate_bounding_box(boundary)
+            if used_boundary_fallback
+            else _candidate_bounding_box(result, boundary)
+        ),
         "type": result.get("type"),
         "class": result.get("class"),
         "address": result.get("address") or {},

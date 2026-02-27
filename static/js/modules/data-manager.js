@@ -347,6 +347,9 @@ const dataManager = {
 
       const promises = [];
 
+      // Keep aggregate stats in sync with date/vehicle filter changes.
+      promises.push(this.fetchMetrics());
+
       // Fetch data for visible layers
       if (state.mapLayers.trips.visible) {
         promises.push(this.fetchTrips());

@@ -12,7 +12,8 @@ import logging
 from dataclasses import dataclass
 
 from core.exceptions import ExternalServiceException
-from core.http.valhalla import ValhallaClient
+from core.mapping.factory import get_router
+from core.mapping.interfaces import Router
 
 logger = logging.getLogger(__name__)
 
@@ -20,14 +21,20 @@ logger = logging.getLogger(__name__)
 MAX_CONCURRENT_API_CALLS = 5
 
 
-class ValhallaClientState:
-    """State container for Valhalla API client to avoid global variables."""
+class RouterState:
+    """State container for Map Router to avoid global variables."""
 
-    client: ValhallaClient | None = None
+    client: Router | None = None
     client_lock: asyncio.Lock | None = None
     client_loop: asyncio.AbstractEventLoop | None = None
     api_semaphore: asyncio.Semaphore | None = None
     api_semaphore_loop: asyncio.AbstractEventLoop | None = None
+
+
+def clear_router_cache() -> None:
+    """Reset the shared router so future calls resolve provider settings again."""
+    RouterState.client = None
+    RouterState.client_loop = None
 
 
 @dataclass(frozen=True)
@@ -37,46 +44,55 @@ class BridgeRoute:
     duration_s: float = 0.0
 
 
-async def get_valhalla_client() -> ValhallaClient:
-    """Get or create a shared Valhalla client."""
+async def get_shared_router() -> Router:
+    """Get or create a shared Map Router."""
     loop = asyncio.get_running_loop()
 
     if (
-        ValhallaClientState.client_lock is None
-        or ValhallaClientState.client_loop is not loop
+        RouterState.client_lock is None
+        or RouterState.client_loop is not loop
         or loop.is_closed()
     ):
-        ValhallaClientState.client = None
-        ValhallaClientState.client_loop = loop
-        ValhallaClientState.client_lock = asyncio.Lock()
+        RouterState.client = None
+        RouterState.client_loop = loop
+        RouterState.client_lock = asyncio.Lock()
 
-    lock = ValhallaClientState.client_lock
+    lock = RouterState.client_lock
     if lock is None:
         lock = asyncio.Lock()
-        ValhallaClientState.client_lock = lock
+        RouterState.client_lock = lock
 
     async with lock:
-        if ValhallaClientState.client is None:
-            ValhallaClientState.client = ValhallaClient()
-            logger.debug("Created shared Valhalla client")
-        return ValhallaClientState.client
+        if RouterState.client is None:
+            RouterState.client = await get_router()
+            logger.debug("Created shared Map Router")
+        return RouterState.client
+
+
+async def get_valhalla_client() -> Router:
+    """
+    Backward-compatible alias used by tests and older call sites.
+
+    Returns the shared active router implementation.
+    """
+    return await get_shared_router()
 
 
 def get_api_semaphore(loop: asyncio.AbstractEventLoop) -> asyncio.Semaphore:
     """Get or create the rate limiting semaphore."""
     if (
-        ValhallaClientState.api_semaphore is None
-        or ValhallaClientState.api_semaphore_loop is not loop
+        RouterState.api_semaphore is None
+        or RouterState.api_semaphore_loop is not loop
         or loop.is_closed()
     ):
-        ValhallaClientState.api_semaphore = asyncio.Semaphore(MAX_CONCURRENT_API_CALLS)
-        ValhallaClientState.api_semaphore_loop = loop
+        RouterState.api_semaphore = asyncio.Semaphore(MAX_CONCURRENT_API_CALLS)
+        RouterState.api_semaphore_loop = loop
 
-    semaphore = ValhallaClientState.api_semaphore
+    semaphore = RouterState.api_semaphore
     if semaphore is None:
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_API_CALLS)
-        ValhallaClientState.api_semaphore = semaphore
-        ValhallaClientState.api_semaphore_loop = loop
+        RouterState.api_semaphore = semaphore
+        RouterState.api_semaphore_loop = loop
 
     return semaphore
 
@@ -101,13 +117,13 @@ async def fetch_bridge_route(
         loop = asyncio.get_running_loop()
         semaphore = get_api_semaphore(loop)
         async with semaphore:
-            client = await get_valhalla_client()
+            client = await get_shared_router()
             result = await client.route(
                 [from_xy, to_xy],
                 timeout_s=request_timeout,
             )
-    except ExternalServiceException as exc:
-        logger.exception("Valhalla routing error: %s", exc.message)
+    except ExternalServiceException:
+        logger.exception("Routing error")
         return None
     except Exception:
         logger.exception("Unexpected error fetching bridge route")
@@ -131,5 +147,5 @@ async def fetch_bridge_route(
             duration_s=float(duration_s or 0.0),
         )
 
-    logger.warning("No route found by Valhalla routing API")
+    logger.warning("No route found by routing API")
     return None

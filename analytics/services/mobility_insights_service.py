@@ -38,7 +38,8 @@ MAX_HEX_STREET_LOOKUPS = 160
 MAX_SEGMENT_LABEL_LOOKUPS = 20
 MAX_PATH_TRIPS_FOR_RENDER = 1200
 MAX_PATHS_PER_ENTITY = 220
-METERS_TO_MILES = 0.000621371
+
+from core.constants import METERS_TO_MILES  # noqa: E402
 
 
 def _combine_query(*clauses: dict[str, Any] | None) -> dict[str, Any]:

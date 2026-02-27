@@ -25,6 +25,7 @@ Usage:
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from enum import Enum
 from typing import Any, ClassVar
 
 from beanie import Document, Indexed, PydanticObjectId
@@ -38,6 +39,13 @@ from core.spatial import (
     sanitize_geojson_point,
 )
 from map_data.models import GeoServiceHealth, MapServiceConfig
+
+
+class MapProvider(str, Enum):
+    """Available mapping and routing providers."""
+
+    SELF_HOSTED = "self_hosted"
+    GOOGLE = "google"
 
 
 class Trip(Document):
@@ -916,8 +924,13 @@ class AppSettings(Document):
     geocodeTripsOnFetch: bool = True
     mapMatchTripsOnFetch: bool = False
 
+    # User Locale
+    user_timezone: str = "America/Chicago"
+
     # Map Configuration
+    map_provider: MapProvider = MapProvider.SELF_HOSTED
     mapbox_token: str | None = None
+    google_maps_api_key: str | None = None
 
     # Nominatim (Geocoding) Configuration
     nominatim_user_agent: str = "EveryStreet/1.0"
@@ -990,7 +1003,6 @@ class BouncieCredentials(Document):
     authorized_devices: list[str] = Field(default_factory=list)
     fetch_concurrency: int = 12
     access_token: str | None = None
-    refresh_token: str | None = None
     expires_at: float | None = None
 
     class Settings:

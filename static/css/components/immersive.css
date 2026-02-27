@@ -75,6 +75,9 @@
   background: var(--glass-1);
   border-bottom: 1px solid var(--divider-color);
   backdrop-filter: blur(var(--blur-subtle));
+  transition:
+    opacity 180ms cubic-bezier(0, 0, 0.2, 1),
+    transform 180ms cubic-bezier(0, 0, 0.2, 1);
 }
 
 .nav-breadcrumb.is-empty {
@@ -175,15 +178,15 @@ body[data-time-of-day="night"] {
 .es-ripple {
   position: absolute;
   border-radius: 50%;
-  background: radial-gradient(circle, rgb(var(--accent-rgb) / 35%) 0%, transparent 70%);
-  animation: ripple 600ms ease-out forwards;
+  background: radial-gradient(circle, rgb(var(--accent-rgb) / 30%) 0%, transparent 70%);
+  animation: ripple 500ms cubic-bezier(0, 0, 0.2, 1) forwards;
   pointer-events: none;
 }
 
 /* Staggered reveal helpers */
 .stagger-item {
   opacity: 0;
-  animation: fadeInUp 0.5s ease forwards;
+  animation: fadeInUp 300ms cubic-bezier(0, 0, 0.2, 1) forwards;
 }
 
 .nav-trail {
@@ -192,12 +195,13 @@ body[data-time-of-day="night"] {
   gap: var(--space-2);
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
+  animation: fadeIn 200ms cubic-bezier(0, 0, 0.2, 1) both;
 }
 
 .nav-trail-item {
   color: inherit;
   text-decoration: none;
-  transition: color var(--transition-fast);
+  transition: color 120ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .nav-trail-item:hover {
@@ -249,7 +253,7 @@ body[data-route="/county-map"] .noise-overlay {
   border-top: 1px solid var(--divider-color);
   backdrop-filter: blur(var(--blur-strong));
   z-index: var(--z-fixed);
-  transition: transform var(--transition-normal);
+  transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .bottom-nav.hidden {
@@ -275,7 +279,7 @@ body[data-route="/county-map"] .noise-overlay {
 .bottom-nav-item i {
   font-size: var(--font-size-lg);
   color: var(--text-secondary);
-  transition: color var(--transition-fast);
+  transition: color 120ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .bottom-nav-item.active,
@@ -300,6 +304,7 @@ body[data-route="/county-map"] .noise-overlay {
   border-radius: var(--radius-pill);
   background: var(--accent);
   box-shadow: 0 0 12px rgb(var(--accent-rgb) / 35%);
+  animation: navIndicatorIn 250ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 @media (width <= 768px) {
@@ -354,7 +359,7 @@ body[data-route="/county-map"] .noise-overlay {
 .swipe-content {
   position: relative;
   background: var(--surface-1);
-  transition: transform var(--transition-normal);
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .swipe-item.open .swipe-content {
@@ -371,30 +376,6 @@ body[data-route="/county-map"] .noise-overlay {
 [data-widget-editing="true"] [data-widget-id].is-dragging {
   opacity: 0.6;
   cursor: grabbing;
-}
-
-/* Motion preference adjustments */
-body.motion-subtle {
-  --transition-fast: 120ms ease-out;
-  --transition-normal: 200ms ease-out;
-  --transition-slow: 260ms ease-out;
-  --transition-spring: 220ms cubic-bezier(0.2, 0, 0, 1);
-}
-
-body.motion-playful {
-  --transition-fast: 180ms ease-out;
-  --transition-normal: 280ms ease-out;
-  --transition-slow: 360ms ease-out;
-  --transition-spring: 320ms cubic-bezier(0.2, 0, 0, 1);
-}
-
-body.motion-subtle .ambient-background {
-  opacity: 0.12;
-}
-
-body.motion-subtle .ambient-orb {
-  animation: none;
-  opacity: 0.2;
 }
 
 body.is-busy {

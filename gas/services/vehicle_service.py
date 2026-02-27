@@ -14,6 +14,61 @@ class VehicleService:
     """Service class for vehicle operations."""
 
     @staticmethod
+    async def upsert_and_authorize(
+        imei: str,
+        custom_name: str | None = None,
+    ) -> Vehicle:
+        """
+        Create or update a vehicle and ensure it is in the authorized devices list.
+
+        If the vehicle already exists, it is reactivated and its name updated.
+        The IMEI is appended to ``authorized_devices`` in Bouncie credentials
+        if not already present.
+
+        Args:
+            imei: Device IMEI (must be non-empty).
+            custom_name: Optional human-readable name.
+
+        Returns:
+            The upserted Vehicle document.
+        """
+        from setup.services.bouncie_credentials import (
+            get_bouncie_credentials,
+            update_bouncie_credentials,
+        )
+
+        now = datetime.now(UTC)
+        vehicle = await Vehicle.find_one(Vehicle.imei == imei)
+        if vehicle:
+            if custom_name is not None:
+                vehicle.custom_name = custom_name
+            vehicle.is_active = True
+            vehicle.updated_at = now
+            await vehicle.save()
+        else:
+            vehicle = Vehicle(
+                imei=imei,
+                custom_name=custom_name,
+                is_active=True,
+                created_at=now,
+                updated_at=now,
+            )
+            await vehicle.insert()
+
+        credentials = await get_bouncie_credentials()
+        devices = credentials.get("authorized_devices") or []
+        if isinstance(devices, str):
+            devices = [d.strip() for d in devices.split(",") if d.strip()]
+        if not isinstance(devices, list):
+            devices = []
+        devices = [str(d).strip() for d in devices if str(d).strip()]
+        if imei not in devices:
+            devices.append(imei)
+            await update_bouncie_credentials({"authorized_devices": devices})
+
+        return vehicle
+
+    @staticmethod
     async def get_vehicles(
         imei: str | None = None,
         vin: str | None = None,

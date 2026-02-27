@@ -72,19 +72,19 @@
 /* Stagger animation utility classes */
 .stagger-container > * {
   opacity: 0;
-  animation: fadeInUp var(--transition-smooth) forwards;
+  animation: fadeInUp 280ms cubic-bezier(0, 0, 0.2, 1) forwards;
 }
 
 .stagger-container > *:nth-child(1) {
-  animation-delay: 0ms;
+  animation-delay: 30ms;
 }
 
 .stagger-container > *:nth-child(2) {
-  animation-delay: 50ms;
+  animation-delay: 70ms;
 }
 
 .stagger-container > *:nth-child(3) {
-  animation-delay: 100ms;
+  animation-delay: 110ms;
 }
 
 .stagger-container > *:nth-child(4) {
@@ -92,19 +92,19 @@
 }
 
 .stagger-container > *:nth-child(5) {
-  animation-delay: 200ms;
+  animation-delay: 185ms;
 }
 
 .stagger-container > *:nth-child(6) {
-  animation-delay: 250ms;
+  animation-delay: 220ms;
 }
 
 .stagger-container > *:nth-child(7) {
-  animation-delay: 300ms;
+  animation-delay: 250ms;
 }
 
 .stagger-container > *:nth-child(8) {
-  animation-delay: 350ms;
+  animation-delay: 280ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -115,22 +115,35 @@
 }
 
 /* === SPA View Transitions (content-only) === */
-@keyframes spaFadeOut {
+
+/* Outgoing page: quick, subtle fade + slight scale to create depth */
+@keyframes spaExit {
   from {
     opacity: 1;
-    transform: translateY(0);
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+
+  40% {
+    opacity: 0.6;
   }
 
   to {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: scale(0.995) translateY(-4px);
+    filter: blur(1px);
   }
 }
 
-@keyframes spaFadeIn {
+/* Incoming page: crisp entrance with subtle upward settle */
+@keyframes spaEnter {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
+  }
+
+  60% {
+    opacity: 1;
   }
 
   to {
@@ -139,6 +152,7 @@
   }
 }
 
+/* Root transition: disable to prevent full-page flash */
 html.swup-native::view-transition-old(root) {
   animation: none;
 }
@@ -147,14 +161,24 @@ html.swup-native::view-transition-new(root) {
   animation: none;
 }
 
+/* Content container transitions */
 html.swup-native::view-transition-old(route-content),
 html.swup-native::view-transition-old(route-shell) {
-  animation: spaFadeOut var(--transition-normal) both;
+  animation: spaExit 140ms cubic-bezier(0.4, 0, 1, 1) both;
 }
 
 html.swup-native::view-transition-new(route-content),
 html.swup-native::view-transition-new(route-shell) {
-  animation: spaFadeIn var(--transition-smooth) both;
+  animation: spaEnter 220ms cubic-bezier(0, 0, 0.2, 1) 40ms both;
+}
+
+/* Stacking during transition — old page on top, fading out cleanly */
+html.swup-native::view-transition-old(route-content) {
+  z-index: 2;
+}
+
+html.swup-native::view-transition-new(route-content) {
+  z-index: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -405,11 +429,15 @@ html.swup-native::view-transition-new(route-shell) {
 @keyframes ripple {
   0% {
     transform: scale(0);
-    opacity: 0.35;
+    opacity: 0.3;
+  }
+
+  70% {
+    opacity: 0.1;
   }
 
   100% {
-    transform: scale(3);
+    transform: scale(2.5);
     opacity: 0;
   }
 }
@@ -417,12 +445,12 @@ html.swup-native::view-transition-new(route-shell) {
 @keyframes modal-rise {
   0% {
     opacity: 0;
-    transform: scale(0.99);
+    transform: scale(0.97) translateY(6px);
   }
 
   100% {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(0);
   }
 }
 

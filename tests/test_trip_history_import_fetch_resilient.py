@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from trips.services.trip_history_import_service import _fetch_trips_for_window
+from trips.services.trip_history_import_service_core import _fetch_trips_for_window
 
 
 @pytest.mark.asyncio
@@ -40,7 +40,6 @@ async def test_fetch_trips_for_window_success() -> None:
 
     trips = await _fetch_trips_for_window(
         mock_client,
-        token="token",
         imei="359486068397551",
         window_start=window_start,
         window_end=window_end,
@@ -87,7 +86,6 @@ async def test_fetch_trips_for_window_splits_on_failure() -> None:
 
     trips = await _fetch_trips_for_window(
         mock_client,
-        token="token",
         imei="359486068397551",
         window_start=window_start,
         window_end=window_end,
@@ -133,7 +131,6 @@ async def test_fetch_trips_for_window_uses_chunked_split() -> None:
 
     trips = await _fetch_trips_for_window(
         mock_client,
-        token="token",
         imei="359486068397551",
         window_start=window_start,
         window_end=window_end,
@@ -159,7 +156,6 @@ async def test_fetch_trips_for_window_raises_for_small_window() -> None:
     with pytest.raises(RuntimeError, match="Server error"):
         await _fetch_trips_for_window(
             mock_client,
-            token="token",
             imei="359486068397551",
             window_start=window_start,
             window_end=window_end,
@@ -201,7 +197,6 @@ async def test_fetch_trips_for_window_can_split_below_24_hours() -> None:
 
     trips = await _fetch_trips_for_window(
         mock_client,
-        token="token",
         imei="359486068397551",
         window_start=window_start,
         window_end=window_end,
@@ -248,7 +243,6 @@ async def test_fetch_trips_for_window_default_min_can_recover_hour() -> None:
 
     trips = await _fetch_trips_for_window(
         mock_client,
-        token="token",
         imei="359486068397551",
         window_start=window_start,
         window_end=window_end,

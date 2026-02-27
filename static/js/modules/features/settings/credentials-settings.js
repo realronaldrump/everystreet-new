@@ -12,6 +12,8 @@ const BOUNCIE_AUTHORIZE_URL = "/api/bouncie/authorize";
 const BOUNCIE_REDIRECT_URI_API = "/api/bouncie/redirect-uri";
 const VEHICLES_API = "/api/vehicles?active_only=false";
 const BOUNCIE_ADD_VEHICLE_API = "/api/profile/bouncie-credentials/vehicles";
+const APP_SETTINGS_API = "/api/app_settings";
+const DEFAULT_GOOGLE_MAPS_API_KEY = "AIzaSyBvNSN_t1y5t0TTRzR8KmFjL1XwSe88RoA";
 const FETCH_CONCURRENCY_MIN = 1;
 const FETCH_CONCURRENCY_MAX = 50;
 const isAbortError = (error) => error?.name === "AbortError";
@@ -40,8 +42,67 @@ function validateFetchConcurrency(value) {
 }
 
 export function setupCredentialsSettings({ signal } = {}) {
+  setupGoogleMapsCredentials({ signal });
   setupBouncieCredentials({ signal });
   setupBouncieVehicles({ signal });
+}
+
+async function setupGoogleMapsCredentials({ signal } = {}) {
+  const eventOptions = signal ? { signal } : false;
+  const form = document.getElementById("credentials-google-form");
+  const saveBtn = document.getElementById("credentials-save-google-btn");
+  const keyInput = document.getElementById("credentials-google-maps-api-key");
+
+  if (!form || !saveBtn || !keyInput) {
+    return;
+  }
+
+  try {
+    const settings = await apiClient.get(APP_SETTINGS_API, { signal });
+    keyInput.value = settings?.google_maps_api_key || DEFAULT_GOOGLE_MAPS_API_KEY;
+  } catch (error) {
+    if (!isAbortError(error)) {
+      notificationManager.show(
+        `Failed to load Google Maps key: ${error.message}`,
+        "danger"
+      );
+    }
+  }
+
+  form.addEventListener(
+    "submit",
+    async (event) => {
+      event.preventDefault();
+      const googleKey = keyInput.value.trim();
+      if (!googleKey) {
+        notificationManager.show("Google Maps API key is required.", "danger");
+        return;
+      }
+
+      try {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        await apiClient.post(
+          APP_SETTINGS_API,
+          { google_maps_api_key: googleKey },
+          { signal }
+        );
+        notificationManager.show("Google Maps API key saved.", "success");
+        saveBtn.innerHTML = '<i class="fas fa-check"></i> Saved';
+        setTimeout(() => {
+          saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Google Key';
+          saveBtn.disabled = false;
+        }, 2000);
+      } catch (error) {
+        if (!isAbortError(error)) {
+          notificationManager.show(error.message, "danger");
+        }
+        saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Google Key';
+        saveBtn.disabled = false;
+      }
+    },
+    eventOptions
+  );
 }
 
 async function setupBouncieCredentials({ signal } = {}) {

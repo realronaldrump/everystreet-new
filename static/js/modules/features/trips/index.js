@@ -1,4 +1,4 @@
-/* global bootstrap, mapboxgl */
+/* global bootstrap, mapboxgl, google */
 /**
  * Trips Page - Modern Travel Journal
  * Card-based trip display with timeline grouping and smart features
@@ -42,6 +42,7 @@ let modalRouteChipToken = 0;
 let playbackControlsBound = false;
 let modalActionsBound = false;
 let pageSignal = null;
+let tripModalMapInitPromise = null;
 
 const DEFAULT_TRIP_SORT = "date_desc";
 let appliedTripSort = DEFAULT_TRIP_SORT;
@@ -64,6 +65,11 @@ const playbackState = {
 
 const PLAYBACK_SPEED_BASE = 0.5;
 const PLAYBACK_STEP_PER_FRAME = 0.02;
+const googleModalState = {
+  routePolyline: null,
+  trailPolyline: null,
+  headMarker: null,
+};
 
 const withSignal = (options = {}) =>
   pageSignal ? { ...options, signal: pageSignal } : options;
@@ -71,6 +77,183 @@ const apiGet = (url, options = {}) => apiClient.get(url, withSignal(options));
 const apiPost = (url, body, options = {}) =>
   apiClient.post(url, body, withSignal(options));
 const apiDelete = (url, options = {}) => apiClient.delete(url, withSignal(options));
+
+function isGoogleMapProvider() {
+  return String(window.MAP_PROVIDER || "").toLowerCase() === "google";
+}
+
+function getGoogleMapsApi() {
+  return globalThis?.google?.maps || null;
+}
+
+function hasGoogleMapsApi() {
+  return Boolean(getGoogleMapsApi());
+}
+
+function toGoogleLatLng(coord) {
+  if (!Array.isArray(coord) || coord.length < 2) {
+    return null;
+  }
+  const lng = Number(coord[0]);
+  const lat = Number(coord[1]);
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+    return null;
+  }
+  return { lng, lat };
+}
+
+function toGooglePath(coords = []) {
+  return coords.map((coord) => toGoogleLatLng(coord)).filter(Boolean);
+}
+
+function removeMapMarker(marker) {
+  if (!marker) {
+    return;
+  }
+  try {
+    if (typeof marker.remove === "function") {
+      marker.remove();
+      return;
+    }
+    if (typeof marker.setMap === "function") {
+      marker.setMap(null);
+    }
+  } catch {
+    // Ignore marker cleanup errors.
+  }
+}
+
+function setMapMarkerPosition(marker, coord) {
+  if (!marker || !tripModalMap || !Array.isArray(coord) || coord.length < 2) {
+    return;
+  }
+  if (typeof marker.setLngLat === "function") {
+    marker.setLngLat(coord).addTo(tripModalMap);
+    return;
+  }
+  const latLng = toGoogleLatLng(coord);
+  if (!latLng) {
+    return;
+  }
+  if (typeof marker.setPosition === "function") {
+    marker.setPosition(latLng);
+  }
+  if (typeof marker.setMap === "function") {
+    marker.setMap(tripModalMap);
+  }
+}
+
+function resizeTripModalMap() {
+  if (!tripModalMap) {
+    return;
+  }
+  if (typeof tripModalMap.resize === "function") {
+    tripModalMap.resize();
+    return;
+  }
+  const maps = getGoogleMapsApi();
+  if (maps?.event && typeof maps.event.trigger === "function") {
+    const center = tripModalMap.getCenter?.();
+    maps.event.trigger(tripModalMap, "resize");
+    if (center && typeof tripModalMap.setCenter === "function") {
+      tripModalMap.setCenter(center);
+    }
+  }
+}
+
+function waitForGoogleMaps(timeoutMs = 10000) {
+  if (hasGoogleMapsApi()) {
+    return Promise.resolve(true);
+  }
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let intervalId = null;
+    const timeoutId = setTimeout(() => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearInterval(intervalId);
+      reject(new Error("Google Maps JS not loaded"));
+    }, timeoutMs);
+
+    intervalId = setInterval(() => {
+      if (!hasGoogleMapsApi() || settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeoutId);
+      clearInterval(intervalId);
+      resolve(true);
+    }, 50);
+  });
+}
+
+function clearGoogleModalState() {
+  removeMapMarker(googleModalState.headMarker);
+  googleModalState.headMarker = null;
+
+  if (googleModalState.routePolyline?.setPath) {
+    googleModalState.routePolyline.setPath([]);
+  }
+  if (googleModalState.routePolyline?.setMap) {
+    googleModalState.routePolyline.setMap(null);
+  }
+  googleModalState.routePolyline = null;
+
+  if (googleModalState.trailPolyline?.setPath) {
+    googleModalState.trailPolyline.setPath([]);
+  }
+  if (googleModalState.trailPolyline?.setMap) {
+    googleModalState.trailPolyline.setMap(null);
+  }
+  googleModalState.trailPolyline = null;
+}
+
+function clearTripModalRouteData() {
+  if (!tripModalMap) {
+    return;
+  }
+  if (isGoogleMapProvider()) {
+    if (googleModalState.routePolyline?.setPath) {
+      googleModalState.routePolyline.setPath([]);
+    }
+  } else {
+    const src = tripModalMap.getSource?.("modal-trip");
+    if (src) {
+      src.setData({ type: "FeatureCollection", features: [] });
+    }
+  }
+  updatePlaybackTrail([]);
+  updatePlaybackHead(null);
+  updateTripEndpointMarkers(null, null);
+}
+
+function cleanupTripModalMap() {
+  clearTripModalRouteData();
+  clearGoogleModalState();
+
+  removeMapMarker(playbackState.marker);
+  playbackState.marker = null;
+  removeMapMarker(playbackState.startMarker);
+  playbackState.startMarker = null;
+  removeMapMarker(playbackState.endMarker);
+  playbackState.endMarker = null;
+
+  if (tripModalMap) {
+    try {
+      if (typeof tripModalMap.remove === "function") {
+        tripModalMap.remove();
+      } else if (hasGoogleMapsApi()) {
+        getGoogleMapsApi()?.event?.clearInstanceListeners?.(tripModalMap);
+      }
+    } catch {
+      // Ignore map cleanup errors.
+    }
+    tripModalMap = null;
+  }
+  tripModalMapInitPromise = null;
+}
 
 function resetTripsState() {
   tripsData = [];
@@ -89,45 +272,13 @@ function resetTripsState() {
   appliedTripSort = DEFAULT_TRIP_SORT;
 
   pausePlayback();
-  if (playbackState.marker) {
-    try {
-      playbackState.marker.remove();
-    } catch {
-      // Ignore marker cleanup errors.
-    }
-    playbackState.marker = null;
-  }
-  if (playbackState.startMarker) {
-    try {
-      playbackState.startMarker.remove();
-    } catch {
-      // Ignore marker cleanup errors.
-    }
-    playbackState.startMarker = null;
-  }
-  if (playbackState.endMarker) {
-    try {
-      playbackState.endMarker.remove();
-    } catch {
-      // Ignore marker cleanup errors.
-    }
-    playbackState.endMarker = null;
-  }
   playbackState.coords = [];
   playbackState.frame = null;
   playbackState.progress = 0;
   playbackState.speed = PLAYBACK_SPEED_BASE;
   playbackState.isPlaying = false;
   playbackState.isComplete = false;
-
-  if (tripModalMap) {
-    try {
-      tripModalMap.remove();
-    } catch {
-      // Ignore map cleanup errors.
-    }
-    tripModalMap = null;
-  }
+  cleanupTripModalMap();
   tripModalInstance = null;
 }
 
@@ -1820,19 +1971,14 @@ function openTripModal(tripId) {
         currentTripData = null;
         regeocodeInFlight = false;
         modalRouteActionsTripId = null;
-        if (tripModalMap) {
-          const src = tripModalMap.getSource("modal-trip");
-          if (src) {
-            src.setData({ type: "FeatureCollection", features: [] });
-          }
-        }
+        clearTripModalRouteData();
       });
 
       el.addEventListener("shown.bs.modal", () => {
         if (!tripModalMap) {
-          initTripModalMap();
+          void initTripModalMap();
         } else {
-          tripModalMap.resize();
+          resizeTripModalMap();
           setupTripPlaybackControls();
           loadTripData(currentTripId);
         }
@@ -2118,87 +2264,131 @@ function buildTripShareData(trip) {
 
 function initTripModalMap() {
   if (tripModalMap) {
-    return;
+    return Promise.resolve(tripModalMap);
+  }
+  if (tripModalMapInitPromise) {
+    return tripModalMapInitPromise;
   }
 
-  try {
-    tripModalMap = createMap("trip-modal-map", {
-      zoom: 1,
-      center: [-98.57, 39.82],
-    });
+  const mapContainer = document.getElementById("trip-modal-map");
+  if (!mapContainer) {
+    return Promise.resolve(null);
+  }
 
-    tripModalMap.on("load", () => {
-      const { primary, success, stroke } = getTripUiColors();
-      tripModalMap.addSource("modal-trip", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
+  const onMapReady = () => {
+    setupTripPlaybackControls();
+    if (currentTripId) {
+      loadTripData(currentTripId);
+    }
+  };
+
+  tripModalMapInitPromise = (async () => {
+    try {
+      if (isGoogleMapProvider()) {
+        await waitForGoogleMaps();
+        const maps = getGoogleMapsApi();
+        if (!maps) {
+          throw new Error("Google Maps JS is not loaded");
+        }
+
+        mapContainer.replaceChildren();
+        tripModalMap = new maps.Map(mapContainer, {
+          zoom: 3,
+          center: { lng: -98.57, lat: 39.82 },
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+        });
+
+        maps.event.addListenerOnce(tripModalMap, "idle", onMapReady);
+        return tripModalMap;
+      }
+
+      tripModalMap = createMap("trip-modal-map", {
+        zoom: 1,
+        center: [-98.57, 39.82],
       });
 
-      tripModalMap.addLayer({
-        id: "modal-trip-line",
-        type: "line",
-        source: "modal-trip",
-        layout: {
-          "line-join": "round",
-          "line-cap": "round",
-        },
-        paint: {
-          "line-color": primary,
-          "line-width": 4,
-          "line-opacity": 0.9,
-        },
-      });
-
-      if (!tripModalMap.getSource(playbackState.trailSourceId)) {
-        tripModalMap.addSource(playbackState.trailSourceId, {
+      tripModalMap.on("load", () => {
+        const { primary, success, stroke } = getTripUiColors();
+        tripModalMap.addSource("modal-trip", {
           type: "geojson",
           data: { type: "FeatureCollection", features: [] },
         });
 
         tripModalMap.addLayer({
-          id: playbackState.trailLayerId,
+          id: "modal-trip-line",
           type: "line",
-          source: playbackState.trailSourceId,
+          source: "modal-trip",
           layout: {
             "line-join": "round",
             "line-cap": "round",
           },
           paint: {
-            "line-color": success,
-            "line-width": 3,
-            "line-opacity": 0.6,
+            "line-color": primary,
+            "line-width": 4,
+            "line-opacity": 0.9,
           },
         });
-      }
 
-      if (!tripModalMap.getSource(playbackState.headSourceId)) {
-        tripModalMap.addSource(playbackState.headSourceId, {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        });
+        if (!tripModalMap.getSource(playbackState.trailSourceId)) {
+          tripModalMap.addSource(playbackState.trailSourceId, {
+            type: "geojson",
+            data: { type: "FeatureCollection", features: [] },
+          });
 
-        tripModalMap.addLayer({
-          id: playbackState.headLayerId,
-          type: "circle",
-          source: playbackState.headSourceId,
-          paint: {
-            "circle-radius": 8,
-            "circle-color": primary,
-            "circle-opacity": 0.9,
-            "circle-stroke-width": 3,
-            "circle-stroke-color": stroke,
-          },
-        });
-      }
+          tripModalMap.addLayer({
+            id: playbackState.trailLayerId,
+            type: "line",
+            source: playbackState.trailSourceId,
+            layout: {
+              "line-join": "round",
+              "line-cap": "round",
+            },
+            paint: {
+              "line-color": success,
+              "line-width": 3,
+              "line-opacity": 0.6,
+            },
+          });
+        }
 
-      setupTripPlaybackControls();
-      loadTripData(currentTripId);
-    });
-  } catch (e) {
-    console.error("Failed to init modal map:", e);
-    document.getElementById("trip-modal-map").innerHTML =
-      '<div style="padding: 20px; color: var(--danger);">Failed to load map.</div>';
-  }
+        if (!tripModalMap.getSource(playbackState.headSourceId)) {
+          tripModalMap.addSource(playbackState.headSourceId, {
+            type: "geojson",
+            data: { type: "FeatureCollection", features: [] },
+          });
+
+          tripModalMap.addLayer({
+            id: playbackState.headLayerId,
+            type: "circle",
+            source: playbackState.headSourceId,
+            paint: {
+              "circle-radius": 8,
+              "circle-color": primary,
+              "circle-opacity": 0.9,
+              "circle-stroke-width": 3,
+              "circle-stroke-color": stroke,
+            },
+          });
+        }
+
+        onMapReady();
+      });
+
+      return tripModalMap;
+    } catch (e) {
+      console.error("Failed to init modal map:", e);
+      mapContainer.innerHTML =
+        '<div style="padding: 20px; color: var(--danger);">Failed to load map.</div>';
+      tripModalMap = null;
+      return null;
+    } finally {
+      tripModalMapInitPromise = null;
+    }
+  })();
+
+  return tripModalMapInitPromise;
 }
 
 async function loadTripData(tripId) {
@@ -2362,25 +2552,53 @@ async function updateTripRouteChip(trip) {
 }
 
 function renderTripOnMap(trip) {
-  if (!tripModalMap?.isStyleLoaded()) {
-    setTimeout(() => renderTripOnMap(trip), 200);
-    return;
-  }
-
   const geometry = extractTripGeometry(trip);
   if (!geometry) {
+    clearTripModalRouteData();
     return;
   }
 
-  const geojson = {
-    type: "Feature",
-    geometry,
-    properties: {},
-  };
+  if (isGoogleMapProvider()) {
+    const maps = getGoogleMapsApi();
+    if (!tripModalMap || !maps) {
+      return;
+    }
 
-  const src = tripModalMap.getSource("modal-trip");
-  if (src) {
-    src.setData({ type: "FeatureCollection", features: [geojson] });
+    const { primary } = getTripUiColors();
+    if (!googleModalState.routePolyline) {
+      googleModalState.routePolyline = new maps.Polyline({
+        map: tripModalMap,
+        geodesic: true,
+        strokeColor: primary,
+        strokeWeight: 4,
+        strokeOpacity: 0.9,
+      });
+    }
+
+    if (geometry.type === "LineString") {
+      googleModalState.routePolyline.setPath(toGooglePath(geometry.coordinates));
+    } else if (geometry.type === "Point") {
+      const pointPath = toGooglePath([geometry.coordinates]);
+      googleModalState.routePolyline.setPath(pointPath);
+    } else {
+      googleModalState.routePolyline.setPath([]);
+    }
+  } else {
+    if (!tripModalMap?.isStyleLoaded()) {
+      setTimeout(() => renderTripOnMap(trip), 200);
+      return;
+    }
+
+    const geojson = {
+      type: "Feature",
+      geometry,
+      properties: {},
+    };
+
+    const src = tripModalMap.getSource("modal-trip");
+    if (src) {
+      src.setData({ type: "FeatureCollection", features: [geojson] });
+    }
   }
 
   setPlaybackRoute(geometry);
@@ -2393,9 +2611,46 @@ function renderTripOnMap(trip) {
     updateTripEndpointMarkers(null, null);
   }
 
-  const bounds = new mapboxgl.LngLatBounds();
-  const coords = geometry.coordinates;
+  if (isGoogleMapProvider()) {
+    const maps = getGoogleMapsApi();
+    if (!tripModalMap || !maps) {
+      return;
+    }
 
+    const bounds = new maps.LatLngBounds();
+    let hasBounds = false;
+
+    if (geometry.type === "LineString") {
+      for (const coord of geometry.coordinates) {
+        const latLng = toGoogleLatLng(coord);
+        if (!latLng) {
+          continue;
+        }
+        bounds.extend(latLng);
+        hasBounds = true;
+      }
+    } else if (geometry.type === "Point") {
+      const latLng = toGoogleLatLng(geometry.coordinates);
+      if (latLng) {
+        bounds.extend(latLng);
+        hasBounds = true;
+      }
+    }
+
+    if (hasBounds) {
+      resizeTripModalMap();
+      tripModalMap.fitBounds(bounds, 100);
+    }
+    return;
+  }
+
+  const mapbox = globalThis?.mapboxgl;
+  if (!mapbox?.LngLatBounds) {
+    return;
+  }
+
+  const bounds = new mapbox.LngLatBounds();
+  const coords = geometry.coordinates;
   if (geometry.type === "LineString") {
     coords.forEach((c) => bounds.extend(c));
   } else if (geometry.type === "Point") {
@@ -2403,7 +2658,7 @@ function renderTripOnMap(trip) {
   }
 
   if (!bounds.isEmpty()) {
-    tripModalMap.resize();
+    resizeTripModalMap();
     tripModalMap.fitBounds(bounds, {
       padding: 100,
       duration: 1000,
@@ -2422,6 +2677,35 @@ function createTripEndpointMarker(label, variant) {
   return markerEl;
 }
 
+function createGoogleEndpointMarker(label, variant) {
+  const maps = getGoogleMapsApi();
+  if (!maps || !tripModalMap) {
+    return null;
+  }
+
+  const { primary, success, stroke } = getTripUiColors();
+  const fillColor = variant === "start" ? success : primary;
+
+  return new maps.Marker({
+    map: tripModalMap,
+    title: label,
+    label: {
+      text: variant === "start" ? "S" : "E",
+      color: stroke,
+      fontSize: "10px",
+      fontWeight: "700",
+    },
+    icon: {
+      path: maps.SymbolPath.CIRCLE,
+      scale: 9,
+      fillColor,
+      fillOpacity: 1,
+      strokeColor: stroke,
+      strokeWeight: 2,
+    },
+  });
+}
+
 function updateTripEndpointMarkers(startCoord, endCoord) {
   if (!tripModalMap) {
     return;
@@ -2429,22 +2713,32 @@ function updateTripEndpointMarkers(startCoord, endCoord) {
 
   const updateMarker = (coord, key, variant, label) => {
     if (!Array.isArray(coord) || coord.length < 2) {
-      if (playbackState[key]) {
-        playbackState[key].remove();
-        playbackState[key] = null;
-      }
+      removeMapMarker(playbackState[key]);
+      playbackState[key] = null;
       return;
     }
 
     if (!playbackState[key]) {
-      const markerEl = createTripEndpointMarker(label, variant);
-      playbackState[key] = new mapboxgl.Marker({
-        element: markerEl,
-        anchor: "bottom",
-      });
+      if (isGoogleMapProvider()) {
+        playbackState[key] = createGoogleEndpointMarker(label, variant);
+      } else {
+        const markerEl = createTripEndpointMarker(label, variant);
+        const mapbox = globalThis?.mapboxgl;
+        if (!mapbox?.Marker) {
+          return;
+        }
+        playbackState[key] = new mapbox.Marker({
+          element: markerEl,
+          anchor: "bottom",
+        });
+      }
     }
 
-    playbackState[key].setLngLat(coord).addTo(tripModalMap);
+    if (!playbackState[key]) {
+      return;
+    }
+
+    setMapMarkerPosition(playbackState[key], coord);
   };
 
   updateMarker(startCoord, "startMarker", "start", "Started");
@@ -2540,6 +2834,9 @@ function getPlaybackSpeedMultiplier() {
 function setPlaybackRoute(geometry) {
   if (!geometry || geometry.type !== "LineString") {
     playbackState.coords = [];
+    playbackState.progress = 0;
+    updatePlaybackTrail([]);
+    updatePlaybackHead(null);
     return;
   }
   playbackState.coords = geometry.coordinates || [];
@@ -2558,16 +2855,43 @@ function startPlayback() {
 
   // Create custom pulsing marker if not exists
   if (!playbackState.marker) {
-    const markerEl = document.createElement("div");
-    markerEl.className = "playback-marker";
-    markerEl.innerHTML = `
-      <div class="playback-marker-inner"></div>
-      <div class="playback-marker-pulse"></div>
-    `;
-    playbackState.marker = new mapboxgl.Marker({
-      element: markerEl,
-      anchor: "center",
-    });
+    if (isGoogleMapProvider()) {
+      const maps = getGoogleMapsApi();
+      if (maps) {
+        const { primary, stroke } = getTripUiColors();
+        playbackState.marker = new maps.Marker({
+          map: tripModalMap,
+          clickable: false,
+          zIndex: 50,
+          icon: {
+            path: maps.SymbolPath.CIRCLE,
+            scale: 8,
+            fillColor: primary,
+            fillOpacity: 0.95,
+            strokeColor: stroke,
+            strokeWeight: 2,
+          },
+        });
+      }
+    } else {
+      const markerEl = document.createElement("div");
+      markerEl.className = "playback-marker";
+      markerEl.innerHTML = `
+        <div class="playback-marker-inner"></div>
+        <div class="playback-marker-pulse"></div>
+      `;
+      const mapbox = globalThis?.mapboxgl;
+      if (mapbox?.Marker) {
+        playbackState.marker = new mapbox.Marker({
+          element: markerEl,
+          anchor: "center",
+        });
+      }
+    }
+  }
+
+  if (!playbackState.marker) {
+    return;
   }
 
   const step = () => {
@@ -2587,8 +2911,15 @@ function startPlayback() {
       return;
     }
 
-    playbackState.marker.setLngLat(coord).addTo(tripModalMap);
-    tripModalMap.setCenter(coord);
+    setMapMarkerPosition(playbackState.marker, coord);
+    if (isGoogleMapProvider()) {
+      const center = toGoogleLatLng(coord);
+      if (center) {
+        tripModalMap.setCenter(center);
+      }
+    } else {
+      tripModalMap.setCenter(coord);
+    }
     updatePlaybackHead(coord);
     updatePlaybackTrail(playbackState.coords.slice(0, index + 1));
 
@@ -2622,12 +2953,48 @@ function resetPlayback() {
   playbackState.progress = 0;
   updatePlaybackTrail([]);
   updatePlaybackHead(null);
-  if (playbackState.marker) {
-    playbackState.marker.remove();
-  }
+  removeMapMarker(playbackState.marker);
+  playbackState.marker = null;
 }
 
 function updatePlaybackHead(coord) {
+  if (!tripModalMap) {
+    return;
+  }
+
+  if (isGoogleMapProvider()) {
+    const maps = getGoogleMapsApi();
+    if (!maps) {
+      return;
+    }
+
+    if (!coord) {
+      removeMapMarker(googleModalState.headMarker);
+      googleModalState.headMarker = null;
+      return;
+    }
+
+    if (!googleModalState.headMarker) {
+      const { primary, stroke } = getTripUiColors();
+      googleModalState.headMarker = new maps.Marker({
+        map: tripModalMap,
+        clickable: false,
+        zIndex: 40,
+        icon: {
+          path: maps.SymbolPath.CIRCLE,
+          scale: 6,
+          fillColor: primary,
+          fillOpacity: 0.9,
+          strokeColor: stroke,
+          strokeWeight: 2,
+        },
+      });
+    }
+
+    setMapMarkerPosition(googleModalState.headMarker, coord);
+    return;
+  }
+
   if (!tripModalMap?.getSource(playbackState.headSourceId)) {
     return;
   }
@@ -2644,6 +3011,29 @@ function updatePlaybackHead(coord) {
 }
 
 function updatePlaybackTrail(coords) {
+  if (!tripModalMap) {
+    return;
+  }
+
+  if (isGoogleMapProvider()) {
+    const maps = getGoogleMapsApi();
+    if (!maps) {
+      return;
+    }
+    if (!googleModalState.trailPolyline) {
+      const { success } = getTripUiColors();
+      googleModalState.trailPolyline = new maps.Polyline({
+        map: tripModalMap,
+        geodesic: true,
+        strokeColor: success,
+        strokeWeight: 3,
+        strokeOpacity: 0.6,
+      });
+    }
+    googleModalState.trailPolyline.setPath(toGooglePath(coords));
+    return;
+  }
+
   if (!tripModalMap?.getSource(playbackState.trailSourceId)) {
     return;
   }

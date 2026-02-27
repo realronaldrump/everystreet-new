@@ -4,25 +4,34 @@ import logging
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 
+from core.jinja import templates
 from core.repo_info import get_repo_version_info
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-templates = Jinja2Templates(directory="templates")
 
 
 async def _render_routes_page(
     request: Request,
     route_id: str | None = None,
 ) -> HTMLResponse:
+    from admin.services.admin_service import AdminService
+
+    try:
+        app_settings = await AdminService.get_app_settings_payload()
+    except Exception:
+        app_settings = {
+            "map_provider": None,
+            "google_maps_api_key": None,
+        }
+
     return templates.TemplateResponse(
         request,
         "routes.html",
         {
             "repo_version": get_repo_version_info(),
+            "app_settings": app_settings,
             "route_id": route_id,
         },
     )

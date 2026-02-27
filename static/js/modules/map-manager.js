@@ -14,22 +14,85 @@
 import { CONFIG } from "./core/config.js";
 import store from "./core/store.js";
 import mapCore from "./map-core.js";
+import googleMapCore from "./maps/google_map.js";
 import MapStyles from "./map-styles.js";
 import { utils } from "./utils.js";
 
 // Debounced view state saver
 let saveViewStateDebounced = null;
 
+const createBounds = () => {
+  if (typeof mapboxgl !== "undefined" && typeof mapboxgl.LngLatBounds === "function") {
+    const value = new mapboxgl.LngLatBounds();
+    return {
+      extend(coord) {
+        value.extend(coord);
+      },
+      isEmpty() {
+        return value.isEmpty();
+      },
+      toValue() {
+        return value;
+      },
+    };
+  }
+
+  let minLng = Number.POSITIVE_INFINITY;
+  let minLat = Number.POSITIVE_INFINITY;
+  let maxLng = Number.NEGATIVE_INFINITY;
+  let maxLat = Number.NEGATIVE_INFINITY;
+
+  return {
+    extend(coord) {
+      if (!Array.isArray(coord) || coord.length < 2) {
+        return;
+      }
+      const lng = Number(coord[0]);
+      const lat = Number(coord[1]);
+      if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+        return;
+      }
+      minLng = Math.min(minLng, lng);
+      minLat = Math.min(minLat, lat);
+      maxLng = Math.max(maxLng, lng);
+      maxLat = Math.max(maxLat, lat);
+    },
+    isEmpty() {
+      return !(
+        Number.isFinite(minLng) &&
+        Number.isFinite(minLat) &&
+        Number.isFinite(maxLng) &&
+        Number.isFinite(maxLat)
+      );
+    },
+    toValue() {
+      if (this.isEmpty()) {
+        return null;
+      }
+      return [
+        [minLng, minLat],
+        [maxLng, maxLat],
+      ];
+    },
+  };
+};
+
 const mapManager = {
   // Track if view state listener is bound
   _viewListenerBound: false,
 
   /**
-   * Initialize the map using MapCore and set up view state management
+   * Initialize the map using MapCore or GoogleMapCore and set up view state management
    * @returns {Promise<boolean>}
    */
   async initialize() {
-    const success = await mapCore.initialize();
+    let success = false;
+    const mapProvider = String(window.MAP_PROVIDER || "").toLowerCase();
+    if (mapProvider === "google") {
+      success = await googleMapCore.initialize();
+    } else {
+      success = await mapCore.initialize();
+    }
 
     if (success) {
       this._setupViewStateManagement();
@@ -391,7 +454,7 @@ const mapManager = {
       return;
     }
 
-    const bounds = new mapboxgl.LngLatBounds();
+    const bounds = createBounds();
     let hasFeatures = false;
 
     Object.values(store.mapLayers).forEach(({ visible, layer }) => {
@@ -413,7 +476,7 @@ const mapManager = {
     });
 
     if (hasFeatures && !bounds.isEmpty()) {
-      await store.map.fitBounds(bounds, {
+      await store.map.fitBounds(bounds.toValue(), {
         padding: 50,
         maxZoom: 15,
         duration: animate ? 1000 : 0,
@@ -447,7 +510,7 @@ const mapManager = {
       return;
     }
 
-    const bounds = new mapboxgl.LngLatBounds();
+    const bounds = createBounds();
     const { type, coordinates } = tripFeature.geometry;
 
     if (type === "LineString") {
@@ -457,7 +520,7 @@ const mapManager = {
     }
 
     if (!bounds.isEmpty()) {
-      store.map.fitBounds(bounds, {
+      store.map.fitBounds(bounds.toValue(), {
         padding: 50,
         maxZoom: 15,
         duration: 2000,

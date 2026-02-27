@@ -12,6 +12,17 @@ def _create_app() -> FastAPI:
     return app
 
 
+def _mock_geocoder(
+    *,
+    search_results: list[dict] | None = None,
+    lookup_results: list[dict] | None = None,
+) -> AsyncMock:
+    geocoder = AsyncMock()
+    geocoder.search_raw = AsyncMock(return_value=search_results or [])
+    geocoder.lookup_raw = AsyncMock(return_value=lookup_results or [])
+    return geocoder
+
+
 def test_validate_area_returns_candidates() -> None:
     app = _create_app()
     search_results = [
@@ -26,10 +37,11 @@ def test_validate_area_returns_candidates() -> None:
             "boundingbox": ["31.4", "31.6", "-97.3", "-97.1"],
         },
     ]
+    geocoder = _mock_geocoder(search_results=search_results)
 
     with patch(
-        "street_coverage.api.areas.NominatimClient.search_raw",
-        new=AsyncMock(return_value=search_results),
+        "street_coverage.api.areas.get_geocoder",
+        new=AsyncMock(return_value=geocoder),
     ):
         client = TestClient(app)
         response = client.post(
@@ -42,6 +54,38 @@ def test_validate_area_returns_candidates() -> None:
     assert data["candidates"][0]["display_name"] == "Waco, Texas, USA"
     assert data["candidates"][0]["type_match"] is True
     assert data["candidates"][0]["bounding_box"] == [-97.3, 31.4, -97.1, 31.6]
+
+
+def test_validate_area_accepts_string_provider_id() -> None:
+    app = _create_app()
+    search_results = [
+        {
+            "display_name": "Waco, TX, USA",
+            "osm_id": "ChIJs9KSYYBfaIYRj5AOiZNQ0a4",
+            "osm_type": "google_place",
+            "type": "locality",
+            "class": "place",
+            "address": {"city": "Waco", "state": "Texas"},
+            "importance": 0.8,
+            "boundingbox": ["31.4", "31.6", "-97.3", "-97.1"],
+        },
+    ]
+    geocoder = _mock_geocoder(search_results=search_results)
+
+    with patch(
+        "street_coverage.api.areas.get_geocoder",
+        new=AsyncMock(return_value=geocoder),
+    ):
+        client = TestClient(app)
+        response = client.post(
+            "/api/coverage/areas/validate",
+            json={"location": "Waco, TX", "area_type": "city", "limit": 5},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["candidates"][0]["osm_id"] == "ChIJs9KSYYBfaIYRj5AOiZNQ0a4"
+    assert data["candidates"][0]["osm_type"] == "google_place"
 
 
 def test_validate_area_city_family_matches_boundary_administrative() -> None:
@@ -57,10 +101,11 @@ def test_validate_area_city_family_matches_boundary_administrative() -> None:
             "address": {"city": "Waco", "county": "McLennan County", "state": "Texas"},
         },
     ]
+    geocoder = _mock_geocoder(search_results=search_results)
 
     with patch(
-        "street_coverage.api.areas.NominatimClient.search_raw",
-        new=AsyncMock(return_value=search_results),
+        "street_coverage.api.areas.get_geocoder",
+        new=AsyncMock(return_value=geocoder),
     ):
         client = TestClient(app)
         response = client.post(
@@ -86,10 +131,11 @@ def test_validate_area_county_family_matches_address_county() -> None:
             "address": {"county": "McLennan County", "state": "Texas"},
         },
     ]
+    geocoder = _mock_geocoder(search_results=search_results)
 
     with patch(
-        "street_coverage.api.areas.NominatimClient.search_raw",
-        new=AsyncMock(return_value=search_results),
+        "street_coverage.api.areas.get_geocoder",
+        new=AsyncMock(return_value=geocoder),
     ):
         client = TestClient(app)
         response = client.post(
@@ -115,10 +161,11 @@ def test_validate_area_state_family_matches_address_state() -> None:
             "address": {"state": "Texas"},
         },
     ]
+    geocoder = _mock_geocoder(search_results=search_results)
 
     with patch(
-        "street_coverage.api.areas.NominatimClient.search_raw",
-        new=AsyncMock(return_value=search_results),
+        "street_coverage.api.areas.get_geocoder",
+        new=AsyncMock(return_value=geocoder),
     ):
         client = TestClient(app)
         response = client.post(
@@ -144,10 +191,11 @@ def test_validate_area_city_family_rejects_state_level_result() -> None:
             "address": {"state": "Texas"},
         },
     ]
+    geocoder = _mock_geocoder(search_results=search_results)
 
     with patch(
-        "street_coverage.api.areas.NominatimClient.search_raw",
-        new=AsyncMock(return_value=search_results),
+        "street_coverage.api.areas.get_geocoder",
+        new=AsyncMock(return_value=geocoder),
     ):
         client = TestClient(app)
         response = client.post(
@@ -182,10 +230,11 @@ def test_validate_area_sets_note_when_all_candidates_mismatch() -> None:
             "address": {"county": "McLennan County", "state": "Texas"},
         },
     ]
+    geocoder = _mock_geocoder(search_results=search_results)
 
     with patch(
-        "street_coverage.api.areas.NominatimClient.search_raw",
-        new=AsyncMock(return_value=search_results),
+        "street_coverage.api.areas.get_geocoder",
+        new=AsyncMock(return_value=geocoder),
     ):
         client = TestClient(app)
         response = client.post(
@@ -202,10 +251,11 @@ def test_validate_area_sets_note_when_all_candidates_mismatch() -> None:
 
 def test_validate_area_returns_404_on_no_match() -> None:
     app = _create_app()
+    geocoder = _mock_geocoder(search_results=[])
 
     with patch(
-        "street_coverage.api.areas.NominatimClient.search_raw",
-        new=AsyncMock(return_value=[]),
+        "street_coverage.api.areas.get_geocoder",
+        new=AsyncMock(return_value=geocoder),
     ):
         client = TestClient(app)
         response = client.post(
@@ -241,10 +291,11 @@ def test_resolve_area_returns_boundary() -> None:
             "boundingbox": ["31.4", "31.6", "-97.3", "-97.1"],
         },
     ]
+    geocoder = _mock_geocoder(lookup_results=lookup_results)
 
     with patch(
-        "street_coverage.api.areas.NominatimClient.lookup_raw",
-        new=AsyncMock(return_value=lookup_results),
+        "street_coverage.api.areas.get_geocoder",
+        new=AsyncMock(return_value=geocoder),
     ):
         client = TestClient(app)
         response = client.post(
@@ -259,6 +310,49 @@ def test_resolve_area_returns_boundary() -> None:
     assert data["candidate"]["bounding_box"] == [-97.3, 31.4, -97.1, 31.6]
 
 
+def test_resolve_area_returns_string_provider_id() -> None:
+    app = _create_app()
+    lookup_results = [
+        {
+            "display_name": "Waco, TX, USA",
+            "osm_id": "ChIJs9KSYYBfaIYRj5AOiZNQ0a4",
+            "osm_type": "google_place",
+            "type": "locality",
+            "class": "place",
+            "address": {"city": "Waco", "state": "Texas"},
+            "geojson": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [-97.3, 31.4],
+                        [-97.1, 31.4],
+                        [-97.1, 31.6],
+                        [-97.3, 31.6],
+                        [-97.3, 31.4],
+                    ],
+                ],
+            },
+            "boundingbox": ["31.4", "31.6", "-97.3", "-97.1"],
+        },
+    ]
+    geocoder = _mock_geocoder(lookup_results=lookup_results)
+
+    with patch(
+        "street_coverage.api.areas.get_geocoder",
+        new=AsyncMock(return_value=geocoder),
+    ):
+        client = TestClient(app)
+        response = client.post(
+            "/api/coverage/areas/resolve",
+            json={"osm_id": "ChIJs9KSYYBfaIYRj5AOiZNQ0a4", "osm_type": "google_place"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["candidate"]["osm_id"] == "ChIJs9KSYYBfaIYRj5AOiZNQ0a4"
+    assert data["candidate"]["osm_type"] == "google_place"
+
+
 def test_resolve_area_rejects_invalid_geometry() -> None:
     app = _create_app()
     lookup_results = [
@@ -269,10 +363,14 @@ def test_resolve_area_rejects_invalid_geometry() -> None:
             "geojson": {"type": "Point", "coordinates": [-97.1, 31.5]},
         },
     ]
+    geocoder = _mock_geocoder(lookup_results=lookup_results)
 
     with patch(
-        "street_coverage.api.areas.NominatimClient.lookup_raw",
-        new=AsyncMock(return_value=lookup_results),
+        "street_coverage.api.areas.get_geocoder",
+        new=AsyncMock(return_value=geocoder),
+    ), patch(
+        "street_coverage.api.areas._fetch_boundary",
+        new=AsyncMock(side_effect=ValueError("No boundary polygon for: Invalid Area")),
     ):
         client = TestClient(app)
         response = client.post(
@@ -281,6 +379,58 @@ def test_resolve_area_rejects_invalid_geometry() -> None:
         )
 
     assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid geometry type for boundary: Point"
+
+
+def test_resolve_area_falls_back_when_lookup_returns_point() -> None:
+    app = _create_app()
+    lookup_results = [
+        {
+            "display_name": "Corpus Christi, 78404, United States",
+            "osm_id": 789,
+            "osm_type": "node",
+            "type": "postcode",
+            "class": "place",
+            "address": {"city": "Corpus Christi", "state": "Texas"},
+            "geojson": {"type": "Point", "coordinates": [-97.401, 27.76]},
+            "boundingbox": ["27.76", "27.76", "-97.401", "-97.401"],
+        },
+    ]
+    geocoder = _mock_geocoder(lookup_results=lookup_results)
+    fallback_boundary = {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [-97.6, 27.7],
+                [-97.2, 27.7],
+                [-97.2, 27.9],
+                [-97.6, 27.9],
+                [-97.6, 27.7],
+            ],
+        ],
+    }
+
+    with (
+        patch(
+            "street_coverage.api.areas.get_geocoder",
+            new=AsyncMock(return_value=geocoder),
+        ),
+        patch(
+            "street_coverage.api.areas._fetch_boundary",
+            new=AsyncMock(return_value=fallback_boundary),
+        ) as fetch_boundary,
+    ):
+        client = TestClient(app)
+        response = client.post(
+            "/api/coverage/areas/resolve",
+            json={"osm_id": 789, "osm_type": "node"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["candidate"]["boundary"] == fallback_boundary
+    assert data["candidate"]["bounding_box"] == [-97.6, 27.7, -97.2, 27.9]
+    fetch_boundary.assert_awaited_once_with("Corpus Christi, 78404, United States")
 
 
 def test_add_area_fails_fast_on_invalid_location() -> None:

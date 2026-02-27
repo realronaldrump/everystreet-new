@@ -16,10 +16,12 @@ let _lastStatus = null;
 let pollTimer = null;
 let lastDbSample = null;
 let _coverageSettings = null;
+let _isGoogleMapsMode = false;
 
 export function initMapServicesTab() {
-  loadCoverageSettings();
-  refreshAutoStatus();
+  stopPolling();
+  _isGoogleMapsMode = false;
+  void initializeMapServicesTab();
 }
 
 export function cleanupMapServicesTab() {
@@ -31,10 +33,22 @@ export default {
   cleanupMapServicesTab,
 };
 
+async function initializeMapServicesTab() {
+  const isGoogleMapsMode = await loadCoverageSettings();
+  if (isGoogleMapsMode) {
+    return;
+  }
+  await refreshAutoStatus();
+}
+
 /**
  * Start polling for status updates
  */
 function startPolling(intervalMs = 4000) {
+  if (_isGoogleMapsMode) {
+    stopPolling();
+    return;
+  }
   stopPolling();
   pollTimer = setInterval(refreshAutoStatus, intervalMs);
 }
@@ -53,6 +67,10 @@ function stopPolling() {
  * Refresh the automatic provisioning status
  */
 async function refreshAutoStatus() {
+  if (_isGoogleMapsMode) {
+    stopPolling();
+    return;
+  }
   try {
     ensureMapServicesLayout();
     const response = await apiClient.raw(`${MAP_SERVICES_API}/auto-status`);
@@ -86,6 +104,10 @@ async function refreshAutoStatus() {
  * Adjust polling based on current status
  */
 function adjustPolling(status) {
+  if (_isGoogleMapsMode) {
+    stopPolling();
+    return;
+  }
   if (status.is_building) {
     if (!pollTimer) {
       startPolling(4000);
@@ -654,15 +676,61 @@ function ensureMapServicesLayout() {
 }
 
 async function loadCoverageSettings() {
+  const mapProvider = normalizeMapProvider(window.MAP_PROVIDER);
+  let coverageProvider = normalizeMapProvider(_coverageSettings?.map_provider);
+
   try {
     ensureMapServicesLayout();
     const data = await apiClient.get(APP_SETTINGS_API);
     _coverageSettings = data || {};
+
+    coverageProvider = normalizeMapProvider(_coverageSettings.map_provider);
   } catch (error) {
     console.warn("[MapServices] Failed to load app settings:", error);
     _coverageSettings = _coverageSettings || {};
+    coverageProvider = normalizeMapProvider(_coverageSettings.map_provider);
   }
-  renderCoverageSettings(_coverageSettings);
+
+  const isGoogleMaps = isGoogleMapProvider(mapProvider, coverageProvider);
+  _isGoogleMapsMode = isGoogleMaps;
+
+  if (isGoogleMaps) {
+    const container = document.getElementById("map-services-settings");
+    const statusContainer = document.getElementById("map-services-status");
+    if (container) {
+      container.innerHTML = `
+        <div class="settings-group map-services-settings-card">
+          <h3 class="settings-group-title">
+            <i class="fas fa-globe"></i>
+            Map Services
+          </h3>
+          <div class="alert alert-info border-0 bg-info bg-opacity-10 text-info-emphasis d-flex align-items-center mb-0 mt-3 rounded-3">
+            <i class="fas fa-info-circle fs-5 me-3"></i>
+            <div>
+              <strong>Using Google Maps Cloud</strong><br />
+              Map coverage, routing, and address lookup are handled automatically by Google Maps. Area downloading is disabled.
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    if (statusContainer) {
+      statusContainer.innerHTML = "";
+    }
+    stopPolling();
+    return true;
+  }
+
+  renderCoverageSettings(_coverageSettings || {});
+  return false;
+}
+
+function normalizeMapProvider(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isGoogleMapProvider(mapProvider, coverageProvider) {
+  return mapProvider === "google" || coverageProvider === "google";
 }
 
 function renderCoverageSettings(settings) {

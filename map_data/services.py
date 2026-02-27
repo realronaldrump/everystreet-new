@@ -18,8 +18,10 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from beanie.exceptions import CollectionWasNotInitialized
 
 from config import get_nominatim_base_url, get_osm_extracts_path, get_valhalla_base_url
+from db.models import AppSettings, MapProvider
 from map_data.docker import is_docker_unavailable_error, run_docker
 from map_data.models import GeoServiceHealth, MapServiceConfig
 from map_data.progress import MapBuildProgress
@@ -32,6 +34,22 @@ logger = logging.getLogger(__name__)
 
 DOCKER_CMD_TIMEOUT = 10.0
 MAX_RETRIES = int(os.getenv("MAP_SERVICE_MAX_RETRIES", "3"))
+
+
+async def _get_map_provider_and_google_key() -> tuple[str, bool]:
+    """Resolve active map provider and whether Google key is configured."""
+    try:
+        settings = await AppSettings.find_one({"_id": "default"})
+    except CollectionWasNotInitialized:
+        settings = None
+
+    map_provider = str(
+        getattr(getattr(settings, "map_provider", None), "value", None)
+        or getattr(settings, "map_provider", None)
+        or MapProvider.SELF_HOSTED.value
+    ).strip().lower()
+    google_key_ready = bool((getattr(settings, "google_maps_api_key", "") or "").strip())
+    return map_provider, google_key_ready
 
 
 def _cleanup_map_setup_artifacts() -> dict[str, int]:
@@ -378,6 +396,11 @@ async def configure_map_services(
     *,
     force: bool = False,
 ) -> dict[str, Any]:
+    map_provider, _google_key_ready = await _get_map_provider_and_google_key()
+    if map_provider == MapProvider.GOOGLE.value:
+        msg = "Google Maps provider is active. Local map provisioning is disabled."
+        raise ValueError(msg)
+
     selected_states, invalid = normalize_state_codes(states)
     if invalid:
         msg = f"Invalid state codes: {', '.join(invalid)}."
@@ -502,6 +525,100 @@ async def get_map_services_status(force_refresh: bool = False) -> dict[str, Any]
     config = await MapServiceConfig.get_or_create()
     progress = await MapBuildProgress.get_or_create()
 
+    map_provider, google_key_ready = await _get_map_provider_and_google_key()
+    using_google = map_provider == MapProvider.GOOGLE.value
+
+    if using_google:
+        if (
+            config.geocoding_ready != google_key_ready
+            or config.routing_ready != google_key_ready
+        ):
+            config.geocoding_ready = google_key_ready
+            config.routing_ready = google_key_ready
+            config.last_updated = datetime.now(UTC)
+            await config.save()
+
+        if (
+            config.status == MapServiceConfig.STATUS_NOT_CONFIGURED
+            and not config.message
+        ):
+            config.message = (
+                "Google Maps provider active; local coverage setup is skipped."
+                if google_key_ready
+                else "Google Maps provider selected but API key is missing."
+            )
+            config.last_updated = datetime.now(UTC)
+            await config.save()
+
+        selected_names = _state_names_for_codes(config.selected_states)
+        total_size = total_size_mb(config.selected_states)
+        return {
+            "success": True,
+            "map_provider": map_provider,
+            "config": {
+                "selected_states": config.selected_states,
+                "selected_state_names": selected_names,
+                "status": config.status,
+                "progress": config.progress,
+                "message": config.message,
+                "geocoding_ready": google_key_ready,
+                "routing_ready": google_key_ready,
+                "last_error": config.last_error,
+                "retry_count": config.retry_count,
+                "max_retries": MAX_RETRIES,
+                "last_updated": (
+                    config.last_updated.isoformat() if config.last_updated else None
+                ),
+            },
+            "build": {
+                "phase": progress.phase,
+                "phase_progress": progress.phase_progress,
+                "total_progress": progress.total_progress,
+                "started_at": (
+                    progress.started_at.isoformat() if progress.started_at else None
+                ),
+                "last_progress_at": (
+                    progress.last_progress_at.isoformat()
+                    if progress.last_progress_at
+                    else None
+                ),
+                "active_job_id": progress.active_job_id,
+            },
+            "progress": {
+                "phase": progress.phase,
+                "phase_progress": progress.phase_progress,
+                "total_progress": progress.total_progress,
+                "started_at": (
+                    progress.started_at.isoformat() if progress.started_at else None
+                ),
+                "last_progress_at": (
+                    progress.last_progress_at.isoformat()
+                    if progress.last_progress_at
+                    else None
+                ),
+                "cancellation_requested": progress.cancellation_requested,
+            },
+            "services": {
+                "nominatim": {
+                    "healthy": google_key_ready,
+                    "has_data": False,
+                    "error": None if google_key_ready else "Google API key missing",
+                    "container": None,
+                    "skipped": True,
+                    "message": "Skipped (Google provider enabled)",
+                },
+                "valhalla": {
+                    "healthy": google_key_ready,
+                    "has_data": False,
+                    "error": None if google_key_ready else "Google API key missing",
+                    "container": None,
+                    "skipped": True,
+                    "message": "Skipped (Google provider enabled)",
+                },
+            },
+            "total_size_mb": total_size,
+        }
+
     health = await check_service_health(force_refresh=force_refresh)
     nominatim_container = await check_container_status("nominatim")
     valhalla_container = await check_container_status("valhalla")
@@ -525,6 +642,7 @@ async def get_map_services_status(force_refresh: bool = False) -> dict[str, Any]
 
     return {
         "success": True,
+        "map_provider": map_provider,
         "config": {
             "selected_states": config.selected_states,
             "selected_state_names": selected_names,

@@ -54,7 +54,7 @@ const interactions = {
 
       target.classList.add("ripple-container");
       target.appendChild(ripple);
-      setTimeout(() => ripple.remove(), 650);
+      setTimeout(() => ripple.remove(), 550);
     };
 
     document.addEventListener("pointerdown", (event) => {
@@ -88,7 +88,7 @@ const interactions = {
           return;
         }
         item.classList.add("stagger-item");
-        item.style.animationDelay = `${Math.min(index * 70, 400)}ms`;
+        item.style.animationDelay = `${Math.min(30 + index * 50, 350)}ms`;
       });
     });
   },

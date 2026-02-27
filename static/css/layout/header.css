@@ -23,7 +23,10 @@
   border-bottom: 1px solid var(--glass-border-subtle);
   box-shadow: var(--shadow-glass-sm);
   z-index: var(--z-fixed);
-  transition: all var(--transition-normal);
+  transition:
+    background 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 200ms cubic-bezier(0.4, 0, 0.2, 1);
   contain: layout style;
 }
 
@@ -64,8 +67,8 @@
   margin-right: var(--space-3);
   cursor: pointer;
   transition:
-    background-color var(--transition-fast),
-    color var(--transition-fast);
+    background-color 120ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 120ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .menu-toggle-btn:hover {
@@ -125,8 +128,8 @@
   color: var(--text-secondary);
   text-decoration: none;
   transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast);
+    color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
   font-weight: var(--font-weight-medium);
   font-size: var(--font-size-sm);
   border-radius: var(--radius-pill);
@@ -153,6 +156,19 @@
   height: 2px;
   border-radius: var(--radius-pill);
   background: var(--primary);
+  animation: navIndicatorIn 250ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes navIndicatorIn {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
 }
 
 .nav-item i {
@@ -171,6 +187,20 @@
   padding: var(--space-2) 0;
   min-width: 220px;
   z-index: var(--z-dropdown);
+  animation: dropdownReveal 180ms cubic-bezier(0, 0, 0.2, 1) both;
+  transform-origin: top center;
+}
+
+@keyframes dropdownReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .dropdown-item {
@@ -180,8 +210,8 @@
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
   transition:
-    background-color var(--transition-fast),
-    color var(--transition-fast);
+    background-color 120ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 120ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .dropdown-item:hover,
@@ -238,8 +268,8 @@
   color: var(--text-secondary);
   cursor: pointer;
   transition:
-    background-color var(--transition-fast),
-    color var(--transition-fast);
+    background-color 120ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 120ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .tool-btn:hover {
@@ -268,7 +298,7 @@
   inset: 0;
   background-color: var(--surface-3);
   border-radius: var(--radius-full);
-  transition: background-color var(--transition-fast);
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -287,8 +317,8 @@
   box-shadow: var(--shadow-xs);
   border-radius: 50%;
   transition:
-    transform var(--transition-normal),
-    background-color var(--transition-normal);
+    transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 2;
 }
 
@@ -306,7 +336,7 @@
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
   z-index: 1;
-  transition: color var(--transition-fast);
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .theme-toggle input:checked + .theme-slider .fa-moon {
@@ -330,7 +360,7 @@
   border-right: 1px solid var(--glass-border-medium);
   z-index: var(--z-drawer);
   transform: translateX(-100%);
-  transition: transform var(--transition-slow);
+  transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--shadow-glass-lg);
   display: flex;
   flex-direction: column;
@@ -384,7 +414,7 @@
   font-size: var(--font-size-xl);
   cursor: pointer;
   padding: var(--space-2); /* Larger tap target */
-  transition: color var(--transition-fast);
+  transition: color 120ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .drawer-close-btn:hover {
@@ -420,8 +450,9 @@
   text-decoration: none;
   font-size: var(--font-size-md);
   transition:
-    background-color var(--transition-fast),
-    color var(--transition-fast);
+    background-color 120ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 120ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 120ms cubic-bezier(0.4, 0, 0.2, 1);
   border-left: 3px solid transparent; /* For active state */
 }
 
@@ -479,8 +510,8 @@
   letter-spacing: 0.05em;
   cursor: pointer;
   transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast);
+    color 120ms cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 120ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .drawer-nav-section-header:hover {
@@ -495,7 +526,7 @@
 
 .drawer-nav-section-chevron {
   font-size: var(--font-size-xs);
-  transition: transform var(--transition-normal);
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .drawer-nav-section-header[aria-expanded="false"] .drawer-nav-section-chevron {
@@ -512,8 +543,8 @@
   overflow: hidden auto;
   max-height: min(70vh, calc(100vh - var(--header-height, 4rem) - var(--space-8)));
   transition:
-    max-height var(--transition-slow),
-    opacity var(--transition-normal);
+    max-height 280ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 200ms cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 1;
 }
 
@@ -541,8 +572,8 @@
   text-decoration: none;
   font-size: var(--font-size-sm);
   transition:
-    background-color var(--transition-fast),
-    color var(--transition-fast);
+    background-color 120ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 120ms cubic-bezier(0.4, 0, 0.2, 1);
   border-left: 3px solid transparent;
 }
 

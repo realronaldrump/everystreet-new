@@ -11,10 +11,10 @@ from fastapi import HTTPException, status
 from analytics.services.mobility_insights_service import MobilityInsightsService
 from core.date_utils import get_current_utc_time, normalize_calendar_date
 from core.jobs import JobHandle, create_job, find_job
+from core.mapping.factory import get_router
 from core.spatial import GeometryService, extract_timestamps_for_coordinates
 from db import build_calendar_date_expr
 from db.models import Job, Trip
-from map_data.services import check_service_health
 from tasks.config import update_task_history_entry
 from tasks.ops import abort_job, enqueue_task
 from trips.models import (
@@ -453,7 +453,7 @@ class MapMatchingJobRunner:
 
         This is a streamlined flow that:
         1. Loads trips with GPS data
-        2. Calls Valhalla directly for each trip
+        2. Calls the active routing provider directly for each trip
         3. Updates the matchedGps field in the database
         """
         progress = await self._get_or_create_progress(job_id)
@@ -467,9 +467,9 @@ class MapMatchingJobRunner:
             }
 
         try:
-            health = await check_service_health(force_refresh=True)
-            if not health.valhalla_healthy:
-                message = f"Valhalla not ready: {health.valhalla_error or 'routing unavailable'}"
+            router_ready, blocked_message = await self._preflight_router()
+            if not router_ready:
+                message = blocked_message or "Routing provider not ready: routing unavailable"
                 await self._update_progress(
                     progress,
                     status="failed",
@@ -575,6 +575,130 @@ class MapMatchingJobRunner:
                 completed_at=datetime.now(UTC),
             )
             raise
+
+    async def _preflight_router(self) -> tuple[bool, str | None]:
+        """Verify that the active routing provider is ready for map matching."""
+        try:
+            router = await get_router()
+            router_status = await router.status()
+        except Exception as exc:
+            return False, f"Routing provider not ready: {exc!s}"
+
+        is_ready, provider_label, detail = self._evaluate_router_status(
+            router,
+            router_status,
+        )
+        if is_ready:
+            return True, None
+        return False, f"{provider_label} not ready: {detail}"
+
+    @staticmethod
+    def _evaluate_router_status(
+        router: Any,
+        router_status: Any,
+    ) -> tuple[bool, str, str]:
+        provider_label = MapMatchingJobRunner._router_provider_label(
+            router,
+            router_status,
+        )
+
+        if not isinstance(router_status, dict):
+            return False, provider_label, "routing unavailable"
+
+        status_value = str(router_status.get("status") or "").strip().lower()
+        status_error = MapMatchingJobRunner._first_non_empty_str(
+            router_status.get("error"),
+            router_status.get("message"),
+            router_status.get("detail"),
+        )
+        if status_value in {
+            "error",
+            "failed",
+            "down",
+            "unhealthy",
+            "starting",
+            "initializing",
+            "not_ready",
+        }:
+            return False, provider_label, status_error or "routing unavailable"
+
+        if MapMatchingJobRunner._is_valhalla_status(router, router_status):
+            if not MapMatchingJobRunner._valhalla_has_tiles(router_status):
+                return False, "Valhalla", "Routing starting..."
+            return True, "Valhalla", ""
+
+        if status_value and status_value not in {"ok", "healthy", "ready", "running", "up"}:
+            return False, provider_label, status_error or f"status={status_value}"
+
+        if status_error and status_value not in {"ok", "healthy", "ready", "running", "up"}:
+            return False, provider_label, status_error
+
+        return True, provider_label, ""
+
+    @staticmethod
+    def _router_provider_label(router: Any, router_status: Any) -> str:
+        engine = ""
+        if isinstance(router_status, dict):
+            engine = str(
+                router_status.get("engine")
+                or router_status.get("provider")
+                or "",
+            ).strip().lower()
+        if engine == "google":
+            return "Google routing"
+        if engine == "valhalla":
+            return "Valhalla"
+        if isinstance(router_status, dict) and (
+            "tileset" in router_status or "tileset_last_modified" in router_status
+        ):
+            return "Valhalla"
+
+        router_name = type(router).__name__.lower()
+        if "google" in router_name:
+            return "Google routing"
+        if "valhalla" in router_name:
+            return "Valhalla"
+        return "Routing provider"
+
+    @staticmethod
+    def _is_valhalla_status(router: Any, router_status: dict[str, Any]) -> bool:
+        if "tileset" in router_status or "tileset_last_modified" in router_status:
+            return True
+
+        engine = str(
+            router_status.get("engine")
+            or router_status.get("provider")
+            or "",
+        ).strip().lower()
+        if engine == "valhalla":
+            return True
+
+        return "valhalla" in type(router).__name__.lower()
+
+    @staticmethod
+    def _valhalla_has_tiles(router_status: dict[str, Any]) -> bool:
+        tile_count = 0
+        tileset = router_status.get("tileset")
+        if isinstance(tileset, dict):
+            raw_tile_count = tileset.get("tile_count")
+            if isinstance(raw_tile_count, int | float):
+                tile_count = int(raw_tile_count)
+            elif isinstance(raw_tile_count, str):
+                with_value = raw_tile_count.strip()
+                if with_value.isdigit():
+                    tile_count = int(with_value)
+
+        return tile_count > 0 or bool(router_status.get("tileset_last_modified"))
+
+    @staticmethod
+    def _first_non_empty_str(*values: Any) -> str | None:
+        for value in values:
+            if value is None:
+                continue
+            text = str(value).strip()
+            if text:
+                return text
+        return None
 
     async def _process_trips_directly(
         self,
@@ -687,9 +811,9 @@ class MapMatchingJobRunner:
         trip_dict = trip.model_dump()
         timestamps = extract_timestamps_for_coordinates(coords, trip_dict)
 
-        # Call Valhalla
+        # Call the active routing provider
         logger.debug(
-            "Trip %s: Calling Valhalla with %d coordinates",
+            "Trip %s: Calling routing provider with %d coordinates",
             trip_id,
             len(coords),
         )

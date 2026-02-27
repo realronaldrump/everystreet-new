@@ -134,7 +134,6 @@ async def update_credentials(credentials: BouncieCredentials):
             {
                 "authorization_code": None,
                 "access_token": None,
-                "refresh_token": None,
                 "expires_at": None,
                 "oauth_state": None,
                 "oauth_state_expires_at": None,

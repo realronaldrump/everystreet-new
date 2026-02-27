@@ -57,7 +57,6 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ImportRuntime:
     client: BouncieClient
-    token: str
     imeis: list[str]
     windows_total: int
     semaphore: asyncio.Semaphore
@@ -108,7 +107,6 @@ def _dedupe_trips_by_transaction_id(
 async def _fetch_trips_for_window(
     client: BouncieClient,
     *,
-    token: str,
     imei: str,
     window_start: datetime,
     window_end: datetime,
@@ -136,6 +134,7 @@ async def _fetch_trips_for_window(
     try:
         async with asyncio.timeout(REQUEST_TIMEOUT_SECONDS):
             async with chunk_semaphore:
+                token = await client.ensure_token()
                 raw_trips = await client.fetch_trips_for_device_resilient(
                     token,
                     imei,
@@ -197,7 +196,6 @@ async def _fetch_trips_for_window(
             try:
                 chunk = await _fetch_trips_for_window(
                     client,
-                    token=token,
                     imei=imei,
                     window_start=sub_start,
                     window_end=sub_end,
@@ -294,7 +292,6 @@ async def _fetch_device_window(
             async with asyncio.timeout(DEVICE_FETCH_TIMEOUT_SECONDS):
                 trips = await _fetch_trips_for_window(
                     runtime.client,
-                    token=runtime.token,
                     imei=imei,
                     window_start=window_start,
                     window_end=window_end,
@@ -1021,11 +1018,10 @@ async def run_import(
             windows_completed=windows_completed,
         )
         pipeline = TripPipeline()
-        client = BouncieClient(session)
+        client = BouncieClient(session, credentials=setup.credentials)
 
         runtime = ImportRuntime(
             client=client,
-            token=token,
             imeis=setup.imeis,
             windows_total=setup.windows_total,
             semaphore=asyncio.Semaphore(setup.fetch_concurrency),

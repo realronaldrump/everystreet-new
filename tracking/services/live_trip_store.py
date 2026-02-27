@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import json
 import logging
+from inspect import isawaitable
 from datetime import UTC, datetime
 from typing import Any
 
-import redis.asyncio as aioredis
-from redis.exceptions import ConnectionError as RedisConnectionError
-
 from core.date_utils import parse_timestamp
-from core.redis import get_redis_url
+from core.redis import get_shared_redis
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +18,6 @@ LIVE_TRIP_STALE_SECONDS = 30 * 60
 _ACTIVE_TRIP_TX_KEY = "tracking:live:active_tx"
 _TRIP_KEY_PREFIX = "tracking:live:trip:"
 _CLOSED_KEY_PREFIX = "tracking:live:closed:"
-
-
-class _RedisState:
-    client: aioredis.Redis | None = None
 
 
 def _trip_key(transaction_id: str) -> str:
@@ -41,20 +35,11 @@ def _json_default(value: Any) -> Any:
     raise TypeError(msg)
 
 
-async def _get_redis_client() -> aioredis.Redis:
-    if _RedisState.client is not None:
-        try:
-            await _RedisState.client.ping()
-        except (RedisConnectionError, AttributeError):
-            logger.warning("Live trip Redis connection lost, reconnecting...")
-            _RedisState.client = None
-        else:
-            return _RedisState.client
-
-    redis_url = get_redis_url()
-    _RedisState.client = aioredis.from_url(redis_url, decode_responses=True)
-    await _RedisState.client.ping()
-    return _RedisState.client
+async def _resolve_awaitable(value: Any) -> Any:
+    """Return awaited result when value is awaitable, otherwise pass through."""
+    if isawaitable(value):
+        return await value
+    return value
 
 
 async def save_trip_snapshot(trip: dict[str, Any]) -> None:
@@ -68,12 +53,16 @@ async def save_trip_snapshot(trip: dict[str, Any]) -> None:
     payload["transactionId"] = transaction_id
 
     serialized = json.dumps(payload, default=_json_default)
-    client = await _get_redis_client()
-    pipe = client.pipeline()
-    pipe.set(_trip_key(transaction_id), serialized, ex=LIVE_TRIP_TTL_SECONDS)
-    pipe.set(_ACTIVE_TRIP_TX_KEY, transaction_id, ex=LIVE_TRIP_TTL_SECONDS)
-    pipe.delete(_closed_key(transaction_id))
-    await pipe.execute()
+    client = await get_shared_redis()
+    pipe = await _resolve_awaitable(client.pipeline())
+    await _resolve_awaitable(
+        pipe.set(_trip_key(transaction_id), serialized, ex=LIVE_TRIP_TTL_SECONDS),
+    )
+    await _resolve_awaitable(
+        pipe.set(_ACTIVE_TRIP_TX_KEY, transaction_id, ex=LIVE_TRIP_TTL_SECONDS),
+    )
+    await _resolve_awaitable(pipe.delete(_closed_key(transaction_id)))
+    await _resolve_awaitable(pipe.execute())
 
 
 async def get_trip_snapshot(transaction_id: str) -> dict[str, Any] | None:
@@ -82,7 +71,7 @@ async def get_trip_snapshot(transaction_id: str) -> dict[str, Any] | None:
     if not tx:
         return None
 
-    client = await _get_redis_client()
+    client = await get_shared_redis()
     raw = await client.get(_trip_key(tx))
     if not raw:
         return None
@@ -104,7 +93,7 @@ async def get_trip_snapshot(transaction_id: str) -> dict[str, Any] | None:
 
 async def get_active_trip_snapshot() -> dict[str, Any] | None:
     """Load the currently active live trip snapshot, if any."""
-    client = await _get_redis_client()
+    client = await get_shared_redis()
     active_tx = await client.get(_ACTIVE_TRIP_TX_KEY)
     if not active_tx:
         return None
@@ -126,16 +115,16 @@ async def clear_trip_snapshot(
     if not tx:
         return
 
-    client = await _get_redis_client()
+    client = await get_shared_redis()
     active_tx = await client.get(_ACTIVE_TRIP_TX_KEY)
 
-    pipe = client.pipeline()
-    pipe.delete(_trip_key(tx))
+    pipe = await _resolve_awaitable(client.pipeline())
+    await _resolve_awaitable(pipe.delete(_trip_key(tx)))
     if active_tx == tx:
-        pipe.delete(_ACTIVE_TRIP_TX_KEY)
+        await _resolve_awaitable(pipe.delete(_ACTIVE_TRIP_TX_KEY))
     if mark_closed:
-        pipe.set(_closed_key(tx), "1", ex=LIVE_TRIP_TTL_SECONDS)
-    await pipe.execute()
+        await _resolve_awaitable(pipe.set(_closed_key(tx), "1", ex=LIVE_TRIP_TTL_SECONDS))
+    await _resolve_awaitable(pipe.execute())
 
 
 async def is_trip_marked_closed(transaction_id: str) -> bool:
@@ -143,7 +132,7 @@ async def is_trip_marked_closed(transaction_id: str) -> bool:
     tx = str(transaction_id or "").strip()
     if not tx:
         return False
-    client = await _get_redis_client()
+    client = await get_shared_redis()
     return bool(await client.exists(_closed_key(tx)))
 
 

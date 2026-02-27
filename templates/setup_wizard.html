@@ -18,13 +18,20 @@
       <div class="setup-progress-bar" aria-label="Setup progress">
         <div class="setup-progress-track">
           <div class="setup-progress-step is-active" data-progress-step="0">
+            <span class="setup-progress-dot"><i class="fas fa-layer-group"></i></span>
+            <span class="setup-progress-label">Engine</span>
+          </div>
+          <div class="setup-progress-connector">
+            <div class="setup-progress-connector-fill" id="progress-connector-0"></div>
+          </div>
+          <div class="setup-progress-step" data-progress-step="1">
             <span class="setup-progress-dot"><i class="fas fa-key"></i></span>
             <span class="setup-progress-label">Credentials</span>
           </div>
-          <div class="setup-progress-connector">
-            <div class="setup-progress-connector-fill" id="progress-connector"></div>
+          <div class="setup-progress-connector" id="progress-connector-container-1">
+            <div class="setup-progress-connector-fill" id="progress-connector-1"></div>
           </div>
-          <div class="setup-progress-step" data-progress-step="1">
+          <div class="setup-progress-step" data-progress-step="2" id="progress-step-coverage">
             <span class="setup-progress-dot"><i class="fas fa-map"></i></span>
             <span class="setup-progress-label">Map Coverage</span>
           </div>
@@ -49,18 +56,27 @@
         {# ── Sidebar ── #}
         <aside class="setup-sidebar">
           <ol class="setup-step-list" aria-label="Setup steps">
-            <li class="setup-step-item is-active" data-step="0" data-step-key="credentials">
+            <li class="setup-step-item is-active" data-step="0" data-step-key="engine">
               <button class="setup-step-button" type="button" data-step-target="0">
                 <span class="step-number">1</span>
                 <div>
-                  <div class="step-title">Credentials</div>
-                  <div class="step-note">Bouncie + Mapbox</div>
+                  <div class="step-title">Map Engine</div>
+                  <div class="step-note">Google vs. Local</div>
                 </div>
               </button>
             </li>
-            <li class="setup-step-item" data-step="1" data-step-key="coverage">
+            <li class="setup-step-item" data-step="1" data-step-key="credentials">
               <button class="setup-step-button" type="button" data-step-target="1">
                 <span class="step-number">2</span>
+                <div>
+                  <div class="step-title">Credentials</div>
+                  <div class="step-note">Bouncie + Maps</div>
+                </div>
+              </button>
+            </li>
+            <li class="setup-step-item" data-step="2" data-step-key="coverage" id="sidebar-step-coverage">
+              <button class="setup-step-button" type="button" data-step-target="2">
+                <span class="step-number">3</span>
                 <div>
                   <div class="step-title">Map Coverage</div>
                   <div class="step-note">Import &amp; build</div>
@@ -77,17 +93,67 @@
         </aside>
 
         {# ════════════════════════════════════════════════════
-           STEP 1 — CREDENTIALS
+           STEP 0 — MAP ENGINE
            ════════════════════════════════════════════════════ #}
         <main class="setup-content">
           <section class="setup-step is-active" data-step="0">
+            <div class="setup-card">
+              <div class="setup-card-header">
+                <div>
+                  <h2>Choose your Mapping Engine</h2>
+                  <p>
+                    Every Street supports two different mapping engines.
+                    Choose the one that best fits your needs.
+                  </p>
+                </div>
+              </div>
+
+              <div class="setup-card-section">
+                <div class="setup-provider-grid">
+                  <label class="setup-provider-card">
+                    <input type="radio" name="map_provider" value="self_hosted" class="setup-provider-input" checked />
+                    <div class="setup-provider-content">
+                      <div class="setup-provider-icon"><i class="fas fa-server"></i></div>
+                      <div class="setup-provider-text">
+                        <h3>Self-Hosted (Local)</h3>
+                        <p>No monthly fees. We'll download map data for your driven areas to handle geocoding and routing locally using Valhalla and Nominatim.</p>
+                      </div>
+                    </div>
+                  </label>
+
+                  <label class="setup-provider-card">
+                    <input type="radio" name="map_provider" value="google" class="setup-provider-input" />
+                    <div class="setup-provider-content">
+                      <div class="setup-provider-icon"><i class="fab fa-google"></i></div>
+                      <div class="setup-provider-text">
+                        <h3>Google Maps Cloud</h3>
+                        <p>Lightweight and zero maintenance. Uses Google's APIs for rendering, routing, and geocoding. Perfect for local development or low-resource devices.</p>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div class="setup-actions">
+                <button class="btn btn-primary" id="provider-continue-btn" type="button">
+                  Continue
+                  <i class="fas fa-arrow-right"></i>
+                </button>
+              </div>
+            </div>
+          </section>
+
+        {# ════════════════════════════════════════════════════
+           STEP 1 — CREDENTIALS
+           ════════════════════════════════════════════════════ #}
+          <section class="setup-step" data-step="1">
             <div class="setup-card">
 
               <div class="setup-card-header">
                 <div>
                   <h2>Credentials</h2>
                   <p>
-                    Save your Bouncie OAuth details and Mapbox token once.
+                    Save your API details once.
                     We'll validate everything before moving on.
                   </p>
                 </div>
@@ -152,6 +218,22 @@
                   </div>
                 </form>
 
+                <div class="setup-card-section-header mt-4" id="googleCredentialsHeader" style="display: none;">
+                  <div>
+                    <h3>Google Maps Platform</h3>
+                    <p>Enter your Google Maps API Key to enable cloud routing and geocoding.</p>
+                  </div>
+                </div>
+                <form id="googleCredentialsForm" class="setup-form" novalidate style="display: none;">
+                  <div class="setup-form-grid">
+                    <div class="setup-field">
+                      <label for="googleMapsApiKey" class="form-label">API Key</label>
+                      <input type="text" class="form-control" id="googleMapsApiKey" placeholder="AIzaSy..." />
+                      <span class="setup-field-hint">Must have Maps JavaScript, Directions, Roads, and Geocoding APIs enabled.</span>
+                    </div>
+                  </div>
+                </form>
+
                 {# Bouncie connect actions — shown after credentials are saved #}
                 <div class="setup-connect-actions" id="bouncie-connect-actions">
                   <a href="#" class="btn btn-success" id="connectBouncieBtn" role="button">
@@ -179,9 +261,9 @@
               </div>
 
               <div class="setup-actions">
-                <a class="btn btn-outline-light" href="/">
-                  <i class="fas fa-arrow-left"></i> Back to dashboard
-                </a>
+                <button class="setup-step-button-back btn btn-outline-light" type="button" data-step-target="0">
+                  <i class="fas fa-arrow-left"></i> Back
+                </button>
                 <button class="btn btn-primary" id="credentials-continue-btn" type="button">
                   Verify &amp; Continue
                   <i class="fas fa-arrow-right"></i>
@@ -193,7 +275,7 @@
           {# ════════════════════════════════════════════════════
              STEP 2 — MAP COVERAGE (unified flow)
              ════════════════════════════════════════════════════ #}
-          <section class="setup-step" data-step="1">
+          <section class="setup-step" data-step="2" id="step-coverage-section">
             <div class="setup-card">
 
               <div class="setup-card-header">
@@ -380,7 +462,7 @@
               </div>
 
               <div class="setup-actions" id="coverage-actions">
-                <button class="setup-step-button-back btn btn-outline-light" type="button" data-step-target="0">
+                <button class="setup-step-button-back btn btn-outline-light" type="button" data-step-target="1">
                   <i class="fas fa-arrow-left"></i> Back to Credentials
                 </button>
               </div>

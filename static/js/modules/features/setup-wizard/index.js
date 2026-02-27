@@ -61,6 +61,42 @@ function withSignal(options = {}) {
   return options;
 }
 
+function getSelectedProvider() {
+  const checked = document.querySelector('input[name="map_provider"]:checked');
+  const uiProvider = String(checked?.value || "").trim().toLowerCase();
+  if (uiProvider) {
+    return uiProvider;
+  }
+  const statusProvider = String(setupStatus?.map_provider || "").trim().toLowerCase();
+  return statusProvider || "self_hosted";
+}
+
+function isGoogleProvider(provider = getSelectedProvider()) {
+  return String(provider || "").toLowerCase() === "google";
+}
+
+function getStepCompletion(provider = getSelectedProvider()) {
+  const usingGoogle = isGoogleProvider(provider);
+  const providerComplete = Boolean(setupStatus?.steps?.provider?.complete);
+  const bouncieComplete = Boolean(setupStatus?.steps?.bouncie?.complete);
+  const mapboxComplete = Boolean(setupStatus?.steps?.mapbox?.complete);
+  const googleKeyComplete = Boolean(setupStatus?.steps?.google_maps?.complete);
+  const credentialsComplete = usingGoogle
+    ? bouncieComplete && googleKeyComplete
+    : bouncieComplete && mapboxComplete;
+  const coverageRequired = !usingGoogle;
+  const coverageComplete = coverageRequired
+    ? Boolean(setupStatus?.steps?.coverage?.complete)
+    : true;
+
+  return {
+    providerComplete,
+    credentialsComplete,
+    coverageRequired,
+    coverageComplete,
+  };
+}
+
 async function initializeSetup() {
   bindEvents(pageSignal);
   await Promise.all([
@@ -69,15 +105,24 @@ async function initializeSetup() {
     loadCoverageSettings(),
     loadTripSyncStatus(),
     loadStateCatalog(),
-    refreshMapServicesStatus(),
   ]);
+  if (isGoogleProvider()) {
+    mapServiceStatus = null;
+  } else {
+    await refreshMapServicesStatus();
+  }
   handleBouncieRedirectParams();
+  updateProviderUI();
   updateStepState();
   updateCoveragePhase();
 }
 
 function bindEvents(signal) {
   const eventOptions = signal ? { signal } : false;
+  document
+    .getElementById("provider-continue-btn")
+    ?.addEventListener("click", handleProviderContinue, eventOptions);
+
   document
     .getElementById("credentials-continue-btn")
     ?.addEventListener("click", handleCredentialsContinue, eventOptions);
@@ -135,14 +180,29 @@ function bindEvents(signal) {
     );
   });
 
-  // Back-to-credentials button in step 2
-  document
-    .querySelector('.setup-step-button-back[data-step-target="0"]')
-    ?.addEventListener(
+  document.querySelectorAll(".setup-step-button-back").forEach((button) => {
+    button.addEventListener(
       "click",
-      () => goToStep(0),
+      () => {
+        const target = Number(button.dataset.stepTarget || 0);
+        if (!Number.isNaN(target)) {
+          goToStep(target);
+        }
+      },
       eventOptions
     );
+  });
+
+  document.querySelectorAll('input[name="map_provider"]').forEach((radio) => {
+    radio.addEventListener(
+      "change",
+      () => {
+        updateProviderUI();
+        updateStepState();
+      },
+      eventOptions
+    );
+  });
 
   document
     .getElementById("coverage-import-trips-btn")
@@ -203,6 +263,22 @@ async function loadBouncieCredentials() {
     bouncieConnected = false;
     updateBouncieActions();
   }
+
+  try {
+    const settings = await apiClient.get(APP_SETTINGS_API, withSignal());
+    const provider = settings?.map_provider || "self_hosted";
+    const radio = document.querySelector(`input[name="map_provider"][value="${provider}"]`);
+    if (radio) radio.checked = true;
+
+    const googleKeyInput = document.getElementById("googleMapsApiKey");
+    if (googleKeyInput && settings?.google_maps_api_key) {
+      googleKeyInput.value = settings.google_maps_api_key;
+    }
+    
+    updateProviderUI();
+  } catch (error) {
+    console.warn("Could not load app settings", error);
+  }
 }
 
 function updateBouncieActions() {
@@ -234,6 +310,10 @@ async function loadStateCatalog() {
 }
 
 async function refreshMapServicesStatus() {
+  if (isGoogleProvider()) {
+    mapServiceStatus = null;
+    return;
+  }
   try {
     const response = await apiClient.raw(MAP_SERVICES_AUTO_STATUS_API, withSignal());
     const data = await readJsonResponse(response);
@@ -278,85 +358,140 @@ function normalizeMapServiceStatus(data) {
 /* ── Step Navigation ──────────────────────────────────────────── */
 
 function updateStepState() {
-  const bouncieComplete = setupStatus?.steps?.bouncie?.complete;
-  const mapboxComplete = setupStatus?.steps?.mapbox?.complete;
-  const credentialsComplete = Boolean(bouncieComplete && mapboxComplete);
+  const provider = getSelectedProvider();
+  const { providerComplete, credentialsComplete, coverageRequired, coverageComplete } =
+    getStepCompletion(provider);
 
-  const coverageComplete = setupStatus?.steps?.coverage?.complete;
-
-  updateStepList(credentialsComplete, Boolean(coverageComplete));
-  updateProgressBar(credentialsComplete, Boolean(coverageComplete));
-
-  if (currentStep === 0 && credentialsComplete) {
-    goToStep(1);
-  } else if (currentStep === 1 && !credentialsComplete) {
-    goToStep(0);
+  if (!coverageRequired && currentStep > 1) {
+    currentStep = 1;
   }
 
-  const mapSetupBtn = document.getElementById("map-setup-btn");
-  if (mapSetupBtn) {
-    mapSetupBtn.disabled = !credentialsComplete;
+  updateStepList({
+    providerComplete,
+    credentialsComplete,
+    coverageComplete,
+    coverageRequired,
+  });
+  updateProgressBar({
+    providerComplete,
+    credentialsComplete,
+    coverageComplete,
+    coverageRequired,
+  });
+
+  if (!providerComplete) {
+    currentStep = 0;
+  } else if (currentStep === 0) {
+    currentStep = 1;
+  } else if (currentStep > 1 && !coverageRequired) {
+    currentStep = 1;
   }
+
+  goToStep(currentStep, { force: true });
 }
 
-function updateStepList(credentialsComplete, coverageComplete) {
+function updateStepList({
+  providerComplete,
+  credentialsComplete,
+  coverageComplete,
+  coverageRequired,
+}) {
   const stepItems = document.querySelectorAll(".setup-step-item");
   stepItems.forEach((item) => {
     const step = Number(item.dataset.step || 0);
     if (step === 0) {
-      item.classList.toggle("is-complete", credentialsComplete);
+      item.classList.toggle("is-complete", providerComplete);
     }
     if (step === 1) {
-      item.classList.toggle("is-complete", coverageComplete);
+      item.classList.toggle("is-complete", credentialsComplete);
+    }
+    if (step === 2) {
+      item.classList.toggle("is-complete", coverageRequired && coverageComplete);
     }
     item.classList.toggle("is-active", step === currentStep);
   });
 }
 
-function updateProgressBar(credentialsComplete, coverageComplete) {
+function updateProgressBar({
+  providerComplete,
+  credentialsComplete,
+  coverageComplete,
+  coverageRequired,
+}) {
   // Progress dots
   document.querySelectorAll(".setup-progress-step").forEach((step) => {
     const idx = Number(step.dataset.progressStep || 0);
     step.classList.toggle("is-active", idx === currentStep);
     if (idx === 0) {
-      step.classList.toggle("is-complete", credentialsComplete);
+      step.classList.toggle("is-complete", providerComplete);
     }
     if (idx === 1) {
-      step.classList.toggle("is-complete", coverageComplete);
+      step.classList.toggle("is-complete", credentialsComplete);
+    }
+    if (idx === 2) {
+      step.classList.toggle("is-complete", coverageRequired && coverageComplete);
     }
   });
 
   // Connector fill
-  const connector = document.getElementById("progress-connector");
-  if (connector) {
-    connector.classList.remove("is-half", "is-full");
+  const connector0 = document.getElementById("progress-connector-0");
+  const connector1 = document.getElementById("progress-connector-1");
+
+  if (connector0) {
+    connector0.classList.remove("is-half", "is-full");
+    if (providerComplete) {
+      connector0.classList.add("is-full");
+    }
+  }
+
+  if (connector1) {
+    connector1.classList.remove("is-half", "is-full");
+    if (!coverageRequired) {
+      // Hidden in Google mode.
+      return;
+    }
     if (coverageComplete) {
-      connector.classList.add("is-full");
+      connector1.classList.add("is-full");
     } else if (credentialsComplete) {
-      connector.classList.add("is-half");
+      connector1.classList.add("is-half");
     }
   }
 }
 
-function goToStep(stepIndex) {
-  currentStep = stepIndex;
+function goToStep(stepIndex, { force = false } = {}) {
+  const provider = getSelectedProvider();
+  const { providerComplete, credentialsComplete, coverageRequired } = getStepCompletion(
+    provider
+  );
+  const maxStep = coverageRequired ? 2 : 1;
+  const bounded = Math.max(0, Math.min(stepIndex, maxStep));
+
+  if (!force) {
+    if (bounded > 0 && !providerComplete) {
+      return;
+    }
+    if (bounded > 1 && !credentialsComplete) {
+      return;
+    }
+  }
+
+  currentStep = bounded;
   document.querySelectorAll(".setup-step").forEach((step) => {
     const index = Number(step.dataset.step || 0);
     step.classList.toggle("is-active", index === currentStep);
   });
-  updateStepList(
-    Boolean(
-      setupStatus?.steps?.bouncie?.complete && setupStatus?.steps?.mapbox?.complete
-    ),
-    Boolean(setupStatus?.steps?.coverage?.complete)
-  );
-  updateProgressBar(
-    Boolean(
-      setupStatus?.steps?.bouncie?.complete && setupStatus?.steps?.mapbox?.complete
-    ),
-    Boolean(setupStatus?.steps?.coverage?.complete)
-  );
-  if (currentStep === 1) {
+
+  const completion = getStepCompletion(provider);
+  updateStepList({
+    ...completion,
+    coverageComplete: completion.coverageComplete,
+  });
+  updateProgressBar({
+    ...completion,
+    coverageComplete: completion.coverageComplete,
+  });
+
+  if (currentStep === 2) {
     updateCoveragePhase();
   }
 }
@@ -373,7 +508,91 @@ function togglePasswordVisibility(inputId) {
 
 /* ── Credentials ──────────────────────────────────────────────── */
 
+function updateProviderUI() {
+  const provider = getSelectedProvider();
+  const usingGoogle = isGoogleProvider(provider);
+
+  const googleHeader = document.getElementById("googleCredentialsHeader");
+  const googleForm = document.getElementById("googleCredentialsForm");
+
+  if (usingGoogle) {
+    if (googleHeader) googleHeader.style.display = "";
+    if (googleForm) googleForm.style.display = "";
+    document.getElementById("progress-step-coverage")?.classList.add("d-none");
+    document.getElementById("progress-connector-container-1")?.classList.add("d-none");
+    document.getElementById("sidebar-step-coverage")?.classList.add("d-none");
+    if (currentStep > 1) {
+      goToStep(1, { force: true });
+    }
+  } else {
+    if (googleHeader) googleHeader.style.display = "none";
+    if (googleForm) googleForm.style.display = "none";
+    document.getElementById("progress-step-coverage")?.classList.remove("d-none");
+    document.getElementById("progress-connector-container-1")?.classList.remove("d-none");
+    document.getElementById("sidebar-step-coverage")?.classList.remove("d-none");
+  }
+}
+
+async function handleProviderContinue() {
+  const provider = getSelectedProvider();
+
+  try {
+    const response = await apiClient.raw(APP_SETTINGS_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ map_provider: provider }),
+      ...withSignal(),
+    });
+    if (!response.ok) {
+      showStatus("credentials-status", "Failed to save mapping engine setting.", true);
+      return;
+    }
+  } catch (error) {
+    showStatus("credentials-status", `Error: ${error.message}`, true);
+    return;
+  }
+
+  await loadSetupStatus();
+  if (provider === "google") {
+    mapServiceStatus = null;
+    stopStatusPolling();
+  } else {
+    await refreshMapServicesStatus();
+  }
+  updateProviderUI();
+  updateStepState();
+  goToStep(1);
+}
+
 async function handleCredentialsContinue() {
+  const provider = getSelectedProvider();
+  
+  const googleKeyInput = document.getElementById("googleMapsApiKey");
+  const googleKey = googleKeyInput ? googleKeyInput.value.trim() : "";
+
+  if (provider === "google" && !googleKey) {
+    showStatus("credentials-status", "Google Maps API Key is required.", true);
+    return;
+  }
+
+  if (provider === "google") {
+    try {
+      const response = await apiClient.raw(APP_SETTINGS_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ google_maps_api_key: googleKey }),
+        ...withSignal(),
+      });
+      if (!response.ok) {
+        showStatus("credentials-status", "Failed to save Google Maps API Key.", true);
+        return;
+      }
+    } catch (error) {
+      showStatus("credentials-status", `Error: ${error.message}`, true);
+      return;
+    }
+  }
+
   const bouncieOk = await saveBouncieCredentials();
   if (!bouncieOk) {
     await loadSetupStatus();
@@ -390,6 +609,13 @@ async function handleCredentialsContinue() {
   const missing = setupStatus?.steps?.bouncie?.missing || [];
   const missingNonDevice = missing.filter((item) => item !== "authorized_devices");
 
+  if (provider === "google") {
+    if (bouncieComplete || missingNonDevice.length === 0) {
+      completeSetupAndExit();
+      return;
+    }
+  }
+
   if ((bouncieComplete || missingNonDevice.length === 0) && mapboxComplete) {
     if (missing.includes("authorized_devices")) {
       showStatus(
@@ -398,7 +624,7 @@ async function handleCredentialsContinue() {
         false
       );
     }
-    goToStep(1);
+    goToStep(2);
     return;
   }
 
@@ -563,6 +789,11 @@ function determineCoveragePhase() {
 }
 
 function updateCoveragePhase() {
+  if (isGoogleProvider()) {
+    stopStatusPolling();
+    return;
+  }
+
   coveragePhase = determineCoveragePhase();
 
   const phases = ["import", "detected", "building", "ready"];
@@ -950,8 +1181,7 @@ function updateBuildUI() {
   // Build button
   const mapSetupBtn = document.getElementById("map-setup-btn");
   if (mapSetupBtn) {
-    const credentialsComplete =
-      setupStatus?.steps?.bouncie?.complete && setupStatus?.steps?.mapbox?.complete;
+    const { credentialsComplete } = getStepCompletion();
     mapSetupBtn.classList.toggle("d-none", coveragePhase !== "detected");
     mapSetupBtn.disabled = !credentialsComplete || mapSetupInFlight || !selectedStates.size;
   }

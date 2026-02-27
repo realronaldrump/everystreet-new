@@ -22,6 +22,8 @@ function repairModalUiState() {
 
 export default function initVisitsPage({ cleanup } = {}) {
   const noopTeardown = () => {};
+  const mapProvider = String(window.MAP_PROVIDER || "self_hosted").toLowerCase();
+  const usingGoogleProvider = mapProvider === "google";
   const missingLibraries = [];
 
   if (typeof Chart === "undefined") {
@@ -33,10 +35,10 @@ export default function initVisitsPage({ cleanup } = {}) {
   if (typeof bootstrap === "undefined") {
     missingLibraries.push("Bootstrap");
   }
-  if (typeof mapboxgl === "undefined") {
+  if (!usingGoogleProvider && typeof mapboxgl === "undefined") {
     missingLibraries.push("Mapbox GL JS");
   }
-  if (typeof MapboxDraw === "undefined") {
+  if (!usingGoogleProvider && typeof MapboxDraw === "undefined") {
     missingLibraries.push("Mapbox Draw");
   }
 

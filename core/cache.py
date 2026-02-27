@@ -14,25 +14,9 @@ import json
 import logging
 from typing import Any
 
-import redis.asyncio as aioredis
-
-from core.redis import get_redis_url
+from core.redis import get_shared_redis
 
 logger = logging.getLogger(__name__)
-
-_pool: aioredis.Redis | None = None
-
-
-async def _get_redis() -> aioredis.Redis:
-    """Return a shared async Redis connection pool."""
-    global _pool
-    if _pool is None:
-        _pool = aioredis.from_url(
-            get_redis_url(),
-            decode_responses=True,
-            socket_connect_timeout=2,
-        )
-    return _pool
 
 
 def _make_key(prefix: str, args: tuple, kwargs: dict[str, Any]) -> str:
@@ -59,7 +43,7 @@ def cached(prefix: str, ttl_seconds: int = 300):
         async def wrapper(*args, **kwargs):
             key = _make_key(prefix, args, kwargs)
             try:
-                r = await _get_redis()
+                r = await get_shared_redis()
                 hit = await r.get(key)
                 if hit is not None:
                     return json.loads(hit)
@@ -69,7 +53,7 @@ def cached(prefix: str, ttl_seconds: int = 300):
             result = await fn(*args, **kwargs)
 
             try:
-                r = await _get_redis()
+                r = await get_shared_redis()
                 await r.set(key, json.dumps(result, default=str), ex=ttl_seconds)
             except Exception:
                 logger.debug("Redis cache write failed for %s", key, exc_info=True)

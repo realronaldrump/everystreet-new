@@ -274,6 +274,8 @@ function updateBreadcrumb(routeHistory) {
       const divider = document.createElement("span");
       divider.className = "nav-trail-sep";
       divider.textContent = "›";
+      divider.style.opacity = "0";
+      divider.style.animation = `fadeIn 150ms ${60 + index * 40}ms cubic-bezier(0, 0, 0.2, 1) forwards`;
       trail.appendChild(divider);
     }
 
@@ -281,6 +283,8 @@ function updateBreadcrumb(routeHistory) {
     link.href = item.path;
     link.className = "nav-trail-item";
     link.textContent = item.title || item.path;
+    link.style.opacity = "0";
+    link.style.animation = `fadeInUp 200ms ${80 + index * 50}ms cubic-bezier(0, 0, 0.2, 1) forwards`;
     if (index === items.length - 1) {
       link.setAttribute("aria-current", "page");
       link.classList.add("current");
@@ -455,12 +459,14 @@ export async function initNavigation() {
       new SwupPreloadPlugin({ preloadInitialPage: true }),
       new SwupScrollPlugin({
         animateScroll: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        scrollFriction: 0.3,
+        scrollAcceleration: 0.04,
       }),
       new SwupProgressPlugin({
         className: "swup-progress-bar",
-        delay: 300,
-        transition: 150,
-        initialValue: 0.25,
+        delay: 200,
+        transition: 100,
+        initialValue: 0.3,
         finishAnimation: true,
       }),
       new SwupA11yPlugin({

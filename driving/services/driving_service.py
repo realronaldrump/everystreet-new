@@ -7,7 +7,7 @@ from beanie import PydanticObjectId
 from fastapi import HTTPException
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
-from core.http.valhalla import ValhallaClient
+from core.mapping.factory import get_router
 from core.spatial import GeometryService
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import CoverageArea, CoverageState, Street, Trip
@@ -383,14 +383,14 @@ def _cluster_segments(
     return clusters
 
 
-async def _get_valhalla_route(
+async def _get_route(
     start_lon: float,
     start_lat: float,
     end_lon: float,
     end_lat: float,
 ) -> dict[str, Any]:
-    """Calls Valhalla route API to get a route between two points."""
-    client = ValhallaClient()
+    """Calls active mapping router to get a route between two points."""
+    client = await get_router()
     try:
         result = await client.route(
             [(start_lon, start_lat), (end_lon, end_lat)],
@@ -402,7 +402,7 @@ async def _get_valhalla_route(
     if not geometry:
         raise HTTPException(
             status_code=404,
-            detail="No route found by Valhalla routing API.",
+            detail="No route found by active routing API.",
         )
 
     return {
@@ -566,7 +566,7 @@ class DrivingService:
                     detail="No routable undriven streets found.",
                 )
 
-        route = await _get_valhalla_route(
+        route = await _get_route(
             current_lon,
             current_lat,
             target_midpoint[0],

@@ -14,6 +14,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from db.models import MapProvider
 from core.trip_source_policy import enforce_bouncie_source
 from map_data.models import MapServiceConfig
 from map_data.progress import MapBuildProgress
@@ -178,8 +179,18 @@ async def should_auto_provision() -> dict[str, Any]:
     Returns:
         Dictionary with provisioning decision and details
     """
+    from map_data.services import _get_map_provider_and_google_key
+
     config = await MapServiceConfig.get_or_create()
     await MapBuildProgress.get_or_create()
+    map_provider, _google_key_ready = await _get_map_provider_and_google_key()
+
+    if map_provider == MapProvider.GOOGLE.value:
+        return {
+            "should_provision": False,
+            "reason": "Google Maps provider active; local provisioning is disabled.",
+            "configured_states": config.selected_states,
+        }
 
     # Don't provision if already in progress
     if config.status in {
@@ -312,42 +323,102 @@ async def get_auto_provision_status() -> dict[str, Any]:
     """
     from map_data.services import (
         MAX_RETRIES,
+        _get_map_provider_and_google_key,
         check_container_status,
         check_service_health,
     )
 
     config = await MapServiceConfig.get_or_create()
     progress = await MapBuildProgress.get_or_create()
-    health = await check_service_health()
-    nominatim_container = await check_container_status("nominatim")
-    valhalla_container = await check_container_status("valhalla")
-    detection = await detect_trip_states()
+    map_provider, google_key_ready = await _get_map_provider_and_google_key()
 
     configured_states = set(config.selected_states)
-    detected_states = set(detection["detected_states"])
-    missing_states = list(detected_states - configured_states)
-
-    # Calculate sizes
-    configured_size = 0
-    missing_size = 0
     all_states = list_states()
     state_map = {s["code"]: s for s in all_states}
-
+    configured_size = 0
     for code in configured_states:
         if code in state_map:
             configured_size += int(state_map[code].get("size_mb", 0))
-
-    for code in missing_states:
-        if code in state_map:
-            missing_size += int(state_map[code].get("size_mb", 0))
-
-    # Get state names for display
     configured_names = [
         state_map[code].get("name", code)
         for code in sorted(configured_states)
         if code in state_map
     ]
 
+    if map_provider == MapProvider.GOOGLE.value:
+        return {
+            "mode": "google",
+            "map_provider": map_provider,
+            "status": "ready" if google_key_ready else "error",
+            "is_ready": google_key_ready,
+            "is_building": False,
+            "progress": 100 if google_key_ready else 0,
+            "message": (
+                "Google Maps provider active. Local map provisioning is disabled."
+                if google_key_ready
+                else "Google Maps provider selected but API key is missing."
+            ),
+            "build": {
+                "phase": MapBuildProgress.PHASE_IDLE,
+                "phase_progress": 0.0,
+                "total_progress": 0.0,
+                "started_at": None,
+                "last_progress_at": (
+                    progress.last_progress_at.isoformat()
+                    if progress.last_progress_at
+                    else None
+                ),
+                "active_job_id": None,
+            },
+            "geocoder_progress": None,
+            "configured_states": list(configured_states),
+            "configured_state_names": configured_names,
+            "configured_size_mb": configured_size,
+            "detected_states": [],
+            "missing_states": [],
+            "missing_state_details": [],
+            "missing_size_mb": 0,
+            "needs_provisioning": False,
+            "services": {
+                "geocoding": {
+                    "ready": google_key_ready,
+                    "has_data": google_key_ready,
+                    "error": None if google_key_ready else "Google API key missing",
+                    "container": None,
+                    "skipped": True,
+                },
+                "routing": {
+                    "ready": google_key_ready,
+                    "has_data": google_key_ready,
+                    "error": None if google_key_ready else "Google API key missing",
+                    "container": None,
+                    "skipped": True,
+                },
+            },
+            "last_error": config.last_error,
+            "retry_count": config.retry_count,
+            "max_retries": MAX_RETRIES,
+            "last_updated": (
+                config.last_updated.isoformat() if config.last_updated else None
+            ),
+        }
+
+    health = await check_service_health()
+    nominatim_container = await check_container_status("nominatim")
+    valhalla_container = await check_container_status("valhalla")
+    detection = await detect_trip_states()
+
+    detected_states = set(detection["detected_states"])
+    missing_states = list(detected_states - configured_states)
+
+    # Calculate sizes
+    missing_size = 0
+
+    for code in missing_states:
+        if code in state_map:
+            missing_size += int(state_map[code].get("size_mb", 0))
+
+    # Get state names for display
     missing_details = [
         {
             "code": code,

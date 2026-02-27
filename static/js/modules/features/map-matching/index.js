@@ -6,7 +6,6 @@ import notificationManager from "../../ui/notifications.js";
 import { DateUtils } from "../../utils.js";
 import { clearInlineStatus, setInlineStatus } from "../settings/status-utils.js";
 
-const { mapboxgl } = globalThis;
 const { flatpickr } = globalThis;
 
 let elements = {};
@@ -1191,23 +1190,25 @@ function ensureMatchedPreviewMap() {
   if (matchedPreviewMap) {
     return matchedPreviewMap;
   }
-  if (typeof mapboxgl === "undefined") {
-    setInlineStatus(elements.previewMapStatus, "Mapbox GL is not loaded.", "danger");
+  try {
+    matchedPreviewMap = createMap("map-match-preview-map", {
+      center: [-96.5, 37.5],
+      zoom: 3.4,
+      interactive: true,
+    });
+  } catch (error) {
+    const message =
+      error?.message || "Map preview could not be initialized for this map provider.";
+    setInlineStatus(elements.previewMapStatus, message, "danger");
     return null;
   }
 
-  matchedPreviewMap = createMap("map-match-preview-map", {
-    center: [-96.5, 37.5],
-    zoom: 3.4,
-    interactive: true,
-  });
-
-  matchedPreviewMap.scrollZoom.disable();
-  matchedPreviewMap.boxZoom.disable();
-  matchedPreviewMap.dragRotate.disable();
-  matchedPreviewMap.keyboard.disable();
-  matchedPreviewMap.doubleClickZoom.disable();
-  matchedPreviewMap.touchZoomRotate.disableRotation();
+  matchedPreviewMap.scrollZoom?.disable?.();
+  matchedPreviewMap.boxZoom?.disable?.();
+  matchedPreviewMap.dragRotate?.disable?.();
+  matchedPreviewMap.keyboard?.disable?.();
+  matchedPreviewMap.doubleClickZoom?.disable?.();
+  matchedPreviewMap.touchZoomRotate?.disableRotation?.();
 
   matchedPreviewMap.on("load", () => {
     matchedPreviewMapReady = true;
@@ -1344,11 +1345,29 @@ function selectAllVisible(checked) {
 }
 
 function buildBoundsFromGeojson(geojson) {
-  if (!geojson?.features?.length || typeof mapboxgl === "undefined") {
+  if (!geojson?.features?.length) {
     return null;
   }
-  const bounds = new mapboxgl.LngLatBounds();
-  let hasPoint = false;
+  let minLng = Infinity;
+  let minLat = Infinity;
+  let maxLng = -Infinity;
+  let maxLat = -Infinity;
+
+  const extend = (coord) => {
+    if (!Array.isArray(coord) || coord.length < 2) {
+      return;
+    }
+    const lng = Number(coord[0]);
+    const lat = Number(coord[1]);
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+      return;
+    }
+    minLng = Math.min(minLng, lng);
+    minLat = Math.min(minLat, lat);
+    maxLng = Math.max(maxLng, lng);
+    maxLat = Math.max(maxLat, lat);
+  };
+
   geojson.features.forEach((feature) => {
     const geometry = feature?.geometry;
     if (!geometry) {
@@ -1356,23 +1375,27 @@ function buildBoundsFromGeojson(geojson) {
     }
     const { type, coordinates } = geometry;
     if (type === "LineString") {
-      coordinates.forEach((coord) => {
-        bounds.extend(coord);
-        hasPoint = true;
-      });
+      coordinates.forEach(extend);
     } else if (type === "MultiLineString") {
       coordinates.forEach((line) => {
-        line.forEach((coord) => {
-          bounds.extend(coord);
-          hasPoint = true;
-        });
+        line.forEach(extend);
       });
     } else if (type === "Point") {
-      bounds.extend(coordinates);
-      hasPoint = true;
+      extend(coordinates);
     }
   });
-  return hasPoint ? bounds : null;
+  if (
+    !Number.isFinite(minLng) ||
+    !Number.isFinite(minLat) ||
+    !Number.isFinite(maxLng) ||
+    !Number.isFinite(maxLat)
+  ) {
+    return null;
+  }
+  return [
+    [minLng, minLat],
+    [maxLng, maxLat],
+  ];
 }
 
 function updateMatchedPreviewMap(geojson) {

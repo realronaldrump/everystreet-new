@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 from beanie import PydanticObjectId
 from pymongo import UpdateOne
-from shapely.geometry import LineString, MultiLineString, mapping, shape
+from shapely.geometry import LineString, MultiLineString, shape
 from shapely.ops import transform
 from shapely.strtree import STRtree
 
@@ -25,13 +25,13 @@ from core.trip_source_policy import enforce_bouncie_source
 from db.models import CoverageArea, CoverageState, Street, Trip
 from street_coverage.constants import (
     BACKFILL_BULK_WRITE_SIZE,
+    COVERAGE_OVERLAP_RATIO,
     GPS_GAP_MULTIPLIER,
     MATCH_BUFFER_METERS,
     MAX_GPS_GAP_METERS,
     MAX_SEGMENTS_IN_MEMORY,
     MIN_GPS_GAP_METERS,
     MIN_OVERLAP_METERS,
-    SHORT_SEGMENT_OVERLAP_RATIO,
 )
 from street_coverage.stats import apply_area_stats_delta
 
@@ -189,7 +189,7 @@ class AreaSegmentIndex:
         trip_line: BaseGeometry,
         buffer_meters: float = MATCH_BUFFER_METERS,
         min_overlap_meters: float = MIN_OVERLAP_METERS,
-        short_segment_ratio: float = SHORT_SEGMENT_OVERLAP_RATIO,
+        coverage_ratio: float = COVERAGE_OVERLAP_RATIO,
         *,
         skip_segment_ids: set[str] | None = None,
     ) -> list[str]:
@@ -229,9 +229,12 @@ class AreaSegmentIndex:
                 if segment_length <= 0:
                     continue
 
-                required_overlap = min(
+                # Require coverage_ratio of the segment to be overlapped,
+                # with an absolute floor of min_overlap_meters for very
+                # short segments where GPS noise dominates.
+                required_overlap = max(
                     min_overlap_meters,
-                    segment_length * short_segment_ratio,
+                    segment_length * coverage_ratio,
                 )
 
                 if intersection_length >= required_overlap:
@@ -402,126 +405,6 @@ def trip_to_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
     return MultiLineString(segments_raw)
 
 
-def buffer_trip_line(
-    trip_line: BaseGeometry,
-    buffer_meters: float = MATCH_BUFFER_METERS,
-) -> tuple[Any, Any, Any]:
-    """
-    Create buffer polygons around a trip line.
-
-    Returns (buffer_meters_geom, buffer_wgs84_geom,
-    to_meters_transform).
-    """
-    to_meters, to_wgs84 = get_local_transformers(trip_line)
-    line_meters = transform(to_meters, trip_line)
-    buffered_meters = line_meters.buffer(buffer_meters)
-    buffered_wgs84 = transform(to_wgs84, buffered_meters)
-    return buffered_meters, buffered_wgs84, to_meters
-
-
-def check_segment_overlap(
-    segment_geom: dict[str, Any],
-    trip_buffer_meters: Any,
-    to_meters: Any,
-    min_overlap_meters: float = MIN_OVERLAP_METERS,
-    short_segment_ratio: float = SHORT_SEGMENT_OVERLAP_RATIO,
-) -> bool:
-    """
-    Check if a street segment overlaps sufficiently with a trip buffer.
-
-    Returns True if the segment intersects the buffer and the
-    intersection length meets the minimum overlap threshold.
-    """
-    try:
-        segment_line = shape(segment_geom)
-
-        if not segment_line.is_valid:
-            return False
-
-        segment_meters = transform(to_meters, segment_line)
-
-        if not trip_buffer_meters.intersects(segment_meters):
-            return False
-
-        intersection = trip_buffer_meters.intersection(segment_meters)
-
-        if intersection.is_empty:
-            return False
-
-        intersection_length = intersection.length
-        segment_length = segment_meters.length
-        if segment_length <= 0:
-            return False
-
-        required_overlap = min(
-            min_overlap_meters,
-            segment_length * short_segment_ratio,
-        )
-        meets_overlap = intersection_length >= required_overlap
-
-    except Exception:
-        logger.debug("Error checking segment overlap")
-        return False
-    else:
-        return meets_overlap
-
-
-def _buffer_to_geojson(buffer_geom: BaseGeometry) -> dict[str, Any] | None:
-    if buffer_geom.is_empty:
-        return None
-    if buffer_geom.geom_type not in ("Polygon", "MultiPolygon"):
-        buffer_geom = buffer_geom.envelope
-    return mapping(buffer_geom)
-
-
-async def find_matching_segments(
-    area_id: PydanticObjectId,
-    trip_line: BaseGeometry,
-    area_version: int | None = None,
-) -> list[str]:
-    """
-    Find all street segments that match a trip line.
-
-    Uses MongoDB geospatial query to find candidate segments, then uses
-    Shapely for precise intersection testing.
-
-    Returns list of segment_ids that were matched.
-    """
-    trip_buffer_meters, trip_buffer_wgs84, to_meters = buffer_trip_line(trip_line)
-
-    buffer_geojson = _buffer_to_geojson(trip_buffer_wgs84)
-    if buffer_geojson is None:
-        return []
-
-    query = {
-        "area_id": area_id,
-        "geometry": {
-            "$geoIntersects": {
-                "$geometry": {
-                    "type": buffer_geojson["type"],
-                    "coordinates": buffer_geojson["coordinates"],
-                },
-            },
-        },
-    }
-    if area_version is not None:
-        query["area_version"] = area_version
-
-    matched_segment_ids = [
-        street.segment_id
-        async for street in Street.find(query)
-        if check_segment_overlap(street.geometry, trip_buffer_meters, to_meters)
-    ]
-
-    logger.debug(
-        "Found %d matching segments for trip in area %s",
-        len(matched_segment_ids),
-        area_id,
-    )
-
-    return matched_segment_ids
-
-
 async def match_trip_to_streets(
     trip: dict[str, Any],
     area_ids: list[PydanticObjectId] | None = None,
@@ -529,6 +412,7 @@ async def match_trip_to_streets(
     """
     Match a trip to streets in one or more areas.
 
+    Uses the cached STRtree spatial index for fast in-memory matching.
     If area_ids is None, matches against all ready areas that intersect
     the trip's bounding box.
 
@@ -567,11 +451,15 @@ async def match_trip_to_streets(
         area_version = area_versions.get(area_id)
         if area_version is None:
             continue
-        matched = await find_matching_segments(
-            area_id,
-            trip_line,
-            area_version,
-        )
+        try:
+            index = await get_area_segment_index(area_id, area_version)
+            matched = index.find_matching_segments(trip_line)
+        except MemoryError:
+            logger.warning(
+                "Area %s too large for in-memory index, skipping",
+                area_id,
+            )
+            continue
         if matched:
             results[area_id] = matched
 

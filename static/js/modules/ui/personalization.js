@@ -3,7 +3,6 @@ import { swupReady } from "../core/navigation.js";
 const STORAGE_KEYS = {
   accent: "es:accent-color",
   density: "es:ui-density",
-  motion: "es:motion-mode",
   widgetEdit: "es:widget-editing",
 };
 
@@ -50,7 +49,6 @@ const personalization = {
   applyFromStorage() {
     const accent = localStorage.getItem(STORAGE_KEYS.accent);
     const density = localStorage.getItem(STORAGE_KEYS.density);
-    const motion = localStorage.getItem(STORAGE_KEYS.motion);
     const widgetEditing = localStorage.getItem(STORAGE_KEYS.widgetEdit);
 
     if (accent) {
@@ -59,7 +57,8 @@ const personalization = {
       this.resetAccent();
     }
     this.applyDensity(density || "comfortable");
-    this.applyMotion(motion || "balanced");
+    // Clean up any stale motion-mode storage
+    localStorage.removeItem("es:motion-mode");
     if (widgetEditing !== null) {
       document.dispatchEvent(
         new CustomEvent("widgets:set-edit", {
@@ -72,7 +71,6 @@ const personalization = {
   applyPreferences({
     accentColor,
     density,
-    motion,
     widgetEditing,
     persist = true,
   } = {}) {
@@ -91,13 +89,6 @@ const personalization = {
       this.applyDensity(density);
       if (persist) {
         localStorage.setItem(STORAGE_KEYS.density, density);
-      }
-    }
-
-    if (motion) {
-      this.applyMotion(motion);
-      if (persist) {
-        localStorage.setItem(STORAGE_KEYS.motion, motion);
       }
     }
 
@@ -121,19 +112,6 @@ const personalization = {
       body.classList.add("density-compact");
     } else if (mode === "spacious") {
       body.classList.add("density-spacious");
-    }
-  },
-
-  applyMotion(mode) {
-    const { body } = document;
-    if (!body) {
-      return;
-    }
-    body.classList.remove("motion-subtle", "motion-playful");
-    if (mode === "subtle") {
-      body.classList.add("motion-subtle");
-    } else if (mode === "playful") {
-      body.classList.add("motion-playful");
     }
   },
 

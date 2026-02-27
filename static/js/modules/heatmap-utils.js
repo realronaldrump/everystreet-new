@@ -12,8 +12,8 @@ const heatmapUtils = {
    */
   COLORS: {
     dark: {
-      glow: "#9a6438", // Warm copper glow
-      core: "#d4a24a", // Honey amber core
+      glow: "#c86832", // Warm deep orange glow
+      core: "#f0b840", // Bright golden core
     },
     light: {
       glow: "#b87a4a",

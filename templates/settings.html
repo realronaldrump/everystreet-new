@@ -78,6 +78,7 @@ Tune appearance, sync, and data tools.
           <i class="fas fa-server"></i>
           <span>Storage</span>
         </button>
+        {% if app_settings and (app_settings.get('map_provider') | default('', true) | lower) != 'google' %}
         <button class="settings-tab"
                 data-tab="map-services"
                 role="tab"
@@ -86,6 +87,7 @@ Tune appearance, sync, and data tools.
           <i class="fas fa-globe"></i>
           <span>Map Services</span>
         </button>
+        {% endif %}
       </nav>
     </div>
 
@@ -166,32 +168,7 @@ Information Density
                   </div>
                 </div>
               </div>
-              <div class="setting-item">
-                <div class="setting-label">
-                  <div class="setting-label-title">
-Animation Style
-                  </div>
-                  <div class="setting-label-description">
-                  Choose how expressive interface animations feel
-                  </div>
-                </div>
-                <div class="setting-control">
-                  <div class="option-group" role="radiogroup" aria-label="Animation style">
-                    <label class="option-pill">
-                      <input type="radio" name="motion-mode" value="subtle" />
-                      <span>Subtle</span>
-                    </label>
-                    <label class="option-pill">
-                      <input type="radio" name="motion-mode" value="balanced" checked />
-                      <span>Balanced</span>
-                    </label>
-                    <label class="option-pill">
-                      <input type="radio" name="motion-mode" value="playful" />
-                      <span>Playful</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
+
               <div class="setting-item">
                 <div class="setting-label">
                   <div class="setting-label-title">
@@ -214,6 +191,22 @@ Widget Editing Mode
                 <i class="fas fa-map"></i>
               Map
               </h3>
+              <div class="setting-item">
+                <div class="setting-label">
+                  <div class="setting-label-title">
+                    Map Engine
+                  </div>
+                  <div class="setting-label-description">
+                    Choose between Local map services and Google Maps Cloud
+                  </div>
+                </div>
+                <div class="setting-control">
+                  <select class="form-select form-select-sm" id="map-provider-select" style="min-width: 140px;">
+                    <option value="self_hosted">Self-Hosted</option>
+                    <option value="google">Google Maps</option>
+                  </select>
+                </div>
+              </div>
               <div class="setting-item">
                 <div class="setting-label">
                   <div class="setting-label-title">
@@ -323,8 +316,41 @@ Map Match Trips on Fetch
           Credentials
           </h3>
           <p class="text-muted small">
-          Manage Mapbox and Bouncie credentials in one place.
+          Manage Google Maps and Bouncie credentials in one place.
           </p>
+        </div>
+
+        <div class="settings-group bento-span-12">
+          <h3 class="settings-group-title">
+            <i class="fas fa-map-location-dot"></i>
+          Google Maps Credentials
+          </h3>
+          <p class="text-muted small">
+          Configure the API key used by the Google Maps JavaScript API loader.
+          </p>
+          <form id="credentials-google-form">
+            <div class="row">
+              <div class="col-12 mb-3">
+                <label for="credentials-google-maps-api-key" class="form-label">
+                Google Maps API Key
+                </label>
+                <input type="text"
+                       class="form-control"
+                       id="credentials-google-maps-api-key"
+                       autocomplete="off"
+                       spellcheck="false"
+                       placeholder="AIzaSy..." />
+                <div class="form-text">
+                Applied on next page load.
+                </div>
+              </div>
+            </div>
+            <div class="d-flex justify-content-end gap-2 flex-wrap">
+              <button type="submit" class="btn btn-primary" id="credentials-save-google-btn">
+                <i class="fas fa-save"></i> Save Google Key
+              </button>
+            </div>
+          </form>
         </div>
 
         <div class="settings-group bento-span-12">

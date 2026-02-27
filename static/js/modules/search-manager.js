@@ -26,6 +26,10 @@ const searchManager = {
   currentSearchId: 0, // Track search requests to handle race conditions
   maxSearchResults: 12,
 
+  isGoogleProvider() {
+    return String(window.MAP_PROVIDER || "").toLowerCase() === "google";
+  },
+
   initialize() {
     this.searchInput = document.getElementById("map-search-input");
     this.searchResults = document.getElementById("search-results");
@@ -254,7 +258,7 @@ const searchManager = {
 
       let results = this.mergeAndRankResults(query, streetResults, geocodeResults);
 
-      if (results.length < 6 && query.length >= 3) {
+      if (!this.isGoogleProvider() && results.length < 6 && query.length >= 3) {
         const mapboxResults = await this.mapboxSearch(query, searchId);
         if (searchId !== this.currentSearchId) {
           return;
@@ -381,6 +385,10 @@ const searchManager = {
   },
 
   async mapboxSearch(query, searchId) {
+    if (this.isGoogleProvider()) {
+      return [];
+    }
+
     const token = getMapboxToken();
     if (!token) {
       return [];

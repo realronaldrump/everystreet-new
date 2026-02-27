@@ -14,8 +14,14 @@
 
 /* global mapboxgl */
 
-import { CONFIG } from "./core/config.js";
+import { CONFIG, MAPBOX_PUBLIC_ACCESS_TOKEN } from "./core/config.js";
+import {
+  getMapboxToken,
+  isMapboxStyleUrl,
+  waitForMapboxToken,
+} from "./mapbox-token.js";
 import { getCurrentTheme, resolveMapStyle } from "./core/map-style-resolver.js";
+import { createGoogleMap, ensureMapboxCompatibility } from "./maps/google_map.js";
 import state from "./core/store.js";
 import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
@@ -27,8 +33,6 @@ let initializationError = null;
 const readyCallbacks = [];
 let styleChangeQueue = Promise.resolve();
 let activeStyleType = null;
-const HARD_CODED_MAPBOX_TOKEN =
-  "pk.eyJ1IjoicmVhbHJvbmFsZHJ1bXAiLCJhIjoiY204eXBvMzRhMDNubTJrb2NoaDIzN2dodyJ9.3Hnv3_ps0T7YS8cwSE3XKA";
 
 // Serialized style-change handler registry
 // Handlers run sequentially by priority (lower number = runs first) after a style change.
@@ -167,7 +171,7 @@ const mapCore = {
 
       // Use the fixed Mapbox token.
       loadingManager?.updateMessage("Loading map resources...");
-      const token = HARD_CODED_MAPBOX_TOKEN;
+      const token = MAPBOX_PUBLIC_ACCESS_TOKEN;
 
       if (!token) {
         throw new Error("Mapbox access token not available");
@@ -770,7 +774,6 @@ const mapCore = {
  */
 function createMap(containerId, options = {}) {
   const { center = [0, 0], zoom = 2, accessToken, style, ...rest } = options;
-
   const container = document.getElementById(containerId);
   if (!container) {
     throw new Error(`Map container '${containerId}' not found`);
@@ -780,20 +783,41 @@ function createMap(containerId, options = {}) {
     container.replaceChildren();
   }
 
-  if (!mapboxgl) {
+  const provider = String(window.MAP_PROVIDER || "self_hosted").toLowerCase();
+  if (provider === "google") {
+    if (
+      typeof globalThis?.google === "undefined" ||
+      typeof globalThis.google.maps === "undefined"
+    ) {
+      throw new Error(
+        "Google Maps JS is not loaded yet. Retry once the Google Maps script is ready."
+      );
+    }
+    const googleMap = createGoogleMap(container, {
+      center,
+      zoom,
+      style,
+      ...rest,
+    });
+    ensureMapboxCompatibility();
+    return googleMap;
+  }
+
+  const mapbox = globalThis?.mapboxgl;
+  if (!mapbox) {
     throw new Error("Mapbox GL JS is not loaded");
   }
-  if (typeof mapboxgl.setTelemetryEnabled === "function") {
-    mapboxgl.setTelemetryEnabled(false);
+  if (typeof mapbox.setTelemetryEnabled === "function") {
+    mapbox.setTelemetryEnabled(false);
   }
 
   const { styleUrl: themeStyle } = resolveMapStyle({ theme: getCurrentTheme() });
   const defaultStyle = style || themeStyle;
 
   // Token is fixed for all map usages in this application.
-  mapboxgl.accessToken = String(accessToken || HARD_CODED_MAPBOX_TOKEN).trim();
+  mapbox.accessToken = String(accessToken || MAPBOX_PUBLIC_ACCESS_TOKEN).trim();
 
-  const map = new mapboxgl.Map({
+  const map = new mapbox.Map({
     container: containerId,
     style: defaultStyle,
     center,
@@ -801,47 +825,9 @@ function createMap(containerId, options = {}) {
     ...rest,
     attributionControl: false,
   });
-  map.addControl(new mapboxgl.NavigationControl());
+  map.addControl(new mapbox.NavigationControl());
   map.on("error", () => {});
   return map;
-}
-
-/**
- * Return the centralized Mapbox access token.
- * @returns {string}
- */
-function getMapboxToken() {
-  return HARD_CODED_MAPBOX_TOKEN;
-}
-
-/**
- * Check whether a style URL points to Mapbox-hosted styles.
- * @param {string} styleUrl
- * @returns {boolean}
- */
-function isMapboxStyleUrl(styleUrl) {
-  if (!styleUrl || typeof styleUrl !== "string") {
-    return false;
-  }
-  const url = styleUrl.trim();
-  return url.startsWith("mapbox://") || url.includes("api.mapbox.com");
-}
-
-/**
- * Return the Mapbox access token, optionally waiting a short time.
- * @param {{ timeoutMs?: number }} options
- * @returns {Promise<string>}
- */
-async function waitForMapboxToken({ timeoutMs = 2000 } = {}) {
-  const existing = getMapboxToken();
-  if (existing) {
-    return existing;
-  }
-  const timeoutValue = Number(timeoutMs);
-  if (Number.isFinite(timeoutValue) && timeoutValue > 0) {
-    await Promise.resolve();
-  }
-  throw new Error("Mapbox access token not configured");
 }
 
 export { createMap, getMapboxToken, isMapboxStyleUrl, waitForMapboxToken };

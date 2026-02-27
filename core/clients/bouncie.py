@@ -35,8 +35,14 @@ def format_bouncie_datetime_param(dt: datetime) -> str:
 class BouncieClient:
     """Client for Bouncie trip endpoints."""
 
-    def __init__(self, session: aiohttp.ClientSession | None = None) -> None:
+    def __init__(
+        self,
+        session: aiohttp.ClientSession | None = None,
+        credentials: dict[str, Any] | None = None,
+    ) -> None:
         self._session = session
+        self._credentials = credentials
+        self._token: str | None = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None:
@@ -48,9 +54,23 @@ class BouncieClient:
         credentials: dict[str, Any] | None = None,
     ) -> str | None:
         if credentials is None:
-            credentials = await get_bouncie_config()
+            credentials = self._credentials or await get_bouncie_config()
         session = await self._get_session()
         return await BouncieOAuth.get_access_token(session, credentials)
+
+    async def ensure_token(self) -> str:
+        """Return a valid token, auto-refreshing if expired.
+
+        Uses BouncieOAuth's built-in 5-minute expiry buffer. If the
+        cached token is still valid, this is a cheap dict lookup.
+        For long-running imports this prevents mid-run 401 failures.
+        """
+        token = await self.get_access_token()
+        if not token:
+            msg = "Failed to obtain Bouncie access token"
+            raise RuntimeError(msg)
+        self._token = token
+        return token
 
     @retry_async(max_retries=3, retry_delay=1.5)
     async def fetch_trips_for_device(

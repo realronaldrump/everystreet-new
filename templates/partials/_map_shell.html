@@ -224,36 +224,38 @@ Select location...
           </div>
         </div>
 
-        <!-- Map Style -->
-        <div class="control-section">
-          <div class="layer-group map-style-group">
-            <div class="map-style-header">
-              <h3 class="layer-group-title">
+        {% if not app_settings or (app_settings.get('map_provider') | default('', true) | lower) != 'google' %}
+          <!-- Map Style -->
+          <div class="control-section">
+            <div class="layer-group map-style-group">
+              <div class="map-style-header">
+                <h3 class="layer-group-title">
 Map Style
-              </h3>
-              <span class="map-style-hint">
+                </h3>
+                <span class="map-style-hint">
 Basemap
-              </span>
-            </div>
-            <div class="map-style-select-wrap">
-              <i class="fas fa-palette map-style-select-icon" aria-hidden="true"></i>
-              <select id="map-type-select" class="map-style-select" aria-label="Select map style">
-                <option value="dark">
+                </span>
+              </div>
+              <div class="map-style-select-wrap">
+                <i class="fas fa-palette map-style-select-icon" aria-hidden="true"></i>
+                <select id="map-type-select" class="map-style-select" aria-label="Select map style">
+                  <option value="dark">
 Dark
-                </option>
-                <option value="light">
+                  </option>
+                  <option value="light">
 Light
-                </option>
-                <option value="streets">
+                  </option>
+                  <option value="streets">
 Streets
-                </option>
-                <option value="satellite">
+                  </option>
+                  <option value="satellite">
 Satellite
-                </option>
-              </select>
+                  </option>
+                </select>
+              </div>
             </div>
           </div>
-        </div>
+        {% endif %}
 
         <!-- Layer Toggles -->
         <div class="control-section">

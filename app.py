@@ -10,18 +10,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 
 from admin import router as admin_api_router
 from analytics import router as analytics_api_router
 from api.pages import router as pages_router
 from api.routing import router as routing_router
 from api.status import router as status_router
-from core.jinja import register_template_filters
+from core.jinja import templates
 from core.repo_info import get_repo_version_info
 from core.startup import initialize_shared_runtime, shutdown_shared_runtime
 from county import router as county_api_router
 from db.logging_handler import MongoDBHandler
+from db.models import AppSettings, MapProvider
 from driving import router as driving_api_router
 from exports import router as export_api_router
 from gas import router as gas_api_router
@@ -104,15 +104,13 @@ class CacheControlStaticFiles(StaticFiles):
         return response
 
 
-# Mount static files and templates
+# Mount static files
 static_files = CacheControlStaticFiles(directory="static")
 app.mount(
     "/static",
     static_files,
     name="static",
 )
-templates = Jinja2Templates(directory="templates")
-register_template_filters(templates)
 
 
 @app.get("/static-v/{_version}/{path:path}", include_in_schema=False)
@@ -220,22 +218,39 @@ async def startup_event():
         AppState.mongo_handler = await initialize_shared_runtime(logger=logger)
         logger.info("MongoDB logging handler initialized and configured.")
 
-        # Validate Valhalla + Nominatim configuration
-        # Note: Services may not be ready yet if this is a fresh deployment
-        # The Map Data Management UI allows downloading and building data
-        from config import (
-            get_nominatim_search_url,
-            get_osm_data_path,
-            get_valhalla_route_url,
-            get_valhalla_status_url,
-        )
+        try:
+            settings = await AppSettings.find_one({"_id": "default"})
+        except Exception:
+            settings = None
+        map_provider = str(
+            getattr(getattr(settings, "map_provider", None), "value", None)
+            or getattr(settings, "map_provider", None)
+            or MapProvider.SELF_HOSTED.value
+        ).strip().lower()
+        using_google = map_provider == MapProvider.GOOGLE.value
 
-        _ = get_valhalla_route_url()
-        _ = get_valhalla_status_url()
-        _ = get_nominatim_search_url()
-        osm_path = get_osm_data_path()
+        osm_path = None
+        if using_google:
+            logger.info(
+                "Google mapping provider enabled; skipping self-hosted geo service checks."
+            )
+        else:
+            # Validate Valhalla + Nominatim configuration
+            # Note: Services may not be ready yet if this is a fresh deployment
+            # The Map Data Management UI allows downloading and building data
+            from config import (
+                get_nominatim_search_url,
+                get_osm_data_path,
+                get_valhalla_route_url,
+                get_valhalla_status_url,
+            )
 
-        logger.info("Geo services configured for Docker internal DNS.")
+            _ = get_valhalla_route_url()
+            _ = get_valhalla_status_url()
+            _ = get_nominatim_search_url()
+            osm_path = get_osm_data_path()
+
+            logger.info("Self-hosted geo services configured for Docker internal DNS.")
 
         # Check OSM data path (optional - can be set up later via UI)
         if osm_path:
@@ -272,7 +287,10 @@ async def startup_event():
 
 async def shutdown_event() -> None:
     """Clean up resources when shutting down."""
+    from core.redis import close_shared_redis
+
     await close_arq_pool()
+    await close_shared_redis()
     await shutdown_shared_runtime(
         mongo_handler=AppState.mongo_handler,
         close_http_session=True,

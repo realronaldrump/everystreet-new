@@ -27,7 +27,13 @@ async def test_dispatch_event_rejects_invalid_auth(
 async def test_dispatch_event_saves_key_and_calls_handler(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    get_creds = AsyncMock(return_value={"webhook_key": ""})
+    get_creds = AsyncMock(
+        return_value={
+            "webhook_key": "",
+            "client_id": "client-1",
+            "authorization_code": "auth-code-1",
+        },
+    )
     update = AsyncMock(return_value=True)
     record = AsyncMock()
     handler = AsyncMock()

@@ -1,39 +1,29 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from tracking.services import live_trip_store
 
 
-class _FakeRedisClient:
-    def __init__(self) -> None:
-        self.ping_calls = 0
+@pytest.mark.asyncio
+async def test_save_trip_snapshot_stores_to_redis() -> None:
+    """save_trip_snapshot should set keys via pipeline."""
+    fake_pipe = AsyncMock()
+    fake_redis = AsyncMock()
+    fake_redis.pipeline.return_value = fake_pipe
 
-    async def ping(self) -> None:
-        self.ping_calls += 1
+    trip = {"transactionId": "tx-1", "status": "active"}
 
+    with patch.object(live_trip_store, "get_shared_redis", return_value=fake_redis):
+        await live_trip_store.save_trip_snapshot(trip)
 
-@pytest.fixture(autouse=True)
-def reset_live_trip_redis_state() -> None:
-    live_trip_store._RedisState.client = None
-    yield
-    live_trip_store._RedisState.client = None
+    fake_pipe.execute.assert_awaited_once()
 
 
 @pytest.mark.asyncio
-async def test_get_redis_client_constructs_client_without_awaiting_from_url(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    fake_client = _FakeRedisClient()
-    from_url_mock = MagicMock(return_value=fake_client)
-
-    monkeypatch.setattr(live_trip_store, "get_redis_url", lambda: "redis://test:6379")
-    monkeypatch.setattr(live_trip_store.aioredis, "from_url", from_url_mock)
-
-    result = await live_trip_store._get_redis_client()
-
-    assert result is fake_client
-    from_url_mock.assert_called_once_with("redis://test:6379", decode_responses=True)
-    assert fake_client.ping_calls == 1
+async def test_save_trip_snapshot_rejects_missing_tx_id() -> None:
+    """save_trip_snapshot should raise ValueError if transactionId is missing."""
+    with pytest.raises(ValueError, match="transactionId"):
+        await live_trip_store.save_trip_snapshot({})

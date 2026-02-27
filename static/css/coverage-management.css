@@ -1328,6 +1328,12 @@
   background: rgb(var(--warning-rgb) / 12%);
 }
 
+.validation-badge.badge-node {
+  border-color: var(--info);
+  color: var(--info);
+  background: rgb(var(--info-rgb) / 12%);
+}
+
 .validation-confirmation {
   margin-top: var(--space-2);
 }

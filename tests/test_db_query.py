@@ -1,5 +1,4 @@
 import json
-from datetime import UTC, datetime
 
 import pytest
 from starlette.requests import Request
@@ -7,30 +6,7 @@ from starlette.requests import Request
 from db.query import (
     build_calendar_date_expr,
     build_query_from_request,
-    parse_query_date,
 )
-
-
-def test_parse_query_date_handles_date_only() -> None:
-    parsed = parse_query_date("2024-01-02")
-    assert parsed == datetime(2024, 1, 2, tzinfo=UTC)
-
-    parsed_end = parse_query_date("2024-01-02", end_of_day=True)
-    assert parsed_end == datetime(
-        2024,
-        1,
-        2,
-        23,
-        59,
-        59,
-        999999,
-        tzinfo=UTC,
-    )
-
-
-def test_parse_query_date_handles_iso() -> None:
-    parsed = parse_query_date("2024-01-02T12:30:00Z")
-    assert parsed == datetime(2024, 1, 2, 12, 30, tzinfo=UTC)
 
 
 def test_build_calendar_date_expr_returns_none_for_empty() -> None:

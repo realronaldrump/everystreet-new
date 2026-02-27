@@ -10,8 +10,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from core.date_utils import normalize_calendar_date, normalize_to_utc_datetime
+from core.date_utils import normalize_calendar_date
 from core.trip_source_policy import enforce_bouncie_source
+from db.aggregation_utils import get_mongo_tz_expr
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -19,44 +20,6 @@ if TYPE_CHECKING:
     from fastapi import Request
 
 logger = logging.getLogger(__name__)
-
-
-def parse_query_date(
-    date_str: str | None,
-    end_of_day: bool = False,
-) -> datetime | None:
-    """
-    Parse a date string for query filtering.
-
-    Handles both date-only strings (YYYY-MM-DD) and full ISO datetime strings.
-    For date-only strings, can optionally set to end of day.
-
-    Args:
-        date_str: Date string to parse (YYYY-MM-DD or ISO format).
-        end_of_day: If True and date_str is date-only, set time to 23:59:59.999999.
-
-    Returns:
-        Parsed datetime in UTC, or None if parsing fails.
-    """
-    if not date_str:
-        return None
-
-    dt = normalize_to_utc_datetime(date_str)
-    if dt is None:
-        logger.warning("Unable to parse date string '%s'; returning None.", date_str)
-        return None
-
-    # Check if this is a date-only string (no time component)
-    is_date_only = (
-        isinstance(date_str, str) and "T" not in date_str and "t" not in date_str
-    )
-
-    if is_date_only:
-        if end_of_day:
-            return dt.replace(hour=23, minute=59, second=59, microsecond=999999)
-        return dt.replace(hour=0, minute=0, second=0, microsecond=0)
-
-    return dt
 
 
 def build_calendar_date_expr(
@@ -94,83 +57,7 @@ def build_calendar_date_expr(
     if not start_str and not end_str:
         return None
 
-    # Build timezone expression that handles edge cases and validates timezone format.
-    #
-    # Trips store their timezone as `startTimeZone` / `endTimeZone` (and some older
-    # documents may have `timeZone`). Prefer the field that corresponds to the
-    # date_field we are filtering on.
-    #
-    # MongoDB accepts IANA timezone strings (e.g. "America/Los_Angeles") or
-    # UTC offsets (e.g. "-07:00"). Some upstream sources send offsets as "-0700";
-    # normalize those to "-07:00" to avoid $dateToString errors.
-    if date_field == "startTime":
-        tz_candidate_expr: dict[str, Any] | str = {
-            "$ifNull": ["$startTimeZone", "$timeZone"],
-        }
-    elif date_field == "endTime":
-        tz_candidate_expr = {"$ifNull": ["$endTimeZone", "$timeZone"]}
-    else:
-        tz_candidate_expr = "$timeZone"
-
-    tz_expr: dict[str, Any] = {
-        "$let": {
-            "vars": {"tz": tz_candidate_expr},
-            "in": {
-                "$switch": {
-                    "branches": [
-                        # Null/empty/unknown timezone values.
-                        {
-                            "case": {"$in": ["$$tz", ["", "0000", None]]},
-                            "then": "UTC",
-                        },
-                        # Explicit UTC/GMT.
-                        {
-                            "case": {"$in": ["$$tz", ["UTC", "GMT"]]},
-                            "then": "$$tz",
-                        },
-                        # Normalize "+HHMM"/"-HHMM" -> "+HH:MM"/"-HH:MM".
-                        {
-                            "case": {
-                                "$regexMatch": {
-                                    "input": "$$tz",
-                                    "regex": r"^[+-][0-9]{4}$",
-                                },
-                            },
-                            "then": {
-                                "$concat": [
-                                    {"$substrBytes": ["$$tz", 0, 3]},
-                                    ":",
-                                    {"$substrBytes": ["$$tz", 3, 2]},
-                                ],
-                            },
-                        },
-                        # "+HH:MM"/"-HH:MM" offset format.
-                        {
-                            "case": {
-                                "$regexMatch": {
-                                    "input": "$$tz",
-                                    "regex": r"^[+-][0-9]{2}:[0-9]{2}$",
-                                },
-                            },
-                            "then": "$$tz",
-                        },
-                        # IANA timezone strings, including multi-segment forms
-                        # like "America/Argentina/Buenos_Aires".
-                        {
-                            "case": {
-                                "$regexMatch": {
-                                    "input": "$$tz",
-                                    "regex": r"^[a-zA-Z_]+(?:/[a-zA-Z0-9_+\-]+)+$",
-                                },
-                            },
-                            "then": "$$tz",
-                        },
-                    ],
-                    "default": "UTC",
-                },
-            },
-        },
-    }
+    tz_expr = get_mongo_tz_expr(date_field)
 
     # Convert date field to string in document's timezone
     date_expr: dict[str, Any] = {

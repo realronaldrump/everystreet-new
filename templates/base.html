@@ -1004,9 +1004,20 @@ System
     </script>
     <script src="{{ CDN.flatpickr_js }}"></script>
 
+    <!-- Expose Map Provider Settings to Frontend -->
+    <script>
+        window.MAP_PROVIDER = "{{ (app_settings.get('map_provider') | default('self_hosted', true) | lower) if app_settings else 'self_hosted' }}";
+    </script>
+
     <!-- Libraries used across routes (swup does not execute scripts from fetched HTML) -->
-    <script src="{{ CDN.mapbox_gl_js }}"></script>
-    <script src="{{ CDN.mapbox_draw_js }}"></script>
+    {% if app_settings and (app_settings.get('map_provider') | default('', true) | lower) == 'google' %}
+      <script defer
+              src="https://maps.googleapis.com/maps/api/js?key={{ (app_settings.get('google_maps_api_key') | default('AIzaSyBvNSN_t1y5t0TTRzR8KmFjL1XwSe88RoA', true)) if app_settings else 'AIzaSyBvNSN_t1y5t0TTRzR8KmFjL1XwSe88RoA' }}&loading=async&libraries=geometry,places&map_ids=913996d7028f0a557c531012"></script>
+    {% else %}
+      <script src="{{ CDN.mapbox_gl_js }}"></script>
+      <script src="{{ CDN.mapbox_draw_js }}"></script>
+    {% endif %}
+    
     <script src="{{ CDN.topojson }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/deck.gl@9.2.7/dist.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/h3-js@4.4.0/dist/h3-js.umd.js"></script>

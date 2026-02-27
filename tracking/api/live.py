@@ -6,7 +6,6 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
-import redis.asyncio as aioredis
 from fastapi import (
     APIRouter,
     HTTPException,
@@ -18,7 +17,7 @@ from fastapi import (
 from starlette.websockets import WebSocketState
 
 from core.api import api_route
-from core.redis import get_redis_url
+from core.redis import create_pubsub_redis
 from db import db_manager
 from db.schemas import (
     ActiveTripResponseUnion,
@@ -65,8 +64,7 @@ async def websocket_endpoint(websocket: WebSocket):
             )
 
         # Subscribe to Redis updates
-        redis_url = get_redis_url()
-        redis_client = aioredis.from_url(redis_url, decode_responses=True)
+        redis_client = create_pubsub_redis()
         pubsub = redis_client.pubsub()
         await pubsub.subscribe(TRIP_UPDATES_CHANNEL)
 

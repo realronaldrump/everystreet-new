@@ -3,8 +3,6 @@
  * Coordinates all turn-by-turn navigation modules
  */
 
-/* global mapboxgl */
-
 import TurnByTurnAPI from "./turn-by-turn-api.js";
 import {
   DISTANCE_THRESHOLDS,
@@ -167,11 +165,6 @@ class TurnByTurnNavigator {
    * Initialize the navigator
    */
   async init() {
-    if (typeof mapboxgl === "undefined") {
-      this.ui.setSetupStatus("Map library failed to load.", true);
-      return;
-    }
-
     // Cache DOM elements and bind events
     this.ui.cacheElements();
     this.bindUIEvents();
@@ -807,9 +800,7 @@ class TurnByTurnNavigator {
     // Reconcile coverage baseline with server to capture all driven segments
     if (this.selectedAreaId) {
       try {
-        const coverageData = await TurnByTurnAPI.fetchCoverageArea(
-          this.selectedAreaId
-        );
+        const coverageData = await TurnByTurnAPI.fetchCoverageArea(this.selectedAreaId);
         if (coverageData) {
           this.coverageBaseline = {
             totalMi:

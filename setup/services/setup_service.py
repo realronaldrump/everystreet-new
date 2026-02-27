@@ -9,6 +9,7 @@ from typing import Any, cast
 from fastapi import HTTPException, status
 
 from config import get_mapbox_token, validate_mapbox_token
+from core.mapping.factory import get_router
 from core.service_config import clear_config_cache
 from db.models import AppSettings, TaskConfig, TaskHistory
 from map_data.models import MapServiceConfig
@@ -38,9 +39,16 @@ def _normalize_devices(devices: Any) -> list[str]:
     return []
 
 
+def _normalized_map_provider(value: Any) -> str:
+    raw = getattr(value, "value", value)
+    return str(raw or "self_hosted").strip().lower()
+
+
 async def get_setup_status() -> dict[str, Any]:
     settings = await _get_or_create_settings()
     credentials = await get_bouncie_credentials()
+    map_provider = _normalized_map_provider(settings.map_provider)
+    using_google = map_provider == "google"
 
     bouncie_missing = [
         field
@@ -64,33 +72,62 @@ async def get_setup_status() -> dict[str, Any]:
         mapbox_error = str(exc)
 
     map_config = await MapServiceConfig.get_or_create()
-    coverage_complete = map_config.status == MapServiceConfig.STATUS_READY and bool(
-        map_config.selected_states,
+    coverage_complete = (
+        True
+        if using_google
+        else (
+            map_config.status == MapServiceConfig.STATUS_READY
+            and bool(map_config.selected_states)
+        )
+    )
+    google_key_complete = bool((settings.google_maps_api_key or "").strip())
+    required_complete = (
+        bouncie_complete and google_key_complete
+        if using_google
+        else (bouncie_complete and mapbox_complete and coverage_complete)
     )
 
     return {
+        "map_provider": map_provider,
         "setup_completed": bool(settings.setup_completed),
         "setup_completed_at": (
             settings.setup_completed_at.isoformat()
             if settings.setup_completed_at
             else None
         ),
-        "required_complete": bouncie_complete and mapbox_complete and coverage_complete,
+        "required_complete": required_complete,
         "steps": {
+            "provider": {
+                "complete": map_provider in {"self_hosted", "google"},
+                "selected": map_provider,
+                "required": True,
+            },
             "bouncie": {
                 "complete": bouncie_complete,
                 "missing": bouncie_missing,
                 "required": True,
             },
             "mapbox": {
-                "complete": mapbox_complete,
-                "missing": ["hardcoded_token"] if not mapbox_complete else [],
+                "complete": mapbox_complete if not using_google else True,
+                "missing": (
+                    ["hardcoded_token"]
+                    if (not mapbox_complete and not using_google)
+                    else []
+                ),
                 "error": mapbox_error,
-                "required": True,
+                "required": not using_google,
+                "skipped": using_google,
+            },
+            "google_maps": {
+                "complete": google_key_complete,
+                "missing": ["google_maps_api_key"] if not google_key_complete else [],
+                "required": using_google,
+                "skipped": not using_google,
             },
             "coverage": {
                 "complete": coverage_complete,
-                "required": True,
+                "required": not using_google,
+                "skipped": using_google,
                 "selected_states": map_config.selected_states,
                 "status": map_config.status,
             },
@@ -122,11 +159,16 @@ async def complete_setup() -> dict[str, Any]:
 
     status_payload = await get_setup_status()
     if not status_payload.get("required_complete"):
+        map_provider = str(status_payload.get("map_provider") or "self_hosted").lower()
+        detail = "Complete Bouncie credentials and map coverage before finishing setup."
+        if map_provider == "google":
+            detail = (
+                "Complete Bouncie credentials and add a Google Maps API key "
+                "before finishing setup."
+            )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "Complete Bouncie credentials and map coverage before finishing setup."
-            ),
+            detail=detail,
         )
 
     settings.setup_completed = True
@@ -188,6 +230,9 @@ def _format_geo_detail(container_running: bool, has_data: bool) -> str:
 
 async def get_service_health() -> dict[str, Any]:
     now = datetime.now(UTC)
+    settings = await _get_or_create_settings()
+    map_provider = _normalized_map_provider(settings.map_provider)
+    using_google = map_provider == "google"
 
     mongo_status = "healthy"
     mongo_message = "Connected"
@@ -266,36 +311,71 @@ async def get_service_health() -> dict[str, Any]:
     )
     bouncie_detail = None
 
-    geo_health = await check_service_health(force_refresh=True)
-    nominatim_status = _derive_geo_status(
-        geo_health.nominatim_container_running,
-        geo_health.nominatim_has_data,
-        geo_health.nominatim_error,
+    provider_status = "healthy"
+    provider_message = (
+        "Google Maps provider is active" if using_google else "Self-hosted provider active"
     )
-    nominatim_message = (
-        "Service ready"
-        if geo_health.nominatim_has_data
-        else geo_health.nominatim_error or "Starting up"
-    )
-    nominatim_detail = _format_geo_detail(
-        geo_health.nominatim_container_running,
-        geo_health.nominatim_has_data,
-    )
+    provider_detail = None
+    if using_google:
+        try:
+            router = await get_router()
+            router_state = await router.status()
+            engine = str(router_state.get("engine") or "").strip().lower()
+            if engine and engine != "google":
+                provider_status = "warning"
+                provider_message = f"Active router reports '{engine}'"
+                provider_detail = "Expected Google provider while map_provider=google."
+        except Exception as exc:
+            provider_status = "warning"
+            provider_message = "Google routing provider not reachable"
+            provider_detail = str(exc)
 
-    valhalla_status = _derive_geo_status(
-        geo_health.valhalla_container_running,
-        geo_health.valhalla_has_data,
-        geo_health.valhalla_error,
-    )
-    valhalla_message = (
-        "Service ready"
-        if geo_health.valhalla_has_data
-        else geo_health.valhalla_error or "Starting up"
-    )
-    valhalla_detail = _format_geo_detail(
-        geo_health.valhalla_container_running,
-        geo_health.valhalla_has_data,
-    )
+    if using_google:
+        nominatim_status = "healthy"
+        nominatim_message = "Skipped (Google provider enabled)"
+        nominatim_detail = "Local Nominatim is not required in Google mode."
+        valhalla_status = "healthy"
+        valhalla_message = "Skipped (Google provider enabled)"
+        valhalla_detail = "Local Valhalla is not required in Google mode."
+        nominatim_container_running = False
+        nominatim_has_data = False
+        valhalla_container_running = False
+        valhalla_has_data = False
+    else:
+        geo_health = await check_service_health(force_refresh=True)
+        nominatim_status = _derive_geo_status(
+            geo_health.nominatim_container_running,
+            geo_health.nominatim_has_data,
+            geo_health.nominatim_error,
+        )
+        nominatim_message = (
+            "Service ready"
+            if geo_health.nominatim_has_data
+            else geo_health.nominatim_error or "Starting up"
+        )
+        nominatim_detail = _format_geo_detail(
+            geo_health.nominatim_container_running,
+            geo_health.nominatim_has_data,
+        )
+
+        valhalla_status = _derive_geo_status(
+            geo_health.valhalla_container_running,
+            geo_health.valhalla_has_data,
+            geo_health.valhalla_error,
+        )
+        valhalla_message = (
+            "Service ready"
+            if geo_health.valhalla_has_data
+            else geo_health.valhalla_error or "Starting up"
+        )
+        valhalla_detail = _format_geo_detail(
+            geo_health.valhalla_container_running,
+            geo_health.valhalla_has_data,
+        )
+        nominatim_container_running = geo_health.nominatim_container_running
+        nominatim_has_data = geo_health.nominatim_has_data
+        valhalla_container_running = geo_health.valhalla_container_running
+        valhalla_has_data = geo_health.valhalla_has_data
 
     sort_key = "-timestamp"
     recent_errors = (
@@ -334,16 +414,18 @@ async def get_service_health() -> dict[str, Any]:
             "label": _status_label(nominatim_status),
             "message": nominatim_message,
             "detail": nominatim_detail,
-            "container_running": geo_health.nominatim_container_running,
-            "has_data": geo_health.nominatim_has_data,
+            "container_running": nominatim_container_running,
+            "has_data": nominatim_has_data,
+            "skipped": using_google,
         },
         "valhalla": {
             "status": valhalla_status,
             "label": _status_label(valhalla_status),
             "message": valhalla_message,
             "detail": valhalla_detail,
-            "container_running": geo_health.valhalla_container_running,
-            "has_data": geo_health.valhalla_has_data,
+            "container_running": valhalla_container_running,
+            "has_data": valhalla_has_data,
+            "skipped": using_google,
         },
         "bouncie": {
             "status": bouncie_status,
@@ -351,9 +433,20 @@ async def get_service_health() -> dict[str, Any]:
             "message": bouncie_message,
             "detail": bouncie_detail,
         },
+        "mapping_provider": {
+            "status": provider_status,
+            "label": _status_label(provider_status),
+            "message": provider_message,
+            "detail": provider_detail,
+            "provider": map_provider,
+        },
     }
 
-    statuses = [entry["status"] for entry in service_statuses.values()]
+    statuses = [
+        entry["status"]
+        for entry in service_statuses.values()
+        if not entry.get("skipped")
+    ]
     overall_status = "healthy"
     if "error" in statuses:
         overall_status = "error"

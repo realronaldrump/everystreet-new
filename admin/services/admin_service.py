@@ -12,6 +12,7 @@ from admin.services.storage_service import StorageService
 from config import get_mapbox_token
 from core.date_utils import ensure_utc
 from core.http.geocoding import validate_location_osm
+from core.mapping.factory import clear_local_provider_cache
 from core.service_config import apply_settings_to_env, clear_config_cache
 from db.manager import db_manager
 from db.models import (
@@ -28,6 +29,7 @@ from db.models import (
     Trip,
     Vehicle,
 )
+from routing.graph_connectivity import clear_router_cache
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -83,6 +85,7 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "mapMatchTripsOnFetch": False,
     # Geo Service Configuration (defaults for Docker Compose)
     "mapbox_token": get_mapbox_token(),
+    "google_maps_api_key": None,
     "nominatim_user_agent": "EveryStreet/1.0",
     "geofabrik_mirror": "https://download.geofabrik.de",
     "osm_extracts_path": "/osm",
@@ -128,16 +131,41 @@ class AdminService:
         settings.pop("mapbox_access_token", None)
 
         existing = await AppSettings.find_one()
+        router_settings_changed = False
+        local_client_settings_changed = False
         if existing:
+            if (
+                "map_provider" in settings
+                and settings["map_provider"] != existing.map_provider
+            ):
+                router_settings_changed = True
+            if (
+                "google_maps_api_key" in settings
+                and settings["google_maps_api_key"] != existing.google_maps_api_key
+            ):
+                router_settings_changed = True
+            if (
+                "nominatim_user_agent" in settings
+                and settings["nominatim_user_agent"] != existing.nominatim_user_agent
+            ):
+                local_client_settings_changed = True
             for key, value in settings.items():
                 setattr(existing, key, value)
             await existing.save()
         else:
+            router_settings_changed = (
+                "map_provider" in settings or "google_maps_api_key" in settings
+            )
+            local_client_settings_changed = "nominatim_user_agent" in settings
             payload = DEFAULT_APP_SETTINGS.copy()
             payload.update(settings)
             await AppSettings(**payload).insert()
 
         clear_config_cache()
+        if router_settings_changed:
+            clear_router_cache()
+        if local_client_settings_changed:
+            clear_local_provider_cache()
         updated = await AdminService.get_persisted_app_settings()
         apply_settings_to_env(updated, force=True)
         return updated

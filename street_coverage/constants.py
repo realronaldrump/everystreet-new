@@ -8,25 +8,27 @@ Users cannot customize these values.
 # =============================================================================
 # Street Segmentation (FIXED)
 # =============================================================================
-SEGMENT_LENGTH_FEET = 150.0
-SEGMENT_LENGTH_METERS = SEGMENT_LENGTH_FEET * 0.3048
+# Segments follow natural graph edges (intersection to intersection).
+# Only edges exceeding MAX_SEGMENT_LENGTH_METERS are split into sub-segments.
+MAX_SEGMENT_LENGTH_METERS = 500.0  # ~1640ft — split longer edges for practicality
 
 # =============================================================================
 # Trip Matching (FIXED)
 # =============================================================================
 MATCH_BUFFER_FEET = 40.0  # Buffer around trip line (increased for GPS drift)
 MATCH_BUFFER_METERS = MATCH_BUFFER_FEET * 0.3048
-MIN_OVERLAP_FEET = 10.0  # Minimum overlap to count as driven (reduced for accuracy)
+MIN_OVERLAP_FEET = 15.0  # Absolute minimum overlap floor (for very short segments)
 MIN_OVERLAP_METERS = MIN_OVERLAP_FEET * 0.3048
 MIN_GPS_GAP_METERS = 500.0  # Split trip lines when GPS gaps exceed this (increased)
 MAX_GPS_GAP_METERS = 2000.0  # Cap the adaptive gap threshold
 GPS_GAP_MULTIPLIER = 10.0  # Scale factor for adaptive gap detection
-SHORT_SEGMENT_OVERLAP_RATIO = 0.4  # Require 40% of very short segments (reduced)
+COVERAGE_OVERLAP_RATIO = 0.50  # Require 50% of segment length to be covered
 
 # =============================================================================
 # Unit Conversions
 # =============================================================================
-METERS_TO_MILES = 0.000621371
+from core.constants import METERS_TO_MILES  # noqa: E402
+
 MILES_TO_METERS = 1609.344
 
 # =============================================================================

@@ -13,58 +13,14 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-import redis.asyncio as aioredis
 from beanie import PydanticObjectId
-from redis.exceptions import ConnectionError as RedisConnectionError
 
-from core.redis import get_redis_url
+from core.redis import get_shared_redis
 
 logger = logging.getLogger(__name__)
 
 # Redis channel name for trip updates
 TRIP_UPDATES_CHANNEL = "trip_updates"
-
-
-class RedisClientState:
-    """State container for Redis client to avoid global variables."""
-
-    client: aioredis.Redis | None = None
-
-
-async def get_redis_client() -> aioredis.Redis:
-    """
-    Get or create a singleton async Redis client instance.
-
-    Returns:
-        Async Redis client instance configured for Pub/Sub.
-
-    Raises:
-        RedisConnectionError: If unable to connect to Redis.
-    """
-    if RedisClientState.client is not None:
-        try:
-            await RedisClientState.client.ping()
-        except (RedisConnectionError, AttributeError):
-            logger.warning("Redis client connection lost, reconnecting...")
-            RedisClientState.client = None
-        else:
-            return RedisClientState.client
-
-    # Get Redis URL using centralized configuration
-    redis_url = get_redis_url()
-
-    try:
-        RedisClientState.client = aioredis.from_url(
-            redis_url,
-            decode_responses=True,
-        )
-        await RedisClientState.client.ping()
-    except RedisConnectionError:
-        logger.exception("Failed to connect to Redis")
-        raise
-    else:
-        logger.info("Connected to Redis for trip event publishing")
-        return RedisClientState.client
 
 
 def json_serializer(obj: Any) -> Any:
@@ -96,7 +52,7 @@ async def publish_trip_state(
     """
 
     try:
-        client = await get_redis_client()
+        client = await get_shared_redis()
 
         event_data = {
             "transaction_id": transaction_id,

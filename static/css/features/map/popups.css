@@ -127,3 +127,93 @@
   font-size: var(--font-size-xs);
   padding: var(--space-1) var(--space-3);
 }
+
+/* === Trip Popup Styling === */
+
+.trip-popup-content {
+  padding: var(--space-4);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  min-width: 260px;
+}
+
+.trip-popup-header {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-base);
+  margin-bottom: var(--space-3);
+  color: var(--primary);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--divider-color);
+}
+
+.trip-popup-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+  align-items: baseline;
+}
+
+.trip-popup-label {
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.trip-popup-value {
+  color: var(--text-primary);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.trip-popup-actions {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--divider-color);
+  display: flex;
+  gap: var(--space-2);
+}
+
+.trip-popup-actions .btn {
+  font-size: var(--font-size-xs);
+  padding: var(--space-1) var(--space-3);
+}
+
+/* === Google Maps InfoWindow Styling === */
+
+/* Strip Google's default InfoWindow backgrounds and shadows
+   so the inner .mapboxgl-popup-content styling is visible. */
+.gm-style-iw.gm-style-iw-c {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+}
+
+/* Background container behind InfoWindow content */
+.gm-style-iw-d {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+/* Remove the painted background panel behind the InfoWindow */
+.gm-style .gm-style-iw-tc,
+.gm-style .gm-style-iw-tc::after {
+  display: none !important;
+}
+
+/* Hide Google's default close button (popups use their own) */
+.gm-style-iw button.gm-ui-hover-effect {
+  display: none !important;
+}
+
+/* Give the inner popup content its own visual card */
+.gm-style-iw .mapboxgl-popup-content {
+  background-color: var(--surface-glass);
+  color: var(--text-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(var(--blur-subtle));
+  min-width: 280px;
+}

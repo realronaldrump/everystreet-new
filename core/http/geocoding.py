@@ -10,8 +10,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from core.http.nominatim import NominatimClient
 from core.http.retry import retry_async
+from core.mapping.factory import get_geocoder
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ async def validate_location_osm(
     location_type: str,
 ) -> dict[str, Any] | None:
     """
-    Validate a location using the self-hosted Nominatim search API.
+    Validate a location using the active geocoder.
 
     Args:
         location: The location string to validate.
@@ -30,16 +30,28 @@ async def validate_location_osm(
     Returns:
         The first matching location result or None if not found.
     """
-    client = NominatimClient()
-    results = await client.search_raw(
-        query=location,
-        limit=1,
-        polygon_geojson=True,
-    )
+    client = await get_geocoder()
+    try:
+        results = await client.search_raw(
+            query=location,
+            limit=1,
+            polygon_geojson=True,
+        )
+    except NotImplementedError:
+        # Fallback for Google Maps
+        results = await client.search(
+            query=location,
+            limit=1,
+        )
+
     if not results:
         return None
     result = results[0]
-    if location_type and result.get("type") != location_type:
+    if (
+        location_type
+        and result.get("type") != location_type
+        and result.get("source") != "google"
+    ):
         return None
     return result
 
@@ -50,7 +62,7 @@ async def reverse_geocode_nominatim(
     lon: float,
 ) -> dict[str, Any] | None:
     """
-    Reverse geocode coordinates using self-hosted Nominatim.
+    Reverse geocode coordinates using the active mapping provider.
 
     Args:
         lat: Latitude coordinate.
@@ -59,5 +71,5 @@ async def reverse_geocode_nominatim(
     Returns:
         Geocoding result dictionary or None if failed.
     """
-    client = NominatimClient()
+    client = await get_geocoder()
     return await client.reverse(lat, lon)

@@ -1,4 +1,4 @@
-"""Routing endpoints backed by Valhalla."""
+"""Routing endpoints backed by the active routing provider."""
 
 import logging
 from typing import Any
@@ -6,10 +6,12 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from core.http.valhalla import ValhallaClient
+from core.clients.valhalla import ValhallaClient as _DefaultValhallaClient
+from core.mapping.factory import get_router
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/routing", tags=["routing"])
+ValhallaClient = _DefaultValhallaClient
 
 
 class RouteRequest(BaseModel):
@@ -21,11 +23,17 @@ class EtaRequest(BaseModel):
     waypoints: list[list[float]] = Field(..., min_length=2)
 
 
+async def _get_routing_client() -> Any:
+    if ValhallaClient is not _DefaultValhallaClient:
+        return ValhallaClient()
+    return await get_router()
+
+
 @router.post("/route")
 async def route_endpoint(payload: RouteRequest) -> dict[str, Any]:
     origin = payload.origin
     destination = payload.destination
-    client = ValhallaClient()
+    client = await _get_routing_client()
     try:
         result = await client.route(
             [(origin[0], origin[1]), (destination[0], destination[1])],
@@ -49,7 +57,7 @@ async def route_endpoint(payload: RouteRequest) -> dict[str, Any]:
 
 @router.post("/eta")
 async def eta_endpoint(payload: EtaRequest) -> dict[str, Any]:
-    client = ValhallaClient()
+    client = await _get_routing_client()
     try:
         result = await client.route(payload.waypoints)
     except Exception as exc:

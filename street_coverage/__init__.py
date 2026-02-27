@@ -22,15 +22,14 @@ from importlib import import_module
 from db.models import CoverageArea, CoverageState, Job, Street
 from street_coverage.constants import (
     MATCH_BUFFER_METERS,
+    MAX_SEGMENT_LENGTH_METERS,
     MIN_OVERLAP_METERS,
-    SEGMENT_LENGTH_METERS,
 )
 
 __all__ = [
     "MATCH_BUFFER_METERS",
+    "MAX_SEGMENT_LENGTH_METERS",
     "MIN_OVERLAP_METERS",
-    # Constants
-    "SEGMENT_LENGTH_METERS",
     # Models
     "CoverageArea",
     "CoverageState",

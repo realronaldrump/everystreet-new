@@ -61,6 +61,11 @@ def _set_env_value(key: str, value: str | None, *, force: bool = False) -> None:
 
 def _apply_settings_to_env(settings: AppSettings, *, force: bool = False) -> None:
     """Seed environment variables from stored settings."""
+    _set_env_value(
+        "NOMINATIM_USER_AGENT",
+        settings.nominatim_user_agent,
+        force=force,
+    )
     _set_env_value("GEOFABRIK_MIRROR", settings.geofabrik_mirror, force=force)
     _set_env_value("OSM_EXTRACTS_PATH", settings.osm_extracts_path, force=force)
     _set_env_value(

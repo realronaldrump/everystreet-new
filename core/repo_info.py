@@ -19,13 +19,12 @@ class RepoVersionInfo:
     last_updated: str
 
 
-def _format_display_date(iso_date: str) -> str:
-    """Format ISO date string to human readable display format in Central time."""
+def _format_display_date(iso_date: str, tz_name: str = "America/Chicago") -> str:
+    """Format ISO date string to human readable display format in the given timezone."""
     try:
         dt = datetime.fromisoformat(iso_date)
-        # Use Central timezone explicitly
-        central = ZoneInfo("America/Chicago")
-        return dt.astimezone(central).strftime("%B %d, %Y %I:%M %p")
+        tz = ZoneInfo(tz_name)
+        return dt.astimezone(tz).strftime("%B %d, %Y %I:%M %p")
     except ValueError:
         return _format_commit_datetime(iso_date)
 

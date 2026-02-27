@@ -516,7 +516,14 @@ class DashboardService:
             Dictionary containing trip metrics including totals, averages, and statistics
         """
         query = enforce_bouncie_source(query)
-        target_timezone_str = "America/Chicago"
+
+        # Resolve user timezone from settings (defaults to America/Chicago)
+        from db.models import AppSettings
+
+        settings = await AppSettings.find_one({"_id": "default"})
+        target_timezone_str = (
+            settings.user_timezone if settings else "America/Chicago"
+        )
         target_tz = pytz.timezone(target_timezone_str)
 
         pipeline = [

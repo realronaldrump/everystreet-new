@@ -25,8 +25,8 @@
   transform: translateX(120%);
   opacity: 0;
   transition:
-    transform var(--transition-spring) cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity var(--transition-normal);
+    transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 200ms cubic-bezier(0, 0, 0.2, 1);
   pointer-events: auto;
   border: 1px solid var(--glass-border);
   border-left: 3px solid var(--primary);
@@ -87,7 +87,7 @@
   padding: var(--space-1);
   margin-left: var(--space-2);
   font-size: var(--font-size-lg);
-  transition: color var(--transition-fast);
+  transition: color 120ms cubic-bezier(0.4, 0, 0.2, 1);
   align-self: flex-start; /* Align close button to top right */
 }
 
@@ -113,8 +113,8 @@
   gap: var(--space-2);
   max-width: min(560px, calc(100vw - 40px));
   cursor: pointer;
-  transition: var(--transition-fast);
-  animation: slideInUp 0.3s ease-out;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  animation: slideInUp 250ms cubic-bezier(0, 0, 0.2, 1);
 }
 
 .minimized-progress-badge:hover {

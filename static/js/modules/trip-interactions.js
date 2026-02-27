@@ -98,31 +98,21 @@ const tripInteractions = {
     }
 
     return `
-        <div class="coverage-popup-content">
-          <div class="popup-title">Trip Details</div>
-          <div class="popup-detail">
-            <span class="popup-label">Start:</span>
-            <span>${formatTime(props.startTime)}</span>
-          </div>
-          <div class="popup-detail">
-            <span class="popup-label">End:</span>
-            <span>${formatTime(props.endTime)}</span>
-          </div>
-          <div class="popup-detail">
-            <span class="popup-label">Distance:</span>
-            <span>${formatNumber(props.distance)} mi</span>
-          </div>
-          <div class="popup-detail">
-            <span class="popup-label">Duration:</span>
-            <span>${metricsManager.formatDuration(duration)}</span>
-          </div>
-          <div class="popup-detail">
-            <span class="popup-label">Avg Speed:</span>
-            <span>${formatNumber(props.avgSpeed)} mph</span>
-          </div>
-          <div class="popup-detail">
-            <span class="popup-label">Max Speed:</span>
-            <span>${formatNumber(props.maxSpeed)} mph</span>
+        <div class="trip-popup-content">
+          <div class="trip-popup-header">Trip Details</div>
+          <div class="trip-popup-grid">
+            <span class="trip-popup-label">Start</span>
+            <span class="trip-popup-value">${formatTime(props.startTime)}</span>
+            <span class="trip-popup-label">End</span>
+            <span class="trip-popup-value">${formatTime(props.endTime)}</span>
+            <span class="trip-popup-label">Distance</span>
+            <span class="trip-popup-value">${formatNumber(props.distance)} mi</span>
+            <span class="trip-popup-label">Duration</span>
+            <span class="trip-popup-value">${metricsManager.formatDuration(duration)}</span>
+            <span class="trip-popup-label">Avg Speed</span>
+            <span class="trip-popup-value">${formatNumber(props.avgSpeed)} mph</span>
+            <span class="trip-popup-label">Max Speed</span>
+            <span class="trip-popup-value">${formatNumber(props.maxSpeed)} mph</span>
           </div>
           ${this.createActionButtons(feature)}
         </div>
@@ -142,19 +132,19 @@ const tripInteractions = {
     }
 
     return `
-        <div class="popup-actions mt-3 d-flex gap-2 flex-wrap">
+        <div class="trip-popup-actions">
           <button class="btn btn-sm btn-primary view-trip-btn" data-trip-id="${tripId}">
             <i class="fas fa-eye"></i> View
           </button>
           ${
             isMatched
               ? `
-            <button class="btn btn-sm btn-danger delete-matched-trip-btn" data-trip-id="${tripId}">
-              <i class="fas fa-eraser"></i> Clear Match
+            <button class="btn btn-sm btn-outline-danger delete-matched-trip-btn" data-trip-id="${tripId}">
+              <i class="fas fa-eraser"></i> Clear
             </button>
           `
               : `
-            <button class="btn btn-sm btn-danger delete-trip-btn" data-trip-id="${tripId}">
+            <button class="btn btn-sm btn-outline-danger delete-trip-btn" data-trip-id="${tripId}">
               <i class="fas fa-trash"></i> Delete
             </button>
           `

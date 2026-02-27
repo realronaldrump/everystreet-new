@@ -13,7 +13,7 @@ let inFlight = null;
 let boundToggle = false;
 let refreshListenerBound = false;
 
-const STEP_META = [
+const SELF_HOSTED_STEP_META = [
   {
     key: "bouncie",
     title: "Connect Bouncie",
@@ -30,6 +30,37 @@ const STEP_META = [
     detail: "Choose states and build map data",
   },
 ];
+
+const GOOGLE_STEP_META = [
+  {
+    key: "bouncie",
+    title: "Connect Bouncie",
+    detail: "Client ID, secret, redirect, and authorized devices",
+  },
+  {
+    key: "google_maps",
+    title: "Add Google Maps API key",
+    detail: "Required for maps and geocoding",
+  },
+];
+
+function resolveProvider(status) {
+  const provider = String(
+    status?.map_provider ||
+      status?.steps?.provider?.selected ||
+      window.MAP_PROVIDER ||
+      "self_hosted"
+  )
+    .trim()
+    .toLowerCase();
+  return provider === "google" ? "google" : "self_hosted";
+}
+
+function checklistMetaForProvider(status) {
+  return resolveProvider(status) === "google"
+    ? GOOGLE_STEP_META
+    : SELF_HOSTED_STEP_META;
+}
 
 function shouldSkipBanner() {
   return document.body?.dataset?.route === SETUP_ROUTE;
@@ -69,12 +100,14 @@ function shouldShowBanner(status) {
   return true;
 }
 
-function renderChecklist(listEl, steps) {
+function renderChecklist(listEl, status) {
   if (!listEl) {
     return;
   }
   listEl.innerHTML = "";
-  STEP_META.forEach((meta) => {
+  const steps = status?.steps || {};
+  const stepMeta = checklistMetaForProvider(status);
+  stepMeta.forEach((meta) => {
     const step = steps?.[meta.key] || {};
     const complete = Boolean(step.complete);
     const item = document.createElement("li");
@@ -118,7 +151,14 @@ function updateUI(status) {
   }
 
   const listEl = document.getElementById("setup-required-list");
-  renderChecklist(listEl, status.steps || {});
+  const messageEl = document.getElementById("setup-required-message");
+  if (messageEl) {
+    messageEl.textContent =
+      resolveProvider(status) === "google"
+        ? "Run the setup wizard to connect Bouncie and Google Maps."
+        : "Run the setup wizard to connect Bouncie and your self-hosted services.";
+  }
+  renderChecklist(listEl, status);
   applyCollapsedState(modal, fab);
 }
 

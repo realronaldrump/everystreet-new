@@ -8,7 +8,7 @@ from shapely.geometry import LineString, MultiLineString, mapping, shape
 from shapely.geometry.base import BaseGeometry
 
 from core.clients.nominatim import GeocodingService
-from core.http.nominatim import NominatimClient
+from core.mapping.factory import get_geocoder
 from db.models import CoverageArea, CoverageState, Street
 
 if TYPE_CHECKING:
@@ -17,11 +17,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class _NominatimLookupClient:
+    async def lookup_raw(self, **kwargs: Any) -> list[dict[str, Any]]:
+        geocoder = await get_geocoder()
+        return await geocoder.lookup_raw(**kwargs)
+
+
 class SearchService:
     """Search helpers for geocoding and street lookup."""
 
     _geo_service = GeocodingService()
-    _nominatim_client = NominatimClient()
+    _nominatim_client = _NominatimLookupClient()
 
     @staticmethod
     def _normalize_query_text(value: str | None) -> str:
@@ -277,6 +283,8 @@ class SearchService:
                 polygon_geojson=True,
                 addressdetails=True,
             )
+        except NotImplementedError:
+            return {"feature": None, "available": False, "clipped": False}
         except Exception:
             logger.warning(
                 "Street geometry lookup failed for osm_id=%s osm_type=%s",

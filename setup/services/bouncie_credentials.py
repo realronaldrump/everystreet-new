@@ -36,7 +36,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             - authorized_devices: list[str]
             - fetch_concurrency: int (defaults to 12)
             - access_token: str | None
-            - refresh_token: str | None
+
             - expires_at: float | None (timestamp)
     """
     default_credentials = {
@@ -53,7 +53,6 @@ async def get_bouncie_credentials() -> dict[str, Any]:
         "authorized_devices": [],
         "fetch_concurrency": DEFAULT_FETCH_CONCURRENCY,
         "access_token": None,
-        "refresh_token": None,
         "expires_at": None,
     }
 
@@ -84,7 +83,6 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             "authorized_devices": credentials.authorized_devices or [],
             "fetch_concurrency": fetch_concurrency,
             "access_token": credentials.access_token,
-            "refresh_token": credentials.refresh_token,
             "expires_at": credentials.expires_at,
         }
 
@@ -103,7 +101,7 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
             Only fields present in this dict will be updated.
             Can include: client_id, client_secret, redirect_uri,
             authorization_code, authorized_devices (list or comma-separated string),
-            fetch_concurrency (int, optional), access_token, refresh_token, expires_at,
+            fetch_concurrency (int, optional), access_token, expires_at,
             webhook_key, last_auth_error, last_auth_error_detail, last_auth_error_at
 
     Returns:
@@ -161,8 +159,6 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                         existing.fetch_concurrency = parsed
                 elif key == "access_token":
                     existing.access_token = value
-                elif key == "refresh_token":
-                    existing.refresh_token = value
                 elif key == "expires_at":
                     existing.expires_at = value
 
@@ -216,8 +212,6 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
 
             if "access_token" in credentials:
                 new_creds.access_token = credentials["access_token"]
-            if "refresh_token" in credentials:
-                new_creds.refresh_token = credentials["refresh_token"]
             if "expires_at" in credentials:
                 new_creds.expires_at = credentials["expires_at"]
 

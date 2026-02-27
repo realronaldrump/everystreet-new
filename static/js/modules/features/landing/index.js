@@ -46,6 +46,8 @@ let recordSources = {
 
 let pageSignal = null;
 let lastKnownLocation = null;
+let metricsLoadRequestId = 0;
+let removeFilterRefreshListener = null;
 const withSignal = (options = {}) =>
   pageSignal ? { ...options, signal: pageSignal } : options;
 const apiGet = (url, options = {}) => apiClient.get(url, withSignal(options));
@@ -69,8 +71,11 @@ export default function initLandingPage({ signal, cleanup } = {}) {
   checkLiveTracking();
   bindSwipeActions();
   bindRecordCard();
+  removeFilterRefreshListener = bindFilterRefresh();
   const teardown = () => {
     clearIntervals();
+    removeFilterRefreshListener?.();
+    removeFilterRefreshListener = null;
     swipeActionsBound = false;
     pageSignal = null;
   };
@@ -240,6 +245,24 @@ function bindRecordCard() {
     },
     pageSignal ? { signal: pageSignal } : false
   );
+}
+
+function bindFilterRefresh() {
+  const refreshMetrics = () => {
+    loadMetrics();
+  };
+
+  if (pageSignal) {
+    document.addEventListener("filtersApplied", refreshMetrics, {
+      signal: pageSignal,
+    });
+    return () => {};
+  }
+
+  document.addEventListener("filtersApplied", refreshMetrics);
+  return () => {
+    document.removeEventListener("filtersApplied", refreshMetrics);
+  };
 }
 
 async function loadCountyStats() {
@@ -746,10 +769,15 @@ function buildTripMetricsQueryParams() {
  * Fetch trip metrics and update stats
  */
 async function loadMetrics() {
+  const requestId = ++metricsLoadRequestId;
   try {
     const params = buildTripMetricsQueryParams();
     const qs = params.toString();
     const data = await apiGet(qs ? `/api/metrics?${qs}` : "/api/metrics");
+
+    if (requestId !== metricsLoadRequestId || pageSignal?.aborted) {
+      return;
+    }
 
     // Update stats with animation
     const miles = parseFloat(data.total_distance) || 0;
@@ -762,7 +790,10 @@ async function loadMetrics() {
       animateValue(elements.statMiles, miles, formatNumber, CONFIG.animationDuration);
       animateValue(elements.statTrips, trips, formatNumber, CONFIG.animationDuration);
     }
-  } catch {
+  } catch (error) {
+    if (requestId !== metricsLoadRequestId || isAbortError(error)) {
+      return;
+    }
     if (elements.statMiles) {
       elements.statMiles.textContent = "--";
     }

@@ -30,7 +30,7 @@ import networkx as nx
 from dotenv import load_dotenv
 from shapely.geometry import box, mapping, shape
 
-from config import get_osm_extracts_path, require_osm_data_path, resolve_osm_data_path
+from config import get_osm_extracts_path, resolve_osm_data_path
 from core.spatial import buffer_polygon_for_routing
 from routing.constants import GRAPH_STORAGE_DIR, ROUTING_BUFFER_FT
 from street_coverage.public_road_filter import (
@@ -48,10 +48,7 @@ logger = logging.getLogger(__name__)
 
 OSM_EXTENSIONS = {".osm", ".xml", ".pbf"}
 DEFAULT_AREA_EXTRACT_THRESHOLD_MB = 256
-# Lowered from 4096 to reduce memory pressure on constrained systems
-DEFAULT_GRAPH_MEMORY_LIMIT_MB = 2048
-_TRUE_LITERALS = {"true", "t", "1", "yes", "y", "on"}
-_FALSE_LITERALS = {"false", "f", "0", "no", "n", "off"}
+DEFAULT_GRAPH_MEMORY_LIMIT_MB = 4096
 
 _REQUIRED_OSMNX_WAY_TAGS = {
     "highway",
@@ -285,25 +282,10 @@ def _ensure_osmnx_useful_way_tags(ox: Any) -> None:
 
 
 def _coerce_osmnx_bool(value: Any) -> bool | None:
-    # OSMnx's GraphML loader only accepts "True"/"False" (or bool) for bool attrs.
-    if value is None:
-        return None
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, int | float):
-        return bool(value)
-    if isinstance(value, str):
-        raw = value.strip()
-        if raw in {"True", "False"}:
-            return raw == "True"
-        lowered = raw.lower()
-        if lowered in _TRUE_LITERALS:
-            return True
-        if lowered in _FALSE_LITERALS:
-            return False
-        if lowered == "-1":
-            return True
-    return None
+    # Re-export from the canonical implementation in core.
+    from core.osmnx_graphml import _coerce_osmnx_bool as _impl
+
+    return _impl(value)
 
 
 def _sanitize_graph_for_graphml(G: nx.MultiDiGraph) -> None:
@@ -459,11 +441,14 @@ def _atomic_save_graphml(G: nx.MultiDiGraph, graph_path: Path) -> None:
 
 
 def _build_graph_in_process(
-    osm_path: Path,
+    osm_path: Path | None,
     routing_polygon: Any,
     graph_path: Path,
 ) -> nx.MultiDiGraph:
-    G = _load_graph_from_extract(osm_path, routing_polygon)
+    if osm_path is not None:
+        G = _load_graph_from_extract(osm_path, routing_polygon)
+    else:
+        G = _load_graph_from_overpass(routing_polygon)
     if not isinstance(G, nx.MultiDiGraph):
         G = nx.MultiDiGraph(G)
     _prune_non_driveable_edges(G)
@@ -691,6 +676,37 @@ def _normalize_pyrosm_gdfs(nodes_gdf: Any, edges_gdf: Any) -> tuple[Any, Any]:
     return nodes, edges
 
 
+def _load_graph_from_overpass(routing_polygon: Any) -> nx.MultiDiGraph:
+    """Fetch driveable road network from the Overpass API via OSMnx.
+
+    Used as a fallback when no local OSM extract is available (e.g. when
+    using Google Maps as the mapping provider).  The resulting graph is
+    already clipped to the routing polygon.
+    """
+    ox = _get_osmnx()
+    _ensure_osmnx_useful_way_tags(ox)
+
+    logger.info("Fetching road network from Overpass API (this may take a moment)...")
+    G = ox.graph_from_polygon(
+        routing_polygon,
+        network_type="drive",
+        simplify=True,
+        retain_all=True,
+        truncate_by_edge=True,
+    )
+    if not isinstance(G, nx.MultiDiGraph):
+        G = nx.MultiDiGraph(G)
+
+    if G.number_of_edges() > 0:
+        missing_length = any(
+            "length" not in data for _, _, _, data in G.edges(keys=True, data=True)
+        )
+        if missing_length:
+            G = ox.distance.add_edge_lengths(G)
+
+    return G
+
+
 def _load_graph_from_extract(osm_path: Path, routing_polygon: Any) -> nx.MultiDiGraph:
     ox = _get_osmnx()
     _ensure_osmnx_useful_way_tags(ox)
@@ -795,8 +811,8 @@ async def preprocess_streets(
         # 2. Buffer Polygon
         routing_polygon = buffer_polygon_for_routing(polygon, ROUTING_BUFFER_FT)
 
-        # 3. Load Graph from local extract
-        logger.info("Loading OSM graph from local extract for %s...", location_name)
+        # 3. Load Graph (local extract or Overpass API fallback)
+        logger.info("Loading OSM graph for %s...", location_name)
 
         # Run synchronous ox operations in a thread pool to avoid blocking the event loop
         # distinct from the main thread if running in an async context
@@ -804,42 +820,67 @@ async def preprocess_streets(
 
         def _download_and_save():
             GRAPH_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-            osm_path_str = resolve_osm_data_path()
-            if not osm_path_str:
-                osm_path_str = require_osm_data_path()
-            osm_path = Path(osm_path_str)
-            logger.info("Using OSM extract: %s", osm_path)
-            _validate_osm_path(osm_path)
-            threshold_mb = _get_area_extract_threshold_mb()
-            try:
-                size_mb = osm_path.stat().st_size / (1024 * 1024)
-            except OSError:
-                size_mb = 0
-            require_extract = (
-                _is_area_extract_required()
-                and threshold_mb > 0
-                and size_mb >= threshold_mb
-            )
-            area_extract = _maybe_extract_area_pbf(
-                osm_path,
-                routing_polygon,
-                _build_extract_cache_key(location_id, area_version),
-                require_extract=require_extract,
-                threshold_mb=threshold_mb,
-            )
-            if area_extract:
-                osm_path = area_extract
-                logger.info("Using area extract for graph build: %s", osm_path)
-
-            # 4. Save to Disk
             file_path = GRAPH_STORAGE_DIR / f"{location_id}.graphml"
-            graph = _build_graph_with_limit(
-                osm_path,
-                routing_polygon,
-                file_path,
-                _get_graph_memory_limit_mb(),
-                location_id=location_id,
-            )
+
+            # Try to find a local OSM extract
+            osm_path_str = resolve_osm_data_path()
+            local_osm_path: Path | None = None
+            if osm_path_str:
+                candidate = Path(osm_path_str)
+                if (
+                    candidate.exists()
+                    and candidate.suffix.lower() in OSM_EXTENSIONS
+                ):
+                    local_osm_path = candidate
+
+            if local_osm_path is not None:
+                # --- Local OSM extract path ---
+                logger.info("Using local OSM extract: %s", local_osm_path)
+                _validate_osm_path(local_osm_path)
+                threshold_mb = _get_area_extract_threshold_mb()
+                try:
+                    size_mb = local_osm_path.stat().st_size / (1024 * 1024)
+                except OSError:
+                    size_mb = 0
+                require_extract = (
+                    _is_area_extract_required()
+                    and threshold_mb > 0
+                    and size_mb >= threshold_mb
+                )
+                area_extract = _maybe_extract_area_pbf(
+                    local_osm_path,
+                    routing_polygon,
+                    _build_extract_cache_key(location_id, area_version),
+                    require_extract=require_extract,
+                    threshold_mb=threshold_mb,
+                )
+                if area_extract:
+                    local_osm_path = area_extract
+                    logger.info(
+                        "Using area extract for graph build: %s", local_osm_path,
+                    )
+
+                graph = _build_graph_with_limit(
+                    local_osm_path,
+                    routing_polygon,
+                    file_path,
+                    _get_graph_memory_limit_mb(),
+                    location_id=location_id,
+                )
+            else:
+                # --- Overpass API fallback ---
+                # No local OSM data configured or available (common in
+                # Google Maps mode).  Fetch the road network for just
+                # this area from the public Overpass API via OSMnx.
+                logger.info(
+                    "No local OSM extract found; fetching road network "
+                    "from Overpass API for %s...",
+                    location_name,
+                )
+                graph = _build_graph_in_process(
+                    None, routing_polygon, file_path,
+                )
+
             return graph, file_path
 
         graph, file_path = await loop.run_in_executor(None, _download_and_save)

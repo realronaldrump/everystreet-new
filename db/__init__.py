@@ -65,7 +65,6 @@ from db.models import (
 from db.query import (
     build_calendar_date_expr,
     build_query_from_request,
-    parse_query_date,
 )
 
 logger = logging.getLogger(__name__)
@@ -98,5 +97,4 @@ __all__ = [
     "build_calendar_date_expr",
     "build_query_from_request",
     "db_manager",
-    "parse_query_date",
 ]

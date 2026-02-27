@@ -5,9 +5,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from core.clients.valhalla import ValhallaClient
 from core.date_utils import get_current_utc_time
 from core.exceptions import ExternalServiceException
+from core.mapping.factory import get_router
 from core.spatial import GeometryService, extract_timestamps_for_coordinates
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ class MapMatchingService:
     """Service for map matching coordinates to road networks using Valhalla."""
 
     def __init__(self) -> None:
-        self._client = ValhallaClient()
+        pass
 
     async def map_match_coordinates(
         self,
@@ -102,11 +102,16 @@ class MapMatchingService:
 
     # Number of GPS points to duplicate at each chunk boundary so that
     # Valhalla can produce a seamless match across chunks.
-    _CHUNK_OVERLAP = 3
+    _CHUNK_OVERLAP = 8
 
     # Maximum distance (in degrees, ~500 m at mid-latitudes) between
     # consecutive matched points before we consider the result broken.
     _MAX_MATCHED_JUMP_DEG = 0.005
+
+    # Tolerance for overlap trimming — matched points within this many
+    # degrees (~50 m) of the previous chunk's tail are considered part
+    # of the overlap region and are dropped.
+    _OVERLAP_TRIM_TOL_DEG = 0.0005
 
     async def _map_match_chunked(
         self,
@@ -115,7 +120,9 @@ class MapMatchingService:
         chunk_size: int,
     ) -> dict[str, Any]:
         chunk_indices = self._create_chunk_indices_with_overlap(
-            coordinates, chunk_size, self._CHUNK_OVERLAP,
+            coordinates,
+            chunk_size,
+            self._CHUNK_OVERLAP,
         )
         logger.info(
             "Splitting %d coords into %d overlapping chunks (overlap=%d)",
@@ -160,20 +167,19 @@ class MapMatchingService:
             if not final_matched:
                 final_matched = list(matched)
             else:
-                # Trim overlap: drop leading points of this chunk that
-                # are near the tail of the previous result to avoid
-                # duplication at the boundary.
-                trim = 0
-                for pt in matched:
-                    if self._coords_close(final_matched[-1], pt):
-                        trim += 1
-                    else:
-                        break
+                # Trim overlap: find the best join point between the
+                # previous chunk's tail and this chunk's head.  Walk
+                # forward through the new chunk looking for the first
+                # point that is closest to the last accepted point,
+                # then skip everything up to (and including) that best
+                # match to avoid duplication.
+                trim = self._find_overlap_trim(final_matched, matched)
                 final_matched.extend(matched[trim:])
 
-        # Validate continuity — reject results with large jumps that
-        # indicate a broken match (the "straight lines on the map" bug).
-        if not self._validate_continuity(final_matched):
+        # Validate continuity — instead of rejecting the entire result,
+        # split at discontinuities and keep the longest contiguous run.
+        final_matched = self._salvage_continuous_segments(final_matched)
+        if len(final_matched) < 2:
             return {
                 "code": "Error",
                 "message": (
@@ -191,6 +197,84 @@ class MapMatchingService:
         return abs(a[0] - b[0]) < tol and abs(a[1] - b[1]) < tol
 
     @classmethod
+    def _find_overlap_trim(
+        cls,
+        existing: list[list[float]],
+        new_chunk: list[list[float]],
+    ) -> int:
+        """Find the number of leading points to trim from *new_chunk*.
+
+        Walks through the head of *new_chunk* and finds the last point
+        that is within the overlap tolerance of the existing tail. This
+        produces a cleaner join than the naive "skip while close" approach.
+        """
+        if not existing or not new_chunk:
+            return 0
+
+        tail = existing[-1]
+        best_trim = 0
+        # Only search the first _CHUNK_OVERLAP * 3 points — the overlap
+        # region should not be larger than this.
+        search_limit = min(len(new_chunk), cls._CHUNK_OVERLAP * 3)
+        for i in range(search_limit):
+            dx = abs(new_chunk[i][0] - tail[0])
+            dy = abs(new_chunk[i][1] - tail[1])
+            if dx < cls._OVERLAP_TRIM_TOL_DEG and dy < cls._OVERLAP_TRIM_TOL_DEG:
+                best_trim = i + 1
+        return best_trim
+
+    @classmethod
+    def _salvage_continuous_segments(
+        cls,
+        coords: list[list[float]],
+    ) -> list[list[float]]:
+        """Split at discontinuities and return the longest contiguous run.
+
+        Instead of rejecting the entire match when one jump is found,
+        this keeps the largest useful piece of geometry.
+        """
+        if len(coords) < 2:
+            return coords
+
+        # Build list of contiguous segments
+        segments: list[list[list[float]]] = []
+        current: list[list[float]] = [coords[0]]
+
+        for i in range(1, len(coords)):
+            dx = abs(coords[i][0] - coords[i - 1][0])
+            dy = abs(coords[i][1] - coords[i - 1][1])
+            if dx > cls._MAX_MATCHED_JUMP_DEG or dy > cls._MAX_MATCHED_JUMP_DEG:
+                logger.warning(
+                    "Matched geometry has %.4f° jump at index %d — splitting",
+                    max(dx, dy),
+                    i,
+                )
+                if len(current) >= 2:
+                    segments.append(current)
+                current = [coords[i]]
+            else:
+                current.append(coords[i])
+
+        if len(current) >= 2:
+            segments.append(current)
+
+        if not segments:
+            return []
+
+        # Return the longest segment
+        best = max(segments, key=len)
+        if len(segments) > 1:
+            logger.info(
+                "Salvaged %d contiguous points from %d segments "
+                "(discarded %d segments with %d total points)",
+                len(best),
+                len(segments),
+                len(segments) - 1,
+                sum(len(s) for s in segments) - len(best),
+            )
+        return best
+
+    @classmethod
     def _validate_continuity(
         cls,
         coords: list[list[float]],
@@ -203,7 +287,9 @@ class MapMatchingService:
             dy = abs(coords[i][1] - coords[i - 1][1])
             if dx > cls._MAX_MATCHED_JUMP_DEG or dy > cls._MAX_MATCHED_JUMP_DEG:
                 logger.warning(
-                    "Matched geometry has %.4f° jump at index %d", max(dx, dy), i,
+                    "Matched geometry has %.4f° jump at index %d",
+                    max(dx, dy),
+                    i,
                 )
                 return False
         return True
@@ -254,7 +340,8 @@ class MapMatchingService:
         if use_timestamps and not any(point.get("time") for point in shape):
             use_timestamps = False
 
-        result = await self._client.trace_route(
+        client = await get_router()
+        result = await client.trace_route(
             shape,
             use_timestamps=use_timestamps or None,
         )
