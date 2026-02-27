@@ -53,7 +53,14 @@ function formatIsoToLocal(value) {
     if (Number.isNaN(dt.getTime())) {
       return String(value);
     }
-    return dt.toLocaleString();
+    return dt.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
   } catch {
     return String(value);
   }
@@ -645,10 +652,10 @@ export function initTripHistoryImportWizard({ signal } = {}) {
 
     const details = [];
     if (job?.metadata?.start_iso) {
-      details.push(`Start: ${job.metadata.start_iso}`);
+      details.push(`Start: ${formatIsoToLocal(job.metadata.start_iso)}`);
     }
     if (job?.metadata?.end_iso) {
-      details.push(`End: ${job.metadata.end_iso}`);
+      details.push(`End: ${formatIsoToLocal(job.metadata.end_iso)}`);
     }
     if (job?.error) {
       details.push(`Error: ${job.error}`);
