@@ -974,8 +974,15 @@ async def _fetch_boundary(location_name: str) -> dict[str, Any]:
 
     result = fallback_result
     geojson = result.get("geojson")
+
+    # Ensure geojson is a dict before proceeding.
+    if not isinstance(geojson, dict):
+        geojson = None
+
     if isinstance(geojson, dict) and geojson.get("type") == "Feature":
         geojson = geojson.get("geometry")
+        if not isinstance(geojson, dict):
+            geojson = None
 
     # Discard non-polygon geometries (e.g. Point for OSM nodes) so the
     # bounding-box fallback below has a chance to fire.

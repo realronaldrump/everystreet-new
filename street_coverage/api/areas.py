@@ -275,8 +275,15 @@ def _normalize_candidate(
 
 def _extract_boundary(result: dict[str, Any], label: str) -> dict[str, Any]:
     geojson = result.get("geojson")
+
+    # Ensure geojson is a dict before proceeding.
+    if not isinstance(geojson, dict):
+        geojson = None
+
     if isinstance(geojson, dict) and geojson.get("type") == "Feature":
         geojson = geojson.get("geometry")
+        if not isinstance(geojson, dict):
+            geojson = None
 
     # Discard non-polygon geometries (e.g. Point for OSM nodes) so the
     # bounding-box fallback below has a chance to fire.
@@ -322,7 +329,7 @@ def _extract_boundary(result: dict[str, Any], label: str) -> dict[str, Any]:
         msg = f"No boundary polygon for: {label}"
         raise ValueError(msg)
 
-    geom_type = geojson.get("type")
+    geom_type = geojson.get("type") if isinstance(geojson, dict) else None
     if geom_type not in ("Polygon", "MultiPolygon"):
         msg = f"Invalid geometry type for boundary: {geom_type}"
         raise ValueError(msg)
@@ -445,12 +452,19 @@ async def validate_area(request: ValidateAreaRequest):
 )
 async def resolve_area(request: ResolveAreaRequest):
     """Resolve a candidate boundary for confirmation."""
+    from street_coverage.ingestion import (
+        _is_viewport_rectangle,
+        _try_overpass_boundary,
+    )
+
     client = await get_geocoder()
+    is_node = str(request.osm_type or "").strip().lower() in ("node", "n")
+
     try:
         results = await client.lookup_raw(
             osm_id=request.osm_id,
             osm_type=request.osm_type,
-            polygon_geojson=True,
+            polygon_geojson=not is_node,
             addressdetails=True,
         )
     except NotImplementedError as exc:
@@ -477,14 +491,28 @@ async def resolve_area(request: ResolveAreaRequest):
 
     result = results[0]
     label = str(result.get("display_name") or request.osm_id)
+    boundary = None
     used_boundary_fallback = False
-    try:
-        boundary = _extract_boundary(
-            result,
-            label,
+
+    # Step 1: For non-node types, try extracting the polygon from the
+    # lookup result directly (it should contain the full geometry).
+    if not is_node:
+        try:
+            boundary = _extract_boundary(result, label)
+        except ValueError:
+            logger.debug(
+                "_extract_boundary failed for osm_id=%s, will try fallbacks",
+                request.osm_id,
+            )
+    else:
+        logger.info(
+            "OSM type is 'node' for osm_id=%s — skipping direct polygon "
+            "extraction, will resolve via search fallback",
+            request.osm_id,
         )
-    except ValueError as exc:
-        original_exc = exc
+
+    # Step 2: Search by display name with polygon_geojson=True.
+    if boundary is None:
         try:
             boundary = await _fetch_boundary(label)
             used_boundary_fallback = True
@@ -494,31 +522,35 @@ async def resolve_area(request: ResolveAreaRequest):
                 request.osm_type,
             )
         except (ValueError, Exception):
-            # Last resort: try OSMnx/Overpass for a real admin boundary
-            from street_coverage.ingestion import _try_overpass_boundary
+            logger.debug(
+                "_fetch_boundary failed for %s, will try Overpass",
+                label,
+            )
 
-            overpass_boundary = await _try_overpass_boundary(label)
-            if overpass_boundary is not None:
-                boundary = overpass_boundary
-                used_boundary_fallback = True
-                logger.info(
-                    "Resolved polygon boundary via Overpass fallback for osm_id=%s osm_type=%s",
-                    request.osm_id,
-                    request.osm_type,
-                )
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=str(original_exc),
-                ) from original_exc
+    # Step 3: Last resort — OSMnx/Overpass admin boundary lookup.
+    if boundary is None:
+        overpass_boundary = await _try_overpass_boundary(label)
+        if overpass_boundary is not None:
+            boundary = overpass_boundary
+            used_boundary_fallback = True
+            logger.info(
+                "Resolved polygon boundary via Overpass fallback for osm_id=%s osm_type=%s",
+                request.osm_id,
+                request.osm_type,
+            )
+
+    if boundary is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Could not resolve a polygon boundary for: {label}. "
+                f"This location may only exist as a point in OpenStreetMap "
+                f"and does not have an area boundary."
+            ),
+        )
 
     # If the boundary looks like a viewport rectangle (e.g. Google),
     # try to enrich it with a real admin boundary from OSMnx/Nominatim.
-    from street_coverage.ingestion import (
-        _is_viewport_rectangle,
-        _try_overpass_boundary,
-    )
-
     if _is_viewport_rectangle(boundary):
         enriched = await _try_overpass_boundary(label)
         if enriched is not None:
