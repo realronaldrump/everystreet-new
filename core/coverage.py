@@ -5,6 +5,7 @@ from __future__ import annotations
 import gc
 import itertools
 import logging
+import math
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -28,10 +29,17 @@ from street_coverage.constants import (
     COVERAGE_OVERLAP_RATIO,
     GPS_GAP_MULTIPLIER,
     MATCH_BUFFER_METERS,
+    MAX_BEARING_DIFF_DEGREES,
     MAX_GPS_GAP_METERS,
     MAX_SEGMENTS_IN_MEMORY,
+    MEDIUM_SEGMENT_OVERLAP_RATIO,
+    MEDIUM_SEGMENT_THRESHOLD_METERS,
     MIN_GPS_GAP_METERS,
     MIN_OVERLAP_METERS,
+    RAW_GPS_BUFFER_METERS,
+    RAW_GPS_OVERLAP_RATIO,
+    SHORT_SEGMENT_OVERLAP_RATIO,
+    SHORT_SEGMENT_THRESHOLD_METERS,
 )
 from street_coverage.stats import apply_area_stats_delta
 
@@ -41,6 +49,56 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 BackfillProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
+
+
+def _line_bearing(line: BaseGeometry) -> float | None:
+    """Compute the overall bearing (0-360) of a LineString from start to end.
+
+    Uses projected (meters) coordinates. Returns None for degenerate lines.
+    """
+    coords = list(line.coords)
+    if len(coords) < 2:
+        return None
+    dx = coords[-1][0] - coords[0][0]
+    dy = coords[-1][1] - coords[0][1]
+    if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+        return None
+    bearing = math.degrees(math.atan2(dx, dy)) % 360
+    return bearing
+
+
+def _bearing_aligned(
+    trip_bearing: float | None,
+    segment_bearing: float | None,
+    max_diff: float = MAX_BEARING_DIFF_DEGREES,
+) -> bool:
+    """Check if two bearings are within max_diff degrees.
+
+    Roads are bidirectional, so bearings 0° and 180° are considered aligned.
+    Returns True if either bearing is None (skip check for degenerate lines).
+    """
+    if trip_bearing is None or segment_bearing is None:
+        return True
+    diff = abs(trip_bearing - segment_bearing) % 360
+    if diff > 180:
+        diff = 360 - diff
+    # Roads are bidirectional — also check the reverse direction
+    return diff <= max_diff or abs(diff - 180) <= max_diff
+
+
+def _get_segment_overlap_ratio(
+    segment_length: float,
+    base_ratio: float,
+) -> float:
+    """Return the overlap ratio based on segment length.
+
+    Short segments need stronger evidence to be credited.
+    """
+    if segment_length < SHORT_SEGMENT_THRESHOLD_METERS:
+        return max(base_ratio, SHORT_SEGMENT_OVERLAP_RATIO)
+    if segment_length < MEDIUM_SEGMENT_THRESHOLD_METERS:
+        return max(base_ratio, MEDIUM_SEGMENT_OVERLAP_RATIO)
+    return base_ratio
 
 
 async def _bulk_write_updates(
@@ -192,6 +250,7 @@ class AreaSegmentIndex:
         coverage_ratio: float = COVERAGE_OVERLAP_RATIO,
         *,
         skip_segment_ids: set[str] | None = None,
+        check_bearing: bool = True,
     ) -> list[str]:
         """
         Find all segments that match a trip line using the spatial index.
@@ -208,6 +267,21 @@ class AreaSegmentIndex:
         if len(candidate_indices) == 0:
             return []
 
+        # Pre-compute trip bearing for directional alignment check.
+        # For MultiLineString, compute bearing per sub-line and check
+        # alignment against any of them.
+        trip_bearings: list[float] = []
+        if check_bearing:
+            if isinstance(trip_meters, MultiLineString):
+                for sub_line in trip_meters.geoms:
+                    b = _line_bearing(sub_line)
+                    if b is not None:
+                        trip_bearings.append(b)
+            else:
+                b = _line_bearing(trip_meters)
+                if b is not None:
+                    trip_bearings.append(b)
+
         matched_ids = []
         for idx in candidate_indices:
             segment = self.segments[idx]
@@ -217,6 +291,15 @@ class AreaSegmentIndex:
 
             if not trip_buffer_meters.intersects(segment_meters):
                 continue
+
+            # Bearing alignment check: reject segments whose bearing
+            # doesn't align with any sub-line of the trip.
+            if check_bearing and trip_bearings:
+                seg_bearing = _line_bearing(segment_meters)
+                if seg_bearing is not None and not any(
+                    _bearing_aligned(tb, seg_bearing) for tb in trip_bearings
+                ):
+                    continue
 
             try:
                 intersection = trip_buffer_meters.intersection(segment_meters)
@@ -229,12 +312,15 @@ class AreaSegmentIndex:
                 if segment_length <= 0:
                     continue
 
-                # Require coverage_ratio of the segment to be overlapped,
-                # with an absolute floor of min_overlap_meters for very
-                # short segments where GPS noise dominates.
+                # Use tiered overlap ratio based on segment length
+                effective_ratio = _get_segment_overlap_ratio(
+                    segment_length,
+                    coverage_ratio,
+                )
+
                 required_overlap = max(
                     min_overlap_meters,
-                    segment_length * coverage_ratio,
+                    segment_length * effective_ratio,
                 )
 
                 if intersection_length >= required_overlap:
@@ -355,7 +441,9 @@ def _split_coords_by_gap(coords: list[list[float]]) -> list[LineString]:
     return segments
 
 
-def trip_to_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
+def trip_to_linestring(
+    trip: dict[str, Any],
+) -> tuple[BaseGeometry | None, bool]:
     """
     Convert a trip document to a Shapely LineString/MultiLineString.
 
@@ -364,7 +452,8 @@ def trip_to_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
     coverage matching.  Falls back to raw GPS (trip["gps"]) when
     matching was not performed or failed.
 
-    Returns None if trip has no valid geometry.
+    Returns (geometry, is_map_matched) tuple.
+    geometry is None if trip has no valid geometry.
     """
     # Prefer map-matched geometry — it is snapped to the actual road
     # network so coverage attribution is far more accurate, especially
@@ -381,28 +470,26 @@ def trip_to_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
                 if len(line_coords) >= 2:
                     segments.append(LineString(line_coords))
             if segments:
-                if len(segments) == 1:
-                    return segments[0]
-                return MultiLineString(segments)
+                geom = segments[0] if len(segments) == 1 else MultiLineString(segments)
+                return geom, True
 
     # Fall back to raw GPS trace.
     geom = trip.get("gps")
     if not isinstance(geom, dict):
-        return None
+        return None, False
 
     lines = _extract_lines_from_geojson(geom)
     if not lines:
-        return None
+        return None, False
 
     segments_raw: list[LineString] = []
     for line_coords in lines:
         segments_raw.extend(_split_coords_by_gap(line_coords))
 
     if not segments_raw:
-        return None
-    if len(segments_raw) == 1:
-        return segments_raw[0]
-    return MultiLineString(segments_raw)
+        return None, False
+    raw_geom = segments_raw[0] if len(segments_raw) == 1 else MultiLineString(segments_raw)
+    return raw_geom, False
 
 
 async def match_trip_to_streets(
@@ -418,10 +505,20 @@ async def match_trip_to_streets(
 
     Returns dict mapping area_id -> list of matched segment_ids.
     """
-    trip_line = trip_to_linestring(trip)
+    trip_line, is_map_matched = trip_to_linestring(trip)
     if trip_line is None:
         logger.warning("Trip has no valid geometry, skipping matching")
         return {}
+
+    if not is_map_matched:
+        logger.warning(
+            "Trip using raw GPS fallback for coverage matching "
+            "(map matching unavailable) — results may be less accurate"
+        )
+
+    # Select matching parameters based on geometry source
+    buffer = MATCH_BUFFER_METERS if is_map_matched else RAW_GPS_BUFFER_METERS
+    overlap_ratio = COVERAGE_OVERLAP_RATIO if is_map_matched else RAW_GPS_OVERLAP_RATIO
 
     if area_ids is None:
         minx, miny, maxx, maxy = trip_line.bounds
@@ -453,7 +550,11 @@ async def match_trip_to_streets(
             continue
         try:
             index = await get_area_segment_index(area_id, area_version)
-            matched = index.find_matching_segments(trip_line)
+            matched = index.find_matching_segments(
+                trip_line,
+                buffer_meters=buffer,
+                coverage_ratio=overlap_ratio,
+            )
         except MemoryError:
             logger.warning(
                 "Area %s too large for in-memory index, skipping",
@@ -870,7 +971,7 @@ async def backfill_coverage_for_area(
         if isinstance(trip_end, datetime):
             latest_trip_endtime = trip_end
 
-        trip_line = trip_to_linestring(trip_data)
+        trip_line, is_map_matched = trip_to_linestring(trip_data)
         if trip_line is None:
             await report_progress(total_trips=total_trip_count)
             continue
@@ -880,7 +981,15 @@ async def backfill_coverage_for_area(
             await report_progress(total_trips=total_trip_count)
             continue
 
-        matched_segment_ids = segment_index.find_matching_segments(trip_line)
+        buffer = MATCH_BUFFER_METERS if is_map_matched else RAW_GPS_BUFFER_METERS
+        overlap_ratio = (
+            COVERAGE_OVERLAP_RATIO if is_map_matched else RAW_GPS_OVERLAP_RATIO
+        )
+        matched_segment_ids = segment_index.find_matching_segments(
+            trip_line,
+            buffer_meters=buffer,
+            coverage_ratio=overlap_ratio,
+        )
         if not matched_segment_ids:
             await report_progress(total_trips=total_trip_count)
             continue

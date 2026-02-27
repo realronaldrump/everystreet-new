@@ -177,9 +177,9 @@ class MapMatchingService:
                 final_matched.extend(matched[trim:])
 
         # Validate continuity — instead of rejecting the entire result,
-        # split at discontinuities and keep the longest contiguous run.
-        final_matched = self._salvage_continuous_segments(final_matched)
-        if len(final_matched) < 2:
+        # split at discontinuities and keep ALL contiguous segments.
+        all_segments = self._salvage_continuous_segments(final_matched)
+        if not all_segments:
             return {
                 "code": "Error",
                 "message": (
@@ -188,8 +188,16 @@ class MapMatchingService:
                 ),
             }
 
-        logger.info("Final matched coords: %d points", len(final_matched))
-        return self._create_matching_result(final_matched)
+        total_points = sum(len(s) for s in all_segments)
+        logger.info(
+            "Final matched: %d segment(s), %d total points",
+            len(all_segments),
+            total_points,
+        )
+
+        if len(all_segments) == 1:
+            return self._create_matching_result(all_segments[0])
+        return self._create_multi_matching_result(all_segments)
 
     @staticmethod
     def _coords_close(a: list[float], b: list[float], tol: float = 1e-6) -> bool:
@@ -227,14 +235,17 @@ class MapMatchingService:
     def _salvage_continuous_segments(
         cls,
         coords: list[list[float]],
-    ) -> list[list[float]]:
-        """Split at discontinuities and return the longest contiguous run.
+    ) -> list[list[list[float]]]:
+        """Split at discontinuities and return ALL contiguous segments.
 
         Instead of rejecting the entire match when one jump is found,
-        this keeps the largest useful piece of geometry.
+        this keeps every usable piece of geometry so that coverage is
+        not lost due to a single GPS jump mid-trip.
+
+        Returns a list of coordinate lists (one per contiguous segment).
         """
         if len(coords) < 2:
-            return coords
+            return [coords] if coords else []
 
         # Build list of contiguous segments
         segments: list[list[list[float]]] = []
@@ -261,18 +272,15 @@ class MapMatchingService:
         if not segments:
             return []
 
-        # Return the longest segment
-        best = max(segments, key=len)
         if len(segments) > 1:
             logger.info(
-                "Salvaged %d contiguous points from %d segments "
-                "(discarded %d segments with %d total points)",
-                len(best),
+                "Salvaged %d contiguous segments with %d total points "
+                "(split at %d discontinuities)",
                 len(segments),
+                sum(len(s) for s in segments),
                 len(segments) - 1,
-                sum(len(s) for s in segments) - len(best),
             )
-        return best
+        return segments
 
     @classmethod
     def _validate_continuity(
@@ -410,6 +418,22 @@ class MapMatchingService:
             "coordinates": coords,
         }
 
+    @staticmethod
+    def _create_multi_matching_result(
+        segments: list[list[list[float]]],
+    ) -> dict[str, Any]:
+        """Create a MultiLineString result from multiple contiguous segments."""
+        geometry = {
+            "type": "MultiLineString",
+            "coordinates": segments,
+        }
+        all_coords = [coord for seg in segments for coord in seg]
+        return {
+            "code": "Ok",
+            "matchings": [{"geometry": geometry}],
+            "coordinates": all_coords,
+        }
+
 
 class TripMapMatcher:
     """Apply map matching to trip data."""
@@ -529,6 +553,26 @@ class TripMapMatcher:
                         "coordinates": geom_coords[0],
                     }
                 return matched_geometry
+        elif geom_type == "MultiLineString":
+            if isinstance(geom_coords, list) and len(geom_coords) >= 1:
+                # Filter out degenerate lines (single point or all identical)
+                valid_lines = []
+                for line_coords in geom_coords:
+                    if isinstance(line_coords, list) and len(line_coords) >= 2:
+                        start = tuple(line_coords[0])
+                        if not all(tuple(p) == start for p in line_coords[1:]):
+                            valid_lines.append(line_coords)
+                if not valid_lines:
+                    return None
+                if len(valid_lines) == 1:
+                    return {
+                        "type": "LineString",
+                        "coordinates": valid_lines[0],
+                    }
+                return {
+                    "type": "MultiLineString",
+                    "coordinates": valid_lines,
+                }
         elif (
             geom_type == "Point"
             and isinstance(geom_coords, list)

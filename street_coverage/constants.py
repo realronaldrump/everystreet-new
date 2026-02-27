@@ -15,14 +15,33 @@ MAX_SEGMENT_LENGTH_METERS = 500.0  # ~1640ft — split longer edges for practica
 # =============================================================================
 # Trip Matching (FIXED)
 # =============================================================================
-MATCH_BUFFER_FEET = 40.0  # Buffer around trip line (increased for GPS drift)
+# Map-matched trips: tighter buffer since geometry is snapped to roads
+MATCH_BUFFER_FEET = 30.0  # Buffer around map-matched trip line
 MATCH_BUFFER_METERS = MATCH_BUFFER_FEET * 0.3048
-MIN_OVERLAP_FEET = 15.0  # Absolute minimum overlap floor (for very short segments)
+
+# Raw GPS trips: slightly smaller buffer to penalize unmatched geometry
+RAW_GPS_BUFFER_FEET = 25.0
+RAW_GPS_BUFFER_METERS = RAW_GPS_BUFFER_FEET * 0.3048
+
+MIN_OVERLAP_FEET = 25.0  # Absolute minimum overlap floor (for very short segments)
 MIN_OVERLAP_METERS = MIN_OVERLAP_FEET * 0.3048
 MIN_GPS_GAP_METERS = 500.0  # Split trip lines when GPS gaps exceed this (increased)
 MAX_GPS_GAP_METERS = 2000.0  # Cap the adaptive gap threshold
 GPS_GAP_MULTIPLIER = 10.0  # Scale factor for adaptive gap detection
 COVERAGE_OVERLAP_RATIO = 0.50  # Require 50% of segment length to be covered
+
+# Raw GPS requires stricter overlap to reduce false positives from GPS drift
+RAW_GPS_OVERLAP_RATIO = 0.75
+
+# Bearing alignment: max angle difference (degrees) between trip and street segment
+# to count as a valid match. Prevents crediting parallel roads.
+MAX_BEARING_DIFF_DEGREES = 45.0
+
+# Segment length categories for tiered overlap requirements
+SHORT_SEGMENT_THRESHOLD_METERS = 15.0  # Segments shorter than this need 75% overlap
+MEDIUM_SEGMENT_THRESHOLD_METERS = 50.0  # Segments shorter than this need 60% overlap
+SHORT_SEGMENT_OVERLAP_RATIO = 0.75
+MEDIUM_SEGMENT_OVERLAP_RATIO = 0.60
 
 # =============================================================================
 # Unit Conversions
