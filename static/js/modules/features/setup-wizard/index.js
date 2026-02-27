@@ -33,6 +33,11 @@ let bouncieConnected = false;
 /** Coverage flow phase: 'needs-import' | 'importing' | 'detected' | 'building' | 'ready' */
 let coveragePhase = "needs-import";
 
+/** Import activity tracking */
+let importStartedAt = null;
+let lastLoggedTripCount = -1;
+let lastLoggedState = null;
+
 export default function initSetupWizardPage({ signal, cleanup } = {}) {
   pageSignal = signal || null;
   initializeSetup();
@@ -101,6 +106,18 @@ function bindEvents(signal) {
   document
     .getElementById("finish-setup-btn")
     ?.addEventListener("click", completeSetupAndExit, eventOptions);
+
+  // Continue to Dashboard during build — completes setup and navigates away
+  document
+    .getElementById("build-continue-btn")
+    ?.addEventListener(
+      "click",
+      (event) => {
+        event.preventDefault();
+        completeSetupAndExit();
+      },
+      eventOptions
+    );
 
   document.querySelectorAll(".setup-step-button").forEach((button) => {
     button.addEventListener(
@@ -643,8 +660,11 @@ function updateImportUI() {
   const descEl = document.getElementById("import-description");
   if (descEl) {
     if (isSyncing) {
+      const elapsed = getImportElapsed();
+      const elapsedText = elapsed ? ` (${elapsed})` : "";
       descEl.innerHTML =
-        "Importing trips now. Coverage will update automatically once the import finishes.";
+        `Fetching trips from Bouncie for <strong>the last 7 days</strong>. ` +
+        `Import in progress${elapsedText}. Coverage will auto-detect when done.`;
     } else {
       descEl.innerHTML =
         'We\'ll fetch your trips from <strong>the last 7 days</strong> from Bouncie. ' +
@@ -652,6 +672,48 @@ function updateImportUI() {
         "only the coverage data you actually need.";
     }
   }
+
+  // Show/hide the activity log
+  const activityEl = document.getElementById("import-activity");
+  if (activityEl) {
+    activityEl.classList.toggle("d-none", !isSyncing && !importStartedAt);
+  }
+}
+
+function getImportElapsed() {
+  if (!importStartedAt) {
+    return "";
+  }
+  const ms = Date.now() - importStartedAt;
+  const secs = Math.floor(ms / 1000);
+  if (secs < 5) {
+    return "just started";
+  }
+  if (secs < 60) {
+    return `${secs}s elapsed`;
+  }
+  const mins = Math.floor(secs / 60);
+  const remSecs = secs % 60;
+  return remSecs ? `${mins}m ${remSecs}s elapsed` : `${mins}m elapsed`;
+}
+
+function appendActivityEntry(icon, iconClass, text) {
+  const logEl = document.getElementById("import-activity-log");
+  if (!logEl) {
+    return;
+  }
+
+  const now = new Date();
+  const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+  const li = document.createElement("li");
+  li.innerHTML = `
+    <span class="activity-time">${time}</span>
+    <span class="activity-icon ${iconClass}"><i class="fas fa-${icon}"></i></span>
+    <span class="activity-text">${text}</span>
+  `;
+  logEl.appendChild(li);
+  li.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 function updateTripSyncStatusUI() {
@@ -715,6 +777,53 @@ function updateTripSyncStatusUI() {
     hintEl.textContent = hint;
     hintEl.classList.toggle("d-none", !hint);
   }
+
+  // ── Activity log entries ──
+  if (state === "syncing" && lastLoggedState !== "syncing") {
+    // Import just started
+    importStartedAt = Date.now();
+    lastLoggedTripCount = tripCount;
+
+    // Compute the date range that will be fetched
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const rangeStart = weekAgo.toLocaleDateString([], { month: "short", day: "numeric" });
+    const rangeEnd = now.toLocaleDateString([], { month: "short", day: "numeric" });
+
+    appendActivityEntry("play-circle", "", "Import started");
+    appendActivityEntry(
+      "calendar-alt",
+      "",
+      `Fetching trips from <strong>${rangeStart}</strong> to <strong>${rangeEnd}</strong> (up to 7 days)`
+    );
+    if (tripCount > 0) {
+      appendActivityEntry("database", "", `<strong>${tripCount}</strong> trips already in database`);
+    }
+  } else if (state === "syncing" && tripCount > lastLoggedTripCount && lastLoggedTripCount >= 0) {
+    // Trip count increased during import
+    const added = tripCount - lastLoggedTripCount;
+    appendActivityEntry(
+      "plus-circle",
+      "is-success",
+      `Found <strong>${added}</strong> new trip${added === 1 ? "" : "s"} (total: <strong>${tripCount}</strong>)`
+    );
+    lastLoggedTripCount = tripCount;
+  } else if (lastLoggedState === "syncing" && state !== "syncing") {
+    // Import just finished
+    if (state === "error") {
+      appendActivityEntry("exclamation-triangle", "is-warning", tripSyncStatus.error?.message || "Import encountered an error");
+    } else {
+      const elapsed = getImportElapsed();
+      appendActivityEntry(
+        "check-circle",
+        "is-success",
+        `Import complete — <strong>${tripCount}</strong> total trip${tripCount === 1 ? "" : "s"}${elapsed ? " (" + elapsed + ")" : ""}`
+      );
+    }
+    importStartedAt = null;
+  }
+
+  lastLoggedState = state;
 }
 
 /* ── Detected States UI ───────────────────────────────────────── */
