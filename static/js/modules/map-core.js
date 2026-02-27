@@ -760,4 +760,89 @@ const mapCore = {
   },
 };
 
+/**
+ * Factory for creating standalone maps (feature pages, modals, etc.)
+ * using Mapbox GL JS. Mirrors the former map-base.js createMap() signature.
+ *
+ * @param {string} containerId - DOM element id for the map container
+ * @param {Object} options - Map options (center, zoom, style, accessToken, etc.)
+ * @returns {mapboxgl.Map}
+ */
+function createMap(containerId, options = {}) {
+  const { center = [0, 0], zoom = 2, accessToken, style, ...rest } = options;
+
+  const container = document.getElementById(containerId);
+  if (!container) {
+    throw new Error(`Map container '${containerId}' not found`);
+  }
+
+  if (container.firstChild) {
+    container.replaceChildren();
+  }
+
+  if (!mapboxgl) {
+    throw new Error("Mapbox GL JS is not loaded");
+  }
+  if (typeof mapboxgl.setTelemetryEnabled === "function") {
+    mapboxgl.setTelemetryEnabled(false);
+  }
+
+  const { styleUrl: themeStyle } = resolveMapStyle({ theme: getCurrentTheme() });
+  const defaultStyle = style || themeStyle;
+
+  // Token is fixed for all map usages in this application.
+  mapboxgl.accessToken = String(accessToken || HARD_CODED_MAPBOX_TOKEN).trim();
+
+  const map = new mapboxgl.Map({
+    container: containerId,
+    style: defaultStyle,
+    center,
+    zoom,
+    ...rest,
+    attributionControl: false,
+  });
+  map.addControl(new mapboxgl.NavigationControl());
+  map.on("error", () => {});
+  return map;
+}
+
+/**
+ * Return the centralized Mapbox access token.
+ * @returns {string}
+ */
+function getMapboxToken() {
+  return HARD_CODED_MAPBOX_TOKEN;
+}
+
+/**
+ * Check whether a style URL points to Mapbox-hosted styles.
+ * @param {string} styleUrl
+ * @returns {boolean}
+ */
+function isMapboxStyleUrl(styleUrl) {
+  if (!styleUrl || typeof styleUrl !== "string") {
+    return false;
+  }
+  const url = styleUrl.trim();
+  return url.startsWith("mapbox://") || url.includes("api.mapbox.com");
+}
+
+/**
+ * Return the Mapbox access token, optionally waiting a short time.
+ * @param {{ timeoutMs?: number }} options
+ * @returns {Promise<string>}
+ */
+async function waitForMapboxToken({ timeoutMs = 2000 } = {}) {
+  const existing = getMapboxToken();
+  if (existing) {
+    return existing;
+  }
+  const timeoutValue = Number(timeoutMs);
+  if (Number.isFinite(timeoutValue) && timeoutValue > 0) {
+    await Promise.resolve();
+  }
+  throw new Error("Mapbox access token not configured");
+}
+
+export { createMap, getMapboxToken, isMapboxStyleUrl, waitForMapboxToken };
 export default mapCore;

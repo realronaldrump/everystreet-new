@@ -9,7 +9,7 @@ import pytest
 from db.models import Trip
 from trips.services import (
     trip_batch_service,
-    trip_history_import_service_runtime as import_runtime,
+    trip_history_import_service_core as import_runtime,
 )
 from trips.services.geocoding import TripGeocoder
 from trips.services.trip_batch_service import TripService

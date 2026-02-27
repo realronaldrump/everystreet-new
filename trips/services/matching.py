@@ -100,17 +100,28 @@ class MapMatchingService:
         except ExternalServiceException as exc:
             return {"code": "Error", "message": str(exc)}
 
+    # Number of GPS points to duplicate at each chunk boundary so that
+    # Valhalla can produce a seamless match across chunks.
+    _CHUNK_OVERLAP = 3
+
+    # Maximum distance (in degrees, ~500 m at mid-latitudes) between
+    # consecutive matched points before we consider the result broken.
+    _MAX_MATCHED_JUMP_DEG = 0.005
+
     async def _map_match_chunked(
         self,
         coordinates: list[list[float]],
         all_timestamps: list[int | None] | None,
         chunk_size: int,
     ) -> dict[str, Any]:
-        chunk_indices = self._create_chunk_indices(coordinates, chunk_size)
+        chunk_indices = self._create_chunk_indices_with_overlap(
+            coordinates, chunk_size, self._CHUNK_OVERLAP,
+        )
         logger.info(
-            "Splitting %d coords into %d chunks",
+            "Splitting %d coords into %d overlapping chunks (overlap=%d)",
             len(coordinates),
             len(chunk_indices),
+            self._CHUNK_OVERLAP,
         )
 
         final_matched: list[list[float]] = []
@@ -147,14 +158,55 @@ class MapMatchingService:
                 }
 
             if not final_matched:
-                final_matched = matched
+                final_matched = list(matched)
             else:
-                if final_matched[-1] == matched[0]:
-                    matched = matched[1:]
-                final_matched.extend(matched)
+                # Trim overlap: drop leading points of this chunk that
+                # are near the tail of the previous result to avoid
+                # duplication at the boundary.
+                trim = 0
+                for pt in matched:
+                    if self._coords_close(final_matched[-1], pt):
+                        trim += 1
+                    else:
+                        break
+                final_matched.extend(matched[trim:])
+
+        # Validate continuity — reject results with large jumps that
+        # indicate a broken match (the "straight lines on the map" bug).
+        if not self._validate_continuity(final_matched):
+            return {
+                "code": "Error",
+                "message": (
+                    "Map matching produced discontinuous geometry "
+                    "(large jump between consecutive points)."
+                ),
+            }
 
         logger.info("Final matched coords: %d points", len(final_matched))
         return self._create_matching_result(final_matched)
+
+    @staticmethod
+    def _coords_close(a: list[float], b: list[float], tol: float = 1e-6) -> bool:
+        """Check if two [lon, lat] pairs are within *tol* degrees."""
+        return abs(a[0] - b[0]) < tol and abs(a[1] - b[1]) < tol
+
+    @classmethod
+    def _validate_continuity(
+        cls,
+        coords: list[list[float]],
+    ) -> bool:
+        """Return False if any consecutive pair has a suspiciously large jump."""
+        if len(coords) < 2:
+            return True
+        for i in range(1, len(coords)):
+            dx = abs(coords[i][0] - coords[i - 1][0])
+            dy = abs(coords[i][1] - coords[i - 1][1])
+            if dx > cls._MAX_MATCHED_JUMP_DEG or dy > cls._MAX_MATCHED_JUMP_DEG:
+                logger.warning(
+                    "Matched geometry has %.4f° jump at index %d", max(dx, dy), i,
+                )
+                return False
+        return True
 
     @staticmethod
     def _build_shape_points(
@@ -229,6 +281,27 @@ class MapMatchingService:
         return [
             (start, min(start + chunk_size, n)) for start in range(0, n, chunk_size)
         ]
+
+    @staticmethod
+    def _create_chunk_indices_with_overlap(
+        coordinates: list[list[float]],
+        chunk_size: int,
+        overlap: int,
+    ) -> list[tuple[int, int]]:
+        """Create chunk boundaries with *overlap* shared points between consecutive chunks."""
+        n = len(coordinates)
+        if n <= chunk_size:
+            return [(0, n)]
+        step = max(1, chunk_size - overlap)
+        indices: list[tuple[int, int]] = []
+        start = 0
+        while start < n:
+            end = min(start + chunk_size, n)
+            indices.append((start, end))
+            if end >= n:
+                break
+            start += step
+        return indices
 
     @staticmethod
     def _create_matching_result(coords: list[list[float]]) -> dict[str, Any]:

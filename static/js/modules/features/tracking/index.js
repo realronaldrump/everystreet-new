@@ -55,7 +55,10 @@ class LiveTripTracker {
       LIVE_TRACKING_DEFAULTS.staleRecoveryThresholdMs ?? 12000;
     this.staleClearThresholdMs =
       LIVE_TRACKING_DEFAULTS.staleClearThresholdMs ?? 6 * 60 * 60 * 1000;
-    this.reconnectDelayMs = 2500;
+    this.reconnectMinDelayMs = LIVE_TRACKING_DEFAULTS.reconnectMinDelayMs;
+    this.reconnectMaxDelayMs = LIVE_TRACKING_DEFAULTS.reconnectMaxDelayMs;
+    this.reconnectMultiplier = LIVE_TRACKING_DEFAULTS.reconnectMultiplier;
+    this.reconnectAttempt = 0;
     this.reconnectTimer = null;
     this.noUpdatePollCount = 0;
     this.lastStreamEventAt = 0;
@@ -812,6 +815,7 @@ class LiveTripTracker {
           if (this.isDestroyed || this.ws !== socket) {
             return;
           }
+          this.reconnectAttempt = 0;
           this.lastStreamEventAt = Date.now();
           this.noUpdatePollCount = 0;
           this.updateStatus(true, this.hasActiveTrip ? "Live tracking" : "Idle");
@@ -869,9 +873,18 @@ class LiveTripTracker {
     );
   }
 
-  scheduleWebSocketReconnect(delayMs = this.reconnectDelayMs) {
+  scheduleWebSocketReconnect(delayMs) {
     if (this.isDestroyed || this.reconnectTimer) {
       return;
+    }
+    if (delayMs === undefined) {
+      const base =
+        this.reconnectMinDelayMs *
+        Math.pow(this.reconnectMultiplier, this.reconnectAttempt);
+      const capped = Math.min(base, this.reconnectMaxDelayMs);
+      // Add jitter (50-100% of capped value) to prevent thundering herd
+      delayMs = capped * (0.5 + Math.random() * 0.5);
+      this.reconnectAttempt++;
     }
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;

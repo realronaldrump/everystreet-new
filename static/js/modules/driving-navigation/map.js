@@ -6,6 +6,7 @@
  */
 
 import { getCurrentTheme, resolveMapStyle } from "../core/map-style-resolver.js";
+import { createMap } from "../map-core.js";
 import MapStyles from "../map-styles.js";
 import {
   DEFAULT_CLUSTER_COLORS,
@@ -102,19 +103,9 @@ export class DrivingNavigationMap {
 
     return new Promise((resolve, reject) => {
       try {
-        const mapContainer = document.getElementById(this.containerId);
-        if (!mapContainer) {
-          throw new Error(`Map container #${this.containerId} not found!`);
-        }
-
-        // OpenFreeMap styles do not require a Mapbox token.
-        const { styleUrl } = resolveMapStyle({ theme: getCurrentTheme() });
-        this.map = new mapboxgl.Map({
-          container: this.containerId,
-          style: styleUrl,
+        this.map = createMap(this.containerId, {
           center: [-96, 37.8],
           zoom: 3,
-          attributionControl: false,
         });
 
         this.map.on("load", () => {

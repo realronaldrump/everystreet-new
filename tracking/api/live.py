@@ -33,29 +33,6 @@ router = APIRouter()
 
 
 # ============================================================================
-# WebSocket Connection Manager
-# ============================================================================
-
-
-class ConnectionManager:
-    """Manages WebSocket connections."""
-
-    def __init__(self) -> None:
-        self.active_connections: list[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket) -> None:
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket) -> None:
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-
-
-manager = ConnectionManager()
-
-
-# ============================================================================
 # WebSocket Endpoint
 # ============================================================================
 
@@ -63,7 +40,7 @@ manager = ConnectionManager()
 @router.websocket("/ws/trips")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time trip updates."""
-    await manager.connect(websocket)
+    await websocket.accept()
     redis_client = None
     pubsub = None
 
@@ -142,7 +119,6 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception:
         logger.exception("WebSocket error")
     finally:
-        manager.disconnect(websocket)
         if pubsub:
             with contextlib.suppress(Exception):
                 await pubsub.unsubscribe(TRIP_UPDATES_CHANNEL)

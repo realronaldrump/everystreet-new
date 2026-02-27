@@ -1,6 +1,7 @@
 /* global mapboxgl */
 
 import { getCurrentTheme, resolveMapStyle } from "../core/map-style-resolver.js";
+import { createMap } from "../map-core.js";
 
 export class OptimalRouteMap {
   constructor(containerId, options = {}) {
@@ -27,20 +28,10 @@ export class OptimalRouteMap {
       return Promise.resolve();
     }
 
-    const { styleUrl } = resolveMapStyle({ theme: getCurrentTheme() });
-    this.disableTelemetry();
-
-    this.map = new mapboxgl.Map({
-      container: this.containerId,
-      style: styleUrl,
+    this.map = createMap(this.containerId, {
       center: [-98.5795, 39.8283], // Center of US
       zoom: 4,
-      attributionControl: false,
     });
-
-    if (this.options.addNavigationControl) {
-      this.map.addControl(new mapboxgl.NavigationControl(), "top-right");
-    }
 
     this.ownsMap = true;
     return this.bindMapLoad();

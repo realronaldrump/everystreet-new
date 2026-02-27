@@ -3,6 +3,7 @@
  */
 
 import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
+import { createMap } from "../../map-core.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import { VisitsGeometry } from "../../visits/geometry.js";
 import VisitsManager from "../../visits/visits-manager.js";
@@ -704,11 +705,6 @@ class VisitsPageController {
     this.clearPlacePreviewMaps();
     this.elements.placesGrid.style.display = "none";
     this.elements.placesListView.style.display = "block";
-
-    // Trigger the existing table update through VisitsManager
-    if (this.visitsManager) {
-      this.visitsManager.updateVisitsTable?.(this.placesStats);
-    }
   }
 
   renderPatterns() {
@@ -1249,6 +1245,8 @@ class VisitsPageController {
   }
 
   destroy() {
+    this._previewMapObserver?.disconnect();
+    this._previewMapObserver = null;
     this.listenerAbortController.abort();
     this.modalWatchdogObserver?.disconnect();
     this.modalWatchdogObserver = null;
@@ -1436,7 +1434,24 @@ class VisitsPageController {
       return;
     }
 
-    const style = this.getPreviewMapStyle();
+    // Lazy-load: only create Mapbox instances when containers scroll into view
+    if (!this._previewMapObserver) {
+      this._previewMapObserver = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            const container = entry.target;
+            const init = container._lazyMapInit;
+            if (init) {
+              this._previewMapObserver.unobserve(container);
+              delete container._lazyMapInit;
+              init();
+            }
+          }
+        },
+        { rootMargin: "200px" },
+      );
+    }
 
     placePreviewConfigs.forEach(({ mapId, geometry, accent }) => {
       const container = document.getElementById(mapId);
@@ -1444,42 +1459,43 @@ class VisitsPageController {
         return;
       }
 
-      const previewMap = new mapboxgl.Map({
-        container,
-        style,
-        center: [-95.7129, 37.0902],
-        zoom: 3,
-        interactive: false,
-        attributionControl: false,
-      });
-
-      previewMap.on("load", () => {
-        const sourceId = "place-preview";
-        previewMap.addSource(sourceId, {
-          type: "geojson",
-          data: geometry,
+      container._lazyMapInit = () => {
+        const previewMap = createMap(mapId, {
+          center: [-95.7129, 37.0902],
+          zoom: 3,
+          interactive: false,
         });
 
-        this.addPreviewLayers(previewMap, {
-          sourceId,
-          layerIdPrefix: "place-preview",
-          geometry,
-          colors: this.getPlacePreviewColors(accent),
+        previewMap.on("load", () => {
+          const sourceId = "place-preview";
+          previewMap.addSource(sourceId, {
+            type: "geojson",
+            data: geometry,
+          });
+
+          this.addPreviewLayers(previewMap, {
+            sourceId,
+            layerIdPrefix: "place-preview",
+            geometry,
+            colors: this.getPlacePreviewColors(accent),
+          });
+
+          VisitsGeometry.fitMapToGeometry(previewMap, geometry, {
+            padding: 18,
+            duration: 0,
+          });
+
+          container.classList.add("has-map");
         });
 
-        VisitsGeometry.fitMapToGeometry(previewMap, geometry, {
-          padding: 18,
-          duration: 0,
+        previewMap.on("error", () => {
+          container.classList.remove("has-map");
         });
 
-        container.classList.add("has-map");
-      });
+        this.placePreviewMaps.set(mapId, previewMap);
+      };
 
-      previewMap.on("error", () => {
-        container.classList.remove("has-map");
-      });
-
-      this.placePreviewMaps.set(mapId, previewMap);
+      this._previewMapObserver.observe(container);
     });
   }
 
@@ -1488,7 +1504,23 @@ class VisitsPageController {
       return;
     }
 
-    const style = this.getPreviewMapStyle();
+    if (!this._previewMapObserver) {
+      this._previewMapObserver = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            const container = entry.target;
+            const init = container._lazyMapInit;
+            if (init) {
+              this._previewMapObserver.unobserve(container);
+              delete container._lazyMapInit;
+              init();
+            }
+          }
+        },
+        { rootMargin: "200px" },
+      );
+    }
 
     pageSuggestions.forEach((suggestion, pageIndex) => {
       const boundary = this.getRenderableGeometry(suggestion?.boundary);
@@ -1501,42 +1533,43 @@ class VisitsPageController {
         return;
       }
 
-      const previewMap = new mapboxgl.Map({
-        container,
-        style,
-        center: [-95.7129, 37.0902],
-        zoom: 3,
-        interactive: false,
-        attributionControl: false,
-      });
-
-      previewMap.on("load", () => {
-        const sourceId = "suggestion-preview";
-        previewMap.addSource(sourceId, {
-          type: "geojson",
-          data: boundary,
+      container._lazyMapInit = () => {
+        const previewMap = createMap(mapId, {
+          center: [-95.7129, 37.0902],
+          zoom: 3,
+          interactive: false,
         });
 
-        this.addPreviewLayers(previewMap, {
-          sourceId,
-          layerIdPrefix: "suggestion-preview",
-          geometry: boundary,
-          colors: DISCOVERY_PREVIEW_COLORS,
+        previewMap.on("load", () => {
+          const sourceId = "suggestion-preview";
+          previewMap.addSource(sourceId, {
+            type: "geojson",
+            data: boundary,
+          });
+
+          this.addPreviewLayers(previewMap, {
+            sourceId,
+            layerIdPrefix: "suggestion-preview",
+            geometry: boundary,
+            colors: DISCOVERY_PREVIEW_COLORS,
+          });
+
+          VisitsGeometry.fitMapToGeometry(previewMap, boundary, {
+            padding: 18,
+            duration: 0,
+          });
+
+          container.classList.add("has-map");
         });
 
-        VisitsGeometry.fitMapToGeometry(previewMap, boundary, {
-          padding: 18,
-          duration: 0,
+        previewMap.on("error", () => {
+          container.classList.remove("has-map");
         });
 
-        container.classList.add("has-map");
-      });
+        this.suggestionPreviewMaps.set(mapId, previewMap);
+      };
 
-      previewMap.on("error", () => {
-        container.classList.remove("has-map");
-      });
-
-      this.suggestionPreviewMaps.set(mapId, previewMap);
+      this._previewMapObserver.observe(container);
     });
   }
 

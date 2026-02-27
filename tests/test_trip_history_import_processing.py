@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from db.models import Trip
-from trips.services.trip_history_import_service_processing import (
+from trips.services.trip_history_import_service_core import (
     _collect_new_trips,
     _load_existing_transaction_ids,
     _process_new_trips_batch,

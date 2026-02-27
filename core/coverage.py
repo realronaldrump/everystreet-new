@@ -356,11 +356,33 @@ def trip_to_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
     """
     Convert a trip document to a Shapely LineString/MultiLineString.
 
-    Coverage matching intentionally uses the trip's raw GPS trace only
-    (trip["gps"]) and does not use map-matched geometry (matchedGps).
+    Prefers map-matched geometry (matchedGps) when available because it
+    is snapped to the road network and significantly more accurate for
+    coverage matching.  Falls back to raw GPS (trip["gps"]) when
+    matching was not performed or failed.
 
-    Returns None if trip has no valid raw GPS geometry.
+    Returns None if trip has no valid geometry.
     """
+    # Prefer map-matched geometry — it is snapped to the actual road
+    # network so coverage attribution is far more accurate, especially
+    # on parallel roads.
+    matched_gps = trip.get("matchedGps")
+    match_status = trip.get("matchStatus") or ""
+    if isinstance(matched_gps, dict) and match_status.startswith("matched"):
+        matched_lines = _extract_lines_from_geojson(matched_gps)
+        if matched_lines:
+            segments: list[LineString] = []
+            for line_coords in matched_lines:
+                # Map-matched geometry doesn't have GPS gaps so we can
+                # use the coordinates directly without gap splitting.
+                if len(line_coords) >= 2:
+                    segments.append(LineString(line_coords))
+            if segments:
+                if len(segments) == 1:
+                    return segments[0]
+                return MultiLineString(segments)
+
+    # Fall back to raw GPS trace.
     geom = trip.get("gps")
     if not isinstance(geom, dict):
         return None
@@ -369,15 +391,15 @@ def trip_to_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
     if not lines:
         return None
 
-    segments: list[LineString] = []
+    segments_raw: list[LineString] = []
     for line_coords in lines:
-        segments.extend(_split_coords_by_gap(line_coords))
+        segments_raw.extend(_split_coords_by_gap(line_coords))
 
-    if not segments:
+    if not segments_raw:
         return None
-    if len(segments) == 1:
-        return segments[0]
-    return MultiLineString(segments)
+    if len(segments_raw) == 1:
+        return segments_raw[0]
+    return MultiLineString(segments_raw)
 
 
 def buffer_trip_line(
@@ -833,15 +855,27 @@ async def backfill_coverage_for_area(
     progress_callback: BackfillProgressCallback | None = None,
     progress_interval: int = 100,
     progress_time_seconds: float = 0.5,
+    *,
+    full: bool = False,
 ) -> int:
     """
     Backfill coverage for an area based on historical trips.
+
+    When *full* is False (the default) and the area has a
+    ``last_backfill_trip_endtime``, only trips newer than that
+    timestamp are processed — making repeated backfills incremental.
+
+    Pass *full=True* or an explicit *since* to force a full scan.
 
     Returns number of segments updated.
     """
     area = await CoverageArea.get(area_id)
     if not area:
         return 0
+
+    # Use the stored cursor when no explicit window is given.
+    if since is None and not full and area.last_backfill_trip_endtime is not None:
+        since = area.last_backfill_trip_endtime
 
     # Ingestion calls backfill before marking an area "ready", so allow it for
     # in-progress states as long as segments exist.
@@ -859,6 +893,7 @@ async def backfill_coverage_for_area(
     processed_trips = 0
     matched_trips = 0
     last_reported_time = time.time()
+    latest_trip_endtime: datetime | None = None
 
     # Track per-segment first/last driven timestamps (and the most-recent trip id).
     segment_first: dict[str, datetime] = {}
@@ -941,6 +976,12 @@ async def backfill_coverage_for_area(
     async for trip in cursor:
         processed_trips += 1
         trip_data = trip.model_dump()
+
+        # Track high-water mark (cursor is sorted by endTime asc)
+        trip_end = trip_data.get("endTime")
+        if isinstance(trip_end, datetime):
+            latest_trip_endtime = trip_end
+
         trip_line = trip_to_linestring(trip_data)
         if trip_line is None:
             await report_progress(total_trips=total_trip_count)
@@ -984,6 +1025,9 @@ async def backfill_coverage_for_area(
             "Backfill found no matching segments for area %s",
             area.display_name,
         )
+        # Still persist the high-water mark so we don't re-scan the same trips.
+        if latest_trip_endtime is not None:
+            await area.set({"last_backfill_trip_endtime": latest_trip_endtime})
         await report_progress(total_trips=total_trip_count, force=True)
         return 0
 
@@ -1076,6 +1120,10 @@ async def backfill_coverage_for_area(
         )
 
     await report_progress(total_trips=total_trip_count, force=True)
+
+    # Persist the high-water mark so subsequent runs are incremental.
+    if latest_trip_endtime is not None:
+        await area.set({"last_backfill_trip_endtime": latest_trip_endtime})
 
     logger.info(
         "Backfill complete for area %s: %d segments updated (%d newly driven), %.2f mi",

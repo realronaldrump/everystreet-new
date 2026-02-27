@@ -803,6 +803,28 @@ class TurnByTurnNavigator {
 
     // Flush pending segment updates
     await this.coverage.persistDrivenSegments();
+
+    // Reconcile coverage baseline with server to capture all driven segments
+    if (this.selectedAreaId) {
+      try {
+        const coverageData = await TurnByTurnAPI.fetchCoverageArea(
+          this.selectedAreaId
+        );
+        if (coverageData) {
+          this.coverageBaseline = {
+            totalMi:
+              coverageData.driveable_length_miles ??
+              coverageData.total_length_miles ??
+              0,
+            coveredMi: coverageData.driven_length_miles ?? 0,
+            percentage: coverageData.coverage_percentage || 0,
+          };
+          this.ui.initializeCoverageDisplay(this.coverageBaseline.percentage);
+        }
+      } catch {
+        // Non-critical — baseline will refresh on next route load
+      }
+    }
   }
 
   /**
@@ -833,7 +855,9 @@ class TurnByTurnNavigator {
         "Location permission denied. Waiting for live tracking.",
         true
       );
+      this.isNavigating = false;
       this.gps.stopGeolocation();
+      this.ui.showSetupPanel();
       return;
     }
 

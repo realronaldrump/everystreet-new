@@ -18,8 +18,7 @@
 
 import apiClient from "../../core/api-client.js";
 import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
-import { createMap } from "../../map-base.js";
-import { isMapboxStyleUrl, waitForMapboxToken } from "../../mapbox-token.js";
+import { createMap, isMapboxStyleUrl, waitForMapboxToken } from "../../map-core.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import GlobalJobTracker from "../../ui/global-job-tracker.js";
 import notificationManager from "../../ui/notifications.js";

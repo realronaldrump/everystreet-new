@@ -1,6 +1,6 @@
 import apiClient from "../../core/api-client.js";
 import { CONFIG } from "../../core/config.js";
-import mapBase from "../../map-base.js";
+import { createMap } from "../../map-core.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
 import { DateUtils } from "../../utils.js";
@@ -1196,7 +1196,7 @@ function ensureMatchedPreviewMap() {
     return null;
   }
 
-  matchedPreviewMap = mapBase.createMap("map-match-preview-map", {
+  matchedPreviewMap = createMap("map-match-preview-map", {
     center: [-96.5, 37.5],
     zoom: 3.4,
     interactive: true,

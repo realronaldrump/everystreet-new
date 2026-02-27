@@ -1,7 +1,7 @@
 /* global mapboxgl */
 
 import { resolveMapStyle } from "../core/map-style-resolver.js";
-import { createMap } from "../map-base.js";
+import { createMap } from "../map-core.js";
 import MapStyles from "../map-styles.js";
 import { VisitsGeometry } from "./geometry.js";
 

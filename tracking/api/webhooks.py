@@ -52,14 +52,27 @@ async def _dispatch_event(payload: dict[str, Any], auth_header: str | None) -> N
                 payload.get("eventType"),
             )
             return
-    elif auth_header:
-        saved = await update_bouncie_credentials({"webhook_key": auth_header})
-        if saved:
-            logger.info("Saved Bouncie webhook key from incoming request")
     else:
-        logger.debug(
-            "Bouncie webhook received without auth header; no key configured",
-        )
+        # No webhook key configured yet.  Only accept the incoming auth
+        # header when Bouncie credentials are already fully configured
+        # (client_id + authorization_code) to prevent an attacker from
+        # poisoning the stored key before the real setup completes.
+        client_id = (credentials.get("client_id") or "").strip()
+        auth_code = (credentials.get("authorization_code") or "").strip()
+        if auth_header and client_id and auth_code:
+            saved = await update_bouncie_credentials({"webhook_key": auth_header})
+            if saved:
+                logger.info("Saved Bouncie webhook key from incoming request")
+        elif not auth_header:
+            logger.debug(
+                "Bouncie webhook received without auth header; no key configured",
+            )
+        else:
+            logger.warning(
+                "Bouncie webhook received before credentials are configured; "
+                "ignoring auth header to prevent key poisoning",
+            )
+            return
 
     event_type = payload.get("eventType")
     await TrackingService.record_webhook_event(event_type)

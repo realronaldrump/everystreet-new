@@ -49,7 +49,7 @@ async def process_single_trip(
     processing_options = ProcessingOptions(
         validate=True,
         geocode=True,
-        map_match=False,
+        map_match=options.map_match,
         validate_only=options.validate_only,
         geocode_only=options.geocode_only,
     )

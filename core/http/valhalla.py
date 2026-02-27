@@ -11,11 +11,12 @@ import logging
 from typing import Any
 
 from config import (
-    require_valhalla_route_url,
-    require_valhalla_status_url,
-    require_valhalla_trace_route_url,
+    get_valhalla_route_url,
+    get_valhalla_status_url,
+    get_valhalla_trace_route_url,
 )
 from core.exceptions import ExternalServiceException
+from core.http.circuit_breaker import valhalla_breaker, with_circuit_breaker
 from core.http.request import request_json
 from core.http.retry import retry_async
 from core.http.session import get_session
@@ -25,9 +26,9 @@ logger = logging.getLogger(__name__)
 
 class ValhallaClient:
     def __init__(self) -> None:
-        self._status_url = require_valhalla_status_url()
-        self._route_url = require_valhalla_route_url()
-        self._trace_route_url = require_valhalla_trace_route_url()
+        self._status_url = get_valhalla_status_url()
+        self._route_url = get_valhalla_route_url()
+        self._trace_route_url = get_valhalla_trace_route_url()
 
     @retry_async()
     async def status(self) -> dict[str, Any]:
@@ -43,6 +44,7 @@ class ValhallaClient:
             raise ExternalServiceException(msg, {"url": self._status_url})
         return data
 
+    @with_circuit_breaker(valhalla_breaker)
     @retry_async()
     async def route(
         self,
@@ -86,6 +88,7 @@ class ValhallaClient:
             raise ExternalServiceException(msg, {"url": self._route_url})
         return self._normalize_route_response(data)
 
+    @with_circuit_breaker(valhalla_breaker)
     @retry_async()
     async def trace_route(
         self,
