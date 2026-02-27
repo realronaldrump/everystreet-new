@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from analytics.services.mobility_insights_service import MobilityInsightsService
 from core.coverage import update_coverage_for_trip
 from core.date_utils import get_current_utc_time, parse_timestamp
+from core.mapping.factory import is_google_map_provider
 from core.spatial import (
     GeometryService,
     derive_geo_points,
@@ -45,6 +46,17 @@ class TripPipeline:
         self.geo_service = geo_service or TripGeocoder()
         self.matcher = matcher or TripMapMatcher()
         self.coverage_service = coverage_service or update_coverage_for_trip
+
+    @staticmethod
+    async def _resolve_force_map_match(
+        *,
+        do_map_match: bool,
+        force_map_match: bool,
+        has_existing_match: bool,
+    ) -> bool:
+        if force_map_match or not do_map_match or not has_existing_match:
+            return force_map_match
+        return await is_google_map_provider()
 
     async def validate_raw_trip(self, raw_data: dict[str, Any]) -> dict[str, Any]:
         """Validate and run basic processing without persistence."""
@@ -138,6 +150,12 @@ class TripPipeline:
             logger.warning("Trip missing transactionId, skipping")
             return None
 
+        effective_force_map_match = await self._resolve_force_map_match(
+            do_map_match=do_map_match,
+            force_map_match=force_map_match,
+            has_existing_match=bool(processed_data.get("matchedGps")),
+        )
+
         existing_trip = await Trip.find_one(Trip.transactionId == transaction_id)
 
         if existing_trip:
@@ -160,7 +178,13 @@ class TripPipeline:
                     "destinationPlaceId",
                     existing_dict.get("destinationPlaceId"),
                 )
-            if existing_dict.get("matchedGps") and not force_map_match:
+            existing_has_match = bool(existing_dict.get("matchedGps"))
+            effective_force_map_match = await self._resolve_force_map_match(
+                do_map_match=do_map_match,
+                force_map_match=effective_force_map_match,
+                has_existing_match=existing_has_match,
+            )
+            if existing_has_match and not effective_force_map_match:
                 processed_data.setdefault("matchedGps", existing_dict.get("matchedGps"))
                 processed_data.setdefault(
                     "matchStatus",
@@ -168,8 +192,15 @@ class TripPipeline:
                 )
                 processed_data.setdefault("matched_at", existing_dict.get("matched_at"))
 
+        if do_map_match and effective_force_map_match:
+            processed_data.pop("matchedGps", None)
+            processed_data.pop("matchStatus", None)
+            processed_data.pop("matched_at", None)
+
         matched = False
-        if do_map_match and not processed_data.get("matchedGps"):
+        if do_map_match and (
+            effective_force_map_match or not processed_data.get("matchedGps")
+        ):
             status, processed_data = await self.matcher.map_match(processed_data)
             if status == "matched":
                 matched = True
@@ -310,8 +341,20 @@ class TripPipeline:
                 )
                 return None
 
+        effective_force_map_match = await self._resolve_force_map_match(
+            do_map_match=do_map_match,
+            force_map_match=False,
+            has_existing_match=bool(processed_data.get("matchedGps")),
+        )
+        if do_map_match and effective_force_map_match:
+            processed_data.pop("matchedGps", None)
+            processed_data.pop("matchStatus", None)
+            processed_data.pop("matched_at", None)
+
         matched = False
-        if do_map_match and not processed_data.get("matchedGps"):
+        if do_map_match and (
+            effective_force_map_match or not processed_data.get("matchedGps")
+        ):
             status, processed_data = await self.matcher.map_match(processed_data)
             if status == "matched":
                 matched = True

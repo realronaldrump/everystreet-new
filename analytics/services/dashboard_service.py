@@ -524,7 +524,14 @@ class DashboardService:
         target_timezone_str = (
             settings.user_timezone if settings else "America/Chicago"
         )
-        target_tz = pytz.timezone(target_timezone_str)
+        try:
+            target_tz = pytz.timezone(target_timezone_str)
+        except pytz.UnknownTimeZoneError:
+            logger.warning(
+                "Invalid user timezone '%s'; falling back to America/Chicago.",
+                target_timezone_str,
+            )
+            target_tz = pytz.timezone("America/Chicago")
 
         pipeline = [
             {"$match": query},

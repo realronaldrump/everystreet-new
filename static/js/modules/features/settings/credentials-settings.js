@@ -13,7 +13,6 @@ const BOUNCIE_REDIRECT_URI_API = "/api/bouncie/redirect-uri";
 const VEHICLES_API = "/api/vehicles?active_only=false";
 const BOUNCIE_ADD_VEHICLE_API = "/api/profile/bouncie-credentials/vehicles";
 const APP_SETTINGS_API = "/api/app_settings";
-const DEFAULT_GOOGLE_MAPS_API_KEY = "AIzaSyBvNSN_t1y5t0TTRzR8KmFjL1XwSe88RoA";
 const FETCH_CONCURRENCY_MIN = 1;
 const FETCH_CONCURRENCY_MAX = 50;
 const isAbortError = (error) => error?.name === "AbortError";
@@ -59,7 +58,7 @@ async function setupGoogleMapsCredentials({ signal } = {}) {
 
   try {
     const settings = await apiClient.get(APP_SETTINGS_API, { signal });
-    keyInput.value = settings?.google_maps_api_key || DEFAULT_GOOGLE_MAPS_API_KEY;
+    keyInput.value = settings?.google_maps_api_key || "";
   } catch (error) {
     if (!isAbortError(error)) {
       notificationManager.show(

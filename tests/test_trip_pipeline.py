@@ -295,3 +295,61 @@ async def test_trip_pipeline_prefers_bouncie_source_when_merging_existing_trip(
 
     assert saved is not None
     assert saved.source == "bouncie"
+
+
+@pytest.mark.asyncio
+async def test_trip_pipeline_forces_rematch_for_existing_matches_in_google_mode(
+    beanie_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    del beanie_db
+
+    class _CountingMatcher(StubMatcher):
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls = 0
+
+        async def map_match(self, processed_data: dict[str, Any]):
+            self.calls += 1
+            return await super().map_match(processed_data)
+
+    async def _google_provider_enabled() -> bool:
+        return True
+
+    monkeypatch.setattr(
+        "trips.pipeline.is_google_map_provider",
+        _google_provider_enabled,
+    )
+
+    existing = Trip(**_build_raw_trip("tx-google-rematch"))
+    existing.matchedGps = {
+        "type": "LineString",
+        "coordinates": [[-96.0, 31.0], [-96.1, 31.1]],
+    }
+    existing.matchStatus = "matched:legacy"
+    existing.processing_state = "map_matched"
+    existing.status = "processed"
+    await existing.insert()
+
+    matcher = _CountingMatcher()
+    pipeline = TripPipeline(
+        geo_service=StubGeocoder(),
+        matcher=matcher,
+        coverage_service=_noop_coverage,
+    )
+
+    saved = await pipeline.process_raw_trip(
+        _build_raw_trip("tx-google-rematch"),
+        source="bouncie",
+        do_map_match=True,
+        do_geocode=False,
+        do_coverage=False,
+    )
+
+    assert saved is not None
+    assert matcher.calls == 1
+    assert saved.matchedGps == saved.gps
+    assert saved.matchedGps != {
+        "type": "LineString",
+        "coordinates": [[-96.0, 31.0], [-96.1, 31.1]],
+    }

@@ -231,6 +231,11 @@ class TripService:
             geocode_enabled = bool(
                 app_settings.model_dump().get("geocodeTripsOnFetch", True),
             )
+            google_provider_enabled = (
+                str(getattr(app_settings, "map_provider", "") or "").strip().lower()
+                == "google"
+            )
+            force_google_rematch = bool(do_map_match and google_provider_enabled)
 
             # Deduplicate inputs by transactionId
             unique_trips: list[dict[str, Any]] = []
@@ -358,6 +363,7 @@ class TripService:
                     or needs_source_reconciliation
                     or needs_geocode_repair
                     or (do_map_match and not existing_trip.get("matchedGps"))
+                    or force_google_rematch
                 )
 
                 if needs_processing:

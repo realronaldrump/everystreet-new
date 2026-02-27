@@ -16,11 +16,20 @@ from trips.services.trip_batch_service import TripService
 
 
 class _SettingsStub:
-    def __init__(self, geocode_on_fetch: bool) -> None:
+    def __init__(
+        self,
+        geocode_on_fetch: bool,
+        *,
+        map_provider: str = "self_hosted",
+    ) -> None:
         self._geocode_on_fetch = geocode_on_fetch
+        self.map_provider = map_provider
 
     def model_dump(self) -> dict[str, Any]:
-        return {"geocodeTripsOnFetch": self._geocode_on_fetch}
+        return {
+            "geocodeTripsOnFetch": self._geocode_on_fetch,
+            "map_provider": self.map_provider,
+        }
 
 
 class _PipelineStub:
@@ -272,6 +281,64 @@ async def test_process_bouncie_trips_treats_duplicate_race_as_idempotent_success
     persisted = await Trip.find_one(Trip.transactionId == "tx-race-duplicate")
     assert persisted is not None
     assert persisted.source == "bouncie"
+
+
+@pytest.mark.asyncio
+async def test_process_bouncie_trips_forces_processing_when_google_map_match_enabled(
+    beanie_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    del beanie_db
+
+    existing = Trip(
+        transactionId="tx-google-force-rematch",
+        source="bouncie",
+        status="processed",
+        processing_state="map_matched",
+        startTime=datetime(2025, 1, 3, 12, 0, tzinfo=UTC),
+        endTime=datetime(2025, 1, 3, 12, 30, tzinfo=UTC),
+        gps={
+            "type": "LineString",
+            "coordinates": [[-97.0, 32.0], [-97.1, 32.1]],
+        },
+        matchedGps={
+            "type": "LineString",
+            "coordinates": [[-96.0, 31.0], [-96.1, 31.1]],
+        },
+        startLocation={"formatted_address": "Start"},
+        destination={"formatted_address": "End"},
+    )
+    await existing.insert()
+
+    async def fake_get_settings() -> _SettingsStub:
+        return _SettingsStub(geocode_on_fetch=False, map_provider="google")
+
+    monkeypatch.setattr(
+        trip_batch_service.AdminService,
+        "get_persisted_app_settings",
+        fake_get_settings,
+    )
+
+    service = TripService()
+    pipeline_stub = _PipelineStub()
+    service._pipeline = pipeline_stub
+
+    incoming = {
+        "transactionId": "tx-google-force-rematch",
+        "imei": "imei-1",
+        "startTime": "2025-01-03T12:00:00Z",
+        "endTime": "2025-01-03T12:30:00Z",
+        "gps": {
+            "type": "LineString",
+            "coordinates": [[-97.0, 32.0], [-97.1, 32.1]],
+        },
+    }
+
+    processed_ids = await service.process_bouncie_trips([incoming], do_map_match=True)
+
+    assert processed_ids == ["tx-google-force-rematch"]
+    assert len(pipeline_stub.process_calls) == 1
+    assert pipeline_stub.process_calls[0]["do_map_match"] is True
 
 
 @pytest.mark.asyncio
