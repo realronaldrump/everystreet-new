@@ -371,6 +371,9 @@ def test_resolve_area_rejects_invalid_geometry() -> None:
     ), patch(
         "street_coverage.api.areas._fetch_boundary",
         new=AsyncMock(side_effect=ValueError("No boundary polygon for: Invalid Area")),
+    ), patch(
+        "street_coverage.ingestion._try_overpass_boundary",
+        new=AsyncMock(return_value=None),
     ):
         client = TestClient(app)
         response = client.post(
@@ -379,7 +382,8 @@ def test_resolve_area_rejects_invalid_geometry() -> None:
         )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Invalid geometry type for boundary: Point"
+    # With bounding-box fallback the Point is discarded and treated as missing
+    assert "No boundary polygon" in response.json()["detail"]
 
 
 def test_resolve_area_falls_back_when_lookup_returns_point() -> None:

@@ -977,27 +977,43 @@ async def _fetch_boundary(location_name: str) -> dict[str, Any]:
     if isinstance(geojson, dict) and geojson.get("type") == "Feature":
         geojson = geojson.get("geometry")
 
+    # Discard non-polygon geometries (e.g. Point for OSM nodes) so the
+    # bounding-box fallback below has a chance to fire.
+    if isinstance(geojson, dict) and geojson.get("type") not in (
+        "Polygon",
+        "MultiPolygon",
+    ):
+        logger.warning(
+            "Discarding %s geometry for %s; will try bounding box fallback",
+            geojson.get("type"),
+            location_name,
+        )
+        geojson = None
+
     if not geojson:
         bbox = result.get("boundingbox")
         if isinstance(bbox, list) and len(bbox) == 4:
             try:
                 south, north, west, east = map(float, bbox)
-                geojson = {
-                    "type": "Polygon",
-                    "coordinates": [
-                        [
-                            [west, south],
-                            [west, north],
-                            [east, north],
-                            [east, south],
-                            [west, south],
+                # Skip degenerate bounding boxes (zero area, e.g. from a
+                # Point node where south==north and west==east).
+                if abs(north - south) > 1e-6 and abs(east - west) > 1e-6:
+                    geojson = {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [west, south],
+                                [west, north],
+                                [east, north],
+                                [east, south],
+                                [west, south],
+                            ],
                         ],
-                    ],
-                }
-                logger.warning(
-                    "Using bounding box geometry for %s due to missing polygon",
-                    location_name,
-                )
+                    }
+                    logger.warning(
+                        "Using bounding box geometry for %s due to missing polygon",
+                        location_name,
+                    )
             except (TypeError, ValueError):
                 geojson = None
 

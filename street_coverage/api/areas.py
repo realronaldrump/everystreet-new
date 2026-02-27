@@ -278,27 +278,43 @@ def _extract_boundary(result: dict[str, Any], label: str) -> dict[str, Any]:
     if isinstance(geojson, dict) and geojson.get("type") == "Feature":
         geojson = geojson.get("geometry")
 
+    # Discard non-polygon geometries (e.g. Point for OSM nodes) so the
+    # bounding-box fallback below has a chance to fire.
+    if isinstance(geojson, dict) and geojson.get("type") not in (
+        "Polygon",
+        "MultiPolygon",
+    ):
+        logger.warning(
+            "Discarding %s geometry for %s; will try bounding box fallback",
+            geojson.get("type"),
+            label,
+        )
+        geojson = None
+
     if not geojson:
         bbox = result.get("boundingbox")
         if isinstance(bbox, list) and len(bbox) == 4:
             try:
                 south, north, west, east = map(float, bbox)
-                geojson = {
-                    "type": "Polygon",
-                    "coordinates": [
-                        [
-                            [west, south],
-                            [west, north],
-                            [east, north],
-                            [east, south],
-                            [west, south],
+                # Skip degenerate bounding boxes (zero area, e.g. from a
+                # Point node where south==north and west==east).
+                if abs(north - south) > 1e-6 and abs(east - west) > 1e-6:
+                    geojson = {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [west, south],
+                                [west, north],
+                                [east, north],
+                                [east, south],
+                                [west, south],
+                            ],
                         ],
-                    ],
-                }
-                logger.warning(
-                    "Using bounding box geometry for %s due to missing polygon",
-                    label,
-                )
+                    }
+                    logger.warning(
+                        "Using bounding box geometry for %s due to missing polygon",
+                        label,
+                    )
             except (TypeError, ValueError):
                 geojson = None
 
@@ -326,7 +342,12 @@ def _ensure_polygon_geojson(boundary: dict[str, Any], label: str) -> dict[str, A
         raise TypeError(msg)
     geom_type = geojson.get("type")
     if geom_type not in ("Polygon", "MultiPolygon"):
-        msg = f"Invalid geometry type for boundary: {geom_type}"
+        # Non-polygon geometry (Point, LineString, etc.) — cannot be used
+        # as an area boundary.  Raise with an actionable message.
+        msg = (
+            f"Invalid geometry type for boundary: {geom_type}. "
+            f"Expected Polygon or MultiPolygon."
+        )
         raise ValueError(msg)
     return geojson
 
@@ -463,6 +484,7 @@ async def resolve_area(request: ResolveAreaRequest):
             label,
         )
     except ValueError as exc:
+        original_exc = exc
         try:
             boundary = await _fetch_boundary(label)
             used_boundary_fallback = True
@@ -471,21 +493,24 @@ async def resolve_area(request: ResolveAreaRequest):
                 request.osm_id,
                 request.osm_type,
             )
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(exc),
-            ) from exc
-        except Exception:
-            logger.exception(
-                "Boundary fallback lookup failed for osm_id=%s osm_type=%s",
-                request.osm_id,
-                request.osm_type,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(exc),
-            ) from exc
+        except (ValueError, Exception):
+            # Last resort: try OSMnx/Overpass for a real admin boundary
+            from street_coverage.ingestion import _try_overpass_boundary
+
+            overpass_boundary = await _try_overpass_boundary(label)
+            if overpass_boundary is not None:
+                boundary = overpass_boundary
+                used_boundary_fallback = True
+                logger.info(
+                    "Resolved polygon boundary via Overpass fallback for osm_id=%s osm_type=%s",
+                    request.osm_id,
+                    request.osm_type,
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(original_exc),
+                ) from original_exc
 
     # If the boundary looks like a viewport rectangle (e.g. Google),
     # try to enrich it with a real admin boundary from OSMnx/Nominatim.
