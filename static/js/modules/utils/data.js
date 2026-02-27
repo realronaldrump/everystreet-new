@@ -8,33 +8,20 @@ import notificationManager from "../ui/notifications.js";
 // ============================================================================
 
 /**
- * Debounce a function call
+ * Debounce a function call (trailing-edge only).
+ * The function is invoked after `wait` ms of silence — never immediately.
  * @param {Function} func - Function to debounce
  * @param {number} wait - Wait time in milliseconds
  * @returns {Function} Debounced function
  */
 export function debounce(func, wait) {
   let timeout = null;
-  let lastCallTime = 0;
 
   return function executedFunction(...args) {
-    const now = Date.now();
-    const timeSinceLastCall = now - lastCallTime;
-
-    const later = () => {
-      clearTimeout(timeout);
-      lastCallTime = Date.now();
-      func(...args);
-    };
-
     clearTimeout(timeout);
-
-    if (timeSinceLastCall >= wait) {
-      lastCallTime = now;
-      func(...args);
-    } else {
-      timeout = setTimeout(later, wait);
-    }
+    timeout = setTimeout(() => {
+      func.apply(this, args);
+    }, wait);
   };
 }
 
