@@ -112,10 +112,30 @@ async function setupBouncieCredentials({ signal } = {}) {
         );
         return;
       }
+
+      const redirectUriVal = redirectUri?.value?.trim() || "";
+      const uriLower = redirectUriVal.toLowerCase();
+      if (uriLower.includes("localhost")) {
+        if (uriLower.startsWith("https://")) {
+          notificationManager.show(
+            "Localhost does not support HTTPS. Please use http://localhost:8080/api/bouncie/callback",
+            "danger"
+          );
+          return;
+        }
+        if (uriLower.includes("www.localhost")) {
+          notificationManager.show(
+            "www.localhost is invalid. Please use http://localhost:8080/api/bouncie/callback",
+            "danger"
+          );
+          return;
+        }
+      }
+
       const payload = {
         client_id: clientId?.value?.trim() || "",
         client_secret: secretInput?.value?.trim() || "",
-        redirect_uri: redirectUri?.value?.trim() || "",
+        redirect_uri: redirectUriVal,
         fetch_concurrency: fetchConcurrency,
       };
 
