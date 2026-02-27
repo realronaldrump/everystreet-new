@@ -10,7 +10,6 @@ import mobileNav from "./mobile-nav.js";
 import modalEffects from "./modal-effects.js";
 import panelManager from "./panel-manager.js";
 import personalization from "./personalization.js";
-import pullToRefresh from "./pull-to-refresh.js";
 import setupRequired from "./setup-required.js";
 import swipeActions from "./swipe-actions.js";
 import swipeDismiss from "./swipe-dismiss.js";
@@ -53,7 +52,6 @@ function init() {
     metricAnimator.init?.();
     modalEffects.init?.();
     mobileNav.init?.();
-    pullToRefresh.init?.();
     swipeActions.init?.();
     swipeDismiss.init?.();
     widgetManager.init?.();

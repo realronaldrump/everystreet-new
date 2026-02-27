@@ -262,9 +262,22 @@ class TripQueryService:
                 {"destination.formatted_address": search_regex},
             ]
 
-        # Use Beanie count methods
-        total_count = await Trip.find(base_query).count()
-        filtered_count = await Trip.find(query).count()
+        # Optimize count queries: skip second count when no extra filters applied
+        if query == base_query:
+            total_count = await Trip.find(base_query).count()
+            filtered_count = total_count
+        else:
+            extra_filters = {k: v for k, v in query.items() if k not in base_query}
+            facet_result = await Trip.get_motor_collection().aggregate([
+                {"$match": base_query},
+                {"$facet": {
+                    "total": [{"$count": "n"}],
+                    "filtered": [{"$match": extra_filters}, {"$count": "n"}],
+                }},
+            ]).to_list(1)
+            row = facet_result[0] if facet_result else {}
+            total_count = row.get("total", [{}])[0].get("n", 0) if row.get("total") else 0
+            filtered_count = row.get("filtered", [{}])[0].get("n", 0) if row.get("filtered") else 0
 
         sort_column = None
         sort_direction = -1

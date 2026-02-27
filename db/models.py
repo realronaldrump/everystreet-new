@@ -265,6 +265,10 @@ class Trip(Document):
                 name="trips_mobility_synced_at_idx",
                 sparse=True,
             ),
+            IndexModel(
+                [("imei", 1), ("endTime", -1)],
+                name="trips_imei_endTime_desc_idx",
+            ),
         ]
 
     model_config = ConfigDict(extra="allow")
@@ -681,6 +685,10 @@ class CoverageState(Document):
             IndexModel(
                 [("first_driven_at", 1)],
                 name="coverage_state_first_driven_at_idx",
+            ),
+            IndexModel(
+                [("area_id", 1), ("status", 1), ("segment_id", 1)],
+                name="coverage_state_area_status_segment_idx",
             ),
         ]
 

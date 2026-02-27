@@ -5,13 +5,16 @@ Provides viewport-based street retrieval for efficient map rendering.
 No more loading entire GeoJSON files - streams segments as needed.
 """
 
+import hashlib
+import json
 import logging
 from datetime import datetime
 from typing import Annotated, Any
 
 from beanie import PydanticObjectId
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
+from starlette.responses import Response
 
 from core.coverage import (
     mark_segment_undriveable,
@@ -220,6 +223,7 @@ async def get_streets_geojson(
 
 @router.get("/areas/{area_id}/streets/all")
 async def get_all_streets(
+    request: Request,
     area_id: PydanticObjectId,
     status_filter: Annotated[
         str | None,
@@ -244,6 +248,20 @@ async def get_all_streets(
             detail=f"Area is not ready (status: {area.status})",
         )
 
+    # Compute ETag from area version + coverage state counts
+    driven_count = await CoverageState.find(
+        {"area_id": area_id, "status": "driven"},
+    ).count()
+    undriveable_count = await CoverageState.find(
+        {"area_id": area_id, "status": "undriveable"},
+    ).count()
+    etag_source = f"{area.area_version}:{driven_count}:{undriveable_count}:{status_filter or ''}"
+    etag = hashlib.md5(etag_source.encode()).hexdigest()  # noqa: S324
+
+    if_none_match = request.headers.get("if-none-match")
+    if if_none_match and if_none_match.strip('"') == etag:
+        return Response(status_code=304, headers={"ETag": f'"{etag}"'})
+
     if status_filter and status_filter not in ("undriven", "driven", "undriveable"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -266,7 +284,12 @@ async def get_all_streets(
         )
 
         if not streets:
-            return {"type": "FeatureCollection", "features": []}
+            body = json.dumps({"type": "FeatureCollection", "features": []})
+            return Response(
+                content=body,
+                media_type="application/json",
+                headers={"ETag": f'"{etag}"', "Cache-Control": "private, max-age=30"},
+            )
 
         street_ids = {s.segment_id for s in streets}
         states = (
@@ -304,10 +327,12 @@ async def get_all_streets(
                 },
             )
 
-        return {
-            "type": "FeatureCollection",
-            "features": features,
-        }
+        body = json.dumps({"type": "FeatureCollection", "features": features}, default=str)
+        return Response(
+            content=body,
+            media_type="application/json",
+            headers={"ETag": f'"{etag}"', "Cache-Control": "private, max-age=30"},
+        )
 
     # status_filter in {"driven", "undriveable"}: fetch matching CoverageState rows
     # first, then hydrate with the current Street geometries.
@@ -319,7 +344,12 @@ async def get_all_streets(
         .to_list()
     )
     if not states:
-        return {"type": "FeatureCollection", "features": []}
+        body = json.dumps({"type": "FeatureCollection", "features": []})
+        return Response(
+            content=body,
+            media_type="application/json",
+            headers={"ETag": f'"{etag}"', "Cache-Control": "private, max-age=30"},
+        )
 
     state_map = {s.segment_id: s for s in states}
     segment_ids = list(state_map)
@@ -352,7 +382,12 @@ async def get_all_streets(
         for street in streets
     ]
 
-    return {"type": "FeatureCollection", "features": features}
+    body = json.dumps({"type": "FeatureCollection", "features": features}, default=str)
+    return Response(
+        content=body,
+        media_type="application/json",
+        headers={"ETag": f'"{etag}"', "Cache-Control": "private, max-age=30"},
+    )
 
 
 @router.patch("/areas/{area_id}/streets/{segment_id}")

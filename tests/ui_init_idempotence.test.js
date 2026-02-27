@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import mobileNav from "../static/js/modules/ui/mobile-nav.js";
-import pullToRefresh from "../static/js/modules/ui/pull-to-refresh.js";
 
 function createClassList() {
   const classes = new Set();
@@ -119,72 +118,4 @@ test("mobile nav init is idempotent", () => {
   }
 });
 
-test("pull-to-refresh init is idempotent", () => {
-  const originalDocument = global.document;
-  const originalWindow = global.window;
 
-  try {
-    const eventCounts = {
-      touchstart: 0,
-      touchmove: 0,
-      touchend: 0,
-    };
-
-    global.document = {
-      body: {
-        dataset: { route: "/trips" },
-        appendChild() {},
-      },
-      addEventListener(type) {
-        if (Object.hasOwn(eventCounts, type)) {
-          eventCounts[type] += 1;
-        }
-      },
-      getElementById() {
-        return null;
-      },
-      createElement() {
-        return {
-          id: "",
-          className: "",
-          innerHTML: "",
-          classList: createClassList(),
-          style: {
-            setProperty() {},
-            removeProperty() {},
-          },
-          querySelector() {
-            return null;
-          },
-        };
-      },
-    };
-
-    global.window = {
-      location: { href: "https://example.test/trips" },
-      scrollY: 0,
-      matchMedia() {
-        return { matches: true };
-      },
-    };
-
-    pullToRefresh.initialized = false;
-    pullToRefresh.handleTouchStart = null;
-    pullToRefresh.handleTouchMove = null;
-    pullToRefresh.handleTouchEnd = null;
-
-    pullToRefresh.init();
-    pullToRefresh.init();
-
-    assert.equal(eventCounts.touchstart, 1);
-    assert.equal(eventCounts.touchmove, 1);
-    assert.equal(eventCounts.touchend, 1);
-  } finally {
-    pullToRefresh.initialized = false;
-    pullToRefresh.handleTouchStart = null;
-    pullToRefresh.handleTouchMove = null;
-    pullToRefresh.handleTouchEnd = null;
-    global.document = originalDocument;
-    global.window = originalWindow;
-  }
-});

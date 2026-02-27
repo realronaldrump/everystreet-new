@@ -22,11 +22,9 @@ export function connectLiveWebSocket({
     return null;
   }
 
-  if (typeof onOpen === "function") {
-    socket.addEventListener("open", onOpen);
-  }
+  const openHandler = typeof onOpen === "function" ? onOpen : null;
 
-  socket.addEventListener("message", (event) => {
+  const messageHandler = (event) => {
     if (typeof onMessage !== "function") {
       return;
     }
@@ -36,19 +34,35 @@ export function connectLiveWebSocket({
     } catch (error) {
       console.error("WebSocket message error:", error);
     }
-  });
+  };
 
-  socket.addEventListener("close", (event) => {
+  const closeHandler = (event) => {
     if (typeof onClose === "function") {
       onClose(event);
     }
-  });
+  };
 
-  socket.addEventListener("error", (error) => {
+  const errorHandler = (error) => {
     if (typeof onError === "function") {
       onError(error);
     }
-  });
+  };
+
+  if (openHandler) {
+    socket.addEventListener("open", openHandler);
+  }
+  socket.addEventListener("message", messageHandler);
+  socket.addEventListener("close", closeHandler);
+  socket.addEventListener("error", errorHandler);
+
+  socket.cleanup = () => {
+    if (openHandler) {
+      socket.removeEventListener("open", openHandler);
+    }
+    socket.removeEventListener("message", messageHandler);
+    socket.removeEventListener("close", closeHandler);
+    socket.removeEventListener("error", errorHandler);
+  };
 
   return socket;
 }

@@ -840,12 +840,8 @@ class TripPipeline:
         *,
         transaction_id: str | None = None,
     ) -> None:
-        tx = str(transaction_id or processed_data.get("transactionId") or "unknown")
-
-        gps = sanitize_geojson_geometry(processed_data.get("gps"))
-        if processed_data.get("gps") is not None and gps is None:
-            logger.debug("Trip %s: dropping invalid gps geometry before save", tx)
-        processed_data["gps"] = gps
+        # GPS was already sanitized in _basic_process(); read it directly.
+        gps = processed_data.get("gps")
 
         start_geo = sanitize_geojson_point(processed_data.get("startGeoPoint"))
         dest_geo = sanitize_geojson_point(processed_data.get("destinationGeoPoint"))
@@ -869,19 +865,16 @@ class TripPipeline:
     def sanitize_trip_document_geospatial_fields(
         trip: Trip,
     ) -> None:
-        gps = sanitize_geojson_geometry(getattr(trip, "gps", None))
-        trip.gps = gps
-
-        start_geo = sanitize_geojson_point(getattr(trip, "startGeoPoint", None))
-        dest_geo = sanitize_geojson_point(getattr(trip, "destinationGeoPoint", None))
-        derived_start, derived_dest = derive_geo_points(gps)
-        if derived_start:
-            start_geo = derived_start
-        if derived_dest:
-            dest_geo = derived_dest
-
-        trip.startGeoPoint = start_geo
-        trip.destinationGeoPoint = dest_geo
+        # Validate geometry on the Trip model object before save.
+        # Geo points were already derived by _prepare_processed_geo_fields(),
+        # so only sanitize/validate here — no re-derivation needed.
+        trip.gps = sanitize_geojson_geometry(getattr(trip, "gps", None))
+        trip.startGeoPoint = sanitize_geojson_point(
+            getattr(trip, "startGeoPoint", None),
+        )
+        trip.destinationGeoPoint = sanitize_geojson_point(
+            getattr(trip, "destinationGeoPoint", None),
+        )
 
     @staticmethod
     def _has_meaningful_location(value: Any) -> bool:

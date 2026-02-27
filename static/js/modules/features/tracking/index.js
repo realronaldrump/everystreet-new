@@ -805,6 +805,9 @@ class LiveTripTracker {
 
     if (this.ws) {
       this._manualCloseSocket = this.ws;
+      if (typeof this.ws.cleanup === "function") {
+        this.ws.cleanup();
+      }
       this.ws.close();
       this.ws = null;
     }
@@ -899,6 +902,9 @@ class LiveTripTracker {
 
     if (this.ws) {
       this._manualCloseSocket = this.ws;
+      if (typeof this.ws.cleanup === "function") {
+        this.ws.cleanup();
+      }
       try {
         this.ws.close();
       } catch (error) {
@@ -1614,6 +1620,9 @@ class LiveTripTracker {
 
     if (this.ws) {
       this._manualCloseSocket = this.ws;
+      if (typeof this.ws.cleanup === "function") {
+        this.ws.cleanup();
+      }
       this.ws.close();
       this.ws = null;
     }

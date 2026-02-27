@@ -961,61 +961,69 @@ async def backfill_coverage_for_area(
     )
     await report_progress(total_trips=total_trip_count, force=True)
 
-    cursor = Trip.find(query).sort([("endTime", 1), ("_id", 1)])
-    async for trip in cursor:
-        processed_trips += 1
-        trip_data = trip.model_dump()
+    _BACKFILL_BATCH_SIZE = 100
 
-        # Track high-water mark (cursor is sorted by endTime asc)
-        trip_end = trip_data.get("endTime")
-        if isinstance(trip_end, datetime):
-            latest_trip_endtime = trip_end
+    def _process_trip_batch(
+        batch: list[Trip],
+    ) -> None:
+        nonlocal processed_trips, matched_trips, latest_trip_endtime
+        for trip in batch:
+            processed_trips += 1
+            trip_data = trip.model_dump()
 
-        trip_line, is_map_matched = trip_to_linestring(trip_data)
-        if trip_line is None:
-            await report_progress(total_trips=total_trip_count)
-            continue
+            # Track high-water mark (cursor is sorted by endTime asc)
+            trip_end = trip_data.get("endTime")
+            if isinstance(trip_end, datetime):
+                latest_trip_endtime = trip_end
 
-        trip_time = get_trip_driven_at(trip_data)
-        if trip_time is None:
-            await report_progress(total_trips=total_trip_count)
-            continue
-
-        buffer = MATCH_BUFFER_METERS if is_map_matched else RAW_GPS_BUFFER_METERS
-        overlap_ratio = (
-            COVERAGE_OVERLAP_RATIO if is_map_matched else RAW_GPS_OVERLAP_RATIO
-        )
-        matched_segment_ids = segment_index.find_matching_segments(
-            trip_line,
-            buffer_meters=buffer,
-            coverage_ratio=overlap_ratio,
-        )
-        if not matched_segment_ids:
-            await report_progress(total_trips=total_trip_count)
-            continue
-
-        matched_trips += 1
-
-        for segment_id in matched_segment_ids:
-            if segment_id in undriveable_ids:
+            trip_line, is_map_matched = trip_to_linestring(trip_data)
+            if trip_line is None:
                 continue
 
-            existing_first = segment_first.get(segment_id)
-            if existing_first is None or trip_time < existing_first:
-                segment_first[segment_id] = trip_time
+            trip_time = get_trip_driven_at(trip_data)
+            if trip_time is None:
+                continue
 
-            existing_last = segment_last.get(segment_id)
-            if existing_last is None or trip_time > existing_last:
-                segment_last[segment_id] = trip_time
-                if trip.id is not None:
-                    segment_last_trip[segment_id] = trip.id
+            buffer = MATCH_BUFFER_METERS if is_map_matched else RAW_GPS_BUFFER_METERS
+            overlap_ratio = (
+                COVERAGE_OVERLAP_RATIO if is_map_matched else RAW_GPS_OVERLAP_RATIO
+            )
+            matched_segment_ids = segment_index.find_matching_segments(
+                trip_line,
+                buffer_meters=buffer,
+                coverage_ratio=overlap_ratio,
+            )
+            if not matched_segment_ids:
+                continue
 
-        await report_progress(total_trips=total_trip_count)
+            matched_trips += 1
 
-        # Periodic garbage collection to reduce peak memory when scanning
-        # large trip histories.
-        if processed_trips % (progress_interval * 10) == 0:
+            for segment_id in matched_segment_ids:
+                if segment_id in undriveable_ids:
+                    continue
+
+                existing_first = segment_first.get(segment_id)
+                if existing_first is None or trip_time < existing_first:
+                    segment_first[segment_id] = trip_time
+
+                existing_last = segment_last.get(segment_id)
+                if existing_last is None or trip_time > existing_last:
+                    segment_last[segment_id] = trip_time
+                    if trip.id is not None:
+                        segment_last_trip[segment_id] = trip.id
+
+    cursor = Trip.find(query).sort([("endTime", 1), ("_id", 1)])
+    batch: list[Trip] = []
+    async for trip in cursor:
+        batch.append(trip)
+        if len(batch) >= _BACKFILL_BATCH_SIZE:
+            _process_trip_batch(batch)
+            await report_progress(total_trips=total_trip_count)
+            batch = []
             gc.collect()
+    if batch:
+        _process_trip_batch(batch)
+        await report_progress(total_trips=total_trip_count)
 
     if not segment_first:
         logger.info(

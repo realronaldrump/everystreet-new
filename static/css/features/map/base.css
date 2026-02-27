@@ -41,7 +41,7 @@
   width: 100%;
 }
 
-/* Prevent pull-to-refresh and overscroll on map page (CSS-only replacement for JS pan guard) */
+/* Prevent overscroll on map page to avoid interference with map controls */
 body.map-page {
   overscroll-behavior: none;
 }

@@ -208,8 +208,10 @@ export function applyCountyVisitFeatureState(map, countyVisits = {}, countyStops
     mergedStateByFips.set(fips, { ...existing, stopped: true });
   });
 
-  mergedStateByFips.forEach((featureState, fips) => {
-    map.setFeatureState({ source: COUNTIES_SOURCE_ID, id: fips }, featureState);
+  requestAnimationFrame(() => {
+    mergedStateByFips.forEach((featureState, fips) => {
+      map.setFeatureState({ source: COUNTIES_SOURCE_ID, id: fips }, featureState);
+    });
   });
 }
 

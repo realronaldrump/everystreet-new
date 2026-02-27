@@ -309,53 +309,6 @@ async function cancelSync(elements, { onSyncError } = {}) {
   }
 }
 
-function setupPullToRefresh(elements) {
-  let startY = null;
-  let triggered = false;
-  const threshold = 90;
-
-  const onTouchStart = (event) => {
-    if (window.scrollY > 0) {
-      startY = null;
-      return;
-    }
-    const touch = event.touches?.[0];
-    startY = touch ? touch.clientY : null;
-    triggered = false;
-  };
-
-  const onTouchMove = (event) => {
-    if (startY === null || triggered || window.scrollY > 0) {
-      return;
-    }
-    const touch = event.touches?.[0];
-    if (!touch) {
-      return;
-    }
-    const delta = touch.clientY - startY;
-    if (delta > threshold) {
-      triggered = true;
-      notificationManager.show("Refreshing trips...", "info");
-      startSync(elements, { mode: "recent", trigger_source: "pull" });
-    }
-  };
-
-  const onTouchEnd = () => {
-    startY = null;
-    triggered = false;
-  };
-
-  window.addEventListener("touchstart", onTouchStart, { passive: true });
-  window.addEventListener("touchmove", onTouchMove, { passive: true });
-  window.addEventListener("touchend", onTouchEnd, { passive: true });
-
-  return () => {
-    window.removeEventListener("touchstart", onTouchStart);
-    window.removeEventListener("touchmove", onTouchMove);
-    window.removeEventListener("touchend", onTouchEnd);
-  };
-}
-
 function connectSse(elements, onSyncComplete, onSyncError) {
   if (eventSource) {
     eventSource.close();
@@ -511,11 +464,6 @@ export function initTripSync({ onSyncComplete, onSyncError, cleanup } = {}) {
       btn.removeEventListener("click", handleSyncClick);
     });
   });
-
-  const pullCleanup = setupPullToRefresh(elements);
-  if (pullCleanup) {
-    cleanupHandlers.push(pullCleanup);
-  }
 
   const handleOnline = () => {
     fetchStatus(elements, { showError: true }).then((status) => {
