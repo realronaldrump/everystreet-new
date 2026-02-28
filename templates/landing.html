@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 
 {% block title %}
-
  Every Street
 {% endblock %}
 
@@ -48,28 +47,69 @@ Welcome back
           </div>
         </div>
 
-        <!-- Hero Stats Row -->
-        <div class="hero-stats" id="hero-stats">
-          <div class="stat-pulse">
-            <div class="stat-value" id="stat-miles" data-value-flash>
---
+        <!-- Coverage Hero -->
+        <div class="coverage-hero" id="coverage-hero">
+          <div class="coverage-hero-empty" id="coverage-hero-empty">
+            <div class="coverage-hero-empty-icon">
+              <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
             </div>
-            <div class="stat-label">
-Miles Driven
+            <div class="coverage-hero-empty-text">
+              <div class="coverage-hero-empty-title">Start tracking your coverage</div>
+              <div class="coverage-hero-empty-subtitle">Add an area to see your street coverage progress here.</div>
             </div>
+            <a href="/coverage-management" class="btn btn-primary btn-sm">Add an Area</a>
           </div>
-          <div class="stat-divider">
-          </div>
-          <div class="stat-pulse">
-            <div class="stat-value" id="stat-trips" data-value-flash>
---
+          <div class="coverage-hero-content" id="coverage-hero-content" style="display: none;">
+            <div class="coverage-hero-ring">
+              <svg class="progress-ring" viewBox="0 0 120 120" aria-hidden="true">
+                <circle class="progress-ring-bg" cx="60" cy="60" r="52" />
+                <circle class="progress-ring-fill" id="coverage-ring-fill" cx="60" cy="60" r="52" />
+              </svg>
+              <div class="progress-ring-value">
+                <span class="progress-ring-percent" id="coverage-hero-percent">0</span>
+                <span class="progress-ring-unit">%</span>
+              </div>
             </div>
-            <div class="stat-label">
-Trips
+            <div class="coverage-hero-details">
+              <div class="coverage-hero-area-name" id="coverage-hero-name">--</div>
+              <div class="coverage-hero-miles" id="coverage-hero-miles">-- of -- mi driven</div>
+              <div class="coverage-hero-health" id="coverage-hero-health"></div>
+              <a href="/coverage-navigator" class="coverage-hero-link" id="coverage-hero-link">
+                <i class="fas fa-map" aria-hidden="true"></i> View on Map
+              </a>
             </div>
           </div>
         </div>
 
+        <!-- Quick Stats Row -->
+        <div class="quick-stats-row" id="quick-stats-row">
+          <div class="quick-stat">
+            <div class="quick-stat-value" id="stat-miles" data-value-flash>--</div>
+            <div class="quick-stat-label">Miles Driven</div>
+          </div>
+          <div class="quick-stat-divider"></div>
+          <div class="quick-stat">
+            <div class="quick-stat-value" id="stat-areas" data-value-flash>--</div>
+            <div class="quick-stat-label">Areas Tracked</div>
+          </div>
+          <div class="quick-stat-divider"></div>
+          <div class="quick-stat">
+            <div class="quick-stat-value" id="stat-trips" data-value-flash>--</div>
+            <div class="quick-stat-label">Trips</div>
+          </div>
+        </div>
+
+        <!-- Coverage Areas Progress -->
+        <div class="coverage-areas-section" id="coverage-areas-section" style="display: none;">
+          <div class="section-header">
+            <span class="section-title">Coverage Areas</span>
+            <a href="/coverage-management" class="section-action">Manage</a>
+          </div>
+          <div class="coverage-areas-list" id="coverage-areas-list">
+          </div>
+        </div>
+
+        <!-- Personal Record Card -->
         <div class="delight-grid" data-stagger>
           <div class="delight-card"
                id="record-card"
@@ -96,22 +136,17 @@ Personal Record
           <div class="toolbar-title">
 Quick Launch
           </div>
-          <button class="btn btn-outline btn-sm" id="widget-edit-toggle" type="button">
-          Customize
-          </button>
         </div>
 
-        <div class="nav-grid" data-stagger data-widget-container="landing-nav">
-          <!-- Primary Actions -->
+        <div class="nav-grid" data-stagger>
           <a href="/map"
              class="nav-tile nav-tile-primary"
-             data-tile="map"
-             data-widget-id="map">
+             data-tile="map">
             <div class="tile-bg">
             </div>
             <div class="tile-content">
               <div class="tile-icon">
-                <i class="fas fa-map"></i>
+                <i class="fas fa-map" aria-hidden="true"></i>
               </div>
               <div class="tile-text">
                 <span class="tile-title">Map</span>
@@ -125,13 +160,12 @@ Quick Launch
 
           <a href="/coverage-navigator"
              class="nav-tile nav-tile-primary"
-             data-tile="navigate"
-             data-widget-id="navigate">
+             data-tile="navigate">
             <div class="tile-bg">
             </div>
             <div class="tile-content">
               <div class="tile-icon">
-                <i class="fas fa-route"></i>
+                <i class="fas fa-route" aria-hidden="true"></i>
               </div>
               <div class="tile-text">
                 <span class="tile-title">Navigate</span>
@@ -140,13 +174,12 @@ Quick Launch
             </div>
           </a>
 
-          <!-- Secondary Row -->
-          <a href="/trips" class="nav-tile" data-tile="trips" data-widget-id="trips">
+          <a href="/trips" class="nav-tile" data-tile="trips">
             <div class="tile-bg">
             </div>
             <div class="tile-content">
               <div class="tile-icon">
-                <i class="fas fa-road"></i>
+                <i class="fas fa-road" aria-hidden="true"></i>
               </div>
               <div class="tile-text">
                 <span class="tile-title">Trips</span>
@@ -159,32 +192,14 @@ Quick Launch
             </div>
           </a>
 
-          <a href="/map-matching"
-             class="nav-tile"
-             data-tile="map-matching"
-             data-widget-id="map-matching">
-            <div class="tile-bg">
-            </div>
-            <div class="tile-content">
-              <div class="tile-icon">
-                <i class="fas fa-route"></i>
-              </div>
-              <div class="tile-text">
-                <span class="tile-title">Map Matching</span>
-                <span class="tile-subtitle">Queue map matching jobs</span>
-              </div>
-            </div>
-          </a>
-
           <a href="/insights"
              class="nav-tile"
-             data-tile="insights"
-             data-widget-id="insights">
+             data-tile="insights">
             <div class="tile-bg">
             </div>
             <div class="tile-content">
               <div class="tile-icon">
-                <i class="fas fa-chart-line"></i>
+                <i class="fas fa-chart-line" aria-hidden="true"></i>
               </div>
               <div class="tile-text">
                 <span class="tile-title">Insights</span>
@@ -193,12 +208,12 @@ Quick Launch
             </div>
           </a>
 
-          <a href="/gas-tracking" class="nav-tile" data-tile="gas" data-widget-id="gas">
+          <a href="/gas-tracking" class="nav-tile" data-tile="gas">
             <div class="tile-bg">
             </div>
             <div class="tile-content">
               <div class="tile-icon">
-                <i class="fas fa-gas-pump"></i>
+                <i class="fas fa-gas-pump" aria-hidden="true"></i>
               </div>
               <div class="tile-text">
                 <span class="tile-title">Gas</span>
@@ -211,65 +226,18 @@ Quick Launch
             </div>
           </a>
 
-          <a href="/visits" class="nav-tile" data-tile="visits" data-widget-id="visits">
-            <div class="tile-bg">
-            </div>
-            <div class="tile-content">
-              <div class="tile-icon">
-                <i class="fas fa-map-marker-alt"></i>
-              </div>
-              <div class="tile-text">
-                <span class="tile-title">Visits</span>
-                <span class="tile-subtitle">Places tracked</span>
-              </div>
-            </div>
-          </a>
-
-          <!-- Tools Row -->
-          <a href="/export"
-             class="nav-tile nav-tile-tool"
-             data-tile="export"
-             data-widget-id="export">
-            <div class="tile-bg">
-            </div>
-            <div class="tile-content">
-              <div class="tile-icon">
-                <i class="fas fa-download"></i>
-              </div>
-              <div class="tile-text">
-                <span class="tile-title">Export</span>
-              </div>
-            </div>
-          </a>
-
-          <a href="/coverage-management"
-             class="nav-tile nav-tile-tool"
-             data-tile="areas"
-             data-widget-id="areas">
-            <div class="tile-bg">
-            </div>
-            <div class="tile-content">
-              <div class="tile-icon">
-                <i class="fas fa-vector-square"></i>
-              </div>
-              <div class="tile-text">
-                <span class="tile-title">Areas</span>
-              </div>
-            </div>
-          </a>
-
           <a href="/settings"
-             class="nav-tile nav-tile-tool"
-             data-tile="settings"
-             data-widget-id="settings">
+             class="nav-tile"
+             data-tile="settings">
             <div class="tile-bg">
             </div>
             <div class="tile-content">
               <div class="tile-icon">
-                <i class="fas fa-cog"></i>
+                <i class="fas fa-cog" aria-hidden="true"></i>
               </div>
               <div class="tile-text">
                 <span class="tile-title">Settings</span>
+                <span class="tile-subtitle">Configuration</span>
               </div>
             </div>
           </a>
