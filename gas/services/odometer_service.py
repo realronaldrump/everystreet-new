@@ -114,8 +114,9 @@ class OdometerService:
 
         # Extract location from the end of the trip
         destination_address = None
-        if trip.destination and isinstance(trip.destination, dict):
-            destination_address = trip.destination.get("formatted_address")
+        destination = getattr(trip, "destination", None)
+        if isinstance(destination, dict):
+            destination_address = destination.get("formatted_address")
 
         location_data = {
             "latitude": None,
@@ -133,23 +134,25 @@ class OdometerService:
 
         # Try to get coordinates from various sources
         # 1. GPS Data (Most accurate)
-        if trip.gps:
+        if isinstance(trip.gps, dict) and trip.gps:
             location_data = OdometerService._extract_gps_coordinates(
                 trip.gps,
                 location_data,
             )
 
         # 2. End Location (Direct lat/lon)
-        if location_data["latitude"] is None and trip.endLocation:
+        end_location = getattr(trip, "endLocation", None)
+        if location_data["latitude"] is None and isinstance(end_location, dict):
             location_data = OdometerService._extract_end_location(
-                trip.endLocation,
+                end_location,
                 location_data,
             )
 
         # 3. Start Location (if trip has no movement)
-        if location_data["latitude"] is None and trip.startLocation:
+        start_location = getattr(trip, "startLocation", None)
+        if location_data["latitude"] is None and isinstance(start_location, dict):
             location_data = OdometerService._extract_start_location(
-                trip.startLocation,
+                start_location,
                 location_data,
             )
 

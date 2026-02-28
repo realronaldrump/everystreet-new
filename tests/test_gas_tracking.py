@@ -193,6 +193,34 @@ async def test_estimate_odometer_reading_uses_fillup_anchor_and_trip_distance(
 
 
 @pytest.mark.asyncio
+async def test_get_vehicle_location_at_time_handles_missing_optional_fields(
+    beanie_db,
+) -> None:
+    imei = "imei-location-optional"
+    target_time = datetime(2026, 2, 8, 3, 21, tzinfo=UTC)
+
+    await Trip(
+        transactionId="tx-location-optional",
+        imei=imei,
+        startTime=target_time - timedelta(minutes=30),
+        endTime=target_time + timedelta(minutes=30),
+        endOdometer=12345.6,
+        source="bouncie",
+    ).insert()
+
+    result = await OdometerService.get_vehicle_location_at_time(
+        imei,
+        target_time.isoformat(),
+    )
+
+    assert result["latitude"] is None
+    assert result["longitude"] is None
+    assert result["odometer"] == pytest.approx(12345.6)
+    assert result["address"] is None
+    assert result["timestamp"] == target_time + timedelta(minutes=30)
+
+
+@pytest.mark.asyncio
 async def test_create_fillup_requires_is_full_tank(beanie_db) -> None:
     with pytest.raises(ValidationException):
         await FillupService.create_fillup(
