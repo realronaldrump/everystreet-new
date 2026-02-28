@@ -44,7 +44,7 @@ def initialize_route_state(
     node_xy: dict[int, tuple[float, float]] = {
         n: (float(G.nodes[n]["x"]), float(G.nodes[n]["y"]))
         for n in G.nodes
-        if "x" in G.nodes[n] and "y" in G.nodes[n]
+        if G.nodes[n].get("x") is not None and G.nodes[n].get("y") is not None
     }
 
     if start_node is not None and start_node in G.nodes:

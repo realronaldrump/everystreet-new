@@ -517,7 +517,8 @@ async def _generate_optimal_route_with_progress_impl(
                 float(matching_graph.nodes[n]["y"]),
             )
             for n in matching_graph.nodes
-            if "x" in matching_graph.nodes[n] and "y" in matching_graph.nodes[n]
+            if matching_graph.nodes[n].get("x") is not None
+            and matching_graph.nodes[n].get("y") is not None
         }
         osmid_index = build_osmid_index(matching_graph)
         # Log graph edge osmid sample for debugging
