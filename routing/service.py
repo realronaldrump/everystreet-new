@@ -433,11 +433,16 @@ async def _generate_optimal_route_with_progress_impl(
         if min_x != float("inf") and min_y != float("inf"):
             graph_bbox = (min_x, min_y, max_x, max_y)
 
-        area_bbox = (
-            tuple(float(v) for v in coverage_area.bounding_box)
-            if coverage_area.bounding_box and len(coverage_area.bounding_box) == 4
-            else None
-        )
+        area_bbox = None
+        if (
+            coverage_area.bounding_box
+            and len(coverage_area.bounding_box) == 4
+            and all(v is not None for v in coverage_area.bounding_box)
+        ):
+            try:
+                area_bbox = tuple(float(v) for v in coverage_area.bounding_box)
+            except (TypeError, ValueError):
+                pass
         if (
             graph_bbox
             and area_bbox
