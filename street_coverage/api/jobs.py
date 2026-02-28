@@ -26,6 +26,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/coverage", tags=["coverage-jobs"])
 
 
+async def _resolve_job(job_id: str) -> Job | None:
+    """Look up a Job by ObjectId or task_id."""
+    job = None
+    if len(job_id) == 24:
+        try:
+            job = await Job.get(PydanticObjectId(job_id))
+        except Exception:
+            pass
+    if not job:
+        job = await Job.find_one({"task_id": job_id})
+    return job
+
+
 # =============================================================================
 # Response Models
 # =============================================================================
@@ -65,16 +78,18 @@ class JobListResponse(BaseModel):
 
 
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse)
-async def get_job_status(job_id: PydanticObjectId):
+async def get_job_status(job_id: str):
     """
     Get the status of a background job.
+
+    Accepts either a MongoDB ObjectId or an ARQ task_id.
 
     Poll this endpoint to track progress of:
     - Area ingestion
     - Area rebuilds
     - Route generation
     """
-    job = await Job.get(job_id)
+    job = await _resolve_job(job_id)
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -186,15 +201,17 @@ async def list_active_jobs():
 
 
 @router.delete("/jobs/{job_id}")
-async def cancel_job(job_id: PydanticObjectId):
+async def cancel_job(job_id: str):
     """
     Cancel a pending or running job.
+
+    Accepts either a MongoDB ObjectId or an ARQ task_id.
 
     Attempts to cancel in-process tasks (best-effort) and marks the job
     as cancelled in the database. Ingestion pipelines also self-abort by
     checking job status between stages.
     """
-    job = await Job.get(job_id)
+    job = await _resolve_job(job_id)
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -208,7 +225,7 @@ async def cancel_job(job_id: PydanticObjectId):
         )
 
     # Best-effort: cancel in-process asyncio task(s) for this job.
-    cancel_ingestion_job(job_id)
+    cancel_ingestion_job(str(job.id))
 
     now = datetime.now(UTC)
     job.status = "cancelled"
@@ -328,9 +345,11 @@ async def _job_event_stream(job_id: str):
 
 
 @router.get("/jobs/{job_id}/stream")
-async def stream_job_progress(job_id: PydanticObjectId):
+async def stream_job_progress(job_id: str):
     """
     Stream real-time job progress via Server-Sent Events.
+
+    Accepts either a MongoDB ObjectId or an ARQ task_id.
 
     Events:
     - snapshot: Initial state on connect
@@ -339,8 +358,11 @@ async def stream_job_progress(job_id: PydanticObjectId):
     - done: Job completed/failed/cancelled
     - heartbeat: Keep-alive (every 15s)
     """
+    # Resolve to actual ObjectId for the stream
+    job = await _resolve_job(job_id)
+    resolved_id = str(job.id) if job else job_id
     return StreamingResponse(
-        _job_event_stream(str(job_id)),
+        _job_event_stream(resolved_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

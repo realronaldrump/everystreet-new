@@ -1781,6 +1781,9 @@ function pollOptimalRoute(areaId, taskId) {
     return;
   }
 
+  let errorCount = 0;
+  const MAX_POLL_ERRORS = 10;
+
   const checkStatus = async () => {
     if (!state.pageActive || state.currentAreaId !== areaId) {
       return;
@@ -1788,6 +1791,7 @@ function pollOptimalRoute(areaId, taskId) {
 
     try {
       const job = await apiGet(`/jobs/${taskId}`);
+      errorCount = 0; // reset on success
       const progress =
         job.status === "completed"
           ? 100
@@ -1849,7 +1853,24 @@ function pollOptimalRoute(areaId, taskId) {
       // Still running — poll again
       state.optimalRoutePollTimer = setTimeout(checkStatus, 2000);
     } catch (err) {
-      console.error("Optimal route poll error:", err);
+      errorCount++;
+      console.error(`Optimal route poll error (${errorCount}/${MAX_POLL_ERRORS}):`, err);
+      if (errorCount >= MAX_POLL_ERRORS) {
+        console.error("Max poll errors reached, stopping poll.");
+        const btn = document.getElementById("generate-route-btn");
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML =
+            '<i class="fas fa-magic me-1" aria-hidden="true"></i>Generate Optimal Route';
+        }
+        const infoEl = document.getElementById("route-info-container");
+        if (infoEl) {
+          infoEl.innerHTML =
+            '<p class="text-danger small">Lost connection to route job. Please try again.</p>';
+        }
+        notificationManager.show("Route status polling failed. Please retry.", "danger");
+        return;
+      }
       state.optimalRoutePollTimer = setTimeout(checkStatus, 3000);
     }
   };
