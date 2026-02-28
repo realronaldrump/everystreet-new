@@ -1,6 +1,6 @@
 /**
  * Landing Page Controller
- * Coverage-first dashboard — fetches live data and populates the dashboard
+ * Fetches live data and animates the landing page
  */
 
 import apiClient from "../../core/api-client.js";
@@ -16,16 +16,15 @@ import {
   getStorage,
 } from "../../utils.js";
 import { animateValue } from "./animations.js";
-import { updateGreeting } from "./hero.js";
+import { bindWidgetEditToggle, updateGreeting } from "./hero.js";
 
 // Configuration
 const CONFIG = {
-  refreshInterval: 60000,
-  recordRotationInterval: 30 * 60 * 1000,
+  refreshInterval: 60000, // 1 minute
+  recordRotationInterval: 30 * 60 * 1000, // 30 minutes
   recordRotationStorageKey: "es:record-rotation",
   animationDuration: 500,
   activityLimit: 5,
-  progressRingCircumference: 2 * Math.PI * 52, // r=52 from SVG
 };
 
 // DOM Elements (cached after DOMContentLoaded)
@@ -64,6 +63,9 @@ export default function initLandingPage({ signal, cleanup } = {}) {
   cacheElements();
   updateGreeting(elements);
 
+  highlightFrequentTiles();
+  bindWidgetEditToggle(elements, pageSignal);
+
   loadAllData();
   setupRefreshInterval();
   checkLiveTracking();
@@ -96,7 +98,6 @@ function cacheElements() {
     greetingSubtitle: document.getElementById("greeting-subtitle"),
     weatherChip: document.getElementById("weather-chip"),
     statMiles: document.getElementById("stat-miles"),
-    statAreas: document.getElementById("stat-areas"),
     statTrips: document.getElementById("stat-trips"),
     liveIndicator: document.getElementById("live-indicator"),
     recentTrip: document.getElementById("recent-trip"),
@@ -107,20 +108,8 @@ function cacheElements() {
     recordTitle: document.getElementById("record-title"),
     recordDate: document.getElementById("record-date"),
 
-    // Coverage hero
-    coverageHero: document.getElementById("coverage-hero"),
-    coverageHeroEmpty: document.getElementById("coverage-hero-empty"),
-    coverageHeroContent: document.getElementById("coverage-hero-content"),
-    coverageRingFill: document.getElementById("coverage-ring-fill"),
-    coverageHeroPercent: document.getElementById("coverage-hero-percent"),
-    coverageHeroName: document.getElementById("coverage-hero-name"),
-    coverageHeroMiles: document.getElementById("coverage-hero-miles"),
-    coverageHeroHealth: document.getElementById("coverage-hero-health"),
-    coverageHeroLink: document.getElementById("coverage-hero-link"),
-
-    // Coverage areas section
-    coverageAreasSection: document.getElementById("coverage-areas-section"),
-    coverageAreasList: document.getElementById("coverage-areas-list"),
+    widgetEditToggle: document.getElementById("widget-edit-toggle"),
+    navTiles: Array.from(document.querySelectorAll(".nav-tile")),
   };
 }
 
@@ -131,6 +120,8 @@ async function loadAllData() {
   try {
     updateGreeting(elements);
 
+    highlightFrequentTiles();
+
     // Load trips first to get location
     await loadRecentTrips();
 
@@ -139,7 +130,7 @@ async function loadAllData() {
       loadGasStats(),
       loadInsights(),
       loadCountyStats(),
-      loadCoverageData(),
+      loadCoverageStats(),
       checkLiveTracking(),
       loadWeather(),
     ]);
@@ -148,6 +139,39 @@ async function loadAllData() {
       console.warn("Failed to load landing data", error);
     }
   }
+}
+
+function highlightFrequentTiles() {
+  if (!elements.navTiles || elements.navTiles.length === 0) {
+    return;
+  }
+  const counts = getRouteCounts();
+  const frequentPaths = Object.entries(counts)
+    .filter(([path]) => path !== "/" && path !== "/landing")
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([path]) => path);
+
+  const pathToTile = {
+    "/map": "map",
+    "/coverage-navigator": "navigate",
+    "/trips": "trips",
+    "/insights": "insights",
+    "/gas-tracking": "gas",
+    "/visits": "visits",
+    "/export": "export",
+    "/coverage-management": "areas",
+    "/settings": "settings",
+  };
+
+  const frequentTiles = new Set(
+    frequentPaths.map((path) => pathToTile[path]).filter(Boolean)
+  );
+
+  elements.navTiles.forEach((tile) => {
+    const tileId = tile.dataset.tile;
+    tile.classList.toggle("tile-frequent", frequentTiles.has(tileId));
+  });
 }
 
 async function loadWeather() {
@@ -241,183 +265,6 @@ function bindFilterRefresh() {
   };
 }
 
-// =========================================================================
-// Coverage Dashboard
-// =========================================================================
-
-/**
- * Fetch coverage areas and populate both hero and area cards
- */
-async function loadCoverageData() {
-  try {
-    const data = await apiGet("/api/coverage/areas");
-    if (!data?.areas) {
-      return;
-    }
-
-    setRecordSource("coverage", data);
-    renderCoverageHero(data.areas);
-    renderCoverageAreas(data.areas);
-
-    // Update areas tracked stat
-    if (elements.statAreas) {
-      const count = data.areas.length;
-      if (metricAnimator?.animate) {
-        metricAnimator.animate(elements.statAreas, count, { decimals: 0 });
-      } else {
-        elements.statAreas.textContent = count.toString();
-      }
-    }
-  } catch (error) {
-    if (!isAbortError(error)) {
-      console.warn("Failed to load coverage data", error);
-    }
-  }
-}
-
-/**
- * Render the coverage hero section with the best coverage area
- */
-function renderCoverageHero(areas) {
-  if (!elements.coverageHeroContent || !elements.coverageHeroEmpty) {
-    return;
-  }
-
-  if (!areas || areas.length === 0) {
-    elements.coverageHeroEmpty.style.display = "";
-    elements.coverageHeroContent.style.display = "none";
-    return;
-  }
-
-  // Find the best area (highest coverage with meaningful progress)
-  const bestArea = areas.reduce((best, area) => {
-    if (!best) return area;
-    // Prefer area with highest coverage percentage
-    return area.coverage_percentage > best.coverage_percentage ? area : best;
-  }, null);
-
-  if (!bestArea) {
-    return;
-  }
-
-  elements.coverageHeroEmpty.style.display = "none";
-  elements.coverageHeroContent.style.display = "";
-
-  // Animate the progress ring
-  const percent = bestArea.coverage_percentage || 0;
-  if (elements.coverageRingFill) {
-    const circumference = CONFIG.progressRingCircumference;
-    const offset = circumference - (percent / 100) * circumference;
-    elements.coverageRingFill.style.strokeDasharray = `${circumference}`;
-    elements.coverageRingFill.style.strokeDashoffset = `${circumference}`;
-    // Trigger animation after a frame
-    requestAnimationFrame(() => {
-      elements.coverageRingFill.style.transition =
-        "stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1)";
-      elements.coverageRingFill.style.strokeDashoffset = `${offset}`;
-    });
-  }
-
-  if (elements.coverageHeroPercent) {
-    animateValue(
-      elements.coverageHeroPercent,
-      percent,
-      (v) => v.toFixed(1),
-      800
-    );
-  }
-
-  if (elements.coverageHeroName) {
-    elements.coverageHeroName.textContent = bestArea.display_name;
-  }
-
-  if (elements.coverageHeroMiles) {
-    const driven = bestArea.driven_length_miles?.toFixed(1) || "0";
-    const total = bestArea.driveable_length_miles?.toFixed(1) || "0";
-    elements.coverageHeroMiles.textContent = `${driven} of ${total} mi driven`;
-  }
-
-  if (elements.coverageHeroHealth) {
-    const health = bestArea.health || "unknown";
-    const healthLabels = {
-      excellent: "Excellent",
-      good: "Good",
-      stale: "Needs sync",
-      error: "Error",
-      unknown: "",
-    };
-    const healthLabel = healthLabels[health] || "";
-    if (healthLabel) {
-      elements.coverageHeroHealth.textContent = healthLabel;
-      elements.coverageHeroHealth.className = `coverage-hero-health health-${health}`;
-    } else {
-      elements.coverageHeroHealth.textContent = "";
-    }
-  }
-}
-
-/**
- * Render coverage area progress cards
- */
-function renderCoverageAreas(areas) {
-  if (!elements.coverageAreasSection || !elements.coverageAreasList) {
-    return;
-  }
-
-  if (!areas || areas.length === 0) {
-    elements.coverageAreasSection.style.display = "none";
-    return;
-  }
-
-  elements.coverageAreasSection.style.display = "";
-
-  // Sort by coverage percentage descending
-  const sorted = [...areas].sort(
-    (a, b) => b.coverage_percentage - a.coverage_percentage
-  );
-
-  const html = sorted
-    .map((area) => {
-      const percent = (area.coverage_percentage || 0).toFixed(1);
-      const driven = area.driven_length_miles?.toFixed(1) || "0";
-      const total = area.driveable_length_miles?.toFixed(1) || "0";
-      const health = area.health || "unknown";
-      const lastSynced = area.last_synced
-        ? formatRelativeTimeShort(new Date(area.last_synced))
-        : "never";
-
-      return `
-      <a href="/coverage-navigator" class="coverage-area-card" data-area-id="${area.id}">
-        <div class="coverage-area-info">
-          <div class="coverage-area-name">${escapeHtml(area.display_name)}</div>
-          <div class="coverage-area-meta">
-            <span>${driven} / ${total} mi</span>
-            <span class="coverage-area-synced">Synced ${lastSynced}</span>
-          </div>
-        </div>
-        <div class="coverage-area-progress">
-          <div class="coverage-area-bar">
-            <div class="coverage-area-bar-fill" style="width: ${Math.min(percent, 100)}%"></div>
-          </div>
-          <div class="coverage-area-percent">${percent}%</div>
-        </div>
-      </a>`;
-    })
-    .join("");
-
-  elements.coverageAreasList.innerHTML = html;
-}
-
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-// =========================================================================
-// County & Record Sources
-// =========================================================================
-
 async function loadCountyStats() {
   try {
     const data = await apiGet("/api/counties/visited");
@@ -427,6 +274,19 @@ async function loadCountyStats() {
   } catch (error) {
     if (!isAbortError(error)) {
       console.warn("Failed to load county stats", error);
+    }
+  }
+}
+
+async function loadCoverageStats() {
+  try {
+    const data = await apiGet("/api/coverage/areas");
+    if (data?.areas) {
+      setRecordSource("coverage", data);
+    }
+  } catch (error) {
+    if (!isAbortError(error)) {
+      console.warn("Failed to load coverage stats", error);
     }
   }
 }
@@ -792,6 +652,19 @@ function formatPercentage(value) {
   return `${numeric.toFixed(2)}%`;
 }
 
+function getRouteCounts() {
+  return getStoredValue("es:route-counts") || {};
+}
+
+function _getMostVisitedPath(counts) {
+  const entries = Object.entries(counts);
+  if (entries.length === 0) {
+    return null;
+  }
+  const [path] = entries.sort((a, b) => b[1] - a[1])[0];
+  return { path, timestamp: null };
+}
+
 function getStoredValue(key) {
   try {
     const raw = localStorage.getItem(key);
@@ -1044,7 +917,7 @@ function populateActivityFeed(trips) {
   if (!trips || trips.length === 0) {
     elements.activityFeed.innerHTML = `
       <div class="activity-empty">
-        <i class="fas fa-road" style="margin-right: 8px; opacity: 0.5;" aria-hidden="true"></i>
+        <i class="fas fa-road" style="margin-right: 8px; opacity: 0.5;"></i>
         No recent activity
       </div>
     `;
@@ -1058,28 +931,27 @@ function populateActivityFeed(trips) {
       const destination = formatDestination(trip.destination);
       const time = trip.endTime || trip.startTime;
       const timeAgo = time ? formatRelativeTimeShort(new Date(time)) : "";
-      const duration = computeTripDuration(trip);
 
       return `
       <div class="swipe-item" data-swipe-actions data-trip-id="${trip.transactionId || ""}">
         <div class="swipe-actions">
           <button class="swipe-action-btn secondary" data-action="share" aria-label="Share trip">
-            <i class="fas fa-share-alt" aria-hidden="true"></i>
+            <i class="fas fa-share-alt"></i>
           </button>
           <button class="swipe-action-btn" data-action="view" aria-label="View trips">
-            <i class="fas fa-route" aria-hidden="true"></i>
+            <i class="fas fa-route"></i>
           </button>
         </div>
         <div class="swipe-content">
           <div class="activity-item" style="animation-delay: ${index * 0.1}s">
             <div class="activity-icon trip">
-              <i class="fas fa-car" aria-hidden="true"></i>
+              <i class="fas fa-car"></i>
             </div>
             <div class="activity-text">
               <div class="activity-description">
-                ${destination}
+                ${distance} mi to ${destination}
               </div>
-              <div class="activity-time">${distance} mi${duration ? ` \u00b7 ${duration}` : ""} \u00b7 ${timeAgo}</div>
+              <div class="activity-time">${timeAgo}</div>
             </div>
           </div>
         </div>
@@ -1089,28 +961,6 @@ function populateActivityFeed(trips) {
     .join("");
 
   elements.activityFeed.innerHTML = activityHtml;
-}
-
-/**
- * Compute trip duration from start/end times
- */
-function computeTripDuration(trip) {
-  if (!trip.startTime || !trip.endTime) {
-    return null;
-  }
-  const start = new Date(trip.startTime);
-  const end = new Date(trip.endTime);
-  const diffMs = end - start;
-  if (diffMs <= 0) {
-    return null;
-  }
-  const minutes = Math.round(diffMs / 60000);
-  if (minutes < 60) {
-    return `${minutes}m`;
-  }
-  const hours = Math.floor(minutes / 60);
-  const remainingMin = minutes % 60;
-  return remainingMin > 0 ? `${hours}h ${remainingMin}m` : `${hours}h`;
 }
 
 function bindSwipeActions() {
@@ -1164,6 +1014,7 @@ function formatDestination(dest) {
     return dest.name;
   }
   if (dest.formatted_address) {
+    // Shorten the address
     const parts = dest.formatted_address.split(",");
     return parts[0] || dest.formatted_address;
   }
@@ -1176,13 +1027,15 @@ function formatDestination(dest) {
 function setupRefreshInterval() {
   clearIntervals();
 
+  // Refresh data periodically
   refreshIntervalId = setInterval(() => {
     loadAllData();
   }, CONFIG.refreshInterval);
 
+  // Check live tracking more frequently
   liveTrackingIntervalId = setInterval(() => {
     checkLiveTracking();
-  }, 10000);
+  }, 10000); // Every 10 seconds
 }
 
 function clearIntervals() {

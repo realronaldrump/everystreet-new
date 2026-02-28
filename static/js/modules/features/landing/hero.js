@@ -23,3 +23,25 @@ export function updateGreeting(elements = {}) {
   elements.greetingTitle.textContent = title;
   elements.greetingSubtitle.textContent = subtitle;
 }
+
+export function bindWidgetEditToggle(elements = {}, signal) {
+  if (!elements.widgetEditToggle) {
+    return;
+  }
+  elements.widgetEditToggle.addEventListener(
+    "click",
+    () => {
+      document.dispatchEvent(new CustomEvent("widgets:toggle-edit"));
+    },
+    signal ? { signal } : false
+  );
+  document.addEventListener(
+    "widgets:edit-toggled",
+    (event) => {
+      const enabled = event.detail?.enabled;
+      elements.widgetEditToggle.textContent = enabled ? "Done" : "Customize";
+      elements.widgetEditToggle.classList.toggle("active", Boolean(enabled));
+    },
+    signal ? { signal } : false
+  );
+}
