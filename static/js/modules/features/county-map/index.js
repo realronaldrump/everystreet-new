@@ -378,6 +378,58 @@ function fitToState(stateFips) {
   map.fitBounds(bounds, { padding: 40, maxZoom: 8 });
 }
 
+function getGeometryBounds(geometry) {
+  if (!geometry) {
+    return null;
+  }
+
+  const bounds = {
+    minLng: Infinity,
+    minLat: Infinity,
+    maxLng: -Infinity,
+    maxLat: -Infinity,
+  };
+
+  forEachCoordinate(geometry, (lng, lat) => {
+    if (lng < bounds.minLng) {
+      bounds.minLng = lng;
+    }
+    if (lng > bounds.maxLng) {
+      bounds.maxLng = lng;
+    }
+    if (lat < bounds.minLat) {
+      bounds.minLat = lat;
+    }
+    if (lat > bounds.maxLat) {
+      bounds.maxLat = lat;
+    }
+  });
+
+  if (
+    !Number.isFinite(bounds.minLng) ||
+    !Number.isFinite(bounds.minLat) ||
+    !Number.isFinite(bounds.maxLng) ||
+    !Number.isFinite(bounds.maxLat)
+  ) {
+    return null;
+  }
+
+  return [
+    [bounds.minLng, bounds.minLat],
+    [bounds.maxLng, bounds.maxLat],
+  ];
+}
+
+function fitToFeatureGeometry(feature, { padding = 40, maxZoom = 10 } = {}) {
+  const map = CountyMapState.getMap();
+  const geometryBounds = getGeometryBounds(feature?.geometry);
+  if (!map || !Array.isArray(geometryBounds) || geometryBounds.length !== 2) {
+    return;
+  }
+
+  map.fitBounds(geometryBounds, { padding, maxZoom });
+}
+
 function bindStateList(sortBy = null) {
   const sortSelect = document.getElementById("state-sort");
   const resolvedSort = sortBy || sortSelect?.value || "name";
@@ -504,6 +556,7 @@ function handleCountyClickFromMap(event) {
 
   CountyMapState.setSelectedCountyFips(countyFips);
   setSelectionHighlight(countyFips, "county");
+  fitToFeatureGeometry(feature, { maxZoom: 9 });
 }
 
 function handleStateClickFromMap(event) {
@@ -545,6 +598,7 @@ function handleCityClickFromMap(event) {
 
   CountyMapState.setSelectedCityId(cityId);
   setSelectionHighlight(cityId, "city");
+  fitToFeatureGeometry(feature, { maxZoom: 10 });
 
   document.querySelectorAll(".city-stat-item").forEach((row) => {
     const rowCityId = String(row.dataset.cityId || "");
