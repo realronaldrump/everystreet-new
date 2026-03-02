@@ -14,7 +14,7 @@
 
 /* global mapboxgl */
 
-import { CONFIG, MAPBOX_PUBLIC_ACCESS_TOKEN } from "./core/config.js";
+import CONFIG from "./core/config.js";
 import {
   getMapboxToken,
   isMapboxStyleUrl,
@@ -169,9 +169,9 @@ const mapCore = {
         return true;
       }
 
-      // Use the fixed Mapbox token.
+      // Use centralized Mapbox token from config.
       loadingManager?.updateMessage("Loading map resources...");
-      const token = MAPBOX_PUBLIC_ACCESS_TOKEN;
+      const token = CONFIG?.MAP?.accessToken;
 
       if (!token) {
         throw new Error("Mapbox access token not available");
@@ -815,7 +815,7 @@ function createMap(containerId, options = {}) {
   const defaultStyle = style || themeStyle;
 
   // Token is fixed for all map usages in this application.
-  mapbox.accessToken = String(accessToken || MAPBOX_PUBLIC_ACCESS_TOKEN).trim();
+  mapbox.accessToken = String(accessToken || CONFIG?.MAP?.accessToken || "").trim();
 
   const map = new mapbox.Map({
     container: containerId,

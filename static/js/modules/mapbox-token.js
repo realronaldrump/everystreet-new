@@ -1,6 +1,6 @@
-import { MAPBOX_PUBLIC_ACCESS_TOKEN } from "./core/config.js";
+import CONFIG from "./core/config.js";
 
-const readConfiguredToken = () => MAPBOX_PUBLIC_ACCESS_TOKEN;
+const readConfiguredToken = () => CONFIG?.MAP?.accessToken || "";
 
 export const getMapboxToken = () => readConfiguredToken();
 
