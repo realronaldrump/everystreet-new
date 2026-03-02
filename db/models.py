@@ -954,6 +954,7 @@ class AppSettings(Document):
     mapCoverageMaxPointsPerTrip: int = 2000
     mapCoverageBatchSize: int = 200
     coverageIncludeServiceRoads: bool = True
+    geoCoverageRecalcMode: str = "incremental"
 
     # Logs
     # When set, server log queries should hide entries older than this cutoff.
@@ -1030,6 +1031,9 @@ class CountyVisitedCache(Document):
     trips_analyzed: int = 0
     updated_at: datetime | None = None
     calculation_time_seconds: float | None = None
+    last_processed_trip_at: datetime | None = None
+    last_calculation_mode: str | None = None
+    last_job_id: str | None = None
 
     class Settings:
         name = "county_visited_cache"
@@ -1070,12 +1074,17 @@ class CityVisitedCache(Document):
 
     id: str = Field(default="visited_cities", alias="_id")
     cities: dict[str, Any] = Field(default_factory=dict)
+    stopped_cities: dict[str, Any] = Field(default_factory=dict)
     state_rollups: dict[str, Any] = Field(default_factory=dict)
     total_visited: int = 0
+    total_stopped: int = 0
     total_cities: int = 0
     trips_analyzed: int = 0
     updated_at: datetime | None = None
     calculation_time_seconds: float | None = None
+    last_processed_trip_at: datetime | None = None
+    last_calculation_mode: str | None = None
+    last_job_id: str | None = None
 
     class Settings:
         name = "city_visited_cache"

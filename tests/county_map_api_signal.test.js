@@ -39,3 +39,23 @@ test("county map API forwards abort signals", async () => {
     ["get", "/api/geo-coverage/cache-status", { signal }],
   ]);
 });
+
+test("county map API includes recalc mode when provided", async () => {
+  const originalPost = apiClient.post;
+  const calls = [];
+
+  apiClient.post = async (url, body, options = {}) => {
+    calls.push(["post", url, body, options]);
+    return { success: true };
+  };
+
+  try {
+    await CountyMapAPI.triggerRecalculation({ mode: "full" });
+  } finally {
+    apiClient.post = originalPost;
+  }
+
+  assert.deepEqual(calls, [
+    ["post", "/api/geo-coverage/recalculate?mode=full", null, { signal: undefined }],
+  ]);
+});

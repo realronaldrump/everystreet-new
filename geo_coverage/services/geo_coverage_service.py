@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from datetime import UTC, datetime
 from typing import Any, Literal
 
+from beanie import PydanticObjectId
 from fastapi import BackgroundTasks, HTTPException, status
 from shapely import STRtree
 from shapely.geometry import Point, shape
@@ -16,14 +18,20 @@ from county.services.county_data_service import get_county_topology_document
 from county.services.county_service import topojson_to_geojson
 from db.aggregation import aggregate_to_list
 from db.models import (
+    AppSettings,
     CityBoundary,
     CityVisitedCache,
     CountyVisitedCache,
+    Job,
     StateBoundaryCache,
     Trip,
 )
 
 logger = logging.getLogger(__name__)
+
+GEO_COVERAGE_JOB_TYPE = "geo_coverage_recalc"
+GEO_RECALC_MODES: set[str] = {"incremental", "full"}
+GEO_RECALC_ACTIVE_STATUSES: set[str] = {"pending", "running"}
 
 try:
     from shapely.validation import make_valid as _make_valid
@@ -127,6 +135,215 @@ def _state_fips(value: str | None) -> str:
     return raw
 
 
+def _normalize_recalc_mode(value: str | None) -> Literal["incremental", "full"]:
+    mode = str(value or "").strip().lower()
+    if mode in GEO_RECALC_MODES:
+        return mode  # type: ignore[return-value]
+    return "incremental"
+
+
+def _trip_marker(trip: Trip) -> datetime | None:
+    candidates = [
+        parse_timestamp(trip.lastUpdate),
+        parse_timestamp(trip.matched_at),
+        parse_timestamp(trip.endTime),
+        parse_timestamp(trip.startTime),
+    ]
+    return max((value for value in candidates if value), default=None)
+
+
+def _deserialize_visit_map(
+    raw_map: dict[str, Any] | None,
+    *,
+    first_key: str = "firstVisit",
+    last_key: str = "lastVisit",
+) -> dict[str, dict[str, datetime | None]]:
+    output: dict[str, dict[str, datetime | None]] = {}
+    for key, payload in (raw_map or {}).items():
+        if not isinstance(payload, dict):
+            continue
+        output[str(key)] = {
+            "firstVisit": parse_timestamp(payload.get(first_key)),
+            "lastVisit": parse_timestamp(payload.get(last_key)),
+        }
+    return output
+
+
+def _serialize_visit_map(
+    raw_map: dict[str, dict[str, datetime | None]],
+) -> dict[str, dict[str, str | None]]:
+    return {
+        key: {
+            "firstVisit": _to_iso(payload.get("firstVisit")),
+            "lastVisit": _to_iso(payload.get("lastVisit")),
+        }
+        for key, payload in raw_map.items()
+    }
+
+
+def _serialize_stop_map(
+    raw_map: dict[str, dict[str, datetime | None]],
+) -> dict[str, dict[str, str | None]]:
+    return {
+        key: {
+            "firstStop": _to_iso(payload.get("firstVisit")),
+            "lastStop": _to_iso(payload.get("lastVisit")),
+        }
+        for key, payload in raw_map.items()
+    }
+
+
+def _get_incremental_checkpoint(
+    county_cache: CountyVisitedCache | None,
+    city_cache: CityVisitedCache | None,
+) -> datetime | None:
+    candidates = [
+        parse_timestamp(getattr(county_cache, "last_processed_trip_at", None))
+        if county_cache
+        else None,
+        parse_timestamp(getattr(city_cache, "last_processed_trip_at", None))
+        if city_cache
+        else None,
+    ]
+    return max((value for value in candidates if value), default=None)
+
+
+def _build_trip_query(checkpoint: datetime | None = None) -> dict[str, Any]:
+    geometry_filter: dict[str, Any] = {
+        "isInvalid": {"$ne": True},
+        "$or": [
+            {"gps.type": {"$in": ["LineString", "Point"]}},
+            {"matchedGps.type": {"$in": ["LineString", "Point"]}},
+        ],
+    }
+
+    if not checkpoint:
+        return enforce_bouncie_source(geometry_filter)
+
+    return enforce_bouncie_source(
+        {
+            "$and": [
+                geometry_filter,
+                {
+                    "$or": [
+                        {"lastUpdate": {"$gt": checkpoint}},
+                        {"matched_at": {"$gt": checkpoint}},
+                        {"endTime": {"$gt": checkpoint}},
+                        {"startTime": {"$gt": checkpoint}},
+                    ]
+                },
+            ]
+        }
+    )
+
+
+def _serialize_job(job: Job | None) -> dict[str, Any] | None:
+    if not job:
+        return None
+
+    mode = _normalize_recalc_mode((job.metadata or {}).get("mode"))
+    return {
+        "id": str(job.id),
+        "status": job.status,
+        "stage": job.stage,
+        "progress": float(job.progress or 0.0),
+        "message": job.message or "",
+        "error": job.error,
+        "mode": mode,
+        "createdAt": job.created_at.isoformat() if job.created_at else None,
+        "startedAt": job.started_at.isoformat() if job.started_at else None,
+        "updatedAt": job.updated_at.isoformat() if job.updated_at else None,
+        "completedAt": job.completed_at.isoformat() if job.completed_at else None,
+        "metrics": job.metrics or {},
+        "result": job.result or {},
+    }
+
+
+async def _resolve_job(job_id: str | None) -> Job | None:
+    if not job_id:
+        return None
+    if len(job_id) != 24:
+        return None
+    with contextlib.suppress(Exception):
+        return await Job.get(PydanticObjectId(job_id))
+    return None
+
+
+async def _get_active_geo_recalc_job() -> Job | None:
+    jobs = (
+        await Job.find(
+            {
+                "job_type": GEO_COVERAGE_JOB_TYPE,
+                "status": {"$in": list(GEO_RECALC_ACTIVE_STATUSES)},
+            }
+        )
+        .sort("-created_at")
+        .limit(1)
+        .to_list()
+    )
+    return jobs[0] if jobs else None
+
+
+async def _get_latest_geo_recalc_job() -> Job | None:
+    jobs = (
+        await Job.find({"job_type": GEO_COVERAGE_JOB_TYPE})
+        .sort("-created_at")
+        .limit(1)
+        .to_list()
+    )
+    return jobs[0] if jobs else None
+
+
+async def _get_default_recalc_mode() -> Literal["incremental", "full"]:
+    settings = await AppSettings.find_one()
+    setting_mode = (
+        str(getattr(settings, "geoCoverageRecalcMode", "incremental"))
+        if settings
+        else "incremental"
+    )
+    return _normalize_recalc_mode(setting_mode)
+
+
+async def _update_geo_job(
+    job: Job | None,
+    *,
+    status_value: str | None = None,
+    stage: str | None = None,
+    progress: float | None = None,
+    message: str | None = None,
+    error: str | None = None,
+    metrics: dict[str, Any] | None = None,
+    result: dict[str, Any] | None = None,
+) -> None:
+    if not job:
+        return
+
+    now = datetime.now(UTC)
+
+    if status_value is not None:
+        job.status = status_value
+        if status_value == "running" and job.started_at is None:
+            job.started_at = now
+        if status_value in {"completed", "failed", "cancelled"}:
+            job.completed_at = now
+
+    if stage is not None:
+        job.stage = stage
+    if progress is not None:
+        job.progress = max(0.0, min(float(progress), 100.0))
+    if message is not None:
+        job.message = message
+    if error is not None:
+        job.error = error
+    if metrics is not None:
+        job.metrics = metrics
+    if result is not None:
+        job.result = result
+
+    job.updated_at = now
+    await job.save()
+
+
 async def _get_county_topology_payload() -> dict[str, Any]:
     document = await get_county_topology_document()
     if not document or "topology" not in document:
@@ -225,11 +442,26 @@ def _iter_tree_indexes(
             yield idx
 
 
-async def calculate_geo_coverage_task() -> None:
+async def calculate_geo_coverage_task(
+    *,
+    mode: Literal["incremental", "full"] = "incremental",
+    job_id: str | None = None,
+) -> None:
     """Background task to calculate county + city visit coverage."""
 
-    logger.info("Starting unified geo coverage calculation...")
+    requested_mode = _normalize_recalc_mode(mode)
+    job = await _resolve_job(job_id)
+
+    logger.info("Starting unified geo coverage calculation (mode=%s)...", requested_mode)
     start_time = datetime.now(UTC)
+
+    await _update_geo_job(
+        job,
+        status_value="running",
+        stage="Loading boundaries",
+        progress=2,
+        message="Loading county and city boundaries...",
+    )
 
     try:
         topology_document = await _get_county_topology_payload()
@@ -303,23 +535,89 @@ async def calculate_geo_coverage_task() -> None:
             invalid_cities,
         )
 
-        county_visits: dict[str, dict[str, datetime | None]] = {}
-        county_stops: dict[str, dict[str, datetime | None]] = {}
-        city_visits: dict[str, dict[str, datetime | None]] = {}
+        county_cache = await CountyVisitedCache.get("visited_counties")
+        city_cache = await CityVisitedCache.get("visited_cities")
 
-        trips_cursor = Trip.find(
-            enforce_bouncie_source(
+        checkpoint = (
+            _get_incremental_checkpoint(county_cache, city_cache)
+            if requested_mode == "incremental"
+            else None
+        )
+        effective_mode: Literal["incremental", "full"] = requested_mode
+        if requested_mode == "incremental" and checkpoint is None:
+            effective_mode = "full"
+
+        if job:
+            metadata = dict(job.metadata or {})
+            metadata.update(
                 {
-                    "isInvalid": {"$ne": True},
-                    "$or": [
-                        {"gps.type": {"$in": ["LineString", "Point"]}},
-                        {"matchedGps.type": {"$in": ["LineString", "Point"]}},
-                    ],
+                    "mode": requested_mode,
+                    "effective_mode": effective_mode,
+                    "checkpoint": _to_iso(checkpoint),
                 }
             )
+            job.metadata = metadata
+            await job.save()
+
+        if effective_mode == "incremental":
+            county_visits = _deserialize_visit_map(county_cache.counties if county_cache else {})
+            county_stops = _deserialize_visit_map(
+                county_cache.stopped_counties if county_cache else {},
+                first_key="firstStop",
+                last_key="lastStop",
+            )
+            city_visits = _deserialize_visit_map(city_cache.cities if city_cache else {})
+            city_stops = _deserialize_visit_map(
+                city_cache.stopped_cities if city_cache else {},
+                first_key="firstStop",
+                last_key="lastStop",
+            )
+        else:
+            county_visits = {}
+            county_stops = {}
+            city_visits = {}
+            city_stops = {}
+
+        await _update_geo_job(
+            job,
+            stage="Scanning trips",
+            progress=8,
+            message=(
+                "Scanning trips since last calculation..."
+                if effective_mode == "incremental"
+                else "Scanning all trips for full rebuild..."
+            ),
         )
 
+        trip_query = _build_trip_query(
+            checkpoint if effective_mode == "incremental" else None
+        )
+        total_trips = await Trip.find(trip_query).count()
+
+        await _update_geo_job(
+            job,
+            stage="Processing trips",
+            progress=12,
+            message=(
+                "No new trips found. Reusing existing coverage."
+                if total_trips == 0 and effective_mode == "incremental"
+                else "Processing trip geometry and stop points..."
+            ),
+            metrics={
+                "mode": effective_mode,
+                "requestedMode": requested_mode,
+                "processedTrips": 0,
+                "totalTrips": total_trips,
+                "visitedCounties": len(county_visits),
+                "stoppedCounties": len(county_stops),
+                "visitedCities": len(city_visits),
+                "stoppedCities": len(city_stops),
+            },
+        )
+
+        trips_cursor = Trip.find(trip_query)
         trips_analyzed = 0
+        latest_processed_trip_at: datetime | None = checkpoint
 
         async for trip in trips_cursor:
             trips_analyzed += 1
@@ -327,6 +625,12 @@ async def calculate_geo_coverage_task() -> None:
             trip_start_time = parse_timestamp(trip.startTime)
             trip_end_time = parse_timestamp(trip.endTime)
             trip_time = trip_start_time or trip_end_time
+            trip_marker = _trip_marker(trip)
+            if trip_marker and (
+                latest_processed_trip_at is None
+                or trip_marker > latest_processed_trip_at
+            ):
+                latest_processed_trip_at = trip_marker
 
             gps_data = trip.matchedGps or trip.gps
             if not gps_data or gps_data.get("type") not in {"LineString", "Point"}:
@@ -364,16 +668,25 @@ async def calculate_geo_coverage_task() -> None:
                     trip_end_time,
                     trip_time,
                 ):
-                    if not county_tree:
-                        continue
-                    for idx in _iter_tree_indexes(
-                        county_tree,
-                        county_index_lookup,
-                        len(county_shapes),
-                        point,
-                    ):
-                        if county_shapes[idx].covers(point):
-                            _record_visit(county_stops, county_fips[idx], stop_time)
+                    if county_tree:
+                        for idx in _iter_tree_indexes(
+                            county_tree,
+                            county_index_lookup,
+                            len(county_shapes),
+                            point,
+                        ):
+                            if county_shapes[idx].covers(point):
+                                _record_visit(county_stops, county_fips[idx], stop_time)
+
+                    if city_tree:
+                        for idx in _iter_tree_indexes(
+                            city_tree,
+                            city_index_lookup,
+                            len(city_shapes),
+                            point,
+                        ):
+                            if city_shapes[idx].covers(point):
+                                _record_visit(city_stops, city_ids[idx], stop_time)
 
             except Exception as exc:
                 logger.warning(
@@ -382,37 +695,75 @@ async def calculate_geo_coverage_task() -> None:
                     exc,
                 )
 
-            if trips_analyzed % 500 == 0:
+            if trips_analyzed % 100 == 0:
+                progress = (
+                    12
+                    if total_trips <= 0
+                    else 12 + (min(trips_analyzed, total_trips) / total_trips) * 78
+                )
+                metrics = {
+                    "mode": effective_mode,
+                    "requestedMode": requested_mode,
+                    "processedTrips": trips_analyzed,
+                    "totalTrips": total_trips,
+                    "visitedCounties": len(county_visits),
+                    "stoppedCounties": len(county_stops),
+                    "visitedCities": len(city_visits),
+                    "stoppedCities": len(city_stops),
+                }
+                await _update_geo_job(
+                    job,
+                    stage="Processing trips",
+                    progress=progress,
+                    message=(
+                        f"Processed {trips_analyzed:,} of {total_trips:,} trips..."
+                        if total_trips > 0
+                        else "Processing trips..."
+                    ),
+                    metrics=metrics,
+                )
                 logger.info(
-                    "Geo coverage progress: %d trips, %d counties, %d cities",
+                    "Geo coverage progress (%s): %d/%d trips, %d counties, %d cities",
+                    effective_mode,
                     trips_analyzed,
+                    total_trips,
                     len(county_visits),
                     len(city_visits),
                 )
 
-        counties_serializable = {
-            fips: {
-                "firstVisit": _to_iso(visits.get("firstVisit")),
-                "lastVisit": _to_iso(visits.get("lastVisit")),
-            }
-            for fips, visits in county_visits.items()
-        }
-
-        stops_serializable = {
-            fips: {
-                "firstStop": _to_iso(stops.get("firstVisit")),
-                "lastStop": _to_iso(stops.get("lastVisit")),
-            }
-            for fips, stops in county_stops.items()
-        }
-
-        cities_serializable = {
-            city_id: {
-                "firstVisit": _to_iso(visits.get("firstVisit")),
-                "lastVisit": _to_iso(visits.get("lastVisit")),
-            }
+        valid_city_ids = set(city_ids)
+        city_visits = {
+            city_id: visits
             for city_id, visits in city_visits.items()
+            if city_id in valid_city_ids
         }
+        city_stops = {
+            city_id: stops
+            for city_id, stops in city_stops.items()
+            if city_id in valid_city_ids
+        }
+
+        await _update_geo_job(
+            job,
+            stage="Saving cache",
+            progress=94,
+            message="Saving county and city cache documents...",
+            metrics={
+                "mode": effective_mode,
+                "requestedMode": requested_mode,
+                "processedTrips": trips_analyzed,
+                "totalTrips": total_trips,
+                "visitedCounties": len(county_visits),
+                "stoppedCounties": len(county_stops),
+                "visitedCities": len(city_visits),
+                "stoppedCities": len(city_stops),
+            },
+        )
+
+        counties_serializable = _serialize_visit_map(county_visits)
+        stops_serializable = _serialize_stop_map(county_stops)
+        cities_serializable = _serialize_visit_map(city_visits)
+        city_stops_serializable = _serialize_stop_map(city_stops)
 
         state_rollups: dict[str, dict[str, Any]] = {}
         for state_fips, total in city_totals_by_state.items():
@@ -420,10 +771,13 @@ async def calculate_geo_coverage_task() -> None:
                 "stateFips": state_fips,
                 "stateName": city_state_names.get(state_fips, "Unknown"),
                 "visited": 0,
+                "stopped": 0,
                 "total": total,
                 "percent": 0.0,
                 "firstVisit": None,
                 "lastVisit": None,
+                "firstStop": None,
+                "lastStop": None,
             }
 
         for city_id, visits in city_visits.items():
@@ -437,10 +791,13 @@ async def calculate_geo_coverage_task() -> None:
                     "stateFips": state_fips,
                     "stateName": city_state_names.get(state_fips, "Unknown"),
                     "visited": 0,
+                    "stopped": 0,
                     "total": city_totals_by_state.get(state_fips, 0),
                     "percent": 0.0,
                     "firstVisit": None,
                     "lastVisit": None,
+                    "firstStop": None,
+                    "lastStop": None,
                 },
             )
             rollup["visited"] += 1
@@ -457,22 +814,62 @@ async def calculate_geo_coverage_task() -> None:
             ):
                 rollup["lastVisit"] = last_visit
 
+        for city_id, stops in city_stops.items():
+            state_fips = city_state_index.get(city_id)
+            if not state_fips:
+                continue
+
+            rollup = state_rollups.setdefault(
+                state_fips,
+                {
+                    "stateFips": state_fips,
+                    "stateName": city_state_names.get(state_fips, "Unknown"),
+                    "visited": 0,
+                    "stopped": 0,
+                    "total": city_totals_by_state.get(state_fips, 0),
+                    "percent": 0.0,
+                    "firstVisit": None,
+                    "lastVisit": None,
+                    "firstStop": None,
+                    "lastStop": None,
+                },
+            )
+            rollup["stopped"] += 1
+
+            first_stop = stops.get("firstVisit")
+            last_stop = stops.get("lastVisit")
+
+            if first_stop and (
+                rollup.get("firstStop") is None or first_stop < rollup["firstStop"]
+            ):
+                rollup["firstStop"] = first_stop
+            if last_stop and (
+                rollup.get("lastStop") is None or last_stop > rollup["lastStop"]
+            ):
+                rollup["lastStop"] = last_stop
+
         for rollup in state_rollups.values():
             total = int(rollup.get("total") or 0)
             visited = int(rollup.get("visited") or 0)
             rollup["percent"] = _percent(visited, total)
             rollup["firstVisit"] = _to_iso(rollup.get("firstVisit"))
             rollup["lastVisit"] = _to_iso(rollup.get("lastVisit"))
+            rollup["firstStop"] = _to_iso(rollup.get("firstStop"))
+            rollup["lastStop"] = _to_iso(rollup.get("lastStop"))
 
         now = datetime.now(UTC)
+        duration_seconds = (now - start_time).total_seconds()
+        last_processed_trip_at = latest_processed_trip_at
 
-        county_cache = await CountyVisitedCache.get("visited_counties")
         if county_cache:
             county_cache.counties = counties_serializable
             county_cache.stopped_counties = stops_serializable
             county_cache.trips_analyzed = trips_analyzed
             county_cache.updated_at = now
-            county_cache.calculation_time_seconds = (now - start_time).total_seconds()
+            county_cache.calculation_time_seconds = duration_seconds
+            county_cache.last_processed_trip_at = last_processed_trip_at
+            county_cache.last_calculation_mode = effective_mode
+            county_cache.last_job_id = str(job.id) if job else None
             await county_cache.save()
         else:
             await CountyVisitedCache(
@@ -480,41 +877,99 @@ async def calculate_geo_coverage_task() -> None:
                 stopped_counties=stops_serializable,
                 trips_analyzed=trips_analyzed,
                 updated_at=now,
-                calculation_time_seconds=(now - start_time).total_seconds(),
+                calculation_time_seconds=duration_seconds,
+                last_processed_trip_at=last_processed_trip_at,
+                last_calculation_mode=effective_mode,
+                last_job_id=str(job.id) if job else None,
             ).insert()
 
-        city_cache = await CityVisitedCache.get("visited_cities")
         if city_cache:
             city_cache.cities = cities_serializable
+            city_cache.stopped_cities = city_stops_serializable
             city_cache.state_rollups = state_rollups
             city_cache.total_visited = len(cities_serializable)
+            city_cache.total_stopped = len(city_stops_serializable)
             city_cache.total_cities = len(city_docs)
             city_cache.trips_analyzed = trips_analyzed
             city_cache.updated_at = now
-            city_cache.calculation_time_seconds = (now - start_time).total_seconds()
+            city_cache.calculation_time_seconds = duration_seconds
+            city_cache.last_processed_trip_at = last_processed_trip_at
+            city_cache.last_calculation_mode = effective_mode
+            city_cache.last_job_id = str(job.id) if job else None
             await city_cache.save()
         else:
             await CityVisitedCache(
                 cities=cities_serializable,
+                stopped_cities=city_stops_serializable,
                 state_rollups=state_rollups,
                 total_visited=len(cities_serializable),
+                total_stopped=len(city_stops_serializable),
                 total_cities=len(city_docs),
                 trips_analyzed=trips_analyzed,
                 updated_at=now,
-                calculation_time_seconds=(now - start_time).total_seconds(),
+                calculation_time_seconds=duration_seconds,
+                last_processed_trip_at=last_processed_trip_at,
+                last_calculation_mode=effective_mode,
+                last_job_id=str(job.id) if job else None,
             ).insert()
 
+        result = {
+            "mode": effective_mode,
+            "requestedMode": requested_mode,
+            "processedTrips": trips_analyzed,
+            "totalTrips": total_trips,
+            "checkpoint": _to_iso(checkpoint),
+            "lastProcessedTripAt": _to_iso(last_processed_trip_at),
+            "visitedCounties": len(counties_serializable),
+            "stoppedCounties": len(stops_serializable),
+            "visitedCities": len(cities_serializable),
+            "stoppedCities": len(city_stops_serializable),
+            "durationSeconds": round(duration_seconds, 2),
+        }
+
+        await _update_geo_job(
+            job,
+            status_value="completed",
+            stage="Completed",
+            progress=100,
+            message=(
+                f"Coverage recalculation complete: {trips_analyzed:,} trips processed."
+            ),
+            metrics={
+                "mode": effective_mode,
+                "requestedMode": requested_mode,
+                "processedTrips": trips_analyzed,
+                "totalTrips": total_trips,
+                "visitedCounties": len(counties_serializable),
+                "stoppedCounties": len(stops_serializable),
+                "visitedCities": len(cities_serializable),
+                "stoppedCities": len(city_stops_serializable),
+            },
+            result=result,
+        )
+
         logger.info(
-            "Geo coverage calculation complete: %d counties, %d stops, %d cities, %d trips, %.1fs",
+            "Geo coverage calculation complete (%s): %d counties, %d county stops, %d cities, %d city stops, %d/%d trips, %.1fs",
+            effective_mode,
             len(counties_serializable),
             len(stops_serializable),
             len(cities_serializable),
+            len(city_stops_serializable),
             trips_analyzed,
-            (datetime.now(UTC) - start_time).total_seconds(),
+            total_trips,
+            duration_seconds,
         )
 
-    except Exception:
+    except Exception as exc:
         logger.exception("Error in unified geo coverage calculation task")
+        await _update_geo_job(
+            job,
+            status_value="failed",
+            stage="Failed",
+            progress=100,
+            message="Geo coverage recalculation failed.",
+            error=str(exc),
+        )
 
 
 async def get_summary() -> dict[str, Any]:
@@ -545,8 +1000,11 @@ async def get_summary() -> dict[str, Any]:
             "name": str(row.get("state_name") or "Unknown"),
             "total": int(row.get("total") or 0),
             "visited": 0,
+            "stopped": 0,
             "firstVisit": None,
             "lastVisit": None,
+            "firstStop": None,
+            "lastStop": None,
         }
 
     if city_cache and city_cache.state_rollups:
@@ -561,8 +1019,11 @@ async def get_summary() -> dict[str, Any]:
                 ),
                 "total": int(existing.get("total") or 0),
                 "visited": int(rollup.get("visited") or 0),
+                "stopped": int(rollup.get("stopped") or 0),
                 "firstVisit": rollup.get("firstVisit"),
                 "lastVisit": rollup.get("lastVisit"),
+                "firstStop": rollup.get("firstStop"),
+                "lastStop": rollup.get("lastStop"),
             }
 
     county_rollup: dict[str, dict[str, Any]] = {}
@@ -628,8 +1089,11 @@ async def get_summary() -> dict[str, Any]:
                 "name": county_entry.get("name") or "Unknown",
                 "total": 0,
                 "visited": 0,
+                "stopped": 0,
                 "firstVisit": None,
                 "lastVisit": None,
+                "firstStop": None,
+                "lastStop": None,
             },
         )
 
@@ -637,6 +1101,7 @@ async def get_summary() -> dict[str, Any]:
         county_visited = int(county_entry.get("visited") or 0)
         city_total = int(city_entry.get("total") or 0)
         city_visited = int(city_entry.get("visited") or 0)
+        city_stopped = int(city_entry.get("stopped") or 0)
 
         states.append(
             {
@@ -653,10 +1118,13 @@ async def get_summary() -> dict[str, Any]:
                 },
                 "city": {
                     "visited": city_visited,
+                    "stopped": city_stopped,
                     "total": city_total,
                     "percent": _percent(city_visited, city_total),
                     "firstVisit": city_entry.get("firstVisit"),
                     "lastVisit": city_entry.get("lastVisit"),
+                    "firstStop": city_entry.get("firstStop"),
+                    "lastStop": city_entry.get("lastStop"),
                 },
             }
         )
@@ -678,6 +1146,9 @@ async def get_summary() -> dict[str, Any]:
     city_visited = sum(
         int(entry.get("visited") or 0) for entry in city_state_totals.values()
     )
+    city_stopped = sum(
+        int(entry.get("stopped") or 0) for entry in city_state_totals.values()
+    )
 
     return {
         "success": True,
@@ -695,6 +1166,7 @@ async def get_summary() -> dict[str, Any]:
             },
             "city": {
                 "visited": city_visited,
+                "stopped": city_stopped,
                 "total": city_total,
                 "percent": _percent(city_visited, city_total),
             },
@@ -822,11 +1294,14 @@ async def get_visits(
                 "level": "city",
                 "cached": False,
                 "visits": {},
+                "stopped": {},
                 "totalVisited": 0,
+                "totalStopped": 0,
                 "lastUpdated": None,
             }
 
         visits = cache.cities or {}
+        stops = cache.stopped_cities or {}
         normalized_fips = _state_fips(state_fips)
         if normalized_fips:
             city_ids = {
@@ -840,13 +1315,20 @@ async def get_visits(
                 for city_id, value in visits.items()
                 if city_id in city_ids
             }
+            stops = {
+                city_id: value
+                for city_id, value in stops.items()
+                if city_id in city_ids
+            }
 
         return {
             "success": True,
             "level": "city",
             "cached": True,
             "visits": visits,
+            "stopped": stops,
             "totalVisited": len(visits),
+            "totalStopped": len(stops),
             "lastUpdated": cache.updated_at,
             "tripsAnalyzed": cache.trips_analyzed or 0,
         }
@@ -860,7 +1342,14 @@ async def get_visits(
 async def list_cities(
     *,
     state_fips: str,
-    status_filter: Literal["all", "visited", "unvisited"] = "all",
+    status_filter: Literal[
+        "all",
+        "driven",
+        "stopped",
+        "both",
+        "visited",
+        "unvisited",
+    ] = "all",
     q: str | None = None,
     sort: str = "name",
     page: int = 1,
@@ -885,18 +1374,27 @@ async def list_cities(
 
     cache = await CityVisitedCache.get("visited_cities")
     visits = cache.cities if cache else {}
+    stops = cache.stopped_cities if cache else {}
 
     rows = []
     query = (q or "").strip().lower()
     for city in cities:
         visit = visits.get(city.id)
+        stop = stops.get(city.id)
         visited = visit is not None
+        stopped = stop is not None
         first_visit = visit.get("firstVisit") if isinstance(visit, dict) else None
         last_visit = visit.get("lastVisit") if isinstance(visit, dict) else None
+        first_stop = stop.get("firstStop") if isinstance(stop, dict) else None
+        last_stop = stop.get("lastStop") if isinstance(stop, dict) else None
 
-        if status_filter == "visited" and not visited:
+        if status_filter in {"visited", "driven"} and not visited:
             continue
-        if status_filter == "unvisited" and visited:
+        if status_filter == "stopped" and not stopped:
+            continue
+        if status_filter == "both" and not (visited and stopped):
+            continue
+        if status_filter == "unvisited" and (visited or stopped):
             continue
         if query and query not in city.name.lower():
             continue
@@ -908,17 +1406,46 @@ async def list_cities(
                 "stateFips": city.state_fips,
                 "stateName": city.state_name,
                 "visited": visited,
+                "stopped": stopped,
                 "firstVisit": first_visit,
                 "lastVisit": last_visit,
+                "firstStop": first_stop,
+                "lastStop": last_stop,
                 "bbox": city.bbox,
                 "centroid": city.centroid,
             }
         )
 
-    if sort == "visited-desc":
+    if sort in {"visited-desc", "driven_first", "visited_first"}:
         rows.sort(key=lambda row: (not row["visited"], row["name"].lower()))
-    elif sort == "visited-asc":
+    elif sort in {"visited-asc", "unvisited_first"}:
         rows.sort(key=lambda row: (row["visited"], row["name"].lower()))
+    elif sort in {"stopped-desc", "stopped_first"}:
+        rows.sort(
+            key=lambda row: (
+                not row["stopped"],
+                not row["visited"],
+                row["name"].lower(),
+            )
+        )
+    elif sort == "activity_first":
+        rows.sort(
+            key=lambda row: (
+                0 if row["stopped"] and row["visited"] else 1 if row["stopped"] else 2
+                if row["visited"]
+                else 3,
+                row["name"].lower(),
+            )
+        )
+    elif sort == "last-stop-desc":
+        rows.sort(
+            key=lambda row: (
+                row["lastStop"] is None,
+                row["lastStop"] or "",
+                row["name"].lower(),
+            ),
+            reverse=True,
+        )
     elif sort == "first-visit-desc":
         rows.sort(
             key=lambda row: (
@@ -958,17 +1485,73 @@ async def list_cities(
     }
 
 
-async def recalculate(background_tasks: BackgroundTasks) -> dict[str, Any]:
-    background_tasks.add_task(calculate_geo_coverage_task)
+async def recalculate(
+    background_tasks: BackgroundTasks,
+    mode: Literal["incremental", "full"] | None = None,
+) -> dict[str, Any]:
+    active_job = await _get_active_geo_recalc_job()
+    if active_job:
+        return {
+            "success": True,
+            "alreadyRunning": True,
+            "message": "A geo coverage recalculation is already running.",
+            "job": _serialize_job(active_job),
+            "jobId": str(active_job.id),
+            "mode": _normalize_recalc_mode((active_job.metadata or {}).get("mode")),
+        }
+
+    selected_mode = _normalize_recalc_mode(mode) if mode else await _get_default_recalc_mode()
+    now = datetime.now(UTC)
+    queued_message = (
+        "Queued incremental coverage recalculation..."
+        if selected_mode == "incremental"
+        else "Queued full coverage rebuild..."
+    )
+
+    job = Job(
+        job_type=GEO_COVERAGE_JOB_TYPE,
+        status="pending",
+        stage="Queued",
+        progress=0.0,
+        message=queued_message,
+        created_at=now,
+        updated_at=now,
+        metadata={
+            "mode": selected_mode,
+        },
+        metrics={
+            "mode": selected_mode,
+            "processedTrips": 0,
+            "totalTrips": 0,
+            "visitedCounties": 0,
+            "stoppedCounties": 0,
+            "visitedCities": 0,
+            "stoppedCities": 0,
+        },
+    )
+    await job.insert()
+
+    background_tasks.add_task(
+        calculate_geo_coverage_task,
+        mode=selected_mode,
+        job_id=str(job.id),
+    )
     return {
         "success": True,
+        "alreadyRunning": False,
         "message": "Unified geo coverage recalculation started in background.",
+        "job": _serialize_job(job),
+        "jobId": str(job.id),
+        "mode": selected_mode,
     }
 
 
 async def get_cache_status() -> dict[str, Any]:
     county_cache = await CountyVisitedCache.get("visited_counties")
     city_cache = await CityVisitedCache.get("visited_cities")
+    active_job = await _get_active_geo_recalc_job()
+    latest_job = await _get_latest_geo_recalc_job()
+    default_mode = await _get_default_recalc_mode()
 
     last_updated_candidates = [
         county_cache.updated_at if county_cache else None,
@@ -989,11 +1572,23 @@ async def get_cache_status() -> dict[str, Any]:
         "city": {
             "cached": city_cache is not None,
             "totalVisited": city_cache.total_visited if city_cache else 0,
+            "totalStopped": (
+                city_cache.total_stopped
+                if city_cache
+                else 0
+            ),
             "totalCities": city_cache.total_cities if city_cache else 0,
             "tripsAnalyzed": city_cache.trips_analyzed if city_cache else 0,
         },
         "cached": county_cache is not None and city_cache is not None,
         "lastUpdated": last_updated,
+        "defaultMode": default_mode,
+        "isRecalculating": active_job is not None,
+        "recalculation": {
+            "active": active_job is not None,
+            "defaultMode": default_mode,
+            "job": _serialize_job(active_job or latest_job),
+        },
     }
 
 
@@ -1022,7 +1617,14 @@ class GeoCoverageService:
     async def list_cities(
         *,
         state_fips: str,
-        status_filter: Literal["all", "visited", "unvisited"] = "all",
+        status_filter: Literal[
+            "all",
+            "driven",
+            "stopped",
+            "both",
+            "visited",
+            "unvisited",
+        ] = "all",
         q: str | None = None,
         sort: str = "name",
         page: int = 1,
@@ -1038,8 +1640,11 @@ class GeoCoverageService:
         )
 
     @staticmethod
-    async def recalculate(background_tasks: BackgroundTasks) -> dict[str, Any]:
-        return await recalculate(background_tasks)
+    async def recalculate(
+        background_tasks: BackgroundTasks,
+        mode: Literal["incremental", "full"] | None = None,
+    ) -> dict[str, Any]:
+        return await recalculate(background_tasks, mode=mode)
 
     @staticmethod
     async def get_cache_status() -> dict[str, Any]:

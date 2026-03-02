@@ -11,21 +11,25 @@ import notificationManager from "../../ui/notifications.js";
 
 const MAP_SERVICES_API = "/api/map-services";
 const APP_SETTINGS_API = "/api/app_settings";
+const GEO_COVERAGE_API = "/api/geo-coverage";
 
 let _lastStatus = null;
 let pollTimer = null;
+let geoCoveragePollTimer = null;
 let lastDbSample = null;
 let _coverageSettings = null;
 let _isGoogleMapsMode = false;
 
 export function initMapServicesTab() {
   stopPolling();
+  stopGeoCoveragePolling();
   _isGoogleMapsMode = false;
   void initializeMapServicesTab();
 }
 
 export function cleanupMapServicesTab() {
   stopPolling();
+  stopGeoCoveragePolling();
 }
 
 export default {
@@ -60,6 +64,20 @@ function stopPolling() {
   if (pollTimer) {
     clearInterval(pollTimer);
     pollTimer = null;
+  }
+}
+
+function startGeoCoveragePolling(intervalMs = 1500) {
+  stopGeoCoveragePolling();
+  geoCoveragePollTimer = setInterval(() => {
+    void refreshGeoCoverageStatus();
+  }, intervalMs);
+}
+
+function stopGeoCoveragePolling() {
+  if (geoCoveragePollTimer) {
+    clearInterval(geoCoveragePollTimer);
+    geoCoveragePollTimer = null;
   }
 }
 
@@ -718,6 +736,7 @@ async function loadCoverageSettings() {
       statusContainer.innerHTML = "";
     }
     stopPolling();
+    stopGeoCoveragePolling();
     return true;
   }
 
@@ -746,6 +765,10 @@ function renderCoverageSettings(settings) {
   const simplifyFeet = sanitizeNumber(settings.mapCoverageSimplifyFeet, 150);
   const maxPoints = sanitizeInt(settings.mapCoverageMaxPointsPerTrip, 2000);
   const batchSize = sanitizeInt(settings.mapCoverageBatchSize, 200);
+  const geoCoverageRecalcMode =
+    String(settings.geoCoverageRecalcMode || "incremental").toLowerCase() === "full"
+      ? "full"
+      : "incremental";
 
   container.innerHTML = `
     <div class="settings-group map-services-settings-card">
@@ -853,6 +876,29 @@ function renderCoverageSettings(settings) {
           </div>
         </div>
 
+        <div class="setting-item">
+          <div class="setting-label">
+            <div class="setting-label-title">Coverage Explorer Recalculation</div>
+            <div class="setting-label-description">
+              Incremental mode processes only trips added/updated since last run. Full rebuild reprocesses all trips.
+            </div>
+          </div>
+          <div class="setting-control">
+            <select id="geo-coverage-recalc-mode" class="form-select">
+              <option value="incremental"${
+                geoCoverageRecalcMode === "incremental" ? " selected" : ""
+              }>
+                Incremental (new/updated trips only)
+              </option>
+              <option value="full"${
+                geoCoverageRecalcMode === "full" ? " selected" : ""
+              }>
+                Full rebuild (all trips)
+              </option>
+            </select>
+          </div>
+        </div>
+
         <div class="d-flex gap-2 align-items-center mt-3">
           <button class="btn btn-primary" type="submit">
             <i class="fas fa-save"></i> Save Coverage Settings
@@ -860,60 +906,235 @@ function renderCoverageSettings(settings) {
           <span class="text-muted small" id="coverage-settings-status"></span>
         </div>
       </form>
+      <div class="geo-coverage-controls mt-3">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <button class="btn btn-outline-danger" id="geo-coverage-full-rebuild-btn" type="button">
+            <i class="fas fa-sync-alt"></i> Run Full Coverage Rebuild
+          </button>
+          <span class="text-muted small">
+            Rebuilds county/city/state coverage from all trips and shows live progress below.
+          </span>
+        </div>
+        <div id="geo-coverage-rebuild-status" class="geo-coverage-rebuild-status mt-2"></div>
+      </div>
     </div>
   `;
 
   attachCoverageSettingsListeners();
+  void refreshGeoCoverageStatus();
 }
 
 function attachCoverageSettingsListeners() {
   const form = document.getElementById("map-coverage-settings-form");
-  if (!form || form.dataset.bound === "true") {
+  if (form && form.dataset.bound !== "true") {
+    form.dataset.bound = "true";
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const modeInput = document.getElementById("map-coverage-mode");
+      const bufferInput = document.getElementById("map-coverage-buffer-miles");
+      const simplifyInput = document.getElementById("map-coverage-simplify-feet");
+      const maxPointsInput = document.getElementById("map-coverage-max-points");
+      const batchInput = document.getElementById("map-coverage-batch-size");
+      const recalcModeInput = document.getElementById("geo-coverage-recalc-mode");
+      const statusEl = document.getElementById("coverage-settings-status");
+
+      const mode = (modeInput?.value || "trips").toLowerCase();
+      const bufferMiles = Math.max(0, sanitizeNumber(bufferInput?.value, 10));
+      const simplifyFeet = Math.max(0, sanitizeNumber(simplifyInput?.value, 150));
+      const maxPoints = Math.max(100, sanitizeInt(maxPointsInput?.value, 2000));
+      const batchSize = Math.max(50, sanitizeInt(batchInput?.value, 200));
+      const geoCoverageRecalcMode =
+        String(recalcModeInput?.value || "incremental").toLowerCase() === "full"
+          ? "full"
+          : "incremental";
+
+      const payload = {
+        mapCoverageMode: mode,
+        mapCoverageBufferMiles: bufferMiles,
+        mapCoverageSimplifyFeet: simplifyFeet,
+        mapCoverageMaxPointsPerTrip: maxPoints,
+        mapCoverageBatchSize: batchSize,
+        geoCoverageRecalcMode,
+      };
+
+      if (statusEl) {
+        statusEl.textContent = "Saving...";
+      }
+
+      try {
+        await apiClient.post(APP_SETTINGS_API, payload);
+        _coverageSettings = { ...(_coverageSettings || {}), ...payload };
+        notificationManager.show("Coverage settings saved.", "success");
+        if (statusEl) {
+          statusEl.textContent = "Saved.";
+        }
+      } catch (error) {
+        console.error("[MapServices] Failed to save coverage settings:", error);
+        notificationManager.show("Failed to save coverage settings.", "danger");
+        if (statusEl) {
+          statusEl.textContent = "Save failed.";
+        }
+      }
+    });
+  }
+
+  const fullRebuildBtn = document.getElementById("geo-coverage-full-rebuild-btn");
+  if (fullRebuildBtn && fullRebuildBtn.dataset.bound !== "true") {
+    fullRebuildBtn.dataset.bound = "true";
+    fullRebuildBtn.addEventListener("click", () => {
+      void triggerGeoCoverageFullRebuild(fullRebuildBtn);
+    });
+  }
+}
+
+function formatCoverageCount(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed.toLocaleString() : "0";
+}
+
+function renderGeoCoverageStatus({ active, job, defaultMode }) {
+  const statusEl = document.getElementById("geo-coverage-rebuild-status");
+  if (!statusEl) {
     return;
   }
-  form.dataset.bound = "true";
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const modeInput = document.getElementById("map-coverage-mode");
-    const bufferInput = document.getElementById("map-coverage-buffer-miles");
-    const simplifyInput = document.getElementById("map-coverage-simplify-feet");
-    const maxPointsInput = document.getElementById("map-coverage-max-points");
-    const batchInput = document.getElementById("map-coverage-batch-size");
-    const statusEl = document.getElementById("coverage-settings-status");
 
-    const mode = (modeInput?.value || "trips").toLowerCase();
-    const bufferMiles = Math.max(0, sanitizeNumber(bufferInput?.value, 10));
-    const simplifyFeet = Math.max(0, sanitizeNumber(simplifyInput?.value, 150));
-    const maxPoints = Math.max(100, sanitizeInt(maxPointsInput?.value, 2000));
-    const batchSize = Math.max(50, sanitizeInt(batchInput?.value, 200));
+  if (!job) {
+    statusEl.innerHTML = `
+      <div class="geo-coverage-status-card">
+        <div class="geo-coverage-status-header">
+          <strong>No active recalculation</strong>
+          <span class="text-muted">Default mode: ${
+            defaultMode === "full" ? "full rebuild" : "incremental"
+          }</span>
+        </div>
+      </div>
+    `;
+    return;
+  }
 
-    const payload = {
-      mapCoverageMode: mode,
-      mapCoverageBufferMiles: bufferMiles,
-      mapCoverageSimplifyFeet: simplifyFeet,
-      mapCoverageMaxPointsPerTrip: maxPoints,
-      mapCoverageBatchSize: batchSize,
-    };
+  const progressRaw = Number(job.progress);
+  const progress = Number.isFinite(progressRaw)
+    ? Math.max(0, Math.min(100, progressRaw))
+    : 0;
+  const modeLabel =
+    String(job.mode || defaultMode || "incremental").toLowerCase() === "full"
+      ? "Full rebuild"
+      : "Incremental";
+  const metrics = job.metrics || {};
+  const result = job.result || {};
+  const processedTrips = formatCoverageCount(
+    metrics.processedTrips ?? result.processedTrips ?? 0
+  );
+  const totalTrips = formatCoverageCount(metrics.totalTrips ?? result.totalTrips ?? 0);
+  const visitedCounties = formatCoverageCount(
+    metrics.visitedCounties ?? result.visitedCounties ?? 0
+  );
+  const visitedCities = formatCoverageCount(
+    metrics.visitedCities ?? result.visitedCities ?? 0
+  );
+  const stoppedCounties = formatCoverageCount(
+    metrics.stoppedCounties ?? result.stoppedCounties ?? 0
+  );
 
-    if (statusEl) {
-      statusEl.textContent = "Saving...";
+  const toneClass =
+    String(job.status || "").toLowerCase() === "failed"
+      ? "is-failed"
+      : active
+        ? "is-active"
+        : "is-done";
+
+  statusEl.innerHTML = `
+    <div class="geo-coverage-status-card ${toneClass}">
+      <div class="geo-coverage-status-header">
+        <strong>${job.stage || "Working"}</strong>
+        <span>${modeLabel}</span>
+      </div>
+      <div class="geo-coverage-status-message">${escapeHtml(
+        job.message || "Processing coverage..."
+      )}</div>
+      <div class="geo-coverage-progress-track">
+        <div class="geo-coverage-progress-fill" style="width:${progress}%"></div>
+      </div>
+      <div class="geo-coverage-progress-label">${Math.round(progress)}%</div>
+      <div class="geo-coverage-stat-row">
+        <span>Trips ${processedTrips}/${totalTrips}</span>
+        <span>Counties ${visitedCounties}</span>
+        <span>Cities ${visitedCities}</span>
+        <span>Stops ${stoppedCounties}</span>
+      </div>
+      ${
+        job.error
+          ? `<div class="geo-coverage-error">${escapeHtml(job.error)}</div>`
+          : ""
+      }
+    </div>
+  `;
+}
+
+async function refreshGeoCoverageStatus() {
+  const statusEl = document.getElementById("geo-coverage-rebuild-status");
+  if (!statusEl) {
+    stopGeoCoveragePolling();
+    return;
+  }
+
+  try {
+    const payload = await apiClient.get(`${GEO_COVERAGE_API}/cache-status`);
+    const recalc = payload?.recalculation || {};
+    const job = recalc.job || null;
+    const active = Boolean(recalc.active);
+    const defaultMode = recalc.defaultMode || payload.defaultMode || "incremental";
+
+    renderGeoCoverageStatus({ active, job, defaultMode });
+
+    if (active) {
+      if (!geoCoveragePollTimer) {
+        startGeoCoveragePolling();
+      }
+    } else {
+      stopGeoCoveragePolling();
+    }
+  } catch (error) {
+    console.error("[MapServices] Failed to refresh geo coverage status:", error);
+  }
+}
+
+async function triggerGeoCoverageFullRebuild(buttonEl) {
+  if (!buttonEl) {
+    return;
+  }
+
+  buttonEl.disabled = true;
+  buttonEl.innerHTML =
+    '<i class="fas fa-spinner fa-spin"></i> Starting full rebuild...';
+
+  try {
+    const response = await apiClient.post(
+      `${GEO_COVERAGE_API}/recalculate?mode=full`,
+      null
+    );
+    if (!response?.success) {
+      throw new Error(response?.error || "Unable to start full rebuild.");
     }
 
-    try {
-      await apiClient.post(APP_SETTINGS_API, payload);
-      _coverageSettings = { ...(_coverageSettings || {}), ...payload };
-      notificationManager.show("Coverage settings saved.", "success");
-      if (statusEl) {
-        statusEl.textContent = "Saved. Re-run map setup to apply.";
-      }
-    } catch (error) {
-      console.error("[MapServices] Failed to save coverage settings:", error);
-      notificationManager.show("Failed to save coverage settings.", "danger");
-      if (statusEl) {
-        statusEl.textContent = "Save failed.";
-      }
-    }
-  });
+    notificationManager.show(
+      response?.alreadyRunning
+        ? "A coverage recalculation is already running."
+        : "Full coverage rebuild started.",
+      "info"
+    );
+    await refreshGeoCoverageStatus();
+    startGeoCoveragePolling();
+  } catch (error) {
+    notificationManager.show(
+      error?.message || "Failed to start full coverage rebuild.",
+      "danger"
+    );
+  } finally {
+    buttonEl.disabled = false;
+    buttonEl.innerHTML =
+      '<i class="fas fa-sync-alt"></i> Run Full Coverage Rebuild';
+  }
 }
 
 function sanitizeNumber(value, defaultValue) {

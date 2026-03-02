@@ -95,6 +95,7 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "mapCoverageMaxPointsPerTrip": 2000,
     "mapCoverageBatchSize": 200,
     "coverageIncludeServiceRoads": True,
+    "geoCoverageRecalcMode": "incremental",
     "setup_completed": False,
     "setup_completed_at": None,
 }

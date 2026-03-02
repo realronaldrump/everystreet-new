@@ -43,7 +43,14 @@ async def get_geo_coverage_visits(
 @api_route(logger)
 async def get_geo_coverage_cities(
     stateFips: str,
-    status: Literal["all", "visited", "unvisited"] = Query(default="all"),
+    status: Literal[
+        "all",
+        "driven",
+        "stopped",
+        "both",
+        "visited",
+        "unvisited",
+    ] = Query(default="all"),
     q: str | None = None,
     sort: str = Query(default="name"),
     page: int = Query(default=1, ge=1),
@@ -62,9 +69,12 @@ async def get_geo_coverage_cities(
 
 @router.post("/recalculate", response_model=dict[str, Any])
 @api_route(logger)
-async def recalculate_geo_coverage(background_tasks: BackgroundTasks) -> dict[str, Any]:
+async def recalculate_geo_coverage(
+    background_tasks: BackgroundTasks,
+    mode: Literal["incremental", "full"] | None = Query(default=None),
+) -> dict[str, Any]:
     """Trigger unified county/city recalculation in the background."""
-    return await GeoCoverageService.recalculate(background_tasks)
+    return await GeoCoverageService.recalculate(background_tasks, mode=mode)
 
 
 @router.get("/cache-status", response_model=dict[str, Any])

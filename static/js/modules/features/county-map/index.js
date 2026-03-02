@@ -16,6 +16,7 @@ import {
   applyStateVisitFeatureState,
   getMapStyle,
   renderLevelLayers,
+  setSelectionHighlight,
   updateStopLayerVisibility,
 } from "../../county-map/map-layers.js";
 import * as CountyMapState from "../../county-map/state.js";
@@ -41,7 +42,8 @@ import notificationManager from "../../ui/notifications.js";
 
 const MAX_CONTEXT_RECOVERY_ATTEMPTS = 2;
 const CONTEXT_RECOVERY_COOLDOWN_MS = 30_000;
-const RECALC_STALE_MS = 30 * 60 * 1000;
+const RECALC_STALE_MS = 6 * 60 * 60 * 1000;
+const RECALC_POLL_MS = 1500;
 
 let pageSignal = null;
 let inFlightRequestController = null;
@@ -78,6 +80,30 @@ function isRecalcStateStale(startedAt, nowMs = Date.now()) {
     return true;
   }
   return nowMs - startedAt.getTime() > RECALC_STALE_MS;
+}
+
+function toDate(value) {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed;
+}
+
+function isJobActive(job) {
+  const status = String(job?.status || "").toLowerCase();
+  return status === "pending" || status === "running";
+}
+
+function isJobFailed(job) {
+  return String(job?.status || "").toLowerCase() === "failed";
+}
+
+function isJobCompleted(job) {
+  return String(job?.status || "").toLowerCase() === "completed";
 }
 
 function abortInFlightRequests() {
@@ -366,8 +392,13 @@ function bindStateList(sortBy = null) {
       countyActivityStateFips.has(String(entry?.stateFips || "").padStart(2, "0")),
     onSelectState: async (stateFips) => {
       CountyMapState.setSelectedStateFips(stateFips);
+      setSelectionHighlight(stateFips, "state");
       updateStateSelector();
       fitToState(stateFips);
+
+      if (CountyMapState.getActiveLevel() !== "city") {
+        bindStateList(resolvedSort);
+      }
 
       if (CountyMapState.getActiveLevel() === "city") {
         const token = ++levelRenderToken;
@@ -432,8 +463,47 @@ function attachStateClickHandler(map) {
   map.on("click", "states-fill", handleStateClickFromMap);
 }
 
+function attachCountyClickHandler(map) {
+  map.off("click", "counties-fill", handleCountyClickFromMap);
+  map.on("click", "counties-fill", handleCountyClickFromMap);
+}
+
+function attachCityClickHandler(map) {
+  map.off("click", "cities-fill", handleCityClickFromMap);
+  map.on("click", "cities-fill", handleCityClickFromMap);
+}
+
 function detachStateClickHandler(map) {
   map.off("click", "states-fill", handleStateClickFromMap);
+}
+
+function detachCountyClickHandler(map) {
+  map.off("click", "counties-fill", handleCountyClickFromMap);
+}
+
+function detachCityClickHandler(map) {
+  map.off("click", "cities-fill", handleCityClickFromMap);
+}
+
+function detachLevelClickHandlers(map) {
+  detachCountyClickHandler(map);
+  detachStateClickHandler(map);
+  detachCityClickHandler(map);
+}
+
+function handleCountyClickFromMap(event) {
+  const feature = event?.features?.[0];
+  if (!feature) {
+    return;
+  }
+
+  const countyFips = String(feature.properties?.fips || feature.id || "").padStart(5, "0");
+  if (!countyFips) {
+    return;
+  }
+
+  CountyMapState.setSelectedCountyFips(countyFips);
+  setSelectionHighlight(countyFips, "county");
 }
 
 function handleStateClickFromMap(event) {
@@ -451,13 +521,37 @@ function handleStateClickFromMap(event) {
   }
 
   CountyMapState.setSelectedStateFips(stateFips);
+  setSelectionHighlight(stateFips, "state");
   updateStateSelector();
   fitToState(stateFips);
+  bindStateList(document.getElementById("state-sort")?.value || null);
 
   if (CountyMapState.getActiveLevel() === "city") {
     const token = ++levelRenderToken;
     void renderCityMode(token);
   }
+}
+
+function handleCityClickFromMap(event) {
+  const feature = event?.features?.[0];
+  if (!feature) {
+    return;
+  }
+
+  const cityId = String(feature.properties?.cityId || feature.id || "");
+  if (!cityId) {
+    return;
+  }
+
+  CountyMapState.setSelectedCityId(cityId);
+  setSelectionHighlight(cityId, "city");
+
+  document.querySelectorAll(".city-stat-item").forEach((row) => {
+    const rowCityId = String(row.dataset.cityId || "");
+    const isSelected = rowCityId === cityId;
+    row.classList.toggle("city-stat-item--selected", isSelected);
+    row.setAttribute("aria-selected", isSelected ? "true" : "false");
+  });
 }
 
 async function loadCityAssetsForState(stateFips, signal) {
@@ -480,6 +574,7 @@ async function loadCityAssetsForState(stateFips, signal) {
     return;
   }
   CountyMapState.setCityVisitsForState(stateFips, cityVisits.visits || {});
+  CountyMapState.setCityStopsForState(stateFips, cityVisits.stopped || {});
 }
 
 function bindCityPaginationHandlers(stateFips, currentPage, totalPages) {
@@ -508,7 +603,21 @@ function bindCityRowHandlers(cities) {
   document.querySelectorAll(".city-stat-item").forEach((item) => {
     item.addEventListener("click", () => {
       const { cityId } = item.dataset;
-      const city = cities.find((row) => row.cityId === cityId);
+      if (!cityId) {
+        return;
+      }
+
+      CountyMapState.setSelectedCityId(cityId);
+      setSelectionHighlight(cityId, "city");
+
+      document.querySelectorAll(".city-stat-item").forEach((row) => {
+        const rowCityId = String(row.dataset.cityId || "");
+        const isSelected = rowCityId === cityId;
+        row.classList.toggle("city-stat-item--selected", isSelected);
+        row.setAttribute("aria-selected", isSelected ? "true" : "false");
+      });
+
+      const city = cities.find((row) => String(row.cityId) === String(cityId));
       if (!city || !Array.isArray(city.bbox) || city.bbox.length !== 4) {
         return;
       }
@@ -585,8 +694,10 @@ function renderCountyMode() {
     CountyMapState.getCountyVisits(),
     CountyMapState.getCountyStops()
   );
+  setSelectionHighlight(CountyMapState.getSelectedCountyFips(), "county");
   updateStopLayerVisibility();
-  detachStateClickHandler(map);
+  detachLevelClickHandlers(map);
+  attachCountyClickHandler(map);
   setupInteractions();
 }
 
@@ -600,6 +711,8 @@ function renderStateMode() {
     stateFeatureCollection: CountyMapState.getStateFeatureCollection(),
   });
   applyStateVisitFeatureState(map, CountyMapState.getStateRollups());
+  setSelectionHighlight(CountyMapState.getSelectedStateFips(), "state");
+  detachLevelClickHandlers(map);
   attachStateClickHandler(map);
   setupInteractions();
 }
@@ -632,11 +745,16 @@ async function renderCityMode(token) {
   const cityFeatureCollection = CountyMapState.getCityFeatureCollection(stateFips);
   renderLevelLayers("city", {
     cityFeatureCollection,
+    showStoppedCities: CountyMapState.getShowStoppedCities(),
   });
 
   const cityVisits = CountyMapState.getCityVisitsForState(stateFips);
-  applyCityVisitFeatureState(map, cityVisits);
-  detachStateClickHandler(map);
+  const cityStops = CountyMapState.getCityStopsForState(stateFips);
+  applyCityVisitFeatureState(map, cityVisits, cityStops);
+  setSelectionHighlight(CountyMapState.getSelectedCityId(), "city");
+  updateStopLayerVisibility();
+  detachLevelClickHandlers(map);
+  attachCityClickHandler(map);
   setupInteractions();
 
   await loadCityList(stateFips, 1);
@@ -828,6 +946,8 @@ function bindLevelControls() {
     const cityStateSelect = document.getElementById("city-state-select");
     cityStateSelect?.addEventListener("change", () => {
       CountyMapState.setSelectedStateFips(cityStateSelect.value || null);
+      CountyMapState.setSelectedCityId(null);
+      setSelectionHighlight("", "city");
       fitToState(cityStateSelect.value);
       if (CountyMapState.getActiveLevel() === "city") {
         void renderActiveLevel();
@@ -849,6 +969,17 @@ function bindLevelControls() {
         void loadCityList(stateFips, 1);
       }
     });
+
+    const cityStopToggle = document.getElementById("toggle-city-stops");
+    if (cityStopToggle) {
+      cityStopToggle.checked = CountyMapState.getShowStoppedCities();
+      cityStopToggle.addEventListener("change", () => {
+        CountyMapState.setShowStoppedCities(cityStopToggle.checked);
+        if (CountyMapState.getActiveLevel() === "city") {
+          updateStopLayerVisibility();
+        }
+      });
+    }
 
     const citySearch = document.getElementById("city-search");
     citySearch?.addEventListener("input", () => {
@@ -875,6 +1006,44 @@ function clearRecalcState() {
   updateRecalculateUi(false);
 }
 
+function buildRecalculateDetails(job = null) {
+  const metrics = job?.metrics || {};
+  const result = job?.result || {};
+  const processedTrips = Number(
+    metrics.processedTrips ?? result.processedTrips ?? 0
+  );
+  const totalTrips = Number(metrics.totalTrips ?? result.totalTrips ?? 0);
+  const visitedCounties = Number(
+    metrics.visitedCounties ?? result.visitedCounties ?? 0
+  );
+  const visitedCities = Number(metrics.visitedCities ?? result.visitedCities ?? 0);
+  const stoppedCounties = Number(
+    metrics.stoppedCounties ?? result.stoppedCounties ?? 0
+  );
+  const stoppedCities = Number(metrics.stoppedCities ?? result.stoppedCities ?? 0);
+
+  return {
+    stage: job?.stage || "Working",
+    progress: Number(job?.progress ?? 0),
+    mode: job?.mode || metrics.mode || result.mode || "incremental",
+    processedTrips,
+    totalTrips,
+    visitedCounties,
+    visitedCities,
+    stoppedCounties,
+    stoppedCities,
+  };
+}
+
+function refreshCoveragePage() {
+  swupReady.then((swup) => {
+    swup.navigate(window.location.href, {
+      cache: { read: false, write: true },
+      history: "replace",
+    });
+  });
+}
+
 /**
  * Trigger recalculation of geo data
  */
@@ -885,13 +1054,26 @@ async function triggerRecalculate() {
 
   const startedAt = new Date();
   CountyMapState.setIsRecalculating(true);
-  storeRecalcState(startedAt);
-  updateRecalculateUi(true, "Recalculating coverage data...");
+  storeRecalcState(startedAt, null);
+  updateRecalculateUi(true, "Starting coverage recalculation...", {
+    stage: "Queued",
+    progress: 0,
+  });
 
   try {
     const data = await CoverageAPI.triggerRecalculation({ signal: pageSignal });
     if (data.success) {
-      setTimeout(() => startRecalculatePolling(startedAt), 3000);
+      const job = data?.job || null;
+      const jobId = typeof data?.jobId === "string" ? data.jobId : job?.id || null;
+      storeRecalcState(startedAt, jobId);
+      if (job) {
+        updateRecalculateUi(
+          true,
+          job.message || "Recalculating coverage data...",
+          buildRecalculateDetails(job)
+        );
+      }
+      setTimeout(() => startRecalculatePolling(startedAt, jobId), 500);
     } else {
       notificationManager.show(`Error starting calculation: ${data.error}`, "danger");
       clearRecalcState();
@@ -910,7 +1092,7 @@ async function triggerRecalculate() {
 /**
  * Start polling for recalculation completion
  */
-function startRecalculatePolling(startedAt) {
+function startRecalculatePolling(startedAt, jobId = null) {
   if (pageSignal?.aborted) {
     CountyMapState.setRecalcPollerActive(false);
     return;
@@ -919,13 +1101,13 @@ function startRecalculatePolling(startedAt) {
     return;
   }
   CountyMapState.setRecalcPollerActive(true);
-  setTimeout(() => checkAndRefresh(startedAt), 2000);
+  setTimeout(() => checkAndRefresh(startedAt, jobId), RECALC_POLL_MS);
 }
 
 /**
  * Check if calculation is done and refresh
  */
-async function checkAndRefresh(startedAt) {
+async function checkAndRefresh(startedAt, activeJobId = null) {
   if (pageSignal?.aborted) {
     CountyMapState.setRecalcPollerActive(false);
     return;
@@ -945,27 +1127,59 @@ async function checkAndRefresh(startedAt) {
 
   try {
     const data = await CoverageAPI.fetchCacheStatus({ signal: pageSignal });
-    const lastUpdated = data.lastUpdated ? new Date(data.lastUpdated) : null;
-    const updatedAfterStart =
-      lastUpdated && startedAt ? lastUpdated > startedAt : false;
+    const job = data?.recalculation?.job || null;
+    const lastUpdated = toDate(data?.lastUpdated);
+    const updatedAfterStart = lastUpdated ? lastUpdated >= startedAt : false;
 
-    if (data.cached && updatedAfterStart) {
-      clearRecalcState();
-      swupReady.then((swup) => {
-        swup.navigate(window.location.href, {
-          cache: { read: false, write: true },
-          history: "replace",
-        });
-      });
+    if (job && isJobActive(job)) {
+      const jobId = typeof job?.id === "string" ? job.id : activeJobId;
+      storeRecalcState(startedAt, jobId);
+      updateRecalculateUi(
+        true,
+        job.message || "Recalculating coverage data...",
+        buildRecalculateDetails(job)
+      );
+      if (!pageSignal?.aborted) {
+        setTimeout(() => checkAndRefresh(startedAt, jobId), RECALC_POLL_MS);
+      }
       return;
     }
 
+    if (job && isJobFailed(job)) {
+      clearRecalcState();
+      notificationManager.show(
+        job.error || job.message || "Coverage recalculation failed.",
+        "danger"
+      );
+      return;
+    }
+
+    const completedAt = toDate(job?.completedAt);
+    const completedAfterStart = completedAt ? completedAt >= startedAt : false;
+
+    if (
+      (job && isJobCompleted(job) && (completedAfterStart || updatedAfterStart)) ||
+      (data.cached && updatedAfterStart)
+    ) {
+      clearRecalcState();
+      refreshCoveragePage();
+      return;
+    }
+
+    if (!job) {
+      updateRecalculateUi(true, "Waiting for recalculation worker...", {
+        stage: "Starting",
+        progress: 0,
+        mode: data?.defaultMode || "incremental",
+      });
+    }
+
     if (!pageSignal?.aborted) {
-      setTimeout(() => checkAndRefresh(startedAt), 2000);
+      setTimeout(() => checkAndRefresh(startedAt, activeJobId), RECALC_POLL_MS);
     }
   } catch (error) {
     if (!isAbortError(error) && !pageSignal?.aborted) {
-      setTimeout(() => checkAndRefresh(startedAt), 3000);
+      setTimeout(() => checkAndRefresh(startedAt, activeJobId), 2500);
     }
   }
 }
@@ -988,8 +1202,11 @@ function resumeRecalculateIfNeeded() {
     return;
   }
   CountyMapState.setIsRecalculating(true);
-  updateRecalculateUi(true, "Recalculating coverage data...");
-  startRecalculatePolling(recalcState.startedAt);
+  updateRecalculateUi(true, "Resuming coverage recalculation...", {
+    stage: "Reconnecting",
+    progress: 0,
+  });
+  startRecalculatePolling(recalcState.startedAt, recalcState.jobId || null);
 }
 
 /**

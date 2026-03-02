@@ -7,7 +7,7 @@ import { RECALC_STORAGE_KEY } from "./constants.js";
 
 /**
  * Get stored recalculation state from localStorage
- * @returns {{startedAt: Date}|null} Recalc state or null if not found/invalid
+ * @returns {{startedAt: Date, jobId: string|null}|null} Recalc state or null if not found/invalid
  */
 export function getStoredRecalcState() {
   const raw = localStorage.getItem(RECALC_STORAGE_KEY);
@@ -26,7 +26,8 @@ export function getStoredRecalcState() {
       return null;
     }
 
-    return { startedAt };
+    const jobId = typeof parsed.jobId === "string" ? parsed.jobId : null;
+    return { startedAt, jobId };
   } catch {
     return null;
   }
@@ -35,11 +36,15 @@ export function getStoredRecalcState() {
 /**
  * Store recalculation state to localStorage
  * @param {Date} startedAt - When recalculation started
+ * @param {string|null} [jobId] - Background job identifier
  */
-export function storeRecalcState(startedAt) {
+export function storeRecalcState(startedAt, jobId = null) {
   localStorage.setItem(
     RECALC_STORAGE_KEY,
-    JSON.stringify({ startedAt: startedAt.toISOString() })
+    JSON.stringify({
+      startedAt: startedAt.toISOString(),
+      jobId: typeof jobId === "string" ? jobId : null,
+    })
   );
 }
 

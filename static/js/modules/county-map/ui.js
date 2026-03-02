@@ -18,12 +18,91 @@ export function getRecalculateButtons() {
     .filter(Boolean);
 }
 
-export function updateRecalculateUi(isActive, message) {
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function formatCount(value) {
+  return Number.isFinite(value) ? Number(value).toLocaleString() : null;
+}
+
+export function updateRecalculateUi(isActive, message, details = null) {
   const status = document.getElementById("recalculate-status");
   if (status) {
     if (isActive) {
+      const progressRaw = Number(details?.progress);
+      const progress = Number.isFinite(progressRaw)
+        ? Math.max(0, Math.min(100, progressRaw))
+        : null;
+      const mode = String(details?.mode || "").toLowerCase();
+      const modeLabel =
+        mode === "full" ? "Full rebuild" : "Incremental (new trips only)";
+      const stage = details?.stage ? String(details.stage) : "";
+      const processedTrips = formatCount(Number(details?.processedTrips));
+      const totalTrips = formatCount(Number(details?.totalTrips));
+      const visitedCounties = formatCount(Number(details?.visitedCounties));
+      const visitedCities = formatCount(Number(details?.visitedCities));
+      const stoppedCounties = formatCount(Number(details?.stoppedCounties));
+
+      const chips = [];
+      chips.push(`<span class="recalc-chip">${escapeHtml(modeLabel)}</span>`);
+      if (processedTrips && totalTrips) {
+        chips.push(
+          `<span class="recalc-chip">Trips ${escapeHtml(processedTrips)}/${escapeHtml(totalTrips)}</span>`
+        );
+      } else if (processedTrips) {
+        chips.push(
+          `<span class="recalc-chip">Trips ${escapeHtml(processedTrips)}</span>`
+        );
+      }
+      if (visitedCounties) {
+        chips.push(
+          `<span class="recalc-chip">Counties ${escapeHtml(visitedCounties)}</span>`
+        );
+      }
+      if (visitedCities) {
+        chips.push(
+          `<span class="recalc-chip">Cities ${escapeHtml(visitedCities)}</span>`
+        );
+      }
+      if (stoppedCounties) {
+        chips.push(
+          `<span class="recalc-chip">Stops ${escapeHtml(stoppedCounties)}</span>`
+        );
+      }
+
       status.classList.add("recalculate-status--active");
-      status.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>${message}</span>`;
+      status.innerHTML = `
+        <div class="recalc-header">
+          <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+          <span class="recalc-message">${escapeHtml(message || "Recalculating coverage data...")}</span>
+        </div>
+        ${
+          stage
+            ? `<div class="recalc-stage">${escapeHtml(stage)}</div>`
+            : ""
+        }
+        ${
+          progress !== null
+            ? `
+          <div class="recalc-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(progress)}">
+            <div class="recalc-progress-fill" style="width:${progress}%"></div>
+          </div>
+          <div class="recalc-progress-label">${Math.round(progress)}%</div>
+        `
+            : ""
+        }
+        ${
+          chips.length > 0
+            ? `<div class="recalc-chips">${chips.join("")}</div>`
+            : ""
+        }
+      `;
     } else {
       status.classList.remove("recalculate-status--active");
       status.textContent = "";
@@ -352,6 +431,7 @@ export function updateLevelUi(level) {
 export function renderStateStatsList(options = {}) {
   const { sortBy = "name", onSelectState, includeState } = options;
   const stateList = [...CountyMapState.getStateRollups()];
+  const selectedStateFips = String(CountyMapState.getSelectedStateFips() || "");
 
   switch (sortBy) {
     case "coverage-desc":
@@ -390,8 +470,12 @@ export function renderStateStatsList(options = {}) {
       const cityStats = entry.city || {};
       const countyPct = Number(countyStats.percent || 0);
       const isComplete = countyPct >= 100;
+      const stateFips = String(entry.stateFips || "").padStart(2, "0");
+      const isSelected = stateFips === selectedStateFips;
       return `
-        <div class="state-stat-item ${isComplete ? "state-stat-item--complete" : ""}" data-state-fips="${entry.stateFips}">
+        <div class="state-stat-item ${isComplete ? "state-stat-item--complete" : ""} ${isSelected ? "state-stat-item--selected" : ""}"
+             data-state-fips="${entry.stateFips}"
+             aria-selected="${isSelected ? "true" : "false"}">
           <div class="state-stat-header">
             <span class="state-name">${entry.stateName}</span>
             <span class="state-coverage ${countyStats.visited ? "state-coverage--visited" : ""}">${countyPct.toFixed(1)}%</span>
@@ -433,6 +517,7 @@ export function renderCityRows(payload) {
 
   const cities = payload?.cities || [];
   const pagination = payload?.pagination || {};
+  const selectedCityId = String(CountyMapState.getSelectedCityId() || "");
 
   if (!cities.length) {
     listEl.innerHTML =
@@ -443,8 +528,12 @@ export function renderCityRows(payload) {
         const statusClass = city.visited
           ? "tooltip-status tooltip-status--visited"
           : "tooltip-status tooltip-status--unvisited";
+        const cityId = String(city.cityId ?? "");
+        const isSelected = cityId === selectedCityId;
         return `
-          <div class="city-stat-item" data-city-id="${city.cityId}">
+          <div class="city-stat-item ${isSelected ? "city-stat-item--selected" : ""}"
+               data-city-id="${city.cityId}"
+               aria-selected="${isSelected ? "true" : "false"}">
             <div class="city-stat-header">
               <span class="state-name">${city.name}</span>
               <span class="${statusClass}">${city.visited ? "Visited" : "Unvisited"}</span>

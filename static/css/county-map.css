@@ -456,11 +456,27 @@
   padding: 0.65rem 0.75rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .state-stat-item:hover {
   background: var(--surface-3);
   border-color: rgb(var(--text-rgb) / 10%);
+}
+
+.state-stat-item::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(
+    180deg,
+    rgb(var(--cat-indigo-rgb) / 95%),
+    rgb(var(--cat-indigo-rgb) / 45%)
+  );
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 
 .state-stat-item--complete {
@@ -470,6 +486,22 @@
     rgb(var(--success-rgb) / 10%),
     rgb(var(--success-rgb) / 5%)
   );
+}
+
+.state-stat-item--selected {
+  border-color: rgb(var(--cat-indigo-rgb) / 45%);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--cat-indigo-rgb) / 22%),
+    rgb(var(--cat-indigo-rgb) / 10%)
+  );
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--cat-indigo-rgb) / 20%),
+    0 10px 20px rgb(var(--cat-indigo-rgb) / 12%);
+}
+
+.state-stat-item--selected::before {
+  opacity: 1;
 }
 
 .state-stat-header {
@@ -543,11 +575,43 @@
   padding: 0.65rem 0.75rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .city-stat-item:hover {
   background: var(--surface-3);
   border-color: rgb(var(--text-rgb) / 10%);
+}
+
+.city-stat-item::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(
+    180deg,
+    rgb(var(--success-rgb) / 95%),
+    rgb(var(--success-rgb) / 45%)
+  );
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.city-stat-item--selected {
+  border-color: rgb(var(--success-rgb) / 45%);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--success-rgb) / 22%),
+    rgb(var(--success-rgb) / 10%)
+  );
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--success-rgb) / 20%),
+    0 10px 20px rgb(var(--success-rgb) / 12%);
+}
+
+.city-stat-item--selected::before {
+  opacity: 1;
 }
 
 .city-stat-header {
@@ -631,15 +695,76 @@
 
 .recalculate-status {
   display: none;
-  align-items: center;
-  gap: 0.5rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
   font-size: 0.72rem;
   color: var(--text-secondary);
   margin-top: 0.5rem;
+  padding: 0.65rem 0.7rem;
+  border-radius: var(--radius-md);
+  background: rgb(var(--cat-indigo-rgb) / 8%);
+  border: 1px solid rgb(var(--cat-indigo-rgb) / 20%);
 }
 
 .recalculate-status--active {
   display: flex;
+}
+
+.recalc-header {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.recalc-message {
+  color: var(--text-primary);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.recalc-stage {
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+}
+
+.recalc-progress-track {
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgb(var(--text-rgb) / 8%);
+}
+
+.recalc-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    rgb(var(--cat-indigo-rgb) / 82%),
+    rgb(var(--success-rgb) / 80%)
+  );
+  transition: width 0.25s ease;
+}
+
+.recalc-progress-label {
+  font-size: 0.67rem;
+  color: var(--text-tertiary);
+}
+
+.recalc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.recalc-chip {
+  font-size: 0.65rem;
+  padding: 0.13rem 0.38rem;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--text-rgb) / 13%);
+  background: rgb(var(--text-rgb) / 5%);
+  color: var(--text-secondary);
 }
 
 .recalculate-prompt {
