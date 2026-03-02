@@ -41,6 +41,7 @@ import notificationManager from "../../ui/notifications.js";
 
 const MAX_CONTEXT_RECOVERY_ATTEMPTS = 2;
 const CONTEXT_RECOVERY_COOLDOWN_MS = 30_000;
+const RECALC_STALE_MS = 30 * 60 * 1000;
 
 let pageSignal = null;
 let inFlightRequestController = null;
@@ -70,6 +71,13 @@ export function canAttemptRecovery({
 
 function isAbortError(error) {
   return error?.name === "AbortError";
+}
+
+function isRecalcStateStale(startedAt, nowMs = Date.now()) {
+  if (!(startedAt instanceof Date) || Number.isNaN(startedAt.getTime())) {
+    return true;
+  }
+  return nowMs - startedAt.getTime() > RECALC_STALE_MS;
 }
 
 function abortInFlightRequests() {
@@ -883,9 +891,13 @@ async function triggerRecalculate() {
       clearRecalcState();
     }
   } catch (error) {
-    if (!isAbortError(error)) {
-      clearRecalcState();
+    if (isAbortError(error)) {
+      if (!pageSignal?.aborted) {
+        clearRecalcState();
+      }
+      return;
     }
+    clearRecalcState();
   }
 }
 
@@ -914,6 +926,14 @@ async function checkAndRefresh(startedAt) {
   }
   if (!CountyMapState.getIsRecalculating()) {
     CountyMapState.setRecalcPollerActive(false);
+    return;
+  }
+  if (isRecalcStateStale(startedAt)) {
+    clearRecalcState();
+    notificationManager.show(
+      "Coverage recalculation timed out. Please try again.",
+      "warning"
+    );
     return;
   }
 
@@ -955,6 +975,10 @@ function setupRecalculateButton(signal) {
 function resumeRecalculateIfNeeded() {
   const recalcState = getStoredRecalcState();
   if (!recalcState) {
+    return;
+  }
+  if (isRecalcStateStale(recalcState.startedAt)) {
+    clearRecalcState();
     return;
   }
   CountyMapState.setIsRecalculating(true);
