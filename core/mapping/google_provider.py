@@ -1,6 +1,4 @@
-"""
-Google Maps provider utilizing the Google Maps Platform APIs.
-"""
+"""Google Maps provider utilizing the Google Maps Platform APIs."""
 
 from typing import Any
 
@@ -65,7 +63,9 @@ class GoogleGeocoder(Geocoder):
         return str(data.get("status") or "UNKNOWN")
 
     @staticmethod
-    def _google_bbox_to_nominatim_bbox(viewport: dict[str, Any] | None) -> list[str] | None:
+    def _google_bbox_to_nominatim_bbox(
+        viewport: dict[str, Any] | None,
+    ) -> list[str] | None:
         if not isinstance(viewport, dict):
             return None
         northeast = viewport.get("northeast") or {}
@@ -105,6 +105,7 @@ class GoogleGeocoder(Geocoder):
         *,
         zoom: int = 18,
     ) -> dict[str, Any] | None:
+        _ = zoom  # Preserved for protocol compatibility.
         session = await get_session()
         params = {"latlng": f"{lat},{lon}", "key": self._api_key}
         data = await request_json(
@@ -169,6 +170,7 @@ class GoogleGeocoder(Geocoder):
         country_codes: str | None = "us",
         strict_bounds: bool = False,
     ) -> list[dict[str, Any]]:
+        _ = (country_codes, strict_bounds)  # Preserved for protocol compatibility.
         # Mapbox Geocoding-like search (used in setup wizard / search bars).
         session = await get_session()
         params: dict[str, Any] = {
@@ -224,6 +226,7 @@ class GoogleGeocoder(Geocoder):
         polygon_geojson: bool = False,
         addressdetails: bool = True,
     ) -> list[dict[str, Any]]:
+        _ = addressdetails  # Preserved for protocol compatibility.
         session = await get_session()
         params: dict[str, Any] = {
             "query": query,
@@ -271,9 +274,7 @@ class GoogleGeocoder(Geocoder):
                     "lon": lng,
                     "boundingbox": self._google_bbox_to_nominatim_bbox(viewport),
                     "geojson": (
-                        self._viewport_polygon(viewport)
-                        if polygon_geojson
-                        else None
+                        self._viewport_polygon(viewport) if polygon_geojson else None
                     ),
                     "address": {},
                     "importance": result.get("rating"),
@@ -296,7 +297,11 @@ class GoogleGeocoder(Geocoder):
         if not place_id:
             return []
         normalized_type = str(osm_type or "").strip().lower()
-        if normalized_type and normalized_type not in {"google_place", "google", "place"}:
+        if normalized_type and normalized_type not in {
+            "google_place",
+            "google",
+            "place",
+        }:
             raise NotImplementedError(
                 "Google provider can only lookup place IDs created by Google search.",
             )
@@ -371,9 +376,7 @@ class GoogleGeocoder(Geocoder):
                 "lon": lng,
                 "boundingbox": self._google_bbox_to_nominatim_bbox(viewport),
                 "geojson": (
-                    self._viewport_polygon(viewport)
-                    if polygon_geojson
-                    else None
+                    self._viewport_polygon(viewport) if polygon_geojson else None
                 ),
                 "address": address if addressdetails else {},
                 "type": (result.get("types") or [None])[0],
@@ -394,6 +397,7 @@ class GoogleRouter(Router):
         costing: str = "auto",
         timeout_s: float | None = None,
     ) -> dict[str, Any]:
+        _ = costing  # Preserved for protocol compatibility.
         if len(locations) < 2:
             raise ExternalServiceException(
                 "Google route requires at least two locations."
@@ -464,6 +468,7 @@ class GoogleRouter(Router):
         costing: str = "auto",
         use_timestamps: bool | None = None,
     ) -> dict[str, Any]:
+        _ = (costing, use_timestamps)  # Preserved for protocol compatibility.
         # Batch points. Google Snap to Roads limits to 100 points per request.
         # We need to split the shape into chunks of 100 if > 100.
         coords = []

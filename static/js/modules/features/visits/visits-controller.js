@@ -1439,7 +1439,9 @@ class VisitsPageController {
       this._previewMapObserver = new IntersectionObserver(
         (entries) => {
           for (const entry of entries) {
-            if (!entry.isIntersecting) continue;
+            if (!entry.isIntersecting) {
+              continue;
+            }
             const container = entry.target;
             const init = container._lazyMapInit;
             if (init) {
@@ -1449,7 +1451,7 @@ class VisitsPageController {
             }
           }
         },
-        { rootMargin: "200px" },
+        { rootMargin: "200px" }
       );
     }
 
@@ -1508,7 +1510,9 @@ class VisitsPageController {
       this._previewMapObserver = new IntersectionObserver(
         (entries) => {
           for (const entry of entries) {
-            if (!entry.isIntersecting) continue;
+            if (!entry.isIntersecting) {
+              continue;
+            }
             const container = entry.target;
             const init = container._lazyMapInit;
             if (init) {
@@ -1518,7 +1522,7 @@ class VisitsPageController {
             }
           }
         },
-        { rootMargin: "200px" },
+        { rootMargin: "200px" }
       );
     }
 

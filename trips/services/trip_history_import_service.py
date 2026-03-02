@@ -36,9 +36,7 @@ from trips.services.trip_history_import_service_core import (
     ImportSetup,
     run_import,
 )
-from trips.services.trip_history_import_service_progress import (
-    ImportProgressContext,
-)
+from trips.services.trip_history_import_service_progress import ImportProgressContext
 
 __all__ = [
     "DEVICE_FETCH_TIMEOUT_SECONDS",

@@ -399,7 +399,7 @@ export function renderLevelLayers(level, options = {}) {
   }
 
   if (level === "city") {
-    const cityFeatureCollection = options.cityFeatureCollection;
+    const { cityFeatureCollection } = options;
     if (!cityFeatureCollection) {
       return;
     }

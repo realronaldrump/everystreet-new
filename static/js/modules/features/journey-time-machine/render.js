@@ -71,9 +71,7 @@ function formatMetricValue(value) {
 }
 
 function formatMetricLabel(key) {
-  return key
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+  return key.replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 export function updateFeedStatus(text, isError = false) {

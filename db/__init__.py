@@ -62,10 +62,7 @@ from db.models import (
 # ============================================================================
 # Query Building
 # ============================================================================
-from db.query import (
-    build_calendar_date_expr,
-    build_query_from_request,
-)
+from db.query import build_calendar_date_expr, build_query_from_request
 
 logger = logging.getLogger(__name__)
 

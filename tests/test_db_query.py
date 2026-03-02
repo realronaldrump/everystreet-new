@@ -3,10 +3,7 @@ import json
 import pytest
 from starlette.requests import Request
 
-from db.query import (
-    build_calendar_date_expr,
-    build_query_from_request,
-)
+from db.query import build_calendar_date_expr, build_query_from_request
 
 
 def test_build_calendar_date_expr_returns_none_for_empty() -> None:

@@ -469,7 +469,9 @@ class MapMatchingJobRunner:
         try:
             router_ready, blocked_message = await self._preflight_router()
             if not router_ready:
-                message = blocked_message or "Routing provider not ready: routing unavailable"
+                message = (
+                    blocked_message or "Routing provider not ready: routing unavailable"
+                )
                 await self._update_progress(
                     progress,
                     status="failed",
@@ -627,10 +629,22 @@ class MapMatchingJobRunner:
                 return False, "Valhalla", "Routing starting..."
             return True, "Valhalla", ""
 
-        if status_value and status_value not in {"ok", "healthy", "ready", "running", "up"}:
+        if status_value and status_value not in {
+            "ok",
+            "healthy",
+            "ready",
+            "running",
+            "up",
+        }:
             return False, provider_label, status_error or f"status={status_value}"
 
-        if status_error and status_value not in {"ok", "healthy", "ready", "running", "up"}:
+        if status_error and status_value not in {
+            "ok",
+            "healthy",
+            "ready",
+            "running",
+            "up",
+        }:
             return False, provider_label, status_error
 
         return True, provider_label, ""
@@ -639,11 +653,13 @@ class MapMatchingJobRunner:
     def _router_provider_label(router: Any, router_status: Any) -> str:
         engine = ""
         if isinstance(router_status, dict):
-            engine = str(
-                router_status.get("engine")
-                or router_status.get("provider")
-                or "",
-            ).strip().lower()
+            engine = (
+                str(
+                    router_status.get("engine") or router_status.get("provider") or "",
+                )
+                .strip()
+                .lower()
+            )
         if engine == "google":
             return "Google routing"
         if engine == "valhalla":
@@ -665,11 +681,13 @@ class MapMatchingJobRunner:
         if "tileset" in router_status or "tileset_last_modified" in router_status:
             return True
 
-        engine = str(
-            router_status.get("engine")
-            or router_status.get("provider")
-            or "",
-        ).strip().lower()
+        engine = (
+            str(
+                router_status.get("engine") or router_status.get("provider") or "",
+            )
+            .strip()
+            .lower()
+        )
         if engine == "valhalla":
             return True
 

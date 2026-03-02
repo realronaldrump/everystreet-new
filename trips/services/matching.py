@@ -210,11 +210,13 @@ class MapMatchingService:
         existing: list[list[float]],
         new_chunk: list[list[float]],
     ) -> int:
-        """Find the number of leading points to trim from *new_chunk*.
+        """
+        Find the number of leading points to trim from *new_chunk*.
 
         Walks through the head of *new_chunk* and finds the last point
         that is within the overlap tolerance of the existing tail. This
-        produces a cleaner join than the naive "skip while close" approach.
+        produces a cleaner join than the naive "skip while close"
+        approach.
         """
         if not existing or not new_chunk:
             return 0
@@ -236,7 +238,8 @@ class MapMatchingService:
         cls,
         coords: list[list[float]],
     ) -> list[list[list[float]]]:
-        """Split at discontinuities and return ALL contiguous segments.
+        """
+        Split at discontinuities and return ALL contiguous segments.
 
         Instead of rejecting the entire match when one jump is found,
         this keeps every usable piece of geometry so that coverage is
@@ -383,7 +386,9 @@ class MapMatchingService:
         chunk_size: int,
         overlap: int,
     ) -> list[tuple[int, int]]:
-        """Create chunk boundaries with *overlap* shared points between consecutive chunks."""
+        """Create chunk boundaries with *overlap* shared points between consecutive
+        chunks.
+        """
         n = len(coordinates)
         if n <= chunk_size:
             return [(0, n)]

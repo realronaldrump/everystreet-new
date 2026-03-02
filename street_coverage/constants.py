@@ -46,9 +46,9 @@ MEDIUM_SEGMENT_OVERLAP_RATIO = 0.60
 # =============================================================================
 # Unit Conversions
 # =============================================================================
-from core.constants import METERS_TO_MILES  # noqa: E402
 
 MILES_TO_METERS = 1609.344
+METERS_TO_MILES = 1 / MILES_TO_METERS
 
 # =============================================================================
 # Processing Limits

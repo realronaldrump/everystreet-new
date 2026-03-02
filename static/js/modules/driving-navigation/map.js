@@ -5,7 +5,6 @@
  * Handles map initialization, layers, and map interactions.
  */
 
-import { getCurrentTheme, resolveMapStyle } from "../core/map-style-resolver.js";
 import { createMap } from "../map-core.js";
 import MapStyles from "../map-styles.js";
 import {

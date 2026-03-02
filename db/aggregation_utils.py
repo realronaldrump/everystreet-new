@@ -263,6 +263,3 @@ def build_driver_behavior_fields_stage(
             },
         },
     }
-
-
-

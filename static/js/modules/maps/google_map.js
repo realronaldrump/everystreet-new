@@ -1,3 +1,5 @@
+/* global google */
+
 /**
  * Google Maps Wrapper Module
  *
@@ -337,7 +339,7 @@ const evaluateNumericExpression = (expression, zoom) => {
   ) {
     const base = parseNumber(interpolation[1]);
     if (base !== null && base > 0 && base !== 1) {
-      t = (Math.pow(base, t) - 1) / (base - 1);
+      t = (base ** t - 1) / (base - 1);
     }
   }
 
@@ -455,7 +457,12 @@ const resolveNumericStyle = (value, fallback, zoom, feature = null) => {
   return fallback;
 };
 
-const resolveColorStyle = (value, fallback, feature = null, zoom = CONFIG.MAP.defaultZoom) => {
+const resolveColorStyle = (
+  value,
+  fallback,
+  feature = null,
+  zoom = CONFIG.MAP.defaultZoom
+) => {
   if (isColorLike(value)) {
     return value;
   }
@@ -551,10 +558,7 @@ const collectLineSegments = (featureCollection) => {
       return;
     }
 
-    if (
-      geometry.type === "MultiLineString" &&
-      Array.isArray(geometry.coordinates)
-    ) {
+    if (geometry.type === "MultiLineString" && Array.isArray(geometry.coordinates)) {
       geometry.coordinates.forEach((lineCoords) => {
         const path = toPathFromCoordinates(lineCoords);
         if (path.length >= 2) {
@@ -784,9 +788,7 @@ const evaluateLayerFilter = (filterExpression, feature) => {
   }
   if (operator === "!has" && args.length >= 1) {
     const key = resolveFilterValue(args[0], feature);
-    return !(
-      typeof key === "string" && Object.hasOwn(feature?.properties || {}, key)
-    );
+    return !(typeof key === "string" && Object.hasOwn(feature?.properties || {}, key));
   }
 
   if (args.length >= 2) {
@@ -988,10 +990,7 @@ const createMapProxy = (googleMap, { usesCloudMapStyling = false } = {}) => {
       feature,
       zoom
     );
-    const blur = Math.max(
-      0,
-      resolveNumericStyle(paint["line-blur"], 0, zoom, feature)
-    );
+    const blur = Math.max(0, resolveNumericStyle(paint["line-blur"], 0, zoom, feature));
     const opacity = clamp(
       resolveNumericStyle(paint["line-opacity"], DEFAULT_LINE_OPACITY, zoom, feature),
       0,
@@ -1225,12 +1224,10 @@ const createMapProxy = (googleMap, { usesCloudMapStyling = false } = {}) => {
           lngLat,
           point,
           features: overlay?.__esFeature ? [overlay.__esFeature] : [],
-          originalEvent:
-            domEvent ||
-            ({
-              button: 0,
-              stopPropagation() {},
-            }),
+          originalEvent: domEvent || {
+            button: 0,
+            stopPropagation() {},
+          },
         };
         layerListenerRecord.handler(mappedEvent);
       });
@@ -1395,7 +1392,12 @@ const createMapProxy = (googleMap, { usesCloudMapStyling = false } = {}) => {
     const zIndex = getLayerZIndex(layerId);
 
     polygons.forEach((polygonFeature) => {
-      const feature = enrichLayerFeature(polygonFeature, layerRecord, sourceId, layerId);
+      const feature = enrichLayerFeature(
+        polygonFeature,
+        layerRecord,
+        sourceId,
+        layerId
+      );
       const overlay = new google.maps.Polygon({
         paths: polygonFeature.paths,
         map: isVisible ? googleMap : null,
@@ -1533,7 +1535,9 @@ const createMapProxy = (googleMap, { usesCloudMapStyling = false } = {}) => {
 
     return entries
       .map((entry) => toLngLat(entry))
-      .filter((lngLat) => lngLat && Number.isFinite(lngLat.lng) && Number.isFinite(lngLat.lat));
+      .filter(
+        (lngLat) => lngLat && Number.isFinite(lngLat.lng) && Number.isFinite(lngLat.lat)
+      );
   };
 
   const toPixelPoints = (lngLats) =>
@@ -1548,7 +1552,10 @@ const createMapProxy = (googleMap, { usesCloudMapStyling = false } = {}) => {
       const coords = overlay?.__esFeature?.geometry?.coordinates || [];
       latLngs = (Array.isArray(coords) ? coords : [])
         .map((coord) => toLngLat(coord))
-        .filter((lngLat) => lngLat && Number.isFinite(lngLat.lng) && Number.isFinite(lngLat.lat));
+        .filter(
+          (lngLat) =>
+            lngLat && Number.isFinite(lngLat.lng) && Number.isFinite(lngLat.lat)
+        );
     }
 
     return toPixelPoints(latLngs);
@@ -1731,7 +1738,9 @@ const createMapProxy = (googleMap, { usesCloudMapStyling = false } = {}) => {
       return true;
     }
 
-    return boundsCorners(bounds).some((corner) => pointInPolygonWithHoles(corner, rings));
+    return boundsCorners(bounds).some((corner) =>
+      pointInPolygonWithHoles(corner, rings)
+    );
   };
 
   const overlayLayerType = (overlay) => overlay?.__esFeature?.layer?.type || "line";
@@ -1784,7 +1793,10 @@ const createMapProxy = (googleMap, { usesCloudMapStyling = false } = {}) => {
       }
       const nearestX = clamp(circle.center.x, bounds.minX, bounds.maxX);
       const nearestY = clamp(circle.center.y, bounds.minY, bounds.maxY);
-      const distance = Math.hypot(circle.center.x - nearestX, circle.center.y - nearestY);
+      const distance = Math.hypot(
+        circle.center.x - nearestX,
+        circle.center.y - nearestY
+      );
       return distance <= circle.radiusPx;
     }
 
@@ -1887,7 +1899,8 @@ const createMapProxy = (googleMap, { usesCloudMapStyling = false } = {}) => {
 
       mapListenerRegistry = mapListenerRegistry.filter((record) => {
         const eventMatches = !hasEventName || record.eventName === eventName;
-        const handlerMatches = typeof handler !== "function" || record.handler === handler;
+        const handlerMatches =
+          typeof handler !== "function" || record.handler === handler;
         if (eventMatches && handlerMatches) {
           record.listener?.remove?.();
           return false;
@@ -2099,7 +2112,10 @@ const createMapProxy = (googleMap, { usesCloudMapStyling = false } = {}) => {
           return;
         }
 
-        if (!Array.isArray(layerRecord.renderedFeatures) || !layerRecord.renderedFeatures.length) {
+        if (
+          !Array.isArray(layerRecord.renderedFeatures) ||
+          !layerRecord.renderedFeatures.length
+        ) {
           return;
         }
 
@@ -2212,8 +2228,7 @@ const createMapProxy = (googleMap, { usesCloudMapStyling = false } = {}) => {
     },
 
     setStyle(styleValue) {
-      const styleText =
-        typeof styleValue === "string" ? styleValue.toLowerCase() : "";
+      const styleText = typeof styleValue === "string" ? styleValue.toLowerCase() : "";
       if (styleText.includes("satellite")) {
         activeStyleName = "satellite";
         googleMap.setMapTypeId?.("satellite");
@@ -2370,7 +2385,8 @@ const createMapProxy = (googleMap, { usesCloudMapStyling = false } = {}) => {
       const featureId = target?.id;
       if (
         typeof sourceId !== "string" ||
-        (featureId === undefined || featureId === null)
+        featureId === undefined ||
+        featureId === null
       ) {
         return proxyMap;
       }
@@ -2388,7 +2404,8 @@ const createMapProxy = (googleMap, { usesCloudMapStyling = false } = {}) => {
       const featureId = target?.id;
       if (
         typeof sourceId !== "string" ||
-        (featureId === undefined || featureId === null)
+        featureId === undefined ||
+        featureId === null
       ) {
         return {};
       }
@@ -2492,7 +2509,10 @@ const resolveGoogleMapInstance = (mapCandidate) => {
   if (mapCandidate.__esMapProxy?.__esGoogleMap) {
     return mapCandidate.__esMapProxy.__esGoogleMap;
   }
-  if (typeof mapCandidate.getDiv === "function" && typeof mapCandidate.addListener === "function") {
+  if (
+    typeof mapCandidate.getDiv === "function" &&
+    typeof mapCandidate.addListener === "function"
+  ) {
     return mapCandidate;
   }
   return null;
@@ -3113,7 +3133,7 @@ const googleMapCore = {
       center: options.center || CONFIG.MAP.defaultCenter,
       zoom: options.zoom || CONFIG.MAP.defaultZoom,
     };
-  }
+  },
 };
 
 export {

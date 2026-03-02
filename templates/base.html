@@ -941,8 +941,7 @@ Replay your timeline across trips, visits, fuel, coverage, and map matching.
           </header>
 
           <div class="journey-time-machine__layout">
-            <aside class="journey-pane journey-pane--rail"
-                   aria-label="Journey event timeline">
+            <aside class="journey-pane journey-pane--rail" aria-label="Journey event timeline">
               <div class="journey-pane__head">
                 <h3 class="journey-pane__title">
 Timeline
@@ -985,8 +984,7 @@ All time
               </div>
             </aside>
 
-            <section class="journey-pane journey-pane--map"
-                     aria-label="Journey playback map">
+            <section class="journey-pane journey-pane--map" aria-label="Journey playback map">
               <div id="journey-map-canvas" class="journey-map-canvas">
               </div>
               <div class="journey-map-overlay">
@@ -1003,9 +1001,7 @@ All time
                     Follow
                   </button>
                 </div>
-                <div class="journey-playback-controls"
-                     role="group"
-                     aria-label="Playback controls">
+                <div class="journey-playback-controls" role="group" aria-label="Playback controls">
                   <button id="journey-prev-event"
                           class="journey-control-btn"
                           type="button"
@@ -1054,9 +1050,15 @@ Scrub
 Speed
                   </label>
                   <select id="journey-speed-select" class="journey-speed-select">
-                    <option value="0.5">0.5x</option>
-                    <option value="1" selected>1x</option>
-                    <option value="2">2x</option>
+                    <option value="0.5">
+0.5x
+                    </option>
+                    <option value="1" selected>
+1x
+                    </option>
+                    <option value="2">
+2x
+                    </option>
                   </select>
                 </div>
               </div>
@@ -1208,7 +1210,7 @@ Select an event from the timeline to inspect details.
       <script src="{{ CDN.mapbox_gl_js }}"></script>
       <script src="{{ CDN.mapbox_draw_js }}"></script>
     {% endif %}
-    
+
     <script src="{{ CDN.topojson }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/deck.gl@9.2.7/dist.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/h3-js@4.4.0/dist/h3-js.umd.js"></script>

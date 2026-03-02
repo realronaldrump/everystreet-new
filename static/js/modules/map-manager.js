@@ -14,8 +14,8 @@
 import { CONFIG } from "./core/config.js";
 import store from "./core/store.js";
 import mapCore from "./map-core.js";
-import googleMapCore from "./maps/google_map.js";
 import MapStyles from "./map-styles.js";
+import googleMapCore from "./maps/google_map.js";
 import { utils } from "./utils.js";
 
 // Debounced view state saver

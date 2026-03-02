@@ -8,10 +8,10 @@
 {% block extra_css %}
 
 
-<!-- Mapbox GL CSS -->
-<link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
-<link rel="stylesheet"
-      href="{{ url_for('static', path='css/county-map.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+  <!-- Mapbox GL CSS -->
+  <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
+  <link rel="stylesheet"
+        href="{{ url_for('static', path='css/county-map.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
 {% block content %}
@@ -56,10 +56,7 @@ Coverage Explorer
                   type="button">
             States
           </button>
-          <button class="coverage-level-btn"
-                  data-level="city"
-                  aria-pressed="false"
-                  type="button">
+          <button class="coverage-level-btn" data-level="city" aria-pressed="false" type="button">
             Cities
           </button>
         </div>
@@ -250,17 +247,36 @@ Sort by Visited (High to Low)
           </div>
 
           <div class="city-filters">
-            <select id="city-state-select" class="form-select form-select-sm" aria-label="Select state"></select>
-            <select id="city-status" class="form-select form-select-sm" aria-label="Filter city status">
-              <option value="all">All</option>
-              <option value="visited">Visited</option>
-              <option value="unvisited">Unvisited</option>
+            <select id="city-state-select"
+                    class="form-select form-select-sm"
+                    aria-label="Select state">
+            </select>
+            <select id="city-status"
+                    class="form-select form-select-sm"
+                    aria-label="Filter city status">
+              <option value="all">
+All
+              </option>
+              <option value="visited">
+Visited
+              </option>
+              <option value="unvisited">
+Unvisited
+              </option>
             </select>
             <select id="city-sort" class="form-select form-select-sm" aria-label="Sort cities">
-              <option value="name">Sort by Name</option>
-              <option value="visited-desc">Visited First</option>
-              <option value="visited-asc">Unvisited First</option>
-              <option value="last-visit-desc">Last Visit (Newest)</option>
+              <option value="name">
+Sort by Name
+              </option>
+              <option value="visited-desc">
+Visited First
+              </option>
+              <option value="visited-asc">
+Unvisited First
+              </option>
+              <option value="last-visit-desc">
+Last Visit (Newest)
+              </option>
             </select>
             <input id="city-search"
                    class="form-control form-control-sm"
@@ -269,8 +285,10 @@ Sort by Visited (High to Low)
                    aria-label="Search city" />
           </div>
 
-          <div class="city-stats-list" id="city-list"></div>
-          <div class="city-pagination" id="city-pagination"></div>
+          <div class="city-stats-list" id="city-list">
+          </div>
+          <div class="city-pagination" id="city-pagination">
+          </div>
         </div>
       </div>
     </div>

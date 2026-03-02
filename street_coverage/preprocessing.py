@@ -677,7 +677,8 @@ def _normalize_pyrosm_gdfs(nodes_gdf: Any, edges_gdf: Any) -> tuple[Any, Any]:
 
 
 def _load_graph_from_overpass(routing_polygon: Any) -> nx.MultiDiGraph:
-    """Fetch driveable road network from the Overpass API via OSMnx.
+    """
+    Fetch driveable road network from the Overpass API via OSMnx.
 
     Used as a fallback when no local OSM extract is available (e.g. when
     using Google Maps as the mapping provider).  The resulting graph is
@@ -827,10 +828,7 @@ async def preprocess_streets(
             local_osm_path: Path | None = None
             if osm_path_str:
                 candidate = Path(osm_path_str)
-                if (
-                    candidate.exists()
-                    and candidate.suffix.lower() in OSM_EXTENSIONS
-                ):
+                if candidate.exists() and candidate.suffix.lower() in OSM_EXTENSIONS:
                     local_osm_path = candidate
 
             if local_osm_path is not None:
@@ -857,7 +855,8 @@ async def preprocess_streets(
                 if area_extract:
                     local_osm_path = area_extract
                     logger.info(
-                        "Using area extract for graph build: %s", local_osm_path,
+                        "Using area extract for graph build: %s",
+                        local_osm_path,
                     )
 
                 graph = _build_graph_with_limit(
@@ -878,7 +877,9 @@ async def preprocess_streets(
                     location_name,
                 )
                 graph = _build_graph_in_process(
-                    None, routing_polygon, file_path,
+                    None,
+                    routing_polygon,
+                    file_path,
                 )
 
             return graph, file_path

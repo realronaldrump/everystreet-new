@@ -521,9 +521,7 @@ class DashboardService:
         from db.models import AppSettings
 
         settings = await AppSettings.find_one({"_id": "default"})
-        target_timezone_str = (
-            settings.user_timezone if settings else "America/Chicago"
-        )
+        target_timezone_str = settings.user_timezone if settings else "America/Chicago"
         try:
             target_tz = pytz.timezone(target_timezone_str)
         except pytz.UnknownTimeZoneError:

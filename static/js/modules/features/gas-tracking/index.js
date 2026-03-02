@@ -1,9 +1,8 @@
 /* global mapboxgl */
 
 import apiClient from "../../core/api-client.js";
-import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
 import store from "../../core/store.js";
-import { createMap, getMapboxToken } from "../../map-core.js";
+import { createMap } from "../../map-core.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
 import { formatVehicleName, getStorage, setStorage } from "../../utils.js";
@@ -99,8 +98,6 @@ async function initializePage(signal, cleanup) {
  * Initialize Mapbox map
  */
 async function initializeMap() {
-  const token = getMapboxToken(); // Optional when using non-Mapbox styles.
-
   map = createMap("fillup-map", {
     center: [-95.7129, 37.0902],
     zoom: 4,

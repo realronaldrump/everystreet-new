@@ -268,16 +268,31 @@ class TripQueryService:
             filtered_count = total_count
         else:
             extra_filters = {k: v for k, v in query.items() if k not in base_query}
-            facet_result = await Trip.get_motor_collection().aggregate([
-                {"$match": base_query},
-                {"$facet": {
-                    "total": [{"$count": "n"}],
-                    "filtered": [{"$match": extra_filters}, {"$count": "n"}],
-                }},
-            ]).to_list(1)
+            facet_result = (
+                await Trip.get_motor_collection()
+                .aggregate(
+                    [
+                        {"$match": base_query},
+                        {
+                            "$facet": {
+                                "total": [{"$count": "n"}],
+                                "filtered": [
+                                    {"$match": extra_filters},
+                                    {"$count": "n"},
+                                ],
+                            }
+                        },
+                    ]
+                )
+                .to_list(1)
+            )
             row = facet_result[0] if facet_result else {}
-            total_count = row.get("total", [{}])[0].get("n", 0) if row.get("total") else 0
-            filtered_count = row.get("filtered", [{}])[0].get("n", 0) if row.get("filtered") else 0
+            total_count = (
+                row.get("total", [{}])[0].get("n", 0) if row.get("total") else 0
+            )
+            filtered_count = (
+                row.get("filtered", [{}])[0].get("n", 0) if row.get("filtered") else 0
+            )
 
         sort_column = None
         sort_direction = -1

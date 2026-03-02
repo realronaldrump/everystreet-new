@@ -882,8 +882,7 @@ class LiveTripTracker {
     }
     if (delayMs === undefined) {
       const base =
-        this.reconnectMinDelayMs *
-        Math.pow(this.reconnectMultiplier, this.reconnectAttempt);
+        this.reconnectMinDelayMs * this.reconnectMultiplier ** this.reconnectAttempt;
       const capped = Math.min(base, this.reconnectMaxDelayMs);
       // Add jitter (50-100% of capped value) to prevent thundering herd
       delayMs = capped * (0.5 + Math.random() * 0.5);

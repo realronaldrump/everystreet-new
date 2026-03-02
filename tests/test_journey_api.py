@@ -133,7 +133,9 @@ def test_journey_feed_endpoint_wiring() -> None:
     )
     try:
         client = TestClient(app)
-        response = client.get("/api/journey/feed?start_date=2026-01-01&end_date=2026-01-02")
+        response = client.get(
+            "/api/journey/feed?start_date=2026-01-01&end_date=2026-01-02"
+        )
     finally:
         service.get_feed = original  # type: ignore[method-assign]
 

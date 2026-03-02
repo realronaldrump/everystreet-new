@@ -1,5 +1,6 @@
 import { swupReady } from "../core/navigation.js";
 import store from "../core/store.js";
+import initJourneyTimeMachine from "../features/journey-time-machine/index.js";
 import { moveModalsToContainer, utils } from "../utils.js";
 import contextualUI from "./contextual-ui.js";
 import dateManager from "./date-manager.js";
@@ -15,7 +16,6 @@ import swipeActions from "./swipe-actions.js";
 import swipeDismiss from "./swipe-dismiss.js";
 import themeManager from "./theme-manager.js";
 import widgetManager from "./widget-manager.js";
-import initJourneyTimeMachine from "../features/journey-time-machine/index.js";
 
 function init() {
   if (store.ui.initialized) {

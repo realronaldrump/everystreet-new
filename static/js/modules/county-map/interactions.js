@@ -80,8 +80,13 @@ function buildTooltipData(feature) {
         visited > 0
           ? `${visited} / ${total} counties (${percent.toFixed(1)}%)`
           : `0 / ${total} counties`,
-      statusClass: visited > 0 ? "tooltip-status--visited" : "tooltip-status--unvisited",
-      datesHtml: formatDateRange("Visited", countyStats.firstVisit, countyStats.lastVisit),
+      statusClass:
+        visited > 0 ? "tooltip-status--visited" : "tooltip-status--unvisited",
+      datesHtml: formatDateRange(
+        "Visited",
+        countyStats.firstVisit,
+        countyStats.lastVisit
+      ),
     };
   }
 
@@ -110,7 +115,7 @@ function buildTooltipData(feature) {
   const countyVisits = CountyMapState.getCountyVisits();
   const countyStops = CountyMapState.getCountyStops();
 
-  const fips = props.fips;
+  const { fips } = props;
   const countyName = props.name || "Unknown County";
   const stateName = props.stateName || "Unknown State";
   const isVisited = Boolean(countyVisits[fips]);

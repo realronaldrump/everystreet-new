@@ -1,8 +1,8 @@
 """
 In-process event bus for job progress streaming.
 
-The ingestion pipeline publishes granular events here,
-and the SSE endpoint consumes them for real-time delivery.
+The ingestion pipeline publishes granular events here, and the SSE
+endpoint consumes them for real-time delivery.
 """
 
 from __future__ import annotations
@@ -19,7 +19,11 @@ _subscribers: dict[str, set[asyncio.Queue]] = {}
 
 
 def subscribe(job_id: str) -> asyncio.Queue:
-    """Subscribe to events for a job. Returns a Queue to await on."""
+    """
+    Subscribe to events for a job.
+
+    Returns a Queue to await on.
+    """
     q: asyncio.Queue = asyncio.Queue(maxsize=64)
     _subscribers.setdefault(job_id, set()).add(q)
     return q

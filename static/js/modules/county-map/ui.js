@@ -71,7 +71,9 @@ export function showRecalculatePrompt(onRecalculate) {
     `;
     statsContent.insertBefore(prompt, statsContent.firstChild);
 
-    document.getElementById("trigger-recalculate")?.addEventListener("click", onRecalculate);
+    document
+      .getElementById("trigger-recalculate")
+      ?.addEventListener("click", onRecalculate);
   }
 }
 
@@ -150,7 +152,6 @@ export function updateStats() {
   setText("county-coverage", `${countyPercent.toFixed(1)}%`);
   setText("state-coverage", `${statePercent.toFixed(1)}%`);
   setText("city-coverage", `${cityPercent.toFixed(1)}%`);
-
 }
 
 /**

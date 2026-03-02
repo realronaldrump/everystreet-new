@@ -1,6 +1,4 @@
-"""
-Factory class for resolving the active MappingProvider.
-"""
+"""Factory class for resolving the active MappingProvider."""
 
 import logging
 

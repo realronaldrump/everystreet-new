@@ -1854,7 +1854,10 @@ function pollOptimalRoute(areaId, taskId) {
       state.optimalRoutePollTimer = setTimeout(checkStatus, 2000);
     } catch (err) {
       errorCount++;
-      console.error(`Optimal route poll error (${errorCount}/${MAX_POLL_ERRORS}):`, err);
+      console.error(
+        `Optimal route poll error (${errorCount}/${MAX_POLL_ERRORS}):`,
+        err
+      );
       if (errorCount >= MAX_POLL_ERRORS) {
         console.error("Max poll errors reached, stopping poll.");
         const btn = document.getElementById("generate-route-btn");
@@ -1868,7 +1871,10 @@ function pollOptimalRoute(areaId, taskId) {
           infoEl.innerHTML =
             '<p class="text-danger small">Lost connection to route job. Please try again.</p>';
         }
-        notificationManager.show("Route status polling failed. Please retry.", "danger");
+        notificationManager.show(
+          "Route status polling failed. Please retry.",
+          "danger"
+        );
         return;
       }
       state.optimalRoutePollTimer = setTimeout(checkStatus, 3000);
@@ -2143,9 +2149,11 @@ async function validateLocationInput() {
 }
 
 function isNodeValidationCandidate(candidate) {
-  return String(candidate?.osm_type || "")
-    .trim()
-    .toLowerCase() === "node";
+  return (
+    String(candidate?.osm_type || "")
+      .trim()
+      .toLowerCase() === "node"
+  );
 }
 
 function prioritizeBoundaryCandidates(candidates) {

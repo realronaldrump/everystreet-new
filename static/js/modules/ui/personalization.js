@@ -68,12 +68,7 @@ const personalization = {
     }
   },
 
-  applyPreferences({
-    accentColor,
-    density,
-    widgetEditing,
-    persist = true,
-  } = {}) {
+  applyPreferences({ accentColor, density, widgetEditing, persist = true } = {}) {
     if (accentColor !== undefined) {
       if (accentColor) {
         this.applyAccent(accentColor);

@@ -15,14 +15,14 @@
 /* global mapboxgl */
 
 import CONFIG from "./core/config.js";
+import { getCurrentTheme, resolveMapStyle } from "./core/map-style-resolver.js";
+import state from "./core/store.js";
 import {
   getMapboxToken,
   isMapboxStyleUrl,
   waitForMapboxToken,
 } from "./mapbox-token.js";
-import { getCurrentTheme, resolveMapStyle } from "./core/map-style-resolver.js";
 import { createGoogleMap, ensureMapboxCompatibility } from "./maps/google_map.js";
-import state from "./core/store.js";
 import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
 import { utils } from "./utils.js";

@@ -1,8 +1,8 @@
 """
 Centralized Redis connection configuration and shared client pool.
 
-This module provides a single source of truth for Redis URL
-construction and a shared async Redis client singleton.
+This module provides a single source of truth for Redis URL construction
+and a shared async Redis client singleton.
 """
 
 from __future__ import annotations

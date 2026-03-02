@@ -13,7 +13,9 @@ from db.models import AppSettings, MapProvider
 
 
 @pytest.mark.asyncio
-async def test_get_mapping_provider_returns_google_provider(monkeypatch: pytest.MonkeyPatch):
+async def test_get_mapping_provider_returns_google_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     async def fake_find_one(_query):
         return SimpleNamespace(
             map_provider=MapProvider.GOOGLE,
@@ -27,7 +29,9 @@ async def test_get_mapping_provider_returns_google_provider(monkeypatch: pytest.
 
 
 @pytest.mark.asyncio
-async def test_get_mapping_provider_returns_local_provider(monkeypatch: pytest.MonkeyPatch):
+async def test_get_mapping_provider_returns_local_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     async def fake_find_one(_query):
         return SimpleNamespace(
             map_provider=MapProvider.SELF_HOSTED,
@@ -43,7 +47,7 @@ async def test_get_mapping_provider_returns_local_provider(monkeypatch: pytest.M
 @pytest.mark.asyncio
 async def test_get_mapping_provider_raises_when_google_key_missing(
     monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     async def fake_find_one(_query):
         return SimpleNamespace(
             map_provider=MapProvider.GOOGLE,
@@ -59,7 +63,7 @@ async def test_get_mapping_provider_raises_when_google_key_missing(
 @pytest.mark.asyncio
 async def test_get_mapping_provider_raises_when_settings_missing(
     monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     async def fake_find_one(_query):
         return None
 
@@ -72,7 +76,7 @@ async def test_get_mapping_provider_raises_when_settings_missing(
 @pytest.mark.asyncio
 async def test_get_mapping_provider_raises_when_collection_uninitialized(
     monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     async def fake_find_one(_query):
         raise CollectionWasNotInitialized
 
@@ -83,7 +87,7 @@ async def test_get_mapping_provider_raises_when_collection_uninitialized(
 
 
 @pytest.mark.asyncio
-async def test_is_google_map_provider(monkeypatch: pytest.MonkeyPatch):
+async def test_is_google_map_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_find_one(_query):
         return SimpleNamespace(
             map_provider=MapProvider.GOOGLE,

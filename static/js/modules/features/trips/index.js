@@ -1,4 +1,4 @@
-/* global bootstrap, mapboxgl, google */
+/* global bootstrap */
 /**
  * Trips Page - Modern Travel Journal
  * Card-based trip display with timeline grouping and smart features

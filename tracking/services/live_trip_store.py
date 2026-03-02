@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
-from inspect import isawaitable
 from datetime import UTC, datetime
+from inspect import isawaitable
 from typing import Any
 
 from core.date_utils import parse_timestamp
@@ -123,7 +123,9 @@ async def clear_trip_snapshot(
     if active_tx == tx:
         await _resolve_awaitable(pipe.delete(_ACTIVE_TRIP_TX_KEY))
     if mark_closed:
-        await _resolve_awaitable(pipe.set(_closed_key(tx), "1", ex=LIVE_TRIP_TTL_SECONDS))
+        await _resolve_awaitable(
+            pipe.set(_closed_key(tx), "1", ex=LIVE_TRIP_TTL_SECONDS)
+        )
     await _resolve_awaitable(pipe.execute())
 
 

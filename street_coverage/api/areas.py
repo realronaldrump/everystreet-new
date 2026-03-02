@@ -452,10 +452,7 @@ async def validate_area(request: ValidateAreaRequest):
 )
 async def resolve_area(request: ResolveAreaRequest):
     """Resolve a candidate boundary for confirmation."""
-    from street_coverage.ingestion import (
-        _is_viewport_rectangle,
-        _try_overpass_boundary,
-    )
+    from street_coverage.ingestion import _is_viewport_rectangle, _try_overpass_boundary
 
     client = await get_geocoder()
     is_node = str(request.osm_type or "").strip().lower() in ("node", "n")

@@ -284,10 +284,10 @@ async def _fetch_device_window(
     windows_completed: int,
 ) -> list[dict[str, Any]]:
     """Fetch, dedupe, and filter trips for one device-window."""
-    total_devices = len(runtime.imeis)
+    _ = current_window
+    len(runtime.imeis)
 
     async with runtime.semaphore:
-        devices_done = 0
         try:
             async with asyncio.timeout(DEVICE_FETCH_TIMEOUT_SECONDS):
                 trips = await _fetch_trips_for_window(
@@ -325,7 +325,7 @@ async def _fetch_device_window(
                     runtime.per_device[imei]["errors"] += 1
                     runtime.per_device[imei]["windows_completed"] += 1
                 devices_done_ref["done"] += 1
-                devices_done = devices_done_ref["done"]
+                devices_done_ref["done"]
             runtime.add_event(
                 "error",
                 f"Fetch failed for {imei}",
@@ -356,7 +356,7 @@ async def _fetch_device_window(
                 runtime.per_device[imei]["windows_completed"] += 1
             runtime.counters["found_raw"] += len(trips)
             devices_done_ref["done"] += 1
-            devices_done = devices_done_ref["done"]
+            devices_done_ref["done"]
         runtime.add_event(
             "info",
             f"Fetched {len(trips)} trips for {imei}",
@@ -1011,7 +1011,7 @@ async def run_import(
     session = await get_session()
     try:
         _validate_import_setup(setup)
-        token = await _authenticate_import(
+        await _authenticate_import(
             session=session,
             credentials=setup.credentials,
             progress_ctx=progress_ctx,

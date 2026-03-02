@@ -1,8 +1,4 @@
-"""
-Local mapping provider wrapping the self-hosted Nominatim and Valhalla containers.
-"""
-
-from typing import Any
+"""Local mapping provider wrapping the self-hosted Nominatim and Valhalla containers."""
 
 from core.http.nominatim import NominatimClient
 from core.http.valhalla import ValhallaClient

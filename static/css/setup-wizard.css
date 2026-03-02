@@ -51,7 +51,9 @@
   background: rgb(var(--primary-rgb) / 18%);
   border-color: rgb(var(--primary-rgb) / 70%);
   color: rgb(var(--primary-rgb));
-  box-shadow: 0 0 0 4px rgb(var(--primary-rgb) / 12%), var(--glow-primary);
+  box-shadow:
+    0 0 0 4px rgb(var(--primary-rgb) / 12%),
+    var(--glow-primary);
 }
 
 .setup-progress-step.is-complete .setup-progress-dot {
@@ -125,9 +127,8 @@
   font-size: clamp(1.75rem, 3vw, 2.5rem);
   margin: var(--space-2) 0 var(--space-3);
   background: linear-gradient(135deg, var(--text-primary) 30%, rgb(var(--primary-rgb)));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
   background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .setup-subtitle {
@@ -199,7 +200,9 @@
 
 .setup-step-item.is-active {
   border-color: rgb(var(--primary-rgb) / 50%);
-  box-shadow: 0 0 0 1px rgb(var(--primary-rgb) / 20%), 0 4px 12px rgb(var(--primary-rgb) / 8%);
+  box-shadow:
+    0 0 0 1px rgb(var(--primary-rgb) / 20%),
+    0 4px 12px rgb(var(--primary-rgb) / 8%);
 }
 
 .setup-step-item.is-complete {
@@ -273,6 +276,7 @@
     opacity: 0;
     transform: translateY(12px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -375,8 +379,8 @@
   margin-left: auto;
   width: 8px;
   height: 8px;
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
+  border-right: 2px solid currentcolor;
+  border-bottom: 2px solid currentcolor;
   transform: rotate(-45deg);
   transition: transform 0.2s ease;
 }
@@ -623,9 +627,11 @@ details[open] .setup-help-toggle::after {
 }
 
 @keyframes celebratePulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 0 0 rgb(var(--success-rgb) / 30%);
   }
+
   50% {
     box-shadow: 0 0 0 8px rgb(var(--success-rgb) / 0%);
   }
@@ -777,12 +783,7 @@ details[open] .setup-help-toggle::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgb(255 255 255 / 15%),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 15%), transparent);
   transform: translateX(-100%);
   animation: shimmer 3s ease-in-out infinite;
 }
@@ -792,9 +793,17 @@ details[open] .setup-help-toggle::after {
 }
 
 @keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  50% { transform: translateX(100%); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+
+  50% {
+    transform: translateX(100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 /* ─── Detected States ───────────────────────────────────────────── */
@@ -821,7 +830,7 @@ details[open] .setup-help-toggle::after {
 }
 
 .setup-state-chip .state-size {
-  font-weight: normal;
+  font-weight: 400;
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
 }
@@ -831,6 +840,7 @@ details[open] .setup-help-toggle::after {
     opacity: 0;
     transform: scale(0.9);
   }
+
   to {
     opacity: 1;
     transform: scale(1);

@@ -157,8 +157,8 @@ test("applyCityVisitFeatureState marks visited city IDs", () => {
   };
 
   applyCityVisitFeatureState(map, {
-    "4805000": { firstVisit: "2025-01-01T00:00:00Z" },
-    "4807000": { firstVisit: "2025-02-01T00:00:00Z" },
+    4805000: { firstVisit: "2025-01-01T00:00:00Z" },
+    4807000: { firstVisit: "2025-02-01T00:00:00Z" },
   });
 
   assert.deepEqual(calls, [

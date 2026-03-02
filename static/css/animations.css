@@ -118,7 +118,7 @@
 
 /* Outgoing page: quick, subtle fade + slight scale to create depth */
 @keyframes spaExit {
-  from {
+  0% {
     opacity: 1;
     transform: scale(1) translateY(0);
     filter: blur(0);
@@ -128,7 +128,7 @@
     opacity: 0.6;
   }
 
-  to {
+  100% {
     opacity: 0;
     transform: scale(0.995) translateY(-4px);
     filter: blur(1px);
@@ -137,7 +137,7 @@
 
 /* Incoming page: crisp entrance with subtle upward settle */
 @keyframes spaEnter {
-  from {
+  0% {
     opacity: 0;
     transform: translateY(6px);
   }
@@ -146,7 +146,7 @@
     opacity: 1;
   }
 
-  to {
+  100% {
     opacity: 1;
     transform: translateY(0);
   }

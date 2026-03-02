@@ -79,14 +79,14 @@ Tune appearance, sync, and data tools.
           <span>Storage</span>
         </button>
         {% if app_settings and (app_settings.get('map_provider') | default('', true) | lower) != 'google' %}
-        <button class="settings-tab"
-                data-tab="map-services"
-                role="tab"
-                aria-selected="false"
-                aria-controls="map-services-tab">
-          <i class="fas fa-globe"></i>
-          <span>Map Services</span>
-        </button>
+          <button class="settings-tab"
+                  data-tab="map-services"
+                  role="tab"
+                  aria-selected="false"
+                  aria-controls="map-services-tab">
+            <i class="fas fa-globe"></i>
+            <span>Map Services</span>
+          </button>
         {% endif %}
       </nav>
     </div>
@@ -201,9 +201,15 @@ Widget Editing Mode
                   </div>
                 </div>
                 <div class="setting-control">
-                  <select class="form-select form-select-sm" id="map-provider-select" style="min-width: 140px;">
-                    <option value="self_hosted">Self-Hosted</option>
-                    <option value="google">Google Maps</option>
+                  <select class="form-select form-select-sm"
+                          id="map-provider-select"
+                          style="min-width: 140px">
+                    <option value="self_hosted">
+Self-Hosted
+                    </option>
+                    <option value="google">
+Google Maps
+                    </option>
                   </select>
                 </div>
               </div>
@@ -873,7 +879,7 @@ Actions
               <div id="mobile-history-page-info" class="small text-muted">
               </div>
               <button class="btn btn-outline-secondary btn-sm" id="mobile-history-next" type="button">
-                                                                                                                                                                                      Next <i class="fas fa-chevron-right"></i>
+                                                                                                                                                                                                                                Next <i class="fas fa-chevron-right"></i>
             </button>
           </div>
           <div class="table-responsive d-none d-md-block">

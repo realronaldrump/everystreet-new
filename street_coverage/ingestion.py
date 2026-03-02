@@ -982,7 +982,8 @@ async def _delayed_retry(
 
 
 def _is_viewport_rectangle(geojson: dict[str, Any]) -> bool:
-    """Detect if a GeoJSON polygon is a simple bounding-box rectangle.
+    """
+    Detect if a GeoJSON polygon is a simple bounding-box rectangle.
 
     Google's geocoding API returns viewport rectangles instead of real
     administrative boundaries.  A viewport rectangle has exactly 5
@@ -1003,12 +1004,13 @@ def _is_viewport_rectangle(geojson: dict[str, Any]) -> bool:
 
 
 async def _try_overpass_boundary(location_name: str) -> dict[str, Any] | None:
-    """Try to fetch a real admin boundary from OSMnx/Nominatim public API.
+    """
+    Try to fetch a real admin boundary from OSMnx/Nominatim public API.
 
     This is used as a boundary-enrichment fallback when the active
-    geocoder (e.g. Google) only returns viewport rectangles.  OSMnx
-    uses the public Nominatim API to fetch actual administrative
-    boundaries from OpenStreetMap.
+    geocoder (e.g. Google) only returns viewport rectangles.  OSMnx uses
+    the public Nominatim API to fetch actual administrative boundaries
+    from OpenStreetMap.
 
     Returns GeoJSON geometry dict, or None on failure.
     """
@@ -1430,12 +1432,13 @@ def _segment_streets(
     area_id: PydanticObjectId,
     area_version: int,
 ) -> list[dict[str, Any]]:
-    """Segment OSM ways into coverage segments.
+    """
+    Segment OSM ways into coverage segments.
 
     Each OSM way is a graph edge between two intersections (OSMnx
-    simplifies the graph this way). We keep the natural edge geometry
-    as a single segment unless it exceeds MAX_SEGMENT_LENGTH_METERS,
-    in which case it is split into roughly equal sub-segments.
+    simplifies the graph this way). We keep the natural edge geometry as
+    a single segment unless it exceeds MAX_SEGMENT_LENGTH_METERS, in
+    which case it is split into roughly equal sub-segments.
 
     This produces long, natural road segments instead of uniform 150ft
     chunks, matching how services like Wandrer Earth represent coverage.

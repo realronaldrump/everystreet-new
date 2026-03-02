@@ -13,8 +13,8 @@ from fastapi.staticfiles import StaticFiles
 
 from admin import router as admin_api_router
 from analytics import router as analytics_api_router
-from api.pages import router as pages_router
 from api.journey import router as journey_router
+from api.pages import router as pages_router
 from api.routing import router as routing_router
 from api.status import router as status_router
 from core.jinja import templates
@@ -224,11 +224,15 @@ async def startup_event():
             settings = await AppSettings.find_one({"_id": "default"})
         except Exception:
             settings = None
-        map_provider = str(
-            getattr(getattr(settings, "map_provider", None), "value", None)
-            or getattr(settings, "map_provider", None)
-            or MapProvider.SELF_HOSTED.value
-        ).strip().lower()
+        map_provider = (
+            str(
+                getattr(getattr(settings, "map_provider", None), "value", None)
+                or getattr(settings, "map_provider", None)
+                or MapProvider.SELF_HOSTED.value
+            )
+            .strip()
+            .lower()
+        )
         using_google = map_provider == MapProvider.GOOGLE.value
 
         osm_path = None

@@ -24,8 +24,7 @@ def _is_settings_bootstrap_error(exc: ValidationException) -> bool:
 
 
 async def _resolve_geocoder() -> Any:
-    """
-    Resolve the active geocoder, falling back to local Nominatim when app settings
+    """Resolve the active geocoder, falling back to local Nominatim when app settings
     are not initialized yet (common in isolated tests / bootstrap flows).
     """
     try:

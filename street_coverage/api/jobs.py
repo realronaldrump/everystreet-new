@@ -1,11 +1,12 @@
 """
 Job status API endpoints.
 
-Provides endpoints for checking background job progress,
-including a Server-Sent Events (SSE) stream for real-time updates.
+Provides endpoints for checking background job progress, including a
+Server-Sent Events (SSE) stream for real-time updates.
 """
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
@@ -14,12 +15,11 @@ from typing import Any
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, status
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 
 from db.models import CoverageArea, Job
-from street_coverage.events import publish, subscribe, unsubscribe
+from street_coverage.events import subscribe, unsubscribe
 from street_coverage.ingestion import cancel_ingestion_job
 
 logger = logging.getLogger(__name__)
@@ -30,10 +30,8 @@ async def _resolve_job(job_id: str) -> Job | None:
     """Look up a Job by ObjectId or task_id."""
     job = None
     if len(job_id) == 24:
-        try:
+        with contextlib.suppress(Exception):
             job = await Job.get(PydanticObjectId(job_id))
-        except Exception:
-            pass
     if not job:
         job = await Job.find_one({"task_id": job_id})
     return job
@@ -286,33 +284,39 @@ async def _job_event_stream(job_id: str):
         area = await CoverageArea.get(job.area_id)
         area_name = area.display_name if area else None
 
-    yield _sse_format("snapshot", {
-        "job_id": str(job.id),
-        "job_type": job.job_type,
-        "area_id": str(job.area_id) if job.area_id else None,
-        "area_name": area_name,
-        "status": job.status,
-        "stage": job.stage,
-        "progress": job.progress,
-        "message": job.message,
-        "error": job.error,
-        "result": job.result,
-        "created_at": job.created_at.isoformat() if job.created_at else None,
-        "started_at": job.started_at.isoformat() if job.started_at else None,
-    })
+    yield _sse_format(
+        "snapshot",
+        {
+            "job_id": str(job.id),
+            "job_type": job.job_type,
+            "area_id": str(job.area_id) if job.area_id else None,
+            "area_name": area_name,
+            "status": job.status,
+            "stage": job.stage,
+            "progress": job.progress,
+            "message": job.message,
+            "error": job.error,
+            "result": job.result,
+            "created_at": job.created_at.isoformat() if job.created_at else None,
+            "started_at": job.started_at.isoformat() if job.started_at else None,
+        },
+    )
 
     # If already terminal, no need to stream
     if job.status in ("completed", "failed", "cancelled"):
-        yield _sse_format("done", {
-            "status": job.status,
-            "result": job.result,
-            "error": job.error,
-        })
+        yield _sse_format(
+            "done",
+            {
+                "status": job.status,
+                "result": job.result,
+                "error": job.error,
+            },
+        )
         return
 
     # Subscribe to live events
     q = subscribe(job_id)
-    last_heartbeat = time.monotonic()
+    time.monotonic()
     start = time.monotonic()
 
     try:
@@ -324,10 +328,10 @@ async def _job_event_stream(job_id: str):
 
             try:
                 event = await asyncio.wait_for(q.get(), timeout=HEARTBEAT_INTERVAL)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Send heartbeat to keep connection alive
                 yield _sse_format("heartbeat", {"ts": time.time()})
-                last_heartbeat = time.monotonic()
+                time.monotonic()
                 continue
 
             event_type = event.pop("_type", "progress")

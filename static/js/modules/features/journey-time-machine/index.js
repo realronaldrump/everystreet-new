@@ -61,7 +61,9 @@ function getActiveIndex() {
   if (!state.visibleEvents.length || !state.activeEventId) {
     return 0;
   }
-  const index = state.visibleEvents.findIndex((event) => event.id === state.activeEventId);
+  const index = state.visibleEvents.findIndex(
+    (event) => event.id === state.activeEventId
+  );
   return index < 0 ? 0 : index;
 }
 
@@ -160,7 +162,9 @@ function renderFeed() {
     return;
   }
 
-  const currentExists = state.visibleEvents.some((event) => event.id === state.activeEventId);
+  const currentExists = state.visibleEvents.some(
+    (event) => event.id === state.activeEventId
+  );
   if (!currentExists) {
     const { cursorTs } = getJourneyStoreState();
     const fallbackIndex = findClosestIndexByTimestamp(state.visibleEvents, cursorTs);
@@ -245,17 +249,17 @@ async function loadFeed({ preserveSelection = true } = {}) {
     resetJourneyEvents();
     renderFilterChips(toggleType);
     renderFeed();
-    updateFeedStatus(`Failed to load journey feed: ${error.message || "Unknown error"}`, true);
+    updateFeedStatus(
+      `Failed to load journey feed: ${error.message || "Unknown error"}`,
+      true
+    );
   } finally {
     state.loading = false;
   }
 }
 
 function onPlayStateChange(isPlaying) {
-  setJourneyStoreState(
-    { isPlaying },
-    { source: "journey-time-machine" }
-  );
+  setJourneyStoreState({ isPlaying }, { source: "journey-time-machine" });
 
   updatePlayButton(isPlaying);
   dispatchJourneyEvent(isPlaying ? "journey:play" : "journey:pause", {
@@ -307,10 +311,7 @@ async function openDialog() {
   elements.dialog.classList.add("is-open");
   elements.dialog.setAttribute("aria-hidden", "false");
   document.body.classList.add("journey-time-machine-open");
-  setJourneyStoreState(
-    { isOpen: true },
-    { source: "journey-time-machine" }
-  );
+  setJourneyStoreState({ isOpen: true }, { source: "journey-time-machine" });
   elements.trigger?.setAttribute("aria-expanded", "true");
 
   updateSummary();
@@ -422,7 +423,10 @@ function bindEvents() {
 
   elements.followRoute?.addEventListener("click", () => {
     state.followRoute = !state.followRoute;
-    elements.followRoute?.setAttribute("aria-pressed", state.followRoute ? "true" : "false");
+    elements.followRoute?.setAttribute(
+      "aria-pressed",
+      state.followRoute ? "true" : "false"
+    );
     const active = getActiveEvent();
     if (active) {
       void renderJourneyGeometry(active, { followRoute: state.followRoute });
@@ -447,7 +451,8 @@ function bindEvents() {
 
   document.addEventListener("keydown", (event) => {
     const targetTag = (event.target?.tagName || "").toLowerCase();
-    const isInput = targetTag === "input" || targetTag === "textarea" || targetTag === "select";
+    const isInput =
+      targetTag === "input" || targetTag === "textarea" || targetTag === "select";
 
     if (event.key.toLowerCase() === "t" && event.shiftKey && !isInput) {
       event.preventDefault();

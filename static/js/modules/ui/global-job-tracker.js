@@ -238,16 +238,26 @@ function disconnectSSE() {
 }
 
 function handleProgressEvent(data) {
-  if (!activeJob) return;
+  if (!activeJob) {
+    return;
+  }
 
   if (data.stage && data.stage !== activeStageKey) {
     handleStageTransition(data);
   }
 
-  if (data.progress != null) activeJob.progress = data.progress;
-  if (data.message) activeJob.message = data.message;
-  if (data.status) activeJob.status = data.status;
-  if (data.stage) activeJob.stage = data.stage;
+  if (data.progress != null) {
+    activeJob.progress = data.progress;
+  }
+  if (data.message) {
+    activeJob.message = data.message;
+  }
+  if (data.status) {
+    activeJob.status = data.status;
+  }
+  if (data.stage) {
+    activeJob.stage = data.stage;
+  }
 
   if (data.metrics && data.stage) {
     stageMetrics[data.stage] = {
@@ -261,10 +271,14 @@ function handleProgressEvent(data) {
 }
 
 function handleStageTransition(data) {
-  if (!activeJob) return;
+  if (!activeJob) {
+    return;
+  }
 
   const newStage = data.stage;
-  if (!newStage) return;
+  if (!newStage) {
+    return;
+  }
 
   // Mark previous stage as completed
   if (activeStageKey && activeStageKey !== newStage) {
@@ -281,15 +295,21 @@ function handleStageTransition(data) {
   activeStageKey = newStage;
   stageStartTimes[newStage] = Date.now();
 
-  if (data.progress != null) activeJob.progress = data.progress;
-  if (data.message) activeJob.message = data.message;
+  if (data.progress != null) {
+    activeJob.progress = data.progress;
+  }
+  if (data.message) {
+    activeJob.message = data.message;
+  }
 
   saveJobState();
   updateUI();
 }
 
 function handleDoneEvent(data) {
-  if (!activeJob) return;
+  if (!activeJob) {
+    return;
+  }
 
   // Mark all stages complete
   if (activeStageKey) {
@@ -344,7 +364,9 @@ function startPolling(jobId) {
   const MAX_POLL_ERRORS = 5;
 
   const poll = async () => {
-    if (!activeJob || activeJob.jobId !== jobId) return;
+    if (!activeJob || activeJob.jobId !== jobId) {
+      return;
+    }
 
     try {
       const job = await fetchJobStatus(jobId);
@@ -393,7 +415,9 @@ function fetchJobStatus(jobId) {
 // =============================================================================
 
 async function cancelActiveJob() {
-  if (!activeJob) return;
+  if (!activeJob) {
+    return;
+  }
   const { jobId } = activeJob;
 
   try {
@@ -410,7 +434,9 @@ async function cancelActiveJob() {
 }
 
 function minimizeJob() {
-  if (!activeJob) return;
+  if (!activeJob) {
+    return;
+  }
   activeJob.minimized = true;
   saveJobState();
   hideProgressModal();
@@ -418,7 +444,9 @@ function minimizeJob() {
 }
 
 function restoreJobModal() {
-  if (!activeJob) return;
+  if (!activeJob) {
+    return;
+  }
   activeJob.minimized = false;
   saveJobState();
   hideMinimizedBadge();
@@ -450,7 +478,9 @@ function handleJobFinished(job) {
 
 function renderProgressModal() {
   const body = document.querySelector("#taskProgressModal .modal-body");
-  if (!body) return;
+  if (!body) {
+    return;
+  }
 
   const areaName = activeJob?.areaName || "Coverage Area";
   const jobTitle = getJobTitle(activeJob?.jobType);
@@ -496,11 +526,17 @@ function renderProgressModal() {
 
   // Update modal title
   const titleEl = document.getElementById("task-progress-title");
-  if (titleEl) titleEl.textContent = `${jobTitle}: ${areaName}`;
+  if (titleEl) {
+    titleEl.textContent = `${jobTitle}: ${areaName}`;
+  }
 
   // Wire up action buttons
-  document.getElementById("minimize-progress-modal")?.addEventListener("click", minimizeJob);
-  document.getElementById("cancel-progress-modal")?.addEventListener("click", cancelActiveJob);
+  document
+    .getElementById("minimize-progress-modal")
+    ?.addEventListener("click", minimizeJob);
+  document
+    .getElementById("cancel-progress-modal")
+    ?.addEventListener("click", cancelActiveJob);
 
   // Start elapsed timer
   clearInterval(stageElapsedIntervalId);
@@ -510,7 +546,9 @@ function renderProgressModal() {
 }
 
 function updateUI() {
-  if (!activeJob) return;
+  if (!activeJob) {
+    return;
+  }
   if (activeJob.minimized) {
     updateBadgeUI();
   } else {
@@ -520,19 +558,27 @@ function updateUI() {
 
 function updatePipelineUI() {
   const container = document.querySelector(".pipeline-tracker");
-  if (!container) return;
+  if (!container) {
+    return;
+  }
 
   // Overall progress
   const pct = Math.round(activeJob.progress || 0);
   const fill = container.querySelector(".pipeline-progress-fill");
   const pctLabel = container.querySelector(".pipeline-pct");
-  if (fill) fill.style.width = `${pct}%`;
-  if (pctLabel) pctLabel.textContent = `${pct}%`;
+  if (fill) {
+    fill.style.width = `${pct}%`;
+  }
+  if (pctLabel) {
+    pctLabel.textContent = `${pct}%`;
+  }
 
   // Update each stage
   PIPELINE_STAGES.forEach((stageDef) => {
     const el = container.querySelector(`[data-stage="${stageDef.key}"]`);
-    if (!el) return;
+    if (!el) {
+      return;
+    }
 
     const isCompleted = completedStages.has(stageDef.key);
     const isActive = activeStageKey === stageDef.key;
@@ -576,14 +622,18 @@ function updatePipelineUI() {
 
 function updateElapsedTimes() {
   const container = document.querySelector(".pipeline-tracker");
-  if (!container) return;
+  if (!container) {
+    return;
+  }
 
   // Per-stage times
   PIPELINE_STAGES.forEach((stageDef) => {
     const el = container.querySelector(
       `[data-stage="${stageDef.key}"] .pipeline-stage-time`
     );
-    if (!el) return;
+    if (!el) {
+      return;
+    }
 
     const isCompleted = completedStages.has(stageDef.key);
     const metrics = stageMetrics[stageDef.key] || {};
@@ -648,10 +698,7 @@ function renderStageMetrics(stageKey, metrics) {
       }
       if (metrics.driven_miles != null && metrics.driveable_miles != null) {
         chips.push(
-          metricChip(
-            "fa-car",
-            `${metrics.driven_miles}/${metrics.driveable_miles} mi`
-          )
+          metricChip("fa-car", `${metrics.driven_miles}/${metrics.driveable_miles} mi`)
         );
       }
       break;
@@ -666,14 +713,10 @@ function renderStageMetrics(stageKey, metrics) {
         chips.push(metricChip("fa-route", `${label} trips`));
       }
       if (metrics.matched_trips != null && metrics.matched_trips > 0) {
-        chips.push(
-          metricChip("fa-check", `${num(metrics.matched_trips)} matched`)
-        );
+        chips.push(metricChip("fa-check", `${num(metrics.matched_trips)} matched`));
       }
       if (metrics.segments_updated != null && metrics.segments_updated > 0) {
-        chips.push(
-          metricChip("fa-pen", `${num(metrics.segments_updated)} updated`)
-        );
+        chips.push(metricChip("fa-pen", `${num(metrics.segments_updated)} updated`));
       }
       break;
   }
@@ -691,13 +734,19 @@ function num(n) {
 
 function updateBadgeUI() {
   const badge = document.getElementById("minimized-progress-badge");
-  if (!badge) return;
+  if (!badge) {
+    return;
+  }
 
   const nameEl = badge.querySelector(".minimized-location-name");
   const pctEl = badge.querySelector(".minimized-progress-percent");
 
-  if (nameEl) nameEl.textContent = activeJob?.areaName || "Background Job";
-  if (pctEl) pctEl.textContent = `${Math.round(activeJob?.progress || 0)}%`;
+  if (nameEl) {
+    nameEl.textContent = activeJob?.areaName || "Background Job";
+  }
+  if (pctEl) {
+    pctEl.textContent = `${Math.round(activeJob?.progress || 0)}%`;
+  }
 }
 
 // =============================================================================
@@ -705,19 +754,31 @@ function updateBadgeUI() {
 // =============================================================================
 
 function releaseModalFocus(modalElement) {
-  if (!modalElement) return;
+  if (!modalElement) {
+    return;
+  }
   const { activeElement } = document;
-  if (!activeElement || !modalElement.contains(activeElement)) return;
-  if (typeof activeElement.blur === "function") activeElement.blur();
-  if (!modalElement.contains(document.activeElement)) return;
+  if (!activeElement || !modalElement.contains(activeElement)) {
+    return;
+  }
+  if (typeof activeElement.blur === "function") {
+    activeElement.blur();
+  }
+  if (!modalElement.contains(document.activeElement)) {
+    return;
+  }
   const { body } = document;
-  if (!body || typeof body.focus !== "function") return;
+  if (!body || typeof body.focus !== "function") {
+    return;
+  }
   const hadTabIndex = body.hasAttribute("tabindex");
   const previousTabIndex = body.getAttribute("tabindex");
   body.setAttribute("tabindex", "-1");
   body.focus({ preventScroll: true });
   if (hadTabIndex) {
-    if (previousTabIndex !== null) body.setAttribute("tabindex", previousTabIndex);
+    if (previousTabIndex !== null) {
+      body.setAttribute("tabindex", previousTabIndex);
+    }
   } else {
     body.removeAttribute("tabindex");
   }
@@ -725,14 +786,18 @@ function releaseModalFocus(modalElement) {
 
 function showProgressModal() {
   const el = document.getElementById("taskProgressModal");
-  if (!el) return;
+  if (!el) {
+    return;
+  }
   const modal = bootstrap.Modal.getOrCreateInstance(el);
   modal.show();
 }
 
 function hideProgressModal() {
   const el = document.getElementById("taskProgressModal");
-  if (!el) return;
+  if (!el) {
+    return;
+  }
   releaseModalFocus(el);
   const modal = bootstrap.Modal.getInstance(el);
   modal?.hide();
@@ -754,8 +819,12 @@ function hideMinimizedBadge() {
 // =============================================================================
 
 function getJobTitle(type) {
-  if (type === "area_rebuild") return "Rebuilding Area";
-  if (type === "area_backfill") return "Backfill Coverage";
+  if (type === "area_rebuild") {
+    return "Rebuilding Area";
+  }
+  if (type === "area_backfill") {
+    return "Backfill Coverage";
+  }
   return "Setting Up Area";
 }
 
@@ -776,21 +845,21 @@ function mapJobToState(job) {
 }
 
 function formatDuration(ms) {
-  if (!ms || ms < 0) return "";
+  if (!ms || ms < 0) {
+    return "";
+  }
   const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
   const minutes = Math.floor(seconds / 60);
   const remainSec = seconds % 60;
-  if (minutes < 60) return `${minutes}m ${remainSec}s`;
+  if (minutes < 60) {
+    return `${minutes}m ${remainSec}s`;
+  }
   const hours = Math.floor(minutes / 60);
   const remainMin = minutes % 60;
   return `${hours}h ${remainMin}m`;
-}
-
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
 }
 
 // =============================================================================

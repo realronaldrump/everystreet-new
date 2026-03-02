@@ -7,7 +7,7 @@ client-side error recovery.
 """
 
 
-class EveryStreetException(Exception):
+class EveryStreetException(Exception):  # noqa: N818
     """Base exception for all application-specific errors."""
 
     def __init__(self, message: str, details: dict | None = None) -> None:

@@ -439,10 +439,8 @@ async def _generate_optimal_route_with_progress_impl(
             and len(coverage_area.bounding_box) == 4
             and all(v is not None for v in coverage_area.bounding_box)
         ):
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 area_bbox = tuple(float(v) for v in coverage_area.bounding_box)
-            except (TypeError, ValueError):
-                pass
         if (
             graph_bbox
             and area_bbox

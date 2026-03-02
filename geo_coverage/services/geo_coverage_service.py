@@ -66,7 +66,10 @@ def _record_visit(
         return
     if visit_time is None:
         return
-    if visit_map[key]["firstVisit"] is None or visit_time < visit_map[key]["firstVisit"]:
+    if (
+        visit_map[key]["firstVisit"] is None
+        or visit_time < visit_map[key]["firstVisit"]
+    ):
         visit_map[key]["firstVisit"] = visit_time
     if visit_map[key]["lastVisit"] is None or visit_time > visit_map[key]["lastVisit"]:
         visit_map[key]["lastVisit"] = visit_time
@@ -272,7 +275,9 @@ async def calculate_geo_coverage_task() -> None:
                 invalid_cities += 1
                 continue
 
-            city_totals_by_state[state_fips] = city_totals_by_state.get(state_fips, 0) + 1
+            city_totals_by_state[state_fips] = (
+                city_totals_by_state.get(state_fips, 0) + 1
+            )
             city_state_names[state_fips] = city.state_name or city_state_names.get(
                 state_fips,
                 "Unknown",
@@ -452,7 +457,7 @@ async def calculate_geo_coverage_task() -> None:
             ):
                 rollup["lastVisit"] = last_visit
 
-        for state_fips, rollup in state_rollups.items():
+        for rollup in state_rollups.values():
             total = int(rollup.get("total") or 0)
             visited = int(rollup.get("visited") or 0)
             rollup["percent"] = _percent(visited, total)
@@ -579,8 +584,16 @@ async def get_summary() -> dict[str, Any]:
         entry = county_rollup[state_fips]
         entry["visited"] += 1
 
-        first_visit = parse_timestamp(visits.get("firstVisit")) if isinstance(visits, dict) else None
-        last_visit = parse_timestamp(visits.get("lastVisit")) if isinstance(visits, dict) else None
+        first_visit = (
+            parse_timestamp(visits.get("firstVisit"))
+            if isinstance(visits, dict)
+            else None
+        )
+        last_visit = (
+            parse_timestamp(visits.get("lastVisit"))
+            if isinstance(visits, dict)
+            else None
+        )
 
         if first_visit and (
             entry.get("firstVisit") is None or first_visit < entry["firstVisit"]
@@ -650,9 +663,13 @@ async def get_summary() -> dict[str, Any]:
     county_stopped = len(county_stops)
 
     state_total = len([entry for entry in county_rollup.values() if entry["total"] > 0])
-    state_visited = len([entry for entry in county_rollup.values() if entry["visited"] > 0])
+    state_visited = len(
+        [entry for entry in county_rollup.values() if entry["visited"] > 0]
+    )
 
-    city_total = sum(int(entry.get("total") or 0) for entry in city_state_totals.values())
+    city_total = sum(
+        int(entry.get("total") or 0) for entry in city_state_totals.values()
+    )
     city_visited = int(city_cache.total_visited if city_cache else 0)
 
     return {
@@ -811,7 +828,11 @@ async def get_visits(
                     CityBoundary.state_fips == normalized_fips
                 ).to_list()
             }
-            visits = {city_id: value for city_id, value in visits.items() if city_id in city_ids}
+            visits = {
+                city_id: value
+                for city_id, value in visits.items()
+                if city_id in city_ids
+            }
 
         return {
             "success": True,
@@ -845,12 +866,9 @@ async def list_cities(
             detail="stateFips is required",
         )
 
-    if page < 1:
-        page = 1
-    if page_size < 1:
-        page_size = 1
-    if page_size > 200:
-        page_size = 200
+    page = max(page, 1)
+    page_size = max(page_size, 1)
+    page_size = min(page_size, 200)
 
     cities = (
         await CityBoundary.find(CityBoundary.state_fips == normalized_fips)
@@ -956,7 +974,9 @@ async def get_cache_status() -> dict[str, Any]:
         "county": {
             "cached": county_cache is not None,
             "totalVisited": len(county_cache.counties or {}) if county_cache else 0,
-            "totalStopped": len(county_cache.stopped_counties or {}) if county_cache else 0,
+            "totalStopped": (
+                len(county_cache.stopped_counties or {}) if county_cache else 0
+            ),
             "tripsAnalyzed": county_cache.trips_analyzed if county_cache else 0,
         },
         "city": {

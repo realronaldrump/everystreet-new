@@ -313,7 +313,9 @@ async def get_service_health() -> dict[str, Any]:
 
     provider_status = "healthy"
     provider_message = (
-        "Google Maps provider is active" if using_google else "Self-hosted provider active"
+        "Google Maps provider is active"
+        if using_google
+        else "Self-hosted provider active"
     )
     provider_detail = None
     if using_google:

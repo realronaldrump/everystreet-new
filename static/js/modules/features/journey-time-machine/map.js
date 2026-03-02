@@ -166,7 +166,9 @@ function fitToGeometry(lineCoords, pointCoords, followRoute = true) {
     return;
   }
 
-  const bounds = toBounds(lineCoords.length ? lineCoords : pointCoords ? [pointCoords] : []);
+  const bounds = toBounds(
+    lineCoords.length ? lineCoords : pointCoords ? [pointCoords] : []
+  );
   if (!bounds) {
     return;
   }

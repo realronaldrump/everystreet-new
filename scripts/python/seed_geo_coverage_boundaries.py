@@ -9,7 +9,6 @@ import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 import geopandas as gpd
 import pandas as pd
@@ -23,8 +22,8 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from db.manager import db_manager
-from db.models import CityBoundary, StateBoundaryCache
+from db.manager import db_manager  # noqa: E402
+from db.models import CityBoundary, StateBoundaryCache  # noqa: E402
 
 logger = logging.getLogger("seed_geo_coverage_boundaries")
 
@@ -69,7 +68,7 @@ def _is_included_place(classfp: str | None) -> bool:
     normalized = str(classfp).strip().upper()
     # Census place classes:
     # C* = incorporated place variants, U* = CDP variants.
-    return normalized.startswith("C") or normalized.startswith("U")
+    return normalized.startswith(("C", "U"))
 
 
 def _territory_code_from_state_abbr(state_abbr: str | None) -> str | None:
@@ -231,13 +230,14 @@ def _load_places_gdf(
 ) -> tuple[gpd.GeoDataFrame, str]:
     try:
         gdf = gpd.read_file(places_url)
-        return gdf, places_url
     except Exception as exc:
         logger.warning(
             "Failed to load national places URL %s (%s). Falling back to per-state downloads.",
             places_url,
             exc,
         )
+    else:
+        return gdf, places_url
 
     frames = []
     loaded_urls = []
@@ -274,7 +274,9 @@ async def seed_boundaries(
         msg = f"States dataset missing required columns: {sorted(missing_state_cols)}"
         raise RuntimeError(msg)
 
-    state_fips_values = sorted({str(value).zfill(2) for value in states_gdf["STATEFP"].tolist()})
+    state_fips_values = sorted(
+        {str(value).zfill(2) for value in states_gdf["STATEFP"].tolist()}
+    )
 
     logger.info("Loading places dataset")
     raw_places_gdf, places_source = _load_places_gdf(
@@ -291,10 +293,12 @@ async def seed_boundaries(
         raise RuntimeError(msg)
 
     state_name_by_fips = {
-        str(row["STATEFP"]).zfill(2): str(row["NAME"]) for _, row in states_gdf.iterrows()
+        str(row["STATEFP"]).zfill(2): str(row["NAME"])
+        for _, row in states_gdf.iterrows()
     }
     state_abbr_by_fips = {
-        str(row["STATEFP"]).zfill(2): str(row["STUSPS"]) for _, row in states_gdf.iterrows()
+        str(row["STATEFP"]).zfill(2): str(row["STUSPS"])
+        for _, row in states_gdf.iterrows()
     }
 
     await _upsert_state_boundaries(
@@ -335,7 +339,9 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_PLACE_PER_STATE_URL_TEMPLATE,
         help="Template used when national places URL is unavailable; supports {state_fips}.",
     )
-    parser.add_argument("--simplify-tolerance", type=float, default=DEFAULT_SIMPLIFY_TOLERANCE)
+    parser.add_argument(
+        "--simplify-tolerance", type=float, default=DEFAULT_SIMPLIFY_TOLERANCE
+    )
     return parser.parse_args()
 
 

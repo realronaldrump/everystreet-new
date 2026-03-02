@@ -146,7 +146,7 @@ export function setupAppSettingsForm() {
     densityOptions.forEach((input) => {
       input.checked = input.value === densityValue;
     });
-    
+
     // Hide Map Services tab if Map Provider is Google Maps
     const mapServicesTabBtn = document.querySelector(
       `.settings-tab[data-tab="map-services"]`
@@ -231,11 +231,14 @@ export function setupAppSettingsForm() {
 
     // Show success
     notificationManager.show("Settings saved successfully", "success");
-    
+
     // Reload if map provider changed
-    if (window.MAP_PROVIDER && window.MAP_PROVIDER.toLowerCase() !== payload.map_provider.toLowerCase()) {
+    if (
+      window.MAP_PROVIDER &&
+      window.MAP_PROVIDER.toLowerCase() !== payload.map_provider.toLowerCase()
+    ) {
       setTimeout(() => {
-         window.location.reload();
+        window.location.reload();
       }, 1500);
       notificationManager.show("Map Provider changed. Reloading app...", "info");
     }

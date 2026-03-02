@@ -59,11 +59,12 @@ class BouncieClient:
         return await BouncieOAuth.get_access_token(session, credentials)
 
     async def ensure_token(self) -> str:
-        """Return a valid token, auto-refreshing if expired.
+        """
+        Return a valid token, auto-refreshing if expired.
 
         Uses BouncieOAuth's built-in 5-minute expiry buffer. If the
-        cached token is still valid, this is a cheap dict lookup.
-        For long-running imports this prevents mid-run 401 failures.
+        cached token is still valid, this is a cheap dict lookup. For
+        long-running imports this prevents mid-run 401 failures.
         """
         token = await self.get_access_token()
         if not token:

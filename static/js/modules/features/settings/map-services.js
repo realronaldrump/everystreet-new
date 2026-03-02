@@ -726,7 +726,9 @@ async function loadCoverageSettings() {
 }
 
 function normalizeMapProvider(value) {
-  return String(value || "").trim().toLowerCase();
+  return String(value || "")
+    .trim()
+    .toLowerCase();
 }
 
 function isGoogleMapProvider(mapProvider, coverageProvider) {

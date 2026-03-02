@@ -117,5 +117,3 @@ test("mobile nav init is idempotent", () => {
     global.window = originalWindow;
   }
 });
-
-

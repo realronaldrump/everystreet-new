@@ -43,12 +43,18 @@ async def _get_map_provider_and_google_key() -> tuple[str, bool]:
     except CollectionWasNotInitialized:
         settings = None
 
-    map_provider = str(
-        getattr(getattr(settings, "map_provider", None), "value", None)
-        or getattr(settings, "map_provider", None)
-        or MapProvider.SELF_HOSTED.value
-    ).strip().lower()
-    google_key_ready = bool((getattr(settings, "google_maps_api_key", "") or "").strip())
+    map_provider = (
+        str(
+            getattr(getattr(settings, "map_provider", None), "value", None)
+            or getattr(settings, "map_provider", None)
+            or MapProvider.SELF_HOSTED.value
+        )
+        .strip()
+        .lower()
+    )
+    google_key_ready = bool(
+        (getattr(settings, "google_maps_api_key", "") or "").strip()
+    )
     return map_provider, google_key_ready
 
 

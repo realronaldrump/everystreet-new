@@ -69,8 +69,7 @@ class JourneyFeedService:
                 return source_name, events, None
 
         tasks = [
-            run_source(source_name, loader)
-            for source_name, loader in sources.items()
+            run_source(source_name, loader) for source_name, loader in sources.items()
         ]
 
         results = await asyncio.gather(*tasks)
@@ -98,7 +97,9 @@ class JourneyFeedService:
 
         has_more = len(events) > bounded_limit
         paged_events = events[:bounded_limit]
-        next_cursor = paged_events[-1]["timestamp"] if has_more and paged_events else None
+        next_cursor = (
+            paged_events[-1]["timestamp"] if has_more and paged_events else None
+        )
 
         return {
             "events": paged_events,
@@ -130,12 +131,7 @@ class JourneyFeedService:
         if cursor:
             query["startTime"] = {"$gt": cursor}
 
-        trips = (
-            await Trip.find(query)
-            .sort(+Trip.startTime)
-            .limit(limit)
-            .to_list()
-        )
+        trips = await Trip.find(query).sort(+Trip.startTime).limit(limit).to_list()
 
         events: list[dict[str, Any]] = []
         for trip in trips:
@@ -207,12 +203,7 @@ class JourneyFeedService:
         if cursor:
             query["endTime"] = {"$gt": cursor}
 
-        trips = (
-            await Trip.find(query)
-            .sort(+Trip.endTime)
-            .limit(limit)
-            .to_list()
-        )
+        trips = await Trip.find(query).sort(+Trip.endTime).limit(limit).to_list()
 
         events: list[dict[str, Any]] = []
         for trip in trips:
@@ -221,9 +212,9 @@ class JourneyFeedService:
             if not timestamp:
                 continue
             place_id = _as_str(trip_data.get("destinationPlaceId"))
-            place_name = _as_str(trip_data.get("destinationPlaceName")) or _extract_location_label(
-                trip_data.get("destination")
-            )
+            place_name = _as_str(
+                trip_data.get("destinationPlaceName")
+            ) or _extract_location_label(trip_data.get("destination"))
             if not place_name and not place_id:
                 continue
 
@@ -247,11 +238,7 @@ class JourneyFeedService:
                     event_id=f"visit:{transaction_id}",
                     event_type="visit",
                     timestamp=timestamp,
-                    title=(
-                        f"Visit · {place_name}"
-                        if place_name
-                        else "Visit"
-                    ),
+                    title=(f"Visit · {place_name}" if place_name else "Visit"),
                     summary=summary,
                     source_url=f"/visits{query_str}",
                     geometry=_normalize_geojson(trip_data.get("destinationGeoPoint")),
@@ -471,12 +458,7 @@ class JourneyFeedService:
         if cursor:
             query["created_at"] = {"$gt": cursor}
 
-        jobs = (
-            await Job.find(query)
-            .sort(+Job.created_at)
-            .limit(limit)
-            .to_list()
-        )
+        jobs = await Job.find(query).sort(+Job.created_at).limit(limit).to_list()
 
         events: list[dict[str, Any]] = []
         for job in jobs:
@@ -492,11 +474,7 @@ class JourneyFeedService:
 
             stage = _as_str(job.stage) or _as_str(job.status) or "queued"
             status = _as_str(job.status) or "pending"
-            job_id = (
-                _as_str(job.operation_id)
-                or _as_str(job.task_id)
-                or str(job.id)
-            )
+            job_id = _as_str(job.operation_id) or _as_str(job.task_id) or str(job.id)
             metadata = job.metadata or {}
             processed = metadata.get("processed") or metadata.get("processed_count")
             total = metadata.get("total") or metadata.get("trip_ids_count")
@@ -513,9 +491,7 @@ class JourneyFeedService:
                     event_type="map_matching",
                     timestamp=timestamp,
                     title=f"Map Matching · {stage.title()}",
-                    summary=" · ".join(
-                        part for part in summary_parts if part
-                    ),
+                    summary=" · ".join(part for part in summary_parts if part),
                     source_url=f"/map-matching?job={quote(job_id)}",
                     metrics=_compact_metrics(
                         {

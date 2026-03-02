@@ -52,9 +52,11 @@ BackfillProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
 
 def _line_bearing(line: BaseGeometry) -> float | None:
-    """Compute the overall bearing (0-360) of a LineString from start to end.
+    """
+    Compute the overall bearing (0-360) of a LineString from start to end.
 
-    Uses projected (meters) coordinates. Returns None for degenerate lines.
+    Uses projected (meters) coordinates. Returns None for degenerate
+    lines.
     """
     coords = list(line.coords)
     if len(coords) < 2:
@@ -72,10 +74,12 @@ def _bearing_aligned(
     segment_bearing: float | None,
     max_diff: float = MAX_BEARING_DIFF_DEGREES,
 ) -> bool:
-    """Check if two bearings are within max_diff degrees.
+    """
+    Check if two bearings are within max_diff degrees.
 
-    Roads are bidirectional, so bearings 0° and 180° are considered aligned.
-    Returns True if either bearing is None (skip check for degenerate lines).
+    Roads are bidirectional, so bearings 0° and 180° are considered
+    aligned. Returns True if either bearing is None (skip check for
+    degenerate lines).
     """
     if trip_bearing is None or segment_bearing is None:
         return True
@@ -90,7 +94,8 @@ def _get_segment_overlap_ratio(
     segment_length: float,
     base_ratio: float,
 ) -> float:
-    """Return the overlap ratio based on segment length.
+    """
+    Return the overlap ratio based on segment length.
 
     Short segments need stronger evidence to be credited.
     """
@@ -452,8 +457,8 @@ def trip_to_linestring(
     coverage matching.  Falls back to raw GPS (trip["gps"]) when
     matching was not performed or failed.
 
-    Returns (geometry, is_map_matched) tuple.
-    geometry is None if trip has no valid geometry.
+    Returns (geometry, is_map_matched) tuple. geometry is None if trip
+    has no valid geometry.
     """
     # Prefer map-matched geometry — it is snapped to the actual road
     # network so coverage attribution is far more accurate, especially
@@ -463,12 +468,13 @@ def trip_to_linestring(
     if isinstance(matched_gps, dict) and match_status.startswith("matched"):
         matched_lines = _extract_lines_from_geojson(matched_gps)
         if matched_lines:
-            segments: list[LineString] = []
-            for line_coords in matched_lines:
-                # Map-matched geometry doesn't have GPS gaps so we can
-                # use the coordinates directly without gap splitting.
-                if len(line_coords) >= 2:
-                    segments.append(LineString(line_coords))
+            # Map-matched geometry doesn't have GPS gaps so we can
+            # use the coordinates directly without gap splitting.
+            segments = [
+                LineString(line_coords)
+                for line_coords in matched_lines
+                if len(line_coords) >= 2
+            ]
             if segments:
                 geom = segments[0] if len(segments) == 1 else MultiLineString(segments)
                 return geom, True
@@ -488,7 +494,9 @@ def trip_to_linestring(
 
     if not segments_raw:
         return None, False
-    raw_geom = segments_raw[0] if len(segments_raw) == 1 else MultiLineString(segments_raw)
+    raw_geom = (
+        segments_raw[0] if len(segments_raw) == 1 else MultiLineString(segments_raw)
+    )
     return raw_geom, False
 
 

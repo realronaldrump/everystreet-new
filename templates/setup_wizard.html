@@ -1,20 +1,25 @@
 {% extends "base.html" %}
 
 {% block title %}
+
   Every Street Setup
 {% endblock %}
 
+
 {% block extra_css %}
+
   <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
   <link rel="stylesheet"
         href="{{ url_for('static', path='css/setup-wizard.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
+
 {% block content %}
+
   <div class="setup-page">
     <div class="container-fluid setup-shell">
 
-      {# ── Progress bar ── #}
+                        {# ── Progress bar ── #}
       <div class="setup-progress-bar" aria-label="Setup progress">
         <div class="setup-progress-track">
           <div class="setup-progress-step is-active" data-progress-step="0">
@@ -22,14 +27,16 @@
             <span class="setup-progress-label">Engine</span>
           </div>
           <div class="setup-progress-connector">
-            <div class="setup-progress-connector-fill" id="progress-connector-0"></div>
+            <div class="setup-progress-connector-fill" id="progress-connector-0">
+            </div>
           </div>
           <div class="setup-progress-step" data-progress-step="1">
             <span class="setup-progress-dot"><i class="fas fa-key"></i></span>
             <span class="setup-progress-label">Credentials</span>
           </div>
           <div class="setup-progress-connector" id="progress-connector-container-1">
-            <div class="setup-progress-connector-fill" id="progress-connector-1"></div>
+            <div class="setup-progress-connector-fill" id="progress-connector-1">
+            </div>
           </div>
           <div class="setup-progress-step" data-progress-step="2" id="progress-step-coverage">
             <span class="setup-progress-dot"><i class="fas fa-map"></i></span>
@@ -38,11 +45,15 @@
         </div>
       </div>
 
-      {# ── Hero ── #}
+                        {# ── Hero ── #}
       <div class="setup-hero" data-stagger>
         <div class="setup-hero-text">
-          <div class="setup-eyebrow">Every Street Setup</div>
-          <h1 class="setup-title">Get your streets online in&nbsp;minutes.</h1>
+          <div class="setup-eyebrow">
+Every Street Setup
+          </div>
+          <h1 class="setup-title">
+Get your streets online in&nbsp;minutes.
+          </h1>
           <p class="setup-subtitle">
             Two quick steps: save your API credentials, then import trips so we
             can build local coverage for geocoding and routing.
@@ -50,18 +61,22 @@
         </div>
       </div>
 
-      {# ── Main layout ── #}
+                        {# ── Main layout ── #}
       <div class="setup-layout">
 
-        {# ── Sidebar ── #}
+                                {# ── Sidebar ── #}
         <aside class="setup-sidebar">
           <ol class="setup-step-list" aria-label="Setup steps">
             <li class="setup-step-item is-active" data-step="0" data-step-key="engine">
               <button class="setup-step-button" type="button" data-step-target="0">
                 <span class="step-number">1</span>
                 <div>
-                  <div class="step-title">Map Engine</div>
-                  <div class="step-note">Google vs. Local</div>
+                  <div class="step-title">
+Map Engine
+                  </div>
+                  <div class="step-note">
+Google vs. Local
+                  </div>
                 </div>
               </button>
             </li>
@@ -69,17 +84,28 @@
               <button class="setup-step-button" type="button" data-step-target="1">
                 <span class="step-number">2</span>
                 <div>
-                  <div class="step-title">Credentials</div>
-                  <div class="step-note">Bouncie + Maps</div>
+                  <div class="step-title">
+Credentials
+                  </div>
+                  <div class="step-note">
+Bouncie + Maps
+                  </div>
                 </div>
               </button>
             </li>
-            <li class="setup-step-item" data-step="2" data-step-key="coverage" id="sidebar-step-coverage">
+            <li class="setup-step-item"
+                data-step="2"
+                data-step-key="coverage"
+                id="sidebar-step-coverage">
               <button class="setup-step-button" type="button" data-step-target="2">
                 <span class="step-number">3</span>
                 <div>
-                  <div class="step-title">Map Coverage</div>
-                  <div class="step-note">Import &amp; build</div>
+                  <div class="step-title">
+Map Coverage
+                  </div>
+                  <div class="step-note">
+Import &amp; build
+                  </div>
                 </div>
               </button>
             </li>
@@ -92,7 +118,7 @@
           </div>
         </aside>
 
-        {# ════════════════════════════════════════════════════
+                                {# ════════════════════════════════════════════════════
            STEP 0 — MAP ENGINE
            ════════════════════════════════════════════════════ #}
         <main class="setup-content">
@@ -100,7 +126,9 @@
             <div class="setup-card">
               <div class="setup-card-header">
                 <div>
-                  <h2>Choose your Mapping Engine</h2>
+                  <h2>
+Choose your Mapping Engine
+                  </h2>
                   <p>
                     Every Street supports two different mapping engines.
                     Choose the one that best fits your needs.
@@ -111,12 +139,22 @@
               <div class="setup-card-section">
                 <div class="setup-provider-grid">
                   <label class="setup-provider-card">
-                    <input type="radio" name="map_provider" value="self_hosted" class="setup-provider-input" checked />
+                    <input type="radio"
+                           name="map_provider"
+                           value="self_hosted"
+                           class="setup-provider-input"
+                           checked />
                     <div class="setup-provider-content">
-                      <div class="setup-provider-icon"><i class="fas fa-server"></i></div>
+                      <div class="setup-provider-icon">
+                        <i class="fas fa-server"></i>
+                      </div>
                       <div class="setup-provider-text">
-                        <h3>Self-Hosted (Local)</h3>
-                        <p>No monthly fees. We'll download map data for your driven areas to handle geocoding and routing locally using Valhalla and Nominatim.</p>
+                        <h3>
+Self-Hosted (Local)
+                        </h3>
+                        <p>
+No monthly fees. We'll download map data for your driven areas to handle geocoding and routing locally using Valhalla and Nominatim.
+                        </p>
                       </div>
                     </div>
                   </label>
@@ -124,10 +162,16 @@
                   <label class="setup-provider-card">
                     <input type="radio" name="map_provider" value="google" class="setup-provider-input" />
                     <div class="setup-provider-content">
-                      <div class="setup-provider-icon"><i class="fab fa-google"></i></div>
+                      <div class="setup-provider-icon">
+                        <i class="fab fa-google"></i>
+                      </div>
                       <div class="setup-provider-text">
-                        <h3>Google Maps Cloud</h3>
-                        <p>Lightweight and zero maintenance. Uses Google's APIs for rendering, routing, and geocoding. Perfect for local development or low-resource devices.</p>
+                        <h3>
+Google Maps Cloud
+                        </h3>
+                        <p>
+Lightweight and zero maintenance. Uses Google's APIs for rendering, routing, and geocoding. Perfect for local development or low-resource devices.
+                        </p>
                       </div>
                     </div>
                   </label>
@@ -143,7 +187,7 @@
             </div>
           </section>
 
-        {# ════════════════════════════════════════════════════
+                                      {# ════════════════════════════════════════════════════
            STEP 1 — CREDENTIALS
            ════════════════════════════════════════════════════ #}
           <section class="setup-step" data-step="1">
@@ -151,7 +195,9 @@
 
               <div class="setup-card-header">
                 <div>
-                  <h2>Credentials</h2>
+                  <h2>
+Credentials
+                  </h2>
                   <p>
                     Save your API details once.
                     We'll validate everything before moving on.
@@ -159,18 +205,23 @@
                 </div>
               </div>
 
-              <div id="credentials-status" class="setup-status" role="status" aria-live="polite"></div>
+              <div id="credentials-status" class="setup-status" role="status" aria-live="polite">
+              </div>
 
-              {# ── Bouncie Credentials ── #}
+                                                        {# ── Bouncie Credentials ── #}
               <div class="setup-card-section">
                 <div class="setup-card-section-header">
                   <div>
-                    <h3>Bouncie Credentials</h3>
-                    <p>Enter your Bouncie OAuth app details to connect your devices.</p>
+                    <h3>
+Bouncie Credentials
+                    </h3>
+                    <p>
+Enter your Bouncie OAuth app details to connect your devices.
+                    </p>
                   </div>
                 </div>
 
-                {# Collapsible help #}
+                                                                {# Collapsible help #}
                 <details class="setup-help-panel">
                   <summary class="setup-help-toggle">
                     <i class="fas fa-question-circle"></i>
@@ -178,10 +229,18 @@
                   </summary>
                   <div class="setup-help-content">
                     <ol>
-                      <li>Go to <a href="https://bouncie.dev" target="_blank" rel="noopener">bouncie.dev</a> and sign in with your Bouncie account.</li>
-                      <li>Create a new app (or open an existing one).</li>
-                      <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> from the app dashboard.</li>
-                      <li>Set the <strong>Redirect URI</strong> below to match the one in your Bouncie app settings.</li>
+                      <li>
+                        Go to <a href="https://bouncie.dev" target="_blank" rel="noopener">bouncie.dev</a> and sign in with your Bouncie account.
+                      </li>
+                      <li>
+Create a new app (or open an existing one).
+                      </li>
+                      <li>
+                        Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> from the app dashboard.
+                      </li>
+                      <li>
+                        Set the <strong>Redirect URI</strong> below to match the one in your Bouncie app settings.
+                      </li>
                     </ol>
                     <div class="setup-help-tip">
                       <i class="fas fa-lightbulb"></i>
@@ -193,17 +252,29 @@
                 <form id="bouncieCredentialsForm" class="setup-form" novalidate>
                   <div class="setup-form-grid">
                     <div class="setup-field">
-                      <label for="clientId" class="form-label">Client ID</label>
-                      <input type="text" class="form-control" id="clientId" required
+                      <label for="clientId" class="form-label">
+Client ID
+                      </label>
+                      <input type="text"
+                             class="form-control"
+                             id="clientId"
+                             required
                              placeholder="e.g. abc123def456" />
                       <span class="setup-field-hint">Found in your Bouncie app dashboard</span>
                     </div>
                     <div class="setup-field">
-                      <label for="clientSecret" class="form-label">Client Secret</label>
+                      <label for="clientSecret" class="form-label">
+Client Secret
+                      </label>
                       <div class="input-group">
-                        <input type="password" class="form-control" id="clientSecret" required
+                        <input type="password"
+                               class="form-control"
+                               id="clientSecret"
+                               required
                                placeholder="••••••••" />
-                        <button class="btn btn-outline-secondary" type="button" id="toggleClientSecret"
+                        <button class="btn btn-outline-secondary"
+                                type="button"
+                                id="toggleClientSecret"
                                 aria-label="Toggle secret visibility">
                           <i class="fas fa-eye"></i>
                         </button>
@@ -211,42 +282,57 @@
                       <span class="setup-field-hint">Keep this private — never share it publicly</span>
                     </div>
                     <div class="setup-field">
-                      <label for="redirectUri" class="form-label">Redirect URI</label>
+                      <label for="redirectUri" class="form-label">
+Redirect URI
+                      </label>
                       <input type="url" class="form-control" id="redirectUri" required />
                       <span class="setup-field-hint">Must match the URI registered in your Bouncie app</span>
                     </div>
                   </div>
                 </form>
 
-                <div class="setup-card-section-header mt-4" id="googleCredentialsHeader" style="display: none;">
+                <div class="setup-card-section-header mt-4"
+                     id="googleCredentialsHeader"
+                     style="display: none">
                   <div>
-                    <h3>Google Maps Platform</h3>
-                    <p>Enter your Google Maps API Key to enable cloud routing and geocoding.</p>
+                    <h3>
+Google Maps Platform
+                    </h3>
+                    <p>
+Enter your Google Maps API Key to enable cloud routing and geocoding.
+                    </p>
                   </div>
                 </div>
                 <form id="googleCredentialsForm" class="setup-form" novalidate style="display: none;">
                   <div class="setup-form-grid">
                     <div class="setup-field">
-                      <label for="googleMapsApiKey" class="form-label">API Key</label>
+                      <label for="googleMapsApiKey" class="form-label">
+API Key
+                      </label>
                       <input type="text" class="form-control" id="googleMapsApiKey" placeholder="AIzaSy..." />
                       <span class="setup-field-hint">Must have Maps JavaScript, Directions, Roads, and Geocoding APIs enabled.</span>
                     </div>
                   </div>
                 </form>
 
-                {# Bouncie connect actions — shown after credentials are saved #}
+                                                                {# Bouncie connect actions — shown after credentials are saved #}
                 <div class="setup-connect-actions" id="bouncie-connect-actions">
                   <a href="#" class="btn btn-success" id="connectBouncieBtn" role="button">
                     <i class="fas fa-plug"></i> Connect with Bouncie
                   </a>
                   <details class="setup-advanced-toggle">
-                    <summary>Advanced: Sync vehicles manually</summary>
+                    <summary>
+Advanced: Sync vehicles manually
+                    </summary>
                     <div class="setup-advanced-content">
                       <p class="text-muted small">
                         Vehicles are synced automatically when you connect. Use this only
                         if you need to re-sync after adding a new device.
                       </p>
-                      <button class="btn btn-outline-light btn-sm" id="syncVehiclesBtn" type="button" disabled>
+                      <button class="btn btn-outline-light btn-sm"
+                              id="syncVehiclesBtn"
+                              type="button"
+                              disabled>
                         <i class="fas fa-sync"></i> Sync Vehicles
                       </button>
                     </div>
@@ -261,7 +347,9 @@
               </div>
 
               <div class="setup-actions">
-                <button class="setup-step-button-back btn btn-outline-light" type="button" data-step-target="0">
+                <button class="setup-step-button-back btn btn-outline-light"
+                        type="button"
+                        data-step-target="0">
                   <i class="fas fa-arrow-left"></i> Back
                 </button>
                 <button class="btn btn-primary" id="credentials-continue-btn" type="button">
@@ -272,7 +360,7 @@
             </div>
           </section>
 
-          {# ════════════════════════════════════════════════════
+                                        {# ════════════════════════════════════════════════════
              STEP 2 — MAP COVERAGE (unified flow)
              ════════════════════════════════════════════════════ #}
           <section class="setup-step" data-step="2" id="step-coverage-section">
@@ -280,28 +368,37 @@
 
               <div class="setup-card-header">
                 <div>
-                  <h2>Map Coverage</h2>
+                  <h2>
+Map Coverage
+                  </h2>
                   <p id="coverage-step-description">
                     Import your recent trips so we can detect which states to download.
                     Coverage data powers local geocoding and routing.
                   </p>
                 </div>
                 <div class="setup-pill-group">
-                  <div class="setup-pill" id="coverage-mode-pill">Trip coverage</div>
-                  <div class="setup-pill is-muted" id="coverage-status-pill">Not configured</div>
+                  <div class="setup-pill" id="coverage-mode-pill">
+Trip coverage
+                  </div>
+                  <div class="setup-pill is-muted" id="coverage-status-pill">
+Not configured
+                  </div>
                 </div>
               </div>
 
-              <div id="coverage-status" class="setup-status" role="status" aria-live="polite"></div>
+              <div id="coverage-status" class="setup-status" role="status" aria-live="polite">
+              </div>
 
-              {# ── Phase: Import Trips ── #}
+                                                        {# ── Phase: Import Trips ── #}
               <div class="setup-phase" id="phase-import">
                 <div class="setup-phase-header">
                   <div class="setup-phase-icon">
                     <i class="fas fa-route"></i>
                   </div>
                   <div>
-                    <h3>Import Recent Trips</h3>
+                    <h3>
+Import Recent Trips
+                    </h3>
                     <p class="text-muted" id="import-description">
                       We'll fetch your trips from <strong>the last 7 days</strong> from Bouncie.
                       This tells us which states you've been driving in so we download
@@ -321,20 +418,23 @@
                   </div>
                 </div>
 
-                {# Live activity log — visible during import #}
+                                                                {# Live activity log — visible during import #}
                 <div class="setup-import-activity d-none" id="import-activity">
                   <div class="setup-import-activity-header">
                     <i class="fas fa-stream"></i>
                     <span>Import Activity</span>
                   </div>
                   <ul class="setup-import-activity-log" id="import-activity-log">
-                    {# JS will populate this with live status lines #}
+                                                                                {# JS will populate this with live status lines #}
                   </ul>
                 </div>
 
-                <div class="setup-import-hint d-none" id="trip-sync-hint"></div>
+                <div class="setup-import-hint d-none" id="trip-sync-hint">
+                </div>
 
-                <button class="btn btn-primary setup-import-btn" id="coverage-import-trips-btn" type="button">
+                <button class="btn btn-primary setup-import-btn"
+                        id="coverage-import-trips-btn"
+                        type="button">
                   <i class="fas fa-download"></i>
                   Import Recent Trips
                 </button>
@@ -346,14 +446,16 @@
                 </div>
               </div>
 
-              {# ── Phase: Detected Coverage ── #}
+                                                        {# ── Phase: Detected Coverage ── #}
               <div class="setup-phase d-none" id="phase-detected">
                 <div class="setup-phase-header">
                   <div class="setup-phase-icon is-success">
                     <i class="fas fa-check"></i>
                   </div>
                   <div>
-                    <h3 id="coverage-select-title">Detected Coverage</h3>
+                    <h3 id="coverage-select-title">
+Detected Coverage
+                    </h3>
                     <p class="text-muted" id="coverage-select-description">
                       Based on your trips, we've identified the states below.
                       Coverage data will be downloaded and built for these areas.
@@ -362,7 +464,9 @@
                 </div>
 
                 <div class="setup-detected-states" id="state-selection">
-                  <div class="text-muted">Loading states...</div>
+                  <div class="text-muted">
+Loading states...
+                  </div>
                 </div>
 
                 <div class="setup-coverage-summary">
@@ -381,7 +485,7 @@
                   Build Coverage
                 </button>
 
-                {# Hidden elements still needed by JS for compatibility #}
+                                                                {# Hidden elements still needed by JS for compatibility #}
                 <span class="d-none" id="coverage-total-size-review"></span>
                 <span class="d-none" id="coverage-time-estimate-review"></span>
                 <span class="d-none" id="coverage-review-btn" disabled></span>
@@ -399,14 +503,16 @@
                 <span class="d-none" id="trip-sync-last-attempt"></span>
               </div>
 
-              {# ── Phase: Building ── #}
+                                                        {# ── Phase: Building ── #}
               <div class="setup-phase d-none" id="phase-building">
                 <div class="setup-phase-header">
                   <div class="setup-phase-icon is-building">
                     <i class="fas fa-cog fa-spin"></i>
                   </div>
                   <div>
-                    <h3>Building Coverage</h3>
+                    <h3>
+Building Coverage
+                    </h3>
                     <p class="text-muted">
                       Downloading and building routing data. This runs in the
                       background — feel free to start exploring the app.
@@ -416,7 +522,8 @@
 
                 <div class="setup-build-progress" id="map-setup-progress">
                   <div class="progress">
-                    <div class="progress-bar" id="map-setup-progress-bar" style="width: 0%"></div>
+                    <div class="progress-bar" id="map-setup-progress-bar" style="width: 0%">
+                    </div>
                   </div>
                   <div class="progress-meta">
                     <span id="map-setup-progress-text"></span>
@@ -440,14 +547,16 @@
                 </div>
               </div>
 
-              {# ── Phase: Ready / Finish ── #}
+                                                        {# ── Phase: Ready / Finish ── #}
               <div class="setup-phase d-none" id="phase-ready">
                 <div class="setup-phase-header">
                   <div class="setup-phase-icon is-success is-celebrate">
                     <i class="fas fa-check-circle"></i>
                   </div>
                   <div>
-                    <h3>You're All Set!</h3>
+                    <h3>
+You're All Set!
+                    </h3>
                     <p class="text-muted">
                       Coverage is built and ready. Your streets are now online with
                       local geocoding and routing.
@@ -462,7 +571,9 @@
               </div>
 
               <div class="setup-actions" id="coverage-actions">
-                <button class="setup-step-button-back btn btn-outline-light" type="button" data-step-target="1">
+                <button class="setup-step-button-back btn btn-outline-light"
+                        type="button"
+                        data-step-target="1">
                   <i class="fas fa-arrow-left"></i> Back to Credentials
                 </button>
               </div>
@@ -474,6 +585,6 @@
     </div>
   </div>
 
-  {# Page scripts are loaded via route-loader + swup. #}
+        {# Page scripts are loaded via route-loader + swup. #}
 
 {% endblock %}

@@ -1,8 +1,8 @@
 """
 Redis-backed cache for expensive query results.
 
-Provides a simple decorator for caching async function results keyed
-by their arguments.  Cache entries expire via Redis TTL — no manual
+Provides a simple decorator for caching async function results keyed by
+their arguments.  Cache entries expire via Redis TTL — no manual
 invalidation is needed for normal operation.
 """
 

@@ -111,8 +111,6 @@ def get_valhalla_max_shape_points() -> int:
     return DEFAULT_VALHALLA_MAX_SHAPE_POINTS
 
 
-
-
 def get_nominatim_base_url() -> str:
     return DEFAULT_NOMINATIM_URL
 
@@ -189,8 +187,6 @@ def get_geofabrik_mirror() -> str:
 def get_osm_extracts_path() -> str:
     """Get the path to the OSM extracts directory (inside container)."""
     return os.getenv(OSM_EXTRACTS_PATH_ENV_VAR, DEFAULT_OSM_EXTRACTS_PATH).strip()
-
-
 
 
 def require_osm_data_path() -> str:

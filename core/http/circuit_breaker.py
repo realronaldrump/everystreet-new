@@ -1,8 +1,8 @@
 """
 Lightweight async circuit breaker for external service calls.
 
-Prevents hammering a service that is known to be down by tracking
-recent failures and short-circuiting calls while the breaker is open.
+Prevents hammering a service that is known to be down by tracking recent
+failures and short-circuiting calls while the breaker is open.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import time
 logger = logging.getLogger(__name__)
 
 
-class CircuitOpen(Exception):
+class CircuitOpen(Exception):  # noqa: N818
     """Raised when a call is rejected because the circuit is open."""
 
     def __init__(self, service: str, resets_in: float) -> None:
@@ -56,9 +56,12 @@ class CircuitBreaker:
 
     @property
     def state(self) -> str:
-        if self._state == "open" and self._opened_at is not None:
-            if time.monotonic() - self._opened_at >= self.recovery_timeout:
-                self._state = "half-open"
+        if (
+            self._state == "open"
+            and self._opened_at is not None
+            and time.monotonic() - self._opened_at >= self.recovery_timeout
+        ):
+            self._state = "half-open"
         return self._state
 
     def record_success(self) -> None:

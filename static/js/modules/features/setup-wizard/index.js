@@ -63,11 +63,15 @@ function withSignal(options = {}) {
 
 function getSelectedProvider() {
   const checked = document.querySelector('input[name="map_provider"]:checked');
-  const uiProvider = String(checked?.value || "").trim().toLowerCase();
+  const uiProvider = String(checked?.value || "")
+    .trim()
+    .toLowerCase();
   if (uiProvider) {
     return uiProvider;
   }
-  const statusProvider = String(setupStatus?.map_provider || "").trim().toLowerCase();
+  const statusProvider = String(setupStatus?.map_provider || "")
+    .trim()
+    .toLowerCase();
   return statusProvider || "self_hosted";
 }
 
@@ -153,16 +157,14 @@ function bindEvents(signal) {
     ?.addEventListener("click", completeSetupAndExit, eventOptions);
 
   // Continue to Dashboard during build — completes setup and navigates away
-  document
-    .getElementById("build-continue-btn")
-    ?.addEventListener(
-      "click",
-      (event) => {
-        event.preventDefault();
-        completeSetupAndExit();
-      },
-      eventOptions
-    );
+  document.getElementById("build-continue-btn")?.addEventListener(
+    "click",
+    (event) => {
+      event.preventDefault();
+      completeSetupAndExit();
+    },
+    eventOptions
+  );
 
   document.querySelectorAll(".setup-step-button").forEach((button) => {
     button.addEventListener(
@@ -267,14 +269,18 @@ async function loadBouncieCredentials() {
   try {
     const settings = await apiClient.get(APP_SETTINGS_API, withSignal());
     const provider = settings?.map_provider || "self_hosted";
-    const radio = document.querySelector(`input[name="map_provider"][value="${provider}"]`);
-    if (radio) radio.checked = true;
+    const radio = document.querySelector(
+      `input[name="map_provider"][value="${provider}"]`
+    );
+    if (radio) {
+      radio.checked = true;
+    }
 
     const googleKeyInput = document.getElementById("googleMapsApiKey");
     if (googleKeyInput && settings?.google_maps_api_key) {
       googleKeyInput.value = settings.google_maps_api_key;
     }
-    
+
     updateProviderUI();
   } catch (error) {
     console.warn("Could not load app settings", error);
@@ -460,9 +466,8 @@ function updateProgressBar({
 
 function goToStep(stepIndex, { force = false } = {}) {
   const provider = getSelectedProvider();
-  const { providerComplete, credentialsComplete, coverageRequired } = getStepCompletion(
-    provider
-  );
+  const { providerComplete, credentialsComplete, coverageRequired } =
+    getStepCompletion(provider);
   const maxStep = coverageRequired ? 2 : 1;
   const bounded = Math.max(0, Math.min(stepIndex, maxStep));
 
@@ -516,8 +521,12 @@ function updateProviderUI() {
   const googleForm = document.getElementById("googleCredentialsForm");
 
   if (usingGoogle) {
-    if (googleHeader) googleHeader.style.display = "";
-    if (googleForm) googleForm.style.display = "";
+    if (googleHeader) {
+      googleHeader.style.display = "";
+    }
+    if (googleForm) {
+      googleForm.style.display = "";
+    }
     document.getElementById("progress-step-coverage")?.classList.add("d-none");
     document.getElementById("progress-connector-container-1")?.classList.add("d-none");
     document.getElementById("sidebar-step-coverage")?.classList.add("d-none");
@@ -525,10 +534,16 @@ function updateProviderUI() {
       goToStep(1, { force: true });
     }
   } else {
-    if (googleHeader) googleHeader.style.display = "none";
-    if (googleForm) googleForm.style.display = "none";
+    if (googleHeader) {
+      googleHeader.style.display = "none";
+    }
+    if (googleForm) {
+      googleForm.style.display = "none";
+    }
     document.getElementById("progress-step-coverage")?.classList.remove("d-none");
-    document.getElementById("progress-connector-container-1")?.classList.remove("d-none");
+    document
+      .getElementById("progress-connector-container-1")
+      ?.classList.remove("d-none");
     document.getElementById("sidebar-step-coverage")?.classList.remove("d-none");
   }
 }
@@ -566,7 +581,7 @@ async function handleProviderContinue() {
 
 async function handleCredentialsContinue() {
   const provider = getSelectedProvider();
-  
+
   const googleKeyInput = document.getElementById("googleMapsApiKey");
   const googleKey = googleKeyInput ? googleKeyInput.value.trim() : "";
 
@@ -668,11 +683,19 @@ async function saveBouncieCredentials() {
   const uri = payload.redirect_uri.toLowerCase();
   if (uri.includes("localhost")) {
     if (uri.startsWith("https://")) {
-      showStatus("credentials-status", "Localhost does not support HTTPS. Please use http://localhost:8080/api/bouncie/callback", true);
+      showStatus(
+        "credentials-status",
+        "Localhost does not support HTTPS. Please use http://localhost:8080/api/bouncie/callback",
+        true
+      );
       return false;
     }
     if (uri.includes("www.localhost")) {
-      showStatus("credentials-status", "www.localhost is invalid. Please use http://localhost:8080/api/bouncie/callback", true);
+      showStatus(
+        "credentials-status",
+        "www.localhost is invalid. Please use http://localhost:8080/api/bouncie/callback",
+        true
+      );
       return false;
     }
   }
@@ -803,7 +826,8 @@ function updateCoveragePhase() {
       return;
     }
     const visible =
-      (id === "import" && (coveragePhase === "needs-import" || coveragePhase === "importing")) ||
+      (id === "import" &&
+        (coveragePhase === "needs-import" || coveragePhase === "importing")) ||
       (id === "detected" && coveragePhase === "detected") ||
       (id === "building" && coveragePhase === "building") ||
       (id === "ready" && coveragePhase === "ready");
@@ -836,10 +860,10 @@ function updateCoverageStatusPill() {
   }
   const labels = {
     "needs-import": "Needs trips",
-    "importing": "Importing...",
-    "detected": "Ready to build",
-    "building": "Building...",
-    "ready": "Ready",
+    importing: "Importing...",
+    detected: "Ready to build",
+    building: "Building...",
+    ready: "Ready",
   };
   pill.textContent = labels[coveragePhase] || "Not configured";
   pill.classList.remove("is-muted", "is-warning", "is-success");
@@ -898,7 +922,7 @@ function updateImportUI() {
         `Import in progress${elapsedText}. Coverage will auto-detect when done.`;
     } else {
       descEl.innerHTML =
-        'We\'ll fetch your trips from <strong>the last 7 days</strong> from Bouncie. ' +
+        "We'll fetch your trips from <strong>the last 7 days</strong> from Bouncie. " +
         "This tells us which states you've been driving in so we download " +
         "only the coverage data you actually need.";
     }
@@ -935,7 +959,11 @@ function appendActivityEntry(icon, iconClass, text) {
   }
 
   const now = new Date();
-  const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const time = now.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 
   const li = document.createElement("li");
   li.innerHTML = `
@@ -1018,7 +1046,10 @@ function updateTripSyncStatusUI() {
     // Compute the date range that will be fetched
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const rangeStart = weekAgo.toLocaleDateString([], { month: "short", day: "numeric" });
+    const rangeStart = weekAgo.toLocaleDateString([], {
+      month: "short",
+      day: "numeric",
+    });
     const rangeEnd = now.toLocaleDateString([], { month: "short", day: "numeric" });
 
     appendActivityEntry("play-circle", "", "Import started");
@@ -1028,9 +1059,17 @@ function updateTripSyncStatusUI() {
       `Fetching trips from <strong>${rangeStart}</strong> to <strong>${rangeEnd}</strong> (up to 7 days)`
     );
     if (tripCount > 0) {
-      appendActivityEntry("database", "", `<strong>${tripCount}</strong> trips already in database`);
+      appendActivityEntry(
+        "database",
+        "",
+        `<strong>${tripCount}</strong> trips already in database`
+      );
     }
-  } else if (state === "syncing" && tripCount > lastLoggedTripCount && lastLoggedTripCount >= 0) {
+  } else if (
+    state === "syncing" &&
+    tripCount > lastLoggedTripCount &&
+    lastLoggedTripCount >= 0
+  ) {
     // Trip count increased during import
     const added = tripCount - lastLoggedTripCount;
     appendActivityEntry(
@@ -1042,13 +1081,17 @@ function updateTripSyncStatusUI() {
   } else if (lastLoggedState === "syncing" && state !== "syncing") {
     // Import just finished
     if (state === "error") {
-      appendActivityEntry("exclamation-triangle", "is-warning", tripSyncStatus.error?.message || "Import encountered an error");
+      appendActivityEntry(
+        "exclamation-triangle",
+        "is-warning",
+        tripSyncStatus.error?.message || "Import encountered an error"
+      );
     } else {
       const elapsed = getImportElapsed();
       appendActivityEntry(
         "check-circle",
         "is-success",
-        `Import complete — <strong>${tripCount}</strong> total trip${tripCount === 1 ? "" : "s"}${elapsed ? " (" + elapsed + ")" : ""}`
+        `Import complete — <strong>${tripCount}</strong> total trip${tripCount === 1 ? "" : "s"}${elapsed ? ` (${elapsed})` : ""}`
       );
     }
     importStartedAt = null;
@@ -1079,7 +1122,8 @@ function updateDetectedStatesUI() {
 
   const selected = Array.from(selectedStates);
   if (!selected.length) {
-    container.innerHTML = '<div class="text-muted">No trip coverage detected yet.</div>';
+    container.innerHTML =
+      '<div class="text-muted">No trip coverage detected yet.</div>';
     return;
   }
 
@@ -1183,7 +1227,8 @@ function updateBuildUI() {
   if (mapSetupBtn) {
     const { credentialsComplete } = getStepCompletion();
     mapSetupBtn.classList.toggle("d-none", coveragePhase !== "detected");
-    mapSetupBtn.disabled = !credentialsComplete || mapSetupInFlight || !selectedStates.size;
+    mapSetupBtn.disabled =
+      !credentialsComplete || mapSetupInFlight || !selectedStates.size;
   }
 
   // Cancel button

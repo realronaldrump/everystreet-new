@@ -255,7 +255,9 @@ async def get_all_streets(
     undriveable_count = await CoverageState.find(
         {"area_id": area_id, "status": "undriveable"},
     ).count()
-    etag_source = f"{area.area_version}:{driven_count}:{undriveable_count}:{status_filter or ''}"
+    etag_source = (
+        f"{area.area_version}:{driven_count}:{undriveable_count}:{status_filter or ''}"
+    )
     etag = hashlib.md5(etag_source.encode()).hexdigest()
 
     if_none_match = request.headers.get("if-none-match")
@@ -327,7 +329,9 @@ async def get_all_streets(
                 },
             )
 
-        body = json.dumps({"type": "FeatureCollection", "features": features}, default=str)
+        body = json.dumps(
+            {"type": "FeatureCollection", "features": features}, default=str
+        )
         return Response(
             content=body,
             media_type="application/json",

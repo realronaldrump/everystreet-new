@@ -1,4 +1,4 @@
-/* global topojson, mapboxgl */
+/* global topojson */
 /**
  * Unified County/State/City Coverage Explorer
  */
@@ -6,7 +6,10 @@
 import { swupReady } from "../../core/navigation.js";
 import * as CoverageAPI from "../../county-map/api.js";
 import { MAP_CONFIG } from "../../county-map/constants.js";
-import { cleanupInteractions, setupInteractions } from "../../county-map/interactions.js";
+import {
+  cleanupInteractions,
+  setupInteractions,
+} from "../../county-map/interactions.js";
 import {
   applyCityVisitFeatureState,
   applyCountyVisitFeatureState,
@@ -252,14 +255,16 @@ function getPreferredStateFips() {
   }
 
   const sorted = [...rollups].sort((a, b) => {
-    const cityVisitedDiff = Number(b?.city?.visited || 0) - Number(a?.city?.visited || 0);
+    const cityVisitedDiff =
+      Number(b?.city?.visited || 0) - Number(a?.city?.visited || 0);
     if (cityVisitedDiff !== 0) {
       return cityVisitedDiff;
     }
     return String(a.stateName || "").localeCompare(String(b.stateName || ""));
   });
 
-  const first = sorted.find((entry) => Number(entry?.city?.total || 0) > 0) || sorted[0];
+  const first =
+    sorted.find((entry) => Number(entry?.city?.total || 0) > 0) || sorted[0];
   return first?.stateFips || null;
 }
 
@@ -339,9 +344,17 @@ async function loadBaseData(signal) {
     return;
   }
 
-  const countyData = topojson.feature(countyTopologyPayload, countyTopologyPayload.objects.counties);
-  const statesData = topojson.feature(countyTopologyPayload, countyTopologyPayload.objects.states);
-  const { countyToState, stateTotals, stateBounds } = buildCountyIndexes(countyData.features);
+  const countyData = topojson.feature(
+    countyTopologyPayload,
+    countyTopologyPayload.objects.counties
+  );
+  const statesData = topojson.feature(
+    countyTopologyPayload,
+    countyTopologyPayload.objects.states
+  );
+  const { countyToState, stateTotals, stateBounds } = buildCountyIndexes(
+    countyData.features
+  );
 
   CountyMapState.setCountyData(countyData);
   CountyMapState.setStatesData(statesData);
@@ -353,7 +366,9 @@ async function loadBaseData(signal) {
   CountyMapState.setCountyVisits(countyVisitsPayload.visits || {});
   CountyMapState.setCountyStops(countyVisitsPayload.stopped || {});
 
-  CountyMapState.setStateFeatureCollection(stateTopologyPayload.featureCollection || null);
+  CountyMapState.setStateFeatureCollection(
+    stateTopologyPayload.featureCollection || null
+  );
 
   applySummary(summary);
 }
@@ -373,7 +388,10 @@ function handleStateClickFromMap(event) {
     return;
   }
 
-  const stateFips = String(feature.properties?.stateFips || feature.id || "").padStart(2, "0");
+  const stateFips = String(feature.properties?.stateFips || feature.id || "").padStart(
+    2,
+    "0"
+  );
   if (!stateFips) {
     return;
   }
@@ -435,7 +453,7 @@ function bindCityRowHandlers(cities) {
 
   document.querySelectorAll(".city-stat-item").forEach((item) => {
     item.addEventListener("click", () => {
-      const cityId = item.dataset.cityId;
+      const { cityId } = item.dataset;
       const city = cities.find((row) => row.cityId === cityId);
       if (!city || !Array.isArray(city.bbox) || city.bbox.length !== 4) {
         return;
@@ -497,7 +515,7 @@ async function loadCityList(stateFips, page = 1) {
   bindCityRowHandlers(payload.cities || []);
 }
 
-async function renderCountyMode() {
+function renderCountyMode() {
   const map = CountyMapState.getMap();
   if (!map) {
     return;
@@ -508,13 +526,17 @@ async function renderCountyMode() {
     statesData: CountyMapState.getStatesData(),
     showStoppedCounties: CountyMapState.getShowStoppedCounties(),
   });
-  applyCountyVisitFeatureState(map, CountyMapState.getCountyVisits(), CountyMapState.getCountyStops());
+  applyCountyVisitFeatureState(
+    map,
+    CountyMapState.getCountyVisits(),
+    CountyMapState.getCountyStops()
+  );
   updateStopLayerVisibility();
   detachStateClickHandler(map);
   setupInteractions();
 }
 
-async function renderStateMode() {
+function renderStateMode() {
   const map = CountyMapState.getMap();
   if (!map) {
     return;
@@ -701,7 +723,7 @@ function setupLevelControls(signal) {
     button.addEventListener(
       "click",
       () => {
-        const level = button.dataset.level;
+        const { level } = button.dataset;
         if (!level || level === CountyMapState.getActiveLevel()) {
           return;
         }
@@ -877,7 +899,8 @@ async function checkAndRefresh(startedAt) {
   try {
     const data = await CoverageAPI.fetchCacheStatus({ signal: pageSignal });
     const lastUpdated = data.lastUpdated ? new Date(data.lastUpdated) : null;
-    const updatedAfterStart = lastUpdated && startedAt ? lastUpdated > startedAt : false;
+    const updatedAfterStart =
+      lastUpdated && startedAt ? lastUpdated > startedAt : false;
 
     if (data.cached && updatedAfterStart) {
       clearRecalcState();

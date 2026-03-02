@@ -1,6 +1,4 @@
-"""
-Mapping provider interfaces for geocoding and routing abstractions.
-"""
+"""Mapping provider interfaces for geocoding and routing abstractions."""
 
 from typing import Any, Protocol
 
