@@ -14,6 +14,7 @@ from core.date_utils import parse_timestamp
 from core.trip_source_policy import enforce_bouncie_source
 from county.services.county_data_service import get_county_topology_document
 from county.services.county_service import topojson_to_geojson
+from db.aggregation import aggregate_to_list
 from db.models import (
     CityBoundary,
     CityVisitedCache,
@@ -532,7 +533,8 @@ async def get_summary() -> dict[str, Any]:
                 "lastVisit": rollup.get("lastVisit"),
             }
     else:
-        city_counts = await CityBoundary.aggregate(
+        city_counts = await aggregate_to_list(
+            CityBoundary,
             [
                 {
                     "$group": {
@@ -541,8 +543,8 @@ async def get_summary() -> dict[str, Any]:
                         "state_name": {"$first": "$state_name"},
                     }
                 }
-            ]
-        ).to_list()
+            ],
+        )
         for row in city_counts:
             normalized = _state_fips(str(row.get("_id") or ""))
             city_state_totals[normalized] = {
