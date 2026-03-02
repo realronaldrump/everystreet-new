@@ -135,6 +135,10 @@ class TripService:
         )
         self._pipeline.sanitize_trip_document_geospatial_fields(existing_trip)
         await existing_trip.save()
+        await self._pipeline._enqueue_geo_coverage_sync_for_ingest(
+            source=source,
+            transaction_id=incoming.get("transactionId"),
+        )
         return True
 
     @with_comprehensive_handling

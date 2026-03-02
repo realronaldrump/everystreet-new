@@ -271,6 +271,11 @@ class TripPipeline:
         else:
             await final_trip.insert()
 
+        await self._enqueue_geo_coverage_sync_for_ingest(
+            source=getattr(final_trip, "source", source),
+            transaction_id=transaction_id,
+        )
+
         if sync_mobility:
             try:
                 await MobilityInsightsService.sync_trip(final_trip)
@@ -403,6 +408,11 @@ class TripPipeline:
                 return None
             raise
 
+        await self._enqueue_geo_coverage_sync_for_ingest(
+            source=getattr(final_trip, "source", source),
+            transaction_id=transaction_id,
+        )
+
         if do_coverage and getattr(final_trip, "coverage_emitted_at", None) is None:
             try:
                 if processed_data.get("gps"):
@@ -432,6 +442,30 @@ class TripPipeline:
 
         logger.debug("Inserted trip %s successfully (insert-only)", transaction_id)
         return final_trip
+
+    @staticmethod
+    async def _enqueue_geo_coverage_sync_for_ingest(
+        *,
+        source: str | None,
+        transaction_id: str | None,
+    ) -> None:
+        normalized_source = str(source or "").strip().lower()
+        if normalized_source != BOUNCIE_SOURCE:
+            return
+
+        try:
+            from tasks.coverage import enqueue_geo_coverage_sync_on_trip_ingest
+
+            await enqueue_geo_coverage_sync_on_trip_ingest(
+                source=normalized_source,
+                transaction_id=transaction_id,
+            )
+        except Exception as exc:
+            logger.debug(
+                "Skipping geo coverage ingest trigger for trip %s: %s",
+                transaction_id or "unknown",
+                exc,
+            )
 
     def _validate(
         self,
