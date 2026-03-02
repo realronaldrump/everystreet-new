@@ -44,6 +44,7 @@ const MAX_CONTEXT_RECOVERY_ATTEMPTS = 2;
 const CONTEXT_RECOVERY_COOLDOWN_MS = 30_000;
 const RECALC_STALE_MS = 6 * 60 * 60 * 1000;
 const RECALC_POLL_MS = 1500;
+const RECALC_NO_JOB_GRACE_MS = 20_000;
 
 let pageSignal = null;
 let inFlightRequestController = null;
@@ -1221,6 +1222,17 @@ async function checkAndRefresh(startedAt, activeJobId = null) {
     }
 
     if (!job) {
+      const elapsedMs = Date.now() - startedAt.getTime();
+      const workerShouldExist = Boolean(data?.isRecalculating);
+      if (!workerShouldExist && elapsedMs > RECALC_NO_JOB_GRACE_MS) {
+        clearRecalcState();
+        notificationManager.show(
+          "No active recalculation job was found. Please start recalculation again.",
+          "warning"
+        );
+        return;
+      }
+
       updateRecalculateUi(true, "Waiting for recalculation worker...", {
         stage: "Starting",
         progress: 0,
