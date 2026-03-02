@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from admin import router as admin_api_router
 from analytics import router as analytics_api_router
 from api.pages import router as pages_router
+from api.journey import router as journey_router
 from api.routing import router as routing_router
 from api.status import router as status_router
 from core.jinja import templates
@@ -194,6 +195,7 @@ app.include_router(gas_api_router)
 app.include_router(tracking_api_router)
 app.include_router(logs_api_router)
 app.include_router(map_data_router)
+app.include_router(journey_router)
 
 app.include_router(processing_api_router)
 app.include_router(profile_api_router)

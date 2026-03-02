@@ -523,6 +523,17 @@ System
             </div>
             <div id="date-picker-overlay" class="date-picker-overlay" aria-hidden="true">
             </div>
+            <button id="journey-time-machine-toggle"
+                    class="time-machine-trigger"
+                    type="button"
+                    aria-haspopup="dialog"
+                    aria-controls="journey-time-machine"
+                    aria-expanded="false"
+                    title="Open Journey Time Machine (Shift+T)">
+              <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
+              <span class="time-machine-trigger-text">Time Machine</span>
+              <kbd class="time-machine-shortcut" aria-hidden="true">Shift+T</kbd>
+            </button>
             <label class="theme-toggle" title="Toggle dark/light mode">
               <input type="checkbox"
                      id="theme-toggle-checkbox"
@@ -896,6 +907,186 @@ System
           </div>
         </footer>
       </main>
+
+      <section id="journey-time-machine"
+               class="journey-time-machine"
+               role="dialog"
+               aria-modal="true"
+               aria-labelledby="journey-time-machine-title"
+               aria-hidden="true">
+        <div class="journey-time-machine__backdrop"
+             id="journey-time-machine-backdrop"
+             data-action="close"
+             aria-hidden="true">
+        </div>
+        <div class="journey-time-machine__shell" role="document">
+          <header class="journey-time-machine__header">
+            <div class="journey-title-group">
+              <p class="journey-kicker">
+Journey Mode
+              </p>
+              <h2 id="journey-time-machine-title" class="journey-title">
+Journey Time Machine
+              </h2>
+              <p class="journey-subtitle" id="journey-filter-summary">
+Replay your timeline across trips, visits, fuel, coverage, and map matching.
+              </p>
+            </div>
+            <button id="journey-time-machine-close"
+                    class="journey-close-btn"
+                    type="button"
+                    aria-label="Close Journey Time Machine">
+              <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+          </header>
+
+          <div class="journey-time-machine__layout">
+            <aside class="journey-pane journey-pane--rail"
+                   aria-label="Journey event timeline">
+              <div class="journey-pane__head">
+                <h3 class="journey-pane__title">
+Timeline
+                </h3>
+                <span id="journey-feed-count" class="journey-count-pill">
+0 events
+                </span>
+              </div>
+              <div id="journey-filter-chips"
+                   class="journey-filter-chips"
+                   role="group"
+                   aria-label="Filter event types">
+              </div>
+              <div id="journey-feed-status" class="journey-feed-status" role="status">
+Loading feed...
+              </div>
+              <div id="journey-feed-empty" class="journey-feed-empty d-none">
+                <p class="journey-feed-empty__title">
+No journey events in this range
+                </p>
+                <p class="journey-feed-empty__body">
+Try a wider range to populate the timeline quickly.
+                </p>
+                <div class="journey-empty-presets" role="group" aria-label="Quick date ranges">
+                  <button class="journey-preset-btn" data-range="last-week" type="button">
+Last 7 days
+                  </button>
+                  <button class="journey-preset-btn" data-range="last-month" type="button">
+Last 30 days
+                  </button>
+                  <button class="journey-preset-btn" data-range="all-time" type="button">
+All time
+                  </button>
+                </div>
+              </div>
+              <div id="journey-feed-list"
+                   class="journey-feed-list"
+                   role="listbox"
+                   aria-label="Timeline events">
+              </div>
+            </aside>
+
+            <section class="journey-pane journey-pane--map"
+                     aria-label="Journey playback map">
+              <div id="journey-map-canvas" class="journey-map-canvas">
+              </div>
+              <div class="journey-map-overlay">
+                <div class="journey-map-overlay__top">
+                  <span id="journey-current-timestamp" class="journey-current-timestamp">
+--:--
+                  </span>
+                  <button id="journey-follow-route"
+                          class="journey-follow-btn"
+                          type="button"
+                          aria-pressed="true"
+                          title="Toggle route follow mode">
+                    <i class="fas fa-location-crosshairs" aria-hidden="true"></i>
+                    Follow
+                  </button>
+                </div>
+                <div class="journey-playback-controls"
+                     role="group"
+                     aria-label="Playback controls">
+                  <button id="journey-prev-event"
+                          class="journey-control-btn"
+                          type="button"
+                          title="Previous event">
+                    <i class="fas fa-backward-step" aria-hidden="true"></i>
+                  </button>
+                  <button id="journey-jump-back"
+                          class="journey-control-btn"
+                          type="button"
+                          title="Jump back 5 minutes">
+                    -5m
+                  </button>
+                  <button id="journey-play-toggle"
+                          class="journey-control-btn journey-control-btn--primary"
+                          type="button"
+                          aria-pressed="false"
+                          title="Play or pause timeline">
+                    <i class="fas fa-play" aria-hidden="true"></i>
+                    <span>Play</span>
+                  </button>
+                  <button id="journey-jump-forward"
+                          class="journey-control-btn"
+                          type="button"
+                          title="Jump forward 5 minutes">
++5m
+                  </button>
+                  <button id="journey-next-event"
+                          class="journey-control-btn"
+                          type="button"
+                          title="Next event">
+                    <i class="fas fa-forward-step" aria-hidden="true"></i>
+                  </button>
+                  <div class="journey-scrubber-wrap">
+                    <label for="journey-timeline-scrubber" class="journey-scrubber-label">
+Scrub
+                    </label>
+                    <input id="journey-timeline-scrubber"
+                           class="journey-scrubber"
+                           type="range"
+                           min="0"
+                           max="0"
+                           value="0"
+                           step="1" />
+                  </div>
+                  <label for="journey-speed-select" class="journey-speed-label">
+Speed
+                  </label>
+                  <select id="journey-speed-select" class="journey-speed-select">
+                    <option value="0.5">0.5x</option>
+                    <option value="1" selected>1x</option>
+                    <option value="2">2x</option>
+                  </select>
+                </div>
+              </div>
+            </section>
+
+            <aside class="journey-pane journey-pane--inspector"
+                   aria-label="Selected event details">
+              <div class="journey-pane__head">
+                <h3 class="journey-pane__title">
+Inspector
+                </h3>
+              </div>
+              <article id="journey-inspector" class="journey-inspector">
+                <p class="journey-inspector-empty">
+Select an event from the timeline to inspect details.
+                </p>
+              </article>
+              <div class="journey-source-actions">
+                <a id="journey-open-source"
+                   class="journey-open-source is-disabled"
+                   href="#"
+                   target="_self"
+                   aria-disabled="true">
+                  Open source
+                </a>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
 
       <nav id="bottom-nav" class="bottom-nav" aria-label="Primary">
         <a href="/map" class="bottom-nav-item">

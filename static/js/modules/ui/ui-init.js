@@ -15,6 +15,7 @@ import swipeActions from "./swipe-actions.js";
 import swipeDismiss from "./swipe-dismiss.js";
 import themeManager from "./theme-manager.js";
 import widgetManager from "./widget-manager.js";
+import initJourneyTimeMachine from "../features/journey-time-machine/index.js";
 
 function init() {
   if (store.ui.initialized) {
@@ -59,6 +60,7 @@ function init() {
     contextualUI.init?.();
     mapControlsManager.init?.();
     setupRequired.init?.();
+    initJourneyTimeMachine?.();
 
     // Pause animations when tab is hidden (saves CPU)
     document.addEventListener("visibilitychange", () => {

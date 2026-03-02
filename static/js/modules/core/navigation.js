@@ -327,6 +327,11 @@ function setRouteState(pathname) {
   document.body.classList.toggle("turn-by-turn-active", path === "/turn-by-turn");
   updateNav(path);
   updateMapShellA11y(path);
+  document.dispatchEvent(
+    new CustomEvent("journey:route-context", {
+      detail: { path },
+    })
+  );
 }
 
 function shouldIgnoreVisit(url, { el, event } = {}) {
