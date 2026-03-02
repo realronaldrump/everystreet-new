@@ -1,6 +1,6 @@
 /**
  * County Map UI Module
- * Handles UI updates, loading states, and recalculation prompts.
+ * Handles UI updates, loading states, level-specific renderers, and recalculation prompts.
  */
 
 import * as CountyMapState from "./state.js";
@@ -12,21 +12,12 @@ function setText(id, text) {
   }
 }
 
-/**
- * Get all recalculate buttons
- * @returns {HTMLElement[]} Array of recalculate button elements
- */
 export function getRecalculateButtons() {
   return ["recalculate-btn", "trigger-recalculate"]
     .map((id) => document.getElementById(id))
     .filter(Boolean);
 }
 
-/**
- * Update the recalculate UI state (buttons, status message)
- * @param {boolean} isActive - Whether recalculation is active
- * @param {string} [message] - Optional status message
- */
 export function updateRecalculateUi(isActive, message) {
   const status = document.getElementById("recalculate-status");
   if (status) {
@@ -51,10 +42,6 @@ export function updateRecalculateUi(isActive, message) {
   });
 }
 
-/**
- * Show prompt to recalculate county data
- * @param {Function} onRecalculate - Callback when recalculate button is clicked
- */
 export function showRecalculatePrompt(onRecalculate) {
   const statsContent = document.getElementById("stats-content");
   if (statsContent) {
@@ -77,10 +64,6 @@ export function showRecalculatePrompt(onRecalculate) {
   }
 }
 
-/**
- * Update loading text display
- * @param {string} text - Loading text to display
- */
 export function updateLoadingText(text) {
   const textEl = document.querySelector(".loading-text");
   if (textEl) {
@@ -88,9 +71,6 @@ export function updateLoadingText(text) {
   }
 }
 
-/**
- * Hide the loading overlay
- */
 export function hideLoading() {
   const loadingEl = document.getElementById("map-loading");
   if (loadingEl) {
@@ -101,10 +81,6 @@ export function hideLoading() {
   }
 }
 
-/**
- * Update the last updated timestamp display
- * @param {string} isoString - ISO date string
- */
 export function updateLastUpdated(isoString) {
   const lastUpdated = isoString ? new Date(isoString) : null;
   const el = document.getElementById("last-updated");
@@ -117,10 +93,11 @@ export function updateLastUpdated(isoString) {
   }
 }
 
-/**
- * Update statistics display
- */
-export function updateStats() {
+// =============================================================================
+// Summary bar
+// =============================================================================
+
+export function updateSummaryBar() {
   const summary = CountyMapState.getSummary();
   if (!summary?.levels) {
     return;
@@ -130,82 +107,272 @@ export function updateStats() {
   const state = summary.levels.state || {};
   const city = summary.levels.city || {};
 
-  const countyVisited = Number(county.visited || 0);
-  const countyTotal = Number(county.total || 0);
-  const countyPercent = Number(county.percent || 0);
-
-  const stateVisited = Number(state.visited || 0);
-  const stateTotal = Number(state.total || 0);
-  const statePercent = Number(state.percent || 0);
-
-  const cityVisited = Number(city.visited || 0);
-  const cityTotal = Number(city.total || 0);
-  const cityPercent = Number(city.percent || 0);
-
-  setText("counties-visited", countyVisited.toLocaleString());
-  setText("counties-total", countyTotal.toLocaleString());
-  setText("states-visited", stateVisited.toLocaleString());
-  setText("states-total", stateTotal.toLocaleString());
-  setText("cities-visited", cityVisited.toLocaleString());
-  setText("cities-total", cityTotal.toLocaleString());
-
-  setText("county-coverage", `${countyPercent.toFixed(1)}%`);
-  setText("state-coverage", `${statePercent.toFixed(1)}%`);
-  setText("city-coverage", `${cityPercent.toFixed(1)}%`);
+  setText(
+    "summary-county-count",
+    `${Number(county.visited || 0).toLocaleString()}/${Number(county.total || 0).toLocaleString()}`
+  );
+  setText(
+    "summary-state-count",
+    `${Number(state.visited || 0).toLocaleString()}/${Number(state.total || 0).toLocaleString()}`
+  );
+  setText(
+    "summary-city-count",
+    `${Number(city.visited || 0).toLocaleString()}/${Number(city.total || 0).toLocaleString()}`
+  );
 }
 
-/**
- * Update visible level-specific sections.
- * @param {'county'|'state'|'city'} level
- */
+// =============================================================================
+// Hero ring helper
+// =============================================================================
+
+const HERO_R = 32;
+const HERO_CIRCUMFERENCE = 2 * Math.PI * HERO_R;
+
+function renderHeroRing(percent, visited, total, levelLabel, ringModifier = "") {
+  const offset = HERO_CIRCUMFERENCE - (percent / 100) * HERO_CIRCUMFERENCE;
+
+  return `
+    <div class="level-hero">
+      <div class="hero-ring">
+        <svg viewBox="0 0 76 76">
+          <circle class="hero-ring-bg" cx="38" cy="38" r="${HERO_R}" />
+          <circle class="hero-ring-fill${ringModifier}" cx="38" cy="38" r="${HERO_R}"
+                  stroke-dasharray="${HERO_CIRCUMFERENCE.toFixed(2)}"
+                  stroke-dashoffset="${offset.toFixed(2)}" />
+        </svg>
+        <span class="hero-ring-value">${percent.toFixed(1)}%</span>
+      </div>
+      <div class="hero-detail">
+        <div class="hero-count">
+          ${visited.toLocaleString()} <span class="hero-count-total">/ ${total.toLocaleString()}</span>
+        </div>
+        <div class="hero-label">${levelLabel}</div>
+      </div>
+    </div>`;
+}
+
+// =============================================================================
+// State list section helper (shared by county and state views)
+// =============================================================================
+
+function renderStateListSection() {
+  return `
+    <div class="level-list-section">
+      <div class="level-list-header">
+        <span class="level-list-title">By State</span>
+        <select class="form-select form-select-sm level-sort-select" id="state-sort">
+          <option value="name">Name A\u2192Z</option>
+          <option value="coverage-desc">Coverage \u2193</option>
+          <option value="coverage-asc">Coverage \u2191</option>
+          <option value="visited-desc">Visited \u2193</option>
+        </select>
+      </div>
+      <div class="state-stats-list" id="state-list"></div>
+    </div>`;
+}
+
+// =============================================================================
+// Level-specific renderers
+// =============================================================================
+
+export function renderCountyLevelView(container) {
+  const summary = CountyMapState.getSummary();
+  const county = summary?.levels?.county || {};
+  const percent = Number(county.percent || 0);
+  const visited = Number(county.visited || 0);
+  const total = Number(county.total || 0);
+  const stoppedCount = Object.keys(CountyMapState.getCountyStops()).length;
+  const showStopped = CountyMapState.getShowStoppedCounties();
+
+  let html = renderHeroRing(percent, visited, total, "Counties Visited");
+
+  if (stoppedCount > 0) {
+    html += `<div class="level-stat-badge">
+      <i class="fas fa-map-pin me-1" aria-hidden="true"></i>${stoppedCount} Stopped In
+    </div>`;
+  }
+
+  html += `
+    <div class="level-legend">
+      <div class="legend-row">
+        <span class="legend-swatch legend-swatch--visited"></span>
+        <span>Driven Through</span>
+      </div>
+      <div class="legend-row legend-row--toggle">
+        <span class="legend-swatch legend-swatch--stopped"></span>
+        <span>Stopped In</span>
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="toggle-stops"${showStopped ? " checked" : ""}>
+        </div>
+      </div>
+      <div class="legend-row">
+        <span class="legend-swatch legend-swatch--unvisited"></span>
+        <span>Not Yet Visited</span>
+      </div>
+    </div>`;
+
+  html += renderStateListSection();
+  container.innerHTML = html;
+}
+
+export function renderStateLevelView(container) {
+  const summary = CountyMapState.getSummary();
+  const state = summary?.levels?.state || {};
+  const percent = Number(state.percent || 0);
+  const visited = Number(state.visited || 0);
+  const total = Number(state.total || 0);
+
+  let html = renderHeroRing(
+    percent,
+    visited,
+    total,
+    "States Visited",
+    " hero-ring-fill--state"
+  );
+
+  html += `
+    <div class="level-legend">
+      <div class="legend-row">
+        <span class="legend-swatch legend-swatch--state-low"></span>
+        <span>Low Coverage</span>
+      </div>
+      <div class="legend-row">
+        <span class="legend-swatch legend-swatch--state-mid"></span>
+        <span>Mid Coverage</span>
+      </div>
+      <div class="legend-row">
+        <span class="legend-swatch legend-swatch--state-high"></span>
+        <span>High Coverage</span>
+      </div>
+    </div>`;
+
+  html += renderStateListSection();
+  container.innerHTML = html;
+}
+
+export function renderCityLevelView(container) {
+  const summary = CountyMapState.getSummary();
+  const city = summary?.levels?.city || {};
+  const percent = Number(city.percent || 0);
+  const visited = Number(city.visited || 0);
+  const total = Number(city.total || 0);
+
+  let html = renderHeroRing(
+    percent,
+    visited,
+    total,
+    "Cities Visited",
+    " hero-ring-fill--city"
+  );
+
+  html += `
+    <div class="level-legend">
+      <div class="legend-row">
+        <span class="legend-swatch legend-swatch--visited"></span>
+        <span>Visited City</span>
+      </div>
+      <div class="legend-row">
+        <span class="legend-swatch legend-swatch--unvisited"></span>
+        <span>Unvisited City</span>
+      </div>
+    </div>`;
+
+  html += `
+    <div class="level-list-section">
+      <div class="level-list-header">
+        <span class="level-list-title">City Explorer</span>
+        <select class="form-select form-select-sm level-sort-select" id="city-state-select"></select>
+      </div>
+      <div class="city-filters">
+        <select class="form-select form-select-sm" id="city-status">
+          <option value="all">All</option>
+          <option value="visited">Visited</option>
+          <option value="unvisited">Unvisited</option>
+        </select>
+        <select class="form-select form-select-sm" id="city-sort">
+          <option value="name">Name A\u2192Z</option>
+          <option value="visited_first">Visited First</option>
+          <option value="unvisited_first">Unvisited First</option>
+        </select>
+        <input type="text" class="form-control form-control-sm" id="city-search"
+               placeholder="Search cities\u2026">
+      </div>
+      <div class="city-stats-list" id="city-list"></div>
+      <div class="city-pagination" id="city-pagination"></div>
+    </div>`;
+
+  container.innerHTML = html;
+}
+
+// =============================================================================
+// Level UI orchestration
+// =============================================================================
+
 export function updateLevelUi(level) {
-  const levelButtons = document.querySelectorAll("[data-level]");
-  levelButtons.forEach((button) => {
-    const active = button.dataset.level === level;
-    button.classList.toggle("coverage-level-btn--active", active);
-    button.setAttribute("aria-pressed", active ? "true" : "false");
+  // Update tab buttons
+  document.querySelectorAll(".coverage-level-btn[data-level]").forEach((btn) => {
+    const active = btn.dataset.level === level;
+    btn.classList.toggle("coverage-level-btn--active", active);
+    btn.setAttribute("aria-selected", String(active));
   });
 
-  const countyLegend = document.getElementById("legend-county");
-  const stateLegend = document.getElementById("legend-state");
-  const cityLegend = document.getElementById("legend-city");
+  // Update summary pills
+  document.querySelectorAll(".summary-pill[data-level]").forEach((pill) => {
+    pill.classList.toggle("summary-pill--active", pill.dataset.level === level);
+  });
 
-  if (countyLegend) {
-    countyLegend.style.display = level === "county" ? "block" : "none";
-  }
-  if (stateLegend) {
-    stateLegend.style.display = level === "state" ? "block" : "none";
-  }
-  if (cityLegend) {
-    cityLegend.style.display = level === "city" ? "block" : "none";
+  // Render level-specific view into dynamic container
+  const container = document.getElementById("level-content");
+  if (!container) {
+    return;
   }
 
-  const cityControls = document.getElementById("city-controls");
-  if (cityControls) {
-    cityControls.style.display = level === "city" ? "block" : "none";
+  // Retrigger fade-in animation
+  container.style.animation = "none";
+  void container.offsetHeight;
+  container.style.animation = "";
+
+  switch (level) {
+    case "county":
+      renderCountyLevelView(container);
+      break;
+    case "state":
+      renderStateLevelView(container);
+      break;
+    case "city":
+      renderCityLevelView(container);
+      break;
   }
 }
 
-/**
- * Render state rollup list
- * @param {{sortBy?: string, onSelectState?: (stateFips: string) => void}} options
- */
+// =============================================================================
+// State stats list
+// =============================================================================
+
 export function renderStateStatsList(options = {}) {
   const { sortBy = "name", onSelectState } = options;
   const stateList = [...CountyMapState.getStateRollups()];
 
   switch (sortBy) {
     case "coverage-desc":
-      stateList.sort((a, b) => (b?.county?.percent || 0) - (a?.county?.percent || 0));
+      stateList.sort(
+        (a, b) => (b?.county?.percent || 0) - (a?.county?.percent || 0)
+      );
       break;
     case "coverage-asc":
-      stateList.sort((a, b) => (a?.county?.percent || 0) - (b?.county?.percent || 0));
+      stateList.sort(
+        (a, b) => (a?.county?.percent || 0) - (b?.county?.percent || 0)
+      );
       break;
     case "visited-desc":
-      stateList.sort((a, b) => (b?.county?.visited || 0) - (a?.county?.visited || 0));
+      stateList.sort(
+        (a, b) => (b?.county?.visited || 0) - (a?.county?.visited || 0)
+      );
       break;
     default:
-      stateList.sort((a, b) => (a.stateName || "").localeCompare(b.stateName || ""));
+      stateList.sort((a, b) =>
+        (a.stateName || "").localeCompare(b.stateName || "")
+      );
   }
 
   const container = document.getElementById("state-list");
@@ -250,10 +417,10 @@ export function renderStateStatsList(options = {}) {
   });
 }
 
-/**
- * Render city rows
- * @param {Object} payload
- */
+// =============================================================================
+// City rows
+// =============================================================================
+
 export function renderCityRows(payload) {
   const listEl = document.getElementById("city-list");
   const paginationEl = document.getElementById("city-pagination");
@@ -265,7 +432,8 @@ export function renderCityRows(payload) {
   const pagination = payload?.pagination || {};
 
   if (!cities.length) {
-    listEl.innerHTML = '<div class="empty-list">No cities match this filter.</div>';
+    listEl.innerHTML =
+      '<div class="empty-list">No cities match this filter.</div>';
   } else {
     listEl.innerHTML = cities
       .map((city) => {
@@ -295,11 +463,6 @@ export function renderCityRows(payload) {
   `;
 }
 
-/**
- * Format date for display
- * @param {string} isoString - ISO date string
- * @returns {string} Formatted date string
- */
 export function formatDate(isoString) {
   if (!isoString) {
     return "Unknown";
@@ -319,9 +482,6 @@ export function formatDate(isoString) {
   }
 }
 
-/**
- * Setup panel toggle functionality
- */
 export function setupPanelToggle() {
   const panel = document.getElementById("stats-panel");
   const toggleBtn = document.getElementById("stats-toggle");

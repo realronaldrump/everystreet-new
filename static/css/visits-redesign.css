@@ -889,27 +889,27 @@
   border: 1px solid var(--border-color);
 }
 
-.map-container--visits {
+#visits-page .map-container--visits {
   height: 300px;
   min-height: 300px;
 }
 
 @media (width >= 640px) {
-  .map-container--visits {
+  #visits-page .map-container--visits {
     height: 400px;
     min-height: 400px;
   }
 }
 
 @media (width >= 1024px) {
-  .map-container--visits {
+  #visits-page .map-container--visits {
     height: 500px;
     min-height: 500px;
   }
 }
 
 @media (width >= 1400px) {
-  .map-container--visits {
+  #visits-page .map-container--visits {
     height: 600px;
     min-height: 600px;
   }
@@ -1724,7 +1724,7 @@
     padding: var(--space-3) var(--space-5);
   }
 
-  .map-container--visits {
+  #visits-page .map-container--visits {
     height: 350px;
   }
 

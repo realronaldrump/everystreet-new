@@ -43,86 +43,62 @@ Coverage Explorer
       </div>
 
       <div class="stats-content" id="stats-content">
-        <div class="coverage-level-switcher" role="group" aria-label="Coverage level">
+
+        <!-- Compact summary bar: always visible -->
+        <div class="coverage-summary-bar" id="coverage-summary-bar">
+          <div class="summary-pill summary-pill--active" data-level="county">
+            <span class="summary-pill-icon"><i class="fas fa-vector-square" aria-hidden="true"></i></span>
+            <div class="summary-pill-text">
+              <span class="summary-pill-value" id="summary-county-count">0/0</span>
+              <span class="summary-pill-label">Counties</span>
+            </div>
+          </div>
+          <div class="summary-pill" data-level="state">
+            <span class="summary-pill-icon"><i class="fas fa-map" aria-hidden="true"></i></span>
+            <div class="summary-pill-text">
+              <span class="summary-pill-value" id="summary-state-count">0/0</span>
+              <span class="summary-pill-label">States</span>
+            </div>
+          </div>
+          <div class="summary-pill" data-level="city">
+            <span class="summary-pill-icon"><i class="fas fa-city" aria-hidden="true"></i></span>
+            <div class="summary-pill-text">
+              <span class="summary-pill-value" id="summary-city-count">0/0</span>
+              <span class="summary-pill-label">Cities</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Level tab switcher -->
+        <div class="coverage-level-switcher" role="tablist" aria-label="Coverage level">
           <button class="coverage-level-btn coverage-level-btn--active"
                   data-level="county"
-                  aria-pressed="true"
+                  role="tab"
+                  aria-selected="true"
                   type="button">
             Counties
           </button>
           <button class="coverage-level-btn"
                   data-level="state"
-                  aria-pressed="false"
+                  role="tab"
+                  aria-selected="false"
                   type="button">
             States
           </button>
-          <button class="coverage-level-btn" data-level="city" aria-pressed="false" type="button">
+          <button class="coverage-level-btn"
+                  data-level="city"
+                  role="tab"
+                  aria-selected="false"
+                  type="button">
             Cities
           </button>
         </div>
 
-        <div class="stats-grid stats-grid--explorer">
-          <div class="stat-card stat-card--primary">
-            <div class="stat-value" id="counties-visited" data-value-flash>
-0
-            </div>
-            <div class="stat-label">
-Counties Visited
-            </div>
-            <div class="stat-subvalue" id="counties-total">
-0
-            </div>
-          </div>
-          <div class="stat-card stat-card--secondary">
-            <div class="stat-value" id="county-coverage" data-coverage-percent data-value-flash>
-0%
-            </div>
-            <div class="stat-label">
-County Completion
-            </div>
-          </div>
-
-          <div class="stat-card stat-card--primary">
-            <div class="stat-value" id="states-visited" data-value-flash>
-0
-            </div>
-            <div class="stat-label">
-States Visited
-            </div>
-            <div class="stat-subvalue" id="states-total">
-0
-            </div>
-          </div>
-          <div class="stat-card stat-card--secondary">
-            <div class="stat-value" id="state-coverage" data-value-flash>
-0%
-            </div>
-            <div class="stat-label">
-State Completion
-            </div>
-          </div>
-
-          <div class="stat-card stat-card--primary">
-            <div class="stat-value" id="cities-visited" data-value-flash>
-0
-            </div>
-            <div class="stat-label">
-Cities Visited
-            </div>
-            <div class="stat-subvalue" id="cities-total">
-0
-            </div>
-          </div>
-          <div class="stat-card stat-card--secondary">
-            <div class="stat-value" id="city-coverage" data-value-flash>
-0%
-            </div>
-            <div class="stat-label">
-City Completion
-            </div>
-          </div>
+        <!-- Dynamic level content: populated by JS per active level -->
+        <div class="level-view" id="level-content" role="tabpanel" aria-label="Level details">
         </div>
 
+        <!-- Cache info / recalculate: shared across all levels -->
         <div class="cache-info">
           <span class="last-updated" id="last-updated"></span>
           <button class="btn btn-sm btn-outline-secondary"
@@ -134,162 +110,6 @@ City Completion
         <div class="recalculate-status" id="recalculate-status" aria-live="polite">
         </div>
 
-        <div class="map-legend" id="legend-county">
-          <h3 class="legend-title">
-County Legend
-          </h3>
-          <div class="legend-items">
-            <div class="legend-item">
-              <span class="legend-color legend-color--visited"></span>
-              <span class="legend-label">Driven Through</span>
-            </div>
-            <div class="legend-item legend-item--toggle">
-              <div class="legend-item-left">
-                <span class="legend-color legend-color--stopped"></span>
-                <label class="legend-label" for="toggle-stops">
- Stopped In
-                </label>
-              </div>
-              <div class="form-check form-switch legend-switch">
-                <input class="form-check-input"
-                       type="checkbox"
-                       role="switch"
-                       id="toggle-stops"
-                       aria-label="Toggle stopped counties" />
-              </div>
-            </div>
-            <div class="legend-item">
-              <span class="legend-color legend-color--unvisited"></span>
-              <span class="legend-label">Not Yet Visited</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-color legend-color--state-border"></span>
-              <span class="legend-label">State Border</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="map-legend" id="legend-state" style="display: none">
-          <h3 class="legend-title">
-State Legend
-          </h3>
-          <div class="legend-items">
-            <div class="legend-item">
-              <span class="legend-color legend-color--state-low"></span>
-              <span class="legend-label">Low County Completion</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-color legend-color--state-mid"></span>
-              <span class="legend-label">Mid County Completion</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-color legend-color--state-high"></span>
-              <span class="legend-label">High County Completion</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="map-legend" id="legend-city" style="display: none">
-          <h3 class="legend-title">
-City Legend
-          </h3>
-          <div class="legend-items">
-            <div class="legend-item">
-              <span class="legend-color legend-color--visited"></span>
-              <span class="legend-label">Visited City</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-color legend-color--unvisited"></span>
-              <span class="legend-label">Unvisited City</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="state-stats-section">
-          <div class="state-stats-header state-stats-header--static">
-            <span class="state-stats-title">
-              <i class="fas fa-list-ul me-2" aria-hidden="true"></i>
-            Coverage by State
-            </span>
-          </div>
-          <div class="state-stats-content" id="state-stats-list">
-            <div class="state-stats-filter">
-              <select id="state-sort" class="form-select form-select-sm">
-                <option value="name">
-Sort by Name
-                </option>
-                <option value="coverage-desc">
-Sort by Coverage (High to Low)
-                </option>
-                <option value="coverage-asc">
-Sort by Coverage (Low to High)
-                </option>
-                <option value="visited-desc">
-Sort by Visited (High to Low)
-                </option>
-              </select>
-            </div>
-            <div class="state-stats-list" id="state-list">
-            </div>
-          </div>
-        </div>
-
-        <div id="city-controls" class="city-controls" style="display: none">
-          <div class="state-stats-header state-stats-header--static">
-            <span class="state-stats-title">
-              <i class="fas fa-city me-2" aria-hidden="true"></i>
-            City Explorer
-            </span>
-            <button id="city-refresh" class="btn btn-sm btn-outline-secondary" type="button">
-              <i class="fas fa-rotate-right me-1" aria-hidden="true"></i>
-              Refresh
-            </button>
-          </div>
-
-          <div class="city-filters">
-            <select id="city-state-select"
-                    class="form-select form-select-sm"
-                    aria-label="Select state">
-            </select>
-            <select id="city-status"
-                    class="form-select form-select-sm"
-                    aria-label="Filter city status">
-              <option value="all">
-All
-              </option>
-              <option value="visited">
-Visited
-              </option>
-              <option value="unvisited">
-Unvisited
-              </option>
-            </select>
-            <select id="city-sort" class="form-select form-select-sm" aria-label="Sort cities">
-              <option value="name">
-Sort by Name
-              </option>
-              <option value="visited-desc">
-Visited First
-              </option>
-              <option value="visited-asc">
-Unvisited First
-              </option>
-              <option value="last-visit-desc">
-Last Visit (Newest)
-              </option>
-            </select>
-            <input id="city-search"
-                   class="form-control form-control-sm"
-                   type="search"
-                   placeholder="Search city"
-                   aria-label="Search city" />
-          </div>
-
-          <div class="city-stats-list" id="city-list">
-          </div>
-          <div class="city-pagination" id="city-pagination">
-          </div>
-        </div>
       </div>
     </div>
 

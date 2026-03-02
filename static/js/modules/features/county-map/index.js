@@ -34,7 +34,7 @@ import {
   updateLevelUi,
   updateLoadingText,
   updateRecalculateUi,
-  updateStats,
+  updateSummaryBar,
 } from "../../county-map/ui.js";
 import { createMap } from "../../map-core.js";
 import notificationManager from "../../ui/notifications.js";
@@ -324,10 +324,8 @@ function bindStateList(sortBy = null) {
 function applySummary(summary) {
   CountyMapState.setSummary(summary);
   CountyMapState.setStateRollups(summary?.states || []);
-  updateStats();
+  updateSummaryBar();
   updateLastUpdated(summary?.lastUpdated);
-  bindStateList();
-  updateStateSelector();
 }
 
 async function loadBaseData(signal) {
@@ -593,17 +591,21 @@ async function renderActiveLevel() {
   const token = ++levelRenderToken;
 
   updateLevelUi(level);
+  bindLevelControls();
 
   if (level === "county") {
+    bindStateList();
     await renderCountyMode();
     return;
   }
 
   if (level === "state") {
+    bindStateList();
     await renderStateMode();
     return;
   }
 
+  updateStateSelector();
   await renderCityMode(token);
 }
 
@@ -719,71 +721,81 @@ function bindMapLifecycle(map, { recovery = false } = {}) {
 function setupLevelControls(signal) {
   const eventOptions = signal ? { signal } : false;
 
-  document.querySelectorAll("[data-level]").forEach((button) => {
-    button.addEventListener(
-      "click",
-      () => {
-        const { level } = button.dataset;
-        if (!level || level === CountyMapState.getActiveLevel()) {
-          return;
+  // One-time binding: tab buttons and summary pills switch levels
+  document
+    .querySelectorAll(".coverage-level-btn[data-level], .summary-pill[data-level]")
+    .forEach((el) => {
+      el.addEventListener(
+        "click",
+        () => {
+          const { level } = el.dataset;
+          if (!level || level === CountyMapState.getActiveLevel()) {
+            return;
+          }
+          CountyMapState.setActiveLevel(level);
+          void renderActiveLevel();
+        },
+        eventOptions
+      );
+    });
+}
+
+/**
+ * Bind event listeners for dynamically-rendered level controls.
+ * Called after each level switch since innerHTML replaces the DOM.
+ */
+function bindLevelControls() {
+  const level = CountyMapState.getActiveLevel();
+
+  // County: stop toggle
+  if (level === "county") {
+    const toggle = document.getElementById("toggle-stops");
+    if (toggle) {
+      toggle.checked = CountyMapState.getShowStoppedCounties();
+      toggle.addEventListener("change", () => {
+        CountyMapState.setShowStoppedCounties(toggle.checked);
+        if (CountyMapState.getActiveLevel() === "county") {
+          updateStopLayerVisibility();
         }
-        CountyMapState.setActiveLevel(level);
-        void renderActiveLevel();
-      },
-      eventOptions
-    );
+      });
+    }
+  }
+
+  // State sort (present on county and state views)
+  const stateSort = document.getElementById("state-sort");
+  stateSort?.addEventListener("change", () => {
+    bindStateList(stateSort.value);
   });
 
-  const stateSort = document.getElementById("state-sort");
-  stateSort?.addEventListener(
-    "change",
-    () => {
-      bindStateList(stateSort.value);
-    },
-    eventOptions
-  );
-
-  const cityStateSelect = document.getElementById("city-state-select");
-  cityStateSelect?.addEventListener(
-    "change",
-    () => {
+  // City-level controls
+  if (level === "city") {
+    const cityStateSelect = document.getElementById("city-state-select");
+    cityStateSelect?.addEventListener("change", () => {
       CountyMapState.setSelectedStateFips(cityStateSelect.value || null);
       fitToState(cityStateSelect.value);
       if (CountyMapState.getActiveLevel() === "city") {
         void renderActiveLevel();
       }
-    },
-    eventOptions
-  );
+    });
 
-  const cityStatus = document.getElementById("city-status");
-  cityStatus?.addEventListener(
-    "change",
-    () => {
+    const cityStatus = document.getElementById("city-status");
+    cityStatus?.addEventListener("change", () => {
       const stateFips = CountyMapState.getSelectedStateFips();
       if (stateFips) {
         void loadCityList(stateFips, 1);
       }
-    },
-    eventOptions
-  );
+    });
 
-  const citySort = document.getElementById("city-sort");
-  citySort?.addEventListener(
-    "change",
-    () => {
+    const citySort = document.getElementById("city-sort");
+    citySort?.addEventListener("change", () => {
       const stateFips = CountyMapState.getSelectedStateFips();
       if (stateFips) {
         void loadCityList(stateFips, 1);
       }
-    },
-    eventOptions
-  );
+    });
 
-  const citySearch = document.getElementById("city-search");
-  citySearch?.addEventListener(
-    "input",
-    () => {
+    const citySearch = document.getElementById("city-search");
+    citySearch?.addEventListener("input", () => {
       if (citySearchDebounceTimer) {
         clearTimeout(citySearchDebounceTimer);
       }
@@ -793,41 +805,8 @@ function setupLevelControls(signal) {
           void loadCityList(stateFips, 1);
         }
       }, 250);
-    },
-    eventOptions
-  );
-
-  const cityRefresh = document.getElementById("city-refresh");
-  cityRefresh?.addEventListener(
-    "click",
-    () => {
-      const stateFips = CountyMapState.getSelectedStateFips();
-      if (stateFips) {
-        void renderActiveLevel();
-      }
-    },
-    eventOptions
-  );
-}
-
-function setupStopToggle(signal) {
-  const eventOptions = signal ? { signal } : false;
-  const toggle = document.getElementById("toggle-stops");
-  if (!toggle) {
-    return;
+    });
   }
-
-  CountyMapState.setShowStoppedCounties(toggle.checked);
-  toggle.addEventListener(
-    "change",
-    () => {
-      CountyMapState.setShowStoppedCounties(toggle.checked);
-      if (CountyMapState.getActiveLevel() === "county") {
-        updateStopLayerVisibility();
-      }
-    },
-    eventOptions
-  );
 }
 
 /**
@@ -959,7 +938,6 @@ export default function initCountyMapPage({ cleanup, signal } = {}) {
   setupPanelToggle();
   setupLevelControls(pageSignal);
   setupRecalculateButton(pageSignal);
-  setupStopToggle(pageSignal);
   resumeRecalculateIfNeeded();
 
   const teardown = () => {
