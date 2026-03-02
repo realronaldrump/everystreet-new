@@ -96,6 +96,109 @@ function getCoverageAccent(pct, status) {
   return "danger";
 }
 
+const US_STATE_NAME_TO_CODE = Object.freeze({
+  alabama: "AL",
+  alaska: "AK",
+  arizona: "AZ",
+  arkansas: "AR",
+  california: "CA",
+  colorado: "CO",
+  connecticut: "CT",
+  delaware: "DE",
+  florida: "FL",
+  georgia: "GA",
+  hawaii: "HI",
+  idaho: "ID",
+  illinois: "IL",
+  indiana: "IN",
+  iowa: "IA",
+  kansas: "KS",
+  kentucky: "KY",
+  louisiana: "LA",
+  maine: "ME",
+  maryland: "MD",
+  massachusetts: "MA",
+  michigan: "MI",
+  minnesota: "MN",
+  mississippi: "MS",
+  missouri: "MO",
+  montana: "MT",
+  nebraska: "NE",
+  nevada: "NV",
+  "new hampshire": "NH",
+  "new jersey": "NJ",
+  "new mexico": "NM",
+  "new york": "NY",
+  "north carolina": "NC",
+  "north dakota": "ND",
+  ohio: "OH",
+  oklahoma: "OK",
+  oregon: "OR",
+  pennsylvania: "PA",
+  "rhode island": "RI",
+  "south carolina": "SC",
+  "south dakota": "SD",
+  tennessee: "TN",
+  texas: "TX",
+  utah: "UT",
+  vermont: "VT",
+  virginia: "VA",
+  washington: "WA",
+  "west virginia": "WV",
+  wisconsin: "WI",
+  wyoming: "WY",
+  "district of columbia": "DC",
+  "american samoa": "AS",
+  guam: "GU",
+  "northern mariana islands": "MP",
+  "puerto rico": "PR",
+  "us virgin islands": "VI",
+  "u.s. virgin islands": "VI",
+  "virgin islands": "VI",
+});
+
+const US_STATE_CODES = new Set(Object.values(US_STATE_NAME_TO_CODE));
+
+function parseUsStateCode(value) {
+  const label = typeof value === "string" ? value.trim() : "";
+  if (!label) {
+    return "";
+  }
+
+  const upper = label.toUpperCase();
+  if (/^[A-Z]{2}$/.test(upper) && US_STATE_CODES.has(upper)) {
+    return upper;
+  }
+
+  return US_STATE_NAME_TO_CODE[label.toLowerCase()] || "";
+}
+
+function formatCityDisplayName(displayName) {
+  const rawName = typeof displayName === "string" ? displayName.trim() : "";
+  if (!rawName) {
+    return "Coverage area";
+  }
+
+  const parts = rawName
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return rawName;
+  }
+
+  const cityName = parts[0];
+  for (let index = parts.length - 1; index >= 1; index -= 1) {
+    const stateCode = parseUsStateCode(parts[index]);
+    if (stateCode) {
+      return `${cityName}, ${stateCode}`;
+    }
+  }
+
+  return rawName;
+}
+
 // -----------------------------------------------------------------------------
 // Area card HTML
 // -----------------------------------------------------------------------------
@@ -104,7 +207,12 @@ function renderAreaCard(area, job) {
   const pct = normalizeCoveragePercent(area.coverage_percentage);
   const accentClass = getCoverageAccent(pct, area.status);
   const tierClass = getCoverageTierClass(pct);
-  const areaName = escapeHtml(area.display_name || "Coverage area");
+  const normalizedAreaType = String(area.area_type || "").trim().toLowerCase();
+  const displayName =
+    normalizedAreaType === "city"
+      ? formatCityDisplayName(area.display_name)
+      : area.display_name || "Coverage area";
+  const areaName = escapeHtml(displayName);
   const isReady = area.status === "ready";
   const totalSegments = area.total_segments || 0;
   const drivenSegments = area.driven_segments || 0;
