@@ -8,7 +8,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from config import get_osm_extracts_path
 from map_data.docker import is_docker_unavailable_error, run_docker
+from routing.constants import GRAPH_STORAGE_DIR
 
 _MB_BYTES = 1024 * 1024
 _DOCKER_TIMEOUT = 10.0
@@ -23,13 +25,20 @@ EXPECTED_VOLUMES: dict[str, str] = {
     "osm_extracts": "OSM extracts",
 }
 
-APP_CACHE_SOURCES: list[dict[str, Any]] = [
+APP_STORAGE_SOURCES: list[dict[str, Any]] = [
     {
         "id": "exports_cache",
         "label": "Exports cache",
         "category": "App cache",
         "path": Path("cache") / "exports",
         "detail": "cache/exports",
+    },
+    {
+        "id": "routing_graphs",
+        "label": "Routing graphs",
+        "category": "App data",
+        "path": GRAPH_STORAGE_DIR,
+        "detail": str(GRAPH_STORAGE_DIR),
     },
 ]
 
@@ -123,7 +132,7 @@ def _parse_volume_sizes(output: str) -> dict[str, int]:
 async def _get_volume_sizes() -> tuple[dict[str, int], str | None]:
     rc, stdout, stderr = await run_docker(
         ["docker", "system", "df", "-v"],
-        timeout=_DOCKER_TIMEOUT,
+        timeout_seconds=_DOCKER_TIMEOUT,
     )
     if rc != 0:
         return {}, _normalize_error(stderr or "docker system df failed")
@@ -156,7 +165,7 @@ async def _infer_compose_project() -> str | None:
                 "--format",
                 '{{.Label "com.docker.compose.project"}}',
             ],
-            timeout=_DOCKER_TIMEOUT,
+            timeout_seconds=_DOCKER_TIMEOUT,
         )
         if rc != 0:
             if is_docker_unavailable_error(stderr):
@@ -172,7 +181,7 @@ async def _infer_compose_project() -> str | None:
 async def _list_volumes(filter_args: list[str]) -> tuple[list[str], str | None]:
     rc, stdout, stderr = await run_docker(
         ["docker", "volume", "ls", "--format", "{{.Name}}", *filter_args],
-        timeout=_DOCKER_TIMEOUT,
+        timeout_seconds=_DOCKER_TIMEOUT,
     )
     if rc != 0:
         return [], _normalize_error(stderr or "docker volume ls failed")
@@ -182,14 +191,14 @@ async def _list_volumes(filter_args: list[str]) -> tuple[list[str], str | None]:
 async def _inspect_volume(volume_name: str) -> tuple[dict[str, Any] | None, str | None]:
     rc, stdout, stderr = await run_docker(
         ["docker", "volume", "inspect", "--size", volume_name],
-        timeout=_DOCKER_TIMEOUT,
+        timeout_seconds=_DOCKER_TIMEOUT,
     )
     if rc != 0:
         lowered = (stderr or "").lower()
         if "unknown flag: --size" in lowered:
             rc, stdout, stderr = await run_docker(
                 ["docker", "volume", "inspect", volume_name],
-                timeout=_DOCKER_TIMEOUT,
+                timeout_seconds=_DOCKER_TIMEOUT,
             )
         if rc != 0:
             return None, _normalize_error(stderr or "docker volume inspect failed")
@@ -242,6 +251,20 @@ def _directory_size_bytes(path: Path) -> tuple[int | None, str | None]:
     except OSError as exc:
         return None, str(exc)
     return total, error
+
+
+def _build_osm_extracts_path_source() -> dict[str, Any] | None:
+    extracts_path = get_osm_extracts_path().strip()
+    if not extracts_path:
+        return None
+    path = Path(extracts_path)
+    return {
+        "id": "osm_extracts_path",
+        "label": "OSM extracts path",
+        "category": "App data",
+        "path": path,
+        "detail": extracts_path,
+    }
 
 
 class StorageService:
@@ -345,8 +368,18 @@ class StorageService:
                     },
                 )
 
-        for cache_source in APP_CACHE_SOURCES:
-            path: Path = cache_source["path"]
+        app_storage_sources = list(APP_STORAGE_SOURCES)
+        has_osm_volume_size = any(
+            source.get("id") == "osm_extracts"
+            and isinstance(source.get("size_bytes"), int)
+            for source in sources
+        )
+        osm_extracts_source = _build_osm_extracts_path_source()
+        if osm_extracts_source and not has_osm_volume_size:
+            app_storage_sources.append(osm_extracts_source)
+
+        for app_source in app_storage_sources:
+            path: Path = app_source["path"]
             size_bytes, error = await asyncio.to_thread(_directory_size_bytes, path)
             if isinstance(size_bytes, int):
                 total_bytes += size_bytes
@@ -354,12 +387,12 @@ class StorageService:
 
             sources.append(
                 {
-                    "id": cache_source["id"],
-                    "label": cache_source["label"],
-                    "category": cache_source["category"],
+                    "id": app_source["id"],
+                    "label": app_source["label"],
+                    "category": app_source["category"],
                     "size_bytes": size_bytes,
                     "size_mb": _bytes_to_mb(size_bytes),
-                    "detail": cache_source.get("detail"),
+                    "detail": app_source.get("detail"),
                     "error": error,
                 },
             )

@@ -527,37 +527,42 @@ async def get_summary() -> dict[str, Any]:
     county_totals = await _get_county_state_totals()
     city_state_totals: dict[str, dict[str, Any]] = {}
 
+    city_counts = await aggregate_to_list(
+        CityBoundary,
+        [
+            {
+                "$group": {
+                    "_id": "$state_fips",
+                    "total": {"$sum": 1},
+                    "state_name": {"$first": "$state_name"},
+                }
+            }
+        ],
+    )
+    for row in city_counts:
+        normalized = _state_fips(str(row.get("_id") or ""))
+        city_state_totals[normalized] = {
+            "name": str(row.get("state_name") or "Unknown"),
+            "total": int(row.get("total") or 0),
+            "visited": 0,
+            "firstVisit": None,
+            "lastVisit": None,
+        }
+
     if city_cache and city_cache.state_rollups:
         for state_fips, rollup in city_cache.state_rollups.items():
             normalized = _state_fips(state_fips)
+            existing = city_state_totals.get(normalized, {})
             city_state_totals[normalized] = {
-                "name": str(rollup.get("stateName") or "Unknown"),
-                "total": int(rollup.get("total") or 0),
+                "name": str(
+                    rollup.get("stateName")
+                    or existing.get("name")
+                    or "Unknown"
+                ),
+                "total": int(existing.get("total") or 0),
                 "visited": int(rollup.get("visited") or 0),
                 "firstVisit": rollup.get("firstVisit"),
                 "lastVisit": rollup.get("lastVisit"),
-            }
-    else:
-        city_counts = await aggregate_to_list(
-            CityBoundary,
-            [
-                {
-                    "$group": {
-                        "_id": "$state_fips",
-                        "total": {"$sum": 1},
-                        "state_name": {"$first": "$state_name"},
-                    }
-                }
-            ],
-        )
-        for row in city_counts:
-            normalized = _state_fips(str(row.get("_id") or ""))
-            city_state_totals[normalized] = {
-                "name": str(row.get("state_name") or "Unknown"),
-                "total": int(row.get("total") or 0),
-                "visited": 0,
-                "firstVisit": None,
-                "lastVisit": None,
             }
 
     county_rollup: dict[str, dict[str, Any]] = {}
@@ -670,7 +675,9 @@ async def get_summary() -> dict[str, Any]:
     city_total = sum(
         int(entry.get("total") or 0) for entry in city_state_totals.values()
     )
-    city_visited = int(city_cache.total_visited if city_cache else 0)
+    city_visited = sum(
+        int(entry.get("visited") or 0) for entry in city_state_totals.values()
+    )
 
     return {
         "success": True,

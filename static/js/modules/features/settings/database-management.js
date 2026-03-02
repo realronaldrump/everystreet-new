@@ -4,6 +4,18 @@ import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
 import { escapeHtml } from "../../utils.js";
 
+function hasFiniteNumericAttribute(value) {
+  if (value == null) {
+    return false;
+  }
+  const normalized = String(value).trim();
+  if (!normalized) {
+    return false;
+  }
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed);
+}
+
 export function initDatabaseManagement({ signal } = {}) {
   const refreshStorageBtn = document.getElementById("refresh-storage");
   const storageTabButton = document.querySelector(".settings-tab[data-tab='storage']");
@@ -22,8 +34,8 @@ export function initDatabaseManagement({ signal } = {}) {
   let storageSummaryLoading = false;
 
   const hasInitialStorageSummary =
-    Number.isFinite(Number(storageTotalEl?.dataset?.bytes)) ||
-    Number.isFinite(Number(storageDbEl?.dataset?.bytes)) ||
+    hasFiniteNumericAttribute(storageTotalEl?.dataset?.bytes) ||
+    hasFiniteNumericAttribute(storageDbEl?.dataset?.bytes) ||
     Boolean(storageSourcesContainer?.querySelector(".storage-source-card")) ||
     Boolean(collectionsContainer?.querySelector(".collection-card"));
   let storageSummaryLoaded = hasInitialStorageSummary;
@@ -151,8 +163,11 @@ export function initDatabaseManagement({ signal } = {}) {
     switch (category?.toLowerCase()) {
       case "docker volume":
         return "fab fa-docker";
+      case "app cache":
       case "cache":
         return "fas fa-bolt";
+      case "app data":
+        return "fas fa-folder";
       case "database":
         return "fas fa-database";
       case "logs":

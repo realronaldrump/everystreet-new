@@ -201,6 +201,37 @@ class AdminService:
         except Exception:
             logger.exception("Failed to load database logical size stats")
 
+        sources = snapshot.get("sources")
+        has_mongo_volume_size = (
+            isinstance(sources, list)
+            and any(
+                source.get("id") == "mongo_data"
+                and isinstance(source.get("size_bytes"), int)
+                for source in sources
+                if isinstance(source, dict)
+            )
+        )
+        if db_logical_bytes is not None and not has_mongo_volume_size:
+            if isinstance(sources, list):
+                sources.append(
+                    {
+                        "id": "mongodb_logical",
+                        "label": "MongoDB logical data",
+                        "category": "Database",
+                        "size_bytes": db_logical_bytes,
+                        "size_mb": db_logical_mb,
+                        "detail": "Derived from MongoDB dbStats",
+                        "error": None,
+                    },
+                )
+            current_total_bytes = snapshot.get("total_bytes")
+            if isinstance(current_total_bytes, int):
+                total_bytes = current_total_bytes + db_logical_bytes
+            else:
+                total_bytes = db_logical_bytes
+            snapshot["total_bytes"] = total_bytes
+            snapshot["total_mb"] = _bytes_to_mb(total_bytes)
+
         snapshot.update(
             {
                 "database_logical_bytes": db_logical_bytes,

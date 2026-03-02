@@ -5,7 +5,7 @@
 
 import { swupReady } from "../../core/navigation.js";
 import * as CoverageAPI from "../../county-map/api.js";
-import { MAP_CONFIG } from "../../county-map/constants.js";
+import { MAP_CONFIG, getStateName } from "../../county-map/constants.js";
 import {
   cleanupInteractions,
   setupInteractions,
@@ -185,19 +185,25 @@ function buildCountyIndexes(features) {
   features.forEach((feature) => {
     const fips = String(feature.id).padStart(5, "0");
     const stateFips = fips.substring(0, 2);
+    const fallbackStateName = getStateName(stateFips);
 
     feature.properties = feature.properties || {};
     feature.properties.fips = fips;
     feature.properties.stateFips = stateFips;
+    feature.properties.stateName =
+      feature.properties.stateName ||
+      feature.properties.state ||
+      fallbackStateName ||
+      "Unknown State";
 
     countyToState[fips] = {
       stateFips,
-      stateName: feature.properties.stateName || "Unknown",
+      stateName: feature.properties.stateName,
     };
 
     if (!stateTotals[stateFips]) {
       stateTotals[stateFips] = {
-        name: feature.properties.stateName || "Unknown",
+        name: feature.properties.stateName,
         total: 0,
       };
     }

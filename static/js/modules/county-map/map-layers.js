@@ -70,9 +70,9 @@ export function buildCountyFillOpacityExpression(showStoppedCounties) {
     return [
       "case",
       ["boolean", ["feature-state", "stopped"], false],
-      COLORS.stopped.opacity,
+      0.78,
       ["boolean", ["feature-state", "visited"], false],
-      COLORS.visited.opacity,
+      0.62,
       1,
     ];
   }
@@ -110,14 +110,14 @@ export function buildCountyBorderWidthExpression(showStoppedCounties) {
     return [
       "case",
       ["boolean", ["feature-state", "stopped"], false],
-      1,
+      1.35,
       ["boolean", ["feature-state", "visited"], false],
-      1,
-      0.5,
+      1.05,
+      0.55,
     ];
   }
 
-  return ["case", ["boolean", ["feature-state", "visited"], false], 1, 0.5];
+  return ["case", ["boolean", ["feature-state", "visited"], false], 1.05, 0.55];
 }
 
 function buildStateFillColorExpression() {

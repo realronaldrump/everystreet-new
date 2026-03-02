@@ -55,7 +55,7 @@ let totalCounties = 0;
 let isRecalculating = false;
 
 /** @type {boolean} Whether to show stopped counties layer */
-let showStoppedCounties = false;
+let showStoppedCounties = true;
 
 /** @type {boolean} Whether recalc polling is active */
 let recalcPollerActive = false;
@@ -272,7 +272,7 @@ export function resetState() {
   stateBounds = {};
   totalCounties = 0;
   isRecalculating = false;
-  showStoppedCounties = false;
+  showStoppedCounties = true;
   recalcPollerActive = false;
   cityListByState = {};
 }

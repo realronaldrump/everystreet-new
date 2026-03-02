@@ -46,9 +46,13 @@ DEFAULT_PLACES_URL = os.getenv(
 )
 DEFAULT_PLACE_PER_STATE_URL_TEMPLATE = os.getenv(
     "GEO_COVERAGE_PLACES_URL_TEMPLATE",
-    f"https://www2.census.gov/geo/tiger/GENZ{DEFAULT_CENSUS_YEAR}/shp/cb_{DEFAULT_CENSUS_YEAR}_{{state_fips}}_place_500k.zip",
+    f"https://www2.census.gov/geo/tiger/TIGER{DEFAULT_CENSUS_YEAR}/PLACE/tl_{DEFAULT_CENSUS_YEAR}_{{state_fips}}_place.zip",
 )
-DEFAULT_SIMPLIFY_TOLERANCE = float(os.getenv("GEO_COVERAGE_SIMPLIFY_TOLERANCE", "0.01"))
+DEFAULT_SIMPLIFY_TOLERANCE = float(os.getenv("GEO_COVERAGE_SIMPLIFY_TOLERANCE", "0.0"))
+DEFAULT_PREFER_PER_STATE = (
+    os.getenv("GEO_COVERAGE_PREFER_PER_STATE", "true").strip().lower()
+    not in {"0", "false", "no", "off"}
+)
 
 
 def _normalize_geometry(geom):
@@ -62,13 +66,21 @@ def _normalize_geometry(geom):
     return fixed
 
 
-def _is_included_place(classfp: str | None) -> bool:
-    if not classfp:
-        return False
-    normalized = str(classfp).strip().upper()
-    # Census place classes:
-    # C* = incorporated place variants, U* = CDP variants.
-    return normalized.startswith(("C", "U"))
+def _is_included_place(classfp: str | None, lsad: str | None = None) -> bool:
+    """
+    Determine whether a place row should be included as a city boundary.
+
+    Recent Census place files no longer expose CLASSFP, so LSAD-only rows
+    should still be included.
+    """
+    if classfp:
+        normalized = str(classfp).strip().upper()
+        # Census place classes:
+        # C* = incorporated place variants, U* = CDP variants.
+        return normalized.startswith(("C", "U"))
+    if lsad is not None:
+        return bool(str(lsad).strip())
+    return True
 
 
 def _territory_code_from_state_abbr(state_abbr: str | None) -> str | None:
@@ -152,8 +164,13 @@ async def _upsert_city_boundaries(
     skipped = 0
 
     for _, row in places_gdf.iterrows():
-        classfp = str(row.get("CLASSFP") or "")
-        if not _is_included_place(classfp):
+        classfp_raw = row.get("CLASSFP")
+        lsad_raw = row.get("LSAD")
+        classfp = str(classfp_raw or lsad_raw or "")
+        if not _is_included_place(
+            str(classfp_raw or "").strip() or None,
+            str(lsad_raw or "").strip() or None,
+        ):
             skipped += 1
             continue
 
@@ -187,33 +204,48 @@ async def _upsert_city_boundaries(
         state_name = state_name_by_fips.get(state_fips)
         state_abbr = state_abbr_by_fips.get(state_fips)
 
-        existing = await CityBoundary.get(city_id)
-        if existing:
-            existing.name = city_name
-            existing.state_fips = state_fips
-            existing.state_name = state_name
-            existing.territory_code = _territory_code_from_state_abbr(state_abbr)
-            existing.classfp = classfp
-            existing.centroid = centroid_coords
-            existing.bbox = bbox
-            existing.geometry = mapping(geom)
-            existing.source = source
-            existing.updated_at = datetime.now(UTC)
-            await existing.save()
-        else:
-            await CityBoundary(
-                id=city_id,
-                name=city_name,
-                state_fips=state_fips,
-                state_name=state_name,
-                territory_code=_territory_code_from_state_abbr(state_abbr),
-                classfp=classfp,
-                centroid=centroid_coords,
-                bbox=bbox,
-                geometry=mapping(geom),
-                source=source,
-                updated_at=datetime.now(UTC),
-            ).insert()
+        geometry_payload = mapping(geom)
+        try:
+            existing = await CityBoundary.get(city_id)
+            if existing:
+                existing.name = city_name
+                existing.state_fips = state_fips
+                existing.state_name = state_name
+                existing.territory_code = _territory_code_from_state_abbr(state_abbr)
+                existing.classfp = classfp
+                existing.centroid = centroid_coords
+                existing.bbox = bbox
+                existing.geometry = geometry_payload
+                existing.source = source
+                existing.updated_at = datetime.now(UTC)
+                await existing.save()
+            else:
+                await CityBoundary(
+                    id=city_id,
+                    name=city_name,
+                    state_fips=state_fips,
+                    state_name=state_name,
+                    territory_code=_territory_code_from_state_abbr(state_abbr),
+                    classfp=classfp,
+                    centroid=centroid_coords,
+                    bbox=bbox,
+                    geometry=geometry_payload,
+                    source=source,
+                    updated_at=datetime.now(UTC),
+                ).insert()
+        except Exception as exc:
+            skipped += 1
+            message = str(exc)
+            if len(message) > 220:
+                message = f"{message[:220]}..."
+            logger.warning(
+                "Skipping city boundary %s (%s, %s): %s",
+                city_id,
+                city_name,
+                state_fips,
+                message,
+            )
+            continue
 
         upserted += 1
         per_state_counts[state_fips] = per_state_counts.get(state_fips, 0) + 1
@@ -222,23 +254,11 @@ async def _upsert_city_boundaries(
     return per_state_counts
 
 
-def _load_places_gdf(
+def _load_places_per_state_gdf(
     *,
-    places_url: str,
     per_state_template: str,
     state_fips_values: list[str],
-) -> tuple[gpd.GeoDataFrame, str]:
-    try:
-        gdf = gpd.read_file(places_url)
-    except Exception as exc:
-        logger.warning(
-            "Failed to load national places URL %s (%s). Falling back to per-state downloads.",
-            places_url,
-            exc,
-        )
-    else:
-        return gdf, places_url
-
+) -> tuple[gpd.GeoDataFrame | None, str]:
     frames = []
     loaded_urls = []
     for state_fips in state_fips_values:
@@ -251,11 +271,46 @@ def _load_places_gdf(
             logger.warning("Skipping state %s place file %s (%s)", state_fips, url, exc)
 
     if not frames:
-        msg = "Unable to load any place boundary datasets"
-        raise RuntimeError(msg)
+        return None, ""
 
     combined = gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), crs=frames[0].crs)
     return combined, ",".join(loaded_urls)
+
+
+def _load_places_gdf(
+    *,
+    places_url: str,
+    per_state_template: str,
+    state_fips_values: list[str],
+    prefer_per_state: bool,
+) -> tuple[gpd.GeoDataFrame, str]:
+    if prefer_per_state:
+        per_state_gdf, per_state_source = _load_places_per_state_gdf(
+            per_state_template=per_state_template,
+            state_fips_values=state_fips_values,
+        )
+        if per_state_gdf is not None:
+            return per_state_gdf, per_state_source
+        logger.warning(
+            "Per-state place downloads failed; trying national places URL %s",
+            places_url,
+        )
+
+    try:
+        gdf = gpd.read_file(places_url)
+    except Exception as exc:
+        logger.warning("Failed to load national places URL %s (%s).", places_url, exc)
+    else:
+        return gdf, places_url
+
+    per_state_gdf, per_state_source = _load_places_per_state_gdf(
+        per_state_template=per_state_template,
+        state_fips_values=state_fips_values,
+    )
+    if per_state_gdf is None:
+        msg = "Unable to load any place boundary datasets"
+        raise RuntimeError(msg)
+    return per_state_gdf, per_state_source
 
 
 async def seed_boundaries(
@@ -264,6 +319,7 @@ async def seed_boundaries(
     places_url: str,
     per_state_template: str,
     simplify_tolerance: float,
+    prefer_per_state: bool,
 ) -> None:
     logger.info("Loading states dataset: %s", states_url)
     states_gdf = _to_wgs84(gpd.read_file(states_url))
@@ -283,10 +339,11 @@ async def seed_boundaries(
         places_url=places_url,
         per_state_template=per_state_template,
         state_fips_values=state_fips_values,
+        prefer_per_state=prefer_per_state,
     )
     places_gdf = _to_wgs84(raw_places_gdf)
 
-    required_place_cols = {"GEOID", "STATEFP", "NAME", "CLASSFP"}
+    required_place_cols = {"GEOID", "STATEFP", "NAME"}
     missing_place_cols = required_place_cols - set(places_gdf.columns)
     if missing_place_cols:
         msg = f"Places dataset missing required columns: {sorted(missing_place_cols)}"
@@ -327,6 +384,7 @@ async def main_async(args: argparse.Namespace) -> None:
         places_url=args.places_url,
         per_state_template=args.places_per_state_template,
         simplify_tolerance=args.simplify_tolerance,
+        prefer_per_state=args.prefer_per_state,
     )
 
 
@@ -337,7 +395,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--places-per-state-template",
         default=DEFAULT_PLACE_PER_STATE_URL_TEMPLATE,
-        help="Template used when national places URL is unavailable; supports {state_fips}.",
+        help="Template used for per-state place boundary downloads; supports {state_fips}.",
+    )
+    parser.add_argument(
+        "--prefer-per-state",
+        action=argparse.BooleanOptionalAction,
+        default=DEFAULT_PREFER_PER_STATE,
+        help="Prefer higher-fidelity per-state place boundaries over national generalized places.",
     )
     parser.add_argument(
         "--simplify-tolerance", type=float, default=DEFAULT_SIMPLIFY_TOLERANCE

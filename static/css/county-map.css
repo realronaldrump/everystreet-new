@@ -355,6 +355,21 @@
   margin: 0 0 0 auto;
 }
 
+.legend-row--toggle .form-check-input {
+  cursor: pointer;
+  border-color: rgb(var(--danger-rgb) / 45%);
+  background-color: rgb(var(--danger-rgb) / 8%);
+}
+
+.legend-row--toggle .form-check-input:focus {
+  box-shadow: 0 0 0 0.18rem rgb(var(--danger-rgb) / 24%);
+}
+
+.legend-row--toggle .form-check-input:checked {
+  background-color: var(--danger);
+  border-color: var(--danger-dark);
+}
+
 .legend-swatch {
   width: 16px;
   height: 16px;
