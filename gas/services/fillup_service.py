@@ -567,36 +567,54 @@ class FillupService:
             return
 
         try:
-            # Find the immediately following fill-up.
-            next_fillup = await FillupService._get_next_fillup(
-                imei=imei,
-                after_time=after_time,
-                anchor_id=anchor_id,
-                exclude_id=anchor_id,
-            )
+            cursor_time = after_time
+            cursor_anchor_id = anchor_id
+            recalculated = 0
 
-            if not next_fillup or next_fillup.fillup_time is None:
-                return
+            # Recalculate forward through the timeline so downstream entries do
+            # not keep stale anchors after edits/deletes.
+            while recalculated < FillupService._MAX_CHAIN_LOOKBACK:
+                next_fillup = await FillupService._get_next_fillup(
+                    imei=imei,
+                    after_time=cursor_time,
+                    anchor_id=cursor_anchor_id,
+                    exclude_id=cursor_anchor_id,
+                )
 
-            (
-                calculated_mpg,
-                miles_since_last,
-                previous_odometer,
-            ) = await FillupService._calculate_fillup_stats(
-                imei=imei,
-                fillup_time=next_fillup.fillup_time,
-                current_id=next_fillup.id,
-                current_odometer=next_fillup.odometer,
-                current_gallons=next_fillup.gallons,
-                is_full_tank=next_fillup.is_full_tank,
-                missed_previous=next_fillup.missed_previous,
-            )
+                if not next_fillup or next_fillup.fillup_time is None:
+                    break
 
-            next_fillup.calculated_mpg = calculated_mpg
-            next_fillup.miles_since_last_fillup = miles_since_last
-            next_fillup.previous_odometer = previous_odometer
-            await next_fillup.save()
-            logger.info("Recalculated stats for fill-up %s", next_fillup.id)
+                (
+                    calculated_mpg,
+                    miles_since_last,
+                    previous_odometer,
+                ) = await FillupService._calculate_fillup_stats(
+                    imei=imei,
+                    fillup_time=next_fillup.fillup_time,
+                    current_id=next_fillup.id,
+                    current_odometer=next_fillup.odometer,
+                    current_gallons=next_fillup.gallons,
+                    is_full_tank=next_fillup.is_full_tank,
+                    missed_previous=next_fillup.missed_previous,
+                )
+
+                next_fillup.calculated_mpg = calculated_mpg
+                next_fillup.miles_since_last_fillup = miles_since_last
+                next_fillup.previous_odometer = previous_odometer
+                await next_fillup.save()
+                logger.info("Recalculated stats for fill-up %s", next_fillup.id)
+
+                recalculated += 1
+                cursor_time = next_fillup.fillup_time
+                cursor_anchor_id = next_fillup.id
+
+            if recalculated >= FillupService._MAX_CHAIN_LOOKBACK:
+                logger.warning(
+                    "Stopping fill-up recalc cascade after %d entries for IMEI=%s after_time=%s",
+                    FillupService._MAX_CHAIN_LOOKBACK,
+                    imei,
+                    after_time,
+                )
         except Exception as exc:
             logger.exception("Error recalculating subsequent fillup")
             logger.warning(

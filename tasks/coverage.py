@@ -10,14 +10,30 @@ manual/scheduled full refreshes of coverage statistics.
 from __future__ import annotations
 
 import logging
+import os
+import uuid
 from typing import Any
 
 from db.models import CoverageArea
 from geo_coverage.services.geo_coverage_service import run_scheduled_recalculate
+from tasks.arq import get_arq_pool
+from tasks.config import get_global_disable, get_task_config_entry
+from tasks.ops import enqueue_task
 from street_coverage.stats import update_area_stats
 from tasks.ops import run_task_with_history
 
 logger = logging.getLogger(__name__)
+
+_GEO_COVERAGE_TRIGGER_LOCK_KEY = "locks:geo_coverage_sync_trigger"
+_GEO_COVERAGE_TRIGGER_TTL_SECONDS = max(
+    5,
+    int(
+        os.getenv(
+            "GEO_COVERAGE_INGEST_TRIGGER_TTL_SECONDS",
+            "30",
+        ),
+    ),
+)
 
 
 async def _update_coverage_for_new_trips_logic() -> dict[str, Any]:
@@ -157,3 +173,62 @@ async def sync_geo_coverage(
         _sync_geo_coverage_logic,
         manual_run=manual_run,
     )
+
+
+async def enqueue_geo_coverage_sync_on_trip_ingest(
+    *,
+    source: str | None,
+    transaction_id: str | None = None,
+) -> dict[str, Any]:
+    """
+    Enqueue geo coverage sync immediately after Bouncie trip ingest.
+
+    Uses a short Redis lock to throttle enqueues during large ingest batches.
+    """
+    normalized_source = str(source or "").strip().lower()
+    if normalized_source != "bouncie":
+        return {
+            "status": "skipped",
+            "reason": "unsupported_source",
+            "message": "Geo coverage ingest trigger only applies to Bouncie trips.",
+        }
+
+    if await get_global_disable():
+        return {
+            "status": "skipped",
+            "reason": "globally_disabled",
+            "message": "Background tasks are globally disabled.",
+        }
+
+    task_config = await get_task_config_entry("sync_geo_coverage")
+    if not task_config.enabled:
+        return {
+            "status": "skipped",
+            "reason": "task_disabled",
+            "message": "Geo coverage sync task is disabled.",
+        }
+
+    token = f"ingest:{transaction_id or 'unknown'}:{uuid.uuid4()}"
+    redis = await get_arq_pool()
+    acquired = await redis.set(
+        _GEO_COVERAGE_TRIGGER_LOCK_KEY,
+        token,
+        ex=_GEO_COVERAGE_TRIGGER_TTL_SECONDS,
+        nx=True,
+    )
+    if not acquired:
+        return {
+            "status": "skipped",
+            "reason": "throttled",
+            "message": "Geo coverage sync recently enqueued; skipping duplicate trigger.",
+        }
+
+    enqueue_result = await enqueue_task(
+        "sync_geo_coverage",
+        manual_run=False,
+    )
+    return {
+        "status": "success",
+        "job_id": enqueue_result.get("job_id"),
+        "message": "Geo coverage sync enqueued from trip ingest trigger.",
+    }

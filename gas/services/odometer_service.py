@@ -1,5 +1,6 @@
 """Service for odometer estimation and vehicle location resolution."""
 
+from datetime import datetime
 import logging
 from typing import Any
 
@@ -7,7 +8,6 @@ from core.date_utils import parse_timestamp
 from core.exceptions import ValidationException
 from core.spatial import GeometryService
 from core.trip_source_policy import enforce_bouncie_source
-from db.aggregation import aggregate_to_list
 from db.models import GasFillup, Trip
 from gas.services.bouncie_service import BouncieService
 
@@ -34,11 +34,17 @@ class OdometerService:
         Returns:
             Dict with latitude, longitude, odometer, timestamp, address
         """
-        if not use_now and not timestamp:
-            msg = "timestamp parameter is required when use_now is false"
-            raise ValidationException(
-                msg,
-            )
+        target_time: datetime | None = None
+        if not use_now:
+            if not timestamp:
+                msg = "timestamp parameter is required when use_now is false"
+                raise ValidationException(
+                    msg,
+                )
+            target_time = parse_timestamp(timestamp)
+            if not target_time:
+                msg = "Invalid timestamp format"
+                raise ValidationException(msg)
 
         if use_now:
             # Try to get real-time data from Bouncie API first
@@ -55,12 +61,6 @@ class OdometerService:
                 .first_or_none()
             )
         else:
-            # Parse timestamp
-            target_time = parse_timestamp(timestamp)
-            if not target_time:
-                msg = "Invalid timestamp format"
-                raise ValidationException(msg)
-
             # Find the trip closest to this timestamp
             # First, try to find a trip that contains this timestamp
             trip = await Trip.find_one(
@@ -112,6 +112,34 @@ class OdometerService:
             )
             return {"latitude": None, "longitude": None, "odometer": None}
 
+        inside_trip_window = (
+            not use_now
+            and target_time is not None
+            and trip.startTime is not None
+            and trip.endTime is not None
+            and trip.startTime <= target_time <= trip.endTime
+        )
+
+        resolved_odometer = trip.endOdometer
+        resolved_timestamp = trip.endTime
+
+        if (
+            inside_trip_window
+            and target_time is not None
+            and trip.startTime is not None
+            and trip.endTime is not None
+            and trip.endTime > trip.startTime
+            and trip.startOdometer is not None
+            and trip.endOdometer is not None
+        ):
+            total_seconds = (trip.endTime - trip.startTime).total_seconds()
+            elapsed_seconds = (target_time - trip.startTime).total_seconds()
+            progress = min(max(elapsed_seconds / total_seconds, 0.0), 1.0)
+            resolved_odometer = trip.startOdometer + (
+                (trip.endOdometer - trip.startOdometer) * progress
+            )
+            resolved_timestamp = target_time
+
         # Extract location from the end of the trip
         destination_address = None
         destination = getattr(trip, "destination", None)
@@ -121,8 +149,8 @@ class OdometerService:
         location_data = {
             "latitude": None,
             "longitude": None,
-            "odometer": trip.endOdometer,
-            "timestamp": trip.endTime,
+            "odometer": resolved_odometer,
+            "timestamp": resolved_timestamp,
             "address": destination_address,
         }
 
@@ -158,9 +186,9 @@ class OdometerService:
 
         # Odometer defaults
         if location_data["odometer"] is None:
-            if trip.endOdometer:
+            if trip.endOdometer is not None:
                 location_data["odometer"] = trip.endOdometer
-            elif trip.startOdometer:
+            elif trip.startOdometer is not None:
                 location_data["odometer"] = trip.startOdometer
                 logger.info(
                     "Vehicle Loc Debug: Using startOdometer %s",
@@ -253,6 +281,59 @@ class OdometerService:
                 logger.info("Vehicle Loc Debug: Used startLocation value")
 
         return location_data
+
+    @staticmethod
+    async def _sum_trip_distance_over_interval(
+        imei: str,
+        start_time: datetime,
+        end_time: datetime,
+    ) -> float:
+        """Sum distance across an interval, prorating partially overlapping trips."""
+        if start_time >= end_time:
+            return 0.0
+
+        overlapping_trips = await (
+            Trip.find(
+                enforce_bouncie_source(
+                    {
+                        "imei": imei,
+                        "startTime": {"$lt": end_time},
+                        "endTime": {"$gt": start_time},
+                    },
+                ),
+            )
+            .sort(Trip.startTime)
+            .to_list()
+        )
+
+        distance_sum = 0.0
+        for trip in overlapping_trips:
+            trip_start = trip.startTime
+            trip_end = trip.endTime
+            trip_distance = trip.distance
+
+            if (
+                trip_start is None
+                or trip_end is None
+                or trip_end <= trip_start
+                or trip_distance is None
+                or trip_distance <= 0
+            ):
+                continue
+
+            overlap_start = max(trip_start, start_time)
+            overlap_end = min(trip_end, end_time)
+            if overlap_end <= overlap_start:
+                continue
+
+            trip_duration_s = (trip_end - trip_start).total_seconds()
+            overlap_s = (overlap_end - overlap_start).total_seconds()
+            if trip_duration_s <= 0 or overlap_s <= 0:
+                continue
+
+            distance_sum += float(trip_distance) * (overlap_s / trip_duration_s)
+
+        return distance_sum
 
     @staticmethod
     async def estimate_odometer_reading(imei: str, timestamp: str) -> dict[str, Any]:
@@ -353,24 +434,23 @@ class OdometerService:
         if not best_anchor:
             return {"estimated_odometer": None, "method": "no_data"}
 
-        # 3. Sum Distance between anchor and target
-        query = {"imei": imei}
+        anchor_time = best_anchor.get("fillup_time")
+        if anchor_time is None:
+            return {"estimated_odometer": None, "method": "no_data"}
+
+        # 3. Sum Distance between anchor and target (including partial overlap)
         if anchor_type == "prev":
-            query["startTime"] = {"$gte": best_anchor["fillup_time"]}
-            query["endTime"] = {"$lte": target_time}
+            interval_start = anchor_time
+            interval_end = target_time
         else:  # next
-            query["startTime"] = {"$gte": target_time}
-            query["endTime"] = {"$lte": best_anchor["fillup_time"]}
-        query = enforce_bouncie_source(query)
+            interval_start = target_time
+            interval_end = anchor_time
 
-        # Aggregation to sum distance
-        pipeline = [
-            {"$match": query},
-            {"$group": {"_id": None, "total_distance": {"$sum": "$distance"}}},
-        ]
-
-        result = await aggregate_to_list(Trip, pipeline)
-        distance_sum = result[0]["total_distance"] if result else 0
+        distance_sum = await OdometerService._sum_trip_distance_over_interval(
+            imei,
+            interval_start,
+            interval_end,
+        )
         distance_sum = round(distance_sum, 1)
 
         # 4. Calculate estimated odometer

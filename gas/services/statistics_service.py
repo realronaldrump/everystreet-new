@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from core.date_utils import parse_timestamp
+from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
 from db.models import GasFillup, Trip, Vehicle
 
@@ -210,6 +211,7 @@ class StatisticsService:
         """
         # Get unique vehicles from trips
         pipeline = [
+            {"$match": enforce_bouncie_source({})},
             {
                 "$group": {
                     "_id": "$imei",
