@@ -449,8 +449,11 @@ async function initializePage(signal, cleanup) {
   // Initialize trip sync functionality
   initTripSync({
     onSyncComplete: () => {
-      loadTrips();
-      loadTripStats();
+      if (pageSignal?.aborted) {
+        return;
+      }
+      void loadTrips();
+      void loadTripStats();
     },
     onSyncError: () => {
       updateSyncStatus("error");
