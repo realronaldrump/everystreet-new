@@ -267,9 +267,13 @@ function bindFilterRefresh() {
 
 async function loadCountyStats() {
   try {
-    const data = await apiGet("/api/counties/visited");
+    const data = await apiGet("/api/geo-coverage/summary");
     if (data?.success) {
-      setRecordSource("counties", data);
+      setRecordSource("counties", {
+        success: true,
+        totalVisited: data?.levels?.county?.visited || 0,
+        lastUpdated: data?.lastUpdated || null,
+      });
     }
   } catch (error) {
     if (!isAbortError(error)) {

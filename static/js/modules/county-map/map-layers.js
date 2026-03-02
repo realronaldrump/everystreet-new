@@ -340,7 +340,7 @@ export function clearCoverageLayers(map = CountyMapState.getMap()) {
 }
 
 /**
- * Add all map layers for counties and states (county mode compatibility).
+ * Add all map layers for counties and states.
  */
 export function addMapLayers() {
   const map = CountyMapState.getMap();

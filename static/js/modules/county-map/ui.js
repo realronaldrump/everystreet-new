@@ -151,8 +151,6 @@ export function updateStats() {
   setText("state-coverage", `${statePercent.toFixed(1)}%`);
   setText("city-coverage", `${cityPercent.toFixed(1)}%`);
 
-  // Legacy support in case old ids are still present.
-  setText("coverage-percent", `${countyPercent.toFixed(1)}%`);
 }
 
 /**

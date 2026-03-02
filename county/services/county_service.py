@@ -102,7 +102,7 @@ async def get_visited_counties() -> dict[str, Any]:
             "totalStopped": 0,
             "lastUpdated": None,
             "cached": False,
-            "message": "No cached data. Call POST /api/counties/recalculate to compute.",
+            "message": "No cached data. Call POST /api/geo-coverage/recalculate to compute.",
         }
 
 

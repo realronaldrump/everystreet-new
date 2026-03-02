@@ -19,7 +19,6 @@ from api.status import router as status_router
 from core.jinja import templates
 from core.repo_info import get_repo_version_info
 from core.startup import initialize_shared_runtime, shutdown_shared_runtime
-from county import router as county_api_router
 from db.logging_handler import MongoDBHandler
 from db.models import AppSettings, MapProvider
 from driving import router as driving_api_router
@@ -186,7 +185,6 @@ app.add_middleware(
 app.include_router(pages_router)
 app.include_router(admin_api_router)
 app.include_router(analytics_api_router)
-app.include_router(county_api_router)
 app.include_router(geo_coverage_api_router)
 app.include_router(coverage_api_router)
 app.include_router(driving_api_router)
