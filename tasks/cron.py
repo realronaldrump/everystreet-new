@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from tasks.coverage import update_coverage_for_new_trips
+from tasks.coverage import sync_geo_coverage, update_coverage_for_new_trips
 from tasks.fetch import periodic_fetch_trips
 from tasks.maintenance import remap_unmatched_trips, validate_trips
 from tasks.map_data import auto_provision_check, monitor_map_services
@@ -39,6 +39,14 @@ async def cron_update_coverage_for_new_trips(ctx: dict) -> dict | None:
         ctx,
         "update_coverage_for_new_trips",
         lambda: update_coverage_for_new_trips(ctx),
+    )
+
+
+async def cron_sync_geo_coverage(ctx: dict) -> dict | None:
+    return await run_task_if_due(
+        ctx,
+        "sync_geo_coverage",
+        lambda: sync_geo_coverage(ctx),
     )
 
 

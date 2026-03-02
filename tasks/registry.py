@@ -62,6 +62,21 @@ TASK_DEFINITIONS: dict[str, dict[str, object]] = {
         "dependencies": ["periodic_fetch_trips"],
         "description": "Updates coverage calculations incrementally for new trips",
     },
+    "sync_geo_coverage": {
+        "display_name": "Sync Geo Coverage Explorer",
+        "default_interval_minutes": int(
+            os.environ.get(
+                "GEO_COVERAGE_SYNC_INTERVAL_MINUTES",
+                "10",
+            ),
+        ),
+        "enabled_by_default": True,
+        "dependencies": [],
+        "description": (
+            "Incrementally updates county/state/city coverage explorer caches using "
+            "new trips since the last geo coverage calculation."
+        ),
+    },
     "sync_mobility_profiles": {
         "display_name": "Sync Mobility Profiles",
         "default_interval_minutes": int(

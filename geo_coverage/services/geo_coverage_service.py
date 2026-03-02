@@ -1546,6 +1546,76 @@ async def recalculate(
     }
 
 
+async def run_scheduled_recalculate(
+    mode: Literal["incremental", "full"] = "incremental",
+) -> dict[str, Any]:
+    """Run geo coverage recalculation from scheduled/background task context."""
+    active_job = await _get_active_geo_recalc_job()
+    if active_job:
+        return {
+            "status": "skipped",
+            "reason": "already_running",
+            "message": "Geo coverage recalculation is already running.",
+            "job_id": str(active_job.id),
+            "mode": _normalize_recalc_mode((active_job.metadata or {}).get("mode")),
+        }
+
+    selected_mode = _normalize_recalc_mode(mode)
+    now = datetime.now(UTC)
+    job = Job(
+        job_type=GEO_COVERAGE_JOB_TYPE,
+        status="pending",
+        stage="Queued",
+        progress=0.0,
+        message=(
+            "Queued scheduled incremental coverage recalculation..."
+            if selected_mode == "incremental"
+            else "Queued scheduled full coverage rebuild..."
+        ),
+        created_at=now,
+        updated_at=now,
+        metadata={
+            "mode": selected_mode,
+            "trigger": "scheduled",
+        },
+        metrics={
+            "mode": selected_mode,
+            "processedTrips": 0,
+            "totalTrips": 0,
+            "visitedCounties": 0,
+            "stoppedCounties": 0,
+            "visitedCities": 0,
+            "stoppedCities": 0,
+        },
+    )
+    await job.insert()
+
+    await calculate_geo_coverage_task(mode=selected_mode, job_id=str(job.id))
+
+    finished = await _resolve_job(str(job.id))
+    if not finished:
+        msg = "Scheduled geo coverage job could not be reloaded after execution."
+        raise RuntimeError(msg)
+
+    if finished.status == "completed":
+        return {
+            "status": "success",
+            "job_id": str(finished.id),
+            "mode": selected_mode,
+            "message": finished.message or "Geo coverage recalculation completed.",
+            "result": finished.result or {},
+        }
+
+    if finished.status == "failed":
+        msg = finished.error or finished.message or "Geo coverage recalculation failed."
+        raise RuntimeError(msg)
+
+    msg = (
+        f"Scheduled geo coverage job ended in unexpected status '{finished.status}'."
+    )
+    raise RuntimeError(msg)
+
+
 async def get_cache_status() -> dict[str, Any]:
     county_cache = await CountyVisitedCache.get("visited_counties")
     city_cache = await CityVisitedCache.get("visited_cities")
@@ -1647,8 +1717,18 @@ class GeoCoverageService:
         return await recalculate(background_tasks, mode=mode)
 
     @staticmethod
+    async def run_scheduled_recalculate(
+        mode: Literal["incremental", "full"] = "incremental",
+    ) -> dict[str, Any]:
+        return await run_scheduled_recalculate(mode=mode)
+
+    @staticmethod
     async def get_cache_status() -> dict[str, Any]:
         return await get_cache_status()
 
 
-__all__ = ["GeoCoverageService", "calculate_geo_coverage_task"]
+__all__ = [
+    "GeoCoverageService",
+    "calculate_geo_coverage_task",
+    "run_scheduled_recalculate",
+]

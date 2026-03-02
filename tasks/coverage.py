@@ -13,6 +13,7 @@ import logging
 from typing import Any
 
 from db.models import CoverageArea
+from geo_coverage.services.geo_coverage_service import run_scheduled_recalculate
 from street_coverage.stats import update_area_stats
 from tasks.ops import run_task_with_history
 
@@ -106,5 +107,53 @@ async def update_coverage_for_new_trips(
         ctx,
         "update_coverage_for_new_trips",
         _update_coverage_for_new_trips_logic,
+        manual_run=manual_run,
+    )
+
+
+async def _sync_geo_coverage_logic() -> dict[str, Any]:
+    """
+    Incrementally refresh geo coverage explorer caches.
+
+    Uses the persisted last-processed checkpoint and only scans trips newer than
+    that checkpoint unless there is no checkpoint yet (first run).
+    """
+    result = await run_scheduled_recalculate(mode="incremental")
+    status = str(result.get("status") or "")
+    if status == "skipped":
+        logger.info(
+            "Geo coverage sync skipped: %s",
+            result.get("reason") or "already running",
+        )
+        return {
+            "status": "skipped",
+            "reason": result.get("reason"),
+            "job_id": result.get("job_id"),
+            "message": result.get("message") or "Geo coverage sync skipped.",
+        }
+
+    logger.info(
+        "Geo coverage sync completed (mode=%s, job_id=%s)",
+        result.get("mode"),
+        result.get("job_id"),
+    )
+    return {
+        "status": "success",
+        "mode": result.get("mode") or "incremental",
+        "job_id": result.get("job_id"),
+        "result": result.get("result") or {},
+        "message": result.get("message") or "Geo coverage sync completed.",
+    }
+
+
+async def sync_geo_coverage(
+    ctx: dict[str, Any],
+    manual_run: bool = False,
+) -> dict[str, Any]:
+    """ARQ job for incremental geo coverage sync."""
+    return await run_task_with_history(
+        ctx,
+        "sync_geo_coverage",
+        _sync_geo_coverage_logic,
         manual_run=manual_run,
     )

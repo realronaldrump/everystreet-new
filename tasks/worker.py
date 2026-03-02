@@ -10,12 +10,13 @@ from arq import cron, func
 
 from core.startup import initialize_shared_runtime, shutdown_shared_runtime
 from tasks.arq import get_redis_settings
-from tasks.coverage import update_coverage_for_new_trips
+from tasks.coverage import sync_geo_coverage, update_coverage_for_new_trips
 from tasks.cron import (
     cron_auto_provision_map_data,
     cron_monitor_map_data_jobs,
     cron_periodic_fetch_trips,
     cron_remap_unmatched_trips,
+    cron_sync_geo_coverage,
     cron_sync_mobility_profiles,
     cron_update_coverage_for_new_trips,
     cron_validate_trips,
@@ -82,6 +83,7 @@ class WorkerSettings:
         remap_unmatched_trips,
         map_match_trips,
         update_coverage_for_new_trips,
+        sync_geo_coverage,
         func(sync_mobility_profiles, timeout=MOBILITY_SYNC_TIMEOUT_SECONDS),
         build_recurring_routes,
         func(generate_optimal_route, timeout=OPTIMAL_ROUTE_TIMEOUT_SECONDS),
@@ -97,6 +99,7 @@ class WorkerSettings:
         cron(cron_validate_trips),
         cron(cron_remap_unmatched_trips),
         cron(cron_update_coverage_for_new_trips),
+        cron(cron_sync_geo_coverage),
         cron(cron_sync_mobility_profiles),
         cron(worker_heartbeat),
         cron(cron_monitor_map_data_jobs),
