@@ -78,6 +78,10 @@ const apiPost = (url, body, options = {}) =>
   apiClient.post(url, body, withSignal(options));
 const apiDelete = (url, options = {}) => apiClient.delete(url, withSignal(options));
 
+function isAbortError(error) {
+  return error?.name === "AbortError";
+}
+
 function isGoogleMapProvider() {
   return String(window.MAP_PROVIDER || "").toLowerCase() === "google";
 }
@@ -711,6 +715,9 @@ async function loadVehicles() {
       vehicleSelect.value = savedImei;
     }
   } catch (err) {
+    if (isAbortError(err)) {
+      return;
+    }
     console.warn("Failed to load vehicles:", err);
   }
 }
@@ -750,10 +757,16 @@ async function loadTripStats() {
       apiGet(`${CONFIG.API.drivingInsights}?${params}`),
     ]);
 
-    if (metricsResult.status === "rejected") {
+    if (
+      metricsResult.status === "rejected" &&
+      !isAbortError(metricsResult.reason)
+    ) {
       console.warn("Failed to load trip metrics:", metricsResult.reason);
     }
-    if (insightsResult.status === "rejected") {
+    if (
+      insightsResult.status === "rejected" &&
+      !isAbortError(insightsResult.reason)
+    ) {
       console.warn("Failed to load trip insights:", insightsResult.reason);
     }
 
@@ -799,6 +812,9 @@ async function loadTripStats() {
       fuelEl.textContent = totalFuel ? `${totalFuel.toFixed(1)} gal` : "--";
     }
   } catch (err) {
+    if (isAbortError(err)) {
+      return;
+    }
     console.warn("Failed to load trip stats:", err);
   }
 }
@@ -886,6 +902,9 @@ async function loadTrips() {
       updateFilterResultsPreview();
     }
   } catch (err) {
+    if (isAbortError(err)) {
+      return;
+    }
     console.error("Failed to load trips:", err);
     notificationManager.show("Failed to load trips", "danger");
     showEmptyState();

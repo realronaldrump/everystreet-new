@@ -33,11 +33,45 @@ let initializationError = null;
 const readyCallbacks = [];
 let styleChangeQueue = Promise.resolve();
 let activeStyleType = null;
+const MAPBOX_TELEMETRY_HOSTS = new Set(["events.mapbox.com", "events.mapbox.cn"]);
 
 // Serialized style-change handler registry
 // Handlers run sequentially by priority (lower number = runs first) after a style change.
 const styleChangeHandlers = [];
 let styleChangeInProgress = false;
+
+function extractRequestUrl(input) {
+  if (typeof input === "string") {
+    return input;
+  }
+  if (typeof URL !== "undefined" && input instanceof URL) {
+    return input.toString();
+  }
+  if (typeof Request !== "undefined" && input instanceof Request) {
+    return input.url;
+  }
+  if (typeof input?.url === "string") {
+    return input.url;
+  }
+  if (typeof input?.href === "string") {
+    return input.href;
+  }
+  return null;
+}
+
+function isMapboxTelemetryUrl(input, baseUrl) {
+  const url = extractRequestUrl(input);
+  if (!url) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(url, baseUrl);
+    return MAPBOX_TELEMETRY_HOSTS.has(parsed.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
 
 /**
  * MapCore singleton - manages map lifecycle
@@ -376,9 +410,7 @@ const mapCore = {
       this._safeSetMapboxConfig(mapboxgl.config, "EVENTS_URL", null);
     }
 
-    if (!telemetryApiAvailable) {
-      this._patchTelemetryRequests();
-    }
+    this._patchTelemetryRequests();
   },
 
   /**
@@ -412,7 +444,6 @@ const mapCore = {
       return;
     }
 
-    const telemetryHost = "events.mapbox.com";
     const baseUrl =
       typeof window !== "undefined" && window.location?.origin
         ? window.location.origin
@@ -425,13 +456,8 @@ const mapCore = {
     ) {
       const originalSendBeacon = navigator.sendBeacon.bind(navigator);
       navigator.sendBeacon = (url, data) => {
-        try {
-          const parsed = new URL(url, baseUrl);
-          if (parsed.hostname === telemetryHost) {
-            return true;
-          }
-        } catch {
-          // Ignore URL parsing errors
+        if (isMapboxTelemetryUrl(url, baseUrl)) {
+          return true;
         }
         return originalSendBeacon(url, data);
       };
@@ -441,18 +467,10 @@ const mapCore = {
     if (typeof window !== "undefined" && typeof window.fetch === "function") {
       const originalFetch = window.fetch.bind(window);
       window.fetch = (input, init) => {
-        const url = typeof input === "string" ? input : input?.url;
-        if (typeof url === "string") {
-          try {
-            const parsed = new URL(url, baseUrl);
-            if (parsed.hostname === telemetryHost) {
-              return Promise.resolve(
-                new Response(null, { status: 204, statusText: "No Content" })
-              );
-            }
-          } catch {
-            // Ignore URL parsing errors
-          }
+        if (isMapboxTelemetryUrl(input, baseUrl)) {
+          return Promise.resolve(
+            new Response(null, { status: 204, statusText: "No Content" })
+          );
         }
         return originalFetch(input, init);
       };
@@ -808,9 +826,7 @@ function createMap(containerId, options = {}) {
   if (!mapbox) {
     throw new Error("Mapbox GL JS is not loaded");
   }
-  if (typeof mapbox.setTelemetryEnabled === "function") {
-    mapbox.setTelemetryEnabled(false);
-  }
+  mapCore._disableTelemetry();
 
   const { styleUrl: themeStyle } = resolveMapStyle({ theme: getCurrentTheme() });
   const defaultStyle = style || themeStyle;
