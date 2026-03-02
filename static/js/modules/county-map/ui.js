@@ -350,7 +350,7 @@ export function updateLevelUi(level) {
 // =============================================================================
 
 export function renderStateStatsList(options = {}) {
-  const { sortBy = "name", onSelectState } = options;
+  const { sortBy = "name", onSelectState, includeState } = options;
   const stateList = [...CountyMapState.getStateRollups()];
 
   switch (sortBy) {
@@ -382,6 +382,9 @@ export function renderStateStatsList(options = {}) {
 
   container.innerHTML = stateList
     .filter((entry) => Number(entry?.county?.total || 0) > 0)
+    .filter((entry) =>
+      typeof includeState === "function" ? includeState(entry) : true
+    )
     .map((entry) => {
       const countyStats = entry.county || {};
       const cityStats = entry.city || {};

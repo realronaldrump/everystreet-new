@@ -243,13 +243,49 @@ function buildCountyIndexes(features) {
   };
 }
 
-function getPreferredStateFips() {
+export function getCountyActivityStateFips({
+  countyVisits = {},
+  countyStops = {},
+} = {}) {
+  const stateFipsWithActivity = new Set();
+
+  [countyVisits, countyStops].forEach((records) => {
+    Object.keys(records || {}).forEach((countyFips) => {
+      const normalizedCountyFips = String(countyFips).padStart(5, "0");
+      const stateFips = normalizedCountyFips.substring(0, 2);
+      if (stateFips) {
+        stateFipsWithActivity.add(stateFips);
+      }
+    });
+  });
+
+  return stateFipsWithActivity;
+}
+
+function getStateRollupsWithCountyActivity() {
+  const countyActivityStateFips = getCountyActivityStateFips({
+    countyVisits: CountyMapState.getCountyVisits(),
+    countyStops: CountyMapState.getCountyStops(),
+  });
+
+  return CountyMapState.getStateRollups().filter((entry) =>
+    countyActivityStateFips.has(String(entry?.stateFips || "").padStart(2, "0"))
+  );
+}
+
+function getCityTabStateRollups() {
+  return getStateRollupsWithCountyActivity().filter(
+    (entry) => Number(entry?.city?.total || 0) > 0
+  );
+}
+
+function getPreferredStateFips(stateRollups = CountyMapState.getStateRollups()) {
+  const rollups = Array.isArray(stateRollups) ? stateRollups : [];
   const existing = CountyMapState.getSelectedStateFips();
-  if (existing) {
+  if (existing && rollups.some((entry) => String(entry?.stateFips) === existing)) {
     return existing;
   }
 
-  const rollups = CountyMapState.getStateRollups();
   if (!rollups.length) {
     return null;
   }
@@ -274,9 +310,7 @@ function updateStateSelector() {
     return;
   }
 
-  const states = CountyMapState.getStateRollups().filter(
-    (entry) => Number(entry?.city?.total || 0) > 0
-  );
+  const states = getCityTabStateRollups();
 
   select.innerHTML = states
     .map((entry) => {
@@ -285,11 +319,13 @@ function updateStateSelector() {
     })
     .join("");
 
-  const selected = getPreferredStateFips();
-  if (selected) {
-    select.value = selected;
-    CountyMapState.setSelectedStateFips(selected);
+  const selected = getPreferredStateFips(states);
+  if (!selected) {
+    CountyMapState.setSelectedStateFips(null);
+    return;
   }
+  select.value = selected;
+  CountyMapState.setSelectedStateFips(selected);
 }
 
 function fitToState(stateFips) {
@@ -305,9 +341,15 @@ function fitToState(stateFips) {
 function bindStateList(sortBy = null) {
   const sortSelect = document.getElementById("state-sort");
   const resolvedSort = sortBy || sortSelect?.value || "name";
+  const countyActivityStateFips = getCountyActivityStateFips({
+    countyVisits: CountyMapState.getCountyVisits(),
+    countyStops: CountyMapState.getCountyStops(),
+  });
 
   renderStateStatsList({
     sortBy: resolvedSort,
+    includeState: (entry) =>
+      countyActivityStateFips.has(String(entry?.stateFips || "").padStart(2, "0")),
     onSelectState: async (stateFips) => {
       CountyMapState.setSelectedStateFips(stateFips);
       updateStateSelector();
@@ -554,7 +596,7 @@ async function renderCityMode(token) {
     return;
   }
 
-  const stateFips = getPreferredStateFips();
+  const stateFips = getPreferredStateFips(getCityTabStateRollups());
   if (!stateFips) {
     renderCityRows({ cities: [], pagination: { page: 1, totalPages: 1 } });
     return;

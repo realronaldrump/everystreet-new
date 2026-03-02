@@ -218,6 +218,7 @@ const mapCore = {
         zoom: initialView.zoom,
         maxZoom: CONFIG.MAP.maxZoom,
         attributionControl: false,
+        performanceMetricsCollection: false,
         logoPosition: "bottom-right",
         ...CONFIG.MAP.performanceOptions,
         transformRequest: this._createTransformRequest(),
@@ -824,6 +825,7 @@ function createMap(containerId, options = {}) {
     zoom,
     ...rest,
     attributionControl: false,
+    performanceMetricsCollection: false,
   });
   map.addControl(new mapbox.NavigationControl());
   map.on("error", () => {});

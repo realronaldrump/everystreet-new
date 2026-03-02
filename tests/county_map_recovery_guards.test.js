@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { canAttemptRecovery } from "../static/js/modules/features/county-map/index.js";
+import {
+  canAttemptRecovery,
+  getCountyActivityStateFips,
+} from "../static/js/modules/features/county-map/index.js";
 
 test("canAttemptRecovery enforces attempt limits and cooldown", () => {
   assert.equal(
@@ -47,4 +50,27 @@ test("canAttemptRecovery enforces attempt limits and cooldown", () => {
     }),
     true
   );
+});
+
+test("getCountyActivityStateFips includes states with visits or stops", () => {
+  const stateFips = getCountyActivityStateFips({
+    countyVisits: {
+      1001: {
+        firstVisit: "2026-01-01T00:00:00.000Z",
+        lastVisit: "2026-01-01T00:00:00.000Z",
+      },
+      "06001": {
+        firstVisit: "2026-01-01T00:00:00.000Z",
+        lastVisit: "2026-01-01T00:00:00.000Z",
+      },
+    },
+    countyStops: {
+      "48001": {
+        firstStop: "2026-01-01T00:00:00.000Z",
+        lastStop: "2026-01-01T00:00:00.000Z",
+      },
+    },
+  });
+
+  assert.deepEqual([...stateFips].sort(), ["01", "06", "48"]);
 });

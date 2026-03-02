@@ -38,6 +38,9 @@ const PLACE_PREVIEW_COLORS = {
   slate: { fill: "#6f7f96", line: "#94a3b8" },
 };
 
+// Keep preview maps bounded so the main interactive map never loses its WebGL context.
+const MAX_ACTIVE_PREVIEW_MAPS = 6;
+
 // Day names for pattern detection
 const _DAY_NAMES = [
   "Sunday",
@@ -1247,6 +1250,8 @@ class VisitsPageController {
   destroy() {
     this._previewMapObserver?.disconnect();
     this._previewMapObserver = null;
+    this.clearPlacePreviewMaps();
+    this.clearSuggestionPreviewMaps();
     this.listenerAbortController.abort();
     this.modalWatchdogObserver?.disconnect();
     this.modalWatchdogObserver = null;
@@ -1348,6 +1353,17 @@ class VisitsPageController {
       }
     });
     this.placePreviewMaps.clear();
+  }
+
+  getActivePreviewMapCount() {
+    return this.placePreviewMaps.size + this.suggestionPreviewMaps.size;
+  }
+
+  updatePreviewFallback(container, message) {
+    const messageNode = container?.querySelector(".map-preview-default span");
+    if (messageNode) {
+      messageNode.textContent = message;
+    }
   }
 
   getPreviewMapStyle() {
@@ -1462,6 +1478,15 @@ class VisitsPageController {
       }
 
       container._lazyMapInit = () => {
+        if (this.placePreviewMaps.has(mapId)) {
+          return;
+        }
+
+        if (this.getActivePreviewMapCount() >= MAX_ACTIVE_PREVIEW_MAPS) {
+          this.updatePreviewFallback(container, "Preview paused to keep map stable");
+          return;
+        }
+
         const previewMap = createMap(mapId, {
           center: [-95.7129, 37.0902],
           zoom: 3,
@@ -1538,6 +1563,15 @@ class VisitsPageController {
       }
 
       container._lazyMapInit = () => {
+        if (this.suggestionPreviewMaps.has(mapId)) {
+          return;
+        }
+
+        if (this.getActivePreviewMapCount() >= MAX_ACTIVE_PREVIEW_MAPS) {
+          this.updatePreviewFallback(container, "Preview paused to keep map stable");
+          return;
+        }
+
         const previewMap = createMap(mapId, {
           center: [-95.7129, 37.0902],
           zoom: 3,
