@@ -1,10 +1,22 @@
 /**
  * County Map State Module
- * Centralized state management for the county map
+ * Centralized state for unified county/state/city coverage explorer
  */
 
 /** @type {mapboxgl.Map|null} */
 let map = null;
+
+/** @type {'county' | 'state' | 'city'} */
+let activeLevel = "county";
+
+/** @type {Object|null} */
+let summary = null;
+
+/** @type {Array<Object>} */
+let stateRollups = [];
+
+/** @type {string|null} */
+let selectedStateFips = null;
 
 /** @type {Object.<string, {firstVisit: string, lastVisit: string}>} */
 let countyVisits = {};
@@ -12,11 +24,20 @@ let countyVisits = {};
 /** @type {Object.<string, {firstStop: string, lastStop: string}>} */
 let countyStops = {};
 
+/** @type {Object.<string, Object.<string, {firstVisit: string, lastVisit: string}>>} */
+let cityVisitsByState = {};
+
 /** @type {Object|null} GeoJSON county data */
 let countyData = null;
 
-/** @type {Object|null} GeoJSON states data */
+/** @type {Object|null} GeoJSON states data from county topology */
 let statesData = null;
+
+/** @type {Object|null} State boundary feature collection for state mode */
+let stateFeatureCollection = null;
+
+/** @type {Object.<string, Object>} Cached city feature collections keyed by state FIPS */
+let cityFeatureCollections = {};
 
 /** @type {Object.<string, {stateFips: string, stateName: string}>} */
 let countyToState = {};
@@ -39,6 +60,9 @@ let showStoppedCounties = false;
 /** @type {boolean} Whether recalc polling is active */
 let recalcPollerActive = false;
 
+/** @type {Object.<string, {cities: Array<Object>, pagination: Object}>} */
+let cityListByState = {};
+
 // Map getters and setters
 export function getMap() {
   return map;
@@ -48,13 +72,47 @@ export function setMap(mapInstance) {
   map = mapInstance;
 }
 
+export function getActiveLevel() {
+  return activeLevel;
+}
+
+export function setActiveLevel(level) {
+  if (level === "county" || level === "state" || level === "city") {
+    activeLevel = level;
+  }
+}
+
+export function getSummary() {
+  return summary;
+}
+
+export function setSummary(value) {
+  summary = value;
+}
+
+export function getStateRollups() {
+  return stateRollups;
+}
+
+export function setStateRollups(value) {
+  stateRollups = Array.isArray(value) ? value : [];
+}
+
+export function getSelectedStateFips() {
+  return selectedStateFips;
+}
+
+export function setSelectedStateFips(value) {
+  selectedStateFips = value || null;
+}
+
 // County visits getters and setters
 export function getCountyVisits() {
   return countyVisits;
 }
 
 export function setCountyVisits(visits) {
-  countyVisits = visits;
+  countyVisits = visits || {};
 }
 
 // County stops getters and setters
@@ -63,7 +121,22 @@ export function getCountyStops() {
 }
 
 export function setCountyStops(stops) {
-  countyStops = stops;
+  countyStops = stops || {};
+}
+
+export function getCityVisitsForState(stateFips) {
+  return cityVisitsByState[stateFips] || {};
+}
+
+export function setCityVisitsForState(stateFips, visits) {
+  if (!stateFips) {
+    return;
+  }
+  cityVisitsByState[stateFips] = visits || {};
+}
+
+export function getAllCityVisits() {
+  return cityVisitsByState;
 }
 
 // County data getters and setters
@@ -82,6 +155,25 @@ export function getStatesData() {
 
 export function setStatesData(data) {
   statesData = data;
+}
+
+export function getStateFeatureCollection() {
+  return stateFeatureCollection;
+}
+
+export function setStateFeatureCollection(collection) {
+  stateFeatureCollection = collection;
+}
+
+export function getCityFeatureCollection(stateFips) {
+  return cityFeatureCollections[stateFips] || null;
+}
+
+export function setCityFeatureCollection(stateFips, collection) {
+  if (!stateFips || !collection) {
+    return;
+  }
+  cityFeatureCollections[stateFips] = collection;
 }
 
 export function clearGeometryData() {
@@ -127,7 +219,7 @@ export function getIsRecalculating() {
 }
 
 export function setIsRecalculating(value) {
-  isRecalculating = value;
+  isRecalculating = Boolean(value);
 }
 
 // Show stopped counties state
@@ -136,7 +228,7 @@ export function getShowStoppedCounties() {
 }
 
 export function setShowStoppedCounties(value) {
-  showStoppedCounties = value;
+  showStoppedCounties = Boolean(value);
 }
 
 // Recalc poller state
@@ -145,7 +237,18 @@ export function getRecalcPollerActive() {
 }
 
 export function setRecalcPollerActive(value) {
-  recalcPollerActive = value;
+  recalcPollerActive = Boolean(value);
+}
+
+export function getCityListForState(stateFips) {
+  return cityListByState[stateFips] || null;
+}
+
+export function setCityListForState(stateFips, value) {
+  if (!stateFips) {
+    return;
+  }
+  cityListByState[stateFips] = value || null;
 }
 
 /**
@@ -153,10 +256,17 @@ export function setRecalcPollerActive(value) {
  */
 export function resetState() {
   map = null;
+  activeLevel = "county";
+  summary = null;
+  stateRollups = [];
+  selectedStateFips = null;
   countyVisits = {};
   countyStops = {};
+  cityVisitsByState = {};
   countyData = null;
   statesData = null;
+  stateFeatureCollection = null;
+  cityFeatureCollections = {};
   countyToState = {};
   stateTotals = {};
   stateBounds = {};
@@ -164,4 +274,5 @@ export function resetState() {
   isRecalculating = false;
   showStoppedCounties = false;
   recalcPollerActive = false;
+  cityListByState = {};
 }

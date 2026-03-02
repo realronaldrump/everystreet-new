@@ -3,6 +3,9 @@
  * All API endpoints, storage keys, and constants in one place
  */
 
+export const MAPBOX_PUBLIC_ACCESS_TOKEN =
+  "pk.eyJ1IjoicmVhbHJvbmFsZHJ1bXAiLCJhIjoiY204eXBvMzRhMDNubTJrb2NoaDIzN2dodyJ9.3Hnv3_ps0T7YS8cwSE3XKA";
+
 export const CONFIG = {
   // Map configuration
   MAP: {
@@ -10,7 +13,7 @@ export const CONFIG = {
     defaultZoom: 4,
     maxZoom: 19,
     // Canonical front-end Mapbox token source.
-    accessToken: "pk.your-public-mapbox-token",
+    accessToken: MAPBOX_PUBLIC_ACCESS_TOKEN,
     recentTripThreshold: 6 * 60 * 60 * 1000, // 6 hours
     recencyWindowMs: 30 * 24 * 60 * 60 * 1000, // 30 days
     debounceDelay: 150,
@@ -80,12 +83,6 @@ export const CONFIG = {
       `/api/actions/trips/sync/history_import/${jobId}/sse`,
     tripSyncHistoryImportCancel: (jobId) =>
       `/api/actions/trips/sync/history_import/${jobId}`,
-    tripMemoryAtlas: (id) => `/api/trips/${id}/memory-atlas`,
-    tripMemoryAtlasAttach: (id) => `/api/trips/${id}/memory-atlas/attach`,
-    tripMemoryAtlasAutoAssign: "/api/trips/memory-atlas/auto-assign",
-    tripMemoryAtlasPostcard: (id) => `/api/trips/${id}/memory-atlas/postcard`,
-    tripMemoryAtlasMoment: (id, momentId) =>
-      `/api/trips/${id}/memory-atlas/moments/${momentId}`,
 
     // Coverage endpoints
     coverageAreas: "/api/coverage/areas",
@@ -104,18 +101,6 @@ export const CONFIG = {
     // Vehicle endpoints
     vehicles: "/api/vehicles",
 
-    // Google Photos endpoints
-    googlePhotosStatus: "/api/google-photos/status",
-    googlePhotosCredentials: "/api/google-photos/credentials",
-    googlePhotosAuthorize: (mode = "picker") =>
-      `/api/google-photos/authorize?mode=${encodeURIComponent(mode)}`,
-    googlePhotosDisconnect: "/api/google-photos/disconnect",
-    googlePhotosPickerSessions: "/api/google-photos/picker/sessions",
-    googlePhotosPickerSession: (sessionId) =>
-      `/api/google-photos/picker/sessions/${encodeURIComponent(sessionId)}`,
-    googlePhotosPickerSessionMediaItems: (sessionId) =>
-      `/api/google-photos/picker/sessions/${encodeURIComponent(sessionId)}/media-items`,
-
     // Caching and retry settings
     cacheTime: 30000,
     retryAttempts: 3,
@@ -128,11 +113,11 @@ export const CONFIG = {
   LAYER_DEFAULTS: {
     trips: {
       order: 1,
-      color: "#b87a4a",
+      color: "#d4943c",
       opacity: 0.85,
       visible: true,
       name: "Trips Heatmap",
-      weight: 2,
+      weight: 2.5,
       minzoom: 0,
       maxzoom: 22,
       supportsColorPicker: false,

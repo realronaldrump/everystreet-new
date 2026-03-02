@@ -1,19 +1,17 @@
 /**
  * County Map Interactions Module
- * Handles tooltip and hover interactions for the county map
+ * Handles tooltip and hover interactions for county/state/city levels.
  */
 
-import { setHoverHighlight } from "./map-layers.js";
+import { getInteractiveLayerId, setHoverHighlight } from "./map-layers.js";
 import * as CountyMapState from "./state.js";
 import { formatDate } from "./ui.js";
 
-/**
- * Format a date range for display in tooltip
- * @param {string} label - Label for the date range
- * @param {string} firstIso - ISO string of first date
- * @param {string} lastIso - ISO string of last date
- * @returns {string} HTML string for date range
- */
+let boundMap = null;
+let boundLayerId = null;
+let moveHandler = null;
+let leaveHandler = null;
+
 function formatDateRange(label, firstIso, lastIso) {
   const firstDate = formatDate(firstIso);
   const lastDate = formatDate(lastIso);
@@ -33,8 +31,137 @@ function formatDateRange(label, firstIso, lastIso) {
   return `<div class="tooltip-date"><span class="date-label">${label}:</span> ${firstDate} to ${lastDate}</div>`;
 }
 
+function teardownInteractions() {
+  if (!boundMap || !boundLayerId) {
+    return;
+  }
+  if (moveHandler) {
+    boundMap.off("mousemove", boundLayerId, moveHandler);
+  }
+  if (leaveHandler) {
+    boundMap.off("mouseleave", boundLayerId, leaveHandler);
+  }
+
+  boundMap = null;
+  boundLayerId = null;
+  moveHandler = null;
+  leaveHandler = null;
+}
+
+function getStateRollupMap() {
+  const map = new Map();
+  CountyMapState.getStateRollups().forEach((row) => {
+    if (row?.stateFips) {
+      map.set(row.stateFips, row);
+    }
+  });
+  return map;
+}
+
+function buildTooltipData(feature) {
+  const activeLevel = CountyMapState.getActiveLevel();
+  const props = feature?.properties || {};
+
+  if (activeLevel === "state") {
+    const stateFips = String(props.stateFips || feature.id || "").padStart(2, "0");
+    const stateName = props.name || props.stateName || "Unknown State";
+    const rollup = getStateRollupMap().get(stateFips) || {};
+    const countyStats = rollup.county || {};
+
+    const visited = Number(countyStats.visited || 0);
+    const total = Number(countyStats.total || 0);
+    const percent = Number(countyStats.percent || 0);
+
+    return {
+      highlightId: stateFips,
+      title: stateName,
+      subtitle: `State FIPS: ${stateFips}`,
+      status:
+        visited > 0
+          ? `${visited} / ${total} counties (${percent.toFixed(1)}%)`
+          : `0 / ${total} counties`,
+      statusClass: visited > 0 ? "tooltip-status--visited" : "tooltip-status--unvisited",
+      datesHtml: formatDateRange("Visited", countyStats.firstVisit, countyStats.lastVisit),
+    };
+  }
+
+  if (activeLevel === "city") {
+    const cityId = props.cityId || feature.id;
+    const cityName = props.name || "Unknown City";
+    const stateName = props.stateName || "";
+    const visits = CountyMapState.getCityVisitsForState(
+      CountyMapState.getSelectedStateFips()
+    );
+    const cityVisit = visits[cityId];
+    const isVisited = Boolean(cityVisit);
+
+    return {
+      highlightId: cityId,
+      title: cityName,
+      subtitle: stateName,
+      status: isVisited ? "Visited" : "Not yet visited",
+      statusClass: isVisited ? "tooltip-status--visited" : "tooltip-status--unvisited",
+      datesHtml: isVisited
+        ? formatDateRange("Visited", cityVisit.firstVisit, cityVisit.lastVisit)
+        : "",
+    };
+  }
+
+  const countyVisits = CountyMapState.getCountyVisits();
+  const countyStops = CountyMapState.getCountyStops();
+
+  const fips = props.fips;
+  const countyName = props.name || "Unknown County";
+  const stateName = props.stateName || "Unknown State";
+  const isVisited = Boolean(countyVisits[fips]);
+  const isStopped = Boolean(countyStops[fips]);
+
+  const dateLines = [];
+  if (isVisited && countyVisits[fips]) {
+    dateLines.push(
+      formatDateRange(
+        "Driven",
+        countyVisits[fips].firstVisit,
+        countyVisits[fips].lastVisit
+      )
+    );
+  }
+  if (isStopped && countyStops[fips]) {
+    dateLines.push(
+      formatDateRange(
+        "Stopped",
+        countyStops[fips].firstStop,
+        countyStops[fips].lastStop
+      )
+    );
+  }
+
+  const status = isStopped
+    ? isVisited
+      ? "Stopped In + Driven Through"
+      : "Stopped In"
+    : isVisited
+      ? "Driven Through"
+      : "Not yet visited";
+
+  const statusClass = isStopped
+    ? "tooltip-status--stopped"
+    : isVisited
+      ? "tooltip-status--visited"
+      : "tooltip-status--unvisited";
+
+  return {
+    highlightId: fips,
+    title: countyName,
+    subtitle: stateName,
+    status,
+    statusClass,
+    datesHtml: dateLines.filter(Boolean).join(""),
+  };
+}
+
 /**
- * Setup hover and click interactions for the map
+ * Setup hover interactions for active map level.
  */
 export function setupInteractions() {
   const map = CountyMapState.getMap();
@@ -47,99 +174,61 @@ export function setupInteractions() {
     return;
   }
 
+  const layerId = getInteractiveLayerId();
+  if (!map.getLayer(layerId)) {
+    teardownInteractions();
+    return;
+  }
+
+  teardownInteractions();
+
   const tooltipCounty = tooltip.querySelector(".tooltip-county-name");
   const tooltipState = tooltip.querySelector(".tooltip-state-name");
   const tooltipStatus = tooltip.querySelector(".tooltip-status");
   const tooltipDates = tooltip.querySelector(".tooltip-dates");
 
-  /**
-   * Show tooltip for a county
-   * @param {Object} e - Mapbox event
-   */
-  function showTooltip(e) {
-    if (e.features.length === 0) {
+  moveHandler = (e) => {
+    if (!e.features || e.features.length === 0) {
       return;
     }
 
-    const countyVisits = CountyMapState.getCountyVisits();
-    const countyStops = CountyMapState.getCountyStops();
-
     const feature = e.features[0];
-    const { fips } = feature.properties;
-    const countyName = feature.properties.name || "Unknown County";
-    const stateName = feature.properties.stateName || "Unknown State";
-    const isVisited = Boolean(countyVisits[fips]);
-    const isStopped = Boolean(countyStops[fips]);
+    const data = buildTooltipData(feature);
 
-    // Update highlight
-    setHoverHighlight(fips);
+    setHoverHighlight(data.highlightId || "");
 
-    // Update tooltip content
-    tooltipCounty.textContent = countyName;
-    tooltipState.textContent = stateName;
+    tooltipCounty.textContent = data.title || "";
+    tooltipState.textContent = data.subtitle || "";
+    tooltipStatus.textContent = data.status || "";
+    tooltipStatus.className = `tooltip-status ${data.statusClass}`;
 
-    if (isStopped) {
-      tooltipStatus.textContent = isVisited
-        ? "Stopped In + Driven Through"
-        : "Stopped In";
-      tooltipStatus.className = "tooltip-status tooltip-status--stopped";
-    } else if (isVisited) {
-      tooltipStatus.textContent = "Driven Through";
-      tooltipStatus.className = "tooltip-status tooltip-status--visited";
-    } else {
-      tooltipStatus.textContent = "Not yet visited";
-      tooltipStatus.className = "tooltip-status tooltip-status--unvisited";
-    }
-
-    const dateLines = [];
-    if (isVisited && countyVisits[fips]) {
-      dateLines.push(
-        formatDateRange(
-          "Driven",
-          countyVisits[fips].firstVisit,
-          countyVisits[fips].lastVisit
-        )
-      );
-    }
-    if (isStopped && countyStops[fips]) {
-      dateLines.push(
-        formatDateRange(
-          "Stopped",
-          countyStops[fips].firstStop,
-          countyStops[fips].lastStop
-        )
-      );
-    }
-
-    const filteredLines = dateLines.filter((line) => line !== "");
-    if (filteredLines.length > 0) {
-      tooltipDates.innerHTML = filteredLines.join("");
+    if (data.datesHtml) {
+      tooltipDates.innerHTML = data.datesHtml;
       tooltipDates.style.display = "block";
     } else {
+      tooltipDates.innerHTML = "";
       tooltipDates.style.display = "none";
     }
 
-    // Position tooltip
     tooltip.style.display = "block";
     tooltip.style.left = `${e.point.x}px`;
     tooltip.style.top = `${e.point.y}px`;
-
-    // Change cursor
     map.getCanvas().style.cursor = "pointer";
-  }
+  };
 
-  /**
-   * Hide the tooltip
-   */
-  function hideTooltip() {
+  leaveHandler = () => {
     tooltip.style.display = "none";
     setHoverHighlight("");
     map.getCanvas().style.cursor = "";
-  }
+  };
 
-  // Mouse move - show tooltip
-  map.on("mousemove", "counties-fill", showTooltip);
+  map.on("mousemove", layerId, moveHandler);
+  map.on("mouseleave", layerId, leaveHandler);
 
-  // Mouse leave - hide tooltip
-  map.on("mouseleave", "counties-fill", hideTooltip);
+  boundMap = map;
+  boundLayerId = layerId;
+}
+
+export function cleanupInteractions() {
+  teardownInteractions();
 }

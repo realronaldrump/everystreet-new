@@ -1037,6 +1037,66 @@ class CountyVisitedCache(Document):
     model_config = ConfigDict(extra="allow")
 
 
+class CityBoundary(Document):
+    """Canonical city/place boundary document for geo coverage."""
+
+    id: str = Field(..., alias="_id")
+    name: str
+    state_fips: str
+    state_name: str | None = None
+    territory_code: str | None = None
+    classfp: str | None = None
+    centroid: list[float] | None = None
+    bbox: list[float] | None = None
+    geometry: dict[str, Any] = Field(default_factory=dict)
+    source: str | None = None
+    updated_at: datetime | None = None
+
+    class Settings:
+        name = "city_boundaries"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel([("state_fips", 1)], name="city_boundaries_state_fips_idx"),
+            IndexModel([("geometry", "2dsphere")], name="city_boundaries_geo_idx"),
+        ]
+
+    model_config = ConfigDict(
+        extra="allow",
+        populate_by_name=True,
+    )
+
+
+class CityVisitedCache(Document):
+    """Cache document for visited city/place data."""
+
+    id: str = Field(default="visited_cities", alias="_id")
+    cities: dict[str, Any] = Field(default_factory=dict)
+    state_rollups: dict[str, Any] = Field(default_factory=dict)
+    total_visited: int = 0
+    total_cities: int = 0
+    trips_analyzed: int = 0
+    updated_at: datetime | None = None
+    calculation_time_seconds: float | None = None
+
+    class Settings:
+        name = "city_visited_cache"
+
+    model_config = ConfigDict(extra="allow")
+
+
+class StateBoundaryCache(Document):
+    """Cached state/territory feature collection for map rendering."""
+
+    id: str = Field(default="states_boundaries", alias="_id")
+    source: str | None = None
+    feature_collection: dict[str, Any] = Field(default_factory=dict)
+    updated_at: datetime | None = None
+
+    class Settings:
+        name = "state_boundary_cache"
+
+    model_config = ConfigDict(extra="allow")
+
+
 class CountyTopology(Document):
     """County TopoJSON topology data document."""
 
@@ -1074,6 +1134,9 @@ ALL_DOCUMENT_MODELS = [
     ServerLog,
     BouncieCredentials,
     CountyVisitedCache,
+    CityBoundary,
+    CityVisitedCache,
+    StateBoundaryCache,
     CountyTopology,
     # Coverage system models
     CoverageArea,

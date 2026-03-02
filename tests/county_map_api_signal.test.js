@@ -12,7 +12,7 @@ test("county map API forwards abort signals", async () => {
 
   apiClient.get = async (url, options = {}) => {
     calls.push(["get", url, options]);
-    if (url === "/api/counties/topology") {
+    if (url === "/api/geo-coverage/topology?level=county") {
       return { success: true, topology: { type: "Topology", objects: {} } };
     }
     return { success: true };
@@ -33,9 +33,9 @@ test("county map API forwards abort signals", async () => {
   }
 
   assert.deepEqual(calls, [
-    ["get", "/api/counties/topology", { signal }],
-    ["get", "/api/counties/visited", { signal }],
-    ["post", "/api/counties/recalculate", null, { signal }],
-    ["get", "/api/counties/cache-status", { signal }],
+    ["get", "/api/geo-coverage/topology?level=county", { signal }],
+    ["get", "/api/geo-coverage/visits?level=county", { signal }],
+    ["post", "/api/geo-coverage/recalculate", null, { signal }],
+    ["get", "/api/geo-coverage/cache-status", { signal }],
   ]);
 });

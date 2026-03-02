@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  applyCityVisitFeatureState,
   applyCountyVisitFeatureState,
+  applyStateVisitFeatureState,
   buildCountyBorderColorExpression,
   buildCountyBorderWidthExpression,
   buildCountyFillColorExpression,
@@ -104,5 +106,69 @@ test("updateStopLayerVisibility rewrites county layer paint properties", () => {
     "counties-border",
     "line-color",
     buildCountyBorderColorExpression(true),
+  ]);
+});
+
+test("applyStateVisitFeatureState sets percent completion per state", () => {
+  const featureStateCalls = [];
+  const map = {
+    getSource(id) {
+      return id === "states" ? { id } : null;
+    },
+    removeFeatureState() {},
+    setFeatureState(target, state) {
+      featureStateCalls.push({ target, state });
+    },
+  };
+
+  applyStateVisitFeatureState(map, [
+    {
+      stateFips: "01",
+      county: { visited: 3, total: 67, percent: 4.47 },
+    },
+    {
+      stateFips: "02",
+      county: { visited: 0, total: 29, percent: 0 },
+    },
+  ]);
+
+  assert.deepEqual(featureStateCalls, [
+    {
+      target: { source: "states", id: "01" },
+      state: { visited: true, percent: 4.47 },
+    },
+    {
+      target: { source: "states", id: "02" },
+      state: { visited: false, percent: 0 },
+    },
+  ]);
+});
+
+test("applyCityVisitFeatureState marks visited city IDs", () => {
+  const calls = [];
+  const map = {
+    getSource(id) {
+      return id === "cities" ? { id } : null;
+    },
+    removeFeatureState() {},
+    setFeatureState(target, state) {
+      calls.push({ target, state });
+    },
+  };
+
+  applyCityVisitFeatureState(map, {
+    "4805000": { firstVisit: "2025-01-01T00:00:00Z" },
+    "4807000": { firstVisit: "2025-02-01T00:00:00Z" },
+  });
+
+  assert.deepEqual(calls, [
+    {
+      target: { source: "cities", id: "4805000" },
+      state: { visited: true },
+    },
+    {
+      target: { source: "cities", id: "4807000" },
+      state: { visited: true },
+    },
   ]);
 });

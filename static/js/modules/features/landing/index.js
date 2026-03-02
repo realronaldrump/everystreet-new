@@ -431,7 +431,7 @@ function buildRecordEntries() {
     addRecordEntry(entries, {
       id: "counties-visited",
       title: "Counties visited",
-      value: formatCountValue(counties.totalVisited, "county"),
+      value: formatCountValue(counties.totalVisited, "county", "counties"),
       date: counties.lastUpdated,
       datePrefix: "Updated",
     });

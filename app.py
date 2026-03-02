@@ -25,6 +25,7 @@ from db.models import AppSettings, MapProvider
 from driving import router as driving_api_router
 from exports import router as export_api_router
 from gas import router as gas_api_router
+from geo_coverage import router as geo_coverage_api_router
 from logs import router as logs_api_router
 from map_data.api import router as map_data_router
 from processing import router as processing_api_router
@@ -186,6 +187,7 @@ app.include_router(pages_router)
 app.include_router(admin_api_router)
 app.include_router(analytics_api_router)
 app.include_router(county_api_router)
+app.include_router(geo_coverage_api_router)
 app.include_router(coverage_api_router)
 app.include_router(driving_api_router)
 app.include_router(export_api_router)

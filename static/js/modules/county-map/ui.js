@@ -1,9 +1,16 @@
 /**
  * County Map UI Module
- * Handles UI updates, loading states, and recalculation prompts
+ * Handles UI updates, loading states, and recalculation prompts.
  */
 
 import * as CountyMapState from "./state.js";
+
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.textContent = text;
+  }
+}
 
 /**
  * Get all recalculate buttons
@@ -57,16 +64,14 @@ export function showRecalculatePrompt(onRecalculate) {
     const prompt = document.createElement("div");
     prompt.className = "recalculate-prompt";
     prompt.innerHTML = `
-      <p>County data needs to be calculated from your trips.</p>
+      <p>Coverage data needs to be calculated from your trips.</p>
       <button class="btn btn-primary btn-sm" id="trigger-recalculate">
         <i class="fas fa-calculator me-2"></i>Calculate Now
       </button>
     `;
     statsContent.insertBefore(prompt, statsContent.firstChild);
 
-    document
-      .getElementById("trigger-recalculate")
-      .addEventListener("click", onRecalculate);
+    document.getElementById("trigger-recalculate")?.addEventListener("click", onRecalculate);
   }
 }
 
@@ -99,9 +104,13 @@ export function hideLoading() {
  * @param {string} isoString - ISO date string
  */
 export function updateLastUpdated(isoString) {
-  const lastUpdated = new Date(isoString);
+  const lastUpdated = isoString ? new Date(isoString) : null;
   const el = document.getElementById("last-updated");
   if (el) {
+    if (!lastUpdated || Number.isNaN(lastUpdated.getTime())) {
+      el.textContent = "";
+      return;
+    }
     el.textContent = `Last updated: ${lastUpdated.toLocaleDateString()} ${lastUpdated.toLocaleTimeString()}`;
   }
 }
@@ -110,40 +119,181 @@ export function updateLastUpdated(isoString) {
  * Update statistics display
  */
 export function updateStats() {
-  const countyToState = CountyMapState.getCountyToState();
-  const countyVisits = CountyMapState.getCountyVisits();
-  const totalCounties = CountyMapState.getTotalCounties();
-  const visitedCount = Object.keys(countyVisits).length;
-  const percentage =
-    totalCounties > 0 ? ((visitedCount / totalCounties) * 100).toFixed(1) : "0.0";
+  const summary = CountyMapState.getSummary();
+  if (!summary?.levels) {
+    return;
+  }
 
-  // Count unique states
-  const visitedStates = new Set();
-  Object.keys(countyVisits).forEach((fips) => {
-    const countyMeta = countyToState[fips];
-    if (countyMeta?.stateFips) {
-      visitedStates.add(countyMeta.stateFips);
-    }
+  const county = summary.levels.county || {};
+  const state = summary.levels.state || {};
+  const city = summary.levels.city || {};
+
+  const countyVisited = Number(county.visited || 0);
+  const countyTotal = Number(county.total || 0);
+  const countyPercent = Number(county.percent || 0);
+
+  const stateVisited = Number(state.visited || 0);
+  const stateTotal = Number(state.total || 0);
+  const statePercent = Number(state.percent || 0);
+
+  const cityVisited = Number(city.visited || 0);
+  const cityTotal = Number(city.total || 0);
+  const cityPercent = Number(city.percent || 0);
+
+  setText("counties-visited", countyVisited.toLocaleString());
+  setText("counties-total", countyTotal.toLocaleString());
+  setText("states-visited", stateVisited.toLocaleString());
+  setText("states-total", stateTotal.toLocaleString());
+  setText("cities-visited", cityVisited.toLocaleString());
+  setText("cities-total", cityTotal.toLocaleString());
+
+  setText("county-coverage", `${countyPercent.toFixed(1)}%`);
+  setText("state-coverage", `${statePercent.toFixed(1)}%`);
+  setText("city-coverage", `${cityPercent.toFixed(1)}%`);
+
+  // Legacy support in case old ids are still present.
+  setText("coverage-percent", `${countyPercent.toFixed(1)}%`);
+}
+
+/**
+ * Update visible level-specific sections.
+ * @param {'county'|'state'|'city'} level
+ */
+export function updateLevelUi(level) {
+  const levelButtons = document.querySelectorAll("[data-level]");
+  levelButtons.forEach((button) => {
+    const active = button.dataset.level === level;
+    button.classList.toggle("coverage-level-btn--active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
   });
 
-  // Update DOM
-  const countiesVisitedEl = document.getElementById("counties-visited");
-  const countiesTotalEl = document.getElementById("counties-total");
-  const coveragePercentEl = document.getElementById("coverage-percent");
-  const statesVisitedEl = document.getElementById("states-visited");
+  const countyLegend = document.getElementById("legend-county");
+  const stateLegend = document.getElementById("legend-state");
+  const cityLegend = document.getElementById("legend-city");
 
-  if (countiesVisitedEl) {
-    countiesVisitedEl.textContent = visitedCount.toLocaleString();
+  if (countyLegend) {
+    countyLegend.style.display = level === "county" ? "block" : "none";
   }
-  if (countiesTotalEl) {
-    countiesTotalEl.textContent = totalCounties.toLocaleString();
+  if (stateLegend) {
+    stateLegend.style.display = level === "state" ? "block" : "none";
   }
-  if (coveragePercentEl) {
-    coveragePercentEl.textContent = `${percentage}%`;
+  if (cityLegend) {
+    cityLegend.style.display = level === "city" ? "block" : "none";
   }
-  if (statesVisitedEl) {
-    statesVisitedEl.textContent = visitedStates.size;
+
+  const cityControls = document.getElementById("city-controls");
+  if (cityControls) {
+    cityControls.style.display = level === "city" ? "block" : "none";
   }
+}
+
+/**
+ * Render state rollup list
+ * @param {{sortBy?: string, onSelectState?: (stateFips: string) => void}} options
+ */
+export function renderStateStatsList(options = {}) {
+  const { sortBy = "name", onSelectState } = options;
+  const stateList = [...CountyMapState.getStateRollups()];
+
+  switch (sortBy) {
+    case "coverage-desc":
+      stateList.sort((a, b) => (b?.county?.percent || 0) - (a?.county?.percent || 0));
+      break;
+    case "coverage-asc":
+      stateList.sort((a, b) => (a?.county?.percent || 0) - (b?.county?.percent || 0));
+      break;
+    case "visited-desc":
+      stateList.sort((a, b) => (b?.county?.visited || 0) - (a?.county?.visited || 0));
+      break;
+    default:
+      stateList.sort((a, b) => (a.stateName || "").localeCompare(b.stateName || ""));
+  }
+
+  const container = document.getElementById("state-list");
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = stateList
+    .filter((entry) => Number(entry?.county?.total || 0) > 0)
+    .map((entry) => {
+      const countyStats = entry.county || {};
+      const cityStats = entry.city || {};
+      const countyPct = Number(countyStats.percent || 0);
+      const isComplete = countyPct >= 100;
+      return `
+        <div class="state-stat-item ${isComplete ? "state-stat-item--complete" : ""}" data-state-fips="${entry.stateFips}">
+          <div class="state-stat-header">
+            <span class="state-name">${entry.stateName}</span>
+            <span class="state-coverage ${countyStats.visited ? "state-coverage--visited" : ""}">${countyPct.toFixed(1)}%</span>
+          </div>
+          <div class="state-stat-details">
+            <span class="state-counties">${countyStats.visited || 0} / ${countyStats.total || 0} counties</span>
+          </div>
+          <div class="state-stat-details">
+            <span class="state-counties">${cityStats.visited || 0} / ${cityStats.total || 0} cities</span>
+          </div>
+          <div class="state-progress-bar">
+            <div class="state-progress-fill" style="width: ${countyPct.toFixed(1)}%"></div>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  container.querySelectorAll(".state-stat-item").forEach((item) => {
+    item.addEventListener("click", () => {
+      const { stateFips } = item.dataset;
+      if (typeof onSelectState === "function" && stateFips) {
+        onSelectState(stateFips);
+      }
+    });
+  });
+}
+
+/**
+ * Render city rows
+ * @param {Object} payload
+ */
+export function renderCityRows(payload) {
+  const listEl = document.getElementById("city-list");
+  const paginationEl = document.getElementById("city-pagination");
+  if (!listEl || !paginationEl) {
+    return;
+  }
+
+  const cities = payload?.cities || [];
+  const pagination = payload?.pagination || {};
+
+  if (!cities.length) {
+    listEl.innerHTML = '<div class="empty-list">No cities match this filter.</div>';
+  } else {
+    listEl.innerHTML = cities
+      .map((city) => {
+        const statusClass = city.visited
+          ? "tooltip-status tooltip-status--visited"
+          : "tooltip-status tooltip-status--unvisited";
+        return `
+          <div class="city-stat-item" data-city-id="${city.cityId}">
+            <div class="city-stat-header">
+              <span class="state-name">${city.name}</span>
+              <span class="${statusClass}">${city.visited ? "Visited" : "Unvisited"}</span>
+            </div>
+            <div class="state-date">${city.visited ? `First: ${formatDate(city.firstVisit)} - Last: ${formatDate(city.lastVisit)}` : "No visits yet"}</div>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
+  const currentPage = Number(pagination.page || 1);
+  const totalPages = Number(pagination.totalPages || 1);
+
+  paginationEl.innerHTML = `
+    <button class="btn btn-sm btn-outline-secondary" id="city-page-prev" ${currentPage <= 1 ? "disabled" : ""}>Prev</button>
+    <span class="city-pagination-label">Page ${currentPage} of ${Math.max(totalPages, 1)}</span>
+    <button class="btn btn-sm btn-outline-secondary" id="city-page-next" ${currentPage >= totalPages ? "disabled" : ""}>Next</button>
+  `;
 }
 
 /**
@@ -157,6 +307,9 @@ export function formatDate(isoString) {
   }
   try {
     const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) {
+      return "Unknown";
+    }
     return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
@@ -174,11 +327,11 @@ export function setupPanelToggle() {
   const panel = document.getElementById("stats-panel");
   const toggleBtn = document.getElementById("stats-toggle");
 
-  if (toggleBtn) {
+  if (toggleBtn && panel) {
     toggleBtn.addEventListener("click", () => {
       panel.classList.toggle("stats-panel--collapsed");
       const isCollapsed = panel.classList.contains("stats-panel--collapsed");
-      toggleBtn.setAttribute("aria-expanded", !isCollapsed);
+      toggleBtn.setAttribute("aria-expanded", String(!isCollapsed));
     });
   }
 }

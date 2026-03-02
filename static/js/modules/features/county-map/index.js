@@ -1,21 +1,21 @@
 /* global topojson, mapboxgl */
 /**
- * County Map Main Module
- * Main entry point for the county map feature
+ * Unified County/State/City Coverage Explorer
  */
 
 import { swupReady } from "../../core/navigation.js";
-import * as CountyMapAPI from "../../county-map/api.js";
-import { getStateName, MAP_CONFIG } from "../../county-map/constants.js";
-import { setupInteractions } from "../../county-map/interactions.js";
+import * as CoverageAPI from "../../county-map/api.js";
+import { MAP_CONFIG } from "../../county-map/constants.js";
+import { cleanupInteractions, setupInteractions } from "../../county-map/interactions.js";
 import {
-  addMapLayers,
+  applyCityVisitFeatureState,
   applyCountyVisitFeatureState,
+  applyStateVisitFeatureState,
   getMapStyle,
+  renderLevelLayers,
   updateStopLayerVisibility,
 } from "../../county-map/map-layers.js";
 import * as CountyMapState from "../../county-map/state.js";
-import { setupStateStatsToggle } from "../../county-map/state-stats.js";
 import {
   clearStoredRecalcState,
   getStoredRecalcState,
@@ -23,14 +23,16 @@ import {
 } from "../../county-map/storage.js";
 import {
   hideLoading,
+  renderCityRows,
+  renderStateStatsList,
   setupPanelToggle,
   showRecalculatePrompt,
   updateLastUpdated,
+  updateLevelUi,
   updateLoadingText,
   updateRecalculateUi,
   updateStats,
 } from "../../county-map/ui.js";
-import { getMapboxToken } from "../../mapbox-token.js";
 import { createMap } from "../../map-core.js";
 import notificationManager from "../../ui/notifications.js";
 
@@ -39,6 +41,10 @@ const CONTEXT_RECOVERY_COOLDOWN_MS = 30_000;
 
 let pageSignal = null;
 let inFlightRequestController = null;
+let levelRequestController = null;
+let levelRenderToken = 0;
+let citySearchDebounceTimer = null;
+
 let contextRecoveryAttempts = 0;
 let contextRecoveryLastAttemptAtMs = 0;
 let contextRecoveryInProgress = false;
@@ -70,10 +76,33 @@ function abortInFlightRequests() {
   }
 }
 
+function abortLevelRequests() {
+  if (levelRequestController) {
+    levelRequestController.abort();
+    levelRequestController = null;
+  }
+}
+
 function beginRequestCycle() {
   abortInFlightRequests();
   const controller = new AbortController();
   inFlightRequestController = controller;
+
+  if (pageSignal) {
+    if (pageSignal.aborted) {
+      controller.abort();
+    } else {
+      pageSignal.addEventListener("abort", () => controller.abort(), { once: true });
+    }
+  }
+
+  return controller.signal;
+}
+
+function beginLevelRequestCycle() {
+  abortLevelRequests();
+  const controller = new AbortController();
+  levelRequestController = controller;
 
   if (pageSignal) {
     if (pageSignal.aborted) {
@@ -99,7 +128,7 @@ function getCameraState(map) {
   };
 }
 
-function createCountyMap(camera) {
+function createCoverageMap(camera) {
   return createMap("county-map", {
     style: getMapStyle(),
     center: camera?.center || MAP_CONFIG.center,
@@ -145,17 +174,21 @@ function buildCountyIndexes(features) {
   features.forEach((feature) => {
     const fips = String(feature.id).padStart(5, "0");
     const stateFips = fips.substring(0, 2);
-    const stateName = getStateName(stateFips);
 
     feature.properties = feature.properties || {};
     feature.properties.fips = fips;
     feature.properties.stateFips = stateFips;
-    feature.properties.stateName = stateName;
 
-    countyToState[fips] = { stateFips, stateName };
+    countyToState[fips] = {
+      stateFips,
+      stateName: feature.properties.stateName || "Unknown",
+    };
 
     if (!stateTotals[stateFips]) {
-      stateTotals[stateFips] = { name: stateName, total: 0 };
+      stateTotals[stateFips] = {
+        name: feature.properties.stateName || "Unknown",
+        total: 0,
+      };
     }
     stateTotals[stateFips].total += 1;
 
@@ -207,25 +240,108 @@ function buildCountyIndexes(features) {
   };
 }
 
-function applyCurrentFeatureState(map) {
-  applyCountyVisitFeatureState(
-    map,
-    CountyMapState.getCountyVisits(),
-    CountyMapState.getCountyStops()
-  );
+function getPreferredStateFips() {
+  const existing = CountyMapState.getSelectedStateFips();
+  if (existing) {
+    return existing;
+  }
+
+  const rollups = CountyMapState.getStateRollups();
+  if (!rollups.length) {
+    return null;
+  }
+
+  const sorted = [...rollups].sort((a, b) => {
+    const cityVisitedDiff = Number(b?.city?.visited || 0) - Number(a?.city?.visited || 0);
+    if (cityVisitedDiff !== 0) {
+      return cityVisitedDiff;
+    }
+    return String(a.stateName || "").localeCompare(String(b.stateName || ""));
+  });
+
+  const first = sorted.find((entry) => Number(entry?.city?.total || 0) > 0) || sorted[0];
+  return first?.stateFips || null;
 }
 
-async function loadCountyData(signal) {
-  const topology = await CountyMapAPI.fetchCountyTopology({ signal });
+function updateStateSelector() {
+  const select = document.getElementById("city-state-select");
+  if (!select) {
+    return;
+  }
+
+  const states = CountyMapState.getStateRollups().filter(
+    (entry) => Number(entry?.city?.total || 0) > 0
+  );
+
+  select.innerHTML = states
+    .map((entry) => {
+      const label = `${entry.stateName} (${entry.city?.visited || 0}/${entry.city?.total || 0})`;
+      return `<option value="${entry.stateFips}">${label}</option>`;
+    })
+    .join("");
+
+  const selected = getPreferredStateFips();
+  if (selected) {
+    select.value = selected;
+    CountyMapState.setSelectedStateFips(selected);
+  }
+}
+
+function fitToState(stateFips) {
+  const map = CountyMapState.getMap();
+  const stateBounds = CountyMapState.getStateBounds();
+  const bounds = stateBounds[stateFips];
+  if (!map || !Array.isArray(bounds) || bounds.length !== 2) {
+    return;
+  }
+  map.fitBounds(bounds, { padding: 40, maxZoom: 8 });
+}
+
+function bindStateList(sortBy = null) {
+  const sortSelect = document.getElementById("state-sort");
+  const resolvedSort = sortBy || sortSelect?.value || "name";
+
+  renderStateStatsList({
+    sortBy: resolvedSort,
+    onSelectState: async (stateFips) => {
+      CountyMapState.setSelectedStateFips(stateFips);
+      updateStateSelector();
+      fitToState(stateFips);
+
+      if (CountyMapState.getActiveLevel() === "city") {
+        const token = ++levelRenderToken;
+        await renderCityMode(token);
+      }
+    },
+  });
+}
+
+function applySummary(summary) {
+  CountyMapState.setSummary(summary);
+  CountyMapState.setStateRollups(summary?.states || []);
+  updateStats();
+  updateLastUpdated(summary?.lastUpdated);
+  bindStateList();
+  updateStateSelector();
+}
+
+async function loadBaseData(signal) {
+  updateLoadingText("Loading coverage summary...");
+  const [summary, countyTopologyPayload, countyVisitsPayload, stateTopologyPayload] =
+    await Promise.all([
+      CoverageAPI.fetchSummary({ signal }),
+      CoverageAPI.fetchCountyTopology({ signal }),
+      CoverageAPI.fetchVisitedCounties({ signal }),
+      CoverageAPI.fetchStateTopology({ signal }),
+    ]);
+
   if (signal?.aborted || pageSignal?.aborted) {
     return;
   }
 
-  const countyData = topojson.feature(topology, topology.objects.counties);
-  const statesData = topojson.feature(topology, topology.objects.states);
-  const { countyToState, stateTotals, stateBounds } = buildCountyIndexes(
-    countyData.features
-  );
+  const countyData = topojson.feature(countyTopologyPayload, countyTopologyPayload.objects.counties);
+  const statesData = topojson.feature(countyTopologyPayload, countyTopologyPayload.objects.states);
+  const { countyToState, stateTotals, stateBounds } = buildCountyIndexes(countyData.features);
 
   CountyMapState.setCountyData(countyData);
   CountyMapState.setStatesData(statesData);
@@ -233,59 +349,247 @@ async function loadCountyData(signal) {
   CountyMapState.setStateTotals(stateTotals);
   CountyMapState.setStateBounds(stateBounds);
   CountyMapState.setTotalCounties(countyData.features.length);
+
+  CountyMapState.setCountyVisits(countyVisitsPayload.visits || {});
+  CountyMapState.setCountyStops(countyVisitsPayload.stopped || {});
+
+  CountyMapState.setStateFeatureCollection(stateTopologyPayload.featureCollection || null);
+
+  applySummary(summary);
 }
 
-async function loadVisitedCounties(signal) {
-  const data = await CountyMapAPI.fetchVisitedCounties({ signal });
-  if (signal?.aborted || pageSignal?.aborted) {
+function attachStateClickHandler(map) {
+  map.off("click", "states-fill", handleStateClickFromMap);
+  map.on("click", "states-fill", handleStateClickFromMap);
+}
+
+function detachStateClickHandler(map) {
+  map.off("click", "states-fill", handleStateClickFromMap);
+}
+
+function handleStateClickFromMap(event) {
+  const feature = event?.features?.[0];
+  if (!feature) {
     return;
   }
 
-  const recalcState = getStoredRecalcState();
-  const countyVisits = data.counties || {};
-  const countyStops = data.stoppedCounties || {};
-  const hasVisits = Object.keys(countyVisits).length > 0;
-  const hasStops = Object.keys(countyStops).length > 0;
-
-  if (data.success) {
-    CountyMapState.setCountyVisits(countyVisits);
-    CountyMapState.setCountyStops(countyStops);
-
-    if (data.lastUpdated) {
-      const lastUpdated = new Date(data.lastUpdated);
-      updateLastUpdated(data.lastUpdated);
-      if (
-        recalcState &&
-        lastUpdated > recalcState.startedAt &&
-        CountyMapState.getIsRecalculating()
-      ) {
-        clearRecalcState();
-      }
-    }
-
-    if (!data.cached && !hasVisits && !hasStops) {
-      showRecalculatePrompt(triggerRecalculate);
-      if (recalcState) {
-        updateRecalculateUi(true, "Recalculating county data...");
-      }
-    }
-  } else if (!data.cached) {
-    showRecalculatePrompt(triggerRecalculate);
-    if (recalcState) {
-      updateRecalculateUi(true, "Recalculating county data...");
-    }
+  const stateFips = String(feature.properties?.stateFips || feature.id || "").padStart(2, "0");
+  if (!stateFips) {
+    return;
   }
 
-  if (recalcState && CountyMapState.getIsRecalculating()) {
-    startRecalculatePolling(recalcState.startedAt);
+  CountyMapState.setSelectedStateFips(stateFips);
+  updateStateSelector();
+  fitToState(stateFips);
+
+  if (CountyMapState.getActiveLevel() === "city") {
+    const token = ++levelRenderToken;
+    void renderCityMode(token);
   }
 }
 
-async function loadAndRenderCountyMap(map, { recovery = false } = {}) {
+async function loadCityAssetsForState(stateFips, signal) {
+  if (!stateFips) {
+    return;
+  }
+
+  let cityFeatureCollection = CountyMapState.getCityFeatureCollection(stateFips);
+  if (!cityFeatureCollection) {
+    const topologyResponse = await CoverageAPI.fetchCityTopology(stateFips, { signal });
+    if (signal?.aborted || pageSignal?.aborted) {
+      return;
+    }
+    cityFeatureCollection = topologyResponse.featureCollection;
+    CountyMapState.setCityFeatureCollection(stateFips, cityFeatureCollection);
+  }
+
+  const cityVisits = await CoverageAPI.fetchCityVisits(stateFips, { signal });
+  if (signal?.aborted || pageSignal?.aborted) {
+    return;
+  }
+  CountyMapState.setCityVisitsForState(stateFips, cityVisits.visits || {});
+}
+
+function bindCityPaginationHandlers(stateFips, currentPage, totalPages) {
+  const prevBtn = document.getElementById("city-page-prev");
+  const nextBtn = document.getElementById("city-page-next");
+
+  prevBtn?.addEventListener("click", () => {
+    if (currentPage > 1) {
+      void loadCityList(stateFips, currentPage - 1);
+    }
+  });
+
+  nextBtn?.addEventListener("click", () => {
+    if (currentPage < totalPages) {
+      void loadCityList(stateFips, currentPage + 1);
+    }
+  });
+}
+
+function bindCityRowHandlers(cities) {
+  const map = CountyMapState.getMap();
+  if (!map) {
+    return;
+  }
+
+  document.querySelectorAll(".city-stat-item").forEach((item) => {
+    item.addEventListener("click", () => {
+      const cityId = item.dataset.cityId;
+      const city = cities.find((row) => row.cityId === cityId);
+      if (!city || !Array.isArray(city.bbox) || city.bbox.length !== 4) {
+        return;
+      }
+
+      const [west, south, east, north] = city.bbox;
+      map.fitBounds(
+        [
+          [west, south],
+          [east, north],
+        ],
+        { padding: 40, maxZoom: 10 }
+      );
+    });
+  });
+}
+
+async function loadCityList(stateFips, page = 1) {
+  if (!stateFips || CountyMapState.getActiveLevel() !== "city") {
+    return;
+  }
+
+  const searchValue = document.getElementById("city-search")?.value?.trim() || "";
+  const statusValue = document.getElementById("city-status")?.value || "all";
+  const sortValue = document.getElementById("city-sort")?.value || "name";
+
+  const signal = beginLevelRequestCycle();
+  const currentToken = levelRenderToken;
+
+  const payload = await CoverageAPI.fetchCities({
+    stateFips,
+    status: statusValue,
+    q: searchValue,
+    sort: sortValue,
+    page,
+    pageSize: 75,
+    signal,
+  });
+
+  if (
+    signal?.aborted ||
+    pageSignal?.aborted ||
+    currentToken !== levelRenderToken ||
+    CountyMapState.getActiveLevel() !== "city"
+  ) {
+    return;
+  }
+
+  CountyMapState.setCityListForState(stateFips, payload);
+  renderCityRows(payload);
+
+  const pagination = payload?.pagination || {};
+  bindCityPaginationHandlers(
+    stateFips,
+    Number(pagination.page || 1),
+    Number(pagination.totalPages || 1)
+  );
+
+  bindCityRowHandlers(payload.cities || []);
+}
+
+async function renderCountyMode() {
+  const map = CountyMapState.getMap();
+  if (!map) {
+    return;
+  }
+
+  renderLevelLayers("county", {
+    countyData: CountyMapState.getCountyData(),
+    statesData: CountyMapState.getStatesData(),
+    showStoppedCounties: CountyMapState.getShowStoppedCounties(),
+  });
+  applyCountyVisitFeatureState(map, CountyMapState.getCountyVisits(), CountyMapState.getCountyStops());
+  updateStopLayerVisibility();
+  detachStateClickHandler(map);
+  setupInteractions();
+}
+
+async function renderStateMode() {
+  const map = CountyMapState.getMap();
+  if (!map) {
+    return;
+  }
+
+  renderLevelLayers("state", {
+    stateFeatureCollection: CountyMapState.getStateFeatureCollection(),
+  });
+  applyStateVisitFeatureState(map, CountyMapState.getStateRollups());
+  attachStateClickHandler(map);
+  setupInteractions();
+}
+
+async function renderCityMode(token) {
+  const map = CountyMapState.getMap();
+  if (!map) {
+    return;
+  }
+
+  const stateFips = getPreferredStateFips();
+  if (!stateFips) {
+    renderCityRows({ cities: [], pagination: { page: 1, totalPages: 1 } });
+    return;
+  }
+  CountyMapState.setSelectedStateFips(stateFips);
+
+  const signal = beginLevelRequestCycle();
+  await loadCityAssetsForState(stateFips, signal);
+
+  if (
+    signal?.aborted ||
+    pageSignal?.aborted ||
+    token !== levelRenderToken ||
+    CountyMapState.getActiveLevel() !== "city"
+  ) {
+    return;
+  }
+
+  const cityFeatureCollection = CountyMapState.getCityFeatureCollection(stateFips);
+  renderLevelLayers("city", {
+    cityFeatureCollection,
+  });
+
+  const cityVisits = CountyMapState.getCityVisitsForState(stateFips);
+  applyCityVisitFeatureState(map, cityVisits);
+  detachStateClickHandler(map);
+  setupInteractions();
+
+  await loadCityList(stateFips, 1);
+}
+
+async function renderActiveLevel() {
+  const level = CountyMapState.getActiveLevel();
+  const token = ++levelRenderToken;
+
+  updateLevelUi(level);
+
+  if (level === "county") {
+    await renderCountyMode();
+    return;
+  }
+
+  if (level === "state") {
+    await renderStateMode();
+    return;
+  }
+
+  await renderCityMode(token);
+}
+
+async function loadAndRenderCoverage(map, { recovery = false } = {}) {
   const requestSignal = beginRequestCycle();
   try {
-    updateLoadingText("Loading county boundaries...");
-    await loadCountyData(requestSignal);
+    updateLoadingText("Loading boundaries and stats...");
+    await loadBaseData(requestSignal);
     if (
       requestSignal.aborted ||
       pageSignal?.aborted ||
@@ -294,23 +598,17 @@ async function loadAndRenderCountyMap(map, { recovery = false } = {}) {
       return;
     }
 
-    updateLoadingText("Loading visited counties...");
-    await loadVisitedCounties(requestSignal);
-    if (
-      requestSignal.aborted ||
-      pageSignal?.aborted ||
-      map !== CountyMapState.getMap()
-    ) {
-      return;
-    }
-
-    updateLoadingText("Rendering map...");
-    addMapLayers();
-    applyCurrentFeatureState(map);
-    updateStopLayerVisibility();
-    setupInteractions();
-    updateStats();
+    await renderActiveLevel();
     hideLoading();
+
+    const countyVisits = CountyMapState.getCountyVisits();
+    const countyStops = CountyMapState.getCountyStops();
+    const hasVisits = Object.keys(countyVisits).length > 0;
+    const hasStops = Object.keys(countyStops).length > 0;
+
+    if (!hasVisits && !hasStops) {
+      showRecalculatePrompt(triggerRecalculate);
+    }
   } catch (error) {
     if (isAbortError(error) || requestSignal.aborted || pageSignal?.aborted) {
       return;
@@ -352,10 +650,10 @@ function recoverFromContextLoss() {
 
   const currentMap = CountyMapState.getMap();
   const camera = getCameraState(currentMap);
-  const showStoppedCounties = CountyMapState.getShowStoppedCounties();
   updateLoadingText("Recovering map rendering...");
 
   abortInFlightRequests();
+  abortLevelRequests();
 
   if (currentMap) {
     try {
@@ -366,9 +664,8 @@ function recoverFromContextLoss() {
   }
 
   try {
-    const replacementMap = createCountyMap(camera);
+    const replacementMap = createCoverageMap(camera);
     CountyMapState.setMap(replacementMap);
-    CountyMapState.setShowStoppedCounties(showStoppedCounties);
     bindMapLifecycle(replacementMap, { recovery: true });
   } catch (error) {
     contextRecoveryInProgress = false;
@@ -377,8 +674,6 @@ function recoverFromContextLoss() {
 }
 
 function bindMapLifecycle(map, { recovery = false } = {}) {
-  map.addControl(new mapboxgl.NavigationControl(), "bottom-right");
-
   map.on("webglcontextlost", (event) => {
     if (map !== CountyMapState.getMap()) {
       return;
@@ -391,57 +686,126 @@ function bindMapLifecycle(map, { recovery = false } = {}) {
     if (map !== CountyMapState.getMap() || pageSignal?.aborted) {
       return;
     }
-    applyCurrentFeatureState(map);
-    updateStopLayerVisibility();
+    void renderActiveLevel();
   });
 
   map.on("load", () => {
-    loadAndRenderCountyMap(map, { recovery });
+    void loadAndRenderCoverage(map, { recovery });
   });
 }
 
-/**
- * Initialize the county map
- */
-export default function initCountyMapPage({ cleanup, signal } = {}) {
-  pageSignal = signal || null;
-  contextRecoveryAttempts = 0;
-  contextRecoveryLastAttemptAtMs = 0;
-  contextRecoveryInProgress = false;
-  updateLoadingText("Initializing map...");
+function setupLevelControls(signal) {
+  const eventOptions = signal ? { signal } : false;
 
-  const map = createCountyMap();
-  CountyMapState.setMap(map);
-  bindMapLifecycle(map);
+  document.querySelectorAll("[data-level]").forEach((button) => {
+    button.addEventListener(
+      "click",
+      () => {
+        const level = button.dataset.level;
+        if (!level || level === CountyMapState.getActiveLevel()) {
+          return;
+        }
+        CountyMapState.setActiveLevel(level);
+        void renderActiveLevel();
+      },
+      eventOptions
+    );
+  });
 
-  const teardown = () => {
-    pageSignal = null;
-    abortInFlightRequests();
-    contextRecoveryInProgress = false;
-    const activeMap = CountyMapState.getMap();
-    if (activeMap) {
-      try {
-        activeMap.remove();
-      } catch {
-        // Ignore map cleanup errors.
+  const stateSort = document.getElementById("state-sort");
+  stateSort?.addEventListener(
+    "change",
+    () => {
+      bindStateList(stateSort.value);
+    },
+    eventOptions
+  );
+
+  const cityStateSelect = document.getElementById("city-state-select");
+  cityStateSelect?.addEventListener(
+    "change",
+    () => {
+      CountyMapState.setSelectedStateFips(cityStateSelect.value || null);
+      fitToState(cityStateSelect.value);
+      if (CountyMapState.getActiveLevel() === "city") {
+        void renderActiveLevel();
       }
-    }
-    CountyMapState.resetState?.();
-  };
+    },
+    eventOptions
+  );
 
-  if (typeof cleanup === "function") {
-    cleanup(teardown);
-  } else {
-    return teardown;
+  const cityStatus = document.getElementById("city-status");
+  cityStatus?.addEventListener(
+    "change",
+    () => {
+      const stateFips = CountyMapState.getSelectedStateFips();
+      if (stateFips) {
+        void loadCityList(stateFips, 1);
+      }
+    },
+    eventOptions
+  );
+
+  const citySort = document.getElementById("city-sort");
+  citySort?.addEventListener(
+    "change",
+    () => {
+      const stateFips = CountyMapState.getSelectedStateFips();
+      if (stateFips) {
+        void loadCityList(stateFips, 1);
+      }
+    },
+    eventOptions
+  );
+
+  const citySearch = document.getElementById("city-search");
+  citySearch?.addEventListener(
+    "input",
+    () => {
+      if (citySearchDebounceTimer) {
+        clearTimeout(citySearchDebounceTimer);
+      }
+      citySearchDebounceTimer = setTimeout(() => {
+        const stateFips = CountyMapState.getSelectedStateFips();
+        if (stateFips) {
+          void loadCityList(stateFips, 1);
+        }
+      }, 250);
+    },
+    eventOptions
+  );
+
+  const cityRefresh = document.getElementById("city-refresh");
+  cityRefresh?.addEventListener(
+    "click",
+    () => {
+      const stateFips = CountyMapState.getSelectedStateFips();
+      if (stateFips) {
+        void renderActiveLevel();
+      }
+    },
+    eventOptions
+  );
+}
+
+function setupStopToggle(signal) {
+  const eventOptions = signal ? { signal } : false;
+  const toggle = document.getElementById("toggle-stops");
+  if (!toggle) {
+    return;
   }
 
-  setupPanelToggle();
-  setupRecalculateButton(pageSignal);
-  setupStateStatsToggle();
-  setupStopToggle(pageSignal);
-  resumeRecalculateIfNeeded();
-
-  return teardown;
+  CountyMapState.setShowStoppedCounties(toggle.checked);
+  toggle.addEventListener(
+    "change",
+    () => {
+      CountyMapState.setShowStoppedCounties(toggle.checked);
+      if (CountyMapState.getActiveLevel() === "county") {
+        updateStopLayerVisibility();
+      }
+    },
+    eventOptions
+  );
 }
 
 /**
@@ -455,7 +819,7 @@ function clearRecalcState() {
 }
 
 /**
- * Trigger recalculation of county data
+ * Trigger recalculation of geo data
  */
 async function triggerRecalculate() {
   if (CountyMapState.getIsRecalculating()) {
@@ -465,10 +829,10 @@ async function triggerRecalculate() {
   const startedAt = new Date();
   CountyMapState.setIsRecalculating(true);
   storeRecalcState(startedAt);
-  updateRecalculateUi(true, "Recalculating county data...");
+  updateRecalculateUi(true, "Recalculating coverage data...");
 
   try {
-    const data = await CountyMapAPI.triggerRecalculation({ signal: pageSignal });
+    const data = await CoverageAPI.triggerRecalculation({ signal: pageSignal });
     if (data.success) {
       setTimeout(() => startRecalculatePolling(startedAt), 3000);
     } else {
@@ -484,7 +848,6 @@ async function triggerRecalculate() {
 
 /**
  * Start polling for recalculation completion
- * @param {Date} startedAt - When recalculation started
  */
 function startRecalculatePolling(startedAt) {
   if (pageSignal?.aborted) {
@@ -500,7 +863,6 @@ function startRecalculatePolling(startedAt) {
 
 /**
  * Check if calculation is done and refresh
- * @param {Date} startedAt - When recalculation started
  */
 async function checkAndRefresh(startedAt) {
   if (pageSignal?.aborted) {
@@ -513,15 +875,11 @@ async function checkAndRefresh(startedAt) {
   }
 
   try {
-    const data = await CountyMapAPI.fetchCacheStatus({ signal: pageSignal });
+    const data = await CoverageAPI.fetchCacheStatus({ signal: pageSignal });
     const lastUpdated = data.lastUpdated ? new Date(data.lastUpdated) : null;
-    const isUpdated =
-      data.cached &&
-      (startedAt
-        ? lastUpdated && lastUpdated > startedAt
-        : data.totalVisited > 0 || data.totalStopped > 0);
+    const updatedAfterStart = lastUpdated && startedAt ? lastUpdated > startedAt : false;
 
-    if (isUpdated) {
+    if (data.cached && updatedAfterStart) {
       clearRecalcState();
       swupReady.then((swup) => {
         swup.navigate(window.location.href, {
@@ -542,9 +900,6 @@ async function checkAndRefresh(startedAt) {
   }
 }
 
-/**
- * Setup recalculate button event listener
- */
 function setupRecalculateButton(signal) {
   const eventOptions = signal ? { signal } : false;
   const btn = document.getElementById("recalculate-btn");
@@ -553,35 +908,63 @@ function setupRecalculateButton(signal) {
   }
 }
 
-/**
- * Setup stop toggle functionality
- */
-function setupStopToggle(signal) {
-  const eventOptions = signal ? { signal } : false;
-  const toggle = document.getElementById("toggle-stops");
-  if (!toggle) {
-    return;
-  }
-
-  CountyMapState.setShowStoppedCounties(toggle.checked);
-  toggle.addEventListener(
-    "change",
-    () => {
-      CountyMapState.setShowStoppedCounties(toggle.checked);
-      updateStopLayerVisibility();
-    },
-    eventOptions
-  );
-}
-
-/**
- * Resume recalculation if it was in progress
- */
 function resumeRecalculateIfNeeded() {
   const recalcState = getStoredRecalcState();
   if (!recalcState) {
     return;
   }
   CountyMapState.setIsRecalculating(true);
-  updateRecalculateUi(true, "Recalculating county data...");
+  updateRecalculateUi(true, "Recalculating coverage data...");
+  startRecalculatePolling(recalcState.startedAt);
+}
+
+/**
+ * Initialize the county map page.
+ */
+export default function initCountyMapPage({ cleanup, signal } = {}) {
+  pageSignal = signal || null;
+  contextRecoveryAttempts = 0;
+  contextRecoveryLastAttemptAtMs = 0;
+  contextRecoveryInProgress = false;
+
+  updateLoadingText("Initializing map...");
+
+  const map = createCoverageMap();
+  CountyMapState.setMap(map);
+  bindMapLifecycle(map);
+
+  setupPanelToggle();
+  setupLevelControls(pageSignal);
+  setupRecalculateButton(pageSignal);
+  setupStopToggle(pageSignal);
+  resumeRecalculateIfNeeded();
+
+  const teardown = () => {
+    pageSignal = null;
+    abortInFlightRequests();
+    abortLevelRequests();
+    cleanupInteractions();
+    contextRecoveryInProgress = false;
+    if (citySearchDebounceTimer) {
+      clearTimeout(citySearchDebounceTimer);
+      citySearchDebounceTimer = null;
+    }
+    const activeMap = CountyMapState.getMap();
+    if (activeMap) {
+      try {
+        activeMap.remove();
+      } catch {
+        // Ignore map cleanup errors.
+      }
+    }
+    CountyMapState.resetState?.();
+  };
+
+  if (typeof cleanup === "function") {
+    cleanup(teardown);
+  } else {
+    return teardown;
+  }
+
+  return teardown;
 }

@@ -14,6 +14,12 @@ export const MAP_CONFIG = {
   maxZoom: 12,
 };
 
+export const COVERAGE_LEVELS = {
+  county: "county",
+  state: "state",
+  city: "city",
+};
+
 /** Map layer colors */
 export const COLORS = {
   visited: {
@@ -36,6 +42,18 @@ export const COLORS = {
   borders: {
     county: "rgba(245, 242, 236, 0.15)",
     state: "rgba(245, 242, 236, 0.35)",
+    city: "rgba(245, 242, 236, 0.25)",
+  },
+  levels: {
+    state: {
+      low: "rgba(245, 242, 236, 0.08)",
+      medium: "rgba(111, 179, 136, 0.45)",
+      high: "rgba(62, 132, 91, 0.75)",
+    },
+    city: {
+      visited: "#4d9a6a",
+      unvisited: "rgba(245, 242, 236, 0.08)",
+    },
   },
 };
 

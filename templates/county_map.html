@@ -2,11 +2,10 @@
 
 {% block title %}
 
- Every Street - County Map
+ Every Street - Coverage Explorer
 {% endblock %}
 
-{%
-block extra_css %}
+{% block extra_css %}
 
 
 <!-- Mapbox GL CSS -->
@@ -15,30 +14,25 @@ block extra_css %}
       href="{{ url_for('static', path='css/county-map.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
-{% block head_content %}
-
-{% endblock %}
-
 {% block content %}
 
 
   <div class="county-map-wrapper">
     <h1 class="visually-hidden">
-County Coverage
+Coverage Explorer
     </h1>
-    <!-- Map Container -->
+
     <div id="county-map"
          class="county-map-container"
          role="application"
-         aria-label="US Counties Map">
+         aria-label="US Coverage Map">
     </div>
 
-    <!-- Stats Panel -->
     <div class="county-stats-panel" id="stats-panel">
       <div class="stats-header">
         <h2 class="stats-title">
-          <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i>
-        County Coverage
+          <i class="fas fa-layer-group me-2" aria-hidden="true"></i>
+        Coverage Explorer
         </h2>
         <button class="stats-toggle-btn"
                 id="stats-toggle"
@@ -49,7 +43,28 @@ County Coverage
       </div>
 
       <div class="stats-content" id="stats-content">
-        <div class="stats-grid">
+        <div class="coverage-level-switcher" role="group" aria-label="Coverage level">
+          <button class="coverage-level-btn coverage-level-btn--active"
+                  data-level="county"
+                  aria-pressed="true"
+                  type="button">
+            Counties
+          </button>
+          <button class="coverage-level-btn"
+                  data-level="state"
+                  aria-pressed="false"
+                  type="button">
+            States
+          </button>
+          <button class="coverage-level-btn"
+                  data-level="city"
+                  aria-pressed="false"
+                  type="button">
+            Cities
+          </button>
+        </div>
+
+        <div class="stats-grid stats-grid--explorer">
           <div class="stat-card stat-card--primary">
             <div class="stat-value" id="counties-visited" data-value-flash>
 0
@@ -57,34 +72,60 @@ County Coverage
             <div class="stat-label">
 Counties Visited
             </div>
+            <div class="stat-subvalue" id="counties-total">
+0
+            </div>
           </div>
           <div class="stat-card stat-card--secondary">
-            <div class="stat-value" id="counties-total" data-value-flash>
-3,143
+            <div class="stat-value" id="county-coverage" data-coverage-percent data-value-flash>
+0%
             </div>
             <div class="stat-label">
-Total US Counties
+County Completion
             </div>
           </div>
-          <div class="stat-card stat-card--accent">
-            <div class="stat-value" id="coverage-percent" data-coverage-percent data-value-flash>
-            0%
-            </div>
-            <div class="stat-label">
-Coverage
-            </div>
-          </div>
-          <div class="stat-card">
+
+          <div class="stat-card stat-card--primary">
             <div class="stat-value" id="states-visited" data-value-flash>
 0
             </div>
             <div class="stat-label">
 States Visited
             </div>
+            <div class="stat-subvalue" id="states-total">
+0
+            </div>
+          </div>
+          <div class="stat-card stat-card--secondary">
+            <div class="stat-value" id="state-coverage" data-value-flash>
+0%
+            </div>
+            <div class="stat-label">
+State Completion
+            </div>
+          </div>
+
+          <div class="stat-card stat-card--primary">
+            <div class="stat-value" id="cities-visited" data-value-flash>
+0
+            </div>
+            <div class="stat-label">
+Cities Visited
+            </div>
+            <div class="stat-subvalue" id="cities-total">
+0
+            </div>
+          </div>
+          <div class="stat-card stat-card--secondary">
+            <div class="stat-value" id="city-coverage" data-value-flash>
+0%
+            </div>
+            <div class="stat-label">
+City Completion
+            </div>
           </div>
         </div>
 
-        <!-- Last updated and recalculate -->
         <div class="cache-info">
           <span class="last-updated" id="last-updated"></span>
           <button class="btn btn-sm btn-outline-secondary"
@@ -96,10 +137,9 @@ States Visited
         <div class="recalculate-status" id="recalculate-status" aria-live="polite">
         </div>
 
-        <!-- Legend -->
-        <div class="map-legend">
+        <div class="map-legend" id="legend-county">
           <h3 class="legend-title">
-Legend
+County Legend
           </h3>
           <div class="legend-items">
             <div class="legend-item">
@@ -132,19 +172,50 @@ Legend
           </div>
         </div>
 
-        <!-- State-by-State Stats -->
+        <div class="map-legend" id="legend-state" style="display: none">
+          <h3 class="legend-title">
+State Legend
+          </h3>
+          <div class="legend-items">
+            <div class="legend-item">
+              <span class="legend-color legend-color--state-low"></span>
+              <span class="legend-label">Low County Completion</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color legend-color--state-mid"></span>
+              <span class="legend-label">Mid County Completion</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color legend-color--state-high"></span>
+              <span class="legend-label">High County Completion</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="map-legend" id="legend-city" style="display: none">
+          <h3 class="legend-title">
+City Legend
+          </h3>
+          <div class="legend-items">
+            <div class="legend-item">
+              <span class="legend-color legend-color--visited"></span>
+              <span class="legend-label">Visited City</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color legend-color--unvisited"></span>
+              <span class="legend-label">Unvisited City</span>
+            </div>
+          </div>
+        </div>
+
         <div class="state-stats-section">
-          <button class="state-stats-header"
-                  id="state-stats-toggle"
-                  aria-expanded="false"
-                  aria-controls="state-stats-list">
+          <div class="state-stats-header state-stats-header--static">
             <span class="state-stats-title">
               <i class="fas fa-list-ul me-2" aria-hidden="true"></i>
-            Stats by State
+            Coverage by State
             </span>
-            <i class="fas fa-chevron-down state-stats-chevron" aria-hidden="true"></i>
-          </button>
-          <div class="state-stats-content" id="state-stats-list" style="display: none">
+          </div>
+          <div class="state-stats-content" id="state-stats-list">
             <div class="state-stats-filter">
               <select id="state-sort" class="form-select form-select-sm">
                 <option value="name">
@@ -162,14 +233,48 @@ Sort by Visited (High to Low)
               </select>
             </div>
             <div class="state-stats-list" id="state-list">
-              <!-- State items will be populated by JavaScript -->
             </div>
           </div>
+        </div>
+
+        <div id="city-controls" class="city-controls" style="display: none">
+          <div class="state-stats-header state-stats-header--static">
+            <span class="state-stats-title">
+              <i class="fas fa-city me-2" aria-hidden="true"></i>
+            City Explorer
+            </span>
+            <button id="city-refresh" class="btn btn-sm btn-outline-secondary" type="button">
+              <i class="fas fa-rotate-right me-1" aria-hidden="true"></i>
+              Refresh
+            </button>
+          </div>
+
+          <div class="city-filters">
+            <select id="city-state-select" class="form-select form-select-sm" aria-label="Select state"></select>
+            <select id="city-status" class="form-select form-select-sm" aria-label="Filter city status">
+              <option value="all">All</option>
+              <option value="visited">Visited</option>
+              <option value="unvisited">Unvisited</option>
+            </select>
+            <select id="city-sort" class="form-select form-select-sm" aria-label="Sort cities">
+              <option value="name">Sort by Name</option>
+              <option value="visited-desc">Visited First</option>
+              <option value="visited-asc">Unvisited First</option>
+              <option value="last-visit-desc">Last Visit (Newest)</option>
+            </select>
+            <input id="city-search"
+                   class="form-control form-control-sm"
+                   type="search"
+                   placeholder="Search city"
+                   aria-label="Search city" />
+          </div>
+
+          <div class="city-stats-list" id="city-list"></div>
+          <div class="city-pagination" id="city-pagination"></div>
         </div>
       </div>
     </div>
 
-    <!-- County Info Tooltip -->
     <div id="county-tooltip" class="county-tooltip" style="display: none">
       <div class="tooltip-county-name">
       </div>
@@ -181,12 +286,11 @@ Sort by Visited (High to Low)
       </div>
     </div>
 
-    <!-- Loading Overlay -->
     <div id="map-loading" class="map-loading-overlay">
       <div class="loading-indicator">
         <div class="loading-spinner">
         </div>
-        <span class="loading-text">Loading county data...</span>
+        <span class="loading-text">Loading coverage data...</span>
       </div>
     </div>
   </div>
