@@ -48,6 +48,7 @@ export function updateRecalculateUi(isActive, message, details = null) {
       const visitedCounties = formatCount(Number(details?.visitedCounties));
       const visitedCities = formatCount(Number(details?.visitedCities));
       const stoppedCounties = formatCount(Number(details?.stoppedCounties));
+      const stoppedCities = formatCount(Number(details?.stoppedCities));
 
       const chips = [];
       chips.push(`<span class="recalc-chip">${escapeHtml(modeLabel)}</span>`);
@@ -72,7 +73,12 @@ export function updateRecalculateUi(isActive, message, details = null) {
       }
       if (stoppedCounties) {
         chips.push(
-          `<span class="recalc-chip">Stops ${escapeHtml(stoppedCounties)}</span>`
+          `<span class="recalc-chip">County Stops ${escapeHtml(stoppedCounties)}</span>`
+        );
+      }
+      if (stoppedCities) {
+        chips.push(
+          `<span class="recalc-chip">City Stops ${escapeHtml(stoppedCities)}</span>`
         );
       }
 
@@ -334,7 +340,9 @@ export function renderCityLevelView(container) {
   const city = summary?.levels?.city || {};
   const percent = Number(city.percent || 0);
   const visited = Number(city.visited || 0);
+  const stopped = Number(city.stopped || 0);
   const total = Number(city.total || 0);
+  const showStoppedCities = CountyMapState.getShowStoppedCities();
 
   let html = renderHeroRing(
     percent,
@@ -344,15 +352,28 @@ export function renderCityLevelView(container) {
     " hero-ring-fill--city"
   );
 
+  if (stopped > 0) {
+    html += `<div class="level-stat-badge">
+      <i class="fas fa-map-pin me-1" aria-hidden="true"></i>${stopped} Stopped In
+    </div>`;
+  }
+
   html += `
     <div class="level-legend">
       <div class="legend-row">
         <span class="legend-swatch legend-swatch--visited"></span>
-        <span>Visited City</span>
+        <span>Driven Through</span>
+      </div>
+      <div class="legend-row legend-row--toggle">
+        <span class="legend-swatch legend-swatch--stopped"></span>
+        <span>Stopped In</span>
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="toggle-city-stops"${showStoppedCities ? " checked" : ""}>
+        </div>
       </div>
       <div class="legend-row">
         <span class="legend-swatch legend-swatch--unvisited"></span>
-        <span>Unvisited City</span>
+        <span>Not Yet Visited</span>
       </div>
     </div>`;
 
@@ -365,13 +386,17 @@ export function renderCityLevelView(container) {
       <div class="city-filters">
         <select class="form-select form-select-sm" id="city-status">
           <option value="all">All</option>
-          <option value="visited">Visited</option>
-          <option value="unvisited">Unvisited</option>
+          <option value="both">Stopped + Driven</option>
+          <option value="stopped">Stopped In</option>
+          <option value="driven">Driven Through</option>
+          <option value="unvisited">Not Yet Visited</option>
         </select>
         <select class="form-select form-select-sm" id="city-sort">
           <option value="name">Name A\u2192Z</option>
-          <option value="visited_first">Visited First</option>
-          <option value="unvisited_first">Unvisited First</option>
+          <option value="activity_first">Most Activity First</option>
+          <option value="stopped_first">Stopped First</option>
+          <option value="driven_first">Driven First</option>
+          <option value="last-stop-desc">Latest Stop</option>
         </select>
         <input type="text" class="form-control form-control-sm" id="city-search"
                placeholder="Search cities\u2026">
@@ -469,6 +494,7 @@ export function renderStateStatsList(options = {}) {
       const countyStats = entry.county || {};
       const cityStats = entry.city || {};
       const countyPct = Number(countyStats.percent || 0);
+      const cityStopped = Number(cityStats.stopped || 0);
       const isComplete = countyPct >= 100;
       const stateFips = String(entry.stateFips || "").padStart(2, "0");
       const isSelected = stateFips === selectedStateFips;
@@ -484,7 +510,7 @@ export function renderStateStatsList(options = {}) {
             <span class="state-counties">${countyStats.visited || 0} / ${countyStats.total || 0} counties</span>
           </div>
           <div class="state-stat-details">
-            <span class="state-counties">${cityStats.visited || 0} / ${cityStats.total || 0} cities</span>
+            <span class="state-counties">${cityStats.visited || 0} / ${cityStats.total || 0} cities${cityStopped > 0 ? ` • ${cityStopped} stopped` : ""}</span>
           </div>
           <div class="state-progress-bar">
             <div class="state-progress-fill" style="width: ${countyPct.toFixed(1)}%"></div>
@@ -525,20 +551,45 @@ export function renderCityRows(payload) {
   } else {
     listEl.innerHTML = cities
       .map((city) => {
-        const statusClass = city.visited
-          ? "tooltip-status tooltip-status--visited"
-          : "tooltip-status tooltip-status--unvisited";
+        const isVisited = Boolean(city.visited);
+        const isStopped = Boolean(city.stopped);
+        const statusClass = isStopped
+          ? "tooltip-status tooltip-status--stopped"
+          : isVisited
+            ? "tooltip-status tooltip-status--visited"
+            : "tooltip-status tooltip-status--unvisited";
         const cityId = String(city.cityId ?? "");
         const isSelected = cityId === selectedCityId;
+        const statusLabel = isStopped
+          ? isVisited
+            ? "Stopped In + Driven Through"
+            : "Stopped In"
+          : isVisited
+            ? "Driven Through"
+            : "Not Yet Visited";
+        const detailRows = [];
+        if (isVisited) {
+          detailRows.push(
+            `<div class="state-date">Driven: ${formatDate(city.firstVisit)} - ${formatDate(city.lastVisit)}</div>`
+          );
+        }
+        if (isStopped) {
+          detailRows.push(
+            `<div class="state-date">Stopped: ${formatDate(city.firstStop)} - ${formatDate(city.lastStop)}</div>`
+          );
+        }
+        if (detailRows.length === 0) {
+          detailRows.push('<div class="state-date">No activity yet</div>');
+        }
         return `
-          <div class="city-stat-item ${isSelected ? "city-stat-item--selected" : ""}"
+          <div class="city-stat-item ${isSelected ? "city-stat-item--selected" : ""} ${isStopped ? "city-stat-item--stopped" : ""}"
                data-city-id="${city.cityId}"
                aria-selected="${isSelected ? "true" : "false"}">
             <div class="city-stat-header">
               <span class="state-name">${city.name}</span>
-              <span class="${statusClass}">${city.visited ? "Visited" : "Unvisited"}</span>
+              <span class="${statusClass}">${statusLabel}</span>
             </div>
-            <div class="state-date">${city.visited ? `First: ${formatDate(city.firstVisit)} - Last: ${formatDate(city.lastVisit)}` : "No visits yet"}</div>
+            ${detailRows.join("")}
           </div>
         `;
       })

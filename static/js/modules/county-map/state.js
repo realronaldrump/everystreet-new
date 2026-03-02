@@ -18,6 +18,12 @@ let stateRollups = [];
 /** @type {string|null} */
 let selectedStateFips = null;
 
+/** @type {string|null} */
+let selectedCountyFips = null;
+
+/** @type {string|null} */
+let selectedCityId = null;
+
 /** @type {Object.<string, {firstVisit: string, lastVisit: string}>} */
 let countyVisits = {};
 
@@ -26,6 +32,9 @@ let countyStops = {};
 
 /** @type {Object.<string, Object.<string, {firstVisit: string, lastVisit: string}>>} */
 let cityVisitsByState = {};
+
+/** @type {Object.<string, Object.<string, {firstStop: string, lastStop: string}>>} */
+let cityStopsByState = {};
 
 /** @type {Object|null} GeoJSON county data */
 let countyData = null;
@@ -56,6 +65,9 @@ let isRecalculating = false;
 
 /** @type {boolean} Whether to show stopped counties layer */
 let showStoppedCounties = true;
+
+/** @type {boolean} Whether to show stopped cities layer */
+let showStoppedCities = true;
 
 /** @type {boolean} Whether recalc polling is active */
 let recalcPollerActive = false;
@@ -106,6 +118,22 @@ export function setSelectedStateFips(value) {
   selectedStateFips = value || null;
 }
 
+export function getSelectedCountyFips() {
+  return selectedCountyFips;
+}
+
+export function setSelectedCountyFips(value) {
+  selectedCountyFips = value || null;
+}
+
+export function getSelectedCityId() {
+  return selectedCityId;
+}
+
+export function setSelectedCityId(value) {
+  selectedCityId = value || null;
+}
+
 // County visits getters and setters
 export function getCountyVisits() {
   return countyVisits;
@@ -137,6 +165,21 @@ export function setCityVisitsForState(stateFips, visits) {
 
 export function getAllCityVisits() {
   return cityVisitsByState;
+}
+
+export function getCityStopsForState(stateFips) {
+  return cityStopsByState[stateFips] || {};
+}
+
+export function setCityStopsForState(stateFips, stops) {
+  if (!stateFips) {
+    return;
+  }
+  cityStopsByState[stateFips] = stops || {};
+}
+
+export function getAllCityStops() {
+  return cityStopsByState;
 }
 
 // County data getters and setters
@@ -231,6 +274,14 @@ export function setShowStoppedCounties(value) {
   showStoppedCounties = Boolean(value);
 }
 
+export function getShowStoppedCities() {
+  return showStoppedCities;
+}
+
+export function setShowStoppedCities(value) {
+  showStoppedCities = Boolean(value);
+}
+
 // Recalc poller state
 export function getRecalcPollerActive() {
   return recalcPollerActive;
@@ -260,9 +311,12 @@ export function resetState() {
   summary = null;
   stateRollups = [];
   selectedStateFips = null;
+  selectedCountyFips = null;
+  selectedCityId = null;
   countyVisits = {};
   countyStops = {};
   cityVisitsByState = {};
+  cityStopsByState = {};
   countyData = null;
   statesData = null;
   stateFeatureCollection = null;
@@ -273,6 +327,7 @@ export function resetState() {
   totalCounties = 0;
   isRecalculating = false;
   showStoppedCounties = true;
+  showStoppedCities = true;
   recalcPollerActive = false;
   cityListByState = {};
 }

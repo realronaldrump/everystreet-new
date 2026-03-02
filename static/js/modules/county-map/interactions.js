@@ -97,18 +97,43 @@ function buildTooltipData(feature) {
     const visits = CountyMapState.getCityVisitsForState(
       CountyMapState.getSelectedStateFips()
     );
+    const stops = CountyMapState.getCityStopsForState(
+      CountyMapState.getSelectedStateFips()
+    );
     const cityVisit = visits[cityId];
+    const cityStop = stops[cityId];
     const isVisited = Boolean(cityVisit);
+    const isStopped = Boolean(cityStop);
+
+    const dateLines = [];
+    if (isVisited) {
+      dateLines.push(
+        formatDateRange("Driven", cityVisit.firstVisit, cityVisit.lastVisit)
+      );
+    }
+    if (isStopped) {
+      dateLines.push(
+        formatDateRange("Stopped", cityStop.firstStop, cityStop.lastStop)
+      );
+    }
 
     return {
       highlightId: cityId,
       title: cityName,
       subtitle: stateName,
-      status: isVisited ? "Visited" : "Not yet visited",
-      statusClass: isVisited ? "tooltip-status--visited" : "tooltip-status--unvisited",
-      datesHtml: isVisited
-        ? formatDateRange("Visited", cityVisit.firstVisit, cityVisit.lastVisit)
-        : "",
+      status: isStopped
+        ? isVisited
+          ? "Stopped In + Driven Through"
+          : "Stopped In"
+        : isVisited
+          ? "Driven Through"
+          : "Not yet visited",
+      statusClass: isStopped
+        ? "tooltip-status--stopped"
+        : isVisited
+          ? "tooltip-status--visited"
+          : "tooltip-status--unvisited",
+      datesHtml: dateLines.filter(Boolean).join(""),
     };
   }
 

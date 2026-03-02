@@ -52,7 +52,10 @@ export const COLORS = {
     },
     city: {
       visited: "#4d9a6a",
+      stopped: "#c45454",
       unvisited: "rgba(245, 242, 236, 0.08)",
+      visitedBorder: "#3b7a53",
+      stoppedBorder: "#9f3f3f",
     },
   },
 };

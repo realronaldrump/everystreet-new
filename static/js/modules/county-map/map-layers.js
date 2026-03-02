@@ -13,23 +13,29 @@ const CITIES_SOURCE_ID = "cities";
 
 const COUNTIES_FILL_LAYER_ID = "counties-fill";
 const COUNTIES_BORDER_LAYER_ID = "counties-border";
+const COUNTIES_SELECTED_LAYER_ID = "counties-selected";
 const COUNTIES_HOVER_LAYER_ID = "counties-hover";
 
 const STATES_FILL_LAYER_ID = "states-fill";
 const STATES_BORDER_LAYER_ID = "states-border";
+const STATES_SELECTED_LAYER_ID = "states-selected";
 const STATES_HOVER_LAYER_ID = "states-hover";
 
 const CITIES_FILL_LAYER_ID = "cities-fill";
 const CITIES_BORDER_LAYER_ID = "cities-border";
+const CITIES_SELECTED_LAYER_ID = "cities-selected";
 const CITIES_HOVER_LAYER_ID = "cities-hover";
 
 const REMOVABLE_LAYERS = [
+  COUNTIES_SELECTED_LAYER_ID,
   COUNTIES_HOVER_LAYER_ID,
   COUNTIES_BORDER_LAYER_ID,
   COUNTIES_FILL_LAYER_ID,
+  STATES_SELECTED_LAYER_ID,
   STATES_HOVER_LAYER_ID,
   STATES_BORDER_LAYER_ID,
   STATES_FILL_LAYER_ID,
+  CITIES_SELECTED_LAYER_ID,
   CITIES_HOVER_LAYER_ID,
   CITIES_BORDER_LAYER_ID,
   CITIES_FILL_LAYER_ID,
@@ -134,12 +140,83 @@ function buildStateFillColorExpression() {
   ];
 }
 
-function buildCityFillColorExpression() {
+function buildCityFillColorExpression(showStoppedCities) {
+  if (showStoppedCities) {
+    return [
+      "case",
+      ["boolean", ["feature-state", "stopped"], false],
+      COLORS.levels.city.stopped,
+      ["boolean", ["feature-state", "visited"], false],
+      COLORS.levels.city.visited,
+      COLORS.levels.city.unvisited,
+    ];
+  }
+
   return [
     "case",
     ["boolean", ["feature-state", "visited"], false],
     COLORS.levels.city.visited,
     COLORS.levels.city.unvisited,
+  ];
+}
+
+function buildCityFillOpacityExpression(showStoppedCities) {
+  if (showStoppedCities) {
+    return [
+      "case",
+      ["boolean", ["feature-state", "stopped"], false],
+      0.8,
+      ["boolean", ["feature-state", "visited"], false],
+      0.68,
+      0.35,
+    ];
+  }
+
+  return [
+    "case",
+    ["boolean", ["feature-state", "visited"], false],
+    0.8,
+    0.35,
+  ];
+}
+
+function buildCityBorderColorExpression(showStoppedCities) {
+  if (showStoppedCities) {
+    return [
+      "case",
+      ["boolean", ["feature-state", "stopped"], false],
+      COLORS.levels.city.stoppedBorder,
+      ["boolean", ["feature-state", "visited"], false],
+      COLORS.levels.city.visitedBorder,
+      COLORS.borders.city,
+    ];
+  }
+
+  return [
+    "case",
+    ["boolean", ["feature-state", "visited"], false],
+    COLORS.levels.city.visitedBorder,
+    COLORS.borders.city,
+  ];
+}
+
+function buildCityBorderWidthExpression(showStoppedCities) {
+  if (showStoppedCities) {
+    return [
+      "case",
+      ["boolean", ["feature-state", "stopped"], false],
+      1.15,
+      ["boolean", ["feature-state", "visited"], false],
+      0.95,
+      0.6,
+    ];
+  }
+
+  return [
+    "case",
+    ["boolean", ["feature-state", "visited"], false],
+    0.95,
+    0.6,
   ];
 }
 
@@ -167,6 +244,34 @@ function applyCountyLayerPaint(map, showStoppedCounties) {
       COUNTIES_BORDER_LAYER_ID,
       "line-width",
       buildCountyBorderWidthExpression(showStoppedCounties)
+    );
+  }
+}
+
+function applyCityLayerPaint(map, showStoppedCities) {
+  if (map.getLayer(CITIES_FILL_LAYER_ID)) {
+    map.setPaintProperty(
+      CITIES_FILL_LAYER_ID,
+      "fill-color",
+      buildCityFillColorExpression(showStoppedCities)
+    );
+    map.setPaintProperty(
+      CITIES_FILL_LAYER_ID,
+      "fill-opacity",
+      buildCityFillOpacityExpression(showStoppedCities)
+    );
+  }
+
+  if (map.getLayer(CITIES_BORDER_LAYER_ID)) {
+    map.setPaintProperty(
+      CITIES_BORDER_LAYER_ID,
+      "line-color",
+      buildCityBorderColorExpression(showStoppedCities)
+    );
+    map.setPaintProperty(
+      CITIES_BORDER_LAYER_ID,
+      "line-width",
+      buildCityBorderWidthExpression(showStoppedCities)
     );
   }
 }
@@ -210,6 +315,17 @@ function addCountyLayers({ map, countyData, statesData, showStoppedCounties }) {
     paint: {
       "line-color": COLORS.borders.state,
       "line-width": 1.5,
+    },
+  });
+
+  map.addLayer({
+    id: COUNTIES_SELECTED_LAYER_ID,
+    type: "fill",
+    source: COUNTIES_SOURCE_ID,
+    filter: ["==", ["get", "fips"], ""],
+    paint: {
+      "fill-color": "rgba(177, 211, 255, 0.95)",
+      "fill-opacity": 0.26,
     },
   });
 
@@ -258,6 +374,17 @@ function addStateLayers({ map, stateFeatureCollection }) {
   });
 
   map.addLayer({
+    id: STATES_SELECTED_LAYER_ID,
+    type: "fill",
+    source: STATES_SOURCE_ID,
+    filter: ["==", ["get", "stateFips"], ""],
+    paint: {
+      "fill-color": "rgba(177, 211, 255, 0.92)",
+      "fill-opacity": 0.28,
+    },
+  });
+
+  map.addLayer({
     id: STATES_HOVER_LAYER_ID,
     type: "fill",
     source: STATES_SOURCE_ID,
@@ -269,7 +396,7 @@ function addStateLayers({ map, stateFeatureCollection }) {
   });
 }
 
-function addCityLayers({ map, cityFeatureCollection }) {
+function addCityLayers({ map, cityFeatureCollection, showStoppedCities }) {
   map.addSource(CITIES_SOURCE_ID, {
     type: "geojson",
     data: cityFeatureCollection,
@@ -281,13 +408,8 @@ function addCityLayers({ map, cityFeatureCollection }) {
     type: "fill",
     source: CITIES_SOURCE_ID,
     paint: {
-      "fill-color": buildCityFillColorExpression(),
-      "fill-opacity": [
-        "case",
-        ["boolean", ["feature-state", "visited"], false],
-        0.8,
-        0.35,
-      ],
+      "fill-color": buildCityFillColorExpression(showStoppedCities),
+      "fill-opacity": buildCityFillOpacityExpression(showStoppedCities),
     },
   });
 
@@ -296,8 +418,19 @@ function addCityLayers({ map, cityFeatureCollection }) {
     type: "line",
     source: CITIES_SOURCE_ID,
     paint: {
-      "line-color": COLORS.borders.city,
-      "line-width": 0.8,
+      "line-color": buildCityBorderColorExpression(showStoppedCities),
+      "line-width": buildCityBorderWidthExpression(showStoppedCities),
+    },
+  });
+
+  map.addLayer({
+    id: CITIES_SELECTED_LAYER_ID,
+    type: "fill",
+    source: CITIES_SOURCE_ID,
+    filter: ["==", ["get", "cityId"], ""],
+    paint: {
+      "fill-color": "rgba(156, 225, 179, 0.92)",
+      "fill-opacity": 0.25,
     },
   });
 
@@ -362,7 +495,7 @@ export function addMapLayers() {
 /**
  * Render map layers for the active level.
  * @param {'county'|'state'|'city'} level
- * @param {{countyData?: Object, statesData?: Object, stateFeatureCollection?: Object, cityFeatureCollection?: Object, showStoppedCounties?: boolean}} options
+ * @param {{countyData?: Object, statesData?: Object, stateFeatureCollection?: Object, cityFeatureCollection?: Object, showStoppedCounties?: boolean, showStoppedCities?: boolean}} options
  */
 export function renderLevelLayers(level, options = {}) {
   const map = CountyMapState.getMap();
@@ -403,7 +536,12 @@ export function renderLevelLayers(level, options = {}) {
     if (!cityFeatureCollection) {
       return;
     }
-    addCityLayers({ map, cityFeatureCollection });
+    addCityLayers({
+      map,
+      cityFeatureCollection,
+      showStoppedCities:
+        options.showStoppedCities ?? CountyMapState.getShowStoppedCities(),
+    });
   }
 }
 
@@ -473,11 +611,12 @@ export function applyStateVisitFeatureState(map, states = []) {
 }
 
 /**
- * Apply city-level visited feature state.
+ * Apply city-level visited/stopped feature state.
  * @param {mapboxgl.Map} map
  * @param {Object.<string, any>} cityVisits
+ * @param {Object.<string, any>} cityStops
  */
-export function applyCityVisitFeatureState(map, cityVisits = {}) {
+export function applyCityVisitFeatureState(map, cityVisits = {}, cityStops = {}) {
   if (!map || !map.getSource(CITIES_SOURCE_ID)) {
     return;
   }
@@ -486,24 +625,35 @@ export function applyCityVisitFeatureState(map, cityVisits = {}) {
     map.removeFeatureState({ source: CITIES_SOURCE_ID });
   }
 
+  const mergedStateByCityId = new Map();
+  Object.keys(cityVisits || {}).forEach((cityId) => {
+    mergedStateByCityId.set(cityId, { visited: true });
+  });
+  Object.keys(cityStops || {}).forEach((cityId) => {
+    const existing = mergedStateByCityId.get(cityId) || {};
+    mergedStateByCityId.set(cityId, { ...existing, stopped: true });
+  });
+
   scheduleFrame(() => {
-    Object.keys(cityVisits || {}).forEach((cityId) => {
-      map.setFeatureState({ source: CITIES_SOURCE_ID, id: cityId }, { visited: true });
+    mergedStateByCityId.forEach((featureState, cityId) => {
+      map.setFeatureState({ source: CITIES_SOURCE_ID, id: cityId }, featureState);
     });
   });
 }
 
 /**
- * Update stopped county styling based on toggle state.
+ * Update stopped county/city styling based on toggle state.
  */
 export function updateStopLayerVisibility() {
   const map = CountyMapState.getMap();
   const showStoppedCounties = CountyMapState.getShowStoppedCounties();
+  const showStoppedCities = CountyMapState.getShowStoppedCities();
   if (!map) {
     return;
   }
 
   applyCountyLayerPaint(map, showStoppedCounties);
+  applyCityLayerPaint(map, showStoppedCities);
 }
 
 /**
@@ -528,6 +678,33 @@ export function setHoverHighlight(value) {
 
   if (map.getLayer(CITIES_HOVER_LAYER_ID)) {
     map.setFilter(CITIES_HOVER_LAYER_ID, ["==", ["get", "cityId"], value]);
+  }
+}
+
+export function setSelectionHighlight(value, level = CountyMapState.getActiveLevel()) {
+  const map = CountyMapState.getMap();
+  if (!map) {
+    return;
+  }
+
+  const normalizedValue = String(value || "");
+
+  if (level === "county" && map.getLayer(COUNTIES_SELECTED_LAYER_ID)) {
+    map.setFilter(COUNTIES_SELECTED_LAYER_ID, ["==", ["get", "fips"], normalizedValue]);
+    return;
+  }
+
+  if (level === "state" && map.getLayer(STATES_SELECTED_LAYER_ID)) {
+    map.setFilter(STATES_SELECTED_LAYER_ID, [
+      "==",
+      ["get", "stateFips"],
+      normalizedValue,
+    ]);
+    return;
+  }
+
+  if (level === "city" && map.getLayer(CITIES_SELECTED_LAYER_ID)) {
+    map.setFilter(CITIES_SELECTED_LAYER_ID, ["==", ["get", "cityId"], normalizedValue]);
   }
 }
 

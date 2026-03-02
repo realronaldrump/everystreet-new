@@ -29,9 +29,9 @@ test("county style expressions switch stopped styling on/off", () => {
   assert.deepEqual(buildCountyFillOpacityExpression(true), [
     "case",
     ["boolean", ["feature-state", "stopped"], false],
-    0.55,
+    0.78,
     ["boolean", ["feature-state", "visited"], false],
-    0.6,
+    0.62,
     1,
   ]);
   assert.deepEqual(buildCountyBorderColorExpression(false), [
@@ -43,8 +43,8 @@ test("county style expressions switch stopped styling on/off", () => {
   assert.deepEqual(buildCountyBorderWidthExpression(false), [
     "case",
     ["boolean", ["feature-state", "visited"], false],
-    1,
-    0.5,
+    1.05,
+    0.55,
   ]);
 });
 
@@ -144,31 +144,39 @@ test("applyStateVisitFeatureState sets percent completion per state", () => {
   ]);
 });
 
-test("applyCityVisitFeatureState marks visited city IDs", () => {
+test("applyCityVisitFeatureState marks driven/stopped city IDs", () => {
   const calls = [];
+  const clearCalls = [];
   const map = {
     getSource(id) {
       return id === "cities" ? { id } : null;
     },
-    removeFeatureState() {},
+    removeFeatureState(args) {
+      clearCalls.push(args);
+    },
     setFeatureState(target, state) {
       calls.push({ target, state });
     },
   };
 
-  applyCityVisitFeatureState(map, {
-    4805000: { firstVisit: "2025-01-01T00:00:00Z" },
-    4807000: { firstVisit: "2025-02-01T00:00:00Z" },
-  });
+  applyCityVisitFeatureState(
+    map,
+    {
+      4805000: { firstVisit: "2025-01-01T00:00:00Z" },
+      4807000: { firstVisit: "2025-02-01T00:00:00Z" },
+    },
+    {
+      4807000: { firstStop: "2025-02-01T00:00:00Z" },
+      4811000: { firstStop: "2025-03-01T00:00:00Z" },
+    }
+  );
 
-  assert.deepEqual(calls, [
-    {
-      target: { source: "cities", id: "4805000" },
-      state: { visited: true },
-    },
-    {
-      target: { source: "cities", id: "4807000" },
-      state: { visited: true },
-    },
-  ]);
+  assert.deepEqual(clearCalls, [{ source: "cities" }]);
+
+  const byId = Object.fromEntries(calls.map((entry) => [entry.target.id, entry.state]));
+  assert.deepEqual(byId, {
+    "4805000": { visited: true },
+    "4807000": { visited: true, stopped: true },
+    "4811000": { stopped: true },
+  });
 });
