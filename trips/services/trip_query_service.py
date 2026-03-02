@@ -269,7 +269,7 @@ class TripQueryService:
         else:
             extra_filters = {k: v for k, v in query.items() if k not in base_query}
             facet_result = (
-                await Trip.get_motor_collection()
+                await Trip.get_pymongo_collection()
                 .aggregate(
                     [
                         {"$match": base_query},
