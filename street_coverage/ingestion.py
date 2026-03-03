@@ -15,7 +15,7 @@ import asyncio
 import contextlib
 import logging
 import math
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from shapely.geometry import LineString, MultiLineString, mapping, shape
@@ -41,6 +41,7 @@ from street_coverage.public_road_filter import (
     get_public_road_filter_signature,
 )
 from street_coverage.stats import update_area_stats
+from tasks.arq import get_arq_pool
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -48,50 +49,35 @@ if TYPE_CHECKING:
     from beanie import PydanticObjectId
 
 logger = logging.getLogger(__name__)
-_background_tasks: set[asyncio.Task] = set()
-_job_tasks: dict[str, set[asyncio.Task]] = {}
+
+def _extract_arq_job_id(arq_job: Any) -> str:
+    return str(
+        getattr(arq_job, "job_id", None)
+        or getattr(arq_job, "id", None)
+        or arq_job,
+    )
 
 
-def _track_task(
-    task: asyncio.Task,
+async def _enqueue_pipeline_job(
+    task_name: str,
+    area_id: PydanticObjectId,
+    job_id: PydanticObjectId,
+    trip_mode: str | None = None,
     *,
-    job_id: PydanticObjectId | None = None,
-) -> None:
-    _background_tasks.add(task)
-
-    job_key = str(job_id) if job_id is not None else None
-    if job_key is not None:
-        _job_tasks.setdefault(job_key, set()).add(task)
-
-    def _cleanup(done: asyncio.Task) -> None:
-        _background_tasks.discard(done)
-        if job_key is None:
-            return
-        tasks = _job_tasks.get(job_key)
-        if not tasks:
-            return
-        tasks.discard(done)
-        if not tasks:
-            _job_tasks.pop(job_key, None)
-
-    task.add_done_callback(_cleanup)
-
-
-def cancel_ingestion_job(job_id: PydanticObjectId) -> bool:
-    """
-    Attempt to cancel any in-process ingestion tasks for a job.
-
-    Note: This only affects tasks running in the current process.
-    Callers should still mark the Job document as cancelled so the
-    pipeline can self-abort on the next progress update.
-    """
-    job_key = str(job_id)
-    tasks = _job_tasks.get(job_key)
-    if not tasks:
-        return False
-    for task in list(tasks):
-        task.cancel()
-    return True
+    defer_seconds: float | None = None,
+) -> str:
+    pool = await get_arq_pool()
+    enqueue_kwargs: dict[str, Any] = {}
+    if defer_seconds and defer_seconds > 0:
+        enqueue_kwargs["_defer_by"] = timedelta(seconds=defer_seconds)
+    arq_job = await pool.enqueue_job(
+        task_name,
+        str(area_id),
+        str(job_id),
+        trip_mode,
+        **enqueue_kwargs,
+    )
+    return _extract_arq_job_id(arq_job)
 
 
 BACKFILL_PROGRESS_START = 75.0
@@ -152,10 +138,41 @@ async def create_area(
         logger.error("Coverage ingestion job insert failed (missing id)")
         return area
 
-    task = asyncio.create_task(
-        _run_ingestion_pipeline(area_id, job.id, trip_mode=selected_trip_mode)
+    try:
+        operation_id = await _enqueue_pipeline_job(
+            "run_area_ingestion_job",
+            area_id,
+            job.id,
+            selected_trip_mode,
+        )
+    except Exception as exc:
+        now = datetime.now(UTC)
+        await job.set(
+            {
+                "status": "failed",
+                "stage": "Queue failed",
+                "message": "Failed to enqueue ingestion pipeline",
+                "error": str(exc),
+                "completed_at": now,
+                "updated_at": now,
+            },
+        )
+        await area.set(
+            {
+                "status": "error",
+                "health": "unavailable",
+                "last_error": f"Failed to enqueue ingestion job: {exc}",
+            },
+        )
+        raise
+
+    await job.set(
+        {
+            "operation_id": operation_id,
+            "task_id": operation_id,
+            "updated_at": datetime.now(UTC),
+        },
     )
-    _track_task(task, job_id=job.id)
 
     return area
 
@@ -253,11 +270,41 @@ async def rebuild_area(
         msg = "Coverage ingestion job insert failed (missing id)"
         raise RuntimeError(msg)
 
-    # Queue the ingestion (fire and forget)
-    task = asyncio.create_task(
-        _run_ingestion_pipeline(area_id, job.id, trip_mode=selected_trip_mode)
+    try:
+        operation_id = await _enqueue_pipeline_job(
+            "run_area_ingestion_job",
+            area_id,
+            job.id,
+            selected_trip_mode,
+        )
+    except Exception as exc:
+        now = datetime.now(UTC)
+        await job.set(
+            {
+                "status": "failed",
+                "stage": "Queue failed",
+                "message": "Failed to enqueue ingestion pipeline",
+                "error": str(exc),
+                "completed_at": now,
+                "updated_at": now,
+            },
+        )
+        await area.set(
+            {
+                "status": "error",
+                "health": "unavailable",
+                "last_error": f"Failed to enqueue rebuild job: {exc}",
+            },
+        )
+        raise
+
+    await job.set(
+        {
+            "operation_id": operation_id,
+            "task_id": operation_id,
+            "updated_at": datetime.now(UTC),
+        },
     )
-    _track_task(task, job_id=job.id)
 
     return job
 
@@ -291,10 +338,34 @@ async def backfill_area(
         msg = "Coverage backfill job insert failed (missing id)"
         raise RuntimeError(msg)
 
-    task = asyncio.create_task(
-        _run_backfill_pipeline(area_id, job.id, trip_mode=selected_trip_mode)
+    try:
+        operation_id = await _enqueue_pipeline_job(
+            "run_area_backfill_job",
+            area_id,
+            job.id,
+            selected_trip_mode,
+        )
+    except Exception as exc:
+        now = datetime.now(UTC)
+        await job.set(
+            {
+                "status": "failed",
+                "stage": "Queue failed",
+                "message": "Failed to enqueue backfill pipeline",
+                "error": str(exc),
+                "completed_at": now,
+                "updated_at": now,
+            },
+        )
+        raise
+
+    await job.set(
+        {
+            "operation_id": operation_id,
+            "task_id": operation_id,
+            "updated_at": datetime.now(UTC),
+        },
     )
-    _track_task(task, job_id=job.id)
 
     return job
 
@@ -977,39 +1048,50 @@ async def _run_ingestion_pipeline(
         else:
             # Schedule retry with exponential backoff
             delay = RETRY_BASE_DELAY_SECONDS * (2 ** (retry_count - 1))
-            await job.set(
-                {
-                    "status": "pending",
-                    "stage": f"Retry {retry_count} scheduled",
-                    "error": err_str,
-                    "retry_count": retry_count,
-                    "message": f"Retrying in {delay:.0f}s: {err_str}",
-                    "updated_at": now,
-                },
-            )
-            task = asyncio.create_task(_delayed_retry(area_id, job_id, delay))
-            _track_task(task, job_id=job_id)
+            retry_updates: dict[str, Any] = {
+                "status": "pending",
+                "stage": f"Retry {retry_count} scheduled",
+                "error": err_str,
+                "retry_count": retry_count,
+                "message": f"Retrying in {delay:.0f}s: {err_str}",
+                "updated_at": now,
+            }
+            try:
+                operation_id = await _enqueue_pipeline_job(
+                    "run_area_ingestion_job",
+                    area_id,
+                    job_id,
+                    selected_trip_mode,
+                    defer_seconds=delay,
+                )
+                retry_updates["operation_id"] = operation_id
+                retry_updates["task_id"] = operation_id
+                await job.set(retry_updates)
+            except Exception as enqueue_exc:
+                logger.exception(
+                    "Failed to enqueue retry %s for area %s",
+                    retry_count,
+                    area_id,
+                )
+                await job.set(
+                    {
+                        "status": "needs_attention",
+                        "stage": "Failed - retry enqueue error",
+                        "error": str(enqueue_exc),
+                        "retry_count": retry_count,
+                        "message": f"Retry enqueue failed: {enqueue_exc}",
+                        "completed_at": datetime.now(UTC),
+                        "updated_at": datetime.now(UTC),
+                    },
+                )
+                area_updates = {
+                    "status": "error",
+                    "health": "unavailable",
+                    "last_error": str(enqueue_exc),
+                }
 
         if area_updates:
             await area.set(area_updates)
-
-
-async def _delayed_retry(
-    area_id: PydanticObjectId,
-    job_id: PydanticObjectId,
-    delay_seconds: float,
-) -> None:
-    """Schedule a retry after a delay."""
-    try:
-        await asyncio.sleep(delay_seconds)
-    except asyncio.CancelledError:
-        return
-
-    job = await Job.get(job_id)
-    if not job or job.status == "cancelled":
-        return
-
-    await _run_ingestion_pipeline(area_id, job_id)
 
 
 # =============================================================================

@@ -40,6 +40,7 @@ from tasks.map_matching import map_match_trips
 from tasks.mobility import sync_mobility_profiles
 from tasks.optimal_routes import generate_optimal_route
 from tasks.recurring_routes import build_recurring_routes
+from tasks.street_coverage import run_area_backfill_job, run_area_ingestion_job
 
 PERIODIC_FETCH_TIMEOUT_SECONDS = int(
     os.getenv("TRIP_FETCH_JOB_TIMEOUT_SECONDS", str(15 * 60)),
@@ -55,6 +56,12 @@ OPTIMAL_ROUTE_TIMEOUT_SECONDS = int(
 )
 MOBILITY_SYNC_TIMEOUT_SECONDS = int(
     os.getenv("MOBILITY_SYNC_JOB_TIMEOUT_SECONDS", str(20 * 60)),
+)
+COVERAGE_INGEST_TIMEOUT_SECONDS = int(
+    os.getenv("COVERAGE_INGEST_JOB_TIMEOUT_SECONDS", str(6 * 60 * 60)),
+)
+COVERAGE_BACKFILL_TIMEOUT_SECONDS = int(
+    os.getenv("COVERAGE_BACKFILL_JOB_TIMEOUT_SECONDS", str(4 * 60 * 60)),
 )
 
 
@@ -89,6 +96,8 @@ class WorkerSettings:
         func(generate_optimal_route, timeout=OPTIMAL_ROUTE_TIMEOUT_SECONDS),
         worker_heartbeat,
         func(purge_server_logs_before, timeout=LOG_PURGE_TIMEOUT_SECONDS),
+        func(run_area_ingestion_job, timeout=COVERAGE_INGEST_TIMEOUT_SECONDS),
+        func(run_area_backfill_job, timeout=COVERAGE_BACKFILL_TIMEOUT_SECONDS),
         # Map services setup tasks
         func(setup_map_data_task, timeout=SETUP_JOB_TIMEOUT_SECONDS),
         monitor_map_services,

@@ -20,20 +20,22 @@ from starlette.responses import StreamingResponse
 
 from db.models import CoverageArea, Job
 from street_coverage.events import subscribe, unsubscribe
-from street_coverage.ingestion import cancel_ingestion_job
+from tasks.ops import abort_job
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/coverage", tags=["coverage-jobs"])
 
 
 async def _resolve_job(job_id: str) -> Job | None:
-    """Look up a Job by ObjectId or task_id."""
+    """Look up a Job by ObjectId, task_id, or operation_id."""
     job = None
     if len(job_id) == 24:
         with contextlib.suppress(Exception):
             job = await Job.get(PydanticObjectId(job_id))
     if not job:
         job = await Job.find_one({"task_id": job_id})
+    if not job:
+        job = await Job.find_one({"operation_id": job_id})
     return job
 
 
@@ -205,9 +207,9 @@ async def cancel_job(job_id: str):
 
     Accepts either a MongoDB ObjectId or an ARQ task_id.
 
-    Attempts to cancel in-process tasks (best-effort) and marks the job
-    as cancelled in the database. Ingestion pipelines also self-abort by
-    checking job status between stages.
+    Requests an ARQ abort (best-effort) and marks the job as cancelled in
+    the database. Ingestion pipelines also self-abort by checking job status
+    between stages.
     """
     job = await _resolve_job(job_id)
     if not job:
@@ -222,8 +224,13 @@ async def cancel_job(job_id: str):
             detail=f"Cannot cancel job with status: {job.status}",
         )
 
-    # Best-effort: cancel in-process asyncio task(s) for this job.
-    cancel_ingestion_job(str(job.id))
+    aborted = False
+    operation_id = job.operation_id or job.task_id
+    if not operation_id and len(job_id) != 24:
+        operation_id = job_id
+    if operation_id:
+        with contextlib.suppress(Exception):
+            aborted = await abort_job(operation_id)
 
     now = datetime.now(UTC)
     job.status = "cancelled"
@@ -249,6 +256,7 @@ async def cancel_job(job_id: str):
     return {
         "success": True,
         "message": "Job cancelled",
+        "aborted": aborted,
     }
 
 

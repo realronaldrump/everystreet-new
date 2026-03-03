@@ -589,6 +589,133 @@ async def test_backfill_bbox_query_uses_geo_intersects_without_ne(coverage_db) -
 
 
 @pytest.mark.asyncio
+async def test_create_area_enqueues_ingestion_job(coverage_db) -> None:
+    class _QueuedJob:
+        def __init__(self, job_id: str) -> None:
+            self.job_id = job_id
+
+    class _Pool:
+        def __init__(self) -> None:
+            self.enqueue_job = AsyncMock(return_value=_QueuedJob("arq-ingestion-1"))
+
+    pool = _Pool()
+    boundary = {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [-97.2, 31.5],
+                [-97.2, 31.6],
+                [-97.1, 31.6],
+                [-97.1, 31.5],
+                [-97.2, 31.5],
+            ],
+        ],
+    }
+
+    with patch("street_coverage.ingestion.get_arq_pool", new=AsyncMock(return_value=pool)):
+        area = await coverage_ingestion.create_area(
+            display_name="Queued Ingestion Area",
+            area_type="city",
+            boundary=boundary,
+            trip_mode="matched",
+        )
+
+    assert area.id is not None
+    job = await Job.find_one({"area_id": area.id, "job_type": "area_ingestion"})
+    assert job is not None
+    assert job.operation_id == "arq-ingestion-1"
+    assert job.task_id == "arq-ingestion-1"
+    pool.enqueue_job.assert_awaited_once_with(
+        "run_area_ingestion_job",
+        str(area.id),
+        str(job.id),
+        "matched",
+    )
+
+
+@pytest.mark.asyncio
+async def test_rebuild_area_enqueues_ingestion_job(coverage_db) -> None:
+    class _QueuedJob:
+        def __init__(self, job_id: str) -> None:
+            self.job_id = job_id
+
+    class _Pool:
+        def __init__(self) -> None:
+            self.enqueue_job = AsyncMock(return_value=_QueuedJob("arq-rebuild-1"))
+
+    pool = _Pool()
+    area = CoverageArea(
+        display_name="Rebuild Queue Area",
+        status="ready",
+        health="healthy",
+        boundary={
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [-97.2, 31.5],
+                    [-97.2, 31.6],
+                    [-97.1, 31.6],
+                    [-97.1, 31.5],
+                    [-97.2, 31.5],
+                ],
+            ],
+        },
+    )
+    await area.insert()
+    assert area.id is not None
+
+    with patch("street_coverage.ingestion.get_arq_pool", new=AsyncMock(return_value=pool)):
+        created_job = await coverage_ingestion.rebuild_area(area.id, trip_mode="regular")
+
+    assert created_job.id is not None
+    refreshed_job = await Job.get(created_job.id)
+    assert refreshed_job is not None
+    assert refreshed_job.operation_id == "arq-rebuild-1"
+    assert refreshed_job.task_id == "arq-rebuild-1"
+    pool.enqueue_job.assert_awaited_once_with(
+        "run_area_ingestion_job",
+        str(area.id),
+        str(created_job.id),
+        "regular",
+    )
+
+
+@pytest.mark.asyncio
+async def test_backfill_area_enqueues_backfill_job(coverage_db) -> None:
+    class _QueuedJob:
+        def __init__(self, job_id: str) -> None:
+            self.job_id = job_id
+
+    class _Pool:
+        def __init__(self) -> None:
+            self.enqueue_job = AsyncMock(return_value=_QueuedJob("arq-backfill-1"))
+
+    pool = _Pool()
+    area = CoverageArea(
+        display_name="Backfill Queue Area",
+        status="ready",
+        health="healthy",
+    )
+    await area.insert()
+    assert area.id is not None
+
+    with patch("street_coverage.ingestion.get_arq_pool", new=AsyncMock(return_value=pool)):
+        created_job = await coverage_ingestion.backfill_area(area.id, trip_mode="both")
+
+    assert created_job.id is not None
+    refreshed_job = await Job.get(created_job.id)
+    assert refreshed_job is not None
+    assert refreshed_job.operation_id == "arq-backfill-1"
+    assert refreshed_job.task_id == "arq-backfill-1"
+    pool.enqueue_job.assert_awaited_once_with(
+        "run_area_backfill_job",
+        str(area.id),
+        str(created_job.id),
+        "both",
+    )
+
+
+@pytest.mark.asyncio
 async def test_ingestion_pipeline_respects_cancelled_job(
     coverage_db,
     tmp_path: Path,
