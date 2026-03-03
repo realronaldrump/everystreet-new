@@ -214,6 +214,28 @@ test("cinematic intro does not run on non-desktop viewport", async () => {
   assert.equal(map.easeToCalls.length, 0);
 });
 
+test("cinematic intro stays disabled on mobile even when desktopOnly is false", async () => {
+  setupGlobals({ width: 430, coarsePointer: true });
+  const map = createMockMap();
+
+  const controller = initCinematicIntro({
+    map,
+    config: {
+      enabled: true,
+      desktopOnly: false,
+      firstVisitOnly: false,
+      initialPitch: 60,
+      rotationDegPerSec: 0.25,
+      maxDurationMs: 80,
+    },
+  });
+
+  await sleep(50);
+
+  assert.equal(controller.isActive(), false);
+  assert.equal(map.easeToCalls.length, 0);
+});
+
 test("cinematic intro runs once and honors first-visit storage gate", async () => {
   setupGlobals({ width: 1400 });
 

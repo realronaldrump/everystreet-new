@@ -159,7 +159,8 @@ export function shouldRunCinematicIntro({ map, config = getCinematicConfig() } =
     return false;
   }
 
-  if (config.desktopOnly && !isDesktopViewport()) {
+  // Cinematic autoplay is intentionally desktop-only.
+  if (!isDesktopViewport()) {
     return false;
   }
 

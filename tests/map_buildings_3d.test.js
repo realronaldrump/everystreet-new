@@ -195,6 +195,27 @@ test("ensureBuildingsLayer skips satellite mode and raster-only styles", () => {
   assert.equal(map.addedLayers.length, 0);
 });
 
+test("ensureBuildingsLayer remains enabled on mobile viewport/coarse pointer", () => {
+  global.window = {
+    MAP_PROVIDER: "self_hosted",
+    innerWidth: 390,
+    matchMedia(query) {
+      if (query === "(pointer: coarse)") {
+        return { matches: true };
+      }
+      return { matches: false };
+    },
+  };
+
+  const map = createMockMap({ style: makeVectorStyle() });
+
+  const added = ensureBuildingsLayer(map, { styleType: "dark" });
+
+  assert.equal(added, true);
+  assert.equal(map.addedLayers.length, 1);
+  assert.ok(map.getLayer("es-3d-buildings"));
+});
+
 test("ensureBuildingsLayer can scope 3D buildings to a selected coverage boundary", () => {
   const map = createMockMap({ style: makeVectorStyle() });
   const coverageBoundary = makeCoverageBoundaryFeatureCollection();
