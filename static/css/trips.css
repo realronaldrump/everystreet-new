@@ -1209,6 +1209,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
    LOADING & EMPTY STATES
    ============================================ */
 .trips-loading {
+  display: none;
   padding: var(--space-2xl);
 }
 

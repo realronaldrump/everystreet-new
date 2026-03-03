@@ -865,7 +865,8 @@ async function loadTrips() {
   }
 
   isLoading = true;
-  showLoadingState(true);
+  const hasRenderedTrips = Boolean(document.querySelector(".trip-card"));
+  showLoadingState(!hasRenderedTrips);
 
   try {
     const filters = getFilterValues();
@@ -921,6 +922,7 @@ function showLoadingState(show) {
   const loadingEl = document.getElementById("trips-loading");
   if (loadingEl) {
     loadingEl.style.display = show ? "block" : "none";
+    loadingEl.setAttribute("aria-hidden", show ? "false" : "true");
   }
 }
 
