@@ -239,7 +239,9 @@ def extract_line_sequences(
     if geom_type == "MultiLineString" and isinstance(coords, list):
         lines: list[list[list[float]]] = []
         for line_coords in coords:
-            line = normalize_coordinate_list(line_coords if isinstance(line_coords, list) else [])
+            line = normalize_coordinate_list(
+                line_coords if isinstance(line_coords, list) else []
+            )
             if len(line) >= 2:
                 lines.append(line)
         return lines
@@ -251,7 +253,7 @@ def extract_line_sequences(
     return []
 
 
-def _collect_polygon_parts(geojson: dict[str, Any]) -> list["BaseGeometry"]:
+def _collect_polygon_parts(geojson: dict[str, Any]) -> list[BaseGeometry]:
     from shapely.geometry import shape
 
     geo_type = str(geojson.get("type") or "").strip()
@@ -284,7 +286,7 @@ def _collect_polygon_parts(geojson: dict[str, Any]) -> list["BaseGeometry"]:
     return [parsed]
 
 
-def extract_polygon_geometry_from_geojson(value: Any) -> "BaseGeometry | None":
+def extract_polygon_geometry_from_geojson(value: Any) -> BaseGeometry | None:
     """Parse polygonal geometry from GeoJSON geometry/Feature/FeatureCollection."""
     from shapely.ops import unary_union
 
@@ -306,10 +308,7 @@ def extract_polygon_geometry_from_geojson(value: Any) -> "BaseGeometry | None":
     if not geometries:
         return None
 
-    if len(geometries) == 1:
-        merged = geometries[0]
-    else:
-        merged = unary_union(geometries)
+    merged = geometries[0] if len(geometries) == 1 else unary_union(geometries)
 
     polygonal = extract_polygonal_geometry(merged)
     if polygonal is None:
@@ -318,7 +317,7 @@ def extract_polygon_geometry_from_geojson(value: Any) -> "BaseGeometry | None":
     return fixed if fixed is not None else polygonal
 
 
-def extract_line_geometry(geometry: "BaseGeometry | None") -> "BaseGeometry | None":
+def extract_line_geometry(geometry: BaseGeometry | None) -> BaseGeometry | None:
     """Extract only LineString/MultiLineString parts from a Shapely geometry."""
     from shapely.geometry import MultiLineString
 
@@ -346,7 +345,7 @@ def extract_line_geometry(geometry: "BaseGeometry | None") -> "BaseGeometry | No
     return MultiLineString([list(line.coords) for line in parts])
 
 
-def extract_polygonal_geometry(geometry: "BaseGeometry | None") -> "BaseGeometry | None":
+def extract_polygonal_geometry(geometry: BaseGeometry | None) -> BaseGeometry | None:
     """Extract only Polygon/MultiPolygon parts from a Shapely geometry."""
     from shapely.geometry import MultiPolygon
 
@@ -375,9 +374,9 @@ def extract_polygonal_geometry(geometry: "BaseGeometry | None") -> "BaseGeometry
 
 
 def clip_lines_to_polygon(
-    line_geometry: "BaseGeometry | None",
-    clip_polygon: "BaseGeometry | None",
-) -> "BaseGeometry | None":
+    line_geometry: BaseGeometry | None,
+    clip_polygon: BaseGeometry | None,
+) -> BaseGeometry | None:
     """Clip a line geometry to a polygon and keep only linear output."""
     if line_geometry is None or clip_polygon is None:
         return None
@@ -394,7 +393,7 @@ def clip_lines_to_polygon(
     return extract_line_geometry(intersection)
 
 
-def bounding_box_polygon(geometry: "BaseGeometry | None") -> dict[str, Any] | None:
+def bounding_box_polygon(geometry: BaseGeometry | None) -> dict[str, Any] | None:
     """Return a GeoJSON polygon for the geometry bounds."""
     if geometry is None or geometry.is_empty:
         return None
@@ -417,7 +416,7 @@ def bounding_box_polygon(geometry: "BaseGeometry | None") -> dict[str, Any] | No
     }
 
 
-def validate_and_fix_geometry(geometry: "BaseGeometry | None") -> "BaseGeometry | None":
+def validate_and_fix_geometry(geometry: BaseGeometry | None) -> BaseGeometry | None:
     """Return a valid geometry or None when it cannot be repaired safely."""
     if geometry is None or geometry.is_empty:
         return None
