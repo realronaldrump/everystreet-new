@@ -25,6 +25,7 @@ from .gaps import fill_route_gaps
 from .graph import (
     build_osmid_index,
     choose_consensus_edge_match,
+    get_edge_geometry,
     graph_units_to_feet,
     prepare_spatial_matching_graph,
     project_linestring_coords,
@@ -43,6 +44,47 @@ def _get_osmnx():
     import osmnx as ox
 
     return ox
+
+
+def _derive_explicit_gap_indices_from_edges(
+    G: nx.MultiDiGraph,
+    route_edges: list["EdgeRef"] | None,
+    route_coord_count: int,
+    *,
+    node_xy: dict[int, tuple[float, float]] | None = None,
+) -> list[int]:
+    """
+    Find route coordinate boundaries where edge traversal is discontinuous.
+
+    A discontinuity is any consecutive edge pair where prev.v != next.u, which
+    indicates the solver teleported between network islands/components.
+    """
+    if not route_edges or len(route_edges) < 2 or route_coord_count < 2:
+        return []
+
+    edge_start_indices: list[int] = []
+    cursor = 0
+    for idx, (u, v, k) in enumerate(route_edges):
+        edge_start_indices.append(cursor)
+        key = None if k == -1 else k
+        coords = get_edge_geometry(G, u, v, key, node_xy=node_xy)
+        if idx == 0:
+            contributed = len(coords)
+        else:
+            contributed = max(0, len(coords) - 1)
+        cursor += contributed
+
+    explicit_indices: set[int] = set()
+    for i in range(1, len(route_edges)):
+        prev = route_edges[i - 1]
+        cur = route_edges[i]
+        if prev[1] == cur[0]:
+            continue
+        gap_idx = edge_start_indices[i]
+        if 0 < gap_idx < route_coord_count:
+            explicit_indices.add(int(gap_idx))
+
+    return sorted(explicit_indices)
 
 
 async def generate_optimal_route_with_progress(
@@ -1340,6 +1382,9 @@ async def _generate_optimal_route_with_progress_impl(
 
         use_zones = len(required_reqs) > ZONE_DECOMPOSITION_THRESHOLD
 
+        route_edges: list[EdgeRef] = []
+        service_sequence: list[tuple[ReqId, EdgeRef]] = []
+
         if use_zones:
             await update_progress(
                 "routing",
@@ -1371,12 +1416,23 @@ async def _generate_optimal_route_with_progress_impl(
                     72,
                     f"Solving {len(zones)} zones...",
                 )
-                route_coords, stats, service_sequence = solve_zones(
+                zone_result = solve_zones(
                     G,
                     zones,
                     start_node_id,
                     node_xy=node_xy,
                 )
+                if len(zone_result) == 4:
+                    route_coords, stats, route_edges, service_sequence = zone_result
+                elif len(zone_result) == 3:
+                    route_coords, stats, service_sequence = zone_result
+                    route_edges = []
+                else:
+                    msg = (
+                        "solve_zones returned an unexpected result shape "
+                        f"({len(zone_result)} values)"
+                    )
+                    _raise_value_error(msg)
             except Exception:
                 logger.exception(
                     "Zone-based solver failed; falling back to single solve",
@@ -1397,9 +1453,10 @@ async def _generate_optimal_route_with_progress_impl(
                     req_segment_counts=req_segment_counts,
                 )
                 if len(solver_result) == 4:
-                    route_coords, stats, _, service_sequence = solver_result
+                    route_coords, stats, route_edges, service_sequence = solver_result
                 elif len(solver_result) == 3:
                     route_coords, stats, service_sequence = solver_result
+                    route_edges = []
                 else:
                     msg = (
                         "solve_greedy_route returned an unexpected result shape "
@@ -1480,9 +1537,17 @@ async def _generate_optimal_route_with_progress_impl(
 
             from .constants import GAP_FILL_THRESHOLD_FT
 
+            explicit_gap_indices = _derive_explicit_gap_indices_from_edges(
+                G,
+                route_edges,
+                len(route_coords),
+                node_xy=node_xy,
+            )
+
             route_coords, gap_fill_stats = await fill_route_gaps(
                 route_coords,
                 max_gap_ft=GAP_FILL_THRESHOLD_FT,
+                explicit_gap_indices=explicit_gap_indices or None,
                 progress_callback=gap_progress,
             )
         except Exception as e:

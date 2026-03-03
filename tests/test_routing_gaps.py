@@ -40,3 +40,41 @@ async def test_fill_route_gaps_inserts_bridge_coords_and_reports_stats(
     assert len(filled) == 5
     assert filled[0] == [0.0, 0.0]
     assert filled[-1] == [0.0, 0.02]
+
+
+@pytest.mark.asyncio
+async def test_fill_route_gaps_with_explicit_indices_ignores_distance_scan(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Both jumps are long, but only index=2 is a true discontinuity.
+    route_coords = [[0.0, 0.0], [0.0, 0.01], [0.0, 0.02]]
+    calls: list[tuple[tuple[float, float], tuple[float, float]]] = []
+
+    async def fake_fetch_bridge_route(from_xy, to_xy, request_timeout: float = 30.0):
+        _ = request_timeout
+        calls.append((from_xy, to_xy))
+        fx, fy = from_xy
+        tx, ty = to_xy
+        return BridgeRoute(
+            coordinates=[[fx, fy], [tx, ty]],
+            distance_m=1000.0,
+            duration_s=60.0,
+        )
+
+    monkeypatch.setattr(
+        "routing.graph_connectivity.fetch_bridge_route",
+        fake_fetch_bridge_route,
+    )
+
+    filled, stats = await fill_route_gaps(
+        route_coords,
+        max_gap_ft=100.0,  # would catch both jumps if distance-scan were used
+        explicit_gap_indices=[2],
+    )
+
+    assert stats.gaps_found == 1
+    assert stats.gaps_filled == 1
+    assert stats.gaps_unfilled == 0
+    assert stats.bridge_distance_m == pytest.approx(1000.0)
+    assert calls == [((0.0, 0.01), (0.0, 0.02))]
+    assert filled == route_coords

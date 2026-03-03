@@ -32,5 +32,6 @@ LOCAL_SEARCH_MIN_REQS = 10  # skip for tiny routes
 ZONE_DECOMPOSITION_THRESHOLD = 2000
 ZONE_MAX_SIZE = 1500
 
-# Gap-filling threshold (bridge discontinuities with Valhalla)
-GAP_FILL_THRESHOLD_FT = 200.0
+# Gap-filling threshold (fallback mode only; explicit discontinuity bridging
+# should be preferred when route-edge transitions are available).
+GAP_FILL_THRESHOLD_FT = 1000.0

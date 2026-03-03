@@ -20,6 +20,7 @@ class GapFillStats:
 async def fill_route_gaps(
     route_coords: list[list[float]],
     max_gap_ft: float = 1000.0,
+    explicit_gap_indices: list[int] | None = None,
     progress_callback: Any | None = None,
 ) -> tuple[list[list[float]], GapFillStats]:
     """
@@ -31,6 +32,10 @@ async def fill_route_gaps(
     Args:
         route_coords: List of [lon, lat] coordinates
         max_gap_ft: Threshold gap size in feet to trigger filling
+        explicit_gap_indices: Optional list of coordinate indices that mark
+            true discontinuities (gap between route_coords[i-1] and
+            route_coords[i]). When provided, these are filled directly instead
+            of scanning all coordinate pairs by distance.
         progress_callback: Optional async callback(stage, pct, message)
 
     Returns:
@@ -44,25 +49,46 @@ async def fill_route_gaps(
     gaps_to_fill: list[tuple[int, float]] = []  # (index, gap_ft)
     max_gap_before = 0.0
 
-    # Find gaps
-    for i in range(1, len(route_coords)):
-        prev = route_coords[i - 1]
-        cur = route_coords[i]
-        if len(prev) < 2 or len(cur) < 2:
-            continue
+    if explicit_gap_indices is not None:
+        for i in sorted({int(idx) for idx in explicit_gap_indices}):
+            if i <= 0 or i >= len(route_coords):
+                continue
+            prev = route_coords[i - 1]
+            cur = route_coords[i]
+            if len(prev) < 2 or len(cur) < 2:
+                continue
 
-        d_miles = GeometryService.haversine_distance(
-            prev[0],
-            prev[1],
-            cur[0],
-            cur[1],
-            unit="miles",
-        )
-        d_ft = d_miles * 5280.0
-        max_gap_before = max(max_gap_before, d_ft)
+            d_miles = GeometryService.haversine_distance(
+                prev[0],
+                prev[1],
+                cur[0],
+                cur[1],
+                unit="miles",
+            )
+            d_ft = d_miles * 5280.0
+            max_gap_before = max(max_gap_before, d_ft)
+            if d_ft > 0.0:
+                gaps_to_fill.append((i, d_ft))
+    else:
+        # Fallback mode: detect large coordinate jumps by distance.
+        for i in range(1, len(route_coords)):
+            prev = route_coords[i - 1]
+            cur = route_coords[i]
+            if len(prev) < 2 or len(cur) < 2:
+                continue
 
-        if d_ft > max_gap_ft:
-            gaps_to_fill.append((i, d_ft))
+            d_miles = GeometryService.haversine_distance(
+                prev[0],
+                prev[1],
+                cur[0],
+                cur[1],
+                unit="miles",
+            )
+            d_ft = d_miles * 5280.0
+            max_gap_before = max(max_gap_before, d_ft)
+
+            if d_ft > max_gap_ft:
+                gaps_to_fill.append((i, d_ft))
 
     if not gaps_to_fill:
         logger.info("No gaps > %.0f ft found in route", max_gap_ft)

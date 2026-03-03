@@ -195,13 +195,19 @@ def solve_zones(
     zones: list[Zone],
     start_node: int | None = None,
     node_xy: dict[int, tuple[float, float]] | None = None,
-) -> tuple[list[list[float]], dict[str, float], list[tuple[ReqId, EdgeRef]]]:
+) -> tuple[
+    list[list[float]],
+    dict[str, float],
+    list[EdgeRef],
+    list[tuple[ReqId, EdgeRef]],
+]:
     """
     Solve each zone independently and stitch results together.
 
-    Returns combined (route_coords, stats, service_sequence).
+    Returns combined (route_coords, stats, route_edges, service_sequence).
     """
     all_coords: list[list[float]] = []
+    all_route_edges: list[EdgeRef] = []
     all_service_sequence: list[tuple[ReqId, EdgeRef]] = []
     total_stats = {
         "total_distance": 0.0,
@@ -230,7 +236,7 @@ def solve_zones(
             len(zone.required_reqs),
         )
 
-        coords, stats, _, sequence = solve_greedy_route(
+        coords, stats, route_edges, sequence = solve_greedy_route(
             G,
             zone.required_reqs,
             current_start,
@@ -240,8 +246,10 @@ def solve_zones(
 
         if coords:
             if all_coords:
-                # Gap between zones will be filled by Valhalla gap-filling later
-                all_coords.extend(coords)
+                # Preserve the same append semantics as core solver geometry
+                # assembly: avoid duplicating the first coordinate of each
+                # stitched chunk.
+                all_coords.extend(coords[1:] if len(coords) > 1 else coords)
             else:
                 all_coords = coords
 
@@ -251,6 +259,7 @@ def solve_zones(
                 current_start = last_edge[1]  # v node of last service edge
 
         all_service_sequence.extend(sequence)
+        all_route_edges.extend(route_edges)
 
         # Accumulate stats
         for key in total_stats:
@@ -270,4 +279,4 @@ def solve_zones(
         (total_dist / svc_dist) if svc_dist > 0 else 0.0
     )
 
-    return all_coords, total_stats, all_service_sequence
+    return all_coords, total_stats, all_route_edges, all_service_sequence
