@@ -3,9 +3,11 @@
  */
 
 import apiClient from "../../core/api-client.js";
+import { CONFIG } from "../../core/config.js";
 import notificationManager from "../../ui/notifications.js";
 
 const TAB_STORAGE_KEY = "es:settings-active-tab";
+const MAP_3D_TOGGLE_EVENT = "es:map-3d-buildings-setting-changed";
 
 function normalizeTabName(value) {
   if (!value) {
@@ -13,6 +15,32 @@ function normalizeTabName(value) {
   }
   const name = value.replace(/^#/, "").trim();
   return name.endsWith("-tab") ? name.slice(0, -4) : name;
+}
+
+function readStoredBoolean(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === "true") {
+      return true;
+    }
+    if (raw === "false") {
+      return false;
+    }
+  } catch {
+    // Ignore storage failures.
+  }
+  return null;
+}
+
+function emitMap3dBuildingsSetting(enabled) {
+  if (typeof enabled !== "boolean") {
+    return;
+  }
+  document.dispatchEvent(
+    new CustomEvent(MAP_3D_TOGGLE_EVENT, {
+      detail: { enabled },
+    })
+  );
 }
 
 export function setActiveTab(tabName, { persist = true, updateHash = false } = {}) {
@@ -92,6 +120,7 @@ export function setupAppSettingsForm() {
   const darkModeToggle = document.getElementById("dark-mode-toggle");
   const highlightRecentTrips = document.getElementById("highlight-recent-trips");
   const autoCenterToggle = document.getElementById("auto-center-toggle");
+  const map3dBuildingsToggle = document.getElementById("map-3d-buildings-toggle");
   const geocodeTripsOnFetch = document.getElementById("geocode-trips-on-fetch");
   const mapMatchTripsOnFetch = document.getElementById("map-match-trips-on-fetch");
   const form = document.getElementById("app-settings-form");
@@ -106,6 +135,7 @@ export function setupAppSettingsForm() {
       map_provider,
       highlightRecentTrips: hrt,
       autoCenter,
+      map3dBuildingsEnabled,
       geocodeTripsOnFetch: gtof,
       mapMatchTripsOnFetch: mmtof,
       accentColor,
@@ -128,6 +158,23 @@ export function setupAppSettingsForm() {
     }
     if (autoCenterToggle) {
       autoCenterToggle.checked = autoCenter !== false;
+    }
+    const storedMap3dBuildings = readStoredBoolean(
+      CONFIG.STORAGE_KEYS.map3dBuildingsEnabled
+    );
+    const resolvedMap3dBuildings =
+      typeof map3dBuildingsEnabled === "boolean"
+        ? map3dBuildingsEnabled
+        : storedMap3dBuildings;
+    if (map3dBuildingsToggle) {
+      map3dBuildingsToggle.checked = resolvedMap3dBuildings !== false;
+    }
+    if (typeof resolvedMap3dBuildings === "boolean") {
+      localStorage.setItem(
+        CONFIG.STORAGE_KEYS.map3dBuildingsEnabled,
+        resolvedMap3dBuildings ? "true" : "false"
+      );
+      emitMap3dBuildingsSetting(resolvedMap3dBuildings);
     }
     if (geocodeTripsOnFetch) {
       geocodeTripsOnFetch.checked = gtof !== false;
@@ -196,6 +243,7 @@ export function setupAppSettingsForm() {
       map_provider: mapProvider,
       highlightRecentTrips: highlightRecentTrips?.checked,
       autoCenter: autoCenterToggle?.checked,
+      map3dBuildingsEnabled: map3dBuildingsToggle?.checked ?? true,
       geocodeTripsOnFetch: geocodeTripsOnFetch?.checked,
       mapMatchTripsOnFetch: mapMatchTripsOnFetch?.checked,
       accentColor: accentColorPicker?.value,
@@ -213,9 +261,14 @@ export function setupAppSettingsForm() {
     // Mirror to localStorage
     localStorage.setItem("highlightRecentTrips", payload.highlightRecentTrips);
     localStorage.setItem("autoCenter", payload.autoCenter);
+    localStorage.setItem(
+      CONFIG.STORAGE_KEYS.map3dBuildingsEnabled,
+      payload.map3dBuildingsEnabled ? "true" : "false"
+    );
     localStorage.setItem("es:accent-color", payload.accentColor || "");
     localStorage.setItem("es:ui-density", payload.uiDensity);
     localStorage.setItem("es:widget-editing", payload.widgetEditing ? "true" : "false");
+    emitMap3dBuildingsSetting(payload.map3dBuildingsEnabled);
 
     window.personalization?.applyPreferences?.({
       accentColor: payload.accentColor,

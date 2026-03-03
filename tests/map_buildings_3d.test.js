@@ -28,6 +28,32 @@ function createStorageMock() {
   };
 }
 
+function createDocumentMock() {
+  const listeners = new Map();
+  return {
+    getElementById() {
+      return null;
+    },
+    addEventListener(eventName, handler) {
+      const handlers = listeners.get(eventName) || [];
+      handlers.push(handler);
+      listeners.set(eventName, handlers);
+    },
+    removeEventListener(eventName, handler) {
+      const handlers = listeners.get(eventName) || [];
+      listeners.set(
+        eventName,
+        handlers.filter((candidate) => candidate !== handler)
+      );
+    },
+    dispatchEvent(event) {
+      const handlers = listeners.get(event?.type || "") || [];
+      handlers.forEach((handler) => handler(event));
+      return true;
+    },
+  };
+}
+
 function createMockMap({ style }) {
   let activeStyle = style;
   const layers = new Map();
@@ -96,11 +122,7 @@ test.beforeEach(() => {
   global.window = {
     MAP_PROVIDER: "self_hosted",
   };
-  global.document = {
-    getElementById() {
-      return null;
-    },
-  };
+  global.document = createDocumentMock();
   global.localStorage = createStorageMock();
 });
 
@@ -186,4 +208,37 @@ test("isSupportedMapbox3D and ensureBuildingsLayer no-op for Google provider", (
   assert.equal(isSupportedMapbox3D(map, { styleType: "dark" }), false);
   assert.equal(ensureBuildingsLayer(map, { styleType: "dark" }), false);
   assert.equal(map.addedLayers.length, 0);
+});
+
+test("ensureBuildingsLayer honors disabled user preference from storage", () => {
+  global.localStorage.setItem("map3dBuildingsEnabled", "false");
+  const map = createMockMap({ style: makeVectorStyle() });
+
+  assert.equal(isSupportedMapbox3D(map, { styleType: "dark" }), false);
+  assert.equal(ensureBuildingsLayer(map, { styleType: "dark" }), false);
+  assert.equal(map.addedLayers.length, 0);
+});
+
+test("initBuildings3D responds to settings toggle event", () => {
+  const map = createMockMap({ style: makeVectorStyle() });
+  const controller = initBuildings3D({ map });
+
+  assert.equal(map.addedLayers.length, 1);
+  assert.ok(map.getLayer("es-3d-buildings"));
+
+  global.document.dispatchEvent({
+    type: "es:map-3d-buildings-setting-changed",
+    detail: { enabled: false },
+  });
+  assert.equal(map.getLayer("es-3d-buildings"), null);
+  assert.ok(map.removedLayers.includes("es-3d-buildings"));
+
+  global.document.dispatchEvent({
+    type: "es:map-3d-buildings-setting-changed",
+    detail: { enabled: true },
+  });
+  assert.ok(map.getLayer("es-3d-buildings"));
+  assert.equal(map.addedLayers.length, 2);
+
+  controller.destroy();
 });

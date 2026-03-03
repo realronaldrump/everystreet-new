@@ -64,6 +64,7 @@ export const CONFIG = {
     mapView: "mapView",
     mapType: "mapType",
     mapCinematicIntroSeen: "mapCinematicIntroSeen",
+    map3dBuildingsEnabled: "map3dBuildingsEnabled",
     uiState: "uiState",
   },
 

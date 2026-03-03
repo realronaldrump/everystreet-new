@@ -3,6 +3,7 @@ import mapCore from "../../map-core.js";
 
 const PRIMARY_FILTER = ["==", ["get", "extrude"], "true"];
 const FALLBACK_FILTER = ["has", "height"];
+const MAP_3D_SETTING_EVENT = "es:map-3d-buildings-setting-changed";
 
 const noopController = Object.freeze({
   refresh() {
@@ -20,6 +21,55 @@ function normalizeStyleType(value) {
 
 function getBuildingsConfig() {
   return CONFIG?.MAP?.buildings3d || {};
+}
+
+function readStoredBoolean(key) {
+  if (!key || typeof localStorage === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === "true") {
+      return true;
+    }
+    if (raw === "false") {
+      return false;
+    }
+    if (raw !== null) {
+      return Boolean(JSON.parse(raw));
+    }
+  } catch {
+    // Ignore storage parsing issues.
+  }
+
+  return null;
+}
+
+function getUserBuildingsPreference() {
+  const key = CONFIG?.STORAGE_KEYS?.map3dBuildingsEnabled;
+  const stored = readStoredBoolean(key);
+  if (typeof stored === "boolean") {
+    return stored;
+  }
+  return true;
+}
+
+function persistUserBuildingsPreference(enabled) {
+  if (typeof enabled !== "boolean" || typeof localStorage === "undefined") {
+    return;
+  }
+
+  const key = CONFIG?.STORAGE_KEYS?.map3dBuildingsEnabled;
+  if (!key) {
+    return;
+  }
+
+  try {
+    localStorage.setItem(key, enabled ? "true" : "false");
+  } catch {
+    // Ignore storage failures.
+  }
 }
 
 function isGoogleProvider() {
@@ -196,6 +246,9 @@ export function isSupportedMapbox3D(map, { styleType } = {}) {
   if (!config.enabled) {
     return false;
   }
+  if (!getUserBuildingsPreference()) {
+    return false;
+  }
 
   if (isGoogleProvider()) {
     return false;
@@ -276,6 +329,18 @@ export default function initBuildings3D({ map = null } = {}) {
     });
   }
 
+  const handlePreferenceEvent = (event) => {
+    const enabled = event?.detail?.enabled;
+    if (typeof enabled === "boolean") {
+      persistUserBuildingsPreference(enabled);
+    }
+    ensureBuildingsLayer(activeMap, { styleType: getCurrentMapTypeHint() });
+  };
+
+  if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+    document.addEventListener(MAP_3D_SETTING_EVENT, handlePreferenceEvent);
+  }
+
   return {
     refresh(styleType) {
       return ensureBuildingsLayer(activeMap, { styleType });
@@ -288,6 +353,12 @@ export default function initBuildings3D({ map = null } = {}) {
         mapCore.unregisterStyleChangeHandler(styleChangeHandlerRef);
       }
       styleChangeHandlerRef = null;
+      if (
+        typeof document !== "undefined" &&
+        typeof document.removeEventListener === "function"
+      ) {
+        document.removeEventListener(MAP_3D_SETTING_EVENT, handlePreferenceEvent);
+      }
     },
     isEnabled() {
       return isSupportedMapbox3D(activeMap);
