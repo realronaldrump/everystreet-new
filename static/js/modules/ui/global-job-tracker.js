@@ -187,6 +187,10 @@ function clearJobState() {
 
 function connectSSE(jobId) {
   disconnectSSE();
+  // Keep DB polling active even when SSE is connected.
+  // Worker-driven coverage jobs run in a different process/container, so
+  // in-process SSE event buses may not receive live progress events.
+  startPolling(jobId);
 
   try {
     const url = `${API_BASE}/jobs/${jobId}/stream`;
