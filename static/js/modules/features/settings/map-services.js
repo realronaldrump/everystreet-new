@@ -774,18 +774,27 @@ function renderCoverageSettings(settings) {
     <div class="settings-group map-services-settings-card">
       <h3 class="settings-group-title">
         <i class="fas fa-layer-group"></i>
-        Coverage Settings
+        Map Coverage & Explorer Cache
       </h3>
-      <p class="text-muted small mb-3">
-        Build map data from your actual trip coverage. All distances are in miles or feet.
-        Changes apply the next time you run map setup.
-      </p>
+      <div class="map-services-coverage-hint mb-3">
+        <div class="map-services-coverage-hint-title">Two separate coverage systems live here:</div>
+        <div class="map-services-coverage-hint-list">
+          <span class="map-services-coverage-hint-item is-map">
+            <i class="fas fa-map"></i>
+            Map extract coverage (routing/geocoding data)
+          </span>
+          <span class="map-services-coverage-hint-item is-explorer">
+            <i class="fas fa-city"></i>
+            Coverage Explorer cache (county/city/state progress)
+          </span>
+        </div>
+      </div>
       <form id="map-coverage-settings-form">
         <div class="setting-item">
           <div class="setting-label">
             <div class="setting-label-title">Coverage Mode</div>
             <div class="setting-label-description">
-              Trip coverage builds a smaller extract around your trips. Full states is slower but broader.
+              For map extracts only: trip coverage builds a smaller area around your trips. Full states is slower but broader.
             </div>
           </div>
           <div class="setting-control">
@@ -878,9 +887,10 @@ function renderCoverageSettings(settings) {
 
         <div class="setting-item">
           <div class="setting-label">
-            <div class="setting-label-title">Coverage Explorer Recalculation</div>
+            <div class="setting-label-title">Coverage Explorer Cache Recalculation</div>
             <div class="setting-label-description">
-              Incremental mode processes only trips added/updated since last run. Full rebuild reprocesses all trips.
+              This controls county/city/state explorer cache updates only.
+              Incremental processes new or updated trips; full reprocesses all trips.
             </div>
           </div>
           <div class="setting-control">
@@ -888,12 +898,12 @@ function renderCoverageSettings(settings) {
               <option value="incremental"${
                 geoCoverageRecalcMode === "incremental" ? " selected" : ""
               }>
-                Incremental (new/updated trips only)
+                Incremental (new/updated trips for explorer cache)
               </option>
               <option value="full"${
                 geoCoverageRecalcMode === "full" ? " selected" : ""
               }>
-                Full rebuild (all trips)
+                Full rebuild (all trips for explorer cache)
               </option>
             </select>
           </div>
@@ -901,19 +911,26 @@ function renderCoverageSettings(settings) {
 
         <div class="d-flex gap-2 align-items-center mt-3">
           <button class="btn btn-primary" type="submit">
-            <i class="fas fa-save"></i> Save Coverage Settings
+            <i class="fas fa-save"></i> Save Map Coverage Settings
           </button>
           <span class="text-muted small" id="coverage-settings-status"></span>
         </div>
       </form>
       <div class="geo-coverage-controls mt-3">
-        <div class="d-flex flex-wrap align-items-center gap-2">
-          <button class="btn btn-outline-danger" id="geo-coverage-full-rebuild-btn" type="button">
-            <i class="fas fa-sync-alt"></i> Run Full Coverage Rebuild
+        <div class="geo-coverage-callout">
+          <div class="geo-coverage-callout-title">
+            <i class="fas fa-database"></i>
+            Run Coverage Explorer Full Rebuild
+          </div>
+          <p class="geo-coverage-callout-note">
+            Recomputes county/city/state explorer coverage from all trips.
+            This does <strong>not</strong> rebuild map extracts, routing/geocoder indexes, or street-level coverage state.
+          </p>
+        </div>
+        <div class="geo-coverage-control-row">
+          <button class="btn btn-outline-danger geo-coverage-rebuild-btn" id="geo-coverage-full-rebuild-btn" type="button">
+            <i class="fas fa-sync-alt"></i> Rebuild Explorer Cache (All Trips)
           </button>
-          <span class="text-muted small">
-            Rebuilds county/city/state coverage from all trips and shows live progress below.
-          </span>
         </div>
         <div id="geo-coverage-rebuild-status" class="geo-coverage-rebuild-status mt-2"></div>
       </div>
@@ -992,6 +1009,23 @@ function formatCoverageCount(value) {
   return Number.isFinite(parsed) ? parsed.toLocaleString() : "0";
 }
 
+function formatGeoCoverageJobStatus(status, active) {
+  if (active) {
+    return "Running";
+  }
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "completed") {
+    return "Completed";
+  }
+  if (normalized === "failed") {
+    return "Failed";
+  }
+  if (normalized === "pending") {
+    return "Queued";
+  }
+  return normalized ? `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}` : "Idle";
+}
+
 function renderGeoCoverageStatus({ active, job, defaultMode }) {
   const statusEl = document.getElementById("geo-coverage-rebuild-status");
   if (!statusEl) {
@@ -1002,10 +1036,13 @@ function renderGeoCoverageStatus({ active, job, defaultMode }) {
     statusEl.innerHTML = `
       <div class="geo-coverage-status-card">
         <div class="geo-coverage-status-header">
-          <strong>No active recalculation</strong>
+          <strong>No explorer cache rebuild has run yet</strong>
           <span class="text-muted">Default mode: ${
-            defaultMode === "full" ? "full rebuild" : "incremental"
+            defaultMode === "full" ? "full rebuild" : "incremental update"
           }</span>
+        </div>
+        <div class="geo-coverage-status-message">
+          Run this when county/city/state explorer stats seem stale. It only touches explorer cache data.
         </div>
       </div>
     `;
@@ -1018,8 +1055,9 @@ function renderGeoCoverageStatus({ active, job, defaultMode }) {
     : 0;
   const modeLabel =
     String(job.mode || defaultMode || "incremental").toLowerCase() === "full"
-      ? "Full rebuild"
-      : "Incremental";
+      ? "All trips (full rebuild)"
+      : "New/updated trips (incremental)";
+  const statusLabel = formatGeoCoverageJobStatus(job.status, active);
   const metrics = job.metrics || {};
   const result = job.result || {};
   const processedTrips = formatCoverageCount(
@@ -1046,21 +1084,36 @@ function renderGeoCoverageStatus({ active, job, defaultMode }) {
   statusEl.innerHTML = `
     <div class="geo-coverage-status-card ${toneClass}">
       <div class="geo-coverage-status-header">
-        <strong>${job.stage || "Working"}</strong>
-        <span>${modeLabel}</span>
+        <strong>${escapeHtml(job.stage || "Working")}</strong>
+        <span class="geo-coverage-status-percent">${Math.round(progress)}%</span>
+      </div>
+      <div class="geo-coverage-status-meta">
+        <span class="geo-coverage-status-pill">${escapeHtml(statusLabel)}</span>
+        <span class="geo-coverage-status-pill">${escapeHtml(modeLabel)}</span>
       </div>
       <div class="geo-coverage-status-message">${escapeHtml(
-        job.message || "Processing coverage..."
+        job.message || "Processing Coverage Explorer cache..."
       )}</div>
       <div class="geo-coverage-progress-track">
         <div class="geo-coverage-progress-fill" style="width:${progress}%"></div>
       </div>
-      <div class="geo-coverage-progress-label">${Math.round(progress)}%</div>
-      <div class="geo-coverage-stat-row">
-        <span>Trips ${processedTrips}/${totalTrips}</span>
-        <span>Counties ${visitedCounties}</span>
-        <span>Cities ${visitedCities}</span>
-        <span>Stops ${stoppedCounties}</span>
+      <div class="geo-coverage-stat-grid">
+        <div class="geo-coverage-stat-tile">
+          <span>Trips</span>
+          <strong>${processedTrips}/${totalTrips}</strong>
+        </div>
+        <div class="geo-coverage-stat-tile">
+          <span>Visited counties</span>
+          <strong>${visitedCounties}</strong>
+        </div>
+        <div class="geo-coverage-stat-tile">
+          <span>Visited cities</span>
+          <strong>${visitedCities}</strong>
+        </div>
+        <div class="geo-coverage-stat-tile">
+          <span>Stopped counties</span>
+          <strong>${stoppedCounties}</strong>
+        </div>
       </div>
       ${
         job.error
@@ -1106,7 +1159,7 @@ async function triggerGeoCoverageFullRebuild(buttonEl) {
 
   buttonEl.disabled = true;
   buttonEl.innerHTML =
-    '<i class="fas fa-spinner fa-spin"></i> Starting full rebuild...';
+    '<i class="fas fa-spinner fa-spin"></i> Starting explorer cache rebuild...';
 
   try {
     const response = await apiClient.post(
@@ -1114,26 +1167,26 @@ async function triggerGeoCoverageFullRebuild(buttonEl) {
       null
     );
     if (!response?.success) {
-      throw new Error(response?.error || "Unable to start full rebuild.");
+      throw new Error(response?.error || "Unable to start explorer cache rebuild.");
     }
 
     notificationManager.show(
       response?.alreadyRunning
-        ? "A coverage recalculation is already running."
-        : "Full coverage rebuild started.",
+        ? "A Coverage Explorer cache rebuild is already running."
+        : "Coverage Explorer full rebuild started.",
       "info"
     );
     await refreshGeoCoverageStatus();
     startGeoCoveragePolling();
   } catch (error) {
     notificationManager.show(
-      error?.message || "Failed to start full coverage rebuild.",
+      error?.message || "Failed to start Coverage Explorer full rebuild.",
       "danger"
     );
   } finally {
     buttonEl.disabled = false;
     buttonEl.innerHTML =
-      '<i class="fas fa-sync-alt"></i> Run Full Coverage Rebuild';
+      '<i class="fas fa-sync-alt"></i> Rebuild Explorer Cache (All Trips)';
   }
 }
 

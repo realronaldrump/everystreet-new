@@ -1304,6 +1304,56 @@
   gap: var(--space-3);
 }
 
+.map-services-coverage-hint {
+  border: 1px solid rgb(var(--info-rgb) / 24%);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--info-rgb) / 10%) 0%,
+    rgb(var(--primary-rgb) / 8%) 100%
+  );
+}
+
+.map-services-coverage-hint-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: var(--font-weight-semibold);
+}
+
+.map-services-coverage-hint-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+}
+
+.map-services-coverage-hint-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid rgb(var(--text-rgb) / 12%);
+  background: rgb(var(--surface-rgb) / 72%);
+}
+
+.map-services-coverage-hint-item i {
+  font-size: var(--font-size-xs);
+}
+
+.map-services-coverage-hint-item.is-map i {
+  color: var(--info);
+}
+
+.map-services-coverage-hint-item.is-explorer i {
+  color: var(--success);
+}
+
 .coverage-group {
   background: var(--surface-1);
   border: 1px solid var(--border-color);
@@ -1582,7 +1632,60 @@
 /* Coverage explorer rebuild controls */
 .geo-coverage-controls {
   border-top: 1px solid var(--border-color);
-  padding-top: var(--space-3);
+  padding-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.geo-coverage-callout {
+  border: 1px solid rgb(var(--warning-rgb) / 26%);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  background: linear-gradient(
+    145deg,
+    rgb(var(--warning-rgb) / 12%) 0%,
+    rgb(var(--danger-rgb) / 8%) 100%
+  );
+}
+
+.geo-coverage-callout-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-1);
+}
+
+.geo-coverage-callout-title i {
+  color: var(--warning);
+}
+
+.geo-coverage-callout-note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+}
+
+.geo-coverage-control-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.geo-coverage-rebuild-btn {
+  font-weight: var(--font-weight-semibold);
+  box-shadow: 0 0 0 1px rgb(var(--danger-rgb) / 15%) inset;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.geo-coverage-rebuild-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 14px rgb(var(--danger-rgb) / 18%);
 }
 
 .geo-coverage-rebuild-status {
@@ -1593,25 +1696,38 @@
   border: 1px solid rgb(var(--text-rgb) / 12%);
   border-radius: var(--radius-lg);
   padding: var(--space-3);
-  background: var(--surface-0);
+  background: linear-gradient(180deg, var(--surface-0) 0%, var(--surface-1) 100%);
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: var(--space-2);
+  box-shadow: 0 1px 0 rgb(var(--text-rgb) / 5%);
 }
 
 .geo-coverage-status-card.is-active {
   border-color: rgb(var(--info-rgb) / 35%);
-  background: rgb(var(--info-rgb) / 8%);
+  background: linear-gradient(
+    160deg,
+    rgb(var(--info-rgb) / 10%) 0%,
+    rgb(var(--primary-rgb) / 8%) 100%
+  );
 }
 
 .geo-coverage-status-card.is-done {
   border-color: rgb(var(--success-rgb) / 32%);
-  background: rgb(var(--success-rgb) / 8%);
+  background: linear-gradient(
+    160deg,
+    rgb(var(--success-rgb) / 11%) 0%,
+    rgb(var(--info-rgb) / 7%) 100%
+  );
 }
 
 .geo-coverage-status-card.is-failed {
   border-color: rgb(var(--danger-rgb) / 35%);
-  background: rgb(var(--danger-rgb) / 8%);
+  background: linear-gradient(
+    160deg,
+    rgb(var(--danger-rgb) / 10%) 0%,
+    rgb(var(--warning-rgb) / 8%) 100%
+  );
 }
 
 .geo-coverage-status-header {
@@ -1629,8 +1745,33 @@
 }
 
 .geo-coverage-status-header span {
+  display: inline-flex;
+  align-items: center;
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.geo-coverage-status-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.geo-coverage-status-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--text-rgb) / 14%);
+  background: rgb(var(--surface-rgb) / 70%);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1;
+  padding: 0.28rem 0.55rem;
+}
+
+.geo-coverage-status-percent {
+  color: var(--text-primary);
 }
 
 .geo-coverage-status-message {
@@ -1641,7 +1782,7 @@
 
 .geo-coverage-progress-track {
   width: 100%;
-  height: 8px;
+  height: 9px;
   border-radius: 999px;
   overflow: hidden;
   background: rgb(var(--text-rgb) / 8%);
@@ -1655,35 +1796,52 @@
     rgb(var(--info-rgb) / 85%),
     rgb(var(--success-rgb) / 80%)
   );
+  box-shadow: 0 0 0 1px rgb(var(--text-rgb) / 5%) inset;
   transition: width 0.25s ease;
 }
 
-.geo-coverage-progress-label {
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
+.geo-coverage-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+  gap: var(--space-2);
 }
 
-.geo-coverage-stat-row {
+.geo-coverage-stat-tile {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
+  flex-direction: column;
+  gap: 0.2rem;
+  border: 1px solid rgb(var(--text-rgb) / 12%);
+  border-radius: var(--radius-md);
+  background: rgb(var(--surface-rgb) / 62%);
+  padding: var(--space-2);
 }
 
-.geo-coverage-stat-row span {
+.geo-coverage-stat-tile span {
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
-  border: 1px solid rgb(var(--text-rgb) / 12%);
-  border-radius: 999px;
-  padding: 0.12rem 0.45rem;
+}
+
+.geo-coverage-stat-tile strong {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
 }
 
 .geo-coverage-error {
   color: var(--danger);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
+  border: 1px solid rgb(var(--danger-rgb) / 20%);
+  border-radius: var(--radius-md);
+  background: rgb(var(--danger-rgb) / 8%);
+  padding: var(--space-2);
 }
 
 /* Mobile Responsive */
 @media (width <= 768px) {
+  .map-services-coverage-hint-list {
+    grid-template-columns: 1fr;
+  }
+
   .map-services-header {
     flex-direction: column;
     text-align: center;
@@ -1704,6 +1862,21 @@
   .map-services-actions .action-buttons .btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .geo-coverage-control-row {
+    width: 100%;
+  }
+
+  .geo-coverage-rebuild-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (width >= 760px) {
+  .map-services-coverage-hint-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

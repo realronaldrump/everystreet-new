@@ -715,7 +715,7 @@ async function handleIncludeServiceRoadsToggle(event) {
       "success"
     );
     notificationManager.show(
-      "Street filter saved. Use Recalculate Coverage to apply it.",
+      "Street filter saved. Use Recalculate Street Coverage to apply it.",
       "success"
     );
   } catch (error) {
@@ -1012,12 +1012,14 @@ async function recalculateCoverage(areaId, displayName) {
   const policyLabel = includeServiceRoads ? "include" : "exclude";
 
   const confirmed = await confirmationDialog.show({
-    title: "Recalculate Coverage",
+    title: "Recalculate Street Coverage",
     message: needsRebuild
-      ? `Recalculate coverage for "<strong>${escapeHtml(displayName)}</strong>" using service-road policy <strong>${policyLabel}</strong> and <strong>${escapeHtml(tripModeLabel)}</strong>?<br><br>This will rebuild streets from OSM, then rematch trips.`
-      : `Recalculate coverage for "<strong>${escapeHtml(displayName)}</strong>" using <strong>${escapeHtml(tripModeLabel)}</strong>?<br><br>Street filters already match — this will run a fast backfill.`,
+      ? `Recalculate street coverage for "<strong>${escapeHtml(displayName)}</strong>" using service-road policy <strong>${policyLabel}</strong> and <strong>${escapeHtml(tripModeLabel)}</strong>?<br><br>This will rebuild streets from OSM, then rematch trips.`
+      : `Recalculate street coverage for "<strong>${escapeHtml(displayName)}</strong>" using <strong>${escapeHtml(tripModeLabel)}</strong>?<br><br>Street filters already match — this will run a fast backfill.`,
     allowHtml: true,
-    confirmText: needsRebuild ? "Recalculate + Rebuild Streets" : "Recalculate",
+    confirmText: needsRebuild
+      ? "Recalculate Street Coverage + Rebuild Streets"
+      : "Recalculate Street Coverage",
     confirmButtonClass: needsRebuild ? "btn-warning" : "btn-info",
   });
 
@@ -1039,7 +1041,7 @@ async function recalculateCoverage(areaId, displayName) {
           areaId,
           areaName: displayName,
           initialMessage:
-            result.message || "Rebuilding area and recalculating coverage…",
+            result.message || "Rebuilding area and recalculating street coverage...",
         });
       }
       notificationManager.show(
@@ -1049,13 +1051,16 @@ async function recalculateCoverage(areaId, displayName) {
       return;
     }
 
-    notificationManager.show("Recalculating coverage… This may take a moment.", "info");
+    notificationManager.show(
+      "Recalculating street coverage... This may take a moment.",
+      "info"
+    );
     const result = await apiPost(
       `/areas/${areaId}/backfill?trip_mode=${getCoverageTripModeEndpointParam(tripMode)}`,
       {}
     );
     notificationManager.show(
-      `Coverage recalculated! Updated ${result.segments_updated} segments.`,
+      `Street coverage recalculated. Updated ${result.segments_updated} segments.`,
       "success"
     );
     await loadAreas();
@@ -1063,9 +1068,9 @@ async function recalculateCoverage(areaId, displayName) {
       await refreshDashboardStats(areaId);
     }
   } catch (error) {
-    console.error("Failed to recalculate coverage:", error);
+    console.error("Failed to recalculate street coverage:", error);
     notificationManager.show(
-      `Failed to recalculate coverage: ${error.message}`,
+      `Failed to recalculate street coverage: ${error.message}`,
       "danger"
     );
   }

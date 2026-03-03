@@ -895,6 +895,6 @@ async def trigger_recalculate(area_id: PydanticObjectId):
 
     return {
         "success": True,
-        "message": "Coverage statistics recalculated",
+        "message": "Street coverage statistics recalculated",
         "coverage_percentage": updated_area.coverage_percentage if updated_area else 0,
     }

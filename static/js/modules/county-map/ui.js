@@ -41,7 +41,9 @@ export function updateRecalculateUi(isActive, message, details = null) {
         : null;
       const mode = String(details?.mode || "").toLowerCase();
       const modeLabel =
-        mode === "full" ? "Full rebuild" : "Incremental (new trips only)";
+        mode === "full"
+          ? "Full rebuild (all trips)"
+          : "Incremental (new/updated trips)";
       const stage = details?.stage ? String(details.stage) : "";
       const processedTrips = formatCount(Number(details?.processedTrips));
       const totalTrips = formatCount(Number(details?.totalTrips));
@@ -86,7 +88,7 @@ export function updateRecalculateUi(isActive, message, details = null) {
       status.innerHTML = `
         <div class="recalc-header">
           <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
-          <span class="recalc-message">${escapeHtml(message || "Recalculating coverage data...")}</span>
+          <span class="recalc-message">${escapeHtml(message || "Rebuilding Coverage Explorer cache...")}</span>
         </div>
         ${
           stage
@@ -122,7 +124,7 @@ export function updateRecalculateUi(isActive, message, details = null) {
     }
     btn.disabled = isActive;
     btn.innerHTML = isActive
-      ? '<i class="fas fa-spinner fa-spin me-2"></i>Calculating...'
+      ? '<i class="fas fa-spinner fa-spin me-2"></i>Rebuilding cache...'
       : btn.dataset.defaultLabel;
   });
 }
@@ -136,9 +138,9 @@ export function showRecalculatePrompt(onRecalculate) {
     const prompt = document.createElement("div");
     prompt.className = "recalculate-prompt";
     prompt.innerHTML = `
-      <p>Coverage data needs to be calculated from your trips.</p>
+      <p>Coverage Explorer cache has not been built yet from your trips.</p>
       <button class="btn btn-primary btn-sm" id="trigger-recalculate">
-        <i class="fas fa-calculator me-2"></i>Calculate Now
+        <i class="fas fa-database me-2"></i>Build Explorer Cache
       </button>
     `;
     statsContent.insertBefore(prompt, statsContent.firstChild);

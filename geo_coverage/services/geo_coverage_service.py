@@ -1004,7 +1004,7 @@ async def calculate_geo_coverage_task(
             stage="Completed",
             progress=100,
             message=(
-                f"Coverage recalculation complete: {trips_analyzed:,} trips processed."
+                f"Coverage Explorer cache rebuild complete: {trips_analyzed:,} trips processed."
             ),
             metrics={
                 "mode": effective_mode,
@@ -1038,7 +1038,7 @@ async def calculate_geo_coverage_task(
             status_value="failed",
             stage="Failed",
             progress=100,
-            message="Geo coverage recalculation failed.",
+            message="Coverage Explorer cache rebuild failed.",
             error=str(exc),
         )
 
@@ -1575,7 +1575,7 @@ async def recalculate(
         return {
             "success": True,
             "alreadyRunning": True,
-            "message": "A geo coverage recalculation is already running.",
+            "message": "A Coverage Explorer cache rebuild is already running.",
             "job": _serialize_job(active_job),
             "jobId": str(active_job.id),
             "mode": _normalize_recalc_mode((active_job.metadata or {}).get("mode")),
@@ -1584,9 +1584,9 @@ async def recalculate(
     selected_mode = _normalize_recalc_mode(mode) if mode else await _get_default_recalc_mode()
     now = datetime.now(UTC)
     queued_message = (
-        "Queued incremental coverage recalculation..."
+        "Queued incremental Coverage Explorer cache update..."
         if selected_mode == "incremental"
-        else "Queued full coverage rebuild..."
+        else "Queued full Coverage Explorer cache rebuild..."
     )
 
     job = Job(
@@ -1620,7 +1620,7 @@ async def recalculate(
     return {
         "success": True,
         "alreadyRunning": False,
-        "message": "Unified geo coverage recalculation started in background.",
+        "message": "Coverage Explorer cache rebuild started in the background.",
         "job": _serialize_job(job),
         "jobId": str(job.id),
         "mode": selected_mode,
@@ -1630,13 +1630,13 @@ async def recalculate(
 async def run_scheduled_recalculate(
     mode: Literal["incremental", "full"] = "incremental",
 ) -> dict[str, Any]:
-    """Run geo coverage recalculation from scheduled/background task context."""
+    """Run Coverage Explorer cache rebuild from scheduled/background task context."""
     active_job = await _get_active_geo_recalc_job()
     if active_job:
         return {
             "status": "skipped",
             "reason": "already_running",
-            "message": "Geo coverage recalculation is already running.",
+            "message": "Coverage Explorer cache rebuild is already running.",
             "job_id": str(active_job.id),
             "mode": _normalize_recalc_mode((active_job.metadata or {}).get("mode")),
         }
@@ -1649,9 +1649,9 @@ async def run_scheduled_recalculate(
         stage="Queued",
         progress=0.0,
         message=(
-            "Queued scheduled incremental coverage recalculation..."
+            "Queued scheduled incremental Coverage Explorer cache update..."
             if selected_mode == "incremental"
-            else "Queued scheduled full coverage rebuild..."
+            else "Queued scheduled full Coverage Explorer cache rebuild..."
         ),
         created_at=now,
         updated_at=now,
@@ -1683,12 +1683,16 @@ async def run_scheduled_recalculate(
             "status": "success",
             "job_id": str(finished.id),
             "mode": selected_mode,
-            "message": finished.message or "Geo coverage recalculation completed.",
+            "message": finished.message or "Coverage Explorer cache rebuild completed.",
             "result": finished.result or {},
         }
 
     if finished.status == "failed":
-        msg = finished.error or finished.message or "Geo coverage recalculation failed."
+        msg = (
+            finished.error
+            or finished.message
+            or "Coverage Explorer cache rebuild failed."
+        )
         raise RuntimeError(msg)
 
     msg = (

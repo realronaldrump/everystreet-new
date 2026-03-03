@@ -297,7 +297,7 @@ function renderAreaCard(area, job) {
                       data-area-id="${area.id}"
                       data-area-name="${areaName}"
                       ${!isReady ? "disabled" : ""}>
-                <i class="fas fa-calculator me-2" aria-hidden="true"></i>Recalculate
+                <i class="fas fa-calculator me-2" aria-hidden="true"></i>Recalculate Street Coverage
               </button>
             </li>
             <li>

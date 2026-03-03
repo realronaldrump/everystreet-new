@@ -1105,7 +1105,7 @@ function refreshCoveragePage() {
 }
 
 /**
- * Trigger recalculation of geo data
+ * Trigger Coverage Explorer cache rebuild
  */
 async function triggerRecalculate() {
   if (CountyMapState.getIsRecalculating()) {
@@ -1115,7 +1115,7 @@ async function triggerRecalculate() {
   const startedAt = new Date();
   CountyMapState.setIsRecalculating(true);
   storeRecalcState(startedAt, null);
-  updateRecalculateUi(true, "Starting coverage recalculation...", {
+  updateRecalculateUi(true, "Starting Coverage Explorer cache rebuild...", {
     stage: "Queued",
     progress: 0,
   });
@@ -1129,7 +1129,7 @@ async function triggerRecalculate() {
       if (job) {
         updateRecalculateUi(
           true,
-          job.message || "Recalculating coverage data...",
+          job.message || "Rebuilding Coverage Explorer cache...",
           buildRecalculateDetails(job)
         );
       }
@@ -1179,7 +1179,7 @@ async function checkAndRefresh(startedAt, activeJobId = null) {
   if (isRecalcStateStale(startedAt)) {
     clearRecalcState();
     notificationManager.show(
-      "Coverage recalculation timed out. Please try again.",
+      "Coverage Explorer cache rebuild timed out. Please try again.",
       "warning"
     );
     return;
@@ -1196,7 +1196,7 @@ async function checkAndRefresh(startedAt, activeJobId = null) {
       storeRecalcState(startedAt, jobId);
       updateRecalculateUi(
         true,
-        job.message || "Recalculating coverage data...",
+        job.message || "Rebuilding Coverage Explorer cache...",
         buildRecalculateDetails(job)
       );
       if (!pageSignal?.aborted) {
@@ -1208,7 +1208,7 @@ async function checkAndRefresh(startedAt, activeJobId = null) {
     if (job && isJobFailed(job)) {
       clearRecalcState();
       notificationManager.show(
-        job.error || job.message || "Coverage recalculation failed.",
+        job.error || job.message || "Coverage Explorer cache rebuild failed.",
         "danger"
       );
       return;
@@ -1232,13 +1232,13 @@ async function checkAndRefresh(startedAt, activeJobId = null) {
       if (!workerShouldExist && elapsedMs > RECALC_NO_JOB_GRACE_MS) {
         clearRecalcState();
         notificationManager.show(
-          "No active recalculation job was found. Please start recalculation again.",
+          "No active Coverage Explorer cache rebuild job was found. Please start it again.",
           "warning"
         );
         return;
       }
 
-      updateRecalculateUi(true, "Waiting for recalculation worker...", {
+      updateRecalculateUi(true, "Waiting for Coverage Explorer cache worker...", {
         stage: "Starting",
         progress: 0,
         mode: data?.defaultMode || "incremental",
@@ -1273,7 +1273,7 @@ function resumeRecalculateIfNeeded() {
     return;
   }
   CountyMapState.setIsRecalculating(true);
-  updateRecalculateUi(true, "Resuming coverage recalculation...", {
+  updateRecalculateUi(true, "Resuming Coverage Explorer cache rebuild...", {
     stage: "Reconnecting",
     progress: 0,
   });
