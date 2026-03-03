@@ -153,6 +153,33 @@ def _get_graph_memory_limit_mb() -> int:
     return DEFAULT_GRAPH_MEMORY_LIMIT_MB
 
 
+def _has_explicit_graph_memory_limit() -> bool:
+    return bool(os.getenv("COVERAGE_GRAPH_MAX_MB", "").strip())
+
+
+def _is_memory_limit_failure(exc: Exception | str) -> bool:
+    text = str(exc).lower()
+    return "memory limit" in text or "memoryerror" in text
+
+
+def _compute_retry_graph_memory_limit_mb(current_limit_mb: int) -> int | None:
+    if current_limit_mb <= 0:
+        return None
+
+    available_mb = _get_available_memory_mb()
+    if available_mb is not None:
+        # Leave headroom for the rest of the worker process and peer services.
+        budget_mb = max(0, int(available_mb) - 1024)
+        candidate = max(current_limit_mb * 2, current_limit_mb + 512)
+        retry_limit = min(candidate, budget_mb)
+    else:
+        retry_limit = max(current_limit_mb * 2, current_limit_mb + 512)
+
+    if retry_limit <= current_limit_mb:
+        return None
+    return int(retry_limit)
+
+
 def _write_geojson(path: Path, geometry: Any) -> None:
     feature = {"type": "Feature", "properties": {}, "geometry": mapping(geometry)}
     data = {"type": "FeatureCollection", "features": [feature]}
@@ -553,7 +580,33 @@ def _build_graph_with_limit(
     if max_mb <= 0:
         return _build_graph_in_process(osm_path, routing_polygon, graph_path)
 
-    _build_graph_in_subprocess(osm_path, routing_polygon, graph_path, max_mb)
+    try:
+        _build_graph_in_subprocess(osm_path, routing_polygon, graph_path, max_mb)
+    except RuntimeError as exc:
+        # In auto mode, a single adaptive retry helps large areas that can exceed
+        # the conservative initial cap, especially during GraphML serialization.
+        if _has_explicit_graph_memory_limit() or not _is_memory_limit_failure(exc):
+            raise
+
+        retry_limit_mb = _compute_retry_graph_memory_limit_mb(max_mb)
+        if retry_limit_mb is None:
+            raise
+
+        logger.warning(
+            (
+                "Graph build hit memory limit at %d MB for %s; "
+                "retrying once with %d MB."
+            ),
+            max_mb,
+            location_id or "unknown area",
+            retry_limit_mb,
+        )
+        _build_graph_in_subprocess(
+            osm_path,
+            routing_polygon,
+            graph_path,
+            retry_limit_mb,
+        )
     return None
 
 

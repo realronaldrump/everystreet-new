@@ -70,6 +70,7 @@ def test_build_graph_with_limit_raises_on_memory_error(
         "_build_graph_in_subprocess",
         fake_subprocess,
     )
+    monkeypatch.setenv("COVERAGE_GRAPH_MAX_MB", "512")
 
     with pytest.raises(RuntimeError, match="memory limit"):
         preprocess_module._build_graph_with_limit(
@@ -79,6 +80,36 @@ def test_build_graph_with_limit_raises_on_memory_error(
             max_mb=512,
             location_id="loc",
         )
+
+
+def test_build_graph_with_limit_retries_once_on_memory_error_in_auto_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[int] = []
+
+    def fake_subprocess(_osm_path, _routing_polygon, _graph_path, _max_mb) -> None:
+        calls.append(int(_max_mb))
+        if len(calls) == 1:
+            msg = "Graph build failed or exceeded memory limit. Memory limit: 1012 MB."
+            raise RuntimeError(msg)
+
+    monkeypatch.setattr(
+        preprocess_module,
+        "_build_graph_in_subprocess",
+        fake_subprocess,
+    )
+    monkeypatch.delenv("COVERAGE_GRAPH_MAX_MB", raising=False)
+    monkeypatch.setattr(preprocess_module, "_get_available_memory_mb", lambda: 4040)
+
+    preprocess_module._build_graph_with_limit(
+        Path("dummy.osm.pbf"),
+        box(0, 0, 1, 1),
+        Path("dummy.graphml"),
+        max_mb=1012,
+        location_id="loc",
+    )
+
+    assert calls == [1012, 2024]
 
 
 def test_build_graph_with_limit_raises_on_non_memory_error(
