@@ -69,15 +69,6 @@ async def get_shared_router() -> Router:
         return RouterState.client
 
 
-async def get_valhalla_client() -> Router:
-    """
-    Backward-compatible alias used by tests and older call sites.
-
-    Returns the shared active router implementation.
-    """
-    return await get_shared_router()
-
-
 def get_api_semaphore(loop: asyncio.AbstractEventLoop) -> asyncio.Semaphore:
     """Get or create the rate limiting semaphore."""
     if (

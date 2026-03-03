@@ -366,21 +366,6 @@ async def manual_fetch_trips_range(
     )
 
 
-async def get_earliest_trip_date() -> datetime | None:
-    """Find the start time of the earliest trip in the database."""
-    try:
-        earliest_trip = (
-            await Trip.find(enforce_bouncie_source({}))
-            .sort("startTime")
-            .first_or_none()
-        )
-        if earliest_trip and earliest_trip.startTime:
-            return earliest_trip.startTime
-    except Exception:
-        logger.exception("Error finding earliest trip date")
-    return None
-
-
 async def _fetch_all_missing_trips_logic(
     manual_run: bool = False,
     start_iso: str | None = None,

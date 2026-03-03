@@ -55,8 +55,3 @@ def publish(job_id: str, event: dict[str, Any]) -> None:
                 q.put_nowait(event)
             except (asyncio.QueueEmpty, asyncio.QueueFull):
                 pass
-
-
-def has_subscribers(job_id: str) -> bool:
-    """Check if any SSE clients are watching this job."""
-    return bool(_subscribers.get(job_id))

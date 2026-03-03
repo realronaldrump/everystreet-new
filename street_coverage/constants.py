@@ -75,9 +75,6 @@ def _get_int_env(name: str, default: int) -> int:
         return default
 
 
-# Number of trips to process per batch (reduced from 500 to 100 for memory safety)
-BACKFILL_TRIP_BATCH_SIZE = _get_int_env("COVERAGE_TRIP_BATCH_SIZE", 100)
-
 # Max operations per bulk write (reduced from 1000 to 500)
 BACKFILL_BULK_WRITE_SIZE = _get_int_env("COVERAGE_BULK_WRITE_SIZE", 500)
 

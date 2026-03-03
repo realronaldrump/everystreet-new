@@ -11,8 +11,6 @@ import logging
 import os
 from typing import TYPE_CHECKING
 
-from config import get_mapbox_token
-
 if TYPE_CHECKING:
     from db.models import AppSettings
 
@@ -88,9 +86,3 @@ def clear_config_cache() -> None:
     """
     global _settings_cache
     _settings_cache = None
-
-
-# Convenience async getters for commonly used values
-async def get_mapbox_token_async() -> str:
-    """Get the application's immutable Mapbox token."""
-    return get_mapbox_token()

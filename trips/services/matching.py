@@ -199,11 +199,6 @@ class MapMatchingService:
             return self._create_matching_result(all_segments[0])
         return self._create_multi_matching_result(all_segments)
 
-    @staticmethod
-    def _coords_close(a: list[float], b: list[float], tol: float = 1e-6) -> bool:
-        """Check if two [lon, lat] pairs are within *tol* degrees."""
-        return abs(a[0] - b[0]) < tol and abs(a[1] - b[1]) < tol
-
     @classmethod
     def _find_overlap_trim(
         cls,
@@ -285,26 +280,6 @@ class MapMatchingService:
             )
         return segments
 
-    @classmethod
-    def _validate_continuity(
-        cls,
-        coords: list[list[float]],
-    ) -> bool:
-        """Return False if any consecutive pair has a suspiciously large jump."""
-        if len(coords) < 2:
-            return True
-        for i in range(1, len(coords)):
-            dx = abs(coords[i][0] - coords[i - 1][0])
-            dy = abs(coords[i][1] - coords[i - 1][1])
-            if dx > cls._MAX_MATCHED_JUMP_DEG or dy > cls._MAX_MATCHED_JUMP_DEG:
-                logger.warning(
-                    "Matched geometry has %.4f° jump at index %d",
-                    max(dx, dy),
-                    i,
-                )
-                return False
-        return True
-
     @staticmethod
     def _build_shape_points(
         coords: list[list[float]],
@@ -369,16 +344,6 @@ class MapMatchingService:
             "matchings": [{"geometry": geometry}],
             "coordinates": coords,
         }
-
-    @staticmethod
-    def _create_chunk_indices(
-        coordinates: list[list[float]],
-        chunk_size: int,
-    ) -> list[tuple[int, int]]:
-        n = len(coordinates)
-        return [
-            (start, min(start + chunk_size, n)) for start in range(0, n, chunk_size)
-        ]
 
     @staticmethod
     def _create_chunk_indices_with_overlap(

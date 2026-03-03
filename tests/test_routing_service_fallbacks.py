@@ -182,7 +182,7 @@ def _install_common_mocks(
     )
     monkeypatch.setattr(
         graph_connectivity_module,
-        "get_valhalla_client",
+        "get_shared_router",
         AsyncMock(return_value=_TraceClient()),
     )
 

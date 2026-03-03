@@ -30,7 +30,6 @@ LOCAL_SEARCH_MIN_REQS = 10  # skip for tiny routes
 
 # Zone decomposition for large areas
 ZONE_DECOMPOSITION_THRESHOLD = 2000
-ZONE_MAX_SIZE = 1500
 
 # Gap-filling threshold (fallback mode only; explicit discontinuity bridging
 # should be preferred when route-edge transitions are available).

@@ -68,10 +68,7 @@ def _derive_explicit_gap_indices_from_edges(
         edge_start_indices.append(cursor)
         key = None if k == -1 else k
         coords = get_edge_geometry(G, u, v, key, node_xy=node_xy)
-        if idx == 0:
-            contributed = len(coords)
-        else:
-            contributed = max(0, len(coords) - 1)
+        contributed = len(coords) if idx == 0 else max(0, len(coords) - 1)
         cursor += contributed
 
     explicit_indices: set[int] = set()
@@ -1080,7 +1077,7 @@ async def _generate_optimal_route_with_progress_impl(
 
                 from routing.graph_connectivity import (
                     get_api_semaphore,
-                    get_valhalla_client,
+                    get_shared_router,
                 )
             except Exception:
                 trace_candidates = []
@@ -1145,7 +1142,7 @@ async def _generate_optimal_route_with_progress_impl(
                         loop = asyncio.get_running_loop()
                         semaphore = get_api_semaphore(loop)
                         async with semaphore:
-                            client = await get_valhalla_client()
+                            client = await get_shared_router()
                             result = await client.trace_route(shape, costing="auto")
                     except Exception:
                         return seg_idx, None
