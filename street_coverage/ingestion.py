@@ -248,6 +248,9 @@ async def rebuild_area(
     area.driven_segments = 0
     area.undriveable_segments = 0
     area.undriveable_length_miles = 0.0
+    # Rebuilds are full rematches; clear incremental cursor so historical
+    # trips are reprocessed against the new segment set.
+    area.last_backfill_trip_endtime = None
     await area.save()
 
     # Rebuilds are a clean slate: remove all prior derived data and cached graphs
