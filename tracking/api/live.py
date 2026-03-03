@@ -18,7 +18,6 @@ from starlette.websockets import WebSocketState
 
 from core.api import api_route
 from core.redis import create_pubsub_redis
-from db import db_manager
 from db.schemas import (
     ActiveTripResponseUnion,
     ActiveTripSuccessResponse,
@@ -177,14 +176,6 @@ async def trip_updates_endpoint(response: Response):
     Returns current active trip if available.
     """
     try:
-        if not db_manager.connection_healthy:
-            response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-            return {
-                "status": "error",
-                "has_update": False,
-                "message": "Database unavailable",
-            }
-
         updates = await TrackingService.get_trip_updates()
         updates["server_time"] = datetime.now(UTC).isoformat()
     except Exception:

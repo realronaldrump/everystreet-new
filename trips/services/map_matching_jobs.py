@@ -13,6 +13,7 @@ from core.date_utils import get_current_utc_time, normalize_calendar_date
 from core.jobs import JobHandle, create_job, find_job
 from core.mapping.factory import get_router
 from core.spatial import GeometryService, extract_timestamps_for_coordinates
+from core.trip_source_policy import enforce_bouncie_source
 from db import build_calendar_date_expr
 from db.models import Job, Trip
 from tasks.config import update_task_history_entry
@@ -316,6 +317,8 @@ class MapMatchingJobService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Unsupported preview mode",
             )
+
+        query = enforce_bouncie_source(query)
 
         total = await Trip.find(query).count()
         trips = (
@@ -952,15 +955,15 @@ class MapMatchingJobRunner:
 
         if request.mode == "unmatched":
             query["matchedGps"] = None
-            return query
+            return enforce_bouncie_source(query)
 
         if request.mode == "trip_id":
             query["transactionId"] = request.trip_id
-            return query
+            return enforce_bouncie_source(query)
 
         if request.mode == "trip_ids":
             query["transactionId"] = {"$in": request.trip_ids}
-            return query
+            return enforce_bouncie_source(query)
 
         if request.mode == "date_range":
             if request.interval_days and request.interval_days > 0:
@@ -981,7 +984,7 @@ class MapMatchingJobRunner:
             query["$expr"] = range_expr
             if request.unmatched_only:
                 query["matchedGps"] = None
-            return query
+            return enforce_bouncie_source(query)
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

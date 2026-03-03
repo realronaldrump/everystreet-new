@@ -169,6 +169,20 @@ async def fetch_vehicle_by_imei(
     if not imei:
         return None
 
+    # Use server-side filtering when possible, but verify response because
+    # some API responses may ignore the query filter.
+    filtered_page = await _fetch_vehicle_page(
+        session,
+        token,
+        limit=1,
+        skip=0,
+        imei=imei,
+    )
+    for vehicle in filtered_page:
+        if isinstance(vehicle, dict) and str(vehicle.get("imei", "")).strip() == imei:
+            return vehicle
+
+    # Fallback to full scan when filtered response is empty/mismatched.
     all_vehicles = await fetch_all_vehicles(session, token)
     for vehicle in all_vehicles:
         if isinstance(vehicle, dict) and str(vehicle.get("imei", "")).strip() == imei:

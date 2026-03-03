@@ -55,7 +55,20 @@ async def fetch_trips_for_device(
 ) -> list:
     """Fetch trips for a single device between start_dt and end_dt."""
     client = BouncieClient(session)
-    trips = await client.fetch_trips_for_device(token, imei, start_dt, end_dt)
+    # Add a small overlap because Bouncie uses starts-after / ends-before
+    # boundaries and adjacent windows can otherwise miss edge trips.
+    query_start = start_dt - timedelta(seconds=1)
+    query_end = end_dt
+    max_span = timedelta(days=7) - timedelta(seconds=2)
+    if query_end - query_start > max_span:
+        query_end = query_start + max_span
+
+    trips = await client.fetch_trips_for_device(
+        token,
+        imei,
+        query_start,
+        query_end,
+    )
     if trips:
         logger.info(
             "Fetched %d trips for device %s",

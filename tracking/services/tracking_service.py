@@ -6,6 +6,7 @@ real-time map display and are never persisted to the historical trips
 collection.
 """
 
+import contextlib
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -98,6 +99,55 @@ def _deduplicate_coordinates(
     return sorted(coords_map.values(), key=lambda c: c["timestamp"])
 
 
+def _merge_trip_coordinates(
+    existing: list[dict] | None,
+    new: list[dict] | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
+    """
+    Merge coordinates with a fast append-only path.
+
+    Returns:
+        (merged_coordinates, appended_coordinates, append_only)
+    """
+    existing_coords = normalize_existing_coordinates(
+        existing or [],
+        validate_coords=True,
+    )
+    new_coords = normalize_existing_coordinates(new or [], validate_coords=True)
+
+    if not new_coords:
+        return existing_coords, [], True
+
+    if not existing_coords:
+        merged = _deduplicate_coordinates([], new_coords)
+        # First payload for a trip still needs a full metric calculation.
+        return merged, merged, False
+
+    previous_ts = existing_coords[-1]["timestamp"]
+    for coord in new_coords:
+        timestamp = coord["timestamp"]
+        if timestamp <= previous_ts:
+            merged = _deduplicate_coordinates(existing_coords, new_coords)
+            return merged, [], False
+        previous_ts = timestamp
+
+    return existing_coords + new_coords, new_coords, True
+
+
+def _segment_speed_mph(prev: dict[str, Any], curr: dict[str, Any]) -> float:
+    segment_dist = GeometryService.haversine_distance(
+        prev["lon"],
+        prev["lat"],
+        curr["lon"],
+        curr["lat"],
+        unit="miles",
+    )
+    time_diff = (curr["timestamp"] - prev["timestamp"]).total_seconds()
+    if time_diff <= 0:
+        return 0.0
+    return (segment_dist / time_diff) * 3600
+
+
 def _calculate_trip_metrics(
     coordinates: list[dict],
     start_time: datetime,
@@ -166,6 +216,67 @@ def _calculate_trip_metrics(
     }
 
 
+def _calculate_trip_metrics_incremental(
+    trip: dict[str, Any],
+    coordinates: list[dict[str, Any]],
+    appended_coordinates: list[dict[str, Any]],
+    start_time: datetime,
+) -> dict[str, Any]:
+    """Update metrics incrementally for append-only coordinate updates."""
+    if not appended_coordinates or not coordinates:
+        return _calculate_trip_metrics(coordinates, start_time)
+
+    prior_point_count = len(coordinates) - len(appended_coordinates)
+    if prior_point_count <= 0:
+        return _calculate_trip_metrics(coordinates, start_time)
+
+    with_metrics = 0
+    with contextlib.suppress(TypeError, ValueError):
+        with_metrics = int(trip.get("pointsRecorded") or 0)
+    if with_metrics != prior_point_count:
+        return _calculate_trip_metrics(coordinates, start_time)
+
+    distance_miles = float(trip.get("distance") or 0.0)
+    max_speed = float(trip.get("maxSpeed") or 0.0)
+
+    prev = coordinates[prior_point_count - 1]
+    for curr in appended_coordinates:
+        segment_dist = GeometryService.haversine_distance(
+            prev["lon"],
+            prev["lat"],
+            curr["lon"],
+            curr["lat"],
+            unit="miles",
+        )
+        distance_miles += segment_dist
+
+        segment_speed = _segment_speed_mph(prev, curr)
+        if segment_speed > 0:
+            max_speed = max(max_speed, segment_speed)
+        prev = curr
+
+    current_speed = 0.0
+    last_coord = coordinates[-1]
+    if last_coord.get("speed") is not None:
+        current_speed = float(last_coord["speed"])
+    elif len(coordinates) > 1:
+        current_speed = _segment_speed_mph(coordinates[-2], coordinates[-1])
+
+    last_time = last_coord["timestamp"]
+    duration = (last_time - start_time).total_seconds()
+    avg_speed = (distance_miles / (duration / 3600)) if duration > 0 else 0.0
+
+    return {
+        "distance": distance_miles,
+        "maxSpeed": max_speed,
+        "currentSpeed": current_speed,
+        "avgSpeed": avg_speed,
+        "duration": duration,
+        "pointsRecorded": len(coordinates),
+        "lastUpdate": last_time,
+    }
+
+
 # ============================================================================
 # Event Handlers
 # ============================================================================
@@ -197,7 +308,11 @@ async def process_trip_start(data: dict[str, Any]) -> None:
     if trip:
         logger.info("Trip %s already active, updating start data", transaction_id)
         trip["status"] = "active"
-        trip.setdefault("startTime", start_time)
+        existing_start = _parse_timestamp(trip.get("startTime"))
+        if isinstance(existing_start, datetime):
+            trip["startTime"] = min(existing_start, start_time)
+        else:
+            trip["startTime"] = start_time
         trip["startTimeZone"] = start_data.get(
             "timeZone",
             trip.get("startTimeZone") or "UTC",
@@ -205,7 +320,11 @@ async def process_trip_start(data: dict[str, Any]) -> None:
         if start_data.get("odometer") is not None:
             trip["startOdometer"] = start_data.get("odometer")
         trip.setdefault("source", "webhook")
-        trip["lastUpdate"] = start_time
+        existing_last_update = _parse_timestamp(trip.get("lastUpdate"))
+        if isinstance(existing_last_update, datetime):
+            trip["lastUpdate"] = max(existing_last_update, start_time)
+        else:
+            trip["lastUpdate"] = start_time
     else:
         trip = {
             "transactionId": transaction_id,
@@ -279,13 +398,26 @@ async def process_trip_data(data: dict[str, Any]) -> None:
         logger.info("Trip %s already finalized, ignoring late tripData", transaction_id)
         return
 
-    all_coords = _deduplicate_coordinates(trip.get("coordinates"), new_coords)
+    all_coords, appended_coords, append_only = _merge_trip_coordinates(
+        trip.get("coordinates"),
+        new_coords,
+    )
+    if not all_coords:
+        return
 
     start_time = _parse_timestamp(trip.get("startTime"))
     if not isinstance(start_time, datetime):
         start_time = all_coords[0]["timestamp"]
 
-    metrics = _calculate_trip_metrics(all_coords, start_time)
+    if append_only and appended_coords:
+        metrics = _calculate_trip_metrics_incremental(
+            trip,
+            all_coords,
+            appended_coords,
+            start_time,
+        )
+    else:
+        metrics = _calculate_trip_metrics(all_coords, start_time)
 
     trip["status"] = "active"
     trip["coordinates"] = all_coords

@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 from core.date_utils import normalize_calendar_date
 from core.jobs import create_job, find_job
+from core.trip_source_policy import enforce_bouncie_source
 from db import build_calendar_date_expr
 from db.models import Trip
 from trips.services.trip_batch_service import TripService
@@ -63,6 +64,7 @@ class TripStatsService:
                 msg = "Invalid date range"
                 raise ValueError(msg)
             query = {"$expr": range_expr}
+
         else:
             start_iso = normalize_calendar_date(start_date)
             end_iso = normalize_calendar_date(end_date)
@@ -76,6 +78,8 @@ class TripStatsService:
                 msg = "Invalid date range"
                 raise ValueError(msg)
             query = {"$expr": range_expr}
+
+        query = enforce_bouncie_source(query)
 
         metrics = {
             "total": 0,

@@ -43,6 +43,7 @@ async def get_matched_trips(request: Request):
     query["matchedGps"] = {"$ne": None}
     # Exclude invalid trips
     query["invalid"] = {"$ne": True}
+    query = enforce_bouncie_source(query)
 
     trip_cursor = Trip.find(query).sort(-Trip.endTime)
 
@@ -205,6 +206,7 @@ async def get_trips(request: Request):
 
     if matched_only:
         query["matchedGps"] = {"$ne": None}
+    query = enforce_bouncie_source(query)
     # Use Beanie cursor iteration
     trip_cursor = Trip.find(query).sort(-Trip.endTime)
 
