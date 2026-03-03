@@ -81,6 +81,7 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     # UI Preferences
     "highlightRecentTrips": True,
     "autoCenter": True,
+    "mapTripsWithinCoverageOnly": False,
     "geocodeTripsOnFetch": True,
     "mapMatchTripsOnFetch": False,
     # Geo Service Configuration (defaults for Docker Compose)

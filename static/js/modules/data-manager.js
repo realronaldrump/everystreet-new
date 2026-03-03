@@ -27,6 +27,37 @@ import { DateUtils, utils } from "./utils.js";
 // ============================================================
 
 const dataManager = {
+  _readCoverageTripClipPreference() {
+    const key = CONFIG.STORAGE_KEYS.mapTripsWithinCoverageOnly;
+    const stored = utils.getStorage(key, null);
+    if (typeof stored === "boolean") {
+      return stored;
+    }
+    if (stored === "true") {
+      return true;
+    }
+    if (stored === "false") {
+      return false;
+    }
+    return globalThis?.window?.APP_SETTINGS_FLAGS?.mapTripsWithinCoverageOnly === true;
+  },
+
+  isCoverageTripClipPreferenceEnabled() {
+    return this._readCoverageTripClipPreference();
+  },
+
+  getCoverageTripClipState() {
+    const selectedLocationId = String(
+      utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation) || ""
+    ).trim();
+    const preferenceEnabled = this._readCoverageTripClipPreference();
+    return {
+      enabled: Boolean(preferenceEnabled && selectedLocationId),
+      preferenceEnabled: Boolean(preferenceEnabled),
+      areaId: selectedLocationId || null,
+    };
+  },
+
   /**
    * Fetch trips data and update the trips layer
    * @returns {Promise<Object|null>} GeoJSON FeatureCollection or null
@@ -41,6 +72,11 @@ const dataManager = {
     try {
       const { start, end } = DateUtils.getCachedDateRange();
       const params = new URLSearchParams({ start_date: start, end_date: end });
+      const coverageClip = this.getCoverageTripClipState();
+      if (coverageClip.enabled && coverageClip.areaId) {
+        params.set("coverage_area_id", coverageClip.areaId);
+        params.set("clip_to_coverage", "true");
+      }
       loadingManager.updateMessage(`Loading trips from ${start} to ${end}...`);
 
       const rawTripData = await utils.fetchWithRetry(
@@ -98,6 +134,11 @@ const dataManager = {
         end_date: end,
         format: "geojson",
       });
+      const coverageClip = this.getCoverageTripClipState();
+      if (coverageClip.enabled && coverageClip.areaId) {
+        params.set("coverage_area_id", coverageClip.areaId);
+        params.set("clip_to_coverage", "true");
+      }
 
       const rawData = await utils.fetchWithRetry(
         `${CONFIG.API.matchedTrips}?${params}`,
@@ -273,6 +314,10 @@ const dataManager = {
    * @returns {Promise<Object|null>}
    */
   async fetchMetrics() {
+    if (this.getCoverageTripClipState().enabled) {
+      return null;
+    }
+
     try {
       const { start, end } = DateUtils.getCachedDateRange();
       const params = new URLSearchParams({ start_date: start, end_date: end });

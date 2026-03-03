@@ -4,7 +4,7 @@
  * This module handles:
  * - Layer creation and updates on the map
  * - Layer visibility toggling with fade animations
- * - Layer controls UI (toggles, color pickers, opacity sliders)
+ * - Layer controls UI (toggles, color pickers)
  * - Heatmap rendering with dynamic opacity
  * - Drag-and-drop layer reordering
  * - Trip interaction hitbox layers
@@ -296,7 +296,11 @@ const layerManager = {
     const settings = utils.getStorage(CONFIG.STORAGE_KEYS.layerSettings) || {};
     Object.entries(settings).forEach(([name, layerSettings]) => {
       if (store.mapLayers[name]) {
-        Object.assign(store.mapLayers[name], layerSettings);
+        const persistedLayerSettings =
+          layerSettings && typeof layerSettings === "object" ? layerSettings : {};
+        const settingsWithoutOpacity = { ...persistedLayerSettings };
+        delete settingsWithoutOpacity.opacity;
+        Object.assign(store.mapLayers[name], settingsWithoutOpacity);
       }
     });
 
@@ -326,8 +330,6 @@ const layerManager = {
       const checkboxId = `${name}-toggle`;
       const supportsColorPicker =
         info.supportsColorPicker !== false && name !== "customPlaces";
-      const supportsOpacitySlider =
-        info.supportsOpacitySlider !== false && name !== "customPlaces";
       const colorValue = typeof info.color === "string" ? info.color : "#faf9f7";
 
       const controls = [];
@@ -338,14 +340,6 @@ const layerManager = {
                  class="form-control form-control-color me-2"
                  style="width: 30px; height: 30px; padding: 2px;"
                  title="Layer color">
-        `);
-      }
-
-      if (supportsOpacitySlider) {
-        controls.push(`
-          <input type="range" id="${name}-opacity" min="0" max="1" step="0.1"
-                 value="${info.opacity}" class="form-range" style="width: 80px;"
-                 title="Layer opacity">
         `);
       }
 
@@ -366,7 +360,7 @@ const layerManager = {
       if (!info.visible) {
         div.classList.add("layer-disabled");
         div
-          .querySelectorAll('input[type="range"], input[type="color"]')
+          .querySelectorAll('input[type="color"]')
           .forEach((el) => {
             el.disabled = true;
           });
@@ -402,15 +396,13 @@ const layerManager = {
           if (row) {
             row.classList.toggle("layer-disabled", !input.checked);
             row
-              .querySelectorAll('input[type="range"], input[type="color"]')
+              .querySelectorAll('input[type="color"]')
               .forEach((el) => {
                 el.disabled = !input.checked;
               });
           }
         } else if (input.type === "color") {
           this.updateLayerStyle(layerName, "color", input.value);
-        } else if (input.type === "range") {
-          this.updateLayerStyle(layerName, "opacity", parseFloat(input.value));
         }
 
         this.saveLayerSettings();
@@ -794,7 +786,6 @@ const layerManager = {
       settings[name] = {
         visible: info.visible,
         color: info.color,
-        opacity: info.opacity,
         order: info.order,
       };
     });

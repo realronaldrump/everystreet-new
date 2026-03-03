@@ -929,6 +929,7 @@ class AppSettings(Document):
     # UI Preferences
     highlightRecentTrips: bool = True
     autoCenter: bool = True
+    mapTripsWithinCoverageOnly: bool = False
     geocodeTripsOnFetch: bool = True
     mapMatchTripsOnFetch: bool = False
 

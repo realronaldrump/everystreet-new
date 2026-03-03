@@ -121,6 +121,9 @@ export function setupAppSettingsForm() {
   const highlightRecentTrips = document.getElementById("highlight-recent-trips");
   const autoCenterToggle = document.getElementById("auto-center-toggle");
   const map3dBuildingsToggle = document.getElementById("map-3d-buildings-toggle");
+  const mapTripsWithinCoverageOnlyToggle = document.getElementById(
+    "map-trips-within-coverage-only"
+  );
   const geocodeTripsOnFetch = document.getElementById("geocode-trips-on-fetch");
   const mapMatchTripsOnFetch = document.getElementById("map-match-trips-on-fetch");
   const form = document.getElementById("app-settings-form");
@@ -136,6 +139,7 @@ export function setupAppSettingsForm() {
       highlightRecentTrips: hrt,
       autoCenter,
       map3dBuildingsEnabled,
+      mapTripsWithinCoverageOnly,
       geocodeTripsOnFetch: gtof,
       mapMatchTripsOnFetch: mmtof,
       accentColor,
@@ -175,6 +179,22 @@ export function setupAppSettingsForm() {
         resolvedMap3dBuildings ? "true" : "false"
       );
       emitMap3dBuildingsSetting(resolvedMap3dBuildings);
+    }
+    const storedCoverageOnly = readStoredBoolean(
+      CONFIG.STORAGE_KEYS.mapTripsWithinCoverageOnly
+    );
+    const resolvedCoverageOnly =
+      typeof mapTripsWithinCoverageOnly === "boolean"
+        ? mapTripsWithinCoverageOnly
+        : storedCoverageOnly;
+    if (mapTripsWithinCoverageOnlyToggle) {
+      mapTripsWithinCoverageOnlyToggle.checked = resolvedCoverageOnly === true;
+    }
+    if (typeof resolvedCoverageOnly === "boolean") {
+      localStorage.setItem(
+        CONFIG.STORAGE_KEYS.mapTripsWithinCoverageOnly,
+        resolvedCoverageOnly ? "true" : "false"
+      );
     }
     if (geocodeTripsOnFetch) {
       geocodeTripsOnFetch.checked = gtof !== false;
@@ -244,6 +264,7 @@ export function setupAppSettingsForm() {
       highlightRecentTrips: highlightRecentTrips?.checked,
       autoCenter: autoCenterToggle?.checked,
       map3dBuildingsEnabled: map3dBuildingsToggle?.checked ?? true,
+      mapTripsWithinCoverageOnly: mapTripsWithinCoverageOnlyToggle?.checked ?? false,
       geocodeTripsOnFetch: geocodeTripsOnFetch?.checked,
       mapMatchTripsOnFetch: mapMatchTripsOnFetch?.checked,
       accentColor: accentColorPicker?.value,
@@ -264,6 +285,10 @@ export function setupAppSettingsForm() {
     localStorage.setItem(
       CONFIG.STORAGE_KEYS.map3dBuildingsEnabled,
       payload.map3dBuildingsEnabled ? "true" : "false"
+    );
+    localStorage.setItem(
+      CONFIG.STORAGE_KEYS.mapTripsWithinCoverageOnly,
+      payload.mapTripsWithinCoverageOnly ? "true" : "false"
     );
     localStorage.setItem("es:accent-color", payload.accentColor || "");
     localStorage.setItem("es:ui-density", payload.uiDensity);

@@ -65,6 +65,7 @@ export const CONFIG = {
     mapType: "mapType",
     mapCinematicIntroSeen: "mapCinematicIntroSeen",
     map3dBuildingsEnabled: "map3dBuildingsEnabled",
+    mapTripsWithinCoverageOnly: "mapTripsWithinCoverageOnly",
     uiState: "uiState",
   },
 
@@ -132,7 +133,7 @@ export const CONFIG = {
     trips: {
       order: 1,
       color: "#d4943c",
-      opacity: 0.85,
+      opacity: 1,
       visible: true,
       name: "Trips Heatmap",
       weight: 2.5,
@@ -145,7 +146,7 @@ export const CONFIG = {
     matchedTrips: {
       order: 3,
       color: "#c45454",
-      opacity: 0.6,
+      opacity: 1,
       visible: false,
       highlightColor: "#4da396",
       name: "Matched Trips",

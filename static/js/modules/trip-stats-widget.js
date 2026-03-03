@@ -179,10 +179,11 @@ const tripStatsWidget = {
     const metrics = {
       totalTrips: features.length,
       totalDistance: 0,
+      totalDistanceFullTrip: 0,
       totalDrivingTime: 0,
       totalStartHours: 0,
       maxSpeed: 0,
-      validDistanceCount: 0,
+      validFullDistanceCount: 0,
       validDrivingTimeCount: 0,
       validStartTimeCount: 0,
     };
@@ -190,9 +191,18 @@ const tripStatsWidget = {
     features.forEach((feature) => {
       const props = feature.properties || {};
 
-      if (props.distance && !Number.isNaN(props.distance)) {
-        metrics.totalDistance += parseFloat(props.distance);
-        metrics.validDistanceCount++;
+      const fullTripDistance = Number.parseFloat(props.distance);
+      const clippedDistance = Number.parseFloat(props.coverageDistance);
+      const strictDistance = Number.isFinite(clippedDistance)
+        ? clippedDistance
+        : fullTripDistance;
+
+      if (Number.isFinite(strictDistance)) {
+        metrics.totalDistance += strictDistance;
+      }
+      if (Number.isFinite(fullTripDistance)) {
+        metrics.totalDistanceFullTrip += fullTripDistance;
+        metrics.validFullDistanceCount++;
       }
 
       let drivingTime = props.duration || props.drivingTime;
@@ -226,8 +236,8 @@ const tripStatsWidget = {
       totalTrips: metrics.totalTrips,
       totalDistance: metrics.totalDistance,
       avgDistance:
-        metrics.validDistanceCount > 0
-          ? metrics.totalDistance / metrics.validDistanceCount
+        metrics.validFullDistanceCount > 0
+          ? metrics.totalDistanceFullTrip / metrics.validFullDistanceCount
           : 0,
       avgStartTime:
         metrics.validStartTimeCount > 0
@@ -243,7 +253,7 @@ const tripStatsWidget = {
           : "--:--",
       avgSpeed:
         metrics.totalDrivingTime > 0
-          ? (metrics.totalDistance / metrics.totalDrivingTime) * 3600
+          ? (metrics.totalDistanceFullTrip / metrics.totalDrivingTime) * 3600
           : 0,
       maxSpeed: metrics.maxSpeed,
     };

@@ -521,6 +521,12 @@ const AppController = {
             detail: { areaId: nextLocationId || "" },
           })
         );
+        const tripRefreshPromise = dataManager.isCoverageTripClipPreferenceEnabled()
+          ? this.refreshTripLayersForCoverageSelectionChange({
+              nextLocationId,
+              prevLocationId,
+            })
+          : Promise.resolve();
 
         // If the coverage area changes, clear cached street GeoJSON so we fetch fresh data.
         if (nextLocationId && nextLocationId !== prevLocationId) {
@@ -538,6 +544,8 @@ const AppController = {
           await this.handleStreetViewModeChange("driven", true);
           await this.handleStreetViewModeChange("all", true);
         }
+
+        await tripRefreshPromise;
       });
     }
 
@@ -716,6 +724,46 @@ const AppController = {
     } finally {
       loadingManager.hide();
     }
+  },
+
+  async refreshTripLayersForCoverageSelectionChange({
+    nextLocationId = "",
+    prevLocationId = "",
+  } = {}) {
+    if (!state.mapInitialized) {
+      return;
+    }
+
+    const nextId = String(nextLocationId || "").trim();
+    const prevId = String(prevLocationId || "").trim();
+    if (nextId === prevId) {
+      return;
+    }
+
+    if (!dataManager.isCoverageTripClipPreferenceEnabled()) {
+      return;
+    }
+
+    const requests = [];
+
+    if (state.mapLayers.trips.visible) {
+      requests.push(dataManager.fetchTrips());
+    }
+    if (state.mapLayers.matchedTrips.visible) {
+      requests.push(dataManager.fetchMatchedTrips());
+    }
+
+    // When clip preference is enabled but no coverage area is selected, restore
+    // normal aggregate metrics from `/api/metrics`.
+    if (!dataManager.getCoverageTripClipState().enabled) {
+      requests.push(dataManager.fetchMetrics());
+    }
+
+    if (requests.length === 0) {
+      return;
+    }
+
+    await Promise.allSettled(requests);
   },
 
   async handleStreetViewModeChange(mode, shouldHide = false) {
