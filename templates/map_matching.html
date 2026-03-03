@@ -2,7 +2,7 @@
 
 {% block title %}
 
- Every Street - Route Improvement
+ Every Street - Map Matching
 {% endblock
 %}
 
@@ -60,7 +60,7 @@
           <div class="mm-welcome-content">
             <h1 class="mm-welcome-title" id="mm-select-heading">
               <i class="fas fa-magic" aria-hidden="true"></i>
-            Improve Your Routes
+            Match Trips to Roads
             </h1>
             <p class="mm-welcome-desc">
             GPS signals can be imprecise, causing trips to appear off-road or jagged.
@@ -259,7 +259,7 @@ Processing routes
 
             <div class="mm-progress-info" aria-live="polite">
               <div id="map-match-progress-message" class="mm-progress-message">
-              Improving your routes...
+              Matching your trips to roads...
               </div>
               <div id="map-match-progress-metrics" class="mm-progress-metrics">
               </div>
@@ -289,7 +289,7 @@ Processing routes
             </div>
             <div class="mm-results-summary">
               <h2 class="mm-results-title" id="mm-results-heading">
-Routes Improved!
+Routes Matched!
               </h2>
               <p class="mm-results-desc" id="map-match-preview-map-summary">
               Your trips have been matched to roads
@@ -405,7 +405,7 @@ Failed Trips
                 <button class="btn btn-ghost btn-sm"
                         id="map-match-preview-unmatch-selected"
                         disabled
-                        title="Remove improvement">
+                        title="Remove match">
                   <i class="fas fa-undo"></i>
                 </button>
                 <button class="btn btn-ghost btn-sm text-danger"

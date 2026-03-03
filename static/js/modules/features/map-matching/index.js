@@ -150,7 +150,7 @@ const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * 42; // r=42
 // Friendly messages for different stages
 const FRIENDLY_MESSAGES = {
   queued: "Getting ready...",
-  processing: "Improving your routes...",
+  processing: "Matching trips to roads...",
   completed: "All done!",
   failed: "Something went wrong",
   error: "Something went wrong",
@@ -598,7 +598,7 @@ function renderJobs(jobs) {
           } else if (status === "cancelled") {
             message = job.message || "Cancelled";
           } else if (status === "processing") {
-            message = "Improving routes...";
+            message = "Matching trips to roads...";
           } else if (status === "queued") {
             message = "Waiting to start";
           }
@@ -694,7 +694,7 @@ function renderPreview(data) {
       elements.previewSummary.textContent = "No trips found for this selection";
     }
   } else if (elements.previewSummary) {
-    elements.previewSummary.textContent = `${total} trip${total !== 1 ? "s" : ""} ready to improve`;
+    elements.previewSummary.textContent = `${total} trip${total !== 1 ? "s" : ""} ready to match`;
   }
 
   elements.previewPanel.classList.remove("d-none");
@@ -741,7 +741,7 @@ async function submitForm(event) {
     setInlineStatus(elements.submitStatus, "Starting...", "info");
     const result = await apiPost(CONFIG.API.mapMatchingJobs, payload);
     clearInlineStatus(elements.submitStatus);
-    notificationManager.show("Route improvement started!", "success");
+    notificationManager.show("Map matching started!", "success");
     if (result?.job_id) {
       startPolling(result.job_id);
       loadJobs();
@@ -1518,7 +1518,7 @@ function updateMatchedPreviewTable(data) {
               <div class="result-trip-details">${distance}</div>
             </div>
             <div class="result-trip-actions">
-              <button class="btn btn-ghost btn-sm" data-action="unmatch" data-trip-id="${tripId}" title="Remove improvement">
+              <button class="btn btn-ghost btn-sm" data-action="unmatch" data-trip-id="${tripId}" title="Remove match">
                 <i class="fas fa-undo"></i>
               </button>
               <button class="btn btn-ghost btn-sm text-danger" data-action="delete" data-trip-id="${tripId}" title="Delete trip">
@@ -1540,9 +1540,9 @@ async function clearMatchedTrips(tripIds, { silent = false } = {}) {
   }
 
   const confirmed = await confirmationDialog.show({
-    title: "Remove improvement",
+    title: "Remove match",
     message:
-      "This keeps your trip but removes the route improvement. You can re-match it later.",
+      "This keeps your trip but removes the map match. You can match it again later.",
     confirmText: "Remove",
     confirmButtonClass: "btn-primary",
   });
@@ -1560,7 +1560,7 @@ async function clearMatchedTrips(tripIds, { silent = false } = {}) {
       });
     }
     if (!silent) {
-      notificationManager.show("Improvement removed", "success");
+      notificationManager.show("Match removed", "success");
     }
     clearSelection();
     await loadMatchedPreview(currentJobId, { silent: true });
