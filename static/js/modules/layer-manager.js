@@ -1135,23 +1135,7 @@ const layerManager = {
   },
 
   _getCoverageOverlayBeforeLayerId() {
-    const preferredOrder = [
-      "undrivenStreets-layer",
-      "drivenStreets-layer",
-      "allStreets-layer",
-      "trips-layer-0",
-      "trips-layer",
-      "matchedTrips-layer-0",
-      "matchedTrips-layer",
-      "live-trip-line",
-    ];
-
-    for (const layerId of preferredOrder) {
-      if (store.map?.getLayer(layerId)) {
-        return layerId;
-      }
-    }
-
+    // Keep focus overlays above street/trip content, but below map labels.
     return this.getFirstSymbolLayerId();
   },
 
@@ -1209,6 +1193,15 @@ const layerManager = {
         isLightTheme ? 5.6 : 6.4,
       ],
       blur: isLightTheme ? 1.5 : 1.75,
+    };
+  },
+
+  _getCoverageOverlayLinePaint() {
+    const { isLightTheme } = this._getCoverageOverlayThemeState();
+    return {
+      // Use fully opaque stroke colors and control subtlety via line-opacity values.
+      color: isLightTheme ? "rgba(39, 61, 82, 1)" : "rgba(232, 238, 245, 1)",
+      edgeOpacity: isLightTheme ? 0.82 : 0.9,
     };
   },
 
@@ -1423,11 +1416,9 @@ const layerManager = {
     const { fill: fillLayerId, glow: glowLayerId, edge: edgeLayerId, pulse: pulseLayerId } =
       this._getCoverageOverlayLayerIds(layerName);
     const isVisible = Boolean(layerInfo.visible);
-    const colorValue = Array.isArray(layerInfo.color)
-      ? layerInfo.color
-      : layerInfo.color || "#727a84";
     const outsideMaskPaint = this._getCoverageOverlayOutsideMaskPaint();
     const glowPaint = this._getCoverageOverlayGlowPaint();
+    const linePaint = this._getCoverageOverlayLinePaint();
     const outsideMaskSourceId = this._getCoverageOverlayOutsideMaskSourceId(sourceId);
     const outsideMaskData = this._buildCoverageOutsideMask(data);
     const beforeLayerId = this._getCoverageOverlayBeforeLayerId();
@@ -1473,7 +1464,7 @@ const layerManager = {
         "line-cap": "round",
       },
       paint: {
-        "line-color": colorValue,
+        "line-color": linePaint.color,
         "line-opacity": glowPaint.opacity,
         "line-width": glowPaint.width,
         "line-blur": glowPaint.blur,
@@ -1492,8 +1483,8 @@ const layerManager = {
         "line-cap": "round",
       },
       paint: {
-        "line-color": colorValue,
-        "line-opacity": Math.max(0, Math.min(1, Number(layerInfo.opacity) || 0.95)),
+        "line-color": linePaint.color,
+        "line-opacity": linePaint.edgeOpacity,
         "line-width": [
           "interpolate",
           ["linear"],
@@ -1520,7 +1511,7 @@ const layerManager = {
         "line-cap": "round",
       },
       paint: {
-        "line-color": colorValue,
+        "line-color": linePaint.color,
         "line-opacity": 0,
         "line-width": this._getCoverageOverlayPulseConfig().startWidth,
         "line-blur": 0.55,
