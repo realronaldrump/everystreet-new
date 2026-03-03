@@ -82,6 +82,31 @@ def test_validate_route_deadhead_ratio_errors_for_large_required_work() -> None:
     assert any("Deadhead ratio" in msg for msg in errors)
 
 
+def test_validate_route_deadhead_ratio_downgrades_to_warning_with_connectivity_signals() -> None:
+    stats = {
+        "required_distance": 6_000.0,
+        "required_distance_completed": 6_000.0,
+        "total_distance": 70_000.0,
+        "deadhead_distance": 64_000.0,
+        "required_reqs": 50.0,
+        "skipped_disconnected": 0.0,
+        "teleports": 3.0,
+    }
+
+    errors, warnings, details = validate_route(
+        _coords_small_gap(),
+        stats,
+        mapped_segments=1,
+        total_segments=1,
+        eligible_segments=1,
+    )
+
+    assert errors == []
+    assert warnings
+    assert any("disconnected network transitions" in msg for msg in warnings)
+    assert details["teleports"] == pytest.approx(3.0)
+
+
 def test_validate_route_skipped_requirements_warn_vs_error() -> None:
     base_stats = {
         "required_distance": 10_000.0,

@@ -67,6 +67,9 @@ def validate_route(
         stats.get("required_distance_completed", stats.get("service_distance", 0.0)),
     )
     total_distance = float(stats.get("total_distance", 0.0))
+    required_reqs = int(stats.get("required_reqs", 0.0))
+    skipped_reqs = int(stats.get("skipped_disconnected", 0.0))
+    teleports = int(stats.get("teleports", 0.0))
     if total_distance <= 0:
         errors.append("Route total distance is zero.")
 
@@ -80,6 +83,7 @@ def validate_route(
     details["required_distance_completed_m"] = required_distance_completed
     details["total_distance_m"] = total_distance
     details["deadhead_distance_m"] = deadhead_distance
+    details["teleports"] = float(teleports)
 
     deadhead_ratio_all = (
         total_distance / required_distance if required_distance > 0 else 0.0
@@ -100,15 +104,27 @@ def validate_route(
     details["deadhead_ratio_completed"] = deadhead_ratio_completed
     details["deadhead_ratio_eval"] = deadhead_ratio_eval
 
+    gaps_found = int(gap_fill_stats.gaps_found) if gap_fill_stats is not None else 0
+    connectivity_signals = teleports > 0 or skipped_reqs > 0 or gaps_found > 0
+
     if required_distance_completed <= 0:
         errors.append(
             "Route did not service any required edges (required distance completed is zero).",
         )
     elif required_distance_completed >= DEADHEAD_RATIO_REQUIRED_DISTANCE_FLOOR_M:
         if deadhead_ratio_eval > MAX_DEADHEAD_RATIO_ERROR:
-            errors.append(
-                f"Deadhead ratio {deadhead_ratio_completed:.2f} exceeds maximum threshold (evaluated with floor).",
-            )
+            if connectivity_signals:
+                warnings.append(
+                    (
+                        f"Deadhead ratio {deadhead_ratio_completed:.2f} is very high, "
+                        "likely due to disconnected network transitions "
+                        f"(teleports={teleports}, skipped={skipped_reqs}, gaps={gaps_found})."
+                    ),
+                )
+            else:
+                errors.append(
+                    f"Deadhead ratio {deadhead_ratio_completed:.2f} exceeds maximum threshold (evaluated with floor).",
+                )
         elif deadhead_ratio_eval > MAX_DEADHEAD_RATIO_WARN:
             warnings.append(
                 f"Deadhead ratio {deadhead_ratio_completed:.2f} is high; route may be inefficient.",
@@ -124,8 +140,6 @@ def validate_route(
         )
 
     # Solver-level coverage: skipped requirements imply incomplete route.
-    required_reqs = int(stats.get("required_reqs", 0.0))
-    skipped_reqs = int(stats.get("skipped_disconnected", 0.0))
     details["required_reqs"] = float(required_reqs)
     details["skipped_reqs"] = float(skipped_reqs)
     if required_reqs > 0 and skipped_reqs > 0:
