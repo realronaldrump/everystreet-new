@@ -227,8 +227,8 @@ test("ensureBuildingsLayer can scope 3D buildings to a selected coverage boundar
 
   assert.equal(added, true);
   const layerFilter = map.addedLayers[0].layerDefinition.filter;
-  assert.equal(layerFilter[0], "within");
-  assert.deepEqual(layerFilter[1], coverageBoundary);
+  assert.equal(layerFilter[0], "all");
+  assert.deepEqual(layerFilter[2], ["within", coverageBoundary]);
 });
 
 test("initBuildings3D re-applies buildings after style-change callbacks", async () => {
@@ -329,10 +329,12 @@ test("initBuildings3D scopes existing buildings layer when coverage selection ch
   const scopedFilter = map.filters.find(
     (entry) =>
       Array.isArray(entry?.filter) &&
-      entry.filter[0] === "within"
+      entry.filter[0] === "all" &&
+      Array.isArray(entry.filter[2]) &&
+      entry.filter[2][0] === "within"
   );
   assert.ok(scopedFilter);
-  assert.ok(["Polygon", "MultiPolygon"].includes(scopedFilter.filter[1]?.type));
+  assert.ok(["Polygon", "MultiPolygon"].includes(scopedFilter.filter[2][1]?.type));
 
   controller.destroy();
 });
