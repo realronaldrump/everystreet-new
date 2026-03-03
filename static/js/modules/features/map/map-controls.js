@@ -7,11 +7,15 @@
 
 const MOBILE_BREAKPOINT = "(max-width: 768px)";
 const MOBILE_TOGGLE_EVENT = "es:mapControls:toggle";
+const COVERAGE_SELECTION_EVENT = "es:coverage-area-selection-changed";
+const FOCUS_COVERAGE_EVENT = "es:focus-selected-coverage-area";
 
 export default function initMapControls({ signal, cleanup } = {}) {
   const noopTeardown = () => {};
   const controls = document.getElementById("map-controls");
   const toggleBtn = document.getElementById("controls-toggle");
+  const locationSelect = document.getElementById("streets-location");
+  const focusCoverageBtn = document.getElementById("focus-coverage-area-btn");
   if (!controls) {
     if (typeof cleanup === "function") {
       cleanup(noopTeardown);
@@ -59,8 +63,32 @@ export default function initMapControls({ signal, cleanup } = {}) {
     setDesktopExpanded(!isExpandedDesktop);
   };
 
+  const getSelectedCoverageAreaId = () => String(locationSelect?.value || "").trim();
+
+  const hasSelectedCoverageArea = () => Boolean(getSelectedCoverageAreaId());
+
+  const updateCoverageActionState = (areaId = null) => {
+    const normalizedAreaId =
+      areaId === null ? getSelectedCoverageAreaId() : String(areaId || "").trim();
+    const hasSelectedArea = Boolean(normalizedAreaId);
+    const streetModeButtons = document.querySelectorAll(".quick-action-btn[data-street-mode]");
+    streetModeButtons.forEach((button) => {
+      button.disabled = !hasSelectedArea;
+      if (!hasSelectedArea) {
+        button.classList.remove("active");
+      }
+    });
+    if (focusCoverageBtn) {
+      focusCoverageBtn.disabled = !hasSelectedArea;
+    }
+  };
+
   const setStreetMode = (mode) => {
-    const buttons = document.querySelectorAll(".quick-action-btn");
+    if (!hasSelectedCoverageArea()) {
+      return;
+    }
+
+    const buttons = document.querySelectorAll(".quick-action-btn[data-street-mode]");
     const currentlyActive = [...buttons].some(
       (btn) => btn.classList.contains("active") && btn.dataset.streetMode === mode
     );
@@ -82,14 +110,28 @@ export default function initMapControls({ signal, cleanup } = {}) {
     );
   };
 
+  const focusSelectedCoverageArea = () => {
+    const areaId = getSelectedCoverageAreaId();
+    if (!areaId) {
+      return;
+    }
+    document.dispatchEvent(
+      new CustomEvent(FOCUS_COVERAGE_EVENT, {
+        detail: { areaId },
+        bubbles: true,
+      })
+    );
+  };
+
   const initState = () => {
     if (isMobile()) {
       // Ensure no desktop-collapsed class lingers on mobile
       controls.classList.remove("desktop-collapsed");
       updateToggleButton();
-      return;
+    } else {
+      setDesktopExpanded(true);
     }
-    setDesktopExpanded(true);
+    updateCoverageActionState();
   };
 
   const onToggleClick = (event) => {
@@ -97,12 +139,29 @@ export default function initMapControls({ signal, cleanup } = {}) {
     toggleMapControls();
   };
 
+  const onLocationChange = (event) => {
+    updateCoverageActionState(event?.target?.value || "");
+  };
+
+  const onCoverageSelectionChanged = (event) => {
+    updateCoverageActionState(event?.detail?.areaId || "");
+  };
+
   if (toggleBtn) {
     toggleBtn.addEventListener("click", onToggleClick, signal ? { signal } : false);
   }
+  if (locationSelect) {
+    locationSelect.addEventListener("change", onLocationChange, signal ? { signal } : false);
+  }
+  document.addEventListener(
+    COVERAGE_SELECTION_EVENT,
+    onCoverageSelectionChanged,
+    signal ? { signal } : false
+  );
 
   window.toggleMapControls = toggleMapControls;
   window.setStreetMode = setStreetMode;
+  window.focusSelectedCoverageArea = focusSelectedCoverageArea;
   initState();
 
   const onResize = () => {
@@ -132,12 +191,19 @@ export default function initMapControls({ signal, cleanup } = {}) {
     if (toggleBtn) {
       toggleBtn.removeEventListener("click", onToggleClick);
     }
+    if (locationSelect) {
+      locationSelect.removeEventListener("change", onLocationChange);
+    }
+    document.removeEventListener(COVERAGE_SELECTION_EVENT, onCoverageSelectionChanged);
     window.removeEventListener("resize", onResize);
     if (window.toggleMapControls === toggleMapControls) {
       window.toggleMapControls = undefined;
     }
     if (window.setStreetMode === setStreetMode) {
       window.setStreetMode = undefined;
+    }
+    if (window.focusSelectedCoverageArea === focusSelectedCoverageArea) {
+      window.focusSelectedCoverageArea = undefined;
     }
   };
 

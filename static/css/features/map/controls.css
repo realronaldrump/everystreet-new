@@ -88,6 +88,18 @@
   color: var(--primary);
 }
 
+.quick-action-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  color: var(--text-tertiary);
+}
+
+.quick-action-btn:disabled:hover {
+  background: transparent;
+  border-color: var(--glass-border-subtle);
+  color: var(--text-tertiary);
+}
+
 .quick-action-btn i {
   font-size: var(--font-size-sm);
 }
