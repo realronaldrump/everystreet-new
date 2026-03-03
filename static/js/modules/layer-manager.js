@@ -25,6 +25,13 @@ const INTERACTIVE_TRIP_LAYERS = new Set(["trips", "matchedTrips"]);
 // Animation constants
 const FADE_DURATION = 320;
 const COVERAGE_OVERLAY_LAYER_NAME = "coverageAreaBoundingBox";
+const COVERAGE_OUTSIDE_MASK_WORLD_RING = [
+  [-180, -85],
+  [180, -85],
+  [180, 85],
+  [-180, 85],
+  [-180, -85],
+];
 
 const layerManager = {
   // Event handler tracking for proper cleanup
@@ -1119,7 +1126,12 @@ const layerManager = {
       fill: `${layerName}-fill`,
       glow: `${layerName}-glow`,
       edge: `${layerName}-layer`,
+      pulse: `${layerName}-pulse`,
     };
+  },
+
+  _getCoverageOverlayOutsideMaskSourceId(sourceId) {
+    return `${sourceId}-outside-mask`;
   },
 
   _getCoverageOverlayBeforeLayerId() {
@@ -1143,26 +1155,210 @@ const layerManager = {
     return this.getFirstSymbolLayerId();
   },
 
-  _getCoverageOverlayFillPaint() {
+  _getCoverageOverlayThemeState() {
     const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-    const isLightTheme = theme === "light";
-
     return {
-      // Slightly cooler tint than the edge line to make inside/outside distinction clear.
-      color: isLightTheme ? "rgba(72, 108, 130, 1)" : "rgba(150, 196, 221, 1)",
-      // Fade with zoom so local street detail remains legible at close range.
+      isLightTheme: theme === "light",
+    };
+  },
+
+  _getCoverageOverlayOutsideMaskPaint() {
+    const { isLightTheme } = this._getCoverageOverlayThemeState();
+    return {
+      // Dim outside of selected area while leaving the inside untouched.
+      color: isLightTheme ? "rgba(33, 40, 52, 1)" : "rgba(6, 10, 16, 1)",
       opacity: [
         "interpolate",
         ["linear"],
         ["zoom"],
         5,
-        isLightTheme ? 0.115 : 0.1,
+        isLightTheme ? 0.11 : 0.15,
         9,
-        isLightTheme ? 0.095 : 0.08,
+        isLightTheme ? 0.085 : 0.115,
         13,
-        isLightTheme ? 0.075 : 0.06,
+        isLightTheme ? 0.065 : 0.085,
         17,
-        isLightTheme ? 0.055 : 0.045,
+        isLightTheme ? 0.045 : 0.06,
+      ],
+    };
+  },
+
+  _getCoverageOverlayGlowPaint() {
+    const { isLightTheme } = this._getCoverageOverlayThemeState();
+    return {
+      opacity: [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        8,
+        isLightTheme ? 0.24 : 0.28,
+        12,
+        isLightTheme ? 0.18 : 0.21,
+        16,
+        isLightTheme ? 0.13 : 0.15,
+      ],
+      width: [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        8,
+        isLightTheme ? 2.9 : 3.2,
+        12,
+        isLightTheme ? 4.2 : 4.8,
+        16,
+        isLightTheme ? 5.6 : 6.4,
+      ],
+      blur: isLightTheme ? 1.5 : 1.75,
+    };
+  },
+
+  _buildClosedRing(rawRing) {
+    if (!Array.isArray(rawRing)) {
+      return null;
+    }
+    const normalized = rawRing
+      .map((point) => {
+        const lon = Number(point?.[0]);
+        const lat = Number(point?.[1]);
+        if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+          return null;
+        }
+        return [lon, lat];
+      })
+      .filter(Boolean);
+
+    if (normalized.length < 3) {
+      return null;
+    }
+
+    const first = normalized[0];
+    const last = normalized[normalized.length - 1];
+    if (first[0] !== last[0] || first[1] !== last[1]) {
+      normalized.push([...first]);
+    }
+
+    if (normalized.length < 4) {
+      return null;
+    }
+
+    return normalized;
+  },
+
+  _ringSignedArea(ring) {
+    if (!Array.isArray(ring) || ring.length < 4) {
+      return 0;
+    }
+    let area = 0;
+    for (let i = 0; i < ring.length - 1; i += 1) {
+      const [x1, y1] = ring[i];
+      const [x2, y2] = ring[i + 1];
+      area += x1 * y2 - x2 * y1;
+    }
+    return area / 2;
+  },
+
+  _ensureRingOrientation(ring, clockwise) {
+    const normalized = this._buildClosedRing(ring);
+    if (!normalized) {
+      return null;
+    }
+    const isClockwise = this._ringSignedArea(normalized) < 0;
+    if (isClockwise === clockwise) {
+      return normalized;
+    }
+    const reversed = [...normalized].reverse();
+    return this._buildClosedRing(reversed);
+  },
+
+  _collectCoverageBoundaryOuterRings(featureCollection) {
+    if (featureCollection?.type !== "FeatureCollection") {
+      return [];
+    }
+    const holes = [];
+    (featureCollection.features || []).forEach((feature) => {
+      const geometry = feature?.geometry;
+      if (!geometry) {
+        return;
+      }
+      if (geometry.type === "Polygon") {
+        const outerRing = this._ensureRingOrientation(geometry.coordinates?.[0], true);
+        if (outerRing) {
+          holes.push(outerRing);
+        }
+        return;
+      }
+      if (geometry.type === "MultiPolygon") {
+        (geometry.coordinates || []).forEach((polygonCoords) => {
+          const outerRing = this._ensureRingOrientation(polygonCoords?.[0], true);
+          if (outerRing) {
+            holes.push(outerRing);
+          }
+        });
+      }
+    });
+    return holes;
+  },
+
+  _buildCoverageOutsideMask(featureCollection) {
+    const holes = this._collectCoverageBoundaryOuterRings(featureCollection);
+    if (holes.length === 0) {
+      return {
+        type: "FeatureCollection",
+        features: [],
+      };
+    }
+
+    const worldRing = this._ensureRingOrientation(COVERAGE_OUTSIDE_MASK_WORLD_RING, false);
+    if (!worldRing) {
+      return {
+        type: "FeatureCollection",
+        features: [],
+      };
+    }
+
+    return {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: {
+            isCoverageOutsideMask: true,
+          },
+          geometry: {
+            type: "Polygon",
+            coordinates: [worldRing, ...holes],
+          },
+        },
+      ],
+    };
+  },
+
+  _getCoverageOverlayPulseConfig() {
+    const { isLightTheme } = this._getCoverageOverlayThemeState();
+    return {
+      startOpacity: isLightTheme ? 0.24 : 0.2,
+      durationMs: 760,
+      startWidth: [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        8,
+        1.9,
+        12,
+        2.8,
+        16,
+        3.7,
+      ],
+      endWidth: [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        8,
+        3.8,
+        12,
+        5.2,
+        16,
+        7,
       ],
     };
   },
@@ -1183,15 +1379,57 @@ const layerManager = {
     });
   },
 
+  playCoverageAreaSelectionPulse(layerName = COVERAGE_OVERLAY_LAYER_NAME) {
+    if (!store.map) {
+      return;
+    }
+
+    const { pulse: pulseLayerId } = this._getCoverageOverlayLayerIds(layerName);
+    if (!store.map.getLayer(pulseLayerId)) {
+      return;
+    }
+
+    const pulseConfig = this._getCoverageOverlayPulseConfig();
+    store.map.setPaintProperty(pulseLayerId, "line-opacity-transition", {
+      duration: 0,
+      delay: 0,
+    });
+    store.map.setPaintProperty(pulseLayerId, "line-width-transition", {
+      duration: 0,
+      delay: 0,
+    });
+    store.map.setPaintProperty(pulseLayerId, "line-opacity", pulseConfig.startOpacity);
+    store.map.setPaintProperty(pulseLayerId, "line-width", pulseConfig.startWidth);
+
+    requestAnimationFrame(() => {
+      if (!store.map?.getLayer(pulseLayerId)) {
+        return;
+      }
+      store.map.setPaintProperty(pulseLayerId, "line-opacity-transition", {
+        duration: pulseConfig.durationMs,
+        delay: 0,
+      });
+      store.map.setPaintProperty(pulseLayerId, "line-width-transition", {
+        duration: pulseConfig.durationMs,
+        delay: 0,
+      });
+      store.map.setPaintProperty(pulseLayerId, "line-opacity", 0);
+      store.map.setPaintProperty(pulseLayerId, "line-width", pulseConfig.endWidth);
+    });
+  },
+
   _updateCoverageAreaOverlayLayer(data, sourceId, layerInfo) {
     const layerName = COVERAGE_OVERLAY_LAYER_NAME;
-    const { fill: fillLayerId, glow: glowLayerId, edge: edgeLayerId } =
+    const { fill: fillLayerId, glow: glowLayerId, edge: edgeLayerId, pulse: pulseLayerId } =
       this._getCoverageOverlayLayerIds(layerName);
     const isVisible = Boolean(layerInfo.visible);
     const colorValue = Array.isArray(layerInfo.color)
       ? layerInfo.color
       : layerInfo.color || "#727a84";
-    const overlayFillPaint = this._getCoverageOverlayFillPaint();
+    const outsideMaskPaint = this._getCoverageOverlayOutsideMaskPaint();
+    const glowPaint = this._getCoverageOverlayGlowPaint();
+    const outsideMaskSourceId = this._getCoverageOverlayOutsideMaskSourceId(sourceId);
+    const outsideMaskData = this._buildCoverageOutsideMask(data);
     const beforeLayerId = this._getCoverageOverlayBeforeLayerId();
 
     const source = store.map.getSource(sourceId);
@@ -1201,18 +1439,25 @@ const layerManager = {
       this._createSource(sourceId, data);
     }
 
+    const outsideMaskSource = store.map.getSource(outsideMaskSourceId);
+    if (outsideMaskSource) {
+      outsideMaskSource.setData(outsideMaskData);
+    } else {
+      this._createSource(outsideMaskSourceId, outsideMaskData);
+    }
+
     const fillLayerConfig = {
       id: fillLayerId,
       type: "fill",
-      source: sourceId,
+      source: outsideMaskSourceId,
       minzoom: layerInfo.minzoom || 0,
       maxzoom: layerInfo.maxzoom || 22,
       layout: {
         visibility: isVisible ? "visible" : "none",
       },
       paint: {
-        "fill-color": overlayFillPaint.color,
-        "fill-opacity": overlayFillPaint.opacity,
+        "fill-color": outsideMaskPaint.color,
+        "fill-opacity": outsideMaskPaint.opacity,
       },
     };
 
@@ -1229,19 +1474,9 @@ const layerManager = {
       },
       paint: {
         "line-color": colorValue,
-        "line-opacity": 0.16,
-        "line-width": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          8,
-          2.5,
-          12,
-          4,
-          16,
-          6,
-        ],
-        "line-blur": 1.6,
+        "line-opacity": glowPaint.opacity,
+        "line-width": glowPaint.width,
+        "line-blur": glowPaint.blur,
       },
     };
 
@@ -1264,12 +1499,31 @@ const layerManager = {
           ["linear"],
           ["zoom"],
           8,
-          1,
+          1.1,
           12,
-          1.35,
+          1.5,
           16,
-          1.8,
+          2.05,
         ],
+      },
+    };
+
+    const pulseLayerConfig = {
+      id: pulseLayerId,
+      type: "line",
+      source: sourceId,
+      minzoom: layerInfo.minzoom || 0,
+      maxzoom: layerInfo.maxzoom || 22,
+      layout: {
+        visibility: isVisible ? "visible" : "none",
+        "line-join": "round",
+        "line-cap": "round",
+      },
+      paint: {
+        "line-color": colorValue,
+        "line-opacity": 0,
+        "line-width": this._getCoverageOverlayPulseConfig().startWidth,
+        "line-blur": 0.55,
       },
     };
 
@@ -1277,10 +1531,16 @@ const layerManager = {
       [fillLayerId, fillLayerConfig],
       [glowLayerId, glowLayerConfig],
       [edgeLayerId, edgeLayerConfig],
+      [pulseLayerId, pulseLayerConfig],
     ];
 
     layers.forEach(([layerId, config]) => {
       if (store.map.getLayer(layerId)) {
+        if (layerId === fillLayerId && store.map.getLayer(layerId)?.source !== outsideMaskSourceId) {
+          store.map.removeLayer(layerId);
+          store.map.addLayer(config, beforeLayerId);
+          return;
+        }
         // Keep order stable under streets/trips while updating style.
         store.map.moveLayer(layerId, beforeLayerId);
         store.map.setLayoutProperty(
@@ -1323,11 +1583,15 @@ const layerManager = {
 
     if (isCoverageOverlay) {
       const overlayLayerIds = this._getCoverageOverlayLayerIds(layerName);
-      [overlayLayerIds.fill, overlayLayerIds.glow].forEach((overlayId) => {
+      [overlayLayerIds.fill, overlayLayerIds.glow, overlayLayerIds.pulse].forEach((overlayId) => {
         if (store.map.getLayer(overlayId)) {
           store.map.removeLayer(overlayId);
         }
       });
+      const outsideMaskSourceId = this._getCoverageOverlayOutsideMaskSourceId(sourceId);
+      if (store.map.getSource(outsideMaskSourceId)) {
+        store.map.removeSource(outsideMaskSourceId);
+      }
     }
 
     if (existingSource) {

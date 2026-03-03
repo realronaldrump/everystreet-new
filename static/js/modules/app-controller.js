@@ -89,6 +89,52 @@ const initializeLiveTracker = () => {
 
 const coverageAreaOverlayCache = new Map();
 const COVERAGE_SELECTION_EVENT = "es:coverage-area-selection-changed";
+const COVERAGE_FOCUS_EVENT = "es:focus-selected-coverage-area";
+
+const buildCoverageBoundsFromOverlay = (overlayGeojson) => {
+  const bounds = {
+    west: Number.POSITIVE_INFINITY,
+    south: Number.POSITIVE_INFINITY,
+    east: Number.NEGATIVE_INFINITY,
+    north: Number.NEGATIVE_INFINITY,
+    hasPoint: false,
+  };
+
+  const extendBoundsFromCoordinates = (coordinates) => {
+    if (!Array.isArray(coordinates)) {
+      return;
+    }
+
+    const lng = Number(coordinates[0]);
+    const lat = Number(coordinates[1]);
+    if (Number.isFinite(lng) && Number.isFinite(lat)) {
+      bounds.west = Math.min(bounds.west, lng);
+      bounds.south = Math.min(bounds.south, lat);
+      bounds.east = Math.max(bounds.east, lng);
+      bounds.north = Math.max(bounds.north, lat);
+      bounds.hasPoint = true;
+      return;
+    }
+
+    coordinates.forEach((nestedCoordinates) => {
+      extendBoundsFromCoordinates(nestedCoordinates);
+    });
+  };
+
+  const features = Array.isArray(overlayGeojson?.features) ? overlayGeojson.features : [];
+  features.forEach((feature) => {
+    extendBoundsFromCoordinates(feature?.geometry?.coordinates);
+  });
+
+  if (!bounds.hasPoint) {
+    return null;
+  }
+
+  return [
+    [bounds.west, bounds.south],
+    [bounds.east, bounds.north],
+  ];
+};
 
 const getCoverageAreaOverlayGeometry = async (areaId) => {
   const normalizedAreaId = String(areaId || "").trim();
@@ -188,6 +234,7 @@ const restoreLayerVisibility = () => {
 
 const AppController = {
   _listenersInitialized: false,
+  _lastCoverageOverlayAreaId: null,
 
   /**
    * Initialize the application
@@ -494,6 +541,11 @@ const AppController = {
       });
     }
 
+    document.addEventListener(COVERAGE_FOCUS_EVENT, async (e) => {
+      const areaId = String(e?.detail?.areaId || "").trim();
+      await this.focusSelectedCoverageArea(areaId || null);
+    });
+
     // Quick-action street mode buttons (map controls). These dispatch a custom event.
     document.addEventListener("es:streetModeChange", async (e) => {
       const mode = e?.detail?.mode;
@@ -728,6 +780,48 @@ const AppController = {
     }
   },
 
+  async focusSelectedCoverageArea(areaId = null) {
+    if (!state.map || !state.mapInitialized) {
+      return false;
+    }
+
+    const selectedLocationId = String(
+      areaId || utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation) || ""
+    ).trim();
+    if (!selectedLocationId) {
+      notificationManager.show("Please select a location first", "warning");
+      return false;
+    }
+
+    const overlayGeojson = await getCoverageAreaOverlayGeometry(selectedLocationId);
+    if (!overlayGeojson) {
+      notificationManager.show("Coverage area boundary is not available yet.", "warning");
+      return false;
+    }
+
+    const mapBounds = buildCoverageBoundsFromOverlay(overlayGeojson);
+    if (!mapBounds) {
+      notificationManager.show("Coverage area boundary is not available yet.", "warning");
+      return false;
+    }
+
+    try {
+      state.map.fitBounds(mapBounds, {
+        padding: 60,
+        maxZoom: 14,
+        duration: 700,
+      });
+      return true;
+    } catch (error) {
+      console.warn(
+        `Failed to focus map on coverage area ${selectedLocationId}:`,
+        error
+      );
+      notificationManager.show("Failed to focus coverage area", "warning");
+      return false;
+    }
+  },
+
   _hasVisibleStreetCoverageLayer() {
     return Boolean(
       state.mapLayers.undrivenStreets.visible ||
@@ -744,6 +838,9 @@ const AppController = {
     if (!shouldShowOverlay) {
       state.mapLayers[layerName].visible = false;
       layerManager.setCoverageAreaOverlayVisibility(false, layerName);
+      if (!selectedLocationId) {
+        this._lastCoverageOverlayAreaId = null;
+      }
       return;
     }
 
@@ -761,12 +858,18 @@ const AppController = {
     if (!overlayGeojson) {
       state.mapLayers[layerName].visible = false;
       layerManager.setCoverageAreaOverlayVisibility(false, layerName);
+      this._lastCoverageOverlayAreaId = null;
       return;
     }
 
     state.mapLayers[layerName].visible = true;
     await layerManager.updateMapLayer(layerName, overlayGeojson);
     layerManager.setCoverageAreaOverlayVisibility(true, layerName);
+
+    if (this._lastCoverageOverlayAreaId !== currentLocationId) {
+      layerManager.playCoverageAreaSelectionPulse(layerName);
+      this._lastCoverageOverlayAreaId = currentLocationId;
+    }
   },
 };
 

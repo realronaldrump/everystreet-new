@@ -213,7 +213,9 @@ function buildScopedFilter(baseFilter, coverageBoundary = null) {
     return baseFilter;
   }
 
-  return ["all", baseFilter, ["within", coverageBoundary]];
+  // Use a direct `within` filter here to avoid edge cases where combining
+  // `within` with additional boolean wrappers can produce zero matches.
+  return ["within", coverageBoundary];
 }
 
 function isCoordinatePair(value) {
@@ -315,12 +317,12 @@ function applyLayerFilter(map, layerId, coverageBoundary = null) {
     return;
   }
 
-  const candidates = [
-    buildScopedFilter(PRIMARY_FILTER, coverageBoundary),
-    buildScopedFilter(FALLBACK_FILTER, coverageBoundary),
-  ];
+  const scopedFilter = buildScopedFilter(PRIMARY_FILTER, coverageBoundary);
+  const candidates = [scopedFilter];
   if (coverageBoundary) {
     candidates.push(PRIMARY_FILTER, FALLBACK_FILTER);
+  } else {
+    candidates.push(buildScopedFilter(FALLBACK_FILTER, coverageBoundary));
   }
 
   for (const candidate of candidates) {
