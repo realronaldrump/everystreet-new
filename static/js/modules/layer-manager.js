@@ -101,6 +101,21 @@ const layerManager = {
     }
   },
 
+  _removeLayerById(layerId) {
+    if (!store.map?.getLayer(layerId)) {
+      return;
+    }
+    ["click", "mouseenter", "mouseleave"].forEach((event) => {
+      store.map.off(event, layerId);
+    });
+    store.map.removeLayer(layerId);
+  },
+
+  _removeLayerVariants(layerName) {
+    const layerIds = [`${layerName}-layer-0`, `${layerName}-layer-1`, `${layerName}-layer`];
+    layerIds.forEach((layerId) => this._removeLayerById(layerId));
+  },
+
   // ============================================================
   // Trip Interaction Hitbox Management
   // ============================================================
@@ -300,6 +315,7 @@ const layerManager = {
           layerSettings && typeof layerSettings === "object" ? layerSettings : {};
         const settingsWithoutOpacity = { ...persistedLayerSettings };
         delete settingsWithoutOpacity.opacity;
+        delete settingsWithoutOpacity.isHeatmap;
         Object.assign(store.mapLayers[name], settingsWithoutOpacity);
       }
     });
@@ -790,6 +806,46 @@ const layerManager = {
       };
     });
     utils.setStorage(CONFIG.STORAGE_KEYS.layerSettings, settings);
+  },
+
+  async setTripLayerRenderMode(useHeatmap) {
+    const nextUseHeatmap = useHeatmap !== false;
+    const layerNames = ["trips", "matchedTrips"];
+    const rebuildPromises = [];
+    let modeChanged = false;
+
+    layerNames.forEach((layerName) => {
+      const layerInfo = store.mapLayers[layerName];
+      if (!layerInfo) {
+        return;
+      }
+
+      const layerModeChanged = layerInfo.isHeatmap !== nextUseHeatmap;
+      if (layerModeChanged) {
+        modeChanged = true;
+      }
+      layerInfo.isHeatmap = nextUseHeatmap;
+
+      if (!store.map || !store.mapInitialized || !layerModeChanged) {
+        return;
+      }
+
+      const layerId = `${layerName}-layer`;
+      const sourceId = `${layerName}-source`;
+      this._removeExistingLayerAndSource(layerName, layerId, sourceId);
+
+      if (layerInfo.layer) {
+        rebuildPromises.push(this.updateMapLayer(layerName, layerInfo.layer));
+      }
+    });
+
+    if (rebuildPromises.length > 0) {
+      await Promise.allSettled(rebuildPromises);
+    }
+
+    if (modeChanged) {
+      this._triggerTripStyleRefresh();
+    }
   },
 
   // ============================================================
@@ -1547,23 +1603,25 @@ const layerManager = {
    */
   _removeExistingLayerAndSource(layerName, layerId, sourceId) {
     const existingSource = store.map.getSource(sourceId);
-    const existingLayer = store.map.getLayer(layerId);
     const isCoverageOverlay = layerName === COVERAGE_OVERLAY_LAYER_NAME;
+    const hasLayerVariants =
+      Boolean(store.map.getLayer(layerId)) ||
+      Boolean(store.map.getLayer(`${layerName}-layer-0`)) ||
+      Boolean(store.map.getLayer(`${layerName}-layer-1`));
 
-    if (existingLayer || existingSource) {
+    if (hasLayerVariants || existingSource) {
       if (this._shouldEnableTripInteractions(layerName)) {
         this._removeTripHitboxLayer(layerName);
       }
     }
 
-    if (existingLayer) {
-      ["click", "mouseenter", "mouseleave"].forEach((event) => {
-        store.map.off(event, layerId);
-      });
-      store.map.removeLayer(layerId);
-    }
-
     if (isCoverageOverlay) {
+      if (store.map.getLayer(layerId)) {
+        ["click", "mouseenter", "mouseleave"].forEach((event) => {
+          store.map.off(event, layerId);
+        });
+        store.map.removeLayer(layerId);
+      }
       const overlayLayerIds = this._getCoverageOverlayLayerIds(layerName);
       [overlayLayerIds.fill, overlayLayerIds.glow, overlayLayerIds.pulse].forEach((overlayId) => {
         if (store.map.getLayer(overlayId)) {
@@ -1574,10 +1632,16 @@ const layerManager = {
       if (store.map.getSource(outsideMaskSourceId)) {
         store.map.removeSource(outsideMaskSourceId);
       }
+    } else {
+      this._removeLayerVariants(layerName);
     }
 
     if (existingSource) {
-      store.map.removeSource(sourceId);
+      try {
+        store.map.removeSource(sourceId);
+      } catch (error) {
+        console.warn(`Unable to remove source ${sourceId}:`, error);
+      }
     }
   },
 
@@ -1722,21 +1786,8 @@ const layerManager = {
       }
     }
 
-    // Cleanup existing layers
-    if (this._shouldEnableTripInteractions(layerName)) {
-      this._removeTripHitboxLayer(layerName);
-    }
-
-    for (let i = 0; i < 2; i++) {
-      const glowLayerId = `${layerName}-layer-${i}`;
-      if (store.map.getLayer(glowLayerId)) {
-        store.map.removeLayer(glowLayerId);
-      }
-    }
-
-    if (existingSource) {
-      store.map.removeSource(sourceId);
-    }
+    // Cleanup existing layer variants before rebuilding heatmap layers.
+    this._removeExistingLayerAndSource(layerName, `${layerName}-layer`, sourceId);
 
     await new Promise((resolve) => requestAnimationFrame(resolve));
 

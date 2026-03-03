@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 
-const settingsTemplatePath = path.join(root, "templates", "settings.html");
+const settingsTemplatePath = path.join(root, "templates", "control_center.html");
 const appSettingsJsPath = path.join(
   root,
   "static",

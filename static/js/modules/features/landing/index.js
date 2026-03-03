@@ -161,7 +161,7 @@ function highlightFrequentTiles() {
     "/visits": "visits",
     "/export": "export",
     "/coverage-management": "areas",
-    "/settings": "settings",
+    "/control-center": "settings",
   };
 
   const frequentTiles = new Set(

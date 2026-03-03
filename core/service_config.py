@@ -71,6 +71,11 @@ def _apply_settings_to_env(settings: AppSettings, *, force: bool = False) -> Non
         "1" if settings.coverageIncludeServiceRoads else "0",
         force=force,
     )
+    _set_env_value(
+        "COVERAGE_TRIP_MODE",
+        str(getattr(settings, "streetCoverageTripMode", "both") or "both"),
+        force=force,
+    )
 
 
 def apply_settings_to_env(settings: AppSettings, *, force: bool = False) -> None:

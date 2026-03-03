@@ -10,7 +10,7 @@ Simplified API for managing coverage areas:
 """
 
 import logging
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, status
@@ -44,6 +44,7 @@ class CreateAreaRequest(BaseModel):
     display_name: str
     area_type: str = "city"  # city, county, state, custom
     boundary: dict[str, Any] | None = None  # Optional GeoJSON, fetched if not provided
+    trip_mode: Literal["regular", "matched", "both"] | None = None
 
 
 class ValidateAreaRequest(BaseModel):
@@ -709,6 +710,7 @@ async def add_area(request: CreateAreaRequest):
             display_name=request.display_name,
             area_type=request.area_type,
             boundary=boundary,
+            trip_mode=request.trip_mode,
         )
 
         # Get the associated job
@@ -761,7 +763,10 @@ async def remove_area(area_id: PydanticObjectId):
 
 
 @router.post("/areas/{area_id}/rebuild")
-async def trigger_rebuild(area_id: PydanticObjectId):
+async def trigger_rebuild(
+    area_id: PydanticObjectId,
+    trip_mode: Annotated[Literal["regular", "matched", "both"] | None, Query()] = None,
+):
     """
     Trigger a rebuild of an area with fresh OSM data.
 
@@ -773,7 +778,7 @@ async def trigger_rebuild(area_id: PydanticObjectId):
     Returns a job ID for tracking progress.
     """
     try:
-        job = await rebuild_area(area_id)
+        job = await rebuild_area(area_id, trip_mode=trip_mode)
 
         return {
             "success": True,
@@ -798,6 +803,7 @@ async def trigger_rebuild(area_id: PydanticObjectId):
 async def trigger_backfill(
     area_id: PydanticObjectId,
     background: Annotated[bool, Query()] = False,
+    trip_mode: Annotated[Literal["regular", "matched", "both"] | None, Query()] = None,
 ):
     """
     Trigger a backfill of coverage data for an existing area.
@@ -824,7 +830,7 @@ async def trigger_backfill(
 
     if background:
         try:
-            job = await backfill_area(area_id)
+            job = await backfill_area(area_id, trip_mode=trip_mode)
         except Exception as e:
             logger.exception(
                 "Error enqueueing backfill job for area %s",
@@ -848,7 +854,7 @@ async def trigger_backfill(
 
     try:
         logger.info("Starting backfill for area %s", area.display_name)
-        segments_updated = await backfill_coverage_for_area(area_id)
+        segments_updated = await backfill_coverage_for_area(area_id, trip_mode=trip_mode)
     except Exception as e:
         logger.exception("Error during backfill for area %s", area.display_name)
         raise HTTPException(

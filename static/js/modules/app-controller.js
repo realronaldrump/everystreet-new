@@ -90,6 +90,7 @@ const initializeLiveTracker = () => {
 const coverageAreaOverlayCache = new Map();
 const COVERAGE_SELECTION_EVENT = "es:coverage-area-selection-changed";
 const COVERAGE_FOCUS_EVENT = "es:focus-selected-coverage-area";
+const TRIP_LAYER_RENDER_MODE_EVENT = "es:trip-layer-render-mode-setting-changed";
 
 const buildCoverageBoundsFromOverlay = (overlayGeojson) => {
   const bounds = {
@@ -236,6 +237,29 @@ const AppController = {
   _listenersInitialized: false,
   _lastCoverageOverlayAreaId: null,
 
+  _readTripLayerHeatmapPreference() {
+    const key = CONFIG.STORAGE_KEYS.tripLayersUseHeatmap;
+    const stored = utils.getStorage(key, null);
+    if (typeof stored === "boolean") {
+      return stored;
+    }
+    if (stored === "true") {
+      return true;
+    }
+    if (stored === "false") {
+      return false;
+    }
+    return globalThis?.window?.APP_SETTINGS_FLAGS?.tripLayersUseHeatmap !== false;
+  },
+
+  async _applyTripLayerRenderModePreference({ explicitValue } = {}) {
+    const useHeatmap =
+      typeof explicitValue === "boolean"
+        ? explicitValue
+        : this._readTripLayerHeatmapPreference();
+    await layerManager.setTripLayerRenderMode(useHeatmap);
+  },
+
   /**
    * Initialize the application
    */
@@ -258,6 +282,8 @@ const AppController = {
         if (!mapOk) {
           throw new Error("Map initialization failed");
         }
+
+        await this._applyTripLayerRenderModePreference();
 
         // Phase 2: Set up layer manager
         layerManager.initializeControls();
@@ -552,6 +578,14 @@ const AppController = {
     document.addEventListener(COVERAGE_FOCUS_EVENT, async (e) => {
       const areaId = String(e?.detail?.areaId || "").trim();
       await this.focusSelectedCoverageArea(areaId || null);
+    });
+
+    document.addEventListener(TRIP_LAYER_RENDER_MODE_EVENT, async (e) => {
+      const useHeatmap = e?.detail?.useHeatmap;
+      if (typeof useHeatmap !== "boolean") {
+        return;
+      }
+      await this._applyTripLayerRenderModePreference({ explicitValue: useHeatmap });
     });
 
     // Quick-action street mode buttons (map controls). These dispatch a custom event.

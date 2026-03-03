@@ -33,30 +33,30 @@ def _find_route_content_close(html: str) -> int:
     return -1
 
 
-def test_settings_and_profile_content_blocks_have_balanced_divs() -> None:
-    for template_name in ("settings.html", "profile.html"):
-        content = _content_block(template_name)
-        open_divs = len(re.findall(r"<div\b", content))
-        close_divs = len(re.findall(r"</div>", content))
-        assert open_divs == close_divs, (
-            f"{template_name} has unbalanced <div> tags "
-            f"(open={open_divs}, close={close_divs})"
-        )
+def test_control_center_content_block_has_balanced_divs() -> None:
+    template_name = "control_center.html"
+    content = _content_block(template_name)
+    open_divs = len(re.findall(r"<div\b", content))
+    close_divs = len(re.findall(r"</div>", content))
+    assert open_divs == close_divs, (
+        f"{template_name} has unbalanced <div> tags "
+        f"(open={open_divs}, close={close_divs})"
+    )
 
 
-def test_settings_and_profile_route_content_closes_before_footer() -> None:
+def test_control_center_route_content_closes_before_footer() -> None:
     client = TestClient(app, raise_server_exceptions=False)
 
-    for path in ("/settings", "/profile"):
-        response = client.get(path)
-        assert response.status_code == 200, f"{path} did not render successfully"
-        html = response.text
-        footer_pos = html.find('<footer class="app-footer">')
-        assert footer_pos != -1, f"{path} is missing the app footer"
+    path = "/control-center"
+    response = client.get(path)
+    assert response.status_code == 200, f"{path} did not render successfully"
+    html = response.text
+    footer_pos = html.find('<footer class="app-footer">')
+    assert footer_pos != -1, f"{path} is missing the app footer"
 
-        route_content_close = _find_route_content_close(html)
-        assert route_content_close != -1, f"{path} never closed #route-content"
-        assert route_content_close < footer_pos, (
-            f"{path} footer appears before #route-content closes, "
-            "which can duplicate layout sections during SWUP container swaps"
-        )
+    route_content_close = _find_route_content_close(html)
+    assert route_content_close != -1, f"{path} never closed #route-content"
+    assert route_content_close < footer_pos, (
+        f"{path} footer appears before #route-content closes, "
+        "which can duplicate layout sections during SWUP container swaps"
+    )

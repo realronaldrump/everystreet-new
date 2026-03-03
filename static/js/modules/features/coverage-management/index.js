@@ -78,6 +78,7 @@ const INITIAL_STATE = () => ({
   // Service roads (kept synced across toggles)
   currentAreaSyncToken: null,
   currentAreaRoadFilterVersion: null,
+  coverageTripMode: "both",
 
   // Page lifecycle
   pageActive: false,
@@ -91,6 +92,12 @@ const INCLUDE_SERVICE_TOGGLE_IDS = [
   "include-service-roads-toggle",
   "dashboard-include-service-roads-toggle",
 ];
+const COVERAGE_TRIP_MODE_SELECT_IDS = [
+  "dashboard-coverage-trip-mode",
+  "modal-coverage-trip-mode",
+];
+const COVERAGE_TRIP_MODES = new Set(["regular", "matched", "both"]);
+const DEFAULT_COVERAGE_TRIP_MODE = "both";
 
 const VALIDATION_DEBOUNCE_MS = 500;
 const validationState = {
@@ -117,6 +124,27 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R; // ≈376.99
 
 const withSignal = (options = {}) =>
   state.pageSignal ? { ...options, signal: state.pageSignal } : options;
+
+function normalizeCoverageTripMode(value) {
+  const mode = String(value || "").trim().toLowerCase();
+  return COVERAGE_TRIP_MODES.has(mode) ? mode : DEFAULT_COVERAGE_TRIP_MODE;
+}
+
+function getCoverageTripModeLabel(mode) {
+  switch (normalizeCoverageTripMode(mode)) {
+    case "regular":
+      return "regular trips only";
+    case "matched":
+      return "matched trips only";
+    case "both":
+    default:
+      return "both regular and matched trips";
+  }
+}
+
+function getCoverageTripModeEndpointParam(mode) {
+  return encodeURIComponent(normalizeCoverageTripMode(mode));
+}
 
 // =============================================================================
 // Initialization
@@ -260,6 +288,11 @@ function setupEventListeners(signal) {
     document
       .getElementById(id)
       ?.addEventListener("change", handleIncludeServiceRoadsToggle, opt);
+  });
+  COVERAGE_TRIP_MODE_SELECT_IDS.forEach((id) => {
+    document
+      .getElementById(id)
+      ?.addEventListener("change", handleCoverageTripModeChange, opt);
   });
 
   // Validation candidates
@@ -575,6 +608,35 @@ function getIncludeServiceRoadsSelection() {
   return toggles.length ? Boolean(toggles[0].checked) : true;
 }
 
+function getCoverageTripModeSelects() {
+  return COVERAGE_TRIP_MODE_SELECT_IDS.map((id) => document.getElementById(id)).filter(
+    Boolean
+  );
+}
+
+function setCoverageTripModeSelectState({ mode, disabled } = {}) {
+  const normalizedMode = normalizeCoverageTripMode(mode);
+  if (typeof mode === "string") {
+    state.coverageTripMode = normalizedMode;
+  }
+  getCoverageTripModeSelects().forEach((select) => {
+    if (typeof mode === "string") {
+      select.value = normalizedMode;
+    }
+    if (typeof disabled === "boolean") {
+      select.disabled = disabled;
+    }
+  });
+}
+
+function getCoverageTripModeSelection() {
+  const selects = getCoverageTripModeSelects();
+  if (selects.length) {
+    return normalizeCoverageTripMode(selects[0].value);
+  }
+  return normalizeCoverageTripMode(state.coverageTripMode);
+}
+
 function setIncludeServiceRoadsStatus(message, tone = "secondary") {
   const tones = {
     secondary: "text-secondary",
@@ -584,6 +646,20 @@ function setIncludeServiceRoadsStatus(message, tone = "secondary") {
   };
   const cls = tones[tone] || tones.secondary;
   document.querySelectorAll("[data-include-service-status]").forEach((el) => {
+    el.className = `form-text d-block mt-1 ${cls}`;
+    el.textContent = message;
+  });
+}
+
+function setCoverageTripModeStatus(message, tone = "secondary") {
+  const tones = {
+    secondary: "text-secondary",
+    info: "text-info",
+    success: "text-success",
+    danger: "text-danger",
+  };
+  const cls = tones[tone] || tones.secondary;
+  document.querySelectorAll("[data-coverage-trip-mode-status]").forEach((el) => {
     el.className = `form-text d-block mt-1 ${cls}`;
     el.textContent = message;
   });
@@ -610,23 +686,39 @@ function shouldRebuildForServiceFilter(areaId, includeServiceRoads) {
 
 async function loadCoverageFilterSettings() {
   setIncludeServiceRoadsToggleState({ disabled: true });
+  setCoverageTripModeSelectState({ disabled: true });
   setIncludeServiceRoadsStatus("Loading filter settings…", "info");
+  setCoverageTripModeStatus("Loading trip source setting…", "info");
 
   try {
     const settings = await apiClient.get(APP_SETTINGS_API, withSignal());
     const include = settings?.coverageIncludeServiceRoads !== false;
+    const tripMode = normalizeCoverageTripMode(
+      settings?.streetCoverageTripMode || DEFAULT_COVERAGE_TRIP_MODE
+    );
     setIncludeServiceRoadsToggleState({ checked: include });
+    setCoverageTripModeSelectState({ mode: tripMode });
     setIncludeServiceRoadsStatus(
       include
         ? "Service roads are included for new area builds."
         : "Service roads are excluded for new area builds.",
       "secondary"
     );
+    setCoverageTripModeStatus(
+      `Street coverage uses ${getCoverageTripModeLabel(tripMode)} by default.`,
+      "secondary"
+    );
   } catch {
     setIncludeServiceRoadsToggleState({ checked: true });
+    setCoverageTripModeSelectState({ mode: DEFAULT_COVERAGE_TRIP_MODE });
     setIncludeServiceRoadsStatus("Using default: include service roads.", "secondary");
+    setCoverageTripModeStatus(
+      "Using default trip source: both regular and matched trips.",
+      "secondary"
+    );
   } finally {
     setIncludeServiceRoadsToggleState({ disabled: false });
+    setCoverageTripModeSelectState({ disabled: false });
   }
 }
 
@@ -666,6 +758,40 @@ async function handleIncludeServiceRoadsToggle(event) {
     );
   } finally {
     setIncludeServiceRoadsToggleState({ disabled: false });
+  }
+}
+
+async function handleCoverageTripModeChange(event) {
+  const target = event?.currentTarget;
+  if (!target) {
+    return;
+  }
+
+  const nextMode = normalizeCoverageTripMode(target.value);
+  const previousMode = normalizeCoverageTripMode(state.coverageTripMode);
+  setCoverageTripModeSelectState({ mode: nextMode, disabled: true });
+  setCoverageTripModeStatus("Saving trip source setting…", "info");
+
+  try {
+    await apiClient.post(
+      APP_SETTINGS_API,
+      { streetCoverageTripMode: nextMode },
+      withSignal()
+    );
+    setCoverageTripModeStatus(
+      `Street coverage now uses ${getCoverageTripModeLabel(nextMode)}.`,
+      "success"
+    );
+    notificationManager.show("Coverage trip source saved.", "success");
+  } catch (error) {
+    setCoverageTripModeSelectState({ mode: previousMode });
+    setCoverageTripModeStatus("Save failed. Keeping previous setting.", "danger");
+    notificationManager.show(
+      `Failed to save trip source setting: ${error.message}`,
+      "danger"
+    );
+  } finally {
+    setCoverageTripModeSelectState({ disabled: false });
   }
 }
 
@@ -784,6 +910,7 @@ function handleAreaCardClick(event) {
 async function addArea() {
   const displayNameInput = document.getElementById("location-input").value.trim();
   const areaType = document.getElementById("location-type").value;
+  const tripMode = getCoverageTripModeSelection();
 
   if (!displayNameInput) {
     notificationManager.show("Please enter a location name", "warning");
@@ -811,6 +938,7 @@ async function addArea() {
       display_name: displayName,
       area_type: areaType,
       boundary: validationState.confirmedBoundary,
+      trip_mode: tripMode,
     });
 
     await loadAreas();
@@ -867,10 +995,11 @@ async function deleteArea(areaId, displayName) {
 }
 
 async function rebuildArea(areaId, displayName) {
+  const tripMode = getCoverageTripModeSelection();
+  const tripModeLabel = getCoverageTripModeLabel(tripMode);
   const confirmed = await confirmationDialog.show({
     title: "Rebuild Coverage Area",
-    message:
-      "Rebuild this area with fresh data from the local OSM extract?<br><br>This may take a few minutes.",
+    message: `Rebuild this area with fresh data from the local OSM extract using <strong>${escapeHtml(tripModeLabel)}</strong>?<br><br>This may take a few minutes.`,
     allowHtml: true,
     confirmText: "Rebuild",
     confirmButtonClass: "btn-warning",
@@ -881,7 +1010,10 @@ async function rebuildArea(areaId, displayName) {
   }
 
   try {
-    const result = await apiPost(`/areas/${areaId}/rebuild`, {});
+    const result = await apiPost(
+      `/areas/${areaId}/rebuild?trip_mode=${getCoverageTripModeEndpointParam(tripMode)}`,
+      {}
+    );
     await loadAreas();
 
     if (result.job_id) {
@@ -905,14 +1037,16 @@ async function rebuildArea(areaId, displayName) {
 
 async function recalculateCoverage(areaId, displayName) {
   const includeServiceRoads = getIncludeServiceRoadsSelection();
+  const tripMode = getCoverageTripModeSelection();
+  const tripModeLabel = getCoverageTripModeLabel(tripMode);
   const needsRebuild = shouldRebuildForServiceFilter(areaId, includeServiceRoads);
   const policyLabel = includeServiceRoads ? "include" : "exclude";
 
   const confirmed = await confirmationDialog.show({
     title: "Recalculate Coverage",
     message: needsRebuild
-      ? `Recalculate coverage for "<strong>${escapeHtml(displayName)}</strong>" using the current service-road policy (<strong>${policyLabel}</strong>)?<br><br>This will rebuild streets from OSM, then rematch trips.`
-      : `Recalculate coverage for "<strong>${escapeHtml(displayName)}</strong>" by matching all existing trips?<br><br>Street filters already match — this will run a fast backfill.`,
+      ? `Recalculate coverage for "<strong>${escapeHtml(displayName)}</strong>" using service-road policy <strong>${policyLabel}</strong> and <strong>${escapeHtml(tripModeLabel)}</strong>?<br><br>This will rebuild streets from OSM, then rematch trips.`
+      : `Recalculate coverage for "<strong>${escapeHtml(displayName)}</strong>" using <strong>${escapeHtml(tripModeLabel)}</strong>?<br><br>Street filters already match — this will run a fast backfill.`,
     allowHtml: true,
     confirmText: needsRebuild ? "Recalculate + Rebuild Streets" : "Recalculate",
     confirmButtonClass: needsRebuild ? "btn-warning" : "btn-info",
@@ -924,7 +1058,10 @@ async function recalculateCoverage(areaId, displayName) {
 
   try {
     if (needsRebuild) {
-      const result = await apiPost(`/areas/${areaId}/rebuild`, {});
+      const result = await apiPost(
+        `/areas/${areaId}/rebuild?trip_mode=${getCoverageTripModeEndpointParam(tripMode)}`,
+        {}
+      );
       await loadAreas();
       if (result.job_id) {
         GlobalJobTracker.start({
@@ -944,7 +1081,10 @@ async function recalculateCoverage(areaId, displayName) {
     }
 
     notificationManager.show("Recalculating coverage… This may take a moment.", "info");
-    const result = await apiPost(`/areas/${areaId}/backfill`, {});
+    const result = await apiPost(
+      `/areas/${areaId}/backfill?trip_mode=${getCoverageTripModeEndpointParam(tripMode)}`,
+      {}
+    );
     notificationManager.show(
       `Coverage recalculated! Updated ${result.segments_updated} segments.`,
       "success"

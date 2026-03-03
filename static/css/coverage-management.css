@@ -669,6 +669,20 @@
   margin-bottom: 0;
 }
 
+.sidebar-select-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.sidebar-select-input {
+  font-size: var(--font-size-sm);
+  border-color: var(--glass-border-medium);
+  background: rgb(var(--text-rgb) / 6%);
+}
+
 .toggle-text {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);

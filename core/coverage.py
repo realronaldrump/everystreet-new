@@ -6,13 +6,14 @@ import gc
 import itertools
 import logging
 import math
+import os
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import lru_cache
 from statistics import median
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from beanie import PydanticObjectId
 from pymongo import UpdateOne
@@ -49,6 +50,50 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 BackfillProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
+CoverageTripMode = Literal["regular", "matched", "both"]
+DEFAULT_COVERAGE_TRIP_MODE: CoverageTripMode = "both"
+VALID_COVERAGE_TRIP_MODES: frozenset[str] = frozenset({"regular", "matched", "both"})
+
+
+def normalize_coverage_trip_mode(
+    value: str | None,
+    *,
+    default: str | None = DEFAULT_COVERAGE_TRIP_MODE,
+) -> CoverageTripMode:
+    mode = str(value or "").strip().lower()
+    if mode in VALID_COVERAGE_TRIP_MODES:
+        return mode  # type: ignore[return-value]
+    fallback = str(default or DEFAULT_COVERAGE_TRIP_MODE).strip().lower()
+    if fallback in VALID_COVERAGE_TRIP_MODES:
+        return fallback  # type: ignore[return-value]
+    return DEFAULT_COVERAGE_TRIP_MODE
+
+
+async def get_effective_coverage_trip_mode(
+    trip_mode: str | None = None,
+) -> CoverageTripMode:
+    if isinstance(trip_mode, str) and trip_mode.strip():
+        return normalize_coverage_trip_mode(trip_mode)
+
+    env_mode = os.getenv("COVERAGE_TRIP_MODE")
+    if isinstance(env_mode, str) and env_mode.strip():
+        return normalize_coverage_trip_mode(env_mode)
+
+    try:
+        from core.service_config import get_service_config
+
+        settings = await get_service_config()
+        return normalize_coverage_trip_mode(
+            getattr(settings, "streetCoverageTripMode", None),
+            default=DEFAULT_COVERAGE_TRIP_MODE,
+        )
+    except Exception:
+        logger.debug(
+            "Falling back to default coverage trip mode=%s",
+            DEFAULT_COVERAGE_TRIP_MODE,
+            exc_info=True,
+        )
+        return DEFAULT_COVERAGE_TRIP_MODE
 
 
 def _line_bearing(line: BaseGeometry) -> float | None:
@@ -446,63 +491,99 @@ def _split_coords_by_gap(coords: list[list[float]]) -> list[LineString]:
     return segments
 
 
-def trip_to_linestring(
-    trip: dict[str, Any],
-) -> tuple[BaseGeometry | None, bool]:
-    """
-    Convert a trip document to a Shapely LineString/MultiLineString.
+def _has_confirmed_matched_geometry(trip: dict[str, Any]) -> bool:
+    match_status = str(trip.get("matchStatus") or "").strip().lower()
+    if match_status.startswith("matched"):
+        return True
+    return trip.get("matched_at") is not None
 
-    Prefers map-matched geometry (matchedGps) when available because it
-    is snapped to the road network and significantly more accurate for
-    coverage matching.  Falls back to raw GPS (trip["gps"]) when
-    matching was not performed or failed.
 
-    Returns (geometry, is_map_matched) tuple. geometry is None if trip
-    has no valid geometry.
-    """
-    # Prefer map-matched geometry — it is snapped to the actual road
-    # network so coverage attribution is far more accurate, especially
-    # on parallel roads.
+def _trip_to_matched_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
     matched_gps = trip.get("matchedGps")
-    match_status = trip.get("matchStatus") or ""
-    if isinstance(matched_gps, dict) and match_status.startswith("matched"):
-        matched_lines = _extract_lines_from_geojson(matched_gps)
-        if matched_lines:
-            # Map-matched geometry doesn't have GPS gaps so we can
-            # use the coordinates directly without gap splitting.
-            segments = [
-                LineString(line_coords)
-                for line_coords in matched_lines
-                if len(line_coords) >= 2
-            ]
-            if segments:
-                geom = segments[0] if len(segments) == 1 else MultiLineString(segments)
-                return geom, True
+    if not isinstance(matched_gps, dict) or not _has_confirmed_matched_geometry(trip):
+        return None
 
-    # Fall back to raw GPS trace.
+    matched_lines = _extract_lines_from_geojson(matched_gps)
+    if not matched_lines:
+        return None
+
+    segments = [LineString(line_coords) for line_coords in matched_lines if len(line_coords) >= 2]
+    if not segments:
+        return None
+    return segments[0] if len(segments) == 1 else MultiLineString(segments)
+
+
+def _trip_to_raw_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
     geom = trip.get("gps")
     if not isinstance(geom, dict):
-        return None, False
+        return None
 
     lines = _extract_lines_from_geojson(geom)
     if not lines:
-        return None, False
+        return None
 
     segments_raw: list[LineString] = []
     for line_coords in lines:
         segments_raw.extend(_split_coords_by_gap(line_coords))
 
     if not segments_raw:
+        return None
+    return segments_raw[0] if len(segments_raw) == 1 else MultiLineString(segments_raw)
+
+
+def trip_to_linestring_candidates(
+    trip: dict[str, Any],
+    trip_mode: str = DEFAULT_COVERAGE_TRIP_MODE,
+) -> list[tuple[BaseGeometry, bool]]:
+    """
+    Build candidate trip geometries for street matching.
+
+    Returns a list of ``(geometry, is_map_matched)`` ordered by preference.
+    """
+    mode = normalize_coverage_trip_mode(trip_mode)
+    matched_geom = _trip_to_matched_linestring(trip)
+    raw_geom = _trip_to_raw_linestring(trip)
+
+    if mode == "matched":
+        return [(matched_geom, True)] if matched_geom is not None else []
+    if mode == "regular":
+        return [(raw_geom, False)] if raw_geom is not None else []
+
+    # "both" evaluates both matched and raw traces and unions segment hits.
+    candidates: list[tuple[BaseGeometry, bool]] = []
+    if matched_geom is not None:
+        candidates.append((matched_geom, True))
+    if raw_geom is not None:
+        candidates.append((raw_geom, False))
+    return candidates
+
+
+def trip_to_linestring(
+    trip: dict[str, Any],
+    trip_mode: str = DEFAULT_COVERAGE_TRIP_MODE,
+) -> tuple[BaseGeometry | None, bool]:
+    """
+    Convert a trip document to a preferred geometry for coverage matching.
+
+    Returns ``(geometry, is_map_matched)`` where geometry is None when no
+    usable trip geometry is available for the selected mode.
+    """
+    candidates = trip_to_linestring_candidates(trip, trip_mode=trip_mode)
+    if not candidates:
         return None, False
-    raw_geom = (
-        segments_raw[0] if len(segments_raw) == 1 else MultiLineString(segments_raw)
-    )
-    return raw_geom, False
+    return candidates[0]
+
+
+def _matching_params(is_map_matched: bool) -> tuple[float, float]:
+    buffer = MATCH_BUFFER_METERS if is_map_matched else RAW_GPS_BUFFER_METERS
+    overlap_ratio = COVERAGE_OVERLAP_RATIO if is_map_matched else RAW_GPS_OVERLAP_RATIO
+    return buffer, overlap_ratio
 
 
 async def match_trip_to_streets(
     trip: dict[str, Any],
     area_ids: list[PydanticObjectId] | None = None,
+    trip_mode: str | None = None,
 ) -> dict[PydanticObjectId, list[str]]:
     """
     Match a trip to streets in one or more areas.
@@ -513,23 +594,26 @@ async def match_trip_to_streets(
 
     Returns dict mapping area_id -> list of matched segment_ids.
     """
-    trip_line, is_map_matched = trip_to_linestring(trip)
-    if trip_line is None:
+    selected_mode = await get_effective_coverage_trip_mode(trip_mode)
+    trip_candidates = trip_to_linestring_candidates(trip, trip_mode=selected_mode)
+    if not trip_candidates:
         logger.warning("Trip has no valid geometry, skipping matching")
         return {}
 
-    if not is_map_matched:
+    if selected_mode != "matched" and all(not is_map_matched for _, is_map_matched in trip_candidates):
         logger.warning(
             "Trip using raw GPS fallback for coverage matching "
             "(map matching unavailable) — results may be less accurate"
         )
 
-    # Select matching parameters based on geometry source
-    buffer = MATCH_BUFFER_METERS if is_map_matched else RAW_GPS_BUFFER_METERS
-    overlap_ratio = COVERAGE_OVERLAP_RATIO if is_map_matched else RAW_GPS_OVERLAP_RATIO
-
     if area_ids is None:
-        minx, miny, maxx, maxy = trip_line.bounds
+        minx, miny, maxx, maxy = trip_candidates[0][0].bounds
+        for trip_line, _ in trip_candidates[1:]:
+            cand_minx, cand_miny, cand_maxx, cand_maxy = trip_line.bounds
+            minx = min(minx, cand_minx)
+            miny = min(miny, cand_miny)
+            maxx = max(maxx, cand_maxx)
+            maxy = max(maxy, cand_maxy)
 
         areas = await CoverageArea.find(
             {
@@ -558,19 +642,24 @@ async def match_trip_to_streets(
             continue
         try:
             index = await get_area_segment_index(area_id, area_version)
-            matched = index.find_matching_segments(
-                trip_line,
-                buffer_meters=buffer,
-                coverage_ratio=overlap_ratio,
-            )
+            matched_ids: set[str] = set()
+            for trip_line, is_map_matched in trip_candidates:
+                buffer, overlap_ratio = _matching_params(is_map_matched)
+                matched = index.find_matching_segments(
+                    trip_line,
+                    buffer_meters=buffer,
+                    coverage_ratio=overlap_ratio,
+                )
+                if matched:
+                    matched_ids.update(matched)
         except MemoryError:
             logger.warning(
                 "Area %s too large for in-memory index, skipping",
                 area_id,
             )
             continue
-        if matched:
-            results[area_id] = matched
+        if matched_ids:
+            results[area_id] = sorted(matched_ids)
 
     return results
 
@@ -578,12 +667,13 @@ async def match_trip_to_streets(
 async def update_coverage_for_trip(
     trip_data: dict[str, Any],
     trip_id: PydanticObjectId | str | None = None,
+    trip_mode: str | None = None,
 ) -> int:
     """Update coverage state for a completed trip."""
     if not trip_data:
         return 0
 
-    matches = await match_trip_to_streets(trip_data)
+    matches = await match_trip_to_streets(trip_data, trip_mode=trip_mode)
 
     if not matches:
         logger.debug("Trip did not match any coverage areas")
@@ -846,12 +936,64 @@ async def mark_segment_undriven(
     return True
 
 
+def _build_backfill_trip_query(
+    area: CoverageArea,
+    *,
+    since: datetime | None,
+    trip_mode: CoverageTripMode,
+) -> dict[str, Any]:
+    geo_filter: dict[str, Any] = {"$ne": None}
+    if (
+        isinstance(area.bounding_box, list)
+        and len(area.bounding_box) == 4
+        and all(isinstance(v, int | float) for v in area.bounding_box)
+    ):
+        min_lon, min_lat, max_lon, max_lat = map(float, area.bounding_box)
+        bbox_polygon = {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [min_lon, min_lat],
+                    [max_lon, min_lat],
+                    [max_lon, max_lat],
+                    [min_lon, max_lat],
+                    [min_lon, min_lat],
+                ],
+            ],
+        }
+        geo_filter = {"$geoIntersects": {"$geometry": bbox_polygon}}
+
+    matched_branch: dict[str, Any] = {
+        "matchedGps": geo_filter,
+        "$or": [
+            {"matchStatus": {"$regex": "^matched", "$options": "i"}},
+            {"matched_at": {"$ne": None}},
+        ],
+    }
+
+    query: dict[str, Any] = {"invalid": {"$ne": True}}
+    if trip_mode == "regular":
+        query["gps"] = geo_filter
+    elif trip_mode == "matched":
+        query.update(matched_branch)
+    else:
+        query["$or"] = [
+            {"gps": geo_filter},
+            matched_branch,
+        ]
+
+    if since:
+        query["endTime"] = {"$gte": since}
+    return enforce_bouncie_source(query)
+
+
 async def backfill_coverage_for_area(
     area_id: PydanticObjectId,
     since: datetime | None = None,
     progress_callback: BackfillProgressCallback | None = None,
     progress_interval: int = 100,
     progress_time_seconds: float = 0.5,
+    trip_mode: str | None = None,
     *,
     full: bool = False,
 ) -> int:
@@ -884,6 +1026,8 @@ async def backfill_coverage_for_area(
             area.status,
         )
         return 0
+
+    selected_mode = await get_effective_coverage_trip_mode(trip_mode)
 
     segment_index = await get_area_segment_index(area_id, area.area_version)
 
@@ -926,46 +1070,20 @@ async def backfill_coverage_for_area(
             "matched_trips": matched_trips,
             "segments_updated": len(segment_first),
             "stage": "matching",
+            "trip_mode": selected_mode,
         }
         await progress_callback(payload)
         last_reported_time = now
 
-    gps_filter: dict[str, Any] = {"$ne": None}
-    if (
-        isinstance(area.bounding_box, list)
-        and len(area.bounding_box) == 4
-        and all(isinstance(v, int | float) for v in area.bounding_box)
-    ):
-        min_lon, min_lat, max_lon, max_lat = map(float, area.bounding_box)
-        bbox_polygon = {
-            "type": "Polygon",
-            "coordinates": [
-                [
-                    [min_lon, min_lat],
-                    [max_lon, min_lat],
-                    [max_lon, max_lat],
-                    [min_lon, max_lat],
-                    [min_lon, min_lat],
-                ],
-            ],
-        }
-        # Mongo expects a pure geospatial clause for this field predicate.
-        gps_filter = {"$geoIntersects": {"$geometry": bbox_polygon}}
-
-    query: dict[str, Any] = {
-        "gps": gps_filter,
-        "invalid": {"$ne": True},
-    }
-    if since:
-        query["endTime"] = {"$gte": since}
-    query = enforce_bouncie_source(query)
+    query = _build_backfill_trip_query(area, since=since, trip_mode=selected_mode)
 
     total_trip_count = await Trip.find(query).count()
 
     logger.info(
-        "Processing %d trips for area %s",
+        "Processing %d trips for area %s (trip_mode=%s)",
         total_trip_count,
         area.display_name,
+        selected_mode,
     )
     await report_progress(total_trips=total_trip_count, force=True)
 
@@ -984,23 +1102,27 @@ async def backfill_coverage_for_area(
             if isinstance(trip_end, datetime):
                 latest_trip_endtime = trip_end
 
-            trip_line, is_map_matched = trip_to_linestring(trip_data)
-            if trip_line is None:
+            trip_candidates = trip_to_linestring_candidates(
+                trip_data,
+                trip_mode=selected_mode,
+            )
+            if not trip_candidates:
                 continue
 
             trip_time = get_trip_driven_at(trip_data)
             if trip_time is None:
                 continue
 
-            buffer = MATCH_BUFFER_METERS if is_map_matched else RAW_GPS_BUFFER_METERS
-            overlap_ratio = (
-                COVERAGE_OVERLAP_RATIO if is_map_matched else RAW_GPS_OVERLAP_RATIO
-            )
-            matched_segment_ids = segment_index.find_matching_segments(
-                trip_line,
-                buffer_meters=buffer,
-                coverage_ratio=overlap_ratio,
-            )
+            matched_segment_ids: set[str] = set()
+            for trip_line, is_map_matched in trip_candidates:
+                buffer, overlap_ratio = _matching_params(is_map_matched)
+                matched = segment_index.find_matching_segments(
+                    trip_line,
+                    buffer_meters=buffer,
+                    coverage_ratio=overlap_ratio,
+                )
+                if matched:
+                    matched_segment_ids.update(matched)
             if not matched_segment_ids:
                 continue
 

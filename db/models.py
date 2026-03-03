@@ -930,6 +930,7 @@ class AppSettings(Document):
     highlightRecentTrips: bool = True
     autoCenter: bool = True
     mapTripsWithinCoverageOnly: bool = False
+    tripLayersUseHeatmap: bool = True
     geocodeTripsOnFetch: bool = True
     mapMatchTripsOnFetch: bool = False
 
@@ -955,6 +956,7 @@ class AppSettings(Document):
     mapCoverageMaxPointsPerTrip: int = 2000
     mapCoverageBatchSize: int = 200
     coverageIncludeServiceRoads: bool = True
+    streetCoverageTripMode: str = "both"
     geoCoverageRecalcMode: str = "incremental"
 
     # Logs

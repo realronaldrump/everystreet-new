@@ -16,7 +16,13 @@ import { CONFIG } from "../../core/config.js";
 import loadingManager from "../../ui/loading-manager.js";
 import notificationManager from "../../ui/notifications.js";
 import { formatDateTime } from "../../utils.js";
-import { initAppSettings } from "./app-settings.js";
+import initServerLogsPage from "../server-logs/index.js";
+import initControlCenterOverview from "./control-center-overview.js";
+import {
+  initAppSettings,
+  SETTINGS_TAB_CHANGED_EVENT,
+  setActiveTab,
+} from "./app-settings.js";
 import { setupCredentialsSettings } from "./credentials-settings.js";
 import { initDatabaseManagement } from "./database-management.js";
 import {
@@ -520,6 +526,22 @@ function setupTaskConfigEventListeners(taskMgr, signal) {
   }
 }
 
+function setupControlCenterTabShortcuts(signal) {
+  const eventOptions = signal ? { signal } : false;
+  document.querySelectorAll("[data-open-tab]").forEach((el) => {
+    el.addEventListener(
+      "click",
+      () => {
+        const tabName = el.getAttribute("data-open-tab");
+        if (tabName) {
+          setActiveTab(tabName, { updateHash: true });
+        }
+      },
+      eventOptions
+    );
+  });
+}
+
 /**
  * Main initialization function
  */
@@ -542,6 +564,31 @@ export default function initSettingsPage({ cleanup, signal } = {}) {
   // Initialize mobile UI
   const mobileCleanup = initMobileUI(taskManager);
 
+  // Initialize overview panel and shortcuts.
+  const overviewCleanup = initControlCenterOverview({ signal });
+  setupControlCenterTabShortcuts(signal);
+
+  // Lazily initialize logs tooling when the Logs tab is first opened.
+  let logsCleanup = null;
+  let logsInitialized = false;
+  const initializeLogsTab = () => {
+    if (logsInitialized || !document.getElementById("logs-tab")) {
+      return;
+    }
+    logsCleanup = initServerLogsPage({ signal });
+    logsInitialized = true;
+  };
+  const eventOptions = signal ? { signal } : false;
+  document.addEventListener(
+    SETTINGS_TAB_CHANGED_EVENT,
+    (event) => {
+      if (event?.detail?.tabName === "logs") {
+        initializeLogsTab();
+      }
+    },
+    eventOptions
+  );
+
   // Initialize app settings (tabs, preferences)
   initAppSettings({ signal });
 
@@ -562,6 +609,12 @@ export default function initSettingsPage({ cleanup, signal } = {}) {
   const teardown = () => {
     if (typeof mobileCleanup === "function") {
       mobileCleanup();
+    }
+    if (typeof overviewCleanup === "function") {
+      overviewCleanup();
+    }
+    if (typeof logsCleanup === "function") {
+      logsCleanup();
     }
     if (taskManager) {
       taskManager.cleanup();

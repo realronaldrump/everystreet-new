@@ -8,13 +8,23 @@ import notificationManager from "../../ui/notifications.js";
 
 const TAB_STORAGE_KEY = "es:settings-active-tab";
 const MAP_3D_TOGGLE_EVENT = "es:map-3d-buildings-setting-changed";
+const TRIP_LAYER_RENDER_MODE_EVENT = "es:trip-layer-render-mode-setting-changed";
+export const SETTINGS_TAB_CHANGED_EVENT = "settings:tab-changed";
+const TAB_ALIASES = {
+  sync: "sync-settings",
+  coverage: "map-services",
+  status: "overview",
+  "server-logs": "logs",
+  profile: "account",
+};
 
 function normalizeTabName(value) {
   if (!value) {
     return "";
   }
   const name = value.replace(/^#/, "").trim();
-  return name.endsWith("-tab") ? name.slice(0, -4) : name;
+  const normalized = name.endsWith("-tab") ? name.slice(0, -4) : name;
+  return TAB_ALIASES[normalized] || normalized;
 }
 
 function readStoredBoolean(key) {
@@ -43,39 +53,59 @@ function emitMap3dBuildingsSetting(enabled) {
   );
 }
 
+function emitTripLayerRenderModeSetting(useHeatmap) {
+  if (typeof useHeatmap !== "boolean") {
+    return;
+  }
+  document.dispatchEvent(
+    new CustomEvent(TRIP_LAYER_RENDER_MODE_EVENT, {
+      detail: { useHeatmap },
+    })
+  );
+}
+
 export function setActiveTab(tabName, { persist = true, updateHash = false } = {}) {
-  if (!tabName) {
+  const normalizedTabName = normalizeTabName(tabName);
+  if (!normalizedTabName) {
     return false;
   }
 
   const tabs = document.querySelectorAll(".settings-tab");
   const tabContents = document.querySelectorAll(".settings-tab-content");
-  const tabButton = document.querySelector(`.settings-tab[data-tab="${tabName}"]`);
-  const tabContent = document.getElementById(`${tabName}-tab`);
+  const tabButton = document.querySelector(
+    `.settings-tab[data-tab="${normalizedTabName}"]`
+  );
+  const tabContent = document.getElementById(`${normalizedTabName}-tab`);
 
   if (!tabButton || !tabContent) {
     return false;
   }
 
   tabs.forEach((tab) => {
-    const active = tab.dataset.tab === tabName;
+    const active = tab.dataset.tab === normalizedTabName;
     tab.classList.toggle("active", active);
     tab.setAttribute("aria-selected", String(active));
   });
 
   tabContents.forEach((content) => {
-    content.classList.toggle("active", content.id === `${tabName}-tab`);
+    content.classList.toggle("active", content.id === `${normalizedTabName}-tab`);
   });
 
   if (persist) {
-    localStorage.setItem(TAB_STORAGE_KEY, tabName);
+    localStorage.setItem(TAB_STORAGE_KEY, normalizedTabName);
   }
 
   if (updateHash) {
     const url = new URL(window.location.href);
-    url.hash = tabName;
+    url.hash = normalizedTabName;
     window.history.replaceState(window.history.state, document.title, url.toString());
   }
+
+  document.dispatchEvent(
+    new CustomEvent(SETTINGS_TAB_CHANGED_EVENT, {
+      detail: { tabName: normalizedTabName },
+    })
+  );
 
   return true;
 }
@@ -84,11 +114,13 @@ export function setupTabSwitching({ signal } = {}) {
   const tabs = document.querySelectorAll(".settings-tab");
 
   const hashTab = normalizeTabName(window.location.hash);
-  if (!hashTab || !setActiveTab(hashTab, { persist: true })) {
-    const storedTab = normalizeTabName(localStorage.getItem(TAB_STORAGE_KEY));
-    if (storedTab && !setActiveTab(storedTab, { persist: false })) {
+  const storedTab = normalizeTabName(localStorage.getItem(TAB_STORAGE_KEY));
+  const initialTab = hashTab || storedTab || "overview";
+  if (!setActiveTab(initialTab, { persist: true })) {
+    if (storedTab) {
       localStorage.removeItem(TAB_STORAGE_KEY);
     }
+    setActiveTab("overview", { persist: true });
   }
 
   const eventOptions = signal ? { signal } : false;
@@ -124,6 +156,9 @@ export function setupAppSettingsForm() {
   const mapTripsWithinCoverageOnlyToggle = document.getElementById(
     "map-trips-within-coverage-only"
   );
+  const tripLayersUseHeatmapToggle = document.getElementById(
+    "trip-layers-use-heatmap"
+  );
   const geocodeTripsOnFetch = document.getElementById("geocode-trips-on-fetch");
   const mapMatchTripsOnFetch = document.getElementById("map-match-trips-on-fetch");
   const form = document.getElementById("app-settings-form");
@@ -140,6 +175,7 @@ export function setupAppSettingsForm() {
       autoCenter,
       map3dBuildingsEnabled,
       mapTripsWithinCoverageOnly,
+      tripLayersUseHeatmap,
       geocodeTripsOnFetch: gtof,
       mapMatchTripsOnFetch: mmtof,
       accentColor,
@@ -196,6 +232,23 @@ export function setupAppSettingsForm() {
         resolvedCoverageOnly ? "true" : "false"
       );
     }
+    const storedTripLayersUseHeatmap = readStoredBoolean(
+      CONFIG.STORAGE_KEYS.tripLayersUseHeatmap
+    );
+    const resolvedTripLayersUseHeatmap =
+      typeof tripLayersUseHeatmap === "boolean"
+        ? tripLayersUseHeatmap
+        : storedTripLayersUseHeatmap;
+    if (tripLayersUseHeatmapToggle) {
+      tripLayersUseHeatmapToggle.checked = resolvedTripLayersUseHeatmap !== false;
+    }
+    if (typeof resolvedTripLayersUseHeatmap === "boolean") {
+      localStorage.setItem(
+        CONFIG.STORAGE_KEYS.tripLayersUseHeatmap,
+        resolvedTripLayersUseHeatmap ? "true" : "false"
+      );
+      emitTripLayerRenderModeSetting(resolvedTripLayersUseHeatmap);
+    }
     if (geocodeTripsOnFetch) {
       geocodeTripsOnFetch.checked = gtof !== false;
     }
@@ -227,7 +280,7 @@ export function setupAppSettingsForm() {
         normalizeTabName(window.location.hash) ||
         normalizeTabName(localStorage.getItem(TAB_STORAGE_KEY));
       if (hashTab === "map-services") {
-        setActiveTab("preferences", { updateHash: true });
+        setActiveTab("overview", { updateHash: true });
       }
     }
     if (widgetEditToggle) {
@@ -265,6 +318,7 @@ export function setupAppSettingsForm() {
       autoCenter: autoCenterToggle?.checked,
       map3dBuildingsEnabled: map3dBuildingsToggle?.checked ?? true,
       mapTripsWithinCoverageOnly: mapTripsWithinCoverageOnlyToggle?.checked ?? false,
+      tripLayersUseHeatmap: tripLayersUseHeatmapToggle?.checked ?? true,
       geocodeTripsOnFetch: geocodeTripsOnFetch?.checked,
       mapMatchTripsOnFetch: mapMatchTripsOnFetch?.checked,
       accentColor: accentColorPicker?.value,
@@ -290,10 +344,15 @@ export function setupAppSettingsForm() {
       CONFIG.STORAGE_KEYS.mapTripsWithinCoverageOnly,
       payload.mapTripsWithinCoverageOnly ? "true" : "false"
     );
+    localStorage.setItem(
+      CONFIG.STORAGE_KEYS.tripLayersUseHeatmap,
+      payload.tripLayersUseHeatmap ? "true" : "false"
+    );
     localStorage.setItem("es:accent-color", payload.accentColor || "");
     localStorage.setItem("es:ui-density", payload.uiDensity);
     localStorage.setItem("es:widget-editing", payload.widgetEditing ? "true" : "false");
     emitMap3dBuildingsSetting(payload.map3dBuildingsEnabled);
+    emitTripLayerRenderModeSetting(payload.tripLayersUseHeatmap);
 
     window.personalization?.applyPreferences?.({
       accentColor: payload.accentColor,

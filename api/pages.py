@@ -49,11 +49,11 @@ async def map_page(request: Request):
     return await _render_page("index.html", request)
 
 
-@router.get("/settings", response_class=HTMLResponse)
-async def settings_page(request: Request):
-    """Render settings page."""
+@router.get("/control-center", response_class=HTMLResponse)
+async def control_center_page(request: Request):
+    """Render control center page."""
     return await _render_page(
-        "settings.html",
+        "control_center.html",
         request,
         storage_snapshot={},
         storage_sources=[],
@@ -65,8 +65,11 @@ async def settings_page(request: Request):
     )
 
 
-@router.post("/settings/credentials/add-vehicle", response_class=RedirectResponse)
-async def settings_add_vehicle(
+@router.post(
+    "/control-center/credentials/add-vehicle",
+    response_class=RedirectResponse,
+)
+async def control_center_add_vehicle(
     imei: Annotated[str, Form()] = "",
     custom_name: Annotated[str | None, Form()] = None,
 ) -> RedirectResponse:
@@ -77,7 +80,7 @@ async def settings_add_vehicle(
     if imei_value:
         await VehicleService.upsert_and_authorize(imei_value, name_value)
 
-    return RedirectResponse(url="/settings#credentials", status_code=303)
+    return RedirectResponse(url="/control-center#credentials", status_code=303)
 
 
 @router.post("/vehicles/add-vehicle", response_class=RedirectResponse)
@@ -93,12 +96,6 @@ async def vehicles_add_vehicle(
         await VehicleService.upsert_and_authorize(imei_value, name_value)
 
     return RedirectResponse(url="/vehicles", status_code=303)
-
-
-@router.get("/profile", response_class=HTMLResponse)
-async def profile_page(request: Request):
-    """Render profile settings page."""
-    return await _render_page("profile.html", request)
 
 
 @router.get("/vehicles", response_class=HTMLResponse)
@@ -147,14 +144,8 @@ async def coverage_management_page(request: Request):
 
 @router.get("/database-management", response_class=RedirectResponse)
 async def database_management_page():
-    """Redirect database management to settings tab."""
-    return RedirectResponse(url="/settings#storage", status_code=301)
-
-
-@router.get("/server-logs", response_class=HTMLResponse)
-async def server_logs_page(request: Request):
-    """Render server logs viewing page."""
-    return await _render_page("server_logs.html", request)
+    """Redirect database management to control center storage tab."""
+    return RedirectResponse(url="/control-center#storage", status_code=301)
 
 
 @router.get(
@@ -210,9 +201,3 @@ async def county_map_page(request: Request):
 async def setup_wizard_page(request: Request):
     """Render the setup wizard."""
     return await _render_page("setup_wizard.html", request)
-
-
-@router.get("/status", response_class=HTMLResponse)
-async def status_dashboard(request: Request):
-    """Render system status dashboard."""
-    return await _render_page("status_dashboard.html", request)

@@ -74,12 +74,8 @@ export async function ensureRouteModule(pathname) {
     await importOnce("/visits", "../../pages/visits.js");
     return;
   }
-  if (path === "/settings") {
-    await importOnce("/settings", "../../pages/settings.js");
-    return;
-  }
-  if (path === "/profile") {
-    await importOnce("/profile", "../../pages/profile.js");
+  if (path === "/control-center") {
+    await importOnce("/control-center", "../../pages/control-center.js");
     return;
   }
   if (path === "/vehicles") {
@@ -116,13 +112,5 @@ export async function ensureRouteModule(pathname) {
   }
   if (path === "/setup-wizard") {
     await importOnce("/setup-wizard", "../../pages/setup-wizard.js");
-    return;
-  }
-  if (path === "/server-logs") {
-    await importOnce("/server-logs", "../../pages/server-logs.js");
-    return;
-  }
-  if (path === "/status") {
-    await importOnce("/status", "../../pages/status.js");
   }
 }

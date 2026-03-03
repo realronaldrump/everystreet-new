@@ -82,6 +82,7 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "highlightRecentTrips": True,
     "autoCenter": True,
     "mapTripsWithinCoverageOnly": False,
+    "tripLayersUseHeatmap": True,
     "geocodeTripsOnFetch": True,
     "mapMatchTripsOnFetch": False,
     # Geo Service Configuration (defaults for Docker Compose)
@@ -96,6 +97,7 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "mapCoverageMaxPointsPerTrip": 2000,
     "mapCoverageBatchSize": 200,
     "coverageIncludeServiceRoads": True,
+    "streetCoverageTripMode": "both",
     "geoCoverageRecalcMode": "incremental",
     "setup_completed": False,
     "setup_completed_at": None,

@@ -411,6 +411,124 @@ async def test_backfill_uses_raw_gps_not_matched_gps(coverage_db) -> None:
 
 
 @pytest.mark.asyncio
+async def test_backfill_matched_mode_uses_matched_geometry(coverage_db) -> None:
+    area = CoverageArea(
+        display_name="Coverage Matched Mode Area",
+        status="initializing",
+        health="unavailable",
+        total_length_miles=1.0,
+        driveable_length_miles=1.0,
+        total_segments=1,
+    )
+    await area.insert()
+    assert area.id is not None
+
+    segment_id = f"{area.id}-{area.area_version}-0"
+    await Street(
+        segment_id=segment_id,
+        area_id=area.id,
+        area_version=area.area_version,
+        geometry={
+            "type": "LineString",
+            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
+        },
+        length_miles=1.0,
+    ).insert()
+
+    await Trip(
+        transactionId="trip-matched-mode",
+        endTime=datetime(2025, 1, 1, tzinfo=UTC),
+        # Raw GPS is far away and should not match the segment.
+        gps={
+            "type": "LineString",
+            "coordinates": [[-97.2, 31.0], [-97.2, 31.001]],
+        },
+        # Matched geometry overlaps the segment and is explicitly confirmed.
+        matchedGps={
+            "type": "LineString",
+            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
+        },
+        matchStatus="matched:linestring",
+        matched_at=datetime(2025, 1, 1, tzinfo=UTC),
+    ).insert()
+
+    updated = await backfill_coverage_for_area(area.id, trip_mode="matched")
+    assert updated == 1
+
+    state = await CoverageState.find_one({"area_id": area.id, "segment_id": segment_id})
+    assert state is not None
+    assert state.status == "driven"
+
+
+@pytest.mark.asyncio
+async def test_backfill_both_mode_unions_regular_and_matched_segments(
+    coverage_db,
+) -> None:
+    area = CoverageArea(
+        display_name="Coverage Both Mode Area",
+        status="ready",
+        health="healthy",
+        total_length_miles=2.0,
+        driveable_length_miles=2.0,
+        total_segments=2,
+    )
+    await area.insert()
+    assert area.id is not None
+
+    segment_regular = f"{area.id}-{area.area_version}-regular"
+    segment_matched = f"{area.id}-{area.area_version}-matched"
+    await Street(
+        segment_id=segment_regular,
+        area_id=area.id,
+        area_version=area.area_version,
+        geometry={
+            "type": "LineString",
+            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
+        },
+        length_miles=1.0,
+    ).insert()
+    await Street(
+        segment_id=segment_matched,
+        area_id=area.id,
+        area_version=area.area_version,
+        geometry={
+            "type": "LineString",
+            "coordinates": [[-97.01, 31.0], [-97.01, 31.001]],
+        },
+        length_miles=1.0,
+    ).insert()
+
+    await Trip(
+        transactionId="trip-both-mode",
+        endTime=datetime(2025, 1, 1, tzinfo=UTC),
+        gps={
+            "type": "LineString",
+            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
+        },
+        matchedGps={
+            "type": "LineString",
+            "coordinates": [[-97.01, 31.0], [-97.01, 31.001]],
+        },
+        matchStatus="matched:linestring",
+        matched_at=datetime(2025, 1, 1, tzinfo=UTC),
+    ).insert()
+
+    updated = await backfill_coverage_for_area(area.id, trip_mode="both")
+    assert updated == 2
+
+    regular_state = await CoverageState.find_one(
+        {"area_id": area.id, "segment_id": segment_regular},
+    )
+    matched_state = await CoverageState.find_one(
+        {"area_id": area.id, "segment_id": segment_matched},
+    )
+    assert regular_state is not None
+    assert matched_state is not None
+    assert regular_state.status == "driven"
+    assert matched_state.status == "driven"
+
+
+@pytest.mark.asyncio
 async def test_backfill_bbox_query_uses_geo_intersects_without_ne(coverage_db) -> None:
     area = CoverageArea(
         display_name="Coverage BBox Query Area",
@@ -447,7 +565,7 @@ async def test_backfill_bbox_query_uses_geo_intersects_without_ne(coverage_db) -
         ),
         patch("core.coverage.Trip.find", side_effect=fake_trip_find),
     ):
-        updated = await backfill_coverage_for_area(area.id)
+        updated = await backfill_coverage_for_area(area.id, trip_mode="regular")
 
     assert updated == 0
     assert len(captured_queries) == 2

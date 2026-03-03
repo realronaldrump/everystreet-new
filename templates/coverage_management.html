@@ -287,6 +287,20 @@ Street Segments
                    data-include-service-status
                    aria-live="polite"></small>
           </div>
+          <div class="sidebar-action-group">
+            <label class="sidebar-select-label" for="dashboard-coverage-trip-mode">
+              <span class="toggle-text">Trip Source</span>
+              <span class="badge text-bg-secondary">Coverage Math</span>
+            </label>
+            <select id="dashboard-coverage-trip-mode" class="form-select form-select-sm sidebar-select-input">
+              <option value="both" selected>Both (recommended)</option>
+              <option value="regular">Regular trips only</option>
+              <option value="matched">Matched trips only</option>
+            </select>
+            <small class="form-text text-secondary d-block mt-1"
+                   data-coverage-trip-mode-status
+                   aria-live="polite"></small>
+          </div>
 
           <button class="btn btn-info btn-sm w-100 mb-2" id="recalculate-coverage-btn">
             <i class="fas fa-calculator me-1" aria-hidden="true"></i>Recalculate Coverage
@@ -569,6 +583,24 @@ State / Region
               <small class="form-text text-secondary d-block mt-1"
                      id="include-service-roads-status"
                      data-include-service-status
+                     aria-live="polite"></small>
+            </div>
+            <div class="mb-3">
+              <label for="modal-coverage-trip-mode"
+                     class="form-label d-flex justify-content-between align-items-center">
+                <span>Coverage Trip Source</span>
+                <span class="badge text-bg-secondary">Street Matching</span>
+              </label>
+              <select id="modal-coverage-trip-mode" class="form-select">
+                <option value="both" selected>Both (recommended)</option>
+                <option value="regular">Regular trips only</option>
+                <option value="matched">Matched trips only</option>
+              </select>
+              <small class="form-text text-secondary d-block">
+              Controls which trip geometry is used for street coverage calculations.
+              </small>
+              <small class="form-text text-secondary d-block mt-1"
+                     data-coverage-trip-mode-status
                      aria-live="polite"></small>
             </div>
 

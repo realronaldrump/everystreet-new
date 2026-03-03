@@ -21,7 +21,10 @@ from typing import TYPE_CHECKING, Any
 from shapely.geometry import LineString, MultiLineString, mapping, shape
 from shapely.ops import transform
 
-from core.coverage import backfill_coverage_for_area
+from core.coverage import (
+    backfill_coverage_for_area,
+    get_effective_coverage_trip_mode,
+)
 from core.spatial import geodesic_length_meters, get_local_transformers
 from db.models import CoverageArea, CoverageState, Job, Street
 from map_data.us_states import get_state
@@ -104,6 +107,7 @@ async def create_area(
     display_name: str,
     area_type: str = "city",
     boundary: dict[str, Any] | None = None,
+    trip_mode: str | None = None,
 ) -> CoverageArea:
     """
     Create a new coverage area and trigger ingestion.
@@ -134,11 +138,13 @@ async def create_area(
         raise RuntimeError(msg)
 
     area_id: PydanticObjectId = area.id
+    selected_trip_mode = await get_effective_coverage_trip_mode(trip_mode)
     job = Job(
         job_type="area_ingestion",
         area_id=area_id,
         status="pending",
         stage="Queued",
+        metadata={"trip_mode": selected_trip_mode},
     )
     await job.insert()
 
@@ -146,7 +152,9 @@ async def create_area(
         logger.error("Coverage ingestion job insert failed (missing id)")
         return area
 
-    task = asyncio.create_task(_run_ingestion_pipeline(area_id, job.id))
+    task = asyncio.create_task(
+        _run_ingestion_pipeline(area_id, job.id, trip_mode=selected_trip_mode)
+    )
     _track_task(task, job_id=job.id)
 
     return area
@@ -187,7 +195,10 @@ async def delete_area(area_id: PydanticObjectId) -> bool:
     return True
 
 
-async def rebuild_area(area_id: PydanticObjectId) -> Job:
+async def rebuild_area(
+    area_id: PydanticObjectId,
+    trip_mode: str | None = None,
+) -> Job:
     """
     Trigger a rebuild of an area with fresh OSM data.
 
@@ -197,6 +208,7 @@ async def rebuild_area(area_id: PydanticObjectId) -> Job:
     if not area:
         msg = f"Area {area_id} not found"
         raise ValueError(msg)
+    selected_trip_mode = await get_effective_coverage_trip_mode(trip_mode)
 
     # Update area status
     area.status = "rebuilding"
@@ -233,6 +245,7 @@ async def rebuild_area(area_id: PydanticObjectId) -> Job:
         area_id=area_id,
         status="pending",
         stage="Queued",
+        metadata={"trip_mode": selected_trip_mode},
     )
     await job.insert()
 
@@ -241,13 +254,18 @@ async def rebuild_area(area_id: PydanticObjectId) -> Job:
         raise RuntimeError(msg)
 
     # Queue the ingestion (fire and forget)
-    task = asyncio.create_task(_run_ingestion_pipeline(area_id, job.id))
+    task = asyncio.create_task(
+        _run_ingestion_pipeline(area_id, job.id, trip_mode=selected_trip_mode)
+    )
     _track_task(task, job_id=job.id)
 
     return job
 
 
-async def backfill_area(area_id: PydanticObjectId) -> Job:
+async def backfill_area(
+    area_id: PydanticObjectId,
+    trip_mode: str | None = None,
+) -> Job:
     """
     Trigger a backfill of an area using historical trips.
 
@@ -257,6 +275,7 @@ async def backfill_area(area_id: PydanticObjectId) -> Job:
     if not area:
         msg = f"Area {area_id} not found"
         raise ValueError(msg)
+    selected_trip_mode = await get_effective_coverage_trip_mode(trip_mode)
 
     job = Job(
         job_type="area_backfill",
@@ -264,6 +283,7 @@ async def backfill_area(area_id: PydanticObjectId) -> Job:
         status="pending",
         stage="Queued",
         message="Queued",
+        metadata={"trip_mode": selected_trip_mode},
     )
     await job.insert()
 
@@ -271,7 +291,9 @@ async def backfill_area(area_id: PydanticObjectId) -> Job:
         msg = "Coverage backfill job insert failed (missing id)"
         raise RuntimeError(msg)
 
-    task = asyncio.create_task(_run_backfill_pipeline(area_id, job.id))
+    task = asyncio.create_task(
+        _run_backfill_pipeline(area_id, job.id, trip_mode=selected_trip_mode)
+    )
     _track_task(task, job_id=job.id)
 
     return job
@@ -297,6 +319,7 @@ def _raise_cancelled() -> None:
 async def _run_backfill_pipeline(
     area_id: PydanticObjectId,
     job_id: PydanticObjectId,
+    trip_mode: str | None = None,
 ) -> None:
     """Run a backfill job for an area and update Job status/progress."""
     area = await CoverageArea.get(area_id)
@@ -355,13 +378,18 @@ async def _run_backfill_pipeline(
             )
         return f"Matching trips: {processed:,} (matched {matched:,}, segments {segments:,})"
 
+    selected_trip_mode = await get_effective_coverage_trip_mode(trip_mode)
+
     try:
         await update_job(
             status="running",
             started_at=datetime.now(UTC),
             stage="Backfill",
             progress=0.0,
-            message=f"Starting backfill for {area.display_name}",
+            message=(
+                f"Starting backfill for {area.display_name} "
+                f"(mode: {selected_trip_mode})"
+            ),
         )
 
         backfill_state: dict[str, Any] = {}
@@ -389,12 +417,14 @@ async def _run_backfill_pipeline(
         segments_updated = await backfill_coverage_for_area(
             area_id,
             progress_callback=handle_backfill_progress,
+            trip_mode=selected_trip_mode,
         )
 
         result = {
             "segments_updated": segments_updated,
             "processed_trips": int(backfill_state.get("processed_trips", 0) or 0),
             "matched_trips": int(backfill_state.get("matched_trips", 0) or 0),
+            "trip_mode": selected_trip_mode,
         }
 
         await update_job(
@@ -422,6 +452,7 @@ async def _run_backfill_pipeline(
 async def _run_ingestion_pipeline(
     area_id: PydanticObjectId,
     job_id: PydanticObjectId,
+    trip_mode: str | None = None,
 ) -> None:
     """
     Execute the full ingestion pipeline for an area.
@@ -437,6 +468,7 @@ async def _run_ingestion_pipeline(
         return
 
     job_id_str = str(job_id)
+    selected_trip_mode = await get_effective_coverage_trip_mode(trip_mode)
     pipeline_start = datetime.now(UTC)
     stage_start = pipeline_start
 
@@ -747,7 +779,7 @@ async def _run_ingestion_pipeline(
         await update_job(
             stage="Matching historical trips",
             progress=BACKFILL_PROGRESS_START,
-            message="Scanning trips for coverage matches…",
+            message=f"Scanning trips for coverage matches ({selected_trip_mode})…",
             stage_key="backfill",
         )
 
@@ -804,12 +836,14 @@ async def _run_ingestion_pipeline(
                     "total_trips": total,
                     "matched_trips": int(backfill_state.get("matched_trips", 0)),
                     "segments_updated": int(backfill_state.get("segments_updated", 0)),
+                    "trip_mode": selected_trip_mode,
                 },
             )
 
         segments_updated = await backfill_coverage_for_area(
             area_doc_id,
             progress_callback=handle_backfill_progress,
+            trip_mode=selected_trip_mode,
         )
         backfill_state["segments_updated"] = segments_updated
         backfill_ms = (datetime.now(UTC) - stage_start).total_seconds() * 1000
@@ -823,6 +857,7 @@ async def _run_ingestion_pipeline(
                 "total_trips": backfill_state.get("total_trips"),
                 "matched_trips": int(backfill_state.get("matched_trips", 0)),
                 "segments_updated": segments_updated,
+                "trip_mode": selected_trip_mode,
                 "duration_ms": round(backfill_ms),
             },
         )
@@ -857,6 +892,7 @@ async def _run_ingestion_pipeline(
             "backfill_segments_updated": int(
                 backfill_state.get("segments_updated", 0) or 0,
             ),
+            "backfill_trip_mode": selected_trip_mode,
             "pipeline_duration_ms": round(pipeline_ms),
             "segments_total": len(segments),
             "total_miles": round(total_miles, 2),

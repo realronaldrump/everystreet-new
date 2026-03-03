@@ -446,7 +446,7 @@ function updatePlaybooks(data) {
       title: "Database offline",
       body: "MongoDB is unavailable. Check storage, then review logs.",
       actions: [
-        { label: "Open Storage Tools", href: "/settings#storage" },
+        { label: "Open Storage Tools", href: "/control-center#storage" },
         { label: "View Logs", action: () => loadServiceLogs("mongodb") },
       ],
     });

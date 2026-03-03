@@ -384,70 +384,19 @@ System
                   </li>
                   <li role="none">
                     <a
-                      class="dropdown-item {% if request.url.path == '/status' %}active{% endif %}"
-                      href="/status"
+                      class="dropdown-item {% if request.url.path == '/control-center' %}active{% endif %}"
+                      href="/control-center"
                       role="menuitem"
 {%
                       if
-                      request.url.path == "/status"
+                      request.url.path == "/control-center"
                       %}aria-current="page"
 {%
                       endif
                       %}
                     >
-                      <i class="fas fa-heartbeat me-2" aria-hidden="true"></i>
-                      System Status
-                    </a>
-                  </li>
-                  <li role="none">
-                    <a
-                      class="dropdown-item {% if request.url.path == '/server-logs' %}active{% endif %}"
-                      href="/server-logs"
-                      role="menuitem"
-{%
-                      if
-                      request.url.path == "/server-logs"
-                      %}aria-current="page"
-{%
-                      endif
-                      %}
-                    >
-                      <i class="fas fa-file-alt me-2" aria-hidden="true"></i>
-                      Server Logs
-                    </a>
-                  </li>
-                  <li role="none">
-                    <a
-                      class="dropdown-item {% if request.url.path == '/settings' %}active{% endif %}"
-                      href="/settings"
-                      role="menuitem"
-{%
-                      if
-                      request.url.path == "/settings"
-                      %}aria-current="page"
-{%
-                      endif
-                      %}
-                    >
-                      <i class="fas fa-cog me-2" aria-hidden="true"></i>
-                      Settings
-                    </a>
-                  </li>
-                  <li role="none">
-                    <a
-                      class="dropdown-item {% if request.url.path == '/profile' %}active{% endif %}"
-                      href="/profile"
-                      role="menuitem"
-{%
-                      if
-                      request.url.path == "/profile"
-                      %}aria-current="page"
-{%
-                      endif
-                      %}
-                    >
-                      <i class="fas fa-user-circle me-2" aria-hidden="true"></i>
-                      Profile
+                      <i class="fas fa-sliders-h me-2" aria-hidden="true"></i>
+                      Control Center
                     </a>
                   </li>
                 </ul>
@@ -793,62 +742,17 @@ System
             <ul class="drawer-nav-section-list" id="nav-section-system" role="list">
               <li role="none">
                 <a
-                  href="/status"
-                  class="{% if request.url.path == '/status' %}active{% endif %}"
+                  href="/control-center"
+                  class="{% if request.url.path == '/control-center' %}active{% endif %}"
 {%
                   if
-                  request.url.path == "/status"
+                  request.url.path == "/control-center"
                   %}aria-current="page"
 {%
                   endif
                   %}
                 >
-                  <i class="fas fa-heartbeat me-2" aria-hidden="true"></i> System Status
-                </a>
-              </li>
-              <li role="none">
-                <a
-                  href="/server-logs"
-                  class="{% if request.url.path == '/server-logs' %}active{% endif %}"
-{%
-                  if
-                  request.url.path == "/server-logs"
-                  %}aria-current="page"
-{%
-                  endif
-                  %}
-                >
-                  <i class="fas fa-file-alt me-2" aria-hidden="true"></i> Server Logs
-                </a>
-              </li>
-              <li role="none">
-                <a
-                  href="/settings"
-                  class="{% if request.url.path == '/settings' %}active{% endif %}"
-{%
-                  if
-                  request.url.path == "/settings"
-                  %}aria-current="page"
-{%
-                  endif
-                  %}
-                >
-                  <i class="fas fa-cog me-2" aria-hidden="true"></i> Settings
-                </a>
-              </li>
-              <li role="none">
-                <a
-                  href="/profile"
-                  class="{% if request.url.path == '/profile' %}active{% endif %}"
-{%
-                  if
-                  request.url.path == "/profile"
-                  %}aria-current="page"
-{%
-                  endif
-                  %}
-                >
-                  <i class="fas fa-user-circle me-2" aria-hidden="true"></i> Profile
+                  <i class="fas fa-sliders-h me-2" aria-hidden="true"></i> Control Center
                 </a>
               </li>
             </ul>
@@ -1008,7 +912,8 @@ System
     <script>
         window.MAP_PROVIDER = "{{ (app_settings.get('map_provider') | default('self_hosted', true) | lower) if app_settings else 'self_hosted' }}";
         window.APP_SETTINGS_FLAGS = {
-            mapTripsWithinCoverageOnly: {{ ((app_settings.get('mapTripsWithinCoverageOnly', false)) if app_settings else false) | tojson }}
+            mapTripsWithinCoverageOnly: {{ ((app_settings.get('mapTripsWithinCoverageOnly', false)) if app_settings else false) | tojson }},
+            tripLayersUseHeatmap: {{ ((app_settings.get('tripLayersUseHeatmap', true)) if app_settings else true) | tojson }}
         };
     </script>
 

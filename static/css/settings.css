@@ -3075,3 +3075,131 @@
 #trip-import-summary-body {
   white-space: pre-line;
 }
+
+/* === Control Center: Overview + Account === */
+.control-center-overview-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.control-center-overview-message {
+  margin-bottom: var(--space-2);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.control-center-services-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+
+.control-center-service-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.control-center-service-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.control-center-service-card-head h4 {
+  margin: 0;
+  text-transform: capitalize;
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+}
+
+.control-center-service-message {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.control-center-service-detail {
+  margin: 0;
+  min-height: 1.2rem;
+}
+
+.control-center-service-actions {
+  margin-top: auto;
+}
+
+.control-center-failures-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.control-center-failure-item {
+  border: 1px solid rgb(var(--warning-rgb) / 25%);
+  border-radius: var(--radius-md);
+  background: rgb(var(--warning-rgb) / 10%);
+  padding: var(--space-2) var(--space-3);
+}
+
+.control-center-failure-item p {
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+  max-width: none;
+}
+
+.control-center-failure-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.control-center-failure-meta strong {
+  color: var(--text-primary);
+}
+
+.control-center-quick-actions {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.control-center-quick-actions .btn {
+  min-height: 44px;
+}
+
+.cc-overview-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-pill);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+}
+
+/* Make embedded logs layout feel native in tab context */
+#logs-tab .server-logs-page {
+  padding-inline: 0;
+}
+
+@media (width <= 768px) {
+  .control-center-service-card-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .control-center-failure-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

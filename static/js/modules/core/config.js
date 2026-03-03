@@ -66,6 +66,7 @@ export const CONFIG = {
     mapCinematicIntroSeen: "mapCinematicIntroSeen",
     map3dBuildingsEnabled: "map3dBuildingsEnabled",
     mapTripsWithinCoverageOnly: "mapTripsWithinCoverageOnly",
+    tripLayersUseHeatmap: "tripLayersUseHeatmap",
     uiState: "uiState",
   },
 
@@ -135,7 +136,7 @@ export const CONFIG = {
       color: "#d4943c",
       opacity: 1,
       visible: true,
-      name: "Trips Heatmap",
+      name: "Trips",
       weight: 2.5,
       minzoom: 0,
       maxzoom: 22,
