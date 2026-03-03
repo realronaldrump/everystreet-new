@@ -33,13 +33,6 @@ const DEFAULT_STATE = {
     filtersOpen: false,
     lastFilterPreset: null,
   },
-  journey: {
-    isOpen: false,
-    cursorTs: null,
-    activeEventId: null,
-    isPlaying: false,
-    playbackSpeed: 1,
-  },
 };
 
 const deepClone = (obj) => JSON.parse(JSON.stringify(obj));

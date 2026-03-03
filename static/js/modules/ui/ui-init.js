@@ -1,6 +1,5 @@
 import { swupReady } from "../core/navigation.js";
 import store from "../core/store.js";
-import initJourneyTimeMachine from "../features/journey-time-machine/index.js";
 import { moveModalsToContainer, utils } from "../utils.js";
 import contextualUI from "./contextual-ui.js";
 import dateManager from "./date-manager.js";
@@ -60,7 +59,6 @@ function init() {
     contextualUI.init?.();
     mapControlsManager.init?.();
     setupRequired.init?.();
-    initJourneyTimeMachine?.();
 
     // Pause animations when tab is hidden (saves CPU)
     document.addEventListener("visibilitychange", () => {

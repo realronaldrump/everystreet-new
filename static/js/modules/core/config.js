@@ -85,7 +85,6 @@ export const CONFIG = {
       `/api/actions/trips/sync/history_import/${jobId}/sse`,
     tripSyncHistoryImportCancel: (jobId) =>
       `/api/actions/trips/sync/history_import/${jobId}`,
-    journeyFeed: "/api/journey/feed",
 
     // Coverage endpoints
     coverageAreas: "/api/coverage/areas",
@@ -226,12 +225,6 @@ export const CONFIG = {
       dpEndDate: "#dp-end-date",
       datePickerApply: "#date-picker-apply",
       datePickerReset: "#date-picker-reset",
-      journeyToggle: "#journey-time-machine-toggle",
-      journeyDialog: "#journey-time-machine",
-      journeyClose: "#journey-time-machine-close",
-      journeyFeedList: "#journey-feed-list",
-      journeyInspector: "#journey-inspector",
-      journeyMapCanvas: "#journey-map-canvas",
       header: ".app-header",
       mapControls: "#map-controls",
       controlsToggle: "#controls-toggle",
