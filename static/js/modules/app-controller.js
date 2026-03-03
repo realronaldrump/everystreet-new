@@ -88,6 +88,7 @@ const initializeLiveTracker = () => {
 };
 
 const coverageAreaOverlayCache = new Map();
+const COVERAGE_SELECTION_EVENT = "es:coverage-area-selection-changed";
 
 const getCoverageAreaOverlayGeometry = async (areaId) => {
   const normalizedAreaId = String(areaId || "").trim();
@@ -468,6 +469,11 @@ const AppController = {
         const prevLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
 
         utils.setStorage(CONFIG.STORAGE_KEYS.selectedLocation, nextLocationId);
+        document.dispatchEvent(
+          new CustomEvent(COVERAGE_SELECTION_EVENT, {
+            detail: { areaId: nextLocationId || "" },
+          })
+        );
 
         // If the coverage area changes, clear cached street GeoJSON so we fetch fresh data.
         if (nextLocationId && nextLocationId !== prevLocationId) {

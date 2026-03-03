@@ -1,9 +1,12 @@
 import { CONFIG } from "../../core/config.js";
+import { coverageBoundaryToFeatureCollection } from "../../core/coverage-bounds.js";
 import mapCore from "../../map-core.js";
+import { utils } from "../../utils.js";
 
 const PRIMARY_FILTER = ["==", ["get", "extrude"], "true"];
 const FALLBACK_FILTER = ["has", "height"];
 const MAP_3D_SETTING_EVENT = "es:map-3d-buildings-setting-changed";
+const COVERAGE_SELECTION_EVENT = "es:coverage-area-selection-changed";
 
 const noopController = Object.freeze({
   refresh() {
@@ -17,6 +20,10 @@ const noopController = Object.freeze({
 
 function normalizeStyleType(value) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function normalizeAreaId(value) {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function getBuildingsConfig() {
@@ -173,26 +180,95 @@ function createLayerDefinition(config, filterExpression) {
   };
 }
 
-function applyLayerFilter(map, layerId) {
+function readSelectedCoverageAreaId() {
+  if (typeof document !== "undefined") {
+    const select = document.getElementById("streets-location");
+    if (typeof select?.value === "string") {
+      return normalizeAreaId(select.value);
+    }
+  }
+
+  if (typeof localStorage === "undefined") {
+    return "";
+  }
+
+  try {
+    const raw = localStorage.getItem(CONFIG?.STORAGE_KEYS?.selectedLocation);
+    if (raw === null) {
+      return "";
+    }
+
+    try {
+      return normalizeAreaId(JSON.parse(raw));
+    } catch {
+      return normalizeAreaId(raw);
+    }
+  } catch {
+    return "";
+  }
+}
+
+function buildScopedFilter(baseFilter, coverageBoundary = null) {
+  if (!coverageBoundary) {
+    return baseFilter;
+  }
+
+  return ["all", baseFilter, ["within", coverageBoundary]];
+}
+
+function applyLayerFilter(map, layerId, coverageBoundary = null) {
   if (typeof map.setFilter !== "function") {
     return;
   }
 
-  try {
-    map.setFilter(layerId, PRIMARY_FILTER);
-  } catch {
+  const candidates = [
+    buildScopedFilter(PRIMARY_FILTER, coverageBoundary),
+    buildScopedFilter(FALLBACK_FILTER, coverageBoundary),
+  ];
+  if (coverageBoundary) {
+    candidates.push(PRIMARY_FILTER, FALLBACK_FILTER);
+  }
+
+  for (const candidate of candidates) {
     try {
-      map.setFilter(layerId, FALLBACK_FILTER);
+      map.setFilter(layerId, candidate);
+      return;
     } catch {
-      // Ignore unsupported filter update failures.
+      // Try the next filter candidate.
     }
   }
 }
 
-function updateExistingLayer(map, layerId, beforeLayerId, config) {
+async function fetchCoverageBoundaryGeojson(areaId) {
+  const normalizedAreaId = normalizeAreaId(areaId);
+  if (!normalizedAreaId) {
+    return null;
+  }
+
+  try {
+    const areaDetail = await utils.fetchWithRetry(
+      CONFIG.API.coverageAreaById(normalizedAreaId),
+      {},
+      CONFIG.API.retryAttempts,
+      CONFIG.API.cacheTime,
+      `coverage-area-boundary:buildings3d:${normalizedAreaId}`
+    );
+    return coverageBoundaryToFeatureCollection(areaDetail?.boundary, {
+      coverageAreaId: normalizedAreaId,
+    });
+  } catch (error) {
+    console.warn(
+      `Unable to apply 3D building boundary for coverage area ${normalizedAreaId}:`,
+      error
+    );
+    return null;
+  }
+}
+
+function updateExistingLayer(map, layerId, beforeLayerId, config, coverageBoundary = null) {
   const paint = createLayerDefinition(config, PRIMARY_FILTER).paint;
 
-  applyLayerFilter(map, layerId);
+  applyLayerFilter(map, layerId, coverageBoundary);
 
   if (typeof map.setPaintProperty === "function") {
     Object.entries(paint).forEach(([key, value]) => {
@@ -276,7 +352,7 @@ export function isSupportedMapbox3D(map, { styleType } = {}) {
   return true;
 }
 
-export function ensureBuildingsLayer(map, { styleType } = {}) {
+export function ensureBuildingsLayer(map, { styleType, coverageBoundary = null } = {}) {
   const config = {
     layerId: "es-3d-buildings",
     minZoom: 14.5,
@@ -294,16 +370,22 @@ export function ensureBuildingsLayer(map, { styleType } = {}) {
   const layerId = config.layerId;
 
   if (map.getLayer(layerId)) {
-    updateExistingLayer(map, layerId, beforeLayerId, config);
+    updateExistingLayer(map, layerId, beforeLayerId, config, coverageBoundary);
     return true;
   }
 
-  const primaryDefinition = createLayerDefinition(config, PRIMARY_FILTER);
+  const primaryDefinition = createLayerDefinition(
+    config,
+    buildScopedFilter(PRIMARY_FILTER, coverageBoundary)
+  );
   try {
     map.addLayer(primaryDefinition, beforeLayerId);
     return true;
   } catch {
-    const fallbackDefinition = createLayerDefinition(config, FALLBACK_FILTER);
+    const fallbackDefinition = createLayerDefinition(
+      config,
+      buildScopedFilter(FALLBACK_FILTER, coverageBoundary)
+    );
     try {
       map.addLayer(fallbackDefinition, beforeLayerId);
       return true;
@@ -320,12 +402,57 @@ export default function initBuildings3D({ map = null } = {}) {
     return noopController;
   }
 
-  ensureBuildingsLayer(activeMap, { styleType: getCurrentMapTypeHint() });
+  let selectedCoverageAreaId = readSelectedCoverageAreaId();
+  const coverageBoundaryCache = new Map();
+  let activeCoverageBoundary = null;
+  let coverageSyncCounter = 0;
+
+  const loadCoverageBoundary = async (areaId) => {
+    const normalizedAreaId = normalizeAreaId(areaId);
+    if (!normalizedAreaId) {
+      return null;
+    }
+    if (coverageBoundaryCache.has(normalizedAreaId)) {
+      return coverageBoundaryCache.get(normalizedAreaId);
+    }
+
+    const boundary = await fetchCoverageBoundaryGeojson(normalizedAreaId);
+    coverageBoundaryCache.set(normalizedAreaId, boundary);
+    return boundary;
+  };
+
+  const syncCoverageBoundaryFilter = async (styleType = getCurrentMapTypeHint()) => {
+    const syncToken = ++coverageSyncCounter;
+    const normalizedAreaId = normalizeAreaId(selectedCoverageAreaId);
+
+    if (!normalizedAreaId) {
+      activeCoverageBoundary = null;
+      ensureBuildingsLayer(activeMap, { styleType, coverageBoundary: null });
+      return;
+    }
+
+    const nextBoundary = await loadCoverageBoundary(normalizedAreaId);
+    if (syncToken !== coverageSyncCounter) {
+      return;
+    }
+
+    activeCoverageBoundary = nextBoundary;
+    ensureBuildingsLayer(activeMap, {
+      styleType,
+      coverageBoundary: activeCoverageBoundary,
+    });
+  };
+
+  ensureBuildingsLayer(activeMap, {
+    styleType: getCurrentMapTypeHint(),
+    coverageBoundary: null,
+  });
+  void syncCoverageBoundaryFilter(getCurrentMapTypeHint());
 
   let styleChangeHandlerRef = null;
   if (typeof mapCore.registerStyleChangeHandler === "function") {
     styleChangeHandlerRef = mapCore.registerStyleChangeHandler(3, async (styleType) => {
-      ensureBuildingsLayer(activeMap, { styleType });
+      await syncCoverageBoundaryFilter(styleType);
     });
   }
 
@@ -334,16 +461,30 @@ export default function initBuildings3D({ map = null } = {}) {
     if (typeof enabled === "boolean") {
       persistUserBuildingsPreference(enabled);
     }
-    ensureBuildingsLayer(activeMap, { styleType: getCurrentMapTypeHint() });
+    ensureBuildingsLayer(activeMap, {
+      styleType: getCurrentMapTypeHint(),
+      coverageBoundary: activeCoverageBoundary,
+    });
+  };
+
+  const handleCoverageSelectionEvent = (event) => {
+    selectedCoverageAreaId =
+      normalizeAreaId(event?.detail?.areaId) || readSelectedCoverageAreaId();
+    activeCoverageBoundary = null;
+    void syncCoverageBoundaryFilter(getCurrentMapTypeHint());
   };
 
   if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
     document.addEventListener(MAP_3D_SETTING_EVENT, handlePreferenceEvent);
+    document.addEventListener(COVERAGE_SELECTION_EVENT, handleCoverageSelectionEvent);
   }
 
   return {
     refresh(styleType) {
-      return ensureBuildingsLayer(activeMap, { styleType });
+      return ensureBuildingsLayer(activeMap, {
+        styleType,
+        coverageBoundary: activeCoverageBoundary,
+      });
     },
     destroy() {
       if (
@@ -358,6 +499,7 @@ export default function initBuildings3D({ map = null } = {}) {
         typeof document.removeEventListener === "function"
       ) {
         document.removeEventListener(MAP_3D_SETTING_EVENT, handlePreferenceEvent);
+        document.removeEventListener(COVERAGE_SELECTION_EVENT, handleCoverageSelectionEvent);
       }
     },
     isEnabled() {
