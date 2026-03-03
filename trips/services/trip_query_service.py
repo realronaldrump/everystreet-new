@@ -30,6 +30,20 @@ def _extract_preview_geometry(trip_dict: dict[str, Any]) -> dict[str, Any] | Non
     return None
 
 
+def _first_non_empty(*values: Any) -> Any:
+    for value in values:
+        if value not in (None, ""):
+            return value
+    return None
+
+
+def _timezone_fields(trip_dict: dict[str, Any]) -> tuple[Any, Any, Any]:
+    start_tz = _first_non_empty(trip_dict.get("startTimeZone"))
+    end_tz = _first_non_empty(trip_dict.get("endTimeZone"))
+    alias_tz = _first_non_empty(start_tz, end_tz)
+    return start_tz, end_tz, alias_tz
+
+
 def _build_preview_path(
     trip_dict: dict[str, Any],
     *,
@@ -506,6 +520,7 @@ class TripQueryService:
             total_idle_duration = trip_dict.get("totalIdleDuration")
             if total_idle_duration is None:
                 total_idle_duration = trip_dict.get("totalIdleDuration", 0)
+            start_tz, end_tz, alias_tz = _timezone_fields(trip_dict)
 
             formatted_trip = {
                 "transactionId": trip_dict.get("transactionId", ""),
@@ -513,6 +528,9 @@ class TripQueryService:
                 "vin": trip_dict.get("vin"),
                 "startTime": start_time.isoformat() if start_time else None,
                 "endTime": end_time.isoformat() if end_time else None,
+                "startTimeZone": start_tz,
+                "endTimeZone": end_tz,
+                "timeZone": alias_tz,
                 "duration": duration,
                 "distance": safe_float(trip_dict.get("distance"), 0),
                 "startLocation": start_location,

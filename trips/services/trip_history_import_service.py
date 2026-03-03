@@ -32,8 +32,6 @@ from trips.services.trip_history_import_service_config import (
     resolve_import_start_dt_from_db,
 )
 from trips.services.trip_history_import_service_core import (
-    ImportRuntime,
-    ImportSetup,
     run_import,
 )
 from trips.services.trip_history_import_service_progress import ImportProgressContext
@@ -50,8 +48,6 @@ __all__ = [
     "STEP_HOURS",
     "WINDOW_DAYS",
     "ImportProgressContext",
-    "ImportRuntime",
-    "ImportSetup",
     "build_import_plan",
     "build_import_windows",
     "resolve_import_start_dt",

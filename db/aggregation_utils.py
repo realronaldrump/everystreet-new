@@ -15,9 +15,8 @@ def get_mongo_tz_expr(date_field: str = "startTime") -> dict[str, Any]:
     """
     Return the standard MongoDB timezone expression for aggregation pipelines.
 
-    Trips store their timezone as `startTimeZone` / `endTimeZone` (and some older
-    documents may have `timeZone`). This helper selects the timezone field that
-    corresponds to the given ``date_field``.
+    Trips store timezone as canonical `startTimeZone` / `endTimeZone`. This helper
+    selects the timezone field that corresponds to the given ``date_field``.
 
     The value may be an IANA name (e.g. "America/New_York") or a UTC offset
     (e.g. "-07:00"). Some upstream sources send offsets as "-0700"; normalize
@@ -25,21 +24,19 @@ def get_mongo_tz_expr(date_field: str = "startTime") -> dict[str, Any]:
 
     Args:
         date_field: The trip date field being filtered/grouped on.
-            "startTime" → prefers ``$startTimeZone``,
-            "endTime" → prefers ``$endTimeZone``,
-            anything else → falls back to ``$timeZone``.
+            "startTime" → uses ``$startTimeZone``,
+            "endTime" → uses ``$endTimeZone``,
+            anything else → uses ``$startTimeZone``.
 
     Returns:
         MongoDB $switch expression for use in $dateToString, $hour, $dayOfWeek, etc.
     """
     if date_field == "endTime":
-        tz_candidate_expr: dict[str, Any] | str = {
-            "$ifNull": ["$endTimeZone", "$timeZone"],
-        }
+        tz_candidate_expr: dict[str, Any] | str = "$endTimeZone"
     elif date_field == "startTime":
-        tz_candidate_expr = {"$ifNull": ["$startTimeZone", "$timeZone"]}
+        tz_candidate_expr = "$startTimeZone"
     else:
-        tz_candidate_expr = "$timeZone"
+        tz_candidate_expr = "$startTimeZone"
 
     return {
         "$let": {

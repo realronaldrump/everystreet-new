@@ -7,64 +7,8 @@ from typing import Any
 import pytest
 
 from db.models import Trip
-from trips.services.trip_history_import_service_core import (
-    _collect_new_trips,
-    _load_existing_transaction_ids,
-    _process_new_trips_batch,
-)
-
-
-@pytest.mark.asyncio
-async def test_load_existing_transaction_ids_only_treats_bouncie_as_authoritative(
-    beanie_db,
-) -> None:
-    del beanie_db
-
-    await Trip(
-        transactionId="tx-bouncie",
-        source="bouncie",
-        startTime=datetime(2025, 1, 1, 12, 0, tzinfo=UTC),
-        endTime=datetime(2025, 1, 1, 12, 30, tzinfo=UTC),
-    ).insert()
-    await Trip(
-        transactionId="tx-webhook",
-        source="webhook",
-        startTime=datetime(2025, 1, 2, 12, 0, tzinfo=UTC),
-        endTime=datetime(2025, 1, 2, 12, 30, tzinfo=UTC),
-    ).insert()
-
-    unique_trips = [
-        {
-            "transactionId": "tx-bouncie",
-            "imei": "imei-1",
-            "endTime": "2025-01-01T12:30:00Z",
-        },
-        {
-            "transactionId": "tx-webhook",
-            "imei": "imei-1",
-            "endTime": "2025-01-02T12:30:00Z",
-        },
-        {
-            "transactionId": "tx-new",
-            "imei": "imei-1",
-            "endTime": "2025-01-03T12:30:00Z",
-        },
-    ]
-
-    existing_ids = await _load_existing_transaction_ids(unique_trips)
-    assert existing_ids == {"tx-bouncie"}
-
-    counters = {"skipped_existing": 0, "new_candidates": 0}
-    per_device = {
-        "imei-1": {"skipped_existing": 0, "new_candidates": 0},
-    }
-    new_trips = _collect_new_trips(
-        unique_trips=unique_trips,
-        existing_ids=existing_ids,
-        counters=counters,
-        per_device=per_device,
-    )
-    assert [t["transactionId"] for t in new_trips] == ["tx-webhook", "tx-new"]
+from trips.services import bouncie_ingest_runtime
+from trips.services.bouncie_ingest_runtime import process_bouncie_trips
 
 
 class _PipelineStub:
@@ -73,9 +17,17 @@ class _PipelineStub:
 
     async def validate_raw_trip_with_basic(
         self,
-        _trip: dict[str, Any],
+        trip: dict[str, Any],
     ) -> dict[str, Any]:
-        return {"success": True}
+        return {
+            "success": True,
+            "processed_data": dict(trip),
+            "processing_status": {
+                "history": [],
+                "state": "validated",
+                "errors": {},
+            },
+        }
 
     async def process_raw_trip(
         self,
@@ -90,10 +42,12 @@ class _PipelineStub:
         prevalidated_state: str | None = None,
         sync_mobility: bool = True,
     ) -> Any:
-        del prevalidated_data
-        del prevalidated_history
-        del prevalidated_state
-        del sync_mobility
+        del (
+            prevalidated_data,
+            prevalidated_history,
+            prevalidated_state,
+            sync_mobility,
+        )
         self.calls.append(
             {
                 "transactionId": trip.get("transactionId"),
@@ -107,58 +61,170 @@ class _PipelineStub:
 
 
 @pytest.mark.asyncio
-async def test_process_new_trips_batch_uses_reconciliation_path() -> None:
+async def test_process_bouncie_trips_insert_only_skips_existing_bouncie(
+    beanie_db,
+) -> None:
+    del beanie_db
+
+    await Trip(
+        transactionId="tx-existing",
+        source="bouncie",
+        status="processed",
+        processing_state="completed",
+        startTime=datetime(2025, 1, 1, 12, 0, tzinfo=UTC),
+        endTime=datetime(2025, 1, 1, 12, 30, tzinfo=UTC),
+    ).insert()
+
     pipeline = _PipelineStub()
-    counters = {
-        "inserted": 0,
-        "skipped_existing": 0,
-        "validation_failed": 0,
-        "process_errors": 0,
-    }
-    per_device = {
-        "imei-1": {
-            "inserted": 0,
-            "skipped_existing": 0,
-            "validation_failed": 0,
-            "errors": 0,
-        },
-    }
-
-    async def _write_progress(**_kwargs: Any) -> None:
-        return
-
-    async def _is_cancelled() -> bool:
-        return False
-
-    runtime = SimpleNamespace(
-        pipeline=pipeline,
-        counters=counters,
-        per_device=per_device,
-        windows_total=1,
-        do_geocode=False,
-        do_coverage=False,
-        add_event=lambda *_args, **_kwargs: None,
-        record_failure_reason=lambda _reason: None,
-        write_progress=_write_progress,
-        is_cancelled=_is_cancelled,
-    )
-
-    cancelled = await _process_new_trips_batch(
-        runtime=runtime,
-        new_trips=[
+    result = await process_bouncie_trips(
+        [
             {
-                "transactionId": "tx-reconcile-1",
+                "transactionId": "tx-existing",
                 "imei": "imei-1",
+                "startTime": "2025-01-01T12:00:00Z",
                 "endTime": "2025-01-01T12:30:00Z",
             },
         ],
-        window_index=1,
-        windows_completed=0,
-        current_window={},
+        pipeline=pipeline,
+        mode="insert_only",
+        do_map_match=False,
+        do_geocode=False,
+        do_coverage=False,
+        sync_mobility=False,
     )
 
-    assert cancelled is False
+    assert result["processed_transaction_ids"] == []
+    assert result["counters"]["skipped_existing"] == 1
+    assert pipeline.calls == []
+
+
+@pytest.mark.asyncio
+async def test_process_bouncie_trips_upsert_reprocesses_when_match_missing(
+    beanie_db,
+) -> None:
+    del beanie_db
+
+    await Trip(
+        transactionId="tx-reprocess",
+        source="bouncie",
+        status="processed",
+        processing_state="completed",
+        matchedGps=None,
+        startTime=datetime(2025, 1, 2, 12, 0, tzinfo=UTC),
+        endTime=datetime(2025, 1, 2, 12, 30, tzinfo=UTC),
+    ).insert()
+
+    pipeline = _PipelineStub()
+    result = await process_bouncie_trips(
+        [
+            {
+                "transactionId": "tx-reprocess",
+                "imei": "imei-1",
+                "startTime": "2025-01-02T12:00:00Z",
+                "endTime": "2025-01-02T12:30:00Z",
+            },
+        ],
+        pipeline=pipeline,
+        mode="upsert_bouncie",
+        do_map_match=True,
+        do_geocode=False,
+        do_coverage=False,
+        sync_mobility=False,
+    )
+
+    assert result["processed_transaction_ids"] == ["tx-reprocess"]
+    assert result["counters"]["updated"] == 1
     assert len(pipeline.calls) == 1
-    assert pipeline.calls[0]["transactionId"] == "tx-reconcile-1"
-    assert pipeline.calls[0]["source"] == "bouncie"
-    assert counters["inserted"] == 1
+
+
+@pytest.mark.asyncio
+async def test_process_bouncie_trips_upsert_reprocesses_for_geocode_repair(
+    beanie_db,
+) -> None:
+    del beanie_db
+
+    await Trip(
+        transactionId="tx-geocode-repair",
+        source="bouncie",
+        status="processed",
+        processing_state="completed",
+        startLocation="Unknown",
+        destination="Unknown",
+        startTime=datetime(2025, 1, 2, 12, 0, tzinfo=UTC),
+        endTime=datetime(2025, 1, 2, 12, 30, tzinfo=UTC),
+    ).insert()
+
+    pipeline = _PipelineStub()
+    result = await process_bouncie_trips(
+        [
+            {
+                "transactionId": "tx-geocode-repair",
+                "imei": "imei-1",
+                "startTime": "2025-01-02T12:00:00Z",
+                "endTime": "2025-01-02T12:30:00Z",
+            },
+        ],
+        pipeline=pipeline,
+        mode="upsert_bouncie",
+        do_map_match=False,
+        do_geocode=True,
+        do_coverage=False,
+        sync_mobility=False,
+    )
+
+    assert result["processed_transaction_ids"] == ["tx-geocode-repair"]
+    assert result["counters"]["updated"] == 1
+    assert len(pipeline.calls) == 1
+    assert pipeline.calls[0]["do_geocode"] is True
+
+
+@pytest.mark.asyncio
+async def test_process_bouncie_trips_skips_conflicting_non_bouncie_source(
+    beanie_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    del beanie_db
+
+    await Trip(
+        transactionId="tx-conflict",
+        source="webhook",
+        status="processed",
+        processing_state="completed",
+        startTime=datetime(2025, 1, 3, 12, 0, tzinfo=UTC),
+        endTime=datetime(2025, 1, 3, 12, 30, tzinfo=UTC),
+    ).insert()
+
+    recorded_issues: list[dict[str, Any]] = []
+
+    async def fake_record_issue(**kwargs: Any) -> None:
+        recorded_issues.append(kwargs)
+
+    monkeypatch.setattr(
+        bouncie_ingest_runtime.TripIngestIssueService,
+        "record_issue",
+        fake_record_issue,
+    )
+
+    pipeline = _PipelineStub()
+    result = await process_bouncie_trips(
+        [
+            {
+                "transactionId": "tx-conflict",
+                "imei": "imei-1",
+                "startTime": "2025-01-03T12:00:00Z",
+                "endTime": "2025-01-03T12:30:00Z",
+            },
+        ],
+        pipeline=pipeline,
+        mode="upsert_bouncie",
+        do_map_match=False,
+        do_geocode=False,
+        do_coverage=False,
+        sync_mobility=False,
+    )
+
+    assert result["processed_transaction_ids"] == []
+    assert result["counters"]["skipped_conflicting_source"] == 1
+    assert pipeline.calls == []
+    assert len(recorded_issues) == 1
+    assert recorded_issues[0]["issue_type"] == "conflicting_existing_source"

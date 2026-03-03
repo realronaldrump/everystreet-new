@@ -6,7 +6,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from config import API_BASE_URL, get_bouncie_config
-from core.date_utils import ensure_utc, parse_timestamp
+from core.date_utils import ensure_utc
 from core.http.retry import retry_async
 from core.http.session import get_session
 from setup.services.bouncie_oauth import BouncieOAuth
@@ -106,17 +106,6 @@ class BouncieClient:
             msg = f"Unexpected /trips response type: {type(trips).__name__}"
             raise TypeError(msg)
 
-        for trip in trips:
-            if not isinstance(trip, dict):
-                continue
-            if "startTime" in trip:
-                trip["startTime"] = parse_timestamp(trip["startTime"])
-            if "endTime" in trip:
-                trip["endTime"] = parse_timestamp(trip["endTime"])
-            # Keep historical attribution stable even if upstream omits IMEI.
-            if not trip.get("imei"):
-                trip["imei"] = imei
-
         return trips
 
     @retry_async(max_retries=0, retry_delay=1.5)
@@ -159,16 +148,6 @@ class BouncieClient:
             msg = f"Unexpected /trips response type: {type(trips).__name__}"
             raise TypeError(msg)
 
-        for trip in trips:
-            if not isinstance(trip, dict):
-                continue
-            if "startTime" in trip:
-                trip["startTime"] = parse_timestamp(trip["startTime"])
-            if "endTime" in trip:
-                trip["endTime"] = parse_timestamp(trip["endTime"])
-            if not trip.get("imei"):
-                trip["imei"] = imei
-
         return trips
 
     @retry_async(max_retries=3, retry_delay=1.5)
@@ -199,12 +178,6 @@ class BouncieClient:
         if not isinstance(trips, list):
             msg = f"Unexpected /trips response type: {type(trips).__name__}"
             raise TypeError(msg)
-
-        for trip in trips:
-            if isinstance(trip, dict) and "startTime" in trip:
-                trip["startTime"] = parse_timestamp(trip["startTime"])
-            if isinstance(trip, dict) and "endTime" in trip:
-                trip["endTime"] = parse_timestamp(trip["endTime"])
 
         return trips
 

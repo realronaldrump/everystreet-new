@@ -22,9 +22,8 @@ def test_build_calendar_date_expr_prefers_trip_timezone_fields() -> None:
     assert expr is not None
     encoded = json.dumps(expr, sort_keys=True)
 
-    # Modern trip documents use `startTimeZone`; keep supporting classic `timeZone`.
+    # Canonical trip documents use `startTimeZone`.
     assert "$startTimeZone" in encoded
-    assert "$timeZone" in encoded
 
     # Offset normalization is required for sources that send "-0700" style offsets.
     assert "^[+-][0-9]{4}$" in encoded

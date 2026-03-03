@@ -19,9 +19,9 @@ from core.date_utils import parse_timestamp
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import Trip
 from tasks.ops import run_task_with_history
-from trips.services.bouncie_fetcher import (
-    fetch_bouncie_trip_by_transaction_id,
-    fetch_bouncie_trips_in_range,
+from trips.services.bouncie_ingest_runtime import (
+    run_ingest_for_range,
+    run_ingest_for_transaction_id,
 )
 from trips.services.trip_history_import_service import (
     resolve_import_start_dt_from_db,
@@ -136,15 +136,19 @@ async def _periodic_fetch_trips_logic(
             "Failed to load map match preference; defaulting to disabled",
         )
 
-    logger.info("Calling fetch_bouncie_trips_in_range...")
+    logger.info("Calling shared range ingest runtime...")
     try:
-        fetched_trips = await fetch_bouncie_trips_in_range(
-            start_date_fetch,
-            end_date_fetch if "end_date_fetch" in locals() else now_utc,
+        ingest_result = await run_ingest_for_range(
+            start_dt=start_date_fetch,
+            end_dt=end_date_fetch if "end_date_fetch" in locals() else now_utc,
+            mode="upsert_bouncie",
             do_map_match=map_match_on_fetch,
+            do_coverage=True,
+            sync_mobility=True,
         )
+        fetched_trips = ingest_result.get("processed_transaction_ids", [])
         logger.info(
-            "fetch_bouncie_trips_in_range returned %d trips",
+            "run_ingest_for_range returned %d processed trips",
             len(fetched_trips),
         )
 
@@ -154,7 +158,7 @@ async def _periodic_fetch_trips_logic(
             logger.info("Fetched %d trips in the date range", len(fetched_trips))
 
     except Exception:
-        logger.exception("Error in fetch_bouncie_trips_in_range")
+        logger.exception("Error in shared range ingest runtime")
         raise
 
     logger.info("Updating last_success_time in task config...")
@@ -260,10 +264,14 @@ async def _fetch_trip_by_transaction_id_logic(
             "Failed to load map match preference; defaulting to disabled",
         )
 
-    processed_ids = await fetch_bouncie_trip_by_transaction_id(
-        transaction_id,
+    ingest_result = await run_ingest_for_transaction_id(
+        transaction_id=transaction_id,
+        mode="upsert_bouncie",
         do_map_match=map_match_on_fetch,
+        do_coverage=True,
+        sync_mobility=True,
     )
+    processed_ids = ingest_result.get("processed_transaction_ids", [])
     return {
         "status": "success",
         "message": f"Fetched trip {transaction_id}",
@@ -326,11 +334,15 @@ async def _manual_fetch_trips_range_logic(
         map_match,
     )
 
-    fetched_trips = await fetch_bouncie_trips_in_range(
-        start_dt,
-        end_dt,
+    ingest_result = await run_ingest_for_range(
+        start_dt=start_dt,
+        end_dt=end_dt,
+        mode="upsert_bouncie",
         do_map_match=map_match,
+        do_coverage=True,
+        sync_mobility=True,
     )
+    fetched_trips = ingest_result.get("processed_transaction_ids", [])
 
     logger.info("Manual fetch completed: %d trips", len(fetched_trips))
 

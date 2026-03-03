@@ -2076,8 +2076,8 @@ Concurrency
                   <span class="trip-import-pipeline-v" id="trip-import-count-found-unique">0</span>
                 </div>
                 <div class="trip-import-pipeline-row trip-import-pipeline-row--warn">
-                  <span class="trip-import-pipeline-k">No end time</span>
-                  <span class="trip-import-pipeline-v" id="trip-import-count-skipped-missing-end">0</span>
+                  <span class="trip-import-pipeline-k">Conflicting source</span>
+                  <span class="trip-import-pipeline-v" id="trip-import-count-skipped-conflicting-source">0</span>
                 </div>
               </div>
 
@@ -2091,8 +2091,8 @@ Concurrency
                   <span class="trip-import-pipeline-v" id="trip-import-count-skipped-existing">0</span>
                 </div>
                 <div class="trip-import-pipeline-row">
-                  <span class="trip-import-pipeline-k">New trips</span>
-                  <span class="trip-import-pipeline-v" id="trip-import-count-new-candidates">0</span>
+                  <span class="trip-import-pipeline-k">Updated</span>
+                  <span class="trip-import-pipeline-v" id="trip-import-count-updated">0</span>
                 </div>
               </div>
 
@@ -2143,13 +2143,13 @@ After dedup
 In DB
                       </th>
                       <th scope="col">
+Conflicts
+                      </th>
+                      <th scope="col">
 Invalid
                       </th>
                       <th scope="col">
-New
-                      </th>
-                      <th scope="col">
-Saved
+Inserted
                       </th>
                       <th scope="col">
 Errors

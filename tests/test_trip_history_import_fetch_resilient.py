@@ -5,12 +5,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from trips.services.trip_history_import_service_core import _fetch_trips_for_window
+from trips.services.bouncie_ingest_runtime import fetch_trips_for_window
 
 
 @pytest.mark.asyncio
 async def test_fetch_trips_for_window_success() -> None:
-    """Happy path: BouncieClient returns trips, they get normalized."""
+    """Happy path: shared fetch runtime returns raw trip payload dicts."""
     window_start = datetime(2020, 3, 1, 6, 0, 0, tzinfo=UTC)
     window_end = datetime(2020, 3, 8, 6, 0, 0, tzinfo=UTC)
 
@@ -38,17 +38,43 @@ async def test_fetch_trips_for_window_success() -> None:
     mock_client = AsyncMock()
     mock_client.fetch_trips_for_device_resilient.return_value = [raw_trip]
 
-    trips = await _fetch_trips_for_window(
+    trips = await fetch_trips_for_window(
         mock_client,
         imei="359486068397551",
         window_start=window_start,
         window_end=window_end,
-        _split_chunk_hours=999,
+        split_chunk_hours=999,
     )
 
     assert len(trips) == 1
     assert trips[0]["transactionId"] == "tx-1"
     mock_client.fetch_trips_for_device_resilient.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_fetch_trips_for_window_backfills_missing_imei() -> None:
+    window_start = datetime(2020, 3, 1, 6, 0, 0, tzinfo=UTC)
+    window_end = datetime(2020, 3, 8, 6, 0, 0, tzinfo=UTC)
+
+    raw_trip = {
+        "transactionId": "tx-no-imei",
+        "startTime": datetime(2020, 3, 2, 0, 0, 0, tzinfo=UTC),
+        "endTime": datetime(2020, 3, 2, 0, 10, 0, tzinfo=UTC),
+    }
+    mock_client = AsyncMock()
+    mock_client.fetch_trips_for_device_resilient.return_value = [raw_trip]
+
+    trips = await fetch_trips_for_window(
+        mock_client,
+        imei="359486068397551",
+        window_start=window_start,
+        window_end=window_end,
+        split_chunk_hours=999,
+    )
+
+    assert len(trips) == 1
+    assert trips[0]["imei"] == "359486068397551"
+    assert "imei" not in raw_trip
 
 
 @pytest.mark.asyncio
@@ -84,12 +110,12 @@ async def test_fetch_trips_for_window_splits_on_failure() -> None:
     mock_client = AsyncMock()
     mock_client.fetch_trips_for_device_resilient.side_effect = mock_fetch
 
-    trips = await _fetch_trips_for_window(
+    trips = await fetch_trips_for_window(
         mock_client,
         imei="359486068397551",
         window_start=window_start,
         window_end=window_end,
-        _split_chunk_hours=999,
+        split_chunk_hours=999,
     )
 
     # Should have split into 2 sub-windows and returned trips from both
@@ -129,12 +155,12 @@ async def test_fetch_trips_for_window_uses_chunked_split() -> None:
     mock_client = AsyncMock()
     mock_client.fetch_trips_for_device_resilient.side_effect = mock_fetch
 
-    trips = await _fetch_trips_for_window(
+    trips = await fetch_trips_for_window(
         mock_client,
         imei="359486068397551",
         window_start=window_start,
         window_end=window_end,
-        _split_chunk_hours=12,
+        split_chunk_hours=12,
     )
 
     assert len(trips) == 14
@@ -154,12 +180,12 @@ async def test_fetch_trips_for_window_raises_for_small_window() -> None:
     )
 
     with pytest.raises(RuntimeError, match="Server error"):
-        await _fetch_trips_for_window(
+        await fetch_trips_for_window(
             mock_client,
             imei="359486068397551",
             window_start=window_start,
             window_end=window_end,
-            _min_window_hours=24,
+            min_window_hours=24,
         )
 
 
@@ -195,13 +221,13 @@ async def test_fetch_trips_for_window_can_split_below_24_hours() -> None:
     mock_client = AsyncMock()
     mock_client.fetch_trips_for_device_resilient.side_effect = mock_fetch
 
-    trips = await _fetch_trips_for_window(
+    trips = await fetch_trips_for_window(
         mock_client,
         imei="359486068397551",
         window_start=window_start,
         window_end=window_end,
-        _min_window_hours=1,
-        _split_chunk_hours=999,
+        min_window_hours=1,
+        split_chunk_hours=999,
     )
 
     assert len(trips) == 2
@@ -232,7 +258,7 @@ async def test_fetch_trips_for_window_default_min_can_recover_hour() -> None:
         nonlocal call_count
         call_count += 1
         span_minutes = (end_dt - start_dt).total_seconds() / 60
-        # _fetch_trips_for_window shifts starts-after back by 1 second.
+        # fetch_trips_for_window shifts starts-after back by 1 second.
         if span_minutes > 15.1:
             msg = "Server error"
             raise RuntimeError(msg)
@@ -241,12 +267,12 @@ async def test_fetch_trips_for_window_default_min_can_recover_hour() -> None:
     mock_client = AsyncMock()
     mock_client.fetch_trips_for_device_resilient.side_effect = mock_fetch
 
-    trips = await _fetch_trips_for_window(
+    trips = await fetch_trips_for_window(
         mock_client,
         imei="359486068397551",
         window_start=window_start,
         window_end=window_end,
-        _split_chunk_hours=999,
+        split_chunk_hours=999,
     )
 
     # 1 initial call + 2 half-window retries + 4 quarter-window successes

@@ -276,7 +276,7 @@ function renderPerDeviceTable(tbody, devices, perDevice) {
 
   const rows = Array.isArray(devices) ? devices : [];
   if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="text-muted small">No devices.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="text-muted small">No devices.</td></tr>`;
     return;
   }
 
@@ -298,8 +298,8 @@ function renderPerDeviceTable(tbody, devices, perDevice) {
       <td>${stats.found_raw ?? 0}</td>
       <td>${stats.found_unique ?? 0}</td>
       <td>${stats.skipped_existing ?? 0}</td>
+      <td>${stats.skipped_conflicting_source ?? 0}</td>
       <td>${stats.validation_failed ?? 0}</td>
-      <td>${stats.new_candidates ?? 0}</td>
       <td>${stats.inserted ?? 0}</td>
       <td>${stats.errors ?? 0}</td>
     `;
@@ -315,9 +315,9 @@ function jobToCounters(job) {
     found_raw: counters.found_raw ?? 0,
     found_unique: counters.found_unique ?? 0,
     skipped_existing: counters.skipped_existing ?? 0,
-    new_candidates: counters.new_candidates ?? 0,
+    skipped_conflicting_source: counters.skipped_conflicting_source ?? 0,
     inserted: counters.inserted ?? 0,
-    skipped_missing_end_time: counters.skipped_missing_end_time ?? 0,
+    updated: counters.updated ?? 0,
     validation_failed: counters.validation_failed ?? 0,
     fetch_errors: counters.fetch_errors ?? 0,
     process_errors: counters.process_errors ?? 0,
@@ -367,9 +367,11 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   const countFoundRaw = getEl("trip-import-count-found-raw");
   const countFoundUnique = getEl("trip-import-count-found-unique");
   const countSkippedExisting = getEl("trip-import-count-skipped-existing");
-  const countNew = getEl("trip-import-count-new-candidates");
+  const countUpdated = getEl("trip-import-count-updated");
   const countInserted = getEl("trip-import-count-inserted");
-  const countMissingEnd = getEl("trip-import-count-skipped-missing-end");
+  const countConflictingSource = getEl(
+    "trip-import-count-skipped-conflicting-source"
+  );
   const countValidationFailed = getEl("trip-import-count-validation-failed");
   const countFetchErr = getEl("trip-import-count-fetch-errors");
   const countProcessErr = getEl("trip-import-count-process-errors");
@@ -616,9 +618,9 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     setText(countFoundRaw, counters.found_raw);
     setText(countFoundUnique, counters.found_unique);
     setText(countSkippedExisting, counters.skipped_existing);
-    setText(countNew, counters.new_candidates);
+    setText(countConflictingSource, counters.skipped_conflicting_source);
+    setText(countUpdated, counters.updated);
     setText(countInserted, counters.inserted);
-    setText(countMissingEnd, counters.skipped_missing_end_time);
     setText(countValidationFailed, counters.validation_failed);
     setText(countFetchErr, counters.fetch_errors);
     setText(countProcessErr, counters.process_errors);

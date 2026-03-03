@@ -25,6 +25,20 @@ def _safe_int(value, default: int = 0):
         return default
 
 
+def _first_non_empty(*values):
+    for value in values:
+        if value not in (None, ""):
+            return value
+    return None
+
+
+def _derive_timezone_fields(trip_dict: dict) -> tuple[str | None, str | None, str | None]:
+    start_tz = _first_non_empty(trip_dict.get("startTimeZone"))
+    end_tz = _first_non_empty(trip_dict.get("endTimeZone"))
+    alias = _first_non_empty(start_tz, end_tz)
+    return start_tz, end_tz, alias
+
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -80,6 +94,7 @@ async def get_matched_trips(request: Request):
                     matched_at = trip_dict.get("matched_at")
                     total_idle_duration = trip_dict.get("totalIdleDuration")
                     avg_speed = trip_dict.get("avgSpeed")
+                    start_tz, end_tz, alias_tz = _derive_timezone_fields(trip_dict)
                     props = {
                         "transactionId": trip_dict.get("transactionId"),
                         "imei": trip_dict.get("imei"),
@@ -88,7 +103,9 @@ async def get_matched_trips(request: Request):
                         "duration": duration,
                         "distance": safe_float(trip_dict.get("distance"), 0),
                         "maxSpeed": safe_float(trip_dict.get("maxSpeed"), 0),
-                        "timeZone": trip_dict.get("timeZone"),
+                        "startTimeZone": start_tz,
+                        "endTimeZone": end_tz,
+                        "timeZone": alias_tz,
                         "startLocation": trip_dict.get("startLocation"),
                         "destination": trip_dict.get("destination"),
                         "totalIdleDuration": total_idle_duration,
@@ -249,6 +266,7 @@ async def get_trips(request: Request):
                     num_points = len(coords) if isinstance(coords, list) else 0
                     total_idle_duration = trip_dict.get("totalIdleDuration")
                     avg_speed = trip_dict.get("avgSpeed")
+                    start_tz, end_tz, alias_tz = _derive_timezone_fields(trip_dict)
 
                     # Skip trips without valid geometry
                     if not final_geom or not final_geom.get("coordinates"):
@@ -266,7 +284,9 @@ async def get_trips(request: Request):
                         "duration": duration,
                         "distance": safe_float(trip_dict.get("distance"), 0),
                         "maxSpeed": safe_float(trip_dict.get("maxSpeed"), 0),
-                        "timeZone": trip_dict.get("timeZone"),
+                        "startTimeZone": start_tz,
+                        "endTimeZone": end_tz,
+                        "timeZone": alias_tz,
                         "startLocation": trip_dict.get("startLocation"),
                         "destination": trip_dict.get("destination"),
                         "totalIdleDuration": total_idle_duration,

@@ -62,6 +62,8 @@ def test_trip_popup_metrics_match_for_regular_and_matched_layers() -> None:
             "source": "bouncie",
             "startTime": "2026-03-01T10:00:00+00:00",
             "endTime": "2026-03-01T11:30:00+00:00",
+            "startTimeZone": "America/Chicago",
+            "endTimeZone": "America/Chicago",
             "distance": 42.1,
             "maxSpeed": 78.0,
             "avgSpeed": 36.2,
@@ -102,3 +104,7 @@ def test_trip_popup_metrics_match_for_regular_and_matched_layers() -> None:
     for key in ("startTime", "endTime", "distance", "duration", "avgSpeed", "maxSpeed"):
         assert matched_props[key] == regular_props[key]
 
+    assert regular_props["startTimeZone"] == "America/Chicago"
+    assert regular_props["endTimeZone"] == "America/Chicago"
+    assert regular_props["timeZone"] == "America/Chicago"
+    assert matched_props["timeZone"] == "America/Chicago"

@@ -162,6 +162,11 @@ def normalize_rest_trip_payload(trip: dict[str, Any]) -> dict[str, Any]:
     if end_time is not None and not isinstance(end_time, datetime):
         normalized["endTime"] = parse_timestamp(end_time)
 
+    time_zone = normalized.get("timeZone")
+    if time_zone:
+        normalized.setdefault("startTimeZone", time_zone)
+        normalized.setdefault("endTimeZone", time_zone)
+
     if "averageSpeed" in normalized:
         with contextlib.suppress(TypeError, ValueError):
             normalized["avgSpeed"] = float(normalized.get("averageSpeed"))
@@ -173,15 +178,15 @@ def normalize_rest_trip_payload(trip: dict[str, Any]) -> dict[str, Any]:
             normalized["hardAccelerationCounts"] = int(
                 normalized.get("hardAccelerationCount"),
             )
-    if "totalIdleDuration" in normalized:
+    if "totalIdlingTime" in normalized:
+        with contextlib.suppress(TypeError, ValueError):
+            normalized["totalIdleDuration"] = float(normalized.get("totalIdlingTime"))
+    elif "totalIdleDuration" in normalized:
         with contextlib.suppress(TypeError, ValueError):
             normalized["totalIdleDuration"] = float(normalized.get("totalIdleDuration"))
 
     gps = normalized.get("gps")
     normalized["gps"] = _normalize_rest_gps(gps)
-
-    normalized["status"] = "processed"
-    normalized["source"] = "bouncie"
 
     # Strip superseded keys to avoid propagating aliases.
     for key in (
@@ -189,6 +194,7 @@ def normalize_rest_trip_payload(trip: dict[str, Any]) -> dict[str, Any]:
         "hardBrakingCount",
         "hardAccelerationCount",
         "totalIdlingTime",
+        "timeZone",
     ):
         normalized.pop(key, None)
 
