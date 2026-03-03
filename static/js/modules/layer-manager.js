@@ -24,6 +24,7 @@ const INTERACTIVE_TRIP_LAYERS = new Set(["trips", "matchedTrips"]);
 
 // Animation constants
 const FADE_DURATION = 320;
+const COVERAGE_OVERLAY_LAYER_NAME = "coverageAreaBoundingBox";
 
 const layerManager = {
   // Event handler tracking for proper cleanup
@@ -970,6 +971,11 @@ const layerManager = {
         return;
       }
 
+      if (layerName === COVERAGE_OVERLAY_LAYER_NAME) {
+        await this._updateCoverageAreaOverlayLayer(data, sourceId, layerInfo);
+        return;
+      }
+
       const existingSource = store.map.getSource(sourceId);
       const existingLayer = store.map.getLayer(layerId);
 
@@ -1099,6 +1105,167 @@ const layerManager = {
     layerInfo.layer = data;
   },
 
+  _getCoverageOverlayLayerIds(layerName = COVERAGE_OVERLAY_LAYER_NAME) {
+    return {
+      fill: `${layerName}-fill`,
+      glow: `${layerName}-glow`,
+      edge: `${layerName}-layer`,
+    };
+  },
+
+  _getCoverageOverlayBeforeLayerId() {
+    const preferredOrder = [
+      "undrivenStreets-layer",
+      "drivenStreets-layer",
+      "allStreets-layer",
+      "trips-layer-0",
+      "trips-layer",
+      "matchedTrips-layer-0",
+      "matchedTrips-layer",
+      "live-trip-line",
+    ];
+
+    for (const layerId of preferredOrder) {
+      if (store.map?.getLayer(layerId)) {
+        return layerId;
+      }
+    }
+
+    return this.getFirstSymbolLayerId();
+  },
+
+  setCoverageAreaOverlayVisibility(
+    visible,
+    layerName = COVERAGE_OVERLAY_LAYER_NAME
+  ) {
+    if (!store.map) {
+      return;
+    }
+
+    const layerIds = this._getCoverageOverlayLayerIds(layerName);
+    Object.values(layerIds).forEach((layerId) => {
+      if (store.map.getLayer(layerId)) {
+        store.map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
+      }
+    });
+  },
+
+  _updateCoverageAreaOverlayLayer(data, sourceId, layerInfo) {
+    const layerName = COVERAGE_OVERLAY_LAYER_NAME;
+    const { fill: fillLayerId, glow: glowLayerId, edge: edgeLayerId } =
+      this._getCoverageOverlayLayerIds(layerName);
+    const isVisible = Boolean(layerInfo.visible);
+    const colorValue = Array.isArray(layerInfo.color)
+      ? layerInfo.color
+      : layerInfo.color || "#727a84";
+    const beforeLayerId = this._getCoverageOverlayBeforeLayerId();
+
+    const source = store.map.getSource(sourceId);
+    if (source) {
+      source.setData(data);
+    } else {
+      this._createSource(sourceId, data);
+    }
+
+    const fillLayerConfig = {
+      id: fillLayerId,
+      type: "fill",
+      source: sourceId,
+      minzoom: layerInfo.minzoom || 0,
+      maxzoom: layerInfo.maxzoom || 22,
+      layout: {
+        visibility: isVisible ? "visible" : "none",
+      },
+      paint: {
+        "fill-color": colorValue,
+        // Keep this extremely subtle so street/trip visibility is unaffected.
+        "fill-opacity": 0.02,
+      },
+    };
+
+    const glowLayerConfig = {
+      id: glowLayerId,
+      type: "line",
+      source: sourceId,
+      minzoom: layerInfo.minzoom || 0,
+      maxzoom: layerInfo.maxzoom || 22,
+      layout: {
+        visibility: isVisible ? "visible" : "none",
+        "line-join": "round",
+        "line-cap": "round",
+      },
+      paint: {
+        "line-color": colorValue,
+        "line-opacity": 0.16,
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          8,
+          2.5,
+          12,
+          4,
+          16,
+          6,
+        ],
+        "line-blur": 1.6,
+      },
+    };
+
+    const edgeLayerConfig = {
+      id: edgeLayerId,
+      type: "line",
+      source: sourceId,
+      minzoom: layerInfo.minzoom || 0,
+      maxzoom: layerInfo.maxzoom || 22,
+      layout: {
+        visibility: isVisible ? "visible" : "none",
+        "line-join": "round",
+        "line-cap": "round",
+      },
+      paint: {
+        "line-color": colorValue,
+        "line-opacity": Math.max(0, Math.min(1, Number(layerInfo.opacity) || 0.95)),
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          8,
+          1,
+          12,
+          1.35,
+          16,
+          1.8,
+        ],
+      },
+    };
+
+    const layers = [
+      [fillLayerId, fillLayerConfig],
+      [glowLayerId, glowLayerConfig],
+      [edgeLayerId, edgeLayerConfig],
+    ];
+
+    layers.forEach(([layerId, config]) => {
+      if (store.map.getLayer(layerId)) {
+        // Keep order stable under streets/trips while updating style.
+        store.map.moveLayer(layerId, beforeLayerId);
+        store.map.setLayoutProperty(
+          layerId,
+          "visibility",
+          isVisible ? "visible" : "none"
+        );
+        Object.entries(config.paint).forEach(([paintKey, paintValue]) => {
+          store.map.setPaintProperty(layerId, paintKey, paintValue);
+        });
+      } else {
+        store.map.addLayer(config, beforeLayerId);
+      }
+    });
+
+    layerInfo.layer = data;
+  },
+
   /**
    * Remove existing layer and source
    * @private
@@ -1106,6 +1273,7 @@ const layerManager = {
   _removeExistingLayerAndSource(layerName, layerId, sourceId) {
     const existingSource = store.map.getSource(sourceId);
     const existingLayer = store.map.getLayer(layerId);
+    const isCoverageOverlay = layerName === COVERAGE_OVERLAY_LAYER_NAME;
 
     if (existingLayer || existingSource) {
       if (this._shouldEnableTripInteractions(layerName)) {
@@ -1118,6 +1286,15 @@ const layerManager = {
         store.map.off(event, layerId);
       });
       store.map.removeLayer(layerId);
+    }
+
+    if (isCoverageOverlay) {
+      const overlayLayerIds = this._getCoverageOverlayLayerIds(layerName);
+      [overlayLayerIds.fill, overlayLayerIds.glow].forEach((overlayId) => {
+        if (store.map.getLayer(overlayId)) {
+          store.map.removeLayer(overlayId);
+        }
+      });
     }
 
     if (existingSource) {

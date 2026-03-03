@@ -732,15 +732,12 @@ const AppController = {
 
   async _syncCoverageAreaBoundingBoxOverlay() {
     const layerName = "coverageAreaBoundingBox";
-    const layerId = `${layerName}-layer`;
     const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
     const shouldShowOverlay = Boolean(selectedLocationId && this._hasVisibleStreetCoverageLayer());
 
     if (!shouldShowOverlay) {
       state.mapLayers[layerName].visible = false;
-      if (state.map?.getLayer(layerId)) {
-        state.map.setLayoutProperty(layerId, "visibility", "none");
-      }
+      layerManager.setCoverageAreaOverlayVisibility(false, layerName);
       return;
     }
 
@@ -757,17 +754,13 @@ const AppController = {
 
     if (!overlayGeojson) {
       state.mapLayers[layerName].visible = false;
-      if (state.map?.getLayer(layerId)) {
-        state.map.setLayoutProperty(layerId, "visibility", "none");
-      }
+      layerManager.setCoverageAreaOverlayVisibility(false, layerName);
       return;
     }
 
     state.mapLayers[layerName].visible = true;
     await layerManager.updateMapLayer(layerName, overlayGeojson);
-    if (state.map?.getLayer(layerId)) {
-      state.map.setLayoutProperty(layerId, "visibility", "visible");
-    }
+    layerManager.setCoverageAreaOverlayVisibility(true, layerName);
   },
 };
 

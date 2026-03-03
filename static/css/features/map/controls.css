@@ -502,12 +502,12 @@
 }
 
 .legend-indicator.undriven {
-  background: var(--primary);
-  border: 1px dashed rgb(var(--primary-rgb) / 50%);
+  background: var(--color-undriven);
+  border: 1px dashed rgb(var(--color-undriven-rgb) / 50%);
 }
 
 .legend-indicator.all {
-  background: var(--info);
+  background: var(--cat-indigo);
 }
 
 /* === Mobile Bottom Sheet - Simplified === */
