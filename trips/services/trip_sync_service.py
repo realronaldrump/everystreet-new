@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 from fastapi import HTTPException, status
 
 from config import get_bouncie_config
+from core.jobs import JobHandle
 from core.serialization import serialize_datetime
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import Job, TaskHistory, Trip
@@ -69,9 +70,27 @@ def _credentials_configured(credentials: dict[str, Any]) -> bool:
 
 
 def _auth_connected(credentials: dict[str, Any]) -> bool:
-    return _credentials_configured(credentials) and bool(
-        credentials.get("authorization_code"),
+    return _credentials_configured(credentials) and (
+        bool(credentials.get("authorization_code"))
+        or _has_valid_access_token(credentials)
     )
+
+
+def _has_valid_access_token(credentials: dict[str, Any]) -> bool:
+    token = credentials.get("access_token")
+    if not token:
+        return False
+
+    expires_at = credentials.get("expires_at")
+    if expires_at is None:
+        return True
+
+    try:
+        return float(expires_at) > datetime.now(UTC).timestamp()
+    except (TypeError, ValueError):
+        # If expiry is malformed but a token exists, avoid falsely reporting
+        # disconnected; subsequent token usage will still fail safely if invalid.
+        return True
 
 
 def _devices_configured(credentials: dict[str, Any]) -> bool:
@@ -218,13 +237,13 @@ class TripSyncService:
 
             if progress_job:
                 try:
-                    progress_job.status = "failed"
-                    progress_job.stage = "failed"
-                    progress_job.message = "Failed (stale job cleared automatically)"
-                    progress_job.error = reason
-                    progress_job.completed_at = now
-                    progress_job.updated_at = now
-                    await progress_job.save()
+                    await JobHandle(progress_job).update(
+                        status="failed",
+                        stage="failed",
+                        message="Failed (stale job cleared automatically)",
+                        error=reason,
+                        completed_at=now,
+                    )
                 except Exception:
                     logger.exception(
                         "Failed to update stale trip history import progress job %s",
@@ -763,11 +782,11 @@ class TripSyncService:
                 },
             )
             if progress_job:
-                progress_job.status = "cancelled"
-                progress_job.stage = "cancelled"
-                progress_job.message = "Cancelled"
-                progress_job.completed_at = now
-                progress_job.updated_at = now
-                await progress_job.save()
+                await JobHandle(progress_job).update(
+                    status="cancelled",
+                    stage="cancelled",
+                    message="Cancelled",
+                    completed_at=now,
+                )
 
         return {"status": "success", "message": "Sync cancelled"}

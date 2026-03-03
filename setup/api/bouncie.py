@@ -35,6 +35,21 @@ def _state_expired(expires_at: float | None) -> bool:
     return bool(expires_at and expires_at < time.time())
 
 
+def _has_valid_access_token(credentials: dict[str, Any]) -> bool:
+    token = credentials.get("access_token")
+    if not token:
+        return False
+
+    expires_at = credentials.get("expires_at")
+    if expires_at is None:
+        return True
+
+    try:
+        return float(expires_at) > time.time()
+    except (TypeError, ValueError):
+        return True
+
+
 def _first_forwarded_value(value: str | None) -> str | None:
     if not value:
         return None
@@ -361,12 +376,12 @@ async def get_bouncie_auth_status() -> dict[str, Any]:
     has_client_secret = bool(credentials.get("client_secret"))
     has_redirect_uri = bool(credentials.get("redirect_uri"))
     has_auth_code = bool(credentials.get("authorization_code"))
-    has_access_token = bool(credentials.get("access_token"))
+    has_access_token = _has_valid_access_token(credentials)
     has_devices = bool(credentials.get("authorized_devices"))
 
     return {
         "configured": has_client_id and has_client_secret and has_redirect_uri,
-        "connected": has_auth_code
+        "connected": (has_auth_code or has_access_token)
         and has_client_id
         and has_client_secret
         and has_redirect_uri,

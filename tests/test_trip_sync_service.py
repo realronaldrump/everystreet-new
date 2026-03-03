@@ -74,6 +74,44 @@ async def test_sync_status_requires_auth(beanie_db_with_tasks) -> None:
 
 
 @pytest.mark.asyncio
+async def test_sync_status_accepts_valid_cached_token_without_auth_code(
+    beanie_db_with_tasks,
+) -> None:
+    creds = BouncieCredentials(
+        client_id="client",
+        client_secret="secret",
+        redirect_uri="https://example.com/callback",
+        authorization_code=None,
+        access_token="cached-token",
+        expires_at=(datetime.now(UTC) + timedelta(minutes=30)).timestamp(),
+        authorized_devices=["device-123"],
+    )
+    await creds.insert()
+    status = await TripSyncService.get_sync_status()
+    assert status["state"] == "idle"
+    assert status["pause_reason"] is None
+
+
+@pytest.mark.asyncio
+async def test_sync_status_requires_auth_when_cached_token_expired(
+    beanie_db_with_tasks,
+) -> None:
+    creds = BouncieCredentials(
+        client_id="client",
+        client_secret="secret",
+        redirect_uri="https://example.com/callback",
+        authorization_code=None,
+        access_token="expired-token",
+        expires_at=(datetime.now(UTC) - timedelta(minutes=1)).timestamp(),
+        authorized_devices=["device-123"],
+    )
+    await creds.insert()
+    status = await TripSyncService.get_sync_status()
+    assert status["state"] == "paused"
+    assert status["pause_reason"] == "auth_required"
+
+
+@pytest.mark.asyncio
 async def test_sync_status_requires_devices(beanie_db_with_tasks) -> None:
     creds = BouncieCredentials(
         client_id="client",

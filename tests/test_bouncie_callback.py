@@ -16,6 +16,7 @@ from setup.api.bouncie import (
     _build_redirect_uri,
     _sync_vehicles_after_auth,
     bouncie_oauth_callback,
+    get_bouncie_auth_status,
     initiate_bouncie_auth,
 )
 
@@ -358,6 +359,61 @@ class TestBouncieOAuthCallback:
         assert response.status_code == 302
         assert "bouncie_connected=true" in response.headers["location"]
         assert "vehicles_synced=2" in response.headers["location"]
+
+
+class TestBouncieStatus:
+    """Tests for /api/bouncie/status response semantics."""
+
+    @pytest.mark.asyncio
+    async def test_status_connected_with_valid_cached_token(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(
+            "setup.api.bouncie.get_bouncie_credentials",
+            AsyncMock(
+                return_value={
+                    "client_id": "client",
+                    "client_secret": "secret",
+                    "redirect_uri": "https://example.com/api/bouncie/callback",
+                    "authorization_code": "",
+                    "access_token": "cached-token",
+                    "expires_at": time.time() + 300,
+                    "authorized_devices": [],
+                },
+            ),
+        )
+
+        status = await get_bouncie_auth_status()
+
+        assert status["configured"] is True
+        assert status["connected"] is True
+        assert status["has_token"] is True
+
+    @pytest.mark.asyncio
+    async def test_status_not_connected_with_expired_cached_token(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(
+            "setup.api.bouncie.get_bouncie_credentials",
+            AsyncMock(
+                return_value={
+                    "client_id": "client",
+                    "client_secret": "secret",
+                    "redirect_uri": "https://example.com/api/bouncie/callback",
+                    "authorization_code": "",
+                    "access_token": "expired-token",
+                    "expires_at": time.time() - 10,
+                    "authorized_devices": [],
+                },
+            ),
+        )
+
+        status = await get_bouncie_auth_status()
+
+        assert status["connected"] is False
+        assert status["has_token"] is False
 
 
 class TestBouncieOAuthEndToEnd:
