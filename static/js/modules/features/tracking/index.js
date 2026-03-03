@@ -1593,5 +1593,4 @@ class LiveTripTracker {
   }
 }
 
-export { LiveTripTracker };
 export default LiveTripTracker;

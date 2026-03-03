@@ -47,12 +47,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .nav-top,
-  .nav-bottom,
-  .nav-setup-card,
-  .nav-preview-card,
-  .nav-resume-prompt,
-  .nav-preview-start.at-start {
+  .nav-top, .nav-bottom, .nav-setup-card, .nav-resume-prompt, .nav-preview-start.at-start {
     animation: none;
   }
 

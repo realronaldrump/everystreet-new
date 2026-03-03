@@ -962,5 +962,4 @@ class VisitsDrawing {
   }
 }
 
-export { VisitsDrawing };
 export default VisitsDrawing;

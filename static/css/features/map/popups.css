@@ -66,28 +66,6 @@
   line-height: var(--line-height-normal);
 }
 
-.coverage-popup-content .popup-title {
-  font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-lg);
-  margin-bottom: var(--space-3);
-  color: var(--primary); /* Use primary color for title */
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--divider-color);
-}
-
-.coverage-popup-content .popup-detail {
-  margin-bottom: var(--space-2);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.coverage-popup-content .popup-label {
-  color: var(--text-secondary);
-  margin-right: var(--space-2);
-  font-weight: var(--font-weight-medium);
-}
-
 .coverage-popup-content .popup-value {
   color: var(--text-primary);
   text-align: right;
@@ -106,12 +84,6 @@
 
 .coverage-popup-content .popup-value.status-undriveable {
   color: var(--warning);
-}
-
-.coverage-popup-content .popup-value.segment-id {
-  color: var(--text-tertiary);
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-xs);
 }
 
 .coverage-popup-content .popup-actions {

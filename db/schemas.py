@@ -12,33 +12,6 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-class LocationModel(BaseModel):
-    """Model for location data."""
-
-    display_name: str
-    osm_id: int
-    osm_type: str
-
-    model_config = ConfigDict(extra="allow")
-
-
-class CustomBoundaryModel(BaseModel):
-    """Model for custom drawn boundary data."""
-
-    display_name: str
-    boundary_type: str = "custom"
-    geometry: dict[str, Any]  # GeoJSON geometry
-    area_name: str
-
-    model_config = ConfigDict(extra="allow")
-
-
-class DeleteCoverageAreaModel(BaseModel):
-    """Model for deleting a coverage area, requiring only the display name."""
-
-    display_name: str
-
-
 class DateRangeModel(BaseModel):
     """Model for date range data."""
 
@@ -59,30 +32,6 @@ class ValidateLocationModel(BaseModel):
 
     location: str
     locationType: str
-
-
-class ValidateCustomBoundaryModel(BaseModel):
-    """Model for custom boundary validation."""
-
-    area_name: str
-    geometry: dict[str, Any]  # GeoJSON geometry
-
-
-class CollectionModel(BaseModel):
-    """Model for collection operations."""
-
-    collection: str
-
-
-class CoordinatePointModel(BaseModel):
-    """Represents a single coordinate point with timestamp and optional speed."""
-
-    timestamp: datetime
-    lat: float
-    lon: float
-    speed: float | None = None
-
-    model_config = ConfigDict(extra="allow")
 
 
 class LiveTripPayload(BaseModel):

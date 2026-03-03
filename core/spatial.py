@@ -174,46 +174,6 @@ class GeometryService:
         }
 
 
-def is_valid_geojson_geometry(geojson_data: Any) -> bool:
-    """Validate GeoJSON Point or LineString geometry."""
-    if not isinstance(geojson_data, dict):
-        return False
-
-    geom_type = geojson_data.get("type")
-    coordinates = geojson_data.get("coordinates")
-
-    if geom_type == "Point":
-        if not isinstance(coordinates, list) or len(coordinates) != 2:
-            return False
-        if not all(isinstance(coord, int | float) for coord in coordinates):
-            return False
-        lon, lat = coordinates
-        if not (-180 <= lon <= 180 and -90 <= lat <= 90):
-            logger.debug("Point coordinates out of WGS84 range: %s", [lon, lat])
-            return False
-        return True
-
-    if geom_type == "LineString":
-        if not isinstance(coordinates, list) or len(coordinates) < 2:
-            logger.debug(
-                "LineString must have at least 2 coordinate pairs. Found: %d",
-                len(coordinates) if isinstance(coordinates, list) else 0,
-            )
-            return False
-        for point in coordinates:
-            if not isinstance(point, list) or len(point) != 2:
-                return False
-            if not all(isinstance(coord, int | float) for coord in point):
-                return False
-            lon, lat = point
-            if not (-180 <= lon <= 180 and -90 <= lat <= 90):
-                logger.debug("LineString point out of WGS84 range: %s", [lon, lat])
-                return False
-        return True
-
-    return False
-
-
 def sanitize_geojson_geometry(
     geojson_data: Any,
     *,

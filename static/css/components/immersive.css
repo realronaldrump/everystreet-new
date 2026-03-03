@@ -142,30 +142,10 @@ body[data-time-of-day="night"] {
   backdrop-filter: blur(var(--blur-strong)) saturate(1.15);
 }
 
-.glass--modal {
-  background: var(--glass-3);
-  backdrop-filter: blur(var(--blur-modal)) saturate(1.2);
-}
-
 /* Elevation utilities */
-.elevation-1 {
-  box-shadow: var(--shadow-elevation-1);
-}
-
-.elevation-2 {
-  box-shadow: var(--shadow-elevation-2);
-}
 
 .elevation-3 {
   box-shadow: var(--shadow-elevation-3);
-}
-
-.elevation-4 {
-  box-shadow: var(--shadow-elevation-4);
-}
-
-.elevation-5 {
-  box-shadow: var(--shadow-elevation-5);
 }
 
 /* Ripple base */

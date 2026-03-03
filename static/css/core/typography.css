@@ -4,17 +4,7 @@ body {
   letter-spacing: 0.005em;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6,
-.display-1,
-.display-2,
-.display-3,
-.display-4,
-.display-5 {
+h1, h2, h3, h4, h5, h6, .display-3, .display-4 {
   font-family: var(--font-family-display);
   letter-spacing: -0.015em;
   line-height: var(--line-height-tight);
@@ -32,16 +22,7 @@ p,
   max-width: 72ch;
 }
 
-[data-numeric],
-.counter,
-.metric-value,
-.stat-value,
-.hero-stat .display-3,
-.nav-progress-value,
-.preview-stat-value,
-.live-trip-hud-speed,
-.nav-stat .value,
-.meta-value {
+[data-numeric], .counter, .metric-value, .stat-value, .preview-stat-value, .live-trip-hud-speed, .nav-stat .value, .meta-value {
   font-family: var(--font-family-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";

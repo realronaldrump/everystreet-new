@@ -176,5 +176,4 @@ class VisitsEvents {
   }
 }
 
-export { VisitsEvents };
 export default VisitsEvents;

@@ -418,5 +418,3 @@ export function initTripSync({ onSyncComplete, onSyncError, cleanup } = {}) {
 
   return cleanupFn;
 }
-
-export default initTripSync;

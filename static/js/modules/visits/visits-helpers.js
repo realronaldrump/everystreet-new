@@ -138,5 +138,4 @@ const VisitsHelpers = {
   },
 };
 
-export { VisitsHelpers };
 export default VisitsHelpers;

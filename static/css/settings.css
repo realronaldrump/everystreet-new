@@ -282,12 +282,6 @@
   width: 100px;
 }
 
-.opacity-slider-value {
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-  min-width: 30px;
-}
-
 /* === Preferences Actions === */
 .preferences-actions {
   display: flex;
@@ -784,16 +778,6 @@
   align-items: end;
 }
 
-.storage-metric {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--surface-2);
-}
-
 .storage-actions {
   display: flex;
   justify-content: flex-end;
@@ -1052,32 +1036,12 @@
 }
 
 /* === Progress Panel === */
-#geocode-progress-panel .card,
-.progress-panel .card {
+#geocode-progress-panel .card {
   background: var(--surface-2);
   border: 1px solid var(--border-color);
 }
 
 /* === Task Status Badge Colors === */
-.task-status-idle {
-  color: var(--text-secondary);
-}
-
-.task-status-running {
-  color: var(--primary);
-}
-
-.task-status-completed {
-  color: var(--success);
-}
-
-.task-status-failed {
-  color: var(--danger);
-}
-
-.task-status-paused {
-  color: var(--warning);
-}
 
 /* === Custom Form Switch === */
 .form-check.form-switch .form-check-input {
@@ -1111,25 +1075,6 @@
 }
 
 /* === Version Metadata === */
-.map-coverage-summary {
-  display: grid;
-  gap: var(--space-2);
-  background: var(--surface-1);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: var(--space-3);
-}
-
-.map-coverage-line {
-  color: var(--text-secondary);
-}
-
-.map-coverage-actions {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  margin-top: var(--space-3);
-}
 
 .map-coverage-progress {
   margin-top: var(--space-4);
@@ -1140,17 +1085,6 @@
   justify-content: space-between;
   margin-top: var(--space-2);
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-}
-
-.map-coverage-editor {
-  margin-top: var(--space-4);
-  border-top: 1px solid var(--border-color);
-  padding-top: var(--space-4);
-}
-
-.map-coverage-meta {
-  margin-top: var(--space-3);
   color: var(--text-secondary);
 }
 
@@ -2028,15 +1962,6 @@
     align-items: flex-end;
     text-align: right;
   }
-}
-
-.trip-import-meta-item {
-  display: inline-flex;
-  gap: var(--space-2);
-}
-
-.trip-import-meta-k {
-  color: var(--text-tertiary);
 }
 
 .trip-import-progress-bar {

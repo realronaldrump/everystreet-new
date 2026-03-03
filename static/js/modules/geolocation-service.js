@@ -232,5 +232,5 @@ class GeolocationService {
 const geolocationService = new GeolocationService();
 
 // Export both class and singleton
-export { GeolocationService, geolocationService };
+export { GeolocationService };
 export default geolocationService;

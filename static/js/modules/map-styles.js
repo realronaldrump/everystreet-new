@@ -127,5 +127,4 @@ export {
   getClusterColor,
   getTripStyle,
 };
-export { MapStyles };
 export default MapStyles;

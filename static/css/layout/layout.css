@@ -64,18 +64,6 @@
   grid-column: span 4;
 }
 
-.bento-span-3 {
-  grid-column: span 3;
-}
-
-.bento-span-2 {
-  grid-column: span 2;
-}
-
-.bento-span-1 {
-  grid-column: span 1;
-}
-
 @media (width <= 1200px) {
   .bento-grid {
     grid-template-columns: repeat(8, minmax(0, 1fr));

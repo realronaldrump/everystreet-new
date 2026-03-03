@@ -328,6 +328,5 @@ class APIClient {
 // Create singleton instance
 const apiClient = new APIClient();
 
-// Export both the class and singleton
-export { APIClient, apiClient };
+// Export singleton
 export default apiClient;

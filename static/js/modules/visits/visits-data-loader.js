@@ -187,5 +187,4 @@ class VisitsDataLoader {
   }
 }
 
-export { VisitsDataLoader };
 export default VisitsDataLoader;

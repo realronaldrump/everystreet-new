@@ -18,14 +18,12 @@
   filter: drop-shadow(0 0 3px rgb(255 255 255 / 70%));
 }
 
-.trip-path.selected,
-.trip-feature-selected {
+.trip-path.selected {
   /* stroke-width: further increased by JS */
   filter: drop-shadow(0 0 6px var(--primary)); /* Use primary color for selection glow */
 }
 
-.recent-trip,
-.trip-feature-recent {
+.recent-trip {
   /* Highlight recent trips */
   filter: drop-shadow(0 0 4px rgb(var(--primary-rgb) / 60%));
 }

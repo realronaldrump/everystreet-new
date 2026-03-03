@@ -767,16 +767,6 @@
   color: var(--text-primary);
 }
 
-.coverage-navigator .label-text {
-  font-weight: 600;
-}
-
-.coverage-navigator .label-hint {
-  font-size: 0.75rem;
-  font-weight: 400;
-  color: var(--text-tertiary);
-}
-
 .coverage-navigator .select-wrapper {
   position: relative;
 }
@@ -1026,9 +1016,6 @@
 }
 
 /* Widget tints when area is selected */
-.coverage-navigator .area-selector-widget.has-area {
-  border-color: rgb(var(--cat-mint-rgb) / 30%);
-}
 
 .coverage-navigator .route-planner-widget.is-ready {
   border-color: rgb(var(--cat-purple-rgb) / 30%);
@@ -1309,20 +1296,6 @@
 }
 
 /* Inner body for route history items */
-.coverage-navigator .rhi-body {
-  padding: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.coverage-navigator .rhi-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  min-width: 0;
-}
 
 .coverage-navigator .route-name {
   font-size: 0.8125rem;
@@ -1355,13 +1328,6 @@
   color: var(--danger);
 }
 
-.coverage-navigator .rhi-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
 .coverage-navigator .route-date {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
@@ -1377,11 +1343,6 @@
 
 .coverage-navigator .route-history-item[data-status="cancelled"] .route-date {
   color: var(--danger);
-}
-
-.coverage-navigator .route-meta {
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
 }
 
 /* Action buttons: reveal on hover */
@@ -1404,12 +1365,6 @@
   max-height: 60px;
   opacity: 1;
   margin-top: var(--space-2);
-}
-
-.coverage-navigator .btn-inline {
-  min-height: 32px;
-  font-size: 0.6875rem;
-  padding: 0.3rem 0.6rem;
 }
 
 /* Route history chevron */

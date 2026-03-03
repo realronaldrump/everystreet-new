@@ -82,16 +82,7 @@ body.light-mode .table-striped tbody tr:nth-of-type(odd) {
   margin-left: var(--space-1);
 }
 
-.table-loading {
-  opacity: 0.6;
-  pointer-events: none;
-  transition: opacity var(--transition-normal);
-}
-
 /* Skeleton Loading States - Phase 3 */
-.table-skeleton-row td {
-  padding: var(--space-3) var(--space-4);
-}
 
 .table-skeleton-block {
   height: 0.9em;

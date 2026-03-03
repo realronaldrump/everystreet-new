@@ -114,20 +114,6 @@ export function distanceInUserUnits(meters, fixed = 2) {
     : `${miles.toFixed(fixed)} mi`;
 }
 
-/**
- * Format distance from kilometers to miles
- * @param {number} km - Distance in kilometers
- * @param {number} decimals - Decimal places
- * @returns {string} Formatted distance in miles
- */
-export function formatKmToMiles(km, decimals = 1) {
-  if (km === null || km === undefined) {
-    return "--";
-  }
-  const miles = km * 0.621371;
-  return `${miles.toFixed(decimals)} mi`;
-}
-
 // ============================================================================
 // Duration Formatting
 // ============================================================================
@@ -547,46 +533,4 @@ export function sanitizeLocation(location) {
     );
   }
   return "Unknown";
-}
-
-/**
- * Format street type for display
- * Convert "residential_street" to "Residential Street"
- * @param {string} type - Street type
- * @returns {string} Formatted street type
- */
-export function formatStreetType(type) {
-  if (!type) {
-    return "Unknown";
-  }
-  return type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-}
-
-// ============================================================================
-// Speed Formatting
-// ============================================================================
-
-/**
- * Format vehicle speed with status indicator
- * @param {number|string} speed - Speed value
- * @returns {Object} Object with value, status, formatted string, and CSS class
- */
-export function formatVehicleSpeed(speed) {
-  const validSpeed = typeof speed === "number" ? speed : parseFloat(speed) || 0;
-
-  let status = "stopped";
-  if (validSpeed > 35) {
-    status = "fast";
-  } else if (validSpeed > 10) {
-    status = "medium";
-  } else if (validSpeed > 0) {
-    status = "slow";
-  }
-
-  return {
-    value: validSpeed.toFixed(1),
-    status,
-    formatted: `${validSpeed.toFixed(1)} mph`,
-    cssClass: `vehicle-${status}`,
-  };
 }

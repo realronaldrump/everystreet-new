@@ -37,37 +37,30 @@
   border-radius: var(--radius-lg) 0 0 var(--radius-lg);
 }
 
-.card[data-accent="primary"],
-.card.has-accent-primary {
+.card[data-accent="primary"] {
   --card-accent: var(--primary);
 }
 
-.card[data-accent="success"],
-.card.has-accent-success {
+.card[data-accent="success"] {
   --card-accent: var(--success);
 }
 
-.card[data-accent="warning"],
-.card.has-accent-warning {
+.card[data-accent="warning"] {
   --card-accent: var(--warning);
 }
 
-.card[data-accent="danger"],
-.card.has-accent-danger {
+.card[data-accent="danger"] {
   --card-accent: var(--danger);
 }
 
-.card[data-accent="info"],
-.card.has-accent-info {
+.card[data-accent="info"] {
   --card-accent: var(--info);
 }
 
-.card[data-accent="accent"],
-.card.has-accent-indigo {
+.card[data-accent="accent"] {
   --card-accent: var(--accent);
 }
 
-.card.is-clickable,
 .card[data-ripple] {
   cursor: pointer;
 }
@@ -201,15 +194,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-}
-
-.widget-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
 }
 
 /* Widget accent mappings - using new muted palette */

@@ -481,26 +481,6 @@ export function clearCoverageLayers(map = CountyMapState.getMap()) {
 }
 
 /**
- * Add all map layers for counties and states.
- */
-export function addMapLayers() {
-  const map = CountyMapState.getMap();
-  const countyData = CountyMapState.getCountyData();
-  const statesData = CountyMapState.getStatesData();
-  const showStoppedCounties = CountyMapState.getShowStoppedCounties();
-
-  if (!map || !countyData || !statesData) {
-    return;
-  }
-
-  clearCoverageLayers(map);
-  addCountyLayers({ map, countyData, statesData, showStoppedCounties });
-
-  // Release duplicated JS-side geometry after Mapbox has taken ownership.
-  CountyMapState.clearGeometryData();
-}
-
-/**
  * Render map layers for the active level.
  * @param {'county'|'state'|'city'} level
  * @param {{countyData?: Object, statesData?: Object, stateFeatureCollection?: Object, cityFeatureCollection?: Object, showStoppedCounties?: boolean, showStoppedCities?: boolean}} options

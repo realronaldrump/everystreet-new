@@ -52,11 +52,6 @@
   opacity: 0.7;
 }
 
-.version-hash {
-  opacity: 0.5;
-  font-size: 0.9em;
-}
-
 /* Mobile adjustments */
 @media (width <= 768px) {
   .app-footer {

@@ -800,28 +800,6 @@
   stroke-linejoin: round;
 }
 
-.route-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-3);
-}
-
-.route-metric {
-  display: grid;
-  gap: 0.1rem;
-}
-
-.route-metric-label {
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
-}
-
-.route-metric-value {
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-sm);
-  color: rgb(255 255 255 / 88%);
-}
-
 /* Modal */
 .routes-modal-content {
   background: var(--routes-bg-elevated);
@@ -984,15 +962,6 @@
   color: var(--text-tertiary);
 }
 
-.route-trip-row-sub {
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
 .routes-modal-footer {
   padding-top: var(--space-2);
 }
@@ -1077,36 +1046,6 @@ html[data-bs-theme="light"] .route-preview-svg path {
   grid-template-rows: auto auto auto;
 }
 
-.route-card-header {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: var(--space-3);
-  align-items: start;
-  padding: var(--space-4) var(--space-4) var(--space-3);
-}
-
-.route-card-path-indicator {
-  width: 0.35rem;
-  border-radius: 999px;
-  min-height: 3.5rem;
-  opacity: 0.95;
-}
-
-.route-card-direction {
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-  min-width: 0;
-}
-
-.route-card-endpoint {
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  color: rgb(255 255 255 / 88%);
-}
-
 .endpoint-dot {
   width: 0.55rem;
   height: 0.55rem;
@@ -1122,26 +1061,6 @@ html[data-bs-theme="light"] .route-preview-svg path {
 
 .endpoint-dot.end {
   background: rgb(var(--cat-amber-rgb) / 95%);
-}
-
-.endpoint-label {
-  display: inline-block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.route-card-arrow {
-  color: rgb(255 255 255 / 46%);
-  font-size: 0.8rem;
-}
-
-.route-card-pills {
-  display: inline-flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  justify-content: flex-end;
 }
 
 .route-pill.pinned {

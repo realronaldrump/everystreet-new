@@ -3,8 +3,6 @@
  * Constants, defaults, and lookup tables
  */
 
-import { CONFIG } from "../core/config.js";
-
 /**
  * Navigation States - manages UX flow through the navigation experience
  */
@@ -42,14 +40,6 @@ export const TURN_BY_TURN_DEFAULTS = {
   maxProgressHistoryLength: 5,
   maxReverseJumpMeters: 50,
   maxSpeedMps: 50, // ~112 mph
-};
-
-/**
- * Map style URLs
- */
-export const MAP_STYLES = {
-  light: CONFIG.MAP.styles.light,
-  dark: CONFIG.MAP.styles.dark,
 };
 
 /**

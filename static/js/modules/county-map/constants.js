@@ -16,12 +16,6 @@ export const MAP_CONFIG = {
   maxZoom: 12,
 };
 
-export const COVERAGE_LEVELS = {
-  county: "county",
-  state: "state",
-  city: "city",
-};
-
 /** Map layer colors */
 export const COLORS = {
   visited: {

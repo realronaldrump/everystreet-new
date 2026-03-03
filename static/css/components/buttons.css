@@ -184,31 +184,6 @@
 }
 
 /* === Subtle Button (New - Phase 2) === */
-.btn-subtle {
-  --btn-bg: transparent;
-  --btn-bg-hover: var(--surface-2);
-  --btn-border: transparent;
-  --btn-border-hover: transparent;
-  --btn-color: var(--text-secondary);
-  --btn-color-hover: var(--text-primary);
-}
-
-.btn-subtle-primary {
-  --btn-color: var(--primary);
-  --btn-color-hover: var(--primary-light);
-  --btn-bg-hover: rgb(var(--primary-rgb) / 10%);
-}
-
-.btn-subtle-danger {
-  --btn-color: var(--danger);
-  --btn-color-hover: var(--danger-light);
-  --btn-bg-hover: rgb(var(--danger-rgb) / 10%);
-}
-
-.btn-block {
-  display: flex;
-  width: 100%;
-}
 
 .btn-icon {
   width: var(--touch-target);

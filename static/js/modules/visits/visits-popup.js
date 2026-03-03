@@ -203,5 +203,4 @@ class VisitsPopup {
   }
 }
 
-export { VisitsPopup };
 export default VisitsPopup;

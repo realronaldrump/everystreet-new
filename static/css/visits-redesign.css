@@ -1351,28 +1351,6 @@
   }
 }
 
-.place-stat-card {
-  text-align: center;
-  padding: var(--space-4);
-  background: var(--surface-2);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-color);
-}
-
-.place-stat-value {
-  font-family: var(--font-family-display);
-  font-size: var(--font-size-xl);
-  font-weight: 600;
-  color: var(--primary);
-  display: block;
-}
-
-.place-stat-label {
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-  margin-top: var(--space-1);
-}
-
 /* Visit Timeline */
 .visit-timeline {
   position: relative;

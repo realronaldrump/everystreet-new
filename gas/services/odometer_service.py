@@ -1,7 +1,7 @@
 """Service for odometer estimation and vehicle location resolution."""
 
-from datetime import datetime
 import logging
+from datetime import datetime
 from typing import Any
 
 from core.date_utils import parse_timestamp
@@ -289,6 +289,11 @@ class OdometerService:
         end_time: datetime,
     ) -> float:
         """Sum distance across an interval, prorating partially overlapping trips."""
+        start_time = parse_timestamp(start_time)
+        end_time = parse_timestamp(end_time)
+        if start_time is None or end_time is None:
+            return 0.0
+
         if start_time >= end_time:
             return 0.0
 
@@ -308,8 +313,8 @@ class OdometerService:
 
         distance_sum = 0.0
         for trip in overlapping_trips:
-            trip_start = trip.startTime
-            trip_end = trip.endTime
+            trip_start = parse_timestamp(trip.startTime)
+            trip_end = parse_timestamp(trip.endTime)
             trip_distance = trip.distance
 
             if (
@@ -365,6 +370,12 @@ class OdometerService:
             .first_or_none()
         )
 
+        prev_fillup_time = (
+            parse_timestamp(prev_fillup.fillup_time)
+            if prev_fillup and prev_fillup.fillup_time is not None
+            else None
+        )
+
         # Next trusted fill-up
         next_fillup = await (
             GasFillup.find(
@@ -376,34 +387,45 @@ class OdometerService:
             .first_or_none()
         )
 
+        next_fillup_time = (
+            parse_timestamp(next_fillup.fillup_time)
+            if next_fillup and next_fillup.fillup_time is not None
+            else None
+        )
+
         best_anchor = None
         anchor_type = None  # "prev" or "next"
 
         # Decide which anchor to use (closest)
-        if prev_fillup and next_fillup:
-            diff_prev = abs((target_time - prev_fillup.fillup_time).total_seconds())
-            diff_next = abs((next_fillup.fillup_time - target_time).total_seconds())
+        if (
+            prev_fillup
+            and next_fillup
+            and prev_fillup_time is not None
+            and next_fillup_time is not None
+        ):
+            diff_prev = abs((target_time - prev_fillup_time).total_seconds())
+            diff_next = abs((next_fillup_time - target_time).total_seconds())
             if diff_prev < diff_next:
                 best_anchor = {
-                    "fillup_time": prev_fillup.fillup_time,
+                    "fillup_time": prev_fillup_time,
                     "odometer": prev_fillup.odometer,
                 }
                 anchor_type = "prev"
             else:
                 best_anchor = {
-                    "fillup_time": next_fillup.fillup_time,
+                    "fillup_time": next_fillup_time,
                     "odometer": next_fillup.odometer,
                 }
                 anchor_type = "next"
-        elif prev_fillup:
+        elif prev_fillup and prev_fillup_time is not None:
             best_anchor = {
-                "fillup_time": prev_fillup.fillup_time,
+                "fillup_time": prev_fillup_time,
                 "odometer": prev_fillup.odometer,
             }
             anchor_type = "prev"
-        elif next_fillup:
+        elif next_fillup and next_fillup_time is not None:
             best_anchor = {
-                "fillup_time": next_fillup.fillup_time,
+                "fillup_time": next_fillup_time,
                 "odometer": next_fillup.odometer,
             }
             anchor_type = "next"
@@ -425,8 +447,11 @@ class OdometerService:
             )
             if prev_trip:
                 # Standardize structure to look like fillup for calc
+                prev_trip_end = parse_timestamp(prev_trip.endTime)
+                if prev_trip_end is None:
+                    return {"estimated_odometer": None, "method": "no_data"}
                 best_anchor = {
-                    "fillup_time": prev_trip.endTime,
+                    "fillup_time": prev_trip_end,
                     "odometer": prev_trip.endOdometer,
                 }
                 anchor_type = "prev"

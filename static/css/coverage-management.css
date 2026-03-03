@@ -778,11 +778,6 @@
   pointer-events: auto;
 }
 
-.map-overlay--top-left {
-  top: var(--space-4);
-  left: var(--space-4);
-}
-
 .map-overlay--top-right {
   top: var(--space-4);
   right: var(--space-4);

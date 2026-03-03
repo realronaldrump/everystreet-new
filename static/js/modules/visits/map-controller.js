@@ -428,5 +428,4 @@ class VisitsMapController {
   }
 }
 
-export { VisitsMapController };
 export default VisitsMapController;

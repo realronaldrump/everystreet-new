@@ -68,4 +68,3 @@ const VisitsGeometry = {
 };
 
 export { VisitsGeometry, collectCoordinates, computeBounds, fitMapToGeometry };
-export default VisitsGeometry;

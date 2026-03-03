@@ -259,15 +259,6 @@ body.light-mode .turn-by-turn {
   transition: transform var(--nav-transition-normal);
 }
 
-.nav-progress-meta {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--nav-muted);
-  margin-top: 6px;
-}
-
 .nav-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -837,12 +828,6 @@ body.light-mode .turn-by-turn {
 
 .nav-bottom-sheet-handle:active {
   cursor: grabbing;
-}
-
-.nav-bottom-sheet-content {
-  padding: 0 var(--nav-space-md) var(--nav-space-md);
-  overflow-y: auto;
-  max-height: calc(50vh - 80px);
 }
 
 /* ================================================

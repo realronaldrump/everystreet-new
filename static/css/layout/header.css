@@ -613,9 +613,6 @@
 
 @media (width <= 992px) {
   /* Tablet and smaller */
-  .main-content.sidebar-active {
-    margin-left: 0;
-  }
 
   .main-nav .nav-item span {
     /* Hide text in main nav, show only icons */

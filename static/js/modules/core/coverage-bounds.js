@@ -55,39 +55,6 @@ export function coverageBoundingBoxToMapBounds(rawBbox) {
 }
 
 /**
- * Convert bbox into a rectangle polygon feature collection.
- */
-export function coverageBoundingBoxToFeatureCollection(rawBbox, properties = {}) {
-  const bbox = normalizeCoverageBoundingBox(rawBbox);
-  if (!bbox) {
-    return null;
-  }
-
-  const [west, south, east, north] = bbox;
-  return {
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        properties,
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            [
-              [west, south],
-              [east, south],
-              [east, north],
-              [west, north],
-              [west, south],
-            ],
-          ],
-        },
-      },
-    ],
-  };
-}
-
-/**
  * Normalize boundary input to a polygon/multipolygon FeatureCollection.
  *
  * Accepts GeoJSON Geometry, Feature, or FeatureCollection.

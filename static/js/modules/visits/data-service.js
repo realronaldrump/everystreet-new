@@ -57,7 +57,6 @@ const VisitsDataService = {
 };
 
 export {
-  VisitsDataService,
   fetchPlaces,
   fetchPlaceStatistics,
   fetchPlaceDetailStatistics,

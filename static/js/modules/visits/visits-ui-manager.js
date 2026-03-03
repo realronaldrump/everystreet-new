@@ -290,5 +290,4 @@ class VisitsUIManager {
   }
 }
 
-export { VisitsUIManager };
 export default VisitsUIManager;

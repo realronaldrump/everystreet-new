@@ -139,12 +139,6 @@
   background: rgb(var(--surface-rgb) / 30%);
 }
 
-.section-header-content {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
 .section-icon {
   color: var(--text-tertiary);
   font-size: var(--font-size-md);

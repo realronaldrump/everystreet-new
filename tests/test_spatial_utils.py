@@ -1,4 +1,4 @@
-from core.spatial import GeometryService, derive_geo_points, is_valid_geojson_geometry
+from core.spatial import GeometryService, derive_geo_points
 
 
 def test_validate_coordinate_pair() -> None:
@@ -18,21 +18,6 @@ def test_geometry_from_coordinate_pairs_dedupe() -> None:
     assert geometry is not None
     assert geometry["type"] == "LineString"
     assert geometry["coordinates"] == [[-97.0, 32.0], [-96.9, 32.1]]
-
-
-def test_is_valid_geojson_geometry() -> None:
-    assert is_valid_geojson_geometry(
-        {"type": "Point", "coordinates": [-97.0, 32.0]},
-    )
-    assert is_valid_geojson_geometry(
-        {
-            "type": "LineString",
-            "coordinates": [[-97.0, 32.0], [-97.1, 32.1]],
-        },
-    )
-    assert not is_valid_geojson_geometry(
-        {"type": "Point", "coordinates": [-200.0, 0.0]},
-    )
 
 
 def test_derive_geo_points() -> None:

@@ -162,11 +162,6 @@
   outline-offset: 2px;
 }
 
-.delight-card.is-record {
-  border-color: rgb(var(--success-rgb) / 60%);
-  box-shadow: 0 0 18px rgb(var(--success-rgb) / 18%);
-}
-
 .delight-label {
   color: var(--text-tertiary);
   font-size: var(--font-size-xs);

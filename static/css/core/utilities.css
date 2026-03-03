@@ -46,12 +46,7 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.rounded,
-.rounded-1,
-.rounded-2,
-.rounded-3,
-.rounded-4,
-.rounded-5 {
+.rounded, .rounded-3 {
   border-radius: var(--radius-lg) !important;
 }
 
@@ -72,14 +67,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.widget-grid-title {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-tertiary);
 }
 
 /* Disable animated progress stripes */
@@ -110,18 +97,11 @@
   animation: slideInUp 0.4s ease forwards;
 }
 
-.slide-in-down {
-  animation: slideInDown 0.4s ease forwards;
-}
-
 .spinner {
   animation: spin 0.8s linear infinite;
 } /* Generic spinner class */
 
 /* === Icon Transitions === */
-.icon-chevron-transition {
-  transition: transform 0.3s ease;
-}
 
 /* === Legend Indicators === */
 .legend-indicator {
@@ -141,23 +121,7 @@ body.light-mode .legend-indicator--undriven {
   border-color: rgb(var(--color-undriven-rgb) / 30%);
 }
 
-.legend-indicator--driven {
-  background-color: var(--color-driven);
-}
-
-.legend-indicator--all {
-  background-color: var(--primary-light);
-}
-
-.legend-text-small {
-  font-size: var(--font-size-xs);
-}
-
 /* === Clear Button Styles === */
-.btn-clear-search {
-  padding: var(--space-1) var(--space-2);
-  z-index: 10;
-}
 
 .btn-clear-mobile {
   padding: 0;
@@ -203,65 +167,13 @@ body.light-mode .legend-indicator--undriven {
   color: var(--text-on-primary);
 }
 
-.border-accent {
-  border-color: var(--accent);
-}
-
 /* Glassmorphism utility classes */
-.glass-panel {
-  background: var(--glass-panel);
-  backdrop-filter: blur(var(--blur-strong));
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
-}
-
-.glass-subtle {
-  background: var(--glass-1);
-  backdrop-filter: blur(var(--blur-subtle));
-  border: 1px solid var(--glass-border);
-}
-
-.glass-strong {
-  background: var(--glass-3);
-  backdrop-filter: blur(var(--blur-modal));
-  border: 1px solid var(--glass-border-medium);
-  box-shadow: var(--shadow-glass-lg);
-}
 
 /* Glow effects */
-.glow-primary {
-  box-shadow: var(--glow-primary);
-}
-
-.glow-accent {
-  box-shadow: var(--glow-accent);
-}
 
 /* Left border accent utilities */
-.border-left-accent {
-  border-left: 3px solid var(--accent);
-}
-
-.border-left-primary {
-  border-left: 3px solid var(--primary);
-}
-
-.border-left-success {
-  border-left: 3px solid var(--success);
-}
-
-.border-left-warning {
-  border-left: 3px solid var(--warning);
-}
-
-.border-left-danger {
-  border-left: 3px solid var(--danger);
-}
 
 /* Monospace text for data display */
-.font-mono {
-  font-family: var(--font-family-mono);
-}
 
 .text-mono-lg {
   font-family: var(--font-family-mono);
@@ -274,9 +186,6 @@ body.light-mode .legend-indicator--undriven {
 }
 
 /* Display font for headlines */
-.font-display {
-  font-family: var(--font-family-display);
-}
 
 /* Status indicator dots */
 .status-dot {
@@ -359,10 +268,6 @@ body.light-mode .legend-indicator--undriven {
 }
 
 /* Ensure sufficient touch targets */
-.min-touch-target {
-  min-width: var(--touch-target);
-  min-height: var(--touch-target);
-}
 
 /* Reduced motion preferences already defined in animations.css and utilities.css */
 
@@ -375,18 +280,7 @@ body.light-mode .legend-indicator--undriven {
     line-height: 1.4;
   }
 
-  .app-header,
-  .mobile-nav-drawer,
-  .side-panel,
-  .tools-section /* Hide theme toggle, etc. */,
-  .menu-toggle-btn,
-  .notification-container,
-  .loading-overlay,
-  .control-panel /* Hide map control panel */,
-  .btn /* Hide most buttons */,
-  .quick-selections,
-  .panel-actions,
-  #map-controls /* Hide specific map controls panel if it's different */ {
+  .app-header, .mobile-nav-drawer, .side-panel, .tools-section, .menu-toggle-btn, .notification-container, .loading-overlay, .control-panel, .btn, #map-controls /* Hide specific map controls panel if it's different */ {
     display: none;
   }
 

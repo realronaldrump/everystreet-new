@@ -77,7 +77,6 @@ def test_trip_updates_endpoint_returns_trip_snapshot() -> None:
     app = _create_app()
 
     with (
-        patch.object(live_api.db_manager, "_connection_healthy", new=True),
         patch.object(
             live_api.TrackingService,
             "get_trip_updates",
@@ -108,7 +107,6 @@ def test_trip_updates_endpoint_returns_no_update_after_clear() -> None:
     app = _create_app()
 
     with (
-        patch.object(live_api.db_manager, "_connection_healthy", new=True),
         patch.object(
             live_api.TrackingService,
             "get_trip_updates",

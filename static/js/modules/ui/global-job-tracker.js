@@ -879,5 +879,4 @@ if (document.readyState === "loading") {
   initGlobalJobTracker();
 }
 
-export { GlobalJobTracker };
 export default GlobalJobTracker;

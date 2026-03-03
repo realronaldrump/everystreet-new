@@ -42,20 +42,11 @@
     overflow-y: hidden;
   }
 
-  .panel-body,
-  .side-panel,
-  .control-panel-body,
-  .modal-body,
-  .table-responsive,
-  .drawer-nav,
-  .drawer-content {
+  .side-panel, .control-panel-body, .modal-body, .table-responsive, .drawer-nav {
     -webkit-overflow-scrolling: touch;
   }
 
-  .btn,
-  .nav-item a,
-  .dropdown-item,
-  .quick-select-btn {
+  .btn, .nav-item a, .dropdown-item {
     min-height: var(--touch-target);
   }
 }

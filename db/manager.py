@@ -289,16 +289,6 @@ class DatabaseManager:
             raise RuntimeError(msg)
         return self._client
 
-    @property
-    def connection_healthy(self) -> bool:
-        """
-        Check if the connection is healthy.
-
-        Returns:
-            True if connection is healthy, False otherwise.
-        """
-        return self._connection_healthy
-
     async def init_beanie(self) -> None:
         """
         Initialize Beanie ODM with all document models.

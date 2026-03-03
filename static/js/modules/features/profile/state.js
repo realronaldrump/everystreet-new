@@ -149,7 +149,6 @@ const ProfileState = {
 
 export {
   DEFAULT_FETCH_CONCURRENCY,
-  ProfileState,
   areValuesEqual,
   createEditorState,
   normalizeValues,

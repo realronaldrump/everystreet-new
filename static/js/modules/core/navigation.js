@@ -8,10 +8,6 @@ export const swupReady = new Promise((resolve) => {
   resolveReady = resolve;
 });
 
-export function getSwup() {
-  return swup;
-}
-
 function pathnameFromSwupUrl(urlish) {
   if (!urlish) {
     return null;

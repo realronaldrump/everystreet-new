@@ -1025,10 +1025,6 @@
   background: var(--danger);
 }
 
-.history-job-status.is-queued {
-  background: var(--text-tertiary);
-}
-
 .history-job-status.is-cancelled {
   background: rgb(var(--border-rgb) / 45%);
 }

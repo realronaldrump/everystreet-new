@@ -215,5 +215,4 @@ class VisitsActions {
   }
 }
 
-export { VisitsActions };
 export default VisitsActions;

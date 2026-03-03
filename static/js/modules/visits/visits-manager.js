@@ -675,5 +675,4 @@ class VisitsManager {
   }
 }
 
-export { VisitsManager };
 export default VisitsManager;

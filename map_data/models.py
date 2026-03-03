@@ -86,11 +86,6 @@ class GeoServiceHealth(Document):
 
     model_config = ConfigDict(extra="allow")
 
-    @property
-    def overall_healthy(self) -> bool:
-        """Check if all services are healthy."""
-        return self.nominatim_healthy and self.valhalla_healthy
-
     @classmethod
     async def get_or_create(cls) -> GeoServiceHealth:
         """Get the singleton health document, creating if necessary."""

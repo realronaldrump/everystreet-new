@@ -68,5 +68,4 @@ class VisitsStatsManager {
   }
 }
 
-export { VisitsStatsManager };
 export default VisitsStatsManager;

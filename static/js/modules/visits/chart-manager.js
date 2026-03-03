@@ -122,5 +122,4 @@ class VisitsChartManager {
   }
 }
 
-export { VisitsChartManager };
 export default VisitsChartManager;
