@@ -148,6 +148,7 @@ class AreaDetailResponse(BaseModel):
 
     success: bool = True
     area: AreaResponse
+    boundary: dict[str, Any] | None = None
     bounding_box: list[float] | None = None
     has_optimal_route: bool = False
 
@@ -664,6 +665,7 @@ async def get_area(area_id: PydanticObjectId):
             road_filter_version=area.road_filter_version,
             road_filter_stats=area.road_filter_stats or {},
         ),
+        boundary=area.boundary if area.boundary else None,
         bounding_box=area.bounding_box if area.bounding_box else None,
         has_optimal_route=area.optimal_route is not None,
     )

@@ -6,6 +6,11 @@
 
 export const COVERAGE_BBOX_LINE_COLOR = "rgba(245, 242, 236, 0.35)";
 
+const BOUNDARY_GEOMETRY_TYPES = new Set(["Polygon", "MultiPolygon"]);
+
+const isBoundaryGeometryType = (geometryType) =>
+  typeof geometryType === "string" && BOUNDARY_GEOMETRY_TYPES.has(geometryType);
+
 /**
  * Normalize bbox input to [west, south, east, north] with finite numbers.
  * Returns null when input is invalid.
@@ -77,6 +82,84 @@ export function coverageBoundingBoxToFeatureCollection(rawBbox, properties = {})
             ],
           ],
         },
+      },
+    ],
+  };
+}
+
+/**
+ * Normalize boundary input to a polygon/multipolygon FeatureCollection.
+ *
+ * Accepts GeoJSON Geometry, Feature, or FeatureCollection.
+ */
+export function coverageBoundaryToFeatureCollection(rawBoundary, properties = {}) {
+  if (!rawBoundary || typeof rawBoundary !== "object") {
+    return null;
+  }
+
+  const boundaryType = rawBoundary.type;
+
+  if (boundaryType === "FeatureCollection") {
+    if (!Array.isArray(rawBoundary.features)) {
+      return null;
+    }
+
+    const features = rawBoundary.features
+      .filter((feature) => {
+        const geometryType = feature?.geometry?.type;
+        return isBoundaryGeometryType(geometryType);
+      })
+      .map((feature) => ({
+        type: "Feature",
+        properties: {
+          ...(feature?.properties || {}),
+          ...properties,
+        },
+        geometry: feature.geometry,
+      }));
+
+    if (features.length === 0) {
+      return null;
+    }
+
+    return {
+      type: "FeatureCollection",
+      features,
+    };
+  }
+
+  if (boundaryType === "Feature") {
+    const geometryType = rawBoundary?.geometry?.type;
+    if (!isBoundaryGeometryType(geometryType)) {
+      return null;
+    }
+
+    return {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: {
+            ...(rawBoundary?.properties || {}),
+            ...properties,
+          },
+          geometry: rawBoundary.geometry,
+        },
+      ],
+    };
+  }
+
+  if (!isBoundaryGeometryType(boundaryType)) {
+    return null;
+  }
+
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties,
+        geometry: rawBoundary,
       },
     ],
   };

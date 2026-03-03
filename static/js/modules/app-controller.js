@@ -21,8 +21,8 @@
 
 import { CONFIG } from "./core/config.js";
 import {
+  coverageBoundaryToFeatureCollection,
   coverageBoundingBoxToFeatureCollection,
-  normalizeCoverageBoundingBox,
 } from "./core/coverage-bounds.js";
 import state from "./core/store.js";
 import { getPreloadTripIdFromUrl } from "./core/url-state.js";
@@ -88,16 +88,16 @@ const initializeLiveTracker = () => {
   }
 };
 
-const coverageAreaBoundingBoxCache = new Map();
+const coverageAreaOverlayCache = new Map();
 
-const getCoverageAreaBoundingBox = async (areaId) => {
+const getCoverageAreaOverlayGeometry = async (areaId) => {
   const normalizedAreaId = String(areaId || "").trim();
   if (!normalizedAreaId) {
     return null;
   }
 
-  if (coverageAreaBoundingBoxCache.has(normalizedAreaId)) {
-    return coverageAreaBoundingBoxCache.get(normalizedAreaId);
+  if (coverageAreaOverlayCache.has(normalizedAreaId)) {
+    return coverageAreaOverlayCache.get(normalizedAreaId);
   }
 
   try {
@@ -106,13 +106,22 @@ const getCoverageAreaBoundingBox = async (areaId) => {
       {},
       CONFIG.API.retryAttempts,
       CONFIG.API.cacheTime,
-      `coverage-area-bbox:${normalizedAreaId}`
+      `coverage-area-boundary:${normalizedAreaId}`
     );
-    const bbox = normalizeCoverageBoundingBox(areaDetail?.bounding_box);
-    coverageAreaBoundingBoxCache.set(normalizedAreaId, bbox);
-    return bbox;
+    const overlayGeojson =
+      coverageBoundaryToFeatureCollection(areaDetail?.boundary, {
+        coverageAreaId: normalizedAreaId,
+      }) ||
+      coverageBoundingBoxToFeatureCollection(areaDetail?.bounding_box, {
+        coverageAreaId: normalizedAreaId,
+      });
+    coverageAreaOverlayCache.set(normalizedAreaId, overlayGeojson);
+    return overlayGeojson;
   } catch (error) {
-    console.warn(`Failed to load bounding box for coverage area ${normalizedAreaId}:`, error);
+    console.warn(
+      `Failed to load boundary/bounding box for coverage area ${normalizedAreaId}:`,
+      error
+    );
     return null;
   }
 };
@@ -744,7 +753,7 @@ const AppController = {
     }
 
     const currentLocationId = String(selectedLocationId);
-    const bbox = await getCoverageAreaBoundingBox(currentLocationId);
+    const overlayGeojson = await getCoverageAreaOverlayGeometry(currentLocationId);
 
     // Ignore stale responses if the user changed selection while loading.
     const latestLocationId = String(
@@ -754,11 +763,7 @@ const AppController = {
       return;
     }
 
-    const bboxGeojson = coverageBoundingBoxToFeatureCollection(bbox, {
-      coverageAreaId: currentLocationId,
-    });
-
-    if (!bboxGeojson) {
+    if (!overlayGeojson) {
       state.mapLayers[layerName].visible = false;
       if (state.map?.getLayer(layerId)) {
         state.map.setLayoutProperty(layerId, "visibility", "none");
@@ -767,7 +772,7 @@ const AppController = {
     }
 
     state.mapLayers[layerName].visible = true;
-    await layerManager.updateMapLayer(layerName, bboxGeojson);
+    await layerManager.updateMapLayer(layerName, overlayGeojson);
     if (state.map?.getLayer(layerId)) {
       state.map.setLayoutProperty(layerId, "visibility", "visible");
     }
