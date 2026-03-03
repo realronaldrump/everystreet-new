@@ -305,11 +305,20 @@ export function getCountyActivityStateFips({
 }
 
 export function getCityTabStateRollups(
-  stateRollups = CountyMapState.getStateRollups()
+  stateRollups = CountyMapState.getStateRollups(),
+  activityStateFips = null
 ) {
   const rollups = Array.isArray(stateRollups) ? stateRollups : [];
+  const activeSet =
+    activityStateFips ||
+    getCountyActivityStateFips({
+      countyVisits: CountyMapState.getCountyVisits(),
+      countyStops: CountyMapState.getCountyStops(),
+    });
   return rollups.filter(
-    (entry) => Number(entry?.city?.total || 0) > 0
+    (entry) =>
+      Number(entry?.city?.total || 0) > 0 &&
+      activeSet.has(String(entry?.stateFips || "").padStart(2, "0"))
   );
 }
 

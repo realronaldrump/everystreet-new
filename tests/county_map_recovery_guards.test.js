@@ -81,7 +81,10 @@ test("getCountyActivityStateFips includes states with visits or stops", () => {
   assert.deepEqual([...stateFips].sort(), ["01", "06", "48"]);
 });
 
-test("getCityTabStateRollups returns states with city totals regardless of county activity", () => {
+test("getCityTabStateRollups returns only states with city totals AND county activity", () => {
+  // State "01" has city total > 0 but no county activity → excluded
+  // State "48" has city total > 0 AND county activity → included
+  const activitySet = new Set(["48"]);
   const rollups = getCityTabStateRollups([
     {
       stateFips: "01",
@@ -98,11 +101,11 @@ test("getCityTabStateRollups returns states with city totals regardless of count
       city: { total: 10, visited: 1 },
       county: { visited: 1, total: 254 },
     },
-  ]);
+  ], activitySet);
 
   assert.deepEqual(
     rollups.map((entry) => entry.stateFips),
-    ["01", "48"]
+    ["48"]
   );
 });
 
