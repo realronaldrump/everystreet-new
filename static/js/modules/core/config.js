@@ -33,6 +33,20 @@ export const CONFIG = {
       fadeDuration: 300,
       antialias: false,
     },
+    buildings3d: {
+      enabled: true,
+      layerId: "es-3d-buildings",
+      minZoom: 14.5,
+      opacity: 0.7,
+    },
+    cinematicIntro: {
+      enabled: true,
+      desktopOnly: true,
+      firstVisitOnly: true,
+      initialPitch: 60,
+      rotationDegPerSec: 0.25,
+      maxDurationMs: 12000,
+    },
   },
 
   // LocalStorage keys
@@ -49,6 +63,7 @@ export const CONFIG = {
     theme: "theme",
     mapView: "mapView",
     mapType: "mapType",
+    mapCinematicIntroSeen: "mapCinematicIntroSeen",
     uiState: "uiState",
   },
 

@@ -1,8 +1,10 @@
 import store from "../../core/store.js";
+import initBuildings3D from "./buildings-3d.js";
+import initCinematicIntro from "./cinematic-intro.js";
 import initMapControls from "./map-controls.js";
 import { initMobileMap } from "./mobile-map.js";
 
-function setupMapTilt(signal) {
+function setupMapTilt(signal, isCameraLocked = null) {
   const prefersCoarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches;
   if (prefersCoarsePointer) {
     return;
@@ -19,6 +21,9 @@ function setupMapTilt(signal) {
   const applyTilt = () => {
     ticking = false;
     if (store.liveTracker?.followMode) {
+      return;
+    }
+    if (typeof isCameraLocked === "function" && isCameraLocked()) {
       return;
     }
     const scrollY = window.scrollY || 0;
@@ -170,8 +175,16 @@ export default function initMapPage({ signal, cleanup } = {}) {
     registerCleanup(() => perfObserver.disconnect());
   }
 
-  setupMapTilt(signal);
   registerCleanup(setupMapViewportSync());
+
+  const mapInstance = store.map || window.map;
+  const buildings3d = initBuildings3D({ map: mapInstance });
+  registerCleanup(() => buildings3d.destroy?.());
+
+  const cinematicIntro = initCinematicIntro({ map: mapInstance, signal });
+  registerCleanup(() => cinematicIntro.destroy?.());
+
+  setupMapTilt(signal, () => cinematicIntro.isActive?.() === true);
 
   initMapControls({ signal, cleanup: registerCleanup });
   initMobileMap({ cleanup: registerCleanup });
