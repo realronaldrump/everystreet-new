@@ -10,7 +10,9 @@ from bson import ObjectId
 from shapely.geometry import LineString
 
 import core.osmnx_graphml as osmnx_graphml_module
+import routing.constants as routing_constants
 import routing.graph_connectivity as graph_connectivity_module
+import routing.zones as zones_module
 import street_coverage.preprocessing as preprocessing_module
 from routing import service
 
@@ -353,3 +355,87 @@ async def test_mapping_progress_metrics_include_default_and_fallback_aliases(
     }
     for update in mapping_updates:
         assert required_keys.issubset(update["metrics"].keys())
+
+
+@pytest.mark.asyncio
+async def test_zone_solver_uses_route_crs_node_xy_not_matching_projection(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    _, area_id = _install_common_mocks(
+        monkeypatch,
+        tmp_path,
+        spatial_distance=10.0,
+        trace_distance=10.0,
+        trace_returns_geometry=True,
+    )
+
+    def _fake_prepare_spatial_matching_graph(G):
+        projected = nx.MultiDiGraph(G)
+        projected.graph["crs"] = "EPSG:32614"
+        for _n, data in projected.nodes(data=True):
+            data["x"] = float(data["x"]) * 100000.0 + 500000.0
+            data["y"] = float(data["y"]) * 100000.0 + 3000000.0
+
+        def _project_xy(x: float, y: float) -> tuple[float, float]:
+            return (float(x) * 100000.0 + 500000.0, float(y) * 100000.0 + 3000000.0)
+
+        return projected, _project_xy
+
+    monkeypatch.setattr(
+        service,
+        "prepare_spatial_matching_graph",
+        _fake_prepare_spatial_matching_graph,
+    )
+    monkeypatch.setattr(routing_constants, "ZONE_DECOMPOSITION_THRESHOLD", 0)
+
+    def _fake_decompose_into_zones(
+        _G,
+        required_reqs,
+        req_segment_counts,
+        node_xy,
+        max_zone_size: int = 1500,
+    ):
+        _ = max_zone_size
+        # Should stay in route CRS (lon/lat), not projected matching CRS.
+        assert max(abs(x) for x, _y in node_xy.values()) < 5.0
+        zone = zones_module.Zone(zone_id=0)
+        zone.required_reqs = dict(required_reqs)
+        zone.req_segment_counts = dict(req_segment_counts or {})
+        return [zone]
+
+    def _fake_order_zones(zones, start_xy=None):
+        _ = start_xy
+        return zones
+
+    def _fake_solve_zones(_G, zones, start_node=None, node_xy=None):
+        _ = zones, start_node
+        assert node_xy is not None
+        assert max(abs(x) for x, _y in node_xy.values()) < 5.0
+        return (
+            [[0.0, 0.0], [1.0, 0.0]],
+            {
+                "total_distance": 120.0,
+                "required_distance": 100.0,
+                "required_distance_completed": 100.0,
+                "deadhead_distance": 20.0,
+                "deadhead_percentage": 16.67,
+                "required_reqs": 2.0,
+                "completed_reqs": 2.0,
+                "skipped_disconnected": 0.0,
+                "iterations": 1.0,
+            },
+            [(1, 2, 0)],
+            [],
+        )
+
+    monkeypatch.setattr(zones_module, "decompose_into_zones", _fake_decompose_into_zones)
+    monkeypatch.setattr(zones_module, "order_zones", _fake_order_zones)
+    monkeypatch.setattr(zones_module, "solve_zones", _fake_solve_zones)
+
+    result = await service._generate_optimal_route_with_progress_impl(
+        str(area_id),
+        task_id="zone-route-crs",
+    )
+
+    assert result["status"] == "success"

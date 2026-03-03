@@ -551,7 +551,7 @@ async def _generate_optimal_route_with_progress_impl(
             )
 
         matching_graph, project_xy = prepare_spatial_matching_graph(G)
-        node_xy: dict[int, tuple[float, float]] = {
+        matching_node_xy: dict[int, tuple[float, float]] = {
             n: (
                 float(matching_graph.nodes[n]["x"]),
                 float(matching_graph.nodes[n]["y"]),
@@ -559,6 +559,11 @@ async def _generate_optimal_route_with_progress_impl(
             for n in matching_graph.nodes
             if matching_graph.nodes[n].get("x") is not None
             and matching_graph.nodes[n].get("y") is not None
+        }
+        route_node_xy: dict[int, tuple[float, float]] = {
+            n: (float(G.nodes[n]["x"]), float(G.nodes[n]["y"]))
+            for n in G.nodes
+            if G.nodes[n].get("x") is not None and G.nodes[n].get("y") is not None
         }
         osmid_index = build_osmid_index(matching_graph)
         # Log graph edge osmid sample for debugging
@@ -570,7 +575,7 @@ async def _generate_optimal_route_with_progress_impl(
             "Matching setup: osmid_index_size=%d, graph_edges=%d, node_xy_count=%d, graph_crs=%s, edge_osmid_sample=%s",
             len(osmid_index),
             matching_graph.number_of_edges(),
-            len(node_xy),
+            len(matching_node_xy),
             matching_graph.graph.get("crs", "none"),
             osmid_sample[:3],
         )
@@ -657,7 +662,7 @@ async def _generate_optimal_route_with_progress_impl(
                 data["match_coords"],
                 data["osmid"],
                 osmid_index,
-                node_xy=node_xy,
+                node_xy=matching_node_xy,
                 line_cache=edge_line_cache,
             )
 
@@ -883,7 +888,7 @@ async def _generate_optimal_route_with_progress_impl(
                             max(Y),
                         )
                         # Also log a sample of graph node coordinates for comparison
-                        sample_nodes = list(node_xy.items())[:3]
+                        sample_nodes = list(matching_node_xy.items())[:3]
                         for nid, (nx_, ny_) in sample_nodes:
                             logger.info("  graph node[%s] x=%.4f y=%.4f", nid, nx_, ny_)
                     nearest_edges, dists = ox.distance.nearest_edges(
@@ -1398,12 +1403,12 @@ async def _generate_optimal_route_with_progress_impl(
                     G,
                     required_reqs,
                     req_segment_counts,
-                    node_xy or {},
+                    route_node_xy,
                 )
                 start_xy = None
                 if (
                     start_node_id
-                    and node_xy
+                    and route_node_xy
                     and start_node_id in {n for n in G.nodes if "x" in G.nodes[n]}
                 ):
                     start_xy = (
@@ -1420,7 +1425,7 @@ async def _generate_optimal_route_with_progress_impl(
                     G,
                     zones,
                     start_node_id,
-                    node_xy=node_xy,
+                    node_xy=route_node_xy,
                 )
                 if len(zone_result) == 4:
                     route_coords, stats, route_edges, service_sequence = zone_result
@@ -1489,7 +1494,7 @@ async def _generate_optimal_route_with_progress_impl(
                     service_sequence,
                     required_reqs,
                     start_node=start_node_id,
-                    node_xy=node_xy,
+                    node_xy=route_node_xy,
                     time_budget_s=LOCAL_SEARCH_TIME_BUDGET_S,
                 )
                 if (
@@ -1541,7 +1546,7 @@ async def _generate_optimal_route_with_progress_impl(
                 G,
                 route_edges,
                 len(route_coords),
-                node_xy=node_xy,
+                node_xy=route_node_xy,
             )
 
             route_coords, gap_fill_stats = await fill_route_gaps(
