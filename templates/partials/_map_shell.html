@@ -193,21 +193,21 @@ Avg Duration
         <button class="quick-action-btn"
                 type="button"
                 data-street-mode="undriven"
-                onclick="setStreetMode('undriven')">
+                onclick="window.setStreetMode?.('undriven')">
           <i class="fas fa-road"></i>
           <span>Undriven</span>
         </button>
         <button class="quick-action-btn"
                 type="button"
                 data-street-mode="driven"
-                onclick="setStreetMode('driven')">
+                onclick="window.setStreetMode?.('driven')">
           <i class="fas fa-check-circle"></i>
           <span>Driven</span>
         </button>
         <button class="quick-action-btn"
                 type="button"
                 data-street-mode="all"
-                onclick="setStreetMode('all')">
+                onclick="window.setStreetMode?.('all')">
           <i class="fas fa-layer-group"></i>
           <span>All</span>
         </button>
@@ -216,7 +216,7 @@ Avg Duration
                 type="button"
                 aria-label="Focus map on selected coverage area"
                 title="Focus on selected coverage area"
-                onclick="focusSelectedCoverageArea()">
+                onclick="window.focusSelectedCoverageArea?.()">
           <i class="fas fa-crosshairs" aria-hidden="true"></i>
         </button>
       </div>

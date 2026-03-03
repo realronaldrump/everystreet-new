@@ -889,7 +889,6 @@ class LiveTripTracker {
     if (this.isDestroyed || this.pollingTimer) {
       return;
     }
-    console.info("Starting polling default");
     this.poll();
   }
 
