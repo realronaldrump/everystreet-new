@@ -169,15 +169,26 @@ export function hideLoading() {
 }
 
 export function updateLastUpdated(isoString) {
-  const lastUpdated = isoString ? new Date(isoString) : null;
   const el = document.getElementById("last-updated");
-  if (el) {
-    if (!lastUpdated || Number.isNaN(lastUpdated.getTime())) {
-      el.textContent = "";
-      return;
-    }
-    el.textContent = `Last updated: ${lastUpdated.toLocaleDateString()} ${lastUpdated.toLocaleTimeString()}`;
+  if (!el) {
+    return;
   }
+
+  const lastUpdated = isoString ? new Date(isoString) : null;
+  if (!lastUpdated || Number.isNaN(lastUpdated.getTime())) {
+    el.textContent = "";
+    return;
+  }
+
+  const label = document.createElement("span");
+  label.className = "last-updated-label";
+  label.textContent = "Last updated";
+
+  const value = document.createElement("span");
+  value.className = "last-updated-value";
+  value.textContent = `${lastUpdated.toLocaleDateString()} at ${lastUpdated.toLocaleTimeString()}`;
+
+  el.replaceChildren(label, value);
 }
 
 // =============================================================================
