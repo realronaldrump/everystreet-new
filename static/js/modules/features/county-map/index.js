@@ -4,6 +4,7 @@
  */
 
 import { swupReady } from "../../core/navigation.js";
+import { coverageBoundingBoxToMapBounds } from "../../core/coverage-bounds.js";
 import * as CoverageAPI from "../../county-map/api.js";
 import { MAP_CONFIG, getStateName } from "../../county-map/constants.js";
 import {
@@ -680,14 +681,12 @@ function bindCityRowHandlers(cities) {
         return;
       }
 
-      const [west, south, east, north] = city.bbox;
-      map.fitBounds(
-        [
-          [west, south],
-          [east, north],
-        ],
-        { padding: 40, maxZoom: 10 }
-      );
+      const bounds = coverageBoundingBoxToMapBounds(city.bbox);
+      if (!bounds) {
+        return;
+      }
+
+      map.fitBounds(bounds, { padding: 40, maxZoom: 10 });
     });
   });
 }

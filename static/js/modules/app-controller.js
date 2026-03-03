@@ -20,6 +20,10 @@
 /* global bootstrap */
 
 import { CONFIG } from "./core/config.js";
+import {
+  coverageBoundingBoxToFeatureCollection,
+  normalizeCoverageBoundingBox,
+} from "./core/coverage-bounds.js";
 import state from "./core/store.js";
 import { getPreloadTripIdFromUrl } from "./core/url-state.js";
 import dataManager from "./data-manager.js";
@@ -81,6 +85,35 @@ const initializeLiveTracker = () => {
     } catch (err) {
       console.error("LiveTripTracker init error:", err);
     }
+  }
+};
+
+const coverageAreaBoundingBoxCache = new Map();
+
+const getCoverageAreaBoundingBox = async (areaId) => {
+  const normalizedAreaId = String(areaId || "").trim();
+  if (!normalizedAreaId) {
+    return null;
+  }
+
+  if (coverageAreaBoundingBoxCache.has(normalizedAreaId)) {
+    return coverageAreaBoundingBoxCache.get(normalizedAreaId);
+  }
+
+  try {
+    const areaDetail = await utils.fetchWithRetry(
+      CONFIG.API.coverageAreaById(normalizedAreaId),
+      {},
+      CONFIG.API.retryAttempts,
+      CONFIG.API.cacheTime,
+      `coverage-area-bbox:${normalizedAreaId}`
+    );
+    const bbox = normalizeCoverageBoundingBox(areaDetail?.bounding_box);
+    coverageAreaBoundingBoxCache.set(normalizedAreaId, bbox);
+    return bbox;
+  } catch (error) {
+    console.warn(`Failed to load bounding box for coverage area ${normalizedAreaId}:`, error);
+    return null;
   }
 };
 
@@ -668,6 +701,8 @@ const AppController = {
         state.map.setLayoutProperty(config.layerId, "visibility", "visible");
       }
     }
+
+    await this._syncCoverageAreaBoundingBoxOverlay();
   },
 
   async refreshStreetLayers() {
@@ -683,6 +718,58 @@ const AppController = {
 
     for (const mode of activeModes) {
       await this.handleStreetViewModeChange(mode, false);
+    }
+  },
+
+  _hasVisibleStreetCoverageLayer() {
+    return Boolean(
+      state.mapLayers.undrivenStreets.visible ||
+        state.mapLayers.drivenStreets.visible ||
+        state.mapLayers.allStreets.visible
+    );
+  },
+
+  async _syncCoverageAreaBoundingBoxOverlay() {
+    const layerName = "coverageAreaBoundingBox";
+    const layerId = `${layerName}-layer`;
+    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+    const shouldShowOverlay = Boolean(selectedLocationId && this._hasVisibleStreetCoverageLayer());
+
+    if (!shouldShowOverlay) {
+      state.mapLayers[layerName].visible = false;
+      if (state.map?.getLayer(layerId)) {
+        state.map.setLayoutProperty(layerId, "visibility", "none");
+      }
+      return;
+    }
+
+    const currentLocationId = String(selectedLocationId);
+    const bbox = await getCoverageAreaBoundingBox(currentLocationId);
+
+    // Ignore stale responses if the user changed selection while loading.
+    const latestLocationId = String(
+      utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation) || ""
+    );
+    if (latestLocationId !== currentLocationId) {
+      return;
+    }
+
+    const bboxGeojson = coverageBoundingBoxToFeatureCollection(bbox, {
+      coverageAreaId: currentLocationId,
+    });
+
+    if (!bboxGeojson) {
+      state.mapLayers[layerName].visible = false;
+      if (state.map?.getLayer(layerId)) {
+        state.map.setLayoutProperty(layerId, "visibility", "none");
+      }
+      return;
+    }
+
+    state.mapLayers[layerName].visible = true;
+    await layerManager.updateMapLayer(layerName, bboxGeojson);
+    if (state.map?.getLayer(layerId)) {
+      state.map.setLayoutProperty(layerId, "visibility", "visible");
     }
   },
 };

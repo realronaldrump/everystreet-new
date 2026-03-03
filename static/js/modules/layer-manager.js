@@ -287,7 +287,12 @@ const layerManager = {
     const fragment = document.createDocumentFragment();
 
     // Exclude street layers - they're controlled by radio buttons
-    const streetLayers = ["undrivenStreets", "drivenStreets", "allStreets"];
+    const streetLayers = [
+      "undrivenStreets",
+      "drivenStreets",
+      "allStreets",
+      "coverageAreaBoundingBox",
+    ];
 
     // Sort layers by order
     const sortedLayers = Object.entries(store.mapLayers)

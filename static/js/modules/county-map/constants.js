@@ -3,6 +3,8 @@
  * Contains FIPS code mappings and configuration values
  */
 
+import { COVERAGE_BBOX_LINE_COLOR } from "../core/coverage-bounds.js";
+
 /** LocalStorage key for recalculation state */
 export const RECALC_STORAGE_KEY = "countyRecalcStatus";
 
@@ -41,7 +43,7 @@ export const COLORS = {
   },
   borders: {
     county: "rgba(245, 242, 236, 0.15)",
-    state: "rgba(245, 242, 236, 0.35)",
+    state: COVERAGE_BBOX_LINE_COLOR,
     city: "rgba(245, 242, 236, 0.25)",
   },
   levels: {

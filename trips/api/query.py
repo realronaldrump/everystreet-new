@@ -77,6 +77,8 @@ async def get_matched_trips(request: Request):
                     num_points = len(coords) if isinstance(coords, list) else 0
 
                     matched_at = trip_dict.get("matched_at")
+                    total_idle_duration = trip_dict.get("totalIdleDuration")
+                    avg_speed = trip_dict.get("avgSpeed")
                     props = {
                         "transactionId": trip_dict.get("transactionId"),
                         "imei": trip_dict.get("imei"),
@@ -85,10 +87,19 @@ async def get_matched_trips(request: Request):
                         "duration": duration,
                         "distance": safe_float(trip_dict.get("distance"), 0),
                         "maxSpeed": safe_float(trip_dict.get("maxSpeed"), 0),
+                        "timeZone": trip_dict.get("timeZone"),
                         "startLocation": trip_dict.get("startLocation"),
                         "destination": trip_dict.get("destination"),
+                        "totalIdleDuration": total_idle_duration,
                         "fuelConsumed": safe_float(trip_dict.get("fuelConsumed"), 0),
                         "source": trip_dict.get("source"),
+                        "hardBrakingCounts": trip_dict.get("hardBrakingCounts"),
+                        "hardAccelerationCounts": trip_dict.get(
+                            "hardAccelerationCounts",
+                        ),
+                        "startOdometer": trip_dict.get("startOdometer"),
+                        "endOdometer": trip_dict.get("endOdometer"),
+                        "avgSpeed": avg_speed,
                         "pointsRecorded": num_points,
                         "estimated_cost": TripCostService.calculate_trip_cost(
                             trip_dict,

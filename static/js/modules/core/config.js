@@ -3,6 +3,8 @@
  * All API endpoints, storage keys, and constants in one place
  */
 
+import { COVERAGE_BBOX_LINE_COLOR } from "./coverage-bounds.js";
+
 export const MAPBOX_PUBLIC_ACCESS_TOKEN =
   "pk.eyJ1IjoicmVhbHJvbmFsZHJ1bXAiLCJhIjoiY204eXBvMzRhMDNubTJrb2NoaDIzN2dodyJ9.3Hnv3_ps0T7YS8cwSE3XKA";
 
@@ -168,6 +170,18 @@ export const CONFIG = {
       weight: 1.5,
       minzoom: 10,
       maxzoom: 22,
+    },
+    coverageAreaBoundingBox: {
+      order: 2,
+      color: COVERAGE_BBOX_LINE_COLOR,
+      opacity: 0.95,
+      visible: false,
+      name: "Coverage Bounds",
+      weight: 2,
+      minzoom: 0,
+      maxzoom: 22,
+      supportsColorPicker: false,
+      supportsOpacitySlider: false,
     },
   },
 
