@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 
 from beanie import PydanticObjectId
+from bson import ObjectId
 from fastapi import BackgroundTasks, HTTPException, status
 from shapely import STRtree
 from shapely.geometry import Point, shape
@@ -106,13 +107,17 @@ def _extract_stop_points(
     if gps_type == "LineString" and isinstance(coords, list) and coords:
         start_coords = _coerce_point_coords(coords[0])
         end_coords = _coerce_point_coords(coords[-1])
+        start_time = trip_start_time or default_time
+        end_time = trip_end_time or default_time
 
         if start_coords:
-            start_time = trip_start_time or default_time
             stop_points.append((Point(start_coords[0], start_coords[1]), start_time))
 
-        if end_coords and (not start_coords or end_coords != start_coords):
-            end_time = trip_end_time or default_time
+        if end_coords:
+            same_coords = bool(start_coords and end_coords == start_coords)
+            same_time = start_time == end_time
+            if same_coords and same_time:
+                return stop_points
             stop_points.append((Point(end_coords[0], end_coords[1]), end_time))
 
     return stop_points
@@ -143,11 +148,16 @@ def _normalize_recalc_mode(value: str | None) -> Literal["incremental", "full"]:
 
 
 def _trip_marker(trip: Trip) -> datetime | None:
+    trip_id_generation_time = parse_timestamp(
+        getattr(getattr(trip, "id", None), "generation_time", None)
+    )
     candidates = [
+        parse_timestamp(trip.saved_at),
         parse_timestamp(trip.lastUpdate),
         parse_timestamp(trip.matched_at),
         parse_timestamp(trip.endTime),
         parse_timestamp(trip.startTime),
+        trip_id_generation_time,
     ]
     return max((value for value in candidates if value), default=None)
 
@@ -197,20 +207,26 @@ def _get_incremental_checkpoint(
     county_cache: CountyVisitedCache | None,
     city_cache: CityVisitedCache | None,
 ) -> datetime | None:
-    candidates = [
-        parse_timestamp(getattr(county_cache, "last_processed_trip_at", None))
-        if county_cache
-        else None,
-        parse_timestamp(getattr(city_cache, "last_processed_trip_at", None))
-        if city_cache
-        else None,
-    ]
-    return max((value for value in candidates if value), default=None)
+    if not county_cache or not city_cache:
+        return None
+
+    county_checkpoint = parse_timestamp(
+        getattr(county_cache, "last_processed_trip_at", None),
+    )
+    city_checkpoint = parse_timestamp(
+        getattr(city_cache, "last_processed_trip_at", None),
+    )
+
+    if county_checkpoint is None or city_checkpoint is None:
+        return None
+
+    # Use the earliest checkpoint so both caches are safely backfilled.
+    return min(county_checkpoint, city_checkpoint)
 
 
 def _build_trip_query(checkpoint: datetime | None = None) -> dict[str, Any]:
     geometry_filter: dict[str, Any] = {
-        "isInvalid": {"$ne": True},
+        "invalid": {"$ne": True},
         "$or": [
             {"gps.type": {"$in": ["LineString", "Point"]}},
             {"matchedGps.type": {"$in": ["LineString", "Point"]}},
@@ -220,17 +236,22 @@ def _build_trip_query(checkpoint: datetime | None = None) -> dict[str, Any]:
     if not checkpoint:
         return enforce_bouncie_source(geometry_filter)
 
+    checkpoint_filters: list[dict[str, Any]] = [
+        {"lastUpdate": {"$gt": checkpoint}},
+        {"matched_at": {"$gt": checkpoint}},
+        {"endTime": {"$gt": checkpoint}},
+        {"startTime": {"$gt": checkpoint}},
+        {"saved_at": {"$gt": checkpoint}},
+    ]
+    with contextlib.suppress(Exception):
+        checkpoint_filters.append({"_id": {"$gt": ObjectId.from_datetime(checkpoint)}})
+
     return enforce_bouncie_source(
         {
             "$and": [
                 geometry_filter,
                 {
-                    "$or": [
-                        {"lastUpdate": {"$gt": checkpoint}},
-                        {"matched_at": {"$gt": checkpoint}},
-                        {"endTime": {"$gt": checkpoint}},
-                        {"startTime": {"$gt": checkpoint}},
-                    ]
+                    "$or": checkpoint_filters,
                 },
             ]
         }
@@ -507,14 +528,6 @@ async def calculate_geo_coverage_task(
                 invalid_cities += 1
                 continue
 
-            city_totals_by_state[state_fips] = (
-                city_totals_by_state.get(state_fips, 0) + 1
-            )
-            city_state_names[state_fips] = city.state_name or city_state_names.get(
-                state_fips,
-                "Unknown",
-            )
-
             try:
                 geom = shape(city.geometry)
                 geom = _normalize_geometry(geom)
@@ -524,6 +537,13 @@ async def calculate_geo_coverage_task(
                 city_shapes.append(geom)
                 city_ids.append(city.id)
                 city_state_index[city.id] = state_fips
+                city_totals_by_state[state_fips] = (
+                    city_totals_by_state.get(state_fips, 0) + 1
+                )
+                city_state_names[state_fips] = city.state_name or city_state_names.get(
+                    state_fips,
+                    "Unknown",
+                )
             except Exception:
                 invalid_cities += 1
 
@@ -996,8 +1016,18 @@ async def get_summary() -> dict[str, Any]:
     )
     for row in city_counts:
         normalized = _state_fips(str(row.get("_id") or ""))
+        existing = city_state_totals.get(normalized)
+        row_name = str(row.get("state_name") or "Unknown")
+        if existing:
+            existing["total"] = int(existing.get("total") or 0) + int(
+                row.get("total") or 0,
+            )
+            if (existing.get("name") in {None, "", "Unknown"}) and row_name != "Unknown":
+                existing["name"] = row_name
+            continue
+
         city_state_totals[normalized] = {
-            "name": str(row.get("state_name") or "Unknown"),
+            "name": row_name,
             "total": int(row.get("total") or 0),
             "visited": 0,
             "stopped": 0,

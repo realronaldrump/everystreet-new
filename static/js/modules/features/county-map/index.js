@@ -314,8 +314,11 @@ function getStateRollupsWithCountyActivity() {
   );
 }
 
-function getCityTabStateRollups() {
-  return getStateRollupsWithCountyActivity().filter(
+export function getCityTabStateRollups(
+  stateRollups = CountyMapState.getStateRollups()
+) {
+  const rollups = Array.isArray(stateRollups) ? stateRollups : [];
+  return rollups.filter(
     (entry) => Number(entry?.city?.total || 0) > 0
   );
 }
@@ -780,6 +783,20 @@ async function renderCityMode(token) {
 
   const stateFips = getPreferredStateFips(getCityTabStateRollups());
   if (!stateFips) {
+    CountyMapState.setSelectedStateFips(null);
+    CountyMapState.setSelectedCityId(null);
+    renderLevelLayers("city", {
+      cityFeatureCollection: {
+        type: "FeatureCollection",
+        features: [],
+      },
+      showStoppedCities: CountyMapState.getShowStoppedCities(),
+    });
+    applyCityVisitFeatureState(map, {}, {});
+    setSelectionHighlight("", "city");
+    detachLevelClickHandlers(map);
+    attachCityClickHandler(map);
+    setupInteractions();
     renderCityRows({ cities: [], pagination: { page: 1, totalPages: 1 } });
     return;
   }

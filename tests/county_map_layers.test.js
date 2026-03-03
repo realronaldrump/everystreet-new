@@ -65,8 +65,8 @@ test("applyCountyVisitFeatureState clears source state and merges stop/visit fla
 
   applyCountyVisitFeatureState(
     map,
-    { "01001": { firstVisit: "2024-01-01" }, "01003": { firstVisit: "2024-01-02" } },
-    { "01003": { firstStop: "2024-01-02" }, "01005": { firstStop: "2024-01-03" } }
+    { 1001: { firstVisit: "2024-01-01" }, "01003": { firstVisit: "2024-01-02" } },
+    { "01003": { firstStop: "2024-01-02" }, 1005: { firstStop: "2024-01-03" } }
   );
 
   assert.deepEqual(removeCalls, [{ source: "counties" }]);

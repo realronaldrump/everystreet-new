@@ -187,7 +187,7 @@ async def calculate_visited_counties_task() -> None:
         trips_cursor = Trip.find(
             enforce_bouncie_source(
                 {
-                    "isInvalid": {"$ne": True},
+                    "invalid": {"$ne": True},
                     "$or": [
                         {"gps.type": {"$in": ["LineString", "Point"]}},
                         {"matchedGps.type": {"$in": ["LineString", "Point"]}},
@@ -474,13 +474,17 @@ def _extract_stop_points(
     if gps_type == "LineString" and isinstance(coords, list) and coords:
         start_coords = _coerce_point_coords(coords[0])
         end_coords = _coerce_point_coords(coords[-1])
+        start_time = trip_start_time or default_time
+        end_time = trip_end_time or default_time
 
         if start_coords:
-            start_time = trip_start_time or default_time
             stop_points.append((Point(start_coords[0], start_coords[1]), start_time))
 
-        if end_coords and (not start_coords or end_coords != start_coords):
-            end_time = trip_end_time or default_time
+        if end_coords:
+            same_coords = bool(start_coords and end_coords == start_coords)
+            same_time = start_time == end_time
+            if same_coords and same_time:
+                return stop_points
             stop_points.append((Point(end_coords[0], end_coords[1]), end_time))
 
     return stop_points

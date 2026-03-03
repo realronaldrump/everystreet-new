@@ -75,6 +75,26 @@ let recalcPollerActive = false;
 /** @type {Object.<string, {cities: Array<Object>, pagination: Object}>} */
 let cityListByState = {};
 
+function normalizeCountyFipsKey(value) {
+  const raw = String(value ?? "").trim();
+  if (/^\d+$/.test(raw) && raw.length <= 5) {
+    return raw.padStart(5, "0");
+  }
+  return raw;
+}
+
+function normalizeCountyRecordMap(records) {
+  const normalized = {};
+  Object.entries(records || {}).forEach(([rawKey, payload]) => {
+    const key = normalizeCountyFipsKey(rawKey);
+    if (!key) {
+      return;
+    }
+    normalized[key] = payload;
+  });
+  return normalized;
+}
+
 // Map getters and setters
 export function getMap() {
   return map;
@@ -123,7 +143,7 @@ export function getSelectedCountyFips() {
 }
 
 export function setSelectedCountyFips(value) {
-  selectedCountyFips = value || null;
+  selectedCountyFips = value ? normalizeCountyFipsKey(value) : null;
 }
 
 export function getSelectedCityId() {
@@ -140,7 +160,7 @@ export function getCountyVisits() {
 }
 
 export function setCountyVisits(visits) {
-  countyVisits = visits || {};
+  countyVisits = normalizeCountyRecordMap(visits);
 }
 
 // County stops getters and setters
@@ -149,7 +169,7 @@ export function getCountyStops() {
 }
 
 export function setCountyStops(stops) {
-  countyStops = stops || {};
+  countyStops = normalizeCountyRecordMap(stops);
 }
 
 export function getCityVisitsForState(stateFips) {

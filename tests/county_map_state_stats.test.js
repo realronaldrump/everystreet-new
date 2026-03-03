@@ -73,3 +73,19 @@ test("zoomToState fits to precomputed state bounds", () => {
     },
   ]);
 });
+
+test("state normalizes county visit and stop keys to 5-digit FIPS", () => {
+  CountyMapState.setCountyVisits({
+    1001: { firstVisit: "2024-01-01T00:00:00.000Z" },
+    "06001": { firstVisit: "2024-01-01T00:00:00.000Z" },
+  });
+  CountyMapState.setCountyStops({
+    2001: { firstStop: "2024-01-01T00:00:00.000Z" },
+  });
+
+  assert.deepEqual(Object.keys(CountyMapState.getCountyVisits()).sort(), [
+    "01001",
+    "06001",
+  ]);
+  assert.deepEqual(Object.keys(CountyMapState.getCountyStops()), ["02001"]);
+});

@@ -51,6 +51,14 @@ function scheduleFrame(callback) {
   callback();
 }
 
+function normalizeCountyFipsKey(value) {
+  const raw = String(value ?? "").trim();
+  if (/^\d+$/.test(raw) && raw.length <= 5) {
+    return raw.padStart(5, "0");
+  }
+  return raw;
+}
+
 export function buildCountyFillColorExpression(showStoppedCounties) {
   if (showStoppedCounties) {
     return [
@@ -562,11 +570,19 @@ export function applyCountyVisitFeatureState(map, countyVisits = {}, countyStops
 
   const mergedStateByFips = new Map();
   Object.keys(countyVisits || {}).forEach((fips) => {
-    mergedStateByFips.set(fips, { visited: true });
+    const normalizedFips = normalizeCountyFipsKey(fips);
+    if (!normalizedFips) {
+      return;
+    }
+    mergedStateByFips.set(normalizedFips, { visited: true });
   });
   Object.keys(countyStops || {}).forEach((fips) => {
-    const existing = mergedStateByFips.get(fips) || {};
-    mergedStateByFips.set(fips, { ...existing, stopped: true });
+    const normalizedFips = normalizeCountyFipsKey(fips);
+    if (!normalizedFips) {
+      return;
+    }
+    const existing = mergedStateByFips.get(normalizedFips) || {};
+    mergedStateByFips.set(normalizedFips, { ...existing, stopped: true });
   });
 
   scheduleFrame(() => {

@@ -14,6 +14,14 @@ function parseVisitDate(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function normalizeCountyFipsKey(value) {
+  const raw = String(value ?? "").trim();
+  if (/^\d+$/.test(raw) && raw.length <= 5) {
+    return raw.padStart(5, "0");
+  }
+  return raw;
+}
+
 /**
  * Calculate state-level statistics
  * @returns {Array} Array of state statistics objects
@@ -37,7 +45,7 @@ export function calculateStateStats() {
   });
 
   Object.entries(countyVisits).forEach(([fips, visits]) => {
-    const countyMeta = countyToState[fips];
+    const countyMeta = countyToState[normalizeCountyFipsKey(fips)];
     const stateFips = countyMeta?.stateFips;
     if (!stateFips || !stateStats[stateFips]) {
       return;

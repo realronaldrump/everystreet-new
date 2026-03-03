@@ -191,6 +191,10 @@ function createTripsTable({ onTripSelected }) {
     return null;
   }
 
+  // Visits API returns arrival time as `endTime`; retain `startTime` fallback
+  // for mixed legacy payloads.
+  const resolveTripTime = (trip) => trip?.endTime || trip?.startTime || null;
+
   const headers = [
     "Trip ID",
     "Date",
@@ -208,27 +212,42 @@ function createTripsTable({ onTripSelected }) {
     columns: [
       {
         data: "transactionId",
-        render: (data) => `<span class="badge bg-secondary">${data}</span>`,
+        defaultContent: "",
+        render: (data, _type, row) =>
+          `<span class="badge bg-secondary">${data || row?.id || "N/A"}</span>`,
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
         },
       },
       {
-        data: "startTime",
-        render: (data) => DateUtils.formatForDisplay(data, { dateStyle: "medium" }),
+        data: (row) => resolveTripTime(row),
+        defaultContent: "",
+        render: (data, type) =>
+          type === "display" || type === "filter"
+            ? data
+              ? DateUtils.formatForDisplay(data, { dateStyle: "medium" })
+              : "N/A"
+            : data || "",
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
         },
       },
       {
-        data: "startTime",
-        render: (data) => DateUtils.formatForDisplay(data, { timeStyle: "short" }),
+        data: (row) => resolveTripTime(row),
+        defaultContent: "",
+        render: (data, type) =>
+          type === "display" || type === "filter"
+            ? data
+              ? DateUtils.formatForDisplay(data, { timeStyle: "short" })
+              : "N/A"
+            : data || "",
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
         },
       },
       {
         data: "departureTime",
+        defaultContent: "",
         render: (data) =>
           data ? DateUtils.formatForDisplay(data, { timeStyle: "short" }) : "N/A",
         createdCell: (td, _cellData, _rowData, _row, col) => {
@@ -237,6 +256,7 @@ function createTripsTable({ onTripSelected }) {
       },
       {
         data: "timeSpent",
+        defaultContent: "",
         render: (data) => (data ? data : "N/A"),
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
@@ -244,6 +264,7 @@ function createTripsTable({ onTripSelected }) {
       },
       {
         data: "timeSinceLastVisit",
+        defaultContent: "",
         render: (data) => (data ? data : "N/A"),
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
@@ -253,7 +274,7 @@ function createTripsTable({ onTripSelected }) {
         data: null,
         render: (data, type, row) =>
           type === "display"
-            ? `<button class="btn btn-sm btn-outline-primary view-trip-btn" data-trip-id="${row.transactionId}">
+            ? `<button class="btn btn-sm btn-outline-primary view-trip-btn" data-trip-id="${row.transactionId || row.id || ""}">
                 <i class="fas fa-map"></i>
               </button>`
             : data,
