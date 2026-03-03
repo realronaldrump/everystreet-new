@@ -31,6 +31,7 @@ function cacheElements() {
     tripStatus: document.getElementById("trip-status"),
     tripVehicle: document.getElementById("trip-vehicle"),
     tripIncludeInvalid: document.getElementById("trip-include-invalid"),
+    tripClipToCoverage: document.getElementById("trip-clip-to-coverage"),
     exportStreets: document.getElementById("export-streets"),
     exportBoundaries: document.getElementById("export-boundaries"),
     exportUndriven: document.getElementById("export-undriven"),
@@ -101,6 +102,10 @@ function updateGeometryToggle(elements) {
     if (elements.includeTripGeometry) {
       elements.includeTripGeometry.disabled = true;
     }
+    if (elements.tripClipToCoverage) {
+      elements.tripClipToCoverage.disabled = true;
+      elements.tripClipToCoverage.checked = false;
+    }
     return;
   }
 
@@ -109,6 +114,9 @@ function updateGeometryToggle(elements) {
   }
   if (elements.includeTripGeometry) {
     elements.includeTripGeometry.disabled = format === "geojson" || format === "gpx";
+  }
+  if (elements.tripClipToCoverage) {
+    elements.tripClipToCoverage.disabled = false;
   }
 }
 
@@ -191,6 +199,7 @@ function updateSummary(elements) {
 function buildTripFilters(elements) {
   const filters = {
     include_invalid: elements.tripIncludeInvalid?.checked ?? false,
+    clip_to_coverage: elements.tripClipToCoverage?.checked ?? false,
   };
 
   if (!elements.tripAllTime?.checked) {
@@ -239,6 +248,17 @@ function validateSelection(elements) {
   );
   if (needsArea && !elements.coverageArea?.value) {
     return "Select a coverage area for coverage exports.";
+  }
+
+  const hasTripExports = items.some((item) =>
+    ["trips", "matched_trips"].includes(item.entity)
+  );
+  if (
+    hasTripExports &&
+    elements.tripClipToCoverage?.checked &&
+    !elements.coverageArea?.value
+  ) {
+    return "Select a coverage area to clip trip exports.";
   }
 
   return null;
@@ -487,6 +507,9 @@ function resetForm(elements) {
   if (elements.tripIncludeInvalid) {
     elements.tripIncludeInvalid.checked = false;
   }
+  if (elements.tripClipToCoverage) {
+    elements.tripClipToCoverage.checked = false;
+  }
   setError(elements, null);
   hideProgress(elements);
   if (elements.exportResult) {
@@ -530,6 +553,8 @@ function registerEventListeners(elements, signal) {
     elements.tripFormatSelect,
     elements.includeTripGeometry,
     elements.tripAllTime,
+    elements.tripClipToCoverage,
+    elements.coverageArea,
   ].filter(Boolean);
 
   inputs.forEach((input) => {

@@ -277,7 +277,7 @@ const searchManager = {
     try {
       let url = `${CONFIG.API.searchStreets}?query=${encodeURIComponent(query)}&limit=10`;
       if (locationId) {
-        url += `&location_id=${locationId}`;
+        url += `&coverage_area_id=${locationId}`;
       }
 
       const controller = state.createAbortController("searchStreets");
@@ -489,9 +489,9 @@ const searchManager = {
       const osmType = String(result.osm_type).trim().toLowerCase();
       let url =
         `${CONFIG.API.searchStreetGeometry}?osm_id=${encodeURIComponent(result.osm_id)}` +
-        `&osm_type=${encodeURIComponent(osmType)}&clip_to_area=true`;
+        `&osm_type=${encodeURIComponent(osmType)}&clip_to_coverage=${String(Boolean(locationId))}`;
       if (locationId) {
-        url += `&location_id=${encodeURIComponent(locationId)}`;
+        url += `&coverage_area_id=${encodeURIComponent(locationId)}`;
       }
 
       const controller = state.createAbortController("streetGeometry");

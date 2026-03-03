@@ -4,14 +4,23 @@ import json
 import logging
 import shutil
 import zipfile
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from beanie import PydanticObjectId
 from fastapi import HTTPException
+from shapely.geometry import mapping, shape
 
-from core.spatial import GeometryService, extract_timestamps_for_coordinates
+from core.spatial import (
+    GeometryService,
+    bounding_box_polygon,
+    clip_lines_to_polygon,
+    extract_polygon_geometry_from_geojson,
+    extract_timestamps_for_coordinates,
+    geodesic_length_meters,
+)
 from core.trip_source_policy import enforce_bouncie_source
 from db import CoverageArea, CoverageState, Street, Trip, build_calendar_date_expr
 from db.models import Job
@@ -71,6 +80,13 @@ class ExportProgress:
                 message=message,
             )
             self.last_update = self.processed
+
+
+@dataclass(slots=True)
+class _TripExportClipContext:
+    enabled: bool = False
+    coverage_geometry: Any | None = None
+    prefilter_geometry: dict[str, Any] | None = None
 
 
 class ExportService:
@@ -213,6 +229,95 @@ class ExportService:
         job.updated_at = datetime.now(UTC)
         await job.save()
 
+    @staticmethod
+    def _parse_bool(value: Any) -> bool:
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            return False
+        return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+    @classmethod
+    def _resolve_trip_export_clip_context(
+        cls,
+        trip_filters: dict[str, Any],
+        area: CoverageArea | None,
+    ) -> _TripExportClipContext:
+        clip_requested = cls._parse_bool(trip_filters.get("clip_to_coverage"))
+        if not clip_requested:
+            return _TripExportClipContext()
+        if area is None:
+            msg = "area_id is required when trip_filters.clip_to_coverage is true."
+            raise ValueError(msg)
+
+        coverage_geometry = extract_polygon_geometry_from_geojson(area.boundary)
+        if coverage_geometry is None:
+            msg = (
+                "Coverage area boundary is not a valid polygon and cannot be used for clipping."
+            )
+            raise ValueError(msg)
+
+        prefilter_geometry = bounding_box_polygon(coverage_geometry)
+        if prefilter_geometry is None:
+            msg = "Coverage area boundary is degenerate and cannot be used for clipping."
+            raise ValueError(msg)
+
+        return _TripExportClipContext(
+            enabled=True,
+            coverage_geometry=coverage_geometry,
+            prefilter_geometry=prefilter_geometry,
+        )
+
+    @staticmethod
+    def _model_to_dict(value: Any) -> dict[str, Any]:
+        if isinstance(value, dict):
+            return dict(value)
+        if hasattr(value, "model_dump"):
+            return value.model_dump()
+        if hasattr(value, "dict"):
+            return value.dict()
+        return dict(value)
+
+    @classmethod
+    def _prepare_trip_export_row(
+        cls,
+        trip: Any,
+        *,
+        geometry_field: str,
+        clip_context: _TripExportClipContext,
+    ) -> dict[str, Any] | None:
+        row = cls._model_to_dict(trip)
+        geometry = GeometryService.parse_geojson(row.get(geometry_field))
+        coverage_distance_miles = None
+
+        if clip_context.enabled:
+            if geometry is None:
+                return None
+            geom_type = str(geometry.get("type") or "").strip()
+            if geom_type not in {"LineString", "MultiLineString"}:
+                return None
+            try:
+                line_geometry = shape(geometry)
+            except Exception:
+                return None
+            clipped_geometry = clip_lines_to_polygon(
+                line_geometry,
+                clip_context.coverage_geometry,
+            )
+            if clipped_geometry is None or clipped_geometry.is_empty:
+                return None
+
+            geometry = mapping(clipped_geometry)
+            try:
+                coverage_distance_miles = geodesic_length_meters(clipped_geometry) / 1609.344
+            except Exception:
+                coverage_distance_miles = None
+
+        row[geometry_field] = geometry
+        if clip_context.enabled:
+            row["coverageDistance"] = coverage_distance_miles
+        return row
+
     @classmethod
     async def _write_exports(
         cls,
@@ -235,7 +340,13 @@ class ExportService:
                     detail=f"Coverage area is not ready (status: {area.status})",
                 )
 
-        total_records = await cls._estimate_total_records(items, trip_filters, area)
+        trip_clip_context = cls._resolve_trip_export_clip_context(trip_filters, area)
+        total_records = await cls._estimate_total_records(
+            items,
+            trip_filters,
+            area,
+            trip_clip_context,
+        )
         progress = ExportProgress(job, total_records)
 
         records: dict[str, int] = {}
@@ -259,6 +370,7 @@ class ExportService:
                 area,
                 include_geometry,
                 progress,
+                trip_clip_context,
             )
 
             records[entity] = count
@@ -279,12 +391,17 @@ class ExportService:
         items: list[dict[str, Any]],
         trip_filters: dict[str, Any],
         area: CoverageArea | None,
+        trip_clip_context: _TripExportClipContext,
     ) -> int:
         total = 0
         for item in items:
             entity = item["entity"]
             if entity in {"trips", "matched_trips"}:
-                query = cls._build_trip_query(trip_filters, entity == "matched_trips")
+                query = cls._build_trip_query(
+                    trip_filters,
+                    entity == "matched_trips",
+                    trip_clip_context,
+                )
                 total += await Trip.find(query).count()
             elif entity in {"streets", "undriven_streets"} and area:
                 total += await Street.find(
@@ -307,6 +424,7 @@ class ExportService:
         area: CoverageArea | None,
         include_geometry: bool,
         progress: ExportProgress,
+        trip_clip_context: _TripExportClipContext,
     ) -> int:
         if entity in {"trips", "matched_trips"}:
             return await cls._write_trip_export(
@@ -316,6 +434,7 @@ class ExportService:
                 trip_filters,
                 include_geometry,
                 progress,
+                trip_clip_context,
             )
         if entity == "streets":
             return await cls._write_street_export(file_path, area, None, progress)
@@ -341,26 +460,50 @@ class ExportService:
         trip_filters: dict[str, Any],
         include_geometry: bool,
         progress: ExportProgress,
+        trip_clip_context: _TripExportClipContext,
     ) -> int:
         matched_only = entity == "matched_trips"
-        query = cls._build_trip_query(trip_filters, matched_only)
+        geometry_field = "matchedGps" if matched_only else "gps"
+        query = cls._build_trip_query(trip_filters, matched_only, trip_clip_context)
         cursor = Trip.find(query).sort(Trip.startTime)
 
         if fmt == "json":
+
+            def serializer(trip: Any) -> dict[str, Any] | None:
+                row = cls._prepare_trip_export_row(
+                    trip,
+                    geometry_field=geometry_field,
+                    clip_context=trip_clip_context,
+                )
+                if row is None:
+                    return None
+                record = serialize_trip_record(
+                    row,
+                    include_geometry=include_geometry,
+                )
+                if not include_geometry:
+                    record["gps"] = None
+                    record["matchedGps"] = None
+                return record
+
             return await write_json_array(
                 file_path,
                 cursor,
-                lambda trip: serialize_trip_record(
-                    trip,
-                    include_geometry=include_geometry,
-                ),
+                serializer,
                 progress.bump,
             )
         if fmt == "csv":
 
-            def serializer(trip: Any) -> dict[str, Any]:
-                record = serialize_trip_record(
+            def serializer(trip: Any) -> dict[str, Any] | None:
+                row = cls._prepare_trip_export_row(
                     trip,
+                    geometry_field=geometry_field,
+                    clip_context=trip_clip_context,
+                )
+                if row is None:
+                    return None
+                record = serialize_trip_record(
+                    row,
                     include_geometry=include_geometry,
                 )
                 if not include_geometry:
@@ -376,11 +519,16 @@ class ExportService:
                 progress.bump,
             )
         if fmt == "gpx":
-            geometry_field = "matchedGps" if matched_only else "gps"
-
-            def serializer(trip: Any) -> dict[str, Any]:
+            def serializer(trip: Any) -> dict[str, Any] | None:
+                row = cls._prepare_trip_export_row(
+                    trip,
+                    geometry_field=geometry_field,
+                    clip_context=trip_clip_context,
+                )
+                if row is None:
+                    return None
                 geometry = GeometryService.parse_geojson(
-                    getattr(trip, geometry_field, None),
+                    row.get(geometry_field),
                 )
                 coords: list[list[float]] = []
                 if geometry:
@@ -392,6 +540,13 @@ class ExportService:
                         )
                     elif geom_type == "LineString":
                         raw_coords = raw_coords if isinstance(raw_coords, list) else []
+                    elif geom_type == "MultiLineString":
+                        flattened: list[Any] = []
+                        if isinstance(raw_coords, list):
+                            for line in raw_coords:
+                                if isinstance(line, list):
+                                    flattened.extend(line)
+                        raw_coords = flattened
                     else:
                         raw_coords = []
 
@@ -405,13 +560,13 @@ class ExportService:
                     timestamps = extract_timestamps_for_coordinates(
                         coords,
                         {
-                            "coordinates": getattr(trip, "coordinates", None),
-                            "startTime": getattr(trip, "startTime", None),
-                            "endTime": getattr(trip, "endTime", None),
+                            "coordinates": row.get("coordinates"),
+                            "startTime": row.get("startTime"),
+                            "endTime": row.get("endTime"),
                         },
                     )
 
-                base = serialize_trip_base(trip)
+                base = serialize_trip_base(row)
                 trip_id = base.get("tripId") or base.get("transactionId")
                 name = f"Trip {trip_id}" if trip_id else None
 
@@ -422,6 +577,10 @@ class ExportService:
                     description_parts.append(f"end: {base['endTime']}")
                 if base.get("distance") is not None:
                     description_parts.append(f"distance_mi: {base['distance']}")
+                if base.get("coverageDistance") is not None:
+                    description_parts.append(
+                        f"coverage_distance_mi: {base['coverageDistance']}",
+                    )
                 if base.get("imei"):
                     description_parts.append(f"imei: {base['imei']}")
                 if base.get("vin"):
@@ -444,14 +603,18 @@ class ExportService:
                 progress.bump,
             )
         if fmt == "geojson":
-            geometry_field = "matchedGps" if matched_only else "gps"
-
             async def features():
                 async for trip in cursor:
-                    geometry = GeometryService.parse_geojson(
-                        getattr(trip, geometry_field, None),
+                    row = cls._prepare_trip_export_row(
+                        trip,
+                        geometry_field=geometry_field,
+                        clip_context=trip_clip_context,
                     )
-                    props = serialize_trip_properties(trip)
+                    if row is None:
+                        await progress.bump(1)
+                        continue
+                    geometry = GeometryService.parse_geojson(row.get(geometry_field))
+                    props = serialize_trip_properties(row)
                     yield GeometryService.feature_from_geometry(geometry, props)
                     await progress.bump(1)
 
@@ -519,6 +682,7 @@ class ExportService:
     def _build_trip_query(
         filters: dict[str, Any],
         matched_only: bool,
+        trip_clip_context: _TripExportClipContext | None = None,
     ) -> dict[str, Any]:
         query: dict[str, Any] = {}
         if filters:
@@ -543,6 +707,12 @@ class ExportService:
 
         if matched_only:
             query["matchedGps"] = {"$ne": None}
+        if (
+            trip_clip_context is not None
+            and trip_clip_context.enabled
+            and trip_clip_context.prefilter_geometry
+        ):
+            query["gps"] = {"$geoIntersects": {"$geometry": trip_clip_context.prefilter_geometry}}
 
         return enforce_bouncie_source(query)
 

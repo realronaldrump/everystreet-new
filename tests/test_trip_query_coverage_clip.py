@@ -195,7 +195,7 @@ def test_matched_trips_endpoint_clips_and_omits_non_intersecting_trips() -> None
     _assert_prefilter_present(_FakeTripModel.received_queries[-1])
 
 
-def test_invalid_boundary_fails_open_without_clipping_or_prefilter() -> None:
+def test_invalid_boundary_returns_422_and_does_not_query_trips() -> None:
     _FakeTripModel.docs = _trip_docs()
     _FakeTripModel.received_queries = []
 
@@ -224,12 +224,9 @@ def test_invalid_boundary_fails_open_without_clipping_or_prefilter() -> None:
             "/api/trips?clip_to_coverage=true&coverage_area_id=invalid-area",
         )
 
-    assert response.status_code == 200
+    assert response.status_code == 422
     payload = response.json()
-    assert len(payload["features"]) == 2
-    assert all(
-        "coverageDistance" not in (feature.get("properties") or {})
-        for feature in payload["features"]
+    assert payload["detail"] == (
+        "Coverage area boundary is not a valid polygon and cannot be used for clipping."
     )
-
-    assert "gps" not in _FakeTripModel.received_queries[-1]
+    assert _FakeTripModel.received_queries == []

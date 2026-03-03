@@ -21,6 +21,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+try:
+    from shapely.validation import make_valid as _make_valid
+except Exception:  # pragma: no cover - shapely version compatibility
+    try:
+        from shapely import make_valid as _make_valid
+    except Exception:  # pragma: no cover - fallback for old shapely
+        _make_valid = None
+
 WGS84 = pyproj.CRS("EPSG:4326")
 GEOD = pyproj.Geod(ellps="WGS84")
 
@@ -172,6 +180,257 @@ class GeometryService:
             "geometry": geometry,
             "properties": properties or {},
         }
+
+
+def coerce_coordinate_pair(value: Any) -> list[float] | None:
+    """Coerce a coordinate-like value to a valid [lon, lat] pair."""
+    raw_pair: Any = value
+    if isinstance(value, dict):
+        lon = value.get("lon")
+        if lon is None:
+            lon = value.get("lng")
+        if lon is None:
+            lon = value.get("longitude")
+        lat = value.get("lat")
+        if lat is None:
+            lat = value.get("latitude")
+        raw_pair = [lon, lat]
+
+    is_valid, pair = GeometryService.validate_coordinate_pair(raw_pair)
+    if not is_valid or pair is None:
+        return None
+    return pair
+
+
+def normalize_coordinate_list(coords: list[Any]) -> list[list[float]]:
+    """Normalize a coordinate list and drop adjacent duplicates."""
+    if not isinstance(coords, list):
+        return []
+    normalized: list[list[float]] = []
+    for coord in coords:
+        pair = coerce_coordinate_pair(coord)
+        if pair is None:
+            continue
+        if not normalized or pair != normalized[-1]:
+            normalized.append(pair)
+    return normalized
+
+
+def extract_line_sequences(
+    geometry: dict[str, Any] | None,
+    *,
+    include_point: bool = False,
+) -> list[list[list[float]]]:
+    """
+    Extract normalized line coordinate sequences from GeoJSON geometry.
+
+    Returns a list of coordinate lists. For Point geometry, returns a single
+    one-point sequence only when include_point=True.
+    """
+    if not isinstance(geometry, dict):
+        return []
+
+    geom_type = geometry.get("type")
+    coords = geometry.get("coordinates")
+    if geom_type == "LineString":
+        line = normalize_coordinate_list(coords if isinstance(coords, list) else [])
+        return [line] if len(line) >= 2 else []
+
+    if geom_type == "MultiLineString" and isinstance(coords, list):
+        lines: list[list[list[float]]] = []
+        for line_coords in coords:
+            line = normalize_coordinate_list(line_coords if isinstance(line_coords, list) else [])
+            if len(line) >= 2:
+                lines.append(line)
+        return lines
+
+    if include_point and geom_type == "Point":
+        pair = coerce_coordinate_pair(coords)
+        return [[pair]] if pair is not None else []
+
+    return []
+
+
+def _collect_polygon_parts(geojson: dict[str, Any]) -> list["BaseGeometry"]:
+    from shapely.geometry import shape
+
+    geo_type = str(geojson.get("type") or "").strip()
+    if geo_type == "FeatureCollection":
+        features = geojson.get("features")
+        if not isinstance(features, list):
+            return []
+        geometries: list[Any] = []
+        for feature in features:
+            if isinstance(feature, dict):
+                geometries.extend(_collect_polygon_parts(feature))
+        return geometries
+
+    if geo_type == "Feature":
+        geometry = geojson.get("geometry")
+        if isinstance(geometry, dict):
+            return _collect_polygon_parts(geometry)
+        return []
+
+    if geo_type not in {"Polygon", "MultiPolygon"}:
+        return []
+
+    try:
+        parsed = shape(geojson)
+    except Exception:
+        logger.warning("Failed to parse polygon geometry", exc_info=True)
+        return []
+    if parsed.is_empty:
+        return []
+    return [parsed]
+
+
+def extract_polygon_geometry_from_geojson(value: Any) -> "BaseGeometry | None":
+    """Parse polygonal geometry from GeoJSON geometry/Feature/FeatureCollection."""
+    from shapely.ops import unary_union
+
+    geojson: dict[str, Any] | None = None
+    if isinstance(value, dict):
+        geojson = value
+    elif isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict):
+            geojson = parsed
+
+    if geojson is None:
+        return None
+
+    geometries = _collect_polygon_parts(geojson)
+    if not geometries:
+        return None
+
+    if len(geometries) == 1:
+        merged = geometries[0]
+    else:
+        merged = unary_union(geometries)
+
+    polygonal = extract_polygonal_geometry(merged)
+    if polygonal is None:
+        return None
+    fixed = validate_and_fix_geometry(polygonal)
+    return fixed if fixed is not None else polygonal
+
+
+def extract_line_geometry(geometry: "BaseGeometry | None") -> "BaseGeometry | None":
+    """Extract only LineString/MultiLineString parts from a Shapely geometry."""
+    from shapely.geometry import MultiLineString
+
+    if geometry is None or geometry.is_empty:
+        return None
+    if geometry.geom_type in {"LineString", "MultiLineString"}:
+        return geometry
+    if geometry.geom_type != "GeometryCollection":
+        return None
+
+    parts: list[Any] = []
+    for part in geometry.geoms:
+        line_part = extract_line_geometry(part)
+        if line_part is None:
+            continue
+        if line_part.geom_type == "LineString":
+            parts.append(line_part)
+        elif line_part.geom_type == "MultiLineString":
+            parts.extend(list(line_part.geoms))
+
+    if not parts:
+        return None
+    if len(parts) == 1:
+        return parts[0]
+    return MultiLineString([list(line.coords) for line in parts])
+
+
+def extract_polygonal_geometry(geometry: "BaseGeometry | None") -> "BaseGeometry | None":
+    """Extract only Polygon/MultiPolygon parts from a Shapely geometry."""
+    from shapely.geometry import MultiPolygon
+
+    if geometry is None or geometry.is_empty:
+        return None
+    if geometry.geom_type in {"Polygon", "MultiPolygon"}:
+        return geometry
+    if geometry.geom_type != "GeometryCollection":
+        return None
+
+    polygons: list[Any] = []
+    for part in geometry.geoms:
+        polygon_part = extract_polygonal_geometry(part)
+        if polygon_part is None:
+            continue
+        if polygon_part.geom_type == "Polygon":
+            polygons.append(polygon_part)
+        elif polygon_part.geom_type == "MultiPolygon":
+            polygons.extend(list(polygon_part.geoms))
+
+    if not polygons:
+        return None
+    if len(polygons) == 1:
+        return polygons[0]
+    return MultiPolygon(polygons)
+
+
+def clip_lines_to_polygon(
+    line_geometry: "BaseGeometry | None",
+    clip_polygon: "BaseGeometry | None",
+) -> "BaseGeometry | None":
+    """Clip a line geometry to a polygon and keep only linear output."""
+    if line_geometry is None or clip_polygon is None:
+        return None
+    if line_geometry.is_empty or clip_polygon.is_empty:
+        return None
+    if line_geometry.geom_type not in {"LineString", "MultiLineString"}:
+        return None
+
+    try:
+        intersection = line_geometry.intersection(clip_polygon)
+    except Exception:
+        logger.warning("Failed clipping line geometry to polygon", exc_info=True)
+        return None
+    return extract_line_geometry(intersection)
+
+
+def bounding_box_polygon(geometry: "BaseGeometry | None") -> dict[str, Any] | None:
+    """Return a GeoJSON polygon for the geometry bounds."""
+    if geometry is None or geometry.is_empty:
+        return None
+
+    min_lon, min_lat, max_lon, max_lat = geometry.bounds
+    if min_lon >= max_lon or min_lat >= max_lat:
+        return None
+
+    return {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [min_lon, min_lat],
+                [max_lon, min_lat],
+                [max_lon, max_lat],
+                [min_lon, max_lat],
+                [min_lon, min_lat],
+            ],
+        ],
+    }
+
+
+def validate_and_fix_geometry(geometry: "BaseGeometry | None") -> "BaseGeometry | None":
+    """Return a valid geometry or None when it cannot be repaired safely."""
+    if geometry is None or geometry.is_empty:
+        return None
+    if geometry.is_valid:
+        return geometry
+
+    try:
+        fixed = _make_valid(geometry) if _make_valid else geometry.buffer(0)
+    except Exception:
+        return None
+    if fixed is None or fixed.is_empty or not fixed.is_valid:
+        return None
+    return fixed
 
 
 def sanitize_geojson_geometry(

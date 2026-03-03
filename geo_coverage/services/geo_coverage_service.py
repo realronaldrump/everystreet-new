@@ -14,6 +14,7 @@ from shapely import STRtree
 from shapely.geometry import Point, shape
 
 from core.date_utils import parse_timestamp
+from core.spatial import coerce_coordinate_pair, validate_and_fix_geometry
 from core.trip_source_policy import enforce_bouncie_source
 from county.services.county_data_service import get_county_topology_document
 from county.services.topojson_utils import topojson_to_geojson
@@ -33,37 +34,6 @@ logger = logging.getLogger(__name__)
 GEO_COVERAGE_JOB_TYPE = "geo_coverage_recalc"
 GEO_RECALC_MODES: set[str] = {"incremental", "full"}
 GEO_RECALC_ACTIVE_STATUSES: set[str] = {"pending", "running"}
-
-try:
-    from shapely.validation import make_valid as _make_valid
-except Exception:
-    try:
-        from shapely import make_valid as _make_valid
-    except Exception:
-        _make_valid = None
-
-
-def _normalize_geometry(geom):
-    if geom.is_empty:
-        return None
-    if geom.is_valid:
-        return geom
-    fixed = _make_valid(geom) if _make_valid else geom.buffer(0)
-    if fixed.is_empty:
-        return None
-    if not fixed.is_valid:
-        return None
-    return fixed
-
-
-def _coerce_point_coords(coords: Any) -> list[float] | None:
-    if not isinstance(coords, list | tuple) or len(coords) < 2:
-        return None
-    try:
-        return [float(coords[0]), float(coords[1])]
-    except (TypeError, ValueError):
-        return None
-
 
 _SUPPORTED_GEO_TYPES: set[str] = {"LineString", "MultiLineString", "Point"}
 
@@ -124,14 +94,14 @@ def _extract_stop_points(
     coords = gps_data.get("coordinates")
 
     if gps_type == "Point":
-        point_coords = _coerce_point_coords(coords)
+        point_coords = coerce_coordinate_pair(coords)
         if point_coords:
             stop_points.append((Point(point_coords[0], point_coords[1]), default_time))
         return stop_points
 
     if gps_type == "LineString" and isinstance(coords, list) and coords:
-        start_coords = _coerce_point_coords(coords[0])
-        end_coords = _coerce_point_coords(coords[-1])
+        start_coords = coerce_coordinate_pair(coords[0])
+        end_coords = coerce_coordinate_pair(coords[-1])
         start_time = trip_start_time or default_time
         end_time = trip_end_time or default_time
 
@@ -153,8 +123,8 @@ def _extract_stop_points(
             if not isinstance(segment, list) or not segment:
                 continue
             if first_coords is None:
-                first_coords = _coerce_point_coords(segment[0])
-            candidate_last = _coerce_point_coords(segment[-1])
+                first_coords = coerce_coordinate_pair(segment[0])
+            candidate_last = coerce_coordinate_pair(segment[-1])
             if candidate_last:
                 last_coords = candidate_last
 
@@ -548,7 +518,7 @@ async def calculate_geo_coverage_task(
         for feature in counties_geojson:
             try:
                 geom = shape(feature["geometry"])
-                geom = _normalize_geometry(geom)
+                geom = validate_and_fix_geometry(geom)
                 if not geom:
                     invalid_counties += 1
                     continue
@@ -581,7 +551,7 @@ async def calculate_geo_coverage_task(
 
             try:
                 geom = shape(city.geometry)
-                geom = _normalize_geometry(geom)
+                geom = validate_and_fix_geometry(geom)
                 if not geom:
                     invalid_cities += 1
                     continue

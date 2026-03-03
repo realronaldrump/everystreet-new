@@ -91,6 +91,7 @@ def build_trip_values(trip: Any) -> dict[str, Any]:
         "location_schema_version": _get_value(trip, "location_schema_version"),
         "geocoded_at": format_datetime(_get_value(trip, "geocoded_at")),
         "distance": _get_value(trip, "distance"),
+        "coverageDistance": _get_value(trip, "coverageDistance"),
         "currentSpeed": _get_value(trip, "currentSpeed"),
         "maxSpeed": _get_value(trip, "maxSpeed"),
         "avgSpeed": _get_value(trip, "avgSpeed"),

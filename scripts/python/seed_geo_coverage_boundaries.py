@@ -24,16 +24,9 @@ if str(ROOT) not in sys.path:
 
 from db.manager import db_manager  # noqa: E402
 from db.models import CityBoundary, StateBoundaryCache  # noqa: E402
+from core.spatial import validate_and_fix_geometry  # noqa: E402
 
 logger = logging.getLogger("seed_geo_coverage_boundaries")
-
-try:
-    from shapely.validation import make_valid as _make_valid
-except Exception:
-    try:
-        from shapely import make_valid as _make_valid
-    except Exception:
-        _make_valid = None
 
 DEFAULT_CENSUS_YEAR = os.getenv("GEO_COVERAGE_CENSUS_YEAR", "2024")
 DEFAULT_STATES_URL = os.getenv(
@@ -53,17 +46,6 @@ DEFAULT_PREFER_PER_STATE = (
     os.getenv("GEO_COVERAGE_PREFER_PER_STATE", "true").strip().lower()
     not in {"0", "false", "no", "off"}
 )
-
-
-def _normalize_geometry(geom):
-    if geom is None or geom.is_empty:
-        return None
-    if geom.is_valid:
-        return geom
-    fixed = _make_valid(geom) if _make_valid else geom.buffer(0)
-    if fixed is None or fixed.is_empty or not fixed.is_valid:
-        return None
-    return fixed
 
 
 def _is_included_place(classfp: str | None, lsad: str | None = None) -> bool:
@@ -109,13 +91,13 @@ async def _upsert_state_boundaries(
     features = []
 
     for _, row in states_gdf.iterrows():
-        geom = _normalize_geometry(row.geometry)
+        geom = validate_and_fix_geometry(row.geometry)
         if geom is None:
             continue
 
         if simplify_tolerance > 0:
             simplified = geom.simplify(simplify_tolerance, preserve_topology=True)
-            normalized = _normalize_geometry(simplified)
+            normalized = validate_and_fix_geometry(simplified)
             geom = normalized or geom
 
         state_fips = str(row.get("STATEFP") or "").zfill(2)
@@ -182,14 +164,14 @@ async def _upsert_city_boundaries(
             skipped += 1
             continue
 
-        geom = _normalize_geometry(row.geometry)
+        geom = validate_and_fix_geometry(row.geometry)
         if geom is None:
             skipped += 1
             continue
 
         if simplify_tolerance > 0:
             simplified = geom.simplify(simplify_tolerance, preserve_topology=True)
-            normalized = _normalize_geometry(simplified)
+            normalized = validate_and_fix_geometry(simplified)
             geom = normalized or geom
 
         try:

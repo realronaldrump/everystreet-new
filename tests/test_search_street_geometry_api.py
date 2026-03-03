@@ -86,8 +86,8 @@ def test_street_geometry_clips_to_selected_area() -> None:
             params={
                 "osm_id": 456,
                 "osm_type": "way",
-                "location_id": "507f1f77bcf86cd799439011",
-                "clip_to_area": "true",
+                "coverage_area_id": "507f1f77bcf86cd799439011",
+                "clip_to_coverage": "true",
             },
         )
 

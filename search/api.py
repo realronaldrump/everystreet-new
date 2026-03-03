@@ -69,7 +69,7 @@ async def geocode_search(
 @api_route(logger)
 async def search_streets(
     query: Annotated[str, Query(description="Street name to search for")],
-    location_id: Annotated[
+    coverage_area_id: Annotated[
         PydanticObjectId | None,
         Query(description="Optional coverage area ID to search within"),
     ] = None,
@@ -83,14 +83,14 @@ async def search_streets(
 
     Args:
         query: Street name query
-        location_id: Optional coverage area to search within
+        coverage_area_id: Optional coverage area to search within
         limit: Maximum number of results
 
     Returns:
         GeoJSON FeatureCollection of matching streets
     """
     try:
-        return await SearchService.search_streets(query, location_id, limit)
+        return await SearchService.search_streets(query, coverage_area_id, limit)
     except HTTPException:
         raise
     except Exception as exc:
@@ -109,14 +109,14 @@ async def resolve_street_geometry(
         Literal["node", "way", "relation"],
         Query(description="OSM feature type"),
     ],
-    location_id: Annotated[
+    coverage_area_id: Annotated[
         PydanticObjectId | None,
         Query(description="Optional coverage area ID to clip geometry to"),
     ] = None,
-    clip_to_area: Annotated[
+    clip_to_coverage: Annotated[
         bool,
-        Query(description="Clip result to selected area boundary when available"),
-    ] = True,
+        Query(description="Clip result to selected coverage area boundary"),
+    ] = False,
 ):
     """
     Resolve line geometry for a street-like geocoding result by OSM identity.
@@ -128,9 +128,11 @@ async def resolve_street_geometry(
         return await SearchService.resolve_street_geometry(
             osm_id=osm_id,
             osm_type=osm_type,
-            location_id=location_id,
-            clip_to_area=clip_to_area,
+            coverage_area_id=coverage_area_id,
+            clip_to_coverage=clip_to_coverage,
         )
+    except HTTPException:
+        raise
     except Exception:
         logger.exception(
             "Error resolving street geometry for osm_id=%s osm_type=%s",

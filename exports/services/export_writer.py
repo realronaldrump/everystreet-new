@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 async def write_json_array(
     path: Path,
     cursor: AsyncIterator[Any],
-    serializer: Callable[[Any], dict[str, Any]],
+    serializer: Callable[[Any], dict[str, Any] | None],
     progress: Callable[[int], Any] | None = None,
 ) -> int:
     count = 0
@@ -28,6 +28,10 @@ async def write_json_array(
         first = True
         async for item in cursor:
             record = serializer(item)
+            if record is None:
+                if progress:
+                    await progress(1)
+                continue
             if not first:
                 handle.write(",")
             handle.write(
@@ -52,7 +56,7 @@ async def write_csv(
     path: Path,
     cursor: AsyncIterator[Any],
     fieldnames: list[str],
-    serializer: Callable[[Any], dict[str, Any]],
+    serializer: Callable[[Any], dict[str, Any] | None],
     progress: Callable[[int], Any] | None = None,
 ) -> int:
     count = 0
@@ -61,6 +65,10 @@ async def write_csv(
         writer.writeheader()
         async for item in cursor:
             record = serializer(item)
+            if record is None:
+                if progress:
+                    await progress(1)
+                continue
             row = {
                 field: _serialize_csv_value(record.get(field)) for field in fieldnames
             }
@@ -97,7 +105,7 @@ async def write_geojson_features(
 async def write_gpx_tracks(
     path: Path,
     cursor: AsyncIterator[Any],
-    serializer: Callable[[Any], dict[str, Any]],
+    serializer: Callable[[Any], dict[str, Any] | None],
     progress: Callable[[int], Any] | None = None,
 ) -> int:
     track_count = 0
@@ -106,6 +114,10 @@ async def write_gpx_tracks(
 
     async for item in cursor:
         track_data = serializer(item)
+        if track_data is None:
+            if progress:
+                await progress(1)
+            continue
         coords = track_data.get("coordinates") or []
         if not isinstance(coords, list):
             coords = []

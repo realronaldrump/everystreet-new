@@ -24,6 +24,7 @@ class TripFilters(BaseModel):
     imei: str | None = None
     status: list[str] | None = None
     include_invalid: bool = False
+    clip_to_coverage: bool = False
 
     @field_validator("status", mode="before")
     @classmethod
@@ -63,11 +64,18 @@ class ExportRequest(BaseModel):
                     msg,
                 )
 
+        has_trip_exports = any(item.entity in {"trips", "matched_trips"} for item in self.items)
         needs_area = any(
             item.entity in {"streets", "boundaries", "undriven_streets"}
             for item in self.items
         )
-        if needs_area and not self.area_id:
+
+        clip_to_coverage = bool(self.trip_filters and self.trip_filters.clip_to_coverage)
+        if clip_to_coverage and not has_trip_exports:
+            msg = "trip_filters.clip_to_coverage can only be used with trip exports."
+            raise ValueError(msg)
+
+        if (needs_area or clip_to_coverage) and not self.area_id:
             msg = "area_id is required for coverage exports."
             raise ValueError(msg)
 

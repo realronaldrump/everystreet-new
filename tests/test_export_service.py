@@ -1,7 +1,7 @@
 import pytest
 
 from exports.models import ExportItem
-from exports.services.export_service import ExportService
+from exports.services.export_service import ExportService, _TripExportClipContext
 
 
 def test_normalize_item_defaults_format_and_geometry() -> None:
@@ -76,6 +76,32 @@ def test_build_trip_query_includes_invalid_when_requested() -> None:
     query = ExportService._build_trip_query(filters, matched_only=False)
 
     assert "invalid" not in query
+
+
+def test_build_trip_query_adds_clip_prefilter_when_enabled() -> None:
+    """Clip context should add bounding-box prefilter against gps."""
+    clip_context = _TripExportClipContext(
+        enabled=True,
+        prefilter_geometry={
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [0.0, 0.0],
+                    [1.0, 0.0],
+                    [1.0, 1.0],
+                    [0.0, 1.0],
+                    [0.0, 0.0],
+                ],
+            ],
+        },
+    )
+    query = ExportService._build_trip_query(
+        {},
+        matched_only=False,
+        trip_clip_context=clip_context,
+    )
+
+    assert query["gps"]["$geoIntersects"]["$geometry"] == clip_context.prefilter_geometry
 
 
 def test_entity_file_path_returns_correct_extension() -> None:

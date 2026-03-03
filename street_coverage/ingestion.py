@@ -25,7 +25,11 @@ from core.coverage import (
     backfill_coverage_for_area,
     get_effective_coverage_trip_mode,
 )
-from core.spatial import geodesic_length_meters, get_local_transformers
+from core.spatial import (
+    clip_lines_to_polygon,
+    geodesic_length_meters,
+    get_local_transformers,
+)
 from db.models import CoverageArea, CoverageState, Job, Street
 from map_data.us_states import get_state
 from street_coverage.constants import (
@@ -1354,26 +1358,6 @@ def _coerce_osm_id(value: Any) -> int | None:
         return None
 
 
-def _coerce_line_geometry(geom: Any) -> Any | None:
-    if geom is None or geom.is_empty:
-        return None
-    if geom.geom_type in ("LineString", "MultiLineString"):
-        return geom
-    if geom.geom_type == "GeometryCollection":
-        lines = []
-        for item in geom.geoms:
-            if item.geom_type == "LineString":
-                lines.append(item)
-            elif item.geom_type == "MultiLineString":
-                lines.extend(list(item.geoms))
-        if not lines:
-            return None
-        if len(lines) == 1:
-            return lines[0]
-        return MultiLineString(lines)
-    return None
-
-
 def _edge_geometry(G: Any, u: Any, v: Any, data: dict[str, Any]) -> Any | None:
     geom = data.get("geometry")
     if geom is not None:
@@ -1499,7 +1483,7 @@ async def _load_osm_streets_from_graph(
             if boundary_shape is not None:
                 if not boundary_shape.intersects(line):
                     continue
-                line = _coerce_line_geometry(boundary_shape.intersection(line))
+                line = clip_lines_to_polygon(line, boundary_shape)
                 if line is None:
                     continue
 

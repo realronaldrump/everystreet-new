@@ -186,7 +186,8 @@ test("street result without geometry resolves via API, highlights, and caches", 
   assert.equal(panned, 0);
   assert.equal(apiCalls, 1);
   assert.ok(lastApiUrl.includes("/api/search/street-geometry"));
-  assert.ok(lastApiUrl.includes("location_id=507f1f77bcf86cd799439011"));
+  assert.ok(lastApiUrl.includes("coverage_area_id=507f1f77bcf86cd799439011"));
+  assert.ok(lastApiUrl.includes("clip_to_coverage=true"));
 });
 
 test("unavailable resolved geometry uses silent pin behavior", async () => {

@@ -4,11 +4,15 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException
-from shapely.geometry import LineString, MultiLineString, mapping, shape
-from shapely.geometry.base import BaseGeometry
+from shapely.geometry import mapping, shape
 
 from core.clients.nominatim import GeocodingService
 from core.mapping.factory import get_geocoder
+from core.spatial import (
+    clip_lines_to_polygon,
+    extract_line_geometry,
+    extract_polygon_geometry_from_geojson,
+)
 from db.models import CoverageArea, CoverageState, Street
 
 if TYPE_CHECKING:
@@ -95,38 +99,6 @@ class SearchService:
 
         return score
 
-    @staticmethod
-    def _to_line_geometry(
-        geometry: BaseGeometry | None,
-    ) -> LineString | MultiLineString | None:
-        if geometry is None or geometry.is_empty:
-            return None
-
-        geom_type = geometry.geom_type
-        if geom_type == "LineString":
-            return geometry
-        if geom_type == "MultiLineString":
-            return geometry
-        if geom_type != "GeometryCollection":
-            return None
-
-        line_parts: list[LineString] = []
-        for part in geometry.geoms:
-            normalized = SearchService._to_line_geometry(part)
-            if normalized is None:
-                continue
-            if normalized.geom_type == "LineString":
-                line_parts.append(normalized)
-            elif normalized.geom_type == "MultiLineString":
-                line_parts.extend(list(normalized.geoms))
-
-        if not line_parts:
-            return None
-        if len(line_parts) == 1:
-            return line_parts[0]
-        return MultiLineString([list(line.coords) for line in line_parts])
-
-    @staticmethod
     async def geocode_search(
         query: str,
         limit: int,
@@ -184,7 +156,7 @@ class SearchService:
     @staticmethod
     async def search_streets(
         query: str,
-        location_id: PydanticObjectId | None,
+        coverage_area_id: PydanticObjectId | None,
         limit: int,
     ) -> list[dict[str, Any]]:
         if not query or len(query.strip()) < 2:
@@ -193,23 +165,26 @@ class SearchService:
                 detail="Query must be at least 2 characters",
             )
 
-        new_area = await CoverageArea.get(location_id) if location_id else None
-        if not new_area:
-            logger.warning("Coverage area not found: %s", location_id)
+        if coverage_area_id is None:
+            return []
+
+        new_area = await CoverageArea.get(coverage_area_id)
+        if new_area is None:
+            logger.warning("Coverage area not found: %s", coverage_area_id)
             return []
 
         location_name = new_area.display_name
 
         driven_segment_ids = set()
         async for state in CoverageState.find(
-            CoverageState.area_id == location_id,
+            CoverageState.area_id == coverage_area_id,
             CoverageState.status == "driven",
         ):
             driven_segment_ids.add(state.segment_id)
 
         street_groups: dict[str, dict[str, Any]] = {}
         async for street in Street.find(
-            Street.area_id == location_id,
+            Street.area_id == coverage_area_id,
             Street.area_version == new_area.area_version,
             Street.street_name != None,  # noqa: E711
         ):
@@ -271,8 +246,8 @@ class SearchService:
     async def resolve_street_geometry(
         osm_id: int | str,
         osm_type: str,
-        location_id: PydanticObjectId | None = None,
-        clip_to_area: bool = True,
+        coverage_area_id: PydanticObjectId | None = None,
+        clip_to_coverage: bool = False,
     ) -> dict[str, Any]:
         clipped = False
 
@@ -302,7 +277,7 @@ class SearchService:
             return {"feature": None, "available": False, "clipped": False}
 
         try:
-            line_geometry = SearchService._to_line_geometry(shape(raw_geometry))
+            line_geometry = extract_line_geometry(shape(raw_geometry))
         except Exception:
             logger.warning(
                 "Invalid geometry payload from Nominatim for osm_id=%s osm_type=%s",
@@ -315,30 +290,33 @@ class SearchService:
         if line_geometry is None:
             return {"feature": None, "available": False, "clipped": False}
 
-        if location_id and clip_to_area:
-            area = await CoverageArea.get(location_id)
-            boundary = area.boundary if area else None
-            if isinstance(boundary, dict) and boundary:
-                boundary_geojson = (
-                    boundary.get("geometry")
-                    if str(boundary.get("type")).lower() == "feature"
-                    else boundary
+        if clip_to_coverage:
+            if coverage_area_id is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        "coverage_area_id is required when clip_to_coverage is true."
+                    ),
                 )
-                try:
-                    if isinstance(boundary_geojson, dict):
-                        clipped_geometry = line_geometry.intersection(
-                            shape(boundary_geojson),
-                        )
-                        line_geometry = SearchService._to_line_geometry(
-                            clipped_geometry,
-                        )
-                        clipped = True
-                except Exception:
-                    logger.warning(
-                        "Failed to clip street geometry to area boundary for location_id=%s",
-                        location_id,
-                        exc_info=True,
-                    )
+
+            area = await CoverageArea.get(coverage_area_id)
+            if area is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Coverage area not found: {coverage_area_id}",
+                )
+
+            boundary_geometry = extract_polygon_geometry_from_geojson(area.boundary)
+            if boundary_geometry is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        "Coverage area boundary is not a valid polygon and cannot be used for clipping."
+                    ),
+                )
+
+            line_geometry = clip_lines_to_polygon(line_geometry, boundary_geometry)
+            clipped = True
 
         if line_geometry is None:
             return {"feature": None, "available": False, "clipped": clipped}

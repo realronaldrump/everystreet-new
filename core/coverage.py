@@ -22,7 +22,11 @@ from shapely.ops import transform
 from shapely.strtree import STRtree
 
 from core.date_utils import get_current_utc_time, normalize_to_utc_datetime
-from core.spatial import geodesic_distance_meters, get_local_transformers
+from core.spatial import (
+    extract_line_sequences,
+    geodesic_distance_meters,
+    get_local_transformers,
+)
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import CoverageArea, CoverageState, Street, Trip
 from street_coverage.constants import (
@@ -399,64 +403,6 @@ async def get_area_segment_index(
     return index
 
 
-def _coerce_coord_pair(value: Any) -> list[float] | None:
-    if isinstance(value, dict):
-        lon = value.get("lon")
-        if lon is None:
-            lon = value.get("lng")
-        lat = value.get("lat")
-    else:
-        if not isinstance(value, list | tuple) or len(value) < 2:
-            return None
-        lon, lat = value[0], value[1]
-
-    try:
-        lon_f = float(lon)
-        lat_f = float(lat)
-    except (TypeError, ValueError):
-        return None
-
-    if not (-180 <= lon_f <= 180 and -90 <= lat_f <= 90):
-        return None
-
-    return [lon_f, lat_f]
-
-
-def _normalize_coords(coords: list[Any]) -> list[list[float]]:
-    normalized = []
-    for coord in coords:
-        pair = _coerce_coord_pair(coord)
-        if pair is None:
-            continue
-        if not normalized or pair != normalized[-1]:
-            normalized.append(pair)
-    return normalized
-
-
-def _extract_lines_from_geojson(
-    geom: dict[str, Any],
-) -> list[list[list[float]]] | None:
-    geom_type = geom.get("type")
-    coords = geom.get("coordinates")
-    if geom_type == "LineString":
-        if not isinstance(coords, list):
-            return None
-        normalized = _normalize_coords(coords)
-        return [normalized] if len(normalized) >= 2 else None
-    if geom_type == "MultiLineString":
-        if not isinstance(coords, list):
-            return None
-        lines: list[list[list[float]]] = []
-        for line_coords in coords:
-            if not isinstance(line_coords, list):
-                continue
-            normalized = _normalize_coords(line_coords)
-            if len(normalized) >= 2:
-                lines.append(normalized)
-        return lines if lines else None
-    return None
-
-
 def _adaptive_gap_threshold(distances: list[float]) -> float:
     if not distances:
         return MIN_GPS_GAP_METERS
@@ -503,7 +449,7 @@ def _trip_to_matched_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
     if not isinstance(matched_gps, dict) or not _has_confirmed_matched_geometry(trip):
         return None
 
-    matched_lines = _extract_lines_from_geojson(matched_gps)
+    matched_lines = extract_line_sequences(matched_gps)
     if not matched_lines:
         return None
 
@@ -518,7 +464,7 @@ def _trip_to_raw_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
     if not isinstance(geom, dict):
         return None
 
-    lines = _extract_lines_from_geojson(geom)
+    lines = extract_line_sequences(geom)
     if not lines:
         return None
 

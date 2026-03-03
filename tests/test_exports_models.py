@@ -42,3 +42,33 @@ def test_export_request_accepts_gpx_trip_format() -> None:
     item = ExportItem(entity="trips", format="gpx")
     request = ExportRequest(items=[item])
     assert request.items[0].format == "gpx"
+
+
+def test_export_request_rejects_trip_clip_without_trip_entities() -> None:
+    item = ExportItem(entity="streets", format="geojson")
+    with pytest.raises(ValueError):
+        ExportRequest(
+            items=[item],
+            area_id=ObjectId(),
+            trip_filters=TripFilters(clip_to_coverage=True),
+        )
+
+
+def test_export_request_requires_area_id_when_trip_clip_enabled() -> None:
+    item = ExportItem(entity="trips", format="json")
+    with pytest.raises(ValueError):
+        ExportRequest(
+            items=[item],
+            trip_filters=TripFilters(clip_to_coverage=True),
+        )
+
+
+def test_export_request_accepts_area_id_when_trip_clip_enabled() -> None:
+    item = ExportItem(entity="trips", format="json")
+    request = ExportRequest(
+        items=[item],
+        area_id=ObjectId(),
+        trip_filters=TripFilters(clip_to_coverage=True),
+    )
+    assert request.trip_filters is not None
+    assert request.trip_filters.clip_to_coverage is True

@@ -7,14 +7,19 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
-from shapely.geometry import MultiLineString, MultiPolygon, mapping, shape
+from shapely.geometry import mapping, shape
 from shapely.geometry.base import BaseGeometry
-from shapely.ops import unary_union
 
 from core.api import api_route
 from core.casting import safe_float
 from core.date_utils import parse_timestamp
-from core.spatial import GeometryService, geodesic_length_meters
+from core.spatial import (
+    GeometryService,
+    bounding_box_polygon,
+    clip_lines_to_polygon,
+    extract_polygon_geometry_from_geojson,
+    geodesic_length_meters,
+)
 from core.trip_source_policy import enforce_bouncie_source
 from db import build_query_from_request
 from db.models import CoverageArea, Trip
@@ -49,152 +54,8 @@ def _parse_bool_query_value(value: str | None) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _coerce_geojson_object(value: Any) -> dict[str, Any] | None:
-    if isinstance(value, dict):
-        return value
-    if isinstance(value, str):
-        try:
-            parsed = json.loads(value)
-            return parsed if isinstance(parsed, dict) else None
-        except json.JSONDecodeError:
-            return None
-    return None
-
-
-def _extract_polygon_geometries(value: Any) -> list[BaseGeometry]:
-    geojson = _coerce_geojson_object(value)
-    if not geojson:
-        return []
-
-    geo_type = str(geojson.get("type") or "").strip()
-    if geo_type == "FeatureCollection":
-        features = geojson.get("features")
-        if not isinstance(features, list):
-            return []
-        geometries: list[BaseGeometry] = []
-        for feature in features:
-            geometries.extend(_extract_polygon_geometries(feature))
-        return geometries
-
-    if geo_type == "Feature":
-        return _extract_polygon_geometries(geojson.get("geometry"))
-
-    if geo_type not in {"Polygon", "MultiPolygon"}:
-        return []
-
-    try:
-        parsed = shape(geojson)
-    except Exception:
-        logger.warning("Failed to parse coverage boundary geometry", exc_info=True)
-        return []
-
-    if parsed.is_empty:
-        return []
-    return [parsed]
-
-
-def _extract_polygonal_geometry(geometry: BaseGeometry | None) -> BaseGeometry | None:
-    if geometry is None or geometry.is_empty:
-        return None
-
-    if geometry.geom_type in {"Polygon", "MultiPolygon"}:
-        return geometry
-
-    if geometry.geom_type != "GeometryCollection":
-        return None
-
-    polygons: list[BaseGeometry] = []
-    for part in geometry.geoms:
-        polygon_part = _extract_polygonal_geometry(part)
-        if polygon_part is None:
-            continue
-        if polygon_part.geom_type == "Polygon":
-            polygons.append(polygon_part)
-        elif polygon_part.geom_type == "MultiPolygon":
-            polygons.extend(list(polygon_part.geoms))
-
-    if not polygons:
-        return None
-    if len(polygons) == 1:
-        return polygons[0]
-    return MultiPolygon(polygons)
-
-
 def _normalize_coverage_boundary_geometry(boundary: Any) -> BaseGeometry | None:
-    geometries = _extract_polygon_geometries(boundary)
-    if not geometries:
-        return None
-
-    merged: BaseGeometry
-    if len(geometries) == 1:
-        merged = geometries[0]
-    else:
-        merged = unary_union(geometries)
-
-    polygonal = _extract_polygonal_geometry(merged)
-    if polygonal is None:
-        return None
-
-    if polygonal.is_valid:
-        return polygonal
-
-    # Attempt a lightweight topology fix when rings self-intersect.
-    try:
-        fixed = polygonal.buffer(0)
-    except Exception:
-        return polygonal
-
-    fixed_polygonal = _extract_polygonal_geometry(fixed)
-    return fixed_polygonal if fixed_polygonal is not None else polygonal
-
-
-def _coverage_bbox_polygon(coverage_geometry: BaseGeometry) -> dict[str, Any] | None:
-    if coverage_geometry.is_empty:
-        return None
-
-    min_lon, min_lat, max_lon, max_lat = coverage_geometry.bounds
-    if min_lon >= max_lon or min_lat >= max_lat:
-        return None
-
-    return {
-        "type": "Polygon",
-        "coordinates": [
-            [
-                [min_lon, min_lat],
-                [max_lon, min_lat],
-                [max_lon, max_lat],
-                [min_lon, max_lat],
-                [min_lon, min_lat],
-            ],
-        ],
-    }
-
-
-def _extract_line_geometry(geometry: BaseGeometry | None) -> BaseGeometry | None:
-    if geometry is None or geometry.is_empty:
-        return None
-
-    if geometry.geom_type in {"LineString", "MultiLineString"}:
-        return geometry
-
-    if geometry.geom_type != "GeometryCollection":
-        return None
-
-    parts: list[BaseGeometry] = []
-    for part in geometry.geoms:
-        line_part = _extract_line_geometry(part)
-        if line_part is None:
-            continue
-        if line_part.geom_type == "LineString":
-            parts.append(line_part)
-        elif line_part.geom_type == "MultiLineString":
-            parts.extend(list(line_part.geoms))
-
-    if not parts:
-        return None
-    if len(parts) == 1:
-        return parts[0]
-    return MultiLineString([list(line.coords) for line in parts])
+    return extract_polygon_geometry_from_geojson(boundary)
 
 
 def _clip_lines_to_coverage(
@@ -218,13 +79,7 @@ def _clip_lines_to_coverage(
     if line_geometry.is_empty:
         return None, None
 
-    try:
-        intersection = line_geometry.intersection(coverage_geometry)
-    except Exception:
-        logger.warning("Failed to intersect trip geometry with coverage area", exc_info=True)
-        return None, None
-
-    clipped_lines = _extract_line_geometry(intersection)
+    clipped_lines = clip_lines_to_polygon(line_geometry, coverage_geometry)
     if clipped_lines is None or clipped_lines.is_empty:
         return None, None
 
@@ -265,30 +120,47 @@ async def _resolve_coverage_clip_context(request: Request) -> _CoverageClipConte
     area_id = str(request.query_params.get("coverage_area_id") or "").strip()
     context = _CoverageClipContext(area_id=area_id or None)
 
-    if not clip_requested or not area_id:
+    if not clip_requested:
         return context
+    if not area_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="coverage_area_id is required when clip_to_coverage is true.",
+        )
 
     try:
         area = await CoverageArea.get(area_id)
-    except Exception:
-        logger.warning("Coverage clipping requested with invalid area id: %s", area_id)
-        return context
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid coverage_area_id: {area_id}",
+        ) from exc
 
     if area is None:
-        logger.warning("Coverage clipping requested but area not found: %s", area_id)
-        return context
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Coverage area not found: {area_id}",
+        )
 
     coverage_geometry = _normalize_coverage_boundary_geometry(getattr(area, "boundary", None))
     if coverage_geometry is None:
-        logger.warning(
-            "Coverage clipping requested but boundary is unusable for area %s",
-            area_id,
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Coverage area boundary is not a valid polygon and cannot be used for clipping."
+            ),
         )
-        return context
+
+    prefilter_geometry = bounding_box_polygon(coverage_geometry)
+    if prefilter_geometry is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Coverage area boundary is degenerate and cannot be used for clipping.",
+        )
 
     context.active = True
     context.coverage_geometry = coverage_geometry
-    context.prefilter_geometry = _coverage_bbox_polygon(coverage_geometry)
+    context.prefilter_geometry = prefilter_geometry
     return context
 
 

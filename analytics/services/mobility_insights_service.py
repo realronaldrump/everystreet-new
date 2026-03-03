@@ -18,8 +18,10 @@ from shapely.ops import transform
 from core.clients.nominatim import GeocodingService
 from core.spatial import (
     GeometryService,
+    extract_line_sequences,
     geodesic_distance_meters,
     get_local_transformers,
+    normalize_coordinate_list,
 )
 from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
@@ -49,35 +51,6 @@ def _combine_query(*clauses: dict[str, Any] | None) -> dict[str, Any]:
     if len(clean) == 1:
         return clean[0]
     return {"$and": clean}
-
-
-def _normalize_line_coords(coords: Any) -> list[list[float]]:
-    if not isinstance(coords, list):
-        return []
-    normalized: list[list[float]] = []
-    for coord in coords:
-        is_valid, pair = GeometryService.validate_coordinate_pair(coord)
-        if not is_valid or pair is None:
-            continue
-        if not normalized or pair != normalized[-1]:
-            normalized.append(pair)
-    return normalized
-
-
-def _line_sequences_from_geometry(geometry: dict[str, Any]) -> list[list[list[float]]]:
-    geometry_type = geometry.get("type")
-    coords = geometry.get("coordinates")
-    if geometry_type == "LineString":
-        line = _normalize_line_coords(coords)
-        return [line] if len(line) >= 2 else []
-    if geometry_type == "MultiLineString" and isinstance(coords, list):
-        lines: list[list[list[float]]] = []
-        for line_coords in coords:
-            line = _normalize_line_coords(line_coords)
-            if len(line) >= 2:
-                lines.append(line)
-        return lines
-    return []
 
 
 def _sample_line_points(
@@ -135,17 +108,6 @@ def _normalize_street_key(value: str | None) -> str:
     return normalized.casefold() if isinstance(normalized, str) else ""
 
 
-def _sanitize_path(path: list[list[float]]) -> list[list[float]]:
-    cleaned: list[list[float]] = []
-    for point in path:
-        is_valid, pair = GeometryService.validate_coordinate_pair(point)
-        if not is_valid or pair is None:
-            continue
-        if not cleaned or pair != cleaned[-1]:
-            cleaned.append(pair)
-    return cleaned
-
-
 def _append_path_segment(
     container: dict[str, list[list[list[float]]]],
     key: str,
@@ -155,12 +117,12 @@ def _append_path_segment(
 ) -> None:
     if not key:
         return
-    cleaned = _sanitize_path(segment)
+    cleaned = normalize_coordinate_list(segment)
     if len(cleaned) < 2:
         return
     paths = container.setdefault(key, [])
     if paths and paths[-1] and paths[-1][-1] == cleaned[0]:
-        merged = _sanitize_path([*paths[-1], *cleaned[1:]])
+        merged = normalize_coordinate_list([*paths[-1], *cleaned[1:]])
         if len(merged) >= 2:
             paths[-1] = merged
         return
@@ -188,13 +150,13 @@ class MobilityInsightsService:
     ) -> tuple[list[list[list[float]]], str | None]:
         matched = GeometryService.parse_geojson(trip_data.get("matchedGps"))
         if isinstance(matched, dict):
-            lines = _line_sequences_from_geometry(matched)
+            lines = extract_line_sequences(matched)
             if lines:
                 return lines, "matchedGps"
 
         gps = GeometryService.parse_geojson(trip_data.get("gps"))
         if isinstance(gps, dict):
-            lines = _line_sequences_from_geometry(gps)
+            lines = extract_line_sequences(gps)
             if lines:
                 return lines, "gps"
 
@@ -707,7 +669,7 @@ class MobilityInsightsService:
             matched = GeometryService.parse_geojson(trip_data.get("matchedGps"))
             if not isinstance(matched, dict):
                 continue
-            line_sequences = _line_sequences_from_geometry(matched)
+            line_sequences = extract_line_sequences(matched)
             for line_coords in line_sequences:
                 sampled_points_raw = _sample_line_points(line_coords, spacing_m)
                 if len(sampled_points_raw) < 2:

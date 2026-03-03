@@ -48,6 +48,7 @@ TRIP_BASE_FIELDS: Final[list[str]] = [
     "location_schema_version",
     "geocoded_at",
     "distance",
+    "coverageDistance",
     "currentSpeed",
     "maxSpeed",
     "avgSpeed",

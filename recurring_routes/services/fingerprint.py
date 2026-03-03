@@ -13,7 +13,7 @@ import math
 from collections.abc import Sequence
 from typing import Any
 
-from core.spatial import GeometryService
+from core.spatial import GeometryService, extract_line_sequences, normalize_coordinate_list
 
 logger = logging.getLogger(__name__)
 
@@ -41,40 +41,26 @@ def grid_cell(x_m: float, y_m: float, cell_size_m: float) -> tuple[int, int]:
     return (math.floor(x_m / size), math.floor(y_m / size))
 
 
-def _extract_geojson_coords(geometry: dict[str, Any] | None) -> list[list[float]]:
-    if not isinstance(geometry, dict):
-        return []
-    geom_type = geometry.get("type")
-    coords = geometry.get("coordinates")
-    raw: list[Any] = []
-    if geom_type == "LineString" and isinstance(coords, list):
-        raw = coords
-    elif geom_type == "MultiLineString" and isinstance(coords, list):
-        for line in coords:
-            if isinstance(line, list):
-                raw.extend(line)
-    else:
+def _flatten_line_coords(geometry: dict[str, Any] | None) -> list[list[float]]:
+    sequences = extract_line_sequences(geometry)
+    if not sequences:
         return []
 
-    cleaned: list[list[float]] = []
-    for coord in raw:
-        valid, pair = GeometryService.validate_coordinate_pair(coord)
-        if valid and pair:
-            cleaned.append(pair)
-
-    # Dedupe consecutive pairs (stabilizes sampling)
-    deduped: list[list[float]] = []
-    for pair in cleaned:
-        if not deduped or pair != deduped[-1]:
-            deduped.append(pair)
-
-    return deduped
+    flattened: list[list[float]] = []
+    for line in sequences:
+        if not line:
+            continue
+        if flattened and flattened[-1] == line[0]:
+            flattened.extend(line[1:])
+        else:
+            flattened.extend(line)
+    return normalize_coordinate_list(flattened)
 
 
 def extract_polyline(trip: dict[str, Any]) -> list[list[float]]:
     """Extract a [lon, lat] polyline from a trip in a stable priority order."""
     geom = GeometryService.parse_geojson(trip.get("gps"))
-    coords = _extract_geojson_coords(geom) if geom else []
+    coords = _flatten_line_coords(geom) if geom else []
     if len(coords) >= 2:
         return coords
 
@@ -98,7 +84,7 @@ def extract_polyline(trip: dict[str, Any]) -> list[list[float]]:
             dedupe=True,
             validate=True,
         )
-        coords2 = _extract_geojson_coords(geom2) if geom2 else []
+        coords2 = _flatten_line_coords(geom2) if geom2 else []
         if len(coords2) >= 2:
             return coords2
 
@@ -249,7 +235,7 @@ def build_preview_svg_path(
     if not geometry:
         return None
 
-    coords = _extract_geojson_coords(geometry)
+    coords = _flatten_line_coords(geometry)
     if len(coords) < 2:
         return None
 

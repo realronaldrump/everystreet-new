@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from core.mapping.factory import get_router
-from core.spatial import GeometryService
+from core.spatial import GeometryService, coerce_coordinate_pair, extract_line_sequences
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import CoverageArea, CoverageState, Street, Trip
 from street_coverage.constants import MILES_TO_METERS
@@ -83,50 +83,22 @@ async def _resolve_coverage_area(
     return area
 
 
-def _normalize_coord_pair(coord: Any) -> list[float] | None:
-    is_valid, pair = GeometryService.validate_coordinate_pair(coord)
-    if not is_valid or not pair:
-        return None
-    return pair
-
-
-def _extract_line_coords(geometry: dict[str, Any] | None) -> list[list[float]]:
-    if not geometry:
-        return []
-
-    geom_type = geometry.get("type")
-    coords = geometry.get("coordinates", [])
-
-    if geom_type == "LineString":
-        return coords if isinstance(coords, list) else []
-
-    if geom_type == "MultiLineString":
-        for line in coords:
-            if line and isinstance(line, list) and len(line) >= 2:
-                return line
-        return []
-
-    if geom_type == "Point":
-        return [coords] if coords else []
-
-    return []
-
-
 def _segment_midpoint_coords(
     geometry: dict[str, Any] | None,
 ) -> tuple[float, float] | None:
-    coords = _extract_line_coords(geometry)
+    sequences = extract_line_sequences(geometry, include_point=True)
+    coords = sequences[0] if sequences else []
     if not coords:
         return None
 
     if len(coords) == 1:
-        pair = _normalize_coord_pair(coords[0])
+        pair = coerce_coordinate_pair(coords[0])
         if not pair:
             return None
         return pair[0], pair[1]
 
-    start = _normalize_coord_pair(coords[0])
-    end = _normalize_coord_pair(coords[-1])
+    start = coerce_coordinate_pair(coords[0])
+    end = coerce_coordinate_pair(coords[-1])
     if not start or not end:
         return None
 
@@ -136,14 +108,15 @@ def _segment_midpoint_coords(
 
 
 def _estimate_linestring_length_m(geometry: dict[str, Any] | None) -> float:
-    coords = _extract_line_coords(geometry)
+    sequences = extract_line_sequences(geometry, include_point=True)
+    coords = sequences[0] if sequences else []
     if len(coords) < 2:
         return 0.0
 
     length_m = 0.0
-    prev = _normalize_coord_pair(coords[0])
+    prev = coerce_coordinate_pair(coords[0])
     for coord in coords[1:]:
-        cur = _normalize_coord_pair(coord)
+        cur = coerce_coordinate_pair(coord)
         if not prev or not cur:
             prev = cur
             continue
@@ -516,7 +489,7 @@ class DrivingService:
         location_source = None
 
         if isinstance(current_position, dict):
-            pair = _normalize_coord_pair(
+            pair = coerce_coordinate_pair(
                 [current_position.get("lon"), current_position.get("lat")],
             )
             if pair:
@@ -601,7 +574,7 @@ class DrivingService:
         if not area:
             raise HTTPException(status_code=404, detail="Coverage area not found.")
 
-        if not _normalize_coord_pair([current_lon, current_lat]):
+        if not coerce_coordinate_pair([current_lon, current_lat]):
             raise HTTPException(status_code=400, detail="Invalid current position.")
 
         undriven_segments = await _load_undriven_segments(area)
