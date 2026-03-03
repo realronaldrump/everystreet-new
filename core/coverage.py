@@ -526,6 +526,17 @@ def _matching_params(is_map_matched: bool) -> tuple[float, float]:
     return buffer, overlap_ratio
 
 
+def _should_check_bearing(is_map_matched: bool) -> bool:
+    """
+    Return whether bearing alignment should be enforced for this candidate.
+
+    Map-matched geometry is already snapped to the road network; applying a
+    whole-trip bearing filter can incorrectly reject valid turns on the same
+    trip. Keep bearing checks for raw GPS traces only.
+    """
+    return not is_map_matched
+
+
 async def match_trip_to_streets(
     trip: dict[str, Any],
     area_ids: list[PydanticObjectId] | None = None,
@@ -595,6 +606,7 @@ async def match_trip_to_streets(
                     trip_line,
                     buffer_meters=buffer,
                     coverage_ratio=overlap_ratio,
+                    check_bearing=_should_check_bearing(is_map_matched),
                 )
                 if matched:
                     matched_ids.update(matched)
@@ -1066,6 +1078,7 @@ async def backfill_coverage_for_area(
                     trip_line,
                     buffer_meters=buffer,
                     coverage_ratio=overlap_ratio,
+                    check_bearing=_should_check_bearing(is_map_matched),
                 )
                 if matched:
                     matched_segment_ids.update(matched)

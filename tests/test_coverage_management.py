@@ -461,6 +461,81 @@ async def test_backfill_matched_mode_uses_matched_geometry(coverage_db) -> None:
 
 
 @pytest.mark.asyncio
+async def test_backfill_matched_mode_preserves_turn_segments_without_bearing_drop(
+    coverage_db,
+) -> None:
+    area = CoverageArea(
+        display_name="Coverage Matched Turn Area",
+        status="initializing",
+        health="unavailable",
+        total_length_miles=3.0,
+        driveable_length_miles=3.0,
+        total_segments=3,
+    )
+    await area.insert()
+    assert area.id is not None
+
+    segment_a = f"{area.id}-{area.area_version}-a"
+    segment_b = f"{area.id}-{area.area_version}-b"
+    segment_c = f"{area.id}-{area.area_version}-c"
+
+    await Street(
+        segment_id=segment_a,
+        area_id=area.id,
+        area_version=area.area_version,
+        geometry={
+            "type": "LineString",
+            "coordinates": [[-97.0000, 31.0000], [-96.9990, 31.0000]],
+        },
+        length_miles=1.0,
+    ).insert()
+    await Street(
+        segment_id=segment_b,
+        area_id=area.id,
+        area_version=area.area_version,
+        geometry={
+            "type": "LineString",
+            "coordinates": [[-96.9990, 31.0000], [-96.9990, 31.0010]],
+        },
+        length_miles=1.0,
+    ).insert()
+    await Street(
+        segment_id=segment_c,
+        area_id=area.id,
+        area_version=area.area_version,
+        geometry={
+            "type": "LineString",
+            "coordinates": [[-96.9990, 31.0010], [-97.0000, 31.0010]],
+        },
+        length_miles=1.0,
+    ).insert()
+
+    await Trip(
+        transactionId="trip-matched-turn-shape",
+        endTime=datetime(2025, 1, 1, tzinfo=UTC),
+        matchedGps={
+            "type": "LineString",
+            "coordinates": [
+                [-97.0000, 31.0000],
+                [-96.9990, 31.0000],
+                [-96.9990, 31.0010],
+                [-97.0000, 31.0010],
+            ],
+        },
+        matchStatus="matched:linestring",
+        matched_at=datetime(2025, 1, 1, tzinfo=UTC),
+    ).insert()
+
+    updated = await backfill_coverage_for_area(area.id, trip_mode="matched")
+    assert updated == 3
+
+    states = await CoverageState.find(
+        {"area_id": area.id, "status": "driven"},
+    ).to_list()
+    assert len(states) == 3
+
+
+@pytest.mark.asyncio
 async def test_backfill_both_mode_unions_regular_and_matched_segments(
     coverage_db,
 ) -> None:
@@ -648,6 +723,7 @@ async def test_rebuild_area_enqueues_ingestion_job(coverage_db) -> None:
         display_name="Rebuild Queue Area",
         status="ready",
         health="healthy",
+        last_backfill_trip_endtime=datetime(2025, 1, 3, tzinfo=UTC),
         boundary={
             "type": "Polygon",
             "coordinates": [
@@ -672,6 +748,11 @@ async def test_rebuild_area_enqueues_ingestion_job(coverage_db) -> None:
     assert refreshed_job is not None
     assert refreshed_job.operation_id == "arq-rebuild-1"
     assert refreshed_job.task_id == "arq-rebuild-1"
+
+    rebuilt_area = await CoverageArea.get(area.id)
+    assert rebuilt_area is not None
+    assert rebuilt_area.last_backfill_trip_endtime is None
+
     pool.enqueue_job.assert_awaited_once_with(
         "run_area_ingestion_job",
         str(area.id),
