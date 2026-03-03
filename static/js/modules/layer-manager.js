@@ -39,11 +39,12 @@ const layerManager = {
       return undefined;
     }
     try {
-      const { layers } = store.map.getStyle();
+      const style = store.map.getStyle();
+      const layers = Array.isArray(style?.layers) ? style.layers : [];
 
       // Prioritize inserting historic layers below the live tracking line
       const liveTripLine = layers.find((l) => l.id === "live-trip-line");
-      if (liveTripLine) {
+      if (liveTripLine && store.map.getLayer(liveTripLine.id)) {
         return liveTripLine.id;
       }
 
@@ -56,7 +57,15 @@ const layerManager = {
     } catch {
       // Style may not be loaded yet
     }
-    return this._cachedFirstSymbolLayerId || undefined;
+
+    const cachedLayerId = this._cachedFirstSymbolLayerId;
+    if (cachedLayerId && store.map.getLayer(cachedLayerId)) {
+      return cachedLayerId;
+    }
+
+    // Prevent stale layer IDs from previous style snapshots.
+    this._cachedFirstSymbolLayerId = null;
+    return undefined;
   },
 
   // Callbacks for trip style refresh (set by app-controller to avoid circular deps)
