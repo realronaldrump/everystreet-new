@@ -22,7 +22,6 @@
 import { CONFIG } from "./core/config.js";
 import {
   coverageBoundaryToFeatureCollection,
-  coverageBoundingBoxToFeatureCollection,
 } from "./core/coverage-bounds.js";
 import state from "./core/store.js";
 import { getPreloadTripIdFromUrl } from "./core/url-state.js";
@@ -108,20 +107,13 @@ const getCoverageAreaOverlayGeometry = async (areaId) => {
       CONFIG.API.cacheTime,
       `coverage-area-boundary:${normalizedAreaId}`
     );
-    const overlayGeojson =
-      coverageBoundaryToFeatureCollection(areaDetail?.boundary, {
-        coverageAreaId: normalizedAreaId,
-      }) ||
-      coverageBoundingBoxToFeatureCollection(areaDetail?.bounding_box, {
-        coverageAreaId: normalizedAreaId,
-      });
+    const overlayGeojson = coverageBoundaryToFeatureCollection(areaDetail?.boundary, {
+      coverageAreaId: normalizedAreaId,
+    });
     coverageAreaOverlayCache.set(normalizedAreaId, overlayGeojson);
     return overlayGeojson;
   } catch (error) {
-    console.warn(
-      `Failed to load boundary/bounding box for coverage area ${normalizedAreaId}:`,
-      error
-    );
+    console.warn(`Failed to load boundary for coverage area ${normalizedAreaId}:`, error);
     return null;
   }
 };
