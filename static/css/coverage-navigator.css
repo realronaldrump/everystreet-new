@@ -1412,7 +1412,7 @@
   padding: 0.3rem 0.6rem;
 }
 
-/* Route history chevron — kept for compatibility */
+/* Route history chevron */
 .coverage-navigator .route-history-chevron {
   color: var(--text-tertiary);
   font-size: 0.75rem;
@@ -2476,7 +2476,7 @@
   line-height: 1.2;
 }
 
-/* Export actions (keep for compatibility) */
+/* Export actions */
 .coverage-navigator .export-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

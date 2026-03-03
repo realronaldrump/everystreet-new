@@ -39,9 +39,8 @@ class VisitTrackingService:
             place_id = str(place.id)
             geometry = place.geometry
 
-        # Match trips by destinationPlaceId OR by spatial intersection with place geometry
-        # This handles both new trips (with destinationPlaceId set) and older trips
-        # that were recorded before the place was created
+        # Match trips by destinationPlaceId OR by spatial intersection with place geometry.
+        # Spatial matching covers trips that do not yet have destinationPlaceId populated.
         match_conditions: list[dict[str, Any]] = [
             {"destinationPlaceId": place_id},
         ]

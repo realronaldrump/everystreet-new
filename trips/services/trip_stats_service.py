@@ -98,7 +98,7 @@ class TripStatsService:
         try:
             # Find trips matching query
             trips_list = await Trip.find(query).to_list()
-            # Convert transactionId to string to handle ObjectId values from older data
+            # Normalize transaction IDs to strings for downstream task payloads.
             trip_ids = [
                 str(trip.transactionId) for trip in trips_list if trip.transactionId
             ]

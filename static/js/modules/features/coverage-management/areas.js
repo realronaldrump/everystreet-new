@@ -330,7 +330,6 @@ function renderAreaCard(area, job) {
 
 /**
  * Renders the coverage area cards grid.
- * Replaces the old renderAreasTable function.
  *
  * @param {object} options
  * @param {Array}  options.areas                - Coverage area objects from API

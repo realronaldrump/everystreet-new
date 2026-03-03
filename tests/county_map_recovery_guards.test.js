@@ -6,6 +6,11 @@ import {
   getCityTabStateRollups,
   getCountyActivityStateFips,
 } from "../static/js/modules/features/county-map/index.js";
+import * as CountyMapState from "../static/js/modules/county-map/state.js";
+
+test.afterEach(() => {
+  CountyMapState.resetState();
+});
 
 test("canAttemptRecovery enforces attempt limits and cooldown", () => {
   assert.equal(
@@ -99,4 +104,20 @@ test("getCityTabStateRollups returns states with city totals regardless of count
     rollups.map((entry) => entry.stateFips),
     ["01", "48"]
   );
+});
+
+test("county map state normalizes county visit and stop keys to 5-digit FIPS", () => {
+  CountyMapState.setCountyVisits({
+    1001: { firstVisit: "2026-01-01T00:00:00.000Z" },
+    "06001": { firstVisit: "2026-01-02T00:00:00.000Z" },
+  });
+  CountyMapState.setCountyStops({
+    2001: { firstStop: "2026-01-03T00:00:00.000Z" },
+  });
+
+  assert.deepEqual(Object.keys(CountyMapState.getCountyVisits()).sort(), [
+    "01001",
+    "06001",
+  ]);
+  assert.deepEqual(Object.keys(CountyMapState.getCountyStops()), ["02001"]);
 });

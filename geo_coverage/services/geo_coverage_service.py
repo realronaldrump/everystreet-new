@@ -16,7 +16,7 @@ from shapely.geometry import Point, shape
 from core.date_utils import parse_timestamp
 from core.trip_source_policy import enforce_bouncie_source
 from county.services.county_data_service import get_county_topology_document
-from county.services.county_service import topojson_to_geojson
+from county.services.topojson_utils import topojson_to_geojson
 from db.aggregation import aggregate_to_list
 from db.models import (
     AppSettings,
