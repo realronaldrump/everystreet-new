@@ -10,7 +10,6 @@
  *   - Mark segment as driven / undriveable / undriven (in-place GeoJSON update)
  *   - Progress ring with milestone celebrations
  *   - Job history tab (lazy-loaded)
- *   - Optimal route generation & display
  *   - Keyboard shortcuts
  *   - Glassmorphic map overlays
  *   - Street detail side panel (replaces popup)
@@ -69,11 +68,6 @@ const INITIAL_STATE = () => ({
 
   // Milestone
   previousCoveragePercent: null,
-
-  // Optimal route
-  optimalRouteLayerAdded: false,
-  optimalRouteTaskId: null,
-  optimalRoutePollTimer: null,
 
   // Service roads (kept synced across toggles)
   currentAreaSyncToken: null,
@@ -178,11 +172,6 @@ export default async function initCoverageManagementPage({ signal, cleanup } = {
   const teardown = () => {
     state.pageActive = false;
     state.pageSignal = null;
-
-    // Clean up optional route poll timer
-    if (state.optimalRoutePollTimer) {
-      clearTimeout(state.optimalRoutePollTimer);
-    }
 
     // Clean up map
     if (state.map) {
@@ -347,26 +336,6 @@ function setupEventListeners(signal) {
         return;
       }
       applyMapFilter(chip.dataset.filter || "all");
-    },
-    opt
-  );
-
-  // Optimal route generate button
-  document.getElementById("generate-route-btn")?.addEventListener(
-    "click",
-    () => {
-      if (state.currentAreaId) {
-        generateOptimalRoute(state.currentAreaId);
-      }
-    },
-    opt
-  );
-
-  // Show/hide route toggle
-  document.getElementById("show-route-toggle")?.addEventListener(
-    "change",
-    (e) => {
-      toggleOptimalRouteVisibility(e.target.checked);
     },
     opt
   );
@@ -1831,9 +1800,11 @@ function renderJobHistory(jobs) {
     return;
   }
 
-  if (!jobs.length) {
+  const coverageJobs = jobs.filter((job) => job.job_type !== "optimal_route");
+
+  if (!coverageJobs.length) {
     container.innerHTML =
-      '<p class="text-secondary small text-center mt-4">No recent jobs found.</p>';
+      '<p class="text-secondary small text-center mt-4">No recent coverage jobs found.</p>';
     return;
   }
 
@@ -1841,7 +1812,6 @@ function renderJobHistory(jobs) {
     area_ingestion: "Area Setup",
     area_rebuild: "OSM Rebuild",
     area_backfill: "Coverage Recalculate",
-    optimal_route: "Route Generation",
   };
 
   const statusIcons = {
@@ -1855,7 +1825,7 @@ function renderJobHistory(jobs) {
   };
 
   container.innerHTML = `<div class="job-history-list">
-    ${jobs
+    ${coverageJobs
       .map(
         (job) => `
       <div class="job-history-item">
@@ -1871,194 +1841,6 @@ function renderJobHistory(jobs) {
       )
       .join("")}
   </div>`;
-}
-
-// =============================================================================
-// Optimal Route
-// =============================================================================
-
-async function generateOptimalRoute(areaId) {
-  const btn = document.getElementById("generate-route-btn");
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML =
-      '<i class="fas fa-spinner fa-spin me-1" aria-hidden="true"></i>Generating…';
-  }
-
-  const infoContainer = document.getElementById("route-info-container");
-  if (infoContainer) {
-    infoContainer.innerHTML =
-      '<p class="text-secondary small">Generating optimal route… This may take a minute.</p>';
-  }
-
-  notificationManager.show("Generating optimal route…", "info");
-
-  try {
-    const result = await apiPost(`/areas/${areaId}/optimal-route`, {});
-    state.optimalRouteTaskId = result.task_id;
-
-    if (result.status === "already_running") {
-      notificationManager.show("Route generation already in progress.", "info");
-    }
-
-    // Poll for completion
-    pollOptimalRoute(areaId, result.task_id || result.job_id);
-  } catch (error) {
-    notificationManager.show(`Route generation failed: ${error.message}`, "danger");
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML =
-        '<i class="fas fa-magic me-1" aria-hidden="true"></i>Generate Optimal Route';
-    }
-    if (infoContainer) {
-      infoContainer.innerHTML = "";
-    }
-  }
-}
-
-function pollOptimalRoute(areaId, taskId) {
-  if (!taskId || !state.pageActive) {
-    return;
-  }
-
-  let errorCount = 0;
-  const MAX_POLL_ERRORS = 10;
-
-  const checkStatus = async () => {
-    if (!state.pageActive || state.currentAreaId !== areaId) {
-      return;
-    }
-
-    try {
-      const job = await apiGet(`/jobs/${taskId}`);
-      errorCount = 0; // reset on success
-      const progress =
-        job.status === "completed"
-          ? 100
-          : typeof job.progress === "number"
-            ? Math.round(job.progress)
-            : 0;
-
-      const infoContainer = document.getElementById("route-info-container");
-      if (infoContainer && job.status !== "completed") {
-        infoContainer.innerHTML = `
-          <div class="progress mb-2" style="height: 6px;">
-            <div class="progress-bar" style="width: ${progress}%"></div>
-          </div>
-          <p class="text-secondary small mb-0">${escapeHtml(job.message || "Processing…")}</p>`;
-      }
-
-      if (job.status === "completed") {
-        // Fetch and display the route
-        const routeData = await apiGet(`/areas/${areaId}/optimal-route`);
-        renderOptimalRouteOnMap(routeData);
-
-        const btn = document.getElementById("generate-route-btn");
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML =
-            '<i class="fas fa-sync me-1" aria-hidden="true"></i>Regenerate Route';
-        }
-
-        const toggleWrapper = document.getElementById("show-route-toggle-wrapper");
-        if (toggleWrapper) {
-          toggleWrapper.style.display = "";
-        }
-
-        if (infoContainer) {
-          infoContainer.innerHTML =
-            '<p class="text-success small"><i class="fas fa-check me-1"></i>Optimal route generated and displayed on map.</p>';
-        }
-
-        notificationManager.show("Optimal route ready!", "success");
-        return;
-      }
-
-      if (job.status === "failed" || job.status === "cancelled") {
-        const btn = document.getElementById("generate-route-btn");
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML =
-            '<i class="fas fa-magic me-1" aria-hidden="true"></i>Generate Optimal Route';
-        }
-        const infoEl = document.getElementById("route-info-container");
-        if (infoEl) {
-          infoEl.innerHTML =
-            '<p class="text-danger small">Route generation failed.</p>';
-        }
-        notificationManager.show("Route generation failed.", "danger");
-        return;
-      }
-
-      // Still running — poll again
-      state.optimalRoutePollTimer = setTimeout(checkStatus, 2000);
-    } catch (err) {
-      errorCount++;
-      console.error(
-        `Optimal route poll error (${errorCount}/${MAX_POLL_ERRORS}):`,
-        err
-      );
-      if (errorCount >= MAX_POLL_ERRORS) {
-        console.error("Max poll errors reached, stopping poll.");
-        const btn = document.getElementById("generate-route-btn");
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML =
-            '<i class="fas fa-magic me-1" aria-hidden="true"></i>Generate Optimal Route';
-        }
-        const infoEl = document.getElementById("route-info-container");
-        if (infoEl) {
-          infoEl.innerHTML =
-            '<p class="text-danger small">Lost connection to route job. Please try again.</p>';
-        }
-        notificationManager.show(
-          "Route status polling failed. Please retry.",
-          "danger"
-        );
-        return;
-      }
-      state.optimalRoutePollTimer = setTimeout(checkStatus, 3000);
-    }
-  };
-
-  // Start polling
-  state.optimalRoutePollTimer = setTimeout(checkStatus, 1500);
-}
-
-function renderOptimalRouteOnMap(routeGeoJSON) {
-  if (!state.map) {
-    return;
-  }
-
-  if (state.map.getSource("optimal-route")) {
-    state.map.getSource("optimal-route").setData(routeGeoJSON);
-    return;
-  }
-
-  state.map.addSource("optimal-route", { type: "geojson", data: routeGeoJSON });
-  state.map.addLayer({
-    id: "optimal-route-line",
-    type: "line",
-    source: "optimal-route",
-    paint: {
-      "line-color": "#b87a4a",
-      "line-width": 3,
-      "line-dasharray": [3, 2],
-      "line-opacity": 0.9,
-    },
-  });
-  state.optimalRouteLayerAdded = true;
-}
-
-function toggleOptimalRouteVisibility(visible) {
-  if (!state.map || !state.map.getLayer("optimal-route-line")) {
-    return;
-  }
-  state.map.setLayoutProperty(
-    "optimal-route-line",
-    "visibility",
-    visible ? "visible" : "none"
-  );
 }
 
 // =============================================================================

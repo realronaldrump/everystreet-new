@@ -187,14 +187,6 @@ Error details
                 id="tab-btn-history">
           <i class="fas fa-history me-1" aria-hidden="true"></i>History
         </button>
-        <button class="sidebar-tab-btn"
-                role="tab"
-                aria-selected="false"
-                aria-controls="sidebar-tab-route"
-                data-tab-target="sidebar-tab-route"
-                id="tab-btn-route">
-          <i class="fas fa-directions me-1" aria-hidden="true"></i>Route
-        </button>
       </div>
 
       <!-- TAB PANEL: Stats -->
@@ -325,42 +317,6 @@ Street Segments
           </p>
         </div>
       </div>
-
-      <!-- TAB PANEL: Route -->
-      <div id="sidebar-tab-route"
-           class="sidebar-tab-panel"
-           role="tabpanel"
-           aria-labelledby="tab-btn-route"
-           hidden>
-
-        <div class="route-intro">
-          <p class="text-secondary small">
-          Generate an optimized driving route to complete all remaining undriven streets in this area.
-          </p>
-        </div>
-
-        <button class="btn btn-primary w-100 mb-3" id="generate-route-btn">
-          <i class="fas fa-magic me-1" aria-hidden="true"></i>Generate Optimal Route
-        </button>
-
-        <div class="form-check form-switch mb-3"
-             id="show-route-toggle-wrapper"
-             style="display: none">
-          <input type="checkbox"
-                 id="show-route-toggle"
-                 class="form-check-input"
-                 role="switch"
-                 checked />
-          <label class="form-check-label small" for="show-route-toggle">
-          Show route on map
-          </label>
-        </div>
-
-        <div id="route-info-container">
-        </div>
-
-      </div>
-      <!-- /#sidebar-tab-route -->
 
     </aside>
     <!-- /#coverage-sidebar -->
