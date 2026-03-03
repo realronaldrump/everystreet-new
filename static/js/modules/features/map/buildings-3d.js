@@ -216,6 +216,100 @@ function buildScopedFilter(baseFilter, coverageBoundary = null) {
   return ["all", baseFilter, ["within", coverageBoundary]];
 }
 
+function isCoordinatePair(value) {
+  return (
+    Array.isArray(value) &&
+    value.length >= 2 &&
+    Number.isFinite(Number(value[0])) &&
+    Number.isFinite(Number(value[1]))
+  );
+}
+
+function normalizeRing(rawRing) {
+  if (!Array.isArray(rawRing)) {
+    return null;
+  }
+
+  const ring = rawRing.filter(isCoordinatePair).map(([lng, lat]) => [
+    Number(lng),
+    Number(lat),
+  ]);
+
+  if (ring.length < 3) {
+    return null;
+  }
+
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (first[0] !== last[0] || first[1] !== last[1]) {
+    ring.push([first[0], first[1]]);
+  }
+
+  if (ring.length < 4) {
+    return null;
+  }
+
+  return ring;
+}
+
+function normalizePolygon(rawPolygon) {
+  if (!Array.isArray(rawPolygon) || rawPolygon.length === 0) {
+    return null;
+  }
+
+  const rings = rawPolygon.map(normalizeRing).filter(Boolean);
+  if (rings.length === 0) {
+    return null;
+  }
+
+  return rings;
+}
+
+function toWithinGeometry(coverageBoundaryFeatureCollection) {
+  const features = Array.isArray(coverageBoundaryFeatureCollection?.features)
+    ? coverageBoundaryFeatureCollection.features
+    : [];
+
+  const polygons = [];
+  for (const feature of features) {
+    const geometry = feature?.geometry;
+    const geometryType = geometry?.type;
+
+    if (geometryType === "Polygon") {
+      const normalized = normalizePolygon(geometry.coordinates);
+      if (normalized) {
+        polygons.push(normalized);
+      }
+      continue;
+    }
+
+    if (geometryType === "MultiPolygon" && Array.isArray(geometry.coordinates)) {
+      for (const polygonCoordinates of geometry.coordinates) {
+        const normalized = normalizePolygon(polygonCoordinates);
+        if (normalized) {
+          polygons.push(normalized);
+        }
+      }
+    }
+  }
+
+  if (polygons.length === 0) {
+    return null;
+  }
+
+  if (polygons.length === 1) {
+    return {
+      type: "Polygon",
+      coordinates: polygons[0],
+    };
+  }
+
+  return {
+    type: "MultiPolygon",
+    coordinates: polygons,
+  };
+}
+
 function applyLayerFilter(map, layerId, coverageBoundary = null) {
   if (typeof map.setFilter !== "function") {
     return;
@@ -253,9 +347,10 @@ async function fetchCoverageBoundaryGeojson(areaId) {
       CONFIG.API.cacheTime,
       `coverage-area-boundary:buildings3d:${normalizedAreaId}`
     );
-    return coverageBoundaryToFeatureCollection(areaDetail?.boundary, {
+    const coverageFeatureCollection = coverageBoundaryToFeatureCollection(areaDetail?.boundary, {
       coverageAreaId: normalizedAreaId,
     });
+    return toWithinGeometry(coverageFeatureCollection);
   } catch (error) {
     console.warn(
       `Unable to apply 3D building boundary for coverage area ${normalizedAreaId}:`,

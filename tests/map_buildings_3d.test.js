@@ -218,7 +218,7 @@ test("ensureBuildingsLayer remains enabled on mobile viewport/coarse pointer", (
 
 test("ensureBuildingsLayer can scope 3D buildings to a selected coverage boundary", () => {
   const map = createMockMap({ style: makeVectorStyle() });
-  const coverageBoundary = makeCoverageBoundaryFeatureCollection();
+  const coverageBoundary = makeCoverageBoundaryFeatureCollection().features[0].geometry;
 
   const added = ensureBuildingsLayer(map, {
     styleType: "dark",
@@ -334,7 +334,7 @@ test("initBuildings3D scopes existing buildings layer when coverage selection ch
       entry.filter[2][0] === "within"
   );
   assert.ok(scopedFilter);
-  assert.equal(scopedFilter.filter[2][1]?.type, "FeatureCollection");
+  assert.ok(["Polygon", "MultiPolygon"].includes(scopedFilter.filter[2][1]?.type));
 
   controller.destroy();
 });
