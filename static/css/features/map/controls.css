@@ -104,6 +104,32 @@
   font-size: var(--font-size-sm);
 }
 
+.quick-action-btn--focus {
+  margin-left: auto;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: var(--space-2);
+  border-color: rgb(var(--primary-rgb) / 50%);
+  background: rgb(var(--primary-rgb) / 12%);
+  color: var(--primary);
+}
+
+.quick-action-btn--focus:hover:not(:disabled) {
+  border-color: rgb(var(--primary-rgb) / 65%);
+  background: rgb(var(--primary-rgb) / 20%);
+  color: var(--primary);
+}
+
+.quick-action-btn--focus:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(var(--primary-rgb) / 20%);
+}
+
+.quick-action-btn--focus:disabled {
+  box-shadow: none;
+}
+
 /* === Panel Body - Scrollable === */
 .control-panel-body {
   flex: 1;

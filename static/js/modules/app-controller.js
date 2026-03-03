@@ -822,18 +822,10 @@ const AppController = {
     }
   },
 
-  _hasVisibleStreetCoverageLayer() {
-    return Boolean(
-      state.mapLayers.undrivenStreets.visible ||
-        state.mapLayers.drivenStreets.visible ||
-        state.mapLayers.allStreets.visible
-    );
-  },
-
   async _syncCoverageAreaBoundingBoxOverlay() {
     const layerName = "coverageAreaBoundingBox";
     const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-    const shouldShowOverlay = Boolean(selectedLocationId && this._hasVisibleStreetCoverageLayer());
+    const shouldShowOverlay = Boolean(selectedLocationId);
 
     if (!shouldShowOverlay) {
       state.mapLayers[layerName].visible = false;
