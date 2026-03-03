@@ -1143,6 +1143,30 @@ const layerManager = {
     return this.getFirstSymbolLayerId();
   },
 
+  _getCoverageOverlayFillPaint() {
+    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+    const isLightTheme = theme === "light";
+
+    return {
+      // Slightly cooler tint than the edge line to make inside/outside distinction clear.
+      color: isLightTheme ? "rgba(72, 108, 130, 1)" : "rgba(150, 196, 221, 1)",
+      // Fade with zoom so local street detail remains legible at close range.
+      opacity: [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        5,
+        isLightTheme ? 0.115 : 0.1,
+        9,
+        isLightTheme ? 0.095 : 0.08,
+        13,
+        isLightTheme ? 0.075 : 0.06,
+        17,
+        isLightTheme ? 0.055 : 0.045,
+      ],
+    };
+  },
+
   setCoverageAreaOverlayVisibility(
     visible,
     layerName = COVERAGE_OVERLAY_LAYER_NAME
@@ -1167,6 +1191,7 @@ const layerManager = {
     const colorValue = Array.isArray(layerInfo.color)
       ? layerInfo.color
       : layerInfo.color || "#727a84";
+    const overlayFillPaint = this._getCoverageOverlayFillPaint();
     const beforeLayerId = this._getCoverageOverlayBeforeLayerId();
 
     const source = store.map.getSource(sourceId);
@@ -1186,9 +1211,8 @@ const layerManager = {
         visibility: isVisible ? "visible" : "none",
       },
       paint: {
-        "fill-color": colorValue,
-        // Keep this extremely subtle so street/trip visibility is unaffected.
-        "fill-opacity": 0.02,
+        "fill-color": overlayFillPaint.color,
+        "fill-opacity": overlayFillPaint.opacity,
       },
     };
 
