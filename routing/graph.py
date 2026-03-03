@@ -120,6 +120,84 @@ def _build_point_projector(
     return _project_xy
 
 
+def _is_lonlat_bounds(bounds: tuple[float, float, float, float] | None) -> bool:
+    if not bounds or len(bounds) != 4:
+        return False
+    try:
+        min_x, min_y, max_x, max_y = (
+            float(bounds[0]),
+            float(bounds[1]),
+            float(bounds[2]),
+            float(bounds[3]),
+        )
+    except Exception:
+        return False
+    return (
+        -180.0 <= min_x <= 180.0
+        and -180.0 <= max_x <= 180.0
+        and -90.0 <= min_y <= 90.0
+        and -90.0 <= max_y <= 90.0
+        and min_x <= max_x
+        and min_y <= max_y
+    )
+
+
+def _repair_projected_edge_geometries(
+    G: nx.MultiDiGraph,
+    project_xy: Callable[[float, float], tuple[float, float]] | None,
+) -> int:
+    """
+    Repair graphs whose edge geometries stayed in lon/lat after projection.
+
+    OSMnx only projects edge geometries in `project_graph` when
+    `G.graph["simplified"]` is truthy. Some of our GraphML sources include
+    geometry but omit this flag, which leaves projected node coordinates in
+    meters while edge geometries remain in degrees. That breaks distance-based
+    matching by many orders of magnitude.
+    """
+    if project_xy is None or not _is_projected_graph(G):
+        return 0
+
+    repaired = 0
+    for u, v, _k, data in G.edges(keys=True, data=True):
+        geom = data.get("geometry")
+        if geom is None:
+            continue
+
+        with contextlib.suppress(Exception):
+            if not _is_lonlat_bounds(tuple(float(x) for x in geom.bounds)):
+                continue
+
+            coords = list(geom.coords)
+            if len(coords) < 2:
+                continue
+
+            # If geometry already aligns with projected node coords, don't touch it.
+            ux, uy = float(G.nodes[u]["x"]), float(G.nodes[u]["y"])
+            vx, vy = float(G.nodes[v]["x"]), float(G.nodes[v]["y"])
+            start = coords[0]
+            end = coords[-1]
+            endpoint_error = (
+                abs(float(start[0]) - ux)
+                + abs(float(start[1]) - uy)
+                + abs(float(end[0]) - vx)
+                + abs(float(end[1]) - vy)
+            )
+            if endpoint_error < 1000.0:
+                continue
+
+            projected_coords: list[tuple[float, float]] = []
+            for x, y, *_rest in coords:
+                px, py = project_xy(float(x), float(y))
+                projected_coords.append((float(px), float(py)))
+
+            if len(projected_coords) >= 2:
+                data["geometry"] = LineString(projected_coords)
+                repaired += 1
+
+    return repaired
+
+
 def prepare_spatial_matching_graph(
     G: nx.MultiDiGraph,
 ) -> tuple[nx.MultiDiGraph, Callable[[float, float], tuple[float, float]]]:
@@ -142,6 +220,12 @@ def prepare_spatial_matching_graph(
                 "Projected graph is missing CRS transform metadata; using identity projector.",
             )
             return G, _identity_xy
+        repaired = _repair_projected_edge_geometries(G, projector)
+        if repaired:
+            logger.warning(
+                "Reprojected %d edge geometries that remained in lon/lat on a projected graph.",
+                repaired,
+            )
         return G, projector
 
     try:
@@ -161,6 +245,13 @@ def prepare_spatial_matching_graph(
             "Missing CRS metadata for projected matching; using original graph.",
         )
         return G, _identity_xy
+
+    repaired = _repair_projected_edge_geometries(projected, projector)
+    if repaired:
+        logger.warning(
+            "Reprojected %d edge geometries that were left in lon/lat after graph projection.",
+            repaired,
+        )
 
     return projected, projector
 

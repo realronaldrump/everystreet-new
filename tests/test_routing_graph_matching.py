@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 
 import networkx as nx
+from shapely.geometry import LineString
 
 from routing.graph import (
     build_osmid_index,
@@ -59,6 +60,31 @@ def test_prepare_spatial_matching_graph_keeps_projected_graph() -> None:
     x, y = project_xy(1.0, 1.0)
     assert x > 100_000.0
     assert y > 100_000.0
+
+
+def test_prepare_spatial_matching_graph_projects_edge_geometry_when_missing_simplified_flag() -> None:
+    G = nx.MultiDiGraph()
+    G.graph["crs"] = "EPSG:4326"
+    # Intentionally omit G.graph["simplified"] to reproduce OSMnx behavior where
+    # node coordinates are projected but edge geometries can remain in lon/lat.
+    G.add_node(1, x=-97.1594, y=31.5164)
+    G.add_node(2, x=-97.1593, y=31.5163)
+    G.add_edge(
+        1,
+        2,
+        key=0,
+        osmid=123,
+        length=10.0,
+        geometry=LineString([(-97.1594, 31.5164), (-97.1593, 31.5163)]),
+    )
+
+    projected, _ = prepare_spatial_matching_graph(G)
+    geom = projected.edges[1, 2, 0]["geometry"]
+    min_x, min_y, max_x, max_y = geom.bounds
+
+    # After projection, geometry should be in projected units (meters), not degrees.
+    assert max(abs(min_x), abs(max_x)) > 1_000.0
+    assert max(abs(min_y), abs(max_y)) > 1_000.0
 
 
 def test_project_linestring_coords_projects_points() -> None:
