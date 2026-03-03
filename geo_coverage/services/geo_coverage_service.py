@@ -65,6 +65,31 @@ def _coerce_point_coords(coords: Any) -> list[float] | None:
         return None
 
 
+_SUPPORTED_GEO_TYPES: set[str] = {"LineString", "MultiLineString", "Point"}
+
+
+def _is_supported_geojson_geometry(value: Any) -> bool:
+    return isinstance(value, dict) and value.get("type") in _SUPPORTED_GEO_TYPES
+
+
+def _select_trip_geometry(trip: Trip) -> dict[str, Any] | None:
+    """
+    Return the best geometry for geo coverage processing.
+
+    Prefer map-matched geometry when it is a supported type; otherwise
+    fall back to raw trip GPS if available.
+    """
+    matched = trip.matchedGps
+    if _is_supported_geojson_geometry(matched):
+        return matched
+
+    raw = trip.gps
+    if _is_supported_geojson_geometry(raw):
+        return raw
+
+    return None
+
+
 def _record_visit(
     visit_map: dict[str, dict[str, datetime | None]],
     key: str,
@@ -119,6 +144,32 @@ def _extract_stop_points(
             if same_coords and same_time:
                 return stop_points
             stop_points.append((Point(end_coords[0], end_coords[1]), end_time))
+
+    if gps_type == "MultiLineString" and isinstance(coords, list) and coords:
+        first_coords = None
+        last_coords = None
+
+        for segment in coords:
+            if not isinstance(segment, list) or not segment:
+                continue
+            if first_coords is None:
+                first_coords = _coerce_point_coords(segment[0])
+            candidate_last = _coerce_point_coords(segment[-1])
+            if candidate_last:
+                last_coords = candidate_last
+
+        start_time = trip_start_time or default_time
+        end_time = trip_end_time or default_time
+
+        if first_coords:
+            stop_points.append((Point(first_coords[0], first_coords[1]), start_time))
+
+        if last_coords:
+            same_coords = bool(first_coords and last_coords == first_coords)
+            same_time = start_time == end_time
+            if same_coords and same_time:
+                return stop_points
+            stop_points.append((Point(last_coords[0], last_coords[1]), end_time))
 
     return stop_points
 
@@ -228,8 +279,8 @@ def _build_trip_query(checkpoint: datetime | None = None) -> dict[str, Any]:
     geometry_filter: dict[str, Any] = {
         "invalid": {"$ne": True},
         "$or": [
-            {"gps.type": {"$in": ["LineString", "Point"]}},
-            {"matchedGps.type": {"$in": ["LineString", "Point"]}},
+            {"gps.type": {"$in": ["LineString", "MultiLineString", "Point"]}},
+            {"matchedGps.type": {"$in": ["LineString", "MultiLineString", "Point"]}},
         ],
     }
 
@@ -652,12 +703,12 @@ async def calculate_geo_coverage_task(
             ):
                 latest_processed_trip_at = trip_marker
 
-            gps_data = trip.matchedGps or trip.gps
-            if not gps_data or gps_data.get("type") not in {"LineString", "Point"}:
+            gps_data = _select_trip_geometry(trip)
+            if not gps_data:
                 continue
 
             try:
-                if gps_data.get("type") == "LineString":
+                if gps_data.get("type") in {"LineString", "MultiLineString"}:
                     trip_geom = shape(gps_data)
 
                     if county_tree:
