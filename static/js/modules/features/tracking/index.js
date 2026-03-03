@@ -111,18 +111,10 @@ class LiveTripTracker {
   }
 
   _cacheDomElements() {
-    this.statusIndicator = document.querySelector(".live-status-dot");
-    this.statusText = document.querySelector(".live-status-text");
-    this.liveBadge = document.getElementById("live-status-badge");
     this.hudElem = document.getElementById("live-trip-hud");
     this.hudSpeedElem = document.getElementById("live-trip-speed");
     this.hudStreetElem = document.getElementById("live-trip-street");
     this.followToggle = document.getElementById("live-trip-follow-toggle");
-
-    // Control panel compact metrics
-    this.metricSpeedElem = document.getElementById("live-metric-speed");
-    this.metricDistanceElem = document.getElementById("live-metric-distance");
-    this.metricDurationElem = document.getElementById("live-metric-duration");
   }
 
   // --- Map layers -------------------------------------------------------
@@ -411,10 +403,6 @@ class LiveTripTracker {
       this.hudElem.setAttribute("aria-hidden", isActive ? "false" : "true");
     }
 
-    if (this.liveBadge) {
-      this.liveBadge.classList.toggle("d-none", !isActive);
-    }
-
     if (!isActive) {
       this._stopPulseAnimation();
       const wasFollowing = this.followMode;
@@ -619,19 +607,6 @@ class LiveTripTracker {
       this.hudStreetElem.textContent = "--";
       this.hudStreetElem.title = "";
     }
-    this.clearCompactMetrics();
-  }
-
-  clearCompactMetrics() {
-    if (this.metricSpeedElem) {
-      this.metricSpeedElem.textContent = "--";
-    }
-    if (this.metricDistanceElem) {
-      this.metricDistanceElem.textContent = "--";
-    }
-    if (this.metricDurationElem) {
-      this.metricDurationElem.textContent = "--";
-    }
   }
 
   updateHud(trip, coords) {
@@ -660,36 +635,11 @@ class LiveTripTracker {
       this.hudStreetElem.title = "";
     }
 
-    // Compact metrics in control panel
-    this.updateCompactMetrics(trip);
-
     // Freshness
     const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
     if (lastUpdate) {
       this.lastUpdateTimestamp = lastUpdate.getTime();
       this.updateFreshnessState();
-    }
-  }
-
-  updateCompactMetrics(trip) {
-    if (this.metricSpeedElem) {
-      const speed =
-        typeof trip.currentSpeed === "number" ? Math.round(trip.currentSpeed) : 0;
-      this.metricSpeedElem.textContent = speed;
-    }
-    if (this.metricDistanceElem) {
-      this.metricDistanceElem.textContent = (trip.distance || 0).toFixed(1);
-    }
-    if (this.metricDurationElem) {
-      const startTime = trip.startTime ? new Date(trip.startTime) : null;
-      const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
-      if (startTime && lastUpdate) {
-        const diffMs = lastUpdate - startTime;
-        const mins = Math.floor(diffMs / 60000);
-        this.metricDurationElem.textContent = mins;
-      } else {
-        this.metricDurationElem.textContent = "0";
-      }
     }
   }
 
@@ -1505,24 +1455,7 @@ class LiveTripTracker {
     }
   }
 
-  updateStatus(connected, message) {
-    if (this.statusIndicator) {
-      this.statusIndicator.classList.toggle("connected", connected);
-      this.statusIndicator.classList.toggle("disconnected", !connected);
-      const isConnecting =
-        typeof message === "string" && /reconnect|connect|sync/i.test(message);
-      this.statusIndicator.classList.toggle("connecting", !connected && isConnecting);
-    }
-
-    if (this.statusText) {
-      const statusMsg = message || (connected ? "Connected" : "Disconnected");
-      this.statusText.textContent = statusMsg;
-    }
-
-    if (this.liveBadge) {
-      this.liveBadge.classList.toggle("disconnected", !connected);
-    }
-  }
+  updateStatus(_connected, _message) {}
 
   startFreshnessMonitor() {
     if (this.freshnessTimer) {
@@ -1535,19 +1468,11 @@ class LiveTripTracker {
   }
 
   updateFreshnessState() {
-    if (!this.statusIndicator) {
-      return;
-    }
     const now = Date.now();
     const age = this.lastUpdateTimestamp ? now - this.lastUpdateTimestamp : null;
     const isStale = age !== null && age > 15000;
-    this.statusIndicator.classList.toggle("stale", isStale);
-    this.statusIndicator.classList.toggle("fresh", !isStale && age !== null);
     if (this.hudElem) {
       this.hudElem.classList.toggle("data-stale", isStale);
-    }
-    if (this.liveBadge) {
-      this.liveBadge.classList.toggle("stale", isStale);
     }
   }
 

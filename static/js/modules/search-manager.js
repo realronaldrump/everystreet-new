@@ -16,7 +16,6 @@ import { createElement, escapeHtml, utils } from "./utils.js";
 const searchManager = {
   searchInput: null,
   searchResults: null,
-  clearSearchBtn: null,
   currentResults: [],
   selectedIndex: -1,
   highlightLayerId: "search-highlight-layer",
@@ -33,7 +32,6 @@ const searchManager = {
   initialize() {
     this.searchInput = document.getElementById("map-search-input");
     this.searchResults = document.getElementById("search-results");
-    this.clearSearchBtn = document.getElementById("clear-search-btn");
 
     if (!this.searchInput || !this.searchResults) {
       console.warn("Search elements not found");
@@ -61,13 +59,9 @@ const searchManager = {
         const query = e.target.value.trim();
         if (query.length >= 2) {
           this.performSearch(query);
-          this.showClearButton();
         } else {
           this.hideResults();
           this.clearHighlight();
-          if (query.length === 0) {
-            this.hideClearButton();
-          }
         }
       }, 300)
     );
@@ -98,13 +92,6 @@ const searchManager = {
         this.searchInput.blur();
       }
     });
-
-    // Clear button
-    if (this.clearSearchBtn) {
-      this.clearSearchBtn.addEventListener("click", () => {
-        this.clearSearch();
-      });
-    }
 
     // Click outside to close
     document.addEventListener("click", (e) => {
@@ -832,7 +819,6 @@ const searchManager = {
     this.searchInput.value = "";
     this.hideResults();
     this.clearHighlight();
-    this.hideClearButton();
     this.currentResults = [];
     this.cancelSearchRequests();
     state.cancelRequest("streetGeometry");
@@ -865,18 +851,6 @@ const searchManager = {
   hideResults() {
     this.searchResults.classList.add("d-none");
     this.selectedIndex = -1;
-  },
-
-  showClearButton() {
-    if (this.clearSearchBtn) {
-      this.clearSearchBtn.classList.remove("d-none");
-    }
-  },
-
-  hideClearButton() {
-    if (this.clearSearchBtn) {
-      this.clearSearchBtn.classList.add("d-none");
-    }
   },
 };
 

@@ -304,17 +304,6 @@ export function getCountyActivityStateFips({
   return stateFipsWithActivity;
 }
 
-function getStateRollupsWithCountyActivity() {
-  const countyActivityStateFips = getCountyActivityStateFips({
-    countyVisits: CountyMapState.getCountyVisits(),
-    countyStops: CountyMapState.getCountyStops(),
-  });
-
-  return CountyMapState.getStateRollups().filter((entry) =>
-    countyActivityStateFips.has(String(entry?.stateFips || "").padStart(2, "0"))
-  );
-}
-
 export function getCityTabStateRollups(
   stateRollups = CountyMapState.getStateRollups()
 ) {

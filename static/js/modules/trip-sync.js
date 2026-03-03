@@ -3,34 +3,6 @@ import { CONFIG } from "./core/config.js";
 import notificationManager from "./ui/notifications.js";
 import { formatDateTime } from "./utils.js";
 
-const STATE_META = {
-  idle: {
-    label: "Up to date",
-    icon: "fas fa-check-circle",
-    tone: "success",
-  },
-  syncing: {
-    label: "Syncing",
-    icon: "fas fa-sync fa-spin",
-    tone: "info",
-  },
-  error: {
-    label: "Needs attention",
-    icon: "fas fa-triangle-exclamation",
-    tone: "warning",
-  },
-  paused: {
-    label: "Sync paused",
-    icon: "fas fa-pause-circle",
-    tone: "muted",
-  },
-  offline: {
-    label: "Offline",
-    icon: "fas fa-wifi-slash",
-    tone: "muted",
-  },
-};
-
 let currentStatus = null;
 let pollingInterval = null;
 let eventSource = null;
@@ -116,45 +88,8 @@ function setSyncingState(state, elements) {
 }
 
 function updateStatusUI(status, elements) {
-  const meta = STATE_META[status.state] || STATE_META.idle;
-
-  if (elements.pill) {
-    elements.pill.dataset.state = status.state;
-    elements.pill.dataset.tone = meta.tone;
-    elements.pill.innerHTML = `<i class="${meta.icon}"></i><span>${meta.label}</span>`;
-  }
-
-  setText(
-    elements.statusText,
-    status.state === "syncing"
-      ? "Refreshing trips in the background."
-      : status.state === "paused"
-        ? "Sync is paused. You can still browse stored trips."
-        : status.state === "error"
-          ? "Sync needs attention."
-          : "Trips are ready to explore."
-  );
-
   setText(elements.lastSuccess, formatTimestamp(status.last_success_at));
   setText(elements.lastAttempt, formatTimestamp(status.last_attempt_at));
-
-  const hasError = status.state === "error" || status.state === "paused";
-  if (elements.errorBanner) {
-    elements.errorBanner.classList.toggle("d-none", !hasError);
-  }
-  if (hasError) {
-    const errorMessage = status.error?.message || "Sync needs attention.";
-    setText(elements.errorMessage, errorMessage);
-    if (elements.errorCta) {
-      elements.errorCta.textContent = status.error?.cta_label || "Review";
-      elements.errorCta.href = status.error?.cta_href || "/settings#sync-settings";
-    }
-  }
-
-  const showEmpty = status.trip_count === 0 && status.state !== "syncing";
-  if (elements.emptyState) {
-    elements.emptyState.classList.toggle("d-none", !showEmpty);
-  }
 
   if (elements.miniIndicator) {
     const indicatorState =
@@ -190,19 +125,12 @@ function updateStatusUI(status, elements) {
 }
 
 function updateOfflineUI(elements) {
-  const meta = STATE_META.offline;
-  if (elements.pill) {
-    elements.pill.dataset.state = "offline";
-    elements.pill.dataset.tone = meta.tone;
-    elements.pill.innerHTML = `<i class="${meta.icon}"></i><span>${meta.label}</span>`;
-  }
   if (elements.miniIndicator) {
     elements.miniIndicator.setAttribute("data-state", "error");
   }
   if (elements.miniText) {
     setText(elements.miniText, "Offline");
   }
-  setText(elements.statusText, "You appear to be offline. Sync will resume online.");
   setSyncingState("idle", elements);
   setButtonsDisabled(true, elements);
 }
@@ -399,18 +327,9 @@ function handleStatusUpdate(status, elements, onSyncComplete, onSyncError) {
 export function initTripSync({ onSyncComplete, onSyncError, cleanup } = {}) {
   const noopTeardown = () => {};
   const elements = {
-    pill: getElement("trip-sync-pill"),
-    statusText: getElement("trip-sync-status-text"),
     lastSuccess: getElement("trip-sync-last-success"),
     lastAttempt: getElement("trip-sync-last-attempt"),
-    errorBanner: getElement("trip-sync-error"),
-    errorMessage: getElement("trip-sync-error-message"),
-    errorCta: getElement("trip-sync-error-cta"),
-    emptyState: getElement("trip-sync-empty"),
-    emptyButtons: [
-      getElement("trip-sync-empty-btn"),
-      getElement("empty-sync-btn"),
-    ].filter(Boolean),
+    emptyButtons: [getElement("empty-sync-btn")].filter(Boolean),
     syncButtons: [getElement("sync-trips-btn"), getElement("sync-now-btn")].filter(
       Boolean
     ),
@@ -419,8 +338,7 @@ export function initTripSync({ onSyncComplete, onSyncError, cleanup } = {}) {
   };
 
   const hasUi = Boolean(
-    elements.pill ||
-      elements.miniIndicator ||
+    elements.miniIndicator ||
       elements.miniText ||
       elements.syncButtons.length ||
       elements.emptyButtons.length

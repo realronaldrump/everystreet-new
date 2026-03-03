@@ -37,7 +37,6 @@ export class OptimalRouteUI {
       submessage: document.getElementById("hud-submessage"),
       segments: document.getElementById("hud-segments"),
       matched: document.getElementById("hud-matched"),
-      default: document.getElementById("hud-default"),
       elapsed: document.getElementById("hud-elapsed"),
       activity: document.getElementById("hud-activity"),
     };
@@ -245,7 +244,6 @@ export class OptimalRouteUI {
     const total = metrics.total_segments ?? metrics.segment_count ?? null;
     const processed = metrics.processed_segments ?? null;
     const osmMatched = metrics.osm_matched ?? null;
-    const defaultTotal = metrics.default_total ?? null;
     const defaultMatched = metrics.default_matched ?? null;
     const mappedSegments =
       metrics.mapped_segments ?? Number(osmMatched || 0) + Number(defaultMatched || 0);
@@ -260,15 +258,6 @@ export class OptimalRouteUI {
         ? total
           ? `${this.formatCount(mappedSegments)}/${this.formatCount(total)}`
           : this.formatCount(mappedSegments)
-        : "--";
-    }
-    if (this.hud.default) {
-      this.hud.default.textContent = hasMetrics
-        ? defaultTotal
-          ? `${this.formatCount(defaultMatched || 0)}/${this.formatCount(defaultTotal)}`
-          : defaultMatched != null
-            ? this.formatCount(defaultMatched)
-            : "--"
         : "--";
     }
   }

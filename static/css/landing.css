@@ -12,10 +12,6 @@
   background: var(--surface-0);
 }
 
-body[data-route="/"] #filters-toggle {
-  display: none;
-}
-
 /* === Ambient Background === */
 .landing-ambient {
   position: fixed;
@@ -910,10 +906,4 @@ body[data-route="/"] #filters-toggle {
   .stat-value.updating {
     animation: none;
   }
-}
-
-/* === Hide filters toggle on landing page === */
-.landing-page ~ #filters-toggle,
-body:has(.landing-page) #filters-toggle {
-  display: none;
 }

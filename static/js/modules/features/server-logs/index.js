@@ -524,9 +524,6 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
   const dockerSelectAllBtn = document.getElementById("docker-select-all");
   const dockerClearSelectionBtn = document.getElementById("docker-clear-selection");
 
-  // Classic select element (kept for reference or if needed, but we use the custom one now)
-  // const containerSelect = document.getElementById("container-select");
-
   const dockerLevelFilter = document.getElementById("docker-level-filter");
   const dockerLimitFilter = document.getElementById("docker-limit-filter");
   const dockerSinceFilter = document.getElementById("docker-since-filter");
