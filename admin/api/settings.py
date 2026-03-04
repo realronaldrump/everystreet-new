@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, HTTPException
 
 from admin.services.admin_service import MAPBOX_SETTINGS_ERROR, AdminService
 from core.api import api_route
 from db.models import AppSettings
-
-if TYPE_CHECKING:
-    from db.schemas import ValidateLocationModel
+from db.schemas import ValidateLocationModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
