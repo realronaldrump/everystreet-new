@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from api.routing import router as routing_router
+from core.exceptions import ExternalServiceException
 
 
 def _create_app() -> FastAPI:
@@ -56,6 +57,28 @@ def test_route_endpoint_handles_valhalla_failure() -> None:
 
     assert response.status_code == 500
     assert response.json()["detail"] == "valhalla down"
+
+
+def test_route_endpoint_maps_valhalla_400_to_422() -> None:
+    app = _create_app()
+
+    with patch("api.routing.ValhallaClient") as client_mock:
+        instance = client_mock.return_value
+        instance.route = AsyncMock(
+            side_effect=ExternalServiceException(
+                "Valhalla route error: 400",
+                {"status": 400},
+            ),
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/api/routing/route",
+            json={"origin": [-97.0, 32.0], "destination": [-97.1, 32.1]},
+        )
+
+    assert response.status_code == 422
+    assert "Invalid routing coordinates" in response.json()["detail"]
 
 
 def test_eta_endpoint_validates_waypoints_length() -> None:
@@ -131,3 +154,39 @@ def test_eta_endpoint_handles_failure() -> None:
 
     assert response.status_code == 500
     assert "service unavailable" in response.json()["detail"]
+
+
+def test_eta_endpoint_maps_valhalla_400_to_422() -> None:
+    """ETA endpoint should treat Valhalla 400 as invalid request payload."""
+    app = _create_app()
+
+    with patch("api.routing.ValhallaClient") as client_mock:
+        instance = client_mock.return_value
+        instance.route = AsyncMock(
+            side_effect=ExternalServiceException(
+                "Valhalla route error: 400",
+                {"status": 400},
+            ),
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/api/routing/eta",
+            json={"waypoints": [[-97.0, 32.0], [-97.1, 32.1]]},
+        )
+
+    assert response.status_code == 422
+    assert "Invalid routing coordinates" in response.json()["detail"]
+
+
+def test_eta_endpoint_validates_waypoint_ranges() -> None:
+    app = _create_app()
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/routing/eta",
+        json={"waypoints": [[-97.0, 95.0], [-97.1, 32.1]]},
+    )
+
+    assert response.status_code == 422
+    assert "latitude must be between -90 and 90" in response.json()["detail"]

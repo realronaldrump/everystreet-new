@@ -3,7 +3,7 @@ Maintenance tasks for trip data.
 
 This module provides ARQ jobs for maintaining trip data quality:
 - validate_trips: Validates trip data and marks invalid records
-- remap_unmatched_trips: Attempts to map-match trips that previously failed
+- remap_unmatched_trips: Attempts to map-match retryable unmatched trips
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from core.trip_query_spec import TripQuerySpec
 from db.models import Trip
 from tasks.config import check_dependencies
 from tasks.ops import run_task_with_history
@@ -116,7 +117,7 @@ async def validate_trips(
 
 
 async def _remap_unmatched_trips_logic(job_id: str) -> dict[str, Any]:
-    """Async logic for attempting to map-match trips that previously failed."""
+    """Async logic for attempting to map-match retryable unmatched trips."""
     limit = 50
 
     # Check dependencies first
@@ -129,11 +130,22 @@ async def _remap_unmatched_trips_logic(job_id: str) -> dict[str, Any]:
             "message": reason,
         }
 
-    # Get already matched trip IDs
-    logger.info("Checking for unmatched trips (matchedGps is None).")
+    # Focus automatic remaps on retryable unmatched trips.
+    logger.info("Checking for retryable unmatched trips (matchedGps is None).")
 
-    query = {"matchedGps": None, "invalid": {"$ne": True}}
-    # Use Beanie find with limit
+    query = TripQuerySpec(unmatched_only=True).to_mongo_query(
+        extra_filters={
+            "matchStatus": {
+                "$not": {
+                    "$regex": "^(?:skipped:|error:|no-valid-geometry)",
+                    "$options": "i",
+                },
+            },
+        },
+        enforce_source=True,
+    )
+
+    # Use Beanie find with limit.
     trips_to_process = await Trip.find(query).limit(limit).to_list()
 
     logger.info(

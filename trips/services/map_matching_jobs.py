@@ -949,7 +949,18 @@ class MapMatchingJobRunner:
     @staticmethod
     def _build_query(request: MapMatchJobRequest) -> dict[str, Any]:
         if request.mode == "unmatched":
+            # Unmatched auto-runs should focus on trips that have not been attempted.
+            # Trips already marked skipped/error can be retried via explicit rematch.
+            retryable_filter = {
+                "matchStatus": {
+                    "$not": {
+                        "$regex": "^(?:skipped:|error:|no-valid-geometry)",
+                        "$options": "i",
+                    },
+                },
+            }
             return TripQuerySpec(unmatched_only=True).to_mongo_query(
+                extra_filters=retryable_filter,
                 enforce_source=True
             )
 

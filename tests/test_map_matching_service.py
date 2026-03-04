@@ -43,3 +43,9 @@ def test_build_query_unmatched_sets_filter() -> None:
     request = MapMatchJobRequest(mode="unmatched")
     query = MapMatchingJobRunner._build_query(request)
     assert query.get("matchedGps") is None
+    assert query.get("matchStatus") == {
+        "$not": {
+            "$regex": "^(?:skipped:|error:|no-valid-geometry)",
+            "$options": "i",
+        },
+    }

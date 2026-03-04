@@ -125,6 +125,29 @@ async def static_versioned(_version: str, path: str, request: Request):
     return await static_files.get_response(path, request.scope)
 
 
+@app.api_route(
+    "/npm/{npm_path:path}",
+    methods=["GET", "HEAD"],
+    include_in_schema=False,
+)
+async def npm_esm_compat_redirect(npm_path: str, request: Request) -> RedirectResponse:
+    """
+    Compatibility redirect for `/npm/*` ESM imports.
+
+    Some CDN-generated module graphs resolve nested imports to `/npm/...`.
+    Serving a redirect here keeps those requests functional behind our domain.
+    """
+    cleaned_path = (npm_path or "").lstrip("/")
+    if not cleaned_path:
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    target = f"https://cdn.jsdelivr.net/npm/{cleaned_path}"
+    query = request.url.query
+    if query:
+        target = f"{target}?{query}"
+    return RedirectResponse(url=target, status_code=307)
+
+
 # Root-level icon requests (browser defaults)
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon() -> RedirectResponse:
