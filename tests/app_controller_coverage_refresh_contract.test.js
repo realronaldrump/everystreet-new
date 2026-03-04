@@ -6,7 +6,13 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
-const appControllerPath = path.join(root, "static", "js", "modules", "app-controller.js");
+const appControllerPath = path.join(
+  root,
+  "static",
+  "js",
+  "modules",
+  "app-controller.js"
+);
 
 test("coverage selection change triggers trip layer refresh when clip preference is enabled", () => {
   const source = fs.readFileSync(appControllerPath, "utf8");

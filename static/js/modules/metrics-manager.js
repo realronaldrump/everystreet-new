@@ -1,5 +1,5 @@
-import { utils } from "./utils.js";
 import { calculateTripMetrics } from "./shared/trip-metrics.js";
+import { utils } from "./utils.js";
 
 const metricsManager = {
   /**

@@ -101,7 +101,9 @@ def test_build_trip_query_adds_clip_prefilter_when_enabled() -> None:
         trip_clip_context=clip_context,
     )
 
-    assert query["gps"]["$geoIntersects"]["$geometry"] == clip_context.prefilter_geometry
+    assert (
+        query["gps"]["$geoIntersects"]["$geometry"] == clip_context.prefilter_geometry
+    )
 
 
 def test_entity_file_path_returns_correct_extension() -> None:

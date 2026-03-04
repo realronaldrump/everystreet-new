@@ -44,7 +44,9 @@ async def test_backfill_endpoint_supports_background_job(coverage_db) -> None:
     await job.insert()
 
     with (
-        patch("street_coverage.api.areas.backfill_area", new=AsyncMock(return_value=job)),
+        patch(
+            "street_coverage.api.areas.backfill_area", new=AsyncMock(return_value=job)
+        ),
     ):
         response = await trigger_backfill(area.id, background=True)
 

@@ -31,9 +31,7 @@ from trips.services.trip_history_import_service_config import (
     resolve_import_start_dt,
     resolve_import_start_dt_from_db,
 )
-from trips.services.trip_history_import_service_core import (
-    run_import,
-)
+from trips.services.trip_history_import_service_core import run_import
 from trips.services.trip_history_import_service_progress import ImportProgressContext
 
 __all__ = [

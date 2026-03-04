@@ -4,8 +4,8 @@
  * Card-based trip display with timeline grouping and smart features
  */
 
-import { createFeatureApi } from "../../core/feature-api.js";
 import { CONFIG } from "../../core/config.js";
+import { createFeatureApi } from "../../core/feature-api.js";
 import store, { optimisticAction } from "../../core/store.js";
 import { getPreloadTripIdFromUrl } from "../../core/url-state.js";
 import { createMap } from "../../map-core.js";
@@ -72,7 +72,6 @@ const googleModalState = {
   headMarker: null,
 };
 
-const withSignal = (options = {}) => featureApi.withSignal(options);
 const apiGet = (url, options = {}) => featureApi.get(url, options);
 const apiPost = (url, body, options = {}) => featureApi.post(url, body, options);
 const apiDelete = (url, options = {}) => featureApi.delete(url, options);
@@ -760,16 +759,10 @@ async function loadTripStats() {
       apiGet(`${CONFIG.API.drivingInsights}?${params}`),
     ]);
 
-    if (
-      metricsResult.status === "rejected" &&
-      !isAbortError(metricsResult.reason)
-    ) {
+    if (metricsResult.status === "rejected" && !isAbortError(metricsResult.reason)) {
       console.warn("Failed to load trip metrics:", metricsResult.reason);
     }
-    if (
-      insightsResult.status === "rejected" &&
-      !isAbortError(insightsResult.reason)
-    ) {
+    if (insightsResult.status === "rejected" && !isAbortError(insightsResult.reason)) {
       console.warn("Failed to load trip insights:", insightsResult.reason);
     }
 

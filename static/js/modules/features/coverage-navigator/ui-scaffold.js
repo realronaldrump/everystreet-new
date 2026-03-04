@@ -46,8 +46,14 @@ function initBottomNavInsets({ signal, onCleanup }) {
 
   schedule();
   window.addEventListener("resize", schedule, { passive: true, signal });
-  window.visualViewport?.addEventListener("resize", schedule, { passive: true, signal });
-  window.visualViewport?.addEventListener("scroll", schedule, { passive: true, signal });
+  window.visualViewport?.addEventListener("resize", schedule, {
+    passive: true,
+    signal,
+  });
+  window.visualViewport?.addEventListener("scroll", schedule, {
+    passive: true,
+    signal,
+  });
 
   const observer = new MutationObserver(schedule);
   observer.observe(bottomNav, {

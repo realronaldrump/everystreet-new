@@ -536,7 +536,9 @@ async def test_backfill_matched_mode_preserves_turn_segments_without_bearing_dro
 
 
 @pytest.mark.asyncio
-async def test_backfill_matches_micro_segment_when_fully_overlapped(coverage_db) -> None:
+async def test_backfill_matches_micro_segment_when_fully_overlapped(
+    coverage_db,
+) -> None:
     area = CoverageArea(
         display_name="Coverage Micro Segment Area",
         status="initializing",
@@ -728,7 +730,9 @@ async def test_create_area_enqueues_ingestion_job(coverage_db) -> None:
         ],
     }
 
-    with patch("street_coverage.ingestion.get_arq_pool", new=AsyncMock(return_value=pool)):
+    with patch(
+        "street_coverage.ingestion.get_arq_pool", new=AsyncMock(return_value=pool)
+    ):
         area = await coverage_ingestion.create_area(
             display_name="Queued Ingestion Area",
             area_type="city",
@@ -781,8 +785,12 @@ async def test_rebuild_area_enqueues_ingestion_job(coverage_db) -> None:
     await area.insert()
     assert area.id is not None
 
-    with patch("street_coverage.ingestion.get_arq_pool", new=AsyncMock(return_value=pool)):
-        created_job = await coverage_ingestion.rebuild_area(area.id, trip_mode="regular")
+    with patch(
+        "street_coverage.ingestion.get_arq_pool", new=AsyncMock(return_value=pool)
+    ):
+        created_job = await coverage_ingestion.rebuild_area(
+            area.id, trip_mode="regular"
+        )
 
     assert created_job.id is not None
     refreshed_job = await Job.get(created_job.id)
@@ -821,7 +829,9 @@ async def test_backfill_area_enqueues_backfill_job(coverage_db) -> None:
     await area.insert()
     assert area.id is not None
 
-    with patch("street_coverage.ingestion.get_arq_pool", new=AsyncMock(return_value=pool)):
+    with patch(
+        "street_coverage.ingestion.get_arq_pool", new=AsyncMock(return_value=pool)
+    ):
         created_job = await coverage_ingestion.backfill_area(area.id, trip_mode="both")
 
     assert created_job.id is not None

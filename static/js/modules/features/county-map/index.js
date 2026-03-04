@@ -3,10 +3,10 @@
  * Unified County/State/City Coverage Explorer
  */
 
-import { swupReady } from "../../core/navigation.js";
 import { coverageBoundingBoxToMapBounds } from "../../core/coverage-bounds.js";
+import { swupReady } from "../../core/navigation.js";
 import * as CoverageAPI from "../../county-map/api.js";
-import { MAP_CONFIG, getStateName } from "../../county-map/constants.js";
+import { getStateName, MAP_CONFIG } from "../../county-map/constants.js";
 import {
   cleanupInteractions,
   setupInteractions,
@@ -552,7 +552,10 @@ function handleCountyClickFromMap(event) {
     return;
   }
 
-  const countyFips = String(feature.properties?.fips || feature.id || "").padStart(5, "0");
+  const countyFips = String(feature.properties?.fips || feature.id || "").padStart(
+    5,
+    "0"
+  );
   if (!countyFips) {
     return;
   }
@@ -1078,9 +1081,7 @@ function clearRecalcState() {
 function buildRecalculateDetails(job = null) {
   const metrics = job?.metrics || {};
   const result = job?.result || {};
-  const processedTrips = Number(
-    metrics.processedTrips ?? result.processedTrips ?? 0
-  );
+  const processedTrips = Number(metrics.processedTrips ?? result.processedTrips ?? 0);
   const totalTrips = Number(metrics.totalTrips ?? result.totalTrips ?? 0);
   const visitedCounties = Number(
     metrics.visitedCounties ?? result.visitedCounties ?? 0

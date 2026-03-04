@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
-from unittest.mock import AsyncMock
 
 from trips.services import trip_history_import_service_core as import_runtime
 from trips.services.geocoding import TripGeocoder
@@ -227,8 +227,7 @@ async def test_trip_geocoder_re_resolves_provider_per_geocode_call(
     second_result = await geocoder.geocode(payload_b)
 
     assert (
-        first_result["startLocation"]["formatted_address"]
-        == "First St, Test City, TX"
+        first_result["startLocation"]["formatted_address"] == "First St, Test City, TX"
     )
     assert (
         second_result["startLocation"]["formatted_address"]

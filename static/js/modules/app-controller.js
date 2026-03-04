@@ -20,9 +20,7 @@
 /* global bootstrap */
 
 import { CONFIG } from "./core/config.js";
-import {
-  coverageBoundaryToFeatureCollection,
-} from "./core/coverage-bounds.js";
+import { coverageBoundaryToFeatureCollection } from "./core/coverage-bounds.js";
 import state from "./core/store.js";
 import { getPreloadTripIdFromUrl } from "./core/url-state.js";
 import dataManager from "./data-manager.js";
@@ -122,7 +120,9 @@ const buildCoverageBoundsFromOverlay = (overlayGeojson) => {
     });
   };
 
-  const features = Array.isArray(overlayGeojson?.features) ? overlayGeojson.features : [];
+  const features = Array.isArray(overlayGeojson?.features)
+    ? overlayGeojson.features
+    : [];
   features.forEach((feature) => {
     extendBoundsFromCoordinates(feature?.geometry?.coordinates);
   });
@@ -161,7 +161,10 @@ const getCoverageAreaOverlayGeometry = async (areaId) => {
     coverageAreaOverlayCache.set(normalizedAreaId, overlayGeojson);
     return overlayGeojson;
   } catch (error) {
-    console.warn(`Failed to load boundary for coverage area ${normalizedAreaId}:`, error);
+    console.warn(
+      `Failed to load boundary for coverage area ${normalizedAreaId}:`,
+      error
+    );
     return null;
   }
 };
@@ -877,13 +880,19 @@ const AppController = {
 
     const overlayGeojson = await getCoverageAreaOverlayGeometry(selectedLocationId);
     if (!overlayGeojson) {
-      notificationManager.show("Coverage area boundary is not available yet.", "warning");
+      notificationManager.show(
+        "Coverage area boundary is not available yet.",
+        "warning"
+      );
       return false;
     }
 
     const mapBounds = buildCoverageBoundsFromOverlay(overlayGeojson);
     if (!mapBounds) {
-      notificationManager.show("Coverage area boundary is not available yet.", "warning");
+      notificationManager.show(
+        "Coverage area boundary is not available yet.",
+        "warning"
+      );
       return false;
     }
 

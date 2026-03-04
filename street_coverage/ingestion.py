@@ -21,10 +21,7 @@ from typing import TYPE_CHECKING, Any
 from shapely.geometry import LineString, mapping, shape
 from shapely.ops import transform
 
-from core.coverage import (
-    backfill_coverage_for_area,
-    get_effective_coverage_trip_mode,
-)
+from core.coverage import backfill_coverage_for_area, get_effective_coverage_trip_mode
 from core.spatial import (
     clip_lines_to_polygon,
     geodesic_length_meters,
@@ -54,11 +51,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 def _extract_arq_job_id(arq_job: Any) -> str:
     return str(
-        getattr(arq_job, "job_id", None)
-        or getattr(arq_job, "id", None)
-        or arq_job,
+        getattr(arq_job, "job_id", None) or getattr(arq_job, "id", None) or arq_job,
     )
 
 

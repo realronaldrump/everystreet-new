@@ -494,7 +494,9 @@ async def calculate_geo_coverage_task(
     requested_mode = _normalize_recalc_mode(mode)
     job = await _resolve_job(job_id)
 
-    logger.info("Starting unified geo coverage calculation (mode=%s)...", requested_mode)
+    logger.info(
+        "Starting unified geo coverage calculation (mode=%s)...", requested_mode
+    )
     start_time = datetime.now(UTC)
 
     await _update_geo_job(
@@ -601,13 +603,17 @@ async def calculate_geo_coverage_task(
             await job.save()
 
         if effective_mode == "incremental":
-            county_visits = _deserialize_visit_map(county_cache.counties if county_cache else {})
+            county_visits = _deserialize_visit_map(
+                county_cache.counties if county_cache else {}
+            )
             county_stops = _deserialize_visit_map(
                 county_cache.stopped_counties if county_cache else {},
                 first_key="firstStop",
                 last_key="lastStop",
             )
-            city_visits = _deserialize_visit_map(city_cache.cities if city_cache else {})
+            city_visits = _deserialize_visit_map(
+                city_cache.cities if city_cache else {}
+            )
             city_stops = _deserialize_visit_map(
                 city_cache.stopped_cities if city_cache else {},
                 first_key="firstStop",
@@ -1043,7 +1049,9 @@ async def get_summary() -> dict[str, Any]:
             existing["total"] = int(existing.get("total") or 0) + int(
                 row.get("total") or 0,
             )
-            if (existing.get("name") in {None, "", "Unknown"}) and row_name != "Unknown":
+            if (
+                existing.get("name") in {None, "", "Unknown"}
+            ) and row_name != "Unknown":
                 existing["name"] = row_name
             continue
 
@@ -1064,9 +1072,7 @@ async def get_summary() -> dict[str, Any]:
             existing = city_state_totals.get(normalized, {})
             city_state_totals[normalized] = {
                 "name": str(
-                    rollup.get("stateName")
-                    or existing.get("name")
-                    or "Unknown"
+                    rollup.get("stateName") or existing.get("name") or "Unknown"
                 ),
                 "total": int(existing.get("total") or 0),
                 "visited": int(rollup.get("visited") or 0),
@@ -1482,9 +1488,15 @@ async def list_cities(
     elif sort == "activity_first":
         rows.sort(
             key=lambda row: (
-                0 if row["stopped"] and row["visited"] else 1 if row["stopped"] else 2
-                if row["visited"]
-                else 3,
+                (
+                    0
+                    if row["stopped"] and row["visited"]
+                    else 1
+                    if row["stopped"]
+                    else 2
+                    if row["visited"]
+                    else 3
+                ),
                 row["name"].lower(),
             )
         )
@@ -1551,7 +1563,9 @@ async def recalculate(
             "mode": _normalize_recalc_mode((active_job.metadata or {}).get("mode")),
         }
 
-    selected_mode = _normalize_recalc_mode(mode) if mode else await _get_default_recalc_mode()
+    selected_mode = (
+        _normalize_recalc_mode(mode) if mode else await _get_default_recalc_mode()
+    )
     now = datetime.now(UTC)
     queued_message = (
         "Queued incremental Coverage Explorer cache update..."
@@ -1665,9 +1679,7 @@ async def run_scheduled_recalculate(
         )
         raise RuntimeError(msg)
 
-    msg = (
-        f"Scheduled geo coverage job ended in unexpected status '{finished.status}'."
-    )
+    msg = f"Scheduled geo coverage job ended in unexpected status '{finished.status}'."
     raise RuntimeError(msg)
 
 
@@ -1697,11 +1709,7 @@ async def get_cache_status() -> dict[str, Any]:
         "city": {
             "cached": city_cache is not None,
             "totalVisited": city_cache.total_visited if city_cache else 0,
-            "totalStopped": (
-                city_cache.total_stopped
-                if city_cache
-                else 0
-            ),
+            "totalStopped": (city_cache.total_stopped if city_cache else 0),
             "totalCities": city_cache.total_cities if city_cache else 0,
             "tripsAnalyzed": city_cache.trips_analyzed if city_cache else 0,
         },

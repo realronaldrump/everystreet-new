@@ -127,9 +127,8 @@
   /* Typography - Refined (Phase 1) */
   --font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --font-family-display: "Chivo", "IBM Plex Sans", system-ui, -apple-system, sans-serif;
-  --font-family-mono:
-    "JetBrains Mono", "IBM Plex Mono", ui-monospace, sfmono-regular, menlo, monaco, consolas,
-    monospace;
+  --font-family-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, sfmono-regular, menlo,
+    monaco, consolas, monospace;
 
   /* Refined Font Size Hierarchy */
   --font-size-xs: clamp(0.72rem, 0.68rem + 0.2vw, 0.82rem);
@@ -216,8 +215,11 @@
     rgb(var(--primary-rgb) / 10%) 0%,
     transparent 60%
   );
-  --app-bg:
-    radial-gradient(1200px circle at 8% -10%, rgb(var(--primary-rgb) / 6%), transparent 65%),
+  --app-bg: radial-gradient(
+      1200px circle at 8% -10%,
+      rgb(var(--primary-rgb) / 6%),
+      transparent 65%
+    ),
     radial-gradient(900px circle at 110% 12%, rgb(var(--accent-rgb) / 4%), transparent 60%);
 
   /* Interactive lift shadows */

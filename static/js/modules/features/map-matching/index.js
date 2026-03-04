@@ -137,7 +137,6 @@ const RESULT_MODES = {
 
 let _currentResultMode = RESULT_MODES.JOB;
 
-const withSignal = (options = {}) => featureApi.withSignal(options);
 const apiGet = (url, options = {}) => featureApi.get(url, options);
 const apiPost = (url, body, options = {}) => featureApi.post(url, body, options);
 const apiDelete = (url, options = {}) => featureApi.delete(url, options);

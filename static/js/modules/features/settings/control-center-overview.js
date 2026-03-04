@@ -21,14 +21,23 @@ const STATUS_VARIANTS = {
   },
 };
 
-const SERVICE_ORDER = ["mongodb", "redis", "worker", "bouncie", "nominatim", "valhalla"];
+const SERVICE_ORDER = [
+  "mongodb",
+  "redis",
+  "worker",
+  "bouncie",
+  "nominatim",
+  "valhalla",
+];
 const RESTARTABLE_SERVICES = new Set(["nominatim", "valhalla"]);
 
 function formatStatusVariant(statusValue) {
-  return STATUS_VARIANTS[statusValue] || {
-    badgeClass: "bg-secondary",
-    label: String(statusValue || "Unknown"),
-  };
+  return (
+    STATUS_VARIANTS[statusValue] || {
+      badgeClass: "bg-secondary",
+      label: String(statusValue || "Unknown"),
+    }
+  );
 }
 
 function formatTimestamp(value) {
@@ -93,7 +102,8 @@ function renderServiceCards(healthData) {
   const keysToRender = availableKeys.length > 0 ? availableKeys : Object.keys(services);
 
   if (!keysToRender.length) {
-    servicesContainer.innerHTML = '<div class="text-muted small">No services available.</div>';
+    servicesContainer.innerHTML =
+      '<div class="text-muted small">No services available.</div>';
     return;
   }
 
@@ -128,7 +138,9 @@ function renderFailures(healthData) {
     return;
   }
 
-  const entries = Array.isArray(healthData?.recent_errors) ? healthData.recent_errors : [];
+  const entries = Array.isArray(healthData?.recent_errors)
+    ? healthData.recent_errors
+    : [];
   if (entries.length === 0) {
     failuresContainer.innerHTML =
       '<div class="text-muted small">No recent task failures. System looks stable.</div>';
@@ -177,7 +189,10 @@ export default function initControlCenterOverview({ signal } = {}) {
         return;
       }
       if (isManual) {
-        notificationManager.show(`Failed to refresh overview: ${error.message}`, "warning");
+        notificationManager.show(
+          `Failed to refresh overview: ${error.message}`,
+          "warning"
+        );
       }
     }
   };
@@ -200,12 +215,19 @@ export default function initControlCenterOverview({ signal } = {}) {
 
       try {
         button.disabled = true;
-        await apiClient.post(`/api/services/${encodeURIComponent(service)}/restart`, {}, withSignal());
+        await apiClient.post(
+          `/api/services/${encodeURIComponent(service)}/restart`,
+          {},
+          withSignal()
+        );
         notificationManager.show(`${service} restart requested`, "success");
         await refreshOverview(true);
       } catch (error) {
         if (error?.name !== "AbortError") {
-          notificationManager.show(`Failed to restart ${service}: ${error.message}`, "danger");
+          notificationManager.show(
+            `Failed to restart ${service}: ${error.message}`,
+            "danger"
+          );
         }
       } finally {
         button.disabled = false;

@@ -3,8 +3,8 @@
  * Handles UI updates, loading states, level-specific renderers, and recalculation prompts.
  */
 
-import * as CountyMapState from "./state.js";
 import { escapeHtml } from "../utils.js";
+import * as CountyMapState from "./state.js";
 
 function setText(id, text) {
   const el = document.getElementById(id);
@@ -82,11 +82,7 @@ export function updateRecalculateUi(isActive, message, details = null) {
           <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
           <span class="recalc-message">${escapeHtml(message || "Rebuilding Coverage Explorer cache...")}</span>
         </div>
-        ${
-          stage
-            ? `<div class="recalc-stage">${escapeHtml(stage)}</div>`
-            : ""
-        }
+        ${stage ? `<div class="recalc-stage">${escapeHtml(stage)}</div>` : ""}
         ${
           progress !== null
             ? `
@@ -97,11 +93,7 @@ export function updateRecalculateUi(isActive, message, details = null) {
         `
             : ""
         }
-        ${
-          chips.length > 0
-            ? `<div class="recalc-chips">${chips.join("")}</div>`
-            : ""
-        }
+        ${chips.length > 0 ? `<div class="recalc-chips">${chips.join("")}</div>` : ""}
       `;
     } else {
       status.classList.remove("recalculate-status--active");
@@ -465,24 +457,16 @@ export function renderStateStatsList(options = {}) {
 
   switch (sortBy) {
     case "coverage-desc":
-      stateList.sort(
-        (a, b) => (b?.county?.percent || 0) - (a?.county?.percent || 0)
-      );
+      stateList.sort((a, b) => (b?.county?.percent || 0) - (a?.county?.percent || 0));
       break;
     case "coverage-asc":
-      stateList.sort(
-        (a, b) => (a?.county?.percent || 0) - (b?.county?.percent || 0)
-      );
+      stateList.sort((a, b) => (a?.county?.percent || 0) - (b?.county?.percent || 0));
       break;
     case "visited-desc":
-      stateList.sort(
-        (a, b) => (b?.county?.visited || 0) - (a?.county?.visited || 0)
-      );
+      stateList.sort((a, b) => (b?.county?.visited || 0) - (a?.county?.visited || 0));
       break;
     default:
-      stateList.sort((a, b) =>
-        (a.stateName || "").localeCompare(b.stateName || "")
-      );
+      stateList.sort((a, b) => (a.stateName || "").localeCompare(b.stateName || ""));
   }
 
   const container = document.getElementById("state-list");
@@ -551,8 +535,7 @@ export function renderCityRows(payload) {
   const selectedCityId = String(CountyMapState.getSelectedCityId() || "");
 
   if (!cities.length) {
-    listEl.innerHTML =
-      '<div class="empty-list">No cities match this filter.</div>';
+    listEl.innerHTML = '<div class="empty-list">No cities match this filter.</div>';
   } else {
     listEl.innerHTML = cities
       .map((city) => {

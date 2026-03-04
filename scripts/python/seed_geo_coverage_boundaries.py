@@ -42,18 +42,17 @@ DEFAULT_PLACE_PER_STATE_URL_TEMPLATE = os.getenv(
     f"https://www2.census.gov/geo/tiger/TIGER{DEFAULT_CENSUS_YEAR}/PLACE/tl_{DEFAULT_CENSUS_YEAR}_{{state_fips}}_place.zip",
 )
 DEFAULT_SIMPLIFY_TOLERANCE = float(os.getenv("GEO_COVERAGE_SIMPLIFY_TOLERANCE", "0.0"))
-DEFAULT_PREFER_PER_STATE = (
-    os.getenv("GEO_COVERAGE_PREFER_PER_STATE", "true").strip().lower()
-    not in {"0", "false", "no", "off"}
-)
+DEFAULT_PREFER_PER_STATE = os.getenv(
+    "GEO_COVERAGE_PREFER_PER_STATE", "true"
+).strip().lower() not in {"0", "false", "no", "off"}
 
 
 def _is_included_place(classfp: str | None, lsad: str | None = None) -> bool:
     """
     Determine whether a place row should be included as a city boundary.
 
-    Recent Census place files no longer expose CLASSFP, so LSAD-only rows
-    should still be included.
+    Recent Census place files no longer expose CLASSFP, so LSAD-only
+    rows should still be included.
     """
     if classfp:
         normalized = str(classfp).strip().upper()

@@ -1680,7 +1680,9 @@
 .geo-coverage-rebuild-btn {
   font-weight: var(--font-weight-semibold);
   box-shadow: 0 0 0 1px rgb(var(--danger-rgb) / 15%) inset;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .geo-coverage-rebuild-btn:hover {
@@ -1791,11 +1793,7 @@
 .geo-coverage-progress-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    rgb(var(--info-rgb) / 85%),
-    rgb(var(--success-rgb) / 80%)
-  );
+  background: linear-gradient(90deg, rgb(var(--info-rgb) / 85%), rgb(var(--success-rgb) / 80%));
   box-shadow: 0 0 0 1px rgb(var(--text-rgb) / 5%) inset;
   transition: width 0.25s ease;
 }
@@ -2445,8 +2443,7 @@
 
 /* Trip data health (Settings -> Data) */
 .trip-data-health-card {
-  background:
-    linear-gradient(180deg, rgb(var(--surface-rgb) / 68%), rgb(var(--surface-rgb) / 92%)),
+  background: linear-gradient(180deg, rgb(var(--surface-rgb) / 68%), rgb(var(--surface-rgb) / 92%)),
     var(--surface-1);
 }
 

@@ -5,9 +5,9 @@
  */
 
 import {
-  haversineDistance,
-  bearing as computeBearing,
   cardinalDirection,
+  bearing as computeBearing,
+  haversineDistance,
 } from "./utils/geo-math.js";
 
 class GeolocationService {

@@ -6,8 +6,8 @@
  */
 import store from "../core/store.js";
 import {
-  formatDuration,
   formatDateToString,
+  formatDuration,
   formatHourLabel,
   formatMonth,
   formatWeekRange,

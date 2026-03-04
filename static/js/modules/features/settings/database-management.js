@@ -2,8 +2,8 @@ import apiClient from "../../core/api-client.js";
 import { swupReady } from "../../core/navigation.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
-import { escapeHtml } from "../../utils.js";
 import { formatCompactNumber } from "../../utils/formatting.js";
+import { escapeHtml } from "../../utils.js";
 
 function hasFiniteNumericAttribute(value) {
   if (value == null) {

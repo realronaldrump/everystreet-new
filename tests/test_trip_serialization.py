@@ -58,7 +58,9 @@ def test_to_dict_supports_field_subset() -> None:
         "distance": 1.0,
     }
 
-    subset = TripSerializer.to_dict(trip, fields={"transactionId", "duration", "distance"})
+    subset = TripSerializer.to_dict(
+        trip, fields={"transactionId", "duration", "distance"}
+    )
 
     assert subset == {
         "transactionId": "tx-2",

@@ -556,33 +556,36 @@ class VisitsPageController {
   }
 
   // API Methods
-  async fetchPlaces() {
+  fetchPlaces() {
     return this.dataService.fetchPlaces();
   }
 
-  async fetchAllStats(timeframe = "all") {
+  fetchAllStats(timeframe = "all") {
     return this.dataService.fetchPlaceStatistics({ timeframe });
   }
 
-  async fetchPlaceStats(placeId) {
+  fetchPlaceStats(placeId) {
     return this.dataService.fetchPlaceDetailStatistics(placeId);
   }
 
-  async fetchPlaceTrips(placeId) {
+  fetchPlaceTrips(placeId) {
     return this.dataService.fetchPlaceTrips(placeId);
   }
 
-  async fetchSuggestions(cellSizeFt = 250) {
+  fetchSuggestions(cellSizeFt = 250) {
     // Convert feet to meters for API
     const cellSizeM = Math.round(cellSizeFt / 3.28084);
-    return this.dataService.fetchVisitSuggestions({ cell_size_m: cellSizeM, min_visits: 5 });
+    return this.dataService.fetchVisitSuggestions({
+      cell_size_m: cellSizeM,
+      min_visits: 5,
+    });
   }
 
-  async fetchNonCustomPlaces() {
+  fetchNonCustomPlaces() {
     return this.dataService.fetchNonCustomVisits();
   }
 
-  async createPlace(name, geometry) {
+  createPlace(name, geometry) {
     return this.dataService.createPlace({ name, geometry });
   }
 

@@ -190,7 +190,9 @@ async def fetch_trips_for_window(
                 {"imei": imei, "chunks": len(sub_windows)},
             )
 
-        async def fetch_sub(sub_start: datetime, sub_end: datetime) -> list[dict[str, Any]]:
+        async def fetch_sub(
+            sub_start: datetime, sub_end: datetime
+        ) -> list[dict[str, Any]]:
             try:
                 chunk = await fetch_trips_for_window(
                     client,
@@ -256,7 +258,9 @@ def _existing_source(existing: TripStatusProjection | dict[str, Any] | None) -> 
     return str(value or "").strip().lower()
 
 
-def _existing_is_processed(existing: TripStatusProjection | dict[str, Any] | None) -> bool:
+def _existing_is_processed(
+    existing: TripStatusProjection | dict[str, Any] | None,
+) -> bool:
     if existing is None:
         return False
     if isinstance(existing, dict):
@@ -451,7 +455,11 @@ async def process_bouncie_trips(
         except Exception as exc:
             if is_duplicate_trip_error(exc):
                 existing_after = await Trip.find_one(Trip.transactionId == tx)
-                if existing_after and str(existing_after.source or "").strip().lower() == BOUNCIE_SOURCE:
+                if (
+                    existing_after
+                    and str(existing_after.source or "").strip().lower()
+                    == BOUNCIE_SOURCE
+                ):
                     processed_transaction_ids.append(tx)
                     counters["updated"] += 1
                     continue
@@ -535,7 +543,9 @@ async def run_ingest_for_range(
     credentials = await get_bouncie_config()
     imeis = list(credentials.get("authorized_devices") or [])
     if selected_imeis is not None:
-        selected = {str(v or "").strip() for v in selected_imeis if str(v or "").strip()}
+        selected = {
+            str(v or "").strip() for v in selected_imeis if str(v or "").strip()
+        }
         imeis = [imei for imei in imeis if str(imei or "").strip() in selected]
     imeis = [str(imei or "").strip() for imei in imeis if str(imei or "").strip()]
 
@@ -571,7 +581,9 @@ async def run_ingest_for_range(
     completed_chunks = 0
     lock = asyncio.Lock()
 
-    async def process_chunk(imei: str, window_start: datetime, window_end: datetime) -> None:
+    async def process_chunk(
+        imei: str, window_start: datetime, window_end: datetime
+    ) -> None:
         nonlocal completed_chunks
         chunk_result: dict[str, Any] | None = None
         try:
@@ -625,9 +637,13 @@ async def run_ingest_for_range(
             async with lock:
                 completed_chunks += 1
                 if progress_tracker is not None:
-                    progress_section = progress_tracker.setdefault("fetch_and_store_trips", {})
+                    progress_section = progress_tracker.setdefault(
+                        "fetch_and_store_trips", {}
+                    )
                     progress_section["status"] = "running"
-                    progress_section["progress"] = (completed_chunks / total_chunks) * 100
+                    progress_section["progress"] = (
+                        completed_chunks / total_chunks
+                    ) * 100
                     progress_section["message"] = (
                         f"Processed {completed_chunks}/{total_chunks} chunks"
                     )

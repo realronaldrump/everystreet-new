@@ -429,7 +429,9 @@ async def test_zone_solver_uses_route_crs_node_xy_not_matching_projection(
             [],
         )
 
-    monkeypatch.setattr(zones_module, "decompose_into_zones", _fake_decompose_into_zones)
+    monkeypatch.setattr(
+        zones_module, "decompose_into_zones", _fake_decompose_into_zones
+    )
     monkeypatch.setattr(zones_module, "order_zones", _fake_order_zones)
     monkeypatch.setattr(zones_module, "solve_zones", _fake_solve_zones)
 

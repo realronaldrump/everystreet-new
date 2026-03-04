@@ -206,8 +206,9 @@ test("focus action dispatches only when a coverage area is selected", () => {
 
   env.focusBtn.dispatchEvent({ type: "click" });
   assert.equal(
-    env.dispatchedEvents.filter((event) => event.type === "es:focus-selected-coverage-area")
-      .length,
+    env.dispatchedEvents.filter(
+      (event) => event.type === "es:focus-selected-coverage-area"
+    ).length,
     0
   );
 

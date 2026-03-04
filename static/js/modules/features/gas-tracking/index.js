@@ -21,8 +21,6 @@ let recentFillups = [];
 let vehicleDiscoveryAttempted = false;
 let pageSignal = null;
 let featureApi = createFeatureApi();
-
-const withSignal = (options = {}) => featureApi.withSignal(options);
 const apiRaw = (url, options = {}) => featureApi.raw(url, options);
 
 // Use shared notification manager

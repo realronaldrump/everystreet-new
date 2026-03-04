@@ -4,6 +4,8 @@ import apiClient from "../../core/api-client.js";
 import loadingManager from "../../ui/loading-manager.js";
 import notificationManager from "../../ui/notifications.js";
 import { DateUtils } from "../../utils.js";
+import { queueRemapJob } from "./shared/remap-job.js";
+import { getDurationState, getResultText } from "./shared/task-history-entry.js";
 import { clearInlineStatus, setInlineStatus } from "./status-utils.js";
 import { submitTaskConfigUpdate } from "./task-manager/api.js";
 import {
@@ -12,8 +14,6 @@ import {
   getStatusColor,
 } from "./task-manager/formatters.js";
 import { showErrorModal, showTaskDetails } from "./task-manager/modals.js";
-import { queueRemapJob } from "./shared/remap-job.js";
-import { getDurationState, getResultText } from "./shared/task-history-entry.js";
 
 /**
  * Mobile UI module - handles all mobile-specific UI rendering and interactions

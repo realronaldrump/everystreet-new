@@ -3,8 +3,8 @@
  * Handles DOM elements, status messages, progress, popups, and user interactions.
  */
 
-import { LOCATION_SOURCE_LABELS, PROCESSING_STEPS } from "./constants.js";
 import { escapeHtml } from "../utils.js";
+import { LOCATION_SOURCE_LABELS, PROCESSING_STEPS } from "./constants.js";
 
 export class DrivingNavigationUI {
   /**

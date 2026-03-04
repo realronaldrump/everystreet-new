@@ -50,8 +50,7 @@
   position: absolute;
   inset: 0;
   opacity: 0.14;
-  background-image:
-    linear-gradient(to right, rgb(255 255 255 / 6%) 1px, transparent 1px),
+  background-image: linear-gradient(to right, rgb(255 255 255 / 6%) 1px, transparent 1px),
     linear-gradient(to bottom, rgb(255 255 255 / 6%) 1px, transparent 1px);
   background-size: 72px 72px;
   mask-image: radial-gradient(circle at 40% 30%, black 0%, transparent 66%);
@@ -229,8 +228,7 @@
 
 /* Build Card */
 .routes-build-card {
-  background:
-    linear-gradient(
+  background: linear-gradient(
       180deg,
       rgb(var(--routes-primary-rgb) / 10%) 0%,
       rgb(var(--routes-primary-rgb) / 5%) 40%,
@@ -778,8 +776,11 @@
   content: "";
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(circle at 20% 60%, rgb(var(--routes-primary-rgb) / 22%), transparent 55%),
+  background: radial-gradient(
+      circle at 20% 60%,
+      rgb(var(--routes-primary-rgb) / 22%),
+      transparent 55%
+    ),
     radial-gradient(circle at 80% 40%, rgb(var(--cat-amber-rgb) / 16%), transparent 55%);
   opacity: 0.35;
 }
@@ -1263,8 +1264,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
   margin: 0 0 var(--space-8);
   border: 1px solid rgb(var(--routes-primary-rgb) / 25%);
   border-radius: var(--routes-radius);
-  background:
-    linear-gradient(165deg, rgb(var(--routes-primary-rgb) / 10%), transparent 35%),
+  background: linear-gradient(165deg, rgb(var(--routes-primary-rgb) / 10%), transparent 35%),
     var(--routes-bg-elevated);
   padding: var(--space-4);
   box-shadow: var(--shadow-md);

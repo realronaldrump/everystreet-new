@@ -112,7 +112,11 @@ const layerManager = {
   },
 
   _removeLayerVariants(layerName) {
-    const layerIds = [`${layerName}-layer-0`, `${layerName}-layer-1`, `${layerName}-layer`];
+    const layerIds = [
+      `${layerName}-layer-0`,
+      `${layerName}-layer-1`,
+      `${layerName}-layer`,
+    ];
     layerIds.forEach((layerId) => this._removeLayerById(layerId));
   },
 
@@ -375,11 +379,9 @@ const layerManager = {
       // Set initial disabled state for controls when layer is off
       if (!info.visible) {
         div.classList.add("layer-disabled");
-        div
-          .querySelectorAll('input[type="color"]')
-          .forEach((el) => {
-            el.disabled = true;
-          });
+        div.querySelectorAll('input[type="color"]').forEach((el) => {
+          el.disabled = true;
+        });
       }
 
       fragment.appendChild(div);
@@ -411,11 +413,9 @@ const layerManager = {
           const row = input.closest(".layer-control");
           if (row) {
             row.classList.toggle("layer-disabled", !input.checked);
-            row
-              .querySelectorAll('input[type="color"]')
-              .forEach((el) => {
-                el.disabled = !input.checked;
-              });
+            row.querySelectorAll('input[type="color"]').forEach((el) => {
+              el.disabled = !input.checked;
+            });
           }
         } else if (input.type === "color") {
           this.updateLayerStyle(layerName, "color", input.value);
@@ -1348,7 +1348,10 @@ const layerManager = {
       };
     }
 
-    const worldRing = this._ensureRingOrientation(COVERAGE_OUTSIDE_MASK_WORLD_RING, false);
+    const worldRing = this._ensureRingOrientation(
+      COVERAGE_OUTSIDE_MASK_WORLD_RING,
+      false
+    );
     if (!worldRing) {
       return {
         type: "FeatureCollection",
@@ -1378,35 +1381,12 @@ const layerManager = {
     return {
       startOpacity: isLightTheme ? 0.24 : 0.2,
       durationMs: 760,
-      startWidth: [
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        8,
-        1.9,
-        12,
-        2.8,
-        16,
-        3.7,
-      ],
-      endWidth: [
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        8,
-        3.8,
-        12,
-        5.2,
-        16,
-        7,
-      ],
+      startWidth: ["interpolate", ["linear"], ["zoom"], 8, 1.9, 12, 2.8, 16, 3.7],
+      endWidth: ["interpolate", ["linear"], ["zoom"], 8, 3.8, 12, 5.2, 16, 7],
     };
   },
 
-  setCoverageAreaOverlayVisibility(
-    visible,
-    layerName = COVERAGE_OVERLAY_LAYER_NAME
-  ) {
+  setCoverageAreaOverlayVisibility(visible, layerName = COVERAGE_OVERLAY_LAYER_NAME) {
     if (!store.map) {
       return;
     }
@@ -1414,7 +1394,11 @@ const layerManager = {
     const layerIds = this._getCoverageOverlayLayerIds(layerName);
     Object.values(layerIds).forEach((layerId) => {
       if (store.map.getLayer(layerId)) {
-        store.map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
+        store.map.setLayoutProperty(
+          layerId,
+          "visibility",
+          visible ? "visible" : "none"
+        );
       }
     });
   },
@@ -1460,8 +1444,12 @@ const layerManager = {
 
   _updateCoverageAreaOverlayLayer(data, sourceId, layerInfo) {
     const layerName = COVERAGE_OVERLAY_LAYER_NAME;
-    const { fill: fillLayerId, glow: glowLayerId, edge: edgeLayerId, pulse: pulseLayerId } =
-      this._getCoverageOverlayLayerIds(layerName);
+    const {
+      fill: fillLayerId,
+      glow: glowLayerId,
+      edge: edgeLayerId,
+      pulse: pulseLayerId,
+    } = this._getCoverageOverlayLayerIds(layerName);
     const isVisible = Boolean(layerInfo.visible);
     const outsideMaskPaint = this._getCoverageOverlayOutsideMaskPaint();
     const glowPaint = this._getCoverageOverlayGlowPaint();
@@ -1532,17 +1520,7 @@ const layerManager = {
       paint: {
         "line-color": linePaint.color,
         "line-opacity": linePaint.edgeOpacity,
-        "line-width": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          8,
-          1.1,
-          12,
-          1.5,
-          16,
-          2.05,
-        ],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 1.1, 12, 1.5, 16, 2.05],
       },
     };
 
@@ -1574,7 +1552,10 @@ const layerManager = {
 
     layers.forEach(([layerId, config]) => {
       if (store.map.getLayer(layerId)) {
-        if (layerId === fillLayerId && store.map.getLayer(layerId)?.source !== outsideMaskSourceId) {
+        if (
+          layerId === fillLayerId &&
+          store.map.getLayer(layerId)?.source !== outsideMaskSourceId
+        ) {
           store.map.removeLayer(layerId);
           store.map.addLayer(config, beforeLayerId);
           return;
@@ -1623,11 +1604,13 @@ const layerManager = {
         store.map.removeLayer(layerId);
       }
       const overlayLayerIds = this._getCoverageOverlayLayerIds(layerName);
-      [overlayLayerIds.fill, overlayLayerIds.glow, overlayLayerIds.pulse].forEach((overlayId) => {
-        if (store.map.getLayer(overlayId)) {
-          store.map.removeLayer(overlayId);
+      [overlayLayerIds.fill, overlayLayerIds.glow, overlayLayerIds.pulse].forEach(
+        (overlayId) => {
+          if (store.map.getLayer(overlayId)) {
+            store.map.removeLayer(overlayId);
+          }
         }
-      });
+      );
       const outsideMaskSourceId = this._getCoverageOverlayOutsideMaskSourceId(sourceId);
       if (store.map.getSource(outsideMaskSourceId)) {
         store.map.removeSource(outsideMaskSourceId);

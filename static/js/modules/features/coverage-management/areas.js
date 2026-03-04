@@ -207,7 +207,9 @@ function renderAreaCard(area, job) {
   const pct = normalizeCoveragePercent(area.coverage_percentage);
   const accentClass = getCoverageAccent(pct, area.status);
   const tierClass = getCoverageTierClass(pct);
-  const normalizedAreaType = String(area.area_type || "").trim().toLowerCase();
+  const normalizedAreaType = String(area.area_type || "")
+    .trim()
+    .toLowerCase();
   const displayName =
     normalizedAreaType === "city"
       ? formatCityDisplayName(area.display_name)

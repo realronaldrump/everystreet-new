@@ -509,11 +509,7 @@
 
 .state-stat-item--complete {
   border-color: rgb(var(--success-rgb) / 30%);
-  background: linear-gradient(
-    135deg,
-    rgb(var(--success-rgb) / 10%),
-    rgb(var(--success-rgb) / 5%)
-  );
+  background: linear-gradient(135deg, rgb(var(--success-rgb) / 10%), rgb(var(--success-rgb) / 5%));
 }
 
 .state-stat-item--selected {
@@ -631,22 +627,14 @@
   position: absolute;
   inset: 0 auto 0 0;
   width: 3px;
-  background: linear-gradient(
-    180deg,
-    rgb(var(--success-rgb) / 95%),
-    rgb(var(--success-rgb) / 45%)
-  );
+  background: linear-gradient(180deg, rgb(var(--success-rgb) / 95%), rgb(var(--success-rgb) / 45%));
   opacity: 0;
   transition: opacity 0.2s ease;
 }
 
 .city-stat-item--selected {
   border-color: rgb(var(--success-rgb) / 45%);
-  background: linear-gradient(
-    135deg,
-    rgb(var(--success-rgb) / 22%),
-    rgb(var(--success-rgb) / 10%)
-  );
+  background: linear-gradient(135deg, rgb(var(--success-rgb) / 22%), rgb(var(--success-rgb) / 10%));
   box-shadow:
     inset 0 0 0 1px rgb(var(--success-rgb) / 20%),
     0 10px 20px rgb(var(--success-rgb) / 12%);
@@ -658,29 +646,17 @@
 
 .city-stat-item--stopped {
   border-color: rgb(var(--danger-rgb) / 26%);
-  background: linear-gradient(
-    135deg,
-    rgb(var(--danger-rgb) / 11%),
-    rgb(var(--danger-rgb) / 4%)
-  );
+  background: linear-gradient(135deg, rgb(var(--danger-rgb) / 11%), rgb(var(--danger-rgb) / 4%));
 }
 
 .city-stat-item--stopped::before {
-  background: linear-gradient(
-    180deg,
-    rgb(var(--danger-rgb) / 95%),
-    rgb(var(--danger-rgb) / 45%)
-  );
+  background: linear-gradient(180deg, rgb(var(--danger-rgb) / 95%), rgb(var(--danger-rgb) / 45%));
   opacity: 0.45;
 }
 
 .city-stat-item--stopped.city-stat-item--selected {
   border-color: rgb(var(--danger-rgb) / 45%);
-  background: linear-gradient(
-    135deg,
-    rgb(var(--danger-rgb) / 22%),
-    rgb(var(--danger-rgb) / 10%)
-  );
+  background: linear-gradient(135deg, rgb(var(--danger-rgb) / 22%), rgb(var(--danger-rgb) / 10%));
   box-shadow:
     inset 0 0 0 1px rgb(var(--danger-rgb) / 22%),
     0 10px 20px rgb(var(--danger-rgb) / 12%);

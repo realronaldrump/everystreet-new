@@ -1,13 +1,17 @@
 {% extends "base.html" %}
+
 {% from "partials/_map_assets.html" import include_mapbox_css with context %}
 
 {% block title %}
+
 
 Coverage Management
 {% endblock %}
 
 
+
 {% block head_content %}
+
 
   {{ include_mapbox_css() }}
   <link rel="stylesheet"
@@ -15,7 +19,9 @@ Coverage Management
 {% endblock %}
 
 
+
 {% block content %}
+
 
   <!-- ============================================================
      VIEW 1: AREA LIST
@@ -285,10 +291,17 @@ Street Segments
               <span class="toggle-text">Trip Source</span>
               <span class="badge text-bg-secondary">Coverage Math</span>
             </label>
-            <select id="dashboard-coverage-trip-mode" class="form-select form-select-sm sidebar-select-input">
-              <option value="both" selected>Both (recommended)</option>
-              <option value="regular">Regular trips only</option>
-              <option value="matched">Matched trips only</option>
+            <select id="dashboard-coverage-trip-mode"
+                    class="form-select form-select-sm sidebar-select-input">
+              <option value="both" selected>
+Both (recommended)
+              </option>
+              <option value="regular">
+Regular trips only
+              </option>
+              <option value="matched">
+Matched trips only
+              </option>
             </select>
             <small class="form-text text-secondary d-block mt-1"
                    data-coverage-trip-mode-status
@@ -549,9 +562,15 @@ State / Region
                 <span class="badge text-bg-secondary">Street Matching</span>
               </label>
               <select id="modal-coverage-trip-mode" class="form-select">
-                <option value="both" selected>Both (recommended)</option>
-                <option value="regular">Regular trips only</option>
-                <option value="matched">Matched trips only</option>
+                <option value="both" selected>
+Both (recommended)
+                </option>
+                <option value="regular">
+Regular trips only
+                </option>
+                <option value="matched">
+Matched trips only
+                </option>
               </select>
               <small class="form-text text-secondary d-block">
               Controls which trip geometry is used for street coverage calculations.
@@ -613,6 +632,7 @@ Cancel
   </div>
 
 {% endblock %}
+
 
 
 {# Page scripts are loaded via route-loader + swup. #}

@@ -149,8 +149,28 @@ function createLayerDefinition(config, filterExpression) {
   };
 }
 
+function applyLayerFilter(map, layerId) {
+  if (!map || typeof map.setFilter !== "function") {
+    return false;
+  }
+
+  try {
+    map.setFilter(layerId, PRIMARY_FILTER);
+    return true;
+  } catch {
+    // Fallback handles styles where the primary expression is unsupported.
+  }
+
+  try {
+    map.setFilter(layerId, FALLBACK_FILTER);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function updateExistingLayer(map, layerId, beforeLayerId, config) {
-  const paint = createLayerDefinition(config, PRIMARY_FILTER).paint;
+  const { paint } = createLayerDefinition(config, PRIMARY_FILTER);
 
   applyLayerFilter(map, layerId);
 
@@ -185,7 +205,11 @@ function updateExistingLayer(map, layerId, beforeLayerId, config) {
 
 export function removeBuildingsLayer(map) {
   const layerId = getBuildingsConfig().layerId || "es-3d-buildings";
-  if (!map || typeof map.getLayer !== "function" || typeof map.removeLayer !== "function") {
+  if (
+    !map ||
+    typeof map.getLayer !== "function" ||
+    typeof map.removeLayer !== "function"
+  ) {
     return false;
   }
 
@@ -251,7 +275,7 @@ export function ensureBuildingsLayer(map, { styleType } = {}) {
 
   const style = readMapStyle(map);
   const beforeLayerId = getFirstSymbolLayerId(style);
-  const layerId = config.layerId;
+  const { layerId } = config;
 
   if (map.getLayer(layerId)) {
     updateExistingLayer(map, layerId, beforeLayerId, config);
@@ -284,7 +308,7 @@ export default function initBuildings3D({ map = null } = {}) {
 
   let styleChangeHandlerRef = null;
   if (typeof mapCore.registerStyleChangeHandler === "function") {
-    styleChangeHandlerRef = mapCore.registerStyleChangeHandler(3, async (styleType) => {
+    styleChangeHandlerRef = mapCore.registerStyleChangeHandler(3, (styleType) => {
       ensureBuildingsLayer(activeMap, { styleType });
     });
   }
@@ -297,7 +321,10 @@ export default function initBuildings3D({ map = null } = {}) {
     ensureBuildingsLayer(activeMap, { styleType: getCurrentMapTypeHint() });
   };
 
-  if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+  if (
+    typeof document !== "undefined" &&
+    typeof document.addEventListener === "function"
+  ) {
     document.addEventListener(MAP_3D_SETTING_EVENT, handlePreferenceEvent);
   }
 

@@ -71,7 +71,9 @@ export default function initMapControls({ signal, cleanup } = {}) {
     const normalizedAreaId =
       areaId === null ? getSelectedCoverageAreaId() : String(areaId || "").trim();
     const hasSelectedArea = Boolean(normalizedAreaId);
-    const streetModeButtons = document.querySelectorAll(".quick-action-btn[data-street-mode]");
+    const streetModeButtons = document.querySelectorAll(
+      ".quick-action-btn[data-street-mode]"
+    );
     streetModeButtons.forEach((button) => {
       button.disabled = !hasSelectedArea;
       if (!hasSelectedArea) {
@@ -156,13 +158,19 @@ export default function initMapControls({ signal, cleanup } = {}) {
   const onFocusCoverageClick = () => {
     focusSelectedCoverageArea();
   };
-  const streetModeButtons = document.querySelectorAll(".quick-action-btn[data-street-mode]");
+  const streetModeButtons = document.querySelectorAll(
+    ".quick-action-btn[data-street-mode]"
+  );
 
   if (toggleBtn) {
     toggleBtn.addEventListener("click", onToggleClick, signal ? { signal } : false);
   }
   if (locationSelect) {
-    locationSelect.addEventListener("change", onLocationChange, signal ? { signal } : false);
+    locationSelect.addEventListener(
+      "change",
+      onLocationChange,
+      signal ? { signal } : false
+    );
   }
   document.addEventListener(
     COVERAGE_SELECTION_EVENT,

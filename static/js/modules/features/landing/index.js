@@ -9,13 +9,13 @@ import { swupReady } from "../../core/navigation.js";
 import store from "../../core/store.js";
 import metricAnimator from "../../ui/metric-animator.js";
 import notificationManager from "../../ui/notifications.js";
+import { formatDurationCompact } from "../../utils/formatting.js";
 import {
   DateUtils,
   formatNumber,
   formatRelativeTimeShort,
   getStorage,
 } from "../../utils.js";
-import { formatDurationCompact } from "../../utils/formatting.js";
 import { animateValue } from "./animations.js";
 import { bindWidgetEditToggle, updateGreeting } from "./hero.js";
 
@@ -50,7 +50,6 @@ let lastKnownLocation = null;
 let metricsLoadRequestId = 0;
 let removeFilterRefreshListener = null;
 let featureApi = createFeatureApi();
-const withSignal = (options = {}) => featureApi.withSignal(options);
 const apiGet = (url, options = {}) => featureApi.get(url, options);
 const apiRaw = (url, options = {}) => featureApi.raw(url, options);
 const isAbortError = (error) =>

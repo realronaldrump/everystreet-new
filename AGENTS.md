@@ -15,7 +15,6 @@ compatibility, migration, or legacy code.
 - The Mongo `trips` collection is historical data only and should be populated
   from Bouncie ingest/sync paths.
 
-
 ## Environment Memory
 
 - Production/runtime deployment is on your Linux mini PC.

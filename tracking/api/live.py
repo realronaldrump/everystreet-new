@@ -5,11 +5,7 @@ import json
 import logging
 from datetime import UTC, datetime
 
-from fastapi import (
-    APIRouter,
-    WebSocket,
-    WebSocketDisconnect,
-)
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
 
 from core.api import api_route

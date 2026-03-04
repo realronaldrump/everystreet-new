@@ -204,9 +204,9 @@ async def cancel_job(job_id: str):
 
     Accepts either a MongoDB ObjectId or an ARQ task_id.
 
-    Requests an ARQ abort (best-effort) and marks the job as cancelled in
-    the database. Ingestion pipelines also self-abort by checking job status
-    between stages.
+    Requests an ARQ abort (best-effort) and marks the job as cancelled
+    in the database. Ingestion pipelines also self-abort by checking job
+    status between stages.
     """
     job = await _resolve_job(job_id)
     if not job:

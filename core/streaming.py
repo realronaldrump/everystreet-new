@@ -38,8 +38,9 @@ async def sse_event_stream(
     max_polls: int = 3600,
     keepalive_every: int = 15,
     deduplicate: bool = True,
-) -> AsyncGenerator[str, None]:
-    """Generic SSE poll-and-stream generator.
+) -> AsyncGenerator[str]:
+    """
+    Generic SSE poll-and-stream generator.
 
     Args:
         fetch_fn: Async callable returning current state dict (or None to skip).
@@ -51,6 +52,7 @@ async def sse_event_stream(
         keepalive_every: Send keepalive comment every N polls with no changes.
         deduplicate: If True, only emit when payload changes from last emission.
     """
+
     def default_is_terminal(state: dict[str, Any]) -> bool:
         return state.get("status") in {
             "completed",
@@ -105,7 +107,7 @@ async def sse_queue_stream(
     keepalive_payload_fn: Callable[[], dict[str, Any]] | None = None,
     max_duration_s: float | None = None,
     is_terminal_event: Callable[[str, dict[str, Any]], bool] | None = None,
-) -> AsyncGenerator[str, None]:
+) -> AsyncGenerator[str]:
     """Stream SSE messages from a queue-like source with keepalives."""
 
     def _default_keepalive_payload() -> dict[str, Any]:
@@ -115,7 +117,10 @@ async def sse_queue_stream(
     keepalive_payload_fn = keepalive_payload_fn or _default_keepalive_payload
 
     while True:
-        if max_duration_s is not None and (time.monotonic() - started_at) > max_duration_s:
+        if (
+            max_duration_s is not None
+            and (time.monotonic() - started_at) > max_duration_s
+        ):
             yield format_sse_event({"message": "Stream timeout"}, event="timeout")
             return
 
@@ -139,7 +144,9 @@ async def sse_queue_stream(
             return
 
 
-def sse_response(generator: AsyncGenerator[str, None], **extra_headers: str) -> StreamingResponse:
+def sse_response(
+    generator: AsyncGenerator[str], **extra_headers: str
+) -> StreamingResponse:
     """Wrap an SSE async generator in a StreamingResponse with standard headers."""
     headers = {"Cache-Control": "no-cache", "Connection": "keep-alive"}
     headers.update(extra_headers)
@@ -153,8 +160,9 @@ def sse_response(generator: AsyncGenerator[str, None], **extra_headers: str) -> 
 async def stream_geojson_feature_collection(
     cursor: Any,
     transform_fn: Callable[[Any], dict[str, Any] | None],
-) -> AsyncGenerator[str, None]:
-    """Stream a GeoJSON FeatureCollection from an async cursor.
+) -> AsyncGenerator[str]:
+    """
+    Stream a GeoJSON FeatureCollection from an async cursor.
 
     Args:
         cursor: Async iterable of documents.
@@ -180,6 +188,6 @@ async def stream_geojson_feature_collection(
         yield "]}"
 
 
-def geojson_response(generator: AsyncGenerator[str, None]) -> StreamingResponse:
+def geojson_response(generator: AsyncGenerator[str]) -> StreamingResponse:
     """Wrap a GeoJSON async generator in a StreamingResponse."""
     return StreamingResponse(generator, media_type="application/geo+json")

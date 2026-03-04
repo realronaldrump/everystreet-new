@@ -911,8 +911,18 @@ System
     <script>
         window.MAP_PROVIDER = "{{ (app_settings.get('map_provider') | default('self_hosted', true) | lower) if app_settings else 'self_hosted' }}";
         window.APP_SETTINGS_FLAGS = {
-            mapTripsWithinCoverageOnly: {{ ((app_settings.get('mapTripsWithinCoverageOnly', false)) if app_settings else false) | tojson }},
-            tripLayersUseHeatmap: {{ ((app_settings.get('tripLayersUseHeatmap', true)) if app_settings else true) | tojson }}
+            mapTripsWithinCoverageOnly: {
+                {
+                    ((app_settings.get('mapTripsWithinCoverageOnly', false)) if app_settings
+                        else false) | tojson
+                }
+            },
+            tripLayersUseHeatmap: {
+                {
+                    ((app_settings.get('tripLayersUseHeatmap', true)) if app_settings
+                        else true) | tojson
+                }
+            }
         };
     </script>
 

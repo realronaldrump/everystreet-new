@@ -121,7 +121,9 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R; // ≈376.99
 const withSignal = (options = {}) => featureApi.withSignal(options);
 
 function normalizeCoverageTripMode(value) {
-  const mode = String(value || "").trim().toLowerCase();
+  const mode = String(value || "")
+    .trim()
+    .toLowerCase();
   return COVERAGE_TRIP_MODES.has(mode) ? mode : DEFAULT_COVERAGE_TRIP_MODE;
 }
 
@@ -145,7 +147,11 @@ function getCoverageTripModeEndpointParam(mode) {
 // Initialization
 // =============================================================================
 
-export default async function initCoverageManagementPage({ signal, cleanup, api } = {}) {
+export default async function initCoverageManagementPage({
+  signal,
+  cleanup,
+  api,
+} = {}) {
   state.pageSignal = signal || null;
   featureApi = api || createFeatureApi({ signal: state.pageSignal });
   state.pageActive = true;

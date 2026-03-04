@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-
+import * as CountyMapState from "../static/js/modules/county-map/state.js";
 import {
   canAttemptRecovery,
   getCityTabStateRollups,
   getCountyActivityStateFips,
 } from "../static/js/modules/features/county-map/index.js";
-import * as CountyMapState from "../static/js/modules/county-map/state.js";
 
 test.afterEach(() => {
   CountyMapState.resetState();
@@ -71,7 +70,7 @@ test("getCountyActivityStateFips includes states with visits or stops", () => {
       },
     },
     countyStops: {
-      "48001": {
+      48001: {
         firstStop: "2026-01-01T00:00:00.000Z",
         lastStop: "2026-01-01T00:00:00.000Z",
       },
@@ -85,23 +84,26 @@ test("getCityTabStateRollups returns only states with city totals AND county act
   // State "01" has city total > 0 but no county activity → excluded
   // State "48" has city total > 0 AND county activity → included
   const activitySet = new Set(["48"]);
-  const rollups = getCityTabStateRollups([
-    {
-      stateFips: "01",
-      city: { total: 5, visited: 0 },
-      county: { visited: 0, total: 67 },
-    },
-    {
-      stateFips: "06",
-      city: { total: 0, visited: 0 },
-      county: { visited: 0, total: 58 },
-    },
-    {
-      stateFips: "48",
-      city: { total: 10, visited: 1 },
-      county: { visited: 1, total: 254 },
-    },
-  ], activitySet);
+  const rollups = getCityTabStateRollups(
+    [
+      {
+        stateFips: "01",
+        city: { total: 5, visited: 0 },
+        county: { visited: 0, total: 67 },
+      },
+      {
+        stateFips: "06",
+        city: { total: 0, visited: 0 },
+        county: { visited: 0, total: 58 },
+      },
+      {
+        stateFips: "48",
+        city: { total: 10, visited: 1 },
+        county: { visited: 1, total: 254 },
+      },
+    ],
+    activitySet
+  );
 
   assert.deepEqual(
     rollups.map((entry) => entry.stateFips),

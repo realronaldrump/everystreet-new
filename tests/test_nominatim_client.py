@@ -205,7 +205,11 @@ async def test_validate_location_filters_non_matching_type() -> None:
 @pytest.mark.asyncio
 async def test_validate_location_allows_google_source_even_with_type_mismatch() -> None:
     client = NominatimClient()
-    payload = {"type": "establishment", "source": "google", "display_name": "Some Place"}
+    payload = {
+        "type": "establishment",
+        "source": "google",
+        "display_name": "Some Place",
+    }
     client.search_raw = AsyncMock(return_value=[payload])
 
     result = await client.validate_location("Some Place", "city")

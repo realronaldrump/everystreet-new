@@ -1,12 +1,16 @@
 {% extends "base.html" %}
+
 {% from "partials/_map_assets.html" import include_mapbox_css with context %}
 
 {% block title %}
 
+
 Recurring Routes - Every Street
 {% endblock %}
 
+
 {% block extra_css %}
+
 
   <!-- Mapbox GL CSS -->
   {{ include_mapbox_css() }}
@@ -16,11 +20,15 @@ Recurring Routes - Every Street
         href="{{ url_for('static', path='css/routes.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
+
 {% block head_content %}
+
 
 {% endblock %}
 
+
 {% block content %}
+
 
   <div id="routes-page" class="routes-page">
     <!-- Ambient Background -->
@@ -677,5 +685,6 @@ All statistics
 
   </div>
 {% endblock %}
+
 
 {# Page scripts are loaded via route-loader + swup. #}

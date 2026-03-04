@@ -10,5 +10,5 @@ bootstrapPage(async (context = {}) => {
   if (context.signal?.aborted) {
     return;
   }
-  return initMapPage(context);
+  initMapPage(context);
 }, "/map");

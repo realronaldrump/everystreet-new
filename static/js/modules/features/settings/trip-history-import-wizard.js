@@ -360,9 +360,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   const countSkippedExisting = getEl("trip-import-count-skipped-existing");
   const countUpdated = getEl("trip-import-count-updated");
   const countInserted = getEl("trip-import-count-inserted");
-  const countConflictingSource = getEl(
-    "trip-import-count-skipped-conflicting-source"
-  );
+  const countConflictingSource = getEl("trip-import-count-skipped-conflicting-source");
   const countValidationFailed = getEl("trip-import-count-validation-failed");
   const countFetchErr = getEl("trip-import-count-fetch-errors");
   const countProcessErr = getEl("trip-import-count-process-errors");
@@ -772,9 +770,9 @@ export function initTripHistoryImportWizard({ signal } = {}) {
       countFoundRaw,
       countFoundUnique,
       countSkippedExisting,
-      countNew,
+      countConflictingSource,
+      countUpdated,
       countInserted,
-      countMissingEnd,
       countValidationFailed,
       countFetchErr,
       countProcessErr,

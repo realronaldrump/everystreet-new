@@ -593,10 +593,7 @@ def _build_graph_with_limit(
             raise
 
         logger.warning(
-            (
-                "Graph build hit memory limit at %d MB for %s; "
-                "retrying once with %d MB."
-            ),
+            ("Graph build hit memory limit at %d MB for %s; retrying once with %d MB."),
             max_mb,
             location_id or "unknown area",
             retry_limit_mb,

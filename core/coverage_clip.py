@@ -56,7 +56,8 @@ def resolve_coverage_clip_context(
     """
     Build a clip context from a resolved coverage area document.
 
-    Callers that need DB lookups should fetch the area first, then pass it here.
+    Callers that need DB lookups should fetch the area first, then pass
+    it here.
     """
     cleaned_area_id = str(area_id or "").strip() or None
     context = CoverageClipContext(area_id=cleaned_area_id)

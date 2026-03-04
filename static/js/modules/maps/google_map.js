@@ -8,8 +8,8 @@
  */
 
 import { CONFIG } from "../core/config.js";
-import MapStyles from "../map-styles.js";
 import state from "../core/store.js";
+import MapStyles from "../map-styles.js";
 import loadingManager from "../ui/loading-manager.js";
 import notificationManager from "../ui/notifications.js";
 import { utils } from "../utils.js";

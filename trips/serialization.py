@@ -1,7 +1,8 @@
-"""Canonical trip serialization helpers.
+"""
+Canonical trip serialization helpers.
 
-Single source of truth for duration, timezone derivation, and shared trip
-response field normalization.
+Single source of truth for duration, timezone derivation, and shared
+trip response field normalization.
 """
 
 from __future__ import annotations

@@ -376,7 +376,9 @@ async def get_route_analytics(route_id: str):
     tz_expr = get_mongo_tz_expr()
 
     pipeline = build_temporal_facet_pipeline(
-        match_query=enforce_bouncie_source({"recurringRouteId": oid, "invalid": {"$ne": True}}),
+        match_query=enforce_bouncie_source(
+            {"recurringRouteId": oid, "invalid": {"$ne": True}}
+        ),
         tz_expr=tz_expr,
         include_timeline=True,
         month_limit=24,

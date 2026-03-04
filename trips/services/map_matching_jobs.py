@@ -949,7 +949,9 @@ class MapMatchingJobRunner:
     @staticmethod
     def _build_query(request: MapMatchJobRequest) -> dict[str, Any]:
         if request.mode == "unmatched":
-            return TripQuerySpec(unmatched_only=True).to_mongo_query(enforce_source=True)
+            return TripQuerySpec(unmatched_only=True).to_mongo_query(
+                enforce_source=True
+            )
 
         if request.mode == "trip_id":
             return TripQuerySpec().to_mongo_query(

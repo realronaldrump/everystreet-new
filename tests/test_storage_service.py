@@ -103,7 +103,9 @@ async def test_get_storage_snapshot_uses_osm_volume_without_double_counting_path
 
 
 @pytest.mark.asyncio
-async def test_list_volumes_passes_timeout_seconds(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_list_volumes_passes_timeout_seconds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     captured_kwargs: dict[str, object] = {}
 
     async def _fake_run_docker(_cmd: list[str], **kwargs: object):

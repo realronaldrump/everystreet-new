@@ -3,6 +3,7 @@
  * Handles rendering and updating task execution history
  */
 
+import { getDurationState, getResultText } from "../shared/task-history-entry.js";
 import {
   escapeHtml,
   formatDateTime,
@@ -10,7 +11,6 @@ import {
   getStatusColor,
 } from "./formatters.js";
 import { showErrorModal, showTaskLogsModal } from "./modals.js";
-import { getDurationState, getResultText } from "../shared/task-history-entry.js";
 
 /**
  * Render the task history table

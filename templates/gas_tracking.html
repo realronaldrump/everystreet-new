@@ -1,10 +1,13 @@
 {% extends "base.html" %}
+
 {% from "partials/_map_assets.html" import include_mapbox_css with context %}
 
 {% block title %}
 
+
  Gas Tracking
 {% endblock %}
+
 
 
 {% block
@@ -17,9 +20,12 @@ extra_css %}
         href="{{ url_for('static', path='css/gas_tracking.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
+
 {% block head_content %}
 
+
 {% endblock %}
+
 
 {% block content %}
 
@@ -310,6 +316,7 @@ No fill-ups yet
     </div>
   </div>
 {% endblock %}
+
 
 
 {# Page scripts are loaded via route-loader + swup. #}

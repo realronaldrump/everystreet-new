@@ -20,10 +20,7 @@ from core.coverage_clip import (
     resolve_coverage_clip_context,
 )
 from core.jobs import JobHandle
-from core.spatial import (
-    GeometryService,
-    extract_timestamps_for_coordinates,
-)
+from core.spatial import GeometryService, extract_timestamps_for_coordinates
 from core.trip_query_spec import TripQuerySpec
 from db import CoverageArea, CoverageState, Street, Trip
 from db.models import Job
@@ -478,6 +475,7 @@ class ExportService:
                 progress.bump,
             )
         if fmt == "gpx":
+
             def serializer(trip: Any) -> dict[str, Any] | None:
                 row = cls._prepare_trip_export_row(
                     trip,
@@ -562,6 +560,7 @@ class ExportService:
                 progress.bump,
             )
         if fmt == "geojson":
+
             async def features():
                 async for trip in cursor:
                     row = cls._prepare_trip_export_row(

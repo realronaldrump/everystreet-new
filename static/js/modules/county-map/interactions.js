@@ -112,9 +112,7 @@ function buildTooltipData(feature) {
       );
     }
     if (isStopped) {
-      dateLines.push(
-        formatDateRange("Stopped", cityStop.firstStop, cityStop.lastStop)
-      );
+      dateLines.push(formatDateRange("Stopped", cityStop.firstStop, cityStop.lastStop));
     }
 
     return {

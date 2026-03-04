@@ -132,7 +132,9 @@ class TripQuerySpec:
             query["matchedGps"] = {"$ne": None}
 
         start_iso, end_iso = self.resolve_date_window(anchor=anchor)
-        has_date_input = bool(self.start_date or self.end_date or self.interval_days > 0)
+        has_date_input = bool(
+            self.start_date or self.end_date or self.interval_days > 0
+        )
 
         if require_complete_bounds and (not start_iso or not end_iso):
             raise ValueError("Invalid date range")

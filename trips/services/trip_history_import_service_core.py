@@ -317,9 +317,12 @@ async def _run_import_windows(
                 per_device = runtime.per_device.get(imei)
                 if per_device is not None:
                     _merge_per_device_counters(per_device, delta)
-                    per_device["windows_completed"] = int(
-                        per_device.get("windows_completed", 0) or 0,
-                    ) + 1
+                    per_device["windows_completed"] = (
+                        int(
+                            per_device.get("windows_completed", 0) or 0,
+                        )
+                        + 1
+                    )
 
                 windows_completed += 1
                 progress = min(

@@ -175,8 +175,8 @@ test("applyCityVisitFeatureState marks driven/stopped city IDs", () => {
 
   const byId = Object.fromEntries(calls.map((entry) => [entry.target.id, entry.state]));
   assert.deepEqual(byId, {
-    "4805000": { visited: true },
-    "4807000": { visited: true, stopped: true },
-    "4811000": { stopped: true },
+    4805000: { visited: true },
+    4807000: { visited: true, stopped: true },
+    4811000: { stopped: true },
   });
 });

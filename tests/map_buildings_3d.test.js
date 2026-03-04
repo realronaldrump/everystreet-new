@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-
-import mapCore from "../static/js/modules/map-core.js";
 import initBuildings3D, {
   ensureBuildingsLayer,
   isSupportedMapbox3D,
 } from "../static/js/modules/features/map/buildings-3d.js";
+import mapCore from "../static/js/modules/map-core.js";
 
 const originalGlobals = {
   window: global.window,
@@ -263,4 +262,3 @@ test("initBuildings3D responds to settings toggle event", () => {
 
   controller.destroy();
 });
-

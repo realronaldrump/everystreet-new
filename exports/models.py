@@ -64,13 +64,17 @@ class ExportRequest(BaseModel):
                     msg,
                 )
 
-        has_trip_exports = any(item.entity in {"trips", "matched_trips"} for item in self.items)
+        has_trip_exports = any(
+            item.entity in {"trips", "matched_trips"} for item in self.items
+        )
         needs_area = any(
             item.entity in {"streets", "boundaries", "undriven_streets"}
             for item in self.items
         )
 
-        clip_to_coverage = bool(self.trip_filters and self.trip_filters.clip_to_coverage)
+        clip_to_coverage = bool(
+            self.trip_filters and self.trip_filters.clip_to_coverage
+        )
         if clip_to_coverage and not has_trip_exports:
             msg = "trip_filters.clip_to_coverage can only be used with trip exports."
             raise ValueError(msg)

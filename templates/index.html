@@ -1,10 +1,13 @@
 {% extends "base.html" %}
+
 {% from "partials/_map_assets.html" import include_mapbox_css with context %}
 
 {% block title %}
 
+
  Every Street - Map
 {% endblock %}
+
 
 
 {% block
@@ -20,15 +23,19 @@ extra_css %}
 {% endblock %}
 
 
+
 {% block persistent_shell %}
 
 
 {% include "partials/_map_shell.html" %}
 
+
 {%
 endblock %}
 
+
   {% block content %}
+
 
 
     <div class="visually-hidden">
@@ -37,10 +44,13 @@ Map view
   {% endblock %}
 
 
+
   {% block head_content %}
+
 
 
   {% endblock %}
 
 
-                            {# Page scripts are loaded via route-loader + swup. #}
+
+                                {# Page scripts are loaded via route-loader + swup. #}

@@ -401,8 +401,7 @@ body.light-mode .trips-journal-page .sort-control {
   border: 1px solid rgb(var(--trips-primary-rgb) / 24%);
   border-radius: var(--radius-pill);
   background-color: var(--trips-bg-elevated);
-  background-image:
-    linear-gradient(
+  background-image: linear-gradient(
       180deg,
       rgb(var(--trips-primary-rgb) / 7%) 0%,
       rgb(var(--trips-primary-rgb) / 2%) 100%
@@ -424,8 +423,7 @@ body.light-mode .trips-journal-page .sort-control {
 }
 
 body.light-mode .trips-journal-page .sort-select {
-  background-image:
-    linear-gradient(
+  background-image: linear-gradient(
       180deg,
       rgb(var(--trips-primary-rgb) / 9%) 0%,
       rgb(var(--trips-primary-rgb) / 3%) 100%
@@ -1310,6 +1308,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   --btn-border-hover: var(--trips-text-tertiary);
   --btn-color: var(--trips-text-secondary);
   --btn-color-hover: var(--trips-text-primary);
+
   border-width: 2px;
 }
 

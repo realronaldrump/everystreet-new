@@ -156,9 +156,7 @@ export function setupAppSettingsForm() {
   const mapTripsWithinCoverageOnlyToggle = document.getElementById(
     "map-trips-within-coverage-only"
   );
-  const tripLayersUseHeatmapToggle = document.getElementById(
-    "trip-layers-use-heatmap"
-  );
+  const tripLayersUseHeatmapToggle = document.getElementById("trip-layers-use-heatmap");
   const geocodeTripsOnFetch = document.getElementById("geocode-trips-on-fetch");
   const mapMatchTripsOnFetch = document.getElementById("map-match-trips-on-fetch");
   const form = document.getElementById("app-settings-form");

@@ -3,8 +3,8 @@
 import apiClient from "../../core/api-client.js";
 import layerManager from "../../layer-manager.js";
 import mapCore from "../../map-core.js";
-import { getDeviceProfile, getStorage, setStorage } from "../../utils.js";
 import { bearing as computeBearing } from "../../utils/geo-math.js";
+import { getDeviceProfile, getStorage, setStorage } from "../../utils.js";
 import {
   COVERAGE_LAYER_IDS,
   LIVE_TRACKING_DEFAULTS,

@@ -25,7 +25,6 @@ def test_get_incremental_checkpoint_requires_both_caches_and_uses_earliest() -> 
     assert service._get_incremental_checkpoint(None, city_cache) is None
 
 
-
 def test_build_trip_query_uses_invalid_field_and_incremental_markers() -> None:
     baseline_query = service._build_trip_query()
     assert baseline_query["source"] == "bouncie"
@@ -51,7 +50,6 @@ def test_build_trip_query_uses_invalid_field_and_incremental_markers() -> None:
     assert isinstance(object_id_filter["_id"]["$gt"], ObjectId)
 
 
-
 def test_trip_marker_includes_saved_at_and_object_id_generation_time() -> None:
     trip = SimpleNamespace(
         saved_at=datetime(2026, 2, 2, 10, 0, tzinfo=UTC),
@@ -73,7 +71,6 @@ def test_trip_marker_includes_saved_at_and_object_id_generation_time() -> None:
         id=ObjectId.from_datetime(object_id_only_time),
     )
     assert service._trip_marker(id_only_trip) == object_id_only_time
-
 
 
 def test_extract_stop_points_keeps_end_stop_for_round_trip() -> None:
@@ -116,7 +113,5 @@ async def test_get_summary_merges_city_state_totals_with_normalized_fips(
     summary = await service.get_summary()
 
     assert summary["levels"]["city"]["total"] == 5
-    alabama = next(
-        row for row in summary["states"] if row.get("stateFips") == "01"
-    )
+    alabama = next(row for row in summary["states"] if row.get("stateFips") == "01")
     assert alabama["city"]["total"] == 5

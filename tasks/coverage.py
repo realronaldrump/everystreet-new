@@ -130,8 +130,9 @@ async def _sync_geo_coverage_logic() -> dict[str, Any]:
     """
     Incrementally refresh geo coverage explorer caches.
 
-    Uses the persisted last-processed checkpoint and only scans trips newer than
-    that checkpoint unless there is no checkpoint yet (first run).
+    Uses the persisted last-processed checkpoint and only scans trips
+    newer than that checkpoint unless there is no checkpoint yet (first
+    run).
     """
     result = await run_scheduled_recalculate(mode="incremental")
     status = str(result.get("status") or "")
@@ -182,7 +183,8 @@ async def enqueue_geo_coverage_sync_on_trip_ingest(
     """
     Enqueue geo coverage sync immediately after Bouncie trip ingest.
 
-    Uses a short Redis lock to throttle enqueues during large ingest batches.
+    Uses a short Redis lock to throttle enqueues during large ingest
+    batches.
     """
     normalized_source = str(source or "").strip().lower()
     if normalized_source != "bouncie":

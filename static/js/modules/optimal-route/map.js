@@ -40,7 +40,10 @@ export class OptimalRouteMap extends BaseFeatureMap {
         MapStyles.MAP_LAYER_COLORS?.routes?.default,
         "#b87a4a"
       ),
-      arrowStroke: pickColor(MapStyles.MAP_LAYER_COLORS?.googleDefaults?.circleStroke, "#faf9f7"),
+      arrowStroke: pickColor(
+        MapStyles.MAP_LAYER_COLORS?.googleDefaults?.circleStroke,
+        "#faf9f7"
+      ),
     };
 
     this.onLayerReady = options.onLayerReady || (() => {});

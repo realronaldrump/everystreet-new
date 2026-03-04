@@ -1,14 +1,18 @@
 {% extends "base.html" %}
+
 {% from "partials/_map_assets.html" import include_mapbox_css with context %}
 
 {% block title %}
+
 
  Every Street - Map Matching
 {% endblock
 %}
 
 
+
 {% block extra_css %}
+
 
   {{ include_mapbox_css() }}
   <link rel="stylesheet"
@@ -16,12 +20,16 @@
 {% endblock %}
 
 
+
 {% block head_content %}
+
 
 {% endblock %}
 
 
+
 {% block content %}
+
 
   <div class="container-fluid px-4 py-3 map-matching-page">
     <!-- Wizard Shell -->
@@ -523,6 +531,7 @@ Failed Trips
 
   </div>
 {% endblock %}
+
 
 
 

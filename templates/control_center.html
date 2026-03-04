@@ -147,7 +147,9 @@ Manage app settings, operations health, logs, and account tools in one place.
             Key Services
           </h3>
           <div class="control-center-services-grid" id="cc-overview-services">
-            <div class="text-muted small">Loading services...</div>
+            <div class="text-muted small">
+Loading services...
+            </div>
           </div>
         </div>
 
@@ -157,7 +159,9 @@ Manage app settings, operations health, logs, and account tools in one place.
             Recent Failures
           </h3>
           <div id="cc-overview-failures" class="control-center-failures-list">
-            <div class="text-muted small">Loading recent task failures...</div>
+            <div class="text-muted small">
+Loading recent task failures...
+            </div>
           </div>
         </div>
 
@@ -167,9 +171,7 @@ Manage app settings, operations health, logs, and account tools in one place.
             Quick Actions
           </h3>
           <div class="control-center-quick-actions">
-            <button type="button"
-                    class="btn btn-outline-light text-start"
-                    data-open-tab="storage">
+            <button type="button" class="btn btn-outline-light text-start" data-open-tab="storage">
               <i class="fas fa-database me-2"></i> Open Storage Tools
             </button>
             <button type="button" class="btn btn-outline-light text-start" data-open-tab="logs">
@@ -1032,7 +1034,7 @@ Actions
               <div id="mobile-history-page-info" class="small text-muted">
               </div>
               <button class="btn btn-outline-secondary btn-sm" id="mobile-history-next" type="button">
-                                                                                                                                                                                                                                Next <i class="fas fa-chevron-right"></i>
+                                                                                                                                                                                                                                                            Next <i class="fas fa-chevron-right"></i>
             </button>
           </div>
           <div class="table-responsive d-none d-md-block">
@@ -1955,37 +1957,59 @@ No collections available.
                     <div class="stat-label">
                       Total Logs
                     </div>
-                    <div class="stat-value" id="total-count">-</div>
+                    <div class="stat-value" id="total-count">
+-
+                    </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
                   <div class="stat-item">
-                    <div class="stat-label">DEBUG</div>
-                    <div class="stat-value text-secondary" id="debug-count">0</div>
+                    <div class="stat-label">
+DEBUG
+                    </div>
+                    <div class="stat-value text-secondary" id="debug-count">
+0
+                    </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
                   <div class="stat-item">
-                    <div class="stat-label">INFO</div>
-                    <div class="stat-value text-info" id="info-count">0</div>
+                    <div class="stat-label">
+INFO
+                    </div>
+                    <div class="stat-value text-info" id="info-count">
+0
+                    </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
                   <div class="stat-item">
-                    <div class="stat-label">WARNING</div>
-                    <div class="stat-value text-warning" id="warning-count">0</div>
+                    <div class="stat-label">
+WARNING
+                    </div>
+                    <div class="stat-value text-warning" id="warning-count">
+0
+                    </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
                   <div class="stat-item">
-                    <div class="stat-label">ERROR</div>
-                    <div class="stat-value text-danger" id="error-count">0</div>
+                    <div class="stat-label">
+ERROR
+                    </div>
+                    <div class="stat-value text-danger" id="error-count">
+0
+                    </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
                   <div class="stat-item">
-                    <div class="stat-label">CRITICAL</div>
-                    <div class="stat-value text-danger" id="critical-count">0</div>
+                    <div class="stat-label">
+CRITICAL
+                    </div>
+                    <div class="stat-value text-danger" id="critical-count">
+0
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1994,7 +2018,9 @@ No collections available.
 
           <div class="card log-card log-card--filters mb-4">
             <div class="card-header">
-              <h2 class="h5 mb-0">Filters &amp; Actions</h2>
+              <h2 class="h5 mb-0">
+Filters &amp; Actions
+              </h2>
             </div>
             <div class="card-body">
               <div class="row g-3">
@@ -2006,11 +2032,21 @@ No collections available.
                     <option value="">
                       All Levels
                     </option>
-                    <option value="DEBUG">DEBUG</option>
-                    <option value="INFO">INFO</option>
-                    <option value="WARNING">WARNING</option>
-                    <option value="ERROR">ERROR</option>
-                    <option value="CRITICAL">CRITICAL</option>
+                    <option value="DEBUG">
+DEBUG
+                    </option>
+                    <option value="INFO">
+INFO
+                    </option>
+                    <option value="WARNING">
+WARNING
+                    </option>
+                    <option value="ERROR">
+ERROR
+                    </option>
+                    <option value="CRITICAL">
+CRITICAL
+                    </option>
                   </select>
                 </div>
                 <div class="col-md-3">
@@ -2018,11 +2054,21 @@ No collections available.
                     Limit
                   </label>
                   <select id="limit-filter" class="form-select">
-                    <option value="100">100</option>
-                    <option value="250">250</option>
-                    <option value="500" selected>500</option>
-                    <option value="1000">1000</option>
-                    <option value="2500">2500</option>
+                    <option value="100">
+100
+                    </option>
+                    <option value="250">
+250
+                    </option>
+                    <option value="500" selected>
+500
+                    </option>
+                    <option value="1000">
+1000
+                    </option>
+                    <option value="2500">
+2500
+                    </option>
                   </select>
                 </div>
                 <div class="col-md-4">
@@ -2066,7 +2112,9 @@ No collections available.
 
           <div class="card log-card">
             <div class="card-header d-flex justify-content-between align-items-center">
-              <h2 class="h5 mb-0">Log Entries</h2>
+              <h2 class="h5 mb-0">
+Log Entries
+              </h2>
               <small class="text-muted" id="logs-info" aria-live="polite">Loading...</small>
             </div>
             <div class="card-body p-0">
@@ -2075,7 +2123,9 @@ No collections available.
                   <div class="spinner-border text-primary" role="status">
                     <span class="visually-hidden">Loading...</span>
                   </div>
-                  <p class="mt-2">Loading logs...</p>
+                  <p class="mt-2">
+Loading logs...
+                  </p>
                 </div>
               </div>
             </div>
@@ -2101,38 +2151,62 @@ No collections available.
               <div class="row" id="docker-log-stats">
                 <div class="col-6 col-md-2">
                   <div class="stat-item">
-                    <div class="stat-label">Total Lines</div>
-                    <div class="stat-value" id="docker-total-count">-</div>
+                    <div class="stat-label">
+Total Lines
+                    </div>
+                    <div class="stat-value" id="docker-total-count">
+-
+                    </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
                   <div class="stat-item">
-                    <div class="stat-label">DEBUG</div>
-                    <div class="stat-value text-secondary" id="docker-debug-count">0</div>
+                    <div class="stat-label">
+DEBUG
+                    </div>
+                    <div class="stat-value text-secondary" id="docker-debug-count">
+0
+                    </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
                   <div class="stat-item">
-                    <div class="stat-label">INFO</div>
-                    <div class="stat-value text-info" id="docker-info-count">0</div>
+                    <div class="stat-label">
+INFO
+                    </div>
+                    <div class="stat-value text-info" id="docker-info-count">
+0
+                    </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
                   <div class="stat-item">
-                    <div class="stat-label">WARNING</div>
-                    <div class="stat-value text-warning" id="docker-warning-count">0</div>
+                    <div class="stat-label">
+WARNING
+                    </div>
+                    <div class="stat-value text-warning" id="docker-warning-count">
+0
+                    </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
                   <div class="stat-item">
-                    <div class="stat-label">ERROR</div>
-                    <div class="stat-value text-danger" id="docker-error-count">0</div>
+                    <div class="stat-label">
+ERROR
+                    </div>
+                    <div class="stat-value text-danger" id="docker-error-count">
+0
+                    </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
                   <div class="stat-item">
-                    <div class="stat-label">CRITICAL</div>
-                    <div class="stat-value text-danger" id="docker-critical-count">0</div>
+                    <div class="stat-label">
+CRITICAL
+                    </div>
+                    <div class="stat-value text-danger" id="docker-critical-count">
+0
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2141,7 +2215,9 @@ No collections available.
 
           <div class="card log-card mb-4">
             <div class="card-header">
-              <h2 class="h5 mb-0">Filters &amp; Actions</h2>
+              <h2 class="h5 mb-0">
+Filters &amp; Actions
+              </h2>
             </div>
             <div class="card-body">
               <div class="row g-3">
@@ -2161,22 +2237,18 @@ No collections available.
                     <div class="multi-select-dropdown" id="container-select-dropdown">
                       <div class="multi-select-actions p-2 border-bottom">
                         <div class="btn-group w-100 btn-group-sm">
-                          <button type="button"
-                                  class="btn btn-outline-secondary"
-                                  id="docker-select-all">
+                          <button type="button" class="btn btn-outline-secondary" id="docker-select-all">
                             Select All
                           </button>
-                          <button type="button"
-                                  class="btn btn-outline-secondary"
-                                  id="docker-clear-selection">
+                          <button type="button" class="btn btn-outline-secondary" id="docker-clear-selection">
                             Clear
                           </button>
                         </div>
                       </div>
-                      <div class="multi-select-options p-1"
-                           id="container-select-options"
-                           role="listbox">
-                        <div class="text-center p-2 text-muted">Loading...</div>
+                      <div class="multi-select-options p-1" id="container-select-options" role="listbox">
+                        <div class="text-center p-2 text-muted">
+Loading...
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2189,11 +2261,21 @@ No collections available.
                     <option value="">
                       All Levels
                     </option>
-                    <option value="DEBUG">DEBUG</option>
-                    <option value="INFO">INFO</option>
-                    <option value="WARNING">WARNING</option>
-                    <option value="ERROR">ERROR</option>
-                    <option value="CRITICAL">CRITICAL</option>
+                    <option value="DEBUG">
+DEBUG
+                    </option>
+                    <option value="INFO">
+INFO
+                    </option>
+                    <option value="WARNING">
+WARNING
+                    </option>
+                    <option value="ERROR">
+ERROR
+                    </option>
+                    <option value="CRITICAL">
+CRITICAL
+                    </option>
                   </select>
                 </div>
                 <div class="col-md-2">
@@ -2201,12 +2283,24 @@ No collections available.
                     Lines
                   </label>
                   <select id="docker-limit-filter" class="form-select">
-                    <option value="100">100</option>
-                    <option value="250">250</option>
-                    <option value="500" selected>500</option>
-                    <option value="1000">1000</option>
-                    <option value="2500">2500</option>
-                    <option value="5000">5000</option>
+                    <option value="100">
+100
+                    </option>
+                    <option value="250">
+250
+                    </option>
+                    <option value="500" selected>
+500
+                    </option>
+                    <option value="1000">
+1000
+                    </option>
+                    <option value="2500">
+2500
+                    </option>
+                    <option value="5000">
+5000
+                    </option>
                   </select>
                 </div>
                 <div class="col-md-3">
@@ -2217,12 +2311,24 @@ No collections available.
                     <option value="">
                       All time
                     </option>
-                    <option value="5m">Last 5 minutes</option>
-                    <option value="15m">Last 15 minutes</option>
-                    <option value="1h" selected>Last 1 hour</option>
-                    <option value="6h">Last 6 hours</option>
-                    <option value="24h">Last 24 hours</option>
-                    <option value="7d">Last 7 days</option>
+                    <option value="5m">
+Last 5 minutes
+                    </option>
+                    <option value="15m">
+Last 15 minutes
+                    </option>
+                    <option value="1h" selected>
+Last 1 hour
+                    </option>
+                    <option value="6h">
+Last 6 hours
+                    </option>
+                    <option value="24h">
+Last 24 hours
+                    </option>
+                    <option value="7d">
+Last 7 days
+                    </option>
                   </select>
                 </div>
                 <div class="col-md-2 d-flex align-items-end">
@@ -2281,7 +2387,9 @@ No collections available.
 
           <div class="card log-card">
             <div class="card-header d-flex justify-content-between align-items-center">
-              <h2 class="h5 mb-0">Container Logs</h2>
+              <h2 class="h5 mb-0">
+Container Logs
+              </h2>
               <small class="text-muted" id="docker-logs-info" aria-live="polite">
                 Select containers to view logs
               </small>
@@ -2290,7 +2398,9 @@ No collections available.
               <div id="docker-logs-container" class="logs-container">
                 <div class="text-center py-5 text-muted">
                   <i class="fab fa-docker fa-3x mb-3"></i>
-                  <p>Select one or more containers from the list above to view logs.</p>
+                  <p>
+Select one or more containers from the list above to view logs.
+                  </p>
                 </div>
               </div>
             </div>
@@ -2321,9 +2431,7 @@ No collections available.
         <p class="text-muted small">
           Manage Bouncie credentials and Mapbox tokens from the centralized settings hub.
         </p>
-        <button type="button"
-                class="btn btn-primary"
-                data-open-tab="credentials">
+        <button type="button" class="btn btn-primary" data-open-tab="credentials">
           <i class="fas fa-sliders-h"></i> Open Credentials
         </button>
       </div>
@@ -2700,7 +2808,8 @@ Concurrency
                 </div>
                 <div class="trip-import-pipeline-row trip-import-pipeline-row--warn">
                   <span class="trip-import-pipeline-k">Conflicting source</span>
-                  <span class="trip-import-pipeline-v" id="trip-import-count-skipped-conflicting-source">0</span>
+                  <span class="trip-import-pipeline-v"
+                        id="trip-import-count-skipped-conflicting-source">0</span>
                 </div>
               </div>
 

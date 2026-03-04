@@ -1,13 +1,17 @@
 {% extends "base.html" %}
+
 {% from "partials/_map_assets.html" import include_mapbox_css with context %}
 
 {% block title %}
 
+
  Your Trips - Every Street
 {% endblock %}
 
+
 {%
 block extra_css %}
+
 
 <!-- Mapbox GL CSS -->
 {{ include_mapbox_css() }}
@@ -17,11 +21,15 @@ block extra_css %}
       href="{{ url_for('static', path='css/trips.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
+
 {% block head_content %}
+
 
 {% endblock %}
 
+
 {% block content %}
+
 
   <div class="trips-journal-page">
     <!-- Ambient Background -->
@@ -510,6 +518,7 @@ Route
     </div>
   </div>
 {% endblock %}
+
 
 
 {# Page scripts are loaded via route-loader + swup. #}

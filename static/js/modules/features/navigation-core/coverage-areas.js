@@ -29,7 +29,10 @@ export function writeCoverageAreasCache(areas) {
   }
 }
 
-export async function loadCoverageAreasWithCache(fetchCoverageAreas, { force = false } = {}) {
+export async function loadCoverageAreasWithCache(
+  fetchCoverageAreas,
+  { force = false } = {}
+) {
   if (!force) {
     const cached = readCoverageAreasCache();
     if (cached) {

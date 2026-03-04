@@ -79,7 +79,9 @@ export function calculateTripMetrics(features = []) {
         : 0,
     avgStartTime:
       metrics.validStartTimeCount > 0
-        ? dateUtils.formatTimeFromHours(metrics.totalStartHours / metrics.validStartTimeCount)
+        ? dateUtils.formatTimeFromHours(
+            metrics.totalStartHours / metrics.validStartTimeCount
+          )
         : "--:--",
     avgDrivingTime:
       metrics.validDrivingTimeCount > 0

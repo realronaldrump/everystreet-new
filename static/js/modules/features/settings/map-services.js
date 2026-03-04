@@ -8,8 +8,8 @@
 
 import apiClient from "../../core/api-client.js";
 import notificationManager from "../../ui/notifications.js";
-import { escapeHtml } from "../../utils.js";
 import { formatDurationMs } from "../../utils/formatting.js";
+import { escapeHtml } from "../../utils.js";
 
 const MAP_SERVICES_API = "/api/map-services";
 const APP_SETTINGS_API = "/api/app_settings";
@@ -369,7 +369,9 @@ function renderProgressSection(status) {
   const phasePercent = phaseProgress === null ? "—" : `${Math.round(phaseProgress)}%`;
   const startedAt = build.started_at;
   const lastProgressAt = build.last_progress_at || status.last_updated;
-  const elapsed = startedAt ? formatDurationMs(Date.now() - Date.parse(startedAt)) : "—";
+  const elapsed = startedAt
+    ? formatDurationMs(Date.now() - Date.parse(startedAt))
+    : "—";
   const lastUpdate = lastProgressAt ? timeAgo(lastProgressAt) : "—";
   const isStale = lastProgressAt
     ? Date.now() - Date.parse(lastProgressAt) > 90 * 1000
@@ -1025,7 +1027,9 @@ function formatGeoCoverageJobStatus(status, active) {
   if (normalized === "pending") {
     return "Queued";
   }
-  return normalized ? `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}` : "Idle";
+  return normalized
+    ? `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}`
+    : "Idle";
 }
 
 function renderGeoCoverageStatus({ active, job, defaultMode }) {

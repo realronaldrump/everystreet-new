@@ -205,14 +205,11 @@ class AdminService:
             logger.exception("Failed to load database logical size stats")
 
         sources = snapshot.get("sources")
-        has_mongo_volume_size = (
-            isinstance(sources, list)
-            and any(
-                source.get("id") == "mongo_data"
-                and isinstance(source.get("size_bytes"), int)
-                for source in sources
-                if isinstance(source, dict)
-            )
+        has_mongo_volume_size = isinstance(sources, list) and any(
+            source.get("id") == "mongo_data"
+            and isinstance(source.get("size_bytes"), int)
+            for source in sources
+            if isinstance(source, dict)
         )
         if db_logical_bytes is not None and not has_mongo_volume_size:
             if isinstance(sources, list):

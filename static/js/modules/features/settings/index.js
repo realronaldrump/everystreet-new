@@ -17,12 +17,12 @@ import loadingManager from "../../ui/loading-manager.js";
 import notificationManager from "../../ui/notifications.js";
 import { formatDateTime } from "../../utils.js";
 import initServerLogsPage from "../server-logs/index.js";
-import initControlCenterOverview from "./control-center-overview.js";
 import {
   initAppSettings,
   SETTINGS_TAB_CHANGED_EVENT,
   setActiveTab,
 } from "./app-settings.js";
+import initControlCenterOverview from "./control-center-overview.js";
 import { setupCredentialsSettings } from "./credentials-settings.js";
 import { initDatabaseManagement } from "./database-management.js";
 import {

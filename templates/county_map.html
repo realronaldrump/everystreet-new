@@ -1,10 +1,13 @@
 {% extends "base.html" %}
+
 {% from "partials/_map_assets.html" import include_mapbox_css with context %}
 
 {% block title %}
 
+
  Every Street - Coverage Explorer
 {% endblock %}
+
 
 {% block extra_css %}
 
@@ -14,6 +17,7 @@
   <link rel="stylesheet"
         href="{{ url_for('static', path='css/county-map.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
+
 
 {% block content %}
 
@@ -96,7 +100,10 @@ Coverage Explorer
         </div>
 
         <!-- Dynamic level content: populated by JS per active level -->
-        <div class="level-view" id="level-content" role="tabpanel" aria-label="Level details">
+        <div class="level-view"
+             id="level-content"
+             role="tabpanel"
+             aria-label="Level details">
         </div>
 
         <!-- Cache info / recalculate: shared across all levels -->
@@ -134,6 +141,7 @@ Coverage Explorer
     </div>
   </div>
 {% endblock %}
+
 
 
 {# Page scripts are loaded via route-loader + swup. #}

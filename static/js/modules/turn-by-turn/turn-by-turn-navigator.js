@@ -3,6 +3,7 @@
  * Coordinates all turn-by-turn navigation modules
  */
 
+import { loadCoverageAreasWithCache } from "../features/navigation-core/coverage-areas.js";
 import TurnByTurnAPI from "./turn-by-turn-api.js";
 import {
   DISTANCE_THRESHOLDS,
@@ -24,7 +25,6 @@ import TurnByTurnGPS from "./turn-by-turn-gps.js";
 import TurnByTurnMap from "./turn-by-turn-map.js";
 import TurnByTurnState from "./turn-by-turn-state.js";
 import TurnByTurnUI from "./turn-by-turn-ui.js";
-import { loadCoverageAreasWithCache } from "../features/navigation-core/coverage-areas.js";
 
 /**
  * Main turn-by-turn navigator class

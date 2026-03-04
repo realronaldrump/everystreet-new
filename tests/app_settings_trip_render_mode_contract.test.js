@@ -17,16 +17,15 @@ const appSettingsJsPath = path.join(
   "settings",
   "app-settings.js"
 );
-const configJsPath = path.join(
+const configJsPath = path.join(root, "static", "js", "modules", "core", "config.js");
+const baseTemplatePath = path.join(root, "templates", "base.html");
+const appControllerPath = path.join(
   root,
   "static",
   "js",
   "modules",
-  "core",
-  "config.js"
+  "app-controller.js"
 );
-const baseTemplatePath = path.join(root, "templates", "base.html");
-const appControllerPath = path.join(root, "static", "js", "modules", "app-controller.js");
 const layerManagerPath = path.join(root, "static", "js", "modules", "layer-manager.js");
 
 test("settings UI exposes trip/matched render mode toggle", () => {

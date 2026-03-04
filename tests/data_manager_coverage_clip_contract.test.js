@@ -27,10 +27,12 @@ test("data-manager coverage clip wiring is present for trips and matched trips",
     "Expected conditional clip params to be applied when preference + selected area are active"
   );
 
-  const coverageAreaParamHits = (source.match(/params\.set\("coverage_area_id",/g) || [])
-    .length;
-  const clipFlagHits = (source.match(/params\.set\("clip_to_coverage",\s*"true"\)/g) || [])
-    .length;
+  const coverageAreaParamHits = (
+    source.match(/params\.set\("coverage_area_id",/g) || []
+  ).length;
+  const clipFlagHits = (
+    source.match(/params\.set\("clip_to_coverage",\s*"true"\)/g) || []
+  ).length;
 
   assert.ok(
     coverageAreaParamHits >= 2,

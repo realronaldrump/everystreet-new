@@ -1,13 +1,17 @@
 {% extends "base.html" %}
+
 {% from "partials/_map_assets.html" import include_mapbox_css with context %}
 
 {% block title %}
+
 
 Coverage Navigator
 {% endblock %}
 
 
+
 {% block head_content %}
+
 
   <!-- Mapbox GL CSS -->
   {{ include_mapbox_css() }}
@@ -16,7 +20,9 @@ Coverage Navigator
 {% endblock %}
 
 
+
 {% block content %}
+
 
   <div class="coverage-navigator">
     <h1 class="visually-hidden">
@@ -994,6 +1000,7 @@ Legend
     </div>
   </div>
 {% endblock %}
+
 
 
 {# Page scripts are loaded via route-loader + swup. #}

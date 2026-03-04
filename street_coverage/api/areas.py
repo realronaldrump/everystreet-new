@@ -854,7 +854,9 @@ async def trigger_backfill(
 
     try:
         logger.info("Starting backfill for area %s", area.display_name)
-        segments_updated = await backfill_coverage_for_area(area_id, trip_mode=trip_mode)
+        segments_updated = await backfill_coverage_for_area(
+            area_id, trip_mode=trip_mode
+        )
     except Exception as e:
         logger.exception("Error during backfill for area %s", area.display_name)
         raise HTTPException(

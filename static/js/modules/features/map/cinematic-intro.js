@@ -135,7 +135,11 @@ export function shouldRunCinematicIntro({ map, config = getCinematicConfig() } =
     return false;
   }
 
-  if (!map || typeof map.easeTo !== "function" || typeof map.setBearing !== "function") {
+  if (
+    !map ||
+    typeof map.easeTo !== "function" ||
+    typeof map.setBearing !== "function"
+  ) {
     return false;
   }
 

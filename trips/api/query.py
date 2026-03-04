@@ -42,7 +42,9 @@ def _parse_bool_query_value(value: str | None) -> bool:
 
 
 async def _resolve_coverage_clip_context(request: Request) -> CoverageClipContext:
-    clip_requested = _parse_bool_query_value(request.query_params.get("clip_to_coverage"))
+    clip_requested = _parse_bool_query_value(
+        request.query_params.get("clip_to_coverage")
+    )
     area_id = str(request.query_params.get("coverage_area_id") or "").strip()
     area = None
     if clip_requested and not area_id:
@@ -119,7 +121,8 @@ async def get_matched_trips(request: Request):
         coverage_distance_miles = None
         if coverage_clip.enabled:
             clipped_geom, coverage_distance_miles = clip_geojson_lines(
-                matched_geom, coverage_clip,
+                matched_geom,
+                coverage_clip,
             )
             if clipped_geom is None:
                 return None
@@ -237,7 +240,8 @@ async def get_trips(request: Request):
 
         if coverage_clip.enabled:
             clipped_geom, coverage_distance_miles = clip_geojson_lines(
-                final_geom, coverage_clip,
+                final_geom,
+                coverage_clip,
             )
             if clipped_geom is None:
                 return None

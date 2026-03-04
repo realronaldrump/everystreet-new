@@ -224,8 +224,8 @@ def extract_line_sequences(
     """
     Extract normalized line coordinate sequences from GeoJSON geometry.
 
-    Returns a list of coordinate lists. For Point geometry, returns a single
-    one-point sequence only when include_point=True.
+    Returns a list of coordinate lists. For Point geometry, returns a
+    single one-point sequence only when include_point=True.
     """
     if not isinstance(geometry, dict):
         return []

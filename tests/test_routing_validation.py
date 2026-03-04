@@ -82,7 +82,9 @@ def test_validate_route_deadhead_ratio_errors_for_large_required_work() -> None:
     assert any("Deadhead ratio" in msg for msg in errors)
 
 
-def test_validate_route_deadhead_ratio_downgrades_to_warning_with_connectivity_signals() -> None:
+def test_validate_route_deadhead_ratio_downgrades_to_warning_with_connectivity_signals() -> (
+    None
+):
     stats = {
         "required_distance": 6_000.0,
         "required_distance_completed": 6_000.0,

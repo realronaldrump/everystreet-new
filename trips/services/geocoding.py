@@ -7,10 +7,7 @@ from typing import Any, cast
 
 from shapely.geometry import Point
 
-from core.http.nominatim import (
-    get_empty_location_schema,
-    parse_geocode_response,
-)
+from core.http.nominatim import get_empty_location_schema, parse_geocode_response
 from core.mapping.factory import get_geocoder
 from db import Place
 from map_data.models import GeoServiceHealth
@@ -124,11 +121,9 @@ class TripGeocoder:
                         service_marked_unhealthy=not nominatim_available,
                     )
                     if rev_start:
-                        processed_data["startLocation"] = (
-                            parse_geocode_response(
-                                rev_start,
-                                start_coord,
-                            )
+                        processed_data["startLocation"] = parse_geocode_response(
+                            rev_start,
+                            start_coord,
                         )
 
             if self._needs_geocode(processed_data.get("destination")):
@@ -158,11 +153,9 @@ class TripGeocoder:
                         service_marked_unhealthy=not nominatim_available,
                     )
                     if rev_end:
-                        processed_data["destination"] = (
-                            parse_geocode_response(
-                                rev_end,
-                                end_coord,
-                            )
+                        processed_data["destination"] = parse_geocode_response(
+                            rev_end,
+                            end_coord,
                         )
                     elif nominatim_available:
                         logger.warning(

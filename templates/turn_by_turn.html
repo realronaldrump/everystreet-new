@@ -1,10 +1,13 @@
 {% extends "base.html" %}
+
 {% from "partials/_map_assets.html" import include_mapbox_css with context %}
 
 {% block title %}
 
+
  Turn-by-Turn Navigation
 {% endblock %}
+
 
 {%
 block head_content %}
@@ -14,6 +17,7 @@ block head_content %}
 <link rel="stylesheet"
       href="{{ url_for('static', path='css/features/navigation/index.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
+
 
 
 {% block content %}
@@ -322,6 +326,7 @@ Select a coverage area...
     </div>
   </div>
 {% endblock %}
+
 
 
 {# Page scripts are loaded via route-loader + swup. #}

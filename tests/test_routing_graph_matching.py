@@ -62,7 +62,9 @@ def test_prepare_spatial_matching_graph_keeps_projected_graph() -> None:
     assert y > 100_000.0
 
 
-def test_prepare_spatial_matching_graph_projects_edge_geometry_when_missing_simplified_flag() -> None:
+def test_prepare_spatial_matching_graph_projects_edge_geometry_when_missing_simplified_flag() -> (
+    None
+):
     G = nx.MultiDiGraph()
     G.graph["crs"] = "EPSG:4326"
     # Intentionally omit G.graph["simplified"] to reproduce OSMnx behavior where

@@ -3,14 +3,14 @@
  * Domain-specific geo helpers built on shared geo-math primitives.
  */
 
-import { distanceInUserUnits } from "../utils.js";
 import {
-  angleDelta,
   bearing as _bearing,
+  angleDelta,
   haversineDistance,
   projectToSegment,
   toXY,
 } from "../utils/geo-math.js";
+import { distanceInUserUnits } from "../utils.js";
 import {
   INSTRUCTION_LABELS,
   TURN_ANGLE_THRESHOLDS,

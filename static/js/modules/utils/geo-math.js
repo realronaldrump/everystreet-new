@@ -46,7 +46,8 @@ export function bearing(lat1, lon1, lat2, lon2) {
   const dLon = toRad(lon2 - lon1);
   const y = Math.sin(dLon) * Math.cos(rLat2);
   const x =
-    Math.cos(rLat1) * Math.sin(rLat2) - Math.sin(rLat1) * Math.cos(rLat2) * Math.cos(dLon);
+    Math.cos(rLat1) * Math.sin(rLat2) -
+    Math.sin(rLat1) * Math.cos(rLat2) * Math.cos(dLon);
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 

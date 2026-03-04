@@ -75,7 +75,9 @@ const getCSSVariable = (varName, fallback = "") => {
   if (!CAN_READ_DOCUMENT) {
     return fallback;
   }
-  const value = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  const value = getComputedStyle(document.documentElement)
+    .getPropertyValue(varName)
+    .trim();
   return value || fallback;
 };
 
@@ -84,16 +86,25 @@ const buildMapLayerColors = () => ({
     default: getCSSVariable("--primary", DEFAULT_MAP_LAYER_COLORS.trips.default),
     selected: getCSSVariable("--accent", DEFAULT_MAP_LAYER_COLORS.trips.selected),
     recent: {
-      light: getCSSVariable("--accent-light", DEFAULT_MAP_LAYER_COLORS.trips.recentLight),
+      light: getCSSVariable(
+        "--accent-light",
+        DEFAULT_MAP_LAYER_COLORS.trips.recentLight
+      ),
       dark: getCSSVariable("--accent", DEFAULT_MAP_LAYER_COLORS.trips.recentDark),
     },
   },
   matchedTrips: {
     default: getCSSVariable("--danger", DEFAULT_MAP_LAYER_COLORS.matchedTrips.default),
-    highlight: getCSSVariable("--primary-light", DEFAULT_MAP_LAYER_COLORS.matchedTrips.highlight),
+    highlight: getCSSVariable(
+      "--primary-light",
+      DEFAULT_MAP_LAYER_COLORS.matchedTrips.highlight
+    ),
   },
   streets: {
-    undriven: getCSSVariable("--color-undriven", DEFAULT_MAP_LAYER_COLORS.streets.undriven),
+    undriven: getCSSVariable(
+      "--color-undriven",
+      DEFAULT_MAP_LAYER_COLORS.streets.undriven
+    ),
     driven: getCSSVariable("--success", DEFAULT_MAP_LAYER_COLORS.streets.driven),
     all: getCSSVariable("--primary-light", DEFAULT_MAP_LAYER_COLORS.streets.all),
   },
@@ -109,23 +120,41 @@ const buildMapLayerColors = () => ({
   },
   coverage: {
     driven: getCSSVariable("--success", DEFAULT_MAP_LAYER_COLORS.coverage.driven),
-    undriven: getCSSVariable("--color-undriven", DEFAULT_MAP_LAYER_COLORS.coverage.undriven),
-    undriveable: getCSSVariable("--secondary", DEFAULT_MAP_LAYER_COLORS.coverage.undriveable),
+    undriven: getCSSVariable(
+      "--color-undriven",
+      DEFAULT_MAP_LAYER_COLORS.coverage.undriven
+    ),
+    undriveable: getCSSVariable(
+      "--secondary",
+      DEFAULT_MAP_LAYER_COLORS.coverage.undriveable
+    ),
   },
   customPlaces: {
     fill: getCSSVariable("--primary", DEFAULT_MAP_LAYER_COLORS.customPlaces.fill),
-    outline: getCSSVariable("--primary-dark", DEFAULT_MAP_LAYER_COLORS.customPlaces.outline),
-    highlight: getCSSVariable("--accent", DEFAULT_MAP_LAYER_COLORS.customPlaces.highlight),
+    outline: getCSSVariable(
+      "--primary-dark",
+      DEFAULT_MAP_LAYER_COLORS.customPlaces.outline
+    ),
+    highlight: getCSSVariable(
+      "--accent",
+      DEFAULT_MAP_LAYER_COLORS.customPlaces.highlight
+    ),
   },
   optimalRoute: {
     driven: getCSSVariable("--success", DEFAULT_MAP_LAYER_COLORS.optimalRoute.driven),
-    undriven: getCSSVariable("--color-undriven", DEFAULT_MAP_LAYER_COLORS.optimalRoute.undriven),
+    undriven: getCSSVariable(
+      "--color-undriven",
+      DEFAULT_MAP_LAYER_COLORS.optimalRoute.undriven
+    ),
     route: getCSSVariable("--accent-dark", DEFAULT_MAP_LAYER_COLORS.optimalRoute.route),
     arrow: getCSSVariable("--accent-dark", DEFAULT_MAP_LAYER_COLORS.optimalRoute.arrow),
   },
   googleDefaults: {
     line: getCSSVariable("--accent", DEFAULT_MAP_LAYER_COLORS.googleDefaults.line),
-    circle: getCSSVariable("--accent-dark", DEFAULT_MAP_LAYER_COLORS.googleDefaults.circle),
+    circle: getCSSVariable(
+      "--accent-dark",
+      DEFAULT_MAP_LAYER_COLORS.googleDefaults.circle
+    ),
     circleStroke: getCSSVariable(
       "--surface-1",
       DEFAULT_MAP_LAYER_COLORS.googleDefaults.circleStroke
@@ -137,10 +166,22 @@ const buildMapLayerColors = () => ({
     ),
   },
   county: {
-    visitedFill: getCSSVariable("--success", DEFAULT_MAP_LAYER_COLORS.county.visitedFill),
-    visitedBorder: getCSSVariable("--success-dark", DEFAULT_MAP_LAYER_COLORS.county.visitedBorder),
-    stoppedFill: getCSSVariable("--danger", DEFAULT_MAP_LAYER_COLORS.county.stoppedFill),
-    stoppedBorder: getCSSVariable("--danger-dark", DEFAULT_MAP_LAYER_COLORS.county.stoppedBorder),
+    visitedFill: getCSSVariable(
+      "--success",
+      DEFAULT_MAP_LAYER_COLORS.county.visitedFill
+    ),
+    visitedBorder: getCSSVariable(
+      "--success-dark",
+      DEFAULT_MAP_LAYER_COLORS.county.visitedBorder
+    ),
+    stoppedFill: getCSSVariable(
+      "--danger",
+      DEFAULT_MAP_LAYER_COLORS.county.stoppedFill
+    ),
+    stoppedBorder: getCSSVariable(
+      "--danger-dark",
+      DEFAULT_MAP_LAYER_COLORS.county.stoppedBorder
+    ),
     hoverFill: getCSSVariable("--surface-1", DEFAULT_MAP_LAYER_COLORS.county.hoverFill),
     borderCounty: DEFAULT_MAP_LAYER_COLORS.county.borderCounty,
     borderCity: DEFAULT_MAP_LAYER_COLORS.county.borderCity,

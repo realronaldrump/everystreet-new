@@ -6,6 +6,7 @@
  * annotations from the API drive realistic pacing.
  */
 
+import { bearing, M_TO_MI, MPS_TO_MPH } from "../../utils/geo-math.js";
 import {
   buildTripDataPayload,
   buildTripEndPayload,
@@ -15,7 +16,6 @@ import {
   sendWebhookPayload,
 } from "./payloads.js";
 import { enableRoutePickerMode, fetchPresetRoute, getPresetRoutes } from "./routes.js";
-import { bearing, MPS_TO_MPH, M_TO_MI } from "../../utils/geo-math.js";
 
 // ---------------------------------------------------------------------------
 // Configuration defaults

@@ -457,7 +457,11 @@ def _trip_to_matched_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
     if not matched_lines:
         return None
 
-    segments = [LineString(line_coords) for line_coords in matched_lines if len(line_coords) >= 2]
+    segments = [
+        LineString(line_coords)
+        for line_coords in matched_lines
+        if len(line_coords) >= 2
+    ]
     if not segments:
         return None
     return segments[0] if len(segments) == 1 else MultiLineString(segments)
@@ -534,9 +538,9 @@ def _should_check_bearing(is_map_matched: bool) -> bool:
     """
     Return whether bearing alignment should be enforced for this candidate.
 
-    Map-matched geometry is already snapped to the road network; applying a
-    whole-trip bearing filter can incorrectly reject valid turns on the same
-    trip. Keep bearing checks for raw GPS traces only.
+    Map-matched geometry is already snapped to the road network;
+    applying a whole-trip bearing filter can incorrectly reject valid
+    turns on the same trip. Keep bearing checks for raw GPS traces only.
     """
     return not is_map_matched
 
@@ -561,7 +565,9 @@ async def match_trip_to_streets(
         logger.warning("Trip has no valid geometry, skipping matching")
         return {}
 
-    if selected_mode != "matched" and all(not is_map_matched for _, is_map_matched in trip_candidates):
+    if selected_mode != "matched" and all(
+        not is_map_matched for _, is_map_matched in trip_candidates
+    ):
         logger.warning(
             "Trip using raw GPS fallback for coverage matching "
             "(map matching unavailable) — results may be less accurate"

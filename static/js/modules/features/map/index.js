@@ -200,8 +200,8 @@ export default function initMapPage({ signal, cleanup } = {}) {
       }
       try {
         const { BouncieSimulator } = await import("../simulator/index.js");
-        const mapInstance = store.map || window.map;
-        simulator = new BouncieSimulator(mapInstance);
+        const simulatorMapInstance = store.map || window.map;
+        simulator = new BouncieSimulator(simulatorMapInstance);
         simulator.show();
         registerCleanup(() => {
           simulator.destroy();

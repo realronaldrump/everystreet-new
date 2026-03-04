@@ -48,7 +48,6 @@ let explorerChartHour = null;
 let explorerChartDay = null;
 
 /* ───── helpers ───── */
-const withSignal = (o = {}) => featureApi.withSignal(o);
 const apiGet = (u, o = {}) => featureApi.get(u, o);
 const apiPost = (u, b, o = {}) => featureApi.post(u, b, o);
 const apiPatch = (u, b, o = {}) => featureApi.patch(u, b, o);

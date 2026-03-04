@@ -56,8 +56,9 @@ def _derive_explicit_gap_indices_from_edges(
     """
     Find route coordinate boundaries where edge traversal is discontinuous.
 
-    A discontinuity is any consecutive edge pair where prev.v != next.u, which
-    indicates the solver teleported between network islands/components.
+    A discontinuity is any consecutive edge pair where prev.v != next.u,
+    which indicates the solver teleported between network
+    islands/components.
     """
     if not route_edges or len(route_edges) < 2 or route_coord_count < 2:
         return []

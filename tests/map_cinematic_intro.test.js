@@ -129,7 +129,11 @@ async function waitFor(predicate, timeoutMs = 400) {
   return false;
 }
 
-function setupGlobals({ reducedMotion = false, coarsePointer = false, width = 1280 } = {}) {
+function setupGlobals({
+  reducedMotion = false,
+  coarsePointer = false,
+  width = 1280,
+} = {}) {
   const windowTarget = createEventTarget();
   global.window = {
     MAP_PROVIDER: "self_hosted",

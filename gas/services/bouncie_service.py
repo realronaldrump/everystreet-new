@@ -61,13 +61,17 @@ class BouncieService:
                         return None
                     continue
                 except BouncieRateLimitError as exc:
-                    logger.warning("Bouncie API rate limited for IMEI %s: %s", imei, exc)
+                    logger.warning(
+                        "Bouncie API rate limited for IMEI %s: %s", imei, exc
+                    )
                     if attempt > 0:
                         return None
                     await asyncio.sleep(1)
                     continue
                 except BouncieApiError as exc:
-                    logger.warning("Bouncie vehicles API failed for IMEI %s: %s", imei, exc)
+                    logger.warning(
+                        "Bouncie vehicles API failed for IMEI %s: %s", imei, exc
+                    )
                     return None
 
                 if not vehicle:

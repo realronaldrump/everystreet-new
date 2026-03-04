@@ -2,9 +2,9 @@ import apiClient from "../core/api-client.js";
 import store from "../core/store.js";
 import { getStorage, setStorage } from "./data.js";
 import {
-  formatDateToString,
   formatDuration as _formatDuration,
   formatDurationMs as _formatDurationMs,
+  formatDateToString,
   formatForDisplay,
   formatSecondsToHMS,
   formatTimeAgo,

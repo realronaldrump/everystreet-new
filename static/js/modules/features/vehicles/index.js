@@ -1,7 +1,7 @@
 import apiClient from "../../core/api-client.js";
 import { createFeatureApi } from "../../core/feature-api.js";
-import { createViewStateController } from "../../core/view-state.js";
 import store from "../../core/store.js";
+import { createViewStateController } from "../../core/view-state.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import { notify } from "../../ui/notifications.js";
 import {

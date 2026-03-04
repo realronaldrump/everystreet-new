@@ -8,7 +8,9 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-def topojson_to_geojson(topology: dict[str, Any], object_name: str) -> list[dict[str, Any]]:
+def topojson_to_geojson(
+    topology: dict[str, Any], object_name: str
+) -> list[dict[str, Any]]:
     """
     Convert a TopoJSON object into GeoJSON features.
 

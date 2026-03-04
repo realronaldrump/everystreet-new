@@ -46,7 +46,8 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.rounded, .rounded-3 {
+.rounded,
+.rounded-3 {
   border-radius: var(--radius-lg) !important;
 }
 
@@ -280,7 +281,16 @@ body.light-mode .legend-indicator--undriven {
     line-height: 1.4;
   }
 
-  .app-header, .mobile-nav-drawer, .side-panel, .tools-section, .menu-toggle-btn, .notification-container, .loading-overlay, .control-panel, .btn, #map-controls /* Hide specific map controls panel if it's different */ {
+  .app-header,
+  .mobile-nav-drawer,
+  .side-panel,
+  .tools-section,
+  .menu-toggle-btn,
+  .notification-container,
+  .loading-overlay,
+  .control-panel,
+  .btn,
+  #map-controls /* Hide specific map controls panel if it's different */ {
     display: none;
   }
 

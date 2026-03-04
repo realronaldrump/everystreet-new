@@ -17,14 +17,7 @@ const appSettingsJsPath = path.join(
   "settings",
   "app-settings.js"
 );
-const configJsPath = path.join(
-  root,
-  "static",
-  "js",
-  "modules",
-  "core",
-  "config.js"
-);
+const configJsPath = path.join(root, "static", "js", "modules", "core", "config.js");
 const baseTemplatePath = path.join(root, "templates", "base.html");
 
 test("settings UI exposes coverage-scoped trip rendering toggle", () => {

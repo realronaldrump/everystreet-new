@@ -180,12 +180,7 @@ function buildCityFillOpacityExpression(showStoppedCities) {
     ];
   }
 
-  return [
-    "case",
-    ["boolean", ["feature-state", "visited"], false],
-    0.8,
-    0.35,
-  ];
+  return ["case", ["boolean", ["feature-state", "visited"], false], 0.8, 0.35];
 }
 
 function buildCityBorderColorExpression(showStoppedCities) {
@@ -220,12 +215,7 @@ function buildCityBorderWidthExpression(showStoppedCities) {
     ];
   }
 
-  return [
-    "case",
-    ["boolean", ["feature-state", "visited"], false],
-    0.95,
-    0.6,
-  ];
+  return ["case", ["boolean", ["feature-state", "visited"], false], 0.95, 0.6];
 }
 
 function applyCountyLayerPaint(map, showStoppedCounties) {

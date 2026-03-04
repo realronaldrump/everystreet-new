@@ -43,7 +43,9 @@ async def test_sse_event_stream_emits_named_events_and_stops_on_terminal() -> No
         frame
         async for frame in sse_event_stream(
             fetch_fn,
-            event_name_fn=lambda state: "done" if state["status"] == "completed" else "progress",
+            event_name_fn=lambda state: (
+                "done" if state["status"] == "completed" else "progress"
+            ),
             poll_interval=0,
             max_polls=10,
             keepalive_every=10,
@@ -109,7 +111,9 @@ async def test_sse_queue_stream_emits_heartbeat_then_terminal_event() -> None:
 
 
 @pytest.mark.asyncio
-async def test_stream_geojson_feature_collection_skips_none_and_transform_errors() -> None:
+async def test_stream_geojson_feature_collection_skips_none_and_transform_errors() -> (
+    None
+):
     docs = [
         {"id": 1, "ok": True},
         {"id": 2, "ok": False},

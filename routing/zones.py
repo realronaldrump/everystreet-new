@@ -204,7 +204,8 @@ def solve_zones(
     """
     Solve each zone independently and stitch results together.
 
-    Returns combined (route_coords, stats, route_edges, service_sequence).
+    Returns combined (route_coords, stats, route_edges,
+    service_sequence).
     """
     all_coords: list[list[float]] = []
     all_route_edges: list[EdgeRef] = []

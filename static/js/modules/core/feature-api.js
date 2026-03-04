@@ -47,7 +47,7 @@ export function createFeatureApi({ signal = null } = {}) {
 
     rawText: async (url, options = {}) => {
       const response = await apiClient.raw(url, withSignal(signal, options));
-      return parseRawResponse(response, async (res) => res.text());
+      return parseRawResponse(response, (res) => res.text());
     },
   };
 }
