@@ -154,3 +154,60 @@ async def test_nominatim_reverse_raises_on_error(
         await client.reverse(31.5, -97.1)
 
     assert "Nominatim reverse" in raised.value.message
+
+
+@pytest.mark.asyncio
+async def test_nominatim_reverse_raises_on_unexpected_payload_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    response = FakeResponse(status=200, json_data=["unexpected"])
+    session = FakeSession(get_responses=[response])
+    monkeypatch.setattr(
+        "core.http.nominatim.get_session",
+        AsyncMock(return_value=session),
+    )
+
+    client = NominatimClient()
+
+    with pytest.raises(ExternalServiceException) as raised:
+        await client.reverse(31.5, -97.1)
+
+    assert "unexpected response" in raised.value.message.lower()
+
+
+@pytest.mark.asyncio
+async def test_validate_location_returns_none_when_no_results() -> None:
+    client = NominatimClient()
+    client.search_raw = AsyncMock(return_value=[])
+
+    result = await client.validate_location("Austin", "city")
+
+    assert result is None
+    client.search_raw.assert_awaited_once_with(
+        query="Austin",
+        limit=1,
+        polygon_geojson=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_validate_location_filters_non_matching_type() -> None:
+    client = NominatimClient()
+    client.search_raw = AsyncMock(
+        return_value=[{"type": "village", "source": "nominatim"}],
+    )
+
+    result = await client.validate_location("Austin", "city")
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_validate_location_allows_google_source_even_with_type_mismatch() -> None:
+    client = NominatimClient()
+    payload = {"type": "establishment", "source": "google", "display_name": "Some Place"}
+    client.search_raw = AsyncMock(return_value=[payload])
+
+    result = await client.validate_location("Some Place", "city")
+
+    assert result == payload

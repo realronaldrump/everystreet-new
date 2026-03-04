@@ -15,25 +15,7 @@ import {
   sendWebhookPayload,
 } from "./payloads.js";
 import { enableRoutePickerMode, fetchPresetRoute, getPresetRoutes } from "./routes.js";
-
-// ---------------------------------------------------------------------------
-// Geometry helpers
-// ---------------------------------------------------------------------------
-
-const DEG2RAD = Math.PI / 180;
-const RAD2DEG = 180 / Math.PI;
-const MPS_TO_MPH = 2.23694;
-const M_TO_MI = 0.000621371;
-
-/** Bearing from A→B in degrees [0, 360). */
-function bearing(lat1, lon1, lat2, lon2) {
-  const dLon = (lon2 - lon1) * DEG2RAD;
-  const y = Math.sin(dLon) * Math.cos(lat2 * DEG2RAD);
-  const x =
-    Math.cos(lat1 * DEG2RAD) * Math.sin(lat2 * DEG2RAD) -
-    Math.sin(lat1 * DEG2RAD) * Math.cos(lat2 * DEG2RAD) * Math.cos(dLon);
-  return (Math.atan2(y, x) * RAD2DEG + 360) % 360;
-}
+import { bearing, MPS_TO_MPH, M_TO_MI } from "../../utils/geo-math.js";
 
 // ---------------------------------------------------------------------------
 // Configuration defaults

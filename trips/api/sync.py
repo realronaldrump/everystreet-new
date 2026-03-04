@@ -2,20 +2,18 @@
 
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
 from datetime import UTC, datetime
 from typing import Annotated
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, status
-from fastapi.responses import StreamingResponse
 
 from core.api import api_route
 from core.date_utils import parse_timestamp
 from core.job_serialization import serialize_job_payload
 from core.jobs import JobHandle
+from core.streaming import sse_event_stream, sse_response
 from db.models import Job, TaskHistory
 from tasks.config import update_task_history_entry
 from tasks.ops import abort_job
@@ -71,34 +69,13 @@ async def update_trip_sync_config(payload: TripSyncConfigUpdate):
 @api_route(logger)
 async def stream_trip_sync_updates():
     """Stream trip sync updates via SSE."""
-
-    async def event_generator():
-        last_payload = None
-        poll_count = 0
-        max_polls = 3600
-
-        while poll_count < max_polls:
-            poll_count += 1
-            try:
-                payload = await TripSyncService.get_sync_status()
-                payload_json = json.dumps(payload, default=str)
-                if payload_json != last_payload:
-                    yield f"data: {payload_json}\n\n"
-                    last_payload = payload_json
-                elif poll_count % 7 == 0:
-                    yield ": keepalive\n\n"
-                await asyncio.sleep(2)
-            except Exception:
-                logger.exception("Error streaming trip sync status")
-                await asyncio.sleep(2)
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        },
+    return sse_response(
+        sse_event_stream(
+            TripSyncService.get_sync_status,
+            is_terminal=lambda _: False,
+            poll_interval=2,
+            keepalive_every=7,
+        ),
     )
 
 
@@ -165,42 +142,35 @@ async def get_trip_history_import_status(progress_job_id: PydanticObjectId):
 async def stream_trip_history_import_status(progress_job_id: PydanticObjectId):
     """Stream history import progress via SSE."""
 
-    async def event_generator():
-        last_payload = None
-        poll_count = 0
-        max_polls = 3600  # 1 hour at 1 second intervals
+    async def fetch():
+        job = await Job.get(progress_job_id)
+        if not job or job.job_type != "trip_history_import":
+            return {"_status": "not_found"}
+        return _job_payload(job)
 
-        while poll_count < max_polls:
-            poll_count += 1
-            try:
-                job = await Job.get(progress_job_id)
-                if not job:
-                    yield "data: {}\n\n"
-                    return
+    def serialize(payload: dict[str, object]) -> dict[str, object]:
+        if payload.get("_status") == "not_found":
+            return {}
+        return payload
 
-                payload = _job_payload(job)
-                payload_json = json.dumps(payload, default=str)
-                if payload_json != last_payload:
-                    yield f"data: {payload_json}\n\n"
-                    last_payload = payload_json
-                elif poll_count % 10 == 0:
-                    yield ": keepalive\n\n"
+    def is_terminal(payload: dict[str, object]) -> bool:
+        status_value = str(payload.get("_status") or payload.get("status") or "")
+        return status_value.lower() in {
+            "not_found",
+            "completed",
+            "failed",
+            "cancelled",
+            "error",
+        }
 
-                if job.status in {"completed", "failed", "cancelled"}:
-                    return
-
-                await asyncio.sleep(1)
-            except Exception:
-                logger.exception("Error streaming history import status")
-                await asyncio.sleep(1)
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        },
+    return sse_response(
+        sse_event_stream(
+            fetch,
+            is_terminal=is_terminal,
+            serialize_fn=serialize,
+            poll_interval=1,
+            keepalive_every=10,
+        ),
     )
 
 

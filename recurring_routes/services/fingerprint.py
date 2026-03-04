@@ -14,7 +14,11 @@ from collections.abc import Sequence
 from typing import Any
 
 from core.preview_path import build_line_preview_svg_path
-from core.spatial import GeometryService, extract_line_sequences, normalize_coordinate_list
+from core.spatial import (
+    GeometryService,
+    extract_line_sequences,
+    normalize_coordinate_list,
+)
 
 logger = logging.getLogger(__name__)
 

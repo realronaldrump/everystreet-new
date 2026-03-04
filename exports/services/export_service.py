@@ -24,6 +24,7 @@ from core.spatial import (
     GeometryService,
     extract_timestamps_for_coordinates,
 )
+from core.trip_query_spec import TripQuerySpec
 from db import CoverageArea, CoverageState, Street, Trip
 from db.models import Job
 from exports.constants import (
@@ -47,7 +48,6 @@ from exports.services.export_writer import (
     write_gpx_tracks,
     write_json_array,
 )
-from core.trip_query_spec import TripQuerySpec
 
 if TYPE_CHECKING:
     from exports.models import ExportItem, ExportRequest

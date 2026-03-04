@@ -7,7 +7,11 @@ from typing import Any, cast
 
 from shapely.geometry import Point
 
-from core.clients.nominatim import GeocodingService, get_empty_location_schema
+from core.http.nominatim import (
+    get_empty_location_schema,
+    parse_geocode_response,
+)
+from core.mapping.factory import get_geocoder
 from db import Place
 from map_data.models import GeoServiceHealth
 
@@ -17,12 +21,18 @@ logger = logging.getLogger(__name__)
 class TripGeocoder:
     """Handles geocoding for trip start and end points."""
 
-    def __init__(self, geocoding_service: GeocodingService | None = None) -> None:
-        self.geocoding_service = geocoding_service or GeocodingService()
+    def __init__(self, geocoder: Any | None = None) -> None:
+        self._injected_geocoder = geocoder
+
+    async def _get_geocoder(self) -> Any:
+        if self._injected_geocoder is not None:
+            return self._injected_geocoder
+        return await get_geocoder()
 
     async def _reverse_geocode_safe(
         self,
         *,
+        geocoder: Any,
         lat: float,
         lon: float,
         transaction_id: str,
@@ -30,7 +40,7 @@ class TripGeocoder:
         service_marked_unhealthy: bool,
     ) -> dict[str, Any] | None:
         try:
-            return await self.geocoding_service.reverse_geocode(lat, lon)
+            return await geocoder.reverse(lat, lon)
         except Exception as exc:
             if service_marked_unhealthy:
                 logger.debug(
@@ -81,6 +91,13 @@ class TripGeocoder:
 
             health = await GeoServiceHealth.get_or_create()
             nominatim_available = health.nominatim_healthy
+            geocoder: Any | None = None
+
+            async def resolve_geocoder() -> Any:
+                nonlocal geocoder
+                if geocoder is None:
+                    geocoder = await self._get_geocoder()
+                return geocoder
 
             if self._needs_geocode(processed_data.get("startLocation")):
                 start_place = await self.get_place_at_point(start_pt)
@@ -99,6 +116,7 @@ class TripGeocoder:
                     processed_data["startPlaceId"] = str(getattr(place_obj, "id", ""))
                 else:
                     rev_start = await self._reverse_geocode_safe(
+                        geocoder=await resolve_geocoder(),
                         lat=start_coord[1],
                         lon=start_coord[0],
                         transaction_id=transaction_id,
@@ -107,7 +125,7 @@ class TripGeocoder:
                     )
                     if rev_start:
                         processed_data["startLocation"] = (
-                            self.geocoding_service.parse_geocode_response(
+                            parse_geocode_response(
                                 rev_start,
                                 start_coord,
                             )
@@ -132,6 +150,7 @@ class TripGeocoder:
                     )
                 else:
                     rev_end = await self._reverse_geocode_safe(
+                        geocoder=await resolve_geocoder(),
                         lat=end_coord[1],
                         lon=end_coord[0],
                         transaction_id=transaction_id,
@@ -140,7 +159,7 @@ class TripGeocoder:
                     )
                     if rev_end:
                         processed_data["destination"] = (
-                            self.geocoding_service.parse_geocode_response(
+                            parse_geocode_response(
                                 rev_end,
                                 end_coord,
                             )

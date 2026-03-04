@@ -6,6 +6,7 @@ import {
   saveBouncieCredentials as saveBouncieCredentialsShared,
 } from "../../settings/credentials.js";
 import notificationManager from "../../ui/notifications.js";
+import { formatDurationFromHours } from "../../utils/formatting.js";
 import { getBouncieFormValues } from "./steps/bouncie.js";
 import { readJsonResponse, responseErrorMessage } from "./validation.js";
 
@@ -1160,7 +1161,7 @@ function updateSelectionSummary() {
   const timeEl = document.getElementById("coverage-time-estimate");
   if (timeEl) {
     const hours = totalSize / 500;
-    timeEl.textContent = formatDuration(hours);
+    timeEl.textContent = formatDurationFromHours(hours);
   }
 
   // Hidden review elements (backward compat)
@@ -1171,7 +1172,7 @@ function updateSelectionSummary() {
   const timeReviewEl = document.getElementById("coverage-time-estimate-review");
   if (timeReviewEl) {
     const hours = totalSize / 500;
-    timeReviewEl.textContent = formatDuration(hours);
+    timeReviewEl.textContent = formatDurationFromHours(hours);
   }
 }
 
@@ -1412,21 +1413,6 @@ async function completeSetupAndExit() {
 }
 
 /* ── Formatting Helpers ───────────────────────────────────────── */
-
-function formatDuration(hours) {
-  if (!hours || hours <= 0) {
-    return "--";
-  }
-  if (hours < 1) {
-    return "Under 1 hour";
-  }
-  const wholeHours = Math.floor(hours);
-  const minutes = Math.round((hours - wholeHours) * 60);
-  if (minutes === 0) {
-    return `${wholeHours} hour${wholeHours === 1 ? "" : "s"}`;
-  }
-  return `${wholeHours}h ${minutes}m`;
-}
 
 function formatPhaseLabel(phase) {
   switch (phase) {

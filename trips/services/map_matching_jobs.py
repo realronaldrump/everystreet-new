@@ -14,6 +14,7 @@ from core.job_serialization import serialize_job_progress
 from core.jobs import JobHandle, create_job, find_job
 from core.mapping.factory import get_router
 from core.spatial import GeometryService, extract_timestamps_for_coordinates
+from core.trip_query_spec import TripQuerySpec
 from db.models import Job, Trip
 from tasks.config import update_task_history_entry
 from tasks.ops import abort_job, enqueue_task
@@ -24,7 +25,6 @@ from trips.models import (
 )
 from trips.pipeline import TripPipeline
 from trips.services.matching import MapMatchingService
-from core.trip_query_spec import TripQuerySpec
 
 logger = logging.getLogger(__name__)
 

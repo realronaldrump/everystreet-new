@@ -21,13 +21,6 @@ from recurring_routes.models import (
     PatchRecurringRouteRequest,
 )
 from recurring_routes.services.place_pair_analysis import analyze_place_pair
-from recurring_routes.services.temporal_analytics import (
-    build_temporal_facet_pipeline,
-    normalize_day_buckets,
-    normalize_hour_buckets,
-    normalize_month_buckets,
-    serialize_stats_for_response,
-)
 from recurring_routes.services.service import (
     build_place_link,
     coerce_place_id,
@@ -38,6 +31,13 @@ from recurring_routes.services.service import (
     resolve_places_by_ids,
     serialize_route_detail_with_place_links,
     serialize_route_summary,
+)
+from recurring_routes.services.temporal_analytics import (
+    build_temporal_facet_pipeline,
+    normalize_day_buckets,
+    normalize_hour_buckets,
+    normalize_month_buckets,
+    serialize_stats_for_response,
 )
 from tasks.config import update_task_history_entry
 from tasks.ops import abort_job, enqueue_task

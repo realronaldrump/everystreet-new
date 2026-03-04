@@ -1,6 +1,7 @@
 /* global bootstrap */
 
 import apiClient from "../core/api-client.js";
+import { formatDurationMs } from "../utils/formatting.js";
 import notificationManager from "./notifications.js";
 
 /**
@@ -340,7 +341,7 @@ function handleDoneEvent(data) {
         ? ` — ${result.segments_total.toLocaleString()} segments`
         : "";
       const dur = result.pipeline_duration_ms
-        ? ` in ${formatDuration(result.pipeline_duration_ms)}`
+        ? ` in ${formatDurationMs(result.pipeline_duration_ms)}`
         : "";
       notify(`${title} completed${dur}${segs}${miles}`, "success");
     } else {
@@ -643,12 +644,12 @@ function updateElapsedTimes() {
     const metrics = stageMetrics[stageDef.key] || {};
 
     if (isCompleted && metrics.duration_ms) {
-      el.textContent = formatDuration(metrics.duration_ms);
+      el.textContent = formatDurationMs(metrics.duration_ms);
     } else if (isCompleted && metrics.elapsed_ms) {
-      el.textContent = formatDuration(metrics.elapsed_ms);
+      el.textContent = formatDurationMs(metrics.elapsed_ms);
     } else if (activeStageKey === stageDef.key && stageStartTimes[stageDef.key]) {
       const elapsed = Date.now() - stageStartTimes[stageDef.key];
-      el.textContent = formatDuration(elapsed);
+      el.textContent = formatDurationMs(elapsed);
     } else {
       el.textContent = "";
     }
@@ -658,7 +659,7 @@ function updateElapsedTimes() {
   const overallEl = container.querySelector(".pipeline-elapsed");
   if (overallEl && pipelineStartTime) {
     const elapsed = Date.now() - pipelineStartTime;
-    overallEl.textContent = formatDuration(elapsed);
+    overallEl.textContent = formatDurationMs(elapsed);
   }
 }
 
@@ -846,24 +847,6 @@ function mapJobToState(job) {
     startedAt: job.started_at || job.startedAt,
     result: job.result,
   };
-}
-
-function formatDuration(ms) {
-  if (!ms || ms < 0) {
-    return "";
-  }
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-  const minutes = Math.floor(seconds / 60);
-  const remainSec = seconds % 60;
-  if (minutes < 60) {
-    return `${minutes}m ${remainSec}s`;
-  }
-  const hours = Math.floor(minutes / 60);
-  const remainMin = minutes % 60;
-  return `${hours}h ${remainMin}m`;
 }
 
 // =============================================================================

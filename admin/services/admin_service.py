@@ -11,8 +11,7 @@ from pymongo.errors import OperationFailure
 from admin.services.storage_service import StorageService
 from config import get_mapbox_token
 from core.date_utils import ensure_utc
-from core.http.geocoding import validate_location_osm
-from core.mapping.factory import clear_local_provider_cache
+from core.mapping.factory import clear_local_provider_cache, get_geocoder
 from core.service_config import apply_settings_to_env, clear_config_cache
 from db.manager import db_manager
 from db.models import (
@@ -328,8 +327,39 @@ class AdminService:
     @staticmethod
     async def validate_location(location: str, location_type: str) -> dict[str, Any]:
         try:
+            geocoder = await get_geocoder()
+
+            async def _validate() -> dict[str, Any] | None:
+                validate_fn = getattr(geocoder, "validate_location", None)
+                if callable(validate_fn):
+                    return await validate_fn(location, location_type)
+
+                try:
+                    results = await geocoder.search_raw(
+                        query=location,
+                        limit=1,
+                        polygon_geojson=True,
+                    )
+                except NotImplementedError:
+                    results = await geocoder.search(
+                        location,
+                        limit=1,
+                    )
+
+                if not results:
+                    return None
+
+                result = results[0]
+                if (
+                    location_type
+                    and result.get("type") != location_type
+                    and result.get("source") != "google"
+                ):
+                    return None
+                return result
+
             validated = await asyncio.wait_for(
-                validate_location_osm(location, location_type),
+                _validate(),
                 timeout=12.0,
             )
         except TimeoutError as exc:

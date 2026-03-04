@@ -54,7 +54,7 @@ def test_route_endpoint_handles_valhalla_failure() -> None:
             json={"origin": [-97.0, 32.0], "destination": [-97.1, 32.1]},
         )
 
-    assert response.status_code == 503
+    assert response.status_code == 500
     assert response.json()["detail"] == "valhalla down"
 
 
@@ -116,7 +116,7 @@ def test_eta_endpoint_success() -> None:
 
 
 def test_eta_endpoint_handles_failure() -> None:
-    """ETA endpoint should return 503 on Valhalla failure."""
+    """ETA endpoint should return 500 on unexpected failure."""
     app = _create_app()
 
     with patch("api.routing.ValhallaClient") as client_mock:
@@ -129,5 +129,5 @@ def test_eta_endpoint_handles_failure() -> None:
             json={"waypoints": [[-97.0, 32.0], [-97.1, 32.1]]},
         )
 
-    assert response.status_code == 503
+    assert response.status_code == 500
     assert "service unavailable" in response.json()["detail"]

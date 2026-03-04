@@ -15,6 +15,7 @@ import {
   formatRelativeTimeShort,
   getStorage,
 } from "../../utils.js";
+import { formatDurationCompact } from "../../utils/formatting.js";
 import { animateValue } from "./animations.js";
 import { bindWidgetEditToggle, updateGreeting } from "./hero.js";
 
@@ -337,7 +338,7 @@ function buildRecordEntries() {
     addRecordEntry(entries, {
       id: "longest-trip-duration",
       title: "Longest trip duration",
-      value: formatDurationShort(records.longest_duration?.duration_seconds),
+      value: formatDurationCompact(records.longest_duration?.duration_seconds),
       date: records.longest_duration?.recorded_at,
       datePrefix: "On",
     });
@@ -358,7 +359,7 @@ function buildRecordEntries() {
     addRecordEntry(entries, {
       id: "max-idle",
       title: "Most idle time in a trip",
-      value: formatDurationShort(records.max_idle?.idle_seconds),
+      value: formatDurationCompact(records.max_idle?.idle_seconds),
       date: records.max_idle?.recorded_at,
       datePrefix: "On",
     });
@@ -393,7 +394,7 @@ function buildRecordEntries() {
     addRecordEntry(entries, {
       id: "max-day-duration",
       title: "Most drive time in a day",
-      value: formatDurationShort(records.max_day_duration?.duration_seconds),
+      value: formatDurationCompact(records.max_day_duration?.duration_seconds),
       date: records.max_day_duration?.date,
       datePrefix: "On",
     });
@@ -614,21 +615,6 @@ function formatSpeedValue(value, decimals = 1) {
     return null;
   }
   return `${numeric.toFixed(decimals)} mph`;
-}
-
-function formatDurationShort(seconds) {
-  const numeric = Number(seconds);
-  if (!Number.isFinite(numeric) || numeric <= 0) {
-    return null;
-  }
-  const totalMinutes = Math.max(1, Math.round(numeric / 60));
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (hours > 0) {
-    const minuteLabel = minutes > 0 ? ` ${String(minutes).padStart(2, "0")}m` : "";
-    return `${hours}h${minuteLabel}`;
-  }
-  return `${minutes}m`;
 }
 
 function formatCountValue(value, singular, plural) {

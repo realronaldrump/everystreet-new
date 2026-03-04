@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import ClassVar
 from unittest.mock import AsyncMock, patch
 
 from fastapi import FastAPI
@@ -48,8 +49,8 @@ class _TripCursor:
 
 class _FakeTripModel:
     endTime = _SortableField()
-    docs: list[dict] = []
-    received_queries: list[dict] = []
+    docs: ClassVar[list[dict]] = []
+    received_queries: ClassVar[list[dict]] = []
 
     @classmethod
     def find(cls, query):

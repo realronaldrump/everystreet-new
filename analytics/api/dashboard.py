@@ -6,8 +6,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 
 from analytics.services import DashboardService
 from core.cache import cached
-from core.trip_source_policy import enforce_bouncie_source
-from db import build_query_from_request
+from core.trip_query_spec import TripQuerySpec
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -27,8 +26,10 @@ async def _metrics_cached(query: dict):
 async def get_driving_insights(request: Request):
     """Get aggregated driving insights."""
     try:
-        query = await build_query_from_request(request)
-        query = enforce_bouncie_source(query)
+        query = TripQuerySpec.from_request(
+            request,
+            include_invalid=True,
+        ).to_mongo_query(enforce_source=True)
         query["invalid"] = {"$ne": True}
         return await _driving_insights_cached(query)
     except Exception as e:
@@ -43,8 +44,10 @@ async def get_driving_insights(request: Request):
 async def get_metrics(request: Request):
     """Get trip metrics and statistics using database aggregation."""
     try:
-        query = await build_query_from_request(request)
-        query = enforce_bouncie_source(query)
+        query = TripQuerySpec.from_request(
+            request,
+            include_invalid=True,
+        ).to_mongo_query(enforce_source=True)
         query["invalid"] = {"$ne": True}
         return await _metrics_cached(query)
     except Exception as e:

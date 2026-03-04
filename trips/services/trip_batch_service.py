@@ -6,7 +6,6 @@ from functools import wraps
 from typing import Any
 
 from fastapi import HTTPException, status
-from pydantic import ValidationError
 
 from db.models import Trip
 from trips.pipeline import TripPipeline

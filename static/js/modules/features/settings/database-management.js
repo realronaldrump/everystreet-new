@@ -3,6 +3,7 @@ import { swupReady } from "../../core/navigation.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
 import { escapeHtml } from "../../utils.js";
+import { formatCompactNumber } from "../../utils/formatting.js";
 
 function hasFiniteNumericAttribute(value) {
   if (value == null) {
@@ -66,19 +67,6 @@ export function initDatabaseManagement({ signal } = {}) {
       return value;
     }
     return date.toLocaleString();
-  }
-
-  function formatNumber(num) {
-    if (!Number.isFinite(num)) {
-      return "0";
-    }
-    if (num >= 1_000_000) {
-      return `${(num / 1_000_000).toFixed(1)}M`;
-    }
-    if (num >= 1_000) {
-      return `${(num / 1_000).toFixed(1)}K`;
-    }
-    return num.toString();
   }
 
   function setButtonLoading(button, isLoading, action) {
@@ -331,7 +319,7 @@ export function initDatabaseManagement({ signal } = {}) {
             </div>
             <div class="collection-stats">
               <div class="collection-stat">
-                <span class="collection-stat-value">${formatNumber(collection.document_count)}</span>
+                <span class="collection-stat-value">${formatCompactNumber(collection.document_count)}</span>
                 <span class="collection-stat-label">Documents</span>
               </div>
               <div class="collection-stat">

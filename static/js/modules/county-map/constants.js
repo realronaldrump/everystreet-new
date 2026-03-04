@@ -4,6 +4,16 @@
  */
 
 import { COVERAGE_BBOX_LINE_COLOR } from "../core/coverage-bounds.js";
+import MapStyles from "../map-styles.js";
+
+const COUNTY_COLORS = MapStyles.MAP_LAYER_COLORS?.county || {};
+
+const colorOr = (value, fallback) => {
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+  return fallback;
+};
 
 /** LocalStorage key for recalculation state */
 export const RECALC_STORAGE_KEY = "countyRecalcStatus";
@@ -19,39 +29,39 @@ export const MAP_CONFIG = {
 /** Map layer colors */
 export const COLORS = {
   visited: {
-    fill: "#4d9a6a",
-    border: "#3b7a53",
+    fill: colorOr(COUNTY_COLORS.visitedFill, "#4d9a6a"),
+    border: colorOr(COUNTY_COLORS.visitedBorder, "#3b7a53"),
     opacity: 0.6,
   },
   stopped: {
-    fill: "#c45454",
-    border: "#9f3f3f",
+    fill: colorOr(COUNTY_COLORS.stoppedFill, "#c45454"),
+    border: colorOr(COUNTY_COLORS.stoppedBorder, "#9f3f3f"),
     opacity: 0.55,
   },
   unvisited: {
     fill: "rgba(245, 242, 236, 0.02)",
   },
   hover: {
-    fill: "#faf9f7",
+    fill: colorOr(COUNTY_COLORS.hoverFill, "#faf9f7"),
     opacity: 0.2,
   },
   borders: {
-    county: "rgba(245, 242, 236, 0.15)",
+    county: colorOr(COUNTY_COLORS.borderCounty, "rgba(245, 242, 236, 0.15)"),
     state: COVERAGE_BBOX_LINE_COLOR,
-    city: "rgba(245, 242, 236, 0.25)",
+    city: colorOr(COUNTY_COLORS.borderCity, "rgba(245, 242, 236, 0.25)"),
   },
   levels: {
     state: {
-      low: "rgba(245, 242, 236, 0.08)",
-      medium: "rgba(111, 179, 136, 0.45)",
-      high: "rgba(62, 132, 91, 0.75)",
+      low: colorOr(COUNTY_COLORS.stateLow, "rgba(245, 242, 236, 0.08)"),
+      medium: colorOr(COUNTY_COLORS.stateMedium, "rgba(111, 179, 136, 0.45)"),
+      high: colorOr(COUNTY_COLORS.stateHigh, "rgba(62, 132, 91, 0.75)"),
     },
     city: {
-      visited: "#4d9a6a",
-      stopped: "#c45454",
-      unvisited: "rgba(245, 242, 236, 0.08)",
-      visitedBorder: "#3b7a53",
-      stoppedBorder: "#9f3f3f",
+      visited: colorOr(COUNTY_COLORS.visitedFill, "#4d9a6a"),
+      stopped: colorOr(COUNTY_COLORS.stoppedFill, "#c45454"),
+      unvisited: colorOr(COUNTY_COLORS.cityUnvisited, "rgba(245, 242, 236, 0.08)"),
+      visitedBorder: colorOr(COUNTY_COLORS.visitedBorder, "#3b7a53"),
+      stoppedBorder: colorOr(COUNTY_COLORS.stoppedBorder, "#9f3f3f"),
     },
   },
 };

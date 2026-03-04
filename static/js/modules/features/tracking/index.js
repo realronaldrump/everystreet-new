@@ -4,6 +4,7 @@ import apiClient from "../../core/api-client.js";
 import layerManager from "../../layer-manager.js";
 import mapCore from "../../map-core.js";
 import { getDeviceProfile, getStorage, setStorage } from "../../utils.js";
+import { bearing as computeBearing } from "../../utils/geo-math.js";
 import {
   COVERAGE_LAYER_IDS,
   LIVE_TRACKING_DEFAULTS,
@@ -1266,20 +1267,8 @@ class LiveTripTracker {
       return null;
     }
 
-    const toRad = (value) => (value * Math.PI) / 180;
-    const toDeg = (value) => (value * 180) / Math.PI;
-
-    const lat1 = toRad(prev.lat);
-    const lat2 = toRad(curr.lat);
-    const dLon = toRad(curr.lon - prev.lon);
-
-    const y = Math.sin(dLon) * Math.cos(lat2);
-    const x =
-      Math.cos(lat1) * Math.sin(lat2) -
-      Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-    const bearing = toDeg(Math.atan2(y, x));
-
-    return LiveTripTracker.normalizeBearing(bearing);
+    const heading = computeBearing(prev.lat, prev.lon, curr.lat, curr.lon);
+    return LiveTripTracker.normalizeBearing(heading);
   }
 
   static normalizeBearing(bearing) {

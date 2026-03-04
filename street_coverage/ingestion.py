@@ -18,7 +18,7 @@ import math
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from shapely.geometry import LineString, MultiLineString, mapping, shape
+from shapely.geometry import LineString, mapping, shape
 from shapely.ops import transform
 
 from core.coverage import (

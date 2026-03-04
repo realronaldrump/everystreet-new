@@ -18,6 +18,7 @@ trip_stats_service = TripStatsService(trip_service)
 
 
 @router.post("/api/geocode_trips", tags=["Trips API"])
+@api_route(logger)
 async def geocode_trips(data: DateRangeModel | None = None):
     """
     Unified endpoint to re-geocode trips within a date range with progress tracking.
@@ -27,33 +28,26 @@ async def geocode_trips(data: DateRangeModel | None = None):
     already have addresses, and checks against custom places
     efficiently.
     """
+    start_date = None
+    end_date = None
+    interval_days = 0
+
+    if data:
+        start_date = data.start_date
+        end_date = data.end_date
+        interval_days = data.interval_days
+
     try:
-        start_date = None
-        end_date = None
-        interval_days = 0
-
-        if data:
-            start_date = data.start_date
-            end_date = data.end_date
-            interval_days = data.interval_days
-
         return await trip_stats_service.geocode_trips(
             start_date=start_date,
             end_date=end_date,
             interval_days=interval_days,
         )
-
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
-    except Exception as e:
-        logger.exception("Error in geocode_trips")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error geocoding trips: {e}",
-        )
+        ) from e
 
 
 @router.get("/api/geocode_trips/progress/{task_id}", tags=["Trips API"])
@@ -66,7 +60,7 @@ async def get_geocode_progress(task_id: str):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
-        )
+        ) from e
 
 
 @router.post("/api/trips/{trip_id}/regeocode", tags=["Trips API"])
@@ -86,8 +80,5 @@ async def regeocode_single_trip(trip_id: str):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=str(e),
-            )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+            ) from e
+        raise

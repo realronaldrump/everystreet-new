@@ -6,7 +6,7 @@
  */
 import store from "../core/store.js";
 import {
-  formatDuration as baseDuration,
+  formatDuration,
   formatDateToString,
   formatHourLabel,
   formatMonth,
@@ -14,7 +14,7 @@ import {
 } from "../utils.js";
 
 // Re-export common formatters
-export { formatWeekRange, formatMonth, formatHourLabel };
+export { formatDuration, formatWeekRange, formatMonth, formatHourLabel };
 
 /**
  * Format a Date object to YYYY-MM-DD string
@@ -23,15 +23,6 @@ export { formatWeekRange, formatMonth, formatHourLabel };
  */
 export function formatDate(date) {
   return formatDateToString(date);
-}
-
-/**
- * Format seconds to human-readable duration
- * @param {number} seconds - Duration in seconds
- * @returns {string} Formatted duration (e.g., "2h 30m" or "45m")
- */
-export function formatDuration(seconds) {
-  return baseDuration(seconds);
 }
 
 /**

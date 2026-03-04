@@ -1,80 +1,72 @@
 /* global mapboxgl */
 
-import { createMap } from "../map-core.js";
+import MapStyles from "../map-styles.js";
+import { BaseFeatureMap } from "../utils/base-map.js";
 
-export class OptimalRouteMap {
+const pickColor = (...values) => {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return "";
+};
+
+export class OptimalRouteMap extends BaseFeatureMap {
   constructor(containerId, options = {}) {
-    this.containerId = containerId;
-    this.options = options;
-    this.map = null;
+    super(containerId, options);
     this.mapLayersReady = false;
     this.routeAnimationFrame = null;
-    this.ownsMap = false;
     this.interactivityHandlers = null;
+
+    this.colors = {
+      driven: pickColor(
+        MapStyles.MAP_LAYER_COLORS?.optimalRoute?.driven,
+        MapStyles.MAP_LAYER_COLORS?.streets?.driven,
+        "#4d9a6a"
+      ),
+      undriven: pickColor(
+        MapStyles.MAP_LAYER_COLORS?.optimalRoute?.undriven,
+        MapStyles.MAP_LAYER_COLORS?.streets?.undriven,
+        "#c47050"
+      ),
+      route: pickColor(
+        MapStyles.MAP_LAYER_COLORS?.optimalRoute?.route,
+        MapStyles.MAP_LAYER_COLORS?.routes?.default,
+        "#b87a4a"
+      ),
+      arrow: pickColor(
+        MapStyles.MAP_LAYER_COLORS?.optimalRoute?.arrow,
+        MapStyles.MAP_LAYER_COLORS?.routes?.default,
+        "#b87a4a"
+      ),
+      arrowStroke: pickColor(MapStyles.MAP_LAYER_COLORS?.googleDefaults?.circleStroke, "#faf9f7"),
+    };
 
     this.onLayerReady = options.onLayerReady || (() => {});
   }
 
   initialize() {
-    if (this.options.sharedMap) {
-      this.map = this.options.sharedMap;
-      this.ownsMap = false;
-      return this.bindMapLoad();
-    }
-
-    const container = document.getElementById(this.containerId);
-    if (!container) {
-      return Promise.resolve();
-    }
-
-    this.map = createMap(this.containerId, {
-      center: [-98.5795, 39.8283], // Center of US
-      zoom: 4,
-    });
-
-    this.ownsMap = true;
-    return this.bindMapLoad();
-  }
-
-  disableTelemetry() {
-    if (typeof mapboxgl?.setTelemetryEnabled === "function") {
-      mapboxgl.setTelemetryEnabled(false);
-    }
-    if (typeof mapboxgl?.config === "object") {
-      try {
-        mapboxgl.config.REPORT_MAP_LOAD_TIMES = false;
-      } catch {
-        // Ignore Mapbox config API differences.
+    return this.initializeMap(
+      {
+        center: [-98.5795, 39.8283], // Center of US
+        zoom: 4,
+      },
+      {
+        onLoad: () => {
+          this.addArrowImage();
+          this.setupMapLayers();
+          this.onLayerReady();
+        },
       }
-      try {
-        mapboxgl.config.COLLECT_RESOURCE_TIMING = false;
-      } catch {
-        // Ignore Mapbox config API differences.
-      }
-      try {
-        mapboxgl.config.EVENTS_URL = null;
-      } catch {
-        // Ignore Mapbox config API differences.
-      }
-    }
+    );
   }
 
   bindMapLoad() {
-    if (!this.map) {
-      return Promise.resolve();
-    }
-    return new Promise((resolve) => {
-      const handleLoad = () => {
-        this.addArrowImage();
-        this.setupMapLayers();
-        this.onLayerReady();
-        resolve();
-      };
-      if (typeof this.map.isStyleLoaded === "function" && this.map.isStyleLoaded()) {
-        handleLoad();
-      } else {
-        this.map.on("load", handleLoad);
-      }
+    return super.bindMapLoad(() => {
+      this.addArrowImage();
+      this.setupMapLayers();
+      this.onLayerReady();
     });
   }
 
@@ -91,8 +83,8 @@ export class OptimalRouteMap {
     const ctx = canvas.getContext("2d");
 
     // Draw arrow
-    ctx.fillStyle = "#b87a4a"; // Copper
-    ctx.strokeStyle = "#faf9f7";
+    ctx.fillStyle = this.colors.arrow;
+    ctx.strokeStyle = this.colors.arrowStroke;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(width * 0.2, height * 0.8);
@@ -122,7 +114,7 @@ export class OptimalRouteMap {
       source: "streets-driven",
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": "#4d9a6a",
+        "line-color": this.colors.driven,
         "line-width": 2,
         "line-opacity": 0.6,
       },
@@ -134,7 +126,7 @@ export class OptimalRouteMap {
       source: "streets-undriven",
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": "#c47050",
+        "line-color": this.colors.undriven,
         "line-width": 2.5,
         "line-opacity": 0.8,
       },
@@ -157,7 +149,7 @@ export class OptimalRouteMap {
       source: "optimal-route",
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": "#b87a4a",
+        "line-color": this.colors.route,
         "line-width": 5,
         "line-opacity": 0.9,
       },
@@ -254,16 +246,7 @@ export class OptimalRouteMap {
       this.interactivityHandlers = null;
     }
 
-    if (this.map && this.ownsMap) {
-      try {
-        this.map.remove();
-      } catch {
-        // Ignore map cleanup errors.
-      }
-    }
-
-    this.map = null;
-    this.ownsMap = false;
+    this.removeOwnedMap();
   }
 
   displayRoute(coordinates, stats, animate = false) {

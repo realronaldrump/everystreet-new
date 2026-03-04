@@ -1,24 +1,23 @@
 import json
 
-import pytest
 from starlette.requests import Request
 
-from db.query import build_calendar_date_expr, build_query_from_request
+from core.trip_query_spec import TripQuerySpec
 
 
 def test_build_calendar_date_expr_returns_none_for_empty() -> None:
-    assert build_calendar_date_expr(None, None) is None
+    assert TripQuerySpec.build_calendar_date_expr(None, None) is None
 
 
 def test_build_calendar_date_expr_includes_bounds() -> None:
-    expr = build_calendar_date_expr("2024-01-01", "2024-01-02")
+    expr = TripQuerySpec.build_calendar_date_expr("2024-01-01", "2024-01-02")
     assert expr is not None
     assert "$and" in expr
     assert len(expr["$and"]) == 2
 
 
 def test_build_calendar_date_expr_prefers_trip_timezone_fields() -> None:
-    expr = build_calendar_date_expr("2024-01-01", "2024-01-01")
+    expr = TripQuerySpec.build_calendar_date_expr("2024-01-01", "2024-01-01")
     assert expr is not None
     encoded = json.dumps(expr, sort_keys=True)
 
@@ -31,7 +30,7 @@ def test_build_calendar_date_expr_prefers_trip_timezone_fields() -> None:
 
 
 def test_build_calendar_date_expr_uses_end_timezone_for_end_time_field() -> None:
-    expr = build_calendar_date_expr(
+    expr = TripQuerySpec.build_calendar_date_expr(
         "2024-01-01",
         "2024-01-01",
         date_field="endTime",
@@ -41,17 +40,16 @@ def test_build_calendar_date_expr_uses_end_timezone_for_end_time_field() -> None
     assert "$endTimeZone" in encoded
 
 
-@pytest.mark.asyncio
-async def test_build_query_from_request() -> None:
+def test_build_query_from_request() -> None:
     scope = {
         "type": "http",
         "query_string": b"start_date=2024-01-01&end_date=2024-01-02&imei=abc",
     }
     request = Request(scope)
 
-    query = await build_query_from_request(
-        request,
-        additional_filters={"status": "ok"},
+    query = TripQuerySpec.from_request(request, include_invalid=True).to_mongo_query(
+        extra_filters={"status": "ok"},
+        enforce_source=True,
     )
 
     assert "$expr" in query
@@ -60,11 +58,14 @@ async def test_build_query_from_request() -> None:
     assert query["source"] == "bouncie"
 
 
-@pytest.mark.asyncio
-async def test_build_query_from_request_skips_imei() -> None:
+def test_build_query_from_request_skips_imei() -> None:
     scope = {"type": "http", "query_string": b"imei=abc"}
     request = Request(scope)
 
-    query = await build_query_from_request(request, include_imei=False)
+    query = TripQuerySpec.from_request(
+        request,
+        include_imei=False,
+        include_invalid=True,
+    ).to_mongo_query(enforce_source=True)
     assert "imei" not in query
     assert query["source"] == "bouncie"

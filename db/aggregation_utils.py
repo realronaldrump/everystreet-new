@@ -90,6 +90,65 @@ def get_mongo_tz_expr(date_field: str = "startTime") -> dict[str, Any]:
     }
 
 
+def build_trip_time_group_id(
+    *,
+    date_field: str = "startTime",
+    tz_expr: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Reusable date/hour/day-of-week group ID for trip analytics."""
+    tz_expr = tz_expr or get_mongo_tz_expr(date_field)
+    return {
+        "date": {
+            "$dateToString": {
+                "format": "%Y-%m-%d",
+                "date": f"${date_field}",
+                "timezone": tz_expr,
+            },
+        },
+        "hour": {
+            "$hour": {
+                "date": f"${date_field}",
+                "timezone": tz_expr,
+            },
+        },
+        "dayOfWeek": {
+            "$dayOfWeek": {
+                "date": f"${date_field}",
+                "timezone": tz_expr,
+            },
+        },
+    }
+
+
+def build_time_period_expr(
+    *,
+    time_type: str,
+    time_value: int,
+    date_field: str = "startTime",
+    tz_expr: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a MongoDB `$expr` for hour/day period filtering."""
+    tz_expr = tz_expr or get_mongo_tz_expr(date_field)
+    if time_type == "hour":
+        return {
+            "$eq": [
+                {"$hour": {"date": f"${date_field}", "timezone": tz_expr}},
+                time_value,
+            ],
+        }
+    if time_type == "day":
+        # Convert JavaScript day (0=Sunday) to MongoDB day (1=Sunday)
+        mongo_day = time_value + 1
+        return {
+            "$eq": [
+                {"$dayOfWeek": {"date": f"${date_field}", "timezone": tz_expr}},
+                mongo_day,
+            ],
+        }
+    msg = "time_type must be 'hour' or 'day'"
+    raise ValueError(msg)
+
+
 def build_trip_numeric_fields_stage() -> dict[str, Any]:
     """Common numeric conversions for trip analytics pipelines."""
     return {
@@ -148,6 +207,27 @@ def build_trip_numeric_fields_stage() -> dict[str, Any]:
                     "to": "double",
                     "onError": 0.0,
                     "onNull": 0.0,
+                },
+            },
+        },
+    }
+
+
+def build_numeric_sort_field_stage(
+    field_name: str,
+    *,
+    output_field: str = "sortVal",
+    default_value: float = 0.0,
+) -> dict[str, Any]:
+    """Build an `$addFields` stage that coerces a field to a numeric sort key."""
+    return {
+        "$addFields": {
+            output_field: {
+                "$convert": {
+                    "input": f"${field_name}",
+                    "to": "double",
+                    "onError": default_value,
+                    "onNull": default_value,
                 },
             },
         },

@@ -2,6 +2,8 @@
 Nominatim HTTP client utilities.
 
 Centralizes geocoding against the self-hosted Nominatim US9 instance.
+This is the single authoritative geocoding module — all reverse/forward
+geocoding, location validation, and response parsing lives here.
 """
 
 from __future__ import annotations
@@ -22,6 +24,75 @@ from core.http.retry import retry_async
 from core.http.session import get_session
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Location schema helpers (moved from core.clients.nominatim)
+# ---------------------------------------------------------------------------
+
+
+def get_empty_location_schema() -> dict[str, Any]:
+    """Get empty location schema structure."""
+    return {
+        "formatted_address": "",
+        "address_components": {
+            "street_number": "",
+            "street": "",
+            "city": "",
+            "county": "",
+            "state": "",
+            "postal_code": "",
+            "country": "",
+        },
+        "coordinates": {
+            "lat": 0.0,
+            "lng": 0.0,
+        },
+    }
+
+
+def parse_nominatim_response(
+    response: dict[str, Any],
+    coordinates: list[float],
+) -> dict[str, Any]:
+    """Parse Nominatim geocoding response into structured location schema."""
+    structured = get_empty_location_schema()
+    structured["coordinates"]["lng"] = coordinates[0]
+    structured["coordinates"]["lat"] = coordinates[1]
+    structured["formatted_address"] = response.get("display_name", "")
+
+    if "address" in response:
+        addr = response["address"]
+        component_mapping = {
+            "house_number": "street_number",
+            "road": "street",
+            "city": "city",
+            "town": "city",
+            "village": "city",
+            "county": "county",
+            "state": "state",
+            "postcode": "postal_code",
+            "country": "country",
+        }
+
+        for nominatim_key, our_key in component_mapping.items():
+            if nominatim_key in addr:
+                structured["address_components"][our_key] = addr[nominatim_key]
+
+    return structured
+
+
+def parse_geocode_response(
+    response: dict[str, Any],
+    coordinates: list[float],
+) -> dict[str, Any]:
+    """Parse a geocode response — handles both Nominatim and unknown formats."""
+    if "display_name" in response:
+        return parse_nominatim_response(response, coordinates)
+    structured = get_empty_location_schema()
+    structured["coordinates"]["lng"] = coordinates[0]
+    structured["coordinates"]["lat"] = coordinates[1]
+    return structured
 
 
 class NominatimClient:
@@ -237,3 +308,26 @@ class NominatimClient:
             msg = "Nominatim reverse error: unexpected response"
             raise ExternalServiceException(msg, {"url": self._reverse_url})
         return data
+
+    async def validate_location(
+        self,
+        location: str,
+        location_type: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Validate a location string against Nominatim search results."""
+        results = await self.search_raw(
+            query=location,
+            limit=1,
+            polygon_geojson=True,
+        )
+        if not results:
+            return None
+
+        result = results[0]
+        if (
+            location_type
+            and result.get("type") != location_type
+            and result.get("source") != "google"
+        ):
+            return None
+        return result

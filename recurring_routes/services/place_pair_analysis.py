@@ -20,14 +20,6 @@ from recurring_routes.services.fingerprint import (
     compute_route_signature,
     extract_polyline,
 )
-from recurring_routes.services.temporal_analytics import (
-    DAY_NAMES,
-    build_temporal_facet_pipeline,
-    normalize_day_buckets,
-    normalize_hour_buckets,
-    normalize_month_buckets,
-    serialize_stats_for_response,
-)
 from recurring_routes.services.service import (
     build_place_link,
     coerce_place_id,
@@ -36,6 +28,14 @@ from recurring_routes.services.service import (
     extract_point_from_geojson_point,
     find_place_id_for_point,
     route_display_name,
+)
+from recurring_routes.services.temporal_analytics import (
+    DAY_NAMES,
+    build_temporal_facet_pipeline,
+    normalize_day_buckets,
+    normalize_hour_buckets,
+    normalize_month_buckets,
+    serialize_stats_for_response,
 )
 
 _OFFSET_RE = re.compile(r"^([+-])(\d{2}):?(\d{2})$")

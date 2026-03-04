@@ -9,6 +9,7 @@
 import apiClient from "../../core/api-client.js";
 import notificationManager from "../../ui/notifications.js";
 import { escapeHtml } from "../../utils.js";
+import { formatDurationMs } from "../../utils/formatting.js";
 
 const MAP_SERVICES_API = "/api/map-services";
 const APP_SETTINGS_API = "/api/app_settings";
@@ -368,7 +369,7 @@ function renderProgressSection(status) {
   const phasePercent = phaseProgress === null ? "—" : `${Math.round(phaseProgress)}%`;
   const startedAt = build.started_at;
   const lastProgressAt = build.last_progress_at || status.last_updated;
-  const elapsed = startedAt ? formatDuration(Date.now() - Date.parse(startedAt)) : "—";
+  const elapsed = startedAt ? formatDurationMs(Date.now() - Date.parse(startedAt)) : "—";
   const lastUpdate = lastProgressAt ? timeAgo(lastProgressAt) : "—";
   const isStale = lastProgressAt
     ? Date.now() - Date.parse(lastProgressAt) > 90 * 1000
@@ -1304,23 +1305,6 @@ function getBuildPhaseLabel(phase) {
     default:
       return "In progress";
   }
-}
-
-function formatDuration(ms) {
-  if (!Number.isFinite(ms) || ms <= 0) {
-    return "—";
-  }
-  const totalSeconds = Math.floor(ms / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  if (minutes > 0) {
-    return `${minutes}m ${seconds}s`;
-  }
-  return `${seconds}s`;
 }
 
 function timeAgo(isoString) {

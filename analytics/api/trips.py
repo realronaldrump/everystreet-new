@@ -12,8 +12,7 @@ from analytics.services import (
 )
 from core.api import api_route
 from core.cache import cached
-from core.trip_source_policy import enforce_bouncie_source
-from db import build_query_from_request
+from core.trip_query_spec import TripQuerySpec
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -33,8 +32,10 @@ async def _driver_behavior_cached(query: dict):
 @api_route(logger)
 async def get_trip_analytics(request: Request):
     """Get analytics on trips over time."""
-    query = await build_query_from_request(request)
-    query = enforce_bouncie_source(query)
+    query = TripQuerySpec.from_request(
+        request,
+        include_invalid=True,
+    ).to_mongo_query(enforce_source=True)
 
     if "$expr" not in query and (
         request.query_params.get("start_date") is None
@@ -52,8 +53,10 @@ async def get_trip_analytics(request: Request):
 @api_route(logger)
 async def get_time_period_trips(request: Request):
     """Get trips for a specific time period (hour or day of week)."""
-    query = await build_query_from_request(request)
-    query = enforce_bouncie_source(query)
+    query = TripQuerySpec.from_request(
+        request,
+        include_invalid=True,
+    ).to_mongo_query(enforce_source=True)
 
     time_type = request.query_params.get("time_type")
     time_value = request.query_params.get("time_value")
@@ -89,8 +92,10 @@ async def get_time_period_trips(request: Request):
 @api_route(logger)
 async def get_drilldown_trips(request: Request):
     """Get a small list of trips for drill-down insights modals."""
-    query = await build_query_from_request(request)
-    query = enforce_bouncie_source(query)
+    query = TripQuerySpec.from_request(
+        request,
+        include_invalid=True,
+    ).to_mongo_query(enforce_source=True)
 
     kind = request.query_params.get("kind", "trips")
     limit_raw = request.query_params.get("limit", "100")
@@ -121,8 +126,10 @@ async def driver_behavior_analytics(request: Request):
     Accepts the same `start_date` and `end_date` query parameters used by other API endpoints.
     If no filters are provided, all trips are considered.
     """
-    query = await build_query_from_request(request)
-    query = enforce_bouncie_source(query)
+    query = TripQuerySpec.from_request(
+        request,
+        include_invalid=True,
+    ).to_mongo_query(enforce_source=True)
     return await _driver_behavior_cached(query)
 
 

@@ -16,10 +16,10 @@ from typing import Any
 
 from db.models import CoverageArea
 from geo_coverage.services.geo_coverage_service import run_scheduled_recalculate
+from street_coverage.stats import update_area_stats
 from tasks.arq import get_arq_pool
 from tasks.config import get_global_disable, get_task_config_entry
 from tasks.ops import enqueue_task, run_task_with_history
-from street_coverage.stats import update_area_stats
 
 logger = logging.getLogger(__name__)
 

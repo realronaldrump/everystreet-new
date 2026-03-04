@@ -50,8 +50,8 @@ class DrilldownService:
         """
         Get a list of trips for a drill-down modal.
 
-        The base `query` is typically produced by `build_query_from_request()` and may
-        include an `$expr` for date filters (start_date/end_date).
+        The base `query` is typically produced by `TripQuerySpec.to_mongo_query()`
+        and may include an `$expr` for date filters (start_date/end_date).
         """
         query = enforce_bouncie_source(query)
         if kind not in DrilldownService.SUPPORTED_KINDS:

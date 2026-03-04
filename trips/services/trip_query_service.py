@@ -5,12 +5,17 @@ from typing import Any
 
 from beanie.operators import In
 
-from core.casting import safe_float
 from core.date_utils import parse_timestamp
 from core.trip_query_spec import TripQuerySpec
+from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
+from db.aggregation_utils import (
+    build_numeric_sort_field_stage,
+    build_trip_duration_fields_stage,
+)
 from db.models import Trip, Vehicle
-from trips.presentation import build_trip_preview_path, derive_timezone_fields
+from trips.presentation import build_trip_preview_path
+from trips.serialization import TripSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -312,12 +317,10 @@ class TripQueryService:
             use_aggregation = True
             pipeline.extend(
                 [
-                    {
-                        "$addFields": {
-                            "duration": {"$subtract": ["$endTime", "$startTime"]},
-                        },
-                    },
-                    {"$sort": {"duration": sort_direction, "startTime": -1}},
+                    build_trip_duration_fields_stage(
+                        default_duration_field="$duration",
+                    ),
+                    {"$sort": {"duration_seconds": sort_direction, "startTime": -1}},
                 ],
             )
 
@@ -325,39 +328,7 @@ class TripQueryService:
             use_aggregation = True
             pipeline.extend(
                 [
-                    {
-                        "$addFields": {
-                            "sortVal": {
-                                "$switch": {
-                                    "branches": [
-                                        {
-                                            "case": {
-                                                "$eq": [
-                                                    {"$type": f"${sort_column}"},
-                                                    "string",
-                                                ],
-                                            },
-                                            "then": {"$toDouble": f"${sort_column}"},
-                                        },
-                                        {
-                                            "case": {
-                                                "$eq": [
-                                                    {"$type": f"${sort_column}"},
-                                                    "missing",
-                                                ],
-                                            },
-                                            "then": 0,
-                                        },
-                                        {
-                                            "case": {"$eq": [f"${sort_column}", None]},
-                                            "then": 0,
-                                        },
-                                    ],
-                                    "default": f"${sort_column}",
-                                },
-                            },
-                        },
-                    },
+                    build_numeric_sort_field_stage(sort_column),
                     {"$sort": {"sortVal": sort_direction, "startTime": -1}},
                 ],
             )
@@ -387,14 +358,7 @@ class TripQueryService:
         for trip in trips_list:
             # Handle both Beanie models and aggregation dicts
             trip_dict = trip.model_dump() if isinstance(trip, Trip) else trip
-
-            start_time = parse_timestamp(trip_dict.get("startTime"))
-            end_time = parse_timestamp(trip_dict.get("endTime"))
-            duration = (
-                (end_time - start_time).total_seconds()
-                if start_time and end_time
-                else None
-            )
+            normalized_trip = TripSerializer.to_dict(trip_dict)
 
             imei = trip_dict.get("imei", "")
             start_location = trip_dict.get("startLocation", "Unknown")
@@ -411,24 +375,26 @@ class TripQueryService:
             total_idle_duration = trip_dict.get("totalIdleDuration")
             if total_idle_duration is None:
                 total_idle_duration = trip_dict.get("totalIdleDuration", 0)
-            start_tz, end_tz, alias_tz = derive_timezone_fields(trip_dict)
+            start_tz = normalized_trip.get("startTimeZone")
+            end_tz = normalized_trip.get("endTimeZone")
+            alias_tz = normalized_trip.get("timeZone")
 
             formatted_trip = {
                 "transactionId": trip_dict.get("transactionId", ""),
                 "imei": imei,
                 "vin": trip_dict.get("vin"),
-                "startTime": start_time.isoformat() if start_time else None,
-                "endTime": end_time.isoformat() if end_time else None,
+                "startTime": normalized_trip.get("startTime"),
+                "endTime": normalized_trip.get("endTime"),
                 "startTimeZone": start_tz,
                 "endTimeZone": end_tz,
                 "timeZone": alias_tz,
-                "duration": duration,
-                "distance": safe_float(trip_dict.get("distance"), 0),
+                "duration": normalized_trip.get("duration"),
+                "distance": normalized_trip.get("distance"),
                 "startLocation": start_location,
                 "destination": destination,
-                "maxSpeed": safe_float(trip_dict.get("maxSpeed"), 0),
+                "maxSpeed": normalized_trip.get("maxSpeed"),
                 "totalIdleDuration": total_idle_duration,
-                "fuelConsumed": safe_float(trip_dict.get("fuelConsumed"), 0),
+                "fuelConsumed": normalized_trip.get("fuelConsumed"),
                 "estimated_cost": TripCostService.calculate_trip_cost(
                     trip_dict,
                     price_map,

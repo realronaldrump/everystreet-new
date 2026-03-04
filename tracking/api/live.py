@@ -3,16 +3,12 @@
 import contextlib
 import json
 import logging
-import uuid
 from datetime import UTC, datetime
 
 from fastapi import (
     APIRouter,
-    HTTPException,
-    Response,
     WebSocket,
     WebSocketDisconnect,
-    status,
 )
 from starlette.websockets import WebSocketState
 
@@ -138,57 +134,31 @@ async def websocket_endpoint(websocket: WebSocket):
 @api_route(logger)
 async def active_trip_endpoint():
     """Get the currently active trip, if any."""
-    try:
-        active_trip_doc = await TrackingService.get_active_trip()
+    active_trip_doc = await TrackingService.get_active_trip()
 
-        if not active_trip_doc:
-            return NoActiveTripResponse(server_time=datetime.now(UTC))
+    if not active_trip_doc:
+        return NoActiveTripResponse(server_time=datetime.now(UTC))
 
-        active_trip_payload = (
-            active_trip_doc.model_dump()
-            if hasattr(active_trip_doc, "model_dump")
-            else dict(active_trip_doc)
-        )
+    active_trip_payload = (
+        active_trip_doc.model_dump()
+        if hasattr(active_trip_doc, "model_dump")
+        else dict(active_trip_doc)
+    )
 
-        return ActiveTripSuccessResponse(
-            trip=active_trip_payload,
-            server_time=datetime.now(UTC),
-        )
-
-    except Exception:
-        error_id = str(uuid.uuid4())
-        logger.exception("Error fetching active trip [%s]", error_id)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "message": "Internal server error",
-                "error_id": error_id,
-            },
-        )
+    return ActiveTripSuccessResponse(
+        trip=active_trip_payload,
+        server_time=datetime.now(UTC),
+    )
 
 
 @router.get("/api/trip_updates", response_model=dict[str, object])
 @api_route(logger)
-async def trip_updates_endpoint(response: Response):
+async def trip_updates_endpoint():
     """
     Polling endpoint for trip updates.
 
     Returns current active trip if available.
     """
-    try:
-        updates = await TrackingService.get_trip_updates()
-        updates["server_time"] = datetime.now(UTC).isoformat()
-    except Exception:
-        error_id = str(uuid.uuid4())
-        logger.exception("Error in trip_updates [%s]", error_id)
-
-        response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-        return {
-            "status": "error",
-            "has_update": False,
-            "message": "Internal server error",
-            "error_id": error_id,
-            "server_time": datetime.now(UTC).isoformat(),
-        }
-    else:
-        return updates
+    updates = await TrackingService.get_trip_updates()
+    updates["server_time"] = datetime.now(UTC).isoformat()
+    return updates

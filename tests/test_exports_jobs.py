@@ -20,11 +20,16 @@ class FakeJob:
         self.job_type = "export"
         self.owner_key = "default"
         self.status = "pending"
+        self.stage = "queued"
         self.progress = 0.0
         self.message = "Queued"
         self.spec = {"items": [], "trip_filters": None, "area_id": None}
         self.result = None
         self.error = None
+        self.metadata = {}
+        self.metrics = None
+        self.retry_count = 0
+        self.expires_at = None
         self.created_at = datetime.now(UTC)
         self.started_at = None
         self.completed_at = None

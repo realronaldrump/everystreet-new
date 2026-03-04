@@ -6,7 +6,7 @@
 /* global mapboxgl */
 
 import { getCurrentTheme, resolveMapStyle } from "../core/map-style-resolver.js";
-import { createMap } from "../map-core.js";
+import { BaseFeatureMap } from "../utils/base-map.js";
 
 const getThemeColor = (variable, defaultColor) => {
   if (typeof window === "undefined") {
@@ -21,8 +21,9 @@ const getThemeColor = (variable, defaultColor) => {
 /**
  * Map manager for turn-by-turn navigation
  */
-class TurnByTurnMap {
+class TurnByTurnMap extends BaseFeatureMap {
   constructor() {
+    super(null, {});
     this.map = null;
     this.mapReady = false;
     this.mapStyleType = "dark";
@@ -52,29 +53,29 @@ class TurnByTurnMap {
   async initMap(containerId) {
     const { styleType } = resolveMapStyle({ theme: getCurrentTheme() });
     this.mapStyleType = styleType;
+    this.mapReady = false;
+    this.setContainer(containerId);
 
-    this.map = createMap(containerId, {
-      center: [-96, 37.8],
-      zoom: 4,
-      pitch: 45,
-      bearing: 0,
-      antialias: true,
-    });
-
-    this.map.dragRotate.disable();
-    this.map.touchZoomRotate.disableRotation();
-
-    // Set up theme observer
-    this.setupThemeObserver();
-
-    // Wait for map to load
-    await new Promise((resolve) => {
-      this.map.on("load", () => {
-        this.mapReady = true;
-        this.setupMapLayers();
-        resolve();
-      });
-    });
+    await this.initializeMap(
+      {
+        center: [-96, 37.8],
+        zoom: 4,
+        pitch: 45,
+        bearing: 0,
+        antialias: true,
+      },
+      {
+        afterCreate: () => {
+          this.map?.dragRotate?.disable();
+          this.map?.touchZoomRotate?.disableRotation();
+          this.setupThemeObserver();
+        },
+        onLoad: () => {
+          this.mapReady = true;
+          this.setupMapLayers();
+        },
+      }
+    );
   }
 
   /**

@@ -8,6 +8,7 @@
  */
 
 import { CONFIG } from "../core/config.js";
+import MapStyles from "../map-styles.js";
 import state from "../core/store.js";
 import loadingManager from "../ui/loading-manager.js";
 import notificationManager from "../ui/notifications.js";
@@ -143,18 +144,19 @@ const getGoogleColorScheme = (theme = "dark") => {
   return colorScheme?.DARK || "DARK";
 };
 
-const DEFAULT_LINE_COLOR = "#d4943c";
+const GOOGLE_DEFAULTS = MapStyles.MAP_LAYER_COLORS?.googleDefaults || {};
+const DEFAULT_LINE_COLOR = GOOGLE_DEFAULTS.line || "#d4943c";
 const DEFAULT_LINE_OPACITY = 0.85;
 const DEFAULT_LINE_WIDTH = 2.5;
-const DEFAULT_CIRCLE_COLOR = "#b87a4a";
+const DEFAULT_CIRCLE_COLOR = GOOGLE_DEFAULTS.circle || "#b87a4a";
 const DEFAULT_CIRCLE_OPACITY = 0.85;
 const DEFAULT_CIRCLE_RADIUS = 5;
-const DEFAULT_CIRCLE_STROKE_COLOR = "#ffffff";
+const DEFAULT_CIRCLE_STROKE_COLOR = GOOGLE_DEFAULTS.circleStroke || "#ffffff";
 const DEFAULT_CIRCLE_STROKE_OPACITY = 1;
 const DEFAULT_CIRCLE_STROKE_WIDTH = 0;
-const DEFAULT_FILL_COLOR = "#b87a4a";
+const DEFAULT_FILL_COLOR = GOOGLE_DEFAULTS.fill || "#b87a4a";
 const DEFAULT_FILL_OPACITY = 0.28;
-const DEFAULT_FILL_OUTLINE_COLOR = "#b87a4a";
+const DEFAULT_FILL_OUTLINE_COLOR = GOOGLE_DEFAULTS.fillOutline || "#b87a4a";
 const DEFAULT_HIT_TOLERANCE_PX = 8;
 const LINE_PAINT_PROPERTIES = new Set([
   "line-color",

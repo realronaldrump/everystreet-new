@@ -5,8 +5,8 @@
  * Handles map initialization, layers, and map interactions.
  */
 
-import { createMap } from "../map-core.js";
 import MapStyles from "../map-styles.js";
+import { BaseFeatureMap } from "../utils/base-map.js";
 import {
   DEFAULT_CLUSTER_COLORS,
   DEFAULT_ROUTE_COLORS,
@@ -69,18 +69,15 @@ const normalizeRouteColors = (routeColors) => {
   };
 };
 
-export class DrivingNavigationMap {
+export class DrivingNavigationMap extends BaseFeatureMap {
   /**
    * @param {string} containerId - The DOM container ID for the map
    * @param {Object} options - Configuration options
    * @param {Object} [options.sharedMap=null] - Shared map instance
    */
   constructor(containerId, options = {}) {
-    this.containerId = containerId;
-    this.options = options;
-    this.map = null;
+    super(containerId, options);
     this.clusterMarkers = [];
-    this.ownsMap = false;
     this.interactivityHandlers = null;
 
     // Get colors with defaults from MapStyles if available
@@ -94,34 +91,20 @@ export class DrivingNavigationMap {
    * @returns {Promise<void>}
    */
   initialize() {
-    if (this.options.sharedMap) {
-      this.map = this.options.sharedMap;
-      this.ownsMap = false;
-      return this.bindMapLoad();
-    }
-
-    return new Promise((resolve, reject) => {
-      try {
-        this.map = createMap(this.containerId, {
-          center: [-96, 37.8],
-          zoom: 3,
-        });
-
-        this.map.on("load", () => {
+    return this.initializeMap(
+      {
+        center: [-96, 37.8],
+        zoom: 3,
+      },
+      {
+        onLoad: () => {
           this.setupMapLayers();
-          this.ownsMap = true;
-          resolve();
-        });
-
-        this.map.on("error", (e) => {
-          console.error("Mapbox error:", e);
-          reject(e);
-        });
-      } catch (error) {
-        console.error("Error initializing map:", error);
-        reject(error);
+        },
+        onError: (error) => {
+          console.error("Error initializing map:", error);
+        },
       }
-    });
+    );
   }
 
   /**
@@ -129,27 +112,14 @@ export class DrivingNavigationMap {
    * @returns {Promise<void>}
    */
   bindMapLoad() {
-    if (!this.map) {
-      return Promise.resolve();
-    }
-
-    return new Promise((resolve, reject) => {
-      const handleLoad = () => {
+    return super.bindMapLoad(
+      () => {
         this.setupMapLayers();
-        resolve();
-      };
-
-      if (typeof this.map.isStyleLoaded === "function" && this.map.isStyleLoaded()) {
-        handleLoad();
-      } else {
-        this.map.on("load", handleLoad);
+      },
+      (error) => {
+        console.error("Mapbox error:", error);
       }
-
-      this.map.on("error", (e) => {
-        console.error("Mapbox error:", e);
-        reject(e);
-      });
-    });
+    );
   }
 
   /**
@@ -277,15 +247,7 @@ export class DrivingNavigationMap {
       this.interactivityHandlers = null;
     }
 
-    if (this.map && this.ownsMap) {
-      try {
-        this.map.remove();
-      } catch {
-        // Ignore map cleanup errors.
-      }
-    }
-    this.map = null;
-    this.ownsMap = false;
+    this.removeOwnedMap();
   }
 
   /**

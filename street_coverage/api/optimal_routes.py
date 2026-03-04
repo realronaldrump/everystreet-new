@@ -4,19 +4,16 @@ Route handlers for optimal route generation and management.
 Handles generating, retrieving, and exporting optimal completion routes.
 """
 
-import asyncio
 import contextlib
-import json
 import logging
-import time
 from datetime import UTC, datetime
 from typing import Annotated
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, Response
-from fastapi.responses import StreamingResponse
 
 from core.jobs import create_job
+from core.streaming import sse_event_stream, sse_response
 from db.models import CoverageArea, Job
 
 logger = logging.getLogger(__name__)
@@ -371,113 +368,35 @@ async def get_optimal_route_progress(task_id: str):
 async def stream_optimal_route_progress(task_id: str):
     """Stream real-time progress updates via Server-Sent Events."""
 
-    async def event_generator():
-        last_progress = -1
-        last_stage = None
-        last_message = None
-        last_metrics = None
-        last_emit_at = time.monotonic()
-        poll_count = 0
-        max_polls = 1800  # 30 minutes at 1 second intervals
+    async def fetch():
+        progress = await Job.find_one(
+            {"job_type": "optimal_route", "task_id": task_id},
+        )
+        if not progress:
+            return {
+                "status": "pending",
+                "stage": "waiting",
+                "progress": 0,
+                "message": "Waiting for task to start...",
+            }
+        return {
+            "status": progress.status or "running",
+            "stage": progress.stage or "initializing",
+            "progress": progress.progress or 0,
+            "message": progress.message or "",
+            "metrics": progress.metrics or {},
+            "error": progress.error,
+            "started_at": progress.started_at,
+            "updated_at": progress.updated_at,
+            "completed_at": progress.completed_at,
+        }
 
-        while poll_count < max_polls:
-            poll_count += 1
-
-            try:
-                progress = await Job.find_one(
-                    {"job_type": "optimal_route", "task_id": task_id},
-                )
-
-                if not progress:
-                    data = {
-                        "status": "pending",
-                        "stage": "waiting",
-                        "progress": 0,
-                        "message": "Waiting for task to start...",
-                    }
-                    yield f"data: {json.dumps(data)}\n\n"
-                    last_emit_at = time.monotonic()
-                    await asyncio.sleep(1)
-                    continue
-
-                current_progress = progress.progress or 0
-                current_stage = progress.stage or "initializing"
-                current_status = progress.status or "running"
-                current_message = progress.message or ""
-                current_metrics = progress.metrics or {}
-
-                if (
-                    current_progress != last_progress
-                    or current_stage != last_stage
-                    or current_message != last_message
-                    or current_metrics != last_metrics
-                ):
-                    last_progress = current_progress
-                    last_stage = current_stage
-                    last_message = current_message
-                    last_metrics = current_metrics
-
-                    data = {
-                        "status": current_status,
-                        "stage": current_stage,
-                        "progress": current_progress,
-                        "message": current_message,
-                        "metrics": current_metrics,
-                        "error": progress.error,
-                        "started_at": (
-                            progress.started_at.isoformat()
-                            if progress.started_at
-                            else None
-                        ),
-                        "updated_at": (
-                            progress.updated_at.isoformat()
-                            if progress.updated_at
-                            else None
-                        ),
-                    }
-                    yield f"data: {json.dumps(data)}\n\n"
-                    last_emit_at = time.monotonic()
-                elif time.monotonic() - last_emit_at >= 10:
-                    # Keep the stream alive through intermediaries during long compute phases.
-                    yield "event: ping\ndata: {}\n\n"
-                    last_emit_at = time.monotonic()
-
-                if current_status in ("completed", "failed", "error", "cancelled"):
-                    final_data = {
-                        "status": current_status,
-                        "stage": current_stage,
-                        "progress": current_progress,
-                        "message": current_message,
-                        "metrics": current_metrics,
-                        "error": progress.error,
-                        "completed_at": (
-                            progress.completed_at.isoformat()
-                            if progress.completed_at
-                            else None
-                        ),
-                    }
-                    yield f"data: {json.dumps(final_data)}\n\n"
-                    last_emit_at = time.monotonic()
-                    break
-
-            except Exception as e:
-                logger.exception("SSE progress error")
-                error_data = {"error": str(e), "status": "failed"}
-                yield f"data: {json.dumps(error_data)}\n\n"
-                last_emit_at = time.monotonic()
-                # If we hit a critical error, maybe we should break?
-                # But temporary DB glitches might recover.
-                await asyncio.sleep(1)
-
-            await asyncio.sleep(1)
-
-        yield "event: done\ndata: {}\n\n"
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream; charset=utf-8",
-        headers={
-            "Cache-Control": "no-cache, no-transform",
-            "X-Accel-Buffering": "no",  # Disable nginx buffering
-        },
+    return sse_response(
+        sse_event_stream(
+            fetch,
+            poll_interval=1,
+            max_polls=1800,
+            keepalive_every=10,
+        ),
+        **{"X-Accel-Buffering": "no"},
     )

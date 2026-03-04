@@ -27,6 +27,19 @@ def test_trip_sync_status_endpoint() -> None:
     assert response.json()["state"] == "idle"
 
 
+def test_trip_history_import_sse_terminates_when_job_missing() -> None:
+    app = _create_app()
+
+    with patch("trips.api.sync.Job.get", new=AsyncMock(return_value=None)):
+        client = TestClient(app)
+        response = client.get(
+            "/api/actions/trips/sync/history_import/65b1b5b6b5b6b5b6b5b6b5b6/sse",
+        )
+
+    assert response.status_code == 200
+    assert "data: {}" in response.text
+
+
 def test_trip_sync_start_endpoint() -> None:
     app = _create_app()
 

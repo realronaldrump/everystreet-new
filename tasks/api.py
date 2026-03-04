@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import math
 from datetime import UTC, datetime, timedelta
@@ -7,12 +6,12 @@ from typing import Annotated, Any
 
 from beanie.operators import In
 from fastapi import APIRouter, Body, HTTPException, status
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from core.api import api_route
 from core.date_utils import normalize_to_utc_datetime
 from core.serialization import serialize_datetime
+from core.streaming import sse_event_stream, sse_response
 from db.models import TaskHistory
 from db.schemas import BackgroundTasksConfigModel
 from tasks.config import (
@@ -516,56 +515,46 @@ async def fetch_trips_manual(data: FetchTripsRangeRequest):
 async def stream_background_tasks_updates():
     """Stream real-time background task updates via Server-Sent Events."""
 
-    async def event_generator():
-        last_config = None
-        poll_count = 0
-        max_polls = 3600  # 1 hour at 1 second intervals
+    last_config: dict[str, Any] | None = None
 
-        while poll_count < max_polls:
-            poll_count += 1
+    async def fetch_updates() -> dict[str, Any] | None:
+        nonlocal last_config
+        try:
+            current_config = await _build_task_snapshot()
+            current_tasks = current_config.get("tasks", {})
 
-            try:
-                current_config = await _build_task_snapshot()
-                current_tasks = current_config.get("tasks", {})
-
-                if last_config is not None:
-                    updates = {}
-                    for task_id, task_data in current_tasks.items():
-                        if task_id not in last_config.get("tasks", {}):
-                            updates[task_id] = task_data
-                            continue
-
-                        prev_data = last_config["tasks"][task_id]
-                        changed = False
-                        for key in [
-                            "status",
-                            "last_run",
-                            "next_run",
-                            "last_error",
-                        ]:
-                            if task_data.get(key) != prev_data.get(key):
-                                changed = True
-                                break
-                        if changed:
-                            updates[task_id] = task_data
-
-                    if updates:
-                        yield f"data: {json.dumps(updates)}\n\n"
-                    elif poll_count % 15 == 0:
-                        yield ": keepalive\n\n"
-
+            if last_config is None:
                 last_config = current_config
-                await asyncio.sleep(1)
+                return None
 
-            except Exception:
-                logger.exception("Error in background tasks SSE")
-                await asyncio.sleep(1)
+            updates: dict[str, Any] = {}
+            for task_id, task_data in current_tasks.items():
+                previous = last_config.get("tasks", {}).get(task_id)
+                if previous is None:
+                    updates[task_id] = task_data
+                    continue
 
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        },
+                changed = any(
+                    task_data.get(key) != previous.get(key)
+                    for key in ("status", "last_run", "next_run", "last_error")
+                )
+                if changed:
+                    updates[task_id] = task_data
+
+        except Exception:
+            logger.exception("Error in background tasks SSE")
+            return None
+        else:
+            last_config = current_config
+            return updates or None
+
+    return sse_response(
+        sse_event_stream(
+            fetch_updates,
+            is_terminal=lambda _: False,
+            poll_interval=1,
+            max_polls=3600,
+            keepalive_every=15,
+            deduplicate=False,
+        ),
     )

@@ -5,7 +5,11 @@ from typing import Any
 
 from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
-from db.aggregation_utils import build_trip_duration_fields_stage, get_mongo_tz_expr
+from db.aggregation_utils import (
+    build_time_period_expr,
+    build_trip_duration_fields_stage,
+    get_mongo_tz_expr,
+)
 from db.models import Trip
 
 logger = logging.getLogger(__name__)
@@ -42,26 +46,24 @@ class TimeAnalyticsService:
             query["$expr"] = {
                 "$and": [
                     query.get("$expr", {"$literal": True}),
-                    {
-                        "$eq": [
-                            {"$hour": {"date": "$startTime", "timezone": tz_expr}},
-                            time_value,
-                        ],
-                    },
+                    build_time_period_expr(
+                        time_type="hour",
+                        time_value=time_value,
+                        date_field="startTime",
+                        tz_expr=tz_expr,
+                    ),
                 ],
             }
         elif time_type == "day":
-            # Convert JavaScript day (0=Sunday) to MongoDB day (1=Sunday)
-            mongo_day = time_value + 1
             query["$expr"] = {
                 "$and": [
                     query.get("$expr", {"$literal": True}),
-                    {
-                        "$eq": [
-                            {"$dayOfWeek": {"date": "$startTime", "timezone": tz_expr}},
-                            mongo_day,
-                        ],
-                    },
+                    build_time_period_expr(
+                        time_type="day",
+                        time_value=time_value,
+                        date_field="startTime",
+                        tz_expr=tz_expr,
+                    ),
                 ],
             }
         else:

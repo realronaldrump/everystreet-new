@@ -4,6 +4,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, status
 
+from core.api import api_route
 from db.schemas import NonCustomPlaceVisit, PlaceVisitsResponse
 from visits.services import PlaceService, VisitStatsService
 
@@ -12,6 +13,7 @@ router = APIRouter()
 
 
 @router.get("/api/places/{place_id}/trips", response_model=PlaceVisitsResponse)
+@api_route(logger)
 async def get_trips_for_place(place_id: str):
     """Get trips that visited a specific place, with corrected duration logic."""
     place = await PlaceService.get_place_by_id(place_id)
@@ -20,18 +22,11 @@ async def get_trips_for_place(place_id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Place not found",
         )
-
-    try:
-        return await VisitStatsService.get_trips_for_place(place)
-    except Exception as e:
-        logger.exception("Error getting trips for place %s", place_id)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+    return await VisitStatsService.get_trips_for_place(place)
 
 
 @router.get("/api/non_custom_places_visits", response_model=list[NonCustomPlaceVisit])
+@api_route(logger)
 async def get_non_custom_places_visits(timeframe: str | None = None):
     """
     Aggregate visits to non-custom destinations.
@@ -47,16 +42,4 @@ async def get_non_custom_places_visits(timeframe: str | None = None):
     When supplied, only trips whose endTime falls inside that rolling window
     are considered.
     """
-    try:
-        return await VisitStatsService.get_non_custom_places_visits(timeframe)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-    except Exception as e:
-        logger.exception("Error getting non-custom places visits")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+    return await VisitStatsService.get_non_custom_places_visits(timeframe)

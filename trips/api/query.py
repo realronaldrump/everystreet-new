@@ -1,11 +1,9 @@
 """API routes for trip querying and filtering."""
 
-import json
 import logging
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
-from fastapi.responses import StreamingResponse
 
 from core.api import api_route
 from core.casting import safe_float
@@ -19,8 +17,9 @@ from core.coverage_clip import (
 )
 from core.date_utils import parse_timestamp
 from core.spatial import GeometryService
+from core.streaming import geojson_response, stream_geojson_feature_collection
+from core.trip_query_spec import TripQuerySpec
 from core.trip_source_policy import enforce_bouncie_source
-from db import build_query_from_request
 from db.models import CoverageArea, Trip
 from trips.presentation import (
     build_trip_feature_properties,
@@ -92,7 +91,10 @@ async def get_matched_trips(request: Request):
     Returns trips that have matchedGps data, using the matched geometry
     as the primary geometry for each feature.
     """
-    query = await build_query_from_request(request)
+    query = TripQuerySpec.from_request(
+        request,
+        include_invalid=True,
+    ).to_mongo_query(enforce_source=True)
 
     coverage_clip = await _resolve_coverage_clip_context(request)
 
@@ -100,7 +102,6 @@ async def get_matched_trips(request: Request):
     query["matchedGps"] = {"$ne": None}
     # Exclude invalid trips
     query["invalid"] = {"$ne": True}
-    query = enforce_bouncie_source(query)
     query = apply_clip_prefilter(query, coverage_clip, geometry_field="gps")
 
     trip_cursor = Trip.find(query).sort(-Trip.endTime)
@@ -108,58 +109,34 @@ async def get_matched_trips(request: Request):
     # Pre-fetch gas prices for cost calculation
     price_map = await TripCostService.get_fillup_price_map()
 
-    async def stream():
-        yield '{"type":"FeatureCollection","features":['
-        first = True
-        try:
-            async for trip in trip_cursor:
-                try:
-                    trip_dict = trip_to_dict(trip)
+    def build_feature(trip):
+        trip_dict = trip_to_dict(trip)
+        matched_geom = GeometryService.parse_geojson(trip_dict.get("matchedGps"))
+        if not matched_geom or not matched_geom.get("coordinates"):
+            return None
 
-                    matched_geom = GeometryService.parse_geojson(
-                        trip_dict.get("matchedGps"),
-                    )
-                    # Skip trips without valid matched geometry
-                    if not matched_geom or not matched_geom.get("coordinates"):
-                        continue
+        num_points = count_line_points(matched_geom)
+        coverage_distance_miles = None
+        if coverage_clip.enabled:
+            clipped_geom, coverage_distance_miles = clip_geojson_lines(
+                matched_geom, coverage_clip,
+            )
+            if clipped_geom is None:
+                return None
+            matched_geom = clipped_geom
 
-                    num_points = count_line_points(matched_geom)
-                    coverage_distance_miles = None
-                    if coverage_clip.enabled:
-                        clipped_geom, coverage_distance_miles = clip_geojson_lines(
-                            matched_geom,
-                            coverage_clip,
-                        )
-                        if clipped_geom is None:
-                            continue
-                        matched_geom = clipped_geom
+        props = build_trip_feature_properties(
+            trip_dict,
+            estimated_cost=TripCostService.calculate_trip_cost(trip_dict, price_map),
+            points_recorded=num_points,
+            include_matched_at=True,
+            coverage_distance_miles=coverage_distance_miles,
+        )
+        return GeometryService.feature_from_geometry(matched_geom, props)
 
-                    props = build_trip_feature_properties(
-                        trip_dict,
-                        estimated_cost=TripCostService.calculate_trip_cost(
-                            trip_dict,
-                            price_map,
-                        ),
-                        points_recorded=num_points,
-                        include_matched_at=True,
-                        coverage_distance_miles=coverage_distance_miles,
-                    )
-                    feature = GeometryService.feature_from_geometry(matched_geom, props)
-                    # Use default=str to handle any non-serializable types
-                    chunk = json.dumps(feature, separators=(",", ":"), default=str)
-                    if not first:
-                        yield ","
-                    yield chunk
-                    first = False
-                except Exception:
-                    logger.exception("Error processing matched trip")
-                    continue
-        except Exception:
-            logger.exception("Error in matched trips stream")
-        finally:
-            yield "]}"
-
-    return StreamingResponse(stream(), media_type="application/geo+json")
+    return geojson_response(
+        stream_geojson_feature_collection(trip_cursor, build_feature),
+    )
 
 
 @router.get("/api/failed_trips", tags=["Trips API"])
@@ -227,7 +204,10 @@ async def get_failed_trips(request: Request):
 @router.get("/api/trips", tags=["Trips API"])
 async def get_trips(request: Request):
     """Stream all trips as GeoJSON to improve performance."""
-    query = await build_query_from_request(request)
+    query = TripQuerySpec.from_request(
+        request,
+        include_invalid=True,
+    ).to_mongo_query(enforce_source=True)
     matched_only = request.query_params.get("matched_only", "false").lower() == "true"
     coverage_clip = await _resolve_coverage_clip_context(request)
 
@@ -236,7 +216,6 @@ async def get_trips(request: Request):
 
     if matched_only:
         query["matchedGps"] = {"$ne": None}
-    query = enforce_bouncie_source(query)
     query = apply_clip_prefilter(query, coverage_clip, geometry_field="gps")
     # Use Beanie cursor iteration
     trip_cursor = Trip.find(query).sort(-Trip.endTime)
@@ -244,69 +223,40 @@ async def get_trips(request: Request):
     # Pre-fetch gas prices for cost calculation
     price_map = await TripCostService.get_fillup_price_map()
 
-    async def stream():
-        yield '{"type":"FeatureCollection","features":['
-        first = True
-        try:
-            async for trip in trip_cursor:
-                try:
-                    trip_dict = trip_to_dict(trip)
+    def build_feature(trip):
+        trip_dict = trip_to_dict(trip)
+        geom = GeometryService.parse_geojson(trip_dict.get("gps"))
+        matched_geom = GeometryService.parse_geojson(trip_dict.get("matchedGps"))
 
-                    geom = GeometryService.parse_geojson(trip_dict.get("gps"))
-                    matched_geom = GeometryService.parse_geojson(
-                        trip_dict.get("matchedGps"),
-                    )
+        final_geom = geom
+        if matched_only and matched_geom:
+            final_geom = matched_geom
 
-                    # Use matched geometry as the main feature geometry if requested
-                    final_geom = geom
-                    if matched_only and matched_geom:
-                        final_geom = matched_geom
+        num_points = count_line_points(final_geom)
+        coverage_distance_miles = None
 
-                    num_points = count_line_points(final_geom)
-                    coverage_distance_miles = None
+        if coverage_clip.enabled:
+            clipped_geom, coverage_distance_miles = clip_geojson_lines(
+                final_geom, coverage_clip,
+            )
+            if clipped_geom is None:
+                return None
+            final_geom = clipped_geom
 
-                    if coverage_clip.enabled:
-                        clipped_geom, coverage_distance_miles = clip_geojson_lines(
-                            final_geom,
-                            coverage_clip,
-                        )
-                        if clipped_geom is None:
-                            continue
-                        final_geom = clipped_geom
+        if not final_geom or not final_geom.get("coordinates"):
+            return None
 
-                    # Skip trips without valid geometry
-                    if not final_geom or not final_geom.get("coordinates"):
-                        logger.debug(
-                            "Skipping trip %s: no valid geometry",
-                            trip_dict.get("transactionId"),
-                        )
-                        continue
+        props = build_trip_feature_properties(
+            trip_dict,
+            estimated_cost=TripCostService.calculate_trip_cost(trip_dict, price_map),
+            points_recorded=num_points,
+            coverage_distance_miles=coverage_distance_miles,
+        )
+        return GeometryService.feature_from_geometry(final_geom, props)
 
-                    props = build_trip_feature_properties(
-                        trip_dict,
-                        estimated_cost=TripCostService.calculate_trip_cost(
-                            trip_dict,
-                            price_map,
-                        ),
-                        points_recorded=num_points,
-                        coverage_distance_miles=coverage_distance_miles,
-                    )
-                    feature = GeometryService.feature_from_geometry(final_geom, props)
-                    # Use default=str to handle any non-serializable types
-                    chunk = json.dumps(feature, separators=(",", ":"), default=str)
-                    if not first:
-                        yield ","
-                    yield chunk
-                    first = False
-                except Exception:
-                    logger.exception("Error processing trip")
-                    continue
-        except Exception:
-            logger.exception("Error in trips stream")
-        finally:
-            yield "]}"
-
-    return StreamingResponse(stream(), media_type="application/geo+json")
+    return geojson_response(
+        stream_geojson_feature_collection(trip_cursor, build_feature),
+    )
 
 
 @router.post("/api/trips/datatable", tags=["Trips API"])

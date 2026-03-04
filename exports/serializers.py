@@ -53,60 +53,50 @@ def _get_trip_id(trip: Any) -> str | None:
     return str(trip_id) if trip_id else None
 
 
-def _calculate_duration_seconds(trip: Any) -> float | None:
-    start = parse_timestamp(_get_value(trip, "startTime"))
-    end = parse_timestamp(_get_value(trip, "endTime"))
-    if start and end:
-        return (end - start).total_seconds()
-    duration = _get_value(trip, "duration")
-    if duration is None:
-        return None
-    try:
-        return float(duration)
-    except (TypeError, ValueError):
-        return None
-
-
 def build_trip_values(trip: Any) -> dict[str, Any]:
-    duration_seconds = _calculate_duration_seconds(trip)
+    from trips.serialization import TripSerializer
+
+    trip_doc = TripSerializer.to_trip_dict(trip)
+    common = TripSerializer.to_dict(trip_doc)
+    duration_seconds = common.get("duration")
     duration_minutes = duration_seconds / 60.0 if duration_seconds is not None else None
 
     return {
         "tripId": _get_trip_id(trip),
-        "transactionId": _get_value(trip, "transactionId"),
-        "vin": _get_value(trip, "vin"),
-        "imei": _get_value(trip, "imei"),
-        "status": _get_value(trip, "status"),
-        "startTime": format_datetime(_get_value(trip, "startTime")),
-        "endTime": format_datetime(_get_value(trip, "endTime")),
-        "timeZone": _get_value(trip, "timeZone"),
-        "startTimeZone": _get_value(trip, "startTimeZone"),
-        "endTimeZone": _get_value(trip, "endTimeZone"),
-        "duration": _get_value(trip, "duration"),
+        "transactionId": common.get("transactionId"),
+        "vin": common.get("vin"),
+        "imei": common.get("imei"),
+        "status": common.get("status"),
+        "startTime": common.get("startTime"),
+        "endTime": common.get("endTime"),
+        "timeZone": common.get("timeZone"),
+        "startTimeZone": common.get("startTimeZone"),
+        "endTimeZone": common.get("endTimeZone"),
+        "duration": common.get("duration"),
         "durationSeconds": duration_seconds,
         "durationMinutes": duration_minutes,
-        "startLocation": normalize_value(_get_value(trip, "startLocation")),
-        "destination": normalize_value(_get_value(trip, "destination")),
+        "startLocation": normalize_value(common.get("startLocation")),
+        "destination": normalize_value(common.get("destination")),
         "startPlaceId": _get_value(trip, "startPlaceId"),
         "location_schema_version": _get_value(trip, "location_schema_version"),
         "geocoded_at": format_datetime(_get_value(trip, "geocoded_at")),
-        "distance": _get_value(trip, "distance"),
+        "distance": common.get("distance"),
         "coverageDistance": _get_value(trip, "coverageDistance"),
         "currentSpeed": _get_value(trip, "currentSpeed"),
-        "maxSpeed": _get_value(trip, "maxSpeed"),
-        "avgSpeed": _get_value(trip, "avgSpeed"),
+        "maxSpeed": common.get("maxSpeed"),
+        "avgSpeed": common.get("avgSpeed"),
         "pointsRecorded": _get_value(trip, "pointsRecorded"),
-        "totalIdleDuration": _get_value(trip, "totalIdleDuration"),
-        "hardBrakingCounts": _get_value(trip, "hardBrakingCounts"),
-        "hardAccelerationCounts": _get_value(trip, "hardAccelerationCounts"),
-        "fuelConsumed": _get_value(trip, "fuelConsumed"),
-        "startOdometer": _get_value(trip, "startOdometer"),
-        "endOdometer": _get_value(trip, "endOdometer"),
+        "totalIdleDuration": common.get("totalIdleDuration"),
+        "hardBrakingCounts": common.get("hardBrakingCounts"),
+        "hardAccelerationCounts": common.get("hardAccelerationCounts"),
+        "fuelConsumed": common.get("fuelConsumed"),
+        "startOdometer": common.get("startOdometer"),
+        "endOdometer": common.get("endOdometer"),
         "sequence": _get_value(trip, "sequence"),
-        "source": _get_value(trip, "source"),
+        "source": common.get("source"),
         "closed_reason": _get_value(trip, "closed_reason"),
         "processing_state": _get_value(trip, "processing_state"),
-        "matchStatus": _get_value(trip, "matchStatus"),
+        "matchStatus": common.get("matchStatus"),
         "matched_at": format_datetime(_get_value(trip, "matched_at")),
         "invalid": _get_value(trip, "invalid"),
         "validation_status": _get_value(trip, "validation_status"),

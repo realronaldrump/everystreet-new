@@ -9,7 +9,7 @@ from search.services.search_service import SearchService
 async def test_geocode_search_merges_proximity_and_global_results(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    forward_geocode = AsyncMock(
+    search = AsyncMock(
         side_effect=[
             [
                 {
@@ -41,7 +41,33 @@ async def test_geocode_search_merges_proximity_and_global_results(
             ],
         ],
     )
-    monkeypatch.setattr(SearchService._geo_service, "forward_geocode", forward_geocode)
+    captured_calls: list[dict[str, object]] = []
+
+    class _Geocoder:
+        async def search(
+            self,
+            query: str,
+            *,
+            limit: int = 5,
+            proximity=None,
+            country_codes: str | None = "us",
+            strict_bounds: bool = False,
+        ):
+            captured_calls.append(
+                {
+                    "query": query,
+                    "limit": limit,
+                    "proximity": proximity,
+                    "country_codes": country_codes,
+                    "strict_bounds": strict_bounds,
+                },
+            )
+            return await search()
+
+    monkeypatch.setattr(
+        "search.services.search_service.get_geocoder",
+        AsyncMock(return_value=_Geocoder()),
+    )
 
     response = await SearchService.geocode_search(
         query="Starbucks",
@@ -52,24 +78,22 @@ async def test_geocode_search_merges_proximity_and_global_results(
 
     results = response["results"]
     assert len(results) == 2
-    assert forward_geocode.await_count == 2
+    assert search.await_count == 2
     assert results[0]["text"] == "Starbucks"
     assert results[1]["text"] == "Starbucks Reserve"
 
-    first_call = forward_geocode.await_args_list[0]
-    assert first_call.args[0] == "Starbucks"
-    assert first_call.kwargs["strict_bounds"] is False
-
-    second_call = forward_geocode.await_args_list[1]
-    assert second_call.args[0] == "Starbucks"
-    assert second_call.kwargs["proximity"] is None
+    assert captured_calls[0]["query"] == "Starbucks"
+    assert captured_calls[0]["strict_bounds"] is False
+    assert captured_calls[0]["proximity"] == (-97.1467, 31.5493)
+    assert captured_calls[1]["query"] == "Starbucks"
+    assert captured_calls[1]["proximity"] is None
 
 
 @pytest.mark.asyncio
 async def test_geocode_search_skips_global_fallback_when_primary_has_enough(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    forward_geocode = AsyncMock(
+    search = AsyncMock(
         return_value=[
             {
                 "text": "Austin",
@@ -89,7 +113,24 @@ async def test_geocode_search_skips_global_fallback_when_primary_has_enough(
             },
         ],
     )
-    monkeypatch.setattr(SearchService._geo_service, "forward_geocode", forward_geocode)
+
+    class _Geocoder:
+        async def search(
+            self,
+            query: str,
+            *,
+            limit: int = 5,
+            proximity=None,
+            country_codes: str | None = "us",
+            strict_bounds: bool = False,
+        ):
+            del query, limit, proximity, country_codes, strict_bounds
+            return await search()
+
+    monkeypatch.setattr(
+        "search.services.search_service.get_geocoder",
+        AsyncMock(return_value=_Geocoder()),
+    )
 
     response = await SearchService.geocode_search(
         query="Austin",
@@ -99,4 +140,4 @@ async def test_geocode_search_skips_global_fallback_when_primary_has_enough(
     )
 
     assert len(response["results"]) == 2
-    assert forward_geocode.await_count == 1
+    assert search.await_count == 1

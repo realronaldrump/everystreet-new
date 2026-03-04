@@ -3,6 +3,8 @@ import store from "../core/store.js";
 import { getStorage, setStorage } from "./data.js";
 import {
   formatDateToString,
+  formatDuration as _formatDuration,
+  formatDurationMs as _formatDurationMs,
   formatForDisplay,
   formatSecondsToHMS,
   formatTimeAgo,
@@ -126,33 +128,11 @@ const DateUtils = {
     if (!durationMsOrSec || Number.isNaN(durationMsOrSec)) {
       return "N/A";
     }
-
-    let totalSeconds = durationMsOrSec;
-    if (durationMsOrSec > 1000000) {
-      totalSeconds = Math.floor(durationMsOrSec / 1000);
+    // Auto-detect ms vs seconds: values > 1M are assumed to be milliseconds
+    if (durationMsOrSec > 1_000_000) {
+      return _formatDurationMs(durationMsOrSec);
     }
-
-    const dur = dayjs.duration(totalSeconds, "seconds");
-    const days = Math.floor(dur.asDays());
-    const hours = dur.hours();
-    const minutes = dur.minutes();
-    const seconds = dur.seconds();
-
-    const parts = [];
-    if (days) {
-      parts.push(`${days}d`);
-    }
-    if (hours) {
-      parts.push(`${hours}h`);
-    }
-    if (minutes) {
-      parts.push(`${minutes}m`);
-    }
-    if (seconds || parts.length === 0) {
-      parts.push(`${seconds}s`);
-    }
-
-    return parts.join(" ");
+    return _formatDuration(durationMsOrSec);
   },
 
   formatDurationHMS(startDate, endDate = new Date()) {

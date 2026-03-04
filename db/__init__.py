@@ -59,11 +59,6 @@ from db.models import (
     Vehicle,
 )
 
-# ============================================================================
-# Query Building
-# ============================================================================
-from db.query import build_calendar_date_expr, build_query_from_request
-
 logger = logging.getLogger(__name__)
 
 
@@ -91,7 +86,5 @@ __all__ = [
     "TripIngestIssue",
     "TripMobilityProfile",
     "Vehicle",
-    "build_calendar_date_expr",
-    "build_query_from_request",
     "db_manager",
 ]

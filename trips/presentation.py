@@ -4,21 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.casting import safe_float
-from core.date_utils import parse_timestamp
 from core.preview_path import build_line_preview_svg_path
-from core.serialization import serialize_datetime
 from core.spatial import GeometryService
+from trips.serialization import TripSerializer
 
 
 def trip_to_dict(value: Any) -> dict[str, Any]:
-    if isinstance(value, dict):
-        return dict(value)
-    if hasattr(value, "model_dump"):
-        return value.model_dump()
-    if hasattr(value, "dict"):
-        return value.dict()
-    return dict(value)
+    return TripSerializer.to_trip_dict(value)
 
 
 def first_non_empty(*values: Any) -> Any:
@@ -29,10 +21,7 @@ def first_non_empty(*values: Any) -> Any:
 
 
 def derive_timezone_fields(trip_dict: dict[str, Any]) -> tuple[Any, Any, Any]:
-    start_tz = first_non_empty(trip_dict.get("startTimeZone"))
-    end_tz = first_non_empty(trip_dict.get("endTimeZone"))
-    alias_tz = first_non_empty(start_tz, end_tz)
-    return start_tz, end_tz, alias_tz
+    return TripSerializer.derive_timezone_fields(trip_dict)
 
 
 def count_line_points(geometry: dict[str, Any] | None) -> int:
@@ -72,46 +61,18 @@ def build_trip_preview_path(trip_dict: dict[str, Any]) -> str | None:
 def build_trip_feature_properties(
     trip_dict: dict[str, Any],
     *,
-    estimated_cost: float | int | None,
+    estimated_cost: float | None,
     points_recorded: int,
     include_matched_at: bool = False,
     coverage_distance_miles: float | None = None,
 ) -> dict[str, Any]:
-    start_dt = parse_timestamp(trip_dict.get("startTime"))
-    end_dt = parse_timestamp(trip_dict.get("endTime"))
-    duration = (end_dt - start_dt).total_seconds() if start_dt and end_dt else None
-    start_tz, end_tz, alias_tz = derive_timezone_fields(trip_dict)
-
-    props: dict[str, Any] = {
-        "transactionId": trip_dict.get("transactionId"),
-        "imei": trip_dict.get("imei"),
-        "startTime": start_dt.isoformat() if start_dt else None,
-        "endTime": end_dt.isoformat() if end_dt else None,
-        "duration": duration,
-        "distance": safe_float(trip_dict.get("distance"), 0),
-        "maxSpeed": safe_float(trip_dict.get("maxSpeed"), 0),
-        "startTimeZone": start_tz,
-        "endTimeZone": end_tz,
-        "timeZone": alias_tz,
-        "startLocation": trip_dict.get("startLocation"),
-        "destination": trip_dict.get("destination"),
-        "totalIdleDuration": trip_dict.get("totalIdleDuration"),
-        "fuelConsumed": safe_float(trip_dict.get("fuelConsumed"), 0),
-        "source": trip_dict.get("source"),
-        "hardBrakingCounts": trip_dict.get("hardBrakingCounts"),
-        "hardAccelerationCounts": trip_dict.get("hardAccelerationCounts"),
-        "startOdometer": trip_dict.get("startOdometer"),
-        "endOdometer": trip_dict.get("endOdometer"),
-        "avgSpeed": trip_dict.get("avgSpeed"),
-        "pointsRecorded": points_recorded,
-        "estimated_cost": safe_float(estimated_cost, 0),
-        "matchStatus": trip_dict.get("matchStatus"),
-    }
-    if include_matched_at:
-        props["matched_at"] = serialize_datetime(trip_dict.get("matched_at"))
-    if coverage_distance_miles is not None:
-        props["coverageDistance"] = coverage_distance_miles
-    return props
+    return TripSerializer.to_geojson_properties(
+        trip_dict,
+        estimated_cost=estimated_cost,
+        points_recorded=points_recorded,
+        include_matched_at=include_matched_at,
+        coverage_distance_miles=coverage_distance_miles,
+    )
 
 
 __all__ = [

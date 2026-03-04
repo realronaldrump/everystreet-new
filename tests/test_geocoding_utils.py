@@ -4,12 +4,11 @@ import pytest
 from http_fakes import FakeResponse, FakeSession
 
 from core.exceptions import ExternalServiceException
-from core.http.geocoding import reverse_geocode_nominatim, validate_location_osm
 from core.http.nominatim import NominatimClient
 
 
 @pytest.mark.asyncio
-async def test_validate_location_osm_returns_first_result(
+async def test_search_raw_returns_results(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     response = FakeResponse(
@@ -22,12 +21,13 @@ async def test_validate_location_osm_returns_first_result(
         AsyncMock(return_value=session),
     )
 
-    result = await validate_location_osm("Waco", "city")
-    assert result == {"display_name": "Waco", "type": "city"}
+    client = NominatimClient()
+    result = await client.search_raw(query="Waco", limit=1, polygon_geojson=True)
+    assert result == [{"display_name": "Waco", "type": "city"}]
 
 
 @pytest.mark.asyncio
-async def test_validate_location_osm_raises_on_error(
+async def test_search_raw_raises_on_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     response = FakeResponse(status=500, text_data="oops")
@@ -37,8 +37,9 @@ async def test_validate_location_osm_raises_on_error(
         AsyncMock(return_value=session),
     )
 
+    client = NominatimClient()
     with pytest.raises(ExternalServiceException):
-        await validate_location_osm("Waco", "city")
+        await client.search_raw(query="Waco", limit=1, polygon_geojson=True)
 
 
 @pytest.mark.asyncio
@@ -50,7 +51,8 @@ async def test_reverse_geocode_returns_payload(monkeypatch: pytest.MonkeyPatch) 
         AsyncMock(return_value=session),
     )
 
-    result = await reverse_geocode_nominatim(31.5, -97.1)
+    client = NominatimClient()
+    result = await client.reverse(31.5, -97.1)
     assert result == {"place_id": 7}
 
 
@@ -65,8 +67,9 @@ async def test_reverse_geocode_raises_on_error(
         AsyncMock(return_value=session),
     )
 
+    client = NominatimClient()
     with pytest.raises(ExternalServiceException):
-        await reverse_geocode_nominatim(31.5, -97.1)
+        await client.reverse(31.5, -97.1)
 
 
 @pytest.mark.asyncio
@@ -84,8 +87,9 @@ async def test_reverse_geocode_raises_on_rate_limit(
         AsyncMock(return_value=session),
     )
 
+    client = NominatimClient()
     with pytest.raises(ExternalServiceException) as raised:
-        await reverse_geocode_nominatim(31.5, -97.1)
+        await client.reverse(31.5, -97.1)
 
     assert raised.value.details.get("status") == 429
 

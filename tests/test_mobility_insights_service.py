@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from unittest.mock import AsyncMock
 
 import h3
@@ -137,6 +138,48 @@ async def test_sync_trip_creates_profile_and_marks_trip_synced(mobility_db) -> N
     refreshed = await Trip.get(trip.id)
     assert refreshed is not None
     assert refreshed.mobility_synced_at is not None
+
+
+@pytest.mark.asyncio
+async def test_street_label_lookup_refreshes_geocoder_per_call_when_uncached(
+    mobility_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    del mobility_db
+
+    class _Geocoder:
+        def __init__(self, label: str) -> None:
+            self.label = label
+
+        async def reverse(self, _lat: float, _lon: float) -> dict[str, Any]:
+            return {
+                "display_name": f"{self.label} Avenue, Test City, TX",
+                "address": {"road": f"{self.label} Avenue"},
+            }
+
+    geocoder_resolver = AsyncMock(
+        side_effect=[_Geocoder("Alpha"), _Geocoder("Beta")],
+    )
+    monkeypatch.setattr(
+        "analytics.services.mobility_insights_service.get_geocoder",
+        geocoder_resolver,
+    )
+
+    cell_a = str(h3.latlng_to_cell(37.7749, -122.4194, 11))
+    cell_b = str(h3.latlng_to_cell(37.7810, -122.4110, 11))
+
+    street_a = await MobilityInsightsService._street_name_for_cell(
+        cell_a,
+        resolution=11,
+    )
+    street_b = await MobilityInsightsService._street_name_for_cell(
+        cell_b,
+        resolution=11,
+    )
+
+    assert street_a == "Alpha Avenue"
+    assert street_b == "Beta Avenue"
+    assert geocoder_resolver.await_count == 2
 
 
 @pytest.mark.asyncio

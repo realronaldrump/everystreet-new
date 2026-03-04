@@ -15,7 +15,7 @@ from beanie import PydanticObjectId
 from shapely.geometry import LineString
 from shapely.ops import transform
 
-from core.clients.nominatim import GeocodingService
+from core.mapping.factory import get_geocoder
 from core.spatial import (
     GeometryService,
     extract_line_sequences,
@@ -141,7 +141,13 @@ def _entity_has_paths(item: dict[str, Any]) -> bool:
 class MobilityInsightsService:
     """Builds and serves automatic movement insights using H3 traversal stats."""
 
-    _geocoder = GeocodingService()
+    @staticmethod
+    async def _resolve_street_lookup_geocoder() -> Any | None:
+        try:
+            return await get_geocoder()
+        except Exception:
+            logger.debug("Failed to resolve geocoder for street label lookups")
+            return None
 
     @classmethod
     def _select_trip_geometry(
@@ -378,6 +384,8 @@ class MobilityInsightsService:
         cell_id: str,
         *,
         resolution: int,
+        geocoder: Any | None = None,
+        resolve_geocoder: bool = True,
     ) -> str | None:
         cached = await H3StreetLabelCache.find_one({"h3_cell": cell_id})
         if cached:
@@ -392,8 +400,16 @@ class MobilityInsightsService:
 
         street_name: str | None = None
         display_name: str | None = None
+        active_geocoder = geocoder
+        if active_geocoder is None and resolve_geocoder:
+            active_geocoder = await cls._resolve_street_lookup_geocoder()
+
         try:
-            response = await cls._geocoder.reverse_geocode(lat, lon)
+            response = (
+                await active_geocoder.reverse(lat, lon)
+                if active_geocoder is not None
+                else None
+            )
             if isinstance(response, dict):
                 address = response.get("address") or {}
                 if isinstance(address, dict):
@@ -446,6 +462,7 @@ class MobilityInsightsService:
         if not ranked_cells:
             return []
 
+        geocoder = await cls._resolve_street_lookup_geocoder()
         semaphore = asyncio.Semaphore(8)
 
         async def resolve_street_name(cell_id: str) -> str | None:
@@ -457,6 +474,8 @@ class MobilityInsightsService:
                 street = await cls._street_name_for_cell(
                     cell_id,
                     resolution=resolution,
+                    geocoder=geocoder,
+                    resolve_geocoder=False,
                 )
                 return _normalize_street_name(street)
 
@@ -593,6 +612,7 @@ class MobilityInsightsService:
         if not ordered_unique:
             return {}
 
+        geocoder = await cls._resolve_street_lookup_geocoder()
         semaphore = asyncio.Semaphore(8)
 
         async def resolve(cell_id: str) -> tuple[str, str | None]:
@@ -600,6 +620,8 @@ class MobilityInsightsService:
                 street = await cls._street_name_for_cell(
                     cell_id,
                     resolution=resolution,
+                    geocoder=geocoder,
+                    resolve_geocoder=False,
                 )
                 return cell_id, _normalize_street_name(street)
 

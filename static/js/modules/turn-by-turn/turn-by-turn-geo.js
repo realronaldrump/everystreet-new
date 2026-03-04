@@ -1,111 +1,42 @@
 /**
  * Turn-by-Turn Geo Utilities
- * Pure geo/math utility functions (stateless)
+ * Domain-specific geo helpers built on shared geo-math primitives.
  */
 
 import { distanceInUserUnits } from "../utils.js";
+import {
+  angleDelta,
+  bearing as _bearing,
+  haversineDistance,
+  projectToSegment,
+  toXY,
+} from "../utils/geo-math.js";
 import {
   INSTRUCTION_LABELS,
   TURN_ANGLE_THRESHOLDS,
   TURN_ROTATIONS,
 } from "./turn-by-turn-config.js";
 
-/**
- * Convert degrees to radians
- * @param {number} deg
- * @returns {number}
- */
-export function toRad(deg) {
-  return deg * (Math.PI / 180);
-}
+export { angleDelta, projectToSegment, toXY };
 
 /**
- * Convert radians to degrees
- * @param {number} rad
- * @returns {number}
- */
-export function toDeg(rad) {
-  return rad * (180 / Math.PI);
-}
-
-/**
- * Earth radius in meters
- */
-const EARTH_RADIUS = 6371000;
-
-/**
- * Calculate distance between two points using Haversine formula
+ * Haversine distance between two [lon, lat] coordinate pairs.
  * @param {[number, number]} a - [lon, lat]
  * @param {[number, number]} b - [lon, lat]
  * @returns {number} Distance in meters
  */
 export function distanceMeters(a, b) {
-  const dLat = toRad(b[1] - a[1]);
-  const dLon = toRad(b[0] - a[0]);
-  const lat1 = toRad(a[1]);
-  const lat2 = toRad(b[1]);
-  const h =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  return 2 * EARTH_RADIUS * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+  return haversineDistance(a[1], a[0], b[1], b[0]);
 }
 
 /**
- * Calculate bearing from point a to point b
+ * Bearing from [lon, lat] a to [lon, lat] b.
  * @param {[number, number]} a - [lon, lat]
  * @param {[number, number]} b - [lon, lat]
  * @returns {number} Bearing in degrees (0-360)
  */
 export function bearing(a, b) {
-  const lat1 = toRad(a[1]);
-  const lat2 = toRad(b[1]);
-  const dLon = toRad(b[0] - a[0]);
-  const y = Math.sin(dLon) * Math.cos(lat2);
-  const x =
-    Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-  return (toDeg(Math.atan2(y, x)) + 360) % 360;
-}
-
-/**
- * Convert a coordinate to XY (Cartesian) for local calculations
- * @param {[number, number]} coord - [lon, lat]
- * @param {number} refLat - Reference latitude for projection
- * @returns {{x: number, y: number}}
- */
-export function toXY(coord, refLat) {
-  const lat = toRad(coord[1]);
-  const lon = toRad(coord[0]);
-  const x = lon * Math.cos(toRad(refLat)) * EARTH_RADIUS;
-  const y = lat * EARTH_RADIUS;
-  return { x, y };
-}
-
-/**
- * Project a point onto a line segment
- * @param {[number, number]} point - [lon, lat]
- * @param {[number, number]} a - Segment start [lon, lat]
- * @param {[number, number]} b - Segment end [lon, lat]
- * @returns {{distance: number, t: number, point: [number, number]}}
- */
-export function projectToSegment(point, a, b) {
-  const refLat = (a[1] + b[1]) / 2;
-  const p = toXY(point, refLat);
-  const p1 = toXY(a, refLat);
-  const p2 = toXY(b, refLat);
-  const dx = p2.x - p1.x;
-  const dy = p2.y - p1.y;
-  const lenSq = dx * dx + dy * dy;
-  let t = 0;
-  if (lenSq > 0) {
-    t = ((p.x - p1.x) * dx + (p.y - p1.y) * dy) / lenSq;
-    t = Math.min(1, Math.max(0, t));
-  }
-  const projX = p1.x + t * dx;
-  const projY = p1.y + t * dy;
-  const distance = Math.hypot(p.x - projX, p.y - projY);
-  const projLng = a[0] + t * (b[0] - a[0]);
-  const projLat = a[1] + t * (b[1] - a[1]);
-  return { distance, t, point: [projLng, projLat] };
+  return _bearing(a[1], a[0], b[1], b[0]);
 }
 
 /**
@@ -125,16 +56,6 @@ export function distanceToLineString(point, lineCoords) {
   }
 
   return minDistance;
-}
-
-/**
- * Calculate angle delta between two bearings
- * @param {number} from - Source bearing
- * @param {number} to - Target bearing
- * @returns {number} Delta in degrees (-180 to 180)
- */
-export function angleDelta(from, to) {
-  return ((to - from + 540) % 360) - 180;
 }
 
 /**

@@ -150,6 +150,64 @@ export function formatDurationMs(ms) {
 }
 
 /**
+ * Format duration from seconds, rounded to the nearest minute (no seconds shown).
+ * Returns null for invalid/zero input.
+ * @param {number} seconds
+ * @returns {string|null} e.g. "2h 15m" or "3m"
+ */
+export function formatDurationCompact(seconds) {
+  const numeric = Number(seconds);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return null;
+  }
+  const totalMinutes = Math.max(1, Math.round(numeric / 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${String(minutes).padStart(2, "0")}m` : `${hours}h`;
+  }
+  return `${minutes}m`;
+}
+
+/**
+ * Format duration from decimal hours to human-readable string.
+ * @param {number} hours - Decimal hours (e.g. 1.5 → "1h 30m")
+ * @returns {string}
+ */
+export function formatDurationFromHours(hours) {
+  if (!hours || hours <= 0) {
+    return "--";
+  }
+  if (hours < 1) {
+    return "Under 1 hour";
+  }
+  const wholeHours = Math.floor(hours);
+  const minutes = Math.round((hours - wholeHours) * 60);
+  if (minutes === 0) {
+    return `${wholeHours} hour${wholeHours === 1 ? "" : "s"}`;
+  }
+  return `${wholeHours}h ${minutes}m`;
+}
+
+/**
+ * Format a number with K/M suffix abbreviation.
+ * @param {number} num
+ * @returns {string} e.g. "1.5M", "23.4K", "456"
+ */
+export function formatCompactNumber(num) {
+  if (!Number.isFinite(num)) {
+    return "0";
+  }
+  if (num >= 1_000_000) {
+    return `${(num / 1_000_000).toFixed(1)}M`;
+  }
+  if (num >= 1_000) {
+    return `${(num / 1_000).toFixed(1)}K`;
+  }
+  return num.toString();
+}
+
+/**
  * Format seconds to HH:MM:SS format
  * @param {number} seconds - Duration in seconds
  * @returns {string} Time in HH:MM:SS format

@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any
 from fastapi import HTTPException
 from shapely.geometry import mapping, shape
 
-from core.clients.nominatim import GeocodingService
 from core.coverage_clip import (
     CoverageClipError,
     clip_line_geometry,
@@ -31,7 +30,6 @@ class _NominatimLookupClient:
 class SearchService:
     """Search helpers for geocoding and street lookup."""
 
-    _geo_service = GeocodingService()
     _nominatim_client = _NominatimLookupClient()
 
     @staticmethod
@@ -100,6 +98,7 @@ class SearchService:
 
         return score
 
+    @staticmethod
     async def geocode_search(
         query: str,
         limit: int,
@@ -120,10 +119,11 @@ class SearchService:
             proximity = (proximity_lon, proximity_lat)
 
         primary_limit = max(limit, 10)
-        primary_results = await SearchService._geo_service.forward_geocode(
+        geocoder = await get_geocoder()
+        primary_results = await geocoder.search(
             query_text,
-            primary_limit,
-            proximity,
+            limit=primary_limit,
+            proximity=proximity,
             strict_bounds=False,
         )
 
@@ -133,9 +133,9 @@ class SearchService:
             merged[key] = result
 
         if proximity and len(merged) < limit:
-            fallback_results = await SearchService._geo_service.forward_geocode(
+            fallback_results = await geocoder.search(
                 query_text,
-                primary_limit,
+                limit=primary_limit,
                 proximity=None,
                 strict_bounds=False,
             )

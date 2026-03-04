@@ -3,7 +3,7 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query
 
 from core.api import api_route
 from trips.models import MapMatchJobRequest
@@ -19,32 +19,14 @@ service = MapMatchingJobService()
 @api_route(logger)
 async def create_map_matching_job(request: MapMatchJobRequest):
     """Queue a new map matching job."""
-    try:
-        return await service.enqueue_job(request, source="manual")
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception("Failed to enqueue map matching job")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+    return await service.enqueue_job(request, source="manual")
 
 
 @router.get("/api/map_matching/jobs/{job_id}", response_model=dict[str, object])
 @api_route(logger)
 async def get_map_matching_job(job_id: str):
     """Retrieve progress for a map matching job."""
-    try:
-        return await service.get_job(job_id)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception("Failed to fetch map matching job")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+    return await service.get_job(job_id)
 
 
 @router.get("/api/map_matching/jobs", response_model=dict[str, object])
@@ -54,14 +36,7 @@ async def list_map_matching_jobs(
     offset: Annotated[int, Query(ge=0)] = 0,
 ):
     """List recent map matching jobs."""
-    try:
-        return await service.list_jobs(limit=limit, offset=offset)
-    except Exception as exc:
-        logger.exception("Failed to list map matching jobs")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+    return await service.list_jobs(limit=limit, offset=offset)
 
 
 @router.delete("/api/map_matching/jobs", response_model=dict[str, object])
@@ -70,16 +45,7 @@ async def clear_map_matching_history(
     include_active: Annotated[bool, Query()] = False,
 ):
     """Delete map matching job history entries."""
-    try:
-        return await service.clear_history(include_active=include_active)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception("Failed to clear map matching history")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+    return await service.clear_history(include_active=include_active)
 
 
 @router.post("/api/map_matching/jobs/preview", response_model=dict[str, object])
@@ -89,16 +55,7 @@ async def preview_map_matching_jobs(
     limit: Annotated[int, Query(ge=1, le=100)] = 25,
 ):
     """Preview trips that would be matched by a job request."""
-    try:
-        return await service.preview(request, limit=limit)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception("Failed to preview map matching job")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+    return await service.preview(request, limit=limit)
 
 
 @router.delete("/api/map_matching/jobs/{job_id}", response_model=dict[str, object])
@@ -108,34 +65,14 @@ async def delete_map_matching_job(
     force: Annotated[bool, Query()] = False,
 ):
     """Delete a map matching job entry from history."""
-    try:
-        return await service.delete_job(job_id, allow_active=force)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception("Failed to delete map matching job")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+    return await service.delete_job(job_id, allow_active=force)
 
 
 @router.post("/api/map_matching/jobs/{job_id}/cancel", response_model=dict[str, object])
 @api_route(logger)
-async def cancel_map_matching_job(
-    job_id: str,
-):
+async def cancel_map_matching_job(job_id: str):
     """Cancel a running map matching job."""
-    try:
-        return await service.cancel_job(job_id)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception("Failed to cancel map matching job")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+    return await service.cancel_job(job_id)
 
 
 @router.get("/api/map_matching/jobs/{job_id}/matches", response_model=dict[str, object])
@@ -145,13 +82,4 @@ async def preview_map_matching_results(
     limit: Annotated[int, Query(ge=1, le=300)] = 120,
 ):
     """Preview matched trips for a completed job."""
-    try:
-        return await service.preview_matches(job_id, limit=limit)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception("Failed to preview map matching results")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
+    return await service.preview_matches(job_id, limit=limit)

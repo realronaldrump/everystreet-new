@@ -1,4 +1,3 @@
-import asyncio
 import json
 from unittest.mock import AsyncMock, patch
 
@@ -34,27 +33,20 @@ async def test_backfill_endpoint_supports_background_job(coverage_db) -> None:
     await area.insert()
     assert area.id is not None
 
-    created_tasks: list[asyncio.Task] = []
-    orig_create_task = asyncio.create_task
-
-    def _create_task_spy(coro):
-        task = orig_create_task(coro)
-        created_tasks.append(task)
-        return task
+    job = Job(
+        job_type="area_backfill",
+        area_id=area.id,
+        status="pending",
+        stage="queued",
+        progress=0.0,
+        message="Queued",
+    )
+    await job.insert()
 
     with (
-        patch(
-            "street_coverage.ingestion.backfill_coverage_for_area",
-            new=AsyncMock(return_value=0),
-        ),
-        patch(
-            "street_coverage.ingestion.asyncio.create_task",
-            new=_create_task_spy,
-        ),
+        patch("street_coverage.api.areas.backfill_area", new=AsyncMock(return_value=job)),
     ):
         response = await trigger_backfill(area.id, background=True)
-        if created_tasks:
-            await asyncio.gather(*created_tasks)
 
     assert response.status_code == 202
     payload = json.loads(response.body.decode("utf-8"))

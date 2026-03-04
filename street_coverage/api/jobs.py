@@ -5,19 +5,16 @@ Provides endpoints for checking background job progress, including a
 Server-Sent Events (SSE) stream for real-time updates.
 """
 
-import asyncio
 import contextlib
-import json
 import logging
-import time
 from datetime import UTC, datetime
 from typing import Any
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
-from starlette.responses import StreamingResponse
 
+from core.streaming import format_sse_event, sse_queue_stream, sse_response
 from db.models import CoverageArea, Job
 from street_coverage.events import subscribe, unsubscribe
 from tasks.ops import abort_job
@@ -268,23 +265,17 @@ HEARTBEAT_INTERVAL = 15  # seconds
 SSE_TIMEOUT = 600  # 10 minutes max
 
 
-def _sse_format(event: str, data: Any) -> str:
-    """Format a single SSE frame."""
-    payload = json.dumps(data, default=str)
-    return f"event: {event}\ndata: {payload}\n\n"
-
-
 async def _job_event_stream(job_id: str):
     """Async generator that yields SSE frames for a job."""
     # Send initial snapshot
     try:
         job = await Job.get(job_id)
     except Exception:
-        yield _sse_format("error", {"message": "Job not found"})
+        yield format_sse_event({"message": "Job not found"}, event="error")
         return
 
     if not job:
-        yield _sse_format("error", {"message": "Job not found"})
+        yield format_sse_event({"message": "Job not found"}, event="error")
         return
 
     area_name = None
@@ -292,66 +283,58 @@ async def _job_event_stream(job_id: str):
         area = await CoverageArea.get(job.area_id)
         area_name = area.display_name if area else None
 
-    yield _sse_format(
-        "snapshot",
-        {
-            "job_id": str(job.id),
-            "job_type": job.job_type,
-            "area_id": str(job.area_id) if job.area_id else None,
-            "area_name": area_name,
-            "status": job.status,
-            "stage": job.stage,
-            "progress": job.progress,
-            "message": job.message,
-            "error": job.error,
-            "result": job.result,
-            "created_at": job.created_at.isoformat() if job.created_at else None,
-            "started_at": job.started_at.isoformat() if job.started_at else None,
-        },
-    )
+    snapshot = {
+        "job_id": str(job.id),
+        "job_type": job.job_type,
+        "area_id": str(job.area_id) if job.area_id else None,
+        "area_name": area_name,
+        "status": job.status,
+        "stage": job.stage,
+        "progress": job.progress,
+        "message": job.message,
+        "error": job.error,
+        "result": job.result,
+        "created_at": job.created_at.isoformat() if job.created_at else None,
+        "started_at": job.started_at.isoformat() if job.started_at else None,
+    }
+    yield format_sse_event(snapshot, event="snapshot")
 
     # If already terminal, no need to stream
-    if job.status in ("completed", "failed", "cancelled"):
-        yield _sse_format(
-            "done",
+    if job.status in {"completed", "failed", "cancelled"}:
+        yield format_sse_event(
             {
                 "status": job.status,
                 "result": job.result,
                 "error": job.error,
             },
+            event="done",
         )
         return
 
     # Subscribe to live events
     q = subscribe(job_id)
-    time.monotonic()
-    start = time.monotonic()
+
+    def _is_terminal_event(event_name: str, payload: dict[str, Any]) -> bool:
+        return event_name == "done" or payload.get("status") in {
+            "completed",
+            "failed",
+            "cancelled",
+        }
+
+    async def _next_event() -> dict[str, Any] | None:
+        return await q.get()
 
     try:
-        while True:
-            elapsed = time.monotonic() - start
-            if elapsed > SSE_TIMEOUT:
-                yield _sse_format("timeout", {"message": "Stream timeout"})
-                return
-
-            try:
-                event = await asyncio.wait_for(q.get(), timeout=HEARTBEAT_INTERVAL)
-            except TimeoutError:
-                # Send heartbeat to keep connection alive
-                yield _sse_format("heartbeat", {"ts": time.time()})
-                time.monotonic()
-                continue
-
-            event_type = event.pop("_type", "progress")
-            yield _sse_format(event_type, event)
-
-            # Terminal events end the stream
-            if event_type == "done" or event.get("status") in (
-                "completed",
-                "failed",
-                "cancelled",
-            ):
-                return
+        async for frame in sse_queue_stream(
+            _next_event,
+            event_name_key="_type",
+            default_event_name="progress",
+            timeout_s=HEARTBEAT_INTERVAL,
+            keepalive_event_name="heartbeat",
+            max_duration_s=SSE_TIMEOUT,
+            is_terminal_event=_is_terminal_event,
+        ):
+            yield frame
     finally:
         unsubscribe(job_id, q)
 
@@ -373,12 +356,7 @@ async def stream_job_progress(job_id: str):
     # Resolve to actual ObjectId for the stream
     job = await _resolve_job(job_id)
     resolved_id = str(job.id) if job else job_id
-    return StreamingResponse(
+    return sse_response(
         _job_event_stream(resolved_id),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
+        **{"X-Accel-Buffering": "no"},
     )

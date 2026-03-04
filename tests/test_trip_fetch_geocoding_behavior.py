@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from unittest.mock import AsyncMock
 
 from trips.services import trip_history_import_service_core as import_runtime
 from trips.services.geocoding import TripGeocoder
@@ -107,7 +108,7 @@ async def test_geocoder_handles_start_reverse_failure_without_skipping_destinati
         def __init__(self) -> None:
             self.calls = 0
 
-        async def reverse_geocode(self, _lat: float, _lon: float) -> dict[str, Any]:
+        async def reverse(self, _lat: float, _lon: float) -> dict[str, Any]:
             self.calls += 1
             if self.calls == 1:
                 msg = "temporary failure"
@@ -121,17 +122,6 @@ async def test_geocoder_handles_start_reverse_failure_without_skipping_destinati
                     "postcode": "75000",
                     "country": "United States",
                 },
-            }
-
-        def parse_geocode_response(
-            self,
-            response: dict[str, Any],
-            coordinates: list[float],
-        ) -> dict[str, Any]:
-            return {
-                "formatted_address": response.get("display_name", ""),
-                "address_components": {},
-                "coordinates": {"lat": coordinates[1], "lng": coordinates[0]},
             }
 
     async def fake_health() -> Any:
@@ -150,7 +140,7 @@ async def test_geocoder_handles_start_reverse_failure_without_skipping_destinati
         staticmethod(fake_place_lookup),
     )
 
-    geocoder = TripGeocoder(geocoding_service=_GeocodingServiceStub())
+    geocoder = TripGeocoder(geocoder=_GeocodingServiceStub())
     payload = {
         "transactionId": "tx-geo-retry",
         "startLocation": "Unknown",
@@ -167,3 +157,81 @@ async def test_geocoder_handles_start_reverse_failure_without_skipping_destinati
     assert isinstance(result.get("destination"), dict)
     assert result["destination"]["formatted_address"] == "Destination St, Test City, TX"
     assert result.get("geocoded_at") is not None
+
+
+@pytest.mark.asyncio
+async def test_trip_geocoder_re_resolves_provider_per_geocode_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Provider:
+        def __init__(self, label: str) -> None:
+            self.label = label
+
+        async def reverse(self, _lat: float, _lon: float) -> dict[str, Any]:
+            return {
+                "display_name": f"{self.label} St, Test City, TX",
+                "address": {
+                    "road": f"{self.label} St",
+                    "city": "Test City",
+                    "state": "TX",
+                    "postcode": "75000",
+                    "country": "United States",
+                },
+            }
+
+    async def fake_health() -> Any:
+        return SimpleNamespace(nominatim_healthy=True)
+
+    async def fake_place_lookup(_point: Any) -> None:
+        return None
+
+    get_geocoder_mock = AsyncMock(
+        side_effect=[_Provider("First"), _Provider("Second")],
+    )
+    monkeypatch.setattr(
+        "trips.services.geocoding.get_geocoder",
+        get_geocoder_mock,
+    )
+    monkeypatch.setattr(
+        "trips.services.geocoding.GeoServiceHealth.get_or_create",
+        fake_health,
+    )
+    monkeypatch.setattr(
+        TripGeocoder,
+        "get_place_at_point",
+        staticmethod(fake_place_lookup),
+    )
+
+    geocoder = TripGeocoder()
+
+    payload_a = {
+        "transactionId": "tx-geo-a",
+        "startLocation": "Unknown",
+        "destination": "Unknown",
+        "gps": {
+            "type": "LineString",
+            "coordinates": [[-97.0, 32.0], [-97.1, 32.1]],
+        },
+    }
+    payload_b = {
+        "transactionId": "tx-geo-b",
+        "startLocation": "Unknown",
+        "destination": "Unknown",
+        "gps": {
+            "type": "LineString",
+            "coordinates": [[-97.0, 32.0], [-97.1, 32.1]],
+        },
+    }
+
+    first_result = await geocoder.geocode(payload_a)
+    second_result = await geocoder.geocode(payload_b)
+
+    assert (
+        first_result["startLocation"]["formatted_address"]
+        == "First St, Test City, TX"
+    )
+    assert (
+        second_result["startLocation"]["formatted_address"]
+        == "Second St, Test City, TX"
+    )
+    assert get_geocoder_mock.await_count == 2

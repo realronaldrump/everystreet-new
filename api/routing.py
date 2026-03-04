@@ -6,7 +6,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from core.clients.valhalla import ValhallaClient as _DefaultValhallaClient
+from core.api import api_route
+from core.http.valhalla import ValhallaClient as _DefaultValhallaClient
 from core.mapping.factory import get_router
 
 logger = logging.getLogger(__name__)
@@ -30,17 +31,14 @@ async def _get_routing_client() -> Any:
 
 
 @router.post("/route")
+@api_route(logger)
 async def route_endpoint(payload: RouteRequest) -> dict[str, Any]:
     origin = payload.origin
     destination = payload.destination
     client = await _get_routing_client()
-    try:
-        result = await client.route(
-            [(origin[0], origin[1]), (destination[0], destination[1])],
-        )
-    except Exception as exc:
-        logger.exception("Routing request failed")
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    result = await client.route(
+        [(origin[0], origin[1]), (destination[0], destination[1])],
+    )
 
     geometry = result.get("geometry")
     if not geometry:
@@ -56,12 +54,8 @@ async def route_endpoint(payload: RouteRequest) -> dict[str, Any]:
 
 
 @router.post("/eta")
+@api_route(logger)
 async def eta_endpoint(payload: EtaRequest) -> dict[str, Any]:
     client = await _get_routing_client()
-    try:
-        result = await client.route(payload.waypoints)
-    except Exception as exc:
-        logger.exception("ETA request failed")
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-
+    result = await client.route(payload.waypoints)
     return {"duration": result.get("duration_seconds", 0)}

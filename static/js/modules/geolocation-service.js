@@ -4,6 +4,12 @@
  * Replaces 5+ scattered geolocation implementations
  */
 
+import {
+  haversineDistance,
+  bearing as computeBearing,
+  cardinalDirection,
+} from "./utils/geo-math.js";
+
 class GeolocationService {
   constructor() {
     this.watchId = null;
@@ -103,44 +109,21 @@ class GeolocationService {
    * Calculate distance between two positions (Haversine formula)
    */
   calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; // Earth's radius in meters
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-    const a =
-      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c; // Distance in meters
+    return haversineDistance(lat1, lon1, lat2, lon2);
   }
 
   /**
    * Calculate bearing between two positions
    */
   calculateBearing(lat1, lon1, lat2, lon2) {
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-    const y = Math.sin(Δλ) * Math.cos(φ2);
-    const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-
-    const θ = Math.atan2(y, x);
-    const bearing = ((θ * 180) / Math.PI + 360) % 360;
-
-    return bearing;
+    return computeBearing(lat1, lon1, lat2, lon2);
   }
 
   /**
    * Get cardinal direction from bearing
    */
-  getCardinalDirection(bearing) {
-    const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-    const index = Math.round(bearing / 45) % 8;
-    return directions[index];
+  getCardinalDirection(deg) {
+    return cardinalDirection(deg);
   }
 
   /**

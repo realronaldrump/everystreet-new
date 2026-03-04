@@ -5,7 +5,11 @@ from typing import Any
 
 from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
-from db.aggregation_utils import build_driver_behavior_fields_stage, get_mongo_tz_expr
+from db.aggregation_utils import (
+    build_driver_behavior_fields_stage,
+    build_trip_time_group_id,
+    get_mongo_tz_expr,
+)
 from db.models import Trip
 
 logger = logging.getLogger(__name__)
@@ -33,27 +37,10 @@ class TripAnalyticsService:
             {"$match": query},
             {
                 "$group": {
-                    "_id": {
-                        "date": {
-                            "$dateToString": {
-                                "format": "%Y-%m-%d",
-                                "date": "$startTime",
-                                "timezone": tz_expr,
-                            },
-                        },
-                        "hour": {
-                            "$hour": {
-                                "date": "$startTime",
-                                "timezone": tz_expr,
-                            },
-                        },
-                        "dayOfWeek": {
-                            "$dayOfWeek": {
-                                "date": "$startTime",
-                                "timezone": tz_expr,
-                            },
-                        },
-                    },
+                    "_id": build_trip_time_group_id(
+                        date_field="startTime",
+                        tz_expr=tz_expr,
+                    ),
                     "totalDistance": {"$sum": "$distance"},
                     "tripCount": {"$sum": 1},
                 },

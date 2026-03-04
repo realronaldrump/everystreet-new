@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Any, Literal
 
@@ -48,7 +48,7 @@ COUNTER_KEYS = (
 
 def build_ingest_counters() -> dict[str, int]:
     """Build a default ingest counter dictionary."""
-    return {key: 0 for key in COUNTER_KEYS}
+    return dict.fromkeys(COUNTER_KEYS, 0)
 
 
 def merge_ingest_counters(target: dict[str, int], delta: dict[str, int]) -> None:
@@ -147,15 +147,6 @@ async def fetch_trips_for_window(
                     query_start,
                     query_end,
                 )
-        normalized_raw: list[dict[str, Any]] = []
-        for trip in raw_trips:
-            if not isinstance(trip, dict):
-                continue
-            if not trip.get("imei"):
-                trip = dict(trip)
-                trip["imei"] = imei
-            normalized_raw.append(trip)
-        return normalized_raw
     except Exception as exc:
         span = window_end - window_start
         if span <= timedelta(hours=min_window_hours):
@@ -243,6 +234,16 @@ async def fetch_trips_for_window(
         for chunk in results_lists:
             results.extend(chunk)
         return results
+    else:
+        normalized_raw: list[dict[str, Any]] = []
+        for trip in raw_trips:
+            if not isinstance(trip, dict):
+                continue
+            if not trip.get("imei"):
+                trip = dict(trip)
+                trip["imei"] = imei
+            normalized_raw.append(trip)
+        return normalized_raw
 
 
 def _existing_source(existing: TripStatusProjection | dict[str, Any] | None) -> str:

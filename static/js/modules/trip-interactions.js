@@ -67,8 +67,13 @@ const tripInteractions = {
 
     const formatValue = (value, formatter) =>
       value != null ? formatter(value) : "N/A";
-    const formatNumber = (value, digits = 1) =>
-      formatValue(value, (v) => parseFloat(v).toFixed(digits));
+    const formatMetric = (value, digits = 1) => {
+      if (value == null) {
+        return "N/A";
+      }
+      const formatted = utils.formatNumber(Number(value), digits);
+      return formatted === "--" ? "N/A" : formatted;
+    };
     const formatTime = (value) =>
       formatValue(
         value,
@@ -106,13 +111,13 @@ const tripInteractions = {
             <span class="trip-popup-label">End</span>
             <span class="trip-popup-value">${formatTime(props.endTime)}</span>
             <span class="trip-popup-label">Distance</span>
-            <span class="trip-popup-value">${formatNumber(props.distance)} mi</span>
+            <span class="trip-popup-value">${formatMetric(props.distance)} mi</span>
             <span class="trip-popup-label">Duration</span>
             <span class="trip-popup-value">${metricsManager.formatDuration(duration)}</span>
             <span class="trip-popup-label">Avg Speed</span>
-            <span class="trip-popup-value">${formatNumber(props.avgSpeed)} mph</span>
+            <span class="trip-popup-value">${formatMetric(props.avgSpeed)} mph</span>
             <span class="trip-popup-label">Max Speed</span>
-            <span class="trip-popup-value">${formatNumber(props.maxSpeed)} mph</span>
+            <span class="trip-popup-value">${formatMetric(props.maxSpeed)} mph</span>
           </div>
           ${this.createActionButtons(feature)}
         </div>
