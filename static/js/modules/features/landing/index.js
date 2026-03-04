@@ -3,8 +3,8 @@
  * Fetches live data and animates the landing page
  */
 
-import apiClient from "../../core/api-client.js";
 import { CONFIG as APP_CONFIG } from "../../core/config.js";
+import { createFeatureApi } from "../../core/feature-api.js";
 import { swupReady } from "../../core/navigation.js";
 import store from "../../core/store.js";
 import metricAnimator from "../../ui/metric-animator.js";
@@ -48,18 +48,19 @@ let pageSignal = null;
 let lastKnownLocation = null;
 let metricsLoadRequestId = 0;
 let removeFilterRefreshListener = null;
-const withSignal = (options = {}) =>
-  pageSignal ? { ...options, signal: pageSignal } : options;
-const apiGet = (url, options = {}) => apiClient.get(url, withSignal(options));
-const apiRaw = (url, options = {}) => apiClient.raw(url, withSignal(options));
+let featureApi = createFeatureApi();
+const withSignal = (options = {}) => featureApi.withSignal(options);
+const apiGet = (url, options = {}) => featureApi.get(url, options);
+const apiRaw = (url, options = {}) => featureApi.raw(url, options);
 const isAbortError = (error) =>
   error?.name === "AbortError" || pageSignal?.aborted === true;
 
 /**
  * Initialize the landing page
  */
-export default function initLandingPage({ signal, cleanup } = {}) {
+export default function initLandingPage({ signal, cleanup, api } = {}) {
   pageSignal = signal || null;
+  featureApi = api || createFeatureApi({ signal: pageSignal });
   cacheElements();
   updateGreeting(elements);
 

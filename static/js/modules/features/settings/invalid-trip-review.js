@@ -4,27 +4,7 @@
 import apiClient from "../../core/api-client.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
-
-function escapeHtml(value) {
-  const str = String(value ?? "");
-  return str
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function formatDateTime(value) {
-  if (!value) {
-    return "N/A";
-  }
-  const dt = new Date(value);
-  if (Number.isNaN(dt.getTime())) {
-    return String(value);
-  }
-  return dt.toLocaleString();
-}
+import { escapeHtml, formatDateTime } from "../../utils.js";
 
 export class InvalidTripReview {
   constructor() {

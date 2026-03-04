@@ -4,16 +4,7 @@
 import apiClient from "../../core/api-client.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
-
-function escapeHtml(value) {
-  const str = String(value ?? "");
-  return str
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+import { escapeHtml } from "../../utils.js";
 
 function formatLocal(value) {
   if (!value) {

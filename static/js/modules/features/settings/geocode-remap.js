@@ -8,6 +8,7 @@ import apiClient from "../../core/api-client.js";
 import loadingManager from "../../ui/loading-manager.js";
 import notificationManager from "../../ui/notifications.js";
 import { DateUtils } from "../../utils.js";
+import { queueRemapJob } from "./shared/remap-job.js";
 import { clearInlineStatus, setInlineStatus } from "./status-utils.js";
 
 function setInputInvalid(input, isInvalid) {
@@ -425,22 +426,8 @@ export function setupRemapMatchedTrips(signal) {
         loadingManager.show();
         setInlineStatus(remapStatus, "Remapping trips...", "info");
 
-        const response = await apiClient.raw("/api/map_matching/jobs", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            mode: "date_range",
-            start_date,
-            end_date,
-            interval_days,
-            unmatched_only: false,
-            rematch: true,
-          }),
-        });
-
+        await queueRemapJob({ start_date, end_date, interval_days });
         loadingManager.hide();
-
-        await response.json();
 
         setInlineStatus(
           remapStatus,

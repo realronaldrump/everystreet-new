@@ -1,6 +1,4 @@
+import bootstrapPage from "../modules/core/page-bootstrap.js";
 import initTripsPage from "../modules/features/trips/index.js";
-import { onPageLoad } from "../modules/utils.js";
 
-onPageLoad(initTripsPage, {
-  route: (path) => path === "/trips" || path.startsWith("/trips/"),
-});
+bootstrapPage(initTripsPage, (path) => path === "/trips" || path.startsWith("/trips/"));

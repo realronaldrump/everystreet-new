@@ -9,10 +9,11 @@ import { submitTaskConfigUpdate } from "./task-manager/api.js";
 import {
   escapeHtml,
   formatDateTime,
-  formatDurationMs,
   getStatusColor,
 } from "./task-manager/formatters.js";
 import { showErrorModal, showTaskDetails } from "./task-manager/modals.js";
+import { queueRemapJob } from "./shared/remap-job.js";
+import { getDurationState, getResultText } from "./shared/task-history-entry.js";
 
 /**
  * Mobile UI module - handles all mobile-specific UI rendering and interactions
@@ -206,39 +207,13 @@ export function updateMobileHistoryList(history, taskManager) {
     const card = document.createElement("div");
     card.className = "mobile-history-card";
 
-    let durationText = "Unknown";
-    if (entry.runtime !== null && entry.runtime !== undefined) {
-      const runtimeMs = parseFloat(entry.runtime);
-      if (!Number.isNaN(runtimeMs)) {
-        durationText = formatDurationMs(runtimeMs);
-      }
-    } else if (entry.status === "RUNNING" && entry.timestamp) {
-      try {
-        const startTime = new Date(entry.timestamp);
-        const now = new Date();
-        const elapsedMs = now - startTime;
-        if (!Number.isNaN(elapsedMs) && elapsedMs >= 0) {
-          durationText = formatDurationMs(elapsedMs);
-          card.dataset.startTime = entry.timestamp;
-          card.dataset.isRunning = "true";
-        }
-      } catch {
-        // Error calculating elapsed time - silently ignore
-      }
+    const { durationText, isRunning, startTime } = getDurationState(entry);
+    if (isRunning && startTime) {
+      card.dataset.startTime = startTime;
+      card.dataset.isRunning = "true";
     }
 
-    let resultText = "N/A";
-    if (entry.status === "RUNNING") {
-      resultText = "Running";
-    } else if (entry.status === "PENDING") {
-      resultText = "Pending";
-    } else if (entry.status === "COMPLETED") {
-      resultText = entry.result ? "Success" : "Completed";
-    } else if (entry.status === "FAILED") {
-      resultText = "Failed";
-    } else {
-      resultText = "N/A";
-    }
+    const resultText = getResultText(entry);
 
     const statusClass = getStatusColor(entry.status);
 
@@ -766,21 +741,8 @@ export function setupMobileRemapTrips() {
         loadingManager.show();
         setInlineStatus(remapStatus, "Queueing rematch job...", "info");
 
-        const response = await apiClient.raw("/api/map_matching/jobs", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            mode: "date_range",
-            start_date,
-            end_date,
-            interval_days,
-            unmatched_only: false,
-            rematch: true,
-          }),
-        });
-
+        await queueRemapJob({ start_date, end_date, interval_days });
         loadingManager.hide();
-        await response.json();
 
         setInlineStatus(
           remapStatus,

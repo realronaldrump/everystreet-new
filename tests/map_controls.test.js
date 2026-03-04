@@ -204,7 +204,7 @@ test("focus action dispatches only when a coverage area is selected", () => {
 
   const teardown = initMapControls();
 
-  global.window.focusSelectedCoverageArea();
+  env.focusBtn.dispatchEvent({ type: "click" });
   assert.equal(
     env.dispatchedEvents.filter((event) => event.type === "es:focus-selected-coverage-area")
       .length,
@@ -214,7 +214,7 @@ test("focus action dispatches only when a coverage area is selected", () => {
   env.locationSelect.value = "area-42";
   env.locationSelect.triggerChange();
 
-  global.window.focusSelectedCoverageArea();
+  env.focusBtn.dispatchEvent({ type: "click" });
   const focusEvents = env.dispatchedEvents.filter(
     (event) => event.type === "es:focus-selected-coverage-area"
   );

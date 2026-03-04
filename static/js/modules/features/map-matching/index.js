@@ -1,5 +1,5 @@
-import apiClient from "../../core/api-client.js";
 import { CONFIG } from "../../core/config.js";
+import { createFeatureApi } from "../../core/feature-api.js";
 import { createMap } from "../../map-core.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
@@ -126,6 +126,7 @@ let selectedQuickPick = null;
 let pageSignal = null;
 let failedTripsData = [];
 let failedSelection = new Set();
+let featureApi = createFeatureApi();
 
 // Result modes for the results phase
 const RESULT_MODES = {
@@ -136,12 +137,10 @@ const RESULT_MODES = {
 
 let _currentResultMode = RESULT_MODES.JOB;
 
-const withSignal = (options = {}) =>
-  pageSignal ? { ...options, signal: pageSignal } : options;
-const apiGet = (url, options = {}) => apiClient.get(url, withSignal(options));
-const apiPost = (url, body, options = {}) =>
-  apiClient.post(url, body, withSignal(options));
-const apiDelete = (url, options = {}) => apiClient.delete(url, withSignal(options));
+const withSignal = (options = {}) => featureApi.withSignal(options);
+const apiGet = (url, options = {}) => featureApi.get(url, options);
+const apiPost = (url, body, options = {}) => featureApi.post(url, body, options);
+const apiDelete = (url, options = {}) => featureApi.delete(url, options);
 
 const LAST_JOB_STORAGE_KEY = "map_matching:last_job_id";
 const TERMINAL_STAGES = new Set(["completed", "failed", "error", "cancelled"]);
@@ -2180,8 +2179,9 @@ async function resumeFromJobs(jobs) {
   updateProgressUI(null);
 }
 
-export default async function initMapMatchingPage({ signal, cleanup } = {}) {
+export default async function initMapMatchingPage({ signal, cleanup, api } = {}) {
   pageSignal = signal || null;
+  featureApi = api || createFeatureApi({ signal: pageSignal });
   cacheElements();
   resetState();
 

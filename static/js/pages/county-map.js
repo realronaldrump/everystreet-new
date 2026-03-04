@@ -1,4 +1,4 @@
+import bootstrapPage from "../modules/core/page-bootstrap.js";
 import initCountyMapPage from "../modules/features/county-map/index.js";
-import { onPageLoad } from "../modules/utils.js";
 
-onPageLoad(initCountyMapPage, { route: "/county-map" });
+bootstrapPage(initCountyMapPage, "/county-map");

@@ -1,5 +1,6 @@
 import { CONFIG } from "../../core/config.js";
 import mapCore from "../../map-core.js";
+import { resolveMapTypeHint } from "./map-type-hint.js";
 
 const PRIMARY_FILTER = ["==", ["get", "extrude"], "true"];
 const FALLBACK_FILTER = ["has", "height"];
@@ -93,36 +94,11 @@ function readMapStyle(map) {
   return null;
 }
 
-function readStoredMapType() {
-  if (typeof localStorage === "undefined") {
-    return "";
-  }
-
-  try {
-    const raw = localStorage.getItem(CONFIG.STORAGE_KEYS.mapType);
-    if (raw === null) {
-      return "";
-    }
-
-    try {
-      return normalizeStyleType(JSON.parse(raw));
-    } catch {
-      return normalizeStyleType(raw);
-    }
-  } catch {
-    return "";
-  }
-}
-
 function getCurrentMapTypeHint() {
-  if (typeof document !== "undefined") {
-    const select = document.getElementById("map-type-select");
-    if (select?.value) {
-      return normalizeStyleType(select.value);
-    }
-  }
-
-  return readStoredMapType();
+  return resolveMapTypeHint({
+    storageKey: CONFIG.STORAGE_KEYS.mapType,
+    normalizeStyleType,
+  });
 }
 
 function isSatelliteStyle(styleType) {

@@ -4,7 +4,7 @@
  * Card-based trip display with timeline grouping and smart features
  */
 
-import apiClient from "../../core/api-client.js";
+import { createFeatureApi } from "../../core/feature-api.js";
 import { CONFIG } from "../../core/config.js";
 import store, { optimisticAction } from "../../core/store.js";
 import { getPreloadTripIdFromUrl } from "../../core/url-state.js";
@@ -43,6 +43,7 @@ let playbackControlsBound = false;
 let modalActionsBound = false;
 let pageSignal = null;
 let tripModalMapInitPromise = null;
+let featureApi = createFeatureApi();
 
 const DEFAULT_TRIP_SORT = "date_desc";
 let appliedTripSort = DEFAULT_TRIP_SORT;
@@ -71,12 +72,10 @@ const googleModalState = {
   headMarker: null,
 };
 
-const withSignal = (options = {}) =>
-  pageSignal ? { ...options, signal: pageSignal } : options;
-const apiGet = (url, options = {}) => apiClient.get(url, withSignal(options));
-const apiPost = (url, body, options = {}) =>
-  apiClient.post(url, body, withSignal(options));
-const apiDelete = (url, options = {}) => apiClient.delete(url, withSignal(options));
+const withSignal = (options = {}) => featureApi.withSignal(options);
+const apiGet = (url, options = {}) => featureApi.get(url, options);
+const apiPost = (url, body, options = {}) => featureApi.post(url, body, options);
+const apiDelete = (url, options = {}) => featureApi.delete(url, options);
 
 function isAbortError(error) {
   return error?.name === "AbortError";
@@ -389,7 +388,7 @@ function getTripsSortRequest() {
   };
 }
 
-export default async function initTripsPage({ signal, cleanup } = {}) {
+export default async function initTripsPage({ signal, cleanup, api } = {}) {
   const cleanupFns = [];
   const registerCleanup = (fn) => {
     if (typeof fn === "function") {
@@ -398,6 +397,7 @@ export default async function initTripsPage({ signal, cleanup } = {}) {
   };
 
   pageSignal = signal || null;
+  featureApi = api || createFeatureApi({ signal: pageSignal });
   resetTripsState();
 
   try {

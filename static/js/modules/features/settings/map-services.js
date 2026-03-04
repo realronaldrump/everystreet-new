@@ -8,6 +8,7 @@
 
 import apiClient from "../../core/api-client.js";
 import notificationManager from "../../ui/notifications.js";
+import { escapeHtml } from "../../utils.js";
 
 const MAP_SERVICES_API = "/api/map-services";
 const APP_SETTINGS_API = "/api/app_settings";
@@ -1348,19 +1349,4 @@ function timeAgo(isoString) {
   }
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
-}
-
-/**
- * Escape HTML special characters
- */
-function escapeHtml(str) {
-  if (!str) {
-    return "";
-  }
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }

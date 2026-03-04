@@ -2,10 +2,12 @@ import { DrivingNavigation } from "../../driving-navigation/manager.js";
 import { DrivingNavigationUI } from "../../driving-navigation/ui.js";
 import { createMap } from "../../map-core.js";
 import { OptimalRoutesManager } from "../../optimal-route/manager.js";
+import initCoverageNavigatorUi from "./ui-scaffold.js";
 
 const MAP_CONTAINER_ID = "coverage-map";
 
-export default function initCoverageNavigatorPage({ cleanup } = {}) {
+export default function initCoverageNavigatorPage(context = {}) {
+  const { signal = null, cleanup = null, onCleanup = () => {} } = context;
   const noopTeardown = () => {};
 
   const container = document.getElementById(MAP_CONTAINER_ID);
@@ -19,6 +21,8 @@ export default function initCoverageNavigatorPage({ cleanup } = {}) {
   let sharedMap = null;
   let drivingNavigation = null;
   let optimalRoutes = null;
+
+  initCoverageNavigatorUi({ signal, onCleanup });
 
   try {
     sharedMap = createMap(MAP_CONTAINER_ID, {
@@ -55,7 +59,12 @@ export default function initCoverageNavigatorPage({ cleanup } = {}) {
     },
   });
 
+  let tornDown = false;
   const teardown = () => {
+    if (tornDown) {
+      return;
+    }
+    tornDown = true;
     optimalRoutes?.destroy?.();
     optimalRoutes = null;
     drivingNavigation?.destroy?.();
@@ -69,6 +78,8 @@ export default function initCoverageNavigatorPage({ cleanup } = {}) {
       sharedMap = null;
     }
   };
+
+  onCleanup(teardown);
 
   if (typeof cleanup === "function") {
     cleanup(teardown);

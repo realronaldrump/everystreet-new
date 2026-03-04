@@ -20,7 +20,7 @@ function repairModalUiState() {
   document.body.style.removeProperty("overflow");
 }
 
-export default function initVisitsPage({ cleanup } = {}) {
+export default function initVisitsPage({ cleanup, api } = {}) {
   const noopTeardown = () => {};
   const mapProvider = String(window.MAP_PROVIDER || "self_hosted").toLowerCase();
   const usingGoogleProvider = mapProvider === "google";
@@ -58,8 +58,7 @@ export default function initVisitsPage({ cleanup } = {}) {
 
   // Initialize new visits page controller
   repairModalUiState();
-  visitsPage = new VisitsPageController();
-  window.visitsPage = visitsPage; // Expose specifically for inline onclick handlers
+  visitsPage = new VisitsPageController({ api });
 
   const themeObserver = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
@@ -82,9 +81,6 @@ export default function initVisitsPage({ cleanup } = {}) {
     visitsPage?.clearSuggestionPreviewMaps?.();
     visitsPage?.visitsManager?.destroy?.();
     repairModalUiState();
-    if (window.visitsPage === visitsPage) {
-      window.visitsPage = undefined;
-    }
     visitsPage = null;
   };
 

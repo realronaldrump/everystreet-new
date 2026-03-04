@@ -4,6 +4,7 @@
  */
 
 import * as CountyMapState from "./state.js";
+import { escapeHtml } from "../utils.js";
 
 function setText(id, text) {
   const el = document.getElementById(id);
@@ -16,15 +17,6 @@ export function getRecalculateButtons() {
   return ["recalculate-btn", "trigger-recalculate"]
     .map((id) => document.getElementById(id))
     .filter(Boolean);
-}
-
-function escapeHtml(value) {
-  return String(value || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }
 
 function formatCount(value) {

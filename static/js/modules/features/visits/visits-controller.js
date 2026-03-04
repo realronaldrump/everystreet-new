@@ -5,6 +5,8 @@
 import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
 import { createMap } from "../../map-core.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
+import { escapeHtml, parseDurationToSeconds } from "../../utils.js";
+import { createVisitsDataService } from "../../visits/data-service.js";
 import { VisitsGeometry } from "../../visits/geometry.js";
 import VisitsManager from "../../visits/visits-manager.js";
 
@@ -53,8 +55,9 @@ const _DAY_NAMES = [
 ];
 
 class VisitsPageController {
-  constructor() {
+  constructor({ api = null, dataService = null } = {}) {
     this.visitsManager = null;
+    this.dataService = dataService || createVisitsDataService(api || undefined);
     this.places = [];
     this.placesStats = [];
     this.suggestions = [];
@@ -219,6 +222,64 @@ class VisitsPageController {
       "click",
       () => {
         this.startDrawingFromFab();
+      },
+      { signal }
+    );
+    document.getElementById("add-first-place-btn")?.addEventListener(
+      "click",
+      () => {
+        this.startDrawingFromFab();
+      },
+      { signal }
+    );
+
+    this.elements.placesGrid?.addEventListener(
+      "click",
+      (event) => {
+        const card = event.target.closest(".place-card[data-place-id]");
+        if (!card) {
+          return;
+        }
+        const placeId = String(card.dataset.placeId || "");
+        if (placeId) {
+          this.showPlaceDetail(placeId);
+        }
+      },
+      { signal }
+    );
+
+    this.elements.discoveriesGrid?.addEventListener(
+      "click",
+      (event) => {
+        const actionBtn = event.target.closest("[data-discovery-action]");
+        if (!actionBtn) {
+          return;
+        }
+        const index = Number.parseInt(actionBtn.dataset.suggestionIndex || "", 10);
+        if (!Number.isFinite(index)) {
+          return;
+        }
+        const action = actionBtn.dataset.discoveryAction;
+        if (action === "preview") {
+          this.previewSuggestion(index);
+        } else if (action === "save") {
+          this.addSuggestionAsPlace(index);
+        }
+      },
+      { signal }
+    );
+
+    this.elements.otherStopsList?.addEventListener(
+      "click",
+      (event) => {
+        const saveBtn = event.target.closest(".btn-save[data-stop-name]");
+        if (!saveBtn) {
+          return;
+        }
+        const stopName = String(saveBtn.dataset.stopName || "").trim();
+        if (stopName) {
+          this.saveNonCustomPlace(stopName);
+        }
       },
       { signal }
     );
@@ -496,77 +557,33 @@ class VisitsPageController {
 
   // API Methods
   async fetchPlaces() {
-    const response = await fetch("/api/places");
-    if (!response.ok) {
-      throw new Error("Failed to fetch places");
-    }
-    return response.json();
+    return this.dataService.fetchPlaces();
   }
 
   async fetchAllStats(timeframe = "all") {
-    const response = await fetch(`/api/places/statistics?timeframe=${timeframe}`);
-    if (!response.ok) {
-      throw new Error("Failed to fetch statistics");
-    }
-    return response.json();
+    return this.dataService.fetchPlaceStatistics({ timeframe });
   }
 
   async fetchPlaceStats(placeId) {
-    const response = await fetch(`/api/places/${placeId}/statistics`);
-    if (!response.ok) {
-      throw new Error("Failed to fetch place statistics");
-    }
-    return response.json();
+    return this.dataService.fetchPlaceDetailStatistics(placeId);
   }
 
   async fetchPlaceTrips(placeId) {
-    const response = await fetch(`/api/places/${placeId}/trips`);
-    if (!response.ok) {
-      throw new Error("Failed to fetch place trips");
-    }
-    return response.json();
+    return this.dataService.fetchPlaceTrips(placeId);
   }
 
   async fetchSuggestions(cellSizeFt = 250) {
     // Convert feet to meters for API
     const cellSizeM = Math.round(cellSizeFt / 3.28084);
-    const response = await fetch(
-      `/api/visit_suggestions?cell_size_m=${cellSizeM}&min_visits=5`
-    );
-    if (!response.ok) {
-      throw new Error("Failed to fetch suggestions");
-    }
-    return response.json();
+    return this.dataService.fetchVisitSuggestions({ cell_size_m: cellSizeM, min_visits: 5 });
   }
 
   async fetchNonCustomPlaces() {
-    const response = await fetch("/api/non_custom_places_visits");
-    if (!response.ok) {
-      throw new Error("Failed to fetch non-custom places");
-    }
-    return response.json();
+    return this.dataService.fetchNonCustomVisits();
   }
 
   async createPlace(name, geometry) {
-    const response = await fetch("/api/places", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, geometry }),
-    });
-    if (!response.ok) {
-      throw new Error("Failed to create place");
-    }
-    return response.json();
-  }
-
-  async deletePlace(placeId) {
-    const response = await fetch(`/api/places/${placeId}`, {
-      method: "DELETE",
-    });
-    if (!response.ok) {
-      throw new Error("Failed to delete place");
-    }
-    return response.json();
+    return this.dataService.createPlace({ name, geometry });
   }
 
   // Data processing
@@ -656,7 +673,7 @@ class VisitsPageController {
         }
 
         return `
-        <div class="place-card" data-place-id="${placeId}" onclick="visitsPage.showPlaceDetail('${placeId}')">
+        <div class="place-card" data-place-id="${placeId}">
           <div class="place-card-header ${accent}">
             <div class="place-map-preview" id="${mapId}">
               <div class="map-preview-default">
@@ -667,7 +684,7 @@ class VisitsPageController {
             ${isMostVisited ? '<span class="place-badge">Most visited</span>' : ""}
           </div>
           <div class="place-card-body">
-            <h3 class="place-name">${this.escapeHtml(place.name)}</h3>
+            <h3 class="place-name">${escapeHtml(place.name)}</h3>
             <div class="place-meta">
               <div class="place-stat">
                 <i class="fas fa-calendar"></i>
@@ -729,7 +746,7 @@ class VisitsPageController {
         <div class="pattern-card">
           <div class="pattern-header">
             <div class="pattern-icon">${icon}</div>
-            <h4>${this.escapeHtml(place.name)}</h4>
+            <h4>${escapeHtml(place.name)}</h4>
           </div>
           <p class="pattern-description">${patterns[0] || "Regular destination"}</p>
           <div class="pattern-stats">
@@ -794,15 +811,23 @@ class VisitsPageController {
             <span class="discovery-boundary-indicator"><i class="fas fa-ruler-combined"></i> ~${boundarySizeFt} ft boundary</span>
           </div>
           <div class="discovery-content">
-            <h4>${this.escapeHtml(suggestion.suggestedName)}</h4>
+          <h4>${escapeHtml(suggestion.suggestedName)}</h4>
             <p class="discovery-stats">
               ${suggestion.totalVisits} visits •
               First: ${this.formatDate(suggestion.firstVisit)} •
               Last: ${this.formatDate(suggestion.lastVisit)}
             </p>
             <div class="discovery-actions">
-              <button class="btn-preview" onclick="visitsPage.previewSuggestion(${index})">Preview</button>
-              <button class="btn-add" onclick="visitsPage.addSuggestionAsPlace(${index})">Save place</button>
+              <button class="btn-preview"
+                      data-discovery-action="preview"
+                      data-suggestion-index="${index}">
+                Preview
+              </button>
+              <button class="btn-add"
+                      data-discovery-action="save"
+                      data-suggestion-index="${index}">
+                Save place
+              </button>
             </div>
           </div>
         </div>
@@ -838,14 +863,14 @@ class VisitsPageController {
         (stop) => `
       <div class="other-stop-item">
         <div class="other-stop-info">
-          <h4>${this.escapeHtml(stop.name)}</h4>
-          <span style="color: var(--text-tertiary); font-size: 0.9rem;">${stop.totalVisits} visits</span>
+          <h4>${escapeHtml(stop.name)}</h4>
+          <span class="other-stop-visit-count">${stop.totalVisits} visits</span>
         </div>
         <div class="other-stop-dates">
           <span>First: ${this.formatDate(stop.firstVisit)}</span>
           <span>Last: ${this.formatDate(stop.lastVisit)}</span>
         </div>
-        <button class="btn-save" onclick="visitsPage.saveNonCustomPlace('${this.escapeHtml(stop.name)}')">
+        <button class="btn-save" data-stop-name="${escapeHtml(stop.name)}">
           <i class="fas fa-plus"></i> Save
         </button>
       </div>
@@ -867,7 +892,7 @@ class VisitsPageController {
     }
 
     if (place.averageTimeSpent && place.averageTimeSpent !== "N/A") {
-      const duration = this.parseDuration(place.averageTimeSpent);
+      const duration = parseDurationToSeconds(place.averageTimeSpent);
       if (duration > 3600) {
         // More than 1 hour
         patterns.push("Extended stays");
@@ -1075,39 +1100,6 @@ class VisitsPageController {
       return `${Math.floor(diffDays / 7)} weeks ago`;
     }
     return this.formatDate(dateString);
-  }
-
-  parseDuration(durationStr) {
-    if (!durationStr || durationStr === "N/A") {
-      return 0;
-    }
-
-    let seconds = 0;
-    const days = durationStr.match(/(\d+)d/);
-    const hours = durationStr.match(/(\d+)h/);
-    const minutes = durationStr.match(/(\d+)m/);
-    const secs = durationStr.match(/(\d+)s/);
-
-    if (days) {
-      seconds += parseInt(days[1], 10) * 86400;
-    }
-    if (hours) {
-      seconds += parseInt(hours[1], 10) * 3600;
-    }
-    if (minutes) {
-      seconds += parseInt(minutes[1], 10) * 60;
-    }
-    if (secs) {
-      seconds += parseInt(secs[1], 10);
-    }
-
-    return seconds;
-  }
-
-  escapeHtml(text) {
-    const div = document.createElement("div");
-    div.textContent = text;
-    return div.innerHTML;
   }
 
   // Event handlers

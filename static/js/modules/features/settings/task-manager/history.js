@@ -10,6 +10,7 @@ import {
   getStatusColor,
 } from "./formatters.js";
 import { showErrorModal, showTaskLogsModal } from "./modals.js";
+import { getDurationState, getResultText } from "../shared/task-history-entry.js";
 
 /**
  * Render the task history table
@@ -34,41 +35,13 @@ export function renderTaskHistoryTable(history) {
   history.forEach((entry) => {
     const row = document.createElement("tr");
 
-    let durationText = "Unknown";
-    if (entry.runtime !== null && entry.runtime !== undefined) {
-      const runtimeMs = parseFloat(entry.runtime);
-      if (!Number.isNaN(runtimeMs)) {
-        durationText = formatDurationMs(runtimeMs);
-      }
-    } else if (entry.status === "RUNNING" && entry.timestamp) {
-      try {
-        const startTime = new Date(entry.timestamp);
-        const now = new Date();
-        const elapsedMs = now - startTime;
-        if (!Number.isNaN(elapsedMs) && elapsedMs >= 0) {
-          durationText = formatDurationMs(elapsedMs);
-          row.dataset.startTime = entry.timestamp;
-          row.dataset.isRunning = "true";
-        }
-      } catch {
-        // Error calculating elapsed time - silently ignore
-      }
+    const { durationText, isRunning, startTime } = getDurationState(entry);
+    if (isRunning && startTime) {
+      row.dataset.startTime = startTime;
+      row.dataset.isRunning = "true";
     }
 
-    let resultText = "N/A";
-    if (entry.status === "RUNNING") {
-      resultText = "Running";
-    } else if (entry.status === "PENDING") {
-      resultText = "Pending";
-    } else if (entry.status === "COMPLETED") {
-      resultText = entry.result ? "Success" : "Completed";
-    } else if (entry.status === "FAILED") {
-      resultText = "Failed";
-    } else if (entry.status === "CANCELLED") {
-      resultText = "Cancelled";
-    } else {
-      resultText = "N/A";
-    }
+    const resultText = getResultText(entry);
 
     let detailsContent = "N/A";
     if (entry.error) {

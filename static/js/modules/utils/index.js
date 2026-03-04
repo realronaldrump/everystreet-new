@@ -40,6 +40,7 @@ import {
   formatTimeAgo,
   formatVehicleName,
   formatWeekRange,
+  parseDurationToSeconds,
   sanitizeLocation,
 } from "./formatting.js";
 
@@ -68,6 +69,7 @@ export {
   formatTimeAgo,
   formatVehicleName,
   formatWeekRange,
+  parseDurationToSeconds,
   getAllElements,
   getDeviceProfile,
   getElement,
@@ -109,6 +111,7 @@ const utils = {
   formatTimeAgo,
   formatVehicleName,
   formatWeekRange,
+  parseDurationToSeconds,
   getAllElements,
   getDeviceProfile,
   getElement,

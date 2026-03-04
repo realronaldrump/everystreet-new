@@ -1,6 +1,6 @@
 /* global mapboxgl */
 
-import apiClient from "../../core/api-client.js";
+import { createFeatureApi } from "../../core/feature-api.js";
 import store from "../../core/store.js";
 import { createMap } from "../../map-core.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
@@ -20,17 +20,18 @@ let vehicles = [];
 let recentFillups = [];
 let vehicleDiscoveryAttempted = false;
 let pageSignal = null;
+let featureApi = createFeatureApi();
 
-const withSignal = (options = {}) =>
-  pageSignal ? { ...options, signal: pageSignal } : options;
-const apiRaw = (url, options = {}) => apiClient.raw(url, withSignal(options));
+const withSignal = (options = {}) => featureApi.withSignal(options);
+const apiRaw = (url, options = {}) => featureApi.raw(url, options);
 
 // Use shared notification manager
 const showSuccess = (msg) => notificationManager.show(msg, "success");
 const showError = (msg) => notificationManager.show(msg, "danger");
 
-export default async function initGasTrackingPage({ signal, cleanup } = {}) {
+export default async function initGasTrackingPage({ signal, cleanup, api } = {}) {
   pageSignal = signal || null;
+  featureApi = api || createFeatureApi({ signal: pageSignal });
   try {
     await initializePage(signal, cleanup);
   } catch (e) {

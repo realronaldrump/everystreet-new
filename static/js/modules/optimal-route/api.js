@@ -1,4 +1,8 @@
 import apiClient from "../core/api-client.js";
+import {
+  clearCoverageAreasCache as clearCachedCoverageAreas,
+  loadCoverageAreasWithCache,
+} from "../features/navigation-core/coverage-areas.js";
 
 export class OptimalRouteAPI {
   constructor(options = {}) {
@@ -20,31 +24,19 @@ export class OptimalRouteAPI {
    * Useful after areas are added/deleted in coverage management.
    */
   clearCoverageAreasCache() {
-    if (window.coverageNavigatorAreas) {
-      window.coverageNavigatorAreas = undefined;
-    }
+    clearCachedCoverageAreas();
   }
 
   async loadCoverageAreas() {
     try {
-      // Check cache, but only use it if it has data
-      // This prevents empty arrays from being permanently cached
-      if (window.coverageNavigatorAreas && window.coverageNavigatorAreas.length > 0) {
-        return window.coverageNavigatorAreas;
-      }
-
-      const data = await apiClient.get("/api/coverage/areas");
-
-      if (!data.success || !data.areas) {
-        console.error("Failed to load coverage areas");
-        return null;
-      }
-
-      // Only cache non-empty arrays to allow fresh fetches when areas are added
-      if (data.areas.length > 0) {
-        window.coverageNavigatorAreas = data.areas;
-      }
-      return data.areas;
+      const areas = await loadCoverageAreasWithCache(async () => {
+        const data = await apiClient.get("/api/coverage/areas");
+        if (!data.success || !data.areas) {
+          throw new Error("Failed to load coverage areas");
+        }
+        return data.areas;
+      });
+      return areas;
     } catch (error) {
       console.error("Error loading coverage areas:", error);
       throw error;

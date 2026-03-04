@@ -4,7 +4,7 @@
  * Browse, filter, build, and explore route analytics with rich visualisations.
  */
 
-import apiClient from "../../core/api-client.js";
+import { createFeatureApi } from "../../core/feature-api.js";
 import { createMap } from "../../map-core.js";
 import notificationManager from "../../ui/notifications.js";
 import { debounce, escapeHtml, formatDuration, sanitizeLocation } from "../../utils.js";
@@ -35,6 +35,7 @@ let showAllTrips = false;
 let placesCatalog = [];
 let placesLoaded = false;
 let explorerRequestId = 0;
+let featureApi = createFeatureApi();
 
 // Chart instances (destroyed on each modal open)
 let chartMonthly = null;
@@ -47,10 +48,10 @@ let explorerChartHour = null;
 let explorerChartDay = null;
 
 /* ───── helpers ───── */
-const withSignal = (o = {}) => (pageSignal ? { ...o, signal: pageSignal } : o);
-const apiGet = (u, o = {}) => apiClient.get(u, withSignal(o));
-const apiPost = (u, b, o = {}) => apiClient.post(u, b, withSignal(o));
-const apiPatch = (u, b, o = {}) => apiClient.patch(u, b, withSignal(o));
+const withSignal = (o = {}) => featureApi.withSignal(o);
+const apiGet = (u, o = {}) => featureApi.get(u, o);
+const apiPost = (u, b, o = {}) => featureApi.post(u, b, o);
+const apiPatch = (u, b, o = {}) => featureApi.patch(u, b, o);
 const getEl = (id) => document.getElementById(id);
 
 function formatMiles(v) {
@@ -3127,8 +3128,9 @@ function bindPageControls(signal) {
 }
 
 /* ───── entry-point ───── */
-export default async function initRoutesPage({ signal, cleanup } = {}) {
+export default async function initRoutesPage({ signal, cleanup, api } = {}) {
   pageSignal = signal || null;
+  featureApi = api || createFeatureApi({ signal: pageSignal });
 
   setBuildUi({
     dotState: "idle",

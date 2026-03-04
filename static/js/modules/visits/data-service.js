@@ -1,72 +1,79 @@
 import apiClient from "../core/api-client.js";
 
-function fetchPlaces() {
-  return apiClient.get("/api/places");
-}
-
-function fetchPlaceStatistics(params = {}) {
+function buildQuery(params = {}) {
   const query = new URLSearchParams(params).toString();
-  return apiClient.get(`/api/places/statistics${query ? `?${query}` : ""}`);
+  return query ? `?${query}` : "";
 }
 
-function fetchPlaceDetailStatistics(placeId) {
-  return apiClient.get(`/api/places/${placeId}/statistics`);
+export function createVisitsDataService(client = apiClient) {
+  return {
+    fetchPlaces(options = {}) {
+      return client.get("/api/places", options);
+    },
+
+    fetchPlaceStatistics(params = {}, options = {}) {
+      return client.get(`/api/places/statistics${buildQuery(params)}`, options);
+    },
+
+    fetchPlaceDetailStatistics(placeId, options = {}) {
+      return client.get(`/api/places/${placeId}/statistics`, options);
+    },
+
+    fetchPlaceTrips(placeId, options = {}) {
+      return client.get(`/api/places/${placeId}/trips`, options);
+    },
+
+    fetchNonCustomVisits(params = {}, options = {}) {
+      return client.get(`/api/non_custom_places_visits${buildQuery(params)}`, options);
+    },
+
+    fetchVisitSuggestions(params = {}, options = {}) {
+      return client.get(`/api/visit_suggestions${buildQuery(params)}`, options);
+    },
+
+    fetchTrip(tripId, options = {}) {
+      return client.get(`/api/trips/${tripId}`, options);
+    },
+
+    deletePlace(placeId, options = {}) {
+      return client.delete(`/api/places/${placeId}`, options);
+    },
+
+    createPlace(payload, options = {}) {
+      return client.post("/api/places", payload, options);
+    },
+
+    updatePlace(placeId, payload, options = {}) {
+      return client.patch(`/api/places/${placeId}`, payload, options);
+    },
+  };
 }
 
-function fetchPlaceTrips(placeId) {
-  return apiClient.get(`/api/places/${placeId}/trips`);
-}
+const visitsDataService = createVisitsDataService(apiClient);
 
-function fetchNonCustomVisits(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return apiClient.get(`/api/non_custom_places_visits${query ? `?${query}` : ""}`);
-}
-
-function fetchVisitSuggestions(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return apiClient.get(`/api/visit_suggestions${query ? `?${query}` : ""}`);
-}
-
-function fetchTrip(tripId) {
-  return apiClient.get(`/api/trips/${tripId}`);
-}
-
-function deletePlace(placeId) {
-  return apiClient.delete(`/api/places/${placeId}`);
-}
-
-function createPlace(payload) {
-  return apiClient.post("/api/places", payload);
-}
-
-function updatePlace(placeId, payload) {
-  return apiClient.patch(`/api/places/${placeId}`, payload);
-}
-
-const VisitsDataService = {
-  fetchPlaces,
-  fetchPlaceStatistics,
-  fetchPlaceDetailStatistics,
-  fetchPlaceTrips,
-  fetchNonCustomVisits,
-  fetchVisitSuggestions,
-  fetchTrip,
-  deletePlace,
-  createPlace,
-  updatePlace,
-};
+const fetchPlaces = (...args) => visitsDataService.fetchPlaces(...args);
+const fetchPlaceStatistics = (...args) => visitsDataService.fetchPlaceStatistics(...args);
+const fetchPlaceDetailStatistics = (...args) =>
+  visitsDataService.fetchPlaceDetailStatistics(...args);
+const fetchPlaceTrips = (...args) => visitsDataService.fetchPlaceTrips(...args);
+const fetchNonCustomVisits = (...args) => visitsDataService.fetchNonCustomVisits(...args);
+const fetchVisitSuggestions = (...args) => visitsDataService.fetchVisitSuggestions(...args);
+const fetchTrip = (...args) => visitsDataService.fetchTrip(...args);
+const deletePlace = (...args) => visitsDataService.deletePlace(...args);
+const createPlace = (...args) => visitsDataService.createPlace(...args);
+const updatePlace = (...args) => visitsDataService.updatePlace(...args);
 
 export {
-  fetchPlaces,
-  fetchPlaceStatistics,
-  fetchPlaceDetailStatistics,
-  fetchPlaceTrips,
-  fetchNonCustomVisits,
-  fetchVisitSuggestions,
-  fetchTrip,
-  deletePlace,
   createPlace,
+  deletePlace,
+  fetchNonCustomVisits,
+  fetchPlaceDetailStatistics,
+  fetchPlaceStatistics,
+  fetchPlaceTrips,
+  fetchPlaces,
+  fetchTrip,
+  fetchVisitSuggestions,
   updatePlace,
 };
 
-export default VisitsDataService;
+export default visitsDataService;

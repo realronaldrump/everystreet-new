@@ -1,4 +1,4 @@
+import bootstrapPage from "../modules/core/page-bootstrap.js";
 import initLandingPage from "../modules/features/landing/index.js";
-import { onPageLoad } from "../modules/utils.js";
 
-onPageLoad(initLandingPage, { route: "/" });
+bootstrapPage(initLandingPage, "/");

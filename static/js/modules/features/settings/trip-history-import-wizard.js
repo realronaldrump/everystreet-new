@@ -3,6 +3,7 @@
 import apiClient from "../../core/api-client.js";
 import { CONFIG } from "../../core/config.js";
 import notificationManager from "../../ui/notifications.js";
+import { escapeHtml } from "../../utils.js";
 
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
@@ -128,16 +129,6 @@ function renderDevicesList(
     frag.appendChild(row);
   });
   container.appendChild(frag);
-}
-
-function escapeHtml(value) {
-  const str = String(value ?? "");
-  return str
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
 }
 
 function setStep(root, step) {

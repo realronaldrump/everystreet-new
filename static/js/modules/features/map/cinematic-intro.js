@@ -1,4 +1,5 @@
 import { CONFIG } from "../../core/config.js";
+import { resolveMapTypeHint } from "./map-type-hint.js";
 
 const MAP_INTERACTION_EVENTS = ["dragstart", "zoomstart", "rotatestart", "pitchstart"];
 const DOM_INTERACTION_EVENTS = ["mousedown", "touchstart", "wheel", "keydown"];
@@ -53,31 +54,10 @@ function nowMs() {
 }
 
 function getCurrentMapTypeHint() {
-  if (typeof document !== "undefined") {
-    const select = document.getElementById("map-type-select");
-    if (select?.value) {
-      return normalizeStyleType(select.value);
-    }
-  }
-
-  if (typeof localStorage === "undefined") {
-    return "";
-  }
-
-  try {
-    const raw = localStorage.getItem(CONFIG.STORAGE_KEYS.mapType);
-    if (raw === null) {
-      return "";
-    }
-
-    try {
-      return normalizeStyleType(JSON.parse(raw));
-    } catch {
-      return normalizeStyleType(raw);
-    }
-  } catch {
-    return "";
-  }
+  return resolveMapTypeHint({
+    storageKey: CONFIG.STORAGE_KEYS.mapType,
+    normalizeStyleType,
+  });
 }
 
 function styleHasCompositeSource(map) {

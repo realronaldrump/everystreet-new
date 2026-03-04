@@ -24,6 +24,7 @@ import TurnByTurnGPS from "./turn-by-turn-gps.js";
 import TurnByTurnMap from "./turn-by-turn-map.js";
 import TurnByTurnState from "./turn-by-turn-state.js";
 import TurnByTurnUI from "./turn-by-turn-ui.js";
+import { loadCoverageAreasWithCache } from "../features/navigation-core/coverage-areas.js";
 
 /**
  * Main turn-by-turn navigator class
@@ -225,15 +226,9 @@ class TurnByTurnNavigator {
    */
   async loadCoverageAreas() {
     try {
-      // Only use cache if it has data (prevent empty array caching issue)
-      if (
-        Array.isArray(window.coverageNavigatorAreas) &&
-        window.coverageNavigatorAreas.length > 0
-      ) {
-        this.coverageAreas = window.coverageNavigatorAreas;
-      } else {
-        this.coverageAreas = await TurnByTurnAPI.fetchCoverageAreas();
-      }
+      this.coverageAreas = await loadCoverageAreasWithCache(() =>
+        TurnByTurnAPI.fetchCoverageAreas()
+      );
       this.ui.populateAreaSelect(this.coverageAreas);
     } catch (error) {
       this.ui.setSetupStatus(`Unable to load areas: ${error.message}`, true);

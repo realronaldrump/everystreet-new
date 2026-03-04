@@ -1,6 +1,7 @@
 /* global bootstrap */
 
 import apiClient from "../../core/api-client.js";
+import { createFeatureApi } from "../../core/feature-api.js";
 import { swupReady } from "../../core/navigation.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
@@ -30,9 +31,11 @@ const STATUS_CLASS = {
 let refreshInterval = null;
 let pageSignal = null;
 let taskManager = null;
+let featureApi = createFeatureApi();
 
-export default function initStatusPage({ signal, cleanup } = {}) {
+export default function initStatusPage({ signal, cleanup, api } = {}) {
   pageSignal = signal || null;
+  featureApi = api || createFeatureApi({ signal: pageSignal });
   initialize();
 
   const teardown = () => {
@@ -58,10 +61,7 @@ export default function initStatusPage({ signal, cleanup } = {}) {
 }
 
 function withSignal(options = {}) {
-  if (pageSignal) {
-    return { ...options, signal: pageSignal };
-  }
-  return options;
+  return featureApi.withSignal(options);
 }
 
 function initialize() {

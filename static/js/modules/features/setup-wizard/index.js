@@ -1,4 +1,5 @@
 import apiClient from "../../core/api-client.js";
+import { createFeatureApi } from "../../core/feature-api.js";
 import { swupReady } from "../../core/navigation.js";
 import {
   fetchBouncieCredentials as fetchBouncieCredentialsShared,
@@ -29,6 +30,7 @@ let tripSyncStatus = null;
 let detectedStates = [];
 let hasTripsForCoverage = false;
 let bouncieConnected = false;
+let featureApi = createFeatureApi();
 
 /** Coverage flow phase: 'needs-import' | 'importing' | 'detected' | 'building' | 'ready' */
 let coveragePhase = "needs-import";
@@ -38,8 +40,9 @@ let importStartedAt = null;
 let lastLoggedTripCount = -1;
 let lastLoggedState = null;
 
-export default function initSetupWizardPage({ signal, cleanup } = {}) {
+export default function initSetupWizardPage({ signal, cleanup, api } = {}) {
   pageSignal = signal || null;
+  featureApi = api || createFeatureApi({ signal: pageSignal });
   initializeSetup();
   const teardown = () => {
     pageSignal = null;
@@ -55,10 +58,7 @@ export default function initSetupWizardPage({ signal, cleanup } = {}) {
 }
 
 function withSignal(options = {}) {
-  if (pageSignal) {
-    return { ...options, signal: pageSignal };
-  }
-  return options;
+  return featureApi.withSignal(options);
 }
 
 function getSelectedProvider() {

@@ -1,13 +1,13 @@
-import apiClient from "../../core/api-client.js";
+import { createFeatureApi } from "../../core/feature-api.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
 import { escapeHtml } from "../../utils.js";
 
-export default function initServerLogsPage({ signal, cleanup } = {}) {
+export default function initServerLogsPage({ signal, cleanup, api } = {}) {
   const noopTeardown = () => {};
-  const withSignal = (options = {}) => (signal ? { ...options, signal } : options);
-  const apiGet = (url, options = {}) => apiClient.get(url, withSignal(options));
-  const apiDelete = (url, options = {}) => apiClient.delete(url, withSignal(options));
+  const featureApi = api || createFeatureApi({ signal: signal || null });
+  const apiGet = (url, options = {}) => featureApi.get(url, options);
+  const apiDelete = (url, options = {}) => featureApi.delete(url, options);
   // DOM elements
   const logsContainer = document.getElementById("logs-container");
   const logsInfo = document.getElementById("logs-info");

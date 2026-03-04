@@ -16,6 +16,7 @@
  */
 
 import apiClient from "../../core/api-client.js";
+import { createFeatureApi } from "../../core/feature-api.js";
 import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
 import { createMap, isMapboxStyleUrl, waitForMapboxToken } from "../../map-core.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
@@ -80,6 +81,7 @@ const INITIAL_STATE = () => ({
 });
 
 let state = INITIAL_STATE();
+let featureApi = createFeatureApi();
 
 // IDs for both modal + dashboard service roads toggles
 const INCLUDE_SERVICE_TOGGLE_IDS = [
@@ -116,8 +118,7 @@ const HOVER_LAYER_ID = "streets-hover";
 const RING_R = 60;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R; // ≈376.99
 
-const withSignal = (options = {}) =>
-  state.pageSignal ? { ...options, signal: state.pageSignal } : options;
+const withSignal = (options = {}) => featureApi.withSignal(options);
 
 function normalizeCoverageTripMode(value) {
   const mode = String(value || "").trim().toLowerCase();
@@ -144,8 +145,9 @@ function getCoverageTripModeEndpointParam(mode) {
 // Initialization
 // =============================================================================
 
-export default async function initCoverageManagementPage({ signal, cleanup } = {}) {
+export default async function initCoverageManagementPage({ signal, cleanup, api } = {}) {
   state.pageSignal = signal || null;
+  featureApi = api || createFeatureApi({ signal: state.pageSignal });
   state.pageActive = true;
 
   // Move modal to #modals-container to avoid z-index stacking issues

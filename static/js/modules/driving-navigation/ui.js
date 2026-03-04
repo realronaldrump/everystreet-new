@@ -4,15 +4,7 @@
  */
 
 import { LOCATION_SOURCE_LABELS, PROCESSING_STEPS } from "./constants.js";
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+import { escapeHtml } from "../utils.js";
 
 export class DrivingNavigationUI {
   /**

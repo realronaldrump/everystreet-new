@@ -110,7 +110,7 @@ class BouncieOAuth:
         if not auth_code:
             logger.error(
                 "No authorization code configured. Please set up Bouncie credentials "
-                "via Settings > Credentials.",
+                "via Control Center > Credentials.",
             )
             await BouncieOAuth._set_auth_error(
                 credentials,

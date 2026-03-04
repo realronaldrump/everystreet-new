@@ -1,4 +1,6 @@
 import apiClient from "../../core/api-client.js";
+import { createFeatureApi } from "../../core/feature-api.js";
+import { createViewStateController } from "../../core/view-state.js";
 import store from "../../core/store.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import { notify } from "../../ui/notifications.js";
@@ -19,6 +21,8 @@ let allVehicles = [];
 let currentVehicle = null;
 let bouncieOdometer = null;
 let pageSignal = null;
+let featureApi = createFeatureApi();
+let pageViewState = null;
 
 // LocalStorage key for persisting selected vehicle
 const STORAGE_KEY = "selectedVehicleImei";
@@ -29,9 +33,15 @@ const formatOdometer = (value) =>
 // DOM Elements
 let elements = {};
 
-export default function initVehiclesPage({ signal, cleanup } = {}) {
+export default function initVehiclesPage({ signal, cleanup, api } = {}) {
   pageSignal = signal || null;
+  featureApi = api || createFeatureApi({ signal: pageSignal });
   cacheElements();
+  pageViewState = createViewStateController({
+    loading: { element: elements.loadingState, display: "block" },
+    empty: { element: elements.emptyState, display: "block" },
+    content: { element: elements.vehicleContent, display: "block" },
+  });
   resetState();
   initializeEventListeners(signal);
   loadVehicle();
@@ -40,6 +50,7 @@ export default function initVehiclesPage({ signal, cleanup } = {}) {
     pageSignal = null;
     resetState();
     elements = {};
+    pageViewState = null;
   };
 
   if (typeof cleanup === "function") {
@@ -107,10 +118,7 @@ function resetState() {
 }
 
 function withSignal(options = {}) {
-  if (pageSignal) {
-    return { ...options, signal: pageSignal };
-  }
-  return options;
+  return featureApi.withSignal(options);
 }
 
 /**
@@ -737,19 +745,13 @@ async function syncFromBouncie() {
 
 // UI State helpers
 function showLoading() {
-  elements.loadingState.style.display = "block";
-  elements.emptyState.style.display = "none";
-  elements.vehicleContent.style.display = "none";
+  pageViewState?.show("loading");
 }
 
 function showEmpty() {
-  elements.loadingState.style.display = "none";
-  elements.emptyState.style.display = "block";
-  elements.vehicleContent.style.display = "none";
+  pageViewState?.show("empty");
 }
 
 function showContent() {
-  elements.loadingState.style.display = "none";
-  elements.emptyState.style.display = "none";
-  elements.vehicleContent.style.display = "block";
+  pageViewState?.show("content");
 }

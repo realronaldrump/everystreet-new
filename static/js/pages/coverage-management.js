@@ -1,4 +1,4 @@
+import bootstrapPage from "../modules/core/page-bootstrap.js";
 import initCoverageManagementPage from "../modules/features/coverage-management/index.js";
-import { onPageLoad } from "../modules/utils.js";
 
-onPageLoad(initCoverageManagementPage, { route: "/coverage-management" });
+bootstrapPage(initCoverageManagementPage, "/coverage-management");

@@ -4,6 +4,10 @@
  */
 
 import apiClient from "../core/api-client.js";
+import {
+  clearCoverageAreasCache as clearCachedCoverageAreas,
+  loadCoverageAreasWithCache,
+} from "../features/navigation-core/coverage-areas.js";
 
 export class DrivingNavigationAPI {
   constructor() {
@@ -15,9 +19,7 @@ export class DrivingNavigationAPI {
    * Useful after areas are added/deleted in coverage management.
    */
   clearCoverageAreasCache() {
-    if (window.coverageNavigatorAreas) {
-      window.coverageNavigatorAreas = undefined;
-    }
+    clearCachedCoverageAreas();
   }
 
   /**
@@ -26,25 +28,14 @@ export class DrivingNavigationAPI {
    * @returns {Promise<Array>} Array of coverage area objects
    */
   async loadCoverageAreas() {
-    // Check cache, but only use it if it has data
-    // This prevents empty arrays from being permanently cached
-    if (
-      Array.isArray(window.coverageNavigatorAreas) &&
-      window.coverageNavigatorAreas.length > 0
-    ) {
-      return window.coverageNavigatorAreas;
-    }
-
-    const data = await apiClient.get("/api/coverage/areas");
-    if (!data.success || !data.areas) {
-      throw new Error(data.error || "Invalid response format");
-    }
-
-    // Only cache non-empty arrays to allow fresh fetches when areas are added
-    if (data.areas.length > 0) {
-      window.coverageNavigatorAreas = data.areas;
-    }
-    return data.areas;
+    const areas = await loadCoverageAreasWithCache(async () => {
+      const data = await apiClient.get("/api/coverage/areas");
+      if (!data.success || !data.areas) {
+        throw new Error(data.error || "Invalid response format");
+      }
+      return data.areas;
+    });
+    return areas;
   }
 
   /**

@@ -146,6 +146,17 @@ export default function initMapControls({ signal, cleanup } = {}) {
   const onCoverageSelectionChanged = (event) => {
     updateCoverageActionState(event?.detail?.areaId || "");
   };
+  const onStreetModeClick = (event) => {
+    const button = event.currentTarget;
+    const mode = String(button?.dataset?.streetMode || "").trim();
+    if (mode) {
+      setStreetMode(mode);
+    }
+  };
+  const onFocusCoverageClick = () => {
+    focusSelectedCoverageArea();
+  };
+  const streetModeButtons = document.querySelectorAll(".quick-action-btn[data-street-mode]");
 
   if (toggleBtn) {
     toggleBtn.addEventListener("click", onToggleClick, signal ? { signal } : false);
@@ -158,10 +169,14 @@ export default function initMapControls({ signal, cleanup } = {}) {
     onCoverageSelectionChanged,
     signal ? { signal } : false
   );
-
-  window.toggleMapControls = toggleMapControls;
-  window.setStreetMode = setStreetMode;
-  window.focusSelectedCoverageArea = focusSelectedCoverageArea;
+  streetModeButtons.forEach((button) => {
+    button.addEventListener("click", onStreetModeClick, signal ? { signal } : false);
+  });
+  focusCoverageBtn?.addEventListener(
+    "click",
+    onFocusCoverageClick,
+    signal ? { signal } : false
+  );
   initState();
 
   const onResize = () => {
@@ -194,17 +209,12 @@ export default function initMapControls({ signal, cleanup } = {}) {
     if (locationSelect) {
       locationSelect.removeEventListener("change", onLocationChange);
     }
+    streetModeButtons.forEach((button) => {
+      button.removeEventListener("click", onStreetModeClick);
+    });
+    focusCoverageBtn?.removeEventListener("click", onFocusCoverageClick);
     document.removeEventListener(COVERAGE_SELECTION_EVENT, onCoverageSelectionChanged);
     window.removeEventListener("resize", onResize);
-    if (window.toggleMapControls === toggleMapControls) {
-      window.toggleMapControls = undefined;
-    }
-    if (window.setStreetMode === setStreetMode) {
-      window.setStreetMode = undefined;
-    }
-    if (window.focusSelectedCoverageArea === focusSelectedCoverageArea) {
-      window.focusSelectedCoverageArea = undefined;
-    }
   };
 
   if (typeof cleanup === "function") {

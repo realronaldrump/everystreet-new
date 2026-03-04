@@ -117,6 +117,33 @@ export function onPageLoad(callback, options = {}) {
   let disposed = false;
   let boundSwup = null;
 
+  const runCleanup = () => {
+    if (typeof cleanup !== "function") {
+      cleanup = null;
+      return;
+    }
+    try {
+      cleanup();
+    } finally {
+      cleanup = null;
+    }
+  };
+
+  const registerCleanup = (fn) => {
+    if (typeof fn !== "function") {
+      return;
+    }
+    if (!cleanup) {
+      cleanup = fn;
+      return;
+    }
+    const previous = cleanup;
+    cleanup = () => {
+      fn();
+      previous();
+    };
+  };
+
   const run = () => {
     const currentPath = document.body?.dataset?.route || window.location.pathname;
     if (!routeMatches(options.route, currentPath)) {
@@ -129,10 +156,7 @@ export function onPageLoad(callback, options = {}) {
       return;
     }
 
-    if (cleanup) {
-      cleanup();
-      cleanup = null;
-    }
+    runCleanup();
 
     if (controller) {
       controller.abort();
@@ -140,15 +164,9 @@ export function onPageLoad(callback, options = {}) {
     controller = new AbortController();
     activeRoute = currentPath || null;
 
-    const registerCleanup = (fn) => {
-      if (typeof fn === "function") {
-        cleanup = fn;
-      }
-    };
-
     const result = callback({ signal: controller.signal, cleanup: registerCleanup });
     if (typeof result === "function") {
-      cleanup = result;
+      registerCleanup(result);
     }
   };
 
@@ -160,10 +178,7 @@ export function onPageLoad(callback, options = {}) {
     if (!activeRoute) {
       return;
     }
-    if (cleanup) {
-      cleanup();
-      cleanup = null;
-    }
+    runCleanup();
     if (controller) {
       controller.abort();
       controller = null;
@@ -207,10 +222,7 @@ export function onPageLoad(callback, options = {}) {
       boundSwup.hooks.off("visit:start", swupUnloadHandler);
       boundSwup = null;
     }
-    if (cleanup) {
-      cleanup();
-      cleanup = null;
-    }
+    runCleanup();
     if (controller) {
       controller.abort();
       controller = null;

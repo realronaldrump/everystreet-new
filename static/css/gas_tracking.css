@@ -125,7 +125,7 @@
   overflow: hidden;
 }
 
-.card-header {
+.gas-tracking-page .card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -278,10 +278,10 @@
 }
 
 /* ===== Buttons ===== */
-.btn-primary,
-.btn-secondary,
-.btn-quick,
-.btn-icon {
+.gas-tracking-page .btn-primary,
+.gas-tracking-page .btn-secondary,
+.gas-tracking-page .btn-quick,
+.gas-tracking-page .btn-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -295,28 +295,28 @@
   transition: all var(--transition-fast);
 }
 
-.btn-primary {
+.gas-tracking-page .btn-primary {
   background: var(--primary-gradient);
   color: var(--text-on-primary);
   box-shadow: var(--shadow-sm);
 }
 
-.btn-primary:hover {
+.gas-tracking-page .btn-primary:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
 
-.btn-primary:active {
+.gas-tracking-page .btn-primary:active {
   transform: translateY(0);
 }
 
-.btn-secondary {
+.gas-tracking-page .btn-secondary {
   background: var(--surface-2);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
 }
 
-.btn-secondary:hover {
+.gas-tracking-page .btn-secondary:hover {
   background: var(--surface-3);
 }
 
@@ -622,8 +622,8 @@
   border-top: 1px solid var(--divider-color);
 }
 
-.form-actions .btn-primary,
-.form-actions .btn-secondary {
+.gas-tracking-page .form-actions .btn-primary,
+.gas-tracking-page .form-actions .btn-secondary {
   flex: 1;
   padding: var(--space-4) var(--space-6);
 }
@@ -883,8 +883,8 @@
     flex-direction: column;
   }
 
-  .form-actions .btn-primary,
-  .form-actions .btn-secondary {
+  .gas-tracking-page .form-actions .btn-primary,
+  .gas-tracking-page .form-actions .btn-secondary {
     width: 100%;
   }
 
@@ -913,7 +913,7 @@
     height: 20px;
   }
 
-  .card-header {
+  .gas-tracking-page .card-header {
     padding: var(--space-4);
   }
 
@@ -979,8 +979,8 @@ body.light-mode .empty-icon {
 
 /* ===== Touch Device Optimizations ===== */
 @media (hover: none) and (pointer: coarse) {
-  .btn-primary,
-  .btn-secondary,
+  .gas-tracking-page .btn-primary,
+  .gas-tracking-page .btn-secondary,
   .btn-quick {
     min-height: 44px;
   }

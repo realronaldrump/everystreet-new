@@ -67,7 +67,16 @@ test("page entrypoints are wired via route-loader", () => {
       `Missing entrypoint file for routed page: ${name}.js`
     );
     const entryContent = fs.readFileSync(entryPath, "utf8");
-    assert.match(entryContent, /onPageLoad\s*\(/, `${name}.js missing onPageLoad`);
+    assert.match(
+      entryContent,
+      /modules\/core\/page-bootstrap\.js/,
+      `${name}.js missing page-bootstrap import`
+    );
+    assert.match(
+      entryContent,
+      /bootstrapPage\s*\(/,
+      `${name}.js missing bootstrapPage call`
+    );
     assert.match(
       entryContent,
       /modules\/features\//,
