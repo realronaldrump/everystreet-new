@@ -121,3 +121,75 @@ def test_ok_response_returns_200() -> None:
     response = webhook_api._ok_response()
 
     assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# HTTP integration tests — verify the endpoint always returns 200
+# ---------------------------------------------------------------------------
+
+@pytest.fixture()
+def webhook_client() -> TestClient:
+    """FastAPI test client with only the webhook router mounted."""
+    app = FastAPI()
+    app.include_router(webhook_api.router)
+    return TestClient(app)
+
+
+_WEBHOOK_PATHS = [
+    "/webhook/bouncie",
+    "/webhook/bouncie/",
+    "/api/webhooks/bouncie",
+    "/api/webhooks/bouncie/",
+    "/bouncie-webhook",
+    "/bouncie-webhook/",
+]
+
+
+@pytest.mark.parametrize("path", _WEBHOOK_PATHS)
+def test_webhook_returns_200_for_valid_json(
+    webhook_client: TestClient,
+    path: str,
+) -> None:
+    """Every registered path must return 200 for a valid JSON payload."""
+    resp = webhook_client.post(
+        path,
+        json={"eventType": "tripStart", "transactionId": "t-1"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
+
+
+def test_webhook_returns_200_for_empty_body(
+    webhook_client: TestClient,
+) -> None:
+    """Empty request body must still return 200."""
+    resp = webhook_client.post("/webhook/bouncie", content=b"")
+    assert resp.status_code == 200
+
+
+def test_webhook_returns_200_for_invalid_json(
+    webhook_client: TestClient,
+) -> None:
+    """Malformed JSON must still return 200."""
+    resp = webhook_client.post("/webhook/bouncie", content=b"not json")
+    assert resp.status_code == 200
+
+
+def test_webhook_returns_200_for_non_dict_json(
+    webhook_client: TestClient,
+) -> None:
+    """JSON arrays or scalars must still return 200."""
+    resp = webhook_client.post("/webhook/bouncie", content=b"[1,2,3]")
+    assert resp.status_code == 200
+
+
+def test_webhook_no_api_route_decorator() -> None:
+    """Ensure the webhook handler is NOT wrapped by @api_route.
+
+    The @api_route decorator converts exceptions to non-2xx HTTPExceptions,
+    which would cause Bouncie to deactivate the webhook.
+    """
+    # The actual handler function (unwrapped) should be bouncie_webhook.
+    # If @api_route were applied, the function would be wrapped in a
+    # closure named 'wrapper'.
+    assert webhook_api.bouncie_webhook.__name__ == "bouncie_webhook"
