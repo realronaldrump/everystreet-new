@@ -1,6 +1,8 @@
 from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 from tracking.api import webhooks as webhook_api
 
