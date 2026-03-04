@@ -536,6 +536,47 @@ async def test_backfill_matched_mode_preserves_turn_segments_without_bearing_dro
 
 
 @pytest.mark.asyncio
+async def test_backfill_matches_micro_segment_when_fully_overlapped(coverage_db) -> None:
+    area = CoverageArea(
+        display_name="Coverage Micro Segment Area",
+        status="initializing",
+        health="unavailable",
+        total_length_miles=0.01,
+        driveable_length_miles=0.01,
+        total_segments=1,
+    )
+    await area.insert()
+    assert area.id is not None
+
+    segment_id = f"{area.id}-{area.area_version}-micro"
+    # ~7.6 meters at this latitude: intentionally below MIN_OVERLAP_METERS.
+    coords = [[-97.00000, 31.00000], [-96.99992, 31.00000]]
+
+    await Street(
+        segment_id=segment_id,
+        area_id=area.id,
+        area_version=area.area_version,
+        geometry={"type": "LineString", "coordinates": coords},
+        length_miles=0.005,
+    ).insert()
+
+    await Trip(
+        transactionId="trip-micro-segment-perfect-overlap",
+        endTime=datetime(2025, 1, 1, tzinfo=UTC),
+        matchedGps={"type": "LineString", "coordinates": coords},
+        matchStatus="matched:linestring",
+        matched_at=datetime(2025, 1, 1, tzinfo=UTC),
+    ).insert()
+
+    updated = await backfill_coverage_for_area(area.id, trip_mode="matched")
+    assert updated == 1
+
+    state = await CoverageState.find_one({"area_id": area.id, "segment_id": segment_id})
+    assert state is not None
+    assert state.status == "driven"
+
+
+@pytest.mark.asyncio
 async def test_backfill_both_mode_unions_regular_and_matched_segments(
     coverage_db,
 ) -> None:

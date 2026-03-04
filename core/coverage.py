@@ -376,6 +376,10 @@ class AreaSegmentIndex:
                     min_overlap_meters,
                     segment_length * effective_ratio,
                 )
+                # Never require more overlap than the segment actually has.
+                # Without this cap, sub-25ft micro-segments can become
+                # impossible to match even with perfect geometric overlap.
+                required_overlap = min(required_overlap, segment_length)
 
                 if intersection_length >= required_overlap:
                     matched_ids.append(segment.segment_id)
