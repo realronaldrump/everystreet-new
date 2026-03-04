@@ -7,20 +7,14 @@ particularly for date filtering and request parameter handling.
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
 
-from core.date_utils import normalize_calendar_date
-from core.trip_source_policy import enforce_bouncie_source
-from db.aggregation_utils import get_mongo_tz_expr
+from core.trip_query_spec import TripQuerySpec
 
 if TYPE_CHECKING:
     from datetime import datetime
 
     from fastapi import Request
-
-logger = logging.getLogger(__name__)
-
 
 def build_calendar_date_expr(
     start_date: str | datetime | None,
@@ -46,39 +40,11 @@ def build_calendar_date_expr(
         >>> expr = build_calendar_date_expr("2024-01-01", "2024-01-31")
         >>> query = {"$expr": expr} if expr else {}
     """
-    start_str = normalize_calendar_date(start_date)
-    end_str = normalize_calendar_date(end_date)
-
-    if start_date and not start_str:
-        logger.warning("Invalid start date provided for filtering: %s", start_date)
-    if end_date and not end_str:
-        logger.warning("Invalid end date provided for filtering: %s", end_date)
-
-    if not start_str and not end_str:
-        return None
-
-    tz_expr = get_mongo_tz_expr(date_field)
-
-    # Convert date field to string in document's timezone
-    date_expr: dict[str, Any] = {
-        "$dateToString": {
-            "format": "%Y-%m-%d",
-            "date": f"${date_field}",
-            "timezone": tz_expr,
-        },
-    }
-
-    # Build comparison clauses
-    clauses: list[dict[str, Any]] = []
-    if start_str:
-        clauses.append({"$gte": [date_expr, start_str]})
-    if end_str:
-        clauses.append({"$lte": [date_expr, end_str]})
-
-    if not clauses:
-        return None
-
-    return {"$and": clauses} if len(clauses) > 1 else clauses[0]
+    return TripQuerySpec.build_calendar_date_expr(
+        start_date,
+        end_date,
+        date_field=date_field,
+    )
 
 
 async def build_query_from_request(
@@ -107,25 +73,13 @@ async def build_query_from_request(
         - end_date: Filter documents on or before this date
         - imei: Filter by device IMEI
     """
-    query: dict[str, Any] = {}
-
-    start_date_str = request.query_params.get("start_date")
-    end_date_str = request.query_params.get("end_date")
-
-    date_expr = build_calendar_date_expr(
-        start_date_str,
-        end_date_str,
-        date_field=date_field,
+    spec = TripQuerySpec.from_request(
+        request,
+        include_imei=include_imei,
+        include_invalid=True,
     )
-
-    if date_expr:
-        query["$expr"] = date_expr
-
-    imei_param = request.query_params.get("imei")
-    if include_imei and imei_param:
-        query["imei"] = imei_param
-
-    if additional_filters:
-        query.update(additional_filters)
-
-    return enforce_bouncie_source(query)
+    return spec.to_mongo_query(
+        date_field=date_field,
+        extra_filters=additional_filters,
+        enforce_source=True,
+    )

@@ -4,25 +4,27 @@ import json
 import logging
 import shutil
 import zipfile
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from beanie import PydanticObjectId
 from fastapi import HTTPException
-from shapely.geometry import mapping, shape
 
+from core.coverage_clip import (
+    CoverageClipContext,
+    CoverageClipError,
+    apply_clip_prefilter,
+    clip_geojson_lines,
+    parse_clip_bool,
+    resolve_coverage_clip_context,
+)
+from core.jobs import JobHandle
 from core.spatial import (
     GeometryService,
-    bounding_box_polygon,
-    clip_lines_to_polygon,
-    extract_polygon_geometry_from_geojson,
     extract_timestamps_for_coordinates,
-    geodesic_length_meters,
 )
-from core.trip_source_policy import enforce_bouncie_source
-from db import CoverageArea, CoverageState, Street, Trip, build_calendar_date_expr
+from db import CoverageArea, CoverageState, Street, Trip
 from db.models import Job
 from exports.constants import (
     EXPORT_DEFAULT_FORMAT,
@@ -45,6 +47,7 @@ from exports.services.export_writer import (
     write_gpx_tracks,
     write_json_array,
 )
+from core.trip_query_spec import TripQuerySpec
 
 if TYPE_CHECKING:
     from exports.models import ExportItem, ExportRequest
@@ -82,11 +85,7 @@ class ExportProgress:
             self.last_update = self.processed
 
 
-@dataclass(slots=True)
-class _TripExportClipContext:
-    enabled: bool = False
-    coverage_geometry: Any | None = None
-    prefilter_geometry: dict[str, Any] | None = None
+_TripExportClipContext = CoverageClipContext
 
 
 class ExportService:
@@ -208,34 +207,21 @@ class ExportService:
         started_at: datetime | None = None,
         completed_at: datetime | None = None,
     ) -> None:
-        if status is not None:
-            job.status = status
-            if status == "running":
-                job.stage = "running"
-            elif status in {"completed", "failed"}:
-                job.stage = status
-        if progress is not None:
-            job.progress = float(progress)
-        if message is not None:
-            job.message = message
-        if error is not None:
-            job.error = error
-        if result is not None:
-            job.result = result
-        if started_at is not None:
-            job.started_at = started_at
-        if completed_at is not None:
-            job.completed_at = completed_at
-        job.updated_at = datetime.now(UTC)
-        await job.save()
-
-    @staticmethod
-    def _parse_bool(value: Any) -> bool:
-        if isinstance(value, bool):
-            return value
-        if value is None:
-            return False
-        return str(value).strip().lower() in {"1", "true", "yes", "on"}
+        stage = None
+        if status == "running":
+            stage = "running"
+        elif status in {"completed", "failed"}:
+            stage = status
+        await JobHandle(job).update(
+            status=status,
+            stage=stage,
+            progress=progress,
+            message=message,
+            error=error,
+            result=result,
+            started_at=started_at,
+            completed_at=completed_at,
+        )
 
     @classmethod
     def _resolve_trip_export_clip_context(
@@ -243,30 +229,18 @@ class ExportService:
         trip_filters: dict[str, Any],
         area: CoverageArea | None,
     ) -> _TripExportClipContext:
-        clip_requested = cls._parse_bool(trip_filters.get("clip_to_coverage"))
-        if not clip_requested:
-            return _TripExportClipContext()
-        if area is None:
-            msg = "area_id is required when trip_filters.clip_to_coverage is true."
-            raise ValueError(msg)
-
-        coverage_geometry = extract_polygon_geometry_from_geojson(area.boundary)
-        if coverage_geometry is None:
-            msg = (
-                "Coverage area boundary is not a valid polygon and cannot be used for clipping."
+        clip_requested = parse_clip_bool(trip_filters.get("clip_to_coverage"))
+        try:
+            return resolve_coverage_clip_context(
+                clip_requested=clip_requested,
+                area=area,
+                area_id=str(getattr(area, "id", "") or "") or None,
+                missing_area_message=(
+                    "area_id is required when trip_filters.clip_to_coverage is true."
+                ),
             )
-            raise ValueError(msg)
-
-        prefilter_geometry = bounding_box_polygon(coverage_geometry)
-        if prefilter_geometry is None:
-            msg = "Coverage area boundary is degenerate and cannot be used for clipping."
-            raise ValueError(msg)
-
-        return _TripExportClipContext(
-            enabled=True,
-            coverage_geometry=coverage_geometry,
-            prefilter_geometry=prefilter_geometry,
-        )
+        except CoverageClipError as exc:
+            raise ValueError(str(exc)) from exc
 
     @staticmethod
     def _model_to_dict(value: Any) -> dict[str, Any]:
@@ -287,31 +261,16 @@ class ExportService:
         clip_context: _TripExportClipContext,
     ) -> dict[str, Any] | None:
         row = cls._model_to_dict(trip)
-        geometry = GeometryService.parse_geojson(row.get(geometry_field))
-        coverage_distance_miles = None
-
+        coverage_distance_miles: float | None = None
         if clip_context.enabled:
+            geometry, coverage_distance_miles = clip_geojson_lines(
+                row.get(geometry_field),
+                clip_context,
+            )
             if geometry is None:
                 return None
-            geom_type = str(geometry.get("type") or "").strip()
-            if geom_type not in {"LineString", "MultiLineString"}:
-                return None
-            try:
-                line_geometry = shape(geometry)
-            except Exception:
-                return None
-            clipped_geometry = clip_lines_to_polygon(
-                line_geometry,
-                clip_context.coverage_geometry,
-            )
-            if clipped_geometry is None or clipped_geometry.is_empty:
-                return None
-
-            geometry = mapping(clipped_geometry)
-            try:
-                coverage_distance_miles = geodesic_length_meters(clipped_geometry) / 1609.344
-            except Exception:
-                coverage_distance_miles = None
+        else:
+            geometry = GeometryService.parse_geojson(row.get(geometry_field))
 
         row[geometry_field] = geometry
         if clip_context.enabled:
@@ -684,37 +643,30 @@ class ExportService:
         matched_only: bool,
         trip_clip_context: _TripExportClipContext | None = None,
     ) -> dict[str, Any]:
-        query: dict[str, Any] = {}
-        if filters:
-            start_date = filters.get("start_date")
-            end_date = filters.get("end_date")
-            date_expr = build_calendar_date_expr(
-                start_date,
-                end_date,
-                date_field="startTime",
+        safe_filters = filters or {}
+        extra_filters: dict[str, Any] = {}
+        if safe_filters.get("status"):
+            extra_filters["status"] = {"$in": safe_filters["status"]}
+
+        spec = TripQuerySpec(
+            start_date=safe_filters.get("start_date"),
+            end_date=safe_filters.get("end_date"),
+            imei=safe_filters.get("imei"),
+            include_invalid=bool(safe_filters.get("include_invalid", False)),
+            matched_only=matched_only,
+        )
+        query = spec.to_mongo_query(
+            date_field="startTime",
+            extra_filters=extra_filters,
+            enforce_source=True,
+        )
+        if trip_clip_context is not None:
+            query = apply_clip_prefilter(
+                query,
+                trip_clip_context,
+                geometry_field="gps",
             )
-            if date_expr:
-                query["$expr"] = date_expr
-
-            if filters.get("imei"):
-                query["imei"] = filters["imei"]
-            if filters.get("status"):
-                query["status"] = {"$in": filters["status"]}
-            if not filters.get("include_invalid", False):
-                query["invalid"] = {"$ne": True}
-        else:
-            query["invalid"] = {"$ne": True}
-
-        if matched_only:
-            query["matchedGps"] = {"$ne": None}
-        if (
-            trip_clip_context is not None
-            and trip_clip_context.enabled
-            and trip_clip_context.prefilter_geometry
-        ):
-            query["gps"] = {"$geoIntersects": {"$geometry": trip_clip_context.prefilter_geometry}}
-
-        return enforce_bouncie_source(query)
+        return query
 
     @staticmethod
     def _prepare_export_dir(job_id: str) -> Path:

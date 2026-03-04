@@ -2,27 +2,31 @@
 
 import json
 import logging
-from dataclasses import dataclass
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
-from shapely.geometry import mapping, shape
-from shapely.geometry.base import BaseGeometry
 
 from core.api import api_route
 from core.casting import safe_float
-from core.date_utils import parse_timestamp
-from core.spatial import (
-    GeometryService,
-    bounding_box_polygon,
-    clip_lines_to_polygon,
-    extract_polygon_geometry_from_geojson,
-    geodesic_length_meters,
+from core.coverage_clip import (
+    CoverageClipContext,
+    CoverageClipError,
+    apply_clip_prefilter,
+    clip_geojson_lines,
+    parse_clip_bool,
+    resolve_coverage_clip_context,
 )
+from core.date_utils import parse_timestamp
+from core.spatial import GeometryService
 from core.trip_source_policy import enforce_bouncie_source
 from db import build_query_from_request
 from db.models import CoverageArea, Trip
+from trips.presentation import (
+    build_trip_feature_properties,
+    count_line_points,
+    trip_to_dict,
+)
 from trips.services import TripCostService, TripQueryService
 from trips.services.trip_ingest_issue_service import TripIngestIssueService
 
@@ -34,134 +38,46 @@ def _safe_int(value, default: int = 0):
         return default
 
 
-def _first_non_empty(*values):
-    for value in values:
-        if value not in (None, ""):
-            return value
-    return None
-
-
-def _derive_timezone_fields(trip_dict: dict) -> tuple[str | None, str | None, str | None]:
-    start_tz = _first_non_empty(trip_dict.get("startTimeZone"))
-    end_tz = _first_non_empty(trip_dict.get("endTimeZone"))
-    alias = _first_non_empty(start_tz, end_tz)
-    return start_tz, end_tz, alias
-
-
 def _parse_bool_query_value(value: str | None) -> bool:
-    if value is None:
-        return False
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+    return parse_clip_bool(value)
 
 
-def _normalize_coverage_boundary_geometry(boundary: Any) -> BaseGeometry | None:
-    return extract_polygon_geometry_from_geojson(boundary)
-
-
-def _clip_lines_to_coverage(
-    geometry: dict[str, Any] | None,
-    coverage_geometry: BaseGeometry,
-) -> tuple[dict[str, Any] | None, float | None]:
-    parsed_geometry = GeometryService.parse_geojson(geometry)
-    if not parsed_geometry:
-        return None, None
-
-    geom_type = str(parsed_geometry.get("type") or "").strip()
-    if geom_type not in {"LineString", "MultiLineString"}:
-        return None, None
-
-    try:
-        line_geometry = shape(parsed_geometry)
-    except Exception:
-        logger.warning("Failed to parse trip line geometry for clipping", exc_info=True)
-        return None, None
-
-    if line_geometry.is_empty:
-        return None, None
-
-    clipped_lines = clip_lines_to_polygon(line_geometry, coverage_geometry)
-    if clipped_lines is None or clipped_lines.is_empty:
-        return None, None
-
-    try:
-        coverage_miles = geodesic_length_meters(clipped_lines) / 1609.344
-    except Exception:
-        coverage_miles = None
-
-    return mapping(clipped_lines), coverage_miles
-
-
-def _count_line_points(geometry: dict[str, Any] | None) -> int:
-    if not isinstance(geometry, dict):
-        return 0
-
-    geo_type = geometry.get("type")
-    coords = geometry.get("coordinates")
-
-    if geo_type == "LineString" and isinstance(coords, list):
-        return len(coords)
-
-    if geo_type == "MultiLineString" and isinstance(coords, list):
-        return sum(len(line) for line in coords if isinstance(line, list))
-
-    return 0
-
-
-@dataclass(slots=True)
-class _CoverageClipContext:
-    active: bool = False
-    area_id: str | None = None
-    coverage_geometry: BaseGeometry | None = None
-    prefilter_geometry: dict[str, Any] | None = None
-
-
-async def _resolve_coverage_clip_context(request: Request) -> _CoverageClipContext:
+async def _resolve_coverage_clip_context(request: Request) -> CoverageClipContext:
     clip_requested = _parse_bool_query_value(request.query_params.get("clip_to_coverage"))
     area_id = str(request.query_params.get("coverage_area_id") or "").strip()
-    context = _CoverageClipContext(area_id=area_id or None)
-
-    if not clip_requested:
-        return context
-    if not area_id:
+    area = None
+    if clip_requested and not area_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="coverage_area_id is required when clip_to_coverage is true.",
         )
 
+    if clip_requested:
+        try:
+            area = await CoverageArea.get(area_id)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Invalid coverage_area_id: {area_id}",
+            ) from exc
+
+        if area is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Coverage area not found: {area_id}",
+            )
+
     try:
-        area = await CoverageArea.get(area_id)
-    except Exception as exc:
+        return resolve_coverage_clip_context(
+            clip_requested=clip_requested,
+            area=area,
+            area_id=area_id or None,
+        )
+    except CoverageClipError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid coverage_area_id: {area_id}",
+            detail=str(exc),
         ) from exc
-
-    if area is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Coverage area not found: {area_id}",
-        )
-
-    coverage_geometry = _normalize_coverage_boundary_geometry(getattr(area, "boundary", None))
-    if coverage_geometry is None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                "Coverage area boundary is not a valid polygon and cannot be used for clipping."
-            ),
-        )
-
-    prefilter_geometry = bounding_box_polygon(coverage_geometry)
-    if prefilter_geometry is None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Coverage area boundary is degenerate and cannot be used for clipping.",
-        )
-
-    context.active = True
-    context.coverage_geometry = coverage_geometry
-    context.prefilter_geometry = prefilter_geometry
-    return context
 
 
 logger = logging.getLogger(__name__)
@@ -185,8 +101,7 @@ async def get_matched_trips(request: Request):
     # Exclude invalid trips
     query["invalid"] = {"$ne": True}
     query = enforce_bouncie_source(query)
-    if coverage_clip.active and coverage_clip.prefilter_geometry:
-        query["gps"] = {"$geoIntersects": {"$geometry": coverage_clip.prefilter_geometry}}
+    query = apply_clip_prefilter(query, coverage_clip, geometry_field="gps")
 
     trip_cursor = Trip.find(query).sort(-Trip.endTime)
 
@@ -199,16 +114,7 @@ async def get_matched_trips(request: Request):
         try:
             async for trip in trip_cursor:
                 try:
-                    if hasattr(trip, "model_dump"):
-                        trip_dict = trip.model_dump()
-                    elif hasattr(trip, "dict"):
-                        trip_dict = trip.dict()
-                    else:
-                        trip_dict = dict(trip)
-
-                    st = parse_timestamp(trip_dict.get("startTime"))
-                    et = parse_timestamp(trip_dict.get("endTime"))
-                    duration = (et - st).total_seconds() if st and et else None
+                    trip_dict = trip_to_dict(trip)
 
                     matched_geom = GeometryService.parse_geojson(
                         trip_dict.get("matchedGps"),
@@ -217,60 +123,27 @@ async def get_matched_trips(request: Request):
                     if not matched_geom or not matched_geom.get("coordinates"):
                         continue
 
-                    num_points = _count_line_points(matched_geom)
+                    num_points = count_line_points(matched_geom)
                     coverage_distance_miles = None
-                    if coverage_clip.active and coverage_clip.coverage_geometry is not None:
-                        clipped_geom, coverage_distance_miles = _clip_lines_to_coverage(
+                    if coverage_clip.enabled:
+                        clipped_geom, coverage_distance_miles = clip_geojson_lines(
                             matched_geom,
-                            coverage_clip.coverage_geometry,
+                            coverage_clip,
                         )
                         if clipped_geom is None:
                             continue
                         matched_geom = clipped_geom
 
-                    matched_at = trip_dict.get("matched_at")
-                    total_idle_duration = trip_dict.get("totalIdleDuration")
-                    avg_speed = trip_dict.get("avgSpeed")
-                    start_tz, end_tz, alias_tz = _derive_timezone_fields(trip_dict)
-                    props = {
-                        "transactionId": trip_dict.get("transactionId"),
-                        "imei": trip_dict.get("imei"),
-                        "startTime": st.isoformat() if st else None,
-                        "endTime": et.isoformat() if et else None,
-                        "duration": duration,
-                        "distance": safe_float(trip_dict.get("distance"), 0),
-                        "maxSpeed": safe_float(trip_dict.get("maxSpeed"), 0),
-                        "startTimeZone": start_tz,
-                        "endTimeZone": end_tz,
-                        "timeZone": alias_tz,
-                        "startLocation": trip_dict.get("startLocation"),
-                        "destination": trip_dict.get("destination"),
-                        "totalIdleDuration": total_idle_duration,
-                        "fuelConsumed": safe_float(trip_dict.get("fuelConsumed"), 0),
-                        "source": trip_dict.get("source"),
-                        "hardBrakingCounts": trip_dict.get("hardBrakingCounts"),
-                        "hardAccelerationCounts": trip_dict.get(
-                            "hardAccelerationCounts",
-                        ),
-                        "startOdometer": trip_dict.get("startOdometer"),
-                        "endOdometer": trip_dict.get("endOdometer"),
-                        "avgSpeed": avg_speed,
-                        "pointsRecorded": num_points,
-                        "estimated_cost": TripCostService.calculate_trip_cost(
+                    props = build_trip_feature_properties(
+                        trip_dict,
+                        estimated_cost=TripCostService.calculate_trip_cost(
                             trip_dict,
                             price_map,
                         ),
-                        "matchStatus": trip_dict.get("matchStatus"),
-                        "matched_at": (
-                            matched_at.isoformat()
-                            if hasattr(matched_at, "isoformat")
-                            else str(matched_at)
-                            if matched_at
-                            else None
-                        ),
-                    }
-                    if coverage_clip.active and coverage_distance_miles is not None:
-                        props["coverageDistance"] = coverage_distance_miles
+                        points_recorded=num_points,
+                        include_matched_at=True,
+                        coverage_distance_miles=coverage_distance_miles,
+                    )
                     feature = GeometryService.feature_from_geometry(matched_geom, props)
                     # Use default=str to handle any non-serializable types
                     chunk = json.dumps(feature, separators=(",", ":"), default=str)
@@ -364,8 +237,7 @@ async def get_trips(request: Request):
     if matched_only:
         query["matchedGps"] = {"$ne": None}
     query = enforce_bouncie_source(query)
-    if coverage_clip.active and coverage_clip.prefilter_geometry:
-        query["gps"] = {"$geoIntersects": {"$geometry": coverage_clip.prefilter_geometry}}
+    query = apply_clip_prefilter(query, coverage_clip, geometry_field="gps")
     # Use Beanie cursor iteration
     trip_cursor = Trip.find(query).sort(-Trip.endTime)
 
@@ -378,17 +250,7 @@ async def get_trips(request: Request):
         try:
             async for trip in trip_cursor:
                 try:
-                    # Convert Beanie model to dict for processing
-                    if hasattr(trip, "model_dump"):
-                        trip_dict = trip.model_dump()
-                    elif hasattr(trip, "dict"):
-                        trip_dict = trip.dict()
-                    else:
-                        trip_dict = dict(trip)
-
-                    st = parse_timestamp(trip_dict.get("startTime"))
-                    et = parse_timestamp(trip_dict.get("endTime"))
-                    duration = (et - st).total_seconds() if st and et else None
+                    trip_dict = trip_to_dict(trip)
 
                     geom = GeometryService.parse_geojson(trip_dict.get("gps"))
                     matched_geom = GeometryService.parse_geojson(
@@ -400,21 +262,17 @@ async def get_trips(request: Request):
                     if matched_only and matched_geom:
                         final_geom = matched_geom
 
-                    num_points = _count_line_points(final_geom)
+                    num_points = count_line_points(final_geom)
                     coverage_distance_miles = None
 
-                    if coverage_clip.active and coverage_clip.coverage_geometry is not None:
-                        clipped_geom, coverage_distance_miles = _clip_lines_to_coverage(
+                    if coverage_clip.enabled:
+                        clipped_geom, coverage_distance_miles = clip_geojson_lines(
                             final_geom,
-                            coverage_clip.coverage_geometry,
+                            coverage_clip,
                         )
                         if clipped_geom is None:
                             continue
                         final_geom = clipped_geom
-
-                    total_idle_duration = trip_dict.get("totalIdleDuration")
-                    avg_speed = trip_dict.get("avgSpeed")
-                    start_tz, end_tz, alias_tz = _derive_timezone_fields(trip_dict)
 
                     # Skip trips without valid geometry
                     if not final_geom or not final_geom.get("coordinates"):
@@ -424,38 +282,15 @@ async def get_trips(request: Request):
                         )
                         continue
 
-                    props = {
-                        "transactionId": trip_dict.get("transactionId"),
-                        "imei": trip_dict.get("imei"),
-                        "startTime": st.isoformat() if st else None,
-                        "endTime": et.isoformat() if et else None,
-                        "duration": duration,
-                        "distance": safe_float(trip_dict.get("distance"), 0),
-                        "maxSpeed": safe_float(trip_dict.get("maxSpeed"), 0),
-                        "startTimeZone": start_tz,
-                        "endTimeZone": end_tz,
-                        "timeZone": alias_tz,
-                        "startLocation": trip_dict.get("startLocation"),
-                        "destination": trip_dict.get("destination"),
-                        "totalIdleDuration": total_idle_duration,
-                        "fuelConsumed": safe_float(trip_dict.get("fuelConsumed"), 0),
-                        "source": trip_dict.get("source"),
-                        "hardBrakingCounts": trip_dict.get("hardBrakingCounts"),
-                        "hardAccelerationCounts": trip_dict.get(
-                            "hardAccelerationCounts",
-                        ),
-                        "startOdometer": trip_dict.get("startOdometer"),
-                        "endOdometer": trip_dict.get("endOdometer"),
-                        "avgSpeed": avg_speed,
-                        "pointsRecorded": num_points,
-                        "estimated_cost": TripCostService.calculate_trip_cost(
+                    props = build_trip_feature_properties(
+                        trip_dict,
+                        estimated_cost=TripCostService.calculate_trip_cost(
                             trip_dict,
                             price_map,
                         ),
-                        "matchStatus": trip_dict.get("matchStatus"),
-                    }
-                    if coverage_clip.active and coverage_distance_miles is not None:
-                        props["coverageDistance"] = coverage_distance_miles
+                        points_recorded=num_points,
+                        coverage_distance_miles=coverage_distance_miles,
+                    )
                     feature = GeometryService.feature_from_geometry(final_geom, props)
                     # Use default=str to handle any non-serializable types
                     chunk = json.dumps(feature, separators=(",", ":"), default=str)

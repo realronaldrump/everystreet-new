@@ -30,6 +30,7 @@ from recurring_routes.services.fingerprint import (
     extract_display_label,
     extract_polyline,
 )
+from recurring_routes.services.service import coerce_place_id
 from trips.services.trip_cost_service import TripCostService
 
 logger = logging.getLogger(__name__)
@@ -86,13 +87,6 @@ def _best_label(counter: Counter[str]) -> str:
         return "Unknown"
     value, _ = counter.most_common(1)[0]
     return value or "Unknown"
-
-
-def _clean_place_id(value: Any) -> str | None:
-    if value is None:
-        return None
-    cleaned = str(value).strip()
-    return cleaned or None
 
 
 def _best_place_id(
@@ -324,8 +318,8 @@ class RecurringRoutesBuilder:
                 if end_label:
                     group["end_labels"][end_label] += 1
 
-                start_place_id = _clean_place_id(trip_dict.get("startPlaceId"))
-                end_place_id = _clean_place_id(trip_dict.get("destinationPlaceId"))
+                start_place_id = coerce_place_id(trip_dict.get("startPlaceId"))
+                end_place_id = coerce_place_id(trip_dict.get("destinationPlaceId"))
                 if start_place_id:
                     group["start_place_ids"][start_place_id] += 1
                     all_place_ids.add(start_place_id)

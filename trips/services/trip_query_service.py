@@ -7,116 +7,12 @@ from beanie.operators import In
 
 from core.casting import safe_float
 from core.date_utils import parse_timestamp
-from core.spatial import GeometryService
-from core.trip_source_policy import enforce_bouncie_source
-from db import build_calendar_date_expr
+from core.trip_query_spec import TripQuerySpec
 from db.aggregation import aggregate_to_list
 from db.models import Trip, Vehicle
+from trips.presentation import build_trip_preview_path, derive_timezone_fields
 
 logger = logging.getLogger(__name__)
-
-
-def _extract_preview_geometry(trip_dict: dict[str, Any]) -> dict[str, Any] | None:
-    geom = GeometryService.parse_geojson(
-        trip_dict.get("matchedGps") or trip_dict.get("gps"),
-    )
-    if geom:
-        return geom
-
-    coords = trip_dict.get("coordinates")
-    if isinstance(coords, list):
-        return GeometryService.geometry_from_coordinate_dicts(coords)
-
-    return None
-
-
-def _first_non_empty(*values: Any) -> Any:
-    for value in values:
-        if value not in (None, ""):
-            return value
-    return None
-
-
-def _timezone_fields(trip_dict: dict[str, Any]) -> tuple[Any, Any, Any]:
-    start_tz = _first_non_empty(trip_dict.get("startTimeZone"))
-    end_tz = _first_non_empty(trip_dict.get("endTimeZone"))
-    alias_tz = _first_non_empty(start_tz, end_tz)
-    return start_tz, end_tz, alias_tz
-
-
-def _build_preview_path(
-    trip_dict: dict[str, Any],
-    *,
-    width: float = 100.0,
-    height: float = 40.0,
-    padding: float = 4.0,
-    max_points: int = 64,
-) -> str | None:
-    geom = _extract_preview_geometry(trip_dict)
-    if not geom:
-        return None
-
-    coords = geom.get("coordinates")
-    if not isinstance(coords, list) or not coords:
-        return None
-
-    raw_coords: list[Any] = []
-    if geom.get("type") == "LineString":
-        raw_coords = coords
-    elif geom.get("type") == "MultiLineString":
-        for line in coords:
-            if isinstance(line, list):
-                raw_coords.extend(line)
-    else:
-        return None
-
-    cleaned: list[list[float]] = []
-    for coord in raw_coords:
-        valid, pair = GeometryService.validate_coordinate_pair(coord)
-        if valid and pair:
-            cleaned.append(pair)
-
-    if len(cleaned) < 2:
-        return None
-
-    if len(cleaned) > max_points:
-        step = max(1, len(cleaned) // max_points)
-        sampled = cleaned[::step]
-        if sampled[-1] != cleaned[-1]:
-            sampled.append(cleaned[-1])
-        cleaned = sampled
-
-    lons = [pt[0] for pt in cleaned]
-    lats = [pt[1] for pt in cleaned]
-    min_lon = min(lons)
-    max_lon = max(lons)
-    min_lat = min(lats)
-    max_lat = max(lats)
-
-    if min_lon == max_lon:
-        min_lon -= 0.0001
-        max_lon += 0.0001
-    if min_lat == max_lat:
-        min_lat -= 0.0001
-        max_lat += 0.0001
-
-    span_lon = max_lon - min_lon
-    span_lat = max_lat - min_lat
-    if span_lon <= 0 or span_lat <= 0:
-        return None
-
-    scale_x = (width - (padding * 2)) / span_lon
-    scale_y = (height - (padding * 2)) / span_lat
-
-    def project(coord: list[float]) -> tuple[float, float]:
-        x = padding + (coord[0] - min_lon) * scale_x
-        y = padding + (max_lat - coord[1]) * scale_y
-        return x, y
-
-    points = [project(coord) for coord in cleaned]
-    path_parts = [f"M {points[0][0]:.1f},{points[0][1]:.1f}"]
-    path_parts.extend(f"L {x:.1f},{y:.1f}" for x, y in points[1:])
-    return " ".join(path_parts)
 
 
 def _normalize_identifier(value: Any) -> str | None:
@@ -210,18 +106,13 @@ class TripQueryService:
         if not isinstance(columns, list):
             columns = []
 
-        base_query = enforce_bouncie_source({"invalid": {"$ne": True}})
-        query = dict(base_query)
-
-        if start_date or end_date:
-            range_expr = build_calendar_date_expr(start_date, end_date)
-            if range_expr:
-                query["$expr"] = range_expr
-
-        # Vehicle filter
-        imei_filter = filters.get("imei")
-        if imei_filter:
-            query["imei"] = imei_filter
+        spec = TripQuerySpec(
+            start_date=start_date,
+            end_date=end_date,
+            imei=filters.get("imei"),
+        )
+        base_query = TripQuerySpec().to_mongo_query(enforce_source=True)
+        query = spec.to_mongo_query(enforce_source=True)
 
         def _parse_number(value):
             if value is None or value == "":
@@ -520,7 +411,7 @@ class TripQueryService:
             total_idle_duration = trip_dict.get("totalIdleDuration")
             if total_idle_duration is None:
                 total_idle_duration = trip_dict.get("totalIdleDuration", 0)
-            start_tz, end_tz, alias_tz = _timezone_fields(trip_dict)
+            start_tz, end_tz, alias_tz = derive_timezone_fields(trip_dict)
 
             formatted_trip = {
                 "transactionId": trip_dict.get("transactionId", ""),
@@ -542,7 +433,7 @@ class TripQueryService:
                     trip_dict,
                     price_map,
                 ),
-                "previewPath": _build_preview_path(trip_dict),
+                "previewPath": build_trip_preview_path(trip_dict),
             }
             formatted_data.append(formatted_trip)
 

@@ -3,18 +3,17 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException, status
 
 from analytics.services.mobility_insights_service import MobilityInsightsService
-from core.date_utils import get_current_utc_time, normalize_calendar_date
+from core.date_utils import get_current_utc_time
+from core.job_serialization import serialize_job_progress
 from core.jobs import JobHandle, create_job, find_job
 from core.mapping.factory import get_router
 from core.spatial import GeometryService, extract_timestamps_for_coordinates
-from core.trip_source_policy import enforce_bouncie_source
-from db import build_calendar_date_expr
 from db.models import Job, Trip
 from tasks.config import update_task_history_entry
 from tasks.ops import abort_job, enqueue_task
@@ -25,6 +24,7 @@ from trips.models import (
 )
 from trips.pipeline import TripPipeline
 from trips.services.matching import MapMatchingService
+from core.trip_query_spec import TripQuerySpec
 
 logger = logging.getLogger(__name__)
 
@@ -71,17 +71,12 @@ class MapMatchingJobService:
                 detail="Job not found",
             )
 
-        return {
-            "job_id": job_id,
-            "stage": progress.stage or "unknown",
-            "progress": progress.progress or 0,
-            "message": progress.message or "",
-            "metrics": progress.metadata or {},
-            "error": progress.error,
-            "updated_at": (
-                progress.updated_at.isoformat() if progress.updated_at else None
-            ),
-        }
+        return serialize_job_progress(
+            progress,
+            job_id=job_id,
+            metadata_field="metrics",
+            include_status=False,
+        )
 
     async def list_jobs(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
         cursor = (
@@ -91,17 +86,12 @@ class MapMatchingJobService:
             .limit(limit)
         )
         jobs = [
-            {
-                "job_id": entry.operation_id or entry.task_id or str(entry.id),
-                "stage": entry.stage or "unknown",
-                "progress": entry.progress or 0,
-                "message": entry.message or "",
-                "metrics": entry.metadata or {},
-                "error": entry.error,
-                "updated_at": (
-                    entry.updated_at.isoformat() if entry.updated_at else None
-                ),
-            }
+            serialize_job_progress(
+                entry,
+                job_id=entry.operation_id or entry.task_id or str(entry.id),
+                metadata_field="metrics",
+                include_status=False,
+            )
             async for entry in cursor
         ]
 
@@ -260,7 +250,7 @@ class MapMatchingJobService:
         metadata = progress.metadata or {}
         mode = metadata.get("mode") or "unmatched"
 
-        query: dict[str, Any] = {"invalid": {"$ne": True}, "matchedGps": {"$ne": None}}
+        query = TripQuerySpec(matched_only=True).to_mongo_query(enforce_source=True)
         window: dict[str, Any] | None = None
 
         if mode == "trip_id":
@@ -280,26 +270,35 @@ class MapMatchingJobService:
                 )
             query["transactionId"] = {"$in": trip_ids}
         elif mode == "date_range":
-            start_iso = normalize_calendar_date(metadata.get("start_date"))
-            end_iso = normalize_calendar_date(metadata.get("end_date"))
             interval_days = int(metadata.get("interval_days") or 0)
-            if interval_days > 0 and (not start_iso or not end_iso):
-                anchor = progress.started_at or datetime.now(UTC)
-                end_dt = anchor.date()
-                start_dt = (anchor - timedelta(days=interval_days)).date()
-                start_iso = start_dt.isoformat()
-                end_iso = end_dt.isoformat()
-            if not start_iso or not end_iso:
+            date_spec = TripQuerySpec(
+                start_date=metadata.get("start_date"),
+                end_date=metadata.get("end_date"),
+                interval_days=interval_days,
+                include_invalid=True,
+            )
+            anchor = progress.started_at or datetime.now(UTC)
+            start_iso, end_iso = date_spec.resolve_date_window(anchor=anchor)
+            try:
+                date_query = date_spec.to_mongo_query(
+                    anchor=anchor,
+                    require_complete_bounds=True,
+                    require_valid_range_if_provided=True,
+                    enforce_source=False,
+                )
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid date range for preview",
+                ) from exc
+
+            range_expr = date_query.get("$expr")
+            if not range_expr:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Date range not available for this job",
                 )
-            range_expr = build_calendar_date_expr(start_iso, end_iso)
-            if not range_expr:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid date range for preview",
-                )
+
             query["$expr"] = range_expr
             window = {"start": start_iso, "end": end_iso}
         elif mode == "unmatched":
@@ -317,8 +316,6 @@ class MapMatchingJobService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Unsupported preview mode",
             )
-
-        query = enforce_bouncie_source(query)
 
         total = await Trip.find(query).count()
         trips = (
@@ -951,40 +948,39 @@ class MapMatchingJobRunner:
 
     @staticmethod
     def _build_query(request: MapMatchJobRequest) -> dict[str, Any]:
-        query: dict[str, Any] = {"invalid": {"$ne": True}}
-
         if request.mode == "unmatched":
-            query["matchedGps"] = None
-            return enforce_bouncie_source(query)
+            return TripQuerySpec(unmatched_only=True).to_mongo_query(enforce_source=True)
 
         if request.mode == "trip_id":
-            query["transactionId"] = request.trip_id
-            return enforce_bouncie_source(query)
+            return TripQuerySpec().to_mongo_query(
+                extra_filters={"transactionId": request.trip_id},
+                enforce_source=True,
+            )
 
         if request.mode == "trip_ids":
-            query["transactionId"] = {"$in": request.trip_ids}
-            return enforce_bouncie_source(query)
+            return TripQuerySpec().to_mongo_query(
+                extra_filters={"transactionId": {"$in": request.trip_ids}},
+                enforce_source=True,
+            )
 
         if request.mode == "date_range":
-            if request.interval_days and request.interval_days > 0:
-                end_dt = datetime.now(UTC)
-                start_dt = end_dt - timedelta(days=request.interval_days)
-                start_iso = start_dt.date().isoformat()
-                end_iso = end_dt.date().isoformat()
-            else:
-                start_iso = normalize_calendar_date(request.start_date)
-                end_iso = normalize_calendar_date(request.end_date)
-
-            range_expr = build_calendar_date_expr(start_iso, end_iso)
-            if not range_expr:
+            spec = TripQuerySpec(
+                start_date=request.start_date,
+                end_date=request.end_date,
+                interval_days=int(request.interval_days or 0),
+                unmatched_only=bool(request.unmatched_only),
+            )
+            try:
+                return spec.to_mongo_query(
+                    require_complete_bounds=True,
+                    require_valid_range_if_provided=True,
+                    enforce_source=True,
+                )
+            except ValueError as exc:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid date range",
-                )
-            query["$expr"] = range_expr
-            if request.unmatched_only:
-                query["matchedGps"] = None
-            return enforce_bouncie_source(query)
+                ) from exc
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

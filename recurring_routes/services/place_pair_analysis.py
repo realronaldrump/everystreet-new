@@ -20,6 +20,14 @@ from recurring_routes.services.fingerprint import (
     compute_route_signature,
     extract_polyline,
 )
+from recurring_routes.services.temporal_analytics import (
+    DAY_NAMES,
+    build_temporal_facet_pipeline,
+    normalize_day_buckets,
+    normalize_hour_buckets,
+    normalize_month_buckets,
+    serialize_stats_for_response,
+)
 from recurring_routes.services.service import (
     build_place_link,
     coerce_place_id,
@@ -30,7 +38,6 @@ from recurring_routes.services.service import (
     route_display_name,
 )
 
-_DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 _OFFSET_RE = re.compile(r"^([+-])(\d{2}):?(\d{2})$")
 
 
@@ -66,7 +73,7 @@ def _day_buckets() -> list[dict[str, Any]]:
     return [
         {
             "day": d,
-            "dayName": _DAY_NAMES[d - 1],
+            "dayName": DAY_NAMES[d - 1],
             "count": 0,
             "avgDistance": None,
             "avgDuration": None,
@@ -300,80 +307,10 @@ async def _aggregate_facets_for_trip_ids(trip_ids: list[Any]) -> dict[str, Any]:
     if not trip_ids:
         return {}
 
-    tz_expr = get_mongo_tz_expr()
-    pipeline = [
-        {"$match": {"_id": {"$in": trip_ids}}},
-        {
-            "$project": {
-                "startTime": 1,
-                "distance": 1,
-                "duration": 1,
-                "hour": {"$hour": {"date": "$startTime", "timezone": tz_expr}},
-                "dayOfWeek": {
-                    "$dayOfWeek": {"date": "$startTime", "timezone": tz_expr},
-                },
-                "yearMonth": {
-                    "$dateToString": {
-                        "format": "%Y-%m",
-                        "date": "$startTime",
-                        "timezone": tz_expr,
-                    },
-                },
-            },
-        },
-        {
-            "$facet": {
-                "byHour": [
-                    {
-                        "$group": {
-                            "_id": "$hour",
-                            "count": {"$sum": 1},
-                            "avgDistance": {"$avg": "$distance"},
-                            "avgDuration": {"$avg": "$duration"},
-                        },
-                    },
-                    {"$sort": {"_id": 1}},
-                ],
-                "byDayOfWeek": [
-                    {
-                        "$group": {
-                            "_id": "$dayOfWeek",
-                            "count": {"$sum": 1},
-                            "avgDistance": {"$avg": "$distance"},
-                            "avgDuration": {"$avg": "$duration"},
-                        },
-                    },
-                    {"$sort": {"_id": 1}},
-                ],
-                "byMonth": [
-                    {
-                        "$group": {
-                            "_id": "$yearMonth",
-                            "count": {"$sum": 1},
-                            "totalDistance": {"$sum": "$distance"},
-                            "avgDistance": {"$avg": "$distance"},
-                            "avgDuration": {"$avg": "$duration"},
-                        },
-                    },
-                    {"$sort": {"_id": 1}},
-                ],
-                "stats": [
-                    {
-                        "$group": {
-                            "_id": None,
-                            "totalTrips": {"$sum": 1},
-                            "totalDistance": {"$sum": "$distance"},
-                            "totalDuration": {"$sum": "$duration"},
-                            "avgDistance": {"$avg": "$distance"},
-                            "avgDuration": {"$avg": "$duration"},
-                            "firstTrip": {"$min": "$startTime"},
-                            "lastTrip": {"$max": "$startTime"},
-                        },
-                    },
-                ],
-            },
-        },
-    ]
+    pipeline = build_temporal_facet_pipeline(
+        match_query={"_id": {"$in": trip_ids}},
+        tz_expr=get_mongo_tz_expr(),
+    )
 
     try:
         result = await Trip.get_pymongo_collection().aggregate(pipeline).to_list(1)
@@ -848,41 +785,11 @@ async def analyze_place_pair(
     if not facets:
         facets = _compute_facets_from_trips(matched_trips)
 
-    hour_map = {item.get("_id"): item for item in facets.get("byHour", [])}
-    by_hour: list[dict[str, Any]] = []
-    for h in range(24):
-        item = hour_map.get(h, {})
-        by_hour.append(
-            {
-                "hour": h,
-                "count": item.get("count", 0),
-                "avgDistance": item.get("avgDistance"),
-                "avgDuration": item.get("avgDuration"),
-            },
-        )
+    by_hour = normalize_hour_buckets(facets.get("byHour"))
+    by_day = normalize_day_buckets(facets.get("byDayOfWeek"))
 
-    dow_map = {item.get("_id"): item for item in facets.get("byDayOfWeek", [])}
-    by_day: list[dict[str, Any]] = []
-    for d in range(1, 8):
-        item = dow_map.get(d, {})
-        by_day.append(
-            {
-                "day": d,
-                "dayName": _DAY_NAMES[d - 1],
-                "count": item.get("count", 0),
-                "avgDistance": item.get("avgDistance"),
-                "avgDuration": item.get("avgDuration"),
-            },
-        )
-
-    stats = facets.get("stats", [{}])[0] if facets.get("stats") else {}
-    stats.pop("_id", None)
-    first_trip = stats.get("firstTrip")
-    last_trip = stats.get("lastTrip")
-    if first_trip:
-        stats["firstTrip"] = _serialize_dt(first_trip)
-    if last_trip:
-        stats["lastTrip"] = _serialize_dt(last_trip)
+    stats_source = facets.get("stats", [{}])[0] if facets.get("stats") else {}
+    stats, first_trip, last_trip = serialize_stats_for_response(stats_source)
 
     total_trips = int(stats.get("totalTrips") or len(matched_trips))
     trips_per_week = compute_trips_per_week(
@@ -905,19 +812,10 @@ async def analyze_place_pair(
         if value is not None
     ]
 
-    month_items = []
-    for item in facets.get("byMonth", []):
-        month_id = item.get("_id")
-        month_items.append(
-            {
-                "_id": month_id,
-                "month": month_id,
-                "count": item.get("count", 0),
-                "totalDistance": item.get("totalDistance"),
-                "avgDistance": item.get("avgDistance"),
-                "avgDuration": item.get("avgDuration"),
-            },
-        )
+    month_items = normalize_month_buckets(
+        facets.get("byMonth"),
+        include_month_alias=True,
+    )
 
     sample_size = min(len(matched_trips), sample_limit)
     sample_trips = [

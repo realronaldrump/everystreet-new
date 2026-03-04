@@ -2,12 +2,11 @@
 
 import logging
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
-from core.date_utils import normalize_calendar_date
+from core.job_serialization import serialize_job_progress
 from core.jobs import create_job, find_job
-from core.trip_source_policy import enforce_bouncie_source
-from db import build_calendar_date_expr
+from core.trip_query_spec import TripQuerySpec
 from db.models import Trip
 from trips.services.trip_batch_service import TripService
 
@@ -48,38 +47,30 @@ class TripStatsService:
         """
         task_id = str(uuid.uuid4())
 
-        # Determine date range
-        if not start_date and not end_date and interval_days == 0:
-            # Default to all trips
-            query = {}
-            start_iso = None
-            end_iso = None
-        elif interval_days > 0:
-            end_dt = datetime.now(UTC)
-            start_dt = end_dt - timedelta(days=interval_days)
-            start_iso = start_dt.date().isoformat()
-            end_iso = end_dt.date().isoformat()
-            range_expr = build_calendar_date_expr(start_iso, end_iso)
-            if not range_expr:
-                msg = "Invalid date range"
-                raise ValueError(msg)
-            query = {"$expr": range_expr}
+        if interval_days < 0:
+            msg = "Invalid date range"
+            raise ValueError(msg)
 
-        else:
-            start_iso = normalize_calendar_date(start_date)
-            end_iso = normalize_calendar_date(end_date)
+        has_window = bool(start_date or end_date or interval_days > 0)
+        if has_window and interval_days <= 0 and (not start_date or not end_date):
+            msg = "Invalid date range"
+            raise ValueError(msg)
 
-            if not start_iso or not end_iso:
-                msg = "Invalid date range"
-                raise ValueError(msg)
-
-            range_expr = build_calendar_date_expr(start_iso, end_iso)
-            if not range_expr:
-                msg = "Invalid date range"
-                raise ValueError(msg)
-            query = {"$expr": range_expr}
-
-        query = enforce_bouncie_source(query)
+        spec = TripQuerySpec(
+            start_date=start_date,
+            end_date=end_date,
+            interval_days=interval_days,
+            include_invalid=True,
+        )
+        try:
+            query = spec.to_mongo_query(
+                require_complete_bounds=has_window,
+                require_valid_range_if_provided=has_window,
+                enforce_source=True,
+            )
+        except ValueError as exc:
+            msg = "Invalid date range"
+            raise ValueError(msg) from exc
 
         metrics = {
             "total": 0,
@@ -219,19 +210,23 @@ class TripStatsService:
             msg = "Task not found"
             raise ValueError(msg)
 
+        payload = serialize_job_progress(
+            progress,
+            job_id=task_id,
+            metadata_field="metrics",
+            include_status=False,
+        )
         return {
             "task_id": task_id,
-            "stage": progress.stage or "unknown",
-            "progress": progress.progress or 0,
-            "message": progress.message or "",
-            "metrics": progress.metadata or {},
+            "stage": payload.get("stage"),
+            "progress": payload.get("progress"),
+            "message": payload.get("message"),
+            "metrics": payload.get("metrics"),
             "current_trip_id": (
                 progress.metadata.get("current_trip_id") if progress.metadata else None
             ),
-            "error": progress.error,
-            "updated_at": (
-                progress.updated_at.isoformat() if progress.updated_at else None
-            ),
+            "error": payload.get("error"),
+            "updated_at": payload.get("updated_at"),
         }
 
     async def regeocode_single_trip(self, trip_id: str):

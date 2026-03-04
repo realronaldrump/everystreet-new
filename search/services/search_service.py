@@ -7,12 +7,13 @@ from fastapi import HTTPException
 from shapely.geometry import mapping, shape
 
 from core.clients.nominatim import GeocodingService
-from core.mapping.factory import get_geocoder
-from core.spatial import (
-    clip_lines_to_polygon,
-    extract_line_geometry,
-    extract_polygon_geometry_from_geojson,
+from core.coverage_clip import (
+    CoverageClipError,
+    clip_line_geometry,
+    resolve_coverage_clip_context,
 )
+from core.mapping.factory import get_geocoder
+from core.spatial import extract_line_geometry
 from db.models import CoverageArea, CoverageState, Street
 
 if TYPE_CHECKING:
@@ -306,16 +307,19 @@ class SearchService:
                     detail=f"Coverage area not found: {coverage_area_id}",
                 )
 
-            boundary_geometry = extract_polygon_geometry_from_geojson(area.boundary)
-            if boundary_geometry is None:
+            try:
+                clip_context = resolve_coverage_clip_context(
+                    clip_requested=True,
+                    area=area,
+                    area_id=str(coverage_area_id),
+                )
+            except CoverageClipError as exc:
                 raise HTTPException(
                     status_code=422,
-                    detail=(
-                        "Coverage area boundary is not a valid polygon and cannot be used for clipping."
-                    ),
-                )
+                    detail=str(exc),
+                ) from exc
 
-            line_geometry = clip_lines_to_polygon(line_geometry, boundary_geometry)
+            line_geometry = clip_line_geometry(line_geometry, clip_context)
             clipped = True
 
         if line_geometry is None:

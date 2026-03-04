@@ -14,5 +14,11 @@ compatibility, migration, or legacy code.
   (for clients) and then wiped from live storage.
 - The Mongo `trips` collection is historical data only and should be populated
   from Bouncie ingest/sync paths.
-- Historical trip reads/analytics/exports must enforce `source=\"bouncie\"` so
-  legacy webhook/non-bouncie rows are excluded.
+
+
+## Environment Memory
+
+- Production/runtime deployment is on your Linux mini PC.
+- Active development in this workspace is on your MacBook Pro.
+- For production logs/process checks, SSH into the mini PC over Tailscale:
+  `ssh <user>@100.96.182.111`

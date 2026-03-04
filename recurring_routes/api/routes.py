@@ -10,6 +10,7 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, Body, HTTPException, Query, status
 
 from core.api import api_route
+from core.job_serialization import serialize_job_progress
 from core.jobs import JobHandle, create_job, find_job
 from core.spatial import GeometryService
 from core.trip_source_policy import enforce_bouncie_source
@@ -20,6 +21,13 @@ from recurring_routes.models import (
     PatchRecurringRouteRequest,
 )
 from recurring_routes.services.place_pair_analysis import analyze_place_pair
+from recurring_routes.services.temporal_analytics import (
+    build_temporal_facet_pipeline,
+    normalize_day_buckets,
+    normalize_hour_buckets,
+    normalize_month_buckets,
+    serialize_stats_for_response,
+)
 from recurring_routes.services.service import (
     build_place_link,
     coerce_place_id,
@@ -367,140 +375,19 @@ async def get_route_analytics(route_id: str):
     trips_coll = Trip.get_pymongo_collection()
     tz_expr = get_mongo_tz_expr()
 
-    # Aggregate time patterns from all trips on this route
-    pipeline = [
-        {
-            "$match": enforce_bouncie_source(
-                {"recurringRouteId": oid, "invalid": {"$ne": True}},
-            ),
-        },
-        {
-            "$project": {
-                "startTime": 1,
-                "endTime": 1,
-                "distance": 1,
-                "duration": 1,
-                "fuelConsumed": 1,
-                "maxSpeed": 1,
-                "hour": {"$hour": {"date": "$startTime", "timezone": tz_expr}},
-                "dayOfWeek": {
-                    "$dayOfWeek": {"date": "$startTime", "timezone": tz_expr},
-                },
-                "yearMonth": {
-                    "$dateToString": {
-                        "format": "%Y-%m",
-                        "date": "$startTime",
-                        "timezone": tz_expr,
-                    },
-                },
-            },
-        },
-        {
-            "$facet": {
-                "byHour": [
-                    {
-                        "$group": {
-                            "_id": "$hour",
-                            "count": {"$sum": 1},
-                            "avgDistance": {"$avg": "$distance"},
-                            "avgDuration": {"$avg": "$duration"},
-                        },
-                    },
-                    {"$sort": {"_id": 1}},
-                ],
-                "byDayOfWeek": [
-                    {
-                        "$group": {
-                            "_id": "$dayOfWeek",
-                            "count": {"$sum": 1},
-                            "avgDistance": {"$avg": "$distance"},
-                            "avgDuration": {"$avg": "$duration"},
-                        },
-                    },
-                    {"$sort": {"_id": 1}},
-                ],
-                "byMonth": [
-                    {
-                        "$group": {
-                            "_id": "$yearMonth",
-                            "count": {"$sum": 1},
-                            "totalDistance": {"$sum": "$distance"},
-                            "avgDistance": {"$avg": "$distance"},
-                            "avgDuration": {"$avg": "$duration"},
-                        },
-                    },
-                    {"$sort": {"_id": 1}},
-                    {"$limit": 24},
-                ],
-                "tripTimeline": [
-                    {"$sort": {"startTime": 1}},
-                    {
-                        "$project": {
-                            "startTime": 1,
-                            "distance": 1,
-                            "duration": 1,
-                            "maxSpeed": 1,
-                        },
-                    },
-                ],
-                "stats": [
-                    {
-                        "$group": {
-                            "_id": None,
-                            "totalTrips": {"$sum": 1},
-                            "totalDistance": {"$sum": "$distance"},
-                            "totalDuration": {"$sum": "$duration"},
-                            "avgDistance": {"$avg": "$distance"},
-                            "avgDuration": {"$avg": "$duration"},
-                            "minDistance": {"$min": "$distance"},
-                            "maxDistance": {"$max": "$distance"},
-                            "minDuration": {"$min": "$duration"},
-                            "maxDuration": {"$max": "$duration"},
-                            "avgMaxSpeed": {"$avg": "$maxSpeed"},
-                            "maxMaxSpeed": {"$max": "$maxSpeed"},
-                            "totalFuel": {"$sum": "$fuelConsumed"},
-                            "avgFuel": {"$avg": "$fuelConsumed"},
-                            "firstTrip": {"$min": "$startTime"},
-                            "lastTrip": {"$max": "$startTime"},
-                        },
-                    },
-                ],
-            },
-        },
-    ]
+    pipeline = build_temporal_facet_pipeline(
+        match_query=enforce_bouncie_source({"recurringRouteId": oid, "invalid": {"$ne": True}}),
+        tz_expr=tz_expr,
+        include_timeline=True,
+        month_limit=24,
+        include_extended_stats=True,
+    )
 
     results = await trips_coll.aggregate(pipeline).to_list(1)
     facets = results[0] if results else {}
 
-    # Fill in all 24 hours
-    hour_map = {h["_id"]: h for h in facets.get("byHour", [])}
-    by_hour = []
-    for h in range(24):
-        entry = hour_map.get(h, {})
-        by_hour.append(
-            {
-                "hour": h,
-                "count": entry.get("count", 0),
-                "avgDistance": entry.get("avgDistance"),
-                "avgDuration": entry.get("avgDuration"),
-            },
-        )
-
-    # Fill in all 7 days (MongoDB: 1=Sun, 2=Mon, ..., 7=Sat)
-    day_names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-    dow_map = {d["_id"]: d for d in facets.get("byDayOfWeek", [])}
-    by_day = []
-    for d in range(1, 8):
-        entry = dow_map.get(d, {})
-        by_day.append(
-            {
-                "day": d,
-                "dayName": day_names[d - 1],
-                "count": entry.get("count", 0),
-                "avgDistance": entry.get("avgDistance"),
-                "avgDuration": entry.get("avgDuration"),
-            },
-        )
+    by_hour = normalize_hour_buckets(facets.get("byHour"))
+    by_day = normalize_day_buckets(facets.get("byDayOfWeek"))
 
     # Process timeline data
     timeline = []
@@ -516,15 +403,7 @@ async def get_route_analytics(route_id: str):
         )
 
     stats_source = facets.get("stats", [{}])[0] if facets.get("stats") else {}
-    stats_raw = dict(stats_source) if isinstance(stats_source, dict) else {}
-    stats_raw.pop("_id", None)
-    first_trip_dt = stats_raw.get("firstTrip")
-    last_trip_dt = stats_raw.get("lastTrip")
-    # Serialize dates
-    for key in ("firstTrip", "lastTrip"):
-        val = stats_raw.get(key)
-        if val:
-            stats_raw[key] = val.isoformat() if hasattr(val, "isoformat") else str(val)
+    stats_raw, first_trip_dt, last_trip_dt = serialize_stats_for_response(stats_source)
 
     # Compute trip frequency from Sunday-Saturday calendar weeks.
     first_trip = first_trip_dt if isinstance(first_trip_dt, datetime) else None
@@ -540,7 +419,7 @@ async def get_route_analytics(route_id: str):
         "route_id": route_id,
         "byHour": by_hour,
         "byDayOfWeek": by_day,
-        "byMonth": facets.get("byMonth", []),
+        "byMonth": normalize_month_buckets(facets.get("byMonth")),
         "timeline": timeline,
         "stats": stats_raw,
         "tripsPerWeek": trips_per_week,
@@ -656,16 +535,12 @@ async def get_recurring_routes_build(job_id: str):
     if not progress:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    return {
-        "job_id": job_id,
-        "stage": progress.stage or "unknown",
-        "status": progress.status or "unknown",
-        "progress": progress.progress or 0,
-        "message": progress.message or "",
-        "metrics": progress.metadata or {},
-        "error": progress.error,
-        "updated_at": progress.updated_at.isoformat() if progress.updated_at else None,
-    }
+    return serialize_job_progress(
+        progress,
+        job_id=job_id,
+        metadata_field="metrics",
+        include_status=True,
+    )
 
 
 @router.post(

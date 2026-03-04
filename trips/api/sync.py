@@ -14,6 +14,8 @@ from fastapi.responses import StreamingResponse
 
 from core.api import api_route
 from core.date_utils import parse_timestamp
+from core.job_serialization import serialize_job_payload
+from core.jobs import JobHandle
 from db.models import Job, TaskHistory
 from tasks.config import update_task_history_entry
 from tasks.ops import abort_job
@@ -101,23 +103,7 @@ async def stream_trip_sync_updates():
 
 
 def _job_payload(job: Job) -> dict:
-    return {
-        "job_id": str(job.id) if job.id else None,
-        "job_type": job.job_type,
-        "task_id": job.task_id,
-        "operation_id": job.operation_id,
-        "status": job.status,
-        "stage": job.stage,
-        "progress": float(job.progress or 0.0),
-        "message": job.message,
-        "error": job.error,
-        "created_at": job.created_at.isoformat() if job.created_at else None,
-        "started_at": job.started_at.isoformat() if job.started_at else None,
-        "completed_at": job.completed_at.isoformat() if job.completed_at else None,
-        "updated_at": job.updated_at.isoformat() if job.updated_at else None,
-        "metadata": job.metadata or {},
-        "result": job.result,
-    }
+    return serialize_job_payload(job)
 
 
 @router.get("/api/actions/trips/sync/history_import/plan", response_model=dict)
@@ -272,12 +258,12 @@ async def cancel_trip_history_import(progress_job_id: PydanticObjectId):
         return {"status": "success", "message": "Job is already finished."}
 
     now = datetime.now(UTC)
-    job.status = "cancelled"
-    job.stage = "cancelled"
-    job.message = "Cancelled"
-    job.completed_at = now
-    job.updated_at = now
-    await job.save()
+    await JobHandle(job).update(
+        status="cancelled",
+        stage="cancelled",
+        message="Cancelled",
+        completed_at=now,
+    )
 
     operation_id = job.operation_id
     if operation_id:
