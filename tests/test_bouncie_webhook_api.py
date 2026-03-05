@@ -230,6 +230,50 @@ def test_webhook_returns_200_for_non_dict_json(
     assert resp.status_code == 200
 
 
+def test_webhook_returns_200_for_invalid_auth_header(
+    webhook_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        webhook_api,
+        "get_bouncie_credentials",
+        AsyncMock(return_value={"webhook_key": "expected"}),
+    )
+
+    resp = webhook_client.post(
+        "/bouncie-webhook",
+        json={"eventType": "tripStart", "transactionId": "t-1"},
+        headers={"Authorization": "bad"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
+
+
+def test_webhook_returns_200_even_if_handler_crashes(
+    webhook_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        webhook_api,
+        "get_bouncie_credentials",
+        AsyncMock(return_value={"webhook_key": ""}),
+    )
+    monkeypatch.setattr(
+        webhook_api,
+        "TRIP_EVENT_HANDLERS",
+        {"tripStart": AsyncMock(side_effect=RuntimeError("boom"))},
+    )
+
+    resp = webhook_client.post(
+        "/bouncie-webhook",
+        json={"eventType": "tripStart", "transactionId": "t-1"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
+
+
 @pytest.mark.parametrize(
     "path",
     [
