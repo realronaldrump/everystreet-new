@@ -11,15 +11,17 @@ def test_control_center_route_renders() -> None:
 
 
 def test_legacy_system_routes_removed() -> None:
-    for path in ("/settings", "/status", "/server-logs", "/profile"):
+    for path in (
+        "/settings",
+        "/status",
+        "/server-logs",
+        "/profile",
+        "/database-management",
+        "/driving-navigation",
+        "/optimal-routes",
+    ):
         response = client.get(path)
         assert response.status_code == 404
-
-
-def test_database_management_redirects_to_control_center_storage() -> None:
-    response = client.get("/database-management", follow_redirects=False)
-    assert response.status_code == 301
-    assert response.headers.get("location") == "/control-center#storage"
 
 
 def test_navigation_only_links_to_control_center_for_system_tools() -> None:

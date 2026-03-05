@@ -1,36 +1,12 @@
 const loadedRoutes = new Set();
 
-function getStaticVersion() {
-  const script = document.querySelector(
-    'script[type="module"][src*="/static/js/app.js"]'
-  );
-  if (!script?.src) {
-    return "";
-  }
-  try {
-    const url = new URL(script.src, window.location.origin);
-    return url.searchParams.get("v") || "";
-  } catch {
-    return "";
-  }
-}
-
-function withVersion(specifier) {
-  const v = getStaticVersion();
-  if (!v) {
-    return specifier;
-  }
-  const join = specifier.includes("?") ? "&" : "?";
-  return `${specifier}${join}v=${encodeURIComponent(v)}`;
-}
-
 async function importOnce(key, specifier) {
   if (loadedRoutes.has(key)) {
     return;
   }
   loadedRoutes.add(key);
   try {
-    await import(withVersion(specifier));
+    await import(specifier);
   } catch (error) {
     loadedRoutes.delete(key);
     console.error(`Failed to import route module: ${key}`, error);

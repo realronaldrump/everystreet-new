@@ -1163,17 +1163,6 @@ function updateSelectionSummary() {
     const hours = totalSize / 500;
     timeEl.textContent = formatDurationFromHours(hours);
   }
-
-  // Hidden review elements (backward compat)
-  const sizeReviewEl = document.getElementById("coverage-total-size-review");
-  if (sizeReviewEl) {
-    sizeReviewEl.textContent = totalSize ? `${totalSize.toLocaleString()} MB` : "--";
-  }
-  const timeReviewEl = document.getElementById("coverage-time-estimate-review");
-  if (timeReviewEl) {
-    const hours = totalSize / 500;
-    timeReviewEl.textContent = formatDurationFromHours(hours);
-  }
 }
 
 /* ── Build UI ─────────────────────────────────────────────────── */

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from trips.serialization import TripSerializer, calculate_duration_seconds
+from trips.serialization import TripSerializer
 
 
 def test_calculate_duration_seconds_prefers_existing_duration() -> None:
@@ -12,7 +12,6 @@ def test_calculate_duration_seconds_prefers_existing_duration() -> None:
         "endTime": "2024-01-01T01:00:00Z",
     }
     assert TripSerializer.calculate_duration_seconds(trip) == 123.5
-    assert calculate_duration_seconds(trip) == 123.5
 
 
 def test_calculate_duration_seconds_falls_back_to_start_end() -> None:

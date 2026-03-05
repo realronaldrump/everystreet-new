@@ -187,10 +187,6 @@ def webhook_client() -> TestClient:
 
 
 _WEBHOOK_PATHS = [
-    "/webhook/bouncie",
-    "/webhook/bouncie/",
-    "/api/webhooks/bouncie",
-    "/api/webhooks/bouncie/",
     "/bouncie-webhook",
     "/bouncie-webhook/",
 ]
@@ -214,7 +210,7 @@ def test_webhook_returns_200_for_empty_body(
     webhook_client: TestClient,
 ) -> None:
     """Empty request body must still return 200."""
-    resp = webhook_client.post("/webhook/bouncie", content=b"")
+    resp = webhook_client.post("/bouncie-webhook", content=b"")
     assert resp.status_code == 200
 
 
@@ -222,7 +218,7 @@ def test_webhook_returns_200_for_invalid_json(
     webhook_client: TestClient,
 ) -> None:
     """Malformed JSON must still return 200."""
-    resp = webhook_client.post("/webhook/bouncie", content=b"not json")
+    resp = webhook_client.post("/bouncie-webhook", content=b"not json")
     assert resp.status_code == 200
 
 
@@ -230,8 +226,25 @@ def test_webhook_returns_200_for_non_dict_json(
     webhook_client: TestClient,
 ) -> None:
     """JSON arrays or scalars must still return 200."""
-    resp = webhook_client.post("/webhook/bouncie", content=b"[1,2,3]")
+    resp = webhook_client.post("/bouncie-webhook", content=b"[1,2,3]")
     assert resp.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/webhook/bouncie",
+        "/webhook/bouncie/",
+        "/api/webhooks/bouncie",
+        "/api/webhooks/bouncie/",
+    ],
+)
+def test_legacy_webhook_aliases_are_removed(
+    webhook_client: TestClient,
+    path: str,
+) -> None:
+    resp = webhook_client.post(path, json={"eventType": "tripStart"})
+    assert resp.status_code == 404
 
 
 def test_webhook_no_api_route_decorator() -> None:

@@ -88,9 +88,6 @@ function setSyncingState(state, elements) {
 }
 
 function updateStatusUI(status, elements) {
-  setText(elements.lastSuccess, formatTimestamp(status.last_success_at));
-  setText(elements.lastAttempt, formatTimestamp(status.last_attempt_at));
-
   if (elements.miniIndicator) {
     const indicatorState =
       status.state === "syncing"
@@ -327,8 +324,6 @@ function handleStatusUpdate(status, elements, onSyncComplete, onSyncError) {
 export function initTripSync({ onSyncComplete, onSyncError, cleanup } = {}) {
   const noopTeardown = () => {};
   const elements = {
-    lastSuccess: getElement("trip-sync-last-success"),
-    lastAttempt: getElement("trip-sync-last-attempt"),
     emptyButtons: [getElement("empty-sync-btn")].filter(Boolean),
     syncButtons: [getElement("sync-trips-btn"), getElement("sync-now-btn")].filter(
       Boolean

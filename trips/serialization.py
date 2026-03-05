@@ -123,8 +123,3 @@ class TripSerializer:
         if coverage_distance_miles is not None:
             props["coverageDistance"] = coverage_distance_miles
         return props
-
-
-def calculate_duration_seconds(trip_doc: dict[str, Any]) -> float | None:
-    """Backward-compatible function alias for duration calculation."""
-    return TripSerializer.calculate_duration_seconds(trip_doc)

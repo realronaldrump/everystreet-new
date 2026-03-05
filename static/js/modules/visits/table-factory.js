@@ -191,9 +191,7 @@ function createTripsTable({ onTripSelected }) {
     return null;
   }
 
-  // Visits API returns arrival time as `endTime`; retain `startTime` fallback
-  // for mixed legacy payloads.
-  const resolveTripTime = (trip) => trip?.endTime || trip?.startTime || null;
+  const resolveTripTime = (trip) => trip?.endTime || null;
 
   const headers = [
     "Trip ID",

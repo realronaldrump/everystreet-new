@@ -129,10 +129,6 @@ async def _dispatch_event(payload: dict[str, Any], auth_header: str | None) -> N
         )
 
 
-@router.post("/api/webhooks/bouncie")
-@router.post("/api/webhooks/bouncie/")
-@router.post("/webhook/bouncie")
-@router.post("/webhook/bouncie/")
 @router.post("/bouncie-webhook")
 @router.post("/bouncie-webhook/")
 async def bouncie_webhook(request: Request) -> Response:

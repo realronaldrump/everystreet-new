@@ -165,28 +165,6 @@ async def apple_touch_icon_precomposed() -> RedirectResponse:
     return RedirectResponse(url="/static/apple-touch-icon.png")
 
 
-# CORS Middleware Configuration
-# Get allowed origins from environment variable or use defaults
-cors_origins_str = os.getenv("CORS_ALLOWED_ORIGINS", "")
-if cors_origins_str:
-    # Parse comma-separated list from environment
-    origins = [
-        origin.strip() for origin in cors_origins_str.split(",") if origin.strip()
-    ]
-    logger.info("CORS configured with specific origins: %s", origins)
-else:
-    # Development fallback - allow localhost and common dev ports
-    origins = [
-        "http://localhost:3000",
-        "http://localhost:8080",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:8080",
-    ]
-    logger.warning(
-        "CORS_ALLOWED_ORIGINS not set. Using development defaults: %s",
-        origins,
-    )
-
 app.add_middleware(
     CORSMiddleware,
     # Using regex ".*" tells FastAPI to allow requests from literally any website or local file

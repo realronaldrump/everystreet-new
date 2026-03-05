@@ -10,7 +10,7 @@ import apiClient from "../../core/api-client.js";
 const DEFAULT_IMEI = "353816090000794";
 const DEFAULT_VIN = "1FTFW1E88MFA00001";
 const WEBHOOK_KEY = "62982120092935393436662883483703";
-const WEBHOOK_PATH = "/webhook/bouncie";
+const WEBHOOK_PATH = "/bouncie-webhook";
 
 /**
  * Generate a Bouncie-style transaction ID.

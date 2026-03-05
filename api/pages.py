@@ -142,12 +142,6 @@ async def coverage_management_page(request: Request):
     return await _render_page("coverage_management.html", request)
 
 
-@router.get("/database-management", response_class=RedirectResponse)
-async def database_management_page():
-    """Redirect database management to control center storage tab."""
-    return RedirectResponse(url="/control-center#storage", status_code=301)
-
-
 @router.get(
     "/coverage-navigator",
     response_class=HTMLResponse,
@@ -164,28 +158,6 @@ async def coverage_navigator_page(request: Request):
 async def turn_by_turn_page(request: Request):
     """Render the turn-by-turn navigation experience."""
     return await _render_page("turn_by_turn.html", request)
-
-
-@router.get(
-    "/driving-navigation",
-    response_class=HTMLResponse,
-)
-async def driving_navigation_page():
-    """Redirect driving navigation to the consolidated coverage page."""
-    from fastapi.responses import RedirectResponse
-
-    return RedirectResponse(url="/coverage-navigator", status_code=301)
-
-
-@router.get(
-    "/optimal-routes",
-    response_class=HTMLResponse,
-)
-async def optimal_routes_page():
-    """Redirect optimal routes to the consolidated coverage page."""
-    from fastapi.responses import RedirectResponse
-
-    return RedirectResponse(url="/coverage-navigator", status_code=301)
 
 
 @router.get(
