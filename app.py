@@ -188,9 +188,10 @@ else:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    # Using regex ".*" tells FastAPI to allow requests from literally any website or local file
+    allow_origin_regex=".*",
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 app.add_middleware(
