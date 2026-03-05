@@ -2,7 +2,6 @@
 
 import state from "./core/store.js";
 import mapManager from "./map-manager.js";
-import metricsManager from "./metrics-manager.js";
 import confirmationDialog from "./ui/confirmation-dialog.js";
 import notificationManager from "./ui/notifications.js";
 import { utils } from "./utils.js";
@@ -74,6 +73,18 @@ const tripInteractions = {
       const formatted = utils.formatNumber(Number(value), digits);
       return formatted === "--" ? "N/A" : formatted;
     };
+    const normalizeDurationSeconds = (value) => {
+      if (value == null || value === "") {
+        return null;
+      }
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric) || numeric < 0) {
+        return null;
+      }
+      return numeric;
+    };
+    const formatDurationValue = (value) =>
+      value == null ? "N/A" : utils.formatDuration(value);
     const formatTime = (value) =>
       formatValue(
         value,
@@ -88,8 +99,8 @@ const tripInteractions = {
           }) || "N/A"
       );
 
-    let duration = props.duration || props.drivingTime;
-    if (!duration && props.startTime && props.endTime) {
+    let duration = normalizeDurationSeconds(props.duration ?? props.drivingTime);
+    if (duration == null && props.startTime && props.endTime) {
       const start = toDate(props.startTime);
       const end = toDate(props.endTime);
       if (
@@ -113,7 +124,7 @@ const tripInteractions = {
             <span class="trip-popup-label">Distance</span>
             <span class="trip-popup-value">${formatMetric(props.distance)} mi</span>
             <span class="trip-popup-label">Duration</span>
-            <span class="trip-popup-value">${metricsManager.formatDuration(duration)}</span>
+            <span class="trip-popup-value">${formatDurationValue(duration)}</span>
             <span class="trip-popup-label">Avg Speed</span>
             <span class="trip-popup-value">${formatMetric(props.avgSpeed)} mph</span>
             <span class="trip-popup-label">Max Speed</span>
