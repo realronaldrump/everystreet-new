@@ -44,6 +44,7 @@ TRIP_EVENT_HANDLERS: dict[str, TripHandler] = {
 
 # Pre-built response bytes to avoid any per-request object creation.
 _OK_BODY = b'{"status":"ok"}'
+_BACKGROUND_TASKS: set[asyncio.Task[None]] = set()
 
 
 def _ok_response() -> Response:
@@ -54,13 +55,30 @@ def _ok_response() -> Response:
     )
 
 
+def _extract_auth_token(auth_header: str | None) -> str | None:
+    """Normalize inbound Authorization header values to a token string."""
+    if not isinstance(auth_header, str):
+        return None
+
+    token = auth_header.strip()
+    if not token:
+        return None
+
+    if token.lower().startswith("bearer "):
+        bearer_value = token[7:].strip()
+        return bearer_value or None
+
+    return token
+
+
 async def _dispatch_event(payload: dict[str, Any], auth_header: str | None) -> None:
     """Process a webhook event.  Fully guarded — never raises."""
     try:
+        auth_token = _extract_auth_token(auth_header)
         credentials = await get_bouncie_credentials()
         webhook_key = (credentials.get("webhook_key") or "").strip()
         if webhook_key:
-            if auth_header != webhook_key:
+            if auth_token != webhook_key:
                 logger.warning(
                     "Bouncie webhook auth failed (eventType=%s)",
                     payload.get("eventType"),
@@ -73,13 +91,13 @@ async def _dispatch_event(payload: dict[str, Any], auth_header: str | None) -> N
             # poisoning the stored key before the real setup completes.
             client_id = (credentials.get("client_id") or "").strip()
             auth_code = (credentials.get("authorization_code") or "").strip()
-            if auth_header and client_id and auth_code:
+            if auth_token and client_id and auth_code:
                 saved = await update_bouncie_credentials(
-                    {"webhook_key": auth_header},
+                    {"webhook_key": auth_token},
                 )
                 if saved:
                     logger.info("Saved Bouncie webhook key from incoming request")
-            elif not auth_header:
+            elif not auth_token:
                 logger.debug(
                     "Bouncie webhook received without auth header; "
                     "no key configured",
@@ -150,7 +168,9 @@ async def bouncie_webhook(request: Request) -> Response:
             )
             return _ok_response()
 
-        asyncio.create_task(_dispatch_event(payload, auth_header))
+        task = asyncio.create_task(_dispatch_event(payload, auth_header))
+        _BACKGROUND_TASKS.add(task)
+        task.add_done_callback(_BACKGROUND_TASKS.discard)
         return _ok_response()
     except Exception:
         logger.exception("Unhandled error in Bouncie webhook")

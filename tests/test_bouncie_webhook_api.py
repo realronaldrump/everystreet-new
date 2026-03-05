@@ -26,6 +26,27 @@ async def test_dispatch_event_rejects_invalid_auth(
 
 
 @pytest.mark.asyncio
+async def test_dispatch_event_accepts_bearer_auth_format(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    get_creds = AsyncMock(return_value={"webhook_key": "expected-token"})
+    record = AsyncMock()
+    handler = AsyncMock()
+
+    monkeypatch.setattr(webhook_api, "get_bouncie_credentials", get_creds)
+    monkeypatch.setattr(webhook_api.TrackingService, "record_webhook_event", record)
+    monkeypatch.setattr(webhook_api, "TRIP_EVENT_HANDLERS", {"tripStart": handler})
+
+    await webhook_api._dispatch_event(
+        {"eventType": "tripStart"},
+        auth_header="Bearer expected-token",
+    )
+
+    record.assert_awaited_once_with("tripStart")
+    handler.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_dispatch_event_saves_key_and_calls_handler(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -116,6 +137,36 @@ async def test_dispatch_event_catches_handler_exception(
     handler.assert_awaited_once()
 
 
+@pytest.mark.asyncio
+async def test_dispatch_event_saves_normalized_key_when_header_has_whitespace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    get_creds = AsyncMock(
+        return_value={
+            "webhook_key": "",
+            "client_id": "client-1",
+            "authorization_code": "auth-code-1",
+        },
+    )
+    update = AsyncMock(return_value=True)
+    record = AsyncMock()
+    handler = AsyncMock()
+
+    monkeypatch.setattr(webhook_api, "get_bouncie_credentials", get_creds)
+    monkeypatch.setattr(webhook_api, "update_bouncie_credentials", update)
+    monkeypatch.setattr(webhook_api.TrackingService, "record_webhook_event", record)
+    monkeypatch.setattr(webhook_api, "TRIP_EVENT_HANDLERS", {"tripStart": handler})
+
+    await webhook_api._dispatch_event(
+        {"eventType": "tripStart"},
+        auth_header="  abc123  ",
+    )
+
+    update.assert_awaited_once_with({"webhook_key": "abc123"})
+    record.assert_awaited_once_with("tripStart")
+    handler.assert_awaited_once()
+
+
 def test_ok_response_returns_200() -> None:
     """_ok_response should return a 200 JSON response."""
     response = webhook_api._ok_response()
@@ -127,7 +178,7 @@ def test_ok_response_returns_200() -> None:
 # HTTP integration tests — verify the endpoint always returns 200
 # ---------------------------------------------------------------------------
 
-@pytest.fixture()
+@pytest.fixture
 def webhook_client() -> TestClient:
     """FastAPI test client with only the webhook router mounted."""
     app = FastAPI()
