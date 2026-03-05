@@ -40,4 +40,6 @@ version.json
 app.py
 .codex/config.toml
 .claude/CLAUDE.md
+.claude/worktrees/
+.claude/settings.local.json
 # templates/bouncie_simulator.html
