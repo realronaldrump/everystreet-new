@@ -276,7 +276,7 @@ class LiveTripTracker {
           "icon-size": 0.4,
           "icon-allow-overlap": true,
           "icon-ignore-placement": true,
-          "icon-rotate": ["get", "heading"],
+          "icon-rotate": ["coalesce", ["get", "heading"], 0],
           "icon-rotation-alignment": "map",
         },
         paint: {

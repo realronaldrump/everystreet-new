@@ -17,10 +17,11 @@ export function createMarkerFeature(coords, heading = null, speed = 0) {
     return null;
   }
   const last = coords[coords.length - 1];
-  const props = { speed: typeof speed === "number" ? Math.max(0, speed) : 0 };
-  if (typeof heading === "number") {
-    props.heading = heading;
-  }
+  const normalizedHeading = Number.isFinite(heading) ? Number(heading) : 0;
+  const props = {
+    speed: typeof speed === "number" ? Math.max(0, speed) : 0,
+    heading: normalizedHeading,
+  };
   return {
     type: "Feature",
     properties: props,

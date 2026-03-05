@@ -248,12 +248,21 @@ class TurnByTurnNavigator {
       return;
     }
 
-    this.ui.setAreaSelectValue(areaId);
-    this.selectedAreaId = areaId;
-    this.selectedAreaName = this.ui.getSelectedAreaName();
+    const selectedArea = this.findCoverageAreaById(areaId);
+    if (!selectedArea) {
+      this.invalidateSelectedArea(areaId, {
+        message: "Selected coverage area is no longer available.",
+      });
+      return;
+    }
+
+    const selectedAreaId = String(selectedArea.id || selectedArea._id || areaId);
+    this.ui.setAreaSelectValue(selectedAreaId);
+    this.selectedAreaId = selectedAreaId;
+    this.selectedAreaName = this.getCoverageAreaName(selectedArea);
 
     // Check for in-progress generation first
-    const activeTask = await TurnByTurnAPI.checkActiveTask(areaId);
+    const activeTask = await TurnByTurnAPI.checkActiveTask(selectedAreaId);
     if (activeTask) {
       this.reconnectToGeneration(activeTask.task_id);
       return;
@@ -309,10 +318,17 @@ class TurnByTurnNavigator {
     this.ui.resetGuidanceUI();
 
     try {
-      // Fetch route and coverage baseline in parallel
-      const [gpxText, coverageData, routeData] = await Promise.all([
+      // Validate selected area first so stale ids do not trigger repeated route 404s.
+      const coverageData = await TurnByTurnAPI.fetchCoverageArea(this.selectedAreaId);
+
+      // If no route exists yet, skip route fetches and go straight to generation.
+      if (coverageData?.has_optimal_route === false) {
+        await this.autoGenerateRoute();
+        return;
+      }
+
+      const [gpxText, routeData] = await Promise.all([
         TurnByTurnAPI.fetchOptimalRouteGpx(this.selectedAreaId),
-        TurnByTurnAPI.fetchCoverageArea(this.selectedAreaId).catch(() => null),
         TurnByTurnAPI.fetchOptimalRoute(this.selectedAreaId).catch(() => null),
       ]);
 
@@ -388,9 +404,15 @@ class TurnByTurnNavigator {
       this.ui.resetGuidanceUI();
       this.routeLoaded = false;
 
-      // Auto-generate if no route exists
-      const isNoRoute =
-        error.message?.includes("No optimal route") || error.message?.includes("404");
+      if (this.isNotFoundError(error)) {
+        this.invalidateSelectedArea(this.selectedAreaId, {
+          message: "Selected coverage area is no longer available.",
+        });
+        return;
+      }
+
+      // Auto-generate if no route exists.
+      const isNoRoute = error.message?.includes("No optimal route");
       if (isNoRoute && this.selectedAreaId) {
         this.ui.setLoadRouteLoading(false);
         await this.autoGenerateRoute();
@@ -598,6 +620,67 @@ class TurnByTurnNavigator {
     const name = nameNode?.textContent?.trim() || this.routeName;
 
     return { coords, name };
+  }
+
+  isNotFoundError(error) {
+    if (!error) {
+      return false;
+    }
+    if (Number(error.status) === 404) {
+      return true;
+    }
+    const message = String(error.message || "").toLowerCase();
+    return message.includes("404") || message.includes("not found");
+  }
+
+  findCoverageAreaById(areaId) {
+    if (!areaId || !Array.isArray(this.coverageAreas)) {
+      return null;
+    }
+    const target = String(areaId);
+    return (
+      this.coverageAreas.find((area) => String(area?.id || area?._id) === target) ||
+      null
+    );
+  }
+
+  getCoverageAreaName(area) {
+    return (
+      area?.display_name ||
+      area?.location?.display_name ||
+      area?.name ||
+      "Coverage Area"
+    );
+  }
+
+  clearPersistedAreaSelection(areaId) {
+    const target = String(areaId || "");
+
+    if (target && window.localStorage.getItem("turnByTurnAreaId") === target) {
+      window.localStorage.removeItem("turnByTurnAreaId");
+    }
+
+    const url = new URL(window.location.href);
+    if (target && url.searchParams.get("areaId") === target) {
+      url.searchParams.delete("areaId");
+      const next = `${url.pathname}${url.search}${url.hash}`;
+      window.history.replaceState({}, "", next);
+    }
+  }
+
+  invalidateSelectedArea(areaId, { message } = {}) {
+    this.clearPersistedAreaSelection(areaId);
+    this.selectedAreaId = null;
+    this.selectedAreaName = null;
+    this.ui.setAreaSelectValue("");
+    this.resetRouteState();
+    this.ui.setLoadRouteEnabled(false);
+    this.ui.setStartEnabled(false);
+    this.ui.setSetupStatus(
+      message || "Selected coverage area is no longer available.",
+      true
+    );
+    this.ui.setNavStatus("Select an area to continue.", true);
   }
 
   /**
