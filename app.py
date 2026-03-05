@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from admin import router as admin_api_router
 from analytics import router as analytics_api_router
+from api.map_bundle import router as map_bundle_router
 from api.pages import router as pages_router
 from api.routing import router as routing_router
 from api.status import router as status_router
@@ -214,6 +215,7 @@ app.include_router(coverage_api_router)
 app.include_router(driving_api_router)
 app.include_router(export_api_router)
 app.include_router(routing_router)
+app.include_router(map_bundle_router)
 app.include_router(gas_api_router)
 app.include_router(tracking_api_router)
 app.include_router(logs_api_router)
