@@ -46,6 +46,36 @@ async def test_dispatch_event_accepts_bearer_auth_format(
     handler.assert_awaited_once()
 
 
+def test_webhook_accepts_x_bouncie_authorization_header(
+    webhook_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        webhook_api,
+        "get_bouncie_credentials",
+        AsyncMock(return_value={"webhook_key": "expected-token"}),
+    )
+    monkeypatch.setattr(
+        webhook_api.TrackingService,
+        "record_webhook_event",
+        AsyncMock(),
+    )
+    monkeypatch.setattr(
+        webhook_api,
+        "TRIP_EVENT_HANDLERS",
+        {"tripStart": AsyncMock()},
+    )
+
+    resp = webhook_client.post(
+        "/bouncie-webhook",
+        json={"eventType": "tripStart", "transactionId": "t-1"},
+        headers={"X-Bouncie-Authorization": "expected-token"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
+
+
 @pytest.mark.asyncio
 async def test_dispatch_event_saves_key_and_calls_handler(
     monkeypatch: pytest.MonkeyPatch,
