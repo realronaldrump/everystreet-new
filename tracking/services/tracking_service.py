@@ -285,9 +285,9 @@ def _calculate_trip_metrics_incremental(
 async def process_trip_start(data: dict[str, Any]) -> None:
     """Process tripStart event - initialize or refresh ephemeral live trip state."""
     transaction_id = data.get("transactionId")
-    start_data = data.get("start", {})
+    start_data = data.get("start")
 
-    if not transaction_id or not start_data:
+    if not transaction_id or not isinstance(start_data, dict) or not start_data:
         logger.error("Invalid tripStart payload: %s", data)
         return
 
@@ -441,9 +441,9 @@ async def process_trip_data(data: dict[str, Any]) -> None:
 async def process_trip_metrics(data: dict[str, Any]) -> None:
     """Process tripMetrics event - update summary metrics in ephemeral state."""
     transaction_id = data.get("transactionId")
-    metrics_data = data.get("metrics", {})
+    metrics_data = data.get("metrics")
 
-    if not transaction_id or not metrics_data:
+    if not transaction_id or not isinstance(metrics_data, dict) or not metrics_data:
         logger.warning("Invalid tripMetrics payload: %s", data)
         return
 
@@ -482,9 +482,9 @@ async def process_trip_metrics(data: dict[str, Any]) -> None:
 async def process_trip_end(data: dict[str, Any]) -> None:
     """Process tripEnd event - publish completion and clear ephemeral live state."""
     transaction_id = data.get("transactionId")
-    end_data = data.get("end", {})
+    end_data = data.get("end")
 
-    if not transaction_id or not end_data:
+    if not transaction_id or not isinstance(end_data, dict) or not end_data:
         logger.error("Invalid tripEnd payload: %s", data)
         return
 
@@ -654,6 +654,15 @@ async def get_webhook_status() -> dict[str, Any]:
     """Return the latest webhook status snapshot."""
     last_seen_at = None
     event_type = None
+    webhook_checked_at = None
+    webhook_status_code = None
+    webhook_public_ok = None
+    webhook_error = None
+    webhook_active = None
+    webhook_url = None
+    webhook_id = None
+    webhook_name = None
+    webhook_updated_at = None
 
     try:
         creds = await BouncieCredentials.find_one(
@@ -662,12 +671,34 @@ async def get_webhook_status() -> dict[str, Any]:
         if creds:
             last_seen_at = creds.last_webhook_at
             event_type = creds.last_webhook_event_type
+            webhook_checked_at = creds.webhook_last_checked_at
+            webhook_status_code = creds.webhook_last_status_code
+            webhook_public_ok = creds.webhook_last_public_ok
+            webhook_error = creds.webhook_last_error
+            webhook_active = creds.webhook_active
+            webhook_url = creds.webhook_url
+            webhook_id = creds.webhook_id
+            webhook_name = creds.webhook_name
+            webhook_updated_at = creds.webhook_updated_at
     except Exception as exc:
         logger.debug("Failed to load Bouncie webhook status: %s", exc)
 
     return {
         "last_received": last_seen_at.isoformat() if last_seen_at else None,
         "event_type": event_type,
+        "webhook_last_checked": (
+            webhook_checked_at.isoformat() if webhook_checked_at else None
+        ),
+        "webhook_status_code": webhook_status_code,
+        "webhook_public_ok": webhook_public_ok,
+        "webhook_error": webhook_error,
+        "webhook_active": webhook_active,
+        "webhook_url": webhook_url,
+        "webhook_id": webhook_id,
+        "webhook_name": webhook_name,
+        "webhook_updated_at": (
+            webhook_updated_at.isoformat() if webhook_updated_at else None
+        ),
     }
 
 

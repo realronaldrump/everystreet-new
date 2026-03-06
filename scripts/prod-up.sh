@@ -18,4 +18,9 @@ fi
 
 # Pull latest published images and run the standard stack without rebuilding.
 docker compose -f docker-compose.yml pull web worker
-docker compose -f docker-compose.yml up -d --no-build
+
+if [[ -n "${CLOUDFLARED_TUNNEL_TOKEN:-}" ]]; then
+  docker compose -f docker-compose.yml --profile tunnel up -d --no-build
+else
+  docker compose -f docker-compose.yml up -d --no-build
+fi

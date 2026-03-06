@@ -36,7 +36,7 @@ services:
     networks:
       - default
     healthcheck:
-      test: ['CMD', 'curl', '-sf', 'http://localhost:8080/api/status/health']
+      test: ['CMD', 'curl', '-sf', 'http://localhost:8080/api/status/live']
       interval: 30s
       timeout: 10s
       retries: 5
@@ -63,6 +63,17 @@ services:
       - default
     labels:
       - com.centurylinklabs.watchtower.enable=true
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TUNNEL_TOKEN}
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - default
+    profiles: ['tunnel']
 
   redis:
     image: redis:7-alpine

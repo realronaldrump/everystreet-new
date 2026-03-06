@@ -1012,6 +1012,15 @@ class BouncieCredentials(Document):
     webhook_key: str | None = None
     last_webhook_at: datetime | None = None
     last_webhook_event_type: str | None = None
+    webhook_id: str | None = None
+    webhook_name: str | None = None
+    webhook_url: str | None = None
+    webhook_active: bool | None = None
+    webhook_updated_at: datetime | None = None
+    webhook_last_checked_at: datetime | None = None
+    webhook_last_status_code: int | None = None
+    webhook_last_public_ok: bool | None = None
+    webhook_last_error: str | None = None
     authorized_devices: list[str] = Field(default_factory=list)
     fetch_concurrency: int = 12
     access_token: str | None = None

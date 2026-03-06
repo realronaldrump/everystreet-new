@@ -91,35 +91,45 @@ def normalize_existing_coordinates(
 
 def normalize_webhook_trip_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
     """Normalize webhook tripMetrics payload into canonical fields."""
+    if not isinstance(metrics, dict):
+        return {}
+
     normalized: dict[str, Any] = {}
 
     avg_speed = metrics.get("averageDriveSpeed")
     if avg_speed is not None:
-        normalized["avgSpeed"] = float(avg_speed)
+        with contextlib.suppress(TypeError, ValueError):
+            normalized["avgSpeed"] = float(avg_speed)
 
     idling_time = metrics.get("totalIdlingTime")
     if idling_time is not None:
-        normalized["totalIdleDuration"] = float(idling_time)
+        with contextlib.suppress(TypeError, ValueError):
+            normalized["totalIdleDuration"] = float(idling_time)
 
     hard_braking = metrics.get("hardBrakingCounts")
     if hard_braking is not None:
-        normalized["hardBrakingCounts"] = int(hard_braking)
+        with contextlib.suppress(TypeError, ValueError):
+            normalized["hardBrakingCounts"] = int(hard_braking)
 
     hard_acceleration = metrics.get("hardAccelerationCounts")
     if hard_acceleration is not None:
-        normalized["hardAccelerationCounts"] = int(hard_acceleration)
+        with contextlib.suppress(TypeError, ValueError):
+            normalized["hardAccelerationCounts"] = int(hard_acceleration)
 
     trip_distance = metrics.get("tripDistance")
     if trip_distance is not None:
-        normalized["distance"] = float(trip_distance)
+        with contextlib.suppress(TypeError, ValueError):
+            normalized["distance"] = float(trip_distance)
 
     trip_time = metrics.get("tripTime")
     if trip_time is not None:
-        normalized["duration"] = float(trip_time)
+        with contextlib.suppress(TypeError, ValueError):
+            normalized["duration"] = float(trip_time)
 
     max_speed = metrics.get("maxSpeed")
     if max_speed is not None:
-        normalized["maxSpeed"] = float(max_speed)
+        with contextlib.suppress(TypeError, ValueError):
+            normalized["maxSpeed"] = float(max_speed)
 
     metrics_timestamp = parse_timestamp(metrics.get("timestamp"))
     if metrics_timestamp:

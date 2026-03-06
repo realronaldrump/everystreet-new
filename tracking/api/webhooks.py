@@ -173,6 +173,13 @@ async def bouncie_webhook(request: Request) -> Response:
         return _ok_response()
 
 
+@router.get("/bouncie-webhook")
+@router.get("/bouncie-webhook/")
+async def bouncie_webhook_probe() -> Response:
+    """Lightweight probe endpoint for uptime and ingress checks."""
+    return _ok_response()
+
+
 @router.get("/api/webhooks/bouncie/status", response_model=dict[str, Any])
 @api_route(logger)
 async def bouncie_webhook_status() -> dict[str, Any]:

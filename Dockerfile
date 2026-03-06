@@ -52,6 +52,6 @@ RUN echo "{\"commit_count\": \"$(git rev-list --count HEAD 2>/dev/null || echo U
 
 # Health check for container orchestration
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD curl -sf http://localhost:${PORT:-8080}/api/status/health || exit 1
+    CMD curl -sf http://localhost:${PORT:-8080}/api/status/live || exit 1
 
 CMD ["sh", "-c", "gunicorn app:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8080} --workers ${WEB_CONCURRENCY:-1}"]

@@ -100,6 +100,16 @@ TASK_DEFINITIONS: dict[str, dict[str, object]] = {
             "Detects stalled map setup runs and triggers automatic retries."
         ),
     },
+    "monitor_bouncie_webhook": {
+        "display_name": "Monitor Bouncie Webhook",
+        "default_interval_minutes": 5,
+        "enabled_by_default": True,
+        "dependencies": [],
+        "description": (
+            "Checks the public Bouncie webhook endpoint, syncs auth keys, and "
+            "re-enables the webhook if Bouncie has deactivated it."
+        ),
+    },
     "setup_map_data_task": {
         "display_name": "Setup Map Services",
         "default_interval_minutes": 0,

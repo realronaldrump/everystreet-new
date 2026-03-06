@@ -293,7 +293,10 @@ async def get_service_health() -> dict[str, Any]:
         f"{worker_detail} | {active_label}" if worker_detail else active_label
     )
 
+    from tracking.services.tracking_service import TrackingService
+
     credentials = await get_bouncie_credentials()
+    webhook_status = await TrackingService.get_webhook_status()
     bouncie_devices = _normalize_devices(credentials.get("authorized_devices"))
     bouncie_ready = all(
         credentials.get(field)
@@ -309,7 +312,39 @@ async def get_service_health() -> dict[str, Any]:
         if bouncie_ready
         else "Credentials not configured"
     )
-    bouncie_detail = None
+    bouncie_detail_parts: list[str] = []
+    last_received = webhook_status.get("last_received")
+    if last_received:
+        bouncie_detail_parts.append(
+            f"Last webhook: {last_received} ({webhook_status.get('event_type') or 'unknown'})"
+        )
+    elif bouncie_ready:
+        bouncie_detail_parts.append("No webhook deliveries recorded yet.")
+
+    webhook_url = webhook_status.get("webhook_url")
+    if webhook_url:
+        bouncie_detail_parts.append(f"Webhook URL: {webhook_url}")
+
+    public_ok = webhook_status.get("webhook_public_ok")
+    public_status_code = webhook_status.get("webhook_status_code")
+    public_error = webhook_status.get("webhook_error")
+    webhook_active = webhook_status.get("webhook_active")
+
+    if bouncie_ready and public_ok is False:
+        bouncie_status = "error"
+        bouncie_message = "Public webhook endpoint is unreachable"
+        if public_status_code is not None:
+            bouncie_detail_parts.append(f"Public probe status: HTTP {public_status_code}")
+        if public_error:
+            bouncie_detail_parts.append(f"Probe error: {public_error}")
+    elif bouncie_ready and webhook_active is False:
+        bouncie_status = "warning"
+        bouncie_message = "Bouncie webhook is inactive"
+        bouncie_detail_parts.append(
+            "The monitor will re-enable it automatically once the public endpoint responds."
+        )
+
+    bouncie_detail = " | ".join(part for part in bouncie_detail_parts if part) or None
 
     provider_status = "healthy"
     provider_message = (

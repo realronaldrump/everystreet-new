@@ -20,6 +20,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/status", tags=["status"])
 
 
+@router.get("/live")
+async def liveness_probe() -> dict[str, bool]:
+    """Cheap liveness probe for Docker and ingress health checks."""
+    return {"ok": True}
+
+
 @router.get("/logs/{service_name}")
 async def get_service_logs(service_name: str) -> dict[str, Any]:
     """Get logs for a specific service."""

@@ -236,6 +236,16 @@ def test_webhook_returns_200_for_valid_json(
     assert resp.json() == {"status": "ok"}
 
 
+@pytest.mark.parametrize("path", _WEBHOOK_PATHS)
+def test_webhook_probe_returns_200(
+    webhook_client: TestClient,
+    path: str,
+) -> None:
+    resp = webhook_client.get(path)
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
+
+
 def test_webhook_returns_200_for_empty_body(
     webhook_client: TestClient,
 ) -> None:

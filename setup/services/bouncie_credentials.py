@@ -50,6 +50,15 @@ async def get_bouncie_credentials() -> dict[str, Any]:
         "last_auth_error_detail": None,
         "last_auth_error_at": None,
         "webhook_key": "",
+        "webhook_id": None,
+        "webhook_name": None,
+        "webhook_url": None,
+        "webhook_active": None,
+        "webhook_updated_at": None,
+        "webhook_last_checked_at": None,
+        "webhook_last_status_code": None,
+        "webhook_last_public_ok": None,
+        "webhook_last_error": None,
         "authorized_devices": [],
         "fetch_concurrency": DEFAULT_FETCH_CONCURRENCY,
         "access_token": None,
@@ -80,6 +89,15 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             "last_auth_error_detail": credentials.last_auth_error_detail,
             "last_auth_error_at": credentials.last_auth_error_at,
             "webhook_key": credentials.webhook_key or "",
+            "webhook_id": credentials.webhook_id,
+            "webhook_name": credentials.webhook_name,
+            "webhook_url": credentials.webhook_url,
+            "webhook_active": credentials.webhook_active,
+            "webhook_updated_at": credentials.webhook_updated_at,
+            "webhook_last_checked_at": credentials.webhook_last_checked_at,
+            "webhook_last_status_code": credentials.webhook_last_status_code,
+            "webhook_last_public_ok": credentials.webhook_last_public_ok,
+            "webhook_last_error": credentials.webhook_last_error,
             "authorized_devices": credentials.authorized_devices or [],
             "fetch_concurrency": fetch_concurrency,
             "access_token": credentials.access_token,
@@ -139,6 +157,24 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                         continue
                     webhook_key = str(value).strip()
                     existing.webhook_key = webhook_key or None
+                elif key == "webhook_id":
+                    existing.webhook_id = value
+                elif key == "webhook_name":
+                    existing.webhook_name = value
+                elif key == "webhook_url":
+                    existing.webhook_url = value
+                elif key == "webhook_active":
+                    existing.webhook_active = value
+                elif key == "webhook_updated_at":
+                    existing.webhook_updated_at = value
+                elif key == "webhook_last_checked_at":
+                    existing.webhook_last_checked_at = value
+                elif key == "webhook_last_status_code":
+                    existing.webhook_last_status_code = value
+                elif key == "webhook_last_public_ok":
+                    existing.webhook_last_public_ok = value
+                elif key == "webhook_last_error":
+                    existing.webhook_last_error = value
                 elif key == "authorized_devices":
                     if value is None:
                         continue
@@ -187,6 +223,30 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
             if "webhook_key" in credentials and credentials["webhook_key"] is not None:
                 webhook_key = str(credentials["webhook_key"]).strip()
                 new_creds.webhook_key = webhook_key or None
+            if "webhook_id" in credentials:
+                new_creds.webhook_id = credentials["webhook_id"]
+            if "webhook_name" in credentials:
+                new_creds.webhook_name = credentials["webhook_name"]
+            if "webhook_url" in credentials:
+                new_creds.webhook_url = credentials["webhook_url"]
+            if "webhook_active" in credentials:
+                new_creds.webhook_active = credentials["webhook_active"]
+            if "webhook_updated_at" in credentials:
+                new_creds.webhook_updated_at = credentials["webhook_updated_at"]
+            if "webhook_last_checked_at" in credentials:
+                new_creds.webhook_last_checked_at = credentials[
+                    "webhook_last_checked_at"
+                ]
+            if "webhook_last_status_code" in credentials:
+                new_creds.webhook_last_status_code = credentials[
+                    "webhook_last_status_code"
+                ]
+            if "webhook_last_public_ok" in credentials:
+                new_creds.webhook_last_public_ok = credentials[
+                    "webhook_last_public_ok"
+                ]
+            if "webhook_last_error" in credentials:
+                new_creds.webhook_last_error = credentials["webhook_last_error"]
             if "authorized_devices" in credentials:
                 devices = credentials["authorized_devices"]
                 if devices is None:
