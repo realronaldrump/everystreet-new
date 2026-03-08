@@ -11,8 +11,10 @@ from arq import cron, func
 from core.startup import initialize_shared_runtime, shutdown_shared_runtime
 from tasks.arq import get_redis_settings
 from tasks.coverage import sync_geo_coverage, update_coverage_for_new_trips
+from tasks.bouncie_webhook import monitor_bouncie_webhook
 from tasks.cron import (
     cron_auto_provision_map_data,
+    cron_monitor_bouncie_webhook,
     cron_monitor_map_data_jobs,
     cron_periodic_fetch_trips,
     cron_remap_unmatched_trips,
@@ -102,6 +104,7 @@ class WorkerSettings:
         func(setup_map_data_task, timeout=SETUP_JOB_TIMEOUT_SECONDS),
         monitor_map_services,
         auto_provision_check,
+        monitor_bouncie_webhook,
     ]
     cron_jobs: ClassVar[list[object]] = [
         cron(cron_periodic_fetch_trips, timeout=PERIODIC_FETCH_TIMEOUT_SECONDS),
@@ -113,6 +116,7 @@ class WorkerSettings:
         cron(worker_heartbeat),
         cron(cron_monitor_map_data_jobs),
         cron(cron_auto_provision_map_data),
+        cron(cron_monitor_bouncie_webhook),
     ]
     redis_settings = get_redis_settings()
     on_startup = on_startup

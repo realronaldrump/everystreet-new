@@ -121,6 +121,16 @@ TASK_DEFINITIONS: dict[str, dict[str, object]] = {
         "description": "Computes optimal completion route for a coverage area using RPP algorithm",
         "manual_only": True,
     },
+    "monitor_bouncie_webhook": {
+        "display_name": "Monitor Bouncie Webhook",
+        "default_interval_minutes": 5,
+        "enabled_by_default": True,
+        "dependencies": [],
+        "description": (
+            "Checks that the Bouncie webhook is active and re-enables it "
+            "if Bouncie has deactivated it due to transient failures."
+        ),
+    },
 }
 
 

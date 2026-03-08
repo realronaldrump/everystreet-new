@@ -1,45 +1,50 @@
 .env
-/venv
 .DS_Store
+
+# Python caches and test artifacts
 __pycache__/
-node_modules
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+/pytest-of-*/
+/venv/
+
+# Node/tooling installed locally for this workspace
+node_modules/
 .prettierrc
 package.json
 package-lock.json
-.cursor/
-celerybeat-schedule.db
-flower.db
-vibes.md
-.service_pids
-.vscode/settings.json
-node_modules/
 eslint.config.mjs
-.vscode
-.ruff_cache
-reports/
-.autofix/
-
-scripts/autofix.sh
-scripts/autofix1.sh
-scripts/bootstrap.sh
-scripts/autofix_safe.sh
-
 .stylelintrc.json
 
-cache/
-bouncie_docs/bouncie_api_docs.txt
-data/*
-.before_autofix.txt
-.after_autofix.txt
-# bouncie_docs/bouncie_api_docs.json
-.coverage
-.gitignore
-coverage.lcov
-everystreet-data/us-9states.osm.pbf
-version.json
-app.py
-.codex/config.toml
+# Editor and local agent state
+.autofix/
+.cursor/
+.vscode/
 .claude/CLAUDE.md
 .claude/worktrees/
 .claude/settings.local.json
+
+# Runtime state and generated local outputs
+celerybeat-schedule.db
+flower.db
+.service_pids
+.before_autofix.txt
+.after_autofix.txt
+cache/
+reports/
+coverage.lcov
+version.json
+vibes.md
+bouncie_docs/bouncie_api_docs.txt
+data/*
+everystreet-data/us-9states.osm.pbf
+
+# Local helper scripts
+scripts/autofix.sh
+scripts/autofix1.sh
+scripts/autofix_safe.sh
+scripts/bootstrap.sh
+
 # templates/bouncie_simulator.html

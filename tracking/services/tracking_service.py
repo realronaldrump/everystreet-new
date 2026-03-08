@@ -656,17 +656,7 @@ async def record_webhook_event(event_type: str | None) -> None:
 
 async def get_webhook_status() -> dict[str, Any]:
     """Return the latest webhook status snapshot."""
-    last_seen_at = None
-    event_type = None
-    webhook_checked_at = None
-    webhook_status_code = None
-    webhook_public_ok = None
-    webhook_error = None
-    webhook_active = None
-    webhook_url = None
-    webhook_id = None
-    webhook_name = None
-    webhook_updated_at = None
+    result: dict[str, Any] = {}
 
     try:
         creds = await BouncieCredentials.find_one(
@@ -674,36 +664,31 @@ async def get_webhook_status() -> dict[str, Any]:
         )
         if creds:
             last_seen_at = creds.last_webhook_at
-            event_type = creds.last_webhook_event_type
-            webhook_checked_at = creds.webhook_last_checked_at
-            webhook_status_code = creds.webhook_last_status_code
-            webhook_public_ok = creds.webhook_last_public_ok
-            webhook_error = creds.webhook_last_error
-            webhook_active = creds.webhook_active
-            webhook_url = creds.webhook_url
-            webhook_id = creds.webhook_id
-            webhook_name = creds.webhook_name
-            webhook_updated_at = creds.webhook_updated_at
+            result = {
+                "last_received": (
+                    last_seen_at.isoformat() if last_seen_at else None
+                ),
+                "event_type": creds.last_webhook_event_type,
+                "webhook_last_checked": (
+                    creds.webhook_last_checked_at.isoformat()
+                    if creds.webhook_last_checked_at
+                    else None
+                ),
+                "webhook_error": creds.webhook_last_error,
+                "webhook_active": creds.webhook_active,
+                "webhook_url": creds.webhook_url,
+                "webhook_id": creds.webhook_id,
+                "webhook_name": creds.webhook_name,
+                "webhook_updated_at": (
+                    creds.webhook_updated_at.isoformat()
+                    if creds.webhook_updated_at
+                    else None
+                ),
+            }
     except Exception as exc:
         logger.debug("Failed to load Bouncie webhook status: %s", exc)
 
-    return {
-        "last_received": last_seen_at.isoformat() if last_seen_at else None,
-        "event_type": event_type,
-        "webhook_last_checked": (
-            webhook_checked_at.isoformat() if webhook_checked_at else None
-        ),
-        "webhook_status_code": webhook_status_code,
-        "webhook_public_ok": webhook_public_ok,
-        "webhook_error": webhook_error,
-        "webhook_active": webhook_active,
-        "webhook_url": webhook_url,
-        "webhook_id": webhook_id,
-        "webhook_name": webhook_name,
-        "webhook_updated_at": (
-            webhook_updated_at.isoformat() if webhook_updated_at else None
-        ),
-    }
+    return result
 
 
 class TrackingService:

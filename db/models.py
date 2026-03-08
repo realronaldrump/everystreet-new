@@ -1018,8 +1018,6 @@ class BouncieCredentials(Document):
     webhook_active: bool | None = None
     webhook_updated_at: datetime | None = None
     webhook_last_checked_at: datetime | None = None
-    webhook_last_status_code: int | None = None
-    webhook_last_public_ok: bool | None = None
     webhook_last_error: str | None = None
     authorized_devices: list[str] = Field(default_factory=list)
     fetch_concurrency: int = 12
