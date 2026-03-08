@@ -24,10 +24,7 @@ from typing import Any
 from fastapi import APIRouter, Request, Response, status
 
 from core.api import api_route
-from setup.services.bouncie_credentials import (
-    get_bouncie_credentials,
-    update_bouncie_credentials,
-)
+from setup.services.bouncie_credentials import get_bouncie_credentials
 from tracking.services.tracking_service import TrackingService
 
 logger = logging.getLogger(__name__)
@@ -71,46 +68,68 @@ def _extract_auth_token(auth_header: str | None) -> str | None:
     return token
 
 
-async def _dispatch_event(payload: dict[str, Any], auth_header: str | None) -> None:
+def _schedule_event_dispatch(
+    payload: dict[str, Any],
+    auth_header: str | None = None,
+    *,
+    skip_auth: bool = False,
+) -> None:
+    task = asyncio.create_task(
+        _dispatch_event(payload, auth_header, skip_auth=skip_auth),
+    )
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
+
+
+async def _parse_request_payload(
+    request: Request,
+    *,
+    source_label: str,
+) -> dict[str, Any] | None:
+    raw_body = await request.body()
+    if not raw_body:
+        logger.warning("%s received empty body", source_label)
+        return None
+
+    try:
+        payload = json.loads(raw_body)
+    except json.JSONDecodeError as exc:
+        logger.warning("%s invalid JSON: %s", source_label, exc)
+        return None
+
+    if not isinstance(payload, dict):
+        logger.warning(
+            "%s expected JSON object, got %s",
+            source_label,
+            type(payload).__name__,
+        )
+        return None
+
+    return payload
+
+
+async def _dispatch_event(
+    payload: dict[str, Any],
+    auth_header: str | None,
+    *,
+    skip_auth: bool = False,
+) -> None:
     """Process a webhook event.  Fully guarded — never raises."""
     try:
-        auth_token = _extract_auth_token(auth_header)
-        credentials = await get_bouncie_credentials()
-        webhook_key = (credentials.get("webhook_key") or "").strip()
-        if webhook_key:
-            if auth_token != webhook_key:
+        if not skip_auth:
+            auth_token = _extract_auth_token(auth_header)
+            credentials = await get_bouncie_credentials()
+            webhook_key = (credentials.get("webhook_key") or "").strip()
+            if webhook_key and auth_token != webhook_key:
                 logger.warning(
                     "Bouncie webhook auth failed (eventType=%s)",
                     payload.get("eventType"),
                 )
                 return
-        else:
-            # No webhook key configured yet.  Only accept the incoming auth
-            # header when Bouncie credentials are already fully configured
-            # (client_id + authorization_code) to prevent an attacker from
-            # poisoning the stored key before the real setup completes.
-            client_id = (credentials.get("client_id") or "").strip()
-            auth_code = (credentials.get("authorization_code") or "").strip()
-            if auth_token and client_id and auth_code:
-                saved = await update_bouncie_credentials(
-                    {"webhook_key": auth_token},
-                )
-                if saved:
-                    logger.info("Saved Bouncie webhook key from incoming request")
-            elif not auth_token:
-                logger.debug(
-                    "Bouncie webhook received without auth header; "
-                    "no key configured",
-                )
-            else:
-                logger.warning(
-                    "Bouncie webhook received before credentials are "
-                    "configured; ignoring auth header to prevent key poisoning",
-                )
-                return
 
         event_type = payload.get("eventType")
-        await TrackingService.record_webhook_event(event_type)
+        if not skip_auth:
+            await TrackingService.record_webhook_event(event_type)
         handler = TRIP_EVENT_HANDLERS.get(event_type)
         if not handler:
             if event_type:
@@ -145,31 +164,40 @@ async def bouncie_webhook(request: Request) -> Response:
         auth_header = request.headers.get(
             "x-bouncie-authorization",
         ) or request.headers.get("authorization")
-
-        raw_body = await request.body()
-        if not raw_body:
-            logger.warning("Bouncie webhook received empty body")
+        payload = await _parse_request_payload(
+            request,
+            source_label="Bouncie webhook",
+        )
+        if payload is None:
             return _ok_response()
 
-        try:
-            payload = json.loads(raw_body)
-        except json.JSONDecodeError as exc:
-            logger.warning("Bouncie webhook invalid JSON: %s", exc)
-            return _ok_response()
-
-        if not isinstance(payload, dict):
-            logger.warning(
-                "Bouncie webhook expected JSON object, got %s",
-                type(payload).__name__,
-            )
-            return _ok_response()
-
-        task = asyncio.create_task(_dispatch_event(payload, auth_header))
-        _BACKGROUND_TASKS.add(task)
-        task.add_done_callback(_BACKGROUND_TASKS.discard)
+        _schedule_event_dispatch(payload, auth_header)
         return _ok_response()
     except Exception:
         logger.exception("Unhandled error in Bouncie webhook")
+        return _ok_response()
+
+
+@router.post("/api/simulator/bouncie-webhook")
+async def simulator_bouncie_webhook(request: Request) -> Response:
+    """
+    Simulator-only ingress for synthetic webhook traffic.
+
+    This endpoint intentionally bypasses real webhook auth validation so the
+    production Bouncie webhook key is never coupled to a browser-side tool.
+    """
+    try:
+        payload = await _parse_request_payload(
+            request,
+            source_label="Simulator Bouncie webhook",
+        )
+        if payload is None:
+            return _ok_response()
+
+        _schedule_event_dispatch(payload, skip_auth=True)
+        return _ok_response()
+    except Exception:
+        logger.exception("Unhandled error in simulator Bouncie webhook")
         return _ok_response()
 
 

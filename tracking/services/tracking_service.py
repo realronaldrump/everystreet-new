@@ -35,6 +35,37 @@ _STATUS_UPDATE_INTERVAL_SECONDS = 10
 _last_saved_at: datetime | None = None
 
 
+def _new_live_trip_snapshot(
+    transaction_id: str,
+    *,
+    vin: str | None,
+    imei: str | None,
+    start_time: datetime | None,
+    start_time_zone: str = "UTC",
+) -> dict[str, Any]:
+    effective_start = start_time or datetime.now(UTC)
+    return {
+        "transactionId": transaction_id,
+        "vin": vin,
+        "imei": imei,
+        "status": "active",
+        "startTime": effective_start,
+        "startTimeZone": start_time_zone or "UTC",
+        "coordinates": [],
+        "distance": 0.0,
+        "currentSpeed": 0.0,
+        "maxSpeed": 0.0,
+        "avgSpeed": 0.0,
+        "duration": 0.0,
+        "pointsRecorded": 0,
+        "totalIdleDuration": 0.0,
+        "hardBrakingCounts": 0,
+        "hardAccelerationCounts": 0,
+        "lastUpdate": effective_start,
+        "source": "webhook",
+    }
+
+
 async def _publish_trip_snapshot(
     trip_doc: dict[str, Any],
     status: str = "active",
@@ -326,27 +357,14 @@ async def process_trip_start(data: dict[str, Any]) -> None:
         else:
             trip["lastUpdate"] = start_time
     else:
-        trip = {
-            "transactionId": transaction_id,
-            "vin": data.get("vin"),
-            "imei": data.get("imei"),
-            "status": "active",
-            "startTime": start_time,
-            "startTimeZone": start_data.get("timeZone", "UTC"),
-            "startOdometer": start_data.get("odometer"),
-            "coordinates": [],
-            "distance": 0.0,
-            "currentSpeed": 0.0,
-            "maxSpeed": 0.0,
-            "avgSpeed": 0.0,
-            "duration": 0.0,
-            "pointsRecorded": 0,
-            "totalIdleDuration": 0.0,
-            "hardBrakingCounts": 0,
-            "hardAccelerationCounts": 0,
-            "lastUpdate": start_time,
-            "source": "webhook",
-        }
+        trip = _new_live_trip_snapshot(
+            transaction_id,
+            vin=data.get("vin"),
+            imei=data.get("imei"),
+            start_time=start_time,
+            start_time_zone=start_data.get("timeZone", "UTC"),
+        )
+        trip["startOdometer"] = start_data.get("odometer")
 
     await save_trip_snapshot(trip)
     logger.info("Trip %s started (ephemeral)", transaction_id)
@@ -374,25 +392,12 @@ async def process_trip_data(data: dict[str, Any]) -> None:
     trip = await get_trip_snapshot(transaction_id)
     if not trip:
         inferred_start = new_coords[0]["timestamp"] if new_coords else datetime.now(UTC)
-        trip = {
-            "transactionId": transaction_id,
-            "vin": data.get("vin"),
-            "imei": data.get("imei"),
-            "status": "active",
-            "startTime": inferred_start,
-            "startTimeZone": "UTC",
-            "coordinates": [],
-            "distance": 0.0,
-            "currentSpeed": 0.0,
-            "maxSpeed": 0.0,
-            "avgSpeed": 0.0,
-            "duration": 0.0,
-            "pointsRecorded": 0,
-            "totalIdleDuration": 0.0,
-            "hardBrakingCounts": 0,
-            "hardAccelerationCounts": 0,
-            "source": "webhook",
-        }
+        trip = _new_live_trip_snapshot(
+            transaction_id,
+            vin=data.get("vin"),
+            imei=data.get("imei"),
+            start_time=inferred_start,
+        )
 
     if trip.get("status") in {"completed", "processed"}:
         logger.info("Trip %s already finalized, ignoring late tripData", transaction_id)
@@ -500,7 +505,6 @@ async def process_trip_end(data: dict[str, Any]) -> None:
     trip = await get_trip_snapshot(transaction_id)
     if not trip:
         logger.warning("Trip %s not found for tripEnd", transaction_id)
-        await clear_trip_snapshot(transaction_id, mark_closed=True)
         return
 
     if trip.get("status") == "processed":
@@ -589,7 +593,7 @@ async def get_active_trip() -> dict[str, Any] | None:
                     completed["gps"] = trip_gps
 
             await _publish_trip_snapshot(completed, status="completed")
-            await clear_trip_snapshot(transaction_id, mark_closed=True)
+            await clear_trip_snapshot(transaction_id, mark_closed=False)
             return None
 
     except Exception:

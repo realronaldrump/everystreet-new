@@ -77,22 +77,14 @@ def test_webhook_accepts_x_bouncie_authorization_header(
 
 
 @pytest.mark.asyncio
-async def test_dispatch_event_saves_key_and_calls_handler(
+async def test_dispatch_event_without_configured_key_accepts_event(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    get_creds = AsyncMock(
-        return_value={
-            "webhook_key": "",
-            "client_id": "client-1",
-            "authorization_code": "auth-code-1",
-        },
-    )
-    update = AsyncMock(return_value=True)
+    get_creds = AsyncMock(return_value={"webhook_key": ""})
     record = AsyncMock()
     handler = AsyncMock()
 
     monkeypatch.setattr(webhook_api, "get_bouncie_credentials", get_creds)
-    monkeypatch.setattr(webhook_api, "update_bouncie_credentials", update)
     monkeypatch.setattr(webhook_api.TrackingService, "record_webhook_event", record)
     monkeypatch.setattr(webhook_api, "TRIP_EVENT_HANDLERS", {"tripStart": handler})
 
@@ -101,7 +93,6 @@ async def test_dispatch_event_saves_key_and_calls_handler(
         auth_header="new-key",
     )
 
-    update.assert_awaited_once_with({"webhook_key": "new-key"})
     record.assert_awaited_once_with("tripStart")
     handler.assert_awaited_once()
 
@@ -168,22 +159,14 @@ async def test_dispatch_event_catches_handler_exception(
 
 
 @pytest.mark.asyncio
-async def test_dispatch_event_saves_normalized_key_when_header_has_whitespace(
+async def test_dispatch_event_without_configured_key_accepts_normalized_header(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    get_creds = AsyncMock(
-        return_value={
-            "webhook_key": "",
-            "client_id": "client-1",
-            "authorization_code": "auth-code-1",
-        },
-    )
-    update = AsyncMock(return_value=True)
+    get_creds = AsyncMock(return_value={"webhook_key": ""})
     record = AsyncMock()
     handler = AsyncMock()
 
     monkeypatch.setattr(webhook_api, "get_bouncie_credentials", get_creds)
-    monkeypatch.setattr(webhook_api, "update_bouncie_credentials", update)
     monkeypatch.setattr(webhook_api.TrackingService, "record_webhook_event", record)
     monkeypatch.setattr(webhook_api, "TRIP_EVENT_HANDLERS", {"tripStart": handler})
 
@@ -192,7 +175,6 @@ async def test_dispatch_event_saves_normalized_key_when_header_has_whitespace(
         auth_header="  abc123  ",
     )
 
-    update.assert_awaited_once_with({"webhook_key": "abc123"})
     record.assert_awaited_once_with("tripStart")
     handler.assert_awaited_once()
 
@@ -260,6 +242,36 @@ def test_webhook_returns_200_for_invalid_json(
     """Malformed JSON must still return 200."""
     resp = webhook_client.post("/bouncie-webhook", content=b"not json")
     assert resp.status_code == 200
+
+
+def test_simulator_webhook_bypasses_real_auth(
+    webhook_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        webhook_api,
+        "get_bouncie_credentials",
+        AsyncMock(return_value={"webhook_key": "expected-token"}),
+    )
+    monkeypatch.setattr(
+        webhook_api.TrackingService,
+        "record_webhook_event",
+        AsyncMock(),
+    )
+    handler = AsyncMock()
+    monkeypatch.setattr(
+        webhook_api,
+        "TRIP_EVENT_HANDLERS",
+        {"tripStart": handler},
+    )
+
+    resp = webhook_client.post(
+        "/api/simulator/bouncie-webhook",
+        json={"eventType": "tripStart", "transactionId": "t-1"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
 
 
 def test_webhook_returns_200_for_non_dict_json(
