@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from datetime import UTC, datetime
 from typing import Any
 
@@ -54,29 +54,20 @@ def _ok_response() -> Response:
 
 def _extract_auth_token(auth_header: str | None) -> str | None:
     """Normalize inbound Authorization header values to a token string."""
-    if not isinstance(auth_header, str):
+    if not auth_header:
         return None
 
     token = auth_header.strip()
     if not token:
         return None
 
-    if token.lower().startswith("bearer "):
-        bearer_value = token[7:].strip()
-        return bearer_value or None
-
     return token
 
 
-def _schedule_event_dispatch(
-    payload: dict[str, Any],
-    auth_header: str | None = None,
-    *,
-    skip_auth: bool = False,
+def _schedule_background_task(
+    coro: Coroutine[Any, Any, None],
 ) -> None:
-    task = asyncio.create_task(
-        _dispatch_event(payload, auth_header, skip_auth=skip_auth),
-    )
+    task = asyncio.create_task(coro)
     _BACKGROUND_TASKS.add(task)
     task.add_done_callback(_BACKGROUND_TASKS.discard)
 
@@ -108,42 +99,52 @@ async def _parse_request_payload(
     return payload
 
 
-async def _dispatch_event(
-    payload: dict[str, Any],
-    auth_header: str | None,
-    *,
-    skip_auth: bool = False,
-) -> None:
-    """Process a webhook event.  Fully guarded — never raises."""
-    try:
-        if not skip_auth:
-            auth_token = _extract_auth_token(auth_header)
-            credentials = await get_bouncie_credentials()
-            webhook_key = (credentials.get("webhook_key") or "").strip()
-            if webhook_key and auth_token != webhook_key:
-                logger.warning(
-                    "Bouncie webhook auth failed (eventType=%s)",
-                    payload.get("eventType"),
-                )
-                return
+async def _process_payload(payload: dict[str, Any]) -> None:
+    """Dispatch a parsed webhook payload to the matching trip handler."""
+    event_type = payload.get("eventType")
+    handler = TRIP_EVENT_HANDLERS.get(event_type)
+    if not handler:
+        if event_type:
+            logger.debug(
+                "Ignoring Bouncie webhook event type=%s", event_type,
+            )
+        else:
+            logger.warning("Bouncie webhook payload missing eventType")
+        return
 
-        event_type = payload.get("eventType")
-        if not skip_auth:
-            await TrackingService.record_webhook_event(event_type)
-        handler = TRIP_EVENT_HANDLERS.get(event_type)
-        if not handler:
-            if event_type:
-                logger.debug(
-                    "Ignoring Bouncie webhook event type=%s", event_type,
-                )
-            else:
-                logger.warning("Bouncie webhook payload missing eventType")
+    await handler(payload)
+
+
+async def _dispatch_event(payload: dict[str, Any], auth_header: str | None) -> None:
+    """Process a real Bouncie webhook event. Fully guarded — never raises."""
+    try:
+        auth_token = _extract_auth_token(auth_header)
+        credentials = await get_bouncie_credentials()
+        webhook_key = (credentials.get("webhook_key") or "").strip()
+        if webhook_key and auth_token != webhook_key:
+            logger.warning(
+                "Bouncie webhook auth failed (eventType=%s)",
+                payload.get("eventType"),
+            )
             return
 
-        await handler(payload)
+        event_type = payload.get("eventType")
+        await TrackingService.record_webhook_event(event_type)
+        await _process_payload(payload)
     except Exception:
         logger.exception(
             "Failed to handle Bouncie webhook event=%s",
+            payload.get("eventType"),
+        )
+
+
+async def _dispatch_simulator_event(payload: dict[str, Any]) -> None:
+    """Process a simulator webhook event without touching real webhook auth."""
+    try:
+        await _process_payload(payload)
+    except Exception:
+        logger.exception(
+            "Failed to handle simulator Bouncie webhook event=%s",
             payload.get("eventType"),
         )
 
@@ -171,7 +172,7 @@ async def bouncie_webhook(request: Request) -> Response:
         if payload is None:
             return _ok_response()
 
-        _schedule_event_dispatch(payload, auth_header)
+        _schedule_background_task(_dispatch_event(payload, auth_header))
         return _ok_response()
     except Exception:
         logger.exception("Unhandled error in Bouncie webhook")
@@ -194,7 +195,7 @@ async def simulator_bouncie_webhook(request: Request) -> Response:
         if payload is None:
             return _ok_response()
 
-        _schedule_event_dispatch(payload, skip_auth=True)
+        _schedule_background_task(_dispatch_simulator_event(payload))
         return _ok_response()
     except Exception:
         logger.exception("Unhandled error in simulator Bouncie webhook")

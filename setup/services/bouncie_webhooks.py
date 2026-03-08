@@ -26,7 +26,6 @@ LIVE_TRIP_WEBHOOK_EVENTS = [
     "tripMetrics",
     "tripEnd",
 ]
-LEGACY_SIMULATOR_WEBHOOK_KEY = "62982120092935393436662883483703"
 
 
 def _normalize_webhook_url(url: str | None) -> str | None:
@@ -62,18 +61,6 @@ def _parse_bouncie_timestamp(value: Any) -> datetime | None:
 
 def _normalize_auth_key(value: Any) -> str:
     return str(value or "").strip()
-
-
-def _is_legacy_simulator_key(value: Any) -> bool:
-    return _normalize_auth_key(value) == LEGACY_SIMULATOR_WEBHOOK_KEY
-
-
-def _select_desired_auth_key(*candidates: Any) -> str:
-    for candidate in candidates:
-        normalized = _normalize_auth_key(candidate)
-        if normalized and not _is_legacy_simulator_key(normalized):
-            return normalized
-    return secrets.token_urlsafe(24)
 
 
 def _build_webhook_headers(token: str) -> dict[str, str]:
@@ -273,7 +260,7 @@ async def ensure_bouncie_live_trip_webhook(
         webhook = _select_webhook_candidate(webhooks, webhook_url)
 
         stored_key = _normalize_auth_key(credentials.get("webhook_key"))
-        desired_auth_key = _select_desired_auth_key(stored_key)
+        desired_auth_key = stored_key or secrets.token_urlsafe(24)
 
         if webhook is None:
             if not probe.get("ok"):
@@ -299,7 +286,9 @@ async def ensure_bouncie_live_trip_webhook(
             action = "created"
         else:
             portal_auth_key = _normalize_auth_key(webhook.get("authKey"))
-            desired_auth_key = _select_desired_auth_key(portal_auth_key, stored_key)
+            desired_auth_key = (
+                portal_auth_key or stored_key or secrets.token_urlsafe(24)
+            )
             current_url = _normalize_webhook_url(webhook.get("url"))
             events = webhook.get("events") or []
             desired_events = set(LIVE_TRIP_WEBHOOK_EVENTS)
@@ -309,7 +298,7 @@ async def ensure_bouncie_live_trip_webhook(
                 current_url != _normalize_webhook_url(webhook_url)
                 or current_events != desired_events
                 or str(webhook.get("name") or "").strip() != LIVE_TRIP_WEBHOOK_NAME
-                or portal_auth_key != desired_auth_key
+                or not portal_auth_key
                 or (force_reactivate and not active)
                 or (probe.get("ok") and not active)
             )

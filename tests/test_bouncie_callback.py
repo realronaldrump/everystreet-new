@@ -348,11 +348,6 @@ class TestBouncieOAuthCallback:
             "setup.api.bouncie._sync_vehicles_after_auth",
             AsyncMock(return_value=2),
         )
-        reconcile = AsyncMock(return_value={"status": "success"})
-        monkeypatch.setattr(
-            "setup.api.bouncie.ensure_bouncie_live_trip_webhook",
-            reconcile,
-        )
 
         response = await bouncie_oauth_callback(
             code="test_code",
@@ -364,7 +359,6 @@ class TestBouncieOAuthCallback:
         assert response.status_code == 302
         assert "bouncie_connected=true" in response.headers["location"]
         assert "vehicles_synced=2" in response.headers["location"]
-        reconcile.assert_awaited_once_with(force_reactivate=True)
 
 
 class TestBouncieStatus:
@@ -467,10 +461,6 @@ class TestBouncieOAuthEndToEnd:
         monkeypatch.setattr(
             "setup.api.bouncie._sync_vehicles_after_auth",
             AsyncMock(return_value=2),
-        )
-        monkeypatch.setattr(
-            "setup.api.bouncie.ensure_bouncie_live_trip_webhook",
-            AsyncMock(return_value={"status": "success"}),
         )
 
         auth_response = await initiate_bouncie_auth(mock_request)

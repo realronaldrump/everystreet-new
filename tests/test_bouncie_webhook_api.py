@@ -25,27 +25,6 @@ async def test_dispatch_event_rejects_invalid_auth(
     handler.assert_not_called()
 
 
-@pytest.mark.asyncio
-async def test_dispatch_event_accepts_bearer_auth_format(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    get_creds = AsyncMock(return_value={"webhook_key": "expected-token"})
-    record = AsyncMock()
-    handler = AsyncMock()
-
-    monkeypatch.setattr(webhook_api, "get_bouncie_credentials", get_creds)
-    monkeypatch.setattr(webhook_api.TrackingService, "record_webhook_event", record)
-    monkeypatch.setattr(webhook_api, "TRIP_EVENT_HANDLERS", {"tripStart": handler})
-
-    await webhook_api._dispatch_event(
-        {"eventType": "tripStart"},
-        auth_header="Bearer expected-token",
-    )
-
-    record.assert_awaited_once_with("tripStart")
-    handler.assert_awaited_once()
-
-
 def test_webhook_accepts_x_bouncie_authorization_header(
     webhook_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,

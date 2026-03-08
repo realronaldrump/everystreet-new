@@ -17,7 +17,6 @@ from setup.services.bouncie_credentials import (
     update_bouncie_credentials,
 )
 from setup.services.bouncie_sync import BouncieVehicleSyncError, sync_bouncie_vehicles
-from setup.services.bouncie_webhooks import ensure_bouncie_live_trip_webhook
 
 logger = logging.getLogger(__name__)
 
@@ -318,19 +317,6 @@ async def bouncie_oauth_callback(
             "OAuth flow complete. Synced %d vehicles automatically.",
             vehicle_count,
         )
-
-        try:
-            webhook_result = await ensure_bouncie_live_trip_webhook(
-                force_reactivate=True,
-            )
-            if webhook_result.get("status") != "success":
-                logger.warning(
-                    "Bouncie webhook reconciliation after OAuth completed with status=%s message=%s",
-                    webhook_result.get("status"),
-                    webhook_result.get("message"),
-                )
-        except Exception:
-            logger.exception("Failed to reconcile Bouncie webhook after OAuth")
 
         return RedirectResponse(
             url=(
