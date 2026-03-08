@@ -10,10 +10,8 @@ from arq import cron, func
 
 from core.startup import initialize_shared_runtime, shutdown_shared_runtime
 from tasks.arq import get_redis_settings
-from tasks.bouncie_webhook import monitor_bouncie_webhook
 from tasks.coverage import sync_geo_coverage, update_coverage_for_new_trips
 from tasks.cron import (
-    cron_monitor_bouncie_webhook,
     cron_auto_provision_map_data,
     cron_monitor_map_data_jobs,
     cron_periodic_fetch_trips,
@@ -100,7 +98,6 @@ class WorkerSettings:
         func(purge_server_logs_before, timeout=LOG_PURGE_TIMEOUT_SECONDS),
         func(run_area_ingestion_job, timeout=COVERAGE_INGEST_TIMEOUT_SECONDS),
         func(run_area_backfill_job, timeout=COVERAGE_BACKFILL_TIMEOUT_SECONDS),
-        monitor_bouncie_webhook,
         # Map services setup tasks
         func(setup_map_data_task, timeout=SETUP_JOB_TIMEOUT_SECONDS),
         monitor_map_services,
@@ -115,7 +112,6 @@ class WorkerSettings:
         cron(cron_sync_mobility_profiles),
         cron(worker_heartbeat),
         cron(cron_monitor_map_data_jobs),
-        cron(cron_monitor_bouncie_webhook),
         cron(cron_auto_provision_map_data),
     ]
     redis_settings = get_redis_settings()
