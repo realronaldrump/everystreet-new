@@ -2,66 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import initMapControls from "../static/js/modules/features/map/map-controls.js";
+import {
+  createClassList,
+  createCustomEventClass,
+  createEventTarget,
+} from "./helpers/dom-fixtures.js";
 
 const originalGlobals = {
   window: global.window,
   document: global.document,
   CustomEvent: global.CustomEvent,
 };
-
-function createClassList(initial = []) {
-  const values = new Set(initial);
-  return {
-    add(...tokens) {
-      tokens.forEach((token) => values.add(token));
-    },
-    remove(...tokens) {
-      tokens.forEach((token) => values.delete(token));
-    },
-    contains(token) {
-      return values.has(token);
-    },
-    toggle(token, force) {
-      if (force === true) {
-        values.add(token);
-        return true;
-      }
-      if (force === false) {
-        values.delete(token);
-        return false;
-      }
-      if (values.has(token)) {
-        values.delete(token);
-        return false;
-      }
-      values.add(token);
-      return true;
-    },
-  };
-}
-
-function createEventTarget() {
-  const listeners = new Map();
-  return {
-    addEventListener(type, handler) {
-      const handlers = listeners.get(type) || [];
-      handlers.push(handler);
-      listeners.set(type, handlers);
-    },
-    removeEventListener(type, handler) {
-      const handlers = listeners.get(type) || [];
-      listeners.set(
-        type,
-        handlers.filter((candidate) => candidate !== handler)
-      );
-    },
-    dispatchEvent(event) {
-      const handlers = listeners.get(event?.type || "") || [];
-      handlers.forEach((handler) => handler(event));
-      return true;
-    },
-  };
-}
 
 function createButton(streetMode = null) {
   const eventTarget = createEventTarget();
@@ -146,13 +97,7 @@ function createTestEnvironment({ selectedAreaId = "" } = {}) {
 }
 
 test.beforeEach(() => {
-  global.CustomEvent = class CustomEvent {
-    constructor(type, init = {}) {
-      this.type = type;
-      this.detail = init.detail || null;
-      this.bubbles = Boolean(init.bubbles);
-    }
-  };
+  global.CustomEvent = createCustomEventClass();
 });
 
 test.afterEach(() => {

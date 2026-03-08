@@ -2,29 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { ConfirmationDialog } from "../static/js/modules/ui/confirmation-dialog.js";
-
-function createEventTarget(initial = {}) {
-  const listeners = new Map();
-  return {
-    ...initial,
-    style: initial.style || {},
-    className: initial.className || "",
-    textContent: initial.textContent || "",
-    innerHTML: initial.innerHTML || "",
-    addEventListener(type, handler) {
-      listeners.set(type, handler);
-    },
-    removeEventListener(type) {
-      listeners.delete(type);
-    },
-    dispatch(type, event = {}) {
-      const handler = listeners.get(type);
-      if (handler) {
-        handler(event);
-      }
-    },
-  };
-}
+import { createEventTarget } from "./helpers/dom-fixtures.js";
 
 function withMockDialogEnvironment(fn) {
   const originalDocument = global.document;

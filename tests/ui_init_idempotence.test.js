@@ -2,30 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import mobileNav from "../static/js/modules/ui/mobile-nav.js";
-
-function createClassList() {
-  const classes = new Set();
-  return {
-    add(...names) {
-      names.forEach((name) => classes.add(name));
-    },
-    remove(...names) {
-      names.forEach((name) => classes.delete(name));
-    },
-    toggle(name, force) {
-      const next = force === undefined ? !classes.has(name) : Boolean(force);
-      if (next) {
-        classes.add(name);
-      } else {
-        classes.delete(name);
-      }
-      return next;
-    },
-    contains(name) {
-      return classes.has(name);
-    },
-  };
-}
+import { createClassList } from "./helpers/dom-fixtures.js";
 
 test("mobile nav init is idempotent", () => {
   const originalDocument = global.document;

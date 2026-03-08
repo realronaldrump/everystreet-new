@@ -5,6 +5,7 @@ import initBuildings3D, {
   isSupportedMapbox3D,
 } from "../static/js/modules/features/map/buildings-3d.js";
 import mapCore from "../static/js/modules/map-core.js";
+import { createEventTarget, createStorageMock } from "./helpers/dom-fixtures.js";
 
 const originalGlobals = {
   window: global.window,
@@ -12,43 +13,11 @@ const originalGlobals = {
   localStorage: global.localStorage,
 };
 
-function createStorageMock() {
-  const values = new Map();
-  return {
-    getItem(key) {
-      return values.has(key) ? values.get(key) : null;
-    },
-    setItem(key, value) {
-      values.set(key, String(value));
-    },
-    removeItem(key) {
-      values.delete(key);
-    },
-  };
-}
-
 function createDocumentMock() {
-  const listeners = new Map();
   return {
+    ...createEventTarget(),
     getElementById() {
       return null;
-    },
-    addEventListener(eventName, handler) {
-      const handlers = listeners.get(eventName) || [];
-      handlers.push(handler);
-      listeners.set(eventName, handlers);
-    },
-    removeEventListener(eventName, handler) {
-      const handlers = listeners.get(eventName) || [];
-      listeners.set(
-        eventName,
-        handlers.filter((candidate) => candidate !== handler)
-      );
-    },
-    dispatchEvent(event) {
-      const handlers = listeners.get(event?.type || "") || [];
-      handlers.forEach((handler) => handler(event));
-      return true;
     },
   };
 }

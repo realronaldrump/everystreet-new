@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import initCinematicIntro from "../static/js/modules/features/map/cinematic-intro.js";
+import { createEventTarget, createStorageMock } from "./helpers/dom-fixtures.js";
 
 const originalGlobals = {
   window: global.window,
@@ -10,44 +11,6 @@ const originalGlobals = {
   requestAnimationFrame: global.requestAnimationFrame,
   cancelAnimationFrame: global.cancelAnimationFrame,
 };
-
-function createStorageMock() {
-  const values = new Map();
-  return {
-    getItem(key) {
-      return values.has(key) ? values.get(key) : null;
-    },
-    setItem(key, value) {
-      values.set(key, String(value));
-    },
-    removeItem(key) {
-      values.delete(key);
-    },
-  };
-}
-
-function createEventTarget() {
-  const listeners = new Map();
-  return {
-    listeners,
-    addEventListener(eventName, handler) {
-      const handlers = listeners.get(eventName) || [];
-      handlers.push(handler);
-      listeners.set(eventName, handlers);
-    },
-    removeEventListener(eventName, handler) {
-      const handlers = listeners.get(eventName) || [];
-      listeners.set(
-        eventName,
-        handlers.filter((candidate) => candidate !== handler)
-      );
-    },
-    dispatch(eventName, payload = {}) {
-      const handlers = listeners.get(eventName) || [];
-      handlers.forEach((handler) => handler(payload));
-    },
-  };
-}
 
 function createMockMap() {
   const listeners = new Map();
@@ -142,7 +105,7 @@ function setupGlobals({
     addEventListener: windowTarget.addEventListener,
     removeEventListener: windowTarget.removeEventListener,
     dispatchEvent(event) {
-      windowTarget.dispatch(event?.type || "", event);
+      windowTarget.dispatch(event);
     },
   };
 
@@ -155,7 +118,7 @@ function setupGlobals({
       return null;
     },
     dispatchEvent(event) {
-      documentTarget.dispatch(event?.type || "", event);
+      documentTarget.dispatch(event);
       return true;
     },
   };
