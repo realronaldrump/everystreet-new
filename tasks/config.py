@@ -24,7 +24,29 @@ GLOBAL_TASK_ID = "__global__"
 
 async def _get_or_create_task_config(task_id: str) -> TaskConfig:
     task_config = await TaskConfig.find_one(TaskConfig.task_id == task_id)
+
     if task_config:
+        # If the registry says this task should be enabled by default but the
+        # DB entry has interval=0 and is disabled, the entry is stale (e.g.
+        # left over from a deleted predecessor).  Re-apply registry defaults
+        # so the task actually runs.
+        definition = TASK_DEFINITIONS.get(task_id, {})
+        if (
+            definition.get("enabled_by_default")
+            and not task_config.enabled
+            and (task_config.interval_minutes or 0) <= 0
+        ):
+            default_interval = int(definition.get("default_interval_minutes", 0) or 0)
+            if default_interval > 0:
+                task_config.enabled = True
+                task_config.interval_minutes = default_interval
+                task_config.last_updated = datetime.now(UTC)
+                await task_config.save()
+                logger.info(
+                    "Re-enabled stale task config for %s (interval=%dm)",
+                    task_id,
+                    default_interval,
+                )
         return task_config
 
     default_interval = int(
