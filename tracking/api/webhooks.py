@@ -61,6 +61,9 @@ def _extract_auth_token(auth_header: str | None) -> str | None:
     if not token:
         return None
 
+    if token.lower().startswith("bearer "):
+        token = token[7:].strip()
+
     return token
 
 
