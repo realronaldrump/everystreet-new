@@ -50,23 +50,25 @@ Welcome back
 
         <!-- Hero Stats Row -->
         <div class="hero-stats" id="hero-stats">
-          <div class="stat-pulse">
+          <div class="stat-pulse story-stat">
             <div class="stat-value" id="stat-miles" data-value-flash>
 --
             </div>
             <div class="stat-label">
 Miles Driven
             </div>
+            <div class="stat-context" id="stat-miles-context"></div>
           </div>
           <div class="stat-divider">
           </div>
-          <div class="stat-pulse">
+          <div class="stat-pulse story-stat">
             <div class="stat-value" id="stat-trips" data-value-flash>
 --
             </div>
             <div class="stat-label">
 Trips
             </div>
+            <div class="stat-context" id="stat-trips-context"></div>
           </div>
         </div>
 
@@ -89,6 +91,17 @@ Personal Record
 --
             </div>
           </div>
+        </div>
+
+        <!-- Streak Heatmap -->
+        <div id="streak-heatmap-container"></div>
+
+        <!-- Wrapped Launcher -->
+        <div class="landing-toolbar" style="margin-top: var(--space-2);">
+          <div class="toolbar-title">Your Driving Story</div>
+          <button class="wrapped-launch-btn" id="wrapped-launch-btn" type="button">
+            <i class="fas fa-magic"></i> Year in Review
+          </button>
         </div>
 
         <!-- Navigation Grid -->

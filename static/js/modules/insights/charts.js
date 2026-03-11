@@ -368,6 +368,14 @@ function initTrendsChart() {
         duration: 900,
         easing: "easeOutQuart",
       },
+      transitions: {
+        active: {
+          animation: {
+            duration: 600,
+            easing: "easeOutCubic",
+          },
+        },
+      },
       interaction: {
         mode: "index",
         intersect: false,
@@ -488,6 +496,14 @@ function initTimeDistChart() {
         duration: 800,
         easing: "easeOutQuart",
       },
+      transitions: {
+        active: {
+          animation: {
+            duration: 500,
+            easing: "easeOutCubic",
+          },
+        },
+      },
       plugins: {
         legend: {
           display: false,
@@ -582,7 +598,8 @@ export function updateTrendsChart() {
     chart.options.animation.duration = data.isCompressed ? 450 : 900;
   }
 
-  chart.update();
+  // Smooth morphing transition with easing
+  chart.update("active");
 }
 
 /**
@@ -612,7 +629,7 @@ export function updateTimeDistChart() {
 
   chart.data.labels = labels;
   chart.data.datasets[0].data = data;
-  chart.update();
+  chart.update("active");
 }
 
 // Data Processing Functions

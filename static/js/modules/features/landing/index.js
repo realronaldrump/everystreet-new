@@ -16,8 +16,14 @@ import {
   formatRelativeTimeShort,
   getStorage,
 } from "../../utils.js";
+import {
+  computeConsistencyStats,
+  computeTimeSignature,
+} from "../../insights/derived-insights.js";
 import { animateValue } from "./animations.js";
 import { bindWidgetEditToggle, updateGreeting } from "./hero.js";
+import streakHeatmap, { buildHeatmapWindow } from "../../ui/streak-heatmap.js";
+import wrappedExperience from "../../ui/wrapped.js";
 
 // Configuration
 const CONFIG = {
@@ -48,7 +54,9 @@ let recordSources = {
 let pageSignal = null;
 let lastKnownLocation = null;
 let metricsLoadRequestId = 0;
+let streakHeatmapLoadRequestId = 0;
 let removeFilterRefreshListener = null;
+let ambientCleanup = null;
 let featureApi = createFeatureApi();
 const apiGet = (url, options = {}) => featureApi.get(url, options);
 const apiRaw = (url, options = {}) => featureApi.raw(url, options);
@@ -73,7 +81,12 @@ export default function initLandingPage({ signal, cleanup, api } = {}) {
   bindSwipeActions();
   bindRecordCard();
   removeFilterRefreshListener = bindFilterRefresh();
+
+  // Streak heatmap + Wrapped + Ambient background
+  bindWrappedLauncher();
+  setupAmbientBackground();
   const teardown = () => {
+    cleanupLandingTransientUi();
     clearIntervals();
     removeFilterRefreshListener?.();
     removeFilterRefreshListener = null;
@@ -128,6 +141,7 @@ async function loadAllData() {
 
     await Promise.all([
       loadMetrics(),
+      loadStreakHeatmap(),
       loadGasStats(),
       loadInsights(),
       loadCountyStats(),
@@ -251,6 +265,7 @@ function bindRecordCard() {
 function bindFilterRefresh() {
   const refreshMetrics = () => {
     loadMetrics();
+    loadStreakHeatmap();
   };
 
   if (pageSignal) {
@@ -755,6 +770,199 @@ function buildTripMetricsQueryParams() {
   return params;
 }
 
+function getExplicitDateRange() {
+  const storedStartDate =
+    store.get?.("filters.startDate") || getStorage(APP_CONFIG.STORAGE_KEYS.startDate);
+  const storedEndDate =
+    store.get?.("filters.endDate") || getStorage(APP_CONFIG.STORAGE_KEYS.endDate);
+
+  return {
+    startDate:
+      typeof storedStartDate === "string" && storedStartDate.trim()
+        ? storedStartDate.trim()
+        : null,
+    endDate:
+      typeof storedEndDate === "string" && storedEndDate.trim()
+        ? storedEndDate.trim()
+        : null,
+  };
+}
+
+function startOfLocalDay(date = new Date()) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function formatLocalDateInput(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateInput(value) {
+  if (!value || typeof value !== "string") {
+    return null;
+  }
+  const [yearRaw, monthRaw, dayRaw] = value.split("-");
+  const year = Number.parseInt(yearRaw, 10);
+  const month = Number.parseInt(monthRaw, 10);
+  const day = Number.parseInt(dayRaw, 10);
+  if (!year || !month || !day) {
+    return null;
+  }
+  return new Date(year, month - 1, day);
+}
+
+function resolveDateRange({ fallbackDays = null, fallbackStart = null, fallbackEnd = null } = {}) {
+  const today = startOfLocalDay();
+  let { startDate, endDate } = getExplicitDateRange();
+
+  if (!startDate && !endDate) {
+    if (fallbackDays) {
+      startDate = formatLocalDateInput(addDays(today, -(fallbackDays - 1)));
+      endDate = formatLocalDateInput(today);
+    } else {
+      startDate = fallbackStart;
+      endDate = fallbackEnd;
+    }
+  } else {
+    const parsedEnd = parseDateInput(endDate) || parseDateInput(fallbackEnd) || today;
+    if (!startDate && fallbackDays) {
+      startDate = formatLocalDateInput(addDays(parsedEnd, -(fallbackDays - 1)));
+    } else if (!startDate) {
+      startDate = fallbackStart;
+    }
+    if (!endDate) {
+      endDate = fallbackEnd || formatLocalDateInput(today);
+    }
+  }
+
+  return { startDate, endDate };
+}
+
+function applyDateRangeToParams(params, { startDate, endDate }) {
+  if (startDate) {
+    params.set("start_date", startDate);
+  }
+  if (endDate) {
+    params.set("end_date", endDate);
+  }
+  return params;
+}
+
+function formatStoryDate(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatPeriodLabel(range, fallbackLabel = "Year in Review") {
+  const start = parseDateInput(range?.startDate);
+  const end = parseDateInput(range?.endDate);
+  if (!start || !end) {
+    return fallbackLabel;
+  }
+
+  const todayLabel = formatLocalDateInput(startOfLocalDay());
+  if (
+    range.startDate === `${start.getFullYear()}-01-01` &&
+    range.endDate === todayLabel
+  ) {
+    return String(start.getFullYear());
+  }
+
+  const sameDay = range.startDate === range.endDate;
+  if (sameDay) {
+    return formatStoryDate(start);
+  }
+
+  const sameYear = start.getFullYear() === end.getFullYear();
+  const sameMonth = sameYear && start.getMonth() === end.getMonth();
+  if (sameMonth) {
+    return start.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  const startLabel = start.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: sameYear ? undefined : "numeric",
+  });
+  const endLabel = end.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  return `${startLabel} - ${endLabel}`;
+}
+
+function buildWrappedData({
+  metricsData,
+  insightsData,
+  analyticsData,
+  periodRange,
+}) {
+  const totalMiles = parseFloat(metricsData?.total_distance) || 0;
+  const totalTrips = parseInt(metricsData?.total_trips, 10) || 0;
+  const totalHours =
+    Number(metricsData?.total_duration_seconds) > 0
+      ? Number(metricsData.total_duration_seconds) / 3600
+      : 0;
+
+  const records = insightsData?.records || {};
+  const topDestinations = (Array.isArray(insightsData?.top_destinations)
+    ? insightsData.top_destinations
+    : []
+  )
+    .map((destination) => ({
+      name: formatDestination(destination?.location || destination?.name),
+      visits: Number(destination?.visits) || 0,
+    }))
+    .filter((destination) => destination.name && destination.visits > 0);
+
+  const dailyDistances = Array.isArray(analyticsData?.daily_distances)
+    ? analyticsData.daily_distances
+    : [];
+  const consistency = computeConsistencyStats(dailyDistances);
+  const timeSignature = computeTimeSignature(
+    analyticsData?.time_distribution || [],
+    analyticsData?.weekday_distribution || []
+  );
+
+  return {
+    periodLabel: formatPeriodLabel(periodRange),
+    totalMiles,
+    totalTrips,
+    totalHours,
+    longestTripMiles: Number(records.longest_trip?.distance) || 0,
+    longestTripDate: formatStoryDate(records.longest_trip?.recorded_at),
+    busiestDayTrips: Number(records.max_day_trips?.trips) || 0,
+    busiestDayDate: formatStoryDate(
+      records.max_day_trips?.date || records.max_day_distance?.date
+    ),
+    busiestDayMiles: Number(records.max_day_distance?.distance) || 0,
+    topDestinations,
+    drivingDays: consistency.activeDays || 0,
+    currentStreak: consistency.currentStreak || 0,
+    favoriteDayOfWeek: timeSignature.peakDayLabel || "",
+    favoriteHour: timeSignature.weightedHourLabel || "",
+  };
+}
+
 /**
  * Fetch trip metrics and update stats
  */
@@ -780,6 +988,9 @@ async function loadMetrics() {
       animateValue(elements.statMiles, miles, formatNumber, CONFIG.animationDuration);
       animateValue(elements.statTrips, trips, formatNumber, CONFIG.animationDuration);
     }
+
+    // Numbers That Tell Stories — add contextual descriptions
+    updateStatContext(miles, trips);
   } catch (error) {
     if (requestId !== metricsLoadRequestId || isAbortError(error)) {
       return;
@@ -1012,6 +1223,39 @@ function formatDestination(dest) {
 }
 
 /**
+ * Numbers That Tell Stories — contextual stat descriptions
+ */
+function updateStatContext(miles, trips) {
+  const milesCtx = document.getElementById("stat-miles-context");
+  const tripsCtx = document.getElementById("stat-trips-context");
+  const setContext = (contextEl, text) => {
+    if (!contextEl) {
+      return;
+    }
+    contextEl.textContent = text;
+    contextEl.closest(".story-stat")?.classList.toggle("stat-revealed", Boolean(text));
+  };
+
+  setContext(milesCtx, miles > 0 ? getMilesComparison(miles) : "");
+
+  const milesPerTrip =
+    trips > 0 && miles > 0 ? `~${(miles / Math.max(trips, 1)).toFixed(1)} mi per trip` : "";
+  setContext(tripsCtx, milesPerTrip);
+}
+
+function getMilesComparison(miles) {
+  // Fun geographic comparisons
+  if (miles >= 238900) return `That's to the Moon!`;
+  if (miles >= 24901) return `That's around the Earth!`;
+  if (miles >= 5000) return `Like driving coast to coast and back`;
+  if (miles >= 2800) return `Like driving coast to coast`;
+  if (miles >= 1000) return `${(miles / 2800 * 100).toFixed(0)}% of a cross-country trip`;
+  if (miles >= 500) return `Like ${Math.round(miles / 250)} round trips to a neighboring city`;
+  if (miles >= 100) return `Keep exploring!`;
+  return `Just getting started`;
+}
+
+/**
  * Set up periodic data refresh
  */
 function setupRefreshInterval() {
@@ -1042,3 +1286,172 @@ function clearIntervals() {
     recordRotationIntervalId = null;
   }
 }
+
+/**
+ * Load streak heatmap data and render it
+ */
+async function loadStreakHeatmap() {
+  const requestId = ++streakHeatmapLoadRequestId;
+  const container = document.getElementById("streak-heatmap-container");
+  if (!container) return;
+
+  try {
+    const params = buildTripMetricsQueryParams();
+    const explicitRange = getExplicitDateRange();
+    const hasExplicitRange = Boolean(explicitRange.startDate || explicitRange.endDate);
+    const resolvedRange = resolveDateRange({ fallbackDays: 26 * 7 });
+    const requestRange = hasExplicitRange
+      ? resolvedRange
+      : (() => {
+          const heatmapWindow = buildHeatmapWindow({ endDate: resolvedRange.endDate });
+          return {
+            startDate: formatLocalDateInput(heatmapWindow.startDate),
+            endDate: formatLocalDateInput(heatmapWindow.endDate),
+          };
+        })();
+
+    applyDateRangeToParams(params, requestRange);
+
+    const qs = params.toString();
+    const data = await apiGet(qs ? `/api/trip-analytics?${qs}` : "/api/trip-analytics");
+    if (requestId !== streakHeatmapLoadRequestId || !container.isConnected) {
+      return;
+    }
+    const dailyDistances = Array.isArray(data?.daily_distances)
+      ? data.daily_distances
+      : [];
+
+    if (dailyDistances.length === 0) {
+      container.innerHTML = "";
+      container.className = "";
+      return;
+    }
+
+    const consistency = computeConsistencyStats(dailyDistances);
+    streakHeatmap.render(container, {
+      dailyDistances,
+      currentStreak: consistency.currentStreak,
+      longestStreak: consistency.longestStreak,
+      endDate: requestRange.endDate,
+    });
+  } catch (error) {
+    if (requestId !== streakHeatmapLoadRequestId || isAbortError(error)) {
+      return;
+    }
+    console.warn("Failed to load streak heatmap", error);
+  }
+}
+
+/**
+ * Bind Wrapped launcher button
+ */
+function bindWrappedLauncher() {
+  const btn = document.getElementById("wrapped-launch-btn");
+  if (!btn) return;
+
+  const handleClick = async () => {
+    btn.disabled = true;
+    try {
+      const params = buildTripMetricsQueryParams();
+      const periodRange = resolveDateRange({
+        fallbackStart: `${startOfLocalDay().getFullYear()}-01-01`,
+        fallbackEnd: formatLocalDateInput(startOfLocalDay()),
+      });
+      applyDateRangeToParams(params, periodRange);
+
+      const qs = params.toString();
+
+      const [metricsData, analyticsData, insightsData] = await Promise.all([
+        apiGet(qs ? `/api/metrics?${qs}` : "/api/metrics"),
+        apiGet(qs ? `/api/trip-analytics?${qs}` : "/api/trip-analytics"),
+        apiGet(qs ? `/api/driving-insights?${qs}` : "/api/driving-insights"),
+      ]);
+
+      const wrappedData = buildWrappedData({
+        metricsData,
+        insightsData,
+        analyticsData,
+        periodRange,
+      });
+
+      if (wrappedData.totalMiles <= 0 && wrappedData.totalTrips <= 0) {
+        notificationManager.show(
+          "Not enough trip data yet to build a driving story.",
+          "info"
+        );
+        return;
+      }
+
+      wrappedExperience.launch(wrappedData);
+    } catch (error) {
+      if (!isAbortError(error)) {
+        console.warn("Failed to launch wrapped", error);
+        notificationManager.show("Failed to build your driving story.", "danger");
+      }
+    } finally {
+      btn.disabled = false;
+    }
+  };
+
+  btn.addEventListener(
+    "click",
+    handleClick,
+    pageSignal ? { signal: pageSignal } : false
+  );
+}
+
+/**
+ * Data-responsive ambient background
+ * Changes orb colors/intensity based on time of day and driving activity
+ */
+function setupAmbientBackground() {
+  const ambientEl = document.querySelector(".ambient-background");
+  if (!ambientEl) return;
+
+  ambientCleanup?.();
+  ambientCleanup = null;
+  ambientEl.classList.add("data-responsive");
+
+  const hour = new Date().getHours();
+  const isNight = hour < 6 || hour >= 22;
+  const isEvening = hour >= 18 && hour < 22;
+
+  if (isNight) {
+    ambientEl.classList.add("ambient-night");
+    ambientEl.style.setProperty("--ambient-intensity", "0.06");
+  } else if (isEvening) {
+    ambientEl.style.setProperty("--ambient-intensity", "0.08");
+  } else {
+    ambientEl.style.setProperty("--ambient-intensity", "0.12");
+  }
+
+  // If live tracking is active, pulse warmer
+  const checkLive = () => {
+    if (elements.liveIndicator?.classList.contains("active")) {
+      ambientEl.classList.add("ambient-driving");
+    } else {
+      ambientEl.classList.remove("ambient-driving");
+    }
+  };
+
+  checkLive();
+  const liveCheckId = setInterval(checkLive, 10000);
+
+  ambientCleanup = () => {
+    clearInterval(liveCheckId);
+    ambientEl.classList.remove("data-responsive", "ambient-night", "ambient-driving");
+  };
+}
+
+function cleanupLandingTransientUi() {
+  wrappedExperience.close({ immediate: true });
+  ambientCleanup?.();
+  ambientCleanup = null;
+}
+
+export {
+  cleanupLandingTransientUi,
+  getExplicitDateRange,
+  resolveDateRange,
+  updateStatContext,
+};

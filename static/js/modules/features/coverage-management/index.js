@@ -24,6 +24,7 @@ import GlobalJobTracker from "../../ui/global-job-tracker.js";
 import notificationManager from "../../ui/notifications.js";
 import { debounce, escapeHtml } from "../../utils.js";
 import { renderAreaCards } from "./areas.js";
+import celebrationManager from "../../ui/celebrations.js";
 import {
   formatMiles,
   formatRelativeTime,
@@ -69,6 +70,12 @@ const INITIAL_STATE = () => ({
 
   // Milestone
   previousCoveragePercent: null,
+
+  // Timelapse
+  timelapseController: null,
+  timelapseCleanup: null,
+  timelapseCurrentDate: null,
+  timelapsePreviousMapFilter: null,
 
   // Service roads (kept synced across toggles)
   currentAreaSyncToken: null,
@@ -180,6 +187,7 @@ export default async function initCoverageManagementPage({
   const teardown = () => {
     state.pageActive = false;
     state.pageSignal = null;
+    stopCoverageTimelapse();
 
     // Clean up map
     if (state.map) {
@@ -311,6 +319,16 @@ function setupEventListeners(signal) {
   document
     .getElementById("sidebar-back-btn")
     ?.addEventListener("click", backToList, opt);
+
+  // Timelapse button
+  document
+    .getElementById("timelapse-btn")
+    ?.addEventListener("click", handleTimelapseClick, opt);
+
+  // Share coverage card button
+  document
+    .getElementById("share-coverage-btn")
+    ?.addEventListener("click", handleShareClick, opt);
 
   // Recalculate / rebuild buttons in sidebar
   document.getElementById("recalculate-coverage-btn")?.addEventListener(
@@ -538,6 +556,7 @@ async function switchView(viewName) {
 async function backToList() {
   closeStreetDetailPanel();
   state.areaViewRequestId += 1;
+  stopCoverageTimelapse();
 
   // Reset area-view state
   state.previousCoveragePercent = null;
@@ -1090,6 +1109,7 @@ async function recalculateCoverage(areaId, displayName) {
 
 async function viewArea(areaId) {
   const requestId = ++state.areaViewRequestId;
+  stopCoverageTimelapse();
   state.currentAreaId = areaId;
   state.previousCoveragePercent = null;
   closeStreetDetailPanel();
@@ -1243,6 +1263,159 @@ function renderProgressRing(fillEl, pct) {
 }
 
 // =============================================================================
+// Timelapse & Share
+// =============================================================================
+
+function getTimelapseDateExpression() {
+  return ["coalesce", ["get", "first_driven_at"], ""];
+}
+
+function restoreCoverageTimelapseFilters() {
+  if (!state.map) {
+    state.timelapseCurrentDate = null;
+    return;
+  }
+
+  state.timelapseCurrentDate = null;
+
+  if (state.map.getLayer("streets-undriven")) {
+    state.map.setFilter("streets-undriven", ["==", ["get", "status"], "undriven"]);
+  }
+  if (state.map.getLayer("streets-driven")) {
+    state.map.setFilter("streets-driven", ["==", ["get", "status"], "driven"]);
+  }
+  if (state.map.getLayer("streets-driven-glow")) {
+    state.map.setFilter("streets-driven-glow", ["==", ["get", "status"], "driven"]);
+    state.map.setPaintProperty("streets-driven-glow", "line-opacity", 0);
+  }
+}
+
+function applyCoverageTimelapseFilters(currentDate) {
+  if (!state.map) {
+    return;
+  }
+
+  const currentDateIso = new Date(currentDate).toISOString();
+  const drivenAt = getTimelapseDateExpression();
+  state.timelapseCurrentDate = currentDate;
+
+  if (state.map.getLayer("streets-driven")) {
+    state.map.setFilter("streets-driven", [
+      "all",
+      ["==", ["get", "status"], "driven"],
+      ["!=", drivenAt, ""],
+      ["<=", drivenAt, currentDateIso],
+    ]);
+  }
+
+  if (state.map.getLayer("streets-undriven")) {
+    state.map.setFilter("streets-undriven", [
+      "any",
+      ["==", ["get", "status"], "undriven"],
+      [
+        "all",
+        ["==", ["get", "status"], "driven"],
+        ["any", ["==", drivenAt, ""], [">", drivenAt, currentDateIso]],
+      ],
+    ]);
+  }
+
+  if (state.map.getLayer("streets-driven-glow")) {
+    state.map.setFilter("streets-driven-glow", [
+      "all",
+      ["==", ["get", "status"], "driven"],
+      ["!=", drivenAt, ""],
+      ["<=", drivenAt, currentDateIso],
+    ]);
+    state.map.setPaintProperty("streets-driven-glow", "line-opacity", 0.22);
+  }
+}
+
+function stopCoverageTimelapse() {
+  if (state.timelapseController) {
+    const controller = state.timelapseController;
+    state.timelapseController = null;
+    controller.destroy({ notify: false });
+  }
+
+  if (state.timelapseCleanup) {
+    state.timelapseCleanup();
+    state.timelapseCleanup = null;
+  }
+
+  state.timelapseCurrentDate = null;
+  state.timelapsePreviousMapFilter = null;
+}
+
+async function handleTimelapseClick() {
+  if (!state.map || !state.currentAreaId) return;
+
+  try {
+    const { default: coverageTimelapse } = await import("../../coverage-timelapse.js");
+    const geojson = state.streetsCacheGeojson?.features
+      ? state.streetsCacheGeojson
+      : await apiGet(`/areas/${state.currentAreaId}/streets/all`);
+
+    const drivenSegments = geojson?.features?.filter(
+      (feature) =>
+        feature?.properties?.status === "driven" &&
+        feature?.properties?.first_driven_at
+    );
+
+    if (!geojson?.features?.length || !drivenSegments?.length) {
+      notificationManager.show("No street data available for timelapse", "info");
+      return;
+    }
+
+    stopCoverageTimelapse();
+    state.timelapseController = coverageTimelapse;
+    state.timelapsePreviousMapFilter = state.currentMapFilter;
+    applyMapFilter("all");
+    state.timelapseCleanup = () => {
+      restoreCoverageTimelapseFilters();
+      applyMapFilter(state.timelapsePreviousMapFilter || "all");
+      state.timelapsePreviousMapFilter = null;
+    };
+
+    coverageTimelapse.initialize(state.map, geojson, {
+      onUpdate: ({ currentDate }) => {
+        applyCoverageTimelapseFilters(currentDate);
+      },
+      onClose: () => {
+        state.timelapseController = null;
+        state.timelapseCleanup?.();
+        state.timelapseCleanup = null;
+      },
+    });
+    coverageTimelapse.play();
+  } catch (error) {
+    console.error("Failed to load timelapse:", error);
+    notificationManager.show("Failed to start timelapse", "danger");
+  }
+}
+
+async function handleShareClick() {
+  if (!state.currentAreaData) return;
+
+  try {
+    const { default: progressCardGenerator } = await import("../../ui/progress-card.js");
+    const area = state.currentAreaData;
+    await progressCardGenerator.downloadCard({
+      areaName: area.display_name || "Coverage Area",
+      coveragePercent: normalizeCoveragePercent(area.coverage_percentage),
+      milesDriven: area.driven_length_miles || 0,
+      areaMiles: area.total_length_miles || 0,
+      totalStreets: area.total_segments || 0,
+      streetsDriven: area.driven_segments || 0,
+    });
+    notificationManager.show("Progress card downloaded!", "success");
+  } catch (error) {
+    console.error("Failed to generate progress card:", error);
+    notificationManager.show("Failed to generate progress card", "danger");
+  }
+}
+
+// =============================================================================
 // Milestone Celebrations
 // =============================================================================
 
@@ -1278,10 +1451,13 @@ function checkMilestone(prevPct, newPct) {
   if (!crossed) {
     return;
   }
-  showMilestoneCelebration(MILESTONE_MESSAGES[crossed]);
+  showMilestoneCelebration(crossed, MILESTONE_MESSAGES[crossed]);
 }
 
-function showMilestoneCelebration({ icon, title, sub }) {
+function showMilestoneCelebration(percent, { icon, title, sub }) {
+  // Fire confetti celebration
+  celebrationManager.celebrateCoverageMilestone(percent);
+
   const overlay = document.getElementById("milestone-overlay");
   if (!overlay) {
     return;
@@ -1420,6 +1596,20 @@ async function loadStreets(areaId, areaSyncToken = null) {
         paint: { "line-color": "#4d9a6a", "line-width": 4, "line-opacity": 0.85 },
       });
 
+      // Driven streets glow — pulses on recently driven segments
+      state.map.addLayer({
+        id: "streets-driven-glow",
+        type: "line",
+        source: "streets",
+        filter: ["==", ["get", "status"], "driven"],
+        paint: {
+          "line-color": "#4d9a6a",
+          "line-width": 8,
+          "line-opacity": 0,
+          "line-blur": 6,
+        },
+      });
+
       // Undriveable streets (dashed)
       state.map.addLayer({
         id: "streets-undriveable",
@@ -1453,6 +1643,12 @@ async function loadStreets(areaId, areaSyncToken = null) {
       });
 
       setupStreetInteractivity();
+    }
+
+    if (state.timelapseCurrentDate) {
+      applyCoverageTimelapseFilters(state.timelapseCurrentDate);
+    } else {
+      restoreCoverageTimelapseFilters();
     }
   } catch (error) {
     console.error("Failed to load streets:", error);
@@ -1774,8 +1970,59 @@ function updateStreetStatus(segmentId, newStatus) {
   }
 
   source.setData(state.streetsCacheGeojson);
+
+  // Pulse glow on newly driven segment
+  if (newStatus === "driven") {
+    pulseSegmentGlow(segmentId);
+  }
   // Invalidate rendered cache key so next viewArea re-fetches from server
   state.renderedStreetsCacheKey = null;
+}
+
+/**
+ * Pulse the glow layer for a specific segment to draw attention
+ */
+function pulseSegmentGlow(segmentId) {
+  if (
+    !state.map ||
+    !state.map.getLayer("streets-driven-glow") ||
+    state.timelapseCurrentDate
+  ) {
+    return;
+  }
+
+  // Filter glow layer to just the marked segment
+  state.map.setFilter("streets-driven-glow", [
+    "==", ["get", "segment_id"], segmentId,
+  ]);
+
+  // Animate opacity: pulse up then fade
+  let step = 0;
+  const totalSteps = 30; // ~500ms at 60fps
+  const pulse = () => {
+    step++;
+    const progress = step / totalSteps;
+    // Bell curve: rises to peak then falls
+    const opacity = Math.sin(progress * Math.PI) * 0.6;
+
+    if (state.map?.getLayer("streets-driven-glow")) {
+      state.map.setPaintProperty("streets-driven-glow", "line-opacity", opacity);
+    }
+
+    if (step < totalSteps) {
+      requestAnimationFrame(pulse);
+    } else {
+      // Reset to show all driven segments with zero opacity
+      if (state.map?.getLayer("streets-driven-glow")) {
+        state.map.setPaintProperty("streets-driven-glow", "line-opacity", 0);
+        state.map.setFilter("streets-driven-glow", [
+          "==", ["get", "status"], "driven",
+        ]);
+      }
+    }
+  };
+
+  requestAnimationFrame(pulse);
 }
 
 // =============================================================================
