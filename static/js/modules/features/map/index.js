@@ -12,6 +12,11 @@ import initBuildings3D, {
 import initCinematicIntro from "./cinematic-intro.js";
 import initMapControls from "./map-controls.js";
 import { initMobileMap } from "./mobile-map.js";
+import {
+  getTripLayerHeatmapPreference,
+  setTripLayerHeatmapPreference,
+  TRIP_LAYER_RENDER_MODE_EVENT,
+} from "./trip-layer-render-mode.js";
 
 function setupMapTilt(signal, isCameraLocked = null) {
   const prefersCoarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches;
@@ -201,6 +206,83 @@ function deactivateExclusiveModes(except) {
   }
 }
 
+function repairExclusiveSceneMode(preferredMode = null) {
+  const nextMode =
+    preferredMode ||
+    (destinationBloom.isActive()
+      ? "destinationBloom"
+      : particleFlow.isActive()
+        ? "particleFlow"
+        : routeArt.isActive?.()
+          ? "routeArt"
+          : null);
+
+  if (!nextMode) {
+    return;
+  }
+
+  deactivateExclusiveModes(nextMode);
+
+  if (nextMode === "particleFlow") {
+    particleFlow.ensureTripLayersHidden?.();
+    return;
+  }
+
+  if (nextMode === "destinationBloom") {
+    destinationBloom.ensureTripLayersHidden?.();
+  }
+}
+
+export function setupExclusiveSceneModeGuard(registerCleanup) {
+  const handleRouteArtActivated = () => repairExclusiveSceneMode("routeArt");
+  const handleParticleFlowActivated = () => repairExclusiveSceneMode("particleFlow");
+  const handleDestinationBloomActivated = () =>
+    repairExclusiveSceneMode("destinationBloom");
+  const handleSceneRepair = () => repairExclusiveSceneMode();
+
+  document.addEventListener("routeArt:activated", handleRouteArtActivated);
+  document.addEventListener("particleFlow:activated", handleParticleFlowActivated);
+  document.addEventListener(
+    "destinationBloom:activated",
+    handleDestinationBloomActivated
+  );
+  document.addEventListener("tripsDataLoaded", handleSceneRepair);
+  document.addEventListener("matchedTripsDataLoaded", handleSceneRepair);
+  document.addEventListener("es:filters-change", handleSceneRepair);
+  document.addEventListener("es:layers-change", handleSceneRepair);
+  document.addEventListener("mapStyleLoaded", handleSceneRepair);
+
+  registerCleanup(() =>
+    document.removeEventListener("routeArt:activated", handleRouteArtActivated)
+  );
+  registerCleanup(() =>
+    document.removeEventListener("particleFlow:activated", handleParticleFlowActivated)
+  );
+  registerCleanup(() =>
+    document.removeEventListener(
+      "destinationBloom:activated",
+      handleDestinationBloomActivated
+    )
+  );
+  registerCleanup(() =>
+    document.removeEventListener("tripsDataLoaded", handleSceneRepair)
+  );
+  registerCleanup(() =>
+    document.removeEventListener("matchedTripsDataLoaded", handleSceneRepair)
+  );
+  registerCleanup(() =>
+    document.removeEventListener("es:filters-change", handleSceneRepair)
+  );
+  registerCleanup(() =>
+    document.removeEventListener("es:layers-change", handleSceneRepair)
+  );
+  registerCleanup(() =>
+    document.removeEventListener("mapStyleLoaded", handleSceneRepair)
+  );
+
+  repairExclusiveSceneMode();
+}
+
 export default function initMapPage({ signal, cleanup } = {}) {
   const cleanupFns = [];
   const registerCleanup = (fn) => {
@@ -244,7 +326,9 @@ export default function initMapPage({ signal, cleanup } = {}) {
   // Particle Flow toggle
   setupParticleFlowToggle(registerCleanup);
   setupDestinationBloomToggle(registerCleanup);
+  setupExclusiveSceneModeGuard(registerCleanup);
   setupMap3dBuildingsToggle(registerCleanup);
+  setupTripLayerHeatmapToggle(registerCleanup);
 
   // Bouncie Simulator — lazy-loaded on toggle click
   const simToggle = document.getElementById("sim-toggle");
@@ -658,4 +742,28 @@ export function setupMap3dBuildingsToggle(registerCleanup) {
   registerCleanup(() => btn.removeEventListener("click", handleClick));
   registerCleanup(() => document.removeEventListener(MAP_3D_SETTING_EVENT, syncState));
   registerCleanup(() => document.removeEventListener("mapStyleLoaded", syncState));
+}
+
+export function setupTripLayerHeatmapToggle(registerCleanup) {
+  const btn = document.getElementById("trip-layer-heatmap-fab");
+  if (!btn) return;
+
+  const syncState = () => {
+    setToggleVisibility(btn, true);
+    setToggleState(btn, getTripLayerHeatmapPreference());
+  };
+
+  const handleClick = () => {
+    setTripLayerHeatmapPreference(!getTripLayerHeatmapPreference());
+    syncState();
+  };
+
+  btn.addEventListener("click", handleClick);
+  document.addEventListener(TRIP_LAYER_RENDER_MODE_EVENT, syncState);
+  syncState();
+
+  registerCleanup(() => btn.removeEventListener("click", handleClick));
+  registerCleanup(() =>
+    document.removeEventListener(TRIP_LAYER_RENDER_MODE_EVENT, syncState)
+  );
 }

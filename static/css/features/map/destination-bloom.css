@@ -9,7 +9,8 @@
 
 .destination-bloom-toggle,
 #route-art-toggle,
-.map-3d-buildings-toggle {
+.map-3d-buildings-toggle,
+.trip-layer-heatmap-toggle {
   position: absolute;
   right: var(--space-3);
   z-index: var(--z-dropdown);
@@ -73,6 +74,33 @@
   font-size: var(--font-size-md);
 }
 
+.trip-layer-heatmap-toggle {
+  bottom: 15.375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.625rem;
+  height: 2.625rem;
+  padding: 0;
+  border: 1px solid rgb(255 162 114 / 24%);
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at 30% 30%, rgb(255 188 149 / 22%), transparent 55%),
+    linear-gradient(180deg, rgb(31 15 11 / 84%), rgb(17 9 8 / 84%));
+  backdrop-filter: blur(var(--blur-strong));
+  box-shadow:
+    0 12px 30px rgb(24 10 8 / 24%),
+    inset 0 1px 0 rgb(255 225 209 / 10%);
+  color: rgb(255 161 120);
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+  font-size: var(--font-size-md);
+}
+
 .destination-bloom-toggle:hover {
   transform: translateY(-1px);
   color: rgb(255 224 154);
@@ -91,6 +119,15 @@
     0 0 18px rgb(104 190 255 / 16%);
 }
 
+.trip-layer-heatmap-toggle:hover {
+  transform: translateY(-1px);
+  color: rgb(255 221 199);
+  border-color: rgb(255 177 136 / 48%);
+  box-shadow:
+    0 18px 34px rgb(24 10 8 / 30%),
+    0 0 18px rgb(255 124 82 / 16%);
+}
+
 .destination-bloom-toggle:focus-visible {
   outline: none;
   box-shadow:
@@ -105,6 +142,14 @@
     0 18px 34px rgb(7 14 23 / 30%),
     0 0 0 2px rgb(167 216 255 / 28%),
     0 0 20px rgb(92 178 255 / 22%);
+}
+
+.trip-layer-heatmap-toggle:focus-visible {
+  outline: none;
+  box-shadow:
+    0 18px 34px rgb(24 10 8 / 30%),
+    0 0 0 2px rgb(255 180 141 / 28%),
+    0 0 20px rgb(255 112 61 / 22%);
 }
 
 .destination-bloom-toggle.active {
@@ -125,8 +170,18 @@
     inset 0 0 22px rgb(170 222 255 / 10%);
 }
 
+.trip-layer-heatmap-toggle.active {
+  color: rgb(255 239 228);
+  border-color: rgb(255 183 136 / 58%);
+  box-shadow:
+    0 18px 34px rgb(24 10 8 / 34%),
+    0 0 24px rgb(255 124 82 / 24%),
+    inset 0 0 22px rgb(255 192 156 / 10%);
+}
+
 .destination-bloom-toggle::before,
-.map-3d-buildings-toggle::before {
+.map-3d-buildings-toggle::before,
+.trip-layer-heatmap-toggle::before {
   content: attr(aria-label);
   position: absolute;
   right: calc(100% + var(--space-2));
@@ -147,7 +202,8 @@
 }
 
 .destination-bloom-toggle:hover::before,
-.map-3d-buildings-toggle:hover::before {
+.map-3d-buildings-toggle:hover::before,
+.trip-layer-heatmap-toggle:hover::before {
   opacity: 1;
 }
 
@@ -194,7 +250,8 @@
   .destination-bloom-toggle,
   #route-art-toggle,
   .particle-flow-toggle,
-  .map-3d-buildings-toggle {
+  .map-3d-buildings-toggle,
+  .trip-layer-heatmap-toggle {
     right: var(--space-2);
     width: 2.75rem;
     height: 2.75rem;
@@ -232,8 +289,17 @@
     );
   }
 
+  .trip-layer-heatmap-toggle {
+    bottom: calc(
+      max(var(--map-sheet-visible-height, 60px), 60px) +
+      env(safe-area-inset-bottom, 0px) +
+      19.5rem
+    );
+  }
+
   .destination-bloom-toggle::before,
-  .map-3d-buildings-toggle::before {
+  .map-3d-buildings-toggle::before,
+  .trip-layer-heatmap-toggle::before {
     display: none;
   }
 

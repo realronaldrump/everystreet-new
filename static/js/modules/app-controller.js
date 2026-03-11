@@ -24,6 +24,10 @@ import { coverageBoundaryToFeatureCollection } from "./core/coverage-bounds.js";
 import state from "./core/store.js";
 import { getPreloadTripIdFromUrl } from "./core/url-state.js";
 import dataManager from "./data-manager.js";
+import {
+  getTripLayerHeatmapPreference,
+  TRIP_LAYER_RENDER_MODE_EVENT,
+} from "./features/map/trip-layer-render-mode.js";
 import LiveTripTracker from "./features/tracking/index.js";
 import layerManager from "./layer-manager.js";
 import mapCore from "./map-core.js";
@@ -88,7 +92,6 @@ const initializeLiveTracker = () => {
 const coverageAreaOverlayCache = new Map();
 const COVERAGE_SELECTION_EVENT = "es:coverage-area-selection-changed";
 const COVERAGE_FOCUS_EVENT = "es:focus-selected-coverage-area";
-const TRIP_LAYER_RENDER_MODE_EVENT = "es:trip-layer-render-mode-setting-changed";
 
 const buildCoverageBoundsFromOverlay = (overlayGeojson) => {
   const bounds = {
@@ -240,26 +243,11 @@ const AppController = {
   _listenersInitialized: false,
   _lastCoverageOverlayAreaId: null,
 
-  _readTripLayerHeatmapPreference() {
-    const key = CONFIG.STORAGE_KEYS.tripLayersUseHeatmap;
-    const stored = utils.getStorage(key, null);
-    if (typeof stored === "boolean") {
-      return stored;
-    }
-    if (stored === "true") {
-      return true;
-    }
-    if (stored === "false") {
-      return false;
-    }
-    return globalThis?.window?.APP_SETTINGS_FLAGS?.tripLayersUseHeatmap !== false;
-  },
-
   async _applyTripLayerRenderModePreference({ explicitValue } = {}) {
     const useHeatmap =
       typeof explicitValue === "boolean"
         ? explicitValue
-        : this._readTripLayerHeatmapPreference();
+        : getTripLayerHeatmapPreference();
     await layerManager.setTripLayerRenderMode(useHeatmap);
   },
 

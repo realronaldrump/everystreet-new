@@ -414,6 +414,13 @@ const destinationBloom = {
     }
   },
 
+  ensureTripLayersHidden() {
+    if (!this._active) {
+      return;
+    }
+    this._hideTripLayers(store.map);
+  },
+
   _collectPoints() {
     this._points = collectDestinationPoints(store.mapLayers);
   },
@@ -789,7 +796,9 @@ const destinationBloom = {
       return;
     }
 
-    this._prevHiddenLayers = [];
+    if (!Array.isArray(this._prevHiddenLayers)) {
+      this._prevHiddenLayers = [];
+    }
     style.layers.forEach((layer) => {
       const id = layer?.id || "";
       if (
@@ -800,12 +809,17 @@ const destinationBloom = {
         return;
       }
 
-      const visibility = layer?.layout?.visibility || "visible";
+      const visibility =
+        map.getLayoutProperty?.(id, "visibility") ||
+        layer?.layout?.visibility ||
+        "visible";
       if (visibility === "none") {
         return;
       }
 
-      this._prevHiddenLayers.push(id);
+      if (!this._prevHiddenLayers.includes(id)) {
+        this._prevHiddenLayers.push(id);
+      }
       map.setLayoutProperty?.(id, "visibility", "none");
     });
   },

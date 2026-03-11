@@ -6,9 +6,9 @@ import apiClient from "../../core/api-client.js";
 import { CONFIG } from "../../core/config.js";
 import notificationManager from "../../ui/notifications.js";
 import { setMap3dBuildingsPreference } from "../map/buildings-3d.js";
+import { setTripLayerHeatmapPreference } from "../map/trip-layer-render-mode.js";
 
 const TAB_STORAGE_KEY = "es:settings-active-tab";
-const TRIP_LAYER_RENDER_MODE_EVENT = "es:trip-layer-render-mode-setting-changed";
 export const SETTINGS_TAB_CHANGED_EVENT = "settings:tab-changed";
 const TAB_ALIASES = {
   sync: "sync-settings",
@@ -40,17 +40,6 @@ function readStoredBoolean(key) {
     // Ignore storage failures.
   }
   return null;
-}
-
-function emitTripLayerRenderModeSetting(useHeatmap) {
-  if (typeof useHeatmap !== "boolean") {
-    return;
-  }
-  document.dispatchEvent(
-    new CustomEvent(TRIP_LAYER_RENDER_MODE_EVENT, {
-      detail: { useHeatmap },
-    })
-  );
 }
 
 export function setActiveTab(tabName, { persist = true, updateHash = false } = {}) {
@@ -226,11 +215,7 @@ export function setupAppSettingsForm() {
       tripLayersUseHeatmapToggle.checked = resolvedTripLayersUseHeatmap !== false;
     }
     if (typeof resolvedTripLayersUseHeatmap === "boolean") {
-      localStorage.setItem(
-        CONFIG.STORAGE_KEYS.tripLayersUseHeatmap,
-        resolvedTripLayersUseHeatmap ? "true" : "false"
-      );
-      emitTripLayerRenderModeSetting(resolvedTripLayersUseHeatmap);
+      setTripLayerHeatmapPreference(resolvedTripLayersUseHeatmap);
     }
     if (geocodeTripsOnFetch) {
       geocodeTripsOnFetch.checked = gtof !== false;
@@ -324,14 +309,10 @@ export function setupAppSettingsForm() {
       CONFIG.STORAGE_KEYS.mapTripsWithinCoverageOnly,
       payload.mapTripsWithinCoverageOnly ? "true" : "false"
     );
-    localStorage.setItem(
-      CONFIG.STORAGE_KEYS.tripLayersUseHeatmap,
-      payload.tripLayersUseHeatmap ? "true" : "false"
-    );
+    setTripLayerHeatmapPreference(payload.tripLayersUseHeatmap);
     localStorage.setItem("es:accent-color", payload.accentColor || "");
     localStorage.setItem("es:ui-density", payload.uiDensity);
     localStorage.setItem("es:widget-editing", payload.widgetEditing ? "true" : "false");
-    emitTripLayerRenderModeSetting(payload.tripLayersUseHeatmap);
 
     window.personalization?.applyPreferences?.({
       accentColor: payload.accentColor,

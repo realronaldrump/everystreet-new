@@ -5,9 +5,11 @@ import store from "../static/js/modules/core/store.js";
 import destinationBloom from "../static/js/modules/destination-bloom.js";
 import {
   setupDestinationBloomToggle,
+  setupExclusiveSceneModeGuard,
   setupMap3dBuildingsToggle,
   setupParticleFlowToggle,
   setupRouteArtToggle,
+  setupTripLayerHeatmapToggle,
 } from "../static/js/modules/features/map/index.js";
 import particleFlow from "../static/js/modules/particle-flow.js";
 import routeArt from "../static/js/modules/ui/route-art.js";
@@ -37,6 +39,7 @@ const originalParticleFlow = {
   activate: particleFlow.activate,
   deactivate: particleFlow.deactivate,
   destroy: particleFlow.destroy,
+  ensureTripLayersHidden: particleFlow.ensureTripLayersHidden,
   refresh: particleFlow.refresh,
 };
 
@@ -45,6 +48,7 @@ const originalDestinationBloom = {
   activate: destinationBloom.activate,
   deactivate: destinationBloom.deactivate,
   destroy: destinationBloom.destroy,
+  ensureTripLayersHidden: destinationBloom.ensureTripLayersHidden,
   refresh: destinationBloom.refresh,
 };
 
@@ -90,11 +94,14 @@ test.afterEach(() => {
   particleFlow.activate = originalParticleFlow.activate;
   particleFlow.deactivate = originalParticleFlow.deactivate;
   particleFlow.destroy = originalParticleFlow.destroy;
+  particleFlow.ensureTripLayersHidden = originalParticleFlow.ensureTripLayersHidden;
   particleFlow.refresh = originalParticleFlow.refresh;
   destinationBloom.isActive = originalDestinationBloom.isActive;
   destinationBloom.activate = originalDestinationBloom.activate;
   destinationBloom.deactivate = originalDestinationBloom.deactivate;
   destinationBloom.destroy = originalDestinationBloom.destroy;
+  destinationBloom.ensureTripLayersHidden =
+    originalDestinationBloom.ensureTripLayersHidden;
   destinationBloom.refresh = originalDestinationBloom.refresh;
   routeArt.isActive = originalRouteArt.isActive;
   routeArt.launch = originalRouteArt.launch;
@@ -217,6 +224,82 @@ test("scene toggles stay mutually exclusive across route art, particle flow, and
   cleanupFns.forEach((fn) => fn());
 });
 
+test("scene mode guard repairs direct activations and re-hides trips on reload events", () => {
+  global.CustomEvent = createCustomEventClass();
+
+  global.document = createDocumentMock({});
+  global.window = {};
+
+  let particleFlowActive = true;
+  let destinationBloomActive = false;
+  let routeArtActive = false;
+  let particleFlowDestroyCalls = 0;
+  let particleFlowHideCalls = 0;
+  let destinationBloomDestroyCalls = 0;
+  let destinationBloomHideCalls = 0;
+  let routeArtCloseCalls = 0;
+
+  particleFlow.isActive = () => particleFlowActive;
+  particleFlow.activate = () => {
+    particleFlowActive = true;
+    document.dispatchEvent(new CustomEvent("particleFlow:activated"));
+  };
+  particleFlow.destroy = () => {
+    particleFlowDestroyCalls += 1;
+    particleFlowActive = false;
+    document.dispatchEvent(new CustomEvent("particleFlow:deactivated"));
+  };
+  particleFlow.ensureTripLayersHidden = () => {
+    particleFlowHideCalls += 1;
+  };
+  particleFlow.refresh = () => {};
+
+  destinationBloom.isActive = () => destinationBloomActive;
+  destinationBloom.activate = () => {
+    destinationBloomActive = true;
+    document.dispatchEvent(new CustomEvent("destinationBloom:activated"));
+  };
+  destinationBloom.destroy = () => {
+    destinationBloomDestroyCalls += 1;
+    destinationBloomActive = false;
+    document.dispatchEvent(new CustomEvent("destinationBloom:deactivated"));
+  };
+  destinationBloom.ensureTripLayersHidden = () => {
+    destinationBloomHideCalls += 1;
+  };
+  destinationBloom.refresh = () => {};
+
+  routeArt.isActive = () => routeArtActive;
+  routeArt.close = () => {
+    routeArtCloseCalls += 1;
+    routeArtActive = false;
+    document.dispatchEvent(new CustomEvent("routeArt:deactivated"));
+  };
+
+  const cleanupFns = [];
+  setupExclusiveSceneModeGuard((fn) => cleanupFns.push(fn));
+
+  destinationBloom.activate();
+
+  assert.equal(particleFlowDestroyCalls, 1);
+  assert.equal(destinationBloomHideCalls, 1);
+  assert.equal(destinationBloomActive, true);
+  assert.equal(particleFlowActive, false);
+
+  document.dispatchEvent(new CustomEvent("tripsDataLoaded"));
+  document.dispatchEvent(new CustomEvent("matchedTripsDataLoaded"));
+  document.dispatchEvent(new CustomEvent("es:filters-change"));
+  document.dispatchEvent(new CustomEvent("es:layers-change"));
+  document.dispatchEvent(new CustomEvent("mapStyleLoaded"));
+
+  assert.equal(destinationBloomHideCalls, 6);
+  assert.equal(particleFlowHideCalls, 1);
+  assert.equal(routeArtCloseCalls, 0);
+  assert.equal(destinationBloomDestroyCalls, 0);
+
+  cleanupFns.forEach((fn) => fn());
+});
+
 test("destination bloom refreshes on trip reloads, filter changes, and style reloads", () => {
   global.CustomEvent = createCustomEventClass();
   global.setTimeout = (callback) => {
@@ -306,6 +389,37 @@ test("3D buildings toggle mirrors shared preference and hides when the map style
   mockMap.getStyle = () => rasterStyle;
   document.dispatchEvent(new CustomEvent("mapStyleLoaded"));
   assert.equal(buttons["map-3d-buildings-fab"].hidden, true);
+
+  cleanupFns.forEach((fn) => fn());
+});
+
+test("trip layer heatmap toggle mirrors shared preference and syncs settings controls", () => {
+  global.CustomEvent = createCustomEventClass();
+  global.localStorage = createStorageMock();
+  global.window = {
+    APP_SETTINGS_FLAGS: {
+      tripLayersUseHeatmap: true,
+    },
+  };
+
+  const buttons = {
+    "trip-layer-heatmap-fab": createButton(),
+    "trip-layers-use-heatmap": { checked: true },
+  };
+
+  global.document = createDocumentMock(buttons);
+
+  const cleanupFns = [];
+  setupTripLayerHeatmapToggle((fn) => cleanupFns.push(fn));
+
+  assert.equal(buttons["trip-layer-heatmap-fab"].hidden, false);
+  assert.equal(buttons["trip-layer-heatmap-fab"].getAttribute("aria-pressed"), "true");
+
+  dispatchClick(buttons["trip-layer-heatmap-fab"]);
+  assert.equal(global.localStorage.getItem("tripLayersUseHeatmap"), "false");
+  assert.equal(global.window.APP_SETTINGS_FLAGS.tripLayersUseHeatmap, false);
+  assert.equal(buttons["trip-layers-use-heatmap"].checked, false);
+  assert.equal(buttons["trip-layer-heatmap-fab"].getAttribute("aria-pressed"), "false");
 
   cleanupFns.forEach((fn) => fn());
 });

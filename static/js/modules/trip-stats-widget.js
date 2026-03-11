@@ -7,13 +7,24 @@ import { calculateTripMetrics } from "./shared/trip-metrics.js";
 const tripStatsWidget = {
   elements: {},
   isExpanded: false,
+  initialized: false,
 
   /**
    * Initialize the trip statistics widget
    */
   init() {
+    if (this.initialized) {
+      return;
+    }
+
     this.cacheElements();
+
+    if (!this.elements.widget) {
+      return;
+    }
+
     this.bindEvents();
+    this.initialized = true;
   },
 
   /**

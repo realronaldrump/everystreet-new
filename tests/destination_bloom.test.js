@@ -163,6 +163,10 @@ function createMapMock(container) {
     getStyle() {
       return { layers: styleLayers };
     },
+    getLayoutProperty(id, property) {
+      const layer = styleLayers.find((entry) => entry.id === id);
+      return layer?.layout?.[property];
+    },
     setLayoutProperty(id, property, value) {
       this.layoutUpdates.push({ id, property, value });
       const layer = styleLayers.find((entry) => entry.id === id);
@@ -348,4 +352,60 @@ test("destination bloom hides trip layers on activate and restores them on destr
     true
   );
   assert.equal(container.children.length, 0);
+});
+
+test("destination bloom keeps trip layers hidden across repeated repair passes", () => {
+  const { documentMock } = createDocumentMock();
+  const container = createDomNode();
+  const map = createMapMock(container);
+
+  global.document = documentMock;
+  global.window = {};
+
+  store.map = map;
+  store.mapLayers = {
+    trips: {
+      visible: true,
+      layer: {
+        features: [
+          {
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-97.75, 30.25],
+                [-97.71, 30.29],
+              ],
+            },
+            properties: {
+              transactionId: "trip-1",
+              destination: "South Congress",
+              endTime: "2026-03-10T18:00:00Z",
+            },
+          },
+        ],
+      },
+    },
+    matchedTrips: {
+      visible: false,
+      layer: { features: [] },
+    },
+  };
+
+  destinationBloom.activate();
+  map.layoutUpdates = [];
+
+  const tripLayer = map.getStyle().layers.find((layer) => layer.id === "trips-layer");
+  tripLayer.layout.visibility = "visible";
+
+  destinationBloom.ensureTripLayersHidden();
+  destinationBloom.destroy();
+
+  assert.deepEqual(
+    map.layoutUpdates.map(({ id, value }) => ({ id, value })),
+    [
+      { id: "trips-layer", value: "none" },
+      { id: "trips-layer", value: "visible" },
+      { id: "matchedTrips-layer", value: "visible" },
+    ]
+  );
 });
