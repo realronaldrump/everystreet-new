@@ -1,15 +1,15 @@
 /**
- * Turn-by-Turn State Module
- * Navigation state machine and transitions
+ * Live Navigation State Module
+ * Navigation state machine and transitions.
  */
 
-import { NAV_STATES } from "./turn-by-turn-config.js";
-import { distanceMeters } from "./turn-by-turn-geo.js";
+import { NAV_STATES } from "./live-navigation-config.js";
+import { distanceMeters } from "./live-navigation-geo.js";
 
 /**
- * State machine for turn-by-turn navigation
+ * State machine for live navigation.
  */
-class TurnByTurnState {
+class LiveNavigationState {
   constructor(config = {}) {
     this.config = {
       startThresholdMeters: 50,
@@ -221,4 +221,4 @@ class TurnByTurnState {
   }
 }
 
-export default TurnByTurnState;
+export default LiveNavigationState;

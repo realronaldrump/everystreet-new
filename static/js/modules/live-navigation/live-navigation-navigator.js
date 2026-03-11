@@ -1,18 +1,18 @@
 /**
- * Turn-by-Turn Navigator - Main Orchestrator
- * Coordinates all turn-by-turn navigation modules
+ * Live Navigation Controller
+ * Coordinates the live navigation modules.
  */
 
 import { loadCoverageAreasWithCache } from "../features/navigation-core/coverage-areas.js";
-import TurnByTurnAPI from "./turn-by-turn-api.js";
+import LiveNavigationAPI from "./live-navigation-api.js";
 import {
   DISTANCE_THRESHOLDS,
+  LIVE_NAVIGATION_DEFAULTS,
   NAV_STATES,
-  TURN_BY_TURN_DEFAULTS,
   ZOOM_LEVELS,
   ZOOM_THRESHOLDS,
-} from "./turn-by-turn-config.js";
-import TurnByTurnCoverage from "./turn-by-turn-coverage.js";
+} from "./live-navigation-config.js";
+import LiveNavigationCoverage from "./live-navigation-coverage.js";
 import {
   angleDelta,
   bearing,
@@ -20,25 +20,25 @@ import {
   distanceMeters,
   formatDistance,
   projectToSegment,
-} from "./turn-by-turn-geo.js";
-import TurnByTurnGPS from "./turn-by-turn-gps.js";
-import TurnByTurnMap from "./turn-by-turn-map.js";
-import TurnByTurnState from "./turn-by-turn-state.js";
-import TurnByTurnUI from "./turn-by-turn-ui.js";
+} from "./live-navigation-geo.js";
+import LiveNavigationGPS from "./live-navigation-gps.js";
+import LiveNavigationMap from "./live-navigation-map.js";
+import LiveNavigationState from "./live-navigation-state.js";
+import LiveNavigationUI from "./live-navigation-ui.js";
 
 /**
- * Main turn-by-turn navigator class
+ * Main live navigation controller.
  */
-class TurnByTurnNavigator {
+class LiveNavigationNavigator {
   constructor(options = {}) {
-    this.config = { ...TURN_BY_TURN_DEFAULTS, ...options };
+    this.config = { ...LIVE_NAVIGATION_DEFAULTS, ...options };
 
     // Initialize sub-modules
-    this.map = new TurnByTurnMap();
-    this.ui = new TurnByTurnUI(this.config);
-    this.gps = new TurnByTurnGPS(this.config);
-    this.state = new TurnByTurnState(this.config);
-    this.coverage = new TurnByTurnCoverage(this.config);
+    this.map = new LiveNavigationMap();
+    this.ui = new LiveNavigationUI(this.config);
+    this.gps = new LiveNavigationGPS(this.config);
+    this.state = new LiveNavigationState(this.config);
+    this.coverage = new LiveNavigationCoverage(this.config);
 
     // Coverage area data
     this.coverageAreas = [];
@@ -227,7 +227,7 @@ class TurnByTurnNavigator {
   async loadCoverageAreas() {
     try {
       this.coverageAreas = await loadCoverageAreasWithCache(() =>
-        TurnByTurnAPI.fetchCoverageAreas()
+        LiveNavigationAPI.fetchCoverageAreas()
       );
       this.ui.populateAreaSelect(this.coverageAreas);
     } catch (error) {
@@ -241,7 +241,7 @@ class TurnByTurnNavigator {
   async applyInitialSelection() {
     const params = new URLSearchParams(window.location.search);
     const queryArea = params.get("areaId");
-    const storedArea = window.localStorage.getItem("turnByTurnAreaId");
+    const storedArea = window.localStorage.getItem("liveNavigationAreaId");
     const areaId = queryArea || storedArea;
 
     if (!areaId) {
@@ -262,7 +262,7 @@ class TurnByTurnNavigator {
     this.selectedAreaName = this.getCoverageAreaName(selectedArea);
 
     // Check for in-progress generation first
-    const activeTask = await TurnByTurnAPI.checkActiveTask(selectedAreaId);
+    const activeTask = await LiveNavigationAPI.checkActiveTask(selectedAreaId);
     if (activeTask) {
       this.reconnectToGeneration(activeTask.task_id);
       return;
@@ -293,7 +293,7 @@ class TurnByTurnNavigator {
     this.resetRouteState();
     this.selectedAreaId = selectedValue;
     this.selectedAreaName = this.ui.getSelectedAreaName();
-    window.localStorage.setItem("turnByTurnAreaId", selectedValue);
+    window.localStorage.setItem("liveNavigationAreaId", selectedValue);
 
     this.ui.setLoadRouteEnabled(true);
 
@@ -319,7 +319,7 @@ class TurnByTurnNavigator {
 
     try {
       // Validate selected area first so stale ids do not trigger repeated route 404s.
-      const coverageData = await TurnByTurnAPI.fetchCoverageArea(this.selectedAreaId);
+      const coverageData = await LiveNavigationAPI.fetchCoverageArea(this.selectedAreaId);
 
       // If no route exists yet, skip route fetches and go straight to generation.
       if (coverageData?.has_optimal_route === false) {
@@ -328,8 +328,8 @@ class TurnByTurnNavigator {
       }
 
       const [gpxText, routeData] = await Promise.all([
-        TurnByTurnAPI.fetchOptimalRouteGpx(this.selectedAreaId),
-        TurnByTurnAPI.fetchOptimalRoute(this.selectedAreaId).catch(() => null),
+        LiveNavigationAPI.fetchOptimalRouteGpx(this.selectedAreaId),
+        LiveNavigationAPI.fetchOptimalRoute(this.selectedAreaId).catch(() => null),
       ]);
 
       const { coords, name } = this.parseGpx(gpxText);
@@ -381,7 +381,7 @@ class TurnByTurnNavigator {
       this.ui.updateRouteProgress(0, this.totalDistance, this.routeName);
       this.ui.updateRemaining(this.totalDistance);
 
-      window.localStorage.setItem("turnByTurnAreaId", this.selectedAreaId);
+      window.localStorage.setItem("liveNavigationAreaId", this.selectedAreaId);
 
       if (this.map.mapReady) {
         this.map.fitBounds(this.routeCoords, { padding: 80 });
@@ -437,11 +437,11 @@ class TurnByTurnNavigator {
     }
 
     try {
-      const taskId = await TurnByTurnAPI.startRouteGeneration(this.selectedAreaId);
+      const taskId = await LiveNavigationAPI.startRouteGeneration(this.selectedAreaId);
       this.generationTaskId = taskId;
       this.state.transitionTo(NAV_STATES.GENERATING);
 
-      this.generationEventSource = TurnByTurnAPI.connectProgressSSE(taskId, {
+      this.generationEventSource = LiveNavigationAPI.connectProgressSSE(taskId, {
         onProgress: (data) => this.handleGenerationProgress(data),
         onComplete: () => this.handleGenerationComplete(),
         onError: (err) => this.handleGenerationError(err),
@@ -469,7 +469,7 @@ class TurnByTurnNavigator {
     this.generationTaskId = taskId;
     this.state.transitionTo(NAV_STATES.GENERATING);
 
-    this.generationEventSource = TurnByTurnAPI.connectProgressSSE(taskId, {
+    this.generationEventSource = LiveNavigationAPI.connectProgressSSE(taskId, {
       onProgress: (data) => this.handleGenerationProgress(data),
       onComplete: () => this.handleGenerationComplete(),
       onError: (err) => this.handleGenerationError(err),
@@ -520,7 +520,7 @@ class TurnByTurnNavigator {
 
     if (this.generationTaskId) {
       try {
-        await TurnByTurnAPI.cancelRouteGeneration(this.generationTaskId);
+        await LiveNavigationAPI.cancelRouteGeneration(this.generationTaskId);
       } catch {
         // Ignore cancel errors
       }
@@ -576,7 +576,7 @@ class TurnByTurnNavigator {
    * Fetch estimated drive time
    */
   async fetchRouteETA() {
-    const duration = await TurnByTurnAPI.fetchRouteETA(this.routeCoords);
+    const duration = await LiveNavigationAPI.fetchRouteETA(this.routeCoords);
 
     if (duration) {
       this.estimatedDriveTime = duration;
@@ -656,8 +656,8 @@ class TurnByTurnNavigator {
   clearPersistedAreaSelection(areaId) {
     const target = String(areaId || "");
 
-    if (target && window.localStorage.getItem("turnByTurnAreaId") === target) {
-      window.localStorage.removeItem("turnByTurnAreaId");
+    if (target && window.localStorage.getItem("liveNavigationAreaId") === target) {
+      window.localStorage.removeItem("liveNavigationAreaId");
     }
 
     const url = new URL(window.location.href);
@@ -765,7 +765,7 @@ class TurnByTurnNavigator {
         this.ui.updateStartStatus("at-start", "You're on the route");
         this.ui.showBeginButton();
       } else {
-        const directions = await TurnByTurnAPI.fetchDirectionsToPoint(
+        const directions = await LiveNavigationAPI.fetchDirectionsToPoint(
           [position.lon, position.lat],
           startInfo.point
         );
@@ -802,7 +802,7 @@ class TurnByTurnNavigator {
 
     try {
       if (!this.navigateToStartRoute) {
-        const directions = await TurnByTurnAPI.fetchDirectionsToPoint(
+        const directions = await LiveNavigationAPI.fetchDirectionsToPoint(
           [this.gps.lastPosition.lon, this.gps.lastPosition.lat],
           this.state.smartStartPoint
         );
@@ -844,7 +844,7 @@ class TurnByTurnNavigator {
     this.needsStartSeed = true;
     this.gps.resetSmoothing();
 
-    if (!TurnByTurnGPS.isAvailable()) {
+    if (!LiveNavigationGPS.isAvailable()) {
       this.isNavigating = true;
       this.followMode = true;
       this.overviewMode = false;
@@ -878,7 +878,7 @@ class TurnByTurnNavigator {
     // Reconcile coverage baseline with server to capture all driven segments
     if (this.selectedAreaId) {
       try {
-        const coverageData = await TurnByTurnAPI.fetchCoverageArea(this.selectedAreaId);
+        const coverageData = await LiveNavigationAPI.fetchCoverageArea(this.selectedAreaId);
         if (coverageData) {
           this.coverageBaseline = {
             totalMi:
@@ -1201,7 +1201,7 @@ class TurnByTurnNavigator {
       return;
     }
 
-    const directions = await TurnByTurnAPI.fetchDirectionsToPoint(
+    const directions = await LiveNavigationAPI.fetchDirectionsToPoint(
       current,
       aheadResult.point
     );
@@ -1334,4 +1334,4 @@ class TurnByTurnNavigator {
   }
 }
 
-export default TurnByTurnNavigator;
+export default LiveNavigationNavigator;

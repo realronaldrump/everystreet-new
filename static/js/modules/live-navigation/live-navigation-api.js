@@ -1,11 +1,11 @@
 /**
- * Turn-by-Turn API Module
- * Handles all network/API calls
+ * Live Navigation API Module
+ * Handles all network/API calls.
  */
 
 import apiClient from "../core/api-client.js";
 
-export function buildTurnByTurnUrl({ areaId, autoStart = false } = {}) {
+export function buildLiveNavigationUrl({ areaId, autoStart = false } = {}) {
   const params = new URLSearchParams();
   if (areaId) {
     params.set("areaId", String(areaId));
@@ -14,10 +14,10 @@ export function buildTurnByTurnUrl({ areaId, autoStart = false } = {}) {
     params.set("autoStart", "true");
   }
   const query = params.toString();
-  return query ? `/turn-by-turn?${query}` : "/turn-by-turn";
+  return query ? `/live-navigation?${query}` : "/live-navigation";
 }
 
-const TurnByTurnAPI = {
+const LiveNavigationAPI = {
   /**
    * Fetch all coverage areas
    * @returns {Promise<Array>}
@@ -248,7 +248,7 @@ const TurnByTurnAPI = {
         sseOpen = false;
       }
       // Fall back to polling
-      pollHandle = TurnByTurnAPI._pollProgress(taskId, {
+      pollHandle = LiveNavigationAPI._pollProgress(taskId, {
         onProgress,
         onComplete: (data) => {
           closeConnection();
@@ -327,4 +327,4 @@ const TurnByTurnAPI = {
   },
 };
 
-export default TurnByTurnAPI;
+export default LiveNavigationAPI;

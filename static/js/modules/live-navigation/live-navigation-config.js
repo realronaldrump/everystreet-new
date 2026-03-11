@@ -1,5 +1,5 @@
 /**
- * Turn-by-Turn Navigation Configuration
+ * Live Navigation Configuration
  * Constants, defaults, and lookup tables
  */
 
@@ -21,8 +21,8 @@ export const NAV_STATES = {
 /**
  * Default configuration for the navigator
  */
-export const TURN_BY_TURN_DEFAULTS = {
-  mapContainerId: "turn-by-turn-map",
+export const LIVE_NAVIGATION_DEFAULTS = {
+  mapContainerId: "live-navigation-map",
   areaSelectId: "nav-area-select",
   loadRouteBtnId: "nav-load-route-btn",
   startBtnId: "nav-start-btn",

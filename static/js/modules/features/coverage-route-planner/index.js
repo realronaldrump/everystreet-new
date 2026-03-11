@@ -2,11 +2,11 @@ import { DrivingNavigation } from "../../driving-navigation/manager.js";
 import { DrivingNavigationUI } from "../../driving-navigation/ui.js";
 import { createMap } from "../../map-core.js";
 import { OptimalRoutesManager } from "../../optimal-route/manager.js";
-import initCoverageNavigatorUi from "./ui-scaffold.js";
+import initCoverageRoutePlannerUi from "./ui-scaffold.js";
 
 const MAP_CONTAINER_ID = "coverage-map";
 
-export default function initCoverageNavigatorPage(context = {}) {
+export default function initCoverageRoutePlannerPage(context = {}) {
   const { signal = null, cleanup = null, onCleanup = () => {} } = context;
   const noopTeardown = () => {};
 
@@ -22,7 +22,7 @@ export default function initCoverageNavigatorPage(context = {}) {
   let drivingNavigation = null;
   let optimalRoutes = null;
 
-  initCoverageNavigatorUi({ signal, onCleanup });
+  initCoverageRoutePlannerUi({ signal, onCleanup });
 
   try {
     sharedMap = createMap(MAP_CONTAINER_ID, {
@@ -30,7 +30,7 @@ export default function initCoverageNavigatorPage(context = {}) {
       zoom: 4,
     });
   } catch (error) {
-    console.error("Coverage navigator map failed to initialize", error);
+    console.error("Coverage route planner map failed to initialize", error);
     container.innerHTML =
       '<div class="alert alert-danger m-3">Error: Mapping library failed to initialize.</div>';
     if (typeof cleanup === "function") {

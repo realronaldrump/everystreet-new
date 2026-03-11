@@ -1,15 +1,15 @@
 /**
- * Turn-by-Turn GPS Module
+ * Live Navigation GPS Module
  * Handles geolocation, speed calculation, and progress smoothing
  */
 
 import geolocationService from "../geolocation-service.js";
-import { bearing, distanceMeters } from "./turn-by-turn-geo.js";
+import { bearing, distanceMeters } from "./live-navigation-geo.js";
 
 /**
- * GPS handler class for turn-by-turn navigation
+ * GPS handler class for live navigation navigation
  */
-class TurnByTurnGPS {
+class LiveNavigationGPS {
   constructor(config = {}) {
     this.config = {
       maxProgressHistoryLength: 5,
@@ -47,7 +47,7 @@ class TurnByTurnGPS {
   startGeolocation(onPosition, onError) {
     this.stopGeolocation();
 
-    if (!TurnByTurnGPS.isAvailable()) {
+    if (!LiveNavigationGPS.isAvailable()) {
       onError(new Error("Geolocation not available"));
       return;
     }
@@ -94,7 +94,7 @@ class TurnByTurnGPS {
    * @returns {Promise<{lat: number, lon: number}>}
    */
   async getCurrentPosition() {
-    if (!TurnByTurnGPS.isAvailable()) {
+    if (!LiveNavigationGPS.isAvailable()) {
       throw new Error("Geolocation not available");
     }
 
@@ -251,4 +251,4 @@ class TurnByTurnGPS {
   }
 }
 
-export default TurnByTurnGPS;
+export default LiveNavigationGPS;

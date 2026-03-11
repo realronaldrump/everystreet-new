@@ -305,58 +305,58 @@ Coverage & Routes
                       %}
                     >
                       <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i>
-                      Coverage Areas
+                      Coverage Management
                     </a>
                   </li>
                   <li role="none">
                     <a
-                      class="dropdown-item {% if request.url.path == '/coverage-navigator' %}active{% endif %}"
-                      href="/coverage-navigator"
+                      class="dropdown-item {% if request.url.path == '/coverage-route-planner' %}active{% endif %}"
+                      href="/coverage-route-planner"
                       role="menuitem"
 {%
                       if
-                      request.url.path == "/coverage-navigator"
+                      request.url.path == "/coverage-route-planner"
                       %}aria-current="page"
 {%
                       endif
                       %}
                     >
                       <i class="fas fa-route me-2" aria-hidden="true"></i>
-                      Coverage Navigator
+                      Coverage Route Planner
                     </a>
                   </li>
                   <li role="none">
                     <a
-                      class="dropdown-item owner-only {% if request.url.path == '/turn-by-turn' %}active{% endif %}"
-                      href="/turn-by-turn"
+                      class="dropdown-item owner-only {% if request.url.path == '/live-navigation' %}active{% endif %}"
+                      href="/live-navigation"
                       role="menuitem"
 {%
                       if
-                      request.url.path == "/turn-by-turn"
+                      request.url.path == "/live-navigation"
                       %}aria-current="page"
 {%
                       endif
                       %}
                     >
                       <i class="fas fa-location-arrow me-2" aria-hidden="true"></i>
-                      Turn-by-Turn
+                      Live Navigation
                     </a>
                   </li>
                   <li role="none">
                     <a
-                      class="dropdown-item {% if request.url.path == '/county-map' %}active{% endif %}"
-                      href="/county-map"
+                      class="dropdown-item {% if request.url.path == '/regional-coverage-explorer' %}active{% endif %}"
+                      href="/regional-coverage-explorer"
                       role="menuitem"
 {%
                       if
-                      request.url.path == "/county-map"
+                      request.url.path == "/regional-coverage-explorer"
                       %}aria-current="page"
 {%
                       endif
                       %}
                     >
                       <i class="fas fa-globe-americas me-2" aria-hidden="true"></i>
-                      Coverage Explorer
+                      Regional Coverage Explorer
                     </a>
                   </li>
                   <li role="separator">
@@ -673,50 +673,50 @@ System
               </li>
               <li role="none">
                 <a
-                  href="/coverage-navigator"
-                  class="{% if request.url.path == '/coverage-navigator' %}active{% endif %}"
+                  href="/coverage-route-planner"
+                  class="{% if request.url.path == '/coverage-route-planner' %}active{% endif %}"
 {%
                   if
-                  request.url.path == "/coverage-navigator"
+                  request.url.path == "/coverage-route-planner"
                   %}aria-current="page"
 {%
                   endif
                   %}
                 >
                   <i class="fas fa-route me-2" aria-hidden="true"></i> Coverage
-                  Navigator
+                  Route Planner
                 </a>
               </li>
               <li role="none" class="owner-only">
                 <a
-                  href="/turn-by-turn"
-                  class="{% if request.url.path == '/turn-by-turn' %}active{% endif %}"
+                  href="/live-navigation"
+                  class="{% if request.url.path == '/live-navigation' %}active{% endif %}"
 {%
                   if
-                  request.url.path == "/turn-by-turn"
+                  request.url.path == "/live-navigation"
                   %}aria-current="page"
 {%
                   endif
                   %}
                 >
                   <i class="fas fa-location-arrow me-2" aria-hidden="true"></i>
-                  Turn-by-Turn
+                  Live Navigation
                 </a>
               </li>
               <li role="none">
                 <a
-                  href="/county-map"
-                  class="{% if request.url.path == '/county-map' %}active{% endif %}"
+                  href="/regional-coverage-explorer"
+                  class="{% if request.url.path == '/regional-coverage-explorer' %}active{% endif %}"
 {%
                   if
-                  request.url.path == "/county-map"
+                  request.url.path == "/regional-coverage-explorer"
                   %}aria-current="page"
 {%
                   endif
                   %}
                 >
                   <i class="fas fa-globe-americas me-2" aria-hidden="true"></i>
-                  Coverage Explorer
+                  Regional Coverage Explorer
                 </a>
               </li>
             </ul>

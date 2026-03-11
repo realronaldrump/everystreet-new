@@ -1,4 +1,4 @@
 import bootstrapPage from "../modules/core/page-bootstrap.js";
-import initCountyMapPage from "../modules/features/county-map/index.js";
+import initRegionalCoverageExplorerPage from "../modules/features/regional-coverage-explorer/index.js";
 
-bootstrapPage(initCountyMapPage, "/county-map");
+bootstrapPage(initRegionalCoverageExplorerPage, "/regional-coverage-explorer");

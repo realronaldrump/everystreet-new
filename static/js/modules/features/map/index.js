@@ -1,12 +1,17 @@
 import store from "../../core/store.js";
-import initBuildings3D from "./buildings-3d.js";
+import destinationBloom from "../../destination-bloom.js";
+import particleFlow from "../../particle-flow.js";
+import tripAnimator from "../../trip-animator.js";
+import routeArt from "../../ui/route-art.js";
+import initBuildings3D, {
+  getUserBuildingsPreference,
+  isMapbox3DStyleSupported,
+  MAP_3D_SETTING_EVENT,
+  setMap3dBuildingsPreference,
+} from "./buildings-3d.js";
 import initCinematicIntro from "./cinematic-intro.js";
 import initMapControls from "./map-controls.js";
 import { initMobileMap } from "./mobile-map.js";
-import tripAnimator from "../../trip-animator.js";
-import routeArt from "../../ui/route-art.js";
-import particleFlow from "../../particle-flow.js";
-import destinationBloom from "../../destination-bloom.js";
 
 function setupMapTilt(signal, isCameraLocked = null) {
   const prefersCoarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches;
@@ -166,6 +171,13 @@ function setToggleState(button, isActive) {
   button.setAttribute("aria-pressed", String(Boolean(isActive)));
 }
 
+function setToggleVisibility(button, isVisible) {
+  if (!button) {
+    return;
+  }
+  button.hidden = !isVisible;
+}
+
 function getRenderableTrips() {
   const trips = [];
   for (const layerName of ["trips", "matchedTrips"]) {
@@ -232,6 +244,7 @@ export default function initMapPage({ signal, cleanup } = {}) {
   // Particle Flow toggle
   setupParticleFlowToggle(registerCleanup);
   setupDestinationBloomToggle(registerCleanup);
+  setupMap3dBuildingsToggle(registerCleanup);
 
   // Bouncie Simulator — lazy-loaded on toggle click
   const simToggle = document.getElementById("sim-toggle");
@@ -283,7 +296,7 @@ export default function initMapPage({ signal, cleanup } = {}) {
  * When a trip is selected on the map, its route draws itself with a glow.
  * A replay button allows re-playing the route with an animated marker.
  */
-function setupTripSelectionAnimation(mapInstance, signal, registerCleanup) {
+function setupTripSelectionAnimation(mapInstance, _signal, registerCleanup) {
   if (!mapInstance) return;
 
   let replayControlsEl = null;
@@ -291,7 +304,10 @@ function setupTripSelectionAnimation(mapInstance, signal, registerCleanup) {
   let activeTripId = null;
   const getLayerSearchOrder = () => {
     const ordered = [];
-    if (store.selectedTripLayer === "trips" || store.selectedTripLayer === "matchedTrips") {
+    if (
+      store.selectedTripLayer === "trips" ||
+      store.selectedTripLayer === "matchedTrips"
+    ) {
       ordered.push(store.selectedTripLayer);
     }
     ["trips", "matchedTrips"].forEach((layerName) => {
@@ -318,12 +334,16 @@ function setupTripSelectionAnimation(mapInstance, signal, registerCleanup) {
       if (!features) continue;
       const match = features.find((f) => {
         const fId =
-          f.properties?.transactionId || f.properties?.id || f.properties?.tripId || f.id;
+          f.properties?.transactionId ||
+          f.properties?.id ||
+          f.properties?.tripId ||
+          f.id;
         return String(fId) === String(selectedId);
       });
       if (match?.geometry) {
         if (match.geometry.type === "LineString") return match.geometry.coordinates;
-        if (match.geometry.type === "MultiLineString") return match.geometry.coordinates.flat();
+        if (match.geometry.type === "MultiLineString")
+          return match.geometry.coordinates.flat();
       }
     }
     return null;
@@ -332,7 +352,8 @@ function setupTripSelectionAnimation(mapInstance, signal, registerCleanup) {
   const showReplayControls = (coords) => {
     removeReplayControls();
 
-    const mapContainer = document.getElementById("map") || document.getElementById("map-canvas");
+    const mapContainer =
+      document.getElementById("map") || document.getElementById("map-canvas");
     if (!mapContainer) return;
 
     const el = document.createElement("div");
@@ -444,9 +465,7 @@ export function setupRouteArtToggle(registerCleanup) {
   document.addEventListener("routeArt:deactivated", syncState);
 
   registerCleanup(() => btn.removeEventListener("click", handleClick));
-  registerCleanup(() =>
-    document.removeEventListener("routeArt:activated", syncState)
-  );
+  registerCleanup(() => document.removeEventListener("routeArt:activated", syncState));
   registerCleanup(() =>
     document.removeEventListener("routeArt:deactivated", syncState)
   );
@@ -499,11 +518,15 @@ export function setupParticleFlowToggle(registerCleanup) {
   document.addEventListener("tripsDataLoaded", handleDataRefresh);
   document.addEventListener("matchedTripsDataLoaded", handleDataRefresh);
   document.addEventListener("es:filters-change", handleDataRefresh);
-  registerCleanup(() => document.removeEventListener("tripsDataLoaded", handleDataRefresh));
+  registerCleanup(() =>
+    document.removeEventListener("tripsDataLoaded", handleDataRefresh)
+  );
   registerCleanup(() =>
     document.removeEventListener("matchedTripsDataLoaded", handleDataRefresh)
   );
-  registerCleanup(() => document.removeEventListener("es:filters-change", handleDataRefresh));
+  registerCleanup(() =>
+    document.removeEventListener("es:filters-change", handleDataRefresh)
+  );
 
   // Re-hide trip layers after a style change restores them
   const handleStyleChange = () => {
@@ -528,7 +551,9 @@ export function setupParticleFlowToggle(registerCleanup) {
     }
   };
   document.addEventListener("mapStyleLoaded", handleStyleChange);
-  registerCleanup(() => document.removeEventListener("mapStyleLoaded", handleStyleChange));
+  registerCleanup(() =>
+    document.removeEventListener("mapStyleLoaded", handleStyleChange)
+  );
 
   registerCleanup(() => {
     particleFlow.destroy();
@@ -585,14 +610,52 @@ export function setupDestinationBloomToggle(registerCleanup) {
   registerCleanup(() =>
     document.removeEventListener("destinationBloom:deactivated", syncState)
   );
-  registerCleanup(() => document.removeEventListener("tripsDataLoaded", handleDataRefresh));
+  registerCleanup(() =>
+    document.removeEventListener("tripsDataLoaded", handleDataRefresh)
+  );
   registerCleanup(() =>
     document.removeEventListener("matchedTripsDataLoaded", handleDataRefresh)
   );
-  registerCleanup(() => document.removeEventListener("es:filters-change", handleDataRefresh));
-  registerCleanup(() => document.removeEventListener("mapStyleLoaded", handleStyleChange));
+  registerCleanup(() =>
+    document.removeEventListener("es:filters-change", handleDataRefresh)
+  );
+  registerCleanup(() =>
+    document.removeEventListener("mapStyleLoaded", handleStyleChange)
+  );
   registerCleanup(() => {
     destinationBloom.destroy();
     setToggleState(btn, false);
   });
+}
+
+export function setupMap3dBuildingsToggle(registerCleanup) {
+  const btn = document.getElementById("map-3d-buildings-fab");
+  if (!btn) return;
+
+  const syncState = () => {
+    const map = store.map || window.map;
+    const isRelevant = isMapbox3DStyleSupported(map);
+    setToggleVisibility(btn, isRelevant);
+    setToggleState(btn, isRelevant && getUserBuildingsPreference());
+  };
+
+  const handleClick = () => {
+    const map = store.map || window.map;
+    if (!isMapbox3DStyleSupported(map)) {
+      syncState();
+      return;
+    }
+
+    setMap3dBuildingsPreference(!getUserBuildingsPreference());
+    syncState();
+  };
+
+  btn.addEventListener("click", handleClick);
+  document.addEventListener(MAP_3D_SETTING_EVENT, syncState);
+  document.addEventListener("mapStyleLoaded", syncState);
+  syncState();
+
+  registerCleanup(() => btn.removeEventListener("click", handleClick));
+  registerCleanup(() => document.removeEventListener(MAP_3D_SETTING_EVENT, syncState));
+  registerCleanup(() => document.removeEventListener("mapStyleLoaded", syncState));
 }

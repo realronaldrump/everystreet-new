@@ -233,7 +233,7 @@ async def get_all_streets(
     """
     Get all street segments for an area with coverage status.
 
-    Intended for full-area workflows such as turn-by-turn coverage.
+    Intended for full-area workflows such as live navigation coverage.
     """
     area = await CoverageArea.get(area_id)
     if not area:

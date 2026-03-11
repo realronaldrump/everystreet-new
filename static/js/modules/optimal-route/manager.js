@@ -1,5 +1,5 @@
 import { swupReady } from "../core/navigation.js";
-import { buildTurnByTurnUrl } from "../turn-by-turn/turn-by-turn-api.js";
+import { buildLiveNavigationUrl } from "../live-navigation/live-navigation-api.js";
 import { OptimalRouteAPI } from "./api.js";
 import { OPTIMAL_ROUTES_DEFAULTS } from "./constants.js";
 import { OptimalRouteMap } from "./map.js";
@@ -82,11 +82,11 @@ export class OptimalRoutesManager {
       signal ? { signal } : false
     );
 
-    // Start turn-by-turn navigation
-    this.ui.turnByTurnBtn?.addEventListener(
+    // Start live navigation
+    this.ui.liveNavigationBtn?.addEventListener(
       "click",
       () => {
-        this.openTurnByTurn();
+        this.openLiveNavigation();
       },
       signal ? { signal } : false
     );
@@ -307,7 +307,7 @@ export class OptimalRoutesManager {
 
     this.selectedAreaId = nextAreaId || null;
     this.lastSelectedAreaId = nextAreaId;
-    this.ui.setTurnByTurnEnabled(false);
+    this.ui.setLiveNavigationEnabled(false);
 
     if (!nextAreaId) {
       const generateBtn = document.getElementById("generate-route-btn");
@@ -480,7 +480,7 @@ export class OptimalRoutesManager {
     this.map.clearRoute();
     document.getElementById("results-section").style.display = "none";
     document.getElementById("error-section").style.display = "none";
-    this.ui.setTurnByTurnEnabled(false);
+    this.ui.setLiveNavigationEnabled(false);
     this.ui.hideReplayButton();
 
     if (this.selectedAreaId) {
@@ -494,20 +494,20 @@ export class OptimalRoutesManager {
     }
   }
 
-  openTurnByTurn() {
+  openLiveNavigation() {
     if (!this.selectedAreaId) {
       this.ui.showNotification("Select a coverage area first.", "warning");
       return;
     }
-    if (this.ui.turnByTurnBtn?.disabled) {
+    if (this.ui.liveNavigationBtn?.disabled) {
       this.ui.showNotification(
         "Generate a route before starting navigation.",
         "warning"
       );
       return;
     }
-    window.localStorage.setItem("turnByTurnAreaId", this.selectedAreaId);
-    const href = buildTurnByTurnUrl({ areaId: this.selectedAreaId });
+    window.localStorage.setItem("liveNavigationAreaId", this.selectedAreaId);
+    const href = buildLiveNavigationUrl({ areaId: this.selectedAreaId });
     swupReady.then((swup) => {
       swup.navigate(href);
     });

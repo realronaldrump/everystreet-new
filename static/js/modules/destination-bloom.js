@@ -290,6 +290,7 @@ const destinationBloom = {
   _canvas: null,
   _ctx: null,
   _tooltip: null,
+  _emptyNotice: null,
   _animFrame: null,
   _fading: null,
   _fadeStart: 0,
@@ -305,6 +306,8 @@ const destinationBloom = {
   _pointerMoveHandler: null,
   _pointerLeaveHandler: null,
   _pointerClickHandler: null,
+  _touchStartHandler: null,
+  _touchEndHandler: null,
   _hoveredClusterId: null,
   _pinnedClusterId: null,
   _lastPointer: null,
@@ -404,6 +407,7 @@ const destinationBloom = {
     this._resizeCanvas();
     this._reprojectAndCluster();
     this._hideTripLayers(store.map);
+    this._updateEmptyNotice();
 
     if (this._prefersReducedMotion()) {
       this._render(performance.now());
@@ -564,6 +568,7 @@ const destinationBloom = {
       this._lastPointer = pointer;
       const cluster = this._findClusterAtPoint(pointer.x, pointer.y);
       this._hoveredClusterId = cluster?.id || null;
+      this._updateCursor(cluster);
       this._updateTooltip(cluster, pointer);
     };
 
@@ -572,6 +577,7 @@ const destinationBloom = {
         return;
       }
       this._hoveredClusterId = null;
+      this._updateCursor(null);
       this._hideTooltip();
     };
 
@@ -599,9 +605,35 @@ const destinationBloom = {
       this._updateTooltip(cluster, pointer);
     };
 
-    container.addEventListener("mousemove", this._pointerMoveHandler, { passive: true });
-    container.addEventListener("mouseleave", this._pointerLeaveHandler);
+    container.addEventListener("pointermove", this._pointerMoveHandler, { passive: true });
+    container.addEventListener("pointerleave", this._pointerLeaveHandler);
     container.addEventListener("click", this._pointerClickHandler);
+
+    this._touchStartHandler = (event) => {
+      if (!this._active || event.touches.length !== 1) return;
+      this._lastTouchStart = performance.now();
+    };
+    this._touchEndHandler = (event) => {
+      if (!this._active) return;
+      const elapsed = performance.now() - (this._lastTouchStart || 0);
+      if (elapsed > 400) return;
+      const pointer = this._getPointerPosition(event);
+      if (!pointer) return;
+      this._lastPointer = pointer;
+      const cluster = this._findClusterAtPoint(pointer.x, pointer.y);
+      if (!cluster) {
+        this._pinnedClusterId = null;
+        this._hoveredClusterId = null;
+        this._hideTooltip();
+        return;
+      }
+      this._pinnedClusterId =
+        this._pinnedClusterId === cluster.id ? null : cluster.id;
+      this._hoveredClusterId = cluster.id;
+      this._updateTooltip(cluster, pointer);
+    };
+    container.addEventListener("touchstart", this._touchStartHandler, { passive: true });
+    container.addEventListener("touchend", this._touchEndHandler);
   },
 
   _unbindPointerEvents() {
@@ -611,18 +643,26 @@ const destinationBloom = {
     }
 
     if (this._pointerMoveHandler) {
-      container.removeEventListener("mousemove", this._pointerMoveHandler);
+      container.removeEventListener("pointermove", this._pointerMoveHandler);
     }
     if (this._pointerLeaveHandler) {
-      container.removeEventListener("mouseleave", this._pointerLeaveHandler);
+      container.removeEventListener("pointerleave", this._pointerLeaveHandler);
     }
     if (this._pointerClickHandler) {
       container.removeEventListener("click", this._pointerClickHandler);
+    }
+    if (this._touchStartHandler) {
+      container.removeEventListener("touchstart", this._touchStartHandler);
+    }
+    if (this._touchEndHandler) {
+      container.removeEventListener("touchend", this._touchEndHandler);
     }
 
     this._pointerMoveHandler = null;
     this._pointerLeaveHandler = null;
     this._pointerClickHandler = null;
+    this._touchStartHandler = null;
+    this._touchEndHandler = null;
   },
 
   _getPointerPosition(event) {
@@ -707,8 +747,11 @@ const destinationBloom = {
       );
     }
 
-    const maxX = Math.max(pointer.width - 220, 12);
-    const maxY = Math.max(pointer.height - 100, 12);
+    const tooltipRect = this._tooltip.getBoundingClientRect?.();
+    const tipW = tooltipRect?.width || 220;
+    const tipH = tooltipRect?.height || 100;
+    const maxX = Math.max(pointer.width - tipW - 8, 12);
+    const maxY = Math.max(pointer.height - tipH - 8, 12);
     const left = clamp(pointer.x + TOOLTIP_OFFSET_X, 12, maxX);
     const top = clamp(pointer.y + TOOLTIP_OFFSET_Y, 12, maxY);
 
@@ -913,6 +956,26 @@ const destinationBloom = {
     });
 
     ctx.globalCompositeOperation = "source-over";
+
+    // Render count labels on clusters large enough to fit text
+    const MIN_LABEL_RADIUS = 11;
+    this._clusters.forEach((cluster) => {
+      if (cluster.count < 2) return;
+      const pulse = reducedMotion
+        ? 1
+        : 1 + Math.sin(now * 0.0014 + cluster.phase) * 0.08;
+      const baseRadius = cluster.radius * pulse * dpr;
+      if (baseRadius / dpr < MIN_LABEL_RADIUS) return;
+
+      const drawX = cluster.x * dpr;
+      const drawY = cluster.y * dpr;
+      const fontSize = Math.round(clamp(baseRadius * 0.52, 8 * dpr, 14 * dpr));
+      ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.92 * this._opacity})`;
+      ctx.fillText(String(cluster.count), drawX, drawY + 1 * dpr);
+    });
   },
 
   _paletteForCurrentStyle() {
@@ -949,6 +1012,35 @@ const destinationBloom = {
     return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
   },
 
+  _updateCursor(cluster) {
+    const container = store.map?.getCanvasContainer?.();
+    if (!container) return;
+    container.style.cursor = cluster ? "pointer" : "";
+  },
+
+  _updateEmptyNotice() {
+    if (this._clusters.length > 0 || !this._active) {
+      this._removeEmptyNotice();
+      return;
+    }
+    if (this._emptyNotice) return;
+
+    const container = store.map?.getCanvasContainer?.();
+    if (!container) return;
+
+    const notice = document.createElement("div");
+    notice.className = "destination-bloom-empty";
+    notice.textContent = "No destinations to display";
+    container.appendChild(notice);
+    this._emptyNotice = notice;
+    requestAnimationFrame(() => notice.classList.add("is-visible"));
+  },
+
+  _removeEmptyNotice() {
+    this._emptyNotice?.remove?.();
+    this._emptyNotice = null;
+  },
+
   _finalizeDeactivate() {
     this._stopLoop();
     if (this._deactivationTimer) {
@@ -957,9 +1049,11 @@ const destinationBloom = {
     }
     this._unbindMapEvents();
     this._unbindPointerEvents();
+    this._updateCursor(null);
     this._restoreTripLayers(store.map);
     this._hideTooltip();
     this._removeTooltip();
+    this._removeEmptyNotice();
     this._removeCanvas();
     this._points = [];
     this._clusters = [];

@@ -320,7 +320,7 @@ function setRouteState(pathname) {
   const path = pathname || window.location.pathname;
   document.body.dataset.route = path;
   document.body.classList.toggle("map-page", path === "/map");
-  document.body.classList.toggle("turn-by-turn-active", path === "/turn-by-turn");
+  document.body.classList.toggle("live-navigation-active", path === "/live-navigation");
   updateNav(path);
   updateMapShellA11y(path);
 }

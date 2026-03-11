@@ -1,19 +1,19 @@
 /**
- * Turn-by-Turn UI Module
- * DOM element caching and UI updates
+ * Live Navigation UI Module
+ * DOM element caching and UI updates.
  */
 
-import { DURATION_LABELS, NAV_STATES } from "./turn-by-turn-config.js";
+import { DURATION_LABELS, NAV_STATES } from "./live-navigation-config.js";
 import {
   formatDistance,
   getInstructionText,
   getTurnRotation,
-} from "./turn-by-turn-geo.js";
+} from "./live-navigation-geo.js";
 
 /**
- * UI manager for turn-by-turn navigation
+ * UI manager for live navigation.
  */
-class TurnByTurnUI {
+class LiveNavigationUI {
   constructor(config = {}) {
     this.config = config;
     this.elements = {};
@@ -680,4 +680,4 @@ class TurnByTurnUI {
   }
 }
 
-export default TurnByTurnUI;
+export default LiveNavigationUI;

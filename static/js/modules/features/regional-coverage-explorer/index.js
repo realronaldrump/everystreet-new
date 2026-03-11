@@ -1,16 +1,16 @@
 /* global topojson */
 /**
- * Unified County/State/City Coverage Explorer
+ * Unified Regional Coverage Explorer
  */
 
 import { coverageBoundingBoxToMapBounds } from "../../core/coverage-bounds.js";
 import { swupReady } from "../../core/navigation.js";
-import * as CoverageAPI from "../../county-map/api.js";
-import { getStateName, MAP_CONFIG } from "../../county-map/constants.js";
+import * as RegionalCoverageExplorerAPI from "../../regional-coverage-explorer/api.js";
+import { getStateName, MAP_CONFIG } from "../../regional-coverage-explorer/constants.js";
 import {
   cleanupInteractions,
   setupInteractions,
-} from "../../county-map/interactions.js";
+} from "../../regional-coverage-explorer/interactions.js";
 import {
   applyCityVisitFeatureState,
   applyCountyVisitFeatureState,
@@ -19,13 +19,13 @@ import {
   renderLevelLayers,
   setSelectionHighlight,
   updateStopLayerVisibility,
-} from "../../county-map/map-layers.js";
-import * as CountyMapState from "../../county-map/state.js";
+} from "../../regional-coverage-explorer/map-layers.js";
+import * as RegionalCoverageExplorerState from "../../regional-coverage-explorer/state.js";
 import {
   clearStoredRecalcState,
   getStoredRecalcState,
   storeRecalcState,
-} from "../../county-map/storage.js";
+} from "../../regional-coverage-explorer/storage.js";
 import {
   hideLoading,
   renderCityRows,
@@ -37,7 +37,7 @@ import {
   updateLoadingText,
   updateRecalculateUi,
   updateSummaryBar,
-} from "../../county-map/ui.js";
+} from "../../regional-coverage-explorer/ui.js";
 import { createMap } from "../../map-core.js";
 import notificationManager from "../../ui/notifications.js";
 
@@ -168,7 +168,7 @@ function getCameraState(map) {
 }
 
 function createCoverageMap(camera) {
-  return createMap("county-map", {
+  return createMap("regional-coverage-explorer-map", {
     style: getMapStyle(),
     center: camera?.center || MAP_CONFIG.center,
     zoom: Number.isFinite(camera?.zoom) ? camera.zoom : MAP_CONFIG.zoom,
@@ -305,15 +305,15 @@ export function getCountyActivityStateFips({
 }
 
 export function getCityTabStateRollups(
-  stateRollups = CountyMapState.getStateRollups(),
+  stateRollups = RegionalCoverageExplorerState.getStateRollups(),
   activityStateFips = null
 ) {
   const rollups = Array.isArray(stateRollups) ? stateRollups : [];
   const activeSet =
     activityStateFips ||
     getCountyActivityStateFips({
-      countyVisits: CountyMapState.getCountyVisits(),
-      countyStops: CountyMapState.getCountyStops(),
+      countyVisits: RegionalCoverageExplorerState.getCountyVisits(),
+      countyStops: RegionalCoverageExplorerState.getCountyStops(),
     });
   return rollups.filter(
     (entry) =>
@@ -322,9 +322,9 @@ export function getCityTabStateRollups(
   );
 }
 
-function getPreferredStateFips(stateRollups = CountyMapState.getStateRollups()) {
+function getPreferredStateFips(stateRollups = RegionalCoverageExplorerState.getStateRollups()) {
   const rollups = Array.isArray(stateRollups) ? stateRollups : [];
-  const existing = CountyMapState.getSelectedStateFips();
+  const existing = RegionalCoverageExplorerState.getSelectedStateFips();
   if (existing && rollups.some((entry) => String(entry?.stateFips) === existing)) {
     return existing;
   }
@@ -364,16 +364,16 @@ function updateStateSelector() {
 
   const selected = getPreferredStateFips(states);
   if (!selected) {
-    CountyMapState.setSelectedStateFips(null);
+    RegionalCoverageExplorerState.setSelectedStateFips(null);
     return;
   }
   select.value = selected;
-  CountyMapState.setSelectedStateFips(selected);
+  RegionalCoverageExplorerState.setSelectedStateFips(selected);
 }
 
 function fitToState(stateFips) {
-  const map = CountyMapState.getMap();
-  const stateBounds = CountyMapState.getStateBounds();
+  const map = RegionalCoverageExplorerState.getMap();
+  const stateBounds = RegionalCoverageExplorerState.getStateBounds();
   const bounds = stateBounds[stateFips];
   if (!map || !Array.isArray(bounds) || bounds.length !== 2) {
     return;
@@ -424,7 +424,7 @@ function getGeometryBounds(geometry) {
 }
 
 function fitToFeatureGeometry(feature, { padding = 40, maxZoom = 10 } = {}) {
-  const map = CountyMapState.getMap();
+  const map = RegionalCoverageExplorerState.getMap();
   const geometryBounds = getGeometryBounds(feature?.geometry);
   if (!map || !Array.isArray(geometryBounds) || geometryBounds.length !== 2) {
     return;
@@ -437,8 +437,8 @@ function bindStateList(sortBy = null) {
   const sortSelect = document.getElementById("state-sort");
   const resolvedSort = sortBy || sortSelect?.value || "name";
   const countyActivityStateFips = getCountyActivityStateFips({
-    countyVisits: CountyMapState.getCountyVisits(),
-    countyStops: CountyMapState.getCountyStops(),
+    countyVisits: RegionalCoverageExplorerState.getCountyVisits(),
+    countyStops: RegionalCoverageExplorerState.getCountyStops(),
   });
 
   renderStateStatsList({
@@ -446,16 +446,16 @@ function bindStateList(sortBy = null) {
     includeState: (entry) =>
       countyActivityStateFips.has(String(entry?.stateFips || "").padStart(2, "0")),
     onSelectState: async (stateFips) => {
-      CountyMapState.setSelectedStateFips(stateFips);
+      RegionalCoverageExplorerState.setSelectedStateFips(stateFips);
       setSelectionHighlight(stateFips, "state");
       updateStateSelector();
       fitToState(stateFips);
 
-      if (CountyMapState.getActiveLevel() !== "city") {
+      if (RegionalCoverageExplorerState.getActiveLevel() !== "city") {
         bindStateList(resolvedSort);
       }
 
-      if (CountyMapState.getActiveLevel() === "city") {
+      if (RegionalCoverageExplorerState.getActiveLevel() === "city") {
         const token = ++levelRenderToken;
         await renderCityMode(token);
       }
@@ -464,8 +464,8 @@ function bindStateList(sortBy = null) {
 }
 
 function applySummary(summary) {
-  CountyMapState.setSummary(summary);
-  CountyMapState.setStateRollups(summary?.states || []);
+  RegionalCoverageExplorerState.setSummary(summary);
+  RegionalCoverageExplorerState.setStateRollups(summary?.states || []);
   updateSummaryBar();
   updateLastUpdated(summary?.lastUpdated);
 }
@@ -474,10 +474,10 @@ async function loadBaseData(signal) {
   updateLoadingText("Loading coverage summary...");
   const [summary, countyTopologyPayload, countyVisitsPayload, stateTopologyPayload] =
     await Promise.all([
-      CoverageAPI.fetchSummary({ signal }),
-      CoverageAPI.fetchCountyTopology({ signal }),
-      CoverageAPI.fetchVisitedCounties({ signal }),
-      CoverageAPI.fetchStateTopology({ signal }),
+      RegionalCoverageExplorerAPI.fetchSummary({ signal }),
+      RegionalCoverageExplorerAPI.fetchCountyTopology({ signal }),
+      RegionalCoverageExplorerAPI.fetchVisitedCounties({ signal }),
+      RegionalCoverageExplorerAPI.fetchStateTopology({ signal }),
     ]);
 
   if (signal?.aborted || pageSignal?.aborted) {
@@ -496,17 +496,17 @@ async function loadBaseData(signal) {
     countyData.features
   );
 
-  CountyMapState.setCountyData(countyData);
-  CountyMapState.setStatesData(statesData);
-  CountyMapState.setCountyToState(countyToState);
-  CountyMapState.setStateTotals(stateTotals);
-  CountyMapState.setStateBounds(stateBounds);
-  CountyMapState.setTotalCounties(countyData.features.length);
+  RegionalCoverageExplorerState.setCountyData(countyData);
+  RegionalCoverageExplorerState.setStatesData(statesData);
+  RegionalCoverageExplorerState.setCountyToState(countyToState);
+  RegionalCoverageExplorerState.setStateTotals(stateTotals);
+  RegionalCoverageExplorerState.setStateBounds(stateBounds);
+  RegionalCoverageExplorerState.setTotalCounties(countyData.features.length);
 
-  CountyMapState.setCountyVisits(countyVisitsPayload.visits || {});
-  CountyMapState.setCountyStops(countyVisitsPayload.stopped || {});
+  RegionalCoverageExplorerState.setCountyVisits(countyVisitsPayload.visits || {});
+  RegionalCoverageExplorerState.setCountyStops(countyVisitsPayload.stopped || {});
 
-  CountyMapState.setStateFeatureCollection(
+  RegionalCoverageExplorerState.setStateFeatureCollection(
     stateTopologyPayload.featureCollection || null
   );
 
@@ -560,7 +560,7 @@ function handleCountyClickFromMap(event) {
     return;
   }
 
-  CountyMapState.setSelectedCountyFips(countyFips);
+  RegionalCoverageExplorerState.setSelectedCountyFips(countyFips);
   setSelectionHighlight(countyFips, "county");
   fitToFeatureGeometry(feature, { maxZoom: 9 });
 }
@@ -579,13 +579,13 @@ function handleStateClickFromMap(event) {
     return;
   }
 
-  CountyMapState.setSelectedStateFips(stateFips);
+  RegionalCoverageExplorerState.setSelectedStateFips(stateFips);
   setSelectionHighlight(stateFips, "state");
   updateStateSelector();
   fitToState(stateFips);
   bindStateList(document.getElementById("state-sort")?.value || null);
 
-  if (CountyMapState.getActiveLevel() === "city") {
+  if (RegionalCoverageExplorerState.getActiveLevel() === "city") {
     const token = ++levelRenderToken;
     void renderCityMode(token);
   }
@@ -602,7 +602,7 @@ function handleCityClickFromMap(event) {
     return;
   }
 
-  CountyMapState.setSelectedCityId(cityId);
+  RegionalCoverageExplorerState.setSelectedCityId(cityId);
   setSelectionHighlight(cityId, "city");
   fitToFeatureGeometry(feature, { maxZoom: 10 });
 
@@ -619,22 +619,22 @@ async function loadCityAssetsForState(stateFips, signal) {
     return;
   }
 
-  let cityFeatureCollection = CountyMapState.getCityFeatureCollection(stateFips);
+  let cityFeatureCollection = RegionalCoverageExplorerState.getCityFeatureCollection(stateFips);
   if (!cityFeatureCollection) {
-    const topologyResponse = await CoverageAPI.fetchCityTopology(stateFips, { signal });
+    const topologyResponse = await RegionalCoverageExplorerAPI.fetchCityTopology(stateFips, { signal });
     if (signal?.aborted || pageSignal?.aborted) {
       return;
     }
     cityFeatureCollection = topologyResponse.featureCollection;
-    CountyMapState.setCityFeatureCollection(stateFips, cityFeatureCollection);
+    RegionalCoverageExplorerState.setCityFeatureCollection(stateFips, cityFeatureCollection);
   }
 
-  const cityVisits = await CoverageAPI.fetchCityVisits(stateFips, { signal });
+  const cityVisits = await RegionalCoverageExplorerAPI.fetchCityVisits(stateFips, { signal });
   if (signal?.aborted || pageSignal?.aborted) {
     return;
   }
-  CountyMapState.setCityVisitsForState(stateFips, cityVisits.visits || {});
-  CountyMapState.setCityStopsForState(stateFips, cityVisits.stopped || {});
+  RegionalCoverageExplorerState.setCityVisitsForState(stateFips, cityVisits.visits || {});
+  RegionalCoverageExplorerState.setCityStopsForState(stateFips, cityVisits.stopped || {});
 }
 
 function bindCityPaginationHandlers(stateFips, currentPage, totalPages) {
@@ -655,7 +655,7 @@ function bindCityPaginationHandlers(stateFips, currentPage, totalPages) {
 }
 
 function bindCityRowHandlers(cities) {
-  const map = CountyMapState.getMap();
+  const map = RegionalCoverageExplorerState.getMap();
   if (!map) {
     return;
   }
@@ -667,7 +667,7 @@ function bindCityRowHandlers(cities) {
         return;
       }
 
-      CountyMapState.setSelectedCityId(cityId);
+      RegionalCoverageExplorerState.setSelectedCityId(cityId);
       setSelectionHighlight(cityId, "city");
 
       document.querySelectorAll(".city-stat-item").forEach((row) => {
@@ -693,7 +693,7 @@ function bindCityRowHandlers(cities) {
 }
 
 async function loadCityList(stateFips, page = 1) {
-  if (!stateFips || CountyMapState.getActiveLevel() !== "city") {
+  if (!stateFips || RegionalCoverageExplorerState.getActiveLevel() !== "city") {
     return;
   }
 
@@ -704,7 +704,7 @@ async function loadCityList(stateFips, page = 1) {
   const signal = beginLevelRequestCycle();
   const currentToken = levelRenderToken;
 
-  const payload = await CoverageAPI.fetchCities({
+  const payload = await RegionalCoverageExplorerAPI.fetchCities({
     stateFips,
     status: statusValue,
     q: searchValue,
@@ -718,12 +718,12 @@ async function loadCityList(stateFips, page = 1) {
     signal?.aborted ||
     pageSignal?.aborted ||
     currentToken !== levelRenderToken ||
-    CountyMapState.getActiveLevel() !== "city"
+    RegionalCoverageExplorerState.getActiveLevel() !== "city"
   ) {
     return;
   }
 
-  CountyMapState.setCityListForState(stateFips, payload);
+  RegionalCoverageExplorerState.setCityListForState(stateFips, payload);
   renderCityRows(payload);
 
   const pagination = payload?.pagination || {};
@@ -737,22 +737,22 @@ async function loadCityList(stateFips, page = 1) {
 }
 
 function renderCountyMode() {
-  const map = CountyMapState.getMap();
+  const map = RegionalCoverageExplorerState.getMap();
   if (!map) {
     return;
   }
 
   renderLevelLayers("county", {
-    countyData: CountyMapState.getCountyData(),
-    statesData: CountyMapState.getStatesData(),
-    showStoppedCounties: CountyMapState.getShowStoppedCounties(),
+    countyData: RegionalCoverageExplorerState.getCountyData(),
+    statesData: RegionalCoverageExplorerState.getStatesData(),
+    showStoppedCounties: RegionalCoverageExplorerState.getShowStoppedCounties(),
   });
   applyCountyVisitFeatureState(
     map,
-    CountyMapState.getCountyVisits(),
-    CountyMapState.getCountyStops()
+    RegionalCoverageExplorerState.getCountyVisits(),
+    RegionalCoverageExplorerState.getCountyStops()
   );
-  setSelectionHighlight(CountyMapState.getSelectedCountyFips(), "county");
+  setSelectionHighlight(RegionalCoverageExplorerState.getSelectedCountyFips(), "county");
   updateStopLayerVisibility();
   detachLevelClickHandlers(map);
   attachCountyClickHandler(map);
@@ -760,37 +760,37 @@ function renderCountyMode() {
 }
 
 function renderStateMode() {
-  const map = CountyMapState.getMap();
+  const map = RegionalCoverageExplorerState.getMap();
   if (!map) {
     return;
   }
 
   renderLevelLayers("state", {
-    stateFeatureCollection: CountyMapState.getStateFeatureCollection(),
+    stateFeatureCollection: RegionalCoverageExplorerState.getStateFeatureCollection(),
   });
-  applyStateVisitFeatureState(map, CountyMapState.getStateRollups());
-  setSelectionHighlight(CountyMapState.getSelectedStateFips(), "state");
+  applyStateVisitFeatureState(map, RegionalCoverageExplorerState.getStateRollups());
+  setSelectionHighlight(RegionalCoverageExplorerState.getSelectedStateFips(), "state");
   detachLevelClickHandlers(map);
   attachStateClickHandler(map);
   setupInteractions();
 }
 
 async function renderCityMode(token) {
-  const map = CountyMapState.getMap();
+  const map = RegionalCoverageExplorerState.getMap();
   if (!map) {
     return;
   }
 
   const stateFips = getPreferredStateFips(getCityTabStateRollups());
   if (!stateFips) {
-    CountyMapState.setSelectedStateFips(null);
-    CountyMapState.setSelectedCityId(null);
+    RegionalCoverageExplorerState.setSelectedStateFips(null);
+    RegionalCoverageExplorerState.setSelectedCityId(null);
     renderLevelLayers("city", {
       cityFeatureCollection: {
         type: "FeatureCollection",
         features: [],
       },
-      showStoppedCities: CountyMapState.getShowStoppedCities(),
+      showStoppedCities: RegionalCoverageExplorerState.getShowStoppedCities(),
     });
     applyCityVisitFeatureState(map, {}, {});
     setSelectionHighlight("", "city");
@@ -800,7 +800,7 @@ async function renderCityMode(token) {
     renderCityRows({ cities: [], pagination: { page: 1, totalPages: 1 } });
     return;
   }
-  CountyMapState.setSelectedStateFips(stateFips);
+  RegionalCoverageExplorerState.setSelectedStateFips(stateFips);
 
   const signal = beginLevelRequestCycle();
   await loadCityAssetsForState(stateFips, signal);
@@ -809,21 +809,21 @@ async function renderCityMode(token) {
     signal?.aborted ||
     pageSignal?.aborted ||
     token !== levelRenderToken ||
-    CountyMapState.getActiveLevel() !== "city"
+    RegionalCoverageExplorerState.getActiveLevel() !== "city"
   ) {
     return;
   }
 
-  const cityFeatureCollection = CountyMapState.getCityFeatureCollection(stateFips);
+  const cityFeatureCollection = RegionalCoverageExplorerState.getCityFeatureCollection(stateFips);
   renderLevelLayers("city", {
     cityFeatureCollection,
-    showStoppedCities: CountyMapState.getShowStoppedCities(),
+    showStoppedCities: RegionalCoverageExplorerState.getShowStoppedCities(),
   });
 
-  const cityVisits = CountyMapState.getCityVisitsForState(stateFips);
-  const cityStops = CountyMapState.getCityStopsForState(stateFips);
+  const cityVisits = RegionalCoverageExplorerState.getCityVisitsForState(stateFips);
+  const cityStops = RegionalCoverageExplorerState.getCityStopsForState(stateFips);
   applyCityVisitFeatureState(map, cityVisits, cityStops);
-  setSelectionHighlight(CountyMapState.getSelectedCityId(), "city");
+  setSelectionHighlight(RegionalCoverageExplorerState.getSelectedCityId(), "city");
   updateStopLayerVisibility();
   detachLevelClickHandlers(map);
   attachCityClickHandler(map);
@@ -833,7 +833,7 @@ async function renderCityMode(token) {
 }
 
 async function renderActiveLevel() {
-  const level = CountyMapState.getActiveLevel();
+  const level = RegionalCoverageExplorerState.getActiveLevel();
   const token = ++levelRenderToken;
 
   updateLevelUi(level);
@@ -863,7 +863,7 @@ async function loadAndRenderCoverage(map, { recovery = false } = {}) {
     if (
       requestSignal.aborted ||
       pageSignal?.aborted ||
-      map !== CountyMapState.getMap()
+      map !== RegionalCoverageExplorerState.getMap()
     ) {
       return;
     }
@@ -871,8 +871,8 @@ async function loadAndRenderCoverage(map, { recovery = false } = {}) {
     await renderActiveLevel();
     hideLoading();
 
-    const countyVisits = CountyMapState.getCountyVisits();
-    const countyStops = CountyMapState.getCountyStops();
+    const countyVisits = RegionalCoverageExplorerState.getCountyVisits();
+    const countyStops = RegionalCoverageExplorerState.getCountyStops();
     const hasVisits = Object.keys(countyVisits).length > 0;
     const hasStops = Object.keys(countyStops).length > 0;
 
@@ -918,7 +918,7 @@ function recoverFromContextLoss() {
   contextRecoveryAttempts += 1;
   contextRecoveryLastAttemptAtMs = now;
 
-  const currentMap = CountyMapState.getMap();
+  const currentMap = RegionalCoverageExplorerState.getMap();
   const camera = getCameraState(currentMap);
   updateLoadingText("Recovering map rendering...");
 
@@ -935,7 +935,7 @@ function recoverFromContextLoss() {
 
   try {
     const replacementMap = createCoverageMap(camera);
-    CountyMapState.setMap(replacementMap);
+    RegionalCoverageExplorerState.setMap(replacementMap);
     bindMapLifecycle(replacementMap, { recovery: true });
   } catch (error) {
     contextRecoveryInProgress = false;
@@ -945,7 +945,7 @@ function recoverFromContextLoss() {
 
 function bindMapLifecycle(map, { recovery = false } = {}) {
   map.on("webglcontextlost", (event) => {
-    if (map !== CountyMapState.getMap()) {
+    if (map !== RegionalCoverageExplorerState.getMap()) {
       return;
     }
     event.preventDefault();
@@ -953,7 +953,7 @@ function bindMapLifecycle(map, { recovery = false } = {}) {
   });
 
   map.on("webglcontextrestored", () => {
-    if (map !== CountyMapState.getMap() || pageSignal?.aborted) {
+    if (map !== RegionalCoverageExplorerState.getMap() || pageSignal?.aborted) {
       return;
     }
     void renderActiveLevel();
@@ -975,10 +975,10 @@ function setupLevelControls(signal) {
         "click",
         () => {
           const { level } = el.dataset;
-          if (!level || level === CountyMapState.getActiveLevel()) {
+          if (!level || level === RegionalCoverageExplorerState.getActiveLevel()) {
             return;
           }
-          CountyMapState.setActiveLevel(level);
+          RegionalCoverageExplorerState.setActiveLevel(level);
           void renderActiveLevel();
         },
         eventOptions
@@ -991,16 +991,16 @@ function setupLevelControls(signal) {
  * Called after each level switch since innerHTML replaces the DOM.
  */
 function bindLevelControls() {
-  const level = CountyMapState.getActiveLevel();
+  const level = RegionalCoverageExplorerState.getActiveLevel();
 
   // County: stop toggle
   if (level === "county") {
     const toggle = document.getElementById("toggle-stops");
     if (toggle) {
-      toggle.checked = CountyMapState.getShowStoppedCounties();
+      toggle.checked = RegionalCoverageExplorerState.getShowStoppedCounties();
       toggle.addEventListener("change", () => {
-        CountyMapState.setShowStoppedCounties(toggle.checked);
-        if (CountyMapState.getActiveLevel() === "county") {
+        RegionalCoverageExplorerState.setShowStoppedCounties(toggle.checked);
+        if (RegionalCoverageExplorerState.getActiveLevel() === "county") {
           updateStopLayerVisibility();
         }
       });
@@ -1017,18 +1017,18 @@ function bindLevelControls() {
   if (level === "city") {
     const cityStateSelect = document.getElementById("city-state-select");
     cityStateSelect?.addEventListener("change", () => {
-      CountyMapState.setSelectedStateFips(cityStateSelect.value || null);
-      CountyMapState.setSelectedCityId(null);
+      RegionalCoverageExplorerState.setSelectedStateFips(cityStateSelect.value || null);
+      RegionalCoverageExplorerState.setSelectedCityId(null);
       setSelectionHighlight("", "city");
       fitToState(cityStateSelect.value);
-      if (CountyMapState.getActiveLevel() === "city") {
+      if (RegionalCoverageExplorerState.getActiveLevel() === "city") {
         void renderActiveLevel();
       }
     });
 
     const cityStatus = document.getElementById("city-status");
     cityStatus?.addEventListener("change", () => {
-      const stateFips = CountyMapState.getSelectedStateFips();
+      const stateFips = RegionalCoverageExplorerState.getSelectedStateFips();
       if (stateFips) {
         void loadCityList(stateFips, 1);
       }
@@ -1036,7 +1036,7 @@ function bindLevelControls() {
 
     const citySort = document.getElementById("city-sort");
     citySort?.addEventListener("change", () => {
-      const stateFips = CountyMapState.getSelectedStateFips();
+      const stateFips = RegionalCoverageExplorerState.getSelectedStateFips();
       if (stateFips) {
         void loadCityList(stateFips, 1);
       }
@@ -1044,10 +1044,10 @@ function bindLevelControls() {
 
     const cityStopToggle = document.getElementById("toggle-city-stops");
     if (cityStopToggle) {
-      cityStopToggle.checked = CountyMapState.getShowStoppedCities();
+      cityStopToggle.checked = RegionalCoverageExplorerState.getShowStoppedCities();
       cityStopToggle.addEventListener("change", () => {
-        CountyMapState.setShowStoppedCities(cityStopToggle.checked);
-        if (CountyMapState.getActiveLevel() === "city") {
+        RegionalCoverageExplorerState.setShowStoppedCities(cityStopToggle.checked);
+        if (RegionalCoverageExplorerState.getActiveLevel() === "city") {
           updateStopLayerVisibility();
         }
       });
@@ -1059,7 +1059,7 @@ function bindLevelControls() {
         clearTimeout(citySearchDebounceTimer);
       }
       citySearchDebounceTimer = setTimeout(() => {
-        const stateFips = CountyMapState.getSelectedStateFips();
+        const stateFips = RegionalCoverageExplorerState.getSelectedStateFips();
         if (stateFips) {
           void loadCityList(stateFips, 1);
         }
@@ -1073,8 +1073,8 @@ function bindLevelControls() {
  */
 function clearRecalcState() {
   clearStoredRecalcState();
-  CountyMapState.setIsRecalculating(false);
-  CountyMapState.setRecalcPollerActive(false);
+  RegionalCoverageExplorerState.setIsRecalculating(false);
+  RegionalCoverageExplorerState.setRecalcPollerActive(false);
   updateRecalculateUi(false);
 }
 
@@ -1115,23 +1115,23 @@ function refreshCoveragePage() {
 }
 
 /**
- * Trigger Coverage Explorer cache rebuild
+ * Trigger Regional Coverage Explorer cache rebuild
  */
 async function triggerRecalculate() {
-  if (CountyMapState.getIsRecalculating()) {
+  if (RegionalCoverageExplorerState.getIsRecalculating()) {
     return;
   }
 
   const startedAt = new Date();
-  CountyMapState.setIsRecalculating(true);
+  RegionalCoverageExplorerState.setIsRecalculating(true);
   storeRecalcState(startedAt, null);
-  updateRecalculateUi(true, "Starting Coverage Explorer cache rebuild...", {
+  updateRecalculateUi(true, "Starting Regional Coverage Explorer cache rebuild...", {
     stage: "Queued",
     progress: 0,
   });
 
   try {
-    const data = await CoverageAPI.triggerRecalculation({ signal: pageSignal });
+    const data = await RegionalCoverageExplorerAPI.triggerRecalculation({ signal: pageSignal });
     if (data.success) {
       const job = data?.job || null;
       const jobId = typeof data?.jobId === "string" ? data.jobId : job?.id || null;
@@ -1139,7 +1139,7 @@ async function triggerRecalculate() {
       if (job) {
         updateRecalculateUi(
           true,
-          job.message || "Rebuilding Coverage Explorer cache...",
+          job.message || "Rebuilding Regional Coverage Explorer cache...",
           buildRecalculateDetails(job)
         );
       }
@@ -1164,13 +1164,13 @@ async function triggerRecalculate() {
  */
 function startRecalculatePolling(startedAt, jobId = null) {
   if (pageSignal?.aborted) {
-    CountyMapState.setRecalcPollerActive(false);
+    RegionalCoverageExplorerState.setRecalcPollerActive(false);
     return;
   }
-  if (CountyMapState.getRecalcPollerActive()) {
+  if (RegionalCoverageExplorerState.getRecalcPollerActive()) {
     return;
   }
-  CountyMapState.setRecalcPollerActive(true);
+  RegionalCoverageExplorerState.setRecalcPollerActive(true);
   setTimeout(() => checkAndRefresh(startedAt, jobId), RECALC_POLL_MS);
 }
 
@@ -1179,24 +1179,24 @@ function startRecalculatePolling(startedAt, jobId = null) {
  */
 async function checkAndRefresh(startedAt, activeJobId = null) {
   if (pageSignal?.aborted) {
-    CountyMapState.setRecalcPollerActive(false);
+    RegionalCoverageExplorerState.setRecalcPollerActive(false);
     return;
   }
-  if (!CountyMapState.getIsRecalculating()) {
-    CountyMapState.setRecalcPollerActive(false);
+  if (!RegionalCoverageExplorerState.getIsRecalculating()) {
+    RegionalCoverageExplorerState.setRecalcPollerActive(false);
     return;
   }
   if (isRecalcStateStale(startedAt)) {
     clearRecalcState();
     notificationManager.show(
-      "Coverage Explorer cache rebuild timed out. Please try again.",
+      "Regional Coverage Explorer cache rebuild timed out. Please try again.",
       "warning"
     );
     return;
   }
 
   try {
-    const data = await CoverageAPI.fetchCacheStatus({ signal: pageSignal });
+    const data = await RegionalCoverageExplorerAPI.fetchCacheStatus({ signal: pageSignal });
     const job = data?.recalculation?.job || null;
     const lastUpdated = toDate(data?.lastUpdated);
     const updatedAfterStart = lastUpdated ? lastUpdated >= startedAt : false;
@@ -1206,7 +1206,7 @@ async function checkAndRefresh(startedAt, activeJobId = null) {
       storeRecalcState(startedAt, jobId);
       updateRecalculateUi(
         true,
-        job.message || "Rebuilding Coverage Explorer cache...",
+        job.message || "Rebuilding Regional Coverage Explorer cache...",
         buildRecalculateDetails(job)
       );
       if (!pageSignal?.aborted) {
@@ -1218,7 +1218,7 @@ async function checkAndRefresh(startedAt, activeJobId = null) {
     if (job && isJobFailed(job)) {
       clearRecalcState();
       notificationManager.show(
-        job.error || job.message || "Coverage Explorer cache rebuild failed.",
+        job.error || job.message || "Regional Coverage Explorer cache rebuild failed.",
         "danger"
       );
       return;
@@ -1242,13 +1242,13 @@ async function checkAndRefresh(startedAt, activeJobId = null) {
       if (!workerShouldExist && elapsedMs > RECALC_NO_JOB_GRACE_MS) {
         clearRecalcState();
         notificationManager.show(
-          "No active Coverage Explorer cache rebuild job was found. Please start it again.",
+          "No active Regional Coverage Explorer cache rebuild job was found. Please start it again.",
           "warning"
         );
         return;
       }
 
-      updateRecalculateUi(true, "Waiting for Coverage Explorer cache worker...", {
+      updateRecalculateUi(true, "Waiting for Regional Coverage Explorer cache worker...", {
         stage: "Starting",
         progress: 0,
         mode: data?.defaultMode || "incremental",
@@ -1282,8 +1282,8 @@ function resumeRecalculateIfNeeded() {
     clearRecalcState();
     return;
   }
-  CountyMapState.setIsRecalculating(true);
-  updateRecalculateUi(true, "Resuming Coverage Explorer cache rebuild...", {
+  RegionalCoverageExplorerState.setIsRecalculating(true);
+  updateRecalculateUi(true, "Resuming Regional Coverage Explorer cache rebuild...", {
     stage: "Reconnecting",
     progress: 0,
   });
@@ -1302,7 +1302,7 @@ export default function initCountyMapPage({ cleanup, signal } = {}) {
   updateLoadingText("Initializing map...");
 
   const map = createCoverageMap();
-  CountyMapState.setMap(map);
+  RegionalCoverageExplorerState.setMap(map);
   bindMapLifecycle(map);
 
   setupPanelToggle();
@@ -1320,7 +1320,7 @@ export default function initCountyMapPage({ cleanup, signal } = {}) {
       clearTimeout(citySearchDebounceTimer);
       citySearchDebounceTimer = null;
     }
-    const activeMap = CountyMapState.getMap();
+    const activeMap = RegionalCoverageExplorerState.getMap();
     if (activeMap) {
       try {
         activeMap.remove();
@@ -1328,7 +1328,7 @@ export default function initCountyMapPage({ cleanup, signal } = {}) {
         // Ignore map cleanup errors.
       }
     }
-    CountyMapState.resetState?.();
+    RegionalCoverageExplorerState.resetState?.();
   };
 
   if (typeof cleanup === "function") {

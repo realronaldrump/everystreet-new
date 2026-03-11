@@ -10,11 +10,11 @@ import {
   buildCountyFillColorExpression,
   buildCountyFillOpacityExpression,
   updateStopLayerVisibility,
-} from "../static/js/modules/county-map/map-layers.js";
-import * as CountyMapState from "../static/js/modules/county-map/state.js";
+} from "../static/js/modules/regional-coverage-explorer/map-layers.js";
+import * as RegionalCoverageExplorerState from "../static/js/modules/regional-coverage-explorer/state.js";
 
 test.afterEach(() => {
-  CountyMapState.resetState();
+  RegionalCoverageExplorerState.resetState();
 });
 
 test("county style expressions switch stopped styling on/off", () => {
@@ -92,8 +92,8 @@ test("updateStopLayerVisibility rewrites county layer paint properties", () => {
     },
   };
 
-  CountyMapState.setMap(map);
-  CountyMapState.setShowStoppedCounties(true);
+  RegionalCoverageExplorerState.setMap(map);
+  RegionalCoverageExplorerState.setShowStoppedCounties(true);
   updateStopLayerVisibility();
 
   assert.equal(paintCalls.length, 4);

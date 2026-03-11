@@ -5,9 +5,9 @@
 import apiClient from "../../core/api-client.js";
 import { CONFIG } from "../../core/config.js";
 import notificationManager from "../../ui/notifications.js";
+import { setMap3dBuildingsPreference } from "../map/buildings-3d.js";
 
 const TAB_STORAGE_KEY = "es:settings-active-tab";
-const MAP_3D_TOGGLE_EVENT = "es:map-3d-buildings-setting-changed";
 const TRIP_LAYER_RENDER_MODE_EVENT = "es:trip-layer-render-mode-setting-changed";
 export const SETTINGS_TAB_CHANGED_EVENT = "settings:tab-changed";
 const TAB_ALIASES = {
@@ -40,17 +40,6 @@ function readStoredBoolean(key) {
     // Ignore storage failures.
   }
   return null;
-}
-
-function emitMap3dBuildingsSetting(enabled) {
-  if (typeof enabled !== "boolean") {
-    return;
-  }
-  document.dispatchEvent(
-    new CustomEvent(MAP_3D_TOGGLE_EVENT, {
-      detail: { enabled },
-    })
-  );
 }
 
 function emitTripLayerRenderModeSetting(useHeatmap) {
@@ -208,11 +197,7 @@ export function setupAppSettingsForm() {
       map3dBuildingsToggle.checked = resolvedMap3dBuildings !== false;
     }
     if (typeof resolvedMap3dBuildings === "boolean") {
-      localStorage.setItem(
-        CONFIG.STORAGE_KEYS.map3dBuildingsEnabled,
-        resolvedMap3dBuildings ? "true" : "false"
-      );
-      emitMap3dBuildingsSetting(resolvedMap3dBuildings);
+      setMap3dBuildingsPreference(resolvedMap3dBuildings);
     }
     const storedCoverageOnly = readStoredBoolean(
       CONFIG.STORAGE_KEYS.mapTripsWithinCoverageOnly
@@ -334,10 +319,7 @@ export function setupAppSettingsForm() {
     // Mirror to localStorage
     localStorage.setItem("highlightRecentTrips", payload.highlightRecentTrips);
     localStorage.setItem("autoCenter", payload.autoCenter);
-    localStorage.setItem(
-      CONFIG.STORAGE_KEYS.map3dBuildingsEnabled,
-      payload.map3dBuildingsEnabled ? "true" : "false"
-    );
+    setMap3dBuildingsPreference(payload.map3dBuildingsEnabled);
     localStorage.setItem(
       CONFIG.STORAGE_KEYS.mapTripsWithinCoverageOnly,
       payload.mapTripsWithinCoverageOnly ? "true" : "false"
@@ -349,7 +331,6 @@ export function setupAppSettingsForm() {
     localStorage.setItem("es:accent-color", payload.accentColor || "");
     localStorage.setItem("es:ui-density", payload.uiDensity);
     localStorage.setItem("es:widget-editing", payload.widgetEditing ? "true" : "false");
-    emitMap3dBuildingsSetting(payload.map3dBuildingsEnabled);
     emitTripLayerRenderModeSetting(payload.tripLayersUseHeatmap);
 
     window.personalization?.applyPreferences?.({

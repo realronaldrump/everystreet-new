@@ -5,7 +5,7 @@ export class OptimalRouteUI {
   constructor(config = {}) {
     this.config = config;
     this.areaSelect = document.getElementById(config.areaSelectId);
-    this.turnByTurnBtn = document.getElementById("start-turn-by-turn-btn");
+    this.liveNavigationBtn = document.getElementById("start-live-navigation-btn");
     this.progressMessagePrimary = document.getElementById("progress-message-primary");
     this.progressMessageSecondary = document.getElementById(
       "progress-message-secondary"
@@ -461,7 +461,7 @@ export class OptimalRouteUI {
     // Show legend
     document.getElementById("map-legend").style.display = "block";
 
-    this.setTurnByTurnEnabled(true);
+    this.setLiveNavigationEnabled(true);
     this.setReplayEnabled(true);
     this.showNotification("Route generated successfully!", "success");
   }
@@ -471,7 +471,7 @@ export class OptimalRouteUI {
     document.getElementById("error-section").style.display = "block";
     document.getElementById("error-message").textContent = message;
     document.getElementById("generate-route-btn").disabled = false;
-    this.setTurnByTurnEnabled(false);
+    this.setLiveNavigationEnabled(false);
   }
 
   formatDistance(meters) {
@@ -481,9 +481,9 @@ export class OptimalRouteUI {
     return `${(meters / 1609.344).toFixed(2)} mi`;
   }
 
-  setTurnByTurnEnabled(isEnabled) {
-    if (this.turnByTurnBtn) {
-      this.turnByTurnBtn.disabled = !isEnabled;
+  setLiveNavigationEnabled(isEnabled) {
+    if (this.liveNavigationBtn) {
+      this.liveNavigationBtn.disabled = !isEnabled;
     }
   }
 

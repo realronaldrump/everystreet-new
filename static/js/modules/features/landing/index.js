@@ -160,7 +160,7 @@ function highlightFrequentTiles() {
 
   const pathToTile = {
     "/map": "map",
-    "/coverage-navigator": "navigate",
+    "/coverage-route-planner": "navigate",
     "/trips": "trips",
     "/insights": "insights",
     "/gas-tracking": "gas",

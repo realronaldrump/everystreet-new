@@ -1,15 +1,15 @@
 /* =============================================================================
-   Coverage Explorer — Redesigned Panel UI
+   Regional Coverage Explorer — Redesigned Panel UI
    ============================================================================= */
 
-.county-map-wrapper {
+.regional-coverage-explorer-wrapper {
   position: relative;
   width: 100%;
   height: calc(100vh - 60px);
   overflow: hidden;
 }
 
-.county-map-container {
+.regional-coverage-explorer-map {
   width: 100%;
   height: 100%;
 }

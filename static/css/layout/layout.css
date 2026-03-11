@@ -117,9 +117,9 @@ body[data-route="/map"] .route-content {
   display: none;
 }
 
-body[data-route="/coverage-navigator"] .route-content,
-body[data-route="/turn-by-turn"] .route-content,
-body[data-route="/county-map"] .route-content {
+body[data-route="/coverage-route-planner"] .route-content,
+body[data-route="/live-navigation"] .route-content,
+body[data-route="/regional-coverage-explorer"] .route-content {
   padding: 0;
   gap: 0;
 }

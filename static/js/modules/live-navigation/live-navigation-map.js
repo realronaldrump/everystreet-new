@@ -1,6 +1,6 @@
 /**
- * Turn-by-Turn Map Module
- * Mapbox map initialization and layer management
+ * Live Navigation Map Module
+ * Mapbox map initialization and layer management.
  */
 
 /* global mapboxgl */
@@ -19,9 +19,9 @@ const getThemeColor = (variable, defaultColor) => {
 };
 
 /**
- * Map manager for turn-by-turn navigation
+ * Map manager for live navigation navigation
  */
-class TurnByTurnMap extends BaseFeatureMap {
+class LiveNavigationMap extends BaseFeatureMap {
   constructor() {
     super(null, {});
     this.map = null;
@@ -421,7 +421,7 @@ class TurnByTurnMap extends BaseFeatureMap {
   }
 
   /**
-   * Update coverage overlay from TurnByTurnCoverage events.
+   * Update coverage overlay from LiveNavigationCoverage events.
    * @param {{type: string, features?: Array, drivenIds?: Array<string>, segmentIds?: Array<string>}} update
    */
   updateCoverageMapLayers(update) {
@@ -611,4 +611,4 @@ class TurnByTurnMap extends BaseFeatureMap {
   }
 }
 
-export default TurnByTurnMap;
+export default LiveNavigationMap;

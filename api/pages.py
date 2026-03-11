@@ -150,30 +150,30 @@ async def coverage_management_page(request: Request):
 
 
 @router.get(
-    "/coverage-navigator",
+    "/coverage-route-planner",
     response_class=HTMLResponse,
 )
-async def coverage_navigator_page(request: Request):
-    """Render the consolidated coverage navigation page."""
-    return await _render_page("coverage_navigator.html", request)
+async def coverage_route_planner_page(request: Request):
+    """Render the coverage route planning page."""
+    return await _render_page("coverage_route_planner.html", request)
 
 
 @router.get(
-    "/turn-by-turn",
+    "/live-navigation",
     response_class=HTMLResponse,
 )
-async def turn_by_turn_page(request: Request):
-    """Render the turn-by-turn navigation experience."""
-    return await _render_page("turn_by_turn.html", request)
+async def live_navigation_page(request: Request):
+    """Render the live navigation experience."""
+    return await _render_page("live_navigation.html", request)
 
 
 @router.get(
-    "/county-map",
+    "/regional-coverage-explorer",
     response_class=HTMLResponse,
 )
-async def county_map_page(request: Request):
-    """Render the county map visualization page."""
-    return await _render_page("county_map.html", request)
+async def regional_coverage_explorer_page(request: Request):
+    """Render the regional coverage explorer page."""
+    return await _render_page("regional_coverage_explorer.html", request)
 
 
 @router.get("/setup-wizard", response_class=HTMLResponse)

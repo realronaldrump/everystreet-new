@@ -3,28 +3,32 @@ import test from "node:test";
 
 import store from "../static/js/modules/core/store.js";
 import destinationBloom from "../static/js/modules/destination-bloom.js";
-import particleFlow from "../static/js/modules/particle-flow.js";
 import {
   setupDestinationBloomToggle,
+  setupMap3dBuildingsToggle,
   setupParticleFlowToggle,
   setupRouteArtToggle,
 } from "../static/js/modules/features/map/index.js";
+import particleFlow from "../static/js/modules/particle-flow.js";
 import routeArt from "../static/js/modules/ui/route-art.js";
 import {
   createClassList,
   createCustomEventClass,
   createEventTarget,
+  createStorageMock,
 } from "./helpers/dom-fixtures.js";
 
 const originalGlobals = {
   window: global.window,
   document: global.document,
   CustomEvent: global.CustomEvent,
+  localStorage: global.localStorage,
   setTimeout: global.setTimeout,
   clearTimeout: global.clearTimeout,
 };
 
 const originalStore = {
+  map: store.map,
   mapLayers: store.mapLayers,
 };
 
@@ -98,8 +102,10 @@ test.afterEach(() => {
   global.window = originalGlobals.window;
   global.document = originalGlobals.document;
   global.CustomEvent = originalGlobals.CustomEvent;
+  global.localStorage = originalGlobals.localStorage;
   global.setTimeout = originalGlobals.setTimeout;
   global.clearTimeout = originalGlobals.clearTimeout;
+  store.map = originalStore.map;
 });
 
 test("scene toggles stay mutually exclusive across route art, particle flow, and destination bloom", () => {
@@ -195,30 +201,18 @@ test("scene toggles stay mutually exclusive across route art, particle flow, and
   dispatchClick(buttons["destination-bloom-toggle"]);
   assert.equal(particleFlowDestroyCalls, 1);
   assert.equal(destinationBloomActive, true);
-  assert.equal(
-    buttons["destination-bloom-toggle"].classList.contains("active"),
-    true
-  );
+  assert.equal(buttons["destination-bloom-toggle"].classList.contains("active"), true);
   assert.equal(buttons["particle-flow-toggle"].classList.contains("active"), false);
 
   dispatchClick(buttons["route-art-toggle"]);
   assert.equal(routeArtLaunchCalls, 1);
   assert.equal(destinationBloomDestroyCalls, 1);
   assert.equal(routeArtActive, true);
-  assert.equal(
-    buttons["route-art-toggle"].classList.contains("active"),
-    true
-  );
-  assert.equal(
-    buttons["destination-bloom-toggle"].classList.contains("active"),
-    false
-  );
+  assert.equal(buttons["route-art-toggle"].classList.contains("active"), true);
+  assert.equal(buttons["destination-bloom-toggle"].classList.contains("active"), false);
 
   routeArt.close();
-  assert.equal(
-    buttons["route-art-toggle"].classList.contains("active"),
-    false
-  );
+  assert.equal(buttons["route-art-toggle"].classList.contains("active"), false);
 
   cleanupFns.forEach((fn) => fn());
 });
@@ -256,6 +250,62 @@ test("destination bloom refreshes on trip reloads, filter changes, and style rel
   document.dispatchEvent(new CustomEvent("mapStyleLoaded"));
 
   assert.equal(refreshCalls, 4);
+
+  cleanupFns.forEach((fn) => fn());
+});
+
+test("3D buildings toggle mirrors shared preference and hides when the map style cannot support it", () => {
+  global.CustomEvent = createCustomEventClass();
+  global.localStorage = createStorageMock();
+
+  const buttons = {
+    "map-3d-buildings-fab": createButton(),
+    "map-3d-buildings-toggle": { checked: true },
+  };
+
+  global.document = createDocumentMock(buttons);
+  global.window = {
+    MAP_PROVIDER: "self_hosted",
+  };
+
+  const vectorStyle = {
+    sources: {
+      composite: { type: "vector" },
+    },
+    layers: [{ id: "road-label", type: "symbol", layout: { "text-field": "road" } }],
+  };
+  const rasterStyle = {
+    sources: {
+      satellite: { type: "raster" },
+    },
+    layers: [{ id: "satellite", type: "raster" }],
+  };
+
+  const mockMap = {
+    getStyle() {
+      return vectorStyle;
+    },
+    addLayer() {},
+    getLayer() {
+      return null;
+    },
+  };
+  store.map = mockMap;
+
+  const cleanupFns = [];
+  setupMap3dBuildingsToggle((fn) => cleanupFns.push(fn));
+
+  assert.equal(buttons["map-3d-buildings-fab"].hidden, false);
+  assert.equal(buttons["map-3d-buildings-fab"].getAttribute("aria-pressed"), "true");
+
+  dispatchClick(buttons["map-3d-buildings-fab"]);
+  assert.equal(global.localStorage.getItem("map3dBuildingsEnabled"), "false");
+  assert.equal(buttons["map-3d-buildings-toggle"].checked, false);
+  assert.equal(buttons["map-3d-buildings-fab"].getAttribute("aria-pressed"), "false");
+
+  mockMap.getStyle = () => rasterStyle;
+  document.dispatchEvent(new CustomEvent("mapStyleLoaded"));
+  assert.equal(buttons["map-3d-buildings-fab"].hidden, true);
 
   cleanupFns.forEach((fn) => fn());
 });

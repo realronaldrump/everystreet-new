@@ -5,7 +5,7 @@
 {% block title %}
 
 
-Coverage Navigator
+Coverage Route Planner
 {% endblock %}
 
 
@@ -16,7 +16,7 @@ Coverage Navigator
   <!-- Mapbox GL CSS -->
   {{ include_mapbox_css() }}
   <link rel="stylesheet"
-        href="{{ url_for('static', path='css/coverage-navigator.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+        href="{{ url_for('static', path='css/coverage-route-planner.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
 
@@ -24,9 +24,9 @@ Coverage Navigator
 {% block content %}
 
 
-  <div class="coverage-navigator">
+  <div class="coverage-route-planner">
     <h1 class="visually-hidden">
-Coverage Navigator
+Coverage Route Planner
     </h1>
 
     <!-- Mobile Toggle Button -->
@@ -50,7 +50,7 @@ Coverage Navigator
           </div>
           <div class="sidebar-identity-text">
             <h2 class="sidebar-title">
-Coverage Navigator
+Coverage Route Planner
             </h2>
             <p class="sidebar-subtitle" id="sidebar-subtitle">
 Select an area to begin planning
@@ -431,7 +431,7 @@ Planning vs. Navigating
                 </p>
                 <p class="find-helper-desc">
                   Use <strong>Find</strong> to spot streets to prioritize on your map.
-                  When you're ready to drive, use <strong>Turn-by-Turn</strong> from the Results tab for GPS guidance.
+                  When you're ready to drive, use <strong>Live Navigation</strong> from the Results tab for GPS guidance.
                 </p>
               </div>
             </div>
@@ -764,10 +764,10 @@ How much of your driving covers required streets vs. connecting segments
 
             <!-- Primary CTA: Start Navigation -->
             <div class="results-cta-primary">
-              <button id="start-turn-by-turn-btn" class="btn btn-primary btn-results-nav" disabled>
+              <button id="start-live-navigation-btn" class="btn btn-primary btn-results-nav" disabled>
                 <i class="fas fa-location-arrow" aria-hidden="true"></i>
                 <span class="btn-cta-text">
-                  <span class="btn-cta-title">Start Turn-by-Turn</span>
+                  <span class="btn-cta-title">Start Live Navigation</span>
                   <span class="btn-cta-sub">Opens GPS navigation mode</span>
                 </span>
               </button>

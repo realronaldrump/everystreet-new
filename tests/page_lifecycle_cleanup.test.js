@@ -14,13 +14,13 @@ test("onPageLoad composes registered and returned cleanup handlers", async () =>
   global.window = {
     location: {
       origin: "https://example.test",
-      pathname: "/coverage-navigator",
+      pathname: "/coverage-route-planner",
     },
   };
 
   global.document = {
     readyState: "complete",
-    body: { dataset: { route: "/coverage-navigator" } },
+    body: { dataset: { route: "/coverage-route-planner" } },
     addEventListener() {},
   };
 
@@ -32,7 +32,7 @@ test("onPageLoad composes registered and returned cleanup handlers", async () =>
         cleanup(() => calls.push("registered"));
         return () => calls.push("returned");
       },
-      { route: "/coverage-navigator" }
+      { route: "/coverage-route-planner" }
     );
 
     await new Promise((resolve) => setTimeout(resolve, 0));

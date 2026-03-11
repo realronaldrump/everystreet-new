@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as CountyMapState from "../static/js/modules/county-map/state.js";
+import * as RegionalCoverageExplorerState from "../static/js/modules/regional-coverage-explorer/state.js";
 import {
   canAttemptRecovery,
   getCityTabStateRollups,
   getCountyActivityStateFips,
-} from "../static/js/modules/features/county-map/index.js";
+} from "../static/js/modules/features/regional-coverage-explorer/index.js";
 
 test.afterEach(() => {
-  CountyMapState.resetState();
+  RegionalCoverageExplorerState.resetState();
 });
 
 test("canAttemptRecovery enforces attempt limits and cooldown", () => {
@@ -112,17 +112,17 @@ test("getCityTabStateRollups returns only states with city totals AND county act
 });
 
 test("county map state normalizes county visit and stop keys to 5-digit FIPS", () => {
-  CountyMapState.setCountyVisits({
+  RegionalCoverageExplorerState.setCountyVisits({
     1001: { firstVisit: "2026-01-01T00:00:00.000Z" },
     "06001": { firstVisit: "2026-01-02T00:00:00.000Z" },
   });
-  CountyMapState.setCountyStops({
+  RegionalCoverageExplorerState.setCountyStops({
     2001: { firstStop: "2026-01-03T00:00:00.000Z" },
   });
 
-  assert.deepEqual(Object.keys(CountyMapState.getCountyVisits()).sort(), [
+  assert.deepEqual(Object.keys(RegionalCoverageExplorerState.getCountyVisits()).sort(), [
     "01001",
     "06001",
   ]);
-  assert.deepEqual(Object.keys(CountyMapState.getCountyStops()), ["02001"]);
+  assert.deepEqual(Object.keys(RegionalCoverageExplorerState.getCountyStops()), ["02001"]);
 });

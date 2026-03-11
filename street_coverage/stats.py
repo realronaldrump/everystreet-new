@@ -33,7 +33,7 @@ async def apply_area_stats_delta(
     Apply incremental deltas to CoverageArea cached stats.
 
     This avoids expensive full recomputes for frequent updates (trip
-    ingestion, turn-by-turn mark-driven, manual segment edits).
+    ingestion, live navigation mark-driven, manual segment edits).
 
     The update is applied atomically via an aggregation pipeline update,
     and the derived fields (driveable_length_miles, coverage_percentage,

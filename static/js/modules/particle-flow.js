@@ -213,6 +213,15 @@ const particleFlow = {
     this._collectPaths();
     this._spawnParticles();
     this._reprojectAll();
+    this._hideTripLayers(store.map);
+  },
+
+  /** Re-hide any trip layers that were re-enabled by data/style reloads. */
+  ensureTripLayersHidden() {
+    if (!this._active) {
+      return;
+    }
+    this._hideTripLayers(store.map);
   },
 
   // ------ Canvas management -------------------------------------------------
@@ -360,7 +369,9 @@ const particleFlow = {
 
   _hideTripLayers(map) {
     if (!map) return;
-    this._prevHiddenLayers = [];
+    if (!Array.isArray(this._prevHiddenLayers)) {
+      this._prevHiddenLayers = [];
+    }
 
     const style = map.getStyle();
     if (!style?.layers) return;
@@ -375,7 +386,9 @@ const particleFlow = {
       ) {
         const currentVis = map.getLayoutProperty(id, "visibility");
         if (currentVis !== "none") {
-          this._prevHiddenLayers.push(id);
+          if (!this._prevHiddenLayers.includes(id)) {
+            this._prevHiddenLayers.push(id);
+          }
           map.setLayoutProperty(id, "visibility", "none");
         }
       }

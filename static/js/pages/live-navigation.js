@@ -1,4 +1,4 @@
 import bootstrapPage from "../modules/core/page-bootstrap.js";
-import initTurnByTurnPage from "../modules/features/turn-by-turn/index.js";
+import initLiveNavigationPage from "../modules/features/live-navigation/index.js";
 
-bootstrapPage(initTurnByTurnPage, "/turn-by-turn");
+bootstrapPage(initLiveNavigationPage, "/live-navigation");

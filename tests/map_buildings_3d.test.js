@@ -2,22 +2,29 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import initBuildings3D, {
   ensureBuildingsLayer,
+  isMapbox3DStyleSupported,
   isSupportedMapbox3D,
+  setMap3dBuildingsPreference,
 } from "../static/js/modules/features/map/buildings-3d.js";
 import mapCore from "../static/js/modules/map-core.js";
-import { createEventTarget, createStorageMock } from "./helpers/dom-fixtures.js";
+import {
+  createCustomEventClass,
+  createEventTarget,
+  createStorageMock,
+} from "./helpers/dom-fixtures.js";
 
 const originalGlobals = {
+  CustomEvent: global.CustomEvent,
   window: global.window,
   document: global.document,
   localStorage: global.localStorage,
 };
 
-function createDocumentMock() {
+function createDocumentMock(elements = {}) {
   return {
     ...createEventTarget(),
-    getElementById() {
-      return null;
+    getElementById(id) {
+      return elements[id] || null;
     },
   };
 }
@@ -91,10 +98,12 @@ test.beforeEach(() => {
     MAP_PROVIDER: "self_hosted",
   };
   global.document = createDocumentMock();
+  global.CustomEvent = createCustomEventClass();
   global.localStorage = createStorageMock();
 });
 
 test.afterEach(() => {
+  global.CustomEvent = originalGlobals.CustomEvent;
   global.window = originalGlobals.window;
   global.document = originalGlobals.document;
   global.localStorage = originalGlobals.localStorage;
@@ -204,8 +213,25 @@ test("ensureBuildingsLayer honors disabled user preference from storage", () => 
   const map = createMockMap({ style: makeVectorStyle() });
 
   assert.equal(isSupportedMapbox3D(map, { styleType: "dark" }), false);
+  assert.equal(isMapbox3DStyleSupported(map, { styleType: "dark" }), true);
   assert.equal(ensureBuildingsLayer(map, { styleType: "dark" }), false);
   assert.equal(map.addedLayers.length, 0);
+});
+
+test("setMap3dBuildingsPreference persists state, syncs settings toggle, and emits change events", () => {
+  const settingsToggle = { checked: true };
+  const received = [];
+  global.document = createDocumentMock({
+    "map-3d-buildings-toggle": settingsToggle,
+  });
+  global.document.addEventListener("es:map-3d-buildings-setting-changed", (event) => {
+    received.push(event.detail?.enabled);
+  });
+
+  assert.equal(setMap3dBuildingsPreference(false), true);
+  assert.equal(global.localStorage.getItem("map3dBuildingsEnabled"), "false");
+  assert.equal(settingsToggle.checked, false);
+  assert.deepEqual(received, [false]);
 });
 
 test("initBuildings3D responds to settings toggle event", () => {

@@ -2,36 +2,36 @@
 @import url("./steps.css");
 @import url("./mobile.css");
 
-/* Turn-by-Turn Navigation Experience
+/* Live Navigation Experience
    Integrates with app's design system from variables.css */
 
 /* Dark mode (default) body styles */
-body.turn-by-turn-active {
+body.live-navigation-active {
   background: var(--surface-0);
   color: var(--text-primary);
   font-family: var(--font-family);
 }
 
 /* Light mode body styles */
-body.turn-by-turn-active.light-mode {
+body.live-navigation-active.light-mode {
   background: var(--surface-0);
   color: var(--text-primary);
 }
 
-body.turn-by-turn-active .app-header,
-body.turn-by-turn-active .mobile-nav-drawer,
-body.turn-by-turn-active .content-overlay,
-body.turn-by-turn-active .notification-container,
-body.turn-by-turn-active .loading-overlay {
+body.live-navigation-active .app-header,
+body.live-navigation-active .mobile-nav-drawer,
+body.live-navigation-active .content-overlay,
+body.live-navigation-active .notification-container,
+body.live-navigation-active .loading-overlay {
   display: none;
 }
 
-body.turn-by-turn-active .main-content {
+body.live-navigation-active .main-content {
   padding-top: 0;
 }
 
 /* Navigation container - uses app's design tokens */
-.turn-by-turn {
+.live-navigation {
   /* Map app CSS variables to nav-specific aliases */
   --nav-accent: var(--primary);
   --nav-accent-light: var(--primary-light);
@@ -77,7 +77,7 @@ body.turn-by-turn-active .main-content {
 }
 
 /* Light mode overrides */
-body.light-mode .turn-by-turn {
+body.light-mode .live-navigation {
   --nav-surface: var(--surface-glass);
   --nav-surface-strong: var(--surface-1);
   --nav-surface-elevated: var(--surface-2);
@@ -87,7 +87,7 @@ body.light-mode .turn-by-turn {
 }
 
 /* Ambient glow background - uses primary color */
-.turn-by-turn::before {
+.live-navigation::before {
   content: "";
   position: absolute;
   inset: -20%;
@@ -96,14 +96,14 @@ body.light-mode .turn-by-turn {
   z-index: 1;
 }
 
-#turn-by-turn-map {
+#live-navigation-map {
   position: absolute;
   inset: 0;
   z-index: 0;
 }
 
-.turn-by-turn .mapboxgl-ctrl-bottom-right,
-.turn-by-turn .maplibregl-ctrl-bottom-right {
+.live-navigation .mapboxgl-ctrl-bottom-right,
+.live-navigation .maplibregl-ctrl-bottom-right {
   bottom: calc(env(safe-area-inset-bottom) + 190px);
   right: 12px;
 }

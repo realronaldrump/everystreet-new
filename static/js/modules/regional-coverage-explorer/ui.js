@@ -4,7 +4,7 @@
  */
 
 import { escapeHtml } from "../utils.js";
-import * as CountyMapState from "./state.js";
+import * as RegionalCoverageExplorerState from "./state.js";
 
 function setText(id, text) {
   const el = document.getElementById(id);
@@ -80,7 +80,7 @@ export function updateRecalculateUi(isActive, message, details = null) {
       status.innerHTML = `
         <div class="recalc-header">
           <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
-          <span class="recalc-message">${escapeHtml(message || "Rebuilding Coverage Explorer cache...")}</span>
+          <span class="recalc-message">${escapeHtml(message || "Rebuilding Regional Coverage Explorer cache...")}</span>
         </div>
         ${stage ? `<div class="recalc-stage">${escapeHtml(stage)}</div>` : ""}
         ${
@@ -122,7 +122,7 @@ export function showRecalculatePrompt(onRecalculate) {
     const prompt = document.createElement("div");
     prompt.className = "recalculate-prompt";
     prompt.innerHTML = `
-      <p>Coverage Explorer cache has not been built yet from your trips.</p>
+      <p>Regional Coverage Explorer cache has not been built yet from your trips.</p>
       <button class="btn btn-primary btn-sm" id="trigger-recalculate">
         <i class="fas fa-database me-2"></i>Build Explorer Cache
       </button>
@@ -180,7 +180,7 @@ export function updateLastUpdated(isoString) {
 // =============================================================================
 
 export function updateSummaryBar() {
-  const summary = CountyMapState.getSummary();
+  const summary = RegionalCoverageExplorerState.getSummary();
   if (!summary?.levels) {
     return;
   }
@@ -258,13 +258,13 @@ function renderStateListSection() {
 // =============================================================================
 
 export function renderCountyLevelView(container) {
-  const summary = CountyMapState.getSummary();
+  const summary = RegionalCoverageExplorerState.getSummary();
   const county = summary?.levels?.county || {};
   const percent = Number(county.percent || 0);
   const visited = Number(county.visited || 0);
   const total = Number(county.total || 0);
-  const stoppedCount = Object.keys(CountyMapState.getCountyStops()).length;
-  const showStopped = CountyMapState.getShowStoppedCounties();
+  const stoppedCount = Object.keys(RegionalCoverageExplorerState.getCountyStops()).length;
+  const showStopped = RegionalCoverageExplorerState.getShowStoppedCounties();
 
   let html = renderHeroRing(percent, visited, total, "Counties Visited");
 
@@ -298,7 +298,7 @@ export function renderCountyLevelView(container) {
 }
 
 export function renderStateLevelView(container) {
-  const summary = CountyMapState.getSummary();
+  const summary = RegionalCoverageExplorerState.getSummary();
   const state = summary?.levels?.state || {};
   const percent = Number(state.percent || 0);
   const visited = Number(state.visited || 0);
@@ -333,13 +333,13 @@ export function renderStateLevelView(container) {
 }
 
 export function renderCityLevelView(container) {
-  const summary = CountyMapState.getSummary();
+  const summary = RegionalCoverageExplorerState.getSummary();
   const city = summary?.levels?.city || {};
   const percent = Number(city.percent || 0);
   const visited = Number(city.visited || 0);
   const stopped = Number(city.stopped || 0);
   const total = Number(city.total || 0);
-  const showStoppedCities = CountyMapState.getShowStoppedCities();
+  const showStoppedCities = RegionalCoverageExplorerState.getShowStoppedCities();
 
   let html = renderHeroRing(
     percent,
@@ -452,8 +452,8 @@ export function updateLevelUi(level) {
 
 export function renderStateStatsList(options = {}) {
   const { sortBy = "name", onSelectState, includeState } = options;
-  const stateList = [...CountyMapState.getStateRollups()];
-  const selectedStateFips = String(CountyMapState.getSelectedStateFips() || "");
+  const stateList = [...RegionalCoverageExplorerState.getStateRollups()];
+  const selectedStateFips = String(RegionalCoverageExplorerState.getSelectedStateFips() || "");
 
   switch (sortBy) {
     case "coverage-desc":
@@ -532,7 +532,7 @@ export function renderCityRows(payload) {
 
   const cities = payload?.cities || [];
   const pagination = payload?.pagination || {};
-  const selectedCityId = String(CountyMapState.getSelectedCityId() || "");
+  const selectedCityId = String(RegionalCoverageExplorerState.getSelectedCityId() || "");
 
   if (!cities.length) {
     listEl.innerHTML = '<div class="empty-list">No cities match this filter.</div>';

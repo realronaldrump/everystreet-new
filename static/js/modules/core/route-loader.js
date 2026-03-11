@@ -70,16 +70,22 @@ export async function ensureRouteModule(pathname) {
     await importOnce("/coverage-management", "../../pages/coverage-management.js");
     return;
   }
-  if (path === "/coverage-navigator") {
-    await importOnce("/coverage-navigator", "../../pages/coverage-navigator.js");
+  if (path === "/coverage-route-planner") {
+    await importOnce(
+      "/coverage-route-planner",
+      "../../pages/coverage-route-planner.js"
+    );
     return;
   }
-  if (path === "/turn-by-turn") {
-    await importOnce("/turn-by-turn", "../../pages/turn-by-turn.js");
+  if (path === "/live-navigation") {
+    await importOnce("/live-navigation", "../../pages/live-navigation.js");
     return;
   }
-  if (path === "/county-map") {
-    await importOnce("/county-map", "../../pages/county-map.js");
+  if (path === "/regional-coverage-explorer") {
+    await importOnce(
+      "/regional-coverage-explorer",
+      "../../pages/regional-coverage-explorer.js"
+    );
     return;
   }
   if (path === "/export") {

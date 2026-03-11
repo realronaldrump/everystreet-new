@@ -1,4 +1,4 @@
 import bootstrapPage from "../modules/core/page-bootstrap.js";
-import initCoverageNavigatorPage from "../modules/features/coverage-navigator/index.js";
+import initCoverageRoutePlannerPage from "../modules/features/coverage-route-planner/index.js";
 
-bootstrapPage(initCoverageNavigatorPage, "/coverage-navigator");
+bootstrapPage(initCoverageRoutePlannerPage, "/coverage-route-planner");

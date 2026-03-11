@@ -5,7 +5,7 @@
 {% block title %}
 
 
- Turn-by-Turn Navigation
+ Live Navigation
 {% endblock %}
 
 
@@ -23,19 +23,19 @@ block head_content %}
 {% block content %}
 
 
-  <div class="turn-by-turn" id="turn-by-turn">
+  <div class="live-navigation" id="live-navigation">
     <h1 class="visually-hidden">
-Turn-by-Turn Navigation
+Live Navigation
     </h1>
-    <div id="turn-by-turn-map">
+    <div id="live-navigation-map">
     </div>
 
     <!-- Top Navigation Bar -->
     <div class="nav-top">
       <div class="nav-top-bar">
-        <a class="nav-back" href="/coverage-navigator">
+        <a class="nav-back" href="/coverage-route-planner">
           <i class="fas fa-chevron-left" aria-hidden="true"></i>
-          <span>Coverage</span>
+          <span>Planner</span>
         </a>
         <div class="nav-signal" id="nav-signal">
           <span class="nav-signal-dot" aria-hidden="true"></span>
@@ -290,7 +290,7 @@ Resume from nearest point ahead?
       <div class="nav-setup-card">
         <div class="nav-setup-header">
           <div class="nav-setup-title">
-Turn-by-Turn Navigation
+Live Navigation
           </div>
           <p class="nav-setup-subtitle">
           Select a coverage area to automatically load or generate the optimal route.

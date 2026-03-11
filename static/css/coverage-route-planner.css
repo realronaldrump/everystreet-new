@@ -1,5 +1,5 @@
 /**
- * Coverage Navigator Page Styles
+ * Coverage Route Planner Page Styles
  * Immersive, guided planning experience with glassmorphism aesthetics
  */
 
@@ -7,7 +7,7 @@
    Layout & Grid
    ========================================================================== */
 
-.coverage-navigator {
+.coverage-route-planner {
   display: grid;
   grid-template-columns: 1fr;
   grid-template-rows: auto 1fr;
@@ -25,28 +25,28 @@
   overflow: hidden;
 }
 
-.coverage-navigator > * {
+.coverage-route-planner > * {
   min-width: 0;
   min-height: 0;
 }
 
 /* Phone-sized viewports typically show the fixed bottom nav. */
 @media (width <= 768px) {
-  .coverage-navigator {
+  .coverage-route-planner {
     --bottom-nav-height: calc(72px + env(safe-area-inset-bottom, 0px));
     --bottom-nav-offset: 72px;
   }
 }
 
 @media (width >= 1024px) {
-  .coverage-navigator {
+  .coverage-route-planner {
     grid-template-columns: minmax(360px, 440px) 1fr;
     grid-template-rows: 1fr;
   }
 }
 
 @media (width >= 1280px) {
-  .coverage-navigator {
+  .coverage-route-planner {
     grid-template-columns: minmax(400px, 460px) 1fr;
   }
 }
@@ -55,7 +55,7 @@
    Mobile Panel Toggle
    ========================================================================== */
 
-.coverage-navigator .mobile-panel-toggle {
+.coverage-route-planner .mobile-panel-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -81,43 +81,43 @@
   max-width: calc(100vw - var(--space-4) - var(--space-4));
 }
 
-.coverage-navigator .mobile-panel-toggle:hover {
+.coverage-route-planner .mobile-panel-toggle:hover {
   background: var(--surface-2);
   transform: translateX(-50%) translateY(-2px);
   box-shadow: var(--shadow-xl);
 }
 
-.coverage-navigator .mobile-panel-toggle:active {
+.coverage-route-planner .mobile-panel-toggle:active {
   transform: translateX(-50%) translateY(0);
 }
 
-.coverage-navigator .mobile-panel-toggle i {
+.coverage-route-planner .mobile-panel-toggle i {
   transition: transform 0.3s ease;
 }
 
-.coverage-navigator .mobile-panel-toggle[aria-expanded="true"] i {
+.coverage-route-planner .mobile-panel-toggle[aria-expanded="true"] i {
   transform: rotate(180deg);
 }
 
-.coverage-navigator .mobile-panel-toggle[aria-expanded="false"] .toggle-text::after {
+.coverage-route-planner .mobile-panel-toggle[aria-expanded="false"] .toggle-text::after {
   content: "Show Controls";
 }
 
-.coverage-navigator .mobile-panel-toggle[aria-expanded="true"] .toggle-text::after {
+.coverage-route-planner .mobile-panel-toggle[aria-expanded="true"] .toggle-text::after {
   content: "Hide Controls";
 }
 
-.coverage-navigator .mobile-panel-toggle .toggle-text {
+.coverage-route-planner .mobile-panel-toggle .toggle-text {
   font-size: 0;
 }
 
-.coverage-navigator .mobile-panel-toggle .toggle-text::after {
+.coverage-route-planner .mobile-panel-toggle .toggle-text::after {
   font-size: 0.875rem;
   line-height: 1;
 }
 
 @media (width <= 1023px) {
-  .coverage-navigator .mobile-panel-toggle[aria-expanded="true"] {
+  .coverage-route-planner .mobile-panel-toggle[aria-expanded="true"] {
     bottom: auto;
     top: calc(var(--header-height) + var(--space-2));
     box-shadow: var(--shadow-md);
@@ -125,7 +125,7 @@
 }
 
 @media (width >= 1024px) {
-  .coverage-navigator .mobile-panel-toggle {
+  .coverage-route-planner .mobile-panel-toggle {
     display: none;
   }
 }
@@ -134,7 +134,7 @@
    Control Panel
    ========================================================================== */
 
-.coverage-navigator .control-panel {
+.coverage-route-planner .control-panel {
   background: var(--surface-0);
   border-right: 1px solid var(--divider-color);
   display: flex;
@@ -149,26 +149,26 @@
   min-height: 0;
 }
 
-.coverage-navigator .control-panel::-webkit-scrollbar {
+.coverage-route-planner .control-panel::-webkit-scrollbar {
   width: 6px;
 }
 
-.coverage-navigator .control-panel::-webkit-scrollbar-track {
+.coverage-route-planner .control-panel::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.coverage-navigator .control-panel::-webkit-scrollbar-thumb {
+.coverage-route-planner .control-panel::-webkit-scrollbar-thumb {
   background: var(--border-color);
   border-radius: var(--radius-full);
 }
 
-.coverage-navigator .control-panel::-webkit-scrollbar-thumb:hover {
+.coverage-route-planner .control-panel::-webkit-scrollbar-thumb:hover {
   background: var(--text-tertiary);
 }
 
 /* Mobile panel behavior - bottom sheet pattern */
 @media (width <= 1023px) {
-  .coverage-navigator .control-panel {
+  .coverage-route-planner .control-panel {
     position: fixed;
     inset: auto 0 0;
     z-index: var(--z-overlay);
@@ -185,7 +185,7 @@
     padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
   }
 
-  .coverage-navigator .control-panel::before {
+  .coverage-route-planner .control-panel::before {
     content: "";
     position: absolute;
     top: var(--space-3);
@@ -198,13 +198,13 @@
     z-index: 1;
   }
 
-  .coverage-navigator .control-panel.is-hidden {
+  .coverage-route-planner .control-panel.is-hidden {
     transform: translateY(100%);
   }
 }
 
 @media (width >= 1024px) {
-  .coverage-navigator .control-panel {
+  .coverage-route-planner .control-panel {
     max-height: none;
     height: 100%;
     position: relative;
@@ -216,7 +216,7 @@
    Sidebar Header — Dynamic Context Block
    ========================================================================== */
 
-.coverage-navigator .sidebar-header {
+.coverage-route-planner .sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -227,7 +227,7 @@
   background: var(--surface-0);
 }
 
-.coverage-navigator .sidebar-identity {
+.coverage-route-planner .sidebar-identity {
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -235,7 +235,7 @@
   flex: 1;
 }
 
-.coverage-navigator .sidebar-identity-icon {
+.coverage-route-planner .sidebar-identity-icon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -250,11 +250,11 @@
   transition: all 0.3s ease;
 }
 
-.coverage-navigator .sidebar-identity-text {
+.coverage-route-planner .sidebar-identity-text {
   min-width: 0;
 }
 
-.coverage-navigator .sidebar-title {
+.coverage-route-planner .sidebar-title {
   margin: 0;
   font-size: 0.9375rem;
   font-weight: 700;
@@ -265,7 +265,7 @@
   text-overflow: ellipsis;
 }
 
-.coverage-navigator .sidebar-subtitle {
+.coverage-route-planner .sidebar-subtitle {
   margin: 0;
   font-size: 0.75rem;
   color: var(--text-tertiary);
@@ -277,31 +277,31 @@
 }
 
 /* Coverage ring in header */
-.coverage-navigator .sidebar-coverage-ring {
+.coverage-route-planner .sidebar-coverage-ring {
   position: relative;
   width: 44px;
   height: 44px;
   flex-shrink: 0;
 }
 
-.coverage-navigator .coverage-ring-svg {
+.coverage-route-planner .coverage-ring-svg {
   width: 44px;
   height: 44px;
   transform: rotate(-90deg);
 }
 
-.coverage-navigator .ring-track {
+.coverage-route-planner .ring-track {
   stroke: var(--surface-3);
 }
 
-.coverage-navigator .ring-fill {
+.coverage-route-planner .ring-fill {
   stroke: var(--cat-mint);
   stroke-linecap: round;
   transition: stroke-dashoffset 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
   filter: drop-shadow(0 0 4px rgb(var(--cat-mint-rgb) / 50%));
 }
 
-.coverage-navigator .ring-pct {
+.coverage-route-planner .ring-pct {
   position: absolute;
   inset: 0;
   display: flex;
@@ -315,15 +315,15 @@
 }
 
 @media (width <= 480px) {
-  .coverage-navigator .sidebar-header {
+  .coverage-route-planner .sidebar-header {
     padding: var(--space-3) var(--space-3) var(--space-2);
   }
 
-  .coverage-navigator .sidebar-identity-icon {
+  .coverage-route-planner .sidebar-identity-icon {
     display: none;
   }
 
-  .coverage-navigator .sidebar-title {
+  .coverage-route-planner .sidebar-title {
     font-size: 0.875rem;
   }
 }
@@ -332,7 +332,7 @@
    Tab Navigation
    ========================================================================== */
 
-.coverage-navigator .sidebar-tabs {
+.coverage-route-planner .sidebar-tabs {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 2px;
@@ -345,7 +345,7 @@
   border-bottom: 1px solid var(--divider-color);
 }
 
-.coverage-navigator .sidebar-tab {
+.coverage-route-planner .sidebar-tab {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -365,22 +365,22 @@
   min-height: 44px;
 }
 
-.coverage-navigator .sidebar-tab i {
+.coverage-route-planner .sidebar-tab i {
   font-size: 0.875rem;
 }
 
-.coverage-navigator .sidebar-tab:hover {
+.coverage-route-planner .sidebar-tab:hover {
   color: var(--text-secondary);
   background: var(--surface-2);
 }
 
-.coverage-navigator .sidebar-tab.active {
+.coverage-route-planner .sidebar-tab.active {
   color: var(--primary);
   background: rgb(var(--primary-rgb) / 8%);
   font-weight: 600;
 }
 
-.coverage-navigator .sidebar-tab.active::after {
+.coverage-route-planner .sidebar-tab.active::after {
   content: "";
   position: absolute;
   bottom: 0;
@@ -391,13 +391,13 @@
   border-radius: 1px;
 }
 
-.coverage-navigator .sidebar-tab:focus-visible {
+.coverage-route-planner .sidebar-tab:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
 /* Status badge (pulsing dot) on the Status tab */
-.coverage-navigator .sidebar-tab[data-has-activity]::before {
+.coverage-route-planner .sidebar-tab[data-has-activity]::before {
   content: "";
   position: absolute;
   top: 6px;
@@ -424,15 +424,15 @@
 }
 
 @media (width <= 480px) {
-  .coverage-navigator .sidebar-tab .tab-label {
+  .coverage-route-planner .sidebar-tab .tab-label {
     display: none;
   }
 
-  .coverage-navigator .sidebar-tab {
+  .coverage-route-planner .sidebar-tab {
     padding: 0.625rem 0.25rem;
   }
 
-  .coverage-navigator .sidebar-tab i {
+  .coverage-route-planner .sidebar-tab i {
     font-size: 1rem;
   }
 }
@@ -441,7 +441,7 @@
    Workflow Stepper
    ========================================================================== */
 
-.coverage-navigator .workflow-stepper {
+.coverage-route-planner .workflow-stepper {
   display: flex;
   align-items: center;
   padding: var(--space-3) var(--space-4);
@@ -451,7 +451,7 @@
   background: var(--surface-0);
 }
 
-.coverage-navigator .workflow-step {
+.coverage-route-planner .workflow-step {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -459,7 +459,7 @@
   flex-shrink: 0;
 }
 
-.coverage-navigator .ws-connector {
+.coverage-route-planner .ws-connector {
   flex: 1;
   height: 2px;
   background: var(--divider-color);
@@ -468,11 +468,11 @@
   transition: background 400ms ease;
 }
 
-.coverage-navigator .workflow-step.completed + .ws-connector {
+.coverage-route-planner .workflow-step.completed + .ws-connector {
   background: var(--success);
 }
 
-.coverage-navigator .ws-node {
+.coverage-route-planner .ws-node {
   width: 24px;
   height: 24px;
   border-radius: 50%;
@@ -488,25 +488,25 @@
   transition: all 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.coverage-navigator .workflow-step.completed .ws-node {
+.coverage-route-planner .workflow-step.completed .ws-node {
   background: var(--success);
   border-color: var(--success);
   color: white;
   font-size: 0.5rem;
 }
 
-.coverage-navigator .workflow-step.completed .ws-number {
+.coverage-route-planner .workflow-step.completed .ws-number {
   display: none;
 }
 
-.coverage-navigator .workflow-step.completed .ws-node::after {
+.coverage-route-planner .workflow-step.completed .ws-node::after {
   content: "\f00c";
   font-family: "Font Awesome 6 Free", sans-serif;
   font-weight: 900;
   font-size: 0.5rem;
 }
 
-.coverage-navigator .workflow-step.active .ws-node {
+.coverage-route-planner .workflow-step.active .ws-node {
   background: var(--primary);
   border-color: var(--primary);
   color: white;
@@ -527,7 +527,7 @@
   }
 }
 
-.coverage-navigator .ws-label {
+.coverage-route-planner .ws-label {
   font-size: 0.5625rem;
   font-weight: 500;
   text-transform: uppercase;
@@ -537,12 +537,12 @@
   transition: color 0.2s ease;
 }
 
-.coverage-navigator .workflow-step.active .ws-label {
+.coverage-route-planner .workflow-step.active .ws-label {
   color: var(--primary);
   font-weight: 600;
 }
 
-.coverage-navigator .workflow-step.completed .ws-label {
+.coverage-route-planner .workflow-step.completed .ws-label {
   color: var(--success);
 }
 
@@ -550,7 +550,7 @@
    Tab Panels
    ========================================================================== */
 
-.coverage-navigator .tab-panel {
+.coverage-route-planner .tab-panel {
   display: none;
   flex-direction: column;
   gap: var(--space-3);
@@ -558,7 +558,7 @@
   flex: 1;
 }
 
-.coverage-navigator .tab-panel.active {
+.coverage-route-planner .tab-panel.active {
   display: flex;
   animation: tabPanelIn 200ms cubic-bezier(0, 0, 0.2, 1) both;
 }
@@ -576,7 +576,7 @@
 }
 
 /* Tab Empty States */
-.coverage-navigator .tab-empty-state {
+.coverage-route-planner .tab-empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -586,19 +586,19 @@
   gap: var(--space-3);
 }
 
-.coverage-navigator .tab-empty-icon {
+.coverage-route-planner .tab-empty-icon {
   font-size: 2.5rem;
   color: var(--text-tertiary);
   opacity: 0.35;
 }
 
-.coverage-navigator .tab-empty-title {
+.coverage-route-planner .tab-empty-title {
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-secondary);
 }
 
-.coverage-navigator .tab-empty-hint {
+.coverage-route-planner .tab-empty-hint {
   font-size: 0.8125rem;
   color: var(--text-tertiary);
   max-width: 260px;
@@ -606,26 +606,26 @@
 }
 
 /* Hide empty states when sibling widgets are visible */
-.coverage-navigator .tab-panel .widget[style*="display: block"] ~ .tab-empty-state,
-.coverage-navigator .tab-panel .widget[style*="display: flex"] ~ .tab-empty-state,
-.coverage-navigator .tab-panel .widget.active ~ .tab-empty-state {
+.coverage-route-planner .tab-panel .widget[style*="display: block"] ~ .tab-empty-state,
+.coverage-route-planner .tab-panel .widget[style*="display: flex"] ~ .tab-empty-state,
+.coverage-route-planner .tab-panel .widget.active ~ .tab-empty-state {
   display: none;
 }
 
 /* Mode indicator border on sidebar */
-.coverage-navigator[data-mode="planning"] .control-panel {
+.coverage-route-planner[data-mode="planning"] .control-panel {
   border-right-color: var(--primary);
 }
 
-.coverage-navigator[data-mode="navigating"] .control-panel {
+.coverage-route-planner[data-mode="navigating"] .control-panel {
   border-right-color: var(--info);
 }
 
-.coverage-navigator[data-mode="processing"] .control-panel {
+.coverage-route-planner[data-mode="processing"] .control-panel {
   border-right-color: var(--warning);
 }
 
-.coverage-navigator[data-mode="results"] .control-panel {
+.coverage-route-planner[data-mode="results"] .control-panel {
   border-right-color: var(--success);
 }
 
@@ -633,7 +633,7 @@
    Widget Base Styles
    ========================================================================== */
 
-.coverage-navigator .widget {
+.coverage-route-planner .widget {
   background: var(--surface-1);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
@@ -641,12 +641,12 @@
   transition: box-shadow 0.2s ease;
 }
 
-.coverage-navigator .widget:hover {
+.coverage-route-planner .widget:hover {
   box-shadow: var(--shadow-md);
 }
 
 /* Widget header */
-.coverage-navigator .widget-header {
+.coverage-route-planner .widget-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -656,16 +656,16 @@
   border-bottom: 1px solid var(--border-color);
 }
 
-.coverage-navigator .widget-header.collapsible {
+.coverage-route-planner .widget-header.collapsible {
   cursor: pointer;
   user-select: none;
 }
 
-.coverage-navigator .widget-header.collapsible:hover {
+.coverage-route-planner .widget-header.collapsible:hover {
   background: var(--surface-3);
 }
 
-.coverage-navigator .widget-title {
+.coverage-route-planner .widget-title {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -679,17 +679,17 @@
   text-wrap: balance;
 }
 
-.coverage-navigator .widget-title i {
+.coverage-route-planner .widget-title i {
   font-size: 0.875rem;
   opacity: 0.8;
 }
 
-.coverage-navigator .widget-body {
+.coverage-route-planner .widget-body {
   padding: var(--space-4);
 }
 
 /* Collapse Button */
-.coverage-navigator .btn-collapse {
+.coverage-route-planner .btn-collapse {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -706,27 +706,27 @@
 }
 
 @media (width <= 1023px) {
-  .coverage-navigator .btn-collapse {
+  .coverage-route-planner .btn-collapse {
     width: 44px;
     height: 44px;
   }
 }
 
-.coverage-navigator .btn-collapse:hover {
+.coverage-route-planner .btn-collapse:hover {
   background: var(--surface-4);
   color: var(--text-primary);
 }
 
-.coverage-navigator .btn-collapse i {
+.coverage-route-planner .btn-collapse i {
   font-size: 0.75rem;
   transition: transform 0.3s ease;
 }
 
-.coverage-navigator .btn-collapse[aria-expanded="false"] i {
+.coverage-route-planner .btn-collapse[aria-expanded="false"] i {
   transform: rotate(180deg);
 }
 
-.coverage-navigator .collapsible-content {
+.coverage-route-planner .collapsible-content {
   transition:
     max-height 0.3s ease,
     opacity 0.2s ease,
@@ -736,7 +736,7 @@
   overflow: hidden;
 }
 
-.coverage-navigator .collapsible-content.is-collapsed {
+.coverage-route-planner .collapsible-content.is-collapsed {
   max-height: 0;
   opacity: 0;
   padding-top: 0;
@@ -744,7 +744,7 @@
 }
 
 /* Header Actions */
-.coverage-navigator .header-actions {
+.coverage-route-planner .header-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -757,7 +757,7 @@
    Form Elements
    ========================================================================== */
 
-.coverage-navigator .form-label {
+.coverage-route-planner .form-label {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -767,11 +767,11 @@
   color: var(--text-primary);
 }
 
-.coverage-navigator .select-wrapper {
+.coverage-route-planner .select-wrapper {
   position: relative;
 }
 
-.coverage-navigator .select-wrapper .form-select {
+.coverage-route-planner .select-wrapper .form-select {
   width: 100%;
   padding: 0.625rem 2.5rem 0.625rem 0.875rem;
   padding-left: 2.25rem;
@@ -786,13 +786,13 @@
   min-height: 44px;
 }
 
-.coverage-navigator .select-wrapper .form-select:focus {
+.coverage-route-planner .select-wrapper .form-select:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgb(var(--primary-rgb) / 15%);
 }
 
-.coverage-navigator .select-wrapper .select-icon {
+.coverage-route-planner .select-wrapper .select-icon {
   position: absolute;
   left: 0.875rem;
   top: 50%;
@@ -802,7 +802,7 @@
   pointer-events: none;
 }
 
-.coverage-navigator .select-wrapper::after {
+.coverage-route-planner .select-wrapper::after {
   content: "\f107";
   font-family: "Font Awesome 6 Free", sans-serif;
   font-weight: 900;
@@ -816,13 +816,13 @@
 }
 
 /* Small Switch */
-.coverage-navigator .form-switch-sm .form-check-input {
+.coverage-route-planner .form-switch-sm .form-check-input {
   width: 2.25rem;
   height: 1.25rem;
   cursor: pointer;
 }
 
-.coverage-navigator .form-switch-sm .form-check-label {
+.coverage-route-planner .form-switch-sm .form-check-label {
   font-size: 0.8125rem;
   line-height: 1.2;
   color: var(--text-secondary);
@@ -832,7 +832,7 @@
 }
 
 @media (width <= 560px) {
-  .coverage-navigator .form-switch-sm .form-check-label {
+  .coverage-route-planner .form-switch-sm .form-check-label {
     white-space: normal;
   }
 }
@@ -842,11 +842,11 @@
    ========================================================================== */
 
 /* Area context panel */
-.coverage-navigator .area-context-panel {
+.coverage-route-planner .area-context-panel {
   margin-top: var(--space-3);
 }
 
-.coverage-navigator .area-context-body {
+.coverage-route-planner .area-context-body {
   display: flex;
   align-items: flex-start;
   gap: var(--space-4);
@@ -857,31 +857,31 @@
 }
 
 /* Donut chart */
-.coverage-navigator .area-donut-wrap {
+.coverage-route-planner .area-donut-wrap {
   position: relative;
   width: 80px;
   height: 80px;
   flex-shrink: 0;
 }
 
-.coverage-navigator .area-donut {
+.coverage-route-planner .area-donut {
   width: 80px;
   height: 80px;
   transform: rotate(-90deg);
 }
 
-.coverage-navigator .donut-track {
+.coverage-route-planner .donut-track {
   stroke: var(--surface-4);
 }
 
-.coverage-navigator .donut-driven {
+.coverage-route-planner .donut-driven {
   stroke: var(--cat-mint);
   stroke-linecap: round;
   transition: stroke-dashoffset 800ms cubic-bezier(0.34, 1.56, 0.64, 1);
   filter: drop-shadow(0 0 6px rgb(var(--cat-mint-rgb) / 40%));
 }
 
-.coverage-navigator .area-donut-label {
+.coverage-route-planner .area-donut-label {
   position: absolute;
   inset: 0;
   display: flex;
@@ -891,7 +891,7 @@
   line-height: 1;
 }
 
-.coverage-navigator .donut-pct {
+.coverage-route-planner .donut-pct {
   font-family: var(--font-family-mono);
   font-size: 1.0625rem;
   font-weight: 700;
@@ -899,7 +899,7 @@
   line-height: 1;
 }
 
-.coverage-navigator .donut-sublabel {
+.coverage-route-planner .donut-sublabel {
   font-size: 0.5rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -908,7 +908,7 @@
 }
 
 /* Context stats beside donut */
-.coverage-navigator .area-context-stats {
+.coverage-route-planner .area-context-stats {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -917,14 +917,14 @@
   justify-content: center;
 }
 
-.coverage-navigator .acstat {
+.coverage-route-planner .acstat {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
 }
 
-.coverage-navigator .acstat-icon {
+.coverage-route-planner .acstat-icon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -937,29 +937,29 @@
   background: var(--surface-3);
 }
 
-.coverage-navigator .acstat--remaining .acstat-icon {
+.coverage-route-planner .acstat--remaining .acstat-icon {
   color: var(--danger);
   background: rgb(var(--danger-rgb) / 10%);
 }
 
-.coverage-navigator .acstat--driven .acstat-icon {
+.coverage-route-planner .acstat--driven .acstat-icon {
   color: var(--success);
   background: rgb(var(--success-rgb) / 10%);
 }
 
-.coverage-navigator .acstat--total .acstat-icon {
+.coverage-route-planner .acstat--total .acstat-icon {
   color: var(--info);
   background: rgb(var(--info-rgb) / 10%);
 }
 
-.coverage-navigator .acstat-body {
+.coverage-route-planner .acstat-body {
   display: flex;
   flex-direction: column;
   gap: 0;
   min-width: 0;
 }
 
-.coverage-navigator .acstat-label {
+.coverage-route-planner .acstat-label {
   font-size: 0.5625rem;
   font-weight: 500;
   text-transform: uppercase;
@@ -968,7 +968,7 @@
   line-height: 1;
 }
 
-.coverage-navigator .acstat-value {
+.coverage-route-planner .acstat-value {
   font-size: 0.875rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -978,7 +978,7 @@
 }
 
 /* Coverage bar below context body */
-.coverage-navigator .coverage-bar-track {
+.coverage-route-planner .coverage-bar-track {
   height: 6px;
   background: var(--surface-3);
   border-radius: var(--radius-full);
@@ -986,7 +986,7 @@
   margin-top: var(--space-2);
 }
 
-.coverage-navigator .coverage-bar-fill {
+.coverage-route-planner .coverage-bar-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--cat-mint) 0%, var(--primary) 100%);
   border-radius: var(--radius-full);
@@ -995,7 +995,7 @@
 }
 
 /* Area empty hint */
-.coverage-navigator .area-empty-hint {
+.coverage-route-planner .area-empty-hint {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
@@ -1009,7 +1009,7 @@
   line-height: 1.5;
 }
 
-.coverage-navigator .area-empty-hint i {
+.coverage-route-planner .area-empty-hint i {
   color: var(--primary);
   margin-top: 0.0625rem;
   flex-shrink: 0;
@@ -1017,12 +1017,12 @@
 
 /* Widget tints when area is selected */
 
-.coverage-navigator .route-planner-widget.is-ready {
+.coverage-route-planner .route-planner-widget.is-ready {
   border-color: rgb(var(--cat-purple-rgb) / 30%);
 }
 
 /* Tabular numbers for stat values */
-.coverage-navigator .stat-value {
+.coverage-route-planner .stat-value {
   font-variant-numeric: tabular-nums;
 }
 
@@ -1030,7 +1030,7 @@
    Generate Route Button — Multi-State
    ========================================================================== */
 
-.coverage-navigator .btn-generate {
+.coverage-route-planner .btn-generate {
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -1044,21 +1044,21 @@
   text-align: left;
 }
 
-.coverage-navigator .btn-generate:disabled {
+.coverage-route-planner .btn-generate:disabled {
   opacity: 0.48;
   cursor: not-allowed;
 }
 
-.coverage-navigator .btn-generate:not(:disabled):hover {
+.coverage-route-planner .btn-generate:not(:disabled):hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
 }
 
-.coverage-navigator .btn-generate:not(:disabled):active {
+.coverage-route-planner .btn-generate:not(:disabled):active {
   transform: translateY(0);
 }
 
-.coverage-navigator .generate-icon {
+.coverage-route-planner .generate-icon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1071,28 +1071,28 @@
 }
 
 /* Multi-state: show only one icon at a time */
-.coverage-navigator .generate-icon i {
+.coverage-route-planner .generate-icon i {
   display: none;
 }
 
-.coverage-navigator .btn-generate[data-state="idle"] .icon-idle {
+.coverage-route-planner .btn-generate[data-state="idle"] .icon-idle {
   display: flex;
 }
 
-.coverage-navigator .btn-generate[data-state="ready"] .icon-ready {
+.coverage-route-planner .btn-generate[data-state="ready"] .icon-ready {
   display: flex;
 }
 
-.coverage-navigator .btn-generate[data-state="done"] .icon-done {
+.coverage-route-planner .btn-generate[data-state="done"] .icon-done {
   display: flex;
 }
 
 /* Default to idle if no data-state set */
-.coverage-navigator .btn-generate:not([data-state]) .icon-idle {
+.coverage-route-planner .btn-generate:not([data-state]) .icon-idle {
   display: flex;
 }
 
-.coverage-navigator .generate-text {
+.coverage-route-planner .generate-text {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
@@ -1100,13 +1100,13 @@
   min-width: 0;
 }
 
-.coverage-navigator .generate-title {
+.coverage-route-planner .generate-title {
   font-size: 0.9375rem;
   font-weight: 700;
   line-height: 1.2;
 }
 
-.coverage-navigator .generate-subtitle {
+.coverage-route-planner .generate-subtitle {
   font-size: 0.75rem;
   opacity: 0.82;
   font-weight: 400;
@@ -1114,26 +1114,26 @@
 }
 
 /* State text — only show matching state */
-.coverage-navigator .state-idle,
-.coverage-navigator .state-ready,
-.coverage-navigator .state-done {
+.coverage-route-planner .state-idle,
+.coverage-route-planner .state-ready,
+.coverage-route-planner .state-done {
   display: none;
 }
 
-.coverage-navigator .btn-generate[data-state="idle"] .state-idle {
+.coverage-route-planner .btn-generate[data-state="idle"] .state-idle {
   display: block;
 }
 
-.coverage-navigator .btn-generate[data-state="ready"] .state-ready {
+.coverage-route-planner .btn-generate[data-state="ready"] .state-ready {
   display: block;
 }
 
-.coverage-navigator .btn-generate[data-state="done"] .state-done {
+.coverage-route-planner .btn-generate[data-state="done"] .state-done {
   display: block;
 }
 
 /* Default to idle state text */
-.coverage-navigator .btn-generate:not([data-state]) .state-idle {
+.coverage-route-planner .btn-generate:not([data-state]) .state-idle {
   display: block;
 }
 
@@ -1141,7 +1141,7 @@
    Algorithm Explainer
    ========================================================================== */
 
-.coverage-navigator .algo-explainer {
+.coverage-route-planner .algo-explainer {
   margin-top: var(--space-3);
   padding: var(--space-3);
   background: var(--surface-2);
@@ -1150,19 +1150,19 @@
   animation: tabPanelIn 200ms ease both;
 }
 
-.coverage-navigator .algo-steps {
+.coverage-route-planner .algo-steps {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
-.coverage-navigator .algo-step {
+.coverage-route-planner .algo-step {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
 }
 
-.coverage-navigator .algo-step-icon {
+.coverage-route-planner .algo-step-icon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1176,14 +1176,14 @@
   margin-top: 2px;
 }
 
-.coverage-navigator .algo-step-text {
+.coverage-route-planner .algo-step-text {
   font-size: 0.8125rem;
   color: var(--text-secondary);
   line-height: 1.5;
   padding-top: 0.375rem;
 }
 
-.coverage-navigator .btn-algo-info {
+.coverage-route-planner .btn-algo-info {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -1197,11 +1197,11 @@
   transition: color 0.15s ease;
 }
 
-.coverage-navigator .btn-algo-info:hover {
+.coverage-route-planner .btn-algo-info:hover {
   color: var(--info);
 }
 
-.coverage-navigator .btn-algo-info i {
+.coverage-route-planner .btn-algo-info i {
   font-size: 0.875rem;
 }
 
@@ -1209,7 +1209,7 @@
    Saved Routes — Enhanced Cards
    ========================================================================== */
 
-.coverage-navigator .route-history {
+.coverage-route-planner .route-history {
   max-height: clamp(220px, 32vh, 320px);
   overflow-y: auto;
   scrollbar-width: thin;
@@ -1219,16 +1219,16 @@
   gap: var(--space-2);
 }
 
-.coverage-navigator .route-history::-webkit-scrollbar {
+.coverage-route-planner .route-history::-webkit-scrollbar {
   width: 4px;
 }
 
-.coverage-navigator .route-history::-webkit-scrollbar-thumb {
+.coverage-route-planner .route-history::-webkit-scrollbar-thumb {
   background: var(--border-color);
   border-radius: var(--radius-full);
 }
 
-.coverage-navigator .empty-state {
+.coverage-route-planner .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1237,23 +1237,23 @@
   color: var(--text-tertiary);
 }
 
-.coverage-navigator .empty-state-art {
+.coverage-route-planner .empty-state-art {
   opacity: 0.6;
 }
 
-.coverage-navigator .empty-state i {
+.coverage-route-planner .empty-state i {
   font-size: 1.5rem;
   opacity: 0.5;
 }
 
-.coverage-navigator .empty-state-title {
+.coverage-route-planner .empty-state-title {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--text-secondary);
   margin: 0;
 }
 
-.coverage-navigator .empty-state-hint {
+.coverage-route-planner .empty-state-hint {
   font-size: 0.75rem;
   color: var(--text-tertiary);
   text-align: center;
@@ -1263,7 +1263,7 @@
 }
 
 /* Route history items */
-.coverage-navigator .route-history-item {
+.coverage-route-planner .route-history-item {
   background: var(--surface-2);
   border: 1px solid var(--border-color);
   border-left: 3px solid var(--border-color);
@@ -1273,31 +1273,31 @@
   overflow: hidden;
 }
 
-.coverage-navigator .route-history-item:hover {
+.coverage-route-planner .route-history-item:hover {
   border-color: var(--border-hover);
   background: var(--surface-3);
   box-shadow: var(--shadow-sm);
 }
 
-.coverage-navigator .route-history-item[data-status="active"] {
+.coverage-route-planner .route-history-item[data-status="active"] {
   border-left-color: var(--success);
 }
 
-.coverage-navigator .route-history-item[data-status="paused"] {
+.coverage-route-planner .route-history-item[data-status="paused"] {
   border-left-color: var(--warning);
 }
 
-.coverage-navigator .route-history-item[data-status="completed"] {
+.coverage-route-planner .route-history-item[data-status="completed"] {
   border-left-color: var(--cat-mint);
 }
 
-.coverage-navigator .route-history-item[data-status="cancelled"] {
+.coverage-route-planner .route-history-item[data-status="cancelled"] {
   border-left-color: var(--danger);
 }
 
 /* Inner body for route history items */
 
-.coverage-navigator .route-name {
+.coverage-route-planner .route-name {
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-primary);
@@ -1306,7 +1306,7 @@
   min-width: 0;
 }
 
-.coverage-navigator .rhi-efficiency-badge {
+.coverage-route-planner .rhi-efficiency-badge {
   font-size: 0.625rem;
   font-weight: 700;
   padding: 0.15rem 0.45rem;
@@ -1318,35 +1318,35 @@
   flex-shrink: 0;
 }
 
-.coverage-navigator .rhi-efficiency-badge[data-eff="amber"] {
+.coverage-route-planner .rhi-efficiency-badge[data-eff="amber"] {
   background: rgb(var(--warning-rgb) / 15%);
   color: var(--warning);
 }
 
-.coverage-navigator .rhi-efficiency-badge[data-eff="low"] {
+.coverage-route-planner .rhi-efficiency-badge[data-eff="low"] {
   background: rgb(var(--danger-rgb) / 15%);
   color: var(--danger);
 }
 
-.coverage-navigator .route-date {
+.coverage-route-planner .route-date {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
 }
 
-.coverage-navigator .route-history-item[data-status="active"] .route-date {
+.coverage-route-planner .route-history-item[data-status="active"] .route-date {
   color: var(--success);
 }
 
-.coverage-navigator .route-history-item[data-status="paused"] .route-date {
+.coverage-route-planner .route-history-item[data-status="paused"] .route-date {
   color: var(--warning);
 }
 
-.coverage-navigator .route-history-item[data-status="cancelled"] .route-date {
+.coverage-route-planner .route-history-item[data-status="cancelled"] .route-date {
   color: var(--danger);
 }
 
 /* Action buttons: reveal on hover */
-.coverage-navigator .route-actions-inline {
+.coverage-route-planner .route-actions-inline {
   display: flex;
   align-items: center;
   gap: var(--space-1);
@@ -1360,15 +1360,15 @@
     margin-top 200ms ease;
 }
 
-.coverage-navigator .route-history-item:hover .route-actions-inline,
-.coverage-navigator .route-history-item:focus-within .route-actions-inline {
+.coverage-route-planner .route-history-item:hover .route-actions-inline,
+.coverage-route-planner .route-history-item:focus-within .route-actions-inline {
   max-height: 60px;
   opacity: 1;
   margin-top: var(--space-2);
 }
 
 /* Route history chevron */
-.coverage-navigator .route-history-chevron {
+.coverage-route-planner .route-history-chevron {
   color: var(--text-tertiary);
   font-size: 0.75rem;
   align-self: center;
@@ -1378,14 +1378,14 @@
    Find Tab — Action Tiles
    ========================================================================== */
 
-.coverage-navigator .find-action-grid {
+.coverage-route-planner .find-action-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-2);
   margin-bottom: var(--space-3);
 }
 
-.coverage-navigator .find-tile {
+.coverage-route-planner .find-tile {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1401,23 +1401,23 @@
   color: var(--text-primary);
 }
 
-.coverage-navigator .find-tile:disabled {
+.coverage-route-planner .find-tile:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 
-.coverage-navigator .find-tile:not(:disabled):hover {
+.coverage-route-planner .find-tile:not(:disabled):hover {
   background: rgb(var(--info-rgb) / 8%);
   border-color: rgb(var(--info-rgb) / 50%);
   transform: translateY(-2px);
   box-shadow: var(--shadow-sm);
 }
 
-.coverage-navigator .find-tile:not(:disabled):active {
+.coverage-route-planner .find-tile:not(:disabled):active {
   transform: translateY(0);
 }
 
-.coverage-navigator .find-tile-icon {
+.coverage-route-planner .find-tile-icon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1430,56 +1430,56 @@
   transition: background 200ms ease;
 }
 
-.coverage-navigator .find-tile--clusters .find-tile-icon {
+.coverage-route-planner .find-tile--clusters .find-tile-icon {
   background: rgb(var(--cat-purple-rgb) / 12%);
   color: var(--cat-purple);
 }
 
-.coverage-navigator .find-tile:not(:disabled):hover .find-tile-icon {
+.coverage-route-planner .find-tile:not(:disabled):hover .find-tile-icon {
   background: rgb(var(--info-rgb) / 20%);
 }
 
-.coverage-navigator .find-tile--clusters:not(:disabled):hover .find-tile-icon {
+.coverage-route-planner .find-tile--clusters:not(:disabled):hover .find-tile-icon {
   background: rgb(var(--cat-purple-rgb) / 20%);
 }
 
-.coverage-navigator .find-tile--clusters:not(:disabled):hover {
+.coverage-route-planner .find-tile--clusters:not(:disabled):hover {
   background: rgb(var(--cat-purple-rgb) / 6%);
   border-color: rgb(var(--cat-purple-rgb) / 40%);
 }
 
-.coverage-navigator .find-tile-title {
+.coverage-route-planner .find-tile-title {
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-primary);
   line-height: 1.2;
 }
 
-.coverage-navigator .find-tile-hint {
+.coverage-route-planner .find-tile-hint {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
   line-height: 1.3;
 }
 
 /* Find helper card */
-.coverage-navigator .find-helper-card {
+.coverage-route-planner .find-helper-card {
   border-style: dashed;
   border-color: var(--border-color);
   background: transparent;
   box-shadow: none;
 }
 
-.coverage-navigator .find-helper-card:hover {
+.coverage-route-planner .find-helper-card:hover {
   box-shadow: none;
 }
 
-.coverage-navigator .find-helper-content {
+.coverage-route-planner .find-helper-content {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
 }
 
-.coverage-navigator .find-helper-icon {
+.coverage-route-planner .find-helper-icon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1493,14 +1493,14 @@
   margin-top: 2px;
 }
 
-.coverage-navigator .find-helper-title {
+.coverage-route-planner .find-helper-title {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-secondary);
   margin: 0 0 var(--space-1) 0;
 }
 
-.coverage-navigator .find-helper-desc {
+.coverage-route-planner .find-helper-desc {
   font-size: 0.75rem;
   color: var(--text-tertiary);
   line-height: 1.55;
@@ -1511,7 +1511,7 @@
    Status Messages
    ========================================================================== */
 
-.coverage-navigator .status-message {
+.coverage-route-planner .status-message {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
@@ -1522,31 +1522,31 @@
   line-height: 1.5;
 }
 
-.coverage-navigator .status-message.info {
+.coverage-route-planner .status-message.info {
   background: rgb(var(--info-rgb) / 10%);
   border: 1px solid rgb(var(--info-rgb) / 20%);
   color: var(--info);
 }
 
-.coverage-navigator .status-message.success {
+.coverage-route-planner .status-message.success {
   background: rgb(var(--success-rgb) / 10%);
   border: 1px solid rgb(var(--success-rgb) / 20%);
   color: var(--success);
 }
 
-.coverage-navigator .status-message.warning {
+.coverage-route-planner .status-message.warning {
   background: rgb(var(--warning-rgb) / 10%);
   border: 1px solid rgb(var(--warning-rgb) / 20%);
   color: var(--warning);
 }
 
-.coverage-navigator .status-message.error {
+.coverage-route-planner .status-message.error {
   background: rgb(var(--danger-rgb) / 10%);
   border: 1px solid rgb(var(--danger-rgb) / 20%);
   color: var(--danger);
 }
 
-.coverage-navigator .status-message i {
+.coverage-route-planner .status-message i {
   margin-top: 0.125rem;
   flex-shrink: 0;
 }
@@ -1555,7 +1555,7 @@
    Route Info (Find Tab)
    ========================================================================== */
 
-.coverage-navigator .route-info {
+.coverage-route-planner .route-info {
   margin-top: var(--space-3);
   padding: var(--space-3);
   background: var(--surface-2);
@@ -1563,7 +1563,7 @@
   border-radius: var(--radius-md);
 }
 
-.coverage-navigator .route-info-header {
+.coverage-route-planner .route-info-header {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -1575,20 +1575,20 @@
   border-bottom: 1px solid var(--border-color);
 }
 
-.coverage-navigator .route-details-content {
+.coverage-route-planner .route-details-content {
   font-size: 0.8125rem;
   color: var(--text-secondary);
   line-height: 1.6;
 }
 
-.coverage-navigator .route-actions {
+.coverage-route-planner .route-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-2);
   margin-top: var(--space-3);
 }
 
-.coverage-navigator .route-actions .btn {
+.coverage-route-planner .route-actions .btn {
   min-height: 40px;
   font-size: 0.75rem;
   white-space: normal;
@@ -1602,11 +1602,11 @@
 }
 
 /* Target Info */
-.coverage-navigator .target-info {
+.coverage-route-planner .target-info {
   margin-top: var(--space-3);
 }
 
-.coverage-navigator .target-card {
+.coverage-route-planner .target-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -1617,14 +1617,14 @@
   color: var(--text-primary);
 }
 
-.coverage-navigator .target-row {
+.coverage-route-planner .target-row {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
   min-width: 0;
 }
 
-.coverage-navigator .target-icon {
+.coverage-route-planner .target-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1636,11 +1636,11 @@
   flex: 0 0 auto;
 }
 
-.coverage-navigator .target-content {
+.coverage-route-planner .target-content {
   min-width: 0;
 }
 
-.coverage-navigator .target-label {
+.coverage-route-planner .target-label {
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -1648,26 +1648,26 @@
   color: var(--text-tertiary);
 }
 
-.coverage-navigator .target-name {
+.coverage-route-planner .target-name {
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-primary);
   overflow-wrap: anywhere;
 }
 
-.coverage-navigator .target-meta {
+.coverage-route-planner .target-meta {
   font-size: 0.75rem;
   color: var(--text-secondary);
   overflow-wrap: anywhere;
 }
 
-.coverage-navigator .route-info-detail {
+.coverage-route-planner .route-info-detail {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
 }
 
-.coverage-navigator .route-info-chip {
+.coverage-route-planner .route-info-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -1681,13 +1681,13 @@
   font-weight: 500;
 }
 
-.coverage-navigator .route-info-source {
+.coverage-route-planner .route-info-source {
   margin: var(--space-2) 0 0;
   font-size: 0.75rem;
   color: var(--text-tertiary);
 }
 
-.coverage-navigator .cluster-summary {
+.coverage-route-planner .cluster-summary {
   display: grid;
   gap: 0.375rem;
   padding: var(--space-2);
@@ -1696,7 +1696,7 @@
   background: var(--surface-3);
 }
 
-.coverage-navigator .cluster-summary-row {
+.coverage-route-planner .cluster-summary-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1704,18 +1704,18 @@
   min-width: 0;
 }
 
-.coverage-navigator .cluster-summary-label {
+.coverage-route-planner .cluster-summary-label {
   font-size: 0.75rem;
   color: var(--text-secondary);
 }
 
-.coverage-navigator .cluster-summary-value {
+.coverage-route-planner .cluster-summary-value {
   font-size: 0.8125rem;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
 
-.coverage-navigator .cluster-list {
+.coverage-route-planner .cluster-list {
   margin-top: var(--space-2);
   max-height: min(180px, 35vh);
   overflow-y: auto;
@@ -1724,7 +1724,7 @@
   padding-right: 0.125rem;
 }
 
-.coverage-navigator .cluster-item {
+.coverage-route-planner .cluster-item {
   display: grid;
   gap: 0.125rem;
   padding: 0.45rem 0.55rem;
@@ -1733,33 +1733,33 @@
   background: var(--surface-3);
 }
 
-.coverage-navigator .cluster-item-heading {
+.coverage-route-planner .cluster-item-heading {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
   min-width: 0;
 }
 
-.coverage-navigator .cluster-color-dot {
+.coverage-route-planner .cluster-color-dot {
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 50%;
   flex: 0 0 auto;
 }
 
-.coverage-navigator .cluster-item-meta {
+.coverage-route-planner .cluster-item-meta {
   font-size: 0.75rem;
   color: var(--text-secondary);
   overflow-wrap: anywhere;
 }
 
-.coverage-navigator .route-stats {
+.coverage-route-planner .route-stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
 }
 
-.coverage-navigator .route-stats > div {
+.coverage-route-planner .route-stats > div {
   padding: 0.5rem 0.625rem;
   background: var(--surface-2);
   border: 1px solid var(--border-color);
@@ -1773,16 +1773,16 @@
    ========================================================================== */
 
 /* Route progress container */
-.coverage-navigator #route-progress-container {
+.coverage-route-planner #route-progress-container {
   display: none;
 }
 
-.coverage-navigator #route-progress-container.active {
+.coverage-route-planner #route-progress-container.active {
   display: block;
 }
 
 /* Progress steps */
-.coverage-navigator .progress-steps {
+.coverage-route-planner .progress-steps {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1790,7 +1790,7 @@
   position: relative;
 }
 
-.coverage-navigator .progress-steps::before {
+.coverage-route-planner .progress-steps::before {
   content: "";
   position: absolute;
   top: 10px;
@@ -1801,7 +1801,7 @@
   z-index: 0;
 }
 
-.coverage-navigator .step {
+.coverage-route-planner .step {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1811,7 +1811,7 @@
   min-width: 0;
 }
 
-.coverage-navigator .step-indicator {
+.coverage-route-planner .step-indicator {
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -1820,18 +1820,18 @@
   transition: all 0.3s ease;
 }
 
-.coverage-navigator .step.active .step-indicator {
+.coverage-route-planner .step.active .step-indicator {
   background: var(--primary);
   border-color: var(--primary);
   box-shadow: 0 0 0 4px rgb(var(--primary-rgb) / 20%);
 }
 
-.coverage-navigator .step.completed .step-indicator {
+.coverage-route-planner .step.completed .step-indicator {
   background: var(--success);
   border-color: var(--success);
 }
 
-.coverage-navigator .step.completed .step-indicator::after {
+.coverage-route-planner .step.completed .step-indicator::after {
   content: "\f00c";
   font-family: "Font Awesome 6 Free", sans-serif;
   font-weight: 900;
@@ -1843,7 +1843,7 @@
   height: 100%;
 }
 
-.coverage-navigator .step-label {
+.coverage-route-planner .step-label {
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--text-tertiary);
@@ -1853,33 +1853,33 @@
   line-height: 1.25;
 }
 
-.coverage-navigator .step.active .step-label {
+.coverage-route-planner .step.active .step-label {
   color: var(--primary);
   font-weight: 600;
 }
 
-.coverage-navigator .step.completed .step-label {
+.coverage-route-planner .step.completed .step-label {
   color: var(--success);
 }
 
 /* Progress Bar Container */
-.coverage-navigator .progress-bar-container {
+.coverage-route-planner .progress-bar-container {
   margin-top: var(--space-3);
 }
 
-.coverage-navigator .progress-bar-container .progress {
+.coverage-route-planner .progress-bar-container .progress {
   height: 8px;
   background: var(--surface-3);
   border-radius: var(--radius-full);
   overflow: hidden;
 }
 
-.coverage-navigator .progress-bar-container .progress-bar {
+.coverage-route-planner .progress-bar-container .progress-bar {
   background: var(--primary-gradient);
   transition: width 0.3s ease;
 }
 
-.coverage-navigator .progress-status {
+.coverage-route-planner .progress-status {
   display: block;
   margin-top: var(--space-2);
   font-size: 0.75rem;
@@ -1891,11 +1891,11 @@
    Live Progress — Vertical Solver Pipeline
    ========================================================================== */
 
-.coverage-navigator .is-live .widget-header {
+.coverage-route-planner .is-live .widget-header {
   background: linear-gradient(90deg, var(--surface-2) 0%, rgb(var(--cat-amber-rgb) / 10%) 100%);
 }
 
-.coverage-navigator .live-badge {
+.coverage-route-planner .live-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -1910,7 +1910,7 @@
   animation: pulse-badge 2s ease-in-out infinite;
 }
 
-.coverage-navigator .live-badge::before {
+.coverage-route-planner .live-badge::before {
   content: "";
   width: 6px;
   height: 6px;
@@ -1930,13 +1930,13 @@
 }
 
 /* Vertical pipeline */
-.coverage-navigator .solver-pipeline {
+.coverage-route-planner .solver-pipeline {
   display: flex;
   flex-direction: column;
   margin-bottom: var(--space-4);
 }
 
-.coverage-navigator .solver-pipeline .stage {
+.coverage-route-planner .solver-pipeline .stage {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
@@ -1945,15 +1945,15 @@
   transition: opacity 300ms ease;
 }
 
-.coverage-navigator .solver-pipeline .stage.active {
+.coverage-route-planner .solver-pipeline .stage.active {
   opacity: 1;
 }
 
-.coverage-navigator .solver-pipeline .stage.completed {
+.coverage-route-planner .solver-pipeline .stage.completed {
   opacity: 0.75;
 }
 
-.coverage-navigator .stage-node {
+.coverage-route-planner .stage-node {
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -1968,7 +1968,7 @@
   transition: all 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.coverage-navigator .stage.active .stage-node {
+.coverage-route-planner .stage.active .stage-node {
   background: var(--warning);
   border-color: var(--warning);
   color: white;
@@ -1978,7 +1978,7 @@
   animation: node-pulse 1.6s ease-in-out infinite;
 }
 
-.coverage-navigator .stage.completed .stage-node {
+.coverage-route-planner .stage.completed .stage-node {
   background: var(--success);
   border-color: var(--success);
   color: white;
@@ -1997,7 +1997,7 @@
   }
 }
 
-.coverage-navigator .pipeline-connector {
+.coverage-route-planner .pipeline-connector {
   width: 2px;
   height: 18px;
   background: var(--divider-color);
@@ -2006,11 +2006,11 @@
   flex-shrink: 0;
 }
 
-.coverage-navigator .stage.completed + .pipeline-connector {
+.coverage-route-planner .stage.completed + .pipeline-connector {
   background: var(--success);
 }
 
-.coverage-navigator .stage-content {
+.coverage-route-planner .stage-content {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -2019,7 +2019,7 @@
   min-width: 0;
 }
 
-.coverage-navigator .solver-pipeline .stage-label {
+.coverage-route-planner .solver-pipeline .stage-label {
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-primary);
@@ -2028,31 +2028,31 @@
   text-align: left;
 }
 
-.coverage-navigator .stage-detail {
+.coverage-route-planner .stage-detail {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
   line-height: 1.4;
 }
 
 /* Progress messages */
-.coverage-navigator .progress-messages {
+.coverage-route-planner .progress-messages {
   text-align: center;
   margin-top: var(--space-3);
 }
 
-.coverage-navigator .message-primary {
+.coverage-route-planner .message-primary {
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--text-primary);
 }
 
-.coverage-navigator .message-secondary {
+.coverage-route-planner .message-secondary {
   font-size: 0.75rem;
   color: var(--text-tertiary);
   margin-top: 0.25rem;
 }
 
-.coverage-navigator .elapsed-time {
+.coverage-route-planner .elapsed-time {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2065,7 +2065,7 @@
   color: var(--text-secondary);
 }
 
-.coverage-navigator .btn-cancel {
+.coverage-route-planner .btn-cancel {
   width: 100%;
   margin-top: var(--space-3);
   min-height: 40px;
@@ -2075,11 +2075,11 @@
    Status Tab Empty State — Animated Rings
    ========================================================================== */
 
-.coverage-navigator .processing-ready-state {
+.coverage-route-planner .processing-ready-state {
   gap: var(--space-4);
 }
 
-.coverage-navigator .ready-animation {
+.coverage-route-planner .ready-animation {
   position: relative;
   width: 64px;
   height: 64px;
@@ -2088,7 +2088,7 @@
   justify-content: center;
 }
 
-.coverage-navigator .ready-ring {
+.coverage-route-planner .ready-ring {
   position: absolute;
   border-radius: 50%;
   border: 2px solid rgb(var(--primary-rgb) / 22%);
@@ -2097,7 +2097,7 @@
   height: 64px;
 }
 
-.coverage-navigator .ready-ring--2 {
+.coverage-route-planner .ready-ring--2 {
   animation-delay: 1.5s;
 }
 
@@ -2113,7 +2113,7 @@
   }
 }
 
-.coverage-navigator .ready-icon {
+.coverage-route-planner .ready-icon {
   position: relative;
   z-index: 1;
   width: 40px;
@@ -2128,8 +2128,8 @@
   font-size: 1rem;
 }
 
-.coverage-navigator .status-go-plan-btn,
-.coverage-navigator .results-go-plan-btn {
+.coverage-route-planner .status-go-plan-btn,
+.coverage-route-planner .results-go-plan-btn {
   margin-top: var(--space-1);
 }
 
@@ -2137,15 +2137,15 @@
    Error Section
    ========================================================================== */
 
-.coverage-navigator .is-error .widget-header {
+.coverage-route-planner .is-error .widget-header {
   background: rgb(var(--danger-rgb) / 10%);
 }
 
-.coverage-navigator .is-error .widget-title {
+.coverage-route-planner .is-error .widget-title {
   color: var(--danger);
 }
 
-.coverage-navigator .error-content {
+.coverage-route-planner .error-content {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2154,18 +2154,18 @@
   padding: var(--space-2);
 }
 
-.coverage-navigator .error-illustration {
+.coverage-route-planner .error-illustration {
   opacity: 0.85;
 }
 
-.coverage-navigator .error-message {
+.coverage-route-planner .error-message {
   font-size: 0.875rem;
   color: var(--danger);
   line-height: 1.5;
   max-width: 260px;
 }
 
-.coverage-navigator .error-actions {
+.coverage-route-planner .error-actions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -2178,7 +2178,7 @@
    ========================================================================== */
 
 /* Hero efficiency card */
-.coverage-navigator .results-hero-card {
+.coverage-route-planner .results-hero-card {
   display: flex;
   align-items: center;
   gap: var(--space-4);
@@ -2190,35 +2190,35 @@
   transition: border-color 0.3s ease;
 }
 
-.coverage-navigator .results-hero-card:hover {
+.coverage-route-planner .results-hero-card:hover {
   border-color: rgb(var(--success-rgb) / 35%);
 }
 
-.coverage-navigator .hero-eff-ring {
+.coverage-route-planner .hero-eff-ring {
   position: relative;
   width: 72px;
   height: 72px;
   flex-shrink: 0;
 }
 
-.coverage-navigator .eff-ring-svg {
+.coverage-route-planner .eff-ring-svg {
   width: 72px;
   height: 72px;
   transform: rotate(-90deg);
 }
 
-.coverage-navigator .eff-ring-track {
+.coverage-route-planner .eff-ring-track {
   stroke: var(--surface-3);
 }
 
-.coverage-navigator .eff-ring-fill {
+.coverage-route-planner .eff-ring-fill {
   stroke: var(--success);
   stroke-linecap: round;
   transition: stroke-dashoffset 1000ms cubic-bezier(0.34, 1.56, 0.64, 1);
   filter: drop-shadow(0 0 8px rgb(var(--success-rgb) / 40%));
 }
 
-.coverage-navigator .hero-eff-center {
+.coverage-route-planner .hero-eff-center {
   position: absolute;
   inset: 0;
   display: flex;
@@ -2229,7 +2229,7 @@
   gap: 1px;
 }
 
-.coverage-navigator .hero-eff-value {
+.coverage-route-planner .hero-eff-value {
   font-family: var(--font-family-mono);
   font-size: 1rem;
   font-weight: 800;
@@ -2237,33 +2237,33 @@
   line-height: 1;
 }
 
-.coverage-navigator .hero-eff-unit {
+.coverage-route-planner .hero-eff-unit {
   font-size: 0.5rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-tertiary);
 }
 
-.coverage-navigator .hero-eff-details {
+.coverage-route-planner .hero-eff-details {
   flex: 1;
   min-width: 0;
 }
 
-.coverage-navigator .hero-eff-label {
+.coverage-route-planner .hero-eff-label {
   font-size: 0.875rem;
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: var(--space-1);
 }
 
-.coverage-navigator .hero-eff-desc {
+.coverage-route-planner .hero-eff-desc {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
   line-height: 1.45;
   margin-bottom: var(--space-2);
 }
 
-.coverage-navigator .hero-eff-grade {
+.coverage-route-planner .hero-eff-grade {
   display: inline-block;
   font-size: 0.625rem;
   font-weight: 700;
@@ -2276,23 +2276,23 @@
 }
 
 /* 2×2 supporting grid */
-.coverage-navigator .stats-grid {
+.coverage-route-planner .stats-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-3);
 }
 
 @media (width >= 400px) {
-  .coverage-navigator .stats-grid {
+  .coverage-route-planner .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-.coverage-navigator .results-supporting-grid {
+.coverage-route-planner .results-supporting-grid {
   margin-bottom: var(--space-3);
 }
 
-.coverage-navigator .stat-card {
+.coverage-route-planner .stat-card {
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -2303,12 +2303,12 @@
   transition: all 0.2s ease;
 }
 
-.coverage-navigator .stat-card:hover {
+.coverage-route-planner .stat-card:hover {
   border-color: var(--border-hover);
   transform: translateY(-1px);
 }
 
-.coverage-navigator .stat-card .stat-icon {
+.coverage-route-planner .stat-card .stat-icon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2321,19 +2321,19 @@
   flex-shrink: 0;
 }
 
-.coverage-navigator .stat-card[data-stat="deadhead"] .stat-icon {
+.coverage-route-planner .stat-card[data-stat="deadhead"] .stat-icon {
   background: var(--warning);
 }
 
-.coverage-navigator .stat-card[data-stat="coverage"] .stat-icon {
+.coverage-route-planner .stat-card[data-stat="coverage"] .stat-icon {
   background: var(--cat-mint);
 }
 
-.coverage-navigator .stat-card[data-stat="required"] .stat-icon {
+.coverage-route-planner .stat-card[data-stat="required"] .stat-icon {
   background: var(--info);
 }
 
-.coverage-navigator .stat-card .stat-content {
+.coverage-route-planner .stat-card .stat-content {
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
@@ -2341,7 +2341,7 @@
   min-width: 0;
 }
 
-.coverage-navigator .stat-card .stat-value {
+.coverage-route-planner .stat-card .stat-value {
   font-size: 1.0625rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -2349,7 +2349,7 @@
   overflow-wrap: anywhere;
 }
 
-.coverage-navigator .stat-card .stat-label {
+.coverage-route-planner .stat-card .stat-label {
   font-size: 0.625rem;
   font-weight: 500;
   text-transform: uppercase;
@@ -2358,11 +2358,11 @@
 }
 
 /* Navigation CTA */
-.coverage-navigator .results-cta-primary {
+.coverage-route-planner .results-cta-primary {
   margin-bottom: var(--space-3);
 }
 
-.coverage-navigator .btn-results-nav {
+.coverage-route-planner .btn-results-nav {
   width: 100%;
   display: flex;
   align-items: center;
@@ -2376,34 +2376,34 @@
   transition: all 0.25s ease;
 }
 
-.coverage-navigator .btn-results-nav:not(:disabled):hover {
+.coverage-route-planner .btn-results-nav:not(:disabled):hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
 }
 
-.coverage-navigator .btn-results-nav:not(:disabled):active {
+.coverage-route-planner .btn-results-nav:not(:disabled):active {
   transform: translateY(0);
 }
 
-.coverage-navigator .btn-results-nav i {
+.coverage-route-planner .btn-results-nav i {
   font-size: 1.25rem;
   flex-shrink: 0;
 }
 
-.coverage-navigator .btn-cta-text {
+.coverage-route-planner .btn-cta-text {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
 }
 
-.coverage-navigator .btn-cta-title {
+.coverage-route-planner .btn-cta-title {
   font-size: 0.9375rem;
   font-weight: 700;
   line-height: 1;
 }
 
-.coverage-navigator .btn-cta-sub {
+.coverage-route-planner .btn-cta-sub {
   font-size: 0.6875rem;
   opacity: 0.8;
   font-weight: 400;
@@ -2411,14 +2411,14 @@
 }
 
 /* Secondary actions row */
-.coverage-navigator .results-secondary-actions {
+.coverage-route-planner .results-secondary-actions {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-2);
   margin-bottom: var(--space-4);
 }
 
-.coverage-navigator .results-secondary-actions .btn {
+.coverage-route-planner .results-secondary-actions .btn {
   min-height: 40px;
   font-size: 0.75rem;
   display: inline-flex;
@@ -2432,7 +2432,7 @@
 }
 
 /* Export actions */
-.coverage-navigator .export-actions {
+.coverage-route-planner .export-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
@@ -2440,12 +2440,12 @@
 }
 
 @media (width >= 400px) {
-  .coverage-navigator .export-actions {
+  .coverage-route-planner .export-actions {
     grid-template-columns: repeat(4, 1fr);
   }
 }
 
-.coverage-navigator .export-actions .btn {
+.coverage-route-planner .export-actions .btn {
   min-height: 40px;
   font-size: 0.75rem;
   white-space: normal;
@@ -2459,7 +2459,7 @@
 }
 
 /* Results empty state */
-.coverage-navigator .results-empty-state .results-empty-art {
+.coverage-route-planner .results-empty-state .results-empty-art {
   color: var(--text-tertiary);
   opacity: 0.4;
   font-size: 0;
@@ -2469,12 +2469,12 @@
    Layer Controls
    ========================================================================== */
 
-.coverage-navigator .layer-controls {
+.coverage-route-planner .layer-controls {
   padding-top: var(--space-4);
   border-top: 1px solid var(--border-color);
 }
 
-.coverage-navigator .layer-controls-title {
+.coverage-route-planner .layer-controls-title {
   font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -2483,13 +2483,13 @@
   margin-bottom: var(--space-3);
 }
 
-.coverage-navigator .layer-list {
+.coverage-route-planner .layer-list {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
-.coverage-navigator .layer-item {
+.coverage-route-planner .layer-item {
   padding: var(--space-3);
   background: var(--surface-2);
   border: 1px solid var(--border-color);
@@ -2497,44 +2497,44 @@
   transition: all 0.2s ease;
 }
 
-.coverage-navigator .layer-item:hover {
+.coverage-route-planner .layer-item:hover {
   border-color: var(--border-hover);
 }
 
-.coverage-navigator .layer-main {
+.coverage-route-planner .layer-main {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
 }
 
-.coverage-navigator .layer-info {
+.coverage-route-planner .layer-info {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
 }
 
-.coverage-navigator .layer-color {
+.coverage-route-planner .layer-color {
   width: 12px;
   height: 12px;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
 
-.coverage-navigator .layer-color--route {
+.coverage-route-planner .layer-color--route {
   background: var(--cat-purple);
 }
 
-.coverage-navigator .layer-color--driven {
+.coverage-route-planner .layer-color--driven {
   background: var(--success);
 }
 
-.coverage-navigator .layer-color--undriven {
+.coverage-route-planner .layer-color--undriven {
   background: var(--danger);
 }
 
-.coverage-navigator .layer-name {
+.coverage-route-planner .layer-name {
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--text-primary);
@@ -2543,11 +2543,11 @@
   text-overflow: ellipsis;
 }
 
-.coverage-navigator .layer-opacity {
+.coverage-route-planner .layer-opacity {
   margin-top: var(--space-2);
 }
 
-.coverage-navigator .opacity-label {
+.coverage-route-planner .opacity-label {
   display: flex;
   justify-content: space-between;
   font-size: 0.6875rem;
@@ -2555,11 +2555,11 @@
   margin-bottom: var(--space-1);
 }
 
-.coverage-navigator .layer-opacity .form-range {
+.coverage-route-planner .layer-opacity .form-range {
   height: 4px;
 }
 
-.coverage-navigator .layer-opacity .form-range::-webkit-slider-thumb {
+.coverage-route-planner .layer-opacity .form-range::-webkit-slider-thumb {
   width: 14px;
   height: 14px;
   background: var(--primary);
@@ -2571,7 +2571,7 @@
    Map Container
    ========================================================================== */
 
-.coverage-navigator .map-container {
+.coverage-route-planner .map-container {
   position: relative;
   background: var(--surface-0);
   overflow: hidden;
@@ -2581,7 +2581,7 @@
 }
 
 @media (width >= 1024px) {
-  .coverage-navigator .map-container {
+  .coverage-route-planner .map-container {
     border-radius: var(--radius-lg);
     margin: var(--space-3);
     margin-left: 0;
@@ -2591,21 +2591,21 @@
   }
 }
 
-.coverage-navigator #coverage-map {
+.coverage-route-planner #coverage-map {
   width: 100%;
   height: 100%;
   min-height: 40vh;
 }
 
 @media (width >= 1024px) {
-  .coverage-navigator #coverage-map {
+  .coverage-route-planner #coverage-map {
     min-height: 0;
   }
 }
 
 /* Mapbox Popup Styles */
-.coverage-navigator .mapboxgl-popup-content,
-.coverage-navigator .maplibregl-popup-content {
+.coverage-route-planner .mapboxgl-popup-content,
+.coverage-route-planner .maplibregl-popup-content {
   background: var(--surface-2);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
@@ -2617,52 +2617,52 @@
   overflow-wrap: anywhere;
 }
 
-.coverage-navigator .mapboxgl-popup-close-button,
-.coverage-navigator .maplibregl-popup-close-button {
+.coverage-route-planner .mapboxgl-popup-close-button,
+.coverage-route-planner .maplibregl-popup-close-button {
   color: var(--text-secondary);
   font-size: 1.25rem;
   padding: var(--space-1) var(--space-2);
   transition: color 0.2s ease;
 }
 
-.coverage-navigator .mapboxgl-popup-close-button:hover,
-.coverage-navigator .maplibregl-popup-close-button:hover {
+.coverage-route-planner .mapboxgl-popup-close-button:hover,
+.coverage-route-planner .maplibregl-popup-close-button:hover {
   color: var(--text-primary);
 }
 
-.coverage-navigator .mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip,
-.coverage-navigator .maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+.coverage-route-planner .mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip,
+.coverage-route-planner .maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
   border-top-color: var(--surface-2);
 }
 
-.coverage-navigator .segment-popup,
-.coverage-navigator .efficient-cluster-popup {
+.coverage-route-planner .segment-popup,
+.coverage-route-planner .efficient-cluster-popup {
   display: grid;
   gap: var(--space-2);
   min-width: 0;
 }
 
-.coverage-navigator .segment-popup h6,
-.coverage-navigator .efficient-cluster-popup h6 {
+.coverage-route-planner .segment-popup h6,
+.coverage-route-planner .efficient-cluster-popup h6 {
   margin: 0;
   font-size: 0.875rem;
   color: var(--text-primary);
   overflow-wrap: anywhere;
 }
 
-.coverage-navigator .segment-popup .btn,
-.coverage-navigator .efficient-cluster-popup .btn {
+.coverage-route-planner .segment-popup .btn,
+.coverage-route-planner .efficient-cluster-popup .btn {
   min-height: 40px;
   white-space: normal;
   line-height: 1.2;
 }
 
-.coverage-navigator .efficient-cluster-popup .cluster-stats {
+.coverage-route-planner .efficient-cluster-popup .cluster-stats {
   display: grid;
   gap: 0.35rem;
 }
 
-.coverage-navigator .efficient-cluster-popup .cluster-stats > div {
+.coverage-route-planner .efficient-cluster-popup .cluster-stats > div {
   display: flex;
   align-items: flex-start;
   gap: 0.4rem;
@@ -2673,7 +2673,7 @@
    Map Scanner Overlay
    ========================================================================== */
 
-.coverage-navigator .map-scanner-overlay {
+.coverage-route-planner .map-scanner-overlay {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -2685,11 +2685,11 @@
   justify-content: center;
 }
 
-.coverage-navigator .map-scanner-overlay.active {
+.coverage-route-planner .map-scanner-overlay.active {
   opacity: 1;
 }
 
-.coverage-navigator .map-scanner-overlay::before {
+.coverage-route-planner .map-scanner-overlay::before {
   content: "";
   position: absolute;
   width: min(300px, 50vw);
@@ -2701,7 +2701,7 @@
   animation: scan-pulse 2.5s ease-out infinite;
 }
 
-.coverage-navigator .map-scanner-overlay::after {
+.coverage-route-planner .map-scanner-overlay::after {
   content: "";
   position: absolute;
   width: min(340px, 55vw);
@@ -2747,7 +2747,7 @@
    Route Solver HUD
    ========================================================================== */
 
-.coverage-navigator .route-solver-hud {
+.coverage-route-planner .route-solver-hud {
   position: absolute;
   top: var(--space-4);
   left: var(--space-4);
@@ -2764,18 +2764,18 @@
 }
 
 @media (width >= 640px) {
-  .coverage-navigator .route-solver-hud {
+  .coverage-route-planner .route-solver-hud {
     right: auto;
   }
 }
 
-.coverage-navigator .route-solver-hud.active {
+.coverage-route-planner .route-solver-hud.active {
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
 }
 
-.coverage-navigator .hud-panel {
+.coverage-route-planner .hud-panel {
   background: linear-gradient(
     135deg,
     rgb(var(--surface-rgb) / 92%) 0%,
@@ -2791,7 +2791,7 @@
   min-width: 0;
 }
 
-.coverage-navigator .hud-header {
+.coverage-route-planner .hud-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2801,13 +2801,13 @@
   border-bottom: 1px solid rgb(var(--border-rgb) / 20%);
 }
 
-.coverage-navigator .hud-signal {
+.coverage-route-planner .hud-signal {
   display: flex;
   align-items: center;
   gap: var(--space-2);
 }
 
-.coverage-navigator .hud-dot {
+.coverage-route-planner .hud-dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
@@ -2829,7 +2829,7 @@
   }
 }
 
-.coverage-navigator .hud-title {
+.coverage-route-planner .hud-title {
   font-size: 0.6875rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -2837,7 +2837,7 @@
   color: var(--text-tertiary);
 }
 
-.coverage-navigator .hud-stage {
+.coverage-route-planner .hud-stage {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--primary);
@@ -2846,20 +2846,20 @@
   border-radius: var(--radius-full);
 }
 
-.coverage-navigator .hud-message {
+.coverage-route-planner .hud-message {
   font-size: 1rem;
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: var(--space-1);
 }
 
-.coverage-navigator .hud-submessage {
+.coverage-route-planner .hud-submessage {
   font-size: 0.8125rem;
   color: var(--text-secondary);
   min-height: 1.25rem;
 }
 
-.coverage-navigator .hud-metrics {
+.coverage-route-planner .hud-metrics {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-2);
@@ -2868,7 +2868,7 @@
   border-top: 1px solid rgb(var(--border-rgb) / 20%);
 }
 
-.coverage-navigator .hud-metric {
+.coverage-route-planner .hud-metric {
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
@@ -2878,7 +2878,7 @@
   border-radius: var(--radius-md);
 }
 
-.coverage-navigator .metric-label {
+.coverage-route-planner .metric-label {
   font-size: 0.625rem;
   font-weight: 500;
   text-transform: uppercase;
@@ -2886,14 +2886,14 @@
   color: var(--text-tertiary);
 }
 
-.coverage-navigator .metric-value {
+.coverage-route-planner .metric-value {
   font-size: 0.9375rem;
   font-weight: 700;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
 
-.coverage-navigator .hud-activity {
+.coverage-route-planner .hud-activity {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -2903,14 +2903,14 @@
   font-size: 0.75rem;
 }
 
-.coverage-navigator .hud-activity-item {
+.coverage-route-planner .hud-activity-item {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   color: var(--text-secondary);
 }
 
-.coverage-navigator .hud-activity-item::before {
+.coverage-route-planner .hud-activity-item::before {
   content: "";
   width: 5px;
   height: 5px;
@@ -2920,7 +2920,7 @@
   flex-shrink: 0;
 }
 
-.coverage-navigator .hud-activity-time {
+.coverage-route-planner .hud-activity-time {
   font-variant-numeric: tabular-nums;
   color: var(--text-tertiary);
   font-size: 0.6875rem;
@@ -2930,7 +2930,7 @@
    Map Legend
    ========================================================================== */
 
-.coverage-navigator .map-legend {
+.coverage-route-planner .map-legend {
   position: absolute;
   bottom: var(--space-4);
   right: var(--space-4);
@@ -2945,7 +2945,7 @@
   backdrop-filter: blur(8px);
 }
 
-.coverage-navigator .map-legend h6 {
+.coverage-route-planner .map-legend h6 {
   margin: 0 0 var(--space-2) 0;
   font-size: 0.6875rem;
   font-weight: 700;
@@ -2954,42 +2954,42 @@
   color: var(--text-secondary);
 }
 
-.coverage-navigator .legend-items {
+.coverage-route-planner .legend-items {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
-.coverage-navigator .legend-item {
+.coverage-route-planner .legend-item {
   display: flex;
   align-items: center;
   gap: var(--space-2);
 }
 
-.coverage-navigator .legend-color {
+.coverage-route-planner .legend-color {
   width: 20px;
   height: 4px;
   border-radius: var(--radius-pill);
   flex-shrink: 0;
 }
 
-.coverage-navigator .legend-color--driven {
+.coverage-route-planner .legend-color--driven {
   background: var(--success);
 }
 
-.coverage-navigator .legend-color--undriven {
+.coverage-route-planner .legend-color--undriven {
   background: var(--danger);
 }
 
-.coverage-navigator .legend-color--route {
+.coverage-route-planner .legend-color--route {
   background: var(--cat-purple);
 }
 
-.coverage-navigator .legend-color.is-route {
+.coverage-route-planner .legend-color.is-route {
   height: 5px;
 }
 
-.coverage-navigator .legend-label {
+.coverage-route-planner .legend-label {
   font-size: 0.75rem;
   color: var(--text-secondary);
   overflow-wrap: anywhere;
@@ -3001,19 +3001,19 @@
 
 @media (width <= 1023px) {
   /* Map container for mobile panel */
-  .coverage-navigator .map-container {
+  .coverage-route-planner .map-container {
     position: fixed;
     inset: var(--header-height) 0 0 0;
     z-index: 1;
     min-height: auto;
   }
 
-  .coverage-navigator #coverage-map {
+  .coverage-route-planner #coverage-map {
     min-height: 100%;
   }
 
   /* Full-width HUD on mobile */
-  .coverage-navigator .route-solver-hud {
+  .coverage-route-planner .route-solver-hud {
     left: var(--space-3);
     right: var(--space-3);
     max-width: none;
@@ -3021,7 +3021,7 @@
   }
 
   /* Legend positioning for mobile */
-  .coverage-navigator .map-legend {
+  .coverage-route-planner .map-legend {
     left: var(--space-3);
     right: var(--space-3);
     bottom: calc(72px + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-offset, 0px));
@@ -3029,126 +3029,126 @@
   }
 
   /* Mapbox controls above bottom nav */
-  .coverage-navigator .mapboxgl-ctrl-bottom-left,
-  .coverage-navigator .maplibregl-ctrl-bottom-left,
-  .coverage-navigator .mapboxgl-ctrl-bottom-right,
-  .coverage-navigator .maplibregl-ctrl-bottom-right {
+  .coverage-route-planner .mapboxgl-ctrl-bottom-left,
+  .coverage-route-planner .maplibregl-ctrl-bottom-left,
+  .coverage-route-planner .mapboxgl-ctrl-bottom-right,
+  .coverage-route-planner .maplibregl-ctrl-bottom-right {
     bottom: calc(72px + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-offset, 0px));
   }
 
   /* Touch targets */
-  .coverage-navigator .route-actions .btn,
-  .coverage-navigator .export-actions .btn,
-  .coverage-navigator .results-secondary-actions .btn {
+  .coverage-route-planner .route-actions .btn,
+  .coverage-route-planner .export-actions .btn,
+  .coverage-route-planner .results-secondary-actions .btn {
     min-height: 44px;
   }
 
   /* Larger slider thumb */
-  .coverage-navigator .layer-opacity .form-range::-webkit-slider-thumb {
+  .coverage-route-planner .layer-opacity .form-range::-webkit-slider-thumb {
     width: 24px;
     height: 24px;
   }
 
-  .coverage-navigator .layer-opacity .form-range::-moz-range-thumb {
+  .coverage-route-planner .layer-opacity .form-range::-moz-range-thumb {
     width: 24px;
     height: 24px;
   }
 
-  .coverage-navigator .layer-opacity .form-range {
+  .coverage-route-planner .layer-opacity .form-range {
     height: 8px;
   }
 }
 
 @media (width <= 480px) {
-  .coverage-navigator .tab-panel {
+  .coverage-route-planner .tab-panel {
     padding: var(--space-3);
     gap: var(--space-2);
   }
 
-  .coverage-navigator .widget-body {
+  .coverage-route-planner .widget-body {
     padding: var(--space-3);
   }
 
   /* iOS auto-zoom prevention */
-  .coverage-navigator .select-wrapper .form-select {
+  .coverage-route-planner .select-wrapper .form-select {
     font-size: 1rem;
   }
 
-  .coverage-navigator .stats-grid {
+  .coverage-route-planner .stats-grid {
     grid-template-columns: 1fr;
   }
 
-  .coverage-navigator .results-secondary-actions {
+  .coverage-route-planner .results-secondary-actions {
     grid-template-columns: 1fr;
   }
 
-  .coverage-navigator .find-action-grid {
+  .coverage-route-planner .find-action-grid {
     grid-template-columns: 1fr;
   }
 
-  .coverage-navigator .route-actions {
+  .coverage-route-planner .route-actions {
     grid-template-columns: 1fr;
   }
 
-  .coverage-navigator .route-stats {
+  .coverage-route-planner .route-stats {
     grid-template-columns: 1fr;
   }
 
-  .coverage-navigator .area-context-body {
+  .coverage-route-planner .area-context-body {
     flex-direction: column;
     align-items: center;
   }
 
-  .coverage-navigator .area-context-stats {
+  .coverage-route-planner .area-context-stats {
     flex-flow: row wrap;
     gap: var(--space-3);
     width: 100%;
   }
 
-  .coverage-navigator .acstat {
+  .coverage-route-planner .acstat {
     flex: 1;
     min-width: 80px;
   }
 
-  .coverage-navigator .hud-metrics {
+  .coverage-route-planner .hud-metrics {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .coverage-navigator .results-hero-card {
+  .coverage-route-planner .results-hero-card {
     flex-direction: column;
     text-align: center;
   }
 
-  .coverage-navigator .hero-eff-details {
+  .coverage-route-planner .hero-eff-details {
     text-align: center;
   }
 
-  .coverage-navigator .workflow-stepper {
+  .coverage-route-planner .workflow-stepper {
     padding: var(--space-2) var(--space-3);
   }
 
-  .coverage-navigator .ws-label {
+  .coverage-route-planner .ws-label {
     display: none;
   }
 }
 
 @media (hover: none) {
   /* Touch devices: no sticky hover transforms */
-  .coverage-navigator .mobile-panel-toggle:hover {
+  .coverage-route-planner .mobile-panel-toggle:hover {
     transform: translateX(-50%);
     box-shadow: var(--shadow-lg);
   }
 
-  .coverage-navigator .btn-generate:not(:disabled):hover,
-  .coverage-navigator .btn-results-nav:not(:disabled):hover,
-  .coverage-navigator .find-tile:not(:disabled):hover,
-  .coverage-navigator .stat-card:hover {
+  .coverage-route-planner .btn-generate:not(:disabled):hover,
+  .coverage-route-planner .btn-results-nav:not(:disabled):hover,
+  .coverage-route-planner .find-tile:not(:disabled):hover,
+  .coverage-route-planner .stat-card:hover {
     transform: none;
     box-shadow: none;
   }
 
   /* Always show route action buttons on touch */
-  .coverage-navigator .route-actions-inline {
+  .coverage-route-planner .route-actions-inline {
     max-height: 60px;
     opacity: 1;
     margin-top: var(--space-2);
@@ -3160,61 +3160,61 @@
    ========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
-  .coverage-navigator .map-scanner-overlay::before,
-  .coverage-navigator .map-scanner-overlay::after,
-  .coverage-navigator .hud-dot,
-  .coverage-navigator .live-badge,
-  .coverage-navigator .sidebar-tab[data-has-activity]::before,
-  .coverage-navigator .ready-ring,
-  .coverage-navigator .workflow-step.active .ws-node,
-  .coverage-navigator .stage.active .stage-node {
+  .coverage-route-planner .map-scanner-overlay::before,
+  .coverage-route-planner .map-scanner-overlay::after,
+  .coverage-route-planner .hud-dot,
+  .coverage-route-planner .live-badge,
+  .coverage-route-planner .sidebar-tab[data-has-activity]::before,
+  .coverage-route-planner .ready-ring,
+  .coverage-route-planner .workflow-step.active .ws-node,
+  .coverage-route-planner .stage.active .stage-node {
     animation: none;
   }
 
-  .coverage-navigator .tab-panel.active {
+  .coverage-route-planner .tab-panel.active {
     animation: none;
   }
 
-  .coverage-navigator .btn-generate,
-  .coverage-navigator .btn-results-nav,
-  .coverage-navigator .find-tile,
-  .coverage-navigator .stat-card,
-  .coverage-navigator .layer-item,
-  .coverage-navigator .route-history-item,
-  .coverage-navigator .coverage-ring-svg .ring-fill,
-  .coverage-navigator .donut-driven,
-  .coverage-navigator .eff-ring-fill,
-  .coverage-navigator .coverage-bar-fill {
+  .coverage-route-planner .btn-generate,
+  .coverage-route-planner .btn-results-nav,
+  .coverage-route-planner .find-tile,
+  .coverage-route-planner .stat-card,
+  .coverage-route-planner .layer-item,
+  .coverage-route-planner .route-history-item,
+  .coverage-route-planner .coverage-ring-svg .ring-fill,
+  .coverage-route-planner .donut-driven,
+  .coverage-route-planner .eff-ring-fill,
+  .coverage-route-planner .coverage-bar-fill {
     transition: none;
   }
 
-  .coverage-navigator .collapsible-content,
-  .coverage-navigator .sidebar-tab {
+  .coverage-route-planner .collapsible-content,
+  .coverage-route-planner .sidebar-tab {
     transition: none;
   }
 }
 
 /* Focus styles for accessibility */
-.coverage-navigator .sidebar-tab:focus-visible,
-.coverage-navigator .find-tile:focus-visible,
-.coverage-navigator .btn-generate:focus-visible,
-.coverage-navigator .btn-results-nav:focus-visible,
-.coverage-navigator .btn-collapse:focus-visible,
-.coverage-navigator .mobile-panel-toggle:focus-visible,
-.coverage-navigator .btn-algo-info:focus-visible {
+.coverage-route-planner .sidebar-tab:focus-visible,
+.coverage-route-planner .find-tile:focus-visible,
+.coverage-route-planner .btn-generate:focus-visible,
+.coverage-route-planner .btn-results-nav:focus-visible,
+.coverage-route-planner .btn-collapse:focus-visible,
+.coverage-route-planner .mobile-panel-toggle:focus-visible,
+.coverage-route-planner .btn-algo-info:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
 /* High contrast mode support */
 @media (prefers-contrast: high) {
-  .coverage-navigator .widget {
+  .coverage-route-planner .widget {
     border-width: 2px;
   }
 
-  .coverage-navigator .find-tile,
-  .coverage-navigator .btn-generate,
-  .coverage-navigator .btn-results-nav {
+  .coverage-route-planner .find-tile,
+  .coverage-route-planner .btn-generate,
+  .coverage-route-planner .btn-results-nav {
     border-width: 2px;
   }
 }
@@ -3224,14 +3224,14 @@
    ========================================================================== */
 
 @media print {
-  .coverage-navigator .control-panel,
-  .coverage-navigator .mobile-panel-toggle,
-  .coverage-navigator .route-solver-hud,
-  .coverage-navigator .map-scanner-overlay {
+  .coverage-route-planner .control-panel,
+  .coverage-route-planner .mobile-panel-toggle,
+  .coverage-route-planner .route-solver-hud,
+  .coverage-route-planner .map-scanner-overlay {
     display: none !important;
   }
 
-  .coverage-navigator .map-container {
+  .coverage-route-planner .map-container {
     position: fixed;
     inset: 0;
   }

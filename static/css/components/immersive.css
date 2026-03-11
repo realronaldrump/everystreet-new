@@ -103,8 +103,8 @@ body[data-route="/insights"] {
 }
 
 body[data-route="/coverage-management"],
-body[data-route="/coverage-navigator"],
-body[data-route="/turn-by-turn"] {
+body[data-route="/coverage-route-planner"],
+body[data-route="/live-navigation"] {
   --section-accent-rgb: var(--cat-amber-rgb);
 }
 
@@ -201,20 +201,20 @@ body[data-route="/map"] .nav-breadcrumb {
   display: none;
 }
 
-body[data-route="/coverage-navigator"] .nav-breadcrumb,
-body[data-route="/turn-by-turn"] .nav-breadcrumb,
-body[data-route="/county-map"] .nav-breadcrumb {
+body[data-route="/coverage-route-planner"] .nav-breadcrumb,
+body[data-route="/live-navigation"] .nav-breadcrumb,
+body[data-route="/regional-coverage-explorer"] .nav-breadcrumb {
   display: none;
 }
 
 body[data-route="/map"] .ambient-background,
 body[data-route="/map"] .noise-overlay,
-body[data-route="/coverage-navigator"] .ambient-background,
-body[data-route="/coverage-navigator"] .noise-overlay,
-body[data-route="/turn-by-turn"] .ambient-background,
-body[data-route="/turn-by-turn"] .noise-overlay,
-body[data-route="/county-map"] .ambient-background,
-body[data-route="/county-map"] .noise-overlay {
+body[data-route="/coverage-route-planner"] .ambient-background,
+body[data-route="/coverage-route-planner"] .noise-overlay,
+body[data-route="/live-navigation"] .ambient-background,
+body[data-route="/live-navigation"] .noise-overlay,
+body[data-route="/regional-coverage-explorer"] .ambient-background,
+body[data-route="/regional-coverage-explorer"] .noise-overlay {
   display: none;
 }
 

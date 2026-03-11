@@ -5,7 +5,7 @@
 
 import { getCurrentTheme, resolveMapStyle } from "../core/map-style-resolver.js";
 import { COLORS } from "./constants.js";
-import * as CountyMapState from "./state.js";
+import * as RegionalCoverageExplorerState from "./state.js";
 
 const COUNTIES_SOURCE_ID = "counties";
 const STATES_SOURCE_ID = "states";
@@ -444,7 +444,7 @@ function addCityLayers({ map, cityFeatureCollection, showStoppedCities }) {
   });
 }
 
-export function clearCoverageLayers(map = CountyMapState.getMap()) {
+export function clearCoverageLayers(map = RegionalCoverageExplorerState.getMap()) {
   if (!map) {
     return;
   }
@@ -476,7 +476,7 @@ export function clearCoverageLayers(map = CountyMapState.getMap()) {
  * @param {{countyData?: Object, statesData?: Object, stateFeatureCollection?: Object, cityFeatureCollection?: Object, showStoppedCounties?: boolean, showStoppedCities?: boolean}} options
  */
 export function renderLevelLayers(level, options = {}) {
-  const map = CountyMapState.getMap();
+  const map = RegionalCoverageExplorerState.getMap();
   if (!map) {
     return;
   }
@@ -484,8 +484,8 @@ export function renderLevelLayers(level, options = {}) {
   clearCoverageLayers(map);
 
   if (level === "county") {
-    const countyData = options.countyData || CountyMapState.getCountyData();
-    const statesData = options.statesData || CountyMapState.getStatesData();
+    const countyData = options.countyData || RegionalCoverageExplorerState.getCountyData();
+    const statesData = options.statesData || RegionalCoverageExplorerState.getStatesData();
     if (!countyData || !statesData) {
       return;
     }
@@ -494,14 +494,14 @@ export function renderLevelLayers(level, options = {}) {
       countyData,
       statesData,
       showStoppedCounties:
-        options.showStoppedCounties ?? CountyMapState.getShowStoppedCounties(),
+        options.showStoppedCounties ?? RegionalCoverageExplorerState.getShowStoppedCounties(),
     });
     return;
   }
 
   if (level === "state") {
     const stateFeatureCollection =
-      options.stateFeatureCollection || CountyMapState.getStateFeatureCollection();
+      options.stateFeatureCollection || RegionalCoverageExplorerState.getStateFeatureCollection();
     if (!stateFeatureCollection) {
       return;
     }
@@ -518,7 +518,7 @@ export function renderLevelLayers(level, options = {}) {
       map,
       cityFeatureCollection,
       showStoppedCities:
-        options.showStoppedCities ?? CountyMapState.getShowStoppedCities(),
+        options.showStoppedCities ?? RegionalCoverageExplorerState.getShowStoppedCities(),
     });
   }
 }
@@ -631,9 +631,9 @@ export function applyCityVisitFeatureState(map, cityVisits = {}, cityStops = {})
  * Update stopped county/city styling based on toggle state.
  */
 export function updateStopLayerVisibility() {
-  const map = CountyMapState.getMap();
-  const showStoppedCounties = CountyMapState.getShowStoppedCounties();
-  const showStoppedCities = CountyMapState.getShowStoppedCities();
+  const map = RegionalCoverageExplorerState.getMap();
+  const showStoppedCounties = RegionalCoverageExplorerState.getShowStoppedCounties();
+  const showStoppedCities = RegionalCoverageExplorerState.getShowStoppedCities();
   if (!map) {
     return;
   }
@@ -647,7 +647,7 @@ export function updateStopLayerVisibility() {
  * @param {string} value
  */
 export function setHoverHighlight(value) {
-  const map = CountyMapState.getMap();
+  const map = RegionalCoverageExplorerState.getMap();
   if (!map) {
     return;
   }
@@ -667,8 +667,8 @@ export function setHoverHighlight(value) {
   }
 }
 
-export function setSelectionHighlight(value, level = CountyMapState.getActiveLevel()) {
-  const map = CountyMapState.getMap();
+export function setSelectionHighlight(value, level = RegionalCoverageExplorerState.getActiveLevel()) {
+  const map = RegionalCoverageExplorerState.getMap();
   if (!map) {
     return;
   }
@@ -694,7 +694,7 @@ export function setSelectionHighlight(value, level = CountyMapState.getActiveLev
   }
 }
 
-export function getInteractiveLayerId(level = CountyMapState.getActiveLevel()) {
+export function getInteractiveLayerId(level = RegionalCoverageExplorerState.getActiveLevel()) {
   if (level === "state") {
     return STATES_FILL_LAYER_ID;
   }

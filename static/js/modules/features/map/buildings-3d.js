@@ -4,7 +4,7 @@ import { resolveMapTypeHint } from "./map-type-hint.js";
 
 const PRIMARY_FILTER = ["==", ["get", "extrude"], "true"];
 const FALLBACK_FILTER = ["has", "height"];
-const MAP_3D_SETTING_EVENT = "es:map-3d-buildings-setting-changed";
+export const MAP_3D_SETTING_EVENT = "es:map-3d-buildings-setting-changed";
 
 const noopController = Object.freeze({
   refresh() {
@@ -47,7 +47,7 @@ function readStoredBoolean(key) {
   return null;
 }
 
-function getUserBuildingsPreference() {
+export function getUserBuildingsPreference() {
   const key = CONFIG?.STORAGE_KEYS?.map3dBuildingsEnabled;
   const stored = readStoredBoolean(key);
   if (typeof stored === "boolean") {
@@ -71,6 +71,45 @@ function persistUserBuildingsPreference(enabled) {
   } catch {
     // Ignore storage failures.
   }
+}
+
+function syncSettingsToggle(enabled) {
+  if (typeof enabled !== "boolean" || typeof document === "undefined") {
+    return;
+  }
+
+  const settingsToggle = document.getElementById("map-3d-buildings-toggle");
+  if (settingsToggle) {
+    settingsToggle.checked = enabled;
+  }
+}
+
+export function setMap3dBuildingsPreference(
+  enabled,
+  { emit = true, syncControls = true } = {}
+) {
+  if (typeof enabled !== "boolean") {
+    return false;
+  }
+
+  persistUserBuildingsPreference(enabled);
+  if (syncControls) {
+    syncSettingsToggle(enabled);
+  }
+
+  if (
+    emit &&
+    typeof document !== "undefined" &&
+    typeof document.dispatchEvent === "function"
+  ) {
+    document.dispatchEvent(
+      new CustomEvent(MAP_3D_SETTING_EVENT, {
+        detail: { enabled },
+      })
+    );
+  }
+
+  return true;
 }
 
 function isGoogleProvider() {
@@ -225,12 +264,9 @@ export function removeBuildingsLayer(map) {
   }
 }
 
-export function isSupportedMapbox3D(map, { styleType } = {}) {
+export function isMapbox3DStyleSupported(map, { styleType } = {}) {
   const config = getBuildingsConfig();
   if (!config.enabled) {
-    return false;
-  }
-  if (!getUserBuildingsPreference()) {
     return false;
   }
 
@@ -258,6 +294,14 @@ export function isSupportedMapbox3D(map, { styleType } = {}) {
   }
 
   return true;
+}
+
+export function isSupportedMapbox3D(map, { styleType } = {}) {
+  if (!getUserBuildingsPreference()) {
+    return false;
+  }
+
+  return isMapbox3DStyleSupported(map, { styleType });
 }
 
 export function ensureBuildingsLayer(map, { styleType } = {}) {
@@ -316,7 +360,7 @@ export default function initBuildings3D({ map = null } = {}) {
   const handlePreferenceEvent = (event) => {
     const enabled = event?.detail?.enabled;
     if (typeof enabled === "boolean") {
-      persistUserBuildingsPreference(enabled);
+      setMap3dBuildingsPreference(enabled, { emit: false });
     }
     ensureBuildingsLayer(activeMap, { styleType: getCurrentMapTypeHint() });
   };

@@ -980,7 +980,7 @@ async def calculate_geo_coverage_task(
             stage="Completed",
             progress=100,
             message=(
-                f"Coverage Explorer cache rebuild complete: {trips_analyzed:,} trips processed."
+                f"Regional Coverage Explorer cache rebuild complete: {trips_analyzed:,} trips processed."
             ),
             metrics={
                 "mode": effective_mode,
@@ -1014,7 +1014,7 @@ async def calculate_geo_coverage_task(
             status_value="failed",
             stage="Failed",
             progress=100,
-            message="Coverage Explorer cache rebuild failed.",
+            message="Regional Coverage Explorer cache rebuild failed.",
             error=str(exc),
         )
 
@@ -1557,7 +1557,7 @@ async def recalculate(
         return {
             "success": True,
             "alreadyRunning": True,
-            "message": "A Coverage Explorer cache rebuild is already running.",
+            "message": "A Regional Coverage Explorer cache rebuild is already running.",
             "job": _serialize_job(active_job),
             "jobId": str(active_job.id),
             "mode": _normalize_recalc_mode((active_job.metadata or {}).get("mode")),
@@ -1568,9 +1568,9 @@ async def recalculate(
     )
     now = datetime.now(UTC)
     queued_message = (
-        "Queued incremental Coverage Explorer cache update..."
+        "Queued incremental Regional Coverage Explorer cache update..."
         if selected_mode == "incremental"
-        else "Queued full Coverage Explorer cache rebuild..."
+        else "Queued full Regional Coverage Explorer cache rebuild..."
     )
 
     job = Job(
@@ -1604,7 +1604,7 @@ async def recalculate(
     return {
         "success": True,
         "alreadyRunning": False,
-        "message": "Coverage Explorer cache rebuild started in the background.",
+        "message": "Regional Coverage Explorer cache rebuild started in the background.",
         "job": _serialize_job(job),
         "jobId": str(job.id),
         "mode": selected_mode,
@@ -1614,13 +1614,13 @@ async def recalculate(
 async def run_scheduled_recalculate(
     mode: Literal["incremental", "full"] = "incremental",
 ) -> dict[str, Any]:
-    """Run Coverage Explorer cache rebuild from scheduled/background task context."""
+    """Run Regional Coverage Explorer cache rebuild from scheduled/background task context."""
     active_job = await _get_active_geo_recalc_job()
     if active_job:
         return {
             "status": "skipped",
             "reason": "already_running",
-            "message": "Coverage Explorer cache rebuild is already running.",
+            "message": "Regional Coverage Explorer cache rebuild is already running.",
             "job_id": str(active_job.id),
             "mode": _normalize_recalc_mode((active_job.metadata or {}).get("mode")),
         }
@@ -1633,9 +1633,9 @@ async def run_scheduled_recalculate(
         stage="Queued",
         progress=0.0,
         message=(
-            "Queued scheduled incremental Coverage Explorer cache update..."
+            "Queued scheduled incremental Regional Coverage Explorer cache update..."
             if selected_mode == "incremental"
-            else "Queued scheduled full Coverage Explorer cache rebuild..."
+            else "Queued scheduled full Regional Coverage Explorer cache rebuild..."
         ),
         created_at=now,
         updated_at=now,
@@ -1667,7 +1667,7 @@ async def run_scheduled_recalculate(
             "status": "success",
             "job_id": str(finished.id),
             "mode": selected_mode,
-            "message": finished.message or "Coverage Explorer cache rebuild completed.",
+            "message": finished.message or "Regional Coverage Explorer cache rebuild completed.",
             "result": finished.result or {},
         }
 
@@ -1675,7 +1675,7 @@ async def run_scheduled_recalculate(
         msg = (
             finished.error
             or finished.message
-            or "Coverage Explorer cache rebuild failed."
+            or "Regional Coverage Explorer cache rebuild failed."
         )
         raise RuntimeError(msg)
 

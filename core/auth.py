@@ -47,8 +47,8 @@ PUBLIC_PAGE_PATHS: Final[set[str]] = {
     "/map",
     "/trips",
     "/insights",
-    "/coverage-navigator",
-    "/county-map",
+    "/coverage-route-planner",
+    "/regional-coverage-explorer",
 }
 OWNER_PAGE_PREFIXES: Final[tuple[str, ...]] = (
     "/control-center",
@@ -56,7 +56,7 @@ OWNER_PAGE_PREFIXES: Final[tuple[str, ...]] = (
     "/export",
     "/map-matching",
     "/coverage-management",
-    "/turn-by-turn",
+    "/live-navigation",
     "/setup-wizard",
     "/routes",
     "/visits",

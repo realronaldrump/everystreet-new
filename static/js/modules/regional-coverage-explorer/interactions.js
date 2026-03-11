@@ -4,7 +4,7 @@
  */
 
 import { getInteractiveLayerId, setHoverHighlight } from "./map-layers.js";
-import * as CountyMapState from "./state.js";
+import * as RegionalCoverageExplorerState from "./state.js";
 import { formatDate } from "./ui.js";
 
 let boundMap = null;
@@ -50,7 +50,7 @@ function teardownInteractions() {
 
 function getStateRollupMap() {
   const map = new Map();
-  CountyMapState.getStateRollups().forEach((row) => {
+  RegionalCoverageExplorerState.getStateRollups().forEach((row) => {
     if (row?.stateFips) {
       map.set(row.stateFips, row);
     }
@@ -59,7 +59,7 @@ function getStateRollupMap() {
 }
 
 function buildTooltipData(feature) {
-  const activeLevel = CountyMapState.getActiveLevel();
+  const activeLevel = RegionalCoverageExplorerState.getActiveLevel();
   const props = feature?.properties || {};
 
   if (activeLevel === "state") {
@@ -94,11 +94,11 @@ function buildTooltipData(feature) {
     const cityId = props.cityId || feature.id;
     const cityName = props.name || "Unknown City";
     const stateName = props.stateName || "";
-    const visits = CountyMapState.getCityVisitsForState(
-      CountyMapState.getSelectedStateFips()
+    const visits = RegionalCoverageExplorerState.getCityVisitsForState(
+      RegionalCoverageExplorerState.getSelectedStateFips()
     );
-    const stops = CountyMapState.getCityStopsForState(
-      CountyMapState.getSelectedStateFips()
+    const stops = RegionalCoverageExplorerState.getCityStopsForState(
+      RegionalCoverageExplorerState.getSelectedStateFips()
     );
     const cityVisit = visits[cityId];
     const cityStop = stops[cityId];
@@ -135,8 +135,8 @@ function buildTooltipData(feature) {
     };
   }
 
-  const countyVisits = CountyMapState.getCountyVisits();
-  const countyStops = CountyMapState.getCountyStops();
+  const countyVisits = RegionalCoverageExplorerState.getCountyVisits();
+  const countyStops = RegionalCoverageExplorerState.getCountyStops();
 
   const { fips } = props;
   const countyName = props.name || "Unknown County";
@@ -192,7 +192,7 @@ function buildTooltipData(feature) {
  * Setup hover interactions for active map level.
  */
 export function setupInteractions() {
-  const map = CountyMapState.getMap();
+  const map = RegionalCoverageExplorerState.getMap();
   if (!map) {
     return;
   }

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import TurnByTurnAPI from "../static/js/modules/turn-by-turn/turn-by-turn-api.js";
-import TurnByTurnNavigator from "../static/js/modules/turn-by-turn/turn-by-turn-navigator.js";
+import LiveNavigationAPI from "../static/js/modules/live-navigation/live-navigation-api.js";
+import LiveNavigationNavigator from "../static/js/modules/live-navigation/live-navigation-navigator.js";
 
 const originalWindow = global.window;
 const originalLocation = global.location;
@@ -10,14 +10,14 @@ const originalLocation = global.location;
 function createWindowMock({ search = "", storedArea = null } = {}) {
   const storage = new Map();
   if (storedArea !== null) {
-    storage.set("turnByTurnAreaId", storedArea);
+    storage.set("liveNavigationAreaId", storedArea);
   }
 
   return {
     location: {
-      href: `https://www.everystreet.me/turn-by-turn${search}`,
+      href: `https://www.everystreet.me/live-navigation${search}`,
       search,
-      pathname: "/turn-by-turn",
+      pathname: "/live-navigation",
       hash: "",
     },
     history: {
@@ -59,10 +59,10 @@ test("clearPersistedAreaSelection removes stale selection from storage and URL",
     replacedPath = nextPath;
   };
 
-  TurnByTurnNavigator.prototype.clearPersistedAreaSelection.call({}, "stale-area");
+  LiveNavigationNavigator.prototype.clearPersistedAreaSelection.call({}, "stale-area");
 
-  assert.equal(global.window.localStorage.getItem("turnByTurnAreaId"), null);
-  assert.equal(replacedPath, "/turn-by-turn?autoStart=true");
+  assert.equal(global.window.localStorage.getItem("liveNavigationAreaId"), null);
+  assert.equal(replacedPath, "/live-navigation?autoStart=true");
 });
 
 test("applyInitialSelection invalidates stale area ids before route loading", async () => {
@@ -84,7 +84,7 @@ test("applyInitialSelection invalidates stale area ids before route loading", as
         return "";
       },
     },
-    findCoverageAreaById: TurnByTurnNavigator.prototype.findCoverageAreaById,
+    findCoverageAreaById: LiveNavigationNavigator.prototype.findCoverageAreaById,
     invalidateSelectedArea(id, payload) {
       calls.invalidated = { id, payload };
     },
@@ -93,7 +93,7 @@ test("applyInitialSelection invalidates stale area ids before route loading", as
     },
   };
 
-  await TurnByTurnNavigator.prototype.applyInitialSelection.call(fake);
+  await LiveNavigationNavigator.prototype.applyInitialSelection.call(fake);
 
   assert.deepEqual(calls.invalidated, {
     id: "stale-area",
@@ -103,18 +103,18 @@ test("applyInitialSelection invalidates stale area ids before route loading", as
 });
 
 test("loadRoute auto-generates when selected area has no optimal route", async () => {
-  const originalFetchCoverageArea = TurnByTurnAPI.fetchCoverageArea;
-  const originalFetchOptimalRouteGpx = TurnByTurnAPI.fetchOptimalRouteGpx;
+  const originalFetchCoverageArea = LiveNavigationAPI.fetchCoverageArea;
+  const originalFetchOptimalRouteGpx = LiveNavigationAPI.fetchOptimalRouteGpx;
 
   let gpxFetches = 0;
   let autoGenerateCalls = 0;
 
-  TurnByTurnAPI.fetchCoverageArea = async () => ({
+  LiveNavigationAPI.fetchCoverageArea = async () => ({
     success: true,
     area: { id: "area-1" },
     has_optimal_route: false,
   });
-  TurnByTurnAPI.fetchOptimalRouteGpx = async () => {
+  LiveNavigationAPI.fetchOptimalRouteGpx = async () => {
     gpxFetches += 1;
     return "";
   };
@@ -138,11 +138,11 @@ test("loadRoute auto-generates when selected area has no optimal route", async (
   };
 
   try {
-    await TurnByTurnNavigator.prototype.loadRoute.call(fake);
+    await LiveNavigationNavigator.prototype.loadRoute.call(fake);
     assert.equal(autoGenerateCalls, 1);
     assert.equal(gpxFetches, 0);
   } finally {
-    TurnByTurnAPI.fetchCoverageArea = originalFetchCoverageArea;
-    TurnByTurnAPI.fetchOptimalRouteGpx = originalFetchOptimalRouteGpx;
+    LiveNavigationAPI.fetchCoverageArea = originalFetchCoverageArea;
+    LiveNavigationAPI.fetchOptimalRouteGpx = originalFetchOptimalRouteGpx;
   }
 });

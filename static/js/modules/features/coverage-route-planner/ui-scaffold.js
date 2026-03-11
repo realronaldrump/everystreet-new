@@ -1,7 +1,7 @@
-const TAB_STORAGE_KEY = "coverage-navigator-active-tab";
+const TAB_STORAGE_KEY = "coverage-route-planner-active-tab";
 
 function initBottomNavInsets({ signal, onCleanup }) {
-  const root = document.querySelector(".coverage-navigator");
+  const root = document.querySelector(".coverage-route-planner");
   if (!root) {
     return;
   }
@@ -82,7 +82,7 @@ function initCollapsibleSections({ signal }) {
       return;
     }
 
-    const saved = localStorage.getItem(`coverage-navigator-${toggleId}`);
+    const saved = localStorage.getItem(`coverage-route-planner-${toggleId}`);
     if (saved === "collapsed") {
       content.classList.add("is-collapsed");
       collapseBtn.setAttribute("aria-expanded", "false");
@@ -100,11 +100,11 @@ function initCollapsibleSections({ signal }) {
       if (isNowCollapsed) {
         content.classList.add("is-collapsed");
         collapseBtn.setAttribute("aria-expanded", "false");
-        localStorage.setItem(`coverage-navigator-${toggleId}`, "collapsed");
+        localStorage.setItem(`coverage-route-planner-${toggleId}`, "collapsed");
       } else {
         content.classList.remove("is-collapsed");
         collapseBtn.setAttribute("aria-expanded", "true");
-        localStorage.setItem(`coverage-navigator-${toggleId}`, "expanded");
+        localStorage.setItem(`coverage-route-planner-${toggleId}`, "expanded");
       }
     };
 
@@ -120,7 +120,7 @@ function initMobilePanelToggle({ signal }) {
     return;
   }
 
-  const storageKey = "coverage-navigator-mobile-panel";
+  const storageKey = "coverage-route-planner-mobile-panel";
   if (window.innerWidth < 1024) {
     const saved = localStorage.getItem(storageKey);
     if (saved === "hidden") {
@@ -261,7 +261,7 @@ function enhanceAccessibility() {
 }
 
 function updateModeIndicator() {
-  const root = document.querySelector(".coverage-navigator");
+  const root = document.querySelector(".coverage-route-planner");
   const activeTab = document.querySelector(".sidebar-tab.active");
   if (!root || !activeTab) {
     return;

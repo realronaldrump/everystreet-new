@@ -789,7 +789,7 @@ function renderCoverageSettings(settings) {
           </span>
           <span class="map-services-coverage-hint-item is-explorer">
             <i class="fas fa-city"></i>
-            Coverage Explorer cache (county/city/state progress)
+            Regional Coverage Explorer cache (county/city/state progress)
           </span>
         </div>
       </div>
@@ -891,7 +891,7 @@ function renderCoverageSettings(settings) {
 
         <div class="setting-item">
           <div class="setting-label">
-            <div class="setting-label-title">Coverage Explorer Cache Recalculation</div>
+            <div class="setting-label-title">Regional Coverage Explorer Cache Recalculation</div>
             <div class="setting-label-description">
               This controls county/city/state explorer cache updates only.
               Incremental processes new or updated trips; full reprocesses all trips.
@@ -924,7 +924,7 @@ function renderCoverageSettings(settings) {
         <div class="geo-coverage-callout">
           <div class="geo-coverage-callout-title">
             <i class="fas fa-database"></i>
-            Run Coverage Explorer Full Rebuild
+            Run Regional Coverage Explorer Full Rebuild
           </div>
           <p class="geo-coverage-callout-note">
             Recomputes county/city/state explorer coverage from all trips.
@@ -1098,7 +1098,7 @@ function renderGeoCoverageStatus({ active, job, defaultMode }) {
         <span class="geo-coverage-status-pill">${escapeHtml(modeLabel)}</span>
       </div>
       <div class="geo-coverage-status-message">${escapeHtml(
-        job.message || "Processing Coverage Explorer cache..."
+        job.message || "Processing Regional Coverage Explorer cache..."
       )}</div>
       <div class="geo-coverage-progress-track">
         <div class="geo-coverage-progress-fill" style="width:${progress}%"></div>
@@ -1178,15 +1178,15 @@ async function triggerGeoCoverageFullRebuild(buttonEl) {
 
     notificationManager.show(
       response?.alreadyRunning
-        ? "A Coverage Explorer cache rebuild is already running."
-        : "Coverage Explorer full rebuild started.",
+        ? "A Regional Coverage Explorer cache rebuild is already running."
+        : "Regional Coverage Explorer full rebuild started.",
       "info"
     );
     await refreshGeoCoverageStatus();
     startGeoCoveragePolling();
   } catch (error) {
     notificationManager.show(
-      error?.message || "Failed to start Coverage Explorer full rebuild.",
+      error?.message || "Failed to start Regional Coverage Explorer full rebuild.",
       "danger"
     );
   } finally {

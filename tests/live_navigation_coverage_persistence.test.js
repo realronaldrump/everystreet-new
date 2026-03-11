@@ -1,18 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import TurnByTurnAPI from "../static/js/modules/turn-by-turn/turn-by-turn-api.js";
-import TurnByTurnCoverage from "../static/js/modules/turn-by-turn/turn-by-turn-coverage.js";
+import LiveNavigationAPI from "../static/js/modules/live-navigation/live-navigation-api.js";
+import LiveNavigationCoverage from "../static/js/modules/live-navigation/live-navigation-coverage.js";
 
 test("persistDrivenSegments sends queued segments and clears state on success", async () => {
-  const coverage = new TurnByTurnCoverage();
+  const coverage = new LiveNavigationCoverage();
   coverage.selectedAreaId = "area-1";
   coverage.pendingSegmentUpdates.add("seg-1");
   coverage.pendingSegmentUpdates.add("seg-2");
-  const originalBasePersist = TurnByTurnAPI.persistDrivenSegments;
+  const originalBasePersist = LiveNavigationAPI.persistDrivenSegments;
   const baseCalls = [];
 
-  TurnByTurnAPI.persistDrivenSegments = async (...args) => {
+  LiveNavigationAPI.persistDrivenSegments = async (...args) => {
     baseCalls.push(args);
     return { success: true };
   };
@@ -24,17 +24,17 @@ test("persistDrivenSegments sends queued segments and clears state on success", 
     assert.deepEqual(baseCalls, [[["seg-1", "seg-2"], "area-1"]]);
   } finally {
     clearTimeout(coverage.persistRetryTimeout);
-    TurnByTurnAPI.persistDrivenSegments = originalBasePersist;
+    LiveNavigationAPI.persistDrivenSegments = originalBasePersist;
   }
 });
 
 test("persistDrivenSegments re-queues segments and schedules retry on failure", async () => {
-  const coverage = new TurnByTurnCoverage();
+  const coverage = new LiveNavigationCoverage();
   coverage.selectedAreaId = "area-2";
   coverage.pendingSegmentUpdates.add("seg-a");
   coverage.pendingSegmentUpdates.add("seg-b");
 
-  const originalBasePersist = TurnByTurnAPI.persistDrivenSegments;
+  const originalBasePersist = LiveNavigationAPI.persistDrivenSegments;
   const issues = [];
 
   coverage.setCallbacks({
@@ -43,7 +43,7 @@ test("persistDrivenSegments re-queues segments and schedules retry on failure", 
     },
   });
 
-  TurnByTurnAPI.persistDrivenSegments = async () => {
+  LiveNavigationAPI.persistDrivenSegments = async () => {
     throw new Error("base write failed");
   };
 
@@ -66,12 +66,12 @@ test("persistDrivenSegments re-queues segments and schedules retry on failure", 
     ]);
   } finally {
     clearTimeout(coverage.persistRetryTimeout);
-    TurnByTurnAPI.persistDrivenSegments = originalBasePersist;
+    LiveNavigationAPI.persistDrivenSegments = originalBasePersist;
   }
 });
 
 test("persistDrivenSegments stops auto-retrying after max consecutive failures", async () => {
-  const coverage = new TurnByTurnCoverage();
+  const coverage = new LiveNavigationCoverage();
   coverage.selectedAreaId = "area-3";
   coverage.maxPersistRetries = 2;
   coverage.pendingSegmentUpdates.add("seg-fail");
@@ -83,8 +83,8 @@ test("persistDrivenSegments stops auto-retrying after max consecutive failures",
     },
   });
 
-  const originalBasePersist = TurnByTurnAPI.persistDrivenSegments;
-  TurnByTurnAPI.persistDrivenSegments = async () => {
+  const originalBasePersist = LiveNavigationAPI.persistDrivenSegments;
+  LiveNavigationAPI.persistDrivenSegments = async () => {
     throw new Error("base write failed");
   };
 
@@ -98,6 +98,6 @@ test("persistDrivenSegments stops auto-retrying after max consecutive failures",
     );
   } finally {
     clearTimeout(coverage.persistRetryTimeout);
-    TurnByTurnAPI.persistDrivenSegments = originalBasePersist;
+    LiveNavigationAPI.persistDrivenSegments = originalBasePersist;
   }
 });

@@ -1,5 +1,5 @@
 /**
- * Turn-by-Turn Geo Utilities
+ * Live Navigation Geo Utilities
  * Domain-specific geo helpers built on shared geo-math primitives.
  */
 
@@ -15,7 +15,7 @@ import {
   INSTRUCTION_LABELS,
   TURN_ANGLE_THRESHOLDS,
   TURN_ROTATIONS,
-} from "./turn-by-turn-config.js";
+} from "./live-navigation-config.js";
 
 export { angleDelta, projectToSegment, toXY };
 

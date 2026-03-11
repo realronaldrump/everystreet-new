@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import apiClient from "../static/js/modules/core/api-client.js";
-import * as CountyMapAPI from "../static/js/modules/county-map/api.js";
+import * as RegionalCoverageExplorerAPI from "../static/js/modules/regional-coverage-explorer/api.js";
 
-test("county map API forwards abort signals", async () => {
+test("regional coverage explorer API forwards abort signals", async () => {
   const signal = AbortSignal.abort();
 
   const originalGet = apiClient.get;
@@ -23,10 +23,10 @@ test("county map API forwards abort signals", async () => {
   };
 
   try {
-    await CountyMapAPI.fetchCountyTopology({ signal });
-    await CountyMapAPI.fetchVisitedCounties({ signal });
-    await CountyMapAPI.triggerRecalculation({ signal });
-    await CountyMapAPI.fetchCacheStatus({ signal });
+    await RegionalCoverageExplorerAPI.fetchCountyTopology({ signal });
+    await RegionalCoverageExplorerAPI.fetchVisitedCounties({ signal });
+    await RegionalCoverageExplorerAPI.triggerRecalculation({ signal });
+    await RegionalCoverageExplorerAPI.fetchCacheStatus({ signal });
   } finally {
     apiClient.get = originalGet;
     apiClient.post = originalPost;
@@ -40,7 +40,7 @@ test("county map API forwards abort signals", async () => {
   ]);
 });
 
-test("county map API includes recalc mode when provided", async () => {
+test("regional coverage explorer API includes recalc mode when provided", async () => {
   const originalPost = apiClient.post;
   const calls = [];
 
@@ -50,7 +50,7 @@ test("county map API includes recalc mode when provided", async () => {
   };
 
   try {
-    await CountyMapAPI.triggerRecalculation({ mode: "full" });
+    await RegionalCoverageExplorerAPI.triggerRecalculation({ mode: "full" });
   } finally {
     apiClient.post = originalPost;
   }

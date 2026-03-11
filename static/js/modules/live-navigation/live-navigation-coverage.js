@@ -1,16 +1,16 @@
 /**
- * Turn-by-Turn Coverage Module
- * Real-time segment coverage tracking and gamification
+ * Live Navigation Coverage Module
+ * Real-time segment coverage tracking and gamification.
  */
 
-import TurnByTurnAPI from "./turn-by-turn-api.js";
-import { DISTANCE_THRESHOLDS } from "./turn-by-turn-config.js";
-import { distanceToLineString, toXY } from "./turn-by-turn-geo.js";
+import LiveNavigationAPI from "./live-navigation-api.js";
+import { DISTANCE_THRESHOLDS } from "./live-navigation-config.js";
+import { distanceToLineString, toXY } from "./live-navigation-geo.js";
 
 /**
  * Coverage tracking for real-time segment completion
  */
-class TurnByTurnCoverage {
+class LiveNavigationCoverage {
   constructor(config = {}) {
     this.config = {
       segmentMatchThresholdMeters: DISTANCE_THRESHOLDS.segmentMatch,
@@ -160,7 +160,7 @@ class TurnByTurnCoverage {
       typeof console?.warn === "function"
     ) {
       // Keep a low-level trace for debugging without interrupting navigation.
-      console.warn(`[turn-by-turn] ${issue.message}`);
+      console.warn(`[live-navigation] ${issue.message}`);
     }
   }
 
@@ -184,7 +184,7 @@ class TurnByTurnCoverage {
     this.reset();
 
     try {
-      const geojson = await TurnByTurnAPI.fetchCoverageSegments(areaId);
+      const geojson = await LiveNavigationAPI.fetchCoverageSegments(areaId);
       this.segmentsData = geojson;
       const driveableFeatures = [];
 
@@ -440,7 +440,7 @@ class TurnByTurnCoverage {
     this.pendingSegmentUpdates.clear();
 
     try {
-      await TurnByTurnAPI.persistDrivenSegments(segmentIds, this.selectedAreaId);
+      await LiveNavigationAPI.persistDrivenSegments(segmentIds, this.selectedAreaId);
       this.consecutivePersistFailures = 0;
       clearTimeout(this.persistRetryTimeout);
     } catch (error) {
@@ -514,4 +514,4 @@ class TurnByTurnCoverage {
   }
 }
 
-export default TurnByTurnCoverage;
+export default LiveNavigationCoverage;

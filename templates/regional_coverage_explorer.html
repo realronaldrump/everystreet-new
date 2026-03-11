@@ -5,7 +5,7 @@
 {% block title %}
 
 
- Every Street - Coverage Explorer
+ Every Street - Regional Coverage Explorer
 {% endblock %}
 
 
@@ -15,29 +15,29 @@
   <!-- Mapbox GL CSS -->
   {{ include_mapbox_css() }}
   <link rel="stylesheet"
-        href="{{ url_for('static', path='css/county-map.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+        href="{{ url_for('static', path='css/regional-coverage-explorer.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
 
 {% block content %}
 
 
-  <div class="county-map-wrapper">
+  <div class="regional-coverage-explorer-wrapper">
     <h1 class="visually-hidden">
-Coverage Explorer
+Regional Coverage Explorer
     </h1>
 
-    <div id="county-map"
-         class="county-map-container"
+    <div id="regional-coverage-explorer-map"
+         class="regional-coverage-explorer-map"
          role="application"
-         aria-label="US Coverage Map">
+         aria-label="US Regional Coverage Map">
     </div>
 
     <div class="county-stats-panel" id="stats-panel">
       <div class="stats-header">
         <h2 class="stats-title">
           <i class="fas fa-layer-group me-2" aria-hidden="true"></i>
-        Coverage Explorer
+        Regional Coverage Explorer
         </h2>
         <button class="stats-toggle-btn"
                 id="stats-toggle"
@@ -111,7 +111,7 @@ Coverage Explorer
           <span class="last-updated" id="last-updated"></span>
           <button class="btn btn-sm btn-outline-secondary"
                   id="recalculate-btn"
-                  title="Refresh Coverage Explorer cache from trip data">
+                  title="Refresh Regional Coverage Explorer cache from trip data">
             <i class="fas fa-sync-alt me-1"></i>Refresh Cache
           </button>
         </div>
