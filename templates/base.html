@@ -415,22 +415,14 @@ System
 
           <!-- Tools and User Options -->
           <div class="tools-section">
-            <div class="auth-actions">
-              {% if auth_context.is_owner %}
-                <form action="/logout" method="post" class="auth-action-form">
-                  <input type="hidden" name="csrf_token" value="{{ auth_context.csrf_token or '' }}" />
-                  <button type="submit" class="btn btn-sm btn-outline-light">
-                    <i class="fas fa-right-from-bracket me-1" aria-hidden="true"></i>
-                    Log out
-                  </button>
-                </form>
-              {% else %}
+            {% if not auth_context.is_owner %}
+              <div class="auth-actions">
                 <a href="/login" class="btn btn-sm btn-outline-light">
                   <i class="fas fa-lock me-1" aria-hidden="true"></i>
                   Log in
                 </a>
-              {% endif %}
-            </div>
+              </div>
+            {% endif %}
             <!-- Date Picker Dropdown -->
             <div id="date-picker-wrapper" class="date-picker-wrapper">
               <button id="date-picker-trigger"

@@ -2452,6 +2452,28 @@ Select one or more containers from the list above to view logs.
 
       <div class="settings-group bento-span-6">
         <h3 class="settings-group-title">
+          <i class="fas fa-right-from-bracket"></i>
+          Session
+        </h3>
+        <p class="text-muted small">
+          End your owner session from account settings instead of the main header.
+        </p>
+        {% if auth_context.is_owner %}
+          <form action="/logout" method="post" class="auth-action-form">
+            <input type="hidden" name="csrf_token" value="{{ auth_context.csrf_token or '' }}" />
+            <button type="submit" class="btn btn-outline-danger">
+              <i class="fas fa-right-from-bracket me-2" aria-hidden="true"></i>Log out
+            </button>
+          </form>
+        {% else %}
+          <a href="/login" class="btn btn-outline-primary">
+            <i class="fas fa-lock me-2" aria-hidden="true"></i>Log in
+          </a>
+        {% endif %}
+      </div>
+
+      <div class="settings-group bento-span-6">
+        <h3 class="settings-group-title">
           <i class="fas fa-question-circle"></i>
           Credential Shortcuts
         </h3>
