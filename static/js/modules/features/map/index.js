@@ -5,6 +5,7 @@ import initMapControls from "./map-controls.js";
 import { initMobileMap } from "./mobile-map.js";
 import tripAnimator from "../../trip-animator.js";
 import routeArt from "../../ui/route-art.js";
+import particleFlow from "../../particle-flow.js";
 
 function setupMapTilt(signal, isCameraLocked = null) {
   const prefersCoarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches;
@@ -213,6 +214,9 @@ export default function initMapPage({ signal, cleanup } = {}) {
   }
   registerCleanup(() => routeArt.close?.());
 
+  // Particle Flow toggle
+  setupParticleFlowToggle(registerCleanup);
+
   // Bouncie Simulator — lazy-loaded on toggle click
   const simToggle = document.getElementById("sim-toggle");
   if (simToggle) {
@@ -389,5 +393,64 @@ function setupTripSelectionAnimation(mapInstance, signal, registerCleanup) {
     clearInterval(checkInterval);
     tripAnimator.cleanup(mapInstance);
     removeReplayControls();
+  });
+}
+
+/**
+ * Set up the Particle Flow visualization toggle.
+ * When active, trip polylines are replaced by animated flowing particles.
+ */
+function setupParticleFlowToggle(registerCleanup) {
+  const btn = document.getElementById("particle-flow-toggle");
+  if (!btn) return;
+
+  const handleClick = () => {
+    const isActive = particleFlow.toggle();
+    btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-pressed", String(isActive));
+  };
+
+  btn.addEventListener("click", handleClick);
+  registerCleanup(() => btn.removeEventListener("click", handleClick));
+
+  // Refresh particles when trip data changes (date filter, new trips loaded)
+  const handleDataRefresh = () => {
+    if (particleFlow.isActive()) {
+      // Small delay to let layers settle
+      setTimeout(() => particleFlow.refresh(), 200);
+    }
+  };
+  document.addEventListener("es:filters-change", handleDataRefresh);
+  registerCleanup(() => document.removeEventListener("es:filters-change", handleDataRefresh));
+
+  // Re-hide trip layers after a style change restores them
+  const handleStyleChange = () => {
+    if (particleFlow.isActive()) {
+      setTimeout(() => {
+        const map = store.map;
+        if (!map) return;
+        particleFlow.refresh();
+        // Re-hide trip layers that style change may have restored
+        const style = map.getStyle();
+        if (!style?.layers) return;
+        for (const layer of style.layers) {
+          if (
+            (layer.id.startsWith("trips-layer") ||
+              layer.id.startsWith("matchedTrips-layer")) &&
+            !layer.id.includes("hitbox")
+          ) {
+            map.setLayoutProperty(layer.id, "visibility", "none");
+          }
+        }
+      }, 300);
+    }
+  };
+  document.addEventListener("mapStyleLoaded", handleStyleChange);
+  registerCleanup(() => document.removeEventListener("mapStyleLoaded", handleStyleChange));
+
+  registerCleanup(() => {
+    particleFlow.destroy();
+    btn.classList.remove("active");
+    btn.setAttribute("aria-pressed", "false");
   });
 }
