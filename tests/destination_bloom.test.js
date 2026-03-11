@@ -27,6 +27,8 @@ const originalGlobals = {
 const originalStore = {
   map: store.map,
   mapLayers: store.mapLayers,
+  selectedTripId: store.selectedTripId,
+  selectedTripLayer: store.selectedTripLayer,
 };
 
 function createCanvasContextSpy() {
@@ -141,6 +143,7 @@ function createMapMock(container) {
     { id: "trips-layer", layout: { visibility: "visible" } },
     { id: "matchedTrips-layer", layout: { visibility: "visible" } },
     { id: "trips-hitbox", layout: { visibility: "visible" } },
+    { id: "matchedTrips-hitbox", layout: { visibility: "visible" } },
   ];
 
   return {
@@ -203,6 +206,8 @@ test.afterEach(() => {
   destinationBloom.destroy();
   store.map = originalStore.map;
   store.mapLayers = originalStore.mapLayers;
+  store.selectedTripId = originalStore.selectedTripId;
+  store.selectedTripLayer = originalStore.selectedTripLayer;
   global.window = originalGlobals.window;
   global.document = originalGlobals.document;
   global.localStorage = originalGlobals.localStorage;
@@ -316,6 +321,8 @@ test("destination bloom hides trip layers on activate and restores them on destr
   };
 
   store.map = map;
+  store.selectedTripId = "trip-1";
+  store.selectedTripLayer = "trips";
   store.mapLayers = {
     trips: {
       visible: true,
@@ -353,6 +360,14 @@ test("destination bloom hides trip layers on activate and restores them on destr
     ),
     true
   );
+  assert.equal(
+    map.layoutUpdates.some(
+      (update) => update.id === "trips-hitbox" && update.value === "none"
+    ),
+    true
+  );
+  assert.equal(store.selectedTripId, null);
+  assert.equal(store.selectedTripLayer, null);
   assert.ok(contexts[0].clearRectCalls >= 1);
 
   destinationBloom.destroy();
@@ -416,8 +431,11 @@ test("destination bloom keeps trip layers hidden across repeated repair passes",
     map.layoutUpdates.map(({ id, value }) => ({ id, value })),
     [
       { id: "trips-layer", value: "none" },
+      { id: "trips-hitbox", value: "none" },
       { id: "trips-layer", value: "visible" },
       { id: "matchedTrips-layer", value: "visible" },
+      { id: "trips-hitbox", value: "visible" },
+      { id: "matchedTrips-hitbox", value: "visible" },
     ]
   );
 });

@@ -21,6 +21,27 @@ function emitDocumentEvent(type, detail = null) {
   }
 }
 
+function clearTripInteractionState(map = store.map) {
+  store.selectedTripId = null;
+  store.selectedTripLayer = null;
+
+  if (map?.getLayer?.("selected-trip-layer")) {
+    map.removeLayer?.("selected-trip-layer");
+  }
+  if (map?.getSource?.("selected-trip-source")) {
+    map.removeSource?.("selected-trip-source");
+  }
+
+  if (typeof document?.querySelectorAll !== "function") {
+    return;
+  }
+
+  document.querySelectorAll(".trip-popup-content").forEach((content) => {
+    content.closest?.(".mapboxgl-popup")?.remove?.();
+    content.closest?.(".maplibregl-popup")?.remove?.();
+  });
+}
+
 function formatDestinationLabel(value) {
   const candidate =
     typeof value === "string"
@@ -355,6 +376,7 @@ const destinationBloom = {
     this._createTooltip(map);
     this._bindMapEvents(map);
     this._bindPointerEvents(map);
+    clearTripInteractionState(map);
     this.refresh();
 
     if (this._prefersReducedMotion()) {
@@ -830,8 +852,10 @@ const destinationBloom = {
       const id = layer?.id || "";
       if (
         !id ||
-        id.includes("hitbox") ||
-        (!id.startsWith("trips-layer") && !id.startsWith("matchedTrips-layer"))
+        (!id.startsWith("trips-layer") &&
+          !id.startsWith("matchedTrips-layer") &&
+          id !== "trips-hitbox" &&
+          id !== "matchedTrips-hitbox")
       ) {
         return;
       }

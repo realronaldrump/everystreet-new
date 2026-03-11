@@ -20,6 +20,8 @@ const originalGlobals = {
 const originalStore = {
   map: store.map,
   mapLayers: store.mapLayers,
+  selectedTripId: store.selectedTripId,
+  selectedTripLayer: store.selectedTripLayer,
 };
 
 function createCanvasContextSpy() {
@@ -88,6 +90,7 @@ function createMapMock(container) {
     { id: "trips-layer", layout: { visibility: "visible" } },
     { id: "matchedTrips-layer", layout: { visibility: "visible" } },
     { id: "trips-hitbox", layout: { visibility: "visible" } },
+    { id: "matchedTrips-hitbox", layout: { visibility: "visible" } },
   ];
 
   return {
@@ -147,6 +150,8 @@ test.afterEach(() => {
   particleFlow.destroy();
   store.map = originalStore.map;
   store.mapLayers = originalStore.mapLayers;
+  store.selectedTripId = originalStore.selectedTripId;
+  store.selectedTripLayer = originalStore.selectedTripLayer;
   global.window = originalGlobals.window;
   global.document = originalGlobals.document;
   global.CustomEvent = originalGlobals.CustomEvent;
@@ -164,6 +169,8 @@ test("particle flow keeps trip layers hidden across repeated repair passes", () 
   global.window = {};
 
   store.map = map;
+  store.selectedTripId = "trip-1";
+  store.selectedTripLayer = "trips";
   store.mapLayers = {
     trips: {
       visible: true,
@@ -188,6 +195,8 @@ test("particle flow keeps trip layers hidden across repeated repair passes", () 
   };
 
   particleFlow.activate();
+  assert.equal(store.selectedTripId, null);
+  assert.equal(store.selectedTripLayer, null);
   map.layoutUpdates = [];
 
   const tripLayer = map.getStyle().layers.find((layer) => layer.id === "trips-layer");
@@ -200,8 +209,11 @@ test("particle flow keeps trip layers hidden across repeated repair passes", () 
     map.layoutUpdates.map(({ id, value }) => ({ id, value })),
     [
       { id: "trips-layer", value: "none" },
+      { id: "trips-hitbox", value: "none" },
       { id: "trips-layer", value: "visible" },
       { id: "matchedTrips-layer", value: "visible" },
+      { id: "trips-hitbox", value: "visible" },
+      { id: "matchedTrips-hitbox", value: "visible" },
     ]
   );
 });
