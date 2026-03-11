@@ -161,7 +161,11 @@ export async function fetchWithRetry(
   const controller = abortKey
     ? store.createAbortController(abortKey)
     : new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), CONFIG.API.timeout);
+  let timeoutTriggered = false;
+  const timeoutId = setTimeout(() => {
+    timeoutTriggered = true;
+    controller.abort();
+  }, CONFIG.API.timeout);
 
   try {
     store.trackRequest(url);
@@ -176,8 +180,13 @@ export async function fetchWithRetry(
     store.apiCache.set(cacheKey, { data, timestamp: Date.now() });
     return data;
   } catch (error) {
-    if (error.name === "AbortError") {
-      return null;
+    if (timeoutTriggered && error?.name === "AbortError") {
+      const timeoutError = new Error(`Request timeout: ${url}`);
+      timeoutError.name = "TimeoutError";
+      throw timeoutError;
+    }
+    if (error?.name === "AbortError") {
+      throw error;
     }
     throw error;
   } finally {

@@ -89,7 +89,8 @@ const dataManager = {
 
       const tripData = this._coerceFeatureCollection(rawTripData);
       if (!tripData) {
-        console.error("Trip data validation failed:", typeof rawTripData);
+        const payloadType = rawTripData === null ? "null" : typeof rawTripData;
+        console.error("Trip data validation failed:", payloadType);
         notificationManager.show("Failed to load valid trip data", "danger");
         return null;
       }
