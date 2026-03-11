@@ -7,24 +7,44 @@
   will-change: contents;
 }
 
-.destination-bloom-toggle,
-#sim-toggle,
-#route-art-toggle,
-.particle-flow-toggle,
-.map-3d-buildings-toggle,
-.trip-layer-heatmap-toggle {
+.map-fab-dock {
   position: absolute;
-  right: var(--space-3);
-  z-index: var(--z-dropdown);
-}
-
-#sim-toggle {
-  bottom: var(--space-4);
   right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: var(--z-dropdown);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  pointer-events: auto;
 }
 
-#route-art-toggle {
-  bottom: 4.125rem;
+.map-fab-dock__stack {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: var(--space-2);
+  max-height: 26rem;
+  transform-origin: bottom right;
+  transition:
+    opacity 180ms ease,
+    transform 220ms ease,
+    max-height 220ms ease,
+    visibility 0s linear 0s;
+}
+
+.map-fab-dock.is-collapsed .map-fab-dock__stack {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transform: translateY(0.5rem) scale(0.96);
+  visibility: hidden;
+  transition:
+    opacity 180ms ease,
+    transform 220ms ease,
+    max-height 220ms ease,
+    visibility 0s linear 220ms;
 }
 
 .map-fab-toggle {
@@ -53,6 +73,12 @@
     border-color 180ms ease,
     box-shadow 180ms ease;
   font-size: var(--font-size-md);
+}
+
+.map-fab-dock .map-fab-toggle {
+  position: static;
+  right: auto;
+  bottom: auto;
 }
 
 .map-fab-toggle i {
@@ -129,16 +155,34 @@
   --fab-accent-rgb: 255 161 120;
 }
 
-.destination-bloom-toggle {
-  bottom: 6.9375rem;
+.map-fab-toggle--dock {
+  --fab-accent-rgb: 191 213 255;
 }
 
-.map-3d-buildings-toggle {
-  bottom: 12.5625rem;
+.map-fab-dock__toggle {
+  position: relative;
+  overflow: visible;
 }
 
-.trip-layer-heatmap-toggle {
-  bottom: 15.375rem;
+.map-fab-dock__count {
+  position: absolute;
+  top: -0.35rem;
+  left: -0.35rem;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0 0.25rem;
+  border-radius: var(--radius-full);
+  background: linear-gradient(180deg, rgb(255 176 107), rgb(255 116 76));
+  box-shadow:
+    0 10px 20px rgb(0 0 0 / 24%),
+    inset 0 1px 0 rgb(255 255 255 / 24%);
+  color: rgb(32 15 7 / 92%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.01em;
 }
 
 .destination-bloom-toggle::before,
@@ -204,24 +248,23 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.particle-flow-toggle {
-  bottom: 9.75rem;
-}
-
 @media (width <= 768px) {
-  .destination-bloom-toggle,
-  #sim-toggle,
-  #route-art-toggle,
-  .particle-flow-toggle,
-  .map-3d-buildings-toggle,
-  .trip-layer-heatmap-toggle {
-    right: var(--space-2);
+  .map-fab-dock {
+    right: var(--space-4);
+    bottom: calc(
+      max(var(--map-sheet-visible-height, 60px), 60px) +
+      env(safe-area-inset-bottom, 0px) +
+      var(--space-2)
+    );
+  }
+
+  .map-fab-dock .map-fab-toggle {
     width: 2.75rem;
     height: 2.75rem;
   }
 
-  #sim-toggle {
-    right: var(--space-4);
+  .map-fab-dock__stack {
+    margin-bottom: 0;
   }
 
   #sim-toggle,
@@ -229,49 +272,11 @@
     display: none;
   }
 
-  #route-art-toggle {
-    bottom: calc(
-      max(var(--map-sheet-visible-height, 60px), 60px) +
-      env(safe-area-inset-bottom, 0px) +
-      7rem
-    );
-  }
-
-  .destination-bloom-toggle {
-    bottom: calc(
-      max(var(--map-sheet-visible-height, 60px), 60px) +
-      env(safe-area-inset-bottom, 0px) +
-      10.125rem
-    );
-  }
-
-  .particle-flow-toggle {
-    bottom: calc(
-      max(var(--map-sheet-visible-height, 60px), 60px) +
-      env(safe-area-inset-bottom, 0px) +
-      13.25rem
-    );
-  }
-
-  .map-3d-buildings-toggle {
-    bottom: calc(
-      max(var(--map-sheet-visible-height, 60px), 60px) +
-      env(safe-area-inset-bottom, 0px) +
-      16.375rem
-    );
-  }
-
-  .trip-layer-heatmap-toggle {
-    bottom: calc(
-      max(var(--map-sheet-visible-height, 60px), 60px) +
-      env(safe-area-inset-bottom, 0px) +
-      19.5rem
-    );
-  }
-
   .destination-bloom-toggle::before,
+  .map-fab-dock__toggle::before,
   .map-3d-buildings-toggle::before,
-  .trip-layer-heatmap-toggle::before {
+  .trip-layer-heatmap-toggle::before,
+  .particle-flow-toggle::before {
     display: none;
   }
 
@@ -304,6 +309,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .map-fab-dock__stack {
+    transition: none;
+  }
+
   .destination-bloom-canvas {
     animation: none;
   }

@@ -303,66 +303,87 @@ Layers
       </div>
     </div>
 
-    <!-- Bouncie Simulator Toggle -->
-    <button id="sim-toggle"
-            class="sim-toggle-btn map-fab-toggle map-fab-toggle--sim"
-            type="button"
-            aria-label="Toggle Bouncie Simulator"
-            aria-pressed="false"
-            title="Bouncie Simulator">
-      <i class="fas fa-broadcast-tower" aria-hidden="true"></i>
-    </button>
+    <div id="map-fab-dock" class="map-fab-dock is-collapsed" aria-label="Map feature toggles">
+      <div id="map-fab-dock-stack" class="map-fab-dock__stack" aria-hidden="true">
+        <!-- Bouncie Simulator Toggle -->
+        <button id="sim-toggle"
+                class="sim-toggle-btn map-fab-toggle map-fab-toggle--sim"
+                type="button"
+                data-map-fab-item
+                aria-label="Toggle Bouncie Simulator"
+                aria-pressed="false"
+                title="Bouncie Simulator">
+          <i class="fas fa-broadcast-tower" aria-hidden="true"></i>
+        </button>
 
-    <!-- Route Art Toggle -->
-    <button id="route-art-toggle"
-            class="sim-toggle-btn map-fab-toggle map-fab-toggle--route-art"
-            type="button"
-            aria-label="Open Route Art mode"
-            aria-pressed="false"
-            title="Route Art">
-      <i class="fas fa-palette" aria-hidden="true"></i>
-    </button>
+        <!-- Route Art Toggle -->
+        <button id="route-art-toggle"
+                class="sim-toggle-btn map-fab-toggle map-fab-toggle--route-art"
+                type="button"
+                data-map-fab-item
+                aria-label="Open Route Art mode"
+                aria-pressed="false"
+                title="Route Art">
+          <i class="fas fa-palette" aria-hidden="true"></i>
+        </button>
 
-    <!-- Destination Bloom Toggle -->
-    <button id="destination-bloom-toggle"
-            class="destination-bloom-toggle map-fab-toggle map-fab-toggle--destination-bloom"
-            type="button"
-            aria-label="Destination Bloom"
-            aria-pressed="false"
-            title="Destination Bloom visualization">
-      <i class="fas fa-location-dot" aria-hidden="true"></i>
-    </button>
+        <!-- Destination Bloom Toggle -->
+        <button id="destination-bloom-toggle"
+                class="destination-bloom-toggle map-fab-toggle map-fab-toggle--destination-bloom"
+                type="button"
+                data-map-fab-item
+                aria-label="Destination Bloom"
+                aria-pressed="false"
+                title="Destination Bloom visualization">
+          <i class="fas fa-location-dot" aria-hidden="true"></i>
+        </button>
 
-    <!-- Particle Flow Toggle -->
-    <button id="particle-flow-toggle"
-            class="particle-flow-toggle map-fab-toggle map-fab-toggle--particle-flow"
-            type="button"
-            aria-label="Particle Flow"
-            aria-pressed="false"
-            title="Particle Flow visualization">
-      <i class="fas fa-water" aria-hidden="true"></i>
-    </button>
+        <!-- Particle Flow Toggle -->
+        <button id="particle-flow-toggle"
+                class="particle-flow-toggle map-fab-toggle map-fab-toggle--particle-flow"
+                type="button"
+                data-map-fab-item
+                aria-label="Particle Flow"
+                aria-pressed="false"
+                title="Particle Flow visualization">
+          <i class="fas fa-water" aria-hidden="true"></i>
+        </button>
 
-    <!-- 3D Buildings Toggle -->
-    <button id="map-3d-buildings-fab"
-            class="map-3d-buildings-toggle map-fab-toggle map-fab-toggle--buildings-3d"
-            type="button"
-            aria-label="3D Buildings"
-            aria-pressed="false"
-            title="Toggle 3D buildings"
-            hidden>
-      <i class="fas fa-city" aria-hidden="true"></i>
-    </button>
+        <!-- 3D Buildings Toggle -->
+        <button id="map-3d-buildings-fab"
+                class="map-3d-buildings-toggle map-fab-toggle map-fab-toggle--buildings-3d"
+                type="button"
+                data-map-fab-item
+                aria-label="3D Buildings"
+                aria-pressed="false"
+                title="Toggle 3D buildings"
+                hidden>
+          <i class="fas fa-city" aria-hidden="true"></i>
+        </button>
 
-    <!-- Trip Layer Heatmap Toggle -->
-    <button id="trip-layer-heatmap-fab"
-            class="trip-layer-heatmap-toggle map-fab-toggle map-fab-toggle--heatmap"
-            type="button"
-            aria-label="Heatmap"
-            aria-pressed="false"
-            title="Toggle heatmap trip rendering">
-      <i class="fas fa-fire" aria-hidden="true"></i>
-    </button>
+        <!-- Trip Layer Heatmap Toggle -->
+        <button id="trip-layer-heatmap-fab"
+                class="trip-layer-heatmap-toggle map-fab-toggle map-fab-toggle--heatmap"
+                type="button"
+                data-map-fab-item
+                aria-label="Heatmap"
+                aria-pressed="false"
+                title="Toggle heatmap trip rendering">
+          <i class="fas fa-fire" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <button id="map-fab-dock-toggle"
+              class="map-fab-dock__toggle map-fab-toggle map-fab-toggle--dock"
+              type="button"
+              aria-label="Show map feature toggles"
+              aria-expanded="false"
+              title="Map feature toggles">
+        <span id="map-fab-dock-count" class="map-fab-dock__count" hidden>
+        </span>
+        <i class="fas fa-sliders" aria-hidden="true"></i>
+      </button>
+    </div>
 
     <!-- Search Results Dropdown (positioned outside control panel to avoid clipping) -->
     <div id="search-results"

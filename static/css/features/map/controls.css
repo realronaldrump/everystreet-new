@@ -700,6 +700,24 @@
     display: none;
   }
 
+  .control-panel#map-controls {
+    transition: box-shadow 150ms ease;
+  }
+
+  .control-panel#map-controls.desktop-dragging {
+    box-shadow: var(--shadow-glass-lg);
+  }
+
+  .control-panel#map-controls .control-panel-header {
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .control-panel#map-controls .control-panel-header.dragging {
+    cursor: grabbing;
+  }
+
   /* Desktop smooth collapse animation */
   .control-panel-body,
   .control-panel-quick-actions {

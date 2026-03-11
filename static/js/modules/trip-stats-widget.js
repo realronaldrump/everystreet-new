@@ -1,5 +1,9 @@
 import { calculateTripMetrics } from "./shared/trip-metrics.js";
 
+const MOBILE_BREAKPOINT = "(max-width: 768px)";
+const PANEL_EDGE_MARGIN_PX = 12;
+const EXPANDED_TRANSITION_MS = 200;
+
 /**
  * Trip Statistics Widget Manager
  * Handles the floating trip statistics widget at the top-left of the map
@@ -8,6 +12,10 @@ const tripStatsWidget = {
   elements: {},
   isExpanded: false,
   initialized: false,
+  dragState: null,
+  customPosition: null,
+  handlers: null,
+  positionSyncTimer: null,
 
   /**
    * Initialize the trip statistics widget
@@ -37,6 +45,10 @@ const tripStatsWidget = {
       compact: document.getElementById("trip-stats-compact"),
       expanded: document.getElementById("trip-stats-expanded"),
       toggle: document.getElementById("trip-stats-toggle"),
+      header:
+        document
+          .getElementById("trip-stats-compact")
+          ?.querySelector?.(".trip-stats-header") || null,
 
       // Compact view elements
       totalTripsCompact: document.getElementById("widget-total-trips"),
@@ -56,23 +68,39 @@ const tripStatsWidget = {
    * Bind event listeners
    */
   bindEvents() {
+    this.ensureHandlers();
+
     if (this.elements.toggle) {
-      this.elements.toggle.addEventListener("click", () => {
-        this.toggleExpanded();
-      });
+      this.elements.toggle.addEventListener("click", this.handlers.onToggleClick);
     }
+    this.elements.header?.addEventListener("pointerdown", this.handlers.onDragStart);
 
     // Listen for metrics updates from the metrics manager
-    document.addEventListener("metricsUpdated", (event) => {
-      this.handleMetricsUpdate(event.detail);
-    });
+    document.addEventListener("metricsUpdated", this.handlers.onMetricsUpdated);
 
     // Listen for GeoJSON data updates
-    document.addEventListener("tripsDataLoaded", (event) => {
-      if (event.detail?.geojson) {
-        this.updateFromGeoJSON(event.detail.geojson);
-      }
-    });
+    document.addEventListener("tripsDataLoaded", this.handlers.onTripsDataLoaded);
+    window.addEventListener("resize", this.handlers.onResize);
+  },
+
+  ensureHandlers() {
+    if (this.handlers) {
+      return;
+    }
+
+    this.handlers = {
+      onToggleClick: () => this.toggleExpanded(),
+      onMetricsUpdated: (event) => this.handleMetricsUpdate(event.detail),
+      onTripsDataLoaded: (event) => {
+        if (event.detail?.geojson) {
+          this.updateFromGeoJSON(event.detail.geojson);
+        }
+      },
+      onResize: () => this.handleViewportResize(),
+      onDragStart: (event) => this.handleDragStart(event),
+      onDragMove: (event) => this.handleDragMove(event),
+      onDragEnd: (event) => this.handleDragEnd(event),
+    };
   },
 
   /**
@@ -91,15 +119,181 @@ const tripStatsWidget = {
         // Trigger a reflow to enable transition
         void this.elements.expanded.offsetHeight;
         this.elements.expanded.classList.add("is-visible");
+        this.schedulePositionSync();
       } else {
         this.elements.expanded.classList.remove("is-visible");
         setTimeout(() => {
           if (!this.isExpanded) {
             this.elements.expanded.style.display = "none";
+            this.handleViewportResize();
           }
-        }, 200);
+        }, EXPANDED_TRANSITION_MS);
       }
     }
+  },
+
+  isMobileViewport() {
+    return window.matchMedia
+      ? window.matchMedia(MOBILE_BREAKPOINT).matches
+      : window.innerWidth <= 768;
+  },
+
+  clearInlinePosition() {
+    if (!this.elements.widget) {
+      return;
+    }
+
+    this.elements.widget.style.left = "";
+    this.elements.widget.style.top = "";
+    this.elements.widget.style.right = "";
+    this.elements.widget.style.bottom = "";
+  },
+
+  getWidgetBounds() {
+    const container = this.elements.widget?.parentElement;
+    const widget = this.elements.widget;
+    if (!container || !widget) {
+      return null;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const widgetRect = widget.getBoundingClientRect();
+
+    return {
+      left: widgetRect.left - containerRect.left,
+      top: widgetRect.top - containerRect.top,
+    };
+  },
+
+  applyWidgetPosition(left, top) {
+    const widget = this.elements.widget;
+    const container = widget?.parentElement;
+    if (!widget || !container) {
+      return;
+    }
+
+    const widgetRect = widget.getBoundingClientRect();
+    const widgetWidth = widget.offsetWidth || widgetRect.width || 0;
+    const widgetHeight = widget.offsetHeight || widgetRect.height || 0;
+    const maxLeft = Math.max(0, container.clientWidth - widgetWidth);
+    const maxTop = Math.max(0, container.clientHeight - widgetHeight);
+    const minLeft = Math.min(PANEL_EDGE_MARGIN_PX, maxLeft);
+    const minTop = Math.min(PANEL_EDGE_MARGIN_PX, maxTop);
+    const clampedLeft = Math.min(Math.max(left, minLeft), maxLeft);
+    const clampedTop = Math.min(Math.max(top, minTop), maxTop);
+
+    widget.style.left = `${clampedLeft}px`;
+    widget.style.top = `${clampedTop}px`;
+    widget.style.right = "auto";
+    widget.style.bottom = "auto";
+    this.customPosition = { left: clampedLeft, top: clampedTop };
+  },
+
+  syncWidgetPosition() {
+    if (!this.elements.widget) {
+      return;
+    }
+    if (this.isMobileViewport()) {
+      this.stopDrag();
+      this.clearInlinePosition();
+      return;
+    }
+
+    if (!this.customPosition) {
+      this.clearInlinePosition();
+      return;
+    }
+
+    this.applyWidgetPosition(this.customPosition.left, this.customPosition.top);
+  },
+
+  schedulePositionSync(delayMs = 0) {
+    if (this.positionSyncTimer) {
+      clearTimeout(this.positionSyncTimer);
+    }
+
+    this.positionSyncTimer = setTimeout(() => {
+      this.positionSyncTimer = null;
+      this.syncWidgetPosition();
+    }, delayMs);
+  },
+
+  handleViewportResize() {
+    if (this.dragState) {
+      this.stopDrag();
+    }
+    this.syncWidgetPosition();
+  },
+
+  handleDragStart(event) {
+    if (!this.elements.widget || !this.elements.header || this.isMobileViewport()) {
+      return;
+    }
+    if (typeof event.button === "number" && event.button !== 0) {
+      return;
+    }
+    if (event.target?.closest?.("button, a, input, select, textarea")) {
+      return;
+    }
+
+    const bounds = this.getWidgetBounds();
+    if (!bounds) {
+      return;
+    }
+
+    event.preventDefault?.();
+    this.applyWidgetPosition(bounds.left, bounds.top);
+
+    this.dragState = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startLeft: this.customPosition?.left ?? bounds.left,
+      startTop: this.customPosition?.top ?? bounds.top,
+    };
+
+    this.elements.widget.classList.add("dragging");
+    this.elements.header.classList.add("dragging");
+    this.elements.header.setPointerCapture?.(event.pointerId);
+    this.elements.header.addEventListener("pointermove", this.handlers.onDragMove);
+    this.elements.header.addEventListener("pointerup", this.handlers.onDragEnd);
+    this.elements.header.addEventListener("pointercancel", this.handlers.onDragEnd);
+  },
+
+  handleDragMove(event) {
+    if (!this.dragState || event.pointerId !== this.dragState.pointerId) {
+      return;
+    }
+
+    const deltaX = event.clientX - this.dragState.startClientX;
+    const deltaY = event.clientY - this.dragState.startClientY;
+    this.applyWidgetPosition(
+      this.dragState.startLeft + deltaX,
+      this.dragState.startTop + deltaY
+    );
+  },
+
+  handleDragEnd(event) {
+    if (!this.dragState || event.pointerId !== this.dragState.pointerId) {
+      return;
+    }
+    this.stopDrag();
+  },
+
+  stopDrag() {
+    const header = this.elements.header;
+    const pointerId = this.dragState?.pointerId;
+
+    header?.removeEventListener("pointermove", this.handlers?.onDragMove);
+    header?.removeEventListener("pointerup", this.handlers?.onDragEnd);
+    header?.removeEventListener("pointercancel", this.handlers?.onDragEnd);
+    if (pointerId != null) {
+      header?.releasePointerCapture?.(pointerId);
+    }
+
+    this.elements.widget?.classList.remove("dragging");
+    header?.classList.remove("dragging");
+    this.dragState = null;
   },
 
   /**
@@ -317,6 +511,25 @@ const tripStatsWidget = {
     } catch (error) {
       console.warn("Failed to dispatch widget update event", error);
     }
+  },
+
+  destroy() {
+    if (this.positionSyncTimer) {
+      clearTimeout(this.positionSyncTimer);
+      this.positionSyncTimer = null;
+    }
+
+    this.stopDrag();
+    this.elements.toggle?.removeEventListener("click", this.handlers?.onToggleClick);
+    this.elements.header?.removeEventListener("pointerdown", this.handlers?.onDragStart);
+    document.removeEventListener("metricsUpdated", this.handlers?.onMetricsUpdated);
+    document.removeEventListener("tripsDataLoaded", this.handlers?.onTripsDataLoaded);
+    window.removeEventListener("resize", this.handlers?.onResize);
+
+    this.elements = {};
+    this.isExpanded = false;
+    this.initialized = false;
+    this.customPosition = null;
   },
 };
 

@@ -19,6 +19,7 @@
   box-shadow: var(--shadow-glass-sm);
   color: var(--text-primary);
   overflow: hidden;
+  transition: box-shadow 150ms ease;
 }
 
 .trip-stats-compact {
@@ -29,6 +30,10 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.trip-stats-widget.dragging .trip-stats-card {
+  box-shadow: var(--shadow-glass-lg);
 }
 
 .trip-stats-icon {
@@ -192,9 +197,22 @@
   }
 }
 
+@media (width > 768px) {
+  .trip-stats-header {
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .trip-stats-header.dragging {
+    cursor: grabbing;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .trip-stats-toggle i,
-  .trip-stats-expanded {
+  .trip-stats-expanded,
+  .trip-stats-card {
     transition: none;
   }
 }

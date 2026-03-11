@@ -9,10 +9,13 @@ const MOBILE_BREAKPOINT = "(max-width: 768px)";
 const MOBILE_TOGGLE_EVENT = "es:mapControls:toggle";
 const COVERAGE_SELECTION_EVENT = "es:coverage-area-selection-changed";
 const FOCUS_COVERAGE_EVENT = "es:focus-selected-coverage-area";
+const PANEL_EDGE_MARGIN_PX = 12;
+const DESKTOP_COLLAPSE_SYNC_DELAY_MS = 260;
 
 export default function initMapControls({ signal, cleanup } = {}) {
   const noopTeardown = () => {};
   const controls = document.getElementById("map-controls");
+  const header = controls?.querySelector?.(".control-panel-header") || null;
   const toggleBtn = document.getElementById("controls-toggle");
   const locationSelect = document.getElementById("streets-location");
   const focusCoverageBtn = document.getElementById("focus-coverage-area-btn");
@@ -25,11 +28,149 @@ export default function initMapControls({ signal, cleanup } = {}) {
 
   let isExpandedDesktop = true;
   let resizeTimeout = null;
+  let positionSyncTimeout = null;
+  let dragState = null;
+  let desktopCustomPosition = null;
 
   const isMobile = () =>
     window.matchMedia
       ? window.matchMedia(MOBILE_BREAKPOINT).matches
       : window.innerWidth <= 768;
+
+  const clearDesktopPosition = () => {
+    controls.style.left = "";
+    controls.style.top = "";
+    controls.style.right = "";
+    controls.style.bottom = "";
+  };
+
+  const stopDesktopDrag = () => {
+    const pointerId = dragState?.pointerId;
+    header?.removeEventListener("pointermove", onDesktopDragMove);
+    header?.removeEventListener("pointerup", onDesktopDragEnd);
+    header?.removeEventListener("pointercancel", onDesktopDragEnd);
+    if (pointerId != null) {
+      header?.releasePointerCapture?.(pointerId);
+    }
+    controls.classList.remove("desktop-dragging");
+    header?.classList.remove("dragging");
+    dragState = null;
+  };
+
+  const applyDesktopPosition = (left, top) => {
+    const container = controls.parentElement;
+    if (!container) {
+      return;
+    }
+
+    const panelRect = controls.getBoundingClientRect();
+    const panelWidth = controls.offsetWidth || panelRect.width || 0;
+    const panelHeight = controls.offsetHeight || panelRect.height || 0;
+    const maxLeft = Math.max(0, container.clientWidth - panelWidth);
+    const maxTop = Math.max(0, container.clientHeight - panelHeight);
+    const minLeft = Math.min(PANEL_EDGE_MARGIN_PX, maxLeft);
+    const minTop = Math.min(PANEL_EDGE_MARGIN_PX, maxTop);
+    const clampedLeft = Math.min(Math.max(left, minLeft), maxLeft);
+    const clampedTop = Math.min(Math.max(top, minTop), maxTop);
+
+    controls.style.left = `${clampedLeft}px`;
+    controls.style.top = `${clampedTop}px`;
+    controls.style.right = "auto";
+    controls.style.bottom = "auto";
+    desktopCustomPosition = { left: clampedLeft, top: clampedTop };
+  };
+
+  const syncDesktopPosition = () => {
+    if (isMobile()) {
+      stopDesktopDrag();
+      clearDesktopPosition();
+      return;
+    }
+
+    if (!desktopCustomPosition) {
+      clearDesktopPosition();
+      return;
+    }
+
+    applyDesktopPosition(desktopCustomPosition.left, desktopCustomPosition.top);
+  };
+
+  const scheduleDesktopPositionSync = (delayMs = 0) => {
+    if (positionSyncTimeout) {
+      clearTimeout(positionSyncTimeout);
+    }
+    positionSyncTimeout = setTimeout(() => {
+      positionSyncTimeout = null;
+      syncDesktopPosition();
+    }, delayMs);
+  };
+
+  const getDesktopBounds = () => {
+    const container = controls.parentElement;
+    if (!container) {
+      return null;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const panelRect = controls.getBoundingClientRect();
+
+    return {
+      left: panelRect.left - containerRect.left,
+      top: panelRect.top - containerRect.top,
+    };
+  };
+
+  const onDesktopDragMove = (event) => {
+    if (!dragState || event.pointerId !== dragState.pointerId) {
+      return;
+    }
+
+    const deltaX = event.clientX - dragState.startClientX;
+    const deltaY = event.clientY - dragState.startClientY;
+    applyDesktopPosition(dragState.startLeft + deltaX, dragState.startTop + deltaY);
+  };
+
+  const onDesktopDragEnd = (event) => {
+    if (!dragState || event.pointerId !== dragState.pointerId) {
+      return;
+    }
+    stopDesktopDrag();
+  };
+
+  const onDesktopDragStart = (event) => {
+    if (!header || isMobile()) {
+      return;
+    }
+    if (typeof event.button === "number" && event.button !== 0) {
+      return;
+    }
+    if (event.target?.closest?.("button, a, input, select, textarea")) {
+      return;
+    }
+
+    const bounds = getDesktopBounds();
+    if (!bounds) {
+      return;
+    }
+
+    event.preventDefault?.();
+    applyDesktopPosition(bounds.left, bounds.top);
+
+    dragState = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startLeft: desktopCustomPosition?.left ?? bounds.left,
+      startTop: desktopCustomPosition?.top ?? bounds.top,
+    };
+
+    controls.classList.add("desktop-dragging");
+    header.classList.add("dragging");
+    header.setPointerCapture?.(event.pointerId);
+    header.addEventListener("pointermove", onDesktopDragMove);
+    header.addEventListener("pointerup", onDesktopDragEnd);
+    header.addEventListener("pointercancel", onDesktopDragEnd);
+  };
 
   const updateToggleButton = () => {
     if (!toggleBtn) {
@@ -49,6 +190,7 @@ export default function initMapControls({ signal, cleanup } = {}) {
     isExpandedDesktop = expanded;
     controls.classList.toggle("desktop-collapsed", !expanded);
     updateToggleButton();
+    scheduleDesktopPositionSync(DESKTOP_COLLAPSE_SYNC_DELAY_MS);
   };
 
   const requestMobileToggle = () => {
@@ -129,9 +271,11 @@ export default function initMapControls({ signal, cleanup } = {}) {
     if (isMobile()) {
       // Ensure no desktop-collapsed class lingers on mobile
       controls.classList.remove("desktop-collapsed");
+      clearDesktopPosition();
       updateToggleButton();
     } else {
       setDesktopExpanded(true);
+      syncDesktopPosition();
     }
     updateCoverageActionState();
   };
@@ -185,6 +329,7 @@ export default function initMapControls({ signal, cleanup } = {}) {
     onFocusCoverageClick,
     signal ? { signal } : false
   );
+  header?.addEventListener("pointerdown", onDesktopDragStart);
   initState();
 
   const onResize = () => {
@@ -197,8 +342,11 @@ export default function initMapControls({ signal, cleanup } = {}) {
       }
       if (isMobile()) {
         controls.classList.remove("desktop-collapsed");
+        stopDesktopDrag();
+        clearDesktopPosition();
       } else {
         setDesktopExpanded(isExpandedDesktop);
+        syncDesktopPosition();
       }
       updateToggleButton();
     }, 100);
@@ -211,6 +359,11 @@ export default function initMapControls({ signal, cleanup } = {}) {
       clearTimeout(resizeTimeout);
       resizeTimeout = null;
     }
+    if (positionSyncTimeout) {
+      clearTimeout(positionSyncTimeout);
+      positionSyncTimeout = null;
+    }
+    stopDesktopDrag();
     if (toggleBtn) {
       toggleBtn.removeEventListener("click", onToggleClick);
     }
@@ -221,6 +374,7 @@ export default function initMapControls({ signal, cleanup } = {}) {
       button.removeEventListener("click", onStreetModeClick);
     });
     focusCoverageBtn?.removeEventListener("click", onFocusCoverageClick);
+    header?.removeEventListener("pointerdown", onDesktopDragStart);
     document.removeEventListener(COVERAGE_SELECTION_EVENT, onCoverageSelectionChanged);
     window.removeEventListener("resize", onResize);
   };

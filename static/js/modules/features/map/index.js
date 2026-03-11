@@ -10,6 +10,7 @@ import initBuildings3D, {
   setMap3dBuildingsPreference,
 } from "./buildings-3d.js";
 import initCinematicIntro from "./cinematic-intro.js";
+import initMapFabDock from "./fab-dock.js";
 import initMapControls from "./map-controls.js";
 import { initMobileMap } from "./mobile-map.js";
 import {
@@ -174,6 +175,7 @@ function setToggleState(button, isActive) {
   }
   button.classList.toggle("active", Boolean(isActive));
   button.setAttribute("aria-pressed", String(Boolean(isActive)));
+  mapFabDockController?.sync?.();
 }
 
 function setToggleVisibility(button, isVisible) {
@@ -181,7 +183,10 @@ function setToggleVisibility(button, isVisible) {
     return;
   }
   button.hidden = !isVisible;
+  mapFabDockController?.sync?.();
 }
+
+let mapFabDockController = null;
 
 function getRenderableTrips() {
   const trips = [];
@@ -317,6 +322,11 @@ export default function initMapPage({ signal, cleanup } = {}) {
 
   initMapControls({ signal, cleanup: registerCleanup });
   initMobileMap({ cleanup: registerCleanup });
+  mapFabDockController = initMapFabDock();
+  registerCleanup(() => {
+    mapFabDockController?.destroy?.();
+    mapFabDockController = null;
+  });
 
   // Trip animation on selection — draw route with glow when a trip is selected
   setupTripSelectionAnimation(mapInstance, signal, registerCleanup);
