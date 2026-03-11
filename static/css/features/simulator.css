@@ -42,8 +42,8 @@
 .sim-panel {
   position: absolute;
   bottom: var(--space-4);
-  right: var(--space-4);
-  width: 300px;
+  right: calc(var(--space-4) + 2.625rem + var(--space-2));
+  width: min(18.75rem, calc(100vw - 6rem));
   max-height: calc(100vh - var(--header-height) - var(--space-8));
   z-index: var(--z-dropdown);
   border-radius: var(--radius-lg);
@@ -56,10 +56,15 @@
   flex-direction: column;
   contain: layout style paint;
   animation: simPanelIn 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transition: box-shadow 150ms ease;
 }
 
 .sim-panel.hidden {
   display: none;
+}
+
+.sim-panel.dragging {
+  box-shadow: var(--shadow-glass-lg);
 }
 
 @keyframes simPanelIn {
@@ -82,6 +87,13 @@
   padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--glass-border-subtle);
   flex-shrink: 0;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.sim-header.dragging {
+  cursor: grabbing;
 }
 
 .sim-header-left {

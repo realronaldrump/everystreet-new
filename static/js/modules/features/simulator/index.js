@@ -34,6 +34,9 @@ const DEFAULT_CONFIG = {
   odometerStart: 45678.9,
 };
 
+const MOBILE_BREAKPOINT = "(max-width: 768px)";
+const PANEL_EDGE_MARGIN_PX = 12;
+
 // ---------------------------------------------------------------------------
 // BouncieSimulator
 // ---------------------------------------------------------------------------
@@ -50,6 +53,9 @@ export class BouncieSimulator {
     this.tickTimer = null;
     this.picker = null;
     this.panel = null;
+    this.dragHandle = null;
+    this.dragState = null;
+    this._hasCustomPosition = false;
 
     // Running trip state
     this._tripStartTime = null;
@@ -58,6 +64,10 @@ export class BouncieSimulator {
     this._maxSpeedMph = 0;
     this._fuelLevel = this.config.fuelStart;
     this._eventLog = [];
+
+    this._handleDragMove = this._handleDragMove.bind(this);
+    this._handleDragEnd = this._handleDragEnd.bind(this);
+    this._handleViewportResize = this._handleViewportResize.bind(this);
 
     this._buildPanel();
   }
@@ -184,6 +194,7 @@ export class BouncieSimulator {
     `;
 
     this.panel = panel;
+    this.dragHandle = panel.querySelector(".sim-header");
     this.refs = {};
     panel.querySelectorAll("[data-ref]").forEach((el) => {
       this.refs[el.dataset.ref] = el;
@@ -236,6 +247,9 @@ export class BouncieSimulator {
 
     this.refs.startBtn.addEventListener("mousedown", () => this.startTrip());
     this.refs.stopBtn.addEventListener("mousedown", () => this.stopTrip());
+
+    this.dragHandle?.addEventListener("pointerdown", (event) => this._onDragStart(event));
+    window.addEventListener("resize", this._handleViewportResize);
   }
 
   // =========================================================================
@@ -263,6 +277,7 @@ export class BouncieSimulator {
       return;
     }
     this.panel.classList.remove("hidden");
+    this._handleViewportResize();
     this._syncToggleButton(true);
   }
 
@@ -285,6 +300,136 @@ export class BouncieSimulator {
     if (icon) {
       icon.className = collapsed ? "fas fa-chevron-down" : "fas fa-chevron-up";
     }
+    requestAnimationFrame(() => this._handleViewportResize());
+  }
+
+  _isMobileViewport() {
+    return window.matchMedia
+      ? window.matchMedia(MOBILE_BREAKPOINT).matches
+      : window.innerWidth <= 768;
+  }
+
+  _onDragStart(event) {
+    if (!this.panel || !this.dragHandle || this._isMobileViewport()) {
+      return;
+    }
+    if (event.button !== 0) {
+      return;
+    }
+    if (event.target.closest("[data-action], button, select, input, textarea, a")) {
+      return;
+    }
+
+    const bounds = this._getPanelBounds();
+    if (!bounds) {
+      return;
+    }
+
+    event.preventDefault();
+    this._setPanelPosition(bounds.left, bounds.top);
+
+    this.dragState = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startLeft: bounds.left,
+      startTop: bounds.top,
+    };
+
+    this.panel.classList.add("dragging");
+    this.dragHandle.classList.add("dragging");
+    this.dragHandle.setPointerCapture?.(event.pointerId);
+    this.dragHandle.addEventListener("pointermove", this._handleDragMove);
+    this.dragHandle.addEventListener("pointerup", this._handleDragEnd);
+    this.dragHandle.addEventListener("pointercancel", this._handleDragEnd);
+  }
+
+  _handleDragMove(event) {
+    if (!this.dragState || event.pointerId !== this.dragState.pointerId) {
+      return;
+    }
+
+    const deltaX = event.clientX - this.dragState.startClientX;
+    const deltaY = event.clientY - this.dragState.startClientY;
+    this._setPanelPosition(
+      this.dragState.startLeft + deltaX,
+      this.dragState.startTop + deltaY
+    );
+  }
+
+  _handleDragEnd(event) {
+    if (!this.dragState || event.pointerId !== this.dragState.pointerId) {
+      return;
+    }
+    this._stopDrag();
+  }
+
+  _stopDrag() {
+    const pointerId = this.dragState?.pointerId;
+    this.dragHandle?.removeEventListener("pointermove", this._handleDragMove);
+    this.dragHandle?.removeEventListener("pointerup", this._handleDragEnd);
+    this.dragHandle?.removeEventListener("pointercancel", this._handleDragEnd);
+    if (pointerId != null) {
+      this.dragHandle?.releasePointerCapture?.(pointerId);
+    }
+    this.panel?.classList.remove("dragging");
+    this.dragHandle?.classList.remove("dragging");
+    this.dragState = null;
+  }
+
+  _getPanelBounds() {
+    const container = this.panel?.parentElement;
+    if (!container || !this.panel) {
+      return null;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const panelRect = this.panel.getBoundingClientRect();
+
+    return {
+      left: panelRect.left - containerRect.left,
+      top: panelRect.top - containerRect.top,
+    };
+  }
+
+  _setPanelPosition(left, top) {
+    const container = this.panel?.parentElement;
+    if (!container || !this.panel) {
+      return;
+    }
+
+    const maxLeft = Math.max(0, container.clientWidth - this.panel.offsetWidth);
+    const maxTop = Math.max(0, container.clientHeight - this.panel.offsetHeight);
+    const minLeft = Math.min(PANEL_EDGE_MARGIN_PX, maxLeft);
+    const minTop = Math.min(PANEL_EDGE_MARGIN_PX, maxTop);
+    const clampedLeft = Math.min(Math.max(left, minLeft), maxLeft);
+    const clampedTop = Math.min(Math.max(top, minTop), maxTop);
+
+    this.panel.style.left = `${clampedLeft}px`;
+    this.panel.style.top = `${clampedTop}px`;
+    this.panel.style.right = "auto";
+    this.panel.style.bottom = "auto";
+    this._hasCustomPosition = true;
+  }
+
+  _handleViewportResize() {
+    if (!this.panel) {
+      return;
+    }
+    if (this.dragState) {
+      this._stopDrag();
+    }
+    if (!this._hasCustomPosition) {
+      return;
+    }
+
+    const left = Number.parseFloat(this.panel.style.left);
+    const top = Number.parseFloat(this.panel.style.top);
+    if (!Number.isFinite(left) || !Number.isFinite(top)) {
+      return;
+    }
+
+    this._setPanelPosition(left, top);
   }
 
   // =========================================================================
@@ -671,6 +816,8 @@ export class BouncieSimulator {
 
   destroy() {
     this._clearTick();
+    this._stopDrag();
+    window.removeEventListener("resize", this._handleViewportResize);
     if (this.picker) {
       this.picker.cancel();
     }
