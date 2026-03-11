@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI, WebSocket
@@ -23,6 +24,7 @@ from core.auth import (
     parse_cors_allowed_origins,
     require_owner_websocket,
     get_session_secret,
+    session_cookie_https_only,
 )
 from tracking.api import live as live_api
 
@@ -78,14 +80,21 @@ class _FakePubSubRedis:
         return None
 
 
-@pytest.fixture
-def auth_test_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
+def _configure_auth_test_env(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    session_secret: str = "test-session-secret",
+    allowed_hosts: str = "testserver",
+    cors_allowed_origins: str = "https://testserver",
+) -> None:
     password = "owner-secret"
-    monkeypatch.setenv("APP_SESSION_SECRET", "test-session-secret")
+    monkeypatch.setenv("APP_SESSION_SECRET", session_secret)
     monkeypatch.setenv("OWNER_PASSWORD_HASH", hash_password_for_owner(password))
-    monkeypatch.setenv("CORS_ALLOWED_ORIGINS", "https://testserver")
-    monkeypatch.setenv("ALLOWED_HOSTS", "testserver")
+    monkeypatch.setenv("CORS_ALLOWED_ORIGINS", cors_allowed_origins)
+    monkeypatch.setenv("ALLOWED_HOSTS", allowed_hosts)
 
+
+def _patch_auth_test_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_redis = _FakeRedis()
 
     async def fake_get_settings() -> _FakeSettings:
@@ -122,6 +131,8 @@ def auth_test_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         lambda: _FakePubSubRedis(),
     )
 
+
+def _build_auth_test_app() -> FastAPI:
     app = FastAPI()
     app.mount("/static", StaticFiles(directory="static"), name="static")
     app.add_middleware(
@@ -136,7 +147,7 @@ def auth_test_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         max_age=SESSION_TTL_SECONDS,
         same_site="lax",
         path="/",
-        https_only=True,
+        https_only=session_cookie_https_only(),
     )
     app.add_middleware(
         CORSMiddleware,
@@ -169,7 +180,14 @@ def auth_test_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         await websocket.send_json({"ok": True})
         await websocket.close()
 
-    return TestClient(app, base_url="https://testserver")
+    return app
+
+
+@pytest.fixture
+def auth_test_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    _configure_auth_test_env(monkeypatch)
+    _patch_auth_test_dependencies(monkeypatch)
+    return TestClient(_build_auth_test_app(), base_url="https://testserver")
 
 
 def _login(client: TestClient, password: str = "owner-secret") -> TestClient:
@@ -200,6 +218,30 @@ def test_login_sets_secure_owner_session_cookie(auth_test_client: TestClient) ->
     assert f"{SESSION_COOKIE_NAME}=" in cookie_header
     assert "secure" in cookie_header
     assert "httponly" in cookie_header
+
+
+def test_login_persists_owner_session_over_local_http(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _configure_auth_test_env(
+        monkeypatch,
+        allowed_hosts="localhost,127.0.0.1",
+        cors_allowed_origins="http://localhost",
+    )
+    _patch_auth_test_dependencies(monkeypatch)
+
+    with TestClient(_build_auth_test_app(), base_url="http://localhost") as client:
+        response = client.post(
+            "/login",
+            data={"password": "owner-secret", "next": "/map"},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        cookie_header = response.headers["set-cookie"].lower()
+        assert "secure" not in cookie_header
+        session_payload = client.get("/api/auth/session").json()
+        assert session_payload["is_owner"] is True
 
 
 def test_failed_login_rate_limits_after_ten_attempts(auth_test_client: TestClient) -> None:
@@ -240,6 +282,61 @@ def test_owner_only_api_rejects_viewer_and_requires_csrf(auth_test_client: TestC
     )
     assert with_csrf.status_code == 200
     assert with_csrf.json() == {"status": "updated"}
+
+
+def test_owner_form_submission_keeps_form_fields_after_csrf_validation(
+    auth_test_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    upsert_and_authorize = AsyncMock()
+    monkeypatch.setattr(
+        "api.pages.VehicleService.upsert_and_authorize",
+        upsert_and_authorize,
+    )
+
+    client = _login(auth_test_client)
+    csrf_token = client.get("/api/auth/session").json()["csrf_token"]
+
+    response = client.post(
+        "/vehicles/add-vehicle",
+        data={
+            "imei": "123456789012345",
+            "custom_name": "Test Vehicle",
+            "csrf_token": csrf_token,
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    upsert_and_authorize.assert_awaited_once_with(
+        "123456789012345",
+        "Test Vehicle",
+    )
+
+
+def test_owner_form_submission_rejects_invalid_csrf(
+    auth_test_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    upsert_and_authorize = AsyncMock()
+    monkeypatch.setattr(
+        "api.pages.VehicleService.upsert_and_authorize",
+        upsert_and_authorize,
+    )
+
+    client = _login(auth_test_client)
+    response = client.post(
+        "/vehicles/add-vehicle",
+        data={
+            "imei": "123456789012345",
+            "custom_name": "Test Vehicle",
+            "csrf_token": "invalid-token",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 403
+    upsert_and_authorize.assert_not_awaited()
 
 
 def test_viewer_public_map_page_renders_shell_banner(auth_test_client: TestClient) -> None:
@@ -306,3 +403,13 @@ def test_cors_allows_only_configured_origins(auth_test_client: TestClient) -> No
         },
     )
     assert "access-control-allow-origin" not in blocked.headers
+
+
+def test_missing_session_secret_raises_when_owner_auth_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("APP_SESSION_SECRET", raising=False)
+    monkeypatch.setenv("OWNER_PASSWORD_HASH", hash_password_for_owner("owner-secret"))
+
+    with pytest.raises(RuntimeError, match="APP_SESSION_SECRET"):
+        get_session_secret()

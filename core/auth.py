@@ -28,8 +28,19 @@ CSRF_HEADER_NAME: Final[str] = "x-csrf-token"
 LOGIN_RATE_LIMIT_ATTEMPTS: Final[int] = 10
 LOGIN_RATE_LIMIT_WINDOW_SECONDS: Final[int] = 15 * 60
 APP_SESSION_SECRET_ENV: Final[str] = "APP_SESSION_SECRET"
+APP_SESSION_HTTPS_ONLY_ENV: Final[str] = "APP_SESSION_HTTPS_ONLY"
 OWNER_PASSWORD_HASH_ENV: Final[str] = "OWNER_PASSWORD_HASH"
 DEFAULT_SESSION_SECRET: Final[str] = "change-me-session-secret"
+FORM_CSRF_PATHS: Final[set[str]] = {
+    "/logout",
+    "/control-center/credentials/add-vehicle",
+    "/vehicles/add-vehicle",
+}
+LOCAL_HOST_ALIASES: Final[set[str]] = {
+    "127.0.0.1",
+    "::1",
+    "localhost",
+}
 
 PUBLIC_PAGE_PATHS: Final[set[str]] = {
     "/",
@@ -90,6 +101,7 @@ PUBLIC_SAFE_API_PREFIXES: Final[tuple[str, ...]] = (
 SAFE_METHODS: Final[set[str]] = {"GET", "HEAD", "OPTIONS"}
 
 _password_hasher = PasswordHash.recommended()
+_ephemeral_session_secret: str | None = None
 
 
 @dataclass(slots=True)
@@ -124,7 +136,34 @@ def _session_store(connection: Request | WebSocket) -> dict[str, object]:
 
 def get_session_secret() -> str:
     """Return the configured session signing secret."""
-    return os.getenv(APP_SESSION_SECRET_ENV, "").strip() or DEFAULT_SESSION_SECRET
+    configured_secret = os.getenv(APP_SESSION_SECRET_ENV, "").strip()
+    if configured_secret and configured_secret != DEFAULT_SESSION_SECRET:
+        return configured_secret
+
+    if owner_login_enabled():
+        raise RuntimeError(
+            "APP_SESSION_SECRET must be set to a non-default value when owner auth is enabled.",
+        )
+
+    global _ephemeral_session_secret
+    if not _ephemeral_session_secret:
+        _ephemeral_session_secret = secrets.token_urlsafe(32)
+    return _ephemeral_session_secret
+
+
+def _host_looks_local(host: str) -> bool:
+    normalized = (host or "").strip().lower().split(":", 1)[0]
+    return normalized in LOCAL_HOST_ALIASES or normalized.endswith(".localhost")
+
+
+def session_cookie_https_only() -> bool:
+    """Return whether the session cookie should be marked Secure."""
+    raw_value = os.getenv(APP_SESSION_HTTPS_ONLY_ENV, "").strip().lower()
+    if raw_value in {"1", "true", "yes", "on"}:
+        return True
+    if raw_value in {"0", "false", "no", "off"}:
+        return False
+    return not any(_host_looks_local(host) for host in parse_allowed_hosts())
 
 
 def owner_login_enabled() -> bool:
@@ -344,27 +383,37 @@ def is_html_request(request: Request) -> bool:
 
 
 async def validate_csrf(request: Request) -> bool:
-    """Validate CSRF token from header or form body."""
+    """Validate CSRF token from the request header."""
     context = get_request_auth_context(request)
     expected_token = context.csrf_token
     if not expected_token:
         return False
 
     provided = request.headers.get(CSRF_HEADER_NAME)
-    if provided:
-        return secrets.compare_digest(provided, expected_token)
+    return bool(provided) and secrets.compare_digest(provided, expected_token)
 
+
+def validate_form_csrf_token(request: Request, provided_token: str | None) -> bool:
+    """Validate a CSRF token already parsed from a form endpoint."""
+    context = get_request_auth_context(request)
+    expected_token = context.csrf_token
+    return bool(
+        expected_token
+        and provided_token
+        and secrets.compare_digest(provided_token, expected_token),
+    )
+
+
+def should_defer_csrf_to_form_handler(request: Request) -> bool:
+    """Return whether a known HTML form route validates CSRF in the endpoint."""
+    path = request.url.path
+    if path not in FORM_CSRF_PATHS:
+        return False
     content_type = (request.headers.get("content-type") or "").lower()
-    if "application/x-www-form-urlencoded" in content_type or "multipart/form-data" in content_type:
-        try:
-            form = await request.form()
-        except Exception:
-            return False
-        provided = form.get("csrf_token")
-        if isinstance(provided, str):
-            return secrets.compare_digest(provided, expected_token)
-
-    return False
+    return (
+        "application/x-www-form-urlencoded" in content_type
+        or "multipart/form-data" in content_type
+    )
 
 
 def unauthorized_api_response() -> JSONResponse:
@@ -393,6 +442,9 @@ async def guard_request(request: Request) -> Response | None:
                 status_code=status.HTTP_303_SEE_OTHER,
             )
         return unauthorized_api_response()
+
+    if method not in SAFE_METHODS and should_defer_csrf_to_form_handler(request):
+        return None
 
     if method not in SAFE_METHODS and not await validate_csrf(request):
         return JSONResponse(

@@ -1,8 +1,9 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from core.auth import validate_form_csrf_token
 from core.jinja import templates
 from core.template_context import build_base_template_context
 from gas.services.vehicle_service import VehicleService
@@ -60,10 +61,18 @@ async def control_center_page(request: Request):
     response_class=RedirectResponse,
 )
 async def control_center_add_vehicle(
+    request: Request,
     imei: Annotated[str, Form()] = "",
     custom_name: Annotated[str | None, Form()] = None,
+    csrf_token: Annotated[str, Form()] = "",
 ) -> RedirectResponse:
     """Handle Credentials -> Add Vehicle form submission."""
+    if not validate_form_csrf_token(request, csrf_token):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid CSRF token.",
+        )
+
     imei_value = (imei or "").strip()
     name_value = (custom_name or "").strip() or None
 
@@ -75,10 +84,18 @@ async def control_center_add_vehicle(
 
 @router.post("/vehicles/add-vehicle", response_class=RedirectResponse)
 async def vehicles_add_vehicle(
+    request: Request,
     imei: Annotated[str, Form()] = "",
     custom_name: Annotated[str | None, Form()] = None,
+    csrf_token: Annotated[str, Form()] = "",
 ) -> RedirectResponse:
     """Handle My Vehicles -> Add Vehicle form submission."""
+    if not validate_form_csrf_token(request, csrf_token):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid CSRF token.",
+        )
+
     imei_value = (imei or "").strip()
     name_value = (custom_name or "").strip() or None
 

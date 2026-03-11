@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Form, Request, status
+from fastapi import APIRouter, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from core.auth import (
@@ -17,6 +17,7 @@ from core.auth import (
     mark_owner_session,
     record_failed_login,
     sanitize_next_path,
+    validate_form_csrf_token,
     verify_owner_password,
 )
 from core.jinja import templates
@@ -92,8 +93,16 @@ async def login_submit(
 
 
 @router.post("/logout", response_model=None)
-async def logout_submit(request: Request):
+async def logout_submit(
+    request: Request,
+    csrf_token: str = Form(default=""),
+):
     """Clear the current owner session."""
+    if not validate_form_csrf_token(request, csrf_token):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid CSRF token.",
+        )
     clear_auth_session(request)
     return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
 

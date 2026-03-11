@@ -27,6 +27,7 @@ from core.auth import (
     get_session_secret,
     parse_allowed_hosts,
     parse_cors_allowed_origins,
+    session_cookie_https_only,
 )
 from core.jinja import templates
 from core.repo_info import get_repo_version_info
@@ -191,7 +192,7 @@ app.add_middleware(
     max_age=SESSION_TTL_SECONDS,
     same_site="lax",
     path="/",
-    https_only=True,
+    https_only=session_cookie_https_only(),
 )
 app.add_middleware(
     CORSMiddleware,
