@@ -6,6 +6,7 @@
 import { COVERAGE_BBOX_LINE_COLOR } from "./coverage-bounds.js";
 
 export const MAPBOX_PUBLIC_ACCESS_TOKEN =
+  globalThis?.window?.MAPBOX_PUBLIC_ACCESS_TOKEN ||
   "pk.eyJ1IjoicmVhbHJvbmFsZHJ1bXAiLCJhIjoiY204eXBvMzRhMDNubTJrb2NoaDIzN2dodyJ9.3Hnv3_ps0T7YS8cwSE3XKA";
 
 export const CONFIG = {

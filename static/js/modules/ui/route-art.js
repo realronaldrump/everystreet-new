@@ -20,6 +20,19 @@ class RouteArt {
     this._destroyed = false;
   }
 
+  isActive() {
+    return this._active;
+  }
+
+  _emit(eventName, detail = null) {
+    if (
+      typeof document?.dispatchEvent === "function" &&
+      typeof CustomEvent === "function"
+    ) {
+      document.dispatchEvent(new CustomEvent(eventName, { detail }));
+    }
+  }
+
   /**
    * Launch route art mode.
    * @param {Object} options
@@ -43,9 +56,13 @@ class RouteArt {
 
     this._createOverlay();
     this._render();
+    this._emit("routeArt:activated", { mode: this._mode });
   }
 
-  close() {
+  close(options = {}) {
+    const { immediate = false } = options;
+    const wasActive = this._active;
+
     this._active = false;
     if (this._keyHandler) {
       document.removeEventListener("keydown", this._keyHandler);
@@ -56,7 +73,7 @@ class RouteArt {
       clearTimeout(this._closeTimer);
       this._closeTimer = null;
     }
-    if (closingContainer?.parentNode) {
+    if (closingContainer?.parentNode && !immediate) {
       closingContainer.classList.add("route-art-exit");
       this._closeTimer = setTimeout(() => {
         closingContainer.remove();
@@ -66,6 +83,12 @@ class RouteArt {
         }
         this._closeTimer = null;
       }, 300);
+    } else if (closingContainer?.parentNode) {
+      closingContainer.remove();
+      if (this._container === closingContainer) {
+        this._container = null;
+        this._canvas = null;
+      }
     } else if (this._container === closingContainer) {
       this._container = null;
       this._canvas = null;
@@ -73,6 +96,9 @@ class RouteArt {
     const onClose = this._onClose;
     this._onClose = null;
     onClose?.();
+    if (wasActive) {
+      this._emit("routeArt:deactivated");
+    }
   }
 
   setMode(mode) {

@@ -216,22 +216,6 @@
                   <span>Gas</span>
                 </a>
               </li>
-              <li class="nav-item {% if request.url.path == '/coverage-navigator' %}active{% endif %}">
-                <a
-                  href="/coverage-navigator"
-                  title="Coverage Navigator"
-{%
-                  if
-                  request.url.path == "/coverage-navigator"
-                  %}aria-current="page"
-{%
-                  endif
-                  %}
-                >
-                  <i class="fas fa-route" aria-hidden="true"></i>
-                  <span>Coverage Navigator</span>
-                </a>
-              </li>
               <!-- More Dropdown -->
               <li class="nav-item dropdown">
                 <a href="#"
@@ -322,6 +306,23 @@ Coverage & Routes
                     >
                       <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i>
                       Coverage Areas
+                    </a>
+                  </li>
+                  <li role="none">
+                    <a
+                      class="dropdown-item {% if request.url.path == '/coverage-navigator' %}active{% endif %}"
+                      href="/coverage-navigator"
+                      role="menuitem"
+{%
+                      if
+                      request.url.path == "/coverage-navigator"
+                      %}aria-current="page"
+{%
+                      endif
+                      %}
+                    >
+                      <i class="fas fa-route me-2" aria-hidden="true"></i>
+                      Coverage Navigator
                     </a>
                   </li>
                   <li role="none">
@@ -934,6 +935,7 @@ System
     <!-- Expose Map Provider Settings to Frontend -->
     <script>
         window.AUTH_CONTEXT = {{ auth_context_json | tojson }};
+        window.MAPBOX_PUBLIC_ACCESS_TOKEN = {{ (app_settings.get('mapbox_token') if app_settings else '') | tojson }};
         window.MAP_PROVIDER = "{{ (app_settings.get('map_provider') | default('self_hosted', true) | lower) if app_settings else 'self_hosted' }}";
         window.APP_SETTINGS_FLAGS = {
             mapTripsWithinCoverageOnly: {{

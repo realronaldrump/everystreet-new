@@ -6,6 +6,7 @@ import { initMobileMap } from "./mobile-map.js";
 import tripAnimator from "../../trip-animator.js";
 import routeArt from "../../ui/route-art.js";
 import particleFlow from "../../particle-flow.js";
+import destinationBloom from "../../destination-bloom.js";
 
 function setupMapTilt(signal, isCameraLocked = null) {
   const prefersCoarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches;
@@ -157,6 +158,37 @@ function setupMapViewportSync() {
   };
 }
 
+function setToggleState(button, isActive) {
+  if (!button) {
+    return;
+  }
+  button.classList.toggle("active", Boolean(isActive));
+  button.setAttribute("aria-pressed", String(Boolean(isActive)));
+}
+
+function getRenderableTrips() {
+  const trips = [];
+  for (const layerName of ["trips", "matchedTrips"]) {
+    const features = store.mapLayers[layerName]?.layer?.features;
+    if (features?.length) {
+      trips.push(...features.filter((feature) => feature?.geometry));
+    }
+  }
+  return trips;
+}
+
+function deactivateExclusiveModes(except) {
+  if (except !== "routeArt" && routeArt.isActive?.()) {
+    routeArt.close({ immediate: true });
+  }
+  if (except !== "particleFlow" && particleFlow.isActive()) {
+    particleFlow.destroy();
+  }
+  if (except !== "destinationBloom" && destinationBloom.isActive()) {
+    destinationBloom.destroy();
+  }
+}
+
 export default function initMapPage({ signal, cleanup } = {}) {
   const cleanupFns = [];
   const registerCleanup = (fn) => {
@@ -195,27 +227,11 @@ export default function initMapPage({ signal, cleanup } = {}) {
   // Trip animation on selection — draw route with glow when a trip is selected
   setupTripSelectionAnimation(mapInstance, signal, registerCleanup);
 
-  // Route Art toggle
-  const routeArtToggle = document.getElementById("route-art-toggle");
-  if (routeArtToggle) {
-    const handleRouteArt = () => {
-      const trips = [];
-      for (const layerName of ["trips", "matchedTrips"]) {
-        const features = store.mapLayers[layerName]?.layer?.features;
-        if (features?.length) {
-          trips.push(...features.filter((f) => f.geometry));
-        }
-      }
-      if (trips.length === 0) return;
-      routeArt.launch({ trips });
-    };
-    routeArtToggle.addEventListener("click", handleRouteArt);
-    registerCleanup(() => routeArtToggle.removeEventListener("click", handleRouteArt));
-  }
-  registerCleanup(() => routeArt.close?.());
+  setupRouteArtToggle(registerCleanup);
 
   // Particle Flow toggle
   setupParticleFlowToggle(registerCleanup);
+  setupDestinationBloomToggle(registerCleanup);
 
   // Bouncie Simulator — lazy-loaded on toggle click
   const simToggle = document.getElementById("sim-toggle");
@@ -397,21 +413,81 @@ function setupTripSelectionAnimation(mapInstance, signal, registerCleanup) {
 }
 
 /**
+ * Set up the Route Art visualization toggle.
+ * This is treated as a mutually exclusive scene mode.
+ */
+export function setupRouteArtToggle(registerCleanup) {
+  const btn = document.getElementById("route-art-toggle");
+  if (!btn) return;
+
+  const syncState = () => setToggleState(btn, routeArt.isActive?.() === true);
+
+  const handleClick = () => {
+    if (routeArt.isActive?.()) {
+      routeArt.close();
+      setToggleState(btn, false);
+      return;
+    }
+
+    const trips = getRenderableTrips();
+    if (trips.length === 0) {
+      return;
+    }
+
+    deactivateExclusiveModes("routeArt");
+    routeArt.launch({ trips });
+    setToggleState(btn, true);
+  };
+
+  btn.addEventListener("click", handleClick);
+  document.addEventListener("routeArt:activated", syncState);
+  document.addEventListener("routeArt:deactivated", syncState);
+
+  registerCleanup(() => btn.removeEventListener("click", handleClick));
+  registerCleanup(() =>
+    document.removeEventListener("routeArt:activated", syncState)
+  );
+  registerCleanup(() =>
+    document.removeEventListener("routeArt:deactivated", syncState)
+  );
+  registerCleanup(() => {
+    routeArt.close?.({ immediate: true });
+    setToggleState(btn, false);
+  });
+}
+
+/**
  * Set up the Particle Flow visualization toggle.
  * When active, trip polylines are replaced by animated flowing particles.
  */
-function setupParticleFlowToggle(registerCleanup) {
+export function setupParticleFlowToggle(registerCleanup) {
   const btn = document.getElementById("particle-flow-toggle");
   if (!btn) return;
 
+  const syncState = () => setToggleState(btn, particleFlow.isActive());
+
   const handleClick = () => {
-    const isActive = particleFlow.toggle();
-    btn.classList.toggle("active", isActive);
-    btn.setAttribute("aria-pressed", String(isActive));
+    if (particleFlow.isActive()) {
+      particleFlow.deactivate();
+      setToggleState(btn, false);
+      return;
+    }
+
+    deactivateExclusiveModes("particleFlow");
+    particleFlow.activate();
+    setToggleState(btn, true);
   };
 
   btn.addEventListener("click", handleClick);
   registerCleanup(() => btn.removeEventListener("click", handleClick));
+  document.addEventListener("particleFlow:activated", syncState);
+  document.addEventListener("particleFlow:deactivated", syncState);
+  registerCleanup(() =>
+    document.removeEventListener("particleFlow:activated", syncState)
+  );
+  registerCleanup(() =>
+    document.removeEventListener("particleFlow:deactivated", syncState)
+  );
 
   // Refresh particles when trip data changes (date filter, new trips loaded)
   const handleDataRefresh = () => {
@@ -420,7 +496,13 @@ function setupParticleFlowToggle(registerCleanup) {
       setTimeout(() => particleFlow.refresh(), 200);
     }
   };
+  document.addEventListener("tripsDataLoaded", handleDataRefresh);
+  document.addEventListener("matchedTripsDataLoaded", handleDataRefresh);
   document.addEventListener("es:filters-change", handleDataRefresh);
+  registerCleanup(() => document.removeEventListener("tripsDataLoaded", handleDataRefresh));
+  registerCleanup(() =>
+    document.removeEventListener("matchedTripsDataLoaded", handleDataRefresh)
+  );
   registerCleanup(() => document.removeEventListener("es:filters-change", handleDataRefresh));
 
   // Re-hide trip layers after a style change restores them
@@ -450,7 +532,67 @@ function setupParticleFlowToggle(registerCleanup) {
 
   registerCleanup(() => {
     particleFlow.destroy();
-    btn.classList.remove("active");
-    btn.setAttribute("aria-pressed", "false");
+    setToggleState(btn, false);
+  });
+}
+
+/**
+ * Set up the Destination Bloom visualization toggle.
+ * When active, trip lines are hidden and trip endpoints render as glowing clusters.
+ */
+export function setupDestinationBloomToggle(registerCleanup) {
+  const btn = document.getElementById("destination-bloom-toggle");
+  if (!btn) return;
+
+  const syncState = () => setToggleState(btn, destinationBloom.isActive());
+
+  const handleClick = () => {
+    if (destinationBloom.isActive()) {
+      destinationBloom.deactivate();
+      setToggleState(btn, false);
+      return;
+    }
+
+    deactivateExclusiveModes("destinationBloom");
+    destinationBloom.activate();
+    setToggleState(btn, true);
+  };
+
+  const handleDataRefresh = () => {
+    if (destinationBloom.isActive()) {
+      setTimeout(() => destinationBloom.refresh(), 180);
+    }
+  };
+
+  const handleStyleChange = () => {
+    if (destinationBloom.isActive()) {
+      setTimeout(() => destinationBloom.refresh(), 260);
+    }
+  };
+
+  btn.addEventListener("click", handleClick);
+  document.addEventListener("destinationBloom:activated", syncState);
+  document.addEventListener("destinationBloom:deactivated", syncState);
+  document.addEventListener("tripsDataLoaded", handleDataRefresh);
+  document.addEventListener("matchedTripsDataLoaded", handleDataRefresh);
+  document.addEventListener("es:filters-change", handleDataRefresh);
+  document.addEventListener("mapStyleLoaded", handleStyleChange);
+
+  registerCleanup(() => btn.removeEventListener("click", handleClick));
+  registerCleanup(() =>
+    document.removeEventListener("destinationBloom:activated", syncState)
+  );
+  registerCleanup(() =>
+    document.removeEventListener("destinationBloom:deactivated", syncState)
+  );
+  registerCleanup(() => document.removeEventListener("tripsDataLoaded", handleDataRefresh));
+  registerCleanup(() =>
+    document.removeEventListener("matchedTripsDataLoaded", handleDataRefresh)
+  );
+  registerCleanup(() => document.removeEventListener("es:filters-change", handleDataRefresh));
+  registerCleanup(() => document.removeEventListener("mapStyleLoaded", handleStyleChange));
+  registerCleanup(() => {
+    destinationBloom.destroy();
+    setToggleState(btn, false);
   });
 }

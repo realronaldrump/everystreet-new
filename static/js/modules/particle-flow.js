@@ -193,6 +193,7 @@ const particleFlow = {
 
   /** Full cleanup (page teardown). */
   destroy() {
+    const wasActive = this._active;
     this._destroyed = true;
     this._active = false;
     this._stopLoop();
@@ -201,6 +202,9 @@ const particleFlow = {
     this._restoreTripLayers(store.map);
     this._particles = [];
     this._paths = [];
+    if (wasActive) {
+      document.dispatchEvent(new CustomEvent("particleFlow:deactivated"));
+    }
   },
 
   /** Re-read trip data (e.g. after date filter change). */

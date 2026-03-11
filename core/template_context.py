@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import Request
 
 from admin.services.admin_service import AdminService
+from config import get_mapbox_token
 from core.auth import get_request_auth_context, owner_login_enabled
 from core.repo_info import get_repo_version_info
 
@@ -19,6 +20,7 @@ async def _get_template_app_settings(include_sensitive: bool) -> dict[str, Any]:
 
     payload: dict[str, Any] = {
         "map_provider": "self_hosted",
+        "mapbox_token": get_mapbox_token(),
         "mapTripsWithinCoverageOnly": False,
         "tripLayersUseHeatmap": True,
         "google_maps_api_key": None,

@@ -1,0 +1,974 @@
+import store from "./core/store.js";
+
+const LAYER_SEARCH_ORDER = ["trips", "matchedTrips"];
+const MAX_BLOOM_RADIUS = 26;
+const MIN_BLOOM_RADIUS = 7;
+const FADE_IN_MS = 420;
+const FADE_OUT_MS = 260;
+const TOOLTIP_OFFSET_X = 14;
+const TOOLTIP_OFFSET_Y = 16;
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function emitDocumentEvent(type, detail = null) {
+  if (
+    typeof document?.dispatchEvent === "function" &&
+    typeof CustomEvent === "function"
+  ) {
+    document.dispatchEvent(new CustomEvent(type, { detail }));
+  }
+}
+
+function formatDestinationLabel(value) {
+  const candidate =
+    typeof value === "string"
+      ? value
+      : value && typeof value === "object"
+        ? value.formatted_address ||
+          value.formattedAddress ||
+          value.name ||
+          value.address ||
+          value.label
+        : "";
+
+  const normalized = String(candidate || "").trim();
+  if (
+    !normalized ||
+    ["unknown", "n/a", "na", "null", "undefined"].includes(normalized.toLowerCase())
+  ) {
+    return "";
+  }
+  return normalized;
+}
+
+function parseArrivalTime(value) {
+  if (!value) {
+    return null;
+  }
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+export function getDestinationPointFromGeometry(geometry) {
+  if (!geometry || typeof geometry !== "object") {
+    return null;
+  }
+
+  if (geometry.type === "LineString" && Array.isArray(geometry.coordinates)) {
+    const last = geometry.coordinates.at(-1);
+    if (Array.isArray(last) && last.length >= 2) {
+      return [Number(last[0]), Number(last[1])];
+    }
+    return null;
+  }
+
+  if (geometry.type === "MultiLineString" && Array.isArray(geometry.coordinates)) {
+    for (let i = geometry.coordinates.length - 1; i >= 0; i -= 1) {
+      const line = geometry.coordinates[i];
+      if (!Array.isArray(line) || line.length === 0) {
+        continue;
+      }
+      const last = line.at(-1);
+      if (Array.isArray(last) && last.length >= 2) {
+        return [Number(last[0]), Number(last[1])];
+      }
+    }
+  }
+
+  return null;
+}
+
+function getFeatureTripId(feature) {
+  const rawId =
+    feature?.properties?.transactionId ||
+    feature?.properties?.tripId ||
+    feature?.properties?.id ||
+    feature?.id ||
+    "";
+  const normalized = String(rawId || "").trim();
+  return normalized || null;
+}
+
+export function extractDestinationPoint(feature, { layerName = "" } = {}) {
+  const coords = getDestinationPointFromGeometry(feature?.geometry);
+  if (
+    !coords ||
+    coords.length < 2 ||
+    !Number.isFinite(coords[0]) ||
+    !Number.isFinite(coords[1])
+  ) {
+    return null;
+  }
+
+  const label = formatDestinationLabel(feature?.properties?.destination);
+  const lastArrival = parseArrivalTime(feature?.properties?.endTime);
+
+  return {
+    id: getFeatureTripId(feature),
+    coordinates: coords,
+    label,
+    lastArrival,
+    layerName,
+  };
+}
+
+export function collectDestinationPoints(mapLayers = {}) {
+  const pointsById = new Map();
+  const anonymousPoints = [];
+
+  LAYER_SEARCH_ORDER.forEach((layerName) => {
+    const layerInfo = mapLayers?.[layerName];
+    const features = Array.isArray(layerInfo?.layer?.features)
+      ? layerInfo.layer.features
+      : [];
+    if (!layerInfo?.visible || features.length === 0) {
+      return;
+    }
+
+    features.forEach((feature) => {
+      const point = extractDestinationPoint(feature, { layerName });
+      if (!point) {
+        return;
+      }
+      if (point.id) {
+        pointsById.set(point.id, point);
+      } else {
+        anonymousPoints.push(point);
+      }
+    });
+  });
+
+  return [...pointsById.values(), ...anonymousPoints];
+}
+
+export function clusterCellSize(zoom = 12) {
+  return clamp(74 - zoom * 3.2, 24, 64);
+}
+
+export function radiusForCluster(count, zoom = 12) {
+  const radius =
+    6.5 + Math.sqrt(Math.max(count, 1)) * 1.9 + Math.max(0, 12 - zoom) * 0.35;
+  return clamp(radius, MIN_BLOOM_RADIUS, MAX_BLOOM_RADIUS);
+}
+
+function gridKey(x, y, cellSize) {
+  return `${Math.floor(x / cellSize)}:${Math.floor(y / cellSize)}`;
+}
+
+function collectNeighborIndices(point, points, grid, cellSize, neighborRadiusSq) {
+  const gx = Math.floor(point.x / cellSize);
+  const gy = Math.floor(point.y / cellSize);
+  const result = [];
+
+  for (let dx = -1; dx <= 1; dx += 1) {
+    for (let dy = -1; dy <= 1; dy += 1) {
+      const bucket = grid.get(`${gx + dx}:${gy + dy}`) || [];
+      bucket.forEach((candidateIdx) => {
+        const candidate = points[candidateIdx];
+        const diffX = candidate.x - point.x;
+        const diffY = candidate.y - point.y;
+        if (diffX * diffX + diffY * diffY <= neighborRadiusSq) {
+          result.push(candidateIdx);
+        }
+      });
+    }
+  }
+
+  return result;
+}
+
+function createFallbackLabel(lng, lat) {
+  return `Area near ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+}
+
+export function clusterDestinationPoints(points, { zoom = 12 } = {}) {
+  if (!Array.isArray(points) || points.length === 0) {
+    return [];
+  }
+
+  const cellSize = clusterCellSize(zoom);
+  const neighborRadiusSq = Math.pow(cellSize * 0.9, 2);
+  const grid = new Map();
+
+  points.forEach((point, idx) => {
+    const key = gridKey(point.x, point.y, cellSize);
+    const bucket = grid.get(key) || [];
+    bucket.push(idx);
+    grid.set(key, bucket);
+  });
+
+  const visited = new Array(points.length).fill(false);
+  const clusters = [];
+
+  for (let i = 0; i < points.length; i += 1) {
+    if (visited[i]) {
+      continue;
+    }
+
+    const queue = [i];
+    const members = [];
+    visited[i] = true;
+
+    while (queue.length > 0) {
+      const idx = queue.shift();
+      members.push(points[idx]);
+      const neighbors = collectNeighborIndices(
+        points[idx],
+        points,
+        grid,
+        cellSize,
+        neighborRadiusSq
+      );
+      neighbors.forEach((neighborIdx) => {
+        if (visited[neighborIdx]) {
+          return;
+        }
+        visited[neighborIdx] = true;
+        queue.push(neighborIdx);
+      });
+    }
+
+    const labelCounts = new Map();
+    let sumX = 0;
+    let sumY = 0;
+    let sumLng = 0;
+    let sumLat = 0;
+    let lastArrival = null;
+
+    members.forEach((member) => {
+      sumX += member.x;
+      sumY += member.y;
+      sumLng += member.coordinates[0];
+      sumLat += member.coordinates[1];
+      if (member.label) {
+        labelCounts.set(member.label, (labelCounts.get(member.label) || 0) + 1);
+      }
+      if (member.lastArrival && (!lastArrival || member.lastArrival > lastArrival)) {
+        lastArrival = member.lastArrival;
+      }
+    });
+
+    const x = sumX / members.length;
+    const y = sumY / members.length;
+    const lng = sumLng / members.length;
+    const lat = sumLat / members.length;
+
+    const label =
+      [...labelCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ||
+      createFallbackLabel(lng, lat);
+    const radius = radiusForCluster(members.length, zoom);
+
+    clusters.push({
+      id: `${members.length}:${Math.round(x)}:${Math.round(y)}`,
+      count: members.length,
+      x,
+      y,
+      coordinates: [lng, lat],
+      label,
+      lastArrival,
+      share: members.length / points.length,
+      radius,
+      phase: ((lng + 180) * 0.09 + (lat + 90) * 0.13) % (Math.PI * 2),
+    });
+  }
+
+  return clusters.sort((a, b) => a.count - b.count);
+}
+
+function createTooltipSection(text, className = "") {
+  const element = document.createElement("div");
+  element.className = className;
+  element.textContent = text;
+  return element;
+}
+
+const destinationBloom = {
+  _active: false,
+  _destroyed: false,
+  _canvas: null,
+  _ctx: null,
+  _tooltip: null,
+  _animFrame: null,
+  _fading: null,
+  _fadeStart: 0,
+  _opacity: 0,
+  _points: [],
+  _clusters: [],
+  _pixelRatio: 1,
+  _prevHiddenLayers: null,
+  _mapMoveHandler: null,
+  _mapZoomHandler: null,
+  _mapResizeHandler: null,
+  _deactivationTimer: null,
+  _pointerMoveHandler: null,
+  _pointerLeaveHandler: null,
+  _pointerClickHandler: null,
+  _hoveredClusterId: null,
+  _pinnedClusterId: null,
+  _lastPointer: null,
+
+  isActive() {
+    return this._active;
+  },
+
+  toggle() {
+    if (this._active) {
+      this.deactivate();
+    } else {
+      this.activate();
+    }
+    return this._active;
+  },
+
+  activate() {
+    if (this._active) {
+      return;
+    }
+
+    const map = store.map;
+    if (!map) {
+      return;
+    }
+
+    this._active = true;
+    this._destroyed = false;
+    if (this._deactivationTimer) {
+      clearTimeout(this._deactivationTimer);
+      this._deactivationTimer = null;
+    }
+    this._createCanvas(map);
+    this._createTooltip(map);
+    this._bindMapEvents(map);
+    this._bindPointerEvents(map);
+    this.refresh();
+
+    if (this._prefersReducedMotion()) {
+      this._opacity = 1;
+      this._fading = null;
+      this._render(performance.now());
+    } else {
+      this._opacity = 0;
+      this._fading = "in";
+      this._fadeStart = performance.now();
+      this._startLoop();
+    }
+
+    emitDocumentEvent("destinationBloom:activated");
+  },
+
+  deactivate() {
+    if (!this._active) {
+      return;
+    }
+
+    if (this._prefersReducedMotion()) {
+      this._finalizeDeactivate();
+      return;
+    }
+
+    this._active = false;
+    this._fading = "out";
+    this._fadeStart = performance.now();
+    emitDocumentEvent("destinationBloom:deactivated");
+    this._deactivationTimer = setTimeout(() => {
+      this._deactivationTimer = null;
+      if (this._destroyed) {
+        return;
+      }
+      this._finalizeDeactivate();
+    }, FADE_OUT_MS + 40);
+  },
+
+  destroy() {
+    const wasActive = this._active;
+    this._destroyed = true;
+    this._active = false;
+    if (this._deactivationTimer) {
+      clearTimeout(this._deactivationTimer);
+      this._deactivationTimer = null;
+    }
+    this._finalizeDeactivate();
+    if (wasActive) {
+      emitDocumentEvent("destinationBloom:deactivated");
+    }
+  },
+
+  refresh() {
+    if (!this._active || !store.map) {
+      return;
+    }
+
+    this._collectPoints();
+    this._resizeCanvas();
+    this._reprojectAndCluster();
+    this._hideTripLayers(store.map);
+
+    if (this._prefersReducedMotion()) {
+      this._render(performance.now());
+    }
+  },
+
+  _collectPoints() {
+    this._points = collectDestinationPoints(store.mapLayers);
+  },
+
+  _createCanvas(map) {
+    if (this._canvas) {
+      return;
+    }
+
+    const container = map.getCanvasContainer?.();
+    if (!container) {
+      return;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.className = "destination-bloom-canvas";
+    canvas.style.cssText =
+      "position:absolute;inset:0;pointer-events:none;z-index:1;";
+    container.appendChild(canvas);
+
+    this._canvas = canvas;
+    this._ctx = canvas.getContext("2d");
+  },
+
+  _createTooltip(map) {
+    if (this._tooltip) {
+      return;
+    }
+
+    const container = map.getCanvasContainer?.();
+    if (!container) {
+      return;
+    }
+
+    const tooltip = document.createElement("div");
+    tooltip.className = "destination-bloom-tooltip";
+    tooltip.setAttribute("aria-hidden", "true");
+    container.appendChild(tooltip);
+    this._tooltip = tooltip;
+  },
+
+  _removeCanvas() {
+    this._canvas?.remove?.();
+    this._canvas = null;
+    this._ctx = null;
+  },
+
+  _removeTooltip() {
+    this._tooltip?.remove?.();
+    this._tooltip = null;
+  },
+
+  _resizeCanvas() {
+    const container = store.map?.getCanvasContainer?.();
+    if (!container || !this._canvas) {
+      return;
+    }
+
+    const rect = container.getBoundingClientRect?.();
+    const width = Math.max(1, Math.round(rect?.width || container.clientWidth || 1));
+    const height = Math.max(
+      1,
+      Math.round(rect?.height || container.clientHeight || 1)
+    );
+    const pixelRatio = Math.max(globalThis.devicePixelRatio || 1, 1);
+
+    this._pixelRatio = pixelRatio;
+    this._canvas.width = Math.round(width * pixelRatio);
+    this._canvas.height = Math.round(height * pixelRatio);
+    this._canvas.style.width = `${width}px`;
+    this._canvas.style.height = `${height}px`;
+  },
+
+  _reprojectAndCluster() {
+    const map = store.map;
+    if (!map) {
+      this._clusters = [];
+      return;
+    }
+
+    const projectedPoints = this._points
+      .map((point) => {
+        const projected = map.project?.(point.coordinates);
+        const x = Number(projected?.x);
+        const y = Number(projected?.y);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+          return null;
+        }
+        return {
+          ...point,
+          x,
+          y,
+        };
+      })
+      .filter(Boolean);
+
+    this._clusters = clusterDestinationPoints(projectedPoints, {
+      zoom: Number(map.getZoom?.()) || 12,
+    });
+
+    this._syncTooltipToActiveCluster();
+  },
+
+  _bindMapEvents(map) {
+    this._mapMoveHandler = () => this._reprojectAndCluster();
+    this._mapZoomHandler = () => this._reprojectAndCluster();
+    this._mapResizeHandler = () => {
+      this._resizeCanvas();
+      this._reprojectAndCluster();
+    };
+
+    map.on?.("move", this._mapMoveHandler);
+    map.on?.("zoom", this._mapZoomHandler);
+    map.on?.("resize", this._mapResizeHandler);
+  },
+
+  _unbindMapEvents() {
+    const map = store.map;
+    if (!map) {
+      return;
+    }
+
+    if (this._mapMoveHandler) {
+      map.off?.("move", this._mapMoveHandler);
+    }
+    if (this._mapZoomHandler) {
+      map.off?.("zoom", this._mapZoomHandler);
+    }
+    if (this._mapResizeHandler) {
+      map.off?.("resize", this._mapResizeHandler);
+    }
+
+    this._mapMoveHandler = null;
+    this._mapZoomHandler = null;
+    this._mapResizeHandler = null;
+  },
+
+  _bindPointerEvents(map) {
+    const container = map.getCanvasContainer?.();
+    if (!container) {
+      return;
+    }
+
+    this._pointerMoveHandler = (event) => {
+      if (!this._active || this._pinnedClusterId) {
+        return;
+      }
+      const pointer = this._getPointerPosition(event);
+      if (!pointer) {
+        return;
+      }
+      this._lastPointer = pointer;
+      const cluster = this._findClusterAtPoint(pointer.x, pointer.y);
+      this._hoveredClusterId = cluster?.id || null;
+      this._updateTooltip(cluster, pointer);
+    };
+
+    this._pointerLeaveHandler = () => {
+      if (this._pinnedClusterId) {
+        return;
+      }
+      this._hoveredClusterId = null;
+      this._hideTooltip();
+    };
+
+    this._pointerClickHandler = (event) => {
+      if (!this._active) {
+        return;
+      }
+      const pointer = this._getPointerPosition(event);
+      if (!pointer) {
+        return;
+      }
+
+      this._lastPointer = pointer;
+      const cluster = this._findClusterAtPoint(pointer.x, pointer.y);
+      if (!cluster) {
+        this._pinnedClusterId = null;
+        this._hoveredClusterId = null;
+        this._hideTooltip();
+        return;
+      }
+
+      this._pinnedClusterId =
+        this._pinnedClusterId === cluster.id ? null : cluster.id;
+      this._hoveredClusterId = cluster.id;
+      this._updateTooltip(cluster, pointer);
+    };
+
+    container.addEventListener("mousemove", this._pointerMoveHandler, { passive: true });
+    container.addEventListener("mouseleave", this._pointerLeaveHandler);
+    container.addEventListener("click", this._pointerClickHandler);
+  },
+
+  _unbindPointerEvents() {
+    const container = store.map?.getCanvasContainer?.();
+    if (!container) {
+      return;
+    }
+
+    if (this._pointerMoveHandler) {
+      container.removeEventListener("mousemove", this._pointerMoveHandler);
+    }
+    if (this._pointerLeaveHandler) {
+      container.removeEventListener("mouseleave", this._pointerLeaveHandler);
+    }
+    if (this._pointerClickHandler) {
+      container.removeEventListener("click", this._pointerClickHandler);
+    }
+
+    this._pointerMoveHandler = null;
+    this._pointerLeaveHandler = null;
+    this._pointerClickHandler = null;
+  },
+
+  _getPointerPosition(event) {
+    const container = store.map?.getCanvasContainer?.();
+    if (!container) {
+      return null;
+    }
+
+    const rect = container.getBoundingClientRect?.();
+    const source = event?.touches?.[0] || event?.changedTouches?.[0] || event;
+    if (
+      !rect ||
+      !source ||
+      !Number.isFinite(source.clientX) ||
+      !Number.isFinite(source.clientY)
+    ) {
+      return null;
+    }
+
+    return {
+      clientX: source.clientX,
+      clientY: source.clientY,
+      x: source.clientX - rect.left,
+      y: source.clientY - rect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+  },
+
+  _findClusterAtPoint(x, y) {
+    let match = null;
+    let minDistanceSq = Number.POSITIVE_INFINITY;
+
+    for (let i = this._clusters.length - 1; i >= 0; i -= 1) {
+      const cluster = this._clusters[i];
+      const diffX = cluster.x - x;
+      const diffY = cluster.y - y;
+      const hitRadius = cluster.radius + 12;
+      const distanceSq = diffX * diffX + diffY * diffY;
+      if (distanceSq > hitRadius * hitRadius) {
+        continue;
+      }
+      if (distanceSq < minDistanceSq) {
+        minDistanceSq = distanceSq;
+        match = cluster;
+      }
+    }
+
+    return match;
+  },
+
+  _updateTooltip(cluster, pointer) {
+    if (!this._tooltip) {
+      return;
+    }
+
+    if (!cluster || !pointer) {
+      this._hideTooltip();
+      return;
+    }
+
+    this._tooltip.innerHTML = "";
+    this._tooltip.appendChild(
+      createTooltipSection(cluster.label, "destination-bloom-tooltip__title")
+    );
+    this._tooltip.appendChild(
+      createTooltipSection(
+        `${cluster.count} ${cluster.count === 1 ? "trip" : "trips"}`
+      )
+    );
+    this._tooltip.appendChild(
+      createTooltipSection(
+        `${Math.round(cluster.share * 100)}% of visible destinations`
+      )
+    );
+
+    if (cluster.lastArrival) {
+      this._tooltip.appendChild(
+        createTooltipSection(
+          `Last arrival ${new Date(cluster.lastArrival).toLocaleString()}`
+        )
+      );
+    }
+
+    const maxX = Math.max(pointer.width - 220, 12);
+    const maxY = Math.max(pointer.height - 100, 12);
+    const left = clamp(pointer.x + TOOLTIP_OFFSET_X, 12, maxX);
+    const top = clamp(pointer.y + TOOLTIP_OFFSET_Y, 12, maxY);
+
+    this._tooltip.style.transform = `translate(${left}px, ${top}px)`;
+    this._tooltip.classList.add("is-visible");
+    this._tooltip.setAttribute("aria-hidden", "false");
+  },
+
+  _hideTooltip() {
+    if (!this._tooltip) {
+      return;
+    }
+    this._tooltip.classList.remove("is-visible");
+    this._tooltip.setAttribute("aria-hidden", "true");
+  },
+
+  _syncTooltipToActiveCluster() {
+    const activeId = this._pinnedClusterId || this._hoveredClusterId;
+    if (!activeId || !this._lastPointer) {
+      return;
+    }
+    const cluster = this._clusters.find((entry) => entry.id === activeId) || null;
+    if (!cluster) {
+      this._pinnedClusterId = null;
+      this._hoveredClusterId = null;
+      this._hideTooltip();
+      return;
+    }
+    this._updateTooltip(cluster, this._lastPointer);
+  },
+
+  _hideTripLayers(map) {
+    const style = map?.getStyle?.();
+    if (!style?.layers) {
+      return;
+    }
+
+    this._prevHiddenLayers = [];
+    style.layers.forEach((layer) => {
+      const id = layer?.id || "";
+      if (
+        !id ||
+        id.includes("hitbox") ||
+        (!id.startsWith("trips-layer") && !id.startsWith("matchedTrips-layer"))
+      ) {
+        return;
+      }
+
+      const visibility = layer?.layout?.visibility || "visible";
+      if (visibility === "none") {
+        return;
+      }
+
+      this._prevHiddenLayers.push(id);
+      map.setLayoutProperty?.(id, "visibility", "none");
+    });
+  },
+
+  _restoreTripLayers(map) {
+    if (!map || !Array.isArray(this._prevHiddenLayers)) {
+      return;
+    }
+
+    this._prevHiddenLayers.forEach((id) => {
+      if (!map.getLayer?.(id)) {
+        return;
+      }
+      map.setLayoutProperty?.(id, "visibility", "visible");
+    });
+    this._prevHiddenLayers = null;
+  },
+
+  _startLoop() {
+    if (this._animFrame) {
+      return;
+    }
+
+    const frame = (now) => {
+      if (this._destroyed) {
+        return;
+      }
+
+      if (this._fading === "in") {
+        const elapsed = now - this._fadeStart;
+        this._opacity = Math.min(elapsed / FADE_IN_MS, 1);
+        if (this._opacity >= 1) {
+          this._fading = null;
+        }
+      } else if (this._fading === "out") {
+        const elapsed = now - this._fadeStart;
+        this._opacity = Math.max(1 - elapsed / FADE_OUT_MS, 0);
+      }
+
+      this._render(now);
+
+      if (this._active || this._fading === "out") {
+        this._animFrame = requestAnimationFrame(frame);
+      } else {
+        this._animFrame = null;
+      }
+    };
+
+    this._animFrame = requestAnimationFrame(frame);
+  },
+
+  _stopLoop() {
+    if (this._animFrame) {
+      cancelAnimationFrame(this._animFrame);
+      this._animFrame = null;
+    }
+  },
+
+  _render(now) {
+    const ctx = this._ctx;
+    const canvas = this._canvas;
+    if (!ctx || !canvas) {
+      return;
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (this._opacity <= 0 || this._clusters.length === 0) {
+      return;
+    }
+
+    const palette = this._paletteForCurrentStyle();
+    const dpr = this._pixelRatio || 1;
+    const reducedMotion = this._prefersReducedMotion();
+
+    ctx.globalCompositeOperation = "screen";
+    this._clusters.forEach((cluster) => {
+      const pulse = reducedMotion
+        ? 1
+        : 1 + Math.sin(now * 0.0014 + cluster.phase) * 0.08;
+      const baseRadius = cluster.radius * pulse * dpr;
+      const haloRadius = baseRadius * 3.1;
+      const auraRadius = baseRadius * 1.9;
+      const drawX = cluster.x * dpr;
+      const drawY = cluster.y * dpr;
+      const alphaWeight = clamp(0.24 + cluster.count * 0.03, 0.24, 0.75);
+
+      const haloGradient = ctx.createRadialGradient(
+        drawX,
+        drawY,
+        0,
+        drawX,
+        drawY,
+        haloRadius
+      );
+      haloGradient.addColorStop(
+        0,
+        `rgba(${palette.halo[0]}, ${palette.halo[1]}, ${palette.halo[2]}, ${
+          0.28 * this._opacity * alphaWeight
+        })`
+      );
+      haloGradient.addColorStop(
+        0.48,
+        `rgba(${palette.aura[0]}, ${palette.aura[1]}, ${palette.aura[2]}, ${
+          0.14 * this._opacity * alphaWeight
+        })`
+      );
+      haloGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+      ctx.beginPath();
+      ctx.fillStyle = haloGradient;
+      ctx.arc(drawX, drawY, haloRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      const auraGradient = ctx.createRadialGradient(
+        drawX,
+        drawY,
+        0,
+        drawX,
+        drawY,
+        auraRadius
+      );
+      auraGradient.addColorStop(
+        0,
+        `rgba(${palette.glow[0]}, ${palette.glow[1]}, ${palette.glow[2]}, ${
+          0.38 * this._opacity
+        })`
+      );
+      auraGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+      ctx.beginPath();
+      ctx.fillStyle = auraGradient;
+      ctx.arc(drawX, drawY, auraRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(${palette.core[0]}, ${palette.core[1]}, ${palette.core[2]}, ${
+        0.95 * this._opacity
+      })`;
+      ctx.arc(drawX, drawY, baseRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(${palette.highlight[0]}, ${palette.highlight[1]}, ${palette.highlight[2]}, ${
+        0.88 * this._opacity
+      })`;
+      ctx.arc(drawX, drawY, Math.max(baseRadius * 0.28, 1.6), 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    ctx.globalCompositeOperation = "source-over";
+  },
+
+  _paletteForCurrentStyle() {
+    const style =
+      store.state?.map?.style || localStorage.getItem("mapType") || "dark";
+    if (style === "light" || style === "streets") {
+      return {
+        halo: [212, 144, 72],
+        aura: [241, 189, 103],
+        glow: [214, 132, 62],
+        core: [163, 88, 30],
+        highlight: [255, 244, 224],
+      };
+    }
+    if (style === "satellite") {
+      return {
+        halo: [255, 164, 64],
+        aura: [255, 205, 120],
+        glow: [255, 146, 62],
+        core: [255, 193, 82],
+        highlight: [255, 248, 226],
+      };
+    }
+    return {
+      halo: [255, 135, 52],
+      aura: [255, 183, 87],
+      glow: [244, 162, 72],
+      core: [248, 197, 92],
+      highlight: [255, 243, 214],
+    };
+  },
+
+  _prefersReducedMotion() {
+    return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+  },
+
+  _finalizeDeactivate() {
+    this._stopLoop();
+    if (this._deactivationTimer) {
+      clearTimeout(this._deactivationTimer);
+      this._deactivationTimer = null;
+    }
+    this._unbindMapEvents();
+    this._unbindPointerEvents();
+    this._restoreTripLayers(store.map);
+    this._hideTooltip();
+    this._removeTooltip();
+    this._removeCanvas();
+    this._points = [];
+    this._clusters = [];
+    this._opacity = 0;
+    this._fading = null;
+    this._hoveredClusterId = null;
+    this._pinnedClusterId = null;
+    this._lastPointer = null;
+  },
+};
+
+export default destinationBloom;

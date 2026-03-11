@@ -155,6 +155,11 @@ const dataManager = {
 
         state.mapLayers.matchedTrips.layer = data;
         await layerManager.updateMapLayer("matchedTrips", data);
+        document.dispatchEvent(
+          new CustomEvent("matchedTripsDataLoaded", {
+            detail: { featureCount: data.features.length, geojson: data },
+          })
+        );
         return data;
       }
 

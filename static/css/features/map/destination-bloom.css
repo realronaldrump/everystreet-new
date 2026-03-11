@@ -1,0 +1,183 @@
+/* ============================
+   Destination Bloom
+   ============================ */
+
+.destination-bloom-canvas {
+  image-rendering: auto;
+  will-change: contents;
+}
+
+.destination-bloom-toggle,
+#route-art-toggle {
+  position: absolute;
+  right: var(--space-3);
+  z-index: var(--z-dropdown);
+}
+
+#route-art-toggle {
+  bottom: 4.125rem;
+}
+
+.destination-bloom-toggle {
+  bottom: 6.9375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.625rem;
+  height: 2.625rem;
+  padding: 0;
+  border: 1px solid rgb(255 187 96 / 24%);
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at 30% 30%, rgb(255 221 164 / 26%), transparent 55%),
+    linear-gradient(180deg, rgb(20 15 12 / 84%), rgb(9 9 10 / 82%));
+  backdrop-filter: blur(var(--blur-strong));
+  box-shadow:
+    0 12px 30px rgb(8 7 6 / 24%),
+    inset 0 1px 0 rgb(255 240 205 / 10%);
+  color: rgb(247 197 109);
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+  font-size: var(--font-size-md);
+}
+
+.destination-bloom-toggle:hover {
+  transform: translateY(-1px);
+  color: rgb(255 224 154);
+  border-color: rgb(255 195 114 / 46%);
+  box-shadow:
+    0 18px 34px rgb(8 7 6 / 30%),
+    0 0 18px rgb(255 166 78 / 16%);
+}
+
+.destination-bloom-toggle:focus-visible {
+  outline: none;
+  box-shadow:
+    0 18px 34px rgb(8 7 6 / 30%),
+    0 0 0 2px rgb(255 195 114 / 28%),
+    0 0 20px rgb(255 166 78 / 22%);
+}
+
+.destination-bloom-toggle.active {
+  color: rgb(255 235 186);
+  border-color: rgb(255 199 111 / 58%);
+  box-shadow:
+    0 18px 34px rgb(8 7 6 / 34%),
+    0 0 24px rgb(255 176 89 / 24%),
+    inset 0 0 22px rgb(255 206 118 / 10%);
+}
+
+.destination-bloom-toggle::before {
+  content: attr(aria-label);
+  position: absolute;
+  right: calc(100% + var(--space-2));
+  top: 50%;
+  transform: translateY(-50%);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid rgb(255 205 135 / 20%);
+  border-radius: var(--radius-sm);
+  background: rgb(14 12 10 / 92%);
+  color: rgb(255 239 207);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+  box-shadow: 0 10px 20px rgb(0 0 0 / 18%);
+}
+
+.destination-bloom-toggle:hover::before {
+  opacity: 1;
+}
+
+.destination-bloom-tooltip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  min-width: 11rem;
+  max-width: 14rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid rgb(255 206 135 / 18%);
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgb(18 15 12 / 94%), rgb(10 9 9 / 92%)),
+    rgb(13 12 11 / 94%);
+  box-shadow:
+    0 20px 40px rgb(0 0 0 / 24%),
+    0 0 22px rgb(255 173 86 / 10%);
+  color: rgb(247 235 212);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-9999px, -9999px);
+  transition: opacity 140ms ease;
+  z-index: calc(var(--z-dropdown) + 1);
+}
+
+.destination-bloom-tooltip.is-visible {
+  opacity: 1;
+}
+
+.destination-bloom-tooltip__title {
+  margin-bottom: 0.25rem;
+  color: rgb(255 223 166);
+  font-weight: var(--font-weight-semibold);
+}
+
+.particle-flow-toggle {
+  bottom: 9.75rem;
+}
+
+@media (width <= 768px) {
+  .destination-bloom-toggle,
+  #route-art-toggle,
+  .particle-flow-toggle {
+    right: var(--space-2);
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  #route-art-toggle {
+    bottom: calc(
+      max(var(--map-sheet-visible-height, 60px), 60px) +
+      env(safe-area-inset-bottom, 0px) +
+      7rem
+    );
+  }
+
+  .destination-bloom-toggle {
+    bottom: calc(
+      max(var(--map-sheet-visible-height, 60px), 60px) +
+      env(safe-area-inset-bottom, 0px) +
+      10.125rem
+    );
+  }
+
+  .particle-flow-toggle {
+    bottom: calc(
+      max(var(--map-sheet-visible-height, 60px), 60px) +
+      env(safe-area-inset-bottom, 0px) +
+      13.25rem
+    );
+  }
+
+  .destination-bloom-toggle::before {
+    display: none;
+  }
+
+  .destination-bloom-tooltip {
+    max-width: min(13rem, calc(100vw - 2rem));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .destination-bloom-canvas {
+    animation: none;
+  }
+}
