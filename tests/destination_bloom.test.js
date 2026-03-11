@@ -42,6 +42,7 @@ function createCanvasContextSpy() {
       this.arcs.push({ x, y, radius });
     },
     fill() {},
+    fillText() {},
     stroke() {},
     moveTo() {},
     lineTo() {},
@@ -407,5 +408,84 @@ test("destination bloom keeps trip layers hidden across repeated repair passes",
       { id: "trips-layer", value: "visible" },
       { id: "matchedTrips-layer", value: "visible" },
     ]
+  );
+});
+
+test("destination bloom keeps trip layers visible until projections are renderable", () => {
+  const { documentMock } = createDocumentMock();
+  const container = createDomNode();
+  const map = createMapMock(container);
+  const stableProject = map.project.bind(map);
+
+  map.project = () => ({ x: 0, y: 0 });
+
+  global.document = documentMock;
+  global.window = {
+    devicePixelRatio: 1,
+    matchMedia() {
+      return { matches: true };
+    },
+  };
+
+  store.map = map;
+  store.mapLayers = {
+    trips: {
+      visible: true,
+      layer: {
+        features: [
+          {
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-97.75, 30.25],
+                [-97.71, 30.29],
+              ],
+            },
+            properties: {
+              transactionId: "trip-1",
+              destination: "South Congress",
+              endTime: "2026-03-10T18:00:00Z",
+            },
+          },
+          {
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-97.79, 30.21],
+                [-97.66, 30.34],
+              ],
+            },
+            properties: {
+              transactionId: "trip-2",
+              destination: "Mueller",
+              endTime: "2026-03-09T18:00:00Z",
+            },
+          },
+        ],
+      },
+    },
+    matchedTrips: {
+      visible: false,
+      layer: { features: [] },
+    },
+  };
+
+  destinationBloom.activate();
+
+  assert.equal(
+    map.layoutUpdates.some(
+      (update) => update.id === "trips-layer" && update.value === "none"
+    ),
+    false
+  );
+
+  map.project = stableProject;
+  destinationBloom.refresh();
+
+  assert.equal(
+    map.layoutUpdates.some(
+      (update) => update.id === "trips-layer" && update.value === "none"
+    ),
+    true
   );
 });

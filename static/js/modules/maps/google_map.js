@@ -10,6 +10,7 @@
 import { CONFIG } from "../core/config.js";
 import state from "../core/store.js";
 import MapStyles from "../map-styles.js";
+import { waitForGoogleMaps } from "./google_maps_loader.js";
 import loadingManager from "../ui/loading-manager.js";
 import notificationManager from "../ui/notifications.js";
 import { utils } from "../utils.js";
@@ -3016,37 +3017,6 @@ const createGoogleMap = (containerElement, options = {}) => {
   });
   ensureMapboxCompatibility();
   return proxyMap;
-};
-
-const waitForGoogleMaps = (timeoutMs = 10000) => {
-  if (typeof google !== "undefined" && google.maps) {
-    return Promise.resolve(true);
-  }
-
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    let intervalId = null;
-    let timeoutId = null;
-
-    const checkReady = () => {
-      if (typeof google !== "undefined" && typeof google.maps !== "undefined") {
-        settled = true;
-        clearTimeout(timeoutId);
-        clearInterval(intervalId);
-        resolve(true);
-      }
-    };
-
-    timeoutId = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        clearInterval(intervalId);
-        reject(new Error("Google Maps JS not loaded"));
-      }
-    }, timeoutMs);
-
-    intervalId = setInterval(checkReady, 50);
-  });
 };
 
 const googleMapCore = {

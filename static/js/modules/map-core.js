@@ -809,7 +809,7 @@ function createMap(containerId, options = {}) {
       typeof globalThis.google.maps === "undefined"
     ) {
       throw new Error(
-        "Google Maps JS is not loaded yet. Retry once the Google Maps script is ready."
+        "Google Maps JS is not loaded yet. Ensure the Google Maps API key is configured and retry once the script is ready."
       );
     }
     const googleMap = createGoogleMap(container, {

@@ -9,6 +9,11 @@ import { createFeatureApi } from "../../core/feature-api.js";
 import store, { optimisticAction } from "../../core/store.js";
 import { getPreloadTripIdFromUrl } from "../../core/url-state.js";
 import { createMap } from "../../map-core.js";
+import {
+  getGoogleMapsApi,
+  hasGoogleMapsApi,
+  waitForGoogleMaps,
+} from "../../maps/google_maps_loader.js";
 import { initTripSync } from "../../trip-sync.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
@@ -84,14 +89,6 @@ function isGoogleMapProvider() {
   return String(window.MAP_PROVIDER || "").toLowerCase() === "google";
 }
 
-function getGoogleMapsApi() {
-  return globalThis?.google?.maps || null;
-}
-
-function hasGoogleMapsApi() {
-  return Boolean(getGoogleMapsApi());
-}
-
 function toGoogleLatLng(coord) {
   if (!Array.isArray(coord) || coord.length < 2) {
     return null;
@@ -161,34 +158,6 @@ function resizeTripModalMap() {
       tripModalMap.setCenter(center);
     }
   }
-}
-
-function waitForGoogleMaps(timeoutMs = 10000) {
-  if (hasGoogleMapsApi()) {
-    return Promise.resolve(true);
-  }
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    let intervalId = null;
-    const timeoutId = setTimeout(() => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      clearInterval(intervalId);
-      reject(new Error("Google Maps JS not loaded"));
-    }, timeoutMs);
-
-    intervalId = setInterval(() => {
-      if (!hasGoogleMapsApi() || settled) {
-        return;
-      }
-      settled = true;
-      clearTimeout(timeoutId);
-      clearInterval(intervalId);
-      resolve(true);
-    }, 50);
-  });
 }
 
 function clearGoogleModalState() {

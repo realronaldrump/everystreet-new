@@ -7,6 +7,7 @@ const FADE_IN_MS = 420;
 const FADE_OUT_MS = 260;
 const TOOLTIP_OFFSET_X = 14;
 const TOOLTIP_OFFSET_Y = 16;
+const REPAIR_REFRESH_DELAYS_MS = [90, 220, 480];
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -302,7 +303,9 @@ const destinationBloom = {
   _mapMoveHandler: null,
   _mapZoomHandler: null,
   _mapResizeHandler: null,
+  _mapIdleHandler: null,
   _deactivationTimer: null,
+  _repairTimers: null,
   _pointerMoveHandler: null,
   _pointerLeaveHandler: null,
   _pointerClickHandler: null,
@@ -311,6 +314,7 @@ const destinationBloom = {
   _hoveredClusterId: null,
   _pinnedClusterId: null,
   _lastPointer: null,
+  _renderReady: false,
 
   isActive() {
     return this._active;
@@ -337,10 +341,12 @@ const destinationBloom = {
 
     this._active = true;
     this._destroyed = false;
+    this._renderReady = false;
     if (this._deactivationTimer) {
       clearTimeout(this._deactivationTimer);
       this._deactivationTimer = null;
     }
+    this._clearRepairTimers();
     this._createCanvas(map);
     this._createTooltip(map);
     this._bindMapEvents(map);
@@ -406,7 +412,14 @@ const destinationBloom = {
     this._collectPoints();
     this._resizeCanvas();
     this._reprojectAndCluster();
-    this._hideTripLayers(store.map);
+    this._renderReady = this._hasRenderableClusters();
+    if (this._renderReady) {
+      this._clearRepairTimers();
+      this._hideTripLayers(store.map);
+    } else {
+      this._restoreTripLayers(store.map);
+      this._scheduleRepairRefresh();
+    }
     this._updateEmptyNotice();
     this._updateCanvasBlendMode();
 
@@ -416,7 +429,7 @@ const destinationBloom = {
   },
 
   ensureTripLayersHidden() {
-    if (!this._active) {
+    if (!this._active || !this._renderReady) {
       return;
     }
     this._hideTripLayers(store.map);
@@ -518,6 +531,12 @@ const destinationBloom = {
       })
       .filter(Boolean);
 
+    if (this._looksLikeCollapsedProjection(projectedPoints)) {
+      this._clusters = [];
+      this._syncTooltipToActiveCluster();
+      return;
+    }
+
     this._clusters = clusterDestinationPoints(projectedPoints, {
       zoom: Number(map.getZoom?.()) || 12,
     });
@@ -532,10 +551,16 @@ const destinationBloom = {
       this._resizeCanvas();
       this._reprojectAndCluster();
     };
+    this._mapIdleHandler = () => {
+      if (this._active && !this._renderReady) {
+        this.refresh();
+      }
+    };
 
     map.on?.("move", this._mapMoveHandler);
     map.on?.("zoom", this._mapZoomHandler);
     map.on?.("resize", this._mapResizeHandler);
+    map.on?.("idle", this._mapIdleHandler);
   },
 
   _unbindMapEvents() {
@@ -553,10 +578,72 @@ const destinationBloom = {
     if (this._mapResizeHandler) {
       map.off?.("resize", this._mapResizeHandler);
     }
+    if (this._mapIdleHandler) {
+      map.off?.("idle", this._mapIdleHandler);
+    }
 
     this._mapMoveHandler = null;
     this._mapZoomHandler = null;
     this._mapResizeHandler = null;
+    this._mapIdleHandler = null;
+  },
+
+  _hasRenderableClusters() {
+    return this._clusters.length > 0;
+  },
+
+  _looksLikeCollapsedProjection(points) {
+    if (!Array.isArray(points) || points.length < 2) {
+      return false;
+    }
+
+    const [first] = points;
+    const identicalPixels = points.every(
+      (point) => Math.abs(point.x - first.x) < 0.5 && Math.abs(point.y - first.y) < 0.5
+    );
+    if (!identicalPixels) {
+      return false;
+    }
+
+    return points.some(
+      (point) =>
+        Math.abs(point.coordinates[0] - first.coordinates[0]) > 1e-6 ||
+        Math.abs(point.coordinates[1] - first.coordinates[1]) > 1e-6
+    );
+  },
+
+  _scheduleRepairRefresh() {
+    if (!this._active || this._destroyed || this._points.length === 0) {
+      return;
+    }
+
+    if (!Array.isArray(this._repairTimers)) {
+      this._repairTimers = [];
+    }
+    if (this._repairTimers.length > 0) {
+      return;
+    }
+
+    REPAIR_REFRESH_DELAYS_MS.forEach((delayMs) => {
+      const timerId = setTimeout(() => {
+        this._repairTimers = (this._repairTimers || []).filter((id) => id !== timerId);
+        if (!this._active || this._destroyed || this._renderReady) {
+          return;
+        }
+        this.refresh();
+      }, delayMs);
+      this._repairTimers.push(timerId);
+    });
+  },
+
+  _clearRepairTimers() {
+    if (!Array.isArray(this._repairTimers)) {
+      this._repairTimers = [];
+      return;
+    }
+
+    this._repairTimers.forEach((timerId) => clearTimeout(timerId));
+    this._repairTimers = [];
   },
 
   _bindPointerEvents(map) {
@@ -1044,7 +1131,7 @@ const destinationBloom = {
   },
 
   _updateEmptyNotice() {
-    if (this._clusters.length > 0 || !this._active) {
+    if (this._clusters.length > 0 || this._points.length > 0 || !this._active) {
       this._removeEmptyNotice();
       return;
     }
@@ -1082,6 +1169,7 @@ const destinationBloom = {
       clearTimeout(this._deactivationTimer);
       this._deactivationTimer = null;
     }
+    this._clearRepairTimers();
     this._unbindMapEvents();
     this._unbindPointerEvents();
     this._updateCursor(null);
@@ -1094,6 +1182,7 @@ const destinationBloom = {
     this._clusters = [];
     this._opacity = 0;
     this._fading = null;
+    this._renderReady = false;
     this._hoveredClusterId = null;
     this._pinnedClusterId = null;
     this._lastPointer = null;

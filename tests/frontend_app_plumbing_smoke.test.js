@@ -38,11 +38,14 @@ test("settings toggles stay wired from template to bootstrap state", () => {
   );
   assert.match(
     appSettingsSource,
-    /localStorage\.setItem\(\s*CONFIG\.STORAGE_KEYS\.tripLayersUseHeatmap,/
+    /setTripLayerHeatmapPreference\(resolvedTripLayersUseHeatmap\)/
   );
 
   assert.match(baseTemplate, /APP_SETTINGS_FLAGS[\s\S]*mapTripsWithinCoverageOnly:/);
   assert.match(baseTemplate, /APP_SETTINGS_FLAGS[\s\S]*tripLayersUseHeatmap:/);
+  assert.match(baseTemplate, /GOOGLE_MAPS_BOOTSTRAP/);
+  assert.match(baseTemplate, /callback=__esGoogleMapsLoaded/);
+  assert.match(baseTemplate, /data-google-maps-loader="true"/);
 
   assert.match(
     appControllerSource,

@@ -947,14 +947,49 @@ System
                     else true) | tojson
             }}
         };
+        window.GOOGLE_MAPS_BOOTSTRAP = {
+            configured: {{
+                (app_settings
+                 and app_settings.get('google_maps_api_key')
+                 and (app_settings.get('map_provider') | default('', true) | lower) == 'google') | tojson
+            }},
+            scriptId: "es-google-maps-js-api"
+        };
+        window.__esGoogleMapsLoadState = window.__esGoogleMapsLoadState || {
+            status: window.GOOGLE_MAPS_BOOTSTRAP.configured ? "pending" : "unconfigured",
+            error: null
+        };
+        if (window.GOOGLE_MAPS_BOOTSTRAP.configured) {
+            if (!window.__esGoogleMapsLoadPromise) {
+                window.__esGoogleMapsLoadPromise = new Promise((resolve, reject) => {
+                    window.__esGoogleMapsLoadResolve = resolve;
+                    window.__esGoogleMapsLoadReject = reject;
+                });
+            }
+            window.__esGoogleMapsLoaded = () => {
+                window.__esGoogleMapsLoadState.status = "loaded";
+                window.__esGoogleMapsLoadState.error = null;
+                window.__esGoogleMapsLoadResolve?.(window.google?.maps || true);
+            };
+            window.__esGoogleMapsLoadFailed = (
+                message = "Google Maps JavaScript API failed to load. Check your API key and allowed referrers."
+            ) => {
+                window.__esGoogleMapsLoadState.status = "failed";
+                window.__esGoogleMapsLoadState.error = message;
+                window.__esGoogleMapsLoadReject?.(new Error(message));
+            };
+        }
     </script>
 
     <!-- Libraries used across routes (swup does not execute scripts from fetched HTML) -->
     {% if app_settings
           and app_settings.get('google_maps_api_key')
           and (app_settings.get('map_provider') | default('', true) | lower) == 'google' %}
-      <script defer
-              src="https://maps.googleapis.com/maps/api/js?key={{ app_settings.get('google_maps_api_key') }}&loading=async&libraries=geometry,places&map_ids=913996d7028f0a557c531012"></script>
+      <script async
+              id="es-google-maps-js-api"
+              data-google-maps-loader="true"
+              onerror="window.__esGoogleMapsLoadFailed && window.__esGoogleMapsLoadFailed()"
+              src="https://maps.googleapis.com/maps/api/js?key={{ app_settings.get('google_maps_api_key') }}&loading=async&callback=__esGoogleMapsLoaded&libraries=geometry,places&map_ids=913996d7028f0a557c531012"></script>
     {% else %}
       <script src="{{ CDN.mapbox_gl_js }}"></script>
       <script src="{{ CDN.mapbox_draw_js }}"></script>
