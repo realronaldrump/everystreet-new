@@ -593,3 +593,73 @@ test("destination bloom auto-focuses destinations when clusters start offscreen"
     true
   );
 });
+
+test("destination bloom keeps nearby destinations clustered instead of treating them as a broken projection", () => {
+  const { documentMock } = createDocumentMock();
+  const container = createDomNode();
+  const map = createMapMock(container);
+
+  map.project = ([lng, lat]) => ({
+    x: 400 + (lng + 97.7) * 24,
+    y: 300 + (lat - 30.3) * 24,
+  });
+
+  global.document = documentMock;
+  global.window = {
+    devicePixelRatio: 1,
+    matchMedia() {
+      return { matches: true };
+    },
+  };
+
+  store.map = map;
+  store.mapLayers = {
+    trips: {
+      visible: true,
+      layer: {
+        features: [
+          {
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-97.75, 30.25],
+                [-97.7, 30.3],
+              ],
+            },
+            properties: {
+              transactionId: "trip-1",
+              destination: "Downtown",
+            },
+          },
+          {
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-97.74, 30.26],
+                [-97.69, 30.31],
+              ],
+            },
+            properties: {
+              transactionId: "trip-2",
+              destination: "Downtown",
+            },
+          },
+        ],
+      },
+    },
+    matchedTrips: {
+      visible: false,
+      layer: { features: [] },
+    },
+  };
+
+  destinationBloom.activate();
+
+  assert.equal(destinationBloom._clusters.length > 0, true);
+  assert.equal(
+    map.layoutUpdates.some(
+      (update) => update.id === "trips-layer" && update.value === "none"
+    ),
+    true
+  );
+});

@@ -661,11 +661,25 @@ const destinationBloom = {
       return false;
     }
 
-    return points.some(
-      (point) =>
-        Math.abs(point.coordinates[0] - first.coordinates[0]) > 1e-6 ||
-        Math.abs(point.coordinates[1] - first.coordinates[1]) > 1e-6
-    );
+    let minLng = Number.POSITIVE_INFINITY;
+    let maxLng = Number.NEGATIVE_INFINITY;
+    let minLat = Number.POSITIVE_INFINITY;
+    let maxLat = Number.NEGATIVE_INFINITY;
+
+    points.forEach((point) => {
+      minLng = Math.min(minLng, point.coordinates[0]);
+      maxLng = Math.max(maxLng, point.coordinates[0]);
+      minLat = Math.min(minLat, point.coordinates[1]);
+      maxLat = Math.max(maxLat, point.coordinates[1]);
+    });
+
+    const lngSpan = maxLng - minLng;
+    const latSpan = maxLat - minLat;
+
+    // Nearby destinations can legitimately project to nearly the same pixel at
+    // city/region zoom levels. Treat the projection as broken only when the
+    // geographic spread is meaningfully large despite identical screen pixels.
+    return lngSpan > 0.05 || latSpan > 0.05;
   },
 
   _scheduleRepairRefresh() {

@@ -1082,14 +1082,13 @@ function createTripCard(trip, allTrips) {
   const title = generateSmartTitle(trip);
   const badges = getTripBadges(trip, allTrips);
   const distance = parseFloat(trip.distance) || 0;
-  const maxDistance =
-    Math.max(...allTrips.map((t) => parseFloat(t.distance) || 0)) || 1;
-  const progressPercent = Math.min(100, (distance / Math.max(maxDistance, 50)) * 100);
 
   // Format times
   const duration = trip.duration ? formatDuration(trip.duration) : "--";
   const timeAgo = formatRelativeTime(trip.startTime);
   const tripCost = formatUsd(trip.estimated_cost);
+
+  const uid = trip.transactionId;
 
   card.innerHTML = `
     <div class="trip-card-checkbox">
@@ -1097,8 +1096,19 @@ function createTripCard(trip, allTrips) {
     </div>
     <div class="trip-card-map">
       <svg class="trip-route-line" viewBox="0 0 100 40" preserveAspectRatio="none">
-        <path d="M 5,35 Q 25,5 50,20 T 95,15" stroke-linecap="round" stroke-linejoin="round"/>
+        <defs>
+          <linearGradient id="route-grad-${uid}" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="var(--trips-mint)" />
+            <stop offset="100%" stop-color="var(--trips-primary)" />
+          </linearGradient>
+        </defs>
+        <path class="route-glow" d="M 5,35 Q 25,5 50,20 T 95,15" stroke="url(#route-grad-${uid})" stroke-linecap="round" stroke-linejoin="round"/>
+        <path class="route-main" d="M 5,35 Q 25,5 50,20 T 95,15" stroke="url(#route-grad-${uid})" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle class="route-start" cx="5" cy="35" r="2.5"/>
+        <circle class="route-end" cx="95" cy="15" r="2.5"/>
       </svg>
+      <div class="trip-map-fade"></div>
+      <span class="trip-map-distance">${distance.toFixed(1)} mi</span>
     </div>
     <div class="trip-card-content">
       <div class="trip-card-header">
@@ -1114,18 +1124,16 @@ function createTripCard(trip, allTrips) {
         }
       </div>
 
-      <div class="trip-route">
-        <i class="fas fa-map-marker-alt"></i>
-        <span>${escapeHtml(sanitizeLocation(trip.startLocation))}</span>
-        <span class="trip-route-arrow">→</span>
-        <span>${escapeHtml(sanitizeLocation(trip.destination))}</span>
-      </div>
-
-      <div class="trip-progress">
-        <div class="trip-progress-bar">
-          <div class="trip-progress-fill" style="width: ${progressPercent}%"></div>
+      <div class="trip-route-timeline">
+        <div class="timeline-dots">
+          <span class="timeline-dot start"></span>
+          <span class="timeline-connector"></span>
+          <span class="timeline-dot end"></span>
         </div>
-        <span class="trip-progress-label">${distance.toFixed(1)} miles</span>
+        <div class="timeline-labels">
+          <span class="timeline-label">${escapeHtml(sanitizeLocation(trip.startLocation))}</span>
+          <span class="timeline-label">${escapeHtml(sanitizeLocation(trip.destination))}</span>
+        </div>
       </div>
 
       <div class="trip-meta">
@@ -1163,9 +1171,29 @@ function createTripCard(trip, allTrips) {
 
   const previewPath = getTripPreviewPath(trip);
   if (previewPath) {
-    const routePath = card.querySelector(".trip-route-line path");
-    if (routePath) {
-      routePath.setAttribute("d", previewPath);
+    const svg = card.querySelector(".trip-route-line");
+    const glowPath = svg.querySelector(".route-glow");
+    const mainPath = svg.querySelector(".route-main");
+    if (glowPath && mainPath) {
+      glowPath.setAttribute("d", previewPath);
+      mainPath.setAttribute("d", previewPath);
+
+      // Parse first and last coordinates from path for start/end markers
+      const coords = previewPath.match(/[\d.]+[\s,][\d.]+/g);
+      if (coords && coords.length >= 2) {
+        const first = coords[0].split(/[\s,]+/);
+        const last = coords[coords.length - 1].split(/[\s,]+/);
+        const startCircle = svg.querySelector(".route-start");
+        const endCircle = svg.querySelector(".route-end");
+        if (startCircle) {
+          startCircle.setAttribute("cx", first[0]);
+          startCircle.setAttribute("cy", first[1]);
+        }
+        if (endCircle) {
+          endCircle.setAttribute("cx", last[0]);
+          endCircle.setAttribute("cy", last[1]);
+        }
+      }
     }
   }
 

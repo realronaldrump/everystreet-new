@@ -997,7 +997,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .trip-card:hover {
-  transform: translateY(-4px) scale(1.01);
+  transform: translateY(-3px) scale(1.005);
   box-shadow: var(--shadow-lg);
   border-color: rgb(var(--trips-primary-rgb) / 20%);
 }
@@ -1030,19 +1030,75 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 /* Map Preview */
 .trip-card-map {
-  height: 140px;
+  height: 160px;
   background: var(--trips-bg-subtle);
+  background-image: radial-gradient(circle, rgb(255 255 255 / 4%) 1px, transparent 1px);
+  background-size: 12px 12px;
   position: relative;
   overflow: hidden;
 }
 
+.trip-map-fade {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: linear-gradient(to bottom, transparent, var(--trips-bg-elevated));
+  z-index: 2;
+  pointer-events: none;
+}
+
+.trip-map-distance {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  background: rgb(0 0 0 / 50%);
+  backdrop-filter: blur(4px);
+  color: var(--trips-text-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-pill);
+  z-index: 3;
+}
+
 .trip-route-line {
   position: absolute;
-  inset: 20% 10%;
-  stroke: var(--trips-primary);
-  stroke-width: 3;
+  inset: 15% 8%;
+  stroke-width: 3.5;
   fill: none;
-  filter: drop-shadow(0 2px 4px rgb(0 0 0 / 10%));
+  z-index: 1;
+}
+
+.trip-route-line .route-glow {
+  stroke-width: 8;
+  opacity: 0.15;
+  transition: opacity var(--transition-base), stroke-width var(--transition-base);
+}
+
+.trip-card:hover .trip-route-line .route-glow {
+  opacity: 0.3;
+  stroke-width: 10;
+}
+
+.trip-route-line .route-main {
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke-width var(--transition-base);
+}
+
+.trip-card:hover .trip-route-line .route-main {
+  stroke-width: 4;
+}
+
+.trip-route-line .route-start {
+  fill: var(--trips-mint);
+}
+
+.trip-route-line .route-end {
+  fill: var(--trips-primary);
 }
 
 /* Card Content */
@@ -1051,7 +1107,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-sm);
 }
 
 .trip-card-header {
@@ -1094,56 +1150,66 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   color: var(--warning-dark);
 }
 
-/* Route Info */
-.trip-route {
+/* Route Timeline */
+.trip-route-timeline {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: var(--space-sm);
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   color: var(--trips-text-secondary);
 }
 
-.trip-route i {
-  color: var(--trips-primary);
-}
-
-.trip-route-arrow {
-  color: var(--trips-text-tertiary);
-}
-
-/* Progress Bar */
-.trip-progress {
+.trip-route-timeline .timeline-dots {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  align-items: center;
+  gap: 0;
+  padding: 2px 0;
 }
 
-.trip-progress-bar {
-  height: 6px;
-  background: var(--trips-bg-subtle);
-  border-radius: var(--radius-pill);
+.trip-route-timeline .timeline-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.trip-route-timeline .timeline-dot.start {
+  background: var(--trips-mint);
+}
+
+.trip-route-timeline .timeline-dot.end {
+  background: var(--trips-primary);
+}
+
+.trip-route-timeline .timeline-connector {
+  width: 2px;
+  flex: 1;
+  min-height: 12px;
+  background: linear-gradient(to bottom, var(--trips-mint), var(--trips-primary));
+  border-radius: 1px;
+}
+
+.trip-route-timeline .timeline-labels {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.trip-route-timeline .timeline-label {
+  white-space: nowrap;
   overflow: hidden;
-}
-
-.trip-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--trips-primary), var(--trips-mint));
-  border-radius: var(--radius-pill);
-  transition: width var(--transition-slow);
-}
-
-.trip-progress-label {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--trips-text-primary);
+  text-overflow: ellipsis;
+  line-height: 1.3;
 }
 
 /* Meta Info */
 .trip-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-md);
-  font-size: 0.875rem;
+  gap: var(--space-sm);
+  font-size: 0.8125rem;
   color: var(--trips-text-secondary);
 }
 
