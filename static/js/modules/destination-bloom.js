@@ -284,6 +284,16 @@ function createTooltipSection(text, className = "") {
   return element;
 }
 
+function getMapViewportRect(map) {
+  const canvas = map?.getCanvas?.();
+  const container = map?.getCanvasContainer?.();
+  return (
+    canvas?.getBoundingClientRect?.() ||
+    container?.getBoundingClientRect?.() ||
+    null
+  );
+}
+
 const destinationBloom = {
   _active: false,
   _destroyed: false,
@@ -690,15 +700,15 @@ const destinationBloom = {
   },
 
   _getPointerPosition(event) {
-    const container = store.map?.getCanvasContainer?.();
-    if (!container) {
+    const map = store.map;
+    const container = map?.getCanvasContainer?.();
+    const rect = getMapViewportRect(map);
+    if (!container || !rect) {
       return null;
     }
 
-    const rect = container.getBoundingClientRect?.();
     const source = event?.touches?.[0] || event?.changedTouches?.[0] || event;
     if (
-      !rect ||
       !source ||
       !Number.isFinite(source.clientX) ||
       !Number.isFinite(source.clientY)

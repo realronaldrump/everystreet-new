@@ -1096,13 +1096,7 @@ function createTripCard(trip, allTrips) {
     </div>
     <div class="trip-card-map">
       <svg class="trip-route-line" viewBox="0 0 100 40" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="route-grad-${uid}" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="var(--trips-mint)" />
-            <stop offset="100%" stop-color="var(--trips-primary)" />
-          </linearGradient>
-        </defs>
-        <path class="route-main" d="M 5,35 Q 25,5 50,20 T 95,15" stroke="url(#route-grad-${uid})" stroke-linecap="round" stroke-linejoin="round"/>
+        <path class="route-main" d="M 5,35 Q 25,5 50,20 T 95,15" stroke="var(--trips-primary)" stroke-linecap="round" stroke-linejoin="round"/>
         <circle class="route-start" cx="5" cy="35" r="2.5"/>
         <circle class="route-end" cx="95" cy="15" r="2.5"/>
       </svg>

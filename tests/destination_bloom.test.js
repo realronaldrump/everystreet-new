@@ -486,3 +486,59 @@ test("destination bloom sizes its canvas from the map canvas dimensions", () => 
   assert.equal(destinationBloom._canvas?.style.width, "800px");
   assert.equal(destinationBloom._canvas?.style.height, "600px");
 });
+
+test("destination bloom uses the map canvas rect for tooltip pointer positioning", () => {
+  const { documentMock } = createDocumentMock();
+  const container = createDomNode();
+  const map = createMapMock(container);
+  container.clientHeight = 0;
+
+  global.document = documentMock;
+  global.window = {
+    devicePixelRatio: 1,
+    matchMedia() {
+      return { matches: true };
+    },
+  };
+
+  store.map = map;
+  store.mapLayers = {
+    trips: {
+      visible: true,
+      layer: {
+        features: [
+          {
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-97.75, 30.25],
+                [-97.71, 30.29],
+              ],
+            },
+            properties: {
+              transactionId: "trip-1",
+              destination: "South Congress",
+              endTime: "2026-03-10T18:00:00Z",
+            },
+          },
+        ],
+      },
+    },
+    matchedTrips: {
+      visible: false,
+      layer: { features: [] },
+    },
+  };
+
+  destinationBloom.activate();
+
+  const pointer = destinationBloom._getPointerPosition({
+    clientX: 120,
+    clientY: 140,
+  });
+
+  assert.equal(pointer?.x, 120);
+  assert.equal(pointer?.y, 140);
+  assert.equal(pointer?.width, 800);
+  assert.equal(pointer?.height, 600);
+});
