@@ -139,6 +139,8 @@ function createMapMock(container) {
   ];
 
   return {
+    easeToCalls: [],
+    fitBoundsCalls: [],
     layoutUpdates: [],
     on(eventName, handler) {
       const handlers = listeners.get(eventName) || [];
@@ -177,6 +179,12 @@ function createMapMock(container) {
     },
     getLayer(id) {
       return styleLayers.find((entry) => entry.id === id) || null;
+    },
+    easeTo(options) {
+      this.easeToCalls.push(options);
+    },
+    fitBounds(bounds, options) {
+      this.fitBoundsCalls.push({ bounds, options });
     },
   };
 }
@@ -480,6 +488,99 @@ test("destination bloom keeps trip layers visible until projections are renderab
   );
 
   map.project = stableProject;
+  destinationBloom.refresh();
+
+  assert.equal(
+    map.layoutUpdates.some(
+      (update) => update.id === "trips-layer" && update.value === "none"
+    ),
+    true
+  );
+});
+
+test("destination bloom auto-focuses destinations when clusters start offscreen", () => {
+  const { documentMock } = createDocumentMock();
+  const container = createDomNode();
+  const map = createMapMock(container);
+  const stableProject = map.project.bind(map);
+  let offscreen = true;
+
+  map.project = (lngLat) => {
+    const point = stableProject(lngLat);
+    if (!offscreen) {
+      return point;
+    }
+    return {
+      x: point.x + 2400,
+      y: point.y + 1800,
+    };
+  };
+  map.fitBounds = function fitBounds(bounds, options) {
+    this.fitBoundsCalls.push({ bounds, options });
+    offscreen = false;
+  };
+
+  global.document = documentMock;
+  global.window = {
+    devicePixelRatio: 1,
+    matchMedia() {
+      return { matches: true };
+    },
+  };
+
+  store.map = map;
+  store.mapLayers = {
+    trips: {
+      visible: true,
+      layer: {
+        features: [
+          {
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-97.75, 30.25],
+                [-97.71, 30.29],
+              ],
+            },
+            properties: {
+              transactionId: "trip-1",
+              destination: "South Congress",
+              endTime: "2026-03-10T18:00:00Z",
+            },
+          },
+          {
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-97.79, 30.21],
+                [-97.66, 30.34],
+              ],
+            },
+            properties: {
+              transactionId: "trip-2",
+              destination: "Mueller",
+              endTime: "2026-03-09T18:00:00Z",
+            },
+          },
+        ],
+      },
+    },
+    matchedTrips: {
+      visible: false,
+      layer: { features: [] },
+    },
+  };
+
+  destinationBloom.activate();
+
+  assert.equal(map.fitBoundsCalls.length, 1);
+  assert.equal(
+    map.layoutUpdates.some(
+      (update) => update.id === "trips-layer" && update.value === "none"
+    ),
+    false
+  );
+
   destinationBloom.refresh();
 
   assert.equal(

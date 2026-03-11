@@ -9,7 +9,10 @@
 /* global mapboxgl */
 
 import layerManager from "./layer-manager.js";
-import { bearing as computeBearing } from "./utils/geo-math.js";
+import {
+  bearing as computeBearing,
+  haversineDistance,
+} from "./utils/geo-math.js";
 
 const ANIM_SOURCE = "trip-animator-source";
 const ANIM_LINE_LAYER = "trip-animator-line";
@@ -18,6 +21,9 @@ const REPLAY_MARKER_SOURCE = "trip-replay-marker";
 const REPLAY_MARKER_LAYER = "trip-replay-marker-circle";
 const REPLAY_TRAIL_SOURCE = "trip-replay-trail";
 const REPLAY_TRAIL_LAYER = "trip-replay-trail-line";
+const REPLAY_MS_PER_METER = 3;
+const REPLAY_MIN_DURATION_MS = 8000;
+const REPLAY_MAX_DURATION_MS = 60000;
 
 class TripAnimator {
   constructor() {
@@ -119,7 +125,10 @@ class TripAnimator {
 
     // Compute total distance and per-segment distances
     const totalDist = this._totalDistance(coordinates);
-    const baseDuration = Math.max(totalDist * 200, 3000); // ~200ms per unit of distance
+    const baseDuration = Math.min(
+      Math.max(totalDist * REPLAY_MS_PER_METER, REPLAY_MIN_DURATION_MS),
+      REPLAY_MAX_DURATION_MS
+    );
     const duration = baseDuration / speed;
 
     // Set up trail
@@ -358,9 +367,7 @@ class TripAnimator {
   }
 
   _segDist(a, b) {
-    const dx = b[0] - a[0];
-    const dy = b[1] - a[1];
-    return Math.sqrt(dx * dx + dy * dy);
+    return haversineDistance(a[1], a[0], b[1], b[0]);
   }
 
   _interpolateAlongLine(coords, targetDist, totalDist) {

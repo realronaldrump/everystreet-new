@@ -453,9 +453,6 @@ function setupTripSelectionAnimation(mapInstance, _signal, registerCleanup) {
     const el = document.createElement("div");
     el.className = "replay-controls";
     el.innerHTML = `
-      <button class="replay-btn" data-action="draw" type="button">
-        <i class="fas fa-pen-nib"></i> Draw
-      </button>
       <button class="replay-btn" data-action="replay" type="button">
         <i class="fas fa-play"></i> Replay
       </button>
@@ -465,9 +462,7 @@ function setupTripSelectionAnimation(mapInstance, _signal, registerCleanup) {
       const btn = e.target.closest("[data-action]");
       if (!btn) return;
 
-      if (btn.dataset.action === "draw") {
-        tripAnimator.animateRouteDraw(mapInstance, coords, { duration: 2500 });
-      } else if (btn.dataset.action === "replay") {
+      if (btn.dataset.action === "replay") {
         if (isReplaying) {
           tripAnimator.stopReplay(mapInstance);
           isReplaying = false;
