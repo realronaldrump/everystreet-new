@@ -96,8 +96,16 @@
 
     {% endblock %}
 
+    <style>
+        body[data-viewer-mode="true"] .owner-only {
+            display: none !important;
+        }
+    </style>
+
   </head>
-  <body data-route="{{ es_route_path }}">
+  <body data-route="{{ es_route_path }}"
+        data-auth-role="{{ auth_context.role }}"
+        data-viewer-mode="{{ 'true' if auth_context.viewer_mode else 'false' }}">
     <a href="#main-content" class="visually-hidden-focusable">Skip to main content</a>
     <div class="ambient-background" aria-hidden="true">
       <span class="ambient-orb ambient-orb-1"></span>
@@ -160,7 +168,7 @@
                   <span>Trips</span>
                 </a>
               </li>
-              <li class="nav-item {% if request.url.path == '/map-matching' %}active{% endif %}">
+              <li class="nav-item owner-only {% if request.url.path == '/map-matching' %}active{% endif %}">
                 <a
                   href="/map-matching"
                   title="Map Matching"
@@ -192,7 +200,7 @@
                   <span>Insights</span>
                 </a>
               </li>
-              <li class="nav-item {% if request.url.path == '/gas-tracking' %}active{% endif %}">
+              <li class="nav-item owner-only {% if request.url.path == '/gas-tracking' %}active{% endif %}">
                 <a
                   href="/gas-tracking"
                   title="Gas Tracking"
@@ -237,12 +245,12 @@
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end dropdown-menu-grouped" role="menu">
                   <!-- Insights & Tracking -->
-                  <li class="dropdown-header">
+                  <li class="dropdown-header owner-only">
 Insights & Tracking
                   </li>
                   <li role="none">
                     <a
-                      class="dropdown-item {% if request.url.path == '/visits' %}active{% endif %}"
+                      class="dropdown-item owner-only {% if request.url.path == '/visits' %}active{% endif %}"
                       href="/visits"
                       role="menuitem"
 {%
@@ -259,7 +267,7 @@ Insights & Tracking
                   </li>
                   <li role="none">
                     <a
-                      class="dropdown-item {% if request.url.path == '/routes' or request.url.path.startswith('/routes/') %}active{% endif %}"
+                      class="dropdown-item owner-only {% if request.url.path == '/routes' or request.url.path.startswith('/routes/') %}active{% endif %}"
                       href="/routes"
                       role="menuitem"
 {%
@@ -276,7 +284,7 @@ Insights & Tracking
                   </li>
                   <li role="none">
                     <a
-                      class="dropdown-item {% if request.url.path == '/vehicles' %}active{% endif %}"
+                      class="dropdown-item owner-only {% if request.url.path == '/vehicles' %}active{% endif %}"
                       href="/vehicles"
                       role="menuitem"
 {%
@@ -291,7 +299,7 @@ Insights & Tracking
                       My Vehicle
                     </a>
                   </li>
-                  <li role="separator">
+                  <li role="separator" class="owner-only">
                     <hr class="dropdown-divider" />
                   </li>
 
@@ -301,7 +309,7 @@ Coverage & Routes
                   </li>
                   <li role="none">
                     <a
-                      class="dropdown-item {% if request.url.path == '/coverage-management' %}active{% endif %}"
+                      class="dropdown-item owner-only {% if request.url.path == '/coverage-management' %}active{% endif %}"
                       href="/coverage-management"
                       role="menuitem"
 {%
@@ -318,7 +326,7 @@ Coverage & Routes
                   </li>
                   <li role="none">
                     <a
-                      class="dropdown-item {% if request.url.path == '/turn-by-turn' %}active{% endif %}"
+                      class="dropdown-item owner-only {% if request.url.path == '/turn-by-turn' %}active{% endif %}"
                       href="/turn-by-turn"
                       role="menuitem"
 {%
@@ -355,12 +363,12 @@ Coverage & Routes
                   </li>
 
                   <!-- Data -->
-                  <li class="dropdown-header">
+                  <li class="dropdown-header owner-only">
 Data
                   </li>
                   <li role="none">
                     <a
-                      class="dropdown-item {% if request.url.path == '/export' %}active{% endif %}"
+                      class="dropdown-item owner-only {% if request.url.path == '/export' %}active{% endif %}"
                       href="/export"
                       role="menuitem"
 {%
@@ -375,17 +383,17 @@ Data
                       Export Data
                     </a>
                   </li>
-                  <li role="separator">
+                  <li role="separator" class="owner-only">
                     <hr class="dropdown-divider" />
                   </li>
 
                   <!-- System -->
-                  <li class="dropdown-header">
+                  <li class="dropdown-header owner-only">
 System
                   </li>
                   <li role="none">
                     <a
-                      class="dropdown-item {% if request.url.path == '/control-center' %}active{% endif %}"
+                      class="dropdown-item owner-only {% if request.url.path == '/control-center' %}active{% endif %}"
                       href="/control-center"
                       role="menuitem"
 {%
@@ -407,6 +415,22 @@ System
 
           <!-- Tools and User Options -->
           <div class="tools-section">
+            <div class="auth-actions">
+              {% if auth_context.is_owner %}
+                <form action="/logout" method="post" class="auth-action-form">
+                  <input type="hidden" name="csrf_token" value="{{ auth_context.csrf_token or '' }}" />
+                  <button type="submit" class="btn btn-sm btn-outline-light">
+                    <i class="fas fa-right-from-bracket me-1" aria-hidden="true"></i>
+                    Log out
+                  </button>
+                </form>
+              {% else %}
+                <a href="/login" class="btn btn-sm btn-outline-light">
+                  <i class="fas fa-lock me-1" aria-hidden="true"></i>
+                  Log in
+                </a>
+              {% endif %}
+            </div>
             <!-- Date Picker Dropdown -->
             <div id="date-picker-wrapper" class="date-picker-wrapper">
               <button id="date-picker-trigger"
@@ -566,7 +590,7 @@ System
                   Insights
                 </a>
               </li>
-              <li role="none">
+              <li role="none" class="owner-only">
                 <a
                   href="/gas-tracking"
                   class="{% if request.url.path == '/gas-tracking' %}active{% endif %}"
@@ -581,7 +605,7 @@ System
                   <i class="fas fa-gas-pump me-2" aria-hidden="true"></i> Gas Tracking
                 </a>
               </li>
-              <li role="none">
+              <li role="none" class="owner-only">
                 <a
                   href="/visits"
                   class="{% if request.url.path == '/visits' %}active{% endif %}"
@@ -596,7 +620,7 @@ System
                   <i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i> Visits
                 </a>
               </li>
-              <li role="none">
+              <li role="none" class="owner-only">
                 <a
                   href="/routes"
                   class="{% if request.url.path == '/routes' or request.url.path.startswith('/routes/') %}active{% endif %}"
@@ -611,7 +635,7 @@ System
                   <i class="fas fa-route me-2" aria-hidden="true"></i> Routes
                 </a>
               </li>
-              <li role="none">
+              <li role="none" class="owner-only">
                 <a
                   href="/vehicles"
                   class="{% if request.url.path == '/vehicles' %}active{% endif %}"
@@ -638,7 +662,7 @@ System
               <i class="fas fa-chevron-down drawer-nav-section-chevron" aria-hidden="true"></i>
             </button>
             <ul class="drawer-nav-section-list" id="nav-section-coverage" role="list">
-              <li role="none">
+              <li role="none" class="owner-only">
                 <a
                   href="/coverage-management"
                   class="{% if request.url.path == '/coverage-management' %}active{% endif %}"
@@ -670,7 +694,7 @@ System
                   Navigator
                 </a>
               </li>
-              <li role="none">
+              <li role="none" class="owner-only">
                 <a
                   href="/turn-by-turn"
                   class="{% if request.url.path == '/turn-by-turn' %}active{% endif %}"
@@ -706,7 +730,7 @@ System
           </div>
 
           <!-- Data Section -->
-          <div class="drawer-nav-section">
+          <div class="drawer-nav-section owner-only">
             <button class="drawer-nav-section-header"
                     aria-expanded="true"
                     aria-controls="nav-section-data">
@@ -733,7 +757,7 @@ System
           </div>
 
           <!-- System Section -->
-          <div class="drawer-nav-section">
+          <div class="drawer-nav-section owner-only">
             <button class="drawer-nav-section-header"
                     aria-expanded="true"
                     aria-controls="nav-section-system">
@@ -767,6 +791,12 @@ System
 
       <!-- Main Content Area -->
       <main id="main-content" class="main-content" role="main" tabindex="-1">
+        {% if auth_context.viewer_mode and request.url.path != '/login' %}
+          <div class="alert alert-secondary mx-3 mt-3 mb-0" role="status">
+            Viewer mode is active. Public pages show the app shell only, without your personal data or owner tools.
+            <a href="/login" class="alert-link">Log in for full access.</a>
+          </div>
+        {% endif %}
         <div id="nav-breadcrumb" class="nav-breadcrumb" aria-label="Breadcrumb">
           <div id="nav-trail" class="nav-trail">
           </div>
@@ -838,7 +868,7 @@ System
 
     <div id="modals-container">
     </div>
-    <div class="setup-required-modal d-none"
+    <div class="setup-required-modal d-none owner-only"
          id="setup-required-modal"
          role="dialog"
          aria-modal="true"
@@ -880,7 +910,7 @@ System
         </div>
       </div>
     </div>
-    <button class="setup-required-fab d-none"
+    <button class="setup-required-fab d-none owner-only"
             id="setup-required-fab"
             type="button"
             aria-label="Open setup wizard reminder">
@@ -911,6 +941,7 @@ System
 
     <!-- Expose Map Provider Settings to Frontend -->
     <script>
+        window.AUTH_CONTEXT = {{ auth_context_json | tojson }};
         window.MAP_PROVIDER = "{{ (app_settings.get('map_provider') | default('self_hosted', true) | lower) if app_settings else 'self_hosted' }}";
         window.APP_SETTINGS_FLAGS = {
             mapTripsWithinCoverageOnly: {{
@@ -925,9 +956,11 @@ System
     </script>
 
     <!-- Libraries used across routes (swup does not execute scripts from fetched HTML) -->
-    {% if app_settings and (app_settings.get('map_provider') | default('', true) | lower) == 'google' %}
+    {% if app_settings
+          and app_settings.get('google_maps_api_key')
+          and (app_settings.get('map_provider') | default('', true) | lower) == 'google' %}
       <script defer
-              src="https://maps.googleapis.com/maps/api/js?key={{ (app_settings.get('google_maps_api_key') | default('AIzaSyBvNSN_t1y5t0TTRzR8KmFjL1XwSe88RoA', true)) if app_settings else 'AIzaSyBvNSN_t1y5t0TTRzR8KmFjL1XwSe88RoA' }}&loading=async&libraries=geometry,places&map_ids=913996d7028f0a557c531012"></script>
+              src="https://maps.googleapis.com/maps/api/js?key={{ app_settings.get('google_maps_api_key') }}&loading=async&libraries=geometry,places&map_ids=913996d7028f0a557c531012"></script>
     {% else %}
       <script src="{{ CDN.mapbox_gl_js }}"></script>
       <script src="{{ CDN.mapbox_draw_js }}"></script>

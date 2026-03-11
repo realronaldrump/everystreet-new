@@ -4,7 +4,7 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from core.jinja import templates
-from core.repo_info import get_repo_version_info
+from core.template_context import build_base_template_context
 from gas.services.vehicle_service import VehicleService
 
 router = APIRouter()
@@ -16,22 +16,12 @@ async def _render_page(
     **context: Any,
 ) -> HTMLResponse:
     """Render a Jinja template with a consistent base context."""
-    from admin.services.admin_service import AdminService
-
-    try:
-        app_settings = await AdminService.get_app_settings_payload()
-    except Exception:
-        app_settings = {
-            "map_provider": None,
-            "google_maps_api_key": None,
-        }
-
+    base_context = await build_base_template_context(request)
     return templates.TemplateResponse(
         request,
         template_name,
         {
-            "repo_version": get_repo_version_info(),
-            "app_settings": app_settings,
+            **base_context,
             **context,
         },
     )

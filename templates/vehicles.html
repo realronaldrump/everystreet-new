@@ -54,6 +54,7 @@ My Vehicles
                   method="post"
                   action="/vehicles/add-vehicle"
                   novalidate>
+              <input type="hidden" name="csrf_token" value="{{ auth_context.csrf_token or '' }}" />
               <div class="row g-3 align-items-end">
                 <div class="col-12 col-md-4">
                   <label for="fleet-add-vehicle-imei" class="form-label">

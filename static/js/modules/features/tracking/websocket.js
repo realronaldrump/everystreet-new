@@ -5,6 +5,10 @@ export function connectLiveWebSocket({
   onError,
   path = "/ws/trips",
 } = {}) {
+  if (window.AUTH_CONTEXT?.viewerMode) {
+    return null;
+  }
+
   if (!("WebSocket" in window)) {
     return null;
   }

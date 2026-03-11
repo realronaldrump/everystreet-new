@@ -10,6 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from admin import router as admin_api_router
 from analytics import router as analytics_api_router
@@ -17,9 +19,19 @@ from api.map_bundle import router as map_bundle_router
 from api.pages import router as pages_router
 from api.routing import router as routing_router
 from api.status import router as status_router
+from auth import router as auth_router
+from core.auth import (
+    AuthGuardMiddleware,
+    SESSION_COOKIE_NAME,
+    SESSION_TTL_SECONDS,
+    get_session_secret,
+    parse_allowed_hosts,
+    parse_cors_allowed_origins,
+)
 from core.jinja import templates
 from core.repo_info import get_repo_version_info
 from core.startup import initialize_shared_runtime, shutdown_shared_runtime
+from core.template_context import build_base_template_context
 from db.logging_handler import MongoDBHandler
 from db.models import AppSettings, MapProvider
 from driving import router as driving_api_router
@@ -166,9 +178,24 @@ async def apple_touch_icon_precomposed() -> RedirectResponse:
 
 
 app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=parse_allowed_hosts(),
+)
+app.add_middleware(
+    AuthGuardMiddleware,
+)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=get_session_secret(),
+    session_cookie=SESSION_COOKIE_NAME,
+    max_age=SESSION_TTL_SECONDS,
+    same_site="lax",
+    path="/",
+    https_only=True,
+)
+app.add_middleware(
     CORSMiddleware,
-    # Using regex ".*" tells FastAPI to allow requests from literally any website or local file
-    allow_origin_regex=".*",
+    allow_origins=parse_cors_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -185,6 +212,7 @@ app.add_middleware(
 
 
 # Include all the modular routers
+app.include_router(auth_router)
 app.include_router(pages_router)
 app.include_router(admin_api_router)
 app.include_router(analytics_api_router)
@@ -319,13 +347,14 @@ async def not_found_handler(request: Request, exc: HTTPException):
     if ".well-known/appspecific" not in str(request.url):
         logger.warning("404 Not Found: %s. Detail: %s", request.url, exc.detail)
     if _prefers_html(request):
+        context = await build_base_template_context(
+            request,
+            path=request.url.path,
+        )
         return templates.TemplateResponse(
             request,
             "404.html",
-            {
-                "path": request.url.path,
-                "repo_version": get_repo_version_info(),
-            },
+            context,
             status_code=status.HTTP_404_NOT_FOUND,
         )
     return JSONResponse(

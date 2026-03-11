@@ -63,7 +63,7 @@ function checklistMetaForProvider(status) {
 }
 
 function shouldSkipBanner() {
-  return document.body?.dataset?.route === SETUP_ROUTE;
+  return window.AUTH_CONTEXT?.viewerMode || document.body?.dataset?.route === SETUP_ROUTE;
 }
 
 function fetchSetupStatus(signal, { force = false } = {}) {

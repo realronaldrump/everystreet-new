@@ -6,7 +6,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
 from core.jinja import templates
-from core.repo_info import get_repo_version_info
+from core.template_context import build_base_template_context
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -17,22 +17,12 @@ async def _render_trips_page(
     trip_id: str | None = None,
 ) -> HTMLResponse:
     """Render the trips page with optional preloaded trip details."""
-    from admin.services.admin_service import AdminService
-
-    try:
-        app_settings = await AdminService.get_app_settings_payload()
-    except Exception:
-        app_settings = {
-            "map_provider": None,
-            "google_maps_api_key": None,
-        }
-
+    base_context = await build_base_template_context(request)
     return templates.TemplateResponse(
         request,
         "trips.html",
         {
-            "repo_version": get_repo_version_info(),
-            "app_settings": app_settings,
+            **base_context,
             "trip_id": trip_id,
         },
     )

@@ -5,10 +5,11 @@ import json
 import logging
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
 
 from core.api import api_route
+from core.auth import get_request_auth_context, require_owner_websocket
 from core.redis import create_pubsub_redis
 from db.schemas import (
     ActiveTripResponseUnion,
@@ -30,6 +31,7 @@ router = APIRouter()
 @router.websocket("/ws/trips")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time trip updates."""
+    require_owner_websocket(websocket)
     await websocket.accept()
     redis_client = None
     pubsub = None
@@ -128,8 +130,12 @@ async def websocket_endpoint(websocket: WebSocket):
     summary="Get Currently Active Trip",
 )
 @api_route(logger)
-async def active_trip_endpoint():
+async def active_trip_endpoint(request: Request):
     """Get the currently active trip, if any."""
+    auth_context = get_request_auth_context(request)
+    if auth_context.viewer_mode:
+        return NoActiveTripResponse(server_time=datetime.now(UTC))
+
     active_trip_doc = await TrackingService.get_active_trip()
 
     if not active_trip_doc:
@@ -149,12 +155,21 @@ async def active_trip_endpoint():
 
 @router.get("/api/trip_updates", response_model=dict[str, object])
 @api_route(logger)
-async def trip_updates_endpoint():
+async def trip_updates_endpoint(request: Request):
     """
     Polling endpoint for trip updates.
 
     Returns current active trip if available.
     """
+    auth_context = get_request_auth_context(request)
+    if auth_context.viewer_mode:
+        return {
+            "status": "success",
+            "has_update": False,
+            "message": "Viewer mode has no active trip data.",
+            "server_time": datetime.now(UTC).isoformat(),
+        }
+
     updates = await TrackingService.get_trip_updates()
     updates["server_time"] = datetime.now(UTC).isoformat()
     return updates

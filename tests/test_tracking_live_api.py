@@ -1,17 +1,38 @@
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
+from starlette.middleware.sessions import SessionMiddleware
 
+from core.auth import SESSION_COOKIE_NAME, SESSION_TTL_SECONDS, get_session_secret, hash_password_for_owner, mark_owner_session
 from tracking.api import live as live_api
 from tracking.api.live import router
+
+os.environ.setdefault("APP_SESSION_SECRET", "tracking-live-test-secret")
+os.environ.setdefault("OWNER_PASSWORD_HASH", hash_password_for_owner("test-owner"))
 
 
 def _create_app() -> FastAPI:
     app = FastAPI()
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=get_session_secret(),
+        session_cookie=SESSION_COOKIE_NAME,
+        max_age=SESSION_TTL_SECONDS,
+        same_site="lax",
+        path="/",
+        https_only=False,
+    )
+
+    @app.post("/__test/login")
+    async def test_login(request: Request) -> dict[str, bool]:
+        mark_owner_session(request)
+        return {"ok": True}
+
     app.include_router(router)
     return app
 
@@ -42,6 +63,7 @@ def test_active_trip_endpoint_returns_live_payload() -> None:
         ),
         TestClient(app) as client,
     ):
+        client.post("/__test/login")
         response = client.get("/api/active_trip")
 
     assert response.status_code == 200
@@ -64,6 +86,7 @@ def test_active_trip_endpoint_returns_no_active_payload() -> None:
         ),
         TestClient(app) as client,
     ):
+        client.post("/__test/login")
         response = client.get("/api/active_trip")
 
     assert response.status_code == 200
@@ -94,6 +117,7 @@ def test_trip_updates_endpoint_returns_trip_snapshot() -> None:
         ),
         TestClient(app) as client,
     ):
+        client.post("/__test/login")
         response = client.get("/api/trip_updates")
 
     assert response.status_code == 200
@@ -120,6 +144,7 @@ def test_trip_updates_endpoint_returns_no_update_after_clear() -> None:
         ),
         TestClient(app) as client,
     ):
+        client.post("/__test/login")
         response = client.get("/api/trip_updates")
 
     assert response.status_code == 200

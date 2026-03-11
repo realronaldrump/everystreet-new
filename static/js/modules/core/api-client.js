@@ -37,14 +37,17 @@ class APIClient {
     }
 
     // Build request options
+    const normalizedMethod = String(method || "GET").toUpperCase();
     const fetchOptions = {
-      method,
+      method: normalizedMethod,
       headers: {
         "Content-Type": "application/json",
         ...headers,
       },
       signal,
     };
+
+    this._applyCsrfHeader(fetchOptions.headers, normalizedMethod);
 
     if (body) {
       fetchOptions.body = typeof body === "string" ? body : JSON.stringify(body);
@@ -107,6 +110,12 @@ class APIClient {
       signal,
       ...fetchOptions
     } = options;
+    const normalizedMethod = String(fetchOptions.method || "GET").toUpperCase();
+    fetchOptions.method = normalizedMethod;
+    fetchOptions.headers = {
+      ...(fetchOptions.headers || {}),
+    };
+    this._applyCsrfHeader(fetchOptions.headers, normalizedMethod);
     const controller = new AbortController();
     const activeSignal = signal || controller.signal;
     let timeoutTriggered = false;
@@ -302,6 +311,17 @@ class APIClient {
       timestamp: Date.now(),
       duration,
     });
+  }
+
+  _applyCsrfHeader(headers, method) {
+    if (["GET", "HEAD", "OPTIONS"].includes(method)) {
+      return;
+    }
+    const csrfToken = window.AUTH_CONTEXT?.csrfToken;
+    if (!csrfToken || headers["X-CSRF-Token"]) {
+      return;
+    }
+    headers["X-CSRF-Token"] = csrfToken;
   }
 
   clearCache(pattern = null) {

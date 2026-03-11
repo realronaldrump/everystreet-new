@@ -14,6 +14,9 @@ const start = async () => {
   } catch (error) {
     console.warn("Navigation init failed; continuing without SPA transitions.", error);
   }
+  if (window.AUTH_CONTEXT?.viewerMode) {
+    return;
+  }
   await AppController.initialize();
 };
 
