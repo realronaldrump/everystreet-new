@@ -547,6 +547,7 @@ export function setupRouteArtToggle(registerCleanup) {
   btn.addEventListener("click", handleClick);
   document.addEventListener("routeArt:activated", syncState);
   document.addEventListener("routeArt:deactivated", syncState);
+  syncState();
 
   registerCleanup(() => btn.removeEventListener("click", handleClick));
   registerCleanup(() => document.removeEventListener("routeArt:activated", syncState));
@@ -582,6 +583,7 @@ export function setupParticleFlowToggle(registerCleanup) {
   };
 
   btn.addEventListener("click", handleClick);
+  syncState();
   registerCleanup(() => btn.removeEventListener("click", handleClick));
   document.addEventListener("particleFlow:activated", syncState);
   document.addEventListener("particleFlow:deactivated", syncState);
@@ -686,6 +688,7 @@ export function setupDestinationBloomToggle(registerCleanup) {
   document.addEventListener("matchedTripsDataLoaded", handleDataRefresh);
   document.addEventListener("es:filters-change", handleDataRefresh);
   document.addEventListener("mapStyleLoaded", handleStyleChange);
+  syncState();
 
   registerCleanup(() => btn.removeEventListener("click", handleClick));
   registerCleanup(() =>

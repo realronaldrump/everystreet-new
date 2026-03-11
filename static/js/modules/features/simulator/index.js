@@ -249,12 +249,21 @@ export class BouncieSimulator {
     this.panel.classList.contains("hidden") ? this.show() : this.hide();
   }
 
+  _syncToggleButton(isActive) {
+    const toggle = document.getElementById("sim-toggle");
+    if (!toggle) {
+      return;
+    }
+    toggle.classList.toggle("active", Boolean(isActive));
+    toggle.setAttribute("aria-pressed", String(Boolean(isActive)));
+  }
+
   show() {
     if (!this.panel) {
       return;
     }
     this.panel.classList.remove("hidden");
-    document.getElementById("sim-toggle")?.classList.add("active");
+    this._syncToggleButton(true);
   }
 
   hide() {
@@ -262,7 +271,7 @@ export class BouncieSimulator {
       return;
     }
     this.panel.classList.add("hidden");
-    document.getElementById("sim-toggle")?.classList.remove("active");
+    this._syncToggleButton(false);
   }
 
   _toggleCollapse() {
