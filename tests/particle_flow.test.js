@@ -200,7 +200,9 @@ test("particle flow keeps trip layers hidden across repeated repair passes", () 
   map.layoutUpdates = [];
 
   const tripLayer = map.getStyle().layers.find((layer) => layer.id === "trips-layer");
+  const tripHitbox = map.getStyle().layers.find((layer) => layer.id === "trips-hitbox");
   tripLayer.layout.visibility = "visible";
+  tripHitbox.layout.visibility = "visible";
 
   particleFlow.ensureTripLayersHidden();
   particleFlow.destroy();
