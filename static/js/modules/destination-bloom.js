@@ -1,8 +1,8 @@
 import store from "./core/store.js";
 
 const LAYER_SEARCH_ORDER = ["trips", "matchedTrips"];
-const MAX_BLOOM_RADIUS = 26;
-const MIN_BLOOM_RADIUS = 7;
+const MAX_BLOOM_RADIUS = 34;
+const MIN_BLOOM_RADIUS = 9;
 const FADE_IN_MS = 420;
 const FADE_OUT_MS = 260;
 const TOOLTIP_OFFSET_X = 14;
@@ -149,7 +149,7 @@ export function clusterCellSize(zoom = 12) {
 
 export function radiusForCluster(count, zoom = 12) {
   const radius =
-    6.5 + Math.sqrt(Math.max(count, 1)) * 1.9 + Math.max(0, 12 - zoom) * 0.35;
+    8 + Math.sqrt(Math.max(count, 1)) * 2.4 + Math.max(0, 12 - zoom) * 0.4;
   return clamp(radius, MIN_BLOOM_RADIUS, MAX_BLOOM_RADIUS);
 }
 
@@ -408,6 +408,7 @@ const destinationBloom = {
     this._reprojectAndCluster();
     this._hideTripLayers(store.map);
     this._updateEmptyNotice();
+    this._updateCanvasBlendMode();
 
     if (this._prefersReducedMotion()) {
       this._render(performance.now());
@@ -438,7 +439,7 @@ const destinationBloom = {
     const canvas = document.createElement("canvas");
     canvas.className = "destination-bloom-canvas";
     canvas.style.cssText =
-      "position:absolute;inset:0;pointer-events:none;z-index:1;";
+      "position:absolute;inset:0;pointer-events:none;z-index:10;";
     container.appendChild(canvas);
 
     this._canvas = canvas;
@@ -894,17 +895,19 @@ const destinationBloom = {
     const dpr = this._pixelRatio || 1;
     const reducedMotion = this._prefersReducedMotion();
 
-    ctx.globalCompositeOperation = "screen";
+    // Use lighter for overlapping glow areas, source-over for labels.
+    // The CSS mix-blend-mode on the canvas handles compositing with the map.
+    ctx.globalCompositeOperation = "lighter";
     this._clusters.forEach((cluster) => {
       const pulse = reducedMotion
         ? 1
         : 1 + Math.sin(now * 0.0014 + cluster.phase) * 0.08;
       const baseRadius = cluster.radius * pulse * dpr;
-      const haloRadius = baseRadius * 3.1;
-      const auraRadius = baseRadius * 1.9;
+      const haloRadius = baseRadius * 3.5;
+      const auraRadius = baseRadius * 2.2;
       const drawX = cluster.x * dpr;
       const drawY = cluster.y * dpr;
-      const alphaWeight = clamp(0.24 + cluster.count * 0.03, 0.24, 0.75);
+      const alphaWeight = clamp(0.35 + cluster.count * 0.04, 0.35, 0.85);
 
       const haloGradient = ctx.createRadialGradient(
         drawX,
@@ -917,13 +920,13 @@ const destinationBloom = {
       haloGradient.addColorStop(
         0,
         `rgba(${palette.halo[0]}, ${palette.halo[1]}, ${palette.halo[2]}, ${
-          0.28 * this._opacity * alphaWeight
+          0.42 * this._opacity * alphaWeight
         })`
       );
       haloGradient.addColorStop(
-        0.48,
+        0.4,
         `rgba(${palette.aura[0]}, ${palette.aura[1]}, ${palette.aura[2]}, ${
-          0.14 * this._opacity * alphaWeight
+          0.22 * this._opacity * alphaWeight
         })`
       );
       haloGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
@@ -944,7 +947,7 @@ const destinationBloom = {
       auraGradient.addColorStop(
         0,
         `rgba(${palette.glow[0]}, ${palette.glow[1]}, ${palette.glow[2]}, ${
-          0.38 * this._opacity
+          0.55 * this._opacity * alphaWeight
         })`
       );
       auraGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
@@ -953,6 +956,8 @@ const destinationBloom = {
       ctx.fillStyle = auraGradient;
       ctx.arc(drawX, drawY, auraRadius, 0, Math.PI * 2);
       ctx.fill();
+
+      ctx.globalCompositeOperation = "source-over";
 
       ctx.beginPath();
       ctx.fillStyle = `rgba(${palette.core[0]}, ${palette.core[1]}, ${palette.core[2]}, ${
@@ -963,16 +968,18 @@ const destinationBloom = {
 
       ctx.beginPath();
       ctx.fillStyle = `rgba(${palette.highlight[0]}, ${palette.highlight[1]}, ${palette.highlight[2]}, ${
-        0.88 * this._opacity
+        0.92 * this._opacity
       })`;
-      ctx.arc(drawX, drawY, Math.max(baseRadius * 0.28, 1.6), 0, Math.PI * 2);
+      ctx.arc(drawX, drawY, Math.max(baseRadius * 0.32, 2), 0, Math.PI * 2);
       ctx.fill();
+
+      ctx.globalCompositeOperation = "lighter";
     });
 
     ctx.globalCompositeOperation = "source-over";
 
     // Render count labels on clusters large enough to fit text
-    const MIN_LABEL_RADIUS = 11;
+    const MIN_LABEL_RADIUS = 10;
     this._clusters.forEach((cluster) => {
       if (cluster.count < 2) return;
       const pulse = reducedMotion
@@ -983,12 +990,16 @@ const destinationBloom = {
 
       const drawX = cluster.x * dpr;
       const drawY = cluster.y * dpr;
-      const fontSize = Math.round(clamp(baseRadius * 0.52, 8 * dpr, 14 * dpr));
-      ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+      const fontSize = Math.round(clamp(baseRadius * 0.55, 9 * dpr, 15 * dpr));
+      ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = `rgba(255, 255, 255, ${0.92 * this._opacity})`;
+      ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+      ctx.shadowBlur = 3 * dpr;
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.95 * this._opacity})`;
       ctx.fillText(String(cluster.count), drawX, drawY + 1 * dpr);
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
     });
   },
 
@@ -997,28 +1008,28 @@ const destinationBloom = {
       store.state?.map?.style || localStorage.getItem("mapType") || "dark";
     if (style === "light" || style === "streets") {
       return {
-        halo: [212, 144, 72],
-        aura: [241, 189, 103],
-        glow: [214, 132, 62],
-        core: [163, 88, 30],
-        highlight: [255, 244, 224],
+        halo: [220, 120, 40],
+        aura: [235, 160, 60],
+        glow: [210, 110, 35],
+        core: [180, 85, 20],
+        highlight: [255, 240, 210],
       };
     }
     if (style === "satellite") {
       return {
-        halo: [255, 164, 64],
-        aura: [255, 205, 120],
-        glow: [255, 146, 62],
-        core: [255, 193, 82],
-        highlight: [255, 248, 226],
+        halo: [255, 170, 50],
+        aura: [255, 200, 90],
+        glow: [255, 150, 40],
+        core: [255, 200, 80],
+        highlight: [255, 250, 220],
       };
     }
     return {
-      halo: [255, 135, 52],
-      aura: [255, 183, 87],
-      glow: [244, 162, 72],
-      core: [248, 197, 92],
-      highlight: [255, 243, 214],
+      halo: [255, 140, 40],
+      aura: [255, 180, 60],
+      glow: [255, 160, 50],
+      core: [255, 200, 80],
+      highlight: [255, 245, 210],
     };
   },
 
@@ -1053,6 +1064,16 @@ const destinationBloom = {
   _removeEmptyNotice() {
     this._emptyNotice?.remove?.();
     this._emptyNotice = null;
+  },
+
+  _updateCanvasBlendMode() {
+    if (!this._canvas) {
+      return;
+    }
+    const style =
+      store.state?.map?.style || localStorage.getItem("mapType") || "dark";
+    const usesScreen = style === "dark" || style === "satellite";
+    this._canvas.classList.toggle("blend-screen", usesScreen);
   },
 
   _finalizeDeactivate() {

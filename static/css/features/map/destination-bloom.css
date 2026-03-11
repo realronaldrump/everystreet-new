@@ -7,6 +7,10 @@
   will-change: contents;
 }
 
+.destination-bloom-canvas.blend-screen {
+  mix-blend-mode: screen;
+}
+
 .map-fab-dock {
   position: absolute;
   right: var(--space-4);
@@ -301,7 +305,7 @@
   pointer-events: none;
   opacity: 0;
   transition: opacity 320ms ease;
-  z-index: 2;
+  z-index: 12;
 }
 
 .destination-bloom-empty.is-visible {
