@@ -132,6 +132,11 @@ function createDocumentMock() {
 
 function createMapMock(container) {
   const listeners = new Map();
+  const mapCanvas = createDomNode({ tagName: "canvas" });
+  mapCanvas.width = 1600;
+  mapCanvas.height = 1200;
+  mapCanvas.clientWidth = 800;
+  mapCanvas.clientHeight = 600;
   const styleLayers = [
     { id: "trips-layer", layout: { visibility: "visible" } },
     { id: "matchedTrips-layer", layout: { visibility: "visible" } },
@@ -139,8 +144,6 @@ function createMapMock(container) {
   ];
 
   return {
-    easeToCalls: [],
-    fitBoundsCalls: [],
     layoutUpdates: [],
     on(eventName, handler) {
       const handlers = listeners.get(eventName) || [];
@@ -156,6 +159,9 @@ function createMapMock(container) {
     },
     getCanvasContainer() {
       return container;
+    },
+    getCanvas() {
+      return mapCanvas;
     },
     project([lng, lat]) {
       return {
@@ -182,12 +188,6 @@ function createMapMock(container) {
     },
     getLayer(id) {
       return styleLayers.find((entry) => entry.id === id) || null;
-    },
-    easeTo(options) {
-      this.easeToCalls.push(options);
-    },
-    fitBounds(bounds, options) {
-      this.fitBoundsCalls.push({ bounds, options });
     },
   };
 }
@@ -422,13 +422,11 @@ test("destination bloom keeps trip layers hidden across repeated repair passes",
   );
 });
 
-test("destination bloom keeps trip layers visible until projections are renderable", () => {
+test("destination bloom sizes its canvas from the map canvas dimensions", () => {
   const { documentMock } = createDocumentMock();
   const container = createDomNode();
   const map = createMapMock(container);
-  const stableProject = map.project.bind(map);
-
-  map.project = () => ({ x: 0, y: 0 });
+  container.clientHeight = 1;
 
   global.document = documentMock;
   global.window = {
@@ -483,183 +481,8 @@ test("destination bloom keeps trip layers visible until projections are renderab
 
   destinationBloom.activate();
 
-  assert.equal(
-    map.layoutUpdates.some(
-      (update) => update.id === "trips-layer" && update.value === "none"
-    ),
-    false
-  );
-
-  map.project = stableProject;
-  destinationBloom.refresh();
-
-  assert.equal(
-    map.layoutUpdates.some(
-      (update) => update.id === "trips-layer" && update.value === "none"
-    ),
-    true
-  );
-});
-
-test("destination bloom auto-focuses destinations when clusters start offscreen", () => {
-  const { documentMock } = createDocumentMock();
-  const container = createDomNode();
-  const map = createMapMock(container);
-  const stableProject = map.project.bind(map);
-  let offscreen = true;
-
-  map.project = (lngLat) => {
-    const point = stableProject(lngLat);
-    if (!offscreen) {
-      return point;
-    }
-    return {
-      x: point.x + 2400,
-      y: point.y + 1800,
-    };
-  };
-  map.fitBounds = function fitBounds(bounds, options) {
-    this.fitBoundsCalls.push({ bounds, options });
-    offscreen = false;
-  };
-
-  global.document = documentMock;
-  global.window = {
-    devicePixelRatio: 1,
-    matchMedia() {
-      return { matches: true };
-    },
-  };
-
-  store.map = map;
-  store.mapLayers = {
-    trips: {
-      visible: true,
-      layer: {
-        features: [
-          {
-            geometry: {
-              type: "LineString",
-              coordinates: [
-                [-97.75, 30.25],
-                [-97.71, 30.29],
-              ],
-            },
-            properties: {
-              transactionId: "trip-1",
-              destination: "South Congress",
-              endTime: "2026-03-10T18:00:00Z",
-            },
-          },
-          {
-            geometry: {
-              type: "LineString",
-              coordinates: [
-                [-97.79, 30.21],
-                [-97.66, 30.34],
-              ],
-            },
-            properties: {
-              transactionId: "trip-2",
-              destination: "Mueller",
-              endTime: "2026-03-09T18:00:00Z",
-            },
-          },
-        ],
-      },
-    },
-    matchedTrips: {
-      visible: false,
-      layer: { features: [] },
-    },
-  };
-
-  destinationBloom.activate();
-
-  assert.equal(map.fitBoundsCalls.length, 1);
-  assert.equal(
-    map.layoutUpdates.some(
-      (update) => update.id === "trips-layer" && update.value === "none"
-    ),
-    false
-  );
-
-  destinationBloom.refresh();
-
-  assert.equal(
-    map.layoutUpdates.some(
-      (update) => update.id === "trips-layer" && update.value === "none"
-    ),
-    true
-  );
-});
-
-test("destination bloom keeps nearby destinations clustered instead of treating them as a broken projection", () => {
-  const { documentMock } = createDocumentMock();
-  const container = createDomNode();
-  const map = createMapMock(container);
-
-  map.project = ([lng, lat]) => ({
-    x: 400 + (lng + 97.7) * 24,
-    y: 300 + (lat - 30.3) * 24,
-  });
-
-  global.document = documentMock;
-  global.window = {
-    devicePixelRatio: 1,
-    matchMedia() {
-      return { matches: true };
-    },
-  };
-
-  store.map = map;
-  store.mapLayers = {
-    trips: {
-      visible: true,
-      layer: {
-        features: [
-          {
-            geometry: {
-              type: "LineString",
-              coordinates: [
-                [-97.75, 30.25],
-                [-97.7, 30.3],
-              ],
-            },
-            properties: {
-              transactionId: "trip-1",
-              destination: "Downtown",
-            },
-          },
-          {
-            geometry: {
-              type: "LineString",
-              coordinates: [
-                [-97.74, 30.26],
-                [-97.69, 30.31],
-              ],
-            },
-            properties: {
-              transactionId: "trip-2",
-              destination: "Downtown",
-            },
-          },
-        ],
-      },
-    },
-    matchedTrips: {
-      visible: false,
-      layer: { features: [] },
-    },
-  };
-
-  destinationBloom.activate();
-
-  assert.equal(destinationBloom._clusters.length > 0, true);
-  assert.equal(
-    map.layoutUpdates.some(
-      (update) => update.id === "trips-layer" && update.value === "none"
-    ),
-    true
-  );
+  assert.equal(destinationBloom._canvas?.width, 1600);
+  assert.equal(destinationBloom._canvas?.height, 1200);
+  assert.equal(destinationBloom._canvas?.style.width, "800px");
+  assert.equal(destinationBloom._canvas?.style.height, "600px");
 });

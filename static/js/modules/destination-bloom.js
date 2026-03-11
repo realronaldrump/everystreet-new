@@ -7,10 +7,6 @@ const FADE_IN_MS = 420;
 const FADE_OUT_MS = 260;
 const TOOLTIP_OFFSET_X = 14;
 const TOOLTIP_OFFSET_Y = 16;
-const REPAIR_REFRESH_DELAYS_MS = [90, 220, 480];
-const VIEWPORT_VISIBILITY_MARGIN_PX = 48;
-const AUTOFIT_PADDING_PX = 84;
-const AUTOFIT_MAX_ZOOM = 13;
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -306,10 +302,7 @@ const destinationBloom = {
   _mapMoveHandler: null,
   _mapZoomHandler: null,
   _mapResizeHandler: null,
-  _mapIdleHandler: null,
   _deactivationTimer: null,
-  _repairTimers: null,
-  _autoFocusAttempted: false,
   _pointerMoveHandler: null,
   _pointerLeaveHandler: null,
   _pointerClickHandler: null,
@@ -318,7 +311,6 @@ const destinationBloom = {
   _hoveredClusterId: null,
   _pinnedClusterId: null,
   _lastPointer: null,
-  _renderReady: false,
 
   isActive() {
     return this._active;
@@ -345,13 +337,10 @@ const destinationBloom = {
 
     this._active = true;
     this._destroyed = false;
-    this._renderReady = false;
-    this._autoFocusAttempted = false;
     if (this._deactivationTimer) {
       clearTimeout(this._deactivationTimer);
       this._deactivationTimer = null;
     }
-    this._clearRepairTimers();
     this._createCanvas(map);
     this._createTooltip(map);
     this._bindMapEvents(map);
@@ -417,17 +406,7 @@ const destinationBloom = {
     this._collectPoints();
     this._resizeCanvas();
     this._reprojectAndCluster();
-    this._renderReady = this._hasRenderableClusters();
-    if (!this._renderReady && this._clusters.length > 0) {
-      this._maybeAutoFocusDestinations();
-    }
-    if (this._renderReady) {
-      this._clearRepairTimers();
-      this._hideTripLayers(store.map);
-    } else {
-      this._restoreTripLayers(store.map);
-      this._scheduleRepairRefresh();
-    }
+    this._hideTripLayers(store.map);
     this._updateEmptyNotice();
     this._updateCanvasBlendMode();
 
@@ -437,7 +416,7 @@ const destinationBloom = {
   },
 
   ensureTripLayersHidden() {
-    if (!this._active || !this._renderReady) {
+    if (!this._active) {
       return;
     }
     this._hideTripLayers(store.map);
@@ -496,22 +475,38 @@ const destinationBloom = {
   },
 
   _resizeCanvas() {
+    const mapCanvas = store.map?.getCanvas?.();
     const container = store.map?.getCanvasContainer?.();
-    if (!container || !this._canvas) {
+    if (!this._canvas || (!mapCanvas && !container)) {
       return;
     }
 
-    const rect = container.getBoundingClientRect?.();
-    const width = Math.max(1, Math.round(rect?.width || container.clientWidth || 1));
+    const rect =
+      mapCanvas?.getBoundingClientRect?.() ||
+      container?.getBoundingClientRect?.() ||
+      null;
+    const width = Math.max(
+      1,
+      Math.round(rect?.width || mapCanvas?.clientWidth || container?.clientWidth || 1)
+    );
     const height = Math.max(
       1,
-      Math.round(rect?.height || container.clientHeight || 1)
+      Math.round(rect?.height || mapCanvas?.clientHeight || container?.clientHeight || 1)
     );
-    const pixelRatio = Math.max(globalThis.devicePixelRatio || 1, 1);
+    const pixelWidth = Math.max(
+      1,
+      Math.round(mapCanvas?.width || width * Math.max(globalThis.devicePixelRatio || 1, 1))
+    );
+    const pixelHeight = Math.max(
+      1,
+      Math.round(
+        mapCanvas?.height || height * Math.max(globalThis.devicePixelRatio || 1, 1)
+      )
+    );
 
-    this._pixelRatio = pixelRatio;
-    this._canvas.width = Math.round(width * pixelRatio);
-    this._canvas.height = Math.round(height * pixelRatio);
+    this._pixelRatio = Math.max(pixelWidth / width, 1);
+    this._canvas.width = pixelWidth;
+    this._canvas.height = pixelHeight;
     this._canvas.style.width = `${width}px`;
     this._canvas.style.height = `${height}px`;
   },
@@ -539,12 +534,6 @@ const destinationBloom = {
       })
       .filter(Boolean);
 
-    if (this._looksLikeCollapsedProjection(projectedPoints)) {
-      this._clusters = [];
-      this._syncTooltipToActiveCluster();
-      return;
-    }
-
     this._clusters = clusterDestinationPoints(projectedPoints, {
       zoom: Number(map.getZoom?.()) || 12,
     });
@@ -559,16 +548,10 @@ const destinationBloom = {
       this._resizeCanvas();
       this._reprojectAndCluster();
     };
-    this._mapIdleHandler = () => {
-      if (this._active && !this._renderReady) {
-        this.refresh();
-      }
-    };
 
     map.on?.("move", this._mapMoveHandler);
     map.on?.("zoom", this._mapZoomHandler);
     map.on?.("resize", this._mapResizeHandler);
-    map.on?.("idle", this._mapIdleHandler);
   },
 
   _unbindMapEvents() {
@@ -586,208 +569,10 @@ const destinationBloom = {
     if (this._mapResizeHandler) {
       map.off?.("resize", this._mapResizeHandler);
     }
-    if (this._mapIdleHandler) {
-      map.off?.("idle", this._mapIdleHandler);
-    }
 
     this._mapMoveHandler = null;
     this._mapZoomHandler = null;
     this._mapResizeHandler = null;
-    this._mapIdleHandler = null;
-  },
-
-  _hasRenderableClusters() {
-    return this._countVisibleClusters() > 0;
-  },
-
-  _getViewportSize() {
-    const container = store.map?.getCanvasContainer?.();
-    const rect = container?.getBoundingClientRect?.();
-    const width = Math.max(
-      0,
-      Number(rect?.width) || this._canvas?.clientWidth || container?.clientWidth || 0
-    );
-    const height = Math.max(
-      0,
-      Number(rect?.height) || this._canvas?.clientHeight || container?.clientHeight || 0
-    );
-
-    return { width, height };
-  },
-
-  _isClusterVisible(cluster) {
-    if (!cluster) {
-      return false;
-    }
-
-    const viewport = this._getViewportSize();
-    if (viewport.width <= 0 || viewport.height <= 0) {
-      return false;
-    }
-
-    const radius = Math.max(
-      Number(cluster.radius) || 0,
-      VIEWPORT_VISIBILITY_MARGIN_PX
-    );
-    return (
-      cluster.x + radius >= 0 &&
-      cluster.x - radius <= viewport.width &&
-      cluster.y + radius >= 0 &&
-      cluster.y - radius <= viewport.height
-    );
-  },
-
-  _countVisibleClusters() {
-    if (!Array.isArray(this._clusters) || this._clusters.length === 0) {
-      return 0;
-    }
-
-    return this._clusters.reduce(
-      (count, cluster) => count + (this._isClusterVisible(cluster) ? 1 : 0),
-      0
-    );
-  },
-
-  _looksLikeCollapsedProjection(points) {
-    if (!Array.isArray(points) || points.length < 2) {
-      return false;
-    }
-
-    const [first] = points;
-    const identicalPixels = points.every(
-      (point) => Math.abs(point.x - first.x) < 0.5 && Math.abs(point.y - first.y) < 0.5
-    );
-    if (!identicalPixels) {
-      return false;
-    }
-
-    let minLng = Number.POSITIVE_INFINITY;
-    let maxLng = Number.NEGATIVE_INFINITY;
-    let minLat = Number.POSITIVE_INFINITY;
-    let maxLat = Number.NEGATIVE_INFINITY;
-
-    points.forEach((point) => {
-      minLng = Math.min(minLng, point.coordinates[0]);
-      maxLng = Math.max(maxLng, point.coordinates[0]);
-      minLat = Math.min(minLat, point.coordinates[1]);
-      maxLat = Math.max(maxLat, point.coordinates[1]);
-    });
-
-    const lngSpan = maxLng - minLng;
-    const latSpan = maxLat - minLat;
-
-    // Nearby destinations can legitimately project to nearly the same pixel at
-    // city/region zoom levels. Treat the projection as broken only when the
-    // geographic spread is meaningfully large despite identical screen pixels.
-    return lngSpan > 0.05 || latSpan > 0.05;
-  },
-
-  _scheduleRepairRefresh() {
-    if (!this._active || this._destroyed || this._points.length === 0) {
-      return;
-    }
-
-    if (!Array.isArray(this._repairTimers)) {
-      this._repairTimers = [];
-    }
-    if (this._repairTimers.length > 0) {
-      return;
-    }
-
-    REPAIR_REFRESH_DELAYS_MS.forEach((delayMs) => {
-      const timerId = setTimeout(() => {
-        this._repairTimers = (this._repairTimers || []).filter((id) => id !== timerId);
-        if (!this._active || this._destroyed || this._renderReady) {
-          return;
-        }
-        this.refresh();
-      }, delayMs);
-      this._repairTimers.push(timerId);
-    });
-  },
-
-  _clearRepairTimers() {
-    if (!Array.isArray(this._repairTimers)) {
-      this._repairTimers = [];
-      return;
-    }
-
-    this._repairTimers.forEach((timerId) => clearTimeout(timerId));
-    this._repairTimers = [];
-  },
-
-  _maybeAutoFocusDestinations() {
-    if (this._autoFocusAttempted || !this._active || this._points.length === 0) {
-      return false;
-    }
-
-    const map = store.map;
-    if (!map) {
-      return false;
-    }
-
-    const coordinates = this._points
-      .map((point) => point?.coordinates)
-      .filter(
-        (coord) =>
-          Array.isArray(coord) &&
-          coord.length >= 2 &&
-          Number.isFinite(coord[0]) &&
-          Number.isFinite(coord[1])
-      );
-
-    if (coordinates.length === 0) {
-      return false;
-    }
-
-    this._autoFocusAttempted = true;
-
-    if (coordinates.length === 1) {
-      map.easeTo?.({
-        center: coordinates[0],
-        zoom: Math.max(Number(map.getZoom?.()) || AUTOFIT_MAX_ZOOM, AUTOFIT_MAX_ZOOM),
-        duration: 900,
-      });
-      return true;
-    }
-
-    let west = Number.POSITIVE_INFINITY;
-    let south = Number.POSITIVE_INFINITY;
-    let east = Number.NEGATIVE_INFINITY;
-    let north = Number.NEGATIVE_INFINITY;
-
-    coordinates.forEach(([lng, lat]) => {
-      west = Math.min(west, lng);
-      south = Math.min(south, lat);
-      east = Math.max(east, lng);
-      north = Math.max(north, lat);
-    });
-
-    if (![west, south, east, north].every(Number.isFinite)) {
-      return false;
-    }
-
-    if (Math.abs(east - west) < 1e-6 && Math.abs(north - south) < 1e-6) {
-      map.easeTo?.({
-        center: [west, south],
-        zoom: Math.max(Number(map.getZoom?.()) || AUTOFIT_MAX_ZOOM, AUTOFIT_MAX_ZOOM),
-        duration: 900,
-      });
-      return true;
-    }
-
-    map.fitBounds?.(
-      [
-        [west, south],
-        [east, north],
-      ],
-      {
-        padding: AUTOFIT_PADDING_PX,
-        maxZoom: AUTOFIT_MAX_ZOOM,
-        duration: 900,
-      }
-    );
-    return true;
   },
 
   _bindPointerEvents(map) {
@@ -1275,7 +1060,7 @@ const destinationBloom = {
   },
 
   _updateEmptyNotice() {
-    if (this._clusters.length > 0 || this._points.length > 0 || !this._active) {
+    if (this._clusters.length > 0 || !this._active) {
       this._removeEmptyNotice();
       return;
     }
@@ -1313,7 +1098,6 @@ const destinationBloom = {
       clearTimeout(this._deactivationTimer);
       this._deactivationTimer = null;
     }
-    this._clearRepairTimers();
     this._unbindMapEvents();
     this._unbindPointerEvents();
     this._updateCursor(null);
@@ -1326,8 +1110,6 @@ const destinationBloom = {
     this._clusters = [];
     this._opacity = 0;
     this._fading = null;
-    this._autoFocusAttempted = false;
-    this._renderReady = false;
     this._hoveredClusterId = null;
     this._pinnedClusterId = null;
     this._lastPointer = null;
