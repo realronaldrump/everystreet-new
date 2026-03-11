@@ -1102,7 +1102,6 @@ function createTripCard(trip, allTrips) {
             <stop offset="100%" stop-color="var(--trips-primary)" />
           </linearGradient>
         </defs>
-        <path class="route-glow" d="M 5,35 Q 25,5 50,20 T 95,15" stroke="url(#route-grad-${uid})" stroke-linecap="round" stroke-linejoin="round"/>
         <path class="route-main" d="M 5,35 Q 25,5 50,20 T 95,15" stroke="url(#route-grad-${uid})" stroke-linecap="round" stroke-linejoin="round"/>
         <circle class="route-start" cx="5" cy="35" r="2.5"/>
         <circle class="route-end" cx="95" cy="15" r="2.5"/>
@@ -1172,10 +1171,8 @@ function createTripCard(trip, allTrips) {
   const previewPath = getTripPreviewPath(trip);
   if (previewPath) {
     const svg = card.querySelector(".trip-route-line");
-    const glowPath = svg.querySelector(".route-glow");
     const mainPath = svg.querySelector(".route-main");
-    if (glowPath && mainPath) {
-      glowPath.setAttribute("d", previewPath);
+    if (mainPath) {
       mainPath.setAttribute("d", previewPath);
 
       // Parse first and last coordinates from path for start/end markers

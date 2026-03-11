@@ -1071,17 +1071,6 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   z-index: 1;
 }
 
-.trip-route-line .route-glow {
-  stroke-width: 8;
-  opacity: 0.15;
-  transition: opacity var(--transition-base), stroke-width var(--transition-base);
-}
-
-.trip-card:hover .trip-route-line .route-glow {
-  opacity: 0.3;
-  stroke-width: 10;
-}
-
 .trip-route-line .route-main {
   stroke-width: 3.5;
   stroke-linecap: round;
