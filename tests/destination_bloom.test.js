@@ -158,7 +158,10 @@ function createMapMock(container) {
       return container;
     },
     project([lng, lat]) {
-      return { x: lng * 12 + 120, y: lat * -10 + 180 };
+      return {
+        x: (lng + 100) * 120,
+        y: (35 - lat) * 90,
+      };
     },
     getZoom() {
       return 12;
