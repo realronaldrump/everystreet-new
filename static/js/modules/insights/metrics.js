@@ -122,7 +122,7 @@ export function updateAllMetrics() {
   );
   setText(
     "distance-context",
-    `Longest streak: ${Number(consistency.longestStreak) || 0} days`
+    `${Number(consistency.activeDays) || 0} active driving days in this range`
   );
   setText(
     "time-context",
@@ -135,7 +135,6 @@ export function updateAllMetrics() {
       : `${fuelLens.mpg.toFixed(1)} MPG with ${fuelLens.fuelPerTrip.toFixed(2)} gal/trip`;
   setText("fuel-context", fuelText);
 
-  setText("scene-streak-value", `${Number(consistency.longestStreak) || 0} day streak`);
   setText(
     "scene-exploration-value",
     `${Number(exploration.top3ShareTrips || 0).toFixed(1)}% top-3 concentration`

@@ -33,7 +33,6 @@ class WrappedExperience {
    * @param {number} data.coverageEnd - Coverage % at end of period
    * @param {number} data.newStreets - New streets covered
    * @param {number} data.drivingDays - Days with driving
-   * @param {number} data.currentStreak - Current streak
    * @param {string} data.favoriteDayOfWeek - Most common driving day
    * @param {string} data.favoriteHour - Most common driving hour
    */

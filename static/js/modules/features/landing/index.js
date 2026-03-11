@@ -22,7 +22,6 @@ import {
 } from "../../insights/derived-insights.js";
 import { animateValue } from "./animations.js";
 import { bindWidgetEditToggle, updateGreeting } from "./hero.js";
-import streakHeatmap, { buildHeatmapWindow } from "../../ui/streak-heatmap.js";
 import wrappedExperience from "../../ui/wrapped.js";
 
 // Configuration
@@ -54,7 +53,6 @@ let recordSources = {
 let pageSignal = null;
 let lastKnownLocation = null;
 let metricsLoadRequestId = 0;
-let streakHeatmapLoadRequestId = 0;
 let removeFilterRefreshListener = null;
 let ambientCleanup = null;
 let featureApi = createFeatureApi();
@@ -82,7 +80,7 @@ export default function initLandingPage({ signal, cleanup, api } = {}) {
   bindRecordCard();
   removeFilterRefreshListener = bindFilterRefresh();
 
-  // Streak heatmap + Wrapped + Ambient background
+  // Wrapped + Ambient background
   bindWrappedLauncher();
   setupAmbientBackground();
   const teardown = () => {
@@ -141,7 +139,6 @@ async function loadAllData() {
 
     await Promise.all([
       loadMetrics(),
-      loadStreakHeatmap(),
       loadGasStats(),
       loadInsights(),
       loadCountyStats(),
@@ -265,7 +262,6 @@ function bindRecordCard() {
 function bindFilterRefresh() {
   const refreshMetrics = () => {
     loadMetrics();
-    loadStreakHeatmap();
   };
 
   if (pageSignal) {
@@ -957,7 +953,6 @@ function buildWrappedData({
     busiestDayMiles: Number(records.max_day_distance?.distance) || 0,
     topDestinations,
     drivingDays: consistency.activeDays || 0,
-    currentStreak: consistency.currentStreak || 0,
     favoriteDayOfWeek: timeSignature.peakDayLabel || "",
     favoriteHour: timeSignature.weightedHourLabel || "",
   };
@@ -1284,61 +1279,6 @@ function clearIntervals() {
   if (recordRotationIntervalId) {
     clearInterval(recordRotationIntervalId);
     recordRotationIntervalId = null;
-  }
-}
-
-/**
- * Load streak heatmap data and render it
- */
-async function loadStreakHeatmap() {
-  const requestId = ++streakHeatmapLoadRequestId;
-  const container = document.getElementById("streak-heatmap-container");
-  if (!container) return;
-
-  try {
-    const params = buildTripMetricsQueryParams();
-    const explicitRange = getExplicitDateRange();
-    const hasExplicitRange = Boolean(explicitRange.startDate || explicitRange.endDate);
-    const resolvedRange = resolveDateRange({ fallbackDays: 26 * 7 });
-    const requestRange = hasExplicitRange
-      ? resolvedRange
-      : (() => {
-          const heatmapWindow = buildHeatmapWindow({ endDate: resolvedRange.endDate });
-          return {
-            startDate: formatLocalDateInput(heatmapWindow.startDate),
-            endDate: formatLocalDateInput(heatmapWindow.endDate),
-          };
-        })();
-
-    applyDateRangeToParams(params, requestRange);
-
-    const qs = params.toString();
-    const data = await apiGet(qs ? `/api/trip-analytics?${qs}` : "/api/trip-analytics");
-    if (requestId !== streakHeatmapLoadRequestId || !container.isConnected) {
-      return;
-    }
-    const dailyDistances = Array.isArray(data?.daily_distances)
-      ? data.daily_distances
-      : [];
-
-    if (dailyDistances.length === 0) {
-      container.innerHTML = "";
-      container.className = "";
-      return;
-    }
-
-    const consistency = computeConsistencyStats(dailyDistances);
-    streakHeatmap.render(container, {
-      dailyDistances,
-      currentStreak: consistency.currentStreak,
-      longestStreak: consistency.longestStreak,
-      endDate: requestRange.endDate,
-    });
-  } catch (error) {
-    if (requestId !== streakHeatmapLoadRequestId || isAbortError(error)) {
-      return;
-    }
-    console.warn("Failed to load streak heatmap", error);
   }
 }
 

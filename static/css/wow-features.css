@@ -1,5 +1,5 @@
 /* =============================================================================
-   WOW Features — Celebrations, Timelapse, Streak, Wrapped, Route Art, Ambient
+   WOW Features — Celebrations, Timelapse, Wrapped, Route Art, Ambient
    ============================================================================= */
 
 /* === Coverage Timelapse Controls === */
@@ -195,59 +195,6 @@
 .celebration-detail {
   font-size: var(--font-size-md);
   color: var(--text-secondary);
-}
-
-/* === Streak Heatmap === */
-.streak-heatmap-card {
-  padding: var(--space-5);
-  background: var(--surface-1);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border-color);
-}
-
-.streak-heatmap-label {
-  font-size: var(--font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-tertiary);
-  margin-bottom: var(--space-3);
-}
-
-.streak-heatmap-grid {
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.streak-heatmap-grid::-webkit-scrollbar {
-  display: none;
-}
-
-.streak-heatmap-footer {
-  display: flex;
-  gap: var(--space-6);
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--divider-color);
-}
-
-.streak-stat {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.streak-stat-value {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-bold);
-  font-family: var(--font-heading);
-  color: var(--text-primary);
-}
-
-.streak-stat-label {
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
 }
 
 /* === Route Art Overlay === */
@@ -695,10 +642,6 @@
     font-size: var(--font-size-xs);
   }
 
-  .streak-heatmap-footer {
-    flex-direction: column;
-    gap: var(--space-2);
-  }
 }
 
 /* === Reduced Motion === */

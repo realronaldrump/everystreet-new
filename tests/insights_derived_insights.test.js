@@ -31,7 +31,7 @@ test("aggregatePeriods groups daily data into weekly and monthly buckets", () =>
   assert.equal(monthly[1].distance, 30);
 });
 
-test("computeConsistencyStats handles streaks and day gaps", () => {
+test("computeConsistencyStats summarizes active and quiet days", () => {
   const daily = [
     { date: "2026-01-01", distance: 8, count: 1 },
     { date: "2026-01-02", distance: 6, count: 1 },
@@ -40,10 +40,9 @@ test("computeConsistencyStats handles streaks and day gaps", () => {
 
   const stats = computeConsistencyStats(daily);
 
-  assert.equal(stats.longestStreak, 2);
-  assert.equal(stats.currentStreak, 1);
   assert.equal(stats.activeDays, 3);
   assert.equal(stats.spanDays, 4);
+  assert.equal(stats.quietDays, 1);
   assert.equal(stats.activeDaysRatio, 75);
 });
 

@@ -229,8 +229,6 @@ export function computeConsistencyStats(dailyDistances = []) {
 
   if (!normalized.length) {
     return {
-      longestStreak: 0,
-      currentStreak: 0,
       activeDays: 0,
       spanDays: 0,
       activeDaysRatio: 0,
@@ -245,9 +243,6 @@ export function computeConsistencyStats(dailyDistances = []) {
   const end = parseYmdUtc(normalized[normalized.length - 1].date);
   const spanDays = Math.floor((end - start) / MS_PER_DAY) + 1;
 
-  let longestStreak = 0;
-  let currentStreak = 0;
-  let runningStreak = 0;
   let activeDays = 0;
   let totalTrips = 0;
   let totalDistance = 0;
@@ -260,23 +255,13 @@ export function computeConsistencyStats(dailyDistances = []) {
     const distance = toNumber(day?.distance);
 
     if (count > 0) {
-      runningStreak += 1;
       activeDays += 1;
       totalTrips += count;
       totalDistance += distance;
-    } else {
-      runningStreak = 0;
-    }
-
-    longestStreak = Math.max(longestStreak, runningStreak);
-    if (cursor === spanDays - 1) {
-      currentStreak = runningStreak;
     }
   }
 
   return {
-    longestStreak,
-    currentStreak,
     activeDays,
     spanDays,
     quietDays: Math.max(0, spanDays - activeDays),
@@ -507,15 +492,6 @@ export function buildPatternCards(derivedData = {}) {
   const fuelLens = derivedData.fuelLens || {};
 
   const scenes = [
-    {
-      id: "streak",
-      icon: "fa-fire",
-      title: "Drive-day streak",
-      value: `${toNumber(consistency.longestStreak)} days`,
-      detail: `${toNumber(consistency.activeDays)} of ${toNumber(consistency.spanDays)} days had trips`,
-      tone: "mint",
-      action: { type: "drilldown", kind: "trips" },
-    },
     {
       id: "signature",
       icon: "fa-clock",

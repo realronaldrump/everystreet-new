@@ -102,8 +102,6 @@ class VisitsPageController {
       totalPlacesCount: document.getElementById("total-places-count"),
       totalVisitsCount: document.getElementById("total-visits-count"),
       monthVisitsCount: document.getElementById("month-visits-count"),
-      visitStreak: document.getElementById("visit-streak"),
-      streakCard: document.getElementById("streak-card"),
 
       // Places section
       placesGrid: document.getElementById("places-grid"),
@@ -609,35 +607,9 @@ class VisitsPageController {
     const totalVisits = allStats.reduce((sum, s) => sum + (s.totalVisits || 0), 0);
     const monthVisits = monthStats.reduce((sum, s) => sum + (s.totalVisits || 0), 0);
 
-    // Calculate streak (simplified - would need individual visit data)
-    const streak = this.calculateStreak(allStats);
-
     this.elements.totalPlacesCount.textContent = totalPlaces;
     this.elements.totalVisitsCount.textContent = totalVisits;
     this.elements.monthVisitsCount.textContent = monthVisits;
-
-    if (streak > 1) {
-      this.elements.visitStreak.textContent = streak;
-      this.elements.streakCard.style.display = "block";
-    }
-  }
-
-  calculateStreak(stats) {
-    // Simplified streak calculation based on last visit dates
-    // In production, this would analyze individual visit timestamps
-    const placesWithRecentVisits = stats.filter((s) => {
-      if (!s.lastVisit) {
-        return false;
-      }
-      const lastVisit = new Date(s.lastVisit);
-      const today = new Date();
-      const daysDiff = (today - lastVisit) / (1000 * 60 * 60 * 24);
-      return daysDiff <= 1;
-    });
-
-    return placesWithRecentVisits.length > 0
-      ? Math.min(placesWithRecentVisits.length, 5)
-      : 0;
   }
 
   // Rendering

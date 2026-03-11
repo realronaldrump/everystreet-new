@@ -141,7 +141,6 @@ global.document = {
 const store = (await import("../static/js/modules/core/store.js")).default;
 const { CONFIG: APP_CONFIG } = await import("../static/js/modules/core/config.js");
 const wrappedExperience = (await import("../static/js/modules/ui/wrapped.js")).default;
-const { buildHeatmapWindow } = await import("../static/js/modules/ui/streak-heatmap.js");
 const { CelebrationManager } = await import("../static/js/modules/ui/celebrations.js");
 const { RouteArt } = await import("../static/js/modules/ui/route-art.js");
 const {
@@ -316,16 +315,6 @@ test("resolveDateRange honors explicit stored filters before fallback defaults",
   } finally {
     store.get = originalGet;
   }
-});
-
-test("buildHeatmapWindow anchors the streak grid to the selected end date", () => {
-  const windowRange = buildHeatmapWindow({ endDate: "2024-05-15" });
-  const expectedStart = new Date(2024, 4, 15);
-  expectedStart.setDate(expectedStart.getDate() - (26 * 7) - expectedStart.getDay());
-
-  assert.equal(formatLocalDate(windowRange.endDate), "2024-05-15");
-  assert.equal(formatLocalDate(windowRange.startDate), formatLocalDate(expectedStart));
-  assert.equal(windowRange.totalWeeks, 27);
 });
 
 test("CelebrationManager applies the visible badge lifecycle classes", () => {
