@@ -630,15 +630,15 @@
 
 .route-personality-tag {
   display: inline-block;
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-family: var(--font-family-mono);
+  letter-spacing: 0.01em;
   color: rgb(var(--routes-primary-rgb) / 85%);
   background: rgb(var(--routes-primary-rgb) / 10%);
   border: 1px solid rgb(var(--routes-primary-rgb) / 20%);
   border-radius: 9999px;
-  padding: 0.15rem 0.55rem;
+  padding: 0.2rem 0.6rem;
 }
 
 .route-card-indicators {
@@ -717,7 +717,6 @@
   padding: var(--space-2) var(--space-4) 0;
   font-size: var(--font-size-sm);
   color: var(--routes-text-muted);
-  font-style: italic;
   border-left: 2px solid rgb(var(--routes-primary-rgb) / 25%);
   margin: var(--space-2) var(--space-4) 0;
   padding-left: var(--space-3);
@@ -1641,10 +1640,10 @@ html[data-bs-theme="light"] .route-preview-svg path {
 
 .route-insight-banner-tag {
   display: inline-block;
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-family: var(--font-family-mono);
+  letter-spacing: 0.01em;
   color: rgb(var(--routes-primary-rgb) / 90%);
 }
 

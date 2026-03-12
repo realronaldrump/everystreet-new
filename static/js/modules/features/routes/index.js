@@ -112,6 +112,38 @@ function formatPercent(v, digits = 1) {
   return Number.isFinite(n) ? `${n.toFixed(digits)}%` : "--";
 }
 
+function formatDateCompact(value) {
+  const d = value instanceof Date ? value : parseDate(value);
+  if (!d) {
+    return "--";
+  }
+  const includeYear = d.getFullYear() !== new Date().getFullYear();
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(includeYear ? { year: "numeric" } : {}),
+  });
+}
+
+function formatTripCount(value) {
+  const count = Math.max(0, Math.round(Number(value) || 0));
+  return `${count.toLocaleString()} trip${count === 1 ? "" : "s"}`;
+}
+
+function formatWeekCount(value) {
+  const count = Math.max(1, Math.round(Number(value) || 0));
+  return `${count.toLocaleString()} week${count === 1 ? "" : "s"}`;
+}
+
+function formatTripsPerWeekLabel(value) {
+  const rate = Number(value);
+  if (!Number.isFinite(rate) || rate <= 0) {
+    return null;
+  }
+  const digits = rate >= 10 ? 0 : 1;
+  return `${rate.toFixed(digits)}/week`;
+}
+
 function routeStrokeColor(route) {
   const raw = (route?.color || "").trim();
   return raw.startsWith("#") && raw.length === 7 ? raw : "#3b8a7f";
@@ -120,6 +152,7 @@ function routeStrokeColor(route) {
 /* ───── insight computations ───── */
 const MS_PER_DAY = 86400000;
 const MS_PER_WEEK = 7 * MS_PER_DAY;
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function parseDate(value) {
   if (!value) {
@@ -134,12 +167,7 @@ function sundayWeekStartUtc(date) {
   return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - day);
 }
 
-function computeTripsPerWeek(route) {
-  const trips = Number(route?.trip_count || 0);
-  if (trips <= 0) {
-    return 0;
-  }
-
+function computeCoveredWeeks(route) {
   const first = parseDate(route?.first_start_time);
   const last = parseDate(route?.last_start_time);
   if (!first && !last) {
@@ -157,8 +185,19 @@ function computeTripsPerWeek(route) {
 
   const firstWeekStart = sundayWeekStartUtc(start);
   const lastWeekStart = sundayWeekStartUtc(end);
-  const coveredWeeks = Math.floor((lastWeekStart - firstWeekStart) / MS_PER_WEEK) + 1;
-  return trips / Math.max(coveredWeeks, 1);
+  return Math.floor((lastWeekStart - firstWeekStart) / MS_PER_WEEK) + 1;
+}
+
+function computeTripsPerWeek(route) {
+  const trips = Number(route?.trip_count || 0);
+  if (trips <= 0) {
+    return 0;
+  }
+  const coveredWeeks = computeCoveredWeeks(route);
+  if (coveredWeeks <= 0) {
+    return 0;
+  }
+  return trips / coveredWeeks;
 }
 
 function resolveTripsPerWeek(route, analyticsData) {
@@ -169,63 +208,33 @@ function resolveTripsPerWeek(route, analyticsData) {
   return computeTripsPerWeek(route);
 }
 
-function getDistanceCategory(medianMiles) {
-  const n = Number(medianMiles);
-  if (!Number.isFinite(n) || n <= 0) {
-    return "";
+function buildRouteActivityTag(route) {
+  const lastSeen = parseDate(route?.last_start_time);
+  if (lastSeen) {
+    return `Last seen ${formatDateCompact(lastSeen)}`;
   }
-  if (n < 3) {
-    return "short hop";
-  }
-  if (n < 15) {
-    return "regular drive";
-  }
-  if (n < 50) {
-    return "long commute";
-  }
-  return "road trip";
+  const tripCount = Number(route?.trip_count || 0);
+  return tripCount > 0 ? formatTripCount(tripCount) : "Summary unavailable";
 }
 
-function getRoutePersonality(route) {
-  const tpw = computeTripsPerWeek(route);
-  const daysSinceLast = route?.last_start_time
-    ? (Date.now() - new Date(route.last_start_time).getTime()) / 86400000
-    : null;
-  const dist = Number(route?.distance_miles_median || route?.distance_miles_avg || 0);
+function buildCardInsightSentence(route) {
+  const parts = [];
+  const coveredWeeks = computeCoveredWeeks(route);
+  const tripsPerWeek = formatTripsPerWeekLabel(computeTripsPerWeek(route));
 
-  if (daysSinceLast !== null && daysSinceLast > 90) {
-    return "Inactive route";
+  if (coveredWeeks > 0) {
+    parts.push(`Observed across ${formatWeekCount(coveredWeeks)}`);
   }
-  if (tpw >= 4 && dist < 20) {
-    return "Daily commute";
+  if (tripsPerWeek) {
+    parts.push(tripsPerWeek);
   }
-  if (tpw >= 4) {
-    return "Frequent regular";
-  }
-  if (tpw >= 1.5) {
-    return "Regular route";
-  }
-  if (tpw >= 0.5) {
-    return "Weekly trip";
-  }
-  if (tpw > 0) {
-    return "Occasional trip";
-  }
-  return "Route";
-}
 
-function getCardInsightSentence(route) {
-  const tpw = computeTripsPerWeek(route);
-  const distCat = getDistanceCategory(route?.distance_miles_median);
-  const freqLabel =
-    tpw >= 4
-      ? "Frequent"
-      : tpw >= 1.5
-        ? "Regular"
-        : tpw >= 0.5
-          ? "Weekly"
-          : "Occasional";
-  return distCat ? `${freqLabel} ${distCat}` : freqLabel;
+  if (parts.length > 0) {
+    return parts.join(" · ");
+  }
+
+  const tripCount = Number(route?.trip_count || 0);
+  return tripCount > 0 ? `${formatTripCount(tripCount)} logged` : "Summary unavailable";
 }
 
 function computeHeroInsights(routes) {
@@ -268,40 +277,6 @@ function computeHeroInsights(routes) {
   return { dna, spotlight };
 }
 
-function computeConsistencyScore(analyticsData) {
-  const timeline = analyticsData?.timeline;
-  if (!Array.isArray(timeline) || timeline.length < 3) {
-    return null;
-  }
-  const distances = timeline.map((t) => Number(t?.distance)).filter(Number.isFinite);
-  if (distances.length < 3) {
-    return null;
-  }
-  const mean = distances.reduce((s, d) => s + d, 0) / distances.length;
-  if (mean <= 0) {
-    return null;
-  }
-  const variance =
-    distances.reduce((s, d) => s + (d - mean) ** 2, 0) / distances.length;
-  const cv = Math.sqrt(variance) / mean;
-  if (cv < 0.05) {
-    return { score: Math.round(95 + Math.random() * 5), label: "Like clockwork" };
-  }
-  if (cv < 0.15) {
-    return {
-      score: Math.round(80 + ((0.15 - cv) / 0.1) * 14),
-      label: "Very consistent",
-    };
-  }
-  if (cv < 0.3) {
-    return {
-      score: Math.round(60 + ((0.3 - cv) / 0.15) * 19),
-      label: "Mostly consistent",
-    };
-  }
-  return { score: Math.max(20, Math.round(60 - cv * 50)), label: "Variable" };
-}
-
 function computePeakDeparture(analyticsData) {
   const byHour = analyticsData?.byHour;
   if (!Array.isArray(byHour) || byHour.length === 0) {
@@ -323,7 +298,7 @@ function computePeakDeparture(analyticsData) {
   };
 }
 
-function computeDayPattern(analyticsData) {
+function computeWeekdayShare(analyticsData) {
   const byDay = analyticsData?.byDayOfWeek;
   if (!Array.isArray(byDay) || byDay.length === 0) {
     return null;
@@ -334,46 +309,90 @@ function computeDayPattern(analyticsData) {
   }
   const weekday = byDay
     .filter((d) => {
-      const idx = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(d.dayName);
+      const idx = DAY_NAMES.indexOf(d.dayName);
       return idx >= 1 && idx <= 5;
     })
     .reduce((s, d) => s + (d?.count || 0), 0);
-  const weekdayShare = weekday / total;
-  if (weekdayShare > 0.8) {
-    return "Weekday regular";
-  }
-  if (weekdayShare < 0.5) {
-    return "Weekend warrior";
-  }
-  const counts = byDay.map((d) => d?.count || 0);
-  const maxDay = Math.max(...counts);
-  const minDay = Math.min(...counts.filter((c) => c > 0));
-  if (minDay > 0 && maxDay / minDay < 2.5) {
-    return "Everyday route";
-  }
-  return "Mixed schedule";
+  return Math.round((weekday / total) * 100);
 }
 
-function generateModalInsightSentence(route, analyticsData) {
+function buildModalInsightSentence(route, analyticsData) {
   const parts = [];
-  const dayPattern = computeDayPattern(analyticsData);
-  if (dayPattern) {
-    parts.push(dayPattern);
+  const tripCount = Number(route?.trip_count || 0);
+  const coveredWeeks = computeCoveredWeeks(route);
+  const tripsPerWeek = formatTripsPerWeekLabel(resolveTripsPerWeek(route, analyticsData));
+
+  if (tripCount > 0 && coveredWeeks > 0) {
+    parts.push(
+      `${formatTripCount(tripCount)} across ${formatWeekCount(coveredWeeks)}${tripsPerWeek ? ` (${tripsPerWeek})` : ""}`
+    );
+  } else if (tripCount > 0) {
+    parts.push(`${formatTripCount(tripCount)} logged`);
   }
   const peak = computePeakDeparture(analyticsData);
   if (peak) {
-    parts.push(`usually departs ${peak.label}`);
+    parts.push(`Peak departure ${peak.label} (${formatTripCount(peak.count)})`);
   }
-  const consistency = computeConsistencyScore(analyticsData);
-  if (consistency) {
-    parts.push(`${consistency.label.toLowerCase()} distance`);
+  const weekdayShare = computeWeekdayShare(analyticsData);
+  if (weekdayShare !== null) {
+    parts.push(`Weekdays ${weekdayShare}% of trips`);
   }
   if (parts.length === 0) {
-    const personality = getRoutePersonality(route);
-    return personality !== "Route" ? personality : "Recurring route pattern";
+    return `${buildRouteActivityTag(route)}.`;
   }
-  const sentence = parts.join(", ");
-  return `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}.`;
+  return `${parts.join(". ")}.`;
+}
+
+function computeDistanceStats(analyticsData, route = null) {
+  const timelineDistances = Array.isArray(analyticsData?.timeline)
+    ? analyticsData.timeline
+        .map((trip) => Number(trip?.distance))
+        .filter((distance) => Number.isFinite(distance) && distance > 0)
+    : [];
+
+  if (timelineDistances.length > 0) {
+    const min = Math.min(...timelineDistances);
+    const max = Math.max(...timelineDistances);
+    const mean =
+      timelineDistances.reduce((sum, distance) => sum + distance, 0) /
+      timelineDistances.length;
+    return {
+      count: timelineDistances.length,
+      min,
+      max,
+      mean,
+    };
+  }
+
+  const fallbackDistances = [route?.distance_miles_median, route?.distance_miles_avg]
+    .map((value) => Number(value))
+    .filter((distance) => Number.isFinite(distance) && distance > 0);
+
+  if (fallbackDistances.length > 0) {
+    const min = Math.min(...fallbackDistances);
+    const max = Math.max(...fallbackDistances);
+    const mean =
+      fallbackDistances.reduce((sum, distance) => sum + distance, 0) /
+      fallbackDistances.length;
+    return {
+      count: fallbackDistances.length,
+      min,
+      max,
+      mean,
+    };
+  }
+
+  return null;
+}
+
+function formatDistanceRange(stats) {
+  if (!stats) {
+    return "--";
+  }
+  if (Math.abs(stats.max - stats.min) < 0.05) {
+    return formatMiles(stats.mean);
+  }
+  return `${stats.min.toFixed(1)}-${stats.max.toFixed(1)} mi`;
 }
 
 function normalizePlaceLabel(label) {
@@ -613,19 +632,16 @@ function createRouteCard(route) {
     ? Math.floor((Date.now() - new Date(route.last_start_time).getTime()) / 86400000)
     : null;
   let freshnessClass = "stale";
-  let freshnessLabel = "Inactive";
+  const freshnessLabel = route.last_start_time
+    ? `Last seen ${formatDateShort(route.last_start_time)}`
+    : "Trip date unavailable";
   if (daysSinceLast !== null) {
     if (daysSinceLast <= 7) {
       freshnessClass = "fresh";
-      freshnessLabel = "This week";
     } else if (daysSinceLast <= 30) {
       freshnessClass = "recent";
-      freshnessLabel = "This month";
     } else if (daysSinceLast <= 90) {
       freshnessClass = "aging";
-      freshnessLabel = `${Math.round(daysSinceLast / 7)}w ago`;
-    } else {
-      freshnessLabel = formatDateShort(route.last_start_time);
     }
   }
 
@@ -641,12 +657,12 @@ function createRouteCard(route) {
     );
   }
 
-  const personality = getRoutePersonality(route);
-  const insightSentence = getCardInsightSentence(route);
+  const routeTag = buildRouteActivityTag(route);
+  const insightSentence = buildCardInsightSentence(route);
 
   card.innerHTML = `
     <div class="route-card-top">
-      <span class="route-personality-tag">${escapeHtml(personality)}</span>
+      <span class="route-personality-tag">${escapeHtml(routeTag)}</span>
       <div class="route-card-indicators">
         ${pills.join("")}
         <span class="route-freshness-dot ${freshnessClass}" title="${escapeHtml(freshnessLabel)}"></span>
@@ -1172,17 +1188,15 @@ function setModalStats(route, analyticsData) {
   );
 
   // Insight banner
-  const personality = getRoutePersonality(route);
-  setVal("route-insight-tag", personality);
-  const insightSentence = generateModalInsightSentence(route, analyticsData);
+  setVal("route-insight-tag", buildRouteActivityTag(route));
+  const insightSentence = buildModalInsightSentence(route, analyticsData);
   setVal("route-insight-sentence", insightSentence);
 
   // Key facts
+  const rateLabel = formatTripsPerWeekLabel(tpw);
   setVal(
     "route-fact-frequency",
-    tpw > 0
-      ? `${Number(tpw).toFixed(1)}x / week`
-      : `${route?.trip_count || stats.totalTrips || 0} total`
+    rateLabel || formatTripCount(route?.trip_count || stats.totalTrips || 0)
   );
 
   const distStr = route?.distance_miles_avg
@@ -1195,24 +1209,14 @@ function setModalStats(route, analyticsData) {
       : "";
   setVal("route-fact-distance", durStr ? `${distStr} / ${durStr}` : distStr);
 
-  const consistency = computeConsistencyScore(analyticsData);
-  if (consistency) {
-    setVal("route-fact-consistency", `${consistency.score}`);
-    const consistLabel = getEl("route-fact-consistency");
-    if (consistLabel) {
-      consistLabel.title = consistency.label;
-    }
-  } else {
-    const medDist = Number(route?.distance_miles_median || 0);
-    const avgDist = Number(route?.distance_miles_avg || 0);
-    if (medDist > 0 && avgDist > 0) {
-      const ratio = medDist / avgDist;
-      setVal(
-        "route-fact-consistency",
-        ratio > 0.9 && ratio < 1.1 ? "Consistent" : "Variable"
-      );
+  const distanceStats = computeDistanceStats(analyticsData, route);
+  setVal("route-fact-consistency", formatDistanceRange(distanceStats));
+  const distanceRangeEl = getEl("route-fact-consistency");
+  if (distanceRangeEl) {
+    if (distanceStats?.count > 0) {
+      distanceRangeEl.title = `Observed from ${formatTripCount(distanceStats.count)}`;
     } else {
-      setVal("route-fact-consistency", "--");
+      distanceRangeEl.removeAttribute("title");
     }
   }
 }
@@ -1305,23 +1309,21 @@ function renderMonthlyChart(data) {
 
   // Monthly insight
   const monthlyInsight = getEl("route-chart-monthly-insight");
-  if (monthlyInsight && byMonth.length >= 3) {
+  if (monthlyInsight) {
+    monthlyInsight.textContent = "";
+  }
+  if (monthlyInsight && byMonth.length >= 1) {
     const recent = counts.slice(-3);
     const earlier = counts.slice(-6, -3);
-    if (earlier.length > 0) {
-      const recentAvg = recent.reduce((s, c) => s + c, 0) / recent.length;
+    const recentTotal = recent.reduce((sum, count) => sum + count, 0);
+    if (earlier.length > 0 && recent.length > 0) {
+      const recentAvg = recentTotal / recent.length;
       const earlierAvg = earlier.reduce((s, c) => s + c, 0) / earlier.length;
-      if (earlierAvg > 0) {
-        const change = ((recentAvg - earlierAvg) / earlierAvg) * 100;
-        if (Math.abs(change) > 10) {
-          monthlyInsight.textContent =
-            change > 0
-              ? `Trending up ${Math.round(change)}% over recent months`
-              : `Trending down ${Math.round(Math.abs(change))}% over recent months`;
-        } else {
-          monthlyInsight.textContent = "Steady frequency over recent months";
-        }
-      }
+      monthlyInsight.textContent =
+        `Recent 3-mo avg ${recentAvg.toFixed(1)} trips; prior 3-mo avg ${earlierAvg.toFixed(1)}`;
+    } else {
+      monthlyInsight.textContent =
+        `Recent ${recent.length}-month total ${recentTotal} trip${recentTotal === 1 ? "" : "s"}`;
     }
   }
 }
@@ -1388,6 +1390,7 @@ function renderHourChart(data) {
   // Hourly insight
   const hourInsight = getEl("route-chart-hour-insight");
   if (hourInsight) {
+    hourInsight.textContent = "";
     const peak = byHour.reduce(
       (a, b) => ((b?.count || 0) > (a?.count || 0) ? b : a),
       byHour[0]
@@ -1460,6 +1463,7 @@ function renderDowChart(data) {
   // Day of week insight
   const dowInsight = getEl("route-chart-dow-insight");
   if (dowInsight) {
+    dowInsight.textContent = "";
     const peak = byDay.reduce(
       (a, b) => ((b?.count || 0) > (a?.count || 0) ? b : a),
       byDay[0]
@@ -1589,20 +1593,16 @@ function renderDistanceTrendChart(data) {
 
   // Distance trend insight
   const trendInsight = getEl("route-chart-trend-insight");
-  if (trendInsight && distances.length >= 3) {
-    const validDist = distances.filter(Number.isFinite);
-    if (validDist.length >= 3) {
-      const mean = validDist.reduce((s, d) => s + d, 0) / validDist.length;
-      const variance =
-        validDist.reduce((s, d) => s + (d - mean) ** 2, 0) / validDist.length;
-      const cv = mean > 0 ? Math.sqrt(variance) / mean : 0;
-      if (cv < 0.1) {
-        trendInsight.textContent = `Very consistent distance (${mean.toFixed(1)} mi avg)`;
-      } else if (cv < 0.25) {
-        trendInsight.textContent = `Mostly consistent distance with some variation`;
-      } else {
-        trendInsight.textContent = `Distance varies significantly between trips`;
-      }
+  if (trendInsight) {
+    trendInsight.textContent = "";
+  }
+  if (trendInsight && distances.length >= 2) {
+    const distanceStats = computeDistanceStats(data, routeModalRoute);
+    if (distanceStats) {
+      trendInsight.textContent =
+        Math.abs(distanceStats.max - distanceStats.min) < 0.05
+          ? `Average ${distanceStats.mean.toFixed(1)} mi across ${formatTripCount(distanceStats.count)}`
+          : `Average ${distanceStats.mean.toFixed(1)} mi; range ${formatDistanceRange(distanceStats)} across ${formatTripCount(distanceStats.count)}`;
     }
   }
 }
