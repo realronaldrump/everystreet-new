@@ -30,7 +30,7 @@ export default function initCoverageRoutePlannerPage(context = {}) {
       zoom: 4,
     });
   } catch (error) {
-    console.error("Coverage route planner map failed to initialize", error);
+    console.error("Route planner map failed to initialize", error);
     container.innerHTML =
       '<div class="alert alert-danger m-3">Error: Mapping library failed to initialize.</div>';
     if (typeof cleanup === "function") {
