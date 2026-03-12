@@ -19,6 +19,11 @@ from db.schemas import (
     VisitResponse,
     VisitSuggestion,
 )
+from visits.services.destination_clusters import (
+    build_destination_cluster_boundary,
+    extract_destination_coords,
+    extract_destination_label,
+)
 from visits.services.visit_tracking_service import VisitTrackingService
 
 logger = logging.getLogger(__name__)
@@ -43,54 +48,6 @@ def _resolve_timeframe_start(
     if delta is None:
         raise ValueError(error_message)
     return datetime.now(UTC) - delta
-
-
-def _extract_destination_coords(doc: dict[str, Any]) -> tuple[float, float] | None:
-    dest_geo = doc.get("destinationGeoPoint")
-    if isinstance(dest_geo, dict):
-        coords = dest_geo.get("coordinates")
-        if (
-            isinstance(coords, list)
-            and len(coords) >= 2
-            and isinstance(coords[0], int | float)
-            and isinstance(coords[1], int | float)
-        ):
-            return float(coords[0]), float(coords[1])
-
-    gps = doc.get("gps")
-    if isinstance(gps, dict):
-        gps_type = gps.get("type")
-        coords = gps.get("coordinates")
-        if gps_type == "Point" and isinstance(coords, list) and len(coords) >= 2:
-            return float(coords[0]), float(coords[1])
-        if gps_type == "LineString" and isinstance(coords, list) and len(coords) >= 2:
-            last = coords[-1]
-            if isinstance(last, list) and len(last) >= 2:
-                return float(last[0]), float(last[1])
-
-    destination = doc.get("destination") or {}
-    coords = destination.get("coordinates")
-    if isinstance(coords, dict):
-        lng = coords.get("lng")
-        lat = coords.get("lat")
-        if isinstance(lng, int | float) and isinstance(lat, int | float):
-            return float(lng), float(lat)
-
-    return None
-
-
-def _extract_destination_label(doc: dict[str, Any]) -> str | None:
-    for candidate in (
-        doc.get("destinationPlaceName"),
-        (doc.get("destination") or {}).get("formatted_address"),
-        ((doc.get("destination") or {}).get("address_components") or {}).get("street"),
-    ):
-        if not isinstance(candidate, str):
-            continue
-        cleaned = candidate.strip()
-        if cleaned and cleaned.lower() not in {"unknown", "n/a", "na"}:
-            return cleaned
-    return None
 
 
 def _build_existing_place_index(
@@ -312,31 +269,6 @@ def _refine_cluster(
     return list(subclusters.values())
 
 
-def _cluster_boundary(
-    *,
-    points: list[tuple[float, float]],
-    cell_size_m: int,
-) -> Any:
-    from shapely.geometry import MultiPoint
-    from shapely.ops import transform
-
-    from core.spatial import get_local_transformers
-
-    cluster_geom = MultiPoint(points)
-    to_meters_cluster, to_wgs84_cluster = get_local_transformers(cluster_geom)
-    cluster_geom_m = transform(to_meters_cluster, cluster_geom)
-    hull_m = cluster_geom_m.convex_hull
-    centroid_m = cluster_geom_m.centroid
-    distances = sorted(centroid_m.distance(pt) for pt in cluster_geom_m.geoms)
-    if distances:
-        p60_idx = int(0.6 * (len(distances) - 1))
-        p60_dist = distances[p60_idx]
-    else:
-        p60_dist = 0.0
-    buffer_m = max(20.0, min(cell_size_m * 0.35, p60_dist * 0.6))
-    return transform(to_wgs84_cluster, hull_m.buffer(buffer_m))
-
-
 def _boundary_overlaps_existing(
     *,
     boundary_geom: Any,
@@ -462,7 +394,10 @@ def _build_cluster_suggestion(
         else f"Area near {round(avg_lat, 4)}, {round(avg_lng, 4)}"
     )
 
-    boundary_geom = _cluster_boundary(points=points, cell_size_m=cell_size_m)
+    boundary_geom = build_destination_cluster_boundary(
+        points=points,
+        cell_size_m=cell_size_m,
+    )
     if _boundary_overlaps_existing(
         boundary_geom=boundary_geom,
         tree=tree,

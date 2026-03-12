@@ -189,6 +189,14 @@ class NonCustomPlaceVisit(BaseModel):
     lastVisit: datetime | None = None
 
 
+class DestinationBloomPlaceResponse(BaseModel):
+    """Response model for a destination bloom -> place creation."""
+
+    place: PlaceResponse
+    linkedTrips: int = 0
+    seedTrips: int = 0
+
+
 class VisitSuggestion(BaseModel):
     """Response model for visit suggestions."""
 

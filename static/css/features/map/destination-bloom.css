@@ -246,10 +246,46 @@
   opacity: 1;
 }
 
+.destination-bloom-tooltip.is-interactive {
+  pointer-events: auto;
+}
+
 .destination-bloom-tooltip__title {
   margin-bottom: 0.25rem;
   color: rgb(255 223 166);
   font-weight: var(--font-weight-semibold);
+}
+
+.destination-bloom-tooltip__actions {
+  display: flex;
+  margin-top: 0.625rem;
+}
+
+.destination-bloom-tooltip__button {
+  appearance: none;
+  border: 1px solid rgb(255 205 135 / 28%);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgb(255 193 104 / 20%), rgb(255 140 56 / 16%));
+  color: rgb(255 233 191);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-semibold);
+  padding: 0.35rem 0.7rem;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease;
+}
+
+.destination-bloom-tooltip__button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgb(255 219 162 / 42%);
+  background: linear-gradient(180deg, rgb(255 205 120 / 28%), rgb(255 157 72 / 20%));
+}
+
+.destination-bloom-tooltip__button:disabled {
+  cursor: wait;
+  opacity: 0.72;
 }
 
 @media (width <= 768px) {

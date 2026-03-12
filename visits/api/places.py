@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from db.schemas import PlaceResponse
+from db.schemas import DestinationBloomPlaceResponse, PlaceResponse
 from visits.services import PlaceService
 
 logger = logging.getLogger(__name__)
@@ -25,6 +25,13 @@ class PlaceUpdateModel(BaseModel):
 
     name: str | None = None
     geometry: dict[str, Any] | None = None
+
+
+class DestinationBloomPlaceCreateModel(BaseModel):
+    """Model for creating a place from a destination bloom cluster."""
+
+    name: str
+    transactionIds: list[str]
 
 
 @router.get("/api/places", response_model=list[PlaceResponse])
@@ -86,3 +93,29 @@ async def update_place(place_id: str, update_data: PlaceUpdateModel):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
+
+
+@router.post(
+    "/api/places/from_destination_bloom",
+    response_model=DestinationBloomPlaceResponse,
+)
+async def create_place_from_destination_bloom(
+    payload: DestinationBloomPlaceCreateModel,
+):
+    """Create a real Visits place from a clicked destination bloom cluster."""
+    try:
+        return await PlaceService.create_place_from_destination_bloom(
+            payload.name,
+            payload.transactionIds,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    except Exception as e:
+        logger.exception("Error creating place from destination bloom")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e

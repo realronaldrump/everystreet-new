@@ -99,6 +99,8 @@ class TripSerializer:
             "matchStatus": trip_doc.get("matchStatus"),
             "matched_at": serialize_datetime(trip_doc.get("matched_at")),
             "pointsRecorded": trip_doc.get("pointsRecorded"),
+            "destinationPlaceId": trip_doc.get("destinationPlaceId"),
+            "destinationPlaceName": trip_doc.get("destinationPlaceName"),
         }
 
         if fields is None:

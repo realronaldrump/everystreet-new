@@ -1,4 +1,8 @@
+import apiClient from "./core/api-client.js";
 import store from "./core/store.js";
+import confirmationDialog from "./ui/confirmation-dialog.js";
+import notificationManager from "./ui/notifications.js";
+import { escapeHtml } from "./utils.js";
 
 const LAYER_SEARCH_ORDER = ["trips", "matchedTrips"];
 const MAX_BLOOM_RADIUS = 34;
@@ -123,7 +127,9 @@ export function extractDestinationPoint(feature, { layerName = "" } = {}) {
     return null;
   }
 
-  const label = formatDestinationLabel(feature?.properties?.destination);
+  const label = formatDestinationLabel(
+    feature?.properties?.destinationPlaceName || feature?.properties?.destination
+  );
   const lastArrival = parseArrivalTime(feature?.properties?.endTime);
 
   return {
@@ -280,6 +286,13 @@ export function clusterDestinationPoints(points, { zoom = 12 } = {}) {
       [...labelCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ||
       createFallbackLabel(lng, lat);
     const radius = radiusForCluster(members.length, zoom);
+    const transactionIds = [
+      ...new Set(
+        members
+          .map((member) => String(member?.id || "").trim())
+          .filter(Boolean)
+      ),
+    ];
 
     clusters.push({
       id: `${members.length}:${Math.round(x)}:${Math.round(y)}`,
@@ -292,6 +305,7 @@ export function clusterDestinationPoints(points, { zoom = 12 } = {}) {
       share: members.length / points.length,
       radius,
       phase: ((lng + 180) * 0.09 + (lat + 90) * 0.13) % (Math.PI * 2),
+      transactionIds,
     });
   }
 
@@ -303,6 +317,14 @@ function createTooltipSection(text, className = "") {
   element.className = className;
   element.textContent = text;
   return element;
+}
+
+function createTooltipButton(text, className = "") {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = className;
+  button.textContent = text;
+  return button;
 }
 
 function getMapViewportRect(map) {
@@ -342,6 +364,7 @@ const destinationBloom = {
   _hoveredClusterId: null,
   _pinnedClusterId: null,
   _lastPointer: null,
+  _savingClusterId: null,
 
   isActive() {
     return this._active;
@@ -803,6 +826,34 @@ const destinationBloom = {
       );
     }
 
+    const isPinned = this._pinnedClusterId === cluster.id;
+    const canCreatePlace =
+      isPinned && Array.isArray(cluster.transactionIds) && cluster.transactionIds.length > 0;
+    this._tooltip.classList.toggle("is-interactive", canCreatePlace);
+
+    if (canCreatePlace) {
+      const actions = document.createElement("div");
+      actions.className = "destination-bloom-tooltip__actions";
+
+      const isSaving = this._savingClusterId === cluster.id;
+      const saveButton = createTooltipButton(
+        isSaving ? "Saving..." : "Name place",
+        "destination-bloom-tooltip__button"
+      );
+      saveButton.disabled = isSaving;
+      saveButton.addEventListener("click", (event) => {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        if (isSaving) {
+          return;
+        }
+        void this._nameClusterAsPlace(cluster);
+      });
+
+      actions.appendChild(saveButton);
+      this._tooltip.appendChild(actions);
+    }
+
     const tooltipRect = this._tooltip.getBoundingClientRect?.();
     const tipW = tooltipRect?.width || 220;
     const tipH = tooltipRect?.height || 100;
@@ -816,11 +867,84 @@ const destinationBloom = {
     this._tooltip.setAttribute("aria-hidden", "false");
   },
 
+  async _nameClusterAsPlace(cluster) {
+    if (!cluster || !Array.isArray(cluster.transactionIds) || cluster.transactionIds.length === 0) {
+      notificationManager.show("No persisted trips were available for this cluster.", "warning");
+      return;
+    }
+    if (!confirmationDialog?.prompt) {
+      notificationManager.show("Unable to open naming dialog.", "danger");
+      return;
+    }
+
+    const defaultValue = /^Area near /i.test(cluster.label || "") ? "" : cluster.label || "";
+    const name = await confirmationDialog.prompt({
+      title: "Name this place",
+      message: "Create a Visits place from this destination cluster.",
+      inputLabel: "Place name",
+      defaultValue,
+      placeholder: "e.g., Home, Downtown Market",
+      confirmText: "Save place",
+      cancelText: "Cancel",
+      confirmButtonClass: "btn-primary",
+    });
+    if (!name) {
+      return;
+    }
+
+    this._savingClusterId = cluster.id;
+    this._syncTooltipToActiveCluster();
+
+    try {
+      const response = await apiClient.post("/api/places/from_destination_bloom", {
+        name,
+        transactionIds: cluster.transactionIds,
+      });
+      const placeId = String(response?.place?.id || "").trim();
+      const linkedTrips = Number(response?.linkedTrips || 0);
+      const linkedLabel =
+        linkedTrips === 1 ? "1 trip linked." : `${linkedTrips} trips linked.`;
+      const href = placeId ? `/visits?place=${encodeURIComponent(placeId)}` : "/visits";
+
+      notificationManager.show(
+        `Saved <strong>${escapeHtml(name)}</strong> as a Visits place. ${escapeHtml(linkedLabel)} <a class="link-light text-decoration-underline" href="${href}">Open in Visits</a>`,
+        "success",
+        8000
+      );
+
+      await this._refreshTripLayers();
+      this.refresh();
+    } catch (error) {
+      notificationManager.show(
+        `Failed to save place: ${escapeHtml(error?.message || "Unexpected error")}`,
+        "danger"
+      );
+    } finally {
+      if (this._savingClusterId === cluster.id) {
+        this._savingClusterId = null;
+      }
+      this._syncTooltipToActiveCluster();
+    }
+  },
+
+  async _refreshTripLayers() {
+    try {
+      const { default: dataManager } = await import("./data-manager.js");
+      await Promise.allSettled([dataManager.fetchTrips(), dataManager.fetchMatchedTrips()]);
+    } catch (error) {
+      notificationManager.show(
+        `Saved place, but refreshing trips failed: ${escapeHtml(error?.message || "Unexpected error")}`,
+        "warning"
+      );
+    }
+  },
+
   _hideTooltip() {
     if (!this._tooltip) {
       return;
     }
     this._tooltip.classList.remove("is-visible");
+    this._tooltip.classList.remove("is-interactive");
     this._tooltip.setAttribute("aria-hidden", "true");
   },
 
@@ -1147,6 +1271,7 @@ const destinationBloom = {
     this._hoveredClusterId = null;
     this._pinnedClusterId = null;
     this._lastPointer = null;
+    this._savingClusterId = null;
   },
 };
 

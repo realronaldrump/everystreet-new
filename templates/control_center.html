@@ -2455,7 +2455,11 @@ Select one or more containers from the list above to view logs.
           <i class="fas fa-right-from-bracket"></i>
           Session
         </h3>
-        {% if auth_context.is_owner %}
+        {% if not owner_login_enabled %}
+          <p class="text-muted small">
+            Owner authentication is disabled for this deployment.
+          </p>
+        {% elif auth_context.is_owner %}
           <p class="text-muted small">
             Sign out of the owner account on this device.
           </p>

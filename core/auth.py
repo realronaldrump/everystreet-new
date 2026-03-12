@@ -130,6 +130,16 @@ class AuthContext:
         }
 
 
+def _open_auth_context() -> AuthContext:
+    """Return the effective auth state when owner login is disabled."""
+    return AuthContext(
+        role=OWNER_ROLE,
+        is_owner=True,
+        viewer_mode=False,
+        csrf_token=None,
+    )
+
+
 def _session_store(connection: Request | WebSocket) -> dict[str, object]:
     return connection.scope.setdefault("session", {})
 
@@ -173,6 +183,13 @@ def owner_login_enabled() -> bool:
 
 def get_request_auth_context(connection: Request | WebSocket) -> AuthContext:
     """Return auth context from connection scope/session."""
+    if not owner_login_enabled():
+        context = _open_auth_context()
+        state = getattr(connection, "state", None)
+        if state is not None:
+            state.auth = context
+        return context
+
     session = connection.scope.get("session", {}) or {}
     session_is_owner = owner_login_enabled() and session.get("role") == OWNER_ROLE
     expected_csrf = session.get("csrf_token") if session_is_owner else None
@@ -225,11 +242,14 @@ def mark_owner_session(request: Request) -> AuthContext:
 def clear_auth_session(request: Request) -> None:
     """Remove any persisted auth session."""
     _session_store(request).clear()
-    request.state.auth = AuthContext()
+    request.state.auth = _open_auth_context() if not owner_login_enabled() else AuthContext()
 
 
 def refresh_owner_session(request: Request) -> None:
     """Refresh rolling session timestamps for active owner sessions."""
+    if not owner_login_enabled():
+        return
+
     context = get_request_auth_context(request)
     if not context.is_owner:
         return
@@ -384,6 +404,9 @@ def is_html_request(request: Request) -> bool:
 
 async def validate_csrf(request: Request) -> bool:
     """Validate CSRF token from the request header."""
+    if not owner_login_enabled():
+        return True
+
     context = get_request_auth_context(request)
     expected_token = context.csrf_token
     if not expected_token:
@@ -395,6 +418,9 @@ async def validate_csrf(request: Request) -> bool:
 
 def validate_form_csrf_token(request: Request, provided_token: str | None) -> bool:
     """Validate a CSRF token already parsed from a form endpoint."""
+    if not owner_login_enabled():
+        return True
+
     context = get_request_auth_context(request)
     expected_token = context.csrf_token
     return bool(
@@ -424,6 +450,15 @@ def unauthorized_api_response() -> JSONResponse:
     )
 
 
+def should_allow_unknown_safe_page(path: str, method: str) -> bool:
+    """Allow unknown non-API page requests to fall through to router 404s."""
+    return (
+        method in SAFE_METHODS
+        and not path.startswith("/api/")
+        and not is_owner_page_path(path)
+    )
+
+
 async def guard_request(request: Request) -> Response | None:
     """Apply shared auth + CSRF policy for HTTP requests."""
     context = get_request_auth_context(request)
@@ -432,7 +467,13 @@ async def guard_request(request: Request) -> Response | None:
     method = request.method.upper()
     path = request.url.path
 
+    if not owner_login_enabled():
+        return None
+
     if is_public_request(method, path):
+        return None
+
+    if should_allow_unknown_safe_page(path, method):
         return None
 
     if not context.is_owner:
@@ -465,6 +506,9 @@ async def auth_guard_dispatch(request: Request, call_next) -> Response:
 
 def require_owner_websocket(websocket: WebSocket) -> AuthContext:
     """Require an owner session for websocket connections."""
+    if not owner_login_enabled():
+        return get_request_auth_context(websocket)
+
     context = get_request_auth_context(websocket)
     if not context.is_owner:
         raise WebSocketException(
@@ -495,6 +539,7 @@ def parse_allowed_hosts() -> list[str]:
     return [
         "www.everystreet.me",
         "everystreet.me",
+        "testserver",
         "localhost",
         "127.0.0.1",
         "*.localhost",

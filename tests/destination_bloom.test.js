@@ -7,7 +7,10 @@ import destinationBloom, {
   getDestinationPointFromGeometry,
   radiusForCluster,
 } from "../static/js/modules/destination-bloom.js";
+import apiClient from "../static/js/modules/core/api-client.js";
 import store from "../static/js/modules/core/store.js";
+import confirmationDialog from "../static/js/modules/ui/confirmation-dialog.js";
+import notificationManager from "../static/js/modules/ui/notifications.js";
 import {
   createClassList,
   createCustomEventClass,
@@ -29,6 +32,22 @@ const originalStore = {
   mapLayers: store.mapLayers,
   selectedTripId: store.selectedTripId,
   selectedTripLayer: store.selectedTripLayer,
+};
+
+const originalApiClient = {
+  post: apiClient.post,
+};
+
+const originalConfirmationDialog = {
+  prompt: confirmationDialog.prompt,
+};
+
+const originalNotificationManager = {
+  show: notificationManager.show,
+};
+
+const originalDestinationBloomMethods = {
+  refreshTripLayers: destinationBloom._refreshTripLayers,
 };
 
 function createCanvasContextSpy() {
@@ -67,7 +86,7 @@ function createCanvasContextSpy() {
 
 function createDomNode({ tagName = "div", context = null } = {}) {
   const eventTarget = createEventTarget();
-  return {
+  const node = {
     ...eventTarget,
     tagName,
     style: {},
@@ -107,6 +126,17 @@ function createDomNode({ tagName = "div", context = null } = {}) {
       return context;
     },
   };
+  let innerHtmlValue = "";
+  Object.defineProperty(node, "innerHTML", {
+    get() {
+      return innerHtmlValue;
+    },
+    set(value) {
+      innerHtmlValue = String(value);
+      this.children = [];
+    },
+  });
+  return node;
 }
 
 function createDocumentMock() {
@@ -214,6 +244,10 @@ test.afterEach(() => {
   global.CustomEvent = originalGlobals.CustomEvent;
   global.requestAnimationFrame = originalGlobals.requestAnimationFrame;
   global.cancelAnimationFrame = originalGlobals.cancelAnimationFrame;
+  apiClient.post = originalApiClient.post;
+  confirmationDialog.prompt = originalConfirmationDialog.prompt;
+  notificationManager.show = originalNotificationManager.show;
+  destinationBloom._refreshTripLayers = originalDestinationBloomMethods.refreshTripLayers;
 });
 
 test("extracts destination endpoints from line and multiline geometries", () => {
@@ -294,6 +328,36 @@ test("collectDestinationPoints deduplicates by trip id and prefers matched trips
   assert.equal(points.length, 1);
   assert.deepEqual(points[0].coordinates, [-97.69, 30.31]);
   assert.equal(points[0].layerName, "matchedTrips");
+});
+
+test("collectDestinationPoints prioritizes destinationPlaceName over destination", () => {
+  const points = collectDestinationPoints({
+    trips: {
+      visible: true,
+      layer: {
+        features: [
+          {
+            id: "trip-1",
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-97.74, 30.26],
+                [-97.71, 30.29],
+              ],
+            },
+            properties: {
+              transactionId: "trip-1",
+              destinationPlaceName: "Coffee Shop",
+              destination: "123 Main St",
+            },
+          },
+        ],
+      },
+    },
+  });
+
+  assert.equal(points.length, 1);
+  assert.equal(points[0].label, "Coffee Shop");
 });
 
 test("clusterDestinationPoints separates clusters as zoom increases and scales radius by count", () => {
@@ -561,4 +625,106 @@ test("destination bloom uses the map canvas rect for tooltip pointer positioning
   assert.equal(pointer?.y, 140);
   assert.equal(pointer?.width, 800);
   assert.equal(pointer?.height, 600);
+});
+
+test("destination bloom names a pinned cluster and refreshes trip layers", async () => {
+  const { documentMock } = createDocumentMock();
+  const container = createDomNode();
+  const map = createMapMock(container);
+  const notifications = [];
+  let fetchTripsCalls = 0;
+  let fetchMatchedTripsCalls = 0;
+  let apiPayload = null;
+
+  global.document = documentMock;
+  global.window = {
+    devicePixelRatio: 1,
+    matchMedia() {
+      return { matches: true };
+    },
+  };
+
+  store.map = map;
+  store.mapLayers = {
+    trips: {
+      visible: true,
+      layer: {
+        features: [
+          {
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-97.75, 30.25],
+                [-97.71, 30.29],
+              ],
+            },
+            properties: {
+              transactionId: "trip-1",
+              destination: "South Congress",
+              endTime: "2026-03-10T18:00:00Z",
+            },
+          },
+        ],
+      },
+    },
+    matchedTrips: {
+      visible: false,
+      layer: { features: [] },
+    },
+  };
+
+  confirmationDialog.prompt = async () => "Coffee Shop";
+  apiClient.post = async (url, payload) => {
+    assert.equal(url, "/api/places/from_destination_bloom");
+    apiPayload = payload;
+    return {
+      place: { id: "place-123" },
+      linkedTrips: 2,
+      seedTrips: 1,
+    };
+  };
+  destinationBloom._refreshTripLayers = async () => {
+    fetchTripsCalls += 1;
+    fetchMatchedTripsCalls += 1;
+    return undefined;
+  };
+  notificationManager.show = (message, type) => {
+    notifications.push({ message, type });
+    return null;
+  };
+
+  destinationBloom.activate();
+  const cluster = destinationBloom._clusters[0];
+  destinationBloom._pinnedClusterId = cluster.id;
+  destinationBloom._lastPointer = {
+    x: cluster.x,
+    y: cluster.y,
+    width: 800,
+    height: 600,
+  };
+  destinationBloom._updateTooltip(cluster, destinationBloom._lastPointer);
+
+  const actions = destinationBloom._tooltip.children.at(-1);
+  const saveButton = actions?.children?.[0];
+  assert.equal(saveButton?.textContent, "Name place");
+
+  saveButton.dispatchEvent({
+    type: "click",
+    preventDefault() {},
+    stopPropagation() {},
+  });
+
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+
+  assert.deepEqual(apiPayload, {
+    name: "Coffee Shop",
+    transactionIds: ["trip-1"],
+  });
+  assert.equal(fetchTripsCalls, 1);
+  assert.equal(fetchMatchedTripsCalls, 1);
+  assert.equal(notifications.length, 1);
+  assert.equal(notifications[0].type, "success");
+  assert.match(notifications[0].message, /place-123/);
 });
