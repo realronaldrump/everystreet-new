@@ -235,6 +235,9 @@ async function refreshStatus({ signal, force = false } = {}) {
     const status = await fetchSetupStatus(signal, { force });
     updateUI(status);
   } catch (error) {
+    if (error?.name === "AbortError" || signal?.aborted) {
+      return;
+    }
     console.warn("Setup status check failed", error);
     updateUI(null);
   }

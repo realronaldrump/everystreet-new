@@ -6,8 +6,11 @@ function collectCoordinates(geometry) {
   switch (geometry.type) {
     case "Point":
       return geometry.coordinates ? [geometry.coordinates] : [];
+    case "MultiPoint":
     case "LineString":
       return geometry.coordinates || [];
+    case "MultiLineString":
+      return geometry.coordinates?.flat(1) || [];
     case "Polygon":
       return geometry.coordinates?.flat(1) || [];
     case "MultiPolygon":

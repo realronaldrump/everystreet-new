@@ -98,7 +98,7 @@ def _build_candidates(
 ) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     for doc in docs:
-        coords = _extract_destination_coords(doc)
+        coords = extract_destination_coords(doc)
         if not coords:
             continue
         lng, lat = coords
@@ -111,7 +111,7 @@ def _build_candidates(
                 "lng": lng,
                 "lat": lat,
                 "endTime": doc.get("endTime"),
-                "label": _extract_destination_label(doc),
+                "label": extract_destination_label(doc),
             },
         )
     return candidates

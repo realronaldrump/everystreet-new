@@ -447,6 +447,16 @@
   overflow: hidden;
 }
 
+.map-preview-graphic {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  color: var(--text-primary);
+  pointer-events: none;
+}
+
 .place-map-preview .map-preview-default {
   display: grid;
   place-items: center;

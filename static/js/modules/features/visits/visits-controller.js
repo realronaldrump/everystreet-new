@@ -2,15 +2,12 @@
  * Integrates with real API endpoints and uses imperial units
  */
 
-import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
-import { createMap } from "../../map-core.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import { escapeHtml, parseDurationToSeconds } from "../../utils.js";
 import { createVisitsDataService } from "../../visits/data-service.js";
-import { VisitsGeometry } from "../../visits/geometry.js";
+import { renderGeometryPreview } from "../../visits/preview-map-renderer.js";
 import VisitsManager from "../../visits/visits-manager.js";
 
-const { mapboxgl } = globalThis;
 const { bootstrap } = globalThis;
 
 // Configuration for imperial units
@@ -40,9 +37,6 @@ const PLACE_PREVIEW_COLORS = {
   slate: { fill: "#6f7f96", line: "#94a3b8" },
 };
 
-// Keep preview maps bounded so the main interactive map never loses its WebGL context.
-const MAX_ACTIVE_PREVIEW_MAPS = 6;
-
 // Day names for pattern detection
 const _DAY_NAMES = [
   "Sunday",
@@ -66,8 +60,6 @@ class VisitsPageController {
     this.currentSuggestionSize = 250; // feet (converted from 75m)
     this.suggestionPage = 1;
     this.suggestionPageSize = 6;
-    this.placePreviewMaps = new Map();
-    this.suggestionPreviewMaps = new Map();
     this.hasProcessedPlaceDeepLink = false;
     this.activePlaceId = "";
     this.listenerAbortController = new AbortController();
@@ -1211,8 +1203,6 @@ class VisitsPageController {
   }
 
   destroy() {
-    this._previewMapObserver?.disconnect();
-    this._previewMapObserver = null;
     this.clearPlacePreviewMaps();
     this.clearSuggestionPreviewMaps();
     this.listenerAbortController.abort();
@@ -1296,30 +1286,26 @@ class VisitsPageController {
     }
   }
 
-  clearSuggestionPreviewMaps() {
-    this.suggestionPreviewMaps.forEach((map) => {
-      try {
-        map.remove();
-      } catch {
-        // Ignore cleanup errors.
-      }
+  clearPreviewContainer(container) {
+    if (!container) {
+      return;
+    }
+    container.querySelector(".map-preview-graphic")?.remove();
+    container.classList.remove("has-map");
+  }
+
+  clearPreviewContainers(selector) {
+    document.querySelectorAll(selector).forEach((container) => {
+      this.clearPreviewContainer(container);
     });
-    this.suggestionPreviewMaps.clear();
+  }
+
+  clearSuggestionPreviewMaps() {
+    this.clearPreviewContainers(".discovery-map-preview");
   }
 
   clearPlacePreviewMaps() {
-    this.placePreviewMaps.forEach((map) => {
-      try {
-        map.remove();
-      } catch {
-        // Ignore cleanup errors.
-      }
-    });
-    this.placePreviewMaps.clear();
-  }
-
-  getActivePreviewMapCount() {
-    return this.placePreviewMaps.size + this.suggestionPreviewMaps.size;
+    this.clearPreviewContainers(".place-map-preview");
   }
 
   updatePreviewFallback(container, message) {
@@ -1327,11 +1313,6 @@ class VisitsPageController {
     if (messageNode) {
       messageNode.textContent = message;
     }
-  }
-
-  getPreviewMapStyle() {
-    const { styleUrl } = resolveMapStyle({ theme: getCurrentTheme() });
-    return styleUrl;
   }
 
   getPlacePreviewColors(accent = "slate") {
@@ -1354,223 +1335,37 @@ class VisitsPageController {
     return geometry;
   }
 
-  addPreviewLayers(map, { sourceId, layerIdPrefix, geometry, colors }) {
-    const geometryType = geometry?.type;
-    const isPolygon = geometryType === "Polygon" || geometryType === "MultiPolygon";
-    const isPoint = geometryType === "Point" || geometryType === "MultiPoint";
-
-    if (isPolygon) {
-      map.addLayer({
-        id: `${layerIdPrefix}-fill`,
-        type: "fill",
-        source: sourceId,
-        paint: {
-          "fill-color": colors.fill,
-          "fill-opacity": 0.26,
-        },
-      });
-
-      map.addLayer({
-        id: `${layerIdPrefix}-outline`,
-        type: "line",
-        source: sourceId,
-        paint: {
-          "line-color": colors.line,
-          "line-width": 2,
-        },
-      });
-      return;
-    }
-
-    if (isPoint) {
-      map.addLayer({
-        id: `${layerIdPrefix}-point`,
-        type: "circle",
-        source: sourceId,
-        paint: {
-          "circle-color": colors.fill,
-          "circle-radius": 5,
-          "circle-stroke-color": colors.line,
-          "circle-stroke-width": 1.5,
-        },
-      });
-      return;
-    }
-
-    map.addLayer({
-      id: `${layerIdPrefix}-line`,
-      type: "line",
-      source: sourceId,
-      paint: {
-        "line-color": colors.line,
-        "line-width": 2.5,
-      },
-    });
-  }
-
   renderPlacePreviewMaps(placePreviewConfigs) {
-    if (typeof mapboxgl === "undefined") {
-      return;
-    }
-
-    // Lazy-load: only create Mapbox instances when containers scroll into view
-    if (!this._previewMapObserver) {
-      this._previewMapObserver = new IntersectionObserver(
-        (entries) => {
-          for (const entry of entries) {
-            if (!entry.isIntersecting) {
-              continue;
-            }
-            const container = entry.target;
-            const init = container._lazyMapInit;
-            if (init) {
-              this._previewMapObserver.unobserve(container);
-              delete container._lazyMapInit;
-              init();
-            }
-          }
-        },
-        { rootMargin: "200px" }
-      );
-    }
-
     placePreviewConfigs.forEach(({ mapId, geometry, accent }) => {
       const container = document.getElementById(mapId);
       if (!container || !geometry) {
         return;
       }
 
-      container._lazyMapInit = () => {
-        if (this.placePreviewMaps.has(mapId)) {
-          return;
-        }
-
-        if (this.getActivePreviewMapCount() >= MAX_ACTIVE_PREVIEW_MAPS) {
-          this.updatePreviewFallback(container, "Preview paused to keep map stable");
-          return;
-        }
-
-        const previewMap = createMap(mapId, {
-          center: [-95.7129, 37.0902],
-          zoom: 3,
-          interactive: false,
-        });
-
-        previewMap.on("load", () => {
-          const sourceId = "place-preview";
-          previewMap.addSource(sourceId, {
-            type: "geojson",
-            data: geometry,
-          });
-
-          this.addPreviewLayers(previewMap, {
-            sourceId,
-            layerIdPrefix: "place-preview",
-            geometry,
-            colors: this.getPlacePreviewColors(accent),
-          });
-
-          VisitsGeometry.fitMapToGeometry(previewMap, geometry, {
-            padding: 18,
-            duration: 0,
-          });
-
-          container.classList.add("has-map");
-        });
-
-        previewMap.on("error", () => {
-          container.classList.remove("has-map");
-        });
-
-        this.placePreviewMaps.set(mapId, previewMap);
-      };
-
-      this._previewMapObserver.observe(container);
+      const rendered = renderGeometryPreview(
+        container,
+        geometry,
+        this.getPlacePreviewColors(accent)
+      );
+      if (!rendered) {
+        this.updatePreviewFallback(container, "Boundary unavailable");
+      }
     });
   }
 
   renderSuggestionPreviewMaps(pageSuggestions, startIndex) {
-    if (typeof mapboxgl === "undefined") {
-      return;
-    }
-
-    if (!this._previewMapObserver) {
-      this._previewMapObserver = new IntersectionObserver(
-        (entries) => {
-          for (const entry of entries) {
-            if (!entry.isIntersecting) {
-              continue;
-            }
-            const container = entry.target;
-            const init = container._lazyMapInit;
-            if (init) {
-              this._previewMapObserver.unobserve(container);
-              delete container._lazyMapInit;
-              init();
-            }
-          }
-        },
-        { rootMargin: "200px" }
-      );
-    }
-
     pageSuggestions.forEach((suggestion, pageIndex) => {
       const boundary = this.getRenderableGeometry(suggestion?.boundary);
-      if (!boundary) {
-        return;
-      }
       const mapId = `discovery-map-${startIndex + pageIndex}`;
       const container = document.getElementById(mapId);
-      if (!container) {
+      if (!container || !boundary) {
         return;
       }
 
-      container._lazyMapInit = () => {
-        if (this.suggestionPreviewMaps.has(mapId)) {
-          return;
-        }
-
-        if (this.getActivePreviewMapCount() >= MAX_ACTIVE_PREVIEW_MAPS) {
-          this.updatePreviewFallback(container, "Preview paused to keep map stable");
-          return;
-        }
-
-        const previewMap = createMap(mapId, {
-          center: [-95.7129, 37.0902],
-          zoom: 3,
-          interactive: false,
-        });
-
-        previewMap.on("load", () => {
-          const sourceId = "suggestion-preview";
-          previewMap.addSource(sourceId, {
-            type: "geojson",
-            data: boundary,
-          });
-
-          this.addPreviewLayers(previewMap, {
-            sourceId,
-            layerIdPrefix: "suggestion-preview",
-            geometry: boundary,
-            colors: DISCOVERY_PREVIEW_COLORS,
-          });
-
-          VisitsGeometry.fitMapToGeometry(previewMap, boundary, {
-            padding: 18,
-            duration: 0,
-          });
-
-          container.classList.add("has-map");
-        });
-
-        previewMap.on("error", () => {
-          container.classList.remove("has-map");
-        });
-
-        this.suggestionPreviewMaps.set(mapId, previewMap);
-      };
-
-      this._previewMapObserver.observe(container);
+      const rendered = renderGeometryPreview(container, boundary, DISCOVERY_PREVIEW_COLORS);
+      if (!rendered) {
+        this.updatePreviewFallback(container, "Map preview unavailable");
+      }
     });
   }
 
