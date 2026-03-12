@@ -172,7 +172,7 @@ async def live_navigation_page(request: Request):
     response_class=HTMLResponse,
 )
 async def regional_coverage_explorer_page(request: Request):
-    """Render the regional coverage explorer page."""
+    """Render the region explorer page."""
     return await _render_page("regional_coverage_explorer.html", request)
 
 

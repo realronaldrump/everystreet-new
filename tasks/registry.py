@@ -63,7 +63,7 @@ TASK_DEFINITIONS: dict[str, dict[str, object]] = {
         "description": "Updates coverage calculations incrementally for new trips",
     },
     "sync_geo_coverage": {
-        "display_name": "Sync Regional Coverage Explorer",
+        "display_name": "Sync Region Explorer",
         "default_interval_minutes": int(
             os.environ.get(
                 "GEO_COVERAGE_SYNC_INTERVAL_MINUTES",

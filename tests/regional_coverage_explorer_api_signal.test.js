@@ -3,7 +3,7 @@ import test from "node:test";
 import apiClient from "../static/js/modules/core/api-client.js";
 import * as RegionalCoverageExplorerAPI from "../static/js/modules/regional-coverage-explorer/api.js";
 
-test("regional coverage explorer API forwards abort signals", async () => {
+test("region explorer API forwards abort signals", async () => {
   const signal = AbortSignal.abort();
 
   const originalGet = apiClient.get;
@@ -40,7 +40,7 @@ test("regional coverage explorer API forwards abort signals", async () => {
   ]);
 });
 
-test("regional coverage explorer API includes recalc mode when provided", async () => {
+test("region explorer API includes recalc mode when provided", async () => {
   const originalPost = apiClient.post;
   const calls = [];
 

@@ -1,6 +1,6 @@
 /* global topojson */
 /**
- * Unified Regional Coverage Explorer
+ * Unified Region Explorer
  */
 
 import { coverageBoundingBoxToMapBounds } from "../../core/coverage-bounds.js";
@@ -1115,7 +1115,7 @@ function refreshCoveragePage() {
 }
 
 /**
- * Trigger Regional Coverage Explorer cache rebuild
+ * Trigger Region Explorer cache rebuild
  */
 async function triggerRecalculate() {
   if (RegionalCoverageExplorerState.getIsRecalculating()) {
@@ -1125,7 +1125,7 @@ async function triggerRecalculate() {
   const startedAt = new Date();
   RegionalCoverageExplorerState.setIsRecalculating(true);
   storeRecalcState(startedAt, null);
-  updateRecalculateUi(true, "Starting Regional Coverage Explorer cache rebuild...", {
+  updateRecalculateUi(true, "Starting Region Explorer cache rebuild...", {
     stage: "Queued",
     progress: 0,
   });
@@ -1139,7 +1139,7 @@ async function triggerRecalculate() {
       if (job) {
         updateRecalculateUi(
           true,
-          job.message || "Rebuilding Regional Coverage Explorer cache...",
+          job.message || "Rebuilding Region Explorer cache...",
           buildRecalculateDetails(job)
         );
       }
@@ -1189,7 +1189,7 @@ async function checkAndRefresh(startedAt, activeJobId = null) {
   if (isRecalcStateStale(startedAt)) {
     clearRecalcState();
     notificationManager.show(
-      "Regional Coverage Explorer cache rebuild timed out. Please try again.",
+      "Region Explorer cache rebuild timed out. Please try again.",
       "warning"
     );
     return;
@@ -1206,7 +1206,7 @@ async function checkAndRefresh(startedAt, activeJobId = null) {
       storeRecalcState(startedAt, jobId);
       updateRecalculateUi(
         true,
-        job.message || "Rebuilding Regional Coverage Explorer cache...",
+        job.message || "Rebuilding Region Explorer cache...",
         buildRecalculateDetails(job)
       );
       if (!pageSignal?.aborted) {
@@ -1218,7 +1218,7 @@ async function checkAndRefresh(startedAt, activeJobId = null) {
     if (job && isJobFailed(job)) {
       clearRecalcState();
       notificationManager.show(
-        job.error || job.message || "Regional Coverage Explorer cache rebuild failed.",
+        job.error || job.message || "Region Explorer cache rebuild failed.",
         "danger"
       );
       return;
@@ -1242,13 +1242,13 @@ async function checkAndRefresh(startedAt, activeJobId = null) {
       if (!workerShouldExist && elapsedMs > RECALC_NO_JOB_GRACE_MS) {
         clearRecalcState();
         notificationManager.show(
-          "No active Regional Coverage Explorer cache rebuild job was found. Please start it again.",
+          "No active Region Explorer cache rebuild job was found. Please start it again.",
           "warning"
         );
         return;
       }
 
-      updateRecalculateUi(true, "Waiting for Regional Coverage Explorer cache worker...", {
+      updateRecalculateUi(true, "Waiting for Region Explorer cache worker...", {
         stage: "Starting",
         progress: 0,
         mode: data?.defaultMode || "incremental",
@@ -1283,7 +1283,7 @@ function resumeRecalculateIfNeeded() {
     return;
   }
   RegionalCoverageExplorerState.setIsRecalculating(true);
-  updateRecalculateUi(true, "Resuming Regional Coverage Explorer cache rebuild...", {
+  updateRecalculateUi(true, "Resuming Region Explorer cache rebuild...", {
     stage: "Reconnecting",
     progress: 0,
   });

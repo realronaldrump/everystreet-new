@@ -80,7 +80,7 @@ export function updateRecalculateUi(isActive, message, details = null) {
       status.innerHTML = `
         <div class="recalc-header">
           <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
-          <span class="recalc-message">${escapeHtml(message || "Rebuilding Regional Coverage Explorer cache...")}</span>
+          <span class="recalc-message">${escapeHtml(message || "Rebuilding Region Explorer cache...")}</span>
         </div>
         ${stage ? `<div class="recalc-stage">${escapeHtml(stage)}</div>` : ""}
         ${
@@ -122,7 +122,7 @@ export function showRecalculatePrompt(onRecalculate) {
     const prompt = document.createElement("div");
     prompt.className = "recalculate-prompt";
     prompt.innerHTML = `
-      <p>Regional Coverage Explorer cache has not been built yet from your trips.</p>
+      <p>Region Explorer cache has not been built yet from your trips.</p>
       <button class="btn btn-primary btn-sm" id="trigger-recalculate">
         <i class="fas fa-database me-2"></i>Build Explorer Cache
       </button>
