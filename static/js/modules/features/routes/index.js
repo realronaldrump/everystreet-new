@@ -176,14 +176,8 @@ function computeCoveredWeeks(route) {
     return 0;
   }
 
-  let start = first || last;
-  let end = last || first;
-  if (!start || !end) {
-    return 0;
-  }
-  if (end.getTime() < start.getTime()) {
-    [start, end] = [end, start];
-  }
+  const start = first && last && last.getTime() < first.getTime() ? last : first || last;
+  const end = first && last && last.getTime() < first.getTime() ? first : last || first;
 
   const firstWeekStart = sundayWeekStartUtc(start);
   const lastWeekStart = sundayWeekStartUtc(end);
@@ -1789,8 +1783,6 @@ async function toggleAllTrips() {
     btn.innerHTML = showAllTrips
       ? `${icon}Hide trip overlays`
       : `${icon}Show all trips`;
-  }
-  if (btn) {
     btn.classList.toggle("active", showAllTrips);
   }
 
@@ -1863,8 +1855,6 @@ async function toggleAllTrips() {
     showAllTrips = false;
     if (btn) {
       btn.classList.remove("active");
-    }
-    if (btn) {
       btn.innerHTML =
         '<i class="fas fa-layer-group me-2" aria-hidden="true"></i>Show all trips';
     }
@@ -2679,7 +2669,7 @@ function bindExplorerControls(signal) {
   const timeframeInputs = document.querySelectorAll(
     'input[name="routes-explorer-timeframe"]'
   );
-  const opts = signal ? { signal } : false;
+  const opts = signal ? { signal } : undefined;
 
   const expandBtn = getEl("routes-explorer-expand-btn");
   const teaser = getEl("routes-explorer-teaser");
@@ -2895,7 +2885,7 @@ function bindModalControls(signal) {
   };
   const debouncedName = debounce(saveNameNow, 500);
 
-  const opts = signal ? { signal } : false;
+  const opts = signal ? { signal } : undefined;
   if (nameInput) {
     nameInput.addEventListener("input", debouncedName, opts);
     nameInput.addEventListener("blur", saveNameNow, opts);
@@ -3041,7 +3031,7 @@ function bindPageControls(signal) {
   const emptyBuildBtn = getEl("routes-empty-build-btn");
 
   const triggerLoad = debounce(() => loadRoutes(), 250);
-  const opts = signal ? { signal } : false;
+  const opts = signal ? { signal } : undefined;
 
   if (search) {
     search.addEventListener(
