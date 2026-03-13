@@ -933,52 +933,64 @@ System
     <script src="{{ CDN.flatpickr_js }}"></script>
 
     <!-- Expose Map Provider Settings to Frontend -->
-    <script>
-        window.AUTH_CONTEXT = {{ auth_context_json | tojson }};
-        window.MAPBOX_PUBLIC_ACCESS_TOKEN = {{ (app_settings.get('mapbox_token') if app_settings else '') | tojson }};
-        window.MAP_PROVIDER = "{{ (app_settings.get('map_provider') | default('self_hosted', true) | lower) if app_settings else 'self_hosted' }}";
-        window.APP_SETTINGS_FLAGS = {
-            mapTripsWithinCoverageOnly: {{
-                ((app_settings.get('mapTripsWithinCoverageOnly', false)) if app_settings
-                    else false) | tojson
-            }},
-            tripLayersUseHeatmap: {{
-                ((app_settings.get('tripLayersUseHeatmap', true)) if app_settings
-                    else true) | tojson
-            }}
-        };
-        window.GOOGLE_MAPS_BOOTSTRAP = {
-            configured: {{
-                (app_settings
-                 and app_settings.get('google_maps_api_key')
-                 and (app_settings.get('map_provider') | default('', true) | lower) == 'google') | tojson
-            }},
-            scriptId: "es-google-maps-js-api"
-        };
-        window.__esGoogleMapsLoadState = window.__esGoogleMapsLoadState || {
-            status: window.GOOGLE_MAPS_BOOTSTRAP.configured ? "pending" : "unconfigured",
-            error: null
-        };
-        if (window.GOOGLE_MAPS_BOOTSTRAP.configured) {
-            if (!window.__esGoogleMapsLoadPromise) {
-                window.__esGoogleMapsLoadPromise = new Promise((resolve, reject) => {
-                    window.__esGoogleMapsLoadResolve = resolve;
-                    window.__esGoogleMapsLoadReject = reject;
-                });
-            }
-            window.__esGoogleMapsLoaded = () => {
-                window.__esGoogleMapsLoadState.status = "loaded";
-                window.__esGoogleMapsLoadState.error = null;
-                window.__esGoogleMapsLoadResolve?.(window.google?.maps || true);
-            };
-            window.__esGoogleMapsLoadFailed = (
-                message = "Google Maps JavaScript API failed to load. Check your API key and allowed referrers."
-            ) => {
-                window.__esGoogleMapsLoadState.status = "failed";
-                window.__esGoogleMapsLoadState.error = message;
-                window.__esGoogleMapsLoadReject?.(new Error(message));
-            };
+    <script type="text/template" id="es-env-data">
+        {
+            "authContext": {{ auth_context_json | tojson }},
+            "mapboxToken": {{ (app_settings.get('mapbox_token') if app_settings else '') | tojson }},
+            "mapProvider": {{ ((app_settings.get('map_provider') | default('self_hosted', true) | lower) if app_settings else 'self_hosted') | tojson }},
+            "mapTripsWithinCoverageOnly": {{ ((app_settings.get('mapTripsWithinCoverageOnly', false)) if app_settings else false) | tojson }},
+            "tripLayersUseHeatmap": {{ ((app_settings.get('tripLayersUseHeatmap', true)) if app_settings else true) | tojson }},
+            "googleMapsConfigured": {{ (app_settings and app_settings.get('google_maps_api_key') and (app_settings.get('map_provider') | default('', true) | lower) == 'google') | tojson }}
         }
+    </script>
+    <script>
+        (function() {
+            var rawData = document.getElementById('es-env-data').textContent;
+            var envData;
+            try {
+                envData = JSON.parse(rawData);
+            } catch (e) {
+                console.error("Failed to parse environment data:", e);
+                envData = {};
+            }
+
+            window.AUTH_CONTEXT = envData.authContext;
+            window.MAPBOX_PUBLIC_ACCESS_TOKEN = envData.mapboxToken;
+            window.MAP_PROVIDER = envData.mapProvider || "self_hosted";
+            window.APP_SETTINGS_FLAGS = {
+                mapTripsWithinCoverageOnly: envData.mapTripsWithinCoverageOnly || false,
+                tripLayersUseHeatmap: envData.tripLayersUseHeatmap !== false
+            };
+            window.GOOGLE_MAPS_BOOTSTRAP = {
+                configured: envData.googleMapsConfigured || false,
+                scriptId: "es-google-maps-js-api"
+            };
+
+            window.__esGoogleMapsLoadState = window.__esGoogleMapsLoadState || {
+                status: window.GOOGLE_MAPS_BOOTSTRAP.configured ? "pending" : "unconfigured",
+                error: null
+            };
+            if (window.GOOGLE_MAPS_BOOTSTRAP.configured) {
+                if (!window.__esGoogleMapsLoadPromise) {
+                    window.__esGoogleMapsLoadPromise = new Promise((resolve, reject) => {
+                        window.__esGoogleMapsLoadResolve = resolve;
+                        window.__esGoogleMapsLoadReject = reject;
+                    });
+                }
+                window.__esGoogleMapsLoaded = () => {
+                    window.__esGoogleMapsLoadState.status = "loaded";
+                    window.__esGoogleMapsLoadState.error = null;
+                    window.__esGoogleMapsLoadResolve?.(window.google?.maps || true);
+                };
+                window.__esGoogleMapsLoadFailed = (
+                    message = "Google Maps JavaScript API failed to load. Check your API key and allowed referrers."
+                ) => {
+                    window.__esGoogleMapsLoadState.status = "failed";
+                    window.__esGoogleMapsLoadState.error = message;
+                    window.__esGoogleMapsLoadReject?.(new Error(message));
+                };
+            }
+        })();
     </script>
 
     <!-- Libraries used across routes (swup does not execute scripts from fetched HTML) -->
