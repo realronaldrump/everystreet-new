@@ -381,10 +381,16 @@ async def get_route_analytics(route_id: str):
     trips_coll = Trip.get_pymongo_collection()
     tz_expr = get_mongo_tz_expr()
 
+    match_query = enforce_bouncie_source(
+        {"recurringRouteId": oid, "invalid": {"$ne": True}}
+    )
+
+    # Quick count so we can flag stale assignment data.
+    assigned_count = await trips_coll.count_documents(match_query, limit=1)
+    needs_rebuild = assigned_count == 0 and (route.trip_count or 0) > 0
+
     pipeline = build_temporal_facet_pipeline(
-        match_query=enforce_bouncie_source(
-            {"recurringRouteId": oid, "invalid": {"$ne": True}}
-        ),
+        match_query=match_query,
         tz_expr=tz_expr,
         include_timeline=True,
         month_limit=24,
@@ -431,6 +437,7 @@ async def get_route_analytics(route_id: str):
         "timeline": timeline,
         "stats": stats_raw,
         "tripsPerWeek": trips_per_week,
+        "needsRebuild": needs_rebuild,
     }
 
 

@@ -818,12 +818,20 @@
 }
 
 .routes-modal-map-col {
-  min-height: 420px;
+  min-height: 50vh;
 }
 
 @media (width >= 992px) {
+  .routes-modal-dialog {
+    max-width: min(1140px, calc(100vw - 3rem));
+  }
+
+  .routes-modal-content .modal-body > .row {
+    min-height: min(70vh, 640px);
+  }
+
   .routes-modal-map-col {
-    min-height: 560px;
+    min-height: 0;
   }
 
   .routes-modal-panel {
