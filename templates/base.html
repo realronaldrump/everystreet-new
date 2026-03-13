@@ -263,24 +263,7 @@ Insights & Tracking
                       %}
                     >
                       <i class="fas fa-route me-2" aria-hidden="true"></i>
-                      Routes
-                    </a>
-                  </li>
-                  <li role="none">
-                    <a
-                      class="dropdown-item owner-only {% if request.url.path == '/vehicles' %}active{% endif %}"
-                      href="/vehicles"
-                      role="menuitem"
-{%
-                      if
-                      request.url.path == "/vehicles"
-                      %}aria-current="page"
-{%
-                      endif
-                      %}
-                    >
-                      <i class="fas fa-car me-2" aria-hidden="true"></i>
-                      My Vehicle
+                      Recurring Routes
                     </a>
                   </li>
                   <li role="separator" class="owner-only">
@@ -407,6 +390,23 @@ System
                     >
                       <i class="fas fa-sliders-h me-2" aria-hidden="true"></i>
                       Control Center
+                    </a>
+                  </li>
+                  <li role="none">
+                    <a
+                      class="dropdown-item owner-only {% if request.url.path == '/vehicles' %}active{% endif %}"
+                      href="/vehicles"
+                      role="menuitem"
+{%
+                      if
+                      request.url.path == "/vehicles"
+                      %}aria-current="page"
+{%
+                      endif
+                      %}
+                    >
+                      <i class="fas fa-car me-2" aria-hidden="true"></i>
+                      My Vehicle
                     </a>
                   </li>
                 </ul>
@@ -625,22 +625,7 @@ System
                   endif
                   %}
                 >
-                  <i class="fas fa-route me-2" aria-hidden="true"></i> Routes
-                </a>
-              </li>
-              <li role="none" class="owner-only">
-                <a
-                  href="/vehicles"
-                  class="{% if request.url.path == '/vehicles' %}active{% endif %}"
-{%
-                  if
-                  request.url.path == "/vehicles"
-                  %}aria-current="page"
-{%
-                  endif
-                  %}
-                >
-                  <i class="fas fa-car me-2" aria-hidden="true"></i> My Vehicle
+                  <i class="fas fa-route me-2" aria-hidden="true"></i> Recurring Routes
                 </a>
               </li>
             </ul>
@@ -771,6 +756,21 @@ System
                   %}
                 >
                   <i class="fas fa-sliders-h me-2" aria-hidden="true"></i> Control Center
+                </a>
+              </li>
+              <li role="none" class="owner-only">
+                <a
+                  href="/vehicles"
+                  class="{% if request.url.path == '/vehicles' %}active{% endif %}"
+{%
+                  if
+                  request.url.path == "/vehicles"
+                  %}aria-current="page"
+{%
+                  endif
+                  %}
+                >
+                  <i class="fas fa-car me-2" aria-hidden="true"></i> My Vehicle
                 </a>
               </li>
             </ul>
