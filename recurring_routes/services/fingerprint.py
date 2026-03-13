@@ -173,8 +173,20 @@ def _extract_point_from_geopoint(value: Any) -> list[float] | None:
     return None
 
 
+def _coerce_place_id_for_sig(value: Any) -> str | None:
+    """Coerce a place-id value into a non-empty string or None."""
+    if value is None:
+        return None
+    cleaned = str(value).strip()
+    return cleaned if cleaned else None
+
+
 def compute_route_signature(trip: dict[str, Any], params: dict[str, Any]) -> str | None:
-    """Compute a stable signature string used for route clustering."""
+    """Compute a stable signature string used for route clustering.
+
+    Algorithm v2+ uses Place IDs for start/end when available, producing
+    more stable grouping that is immune to GPS noise at known locations.
+    """
     algo = int(params.get("algorithm_version") or 1)
     start_end_cell_m = float(params.get("start_end_cell_size_m") or 200)
     waypoint_cell_m = float(params.get("waypoint_cell_size_m") or 650)
@@ -185,13 +197,31 @@ def compute_route_signature(trip: dict[str, Any], params: dict[str, Any]) -> str
     if len(points) < 2:
         return None
 
-    start_pt = _extract_point_from_geopoint(trip.get("startGeoPoint")) or points[0]
-    end_pt = _extract_point_from_geopoint(trip.get("destinationGeoPoint")) or points[-1]
+    # v2+: Use Place IDs for start/end when available (GPS-noise immune).
+    start_place_id = (
+        _coerce_place_id_for_sig(trip.get("startPlaceId")) if algo >= 2 else None
+    )
+    end_place_id = (
+        _coerce_place_id_for_sig(trip.get("destinationPlaceId")) if algo >= 2 else None
+    )
 
-    sx, sy = lonlat_to_mercator_m(start_pt[0], start_pt[1])
-    ex, ey = lonlat_to_mercator_m(end_pt[0], end_pt[1])
-    start_cell = grid_cell(sx, sy, start_end_cell_m)
-    end_cell = grid_cell(ex, ey, start_end_cell_m)
+    if start_place_id:
+        start_part = f"sp{start_place_id}"
+    else:
+        start_pt = _extract_point_from_geopoint(trip.get("startGeoPoint")) or points[0]
+        sx, sy = lonlat_to_mercator_m(start_pt[0], start_pt[1])
+        start_cell = grid_cell(sx, sy, start_end_cell_m)
+        start_part = f"s{start_cell[0]},{start_cell[1]}"
+
+    if end_place_id:
+        end_part = f"ep{end_place_id}"
+    else:
+        end_pt = (
+            _extract_point_from_geopoint(trip.get("destinationGeoPoint")) or points[-1]
+        )
+        ex, ey = lonlat_to_mercator_m(end_pt[0], end_pt[1])
+        end_cell = grid_cell(ex, ey, start_end_cell_m)
+        end_part = f"e{end_cell[0]},{end_cell[1]}"
 
     waypoints = sample_waypoints(points, waypoint_count=waypoint_count)
     waypoint_cells: list[tuple[int, int]] = []
@@ -223,8 +253,8 @@ def compute_route_signature(trip: dict[str, Any], params: dict[str, Any]) -> str
     wp_part = ",".join(f"{cx}:{cy}" for cx, cy in waypoint_cells)
     return (
         f"v{algo}|"
-        f"s{start_cell[0]},{start_cell[1]}|"
-        f"e{end_cell[0]},{end_cell[1]}|"
+        f"{start_part}|"
+        f"{end_part}|"
         f"w{wp_part}|"
         f"d{bucket:.1f}"
     )

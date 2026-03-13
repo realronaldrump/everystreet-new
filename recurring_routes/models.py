@@ -6,11 +6,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class BuildRecurringRoutesRequest(BaseModel):
-    algorithm_version: int = 1
+    algorithm_version: int = 2
     start_end_cell_size_m: int = 200
     waypoint_cell_size_m: int = 650
     waypoint_count: int = 4
-    distance_bucket_miles: float = 0.5
+    distance_bucket_miles: float = 1.0
     min_assign_trips: int = 1
     min_recurring_trips: int = 3
 
