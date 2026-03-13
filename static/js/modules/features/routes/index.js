@@ -23,6 +23,8 @@ let pageSignal = null;
 const listState = { q: "", minTrips: 3, includeHidden: false, imei: "", sort: "trips" };
 let vehicles = [];
 let allRoutes = [];
+const DISPLAY_CHUNK_SIZE = 12;
+let currentDisplayLimit = DISPLAY_CHUNK_SIZE;
 let buildPollTimer = null;
 let activeBuildJobId = null;
 let routeModalInstance = null;
@@ -694,16 +696,24 @@ function createRouteCard(route) {
 
 function renderRoutes(routes) {
   const grid = getEl("routes-grid");
+  const showMoreContainer = getEl("routes-show-more-container");
   if (!grid) {
     return;
   }
   grid.innerHTML = "";
   if (!routes || routes.length === 0) {
     showEmpty(true);
+    if (showMoreContainer) showMoreContainer.classList.add("d-none");
     return;
   }
   showEmpty(false);
-  routes.forEach((r) => grid.appendChild(createRouteCard(r)));
+
+  const toShow = routes.slice(0, currentDisplayLimit);
+  toShow.forEach((r) => grid.appendChild(createRouteCard(r)));
+
+  if (showMoreContainer) {
+    showMoreContainer.classList.toggle("d-none", currentDisplayLimit >= routes.length);
+  }
 }
 
 /* ───── places loading ───── */
@@ -763,6 +773,7 @@ function buildListUrl() {
 }
 
 async function loadRoutes() {
+  currentDisplayLimit = DISPLAY_CHUNK_SIZE;
   setLoading(true);
   try {
     const data = await apiGet(buildListUrl(), { cache: false });
@@ -3108,12 +3119,21 @@ function bindPageControls(signal) {
     );
   }
 
+  const showMoreBtn = getEl("routes-show-more-btn");
+  if (showMoreBtn) {
+    showMoreBtn.addEventListener("click", () => {
+      currentDisplayLimit += DISPLAY_CHUNK_SIZE;
+      renderRoutes(sortRoutes(allRoutes, listState.sort));
+    }, opts);
+  }
+
   const sortSelect = getEl("routes-sort");
   if (sortSelect) {
     sortSelect.addEventListener(
       "change",
       () => {
         listState.sort = sortSelect.value || "trips";
+        currentDisplayLimit = DISPLAY_CHUNK_SIZE;
         renderRoutes(sortRoutes(allRoutes, listState.sort));
       },
       opts
