@@ -991,8 +991,6 @@ function ensureRouteModal() {
       if (allTripsBtn) {
         allTripsBtn.classList.remove("active");
         allTripsBtn.disabled = false;
-        allTripsBtn.innerHTML =
-          '<i class="fas fa-layer-group me-2" aria-hidden="true"></i>Show all trips';
       }
       if (routeModalMap) {
         const tripsSource = routeModalMap.getSource(MODAL_TRIPS_SOURCE_ID);
@@ -1042,9 +1040,9 @@ function ensureModalMap() {
         type: "line",
         source: MODAL_TRIPS_SOURCE_ID,
         paint: {
-          "line-width": 1.5,
-          "line-color": ["coalesce", ["get", "color"], "#888"],
-          "line-opacity": 0.25,
+          "line-width": 2,
+          "line-color": "#e8853d",
+          "line-opacity": 0.35,
         },
         layout: {
           "line-cap": "round",
@@ -1769,30 +1767,13 @@ function setModalMap(route) {
 }
 
 /* ───── all-trips overlay ───── */
-async function toggleAllTrips() {
+async function loadTripsOverlay(routeId, token) {
   const map = routeModalMap;
-  const routeId = routeModalRouteId;
   if (!map || !routeId) {
     return;
   }
 
-  showAllTrips = !showAllTrips;
   const btn = getEl("route-modal-show-all-trips");
-  if (btn) {
-    const icon = '<i class="fas fa-layer-group me-2" aria-hidden="true"></i>';
-    btn.innerHTML = showAllTrips
-      ? `${icon}Hide trip overlays`
-      : `${icon}Show all trips`;
-    btn.classList.toggle("active", showAllTrips);
-  }
-
-  if (!showAllTrips) {
-    if (map.getLayer(MODAL_TRIPS_LAYER_ID)) {
-      map.setLayoutProperty(MODAL_TRIPS_LAYER_ID, "visibility", "none");
-    }
-    return;
-  }
-
   try {
     if (btn) {
       btn.disabled = true;
@@ -1801,37 +1782,27 @@ async function toggleAllTrips() {
       `/api/recurring_routes/${encodeURIComponent(routeId)}/trips?limit=200&offset=0&include_geometry=true`,
       { cache: false }
     );
+    if (token !== routeModalOpenToken || routeModalRouteId !== routeId) {
+      return;
+    }
     const trips = Array.isArray(resp?.trips) ? resp.trips : [];
-    const color = routeStrokeColor(routeModalRoute);
     let features = trips
       .filter((t) => t.gps?.type)
       .map((t) => ({
         type: "Feature",
         geometry: t.gps,
-        properties: { color },
+        properties: {},
       }));
     if (features.length === 0) {
       showAllTrips = false;
       if (btn) {
         btn.classList.remove("active");
-        btn.innerHTML =
-          '<i class="fas fa-layer-group me-2" aria-hidden="true"></i>Show all trips';
+        btn.disabled = true;
       }
-      if (map.getLayer(MODAL_TRIPS_LAYER_ID)) {
-        map.setLayoutProperty(MODAL_TRIPS_LAYER_ID, "visibility", "none");
-      }
-      notificationManager.show?.(
-        "No trip geometry is available for this route.",
-        "info"
-      );
       return;
     }
     if (features.length > 150) {
       features = features.slice(0, 150);
-      notificationManager.show?.(
-        "Showing the most recent 150 trip paths to keep the map responsive.",
-        "info"
-      );
     }
     const applyOverlay = () => {
       const src = map.getSource(MODAL_TRIPS_SOURCE_ID);
@@ -1847,21 +1818,41 @@ async function toggleAllTrips() {
     } else {
       map.once("load", applyOverlay);
     }
+    showAllTrips = true;
+    if (btn) {
+      btn.classList.add("active");
+    }
   } catch (e) {
-    notificationManager.show?.(
-      `Failed to load trip geometries: ${e?.message || e}`,
-      "warning"
-    );
+    console.warn("Failed to load trip overlay", e);
     showAllTrips = false;
     if (btn) {
       btn.classList.remove("active");
-      btn.innerHTML =
-        '<i class="fas fa-layer-group me-2" aria-hidden="true"></i>Show all trips';
     }
   } finally {
     if (btn) {
       btn.disabled = false;
     }
+  }
+}
+
+async function toggleAllTrips() {
+  const map = routeModalMap;
+  if (!map) {
+    return;
+  }
+
+  showAllTrips = !showAllTrips;
+  const btn = getEl("route-modal-show-all-trips");
+  if (btn) {
+    btn.classList.toggle("active", showAllTrips);
+  }
+
+  if (map.getLayer(MODAL_TRIPS_LAYER_ID)) {
+    map.setLayoutProperty(
+      MODAL_TRIPS_LAYER_ID,
+      "visibility",
+      showAllTrips ? "visible" : "none"
+    );
   }
 }
 
@@ -2775,13 +2766,6 @@ async function openRouteModal(routeId) {
   // Reset tabs to overview
   activateModalTab("overview");
 
-  const allTripsBtn = getEl("route-modal-show-all-trips");
-  if (allTripsBtn) {
-    allTripsBtn.classList.remove("active");
-    allTripsBtn.disabled = false;
-    allTripsBtn.innerHTML =
-      '<i class="fas fa-layer-group me-2" aria-hidden="true"></i>Show all trips';
-  }
   if (routeModalMap) {
     const tripsSource = routeModalMap.getSource(MODAL_TRIPS_SOURCE_ID);
     if (tripsSource) {
@@ -2823,6 +2807,7 @@ async function openRouteModal(routeId) {
         return;
       }
       setModalMap(route);
+      loadTripsOverlay(routeId, token);
     }, 80);
 
     const tripsResp = await apiGet(
