@@ -71,10 +71,17 @@ def build_temporal_facet_pipeline(
                 "avgDuration": {"$avg": "$duration"},
             },
         },
-        {"$sort": {"_id": 1}},
     ]
     if month_limit is not None and month_limit > 0:
-        by_month.append({"$limit": int(month_limit)})
+        by_month.extend(
+            [
+                {"$sort": {"_id": -1}},
+                {"$limit": int(month_limit)},
+                {"$sort": {"_id": 1}},
+            ],
+        )
+    else:
+        by_month.append({"$sort": {"_id": 1}})
 
     facet: dict[str, Any] = {
         "byHour": [

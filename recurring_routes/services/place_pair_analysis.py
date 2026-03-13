@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 from beanie import PydanticObjectId
 
 from core.spatial import GeometryService
+from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation_utils import get_mongo_tz_expr
 from db.models import Place, RecurringRoute, Trip
 from recurring_routes.services.fingerprint import (
@@ -658,7 +659,7 @@ async def analyze_place_pair(
     effective_timeframe = "90d" if requested_timeframe == "90d" else "all"
     sample_limit = min(max(int(limit), 1), 500)
 
-    query: dict[str, Any] = {"invalid": {"$ne": True}}
+    query = enforce_bouncie_source({"invalid": {"$ne": True}})
     timeframe_cutoff: datetime | None = None
     if effective_timeframe == "90d":
         timeframe_cutoff = datetime.now(UTC) - timedelta(days=90)

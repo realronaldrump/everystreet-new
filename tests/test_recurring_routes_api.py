@@ -208,6 +208,50 @@ async def test_route_detail_and_trips_include_place_links(routes_api_db) -> None
 
 
 @pytest.mark.asyncio
+async def test_route_detail_and_trip_geometry_prefer_matched_gps(routes_api_db) -> None:
+    now = datetime(2026, 2, 10, tzinfo=UTC)
+    raw_coords = [[-122.401, 37.790], [-122.399, 37.787], [-122.396, 37.784]]
+    matched_coords = [[-122.401, 37.790], [-122.398, 37.786], [-122.394, 37.781]]
+
+    for i in range(2):
+        st = now - timedelta(days=i)
+        await Trip(
+            transactionId=f"mg-{i}",
+            imei="imei-matched",
+            startTime=st,
+            endTime=st + timedelta(minutes=18),
+            duration=1080,
+            distance=8.0,
+            gps=_gps_linestring(raw_coords),
+            matchedGps=_gps_linestring(matched_coords),
+            startGeoPoint=_point(-122.401, 37.790),
+            destinationGeoPoint=_point(-122.394, 37.781),
+        ).insert()
+
+    await RecurringRoutesBuilder().run(
+        "test-job-matched-geometry",
+        BuildRecurringRoutesRequest(),
+    )
+
+    route = await RecurringRoute.find_one({"trip_count": 2})
+    assert route is not None
+
+    client = TestClient(_build_app())
+
+    detail_resp = client.get(f"/api/recurring_routes/{route.id!s}")
+    assert detail_resp.status_code == 200
+    assert detail_resp.json()["route"]["geometry"] == _gps_linestring(matched_coords)
+
+    trips_resp = client.get(
+        f"/api/recurring_routes/{route.id!s}/trips?include_geometry=true"
+    )
+    assert trips_resp.status_code == 200
+    trips = trips_resp.json()["trips"]
+    assert len(trips) == 2
+    assert trips[0]["gps"] == _gps_linestring(matched_coords)
+
+
+@pytest.mark.asyncio
 async def test_route_analytics_timezone_buckets_are_complete(
     routes_api_db,
     monkeypatch,

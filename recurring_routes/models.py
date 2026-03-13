@@ -11,7 +11,7 @@ class BuildRecurringRoutesRequest(BaseModel):
     waypoint_cell_size_m: int = 650
     waypoint_count: int = 4
     distance_bucket_miles: float = 0.5
-    min_assign_trips: int = 2
+    min_assign_trips: int = 1
     min_recurring_trips: int = 3
 
     model_config = ConfigDict(extra="ignore")

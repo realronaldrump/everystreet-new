@@ -347,3 +347,59 @@ async def test_place_pair_analysis_missing_and_invalid_place_ids(place_pair_db) 
         },
     )
     assert not_found_resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_place_pair_analysis_excludes_non_bouncie_sources(place_pair_db) -> None:
+    now = datetime(2026, 2, 10, 8, 0, tzinfo=UTC)
+    start_place = Place(name="Home", geometry=_point(-122.401, 37.790), created_at=now)
+    end_place = Place(name="Office", geometry=_point(-122.394, 37.781), created_at=now)
+    await start_place.insert()
+    await end_place.insert()
+
+    await Trip(
+        transactionId="pp-bouncie",
+        imei="imei-1",
+        startTime=now - timedelta(days=1),
+        endTime=now - timedelta(days=1) + timedelta(minutes=20),
+        duration=1200,
+        distance=8.0,
+        gps=_line([[-122.401, 37.790], [-122.398, 37.786], [-122.394, 37.781]]),
+        startGeoPoint=_point(-122.401, 37.790),
+        destinationGeoPoint=_point(-122.394, 37.781),
+        startPlaceId=str(start_place.id),
+        destinationPlaceId=str(end_place.id),
+        source="bouncie",
+    ).insert()
+
+    await Trip(
+        transactionId="pp-other-source",
+        imei="imei-1",
+        startTime=now - timedelta(days=2),
+        endTime=now - timedelta(days=2) + timedelta(minutes=20),
+        duration=1200,
+        distance=8.0,
+        gps=_line([[-122.401, 37.790], [-122.398, 37.786], [-122.394, 37.781]]),
+        startGeoPoint=_point(-122.401, 37.790),
+        destinationGeoPoint=_point(-122.394, 37.781),
+        startPlaceId=str(start_place.id),
+        destinationPlaceId=str(end_place.id),
+        source="manual",
+    ).insert()
+
+    client = TestClient(_build_app())
+    resp = client.get(
+        "/api/recurring_routes/place_pair_analysis",
+        params={
+            "start_place_id": str(start_place.id),
+            "end_place_id": str(end_place.id),
+            "timeframe": "all",
+            "limit": 500,
+        },
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["query"]["matched"] == 1
+    assert body["summary"]["trip_count"] == 1
+    assert {trip["transactionId"] for trip in body["sampleTrips"]} == {"pp-bouncie"}

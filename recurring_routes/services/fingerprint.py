@@ -62,12 +62,12 @@ def _flatten_line_coords(geometry: dict[str, Any] | None) -> list[list[float]]:
     return normalize_coordinate_list(flattened)
 
 
-def extract_polyline(trip: dict[str, Any]) -> list[list[float]]:
-    """Extract a [lon, lat] polyline from a trip in a stable priority order."""
-    geom = GeometryService.parse_geojson(trip.get("gps"))
-    coords = _flatten_line_coords(geom) if geom else []
-    if len(coords) >= 2:
-        return coords
+def extract_trip_geometry(trip: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract the preferred trip geometry, favoring matched lines when available."""
+    for field in ("matchedGps", "gps"):
+        geom = GeometryService.parse_geojson(trip.get(field))
+        if geom:
+            return geom
 
     raw_coords = trip.get("coordinates")
     if isinstance(raw_coords, list) and raw_coords:
@@ -83,15 +83,22 @@ def extract_polyline(trip: dict[str, Any]) -> list[list[float]]:
                 continue
             pairs.append([lon, lat])
 
-        geom2 = GeometryService.geometry_from_coordinate_pairs(
+        return GeometryService.geometry_from_coordinate_pairs(
             pairs,
             allow_point=False,
             dedupe=True,
             validate=True,
         )
-        coords2 = _flatten_line_coords(geom2) if geom2 else []
-        if len(coords2) >= 2:
-            return coords2
+
+    return None
+
+
+def extract_polyline(trip: dict[str, Any]) -> list[list[float]]:
+    """Extract a [lon, lat] polyline from a trip in a stable priority order."""
+    geom = extract_trip_geometry(trip)
+    coords = _flatten_line_coords(geom) if geom else []
+    if len(coords) >= 2:
+        return coords
 
     return []
 

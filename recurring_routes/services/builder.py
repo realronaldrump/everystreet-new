@@ -28,6 +28,7 @@ from recurring_routes.services.fingerprint import (
     compute_route_key,
     compute_route_signature,
     extract_display_label,
+    extract_trip_geometry,
     extract_polyline,
 )
 from recurring_routes.services.service import coerce_place_id
@@ -104,31 +105,7 @@ def _best_place_id(
 def _extract_representative_geometry(
     trip_dict: dict[str, Any],
 ) -> dict[str, Any] | None:
-    geom = GeometryService.parse_geojson(trip_dict.get("gps"))
-    if geom:
-        return geom
-
-    coords = trip_dict.get("coordinates")
-    if isinstance(coords, list) and coords:
-        pairs: list[list[Any]] = []
-        for item in coords:
-            if not isinstance(item, dict):
-                continue
-            lon = item.get("lon")
-            lat = item.get("lat")
-            if lon is None:
-                lon = item.get("lng")
-            if lon is None or lat is None:
-                continue
-            pairs.append([lon, lat])
-        return GeometryService.geometry_from_coordinate_pairs(
-            pairs,
-            allow_point=False,
-            dedupe=True,
-            validate=True,
-        )
-
-    return None
+    return extract_trip_geometry(trip_dict)
 
 
 def _extract_start_end_points(

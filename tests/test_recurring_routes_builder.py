@@ -8,6 +8,8 @@ from db.models import GasFillup, Job, RecurringRoute, Trip, Vehicle
 from recurring_routes.models import BuildRecurringRoutesRequest
 from recurring_routes.services.builder import RecurringRoutesBuilder
 
+_DEFAULT_GPS = object()
+
 
 @pytest.fixture
 async def routes_beanie_db():
@@ -33,6 +35,8 @@ async def _insert_trip(
     duration_sec: float,
     imei: str = "imei-1",
     invalid: bool | None = None,
+    gps: dict | None | object = _DEFAULT_GPS,
+    matched_gps: dict | None = None,
 ) -> None:
     trip = Trip(
         transactionId=transaction_id,
@@ -41,7 +45,8 @@ async def _insert_trip(
         endTime=start_time + timedelta(seconds=int(duration_sec)),
         duration=duration_sec,
         distance=distance_miles,
-        gps=_gps_linestring(coords),
+        gps=_gps_linestring(coords) if gps is _DEFAULT_GPS else gps,
+        matchedGps=matched_gps,
         invalid=invalid,
     )
     await trip.insert()
@@ -186,3 +191,62 @@ async def test_builder_unsets_recurring_route_id_for_ineligible_trips(
     raw_after = await trips_coll.find_one({"transactionId": "r1-0"})
     assert raw_after is not None
     assert "recurringRouteId" not in raw_after
+
+
+@pytest.mark.asyncio
+async def test_builder_clusters_trips_with_matched_gps_only(routes_beanie_db) -> None:
+    now = datetime(2026, 2, 10, tzinfo=UTC)
+    matched_coords = [[0.001, 0.001], [0.02, 0.02], [0.05, 0.05]]
+
+    for i in range(2):
+        await _insert_trip(
+            transaction_id=f"matched-{i}",
+            start_time=now - timedelta(days=i),
+            coords=matched_coords,
+            distance_miles=10.0,
+            duration_sec=900,
+            gps=None,
+            matched_gps=_gps_linestring(matched_coords),
+        )
+
+    builder = RecurringRoutesBuilder()
+    result = await builder.run(
+        job_id="test-job-matched-only",
+        request=BuildRecurringRoutesRequest(),
+    )
+
+    assert result["status"] == "success"
+    routes = await RecurringRoute.find({}).to_list()
+    assert len(routes) == 1
+    assert routes[0].trip_count == 2
+    assert routes[0].geometry == _gps_linestring(matched_coords)
+
+
+@pytest.mark.asyncio
+async def test_builder_default_assigns_single_trip_routes(routes_beanie_db) -> None:
+    now = datetime(2026, 2, 10, tzinfo=UTC)
+    coords = [[0.001, 0.001], [0.02, 0.02], [0.05, 0.05]]
+
+    await _insert_trip(
+        transaction_id="single-0",
+        start_time=now,
+        coords=coords,
+        distance_miles=8.5,
+        duration_sec=720,
+    )
+
+    builder = RecurringRoutesBuilder()
+    result = await builder.run(
+        job_id="test-job-single-default",
+        request=BuildRecurringRoutesRequest(),
+    )
+
+    assert result["status"] == "success"
+    routes = await RecurringRoute.find({}).to_list()
+    assert len(routes) == 1
+    assert routes[0].trip_count == 1
+    assert routes[0].is_recurring is False
+
+    trip = await Trip.find_one(Trip.transactionId == "single-0")
+    assert trip is not None
+    assert trip.recurringRouteId == routes[0].id

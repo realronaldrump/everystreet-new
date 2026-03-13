@@ -12,7 +12,6 @@ from fastapi import APIRouter, Body, HTTPException, Query, status
 from core.api import api_route
 from core.job_serialization import serialize_job_progress
 from core.jobs import JobHandle, create_job, find_job
-from core.spatial import GeometryService
 from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation_utils import get_mongo_tz_expr
 from db.models import Job, Place, RecurringRoute, Trip
@@ -21,6 +20,7 @@ from recurring_routes.models import (
     PatchRecurringRouteRequest,
 )
 from recurring_routes.services.place_pair_analysis import analyze_place_pair
+from recurring_routes.services.fingerprint import extract_trip_geometry
 from recurring_routes.services.service import (
     build_place_link,
     coerce_place_id,
@@ -86,7 +86,7 @@ def _route_place_id(route: RecurringRoute, *field_names: str) -> str | None:
 
 
 async def _resolve_raw_route_geometry(route: RecurringRoute) -> dict[str, Any] | None:
-    """Resolve route geometry strictly from raw trip GPS data."""
+    """Resolve route geometry, preferring matched geometry when available."""
     rep_trip_id = str(route.representative_trip_id or "").strip()
     trip: Trip | None = None
 
@@ -107,7 +107,10 @@ async def _resolve_raw_route_geometry(route: RecurringRoute) -> dict[str, Any] |
                     {
                         "recurringRouteId": route.id,
                         "invalid": {"$ne": True},
-                        "gps": {"$ne": None},
+                        "$or": [
+                            {"matchedGps": {"$ne": None}},
+                            {"gps": {"$ne": None}},
+                        ],
                     },
                 ),
             )
@@ -120,7 +123,7 @@ async def _resolve_raw_route_geometry(route: RecurringRoute) -> dict[str, Any] |
         return None
 
     trip_data = trip.model_dump()
-    return GeometryService.parse_geojson(trip_data.get("gps"))
+    return extract_trip_geometry(trip_data)
 
 
 @router.get("/api/recurring_routes", response_model=dict[str, Any])
@@ -262,7 +265,10 @@ async def get_recurring_route(route_id: str):
         raise HTTPException(status_code=404, detail="Route not found")
 
     route_data = await serialize_route_detail_with_place_links(route)
-    route_data["geometry"] = await _resolve_raw_route_geometry(route)
+    route_data["geometry"] = (
+        await _resolve_raw_route_geometry(route)
+        or route_data.get("geometry")
+    )
 
     return {
         "status": "success",
@@ -348,7 +354,7 @@ async def list_trips_for_route(
             },
         }
         if include_geometry:
-            trip_data["gps"] = data.get("gps")
+            trip_data["gps"] = extract_trip_geometry(data)
         trips.append(trip_data)
 
     total = await Trip.find(query).count()

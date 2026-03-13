@@ -770,7 +770,7 @@ async function loadRoutes() {
     allRoutes = routes;
     updateResultsHeader(data?.total ?? routes.length);
     updateHeroStats(routes);
-    renderRoutes(routes);
+    renderRoutes(sortRoutes(routes, listState.sort));
 
     const lastBuiltEl = getEl("routes-last-built");
     if (lastBuiltEl && routes.length > 0) {
@@ -1608,11 +1608,14 @@ function renderDistanceTrendChart(data) {
 }
 
 /* ───── trips list ───── */
-function setModalTrips(trips) {
+function setModalTrips(trips, totalTrips = null) {
   const list = getEl("route-modal-trips-list");
   const count = getEl("route-modal-trips-count");
   if (count) {
-    count.textContent = String(trips.length);
+    const total = Number(totalTrips);
+    count.textContent = String(
+      Number.isFinite(total) && total >= 0 ? Math.round(total) : trips.length
+    );
   }
   if (!list) {
     return;
@@ -2828,7 +2831,10 @@ async function openRouteModal(routeId) {
     if (token !== routeModalOpenToken || routeModalRouteId !== routeId) {
       return;
     }
-    setModalTrips(Array.isArray(tripsResp?.trips) ? tripsResp.trips : []);
+    setModalTrips(
+      Array.isArray(tripsResp?.trips) ? tripsResp.trips : [],
+      tripsResp?.total
+    );
   } catch (e) {
     if (token !== routeModalOpenToken || e?.name === "AbortError") {
       return;
