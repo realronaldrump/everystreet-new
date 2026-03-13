@@ -2783,7 +2783,10 @@ async function openRouteModal(routeId) {
       }),
       apiGet(`/api/recurring_routes/${encodeURIComponent(routeId)}/analytics`, {
         cache: false,
-      }).catch(() => null),
+      }).catch((err) => {
+        console.warn("Analytics fetch failed for route", routeId, err);
+        return null;
+      }),
     ]);
 
     if (token !== routeModalOpenToken || routeModalRouteId !== routeId) {
