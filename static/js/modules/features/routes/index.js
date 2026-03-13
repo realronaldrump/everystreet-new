@@ -2722,6 +2722,13 @@ function activateModalTab(tab) {
 
 function renderModalAnalyticsCharts() {
   const analyticsData = routeModalAnalyticsData || {};
+
+  // Show rebuild hint if trip assignments are stale
+  const rebuildHint = getEl("route-analytics-rebuild-hint");
+  if (rebuildHint) {
+    rebuildHint.classList.toggle("d-none", !analyticsData.needsRebuild);
+  }
+
   renderMonthlyChart(analyticsData);
   renderHourChart(analyticsData);
   renderDowChart(analyticsData);
