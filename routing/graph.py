@@ -344,15 +344,53 @@ def _reconstruct_path_edges(
     return edges
 
 
+def _haversine_distance_m(
+    lon1: float, lat1: float, lon2: float, lat2: float,
+) -> float:
+    """Great-circle distance between two lon/lat points, in meters."""
+    R = 6_371_000.0  # Earth radius in meters
+    lat1_r, lat2_r = math.radians(lat1), math.radians(lat2)
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(lat1_r) * math.cos(lat2_r) * math.sin(dlon / 2) ** 2
+    )
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def _edge_length_from_nodes(G: nx.Graph, u: int, v: int) -> float:
+    """Compute edge length from node coordinates when the attribute is missing."""
+    try:
+        ux, uy = float(G.nodes[u]["x"]), float(G.nodes[u]["y"])
+        vx, vy = float(G.nodes[v]["x"]), float(G.nodes[v]["y"])
+    except (KeyError, TypeError, ValueError):
+        return 0.0
+    if _is_projected_graph(G):
+        # Projected CRS — Euclidean distance is already in linear units (meters)
+        return math.hypot(vx - ux, vy - uy)
+    return _haversine_distance_m(ux, uy, vx, vy)
+
+
 def edge_length_m(G: nx.Graph, u: int, v: int, key: int | None = None) -> float:
     """Best-effort edge length in meters."""
     try:
         if G.is_multigraph():
             if key is None:
                 # choose minimum length among parallel edges
-                return float(min(data.get("length", 0.0) for data in G[u][v].values()))
-            return float(G.edges[u, v, key].get("length", 0.0))
-        return float(G.edges[u, v].get("length", 0.0))
+                lengths = [data.get("length") for data in G[u][v].values()]
+                valid = [float(length) for length in lengths if length is not None and float(length) > 0]
+                if valid:
+                    return min(valid)
+                return _edge_length_from_nodes(G, u, v)
+            val = G.edges[u, v, key].get("length")
+            if val is not None and float(val) > 0:
+                return float(val)
+            return _edge_length_from_nodes(G, u, v)
+        val = G.edges[u, v].get("length")
+        if val is not None and float(val) > 0:
+            return float(val)
+        return _edge_length_from_nodes(G, u, v)
     except Exception:
         return 0.0
 
@@ -597,6 +635,7 @@ def dijkstra_to_best_target(
     weight: str = "length",
     max_candidates: int = 25,
     distance_cutoff_factor: float = 3.0,
+    absolute_cutoff_m: float | None = None,
     score_fn: Callable[[int, float], float] | None = None,
 ) -> tuple[int, float, list[EdgeRef]] | None:
     """
@@ -608,12 +647,18 @@ def dijkstra_to_best_target(
     score (lower is better).
 
     If `score_fn` is omitted, this behaves like "nearest by distance".
+
+    ``max_candidates`` is automatically clamped based on the target set size so
+    we don't over-explore when there are very few targets.
     """
     if source in targets:
         return (source, 0.0, [])
 
     if not targets:
         return None
+
+    # Adapt candidate count to the number of targets
+    effective_max = min(max_candidates, max(5, len(targets) // 4))
 
     dist: dict[int, float] = {source: 0.0}
     prev: dict[int, tuple[int, int | None]] = {}
@@ -629,6 +674,10 @@ def dijkstra_to_best_target(
             continue
         visited.add(u)
 
+        # Absolute distance cutoff to prevent runaway exploration
+        if absolute_cutoff_m is not None and d > absolute_cutoff_m:
+            break
+
         if nearest_target_dist is not None:
             cutoff = nearest_target_dist * float(distance_cutoff_factor)
             if d > cutoff:
@@ -639,7 +688,7 @@ def dijkstra_to_best_target(
                 nearest_target_dist = float(d)
             score = float(score_fn(u, float(d))) if score_fn else float(d)
             candidates.append((u, float(d), score))
-            if len(candidates) >= max_candidates:
+            if len(candidates) >= effective_max:
                 break
 
         # Iterate outgoing edges

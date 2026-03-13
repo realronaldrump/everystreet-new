@@ -94,9 +94,22 @@ async def fill_route_gaps(
         logger.info("No gaps > %.0f ft found in route", max_gap_ft)
         return route_coords, GapFillStats(max_gap_ft_before=max_gap_before)
 
+    # Cap total gaps and prioritize the largest if there are too many.
+    MAX_GAP_BATCH_SIZE = 10
+    MAX_GAPS_TOTAL = 100
+    if len(gaps_to_fill) > MAX_GAPS_TOTAL:
+        logger.warning(
+            "Too many gaps to fill (%d > %d max); filling only the %d largest",
+            len(gaps_to_fill),
+            MAX_GAPS_TOTAL,
+            MAX_GAPS_TOTAL,
+        )
+        gaps_to_fill.sort(key=lambda g: -g[1])  # Largest gaps first
+        gaps_to_fill = gaps_to_fill[:MAX_GAPS_TOTAL]
+
     logger.info("Found %d gaps to fill in route", len(gaps_to_fill))
 
-    # Fetch bridge routes concurrently (Valhalla calls are rate-limited internally).
+    # Fetch bridge routes in batches to avoid overwhelming the routing server.
     import asyncio
 
     results: dict[int, Any] = {}
@@ -109,21 +122,26 @@ async def fill_route_gaps(
         bridge = await fetch_bridge_route(from_xy, to_xy)
         return gap_idx, gap_ft, bridge
 
-    tasks = [
-        asyncio.create_task(_fetch_one(gap_idx, gap_ft))
-        for (gap_idx, gap_ft) in gaps_to_fill
-    ]
+    completed_total = 0
+    total_gaps = len(gaps_to_fill)
+    for batch_start in range(0, total_gaps, MAX_GAP_BATCH_SIZE):
+        batch = gaps_to_fill[batch_start : batch_start + MAX_GAP_BATCH_SIZE]
+        tasks = [
+            asyncio.create_task(_fetch_one(gap_idx, gap_ft))
+            for (gap_idx, gap_ft) in batch
+        ]
 
-    for completed, fut in enumerate(asyncio.as_completed(tasks), start=1):
-        gap_idx, gap_ft, bridge = await fut
-        results[gap_idx] = bridge
-        if progress_callback:
-            pct = int(completed / max(1, len(gaps_to_fill)) * 100)
-            await progress_callback(
-                "filling_gaps",
-                pct,
-                f"Filling gap {completed}/{len(gaps_to_fill)} ({gap_ft / 5280:.2f} mi)",
-            )
+        for fut in asyncio.as_completed(tasks):
+            gap_idx, gap_ft, bridge = await fut
+            results[gap_idx] = bridge
+            completed_total += 1
+            if progress_callback:
+                pct = int(completed_total / max(1, total_gaps) * 100)
+                await progress_callback(
+                    "filling_gaps",
+                    pct,
+                    f"Filling gap {completed_total}/{total_gaps} ({gap_ft / 5280:.2f} mi)",
+                )
 
     # Rebuild coordinates with inserts.
     filled_coords: list[list[float]] = []

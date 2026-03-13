@@ -261,6 +261,14 @@ class GreedySolverState:
         if old_xy is None:
             return None
 
+        # Use cosine(lat) correction so east-west and north-south
+        # distances are comparable when coordinates are in lon/lat.
+        import math
+
+        ref_lat = float(old_xy[1])
+        cos_lat = math.cos(math.radians(ref_lat))
+        cos_lat_sq = cos_lat * cos_lat
+
         best_start: int | None = None
         best_score = float("inf")
         for start in targets:
@@ -271,7 +279,8 @@ class GreedySolverState:
                 continue
             dx = float(xy[0] - old_xy[0])
             dy = float(xy[1] - old_xy[1])
-            jump_score = dx * dx + dy * dy
+            # Scale longitude difference by cos(lat) for approximate meters
+            jump_score = dx * dx * cos_lat_sq + dy * dy
             comp_id = self.start_to_comp.get(start, -1)
             benefit = self.comp_remaining_seg_count.get(comp_id, 1.0)
             score = jump_score / max(benefit, 1.0)
@@ -380,7 +389,7 @@ def _try_service_adjacent_requirement(
     if not candidates:
         return False
 
-    def candidate_score(rid: ReqId) -> tuple[float, float, float]:
+    def candidate_score(rid: ReqId) -> tuple[float, float, float, float]:
         service_edge = state.best_service_edge_from_start(rid, state.current_node)
         seg_count = state.seg_count(rid)
         edge_len = edge_length_m(
@@ -389,8 +398,30 @@ def _try_service_adjacent_requirement(
             service_edge[1],
             service_edge[2],
         )
-        next_node_score = float(state.start_counts.get(service_edge[1], 0))
-        return (-seg_count, -edge_len, -next_node_score)
+        next_node = service_edge[1]
+        next_node_score = float(state.start_counts.get(next_node, 0))
+
+        # Look-ahead: count unvisited requirements reachable within 1-2 hops
+        # from the endpoint. This favours edges whose endpoints connect to
+        # more remaining work, reducing dead-end deadheading.
+        lookahead_count = 0.0
+        seen_nodes: set[int] = {next_node}
+        frontier = [next_node]
+        for _hop in range(2):
+            next_frontier: list[int] = []
+            for fn in frontier:
+                for neighbor_rid in state.start_to_rids.get(fn, set()):
+                    if neighbor_rid in state.unvisited:
+                        lookahead_count += 1.0
+                for _, nbr, *_ in state.G.out_edges(fn):
+                    if nbr not in seen_nodes:
+                        seen_nodes.add(nbr)
+                        next_frontier.append(nbr)
+            frontier = next_frontier
+
+        # Primary: prefer high segment counts, then high look-ahead, then
+        # longer edges, then high next-node connectivity.
+        return (-seg_count, -lookahead_count, -edge_len, -next_node_score)
 
     chosen_rid = min(candidates, key=candidate_score)
     service_edge = state.best_service_edge_from_start(chosen_rid, state.current_node)

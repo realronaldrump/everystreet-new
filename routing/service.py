@@ -548,7 +548,45 @@ async def _generate_optimal_route_with_progress_impl(
                 total_segments,
             )
 
-        matching_graph, project_xy = prepare_spatial_matching_graph(G)
+        # Try to load cached projected matching graph, otherwise build and cache it.
+        matching_cache_path = graph_path.with_suffix(".matching.pickle")
+        matching_graph = None
+        project_xy = None
+        if matching_cache_path.exists():
+            try:
+                import asyncio
+                import pickle
+
+                graph_mtime = graph_path.stat().st_mtime if graph_path.exists() else 0
+                cache_mtime = matching_cache_path.stat().st_mtime
+                if cache_mtime >= graph_mtime:
+                    def _load_pickle():
+                        with open(matching_cache_path, "rb") as f:
+                            return pickle.load(f)
+                    cached = await asyncio.to_thread(_load_pickle)
+                    matching_graph = cached["graph"]
+                    project_xy = cached["project_xy"]
+                    logger.info("Loaded cached projected matching graph")
+                else:
+                    logger.info("Matching graph cache is stale; rebuilding")
+            except Exception:
+                logger.warning("Failed to load matching graph cache; rebuilding", exc_info=True)
+
+        if matching_graph is None or project_xy is None:
+            matching_graph, project_xy = prepare_spatial_matching_graph(G)
+            # Persist the cache for future runs
+            try:
+                import asyncio
+                import pickle
+
+                def _save_pickle():
+                    with open(matching_cache_path, "wb") as f:
+                        pickle.dump({"graph": matching_graph, "project_xy": project_xy}, f)
+                await asyncio.to_thread(_save_pickle)
+                logger.info("Cached projected matching graph to %s", matching_cache_path)
+            except Exception:
+                logger.warning("Failed to cache projected matching graph (non-fatal)", exc_info=True)
+
         matching_node_xy: dict[int, tuple[float, float]] = {
             n: (
                 float(matching_graph.nodes[n]["x"]),

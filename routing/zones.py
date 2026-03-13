@@ -125,9 +125,112 @@ def decompose_into_zones(
         if req_segment_counts and rid in req_segment_counts:
             zone.req_segment_counts[rid] = req_segment_counts[rid]
 
+    # --- Connectivity-aware post-processing ---
+    # Build requirement → graph component mapping so we can split zones
+    # that span multiple weakly-connected components and merge small zones
+    # that share a component.
+    req_to_comp: dict[ReqId, int] = {}
+    remaining_nodes = set()
+    for opts in required_reqs.values():
+        best_edge = min(opts, key=lambda e: edge_length_m(G, e[0], e[1], e[2]))
+        remaining_nodes.add(best_edge[0])
+        remaining_nodes.add(best_edge[1])
+
+    node_to_comp: dict[int, int] = {}
+    leftover = set(remaining_nodes)
+    for comp_id, nodes in enumerate(nx.weakly_connected_components(G)):
+        if not leftover:
+            break
+        touched = leftover.intersection(nodes)
+        for n in touched:
+            node_to_comp[n] = comp_id
+        leftover.difference_update(touched)
+
+    for rid, opts in required_reqs.items():
+        best_edge = min(opts, key=lambda e: edge_length_m(G, e[0], e[1], e[2]))
+        req_to_comp[rid] = node_to_comp.get(best_edge[0], -1)
+
+    # Split zones that span multiple components
+    next_zone_id = max(zone_map.keys(), default=-1) + 1
+    split_count = 0
+    for label in list(zone_map.keys()):
+        zone = zone_map[label]
+        comp_groups: dict[int, list[ReqId]] = {}
+        for rid in zone.required_reqs:
+            cid = req_to_comp.get(rid, -1)
+            comp_groups.setdefault(cid, []).append(rid)
+        if len(comp_groups) <= 1:
+            continue
+        # Keep the largest group in this zone, split others into new zones
+        sorted_groups = sorted(comp_groups.items(), key=lambda x: -len(x[1]))
+        keep_rids = set(sorted_groups[0][1])
+        zone.required_reqs = {r: required_reqs[r] for r in keep_rids}
+        zone.req_segment_counts = {
+            r: req_segment_counts[r]
+            for r in keep_rids
+            if req_segment_counts and r in req_segment_counts
+        }
+        for _cid, rids in sorted_groups[1:]:
+            new_zone = Zone(zone_id=next_zone_id)
+            for rid in rids:
+                new_zone.required_reqs[rid] = required_reqs[rid]
+                if req_segment_counts and rid in req_segment_counts:
+                    new_zone.req_segment_counts[rid] = req_segment_counts[rid]
+            zone_map[next_zone_id] = new_zone
+            next_zone_id += 1
+            split_count += 1
+
+    if split_count:
+        logger.info(
+            "Split %d multi-component zones into individual zones (%d total)",
+            split_count,
+            len(zone_map),
+        )
+
+    # Merge small zones (< 25% of max_zone_size) that share a graph component
+    merge_threshold = max(10, max_zone_size // 4)
+    comp_to_small_zones: dict[int, list[int]] = {}
+    for zid, zone in zone_map.items():
+        if len(zone.required_reqs) >= merge_threshold:
+            continue
+        # Find dominant component for this zone
+        comp_counts: dict[int, int] = {}
+        for rid in zone.required_reqs:
+            cid = req_to_comp.get(rid, -1)
+            comp_counts[cid] = comp_counts.get(cid, 0) + 1
+        if comp_counts:
+            dominant_comp = max(comp_counts, key=lambda c: comp_counts[c])
+            comp_to_small_zones.setdefault(dominant_comp, []).append(zid)
+
+    merge_count = 0
+    for small_zids in comp_to_small_zones.values():
+        if len(small_zids) < 2:
+            continue
+        # Merge all into the first small zone
+        target_zid = small_zids[0]
+        target_zone = zone_map[target_zid]
+        for merge_zid in small_zids[1:]:
+            merge_zone = zone_map.pop(merge_zid, None)
+            if merge_zone is None:
+                continue
+            target_zone.required_reqs.update(merge_zone.required_reqs)
+            target_zone.req_segment_counts.update(merge_zone.req_segment_counts)
+            merge_count += 1
+
+    if merge_count:
+        logger.info(
+            "Merged %d small same-component zones (%d zones remaining)",
+            merge_count,
+            len(zone_map),
+        )
+
     # Compute centroids
-    for label, zone in zone_map.items():
-        zone_points = [points[i] for i in range(len(labels)) if labels[i] == label]
+    # Build a mapping from rid -> point for centroid computation
+    rid_to_point = {rid_list[i]: points[i] for i in range(len(rid_list))}
+    for zone in zone_map.values():
+        zone_points = [
+            rid_to_point[rid] for rid in zone.required_reqs if rid in rid_to_point
+        ]
         if zone_points:
             zone.centroid_x = sum(p[0] for p in zone_points) / len(zone_points)
             zone.centroid_y = sum(p[1] for p in zone_points) / len(zone_points)
