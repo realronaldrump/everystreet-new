@@ -18,7 +18,64 @@ export function isJobTerminalStatus(status) {
 // Status badge renderer (shared between list and card views)
 // -----------------------------------------------------------------------------
 
-function renderStatus(area, job) {
+function hasActiveJob(job) {
+  return Boolean(job && isJobActiveStatus(job.status));
+}
+
+function renderRouteStatus(area, routeJob) {
+  const hasActiveRouteJob = hasActiveJob(routeJob);
+  const hasSavedRoute = Boolean(
+    area?.has_optimal_route || area?.optimal_route_generated_at
+  );
+
+  if (!hasActiveRouteJob && !hasSavedRoute) {
+    return "";
+  }
+
+  if (hasActiveRouteJob) {
+    const percent =
+      typeof routeJob.progress === "number" ? Math.round(routeJob.progress) : 0;
+    const detailText = routeJob.message
+      ? escapeHtml(routeJob.message)
+      : "Generating optimal route";
+    return `
+      <div class="area-route-status" aria-live="polite">
+        <div class="area-route-status-header">
+          <div class="area-route-label">
+            <i class="fas fa-route text-info" aria-hidden="true"></i>
+            <span>Optimal Route</span>
+          </div>
+          <span class="badge bg-info">Generating…</span>
+        </div>
+        <div class="coverage-job-progress">
+          <div class="progress" style="height: 6px;">
+            <div class="progress-bar bg-info" role="progressbar"
+                 style="width: ${percent}%"
+                 aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"></div>
+          </div>
+          <div class="small text-muted">${detailText}</div>
+        </div>
+      </div>`;
+  }
+
+  const generatedText = area?.optimal_route_generated_at
+    ? `Updated ${formatRelativeTime(area.optimal_route_generated_at)}`
+    : "Ready to load in navigation";
+
+  return `
+    <div class="area-route-status area-route-status--ready">
+      <div class="area-route-status-header">
+        <div class="area-route-label">
+          <i class="fas fa-route text-success" aria-hidden="true"></i>
+          <span>Optimal Route</span>
+        </div>
+        <span class="badge bg-success">Ready</span>
+      </div>
+      <div class="area-route-meta small text-muted">${escapeHtml(generatedText)}</div>
+    </div>`;
+}
+
+function renderStatus(area, coverageJob) {
   const status = area?.status;
   const statusConfig = {
     ready: { cls: "success", icon: "check-circle", text: "Ready" },
@@ -47,12 +104,15 @@ function renderStatus(area, job) {
   }
 
   if (
-    job &&
-    isJobActiveStatus(job.status) &&
+    coverageJob &&
+    isJobActiveStatus(coverageJob.status) &&
     (status === "initializing" || status === "rebuilding")
   ) {
-    const percent = typeof job.progress === "number" ? Math.round(job.progress) : 0;
-    const detailText = job.message ? escapeHtml(job.message) : "Processing";
+    const percent =
+      typeof coverageJob.progress === "number" ? Math.round(coverageJob.progress) : 0;
+    const detailText = coverageJob.message
+      ? escapeHtml(coverageJob.message)
+      : "Processing";
     return `
       <div class="coverage-job-status">
         ${badge}
@@ -203,7 +263,7 @@ function formatCityDisplayName(displayName) {
 // Area card HTML
 // -----------------------------------------------------------------------------
 
-function renderAreaCard(area, job) {
+function renderAreaCard(area, coverageJob, routeJob) {
   const pct = normalizeCoveragePercent(area.coverage_percentage);
   const accentClass = getCoverageAccent(pct, area.status);
   const tierClass = getCoverageTierClass(pct);
@@ -216,6 +276,11 @@ function renderAreaCard(area, job) {
       : area.display_name || "Coverage area";
   const areaName = escapeHtml(displayName);
   const isReady = area.status === "ready";
+  const hasActiveCoverageJob = hasActiveJob(coverageJob);
+  const hasActiveRouteJob = hasActiveJob(routeJob);
+  const hasSavedRoute = Boolean(
+    area.has_optimal_route || area.optimal_route_generated_at
+  );
   const totalSegments = area.total_segments || 0;
   const drivenSegments = area.driven_segments || 0;
   const undriveableSegments = area.undriveable_segments || 0;
@@ -228,6 +293,11 @@ function renderAreaCard(area, job) {
   const MINI_R = 20;
   const miniCircumference = 2 * Math.PI * MINI_R;
   const miniOffset = miniCircumference - (pct / 100) * miniCircumference;
+  const routeStatus = renderRouteStatus(area, routeJob);
+  const routeMenuLabel = hasSavedRoute
+    ? "Regenerate Optimal Route"
+    : "Generate Optimal Route";
+  const routeMenuAction = hasSavedRoute ? "restart-route" : "generate-route";
 
   return `
     <div class="area-card" data-area-id="${area.id}" data-accent="${accentClass}" role="listitem">
@@ -236,7 +306,7 @@ function renderAreaCard(area, job) {
           <h3 class="area-card-title" title="${areaName}">${areaName}</h3>
           <span class="area-type-badge">${escapeHtml(area.area_type || "")}</span>
         </div>
-        <div class="area-card-status">${renderStatus(area, job)}</div>
+        <div class="area-card-status">${renderStatus(area, coverageJob)}</div>
       </div>
 
       <div class="area-card-progress">
@@ -276,6 +346,8 @@ function renderAreaCard(area, job) {
         </div>
       </div>
 
+      ${routeStatus}
+
       <div class="area-card-footer">
         <button class="btn btn-primary btn-sm flex-grow-1"
                 data-area-action="view"
@@ -285,6 +357,20 @@ function renderAreaCard(area, job) {
           <i class="fas fa-map me-1" aria-hidden="true"></i>Explore Map
         </button>
 
+        ${
+          hasActiveRouteJob
+            ? `
+          <button class="btn btn-outline-danger btn-sm"
+                  type="button"
+                  data-area-action="cancel-route"
+                  data-area-id="${area.id}"
+                  data-area-name="${areaName}"
+                  aria-label="Stop optimal route generation for ${areaName}">
+            <i class="fas fa-stop-circle me-1" aria-hidden="true"></i>Stop Route
+          </button>`
+            : ""
+        }
+
         <div class="dropdown">
           <button class="btn btn-outline-secondary btn-sm dropdown-toggle dropdown-toggle-split"
                   data-bs-toggle="dropdown"
@@ -293,6 +379,53 @@ function renderAreaCard(area, job) {
             <i class="fas fa-ellipsis-v" aria-hidden="true"></i>
           </button>
           <ul class="dropdown-menu dropdown-menu-end">
+            ${
+              hasActiveRouteJob
+                ? `
+              <li>
+                <button class="dropdown-item"
+                        data-area-action="restart-route"
+                        data-area-id="${area.id}"
+                        data-area-name="${areaName}">
+                  <i class="fas fa-rotate-right me-2" aria-hidden="true"></i>Restart Optimal Route
+                </button>
+              </li>
+              <li>
+                <button class="dropdown-item text-danger"
+                        data-area-action="cancel-route"
+                        data-area-id="${area.id}"
+                        data-area-name="${areaName}">
+                  <i class="fas fa-stop-circle me-2" aria-hidden="true"></i>Stop Route Generation
+                </button>
+              </li>
+              <li><hr class="dropdown-divider"></li>`
+                : isReady
+                  ? `
+              <li>
+                <button class="dropdown-item"
+                        data-area-action="${routeMenuAction}"
+                        data-area-id="${area.id}"
+                        data-area-name="${areaName}">
+                  <i class="fas fa-route me-2" aria-hidden="true"></i>${routeMenuLabel}
+                </button>
+              </li>
+              <li><hr class="dropdown-divider"></li>`
+                  : ""
+            }
+            ${
+              hasActiveCoverageJob
+                ? `
+              <li>
+                <button class="dropdown-item text-danger"
+                        data-area-action="cancel-job"
+                        data-area-id="${area.id}"
+                        data-area-name="${areaName}">
+                  <i class="fas fa-stop-circle me-2" aria-hidden="true"></i>Stop Active Job
+                </button>
+              </li>
+              <li><hr class="dropdown-divider"></li>`
+                : ""
+            }
             <li>
               <button class="dropdown-item"
                       data-area-action="recalculate"
@@ -342,7 +475,8 @@ function renderAreaCard(area, job) {
  */
 export function renderAreaCards({
   areas,
-  activeJobsByAreaId,
+  activeJobsByAreaId = new Map(),
+  activeRouteJobsByAreaId = new Map(),
   areaErrorById,
   areaNameById,
 }) {
@@ -378,7 +512,13 @@ export function renderAreaCards({
   });
 
   grid.innerHTML = areas
-    .map((area) => renderAreaCard(area, activeJobsByAreaId.get(area.id)))
+    .map((area) =>
+      renderAreaCard(
+        area,
+        activeJobsByAreaId.get(area.id),
+        activeRouteJobsByAreaId.get(area.id)
+      )
+    )
     .join("");
 
   grid.style.display = "grid";

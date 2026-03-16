@@ -39,6 +39,9 @@ import {
 
 const API_BASE = "/api/coverage";
 const APP_SETTINGS_API = "/api/app_settings";
+const ACTIVE_JOB_REFRESH_MS = 5000;
+const OPTIMAL_ROUTE_JOB_TYPE = "optimal_route";
+const COVERAGE_JOB_TYPES = new Set(["area_ingestion", "area_rebuild", "area_backfill"]);
 
 // =============================================================================
 // Module State — Single object, explicit teardown
@@ -66,11 +69,13 @@ const INITIAL_STATE = () => ({
 
   // Jobs/area tracking
   activeJobsByAreaId: new Map(),
+  activeRouteJobsByAreaId: new Map(),
   areaErrorById: new Map(),
   areaNameById: new Map(),
   areaRoadFilterVersionById: new Map(),
   activeErrorAreaId: null,
   areaViewRequestId: 0,
+  activeJobsRefreshTimeoutId: null,
 
   // Service roads (kept synced across toggles)
   currentAreaSyncToken: null,
@@ -180,6 +185,7 @@ export default async function initCoverageManagementPage({
   const teardown = () => {
     state.pageActive = false;
     state.pageSignal = null;
+    clearActiveJobsRefresh();
 
     // Clean up map
     if (state.map) {
@@ -796,11 +802,201 @@ function apiDelete(endpoint) {
   return apiClient.delete(`${API_BASE}${endpoint}`, withSignal());
 }
 
+function isCoverageJobType(jobType) {
+  return COVERAGE_JOB_TYPES.has(
+    String(jobType || "")
+      .trim()
+      .toLowerCase()
+  );
+}
+
+function isRouteJobType(jobType) {
+  return (
+    String(jobType || "")
+      .trim()
+      .toLowerCase() === OPTIMAL_ROUTE_JOB_TYPE
+  );
+}
+
+function getActiveCoverageJob(areaId) {
+  return state.activeJobsByAreaId.get(areaId) || null;
+}
+
+function getActiveRouteJob(areaId) {
+  return state.activeRouteJobsByAreaId.get(areaId) || null;
+}
+
+function clearActiveJobsRefresh() {
+  if (state.activeJobsRefreshTimeoutId) {
+    clearTimeout(state.activeJobsRefreshTimeoutId);
+    state.activeJobsRefreshTimeoutId = null;
+  }
+}
+
+function scheduleActiveJobsRefresh(hasActiveJobs) {
+  clearActiveJobsRefresh();
+  if (!hasActiveJobs || !state.pageActive) {
+    return;
+  }
+
+  state.activeJobsRefreshTimeoutId = window.setTimeout(() => {
+    state.activeJobsRefreshTimeoutId = null;
+    if (!state.pageActive) {
+      return;
+    }
+    loadAreas();
+  }, ACTIVE_JOB_REFRESH_MS);
+}
+
+function getCoverageJobLabel(jobType) {
+  switch (
+    String(jobType || "")
+      .trim()
+      .toLowerCase()
+  ) {
+    case "area_ingestion":
+      return "setup";
+    case "area_rebuild":
+      return "rebuild";
+    case "area_backfill":
+      return "coverage recalculation";
+    default:
+      return "job";
+  }
+}
+
+async function cancelCoverageJob(areaId, displayName) {
+  const job = getActiveCoverageJob(areaId);
+  if (!job?.job_id) {
+    notificationManager.show("No active coverage job found for this area.", "warning");
+    await loadAreas();
+    return;
+  }
+
+  const jobLabel = getCoverageJobLabel(job.job_type);
+  const confirmed = await confirmationDialog.show({
+    title: "Stop Background Job",
+    message: `Stop the active ${escapeHtml(jobLabel)} for "<strong>${escapeHtml(displayName)}</strong>"?<br><br>The current background work will be cancelled. You can start it again from this card afterward.`,
+    allowHtml: true,
+    confirmText: "Stop Job",
+    confirmButtonClass: "btn-danger",
+  });
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    await apiDelete(`/jobs/${job.job_id}`);
+    notificationManager.show(`Stopped the active ${jobLabel}.`, "info");
+    await loadAreas();
+  } catch (error) {
+    console.error("Failed to cancel coverage job:", error);
+    notificationManager.show(
+      `Failed to stop background job: ${error.message}`,
+      "danger"
+    );
+  }
+}
+
+async function cancelRouteJob(areaId, displayName) {
+  const job = getActiveRouteJob(areaId);
+  if (!job) {
+    notificationManager.show(
+      "No active optimal route generation was found for this area.",
+      "warning"
+    );
+    await loadAreas();
+    return;
+  }
+
+  const confirmed = await confirmationDialog.show({
+    title: "Stop Optimal Route Generation",
+    message: `Stop optimal route generation for "<strong>${escapeHtml(displayName)}</strong>"?<br><br>You can restart it from this card after cancellation completes.`,
+    allowHtml: true,
+    confirmText: "Stop Route",
+    confirmButtonClass: "btn-danger",
+  });
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    if (job.task_id) {
+      await apiClient.delete(`/api/optimal-routes/${job.task_id}`, withSignal());
+    } else if (job.job_id) {
+      await apiDelete(`/jobs/${job.job_id}`);
+    } else {
+      throw new Error("Route job identifier is missing.");
+    }
+    notificationManager.show("Optimal route generation stopped.", "info");
+    await loadAreas();
+  } catch (error) {
+    console.error("Failed to cancel route job:", error);
+    notificationManager.show(
+      `Failed to stop route generation: ${error.message}`,
+      "danger"
+    );
+  }
+}
+
+async function generateOptimalRoute(areaId, displayName, { restart = false } = {}) {
+  const activeRouteJob = getActiveRouteJob(areaId);
+  const title = restart ? "Regenerate Optimal Route" : "Generate Optimal Route";
+  const message = restart
+    ? `Build a fresh optimal route for "<strong>${escapeHtml(displayName)}</strong>"?<br><br>This will replace the current route${activeRouteJob ? " and restart the in-progress generation" : ""}.`
+    : `Generate an optimal route for "<strong>${escapeHtml(displayName)}</strong>"?<br><br>This runs in the background and will appear on this card as progress updates arrive.`;
+
+  const confirmed = await confirmationDialog.show({
+    title,
+    message,
+    allowHtml: true,
+    confirmText: restart ? "Regenerate" : "Generate",
+    confirmButtonClass: restart ? "btn-warning" : "btn-primary",
+  });
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    if (restart && activeRouteJob) {
+      if (activeRouteJob.task_id) {
+        await apiClient.delete(
+          `/api/optimal-routes/${activeRouteJob.task_id}`,
+          withSignal()
+        );
+      } else if (activeRouteJob.job_id) {
+        await apiDelete(`/jobs/${activeRouteJob.job_id}`);
+      }
+    }
+
+    const result = await apiPost(`/areas/${areaId}/optimal-route`, {});
+    const messageText =
+      result.status === "already_running"
+        ? "Optimal route generation is already running for this area."
+        : restart
+          ? "Optimal route regeneration started."
+          : "Optimal route generation started.";
+    notificationManager.show(messageText, "info");
+    await loadAreas();
+  } catch (error) {
+    console.error("Failed to start optimal route generation:", error);
+    notificationManager.show(
+      `Failed to ${restart ? "regenerate" : "generate"} optimal route: ${error.message}`,
+      "danger"
+    );
+  }
+}
+
 // =============================================================================
 // Area List
 // =============================================================================
 
 async function loadAreas() {
+  clearActiveJobsRefresh();
+
   try {
     // Fetch areas and active jobs in parallel
     const [areasData, jobsData] = await Promise.all([
@@ -810,18 +1006,39 @@ async function loadAreas() {
 
     // Build active jobs map
     state.activeJobsByAreaId = new Map();
+    state.activeRouteJobsByAreaId = new Map();
     (jobsData?.jobs || []).forEach((job) => {
-      if (job.area_id) {
+      if (!job.area_id) {
+        return;
+      }
+
+      if (isRouteJobType(job.job_type)) {
+        if (!state.activeRouteJobsByAreaId.has(job.area_id)) {
+          state.activeRouteJobsByAreaId.set(job.area_id, job);
+        }
+        return;
+      }
+
+      if (
+        isCoverageJobType(job.job_type) &&
+        !state.activeJobsByAreaId.has(job.area_id)
+      ) {
         state.activeJobsByAreaId.set(job.area_id, job);
       }
     });
 
+    const hasActiveJobs =
+      state.activeJobsByAreaId.size > 0 || state.activeRouteJobsByAreaId.size > 0;
+
     const { hasAreas } = renderAreaCards({
       areas: areasData.areas || [],
       activeJobsByAreaId: state.activeJobsByAreaId,
+      activeRouteJobsByAreaId: state.activeRouteJobsByAreaId,
       areaErrorById: state.areaErrorById,
       areaNameById: state.areaNameById,
     });
+
+    scheduleActiveJobsRefresh(hasActiveJobs);
 
     if (hasAreas) {
       refreshCoverageErrorDetails(areasData.areas);
@@ -838,6 +1055,9 @@ async function loadAreas() {
     notificationManager.show(
       `Failed to load coverage areas: ${error.message}`,
       "danger"
+    );
+    scheduleActiveJobsRefresh(
+      state.activeJobsByAreaId.size > 0 || state.activeRouteJobsByAreaId.size > 0
     );
   }
 }
@@ -871,6 +1091,18 @@ function handleAreaCardClick(event) {
   switch (action) {
     case "view":
       viewArea(areaId);
+      break;
+    case "generate-route":
+      generateOptimalRoute(areaId, areaName);
+      break;
+    case "restart-route":
+      generateOptimalRoute(areaId, areaName, { restart: true });
+      break;
+    case "cancel-route":
+      cancelRouteJob(areaId, areaName);
+      break;
+    case "cancel-job":
+      cancelCoverageJob(areaId, areaName);
       break;
     case "recalculate":
       recalculateCoverage(areaId, areaName);
@@ -1782,11 +2014,9 @@ function renderJobHistory(jobs) {
     return;
   }
 
-  const coverageJobs = jobs.filter((job) => job.job_type !== "optimal_route");
-
-  if (!coverageJobs.length) {
+  if (!jobs.length) {
     container.innerHTML =
-      '<p class="text-secondary small text-center mt-4">No recent coverage jobs found.</p>';
+      '<p class="text-secondary small text-center mt-4">No recent jobs found.</p>';
     return;
   }
 
@@ -1794,6 +2024,7 @@ function renderJobHistory(jobs) {
     area_ingestion: "Area Setup",
     area_rebuild: "OSM Rebuild",
     area_backfill: "Coverage Recalculate",
+    optimal_route: "Optimal Route",
   };
 
   const statusIcons = {
@@ -1807,7 +2038,7 @@ function renderJobHistory(jobs) {
   };
 
   container.innerHTML = `<div class="job-history-list">
-    ${coverageJobs
+    ${jobs
       .map(
         (job) => `
       <div class="job-history-item">

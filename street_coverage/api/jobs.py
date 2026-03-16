@@ -46,6 +46,7 @@ class JobStatusResponse(BaseModel):
 
     success: bool = True
     job_id: str
+    task_id: str | None = None
     job_type: str
     area_id: str | None = None
     area_display_name: str | None = None
@@ -101,6 +102,7 @@ async def get_job_status(job_id: str):
 
     return JobStatusResponse(
         job_id=str(job.id),
+        task_id=job.task_id,
         job_type=job.job_type,
         area_id=area_id_str,
         area_display_name=area_display_name,
@@ -134,6 +136,7 @@ async def get_area_jobs(area_id: PydanticObjectId, limit: int = 10):
         jobs=[
             JobStatusResponse(
                 job_id=str(job.id),
+                task_id=job.task_id,
                 job_type=job.job_type,
                 area_id=str(job.area_id) if job.area_id else str(area_id),
                 area_display_name=area_display_name,
@@ -177,6 +180,7 @@ async def list_active_jobs():
         jobs=[
             JobStatusResponse(
                 job_id=str(job.id),
+                task_id=job.task_id,
                 job_type=job.job_type,
                 area_id=str(job.area_id) if job.area_id else None,
                 area_display_name=(
