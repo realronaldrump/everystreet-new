@@ -385,10 +385,6 @@ async def get_route_analytics(route_id: str):
         {"recurringRouteId": oid, "invalid": {"$ne": True}}
     )
 
-    # Quick count so we can flag stale assignment data.
-    assigned_count = await trips_coll.count_documents(match_query, limit=1)
-    needs_rebuild = assigned_count == 0 and (route.trip_count or 0) > 0
-
     pipeline = build_temporal_facet_pipeline(
         match_query=match_query,
         tz_expr=tz_expr,
@@ -418,6 +414,8 @@ async def get_route_analytics(route_id: str):
 
     stats_source = facets.get("stats", [{}])[0] if facets.get("stats") else {}
     stats_raw, first_trip_dt, last_trip_dt = serialize_stats_for_response(stats_source)
+    assigned_count = stats_raw.get("totalTrips") or 0
+    needs_rebuild = assigned_count == 0 and (route.trip_count or 0) > 0
 
     # Compute trip frequency from Sunday-Saturday calendar weeks.
     first_trip = first_trip_dt if isinstance(first_trip_dt, datetime) else None

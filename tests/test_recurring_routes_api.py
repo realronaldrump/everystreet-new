@@ -332,6 +332,7 @@ async def test_route_analytics_timezone_buckets_are_complete(
     assert sum(hour_counts) == 3
     assert sum(day_counts) == 3
     assert body["tripsPerWeek"] == pytest.approx(1.5)
+    assert body["needsRebuild"] is False
 
 
 @pytest.mark.asyncio
@@ -404,3 +405,51 @@ async def test_route_analytics_trips_per_week_single_trip_not_null(
     assert analytics_resp.status_code == 200
     body = analytics_resp.json()
     assert body["tripsPerWeek"] == pytest.approx(1.0)
+    assert body["needsRebuild"] is False
+
+
+@pytest.mark.asyncio
+async def test_route_analytics_flags_rebuild_when_route_has_no_assigned_trips(
+    routes_api_db,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(recurring_routes_api, "get_mongo_tz_expr", lambda: "UTC")
+
+    class _FakeAggregateCursor:
+        async def to_list(self, _limit):
+            return [
+                {
+                    "byHour": [],
+                    "byDayOfWeek": [],
+                    "byMonth": [],
+                    "tripTimeline": [],
+                    "stats": [],
+                },
+            ]
+
+    class _FakeTripsCollection:
+        def aggregate(self, _pipeline):
+            return _FakeAggregateCursor()
+
+    monkeypatch.setattr(
+        Trip,
+        "get_pymongo_collection",
+        classmethod(lambda _cls: _FakeTripsCollection()),
+    )
+
+    route = RecurringRoute(
+        route_key="missing-trips-route-key",
+        route_signature="missing-trips-route-signature",
+        auto_name="Missing Trips Route",
+        start_label="Start",
+        end_label="End",
+        trip_count=2,
+    )
+    await route.insert()
+
+    client = TestClient(_build_app())
+    analytics_resp = client.get(f"/api/recurring_routes/{route.id!s}/analytics")
+    assert analytics_resp.status_code == 200
+    body = analytics_resp.json()
+    assert body["needsRebuild"] is True
+    assert body["stats"] == {}
