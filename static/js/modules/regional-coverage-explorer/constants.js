@@ -34,8 +34,8 @@ export const COLORS = {
     opacity: 0.6,
   },
   stopped: {
-    fill: colorOr(COUNTY_COLORS.stoppedFill, "#c45454"),
-    border: colorOr(COUNTY_COLORS.stoppedBorder, "#9f3f3f"),
+    fill: colorOr(COUNTY_COLORS.stoppedFill, "#5b9bd5"),
+    border: colorOr(COUNTY_COLORS.stoppedBorder, "#4a80b4"),
     opacity: 0.55,
   },
   unvisited: {
@@ -58,10 +58,10 @@ export const COLORS = {
     },
     city: {
       visited: colorOr(COUNTY_COLORS.visitedFill, "#4d9a6a"),
-      stopped: colorOr(COUNTY_COLORS.stoppedFill, "#c45454"),
+      stopped: colorOr(COUNTY_COLORS.stoppedFill, "#5b9bd5"),
       unvisited: colorOr(COUNTY_COLORS.cityUnvisited, "rgba(245, 242, 236, 0.08)"),
       visitedBorder: colorOr(COUNTY_COLORS.visitedBorder, "#3b7a53"),
-      stoppedBorder: colorOr(COUNTY_COLORS.stoppedBorder, "#9f3f3f"),
+      stoppedBorder: colorOr(COUNTY_COLORS.stoppedBorder, "#4a80b4"),
     },
   },
 };
