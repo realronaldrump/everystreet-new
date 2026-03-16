@@ -332,12 +332,12 @@
   display: inline-flex;
   align-items: center;
   padding: 0.3rem 0.7rem;
-  background: rgb(var(--danger-rgb) / 12%);
-  border: 1px solid rgb(var(--danger-rgb) / 22%);
+  background: rgb(var(--info-rgb) / 12%);
+  border: 1px solid rgb(var(--info-rgb) / 22%);
   border-radius: var(--radius-full);
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--danger);
+  color: var(--info);
   margin: 0;
 }
 
@@ -399,8 +399,8 @@
 }
 
 .legend-swatch--stopped {
-  background: linear-gradient(135deg, var(--danger), var(--danger-dark));
-  box-shadow: 0 0 6px rgb(var(--danger-rgb) / 35%);
+  background: linear-gradient(135deg, var(--info), var(--info-dark));
+  box-shadow: 0 0 6px rgb(var(--info-rgb) / 35%);
 }
 
 .legend-swatch--unvisited {
