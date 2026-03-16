@@ -168,22 +168,6 @@
                   <span>Trips</span>
                 </a>
               </li>
-              <li class="nav-item owner-only {% if request.url.path == '/map-matching' %}active{% endif %}">
-                <a
-                  href="/map-matching"
-                  title="Map Matching"
-{%
-                  if
-                  request.url.path == "/map-matching"
-                  %}aria-current="page"
-{%
-                  endif
-                  %}
-                >
-                  <i class="fas fa-route" aria-hidden="true"></i>
-                  <span>Map Matching</span>
-                </a>
-              </li>
               <li class="nav-item {% if request.url.path == '/insights' %}active{% endif %}">
                 <a
                   href="/insights"
@@ -264,6 +248,23 @@ Insights & Tracking
                     >
                       <i class="fas fa-route me-2" aria-hidden="true"></i>
                       Recurring Routes
+                    </a>
+                  </li>
+                  <li role="none">
+                    <a
+                      class="dropdown-item owner-only {% if request.url.path == '/map-matching' %}active{% endif %}"
+                      href="/map-matching"
+                      role="menuitem"
+{%
+                      if
+                      request.url.path == "/map-matching"
+                      %}aria-current="page"
+{%
+                      endif
+                      %}
+                    >
+                      <i class="fas fa-layer-group me-2" aria-hidden="true"></i>
+                      Map Matching
                     </a>
                   </li>
                   <li role="separator" class="owner-only">
@@ -626,6 +627,21 @@ System
                   %}
                 >
                   <i class="fas fa-route me-2" aria-hidden="true"></i> Recurring Routes
+                </a>
+              </li>
+              <li role="none" class="owner-only">
+                <a
+                  href="/map-matching"
+                  class="{% if request.url.path == '/map-matching' %}active{% endif %}"
+{%
+                  if
+                  request.url.path == "/map-matching"
+                  %}aria-current="page"
+{%
+                  endif
+                  %}
+                >
+                  <i class="fas fa-layer-group me-2" aria-hidden="true"></i> Map Matching
                 </a>
               </li>
             </ul>
