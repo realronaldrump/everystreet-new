@@ -22,6 +22,7 @@ async def _generate_optimal_route_logic(
     task_id: str,
     start_lon: float | None = None,
     start_lat: float | None = None,
+    segment_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     Generate optimal completion route for a coverage area.
@@ -33,6 +34,7 @@ async def _generate_optimal_route_logic(
         location_id: MongoDB ObjectId string for the coverage area
         start_lon: Optional starting longitude
         start_lat: Optional starting latitude
+        segment_ids: Optional list of segment IDs to restrict route to (cluster mode)
 
     Returns:
         Dict with route coordinates, distances, and stats
@@ -54,10 +56,11 @@ async def _generate_optimal_route_logic(
         location_id,
         task_id,
         start_coords,
+        segment_ids=set(segment_ids) if segment_ids else None,
     )
 
-    # Save to database if successful
-    if result.get("status") == "success":
+    # Save to database if successful (only for full-area routes, not cluster routes)
+    if result.get("status") == "success" and not segment_ids:
         await save_optimal_route(location_id, result)
         logger.info(
             "Optimal route generated: %d segments, %.1f%% deadhead",
@@ -74,6 +77,7 @@ async def generate_optimal_route(
     start_lon: float | None = None,
     start_lat: float | None = None,
     manual_run: bool = False,
+    segment_ids: list[str] | None = None,
 ):
     """ARQ job for generating optimal completion route."""
     if not ctx.get("job_id"):
@@ -90,6 +94,7 @@ async def generate_optimal_route(
             task_id=job_id,
             start_lon=start_lon,
             start_lat=start_lat,
+            segment_ids=segment_ids,
         ),
         manual_run=manual_run,
     )

@@ -1206,6 +1206,211 @@
 }
 
 /* ==========================================================================
+   Drive Simulation Widget
+   ========================================================================== */
+
+.coverage-route-planner .sim-hint {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin-bottom: var(--space-3);
+}
+
+.coverage-route-planner .btn-sim-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  transition: all 180ms ease;
+}
+
+.coverage-route-planner .btn-sim-toggle.active {
+  background: var(--info);
+  color: #fff;
+  border-color: var(--info);
+}
+
+.coverage-route-planner .btn-sim-toggle.active .sim-toggle-label::after {
+  content: "Stop Selecting";
+}
+
+.coverage-route-planner .btn-sim-toggle.active .sim-toggle-label {
+  font-size: 0;
+}
+
+.coverage-route-planner .btn-sim-toggle.active i::before {
+  content: "\f00d"; /* fa-times */
+}
+
+.coverage-route-planner .sim-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--info);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  margin-left: var(--space-1);
+  vertical-align: middle;
+}
+
+.coverage-route-planner .sim-results-panel {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-color);
+}
+
+.coverage-route-planner .sim-selection-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  font-size: 0.8125rem;
+}
+
+.coverage-route-planner .sim-selected-count {
+  font-weight: 700;
+  color: var(--info);
+  font-size: 1rem;
+}
+
+.coverage-route-planner .sim-selected-label {
+  color: var(--text-secondary);
+}
+
+.coverage-route-planner .sim-clear-btn {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.coverage-route-planner .sim-clear-btn:hover {
+  color: var(--danger);
+}
+
+.coverage-route-planner .sim-stat-row {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.coverage-route-planner .sim-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.coverage-route-planner .sim-stat-label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.coverage-route-planner .sim-stat-value {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.coverage-route-planner .sim-coverage-compare {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2, rgba(0, 0, 0, 0.03));
+}
+
+.coverage-route-planner .sim-coverage-current,
+.coverage-route-planner .sim-coverage-projected {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.coverage-route-planner .sim-cov-label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.coverage-route-planner .sim-cov-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.coverage-route-planner .sim-cov-projected {
+  color: var(--info);
+}
+
+.coverage-route-planner .sim-coverage-arrow {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.coverage-route-planner .sim-delta-bar {
+  margin-bottom: var(--space-2);
+}
+
+.coverage-route-planner .sim-delta-track {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--border-color);
+  position: relative;
+  overflow: hidden;
+}
+
+.coverage-route-planner .sim-delta-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.coverage-route-planner .sim-delta-current {
+  background: var(--success);
+  z-index: 1;
+}
+
+.coverage-route-planner .sim-delta-projected {
+  background: var(--info);
+  opacity: 0.5;
+  z-index: 0;
+}
+
+.coverage-route-planner .sim-delta-label {
+  text-align: right;
+  margin-top: 4px;
+}
+
+.coverage-route-planner .sim-delta-value {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--success);
+}
+
+/* ==========================================================================
    Saved Routes — Enhanced Cards
    ========================================================================== */
 
@@ -2983,6 +3188,18 @@
 
 .coverage-route-planner .legend-color--route {
   background: var(--cat-purple);
+}
+
+.coverage-route-planner .legend-color--simulated {
+  background: var(--info);
+  height: 4px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--info) 0,
+    var(--info) 6px,
+    transparent 6px,
+    transparent 9px
+  );
 }
 
 .coverage-route-planner .legend-color.is-route {

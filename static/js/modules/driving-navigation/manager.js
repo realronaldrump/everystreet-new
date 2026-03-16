@@ -127,14 +127,22 @@ export class DrivingNavigation {
     document.addEventListener(
       "click",
       (event) => {
-        if (event.target.matches(".navigate-to-segment")) {
-          const { segmentId } = event.target.dataset;
+        const navBtn = event.target.closest(".navigate-to-segment");
+        if (navBtn) {
+          const { segmentId } = navBtn.dataset;
           // Close all popups
           document.querySelectorAll(".mapboxgl-popup").forEach((p) => {
             p.remove();
           });
           this.mapManager.highlightTargetStreet(segmentId);
           this.findRouteToSegment(segmentId);
+          return;
+        }
+
+        const clusterRouteBtn = event.target.closest(".generate-cluster-route-btn");
+        if (clusterRouteBtn) {
+          const clusterIndex = parseInt(clusterRouteBtn.dataset.clusterIndex, 10);
+          this.requestClusterRoute(clusterIndex);
         }
       },
       signal ? { signal } : false
@@ -588,6 +596,42 @@ export class DrivingNavigation {
       bounds.extend([this.lastKnownLocation.lon, this.lastKnownLocation.lat]);
     }
     this.mapManager.fitBounds(bounds, { padding: 50 });
+  }
+
+  /**
+   * Request optimal route generation for a specific cluster.
+   * Dispatches a custom event that the OptimalRoutesManager handles.
+   */
+  requestClusterRoute(clusterIndex) {
+    const cluster = this.suggestedClusters?.[clusterIndex];
+    if (!cluster) {
+      notificationManager.show("Cluster not found", "warning");
+      return;
+    }
+
+    const areaId = this.selectedArea?._id || this.selectedArea?.id;
+    if (!areaId) {
+      notificationManager.show("No area selected", "warning");
+      return;
+    }
+
+    const segmentIds = cluster.segments.map((s) => s.segment_id).filter(Boolean);
+    if (segmentIds.length === 0) {
+      notificationManager.show("No valid segments in cluster", "warning");
+      return;
+    }
+
+    // Switch to the Plan/Status tab so the user can see progress
+    const statusTab = document.querySelector('[data-tab="status"]');
+    if (statusTab) {
+      statusTab.click();
+    }
+
+    document.dispatchEvent(
+      new CustomEvent("generateClusterRoute", {
+        detail: { areaId, segmentIds },
+      })
+    );
   }
 
   /**

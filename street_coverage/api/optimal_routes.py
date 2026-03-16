@@ -11,6 +11,7 @@ from typing import Annotated
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, Response
+from pydantic import BaseModel, Field
 
 from core.jobs import create_job
 from core.streaming import sse_event_stream, sse_response
@@ -101,6 +102,68 @@ async def start_optimal_route_generation(
         "Started optimal route generation task %s for location %s",
         task_id,
         area_id,
+    )
+
+    return {"task_id": task_id, "status": "started"}
+
+
+class ClusterRouteRequest(BaseModel):
+    segment_ids: list[str] = Field(..., min_length=1)
+    start_lon: float | None = None
+    start_lat: float | None = None
+
+
+@router.post("/api/coverage/areas/{area_id}/cluster-route")
+async def start_cluster_route_generation(
+    area_id: PydanticObjectId,
+    body: ClusterRouteRequest,
+):
+    """Start a background task to generate an optimal route for a cluster of segments."""
+    from tasks.ops import enqueue_task
+
+    coverage_area = await _get_coverage_area(area_id)
+
+    if not coverage_area:
+        raise HTTPException(status_code=404, detail="Coverage area not found")
+
+    if coverage_area.status != "ready":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Coverage area is not ready (status: {coverage_area.status}).",
+        )
+
+    enqueue_result = await enqueue_task(
+        "generate_optimal_route",
+        location_id=str(area_id),
+        start_lon=body.start_lon,
+        start_lat=body.start_lat,
+        manual_run=True,
+        segment_ids=body.segment_ids,
+    )
+    task_id = enqueue_result.get("job_id")
+    if not task_id:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to enqueue cluster route generation task",
+        )
+
+    await create_job(
+        "optimal_route",
+        task_id=task_id,
+        area_id=area_id,
+        location=str(area_id),
+        status="queued",
+        stage="queued",
+        progress=0.0,
+        message="Cluster route queued, waiting for worker...",
+        started_at=datetime.now(UTC),
+    )
+
+    logger.info(
+        "Started cluster route generation task %s for area %s (%d segments)",
+        task_id,
+        area_id,
+        len(body.segment_ids),
     )
 
     return {"task_id": task_id, "status": "started"}
@@ -338,6 +401,29 @@ async def cancel_optimal_route_task(task_id: str):
         )
 
     return {"status": "cancelled", "message": "All active tasks cancelled"}
+
+
+@router.get("/api/optimal-routes/{task_id}/result")
+async def get_optimal_route_result(task_id: str):
+    """Get the route result for a completed task (used for cluster routes)."""
+    job = await Job.find_one({"job_type": "optimal_route", "task_id": task_id})
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    if job.status != "completed":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Task is not completed (status: {job.status})",
+        )
+
+    if not job.result:
+        raise HTTPException(
+            status_code=404,
+            detail="No route result stored for this task",
+        )
+
+    return job.result
 
 
 @router.get("/api/optimal-routes/{task_id}/progress")

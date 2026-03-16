@@ -3,6 +3,7 @@ import { buildLiveNavigationUrl } from "../live-navigation/live-navigation-api.j
 import { OptimalRouteAPI } from "./api.js";
 import { OPTIMAL_ROUTES_DEFAULTS } from "./constants.js";
 import { OptimalRouteMap } from "./map.js";
+import { DriveSimulation } from "./simulation.js";
 import { OptimalRouteUI } from "./ui.js";
 
 export class OptimalRoutesManager {
@@ -16,6 +17,7 @@ export class OptimalRoutesManager {
     this.selectedAreaId = null;
     this.currentTaskId = null;
     this.currentRouteData = null;
+    this.isClusterRoute = false;
     this.coverageAreas = [];
     this.lastSelectedAreaId = "";
     this.abortController = new AbortController();
@@ -33,6 +35,10 @@ export class OptimalRoutesManager {
       sharedMap: this.config.sharedMap,
       addNavigationControl: this.config.addNavigationControl,
       onLayerReady: () => this.onMapLayersReady(),
+    });
+
+    this.simulation = new DriveSimulation(this.map, {
+      onStatsUpdate: (data) => this.onSimulationUpdate(data),
     });
 
     this.init();
@@ -114,6 +120,37 @@ export class OptimalRoutesManager {
       "click",
       () => {
         this.cancelTask();
+      },
+      signal ? { signal } : false
+    );
+
+    // Cluster route generation (dispatched from DrivingNavigation)
+    document.addEventListener(
+      "generateClusterRoute",
+      (e) => {
+        const { areaId, segmentIds } = e.detail || {};
+        if (areaId && segmentIds?.length) {
+          this.generateClusterRoute(areaId, segmentIds);
+        }
+      },
+      signal ? { signal } : false
+    );
+
+    // Simulation toggle
+    document.getElementById("sim-toggle-btn")?.addEventListener(
+      "click",
+      () => {
+        this.toggleSimulation();
+      },
+      signal ? { signal } : false
+    );
+
+    // Simulation clear
+    document.getElementById("sim-clear-btn")?.addEventListener(
+      "click",
+      () => {
+        this.simulation.clearSelection();
+        this.updateSimulationPanel(null);
       },
       signal ? { signal } : false
     );
@@ -308,6 +345,11 @@ export class OptimalRoutesManager {
     this.selectedAreaId = nextAreaId || null;
     this.lastSelectedAreaId = nextAreaId;
     this.ui.setLiveNavigationEnabled(false);
+    this.simulation.deactivate();
+
+    // Enable/disable simulation toggle based on area selection
+    const simToggle = document.getElementById("sim-toggle-btn");
+    if (simToggle) simToggle.disabled = !nextAreaId;
 
     if (!nextAreaId) {
       const generateBtn = document.getElementById("generate-route-btn");
@@ -420,21 +462,59 @@ export class OptimalRoutesManager {
     }
   }
 
+  async generateClusterRoute(areaId, segmentIds) {
+    this.isClusterRoute = true;
+    this.ui.showProgressSection();
+
+    try {
+      const workerStatus = await this.api.checkWorkerStatus();
+      if (workerStatus.status === "no_workers") {
+        this.ui.showNotification(
+          "No workers available. Task will be queued.",
+          "warning"
+        );
+      }
+
+      const taskId = await this.api.generateClusterRoute(areaId, segmentIds);
+      this.currentTaskId = taskId;
+      this.api.connectSSE(taskId);
+    } catch (error) {
+      this.isClusterRoute = false;
+      this.ui.showError(error.message);
+    }
+  }
+
   onProgress(data) {
     this.ui.updateProgress(data);
   }
 
   async onGenerationComplete(progressData = {}) {
+    const taskId = this.currentTaskId;
     this.currentTaskId = null;
+    const isCluster = this.isClusterRoute;
+    this.isClusterRoute = false;
 
-    // Load the full route data now
-    const routeData = await this.api.loadExistingRoute(this.selectedAreaId);
+    let routeData = null;
+
+    if (isCluster && taskId) {
+      // Cluster routes are stored in the job result, not on the CoverageArea
+      try {
+        routeData = await this.api.loadTaskResult(taskId);
+      } catch {
+        // fall through to error
+      }
+    } else {
+      routeData = await this.api.loadExistingRoute(this.selectedAreaId);
+    }
+
     if (routeData?.coordinates) {
-      const selectedArea = this.coverageAreas.find(
-        (area) => String(area?._id || area?.id || "") === String(this.selectedAreaId)
-      );
-      if (selectedArea) {
-        selectedArea.has_optimal_route = true;
+      if (!isCluster) {
+        const selectedArea = this.coverageAreas.find(
+          (area) => String(area?._id || area?.id || "") === String(this.selectedAreaId)
+        );
+        if (selectedArea) {
+          selectedArea.has_optimal_route = true;
+        }
       }
       this.currentRouteData = routeData;
       this.map.displayRoute(routeData.coordinates, routeData, true); // animate=true
@@ -450,6 +530,7 @@ export class OptimalRoutesManager {
 
   onError(message) {
     this.currentTaskId = null;
+    this.isClusterRoute = false;
     this.ui.showError(message);
     this.ui.hideReplayButton();
   }
@@ -468,6 +549,7 @@ export class OptimalRoutesManager {
 
   onCancelled() {
     this.currentTaskId = null;
+    this.isClusterRoute = false;
     this.ui.hideProgressSection();
     const generateBtn = document.getElementById("generate-route-btn");
     if (generateBtn) {
@@ -538,6 +620,72 @@ export class OptimalRoutesManager {
     } catch {
       // Ignore abort errors.
     }
+    this.simulation?.destroy?.();
     this.map?.destroy?.();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Drive Simulation
+  // ---------------------------------------------------------------------------
+
+  toggleSimulation() {
+    if (!this.selectedAreaId) {
+      this.ui.showNotification("Select a coverage area first.", "warning");
+      return;
+    }
+
+    if (this.simulation.active) {
+      this.simulation.deactivate();
+      document.getElementById("legend-simulated").style.display = "none";
+    } else {
+      this.simulation.activate(this.selectedAreaId);
+      document.getElementById("legend-simulated").style.display = "";
+    }
+  }
+
+  onSimulationUpdate(data) {
+    this.updateSimulationPanel(data);
+  }
+
+  updateSimulationPanel(data) {
+    const countEl = document.getElementById("sim-selected-count");
+    const addedEl = document.getElementById("sim-added-distance");
+    const currentEl = document.getElementById("sim-current-pct");
+    const projectedEl = document.getElementById("sim-projected-pct");
+    const deltaEl = document.getElementById("sim-delta-pct");
+    const currentBar = document.getElementById("sim-current-bar");
+    const projectedBar = document.getElementById("sim-projected-bar");
+    const badge = document.getElementById("sim-count-badge");
+
+    if (!data) {
+      if (countEl) countEl.textContent = "0";
+      if (addedEl) addedEl.textContent = "--";
+      if (currentEl) currentEl.textContent = "--";
+      if (projectedEl) projectedEl.textContent = "--";
+      if (deltaEl) deltaEl.textContent = "+0.00%";
+      if (currentBar) currentBar.style.width = "0%";
+      if (projectedBar) projectedBar.style.width = "0%";
+      if (badge) {
+        badge.textContent = "";
+        badge.style.display = "none";
+      }
+      return;
+    }
+
+    const { current, projected, simulated_length_miles, selectedCount } = data;
+    const delta = projected.coverage_percentage - current.coverage_percentage;
+    const fmtDist = (mi) => `${mi.toFixed(2)} mi`;
+
+    if (countEl) countEl.textContent = selectedCount;
+    if (addedEl) addedEl.textContent = fmtDist(simulated_length_miles);
+    if (currentEl) currentEl.textContent = `${current.coverage_percentage}%`;
+    if (projectedEl) projectedEl.textContent = `${projected.coverage_percentage}%`;
+    if (deltaEl) deltaEl.textContent = `+${delta.toFixed(2)}%`;
+    if (currentBar) currentBar.style.width = `${current.coverage_percentage}%`;
+    if (projectedBar) projectedBar.style.width = `${projected.coverage_percentage}%`;
+    if (badge) {
+      badge.textContent = selectedCount;
+      badge.style.display = selectedCount > 0 ? "inline-flex" : "none";
+    }
   }
 }

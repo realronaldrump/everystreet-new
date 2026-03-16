@@ -313,6 +313,9 @@ export class DrivingNavigationUI {
           <strong style="color: ${safeColor}">Cluster #${index + 1}</strong>
         </div>
         <div class="cluster-item-meta">${cluster.segment_count} streets • ${distanceLabel}</div>
+        <button class="btn btn-sm btn-outline-primary generate-cluster-route-btn" data-cluster-index="${index}">
+          <i class="fas fa-route me-1"></i> Generate Route
+        </button>
       </div>
     `;
   }
@@ -479,9 +482,14 @@ export class DrivingNavigationUI {
           <div><i class="fas fa-location-arrow"></i> ${distanceMiles} mi away</div>
           <div><i class="fas fa-chart-line"></i> Score: ${score}</div>
         </div>
-        <button class="btn btn-sm btn-primary mt-2 navigate-to-segment" data-segment-id="${cluster.nearest_segment.segment_id}">
-          <i class="fas fa-route me-1"></i> Navigate to Cluster
-        </button>
+        <div class="cluster-popup-actions mt-2">
+          <button class="btn btn-sm btn-primary navigate-to-segment" data-segment-id="${cluster.nearest_segment.segment_id}">
+            <i class="fas fa-location-arrow me-1"></i> Navigate
+          </button>
+          <button class="btn btn-sm btn-outline-primary generate-cluster-route-btn" data-cluster-index="${rank}">
+            <i class="fas fa-route me-1"></i> Route
+          </button>
+        </div>
       </div>
     `;
 

@@ -89,12 +89,14 @@ async def generate_optimal_route_with_progress(
     location_id: str | PydanticObjectId,
     task_id: str,
     start_coords: tuple[float, float] | None = None,  # (lon, lat)
+    segment_ids: set[str] | None = None,
 ) -> dict[str, Any]:
     """Public entrypoint for background/manual route generation."""
     return await _generate_optimal_route_with_progress_impl(
         location_id=location_id,
         task_id=task_id,
         start_coords=start_coords,
+        segment_ids=segment_ids,
     )
 
 
@@ -102,6 +104,7 @@ async def _generate_optimal_route_with_progress_impl(
     location_id: str | PydanticObjectId,
     task_id: str,
     start_coords: tuple[float, float] | None = None,  # (lon, lat)
+    segment_ids: set[str] | None = None,
     *,
     mapping_retry_attempted: bool = False,
 ) -> dict[str, Any]:
@@ -301,6 +304,10 @@ async def _generate_optimal_route_with_progress_impl(
             if street.segment_id in driven_segment_ids:
                 continue
             if street.segment_id in undriveable_segment_ids:
+                continue
+
+            # If segment_ids filter is set (cluster route), only include those segments
+            if segment_ids is not None and street.segment_id not in segment_ids:
                 continue
 
             # Check for cached graph_edge mapping
@@ -1316,6 +1323,7 @@ async def _generate_optimal_route_with_progress_impl(
                     location_id=location_id,
                     task_id=task_id,
                     start_coords=start_coords,
+                    segment_ids=segment_ids,
                     mapping_retry_attempted=True,
                 )
             if skipped_invalid_geometry + skipped_match_errors >= total_segments:
@@ -1639,12 +1647,8 @@ async def _generate_optimal_route_with_progress_impl(
             _raise_value_error(msg)
 
         logger.info("Route generation finished. Updating DB status to completed.")
-        try:
-            await job_handle.complete("Route generation complete!")
-        except Exception:
-            logger.exception("Final job progress update failed")
 
-        return {
+        route_result = {
             "status": "success",
             "coordinates": route_coords,
             "total_distance_m": stats["total_distance"],
@@ -1679,6 +1683,19 @@ async def _generate_optimal_route_with_progress_impl(
             "generated_at": datetime.now(UTC).isoformat(),
             "location_name": location_name,
         }
+
+        try:
+            # Store result in job for cluster routes (not saved to CoverageArea)
+            if segment_ids is not None:
+                await job_handle.complete(
+                    "Route generation complete!", result=route_result
+                )
+            else:
+                await job_handle.complete("Route generation complete!")
+        except Exception:
+            logger.exception("Final job progress update failed")
+
+        return route_result
 
     except Exception as e:
         error_msg = str(e)

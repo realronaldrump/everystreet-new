@@ -309,6 +309,86 @@ Select a coverage area...
           </div>
         </div>
 
+        <!-- Drive Simulation Widget -->
+        <div class="widget control-section sim-widget" data-accent="sky">
+          <div class="widget-header collapsible" data-toggle="section-simulation">
+            <h3 class="widget-title">
+              <i class="fas fa-flask" aria-hidden="true"></i>
+              Simulate Drive
+              <span id="sim-count-badge" class="sim-badge" style="display:none"></span>
+            </h3>
+            <button type="button"
+                    class="btn-collapse"
+                    aria-expanded="true"
+                    aria-controls="section-simulation"
+                    aria-label="Toggle section">
+              <i class="fas fa-chevron-up" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="widget-body collapsible-content" id="section-simulation">
+
+            <p class="sim-hint">
+              Click undriven streets on the map to see how your coverage would change.
+            </p>
+
+            <button type="button"
+                    id="sim-toggle-btn"
+                    class="btn btn-outline-primary btn-sim-toggle"
+                    aria-pressed="false"
+                    disabled>
+              <i class="fas fa-hand-pointer" aria-hidden="true"></i>
+              <span class="sim-toggle-label">Start Selecting</span>
+            </button>
+
+            <!-- Simulation results (shown when active) -->
+            <div id="sim-results-panel" class="sim-results-panel" style="display:none">
+
+              <div class="sim-selection-info">
+                <span id="sim-selected-count" class="sim-selected-count">0</span>
+                <span class="sim-selected-label">streets selected</span>
+                <button type="button"
+                        id="sim-clear-btn"
+                        class="btn btn-ghost btn-xs sim-clear-btn">
+                  <i class="fas fa-times" aria-hidden="true"></i>
+                  Clear
+                </button>
+              </div>
+
+              <div class="sim-stat-row">
+                <div class="sim-stat">
+                  <span class="sim-stat-label">Added distance</span>
+                  <span id="sim-added-distance" class="sim-stat-value">--</span>
+                </div>
+              </div>
+
+              <!-- Coverage comparison -->
+              <div class="sim-coverage-compare">
+                <div class="sim-coverage-current">
+                  <span class="sim-cov-label">Current</span>
+                  <span id="sim-current-pct" class="sim-cov-value">--</span>
+                </div>
+                <div class="sim-coverage-arrow">
+                  <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                </div>
+                <div class="sim-coverage-projected">
+                  <span class="sim-cov-label">Projected</span>
+                  <span id="sim-projected-pct" class="sim-cov-value sim-cov-projected">--</span>
+                </div>
+              </div>
+
+              <div class="sim-delta-bar">
+                <div class="sim-delta-track">
+                  <div id="sim-current-bar" class="sim-delta-fill sim-delta-current" style="width:0%"></div>
+                  <div id="sim-projected-bar" class="sim-delta-fill sim-delta-projected" style="width:0%"></div>
+                </div>
+                <div class="sim-delta-label">
+                  <span id="sim-delta-pct" class="sim-delta-value">+0.00%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Saved Routes Widget -->
         <div class="widget control-section is-saved-routes" data-accent="purple">
           <div class="widget-header collapsible" data-toggle="section-saved">
@@ -994,6 +1074,10 @@ Legend
           <div class="legend-item">
             <span class="legend-color legend-color--route is-route"></span>
             <span class="legend-label">Optimal Route</span>
+          </div>
+          <div class="legend-item legend-item--simulated" id="legend-simulated" style="display:none">
+            <span class="legend-color legend-color--simulated"></span>
+            <span class="legend-label">Simulated</span>
           </div>
         </div>
       </div>

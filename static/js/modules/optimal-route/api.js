@@ -141,6 +141,28 @@ export class OptimalRouteAPI {
     }
   }
 
+  async generateClusterRoute(areaId, segmentIds) {
+    try {
+      const data = await apiClient.post(
+        `/api/coverage/areas/${areaId}/cluster-route`,
+        { segment_ids: segmentIds }
+      );
+      return data.task_id;
+    } catch (error) {
+      console.error("Error starting cluster route generation:", error);
+      throw error;
+    }
+  }
+
+  async loadTaskResult(taskId) {
+    try {
+      return await apiClient.get(`/api/optimal-routes/${taskId}/result`);
+    } catch (error) {
+      console.error("Error loading task result:", error);
+      throw error;
+    }
+  }
+
   async cancelTask(taskId) {
     if (!taskId) {
       return null;

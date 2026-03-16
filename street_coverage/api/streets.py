@@ -62,6 +62,12 @@ class MarkDrivenSegmentsRequest(BaseModel):
     segment_ids: list[str]
 
 
+class SimulateDriveRequest(BaseModel):
+    """Request to simulate driving specific segments."""
+
+    segment_ids: list[str]
+
+
 class StreetRenderProjection(BaseModel):
     """Projected Street fields needed for map rendering."""
 
@@ -492,4 +498,110 @@ async def get_streets_summary(area_id: PydanticObjectId):
         "total_length_miles": area.total_length_miles,
         "driven_length_miles": area.driven_length_miles,
         "coverage_percentage": area.coverage_percentage,
+    }
+
+
+@router.post("/areas/{area_id}/streets/simulate")
+async def simulate_drive(
+    area_id: PydanticObjectId,
+    request: SimulateDriveRequest,
+):
+    """
+    Simulate driving specific segments and return projected coverage stats.
+
+    This is a read-only operation that does NOT modify any data.
+    Returns current stats alongside projected stats if the given
+    segments were driven.
+    """
+    area = await CoverageArea.get(area_id)
+    if not area:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Coverage area not found",
+        )
+
+    if not request.segment_ids:
+        return {
+            "success": True,
+            "simulated_segments": 0,
+            "simulated_length_miles": 0.0,
+            "current": {
+                "driven_segments": area.driven_segments,
+                "driven_length_miles": area.driven_length_miles,
+                "coverage_percentage": area.coverage_percentage,
+            },
+            "projected": {
+                "driven_segments": area.driven_segments,
+                "driven_length_miles": area.driven_length_miles,
+                "coverage_percentage": area.coverage_percentage,
+            },
+        }
+
+    # Find which of the requested segments are currently undriven
+    # (to avoid double-counting already-driven segments)
+    driven_states = await CoverageState.find(
+        {
+            "area_id": area_id,
+            "segment_id": {"$in": request.segment_ids},
+            "status": {"$in": ["driven", "undriveable"]},
+        },
+    ).to_list()
+    already_counted = {s.segment_id for s in driven_states}
+
+    # Get the street geometries for segments that would be newly driven
+    new_segment_ids = [
+        sid for sid in request.segment_ids if sid not in already_counted
+    ]
+
+    if not new_segment_ids:
+        return {
+            "success": True,
+            "simulated_segments": 0,
+            "simulated_length_miles": 0.0,
+            "current": {
+                "driven_segments": area.driven_segments,
+                "driven_length_miles": area.driven_length_miles,
+                "coverage_percentage": area.coverage_percentage,
+            },
+            "projected": {
+                "driven_segments": area.driven_segments,
+                "driven_length_miles": area.driven_length_miles,
+                "coverage_percentage": area.coverage_percentage,
+            },
+        }
+
+    streets = await Street.find(
+        {"area_id": area_id, "segment_id": {"$in": new_segment_ids}},
+    ).to_list()
+
+    simulated_length = sum(s.length_miles for s in streets)
+    simulated_count = len(streets)
+
+    projected_driven_length = area.driven_length_miles + simulated_length
+    projected_driven_segments = area.driven_segments + simulated_count
+    driveable_length = area.driveable_length_miles
+
+    if projected_driven_length > driveable_length > 0:
+        projected_driven_length = driveable_length
+
+    projected_pct = 0.0
+    if driveable_length > 0:
+        projected_pct = min(
+            100.0, round((projected_driven_length / driveable_length) * 100, 2)
+        )
+
+    return {
+        "success": True,
+        "simulated_segments": simulated_count,
+        "simulated_length_miles": round(simulated_length, 3),
+        "current": {
+            "driven_segments": area.driven_segments,
+            "driven_length_miles": round(area.driven_length_miles, 3),
+            "coverage_percentage": area.coverage_percentage,
+        },
+        "projected": {
+            "driven_segments": projected_driven_segments,
+            "driven_length_miles": round(projected_driven_length, 3),
+            "coverage_percentage": projected_pct,
+        },
     }
