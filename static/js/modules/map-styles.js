@@ -175,11 +175,11 @@ const buildMapLayerColors = () => ({
       DEFAULT_MAP_LAYER_COLORS.county.visitedBorder
     ),
     stoppedFill: getCSSVariable(
-      "--danger",
+      "--info",
       DEFAULT_MAP_LAYER_COLORS.county.stoppedFill
     ),
     stoppedBorder: getCSSVariable(
-      "--danger-dark",
+      "--info-dark",
       DEFAULT_MAP_LAYER_COLORS.county.stoppedBorder
     ),
     hoverFill: getCSSVariable("--surface-1", DEFAULT_MAP_LAYER_COLORS.county.hoverFill),
