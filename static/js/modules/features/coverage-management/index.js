@@ -24,6 +24,12 @@ import notificationManager from "../../ui/notifications.js";
 import { debounce, escapeHtml } from "../../utils.js";
 import { renderAreaCards } from "./areas.js";
 import {
+  getNextActiveMapFilters,
+  getStatusFiltersForMapFilters,
+  isAllMapFilterActive,
+  normalizeMapFilter,
+} from "./map-filter.js";
+import {
   formatMiles,
   formatRelativeTime,
   getCoverageTierClass,
@@ -47,7 +53,7 @@ const INITIAL_STATE = () => ({
   // Map
   map: null,
   streetInteractivityReady: false,
-  currentMapFilter: "all",
+  currentMapFilters: ["all"],
   streetsCacheKey: null,
   streetsCacheGeojson: null,
   renderedStreetsCacheKey: null,
@@ -105,7 +111,6 @@ const validationState = {
   resolveRequestId: 0,
 };
 let validationElements = null;
-
 const STREET_LAYERS = ["streets-undriven", "streets-driven", "streets-undriveable"];
 const HIGHLIGHT_LAYER_ID = "streets-highlight";
 const HOVER_LAYER_ID = "streets-hover";
@@ -129,7 +134,6 @@ function getCoverageTripModeLabel(mode) {
       return "regular trips only";
     case "matched":
       return "matched trips only";
-    case "both":
     default:
       return "both regular and matched trips";
   }
@@ -1241,7 +1245,9 @@ async function handleShareClick() {
   if (!state.currentAreaData) return;
 
   try {
-    const { default: progressCardGenerator } = await import("../../ui/progress-card.js");
+    const { default: progressCardGenerator } = await import(
+      "../../ui/progress-card.js"
+    );
     const area = state.currentAreaData;
     await progressCardGenerator.downloadCard({
       areaName: area.display_name || "Coverage Area",
@@ -1484,11 +1490,19 @@ function handleStreetClick(event) {
 }
 
 function applyMapFilter(filter) {
-  state.currentMapFilter = filter;
+  state.currentMapFilters = getNextActiveMapFilters(state.currentMapFilters, filter);
+  const activeStatusFilters = new Set(
+    getStatusFiltersForMapFilters(state.currentMapFilters)
+  );
+  const showingAllFilters = isAllMapFilterActive(state.currentMapFilters);
 
   // Update filter chip UI
   document.querySelectorAll(".map-filter-chip").forEach((chip) => {
-    const active = chip.dataset.filter === filter;
+    const chipFilter = normalizeMapFilter(chip.dataset.filter || "all");
+    const active =
+      chipFilter === "all"
+        ? showingAllFilters
+        : !showingAllFilters && activeStatusFilters.has(chipFilter);
     chip.classList.toggle("map-filter-chip--active", active);
     chip.setAttribute("aria-pressed", active ? "true" : "false");
   });
@@ -1502,10 +1516,13 @@ function applyMapFilter(filter) {
       return;
     }
     let visible = "visible";
-    if (filter === "driven" && layerId !== "streets-driven") {
+    if (layerId === "streets-driven" && !activeStatusFilters.has("driven")) {
       visible = "none";
     }
-    if (filter === "undriven" && layerId !== "streets-undriven") {
+    if (layerId === "streets-undriven" && !activeStatusFilters.has("undriven")) {
+      visible = "none";
+    }
+    if (layerId === "streets-undriveable" && !showingAllFilters) {
       visible = "none";
     }
     state.map.setLayoutProperty(layerId, "visibility", visible);
@@ -1526,20 +1543,28 @@ function setHighlightedSegment(segmentId) {
 
   const baseFilter = ["==", ["get", "segment_id"], segmentId];
 
-  if (state.currentMapFilter === "driven") {
+  const activeStatusFilters = getStatusFiltersForMapFilters(state.currentMapFilters);
+  if (isAllMapFilterActive(state.currentMapFilters)) {
+    state.map.setFilter(HIGHLIGHT_LAYER_ID, baseFilter);
+    return;
+  }
+
+  if (activeStatusFilters.length === 1) {
     state.map.setFilter(HIGHLIGHT_LAYER_ID, [
       "all",
       baseFilter,
-      ["==", ["get", "status"], "driven"],
-    ]);
-  } else if (state.currentMapFilter === "undriven") {
-    state.map.setFilter(HIGHLIGHT_LAYER_ID, [
-      "all",
-      baseFilter,
-      ["==", ["get", "status"], "undriven"],
+      ["==", ["get", "status"], activeStatusFilters[0]],
     ]);
   } else {
-    state.map.setFilter(HIGHLIGHT_LAYER_ID, baseFilter);
+    state.map.setFilter(HIGHLIGHT_LAYER_ID, [
+      "all",
+      baseFilter,
+      [
+        "any",
+        ["==", ["get", "status"], "driven"],
+        ["==", ["get", "status"], "undriven"],
+      ],
+    ]);
   }
 }
 
