@@ -189,3 +189,61 @@ test("renderAreaCards separates route progress from coverage rebuild progress", 
     global.window = originalWindow;
   }
 });
+
+test("renderAreaCards exposes rebuild recovery actions when area is in error", async () => {
+  const grid = { innerHTML: "", style: { display: "none" } };
+  const loading = { style: { display: "block" } };
+  const emptyState = { classList: { add: () => {}, remove: () => {} } };
+
+  const originalDocument = global.document;
+  const originalWindow = global.window;
+  global.document = {
+    readyState: "loading",
+    addEventListener: () => {},
+    getElementById: (id) => {
+      if (id === "area-cards-grid") return grid;
+      if (id === "area-cards-loading") return loading;
+      if (id === "area-empty-state") return emptyState;
+      return null;
+    },
+  };
+  global.window = {
+    matchMedia: () => ({ matches: false }),
+  };
+
+  try {
+    const { renderAreaCards } = await import(
+      "../static/js/modules/features/coverage-management/areas.js"
+    );
+    renderAreaCards({
+      areas: [
+        {
+          id: "area-error-1",
+          display_name: "Waco, Texas, United States",
+          area_type: "city",
+          status: "error",
+          total_segments: 10,
+          driven_segments: 0,
+          undriveable_segments: 0,
+          total_length_miles: 10,
+          driven_length_miles: 0,
+          coverage_percentage: 0,
+          last_synced: null,
+          has_optimal_route: false,
+          optimal_route_generated_at: null,
+        },
+      ],
+      activeJobsByAreaId: new Map(),
+      activeRouteJobsByAreaId: new Map(),
+      areaErrorById: new Map(),
+      areaNameById: new Map(),
+    });
+
+    assert.match(grid.innerHTML, /Retry Build/);
+    assert.match(grid.innerHTML, /Retry Build from OSM/);
+    assert.doesNotMatch(grid.innerHTML, /data-area-action="rebuild"[^>]*disabled/);
+  } finally {
+    global.document = originalDocument;
+    global.window = originalWindow;
+  }
+});

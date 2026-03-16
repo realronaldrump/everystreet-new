@@ -276,6 +276,8 @@ function renderAreaCard(area, coverageJob, routeJob) {
       : area.display_name || "Coverage area";
   const areaName = escapeHtml(displayName);
   const isReady = area.status === "ready";
+  const canRebuild = area.status === "ready" || area.status === "error";
+  const isError = area.status === "error";
   const hasActiveCoverageJob = hasActiveJob(coverageJob);
   const hasActiveRouteJob = hasActiveJob(routeJob);
   const hasSavedRoute = Boolean(
@@ -298,6 +300,10 @@ function renderAreaCard(area, coverageJob, routeJob) {
     ? "Regenerate Optimal Route"
     : "Generate Optimal Route";
   const routeMenuAction = hasSavedRoute ? "restart-route" : "generate-route";
+  const primaryActionLabel = isError ? "Retry Build" : "Explore Map";
+  const primaryActionIcon = isError ? "fa-rotate-right" : "fa-map";
+  const primaryAction = isError ? "rebuild" : "view";
+  const primaryActionDisabled = isError ? !canRebuild : !isReady;
 
   return `
     <div class="area-card" data-area-id="${area.id}" data-accent="${accentClass}" role="listitem">
@@ -350,11 +356,13 @@ function renderAreaCard(area, coverageJob, routeJob) {
 
       <div class="area-card-footer">
         <button class="btn btn-primary btn-sm flex-grow-1"
-                data-area-action="view"
+                data-area-action="${primaryAction}"
                 data-area-id="${area.id}"
-                ${!isReady ? "disabled" : ""}
-                aria-label="Explore coverage map for ${areaName}">
-          <i class="fas fa-map me-1" aria-hidden="true"></i>Explore Map
+                data-area-name="${areaName}"
+                ${primaryActionDisabled ? "disabled" : ""}
+                aria-label="${isError ? `Retry coverage rebuild for ${areaName}` : `Explore coverage map for ${areaName}`}"
+                title="${isError ? "Retry building this area from OSM" : "Explore coverage map"}">
+          <i class="fas ${primaryActionIcon} me-1" aria-hidden="true"></i>${primaryActionLabel}
         </button>
 
         ${
@@ -440,8 +448,8 @@ function renderAreaCard(area, coverageJob, routeJob) {
                       data-area-action="rebuild"
                       data-area-id="${area.id}"
                       data-area-name="${areaName}"
-                      ${!isReady ? "disabled" : ""}>
-                <i class="fas fa-sync me-2" aria-hidden="true"></i>Rebuild from OSM
+                        ${!canRebuild ? "disabled" : ""}>
+                  <i class="fas fa-sync me-2" aria-hidden="true"></i>${isError ? "Retry Build from OSM" : "Rebuild from OSM"}
               </button>
             </li>
             <li><hr class="dropdown-divider"></li>
