@@ -59,8 +59,8 @@ const DEFAULT_MAP_LAYER_COLORS = Object.freeze({
   county: {
     visitedFill: "#4d9a6a",
     visitedBorder: "#3b7a53",
-    stoppedFill: "#c45454",
-    stoppedBorder: "#9f3f3f",
+    stoppedFill: "#5b9bd5",
+    stoppedBorder: "#4a80b4",
     hoverFill: "#faf9f7",
     borderCounty: "rgba(245, 242, 236, 0.15)",
     borderCity: "rgba(245, 242, 236, 0.25)",
