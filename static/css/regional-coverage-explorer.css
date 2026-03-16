@@ -881,9 +881,9 @@
 }
 
 .tooltip-status--stopped {
-  background: rgb(var(--danger-rgb) / 20%);
-  color: var(--danger);
-  border: 1px solid rgb(var(--danger-rgb) / 35%);
+  background: rgb(var(--info-rgb) / 20%);
+  color: var(--info);
+  border: 1px solid rgb(var(--info-rgb) / 35%);
 }
 
 /* =============================================================================
