@@ -17,7 +17,7 @@ import {
   getStorage,
 } from "../../utils.js";
 import { animateValue } from "./animations.js";
-import { bindWidgetEditToggle, updateGreeting } from "./hero.js";
+import { updateGreeting } from "./hero.js";
 
 // Configuration
 const CONFIG = {
@@ -50,6 +50,7 @@ let lastKnownLocation = null;
 let metricsLoadRequestId = 0;
 let removeFilterRefreshListener = null;
 let ambientCleanup = null;
+let scrollRevealCleanup = null;
 let featureApi = createFeatureApi();
 const apiGet = (url, options = {}) => featureApi.get(url, options);
 const apiRaw = (url, options = {}) => featureApi.raw(url, options);
@@ -65,9 +66,6 @@ export default function initLandingPage({ signal, cleanup, api } = {}) {
   cacheElements();
   updateGreeting(elements);
 
-  highlightFrequentTiles();
-  bindWidgetEditToggle(elements, pageSignal);
-
   loadAllData();
   setupRefreshInterval();
   checkLiveTracking();
@@ -77,8 +75,13 @@ export default function initLandingPage({ signal, cleanup, api } = {}) {
 
   // Ambient background
   setupAmbientBackground();
+
+  // Scroll-reveal observer
+  setupScrollReveal();
+
   const teardown = () => {
     cleanupAmbientBackground();
+    cleanupScrollReveal();
     clearIntervals();
     removeFilterRefreshListener?.();
     removeFilterRefreshListener = null;
@@ -106,17 +109,53 @@ function cacheElements() {
     statMiles: document.getElementById("stat-miles"),
     statTrips: document.getElementById("stat-trips"),
     liveIndicator: document.getElementById("live-indicator"),
-    recentTrip: document.getElementById("recent-trip"),
-    lastFillup: document.getElementById("last-fillup"),
+    liveChip: document.getElementById("live-chip"),
     activityFeed: document.getElementById("activity-feed"),
     recordCard: document.getElementById("record-card"),
     recordValue: document.getElementById("record-value"),
     recordTitle: document.getElementById("record-title"),
     recordDate: document.getElementById("record-date"),
-
-    widgetEditToggle: document.getElementById("widget-edit-toggle"),
-    navTiles: Array.from(document.querySelectorAll(".nav-tile")),
+    recentTripValue: document.getElementById("recent-trip-value"),
+    lastFillupValue: document.getElementById("last-fillup-value"),
   };
+}
+
+/**
+ * Scroll-reveal with IntersectionObserver
+ */
+function setupScrollReveal() {
+  const revealElements = document.querySelectorAll("[data-scroll-reveal]");
+  if (!revealElements.length) return;
+
+  // Reveal hero immediately
+  const heroSection = document.querySelector(".hero-section");
+  if (heroSection) {
+    heroSection.classList.add("revealed");
+  }
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("revealed");
+          observer.unobserve(entry.target);
+        }
+      }
+    },
+    { threshold: 0.1, rootMargin: "0px 0px -40px 0px" }
+  );
+
+  for (const el of revealElements) {
+    if (el === heroSection) continue;
+    observer.observe(el);
+  }
+
+  scrollRevealCleanup = () => observer.disconnect();
+}
+
+function cleanupScrollReveal() {
+  scrollRevealCleanup?.();
+  scrollRevealCleanup = null;
 }
 
 /**
@@ -125,8 +164,6 @@ function cacheElements() {
 async function loadAllData() {
   try {
     updateGreeting(elements);
-
-    highlightFrequentTiles();
 
     // Load trips first to get location
     await loadRecentTrips();
@@ -147,39 +184,6 @@ async function loadAllData() {
   }
 }
 
-function highlightFrequentTiles() {
-  if (!elements.navTiles || elements.navTiles.length === 0) {
-    return;
-  }
-  const counts = getRouteCounts();
-  const frequentPaths = Object.entries(counts)
-    .filter(([path]) => path !== "/" && path !== "/landing")
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 2)
-    .map(([path]) => path);
-
-  const pathToTile = {
-    "/map": "map",
-    "/coverage-route-planner": "navigate",
-    "/trips": "trips",
-    "/insights": "insights",
-    "/gas-tracking": "gas",
-    "/visits": "visits",
-    "/export": "export",
-    "/coverage-management": "areas",
-    "/control-center": "settings",
-  };
-
-  const frequentTiles = new Set(
-    frequentPaths.map((path) => pathToTile[path]).filter(Boolean)
-  );
-
-  elements.navTiles.forEach((tile) => {
-    const tileId = tile.dataset.tile;
-    tile.classList.toggle("tile-frequent", frequentTiles.has(tileId));
-  });
-}
-
 async function loadWeather() {
   if (!elements.weatherChip) {
     return;
@@ -187,12 +191,12 @@ async function loadWeather() {
 
   const cached = getCachedWeather();
   if (cached) {
-    elements.weatherChip.textContent = `Weather: ${cached.temp}F ${cached.label}`;
+    setWeatherDisplay(cached.temp, cached.label);
     return;
   }
 
   if (!navigator.geolocation && !lastKnownLocation) {
-    elements.weatherChip.textContent = "Weather: --";
+    setWeatherDisplay(null, null);
     return;
   }
 
@@ -224,10 +228,19 @@ async function loadWeather() {
       throw new Error("Weather data missing");
     }
 
-    elements.weatherChip.textContent = `Weather: ${temp}F ${label}`;
+    setWeatherDisplay(temp, label);
     setCachedWeather({ temp, label });
   } catch {
-    elements.weatherChip.textContent = "Weather: --";
+    setWeatherDisplay(null, null);
+  }
+}
+
+function setWeatherDisplay(temp, label) {
+  if (!elements.weatherChip) return;
+  const span = elements.weatherChip.querySelector("span");
+  if (span) {
+    span.textContent =
+      temp != null && label ? `${temp}°F ${label}` : "--";
   }
 }
 
@@ -651,15 +664,6 @@ function getRouteCounts() {
   return getStoredValue("es:route-counts") || {};
 }
 
-function _getMostVisitedPath(counts) {
-  const entries = Object.entries(counts);
-  if (entries.length === 0) {
-    return null;
-  }
-  const [path] = entries.sort((a, b) => b[1] - a[1])[0];
-  return { path, timestamp: null };
-}
-
 function getStoredValue(key) {
   try {
     const raw = localStorage.getItem(key);
@@ -836,16 +840,6 @@ function resolveDateRange({ fallbackDays = null, fallbackStart = null, fallbackE
   return { startDate, endDate };
 }
 
-function applyDateRangeToParams(params, { startDate, endDate }) {
-  if (startDate) {
-    params.set("start_date", startDate);
-  }
-  if (endDate) {
-    params.set("end_date", endDate);
-  }
-  return params;
-}
-
 /**
  * Fetch trip metrics and update stats
  */
@@ -907,15 +901,14 @@ async function loadRecentTrips() {
       }
     }
 
-    // Update recent trip meta
-    if (trips.length > 0 && elements.recentTrip) {
+    // Update recent trip mini-stat
+    if (trips.length > 0 && elements.recentTripValue) {
       const lastTrip = trips[0];
       const lastTripTime = lastTrip.endTime || lastTrip.startTime;
       if (lastTripTime) {
-        const valueEl = elements.recentTrip.querySelector(".meta-value");
-        if (valueEl) {
-          valueEl.textContent = formatRelativeTimeShort(new Date(lastTripTime));
-        }
+        elements.recentTripValue.textContent = formatRelativeTimeShort(
+          new Date(lastTripTime)
+        );
       }
     }
 
@@ -952,11 +945,8 @@ async function loadGasStats() {
     const data = await apiGet("/api/gas-statistics");
     setRecordSource("gas", data);
 
-    if (elements.lastFillup) {
-      const valueEl = elements.lastFillup.querySelector(".meta-value");
-      if (valueEl && data.average_mpg) {
-        valueEl.textContent = data.average_mpg.toFixed(1);
-      }
+    if (elements.lastFillupValue && data.average_mpg) {
+      elements.lastFillupValue.textContent = data.average_mpg.toFixed(1);
     }
   } catch (error) {
     if (!isAbortError(error)) {
@@ -971,9 +961,10 @@ async function loadGasStats() {
 async function checkLiveTracking() {
   try {
     const data = await apiGet("/api/active_trip");
+    const isActive = data.trip && data.trip.status === "active";
 
     if (elements.liveIndicator) {
-      if (data.trip && data.trip.status === "active") {
+      if (isActive) {
         elements.liveIndicator.classList.add("active");
         elements.liveIndicator.title = "Live tracking active";
       } else {
@@ -981,9 +972,17 @@ async function checkLiveTracking() {
         elements.liveIndicator.title = "No active tracking";
       }
     }
+
+    // Show/hide the live chip in hero
+    if (elements.liveChip) {
+      elements.liveChip.style.display = isActive ? "" : "none";
+    }
   } catch {
     if (elements.liveIndicator) {
       elements.liveIndicator.classList.remove("active");
+    }
+    if (elements.liveChip) {
+      elements.liveChip.style.display = "none";
     }
   }
 }
@@ -1025,7 +1024,7 @@ function populateActivityFeed(trips) {
           </button>
         </div>
         <div class="swipe-content">
-          <div class="activity-item" style="animation-delay: ${index * 0.1}s">
+          <div class="activity-item" style="animation-delay: ${index * 0.06}s">
             <div class="activity-icon trip">
               <i class="fas fa-car"></i>
             </div>
@@ -1137,27 +1136,23 @@ function clearIntervals() {
 
 /**
  * Data-responsive ambient background
- * Changes orb colors/intensity based on time of day and driving activity
  */
 function setupAmbientBackground() {
-  const ambientEl = document.querySelector(".ambient-background");
+  const ambientEl = document.querySelector(".landing-ambient");
   if (!ambientEl) return;
 
   ambientCleanup?.();
   ambientCleanup = null;
-  ambientEl.classList.add("data-responsive");
 
   const hour = new Date().getHours();
   const isNight = hour < 6 || hour >= 22;
   const isEvening = hour >= 18 && hour < 22;
 
-  if (isNight) {
-    ambientEl.classList.add("ambient-night");
-    ambientEl.style.setProperty("--ambient-intensity", "0.06");
-  } else if (isEvening) {
-    ambientEl.style.setProperty("--ambient-intensity", "0.08");
-  } else {
-    ambientEl.style.setProperty("--ambient-intensity", "0.12");
+  // Adjust orb opacity based on time of day
+  const orbs = ambientEl.querySelectorAll(".ambient-orb");
+  const intensity = isNight ? 0.04 : isEvening ? 0.06 : 0.08;
+  for (const orb of orbs) {
+    orb.style.opacity = String(intensity);
   }
 
   // If live tracking is active, pulse warmer
@@ -1174,7 +1169,7 @@ function setupAmbientBackground() {
 
   ambientCleanup = () => {
     clearInterval(liveCheckId);
-    ambientEl.classList.remove("data-responsive", "ambient-night", "ambient-driving");
+    ambientEl.classList.remove("ambient-driving");
   };
 }
 
