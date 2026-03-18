@@ -749,6 +749,7 @@ class TripPipeline:
         # Geo points were already derived by _prepare_processed_geo_fields(),
         # so only sanitize/validate here — no re-derivation needed.
         trip.gps = sanitize_geojson_geometry(getattr(trip, "gps", None))
+        trip.matchedGps = sanitize_geojson_geometry(getattr(trip, "matchedGps", None))
         trip.startGeoPoint = sanitize_geojson_point(
             getattr(trip, "startGeoPoint", None),
         )

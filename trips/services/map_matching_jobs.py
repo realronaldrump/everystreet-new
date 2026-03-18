@@ -883,6 +883,8 @@ class MapMatchingJobRunner:
             trip.matched_at = get_current_utc_time()
             trip.mobility_synced_at = None
             TripPipeline.sanitize_trip_document_geospatial_fields(trip)
+            if not getattr(trip, "matchedGps", None):
+                trip.matchStatus = "error:sanitization-failed"
             await trip.save()
             try:
                 await MobilityInsightsService.sync_trip(trip)

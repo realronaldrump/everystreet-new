@@ -131,7 +131,7 @@ class Trip(Document):
             return None
         return parse_timestamp(v)
 
-    @field_validator("gps", mode="before")
+    @field_validator("gps", "matchedGps", mode="before")
     @classmethod
     def validate_gps_data(cls, v: Any) -> dict[str, Any] | None:
         """Normalize GPS data to valid Point/LineString when possible."""
