@@ -17,6 +17,7 @@ import {
 import { initTripSync } from "../../trip-sync.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
+import loadingManager from "../../ui/loading-manager.js";
 import {
   DateUtils,
   escapeHtml,
