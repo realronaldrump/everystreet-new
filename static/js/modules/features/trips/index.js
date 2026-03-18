@@ -1151,6 +1151,9 @@ function createTripCard(trip, allTrips) {
       <div class="trip-card-footer">
         <span class="trip-date">${timeAgo}</span>
         <div class="trip-actions">
+          <button class="trip-action-btn rematch" title="Rematch trip">
+            <i class="fas fa-route"></i>
+          </button>
           <button class="trip-action-btn" title="View details">
             <i class="fas fa-map"></i>
           </button>
@@ -1217,6 +1220,22 @@ function createTripCard(trip, allTrips) {
     e.stopPropagation();
     openTripModal(trip.transactionId);
   });
+
+  const rematchBtn = card.querySelector('.trip-action-btn.rematch');
+  if (rematchBtn) {
+    rematchBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const confirmed = await confirmationDialog.show({
+        title: "Rematch Trip",
+        message: "Are you sure you want to run map matching on this trip again?",
+        confirmText: "Rematch",
+        confirmButtonClass: "btn-primary",
+      });
+      if (confirmed) {
+        rematchTrip(trip.transactionId);
+      }
+    });
+  }
 
   const deleteBtn = card.querySelector(".trip-action-btn.delete");
   deleteBtn.addEventListener("click", async (e) => {
@@ -1899,6 +1918,30 @@ function setupTripCardInteractions() {
 // TRIP OPERATIONS
 // ==========================================
 
+async function rematchTrip(id) {
+  try {
+    loadingManager.show("Queueing map matching job...");
+    const res = await apiPost("/api/map_matching/jobs", {
+      mode: "trip_id",
+      trip_id: id,
+      rematch: true,
+      unmatched_only: false,
+    });
+    if (res) {
+      notificationManager.show("Map matching job queued. View progress in Map Matching.", "success");
+      // Optionally reload the map after a short delay
+      setTimeout(() => {
+        loadTrips();
+      }, 3000);
+    }
+  } catch (err) {
+    console.error("Rematch error:", err);
+    notificationManager.show(`Map matching error: ${err.message}`, "danger");
+  } finally {
+    loadingManager.hide();
+  }
+}
+
 async function deleteTrip(id) {
   try {
     await optimisticAction({
@@ -2051,6 +2094,15 @@ function bindTripModalActions() {
       },
       pageSignal ? { signal: pageSignal } : undefined
     );
+  }
+
+  const matchToggle = document.getElementById("trip-modal-matched-toggle");
+  if (matchToggle) {
+    matchToggle.addEventListener("change", () => {
+      if (currentTripData) {
+        renderTripOnMap(currentTripData);
+      }
+    });
   }
 
   modalActionsBound = true;
@@ -2405,6 +2457,19 @@ async function loadTripData(tripId) {
     const trip = data.trip || data;
     currentTripData = trip;
 
+    // Show/hide matched toggle based on if matchedGps exists
+    const toggleContainer = document.querySelector(".trip-layer-toggle");
+    if (toggleContainer) {
+      const hasMatched = !!(trip.matchedGps || trip.matched_gps);
+      if (hasMatched) {
+        toggleContainer.classList.remove("d-none");
+        toggleContainer.classList.add("d-flex");
+      } else {
+        toggleContainer.classList.add("d-none");
+        toggleContainer.classList.remove("d-flex");
+      }
+    }
+
     updateModalContent(trip);
 
     renderTripOnMap(trip);
@@ -2754,7 +2819,14 @@ function extractTripGeometry(trip) {
   if (!trip) {
     return null;
   }
-  const candidate = trip.geometry || trip.matchedGps || trip.gps;
+  
+  const toggle = document.getElementById("trip-modal-matched-toggle");
+  const wantMatched = toggle ? toggle.checked : true;
+  
+  const candidate = wantMatched 
+    ? (trip.matchedGps || trip.geometry || trip.gps)
+    : (trip.gps || trip.geometry || trip.matchedGps);
+
   if (!candidate) {
     return null;
   }

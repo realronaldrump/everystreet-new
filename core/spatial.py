@@ -487,16 +487,25 @@ def sanitize_geojson_geometry(
     if geom_type == "MultiLineString":
         if not allow_linestring or not isinstance(coords, list):
             return None
-        flattened: list[list[float]] = []
+        valid_lines: list[list[list[float]]] = []
+        flattened_for_point: list[list[float]] = []
         for line in coords:
             if not isinstance(line, list):
                 continue
+            cleaned_line: list[list[float]] = []
             for coord in line:
-                _append_pair(flattened, coord, dedupe_adjacent=dedupe)
-        if len(flattened) >= 2:
-            return {"type": "LineString", "coordinates": flattened}
-        if len(flattened) == 1 and allow_point:
-            return {"type": "Point", "coordinates": flattened[0]}
+                _append_pair(cleaned_line, coord, dedupe_adjacent=dedupe)
+                if allow_point:
+                    _append_pair(flattened_for_point, coord, dedupe_adjacent=dedupe)
+            if len(cleaned_line) >= 2:
+                valid_lines.append(cleaned_line)
+
+        if len(valid_lines) >= 2:
+            return {"type": "MultiLineString", "coordinates": valid_lines}
+        if len(valid_lines) == 1:
+            return {"type": "LineString", "coordinates": valid_lines[0]}
+        if len(flattened_for_point) == 1 and allow_point:
+            return {"type": "Point", "coordinates": flattened_for_point[0]}
         return None
 
     return None

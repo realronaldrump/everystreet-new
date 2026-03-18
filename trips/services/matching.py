@@ -143,13 +143,13 @@ class MapMatchingService:
 
             result = await self._map_match_chunk(chunk_coords, chunk_ts)
             if result.get("code") != "Ok":
-                return {
-                    "code": "Error",
-                    "message": (
-                        f"Chunk {idx} of {len(chunk_indices)} failed map matching. "
-                        f"{result.get('message', '')}".strip()
-                    ),
-                }
+                logger.warning(
+                    "Chunk %d of %d failed map matching. %s",
+                    idx,
+                    len(chunk_indices),
+                    result.get("message", "").strip(),
+                )
+                continue
 
             matched = (
                 result.get("matchings", [{}])[0]
@@ -157,12 +157,12 @@ class MapMatchingService:
                 .get("coordinates", [])
             )
             if not matched:
-                return {
-                    "code": "Error",
-                    "message": (
-                        f"Chunk {idx} of {len(chunk_indices)} returned no geometry."
-                    ),
-                }
+                logger.warning(
+                    "Chunk %d of %d returned no geometry.",
+                    idx,
+                    len(chunk_indices),
+                )
+                continue
 
             if not final_matched:
                 final_matched = list(matched)
@@ -175,6 +175,12 @@ class MapMatchingService:
                 # match to avoid duplication.
                 trim = self._find_overlap_trim(final_matched, matched)
                 final_matched.extend(matched[trim:])
+
+        if not final_matched:
+            return {
+                "code": "Error",
+                "message": "All chunks failed map matching or returned no geometry.",
+            }
 
         # Validate continuity — instead of rejecting the entire result,
         # split at discontinuities and keep ALL contiguous segments.
