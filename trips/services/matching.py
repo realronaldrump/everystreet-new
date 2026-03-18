@@ -102,16 +102,16 @@ class MapMatchingService:
 
     # Number of GPS points to duplicate at each chunk boundary so that
     # Valhalla can produce a seamless match across chunks.
-    _CHUNK_OVERLAP = 8
+    _CHUNK_OVERLAP = 20
 
-    # Maximum distance (in degrees, ~500 m at mid-latitudes) between
+    # Maximum distance (in degrees, ~1.1 km at mid-latitudes) between
     # consecutive matched points before we consider the result broken.
-    _MAX_MATCHED_JUMP_DEG = 0.005
+    _MAX_MATCHED_JUMP_DEG = 0.01
 
     # Tolerance for overlap trimming — matched points within this many
-    # degrees (~50 m) of the previous chunk's tail are considered part
+    # degrees (~100 m) of the previous chunk's tail are considered part
     # of the overlap region and are dropped.
-    _OVERLAP_TRIM_TOL_DEG = 0.0005
+    _OVERLAP_TRIM_TOL_DEG = 0.001
 
     async def _map_match_chunked(
         self,
@@ -144,18 +144,25 @@ class MapMatchingService:
             result = await self._map_match_chunk(chunk_coords, chunk_ts)
             if result.get("code") != "Ok":
                 logger.warning(
-                    "Chunk %d of %d failed map matching. %s",
+                    "Chunk %d of %d failed map matching, attempting sub-chunk retry. %s",
                     idx,
                     len(chunk_indices),
                     result.get("message", "").strip(),
                 )
-                continue
-
-            matched = (
-                result.get("matchings", [{}])[0]
-                .get("geometry", {})
-                .get("coordinates", [])
-            )
+                recovered = await self._retry_failed_chunk(chunk_coords, chunk_ts)
+                if not recovered:
+                    logger.warning(
+                        "Chunk %d: sub-chunk retry also failed, skipping",
+                        idx,
+                    )
+                    continue
+                matched = recovered
+            else:
+                matched = (
+                    result.get("matchings", [{}])[0]
+                    .get("geometry", {})
+                    .get("coordinates", [])
+                )
             if not matched:
                 logger.warning(
                     "Chunk %d of %d returned no geometry.",
@@ -183,8 +190,10 @@ class MapMatchingService:
             }
 
         # Validate continuity — instead of rejecting the entire result,
-        # split at discontinuities and keep ALL contiguous segments.
+        # split at discontinuities and keep ALL contiguous segments,
+        # then merge back segments whose gap is small enough.
         all_segments = self._salvage_continuous_segments(final_matched)
+        all_segments = self._merge_close_segments(all_segments)
         if not all_segments:
             return {
                 "code": "Error",
@@ -214,24 +223,33 @@ class MapMatchingService:
         """
         Find the number of leading points to trim from *new_chunk*.
 
-        Walks through the head of *new_chunk* and finds the last point
-        that is within the overlap tolerance of the existing tail. This
-        produces a cleaner join than the naive "skip while close"
-        approach.
+        Phase 1: Walk through the head of *new_chunk* and find the last
+        point within the overlap tolerance of the existing tail.
+        Phase 2 (fallback): If Phase 1 found nothing, use the closest
+        point if it is within a relaxed tolerance (~1 km).
         """
         if not existing or not new_chunk:
             return 0
 
         tail = existing[-1]
         best_trim = 0
-        # Only search the first _CHUNK_OVERLAP * 3 points — the overlap
-        # region should not be larger than this.
-        search_limit = min(len(new_chunk), cls._CHUNK_OVERLAP * 3)
+        best_dist_sq = float("inf")
+        best_close_trim = 0
+        search_limit = min(len(new_chunk), cls._CHUNK_OVERLAP * 4)
         for i in range(search_limit):
-            dx = abs(new_chunk[i][0] - tail[0])
-            dy = abs(new_chunk[i][1] - tail[1])
-            if dx < cls._OVERLAP_TRIM_TOL_DEG and dy < cls._OVERLAP_TRIM_TOL_DEG:
+            dx = new_chunk[i][0] - tail[0]
+            dy = new_chunk[i][1] - tail[1]
+            dist_sq = dx * dx + dy * dy
+            # Phase 1: strict proximity
+            if abs(dx) < cls._OVERLAP_TRIM_TOL_DEG and abs(dy) < cls._OVERLAP_TRIM_TOL_DEG:
                 best_trim = i + 1
+            # Track closest point for fallback
+            if dist_sq < best_dist_sq:
+                best_dist_sq = dist_sq
+                best_close_trim = i + 1
+        # Phase 2: closest-point fallback (within ~1 km)
+        if best_trim == 0 and best_dist_sq < (cls._OVERLAP_TRIM_TOL_DEG * 10) ** 2:
+            best_trim = best_close_trim
         return best_trim
 
     @classmethod
@@ -285,6 +303,77 @@ class MapMatchingService:
                 len(segments) - 1,
             )
         return segments
+
+    @classmethod
+    def _merge_close_segments(
+        cls,
+        segments: list[list[list[float]]],
+    ) -> list[list[list[float]]]:
+        """Merge adjacent segments whose gap is within 2x the jump threshold."""
+        if len(segments) <= 1:
+            return segments
+        threshold = cls._MAX_MATCHED_JUMP_DEG * 2
+        merged: list[list[list[float]]] = [list(segments[0])]
+        for seg in segments[1:]:
+            dx = abs(seg[0][0] - merged[-1][-1][0])
+            dy = abs(seg[0][1] - merged[-1][-1][1])
+            if dx <= threshold and dy <= threshold:
+                merged[-1].extend(seg)
+            else:
+                merged.append(list(seg))
+        return merged
+
+    async def _retry_failed_chunk(
+        self,
+        coords: list[list[float]],
+        timestamps: list[int | None] | None,
+        depth: int = 0,
+    ) -> list[list[float]]:
+        """Split a failed chunk in half and retry each half. Max depth 3."""
+        _MIN_RETRY_SIZE = 10
+        _MAX_DEPTH = 3
+
+        if len(coords) < _MIN_RETRY_SIZE or depth >= _MAX_DEPTH:
+            return []
+
+        mid = len(coords) // 2
+        # Cap overlap so each half is strictly smaller than the input
+        overlap = min(self._CHUNK_OVERLAP, mid // 2)
+        halves = [
+            (coords[: mid + overlap], timestamps[: mid + overlap] if timestamps else None),
+            (coords[mid - overlap :], timestamps[mid - overlap :] if timestamps else None),
+        ]
+
+        results: list[list[list[float]]] = []
+        for sub_coords, sub_ts in halves:
+            result = await self._map_match_chunk(sub_coords, sub_ts)
+            if result.get("code") == "Ok":
+                matched = (
+                    result.get("matchings", [{}])[0]
+                    .get("geometry", {})
+                    .get("coordinates", [])
+                )
+                if matched:
+                    results.append(matched)
+            else:
+                recovered = await self._retry_failed_chunk(sub_coords, sub_ts, depth + 1)
+                if recovered:
+                    results.append(recovered)
+
+        if not results:
+            return []
+
+        combined = list(results[0])
+        for subsequent in results[1:]:
+            trim = self._find_overlap_trim(combined, subsequent)
+            combined.extend(subsequent[trim:])
+
+        logger.info(
+            "Recovered %d points via sub-chunk retry (depth %d)",
+            len(combined),
+            depth,
+        )
+        return combined
 
     @staticmethod
     def _build_shape_points(
