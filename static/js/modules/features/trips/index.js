@@ -2097,6 +2097,19 @@ function bindTripModalActions() {
     );
   }
 
+  const subtleRegeocodeBtn = document.getElementById(
+    "modal-regeocode-subtle-btn"
+  );
+  if (subtleRegeocodeBtn) {
+    subtleRegeocodeBtn.addEventListener(
+      "click",
+      async () => {
+        await regeocodeCurrentTrip();
+      },
+      pageSignal ? { signal: pageSignal } : undefined
+    );
+  }
+
   const matchToggle = document.getElementById("trip-modal-matched-toggle");
   if (matchToggle) {
     matchToggle.addEventListener("change", () => {
@@ -2113,10 +2126,7 @@ function updateRegeocodeControls(trip) {
   const wrap = document.getElementById("modal-route-actions");
   const btn = document.getElementById("modal-regeocode-btn");
   const statusEl = document.getElementById("modal-regeocode-status");
-
-  if (!wrap || !btn) {
-    return;
-  }
+  const subtleBtn = document.getElementById("modal-regeocode-subtle-btn");
 
   const tripId = trip?.transactionId || null;
   if (!regeocodeInFlight && tripId && tripId !== modalRouteActionsTripId) {
@@ -2130,24 +2140,36 @@ function updateRegeocodeControls(trip) {
   const endLoc = sanitizeLocation(trip?.destination);
   const needsGeocode = startLoc === "Unknown" || endLoc === "Unknown";
 
-  wrap.style.display = needsGeocode ? "flex" : "none";
-  if (!needsGeocode) {
-    if (statusEl) {
+  // Prominent button — only for missing addresses
+  if (wrap && btn) {
+    wrap.style.display = needsGeocode ? "flex" : "none";
+    if (needsGeocode) {
+      btn.disabled = regeocodeInFlight;
+      btn.classList.toggle("is-loading", regeocodeInFlight);
+
+      const textEl = btn.querySelector(".btn-route-action__text");
+      if (textEl) {
+        textEl.textContent = regeocodeInFlight
+          ? "Geocoding..."
+          : "Geocode this trip";
+      }
+
+      if (statusEl && !regeocodeInFlight && !statusEl.textContent) {
+        statusEl.textContent =
+          "Addresses are missing. Click to geocode this trip.";
+      }
+    } else if (statusEl) {
       statusEl.textContent = "";
     }
-    return;
   }
 
-  btn.disabled = regeocodeInFlight;
-  btn.classList.toggle("is-loading", regeocodeInFlight);
-
-  const textEl = btn.querySelector(".btn-route-action__text");
-  if (textEl) {
-    textEl.textContent = regeocodeInFlight ? "Geocoding..." : "Geocode this trip";
-  }
-
-  if (statusEl && !regeocodeInFlight && !statusEl.textContent) {
-    statusEl.textContent = "Addresses are missing. Click to geocode this trip.";
+  // Subtle button in section title — always available
+  if (subtleBtn) {
+    subtleBtn.disabled = regeocodeInFlight;
+    subtleBtn.classList.toggle("is-loading", regeocodeInFlight);
+    subtleBtn.title = regeocodeInFlight
+      ? "Geocoding..."
+      : "Re-geocode addresses";
   }
 }
 
@@ -2568,6 +2590,7 @@ function normalizeMongoId(value) {
 
 async function updateTripRouteChip(trip) {
   const tagsEl = document.getElementById("modal-tags");
+  const sectionEl = document.getElementById("modal-route-chip-section");
   if (!tagsEl) {
     return;
   }
@@ -2576,7 +2599,14 @@ async function updateTripRouteChip(trip) {
 
   const routeId = normalizeMongoId(trip?.recurringRouteId);
   if (!routeId) {
+    if (sectionEl) {
+      sectionEl.style.display = "none";
+    }
     return;
+  }
+
+  if (sectionEl) {
+    sectionEl.style.display = "";
   }
 
   const token = ++modalRouteChipToken;

@@ -234,6 +234,7 @@ class ESStore {
     });
     this.abortControllers.clear();
     this.pendingRequests.clear();
+    this.apiCache.clear();
   }
 
   trackRequest(url) {
