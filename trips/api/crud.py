@@ -4,14 +4,16 @@ import logging
 from datetime import UTC, datetime
 
 from beanie.operators import In
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
 
 from analytics.services.mobility_insights_service import MobilityInsightsService
 from core.api import api_route
 from db.models import CoverageState, Trip
+from trips.models import TripInactiveUpdate
 from trips.pipeline import TripPipeline
 from trips.serialization import TripSerializer
 from trips.services import TripCostService
+from trips.services.inactive_trip_service import InactiveTripService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -34,16 +36,11 @@ async def _cleanup_trip_references(trip_ids: list) -> int:
     if not trip_ids:
         return 0
 
-    # Find all coverage states that reference these trips
-    coverage_states = await CoverageState.find(
-        In(CoverageState.driven_by_trip_id, trip_ids),
-    ).to_list()
-
-    updated_count = 0
-    for state in coverage_states:
-        state.driven_by_trip_id = None
-        await state.save()
-        updated_count += 1
+    result = await CoverageState.get_pymongo_collection().update_many(
+        {"driven_by_trip_id": {"$in": trip_ids}},
+        {"$set": {"driven_by_trip_id": None}},
+    )
+    updated_count = int(getattr(result, "modified_count", 0) or 0)
 
     if updated_count > 0:
         logger.info(
@@ -78,6 +75,69 @@ async def get_single_trip(trip_id: str):
     return {
         "status": "success",
         "trip": trip_dict,
+    }
+
+
+@router.post("/api/trips/{trip_id}/inactive", tags=["Trips API"])
+@api_route(logger)
+async def set_trip_inactive(
+    trip_id: str,
+    payload: TripInactiveUpdate,
+    background_tasks: BackgroundTasks,
+):
+    """Mark or unmark a historical trip as inactive throughout the app."""
+    trip = await Trip.find_one(Trip.transactionId == trip_id)
+    if not trip:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Trip not found",
+        )
+
+    update_result = await InactiveTripService.set_inactive_state(
+        trip,
+        inactive=payload.inactive,
+    )
+    updated_trip = update_result["trip"]
+    changed = bool(update_result.get("changed"))
+
+    if changed:
+        await InactiveTripService.sync_mobility_profile(
+            updated_trip,
+            inactive=payload.inactive,
+        )
+        recurring_routes = await InactiveTripService.queue_recurring_routes_refresh()
+        geo_coverage = await InactiveTripService.queue_geo_coverage_refresh(
+            background_tasks,
+        )
+        coverage = await InactiveTripService.queue_coverage_reprocessing_for_trip(
+            updated_trip,
+        )
+    else:
+        recurring_routes = {"status": "unchanged", "job_id": None}
+        geo_coverage = {"status": "unchanged", "job_id": None}
+        coverage = {"queued": 0, "skipped": 0, "job_ids": []}
+
+    trip_dict = updated_trip.model_dump()
+    trip_dict.update(TripSerializer.to_dict(trip_dict))
+
+    state_label = "inactive" if payload.inactive else "active"
+    message = (
+        f"Trip marked {state_label} and dependent data refresh queued."
+        if changed
+        else f"Trip is already {state_label}."
+    )
+
+    return {
+        "status": "success",
+        "message": message,
+        "trip": trip_dict,
+        "changed": changed,
+        "cache_entries_deleted": update_result.get("cache_entries_deleted", 0),
+        "refresh": {
+            "recurring_routes": recurring_routes,
+            "geo_coverage": geo_coverage,
+            "coverage": coverage,
+        },
     }
 
 

@@ -1,4 +1,3 @@
-/* global CountUp */
 /**
  * Insights Metrics Module (ES6)
  * Handles counter animations and metric updates for the driving insights page.
@@ -6,12 +5,7 @@
 
 import metricAnimator from "../ui/metric-animator.js";
 import { formatHourLabel } from "./formatters.js";
-import { getCounter, getState, setCounter } from "./state.js";
-
-// Ensure CountUp is defined when using the UMD build
-if (typeof window !== "undefined") {
-  window.CountUp = window.CountUp || window.countUp?.CountUp;
-}
+import { getState } from "./state.js";
 
 function setText(id, value) {
   const element = document.getElementById(id);
@@ -38,33 +32,7 @@ export function animateCounter(elementId, endValue, decimals = 0) {
     return;
   }
 
-  const existingCounter = getCounter(elementId);
-
-  if (!existingCounter) {
-    const counter = new CountUp(elementId, 0, endValue, decimals, 1.5, {
-      useEasing: true,
-      useGrouping: true,
-      separator: ",",
-      decimal: ".",
-      prefix: "",
-      suffix: "",
-    });
-
-    setCounter(elementId, counter);
-
-    if (!counter.error) {
-      counter.start();
-    } else {
-      element.textContent = endValue.toFixed(decimals);
-    }
-  } else {
-    existingCounter.update(endValue);
-    if (!existingCounter.error) {
-      existingCounter.start();
-    } else {
-      element.textContent = endValue.toFixed(decimals);
-    }
-  }
+  element.textContent = Number(endValue || 0).toFixed(decimals);
 }
 
 /**

@@ -12,6 +12,7 @@ from fastapi import APIRouter, Body, HTTPException, Query, status
 from core.api import api_route
 from core.job_serialization import serialize_job_progress
 from core.jobs import JobHandle, create_job, find_job
+from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation_utils import get_mongo_tz_expr
 from db.models import Job, Place, RecurringRoute, Trip
@@ -93,10 +94,13 @@ async def _resolve_raw_route_geometry(route: RecurringRoute) -> dict[str, Any] |
     if rep_trip_id:
         trip = await Trip.find_one(
             enforce_bouncie_source(
-                {
+                apply_trip_record_filters(
+                    {
                     "transactionId": rep_trip_id,
                     "invalid": {"$ne": True},
-                },
+                    },
+                    include_invalid=True,
+                ),
             ),
         )
 
@@ -104,14 +108,17 @@ async def _resolve_raw_route_geometry(route: RecurringRoute) -> dict[str, Any] |
         trip = (
             await Trip.find(
                 enforce_bouncie_source(
-                    {
+                    apply_trip_record_filters(
+                        {
                         "recurringRouteId": route.id,
                         "invalid": {"$ne": True},
                         "$or": [
                             {"matchedGps": {"$ne": None}},
                             {"gps": {"$ne": None}},
                         ],
-                    },
+                        },
+                        include_invalid=True,
+                    ),
                 ),
             )
             .sort("-startTime")
@@ -294,7 +301,12 @@ async def list_trips_for_route(
     if not route:
         raise HTTPException(status_code=404, detail="Route not found")
 
-    query = enforce_bouncie_source({"recurringRouteId": oid, "invalid": {"$ne": True}})
+    query = enforce_bouncie_source(
+        apply_trip_record_filters(
+            {"recurringRouteId": oid, "invalid": {"$ne": True}},
+            include_invalid=True,
+        )
+    )
     trips_cursor = Trip.find(query).sort("-startTime").skip(offset).limit(limit)
 
     raw_trips: list[dict[str, Any]] = []
@@ -382,7 +394,10 @@ async def get_route_analytics(route_id: str):
     tz_expr = get_mongo_tz_expr()
 
     match_query = enforce_bouncie_source(
-        {"recurringRouteId": oid, "invalid": {"$ne": True}}
+        apply_trip_record_filters(
+            {"recurringRouteId": oid, "invalid": {"$ne": True}},
+            include_invalid=True,
+        )
     )
 
     pipeline = build_temporal_facet_pipeline(

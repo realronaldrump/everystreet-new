@@ -63,3 +63,26 @@ def cached(prefix: str, ttl_seconds: int = 300):
         return wrapper
 
     return decorator
+
+
+async def invalidate_cache_prefixes(*prefixes: str) -> int:
+    """Best-effort Redis cache invalidation for one or more cache namespaces."""
+    normalized = [str(prefix).strip() for prefix in prefixes if str(prefix).strip()]
+    if not normalized:
+        return 0
+
+    deleted = 0
+    try:
+        redis = await get_shared_redis()
+        for prefix in normalized:
+            cursor = 0
+            pattern = f"cache:{prefix}:*"
+            while True:
+                cursor, keys = await redis.scan(cursor=cursor, match=pattern, count=200)
+                if keys:
+                    deleted += int(await redis.delete(*keys) or 0)
+                if str(cursor) == "0":
+                    break
+    except Exception:
+        logger.debug("Redis cache invalidation failed for %s", normalized, exc_info=True)
+    return deleted

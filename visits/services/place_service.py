@@ -2,9 +2,10 @@
 
 import logging
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any
 
-from shapely.geometry import Point, mapping, shape
+from shapely.geometry import Point, mapping
 
 from db.models import Place
 from db.schemas import DestinationBloomPlaceResponse, PlaceResponse
@@ -14,6 +15,25 @@ from visits.services.destination_clusters import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _destination_bloom_update_query(
+    *,
+    transaction_ids: list[str],
+    geometry: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "$or": [
+            {"transactionId": {"$in": transaction_ids}},
+            {
+                "destinationGeoPoint": {
+                    "$geoWithin": {
+                        "$geometry": geometry,
+                    },
+                },
+            },
+        ],
+    }
 
 
 class PlaceService:
@@ -122,40 +142,97 @@ class PlaceService:
         )
         await place.insert()
 
-        boundary = shape(place.geometry)
-        candidates = await Trip.find(
+        trip_collection = Trip.get_pymongo_collection()
+        update_query = _destination_bloom_update_query(
+            transaction_ids=deduped_ids,
+            geometry=place.geometry,
+        )
+        update_doc = {
+            "$set": {
+                "destinationPlaceId": str(place.id),
+                "destinationPlaceName": cleaned_name,
+            },
+        }
+        try:
+            result = await trip_collection.update_many(update_query, update_doc)
+        except NotImplementedError:
+            logger.info(
+                "Falling back to bounded destination-bloom matching because the active Mongo backend does not support $geoWithin."
+            )
+            result = await PlaceService._fallback_destination_bloom_update_many(
+                cleaned_name=cleaned_name,
+                deduped_ids=deduped_ids,
+                place=place,
+                boundary_geom=boundary_geom,
+            )
+
+        return DestinationBloomPlaceResponse(
+            place=PlaceService._place_to_response(place),
+            linkedTrips=int(getattr(result, "modified_count", 0) or 0),
+            seedTrips=len(seed_trips),
+        )
+
+    @staticmethod
+    async def _fallback_destination_bloom_update_many(
+        *,
+        cleaned_name: str,
+        deduped_ids: list[str],
+        place: Place,
+        boundary_geom,
+    ):
+        """
+        Apply a bounded Python fallback when the Mongo backend lacks $geoWithin.
+
+        This path is intended for test/mock backends such as mongomock, where
+        correctness matters more than query efficiency because the production
+        code path uses Mongo's geospatial operator directly.
+        """
+        from db.models import Trip
+
+        bbox_candidates = await Trip.find(
             {
                 "$or": [
                     {"transactionId": {"$in": deduped_ids}},
-                    {"destinationGeoPoint": {"$exists": True, "$ne": None}},
+                    {
+                        "destinationGeoPoint": {
+                            "$exists": True,
+                            "$ne": None,
+                        },
+                    },
                 ],
             },
         ).to_list()
 
-        matched_trip_ids = []
-        for candidate in candidates:
-            candidate_id = getattr(candidate, "id", None)
-            if candidate_id is None:
+        matched_transaction_ids: list[str] = []
+        seen_transaction_ids: set[str] = set()
+        for candidate in bbox_candidates:
+            transaction_id = str(getattr(candidate, "transactionId", "") or "").strip()
+            if not transaction_id or transaction_id in seen_transaction_ids:
                 continue
 
-            if str(getattr(candidate, "transactionId", "") or "").strip() in deduped_ids:
-                matched_trip_ids.append(candidate_id)
+            if transaction_id in deduped_ids:
+                matched_transaction_ids.append(transaction_id)
+                seen_transaction_ids.add(transaction_id)
                 continue
 
             destination_geo = getattr(candidate, "destinationGeoPoint", None)
-            coords = destination_geo.get("coordinates") if isinstance(destination_geo, dict) else None
+            coords = (
+                destination_geo.get("coordinates")
+                if isinstance(destination_geo, dict)
+                else None
+            )
             if (
                 isinstance(coords, list)
                 and len(coords) >= 2
                 and isinstance(coords[0], int | float)
                 and isinstance(coords[1], int | float)
-                and boundary.covers(Point(float(coords[0]), float(coords[1])))
+                and boundary_geom.covers(Point(float(coords[0]), float(coords[1])))
             ):
-                matched_trip_ids.append(candidate_id)
+                matched_transaction_ids.append(transaction_id)
+                seen_transaction_ids.add(transaction_id)
 
-        trip_collection = Trip.get_pymongo_collection()
-        result = await trip_collection.update_many(
-            {"_id": {"$in": matched_trip_ids}},
+        await Trip.get_pymongo_collection().update_many(
+            {"transactionId": {"$in": matched_transaction_ids}},
             {
                 "$set": {
                     "destinationPlaceId": str(place.id),
@@ -163,12 +240,7 @@ class PlaceService:
                 },
             },
         )
-
-        return DestinationBloomPlaceResponse(
-            place=PlaceService._place_to_response(place),
-            linkedTrips=int(getattr(result, "modified_count", 0) or 0),
-            seedTrips=len(seed_trips),
-        )
+        return SimpleNamespace(modified_count=len(matched_transaction_ids))
 
     @staticmethod
     async def delete_place(place_id: str) -> dict[str, str]:

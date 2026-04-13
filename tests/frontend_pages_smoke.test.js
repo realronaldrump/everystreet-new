@@ -43,6 +43,40 @@ test("insights and routes templates keep the containers their pages rely on", ()
   );
 });
 
+test("trips template keeps inactive-trip containers and controls", () => {
+  const tripsSource = readTemplate("trips.html");
+
+  [
+    "trips-inactive",
+    "count-inactive",
+    "modal-inactive-toggle-btn",
+    "modal-trip-state-pill",
+    "modal-trip-inactive-note",
+  ].forEach((id) => assertHasId(tripsSource, id, "trips.html"));
+});
+
+test("global app bootstrap stays light and route libraries load lazily", () => {
+  const appSource = readRepoFile("static", "js", "app.js");
+  const baseTemplate = readTemplate("base.html");
+  const routeLoaderSource = readRepoFile(
+    "static",
+    "js",
+    "modules",
+    "core",
+    "route-loader.js"
+  );
+
+  assert.doesNotMatch(appSource, /modules\/app-controller\.js/);
+  assert.match(appSource, /markAppReady\(\)/);
+  assert.doesNotMatch(baseTemplate, /h3-js/);
+  assert.doesNotMatch(baseTemplate, /<script src="{{ CDN\.chartjs }}"/);
+  assert.doesNotMatch(baseTemplate, /<script src="{{ CDN\.datatables_js }}"/);
+  [
+    /"\/routes\/\*"[\s\S]*\["map",\s*"chart"\]/,
+    /"\/visits"[\s\S]*\["map",\s*"mapDraw",\s*"chart",\s*"datatables"\]/,
+  ].forEach((pattern) => assert.match(routeLoaderSource, pattern));
+});
+
 test("route-loader remains the only owner of page entrypoints", () => {
   const templatesDir = repoPath("templates");
   const pagesDir = repoPath("static", "js", "pages");

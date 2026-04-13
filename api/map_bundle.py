@@ -75,11 +75,6 @@ class CoverageMapBundleResponse(BaseModel):
     segments: list[CoverageMapFeature]
 
 
-def _canonical_etag(value: str) -> str:
-    digest = hashlib.sha1(value.encode("utf-8")).hexdigest()  # nosec B324
-    return f'"{digest}"'
-
-
 def _extract_if_none_match(request: Request) -> str | None:
     value = request.headers.get("if-none-match")
     if not value:

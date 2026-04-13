@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
 from db.aggregation_utils import (
@@ -316,7 +317,14 @@ class TripAnalyticsService:
             List of recent trip documents
         """
         pipeline = [
-            {"$match": enforce_bouncie_source({"invalid": {"$ne": True}})},
+            {
+                "$match": enforce_bouncie_source(
+                    apply_trip_record_filters(
+                        {"invalid": {"$ne": True}},
+                        include_invalid=True,
+                    )
+                )
+            },
             {"$sort": {"endTime": -1}},
             {"$limit": limit},
             {

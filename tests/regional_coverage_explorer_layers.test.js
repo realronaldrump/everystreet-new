@@ -21,7 +21,7 @@ test("county style expressions switch stopped styling on/off", () => {
   assert.deepEqual(buildCountyFillColorExpression(true), [
     "case",
     ["boolean", ["feature-state", "stopped"], false],
-    "#c45454",
+    "#5b9bd5",
     ["boolean", ["feature-state", "visited"], false],
     "#4d9a6a",
     "rgba(245, 242, 236, 0.02)",

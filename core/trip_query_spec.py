@@ -17,6 +17,34 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _parse_bool_like(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "on"}:
+        return True
+    if text in {"0", "false", "no", "off"}:
+        return False
+    return None
+
+
+def apply_trip_record_filters(
+    query: dict[str, Any] | None = None,
+    *,
+    include_invalid: bool = False,
+    include_inactive: bool = False,
+) -> dict[str, Any]:
+    """Apply default persisted-trip visibility filters unless explicitly overridden."""
+    compiled = dict(query or {})
+    if not include_invalid and "invalid" not in compiled:
+        compiled["invalid"] = {"$ne": True}
+    if not include_inactive and "inactive" not in compiled:
+        compiled["inactive"] = {"$ne": True}
+    return compiled
+
+
 @dataclass(slots=True)
 class TripQuerySpec:
     """Normalized query inputs for historical trip reads."""
@@ -26,6 +54,7 @@ class TripQuerySpec:
     interval_days: int = 0
     imei: str | None = None
     include_invalid: bool = False
+    include_inactive: bool = False
     matched_only: bool = False
     unmatched_only: bool = False
 
@@ -36,15 +65,24 @@ class TripQuerySpec:
         *,
         include_imei: bool = True,
         include_invalid: bool = False,
+        include_inactive: bool = False,
     ) -> TripQuerySpec:
         start_date = request.query_params.get("start_date")
         end_date = request.query_params.get("end_date")
         imei = request.query_params.get("imei") if include_imei else None
+        requested_include_inactive = _parse_bool_like(
+            request.query_params.get("include_inactive")
+        )
         return cls(
             start_date=start_date,
             end_date=end_date,
             imei=imei,
             include_invalid=include_invalid,
+            include_inactive=(
+                include_inactive
+                if requested_include_inactive is None
+                else requested_include_inactive
+            ),
         )
 
     @staticmethod
@@ -118,10 +156,11 @@ class TripQuerySpec:
             require_valid_range_if_provided: fail when date input exists but cannot
                 produce a valid date expression.
         """
-        query: dict[str, Any] = {}
-
-        if not self.include_invalid:
-            query["invalid"] = {"$ne": True}
+        query = apply_trip_record_filters(
+            {},
+            include_invalid=self.include_invalid,
+            include_inactive=self.include_inactive,
+        )
 
         if self.imei:
             query["imei"] = self.imei

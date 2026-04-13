@@ -1,11 +1,19 @@
+import { ensureLibraries } from "./library-loader.js";
+
 const loadedRoutes = new Set();
 
-async function importOnce(key, specifier) {
+async function importOnce([pattern, specifier, libraries = []]) {
+  const key = pattern.replace(/\*$/, "");
   if (loadedRoutes.has(key)) {
     return;
   }
   loadedRoutes.add(key);
   try {
+    try {
+      await ensureLibraries(libraries);
+    } catch (error) {
+      console.error(`Failed to load route libraries: ${key}`, error);
+    }
     await import(specifier);
   } catch (error) {
     loadedRoutes.delete(key);
@@ -23,76 +31,41 @@ function normalizePathname(pathname) {
   return pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
 }
 
+const routes = [
+  ["/", "../../pages/landing.js"],
+  ["/map", "../../pages/map.js", ["map"]],
+  ["/trips/*", "../../pages/trips.js", ["map"]],
+  ["/routes/*", "../../pages/routes.js", ["map", "chart"]],
+  ["/insights", "../../pages/insights.js", ["chart", "deck"]],
+  ["/visits", "../../pages/visits.js", ["map", "mapDraw", "chart", "datatables"]],
+  ["/control-center", "../../pages/control-center.js"],
+  ["/vehicles", "../../pages/vehicles.js"],
+  ["/gas-tracking", "../../pages/gas-tracking.js", ["map"]],
+  ["/map-matching", "../../pages/map-matching.js", ["map"]],
+  ["/coverage-management", "../../pages/coverage-management.js", ["map"]],
+  ["/coverage-route-planner", "../../pages/coverage-route-planner.js", ["map"]],
+  ["/live-navigation", "../../pages/live-navigation.js", ["map"]],
+  [
+    "/regional-coverage-explorer",
+    "../../pages/regional-coverage-explorer.js",
+    ["map", "topojson"],
+  ],
+  ["/export", "../../pages/export.js"],
+  ["/setup-wizard", "../../pages/setup-wizard.js"],
+];
+
+function routeMatches([pattern], path) {
+  if (!pattern.endsWith("*")) {
+    return path === pattern;
+  }
+  const prefix = pattern.slice(0, -1);
+  return path === prefix.slice(0, -1) || path.startsWith(prefix);
+}
+
 export async function ensureRouteModule(pathname) {
   const path = normalizePathname(pathname);
-
-  if (path === "/") {
-    await importOnce("/", "../../pages/landing.js");
-    return;
-  }
-  if (path === "/map") {
-    await importOnce("/map", "../../pages/map.js");
-    return;
-  }
-  if (path === "/trips" || path.startsWith("/trips/")) {
-    await importOnce("/trips", "../../pages/trips.js");
-    return;
-  }
-  if (path === "/routes" || path.startsWith("/routes/")) {
-    await importOnce("/routes", "../../pages/routes.js");
-    return;
-  }
-  if (path === "/insights") {
-    await importOnce("/insights", "../../pages/insights.js");
-    return;
-  }
-  if (path === "/visits") {
-    await importOnce("/visits", "../../pages/visits.js");
-    return;
-  }
-  if (path === "/control-center") {
-    await importOnce("/control-center", "../../pages/control-center.js");
-    return;
-  }
-  if (path === "/vehicles") {
-    await importOnce("/vehicles", "../../pages/vehicles.js");
-    return;
-  }
-  if (path === "/gas-tracking") {
-    await importOnce("/gas-tracking", "../../pages/gas-tracking.js");
-    return;
-  }
-  if (path === "/map-matching") {
-    await importOnce("/map-matching", "../../pages/map-matching.js");
-    return;
-  }
-  if (path === "/coverage-management") {
-    await importOnce("/coverage-management", "../../pages/coverage-management.js");
-    return;
-  }
-  if (path === "/coverage-route-planner") {
-    await importOnce(
-      "/coverage-route-planner",
-      "../../pages/coverage-route-planner.js"
-    );
-    return;
-  }
-  if (path === "/live-navigation") {
-    await importOnce("/live-navigation", "../../pages/live-navigation.js");
-    return;
-  }
-  if (path === "/regional-coverage-explorer") {
-    await importOnce(
-      "/regional-coverage-explorer",
-      "../../pages/regional-coverage-explorer.js"
-    );
-    return;
-  }
-  if (path === "/export") {
-    await importOnce("/export", "../../pages/export.js");
-    return;
-  }
-  if (path === "/setup-wizard") {
-    await importOnce("/setup-wizard", "../../pages/setup-wizard.js");
+  const route = routes.find((candidate) => routeMatches(candidate, path));
+  if (route) {
+    await importOnce(route);
   }
 }

@@ -69,3 +69,20 @@ def test_build_query_from_request_skips_imei() -> None:
     ).to_mongo_query(enforce_source=True)
     assert "imei" not in query
     assert query["source"] == "bouncie"
+
+
+def test_build_query_excludes_inactive_by_default() -> None:
+    query = TripQuerySpec().to_mongo_query(enforce_source=False)
+    assert query["inactive"] == {"$ne": True}
+
+
+def test_build_query_from_request_can_include_inactive() -> None:
+    scope = {"type": "http", "query_string": b"include_inactive=true"}
+    request = Request(scope)
+
+    query = TripQuerySpec.from_request(
+        request,
+        include_invalid=True,
+    ).to_mongo_query(enforce_source=False)
+
+    assert "inactive" not in query

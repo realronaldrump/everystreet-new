@@ -350,6 +350,7 @@ class MobilityInsightsService:
         base_query = _combine_query(
             query,
             {"invalid": {"$ne": True}},
+            {"inactive": {"$ne": True}},
             {"$or": [{"matchedGps": {"$ne": None}}, {"gps": {"$ne": None}}]},
         )
         unsynced_query = _combine_query(base_query, {"mobility_synced_at": None})
@@ -500,7 +501,11 @@ class MobilityInsightsService:
                 street_names_by_cell[cell_id] = resolved_pairs[idx]
 
         start_time = time.perf_counter()
-        trip_query = _combine_query(query, {"invalid": {"$ne": True}})
+        trip_query = _combine_query(
+            query,
+            {"invalid": {"$ne": True}},
+            {"inactive": {"$ne": True}},
+        )
         street_trip_pipeline = [
             {"$match": trip_query},
             {
@@ -656,6 +661,7 @@ class MobilityInsightsService:
         trip_query = _combine_query(
             query,
             {"invalid": {"$ne": True}},
+            {"inactive": {"$ne": True}},
             {"matchedGps": {"$ne": None}},
         )
         candidate_count = await Trip.find(trip_query).count()
@@ -865,6 +871,7 @@ class MobilityInsightsService:
         trip_query = _combine_query(
             query,
             {"invalid": {"$ne": True}},
+            {"inactive": {"$ne": True}},
             {"matchedGps": {"$ne": None}},
         )
 

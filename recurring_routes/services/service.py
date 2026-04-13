@@ -11,6 +11,7 @@ from beanie import PydanticObjectId
 
 from core.serialization import serialize_datetime
 from core.spatial import GeometryService
+from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import Place, RecurringRoute, Trip
 from recurring_routes.services.fingerprint import extract_display_label
@@ -284,7 +285,10 @@ async def resolve_route_place_links(route: RecurringRoute) -> dict[str, Any]:
         trips = (
             await Trip.find(
                 enforce_bouncie_source(
-                    {"recurringRouteId": route.id, "invalid": {"$ne": True}},
+                    apply_trip_record_filters(
+                        {"recurringRouteId": route.id, "invalid": {"$ne": True}},
+                        include_invalid=True,
+                    ),
                 ),
             )
             .sort("-startTime")

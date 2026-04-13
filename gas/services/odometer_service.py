@@ -7,6 +7,7 @@ from typing import Any
 from core.date_utils import parse_timestamp
 from core.exceptions import ValidationException
 from core.spatial import GeometryService
+from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import GasFillup, Trip
 from gas.services.bouncie_service import BouncieService
@@ -56,7 +57,11 @@ class OdometerService:
             # Use most recent trip data if real-time data is unavailable.
             logger.info("Using local trip data for IMEI %s", imei)
             trip = (
-                await Trip.find(enforce_bouncie_source({"imei": imei}))
+                await Trip.find(
+                    enforce_bouncie_source(
+                        apply_trip_record_filters({"imei": imei}),
+                    )
+                )
                 .sort(-Trip.endTime)
                 .first_or_none()
             )
@@ -65,11 +70,13 @@ class OdometerService:
             # First, try to find a trip that contains this timestamp
             trip = await Trip.find_one(
                 enforce_bouncie_source(
-                    {
+                    apply_trip_record_filters(
+                        {
                         "imei": imei,
                         "startTime": {"$lte": target_time},
                         "endTime": {"$gte": target_time},
-                    },
+                        }
+                    ),
                 ),
             )
 
@@ -78,10 +85,12 @@ class OdometerService:
                 trip = (
                     await Trip.find(
                         enforce_bouncie_source(
-                            {
+                            apply_trip_record_filters(
+                                {
                                 "imei": imei,
                                 "endTime": {"$lte": target_time},
-                            },
+                                }
+                            ),
                         ),
                     )
                     .sort(-Trip.endTime)
@@ -93,10 +102,12 @@ class OdometerService:
                 trip = (
                     await Trip.find(
                         enforce_bouncie_source(
-                            {
+                            apply_trip_record_filters(
+                                {
                                 "imei": imei,
                                 "startTime": {"$gte": target_time},
-                            },
+                                }
+                            ),
                         ),
                     )
                     .sort(Trip.startTime)
@@ -300,11 +311,13 @@ class OdometerService:
         overlapping_trips = await (
             Trip.find(
                 enforce_bouncie_source(
-                    {
+                    apply_trip_record_filters(
+                        {
                         "imei": imei,
                         "startTime": {"$lt": end_time},
                         "endTime": {"$gt": start_time},
-                    },
+                        }
+                    ),
                 ),
             )
             .sort(Trip.startTime)
@@ -435,11 +448,13 @@ class OdometerService:
             prev_trip = await (
                 Trip.find(
                     enforce_bouncie_source(
-                        {
+                        apply_trip_record_filters(
+                            {
                             "imei": imei,
                             "endTime": {"$lte": target_time},
                             "endOdometer": {"$ne": None},
-                        },
+                            }
+                        ),
                     ),
                 )
                 .sort(-Trip.endTime)

@@ -94,6 +94,9 @@ class Trip(Document):
     processing_history: list[dict[str, Any]] | None = None
     coverage_emitted_at: datetime | None = None
     mobility_synced_at: datetime | None = None
+    inactive: bool = False
+    inactive_at: datetime | None = None
+    inactive_reason: str | None = None
 
     # Matched GPS data (consolidated from matched_trips)
     matchedGps: dict[str, Any] | None = None
@@ -122,6 +125,7 @@ class Trip(Document):
         "matched_at",
         "validated_at",
         "mobility_synced_at",
+        "inactive_at",
         mode="before",
     )
     @classmethod

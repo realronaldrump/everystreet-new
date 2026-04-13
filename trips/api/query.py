@@ -18,7 +18,7 @@ from core.coverage_clip import (
 from core.date_utils import parse_timestamp
 from core.spatial import GeometryService
 from core.streaming import geojson_response, stream_geojson_feature_collection
-from core.trip_query_spec import TripQuerySpec
+from core.trip_query_spec import TripQuerySpec, apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import CoverageArea, Trip
 from trips.presentation import (
@@ -104,7 +104,7 @@ async def get_matched_trips(request: Request):
     query["matchedGps"] = {"$ne": None}
     # Exclude invalid trips
     query["invalid"] = {"$ne": True}
-    query = apply_clip_prefilter(query, coverage_clip, geometry_field="gps")
+    query = apply_clip_prefilter(query, coverage_clip, geometry_field="matchedGps")
 
     trip_cursor = Trip.find(query).sort(-Trip.endTime)
 
@@ -154,7 +154,8 @@ async def get_failed_trips(request: Request):
     limit = min(limit, 500)  # Cap at 500
 
     # Query for failed/skipped match status
-    query = {
+    query = apply_trip_record_filters(
+        {
         "$and": [
             {"invalid": {"$ne": True}},
             {
@@ -165,7 +166,9 @@ async def get_failed_trips(request: Request):
                 ],
             },
         ],
-    }
+        },
+        include_invalid=True,
+    )
     query = enforce_bouncie_source(query)
 
     trip_cursor = Trip.find(query).sort(-Trip.endTime).limit(limit)
@@ -219,7 +222,11 @@ async def get_trips(request: Request):
 
     if matched_only:
         query["matchedGps"] = {"$ne": None}
-    query = apply_clip_prefilter(query, coverage_clip, geometry_field="gps")
+    query = apply_clip_prefilter(
+        query,
+        coverage_clip,
+        geometry_field="matchedGps" if matched_only else "gps",
+    )
     # Use Beanie cursor iteration
     trip_cursor = Trip.find(query).sort(-Trip.endTime)
 

@@ -76,6 +76,7 @@ export const CONFIG = {
     // Trip endpoints
     trips: "/api/trips",
     tripById: (id) => `/api/trips/${id}`,
+    tripInactive: (id) => `/api/trips/${id}/inactive`,
     tripRegeocode: (id) => `/api/trips/${id}/regeocode`,
     tripsDataTable: "/api/trips/datatable",
     tripsBulkDelete: "/api/trips/bulk_delete",

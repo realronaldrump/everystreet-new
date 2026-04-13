@@ -16,8 +16,8 @@ import {
 } from "../../maps/google_maps_loader.js";
 import { initTripSync } from "../../trip-sync.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
-import notificationManager from "../../ui/notifications.js";
 import loadingManager from "../../ui/loading-manager.js";
+import notificationManager from "../../ui/notifications.js";
 import {
   DateUtils,
   escapeHtml,
@@ -81,6 +81,15 @@ const googleModalState = {
 const apiGet = (url, options = {}) => featureApi.get(url, options);
 const apiPost = (url, body, options = {}) => featureApi.post(url, body, options);
 const apiDelete = (url, options = {}) => featureApi.delete(url, options);
+
+function bindPageEvent(target, type, handler, options) {
+  const el = typeof target === "string" ? document.getElementById(target) : target;
+  el?.addEventListener(
+    type,
+    handler,
+    pageSignal ? { ...(options || {}), signal: pageSignal } : options
+  );
+}
 
 function isAbortError(error) {
   return error?.name === "AbortError";
@@ -411,7 +420,7 @@ async function initializePage(signal, cleanup) {
   restoreSavedFilters();
 
   // Setup all event listeners
-  setupSearchAndFilters();
+  setupSearchAndFilters(cleanup);
   setupBulkActions();
   setupTripCardInteractions();
 
@@ -641,17 +650,18 @@ function generateSmartTitle(trip) {
 
 function getTripBadges(trip, allTrips) {
   const badges = [];
+  const activeTrips = allTrips.filter((candidate) => !isInactiveTrip(candidate));
   const distance = parseFloat(trip.distance) || 0;
 
   // Check if it's among the longest trips
-  const distances = allTrips.map((t) => parseFloat(t.distance) || 0);
+  const distances = activeTrips.map((t) => parseFloat(t.distance) || 0);
   const maxDistance = Math.max(...distances);
   if (distance === maxDistance && distance > 10) {
     badges.push({ text: "Longest", class: "new" });
   }
 
   // Check for frequent route
-  const sameRouteCount = allTrips.filter(
+  const sameRouteCount = activeTrips.filter(
     (t) => t.startLocation === trip.startLocation && t.destination === trip.destination
   ).length;
   if (sameRouteCount > 3) {
@@ -659,6 +669,36 @@ function getTripBadges(trip, allTrips) {
   }
 
   return badges;
+}
+
+function isInactiveTrip(trip) {
+  return Boolean(trip?.inactive);
+}
+
+function splitTripsByActiveState(trips = []) {
+  const active = [];
+  const inactive = [];
+
+  trips.forEach((trip) => {
+    if (isInactiveTrip(trip)) {
+      inactive.push(trip);
+    } else {
+      active.push(trip);
+    }
+  });
+
+  return { active, inactive };
+}
+
+function getClientVisibleTrips() {
+  const searchValue = document.getElementById("trip-search-input")?.value?.trim() || "";
+  if (searchValue) {
+    return [...filteredTrips];
+  }
+  if (filteredTrips.length > 0) {
+    return [...filteredTrips];
+  }
+  return [...tripsData];
 }
 
 // ==========================================
@@ -1002,6 +1042,8 @@ function renderTrips(trips) {
 
 function renderTripsFlatList(trips, sort) {
   restoreTimelineDefaultTitles();
+  const { active: activeTrips, inactive: inactiveTrips } =
+    splitTripsByActiveState(trips);
 
   // Hide all sections initially.
   document.querySelectorAll(".timeline-section").forEach((section) => {
@@ -1017,9 +1059,9 @@ function renderTripsFlatList(trips, sort) {
     titleEl.textContent = getFlatTripsTitle(sort);
   }
 
-  if (container && trips.length > 0) {
+  if (container && activeTrips.length > 0) {
     container.innerHTML = "";
-    trips.forEach((trip) => {
+    activeTrips.forEach((trip) => {
       const card = createTripCard(trip, trips);
       container.appendChild(card);
     });
@@ -1028,15 +1070,19 @@ function renderTripsFlatList(trips, sort) {
       section.style.display = "block";
     }
     if (countEl) {
-      countEl.textContent = `${trips.length} trip${trips.length !== 1 ? "s" : ""}`;
+      countEl.textContent = `${activeTrips.length} trip${activeTrips.length !== 1 ? "s" : ""}`;
     }
   }
+
+  renderInactiveTrips(inactiveTrips, trips);
 }
 
 function renderTripsTimeline(trips, { direction = "desc" } = {}) {
   restoreTimelineDefaultTitles();
+  const { active: activeTrips, inactive: inactiveTrips } =
+    splitTripsByActiveState(trips);
 
-  const groups = groupTripsByTimeline(trips);
+  const groups = groupTripsByTimeline(activeTrips);
   const periodOrder =
     direction === "asc"
       ? ["older", "month", "week", "yesterday", "today"]
@@ -1068,12 +1114,47 @@ function renderTripsTimeline(trips, { direction = "desc" } = {}) {
       }
     }
   });
+
+  renderInactiveTrips(inactiveTrips, trips);
+}
+
+function renderInactiveTrips(inactiveTrips, allTrips) {
+  const container = document.getElementById("trips-inactive");
+  const section = container?.closest(".timeline-section");
+  const countEl = document.getElementById("count-inactive");
+
+  if (!container || !section) {
+    return;
+  }
+
+  container.innerHTML = "";
+  if (Array.isArray(inactiveTrips) && inactiveTrips.length > 0) {
+    inactiveTrips.forEach((trip) => {
+      const card = createTripCard(trip, allTrips);
+      container.appendChild(card);
+    });
+    section.style.display = "block";
+    if (countEl) {
+      countEl.textContent = `${inactiveTrips.length} trip${inactiveTrips.length !== 1 ? "s" : ""}`;
+    }
+    return;
+  }
+
+  section.style.display = "none";
+  if (countEl) {
+    countEl.textContent = "0 trips";
+  }
 }
 
 function createTripCard(trip, allTrips) {
   const card = document.createElement("div");
   card.className = "trip-card";
   card.dataset.tripId = trip.transactionId;
+  const inactive = isInactiveTrip(trip);
+
+  if (inactive) {
+    card.classList.add("inactive");
+  }
 
   if (selectedTripIds.has(trip.transactionId)) {
     card.classList.add("selected");
@@ -1088,8 +1169,7 @@ function createTripCard(trip, allTrips) {
   const duration = trip.duration ? formatDuration(trip.duration) : "--";
   const timeAgo = formatRelativeTime(trip.startTime);
   const tripCost = formatUsd(trip.estimated_cost);
-
-  const uid = trip.transactionId;
+  const footerLabel = inactive ? `Excluded from totals · ${timeAgo}` : timeAgo;
 
   card.innerHTML = `
     <div class="trip-card-checkbox">
@@ -1108,9 +1188,10 @@ function createTripCard(trip, allTrips) {
       <div class="trip-card-header">
         <h3 class="trip-title">${escapeHtml(title)}</h3>
         ${
-          badges.length > 0
+          inactive || badges.length > 0
             ? `
           <div class="trip-badges">
+            ${inactive ? '<span class="trip-badge inactive">Inactive</span>' : ""}
             ${badges.map((b) => `<span class="trip-badge ${b.class}">${b.text}</span>`).join("")}
           </div>
         `
@@ -1150,10 +1231,19 @@ function createTripCard(trip, allTrips) {
       </div>
 
       <div class="trip-card-footer">
-        <span class="trip-date">${timeAgo}</span>
+        <span class="trip-date">${escapeHtml(footerLabel)}</span>
         <div class="trip-actions">
+          ${
+            inactive
+              ? ""
+              : `
           <button class="trip-action-btn rematch" title="Rematch trip">
             <i class="fas fa-route"></i>
+          </button>
+          `
+          }
+          <button class="trip-action-btn inactive-toggle" title="${inactive ? "Restore trip" : "Exclude from totals and maps"}">
+            <i class="fas ${inactive ? "fa-rotate-left" : "fa-eye-slash"}"></i>
           </button>
           <button class="trip-action-btn" title="View details">
             <i class="fas fa-map"></i>
@@ -1222,7 +1312,7 @@ function createTripCard(trip, allTrips) {
     openTripModal(trip.transactionId);
   });
 
-  const rematchBtn = card.querySelector('.trip-action-btn.rematch');
+  const rematchBtn = card.querySelector(".trip-action-btn.rematch");
   if (rematchBtn) {
     rematchBtn.addEventListener("click", async (e) => {
       e.stopPropagation();
@@ -1237,6 +1327,23 @@ function createTripCard(trip, allTrips) {
       }
     });
   }
+
+  const inactiveToggleBtn = card.querySelector(".trip-action-btn.inactive-toggle");
+  inactiveToggleBtn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    const nextInactive = !inactive;
+    const confirmed = await confirmationDialog.show({
+      title: nextInactive ? "Mark Trip Inactive" : "Restore Trip",
+      message: nextInactive
+        ? "Keep this trip in history but exclude it from totals, maps, gas, routes, and coverage?"
+        : "Restore this trip to totals, maps, gas, routes, and coverage again?",
+      confirmText: nextInactive ? "Mark Inactive" : "Restore",
+      confirmButtonClass: nextInactive ? "btn-warning" : "btn-primary",
+    });
+    if (confirmed) {
+      await toggleTripInactive(trip.transactionId, nextInactive);
+    }
+  });
 
   const deleteBtn = card.querySelector(".trip-action-btn.delete");
   deleteBtn.addEventListener("click", async (e) => {
@@ -1386,14 +1493,15 @@ function updatePagination() {
 // SEARCH & FILTERS
 // ==========================================
 
-function setupSearchAndFilters() {
+function setupSearchAndFilters(cleanup) {
   // Search input
   const searchInput = document.getElementById("trip-search-input");
   const searchClear = document.getElementById("search-clear-btn");
 
   if (searchInput) {
     let searchTimeout;
-    searchInput.addEventListener("input", (e) => {
+    cleanup?.(() => clearTimeout(searchTimeout));
+    bindPageEvent(searchInput, "input", (e) => {
       clearTimeout(searchTimeout);
       searchTimeout = setTimeout(() => {
         performSearch(e.target.value);
@@ -1402,7 +1510,7 @@ function setupSearchAndFilters() {
   }
 
   if (searchClear) {
-    searchClear.addEventListener("click", () => {
+    bindPageEvent(searchClear, "click", () => {
       if (searchInput) {
         searchInput.value = "";
       }
@@ -1416,7 +1524,7 @@ function setupSearchAndFilters() {
   const filtersPanel = document.getElementById("trips-filters-panel");
 
   if (filterToggle && filtersPanel) {
-    filterToggle.addEventListener("click", () => {
+    bindPageEvent(filterToggle, "click", () => {
       const isOpen = filtersPanel.classList.contains("is-open");
 
       if (isOpen) {
@@ -1432,7 +1540,7 @@ function setupSearchAndFilters() {
   }
 
   // Apply filters
-  document.getElementById("trip-filter-apply")?.addEventListener("click", () => {
+  bindPageEvent("trip-filter-apply", "click", () => {
     currentPage = 1;
     loadTrips();
     updateFilterChips();
@@ -1458,7 +1566,7 @@ function setupSearchAndFilters() {
   });
 
   // Reset filters
-  document.getElementById("trip-filter-reset")?.addEventListener("click", () => {
+  bindPageEvent("trip-filter-reset", "click", () => {
     document.querySelectorAll(".filter-select, .filter-group input").forEach((el) => {
       if (el.type === "checkbox") {
         el.checked = false;
@@ -1484,7 +1592,7 @@ function setupSearchAndFilters() {
   });
 
   // Sort selection
-  document.getElementById("trip-sort-select")?.addEventListener("change", (e) => {
+  bindPageEvent("trip-sort-select", "change", (e) => {
     const normalized = normalizeTripSort(e.target.value);
     e.target.value = normalized;
     setStorage(CONFIG.STORAGE_KEYS.tripsSort, normalized);
@@ -1497,7 +1605,7 @@ function setupSearchAndFilters() {
   });
 
   // Vehicle filter
-  document.getElementById("trip-filter-vehicle")?.addEventListener("change", (e) => {
+  bindPageEvent("trip-filter-vehicle", "change", (e) => {
     setStorage(CONFIG.STORAGE_KEYS.selectedVehicle, e.target.value || null);
     store.updateFilters({ vehicle: e.target.value || null }, { source: "vehicle" });
     e.target.classList.toggle("has-value", e.target.value);
@@ -1505,12 +1613,9 @@ function setupSearchAndFilters() {
 
   // Distance filters - add has-value class
   ["trip-filter-distance-min", "trip-filter-distance-max"].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener("input", (e) => {
-        e.target.classList.toggle("has-value", e.target.value);
-      });
-    }
+    bindPageEvent(id, "input", (e) => {
+      e.target.classList.toggle("has-value", e.target.value);
+    });
   });
 
   updateFilterChips();
@@ -1567,14 +1672,15 @@ function showFilterFeedback() {
 
 function updateFilteredStats() {
   // Calculate stats from currently filtered/displayed trips
-  const visibleTrips = filteredTrips.length > 0 ? filteredTrips : tripsData;
+  const visibleTrips = getClientVisibleTrips();
+  const activeVisibleTrips = visibleTrips.filter((trip) => !isInactiveTrip(trip));
 
-  const totalMiles = visibleTrips.reduce(
+  const totalMiles = activeVisibleTrips.reduce(
     (sum, trip) => sum + (parseFloat(trip.distance) || 0),
     0
   );
-  const totalTripsCount = visibleTrips.length;
-  const totalDuration = visibleTrips.reduce(
+  const totalTripsCount = activeVisibleTrips.length;
+  const totalDuration = activeVisibleTrips.reduce(
     (sum, trip) => sum + (parseInt(trip.duration, 10) || 0),
     0
   );
@@ -1587,7 +1693,7 @@ function updateFilteredStats() {
   });
 
   // Update insight cards for filtered data
-  updateFilteredInsights(visibleTrips);
+  updateFilteredInsights(activeVisibleTrips);
 }
 
 function updateFilteredInsights(trips) {
@@ -1793,18 +1899,25 @@ function updateFilterResultsPreview() {
     return;
   }
 
-  const visibleTrips = filteredTrips.length > 0 ? filteredTrips : tripsData;
+  const visibleTrips = getClientVisibleTrips();
+  const activeVisibleTrips = visibleTrips.filter((trip) => !isInactiveTrip(trip));
+  const inactiveCount = visibleTrips.length - activeVisibleTrips.length;
   const { hasLocalFilters } = getFilterState();
 
   if (hasLocalFilters && visibleTrips.length > 0) {
-    const totalMiles = visibleTrips.reduce(
+    const totalMiles = activeVisibleTrips.reduce(
       (sum, trip) => sum + (parseFloat(trip.distance) || 0),
       0
     );
     previewEl.innerHTML = `
-      <span class="results-count">${visibleTrips.length}</span> trips
+      <span class="results-count">${activeVisibleTrips.length}</span> active trips
       <span style="color: var(--trips-text-tertiary);">•</span>
       ${totalMiles.toFixed(1)} mi
+      ${
+        inactiveCount > 0
+          ? `<span style="color: var(--trips-text-tertiary);">•</span>${inactiveCount} inactive excluded`
+          : ""
+      }
     `;
     previewEl.style.display = "inline";
   } else {
@@ -1824,7 +1937,7 @@ function setupBulkActions() {
   const closeBtn = document.getElementById("bulk-close-btn");
 
   if (selectAllBtn) {
-    selectAllBtn.addEventListener("click", () => {
+    bindPageEvent(selectAllBtn, "click", () => {
       const visibleCards = document.querySelectorAll(".trip-card");
       const allSelected = visibleCards.length === selectedTripIds.size;
 
@@ -1852,7 +1965,7 @@ function setupBulkActions() {
   }
 
   if (deleteBtn) {
-    deleteBtn.addEventListener("click", async () => {
+    bindPageEvent(deleteBtn, "click", async () => {
       if (selectedTripIds.size === 0) {
         return;
       }
@@ -1871,7 +1984,7 @@ function setupBulkActions() {
   }
 
   if (closeBtn) {
-    closeBtn.addEventListener("click", () => {
+    bindPageEvent(closeBtn, "click", () => {
       selectedTripIds.clear();
       document.querySelectorAll(".trip-card").forEach((card) => {
         card.classList.remove("selected");
@@ -1899,14 +2012,14 @@ function updateBulkActionsBar() {
 
 function setupTripCardInteractions() {
   // Pagination buttons
-  document.getElementById("prev-page")?.addEventListener("click", () => {
+  bindPageEvent("prev-page", "click", () => {
     if (currentPage > 1) {
       currentPage--;
       loadTrips();
     }
   });
 
-  document.getElementById("next-page")?.addEventListener("click", () => {
+  bindPageEvent("next-page", "click", () => {
     const totalPages = Math.ceil(totalTrips / pageSize);
     if (currentPage < totalPages) {
       currentPage++;
@@ -1929,7 +2042,10 @@ async function rematchTrip(id) {
       unmatched_only: false,
     });
     if (res) {
-      notificationManager.show("Map matching job queued. View progress in Map Matching.", "success");
+      notificationManager.show(
+        "Map matching job queued. View progress in Map Matching.",
+        "success"
+      );
       // Optionally reload the map after a short delay
       setTimeout(() => {
         loadTrips();
@@ -2003,6 +2119,46 @@ async function bulkDeleteTrips(ids) {
   }
 }
 
+function mergeTripIntoState(updatedTrip) {
+  if (!updatedTrip?.transactionId) {
+    return;
+  }
+
+  const mergeTrip = (trip) =>
+    trip?.transactionId === updatedTrip.transactionId
+      ? { ...trip, ...updatedTrip }
+      : trip;
+
+  tripsData = tripsData.map(mergeTrip);
+  filteredTrips = filteredTrips.map(mergeTrip);
+
+  if (currentTripData?.transactionId === updatedTrip.transactionId) {
+    currentTripData = { ...currentTripData, ...updatedTrip };
+  }
+}
+
+async function toggleTripInactive(id, inactive) {
+  try {
+    const response = await apiPost(CONFIG.API.tripInactive(id), { inactive });
+    mergeTripIntoState(response?.trip || { transactionId: id, inactive });
+    renderTrips(filteredTrips);
+    updateFilterResultsPreview();
+    await loadTripStats();
+
+    if (currentTripData?.transactionId === id) {
+      updateModalContent(currentTripData);
+    }
+
+    notificationManager.show(
+      inactive ? "Trip excluded from app totals" : "Trip restored to app totals",
+      "success"
+    );
+  } catch (err) {
+    console.error("Failed to toggle inactive trip state:", err);
+    notificationManager.show(err?.message || "Failed to update trip state", "danger");
+  }
+}
+
 // ==========================================
 // TRIP MODAL
 // ==========================================
@@ -2015,7 +2171,7 @@ function openTripModal(tripId) {
     if (el) {
       tripModalInstance = new bootstrap.Modal(el);
 
-      el.addEventListener("hidden.bs.modal", () => {
+      bindPageEvent(el, "hidden.bs.modal", () => {
         resetPlayback();
         currentTripData = null;
         regeocodeInFlight = false;
@@ -2023,7 +2179,7 @@ function openTripModal(tripId) {
         clearTripModalRouteData();
       });
 
-      el.addEventListener("shown.bs.modal", () => {
+      bindPageEvent(el, "shown.bs.modal", () => {
         if (!tripModalMap) {
           void initTripModalMap();
         } else {
@@ -2046,73 +2202,71 @@ function bindTripModalActions() {
   }
 
   const shareBtn = document.getElementById("modal-share-btn");
+  const inactiveBtn = document.getElementById("modal-inactive-toggle-btn");
   const deleteBtn = document.getElementById("modal-delete-btn");
   const regeocodeBtn = document.getElementById("modal-regeocode-btn");
 
-  if (!shareBtn && !deleteBtn && !regeocodeBtn) {
+  if (!shareBtn && !inactiveBtn && !deleteBtn && !regeocodeBtn) {
     console.warn("Trip modal action buttons not found");
     return;
   }
 
   if (shareBtn) {
     shareBtn.type = "button";
-    shareBtn.addEventListener(
-      "click",
-      () => {
-        showShareModal();
-      },
-      pageSignal ? { signal: pageSignal } : undefined
-    );
+    bindPageEvent(shareBtn, "click", () => showShareModal());
   }
 
   if (deleteBtn) {
     deleteBtn.type = "button";
-    deleteBtn.addEventListener(
-      "click",
-      async () => {
-        const confirmed = await confirmationDialog.show({
-          title: "Delete Trip",
-          message:
-            "Are you sure you want to delete this trip? This action cannot be undone.",
-          confirmText: "Delete",
-          confirmButtonClass: "btn-danger",
-        });
-        if (confirmed && currentTripId) {
-          tripModalInstance?.hide();
-          await deleteTrip(currentTripId);
-        }
-      },
-      pageSignal ? { signal: pageSignal } : undefined
-    );
+    bindPageEvent(deleteBtn, "click", async () => {
+      const confirmed = await confirmationDialog.show({
+        title: "Delete Trip",
+        message:
+          "Are you sure you want to delete this trip? This action cannot be undone.",
+        confirmText: "Delete",
+        confirmButtonClass: "btn-danger",
+      });
+      if (confirmed && currentTripId) {
+        tripModalInstance?.hide();
+        await deleteTrip(currentTripId);
+      }
+    });
+  }
+
+  if (inactiveBtn) {
+    inactiveBtn.type = "button";
+    bindPageEvent(inactiveBtn, "click", async () => {
+      if (!currentTripData?.transactionId) {
+        return;
+      }
+      const nextInactive = !isInactiveTrip(currentTripData);
+      const confirmed = await confirmationDialog.show({
+        title: nextInactive ? "Mark Trip Inactive" : "Restore Trip",
+        message: nextInactive
+          ? "Keep this trip in history but exclude it from totals, maps, gas, routes, and coverage?"
+          : "Restore this trip to totals, maps, gas, routes, and coverage again?",
+        confirmText: nextInactive ? "Mark Inactive" : "Restore",
+        confirmButtonClass: nextInactive ? "btn-warning" : "btn-primary",
+      });
+      if (confirmed) {
+        await toggleTripInactive(currentTripData.transactionId, nextInactive);
+      }
+    });
   }
 
   if (regeocodeBtn) {
     regeocodeBtn.type = "button";
-    regeocodeBtn.addEventListener(
-      "click",
-      async () => {
-        await regeocodeCurrentTrip();
-      },
-      pageSignal ? { signal: pageSignal } : undefined
-    );
+    bindPageEvent(regeocodeBtn, "click", () => regeocodeCurrentTrip());
   }
 
-  const subtleRegeocodeBtn = document.getElementById(
-    "modal-regeocode-subtle-btn"
-  );
+  const subtleRegeocodeBtn = document.getElementById("modal-regeocode-subtle-btn");
   if (subtleRegeocodeBtn) {
-    subtleRegeocodeBtn.addEventListener(
-      "click",
-      async () => {
-        await regeocodeCurrentTrip();
-      },
-      pageSignal ? { signal: pageSignal } : undefined
-    );
+    bindPageEvent(subtleRegeocodeBtn, "click", () => regeocodeCurrentTrip());
   }
 
   const matchToggle = document.getElementById("trip-modal-matched-toggle");
   if (matchToggle) {
-    matchToggle.addEventListener("change", () => {
+    bindPageEvent(matchToggle, "change", () => {
       if (currentTripData) {
         renderTripOnMap(currentTripData);
       }
@@ -2149,14 +2303,11 @@ function updateRegeocodeControls(trip) {
 
       const textEl = btn.querySelector(".btn-route-action__text");
       if (textEl) {
-        textEl.textContent = regeocodeInFlight
-          ? "Geocoding..."
-          : "Geocode this trip";
+        textEl.textContent = regeocodeInFlight ? "Geocoding..." : "Geocode this trip";
       }
 
       if (statusEl && !regeocodeInFlight && !statusEl.textContent) {
-        statusEl.textContent =
-          "Addresses are missing. Click to geocode this trip.";
+        statusEl.textContent = "Addresses are missing. Click to geocode this trip.";
       }
     } else if (statusEl) {
       statusEl.textContent = "";
@@ -2167,9 +2318,7 @@ function updateRegeocodeControls(trip) {
   if (subtleBtn) {
     subtleBtn.disabled = regeocodeInFlight;
     subtleBtn.classList.toggle("is-loading", regeocodeInFlight);
-    subtleBtn.title = regeocodeInFlight
-      ? "Geocoding..."
-      : "Re-geocode addresses";
+    subtleBtn.title = regeocodeInFlight ? "Geocoding..." : "Re-geocode addresses";
   }
 }
 
@@ -2289,9 +2438,9 @@ function displayShareModalUI(shareData) {
   const urlInput = modal.querySelector("#share-url-input");
 
   // Select all text when input is focused
-  urlInput.addEventListener("focus", () => urlInput.select());
+  bindPageEvent(urlInput, "focus", () => urlInput.select());
 
-  copyBtn.addEventListener("click", async () => {
+  bindPageEvent(copyBtn, "click", async () => {
     try {
       await navigator.clipboard.writeText(shareData.url);
       copyBtn.innerHTML = '<i class="fas fa-check me-2"></i>Copied!';
@@ -2313,9 +2462,20 @@ function displayShareModalUI(shareData) {
     }
   });
 
-  modal.addEventListener("hidden.bs.modal", () => {
-    modal.remove();
+  modal.addEventListener("hidden.bs.modal", () => modal.remove(), {
+    once: true,
   });
+  pageSignal?.addEventListener(
+    "abort",
+    () => {
+      try {
+        shareModal.hide();
+      } finally {
+        modal.remove();
+      }
+    },
+    { once: true }
+  );
 
   shareModal.show();
 }
@@ -2521,6 +2681,8 @@ function updateModalContent(trip) {
     tripIdEl.textContent = trip.transactionId;
   }
 
+  updateInactiveTripControls(trip);
+
   const distanceEl = document.getElementById("modal-distance");
   const durationEl = document.getElementById("modal-duration");
   const speedEl = document.getElementById("modal-max-speed");
@@ -2563,6 +2725,33 @@ function updateModalContent(trip) {
   updateRegeocodeControls(trip);
 }
 
+function updateInactiveTripControls(trip) {
+  const inactive = isInactiveTrip(trip);
+  const statePill = document.getElementById("modal-trip-state-pill");
+  const inactiveNote = document.getElementById("modal-trip-inactive-note");
+  const inactiveBtn = document.getElementById("modal-inactive-toggle-btn");
+
+  if (statePill) {
+    statePill.hidden = !inactive;
+  }
+  if (inactiveNote) {
+    inactiveNote.style.display = inactive ? "flex" : "none";
+  }
+  if (inactiveBtn) {
+    inactiveBtn.title = inactive
+      ? "Restore this trip to app totals"
+      : "Exclude this trip from app totals";
+    inactiveBtn.setAttribute(
+      "aria-label",
+      inactive ? "Restore trip" : "Mark trip inactive"
+    );
+    inactiveBtn.classList.toggle("is-active", inactive);
+    inactiveBtn.innerHTML = `
+      <i class="fas ${inactive ? "fa-rotate-left" : "fa-eye-slash"}"></i>
+    `;
+  }
+}
+
 function normalizeMongoId(value) {
   if (!value) {
     return null;
@@ -2596,6 +2785,12 @@ async function updateTripRouteChip(trip) {
   }
 
   tagsEl.innerHTML = "";
+  if (isInactiveTrip(trip)) {
+    if (sectionEl) {
+      sectionEl.style.display = "none";
+    }
+    return;
+  }
 
   const routeId = normalizeMongoId(trip?.recurringRouteId);
   if (!routeId) {
@@ -2615,17 +2810,13 @@ async function updateTripRouteChip(trip) {
   chip.className = "trip-tag";
   chip.href = `/routes/${encodeURIComponent(routeId)}`;
   chip.textContent = "Route: ...";
-  chip.addEventListener(
-    "click",
-    () => {
-      try {
-        tripModalInstance?.hide();
-      } catch {
-        // Best-effort: navigation will still work.
-      }
-    },
-    pageSignal ? { signal: pageSignal } : undefined
-  );
+  bindPageEvent(chip, "click", () => {
+    try {
+      tripModalInstance?.hide();
+    } catch {
+      // Best-effort: navigation will still work.
+    }
+  });
 
   tagsEl.appendChild(chip);
 
@@ -2850,13 +3041,13 @@ function extractTripGeometry(trip) {
   if (!trip) {
     return null;
   }
-  
+
   const toggle = document.getElementById("trip-modal-matched-toggle");
   const wantMatched = toggle ? toggle.checked : true;
-  
-  const candidate = wantMatched 
-    ? (trip.matchedGps || trip.geometry || trip.gps)
-    : (trip.gps || trip.geometry || trip.matchedGps);
+
+  const candidate = wantMatched
+    ? trip.matchedGps || trip.geometry || trip.gps
+    : trip.gps || trip.geometry || trip.matchedGps;
 
   if (!candidate) {
     return null;
@@ -2903,7 +3094,7 @@ function setupTripPlaybackControls() {
   };
 
   if (playBtn) {
-    playBtn.addEventListener("click", () => {
+    bindPageEvent(playBtn, "click", () => {
       if (playbackState.isPlaying) {
         pausePlayback();
       } else if (playbackState.isComplete) {
@@ -2921,7 +3112,7 @@ function setupTripPlaybackControls() {
   if (speedInput) {
     playbackState.speed = Number(speedInput.value) || PLAYBACK_SPEED_BASE;
     updateSpeedLabel();
-    speedInput.addEventListener("input", () => {
+    bindPageEvent(speedInput, "input", () => {
       playbackState.speed = Number(speedInput.value) || PLAYBACK_SPEED_BASE;
       updateSpeedLabel();
     });

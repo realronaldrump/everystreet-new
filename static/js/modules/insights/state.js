@@ -16,7 +16,6 @@ const state = {
     analytics: null,
     metrics: null,
   },
-  counters: {},
   isLoading: false,
   autoRefreshInterval: null,
   prevRange: null,
@@ -62,24 +61,6 @@ export function setChart(name, chartInstance) {
  */
 export function getChart(name) {
   return state.charts[name] || null;
-}
-
-/**
- * Set a counter instance
- * @param {string} id - Element ID
- * @param {Object} counterInstance - CountUp instance
- */
-export function setCounter(id, counterInstance) {
-  state.counters[id] = counterInstance;
-}
-
-/**
- * Get a counter instance
- * @param {string} id - Element ID
- * @returns {Object|null} CountUp instance or null
- */
-export function getCounter(id) {
-  return state.counters[id] || null;
 }
 
 /**

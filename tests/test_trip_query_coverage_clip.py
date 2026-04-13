@@ -114,10 +114,10 @@ def _coverage_boundary() -> dict:
     }
 
 
-def _assert_prefilter_present(query: dict) -> None:
-    assert "gps" in query
-    assert "$geoIntersects" in query["gps"]
-    geometry = query["gps"]["$geoIntersects"]["$geometry"]
+def _assert_prefilter_present(query: dict, *, geometry_field: str) -> None:
+    assert geometry_field in query
+    assert "$geoIntersects" in query[geometry_field]
+    geometry = query[geometry_field]["$geoIntersects"]["$geometry"]
     assert geometry["type"] == "Polygon"
 
 
@@ -156,7 +156,7 @@ def test_trips_endpoint_clips_to_selected_coverage_area() -> None:
     assert feature["properties"]["coverageDistance"] > 0
     assert feature["properties"]["coverageDistance"] < feature["properties"]["distance"]
 
-    _assert_prefilter_present(_FakeTripModel.received_queries[-1])
+    _assert_prefilter_present(_FakeTripModel.received_queries[-1], geometry_field="gps")
 
 
 def test_matched_trips_endpoint_clips_and_omits_non_intersecting_trips() -> None:
@@ -193,7 +193,42 @@ def test_matched_trips_endpoint_clips_and_omits_non_intersecting_trips() -> None
     assert feature["geometry"]["type"] in {"LineString", "MultiLineString"}
     assert feature["properties"]["coverageDistance"] > 0
 
-    _assert_prefilter_present(_FakeTripModel.received_queries[-1])
+    _assert_prefilter_present(
+        _FakeTripModel.received_queries[-1],
+        geometry_field="matchedGps",
+    )
+
+
+def test_trips_endpoint_uses_matched_geometry_prefilter_when_matched_only() -> None:
+    _FakeTripModel.docs = _trip_docs()
+    _FakeTripModel.received_queries = []
+
+    app = _create_app()
+    with (
+        patch("trips.api.query.Trip", _FakeTripModel),
+        patch(
+            "trips.api.query.CoverageArea.get",
+            new=AsyncMock(return_value=SimpleNamespace(boundary=_coverage_boundary())),
+        ),
+        patch(
+            "trips.api.query.TripCostService.get_fillup_price_map",
+            new=AsyncMock(return_value={}),
+        ),
+        patch(
+            "trips.api.query.TripCostService.calculate_trip_cost",
+            return_value=0.0,
+        ),
+    ):
+        client = TestClient(app)
+        response = client.get(
+            "/api/trips?matched_only=true&clip_to_coverage=true&coverage_area_id=area-1",
+        )
+
+    assert response.status_code == 200
+    _assert_prefilter_present(
+        _FakeTripModel.received_queries[-1],
+        geometry_field="matchedGps",
+    )
 
 
 def test_invalid_boundary_returns_422_and_does_not_query_trips() -> None:

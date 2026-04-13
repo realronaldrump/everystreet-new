@@ -141,7 +141,6 @@ export function setupAppSettingsForm() {
   const themeToggleCheckbox = document.getElementById("theme-toggle-checkbox");
   const accentColorPicker = document.getElementById("accent-color-picker");
   const densityOptions = document.querySelectorAll("input[name='ui-density']");
-  const widgetEditToggle = document.getElementById("widget-edit-mode");
 
   // Function to apply settings to UI
   function applySettings(settings = {}) {
@@ -156,7 +155,6 @@ export function setupAppSettingsForm() {
       mapMatchTripsOnFetch: mmtof,
       accentColor,
       uiDensity,
-      widgetEditing,
     } = settings;
 
     const isDarkMode =
@@ -251,17 +249,9 @@ export function setupAppSettingsForm() {
         setActiveTab("overview", { updateHash: true });
       }
     }
-    if (widgetEditToggle) {
-      const storedWidgetEditing =
-        widgetEditing ?? localStorage.getItem("es:widget-editing");
-      widgetEditToggle.checked =
-        storedWidgetEditing === true || storedWidgetEditing === "true";
-    }
-
     window.personalization?.applyPreferences?.({
       accentColor: storedAccent,
       density: densityValue,
-      widgetEditing: widgetEditToggle?.checked,
       persist: false,
     });
   }
@@ -291,7 +281,6 @@ export function setupAppSettingsForm() {
       mapMatchTripsOnFetch: mapMatchTripsOnFetch?.checked,
       accentColor: accentColorPicker?.value,
       uiDensity: densityValue || "comfortable",
-      widgetEditing: widgetEditToggle?.checked || false,
     };
 
     try {
@@ -312,19 +301,12 @@ export function setupAppSettingsForm() {
     setTripLayerHeatmapPreference(payload.tripLayersUseHeatmap);
     localStorage.setItem("es:accent-color", payload.accentColor || "");
     localStorage.setItem("es:ui-density", payload.uiDensity);
-    localStorage.setItem("es:widget-editing", payload.widgetEditing ? "true" : "false");
 
     window.personalization?.applyPreferences?.({
       accentColor: payload.accentColor,
       density: payload.uiDensity,
-      widgetEditing: payload.widgetEditing,
       persist: false,
     });
-    document.dispatchEvent(
-      new CustomEvent("widgets:set-edit", {
-        detail: { enabled: payload.widgetEditing },
-      })
-    );
 
     // Show success
     notificationManager.show("Settings saved successfully", "success");
@@ -375,14 +357,6 @@ export function setupAppSettingsForm() {
         });
       }
     });
-  });
-
-  widgetEditToggle?.addEventListener("change", () => {
-    document.dispatchEvent(
-      new CustomEvent("widgets:set-edit", {
-        detail: { enabled: widgetEditToggle.checked },
-      })
-    );
   });
 }
 

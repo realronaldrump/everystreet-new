@@ -39,11 +39,15 @@ def test_normalize_item_rejects_invalid_format() -> None:
         ExportService._normalize_item(item)
 
 
-def test_build_trip_query_defaults_to_exclude_invalid() -> None:
-    """Empty filters should still exclude invalid trips."""
+def test_build_trip_query_defaults_to_exclude_invalid_and_inactive() -> None:
+    """Empty filters should still exclude invalid and inactive trips."""
     query = ExportService._build_trip_query({}, matched_only=False)
 
-    assert query == {"invalid": {"$ne": True}, "source": "bouncie"}
+    assert query == {
+        "inactive": {"$ne": True},
+        "invalid": {"$ne": True},
+        "source": "bouncie",
+    }
 
 
 def test_build_trip_query_adds_matched_gps_filter() -> None:
@@ -52,6 +56,7 @@ def test_build_trip_query_adds_matched_gps_filter() -> None:
 
     assert query["matchedGps"] == {"$ne": None}
     assert query["invalid"] == {"$ne": True}
+    assert query["inactive"] == {"$ne": True}
 
 
 def test_build_trip_query_includes_imei_filter() -> None:
@@ -76,6 +81,7 @@ def test_build_trip_query_includes_invalid_when_requested() -> None:
     query = ExportService._build_trip_query(filters, matched_only=False)
 
     assert "invalid" not in query
+    assert query["inactive"] == {"$ne": True}
 
 
 def test_build_trip_query_adds_clip_prefilter_when_enabled() -> None:

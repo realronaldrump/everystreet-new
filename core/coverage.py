@@ -27,6 +27,7 @@ from core.spatial import (
     geodesic_distance_meters,
     get_local_transformers,
 )
+from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import CoverageArea, CoverageState, Street, Trip
 from street_coverage.constants import (
@@ -512,22 +513,6 @@ def trip_to_linestring_candidates(
     return candidates
 
 
-def trip_to_linestring(
-    trip: dict[str, Any],
-    trip_mode: str = DEFAULT_COVERAGE_TRIP_MODE,
-) -> tuple[BaseGeometry | None, bool]:
-    """
-    Convert a trip document to a preferred geometry for coverage matching.
-
-    Returns ``(geometry, is_map_matched)`` where geometry is None when no
-    usable trip geometry is available for the selected mode.
-    """
-    candidates = trip_to_linestring_candidates(trip, trip_mode=trip_mode)
-    if not candidates:
-        return None, False
-    return candidates[0]
-
-
 def _matching_params(is_map_matched: bool) -> tuple[float, float]:
     buffer = MATCH_BUFFER_METERS if is_map_matched else RAW_GPS_BUFFER_METERS
     overlap_ratio = COVERAGE_OVERLAP_RATIO if is_map_matched else RAW_GPS_OVERLAP_RATIO
@@ -939,7 +924,10 @@ def _build_backfill_trip_query(
         ],
     }
 
-    query: dict[str, Any] = {"invalid": {"$ne": True}}
+    query = apply_trip_record_filters(
+        {"invalid": {"$ne": True}},
+        include_invalid=True,
+    )
     if trip_mode == "regular":
         query["gps"] = geo_filter
     elif trip_mode == "matched":

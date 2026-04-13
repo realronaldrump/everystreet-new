@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict
 from core.casting import safe_float
 from core.jobs import JobHandle, create_job, find_job
 from core.spatial import GeometryService
+from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import Job, Place, RecurringRoute, Trip
 from recurring_routes.models import BuildRecurringRoutesRequest
@@ -206,7 +207,12 @@ class RecurringRoutesBuilder:
 
         try:
             # Compute total upfront for progress; avoids a second scan later.
-            query = enforce_bouncie_source({"invalid": {"$ne": True}})
+            query = enforce_bouncie_source(
+                apply_trip_record_filters(
+                    {"invalid": {"$ne": True}},
+                    include_invalid=True,
+                )
+            )
             total_trips = await Trip.find(query).count()
 
             await handle.update(

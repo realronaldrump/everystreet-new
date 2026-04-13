@@ -16,6 +16,7 @@ from db.aggregation_utils import (
 from db.models import Trip, Vehicle
 from trips.presentation import build_trip_preview_path
 from trips.serialization import TripSerializer
+from trips.services.trip_cost_service import TripCostService
 
 logger = logging.getLogger(__name__)
 
@@ -115,8 +116,11 @@ class TripQueryService:
             start_date=start_date,
             end_date=end_date,
             imei=filters.get("imei"),
+            include_inactive=True,
         )
-        base_query = TripQuerySpec().to_mongo_query(enforce_source=True)
+        base_query = TripQuerySpec(include_inactive=True).to_mongo_query(
+            enforce_source=True
+        )
         query = spec.to_mongo_query(enforce_source=True)
 
         def _parse_number(value):
@@ -369,12 +373,7 @@ class TripQueryService:
             if isinstance(destination, dict):
                 destination = destination.get("formatted_address", "Unknown")
 
-            # Import here to avoid circular dependency
-            from trips.services.trip_cost_service import TripCostService
-
-            total_idle_duration = trip_dict.get("totalIdleDuration")
-            if total_idle_duration is None:
-                total_idle_duration = trip_dict.get("totalIdleDuration", 0)
+            total_idle_duration = trip_dict.get("totalIdleDuration", 0)
             start_tz = normalized_trip.get("startTimeZone")
             end_tz = normalized_trip.get("endTimeZone")
             alias_tz = normalized_trip.get("timeZone")
@@ -400,6 +399,9 @@ class TripQueryService:
                     price_map,
                 ),
                 "previewPath": build_trip_preview_path(trip_dict),
+                "inactive": bool(trip_dict.get("inactive")),
+                "inactiveAt": normalized_trip.get("inactiveAt"),
+                "inactiveReason": normalized_trip.get("inactiveReason"),
             }
             formatted_data.append(formatted_trip)
 

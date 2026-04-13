@@ -280,6 +280,18 @@ All vehicles
           <div class="trips-cards-container" id="trips-older">
           </div>
         </div>
+
+        <div class="timeline-section timeline-section-inactive" data-section="inactive">
+          <h2 class="timeline-header">
+            <span class="timeline-title">Inactive Trips</span>
+            <span class="timeline-count" id="count-inactive">0 trips</span>
+          </h2>
+          <p class="timeline-section-note">
+          Saved in history, but excluded from totals, maps, gas, coverage, and route insights.
+          </p>
+          <div class="trips-cards-container trips-cards-container-inactive" id="trips-inactive">
+          </div>
+        </div>
       </section>
 
       <!-- Loading State -->
@@ -353,11 +365,20 @@ Trip Details
               <div class="modal-subtitle" id="tripModalSubtitle">
                 <span id="modal-date"></span>
                 <span class="trip-id" id="modal-trip-id"></span>
+                <span class="trip-state-pill" id="modal-trip-state-pill" hidden>
+Inactive
+                </span>
               </div>
             </div>
             <div class="modal-actions">
               <button class="btn-icon" id="modal-share-btn" title="Share">
                 <i class="fas fa-share-alt"></i>
+              </button>
+              <button class="btn-icon"
+                      id="modal-inactive-toggle-btn"
+                      title="Exclude from totals and maps"
+                      aria-label="Toggle inactive state">
+                <i class="fas fa-eye-slash"></i>
               </button>
               <button class="btn-icon btn-danger" id="modal-delete-btn" title="Delete">
                 <i class="fas fa-trash"></i>
@@ -437,6 +458,12 @@ Route
                           <span class="route-location" id="modal-end-loc">--</span>
                         </div>
                       </div>
+                    </div>
+                    <div class="trip-inactive-note" id="modal-trip-inactive-note" style="display: none">
+                      <i class="fas fa-eye-slash"></i>
+                      <span>
+                      This trip is inactive. It stays in history but is excluded from totals, maps, routes, gas, coverage, and insights.
+                      </span>
                     </div>
                     <div class="route-actions" id="modal-route-actions" style="display: none">
                       <button class="btn-route-action" id="modal-regeocode-btn" type="button">

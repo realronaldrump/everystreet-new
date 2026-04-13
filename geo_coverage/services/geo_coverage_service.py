@@ -15,6 +15,7 @@ from shapely.geometry import Point, shape
 
 from core.date_utils import parse_timestamp
 from core.spatial import coerce_coordinate_pair, validate_and_fix_geometry
+from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
 from county.services.county_data_service import get_county_topology_document
 from county.services.topojson_utils import topojson_to_geojson
@@ -246,13 +247,16 @@ def _get_incremental_checkpoint(
 
 
 def _build_trip_query(checkpoint: datetime | None = None) -> dict[str, Any]:
-    geometry_filter: dict[str, Any] = {
+    geometry_filter = apply_trip_record_filters(
+        {
         "invalid": {"$ne": True},
         "$or": [
             {"gps.type": {"$in": ["LineString", "MultiLineString", "Point"]}},
             {"matchedGps.type": {"$in": ["LineString", "MultiLineString", "Point"]}},
         ],
-    }
+        },
+        include_invalid=True,
+    )
 
     if not checkpoint:
         return enforce_bouncie_source(geometry_filter)

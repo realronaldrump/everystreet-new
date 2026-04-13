@@ -7,14 +7,11 @@ import interactions from "./interactions.js";
 import mapControlsManager from "./map-controls-manager.js";
 import metricAnimator from "./metric-animator.js";
 import mobileNav from "./mobile-nav.js";
-import modalEffects from "./modal-effects.js";
 import panelManager from "./panel-manager.js";
 import personalization from "./personalization.js";
 import setupRequired from "./setup-required.js";
 import swipeActions from "./swipe-actions.js";
-import swipeDismiss from "./swipe-dismiss.js";
 import themeManager from "./theme-manager.js";
-import widgetManager from "./widget-manager.js";
 
 function init() {
   if (store.ui.initialized) {
@@ -50,11 +47,8 @@ function init() {
     panelManager.init();
     interactions.init();
     metricAnimator.init?.();
-    modalEffects.init?.();
     mobileNav.init?.();
     swipeActions.init?.();
-    swipeDismiss.init?.();
-    widgetManager.init?.();
     personalization.init?.();
     contextualUI.init?.();
     mapControlsManager.init?.();

@@ -504,7 +504,11 @@ async def process_trip_end(data: dict[str, Any]) -> None:
 
     trip = await get_trip_snapshot(transaction_id)
     if not trip:
-        logger.warning("Trip %s not found for tripEnd", transaction_id)
+        logger.warning(
+            "Trip %s not found for tripEnd; marking closed to ignore late events",
+            transaction_id,
+        )
+        await clear_trip_snapshot(transaction_id, mark_closed=True)
         return
 
     if trip.get("status") == "processed":
@@ -593,7 +597,7 @@ async def get_active_trip() -> dict[str, Any] | None:
                     completed["gps"] = trip_gps
 
             await _publish_trip_snapshot(completed, status="completed")
-            await clear_trip_snapshot(transaction_id, mark_closed=False)
+            await clear_trip_snapshot(transaction_id, mark_closed=True)
             return None
 
     except Exception:

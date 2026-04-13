@@ -77,3 +77,9 @@ class TripSyncConfigUpdate(BaseModel):
 
     auto_sync_enabled: bool | None = None
     interval_minutes: int | None = None
+
+
+class TripInactiveUpdate(BaseModel):
+    """Toggle whether a historical trip is excluded from app calculations."""
+
+    inactive: bool

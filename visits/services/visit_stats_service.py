@@ -9,6 +9,7 @@ from typing import Any
 from shapely.geometry import MultiPoint, mapping
 
 from core.spatial import get_local_transformers
+from core.trip_query_spec import apply_trip_record_filters
 from db.aggregation import aggregate_to_list
 from db.models import Place, Trip
 from db.schemas import (
@@ -287,25 +288,27 @@ def _boundary_overlaps_existing(
 
 
 def _suggestion_match_stage(timeframe: str | None) -> dict[str, Any]:
-    match_stage: dict[str, Any] = {
-        "$and": [
-            {
-                "$or": [
-                    {"destinationPlaceId": {"$exists": False}},
-                    {"destinationPlaceId": None},
-                    {"destinationPlaceId": ""},
-                ],
-            },
-            {
-                "$or": [
-                    {"destinationGeoPoint": {"$exists": True}},
-                    {"gps": {"$exists": True}},
-                    {"destination.coordinates": {"$exists": True}},
-                ],
-            },
-        ],
-        "endTime": {"$ne": None},
-    }
+    match_stage = apply_trip_record_filters(
+        {
+            "$and": [
+                {
+                    "$or": [
+                        {"destinationPlaceId": {"$exists": False}},
+                        {"destinationPlaceId": None},
+                        {"destinationPlaceId": ""},
+                    ],
+                },
+                {
+                    "$or": [
+                        {"destinationGeoPoint": {"$exists": True}},
+                        {"gps": {"$exists": True}},
+                        {"destination.coordinates": {"$exists": True}},
+                    ],
+                },
+            ],
+            "endTime": {"$ne": None},
+        }
+    )
 
     timeframe_start = _resolve_timeframe_start(
         timeframe,
@@ -592,14 +595,21 @@ class VisitStatsService:
         Raises:
             ValueError: If timeframe is invalid
         """
-        match_stage: dict[str, Any] = {
-            "destinationPlaceId": {"$exists": False},
-            "$or": [
-                {"destinationPlaceName": {"$exists": True, "$ne": None}},
-                {"destination.formatted_address": {"$exists": True, "$ne": ""}},
-                {"destination.address_components.street": {"$exists": True, "$ne": ""}},
-            ],
-        }
+        match_stage = apply_trip_record_filters(
+            {
+                "destinationPlaceId": {"$exists": False},
+                "$or": [
+                    {"destinationPlaceName": {"$exists": True, "$ne": None}},
+                    {"destination.formatted_address": {"$exists": True, "$ne": ""}},
+                    {
+                        "destination.address_components.street": {
+                            "$exists": True,
+                            "$ne": "",
+                        }
+                    },
+                ],
+            }
+        )
 
         start_date = _resolve_timeframe_start(
             timeframe,

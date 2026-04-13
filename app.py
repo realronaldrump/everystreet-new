@@ -21,16 +21,15 @@ from api.routing import router as routing_router
 from api.status import router as status_router
 from auth import router as auth_router
 from core.auth import (
-    AuthGuardMiddleware,
     SESSION_COOKIE_NAME,
     SESSION_TTL_SECONDS,
+    AuthGuardMiddleware,
     get_session_secret,
     parse_allowed_hosts,
     parse_cors_allowed_origins,
     session_cookie_https_only,
 )
 from core.jinja import templates
-from core.repo_info import get_repo_version_info
 from core.startup import initialize_shared_runtime, shutdown_shared_runtime
 from core.template_context import build_base_template_context
 from db.logging_handler import MongoDBHandler

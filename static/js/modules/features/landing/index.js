@@ -17,7 +17,7 @@ import {
   getStorage,
 } from "../../utils.js";
 import { animateValue } from "./animations.js";
-import { bindWidgetEditToggle, updateGreeting } from "./hero.js";
+import { updateGreeting } from "./hero.js";
 
 // Configuration
 const CONFIG = {
@@ -66,7 +66,6 @@ export default function initLandingPage({ signal, cleanup, api } = {}) {
   updateGreeting(elements);
 
   highlightFrequentTiles();
-  bindWidgetEditToggle(elements, pageSignal);
 
   loadAllData();
   setupRefreshInterval();
@@ -114,7 +113,6 @@ function cacheElements() {
     recordTitle: document.getElementById("record-title"),
     recordDate: document.getElementById("record-date"),
 
-    widgetEditToggle: document.getElementById("widget-edit-toggle"),
     navTiles: Array.from(document.querySelectorAll(".nav-tile")),
   };
 }
@@ -809,7 +807,11 @@ function parseDateInput(value) {
   return new Date(year, month - 1, day);
 }
 
-function resolveDateRange({ fallbackDays = null, fallbackStart = null, fallbackEnd = null } = {}) {
+function resolveDateRange({
+  fallbackDays = null,
+  fallbackStart = null,
+  fallbackEnd = null,
+} = {}) {
   const today = startOfLocalDay();
   let { startDate, endDate } = getExplicitDateRange();
 
@@ -834,16 +836,6 @@ function resolveDateRange({ fallbackDays = null, fallbackStart = null, fallbackE
   }
 
   return { startDate, endDate };
-}
-
-function applyDateRangeToParams(params, { startDate, endDate }) {
-  if (startDate) {
-    params.set("start_date", startDate);
-  }
-  if (endDate) {
-    params.set("end_date", endDate);
-  }
-  return params;
 }
 
 /**
@@ -871,7 +863,6 @@ async function loadMetrics() {
       animateValue(elements.statMiles, miles, formatNumber, CONFIG.animationDuration);
       animateValue(elements.statTrips, trips, formatNumber, CONFIG.animationDuration);
     }
-
   } catch (error) {
     if (requestId !== metricsLoadRequestId || isAbortError(error)) {
       return;
@@ -1183,8 +1174,4 @@ function cleanupAmbientBackground() {
   ambientCleanup = null;
 }
 
-export {
-  cleanupAmbientBackground,
-  getExplicitDateRange,
-  resolveDateRange,
-};
+export { cleanupAmbientBackground, getExplicitDateRange, resolveDateRange };

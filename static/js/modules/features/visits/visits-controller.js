@@ -328,8 +328,13 @@ class VisitsPageController {
     this.visitsManager?.resetDrawing?.();
   }
 
-  startDrawingFromFab() {
+  startDrawingFromFab(prefillName = "") {
     this.visitsManager?.startDrawing?.();
+    const cleanedName = String(prefillName || "").trim();
+    if (cleanedName && this.elements.placeNameInput) {
+      this.elements.placeNameInput.value = cleanedName;
+      this.elements.placeNameInput.classList.remove("is-invalid");
+    }
     document.querySelector(".map-section")?.scrollIntoView?.({
       behavior: "smooth",
       block: "start",
@@ -1362,7 +1367,11 @@ class VisitsPageController {
         return;
       }
 
-      const rendered = renderGeometryPreview(container, boundary, DISCOVERY_PREVIEW_COLORS);
+      const rendered = renderGeometryPreview(
+        container,
+        boundary,
+        DISCOVERY_PREVIEW_COLORS
+      );
       if (!rendered) {
         this.updatePreviewFallback(container, "Map preview unavailable");
       }
@@ -1399,11 +1408,11 @@ class VisitsPageController {
       return;
     }
 
+    this.startDrawingFromFab(customName);
     this.showNotification(
-      `Place "${customName}" would be created here. Drawing on map required.`,
+      `Draw a boundary for "${customName}", then save it as a place.`,
       "info"
     );
-    // Note: User needs to draw boundary on map - this is handled by the drawing workflow
   }
 
   showPlacesSection() {
@@ -1419,8 +1428,6 @@ class VisitsPageController {
     // Use the existing notification manager if available
     if (window.notificationManager) {
       window.notificationManager.show(message, type);
-    } else {
-      console.log(`[${type}] ${message}`);
     }
   }
 

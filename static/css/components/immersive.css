@@ -346,18 +346,6 @@ body[data-route="/regional-coverage-explorer"] .noise-overlay {
   transform: translateX(-120px);
 }
 
-/* Widget edit mode */
-[data-widget-editing="true"] [data-widget-id] {
-  outline: 1px dashed rgb(var(--primary-rgb) / 60%);
-  outline-offset: 4px;
-  cursor: grab;
-}
-
-[data-widget-editing="true"] [data-widget-id].is-dragging {
-  opacity: 0.6;
-  cursor: grabbing;
-}
-
 body.is-busy {
   --glass-1: rgb(var(--surface-rgb) / 86%);
   --glass-2: rgb(var(--surface-rgb) / 92%);

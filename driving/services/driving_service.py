@@ -9,6 +9,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from core.mapping.factory import get_router
 from core.spatial import GeometryService, coerce_coordinate_pair, extract_line_sequences
+from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import CoverageArea, CoverageState, Street, Trip
 from street_coverage.constants import MILES_TO_METERS
@@ -444,7 +445,12 @@ async def get_current_position(
         pass
 
     last_trip = (
-        await Trip.find(enforce_bouncie_source({})).sort("-endTime").limit(1).to_list()
+        await Trip.find(
+            enforce_bouncie_source(apply_trip_record_filters({})),
+        )
+        .sort("-endTime")
+        .limit(1)
+        .to_list()
     )
     if not last_trip:
         raise HTTPException(

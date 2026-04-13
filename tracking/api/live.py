@@ -1,5 +1,6 @@
 """API endpoints for live trip tracking via WebSocket and polling."""
 
+import asyncio
 import contextlib
 import json
 import logging
@@ -23,6 +24,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+async def _wait_for_websocket_disconnect(websocket: WebSocket) -> None:
+    """Block until the client disconnects."""
+    while True:
+        message = await websocket.receive()
+        if message["type"] == "websocket.disconnect":
+            code = int(message.get("code") or 1000)
+            reason = message.get("reason")
+            raise WebSocketDisconnect(code=code, reason=reason)
+
+
 # ============================================================================
 # WebSocket Endpoint
 # ============================================================================
@@ -35,6 +46,7 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     redis_client = None
     pubsub = None
+    disconnect_task: asyncio.Task[None] | None = None
 
     try:
         # Send initial trip state
@@ -60,12 +72,20 @@ async def websocket_endpoint(websocket: WebSocket):
         redis_client = create_pubsub_redis()
         pubsub = redis_client.pubsub()
         await pubsub.subscribe(TRIP_UPDATES_CHANNEL)
+        disconnect_task = asyncio.create_task(_wait_for_websocket_disconnect(websocket))
 
         logger.info("WebSocket connected to live trip updates")
 
         # Listen for Redis messages
-        async for message in pubsub.listen():
-            if message["type"] != "message":
+        while True:
+            if disconnect_task.done():
+                disconnect_task.result()
+
+            message = await pubsub.get_message(
+                ignore_subscribe_messages=True,
+                timeout=1.0,
+            )
+            if message is None:
                 continue
 
             try:
@@ -110,6 +130,10 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception:
         logger.exception("WebSocket error")
     finally:
+        if disconnect_task:
+            disconnect_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await disconnect_task
         if pubsub:
             with contextlib.suppress(Exception):
                 await pubsub.unsubscribe(TRIP_UPDATES_CHANNEL)

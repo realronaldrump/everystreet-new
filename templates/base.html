@@ -956,7 +956,16 @@ System
             "mapProvider": {{ ((app_settings.get('map_provider') | default('self_hosted', true) | lower) if app_settings else 'self_hosted') | tojson }},
             "mapTripsWithinCoverageOnly": {{ ((app_settings.get('mapTripsWithinCoverageOnly', false)) if app_settings else false) | tojson }},
             "tripLayersUseHeatmap": {{ ((app_settings.get('tripLayersUseHeatmap', true)) if app_settings else true) | tojson }},
-            "googleMapsConfigured": {{ (app_settings and app_settings.get('google_maps_api_key') and (app_settings.get('map_provider') | default('', true) | lower) == 'google') | tojson }}
+            "googleMapsConfigured": {{ (app_settings and app_settings.get('google_maps_api_key') and (app_settings.get('map_provider') | default('', true) | lower) == 'google') | tojson }},
+            "cdn": {
+                "chartjs": {{ CDN.chartjs | tojson }},
+                "datatablesJs": {{ CDN.datatables_js | tojson }},
+                "deckGl": {{ CDN.deck_gl | tojson }},
+                "jquery": {{ CDN.jquery | tojson }},
+                "mapboxDrawJs": {{ CDN.mapbox_draw_js | tojson }},
+                "mapboxGlJs": {{ CDN.mapbox_gl_js | tojson }},
+                "topojson": {{ CDN.topojson | tojson }}
+            }
         }
     </script>
     <script>
@@ -981,6 +990,7 @@ System
                 configured: envData.googleMapsConfigured || false,
                 scriptId: "es-google-maps-js-api"
             };
+            window.ES_CDN = envData.cdn || {};
 
             window.__esGoogleMapsLoadState = window.__esGoogleMapsLoadState || {
                 status: window.GOOGLE_MAPS_BOOTSTRAP.configured ? "pending" : "unconfigured",
@@ -1018,24 +1028,7 @@ System
               data-google-maps-loader="true"
               onerror="window.__esGoogleMapsLoadFailed && window.__esGoogleMapsLoadFailed()"
               src="https://maps.googleapis.com/maps/api/js?key={{ app_settings.get('google_maps_api_key') }}&loading=async&callback=__esGoogleMapsLoaded&libraries=geometry,places&map_ids=913996d7028f0a557c531012"></script>
-    {% else %}
-      <script src="{{ CDN.mapbox_gl_js }}"></script>
-      <script src="{{ CDN.mapbox_draw_js }}"></script>
     {% endif %}
-
-    <script src="{{ CDN.topojson }}"></script>
-    <script src="https://cdn.jsdelivr.net/npm/deck.gl@9.2.7/dist.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/h3-js@4.4.0/dist/h3-js.umd.js"></script>
-
-    <script src="{{ CDN.chartjs }}"></script>
-    <script src="{{ CDN.chartjs_adapter }}"></script>
-    <script src="{{ CDN.chartjs_datalabels }}"></script>
-
-    <script src="{{ CDN.jquery }}" crossorigin="anonymous"></script>
-    <script src="{{ CDN.datatables_js }}"></script>
-    <script src="{{ CDN.datatables_bs5_js }}"></script>
-
-    <script src="{{ CDN.countup }}"></script>
 
     <!-- Other libraries -->
 

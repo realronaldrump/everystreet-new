@@ -3,7 +3,6 @@ import { swupReady } from "../core/navigation.js";
 const STORAGE_KEYS = {
   accent: "es:accent-color",
   density: "es:ui-density",
-  widgetEdit: "es:widget-editing",
 };
 
 const personalization = {
@@ -49,7 +48,6 @@ const personalization = {
   applyFromStorage() {
     const accent = localStorage.getItem(STORAGE_KEYS.accent);
     const density = localStorage.getItem(STORAGE_KEYS.density);
-    const widgetEditing = localStorage.getItem(STORAGE_KEYS.widgetEdit);
 
     if (accent) {
       this.applyAccent(accent);
@@ -59,16 +57,9 @@ const personalization = {
     this.applyDensity(density || "comfortable");
     // Clean up any stale motion-mode storage
     localStorage.removeItem("es:motion-mode");
-    if (widgetEditing !== null) {
-      document.dispatchEvent(
-        new CustomEvent("widgets:set-edit", {
-          detail: { enabled: widgetEditing === "true" },
-        })
-      );
-    }
   },
 
-  applyPreferences({ accentColor, density, widgetEditing, persist = true } = {}) {
+  applyPreferences({ accentColor, density, persist = true } = {}) {
     if (accentColor !== undefined) {
       if (accentColor) {
         this.applyAccent(accentColor);
@@ -85,15 +76,6 @@ const personalization = {
       if (persist) {
         localStorage.setItem(STORAGE_KEYS.density, density);
       }
-    }
-
-    if (widgetEditing !== undefined) {
-      if (persist) {
-        localStorage.setItem(STORAGE_KEYS.widgetEdit, widgetEditing ? "true" : "false");
-      }
-      document.dispatchEvent(
-        new CustomEvent("widgets:set-edit", { detail: { enabled: widgetEditing } })
-      );
     }
   },
 

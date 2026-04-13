@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 from core.date_utils import normalize_to_utc_datetime
+from core.trip_query_spec import apply_trip_record_filters
 from db.aggregation import aggregate_to_list
 from db.models import Place, Trip
 from db.schemas import PlaceResponse
@@ -56,10 +57,12 @@ class VisitTrackingService:
                 {"destinationGeoPoint": {"$geoWithin": {"$geometry": geometry}}},
             )
 
-        ended_at_place_match = {
-            "$or": match_conditions,
-            "endTime": {"$ne": None},
-        }
+        ended_at_place_match = apply_trip_record_filters(
+            {
+                "$or": match_conditions,
+                "endTime": {"$ne": None},
+            }
+        )
 
         pipeline = [
             {"$match": ended_at_place_match},
@@ -70,6 +73,8 @@ class VisitTrackingService:
                     "let": {"arrivalEnd": "$endTime"},
                     "pipeline": [
                         {"$match": {"$expr": {"$gt": ["$startTime", "$$arrivalEnd"]}}},
+                        {"$match": {"invalid": {"$ne": True}}},
+                        {"$match": {"inactive": {"$ne": True}}},
                         {"$sort": {"startTime": 1}},
                         {"$limit": 1},
                         {"$project": {"_id": 0, "startTime": 1}},
