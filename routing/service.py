@@ -1400,7 +1400,7 @@ async def _generate_optimal_route_with_progress_impl(
                         ),
                     )
                 if bulk_ops:
-                    collection = Street.get_pymongo_collection()
+                    collection = Street.get_motor_collection()
                     await collection.bulk_write(bulk_ops, ordered=False)
                     logger.info(
                         "Cached %d graph_edge mappings for future route generations",

@@ -112,8 +112,8 @@ class TripSyncService:
         """
 
         try:
-            job_db = Job.get_pymongo_collection().database
-            history_db = TaskHistory.get_pymongo_collection().database
+            job_db = Job.get_motor_collection().database
+            history_db = TaskHistory.get_motor_collection().database
         except Exception:
             return False
 

@@ -36,7 +36,7 @@ async def _cleanup_trip_references(trip_ids: list) -> int:
     if not trip_ids:
         return 0
 
-    result = await CoverageState.get_pymongo_collection().update_many(
+    result = await CoverageState.get_motor_collection().update_many(
         {"driven_by_trip_id": {"$in": trip_ids}},
         {"$set": {"driven_by_trip_id": None}},
     )

@@ -28,7 +28,7 @@ class FakeModel:
     def __init__(self, collection: FakeCollection) -> None:
         self._collection = collection
 
-    def get_pymongo_collection(self) -> FakeCollection:
+    def get_motor_collection(self) -> FakeCollection:
         return self._collection
 
 

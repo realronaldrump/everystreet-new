@@ -390,7 +390,7 @@ async def get_route_analytics(route_id: str):
     if not route:
         raise HTTPException(status_code=404, detail="Route not found")
 
-    trips_coll = Trip.get_pymongo_collection()
+    trips_coll = Trip.get_motor_collection()
     tz_expr = get_mongo_tz_expr()
 
     match_query = enforce_bouncie_source(

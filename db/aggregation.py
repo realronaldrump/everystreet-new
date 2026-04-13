@@ -1,4 +1,4 @@
-"""Aggregation helpers for Motor and PyMongo async collections."""
+"""Aggregation helpers for Motor async collections."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ async def aggregate_to_list(
     Handles Motor (cursor returned directly) and PyMongo async (cursor
     returned via await) collections.
     """
-    collection = model.get_pymongo_collection()
+    collection = model.get_motor_collection()
     cursor = collection.aggregate(pipeline, **kwargs)
     if inspect.isawaitable(cursor):
         cursor = await cursor

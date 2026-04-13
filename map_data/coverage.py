@@ -121,7 +121,7 @@ async def build_trip_coverage_polygon(
     if progress_callback:
         await progress_callback(stats)
 
-    collection = Trip.get_pymongo_collection()
+    collection = Trip.get_motor_collection()
     cursor = collection.find(
         enforce_bouncie_source({"gps": {"$exists": True, "$ne": None}}),
         {"gps": 1, "_id": 0},
@@ -285,7 +285,7 @@ async def build_trip_coverage_extract(
 ) -> str | None:
     from db.models import Trip
 
-    collection = Trip.get_pymongo_collection()
+    collection = Trip.get_motor_collection()
     has_trip = await collection.find_one(
         enforce_bouncie_source({"gps": {"$exists": True, "$ne": None}}),
         {"_id": 1},

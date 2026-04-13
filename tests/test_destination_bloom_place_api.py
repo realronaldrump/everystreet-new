@@ -160,7 +160,7 @@ async def test_create_place_from_destination_bloom_uses_geo_within_update_query(
         gps=_linestring([[-97.73, 30.24], [-97.71004, 30.29003]]),
     ).insert()
 
-    real_collection = Trip.get_pymongo_collection()
+    real_collection = Trip.get_motor_collection()
     captured: dict[str, object] = {}
 
     class CollectionProxy:
@@ -174,7 +174,7 @@ async def test_create_place_from_destination_bloom_uses_geo_within_update_query(
 
     monkeypatch.setattr(
         Trip,
-        "get_pymongo_collection",
+        "get_motor_collection",
         MethodType(lambda _self: CollectionProxy(), Trip),
     )
 

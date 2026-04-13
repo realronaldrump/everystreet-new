@@ -142,7 +142,7 @@ class PlaceService:
         )
         await place.insert()
 
-        trip_collection = Trip.get_pymongo_collection()
+        trip_collection = Trip.get_motor_collection()
         update_query = _destination_bloom_update_query(
             transaction_ids=deduped_ids,
             geometry=place.geometry,
@@ -231,7 +231,7 @@ class PlaceService:
                 matched_transaction_ids.append(transaction_id)
                 seen_transaction_ids.add(transaction_id)
 
-        await Trip.get_pymongo_collection().update_many(
+        await Trip.get_motor_collection().update_many(
             {"transactionId": {"$in": matched_transaction_ids}},
             {
                 "$set": {

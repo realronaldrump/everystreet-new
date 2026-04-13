@@ -607,7 +607,7 @@ class RecurringRoutesBuilder:
                 progress=85.0,
                 message="Marking inactive routes...",
             )
-            routes_coll = RecurringRoute.get_pymongo_collection()
+            routes_coll = RecurringRoute.get_motor_collection()
             await routes_coll.update_many(
                 {"is_active": True, "route_key": {"$nin": list(seen_keys)}},
                 {"$set": {"is_active": False, "updated_at": now}},
@@ -620,7 +620,7 @@ class RecurringRoutesBuilder:
                 message="Assigning trips to routes...",
             )
 
-            trips_coll = Trip.get_pymongo_collection()
+            trips_coll = Trip.get_motor_collection()
             await trips_coll.update_many(
                 # Keep the sparse index effective: sparse skips missing fields, not explicit nulls.
                 enforce_bouncie_source({"recurringRouteId": {"$exists": True}}),
