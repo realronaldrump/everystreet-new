@@ -5,7 +5,7 @@
 {% block title %}
 
 
-Coverage Management
+Street Atlas
 {% endblock %}
 
 
@@ -24,34 +24,81 @@ Coverage Management
 
 
   <!-- ============================================================
-     VIEW 1: AREA LIST
+     VIEW 1: ATLAS TERRITORIES
      ============================================================ -->
   <div id="coverage-list-view" class="coverage-view coverage-view--list">
     <div class="container-fluid">
       <div class="bento-grid" data-stagger>
 
-        <!-- Page Header -->
-        <div class="bento-span-12 widget" data-accent="amber">
+        <!-- Atlas Concierge Header -->
+        <div class="bento-span-12 atlas-hero" data-accent="amber">
+          <div class="atlas-hero-copy">
+            <span class="atlas-kicker">
+              <i class="fas fa-map-location-dot" aria-hidden="true"></i>
+              Street Atlas
+            </span>
+            <h1 class="atlas-title" id="atlas-hero-title">
+              Your territories, quietly maintained
+            </h1>
+            <p class="atlas-subtitle" id="atlas-hero-subtitle">
+Coverage refreshes after every stored trip. Add a territory once, then let the atlas keep score.
+            </p>
+          </div>
+          <div class="atlas-hero-panel">
+            <span class="atlas-panel-label">Next best move</span>
+            <strong id="atlas-next-action-title">Loading recommendation...</strong>
+            <p id="atlas-next-action-message">
+The atlas will suggest a drive when enough street data is ready.
+            </p>
+            <a class="btn btn-primary btn-sm d-none"
+               id="atlas-next-action-link"
+               href="/coverage-route-planner">
+              Open planner
+            </a>
+          </div>
+        </div>
+
+        <div class="bento-span-12 atlas-summary-strip" aria-label="Atlas summary">
+          <article>
+            <span>Territories</span>
+            <strong id="atlas-territory-count">0</strong>
+          </article>
+          <article>
+            <span>Covered</span>
+            <strong id="atlas-coverage-percent">0%</strong>
+          </article>
+          <article>
+            <span>Remaining</span>
+            <strong id="atlas-remaining-miles">0 mi</strong>
+          </article>
+          <article>
+            <span>Automation</span>
+            <strong id="atlas-automation-state">Quiet</strong>
+          </article>
+        </div>
+
+        <!-- Territory List Header -->
+        <div class="bento-span-12 widget atlas-territory-toolbar" data-accent="amber">
           <div class="widget-header">
             <div>
-              <h1 class="widget-title">
+              <h2 class="widget-title">
                 <i class="fas fa-route" aria-hidden="true"></i>
-              Every Street
-              </h1>
+              Territories
+              </h2>
               <p class="widget-meta">
-Track your street coverage challenge — how much have you driven?
+Private atlas territories with coverage progress and automated refreshes.
               </p>
             </div>
             <div class="list-header-actions">
               <div class="total-areas-badge">
                 <span id="total-areas-count" class="total-areas-number">0</span>
-                <span class="total-areas-label">areas</span>
+                <span class="total-areas-label">territories</span>
               </div>
               <button class="btn btn-success btn-sm"
                       data-bs-toggle="modal"
                       data-bs-target="#addAreaModal"
                       aria-label="Add a new coverage area">
-                <i class="fas fa-plus me-1" aria-hidden="true"></i>Add Area
+                <i class="fas fa-plus me-1" aria-hidden="true"></i>Add Territory
               </button>
               <button class="btn btn-outline-secondary btn-sm"
                       id="refresh-list-btn"
@@ -73,7 +120,7 @@ Track your street coverage challenge — how much have you driven?
           <div class="area-cards-loading"
                id="area-cards-loading"
                aria-live="polite"
-               aria-label="Loading coverage areas">
+               aria-label="Loading coverage territories">
             <div class="area-card-skeleton" aria-hidden="true">
             </div>
             <div class="area-card-skeleton" aria-hidden="true">
@@ -86,7 +133,7 @@ Track your street coverage challenge — how much have you driven?
           <div class="area-cards-grid stagger-container"
                id="area-cards-grid"
                role="list"
-               aria-label="Coverage areas"
+               aria-label="Coverage territories"
                style="display: none">
           </div>
 
@@ -96,16 +143,16 @@ Track your street coverage challenge — how much have you driven?
               <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
             </div>
             <h3 class="empty-state-title">
-Start Your Street Challenge
+Start Your Atlas
             </h3>
             <p class="empty-state-body">
-            Add a coverage area to begin tracking which streets you've driven.
-            Coverage updates automatically every time you complete a trip.
+            Add a territory to begin tracking which streets you have driven.
+            Coverage updates automatically every time a stored trip lands.
             </p>
             <button class="btn btn-success btn-lg"
                     data-bs-toggle="modal"
                     data-bs-target="#addAreaModal">
-              <i class="fas fa-plus me-2" aria-hidden="true"></i>Add Your First Area
+              <i class="fas fa-plus me-2" aria-hidden="true"></i>Add Your First Territory
             </button>
           </div>
         </div>
@@ -166,8 +213,8 @@ Error details
       <div class="sidebar-area-header">
         <button id="sidebar-back-btn"
                 class="sidebar-back-btn"
-                aria-label="Back to coverage areas list"
-                title="Back to areas">
+                aria-label="Back to coverage territories list"
+                title="Back to territories">
           <i class="fas fa-arrow-left" aria-hidden="true"></i>
         </button>
         <div class="sidebar-area-name-group">
@@ -274,8 +321,12 @@ Street Segments
           </div>
         </div>
 
-        <!-- Actions -->
-        <div class="sidebar-actions">
+        <!-- Owner-only exception tools -->
+        <details class="sidebar-actions atlas-admin-tools owner-only">
+          <summary>
+            <span><i class="fas fa-screwdriver-wrench" aria-hidden="true"></i> Resolve atlas data</span>
+            <small>Advanced territory refresh options</small>
+          </summary>
           <div class="sidebar-action-group">
             <label class="sidebar-toggle-label" for="dashboard-include-service-roads-toggle">
               <span class="toggle-text">Service Roads</span>
@@ -319,7 +370,7 @@ Matched trips only
           <button class="btn btn-outline-warning btn-sm w-100" id="rebuild-area-btn">
             <i class="fas fa-sync me-1" aria-hidden="true"></i>Rebuild from OSM
           </button>
-        </div>
+        </details>
 
       </div>
       <!-- /#sidebar-tab-stats -->
@@ -457,7 +508,11 @@ Last driven
           </dd>
         </dl>
 
-        <div class="street-detail-actions" id="street-detail-actions">
+        <details class="street-detail-actions atlas-edit-tools owner-only" id="street-detail-actions">
+          <summary>
+            <span>Edit segment status</span>
+            <small>Use only to resolve exceptions</small>
+          </summary>
           <button id="street-mark-driven-btn"
                   class="btn btn-success btn-sm w-100 mb-2 d-none"
                   aria-label="Mark this segment as driven">
@@ -473,7 +528,7 @@ Last driven
                   aria-label="Reset this segment to undriven">
             <i class="fas fa-undo me-1" aria-hidden="true"></i>Reset to Undriven
           </button>
-        </div>
+        </details>
       </div>
 
     </aside>
@@ -491,7 +546,7 @@ Last driven
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">
-            <i class="fas fa-plus-circle me-2" aria-hidden="true"></i>Add Coverage Area
+            <i class="fas fa-plus-circle me-2" aria-hidden="true"></i>Add Territory
           </h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal">
           </button>
@@ -500,7 +555,7 @@ Last driven
           <form id="add-area-form" novalidate>
             <div class="mb-3">
               <label for="location-input" class="form-label">
-Location Name
+Territory
               </label>
               <input type="text"
                      id="location-input"
@@ -508,25 +563,30 @@ Location Name
                      placeholder="e.g., Waco, TX"
                      autocomplete="off"
                      required />
-              <small class="form-text text-secondary">Enter a city, county, or state name</small>
+              <small class="form-text text-secondary">Enter a city, county, or state name. The atlas will validate the boundary.</small>
             </div>
-            <div class="mb-3">
-              <label for="location-type" class="form-label">
-Area Type
-              </label>
-              <select id="location-type" class="form-select">
-                <option value="city" selected>
+            <details class="atlas-add-advanced owner-only">
+              <summary>
+                <span>Boundary hints</span>
+                <small>Only needed when a place name is ambiguous</small>
+              </summary>
+              <div class="mb-3">
+                <label for="location-type" class="form-label">
+Territory Type
+                </label>
+                <select id="location-type" class="form-select">
+                  <option value="city" selected>
 City
-                </option>
-                <option value="county">
+                  </option>
+                  <option value="county">
 County
-                </option>
-                <option value="state">
+                  </option>
+                  <option value="state">
 State / Region
-                </option>
-              </select>
-              <small class="form-text text-secondary">Used as a type hint for location matching</small>
-            </div>
+                  </option>
+                </select>
+                <small class="form-text text-secondary">Used only as a hint when multiple boundaries match.</small>
+              </div>
             <div class="mb-3">
               <label for="include-service-roads-toggle"
                      class="form-label d-flex justify-content-between align-items-center">
@@ -575,6 +635,7 @@ Matched trips only
                      data-coverage-trip-mode-status
                      aria-live="polite"></small>
             </div>
+            </details>
 
             <!-- Validation panel -->
             <div class="coverage-validation" id="coverage-validation-panel">
@@ -601,14 +662,14 @@ Matched trips only
                    aria-live="polite">
               </div>
               <small class="form-text text-secondary mt-2">
-              Validate and confirm the correct location before adding.
+              Confirm the right boundary only when multiple matches appear.
               </small>
             </div>
           </form>
 
           <div class="alert alert-info small mt-3" role="note">
             <i class="fas fa-info-circle me-2" aria-hidden="true"></i>
-          After adding, the area will automatically load street data and calculate coverage from your existing trips.
+          After adding, the atlas will load street data and calculate coverage from your existing stored trips.
           </div>
         </div>
         <div class="modal-footer">
@@ -620,7 +681,7 @@ Cancel
                   class="btn btn-success"
                   disabled
                   aria-disabled="true">
-            <i class="fas fa-plus me-1" aria-hidden="true"></i>Add Area
+            <i class="fas fa-plus me-1" aria-hidden="true"></i>Add Territory
           </button>
         </div>
       </div>

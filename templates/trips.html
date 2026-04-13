@@ -5,7 +5,7 @@
 {% block title %}
 
 
- Your Trips - Every Street
+ Journey Journal - Every Street
 {% endblock %}
 
 
@@ -75,14 +75,41 @@ block extra_css %}
           <span class="sync-indicator" data-state="idle">
             <span class="sync-dot"></span>
           </span>
-          <span class="sync-text">Updated 2 hours ago</span>
+          <span class="sync-text">Concierge refreshes automatically</span>
           <button class="sync-btn" id="sync-now-btn" title="Sync now">
             <i class="fas fa-sync-alt"></i>
           </button>
         </div>
       </header>
 
+      <section class="journey-concierge" aria-label="Journey concierge">
+        <div>
+          <span class="journey-kicker">
+            <i class="fas fa-book-open" aria-hidden="true"></i>
+            Journey Journal
+          </span>
+          <h2 id="journey-feed-title">
+            Recent drives, already sorted
+          </h2>
+          <p id="journey-feed-summary">
+            Your latest trips, route discoveries, and review prompts appear here without manual sorting.
+          </p>
+        </div>
+        <div class="journey-feed-cards" id="journey-feed-cards" role="list">
+          <article class="journey-feed-card">
+            <span>Loading</span>
+            <strong>Reading recent journeys...</strong>
+            <p>The concierge is building the story from stored trips.</p>
+          </article>
+        </div>
+      </section>
+
       <!-- Smart Search & Quick Filters -->
+      <details class="journey-find-trip" id="journey-find-trip">
+        <summary>
+          <span><i class="fas fa-search" aria-hidden="true"></i> Find a specific trip</span>
+          <small>Search, sort, and filters</small>
+        </summary>
       <section class="trips-search-section" data-accent="mint">
         <div class="search-container">
           <div class="search-input-wrap">
@@ -210,6 +237,7 @@ All vehicles
           <!-- Dynamically populated -->
         </div>
       </section>
+      </details>
 
       <!-- Insights Cards -->
       <section class="trips-insights" id="trips-insights">
@@ -321,11 +349,11 @@ No trips yet
         <div class="empty-actions">
           <button class="btn btn-primary" id="empty-sync-btn" type="button">
             <i class="fas fa-sync-alt"></i>
-          Sync my vehicle
+          Connect vehicle
           </button>
           <a href="/control-center" class="btn btn-secondary">
             <i class="fas fa-cog"></i>
-          Setup
+          Concierge
           </a>
         </div>
       </div>

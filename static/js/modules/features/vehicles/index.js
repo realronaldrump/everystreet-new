@@ -44,6 +44,7 @@ export default function initVehiclesPage({ signal, cleanup, api } = {}) {
   });
   resetState();
   initializeEventListeners(signal);
+  loadGarageSummary();
   loadVehicle();
 
   const teardown = () => {
@@ -108,6 +109,11 @@ function cacheElements() {
     saveManualOdometerBtn: document.getElementById("save-manual-odometer-btn"),
     saveSettingsBtn: document.getElementById("save-settings-btn"),
     deleteVehicleBtn: document.getElementById("delete-vehicle-btn"),
+    garageSummaryTitle: document.getElementById("garage-summary-title"),
+    garageSummaryBody: document.getElementById("garage-summary-body"),
+    garageVehicleCount: document.getElementById("garage-vehicle-count"),
+    garageSyncState: document.getElementById("garage-sync-state"),
+    garageNextAttention: document.getElementById("garage-next-attention"),
   };
 }
 
@@ -119,6 +125,37 @@ function resetState() {
 
 function withSignal(options = {}) {
   return featureApi.withSignal(options);
+}
+
+async function loadGarageSummary() {
+  try {
+    const data = await apiClient.get("/api/garage/summary", withSignal());
+    const summary = data?.summary || {};
+    if (elements.garageSummaryTitle) {
+      elements.garageSummaryTitle.textContent =
+        summary.primary_vehicle && summary.vehicle_count
+          ? `${summary.primary_vehicle} is on watch`
+          : "Your garage is waiting for a vehicle";
+    }
+    if (elements.garageSummaryBody) {
+      elements.garageSummaryBody.textContent =
+        summary.next_attention ||
+        "Vehicle discovery, odometer confidence, and trip sync state appear here automatically.";
+    }
+    if (elements.garageVehicleCount) {
+      elements.garageVehicleCount.textContent = String(summary.vehicle_count || 0);
+    }
+    if (elements.garageSyncState) {
+      elements.garageSyncState.textContent = summary.sync_state || "unknown";
+    }
+    if (elements.garageNextAttention) {
+      elements.garageNextAttention.textContent = summary.next_attention || "No action";
+    }
+  } catch (error) {
+    if (error?.name !== "AbortError") {
+      console.warn("Garage summary unavailable", error);
+    }
+  }
 }
 
 /**
@@ -700,6 +737,7 @@ async function deleteVehicle() {
     // Clear selection if we just deleted the selected vehicle
     setStorage(STORAGE_KEY, "");
     notify.success(`${name} has been removed`);
+    await loadGarageSummary();
     await loadVehicle();
   } catch (error) {
     if (error.name === "AbortError") {
@@ -731,6 +769,7 @@ async function syncFromBouncie() {
     }
 
     notify.success(data.message || "Vehicle synced from Bouncie");
+    await loadGarageSummary();
     await loadVehicle();
   } catch (error) {
     if (error.name === "AbortError") {
@@ -739,6 +778,7 @@ async function syncFromBouncie() {
     console.error("Error syncing from Bouncie:", error);
     notify.error(error.message || "Failed to sync from Bouncie");
     // Reload to show whatever state we have
+    await loadGarageSummary();
     await loadVehicle();
   }
 }

@@ -4,6 +4,7 @@ import { formatDateTime } from "../../utils.js";
 
 const OVERVIEW_API = "/api/status/overview";
 const HEALTH_API = "/api/status/health";
+const CONCIERGE_API = "/api/concierge/status";
 const POLL_INTERVAL_MS = 30000;
 
 const STATUS_VARIANTS = {
@@ -165,6 +166,87 @@ function renderFailures(healthData) {
     .join("");
 }
 
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.textContent = value;
+  }
+}
+
+function renderConciergeStatus(data) {
+  if (!data) {
+    return;
+  }
+
+  const overall = data.overall || {};
+  setText("concierge-overall-label", overall.label || "Status unavailable");
+  setText(
+    "concierge-overall-message",
+    overall.message || "Concierge status is temporarily unavailable."
+  );
+
+  const vehicle = data.vehicle || {};
+  setText("concierge-vehicle-label", vehicle.label || "No vehicle connected");
+  setText(
+    "concierge-vehicle-detail",
+    vehicle.last_seen_at
+      ? `Last seen ${vehicle.last_seen_label || ""}`.trim()
+      : `${vehicle.count || 0} vehicles connected`
+  );
+
+  const sync = data.sync || {};
+  setText(
+    "concierge-sync-label",
+    sync.state === "syncing"
+      ? "Refreshing trips"
+      : sync.state === "paused"
+        ? "Needs attention"
+        : "Up to date"
+  );
+  setText(
+    "concierge-sync-detail",
+    sync.last_success_at
+      ? `Last refresh ${sync.last_success_label || ""}`.trim()
+      : "Automatic refresh is waiting for the first successful sync."
+  );
+
+  const coverage = data.coverage || {};
+  const selectedTerritory = coverage.selected_territory || {};
+  setText(
+    "concierge-coverage-label",
+    selectedTerritory.name
+      ? `${selectedTerritory.coverage_percent || 0}% in ${selectedTerritory.name}`
+      : coverage.label || "No territories yet"
+  );
+  setText(
+    "concierge-coverage-detail",
+    selectedTerritory.name
+      ? `${selectedTerritory.remaining_miles || 0} miles remain.`
+      : "Add a territory once and coverage will maintain itself."
+  );
+
+  const maps = data.maps || {};
+  setText("concierge-maps-label", maps.label || "Map services");
+  setText("concierge-maps-detail", maps.message || "Routing and geocoding are quiet.");
+
+  const firstAction = Array.isArray(data.action_items) ? data.action_items[0] : null;
+  const actionLink = document.getElementById("concierge-action-link");
+  setText("concierge-action-title", firstAction?.title || "No review needed");
+  setText(
+    "concierge-action-message",
+    firstAction?.message || "The app will only ask when a decision is actually needed."
+  );
+  if (actionLink) {
+    if (firstAction?.cta_href) {
+      actionLink.classList.remove("d-none");
+      actionLink.href = firstAction.cta_href;
+      actionLink.textContent = firstAction.cta_label || "Review";
+    } else {
+      actionLink.classList.add("d-none");
+    }
+  }
+}
+
 export default function initControlCenterOverview({ signal } = {}) {
   const tab = document.getElementById("overview-tab");
   if (!tab) {
@@ -176,11 +258,13 @@ export default function initControlCenterOverview({ signal } = {}) {
 
   const refreshOverview = async (isManual = false) => {
     try {
-      const [overviewData, healthData] = await Promise.all([
+      const [overviewData, healthData, conciergeData] = await Promise.all([
         apiClient.get(OVERVIEW_API, withSignal()),
         apiClient.get(HEALTH_API, withSignal()),
+        apiClient.get(CONCIERGE_API, withSignal()),
       ]);
 
+      renderConciergeStatus(conciergeData);
       renderOverviewHeader({ overviewData, healthData });
       renderServiceCards(healthData);
       renderFailures(healthData);

@@ -15,6 +15,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from admin import router as admin_api_router
 from analytics import router as analytics_api_router
+from api.concierge import router as concierge_router
 from api.map_bundle import router as map_bundle_router
 from api.pages import router as pages_router
 from api.routing import router as routing_router
@@ -214,6 +215,7 @@ app.add_middleware(
 # Include all the modular routers
 app.include_router(auth_router)
 app.include_router(pages_router)
+app.include_router(concierge_router)
 app.include_router(admin_api_router)
 app.include_router(analytics_api_router)
 app.include_router(geo_coverage_api_router)

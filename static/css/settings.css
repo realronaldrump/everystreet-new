@@ -7,6 +7,149 @@
   margin: 0 auto;
 }
 
+/* === Concierge Default Surface === */
+.concierge-page {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.concierge-hero {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid rgb(var(--border-rgb) / 18%);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgb(var(--primary-rgb) / 14%), transparent 46%),
+    linear-gradient(160deg, rgb(var(--accent-rgb) / 10%), transparent 55%),
+    var(--surface-1);
+  box-shadow: var(--shadow-md);
+}
+
+.concierge-hero-copy {
+  max-width: 58rem;
+}
+
+.concierge-kicker,
+.concierge-card-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--accent-light);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.concierge-title {
+  margin: var(--space-3) 0 var(--space-2);
+  color: var(--text-primary);
+  font-family: var(--font-family-display);
+  font-size: clamp(2rem, 5vw, 4rem);
+  line-height: 1;
+}
+
+.concierge-subtitle {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-lg);
+  max-width: 48rem;
+}
+
+.concierge-action-card,
+.concierge-status-card {
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid rgb(var(--border-rgb) / 18%);
+  border-radius: 8px;
+  background: rgb(var(--surface-rgb) / 62%);
+}
+
+.concierge-action-card strong,
+.concierge-status-card strong {
+  display: block;
+  margin-top: var(--space-2);
+  color: var(--text-primary);
+  font-size: var(--font-size-lg);
+}
+
+.concierge-action-card p,
+.concierge-status-card p {
+  margin: var(--space-2) 0 0;
+  color: var(--text-secondary);
+}
+
+.concierge-action-card .btn {
+  margin-top: var(--space-3);
+}
+
+.concierge-status-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+.diagnostics-drawer {
+  border: 1px solid rgb(var(--border-rgb) / 18%);
+  border-radius: 8px;
+  background: var(--surface-0);
+}
+
+.diagnostics-drawer > summary {
+  display: flex;
+  min-height: 3.25rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+  list-style: none;
+}
+
+.diagnostics-drawer > summary::-webkit-details-marker {
+  display: none;
+}
+
+.diagnostics-drawer > summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.diagnostics-drawer > summary small {
+  color: var(--text-tertiary);
+  font-weight: var(--font-weight-medium);
+}
+
+.diagnostics-drawer[open] {
+  padding: 0 var(--space-4) var(--space-4);
+}
+
+.diagnostics-intro {
+  margin-top: var(--space-4);
+}
+
+@media (width >= 768px) {
+  .concierge-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (width >= 1024px) {
+  .concierge-hero {
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+    align-items: end;
+  }
+
+  .concierge-status-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 /* === Tab Navigation === */
 .settings-nav-container {
   margin-bottom: var(--space-5);
@@ -456,7 +599,9 @@
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-family-numeric);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
   overflow-wrap: break-word;
 }
 
@@ -609,9 +754,11 @@
 }
 
 .storage-source-size {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-family-numeric);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
   color: var(--text-primary);
 }
 
@@ -700,9 +847,11 @@
 }
 
 .collection-stat-value {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-family-numeric);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
   color: var(--text-primary);
 }
 
@@ -2262,7 +2411,7 @@
 
 .trip-import-log-summary::before {
   content: "\f0da";
-  font-family: "Font Awesome 5 Free", sans-serif;
+  font-family: "Font Awesome 6 Free", sans-serif;
   font-weight: 900;
   font-size: var(--font-size-sm);
   color: var(--text-tertiary);
@@ -2377,7 +2526,8 @@
 
 .trip-import-failure-count {
   font-variant-numeric: tabular-nums;
-  font-family: var(--font-family-mono);
+  font-feature-settings: "tnum";
+  font-family: var(--font-family-numeric);
   color: var(--text-tertiary);
 }
 
@@ -2523,7 +2673,8 @@
 
 .trip-data-health-pill-badge {
   font-variant-numeric: tabular-nums;
-  font-family: var(--font-family-mono);
+  font-feature-settings: "tnum";
+  font-family: var(--font-family-numeric);
   font-size: var(--font-size-xs);
   line-height: 1;
   padding: 0.2rem 0.5rem;
@@ -2604,7 +2755,8 @@
 
 .trip-issues-chip-count {
   font-variant-numeric: tabular-nums;
-  font-family: var(--font-family-mono);
+  font-feature-settings: "tnum";
+  font-family: var(--font-family-numeric);
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   border-left: 1px solid var(--border-color);
@@ -2932,12 +3084,15 @@
   color: var(--text-secondary);
   white-space: nowrap;
   font-size: var(--font-size-sm);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-family-numeric);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
 .trip-issue-count {
   font-variant-numeric: tabular-nums;
-  font-family: var(--font-family-mono);
+  font-feature-settings: "tnum";
+  font-family: var(--font-family-numeric);
   color: var(--text-primary);
   font-weight: var(--font-weight-semibold);
 }
@@ -2967,7 +3122,9 @@
 
 .trip-issue-window {
   color: var(--text-tertiary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-family-numeric);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
 .trip-issue-details {
@@ -3073,7 +3230,9 @@
 
 .trip-invalid-date {
   color: var(--text-secondary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-family-numeric);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
   white-space: nowrap;
 }
 

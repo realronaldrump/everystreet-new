@@ -99,9 +99,11 @@
 }
 
 .trip-stats-summary-value {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-family-numeric);
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
   color: var(--text-primary);
   line-height: 1.1;
 }
@@ -170,9 +172,11 @@
 
 .trip-stats-metric-value {
   margin-top: 2px;
-  font-family: var(--font-family-mono);
+  font-family: var(--font-family-numeric);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
   color: var(--text-primary);
   line-height: 1.2;
   overflow: hidden;

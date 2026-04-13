@@ -2,7 +2,7 @@
 
 {% block title %}
 
- Control Center
+ Concierge
 {% endblock %}
 
 
@@ -22,23 +22,82 @@
 {% block content %}
 
 
-  <div class="container-fluid settings-container">
+  <div class="container-fluid settings-container concierge-page">
     <h1 class="visually-hidden">
-Control Center
+Concierge
     </h1>
-    <div class="bento-grid" data-stagger>
-      <div class="bento-span-12 widget" data-accent="purple">
-        <div class="widget-header">
-          <h2 class="widget-title">
-            <i class="fas fa-sliders-h" aria-hidden="true"></i>
-          Control Center
-          </h2>
-          <div class="widget-meta">
-Manage app settings, operations health, logs, and account tools in one place.
+    <section class="concierge-hero" data-stagger>
+      <div class="concierge-hero-copy">
+        <span class="concierge-kicker">
+          <i class="fas fa-compass" aria-hidden="true"></i>
+          Cartographic Concierge
+        </span>
+        <h2 class="concierge-title" id="concierge-overall-label">
+          Everything is handled
+        </h2>
+        <p class="concierge-subtitle" id="concierge-overall-message">
+          Trips, coverage, and map services are maintained quietly in the background.
+        </p>
+      </div>
+      <div class="concierge-action-card" id="concierge-action-card">
+        <span class="concierge-card-label">Attention</span>
+        <strong id="concierge-action-title">No review needed</strong>
+        <p id="concierge-action-message">
+          The app will only ask when a decision is actually needed.
+        </p>
+        <a class="btn btn-primary btn-sm d-none"
+           href="/control-center#diagnostics"
+           id="concierge-action-link"
+           data-no-swup>
+          Review
+        </a>
+      </div>
+    </section>
+
+    <section class="concierge-status-grid" aria-label="Concierge status">
+      <article class="concierge-status-card" data-concierge-card="vehicle">
+        <span class="concierge-card-label">Garage</span>
+        <strong id="concierge-vehicle-label">Loading vehicle...</strong>
+        <p id="concierge-vehicle-detail">Checking the connected vehicle.</p>
+      </article>
+      <article class="concierge-status-card" data-concierge-card="sync">
+        <span class="concierge-card-label">Trip Sync</span>
+        <strong id="concierge-sync-label">Loading sync...</strong>
+        <p id="concierge-sync-detail">Recent drives are refreshed automatically.</p>
+      </article>
+      <article class="concierge-status-card" data-concierge-card="coverage">
+        <span class="concierge-card-label">Atlas</span>
+        <strong id="concierge-coverage-label">Loading atlas...</strong>
+        <p id="concierge-coverage-detail">Coverage refreshes after trips land.</p>
+      </article>
+      <article class="concierge-status-card" data-concierge-card="maps">
+        <span class="concierge-card-label">Map Services</span>
+        <strong id="concierge-maps-label">Loading maps...</strong>
+        <p id="concierge-maps-detail">Geocoding and routing stay behind the scenes.</p>
+      </article>
+    </section>
+
+    <details class="diagnostics-drawer owner-only" id="diagnostics">
+      <summary>
+        <span>
+          <i class="fas fa-screwdriver-wrench" aria-hidden="true"></i>
+          Owner diagnostics
+        </span>
+        <small>Credentials, jobs, logs, storage, and recovery tools</small>
+      </summary>
+      <div class="bento-grid diagnostics-intro" data-stagger>
+        <div class="bento-span-12 widget" data-accent="purple">
+          <div class="widget-header">
+            <h2 class="widget-title">
+              <i class="fas fa-sliders-h" aria-hidden="true"></i>
+            Diagnostics
+            </h2>
+            <div class="widget-meta">
+Technical settings and recovery tools stay here so the daily app can drive itself.
+            </div>
           </div>
         </div>
       </div>
-    </div>
     <!-- Tab Navigation -->
     <div class="settings-nav-container">
       <nav class="settings-tabs" role="tablist">
@@ -2501,6 +2560,8 @@ Select one or more containers from the list above to view logs.
       </div>
     </div>
   </div>
+
+    </details>
 
   <!-- Task Details Modal -->
   <div class="modal fade" id="taskDetailsModal" tabindex="-1">

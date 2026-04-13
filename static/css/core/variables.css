@@ -25,9 +25,10 @@
    - 4px grid (0.25rem - 4rem)
 
    Typography
-   - Display: Chivo (headlines)
-   - Body: IBM Plex Sans (excellent data legibility)
-   - Mono: JetBrains Mono (superior number clarity)
+   - Display: Fraunces (editorial trip/place moments)
+   - Body: Manrope (polished product UI)
+   - Numeric: Manrope with tabular numbers
+   - Mono: system monospace for logs, IDs, and raw technical output
    ============================ */
 
 :root {
@@ -124,11 +125,12 @@
   --border-rgb: 142 134 124;
   --text-rgb: 245 242 236;
 
-  /* Typography - Refined (Phase 1) */
-  --font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
-  --font-family-display: "Chivo", "IBM Plex Sans", system-ui, -apple-system, sans-serif;
-  --font-family-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, sfmono-regular, menlo,
-    monaco, consolas, monospace;
+  /* Typography - editorial map product */
+  --font-family: "Manrope", system-ui, -apple-system, blinkmacsystemfont, "Segoe UI", sans-serif;
+  --font-family-display: "Fraunces", "Manrope", georgia, serif;
+  --font-family-numeric: var(--font-family);
+  --font-family-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Roboto Mono", menlo, monaco,
+    consolas, monospace;
 
   /* Refined Font Size Hierarchy */
   --font-size-xs: clamp(0.72rem, 0.68rem + 0.2vw, 0.82rem);

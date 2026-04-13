@@ -732,7 +732,9 @@ details[open] .setup-help-toggle::after {
 
 .setup-import-activity-log li .activity-time {
   flex-shrink: 0;
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-family-numeric);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   min-width: 52px;

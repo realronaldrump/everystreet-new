@@ -2,6 +2,114 @@
    Vehicles page — card-based sidebar + detail layout
    ============================================================ */
 
+/* Garage concierge layer */
+.garage-concierge {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid rgb(var(--border-rgb) / 18%);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgb(var(--primary-rgb) / 12%), transparent 48%),
+    linear-gradient(160deg, rgb(var(--accent-rgb) / 10%), transparent 58%),
+    var(--surface-1);
+  box-shadow: var(--shadow-md);
+}
+
+.garage-kicker,
+.garage-summary-grid span {
+  color: var(--accent-light);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.garage-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.garage-concierge h2 {
+  margin: var(--space-3) 0 var(--space-2);
+  color: var(--text-primary);
+  font-family: var(--font-family-display);
+  font-size: clamp(1.8rem, 5vw, 3.5rem);
+  line-height: 1;
+}
+
+.garage-concierge p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.garage-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+.garage-summary-grid article {
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid rgb(var(--border-rgb) / 16%);
+  border-radius: 8px;
+  background: rgb(var(--surface-rgb) / 62%);
+}
+
+.garage-summary-grid strong {
+  display: block;
+  margin-top: var(--space-2);
+  color: var(--text-primary);
+  font-size: var(--font-size-lg);
+}
+
+.garage-advanced,
+.garage-maintenance-tools {
+  border: 1px solid rgb(var(--border-rgb) / 16%);
+  border-radius: 8px;
+  background: rgb(var(--surface-rgb) / 42%);
+  padding: var(--space-2) var(--space-3);
+}
+
+.garage-advanced > summary,
+.garage-maintenance-tools > summary {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  cursor: pointer;
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+  list-style: none;
+}
+
+.garage-advanced > summary::-webkit-details-marker,
+.garage-maintenance-tools > summary::-webkit-details-marker {
+  display: none;
+}
+
+.vehicle-detail-panel .setting-field:has(#active-status-toggle),
+.vehicle-detail-panel #delete-vehicle-btn {
+  display: none !important;
+}
+
+@media (width >= 768px) {
+  .garage-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (width >= 1024px) {
+  .garage-concierge {
+    grid-template-columns: minmax(0, 1fr) minmax(24rem, 0.85fr);
+    align-items: end;
+  }
+}
+
 .vehicles-page {
   color: var(--text-primary);
   max-width: 1400px;
@@ -229,7 +337,8 @@
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  font-family: var(--font-family-mono);
+  font-feature-settings: "tnum";
+  font-family: var(--font-family-numeric);
 }
 
 .odometer-unit {

@@ -133,6 +133,66 @@ function normalizeCoverageTripMode(value) {
   return COVERAGE_TRIP_MODES.has(mode) ? mode : DEFAULT_COVERAGE_TRIP_MODE;
 }
 
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.textContent = value;
+  }
+}
+
+async function loadAtlasSummary() {
+  try {
+    const data = await apiClient.get(`${API_BASE}/atlas`, withSignal());
+    const summary = data?.summary || {};
+    const selected = data?.selected_territory || {};
+    const recommendation = data?.recommended_next_action || {};
+    const activeAutomation = Array.isArray(data?.active_automation)
+      ? data.active_automation
+      : [];
+
+    setText(
+      "atlas-hero-title",
+      selected.name
+        ? `${selected.name} is ${selected.coverage_percent || 0}% covered`
+        : "Your territories, quietly maintained"
+    );
+    setText(
+      "atlas-hero-subtitle",
+      selected.name
+        ? `${selected.remaining_miles || 0} miles remain. Every stored trip can move the atlas forward.`
+        : "Coverage refreshes after every stored trip. Add a territory once, then let the atlas keep score."
+    );
+    setText("atlas-territory-count", String(summary.territory_count || 0));
+    setText("atlas-coverage-percent", `${summary.coverage_percent || 0}%`);
+    setText("atlas-remaining-miles", `${summary.remaining_miles || 0} mi`);
+    setText("atlas-automation-state", activeAutomation.length ? "Refreshing" : "Quiet");
+    setText(
+      "atlas-next-action-title",
+      recommendation.title || "Next best drive is ready"
+    );
+    setText(
+      "atlas-next-action-message",
+      recommendation.message ||
+        "Open the planner when you want a refined route through remaining streets."
+    );
+
+    const link = document.getElementById("atlas-next-action-link");
+    if (link) {
+      if (recommendation.cta_href) {
+        link.classList.remove("d-none");
+        link.href = recommendation.cta_href;
+        link.textContent = recommendation.cta_label || "Open";
+      } else {
+        link.classList.add("d-none");
+      }
+    }
+  } catch (error) {
+    if (error?.name !== "AbortError") {
+      console.warn("Atlas summary unavailable", error);
+    }
+  }
+}
+
 function getCoverageTripModeLabel(mode) {
   switch (normalizeCoverageTripMode(mode)) {
     case "regular":
@@ -174,6 +234,7 @@ export default async function initCoverageManagementPage({
   setupKeyboardShortcuts(signal);
   initValidationUI();
   await loadCoverageFilterSettings();
+  await loadAtlasSummary();
 
   // Load initial area list
   await loadAreas();

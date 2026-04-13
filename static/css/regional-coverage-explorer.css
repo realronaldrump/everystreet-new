@@ -9,6 +9,12 @@
   overflow: hidden;
 }
 
+.regional-coverage-explorer-wrapper
+  :where(.summary-pill-value, .hero-ring-value, .state-coverage) {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
 .regional-coverage-explorer-map {
   width: 100%;
   height: 100%;
@@ -155,7 +161,7 @@
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--text-primary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-family-numeric);
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -293,7 +299,7 @@
   justify-content: center;
   font-size: 1rem;
   font-weight: 700;
-  font-family: var(--font-family-mono);
+  font-family: var(--font-family-numeric);
   color: var(--text-primary);
 }
 
@@ -547,7 +553,7 @@
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--text-secondary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-family-numeric);
   line-height: 1.35;
 }
 
