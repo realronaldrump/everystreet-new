@@ -1,10 +1,6 @@
 gunicorn
 aiohttp
-<<<<<<< HEAD
 beanie>=1.26,<2
-=======
-beanie==2.0.1
->>>>>>> parent of 90afe8f3 (feat: implement journey concierge feed, update typography system to Manrope/Fraunces, and remove pinned dependency versions.)
 certifi
 fastapi
 geopandas
@@ -13,13 +9,8 @@ httpx[http2]
 arq
 motor>=3.6,<4
 numpy
-<<<<<<< HEAD
 pydantic
 pymongo>=4.9,<5
-=======
-pydantic==2.12.5
-pymongo
->>>>>>> parent of 90afe8f3 (feat: implement journey concierge feed, update typography system to Manrope/Fraunces, and remove pinned dependency versions.)
 pyproj
 pyrosm
 python-dotenv
