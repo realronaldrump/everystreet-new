@@ -40,3 +40,4 @@ Pillow
 mapbox-vector-tile==2.2.0
 mercantile==1.2.1
 zipp>=3.19.1 # not directly required, pinned by Snyk to avoid a vulnerability
+dnspython>=2.6.1 # not directly required, pinned by Snyk to avoid a vulnerability
