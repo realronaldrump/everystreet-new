@@ -95,90 +95,6 @@ function isAbortError(error) {
   return error?.name === "AbortError";
 }
 
-function setText(id, value) {
-  const el = document.getElementById(id);
-  if (el) {
-    el.textContent = value;
-  }
-}
-
-async function loadJourneyFeed() {
-  const cards = document.getElementById("journey-feed-cards");
-  if (!cards) {
-    return;
-  }
-
-  try {
-    const data = await apiGet("/api/journey/feed");
-    const summary = data?.summary || {};
-    const highlights = Array.isArray(data?.highlights) ? data.highlights : [];
-    const issues = Array.isArray(data?.issues) ? data.issues : [];
-
-    setText(
-      "journey-feed-title",
-      summary.total_trips
-        ? `${summary.total_trips} journeys in the journal`
-        : data?.empty_state?.title || "Your journal is waiting for the first drive"
-    );
-    setText(
-      "journey-feed-summary",
-      summary.total_trips
-        ? `${summary.month_miles || 0} miles this month. ${issues.length || "No"} review prompts.`
-        : data?.empty_state?.message ||
-            "Connect Bouncie once and recent journeys will appear here automatically."
-    );
-
-    const cardsToRender = [
-      {
-        label: "This month",
-        value: `${summary.month_miles || 0} mi`,
-        detail: "Stored trips refresh this automatically.",
-      },
-      {
-        label: "Longest recent",
-        value: `${summary.longest_recent_trip_miles || 0} mi`,
-        detail: "Notable drives rise to the top.",
-      },
-      {
-        label: "Review",
-        value: issues.length ? `${issues.length} prompts` : "Quiet",
-        detail: issues.length
-          ? "Only exceptions need your attention."
-          : "No trip maintenance needed.",
-      },
-    ];
-
-    if (!highlights.length && !summary.total_trips) {
-      cardsToRender[0].value = "Waiting";
-      cardsToRender[0].detail =
-        data?.empty_state?.message ||
-        "Connect Bouncie once and the journal builds itself.";
-    }
-
-    cards.innerHTML = cardsToRender
-      .map(
-        (card) => `
-          <article class="journey-feed-card" role="listitem">
-            <span>${escapeHtml(card.label)}</span>
-            <strong>${escapeHtml(card.value)}</strong>
-            <p>${escapeHtml(card.detail)}</p>
-          </article>
-        `
-      )
-      .join("");
-  } catch (error) {
-    if (!isAbortError(error)) {
-      cards.innerHTML = `
-        <article class="journey-feed-card" role="listitem">
-          <span>Journal</span>
-          <strong>Temporarily unavailable</strong>
-          <p>The trip timeline below is still available.</p>
-        </article>
-      `;
-    }
-  }
-}
-
 function isGoogleMapProvider() {
   return String(window.MAP_PROVIDER || "").toLowerCase() === "google";
 }
@@ -516,7 +432,6 @@ async function initializePage(signal, cleanup) {
       }
       void loadTrips();
       void loadTripStats();
-      void loadJourneyFeed();
     },
     onSyncError: () => {
       updateSyncStatus("error");
@@ -535,7 +450,7 @@ async function initializePage(signal, cleanup) {
   );
 
   // Initial data load
-  await Promise.all([loadTrips(), loadTripStats(), loadJourneyFeed()]);
+  await Promise.all([loadTrips(), loadTripStats()]);
 
   // Apply any saved filters after data loads
   applySavedFilters();

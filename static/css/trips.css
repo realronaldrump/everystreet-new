@@ -2,129 +2,6 @@
 
 /* Warm, friendly, and personal - like a travel diary */
 
-/* Journey Journal concierge layer */
-.journey-concierge {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-4);
-  margin-bottom: var(--space-5);
-  padding: clamp(1.25rem, 3vw, 2rem);
-  border: 1px solid rgb(var(--border-rgb) / 18%);
-  border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgb(var(--primary-rgb) / 12%), transparent 48%),
-    linear-gradient(160deg, rgb(var(--accent-rgb) / 10%), transparent 58%),
-    var(--surface-1);
-  box-shadow: var(--shadow-md);
-}
-
-.journey-kicker,
-.journey-feed-card span,
-.journey-find-trip > summary small {
-  color: var(--accent-light);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0;
-  text-transform: uppercase;
-}
-
-.journey-kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.journey-concierge h2 {
-  margin: var(--space-3) 0 var(--space-2);
-  color: var(--text-primary);
-  font-family: var(--font-family-display);
-  font-size: clamp(1.8rem, 5vw, 3.5rem);
-  line-height: 1;
-}
-
-.journey-concierge p {
-  margin: 0;
-  color: var(--text-secondary);
-}
-
-.journey-feed-cards {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-3);
-}
-
-.journey-feed-card {
-  min-width: 0;
-  padding: var(--space-4);
-  border: 1px solid rgb(var(--border-rgb) / 16%);
-  border-radius: 8px;
-  background: rgb(var(--surface-rgb) / 62%);
-}
-
-.journey-feed-card strong {
-  display: block;
-  margin-top: var(--space-2);
-  color: var(--text-primary);
-  font-size: var(--font-size-lg);
-}
-
-.journey-find-trip {
-  margin-bottom: var(--space-5);
-  border: 1px solid rgb(var(--border-rgb) / 16%);
-  border-radius: 8px;
-  background: var(--surface-0);
-}
-
-.journey-find-trip > summary {
-  display: flex;
-  min-height: 3.25rem;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  cursor: pointer;
-  color: var(--text-primary);
-  font-weight: var(--font-weight-semibold);
-  list-style: none;
-}
-
-.journey-find-trip > summary::-webkit-details-marker {
-  display: none;
-}
-
-.journey-find-trip > summary span {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.journey-find-trip[open] {
-  padding-bottom: var(--space-3);
-}
-
-.sync-status-mini .sync-btn,
-.trip-details-modal #modal-inactive-toggle-btn,
-.trip-details-modal #modal-delete-btn,
-.trip-details-modal #modal-regeocode-subtle-btn,
-.trip-details-modal .route-actions,
-.trip-details-modal .trip-layer-toggle,
-.bulk-actions-bar {
-  display: none !important;
-}
-
-@media (width >= 768px) {
-  .journey-feed-cards {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (width >= 1024px) {
-  .journey-concierge {
-    grid-template-columns: minmax(0, 0.9fr) minmax(22rem, 1.1fr);
-    align-items: end;
-  }
-}
-
 /* ============================================
    CSS VARIABLES
    ============================================ */
@@ -1755,7 +1632,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   font-weight: 800;
   color: var(--text-primary);
   margin: 0;
-  letter-spacing: 0;
+  letter-spacing: -0.02em;
   text-shadow: 0 2px 10px rgb(0 0 0 / 30%);
 }
 
@@ -2351,7 +2228,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   color: rgb(255 255 255 / 85%);
   font-size: 0.9375rem;
   font-weight: 700;
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
   cursor: pointer;
   transition:
     transform 0.15s ease,
@@ -2436,7 +2313,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   font-size: 1.25rem;
   font-weight: 800;
   color: var(--text-primary);
-  letter-spacing: 0;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 

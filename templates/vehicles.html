@@ -2,7 +2,7 @@
 
 {% block title %}
 
-Garage
+My Vehicles
 {% endblock %}
 
 
@@ -24,16 +24,12 @@ Garage
           <div>
             <h1 class="widget-title">
               <i class="fas fa-car" aria-hidden="true"></i>
-              Garage
+              My Vehicles
             </h1>
             <div class="widget-meta">
-              Connected vehicles, mileage confidence, and sync health without daily maintenance.
+              Manage your vehicles, track mileage, and update settings.
             </div>
           </div>
-          <details class="garage-advanced owner-only">
-            <summary>
-              <span><i class="fas fa-screwdriver-wrench" aria-hidden="true"></i> Recovery tools</span>
-            </summary>
           <div class="d-flex gap-2 flex-wrap">
             <button type="button" class="btn btn-outline-primary btn-sm" id="fleet-sync-btn">
               <i class="fas fa-sync me-1"></i> Sync from Bouncie
@@ -47,36 +43,6 @@ Garage
               <i class="fas fa-plus me-1"></i> Add Vehicle
             </button>
           </div>
-          </details>
-        </div>
-      </div>
-
-      <div class="bento-span-12 garage-concierge" aria-label="Garage concierge">
-        <div>
-          <span class="garage-kicker">
-            <i class="fas fa-warehouse" aria-hidden="true"></i>
-            Private Garage
-          </span>
-          <h2 id="garage-summary-title">
-            Your garage is being readied
-          </h2>
-          <p id="garage-summary-body">
-            Vehicle discovery, odometer confidence, and trip sync state appear here automatically.
-          </p>
-        </div>
-        <div class="garage-summary-grid" id="garage-summary-grid">
-          <article>
-            <span>Vehicles</span>
-            <strong id="garage-vehicle-count">0</strong>
-          </article>
-          <article>
-            <span>Sync</span>
-            <strong id="garage-sync-state">Checking</strong>
-          </article>
-          <article>
-            <span>Next</span>
-            <strong id="garage-next-attention">Loading</strong>
-          </article>
         </div>
       </div>
 
@@ -289,11 +255,8 @@ Bouncie Live
                       </div>
                     </div>
 
-                  <!-- Manual Entry -->
-                    <details class="odometer-action-row garage-maintenance-tools owner-only">
-                      <summary>
-                        <span><i class="fas fa-pen" aria-hidden="true"></i> Manual odometer</span>
-                      </summary>
+                    <!-- Manual Entry -->
+                    <div class="odometer-action-row">
                       <div class="odometer-action-info">
                         <i class="fas fa-pen text-secondary"></i>
                         <div class="flex-grow-1">
@@ -316,7 +279,7 @@ Manual Entry
                             Save
                         </button>
                       </div>
-                    </details>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -376,24 +339,21 @@ Inactive vehicles won't sync trips.
               </div>
 
               <!-- Quick Links -->
-              <details class="widget is-compact garage-advanced owner-only" data-accent="amber">
-                <summary>
-                  <span>Garage recovery</span>
-                </summary>
+              <div class="widget is-compact" data-accent="amber">
                 <div class="widget-body">
                   <div class="d-grid gap-2">
                     <button type="button" class="btn btn-outline-primary btn-sm" id="sync-vehicle-btn">
                       <i class="fas fa-sync me-1"></i> Re-sync Vehicle
                     </button>
                     <a href="/gas-tracking" class="btn btn-outline-secondary btn-sm">
-                      <i class="fas fa-gas-pump me-1"></i> Fuel Stops
+                      <i class="fas fa-gas-pump me-1"></i> Gas Tracking
                     </a>
                     <a href="/control-center" class="btn btn-outline-secondary btn-sm" data-no-swup>
                       <i class="fas fa-key me-1"></i> Bouncie Credentials
                     </a>
                   </div>
                 </div>
-              </details>
+              </div>
             </div>
           </div>
         </div>

@@ -19,10 +19,8 @@
   gap: var(--space-2);
   font-size: 0.75rem; /* Equivalent to xs generally, but explicit for control */
   color: var(--text-tertiary);
-  font-family: var(--font-family-numeric);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
-  letter-spacing: 0;
+  font-family: var(--font-mono);
+  letter-spacing: -0.01em;
 }
 
 .footer-version-info {

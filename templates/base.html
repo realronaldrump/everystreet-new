@@ -59,10 +59,10 @@
     <link rel="apple-touch-icon"
           href="{{ url_for('static', path='apple-touch-icon.png') | replace('http://', '//') }}" />
 
-    <!-- Font loading with display swap -->
+    <!-- Font loading with display swap (Phase 1: Refined Typography) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..800&family=Manrope:wght@400..800&display=swap"
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Chivo:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
           rel="stylesheet" />
 
     <!-- Critical CSS -->
@@ -187,7 +187,7 @@
               <li class="nav-item owner-only {% if request.url.path == '/gas-tracking' %}active{% endif %}">
                 <a
                   href="/gas-tracking"
-                  title="Fuel Stops"
+                  title="Gas Tracking"
 {%
                   if
                   request.url.path == "/gas-tracking"
@@ -197,7 +197,7 @@
                   %}
                 >
                   <i class="fas fa-gas-pump" aria-hidden="true"></i>
-                  <span>Fuel</span>
+                  <span>Gas</span>
                 </a>
               </li>
               <!-- More Dropdown -->
@@ -271,9 +271,9 @@ Insights & Tracking
                     <hr class="dropdown-divider" />
                   </li>
 
-                  <!-- Atlas -->
+                  <!-- Coverage & Routes -->
                   <li class="dropdown-header">
-Atlas
+Coverage & Routes
                   </li>
                   <li role="none">
                     <a
@@ -289,7 +289,7 @@ Atlas
                       %}
                     >
                       <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i>
-                      Street Atlas
+                      Coverage Management
                     </a>
                   </li>
                   <li role="none">
@@ -347,9 +347,9 @@ Atlas
                     <hr class="dropdown-divider" />
                   </li>
 
-                  <!-- Owner Tools -->
+                  <!-- Data -->
                   <li class="dropdown-header owner-only">
-Owner Tools
+Data
                   </li>
                   <li role="none">
                     <a
@@ -365,16 +365,16 @@ Owner Tools
                       %}
                     >
                       <i class="fas fa-file-export me-2" aria-hidden="true"></i>
-                      Export Archive
+                      Export Data
                     </a>
                   </li>
                   <li role="separator" class="owner-only">
                     <hr class="dropdown-divider" />
                   </li>
 
-                  <!-- Diagnostics -->
+                  <!-- System -->
                   <li class="dropdown-header owner-only">
-Diagnostics
+System
                   </li>
                   <li role="none">
                     <a
@@ -390,7 +390,7 @@ Diagnostics
                       %}
                     >
                       <i class="fas fa-sliders-h me-2" aria-hidden="true"></i>
-                      Concierge
+                      Control Center
                     </a>
                   </li>
                   <li role="none">
@@ -407,7 +407,7 @@ Diagnostics
                       %}
                     >
                       <i class="fas fa-car me-2" aria-hidden="true"></i>
-                      Garage
+                      My Vehicle
                     </a>
                   </li>
                 </ul>
@@ -596,7 +596,7 @@ Diagnostics
                   endif
                   %}
                 >
-                  <i class="fas fa-gas-pump me-2" aria-hidden="true"></i> Fuel Stops
+                  <i class="fas fa-gas-pump me-2" aria-hidden="true"></i> Gas Tracking
                 </a>
               </li>
               <li role="none" class="owner-only">
@@ -647,12 +647,12 @@ Diagnostics
             </ul>
           </div>
 
-          <!-- Atlas Section -->
+          <!-- Coverage & Routes Section -->
           <div class="drawer-nav-section">
             <button class="drawer-nav-section-header"
                     aria-expanded="true"
                     aria-controls="nav-section-coverage">
-              <span class="drawer-nav-section-title">Atlas</span>
+              <span class="drawer-nav-section-title">Coverage & Routes</span>
               <i class="fas fa-chevron-down drawer-nav-section-chevron" aria-hidden="true"></i>
             </button>
             <ul class="drawer-nav-section-list" id="nav-section-coverage" role="list">
@@ -723,12 +723,12 @@ Diagnostics
             </ul>
           </div>
 
-          <!-- Owner Tools Section -->
+          <!-- Data Section -->
           <div class="drawer-nav-section owner-only">
             <button class="drawer-nav-section-header"
                     aria-expanded="true"
                     aria-controls="nav-section-data">
-              <span class="drawer-nav-section-title">Owner Tools</span>
+              <span class="drawer-nav-section-title">Data</span>
               <i class="fas fa-chevron-down drawer-nav-section-chevron" aria-hidden="true"></i>
             </button>
             <ul class="drawer-nav-section-list" id="nav-section-data" role="list">
@@ -744,18 +744,18 @@ Diagnostics
                   endif
                   %}
                 >
-                  <i class="fas fa-file-export me-2" aria-hidden="true"></i> Export Archive
+                  <i class="fas fa-file-export me-2" aria-hidden="true"></i> Export Data
                 </a>
               </li>
             </ul>
           </div>
 
-          <!-- Diagnostics Section -->
+          <!-- System Section -->
           <div class="drawer-nav-section owner-only">
             <button class="drawer-nav-section-header"
                     aria-expanded="true"
                     aria-controls="nav-section-system">
-              <span class="drawer-nav-section-title">Diagnostics</span>
+              <span class="drawer-nav-section-title">System</span>
               <i class="fas fa-chevron-down drawer-nav-section-chevron" aria-hidden="true"></i>
             </button>
             <ul class="drawer-nav-section-list" id="nav-section-system" role="list">
@@ -771,7 +771,7 @@ Diagnostics
                   endif
                   %}
                 >
-                  <i class="fas fa-sliders-h me-2" aria-hidden="true"></i> Concierge
+                  <i class="fas fa-sliders-h me-2" aria-hidden="true"></i> Control Center
                 </a>
               </li>
               <li role="none" class="owner-only">
@@ -786,7 +786,7 @@ Diagnostics
                   endif
                   %}
                 >
-                  <i class="fas fa-car me-2" aria-hidden="true"></i> Garage
+                  <i class="fas fa-car me-2" aria-hidden="true"></i> My Vehicle
                 </a>
               </li>
             </ul>

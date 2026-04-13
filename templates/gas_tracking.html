@@ -5,7 +5,7 @@
 {% block title %}
 
 
- Fuel Stops
+ Gas Tracking
 {% endblock %}
 
 
@@ -38,10 +38,10 @@ extra_css %}
           <span class="header-icon"><i class="fas fa-gas-pump"></i></span>
           <div class="header-text">
             <h1 class="page-title">
-Fuel Stops
+Fill Up
             </h1>
             <p class="page-subtitle">
-Confirm likely fill-ups and let efficiency calculate itself
+Track your fuel and see your efficiency
             </p>
           </div>
         </div>
@@ -69,39 +69,13 @@ Confirm likely fill-ups and let efficiency calculate itself
 
     <!-- Main Content Grid -->
     <div class="gas-content">
-      <section class="fuel-concierge" aria-label="Fuel suggestions">
-        <div>
-          <span class="fuel-kicker">
-            <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
-            Fuel Concierge
-          </span>
-          <h2 id="fuel-suggestions-title">
-            Looking for likely fuel stops
-          </h2>
-          <p id="fuel-suggestions-body">
-            Suggested fill-ups appear here before the manual form.
-          </p>
-        </div>
-        <div class="fuel-suggestion-list" id="fuel-suggestion-list" role="list">
-          <article class="fuel-suggestion-card">
-            <span>Loading</span>
-            <strong>Checking recent vehicle context...</strong>
-            <p>Fuel prompts stay quiet unless there is something to confirm.</p>
-          </article>
-        </div>
-      </section>
-
       <!-- Left Column: Fill-up Form -->
-      <details class="form-section fuel-manual-entry" data-accent="mint">
-        <summary>
-          <span><i class="fas fa-plus-circle" aria-hidden="true"></i> Add manually</span>
-          <small>Use when the concierge did not detect the stop</small>
-        </summary>
+      <section class="form-section" data-accent="mint">
         <div class="section-card">
           <div class="card-header">
             <h2 class="card-title">
               <i class="fas fa-plus-circle"></i>
-            Manual Fill-up
+            New Fill-up
             </h2>
             <span class="card-badge" id="form-badge" style="display: none">Editing</span>
           </div>
@@ -310,7 +284,7 @@ Location
             </div>
           </form>
         </div>
-      </details>
+      </section>
 
       <!-- Right Column: Recent History -->
       <aside class="history-section" data-accent="purple">

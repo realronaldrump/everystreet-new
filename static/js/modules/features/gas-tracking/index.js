@@ -5,7 +5,7 @@ import store from "../../core/store.js";
 import { createMap } from "../../map-core.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
-import { escapeHtml, formatVehicleName, getStorage, setStorage } from "../../utils.js";
+import { formatVehicleName, getStorage, setStorage } from "../../utils.js";
 
 /**
  * Gas Tracking Module - Redesigned for better UX
@@ -55,9 +55,6 @@ async function initializePage(signal, cleanup) {
     // Load recent fill-ups
     await loadRecentFillups();
 
-    // Load concierge suggestions
-    await loadFuelSuggestions();
-
     // Set up event listeners
     setupEventListeners(signal);
 
@@ -93,81 +90,6 @@ async function initializePage(signal, cleanup) {
   } catch {
     showError("Failed to initialize page");
     return noopTeardown;
-  }
-}
-
-function setText(id, value) {
-  const el = document.getElementById(id);
-  if (el) {
-    el.textContent = value;
-  }
-}
-
-async function loadFuelSuggestions() {
-  const list = document.getElementById("fuel-suggestion-list");
-  if (!list) {
-    return;
-  }
-
-  try {
-    const response = await apiRaw("/api/fuel/suggestions");
-    if (!response.ok) {
-      throw new Error("Failed to load fuel suggestions");
-    }
-    const data = await response.json();
-    const suggestions = Array.isArray(data?.suggestions) ? data.suggestions : [];
-    const summary = data?.summary || {};
-
-    setText(
-      "fuel-suggestions-title",
-      suggestions.length
-        ? `${suggestions.length} fuel prompt${suggestions.length === 1 ? "" : "s"} ready`
-        : "Fuel log is quiet"
-    );
-    setText(
-      "fuel-suggestions-body",
-      suggestions.length
-        ? "Confirm likely fill-ups here, or add one manually when needed."
-        : "No fuel stop needs review right now. Manual entry is still available below."
-    );
-
-    const cards = suggestions.length
-      ? suggestions
-      : [
-          {
-            title: summary.recent_fillup_count
-              ? "Recent fill-ups look current"
-              : "No suggestion yet",
-            message: summary.recent_fillup_count
-              ? "The latest fuel records are already in place."
-              : "Fuel prompts appear after vehicle context is available.",
-            confidence: "quiet",
-          },
-        ];
-
-    list.innerHTML = cards
-      .map(
-        (suggestion) => `
-          <article class="fuel-suggestion-card" role="listitem">
-            <span>${escapeHtml(suggestion.confidence || "review")}</span>
-            <strong>${escapeHtml(suggestion.title || "Review fuel stop")}</strong>
-            <p>${escapeHtml(
-              suggestion.message || "Confirm this stop when the details look right."
-            )}</p>
-          </article>
-        `
-      )
-      .join("");
-  } catch (error) {
-    if (error?.name !== "AbortError") {
-      list.innerHTML = `
-        <article class="fuel-suggestion-card" role="listitem">
-          <span>Fuel</span>
-          <strong>Suggestions unavailable</strong>
-          <p>The manual fill-up form is still available.</p>
-        </article>
-      `;
-    }
   }
 }
 

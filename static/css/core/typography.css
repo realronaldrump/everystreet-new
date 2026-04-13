@@ -1,7 +1,7 @@
 body {
   font-family: var(--font-family);
   font-size: var(--font-size-md);
-  letter-spacing: 0;
+  letter-spacing: 0.005em;
 }
 
 h1,
@@ -13,7 +13,7 @@ h6,
 .display-3,
 .display-4 {
   font-family: var(--font-family-display);
-  letter-spacing: 0;
+  letter-spacing: -0.015em;
   line-height: var(--line-height-tight);
 }
 
@@ -37,7 +37,7 @@ p,
 .live-trip-hud-speed,
 .nav-stat .value,
 .meta-value {
-  font-family: var(--font-family-numeric);
+  font-family: var(--font-family-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }

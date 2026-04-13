@@ -23,23 +23,6 @@
   overflow-x: hidden;
 }
 
-.routes-page
-  :where(
-    .route-card-stats,
-    .route-trip-row-meta,
-    .routes-stat-value,
-    .routes-modal-trips-count,
-    .routes-hero-stat-value,
-    .route-card-metric .metric-value,
-    .routes-summary-kpi-value,
-    .routes-variant-share-value,
-    .routes-variant-chip,
-    .route-key-fact-value
-  ) {
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
-}
-
 .routes-ambient-bg {
   position: fixed;
   inset: 0;
@@ -125,7 +108,7 @@
 .routes-title {
   font-family: var(--font-family-display);
   font-weight: var(--font-weight-extrabold);
-  letter-spacing: 0;
+  letter-spacing: -0.02em;
   margin: var(--space-3) 0 var(--space-2);
   line-height: var(--line-height-tight);
   font-size: clamp(2rem, 1.6rem + 2.4vw, 3.4rem);
@@ -649,7 +632,7 @@
   display: inline-block;
   font-size: 0.72rem;
   font-weight: var(--font-weight-semibold);
-  font-family: var(--font-family-numeric);
+  font-family: var(--font-family-mono);
   letter-spacing: 0.01em;
   color: rgb(var(--routes-primary-rgb) / 85%);
   background: rgb(var(--routes-primary-rgb) / 10%);
@@ -744,7 +727,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-family: var(--font-family-numeric);
+  font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   border-top: 1px solid rgb(var(--border-rgb) / 10%);
@@ -928,7 +911,7 @@
 }
 
 .routes-stat-value {
-  font-family: var(--font-family-numeric);
+  font-family: var(--font-family-mono);
   color: rgb(255 255 255 / 90%);
 }
 
@@ -945,7 +928,7 @@
 }
 
 .routes-modal-trips-count {
-  font-family: var(--font-family-numeric);
+  font-family: var(--font-family-mono);
   color: var(--text-tertiary);
 }
 
@@ -987,7 +970,7 @@
 }
 
 .route-trip-row-meta {
-  font-family: var(--font-family-numeric);
+  font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
 }
@@ -1066,7 +1049,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 }
 
 .routes-hero-stat-value {
-  font-family: var(--font-family-numeric);
+  font-family: var(--font-family-mono);
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-semibold);
 }
@@ -1141,7 +1124,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 }
 
 .route-card-metric .metric-value {
-  font-family: var(--font-family-numeric);
+  font-family: var(--font-family-mono);
   font-weight: var(--font-weight-medium);
   min-width: 0;
   overflow: hidden;
@@ -1432,7 +1415,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 }
 
 .routes-summary-kpi-value {
-  font-family: var(--font-family-numeric);
+  font-family: var(--font-family-mono);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
 }
@@ -1542,7 +1525,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 }
 
 .routes-variant-share-value {
-  font-family: var(--font-family-numeric);
+  font-family: var(--font-family-mono);
   color: var(--routes-text-muted);
 }
 
@@ -1568,7 +1551,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
   background: rgb(var(--routes-primary-rgb) / 14%);
   color: rgb(var(--routes-primary-rgb) / 95%);
   padding: 0.2rem 0.6rem;
-  font-family: var(--font-family-numeric);
+  font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
 }
 
@@ -1682,7 +1665,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
   display: inline-block;
   font-size: 0.72rem;
   font-weight: var(--font-weight-semibold);
-  font-family: var(--font-family-numeric);
+  font-family: var(--font-family-mono);
   letter-spacing: 0.01em;
   color: rgb(var(--routes-primary-rgb) / 90%);
 }
@@ -1723,7 +1706,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 }
 
 .route-key-fact-value {
-  font-family: var(--font-family-numeric);
+  font-family: var(--font-family-mono);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
 }
