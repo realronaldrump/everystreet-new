@@ -258,13 +258,20 @@ export default function initControlCenterOverview({ signal } = {}) {
 
   const refreshOverview = async (isManual = false) => {
     try {
-      const [overviewData, healthData, conciergeData] = await Promise.all([
+      const conciergeData = await apiClient.get(CONCIERGE_API, withSignal());
+      renderConciergeStatus(conciergeData);
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        console.warn("Concierge status unavailable", error);
+      }
+    }
+
+    try {
+      const [overviewData, healthData] = await Promise.all([
         apiClient.get(OVERVIEW_API, withSignal()),
         apiClient.get(HEALTH_API, withSignal()),
-        apiClient.get(CONCIERGE_API, withSignal()),
       ]);
 
-      renderConciergeStatus(conciergeData);
       renderOverviewHeader({ overviewData, healthData });
       renderServiceCards(healthData);
       renderFailures(healthData);
