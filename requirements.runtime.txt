@@ -1,6 +1,6 @@
 gunicorn
 aiohttp
-beanie
+beanie==2.0.1
 certifi
 fastapi
 geopandas
@@ -9,7 +9,7 @@ httpx[http2]
 arq
 motor
 numpy
-pydantic
+pydantic==2.12.5
 pymongo
 pyproj
 pyrosm
