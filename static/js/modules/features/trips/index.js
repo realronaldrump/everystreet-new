@@ -490,7 +490,7 @@ function updateOverviewStats({ totalMiles, totalTrips: totalTripsCount, totalHou
     if (hasAnyFilters) {
       summaryEl.innerHTML = `Showing <strong>${safeTrips} trips</strong> totaling <strong>${milesText} miles</strong>`;
     } else {
-      summaryEl.innerHTML = `You've traveled <strong>${milesText} miles</strong> across <strong>${safeTrips} trips</strong> this month`;
+      summaryEl.innerHTML = `You've traveled <strong>${milesText} miles</strong> across <strong>${safeTrips} trips</strong> in this range`;
     }
   }
 }
