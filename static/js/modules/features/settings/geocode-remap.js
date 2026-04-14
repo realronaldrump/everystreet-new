@@ -463,7 +463,8 @@ export function setupRebuildDisplayPaths(signal) {
   const progressPanel = document.getElementById("rebuild-display-paths-progress");
   const statusIcon = document.getElementById("rebuild-paths-status-icon");
   const statusText = document.getElementById("rebuild-paths-status-text");
-  const resultEl = document.getElementById("rebuild-paths-result");
+  const progressBar = document.getElementById("rebuild-paths-progress-bar");
+  const metricsLive = document.getElementById("rebuild-paths-metrics-live");
   if (!btn) {
     return;
   }
@@ -481,71 +482,88 @@ export function setupRebuildDisplayPaths(signal) {
     signal.addEventListener("abort", stopPolling, { once: true });
   }
 
+  const setProgress = (pct) => {
+    const clamped = Math.min(100, Math.max(0, pct));
+    progressBar.style.width = `${clamped}%`;
+    progressBar.setAttribute("aria-valuenow", clamped);
+  };
+
+  const renderMetrics = (metrics) => {
+    if (!metrics) {
+      metricsLive.style.display = "none";
+      return;
+    }
+    const total = metrics.total ?? 0;
+    const processed = metrics.processed ?? 0;
+    const updated = metrics.updated ?? 0;
+    const unchanged = metrics.unchanged ?? 0;
+
+    metricsLive.innerHTML = `
+      <span class="rebuild-paths-metric">
+        <span class="rebuild-paths-metric-value">${total}</span>
+        <span class="rebuild-paths-metric-label">Total</span>
+      </span>
+      <span class="rebuild-paths-metric">
+        <span class="rebuild-paths-metric-value">${processed}</span>
+        <span class="rebuild-paths-metric-label">Processed</span>
+      </span>
+      <span class="rebuild-paths-metric">
+        <span class="rebuild-paths-metric-value">${updated}</span>
+        <span class="rebuild-paths-metric-label">Updated</span>
+      </span>
+      <span class="rebuild-paths-metric">
+        <span class="rebuild-paths-metric-value">${unchanged}</span>
+        <span class="rebuild-paths-metric-label">Unchanged</span>
+      </span>`;
+    metricsLive.style.display = "";
+  };
+
   const showRunning = () => {
     progressPanel.style.display = "";
     statusIcon.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
     statusIcon.className = "rebuild-paths-spinner";
-    statusText.textContent = "Running\u2026";
-    resultEl.style.display = "none";
-    resultEl.innerHTML = "";
+    statusText.textContent = "Starting\u2026";
+    setProgress(0);
+    progressBar.classList.add("progress-bar-animated");
+    metricsLive.style.display = "none";
   };
 
-  const showComplete = (result) => {
+  const showComplete = (metrics) => {
     statusIcon.innerHTML = '<i class="fas fa-check-circle"></i>';
     statusIcon.className = "rebuild-paths-done";
     statusText.textContent = "Complete";
-
-    if (result) {
-      const processed = result.processed_count ?? 0;
-      const modified = result.modified_count ?? 0;
-      const skipped = processed - modified;
-      resultEl.innerHTML = `
-        <div class="rebuild-paths-metrics">
-          <span class="rebuild-paths-metric">
-            <span class="rebuild-paths-metric-value">${processed}</span>
-            <span class="rebuild-paths-metric-label">Processed</span>
-          </span>
-          <span class="rebuild-paths-metric">
-            <span class="rebuild-paths-metric-value">${modified}</span>
-            <span class="rebuild-paths-metric-label">Updated</span>
-          </span>
-          <span class="rebuild-paths-metric">
-            <span class="rebuild-paths-metric-value">${skipped}</span>
-            <span class="rebuild-paths-metric-label">Unchanged</span>
-          </span>
-        </div>`;
-      resultEl.style.display = "";
-    }
+    setProgress(100);
+    progressBar.classList.remove("progress-bar-animated");
+    renderMetrics(metrics);
   };
 
   const showError = (message) => {
     statusIcon.innerHTML = '<i class="fas fa-exclamation-circle"></i>';
     statusIcon.className = "rebuild-paths-error";
     statusText.textContent = message || "Failed";
-    resultEl.style.display = "none";
+    progressBar.classList.remove("progress-bar-animated");
+    metricsLive.style.display = "none";
   };
 
-  const pollStatus = async () => {
+  const pollProgress = async () => {
     try {
-      const details = await apiClient.get(
-        "/api/background_tasks/details/backfill_trip_display_geometry"
+      const data = await apiClient.get(
+        "/api/background_tasks/backfill_display_paths/progress"
       );
 
-      if (details.status === "COMPLETED") {
-        stopPolling();
-        btn.disabled = false;
+      const pct = data.progress ?? 0;
+      setProgress(pct);
+      statusText.textContent = data.message || `${pct}% complete`;
+      renderMetrics(data.metrics);
 
-        const history = await apiClient.get(
-          "/api/background_tasks/history?limit=1"
-        );
-        const entry = history.history?.find(
-          (h) => h.task_id === "backfill_trip_display_geometry" && h.status === "COMPLETED"
-        );
-        showComplete(entry?.result);
-      } else if (details.status === "FAILED") {
+      if (data.stage === "completed") {
         stopPolling();
         btn.disabled = false;
-        showError(details.last_error || "Task failed");
+        showComplete(data.metrics);
+      } else if (data.stage === "error") {
+        stopPolling();
+        btn.disabled = false;
+        showError(data.error || data.message || "Task failed");
       }
     } catch {
       // Ignore transient polling errors
@@ -568,7 +586,7 @@ export function setupRebuildDisplayPaths(signal) {
         });
 
         if (result.status === "success") {
-          pollTimer = setInterval(pollStatus, 3000);
+          pollTimer = setInterval(pollProgress, 2000);
         } else {
           throw new Error(result.message || "Failed to start rebuild");
         }

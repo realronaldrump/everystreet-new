@@ -1069,22 +1069,28 @@
   color: var(--danger);
 }
 
-.rebuild-paths-result {
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border-color);
+.rebuild-paths-bar-container {
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  overflow: hidden;
 }
 
-.rebuild-paths-metrics {
+.rebuild-paths-bar-container .progress-bar {
+  background: var(--accent, var(--primary));
+  transition: width 0.4s ease;
+}
+
+.rebuild-paths-metrics-live {
   display: flex;
   gap: var(--space-4);
+  flex-wrap: wrap;
 }
 
 .rebuild-paths-metric {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 60px;
+  min-width: 55px;
 }
 
 .rebuild-paths-metric-value {

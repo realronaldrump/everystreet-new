@@ -316,6 +316,38 @@ async def run_background_task(
     }
 
 
+@router.get(
+    "/api/background_tasks/backfill_display_paths/progress",
+    response_model=dict[str, Any],
+)
+@api_route(logger)
+async def get_backfill_display_paths_progress():
+    """Get progress for the latest backfill display geometry job."""
+    from core.job_serialization import serialize_job_progress
+    from db.models import Job
+
+    job = await (
+        Job.find(Job.job_type == "backfill_display_geometry")
+        .sort(-Job.created_at)
+        .first_or_none()
+    )
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No backfill job found",
+        )
+
+    payload = serialize_job_progress(job, metadata_field="metrics")
+    return {
+        "stage": payload.get("stage"),
+        "progress": payload.get("progress"),
+        "message": payload.get("message"),
+        "metrics": payload.get("metrics"),
+        "error": payload.get("error"),
+        "updated_at": payload.get("updated_at"),
+    }
+
+
 @router.get("/api/background_tasks/details/{task_id}", response_model=dict[str, Any])
 @api_route(logger)
 async def get_task_details(task_id: str):

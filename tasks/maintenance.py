@@ -17,6 +17,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from core.jobs import create_job, find_job
 from core.trip_query_spec import TripQuerySpec
 from db.models import Trip
 from tasks.config import check_dependencies
@@ -236,30 +237,84 @@ async def _backfill_trip_display_geometry_logic(
     if limit is not None and limit > 0:
         total = min(total, limit)
 
+    job_handle = await create_job(
+        "backfill_display_geometry",
+        status="running",
+        stage="processing",
+        progress=0.0,
+        message=f"Found {total} trips to process",
+        started_at=datetime.now(UTC),
+        metadata={
+            "total": total,
+            "processed": 0,
+            "updated": 0,
+            "unchanged": 0,
+        },
+    )
+
     processed_count = 0
     modified_count = 0
 
-    async for trip in cursor:
-        processed_count += 1
-        fields = compute_trip_display_geometry_fields(trip.model_dump())
-        changed = any(getattr(trip, field) != value for field, value in fields.items())
-
-        if changed:
-            trip.displayGps = fields["displayGps"]
-            trip.displayGpsStatus = fields["displayGpsStatus"]
-            trip.displayGpsSummary = fields["displayGpsSummary"]
-            trip.displayGpsVersion = fields["displayGpsVersion"]
-            trip.displayGpsUpdatedAt = fields["displayGpsUpdatedAt"]
-            await trip.save()
-            modified_count += 1
-
-        if processed_count % 500 == 0:
-            logger.info(
-                "Backfilled display geometry for %d/%d historical trips.",
-                processed_count,
-                total,
+    try:
+        async for trip in cursor:
+            processed_count += 1
+            fields = compute_trip_display_geometry_fields(trip.model_dump())
+            changed = any(
+                getattr(trip, field) != value for field, value in fields.items()
             )
-            await asyncio.sleep(0.01)
+
+            if changed:
+                trip.displayGps = fields["displayGps"]
+                trip.displayGpsStatus = fields["displayGpsStatus"]
+                trip.displayGpsSummary = fields["displayGpsSummary"]
+                trip.displayGpsVersion = fields["displayGpsVersion"]
+                trip.displayGpsUpdatedAt = fields["displayGpsUpdatedAt"]
+                await trip.save()
+                modified_count += 1
+
+            progress_pct = int((processed_count / total) * 100) if total > 0 else 0
+            await job_handle.update(
+                progress=progress_pct,
+                message=f"Processing trip {processed_count} of {total}",
+                metadata_patch={
+                    "processed": processed_count,
+                    "updated": modified_count,
+                    "unchanged": processed_count - modified_count,
+                },
+            )
+
+            if processed_count % 500 == 0:
+                logger.info(
+                    "Backfilled display geometry for %d/%d historical trips.",
+                    processed_count,
+                    total,
+                )
+                await asyncio.sleep(0.01)
+
+        await job_handle.update(
+            stage="completed",
+            status="completed",
+            progress=100,
+            message=(
+                f"Done: {modified_count} updated, "
+                f"{processed_count - modified_count} unchanged"
+            ),
+            metadata_patch={
+                "processed": processed_count,
+                "updated": modified_count,
+                "unchanged": processed_count - modified_count,
+            },
+            completed_at=datetime.now(UTC),
+        )
+    except Exception as exc:
+        await job_handle.update(
+            stage="error",
+            status="failed",
+            message=f"Error: {exc}",
+            error=str(exc),
+            completed_at=datetime.now(UTC),
+        )
+        raise
 
     return {
         "status": "success",
