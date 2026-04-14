@@ -21,6 +21,22 @@ const heatmapUtils = {
     },
   },
 
+  _resolveColorPalette(theme = "dark", palette = null) {
+    const fallbackPalette = this.COLORS[theme] || this.COLORS.dark;
+    if (!palette || typeof palette !== "object") {
+      return fallbackPalette;
+    }
+
+    const glow = typeof palette.glow === "string" && palette.glow.trim()
+      ? palette.glow.trim()
+      : fallbackPalette.glow;
+    const core = typeof palette.core === "string" && palette.core.trim()
+      ? palette.core.trim()
+      : fallbackPalette.core;
+
+    return { glow, core };
+  },
+
   /**
    * Calculate line width and opacity based on trip count.
    * The key insight: we want individual lines thin and semi-transparent
@@ -176,8 +192,8 @@ const heatmapUtils = {
    * @param {string} theme - 'dark' or 'light'
    * @returns {Array} Array of layer paint configurations
    */
-  generateGlowLayers(tripCount, userOpacity = 0.85, theme = "dark") {
-    const colors = this.COLORS[theme] || this.COLORS.dark;
+  generateGlowLayers(tripCount, userOpacity = 0.85, theme = "dark", palette = null) {
+    const colors = this._resolveColorPalette(theme, palette);
     const settings = this.getAdaptiveSettings(tripCount);
 
     const opacityMult = userOpacity;
@@ -216,13 +232,18 @@ const heatmapUtils = {
    * @returns {Object} Configuration with layers
    */
   generateHeatmapConfig(tripsGeoJSON, options = {}) {
-    const { theme = "dark", opacity = 0.85, visibleTripCount = null } = options;
+    const {
+      theme = "dark",
+      opacity = 0.85,
+      visibleTripCount = null,
+      palette = null,
+    } = options;
     const tripCount = tripsGeoJSON?.features?.length || 0;
     const styleTripCount =
       Number.isFinite(visibleTripCount) && visibleTripCount >= 0
         ? visibleTripCount
         : tripCount;
-    const glowLayers = this.generateGlowLayers(styleTripCount, opacity, theme);
+    const glowLayers = this.generateGlowLayers(styleTripCount, opacity, theme, palette);
 
     return {
       tripCount,

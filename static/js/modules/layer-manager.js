@@ -16,6 +16,7 @@
 import { CONFIG } from "./core/config.js";
 import store from "./core/store.js";
 import heatmapUtils from "./heatmap-utils.js";
+import MapStyles from "./map-styles.js";
 import notificationManager from "./ui/notifications.js";
 import { utils } from "./utils.js";
 
@@ -933,6 +934,7 @@ const layerManager = {
       theme,
       opacity: layerInfo.opacity,
       visibleTripCount,
+      palette: this._getHeatmapPalette(layerName),
     });
 
     glowLayers.forEach((glowConfig, index) => {
@@ -1688,6 +1690,31 @@ const layerManager = {
     store.map.addLayer(layerConfig, beforeId);
   },
 
+  _getHeatmapPalette(layerName) {
+    if (layerName !== "matchedTrips") {
+      return null;
+    }
+
+    const matchedTripColors = MapStyles.MAP_LAYER_COLORS?.matchedTrips || {};
+    const fallbackPalette = {
+      glow: "#c45454",
+      core: "#5fa0c4",
+    };
+
+    return {
+      glow:
+        typeof matchedTripColors.default === "string" &&
+        matchedTripColors.default.trim()
+          ? matchedTripColors.default
+          : fallbackPalette.glow,
+      core:
+        typeof matchedTripColors.highlight === "string" &&
+        matchedTripColors.highlight.trim()
+          ? matchedTripColors.highlight
+          : fallbackPalette.core,
+    };
+  },
+
   // ============================================================
   // Heatmap Layer Management
   // ============================================================
@@ -1705,6 +1732,7 @@ const layerManager = {
       theme,
       opacity: layerInfo.opacity,
       visibleTripCount,
+      palette: this._getHeatmapPalette(layerName),
     });
 
     const { glowLayers } = heatmapConfig;
