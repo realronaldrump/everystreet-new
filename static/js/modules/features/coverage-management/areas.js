@@ -306,7 +306,7 @@ function renderAreaCard(area, coverageJob, routeJob) {
   const primaryActionDisabled = isError ? !canRebuild : !isReady;
 
   return `
-    <div class="area-card" data-area-id="${area.id}" data-accent="${accentClass}" role="listitem">
+    <div class="area-card${hasActiveCoverageJob ? " area-card--job-active" : ""}" data-area-id="${area.id}" data-accent="${accentClass}" role="listitem">
       <div class="area-card-header">
         <div class="area-card-title-group">
           <h3 class="area-card-title" title="${areaName}">${areaName}</h3>

@@ -858,6 +858,13 @@ const GlobalJobTracker = {
   init: initGlobalJobTracker,
   resume: resumeJobTracking,
   stop: stopTracking,
+  restore: restoreJobModal,
+  get activeAreaId() {
+    return activeJob?.areaId ?? null;
+  },
+  get isMinimized() {
+    return Boolean(activeJob?.minimized);
+  },
 };
 
 if (document.readyState === "loading") {

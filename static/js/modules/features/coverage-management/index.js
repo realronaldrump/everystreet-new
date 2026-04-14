@@ -1066,6 +1066,17 @@ function handleAreaCardClick(event) {
   // Area actions from card + explicit error details trigger
   const btn = event.target.closest("[data-area-action], [data-error-action]");
   if (!btn) {
+    // Clicked on the card body itself (not an action button).
+    // If this area has a minimized progress modal, restore it.
+    const card = event.target.closest(".area-card");
+    const cardAreaId = card?.dataset?.areaId;
+    if (
+      cardAreaId &&
+      GlobalJobTracker.isMinimized &&
+      GlobalJobTracker.activeAreaId === cardAreaId
+    ) {
+      GlobalJobTracker.restore();
+    }
     return;
   }
 

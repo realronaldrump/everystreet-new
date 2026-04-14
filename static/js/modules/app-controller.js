@@ -185,6 +185,12 @@ const initializeLocationDropdown = async () => {
     const response = await utils.fetchWithRetry("/api/coverage/areas");
     const areas = response.areas || [];
 
+    areas.sort((a, b) => {
+      const nameA = (a.display_name || a.location?.display_name || a.name || "").toLowerCase();
+      const nameB = (b.display_name || b.location?.display_name || b.name || "").toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+
     dropdown.innerHTML = '<option value="">Select a location...</option>';
 
     const frag = document.createDocumentFragment();

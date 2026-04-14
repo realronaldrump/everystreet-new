@@ -131,6 +131,10 @@
   transform: translateY(-2px);
 }
 
+.area-card--job-active {
+  cursor: pointer;
+}
+
 /* Accent left stripe via data-accent (mirrors .widget pattern) */
 .area-card[data-accent]::before {
   content: "";
