@@ -176,18 +176,6 @@ export default function initControlCenterOverview({ signal } = {}) {
 
   const refreshOverview = async (isManual = false) => {
     try {
-<<<<<<< HEAD
-      const conciergeData = await apiClient.get(CONCIERGE_API, withSignal());
-      renderConciergeStatus(conciergeData);
-    } catch (error) {
-      if (error?.name !== "AbortError") {
-        console.warn("Concierge status unavailable", error);
-      }
-    }
-
-    try {
-=======
->>>>>>> parent of 90afe8f3 (feat: implement journey concierge feed, update typography system to Manrope/Fraunces, and remove pinned dependency versions.)
       const [overviewData, healthData] = await Promise.all([
         apiClient.get(OVERVIEW_API, withSignal()),
         apiClient.get(HEALTH_API, withSignal()),
