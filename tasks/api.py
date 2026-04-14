@@ -63,6 +63,7 @@ async def _build_task_snapshot() -> dict[str, Any]:
         task_config["display_name"] = task_def.get("display_name", task_id)
         task_config["description"] = task_def.get("description", "")
         task_config["manual_only"] = bool(task_def.get("manual_only", False))
+        task_config["hidden"] = bool(task_def.get("hidden", False))
 
         task_config["status"] = history.status if history and history.status else "IDLE"
         task_config["last_error"] = task_config.get("last_error") or (

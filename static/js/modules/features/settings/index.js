@@ -28,6 +28,7 @@ import { initDatabaseManagement } from "./database-management.js";
 import {
   setupGeocodeTrips,
   setupManualFetchTripsForm,
+  setupRebuildDisplayPaths,
   setupRemapMatchedTrips,
 } from "./geocode-remap.js";
 import { InvalidTripReview } from "./invalid-trip-review.js";
@@ -557,6 +558,7 @@ export default function initSettingsPage({ cleanup, signal } = {}) {
   setupManualFetchTripsForm(taskManager, signal);
   setupGeocodeTrips(signal);
   setupRemapMatchedTrips(signal);
+  setupRebuildDisplayPaths(signal);
   setupTripSyncSettings(signal);
   setupCredentialsSettings({ signal });
   initTripHistoryImportWizard({ signal });

@@ -23,7 +23,7 @@ export function renderTaskConfigTable(config, intervalOptions = INTERVAL_OPTIONS
   const existingTaskIds = new Set();
 
   Object.entries(config.tasks).forEach(([taskId, task]) => {
-    if (!task.display_name) {
+    if (!task.display_name || task.hidden) {
       return;
     }
 

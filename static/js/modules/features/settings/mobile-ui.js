@@ -58,7 +58,7 @@ export function updateMobileTaskList(config, taskManager) {
   mobileList.innerHTML = "";
 
   Object.entries(config.tasks).forEach(([taskId, task]) => {
-    if (!task.display_name) {
+    if (!task.display_name || task.hidden) {
       return;
     }
 

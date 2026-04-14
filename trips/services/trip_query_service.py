@@ -253,6 +253,7 @@ class TripQueryService:
             "source",
             "inactive",
             "matchStatus",
+            "pointsRecorded",
             "timeZone",
             "startTimeZone",
             "endTimeZone",

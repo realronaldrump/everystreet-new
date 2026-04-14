@@ -1555,6 +1555,30 @@ Geocoding Progress
           <i class="fas fa-layer-group"></i> Open Map Matching
         </a>
       </div>
+
+      <!-- Rebuild Display Paths -->
+      <div class="settings-group bento-span-6">
+        <h3 class="settings-group-title">
+          <i class="fas fa-bezier-curve"></i>
+          Rebuild Display Paths
+        </h3>
+        <p class="text-muted small">
+          Recompute the simplified display paths shown on the map for all historical
+          trips. Raw GPS data, map-matched geometry, coverage stats, and trip metrics
+          are not affected.
+        </p>
+        <div>
+          <button id="rebuild-display-paths-btn" class="btn btn-warning" type="button">
+            <i class="fas fa-sync-alt"></i> Rebuild Display Paths
+          </button>
+          <div id="rebuild-display-paths-status"
+               class="settings-status is-hidden mt-2"
+               role="status"
+               aria-live="polite"
+               aria-atomic="true">
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 

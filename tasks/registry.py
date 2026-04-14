@@ -54,6 +54,7 @@ TASK_DEFINITIONS: dict[str, dict[str, object]] = {
             "live trip state are left unchanged."
         ),
         "manual_only": True,
+        "hidden": True,
     },
     "build_recurring_routes": {
         "display_name": "Build Recurring Routes",

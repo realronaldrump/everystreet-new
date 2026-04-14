@@ -456,3 +456,54 @@ export function setupRemapMatchedTrips(signal) {
     });
   }
 }
+
+export function setupRebuildDisplayPaths(signal) {
+  const eventOptions = signal ? { signal } : false;
+  const btn = document.getElementById("rebuild-display-paths-btn");
+  const statusEl = document.getElementById("rebuild-display-paths-status");
+  if (!btn) {
+    return;
+  }
+
+  btn.addEventListener(
+    "mousedown",
+    async (e) => {
+      if (e.button !== 0) {
+        return;
+      }
+
+      try {
+        btn.disabled = true;
+        loadingManager.show();
+        setInlineStatus(statusEl, "Starting display path rebuild\u2026", "info");
+
+        const result = await apiClient.post("/api/background_tasks/run", {
+          task_id: "backfill_trip_display_geometry",
+        });
+
+        loadingManager.hide();
+
+        if (result.status === "success") {
+          setInlineStatus(
+            statusEl,
+            "Rebuild started. Check task history for progress.",
+            "success"
+          );
+          notificationManager.show("Display path rebuild started", "success");
+        } else {
+          throw new Error(result.message || "Failed to start rebuild");
+        }
+      } catch (error) {
+        loadingManager.hide();
+        setInlineStatus(statusEl, `Error: ${error.message}`, "danger");
+        notificationManager.show(
+          `Failed to start display path rebuild: ${error.message}`,
+          "danger"
+        );
+      } finally {
+        btn.disabled = false;
+      }
+    },
+    eventOptions
+  );
+}

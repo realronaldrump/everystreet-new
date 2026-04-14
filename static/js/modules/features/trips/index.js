@@ -409,7 +409,6 @@ const TRIP_TABLE_COLUMNS = [
     label: "Points",
     icon: "fa-braille",
     align: "right",
-    sortable: false,
     render: (trip) => renderMetricCell(formatInteger(trip.pointsRecorded)),
   },
   {
