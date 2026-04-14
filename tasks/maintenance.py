@@ -4,6 +4,7 @@ Maintenance tasks for trip data.
 This module provides ARQ jobs for maintaining trip data quality:
 - validate_trips: Validates trip data and marks invalid records
 - remap_unmatched_trips: Attempts to map-match retryable unmatched trips
+- backfill_trip_display_geometry: Recomputes historical display-only trip geometry
 """
 
 from __future__ import annotations
@@ -22,6 +23,10 @@ from tasks.config import check_dependencies
 from tasks.ops import run_task_with_history
 from trips.models import MapMatchJobRequest
 from trips.services.map_matching_jobs import MapMatchingJobRunner
+from trips.services.trip_display_geometry import (
+    DISPLAY_GEOMETRY_VERSION,
+    compute_trip_display_geometry_fields,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -204,5 +209,80 @@ async def remap_unmatched_trips(
         ctx,
         "remap_unmatched_trips",
         lambda: _remap_unmatched_trips_logic(job_id),
+        manual_run=manual_run,
+    )
+
+
+async def _backfill_trip_display_geometry_logic(
+    *,
+    force: bool = False,
+    limit: int | None = None,
+) -> dict[str, Any]:
+    """Recompute display-only GPS geometry for historical Bouncie trips."""
+    filters: dict[str, Any] = {}
+    if not force:
+        filters["displayGpsVersion"] = {"$ne": DISPLAY_GEOMETRY_VERSION}
+
+    query = TripQuerySpec(
+        include_invalid=True,
+        include_inactive=True,
+    ).to_mongo_query(extra_filters=filters, enforce_source=True)
+
+    cursor = Trip.find(query).sort("-startTime")
+    if limit is not None and limit > 0:
+        cursor = cursor.limit(limit)
+
+    total = await Trip.find(query).count()
+    if limit is not None and limit > 0:
+        total = min(total, limit)
+
+    processed_count = 0
+    modified_count = 0
+
+    async for trip in cursor:
+        processed_count += 1
+        fields = compute_trip_display_geometry_fields(trip.model_dump())
+        changed = any(getattr(trip, field) != value for field, value in fields.items())
+
+        if changed:
+            trip.displayGps = fields["displayGps"]
+            trip.displayGpsStatus = fields["displayGpsStatus"]
+            trip.displayGpsSummary = fields["displayGpsSummary"]
+            trip.displayGpsVersion = fields["displayGpsVersion"]
+            trip.displayGpsUpdatedAt = fields["displayGpsUpdatedAt"]
+            await trip.save()
+            modified_count += 1
+
+        if processed_count % 500 == 0:
+            logger.info(
+                "Backfilled display geometry for %d/%d historical trips.",
+                processed_count,
+                total,
+            )
+            await asyncio.sleep(0.01)
+
+    return {
+        "status": "success",
+        "message": (
+            "Backfilled historical trip display geometry for "
+            f"{modified_count} of {processed_count} processed trips."
+        ),
+        "processed_count": processed_count,
+        "modified_count": modified_count,
+        "display_gps_version": DISPLAY_GEOMETRY_VERSION,
+    }
+
+
+async def backfill_trip_display_geometry(
+    ctx: dict[str, Any],
+    manual_run: bool = False,
+    force: bool = False,
+    limit: int | None = None,
+) -> dict[str, Any]:
+    """ARQ job for historical display-only trip geometry backfill."""
+    return await run_task_with_history(
+        ctx,
+        "backfill_trip_display_geometry",
+        lambda: _backfill_trip_display_geometry_logic(force=force, limit=limit),
         manual_run=manual_run,
     )

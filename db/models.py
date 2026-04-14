@@ -74,6 +74,11 @@ class Trip(Document):
     endTimeZone: str | None = None
     endOdometer: float | None = None
     gps: dict[str, Any] | None = None
+    displayGps: dict[str, Any] | None = None
+    displayGpsStatus: str | None = None
+    displayGpsSummary: dict[str, Any] | None = None
+    displayGpsVersion: int | None = None
+    displayGpsUpdatedAt: datetime | None = None
     coordinates: list[dict[str, Any]] | None = None
     lastUpdate: datetime | None = None
     distance: float | None = None
@@ -122,6 +127,7 @@ class Trip(Document):
         "startTime",
         "endTime",
         "lastUpdate",
+        "displayGpsUpdatedAt",
         "matched_at",
         "validated_at",
         "mobility_synced_at",
@@ -135,7 +141,7 @@ class Trip(Document):
             return None
         return parse_timestamp(v)
 
-    @field_validator("gps", "matchedGps", mode="before")
+    @field_validator("gps", "displayGps", "matchedGps", mode="before")
     @classmethod
     def validate_gps_data(cls, v: Any) -> dict[str, Any] | None:
         """Normalize GPS data to valid Point/LineString when possible."""
@@ -233,6 +239,10 @@ class Trip(Document):
                 name="trips_source_startTime_desc_idx",
             ),
             IndexModel([("gps", "2dsphere")], name="trips_gps_2dsphere_idx"),
+            IndexModel(
+                [("displayGps", "2dsphere")],
+                name="trips_displayGps_2dsphere_idx",
+            ),
             IndexModel(
                 [("startGeoPoint", "2dsphere")],
                 name="trips_startGeoPoint_2dsphere_idx",

@@ -36,7 +36,7 @@ const routes = [
   ["/map", "../../pages/map.js", ["map"]],
   ["/trips/*", "../../pages/trips.js", ["map"]],
   ["/routes/*", "../../pages/routes.js", ["map", "chart"]],
-  ["/insights", "../../pages/insights.js", ["chart", "deck"]],
+  ["/insights", "../../pages/insights.js", ["chart", "deck", "plot"]],
   ["/visits", "../../pages/visits.js", ["map", "mapDraw", "chart", "datatables"]],
   ["/control-center", "../../pages/control-center.js"],
   ["/vehicles", "../../pages/vehicles.js"],

@@ -10,6 +10,7 @@ import { formatDuration, getDateRange } from "./formatters.js";
 import {
   displayTripsInModal,
   loadAndShowTripsForDrilldown,
+  loadAndShowTripsForTimeCell,
   loadAndShowTripsForTimePeriod,
 } from "./modal.js";
 
@@ -19,6 +20,23 @@ const storyState = {
   selectedPlaceIndex: 0,
   scenes: [],
 };
+const DAY_LABELS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+const DAYPARTS = [
+  { key: "early", label: "Early morning", start: 0, end: 5 },
+  { key: "morning", label: "Morning", start: 6, end: 10 },
+  { key: "midday", label: "Midday", start: 11, end: 14 },
+  { key: "afternoon", label: "Afternoon", start: 15, end: 17 },
+  { key: "evening", label: "Evening", start: 18, end: 21 },
+  { key: "late", label: "Late night", start: 22, end: 23 },
+];
 
 function normalizePeriodMode(mode) {
   return mode === "monthly" ? "monthly" : "weekly";
@@ -533,37 +551,120 @@ function renderTrendsNarrative(snapshot, mode, currentView) {
   };
 }
 
-function renderTimeSignature(timeSignature = {}, currentTimeView = "hour") {
+function getHeatmapSummary(rawCells = []) {
+  const cells = Array.isArray(rawCells)
+    ? rawCells
+        .map((cell) => ({
+          day: Number(cell?.day),
+          hour: Number(cell?.hour),
+          count: Number(cell?.count || 0),
+          distance: Number(cell?.distance || 0),
+        }))
+        .filter(
+          (cell) =>
+            Number.isInteger(cell.day) &&
+            Number.isInteger(cell.hour) &&
+            cell.day >= 0 &&
+            cell.day <= 6 &&
+            cell.hour >= 0 &&
+            cell.hour <= 23
+        )
+    : [];
+
+  const totalTrips = cells.reduce((sum, cell) => sum + cell.count, 0);
+  const totalDistance = cells.reduce((sum, cell) => sum + cell.distance, 0);
+  const activeCells = cells.filter((cell) => cell.count > 0).length;
+  const peak = cells.reduce((best, cell) => (cell.count > best.count ? cell : best), {
+    day: 0,
+    hour: 0,
+    count: 0,
+    distance: 0,
+  });
+
+  const daypartTotals = DAYPARTS.map((daypart) => ({
+    ...daypart,
+    count: cells
+      .filter((cell) => cell.hour >= daypart.start && cell.hour <= daypart.end)
+      .reduce((sum, cell) => sum + cell.count, 0),
+  }));
+  const dominantDaypart = daypartTotals.reduce(
+    (best, daypart) => (daypart.count > best.count ? daypart : best),
+    daypartTotals[0]
+  );
+
+  const peakShare = totalTrips > 0 ? (peak.count / totalTrips) * 100 : 0;
+
+  return {
+    totalTrips,
+    totalDistance,
+    activeCells,
+    peak: {
+      ...peak,
+      dayName: DAY_LABELS[peak.day] || "Sunday",
+      hourLabel: formatHourLabel(peak.hour),
+    },
+    dominantDaypart,
+    peakShare,
+  };
+}
+
+function renderTimeSignature(_timeSignature = {}, analytics = {}) {
   const container = document.getElementById("time-signature");
   if (!container) {
     return;
   }
 
-  const hourly = Array.isArray(timeSignature.hourly)
-    ? timeSignature.hourly
-    : new Array(24).fill(0);
-  const maxHour = Math.max(...hourly, 1);
-
-  const bars = hourly
-    .map((count, hour) => {
-      const strength = Math.max(0.08, count / maxHour);
-      return `<span class="clock-bar" style="--index:${hour};--strength:${strength.toFixed(3)}"></span>`;
-    })
-    .join("");
-
-  const peakHourLabel = formatHourLabel(timeSignature.peakHour || 0);
-  const quietHourLabel = formatHourLabel(timeSignature.quietHour || 0);
+  const summary = getHeatmapSummary(analytics.time_heatmap || []);
+  if (summary.totalTrips <= 0) {
+    container.innerHTML =
+      '<div class="story-empty">Not enough rhythm data in this range yet.</div>';
+    return;
+  }
 
   container.innerHTML = `
-    <div class="signature-clock" aria-hidden="true">${bars}<div class="clock-center"></div></div>
-    <div class="signature-copy">
-      <p class="signature-kicker">Time signature (${escapeHtml(currentTimeView)})</p>
-      <h3>${escapeHtml(timeSignature.dominantDaypartLabel || "Daytime")}</h3>
-      <p>Peak window: <strong>${escapeHtml(peakHourLabel)}</strong> • Quiet window: <strong>${escapeHtml(quietHourLabel)}</strong></p>
-      <p>Peak weekday: <strong>${escapeHtml(timeSignature.peakDayLabel || "-")}</strong> • Quiet weekday: <strong>${escapeHtml(timeSignature.quietDayLabel || "-")}</strong></p>
+    <div class="signature-copy rhythm-summary">
+      <p class="signature-kicker">Strongest rhythm</p>
+      <h3>${escapeHtml(summary.peak.dayName)} at ${escapeHtml(summary.peak.hourLabel)}</h3>
+      <p>
+        ${summary.peak.count} trip${summary.peak.count === 1 ? "" : "s"} start in this window,
+        ${summary.peakShare.toFixed(1)}% of the selected range.
+      </p>
+      <p>
+        ${escapeHtml(summary.dominantDaypart.label)} carries the most starts.
+        ${summary.activeCells} weekday-hour windows are active.
+      </p>
+      <div class="rhythm-summary-grid">
+        <div>
+          <span>Total trips</span>
+          <strong>${summary.totalTrips}</strong>
+        </div>
+        <div>
+          <span>Total miles</span>
+          <strong>${summary.totalDistance.toFixed(1)}</strong>
+        </div>
+        <div>
+          <span>Active windows</span>
+          <strong>${summary.activeCells}</strong>
+        </div>
+        <div>
+          <span>Peak share</span>
+          <strong>${summary.peakShare.toFixed(1)}%</strong>
+        </div>
+      </div>
       <div class="trends-narrative-actions">
-        <button type="button" class="btn btn-outline-primary btn-sm time-signature-action" data-time-type="hour" data-time-value="${Number(timeSignature.peakHour || 0)}">Peak Hour Trips</button>
-        <button type="button" class="btn btn-outline-secondary btn-sm time-signature-action" data-time-type="day" data-time-value="${Number(timeSignature.peakDay || 0)}">Peak Weekday Trips</button>
+        <button type="button"
+                class="btn btn-outline-primary btn-sm time-signature-action"
+                data-time-type="cell"
+                data-day-value="${Number(summary.peak.day || 0)}"
+                data-time-value="${Number(summary.peak.hour || 0)}">
+          Open peak window
+        </button>
+        <button type="button"
+                class="btn btn-outline-secondary btn-sm time-signature-action"
+                data-time-type="day"
+                data-time-value="${Number(summary.peak.day || 0)}">
+          Open peak weekday
+        </button>
       </div>
     </div>
   `;
@@ -573,13 +674,22 @@ function renderTimeSignature(timeSignature = {}, currentTimeView = "hour") {
     if (!action) {
       return;
     }
-    const timeType = action.dataset.timeType === "day" ? "day" : "hour";
+    const timeType = action.dataset.timeType === "cell" ? "cell" : "day";
     const rawValue = Number.parseInt(action.dataset.timeValue || "0", 10);
     const max = timeType === "day" ? 6 : 23;
     const timeValue = Math.min(
       Math.max(Number.isFinite(rawValue) ? rawValue : 0, 0),
       max
     );
+    if (timeType === "cell") {
+      const rawDayValue = Number.parseInt(action.dataset.dayValue || "0", 10);
+      const dayValue = Math.min(
+        Math.max(Number.isFinite(rawDayValue) ? rawDayValue : 0, 0),
+        6
+      );
+      loadAndShowTripsForTimeCell(dayValue, timeValue);
+      return;
+    }
     loadAndShowTripsForTimePeriod(timeType, timeValue);
   };
 }
@@ -598,7 +708,7 @@ export function renderAllStorySections(stateData = {}) {
   renderPlacesOrbit(snapshot.exploration);
   renderRecordsTimeline(stateData?.insights?.records || {});
   renderTrendsNarrative(snapshot, mode, stateData.currentView || "daily");
-  renderTimeSignature(snapshot.timeSignature, stateData.currentTimeView || "hour");
+  renderTimeSignature(snapshot.timeSignature, stateData.analytics || {});
 
   return snapshot;
 }
@@ -615,11 +725,11 @@ export function updatePeriodStory(mode, currentView = "daily") {
   renderTrendsNarrative(storyState.snapshot, nextMode, currentView);
 }
 
-export function updateTimeSignatureStory(currentTimeView = "hour") {
+export function updateTimeSignatureStory() {
   if (!storyState.snapshot) {
     return;
   }
-  renderTimeSignature(storyState.snapshot.timeSignature, currentTimeView);
+  renderTimeSignature(storyState.snapshot.timeSignature, {});
 }
 
 export function destroyStorySections() {

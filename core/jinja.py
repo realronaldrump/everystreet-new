@@ -15,6 +15,7 @@ LIB_VERSIONS = {
     "deck_gl": "9.2.7",
     "mapbox_gl": "3.17.0",
     "mapbox_gl_draw": "1.5.0",
+    "observable_plot": "0.6.17",
     "topojson": "3",
 }
 
@@ -39,6 +40,7 @@ CDN = {
     "mapbox_gl_js": f"https://api.mapbox.com/mapbox-gl-js/v{LIB_VERSIONS['mapbox_gl']}/mapbox-gl.js",
     "mapbox_draw_css": f"https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v{LIB_VERSIONS['mapbox_gl_draw']}/mapbox-gl-draw.css",
     "mapbox_draw_js": f"https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v{LIB_VERSIONS['mapbox_gl_draw']}/mapbox-gl-draw.js",
+    "observable_plot": f"https://cdn.jsdelivr.net/npm/@observablehq/plot@{LIB_VERSIONS['observable_plot']}/+esm",
     "topojson": f"https://cdn.jsdelivr.net/npm/topojson-client@{LIB_VERSIONS['topojson']}/dist/topojson-client.min.js",
 }
 

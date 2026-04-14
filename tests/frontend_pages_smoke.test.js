@@ -23,7 +23,7 @@ test("insights and routes templates keep the containers their pages rely on", ()
     "movement-top-segments",
     "records-timeline",
     "trendsChart",
-    "timeDistChart",
+    "timeHeatmap",
   ].forEach((id) => assertHasId(insightsSource, id, "insights.html"));
 
   [

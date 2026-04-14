@@ -73,6 +73,8 @@ async def test_trip_pipeline_happy_path(beanie_db) -> None:
     assert trip.transactionId == "tx-1"
     assert trip.processing_state == "map_matched"
     assert trip.matchedGps is not None
+    assert trip.displayGps == trip.gps
+    assert trip.displayGpsVersion == 1
     assert trip.startGeoPoint is not None
     assert trip.destinationGeoPoint is not None
     assert len(calls) == 1
@@ -80,6 +82,12 @@ async def test_trip_pipeline_happy_path(beanie_db) -> None:
 
     saved = await Trip.find_one(Trip.transactionId == "tx-1")
     assert saved is not None
+    assert saved.gps == {
+        "type": "LineString",
+        "coordinates": [[-97.0, 32.0], [-97.1, 32.1]],
+    }
+    assert saved.coordinates is None
+    assert saved.displayGps == saved.gps
 
 
 @pytest.mark.asyncio

@@ -23,6 +23,7 @@ from core.trip_source_policy import BOUNCIE_SOURCE
 from db.models import Trip
 from trips.services.geocoding import TripGeocoder
 from trips.services.matching import TripMapMatcher
+from trips.services.trip_display_geometry import compute_trip_display_geometry_fields
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -264,6 +265,7 @@ class TripPipeline:
         if coverage_emitted_at:
             final_trip.coverage_emitted_at = coverage_emitted_at
 
+        self._prepare_trip_display_geometry(final_trip)
         self.sanitize_trip_document_geospatial_fields(final_trip)
 
         if existing_trip:
@@ -742,6 +744,15 @@ class TripPipeline:
             processed_data.pop("destinationGeoPoint", None)
 
     @staticmethod
+    def _prepare_trip_display_geometry(trip: Trip) -> None:
+        fields = compute_trip_display_geometry_fields(trip.model_dump())
+        trip.displayGps = fields["displayGps"]
+        trip.displayGpsStatus = fields["displayGpsStatus"]
+        trip.displayGpsSummary = fields["displayGpsSummary"]
+        trip.displayGpsVersion = fields["displayGpsVersion"]
+        trip.displayGpsUpdatedAt = fields["displayGpsUpdatedAt"]
+
+    @staticmethod
     def sanitize_trip_document_geospatial_fields(
         trip: Trip,
     ) -> None:
@@ -749,6 +760,7 @@ class TripPipeline:
         # Geo points were already derived by _prepare_processed_geo_fields(),
         # so only sanitize/validate here — no re-derivation needed.
         trip.gps = sanitize_geojson_geometry(getattr(trip, "gps", None))
+        trip.displayGps = sanitize_geojson_geometry(getattr(trip, "displayGps", None))
         trip.matchedGps = sanitize_geojson_geometry(getattr(trip, "matchedGps", None))
         trip.startGeoPoint = sanitize_geojson_point(
             getattr(trip, "startGeoPoint", None),

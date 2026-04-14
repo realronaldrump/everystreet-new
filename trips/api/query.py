@@ -156,16 +156,21 @@ async def get_failed_trips(request: Request):
     # Query for failed/skipped match status
     query = apply_trip_record_filters(
         {
-        "$and": [
-            {"invalid": {"$ne": True}},
-            {
-                "$or": [
-                    {"matchStatus": {"$regex": "^skipped:", "$options": "i"}},
-                    {"matchStatus": {"$regex": "^error:", "$options": "i"}},
-                    {"matchStatus": {"$regex": "no-valid-geometry", "$options": "i"}},
-                ],
-            },
-        ],
+            "$and": [
+                {"invalid": {"$ne": True}},
+                {
+                    "$or": [
+                        {"matchStatus": {"$regex": "^skipped:", "$options": "i"}},
+                        {"matchStatus": {"$regex": "^error:", "$options": "i"}},
+                        {
+                            "matchStatus": {
+                                "$regex": "no-valid-geometry",
+                                "$options": "i",
+                            }
+                        },
+                    ],
+                },
+            ],
         },
         include_invalid=True,
     )
@@ -222,10 +227,12 @@ async def get_trips(request: Request):
 
     if matched_only:
         query["matchedGps"] = {"$ne": None}
+    else:
+        query["displayGps"] = {"$ne": None}
     query = apply_clip_prefilter(
         query,
         coverage_clip,
-        geometry_field="matchedGps" if matched_only else "gps",
+        geometry_field="matchedGps" if matched_only else "displayGps",
     )
     # Use Beanie cursor iteration
     trip_cursor = Trip.find(query).sort(-Trip.endTime)
@@ -235,10 +242,10 @@ async def get_trips(request: Request):
 
     def build_feature(trip):
         trip_dict = trip_to_dict(trip)
-        geom = GeometryService.parse_geojson(trip_dict.get("gps"))
+        display_geom = GeometryService.parse_geojson(trip_dict.get("displayGps"))
         matched_geom = GeometryService.parse_geojson(trip_dict.get("matchedGps"))
 
-        final_geom = geom
+        final_geom = display_geom
         if matched_only and matched_geom:
             final_geom = matched_geom
 
@@ -263,6 +270,10 @@ async def get_trips(request: Request):
             points_recorded=num_points,
             coverage_distance_miles=coverage_distance_miles,
         )
+        if not matched_only:
+            props["displayGpsStatus"] = trip_dict.get("displayGpsStatus")
+            props["displayGpsSummary"] = trip_dict.get("displayGpsSummary")
+            props["displayGpsVersion"] = trip_dict.get("displayGpsVersion")
         return GeometryService.feature_from_geometry(final_geom, props)
 
     return geojson_response(

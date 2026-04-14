@@ -178,6 +178,37 @@ export async function loadAndShowTripsForTimePeriod(timeType, timeValue) {
   }
 }
 
+export async function loadAndShowTripsForTimeCell(dayValue, hourValue) {
+  try {
+    const dateRange = getDateRange();
+    const day = Math.min(Math.max(Number(dayValue) || 0, 0), 6);
+    const hour = Math.min(Math.max(Number(hourValue) || 0, 0), 23);
+    const params = new URLSearchParams({
+      start_date: dateRange.start,
+      end_date: dateRange.end,
+      time_type: "cell",
+      time_value: hour.toString(),
+      day_value: day.toString(),
+    });
+
+    const trips = await fetchTimePeriodTrips(params);
+    const days = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    const title = `${days[day]} at ${formatHourLabel(hour)} (${trips.length} trips)`;
+    displayTripsInModal(trips, { title });
+  } catch (error) {
+    console.error("Error loading trips:", error);
+    notificationManager.show("Error loading trips. Please try again.", "error");
+  }
+}
+
 /**
  * Load and display trips for a drill-down kind
  * @param {string} kind - drilldown kind (e.g. "top_speed", "distance")

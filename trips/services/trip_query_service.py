@@ -14,7 +14,11 @@ from db.aggregation_utils import (
     build_trip_duration_fields_stage,
 )
 from db.models import Trip, Vehicle
-from trips.presentation import build_trip_preview_path
+from trips.presentation import (
+    build_trip_preview_path,
+    count_line_points,
+    extract_trip_preview_geometry,
+)
 from trips.serialization import TripSerializer
 from trips.services.trip_cost_service import TripCostService
 
@@ -227,6 +231,41 @@ class TripQueryService:
             sort_column = "startTime"
             sort_direction = -1
 
+        sortable_columns = {
+            "transactionId",
+            "imei",
+            "vin",
+            "startTime",
+            "endTime",
+            "duration",
+            "distance",
+            "startLocation",
+            "destination",
+            "maxSpeed",
+            "avgSpeed",
+            "totalIdleDuration",
+            "fuelConsumed",
+            "estimated_cost",
+            "startOdometer",
+            "endOdometer",
+            "vehicleLabel",
+            "status",
+            "source",
+            "inactive",
+            "matchStatus",
+            "timeZone",
+            "startTimeZone",
+            "endTimeZone",
+        }
+        if sort_column not in sortable_columns:
+            sort_column = "startTime"
+            sort_direction = -1
+
+        # Cost is calculated after retrieval from fuel and vehicle-specific fillups.
+        # Fuel is the closest persisted server-side ordering signal for this view.
+        if sort_column == "estimated_cost":
+            sort_column = "fuelConsumed"
+
         # Determine if we need to use aggregation for sorting
         use_aggregation = False
         pipeline = [{"$match": query}]
@@ -328,12 +367,51 @@ class TripQueryService:
                 ],
             )
 
-        elif sort_column in ["distance", "maxSpeed", "fuelConsumed"]:
+        elif sort_column in [
+            "distance",
+            "maxSpeed",
+            "avgSpeed",
+            "totalIdleDuration",
+            "fuelConsumed",
+            "startOdometer",
+            "endOdometer",
+        ]:
             use_aggregation = True
             pipeline.extend(
                 [
                     build_numeric_sort_field_stage(sort_column),
                     {"$sort": {"sortVal": sort_direction, "startTime": -1}},
+                ],
+            )
+
+        elif sort_column in {"startLocation", "destination"}:
+            use_aggregation = True
+            pipeline.extend(
+                [
+                    {
+                        "$addFields": {
+                            "locationSort": {
+                                "$toLower": {
+                                    "$cond": [
+                                        {
+                                            "$eq": [
+                                                {"$type": f"${sort_column}"},
+                                                "object",
+                                            ],
+                                        },
+                                        {
+                                            "$ifNull": [
+                                                f"${sort_column}.formatted_address",
+                                                "",
+                                            ],
+                                        },
+                                        {"$ifNull": [f"${sort_column}", ""]},
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                    {"$sort": {"locationSort": sort_direction, "startTime": -1}},
                 ],
             )
 
@@ -382,6 +460,8 @@ class TripQueryService:
                 "transactionId": trip_dict.get("transactionId", ""),
                 "imei": imei,
                 "vin": trip_dict.get("vin"),
+                "source": normalized_trip.get("source"),
+                "status": normalized_trip.get("status"),
                 "startTime": normalized_trip.get("startTime"),
                 "endTime": normalized_trip.get("endTime"),
                 "startTimeZone": start_tz,
@@ -392,12 +472,23 @@ class TripQueryService:
                 "startLocation": start_location,
                 "destination": destination,
                 "maxSpeed": normalized_trip.get("maxSpeed"),
+                "avgSpeed": normalized_trip.get("avgSpeed"),
                 "totalIdleDuration": total_idle_duration,
                 "fuelConsumed": normalized_trip.get("fuelConsumed"),
                 "estimated_cost": TripCostService.calculate_trip_cost(
                     trip_dict,
                     price_map,
                 ),
+                "hardBrakingCounts": normalized_trip.get("hardBrakingCounts"),
+                "hardAccelerationCounts": normalized_trip.get(
+                    "hardAccelerationCounts"
+                ),
+                "startOdometer": normalized_trip.get("startOdometer"),
+                "endOdometer": normalized_trip.get("endOdometer"),
+                "matchStatus": normalized_trip.get("matchStatus"),
+                "matched_at": normalized_trip.get("matched_at"),
+                "pointsRecorded": normalized_trip.get("pointsRecorded")
+                or count_line_points(extract_trip_preview_geometry(trip_dict)),
                 "previewPath": build_trip_preview_path(trip_dict),
                 "inactive": bool(trip_dict.get("inactive")),
                 "inactiveAt": normalized_trip.get("inactiveAt"),

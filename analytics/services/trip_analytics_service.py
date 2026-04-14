@@ -54,11 +54,13 @@ class TripAnalyticsService:
         daily_list = TripAnalyticsService._organize_daily_data(results)
         hourly_list = TripAnalyticsService._organize_hourly_data(results)
         weekday_list = TripAnalyticsService._organize_weekday_data(results)
+        time_heatmap = TripAnalyticsService._organize_time_heatmap_data(results)
 
         return {
             "daily_distances": daily_list,
             "time_distribution": hourly_list,
             "weekday_distribution": weekday_list,
+            "time_heatmap": time_heatmap,
         }
 
     @staticmethod
@@ -121,6 +123,46 @@ class TripAnalyticsService:
                 weekday_data[day_of_week] = 0
             weekday_data[day_of_week] += r["tripCount"]
         return [{"day": d, "count": c} for d, c in sorted(weekday_data.items())]
+
+    @staticmethod
+    def _organize_time_heatmap_data(
+        results: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """
+        Organize trip starts into a complete weekday-by-hour grid.
+
+        Day values use the frontend convention: 0=Sunday, 6=Saturday.
+        """
+        cells: dict[tuple[int, int], dict[str, float | int]] = {
+            (day, hour): {"count": 0, "distance": 0.0}
+            for day in range(7)
+            for hour in range(24)
+        }
+
+        for row in results:
+            group_id = row.get("_id") or {}
+            hour = int(group_id.get("hour", 0))
+            day = int(group_id.get("dayOfWeek", 1)) - 1
+            if not (0 <= day <= 6 and 0 <= hour <= 23):
+                continue
+
+            cell = cells[(day, hour)]
+            cell["count"] = int(cell["count"]) + int(row.get("tripCount") or 0)
+            cell["distance"] = float(cell["distance"]) + float(
+                row.get("totalDistance") or 0,
+            )
+
+        return [
+            {
+                "day": day,
+                "hour": hour,
+                "count": int(values["count"]),
+                "distance": float(values["distance"]),
+            }
+            for day in range(7)
+            for hour in range(24)
+            if (values := cells[(day, hour)])
+        ]
 
     @staticmethod
     async def get_driver_behavior_analytics(query: dict[str, Any]) -> dict[str, Any]:

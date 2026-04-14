@@ -57,6 +57,8 @@ export const CONFIG = {
     selectedLocation: "selectedLocation",
     selectedVehicle: "selectedVehicleImei",
     tripsSort: "tripsSort",
+    tripsViewMode: "tripsViewMode",
+    tripsTableColumns: "tripsTableColumns",
     sidebarState: "sidebarCollapsed",
     layerVisibility: "layerVisibility",
     layerSettings: "layerSettings",

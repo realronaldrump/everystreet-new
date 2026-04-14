@@ -10,8 +10,8 @@ from arq import cron, func
 
 from core.startup import initialize_shared_runtime, shutdown_shared_runtime
 from tasks.arq import get_redis_settings
-from tasks.coverage import sync_geo_coverage, update_coverage_for_new_trips
 from tasks.bouncie_webhook import monitor_bouncie_webhook
+from tasks.coverage import sync_geo_coverage, update_coverage_for_new_trips
 from tasks.cron import (
     cron_auto_provision_map_data,
     cron_monitor_bouncie_webhook,
@@ -31,7 +31,11 @@ from tasks.fetch import (
 )
 from tasks.health import worker_heartbeat
 from tasks.logs import purge_server_logs_before
-from tasks.maintenance import remap_unmatched_trips, validate_trips
+from tasks.maintenance import (
+    backfill_trip_display_geometry,
+    remap_unmatched_trips,
+    validate_trips,
+)
 from tasks.map_data import (
     SETUP_JOB_TIMEOUT_SECONDS,
     auto_provision_check,
@@ -90,6 +94,7 @@ class WorkerSettings:
         func(fetch_all_missing_trips, timeout=HISTORY_IMPORT_TIMEOUT_SECONDS),
         validate_trips,
         remap_unmatched_trips,
+        backfill_trip_display_geometry,
         map_match_trips,
         update_coverage_for_new_trips,
         sync_geo_coverage,

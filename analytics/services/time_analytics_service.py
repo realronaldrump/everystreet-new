@@ -23,14 +23,16 @@ class TimeAnalyticsService:
         query: dict[str, Any],
         time_type: str,
         time_value: int,
+        day_value: int | None = None,
     ) -> list[dict[str, Any]]:
         """
         Get trips for a specific time period (hour or day of week).
 
         Args:
             query: MongoDB query filter
-            time_type: Type of time filter ('hour' or 'day')
-            time_value: Hour (0-23) or day of week (0-6, where 0 is Sunday)
+            time_type: Type of time filter ('hour', 'day', or 'cell')
+            time_value: Hour (0-23), day of week (0-6), or hour for 'cell'
+            day_value: Day of week (0-6) for 'cell'
 
         Returns:
             List of trip documents matching the time criteria
@@ -66,8 +68,29 @@ class TimeAnalyticsService:
                     ),
                 ],
             }
+        elif time_type == "cell":
+            if day_value is None:
+                msg = "day_value is required when time_type is 'cell'"
+                raise ValueError(msg)
+            query["$expr"] = {
+                "$and": [
+                    query.get("$expr", {"$literal": True}),
+                    build_time_period_expr(
+                        time_type="hour",
+                        time_value=time_value,
+                        date_field="startTime",
+                        tz_expr=tz_expr,
+                    ),
+                    build_time_period_expr(
+                        time_type="day",
+                        time_value=day_value,
+                        date_field="startTime",
+                        tz_expr=tz_expr,
+                    ),
+                ],
+            }
         else:
-            msg = "time_type must be 'hour' or 'day'"
+            msg = "time_type must be 'hour', 'day', or 'cell'"
             raise ValueError(msg)
 
         pipeline = [

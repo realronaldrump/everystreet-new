@@ -76,10 +76,27 @@ async def get_time_period_trips(request: Request):
         )
 
     try:
+        day_value = None
+        if time_type == "cell":
+            raw_day_value = request.query_params.get("day_value")
+            if raw_day_value is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Missing day_value parameter",
+                )
+            try:
+                day_value = int(raw_day_value)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="day_value must be an integer",
+                )
+
         return await TimeAnalyticsService.get_time_period_trips(
             query,
             time_type,
             time_value,
+            day_value=day_value,
         )
     except ValueError as e:
         raise HTTPException(

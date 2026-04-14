@@ -77,6 +77,36 @@ const createBounds = () => {
   };
 };
 
+const forEachGeometryCoordinate = (geometry, callback) => {
+  if (!geometry || typeof callback !== "function") {
+    return;
+  }
+  const { type, coordinates } = geometry;
+  if (type === "Point" && Array.isArray(coordinates)) {
+    callback(coordinates);
+    return;
+  }
+  if (type === "LineString" && Array.isArray(coordinates)) {
+    coordinates.forEach(callback);
+    return;
+  }
+  if (type === "MultiLineString" && Array.isArray(coordinates)) {
+    coordinates.forEach((line) => {
+      if (Array.isArray(line)) {
+        line.forEach(callback);
+      }
+    });
+  }
+};
+
+const getLastGeometryCoordinate = (geometry) => {
+  let lastCoord = null;
+  forEachGeometryCoordinate(geometry, (coord) => {
+    lastCoord = coord;
+  });
+  return lastCoord;
+};
+
 const mapManager = {
   // Track if view state listener is bound
   _viewListenerBound: false,
@@ -461,15 +491,10 @@ const mapManager = {
       if (visible && layer?.features) {
         layer.features.forEach((feature) => {
           if (feature.geometry) {
-            if (feature.geometry.type === "Point") {
-              bounds.extend(feature.geometry.coordinates);
+            forEachGeometryCoordinate(feature.geometry, (coord) => {
+              bounds.extend(coord);
               hasFeatures = true;
-            } else if (feature.geometry.type === "LineString") {
-              feature.geometry.coordinates.forEach((coord) => {
-                bounds.extend(coord);
-                hasFeatures = true;
-              });
-            }
+            });
           }
         });
       }
@@ -511,13 +536,7 @@ const mapManager = {
     }
 
     const bounds = createBounds();
-    const { type, coordinates } = tripFeature.geometry;
-
-    if (type === "LineString") {
-      coordinates.forEach((coord) => bounds.extend(coord));
-    } else if (type === "Point") {
-      bounds.extend(coordinates);
-    }
+    forEachGeometryCoordinate(tripFeature.geometry, (coord) => bounds.extend(coord));
 
     if (!bounds.isEmpty()) {
       store.map.fitBounds(bounds.toValue(), {
@@ -563,14 +582,7 @@ const mapManager = {
       return;
     }
 
-    let lastCoord = null;
-    const { type, coordinates } = lastTripFeature.geometry;
-
-    if (type === "LineString" && coordinates?.length > 0) {
-      lastCoord = coordinates[coordinates.length - 1];
-    } else if (type === "Point") {
-      lastCoord = coordinates;
-    }
+    const lastCoord = getLastGeometryCoordinate(lastTripFeature.geometry);
 
     if (
       lastCoord?.length === 2 &&

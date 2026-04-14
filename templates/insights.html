@@ -343,33 +343,33 @@ Not enough data in this range to compute pattern cards yet.
       <div class="section-header">
         <h2 class="section-title">
           <i class="fas fa-clock section-icon"></i>
-            Time signature
+            Driving rhythm
         </h2>
         <p class="section-subtitle">
-See when your starts cluster and how weekday rhythm shifts
+Weekday and hour patterns across the selected range
         </p>
       </div>
 
       <div class="time-signature-layout">
-        <div class="chart-card">
+        <div class="chart-card time-heatmap-card">
           <div class="chart-header">
-            <div class="toggle-group" aria-label="Time distribution granularity">
-              <button class="toggle-btn active" data-time="hour" aria-pressed="true">
-By Hour
-              </button>
-              <button class="toggle-btn" data-time="day" aria-pressed="false">
-By Day
-              </button>
-            </div>
+            <h3 class="chart-title">
+Starts by weekday and hour
+            </h3>
+            <span class="time-heatmap-scale-label">Darker cells mean more trips</span>
           </div>
-          <div class="chart-body compact">
-            <canvas id="timeDistChart"></canvas>
+          <div class="time-heatmap-scroll" aria-label="Trip starts heatmap">
+            <div id="timeHeatmap"
+                 class="time-heatmap-plot"
+                 role="img"
+                 aria-label="Trip starts by weekday and hour">
+            </div>
           </div>
         </div>
 
         <aside class="time-signature-panel" id="time-signature">
           <div class="story-empty">
-Not enough time-distribution data in this range yet.
+Not enough rhythm data in this range yet.
           </div>
         </aside>
       </div>

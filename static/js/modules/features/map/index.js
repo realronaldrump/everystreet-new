@@ -411,6 +411,20 @@ function setupTripSelectionAnimation(mapInstance, _signal, registerCleanup) {
     });
     return ordered;
   };
+  const getAnimationCoords = (geometry) => {
+    if (geometry?.type === "LineString") {
+      return geometry.coordinates;
+    }
+    if (geometry?.type !== "MultiLineString" || !Array.isArray(geometry.coordinates)) {
+      return null;
+    }
+    return geometry.coordinates.reduce((longest, line) => {
+      if (!Array.isArray(line) || line.length < 2) {
+        return longest;
+      }
+      return !longest || line.length > longest.length ? line : longest;
+    }, null);
+  };
 
   const removeReplayControls = () => {
     if (replayControlsEl?.parentNode) {
@@ -435,9 +449,7 @@ function setupTripSelectionAnimation(mapInstance, _signal, registerCleanup) {
         return String(fId) === String(selectedId);
       });
       if (match?.geometry) {
-        if (match.geometry.type === "LineString") return match.geometry.coordinates;
-        if (match.geometry.type === "MultiLineString")
-          return match.geometry.coordinates.flat();
+        return getAnimationCoords(match.geometry);
       }
     }
     return null;

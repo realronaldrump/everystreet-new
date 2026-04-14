@@ -6,11 +6,13 @@ const cdnFallbacks = {
   mapboxDrawJs:
     "https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.5.0/mapbox-gl-draw.js",
   mapboxGlJs: "https://api.mapbox.com/mapbox-gl-js/v3.17.0/mapbox-gl.js",
+  observablePlot: "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.17/+esm",
   topojson:
     "https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js",
 };
 
 const pending = new Map();
+const loadedModules = new Map();
 const cdnUrl = (key) => globalThis.ES_CDN?.[key] || cdnFallbacks[key];
 const isGoogleProvider = () =>
   String(globalThis.MAP_PROVIDER || "self_hosted").toLowerCase() === "google";
@@ -78,6 +80,29 @@ function loadScript(key, id, isReady) {
   return promise;
 }
 
+async function loadModule(key) {
+  if (loadedModules.has(key)) {
+    return loadedModules.get(key);
+  }
+
+  const src = cdnUrl(key);
+  if (!src) {
+    return null;
+  }
+  if (pending.has(src)) {
+    return pending.get(src);
+  }
+
+  const promise = import(src).then((module) => {
+    loadedModules.set(key, module);
+    return module;
+  });
+
+  pending.set(src, promise);
+  promise.catch(() => pending.delete(src));
+  return promise;
+}
+
 async function ensureMap() {
   if (isGoogleProvider()) {
     await globalThis.__esGoogleMapsLoadPromise;
@@ -109,6 +134,7 @@ const loaders = {
       );
     }
   },
+  plot: () => loadModule("observablePlot"),
   topojson: () => loadScript("topojson", "es-topojson", () => globalThis.topojson),
 };
 
@@ -116,4 +142,11 @@ export async function ensureLibraries(names = []) {
   for (const name of new Set(names.filter(Boolean))) {
     await loaders[name]?.();
   }
+}
+
+export function getLoadedLibrary(name) {
+  if (name === "plot") {
+    return loadedModules.get("observablePlot") || null;
+  }
+  return null;
 }

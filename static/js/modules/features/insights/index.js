@@ -44,7 +44,6 @@ export default async function initInsightsPage({ signal, cleanup } = {}) {
   setupEventListeners(signal);
   syncViewToggleButtons(InsightsState.getState().currentView);
   syncRhythmToggleButtons(InsightsState.getState().rhythmView);
-  syncTimeToggleButtons(InsightsState.getState().currentTimeView);
 
   window.addEventListener("beforeunload", stopAutoRefresh, signal ? { signal } : false);
   initTooltips();
@@ -100,7 +99,6 @@ function renderStorySectionsFromState() {
     ...state.data,
     currentView: state.currentView,
     rhythmView: state.rhythmView,
-    currentTimeView: state.currentTimeView,
   });
 
   InsightsState.updateState({ derivedInsights: snapshot });
@@ -198,14 +196,6 @@ function syncRhythmToggleButtons(activeMode) {
   });
 }
 
-function syncTimeToggleButtons(activeMode) {
-  document.querySelectorAll("[data-time]").forEach((button) => {
-    const isActive = button.dataset.time === activeMode;
-    button.classList.toggle("active", isActive);
-    button.setAttribute("aria-pressed", isActive ? "true" : "false");
-  });
-}
-
 /**
  * Handle toggle button changes
  * @param {Event} e - Click event
@@ -242,15 +232,6 @@ function handleToggleChange(e) {
     InsightsCharts.updateTrendsChart();
     InsightsStories.updatePeriodStory(nextMode, nextMode);
     return;
-  }
-
-  if (btn.dataset.time) {
-    const nextTimeView = btn.dataset.time;
-    InsightsState.updateState({ currentTimeView: nextTimeView });
-    syncTimeToggleButtons(nextTimeView);
-
-    InsightsCharts.updateTimeDistChart();
-    InsightsStories.updateTimeSignatureStory(nextTimeView);
   }
 }
 

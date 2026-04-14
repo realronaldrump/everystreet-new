@@ -97,6 +97,24 @@ block extra_css %}
             </button>
           </div>
           <div class="search-actions">
+            <div class="trip-view-switch" role="group" aria-label="Trip view">
+              <button class="trip-view-btn active"
+                      id="trip-view-cards"
+                      type="button"
+                      data-trip-view="cards"
+                      aria-pressed="true">
+                <i class="fas fa-th-large"></i>
+                <span>Cards</span>
+              </button>
+              <button class="trip-view-btn"
+                      id="trip-view-list"
+                      type="button"
+                      data-trip-view="list"
+                      aria-pressed="false">
+                <i class="fas fa-list"></i>
+                <span>List</span>
+              </button>
+            </div>
             <div class="sort-control">
               <label class="sort-control-label" for="trip-sort-select">
                 <i class="fas fa-arrow-down-wide-short"></i>
@@ -291,6 +309,53 @@ All vehicles
           </p>
           <div class="trips-cards-container trips-cards-container-inactive" id="trips-inactive">
           </div>
+        </div>
+      </section>
+
+      <!-- Trips Table -->
+      <section class="trips-list-view" id="trips-list-view" hidden>
+        <div class="trips-list-toolbar">
+          <div class="trips-list-heading">
+            <span class="trips-list-kicker">List view</span>
+            <h2 class="trips-list-title">Trip Ledger</h2>
+            <p class="trips-list-summary" id="trips-list-summary">
+            Showing trip details
+            </p>
+          </div>
+          <div class="trips-list-actions">
+            <button class="table-tool-btn"
+                    id="trip-table-columns-toggle"
+                    type="button"
+                    aria-expanded="false"
+                    aria-controls="trip-table-columns-panel">
+              <i class="fas fa-columns"></i>
+              <span>Columns</span>
+            </button>
+            <button class="table-tool-btn"
+                    id="trip-table-columns-reset"
+                    type="button">
+              <i class="fas fa-undo"></i>
+              <span>Reset</span>
+            </button>
+          </div>
+        </div>
+        <div class="trip-table-columns-panel"
+             id="trip-table-columns-panel"
+             hidden>
+          <div class="column-panel-copy">
+            <strong>Column titles</strong>
+            <span>Drag to reorder. Uncheck anything you do not need.</span>
+          </div>
+          <div class="trip-column-list" id="trip-column-list">
+          </div>
+        </div>
+        <div class="trips-table-shell">
+          <table class="trips-table" id="trips-table">
+            <thead id="trips-table-head">
+            </thead>
+            <tbody id="trips-table-body">
+            </tbody>
+          </table>
         </div>
       </section>
 

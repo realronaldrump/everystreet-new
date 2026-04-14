@@ -73,6 +73,19 @@ def _trip_docs() -> list[dict]:
                 "type": "LineString",
                 "coordinates": [[0.0, 0.0], [2.0, 0.0]],
             },
+            "displayGps": {
+                "type": "LineString",
+                "coordinates": [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]],
+            },
+            "displayGpsStatus": "cleaned",
+            "displayGpsSummary": {
+                "raw_points": 2,
+                "display_points": 3,
+                "removed_points": 0,
+                "split_count": 0,
+                "reasons": ["test"],
+            },
+            "displayGpsVersion": 1,
             "matchedGps": {
                 "type": "LineString",
                 "coordinates": [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]],
@@ -91,6 +104,19 @@ def _trip_docs() -> list[dict]:
                 "type": "LineString",
                 "coordinates": [[5.0, 0.0], [6.0, 0.0]],
             },
+            "displayGps": {
+                "type": "LineString",
+                "coordinates": [[5.0, 0.0], [5.5, 0.0], [6.0, 0.0]],
+            },
+            "displayGpsStatus": "unchanged",
+            "displayGpsSummary": {
+                "raw_points": 2,
+                "display_points": 3,
+                "removed_points": 0,
+                "split_count": 0,
+                "reasons": [],
+            },
+            "displayGpsVersion": 1,
             "matchedGps": {
                 "type": "LineString",
                 "coordinates": [[5.0, 0.0], [5.5, 0.0], [6.0, 0.0]],
@@ -155,8 +181,14 @@ def test_trips_endpoint_clips_to_selected_coverage_area() -> None:
     assert feature["geometry"]["type"] in {"LineString", "MultiLineString"}
     assert feature["properties"]["coverageDistance"] > 0
     assert feature["properties"]["coverageDistance"] < feature["properties"]["distance"]
+    assert feature["properties"]["displayGpsStatus"] == "cleaned"
+    assert feature["properties"]["displayGpsSummary"]["display_points"] == 3
+    assert feature["properties"]["displayGpsVersion"] == 1
 
-    _assert_prefilter_present(_FakeTripModel.received_queries[-1], geometry_field="gps")
+    _assert_prefilter_present(
+        _FakeTripModel.received_queries[-1],
+        geometry_field="displayGps",
+    )
 
 
 def test_matched_trips_endpoint_clips_and_omits_non_intersecting_trips() -> None:

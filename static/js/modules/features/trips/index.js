@@ -53,6 +53,387 @@ let featureApi = createFeatureApi();
 
 const DEFAULT_TRIP_SORT = "date_desc";
 let appliedTripSort = DEFAULT_TRIP_SORT;
+const DEFAULT_TRIP_VIEW = "cards";
+const TABLE_COLUMN_STORAGE_KEY =
+  CONFIG.STORAGE_KEYS.tripsTableColumns || "tripsTableColumns";
+const TRIP_VIEW_STORAGE_KEY = CONFIG.STORAGE_KEYS.tripsViewMode || "tripsViewMode";
+let tripViewMode = DEFAULT_TRIP_VIEW;
+let tripTableColumnOrder = [];
+let tripTableHiddenColumns = new Set();
+let draggedColumnKey = null;
+
+const TRIP_SORT_DEFINITIONS = {
+  date_desc: {
+    label: "Date (newest first)",
+    column: "startTime",
+    dir: "desc",
+  },
+  date_asc: {
+    label: "Date (oldest first)",
+    column: "startTime",
+    dir: "asc",
+  },
+  startTime_desc: {
+    label: "Started (newest first)",
+    column: "startTime",
+    dir: "desc",
+  },
+  startTime_asc: {
+    label: "Started (oldest first)",
+    column: "startTime",
+    dir: "asc",
+  },
+  endTime_desc: {
+    label: "Ended (newest first)",
+    column: "endTime",
+    dir: "desc",
+  },
+  endTime_asc: {
+    label: "Ended (oldest first)",
+    column: "endTime",
+    dir: "asc",
+  },
+  distance_desc: {
+    label: "Distance (high to low)",
+    column: "distance",
+    dir: "desc",
+  },
+  distance_asc: {
+    label: "Distance (low to high)",
+    column: "distance",
+    dir: "asc",
+  },
+  speed_desc: {
+    label: "Speed (high to low)",
+    column: "maxSpeed",
+    dir: "desc",
+  },
+  speed_asc: {
+    label: "Speed (low to high)",
+    column: "maxSpeed",
+    dir: "asc",
+  },
+  maxSpeed_desc: {
+    label: "Max speed (high to low)",
+    column: "maxSpeed",
+    dir: "desc",
+  },
+  maxSpeed_asc: {
+    label: "Max speed (low to high)",
+    column: "maxSpeed",
+    dir: "asc",
+  },
+  avgSpeed_desc: {
+    label: "Average speed (high to low)",
+    column: "avgSpeed",
+    dir: "desc",
+  },
+  avgSpeed_asc: {
+    label: "Average speed (low to high)",
+    column: "avgSpeed",
+    dir: "asc",
+  },
+  fuel_desc: {
+    label: "Gas used (high to low)",
+    column: "fuelConsumed",
+    dir: "desc",
+  },
+  fuel_asc: {
+    label: "Gas used (low to high)",
+    column: "fuelConsumed",
+    dir: "asc",
+  },
+  fuelConsumed_desc: {
+    label: "Fuel (high to low)",
+    column: "fuelConsumed",
+    dir: "desc",
+  },
+  fuelConsumed_asc: {
+    label: "Fuel (low to high)",
+    column: "fuelConsumed",
+    dir: "asc",
+  },
+  estimated_cost_desc: {
+    label: "Cost (high to low)",
+    column: "estimated_cost",
+    dir: "desc",
+  },
+  estimated_cost_asc: {
+    label: "Cost (low to high)",
+    column: "estimated_cost",
+    dir: "asc",
+  },
+  duration_desc: {
+    label: "Duration (high to low)",
+    column: "duration",
+    dir: "desc",
+  },
+  duration_asc: {
+    label: "Duration (low to high)",
+    column: "duration",
+    dir: "asc",
+  },
+  totalIdleDuration_desc: {
+    label: "Idle time (high to low)",
+    column: "totalIdleDuration",
+    dir: "desc",
+  },
+  totalIdleDuration_asc: {
+    label: "Idle time (low to high)",
+    column: "totalIdleDuration",
+    dir: "asc",
+  },
+  startOdometer_desc: {
+    label: "Start odometer (high to low)",
+    column: "startOdometer",
+    dir: "desc",
+  },
+  startOdometer_asc: {
+    label: "Start odometer (low to high)",
+    column: "startOdometer",
+    dir: "asc",
+  },
+  endOdometer_desc: {
+    label: "End odometer (high to low)",
+    column: "endOdometer",
+    dir: "desc",
+  },
+  endOdometer_asc: {
+    label: "End odometer (low to high)",
+    column: "endOdometer",
+    dir: "asc",
+  },
+  startLocation_desc: {
+    label: "Start place (Z to A)",
+    column: "startLocation",
+    dir: "desc",
+  },
+  startLocation_asc: {
+    label: "Start place (A to Z)",
+    column: "startLocation",
+    dir: "asc",
+  },
+  destination_desc: {
+    label: "Destination (Z to A)",
+    column: "destination",
+    dir: "desc",
+  },
+  destination_asc: {
+    label: "Destination (A to Z)",
+    column: "destination",
+    dir: "asc",
+  },
+  vehicleLabel_desc: {
+    label: "Vehicle (Z to A)",
+    column: "vehicleLabel",
+    dir: "desc",
+  },
+  vehicleLabel_asc: {
+    label: "Vehicle (A to Z)",
+    column: "vehicleLabel",
+    dir: "asc",
+  },
+  inactive_desc: {
+    label: "State (inactive first)",
+    column: "inactive",
+    dir: "desc",
+  },
+  inactive_asc: {
+    label: "State (active first)",
+    column: "inactive",
+    dir: "asc",
+  },
+  matchStatus_desc: {
+    label: "Match status (Z to A)",
+    column: "matchStatus",
+    dir: "desc",
+  },
+  matchStatus_asc: {
+    label: "Match status (A to Z)",
+    column: "matchStatus",
+    dir: "asc",
+  },
+  timeZone_desc: {
+    label: "Timezone (Z to A)",
+    column: "timeZone",
+    dir: "desc",
+  },
+  timeZone_asc: {
+    label: "Timezone (A to Z)",
+    column: "timeZone",
+    dir: "asc",
+  },
+  transactionId_desc: {
+    label: "Trip ID (Z to A)",
+    column: "transactionId",
+    dir: "desc",
+  },
+  transactionId_asc: {
+    label: "Trip ID (A to Z)",
+    column: "transactionId",
+    dir: "asc",
+  },
+  imei_desc: {
+    label: "IMEI (Z to A)",
+    column: "imei",
+    dir: "desc",
+  },
+  imei_asc: {
+    label: "IMEI (A to Z)",
+    column: "imei",
+    dir: "asc",
+  },
+  vin_desc: {
+    label: "VIN (Z to A)",
+    column: "vin",
+    dir: "desc",
+  },
+  vin_asc: {
+    label: "VIN (A to Z)",
+    column: "vin",
+    dir: "asc",
+  },
+};
+
+const TRIP_TABLE_COLUMNS = [
+  {
+    key: "select",
+    label: "Select",
+    icon: "fa-check-square",
+    sortable: false,
+    hideable: false,
+    render: (trip) => renderTripSelectCell(trip),
+  },
+  {
+    key: "startTime",
+    label: "Started",
+    icon: "fa-calendar-day",
+    sortKey: "date",
+    render: (trip) => renderPrimaryDateCell(trip),
+  },
+  {
+    key: "title",
+    label: "Trip",
+    icon: "fa-route",
+    sortKey: "date",
+    render: (trip) => renderTripTitleCell(trip),
+  },
+  {
+    key: "startLocation",
+    label: "Start",
+    icon: "fa-location-dot",
+    render: (trip) => renderTextCell(sanitizeLocation(trip.startLocation)),
+  },
+  {
+    key: "destination",
+    label: "Destination",
+    icon: "fa-flag-checkered",
+    render: (trip) => renderTextCell(sanitizeLocation(trip.destination)),
+  },
+  {
+    key: "distance",
+    label: "Distance",
+    icon: "fa-road",
+    align: "right",
+    render: (trip) => renderMetricCell(formatMiles(trip.distance)),
+  },
+  {
+    key: "duration",
+    label: "Duration",
+    icon: "fa-clock",
+    align: "right",
+    render: (trip) => renderMetricCell(formatTripDuration(trip.duration)),
+  },
+  {
+    key: "maxSpeed",
+    label: "Max Speed",
+    icon: "fa-tachometer-alt",
+    align: "right",
+    render: (trip) => renderMetricCell(formatSpeed(trip.maxSpeed)),
+  },
+  {
+    key: "avgSpeed",
+    label: "Avg Speed",
+    icon: "fa-tachometer-alt",
+    align: "right",
+    render: (trip) => renderMetricCell(formatSpeed(trip.avgSpeed)),
+  },
+  {
+    key: "fuelConsumed",
+    label: "Fuel",
+    icon: "fa-gas-pump",
+    align: "right",
+    render: (trip) => renderMetricCell(formatGallons(trip.fuelConsumed)),
+  },
+  {
+    key: "estimated_cost",
+    label: "Cost",
+    icon: "fa-dollar-sign",
+    align: "right",
+    render: (trip) => renderMetricCell(formatUsd(trip.estimated_cost)),
+  },
+  {
+    key: "totalIdleDuration",
+    label: "Idle",
+    icon: "fa-hourglass-half",
+    align: "right",
+    render: (trip) => renderMetricCell(formatTripDuration(trip.totalIdleDuration)),
+  },
+  {
+    key: "odometer",
+    label: "Odometer",
+    icon: "fa-road",
+    sortable: false,
+    render: (trip) => renderOdometerCell(trip),
+  },
+  {
+    key: "vehicleLabel",
+    label: "Vehicle",
+    icon: "fa-car",
+    render: (trip) => renderTextCell(trip.vehicleLabel || "Unknown vehicle"),
+  },
+  {
+    key: "inactive",
+    label: "State",
+    icon: "fa-toggle-on",
+    render: (trip) => renderStateCell(trip),
+  },
+  {
+    key: "matchStatus",
+    label: "Match",
+    icon: "fa-map-marked-alt",
+    render: (trip) => renderStatusCell(trip.matchStatus || "Unmatched"),
+  },
+  {
+    key: "pointsRecorded",
+    label: "Points",
+    icon: "fa-braille",
+    align: "right",
+    sortable: false,
+    render: (trip) => renderMetricCell(formatInteger(trip.pointsRecorded)),
+  },
+  {
+    key: "timeZone",
+    label: "Timezone",
+    icon: "fa-globe",
+    render: (trip) => renderTextCell(trip.timeZone || "--"),
+  },
+  {
+    key: "identifiers",
+    label: "IDs",
+    icon: "fa-fingerprint",
+    sortable: false,
+    render: (trip) => renderIdentifiersCell(trip),
+  },
+  {
+    key: "actions",
+    label: "Actions",
+    icon: "fa-ellipsis-h",
+    sortable: false,
+    hideable: false,
+    render: (trip) => renderTripActionCell(trip),
+  },
+];
 
 const playbackState = {
   coords: [],
@@ -251,6 +632,10 @@ function resetTripsState() {
   playbackControlsBound = false;
   modalActionsBound = false;
   appliedTripSort = DEFAULT_TRIP_SORT;
+  tripViewMode = DEFAULT_TRIP_VIEW;
+  tripTableColumnOrder = [];
+  tripTableHiddenColumns = new Set();
+  draggedColumnKey = null;
 
   pausePlayback();
   playbackState.coords = [];
@@ -270,94 +655,32 @@ function normalizeTripSort(value) {
 
   const normalized = value.trim();
 
-  switch (normalized) {
-    case "date_desc":
-    case "date_asc":
-    case "distance_desc":
-    case "distance_asc":
-    case "speed_desc":
-    case "speed_asc":
-    case "fuel_desc":
-    case "fuel_asc":
-    case "duration_desc":
-    case "duration_asc":
-      return normalized;
-    default:
-      return DEFAULT_TRIP_SORT;
+  if (TRIP_SORT_DEFINITIONS[normalized]) {
+    return normalized;
   }
+
+  return DEFAULT_TRIP_SORT;
 }
 
 function getTripSortValue() {
   const select = document.getElementById("trip-sort-select");
   const stored = getStorage(CONFIG.STORAGE_KEYS.tripsSort, DEFAULT_TRIP_SORT);
-  const candidate = select?.value || stored || DEFAULT_TRIP_SORT;
+  const candidate = stored || select?.value || DEFAULT_TRIP_SORT;
   return normalizeTripSort(candidate);
 }
 
 function getTripSortLabel(sort) {
-  switch (normalizeTripSort(sort)) {
-    case "date_desc":
-      return "Date (newest first)";
-    case "date_asc":
-      return "Date (oldest first)";
-    case "distance_desc":
-      return "Distance (high to low)";
-    case "distance_asc":
-      return "Distance (low to high)";
-    case "speed_desc":
-      return "Speed (high to low)";
-    case "speed_asc":
-      return "Speed (low to high)";
-    case "fuel_desc":
-      return "Gas used (high to low)";
-    case "fuel_asc":
-      return "Gas used (low to high)";
-    case "duration_desc":
-      return "Duration (high to low)";
-    case "duration_asc":
-      return "Duration (low to high)";
-    default:
-      return "Date (newest first)";
-  }
+  return (
+    TRIP_SORT_DEFINITIONS[normalizeTripSort(sort)]?.label ||
+    TRIP_SORT_DEFINITIONS[DEFAULT_TRIP_SORT].label
+  );
 }
 
 function getTripsSortRequest() {
   const sort = getTripSortValue();
-
-  let column = "startTime";
-  let dir = "desc";
-
-  if (sort === "date_asc") {
-    column = "startTime";
-    dir = "asc";
-  } else if (sort === "date_desc") {
-    column = "startTime";
-    dir = "desc";
-  } else if (sort === "distance_desc") {
-    column = "distance";
-    dir = "desc";
-  } else if (sort === "distance_asc") {
-    column = "distance";
-    dir = "asc";
-  } else if (sort === "speed_desc") {
-    column = "maxSpeed";
-    dir = "desc";
-  } else if (sort === "speed_asc") {
-    column = "maxSpeed";
-    dir = "asc";
-  } else if (sort === "fuel_desc") {
-    column = "fuelConsumed";
-    dir = "desc";
-  } else if (sort === "fuel_asc") {
-    column = "fuelConsumed";
-    dir = "asc";
-  } else if (sort === "duration_desc") {
-    column = "duration";
-    dir = "desc";
-  } else if (sort === "duration_asc") {
-    column = "duration";
-    dir = "asc";
-  }
+  const definition =
+    TRIP_SORT_DEFINITIONS[sort] || TRIP_SORT_DEFINITIONS[DEFAULT_TRIP_SORT];
+  const { column, dir } = definition;
 
   return {
     sort,
@@ -418,9 +741,12 @@ async function initializePage(signal, cleanup) {
 
   // Restore saved filters before setting up listeners
   restoreSavedFilters();
+  restoreTripViewPreference();
+  restoreTripTableColumnPreferences();
 
   // Setup all event listeners
   setupSearchAndFilters(cleanup);
+  setupTripViewControls();
   setupBulkActions();
   setupTripCardInteractions();
 
@@ -519,7 +845,10 @@ function restoreSavedFilters() {
     const savedSort = normalizeTripSort(
       getStorage(CONFIG.STORAGE_KEYS.tripsSort, DEFAULT_TRIP_SORT)
     );
-    sortSelect.value = savedSort;
+    const hasOption = Array.from(sortSelect.options).some(
+      (option) => option.value === savedSort
+    );
+    sortSelect.value = hasOption ? savedSort : DEFAULT_TRIP_SORT;
     sortSelect.classList.toggle("has-value", savedSort !== DEFAULT_TRIP_SORT);
   }
 
@@ -552,6 +881,227 @@ function applySavedFilters() {
       updateFilteredStats();
     }
   }
+}
+
+function normalizeTripViewMode(value) {
+  return value === "list" ? "list" : DEFAULT_TRIP_VIEW;
+}
+
+function restoreTripViewPreference() {
+  tripViewMode = normalizeTripViewMode(
+    getStorage(TRIP_VIEW_STORAGE_KEY, DEFAULT_TRIP_VIEW)
+  );
+  applyTripViewMode(tripViewMode, { render: false, persist: false });
+}
+
+function setupTripViewControls() {
+  document.querySelectorAll("[data-trip-view]").forEach((button) => {
+    bindPageEvent(button, "click", () => {
+      applyTripViewMode(button.dataset.tripView, { render: true, persist: true });
+    });
+  });
+
+  bindPageEvent("trip-table-columns-toggle", "click", () => {
+    const panel = document.getElementById("trip-table-columns-panel");
+    const button = document.getElementById("trip-table-columns-toggle");
+    if (!panel || !button) {
+      return;
+    }
+    const willOpen = panel.hidden;
+    panel.hidden = !willOpen;
+    button.classList.toggle("active", willOpen);
+    button.setAttribute("aria-expanded", willOpen ? "true" : "false");
+    if (willOpen) {
+      renderTripTableColumnControls();
+    }
+  });
+
+  bindPageEvent("trip-table-columns-reset", "click", () => {
+    tripTableColumnOrder = getDefaultTripTableColumnOrder();
+    tripTableHiddenColumns = new Set();
+    persistTripTableColumnPreferences();
+    renderTripTableColumnControls();
+    renderTrips(getRenderableTrips());
+  });
+}
+
+function applyTripViewMode(value, { render = true, persist = true } = {}) {
+  tripViewMode = normalizeTripViewMode(value);
+
+  if (persist) {
+    setStorage(TRIP_VIEW_STORAGE_KEY, tripViewMode);
+  }
+
+  document.querySelectorAll("[data-trip-view]").forEach((button) => {
+    const active = button.dataset.tripView === tripViewMode;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+
+  const columnsPanel = document.getElementById("trip-table-columns-panel");
+  const columnsToggle = document.getElementById("trip-table-columns-toggle");
+  if (tripViewMode !== "list" && columnsPanel && columnsToggle) {
+    columnsPanel.hidden = true;
+    columnsToggle.classList.remove("active");
+    columnsToggle.setAttribute("aria-expanded", "false");
+  }
+
+  syncTripViewContainers();
+
+  if (render) {
+    renderTrips(getRenderableTrips());
+  }
+}
+
+function syncTripViewContainers() {
+  const timelineEl = document.getElementById("trips-timeline");
+  const tableEl = document.getElementById("trips-list-view");
+  const emptyEl = document.getElementById("trips-empty");
+  const emptyVisible = emptyEl?.style.display === "block";
+
+  if (timelineEl) {
+    timelineEl.style.display =
+      !emptyVisible && tripViewMode === "cards" ? "flex" : "none";
+  }
+  if (tableEl) {
+    const showTable = !emptyVisible && tripViewMode === "list";
+    tableEl.hidden = !showTable;
+    tableEl.style.display = showTable ? "block" : "none";
+  }
+}
+
+function getDefaultTripTableColumnOrder() {
+  return TRIP_TABLE_COLUMNS.map((column) => column.key);
+}
+
+function getTripTableColumnByKey(key) {
+  return TRIP_TABLE_COLUMNS.find((column) => column.key === key) || null;
+}
+
+function restoreTripTableColumnPreferences() {
+  const saved = getStorage(TABLE_COLUMN_STORAGE_KEY, null);
+  const defaultOrder = getDefaultTripTableColumnOrder();
+
+  if (saved && Array.isArray(saved.order)) {
+    const knownKeys = new Set(defaultOrder);
+    const savedOrder = saved.order.filter((key) => knownKeys.has(key));
+    const missingKeys = defaultOrder.filter((key) => !savedOrder.includes(key));
+    tripTableColumnOrder = [...savedOrder, ...missingKeys];
+  } else {
+    tripTableColumnOrder = defaultOrder;
+  }
+
+  const hideableKeys = new Set(
+    TRIP_TABLE_COLUMNS.filter((column) => column.hideable !== false).map(
+      (column) => column.key
+    )
+  );
+  tripTableHiddenColumns = new Set(
+    Array.isArray(saved?.hidden)
+      ? saved.hidden.filter((key) => hideableKeys.has(key))
+      : []
+  );
+
+  renderTripTableColumnControls();
+}
+
+function persistTripTableColumnPreferences() {
+  setStorage(TABLE_COLUMN_STORAGE_KEY, {
+    order: tripTableColumnOrder,
+    hidden: [...tripTableHiddenColumns],
+  });
+}
+
+function getOrderedTripTableColumns({ includeHidden = false } = {}) {
+  const keys = tripTableColumnOrder.length
+    ? tripTableColumnOrder
+    : getDefaultTripTableColumnOrder();
+
+  return keys
+    .map((key) => getTripTableColumnByKey(key))
+    .filter(Boolean)
+    .filter((column) => includeHidden || !tripTableHiddenColumns.has(column.key));
+}
+
+function renderTripTableColumnControls() {
+  const list = document.getElementById("trip-column-list");
+  if (!list) {
+    return;
+  }
+
+  list.innerHTML = "";
+  getOrderedTripTableColumns({ includeHidden: true }).forEach((column) => {
+    const item = document.createElement("div");
+    item.className = "trip-column-item";
+    item.draggable = true;
+    item.dataset.columnKey = column.key;
+    item.innerHTML = `
+      <span class="column-drag-handle" aria-hidden="true">
+        <i class="fas fa-grip-vertical"></i>
+      </span>
+      <label class="column-toggle-label">
+        <input type="checkbox"
+               ${tripTableHiddenColumns.has(column.key) ? "" : "checked"}
+               ${column.hideable === false ? "disabled" : ""}>
+        <span>${escapeHtml(column.label)}</span>
+      </label>
+    `;
+
+    item.addEventListener("dragstart", () => {
+      draggedColumnKey = column.key;
+      item.classList.add("is-dragging");
+    });
+    item.addEventListener("dragend", () => {
+      draggedColumnKey = null;
+      item.classList.remove("is-dragging");
+    });
+    item.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      item.classList.add("is-drop-target");
+    });
+    item.addEventListener("dragleave", () => {
+      item.classList.remove("is-drop-target");
+    });
+    item.addEventListener("drop", (event) => {
+      event.preventDefault();
+      item.classList.remove("is-drop-target");
+      reorderTripTableColumn(draggedColumnKey, column.key);
+    });
+
+    const checkbox = item.querySelector("input");
+    checkbox?.addEventListener("change", (event) => {
+      if (column.hideable === false) {
+        event.target.checked = true;
+        return;
+      }
+      if (event.target.checked) {
+        tripTableHiddenColumns.delete(column.key);
+      } else {
+        tripTableHiddenColumns.add(column.key);
+      }
+      persistTripTableColumnPreferences();
+      renderTrips(getRenderableTrips());
+    });
+
+    list.appendChild(item);
+  });
+}
+
+function reorderTripTableColumn(sourceKey, targetKey) {
+  if (!sourceKey || !targetKey || sourceKey === targetKey) {
+    return;
+  }
+
+  const nextOrder = tripTableColumnOrder.filter((key) => key !== sourceKey);
+  const targetIndex = nextOrder.indexOf(targetKey);
+  if (targetIndex === -1) {
+    return;
+  }
+  nextOrder.splice(targetIndex, 0, sourceKey);
+  tripTableColumnOrder = nextOrder;
+  persistTripTableColumnPreferences();
+  renderTripTableColumnControls();
+  renderTrips(getRenderableTrips());
 }
 
 // ==========================================
@@ -699,6 +1249,14 @@ function getClientVisibleTrips() {
     return [...filteredTrips];
   }
   return [...tripsData];
+}
+
+function getRenderableTrips() {
+  const searchValue = document.getElementById("trip-search-input")?.value?.trim() || "";
+  if (searchValue || tripsData.length > 0) {
+    return filteredTrips;
+  }
+  return tripsData;
 }
 
 // ==========================================
@@ -868,7 +1426,9 @@ async function loadTrips() {
   }
 
   isLoading = true;
-  const hasRenderedTrips = Boolean(document.querySelector(".trip-card"));
+  const hasRenderedTrips = Boolean(
+    document.querySelector(".trip-card, .trip-table-row")
+  );
   showLoadingState(!hasRenderedTrips);
 
   try {
@@ -932,6 +1492,7 @@ function showLoadingState(show) {
 function showEmptyState() {
   const emptyEl = document.getElementById("trips-empty");
   const timelineEl = document.getElementById("trips-timeline");
+  const tableEl = document.getElementById("trips-list-view");
   const paginationEl = document.getElementById("trips-pagination");
 
   if (emptyEl) {
@@ -940,6 +1501,10 @@ function showEmptyState() {
   if (timelineEl) {
     timelineEl.style.display = "none";
   }
+  if (tableEl) {
+    tableEl.hidden = true;
+    tableEl.style.display = "none";
+  }
   if (paginationEl) {
     paginationEl.style.display = "none";
   }
@@ -947,18 +1512,15 @@ function showEmptyState() {
 
 function hideEmptyState() {
   const emptyEl = document.getElementById("trips-empty");
-  const timelineEl = document.getElementById("trips-timeline");
   const paginationEl = document.getElementById("trips-pagination");
 
   if (emptyEl) {
     emptyEl.style.display = "none";
   }
-  if (timelineEl) {
-    timelineEl.style.display = "block";
-  }
   if (paginationEl) {
     paginationEl.style.display = "flex";
   }
+  syncTripViewContainers();
 }
 
 // ==========================================
@@ -1032,6 +1594,12 @@ function getFlatTripsTitle(sort) {
 }
 
 function renderTrips(trips) {
+  syncTripViewContainers();
+  if (tripViewMode === "list") {
+    renderTripsTable(trips);
+    return;
+  }
+
   const sort = normalizeTripSort(appliedTripSort);
   if (sort === "date_desc" || sort === "date_asc") {
     renderTripsTimeline(trips, { direction: sort === "date_asc" ? "asc" : "desc" });
@@ -1144,6 +1712,343 @@ function renderInactiveTrips(inactiveTrips, allTrips) {
   if (countEl) {
     countEl.textContent = "0 trips";
   }
+}
+
+function renderTripsTable(trips) {
+  const head = document.getElementById("trips-table-head");
+  const body = document.getElementById("trips-table-body");
+  const summary = document.getElementById("trips-list-summary");
+
+  if (!head || !body) {
+    return;
+  }
+
+  const columns = getOrderedTripTableColumns();
+  head.innerHTML = renderTripsTableHead(columns);
+  bindTripTableHeaderSorting();
+  body.innerHTML = "";
+
+  if (summary) {
+    const activeCount = trips.filter((trip) => !isInactiveTrip(trip)).length;
+    const inactiveCount = trips.length - activeCount;
+    summary.textContent = `${activeCount} active trip${
+      activeCount === 1 ? "" : "s"
+    } on this page${inactiveCount ? `, ${inactiveCount} inactive` : ""}`;
+  }
+
+  if (!trips.length) {
+    const row = document.createElement("tr");
+    row.className = "trip-table-empty-row";
+    row.innerHTML = `
+      <td colspan="${columns.length}">
+        No trips match this view.
+      </td>
+    `;
+    body.appendChild(row);
+    return;
+  }
+
+  trips.forEach((trip) => {
+    body.appendChild(createTripTableRow(trip, columns));
+  });
+}
+
+function renderTripsTableHead(columns) {
+  const activeDefinition =
+    TRIP_SORT_DEFINITIONS[normalizeTripSort(appliedTripSort)] ||
+    TRIP_SORT_DEFINITIONS[DEFAULT_TRIP_SORT];
+
+  const cells = columns
+    .map((column) => {
+      const alignClass = column.align === "right" ? " is-right" : "";
+      const sortKey = getColumnSortKey(column);
+      const isActiveSort =
+        column.sortable !== false &&
+        Boolean(sortKey) &&
+        activeDefinition.column === getSortColumnForKey(sortKey);
+      const sortClass = isActiveSort ? " is-sorted" : "";
+      const directionIcon =
+        activeDefinition.dir === "asc" ? "fa-arrow-up" : "fa-arrow-down";
+
+      if (column.sortable === false || !sortKey) {
+        return `
+          <th class="trip-table-heading${alignClass}" scope="col">
+            <span class="trip-table-heading-label">
+              <i class="fas ${column.icon}"></i>
+              ${escapeHtml(column.label)}
+            </span>
+          </th>
+        `;
+      }
+
+      return `
+        <th class="trip-table-heading${alignClass}${sortClass}" scope="col">
+          <button class="trip-table-sort-btn"
+                  type="button"
+                  data-sort-key="${escapeHtml(sortKey)}"
+                  aria-label="Sort by ${escapeHtml(column.label)}">
+            <span class="trip-table-heading-label">
+              <i class="fas ${column.icon}"></i>
+              ${escapeHtml(column.label)}
+            </span>
+            <i class="fas ${isActiveSort ? directionIcon : "fa-sort"} sort-icon"></i>
+          </button>
+        </th>
+      `;
+    })
+    .join("");
+
+  return `<tr>${cells}</tr>`;
+}
+
+function createTripTableRow(trip, columns) {
+  const row = document.createElement("tr");
+  row.className = "trip-table-row";
+  row.dataset.tripId = trip.transactionId;
+  row.classList.toggle("selected", selectedTripIds.has(trip.transactionId));
+  row.classList.toggle("inactive", isInactiveTrip(trip));
+
+  row.innerHTML = columns
+    .map((column) => {
+      const alignClass = column.align === "right" ? " is-right" : "";
+      return `
+        <td class="trip-table-cell trip-table-cell--${column.key}${alignClass}">
+          ${column.render(trip)}
+        </td>
+      `;
+    })
+    .join("");
+
+  bindTripTableRowEvents(row, trip);
+  return row;
+}
+
+function bindTripTableHeaderSorting() {
+  document.querySelectorAll(".trip-table-sort-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      const sortKey = button.dataset.sortKey;
+      if (!sortKey) {
+        return;
+      }
+
+      const activeDefinition =
+        TRIP_SORT_DEFINITIONS[normalizeTripSort(appliedTripSort)] ||
+        TRIP_SORT_DEFINITIONS[DEFAULT_TRIP_SORT];
+      const activeColumn = activeDefinition.column;
+      const nextDirection =
+        activeColumn === getSortColumnForKey(sortKey) && activeDefinition.dir === "desc"
+          ? "asc"
+          : "desc";
+      const nextSort = normalizeTripSort(`${sortKey}_${nextDirection}`);
+      setStorage(CONFIG.STORAGE_KEYS.tripsSort, nextSort);
+      currentPage = 1;
+      loadTrips();
+    });
+  });
+}
+
+function bindTripTableRowEvents(row, trip) {
+  row.addEventListener("click", (event) => {
+    if (
+      event.target.closest(".trip-table-select") ||
+      event.target.closest(".trip-row-action-btn")
+    ) {
+      return;
+    }
+    openTripModal(trip.transactionId);
+  });
+
+  const checkbox = row.querySelector(".trip-table-select input");
+  checkbox?.addEventListener("change", (event) => {
+    event.stopPropagation();
+    setTripSelected(trip.transactionId, event.target.checked);
+  });
+
+  bindTripActionButtons(row, trip);
+}
+
+function bindTripActionButtons(scope, trip) {
+  const inactive = isInactiveTrip(trip);
+
+  const viewBtn = scope.querySelector("[data-trip-action='view']");
+  viewBtn?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    openTripModal(trip.transactionId);
+  });
+
+  const rematchBtn = scope.querySelector("[data-trip-action='rematch']");
+  rematchBtn?.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    const confirmed = await confirmationDialog.show({
+      title: "Rematch Trip",
+      message: "Are you sure you want to run map matching on this trip again?",
+      confirmText: "Rematch",
+      confirmButtonClass: "btn-primary",
+    });
+    if (confirmed) {
+      rematchTrip(trip.transactionId);
+    }
+  });
+
+  const inactiveToggleBtn = scope.querySelector("[data-trip-action='inactive']");
+  inactiveToggleBtn?.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    const nextInactive = !inactive;
+    const confirmed = await confirmationDialog.show({
+      title: nextInactive ? "Mark Trip Inactive" : "Restore Trip",
+      message: nextInactive
+        ? "Keep this trip in history but exclude it from totals, maps, gas, routes, and coverage?"
+        : "Restore this trip to totals, maps, gas, routes, and coverage again?",
+      confirmText: nextInactive ? "Mark Inactive" : "Restore",
+      confirmButtonClass: nextInactive ? "btn-warning" : "btn-primary",
+    });
+    if (confirmed) {
+      await toggleTripInactive(trip.transactionId, nextInactive);
+    }
+  });
+
+  const deleteBtn = scope.querySelector("[data-trip-action='delete']");
+  deleteBtn?.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    const confirmed = await confirmationDialog.show({
+      title: "Delete Trip",
+      message: "Are you sure you want to delete this trip?",
+      confirmText: "Delete",
+      confirmButtonClass: "btn-danger",
+    });
+    if (confirmed) {
+      deleteTrip(trip.transactionId);
+    }
+  });
+}
+
+function getColumnSortKey(column) {
+  if (column.sortable === false) {
+    return null;
+  }
+  return column.sortKey || column.key;
+}
+
+function getSortColumnForKey(sortKey) {
+  const definition =
+    TRIP_SORT_DEFINITIONS[`${sortKey}_desc`] || TRIP_SORT_DEFINITIONS[`${sortKey}_asc`];
+  return definition?.column || sortKey;
+}
+
+function renderTripSelectCell(trip) {
+  return `
+    <label class="trip-table-select" aria-label="Select trip">
+      <input type="checkbox" ${selectedTripIds.has(trip.transactionId) ? "checked" : ""}>
+      <span></span>
+    </label>
+  `;
+}
+
+function renderPrimaryDateCell(trip) {
+  return `
+    <div class="trip-table-date">
+      <strong>${escapeHtml(formatDateTime(trip.startTime))}</strong>
+      <span>${escapeHtml(formatRelativeTime(trip.startTime))}</span>
+    </div>
+  `;
+}
+
+function renderTripTitleCell(trip) {
+  const badges = [
+    isInactiveTrip(trip) ? '<span class="trip-table-badge muted">Inactive</span>' : "",
+    trip.matchStatus ? '<span class="trip-table-badge">Matched</span>' : "",
+  ]
+    .filter(Boolean)
+    .join("");
+  return `
+    <div class="trip-table-trip">
+      <strong>${escapeHtml(generateSmartTitle(trip))}</strong>
+      <span>${escapeHtml(formatRouteSummary(trip))}</span>
+      ${badges ? `<div class="trip-table-badges">${badges}</div>` : ""}
+    </div>
+  `;
+}
+
+function renderTextCell(value) {
+  return `<span class="trip-table-text">${escapeHtml(value || "--")}</span>`;
+}
+
+function renderMetricCell(value) {
+  return `<span class="trip-table-metric">${escapeHtml(value || "--")}</span>`;
+}
+
+function renderStateCell(trip) {
+  const inactive = isInactiveTrip(trip);
+  return `
+    <span class="trip-table-state ${inactive ? "inactive" : "active"}">
+      <span></span>
+      ${inactive ? "Inactive" : "Active"}
+    </span>
+  `;
+}
+
+function renderStatusCell(value) {
+  const clean = String(value || "Unmatched").replace(/_/g, " ");
+  return `<span class="trip-table-status">${escapeHtml(clean)}</span>`;
+}
+
+function renderOdometerCell(trip) {
+  const start = formatOdometer(trip.startOdometer);
+  const end = formatOdometer(trip.endOdometer);
+  return `
+    <div class="trip-table-stack">
+      <strong>${escapeHtml(end)}</strong>
+      <span>from ${escapeHtml(start)}</span>
+    </div>
+  `;
+}
+
+function renderIdentifiersCell(trip) {
+  return `
+    <div class="trip-table-ids">
+      <span title="${escapeHtml(trip.transactionId || "")}">${escapeHtml(shortId(trip.transactionId))}</span>
+      <span>${escapeHtml(trip.vehicleLabel || trip.imei || "--")}</span>
+      <span>${escapeHtml(trip.vin || trip.imei || "--")}</span>
+    </div>
+  `;
+}
+
+function renderTripActionCell(trip) {
+  const inactive = isInactiveTrip(trip);
+  return `
+    <div class="trip-row-actions">
+      ${
+        inactive
+          ? ""
+          : `
+      <button class="trip-row-action-btn"
+              type="button"
+              title="Rematch trip"
+              data-trip-action="rematch">
+        <i class="fas fa-route"></i>
+      </button>
+      `
+      }
+      <button class="trip-row-action-btn"
+              type="button"
+              title="${inactive ? "Restore trip" : "Exclude from totals and maps"}"
+              data-trip-action="inactive">
+        <i class="fas ${inactive ? "fa-undo" : "fa-eye-slash"}"></i>
+      </button>
+      <button class="trip-row-action-btn"
+              type="button"
+              title="View details"
+              data-trip-action="view">
+        <i class="fas fa-map"></i>
+      </button>
+      <button class="trip-row-action-btn delete"
+              type="button"
+              title="Delete"
+              data-trip-action="delete">
+        <i class="fas fa-trash"></i>
+      </button>
+    </div>
+  `;
 }
 
 function createTripCard(trip, allTrips) {
@@ -1296,14 +2201,7 @@ function createTripCard(trip, allTrips) {
   const checkbox = card.querySelector(".trip-card-checkbox input");
   checkbox.addEventListener("change", (e) => {
     e.stopPropagation();
-    if (e.target.checked) {
-      selectedTripIds.add(trip.transactionId);
-      card.classList.add("selected");
-    } else {
-      selectedTripIds.delete(trip.transactionId);
-      card.classList.remove("selected");
-    }
-    updateBulkActionsBar();
+    setTripSelected(trip.transactionId, e.target.checked);
   });
 
   const viewBtn = card.querySelector('.trip-action-btn[title="View details"]');
@@ -1438,6 +2336,70 @@ function formatUsd(value) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(n);
+}
+
+function toFiniteNumber(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function formatMiles(value) {
+  const number = toFiniteNumber(value);
+  return number === null ? "--" : `${number.toFixed(1)} mi`;
+}
+
+function formatSpeed(value) {
+  const number = toFiniteNumber(value);
+  return number === null || number <= 0 ? "--" : `${Math.round(number)} mph`;
+}
+
+function formatGallons(value) {
+  const number = toFiniteNumber(value);
+  return number === null || number <= 0 ? "--" : `${number.toFixed(2)} gal`;
+}
+
+function formatOdometer(value) {
+  const number = toFiniteNumber(value);
+  if (number === null || number <= 0) {
+    return "--";
+  }
+  return `${Math.round(number).toLocaleString()} mi`;
+}
+
+function formatInteger(value) {
+  const number = toFiniteNumber(value);
+  return number === null ? "--" : Math.round(number).toLocaleString();
+}
+
+function formatTripDuration(value) {
+  const number = toFiniteNumber(value);
+  return number === null || number <= 0 ? "--" : formatDuration(number);
+}
+
+function formatRouteSummary(trip) {
+  const start = sanitizeLocation(trip.startLocation);
+  const end = sanitizeLocation(trip.destination);
+  if (start && end && start !== "--" && end !== "--") {
+    return `${start} to ${end}`;
+  }
+  if (end && end !== "--") {
+    return `To ${end}`;
+  }
+  if (start && start !== "--") {
+    return `From ${start}`;
+  }
+  return "Route unavailable";
+}
+
+function shortId(value) {
+  if (!value) {
+    return "--";
+  }
+  const text = String(value);
+  return text.length > 12 ? `${text.slice(0, 7)}...${text.slice(-4)}` : text;
 }
 
 // ==========================================
@@ -1930,6 +2892,39 @@ function updateFilterResultsPreview() {
 // BULK ACTIONS
 // ==========================================
 
+function setTripSelected(tripId, selected) {
+  if (!tripId) {
+    return;
+  }
+
+  if (selected) {
+    selectedTripIds.add(tripId);
+  } else {
+    selectedTripIds.delete(tripId);
+  }
+
+  document.querySelectorAll(".trip-card, .trip-table-row").forEach((el) => {
+    if (el.dataset.tripId !== tripId) {
+      return;
+    }
+    el.classList.toggle("selected", selected);
+    const checkbox = el.querySelector(
+      ".trip-card-checkbox input, .trip-table-select input"
+    );
+    if (checkbox) {
+      checkbox.checked = selected;
+    }
+  });
+
+  updateBulkActionsBar();
+}
+
+function getVisibleTripSelectionElements() {
+  return Array.from(document.querySelectorAll(".trip-card, .trip-table-row")).filter(
+    (el) => el.offsetParent !== null
+  );
+}
+
 function setupBulkActions() {
   const _bulkBar = document.getElementById("bulk-actions-bar");
   const selectAllBtn = document.getElementById("bulk-select-all-btn");
@@ -1938,29 +2933,14 @@ function setupBulkActions() {
 
   if (selectAllBtn) {
     bindPageEvent(selectAllBtn, "click", () => {
-      const visibleCards = document.querySelectorAll(".trip-card");
-      const allSelected = visibleCards.length === selectedTripIds.size;
+      const visibleTrips = getVisibleTripSelectionElements();
+      const allSelected =
+        visibleTrips.length > 0 &&
+        visibleTrips.every((el) => selectedTripIds.has(el.dataset.tripId));
 
-      visibleCards.forEach((card) => {
-        const { tripId } = card.dataset;
-        const checkbox = card.querySelector(".trip-card-checkbox input");
-
-        if (allSelected) {
-          selectedTripIds.delete(tripId);
-          card.classList.remove("selected");
-          if (checkbox) {
-            checkbox.checked = false;
-          }
-        } else {
-          selectedTripIds.add(tripId);
-          card.classList.add("selected");
-          if (checkbox) {
-            checkbox.checked = true;
-          }
-        }
+      visibleTrips.forEach((el) => {
+        setTripSelected(el.dataset.tripId, !allSelected);
       });
-
-      updateBulkActionsBar();
     });
   }
 
@@ -1986,9 +2966,11 @@ function setupBulkActions() {
   if (closeBtn) {
     bindPageEvent(closeBtn, "click", () => {
       selectedTripIds.clear();
-      document.querySelectorAll(".trip-card").forEach((card) => {
-        card.classList.remove("selected");
-        const checkbox = card.querySelector(".trip-card-checkbox input");
+      document.querySelectorAll(".trip-card, .trip-table-row").forEach((el) => {
+        el.classList.remove("selected");
+        const checkbox = el.querySelector(
+          ".trip-card-checkbox input, .trip-table-select input"
+        );
         if (checkbox) {
           checkbox.checked = false;
         }
@@ -2001,6 +2983,9 @@ function setupBulkActions() {
 function updateBulkActionsBar() {
   const bulkBar = document.getElementById("bulk-actions-bar");
   const countEl = document.getElementById("bulk-count");
+  if (!bulkBar || !countEl) {
+    return;
+  }
 
   if (selectedTripIds.size > 0) {
     bulkBar.style.display = "flex";

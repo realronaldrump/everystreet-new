@@ -42,7 +42,9 @@ def count_line_points(geometry: dict[str, Any] | None) -> int:
 
 def extract_trip_preview_geometry(trip_dict: dict[str, Any]) -> dict[str, Any] | None:
     geom = GeometryService.parse_geojson(
-        trip_dict.get("matchedGps") or trip_dict.get("gps"),
+        trip_dict.get("matchedGps")
+        or trip_dict.get("displayGps")
+        or trip_dict.get("gps"),
     )
     if geom:
         return geom

@@ -4,14 +4,33 @@
  * Chart initialization and update logic for the driving insights page
  */
 
+import { getLoadedLibrary } from "../core/library-loader.js";
 import { formatDate, formatHourLabel } from "./formatters.js";
-import {
-  loadAndShowTripsForDrilldown,
-  loadAndShowTripsForTimePeriod,
-} from "./modal.js";
+import { loadAndShowTripsForDrilldown } from "./modal.js";
 import { getChart, getState, setChart } from "./state.js";
 
 const chartCleanupKey = "_esCleanup";
+const HEATMAP_HOURS = Array.from({ length: 24 }, (_, hour) => hour);
+const DAY_LABELS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+const PLOT_DAY_DOMAIN = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+const HEATMAP_X_TICKS = [0, 3, 6, 9, 12, 15, 18, 21, 23];
+let pendingHeatmapResize = false;
 
 function registerChartCleanup(chart, cleanup) {
   if (!chart || typeof cleanup !== "function") {
@@ -309,7 +328,7 @@ function attachLongPressTooltip(chart) {
 export function initCharts() {
   destroyCharts();
   initTrendsChart();
-  initTimeDistChart();
+  initTimeHeatmap();
 }
 
 /**
@@ -449,75 +468,39 @@ function initTrendsChart() {
   registerChartCleanup(chart, attachLongPressTooltip(chart));
 }
 
-/**
- * Initialize the time distribution chart (bar chart)
- */
-function initTimeDistChart() {
-  const timeDistCanvas = document.getElementById("timeDistChart");
-  const timeDistCtx = timeDistCanvas?.getContext("2d");
-  if (!timeDistCtx) {
+function initTimeHeatmap() {
+  const host = document.getElementById("timeHeatmap");
+  if (!host) {
     return;
   }
 
-  const existingChart = findChartForCanvas(timeDistCtx.canvas) || getChart("timeDist");
-  if (existingChart) {
-    destroyChartInstance(existingChart);
+  const existing = getChart("timeHeatmap");
+  if (existing) {
+    destroyChartInstance(existing);
   }
 
-  const chart = new Chart(timeDistCtx, {
-    type: "bar",
-    data: {
-      labels: [],
-      datasets: [
-        {
-          label: "Trips",
-          data: [],
-          backgroundColor: "rgba(106, 114, 160, 0.6)",
-          hoverBackgroundColor: "rgba(106, 114, 160, 0.9)",
-          borderColor: "rgba(106, 114, 160, 1)",
-          borderWidth: 0,
-          hoverBorderWidth: 2,
-        },
-      ],
-    },
-    plugins: [spotlightPlugin],
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: {
-        duration: 800,
-        easing: "easeOutQuart",
-      },
-      plugins: {
-        legend: {
-          display: false,
-        },
-        tooltip: {
-          callbacks: {
-            afterLabel: () => "Click to view trips",
-          },
-        },
-      },
-      scales: {
-        x: {
-          ticks: {
-            maxRotation: 45,
-            minRotation: 0,
-          },
-        },
-        y: {
-          beginAtZero: true,
-          ticks: {
-            stepSize: 1,
-          },
-        },
-      },
-      onClick: handleTimeDistChartClick,
+  const resizeObserver =
+    typeof ResizeObserver === "function"
+      ? new ResizeObserver(() => {
+          if (pendingHeatmapResize) {
+            return;
+          }
+          pendingHeatmapResize = true;
+          requestAnimationFrame(() => {
+            pendingHeatmapResize = false;
+            updateTimeHeatmap();
+          });
+        })
+      : null;
+
+  resizeObserver?.observe(host);
+
+  setChart("timeHeatmap", {
+    destroy() {
+      resizeObserver?.disconnect();
+      host.replaceChildren();
     },
   });
-
-  setChart("timeDist", chart);
-  registerChartCleanup(chart, attachLongPressTooltip(chart));
 }
 
 /**
@@ -525,7 +508,7 @@ function initTimeDistChart() {
  */
 export function updateAllCharts() {
   updateTrendsChart();
-  updateTimeDistChart();
+  updateTimeHeatmap();
 }
 
 /**
@@ -585,34 +568,96 @@ export function updateTrendsChart() {
   chart.update();
 }
 
-/**
- * Update the time distribution chart
- */
-export function updateTimeDistChart() {
+export function updateTimeHeatmap() {
   const state = getState();
   const { analytics } = state.data;
-  if (!analytics || !analytics.time_distribution) {
+  const host = document.getElementById("timeHeatmap");
+  if (!host || !analytics || !Array.isArray(analytics.time_heatmap)) {
     return;
   }
 
-  const labels =
-    state.currentTimeView === "hour"
-      ? Array.from({ length: 24 }, (_, i) => formatHourLabel(i))
-      : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-  const data =
-    state.currentTimeView === "hour"
-      ? processHourlyData(analytics.time_distribution)
-      : processDailyData(analytics.weekday_distribution);
-
-  const chart = getChart("timeDist");
-  if (!chart) {
+  const cells = normalizeTimeHeatmap(analytics.time_heatmap);
+  const totalTrips = cells.reduce((sum, cell) => sum + cell.count, 0);
+  if (totalTrips <= 0) {
+    host.innerHTML =
+      '<div class="story-empty time-heatmap-empty">Not enough rhythm data in this range yet.</div>';
     return;
   }
 
-  chart.data.labels = labels;
-  chart.data.datasets[0].data = data;
-  chart.update();
+  const Plot = getLoadedLibrary("plot");
+  if (!Plot?.plot || !Plot?.cell) {
+    host.innerHTML =
+      '<div class="story-empty time-heatmap-empty">Rhythm heatmap is loading.</div>';
+    return;
+  }
+
+  const maxCount = Math.max(...cells.map((cell) => cell.count), 1);
+  const width = Math.max(760, Math.round(host.clientWidth || 760));
+  const height = width < 820 ? 330 : 370;
+
+  const plot = Plot.plot({
+    width,
+    height,
+    marginTop: 22,
+    marginRight: 26,
+    marginBottom: 46,
+    marginLeft: 86,
+    style: {
+      background: "transparent",
+      color: "var(--text-secondary)",
+      fontFamily: "var(--font-family)",
+      fontSize: "12px",
+      overflow: "visible",
+    },
+    x: {
+      domain: HEATMAP_HOURS,
+      ticks: HEATMAP_X_TICKS,
+      tickFormat: formatHourLabel,
+      label: null,
+      grid: false,
+    },
+    y: {
+      domain: PLOT_DAY_DOMAIN,
+      label: null,
+      tickSize: 0,
+    },
+    color: {
+      type: "linear",
+      domain: [0, maxCount],
+      range: ["rgba(106, 159, 192, 0.10)", "rgba(106, 159, 192, 0.95)"],
+      label: "Trips",
+      legend: true,
+    },
+    marks: [
+      Plot.cell(cells, {
+        x: "hour",
+        y: "dayName",
+        fill: "count",
+        inset: 1.5,
+        title: (cell) =>
+          `${cell.dayName} ${formatHourLabel(cell.hour)}\n${cell.count} trip${cell.count === 1 ? "" : "s"}\n${cell.distance.toFixed(1)} miles`,
+      }),
+      Plot.text(
+        cells.filter((cell) => cell.count === maxCount && maxCount > 1),
+        {
+          x: "hour",
+          y: "dayName",
+          text: "count",
+          fill: "#0a0a0c",
+          fontSize: 11,
+          fontWeight: 700,
+          pointerEvents: "none",
+        }
+      ),
+      Plot.ruleX([6, 12, 18], {
+        stroke: "rgba(245, 242, 236, 0.16)",
+        strokeDasharray: "3 4",
+      }),
+    ],
+  });
+
+  plot.classList.add("time-heatmap-svg");
+  host.replaceChildren(plot);
 }
 
 // Data Processing Functions
@@ -782,56 +827,6 @@ function compressSeriesIfNeeded(series, viewType) {
   return compressed;
 }
 
-/**
- * Process hourly data for the time distribution chart
- * @param {Array} timeData - Time distribution data
- * @returns {Array} Hourly counts array (24 elements)
- */
-function processHourlyData(timeData) {
-  const hourly = new Array(24).fill(0);
-  timeData.forEach((d) => {
-    if (d.hour >= 0 && d.hour < 24) {
-      hourly[d.hour] = d.count;
-    }
-  });
-  return hourly;
-}
-
-/**
- * Process daily data for the weekday distribution chart
- * @param {Array} weekdayData - Weekday distribution data
- * @returns {Array} Weekday counts array (7 elements)
- */
-function processDailyData(weekdayData) {
-  const byDay = new Array(7).fill(0);
-  if (Array.isArray(weekdayData)) {
-    weekdayData.forEach((d) => {
-      if (d.day !== undefined && d.day >= 0 && d.day <= 6) {
-        byDay[d.day] = d.count || 0;
-      }
-    });
-  }
-  return byDay;
-}
-
-/**
- * Handle click on time distribution chart bar
- * @param {Event} _event - Chart click event
- * @param {Array} activeElements - Active chart elements
- */
-function handleTimeDistChartClick(_event, activeElements) {
-  if (!activeElements || activeElements.length === 0) {
-    return;
-  }
-
-  const state = getState();
-  const elementIndex = activeElements[0].index;
-  const timeValue = elementIndex;
-  const timeType = state.currentTimeView; // "hour" or "day"
-
-  loadAndShowTripsForTimePeriod(timeType, timeValue);
-}
-
 function handleTrendsChartClick(_event, activeElements, chart) {
   if (!activeElements || activeElements.length === 0) {
     return;
@@ -849,4 +844,35 @@ function handleTrendsChartClick(_event, activeElements, chart) {
     end: range.end,
     title: `Trips for ${range.label}`,
   });
+}
+
+function normalizeTimeHeatmap(rawCells = []) {
+  const byKey = new Map();
+  rawCells.forEach((entry) => {
+    const day = Number(entry?.day);
+    const hour = Number(entry?.hour);
+    if (!Number.isInteger(day) || !Number.isInteger(hour)) {
+      return;
+    }
+    if (day < 0 || day > 6 || hour < 0 || hour > 23) {
+      return;
+    }
+    byKey.set(`${day}:${hour}`, {
+      count: Number(entry.count || 0),
+      distance: Number(entry.distance || 0),
+    });
+  });
+
+  return [1, 2, 3, 4, 5, 6, 0].flatMap((day) =>
+    HEATMAP_HOURS.map((hour) => {
+      const value = byKey.get(`${day}:${hour}`) || { count: 0, distance: 0 };
+      return {
+        day,
+        hour,
+        dayName: DAY_LABELS[day],
+        count: value.count,
+        distance: value.distance,
+      };
+    })
+  );
 }
