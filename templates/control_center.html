@@ -1571,11 +1571,15 @@ Geocoding Progress
           <button id="rebuild-display-paths-btn" class="btn btn-warning" type="button">
             <i class="fas fa-sync-alt"></i> Rebuild Display Paths
           </button>
-          <div id="rebuild-display-paths-status"
-               class="settings-status is-hidden mt-2"
-               role="status"
-               aria-live="polite"
-               aria-atomic="true">
+        </div>
+        <div id="rebuild-display-paths-progress" class="rebuild-paths-progress mt-3" style="display: none">
+          <div class="rebuild-paths-status-row">
+            <span id="rebuild-paths-status-icon" class="rebuild-paths-spinner">
+              <i class="fas fa-circle-notch fa-spin"></i>
+            </span>
+            <span id="rebuild-paths-status-text">Running&hellip;</span>
+          </div>
+          <div id="rebuild-paths-result" class="rebuild-paths-result" style="display: none">
           </div>
         </div>
       </div>

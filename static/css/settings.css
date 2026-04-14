@@ -1041,6 +1041,66 @@
   border: 1px solid var(--border-color);
 }
 
+/* === Rebuild Display Paths Progress === */
+.rebuild-paths-progress {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--surface-2);
+}
+
+.rebuild-paths-status-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+.rebuild-paths-spinner {
+  color: var(--info);
+}
+
+.rebuild-paths-done {
+  color: var(--success);
+}
+
+.rebuild-paths-error {
+  color: var(--danger);
+}
+
+.rebuild-paths-result {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-color);
+}
+
+.rebuild-paths-metrics {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.rebuild-paths-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 60px;
+}
+
+.rebuild-paths-metric-value {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.rebuild-paths-metric-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 /* === Task Status Badge Colors === */
 
 /* === Custom Form Switch === */

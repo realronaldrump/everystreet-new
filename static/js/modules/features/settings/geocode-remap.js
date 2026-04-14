@@ -460,10 +460,97 @@ export function setupRemapMatchedTrips(signal) {
 export function setupRebuildDisplayPaths(signal) {
   const eventOptions = signal ? { signal } : false;
   const btn = document.getElementById("rebuild-display-paths-btn");
-  const statusEl = document.getElementById("rebuild-display-paths-status");
+  const progressPanel = document.getElementById("rebuild-display-paths-progress");
+  const statusIcon = document.getElementById("rebuild-paths-status-icon");
+  const statusText = document.getElementById("rebuild-paths-status-text");
+  const resultEl = document.getElementById("rebuild-paths-result");
   if (!btn) {
     return;
   }
+
+  let pollTimer = null;
+
+  const stopPolling = () => {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  };
+
+  if (signal) {
+    signal.addEventListener("abort", stopPolling, { once: true });
+  }
+
+  const showRunning = () => {
+    progressPanel.style.display = "";
+    statusIcon.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+    statusIcon.className = "rebuild-paths-spinner";
+    statusText.textContent = "Running\u2026";
+    resultEl.style.display = "none";
+    resultEl.innerHTML = "";
+  };
+
+  const showComplete = (result) => {
+    statusIcon.innerHTML = '<i class="fas fa-check-circle"></i>';
+    statusIcon.className = "rebuild-paths-done";
+    statusText.textContent = "Complete";
+
+    if (result) {
+      const processed = result.processed_count ?? 0;
+      const modified = result.modified_count ?? 0;
+      const skipped = processed - modified;
+      resultEl.innerHTML = `
+        <div class="rebuild-paths-metrics">
+          <span class="rebuild-paths-metric">
+            <span class="rebuild-paths-metric-value">${processed}</span>
+            <span class="rebuild-paths-metric-label">Processed</span>
+          </span>
+          <span class="rebuild-paths-metric">
+            <span class="rebuild-paths-metric-value">${modified}</span>
+            <span class="rebuild-paths-metric-label">Updated</span>
+          </span>
+          <span class="rebuild-paths-metric">
+            <span class="rebuild-paths-metric-value">${skipped}</span>
+            <span class="rebuild-paths-metric-label">Unchanged</span>
+          </span>
+        </div>`;
+      resultEl.style.display = "";
+    }
+  };
+
+  const showError = (message) => {
+    statusIcon.innerHTML = '<i class="fas fa-exclamation-circle"></i>';
+    statusIcon.className = "rebuild-paths-error";
+    statusText.textContent = message || "Failed";
+    resultEl.style.display = "none";
+  };
+
+  const pollStatus = async () => {
+    try {
+      const details = await apiClient.get(
+        "/api/background_tasks/details/backfill_trip_display_geometry"
+      );
+
+      if (details.status === "COMPLETED") {
+        stopPolling();
+        btn.disabled = false;
+
+        const history = await apiClient.get(
+          "/api/background_tasks/history?limit=1"
+        );
+        const entry = history.history?.find(
+          (h) => h.task_id === "backfill_trip_display_geometry" && h.status === "COMPLETED"
+        );
+        showComplete(entry?.result);
+      } else if (details.status === "FAILED") {
+        stopPolling();
+        btn.disabled = false;
+        showError(details.last_error || "Task failed");
+      }
+    } catch {
+      // Ignore transient polling errors
+    }
+  };
 
   btn.addEventListener(
     "mousedown",
@@ -474,33 +561,19 @@ export function setupRebuildDisplayPaths(signal) {
 
       try {
         btn.disabled = true;
-        loadingManager.show();
-        setInlineStatus(statusEl, "Starting display path rebuild\u2026", "info");
+        showRunning();
 
         const result = await apiClient.post("/api/background_tasks/run", {
           task_id: "backfill_trip_display_geometry",
         });
 
-        loadingManager.hide();
-
         if (result.status === "success") {
-          setInlineStatus(
-            statusEl,
-            "Rebuild started. Check task history for progress.",
-            "success"
-          );
-          notificationManager.show("Display path rebuild started", "success");
+          pollTimer = setInterval(pollStatus, 3000);
         } else {
           throw new Error(result.message || "Failed to start rebuild");
         }
       } catch (error) {
-        loadingManager.hide();
-        setInlineStatus(statusEl, `Error: ${error.message}`, "danger");
-        notificationManager.show(
-          `Failed to start display path rebuild: ${error.message}`,
-          "danger"
-        );
-      } finally {
+        showError(error.message);
         btn.disabled = false;
       }
     },
