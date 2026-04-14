@@ -726,8 +726,7 @@
 
 .time-heatmap-scroll {
   width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: auto hidden;
   padding: var(--space-2) 0 var(--space-1);
   scrollbar-color: rgb(var(--cat-sky-rgb) / 55%) transparent;
 }
@@ -782,46 +781,6 @@
   display: flex;
   align-items: stretch;
   gap: var(--space-3);
-}
-
-.signature-clock {
-  --clock-size: 180px;
-
-  position: relative;
-  width: var(--clock-size);
-  height: var(--clock-size);
-  border-radius: 50%;
-  border: 1px solid rgb(var(--border-rgb) / 30%);
-  background: radial-gradient(
-    circle,
-    rgb(var(--surface-rgb) / 75%) 35%,
-    rgb(var(--surface-rgb) / 52%) 100%
-  );
-}
-
-.clock-center {
-  position: absolute;
-  inset: 50% auto auto 50%;
-  width: 54px;
-  height: 54px;
-  margin-left: -27px;
-  margin-top: -27px;
-  border-radius: 50%;
-  border: 1px solid rgb(var(--primary-rgb) / 30%);
-  background: rgb(var(--surface-rgb) / 70%);
-}
-
-.clock-bar {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 3px;
-  height: calc(30px + 26px * var(--strength));
-  transform-origin: center calc(var(--clock-size) * -0.34);
-  transform: translateX(-50%) rotate(calc(var(--index) * 15deg));
-  border-radius: 99px;
-  background: linear-gradient(180deg, rgb(var(--cat-sky-rgb) / 95%), rgb(var(--cat-sky-rgb) / 20%));
-  opacity: calc(0.2 + var(--strength));
 }
 
 .signature-copy {

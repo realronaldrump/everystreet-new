@@ -11,6 +11,7 @@ import { getChart, getState, setChart } from "./state.js";
 
 const chartCleanupKey = "_esCleanup";
 const HEATMAP_HOURS = Array.from({ length: 24 }, (_, hour) => hour);
+const HEATMAP_HOUR_LABELS = HEATMAP_HOURS.map((hour) => formatHourLabel(hour));
 const DAY_LABELS = [
   "Sunday",
   "Monday",
@@ -29,7 +30,9 @@ const PLOT_DAY_DOMAIN = [
   "Saturday",
   "Sunday",
 ];
-const HEATMAP_X_TICKS = [0, 3, 6, 9, 12, 15, 18, 21, 23];
+const HEATMAP_X_TICKS = [0, 3, 6, 9, 12, 15, 18, 21, 23].map((hour) =>
+  formatHourLabel(hour)
+);
 let pendingHeatmapResize = false;
 
 function registerChartCleanup(chart, cleanup) {
@@ -610,9 +613,8 @@ export function updateTimeHeatmap() {
       overflow: "visible",
     },
     x: {
-      domain: HEATMAP_HOURS,
+      domain: HEATMAP_HOUR_LABELS,
       ticks: HEATMAP_X_TICKS,
-      tickFormat: formatHourLabel,
       label: null,
       grid: false,
     },
@@ -630,7 +632,7 @@ export function updateTimeHeatmap() {
     },
     marks: [
       Plot.cell(cells, {
-        x: "hour",
+        x: "hourLabel",
         y: "dayName",
         fill: "count",
         inset: 1.5,
@@ -640,7 +642,7 @@ export function updateTimeHeatmap() {
       Plot.text(
         cells.filter((cell) => cell.count === maxCount && maxCount > 1),
         {
-          x: "hour",
+          x: "hourLabel",
           y: "dayName",
           text: "count",
           fill: "#0a0a0c",
@@ -649,10 +651,6 @@ export function updateTimeHeatmap() {
           pointerEvents: "none",
         }
       ),
-      Plot.ruleX([6, 12, 18], {
-        stroke: "rgba(245, 242, 236, 0.16)",
-        strokeDasharray: "3 4",
-      }),
     ],
   });
 
@@ -869,6 +867,7 @@ function normalizeTimeHeatmap(rawCells = []) {
       return {
         day,
         hour,
+        hourLabel: formatHourLabel(hour),
         dayName: DAY_LABELS[day],
         count: value.count,
         distance: value.distance,
