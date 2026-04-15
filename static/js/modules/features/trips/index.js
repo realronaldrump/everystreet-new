@@ -293,6 +293,16 @@ const TRIP_SORT_DEFINITIONS = {
     column: "vin",
     dir: "asc",
   },
+  pointsRecorded_desc: {
+    label: "Points (high to low)",
+    column: "pointsRecorded",
+    dir: "desc",
+  },
+  pointsRecorded_asc: {
+    label: "Points (low to high)",
+    column: "pointsRecorded",
+    dir: "asc",
+  },
 };
 
 const TRIP_TABLE_COLUMNS = [
