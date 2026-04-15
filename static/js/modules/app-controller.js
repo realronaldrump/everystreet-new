@@ -247,6 +247,19 @@ const initializeLocationDropdown = async () => {
     const frag = document.createDocumentFragment();
     const menuFrag = document.createDocumentFragment();
 
+    // "No area" clear option
+    const clearItem = document.createElement("div");
+    clearItem.className = "location-dropdown-item location-dropdown-clear";
+    clearItem.dataset.value = "";
+    clearItem.setAttribute("role", "option");
+    clearItem.innerHTML =
+      '<i class="fas fa-times-circle item-icon" aria-hidden="true"></i>' +
+      '<span class="item-label">No area selected</span>';
+    clearItem.addEventListener("click", () =>
+      selectItem("", "Select location...")
+    );
+    menuFrag.appendChild(clearItem);
+
     areas.forEach((area) => {
       const id = area.id || area._id;
       const name =
