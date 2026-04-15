@@ -279,7 +279,7 @@
   justify-content: space-between;
   width: 100%;
   padding: var(--space-2) var(--space-3);
-  background: var(--glass-input);
+  background: transparent;
   border: 1px solid var(--glass-border-subtle);
   border-radius: var(--radius-md);
   color: var(--text-primary);
@@ -294,11 +294,12 @@
 
 .location-dropdown-trigger:hover {
   border-color: var(--glass-border-medium);
+  background: rgb(var(--surface-rgb) / 20%);
 }
 
 .location-dropdown.open .location-dropdown-trigger {
   border-color: var(--primary);
-  background: var(--glass-input-focus);
+  background: rgb(var(--surface-rgb) / 20%);
 }
 
 .location-dropdown-trigger .dropdown-label {

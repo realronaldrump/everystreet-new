@@ -152,6 +152,9 @@ const tripInteractions = {
           <button class="btn btn-sm btn-primary view-trip-btn" data-trip-id="${tripId}">
             <i class="fas fa-eye"></i> View
           </button>
+          <button class="btn btn-sm btn-outline-warning rematch-trip-btn" data-trip-id="${tripId}">
+            <i class="fas fa-route"></i> Rematch
+          </button>
           ${
             isMatched
               ? `
@@ -195,6 +198,8 @@ const tripInteractions = {
       try {
         if (button.classList.contains("view-trip-btn")) {
           window.open(`/trips/${tripId}`, "_blank");
+        } else if (button.classList.contains("rematch-trip-btn")) {
+          await this.rematchTrip(tripId, popup);
         } else if (button.classList.contains("delete-matched-trip-btn")) {
           await this.deleteMatchedTrip(tripId, popup);
         } else if (button.classList.contains("delete-trip-btn")) {
@@ -208,6 +213,35 @@ const tripInteractions = {
         button.classList.remove("btn-loading");
       }
     });
+  },
+
+  async rematchTrip(tripId, popup) {
+    const confirmed = await confirmationDialog.show({
+      title: "Rematch trip",
+      message:
+        "This will re-run map matching for this trip, replacing the current matched route with fresh data.",
+      confirmText: "Rematch",
+      confirmButtonClass: "btn-warning",
+    });
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      notificationManager.show("Rematching trip…", "info");
+      const response = await utils.fetchWithRetry(`/api/trips/${tripId}/rematch`, {
+        method: "POST",
+      });
+      if (response) {
+        popup.remove();
+        notificationManager.show("Trip rematched successfully", "success");
+        const dataManager = (await import("./data-manager.js")).default;
+        await dataManager.updateMap();
+      }
+    } catch (error) {
+      console.error("Error rematching trip:", error);
+      notificationManager.show(error.message || "Rematch failed", "danger");
+    }
   },
 
   async deleteMatchedTrip(tripId, popup) {

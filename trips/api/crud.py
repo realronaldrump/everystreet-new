@@ -8,12 +8,14 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
 
 from analytics.services.mobility_insights_service import MobilityInsightsService
 from core.api import api_route
+from core.spatial import extract_timestamps_for_coordinates
 from db.models import CoverageState, Trip
 from trips.models import TripInactiveUpdate
 from trips.pipeline import TripPipeline
 from trips.serialization import TripSerializer
 from trips.services import TripCostService
 from trips.services.inactive_trip_service import InactiveTripService
+from trips.services.matching import MapMatchingService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -201,6 +203,92 @@ async def unmatch_trip(trip_id: str):
         "status": "success",
         "message": "Matched data cleared",
         "updated_trips": 1,
+    }
+
+
+@router.post("/api/trips/{trip_id}/rematch", tags=["Trips API"])
+@api_route(logger)
+async def rematch_trip(trip_id: str):
+    """Rematch a single trip, replacing any existing matched data."""
+    trip = await Trip.find_one(Trip.transactionId == trip_id)
+    if not trip:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Trip not found",
+        )
+
+    gps_data = trip.gps
+    if not gps_data or not isinstance(gps_data, dict):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Trip has no GPS data to match",
+        )
+
+    gps_type = gps_data.get("type")
+    coords = gps_data.get("coordinates", [])
+
+    if gps_type == "Point" or gps_type != "LineString" or len(coords) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Trip GPS data is not suitable for map matching",
+        )
+
+    timestamps = extract_timestamps_for_coordinates(coords, trip.model_dump())
+
+    service = MapMatchingService()
+    result = await service.map_match_coordinates(coords, timestamps)
+
+    if result.get("code") != "Ok":
+        error_msg = result.get("message", "Unknown error")
+        trip.matchStatus = f"error:{error_msg[:50]}"
+        trip.matched_at = datetime.now(UTC)
+        TripPipeline.sanitize_trip_document_geospatial_fields(trip)
+        await trip.save()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Map matching failed: {error_msg}",
+        )
+
+    matchings = result.get("matchings", [])
+    if not matchings or not matchings[0].get("geometry"):
+        trip.matchStatus = "error:no-geometry"
+        trip.matched_at = datetime.now(UTC)
+        TripPipeline.sanitize_trip_document_geospatial_fields(trip)
+        await trip.save()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Map matching returned no geometry",
+        )
+
+    geometry = matchings[0]["geometry"]
+    trip.matchedGps = geometry
+    trip.matchStatus = f"matched:{geometry.get('type', 'unknown').lower()}"
+    trip.matched_at = datetime.now(UTC)
+    trip.mobility_synced_at = None
+    TripPipeline.sanitize_trip_document_geospatial_fields(trip)
+
+    if not trip.matchedGps:
+        trip.matchStatus = "error:sanitization-failed"
+        await trip.save()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Matched geometry failed sanitization",
+        )
+
+    await trip.save()
+    try:
+        await MobilityInsightsService.sync_trip(trip)
+    except Exception:
+        logger.exception(
+            "Failed to sync mobility profile after rematching trip %s",
+            trip_id,
+        )
+
+    return {
+        "status": "success",
+        "message": "Trip rematched successfully",
+        "trip_id": trip_id,
+        "match_status": trip.matchStatus,
     }
 
 
