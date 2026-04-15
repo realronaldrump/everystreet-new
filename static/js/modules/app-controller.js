@@ -176,10 +176,60 @@ const getCoverageAreaOverlayGeometry = async (areaId) => {
  * Initialize the location dropdown for street coverage
  */
 const initializeLocationDropdown = async () => {
-  const dropdown = utils.getElement("streets-location");
-  if (!dropdown) {
+  const hiddenSelect = utils.getElement("streets-location");
+  const wrapper = document.getElementById("location-dropdown");
+  if (!hiddenSelect || !wrapper) {
     return;
   }
+
+  const trigger = wrapper.querySelector(".location-dropdown-trigger");
+  const menu = wrapper.querySelector(".location-dropdown-menu");
+  const label = trigger?.querySelector(".dropdown-label");
+  if (!trigger || !menu || !label) {
+    return;
+  }
+
+  const selectItem = (value, text) => {
+    hiddenSelect.value = value;
+    label.textContent = text || "Select location...";
+    label.classList.toggle("placeholder", !value);
+    menu.querySelectorAll(".location-dropdown-item").forEach((el) => {
+      el.classList.toggle("selected", el.dataset.value === value);
+    });
+    wrapper.classList.remove("open");
+    trigger.setAttribute("aria-expanded", "false");
+    hiddenSelect.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+
+  const closeDropdown = () => {
+    wrapper.classList.remove("open");
+    trigger.setAttribute("aria-expanded", "false");
+  };
+
+  trigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const isOpen = wrapper.classList.toggle("open");
+    trigger.setAttribute("aria-expanded", String(isOpen));
+    if (isOpen) {
+      const selected = menu.querySelector(".location-dropdown-item.selected");
+      if (selected) {
+        selected.scrollIntoView({ block: "nearest" });
+      }
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!wrapper.contains(e.target)) {
+      closeDropdown();
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && wrapper.classList.contains("open")) {
+      closeDropdown();
+      trigger.focus();
+    }
+  });
 
   try {
     const response = await utils.fetchWithRetry("/api/coverage/areas");
@@ -191,24 +241,65 @@ const initializeLocationDropdown = async () => {
       return nameA.localeCompare(nameB);
     });
 
-    dropdown.innerHTML = '<option value="">Select a location...</option>';
+    hiddenSelect.innerHTML = '<option value="">Select location...</option>';
+    menu.innerHTML = "";
 
     const frag = document.createDocumentFragment();
+    const menuFrag = document.createDocumentFragment();
+
     areas.forEach((area) => {
-      const option = document.createElement("option");
-      option.value = area.id || area._id;
-      option.textContent =
+      const id = area.id || area._id;
+      const name =
         area.display_name ||
         area.location?.display_name ||
         area.name ||
         "Unknown Location";
+
+      const option = document.createElement("option");
+      option.value = id;
+      option.textContent = name;
       frag.appendChild(option);
+
+      const item = document.createElement("div");
+      item.className = "location-dropdown-item";
+      item.dataset.value = id;
+      item.setAttribute("role", "option");
+      item.innerHTML =
+        '<i class="fas fa-map-marker-alt item-icon" aria-hidden="true"></i>' +
+        '<span class="item-label"></span>';
+      item.querySelector(".item-label").textContent = name;
+      item.addEventListener("click", () => selectItem(id, name));
+      menuFrag.appendChild(item);
     });
-    dropdown.appendChild(frag);
+
+    hiddenSelect.appendChild(frag);
+    menu.appendChild(menuFrag);
+
+    if (!areas.length) {
+      const empty = document.createElement("div");
+      empty.className = "location-dropdown-empty";
+      empty.textContent = "No coverage areas found";
+      menu.appendChild(empty);
+    }
 
     const savedId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
     if (savedId) {
-      dropdown.value = savedId;
+      const matchingArea = areas.find(
+        (a) => (a.id || a._id) === savedId
+      );
+      if (matchingArea) {
+        const name =
+          matchingArea.display_name ||
+          matchingArea.location?.display_name ||
+          matchingArea.name ||
+          "Unknown Location";
+        hiddenSelect.value = savedId;
+        label.textContent = name;
+        label.classList.remove("placeholder");
+        menu
+          .querySelector(`[data-value="${CSS.escape(savedId)}"]`)
+          ?.classList.add("selected");
+      }
     }
   } catch (err) {
     console.error("Location dropdown error:", err);

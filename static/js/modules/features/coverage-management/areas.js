@@ -519,15 +519,44 @@ export function renderAreaCards({
     areaNameById.set(area.id, area.display_name || "Coverage area");
   });
 
-  grid.innerHTML = areas
-    .map((area) =>
-      renderAreaCard(
-        area,
-        activeJobsByAreaId.get(area.id),
-        activeRouteJobsByAreaId.get(area.id)
-      )
-    )
-    .join("");
+  // Build a map of existing card elements by area ID for diffing
+  const existingCards = new Map();
+  for (const card of grid.querySelectorAll(".area-card[data-area-id]")) {
+    existingCards.set(card.getAttribute("data-area-id"), card);
+  }
+
+  // Generate new card HTML per area and only update cards that changed
+  const newAreaIds = new Set();
+  const tempContainer = document.createElement("div");
+  for (const area of areas) {
+    newAreaIds.add(area.id);
+    const html = renderAreaCard(
+      area,
+      activeJobsByAreaId.get(area.id),
+      activeRouteJobsByAreaId.get(area.id)
+    );
+
+    const existing = existingCards.get(area.id);
+    if (existing) {
+      // Compare innerHTML-normalized content; replace only if changed
+      tempContainer.innerHTML = html;
+      const newCard = tempContainer.firstElementChild;
+      if (existing.outerHTML !== newCard.outerHTML) {
+        existing.replaceWith(newCard);
+      }
+    } else {
+      // New card — append
+      tempContainer.innerHTML = html;
+      grid.appendChild(tempContainer.firstElementChild);
+    }
+  }
+
+  // Remove cards for areas no longer in the list
+  for (const [areaId, card] of existingCards) {
+    if (!newAreaIds.has(areaId)) {
+      card.remove();
+    }
+  }
 
   grid.style.display = "grid";
   return { hasAreas: true };
