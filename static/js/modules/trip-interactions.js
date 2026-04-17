@@ -35,6 +35,32 @@ const tripInteractions = {
       .addTo(state.map);
     // Attach listeners immediately; Mapbox GL's 'open' can fire before handler registration
     this.setupPopupEventListeners(popup);
+    if (options.closeOnClick === false) {
+      this.setupDeferredMapClickClose(popup);
+    }
+  },
+
+  setupDeferredMapClickClose(popup) {
+    if (!popup || !state.map?.on || !state.map?.off) {
+      return;
+    }
+
+    let armed = false;
+    const closeOnMapClick = () => {
+      if (!armed) {
+        return;
+      }
+      popup.remove();
+    };
+    const cleanup = () => {
+      state.map?.off?.("click", closeOnMapClick);
+    };
+
+    popup.on?.("close", cleanup);
+    setTimeout(() => {
+      armed = true;
+      state.map?.on?.("click", closeOnMapClick);
+    }, 80);
   },
 
   resolveTripLayerName(layerId = "") {
