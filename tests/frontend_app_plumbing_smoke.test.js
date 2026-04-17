@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { readStaticJs, readTemplate } from "./helpers/fs-smoke.js";
+import { readRepoFile, readStaticJs, readTemplate } from "./helpers/fs-smoke.js";
 
 test("settings toggles stay wired from template to bootstrap state", () => {
   const settingsHtml = readTemplate("control_center.html");
@@ -56,6 +56,33 @@ test("settings toggles stay wired from template to bootstrap state", () => {
     /layerManager\.setTripLayerRenderMode\(useHeatmap\)/
   );
   assert.match(layerManagerSource, /async setTripLayerRenderMode\(useHeatmap\)/);
+});
+
+test("map coverage dropdown placeholder avoids bootstrap placeholder utility", () => {
+  const mapShellTemplate = readRepoFile("templates", "partials", "_map_shell.html");
+  const appControllerSource = readStaticJs("modules", "app-controller.js");
+  const mapControlsCss = readRepoFile(
+    "static",
+    "css",
+    "features",
+    "map",
+    "controls.css"
+  );
+
+  assert.match(
+    mapShellTemplate,
+    /class="dropdown-label is-placeholder"/,
+    "coverage dropdown should use the local placeholder state class"
+  );
+  assert.doesNotMatch(
+    mapShellTemplate,
+    /class="dropdown-label placeholder"/,
+    "bootstrap's placeholder utility paints a gray inline background"
+  );
+  assert.match(appControllerSource, /classList\.toggle\("is-placeholder", !value\)/);
+  assert.doesNotMatch(appControllerSource, /classList\.(toggle|remove)\("placeholder"/);
+  assert.match(mapControlsCss, /\.dropdown-label\.is-placeholder/);
+  assert.doesNotMatch(mapControlsCss, /\.dropdown-label\.placeholder/);
 });
 
 test("trip fetching stays coverage-aware without wasting metric requests", () => {
