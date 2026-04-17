@@ -310,7 +310,7 @@
   white-space: nowrap;
 }
 
-.location-dropdown-trigger .dropdown-label.placeholder {
+.location-dropdown-trigger .dropdown-label.is-placeholder {
   color: var(--text-tertiary);
 }
 

@@ -192,7 +192,7 @@ const initializeLocationDropdown = async () => {
   const selectItem = (value, text) => {
     hiddenSelect.value = value;
     label.textContent = text || "Select location...";
-    label.classList.toggle("placeholder", !value);
+    label.classList.toggle("is-placeholder", !value);
     menu.querySelectorAll(".location-dropdown-item").forEach((el) => {
       el.classList.toggle("selected", el.dataset.value === value);
     });
@@ -308,7 +308,7 @@ const initializeLocationDropdown = async () => {
           "Unknown Location";
         hiddenSelect.value = savedId;
         label.textContent = name;
-        label.classList.remove("placeholder");
+        label.classList.remove("is-placeholder");
         menu
           .querySelector(`[data-value="${CSS.escape(savedId)}"]`)
           ?.classList.add("selected");
