@@ -17,7 +17,8 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from core.jobs import create_job, find_job
+from core.jobs import create_job
+from core.trip_map_cache import bump_trip_map_revision
 from core.trip_query_spec import TripQuerySpec
 from db.models import Trip
 from tasks.config import check_dependencies
@@ -27,6 +28,10 @@ from trips.services.map_matching_jobs import MapMatchingJobRunner
 from trips.services.trip_display_geometry import (
     DISPLAY_GEOMETRY_VERSION,
     compute_trip_display_geometry_fields,
+)
+from trips.services.trip_map_geometry import (
+    TRIP_MAP_PATH_VERSION,
+    apply_trip_map_path_fields,
 )
 
 logger = logging.getLogger(__name__)
@@ -98,6 +103,9 @@ async def _validate_trips_logic() -> dict[str, Any]:
             )
             # Yield to event loop
             await asyncio.sleep(0.01)
+
+    if modified_count:
+        await bump_trip_map_revision()
 
     return {
         "status": "success",
@@ -222,7 +230,16 @@ async def _backfill_trip_display_geometry_logic(
     """Recompute display-only GPS geometry for historical Bouncie trips."""
     filters: dict[str, Any] = {}
     if not force:
-        filters["displayGpsVersion"] = {"$ne": DISPLAY_GEOMETRY_VERSION}
+        filters["$or"] = [
+            {"displayGpsVersion": {"$ne": DISPLAY_GEOMETRY_VERSION}},
+            {"displayMapPath.version": {"$ne": TRIP_MAP_PATH_VERSION}},
+            {
+                "$and": [
+                    {"matchedGps": {"$ne": None}},
+                    {"matchedMapPath.version": {"$ne": TRIP_MAP_PATH_VERSION}},
+                ],
+            },
+        ]
 
     query = TripQuerySpec(
         include_invalid=True,
@@ -269,6 +286,10 @@ async def _backfill_trip_display_geometry_logic(
                 trip.displayGpsSummary = fields["displayGpsSummary"]
                 trip.displayGpsVersion = fields["displayGpsVersion"]
                 trip.displayGpsUpdatedAt = fields["displayGpsUpdatedAt"]
+
+            changed = apply_trip_map_path_fields(trip) or changed
+
+            if changed:
                 await trip.save()
                 modified_count += 1
 
@@ -306,6 +327,8 @@ async def _backfill_trip_display_geometry_logic(
             },
             completed_at=datetime.now(UTC),
         )
+        if modified_count:
+            await bump_trip_map_revision()
     except Exception as exc:
         await job_handle.update(
             stage="error",

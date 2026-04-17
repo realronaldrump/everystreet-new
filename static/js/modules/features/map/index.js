@@ -2,6 +2,7 @@ import store from "../../core/store.js";
 import destinationBloom from "../../destination-bloom.js";
 import particleFlow from "../../particle-flow.js";
 import tripAnimator from "../../trip-animator.js";
+import tripMapRenderer from "../../trip-map-renderer.js";
 import routeArt from "../../ui/route-art.js";
 import initBuildings3D, {
   getUserBuildingsPreference,
@@ -189,6 +190,10 @@ function setToggleVisibility(button, isVisible) {
 let mapFabDockController = null;
 
 function getRenderableTrips() {
+  const deckTrips = tripMapRenderer.getRenderableFeatures?.() || [];
+  if (deckTrips.length) {
+    return deckTrips;
+  }
   const trips = [];
   for (const layerName of ["trips", "matchedTrips"]) {
     const features = store.mapLayers[layerName]?.layer?.features;
@@ -436,6 +441,21 @@ function setupTripSelectionAnimation(mapInstance, _signal, registerCleanup) {
 
   const getSelectedCoords = (selectedId = store.selectedTripId) => {
     if (!selectedId) return null;
+
+    if (
+      store.selectedTripLayer === "trips" ||
+      store.selectedTripLayer === "matchedTrips"
+    ) {
+      const paths = tripMapRenderer.getTripPaths(store.selectedTripLayer, selectedId);
+      if (paths.length) {
+        return paths.reduce((longest, path) => {
+          if (!Array.isArray(path) || path.length < 2) {
+            return longest;
+          }
+          return !longest || path.length > longest.length ? path : longest;
+        }, null);
+      }
+    }
 
     for (const layerName of getLayerSearchOrder()) {
       const features = store.mapLayers[layerName]?.layer?.features;

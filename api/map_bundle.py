@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 from datetime import UTC, datetime
 from typing import Annotated, Any
@@ -12,15 +13,31 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from starlette.responses import Response
 
+from core.coverage_clip import (
+    CoverageClipContext,
+    CoverageClipError,
+    apply_clip_prefilter,
+    clip_geojson_lines,
+    parse_clip_bool,
+    resolve_coverage_clip_context,
+)
 from core.date_utils import ensure_utc
+from core.redis import get_shared_redis
 from core.spatial import GeometryService, extract_line_sequences
+from core.trip_map_cache import TRIP_MAP_CACHE_PREFIX, get_trip_map_revision
 from core.trip_query_spec import TripQuerySpec
 from db.models import CoverageArea, CoverageState, Street, Trip
-from trips.presentation import trip_to_dict
+from trips.serialization import TripSerializer
+from trips.services.trip_map_geometry import (
+    TRIP_MAP_PATH_VERSION,
+    build_encoded_path_metadata,
+    encode_polyline6,
+    materialized_path_is_current,
+    merge_bboxes,
+)
 
 router = APIRouter(prefix="/api/map", tags=["map-bundles"])
 
-_POLYLINE6_SCALE = 1_000_000
 _EARTH_RADIUS_M = 6_371_000.0
 
 
@@ -36,10 +53,25 @@ class TripMapFeature(BaseModel):
     end_time: datetime | None = None
     imei: str
     distance_miles: float | None = None
+    duration_seconds: float | None = None
+    avg_speed: float | None = None
+    max_speed: float | None = None
+    coverage_distance_miles: float | None = None
+    geometry_source: str
+    bbox: list[float]
+    point_count: int
+    path: str | list[str]
     start_location: str | None = None
     destination: str | None = None
-    bbox: list[float]
-    geom: EncodedGeometryLOD
+
+
+class TripMapSummary(BaseModel):
+    total_distance_miles: float
+    avg_distance_miles: float
+    avg_speed: float
+    max_speed: float
+    avg_start_time: str
+    avg_driving_time: str
 
 
 class TripMapBundleResponse(BaseModel):
@@ -47,6 +79,7 @@ class TripMapBundleResponse(BaseModel):
     generated_at: datetime
     bbox: list[float]
     trip_count: int
+    summary: TripMapSummary
     trips: list[TripMapFeature]
 
 
@@ -118,41 +151,6 @@ def _merge_bboxes(bboxes: list[list[float]]) -> list[float]:
         max(b[2] for b in bboxes),
         max(b[3] for b in bboxes),
     ]
-
-
-def _quantize(value: float) -> int:
-    return round(value * _POLYLINE6_SCALE)
-
-
-def encode_polyline6(coords: list[list[float]]) -> str:
-    if not coords:
-        return ""
-
-    output: list[str] = []
-    prev_lat = 0
-    prev_lon = 0
-
-    for lon, lat in coords:
-        lat_i = _quantize(lat)
-        lon_i = _quantize(lon)
-
-        output.append(_encode_polyline_delta(lat_i - prev_lat))
-        output.append(_encode_polyline_delta(lon_i - prev_lon))
-
-        prev_lat = lat_i
-        prev_lon = lon_i
-
-    return "".join(output)
-
-
-def _encode_polyline_delta(value: int) -> str:
-    value = ~(value << 1) if value < 0 else (value << 1)
-    chunks: list[str] = []
-    while value >= 0x20:
-        chunks.append(chr((0x20 | (value & 0x1F)) + 63))
-        value >>= 5
-    chunks.append(chr(value + 63))
-    return "".join(chunks)
 
 
 def simplify_line_meters(coords: list[list[float]], tolerance_m: float) -> list[list[float]]:
@@ -259,6 +257,227 @@ def _trip_revision_source(
     return f"{start_date}|{end_date}|{imei or 'all'}|{trip_count}|{stamp}"
 
 
+def _json_cache_key(payload: dict[str, Any]) -> str:
+    raw = json.dumps(payload, sort_keys=True, default=str, separators=(",", ":"))
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
+    return f"cache:{TRIP_MAP_CACHE_PREFIX}:{digest}"
+
+
+async def _get_cached_body(cache_key: str) -> str | None:
+    try:
+        redis = await get_shared_redis()
+        value = await redis.get(cache_key)
+        if value is None:
+            return None
+        if isinstance(value, bytes):
+            return value.decode("utf-8")
+        return str(value)
+    except Exception:
+        return None
+
+
+async def _set_cached_body(cache_key: str, body: str) -> None:
+    try:
+        redis = await get_shared_redis()
+        await redis.set(cache_key, body, ex=600)
+    except Exception:
+        return
+
+
+def _serialize_dt(value: Any) -> str | None:
+    timestamp = ensure_utc(value)
+    return timestamp.isoformat().replace("+00:00", "Z") if timestamp else None
+
+
+def _duration_seconds(trip_doc: dict[str, Any]) -> float | None:
+    duration = TripSerializer.calculate_duration_seconds(trip_doc)
+    if duration is None:
+        return None
+    try:
+        return float(duration)
+    except (TypeError, ValueError):
+        return None
+
+
+def _format_duration_hms(seconds: float | None) -> str:
+    if seconds is None or seconds <= 0:
+        return "--:--"
+    total = int(seconds)
+    hours = total // 3600
+    minutes = (total % 3600) // 60
+    secs = total % 60
+    if hours > 0:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes}:{secs:02d}"
+
+
+def _format_avg_hour(hour_value: float | None) -> str:
+    if hour_value is None:
+        return "--:--"
+    total_minutes = round(hour_value * 60) % (24 * 60)
+    hours = total_minutes // 60
+    minutes = total_minutes % 60
+    suffix = "AM" if hours < 12 else "PM"
+    hour_12 = hours % 12 or 12
+    return f"{hour_12}:{minutes:02d} {suffix}"
+
+
+async def _resolve_trip_coverage_clip_context(
+    request: Request,
+) -> CoverageClipContext:
+    clip_requested = parse_clip_bool(request.query_params.get("clip_to_coverage"))
+    area_id = str(request.query_params.get("coverage_area_id") or "").strip()
+    area = None
+    if clip_requested and not area_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="coverage_area_id is required when clip_to_coverage is true.",
+        )
+
+    if clip_requested:
+        try:
+            area = await CoverageArea.get(area_id)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Invalid coverage_area_id: {area_id}",
+            ) from exc
+
+        if area is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Coverage area not found: {area_id}",
+            )
+
+    try:
+        return resolve_coverage_clip_context(
+            clip_requested=clip_requested,
+            area=area,
+            area_id=area_id or None,
+        )
+    except CoverageClipError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+
+
+async def _query_has_missing_materialized_paths(
+    query: dict[str, Any],
+    *,
+    path_field: str,
+) -> bool:
+    collection = Trip.get_motor_collection()
+    missing_query = {
+        "$and": [
+            query,
+            {
+                "$or": [
+                    {path_field: None},
+                    {f"{path_field}.version": {"$ne": TRIP_MAP_PATH_VERSION}},
+                ],
+            },
+        ],
+    }
+    doc = await collection.find_one(missing_query, projection={"_id": 1})
+    return doc is not None
+
+
+def _path_metadata_for_doc(
+    trip_doc: dict[str, Any],
+    *,
+    path_field: str,
+    geometry_field: str,
+    coverage_clip: CoverageClipContext,
+) -> tuple[dict[str, Any] | None, float | None]:
+    coverage_distance_miles = None
+    if coverage_clip.enabled:
+        geometry = GeometryService.parse_geojson(trip_doc.get(geometry_field))
+        if not geometry:
+            return None, None
+        geometry, coverage_distance_miles = clip_geojson_lines(
+            geometry,
+            coverage_clip,
+        )
+        if geometry is None:
+            return None, None
+        return (
+            build_encoded_path_metadata(
+                geometry,
+                geometry_source=geometry_field,
+            ),
+            coverage_distance_miles,
+        )
+
+    materialized = trip_doc.get(path_field)
+    if materialized_path_is_current(materialized, geometry_source=geometry_field):
+        return materialized, None
+
+    geometry = GeometryService.parse_geojson(trip_doc.get(geometry_field))
+    if not geometry:
+        return None, None
+    return (
+        build_encoded_path_metadata(geometry, geometry_source=geometry_field),
+        None,
+    )
+
+
+def _build_trip_map_summary(features: list[dict[str, Any]]) -> dict[str, Any]:
+    total_distance = 0.0
+    total_full_distance = 0.0
+    valid_full_distance_count = 0
+    total_duration = 0.0
+    valid_duration_count = 0
+    total_start_hours = 0.0
+    valid_start_count = 0
+    max_speed = 0.0
+
+    for feature in features:
+        distance = feature.get("distance_miles")
+        coverage_distance = feature.get("coverage_distance_miles")
+        strict_distance = coverage_distance if coverage_distance is not None else distance
+        if strict_distance is not None:
+            total_distance += float(strict_distance)
+        if distance is not None:
+            total_full_distance += float(distance)
+            valid_full_distance_count += 1
+
+        duration = feature.get("duration_seconds")
+        if duration is not None and float(duration) > 0:
+            total_duration += float(duration)
+            valid_duration_count += 1
+
+        start_raw = feature.get("start_time")
+        start_dt = ensure_utc(start_raw)
+        if start_dt is not None:
+            total_start_hours += start_dt.hour + start_dt.minute / 60
+            valid_start_count += 1
+
+        trip_max_speed = feature.get("max_speed")
+        if trip_max_speed is not None:
+            max_speed = max(max_speed, float(trip_max_speed))
+
+    avg_distance = (
+        total_full_distance / valid_full_distance_count
+        if valid_full_distance_count
+        else 0.0
+    )
+    avg_speed = (total_full_distance / total_duration) * 3600 if total_duration else 0.0
+    avg_start_hour = (
+        total_start_hours / valid_start_count if valid_start_count else None
+    )
+    avg_duration = total_duration / valid_duration_count if valid_duration_count else None
+
+    return {
+        "total_distance_miles": round(total_distance, 1),
+        "avg_distance_miles": round(avg_distance, 1),
+        "avg_speed": round(avg_speed, 1),
+        "max_speed": round(max_speed, 0),
+        "avg_start_time": _format_avg_hour(avg_start_hour),
+        "avg_driving_time": _format_duration_hms(avg_duration),
+    }
+
+
 def _coverage_revision_source(
     area: CoverageArea,
     status_filter: str,
@@ -279,7 +498,15 @@ async def get_trip_map_bundle(
     start_date: Annotated[str, Query(description="Trip range start date (YYYY-MM-DD)")],
     end_date: Annotated[str, Query(description="Trip range end date (YYYY-MM-DD)")],
     imei: Annotated[str | None, Query(description="Optional vehicle IMEI filter")] = None,
+    mode: Annotated[
+        str,
+        Query(description="Trip geometry mode", pattern="^(display|matched)$"),
+    ] = "display",
 ):
+    mode = mode.strip().lower()
+    geometry_field = "matchedGps" if mode == "matched" else "displayGps"
+    path_field = "matchedMapPath" if mode == "matched" else "displayMapPath"
+
     query_spec = TripQuerySpec(
         start_date=start_date,
         end_date=end_date,
@@ -299,76 +526,140 @@ async def get_trip_map_bundle(
             detail=str(exc),
         ) from exc
 
-    trips = await Trip.find(query).sort(-Trip.endTime).to_list()
+    coverage_clip = await _resolve_trip_coverage_clip_context(request)
 
-    max_updated: datetime | None = None
-    for trip in trips:
-        ts = ensure_utc(trip.lastUpdate or trip.endTime or trip.startTime)
-        if ts and (max_updated is None or ts > max_updated):
-            max_updated = ts
+    query["invalid"] = {"$ne": True}
+    query[geometry_field] = {"$ne": None}
+    query = apply_clip_prefilter(
+        query,
+        coverage_clip,
+        geometry_field=geometry_field,
+    )
 
+    revision_source = {
+        "revision": await get_trip_map_revision(),
+        "start_date": start_date,
+        "end_date": end_date,
+        "imei": imei or "",
+        "mode": mode,
+        "coverage_area_id": coverage_clip.area_id or "",
+        "clip_to_coverage": coverage_clip.enabled,
+        "path_version": TRIP_MAP_PATH_VERSION,
+    }
     revision = hashlib.sha1(  # nosec B324
-        _trip_revision_source(
-            start_date=start_date,
-            end_date=end_date,
-            imei=imei,
-            trip_count=len(trips),
-            max_updated=max_updated,
-        ).encode("utf-8"),
+        json.dumps(revision_source, sort_keys=True).encode("utf-8"),
     ).hexdigest()
     etag = f'"{revision}"'
 
     if _extract_if_none_match(request) == etag:
-        return Response(status_code=304, headers={"ETag": etag})
+        return Response(
+            status_code=304,
+            headers={"ETag": etag, "Cache-Control": "private, max-age=30"},
+        )
 
-    features: list[TripMapFeature] = []
+    cache_key = _json_cache_key(revision_source)
+    cached_body = await _get_cached_body(cache_key)
+    if cached_body is not None:
+        return Response(
+            content=cached_body,
+            media_type="application/json",
+            headers={"ETag": etag, "Cache-Control": "private, max-age=30"},
+        )
+
+    include_geometry = coverage_clip.enabled or await _query_has_missing_materialized_paths(
+        query,
+        path_field=path_field,
+    )
+    projection = {
+        "_id": 1,
+        "transactionId": 1,
+        "startTime": 1,
+        "endTime": 1,
+        "startTimeZone": 1,
+        "endTimeZone": 1,
+        "imei": 1,
+        "distance": 1,
+        "duration": 1,
+        "avgSpeed": 1,
+        "maxSpeed": 1,
+        "startLocation": 1,
+        "destination": 1,
+        path_field: 1,
+    }
+    if include_geometry:
+        projection[geometry_field] = 1
+
+    cursor = (
+        Trip.get_motor_collection()
+        .find(query, projection=projection)
+        .sort("endTime", -1)
+    )
+
+    features: list[dict[str, Any]] = []
     feature_bboxes: list[list[float]] = []
 
-    for trip in trips:
-        trip_dict = trip_to_dict(trip)
-        geometry = GeometryService.parse_geojson(trip_dict.get("gps"))
-        coords = _line_from_geometry(geometry)
-        if len(coords) < 2:
+    async for trip_doc in cursor:
+        path_metadata, coverage_distance_miles = _path_metadata_for_doc(
+            trip_doc,
+            path_field=path_field,
+            geometry_field=geometry_field,
+            coverage_clip=coverage_clip,
+        )
+        if not path_metadata:
             continue
 
-        start_time = ensure_utc(trip.startTime)
+        start_time = ensure_utc(trip_doc.get("startTime"))
         if start_time is None:
             continue
 
-        bbox = _bbox_for_coords(coords)
+        bbox = path_metadata["bbox"]
         feature_bboxes.append(bbox)
 
-        medium = simplify_line_meters(coords, tolerance_m=8.0)
-        low = simplify_line_meters(coords, tolerance_m=30.0)
-
-        features.append(
-            TripMapFeature(
-                id=str(trip.transactionId or trip.id),
-                start_time=start_time,
-                end_time=ensure_utc(trip.endTime),
-                imei=str(trip.imei or ""),
-                distance_miles=float(trip.distance) if trip.distance is not None else None,
-                start_location=_resolve_location_string(trip_dict.get("startLocation")),
-                destination=_resolve_location_string(trip_dict.get("destination")),
-                bbox=bbox,
-                geom=EncodedGeometryLOD(
-                    full=encode_polyline6(coords),
-                    medium=encode_polyline6(medium),
-                    low=encode_polyline6(low),
-                ),
+        distance_miles = trip_doc.get("distance")
+        duration_seconds = _duration_seconds(trip_doc)
+        feature = {
+            "id": str(trip_doc.get("transactionId") or trip_doc.get("_id")),
+            "start_time": start_time,
+            "end_time": ensure_utc(trip_doc.get("endTime")),
+            "imei": str(trip_doc.get("imei") or ""),
+            "distance_miles": (
+                float(distance_miles) if distance_miles is not None else None
             ),
-        )
+            "duration_seconds": duration_seconds,
+            "avg_speed": (
+                float(trip_doc["avgSpeed"])
+                if trip_doc.get("avgSpeed") is not None
+                else None
+            ),
+            "max_speed": (
+                float(trip_doc["maxSpeed"])
+                if trip_doc.get("maxSpeed") is not None
+                else None
+            ),
+            "coverage_distance_miles": coverage_distance_miles,
+            "geometry_source": path_metadata["geometry_source"],
+            "bbox": bbox,
+            "point_count": int(path_metadata.get("point_count") or 0),
+            "path": path_metadata["path"],
+            "start_location": _resolve_location_string(trip_doc.get("startLocation")),
+            "destination": _resolve_location_string(trip_doc.get("destination")),
+        }
+        features.append(feature)
 
-    payload = TripMapBundleResponse(
-        revision=revision,
-        generated_at=datetime.now(UTC),
-        bbox=_merge_bboxes(feature_bboxes),
-        trip_count=len(features),
-        trips=features,
-    )
+    payload = {
+        "revision": revision,
+        "generated_at": datetime.now(UTC),
+        "bbox": merge_bboxes(feature_bboxes),
+        "trip_count": len(features),
+        "summary": _build_trip_map_summary(features),
+        "trips": features,
+    }
+
+    body = json.dumps(payload, separators=(",", ":"), default=_serialize_dt)
+    await _set_cached_body(cache_key, body)
 
     return Response(
-        content=payload.model_dump_json(),
+        content=body,
         media_type="application/json",
         headers={"ETag": etag, "Cache-Control": "private, max-age=30"},
     )

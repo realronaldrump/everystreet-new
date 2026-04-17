@@ -9,6 +9,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
 from analytics.services.mobility_insights_service import MobilityInsightsService
 from core.api import api_route
 from core.spatial import extract_timestamps_for_coordinates
+from core.trip_map_cache import bump_trip_map_revision
 from db.models import CoverageState, Trip
 from trips.models import TripInactiveUpdate
 from trips.pipeline import TripPipeline
@@ -16,6 +17,7 @@ from trips.serialization import TripSerializer
 from trips.services import TripCostService
 from trips.services.inactive_trip_service import InactiveTripService
 from trips.services.matching import MapMatchingService
+from trips.services.trip_map_geometry import apply_trip_map_path_fields
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -166,6 +168,7 @@ async def delete_trip(trip_id: str):
         await MobilityInsightsService.remove_trip(trip.id)
 
     await trip.delete()
+    await bump_trip_map_revision()
 
     return {
         "status": "success",
@@ -186,12 +189,15 @@ async def unmatch_trip(trip_id: str):
             detail="Trip not found",
         )
     trip.matchedGps = None
+    trip.matchedMapPath = None
     trip.matchStatus = None
     trip.matched_at = None
     trip.mobility_synced_at = None
     trip.last_modified = datetime.now(UTC)
     TripPipeline.sanitize_trip_document_geospatial_fields(trip)
+    apply_trip_map_path_fields(trip)
     await trip.save()
+    await bump_trip_map_revision()
     try:
         await MobilityInsightsService.sync_trip(trip)
     except Exception:
@@ -243,7 +249,9 @@ async def rematch_trip(trip_id: str):
         trip.matchStatus = f"error:{error_msg[:50]}"
         trip.matched_at = datetime.now(UTC)
         TripPipeline.sanitize_trip_document_geospatial_fields(trip)
+        apply_trip_map_path_fields(trip)
         await trip.save()
+        await bump_trip_map_revision()
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Map matching failed: {error_msg}",
@@ -254,7 +262,9 @@ async def rematch_trip(trip_id: str):
         trip.matchStatus = "error:no-geometry"
         trip.matched_at = datetime.now(UTC)
         TripPipeline.sanitize_trip_document_geospatial_fields(trip)
+        apply_trip_map_path_fields(trip)
         await trip.save()
+        await bump_trip_map_revision()
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Map matching returned no geometry",
@@ -266,16 +276,20 @@ async def rematch_trip(trip_id: str):
     trip.matched_at = datetime.now(UTC)
     trip.mobility_synced_at = None
     TripPipeline.sanitize_trip_document_geospatial_fields(trip)
+    apply_trip_map_path_fields(trip)
 
     if not trip.matchedGps:
         trip.matchStatus = "error:sanitization-failed"
+        apply_trip_map_path_fields(trip)
         await trip.save()
+        await bump_trip_map_revision()
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Matched geometry failed sanitization",
         )
 
     await trip.save()
+    await bump_trip_map_revision()
     try:
         await MobilityInsightsService.sync_trip(trip)
     except Exception:
@@ -322,6 +336,8 @@ async def bulk_delete_trips(request: Request):
             await MobilityInsightsService.remove_trip(trip_oid)
 
     result = await Trip.find(In(Trip.transactionId, trip_ids)).delete()
+    if result.deleted_count:
+        await bump_trip_map_revision()
 
     return {
         "status": "success",
@@ -347,11 +363,13 @@ async def bulk_unmatch_trips(request: Request):
     trips = await Trip.find(In(Trip.transactionId, trip_ids)).to_list()
     for trip in trips:
         trip.matchedGps = None
+        trip.matchedMapPath = None
         trip.matchStatus = None
         trip.matched_at = None
         trip.mobility_synced_at = None
         trip.last_modified = datetime.now(UTC)
         TripPipeline.sanitize_trip_document_geospatial_fields(trip)
+        apply_trip_map_path_fields(trip)
         await trip.save()
         try:
             await MobilityInsightsService.sync_trip(trip)
@@ -360,6 +378,9 @@ async def bulk_unmatch_trips(request: Request):
                 "Failed syncing mobility profile after bulk unmatch for %s",
                 trip.transactionId,
             )
+
+    if trips:
+        await bump_trip_map_revision()
 
     return {
         "status": "success",
@@ -383,7 +404,9 @@ async def restore_trip(trip_id: str):
     trip.validation_message = None
     trip.validated_at = None
     TripPipeline.sanitize_trip_document_geospatial_fields(trip)
+    apply_trip_map_path_fields(trip)
     await trip.save()
+    await bump_trip_map_revision()
     return {"status": "success", "message": "Trip allocated as valid."}
 
 

@@ -72,6 +72,10 @@ def test_trip_popup_metrics_match_for_regular_and_matched_layers() -> None:
                 "type": "LineString",
                 "coordinates": [[-97.0, 32.0], [-97.1, 32.1]],
             },
+            "displayGps": {
+                "type": "LineString",
+                "coordinates": [[-97.0, 32.0], [-97.1, 32.1]],
+            },
             "matchedGps": {
                 "type": "LineString",
                 "coordinates": [[-97.0, 32.0], [-97.1, 32.1], [-97.2, 32.2]],

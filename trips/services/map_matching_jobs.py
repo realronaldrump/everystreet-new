@@ -14,6 +14,7 @@ from core.job_serialization import serialize_job_progress
 from core.jobs import JobHandle, create_job, find_job
 from core.mapping.factory import get_router
 from core.spatial import GeometryService, extract_timestamps_for_coordinates
+from core.trip_map_cache import bump_trip_map_revision
 from core.trip_query_spec import TripQuerySpec
 from db.models import Job, Trip
 from tasks.config import update_task_history_entry
@@ -25,6 +26,7 @@ from trips.models import (
 )
 from trips.pipeline import TripPipeline
 from trips.services.matching import MapMatchingService
+from trips.services.trip_map_geometry import apply_trip_map_path_fields
 
 logger = logging.getLogger(__name__)
 
@@ -868,7 +870,9 @@ class MapMatchingJobRunner:
             trip.matchStatus = status
             trip.matched_at = get_current_utc_time()
             TripPipeline.sanitize_trip_document_geospatial_fields(trip)
+            apply_trip_map_path_fields(trip)
             await trip.save()
+            await bump_trip_map_revision()
 
     async def _update_trip_matched_gps(
         self,
@@ -885,7 +889,9 @@ class MapMatchingJobRunner:
             TripPipeline.sanitize_trip_document_geospatial_fields(trip)
             if not getattr(trip, "matchedGps", None):
                 trip.matchStatus = "error:sanitization-failed"
+            apply_trip_map_path_fields(trip)
             await trip.save()
+            await bump_trip_map_revision()
             try:
                 await MobilityInsightsService.sync_trip(trip)
             except Exception:

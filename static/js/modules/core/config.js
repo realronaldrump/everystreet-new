@@ -77,6 +77,7 @@ export const CONFIG = {
   API: {
     // Trip endpoints
     trips: "/api/trips",
+    tripMapBundle: "/api/map/trips/bundle",
     tripById: (id) => `/api/trips/${id}`,
     tripInactive: (id) => `/api/trips/${id}/inactive`,
     tripRegeocode: (id) => `/api/trips/${id}/regeocode`,

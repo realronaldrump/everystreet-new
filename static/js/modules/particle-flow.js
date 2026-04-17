@@ -11,6 +11,7 @@
  */
 
 import store from "./core/store.js";
+import tripMapRenderer from "./trip-map-renderer.js";
 
 function clearTripInteractionState(map = store.map) {
   store.selectedTripId = null;
@@ -294,7 +295,11 @@ const particleFlow = {
     for (const layerName of ["trips", "matchedTrips"]) {
       const layerData = store.mapLayers[layerName];
       if (!layerData?.visible || !layerData.layer) continue;
-      const extracted = extractPaths(layerData.layer);
+      const source =
+        layerData.layer?.type === "TripMapBundle"
+          ? tripMapRenderer.getFeatureCollection(layerName)
+          : layerData.layer;
+      const extracted = extractPaths(source);
       for (const coords of extracted) {
         this._paths.push({
           lngLat: coords,

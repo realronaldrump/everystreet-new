@@ -8,6 +8,7 @@ from typing import Any
 
 from core.cache import invalidate_cache_prefixes
 from core.spatial import extract_line_sequences
+from core.trip_map_cache import bump_trip_map_revision
 from db.models import CoverageArea, CoverageState, Job, Trip
 from geo_coverage.services.geo_coverage_service import recalculate as recalculate_geo_coverage
 from recurring_routes.models import BuildRecurringRoutesRequest
@@ -48,6 +49,7 @@ class InactiveTripService:
             if target_state:
                 trip.recurringRouteId = None
             await trip.save()
+            await bump_trip_map_revision()
 
         cache_entries_deleted = await invalidate_cache_prefixes(
             *_ANALYTICS_CACHE_PREFIXES,

@@ -79,6 +79,7 @@ class Trip(Document):
     displayGpsSummary: dict[str, Any] | None = None
     displayGpsVersion: int | None = None
     displayGpsUpdatedAt: datetime | None = None
+    displayMapPath: dict[str, Any] | None = None
     coordinates: list[dict[str, Any]] | None = None
     lastUpdate: datetime | None = None
     distance: float | None = None
@@ -105,6 +106,7 @@ class Trip(Document):
 
     # Matched GPS data (consolidated from matched_trips)
     matchedGps: dict[str, Any] | None = None
+    matchedMapPath: dict[str, Any] | None = None
     matchStatus: str | None = None
     matched_at: datetime | None = None
 

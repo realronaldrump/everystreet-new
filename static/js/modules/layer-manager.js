@@ -22,6 +22,7 @@ import { utils } from "./utils.js";
 
 // Layers that support trip click interactions
 const INTERACTIVE_TRIP_LAYERS = new Set(["trips", "matchedTrips"]);
+const DECK_TRIP_LAYERS = new Set(["trips", "matchedTrips"]);
 
 // Animation constants
 const FADE_DURATION = 320;
@@ -618,6 +619,12 @@ const layerManager = {
         );
       }
 
+      if (DECK_TRIP_LAYERS.has(name) && layerInfo.layer?.type === "TripMapBundle") {
+        const tripMapRenderer = (await import("./trip-map-renderer.js")).default;
+        tripMapRenderer.setLayerVisibility(name, visible);
+        return;
+      }
+
       if (layerInfo.isHeatmap) {
         await this._toggleHeatmapLayer(name, layerInfo, visible);
       } else {
@@ -831,6 +838,10 @@ const layerManager = {
         return;
       }
 
+      if (layerInfo.layer?.type === "TripMapBundle") {
+        return;
+      }
+
       const layerId = `${layerName}-layer`;
       const sourceId = `${layerName}-source`;
       this._removeExistingLayerAndSource(layerName, layerId, sourceId);
@@ -843,6 +854,9 @@ const layerManager = {
     if (rebuildPromises.length > 0) {
       await Promise.allSettled(rebuildPromises);
     }
+
+    const tripMapRenderer = (await import("./trip-map-renderer.js")).default;
+    tripMapRenderer.setUseHeatmap(nextUseHeatmap);
 
     if (modeChanged) {
       this._triggerTripStyleRefresh();
@@ -1030,6 +1044,12 @@ const layerManager = {
 
     try {
       await this._ensureStyleLoaded();
+
+      if (DECK_TRIP_LAYERS.has(layerName) && data?.type === "TripMapBundle") {
+        const tripMapRenderer = (await import("./trip-map-renderer.js")).default;
+        await tripMapRenderer.setLayerData(layerName, data.bundle);
+        return;
+      }
 
       if (layerInfo.isHeatmap) {
         await this._updateHeatmapLayer(layerName, data, sourceId, layerId, layerInfo);

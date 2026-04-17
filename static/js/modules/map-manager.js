@@ -107,6 +107,11 @@ const getLastGeometryCoordinate = (geometry) => {
   return lastCoord;
 };
 
+const isFiniteBboxLike = (bbox) =>
+  Array.isArray(bbox) &&
+  bbox.length === 4 &&
+  bbox.every((value) => Number.isFinite(Number(value)));
+
 const mapManager = {
   // Track if view state listener is bound
   _viewListenerBound: false,
@@ -212,6 +217,10 @@ const mapManager = {
    * @private
    */
   _handleMapClick(e) {
+    if (Date.now() - Number(store._lastTripMapPickTs || 0) < 150) {
+      return;
+    }
+
     // Build list of queryable layers
     const queryLayers = [];
 
@@ -354,6 +363,9 @@ const mapManager = {
 
     // Update overlay for heatmap selected trip
     this._updateSelectedTripOverlay(selectedId);
+    import("./trip-map-renderer.js")
+      .then((module) => module.default.refreshSelection())
+      .catch(() => {});
   }, CONFIG.MAP.throttleDelay),
 
   /**
@@ -486,6 +498,20 @@ const mapManager = {
 
     const bounds = createBounds();
     let hasFeatures = false;
+    const tripMapRenderer = (await import("./trip-map-renderer.js")).default;
+
+    ["trips", "matchedTrips"].forEach((layerName) => {
+      if (!store.mapLayers[layerName]?.visible) {
+        return;
+      }
+      const bbox = tripMapRenderer.getBundleBounds(layerName);
+      if (!bbox) {
+        return;
+      }
+      bounds.extend([bbox[0], bbox[1]]);
+      bounds.extend([bbox[2], bbox[3]]);
+      hasFeatures = true;
+    });
 
     Object.values(store.mapLayers).forEach(({ visible, layer }) => {
       if (visible && layer?.features) {
@@ -514,6 +540,29 @@ const mapManager = {
    * @param {string|number} tripId - The trip ID to zoom to
    */
   async zoomToTrip(tripId) {
+    const tripMapRenderer = (await import("./trip-map-renderer.js")).default;
+    const selectedLayerNames = ["trips", "matchedTrips"];
+    for (const layerName of selectedLayerNames) {
+      const bbox = tripMapRenderer.getTripBounds(layerName, tripId);
+      if (!bbox) {
+        continue;
+      }
+      const bounds = createBounds();
+      bounds.extend([bbox[0], bbox[1]]);
+      bounds.extend([bbox[2], bbox[3]]);
+      if (!bounds.isEmpty()) {
+        store.map.fitBounds(bounds.toValue(), {
+          padding: 50,
+          maxZoom: 15,
+          duration: 2000,
+        });
+        store.selectedTripId = tripId;
+        store.selectedTripLayer = layerName;
+        this.refreshTripStyles();
+      }
+      return;
+    }
+
     if (!store.map || !store.mapLayers.trips?.layer?.features) {
       return;
     }
@@ -557,6 +606,26 @@ const mapManager = {
    * @param {number} targetZoom - Zoom level to use
    */
   zoomToLastTrip(targetZoom = 14) {
+    import("./trip-map-renderer.js")
+      .then((module) => {
+        const bundle = module.default.layers.get("trips")?.bundle;
+        const latestTrip = bundle?.trips?.[0];
+        if (!latestTrip) {
+          return;
+        }
+        const bbox = latestTrip.bbox;
+        if (!isFiniteBboxLike(bbox)) {
+          return;
+        }
+        store.map.flyTo({
+          center: [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2],
+          zoom: targetZoom,
+          duration: 2000,
+          essential: true,
+        });
+      })
+      .catch(() => {});
+
     if (!store.map || !store.mapLayers.trips?.layer?.features) {
       return;
     }

@@ -1,5 +1,6 @@
 import apiClient from "./core/api-client.js";
 import store from "./core/store.js";
+import tripMapRenderer from "./trip-map-renderer.js";
 import confirmationDialog from "./ui/confirmation-dialog.js";
 import notificationManager from "./ui/notifications.js";
 import { escapeHtml } from "./utils.js";
@@ -147,9 +148,11 @@ export function collectDestinationPoints(mapLayers = {}) {
 
   LAYER_SEARCH_ORDER.forEach((layerName) => {
     const layerInfo = mapLayers?.[layerName];
-    const features = Array.isArray(layerInfo?.layer?.features)
-      ? layerInfo.layer.features
-      : [];
+    const source =
+      layerInfo?.layer?.type === "TripMapBundle"
+        ? tripMapRenderer.getFeatureCollection(layerName)
+        : layerInfo?.layer;
+    const features = Array.isArray(source?.features) ? source.features : [];
     if (!layerInfo?.visible || features.length === 0) {
       return;
     }

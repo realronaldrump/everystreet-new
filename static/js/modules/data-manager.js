@@ -18,6 +18,7 @@ import { CONFIG } from "./core/config.js";
 import state from "./core/store.js";
 import layerManager from "./layer-manager.js";
 import metricsManager from "./metrics-manager.js";
+import tripMapRenderer from "./trip-map-renderer.js";
 import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
 import { DateUtils, utils } from "./utils.js";
@@ -71,7 +72,11 @@ const dataManager = {
 
     try {
       const { start, end } = DateUtils.getCachedDateRange();
-      const params = new URLSearchParams({ start_date: start, end_date: end });
+      const params = new URLSearchParams({
+        start_date: start,
+        end_date: end,
+        mode: "display",
+      });
       const coverageClip = this.getCoverageTripClipState();
       if (coverageClip.enabled && coverageClip.areaId) {
         params.set("coverage_area_id", coverageClip.areaId);
@@ -79,33 +84,42 @@ const dataManager = {
       }
       loadingManager.updateMessage(`Loading trips from ${start} to ${end}...`);
 
-      const rawTripData = await utils.fetchWithRetry(
-        `${CONFIG.API.trips}?${params}`,
+      performance.mark?.("trip-map:trips:fetch-start");
+      const bundle = await utils.fetchWithRetry(
+        `${CONFIG.API.tripMapBundle}?${params}`,
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
         "fetchTrips"
       );
+      performance.mark?.("trip-map:trips:fetch-end");
+      performance.measure?.(
+        "trip-map:trips:fetch",
+        "trip-map:trips:fetch-start",
+        "trip-map:trips:fetch-end"
+      );
 
-      const tripData = this._coerceFeatureCollection(rawTripData);
-      if (!tripData) {
-        const payloadType = rawTripData === null ? "null" : typeof rawTripData;
-        console.error("Trip data validation failed:", payloadType);
-        notificationManager.show("Failed to load valid trip data", "danger");
+      if (!this._coerceTripMapBundle(bundle)) {
+        console.error("Trip bundle validation failed:", bundle);
+        notificationManager.show("Failed to load valid trip map data", "danger");
         return null;
       }
 
-      loadingManager.updateMessage(`Rendering ${tripData.features.length} trips...`);
-      await layerManager.updateMapLayer("trips", tripData);
+      loadingManager.updateMessage(`Rendering ${bundle.trip_count} trips...`);
+      await tripMapRenderer.setLayerData("trips", bundle);
 
       document.dispatchEvent(
         new CustomEvent("tripsDataLoaded", {
-          detail: { featureCount: tripData.features.length, geojson: tripData },
+          detail: {
+            featureCount: bundle.trip_count,
+            bundle,
+            renderer: "deck",
+          },
         })
       );
 
-      metricsManager.updateTripsTable(tripData);
-      return tripData;
+      this._updateMetricsFromTripBundle(bundle);
+      return bundle;
     } catch (error) {
       if (error?.name === "AbortError") {
         return null;
@@ -133,7 +147,7 @@ const dataManager = {
       const params = new URLSearchParams({
         start_date: start,
         end_date: end,
-        format: "geojson",
+        mode: "matched",
       });
       const coverageClip = this.getCoverageTripClipState();
       if (coverageClip.enabled && coverageClip.areaId) {
@@ -141,27 +155,26 @@ const dataManager = {
         params.set("clip_to_coverage", "true");
       }
 
-      const rawData = await utils.fetchWithRetry(
-        `${CONFIG.API.matchedTrips}?${params}`,
+      const bundle = await utils.fetchWithRetry(
+        `${CONFIG.API.tripMapBundle}?${params}`,
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
         "fetchMatchedTrips"
       );
 
-      const data = this._coerceFeatureCollection(rawData);
-      if (data) {
-        // Tag recent matched trips
-        this._tagRecentTrips(data);
-
-        state.mapLayers.matchedTrips.layer = data;
-        await layerManager.updateMapLayer("matchedTrips", data);
+      if (this._coerceTripMapBundle(bundle)) {
+        await tripMapRenderer.setLayerData("matchedTrips", bundle);
         document.dispatchEvent(
           new CustomEvent("matchedTripsDataLoaded", {
-            detail: { featureCount: data.features.length, geojson: data },
+            detail: {
+              featureCount: bundle.trip_count,
+              bundle,
+              renderer: "deck",
+            },
           })
         );
-        return data;
+        return bundle;
       }
 
       return null;
@@ -195,6 +208,45 @@ const dataManager = {
     } catch (err) {
       console.warn("Failed to tag recent matched trips:", err);
     }
+  },
+
+  _coerceTripMapBundle(data) {
+    return Boolean(
+      data &&
+        typeof data === "object" &&
+        typeof data.revision === "string" &&
+        Array.isArray(data.trips) &&
+        Number.isFinite(Number(data.trip_count))
+    );
+  },
+
+  _updateMetricsFromTripBundle(bundle) {
+    const summary = bundle?.summary || {};
+    const metrics = {
+      totalTrips: Number(bundle?.trip_count || 0),
+      totalDistanceMiles: Number(summary.total_distance_miles || 0),
+      avgDistanceMiles: Number(summary.avg_distance_miles || 0),
+      avgStartTime: summary.avg_start_time || "--:--",
+      avgDrivingTime: summary.avg_driving_time || "--:--",
+      avgSpeed: Number(summary.avg_speed || 0),
+      maxSpeed: Number(summary.max_speed || 0),
+    };
+    metricsManager.updateTripsTableFromApi?.(metrics);
+    document.dispatchEvent(
+      new CustomEvent("metricsUpdated", {
+        detail: {
+          source: "tripMapBundle",
+          updatedAt: Date.now(),
+          totals: {
+            totalTrips: metrics.totalTrips,
+            totalDistanceMiles: metrics.totalDistanceMiles,
+            avgSpeed: metrics.avgSpeed,
+            maxSpeed: metrics.maxSpeed,
+          },
+          metrics,
+        },
+      })
+    );
   },
 
   /**

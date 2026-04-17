@@ -19,11 +19,13 @@ from core.spatial import (
     sanitize_geojson_geometry,
     sanitize_geojson_point,
 )
+from core.trip_map_cache import bump_trip_map_revision
 from core.trip_source_policy import BOUNCIE_SOURCE
 from db.models import Trip
 from trips.services.geocoding import TripGeocoder
 from trips.services.matching import TripMapMatcher
 from trips.services.trip_display_geometry import compute_trip_display_geometry_fields
+from trips.services.trip_map_geometry import apply_trip_map_path_fields
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -267,11 +269,14 @@ class TripPipeline:
 
         self._prepare_trip_display_geometry(final_trip)
         self.sanitize_trip_document_geospatial_fields(final_trip)
+        self._prepare_trip_map_paths(final_trip)
 
         if existing_trip:
             await final_trip.save()
         else:
             await final_trip.insert()
+
+        await bump_trip_map_revision()
 
         await self._enqueue_geo_coverage_sync_for_ingest(
             source=getattr(final_trip, "source", source),
@@ -751,6 +756,10 @@ class TripPipeline:
         trip.displayGpsSummary = fields["displayGpsSummary"]
         trip.displayGpsVersion = fields["displayGpsVersion"]
         trip.displayGpsUpdatedAt = fields["displayGpsUpdatedAt"]
+
+    @staticmethod
+    def _prepare_trip_map_paths(trip: Trip) -> None:
+        apply_trip_map_path_fields(trip)
 
     @staticmethod
     def sanitize_trip_document_geospatial_fields(
