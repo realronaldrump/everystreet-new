@@ -66,6 +66,10 @@ test("map route and data manager use deck-backed trip map bundles", () => {
   assert.match(config, /tripMapBundle:\s*"\/api\/map\/trips\/bundle"/);
   assert.match(dataManager, /tripMapRenderer\.setLayerData\("trips",\s*bundle\)/);
   assert.match(
+    readStaticJs("modules", "trip-map-renderer.js"),
+    /id:\s*`\$\{layerName\}-trip-map-pick`/
+  );
+  assert.match(
     dataManager,
     /new URLSearchParams\(\{\s*start_date:\s*start,\s*end_date:\s*end,\s*mode:\s*"display"/s
   );

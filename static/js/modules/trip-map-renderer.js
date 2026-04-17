@@ -7,6 +7,7 @@ import tripInteractions from "./trip-interactions.js";
 
 const TRIP_LAYER_NAMES = new Set(["trips", "matchedTrips"]);
 const WORKER_URL = new URL("./trip-map-worker.js", import.meta.url);
+const PICK_WIDTH_PX = 14;
 
 function isTripLayer(layerName) {
   return TRIP_LAYER_NAMES.has(layerName);
@@ -266,6 +267,7 @@ const tripMapRenderer = {
           opacity: layerInfo.opacity ?? 1,
           onClick: (info) => this.handleTripClick(info, layerName),
         }),
+        this.buildPickLayer(layerName, common),
       ];
     }
 
@@ -279,7 +281,22 @@ const tripMapRenderer = {
         opacity: layerInfo.opacity ?? 1,
         onClick: (info) => this.handleTripClick(info, layerName),
       }),
+      this.buildPickLayer(layerName, common),
     ];
+  },
+
+  buildPickLayer(layerName, common) {
+    return new deck.PathLayer({
+      ...common,
+      id: `${layerName}-trip-map-pick`,
+      pickable: true,
+      getColor: [0, 0, 0, 1],
+      getWidth: PICK_WIDTH_PX,
+      widthMinPixels: PICK_WIDTH_PX,
+      widthMaxPixels: PICK_WIDTH_PX,
+      opacity: 0.01,
+      onClick: (info) => this.handleTripClick(info, layerName),
+    });
   },
 
   buildSelectedLayers() {
