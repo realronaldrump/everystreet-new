@@ -58,6 +58,7 @@ test("map route and data manager use deck-backed trip map bundles", () => {
   const dataManager = readStaticJs("modules", "data-manager.js");
   const config = readStaticJs("modules", "core", "config.js");
   const layerManager = readStaticJs("modules", "layer-manager.js");
+  const tripMapRenderer = readStaticJs("modules", "trip-map-renderer.js");
 
   assert.match(
     routeLoader,
@@ -75,4 +76,6 @@ test("map route and data manager use deck-backed trip map bundles", () => {
   );
   assert.doesNotMatch(dataManager, /updateMapLayer\("trips",\s*tripData\)/);
   assert.match(layerManager, /TripMapBundle/);
+  assert.match(tripMapRenderer, /closeOnClick:\s*false/);
+  assert.match(tripMapRenderer, /srcEvent\?\.stopPropagation\?\.\(\)/);
 });

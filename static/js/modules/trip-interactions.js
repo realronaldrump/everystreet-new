@@ -7,7 +7,7 @@ import notificationManager from "./ui/notifications.js";
 import { utils } from "./utils.js";
 
 const tripInteractions = {
-  handleTripClick(e, feature, layerName = null) {
+  handleTripClick(e, feature, layerName = null, options = {}) {
     if (!feature?.properties) {
       return;
     }
@@ -26,7 +26,7 @@ const tripInteractions = {
 
     const popup = new mapboxgl.Popup({
       closeButton: true,
-      closeOnClick: true,
+      closeOnClick: options.closeOnClick !== false,
       maxWidth: "400px",
       anchor: "bottom",
     })

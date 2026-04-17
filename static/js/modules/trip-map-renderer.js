@@ -342,6 +342,9 @@ const tripMapRenderer = {
     if (!info || typeof info.index !== "number") {
       return false;
     }
+    info.srcEvent?.stopPropagation?.();
+    info.srcEvent?.preventDefault?.();
+
     const layerState = this.layers.get(layerName);
     const tripIndex = layerState?.decoded?.tripIndices?.[info.index];
     const trip = layerState?.bundle?.trips?.[tripIndex];
@@ -359,7 +362,8 @@ const tripMapRenderer = {
     tripInteractions.handleTripClick(
       { lngLat: info.coordinate || [0, 0], originalEvent: info.srcEvent },
       feature,
-      layerName
+      layerName,
+      { closeOnClick: false }
     );
     return true;
   },
