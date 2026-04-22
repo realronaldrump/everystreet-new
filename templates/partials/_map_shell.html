@@ -147,6 +147,44 @@ Avg Duration
       </div>
     </div>
 
+    <!-- Floating Smart Legend (glass, top-right) -->
+    <div id="map-smart-legend"
+         class="map-smart-legend"
+         aria-label="Map legend"
+         role="group">
+      <button type="button"
+              class="map-smart-legend__toggle"
+              id="map-smart-legend-toggle"
+              aria-expanded="true"
+              aria-controls="map-smart-legend-body"
+              title="Toggle legend">
+        <i class="fas fa-circle-info" aria-hidden="true"></i>
+        <span>Legend</span>
+      </button>
+      <div class="map-smart-legend__body" id="map-smart-legend-body">
+        <div class="map-smart-legend__row">
+          <span class="map-smart-legend__swatch map-smart-legend__swatch--driven" aria-hidden="true"></span>
+          <span class="map-smart-legend__label">Driven</span>
+          <span class="map-smart-legend__hint">streets covered</span>
+        </div>
+        <div class="map-smart-legend__row">
+          <span class="map-smart-legend__swatch map-smart-legend__swatch--undriven" aria-hidden="true"></span>
+          <span class="map-smart-legend__label">Undriven</span>
+          <span class="map-smart-legend__hint">to explore</span>
+        </div>
+        <div class="map-smart-legend__row">
+          <span class="map-smart-legend__swatch map-smart-legend__swatch--trips" aria-hidden="true"></span>
+          <span class="map-smart-legend__label">Trips</span>
+          <span class="map-smart-legend__hint">recorded paths</span>
+        </div>
+        <div class="map-smart-legend__row map-smart-legend__row--scale">
+          <span class="map-smart-legend__scale" aria-hidden="true"></span>
+          <span class="map-smart-legend__label">Coverage</span>
+          <span class="map-smart-legend__hint">low → high density</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Live Trip HUD - Minimal pill -->
     <div id="live-trip-hud" class="live-trip-hud" aria-hidden="true">
       <span class="live-trip-hud-dot" aria-hidden="true"></span>

@@ -4,8 +4,11 @@ import store from "./modules/core/store.js";
 import "./modules/ui/ui-init.js";
 import "./modules/ui/loading-manager.js";
 import "./modules/ui/notifications.js";
+import "./modules/ui/notification-bell.js";
 import "./modules/ui/confirmation-dialog.js";
 import "./modules/ui/global-job-tracker.js";
+import "./modules/ui/scroll-reveal.js";
+import "./modules/ui/smart-legend.js";
 
 function markAppReady() {
   if (store.appReady) {

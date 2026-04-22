@@ -7,7 +7,7 @@
           content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description"
           content="Every Street - Tracking and Visualizing Davis's street coverage" />
-    <meta name="theme-color" content="#0a0a0c" />
+    <meta name="theme-color" content="#050507" />
     <meta name="color-scheme" content="dark light" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -26,12 +26,12 @@
                 document.documentElement.classList.add("light-mode");
                 document
                     .querySelector('meta[name="theme-color"]')
-                    ?.setAttribute("content", "#fafafa");
+                    ?.setAttribute("content", "#ffffff");
             } else {
                 document.documentElement.setAttribute("data-bs-theme", "dark");
                 document
                     .querySelector('meta[name="theme-color"]')
-                    ?.setAttribute("content", "#0a0a0c");
+                    ?.setAttribute("content", "#050507");
             }
         })();
     </script>
@@ -425,6 +425,36 @@ System
                 </a>
               </div>
             {% endif %}
+            <!-- Notification Bell -->
+            <div class="notif-bell-wrapper" id="notif-bell-wrapper">
+              <button id="notif-bell-btn"
+                      class="notif-bell-btn"
+                      aria-label="Notifications"
+                      aria-expanded="false"
+                      aria-controls="notif-history-panel">
+                <i class="fas fa-bell" aria-hidden="true"></i>
+                <span id="notif-unread-badge" class="notif-unread-badge" aria-hidden="true" hidden></span>
+              </button>
+              <div id="notif-history-panel"
+                   class="notif-history-panel"
+                   role="dialog"
+                   aria-label="Notification history"
+                   hidden>
+                <div class="notif-panel-header">
+                  <span class="notif-panel-title">Notifications</span>
+                  <button id="notif-clear-all-btn" class="notif-clear-all-btn" type="button" aria-label="Clear all notifications">
+                    Clear all
+                  </button>
+                </div>
+                <div id="notif-history-list" class="notif-history-list" role="list">
+                  <!-- populated by JS -->
+                </div>
+                <div id="notif-empty-state" class="notif-empty-state" hidden>
+                  <i class="fas fa-bell-slash" aria-hidden="true"></i>
+                  <span>No notifications yet</span>
+                </div>
+              </div>
+            </div>
             <!-- Date Picker Dropdown -->
             <div id="date-picker-wrapper" class="date-picker-wrapper">
               <button id="date-picker-trigger"

@@ -313,6 +313,38 @@ export function formatDateTime(isoString) {
 }
 
 /**
+ * Format an ISO date/time string to date only (e.g. "Apr 21, 2026")
+ * @param {string|Date} isoString - ISO date string or Date object
+ * @returns {string} Locale-formatted date or "--" if invalid
+ */
+export function formatDateOnly(isoString) {
+  if (!isoString) {
+    return "--";
+  }
+  return new Date(isoString).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/**
+ * Format an ISO date/time string to time only (e.g. "3:45 PM")
+ * @param {string|Date} isoString - ISO date string or Date object
+ * @returns {string} Locale-formatted time or "--" if invalid
+ */
+export function formatTimeOnly(isoString) {
+  if (!isoString) {
+    return "--";
+  }
+  return new Date(isoString).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+/**
  * Format a Date object to YYYY-MM-DD string
  * @param {Date|string} date - Date to format
  * @returns {string|null} Formatted date string or null if invalid

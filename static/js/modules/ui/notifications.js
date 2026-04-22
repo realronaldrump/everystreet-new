@@ -1,3 +1,71 @@
+const HISTORY_STORAGE_KEY = "es_notification_history";
+const HISTORY_MAX = 50;
+
+class NotificationHistory {
+  constructor() {
+    this._listeners = [];
+  }
+
+  _load() {
+    try {
+      return JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || "[]");
+    } catch {
+      return [];
+    }
+  }
+
+  _save(items) {
+    try {
+      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(items));
+    } catch {
+      /* storage full — ignore */
+    }
+    this._listeners.forEach((fn) => fn(items));
+  }
+
+  add(message, type) {
+    const items = this._load();
+    const entry = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      message,
+      type: type === "danger" ? "error" : type,
+      timestamp: Date.now(),
+      read: false,
+    };
+    items.unshift(entry);
+    this._save(items.slice(0, HISTORY_MAX));
+    return entry;
+  }
+
+  getAll() {
+    return this._load();
+  }
+
+  unreadCount() {
+    return this._load().filter((n) => !n.read).length;
+  }
+
+  markAllRead() {
+    const items = this._load().map((n) => ({ ...n, read: true }));
+    this._save(items);
+  }
+
+  remove(id) {
+    const items = this._load().filter((n) => n.id !== id);
+    this._save(items);
+  }
+
+  clearAll() {
+    this._save([]);
+  }
+
+  onChange(fn) {
+    this._listeners.push(fn);
+  }
+}
+
+const notificationHistory = new NotificationHistory();
+
 class NotificationManager {
   constructor(config = {}) {
     this.config = {
@@ -33,6 +101,8 @@ class NotificationManager {
     if (!this.container || typeof document === "undefined") {
       return null;
     }
+
+    notificationHistory.add(message, type);
 
     const typeClass = type === "danger" ? "error" : type;
     const iconMap = {
@@ -134,5 +204,5 @@ const notify = {
   info: (message, duration) => notificationManager.show(message, "info", duration),
 };
 
-export { NotificationManager, notificationManager, notify };
+export { NotificationManager, notificationManager, notificationHistory, notify };
 export default notificationManager;

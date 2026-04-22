@@ -24,37 +24,45 @@
 .ambient-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(70px);
-  opacity: 0.1;
-  animation: ambientFloat 40s ease-in-out infinite;
+  filter: blur(80px);
+  opacity: 0.14;
+  animation: ambientFloat 44s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+
+body.light-mode .ambient-orb {
+  opacity: 0.25;
+  mix-blend-mode: multiply;
+  filter: blur(90px);
 }
 
 .ambient-orb-1 {
-  width: 480px;
-  height: 480px;
-  background: var(--primary);
-  top: -200px;
-  right: -100px;
+  width: 560px;
+  height: 560px;
+  background: var(--accent);
+  top: -220px;
+  right: -140px;
   animation-delay: 0s;
 }
 
 .ambient-orb-2 {
-  width: 420px;
-  height: 420px;
-  background: var(--info);
-  bottom: -150px;
-  left: -100px;
+  width: 460px;
+  height: 460px;
+  background: var(--primary);
+  bottom: -180px;
+  left: -140px;
   animation-delay: -7s;
 }
 
 .ambient-orb-3 {
-  width: 340px;
-  height: 340px;
-  background: var(--success);
-  top: 50%;
-  left: 50%;
+  width: 380px;
+  height: 380px;
+  background: var(--cat-purple);
+  top: 45%;
+  left: 55%;
   transform: translate(-50%, -50%);
   animation-delay: -14s;
+  opacity: 0.09;
 }
 
 @keyframes ambientFloat {
@@ -218,34 +226,75 @@
 
 /* === Hero Stats === */
 .hero-stats {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-8);
-  padding: var(--space-8) var(--space-6);
-  background: var(--surface-1);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border-color);
-  animation: landingFadeInUp 0.4s ease-out 0.1s both;
+  padding: var(--space-10) var(--space-6);
+  background:
+    radial-gradient(circle at 20% 20%, rgb(var(--primary-rgb) / 12%), transparent 55%),
+    radial-gradient(circle at 80% 80%, rgb(var(--accent-rgb) / 10%), transparent 55%),
+    linear-gradient(140deg, rgb(var(--surface-rgb) / 95%), rgb(var(--surface-rgb) / 78%));
+  border-radius: var(--radius-2xl);
+  border: 1px solid rgb(var(--accent-rgb) / 18%);
+  box-shadow:
+    0 24px 60px rgb(0 0 0 / 34%),
+    inset 0 1px 0 rgb(255 255 255 / 6%);
+  overflow: hidden;
+}
+
+.hero-stats-glow {
+  position: absolute;
+  inset: -40% -20% auto auto;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgb(var(--accent-rgb) / 24%) 0%,
+    transparent 60%
+  );
+  filter: blur(30px);
+  pointer-events: none;
+  animation: heroStatsGlow 14s ease-in-out infinite;
+}
+
+@keyframes heroStatsGlow {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.75;
+  }
+
+  50% {
+    transform: translate(-30px, 20px) scale(1.1);
+    opacity: 1;
+  }
 }
 
 .stat-pulse {
   text-align: center;
   position: relative;
+  z-index: 1;
 }
 
 .stat-value {
+  font-family: var(--font-family-display);
   font-size: var(--font-size-4xl);
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
   transition:
-    transform var(--transition-fast),
-    color var(--transition-fast);
+    transform var(--transition-normal),
+    color var(--transition-normal),
+    text-shadow var(--transition-normal);
 }
 
 .stat-value.updating {
-  animation: statPulse 0.4s ease;
+  animation: statPulse 0.8s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 @keyframes statPulse {
@@ -253,9 +302,10 @@
     transform: scale(1);
   }
 
-  50% {
-    transform: scale(1.03);
-    color: var(--primary);
+  40% {
+    transform: scale(1.06);
+    color: var(--accent-light);
+    text-shadow: 0 0 28px rgb(var(--accent-rgb) / 50%);
   }
 
   100% {
@@ -835,46 +885,7 @@
   }
 }
 
-/* === Staggered Animation Delays === */
-.nav-tile:nth-child(1) {
-  animation: landingFadeInUp 0.35s ease-out 0.08s both;
-}
-
-.nav-tile:nth-child(2) {
-  animation: landingFadeInUp 0.35s ease-out 0.12s both;
-}
-
-.nav-tile:nth-child(3) {
-  animation: landingFadeInUp 0.35s ease-out 0.16s both;
-}
-
-.nav-tile:nth-child(4) {
-  animation: landingFadeInUp 0.35s ease-out 0.2s both;
-}
-
-.nav-tile:nth-child(5) {
-  animation: landingFadeInUp 0.35s ease-out 0.24s both;
-}
-
-.nav-tile:nth-child(6) {
-  animation: landingFadeInUp 0.35s ease-out 0.28s both;
-}
-
-.nav-tile:nth-child(7) {
-  animation: landingFadeInUp 0.35s ease-out 0.32s both;
-}
-
-.nav-tile:nth-child(8) {
-  animation: landingFadeInUp 0.35s ease-out 0.34s both;
-}
-
-.nav-tile:nth-child(9) {
-  animation: landingFadeInUp 0.35s ease-out 0.36s both;
-}
-
-.nav-tile:nth-child(10) {
-  animation: landingFadeInUp 0.35s ease-out 0.38s both;
-}
+/* Stagger now handled by data-reveal IntersectionObserver; no auto-animation */
 
 /* === Reduce Motion === */
 @media (prefers-reduced-motion: reduce) {

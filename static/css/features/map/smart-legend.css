@@ -1,0 +1,171 @@
+/* ============================
+   Smart Floating Legend
+   Glassmorphic top-right legend for the hero map.
+   ============================ */
+
+.map-smart-legend {
+  position: absolute;
+  top: calc(var(--space-3) + 4px);
+  right: var(--space-4);
+  z-index: var(--z-dropdown);
+  min-width: 220px;
+  padding: var(--space-2);
+  border-radius: var(--radius-xl);
+  background: var(--glass-panel);
+  backdrop-filter: blur(var(--blur-strong)) saturate(1.2);
+  -webkit-backdrop-filter: blur(var(--blur-strong)) saturate(1.2);
+  border: 1px solid rgb(var(--accent-rgb) / 22%);
+  box-shadow:
+    0 18px 42px rgb(0 0 0 / 32%),
+    inset 0 1px 0 rgb(255 255 255 / 6%);
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  transition:
+    transform var(--transition-smooth),
+    opacity var(--transition-smooth),
+    border-color var(--transition-smooth);
+  pointer-events: auto;
+  animation: smartLegendIn 640ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes smartLegendIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.map-smart-legend:hover {
+  border-color: rgb(var(--accent-rgb) / 35%);
+}
+
+.map-smart-legend__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  width: 100%;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.map-smart-legend__toggle:hover {
+  background: rgb(var(--accent-rgb) / 10%);
+}
+
+.map-smart-legend__toggle i {
+  color: var(--accent);
+  font-size: var(--font-size-sm);
+}
+
+.map-smart-legend__body {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  overflow: hidden;
+  max-height: 400px;
+  transition: max-height var(--transition-smooth);
+}
+
+.map-smart-legend[data-collapsed="true"] .map-smart-legend__body {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.map-smart-legend__row {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+}
+
+.map-smart-legend__label {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.map-smart-legend__hint {
+  color: var(--text-tertiary);
+  font-size: 0.68rem;
+}
+
+.map-smart-legend__swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 6%);
+}
+
+.map-smart-legend__swatch--driven {
+  background: var(--success);
+  box-shadow:
+    0 0 10px rgb(var(--success-rgb) / 40%),
+    0 0 0 1px rgb(var(--success-rgb) / 30%);
+}
+
+.map-smart-legend__swatch--undriven {
+  background: var(--color-undriven);
+  box-shadow:
+    0 0 10px rgb(var(--color-undriven-rgb) / 40%),
+    0 0 0 1px rgb(var(--color-undriven-rgb) / 30%);
+}
+
+.map-smart-legend__swatch--trips {
+  background: linear-gradient(90deg, var(--accent), var(--primary));
+  box-shadow:
+    0 0 10px rgb(var(--accent-rgb) / 50%),
+    0 0 0 1px rgb(var(--accent-rgb) / 40%);
+}
+
+.map-smart-legend__scale {
+  display: inline-block;
+  width: 40px;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgb(var(--accent-rgb) / 20%),
+    rgb(var(--accent-rgb) / 60%),
+    rgb(var(--accent-rgb) / 100%)
+  );
+  box-shadow: 0 0 12px rgb(var(--accent-rgb) / 40%);
+}
+
+.map-smart-legend__row--scale {
+  grid-template-columns: 40px 1fr auto;
+}
+
+@media (width <= 640px) {
+  .map-smart-legend {
+    top: var(--space-2);
+    right: var(--space-2);
+    min-width: 180px;
+    font-size: 0.72rem;
+  }
+
+  .map-smart-legend__hint {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-smart-legend {
+    animation: none;
+  }
+}

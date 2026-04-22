@@ -21,8 +21,10 @@ import notificationManager from "../../ui/notifications.js";
 import {
   DateUtils,
   escapeHtml,
+  formatDateOnly,
   formatDateTime,
   formatDuration,
+  formatTimeOnly,
   formatVehicleName,
   getStorage,
   sanitizeLocation,
@@ -315,11 +317,25 @@ const TRIP_TABLE_COLUMNS = [
     render: (trip) => renderTripSelectCell(trip),
   },
   {
-    key: "startTime",
-    label: "Started",
+    key: "date",
+    label: "Date",
     icon: "fa-calendar-day",
     sortKey: "date",
-    render: (trip) => renderPrimaryDateCell(trip),
+    render: (trip) => renderDateCell(trip),
+  },
+  {
+    key: "startTime",
+    label: "Start Time",
+    icon: "fa-play-circle",
+    sortKey: "startTime",
+    render: (trip) => renderTimeCell(trip.startTime),
+  },
+  {
+    key: "endTime",
+    label: "End Time",
+    icon: "fa-stop-circle",
+    sortKey: "endTime",
+    render: (trip) => renderTimeCell(trip.endTime),
   },
   {
     key: "title",
@@ -1953,13 +1969,17 @@ function renderTripSelectCell(trip) {
   `;
 }
 
-function renderPrimaryDateCell(trip) {
+function renderDateCell(trip) {
   return `
     <div class="trip-table-date">
-      <strong>${escapeHtml(formatDateTime(trip.startTime))}</strong>
+      <strong>${escapeHtml(formatDateOnly(trip.startTime))}</strong>
       <span>${escapeHtml(formatRelativeTime(trip.startTime))}</span>
     </div>
   `;
+}
+
+function renderTimeCell(isoString) {
+  return `<span class="trip-table-text">${escapeHtml(formatTimeOnly(isoString))}</span>`;
 }
 
 function renderTripTitleCell(trip) {

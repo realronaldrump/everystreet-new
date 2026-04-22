@@ -23,21 +23,22 @@ Driving Insights
 
   <div id="insights-page" class="insights-container">
     <!-- Hero Section -->
-    <section class="insights-hero" data-accent="lime">
+    <section class="insights-hero" data-accent="lime" data-reveal="up">
       <div class="hero-content">
-        <div class="hero-badge">
+        <div class="hero-badge" data-reveal="up">
           <i class="fas fa-chart-line"></i>
           <span>Your driving insights</span>
         </div>
-        <h1 class="hero-title">
+        <h1 class="hero-title" data-reveal="up">
           Your driving patterns,
           <br />
           <span class="highlight">broken down by data</span>
         </h1>
-        <p class="hero-subtitle">
+        <p class="hero-subtitle" data-reveal="up">
           Use period comparisons, time distributions, and destination concentration to inspect exactly what changed in your selected range.
         </p>
-        <div class="hero-stat-card">
+        <div class="hero-stat-card" data-reveal="scale">
+          <div class="hero-stat-glow" aria-hidden="true"></div>
           <div class="hero-stat-value counter" id="hero-total-miles">
 0
           </div>
@@ -49,7 +50,7 @@ miles in the selected range
     </section>
 
     <!-- Street & Segment Movement Section -->
-    <section class="insights-section movement-section" data-accent="lime">
+    <section class="insights-section movement-section" data-accent="lime" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
           <i class="fas fa-road section-icon"></i>
@@ -138,7 +139,7 @@ View more segments
     </section>
 
     <!-- Quick Stats Section -->
-    <section class="insights-section" data-accent="mint">
+    <section class="insights-section" data-accent="mint" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
           <i class="fas fa-star section-icon"></i>
@@ -149,8 +150,8 @@ Headline metrics with contextual cues from your latest patterns
         </p>
       </div>
 
-      <div class="metrics-grid">
-        <div class="metric-card">
+      <div class="metrics-grid" data-reveal-group="insights-metrics">
+        <div class="metric-card" data-reveal="up">
           <div class="metric-accent mint">
           </div>
           <div class="metric-content">
@@ -172,7 +173,7 @@ trips taken
           </div>
         </div>
 
-        <div class="metric-card">
+        <div class="metric-card" data-reveal="up">
           <div class="metric-accent coral">
           </div>
           <div class="metric-content">
@@ -195,7 +196,7 @@ total distance
           </div>
         </div>
 
-        <div class="metric-card">
+        <div class="metric-card" data-reveal="up">
           <div class="metric-accent sky">
           </div>
           <div class="metric-content">
@@ -217,7 +218,7 @@ time driving
           </div>
         </div>
 
-        <div class="metric-card">
+        <div class="metric-card" data-reveal="up">
           <div class="metric-accent purple">
           </div>
           <div class="metric-content">
@@ -243,7 +244,7 @@ fuel context
     </section>
 
     <!-- Period Analytics Section -->
-    <section class="insights-section story-shell" data-accent="purple">
+    <section class="insights-section story-shell" data-accent="purple" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
           <i class="fas fa-wave-square section-icon"></i>
@@ -314,7 +315,7 @@ Not enough data in this range to compare periods yet.
     </section>
 
     <!-- Pattern Cards Section -->
-    <section class="insights-section" data-accent="amber">
+    <section class="insights-section" data-accent="amber" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
           <i class="fas fa-lightbulb section-icon"></i>
@@ -339,7 +340,7 @@ Not enough data in this range to compute pattern cards yet.
     </section>
 
     <!-- Time Signature Section -->
-    <section class="insights-section" data-accent="sky">
+    <section class="insights-section" data-accent="sky" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
           <i class="fas fa-clock section-icon"></i>
@@ -376,7 +377,7 @@ Not enough rhythm data in this range yet.
     </section>
 
     <!-- Places Orbit Section -->
-    <section class="insights-section" data-accent="mint">
+    <section class="insights-section" data-accent="mint" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
           <i class="fas fa-map-marker-alt section-icon"></i>
@@ -407,7 +408,7 @@ Select a place bubble to see details.
     </section>
 
     <!-- Records Timeline Section -->
-    <section class="insights-section" data-accent="coral">
+    <section class="insights-section" data-accent="coral" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
           <i class="fas fa-flag-checkered section-icon"></i>

@@ -2,16 +2,35 @@
 
 /* === Map Container & Wrapper === */
 .map-wrapper {
-  /* If you have a wrapper around the map */
   flex-grow: 1;
   height: 100%;
   min-height: 0;
   display: flex;
-  position: relative; /* For absolutely positioned children like controls */
-  overflow: hidden; /* Prevent scrollbars if map resizes weirdly */
-  border-radius: var(--radius-xl); /* Consistent with cards */
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
   border: 1px solid var(--border-color);
+}
+
+/* Hero map — fully immersive on the /map route */
+body[data-route="/map"] .map-wrapper {
+  border-radius: 0;
+  box-shadow: none;
+  border: 0;
+}
+
+body[data-route="/map"] .main-content {
+  padding-top: var(--header-height);
+}
+
+body[data-route="/map"] .persistent-shell {
+  padding: 0;
+  margin: 0;
+}
+
+body[data-route="/map"] .nav-breadcrumb {
+  display: none;
 }
 
 #map {
@@ -40,6 +59,7 @@ body.map-page {
 
 body[data-route="/map"] .main-content {
   padding-bottom: 0;
+  overflow: hidden;
 }
 
 body[data-route="/map"] .persistent-shell {
@@ -48,6 +68,18 @@ body[data-route="/map"] .persistent-shell {
 
 body[data-route="/map"] .app-footer {
   display: none;
+}
+
+/* Header adopts translucent glass treatment over the hero map */
+body[data-route="/map"] .app-header {
+  background: linear-gradient(
+    180deg,
+    rgb(var(--surface-rgb) / 72%) 0%,
+    rgb(var(--surface-rgb) / 40%) 100%
+  );
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgb(var(--accent-rgb) / 14%);
 }
 
 /* === Map Init Error Overlay === */

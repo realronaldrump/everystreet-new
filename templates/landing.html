@@ -21,18 +21,15 @@ extra_css %}
   <div class="landing-page">
     <!-- Ambient Background -->
     <div class="landing-ambient">
-      <div class="ambient-orb ambient-orb-1">
-      </div>
-      <div class="ambient-orb ambient-orb-2">
-      </div>
-      <div class="ambient-orb ambient-orb-3">
-      </div>
+      <div class="ambient-orb ambient-orb-1" data-parallax="0.18"></div>
+      <div class="ambient-orb ambient-orb-2" data-parallax="0.08"></div>
+      <div class="ambient-orb ambient-orb-3" data-parallax="0.12"></div>
     </div>
 
     <!-- Main Content -->
     <div class="landing-content">
-      <div class="landing-bento" data-stagger>
-        <div class="landing-greeting">
+      <div class="landing-bento" data-stagger data-reveal-group="landing">
+        <div class="landing-greeting" data-reveal="up">
           <div class="greeting-text">
             <h1 class="greeting-title" id="greeting-title">
 Welcome back
@@ -49,7 +46,8 @@ Welcome back
         </div>
 
         <!-- Hero Stats Row -->
-        <div class="hero-stats" id="hero-stats">
+        <div class="hero-stats" id="hero-stats" data-reveal="scale">
+          <div class="hero-stats-glow" aria-hidden="true"></div>
           <div class="stat-pulse">
             <div class="stat-value" id="stat-miles" data-value-flash>
 --
@@ -70,12 +68,13 @@ Trips
           </div>
         </div>
 
-        <div class="delight-grid" data-stagger>
+        <div class="delight-grid" data-stagger data-reveal-group="delight">
           <div class="delight-card"
                id="record-card"
                role="button"
                tabindex="0"
-               aria-label="Rotate personal record">
+               aria-label="Rotate personal record"
+               data-reveal="up">
             <div class="delight-label">
 Personal Record
             </div>
@@ -92,17 +91,18 @@ Personal Record
         </div>
 
         <!-- Navigation Grid -->
-        <div class="landing-toolbar">
+        <div class="landing-toolbar" data-reveal="up">
           <div class="toolbar-title">
 Quick Launch
           </div>
         </div>
 
-        <div class="nav-grid" data-stagger>
+        <div class="nav-grid" data-stagger data-reveal-group="nav">
           <!-- Primary Actions -->
           <a href="/map"
              class="nav-tile nav-tile-primary"
-             data-tile="map">
+             data-tile="map"
+             data-reveal="up">
             <div class="tile-bg">
             </div>
             <div class="tile-content">
@@ -121,7 +121,8 @@ Quick Launch
 
           <a href="/coverage-route-planner"
              class="nav-tile nav-tile-primary"
-             data-tile="navigate">
+             data-tile="navigate"
+             data-reveal="up">
             <div class="tile-bg">
             </div>
             <div class="tile-content">
@@ -136,7 +137,7 @@ Quick Launch
           </a>
 
           <!-- Secondary Row -->
-          <a href="/trips" class="nav-tile" data-tile="trips">
+          <a href="/trips" class="nav-tile" data-tile="trips" data-reveal="up">
             <div class="tile-bg">
             </div>
             <div class="tile-content">
@@ -156,7 +157,8 @@ Quick Launch
 
           <a href="/map-matching"
              class="nav-tile"
-             data-tile="map-matching">
+             data-tile="map-matching"
+             data-reveal="up">
             <div class="tile-bg">
             </div>
             <div class="tile-content">
@@ -172,7 +174,8 @@ Quick Launch
 
           <a href="/insights"
              class="nav-tile"
-             data-tile="insights">
+             data-tile="insights"
+             data-reveal="up">
             <div class="tile-bg">
             </div>
             <div class="tile-content">
@@ -186,7 +189,7 @@ Quick Launch
             </div>
           </a>
 
-          <a href="/gas-tracking" class="nav-tile" data-tile="gas">
+          <a href="/gas-tracking" class="nav-tile" data-tile="gas" data-reveal="up">
             <div class="tile-bg">
             </div>
             <div class="tile-content">
@@ -204,7 +207,7 @@ Quick Launch
             </div>
           </a>
 
-          <a href="/visits" class="nav-tile" data-tile="visits">
+          <a href="/visits" class="nav-tile" data-tile="visits" data-reveal="up">
             <div class="tile-bg">
             </div>
             <div class="tile-content">
@@ -221,7 +224,8 @@ Quick Launch
           <!-- Tools Row -->
           <a href="/export"
              class="nav-tile nav-tile-tool"
-             data-tile="export">
+             data-tile="export"
+             data-reveal="up">
             <div class="tile-bg">
             </div>
             <div class="tile-content">
@@ -236,7 +240,8 @@ Quick Launch
 
           <a href="/coverage-management"
              class="nav-tile nav-tile-tool"
-             data-tile="areas">
+             data-tile="areas"
+             data-reveal="up">
             <div class="tile-bg">
             </div>
             <div class="tile-content">
@@ -251,7 +256,8 @@ Quick Launch
 
           <a href="/control-center"
              class="nav-tile nav-tile-tool"
-             data-tile="settings">
+             data-tile="settings"
+             data-reveal="up">
             <div class="tile-bg">
             </div>
             <div class="tile-content">
@@ -266,7 +272,7 @@ Quick Launch
         </div>
 
         <!-- Activity Feed -->
-        <div class="activity-section" data-accent="sky">
+        <div class="activity-section" data-accent="sky" data-reveal="up">
           <div class="activity-header">
             <span class="activity-title">Recent Activity</span>
             <span class="activity-live-dot"></span>

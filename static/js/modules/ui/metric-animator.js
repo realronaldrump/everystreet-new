@@ -24,20 +24,42 @@ const MetricAnimator = {
 
     const numericValue = Number(endValue) || 0;
     const decimals = Number.isFinite(options.decimals) ? options.decimals : 0;
-    const duration = Number.isFinite(options.duration) ? options.duration : 1.4;
+    const duration = Number.isFinite(options.duration) ? options.duration : 1.8;
     const suffix = typeof options.suffix === "string" ? options.suffix : "";
+    const bloom = options.bloom !== false;
+    const useGrouping = options.grouping !== false;
+    const currentText = element.textContent.trim();
+    const formatter = new Intl.NumberFormat(undefined, {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+      useGrouping,
+    });
+    const finalText = `${formatter.format(numericValue)}${suffix}`;
 
-    const startValue = Number(element.textContent.replace(/[^0-9.-]/g, "")) || 0;
+    const startValue = Number(currentText.replace(/[^0-9.-]/g, "")) || 0;
+    if (startValue === numericValue) {
+      if (currentText !== finalText) {
+        element.textContent = finalText;
+      }
+      return;
+    }
     const startTime = performance.now();
     const targetDuration = duration * 1000;
 
     const step = (now) => {
       const elapsed = Math.min((now - startTime) / targetDuration, 1);
-      const eased = 1 - (1 - elapsed) ** 3;
+      // easeOutExpo for a richer decelerating feel
+      const eased = elapsed === 1 ? 1 : 1 - 2 ** (-10 * elapsed);
       const current = startValue + (numericValue - startValue) * eased;
-      element.textContent = `${current.toFixed(decimals)}${suffix}`;
+      element.textContent = elapsed === 1 ? finalText : `${formatter.format(current)}${suffix}`;
       if (elapsed < 1) {
         requestAnimationFrame(step);
+      } else if (bloom) {
+        element.classList.remove("counter-bloom");
+        // force reflow so animation restarts
+        void element.offsetWidth;
+        element.classList.add("counter-bloom");
+        setTimeout(() => element.classList.remove("counter-bloom"), 1300);
       }
     };
 

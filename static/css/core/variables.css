@@ -1,20 +1,20 @@
 /* ============================
-   Design Tokens: Warm Cartographic
-   Palette (Premium, Cartographic)
-   - Sage Teal:   #3b8a7f (primary)
-   - Copper:      #b87a4a (accent)
+   Design Tokens: Vibrant Cartographic (Phase 3)
+   Palette (Saturated, Expressive)
+   - Sage Teal:   #3b8a7f (primary — cartographic anchor)
+   - Cyan Pop:    #2dd4bf (accent — vibrant signal)
    - Warm Slate:  #727a84 (secondary)
    - Brick:       #c45454 (danger)
    - Steel:       #5a86b0 (info)
    - Honey:       #d4a24a (warning)
    - Forest:      #4d9a6a (success)
 
-   Refined Surfaces (Warm Dark Neutrals)
-   - Surface deep: #0a0a0c
-   - Surface 0:    #111113
-   - Surface 1:    #18181b
-   - Surface 2:    #1e1e22
-   - Surface 3:    #27272c
+   Deepened Surfaces (Dramatic Dark)
+   - Surface deep: #050507 (true-dark for modals/drawers)
+   - Surface 0:    #0c0c0f
+   - Surface 1:    #131317
+   - Surface 2:    #1b1b20
+   - Surface 3:    #24242a
 
    Radii
    - Containers/cards: 7-12px
@@ -88,10 +88,10 @@
   --info-light: #79a0c0;
   --info-dark: #44688a;
   --info-rgb: var(--cat-steel-rgb);
-  --accent: #b87a4a;
-  --accent-light: #d09868;
-  --accent-dark: #9a6438;
-  --accent-rgb: 184 122 74;
+  --accent: #2dd4bf;
+  --accent-light: #5eead4;
+  --accent-dark: #14b8a6;
+  --accent-rgb: 45 212 191;
 
   /* Flat colors - no gradients */
   --primary-gradient: var(--primary);
@@ -101,28 +101,28 @@
   --danger-gradient: var(--danger);
   --info-gradient: var(--info);
 
-  /* Dark Mode Surfaces (Default) - Refined Premium Palette (Phase 1) */
-  --surface-deep: #0a0a0c;
-  --surface-0: #111113;
-  --surface-1: #18181b;
-  --surface-2: #1e1e22;
-  --surface-3: #27272c;
-  --surface-4: #323238;
-  --surface-elevated: #1a1a1d;
-  --surface-glass: rgb(24 24 27 / 72%);
-  --surface-rgb: 24 24 27;
-  --text-primary: rgb(245 242 236 / 92%);
-  --text-secondary: rgb(201 196 186 / 78%);
-  --text-tertiary: rgb(129 124 116 / 55%);
-  --text-on-primary: #0a0a0c;
-  --text-on-secondary: #111113;
-  --text-on-dark: #0a0a0c;
+  /* Dark Mode Surfaces (Default) - Dramatic Deep Palette (Phase 3) */
+  --surface-deep: #050507;
+  --surface-0: #0c0c0f;
+  --surface-1: #131317;
+  --surface-2: #1b1b20;
+  --surface-3: #24242a;
+  --surface-4: #2f2f37;
+  --surface-elevated: #16161b;
+  --surface-glass: rgb(19 19 23 / 74%);
+  --surface-rgb: 19 19 23;
+  --text-primary: rgb(248 246 242 / 96%);
+  --text-secondary: rgb(210 206 198 / 82%);
+  --text-tertiary: rgb(140 136 128 / 60%);
+  --text-on-primary: #050507;
+  --text-on-secondary: #0c0c0f;
+  --text-on-dark: #050507;
   --text-on-light: #1c1a18;
-  --border-color: rgb(142 134 124 / 22%);
-  --border-color-light: rgb(142 134 124 / 35%);
-  --divider-color: rgb(142 134 124 / 12%);
-  --border-rgb: 142 134 124;
-  --text-rgb: 245 242 236;
+  --border-color: rgb(150 142 132 / 20%);
+  --border-color-light: rgb(150 142 132 / 34%);
+  --divider-color: rgb(150 142 132 / 10%);
+  --border-rgb: 150 142 132;
+  --text-rgb: 248 246 242;
 
   /* Typography - Refined (Phase 1) */
   --font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
@@ -177,13 +177,14 @@
   --sidebar-width: 280px;
   --panel-width: 360px;
 
-  /* Effects - Phase 2 Refined Timing */
-  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-smooth: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-spring: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  --transition-spring-fast: 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Effects - Phase 3 Premium Timing (longer, more cinematic) */
+  --transition-fast: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 260ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 340ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  --transition-slow: 480ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  --transition-spring: 560ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-spring-fast: 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-cinematic: 720ms cubic-bezier(0.16, 1, 0.3, 1);
   --shadow-xs: 0 1px 2px rgb(0 0 0 / 10%);
   --shadow-sm: 0 4px 12px rgb(0 0 0 / 14%);
   --shadow-md: 0 10px 24px rgb(0 0 0 / 18%);
@@ -199,14 +200,16 @@
   /* Accent colors */
   --gradient-accent-bar: var(--accent);
 
-  /* Subtle glows for interactive states */
-  --glow-primary: 0 0 12px rgb(var(--primary-rgb) / 10%);
-  --glow-primary-intense: 0 0 18px rgb(var(--primary-rgb) / 22%);
-  --glow-success: 0 0 10px rgb(var(--success-rgb) / 10%);
-  --glow-success-intense: 0 0 18px rgb(var(--success-rgb) / 24%);
-  --glow-warning: 0 0 12px rgb(var(--warning-rgb) / 18%);
-  --glow-danger: 0 0 12px rgb(var(--danger-rgb) / 18%);
-  --glow-accent: 0 0 8px rgb(var(--accent-rgb) / 8%);
+  /* Expressive glows for interactive states (Phase 3 — vibrant accent) */
+  --glow-primary: 0 0 14px rgb(var(--primary-rgb) / 14%);
+  --glow-primary-intense: 0 0 24px rgb(var(--primary-rgb) / 30%);
+  --glow-success: 0 0 12px rgb(var(--success-rgb) / 14%);
+  --glow-success-intense: 0 0 22px rgb(var(--success-rgb) / 28%);
+  --glow-warning: 0 0 12px rgb(var(--warning-rgb) / 20%);
+  --glow-danger: 0 0 12px rgb(var(--danger-rgb) / 20%);
+  --glow-accent: 0 0 14px rgb(var(--accent-rgb) / 22%);
+  --glow-accent-intense: 0 0 28px rgb(var(--accent-rgb) / 40%);
+  --glow-accent-strong: 0 0 42px rgb(var(--accent-rgb) / 55%);
 
   /* Gradient surfaces for glassmorphism */
   --gradient-surface-glow: linear-gradient(135deg, rgb(255 255 255 / 3%) 0%, transparent 50%);
@@ -343,24 +346,25 @@
   --bs-focus-ring-color: rgb(var(--accent-rgb) / 25%);
 }
 
-/* Light Mode Overrides - Premium Feel (Phase 1) */
+/* Light Mode Overrides - Crisp & Bright (Phase 3) */
 body.light-mode {
-  --surface-0: #faf9f7;
-  --surface-1: #fff;
-  --surface-2: #f3f2ef;
-  --surface-3: #e7e5e1;
-  --surface-4: #dbd8d3;
-  --surface-elevated: #f7f5f2;
-  --surface-glass: rgb(255 255 255 / 88%);
-  --surface-rgb: 250 249 247;
-  --text-primary: rgb(28 26 23 / 92%);
-  --text-secondary: rgb(87 83 78 / 75%);
-  --text-tertiary: rgb(140 136 129 / 55%);
-  --border-color: rgb(28 24 21 / 6%);
-  --border-color-light: rgb(28 24 21 / 12%);
-  --divider-color: rgb(28 24 21 / 4%);
-  --border-rgb: 28 24 21;
-  --text-rgb: 28 26 23;
+  --surface-deep: #fff;
+  --surface-0: #fff;
+  --surface-1: #fafafb;
+  --surface-2: #f3f3f6;
+  --surface-3: #e7e7ec;
+  --surface-4: #d9d9df;
+  --surface-elevated: #fff;
+  --surface-glass: rgb(255 255 255 / 92%);
+  --surface-rgb: 255 255 255;
+  --text-primary: rgb(15 17 23 / 94%);
+  --text-secondary: rgb(71 75 86 / 78%);
+  --text-tertiary: rgb(124 128 138 / 60%);
+  --border-color: rgb(15 17 23 / 7%);
+  --border-color-light: rgb(15 17 23 / 14%);
+  --divider-color: rgb(15 17 23 / 4%);
+  --border-rgb: 15 17 23;
+  --text-rgb: 15 17 23;
   --shadow-xs: 0 1px 2px rgb(15 22 33 / 6%);
   --shadow-sm: 0 4px 12px rgb(15 22 33 / 10%);
   --shadow-md: 0 10px 24px rgb(15 22 33 / 14%);
