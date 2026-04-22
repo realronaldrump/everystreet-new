@@ -133,23 +133,6 @@
     0 0 0 1px rgb(var(--accent-rgb) / 40%);
 }
 
-.map-smart-legend__scale {
-  display: inline-block;
-  width: 40px;
-  height: 6px;
-  border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    rgb(var(--accent-rgb) / 20%),
-    rgb(var(--accent-rgb) / 60%),
-    rgb(var(--accent-rgb) / 100%)
-  );
-  box-shadow: 0 0 12px rgb(var(--accent-rgb) / 40%);
-}
-
-.map-smart-legend__row--scale {
-  grid-template-columns: 40px 1fr auto;
-}
 
 @media (width <= 640px) {
   .map-smart-legend {
