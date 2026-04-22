@@ -1,0 +1,754 @@
+/* =============================================================================
+   Memory City — 3D Sculpture View
+   =============================================================================
+   The sculpture is NOT a map: it's a luminous monument of driven streets
+   floating in dark space. Undriven roads are absent.
+   Encoding:
+     - height  = how long the street has been part of your city
+     - color   = recency (warm → cool as drives age)
+     - glow    = recent drives pulse subtly
+   ============================================================================= */
+
+.memory-city-view {
+  --mc-dock-height: 148px;
+  --mc-topbar-height: 96px;
+  --mc-accent: var(--accent);
+  --mc-accent-rgb: var(--accent-rgb);
+  --mc-sky-1: #06070b;
+  --mc-sky-2: #0b0d16;
+
+  position: relative;
+  width: 100%;
+  height: calc(100vh - var(--header-height, 64px));
+  min-height: 560px;
+  overflow: hidden;
+  isolation: isolate;
+  background: radial-gradient(
+      ellipse at 30% 10%,
+      rgb(var(--primary-rgb) / 10%) 0%,
+      transparent 55%
+    ),
+    radial-gradient(ellipse at 80% 90%, rgb(var(--accent-rgb) / 7%) 0%, transparent 50%),
+    linear-gradient(180deg, var(--mc-sky-1) 0%, var(--mc-sky-2) 100%);
+}
+
+body.light-mode .memory-city-view {
+  --mc-sky-1: #0a0d16;
+  --mc-sky-2: #12172b;
+}
+
+/* Negate app footer inside this view — we want the sculpture to fill */
+.memory-city-view + .app-footer,
+.memory-city-view ~ .app-footer {
+  display: none;
+}
+
+/* =============================================================================
+   STAGE (deck.gl canvas)
+   ============================================================================= */
+
+.memory-city-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.memory-city-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.memory-city-canvas canvas {
+  display: block;
+}
+
+/* Subtle vignette so the sculpture reads as a focal object, not a field */
+.memory-city-stage-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 35%,
+    rgb(0 0 0 / 55%) 100%
+  );
+  mix-blend-mode: multiply;
+}
+
+/* =============================================================================
+   TOPBAR
+   ============================================================================= */
+
+.memory-city-topbar {
+  position: absolute;
+  top: var(--space-5);
+  left: var(--space-5);
+  right: var(--space-5);
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-6);
+  pointer-events: none;
+}
+
+.memory-city-topbar > * {
+  pointer-events: auto;
+}
+
+.memory-city-topbar-lead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: 62ch;
+}
+
+.memory-city-eyebrow {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgb(var(--accent-rgb) / 90%);
+  text-shadow: 0 0 18px rgb(var(--accent-rgb) / 45%);
+}
+
+.memory-city-title {
+  font-family: var(--font-family-display);
+  font-size: clamp(1.6rem, 1.2rem + 1.8vw, 2.8rem);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.1;
+  color: var(--text-primary);
+  margin: 0;
+  text-shadow: 0 2px 18px rgb(0 0 0 / 55%);
+}
+
+.memory-city-subtitle {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  max-width: 58ch;
+}
+
+.memory-city-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.memory-city-area-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 240px;
+}
+
+.memory-city-area-select {
+  appearance: none;
+  width: 100%;
+  padding: var(--space-3) var(--space-8) var(--space-3) var(--space-4);
+  background: var(--glass-panel);
+  backdrop-filter: blur(var(--blur-strong));
+  -webkit-backdrop-filter: blur(var(--blur-strong));
+  border: 1px solid var(--glass-border-medium);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: var(--transition-normal);
+  box-shadow: var(--shadow-glass-sm);
+}
+
+.memory-city-area-select:hover {
+  background: var(--glass-panel-hover);
+  border-color: rgb(var(--accent-rgb) / 50%);
+}
+
+.memory-city-area-select:focus-visible {
+  outline: none;
+  border-color: rgb(var(--accent-rgb) / 70%);
+  box-shadow: var(--shadow-glass-sm), var(--focus-ring);
+}
+
+.memory-city-area-chevron {
+  position: absolute;
+  right: var(--space-4);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+
+/* =============================================================================
+   STATS RAIL
+   ============================================================================= */
+
+.memory-city-stats {
+  position: absolute;
+  left: var(--space-5);
+  top: calc(var(--mc-topbar-height) + var(--space-6));
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--glass-panel);
+  backdrop-filter: blur(var(--blur-strong));
+  -webkit-backdrop-filter: blur(var(--blur-strong));
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-glass-md);
+  min-width: 200px;
+  animation: mcFadeInLeft 600ms var(--transition-cinematic) both;
+}
+
+.memory-city-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.memory-city-stat-label {
+  font-family: var(--font-family-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.memory-city-stat-value {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.memory-city-stat-value--small {
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+}
+
+/* =============================================================================
+   DETAIL CARD (selected street)
+   ============================================================================= */
+
+.memory-city-detail {
+  position: absolute;
+  right: var(--space-5);
+  top: calc(var(--mc-topbar-height) + var(--space-6));
+  z-index: 3;
+  width: 300px;
+  max-width: calc(100vw - var(--space-10));
+  padding: var(--space-4) var(--space-5);
+  background: var(--glass-panel);
+  backdrop-filter: blur(var(--blur-strong));
+  -webkit-backdrop-filter: blur(var(--blur-strong));
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-glass-md);
+  transition: var(--transition-smooth);
+  animation: mcFadeInRight 600ms var(--transition-cinematic) both;
+}
+
+.memory-city-detail.is-locked {
+  border-color: rgb(var(--accent-rgb) / 55%);
+  box-shadow: var(--shadow-glass-md), 0 0 32px rgb(var(--accent-rgb) / 24%);
+}
+
+.memory-city-detail-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.memory-city-detail-empty i {
+  color: rgb(var(--accent-rgb) / 80%);
+}
+
+.memory-city-detail-label {
+  font-family: var(--font-family-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgb(var(--accent-rgb) / 90%);
+  margin-bottom: var(--space-1);
+}
+
+.memory-city-detail-name {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-3);
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.memory-city-detail-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--glass-border-subtle);
+  font-size: var(--font-size-sm);
+}
+
+.memory-city-detail-row:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.memory-city-detail-row dt {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.memory-city-detail-row dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.memory-city-detail-close {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.memory-city-detail-close:hover {
+  background: rgb(var(--border-rgb) / 12%);
+  color: var(--text-primary);
+}
+
+/* =============================================================================
+   DOCK — Scrubber + Legend + Camera
+   ============================================================================= */
+
+.memory-city-dock {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: var(--space-5);
+  z-index: 3;
+  width: min(920px, calc(100% - var(--space-8)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--glass-panel);
+  backdrop-filter: blur(var(--blur-strong));
+  -webkit-backdrop-filter: blur(var(--blur-strong));
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-glass-lg);
+  animation: mcFadeInUp 700ms var(--transition-cinematic) both;
+}
+
+.memory-city-dock-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.memory-city-dock-row--scrubber {
+  min-height: 40px;
+}
+
+.memory-city-dock-row--meta {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* Play / pause button */
+
+.memory-city-play-btn {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(
+    135deg,
+    rgb(var(--accent-rgb) / 20%),
+    rgb(var(--primary-rgb) / 20%)
+  );
+  color: var(--text-primary);
+  border: 1px solid rgb(var(--accent-rgb) / 45%);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: var(--transition-normal);
+  box-shadow: 0 0 14px rgb(var(--accent-rgb) / 22%);
+}
+
+.memory-city-play-btn:hover {
+  transform: scale(1.06);
+  box-shadow: 0 0 22px rgb(var(--accent-rgb) / 42%);
+  border-color: rgb(var(--accent-rgb) / 80%);
+}
+
+.memory-city-play-btn.is-playing {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--accent-rgb) / 36%),
+    rgb(var(--primary-rgb) / 36%)
+  );
+  box-shadow: 0 0 24px rgb(var(--accent-rgb) / 48%);
+}
+
+.memory-city-play-btn i {
+  font-size: 0.9rem;
+}
+
+/* Scrubber */
+
+.memory-city-scrubber-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.memory-city-scrubber-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-family: var(--font-family-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+
+.memory-city-scrubber-current {
+  color: rgb(var(--accent-rgb) / 95%);
+  font-weight: var(--font-weight-semibold);
+  text-shadow: 0 0 8px rgb(var(--accent-rgb) / 40%);
+}
+
+.memory-city-scrubber {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  background: linear-gradient(
+    to right,
+    rgb(var(--accent-rgb) / 65%) 0%,
+    rgb(var(--accent-rgb) / 65%) var(--mc-scrubber-progress, 100%),
+    rgb(var(--border-rgb) / 15%) var(--mc-scrubber-progress, 100%),
+    rgb(var(--border-rgb) / 15%) 100%
+  );
+  border-radius: var(--radius-full);
+  outline: none;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.memory-city-scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: radial-gradient(
+    circle at 30% 30%,
+    #fff 0%,
+    rgb(var(--accent-rgb) / 100%) 55%,
+    rgb(var(--accent-rgb) / 70%) 100%
+  );
+  border: 2px solid rgb(var(--accent-rgb) / 90%);
+  box-shadow: 0 0 12px rgb(var(--accent-rgb) / 55%);
+  cursor: grab;
+  transition: var(--transition-fast);
+}
+
+.memory-city-scrubber::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: radial-gradient(
+    circle at 30% 30%,
+    #fff 0%,
+    rgb(var(--accent-rgb) / 100%) 55%,
+    rgb(var(--accent-rgb) / 70%) 100%
+  );
+  border: 2px solid rgb(var(--accent-rgb) / 90%);
+  box-shadow: 0 0 12px rgb(var(--accent-rgb) / 55%);
+  cursor: grab;
+}
+
+.memory-city-scrubber:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+/* Legend */
+
+.memory-city-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.memory-city-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.memory-city-legend-swatch {
+  width: 12px;
+  height: 24px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to top,
+    rgb(var(--accent-rgb) / 15%),
+    rgb(var(--accent-rgb) / 80%)
+  );
+  box-shadow: inset 0 0 6px rgb(var(--accent-rgb) / 40%);
+}
+
+.memory-city-legend-gradient {
+  width: 80px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(
+    to right,
+    #f2a04a 0%,
+    #d88355 22%,
+    #8a7ab0 55%,
+    #5a7bb0 82%,
+    #3d4a82 100%
+  );
+  box-shadow: 0 0 12px rgb(var(--accent-rgb) / 20%);
+}
+
+/* Camera controls */
+
+.memory-city-cam-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.memory-city-cam-btn {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid var(--glass-border-medium);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.memory-city-cam-btn:hover {
+  background: rgb(var(--border-rgb) / 12%);
+  color: var(--text-primary);
+  border-color: rgb(var(--accent-rgb) / 50%);
+}
+
+.memory-city-cam-btn[aria-pressed="true"] {
+  color: rgb(var(--accent-rgb) / 95%);
+  border-color: rgb(var(--accent-rgb) / 60%);
+  box-shadow: 0 0 12px rgb(var(--accent-rgb) / 30%);
+}
+
+/* =============================================================================
+   EMPTY / LOADING STATE
+   ============================================================================= */
+
+.memory-city-state {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  text-align: center;
+  padding: var(--space-6);
+  pointer-events: none;
+  transition: opacity var(--transition-slow);
+}
+
+.memory-city-state.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.memory-city-state-pulse {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-full);
+  background: radial-gradient(
+    circle,
+    rgb(var(--accent-rgb) / 45%) 0%,
+    transparent 70%
+  );
+  animation: mcPulse 2s ease-in-out infinite;
+}
+
+.memory-city-state-text {
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.12em;
+}
+
+.memory-city-state.is-error .memory-city-state-pulse {
+  background: radial-gradient(
+    circle,
+    rgb(var(--danger-rgb) / 45%) 0%,
+    transparent 70%
+  );
+  animation: none;
+}
+
+/* =============================================================================
+   ANIMATIONS
+   ============================================================================= */
+
+@keyframes mcFadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes mcFadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes mcFadeInUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes mcPulse {
+  0%, 100% {
+    transform: scale(0.85);
+    opacity: 0.55;
+  }
+
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .memory-city-stats,
+  .memory-city-detail,
+  .memory-city-dock {
+    animation: none;
+  }
+
+  .memory-city-state-pulse {
+    animation: none;
+  }
+}
+
+/* =============================================================================
+   RESPONSIVE
+   ============================================================================= */
+
+@media (width <= 900px) {
+  .memory-city-topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+
+  .memory-city-topbar-actions {
+    width: 100%;
+  }
+
+  .memory-city-area-picker {
+    width: 100%;
+  }
+
+  .memory-city-stats {
+    display: none;
+  }
+
+  .memory-city-detail {
+    top: auto;
+    bottom: calc(var(--mc-dock-height) + var(--space-3));
+    left: var(--space-3);
+    right: var(--space-3);
+    width: auto;
+  }
+
+  .memory-city-dock {
+    width: calc(100% - var(--space-5));
+  }
+
+  .memory-city-dock-row--meta .memory-city-legend {
+    display: none;
+  }
+}
+
+/* Tooltip injected by deck.gl */
+.memory-city-tooltip {
+  font-family: var(--font-family) !important;
+  font-size: var(--font-size-xs) !important;
+  background: var(--glass-dropdown) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid rgb(var(--accent-rgb) / 40%) !important;
+  border-radius: var(--radius-md) !important;
+  padding: var(--space-2) var(--space-3) !important;
+  backdrop-filter: blur(var(--blur-strong));
+  box-shadow: var(--shadow-md), 0 0 18px rgb(var(--accent-rgb) / 20%);
+  pointer-events: none;
+}

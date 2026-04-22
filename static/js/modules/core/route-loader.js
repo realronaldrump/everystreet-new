@@ -50,6 +50,7 @@ const routes = [
     "../../pages/regional-coverage-explorer.js",
     ["map", "topojson"],
   ],
+  ["/memory-city", "../../pages/memory-city.js", ["deck"]],
   ["/export", "../../pages/export.js"],
   ["/setup-wizard", "../../pages/setup-wizard.js"],
 ];

@@ -343,6 +343,23 @@ Coverage & Routes
                       Region Explorer
                     </a>
                   </li>
+                  <li role="none">
+                    <a
+                      class="dropdown-item {% if request.url.path == '/memory-city' %}active{% endif %}"
+                      href="/memory-city"
+                      role="menuitem"
+{%
+                      if
+                      request.url.path == "/memory-city"
+                      %}aria-current="page"
+{%
+                      endif
+                      %}
+                    >
+                      <i class="fas fa-city me-2" aria-hidden="true"></i>
+                      Memory City
+                    </a>
+                  </li>
                   <li role="separator">
                     <hr class="dropdown-divider" />
                   </li>
@@ -748,6 +765,22 @@ System
                 >
                   <i class="fas fa-globe-americas me-2" aria-hidden="true"></i>
                   Region Explorer
+                </a>
+              </li>
+              <li role="none">
+                <a
+                  href="/memory-city"
+                  class="{% if request.url.path == '/memory-city' %}active{% endif %}"
+{%
+                  if
+                  request.url.path == "/memory-city"
+                  %}aria-current="page"
+{%
+                  endif
+                  %}
+                >
+                  <i class="fas fa-city me-2" aria-hidden="true"></i>
+                  Memory City
                 </a>
               </li>
             </ul>

@@ -176,6 +176,15 @@ async def regional_coverage_explorer_page(request: Request):
     return await _render_page("regional_coverage_explorer.html", request)
 
 
+@router.get(
+    "/memory-city",
+    response_class=HTMLResponse,
+)
+async def memory_city_page(request: Request):
+    """Render the Memory City 3D sculpture view."""
+    return await _render_page("memory_city.html", request)
+
+
 @router.get("/setup-wizard", response_class=HTMLResponse)
 async def setup_wizard_page(request: Request):
     """Render the setup wizard."""
