@@ -7,7 +7,7 @@ from typing import Any
 
 from core.spatial import GeometryService, extract_line_sequences
 
-TRIP_MAP_PATH_VERSION = 1
+TRIP_MAP_PATH_VERSION = 2
 _POLYLINE6_SCALE = 1_000_000
 
 
@@ -53,9 +53,9 @@ def _bbox_for_coords(coords: list[list[float]]) -> list[float]:
     return [min(lons), min(lats), max(lons), max(lats)]
 
 
-def merge_bboxes(bboxes: list[list[float]]) -> list[float]:
+def merge_bboxes(bboxes: list[list[float]]) -> list[float] | None:
     if not bboxes:
-        return [0.0, 0.0, 0.0, 0.0]
+        return None
     return [
         min(b[0] for b in bboxes),
         min(b[1] for b in bboxes),
@@ -97,9 +97,7 @@ def build_encoded_path_metadata(
     parsed = GeometryService.parse_geojson(normalized_geometry)
     lines = extract_line_sequences(parsed)
     normalized_lines = [
-        normalized
-        for line in lines
-        if len(normalized := _normalize_line(line)) >= 2
+        normalized for line in lines if len(normalized := _normalize_line(line)) >= 2
     ]
     if not normalized_lines:
         return None

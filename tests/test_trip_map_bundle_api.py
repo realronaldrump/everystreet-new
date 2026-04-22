@@ -242,3 +242,18 @@ def test_trip_map_bundle_clips_to_coverage_area_with_full_detail_path() -> None:
 
     projection = collection.find_calls[-1][1]
     assert projection["displayGps"] == 1
+
+
+def test_trip_map_bundle_returns_null_bbox_when_no_trips_match() -> None:
+    collection = _FakeTripCollection([])
+
+    with _client_for(collection) as client:
+        response = client.get(
+            "/api/map/trips/bundle?start_date=2026-03-01&end_date=2026-03-02",
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["trip_count"] == 0
+    assert payload["trips"] == []
+    assert payload["bbox"] is None

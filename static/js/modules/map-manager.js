@@ -107,11 +107,6 @@ const getLastGeometryCoordinate = (geometry) => {
   return lastCoord;
 };
 
-const isFiniteBboxLike = (bbox) =>
-  Array.isArray(bbox) &&
-  bbox.length === 4 &&
-  bbox.every((value) => Number.isFinite(Number(value)));
-
 const mapManager = {
   // Track if view state listener is bound
   _viewListenerBound: false,
@@ -613,8 +608,9 @@ const mapManager = {
         if (!latestTrip) {
           return;
         }
-        const bbox = latestTrip.bbox;
-        if (!isFiniteBboxLike(bbox)) {
+        const tripId = latestTrip.id ?? latestTrip.transactionId;
+        const bbox = module.default.getTripBounds("trips", tripId);
+        if (!bbox) {
           return;
         }
         store.map.flyTo({

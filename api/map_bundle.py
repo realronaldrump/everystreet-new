@@ -77,7 +77,7 @@ class TripMapSummary(BaseModel):
 class TripMapBundleResponse(BaseModel):
     revision: str
     generated_at: datetime
-    bbox: list[float]
+    bbox: list[float] | None = None
     trip_count: int
     summary: TripMapSummary
     trips: list[TripMapFeature]
@@ -153,14 +153,19 @@ def _merge_bboxes(bboxes: list[list[float]]) -> list[float]:
     ]
 
 
-def simplify_line_meters(coords: list[list[float]], tolerance_m: float) -> list[list[float]]:
+def simplify_line_meters(
+    coords: list[list[float]], tolerance_m: float
+) -> list[list[float]]:
     if tolerance_m <= 0 or len(coords) <= 2:
         return coords
 
     origin_lon, origin_lat = coords[0]
     origin_lat_rad = math.radians(origin_lat)
 
-    xy = [_project_to_local_xy(lon, lat, origin_lon, origin_lat, origin_lat_rad) for lon, lat in coords]
+    xy = [
+        _project_to_local_xy(lon, lat, origin_lon, origin_lat, origin_lat_rad)
+        for lon, lat in coords
+    ]
 
     keep = {0, len(coords) - 1}
     _rdp_indices(xy, 0, len(coords) - 1, tolerance_m, keep)
@@ -435,7 +440,9 @@ def _build_trip_map_summary(features: list[dict[str, Any]]) -> dict[str, Any]:
     for feature in features:
         distance = feature.get("distance_miles")
         coverage_distance = feature.get("coverage_distance_miles")
-        strict_distance = coverage_distance if coverage_distance is not None else distance
+        strict_distance = (
+            coverage_distance if coverage_distance is not None else distance
+        )
         if strict_distance is not None:
             total_distance += float(strict_distance)
         if distance is not None:
@@ -466,7 +473,9 @@ def _build_trip_map_summary(features: list[dict[str, Any]]) -> dict[str, Any]:
     avg_start_hour = (
         total_start_hours / valid_start_count if valid_start_count else None
     )
-    avg_duration = total_duration / valid_duration_count if valid_duration_count else None
+    avg_duration = (
+        total_duration / valid_duration_count if valid_duration_count else None
+    )
 
     return {
         "total_distance_miles": round(total_distance, 1),
@@ -484,7 +493,9 @@ def _coverage_revision_source(
     segment_count: int,
     max_state_ts: datetime | None,
 ) -> str:
-    area_stamp = ensure_utc(area.last_synced).isoformat() if area.last_synced else "none"
+    area_stamp = (
+        ensure_utc(area.last_synced).isoformat() if area.last_synced else "none"
+    )
     state_stamp = ensure_utc(max_state_ts).isoformat() if max_state_ts else "none"
     return (
         f"{area.id}|{area.area_version}|{status_filter}|{segment_count}|"
@@ -497,7 +508,9 @@ async def get_trip_map_bundle(
     request: Request,
     start_date: Annotated[str, Query(description="Trip range start date (YYYY-MM-DD)")],
     end_date: Annotated[str, Query(description="Trip range end date (YYYY-MM-DD)")],
-    imei: Annotated[str | None, Query(description="Optional vehicle IMEI filter")] = None,
+    imei: Annotated[
+        str | None, Query(description="Optional vehicle IMEI filter")
+    ] = None,
     mode: Annotated[
         str,
         Query(description="Trip geometry mode", pattern="^(display|matched)$"),
@@ -566,9 +579,12 @@ async def get_trip_map_bundle(
             headers={"ETag": etag, "Cache-Control": "private, max-age=30"},
         )
 
-    include_geometry = coverage_clip.enabled or await _query_has_missing_materialized_paths(
-        query,
-        path_field=path_field,
+    include_geometry = (
+        coverage_clip.enabled
+        or await _query_has_missing_materialized_paths(
+            query,
+            path_field=path_field,
+        )
     )
     projection = {
         "_id": 1,
@@ -665,7 +681,9 @@ async def get_trip_map_bundle(
     )
 
 
-@router.get("/coverage/areas/{area_id}/bundle", response_model=CoverageMapBundleResponse)
+@router.get(
+    "/coverage/areas/{area_id}/bundle", response_model=CoverageMapBundleResponse
+)
 async def get_coverage_map_bundle(
     request: Request,
     area_id: PydanticObjectId,
@@ -723,7 +741,11 @@ async def get_coverage_map_bundle(
         state_map = {state.segment_id: state for state in states}
 
         for street in streets:
-            segment_status = state_map.get(street.segment_id).status if street.segment_id in state_map else "undriven"
+            segment_status = (
+                state_map.get(street.segment_id).status
+                if street.segment_id in state_map
+                else "undriven"
+            )
             if status_filter == "undriven" and segment_status != "undriven":
                 continue
 
@@ -824,7 +846,9 @@ async def get_coverage_map_bundle(
             total_segments=area.total_segments,
             driven_segments=area.driven_segments,
         ),
-        bbox=area.bounding_box if len(area.bounding_box) == 4 else _merge_bboxes(feature_bboxes),
+        bbox=area.bounding_box
+        if len(area.bounding_box) == 4
+        else _merge_bboxes(feature_bboxes),
         segment_count=len(features),
         segments=features,
     )

@@ -20,6 +20,64 @@ function isFiniteBbox(bbox) {
   );
 }
 
+function isFiniteCoord(coord) {
+  return (
+    Array.isArray(coord) &&
+    coord.length >= 2 &&
+    Number.isFinite(Number(coord[0])) &&
+    Number.isFinite(Number(coord[1]))
+  );
+}
+
+function extendBounds(bounds, coord) {
+  if (!isFiniteCoord(coord)) {
+    return false;
+  }
+  bounds[0] = Math.min(bounds[0], Number(coord[0]));
+  bounds[1] = Math.min(bounds[1], Number(coord[1]));
+  bounds[2] = Math.max(bounds[2], Number(coord[0]));
+  bounds[3] = Math.max(bounds[3], Number(coord[1]));
+  return true;
+}
+
+function boundsFromCoords(coords) {
+  const bounds = [
+    Number.POSITIVE_INFINITY,
+    Number.POSITIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+  ];
+  let hasCoords = false;
+
+  (coords || []).forEach((coord) => {
+    hasCoords = extendBounds(bounds, coord) || hasCoords;
+  });
+
+  return hasCoords ? bounds : null;
+}
+
+function boundsFromDecoded(decoded) {
+  if (!decoded?.length || !decoded.positions?.length) {
+    return null;
+  }
+
+  const bounds = [
+    Number.POSITIVE_INFINITY,
+    Number.POSITIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+  ];
+  let hasCoords = false;
+
+  for (let index = 0; index < decoded.positions.length; index += 2) {
+    hasCoords =
+      extendBounds(bounds, [decoded.positions[index], decoded.positions[index + 1]]) ||
+      hasCoords;
+  }
+
+  return hasCoords ? bounds : null;
+}
+
 function normalizeTripId(trip) {
   return String(trip?.id ?? trip?.transactionId ?? "");
 }
@@ -369,11 +427,30 @@ const tripMapRenderer = {
   },
 
   getBundleBounds(layerName = "trips") {
-    const bbox = this.layers.get(layerName)?.bundle?.bbox;
+    const layerState = this.layers.get(layerName);
+    const decodedBounds = boundsFromDecoded(layerState?.decoded);
+    if (isFiniteBbox(decodedBounds)) {
+      return decodedBounds.map(Number);
+    }
+
+    if (
+      Number(
+        layerState?.bundle?.trip_count || layerState?.bundle?.trips?.length || 0
+      ) <= 0
+    ) {
+      return null;
+    }
+
+    const bbox = layerState?.bundle?.bbox;
     return isFiniteBbox(bbox) ? bbox.map(Number) : null;
   },
 
   getTripBounds(layerName, tripId) {
+    const pathBounds = boundsFromCoords(this.getTripPaths(layerName, tripId).flat());
+    if (isFiniteBbox(pathBounds)) {
+      return pathBounds.map(Number);
+    }
+
     const trip = this.layers.get(layerName)?.tripById?.get(String(tripId))?.trip;
     return isFiniteBbox(trip?.bbox) ? trip.bbox.map(Number) : null;
   },
