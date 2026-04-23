@@ -23,6 +23,7 @@ from core.coverage import (
 )
 from db.models import CoverageArea, CoverageState, Street
 from street_coverage.constants import MAX_VIEWPORT_FEATURES
+from street_coverage.segment_ids import segment_id_regex_for_area_version
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/coverage", tags=["coverage-streets"])
@@ -256,10 +257,24 @@ async def get_all_streets(
 
     # Compute ETag from area version + coverage state counts
     driven_count = await CoverageState.find(
-        {"area_id": area_id, "status": "driven"},
+        {
+            "area_id": area_id,
+            "status": "driven",
+            "segment_id": segment_id_regex_for_area_version(
+                area_id,
+                area.area_version,
+            ),
+        },
     ).count()
     undriveable_count = await CoverageState.find(
-        {"area_id": area_id, "status": "undriveable"},
+        {
+            "area_id": area_id,
+            "status": "undriveable",
+            "segment_id": segment_id_regex_for_area_version(
+                area_id,
+                area.area_version,
+            ),
+        },
     ).count()
     etag_source = (
         f"{area.area_version}:{driven_count}:{undriveable_count}:{status_filter or ''}"
@@ -305,6 +320,10 @@ async def get_all_streets(
                 {
                     "area_id": area_id,
                     "status": {"$in": ["driven", "undriveable"]},
+                    "segment_id": segment_id_regex_for_area_version(
+                        area_id,
+                        area.area_version,
+                    ),
                 },
             )
             .project(CoverageStateRenderProjection)
@@ -348,7 +367,14 @@ async def get_all_streets(
     # first, then hydrate with the current Street geometries.
     states = (
         await CoverageState.find(
-            {"area_id": area_id, "status": status_filter},
+            {
+                "area_id": area_id,
+                "status": status_filter,
+                "segment_id": segment_id_regex_for_area_version(
+                    area_id,
+                    area.area_version,
+                ),
+            },
         )
         .project(CoverageStateRenderProjection)
         .to_list()

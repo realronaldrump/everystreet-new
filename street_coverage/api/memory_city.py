@@ -20,6 +20,8 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 
 from db.models import CoverageArea, CoverageState, Street
+from street_coverage.segment_ids import segment_id_regex_for_area_version
+from street_coverage.stats import update_area_stats
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/coverage", tags=["coverage-memory-city"])
@@ -132,10 +134,21 @@ async def get_memory_city(area_id: PydanticObjectId) -> MemoryCityResponse:
 
     # Fetch only driven coverage states for this area.
     driven_states = await CoverageState.find(
-        {"area_id": area_id, "status": "driven"},
+        {
+            "area_id": area_id,
+            "status": "driven",
+            "segment_id": segment_id_regex_for_area_version(
+                area_id,
+                area.area_version,
+            ),
+        },
     ).to_list()
 
     if not driven_states:
+        if area.driven_segments or area.driven_length_miles or area.coverage_percentage:
+            refreshed_area = await update_area_stats(area_id)
+            if refreshed_area is not None:
+                area = refreshed_area
         return MemoryCityResponse(
             area=MemoryCityArea(
                 id=str(area.id),
@@ -191,6 +204,15 @@ async def get_memory_city(area_id: PydanticObjectId) -> MemoryCityResponse:
 
     first_driven_min = min(first_driven_values) if first_driven_values else None
     first_driven_max = max(first_driven_values) if first_driven_values else None
+
+    rendered_length_miles = round(sum(segment.length_miles for segment in segments), 3)
+    if (
+        area.driven_segments != len(segments)
+        or round(float(area.driven_length_miles or 0.0), 3) != rendered_length_miles
+    ):
+        refreshed_area = await update_area_stats(area_id)
+        if refreshed_area is not None:
+            area = refreshed_area
 
     return MemoryCityResponse(
         area=MemoryCityArea(

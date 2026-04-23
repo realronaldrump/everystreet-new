@@ -239,6 +239,20 @@ export default async function initMemoryCityPage(ctx = {}) {
     }
   }
 
+  function syncSelectedAreaOption(area) {
+    const select = elements.areaSelect;
+    if (!select || !area?.id) { return; }
+    const option = Array.from(select.options).find(
+      (candidate) => candidate.value === String(area.id)
+    );
+    if (!option) { return; }
+    const pct =
+      Number.isFinite(area.coverage_percentage) && area.coverage_percentage > 0
+        ? ` · ${Number(area.coverage_percentage).toFixed(1)}%`
+        : "";
+    option.textContent = `${area.display_name || "Unnamed area"}${pct}`;
+  }
+
   async function onAreaSelectChange(event) {
     const nextId = event.target.value;
     if (!nextId || nextId === state.selectedAreaId) { return; }
@@ -269,6 +283,7 @@ export default async function initMemoryCityPage(ctx = {}) {
       state.payload = payload;
       state.selectedSegmentId = null;
       state.hoveredSegmentId = null;
+      syncSelectedAreaOption(payload?.area);
 
       const segments = Array.isArray(payload.segments) ? payload.segments : [];
       if (segments.length === 0) {

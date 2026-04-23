@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 from db.aggregation import aggregate_to_list
 from db.models import CoverageArea, CoverageState, Street
+from street_coverage.segment_ids import segment_id_regex_for_area_version
 
 if TYPE_CHECKING:
     from beanie import PydanticObjectId
@@ -269,7 +270,7 @@ async def get_segment_status_counts(
 
     match: dict[str, Any] = {"area_id": area_id}
     if area_version is not None:
-        match["segment_id"] = {"$regex": f"^{area_id}-{area_version}-"}
+        match["segment_id"] = segment_id_regex_for_area_version(area_id, area_version)
 
     pipeline = [
         {"$match": match},
