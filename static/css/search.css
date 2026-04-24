@@ -176,11 +176,6 @@
   gap: 0.5rem;
 }
 
-/* Street highlight layer styles */
-.street-highlight-layer {
-  pointer-events: none;
-}
-
 /* Keyboard navigation highlight */
 .search-result-item[aria-selected="true"] {
   background-color: rgb(var(--primary-rgb) / 32%);
@@ -332,49 +327,4 @@ body.light-mode .search-results-dropdown::-webkit-scrollbar-thumb,
 body.light-mode .search-results-dropdown::-webkit-scrollbar-thumb:hover,
 [data-bs-theme="light"] .search-results-dropdown::-webkit-scrollbar-thumb:hover {
   background: rgb(var(--border-rgb) / 55%);
-}
-
-/* ===========================================
-   Mobile Search Styles (Colocated from mobile.css)
-   =========================================== */
-
-/* iOS-style search input for mobile bottom sheet */
-.mobile-search {
-  background: var(--surface-3);
-  border-radius: var(--radius-pill);
-  padding: var(--space-2) var(--space-3);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-  border: none;
-}
-
-.mobile-search i {
-  color: var(--text-tertiary);
-  font-size: var(--font-size-sm);
-}
-
-.mobile-search input {
-  background: transparent;
-  border: none;
-  outline: none;
-  flex: 1;
-  color: var(--text-primary);
-  font-size: var(--font-size-md);
-}
-
-.mobile-search input::placeholder {
-  color: var(--text-tertiary);
-}
-
-.btn-clear-mobile {
-  background: transparent;
-  border: none;
-  color: var(--text-tertiary);
-  padding: var(--space-1);
-}
-
-.btn-clear-mobile:hover {
-  color: var(--text-primary);
 }

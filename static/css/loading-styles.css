@@ -147,21 +147,6 @@ body.light-mode .loading-text,
   border-top-color: var(--text-primary);
 }
 
-/* === Skeleton Loading - Phase 3 Shimmer Effect === */
-.skeleton-loader {
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(
-    90deg,
-    var(--surface-2) 0%,
-    var(--surface-3) 50%,
-    var(--surface-2) 100%
-  );
-  background-size: 200% 100%;
-  border-radius: var(--radius-sm);
-  animation: skeleton-shimmer 1.5s infinite;
-}
-
 @keyframes skeleton-shimmer {
   0% {
     background-position: 200% 0;
@@ -169,33 +154,6 @@ body.light-mode .loading-text,
 
   100% {
     background-position: -200% 0;
-  }
-}
-
-body.light-mode .skeleton-loader {
-  background: linear-gradient(
-    90deg,
-    var(--surface-2) 0%,
-    var(--surface-3) 50%,
-    var(--surface-2) 100%
-  );
-  background-size: 200% 100%;
-}
-
-.skeleton-text {
-  height: 1em;
-  margin: 0.25em 0;
-  border-radius: var(--radius-sm);
-}
-
-.skeleton-text:last-child {
-  width: 70%;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .skeleton-loader {
-    animation: none;
-    background: var(--surface-2);
   }
 }
 
@@ -233,7 +191,6 @@ body.light-mode .skeleton-loader {
 @media (prefers-reduced-motion: reduce) {
   .loading-spinner,
   .btn.btn-loading::after,
-  .skeleton-loader::after,
   .swup-progress-bar {
     animation: none;
   }
@@ -243,9 +200,6 @@ body.light-mode .skeleton-loader {
     opacity: 0.7;
   }
 
-  .skeleton-loader::after {
-    display: none;
-  }
 }
 
 /* === Mobile Adjustments === */

@@ -1,27 +1,15 @@
 {% extends "base.html" %}
 
-{% from "partials/_map_assets.html" import include_mapbox_css with context %}
+{% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}
-
-
- Every Street - Region Explorer
-{% endblock %}
-
+{% block title %}Every Street - Region Explorer{% endblock %}
 
 {% block extra_css %}
-
-
-  <!-- Mapbox GL CSS -->
   {{ include_mapbox_css() }}
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/regional-coverage-explorer.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+  {{ static_css("regional-coverage-explorer.css") }}
 {% endblock %}
 
-
 {% block content %}
-
-
   <div class="regional-coverage-explorer-wrapper">
     <h1 class="visually-hidden">
 Region Explorer
@@ -48,8 +36,6 @@ Region Explorer
       </div>
 
       <div class="stats-content" id="stats-content">
-
-        <!-- Compact summary bar: always visible -->
         <div class="coverage-summary-bar" id="coverage-summary-bar">
           <div class="summary-pill summary-pill--active" data-level="county">
             <span class="summary-pill-icon"><i class="fas fa-vector-square" aria-hidden="true"></i></span>
@@ -73,8 +59,6 @@ Region Explorer
             </div>
           </div>
         </div>
-
-        <!-- Level tab switcher -->
         <div class="coverage-level-switcher" role="tablist" aria-label="Coverage level">
           <button class="coverage-level-btn coverage-level-btn--active"
                   data-level="county"
@@ -98,15 +82,11 @@ Region Explorer
             Cities
           </button>
         </div>
-
-        <!-- Dynamic level content: populated by JS per active level -->
         <div class="level-view"
              id="level-content"
              role="tabpanel"
              aria-label="Level details">
         </div>
-
-        <!-- Cache info / recalculate: shared across all levels -->
         <div class="cache-info">
           <span class="last-updated" id="last-updated"></span>
           <button class="btn btn-sm btn-outline-secondary"
@@ -141,7 +121,5 @@ Region Explorer
     </div>
   </div>
 {% endblock %}
-
-
 
 {# Page scripts are loaded via route-loader + swup. #}

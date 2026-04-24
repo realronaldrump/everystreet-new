@@ -1,36 +1,21 @@
 {% extends "base.html" %}
 
-{% from "partials/_map_assets.html" import include_mapbox_css with context %}
+{% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}
+{% block title %}Live Navigation{% endblock %}
 
-
- Live Navigation
+{% block extra_css %}
+  {{ include_mapbox_css() }}
+  {{ static_css("features/navigation/index.css") }}
 {% endblock %}
-
-
-{%
-block head_content %}
-
-
-{{ include_mapbox_css() }}
-<link rel="stylesheet"
-      href="{{ url_for('static', path='css/features/navigation/index.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
-{% endblock %}
-
-
 
 {% block content %}
-
-
   <div class="live-navigation" id="live-navigation">
     <h1 class="visually-hidden">
 Live Navigation
     </h1>
     <div id="live-navigation-map">
     </div>
-
-    <!-- Top Navigation Bar -->
     <div class="nav-top">
       <div class="nav-top-bar">
         <a class="nav-back" href="/coverage-route-planner">
@@ -42,8 +27,6 @@ Live Navigation
           <span id="nav-signal-text">GPS</span>
         </div>
       </div>
-
-      <!-- Turn Instruction Card -->
       <div class="nav-instruction-card" aria-live="polite">
         <div class="nav-turn-icon" id="nav-turn-icon">
           <i class="fas fa-arrow-up" aria-hidden="true"></i>
@@ -61,8 +44,6 @@ Ready
         </div>
       </div>
     </div>
-
-    <!-- Map Control Buttons -->
     <div class="nav-controls">
       <button class="nav-control-btn" id="nav-overview-btn" title="Route overview">
         <i class="fas fa-route" aria-hidden="true"></i>
@@ -74,13 +55,9 @@ Ready
         <i class="fas fa-layer-group" aria-hidden="true"></i>
       </button>
     </div>
-
-    <!-- Bottom Stats Panel -->
     <div class="nav-bottom">
       <div class="nav-bottom-card">
-        <!-- Dual Progress Bars -->
         <div class="nav-dual-progress">
-          <!-- Route Progress -->
           <div class="nav-progress-item">
             <div class="progress-header">
               <span class="progress-label">Route Progress</span>
@@ -91,8 +68,6 @@ Ready
               </div>
             </div>
           </div>
-
-          <!-- Coverage Area Progress -->
           <div class="nav-progress-item">
             <div class="progress-header">
               <span class="progress-label">Area Coverage</span>
@@ -109,8 +84,6 @@ Ready
             </div>
           </div>
         </div>
-
-        <!-- Stats Grid -->
         <div class="nav-stats">
           <div class="nav-stat">
             <div class="label">
@@ -137,8 +110,6 @@ Speed
             </div>
           </div>
         </div>
-
-        <!-- Bottom Actions -->
         <div class="nav-bottom-actions">
           <div class="nav-status" id="nav-status" aria-live="polite">
           Waiting for route
@@ -149,8 +120,6 @@ End
         </div>
       </div>
     </div>
-
-    <!-- Route Preview Panel -->
     <div class="nav-preview" id="nav-preview" hidden>
       <div class="nav-preview-header">
         <button class="nav-preview-back" id="nav-change-route" type="button">
@@ -164,11 +133,9 @@ Route Preview
       </div>
 
       <div class="nav-preview-map" id="nav-preview-map-area">
-        <!-- Map shows through here -->
       </div>
 
       <div class="nav-preview-content">
-        <!-- Route Stats - 4 items in grid -->
         <div class="nav-preview-stats">
           <div class="preview-stat">
             <span class="preview-stat-value" id="preview-distance">--</span>
@@ -190,14 +157,10 @@ Route Preview
             <span class="preview-stat-label">Coverage</span>
           </div>
         </div>
-
-        <!-- Start Point Status -->
         <div class="nav-preview-start" id="preview-start-status">
           <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
           <span id="preview-start-text">Checking location...</span>
         </div>
-
-        <!-- Preview Actions - single row -->
         <div class="nav-preview-actions">
           <button class="nav-primary-btn secondary" id="nav-start-from-here" type="button" hidden>
             <i class="fas fa-directions" aria-hidden="true"></i>
@@ -210,8 +173,6 @@ Route Preview
         </div>
       </div>
     </div>
-
-    <!-- Stale Route Banner -->
     <div class="nav-stale-banner" id="nav-stale-banner" hidden>
       <div class="nav-stale-content">
         <i class="fas fa-sync-alt" aria-hidden="true"></i>
@@ -226,8 +187,6 @@ Regenerate
         </button>
       </div>
     </div>
-
-    <!-- Route Generation Panel -->
     <div class="nav-generating" id="nav-generating" hidden>
       <div class="nav-generating-card">
         <div class="nav-generating-header">
@@ -256,8 +215,6 @@ Preparing...
         </button>
       </div>
     </div>
-
-    <!-- Resume From Ahead Prompt -->
     <div class="nav-resume-prompt" id="nav-resume-prompt" hidden>
       <div class="nav-resume-header">
         <div class="nav-resume-icon">
@@ -284,8 +241,6 @@ Resume from nearest point ahead?
         </button>
       </div>
     </div>
-
-    <!-- Setup Panel -->
     <div class="nav-setup" id="nav-setup">
       <div class="nav-setup-card">
         <div class="nav-setup-header">
@@ -326,7 +281,5 @@ Select a coverage area...
     </div>
   </div>
 {% endblock %}
-
-
 
 {# Page scripts are loaded via route-loader + swup. #}

@@ -1,9 +1,8 @@
 """API routes for trip analytics."""
 
 import logging
-from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from analytics.services import (
     DrilldownService,
@@ -148,16 +147,3 @@ async def driver_behavior_analytics(request: Request):
         include_invalid=True,
     ).to_mongo_query(enforce_source=True)
     return await _driver_behavior_cached(query)
-
-
-@router.get("/api/trips/history")
-@api_route(logger)
-async def get_recent_trips(
-    limit: Annotated[
-        int,
-        Query(ge=1, le=100, description="Number of trips to return"),
-    ] = 5,
-):
-    """Get recent trips for landing page activity feed."""
-    trips = await TripAnalyticsService.get_recent_trips(limit)
-    return {"trips": trips}

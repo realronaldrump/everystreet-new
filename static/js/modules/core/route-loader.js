@@ -32,7 +32,7 @@ function normalizePathname(pathname) {
 }
 
 const routes = [
-  ["/", "../../pages/landing.js"],
+  ["/", "../../pages/map.js", ["map", "deck"]],
   ["/map", "../../pages/map.js", ["map", "deck"]],
   ["/trips/*", "../../pages/trips.js", ["map"]],
   ["/routes/*", "../../pages/routes.js", ["map", "chart"]],

@@ -1,44 +1,20 @@
 {% extends "base.html" %}
 
-{% from "partials/_map_assets.html" import include_mapbox_css with context %}
+{% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}
-
-
-Every Street - Places & Visits
-{% endblock %}
-
-
-{% block head_content %}
-
-
-  <link rel="stylesheet" href="{{ CDN.mapbox_draw_css }}" crossorigin="anonymous" />
-{% endblock %}
-
-
+{% block title %}Every Street - Places & Visits{% endblock %}
 
 {% block extra_css %}
-
-
-  <!-- Mapbox GL CSS -->
+  <link rel="stylesheet" href="{{ CDN.mapbox_draw_css }}" crossorigin="anonymous" />
   {{ include_mapbox_css() }}
-  <!-- DataTables CSS -->
   <link rel="stylesheet" href="{{ CDN.datatables_css }}" />
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/features/map/index.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/search.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/visits-redesign.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+  {{ static_css("features/map/index.css") }}
+  {{ static_css("search.css") }}
+  {{ static_css("visits-redesign.css") }}
 {% endblock %}
 
-
-
 {% block content %}
-
-
   <div id="visits-page" class="visits-container">
-    <!-- Hero Section -->
     <section class="visits-section hero-section" data-accent="mint">
       <div class="hero-content">
         <h1 class="hero-title">
@@ -76,8 +52,6 @@ This month
         </div>
       </div>
     </section>
-
-    <!-- Your Places Section -->
     <section class="visits-section places-section" data-accent="mint">
       <div class="section-header">
         <div class="section-title-wrapper">
@@ -98,10 +72,7 @@ List
           </button>
         </div>
       </div>
-
-      <!-- Cards View -->
       <div class="places-grid" id="places-grid">
-        <!-- Place cards will be rendered here -->
         <div class="places-loading">
           <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading places...</span>
@@ -111,8 +82,6 @@ Loading your places...
           </p>
         </div>
       </div>
-
-      <!-- List View (Hidden by default) -->
       <div class="places-list-view" id="places-list-view" style="display: none">
         <div class="table-responsive">
           <table id="visits-table" class="table visits-table" style="width: 100%">
@@ -140,8 +109,6 @@ Avg Duration
           </table>
         </div>
       </div>
-
-      <!-- Empty State -->
       <div class="empty-state" id="places-empty-state" style="display: none">
         <i class="fas fa-map-marked-alt empty-icon"></i>
         <h3>
@@ -155,8 +122,6 @@ No places yet
         </button>
       </div>
     </section>
-
-    <!-- Patterns Section -->
     <section class="visits-section patterns-section"
              data-accent="purple"
              id="patterns-section"
@@ -174,11 +139,8 @@ No places yet
       </div>
 
       <div class="patterns-grid" id="patterns-grid">
-        <!-- Pattern cards will be rendered here -->
       </div>
     </section>
-
-    <!-- Discoveries Section -->
     <section class="visits-section discoveries-section"
              data-accent="sky"
              id="discoveries-section"
@@ -212,7 +174,6 @@ Large (~360 ft)
       </div>
 
       <div class="discoveries-grid" id="discoveries-grid">
-        <!-- Discovery cards will be rendered here -->
         <div class="discoveries-loading">
           <div class="spinner-border text-info" role="status">
             <span class="visually-hidden">Analyzing your trips...</span>
@@ -243,8 +204,6 @@ Analyzing your trips for patterns...
           <i class="fas fa-chevron-right"></i>
         </button>
       </div>
-
-      <!-- Empty State -->
       <div class="empty-state" id="discoveries-empty-state" style="display: none">
         <i class="fas fa-search empty-icon"></i>
         <h3>
@@ -256,8 +215,6 @@ No discoveries yet
         </p>
       </div>
     </section>
-
-    <!-- Map Section -->
     <section class="visits-section map-section" data-accent="lime">
       <div class="section-header">
         <div class="section-title-wrapper">
@@ -335,20 +292,16 @@ Ready
 Draw a new boundary, or click Edit and then a saved place boundary to modify it.
         </p>
       </div>
-
-      <!-- Drawing Instructions -->
       <div class="drawing-toast" id="drawing-toast" style="display: none">
         <div class="drawing-toast-content">
           <i class="fas fa-info-circle text-warning"></i>
           <span id="drawing-toast-message">Click points to draw a boundary. Press Enter
-                                                                                                                                            or click first point to close.</span>
+                                                                                                                                                      or click first point to close.</span>
         </div>
         <button type="button" class="btn btn-sm btn-outline-secondary" id="cancel-drawing">
         Cancel
         </button>
       </div>
-
-      <!-- Save Place Form (appears after drawing) -->
       <div class="save-place-form" id="save-place-form" style="display: none">
         <div class="form-group">
           <label for="place-name" id="place-name-label">
@@ -409,8 +362,6 @@ Please enter a name for this place.
         </div>
       </div>
     </section>
-
-    <!-- Other Stops Section -->
     <section class="visits-section other-stops-section"
              data-accent="slate"
              id="other-stops-section"
@@ -428,11 +379,8 @@ Please enter a name for this place.
       </div>
 
       <div class="other-stops-list" id="other-stops-list">
-        <!-- Other stops will be rendered here -->
       </div>
     </section>
-
-    <!-- Trips for Place Section (shown when viewing specific place) -->
     <section class="visits-section trips-section"
              data-accent="amber"
              id="trips-section"
@@ -441,7 +389,7 @@ Please enter a name for this place.
         <div class="section-title-wrapper">
           <h2 class="section-title">
             <i class="fas fa-route section-icon"></i>
-                                                                                                                                                                                    Visits to <span id="selected-place-name" class="text-primary"></span>
+                                                                                                                                                                                              Visits to <span id="selected-place-name" class="text-primary"></span>
         </h2>
       </div>
       <button class="btn btn-outline-secondary" id="back-to-places-btn">
@@ -450,7 +398,6 @@ Please enter a name for this place.
     </div>
 
     <div class="place-stats-summary" id="place-stats-summary">
-      <!-- Stats will be rendered here -->
     </div>
 
     <div class="table-responsive mt-3">
@@ -486,20 +433,15 @@ Actions
     </div>
 
     <div class="visit-timeline" id="visit-timeline">
-      <!-- Timeline will be rendered here -->
     </div>
   </section>
 </div>
-
-<!-- Floating Action Button -->
 <div class="fab-container">
   <button class="fab-btn" id="start-drawing-fab" title="Add a place">
     <i class="fas fa-plus"></i>
     <span>Add a place</span>
   </button>
 </div>
-
-<!-- Place Detail Modal -->
 <div class="modal fade visits-modal" id="place-detail-modal" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
@@ -538,7 +480,6 @@ Actions
       </div>
       <div class="modal-body">
         <div class="modal-stats-row" id="modal-stats-row">
-          <!-- Stats will be rendered here -->
         </div>
         <div class="visit-timeline-container">
           <div class="timeline-header">
@@ -548,7 +489,6 @@ Actions
             <span class="timeline-count" id="modal-timeline-count"></span>
           </div>
           <div class="visit-timeline" id="modal-visit-timeline">
-            <!-- Timeline will be rendered here -->
           </div>
           <button type="button"
                   class="timeline-show-more"
@@ -561,8 +501,6 @@ Actions
     </div>
   </div>
 </div>
-
-<!-- Edit Place Modal -->
 <div class="modal fade visits-modal" id="edit-place-modal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -595,8 +533,6 @@ Place Name
     </div>
   </div>
 </div>
-
-<!-- Trip Detail Modal -->
 <div class="modal fade visits-modal" id="view-trip-modal" tabindex="-1">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
@@ -617,7 +553,5 @@ Place Name
   </div>
 </div>
 {% endblock %}
-
-
 
 {# Page scripts are loaded via route-loader + swup. #}

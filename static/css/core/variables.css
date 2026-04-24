@@ -177,14 +177,9 @@
   --sidebar-width: 280px;
   --panel-width: 360px;
 
-  /* Effects - Phase 3 Premium Timing (longer, more cinematic) */
+  /* Effects */
   --transition-fast: 180ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 260ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-smooth: 340ms cubic-bezier(0.22, 0.61, 0.36, 1);
-  --transition-slow: 480ms cubic-bezier(0.22, 0.61, 0.36, 1);
-  --transition-spring: 560ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  --transition-spring-fast: 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  --transition-cinematic: 720ms cubic-bezier(0.16, 1, 0.3, 1);
   --shadow-xs: 0 1px 2px rgb(0 0 0 / 10%);
   --shadow-sm: 0 4px 12px rgb(0 0 0 / 14%);
   --shadow-md: 0 10px 24px rgb(0 0 0 / 18%);

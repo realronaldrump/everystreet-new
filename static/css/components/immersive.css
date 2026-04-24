@@ -2,70 +2,6 @@
    Immersive UI Enhancements
    ============================ */
 
-/* Ambient background layers */
-.ambient-background,
-.noise-overlay {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.ambient-background {
-  overflow: hidden;
-  opacity: 0.18;
-}
-
-.ambient-orb {
-  position: absolute;
-  width: 320px;
-  height: 320px;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle at 30% 30%,
-    rgb(var(--section-accent-rgb) / 18%),
-    transparent 65%
-  );
-  filter: blur(var(--blur-subtle));
-  opacity: 0.35;
-  animation: ambientFloat 40s ease-in-out infinite;
-  will-change: transform;
-  contain: strict;
-}
-
-.ambient-orb.orb-cool {
-  background: radial-gradient(circle at 30% 30%, rgb(var(--info-rgb) / 18%), transparent 65%);
-}
-
-.ambient-orb.orb-warm {
-  background: radial-gradient(circle at 30% 30%, rgb(var(--warning-rgb) / 18%), transparent 65%);
-}
-
-.ambient-orb-1 {
-  top: -140px;
-  left: -120px;
-}
-
-.ambient-orb-2 {
-  bottom: -160px;
-  right: -140px;
-  animation-delay: -6s;
-}
-
-.ambient-orb-3 {
-  top: 20%;
-  right: 10%;
-  width: 260px;
-  height: 260px;
-  animation-delay: -12s;
-}
-
-.noise-overlay {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='0.18'/%3E%3C/svg%3E");
-  opacity: 0.03;
-  mix-blend-mode: soft-light;
-}
-
 /* Navigation breadcrumb trail - base styles first */
 .nav-breadcrumb {
   display: flex;
@@ -81,15 +17,6 @@
 }
 
 .nav-breadcrumb.is-empty {
-  display: none;
-}
-
-body[data-route="/"] .ambient-background {
-  opacity: 0.24;
-}
-
-/* Hide breadcrumb on landing page to prevent overlay */
-body[data-route="/"] .nav-breadcrumb {
   display: none;
 }
 
@@ -207,17 +134,6 @@ body[data-route="/regional-coverage-explorer"] .nav-breadcrumb {
   display: none;
 }
 
-body[data-route="/map"] .ambient-background,
-body[data-route="/map"] .noise-overlay,
-body[data-route="/coverage-route-planner"] .ambient-background,
-body[data-route="/coverage-route-planner"] .noise-overlay,
-body[data-route="/live-navigation"] .ambient-background,
-body[data-route="/live-navigation"] .noise-overlay,
-body[data-route="/regional-coverage-explorer"] .ambient-background,
-body[data-route="/regional-coverage-explorer"] .noise-overlay {
-  display: none;
-}
-
 /* Bottom navigation (mobile) */
 .bottom-nav {
   position: fixed;
@@ -297,55 +213,6 @@ body[data-route="/regional-coverage-explorer"] .noise-overlay {
   }
 }
 
-/* Swipe actions */
-.swipe-item {
-  position: relative;
-  overflow: hidden;
-}
-
-.swipe-actions {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-2);
-  background: var(--surface-2);
-}
-
-.swipe-action-btn {
-  width: 52px;
-  height: 52px;
-  border-radius: var(--radius-full);
-  border: none;
-  background: var(--primary);
-  color: var(--text-on-primary);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow-sm);
-}
-
-.swipe-action-btn.secondary {
-  background: var(--info);
-}
-
-.swipe-action-btn.danger {
-  background: var(--danger);
-}
-
-.swipe-content {
-  position: relative;
-  background: var(--surface-1);
-  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.swipe-item.open .swipe-content {
-  transform: translateX(-120px);
-}
-
 body.is-busy {
   --glass-1: rgb(var(--surface-rgb) / 86%);
   --glass-2: rgb(var(--surface-rgb) / 92%);
@@ -369,10 +236,4 @@ body.density-spacious {
   --space-4: 1.2rem;
   --space-5: 1.5rem;
   --space-6: 1.8rem;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ambient-orb {
-    animation: none;
-  }
 }

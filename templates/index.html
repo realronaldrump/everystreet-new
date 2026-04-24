@@ -1,56 +1,23 @@
 {% extends "base.html" %}
 
-{% from "partials/_map_assets.html" import include_mapbox_css with context %}
+{% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}
+{% block title %}Every Street - Map{% endblock %}
 
-
- Every Street - Map
-{% endblock %}
-
-
-
-{% block
-extra_css %}
-
-
-  <!-- Mapbox GL CSS -->
+{% block extra_css %}
   {{ include_mapbox_css() }}
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/features/map/index.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/search.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+  {{ static_css("features/map/index.css") }}
+  {{ static_css("search.css") }}
 {% endblock %}
-
-
 
 {% block persistent_shell %}
 
-
 {% include "partials/_map_shell.html" %}
 
+{% endblock %}
 
-{%
-endblock %}
-
-
-  {% block content %}
-
-
-
-    <div class="visually-hidden">
+{% block content %}
+  <div class="visually-hidden">
 Map view
-    </div>
-  {% endblock %}
-
-
-
-  {% block head_content %}
-
-
-
-  {% endblock %}
-
-
-
-                                {# Page scripts are loaded via route-loader + swup. #}
+  </div>
+{% endblock %}

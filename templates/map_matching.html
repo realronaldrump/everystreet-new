@@ -1,58 +1,39 @@
 {% extends "base.html" %}
 
-{% from "partials/_map_assets.html" import include_mapbox_css with context %}
+{% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
 {% block title %}Every Street - Map Matching{% endblock %}
 
-
-
 {% block extra_css %}
-
-
   {{ include_mapbox_css() }}
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/map-matching.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+  {{ static_css("map-matching.css") }}
 {% endblock %}
-
-
-
-{% block head_content %}
-
-
-{% endblock %}
-
-
 
 {% block content %}
-
-
   <div class="container-fluid px-4 py-3 map-matching-page">
-    <!-- Wizard Shell -->
     <div class="mm-wizard-shell" id="mm-wizard-shell">
-      <!-- Phase Indicator -->
       <div class="mm-phase-indicator" role="navigation" aria-label="Wizard progress">
         <div class="mm-phase-step is-active" data-phase="select">
           <span class="mm-step-dot">1</span>
           <span class="mm-step-label">Select</span>
         </div>
-        <div class="mm-phase-connector"></div>
+        <div class="mm-phase-connector">
+        </div>
         <div class="mm-phase-step" data-phase="process">
           <span class="mm-step-dot">2</span>
           <span class="mm-step-label">Match</span>
         </div>
-        <div class="mm-phase-connector"></div>
+        <div class="mm-phase-connector">
+        </div>
         <div class="mm-phase-step" data-phase="results">
           <span class="mm-step-dot">3</span>
           <span class="mm-step-label">Review</span>
         </div>
       </div>
-
-      <!-- Phase 1: Select -->
       <section class="mm-phase is-active"
                data-phase="select"
                role="region"
                aria-labelledby="mm-select-heading">
-        <!-- Welcome Card -->
         <div class="mm-welcome-card">
           <div class="mm-welcome-visual" aria-hidden="true">
             <svg class="mm-morph-svg" viewBox="0 0 120 60">
@@ -71,8 +52,6 @@
             </p>
           </div>
         </div>
-
-        <!-- Quick Actions -->
         <div class="mm-quick-actions">
           <button type="button" class="mm-quick-action" id="mm-browse-matched-btn">
             <i class="fas fa-check-double"></i>
@@ -84,15 +63,12 @@
             <span class="mm-quick-action-badge d-none" id="mm-failed-count">0</span>
           </button>
         </div>
-
-        <!-- Selection Card -->
         <div class="mm-selection-card">
           <h2 class="mm-section-title">
 What would you like to match?
           </h2>
 
           <form id="map-matching-form">
-            <!-- Selection Options -->
             <div class="mm-options" id="map-match-selection-cards">
               <label class="mm-option is-selected" data-mode="unmatched">
                 <input type="radio"
@@ -126,8 +102,6 @@ What would you like to match?
                 </div>
               </label>
             </div>
-
-            <!-- Date Range Options (shown when date_range selected) -->
             <div id="map-match-date-controls" class="mm-date-panel d-none">
               <div class="mm-quick-picks">
                 <span class="mm-quick-picks-label">Quick select:</span>
@@ -171,8 +145,6 @@ What would you like to match?
                 <span>Only process trips not yet matched</span>
               </label>
             </div>
-
-            <!-- Advanced: Specific Trip (hidden by default) -->
             <div id="map-match-trip-controls" class="mm-trip-panel d-none">
               <label class="mm-input-label" for="map-match-trip-id">
 Trip ID
@@ -182,14 +154,10 @@ Trip ID
                      class="form-control"
                      placeholder="Enter trip ID" />
             </div>
-
-            <!-- Preview Badge (inline) -->
             <div id="map-match-preview-panel" class="mm-preview-badge d-none">
               <span class="mm-preview-icon"><i class="fas fa-check-circle"></i></span>
               <span class="mm-preview-text" id="map-match-preview-summary"></span>
             </div>
-
-            <!-- Main Actions -->
             <div class="mm-actions">
               <button type="button" class="btn mm-btn-secondary" id="map-match-preview-btn">
                 <i class="fas fa-eye"></i>
@@ -205,8 +173,6 @@ Trip ID
               <span class="settings-status is-hidden" id="map-match-preview-status" role="status"></span>
               <span class="settings-status is-hidden" id="map-match-submit-status" role="status"></span>
             </div>
-
-            <!-- Advanced Toggle -->
             <button type="button" class="mm-advanced-toggle" id="map-match-advanced-toggle">
               <i class="fas fa-sliders"></i>
               <span>Advanced options</span>
@@ -230,8 +196,6 @@ Trip ID
           </form>
         </div>
       </section>
-
-      <!-- Phase 2: Process -->
       <section class="mm-phase"
                data-phase="process"
                role="region"
@@ -240,8 +204,6 @@ Trip ID
           <h2 class="visually-hidden" id="mm-process-heading">
 Processing routes
           </h2>
-
-          <!-- Empty state shown when no job is active -->
           <div id="map-match-current-empty" class="d-none">
             <span class="empty-text">Ready when you are</span>
           </div>
@@ -277,14 +239,11 @@ Processing routes
           </div>
         </div>
       </section>
-
-      <!-- Phase 3: Results -->
       <section class="mm-phase"
                data-phase="results"
                role="region"
                aria-labelledby="mm-results-heading">
         <div class="mm-results-card">
-          <!-- Success Header -->
           <div class="mm-results-header" id="mm-results-header-success">
             <div class="mm-results-icon">
               <i class="fas fa-check-circle"></i>
@@ -307,8 +266,6 @@ Routes Matched!
                     role="status"></span>
             </div>
           </div>
-
-          <!-- Browse Mode Header (for viewing all matched trips) -->
           <div class="mm-results-header mm-results-header-browse d-none"
                id="mm-results-header-browse">
             <div class="mm-results-icon mm-results-icon-browse">
@@ -333,8 +290,6 @@ Matched Trips
               </button>
             </div>
           </div>
-
-          <!-- Failed Trips Header -->
           <div class="mm-results-header mm-results-header-failed d-none"
                id="mm-results-header-failed">
             <div class="mm-results-icon mm-results-icon-warning">
@@ -359,8 +314,6 @@ Failed Trips
               </button>
             </div>
           </div>
-
-          <!-- Results Tabs (for job results) -->
           <div class="mm-results-tabs" id="mm-results-tabs">
             <button class="mm-results-tab is-active" data-tab="matched" id="mm-tab-matched">
               <i class="fas fa-check"></i>
@@ -373,8 +326,6 @@ Failed Trips
               <span class="mm-tab-count mm-tab-count-warning" id="mm-tab-failed-count">0</span>
             </button>
           </div>
-
-          <!-- Map -->
           <div class="mm-results-map-container">
             <div class="mm-results-map"
                  id="map-match-preview-map"
@@ -391,8 +342,6 @@ Failed Trips
               <span>Matched route</span>
             </div>
           </div>
-
-          <!-- Matched Trip List (default tab) -->
           <div class="mm-results-list" id="mm-matched-list-container">
             <div class="mm-results-list-header">
               <span class="mm-results-count" id="map-match-results-count">No trips yet</span>
@@ -420,7 +369,6 @@ Failed Trips
             </div>
             <div class="mm-results-list-scroll">
               <div class="mm-results-trips" id="map-match-results-trips">
-                <!-- Trip cards will be rendered here -->
               </div>
             </div>
             <div class="mm-results-list-footer" id="map-match-results-footer">
@@ -433,8 +381,6 @@ Failed Trips
                     role="status"></span>
             </div>
           </div>
-
-          <!-- Failed Trip List (shown when failed tab active) -->
           <div class="mm-results-list mm-failed-list d-none" id="mm-failed-list-container">
             <div class="mm-results-list-header">
               <span class="mm-results-count" id="mm-failed-list-count">No issues</span>
@@ -457,7 +403,6 @@ Failed Trips
             </div>
             <div class="mm-results-list-scroll">
               <div class="mm-failed-trips" id="mm-failed-trips">
-                <!-- Failed trip cards will be rendered here -->
               </div>
             </div>
             <div class="mm-results-list-footer">
@@ -471,8 +416,6 @@ Failed Trips
               </button>
             </div>
           </div>
-
-          <!-- Match More Button -->
           <div class="mm-match-more" id="mm-match-more-container">
             <button type="button" class="btn mm-btn-primary" id="mm-match-more-btn">
               <i class="fas fa-plus"></i>
@@ -482,8 +425,6 @@ Failed Trips
         </div>
       </section>
     </div>
-
-    <!-- History Drawer -->
     <aside class="mm-history-drawer"
            id="mm-history-drawer"
            aria-labelledby="mm-history-title">
@@ -509,14 +450,11 @@ Failed Trips
       </div>
       <div class="mm-drawer-body" id="map-match-history-body">
         <div class="mm-history-list" id="map-match-jobs-list">
-          <!-- Jobs will be rendered here -->
         </div>
       </div>
     </aside>
     <div class="mm-drawer-backdrop" id="mm-drawer-backdrop">
     </div>
-
-    <!-- History FAB -->
     <button class="mm-history-fab" id="mm-history-fab" title="View activity history">
       <i class="fas fa-history"></i>
       <span class="mm-fab-badge" id="map-match-history-count">0</span>
@@ -524,8 +462,5 @@ Failed Trips
 
   </div>
 {% endblock %}
-
-
-
 
 {# Page scripts are loaded via route-loader + swup. #}

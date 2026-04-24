@@ -6,32 +6,7 @@
    CSS VARIABLES
    ============================================ */
 .trips-journal-page {
-  /* App-aligned palette + typography */
-  --trips-bg: var(--surface-0);
-  --trips-bg-elevated: var(--surface-1);
-  --trips-bg-subtle: var(--surface-2);
-  --trips-bg-warm: var(--surface-3);
-  --trips-primary: var(--primary);
-  --trips-primary-light: var(--primary-light);
-  --trips-primary-dark: var(--primary-dark);
-  --trips-primary-rgb: var(--primary-rgb);
-  --trips-mint: var(--success);
-  --trips-mint-rgb: var(--success-rgb);
-  --trips-sky: var(--info);
-  --trips-sky-rgb: var(--info-rgb);
-  --trips-gold: var(--warning);
-  --trips-gold-rgb: var(--warning-rgb);
-  --trips-text-primary: var(--text-primary);
-  --trips-text-secondary: var(--text-secondary);
-  --trips-text-tertiary: var(--text-tertiary);
-  --trips-text-muted: var(--text-tertiary);
-  --trips-success: var(--success);
-  --trips-warning: var(--warning);
-  --trips-danger: var(--danger);
-  --trips-danger-rgb: var(--danger-rgb);
-  --trips-info: var(--info);
-
-  /* Spacing */
+  /* Spacing aliases */
   --space-xs: var(--space-1);
   --space-sm: var(--space-2);
   --space-md: var(--space-4);
@@ -42,9 +17,6 @@
   /* Typography */
   --font-display: var(--font-family-display);
   --font-body: var(--font-family);
-
-  /* Transitions */
-  --transition-base: var(--transition-normal);
 }
 
 /* ============================================
@@ -52,41 +24,11 @@
    ============================================ */
 .trips-journal-page {
   min-height: 100vh;
-  background: var(--trips-bg);
-  color: var(--trips-text-primary);
+  background: var(--surface-0);
+  color: var(--text-primary);
   font-family: var(--font-body);
   position: relative;
   overflow-x: hidden;
-}
-
-/* Ambient Background */
-.trips-ambient-bg {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  overflow: hidden;
-}
-
-.ambient-gradient {
-  position: absolute;
-  top: -50%;
-  right: -20%;
-  width: 80%;
-  height: 100%;
-  background: radial-gradient(
-    ellipse at top right,
-    rgb(var(--trips-primary-rgb) / 8%) 0%,
-    rgb(var(--trips-mint-rgb) / 4%) 50%,
-    transparent 70%
-  );
-}
-
-.ambient-noise {
-  position: absolute;
-  inset: 0;
-  opacity: 0.03;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
 }
 
 .trips-container {
@@ -109,7 +51,7 @@
 .trips-welcome {
   margin-bottom: var(--space-2xl);
   padding: var(--space-xl);
-  background: var(--trips-bg-elevated);
+  background: var(--surface-1);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
   position: relative;
@@ -125,9 +67,9 @@
   height: 4px;
   background: linear-gradient(
     90deg,
-    var(--trips-primary),
-    var(--trips-mint),
-    var(--trips-sky)
+    var(--primary),
+    var(--success),
+    var(--info)
   );
 }
 
@@ -139,7 +81,7 @@
   font-family: var(--font-display);
   font-size: 2.5rem;
   font-weight: 700;
-  color: var(--trips-text-primary);
+  color: var(--text-primary);
   margin: 0 0 var(--space-sm);
   display: flex;
   align-items: center;
@@ -170,13 +112,13 @@
 
 .welcome-subtitle {
   font-size: 1.125rem;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
   margin: 0;
   line-height: 1.6;
 }
 
 .welcome-subtitle strong {
-  color: var(--trips-primary);
+  color: var(--primary);
   font-weight: 600;
 }
 
@@ -192,9 +134,9 @@
   align-items: center;
   gap: var(--space-xs);
   padding: var(--space-sm) var(--space-md);
-  background: var(--trips-bg-warm);
+  background: var(--surface-3);
   border-radius: var(--radius-pill);
-  border: 1px solid rgb(var(--trips-primary-rgb) / 15%);
+  border: 1px solid rgb(var(--primary-rgb) / 15%);
   font-size: 0.9375rem;
   transition:
     transform var(--transition-fast),
@@ -212,8 +154,8 @@
 }
 
 .stat-pill.filtered {
-  background: rgb(var(--trips-primary-rgb) / 8%);
-  border-color: rgb(var(--trips-primary-rgb) / 30%);
+  background: rgb(var(--primary-rgb) / 8%);
+  border-color: rgb(var(--primary-rgb) / 30%);
 }
 
 @keyframes statUpdate {
@@ -223,7 +165,7 @@
 
   50% {
     transform: scale(1.05);
-    background: rgb(var(--trips-primary-rgb) / 15%);
+    background: rgb(var(--primary-rgb) / 15%);
   }
 
   100% {
@@ -237,11 +179,11 @@
 
 .stat-value {
   font-weight: 600;
-  color: var(--trips-text-primary);
+  color: var(--text-primary);
 }
 
 .stat-label {
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
 }
 
 /* Sync Status Mini */
@@ -250,10 +192,10 @@
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
-  background: var(--trips-bg-subtle);
+  background: var(--surface-2);
   border-radius: var(--radius-pill);
   font-size: 0.875rem;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
 }
 
 .sync-indicator {
@@ -266,23 +208,23 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--trips-success);
+  background: var(--success);
   position: relative;
 }
 
 .sync-indicator[data-state="syncing"] .sync-dot {
-  background: var(--trips-gold);
+  background: var(--warning);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
 .sync-indicator[data-state="error"] .sync-dot {
-  background: var(--trips-danger);
+  background: var(--danger);
 }
 
 .sync-btn {
   background: transparent;
   border: none;
-  color: var(--trips-text-tertiary);
+  color: var(--text-tertiary);
   cursor: pointer;
   padding: var(--space-xs);
   border-radius: var(--radius-sm);
@@ -293,8 +235,8 @@
 }
 
 .sync-btn:hover {
-  background: rgb(var(--trips-primary-rgb) / 10%);
-  color: var(--trips-primary);
+  background: rgb(var(--primary-rgb) / 10%);
+  color: var(--primary);
 }
 
 .sync-btn.syncing {
@@ -306,7 +248,7 @@
    ============================================ */
 .trips-search-section {
   margin-bottom: var(--space-xl);
-  background: var(--trips-bg-elevated);
+  background: var(--surface-1);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
@@ -315,7 +257,7 @@
 
 .trips-search-section.has-filters {
   box-shadow:
-    0 0 0 2px rgb(var(--trips-primary-rgb) / 15%),
+    0 0 0 2px rgb(var(--primary-rgb) / 15%),
     var(--shadow-md);
 }
 
@@ -323,19 +265,19 @@
 @keyframes filterPulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgb(var(--trips-primary-rgb) / 40%);
+    box-shadow: 0 0 0 0 rgb(var(--primary-rgb) / 40%);
   }
 
   50% {
-    box-shadow: 0 0 0 8px rgb(var(--trips-primary-rgb) / 0%);
+    box-shadow: 0 0 0 8px rgb(var(--primary-rgb) / 0%);
   }
 }
 
 .filter-toggle-btn.has-filters {
   animation: filterPulse 0.6s ease-out;
-  background: rgb(var(--trips-primary-rgb) / 10%);
-  border-color: var(--trips-primary);
-  color: var(--trips-primary);
+  background: rgb(var(--primary-rgb) / 10%);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .search-container {
@@ -363,9 +305,9 @@
   min-height: 44px;
   padding: 4px;
   gap: 4px;
-  border: 1px solid rgb(var(--trips-primary-rgb) / 18%);
+  border: 1px solid rgb(var(--primary-rgb) / 18%);
   border-radius: 8px;
-  background: var(--trips-bg);
+  background: var(--surface-0);
 }
 
 .trip-view-btn {
@@ -378,7 +320,7 @@
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
   font-size: 0.875rem;
   font-weight: 700;
   cursor: pointer;
@@ -390,19 +332,19 @@
 }
 
 .trip-view-btn:hover {
-  color: var(--trips-text-primary);
-  background: var(--trips-bg-subtle);
+  color: var(--text-primary);
+  background: var(--surface-2);
 }
 
 .trip-view-btn.active {
   color: var(--text-on-primary);
-  background: var(--trips-primary);
-  border-color: var(--trips-primary);
-  box-shadow: 0 8px 18px -14px rgb(var(--trips-primary-rgb) / 70%);
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 8px 18px -14px rgb(var(--primary-rgb) / 70%);
 }
 
 .trip-view-btn:focus-visible {
-  outline: 2px solid rgb(var(--trips-primary-rgb) / 55%);
+  outline: 2px solid rgb(var(--primary-rgb) / 55%);
   outline-offset: 2px;
 }
 
@@ -412,12 +354,12 @@
   gap: var(--space-sm);
   min-height: 44px;
   padding: var(--space-xs) var(--space-sm) var(--space-xs) var(--space-md);
-  border: 1px solid rgb(var(--trips-primary-rgb) / 16%);
+  border: 1px solid rgb(var(--primary-rgb) / 16%);
   border-radius: var(--radius-pill);
   background: linear-gradient(
     135deg,
-    rgb(var(--trips-primary-rgb) / 12%) 0%,
-    rgb(var(--trips-primary-rgb) / 3%) 100%
+    rgb(var(--primary-rgb) / 12%) 0%,
+    rgb(var(--primary-rgb) / 3%) 100%
   );
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
 }
@@ -435,13 +377,13 @@ body.light-mode .trips-journal-page .sort-control {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
 .sort-control-label i {
   font-size: 0.8125rem;
-  color: var(--trips-primary);
+  color: var(--primary);
 }
 
 .sort-select {
@@ -451,14 +393,14 @@ body.light-mode .trips-journal-page .sort-control {
   min-height: 40px;
   padding: calc(var(--space-sm) - 1px) calc(var(--space-xl) + var(--space-xs))
     calc(var(--space-sm) - 1px) var(--space-md);
-  border: 1px solid rgb(var(--trips-primary-rgb) / 24%);
+  border: 1px solid rgb(var(--primary-rgb) / 24%);
   border-radius: var(--radius-pill);
-  background-color: var(--trips-bg-elevated);
+  background-color: var(--surface-1);
   background-image:
     linear-gradient(
       180deg,
-      rgb(var(--trips-primary-rgb) / 7%) 0%,
-      rgb(var(--trips-primary-rgb) / 2%) 100%
+      rgb(var(--primary-rgb) / 7%) 0%,
+      rgb(var(--primary-rgb) / 2%) 100%
     ),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='rgba(245,242,236,0.9)' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
   background-repeat: no-repeat, no-repeat;
@@ -468,7 +410,7 @@ body.light-mode .trips-journal-page .sort-control {
   background-position:
     0 0,
     right 0.875rem center;
-  color: var(--trips-text-primary);
+  color: var(--text-primary);
   font-size: 0.9rem;
   font-weight: 500;
   line-height: 1.2;
@@ -480,31 +422,31 @@ body.light-mode .trips-journal-page .sort-select {
   background-image:
     linear-gradient(
       180deg,
-      rgb(var(--trips-primary-rgb) / 9%) 0%,
-      rgb(var(--trips-primary-rgb) / 3%) 100%
+      rgb(var(--primary-rgb) / 9%) 0%,
+      rgb(var(--primary-rgb) / 3%) 100%
     ),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='rgba(28,26,23,0.8)' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
 }
 
 .sort-select:hover {
-  border-color: var(--trips-primary-light);
+  border-color: var(--primary-light);
 }
 
 .sort-select:focus {
   outline: none;
-  border-color: var(--trips-primary);
-  box-shadow: 0 0 0 3px rgb(var(--trips-primary-rgb) / 15%);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgb(var(--primary-rgb) / 15%);
 }
 
 .sort-select.has-value {
-  border-color: rgb(var(--trips-primary-rgb) / 35%);
-  background-color: rgb(var(--trips-primary-rgb) / 8%);
+  border-color: rgb(var(--primary-rgb) / 35%);
+  background-color: rgb(var(--primary-rgb) / 8%);
 }
 
 .search-icon {
   position: absolute;
   left: var(--space-md);
-  color: var(--trips-text-tertiary);
+  color: var(--text-tertiary);
   font-size: 1rem;
   pointer-events: none;
 }
@@ -512,23 +454,23 @@ body.light-mode .trips-journal-page .sort-select {
 .search-input {
   width: 100%;
   padding: var(--space-md) var(--space-md) var(--space-md) 2.75rem;
-  border: 2px solid var(--trips-bg-subtle);
+  border: 2px solid var(--surface-2);
   border-radius: var(--radius-pill);
-  background: var(--trips-bg);
+  background: var(--surface-0);
   font-size: 1rem;
-  color: var(--trips-text-primary);
+  color: var(--text-primary);
   transition: all var(--transition-fast);
 }
 
 .search-input:focus {
   outline: none;
-  border-color: var(--trips-primary);
-  background: var(--trips-bg-elevated);
-  box-shadow: 0 0 0 4px rgb(var(--trips-primary-rgb) / 10%);
+  border-color: var(--primary);
+  background: var(--surface-1);
+  box-shadow: 0 0 0 4px rgb(var(--primary-rgb) / 10%);
 }
 
 .search-input::placeholder {
-  color: var(--trips-text-tertiary);
+  color: var(--text-tertiary);
 }
 
 .search-clear {
@@ -536,7 +478,7 @@ body.light-mode .trips-journal-page .sort-select {
   right: var(--space-sm);
   background: transparent;
   border: none;
-  color: var(--trips-text-tertiary);
+  color: var(--text-tertiary);
   cursor: pointer;
   padding: var(--space-xs);
   border-radius: 50%;
@@ -547,8 +489,8 @@ body.light-mode .trips-journal-page .sort-select {
 }
 
 .search-clear:hover {
-  background: var(--trips-bg-subtle);
-  color: var(--trips-text-secondary);
+  background: var(--surface-2);
+  color: var(--text-secondary);
 }
 
 .filter-toggle-btn {
@@ -557,27 +499,27 @@ body.light-mode .trips-journal-page .sort-select {
   gap: var(--space-sm);
   min-height: 44px;
   padding: var(--space-md) var(--space-lg);
-  background: var(--trips-bg-subtle);
+  background: var(--surface-2);
   border: 2px solid transparent;
   border-radius: var(--radius-pill);
   font-size: 0.9375rem;
   font-weight: 500;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
   white-space: nowrap;
 }
 
 .filter-toggle-btn:hover {
-  background: var(--trips-bg);
-  border-color: var(--trips-primary-light);
-  color: var(--trips-text-primary);
+  background: var(--surface-0);
+  border-color: var(--primary-light);
+  color: var(--text-primary);
 }
 
 .filter-toggle-btn.active {
-  background: rgb(var(--trips-primary-rgb) / 10%);
-  border-color: var(--trips-primary);
-  color: var(--trips-primary);
+  background: rgb(var(--primary-rgb) / 10%);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .filter-badge {
@@ -587,7 +529,7 @@ body.light-mode .trips-journal-page .sort-select {
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
-  background: var(--trips-primary);
+  background: var(--primary);
   color: var(--text-on-primary);
   font-size: 0.75rem;
   font-weight: 600;
@@ -596,11 +538,11 @@ body.light-mode .trips-journal-page .sort-select {
 
 /* Filters Panel - Enhanced */
 #trips-filters-panel {
-  border-top: 1px solid var(--trips-bg-subtle);
+  border-top: 1px solid var(--surface-2);
   background: linear-gradient(
     to bottom,
-    var(--trips-bg-warm) 0%,
-    rgb(var(--trips-primary-rgb) / 2%) 100%
+    var(--surface-3) 0%,
+    rgb(var(--primary-rgb) / 2%) 100%
   );
   max-height: 0;
   overflow: hidden;
@@ -619,8 +561,8 @@ body.light-mode .trips-journal-page .sort-select {
 #trips-filters-panel.has-filters {
   background: linear-gradient(
     to bottom,
-    var(--trips-bg-warm) 0%,
-    rgb(var(--trips-primary-rgb) / 5%) 100%
+    var(--surface-3) 0%,
+    rgb(var(--primary-rgb) / 5%) 100%
   );
 }
 
@@ -647,8 +589,8 @@ body.light-mode .trips-journal-page .sort-select {
   align-items: center;
   justify-content: space-between;
   padding: var(--space-md) var(--space-lg);
-  border-bottom: 1px solid var(--trips-bg-subtle);
-  background: rgb(var(--trips-primary-rgb) / 2%);
+  border-bottom: 1px solid var(--surface-2);
+  background: rgb(var(--primary-rgb) / 2%);
 }
 
 .filters-header-title {
@@ -657,13 +599,13 @@ body.light-mode .trips-journal-page .sort-select {
   gap: var(--space-sm);
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .filters-header-title i {
-  color: var(--trips-primary);
+  color: var(--primary);
   font-size: 0.875rem;
 }
 
@@ -672,14 +614,14 @@ body.light-mode .trips-journal-page .sort-select {
   align-items: center;
   gap: var(--space-sm);
   font-size: 0.8125rem;
-  color: var(--trips-text-tertiary);
+  color: var(--text-tertiary);
 }
 
 .filters-header-status .status-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--trips-primary);
+  background: var(--primary);
   animation: pulse 2s ease-in-out infinite;
 }
 
@@ -692,7 +634,7 @@ body.light-mode .trips-journal-page .sort-select {
 .filter-label {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   display: flex;
@@ -701,18 +643,18 @@ body.light-mode .trips-journal-page .sort-select {
 }
 
 .filter-label i {
-  color: var(--trips-text-tertiary);
+  color: var(--text-tertiary);
   font-size: 0.75rem;
 }
 
 .filter-select,
 .filter-group input {
   padding: var(--space-sm) var(--space-md);
-  border: 2px solid var(--trips-bg-subtle);
+  border: 2px solid var(--surface-2);
   border-radius: var(--radius-md);
-  background: var(--trips-bg-elevated);
+  background: var(--surface-1);
   font-size: 0.9375rem;
-  color: var(--trips-text-primary);
+  color: var(--text-primary);
   color-scheme: dark;
   transition: all var(--transition-fast);
   width: 100%;
@@ -720,20 +662,20 @@ body.light-mode .trips-journal-page .sort-select {
 
 .filter-select:hover,
 .filter-group input:hover {
-  border-color: var(--trips-primary-light);
+  border-color: var(--primary-light);
 }
 
 .filter-select:focus,
 .filter-group input:focus {
   outline: none;
-  border-color: var(--trips-primary);
-  box-shadow: 0 0 0 3px rgb(var(--trips-primary-rgb) / 10%);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgb(var(--primary-rgb) / 10%);
 }
 
 .filter-select.has-value,
 .filter-group input.has-value {
-  border-color: rgb(var(--trips-primary-rgb) / 30%);
-  background: rgb(var(--trips-primary-rgb) / 3%);
+  border-color: rgb(var(--primary-rgb) / 30%);
+  background: rgb(var(--primary-rgb) / 3%);
 }
 
 body.light-mode .trips-journal-page .sort-select,
@@ -771,57 +713,9 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .range-inputs span {
-  color: var(--trips-text-tertiary);
+  color: var(--text-tertiary);
   font-size: 0.875rem;
   font-weight: 500;
-}
-
-/* Date Range Display */
-.date-range-display {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  background: rgb(var(--trips-primary-rgb) / 5%);
-  border: 1px dashed rgb(var(--trips-primary-rgb) / 20%);
-  border-radius: var(--radius-md);
-  font-size: 0.8125rem;
-  color: var(--trips-text-secondary);
-  margin-top: var(--space-sm);
-}
-
-.date-range-display.hidden {
-  display: none;
-}
-
-.date-range-display i {
-  color: var(--trips-primary);
-  font-size: 0.75rem;
-}
-
-.quick-filter-btn {
-  padding: var(--space-sm) var(--space-md);
-  background: var(--trips-bg-elevated);
-  border: 1px solid var(--trips-bg-subtle);
-  border-radius: var(--radius-pill);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--trips-text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.quick-filter-btn:hover {
-  background: var(--trips-bg-subtle);
-  color: var(--trips-text-primary);
-  transform: translateY(-1px);
-}
-
-.quick-filter-btn.active {
-  background: var(--trips-primary);
-  border-color: var(--trips-primary);
-  color: var(--text-on-primary);
-  box-shadow: 0 2px 4px rgb(var(--trips-primary-rgb) / 30%);
 }
 
 .filter-actions {
@@ -829,19 +723,19 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   gap: var(--space-md);
   grid-column: 1 / -1;
   padding-top: var(--space-md);
-  border-top: 1px solid var(--trips-bg-subtle);
+  border-top: 1px solid var(--surface-2);
   align-items: center;
 }
 
 .filter-results-preview {
   margin-left: auto;
   font-size: 0.8125rem;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
 }
 
 .filter-results-preview .results-count {
   font-weight: 600;
-  color: var(--trips-primary);
+  color: var(--primary);
 }
 
 .btn-apply,
@@ -855,27 +749,27 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .btn-apply {
-  background: var(--trips-primary);
-  border: 2px solid var(--trips-primary);
+  background: var(--primary);
+  border: 2px solid var(--primary);
   color: var(--text-on-primary);
 }
 
 .btn-apply:hover {
-  background: var(--trips-primary-dark);
-  border-color: var(--trips-primary-dark);
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
 }
 
 .btn-reset {
   background: transparent;
-  border: 2px solid var(--trips-bg-subtle);
-  color: var(--trips-text-secondary);
+  border: 2px solid var(--surface-2);
+  color: var(--text-secondary);
 }
 
 .btn-reset:hover {
-  background: var(--trips-bg-subtle);
-  color: var(--trips-text-primary);
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 /* Active Filter Chips */
@@ -891,23 +785,23 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-xs) var(--space-sm) var(--space-xs) var(--space-md);
-  background: rgb(var(--trips-primary-rgb) / 10%);
-  border: 1px solid rgb(var(--trips-primary-rgb) / 20%);
+  background: rgb(var(--primary-rgb) / 10%);
+  border: 1px solid rgb(var(--primary-rgb) / 20%);
   border-radius: var(--radius-pill);
   font-size: 0.875rem;
-  color: var(--trips-text-primary);
+  color: var(--text-primary);
   transition: all var(--transition-fast);
 }
 
 .filter-chip:hover {
-  background: rgb(var(--trips-primary-rgb) / 15%);
-  border-color: rgb(var(--trips-primary-rgb) / 30%);
+  background: rgb(var(--primary-rgb) / 15%);
+  border-color: rgb(var(--primary-rgb) / 30%);
 }
 
 .filter-chip button {
   background: transparent;
   border: none;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 2px;
   border-radius: 50%;
@@ -918,8 +812,8 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .filter-chip button:hover {
-  background: rgb(var(--trips-danger-rgb) / 10%);
-  color: var(--trips-danger);
+  background: rgb(var(--danger-rgb) / 10%);
+  color: var(--danger);
 }
 
 /* ============================================
@@ -937,7 +831,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   align-items: center;
   gap: var(--space-md);
   padding: var(--space-lg);
-  background: var(--trips-bg-elevated);
+  background: var(--surface-1);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   transition: all var(--transition-base);
@@ -947,7 +841,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .insight-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-md);
-  border-color: rgb(var(--trips-primary-rgb) / 20%);
+  border-color: rgb(var(--primary-rgb) / 20%);
 }
 
 .insight-icon {
@@ -957,7 +851,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--trips-bg-warm);
+  background: var(--surface-3);
   border-radius: var(--radius-md);
 }
 
@@ -970,7 +864,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .insight-value {
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--trips-text-primary);
+  color: var(--text-primary);
   line-height: 1;
   transition: opacity 0.3s ease;
 }
@@ -982,7 +876,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .insight-label {
   font-size: 0.875rem;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
 }
 
 /* ============================================
@@ -999,18 +893,18 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   justify-content: space-between;
   gap: var(--space-lg);
   padding: var(--space-lg);
-  border: 1px solid rgb(var(--trips-primary-rgb) / 14%);
+  border: 1px solid rgb(var(--primary-rgb) / 14%);
   border-radius: 8px 8px 0 0;
   background:
-    linear-gradient(135deg, rgb(var(--trips-primary-rgb) / 8%), transparent 45%),
-    var(--trips-bg-elevated);
+    linear-gradient(135deg, rgb(var(--primary-rgb) / 8%), transparent 45%),
+    var(--surface-1);
   box-shadow: var(--shadow-sm);
 }
 
 .trips-list-kicker {
   display: inline-flex;
   margin-bottom: var(--space-xs);
-  color: var(--trips-primary);
+  color: var(--primary);
   font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -1018,7 +912,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .trips-list-title {
   margin: 0;
-  color: var(--trips-text-primary);
+  color: var(--text-primary);
   font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 800;
@@ -1027,7 +921,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .trips-list-summary {
   margin: var(--space-xs) 0 0;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
   font-size: 0.9375rem;
 }
 
@@ -1045,10 +939,10 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   justify-content: center;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--trips-bg-subtle);
+  border: 1px solid var(--surface-2);
   border-radius: 8px;
-  background: var(--trips-bg);
-  color: var(--trips-text-secondary);
+  background: var(--surface-0);
+  color: var(--text-secondary);
   font-size: 0.875rem;
   font-weight: 800;
   cursor: pointer;
@@ -1061,14 +955,14 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .table-tool-btn:hover,
 .table-tool-btn.active {
-  border-color: rgb(var(--trips-primary-rgb) / 35%);
-  background: rgb(var(--trips-primary-rgb) / 10%);
-  color: var(--trips-primary);
+  border-color: rgb(var(--primary-rgb) / 35%);
+  background: rgb(var(--primary-rgb) / 10%);
+  color: var(--primary);
   transform: translateY(-1px);
 }
 
 .table-tool-btn:focus-visible {
-  outline: 2px solid rgb(var(--trips-primary-rgb) / 55%);
+  outline: 2px solid rgb(var(--primary-rgb) / 55%);
   outline-offset: 2px;
 }
 
@@ -1077,22 +971,22 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   grid-template-columns: minmax(180px, 0.35fr) minmax(0, 1fr);
   gap: var(--space-lg);
   padding: var(--space-lg);
-  border-right: 1px solid rgb(var(--trips-primary-rgb) / 14%);
-  border-left: 1px solid rgb(var(--trips-primary-rgb) / 14%);
-  background: var(--trips-bg-warm);
+  border-right: 1px solid rgb(var(--primary-rgb) / 14%);
+  border-left: 1px solid rgb(var(--primary-rgb) / 14%);
+  background: var(--surface-3);
 }
 
 .column-panel-copy {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
   font-size: 0.875rem;
   line-height: 1.45;
 }
 
 .column-panel-copy strong {
-  color: var(--trips-text-primary);
+  color: var(--text-primary);
   font-size: 1rem;
 }
 
@@ -1108,10 +1002,10 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-sm);
-  border: 1px solid var(--trips-bg-subtle);
+  border: 1px solid var(--surface-2);
   border-radius: 8px;
-  background: var(--trips-bg-elevated);
-  color: var(--trips-text-secondary);
+  background: var(--surface-1);
+  color: var(--text-secondary);
   transition:
     border-color var(--transition-fast),
     background-color var(--transition-fast),
@@ -1123,12 +1017,12 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .trip-column-item.is-drop-target {
-  border-color: var(--trips-primary);
-  background: rgb(var(--trips-primary-rgb) / 10%);
+  border-color: var(--primary);
+  background: rgb(var(--primary-rgb) / 10%);
 }
 
 .column-drag-handle {
-  color: var(--trips-text-tertiary);
+  color: var(--text-tertiary);
   cursor: grab;
 }
 
@@ -1144,7 +1038,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .column-toggle-label input {
-  accent-color: var(--trips-primary);
+  accent-color: var(--primary);
 }
 
 .column-toggle-label input:disabled {
@@ -1154,9 +1048,9 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .trips-table-shell {
   overflow-x: auto;
-  border: 1px solid rgb(var(--trips-primary-rgb) / 14%);
+  border: 1px solid rgb(var(--primary-rgb) / 14%);
   border-radius: 0 0 8px 8px;
-  background: var(--trips-bg-elevated);
+  background: var(--surface-1);
   box-shadow: var(--shadow-md);
 }
 
@@ -1165,7 +1059,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   min-width: 1120px;
   border-collapse: separate;
   border-spacing: 0;
-  color: var(--trips-text-primary);
+  color: var(--text-primary);
 }
 
 .trip-table-heading {
@@ -1173,9 +1067,9 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   top: 0;
   z-index: 2;
   padding: 0;
-  border-bottom: 1px solid rgb(var(--trips-primary-rgb) / 20%);
-  background: var(--trips-bg-warm);
-  color: var(--trips-text-secondary);
+  border-bottom: 1px solid rgb(var(--primary-rgb) / 20%);
+  background: var(--surface-3);
+  color: var(--text-secondary);
   font-size: 0.75rem;
   font-weight: 900;
   text-align: left;
@@ -1211,24 +1105,24 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .trip-table-sort-btn:hover,
 .trip-table-heading.is-sorted .trip-table-sort-btn {
-  color: var(--trips-primary);
-  background: rgb(var(--trips-primary-rgb) / 8%);
+  color: var(--primary);
+  background: rgb(var(--primary-rgb) / 8%);
 }
 
 .trip-table-sort-btn:focus-visible {
-  outline: 2px solid rgb(var(--trips-primary-rgb) / 55%);
+  outline: 2px solid rgb(var(--primary-rgb) / 55%);
   outline-offset: -3px;
 }
 
 .sort-icon {
-  color: var(--trips-text-tertiary);
+  color: var(--text-tertiary);
   font-size: 0.75rem;
 }
 
 .trip-table-cell {
   padding: var(--space-md);
-  border-bottom: 1px solid var(--trips-bg-subtle);
-  color: var(--trips-text-secondary);
+  border-bottom: 1px solid var(--surface-2);
+  color: var(--text-secondary);
   font-size: 0.875rem;
   vertical-align: middle;
 }
@@ -1245,19 +1139,19 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .trip-table-row:hover {
-  background: rgb(var(--trips-primary-rgb) / 5%);
+  background: rgb(var(--primary-rgb) / 5%);
 }
 
 .trip-table-row.selected {
-  background: rgb(var(--trips-primary-rgb) / 10%);
+  background: rgb(var(--primary-rgb) / 10%);
 }
 
 .trip-table-row.inactive {
-  background: rgb(var(--trips-primary-rgb) / 3%);
+  background: rgb(var(--primary-rgb) / 3%);
 }
 
 .trip-table-row.inactive .trip-table-cell {
-  color: var(--trips-text-tertiary);
+  color: var(--text-tertiary);
 }
 
 .trip-table-select {
@@ -1273,7 +1167,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .trip-table-select input {
   width: 18px;
   height: 18px;
-  accent-color: var(--trips-primary);
+  accent-color: var(--primary);
 }
 
 .trip-table-date,
@@ -1289,7 +1183,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .trip-table-date strong,
 .trip-table-trip strong,
 .trip-table-stack strong {
-  color: var(--trips-text-primary);
+  color: var(--text-primary);
   font-weight: 800;
   line-height: 1.25;
 }
@@ -1298,7 +1192,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .trip-table-trip span,
 .trip-table-stack span,
 .trip-table-ids span {
-  color: var(--trips-text-tertiary);
+  color: var(--text-tertiary);
   font-size: 0.75rem;
   line-height: 1.35;
 }
@@ -1313,13 +1207,13 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   min-width: 160px;
   max-width: 260px;
   overflow: hidden;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .trip-table-metric {
-  color: var(--trips-text-primary);
+  color: var(--text-primary);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -1340,10 +1234,10 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   width: fit-content;
   min-height: 28px;
   padding: 4px 9px;
-  border: 1px solid rgb(var(--trips-primary-rgb) / 20%);
+  border: 1px solid rgb(var(--primary-rgb) / 20%);
   border-radius: 6px;
-  background: rgb(var(--trips-primary-rgb) / 9%);
-  color: var(--trips-text-secondary);
+  background: rgb(var(--primary-rgb) / 9%);
+  color: var(--text-secondary);
   font-size: 0.75rem;
   font-weight: 800;
   text-transform: capitalize;
@@ -1351,7 +1245,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .trip-table-badge.muted {
   border-style: dashed;
-  background: var(--trips-bg-subtle);
+  background: var(--surface-2);
 }
 
 .trip-table-state {
@@ -1362,11 +1256,11 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--trips-success);
+  background: var(--success);
 }
 
 .trip-table-state.inactive span {
-  background: var(--trips-text-tertiary);
+  background: var(--text-tertiary);
 }
 
 .trip-table-ids {
@@ -1387,10 +1281,10 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--trips-bg-subtle);
+  border: 1px solid var(--surface-2);
   border-radius: 8px;
   background: transparent;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
   cursor: pointer;
   transition:
     background-color var(--transition-fast),
@@ -1399,20 +1293,20 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .trip-row-action-btn:hover {
-  border-color: var(--trips-primary-light);
-  background: var(--trips-bg-subtle);
-  color: var(--trips-text-primary);
+  border-color: var(--primary-light);
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .trip-row-action-btn.delete:hover {
-  border-color: var(--trips-danger);
-  background: rgb(var(--trips-danger-rgb) / 10%);
-  color: var(--trips-danger);
+  border-color: var(--danger);
+  background: rgb(var(--danger-rgb) / 10%);
+  color: var(--danger);
 }
 
 .trip-table-empty-row td {
   padding: var(--space-2xl);
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
   text-align: center;
 }
 
@@ -1435,28 +1329,28 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   justify-content: space-between;
   margin-bottom: var(--space-lg);
   padding-bottom: var(--space-sm);
-  border-bottom: 2px solid var(--trips-bg-subtle);
+  border-bottom: 2px solid var(--surface-2);
 }
 
 .timeline-title {
   font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--trips-text-primary);
+  color: var(--text-primary);
   margin: 0;
 }
 
 .timeline-count {
   font-size: 0.9375rem;
-  color: var(--trips-text-secondary);
-  background: var(--trips-bg-subtle);
+  color: var(--text-secondary);
+  background: var(--surface-2);
   padding: var(--space-xs) var(--space-md);
   border-radius: var(--radius-pill);
 }
 
 .timeline-section-note {
   margin: calc(-1 * var(--space-sm)) 0 var(--space-lg);
-  color: var(--trips-text-tertiary);
+  color: var(--text-tertiary);
   font-size: 0.875rem;
   line-height: 1.5;
 }
@@ -1466,12 +1360,12 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .timeline-section-inactive .timeline-title {
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
 }
 
 .timeline-section-inactive .timeline-count {
-  background: rgb(var(--trips-primary-rgb) / 8%);
-  color: var(--trips-text-secondary);
+  background: rgb(var(--primary-rgb) / 8%);
+  color: var(--text-secondary);
 }
 
 .trips-cards-container {
@@ -1490,7 +1384,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
    TRIP CARDS
    ============================================ */
 .trip-card {
-  background: var(--trips-bg-elevated);
+  background: var(--surface-1);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
@@ -1505,28 +1399,28 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .trip-card:hover {
   transform: translateY(-3px) scale(1.005);
   box-shadow: var(--shadow-lg);
-  border-color: rgb(var(--trips-primary-rgb) / 20%);
+  border-color: rgb(var(--primary-rgb) / 20%);
 }
 
 .trip-card.selected {
-  border-color: var(--trips-primary);
-  box-shadow: 0 0 0 3px rgb(var(--trips-primary-rgb) / 20%);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgb(var(--primary-rgb) / 20%);
 }
 
 .trip-card.inactive {
   background: linear-gradient(
     180deg,
-    rgb(var(--trips-primary-rgb) / 4%) 0%,
-    var(--trips-bg-elevated) 100%
+    rgb(var(--primary-rgb) / 4%) 0%,
+    var(--surface-1) 100%
   );
-  border-color: rgb(var(--trips-primary-rgb) / 10%);
+  border-color: rgb(var(--primary-rgb) / 10%);
   box-shadow: none;
 }
 
 .trip-card.inactive:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
-  border-color: rgb(var(--trips-primary-rgb) / 18%);
+  border-color: rgb(var(--primary-rgb) / 18%);
 }
 
 .trip-card.inactive .trip-card-map {
@@ -1535,13 +1429,13 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .trip-card.inactive .trip-title,
 .trip-card.inactive .trip-map-distance {
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
 }
 
 .trip-card.inactive .trip-meta,
 .trip-card.inactive .timeline-label,
 .trip-card.inactive .trip-date {
-  color: var(--trips-text-tertiary);
+  color: var(--text-tertiary);
 }
 
 .trip-card.inactive .trip-action-btn {
@@ -1566,13 +1460,13 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   width: 20px;
   height: 20px;
   cursor: pointer;
-  accent-color: var(--trips-primary);
+  accent-color: var(--primary);
 }
 
 /* Map Preview */
 .trip-card-map {
   height: 160px;
-  background: var(--trips-bg-subtle);
+  background: var(--surface-2);
   background-image: radial-gradient(circle, rgb(255 255 255 / 4%) 1px, transparent 1px);
   background-size: 12px 12px;
   position: relative;
@@ -1585,7 +1479,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   left: 0;
   right: 0;
   height: 40px;
-  background: linear-gradient(to bottom, transparent, var(--trips-bg-elevated));
+  background: linear-gradient(to bottom, transparent, var(--surface-1));
   z-index: 2;
   pointer-events: none;
 }
@@ -1596,7 +1490,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   right: var(--space-sm);
   background: rgb(0 0 0 / 50%);
   backdrop-filter: blur(4px);
-  color: var(--trips-text-primary);
+  color: var(--text-primary);
   font-size: 0.75rem;
   font-weight: 600;
   padding: var(--space-xs) var(--space-sm);
@@ -1624,11 +1518,11 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .trip-route-line .route-start {
-  fill: var(--trips-mint);
+  fill: var(--success);
 }
 
 .trip-route-line .route-end {
-  fill: var(--trips-primary);
+  fill: var(--primary);
 }
 
 /* Card Content */
@@ -1650,7 +1544,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .trip-title {
   font-size: 1.125rem;
   font-weight: 600;
-  color: var(--trips-text-primary);
+  color: var(--text-primary);
   margin: 0;
   line-height: 1.3;
 }
@@ -1663,27 +1557,27 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .trip-badge {
   padding: var(--space-xs) var(--space-sm);
-  background: var(--trips-bg-warm);
+  background: var(--surface-3);
   border-radius: var(--radius-pill);
   font-size: 0.75rem;
   font-weight: 500;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
 }
 
 .trip-badge.new {
-  background: rgb(var(--trips-mint-rgb) / 15%);
-  color: var(--trips-mint);
+  background: rgb(var(--success-rgb) / 15%);
+  color: var(--success);
 }
 
 .trip-badge.frequent {
-  background: rgb(var(--trips-gold-rgb) / 20%);
+  background: rgb(var(--warning-rgb) / 20%);
   color: var(--warning-dark);
 }
 
 .trip-badge.inactive {
-  background: rgb(var(--trips-primary-rgb) / 10%);
-  color: var(--trips-text-secondary);
-  border: 1px dashed rgb(var(--trips-primary-rgb) / 25%);
+  background: rgb(var(--primary-rgb) / 10%);
+  color: var(--text-secondary);
+  border: 1px dashed rgb(var(--primary-rgb) / 25%);
 }
 
 /* Route Timeline */
@@ -1692,7 +1586,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   align-items: stretch;
   gap: var(--space-sm);
   font-size: 0.875rem;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
 }
 
 .trip-route-timeline .timeline-dots {
@@ -1711,18 +1605,18 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .trip-route-timeline .timeline-dot.start {
-  background: var(--trips-mint);
+  background: var(--success);
 }
 
 .trip-route-timeline .timeline-dot.end {
-  background: var(--trips-primary);
+  background: var(--primary);
 }
 
 .trip-route-timeline .timeline-connector {
   width: 2px;
   flex: 1;
   min-height: 12px;
-  background: linear-gradient(to bottom, var(--trips-mint), var(--trips-primary));
+  background: linear-gradient(to bottom, var(--success), var(--primary));
   border-radius: 1px;
 }
 
@@ -1746,7 +1640,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   flex-wrap: wrap;
   gap: var(--space-sm);
   font-size: 0.8125rem;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
 }
 
 .trip-meta-item {
@@ -1756,7 +1650,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .trip-meta-item i {
-  color: var(--trips-text-tertiary);
+  color: var(--text-tertiary);
   font-size: 0.875rem;
 }
 
@@ -1766,12 +1660,12 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   justify-content: space-between;
   align-items: center;
   padding-top: var(--space-md);
-  border-top: 1px solid var(--trips-bg-subtle);
+  border-top: 1px solid var(--surface-2);
 }
 
 .trip-date {
   font-size: 0.875rem;
-  color: var(--trips-text-tertiary);
+  color: var(--text-tertiary);
 }
 
 .trip-actions {
@@ -1786,23 +1680,23 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1px solid var(--trips-bg-subtle);
+  border: 1px solid var(--surface-2);
   border-radius: var(--radius-md);
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .trip-action-btn:hover {
-  background: var(--trips-bg-subtle);
-  color: var(--trips-text-primary);
-  border-color: var(--trips-primary-light);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border-color: var(--primary-light);
 }
 
 .trip-action-btn.delete:hover {
-  background: rgb(var(--trips-danger-rgb) / 10%);
-  border-color: var(--trips-danger);
-  color: var(--trips-danger);
+  background: rgb(var(--danger-rgb) / 10%);
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 /* ============================================
@@ -1823,9 +1717,9 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   height: 280px;
   background: linear-gradient(
     90deg,
-    var(--trips-bg-subtle) 25%,
-    var(--trips-bg) 50%,
-    var(--trips-bg-subtle) 75%
+    var(--surface-2) 25%,
+    var(--surface-0) 50%,
+    var(--surface-2) 75%
   );
   background-size: 200% 100%;
   border-radius: var(--radius-lg);
@@ -1835,7 +1729,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .trips-empty {
   text-align: center;
   padding: var(--space-2xl) var(--space-xl);
-  background: var(--trips-bg-elevated);
+  background: var(--surface-1);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
 }
@@ -1865,13 +1759,13 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   font-family: var(--font-display);
   font-size: 1.75rem;
   font-weight: 700;
-  color: var(--trips-text-primary);
+  color: var(--text-primary);
   margin: 0 0 var(--space-sm);
 }
 
 .empty-text {
   font-size: 1.0625rem;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
   margin-bottom: var(--space-xl);
   max-width: 400px;
   margin-left: auto;
@@ -1895,21 +1789,21 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .trips-journal-page .btn-primary {
-  --btn-bg: var(--trips-primary);
-  --btn-bg-hover: var(--trips-primary-dark);
-  --btn-border: var(--trips-primary);
-  --btn-border-hover: var(--trips-primary-dark);
+  --btn-bg: var(--primary);
+  --btn-bg-hover: var(--primary-dark);
+  --btn-border: var(--primary);
+  --btn-border-hover: var(--primary-dark);
   --btn-color: var(--text-on-primary);
   --btn-shadow-hover: var(--shadow-md);
 }
 
 .trips-journal-page .btn-secondary {
   --btn-bg: transparent;
-  --btn-bg-hover: var(--trips-bg-subtle);
-  --btn-border: var(--trips-bg-subtle);
-  --btn-border-hover: var(--trips-text-tertiary);
-  --btn-color: var(--trips-text-secondary);
-  --btn-color-hover: var(--trips-text-primary);
+  --btn-bg-hover: var(--surface-2);
+  --btn-border: var(--surface-2);
+  --btn-border-hover: var(--text-tertiary);
+  --btn-color: var(--text-secondary);
+  --btn-color-hover: var(--text-primary);
 
   border-width: 2px;
 }
@@ -1924,7 +1818,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   align-items: center;
   gap: var(--space-md);
   padding: var(--space-xl);
-  background: var(--trips-bg-elevated);
+  background: var(--surface-1);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   margin-top: var(--space-2xl);
@@ -1932,7 +1826,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .pagination-info {
   font-size: 0.9375rem;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
 }
 
 .pagination-controls {
@@ -1944,11 +1838,11 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .trips-pagination .pagination-btn {
   --pagination-btn-gap: var(--space-sm);
   --pagination-btn-padding: var(--space-sm) var(--space-md);
-  --pagination-btn-bg: var(--trips-bg);
-  --pagination-btn-border-color: var(--trips-bg-subtle);
-  --pagination-btn-hover-bg: var(--trips-bg-subtle);
-  --pagination-btn-hover-border-color: var(--trips-primary-light);
-  --pagination-btn-color: var(--trips-text-primary);
+  --pagination-btn-bg: var(--surface-0);
+  --pagination-btn-border-color: var(--surface-2);
+  --pagination-btn-hover-bg: var(--surface-2);
+  --pagination-btn-hover-border-color: var(--primary-light);
+  --pagination-btn-color: var(--text-primary);
   --pagination-btn-font-size: 0.9375rem;
   --pagination-btn-disabled-opacity: 0.5;
 }
@@ -1964,24 +1858,24 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--trips-bg);
-  border: 1px solid var(--trips-bg-subtle);
+  background: var(--surface-0);
+  border: 1px solid var(--surface-2);
   border-radius: var(--radius-md);
   font-size: 0.9375rem;
   font-weight: 500;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .page-number:hover {
-  background: var(--trips-bg-subtle);
-  color: var(--trips-text-primary);
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .page-number.active {
-  background: var(--trips-primary);
-  border-color: var(--trips-primary);
+  background: var(--primary);
+  border-color: var(--primary);
   color: var(--text-on-primary);
 }
 
@@ -1997,10 +1891,10 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   align-items: center;
   gap: var(--space-lg);
   padding: var(--space-md) var(--space-lg);
-  background: var(--trips-bg-elevated);
+  background: var(--surface-1);
   border-radius: var(--radius-pill);
   box-shadow: var(--shadow-xl);
-  border: 1px solid var(--trips-bg-subtle);
+  border: 1px solid var(--surface-2);
   z-index: 100;
   animation: slideInUp 0.3s ease-out;
 }
@@ -2020,9 +1914,9 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .bulk-info {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: var(--trips-text-primary);
+  color: var(--text-primary);
   padding-right: var(--space-md);
-  border-right: 1px solid var(--trips-bg-subtle);
+  border-right: 1px solid var(--surface-2);
 }
 
 .bulk-buttons {
@@ -2035,29 +1929,29 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
-  background: var(--trips-bg);
-  border: 1px solid var(--trips-bg-subtle);
+  background: var(--surface-0);
+  border: 1px solid var(--surface-2);
   border-radius: var(--radius-pill);
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .bulk-btn:hover {
-  background: var(--trips-bg-subtle);
-  color: var(--trips-text-primary);
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .bulk-btn.danger {
-  background: rgb(var(--trips-danger-rgb) / 10%);
-  border-color: rgb(var(--trips-danger-rgb) / 30%);
-  color: var(--trips-danger);
+  background: rgb(var(--danger-rgb) / 10%);
+  border-color: rgb(var(--danger-rgb) / 30%);
+  color: var(--danger);
 }
 
 .bulk-btn.danger:hover {
-  background: var(--trips-danger);
+  background: var(--danger);
   color: var(--text-on-primary);
 }
 
@@ -2147,8 +2041,8 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   align-items: center;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgb(var(--trips-primary-rgb) / 16%);
-  border: 1px dashed rgb(var(--trips-primary-rgb) / 35%);
+  background: rgb(var(--primary-rgb) / 16%);
+  border: 1px dashed rgb(var(--primary-rgb) / 35%);
   color: rgb(255 255 255 / 80%);
   font-size: 0.6875rem;
   font-weight: 700;
@@ -2191,8 +2085,8 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .btn-icon.is-active {
-  background: rgb(var(--trips-primary-rgb) / 12%);
-  border-color: rgb(var(--trips-primary-rgb) / 28%);
+  background: rgb(var(--primary-rgb) / 12%);
+  border-color: rgb(var(--primary-rgb) / 28%);
   color: var(--text-primary);
 }
 
@@ -2557,7 +2451,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--trips-bg-elevated);
+  background: var(--surface-1);
   border: 2px solid currentcolor;
   z-index: 1;
 }
@@ -2684,8 +2578,8 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   margin-top: 12px;
   padding: 12px 14px;
   border-radius: 14px;
-  background: rgb(var(--trips-primary-rgb) / 10%);
-  border: 1px dashed rgb(var(--trips-primary-rgb) / 28%);
+  background: rgb(var(--primary-rgb) / 10%);
+  border: 1px dashed rgb(var(--primary-rgb) / 28%);
   color: rgb(255 255 255 / 78%);
   font-size: 0.875rem;
   line-height: 1.5;
@@ -2857,23 +2751,23 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .form-group label {
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--trips-text-secondary);
+  color: var(--text-secondary);
 }
 
 .form-control {
   padding: var(--space-md);
-  border: 2px solid var(--trips-bg-subtle);
+  border: 2px solid var(--surface-2);
   border-radius: var(--radius-md);
-  background: var(--trips-bg);
+  background: var(--surface-0);
   font-size: 0.9375rem;
-  color: var(--trips-text-primary);
+  color: var(--text-primary);
   transition: all var(--transition-fast);
 }
 
 .form-control:focus {
   outline: none;
-  border-color: var(--trips-primary);
-  background: var(--trips-bg-elevated);
+  border-color: var(--primary);
+  background: var(--surface-1);
 }
 
 .modal-footer {
@@ -2881,7 +2775,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   justify-content: flex-end;
   gap: var(--space-md);
   padding: var(--space-lg) var(--space-xl);
-  border-top: 1px solid var(--trips-bg-subtle);
+  border-top: 1px solid var(--surface-2);
 }
 
 /* ============================================
@@ -3058,7 +2952,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
     padding-right: 0;
     border-right: none;
     padding-bottom: var(--space-sm);
-    border-bottom: 1px solid var(--trips-bg-subtle);
+    border-bottom: 1px solid var(--surface-2);
   }
 
   .bulk-buttons {

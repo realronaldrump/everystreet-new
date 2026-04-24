@@ -2,24 +2,19 @@
   <h1 id="map-page-title" class="visually-hidden">
 Map
   </h1>
-  <!-- Map Container -->
   <div id="map"
        class="flex-grow-1 position-relative"
        role="application"
        aria-label="Interactive map">
     <div id="map-canvas" class="map-canvas">
     </div>
-    <!-- Loading indicator -->
     <div id="map-loading-indicator" class="map-loading d-none">
       <div class="loading-spinner">
       </div>
       <span class="map-loading-text">Loading map...</span>
     </div>
-
-    <!-- Trip Statistics Widget (Top Left) -->
     <div id="trip-stats-widget" class="trip-stats-widget" aria-label="Trip statistics">
       <div class="trip-stats-card" id="trip-stats-card">
-        <!-- Compact View -->
         <div class="trip-stats-compact" id="trip-stats-compact">
           <div class="trip-stats-header">
             <div class="trip-stats-icon">
@@ -57,8 +52,6 @@ miles
             </div>
           </div>
         </div>
-
-        <!-- Expanded View -->
         <div class="trip-stats-expanded" id="trip-stats-expanded" style="display: none">
           <div class="trip-stats-expanded-content">
             <div class="trip-stats-metric">
@@ -146,8 +139,6 @@ Avg Duration
         </div>
       </div>
     </div>
-
-    <!-- Floating Smart Legend (glass, top-right) -->
     <div id="map-smart-legend"
          class="map-smart-legend"
          aria-label="Map legend"
@@ -163,24 +154,25 @@ Avg Duration
       </button>
       <div class="map-smart-legend__body" id="map-smart-legend-body">
         <div class="map-smart-legend__row">
-          <span class="map-smart-legend__swatch map-smart-legend__swatch--driven" aria-hidden="true"></span>
+          <span class="map-smart-legend__swatch map-smart-legend__swatch--driven"
+                aria-hidden="true"></span>
           <span class="map-smart-legend__label">Driven</span>
           <span class="map-smart-legend__hint">streets covered</span>
         </div>
         <div class="map-smart-legend__row">
-          <span class="map-smart-legend__swatch map-smart-legend__swatch--undriven" aria-hidden="true"></span>
+          <span class="map-smart-legend__swatch map-smart-legend__swatch--undriven"
+                aria-hidden="true"></span>
           <span class="map-smart-legend__label">Undriven</span>
           <span class="map-smart-legend__hint">to explore</span>
         </div>
         <div class="map-smart-legend__row">
-          <span class="map-smart-legend__swatch map-smart-legend__swatch--trips" aria-hidden="true"></span>
+          <span class="map-smart-legend__swatch map-smart-legend__swatch--trips"
+                aria-hidden="true"></span>
           <span class="map-smart-legend__label">Trips</span>
           <span class="map-smart-legend__hint">overlap = more driven</span>
         </div>
       </div>
     </div>
-
-    <!-- Live Trip HUD - Minimal pill -->
     <div id="live-trip-hud" class="live-trip-hud" aria-hidden="true">
       <span class="live-trip-hud-dot" aria-hidden="true"></span>
       <span class="live-trip-hud-speed" id="live-trip-speed">--</span>
@@ -195,23 +187,17 @@ Avg Duration
         <i class="fas fa-location-arrow" aria-hidden="true"></i>
       </button>
     </div>
-
-    <!-- Unified Control Panel - Redesigned -->
     <div id="map-controls" class="control-panel" role="region" aria-label="Map controls">
-      <!-- Mobile handle -->
       <div class="mobile-sheet-handle-container">
         <div class="mobile-sheet-handle">
         </div>
       </div>
-
-      <!-- Panel Header -->
       <div class="control-panel-header">
         <h2 class="control-panel-title">
           <i class="fas fa-layer-group" aria-hidden="true"></i>
           Map Controls
         </h2>
         <div class="control-panel-actions">
-          <!-- Desktop toggle -->
           <button id="controls-toggle"
                   class="btn btn-sm btn-icon-only"
                   aria-label="Toggle Controls"
@@ -220,8 +206,6 @@ Avg Duration
           </button>
         </div>
       </div>
-
-      <!-- Quick Actions -->
       <div class="control-panel-quick-actions">
         <button class="quick-action-btn" type="button" data-street-mode="undriven">
           <i class="fas fa-road"></i>
@@ -243,30 +227,32 @@ Avg Duration
           <i class="fas fa-crosshairs" aria-hidden="true"></i>
         </button>
       </div>
-
-      <!-- Panel Body -->
       <div class="control-panel-body">
-        <!-- Location Selector -->
         <div class="control-section" id="location-selector-container">
           <div class="layer-group">
             <h3 class="layer-group-title">
 Coverage Area
             </h3>
             <select id="streets-location" hidden>
-              <option value="">Select location...</option>
+              <option value="">
+Select location...
+              </option>
             </select>
             <div class="location-dropdown" id="location-dropdown">
-              <button type="button" class="location-dropdown-trigger" aria-haspopup="listbox" aria-expanded="false">
+              <button type="button"
+                      class="location-dropdown-trigger"
+                      aria-haspopup="listbox"
+                      aria-expanded="false">
                 <span class="dropdown-label is-placeholder">Select location...</span>
                 <i class="fas fa-chevron-down dropdown-chevron" aria-hidden="true"></i>
               </button>
-              <div class="location-dropdown-menu" role="listbox"></div>
+              <div class="location-dropdown-menu" role="listbox">
+              </div>
             </div>
           </div>
         </div>
 
         {% if not app_settings or (app_settings.get('map_provider') | default('', true) | lower) != 'google' %}
-          <!-- Map Style -->
           <div class="control-section">
             <div class="layer-group map-style-group">
               <div class="map-style-header">
@@ -297,20 +283,15 @@ Satellite
             </div>
           </div>
         {% endif %}
-
-        <!-- Layer Toggles -->
         <div class="control-section">
           <div class="layer-group">
             <h3 class="layer-group-title">
 Layers
             </h3>
             <div id="layer-toggles" class="layer-toggles-grid">
-              <!-- Layer toggles inserted by JavaScript -->
             </div>
           </div>
         </div>
-
-        <!-- Search -->
         <div class="search-container">
           <div class="search-wrapper">
             <i class="fas fa-search search-icon" aria-hidden="true"></i>
@@ -322,8 +303,6 @@ Layers
                    aria-label="Search map" />
           </div>
         </div>
-
-        <!-- Legend -->
         <div class="legend-bar">
           <div class="legend-item">
             <span class="legend-indicator driven"></span>
@@ -341,9 +320,10 @@ Layers
       </div>
     </div>
 
-    <div id="map-fab-dock" class="map-fab-dock is-collapsed" aria-label="Map feature toggles">
+    <div id="map-fab-dock"
+         class="map-fab-dock is-collapsed"
+         aria-label="Map feature toggles">
       <div id="map-fab-dock-stack" class="map-fab-dock__stack" aria-hidden="true">
-        <!-- Bouncie Simulator Toggle -->
         <button id="sim-toggle"
                 class="sim-toggle-btn map-fab-toggle map-fab-toggle--sim"
                 type="button"
@@ -353,8 +333,6 @@ Layers
                 title="Bouncie Simulator">
           <i class="fas fa-broadcast-tower" aria-hidden="true"></i>
         </button>
-
-        <!-- Route Art Toggle -->
         <button id="route-art-toggle"
                 class="sim-toggle-btn map-fab-toggle map-fab-toggle--route-art"
                 type="button"
@@ -364,8 +342,6 @@ Layers
                 title="Route Art">
           <i class="fas fa-palette" aria-hidden="true"></i>
         </button>
-
-        <!-- Destination Bloom Toggle -->
         <button id="destination-bloom-toggle"
                 class="destination-bloom-toggle map-fab-toggle map-fab-toggle--destination-bloom"
                 type="button"
@@ -375,8 +351,6 @@ Layers
                 title="Destination Bloom visualization">
           <i class="fas fa-location-dot" aria-hidden="true"></i>
         </button>
-
-        <!-- Particle Flow Toggle -->
         <button id="particle-flow-toggle"
                 class="particle-flow-toggle map-fab-toggle map-fab-toggle--particle-flow"
                 type="button"
@@ -386,8 +360,6 @@ Layers
                 title="Particle Flow visualization">
           <i class="fas fa-water" aria-hidden="true"></i>
         </button>
-
-        <!-- 3D Buildings Toggle -->
         <button id="map-3d-buildings-fab"
                 class="map-3d-buildings-toggle map-fab-toggle map-fab-toggle--buildings-3d"
                 type="button"
@@ -398,8 +370,6 @@ Layers
                 hidden>
           <i class="fas fa-city" aria-hidden="true"></i>
         </button>
-
-        <!-- Trip Layer Heatmap Toggle -->
         <button id="trip-layer-heatmap-fab"
                 class="trip-layer-heatmap-toggle map-fab-toggle map-fab-toggle--heatmap"
                 type="button"
@@ -422,21 +392,15 @@ Layers
         <i class="fas fa-sliders" aria-hidden="true"></i>
       </button>
     </div>
-
-    <!-- Search Results Dropdown (positioned outside control panel to avoid clipping) -->
     <div id="search-results"
          class="search-results-dropdown d-none"
          role="listbox"
          aria-label="Search results">
     </div>
-
-    <!-- Mobile sheet backdrop (for when bottom sheet is expanded) -->
     <div class="mobile-sheet-backdrop">
     </div>
   </div>
 </div>
-
-<!-- Accessibility announcements -->
 <div class="visually-hidden"
      aria-live="polite"
      aria-atomic="true"

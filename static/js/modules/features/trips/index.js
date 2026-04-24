@@ -24,6 +24,9 @@ import {
   formatDateOnly,
   formatDateTime,
   formatDuration,
+  formatGallons,
+  formatMiles,
+  formatSpeed,
   formatTimeOnly,
   formatVehicleName,
   getStorage,
@@ -2111,7 +2114,7 @@ function createTripCard(trip, allTrips) {
     </div>
     <div class="trip-card-map">
       <svg class="trip-route-line" viewBox="0 0 100 40" preserveAspectRatio="none">
-        <path class="route-main" d="M 5,35 Q 25,5 50,20 T 95,15" stroke="var(--trips-primary)" stroke-linecap="round" stroke-linejoin="round"/>
+        <path class="route-main" d="M 5,35 Q 25,5 50,20 T 95,15" stroke="var(--primary)" stroke-linecap="round" stroke-linejoin="round"/>
         <circle class="route-start" cx="5" cy="35" r="2.5"/>
         <circle class="route-end" cx="95" cy="15" r="2.5"/>
       </svg>
@@ -2373,21 +2376,6 @@ function toFiniteNumber(value) {
   }
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
-}
-
-function formatMiles(value) {
-  const number = toFiniteNumber(value);
-  return number === null ? "--" : `${number.toFixed(1)} mi`;
-}
-
-function formatSpeed(value) {
-  const number = toFiniteNumber(value);
-  return number === null || number <= 0 ? "--" : `${Math.round(number)} mph`;
-}
-
-function formatGallons(value) {
-  const number = toFiniteNumber(value);
-  return number === null || number <= 0 ? "--" : `${number.toFixed(2)} gal`;
 }
 
 function formatOdometer(value) {
@@ -2902,11 +2890,11 @@ function updateFilterResultsPreview() {
     );
     previewEl.innerHTML = `
       <span class="results-count">${activeVisibleTrips.length}</span> active trips
-      <span style="color: var(--trips-text-tertiary);">•</span>
+      <span style="color: var(--text-tertiary);">•</span>
       ${totalMiles.toFixed(1)} mi
       ${
         inactiveCount > 0
-          ? `<span style="color: var(--trips-text-tertiary);">•</span>${inactiveCount} inactive excluded`
+          ? `<span style="color: var(--text-tertiary);">•</span>${inactiveCount} inactive excluded`
           : ""
       }
     `;

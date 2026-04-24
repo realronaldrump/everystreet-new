@@ -1,28 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}
+{% from "partials/_map_assets.html" import static_css with context %}
 
-Driving Insights
-{% endblock %}
-
+{% block title %}Driving Insights{% endblock %}
 
 {% block extra_css %}
-
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/insights.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
-
+  {{ static_css("insights.css") }}
 {% endblock %}
-
-{% block head_content %}
-
-
-{% endblock %}
-
 
 {% block content %}
-
   <div id="insights-page" class="insights-container">
-    <!-- Hero Section -->
     <section class="insights-hero" data-accent="lime" data-reveal="up">
       <div class="hero-content">
         <div class="hero-badge" data-reveal="up">
@@ -38,7 +25,6 @@ Driving Insights
           Use period comparisons, time distributions, and destination concentration to inspect exactly what changed in your selected range.
         </p>
         <div class="hero-stat-card" data-reveal="scale">
-          <div class="hero-stat-glow" aria-hidden="true"></div>
           <div class="hero-stat-value counter" id="hero-total-miles">
 0
           </div>
@@ -48,8 +34,6 @@ miles in the selected range
         </div>
       </div>
     </section>
-
-    <!-- Street & Segment Movement Section -->
     <section class="insights-section movement-section" data-accent="lime" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
@@ -137,8 +121,6 @@ View more segments
         </aside>
       </div>
     </section>
-
-    <!-- Quick Stats Section -->
     <section class="insights-section" data-accent="mint" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
@@ -242,8 +224,6 @@ fuel context
         </div>
       </div>
     </section>
-
-    <!-- Period Analytics Section -->
     <section class="insights-section story-shell" data-accent="purple" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
@@ -313,8 +293,6 @@ Not enough data in this range to compare periods yet.
         </article>
       </div>
     </section>
-
-    <!-- Pattern Cards Section -->
     <section class="insights-section" data-accent="amber" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
@@ -338,8 +316,6 @@ Not enough data in this range to compute pattern cards yet.
         </div>
       </div>
     </section>
-
-    <!-- Time Signature Section -->
     <section class="insights-section" data-accent="sky" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
@@ -375,8 +351,6 @@ Not enough rhythm data in this range yet.
         </aside>
       </div>
     </section>
-
-    <!-- Places Orbit Section -->
     <section class="insights-section" data-accent="mint" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
@@ -406,8 +380,6 @@ Select a place bubble to see details.
         </aside>
       </div>
     </section>
-
-    <!-- Records Timeline Section -->
     <section class="insights-section" data-accent="coral" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
@@ -426,12 +398,8 @@ No record-level outliers in this range yet.
       </div>
     </section>
   </div>
-
-  <!-- Custom tooltip -->
   <div class="custom-tooltip" id="custom-tooltip">
   </div>
-
-  <!-- Trip Details Modal -->
   <div class="modal fade"
        id="tripDetailsModal"
        tabindex="-1"
@@ -463,6 +431,5 @@ Trips
     </div>
   </div>
 {% endblock %}
-
 
 {# Page scripts are loaded via route-loader + swup. #}

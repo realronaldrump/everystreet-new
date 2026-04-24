@@ -1,36 +1,18 @@
 {% extends "base.html" %}
 
-{% from "partials/_map_assets.html" import include_mapbox_css with context %}
+{% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}
+{% block title %}Coverage Management{% endblock %}
 
-
-Coverage Management
-{% endblock %}
-
-
-
-{% block head_content %}
-
-
+{% block extra_css %}
   {{ include_mapbox_css() }}
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/coverage-management.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+  {{ static_css("coverage-management.css") }}
 {% endblock %}
-
-
 
 {% block content %}
-
-
-  <!-- ============================================================
-     VIEW 1: AREA LIST
-     ============================================================ -->
   <div id="coverage-list-view" class="coverage-view coverage-view--list">
     <div class="container-fluid">
       <div class="bento-grid" data-stagger>
-
-        <!-- Page Header -->
         <div class="bento-span-12 widget" data-accent="amber">
           <div class="widget-header">
             <div>
@@ -62,14 +44,9 @@ Track your street coverage challenge — how much have you driven?
             </div>
           </div>
         </div>
-
-        <!-- Alerts container -->
         <div class="bento-span-12" id="alerts-container">
         </div>
-
-        <!-- Area Cards -->
         <div class="bento-span-12">
-          <!-- Loading skeleton -->
           <div class="area-cards-loading"
                id="area-cards-loading"
                aria-live="polite"
@@ -81,16 +58,12 @@ Track your street coverage challenge — how much have you driven?
             <div class="area-card-skeleton" aria-hidden="true">
             </div>
           </div>
-
-          <!-- Cards grid (populated by JS) -->
           <div class="area-cards-grid stagger-container"
                id="area-cards-grid"
                role="list"
                aria-label="Coverage areas"
                style="display: none">
           </div>
-
-          <!-- Empty state -->
           <div class="empty-state-coverage d-none" id="area-empty-state">
             <div class="empty-state-icon">
               <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
@@ -109,8 +82,6 @@ Start Your Street Challenge
             </button>
           </div>
         </div>
-
-        <!-- Error panel -->
         <div class="bento-span-12 coverage-error-panel d-none"
              id="coverage-error-panel"
              role="alert"
@@ -144,25 +115,14 @@ Error details
         </div>
 
       </div>
-      <!-- /.bento-grid -->
     </div>
-    <!-- /.container-fluid -->
   </div>
-  <!-- /#coverage-list-view -->
 
-
-  <!-- ============================================================
-     VIEW 2: AREA DETAIL (full-viewport map + sidebar)
-     ============================================================ -->
   <div id="coverage-area-view"
        class="coverage-view coverage-view--area"
        style="display: none"
        aria-hidden="true">
-
-    <!-- LEFT SIDEBAR -->
     <aside id="coverage-sidebar" class="coverage-sidebar" aria-label="Coverage details">
-
-      <!-- Sidebar area header -->
       <div class="sidebar-area-header">
         <button id="sidebar-back-btn"
                 class="sidebar-back-btn"
@@ -175,13 +135,14 @@ Error details
           <span id="sidebar-area-type" class="sidebar-area-type"></span>
         </div>
         <div style="display:flex;gap:var(--space-2);margin-left:auto;">
-          <button class="share-coverage-btn" id="share-coverage-btn" type="button" title="Share progress card">
+          <button class="share-coverage-btn"
+                  id="share-coverage-btn"
+                  type="button"
+                  title="Share progress card">
             <i class="fas fa-share-alt"></i>
           </button>
         </div>
       </div>
-
-      <!-- Sidebar tab strip -->
       <div class="coverage-sidebar-tabs" role="tablist" aria-label="Coverage detail tabs">
         <button class="sidebar-tab-btn is-active"
                 role="tab"
@@ -200,14 +161,10 @@ Error details
           <i class="fas fa-history me-1" aria-hidden="true"></i>History
         </button>
       </div>
-
-      <!-- TAB PANEL: Stats -->
       <div id="sidebar-tab-stats"
            class="sidebar-tab-panel"
            role="tabpanel"
            aria-labelledby="tab-btn-stats">
-
-        <!-- Large circular progress ring -->
         <div class="progress-ring-container" aria-label="Coverage percentage">
           <svg id="ring-svg"
                class="progress-ring-svg"
@@ -223,8 +180,6 @@ Error details
             <span class="progress-ring-label">covered</span>
           </div>
         </div>
-
-        <!-- Quick stat pills -->
         <div class="quick-stats-row">
           <div class="quick-stat-pill">
             <span id="qs-driven" class="qs-value" data-value-flash>0 mi</span>
@@ -243,8 +198,6 @@ Error details
             <span class="qs-label">Segments left</span>
           </div>
         </div>
-
-        <!-- Segment breakdown -->
         <div class="segment-breakdown">
           <h4 class="breakdown-title">
 Street Segments
@@ -273,8 +226,6 @@ Street Segments
             <span id="qs-last-activity" class="breakdown-count">—</span>
           </div>
         </div>
-
-        <!-- Actions -->
         <div class="sidebar-actions">
           <div class="sidebar-action-group">
             <label class="sidebar-toggle-label" for="dashboard-include-service-roads-toggle">
@@ -322,9 +273,7 @@ Matched trips only
         </div>
 
       </div>
-      <!-- /#sidebar-tab-stats -->
 
-      <!-- TAB PANEL: History -->
       <div id="sidebar-tab-history"
            class="sidebar-tab-panel"
            role="tabpanel"
@@ -338,13 +287,8 @@ Matched trips only
       </div>
 
     </aside>
-    <!-- /#coverage-sidebar -->
 
-
-    <!-- FULL-BLEED MAP AREA -->
     <div id="coverage-map-wrapper" class="coverage-map-wrapper">
-
-      <!-- The map canvas -->
       <div id="coverage-map"
            class="coverage-map"
            role="application"
@@ -356,8 +300,6 @@ Matched trips only
           <span class="map-loading-label">Loading map…</span>
         </div>
       </div>
-
-      <!-- OVERLAY: Top-right filter chips -->
       <div class="map-overlay map-overlay--top-right"
            id="map-filter-overlay"
            role="group"
@@ -374,8 +316,6 @@ Driven
 Undriven
         </button>
       </div>
-
-      <!-- OVERLAY: Bottom-left legend -->
       <div class="map-overlay map-overlay--bottom-left"
            id="map-legend-overlay"
            aria-label="Map legend">
@@ -392,24 +332,17 @@ Undriven
           <span class="map-legend-text">Undriveable</span>
         </div>
       </div>
-
-      <!-- OVERLAY: Bottom-right coverage chip -->
       <div class="map-overlay map-overlay--bottom-right"
            id="map-coverage-chip"
            aria-live="polite">
         <span id="map-coverage-pct" class="map-coverage-pct">0%</span>
         <span class="map-coverage-label">covered</span>
       </div>
-
-      <!-- Hover name tooltip (absolute positioned, pointer-events none) -->
       <div id="map-street-tooltip" class="map-street-tooltip" aria-hidden="true">
       </div>
 
     </div>
-    <!-- /#coverage-map-wrapper -->
 
-
-    <!-- STREET DETAIL PANEL (slides in from right) -->
     <aside id="street-detail-panel"
            class="street-detail-panel"
            aria-hidden="true"
@@ -477,15 +410,8 @@ Last driven
       </div>
 
     </aside>
-    <!-- /#street-detail-panel -->
-
   </div>
-  <!-- /#coverage-area-view -->
 
-
-  <!-- ============================================================
-     ADD AREA MODAL
-     ============================================================ -->
   <div class="modal fade" id="addAreaModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -575,8 +501,6 @@ Matched trips only
                      data-coverage-trip-mode-status
                      aria-live="polite"></small>
             </div>
-
-            <!-- Validation panel -->
             <div class="coverage-validation" id="coverage-validation-panel">
               <div id="location-validation-status"
                    class="validation-status"
@@ -628,7 +552,5 @@ Cancel
   </div>
 
 {% endblock %}
-
-
 
 {# Page scripts are loaded via route-loader + swup. #}

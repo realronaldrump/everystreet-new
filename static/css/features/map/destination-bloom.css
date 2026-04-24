@@ -53,6 +53,7 @@
 
 .map-fab-toggle {
   --fab-accent-rgb: 99 193 255;
+
   display: flex;
   align-items: center;
   justify-content: center;

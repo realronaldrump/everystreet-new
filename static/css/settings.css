@@ -210,24 +210,6 @@
   padding: 0;
 }
 
-/* === Color Picker Row === */
-.color-picker-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
-.color-picker-row input[type="color"] {
-  width: 48px;
-  height: 36px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  padding: 2px;
-  cursor: pointer;
-  background: var(--surface-2);
-}
-
 .option-group {
   display: inline-flex;
   align-items: center;
@@ -270,16 +252,6 @@
   background: var(--primary);
   border-radius: var(--radius-pill);
   padding: 2px 8px;
-}
-
-.opacity-slider {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.opacity-slider input[type="range"] {
-  width: 100px;
 }
 
 /* === Preferences Actions === */
@@ -770,20 +742,6 @@
   line-height: 1.5;
 }
 
-/* Storage summary layout */
-.storage-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--space-3);
-  align-items: end;
-}
-
-.storage-actions {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-}
-
 /* === Inline Status === */
 .settings-status {
   display: inline-flex;
@@ -840,18 +798,6 @@
 
     /* Ensure scroll container doesn't get messed up */
     padding-bottom: 0;
-  }
-
-  .storage-summary-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .storage-actions {
-    justify-content: flex-start;
-  }
-
-  .storage-actions .btn {
-    width: 100%;
   }
 
   /* Stack setting items vertically on mobile */
@@ -945,20 +891,6 @@
   .setting-control .form-check-input {
     margin-left: 0;
     margin-right: var(--space-2);
-  }
-
-  .color-picker-row {
-    width: 100%;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .opacity-slider {
-    width: 100%;
-  }
-
-  .opacity-slider input[type="range"] {
-    flex: 1;
   }
 
   .preferences-actions {
@@ -1138,70 +1070,6 @@
 
 .form-check.form-switch .form-check-input:checked::before {
   transform: translate(24px, -50%);
-}
-
-/* === Version Metadata === */
-
-.map-coverage-progress {
-  margin-top: var(--space-4);
-}
-
-.map-coverage-progress .progress-meta {
-  display: flex;
-  justify-content: space-between;
-  margin-top: var(--space-2);
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-}
-
-.state-region {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: var(--space-3);
-  background: var(--surface-1);
-  margin-bottom: var(--space-3);
-}
-
-.state-region-title {
-  font-weight: var(--font-weight-semibold);
-  margin-bottom: var(--space-2);
-}
-
-.state-region-grid {
-  display: grid;
-  gap: var(--space-2);
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-}
-
-.state-option {
-  display: grid;
-  grid-template-columns: 18px 1fr;
-  grid-template-rows: auto auto;
-  align-items: center;
-  gap: 0 var(--space-2);
-  padding: var(--space-2);
-  border-radius: var(--radius-md);
-  border: 1px solid transparent;
-  cursor: pointer;
-  position: relative;
-}
-
-.state-option input {
-  grid-row: 1 / 3;
-}
-
-.state-option.is-selected {
-  border-color: rgb(var(--primary-rgb) / 40%);
-  background: rgb(var(--primary-rgb) / 8%);
-}
-
-.state-name {
-  font-weight: var(--font-weight-semibold);
-}
-
-.state-size {
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
 }
 
 /* === Map Services Auto-Provisioning UI === */
@@ -2184,21 +2052,6 @@
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
-}
-
-.trip-import-progress-meta {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-}
-
-@media (width >= 768px) {
-  .trip-import-progress-meta {
-    align-items: flex-end;
-    text-align: right;
-  }
 }
 
 .trip-import-progress-bar {

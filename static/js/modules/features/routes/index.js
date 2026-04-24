@@ -7,7 +7,14 @@
 import { createFeatureApi } from "../../core/feature-api.js";
 import { createMap } from "../../map-core.js";
 import notificationManager from "../../ui/notifications.js";
-import { debounce, escapeHtml, formatDuration, sanitizeLocation } from "../../utils.js";
+import {
+  debounce,
+  escapeHtml,
+  formatDuration,
+  formatMiles,
+  formatPercentage,
+  sanitizeLocation,
+} from "../../utils.js";
 
 /* ───── constants ───── */
 const DEFAULT_LIST_LIMIT = 200;
@@ -54,11 +61,6 @@ const apiGet = (u, o = {}) => featureApi.get(u, o);
 const apiPost = (u, b, o = {}) => featureApi.post(u, b, o);
 const apiPatch = (u, b, o = {}) => featureApi.patch(u, b, o);
 const getEl = (id) => document.getElementById(id);
-
-function formatMiles(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? `${n.toFixed(1)} mi` : "--";
-}
 
 function formatDateShort(v) {
   if (!v) {
@@ -107,11 +109,6 @@ function formatHourLabel(h) {
     return "12p";
   }
   return `${h - 12}p`;
-}
-
-function formatPercent(v, digits = 1) {
-  const n = Number(v);
-  return Number.isFinite(n) ? `${n.toFixed(digits)}%` : "--";
 }
 
 function formatDateCompact(value) {
@@ -2272,7 +2269,7 @@ function renderExplorerSummary(summary, timeframe) {
   );
   setVal(
     "routes-explorer-kpi-top-share",
-    Number.isFinite(topShareNum) ? formatPercent(topShareNum * 100) : "--"
+    Number.isFinite(topShareNum) ? formatPercentage(topShareNum * 100) : "--"
   );
   if (summary?.spanDays) {
     setVal("routes-explorer-kpi-span", `${Math.round(summary.spanDays)} days`);
@@ -2326,7 +2323,7 @@ function renderExplorerVariantShareList(items) {
       row.className = "routes-variant-share-item";
       row.innerHTML = `
         <span class="routes-variant-share-label">${escapeHtml(entry.label || "Variant")}</span>
-        <span class="routes-variant-share-value">${formatPercent(Number(entry.share || 0) * 100)}</span>
+        <span class="routes-variant-share-value">${formatPercentage(Number(entry.share || 0) * 100)}</span>
       `;
       list.appendChild(row);
     });
@@ -2531,7 +2528,7 @@ function renderExplorerVariants(variants) {
       item.className = "routes-variant-item";
       const shareLabel =
         entry.share != null
-          ? `<span class="routes-variant-chip">${formatPercent(Number(entry.share) * 100)}</span>`
+          ? `<span class="routes-variant-chip">${formatPercentage(Number(entry.share) * 100)}</span>`
           : "";
       const distLabel =
         Number.isFinite(entry.distance) && entry.distance > 0

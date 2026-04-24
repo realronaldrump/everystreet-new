@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 
 import pytest
 
-from analytics.services.trip_analytics_service import TripAnalyticsService
 from db.models import Trip
 from trips.services.trip_query_service import TripQueryService
 
@@ -35,31 +34,3 @@ async def test_invalid_trip_query_excludes_non_bouncie_sources(beanie_db) -> Non
 
     assert "tx-invalid-bouncie" in ids
     assert "tx-invalid-webhook" not in ids
-
-
-@pytest.mark.asyncio
-async def test_recent_trip_analytics_excludes_non_bouncie_sources(beanie_db) -> None:
-    del beanie_db
-
-    await Trip(
-        transactionId="tx-recent-bouncie",
-        source="bouncie",
-        invalid=False,
-        startTime=datetime(2025, 1, 4, 8, 0, tzinfo=UTC),
-        endTime=datetime(2025, 1, 4, 8, 30, tzinfo=UTC),
-        distance=3.2,
-    ).insert()
-    await Trip(
-        transactionId="tx-recent-webhook",
-        source="webhook",
-        invalid=False,
-        startTime=datetime(2025, 1, 5, 8, 0, tzinfo=UTC),
-        endTime=datetime(2025, 1, 5, 8, 30, tzinfo=UTC),
-        distance=9.1,
-    ).insert()
-
-    trips = await TripAnalyticsService.get_recent_trips(limit=10)
-    ids = {trip.get("transactionId") for trip in trips}
-
-    assert "tx-recent-bouncie" in ids
-    assert "tx-recent-webhook" not in ids

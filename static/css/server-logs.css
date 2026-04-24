@@ -466,23 +466,6 @@
   background-color: rgb(var(--danger-rgb) / 10%);
 }
 
-.log-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-1);
-  flex-wrap: wrap;
-}
-
-/* Mobile: stack timestamp and level badge */
-@media (width <= 480px) {
-  .log-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-1);
-  }
-}
-
 .log-timestamp {
   color: var(--text-tertiary);
   font-size: 0.85rem;

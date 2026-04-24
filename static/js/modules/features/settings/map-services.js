@@ -8,7 +8,7 @@
 
 import apiClient from "../../core/api-client.js";
 import notificationManager from "../../ui/notifications.js";
-import { formatDurationMs } from "../../utils/formatting.js";
+import { formatBytes as formatBytesCanonical, formatDurationMs } from "../../utils/formatting.js";
 import { escapeHtml } from "../../utils.js";
 
 const MAP_SERVICES_API = "/api/map-services";
@@ -1214,18 +1214,7 @@ function formatSize(mb) {
 }
 
 function formatBytes(bytes) {
-  if (!Number.isFinite(bytes) || bytes <= 0) {
-    return "";
-  }
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let value = bytes;
-  let unitIndex = 0;
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-  const precision = value >= 100 || unitIndex === 0 ? 0 : value >= 10 ? 1 : 2;
-  return `${value.toFixed(precision)} ${units[unitIndex]}`;
+  return formatBytesCanonical(bytes, { default: "" });
 }
 
 function buildActivityDetail(progress) {

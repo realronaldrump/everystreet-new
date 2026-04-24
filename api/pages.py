@@ -29,9 +29,9 @@ async def _render_page(
 
 
 @router.get("/", response_class=HTMLResponse)
-async def landing(request: Request):
-    """Render landing page."""
-    return await _render_page("landing.html", request)
+async def home(request: Request):
+    """Root route renders the map — the landing dashboard is retired."""
+    return await _render_page("index.html", request)
 
 
 @router.get("/map", response_class=HTMLResponse)

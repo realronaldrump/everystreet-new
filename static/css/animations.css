@@ -190,17 +190,6 @@ html.swup-native::view-transition-new(route-content) {
   }
 }
 
-@keyframes ambientFloat {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
 /* === Slide Animations === */
 
 /* slideUp and slideInUp are identical - use slideInUp */
@@ -509,28 +498,9 @@ html.swup-native::view-transition-new(route-content) {
 
 /* Parallax drift container — driven via --parallax-y inline style */
 [data-parallax] {
-  transform: translate3d(0, var(--parallax-y, 0px), 0);
+  transform: translate3d(0, var(--parallax-y, 0), 0);
   transition: transform 120ms linear;
   will-change: transform;
-}
-
-/* Soft number bloom when a counter finishes animating */
-@keyframes numberBloom {
-  0% {
-    text-shadow: none;
-  }
-
-  40% {
-    text-shadow: 0 0 24px rgb(var(--accent-rgb) / 55%);
-  }
-
-  100% {
-    text-shadow: none;
-  }
-}
-
-.counter-bloom {
-  animation: numberBloom 1200ms ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -543,10 +513,6 @@ html.swup-native::view-transition-new(route-content) {
 
   [data-parallax] {
     transform: none !important;
-  }
-
-  .counter-bloom {
-    animation: none;
   }
 }
 

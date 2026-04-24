@@ -993,7 +993,7 @@
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
-  transition: transform var(--transition-smooth, 250ms ease);
+  transition: transform var(--transition-normal);
 }
 
 .mm-history-drawer.is-open {

@@ -1,35 +1,19 @@
 {% extends "base.html" %}
 
-{% from "partials/_map_assets.html" import include_mapbox_css with context %}
+{% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}
+{% block title %}Route Planner{% endblock %}
 
-
-Route Planner
-{% endblock %}
-
-
-
-{% block head_content %}
-
-
-  <!-- Mapbox GL CSS -->
+{% block extra_css %}
   {{ include_mapbox_css() }}
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/coverage-route-planner.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+  {{ static_css("coverage-route-planner.css") }}
 {% endblock %}
-
-
 
 {% block content %}
-
-
   <div class="coverage-route-planner">
     <h1 class="visually-hidden">
 Route Planner
     </h1>
-
-    <!-- Mobile Toggle Button -->
     <button type="button"
             class="mobile-panel-toggle"
             id="mobile-panel-toggle"
@@ -41,8 +25,6 @@ Route Planner
     </button>
 
     <aside class="control-panel" id="control-panel">
-
-      <!-- Sidebar Header -->
       <div class="sidebar-header">
         <div class="sidebar-identity">
           <div class="sidebar-identity-icon">
@@ -68,8 +50,6 @@ Select an area to begin planning
           <span class="ring-pct" id="sidebar-ring-pct">0%</span>
         </div>
       </div>
-
-      <!-- Tab Navigation -->
       <nav class="sidebar-tabs" aria-label="Sidebar sections" role="tablist">
         <button type="button"
                 class="sidebar-tab active"
@@ -108,8 +88,6 @@ Select an area to begin planning
           <span class="tab-label">Results</span>
         </button>
       </nav>
-
-      <!-- Workflow Stepper -->
       <div class="workflow-stepper"
            id="workflow-stepper"
            role="list"
@@ -157,11 +135,7 @@ Select an area to begin planning
           <span class="ws-label">Navigate</span>
         </div>
       </div>
-
-      <!-- ===== Tab Panel: Plan ===== -->
       <div class="tab-panel active" id="tab-panel-plan" role="tabpanel" data-tab="plan">
-
-        <!-- Area Selection Widget -->
         <div class="widget control-section area-selector-widget" data-accent="mint">
           <div class="widget-header collapsible" data-toggle="section-area">
             <h3 class="widget-title">
@@ -186,8 +160,6 @@ Select a coverage area...
               </select>
               <i class="fas fa-map-marker-alt select-icon" aria-hidden="true"></i>
             </div>
-
-            <!-- Area context panel — shown when area is selected -->
             <div id="area-stats" class="area-context-panel" style="display: none">
               <div class="area-context-body">
                 <div class="area-donut-wrap">
@@ -229,8 +201,6 @@ Select a coverage area...
                 </div>
               </div>
             </div>
-
-            <!-- Empty hint shown when no area selected -->
             <div class="area-empty-hint" id="area-empty-hint">
               <i class="fas fa-hand-pointer" aria-hidden="true"></i>
               <span>Choose an area above to see your coverage stats and plan a route</span>
@@ -238,8 +208,6 @@ Select a coverage area...
 
           </div>
         </div>
-
-        <!-- Route Planner Widget -->
         <div class="widget control-section route-planner-widget" data-accent="purple">
           <div class="widget-header collapsible" data-toggle="section-planner">
             <h3 class="widget-title">
@@ -278,8 +246,6 @@ Select a coverage area...
                 </span>
               </span>
             </button>
-
-            <!-- Algorithm explainer (collapsible) -->
             <div class="algo-explainer" id="algo-explainer" hidden>
               <div class="algo-steps">
                 <div class="algo-step">
@@ -308,8 +274,6 @@ Select a coverage area...
 
           </div>
         </div>
-
-        <!-- Drive Simulation Widget -->
         <div class="widget control-section sim-widget" data-accent="sky">
           <div class="widget-header collapsible" data-toggle="section-simulation">
             <h3 class="widget-title">
@@ -339,16 +303,12 @@ Select a coverage area...
               <i class="fas fa-hand-pointer" aria-hidden="true"></i>
               <span class="sim-toggle-label">Start Selecting</span>
             </button>
-
-            <!-- Simulation results (shown when active) -->
             <div id="sim-results-panel" class="sim-results-panel" style="display:none">
 
               <div class="sim-selection-info">
                 <span id="sim-selected-count" class="sim-selected-count">0</span>
                 <span class="sim-selected-label">streets selected</span>
-                <button type="button"
-                        id="sim-clear-btn"
-                        class="btn btn-ghost btn-xs sim-clear-btn">
+                <button type="button" id="sim-clear-btn" class="btn btn-ghost btn-xs sim-clear-btn">
                   <i class="fas fa-times" aria-hidden="true"></i>
                   Clear
                 </button>
@@ -360,8 +320,6 @@ Select a coverage area...
                   <span id="sim-added-distance" class="sim-stat-value">--</span>
                 </div>
               </div>
-
-              <!-- Coverage comparison -->
               <div class="sim-coverage-compare">
                 <div class="sim-coverage-current">
                   <span class="sim-cov-label">Current</span>
@@ -378,8 +336,12 @@ Select a coverage area...
 
               <div class="sim-delta-bar">
                 <div class="sim-delta-track">
-                  <div id="sim-current-bar" class="sim-delta-fill sim-delta-current" style="width:0%"></div>
-                  <div id="sim-projected-bar" class="sim-delta-fill sim-delta-projected" style="width:0%"></div>
+                  <div id="sim-current-bar" class="sim-delta-fill sim-delta-current" style="width:0%">
+                  </div>
+                  <div id="sim-projected-bar"
+                       class="sim-delta-fill sim-delta-projected"
+                       style="width:0%">
+                  </div>
                 </div>
                 <div class="sim-delta-label">
                   <span id="sim-delta-pct" class="sim-delta-value">+0.00%</span>
@@ -388,8 +350,6 @@ Select a coverage area...
             </div>
           </div>
         </div>
-
-        <!-- Saved Routes Widget -->
         <div class="widget control-section is-saved-routes" data-accent="purple">
           <div class="widget-header collapsible" data-toggle="section-saved">
             <h3 class="widget-title">
@@ -427,10 +387,7 @@ Generate your first optimal route above to get started
         </div>
 
       </div>
-      <!-- /tab-panel-plan -->
 
-
-      <!-- ===== Tab Panel: Find (was Navigate) ===== -->
       <div class="tab-panel" id="tab-panel-navigate" role="tabpanel" data-tab="navigate">
 
         <div class="widget control-section" data-accent="sky">
@@ -449,8 +406,6 @@ Auto-Follow
             </div>
           </div>
           <div class="widget-body">
-
-            <!-- Find action tiles -->
             <div class="find-action-grid">
               <button id="find-next-street-btn" class="find-tile" disabled>
                 <span class="find-tile-icon">
@@ -497,8 +452,6 @@ Auto-Follow
 
           </div>
         </div>
-
-        <!-- Find tab helper card -->
         <div class="widget find-helper-card" data-accent="slate">
           <div class="widget-body">
             <div class="find-helper-content">
@@ -519,13 +472,8 @@ Planning vs. Navigating
         </div>
 
       </div>
-      <!-- /tab-panel-navigate -->
 
-
-      <!-- ===== Tab Panel: Status ===== -->
       <div class="tab-panel" id="tab-panel-status" role="tabpanel" data-tab="status">
-
-        <!-- Route Progress Section (shown during simple processing) -->
         <div id="route-progress-container"
              class="widget control-section is-processing"
              data-accent="amber">
@@ -568,8 +516,6 @@ Planning vs. Navigating
             </div>
           </div>
         </div>
-
-        <!-- Live Progress Section (route solver streaming) -->
         <div id="progress-section"
              class="widget control-section is-live"
              data-accent="amber"
@@ -582,8 +528,6 @@ Planning vs. Navigating
             <span class="live-badge">LIVE</span>
           </div>
           <div class="widget-body">
-
-            <!-- Vertical solver pipeline -->
             <div class="solver-pipeline">
               <div class="stage" data-stage="queued,waiting,initializing">
                 <div class="stage-node">
@@ -684,8 +628,6 @@ Initializing...
             </button>
           </div>
         </div>
-
-        <!-- Error Section -->
         <div id="error-section"
              class="widget control-section is-error"
              data-accent="coral"
@@ -725,8 +667,6 @@ An error occurred.
             </div>
           </div>
         </div>
-
-        <!-- Empty state for Status tab -->
         <div class="tab-empty-state processing-ready-state" id="status-empty-state">
           <div class="ready-animation" aria-hidden="true">
             <div class="ready-ring ready-ring--1">
@@ -752,13 +692,8 @@ Ready to Compute
         </div>
 
       </div>
-      <!-- /tab-panel-status -->
 
-
-      <!-- ===== Tab Panel: Results ===== -->
       <div class="tab-panel" id="tab-panel-results" role="tabpanel" data-tab="results">
-
-        <!-- Results Section -->
         <div id="results-section"
              class="widget control-section is-results"
              data-accent="sky"
@@ -777,8 +712,6 @@ Ready to Compute
             </button>
           </div>
           <div class="widget-body collapsible-content" id="section-results">
-
-            <!-- Hero efficiency card -->
             <div class="results-hero-card stat-card is-efficiency" data-stat="efficiency">
               <div class="hero-eff-ring" aria-hidden="true">
                 <svg class="eff-ring-svg" viewBox="0 0 72 72">
@@ -801,8 +734,6 @@ How much of your driving covers required streets vs. connecting segments
                 </div>
               </div>
             </div>
-
-            <!-- 2×2 supporting stat grid -->
             <div class="stats-grid results-supporting-grid">
               <div class="stat-card" data-stat="total">
                 <div class="stat-icon">
@@ -841,8 +772,6 @@ How much of your driving covers required streets vs. connecting segments
                 </div>
               </div>
             </div>
-
-            <!-- Primary CTA: Start Navigation -->
             <div class="results-cta-primary">
               <button id="start-live-navigation-btn" class="btn btn-primary btn-results-nav" disabled>
                 <i class="fas fa-location-arrow" aria-hidden="true"></i>
@@ -852,8 +781,6 @@ How much of your driving covers required streets vs. connecting segments
                 </span>
               </button>
             </div>
-
-            <!-- Secondary action row -->
             <div class="export-actions results-secondary-actions">
               <button id="export-gpx-btn" class="btn btn-outline-primary btn-sm">
                 <i class="fas fa-download" aria-hidden="true"></i>
@@ -868,8 +795,6 @@ How much of your driving covers required streets vs. connecting segments
                 Clear
               </button>
             </div>
-
-            <!-- Layer controls -->
             <div class="layer-controls">
               <h4 class="layer-controls-title">
 Map Layers
@@ -957,8 +882,6 @@ Map Layers
 
           </div>
         </div>
-
-        <!-- Route Details Section -->
         <div id="route-details"
              class="widget control-section"
              data-accent="slate"
@@ -981,8 +904,6 @@ Map Layers
             </div>
           </div>
         </div>
-
-        <!-- Empty state for Results tab -->
         <div class="tab-empty-state results-empty-state" id="results-empty-state">
           <div class="tab-empty-icon results-empty-art" aria-hidden="true">
             <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
@@ -1008,20 +929,12 @@ No Results Yet
         </div>
 
       </div>
-      <!-- /tab-panel-results -->
-
     </aside>
-
-    <!-- Map Container -->
     <div class="map-container">
       <div id="coverage-map">
       </div>
-
-      <!-- Map Scanner Overlay -->
       <div id="map-scanner-overlay" class="map-scanner-overlay" aria-hidden="true">
       </div>
-
-      <!-- Route Solver HUD -->
       <div id="route-solver-hud" class="route-solver-hud" aria-live="polite">
         <div class="hud-panel">
           <div class="hud-header">
@@ -1056,8 +969,6 @@ Initializing...
           </div>
         </div>
       </div>
-
-      <!-- Map Legend -->
       <div class="map-legend" id="map-legend" style="display: none">
         <h6>
 Legend
@@ -1075,7 +986,9 @@ Legend
             <span class="legend-color legend-color--route is-route"></span>
             <span class="legend-label">Optimal Route</span>
           </div>
-          <div class="legend-item legend-item--simulated" id="legend-simulated" style="display:none">
+          <div class="legend-item legend-item--simulated"
+               id="legend-simulated"
+               style="display:none">
             <span class="legend-color legend-color--simulated"></span>
             <span class="legend-label">Simulated</span>
           </div>
@@ -1084,7 +997,5 @@ Legend
     </div>
   </div>
 {% endblock %}
-
-
 
 {# Page scripts are loaded via route-loader + swup. #}

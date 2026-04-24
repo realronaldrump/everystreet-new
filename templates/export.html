@@ -1,21 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}
+{% from "partials/_map_assets.html" import static_css with context %}
 
-Every Street - Export Data
-{% endblock %}
-
+{% block title %}Every Street - Export Data{% endblock %}
 
 {% block extra_css %}
-
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/export.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+  {{ static_css("export.css") }}
 {% endblock %}
 
-
-
 {% block content %}
-
   <div class="export-page">
     <div class="bento-grid" data-stagger>
       <div class="bento-span-12 widget" data-accent="mint">

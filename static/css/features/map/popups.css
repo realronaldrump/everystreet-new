@@ -22,19 +22,6 @@
   backdrop-filter: blur(var(--blur-subtle));
 }
 
-.mapboxgl-popup-tip,
-.maplibregl-popup-tip {
-  border-top-color: var(--surface-glass); /* Match content background */
-
-  /* Adjust tip color if content has a border */
-}
-
-.mapboxgl-popup-tip::before,
-.maplibregl-popup-tip::before {
-  /* If there's a border on content, this helps blend */
-  border-top-color: var(--border-color);
-}
-
 .mapboxgl-popup-close-button,
 .maplibregl-popup-close-button {
   color: var(--text-secondary);
@@ -56,48 +43,6 @@
 .maplibregl-popup-close-button:hover {
   color: var(--text-primary);
   background: var(--surface-3);
-}
-
-/* Custom Popup Content Styling (from coverage_management.html) */
-.coverage-popup-content {
-  /* Class for your custom popup HTML structure */
-  padding: var(--space-4);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-normal);
-}
-
-.coverage-popup-content .popup-value {
-  color: var(--text-primary);
-  text-align: right;
-  font-weight: var(--font-weight-regular);
-}
-
-.coverage-popup-content .popup-value.status-driven {
-  color: var(--success);
-  font-weight: var(--font-weight-semibold);
-}
-
-.coverage-popup-content .popup-value.status-undriven {
-  color: var(--danger);
-  font-weight: var(--font-weight-semibold);
-}
-
-.coverage-popup-content .popup-value.status-undriveable {
-  color: var(--warning);
-}
-
-.coverage-popup-content .popup-actions {
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--divider-color);
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap; /* Allow buttons to wrap */
-}
-
-.coverage-popup-content .popup-actions .btn {
-  font-size: var(--font-size-xs);
-  padding: var(--space-1) var(--space-3);
 }
 
 /* === Trip Popup Styling === */

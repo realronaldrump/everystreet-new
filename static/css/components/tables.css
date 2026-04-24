@@ -2,17 +2,6 @@
    Table Components - Phase 2 Refined
    ============================ */
 
-/* === Tables - Glassmorphism Refined === */
-.table-container {
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  margin-bottom: var(--space-5);
-  box-shadow: var(--glass-shadow);
-  border: 1px solid var(--glass-border);
-  background: var(--glass-panel);
-  backdrop-filter: blur(var(--blur-strong));
-}
-
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -70,50 +59,4 @@
 
 body.light-mode .table-striped tbody tr:nth-of-type(odd) {
   background-color: rgb(var(--surface-rgb) / 50%);
-}
-
-.table .action-cell {
-  /* For cells containing action buttons */
-  text-align: right;
-  white-space: nowrap;
-}
-
-.table .action-cell .btn {
-  margin-left: var(--space-1);
-}
-
-/* Skeleton Loading States - Phase 3 */
-
-.table-skeleton-block {
-  height: 0.9em;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(
-    90deg,
-    var(--surface-2) 0%,
-    var(--surface-3) 50%,
-    var(--surface-2) 100%
-  );
-  background-size: 200% 100%;
-  animation: skeleton-shimmer 1.5s infinite;
-}
-
-/* skeleton-shimmer keyframe defined in loading-styles.css */
-
-@media (prefers-reduced-motion: reduce) {
-  .table-skeleton-block {
-    animation: none;
-    background: var(--surface-2);
-  }
-}
-
-.table-skeleton-block.wide {
-  width: 80%;
-}
-
-.table-skeleton-block.medium {
-  width: 60%;
-}
-
-.table-skeleton-block.short {
-  width: 35%;
 }

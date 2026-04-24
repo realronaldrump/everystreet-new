@@ -3,7 +3,6 @@
 import logging
 from typing import Any
 
-from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
 from db.aggregation_utils import (
@@ -346,42 +345,3 @@ class TripAnalyticsService:
             }
 
         return results[0]
-
-    @staticmethod
-    async def get_recent_trips(limit: int = 5) -> list[dict[str, Any]]:
-        """
-        Get recent trips for landing page activity feed.
-
-        Args:
-            limit: Number of trips to return (1-20)
-
-        Returns:
-            List of recent trip documents
-        """
-        pipeline = [
-            {
-                "$match": enforce_bouncie_source(
-                    apply_trip_record_filters(
-                        {"invalid": {"$ne": True}},
-                        include_invalid=True,
-                    )
-                )
-            },
-            {"$sort": {"endTime": -1}},
-            {"$limit": limit},
-            {
-                "$project": {
-                    "_id": 0,
-                    "transactionId": 1,
-                    "startTime": 1,
-                    "endTime": 1,
-                    "distance": 1,
-                    "destination": 1,
-                    "destinationGeoPoint": 1,
-                    "startLocation": 1,
-                    "maxSpeed": 1,
-                },
-            },
-        ]
-
-        return await aggregate_to_list(Trip, pipeline)

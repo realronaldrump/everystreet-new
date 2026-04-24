@@ -317,7 +317,9 @@ function updateHistoryAndBreadcrumb(pathname) {
 }
 
 function setRouteState(pathname) {
-  const path = pathname || window.location.pathname;
+  const rawPath = pathname || window.location.pathname;
+  // Root and /map both render the map — normalize so map-only CSS/a11y hooks apply uniformly.
+  const path = rawPath === "/" ? "/map" : rawPath;
   document.body.dataset.route = path;
   document.body.classList.toggle("map-page", path === "/map");
   document.body.classList.toggle("live-navigation-active", path === "/live-navigation");

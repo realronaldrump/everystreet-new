@@ -59,7 +59,6 @@
   .nav-control-btn,
   .nav-primary-btn,
   .nav-end-btn,
-  .nav-bottom-sheet,
   .nav-progress-fill-baseline,
   .nav-progress-fill-live {
     transition: none;
@@ -78,10 +77,6 @@
 
   .preview-stat-value {
     font-size: var(--font-size-lg);
-  }
-
-  .nav-bottom-sheet {
-    max-height: 60vh;
   }
 
   .nav-resume-prompt {

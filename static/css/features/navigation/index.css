@@ -795,42 +795,6 @@ body.light-mode .live-navigation {
 }
 
 /* ================================================
-   Bottom Sheet Pattern
-   ================================================ */
-.nav-bottom-sheet {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--nav-surface-strong);
-  border-radius: var(--nav-radius-lg) var(--nav-radius-lg) 0 0;
-  box-shadow: 0 -4px 24px rgb(0 0 0 / 15%);
-  transform: translateY(0);
-  transition: transform var(--nav-transition-normal);
-  padding-bottom: env(safe-area-inset-bottom);
-  z-index: var(--z-fixed);
-  max-height: 50vh;
-  overflow: hidden;
-}
-
-.nav-bottom-sheet.minimized {
-  transform: translateY(calc(100% - 80px));
-}
-
-.nav-bottom-sheet-handle {
-  width: 36px;
-  height: 4px;
-  background: var(--border-color-light);
-  border-radius: var(--radius-full);
-  margin: var(--nav-space-sm) auto;
-  cursor: grab;
-}
-
-.nav-bottom-sheet-handle:active {
-  cursor: grabbing;
-}
-
-/* ================================================
    Resume from Ahead Prompt
    ================================================ */
 .nav-resume-prompt {
@@ -1051,36 +1015,6 @@ body.light-mode .live-navigation {
   align-items: center;
   justify-content: center;
   gap: var(--nav-space-xs);
-}
-
-/* ================================================
-   Navigation States
-   ================================================ */
-.nav-state-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--nav-space-xs);
-  padding: var(--nav-space-xs) var(--nav-space-sm);
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.nav-state-indicator.navigating {
-  background: rgb(var(--primary-rgb) / 15%);
-  color: var(--nav-accent);
-}
-
-.nav-state-indicator.off-route {
-  background: rgb(var(--warning-rgb) / 15%);
-  color: var(--nav-warning);
-}
-
-.nav-state-indicator.arrived {
-  background: rgb(var(--success-rgb) / 15%);
-  color: var(--nav-success);
 }
 
 /* Navigate to start route line */

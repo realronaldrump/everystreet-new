@@ -2,23 +2,30 @@
    Card Components - Phase 2 Refined
    ============================ */
 
-/* === Cards - Glassmorphism Refined === */
-.card {
+/* === Cards & Widgets — shared glass primitive ===
+   .card is the base. .widget is a richer variant with built-in
+   flex-column layout, padding, and a slightly larger radius. */
+.card,
+.widget {
   background: var(--glass-panel);
   backdrop-filter: blur(var(--blur-strong));
   border-radius: var(--radius-lg);
-  box-shadow: var(--glass-shadow);
   border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   overflow: hidden;
+  position: relative;
   transition:
     box-shadow var(--transition-normal),
     border-color var(--transition-fast),
     transform var(--transition-fast);
-  margin-bottom: var(--space-5);
-  position: relative;
 }
 
-.card:hover {
+.card {
+  margin-bottom: var(--space-5);
+}
+
+.card:hover,
+.widget:hover {
   box-shadow: var(--shadow-elevation-2);
   border-color: var(--glass-border-medium);
   transform: translateY(-1px);
@@ -91,28 +98,16 @@
   margin: 0;
 }
 
-/* === Widget - Glassmorphism Refined === */
+/* === Widget — card variant with built-in padding and flex layout === */
 .widget {
-  background: var(--glass-panel);
-  backdrop-filter: blur(var(--blur-strong));
   border-radius: var(--radius-xl);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
   padding: var(--card-padding-lg);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  position: relative;
-  overflow: hidden;
-  transition:
-    box-shadow var(--transition-normal),
-    border-color var(--transition-fast),
-    transform var(--transition-fast);
 }
 
 .widget:hover {
-  box-shadow: var(--shadow-elevation-2);
-  border-color: var(--glass-border-medium);
   transform: translateY(-2px);
 }
 
@@ -196,41 +191,27 @@
   gap: var(--space-3);
 }
 
-/* Widget accent mappings - using new muted palette */
-[data-accent='"mint"'],
-[data-accent='"sage"'] {
+/* Decorative accent: sage (default) and coral only. All other values
+   fall through to sage for a calm, neutral default. Semantic accents
+   (primary/success/warning/danger/info/accent) are defined above. */
+[data-accent="sage"],
+[data-accent="mint"],
+[data-accent="purple"],
+[data-accent="slate"],
+[data-accent="sky"],
+[data-accent="steel"],
+[data-accent="amber"],
+[data-accent="ochre"],
+[data-accent="lime"],
+[data-accent="olive"] {
   --widget-accent: var(--cat-sage);
   --widget-accent-rgb: var(--cat-sage-rgb);
 }
 
-[data-accent='"purple"'],
-[data-accent='"slate"'] {
-  --widget-accent: var(--cat-slate);
-  --widget-accent-rgb: var(--cat-slate-rgb);
-}
-
-[data-accent='"coral"'],
-[data-accent='"rose"'] {
-  --widget-accent: var(--cat-rose);
-  --widget-accent-rgb: var(--cat-rose-rgb);
-}
-
-[data-accent='"sky"'],
-[data-accent='"steel"'] {
-  --widget-accent: var(--cat-steel);
-  --widget-accent-rgb: var(--cat-steel-rgb);
-}
-
-[data-accent='"amber"'],
-[data-accent='"ochre"'] {
-  --widget-accent: var(--cat-ochre);
-  --widget-accent-rgb: var(--cat-ochre-rgb);
-}
-
-[data-accent='"lime"'],
-[data-accent='"olive"'] {
-  --widget-accent: var(--cat-olive);
-  --widget-accent-rgb: var(--cat-olive-rgb);
+[data-accent="coral"],
+[data-accent="rose"] {
+  --widget-accent: var(--cat-coral);
+  --widget-accent-rgb: var(--cat-coral-rgb);
 }
 
 .widget.is-compact {

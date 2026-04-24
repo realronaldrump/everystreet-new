@@ -101,6 +101,78 @@ export function formatDistance(miles, options = 1) {
 }
 
 /**
+ * Format miles with a single decimal place and "mi" suffix.
+ * Canonical short-form distance formatter used across feature pages.
+ * @param {number} miles - Distance in miles
+ * @param {Object} [options]
+ * @param {number} [options.decimals=1]
+ * @param {string} [options.default="--"] - Returned when miles is invalid
+ * @returns {string}
+ */
+export function formatMiles(miles, { decimals = 1, default: defaultValue = "--" } = {}) {
+  const n = Number(miles);
+  if (!Number.isFinite(n)) {
+    return defaultValue;
+  }
+  return `${n.toFixed(decimals)} mi`;
+}
+
+/**
+ * Format speed in mph. Rounds to integer by default.
+ * @param {number} value - Speed in mph
+ * @param {Object} [options]
+ * @param {number} [options.decimals=0]
+ * @param {string} [options.default="--"]
+ * @returns {string}
+ */
+export function formatSpeed(value, { decimals = 0, default: defaultValue = "--" } = {}) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) {
+    return defaultValue;
+  }
+  return decimals === 0
+    ? `${Math.round(n)} mph`
+    : `${n.toFixed(decimals)} mph`;
+}
+
+/**
+ * Format gallons with two decimals and "gal" suffix.
+ * @param {number} value - Gallons
+ * @param {Object} [options]
+ * @param {string} [options.default="--"]
+ * @returns {string}
+ */
+export function formatGallons(value, { default: defaultValue = "--" } = {}) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) {
+    return defaultValue;
+  }
+  return `${n.toFixed(2)} gal`;
+}
+
+/**
+ * Format a byte count using binary units (KB, MB, GB, ...).
+ * @param {number} bytes
+ * @param {Object} [options]
+ * @param {string} [options.default="0 B"]
+ * @returns {string}
+ */
+export function formatBytes(bytes, { default: defaultValue = "0 B" } = {}) {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return defaultValue;
+  }
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  const precision = value >= 100 || unitIndex === 0 ? 0 : value >= 10 ? 1 : 2;
+  return `${value.toFixed(precision)} ${units[unitIndex]}`;
+}
+
+/**
  * Convert meters to user-friendly distance units (miles or feet)
  * @param {number} meters - Distance in meters
  * @param {number} fixed - Decimal places for miles (default 2)

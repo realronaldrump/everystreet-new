@@ -1,23 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}
+{% from "partials/_map_assets.html" import static_css with context %}
 
- Page Not Found
+{% block title %}Page Not Found{% endblock %}
+
+{% block extra_css %}
+  {{ static_css("not-found.css") }}
 {% endblock %}
-
-
-{% block
-extra_css %}
-
-
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/not-found.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
-{% endblock %}
-
 
 {% block content %}
-
-
   <section class="not-found">
     <div class="not-found-card glass glass--prominent elevation-3">
       <div class="not-found-header">
@@ -47,10 +38,6 @@ We can't find that page
         <a class="btn btn-outline" href="/map">
           <i class="fas fa-map" aria-hidden="true"></i>
         Map
-        </a>
-        <a class="btn btn-outline" href="/">
-          <i class="fas fa-undo" aria-hidden="true"></i>
-        Go back
         </a>
       </div>
     </div>

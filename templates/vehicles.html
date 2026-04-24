@@ -1,24 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}
+{% from "partials/_map_assets.html" import static_css with context %}
 
-My Vehicles
-{% endblock %}
-
+{% block title %}My Vehicles{% endblock %}
 
 {% block extra_css %}
-
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/vehicles.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+  {{ static_css("vehicles.css") }}
 {% endblock %}
 
-
 {% block content %}
-
   <div class="container-fluid vehicles-page py-4">
     <div class="bento-grid" data-stagger>
-
-      <!-- Page Header -->
       <div class="bento-span-12 widget" data-accent="purple">
         <div class="widget-header">
           <div>
@@ -45,8 +37,6 @@ My Vehicles
           </div>
         </div>
       </div>
-
-      <!-- Add Vehicle Collapsible -->
       <div class="bento-span-12 collapse" id="add-vehicle-collapse">
         <div class="widget is-compact" data-accent="mint">
           <div class="widget-body">
@@ -70,7 +60,7 @@ IMEI
                 </div>
                 <div class="col-12 col-md-5">
                   <label for="fleet-add-vehicle-name" class="form-label">
-                                                                                                                                                                                                                                                                                Display name <span class="text-tertiary">(optional)</span>
+                                      Display name <span class="text-tertiary">(optional)</span>
                 </label>
                 <input type="text"
                        class="form-control"
@@ -93,7 +83,6 @@ IMEI
       </div>
     </div>
 
-    <!-- Loading State -->
     <div class="bento-span-12" id="loading-state">
       <div class="widget" data-accent="mint">
         <div class="widget-body text-center py-5">
@@ -106,8 +95,6 @@ Loading vehicles...
         </div>
       </div>
     </div>
-
-    <!-- Empty State -->
     <div class="bento-span-12" id="empty-state" style="display: none">
       <div class="widget" data-accent="sky">
         <div class="widget-body text-center py-5">
@@ -134,22 +121,13 @@ No Vehicles Yet
         </div>
       </div>
     </div>
-
-    <!-- Vehicle Content (hidden until loaded) -->
     <div class="bento-span-12" id="vehicle-content" style="display: none">
       <div class="bento-grid vehicles-layout">
-
-        <!-- Left: Vehicle List Sidebar -->
         <div class="bento-span-4 vehicle-list-panel" id="vehicle-list-panel">
           <div class="vehicle-list-cards" id="vehicle-list-cards">
-            <!-- Vehicle cards rendered by JS -->
           </div>
         </div>
-
-        <!-- Right: Vehicle Detail -->
         <div class="bento-span-8 vehicle-detail-panel" id="vehicle-detail-panel">
-
-          <!-- Vehicle Identity Card -->
           <div class="widget vehicle-identity-widget" data-accent="purple">
             <div class="widget-body">
               <div class="vehicle-header">
@@ -168,8 +146,6 @@ No Vehicles Yet
                   <span class="badge bg-success">Active</span>
                 </div>
               </div>
-
-              <!-- Vehicle Details Chips -->
               <div class="vehicle-detail-chips" id="vehicle-detail-chips">
                 <div class="detail-chip">
                   <span class="detail-chip-label">Year</span>
@@ -194,11 +170,7 @@ No Vehicles Yet
               </div>
             </div>
           </div>
-
-          <!-- Odometer & Settings Row -->
           <div class="bento-grid vehicle-lower-grid">
-
-            <!-- Odometer Widget -->
             <div class="bento-span-7 vehicle-lower-col">
               <div class="widget" data-accent="mint">
                 <div class="widget-header">
@@ -210,7 +182,6 @@ No Vehicles Yet
                   </div>
                 </div>
                 <div class="widget-body">
-                  <!-- Current Reading -->
                   <div class="odometer-display">
                     <div class="odometer-value-container">
                       <span class="odometer-value" id="current-odometer">--</span>
@@ -223,10 +194,7 @@ No Vehicles Yet
                       <span class="odometer-updated" id="odometer-updated"></span>
                     </div>
                   </div>
-
-                  <!-- Update Options -->
                   <div class="odometer-actions">
-                    <!-- Bouncie Live -->
                     <div class="odometer-action-row" id="bouncie-reading-section">
                       <div class="odometer-action-info">
                         <i class="fas fa-satellite-dish text-primary"></i>
@@ -254,8 +222,6 @@ Bouncie Live
                         </button>
                       </div>
                     </div>
-
-                    <!-- Manual Entry -->
                     <div class="odometer-action-row">
                       <div class="odometer-action-info">
                         <i class="fas fa-pen text-secondary"></i>
@@ -284,8 +250,6 @@ Manual Entry
                 </div>
               </div>
             </div>
-
-            <!-- Settings Widget -->
             <div class="bento-span-5 vehicle-lower-col">
               <div class="widget" data-accent="sky">
                 <div class="widget-header">
@@ -297,7 +261,6 @@ Manual Entry
                   </div>
                 </div>
                 <div class="widget-body">
-                  <!-- Display Name -->
                   <div class="setting-field">
                     <label for="custom-name-input" class="form-label">
 Display Name
@@ -310,8 +273,6 @@ Display Name
 Shown throughout the app.
                     </div>
                   </div>
-
-                  <!-- Active Status -->
                   <div class="setting-field">
                     <div class="form-check form-switch">
                       <input class="form-check-input" type="checkbox" id="active-status-toggle" checked />
@@ -327,8 +288,6 @@ Inactive vehicles won't sync trips.
                   <button type="button" class="btn btn-primary w-100" id="save-settings-btn">
                     <i class="fas fa-check me-1"></i> Save Settings
                   </button>
-
-                  <!-- Delete (only for manually added vehicles, hidden by JS for Bouncie) -->
                   <button type="button"
                           class="btn btn-outline-danger w-100 mt-2"
                           id="delete-vehicle-btn"
@@ -337,8 +296,6 @@ Inactive vehicles won't sync trips.
                   </button>
                 </div>
               </div>
-
-              <!-- Quick Links -->
               <div class="widget is-compact" data-accent="amber">
                 <div class="widget-body">
                   <div class="d-grid gap-2">
@@ -363,6 +320,5 @@ Inactive vehicles won't sync trips.
 </div>
 
 {% endblock %}
-
 
 {# Page scripts are loaded via route-loader + swup. #}

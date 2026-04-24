@@ -1,30 +1,27 @@
 {% extends "base.html" %}
 
-{% block title %}
+{% from "partials/_map_assets.html" import static_css with context %}
 
-Memory City
+{% block title %}Memory City{% endblock %}
+
+{% block extra_css %}
+  {{ static_css("memory-city.css") }}
 {% endblock %}
-
-
-{% block head_content %}
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/memory-city.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
-{% endblock %}
-
 
 {% block content %}
   <section id="memory-city" class="memory-city-view" aria-label="Memory City">
-    <!-- Scene: sculpture renders into this canvas -->
     <div id="memory-city-stage" class="memory-city-stage" aria-hidden="true">
-      <div id="memory-city-canvas" class="memory-city-canvas"></div>
-      <div class="memory-city-stage-vignette" aria-hidden="true"></div>
+      <div id="memory-city-canvas" class="memory-city-canvas">
+      </div>
+      <div class="memory-city-stage-vignette" aria-hidden="true">
+      </div>
     </div>
-
-    <!-- Top bar: brand, area picker, actions -->
     <header class="memory-city-topbar">
       <div class="memory-city-topbar-lead">
         <span class="memory-city-eyebrow">Memory City</span>
-        <h1 id="memory-city-title" class="memory-city-title">Pick an area to see your city</h1>
+        <h1 id="memory-city-title" class="memory-city-title">
+Pick an area to see your city
+        </h1>
         <p id="memory-city-subtitle" class="memory-city-subtitle">
           A 3D monument of the streets you've driven. Undriven roads don't exist here.
         </p>
@@ -36,14 +33,14 @@ Memory City
           <select id="memory-city-area-select"
                   class="memory-city-area-select"
                   aria-label="Select coverage area">
-            <option value="" disabled selected>Loading areas…</option>
+            <option value="" disabled selected>
+Loading areas…
+            </option>
           </select>
           <i class="fas fa-chevron-down memory-city-area-chevron" aria-hidden="true"></i>
         </label>
       </div>
     </header>
-
-    <!-- Stats rail (left side): what you're looking at -->
     <aside class="memory-city-stats" aria-label="Sculpture summary">
       <div class="memory-city-stat">
         <span class="memory-city-stat-label">Driven streets</span>
@@ -62,8 +59,6 @@ Memory City
         <span class="memory-city-stat-value memory-city-stat-value--small" id="mc-stat-first">—</span>
       </div>
     </aside>
-
-    <!-- Detail card (right side): selected street -->
     <aside class="memory-city-detail"
            id="memory-city-detail"
            aria-live="polite"
@@ -73,8 +68,6 @@ Memory City
         <span>Hover a thread to inspect a street</span>
       </div>
     </aside>
-
-    <!-- Bottom dock: time scrubber + legend + camera controls -->
     <div class="memory-city-dock" role="group" aria-label="Sculpture controls">
       <div class="memory-city-dock-row memory-city-dock-row--scrubber">
         <button type="button"
@@ -104,7 +97,8 @@ Memory City
       <div class="memory-city-dock-row memory-city-dock-row--meta">
         <div class="memory-city-legend" aria-label="Legend">
           <div class="memory-city-legend-item">
-            <span class="memory-city-legend-swatch memory-city-legend-swatch--height" aria-hidden="true"></span>
+            <span class="memory-city-legend-swatch memory-city-legend-swatch--height"
+                  aria-hidden="true"></span>
             <span>Height = how long you've known it</span>
           </div>
           <div class="memory-city-legend-item">
@@ -131,14 +125,15 @@ Memory City
         </div>
       </div>
     </div>
-
-    <!-- Empty / loading state -->
     <div id="memory-city-state"
          class="memory-city-state"
          role="status"
          aria-live="polite">
-      <div class="memory-city-state-pulse" aria-hidden="true"></div>
-      <p class="memory-city-state-text">Summoning your city…</p>
+      <div class="memory-city-state-pulse" aria-hidden="true">
+      </div>
+      <p class="memory-city-state-text">
+Summoning your city…
+      </p>
     </div>
   </section>
 {% endblock %}

@@ -1,5 +1,5 @@
 /* =============================================================================
-   WOW Features — Route Art, Ambient, Replay, Share
+   Route Art, Replay
    ============================================================================= */
 
 /* === Route Art Overlay === */
@@ -90,45 +90,6 @@
   height: 100%;
 }
 
-/* === Ambient Data Background === */
-.ambient-background.data-responsive .ambient-orb {
-  transition: opacity 2s ease, transform 2s ease;
-}
-
-.ambient-background.data-responsive .ambient-orb-1 {
-  opacity: var(--ambient-intensity, 0.1);
-}
-
-.ambient-background.data-responsive .ambient-orb-2 {
-  opacity: calc(var(--ambient-intensity, 0.1) * 0.8);
-}
-
-.ambient-background.data-responsive .ambient-orb-3 {
-  opacity: calc(var(--ambient-intensity, 0.1) * 0.6);
-}
-
-/* Active driving — warmer, brighter orbs */
-.ambient-background.ambient-driving .ambient-orb-1 {
-  background: var(--accent) !important;
-  opacity: 0.18;
-}
-
-.ambient-background.ambient-driving .ambient-orb-2 {
-  background: var(--warning) !important;
-  opacity: 0.12;
-}
-
-/* Night mode orbs */
-.ambient-background.ambient-night .ambient-orb-1 {
-  background: var(--info) !important;
-  opacity: 0.06;
-}
-
-.ambient-background.ambient-night .ambient-orb-3 {
-  background: rgb(100, 80, 200) !important;
-  opacity: 0.05;
-}
-
 /* === Trip Replay Controls === */
 .replay-controls {
   position: absolute;
@@ -169,26 +130,6 @@
   border-color: var(--primary);
 }
 
-/* === Share Button === */
-.share-coverage-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  background: var(--surface-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.share-coverage-btn:hover {
-  background: var(--surface-3);
-  color: var(--text-primary);
-}
-
 /* === Responsive === */
 @media (width <= 640px) {
   .route-art-modes {
@@ -211,10 +152,6 @@
   }
 
   .route-art-overlay {
-    transition: none;
-  }
-
-  .ambient-background.data-responsive .ambient-orb {
     transition: none;
   }
 }

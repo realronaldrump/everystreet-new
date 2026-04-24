@@ -26,7 +26,6 @@ const MetricAnimator = {
     const decimals = Number.isFinite(options.decimals) ? options.decimals : 0;
     const duration = Number.isFinite(options.duration) ? options.duration : 1.8;
     const suffix = typeof options.suffix === "string" ? options.suffix : "";
-    const bloom = options.bloom !== false;
     const useGrouping = options.grouping !== false;
     const currentText = element.textContent.trim();
     const formatter = new Intl.NumberFormat(undefined, {
@@ -48,18 +47,11 @@ const MetricAnimator = {
 
     const step = (now) => {
       const elapsed = Math.min((now - startTime) / targetDuration, 1);
-      // easeOutExpo for a richer decelerating feel
       const eased = elapsed === 1 ? 1 : 1 - 2 ** (-10 * elapsed);
       const current = startValue + (numericValue - startValue) * eased;
       element.textContent = elapsed === 1 ? finalText : `${formatter.format(current)}${suffix}`;
       if (elapsed < 1) {
         requestAnimationFrame(step);
-      } else if (bloom) {
-        element.classList.remove("counter-bloom");
-        // force reflow so animation restarts
-        void element.offsetWidth;
-        element.classList.add("counter-bloom");
-        setTimeout(() => element.classList.remove("counter-bloom"), 1300);
       }
     };
 

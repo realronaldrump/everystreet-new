@@ -111,7 +111,6 @@ body.light-mode .memory-city-view {
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: rgb(var(--accent-rgb) / 90%);
-  text-shadow: 0 0 18px rgb(var(--accent-rgb) / 45%);
 }
 
 .memory-city-title {
@@ -150,7 +149,6 @@ body.light-mode .memory-city-view {
   padding: var(--space-3) var(--space-8) var(--space-3) var(--space-4);
   background: var(--glass-panel);
   backdrop-filter: blur(var(--blur-strong));
-  -webkit-backdrop-filter: blur(var(--blur-strong));
   border: 1px solid var(--glass-border-medium);
   border-radius: var(--radius-lg);
   color: var(--text-primary);
@@ -198,12 +196,11 @@ body.light-mode .memory-city-view {
   padding: var(--space-4) var(--space-5);
   background: var(--glass-panel);
   backdrop-filter: blur(var(--blur-strong));
-  -webkit-backdrop-filter: blur(var(--blur-strong));
   border: 1px solid var(--glass-border-subtle);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-glass-md);
   min-width: 200px;
-  animation: mcFadeInLeft 600ms var(--transition-cinematic) both;
+  animation: mcFadeInLeft 600ms var(--transition-normal) both;
 }
 
 .memory-city-stat {
@@ -249,12 +246,11 @@ body.light-mode .memory-city-view {
   padding: var(--space-4) var(--space-5);
   background: var(--glass-panel);
   backdrop-filter: blur(var(--blur-strong));
-  -webkit-backdrop-filter: blur(var(--blur-strong));
   border: 1px solid var(--glass-border-subtle);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-glass-md);
-  transition: var(--transition-smooth);
-  animation: mcFadeInRight 600ms var(--transition-cinematic) both;
+  transition: var(--transition-normal);
+  animation: mcFadeInRight 600ms var(--transition-normal) both;
 }
 
 .memory-city-detail.is-locked {
@@ -290,7 +286,7 @@ body.light-mode .memory-city-view {
   color: var(--text-primary);
   margin-bottom: var(--space-3);
   line-height: 1.2;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .memory-city-detail-row {
@@ -361,11 +357,10 @@ body.light-mode .memory-city-view {
   padding: var(--space-4) var(--space-5);
   background: var(--glass-panel);
   backdrop-filter: blur(var(--blur-strong));
-  -webkit-backdrop-filter: blur(var(--blur-strong));
   border: 1px solid var(--glass-border-subtle);
   border-radius: var(--radius-2xl);
   box-shadow: var(--shadow-glass-lg);
-  animation: mcFadeInUp 700ms var(--transition-cinematic) both;
+  animation: mcFadeInUp 700ms var(--transition-normal) both;
 }
 
 .memory-city-dock-row {
@@ -447,12 +442,10 @@ body.light-mode .memory-city-view {
 .memory-city-scrubber-current {
   color: rgb(var(--accent-rgb) / 95%);
   font-weight: var(--font-weight-semibold);
-  text-shadow: 0 0 8px rgb(var(--accent-rgb) / 40%);
 }
 
 .memory-city-scrubber {
   appearance: none;
-  -webkit-appearance: none;
   width: 100%;
   height: 6px;
   background: linear-gradient(
@@ -469,7 +462,6 @@ body.light-mode .memory-city-view {
 }
 
 .memory-city-scrubber::-webkit-slider-thumb {
-  -webkit-appearance: none;
   appearance: none;
   width: 18px;
   height: 18px;
@@ -598,7 +590,7 @@ body.light-mode .memory-city-view {
   text-align: center;
   padding: var(--space-6);
   pointer-events: none;
-  transition: opacity var(--transition-slow);
+  transition: opacity var(--transition-normal);
 }
 
 .memory-city-state.is-hidden {
@@ -725,8 +717,7 @@ body.light-mode .memory-city-view {
   .memory-city-detail {
     top: auto;
     bottom: calc(var(--mc-dock-height) + var(--space-3));
-    left: var(--space-3);
-    right: var(--space-3);
+    inset-inline: var(--space-3);
     width: auto;
   }
 

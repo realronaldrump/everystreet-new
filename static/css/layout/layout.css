@@ -221,51 +221,9 @@ body.light-mode .hero-section::before {
   color: var(--text-secondary);
 }
 
-/* === Status Indicators === */
-
-/* Note: Main status-indicator styles are in features/map/controls.css */
-
-/* This provides default/simple status indicators for non-map contexts */
-.status-indicator-simple {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: var(--warning);
-  transition: background-color var(--transition-fast);
-  margin-right: var(--space-2);
-  vertical-align: middle;
-}
-
-.status-indicator-simple.connected {
-  background-color: var(--success);
-}
-
-.status-indicator-simple.disconnected {
-  background-color: var(--danger);
-}
-
 /* ===========================================
    Responsive Layout Styles (Colocated from mobile.css)
    =========================================== */
-
-@media (width <= 992px) {
-  /* Steps container adjustments */
-  .steps-container::after {
-    width: calc(100% - 60px);
-    left: 30px;
-  }
-
-  .step-icon {
-    width: 35px;
-    height: 35px;
-    font-size: var(--font-size-md);
-  }
-
-  .step-label {
-    font-size: 0.7rem;
-  }
-}
 
 @media (width <= 768px) {
   /* Mobile content adjustments */
@@ -364,16 +322,4 @@ body.light-mode .hero-section::before {
     margin-bottom: 0;
   }
 
-  .steps-container {
-    flex-wrap: wrap;
-  }
-
-  .step {
-    width: 33.33%;
-    margin-bottom: var(--space-4);
-  }
-
-  .steps-container::after {
-    display: none;
-  }
 }

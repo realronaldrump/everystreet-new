@@ -2,7 +2,7 @@ import apiClient from "../../core/api-client.js";
 import { swupReady } from "../../core/navigation.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
-import { formatCompactNumber } from "../../utils/formatting.js";
+import { formatBytes, formatCompactNumber } from "../../utils/formatting.js";
 import { escapeHtml } from "../../utils.js";
 
 function hasFiniteNumericAttribute(value) {
@@ -42,21 +42,6 @@ export function initDatabaseManagement({ signal } = {}) {
   let storageSummaryLoaded = hasInitialStorageSummary;
 
   const withSignal = (options = {}) => (signal ? { ...options, signal } : options);
-
-  function formatBytes(bytes) {
-    if (!Number.isFinite(bytes) || bytes <= 0) {
-      return "0 B";
-    }
-    const units = ["B", "KB", "MB", "GB", "TB"];
-    let value = bytes;
-    let unitIndex = 0;
-    while (value >= 1024 && unitIndex < units.length - 1) {
-      value /= 1024;
-      unitIndex += 1;
-    }
-    const precision = value >= 100 || unitIndex === 0 ? 0 : value >= 10 ? 1 : 2;
-    return `${value.toFixed(precision)} ${units[unitIndex]}`;
-  }
 
   function formatTimestamp(value) {
     if (!value) {

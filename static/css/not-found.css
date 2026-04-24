@@ -54,7 +54,6 @@
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.12em;
   color: rgb(var(--section-accent-rgb) / 55%);
-  text-shadow: 0 0 18px rgb(var(--section-accent-rgb) / 20%);
 }
 
 .not-found-badge {

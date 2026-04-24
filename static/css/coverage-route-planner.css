@@ -1333,7 +1333,7 @@
   margin-bottom: var(--space-3);
   padding: var(--space-3);
   border-radius: var(--radius-md);
-  background: var(--surface-2, rgba(0, 0, 0, 0.03));
+  background: var(--surface-2, rgb(0 0 0 / 3%));
 }
 
 .coverage-route-planner .sim-coverage-current,

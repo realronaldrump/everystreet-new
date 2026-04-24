@@ -2,19 +2,14 @@
 
 /* ===== Page Layout ===== */
 .gas-tracking-page {
-  --gas-gutter: clamp(1rem, 3vw, 2rem);
-  --gas-section-gap: clamp(1.5rem, 3vw, 2.5rem);
-  --gas-card-padding: clamp(1.25rem, 2.5vw, 2rem);
-  --gas-radius: var(--radius-xl);
-
-  padding: var(--gas-gutter);
+  padding: clamp(1rem, 3vw, 2rem);
   max-width: 1400px;
   margin: 0 auto;
 }
 
 /* ===== Header Section ===== */
 .gas-header {
-  margin-bottom: var(--gas-section-gap);
+  margin-bottom: clamp(1.5rem, 3vw, 2.5rem);
 }
 
 .header-content {
@@ -113,14 +108,14 @@
 .gas-content {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--gas-section-gap);
+  gap: clamp(1.5rem, 3vw, 2.5rem);
 }
 
 /* ===== Section Cards ===== */
 .section-card {
   background: var(--surface-1);
   border: 1px solid var(--border-color);
-  border-radius: var(--gas-radius);
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
   overflow: hidden;
 }
@@ -129,7 +124,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--gas-card-padding);
+  padding: clamp(1.25rem, 2.5vw, 2rem);
   border-bottom: 1px solid var(--divider-color);
   background: var(--surface-2);
 }
@@ -165,7 +160,7 @@
 
 /* ===== Form Styles ===== */
 .gas-form {
-  padding: var(--gas-card-padding);
+  padding: clamp(1.25rem, 2.5vw, 2rem);
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
@@ -391,7 +386,7 @@
 }
 
 .toggle-icon {
-  transition: transform var(--transition-smooth);
+  transition: transform var(--transition-normal);
 }
 
 .advanced-content {
@@ -399,7 +394,7 @@
   flex-direction: column;
   gap: var(--space-5);
   padding-top: var(--space-4);
-  animation: slideInDown var(--transition-smooth);
+  animation: slideInDown var(--transition-normal);
 }
 
 /* ===== Map Container ===== */
@@ -524,23 +519,6 @@
   color: var(--text-tertiary);
 }
 
-.warning-option {
-  padding: var(--space-3);
-  background: rgb(var(--warning-rgb) / 10%);
-  border-radius: var(--radius-md);
-  border: 1px solid rgb(var(--warning-rgb) / 20%);
-}
-
-.warning-option .checkbox-label {
-  color: var(--warning);
-}
-
-.warning-option i {
-  margin-left: var(--space-2);
-  color: var(--warning);
-  cursor: help;
-}
-
 .mpg-readiness {
   padding: var(--space-4);
   border-radius: var(--radius-lg);
@@ -599,7 +577,7 @@
   background: linear-gradient(135deg, rgb(var(--success-rgb) / 15%), rgb(var(--success-rgb) / 5%));
   border: 1px solid rgb(var(--success-rgb) / 30%);
   border-radius: var(--radius-lg);
-  animation: fadeInScale var(--transition-smooth);
+  animation: fadeInScale var(--transition-normal);
 }
 
 .mpg-label {
@@ -630,7 +608,7 @@
 
 /* ===== History Section ===== */
 .history-list {
-  padding: var(--gas-card-padding);
+  padding: clamp(1.25rem, 2.5vw, 2rem);
   max-height: 600px;
   overflow-y: auto;
 }
@@ -835,8 +813,7 @@
 /* Mobile Optimizations */
 @media (width <= 767px) {
   .gas-tracking-page {
-    --gas-gutter: var(--space-4);
-    --gas-card-padding: var(--space-4);
+    padding: var(--space-4);
   }
 
   .header-title-section {

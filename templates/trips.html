@@ -1,47 +1,18 @@
 {% extends "base.html" %}
 
-{% from "partials/_map_assets.html" import include_mapbox_css with context %}
+{% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}
+{% block title %}Your Trips - Every Street{% endblock %}
 
-
- Your Trips - Every Street
+{% block extra_css %}
+  {{ include_mapbox_css() }}
+  {{ static_css("features/map/index.css") }}
+  {{ static_css("trips.css") }}
 {% endblock %}
-
-
-{%
-block extra_css %}
-
-
-<!-- Mapbox GL CSS -->
-{{ include_mapbox_css() }}
-<link rel="stylesheet"
-      href="{{ url_for('static', path='css/features/map/index.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
-<link rel="stylesheet"
-      href="{{ url_for('static', path='css/trips.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
-{% endblock %}
-
-
-{% block head_content %}
-
-
-{% endblock %}
-
 
 {% block content %}
-
-
   <div class="trips-journal-page">
-    <!-- Ambient Background -->
-    <div class="trips-ambient-bg">
-      <div class="ambient-gradient">
-      </div>
-      <div class="ambient-noise">
-      </div>
-    </div>
-
     <div class="trips-container">
-      <!-- Warm Welcome Header -->
       <header class="trips-welcome" data-stagger>
         <div class="welcome-greeting">
           <h1 class="welcome-title">
@@ -81,8 +52,6 @@ block extra_css %}
           </button>
         </div>
       </header>
-
-      <!-- Smart Search & Quick Filters -->
       <section class="trips-search-section" data-accent="mint">
         <div class="search-container">
           <div class="search-input-wrap">
@@ -163,8 +132,6 @@ Duration (low to high)
             </button>
           </div>
         </div>
-
-        <!-- Expandable Filters Panel -->
         <div class="filters-panel" id="trips-filters-panel">
           <div class="filters-header">
             <span class="filters-header-title">
@@ -222,14 +189,9 @@ All vehicles
             </div>
           </div>
         </div>
-
-        <!-- Active Filter Chips -->
         <div class="active-filters" id="active-filter-chips">
-          <!-- Dynamically populated -->
         </div>
       </section>
-
-      <!-- Insights Cards -->
       <section class="trips-insights" id="trips-insights">
         <div class="insight-card" data-insight="longest">
           <div class="insight-icon">
@@ -250,10 +212,7 @@ All vehicles
           </div>
         </div>
       </section>
-
-      <!-- Trips Timeline -->
       <section class="trips-timeline" id="trips-timeline">
-        <!-- Timeline sections will be dynamically populated -->
         <div class="timeline-section" data-section="today">
           <h2 class="timeline-header">
             <span class="timeline-title">Today</span>
@@ -307,17 +266,18 @@ All vehicles
           <p class="timeline-section-note">
           Saved in history, but excluded from totals, maps, gas, coverage, and route insights.
           </p>
-          <div class="trips-cards-container trips-cards-container-inactive" id="trips-inactive">
+          <div class="trips-cards-container trips-cards-container-inactive"
+               id="trips-inactive">
           </div>
         </div>
       </section>
-
-      <!-- Trips Table -->
       <section class="trips-list-view" id="trips-list-view" hidden>
         <div class="trips-list-toolbar">
           <div class="trips-list-heading">
             <span class="trips-list-kicker">List view</span>
-            <h2 class="trips-list-title">Trip Ledger</h2>
+            <h2 class="trips-list-title">
+Trip Ledger
+            </h2>
             <p class="trips-list-summary" id="trips-list-summary">
             Showing trip details
             </p>
@@ -331,17 +291,13 @@ All vehicles
               <i class="fas fa-columns"></i>
               <span>Columns</span>
             </button>
-            <button class="table-tool-btn"
-                    id="trip-table-columns-reset"
-                    type="button">
+            <button class="table-tool-btn" id="trip-table-columns-reset" type="button">
               <i class="fas fa-undo"></i>
               <span>Reset</span>
             </button>
           </div>
         </div>
-        <div class="trip-table-columns-panel"
-             id="trip-table-columns-panel"
-             hidden>
+        <div class="trip-table-columns-panel" id="trip-table-columns-panel" hidden>
           <div class="column-panel-copy">
             <strong>Column titles</strong>
             <span>Drag to reorder. Uncheck anything you do not need.</span>
@@ -358,8 +314,6 @@ All vehicles
           </table>
         </div>
       </section>
-
-      <!-- Loading State -->
       <div class="trips-loading" id="trips-loading">
         <div class="loading-skeleton">
           <div class="skeleton-card">
@@ -370,8 +324,6 @@ All vehicles
           </div>
         </div>
       </div>
-
-      <!-- Empty State -->
       <div class="trips-empty" id="trips-empty" style="display: none">
         <div class="empty-illustration">
           <span class="empty-icon"><i class="fas fa-car"></i></span>
@@ -394,8 +346,6 @@ No trips yet
           </a>
         </div>
       </div>
-
-      <!-- Pagination -->
       <div class="trips-pagination" id="trips-pagination">
         <div class="pagination-info">
           <span id="pagination-text">Showing 0 trips</span>
@@ -414,8 +364,6 @@ No trips yet
         </div>
       </div>
     </div>
-
-    <!-- Trip Details Modal -->
     <div class="modal fade trip-details-modal"
          id="tripDetailsModal"
          tabindex="-1"
@@ -462,15 +410,21 @@ Inactive
           </div>
           <div class="modal-body p-0">
             <div class="row g-0">
-              <!-- Map Column -->
               <div class="col-lg-8 position-relative trip-modal-map-col">
                 <div id="trip-modal-map" class="trip-modal-map">
                 </div>
                 <div class="trip-playback-controls glass">
-                  <div class="trip-layer-toggle me-3 d-flex align-items-center" style="border-right: 1px solid rgba(255,255,255,0.2); padding-right: 12px; margin-right: 12px !important;">
+                  <div class="trip-layer-toggle me-3 d-flex align-items-center"
+                       style="border-right: 1px solid rgba(255,255,255,0.2);
+                              padding-right: 12px;
+                              margin-right: 12px !important">
                     <div class="form-check form-switch mb-0">
-                      <input class="form-check-input" type="checkbox" id="trip-modal-matched-toggle" checked>
-                      <label class="form-check-label text-white ms-1 small" for="trip-modal-matched-toggle" style="white-space: nowrap;">Map Matched</label>
+                      <input class="form-check-input" type="checkbox" id="trip-modal-matched-toggle" checked />
+                      <label class="form-check-label text-white ms-1 small"
+                             for="trip-modal-matched-toggle"
+                             style="white-space: nowrap">
+Map Matched
+                      </label>
                     </div>
                   </div>
                   <button class="btn-playback" id="trip-playback-toggle" aria-pressed="false">
@@ -498,13 +452,15 @@ Speed
                   </div>
                 </div>
               </div>
-              <!-- Details Column -->
               <div class="col-lg-4 trip-modal-panel">
                 <div class="panel-content">
                   <div class="detail-section">
                     <h6 class="section-title">
 Route
-                      <button class="section-action-btn" id="modal-regeocode-subtle-btn" type="button" title="Re-geocode addresses">
+                      <button class="section-action-btn"
+                              id="modal-regeocode-subtle-btn"
+                              type="button"
+                              title="Re-geocode addresses">
                         <i class="fas fa-sync-alt"></i>
                       </button>
                     </h6>
@@ -597,8 +553,6 @@ Recurring Route
         </div>
       </div>
     </div>
-
-    <!-- Bulk Actions Bar -->
     <div class="bulk-actions-bar" id="bulk-actions-bar" style="display: none">
       <div class="bulk-info">
         <span class="bulk-count" id="bulk-count">0 selected</span>
@@ -619,7 +573,5 @@ Recurring Route
     </div>
   </div>
 {% endblock %}
-
-
 
 {# Page scripts are loaded via route-loader + swup. #}

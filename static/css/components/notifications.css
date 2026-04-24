@@ -744,7 +744,7 @@ body.light-mode .alert-info {
   color: var(--text-primary);
   margin: 0 0 var(--space-1);
   line-height: var(--line-height-normal);
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .notif-history-time {
@@ -798,8 +798,7 @@ body.light-mode .alert-info {
     position: fixed;
     top: auto;
     bottom: 0;
-    left: 0;
-    right: 0;
+    inset-inline: 0;
     width: 100%;
     max-height: 70dvh;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;

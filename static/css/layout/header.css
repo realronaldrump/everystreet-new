@@ -256,27 +256,6 @@
   gap: var(--space-2);
 }
 
-.tool-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--touch-target);
-  height: var(--touch-target);
-  border-radius: var(--radius-full);
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition:
-    background-color 120ms cubic-bezier(0.4, 0, 0.2, 1),
-    color 120ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.tool-btn:hover {
-  background-color: var(--surface-3);
-  color: var(--text-primary);
-}
-
 /* === Theme Toggle === */
 .theme-toggle {
   position: relative;

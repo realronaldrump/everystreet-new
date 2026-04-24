@@ -1,37 +1,16 @@
 {% extends "base.html" %}
 
-{% from "partials/_map_assets.html" import include_mapbox_css with context %}
+{% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}
+{% block title %}Gas Tracking{% endblock %}
 
-
- Gas Tracking
-{% endblock %}
-
-
-
-{% block
-extra_css %}
-
-
-  <!-- Mapbox GL CSS -->
+{% block extra_css %}
   {{ include_mapbox_css() }}
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/gas_tracking.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+  {{ static_css("gas_tracking.css") }}
 {% endblock %}
-
-
-{% block head_content %}
-
-
-{% endblock %}
-
 
 {% block content %}
-
-
   <div class="gas-tracking-page">
-    <!-- Page Header -->
     <header class="gas-header" data-stagger>
       <div class="header-content">
         <div class="header-title-section">
@@ -45,8 +24,6 @@ Track your fuel and see your efficiency
             </p>
           </div>
         </div>
-
-        <!-- Quick Stats Pills -->
         <div class="stats-row" id="header-stats">
           <div class="stat-pill" data-stat="fillups">
             <span class="stat-icon"><i class="fas fa-clipboard-check"></i></span>
@@ -66,10 +43,7 @@ Track your fuel and see your efficiency
         </div>
       </div>
     </header>
-
-    <!-- Main Content Grid -->
     <div class="gas-content">
-      <!-- Left Column: Fill-up Form -->
       <section class="form-section" data-accent="mint">
         <div class="section-card">
           <div class="card-header">
@@ -81,7 +55,6 @@ Track your fuel and see your efficiency
           </div>
 
           <form id="gas-fillup-form" class="gas-form">
-            <!-- Essential Info Section -->
             <div class="form-group essential">
               <label class="form-label" for="vehicle-select">
                 <i class="fas fa-car"></i> Vehicle
@@ -98,8 +71,6 @@ Choose your vehicle...
               </div>
               <small id="vehicle-status" class="form-hint">Loading your vehicles...</small>
             </div>
-
-            <!-- Date/Time with Quick Actions -->
             <div class="form-group essential">
               <label class="form-label" for="fillup-time">
                 <i class="fas fa-clock"></i> When
@@ -116,8 +87,6 @@ Choose your vehicle...
               </div>
               <input type="hidden" id="fillup-id" name="fillup_id" />
             </div>
-
-            <!-- Fuel Amount & Price (Side by side) -->
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label" for="gallons">
@@ -148,8 +117,6 @@ Choose your vehicle...
                 </div>
               </div>
             </div>
-
-            <!-- Total Cost (Calculated) -->
             <div class="form-group">
               <label class="form-label" for="total-cost">
                 <i class="fas fa-receipt"></i> Total Cost
@@ -166,8 +133,6 @@ Choose your vehicle...
                        readonly />
               </div>
             </div>
-
-            <!-- MPG Rules (Always Visible) -->
             <div class="form-group">
               <label class="form-label">
                 <i class="fas fa-gauge-high"></i> MPG Rules
@@ -204,8 +169,6 @@ MPG needs one more step
                 Add a valid odometer reading and keep this as a full tank to calculate MPG.
               </p>
             </div>
-
-            <!-- Collapsible Advanced Section -->
             <div class="advanced-section">
               <button type="button"
                       class="advanced-toggle"
@@ -216,7 +179,6 @@ MPG needs one more step
               </button>
 
               <div class="advanced-content" id="advanced-content" style="display: none">
-                <!-- Map Location -->
                 <div class="form-group">
                   <label class="form-label">
 Location
@@ -229,8 +191,6 @@ Location
                     </div>
                   </div>
                 </div>
-
-                <!-- Odometer with Options -->
                 <div class="form-group">
                   <label class="form-label" for="odometer">
                     <i class="fas fa-tachometer-alt"></i> Odometer
@@ -260,14 +220,10 @@ Location
                 </div>
               </div>
             </div>
-
-            <!-- Calculated MPG Display -->
             <div id="calculated-mpg" class="mpg-result" style="display: none">
               <span class="mpg-label">MPG this fill-up:</span>
               <span class="mpg-value" id="mpg-value">--</span>
             </div>
-
-            <!-- Submit Actions -->
             <div class="form-actions">
               <button type="submit" class="btn-primary btn-submit" id="submit-btn">
                 <span id="submit-btn-text">Save Fill-up</span>
@@ -285,8 +241,6 @@ Location
           </form>
         </div>
       </section>
-
-      <!-- Right Column: Recent History -->
       <aside class="history-section" data-accent="purple">
         <div class="section-card">
           <div class="card-header">
@@ -298,7 +252,6 @@ Location
           </div>
 
           <div class="history-list" id="fillup-list">
-            <!-- Empty State -->
             <div class="empty-state" id="empty-state">
               <div class="empty-icon">
                 <i class="fas fa-gas-pump"></i>
@@ -316,7 +269,5 @@ No fill-ups yet
     </div>
   </div>
 {% endblock %}
-
-
 
 {# Page scripts are loaded via route-loader + swup. #}

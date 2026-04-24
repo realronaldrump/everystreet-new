@@ -1,37 +1,26 @@
 {% extends "base.html" %}
 
-{% block title %}
+{% from "partials/_map_assets.html" import static_css with context %}
 
- Control Center
+{% block title %}Settings{% endblock %}
+
+{% block extra_css %}
+  {{ static_css("settings.css") }}
+  {{ static_css("server-logs.css") }}
+  {{ static_css("profile.css") }}
 {% endblock %}
-
-
-{% block extra_css
-%}
-
-
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/settings.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/server-logs.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/profile.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
-{% endblock %}
-
 
 {% block content %}
-
-
   <div class="container-fluid settings-container">
     <h1 class="visually-hidden">
-Control Center
+Settings
     </h1>
     <div class="bento-grid" data-stagger>
       <div class="bento-span-12 widget" data-accent="purple">
         <div class="widget-header">
           <h2 class="widget-title">
             <i class="fas fa-sliders-h" aria-hidden="true"></i>
-          Control Center
+          Settings
           </h2>
           <div class="widget-meta">
 Manage app settings, operations health, logs, and account tools in one place.
@@ -39,7 +28,6 @@ Manage app settings, operations health, logs, and account tools in one place.
         </div>
       </div>
     </div>
-    <!-- Tab Navigation -->
     <div class="settings-nav-container">
       <nav class="settings-tabs" role="tablist">
         <button class="settings-tab active"
@@ -118,8 +106,6 @@ Manage app settings, operations health, logs, and account tools in one place.
         </button>
       </nav>
     </div>
-
-    <!-- Overview Tab -->
     <div class="settings-tab-content active" id="overview-tab">
       <div class="bento-grid control-center-overview-grid" data-stagger>
         <div class="settings-group bento-span-12">
@@ -189,13 +175,10 @@ Loading recent task failures...
         </div>
       </div>
     </div>
-
-    <!-- Preferences Tab -->
     <div class="settings-tab-content" id="preferences-tab">
       <div class="preferences-section">
         <form id="app-settings-form">
           <div class="bento-grid" data-stagger>
-            <!-- Appearance Settings -->
             <div class="settings-group bento-span-6">
               <h3 class="settings-group-title">
                 <i class="fas fa-palette"></i>
@@ -221,8 +204,6 @@ Dark Mode
                 </div>
               </div>
             </div>
-
-            <!-- Personalization Settings -->
             <div class="settings-group bento-span-6">
               <h3 class="settings-group-title">
                 <i class="fas fa-magic"></i>
@@ -452,8 +433,6 @@ Map Match Trips on Fetch
         </form>
       </div>
     </div>
-
-    <!-- Credentials Tab -->
     <div class="settings-tab-content" id="credentials-tab">
       <div class="bento-grid" data-stagger>
         <div class="settings-group bento-span-12">
@@ -679,8 +658,6 @@ Map Match Trips on Fetch
 
       </div>
     </div>
-
-    <!-- Sync Settings Tab -->
     <div class="settings-tab-content" id="sync-settings-tab">
       <div class="bento-grid" data-stagger>
         <div class="settings-group bento-span-12">
@@ -785,7 +762,6 @@ Manual sync
           <span class="sync-advanced-hint">Optional diagnostics and scheduling</span>
         </summary>
         <div class="bento-grid" data-stagger>
-          <!-- Global Task Control -->
           <div class="settings-group bento-span-12">
             <h3 class="settings-group-title">
               <i class="fas fa-sliders-h"></i>
@@ -883,8 +859,6 @@ Pause all automated background tasks
               </button>
             </div>
           </div>
-
-          <!-- Task Configuration -->
           <div class="settings-group bento-span-12">
             <h3 class="settings-group-title">
               <i class="fas fa-tasks"></i>
@@ -920,7 +894,6 @@ Actions
                   </tr>
                 </thead>
                 <tbody>
-                  <!-- Task rows will be populated by JavaScript -->
                 </tbody>
               </table>
             </div>
@@ -928,8 +901,6 @@ Actions
               <i class="fas fa-save"></i> Save Configuration
             </button>
           </div>
-
-          <!-- Manual Trip Fetch -->
           <div class="settings-group bento-span-12" id="manual-fetch-card">
             <h3 class="settings-group-title">
               <i class="fas fa-cloud-download-alt"></i>
@@ -993,8 +964,6 @@ Actions
               </div>
             </form>
           </div>
-
-          <!-- Task History -->
           <div class="settings-group bento-span-12">
             <h3 class="settings-group-title">
               <i class="fas fa-history"></i>
@@ -1020,7 +989,7 @@ Actions
               <div id="mobile-history-page-info" class="small text-muted">
               </div>
               <button class="btn btn-outline-secondary btn-sm" id="mobile-history-next" type="button">
-                                                                                                                                                                                                                                                            Next <i class="fas fa-chevron-right"></i>
+                                                                                                                                                                                                                                                                          Next <i class="fas fa-chevron-right"></i>
             </button>
           </div>
           <div class="table-responsive d-none d-md-block">
@@ -1048,11 +1017,9 @@ Details
                 </tr>
               </thead>
               <tbody>
-                <!-- Task history will be populated by JavaScript -->
               </tbody>
             </table>
             <div id="taskHistoryPagination" class="mt-3">
-              <!-- Pagination controls will be added by JavaScript -->
             </div>
           </div>
         </div>
@@ -1067,8 +1034,6 @@ Details
       </div>
     </details>
   </div>
-
-  <!-- Data Management Tab -->
   <div class="settings-tab-content" id="data-management-tab">
     <div class="bento-grid" data-stagger>
       <div class="settings-group bento-span-12 trip-data-health-card">
@@ -1233,7 +1198,6 @@ Details
                   </tr>
                 </thead>
                 <tbody>
-                  <!-- Populated by JS -->
                 </tbody>
               </table>
             </div>
@@ -1296,7 +1260,6 @@ Details
                   </tr>
                 </thead>
                 <tbody>
-                  <!-- Populated by JS -->
                 </tbody>
               </table>
             </div>
@@ -1305,8 +1268,6 @@ Details
           </div>
         </div>
       </div>
-
-      <!-- Re-geocode Trips Section -->
       <div class="settings-group bento-span-6">
         <h3 class="settings-group-title">
           <i class="fas fa-map-marker-alt"></i>
@@ -1512,8 +1473,6 @@ Last 2 Years
                  aria-atomic="true">
             </div>
           </div>
-
-          <!-- Progress Panel -->
           <div id="geocode-progress-panel" class="mt-3" style="display: none">
             <div class="card bg-secondary">
               <div class="card-body">
@@ -1540,8 +1499,6 @@ Geocoding Progress
           </div>
         </div>
       </div>
-
-      <!-- Map Matching Shortcut -->
       <div class="settings-group bento-span-6">
         <h3 class="settings-group-title">
           <i class="fas fa-route"></i>
@@ -1555,8 +1512,6 @@ Geocoding Progress
           <i class="fas fa-layer-group"></i> Open Map Matching
         </a>
       </div>
-
-      <!-- Rebuild Display Paths -->
       <div class="settings-group bento-span-6">
         <h3 class="settings-group-title">
           <i class="fas fa-bezier-curve"></i>
@@ -1572,7 +1527,9 @@ Geocoding Progress
             <i class="fas fa-sync-alt"></i> Rebuild Display Paths
           </button>
         </div>
-        <div id="rebuild-display-paths-progress" class="rebuild-paths-progress mt-3" style="display: none">
+        <div id="rebuild-display-paths-progress"
+             class="rebuild-paths-progress mt-3"
+             style="display: none">
           <div class="rebuild-paths-status-row">
             <span id="rebuild-paths-status-icon" class="rebuild-paths-spinner">
               <i class="fas fa-circle-notch fa-spin"></i>
@@ -1589,14 +1546,14 @@ Geocoding Progress
                  aria-valuemax="100">
             </div>
           </div>
-          <div id="rebuild-paths-metrics-live" class="rebuild-paths-metrics-live mt-2" style="display: none">
+          <div id="rebuild-paths-metrics-live"
+               class="rebuild-paths-metrics-live mt-2"
+               style="display: none">
           </div>
         </div>
       </div>
     </div>
   </div>
-
-  <!-- Storage Tab -->
   <div class="settings-tab-content" id="storage-tab">
     <div class="bento-grid" data-stagger>
       {% if storage_error %}
@@ -1607,8 +1564,6 @@ Geocoding Progress
           </div>
         </div>
       {% endif %}
-
-      <!-- Storage Overview Header -->
       <div class="settings-group bento-span-12">
         <div class="storage-overview-header">
           <div class="storage-overview-icon">
@@ -1631,8 +1586,6 @@ Monitor your application's storage usage and database collections.
           </div>
         </div>
       </div>
-
-      <!-- Storage Metrics Cards -->
       <div class="settings-group bento-span-4">
         <div class="storage-metric-card storage-metric-primary">
           <div class="storage-metric-icon">
@@ -1696,8 +1649,6 @@ Monitor your application's storage usage and database collections.
           </div>
         </div>
       </div>
-
-      <!-- Storage Sources Section -->
       <div class="settings-group bento-span-12">
         <div class="storage-section-header">
           <h3 class="settings-group-title">
@@ -1800,8 +1751,6 @@ No storage sources available.
           {% endif %}
         </div>
       </div>
-
-      <!-- Collections Section -->
       <div class="settings-group bento-span-12">
         <div class="storage-section-header">
           <h3 class="settings-group-title">
@@ -1891,8 +1840,6 @@ No collections available.
       </div>
     </div>
   </div>
-
-  <!-- Map Services Tab -->
   <div class="settings-tab-content" id="map-services-tab">
     <div class="bento-grid" data-stagger>
       <div class="settings-group bento-span-12">
@@ -1904,8 +1851,6 @@ No collections available.
           Map services are configured automatically based on your trip locations.
           Address lookup and route planning work seamlessly once configured.
         </p>
-
-        <!-- Dynamic content rendered by JavaScript -->
         <div id="map-services-content">
           <div class="map-services-loading">
             <i class="fas fa-spinner fa-spin"></i>
@@ -1915,8 +1860,6 @@ No collections available.
       </div>
     </div>
   </div>
-
-  <!-- Logs Tab -->
   <div class="settings-tab-content" id="logs-tab">
     <div class="server-logs-page py-3">
       <div class="bento-grid mb-4" data-stagger>
@@ -2433,8 +2376,6 @@ Select one or more containers from the list above to view logs.
       </div>
     </div>
   </div>
-
-  <!-- Account Tab -->
   <div class="settings-tab-content" id="account-tab">
     <div class="bento-grid" data-stagger>
       <div class="settings-group bento-span-12">
@@ -2539,8 +2480,6 @@ Select one or more containers from the list above to view logs.
       </div>
     </div>
   </div>
-
-  <!-- Task Details Modal -->
   <div class="modal fade" id="taskDetailsModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
       <div class="modal-content bg-dark text-white">
@@ -2566,8 +2505,6 @@ Task Details
       </div>
     </div>
   </div>
-
-  <!-- Pause Tasks Modal -->
   <div class="modal fade" id="pauseModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content bg-dark text-white">
@@ -2601,8 +2538,6 @@ Pause Tasks
       </div>
     </div>
   </div>
-
-  <!-- Clear History Confirmation Modal -->
   <div class="modal fade" id="clearHistoryModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content bg-dark text-white">
@@ -2630,8 +2565,6 @@ Clear Task History
       </div>
     </div>
   </div>
-
-  <!-- Task Status Template (hidden) -->
   <template id="task-status-template">
     <div class="task-status d-flex align-items-center">
       <div class="spinner-border spinner-border-sm me-2" role="status">
@@ -2646,8 +2579,6 @@ Clear Task History
       </div>
     </div>
   </template>
-
-  <!-- Trip History Import Wizard (Bouncie Backfill) -->
   <div class="modal fade"
        id="tripHistoryImportWizardModal"
        tabindex="-1"
@@ -2669,7 +2600,6 @@ Clear Task History
         </div>
 
         <div class="modal-body">
-          <!-- Step Indicator -->
           <nav class="trip-import-steps" aria-label="Import steps">
             <div class="trip-import-step-indicator is-active" data-step="config">
               <span class="trip-import-step-dot">1</span>
@@ -2688,8 +2618,6 @@ Clear Task History
               <span class="trip-import-step-label">Summary</span>
             </div>
           </nav>
-
-          <!-- Step: Configure -->
           <section class="trip-import-step is-active" data-step="config">
             <div class="row g-4">
               <div class="col-12 col-lg-5">
@@ -2803,8 +2731,6 @@ Concurrency
               </div>
             </div>
           </section>
-
-          <!-- Step: Import -->
           <section class="trip-import-step" data-step="import">
             <div class="trip-import-progress-header">
               <div class="trip-import-progress-title">
@@ -2831,11 +2757,7 @@ Concurrency
 	              0%
               </div>
             </div>
-
-            <!-- Pipeline counters grouped by stage -->
             <div class="trip-import-pipeline" aria-label="Import pipeline counters">
-
-              <!-- 1. Fetch -->
               <div class="trip-import-pipeline-card">
                 <div class="trip-import-pipeline-card-title">
                   <i class="fas fa-cloud-download-alt"></i> Fetch
@@ -2849,8 +2771,6 @@ Concurrency
                   <span class="trip-import-pipeline-v" id="trip-import-count-fetch-errors">0</span>
                 </div>
               </div>
-
-              <!-- 2. Filter -->
               <div class="trip-import-pipeline-card">
                 <div class="trip-import-pipeline-card-title">
                   <i class="fas fa-filter"></i> Filter
@@ -2865,8 +2785,6 @@ Concurrency
                         id="trip-import-count-skipped-conflicting-source">0</span>
                 </div>
               </div>
-
-              <!-- 3. Compare -->
               <div class="trip-import-pipeline-card">
                 <div class="trip-import-pipeline-card-title">
                   <i class="fas fa-database"></i> Compare
@@ -2880,8 +2798,6 @@ Concurrency
                   <span class="trip-import-pipeline-v" id="trip-import-count-updated">0</span>
                 </div>
               </div>
-
-              <!-- 4. Save -->
               <div class="trip-import-pipeline-card">
                 <div class="trip-import-pipeline-card-title">
                   <i class="fas fa-check-circle"></i> Save
@@ -2963,8 +2879,6 @@ Errors
                  role="alert">
             </div>
           </section>
-
-          <!-- Step: Summary -->
           <section class="trip-import-step" data-step="summary">
             <div class="trip-import-card">
               <h6 class="trip-import-card-title" id="trip-import-summary-title">
@@ -3047,6 +2961,5 @@ Processing errors
 </div>
 
 {% endblock %}
-
 
 {# Page scripts are loaded via route-loader + swup. #}
