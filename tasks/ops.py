@@ -8,6 +8,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from db.models import TaskHistory
 from tasks.arq import get_arq_pool
 from tasks.config import (
     check_dependencies,
@@ -41,6 +42,7 @@ _TRIP_SYNC_LOCK_TTL_SECONDS_BY_TASK_ID: dict[str, int] = {
     "fetch_all_missing_trips": 26 * 60 * 60,
     "fetch_trip_by_transaction_id": 20 * 60,
 }
+_TRIP_SYNC_TERMINAL_STATUSES = {"COMPLETED", "FAILED", "CANCELLED", "CANCELED"}
 _TRIP_SYNC_LOCK_RELEASE_SCRIPT = """
 if redis.call('get', KEYS[1]) == ARGV[1] then
   return redis.call('del', KEYS[1])
@@ -63,6 +65,65 @@ def _decode_redis_value(value: Any) -> str:
         except Exception:
             return "<bytes>"
     return str(value)
+
+
+def _parse_trip_sync_lock_token(lock_token: str) -> tuple[str, str] | None:
+    task_id, separator, remainder = lock_token.partition(":")
+    if not separator or task_id not in _TRIP_SYNC_MUTEX_TASK_IDS:
+        return None
+
+    job_id, separator, nonce = remainder.rpartition(":")
+    if not separator or not job_id or not nonce:
+        return None
+    return task_id, job_id
+
+
+async def _is_abandoned_trip_sync_lock_holder(lock_holder: str) -> bool:
+    parsed = _parse_trip_sync_lock_token(lock_holder)
+    if parsed is None:
+        return False
+
+    holder_task_id, holder_job_id = parsed
+    try:
+        history = await TaskHistory.get(holder_job_id)
+    except Exception:
+        logger.exception(
+            "Failed to inspect trip-ingest mutex holder history for %s",
+            holder_job_id,
+        )
+        return False
+
+    if history is None:
+        return False
+
+    history_task_id = getattr(history, "task_id", None)
+    if history_task_id and history_task_id != holder_task_id:
+        return False
+
+    status = str(getattr(history, "status", "") or "").upper()
+    return status in _TRIP_SYNC_TERMINAL_STATUSES
+
+
+async def _release_abandoned_trip_sync_lock(
+    redis: ArqRedis,
+    lock_holder: str,
+) -> bool:
+    if not await _is_abandoned_trip_sync_lock_holder(lock_holder):
+        return False
+
+    released = await redis.eval(
+        _TRIP_SYNC_LOCK_RELEASE_SCRIPT,
+        1,
+        _TRIP_SYNC_LOCK_KEY,
+        lock_holder,
+    )
+    if released:
+        logger.warning(
+            "Recovered abandoned trip-ingest mutex held by terminal job %s",
+            lock_holder,
+        )
+        return True
+    return False
 
 
 async def _acquire_trip_sync_lock(
@@ -108,6 +169,32 @@ async def _acquire_trip_sync_lock(
     holder = (
         _decode_redis_value(current_holder) if current_holder is not None else "unknown"
     )
+
+    if current_holder is not None:
+        try:
+            released = await _release_abandoned_trip_sync_lock(redis, holder)
+            if released:
+                acquired = await redis.set(
+                    _TRIP_SYNC_LOCK_KEY,
+                    lock_token,
+                    ex=lock_ttl,
+                    nx=True,
+                )
+                if acquired:
+                    return (_TRIP_SYNC_LOCK_KEY, lock_token), None
+
+                current_holder = await redis.get(_TRIP_SYNC_LOCK_KEY)
+                holder = (
+                    _decode_redis_value(current_holder)
+                    if current_holder is not None
+                    else "unknown"
+                )
+        except Exception:
+            logger.exception(
+                "Failed while recovering abandoned trip-ingest mutex for task %s",
+                task_id,
+            )
+
     return None, holder
 
 
