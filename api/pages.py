@@ -1,7 +1,7 @@
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Form, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from core.auth import validate_form_csrf_token
 from core.jinja import templates
@@ -32,6 +32,12 @@ async def _render_page(
 async def home(request: Request):
     """Root route renders the map — the landing dashboard is retired."""
     return await _render_page("index.html", request)
+
+
+@router.head("/", include_in_schema=False)
+async def home_head() -> Response:
+    """Fast uptime probe for the public root without rendering templates."""
+    return Response(status_code=status.HTTP_200_OK)
 
 
 @router.get("/map", response_class=HTMLResponse)

@@ -67,7 +67,7 @@ services:
   cloudflared:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TUNNEL_TOKEN:-}
     depends_on:
       web:
         condition: service_healthy
@@ -226,6 +226,9 @@ services:
   watchtower:
     image: containrrr/watchtower:latest
     restart: unless-stopped
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     environment:
       - DOCKER_API_VERSION=1.44
       - WATCHTOWER_HTTP_API_PERIODIC_POLLS=true
