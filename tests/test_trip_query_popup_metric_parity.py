@@ -93,7 +93,7 @@ def test_trip_popup_metrics_match_for_regular_and_matched_layers() -> None:
         ),
         patch(
             "trips.api.query.TripCostService.calculate_trip_cost",
-            return_value=0.0,
+            return_value=4.56,
         ),
     ):
         client = TestClient(app)
@@ -109,6 +109,8 @@ def test_trip_popup_metrics_match_for_regular_and_matched_layers() -> None:
     for key in ("startTime", "endTime", "distance", "duration", "avgSpeed", "maxSpeed"):
         assert matched_props[key] == regular_props[key]
 
+    assert regular_props["estimated_cost"] == 4.56
+    assert matched_props["estimated_cost"] == 4.56
     assert regular_props["startTimeZone"] == "America/Chicago"
     assert regular_props["endTimeZone"] == "America/Chicago"
     assert regular_props["timeZone"] == "America/Chicago"

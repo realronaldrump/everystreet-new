@@ -111,6 +111,20 @@ const tripInteractions = {
     };
     const formatDurationValue = (value) =>
       value == null ? "N/A" : utils.formatDuration(value);
+    const normalizeCurrencyAmount = (value) => {
+      if (value == null || value === "") {
+        return null;
+      }
+      const numeric = Number(value);
+      return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+    };
+    const formatCurrency = (value) =>
+      new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(value);
     const formatTime = (value) =>
       formatValue(
         value,
@@ -139,6 +153,15 @@ const tripInteractions = {
       }
     }
 
+    const gasPrice = normalizeCurrencyAmount(props.estimated_cost);
+    const gasPriceRow =
+      gasPrice == null
+        ? ""
+        : `
+            <span class="trip-popup-label">Gas Price</span>
+            <span class="trip-popup-value">${formatCurrency(gasPrice)}</span>
+          `;
+
     return `
         <div class="trip-popup-content">
           <div class="trip-popup-header">Trip Details</div>
@@ -155,6 +178,7 @@ const tripInteractions = {
             <span class="trip-popup-value">${formatMetric(props.avgSpeed)} mph</span>
             <span class="trip-popup-label">Max Speed</span>
             <span class="trip-popup-value">${formatMetric(props.maxSpeed)} mph</span>
+            ${gasPriceRow}
           </div>
           ${this.createActionButtons(feature)}
         </div>
