@@ -2,10 +2,9 @@ from datetime import UTC, datetime
 from types import MethodType
 
 import pytest
-from beanie import init_beanie
+from db_helpers import init_mock_beanie
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from mongomock_motor import AsyncMongoMockClient
 
 from db.models import Place, Trip
 from visits.api import places as places_api
@@ -13,13 +12,7 @@ from visits.api import places as places_api
 
 @pytest.fixture
 async def destination_bloom_places_db():
-    client = AsyncMongoMockClient()
-    database = client["test_db"]
-    await init_beanie(
-        database=database,  # type: ignore[arg-type]
-        document_models=[Trip, Place],
-    )
-    return database
+    return await init_mock_beanie(Trip, Place)
 
 
 def _build_app() -> FastAPI:

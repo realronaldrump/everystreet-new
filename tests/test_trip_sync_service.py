@@ -1,9 +1,9 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from beanie import PydanticObjectId, init_beanie
+from beanie import PydanticObjectId
+from db_helpers import init_mock_beanie
 from fastapi import HTTPException
-from mongomock_motor import AsyncMongoMockClient
 
 from db.models import BouncieCredentials, Job, TaskConfig, TaskHistory, Trip, Vehicle
 from trips.models import TripSyncRequest
@@ -13,31 +13,19 @@ from trips.services.trip_sync_service import TripSyncService
 
 @pytest.fixture
 async def beanie_db_with_tasks():
-    client = AsyncMongoMockClient()
-    database = client["test_db"]
-    await init_beanie(
-        database=database,  # type: ignore[arg-type]
-        document_models=[Trip, TaskConfig, TaskHistory, BouncieCredentials],
-    )
-    return database
+    return await init_mock_beanie(Trip, TaskConfig, TaskHistory, BouncieCredentials)
 
 
 @pytest.fixture
 async def beanie_db_with_history_import():
-    client = AsyncMongoMockClient()
-    database = client["test_db"]
-    await init_beanie(
-        database=database,  # type: ignore[arg-type]
-        document_models=[
-            Trip,
-            TaskConfig,
-            TaskHistory,
-            BouncieCredentials,
-            Job,
-            Vehicle,
-        ],
+    return await init_mock_beanie(
+        Trip,
+        TaskConfig,
+        TaskHistory,
+        BouncieCredentials,
+        Job,
+        Vehicle,
     )
-    return database
 
 
 async def seed_credentials() -> None:

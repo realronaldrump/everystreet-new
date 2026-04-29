@@ -1,8 +1,7 @@
 from datetime import UTC, datetime
 
 import pytest
-from beanie import init_beanie
-from mongomock_motor import AsyncMongoMockClient
+from db_helpers import init_mock_beanie
 
 from db.models import CoverageArea, CoverageState, Street
 from street_coverage.api.memory_city import get_memory_city
@@ -10,13 +9,7 @@ from street_coverage.api.memory_city import get_memory_city
 
 @pytest.fixture
 async def memory_city_db():
-    client = AsyncMongoMockClient()
-    db = client["test_db"]
-    await init_beanie(
-        database=db,
-        document_models=[CoverageArea, CoverageState, Street],
-    )
-    return db
+    return await init_mock_beanie(CoverageArea, CoverageState, Street)
 
 
 @pytest.mark.asyncio

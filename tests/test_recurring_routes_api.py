@@ -1,10 +1,9 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from beanie import init_beanie
+from db_helpers import init_mock_beanie
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from mongomock_motor import AsyncMongoMockClient
 
 from db.models import GasFillup, Job, Place, RecurringRoute, Trip, Vehicle
 from recurring_routes.api import routes as recurring_routes_api
@@ -14,13 +13,7 @@ from recurring_routes.services.builder import RecurringRoutesBuilder
 
 @pytest.fixture
 async def routes_api_db():
-    client = AsyncMongoMockClient()
-    database = client["test_db"]
-    await init_beanie(
-        database=database,  # type: ignore[arg-type]
-        document_models=[Trip, RecurringRoute, Job, GasFillup, Vehicle, Place],
-    )
-    return database
+    return await init_mock_beanie(Trip, RecurringRoute, Job, GasFillup, Vehicle, Place)
 
 
 def _build_app() -> FastAPI:

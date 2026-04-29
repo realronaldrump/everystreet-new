@@ -1,8 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from beanie import init_beanie
-from mongomock_motor import AsyncMongoMockClient
+from db_helpers import init_mock_beanie
 
 from db.models import GasFillup, Job, RecurringRoute, Trip, Vehicle
 from recurring_routes.models import BuildRecurringRoutesRequest
@@ -13,13 +12,7 @@ _DEFAULT_GPS = object()
 
 @pytest.fixture
 async def routes_beanie_db():
-    client = AsyncMongoMockClient()
-    database = client["test_db"]
-    await init_beanie(
-        database=database,  # type: ignore[arg-type]
-        document_models=[Trip, RecurringRoute, Job, GasFillup, Vehicle],
-    )
-    return database
+    return await init_mock_beanie(Trip, RecurringRoute, Job, GasFillup, Vehicle)
 
 
 def _gps_linestring(coords: list[list[float]]) -> dict:

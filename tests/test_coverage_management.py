@@ -5,8 +5,8 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from beanie import PydanticObjectId, init_beanie
-from mongomock_motor import AsyncMongoMockClient
+from beanie import PydanticObjectId
+from db_helpers import init_mock_beanie
 
 from core.coverage import (
     backfill_coverage_for_area,
@@ -21,13 +21,7 @@ from street_coverage import ingestion as coverage_ingestion
 
 @pytest.fixture
 async def coverage_db():
-    client = AsyncMongoMockClient()
-    db = client["test_db"]
-    await init_beanie(
-        database=db,
-        document_models=[CoverageArea, CoverageState, Job, Street, Trip],
-    )
-    return db
+    return await init_mock_beanie(CoverageArea, CoverageState, Job, Street, Trip)
 
 
 @pytest.mark.asyncio

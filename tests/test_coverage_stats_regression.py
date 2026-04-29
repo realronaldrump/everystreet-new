@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from beanie import init_beanie
-from mongomock_motor import AsyncMongoMockClient
+from db_helpers import init_mock_beanie
 
 from db.models import CoverageArea
 from street_coverage.stats import apply_area_stats_delta
@@ -10,13 +9,7 @@ from street_coverage.stats import apply_area_stats_delta
 
 @pytest.fixture
 async def coverage_stats_db():
-    client = AsyncMongoMockClient()
-    db = client["test_db"]
-    await init_beanie(
-        database=db,
-        document_models=[CoverageArea],
-    )
-    return db
+    return await init_mock_beanie(CoverageArea)
 
 
 @pytest.mark.asyncio

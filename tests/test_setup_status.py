@@ -1,6 +1,5 @@
 import pytest
-from beanie import init_beanie
-from mongomock_motor import AsyncMongoMockClient
+from db_helpers import init_mock_beanie
 
 from db.models import AppSettings, BouncieCredentials
 from map_data.models import MapServiceConfig
@@ -9,12 +8,7 @@ from setup.services import setup_service
 
 @pytest.fixture
 async def setup_db():
-    client = AsyncMongoMockClient()
-    await init_beanie(
-        database=client["test_db"],
-        document_models=[AppSettings, BouncieCredentials, MapServiceConfig],
-    )
-    return client
+    return await init_mock_beanie(AppSettings, BouncieCredentials, MapServiceConfig)
 
 
 @pytest.fixture(autouse=True)

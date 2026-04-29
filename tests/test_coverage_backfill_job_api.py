@@ -2,8 +2,7 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from beanie import init_beanie
-from mongomock_motor import AsyncMongoMockClient
+from db_helpers import init_mock_beanie
 
 from db.models import CoverageArea, CoverageState, Job, Street, Trip
 from street_coverage.api.areas import trigger_backfill
@@ -11,13 +10,7 @@ from street_coverage.api.areas import trigger_backfill
 
 @pytest.fixture
 async def coverage_db():
-    client = AsyncMongoMockClient()
-    db = client["test_db"]
-    await init_beanie(
-        database=db,
-        document_models=[CoverageArea, CoverageState, Job, Street, Trip],
-    )
-    return db
+    return await init_mock_beanie(CoverageArea, CoverageState, Job, Street, Trip)
 
 
 @pytest.mark.asyncio

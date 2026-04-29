@@ -1,8 +1,7 @@
 import pytest
-from beanie import init_beanie
+from db_helpers import init_mock_beanie
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from mongomock_motor import AsyncMongoMockClient
 
 from db.models import BouncieCredentials, Vehicle
 from gas.api import vehicles as vehicles_api
@@ -10,12 +9,7 @@ from gas.api import vehicles as vehicles_api
 
 @pytest.fixture
 async def vehicle_db():
-    client = AsyncMongoMockClient()
-    await init_beanie(
-        database=client["test_db"],
-        document_models=[Vehicle, BouncieCredentials],
-    )
-    return client
+    return await init_mock_beanie(Vehicle, BouncieCredentials)
 
 
 def _build_app() -> FastAPI:

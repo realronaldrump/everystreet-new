@@ -6,8 +6,7 @@ from unittest.mock import AsyncMock
 
 import h3
 import pytest
-from beanie import init_beanie
-from mongomock_motor import AsyncMongoMockClient
+from db_helpers import init_mock_beanie
 
 from analytics.services.mobility_insights_service import MobilityInsightsService
 from db.models import H3StreetLabelCache, Trip, TripMobilityProfile
@@ -15,13 +14,12 @@ from db.models import H3StreetLabelCache, Trip, TripMobilityProfile
 
 @pytest.fixture
 async def mobility_db():
-    client = AsyncMongoMockClient()
-    database = client["test_mobility_db"]
-    await init_beanie(
-        database=database,
-        document_models=[Trip, TripMobilityProfile, H3StreetLabelCache],
+    return await init_mock_beanie(
+        Trip,
+        TripMobilityProfile,
+        H3StreetLabelCache,
+        database_name="test_mobility_db",
     )
-    return database
 
 
 async def _seed_trip_with_profile(

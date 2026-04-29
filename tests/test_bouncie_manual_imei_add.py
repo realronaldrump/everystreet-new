@@ -3,8 +3,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from beanie import init_beanie
-from mongomock_motor import AsyncMongoMockClient
+from db_helpers import init_mock_beanie
 
 from db.models import BouncieCredentials, Vehicle
 from user_profile.api import BouncieVehicleCreate, add_bouncie_vehicle
@@ -12,12 +11,7 @@ from user_profile.api import BouncieVehicleCreate, add_bouncie_vehicle
 
 @pytest.fixture
 async def profile_db():
-    client = AsyncMongoMockClient()
-    await init_beanie(
-        database=client["test_db"],
-        document_models=[Vehicle, BouncieCredentials],
-    )
-    return client
+    return await init_mock_beanie(Vehicle, BouncieCredentials)
 
 
 @pytest.mark.asyncio

@@ -3,9 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from beanie import init_beanie
+from db_helpers import init_mock_beanie
 from fastapi import BackgroundTasks
-from mongomock_motor import AsyncMongoMockClient
 
 from core.date_utils import parse_timestamp
 from db.models import AppSettings, ServerLog
@@ -14,10 +13,7 @@ from logs.api import clear_server_logs, get_logs_stats, get_server_logs
 
 @pytest.fixture
 async def logs_beanie_db():
-    client = AsyncMongoMockClient()
-    database = client["test_db"]
-    await init_beanie(database=database, document_models=[AppSettings, ServerLog])
-    return database
+    return await init_mock_beanie(AppSettings, ServerLog)
 
 
 @pytest.mark.asyncio

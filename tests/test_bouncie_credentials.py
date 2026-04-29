@@ -1,6 +1,5 @@
 import pytest
-from beanie import init_beanie
-from mongomock_motor import AsyncMongoMockClient
+from db_helpers import init_mock_beanie
 
 from db.models import BouncieCredentials
 from setup.services.bouncie_credentials import (
@@ -12,9 +11,7 @@ from setup.services.bouncie_credentials import (
 
 @pytest.fixture
 async def bouncie_db():
-    client = AsyncMongoMockClient()
-    await init_beanie(database=client["test_db"], document_models=[BouncieCredentials])
-    return client
+    return await init_mock_beanie(BouncieCredentials)
 
 
 @pytest.mark.asyncio
