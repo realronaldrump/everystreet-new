@@ -35,6 +35,7 @@ from trips.services.trip_map_geometry import (
     materialized_path_is_current,
     merge_bboxes,
 )
+from trips.services.trip_cost_service import TripCostService
 
 router = APIRouter(prefix="/api/map", tags=["map-bundles"])
 
@@ -56,6 +57,7 @@ class TripMapFeature(BaseModel):
     duration_seconds: float | None = None
     avg_speed: float | None = None
     max_speed: float | None = None
+    estimated_cost: float | None = None
     coverage_distance_miles: float | None = None
     geometry_source: str
     bbox: list[float]
@@ -558,6 +560,7 @@ async def get_trip_map_bundle(
         "coverage_area_id": coverage_clip.area_id or "",
         "clip_to_coverage": coverage_clip.enabled,
         "path_version": TRIP_MAP_PATH_VERSION,
+        "cost_version": 1,
     }
     revision = hashlib.sha1(  # nosec B324
         json.dumps(revision_source, sort_keys=True).encode("utf-8"),
@@ -598,6 +601,7 @@ async def get_trip_map_bundle(
         "duration": 1,
         "avgSpeed": 1,
         "maxSpeed": 1,
+        "fuelConsumed": 1,
         "startLocation": 1,
         "destination": 1,
         path_field: 1,
@@ -611,6 +615,7 @@ async def get_trip_map_bundle(
         .sort("endTime", -1)
     )
 
+    price_map = await TripCostService.get_fillup_price_map()
     features: list[dict[str, Any]] = []
     feature_bboxes: list[list[float]] = []
 
@@ -651,6 +656,10 @@ async def get_trip_map_bundle(
                 float(trip_doc["maxSpeed"])
                 if trip_doc.get("maxSpeed") is not None
                 else None
+            ),
+            "estimated_cost": TripCostService.calculate_trip_cost(
+                trip_doc,
+                price_map,
             ),
             "coverage_distance_miles": coverage_distance_miles,
             "geometry_source": path_metadata["geometry_source"],

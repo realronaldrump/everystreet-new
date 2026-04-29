@@ -94,6 +94,7 @@ function toTripProperties(trip, layerName) {
     duration: trip?.duration_seconds ?? null,
     avgSpeed: trip?.avg_speed ?? null,
     maxSpeed: trip?.max_speed ?? null,
+    estimated_cost: trip?.estimated_cost ?? null,
     coverageDistance: trip?.coverage_distance_miles ?? null,
     pointsRecorded: trip?.point_count ?? 0,
     startLocation: trip?.start_location ?? null,

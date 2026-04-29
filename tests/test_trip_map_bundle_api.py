@@ -114,6 +114,7 @@ def _trip(
         "duration": 3600,
         "avgSpeed": 42.0,
         "maxSpeed": 75.0,
+        "fuelConsumed": 1.5,
         "displayGps": display_geom,
         "matchedGps": matched_geom,
         "displayMapPath": build_encoded_path_metadata(
@@ -136,6 +137,14 @@ def _client_for(collection: _FakeTripCollection):
         patch("api.map_bundle.get_trip_map_revision", new=AsyncMock(return_value="7")),
         patch("api.map_bundle._get_cached_body", new=AsyncMock(return_value=None)),
         patch("api.map_bundle._set_cached_body", new=AsyncMock()),
+        patch(
+            "api.map_bundle.TripCostService.get_fillup_price_map",
+            new=AsyncMock(return_value={}),
+        ),
+        patch(
+            "api.map_bundle.TripCostService.calculate_trip_cost",
+            return_value=5.25,
+        ),
     ):
         yield TestClient(app)
 
@@ -161,7 +170,8 @@ def test_trip_map_bundle_uses_display_and_matched_materialized_paths() -> None:
     assert display_trip["point_count"] == 2
     assert matched_trip["point_count"] == 3
     assert "geom" not in display_trip
-    assert "estimated_cost" not in display_trip
+    assert display_trip["estimated_cost"] == 5.25
+    assert matched_trip["estimated_cost"] == 5.25
     assert display.headers["etag"] != matched.headers["etag"]
 
 
@@ -221,6 +231,14 @@ def test_trip_map_bundle_clips_to_coverage_area_with_full_detail_path() -> None:
         patch("api.map_bundle.get_trip_map_revision", new=AsyncMock(return_value="7")),
         patch("api.map_bundle._get_cached_body", new=AsyncMock(return_value=None)),
         patch("api.map_bundle._set_cached_body", new=AsyncMock()),
+        patch(
+            "api.map_bundle.TripCostService.get_fillup_price_map",
+            new=AsyncMock(return_value={}),
+        ),
+        patch(
+            "api.map_bundle.TripCostService.calculate_trip_cost",
+            return_value=None,
+        ),
     ):
         client = TestClient(app)
         response = client.get(
