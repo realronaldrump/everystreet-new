@@ -22,7 +22,7 @@ async def aggregate_to_list(
     Handles Motor (cursor returned directly) and PyMongo async (cursor
     returned via await) collections.
     """
-    collection = model.get_motor_collection()
+    collection = model.get_pymongo_collection()
     cursor = collection.aggregate(pipeline, **kwargs)
     if inspect.isawaitable(cursor):
         cursor = await cursor

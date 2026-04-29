@@ -94,9 +94,11 @@ def _extract_linestring(geometry: dict[str, Any] | None) -> list[list[float]]:
         for part in coords:
             if not isinstance(part, list):
                 continue
-            for pt in part:
-                if isinstance(pt, (list, tuple)) and len(pt) >= 2:
-                    flat.append([float(pt[0]), float(pt[1])])
+            flat.extend(
+                [float(pt[0]), float(pt[1])]
+                for pt in part
+                if isinstance(pt, (list, tuple)) and len(pt) >= 2
+            )
         return flat
 
     return []

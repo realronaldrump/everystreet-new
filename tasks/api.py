@@ -440,7 +440,7 @@ async def get_task_history(page: int = 1, limit: int = 10):
 async def clear_task_history():
     """Clear all task history."""
     try:
-        result = await TaskHistory.get_motor_collection().delete_many({})
+        result = await TaskHistory.get_pymongo_collection().delete_many({})
         logger.info(
             "Cleared %d task history entries",
             result.deleted_count,

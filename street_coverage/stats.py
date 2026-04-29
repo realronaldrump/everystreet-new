@@ -124,19 +124,8 @@ async def calculate_area_stats(
         {
             "$lookup": {
                 "from": "coverage_state",
-                "let": {"segment_id": "$segment_id"},
-                "pipeline": [
-                    {
-                        "$match": {
-                            "$expr": {
-                                "$and": [
-                                    {"$eq": ["$area_id", area_id]},
-                                    {"$eq": ["$segment_id", "$$segment_id"]},
-                                ],
-                            },
-                        },
-                    },
-                ],
+                "localField": "segment_id",
+                "foreignField": "segment_id",
                 "as": "state",
             },
         },

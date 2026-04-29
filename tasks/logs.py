@@ -22,7 +22,7 @@ async def purge_server_logs_before(
         msg = f"Invalid cutoff_iso: {cutoff_iso}"
         raise ValueError(msg)
 
-    delete_result = await ServerLog.get_motor_collection().delete_many(
+    delete_result = await ServerLog.get_pymongo_collection().delete_many(
         {"timestamp": {"$lt": cutoff_dt}},
     )
     deleted_count = int(getattr(delete_result, "deleted_count", 0))

@@ -125,7 +125,7 @@ async def detect_trip_states() -> dict[str, Any]:
             return points
         return []
 
-    collection = Trip.get_motor_collection()
+    collection = Trip.get_pymongo_collection()
     cursor = collection.find(
         enforce_bouncie_source({"gps": {"$exists": True, "$ne": None}}),
         {"gps": 1, "destinationGeoPoint": 1, "_id": 0},

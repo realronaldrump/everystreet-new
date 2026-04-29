@@ -519,6 +519,25 @@ export function renderAreaCards({
     areaNameById.set(area.id, area.display_name || "Coverage area");
   });
 
+  const canDiffDom =
+    typeof grid.querySelectorAll === "function" &&
+    typeof grid.appendChild === "function" &&
+    typeof document.createElement === "function";
+
+  if (!canDiffDom) {
+    grid.innerHTML = areas
+      .map((area) =>
+        renderAreaCard(
+          area,
+          activeJobsByAreaId.get(area.id),
+          activeRouteJobsByAreaId.get(area.id)
+        )
+      )
+      .join("");
+    grid.style.display = "grid";
+    return { hasAreas: true };
+  }
+
   // Build a map of existing card elements by area ID for diffing
   const existingCards = new Map();
   for (const card of grid.querySelectorAll(".area-card[data-area-id]")) {

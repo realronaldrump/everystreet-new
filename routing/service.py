@@ -1400,7 +1400,7 @@ async def _generate_optimal_route_with_progress_impl(
                         ),
                     )
                 if bulk_ops:
-                    collection = Street.get_motor_collection()
+                    collection = Street.get_pymongo_collection()
                     await collection.bulk_write(bulk_ops, ordered=False)
                     logger.info(
                         "Cached %d graph_edge mappings for future route generations",
@@ -1695,8 +1695,6 @@ async def _generate_optimal_route_with_progress_impl(
         except Exception:
             logger.exception("Final job progress update failed")
 
-        return route_result
-
     except Exception as e:
         error_msg = str(e)
         # Check if this is a gap validation error and if we're missing the token
@@ -1715,6 +1713,8 @@ async def _generate_optimal_route_with_progress_impl(
 
         await job_handle.fail(error_msg, message=f"Route generation failed: {e}")
         raise
+    else:
+        return route_result
 
 
 async def generate_optimal_route(

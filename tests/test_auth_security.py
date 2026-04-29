@@ -6,9 +6,8 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
-from fastapi.testclient import TestClient
 from fastapi.staticfiles import StaticFiles
+from fastapi.testclient import TestClient
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.websockets import WebSocketDisconnect
@@ -16,14 +15,14 @@ from starlette.websockets import WebSocketDisconnect
 from api.pages import router as pages_router
 from auth.api import router as auth_router
 from core.auth import (
-    AuthGuardMiddleware,
     SESSION_COOKIE_NAME,
     SESSION_TTL_SECONDS,
+    AuthGuardMiddleware,
+    get_session_secret,
     hash_password_for_owner,
     parse_allowed_hosts,
     parse_cors_allowed_origins,
     require_owner_websocket,
-    get_session_secret,
     session_cookie_https_only,
 )
 from tracking.api import live as live_api
@@ -364,9 +363,11 @@ def test_owner_live_trip_endpoint_returns_real_payload(auth_test_client: TestCli
 
 
 def test_websocket_requires_owner_session(auth_test_client: TestClient) -> None:
-    with pytest.raises(WebSocketDisconnect):
-        with auth_test_client.websocket_connect("/ws/protected"):
-            pass
+    with (
+        pytest.raises(WebSocketDisconnect),
+        auth_test_client.websocket_connect("/ws/protected"),
+    ):
+        pass
 
     client = _login(auth_test_client)
     with client.websocket_connect("/ws/protected", headers=_cookie_header(client)) as websocket:
@@ -374,9 +375,11 @@ def test_websocket_requires_owner_session(auth_test_client: TestClient) -> None:
 
 
 def test_live_trip_websocket_requires_owner_session(auth_test_client: TestClient) -> None:
-    with pytest.raises(WebSocketDisconnect):
-        with auth_test_client.websocket_connect("/ws/trips"):
-            pass
+    with (
+        pytest.raises(WebSocketDisconnect),
+        auth_test_client.websocket_connect("/ws/trips"),
+    ):
+        pass
 
     client = _login(auth_test_client)
     with client.websocket_connect("/ws/trips", headers=_cookie_header(client)) as websocket:

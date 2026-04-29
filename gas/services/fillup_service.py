@@ -8,6 +8,7 @@ from beanie import PydanticObjectId
 
 from core.date_utils import parse_timestamp
 from core.exceptions import ResourceNotFoundException, ValidationException
+from core.trip_map_cache import bump_trip_map_revision
 from db.models import GasFillup, Vehicle
 
 logger = logging.getLogger(__name__)
@@ -340,6 +341,7 @@ class FillupService:
             fillup_time,
             anchor_id=fillup.id,
         )
+        await bump_trip_map_revision()
 
         return fillup
 
@@ -509,6 +511,7 @@ class FillupService:
                 target_time,
                 anchor_id=target_anchor_id,
             )
+        await bump_trip_map_revision()
 
         return fillup
 
@@ -543,6 +546,7 @@ class FillupService:
 
         # Recalculate the next entry now that this one is gone
         await FillupService.recalculate_subsequent_fillup(imei, fillup_time)
+        await bump_trip_map_revision()
 
         return {"status": "success", "message": "Fill-up deleted"}
 

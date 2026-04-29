@@ -82,7 +82,7 @@ class _FakeTripModel:
     collection: _FakeTripCollection
 
     @classmethod
-    def get_motor_collection(cls):
+    def get_pymongo_collection(cls):
         return cls.collection
 
 

@@ -383,9 +383,7 @@ def is_public_request(method: str, path: str) -> bool:
             return True
         if any(path.startswith(prefix) for prefix in PUBLIC_SAFE_API_PREFIXES):
             return True
-        if is_public_page_path(path):
-            return True
-        return False
+        return bool(is_public_page_path(path))
 
     if path in PUBLIC_MUTATION_PATHS:
         return True

@@ -158,7 +158,7 @@ async def clear_server_logs(
             async def _local_purge() -> None:
                 try:
                     delete_result = (
-                        await ServerLog.get_motor_collection().delete_many(
+                        await ServerLog.get_pymongo_collection().delete_many(
                             {"timestamp": {"$lt": cutoff_date}},
                         )
                     )
@@ -223,7 +223,7 @@ async def clear_server_logs(
 
         # Use a single bulk delete instead of fetching and deleting documents
         # one-by-one. This keeps the endpoint fast even with 100k+ log rows.
-        delete_result = await ServerLog.get_motor_collection().delete_many(
+        delete_result = await ServerLog.get_pymongo_collection().delete_many(
             delete_filter,
         )
         deleted_count = int(getattr(delete_result, "deleted_count", 0))

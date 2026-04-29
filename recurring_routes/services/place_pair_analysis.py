@@ -315,7 +315,7 @@ async def _aggregate_facets_for_trip_ids(trip_ids: list[Any]) -> dict[str, Any]:
     )
 
     try:
-        result = await Trip.get_motor_collection().aggregate(pipeline).to_list(1)
+        result = await Trip.get_pymongo_collection().aggregate(pipeline).to_list(1)
     except Exception:
         return {}
 
@@ -671,7 +671,7 @@ async def analyze_place_pair(
         timeframe_cutoff = datetime.now(UTC) - timedelta(days=90)
         query["startTime"] = {"$gte": timeframe_cutoff}
 
-    trips_coll = Trip.get_motor_collection()
+    trips_coll = Trip.get_pymongo_collection()
     cursor = trips_coll.find(
         query,
         {

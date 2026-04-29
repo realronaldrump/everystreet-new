@@ -20,8 +20,8 @@ from recurring_routes.models import (
     BuildRecurringRoutesRequest,
     PatchRecurringRouteRequest,
 )
-from recurring_routes.services.place_pair_analysis import analyze_place_pair
 from recurring_routes.services.fingerprint import extract_trip_geometry
+from recurring_routes.services.place_pair_analysis import analyze_place_pair
 from recurring_routes.services.service import (
     build_place_link,
     coerce_place_id,
@@ -390,7 +390,7 @@ async def get_route_analytics(route_id: str):
     if not route:
         raise HTTPException(status_code=404, detail="Route not found")
 
-    trips_coll = Trip.get_motor_collection()
+    trips_coll = Trip.get_pymongo_collection()
     tz_expr = get_mongo_tz_expr()
 
     match_query = enforce_bouncie_source(

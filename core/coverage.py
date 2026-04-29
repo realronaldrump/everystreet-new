@@ -729,7 +729,7 @@ async def update_coverage_for_segments(
 
     driven_at = normalize_to_utc_datetime(driven_at) or get_current_utc_time()
 
-    collection = CoverageState.get_motor_collection()
+    collection = CoverageState.get_pymongo_collection()
     updates = [
         (
             {"area_id": area_id, "segment_id": segment_id},
@@ -1143,7 +1143,7 @@ async def backfill_coverage_for_area(
     newly_driven_ids = [sid for sid in segments_to_update if sid not in existing_driven]
 
     # Bulk upsert coverage state with accurate first/last driven timestamps.
-    collection = CoverageState.get_motor_collection()
+    collection = CoverageState.get_pymongo_collection()
     operations: list[tuple[dict[str, Any], dict[str, Any], bool]] = []
     trip_updates: list[tuple[dict[str, Any], dict[str, Any], bool]] = []
 

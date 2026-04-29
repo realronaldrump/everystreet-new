@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter, Form, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi import APIRouter, Form, HTTPException, Query, Request, status
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from core.auth import (
     TooManyLoginAttemptsError,
@@ -48,9 +49,12 @@ async def _render_login_page(
 
 
 @router.get("/login", response_class=HTMLResponse, response_model=None)
-async def login_page(request: Request, next: str | None = None):
+async def login_page(
+    request: Request,
+    next_path: Annotated[str | None, Query(alias="next")] = None,
+):
     """Render the owner login page."""
-    next_path = sanitize_next_path(next)
+    next_path = sanitize_next_path(next_path)
     auth_context = get_request_auth_context(request)
     if auth_context.is_owner:
         return RedirectResponse(url=next_path, status_code=status.HTTP_303_SEE_OTHER)
@@ -61,10 +65,10 @@ async def login_page(request: Request, next: str | None = None):
 async def login_submit(
     request: Request,
     password: str = Form(default=""),
-    next: str | None = Form(default=None),
+    next_path: Annotated[str | None, Form(alias="next")] = None,
 ):
     """Authenticate the owner session."""
-    next_path = sanitize_next_path(next)
+    next_path = sanitize_next_path(next_path)
     ip_address = get_client_ip(request)
 
     try:

@@ -28,6 +28,7 @@ from core.trip_map_cache import TRIP_MAP_CACHE_PREFIX, get_trip_map_revision
 from core.trip_query_spec import TripQuerySpec
 from db.models import CoverageArea, CoverageState, Street, Trip
 from trips.serialization import TripSerializer
+from trips.services.trip_cost_service import TripCostService
 from trips.services.trip_map_geometry import (
     TRIP_MAP_PATH_VERSION,
     build_encoded_path_metadata,
@@ -35,7 +36,6 @@ from trips.services.trip_map_geometry import (
     materialized_path_is_current,
     merge_bboxes,
 )
-from trips.services.trip_cost_service import TripCostService
 
 router = APIRouter(prefix="/api/map", tags=["map-bundles"])
 
@@ -374,7 +374,7 @@ async def _query_has_missing_materialized_paths(
     *,
     path_field: str,
 ) -> bool:
-    collection = Trip.get_motor_collection()
+    collection = Trip.get_pymongo_collection()
     missing_query = {
         "$and": [
             query,
@@ -610,7 +610,7 @@ async def get_trip_map_bundle(
         projection[geometry_field] = 1
 
     cursor = (
-        Trip.get_motor_collection()
+        Trip.get_pymongo_collection()
         .find(query, projection=projection)
         .sort("endTime", -1)
     )

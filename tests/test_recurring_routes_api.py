@@ -305,7 +305,7 @@ async def test_route_analytics_timezone_buckets_are_complete(
 
     monkeypatch.setattr(
         Trip,
-        "get_motor_collection",
+        "get_pymongo_collection",
         classmethod(lambda _cls: _FakeTripsCollection()),
     )
 
@@ -386,7 +386,7 @@ async def test_route_analytics_trips_per_week_single_trip_not_null(
 
     monkeypatch.setattr(
         Trip,
-        "get_motor_collection",
+        "get_pymongo_collection",
         classmethod(lambda _cls: _FakeTripsCollection()),
     )
 
@@ -433,7 +433,7 @@ async def test_route_analytics_flags_rebuild_when_route_has_no_assigned_trips(
 
     monkeypatch.setattr(
         Trip,
-        "get_motor_collection",
+        "get_pymongo_collection",
         classmethod(lambda _cls: _FakeTripsCollection()),
     )
 

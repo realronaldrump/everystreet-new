@@ -176,7 +176,7 @@ async def test_builder_unsets_recurring_route_id_for_ineligible_trips(
     builder = RecurringRoutesBuilder()
     await builder.run(job_id="test-job-1", request=BuildRecurringRoutesRequest())
 
-    trips_coll = Trip.get_motor_collection()
+    trips_coll = Trip.get_pymongo_collection()
     raw_before = await trips_coll.find_one({"transactionId": "r1-0"})
     assert raw_before is not None
     assert "recurringRouteId" in raw_before

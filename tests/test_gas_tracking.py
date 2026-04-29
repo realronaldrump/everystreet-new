@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -108,6 +109,33 @@ async def test_update_fillup_rejects_null_boolean_flags(beanie_db) -> None:
 
     with pytest.raises(ValidationException):
         await FillupService.update_fillup(str(created.id), {"missed_previous": None})
+
+
+@pytest.mark.asyncio
+async def test_fillup_mutations_bump_trip_map_revision(beanie_db) -> None:
+    imei = "imei-cache-bump"
+    t1 = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+
+    with patch(
+        "gas.services.fillup_service.bump_trip_map_revision",
+        new=AsyncMock(),
+    ) as bump_revision:
+        created = await FillupService.create_fillup(
+            {
+                "imei": imei,
+                "fillup_time": t1,
+                "gallons": 10.0,
+                "odometer": 1000.0,
+                "price_per_gallon": 3.5,
+                "is_full_tank": True,
+                "missed_previous": False,
+            },
+        )
+
+        await FillupService.update_fillup(str(created.id), {"price_per_gallon": 3.75})
+        await FillupService.delete_fillup(str(created.id))
+
+    assert bump_revision.await_count == 3
 
 
 @pytest.mark.asyncio
