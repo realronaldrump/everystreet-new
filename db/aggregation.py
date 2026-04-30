@@ -1,4 +1,4 @@
-"""Aggregation helpers for Motor async collections."""
+"""Aggregation helpers for async MongoDB collections."""
 
 from __future__ import annotations
 
@@ -19,11 +19,11 @@ async def aggregate_to_list(
     """
     Run an aggregation pipeline and return results as a list.
 
-    Handles Motor (cursor returned directly) and PyMongo async (cursor
-    returned via await) collections.
+    Handles PyMongo async collections and in-memory test doubles that return
+    cursors directly.
     """
     collection = model.get_pymongo_collection()
     cursor = collection.aggregate(pipeline, **kwargs)
     if inspect.isawaitable(cursor):
         cursor = await cursor
-    return await cursor.to_list(length=length)
+    return await cursor.to_list(length)

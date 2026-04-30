@@ -40,7 +40,7 @@ ENV PIP_CONSTRAINT=/app/pip-constraints.txt
 COPY requirements.runtime.txt ./
 
 # Install Python dependencies (cached unless requirements.txt changes)
-RUN pip install --no-cache-dir -r requirements.runtime.txt
+RUN pip install --no-cache-dir -r requirements.runtime.txt && pip check
 
 # Copy the rest of the application code
 COPY . ./

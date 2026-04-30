@@ -14,6 +14,7 @@ from core.job_serialization import serialize_job_progress
 from core.jobs import JobHandle, create_job, find_job
 from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
+from db.aggregation import aggregate_to_list
 from db.aggregation_utils import get_mongo_tz_expr
 from db.models import Job, Place, RecurringRoute, Trip
 from recurring_routes.models import (
@@ -390,7 +391,6 @@ async def get_route_analytics(route_id: str):
     if not route:
         raise HTTPException(status_code=404, detail="Route not found")
 
-    trips_coll = Trip.get_pymongo_collection()
     tz_expr = get_mongo_tz_expr()
 
     match_query = enforce_bouncie_source(
@@ -408,7 +408,7 @@ async def get_route_analytics(route_id: str):
         include_extended_stats=True,
     )
 
-    results = await trips_coll.aggregate(pipeline).to_list(1)
+    results = await aggregate_to_list(Trip, pipeline, length=1)
     facets = results[0] if results else {}
 
     by_hour = normalize_hour_buckets(facets.get("byHour"))

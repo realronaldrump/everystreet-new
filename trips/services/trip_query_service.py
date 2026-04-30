@@ -186,23 +186,21 @@ class TripQueryService:
             filtered_count = total_count
         else:
             extra_filters = {k: v for k, v in query.items() if k not in base_query}
-            facet_result = (
-                await Trip.get_pymongo_collection()
-                .aggregate(
-                    [
-                        {"$match": base_query},
-                        {
-                            "$facet": {
-                                "total": [{"$count": "n"}],
-                                "filtered": [
-                                    {"$match": extra_filters},
-                                    {"$count": "n"},
-                                ],
-                            }
-                        },
-                    ]
-                )
-                .to_list(1)
+            facet_result = await aggregate_to_list(
+                Trip,
+                [
+                    {"$match": base_query},
+                    {
+                        "$facet": {
+                            "total": [{"$count": "n"}],
+                            "filtered": [
+                                {"$match": extra_filters},
+                                {"$count": "n"},
+                            ],
+                        }
+                    },
+                ],
+                length=1,
             )
             row = facet_result[0] if facet_result else {}
             total_count = (

@@ -1,16 +1,15 @@
 gunicorn
 aiohttp
-beanie>=2,<3
+beanie>=2.1,<2.2
 certifi
 fastapi
 geopandas
 gpxpy
 httpx[http2]
 arq
-motor>=3.6,<4
 numpy
 pydantic
-pymongo>=4.9,<5
+pymongo>=4.16,<5
 pyproj
 pyrosm
 python-dotenv
@@ -34,7 +33,7 @@ tenacity
 pytest
 pytest-asyncio
 pytest-cov
-mongomock-motor
+pymongo-async-mock>=0.1.3,<0.2
 aiofiles
 Pillow
 mapbox-vector-tile==2.2.0

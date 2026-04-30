@@ -6,12 +6,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 
 
 async def check():
     uri = os.environ.get("MONGO_URI", "mongodb://localhost:27017")
-    client = AsyncIOMotorClient(uri, serverSelectionTimeoutMS=5000)
+    client = AsyncMongoClient(uri, serverSelectionTimeoutMS=5000)
     db = client["every_street"]
 
     assigned = await db.trips.count_documents(
@@ -44,7 +44,7 @@ async def check():
     else:
         print("no build jobs found")
 
-    client.close()
+    await client.close()
 
 
 asyncio.run(check())

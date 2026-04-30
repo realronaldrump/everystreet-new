@@ -14,6 +14,7 @@ from beanie import PydanticObjectId
 from core.spatial import GeometryService
 from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
+from db.aggregation import aggregate_to_list
 from db.aggregation_utils import get_mongo_tz_expr
 from db.models import Place, RecurringRoute, Trip
 from recurring_routes.services.fingerprint import (
@@ -315,7 +316,7 @@ async def _aggregate_facets_for_trip_ids(trip_ids: list[Any]) -> dict[str, Any]:
     )
 
     try:
-        result = await Trip.get_pymongo_collection().aggregate(pipeline).to_list(1)
+        result = await aggregate_to_list(Trip, pipeline, length=1)
     except Exception:
         return {}
 

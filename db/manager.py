@@ -17,7 +17,8 @@ from typing import Any, Final, Self
 from urllib.parse import urlsplit, urlunsplit
 
 import certifi
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 
 logger = logging.getLogger(__name__)
 
@@ -121,8 +122,8 @@ class DatabaseManager:
     def __init__(self) -> None:
         """Initialize the database manager with configuration from environment."""
         if not getattr(self, "_initialized", False):
-            self._client: AsyncIOMotorClient | None = None
-            self._db: AsyncIOMotorDatabase | None = None
+            self._client: AsyncMongoClient | None = None
+            self._db: AsyncDatabase | None = None
             self._bound_loop: asyncio.AbstractEventLoop | None = None
             self._connection_healthy = True
             self._beanie_initialized = False
@@ -181,7 +182,7 @@ class DatabaseManager:
                     tlsCAFile=certifi.where(),
                 )
 
-            self._client = AsyncIOMotorClient(mongo_uri, **client_kwargs)
+            self._client = AsyncMongoClient(mongo_uri, **client_kwargs)
             self._db = self._client[self._db_name]
             self._connection_healthy = True
             logger.info("MongoDB client initialized successfully")
@@ -204,17 +205,14 @@ class DatabaseManager:
         except RuntimeError:
             return None
 
-    def _close_client_sync(self) -> None:
+    def _reset_client_state(self) -> None:
         """
         Synchronously reset client state for loop change scenarios.
 
-        Note: Motor clients are safe to close synchronously; we just reset references.
+        PyMongo async clients close asynchronously. Loop-change recovery can happen
+        from synchronous property access, so this path only drops references. Normal
+        application shutdown uses ``cleanup_connections`` and awaits client closure.
         """
-        if self._client:
-            try:
-                self._client.close()
-            except Exception as e:
-                logger.warning("Error closing MongoDB client: %s", str(e))
         self._client = None
         self._db = None
         self._bound_loop = None
@@ -234,7 +232,7 @@ class DatabaseManager:
                 "Event loop is closed (was %s), reconnecting MongoDB client",
                 id(self._bound_loop),
             )
-            self._close_client_sync()
+            self._reset_client_state()
 
         # Check if the event loop has changed
         if (
@@ -247,15 +245,15 @@ class DatabaseManager:
                 id(self._bound_loop),
                 id(current_loop),
             )
-            self._close_client_sync()
+            self._reset_client_state()
 
     @property
-    def db(self) -> AsyncIOMotorDatabase:
+    def db(self) -> AsyncDatabase:
         """
         Get the database instance, initializing if necessary.
 
         Returns:
-            The AsyncIOMotorDatabase instance.
+            The PyMongo async database instance.
 
         Raises:
             RuntimeError: If database cannot be initialized.
@@ -270,12 +268,12 @@ class DatabaseManager:
         return self._db
 
     @property
-    def client(self) -> AsyncIOMotorClient:
+    def client(self) -> AsyncMongoClient:
         """
         Get the client instance, initializing if necessary.
 
         Returns:
-            The AsyncIOMotorClient instance.
+            The PyMongo async client instance.
 
         Raises:
             RuntimeError: If client cannot be initialized.
@@ -316,7 +314,7 @@ class DatabaseManager:
             logger.info(
                 "Beanie initialized on a different loop; reinitializing.",
             )
-            self._close_client_sync()
+            await self.cleanup_connections()
 
         from beanie import init_beanie
 
@@ -354,31 +352,25 @@ class DatabaseManager:
                 tlsCAFile=certifi.where(),
             )
 
-        init_client: AsyncIOMotorClient | None = None
+        init_client: AsyncMongoClient | None = None
         try:
             logger.info(
                 "Initializing Beanie with extended socket timeout "
                 "(%d ms) for index creation",
                 init_timeout_ms,
             )
-            init_client = AsyncIOMotorClient(mongo_uri, **init_kwargs)
+            init_client = AsyncMongoClient(mongo_uri, **init_kwargs)
             init_db = init_client[self._db_name]
 
             await init_beanie(
                 database=init_db,
                 document_models=ALL_DOCUMENT_MODELS,
             )
-
-            self._beanie_initialized = True
-            logger.info(
-                "Beanie ODM initialized with %d document models",
-                len(ALL_DOCUMENT_MODELS),
-            )
         finally:
             # Always close the temporary init client — regular operations
             # will use the standard client with normal timeouts.
             if init_client is not None:
-                init_client.close()
+                await init_client.close()
 
         # Re-initialize Beanie on the *normal* client so that document
         # models are bound to the standard timeout settings.  Indexes
@@ -387,13 +379,18 @@ class DatabaseManager:
             database=self.db,
             document_models=ALL_DOCUMENT_MODELS,
         )
+        self._beanie_initialized = True
+        logger.info(
+            "Beanie ODM initialized with %d document models",
+            len(ALL_DOCUMENT_MODELS),
+        )
 
     async def cleanup_connections(self) -> None:
         """Clean up MongoDB client connections."""
         if self._client:
             try:
                 logger.info("Closing MongoDB client connections...")
-                self._client.close()
+                await self._client.close()
             except Exception:
                 logger.exception("Error closing MongoDB client")
             finally:
