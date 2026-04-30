@@ -487,6 +487,9 @@ const tripMapRenderer = {
       return null;
     }
     const paths = lightweight ? [] : this.getTripPaths(layerName, tripId);
+    if (!lightweight && !paths.length) {
+      return null;
+    }
     const geometry =
       paths.length > 1
         ? { type: "MultiLineString", coordinates: paths }

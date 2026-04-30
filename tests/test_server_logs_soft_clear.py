@@ -9,6 +9,7 @@ from fastapi import BackgroundTasks
 from core.date_utils import parse_timestamp
 from db.models import AppSettings, ServerLog
 from logs.api import clear_server_logs, get_logs_stats, get_server_logs
+from logs.api import clear_docker_container_logs
 
 
 @pytest.fixture
@@ -79,3 +80,31 @@ async def test_filtered_clear_hard_deletes_without_cutoff(
 
     settings = await AppSettings.find_one()
     assert settings is None
+
+
+@pytest.mark.asyncio
+async def test_docker_log_clear_is_idempotent_when_log_file_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_resolve_container_name(container_name: str) -> str:
+        return container_name
+
+    async def fake_run_docker_command(args: list[str]) -> tuple[str, str, int]:
+        assert args[:3] == [
+            "inspect",
+            "--format",
+            "{{.HostConfig.LogConfig.Type}}\t{{.LogPath}}",
+        ]
+        return "json-file\t/tmp/everystreet-missing-docker.log\n", "", 0
+
+    monkeypatch.setattr("logs.api._resolve_container_name", fake_resolve_container_name)
+    monkeypatch.setattr("logs.api._run_docker_command", fake_run_docker_command)
+
+    result = await clear_docker_container_logs("everystreet-web-1")
+
+    assert result == {
+        "container": "everystreet-web-1",
+        "log_driver": "json-file",
+        "cleared": True,
+        "message": "Log file already absent",
+    }

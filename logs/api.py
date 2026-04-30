@@ -345,6 +345,7 @@ class DockerClearResponse(BaseModel):
     container: str
     log_driver: str
     cleared: bool
+    message: str | None = None
 
 
 def _raise_container_not_found(container_name: str) -> None:
@@ -700,7 +701,17 @@ async def clear_docker_container_logs(container_name: str) -> dict[str, Any]:
 
             log_file = Path(log_path)
             if not log_file.exists():
-                _raise_log_file_not_found()
+                logger.info(
+                    "Docker log file already absent for %s (%s)",
+                    resolved_name,
+                    log_path,
+                )
+                return {
+                    "container": resolved_name,
+                    "log_driver": log_driver,
+                    "cleared": True,
+                    "message": "Log file already absent",
+                }
 
             try:
                 log_file.write_bytes(b"")
@@ -715,6 +726,7 @@ async def clear_docker_container_logs(container_name: str) -> dict[str, Any]:
                     "container": resolved_name,
                     "log_driver": log_driver,
                     "cleared": True,
+                    "message": None,
                 }
 
     except HTTPException:
