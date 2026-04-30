@@ -1,6 +1,6 @@
 gunicorn
 aiohttp
-beanie>=1.26,<2
+beanie>=2,<3
 certifi
 fastapi
 geopandas

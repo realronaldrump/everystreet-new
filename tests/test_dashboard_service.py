@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import pytest
 
 from analytics.services.dashboard_service import DashboardService
+from db.models import AppSettings
 
 
 @pytest.mark.asyncio
@@ -126,3 +128,40 @@ async def test_get_driving_insights_movement_default_includes_metric_basis(
     assert movement["metric_basis"]["top_segments_primary"] == "times_driven"
     assert movement["metric_basis"]["map_cells_intensity"] == "times_driven"
     assert movement["validation"]["errors"] == []
+
+
+@pytest.mark.asyncio
+async def test_get_metrics_returns_aggregated_trip_totals(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_find_one(cls, _query):
+        return SimpleNamespace(user_timezone="UTC")
+
+    async def fake_aggregate_to_list(*_args, **_kwargs):
+        return [
+            {
+                "total_trips": 2,
+                "total_distance": 30.0,
+                "avg_distance": 15.0,
+                "max_speed": 70.0,
+                "avg_speed": 30.0,
+                "total_duration_seconds": 3600.0,
+                "start_hours_utc": [10, 12],
+            },
+        ]
+
+    monkeypatch.setattr(AppSettings, "find_one", classmethod(fake_find_one))
+    monkeypatch.setattr(
+        "analytics.services.dashboard_service.aggregate_to_list",
+        fake_aggregate_to_list,
+    )
+
+    result = await DashboardService.get_metrics({})
+
+    assert result["total_trips"] == 2
+    assert result["total_distance"] == "30.0"
+    assert result["avg_distance"] == "15.0"
+    assert result["avg_start_time"] == "11:00 AM"
+    assert result["avg_driving_time"] == "00:30"
+    assert result["avg_speed"] == "30.0"
+    assert result["max_speed"] == "70.0"
