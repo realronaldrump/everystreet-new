@@ -8,7 +8,7 @@ from typing import Any
 from fastapi import HTTPException, status
 
 from db.models import Trip
-from trips.pipeline import TripPipeline
+from trips.pipeline import TripPipeline, TripProcessingRequest
 
 logger = logging.getLogger(__name__)
 
@@ -102,13 +102,12 @@ class TripService:
             }
 
         if options.geocode_only:
-            trip = await self._pipeline.process_raw_trip(
+            request = TripProcessingRequest.geocode_refresh(
                 trip_data,
                 source=source,
-                do_map_match=False,
-                do_geocode=True,
                 do_coverage=do_coverage,
             )
+            trip = await self._pipeline.process_trip(request)
             processing_status = {
                 "state": (
                     getattr(trip, "processing_state", "completed") if trip else "failed"
@@ -124,12 +123,14 @@ class TripService:
                 "saved_id": str(trip.id) if trip else None,
             }
 
-        trip = await self._pipeline.process_raw_trip(
-            trip_data,
-            source=source,
-            do_map_match=options.map_match,
-            do_geocode=options.geocode,
-            do_coverage=do_coverage,
+        trip = await self._pipeline.process_trip(
+            TripProcessingRequest(
+                raw_data=trip_data,
+                source=source,
+                do_map_match=options.map_match,
+                do_geocode=options.geocode,
+                do_coverage=do_coverage,
+            ),
         )
         processing_status = {
             "state": (

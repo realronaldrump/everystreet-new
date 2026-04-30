@@ -22,6 +22,10 @@ from db.models import Trip
 from setup.services.bouncie_oauth import BouncieOAuth
 from trips.models import TripStatusProjection
 from trips.pipeline import TripPipeline
+from trips.services.historical_trip_writer import (
+    BouncieHistoricalTripWriter,
+    HistoricalTripWrite,
+)
 from trips.services.trip_history_import_service_config import (
     MIN_WINDOW_HOURS,
     REQUEST_TIMEOUT_SECONDS,
@@ -325,6 +329,7 @@ async def process_bouncie_trips(
     counters = build_ingest_counters()
     counters["found_raw"] = len([t for t in raw_trips if isinstance(t, dict)])
     processed_transaction_ids: list[str] = []
+    writer = BouncieHistoricalTripWriter(pipeline)
 
     normalized = [
         normalize_rest_trip_payload(t) for t in raw_trips if isinstance(t, dict)
@@ -441,16 +446,17 @@ async def process_bouncie_trips(
             validated_trip_data = None
 
         try:
-            saved = await pipeline.process_raw_trip(
-                trip,
-                source=BOUNCIE_SOURCE,
-                do_map_match=do_map_match,
-                do_geocode=do_geocode,
-                do_coverage=do_coverage,
-                prevalidated_data=validated_trip_data,
-                prevalidated_history=processing_status.get("history"),
-                prevalidated_state=processing_status.get("state"),
-                sync_mobility=sync_mobility,
+            saved = await writer.write(
+                HistoricalTripWrite(
+                    raw_data=trip,
+                    do_map_match=do_map_match,
+                    do_geocode=do_geocode,
+                    do_coverage=do_coverage,
+                    prevalidated_data=validated_trip_data,
+                    prevalidated_history=processing_status.get("history") or [],
+                    prevalidated_state=processing_status.get("state"),
+                    sync_mobility=sync_mobility,
+                ),
             )
         except Exception as exc:
             if is_duplicate_trip_error(exc):

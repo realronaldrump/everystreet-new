@@ -40,6 +40,7 @@ from map_data.progress import MapBuildProgress
 from map_data.services import check_service_health
 from map_data.us_states import build_geofabrik_path, get_state
 from tasks.arq import get_arq_pool
+from tasks.map_setup_progress import MapSetupCancelledError, MapSetupProgress
 from tasks.ops import abort_job, run_task_with_history
 
 logger = logging.getLogger(__name__)
@@ -68,10 +69,6 @@ VALHALLA_PROGRESS_END = 95.0
 VERIFY_PROGRESS_END = 100.0
 
 CHUNK_SIZE = 4 * 1024 * 1024
-
-
-class MapSetupCancelledError(RuntimeError):
-    """Raised when map setup is cancelled."""
 
 
 @dataclass
@@ -160,11 +157,10 @@ async def _sync_cancellation_flag(
     *,
     raise_on_cancel: bool = False,
 ) -> None:
-    latest = await MapBuildProgress.get_or_create()
-    progress.cancellation_requested = bool(latest.cancellation_requested)
-    if raise_on_cancel and progress.cancellation_requested:
-        msg = "Setup cancelled"
-        raise MapSetupCancelledError(msg)
+    config = await MapServiceConfig.get_or_create()
+    await MapSetupProgress(config, progress).sync_cancellation(
+        raise_on_cancel=raise_on_cancel,
+    )
 
 
 async def _update_progress(
@@ -181,36 +177,22 @@ async def _update_progress(
     last_error: str | None = None,
     allow_cancel: bool = True,
 ) -> None:
-    await _sync_cancellation_flag(progress, raise_on_cancel=allow_cancel)
-    now = datetime.now(UTC)
-    if status is not None:
-        config.status = status
-    if message is not None:
-        config.message = message
-    if overall_progress is not None:
-        config.progress = float(overall_progress)
-        progress.total_progress = float(overall_progress)
-    if geocoding_ready is not None:
-        config.geocoding_ready = geocoding_ready
-    if routing_ready is not None:
-        config.routing_ready = routing_ready
-    if last_error is not None:
-        config.last_error = last_error
-        config.last_error_at = now
-    config.last_updated = now
-
-    if phase is not None:
-        progress.phase = phase
-    if phase_progress is not None:
-        progress.phase_progress = float(phase_progress)
-    progress.last_progress_at = now
-
-    await config.save()
-    await progress.save()
+    await MapSetupProgress(config, progress).update(
+        status=status,
+        message=message,
+        overall_progress=overall_progress,
+        phase=phase,
+        phase_progress=phase_progress,
+        geocoding_ready=geocoding_ready,
+        routing_ready=routing_ready,
+        last_error=last_error,
+        allow_cancel=allow_cancel,
+    )
 
 
 async def _check_cancel(progress: MapBuildProgress) -> None:
-    await _sync_cancellation_flag(progress, raise_on_cancel=True)
+    config = await MapServiceConfig.get_or_create()
+    await MapSetupProgress(config, progress).check_cancelled()
 
 
 async def _download_state(

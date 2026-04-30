@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import (
+    dataclass,
+    field as dataclass_field,
+)
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -33,6 +37,67 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 ProcessingHistoryEntry = dict[str, Any]
+
+
+@dataclass(frozen=True)
+class TripProcessingRequest:
+    """Caller intent for trip processing behind a single interface."""
+
+    raw_data: dict[str, Any]
+    source: str
+    do_map_match: bool = True
+    do_geocode: bool = True
+    do_coverage: bool = True
+    force_map_match: bool = False
+    prevalidated_data: dict[str, Any] | None = None
+    prevalidated_history: list[ProcessingHistoryEntry] = dataclass_field(
+        default_factory=list,
+    )
+    prevalidated_state: str | None = None
+    sync_mobility: bool = True
+
+    @classmethod
+    def bouncie_ingest(
+        cls,
+        raw_data: dict[str, Any],
+        *,
+        do_map_match: bool,
+        do_geocode: bool,
+        do_coverage: bool,
+        force_map_match: bool = False,
+        prevalidated_data: dict[str, Any] | None = None,
+        prevalidated_history: list[ProcessingHistoryEntry] | None = None,
+        prevalidated_state: str | None = None,
+        sync_mobility: bool = True,
+    ) -> TripProcessingRequest:
+        return cls(
+            raw_data=raw_data,
+            source=BOUNCIE_SOURCE,
+            do_map_match=do_map_match,
+            do_geocode=do_geocode,
+            do_coverage=do_coverage,
+            force_map_match=force_map_match,
+            prevalidated_data=prevalidated_data,
+            prevalidated_history=list(prevalidated_history or []),
+            prevalidated_state=prevalidated_state,
+            sync_mobility=sync_mobility,
+        )
+
+    @classmethod
+    def geocode_refresh(
+        cls,
+        raw_data: dict[str, Any],
+        *,
+        source: str,
+        do_coverage: bool = False,
+    ) -> TripProcessingRequest:
+        return cls(
+            raw_data=raw_data,
+            source=source,
+            do_map_match=False,
+            do_geocode=True,
+            do_coverage=do_coverage,
+        )
 
 
 class TripPipeline:
@@ -295,6 +360,21 @@ class TripPipeline:
 
         logger.debug("Saved trip %s successfully", transaction_id)
         return final_trip
+
+    async def process_trip(self, request: TripProcessingRequest) -> Trip | None:
+        """Process a trip using a typed request instead of caller-managed flags."""
+        return await self.process_raw_trip(
+            request.raw_data,
+            source=request.source,
+            do_map_match=request.do_map_match,
+            do_geocode=request.do_geocode,
+            do_coverage=request.do_coverage,
+            force_map_match=request.force_map_match,
+            prevalidated_data=request.prevalidated_data,
+            prevalidated_history=request.prevalidated_history,
+            prevalidated_state=request.prevalidated_state,
+            sync_mobility=request.sync_mobility,
+        )
 
     @staticmethod
     async def _enqueue_geo_coverage_sync_for_ingest(
@@ -799,4 +879,4 @@ class TripPipeline:
         return False
 
 
-__all__ = ["TripPipeline"]
+__all__ = ["TripPipeline", "TripProcessingRequest"]

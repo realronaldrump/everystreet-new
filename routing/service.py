@@ -33,6 +33,11 @@ from .graph import (
     try_match_osmid,
 )
 from .validation import validate_route
+from .workflow import (
+    apply_gap_bridge_stats,
+    build_route_result,
+    normalize_solver_result,
+)
 
 if TYPE_CHECKING:
     from .types import EdgeRef, ReqId
@@ -567,9 +572,11 @@ async def _generate_optimal_route_with_progress_impl(
                 graph_mtime = graph_path.stat().st_mtime if graph_path.exists() else 0
                 cache_mtime = matching_cache_path.stat().st_mtime
                 if cache_mtime >= graph_mtime:
+
                     def _load_pickle():
                         with open(matching_cache_path, "rb") as f:
                             return pickle.load(f)
+
                     cached = await asyncio.to_thread(_load_pickle)
                     matching_graph = cached["graph"]
                     project_xy = cached["project_xy"]
@@ -577,7 +584,9 @@ async def _generate_optimal_route_with_progress_impl(
                 else:
                     logger.info("Matching graph cache is stale; rebuilding")
             except Exception:
-                logger.warning("Failed to load matching graph cache; rebuilding", exc_info=True)
+                logger.warning(
+                    "Failed to load matching graph cache; rebuilding", exc_info=True
+                )
 
         if matching_graph is None or project_xy is None:
             matching_graph, project_xy = prepare_spatial_matching_graph(G)
@@ -588,11 +597,19 @@ async def _generate_optimal_route_with_progress_impl(
 
                 def _save_pickle():
                     with open(matching_cache_path, "wb") as f:
-                        pickle.dump({"graph": matching_graph, "project_xy": project_xy}, f)
+                        pickle.dump(
+                            {"graph": matching_graph, "project_xy": project_xy}, f
+                        )
+
                 await asyncio.to_thread(_save_pickle)
-                logger.info("Cached projected matching graph to %s", matching_cache_path)
+                logger.info(
+                    "Cached projected matching graph to %s", matching_cache_path
+                )
             except Exception:
-                logger.warning("Failed to cache projected matching graph (non-fatal)", exc_info=True)
+                logger.warning(
+                    "Failed to cache projected matching graph (non-fatal)",
+                    exc_info=True,
+                )
 
         matching_node_xy: dict[int, tuple[float, float]] = {
             n: (
@@ -1471,17 +1488,9 @@ async def _generate_optimal_route_with_progress_impl(
                     start_node_id,
                     node_xy=route_node_xy,
                 )
-                if len(zone_result) == 4:
-                    route_coords, stats, route_edges, service_sequence = zone_result
-                elif len(zone_result) == 3:
-                    route_coords, stats, service_sequence = zone_result
-                    route_edges = []
-                else:
-                    msg = (
-                        "solve_zones returned an unexpected result shape "
-                        f"({len(zone_result)} values)"
-                    )
-                    _raise_value_error(msg)
+                route_coords, stats, route_edges, service_sequence = (
+                    normalize_solver_result(zone_result)
+                )
             except Exception:
                 logger.exception(
                     "Zone-based solver failed; falling back to single solve",
@@ -1501,17 +1510,9 @@ async def _generate_optimal_route_with_progress_impl(
                     start_node_id,
                     req_segment_counts=req_segment_counts,
                 )
-                if len(solver_result) == 4:
-                    route_coords, stats, route_edges, service_sequence = solver_result
-                elif len(solver_result) == 3:
-                    route_coords, stats, service_sequence = solver_result
-                    route_edges = []
-                else:
-                    msg = (
-                        "solve_greedy_route returned an unexpected result shape "
-                        f"({len(solver_result)} values)"
-                    )
-                    _raise_value_error(msg)
+                route_coords, stats, route_edges, service_sequence = (
+                    normalize_solver_result(solver_result)
+                )
             except Exception as e:
                 logger.exception("Greedy solver failed")
                 msg = f"Route solver failed: {e}"
@@ -1605,29 +1606,9 @@ async def _generate_optimal_route_with_progress_impl(
 
         # Fold gap-bridge distance into stats so validation matches final geometry.
         if gap_fill_stats is not None and gap_fill_stats.bridge_distance_m:
-            bridge_m = float(gap_fill_stats.bridge_distance_m or 0.0)
-            stats["gap_bridge_distance_m"] = bridge_m
-            stats["deadhead_distance"] = (
-                float(stats.get("deadhead_distance", 0.0)) + bridge_m
-            )
-            stats["total_distance"] = float(stats.get("total_distance", 0.0)) + bridge_m
-            total_m = float(stats.get("total_distance", 0.0))
-            dead_m = float(stats.get("deadhead_distance", 0.0))
-            stats["deadhead_percentage"] = (
-                (dead_m / total_m * 100.0) if total_m > 0 else 0.0
-            )
-            req_all_m = float(stats.get("required_distance", 0.0))
-            req_done_m = float(
-                stats.get(
-                    "required_distance_completed",
-                    stats.get("service_distance", 0.0),
-                ),
-            )
-            stats["deadhead_ratio_all"] = (
-                (total_m / req_all_m) if req_all_m > 0 else 0.0
-            )
-            stats["deadhead_ratio_completed"] = (
-                (total_m / req_done_m) if req_done_m > 0 else 0.0
+            stats = apply_gap_bridge_stats(
+                stats,
+                bridge_distance_m=float(gap_fill_stats.bridge_distance_m or 0.0),
             )
 
         await update_progress("finalizing", 95, "Finalizing route geometry...")
@@ -1648,41 +1629,20 @@ async def _generate_optimal_route_with_progress_impl(
 
         logger.info("Route generation finished. Updating DB status to completed.")
 
-        route_result = {
-            "status": "success",
-            "coordinates": route_coords,
-            "total_distance_m": stats["total_distance"],
-            "required_distance_m": stats["required_distance"],
-            "required_distance_completed_m": stats.get(
-                "required_distance_completed",
-                stats.get("service_distance", 0.0),
-            ),
-            "deadhead_distance_m": stats["deadhead_distance"],
-            "deadhead_percentage": stats["deadhead_percentage"],
-            # More honest counts:
-            "undriven_segments_loaded": len(undriven),
-            "segment_count": len(undriven),
-            "mapped_segments": mapped_segments,
-            "eligible_segments": max(0, total_segments - skipped_invalid_geometry),
-            "skipped_invalid_geometry_segments": skipped_invalid_geometry,
-            "unmapped_segments": skipped_mapping_distance,
-            "valhalla_trace_attempted": valhalla_trace_attempted,
-            "valhalla_trace_matched": valhalla_trace_matched,
-            "segment_coverage_ratio": validation_details.get("coverage_ratio", 1.0),
-            "max_gap_m": validation_details.get("max_gap_m", 0.0),
-            "max_gap_ft": validation_details.get("max_gap_ft", 0.0),
-            "deadhead_ratio": validation_details.get("deadhead_ratio_completed", 0.0),
-            "deadhead_ratio_all": validation_details.get("deadhead_ratio_all", 0.0),
-            "deadhead_ratio_eval": validation_details.get("deadhead_ratio_eval", 0.0),
-            "required_edge_count": int(stats["required_reqs"]),
-            "completed_required_edge_count": int(stats.get("completed_reqs", 0.0)),
-            "skipped_required_edge_count": int(stats.get("skipped_disconnected", 0.0)),
-            "iterations": int(stats["iterations"]),
-            "validation_warnings": warnings,
-            "validation_details": validation_details,
-            "generated_at": datetime.now(UTC).isoformat(),
-            "location_name": location_name,
-        }
+        route_result = build_route_result(
+            route_coords=route_coords,
+            stats=stats,
+            mapped_segments=mapped_segments,
+            loaded_segment_count=len(undriven),
+            eligible_segments=max(0, total_segments - skipped_invalid_geometry),
+            skipped_invalid_geometry=skipped_invalid_geometry,
+            skipped_mapping_distance=skipped_mapping_distance,
+            valhalla_trace_attempted=valhalla_trace_attempted,
+            valhalla_trace_matched=valhalla_trace_matched,
+            warnings=warnings,
+            validation_details=validation_details,
+            location_name=location_name,
+        )
 
         try:
             # Store result in job for cluster routes (not saved to CoverageArea)

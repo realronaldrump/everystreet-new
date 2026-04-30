@@ -308,6 +308,65 @@ def _calculate_trip_metrics_incremental(
     }
 
 
+def _finalize_live_trip_snapshot(
+    trip: dict[str, Any],
+    *,
+    end_time: datetime,
+    end_data: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Return a completed live trip snapshot without persisting it."""
+    completed = dict(trip)
+    end_payload = end_data or {}
+
+    start_time = _parse_timestamp(completed.get("startTime"))
+    if isinstance(start_time, datetime):
+        duration = (end_time - start_time).total_seconds()
+    else:
+        duration = float(completed.get("duration") or 0.0)
+
+    coordinates = normalize_existing_coordinates(
+        completed.get("coordinates") or [],
+        validate_coords=True,
+    )
+    gps = (
+        GeometryService.geometry_from_coordinate_dicts(coordinates)
+        if coordinates
+        else completed.get("gps")
+    )
+
+    completed["status"] = "completed"
+    completed["endTime"] = end_time
+    completed["endTimeZone"] = end_payload.get(
+        "timeZone",
+        completed.get("endTimeZone") or "UTC",
+    )
+    if "odometer" in end_payload:
+        completed["endOdometer"] = end_payload.get("odometer")
+    if "fuelConsumed" in end_payload:
+        completed["fuelConsumed"] = end_payload.get("fuelConsumed")
+    completed["duration"] = duration
+    completed["lastUpdate"] = end_time
+    if gps:
+        completed["gps"] = gps
+
+    return completed
+
+
+async def _publish_completed_and_clear(
+    transaction_id: str,
+    completed_trip: dict[str, Any],
+) -> None:
+    """
+    Publish terminal live trip state, then wipe ephemeral storage.
+
+    This is the critical live-trip invariant in one seam: clients see the
+    completion event before Redis-backed live state is cleared and marked
+    closed for late webhook suppression.
+    """
+    await _publish_trip_snapshot(completed_trip, status="completed")
+    await clear_trip_snapshot(transaction_id, mark_closed=True)
+
+
 # ============================================================================
 # Event Handlers
 # ============================================================================
@@ -515,41 +574,20 @@ async def process_trip_end(data: dict[str, Any]) -> None:
         logger.info("Trip %s already processed, ignoring tripEnd", transaction_id)
         return
 
-    start_time = _parse_timestamp(trip.get("startTime"))
-    if isinstance(start_time, datetime):
-        duration = (end_time - start_time).total_seconds()
-    else:
-        duration = float(trip.get("duration") or 0.0)
-
-    coordinates = normalize_existing_coordinates(
-        trip.get("coordinates") or [],
-        validate_coords=True,
+    completed = _finalize_live_trip_snapshot(
+        trip,
+        end_time=end_time,
+        end_data=end_data,
     )
-    gps = (
-        GeometryService.geometry_from_coordinate_dicts(coordinates)
-        if coordinates
-        else trip.get("gps")
-    )
-
-    trip["status"] = "completed"
-    trip["endTime"] = end_time
-    trip["endTimeZone"] = end_data.get("timeZone", "UTC")
-    trip["endOdometer"] = end_data.get("odometer")
-    trip["fuelConsumed"] = end_data.get("fuelConsumed")
-    trip["duration"] = duration
-    trip["lastUpdate"] = end_time
-    if gps:
-        trip["gps"] = gps
 
     logger.info(
         "Trip %s completed: %.0fs, %.2fmi",
         transaction_id,
-        duration,
-        float(trip.get("distance") or 0.0),
+        float(completed.get("duration") or 0.0),
+        float(completed.get("distance") or 0.0),
     )
 
-    await _publish_trip_snapshot(trip, status="completed")
-    await clear_trip_snapshot(transaction_id, mark_closed=True)
+    await _publish_completed_and_clear(transaction_id, completed)
 
 
 # ============================================================================
@@ -577,27 +615,14 @@ async def get_active_trip() -> dict[str, Any] | None:
                 "Active trip %s is stale (>30m). Auto-completing.",
                 transaction_id,
             )
-            completed = dict(trip)
-            completed["status"] = "completed"
-            if not completed.get("endTime"):
-                completed["endTime"] = completed.get("lastUpdate") or datetime.now(UTC)
-
-            start_time = _parse_timestamp(completed.get("startTime"))
-            end_time = _parse_timestamp(completed.get("endTime"))
-            if isinstance(start_time, datetime) and isinstance(end_time, datetime):
-                completed["duration"] = (end_time - start_time).total_seconds()
-
-            coords = normalize_existing_coordinates(
-                completed.get("coordinates") or [],
-                validate_coords=True,
+            end_time = _parse_timestamp(trip.get("endTime") or trip.get("lastUpdate"))
+            completed = _finalize_live_trip_snapshot(
+                trip,
+                end_time=end_time
+                if isinstance(end_time, datetime)
+                else datetime.now(UTC),
             )
-            if coords and not completed.get("gps"):
-                trip_gps = GeometryService.geometry_from_coordinate_dicts(coords)
-                if trip_gps:
-                    completed["gps"] = trip_gps
-
-            await _publish_trip_snapshot(completed, status="completed")
-            await clear_trip_snapshot(transaction_id, mark_closed=True)
+            await _publish_completed_and_clear(transaction_id, completed)
             return None
 
     except Exception:
@@ -669,9 +694,7 @@ async def get_webhook_status() -> dict[str, Any]:
         if creds:
             last_seen_at = creds.last_webhook_at
             result = {
-                "last_received": (
-                    last_seen_at.isoformat() if last_seen_at else None
-                ),
+                "last_received": (last_seen_at.isoformat() if last_seen_at else None),
                 "event_type": creds.last_webhook_event_type,
                 "webhook_last_checked": (
                     creds.webhook_last_checked_at.isoformat()
