@@ -69,8 +69,7 @@ PUBLIC_EXACT_PATHS: Final[set[str]] = {
     "/login",
     "/api/auth/session",
     "/api/status/live",
-    "/bouncie-webhook",
-    "/bouncie-webhook/",
+    "/api/webhooks/bouncie/live",
 }
 PUBLIC_PREFIXES: Final[tuple[str, ...]] = (
     "/static/",
@@ -82,8 +81,7 @@ PUBLIC_PREFIXES: Final[tuple[str, ...]] = (
 PUBLIC_MUTATION_PATHS: Final[set[str]] = {
     "/login",
     "/api/driving-navigation/next-route",
-    "/bouncie-webhook",
-    "/bouncie-webhook/",
+    "/api/webhooks/bouncie/live",
 }
 PUBLIC_MUTATION_PREFIXES: Final[tuple[str, ...]] = (
     "/api/routing/",

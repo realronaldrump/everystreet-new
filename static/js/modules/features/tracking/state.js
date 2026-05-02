@@ -1,7 +1,5 @@
 const LIVE_TRACKING_DEFAULTS = {
   pollingInterval: 3000, // 3 seconds
-  staleRecoveryThresholdMs: 12000,
-  staleClearThresholdMs: 6 * 60 * 60 * 1000,
   followStorageKey: "autoFollowVehicle",
   reconnectMinDelayMs: 1000,
   reconnectMaxDelayMs: 30000,

@@ -52,23 +52,15 @@ class LiveTripTracker {
     this.ws = null;
     this.pollingTimer = null;
     this.pollingInterval = LIVE_TRACKING_DEFAULTS.pollingInterval;
-    this.staleRecoveryThresholdMs =
-      LIVE_TRACKING_DEFAULTS.staleRecoveryThresholdMs ?? 12000;
-    this.staleClearThresholdMs =
-      LIVE_TRACKING_DEFAULTS.staleClearThresholdMs ?? 6 * 60 * 60 * 1000;
     this.reconnectMinDelayMs = LIVE_TRACKING_DEFAULTS.reconnectMinDelayMs;
     this.reconnectMaxDelayMs = LIVE_TRACKING_DEFAULTS.reconnectMaxDelayMs;
     this.reconnectMultiplier = LIVE_TRACKING_DEFAULTS.reconnectMultiplier;
     this.reconnectAttempt = 0;
     this.reconnectTimer = null;
-    this.noUpdatePollCount = 0;
     this.lastStreamEventAt = 0;
     this.lastTripSignature = null;
-    this.recoveryInFlight = false;
     this.isDestroyed = false;
     this._manualCloseSocket = null;
-    this.activeTripSnapshotKey = "liveTripSnapshot";
-    this.activeTripSnapshotMaxAgeMs = 12 * 60 * 60 * 1000;
 
     this.lineSourceId = LIVE_TRACKING_LAYER_IDS.lineSource;
     this.markerSourceId = LIVE_TRACKING_LAYER_IDS.markerSource;
@@ -735,17 +727,12 @@ class LiveTripTracker {
       ) {
         console.info(`Initial trip loaded: ${data.trip.transactionId}`);
         this.updateTrip(data.trip);
-      } else if (!this.restoreTripFromSnapshot()) {
-        this.clearTrip();
       } else {
-        this.updateStatus(false, "Restored live trip");
+        this.clearTrip();
       }
     } catch (error) {
       console.error("Failed to load initial trip:", error);
-      if (!this.restoreTripFromSnapshot()) {
-        throw error;
-      }
-      this.updateStatus(false, "Restored live trip");
+      throw error;
     }
   }
 
@@ -771,7 +758,6 @@ class LiveTripTracker {
           }
           this.reconnectAttempt = 0;
           this.lastStreamEventAt = Date.now();
-          this.noUpdatePollCount = 0;
           this.updateStatus(true, this.hasActiveTrip ? "Live tracking" : "Idle");
         },
         onMessage: (data) => this.handleSocketMessage(data),
@@ -881,7 +867,6 @@ class LiveTripTracker {
     }
     if (data.type === "trip_state" && data.trip) {
       this.lastStreamEventAt = Date.now();
-      this.noUpdatePollCount = 0;
       this.updateTrip(data.trip);
     }
   }
@@ -915,18 +900,9 @@ class LiveTripTracker {
       if (data.status === "success") {
         if (data.has_update && data.trip && data.trip.status !== "completed") {
           this.lastStreamEventAt = Date.now();
-          this.noUpdatePollCount = 0;
           this.updateTrip(data.trip);
-        } else if (!data.has_update) {
-          this.noUpdatePollCount += 1;
-          const hasVeryStaleTrip =
-            this.activeTrip &&
-            this.lastUpdateTimestamp &&
-            Date.now() - this.lastUpdateTimestamp > this.staleClearThresholdMs &&
-            this.noUpdatePollCount >= 3;
-          if (hasVeryStaleTrip) {
-            this.clearTrip();
-          }
+        } else if (!data.has_update && this.activeTrip) {
+          this.clearTrip();
         }
         this.updateStatus(true, this.hasActiveTrip ? "Live tracking" : "Idle");
       }
@@ -1042,8 +1018,6 @@ class LiveTripTracker {
     this.lastCoord = newCoord;
     this.lastTripSignature = signature;
     this.lastStreamEventAt = Date.now();
-    this.noUpdatePollCount = 0;
-    this.persistActiveTripSnapshot(trip);
     this.updateStatus(true, "Live tracking");
 
     document.dispatchEvent(
@@ -1075,81 +1049,6 @@ class LiveTripTracker {
       distance,
       speed,
     ].join("|");
-  }
-
-  persistActiveTripSnapshot(trip) {
-    if (!trip || typeof trip !== "object") {
-      return;
-    }
-
-    try {
-      const coordinates = LiveTripTracker.extractCoordinates(trip)
-        .slice(-240)
-        .map((coord) => ({ ...coord }));
-
-      const snapshot = {
-        transactionId: trip.transactionId || null,
-        status: trip.status || "active",
-        startTime: trip.startTime || null,
-        lastUpdate: trip.lastUpdate || null,
-        currentSpeed: trip.currentSpeed ?? 0,
-        distance: trip.distance ?? 0,
-        duration: trip.duration ?? 0,
-        pointsRecorded:
-          trip.pointsRecorded ??
-          (Array.isArray(trip.coordinates)
-            ? trip.coordinates.length
-            : coordinates.length),
-        coordinates,
-        snapshotAt: new Date().toISOString(),
-      };
-
-      setStorage(this.activeTripSnapshotKey, snapshot);
-    } catch (error) {
-      console.warn("Failed to persist live trip snapshot:", error);
-    }
-  }
-
-  restoreTripFromSnapshot() {
-    try {
-      const snapshot = getStorage(this.activeTripSnapshotKey);
-      if (!snapshot || typeof snapshot !== "object") {
-        return false;
-      }
-
-      if (snapshot.status === "completed") {
-        return false;
-      }
-
-      const snapshotAtMs = snapshot.snapshotAt
-        ? new Date(snapshot.snapshotAt).getTime()
-        : 0;
-      if (
-        Number.isFinite(snapshotAtMs) &&
-        snapshotAtMs > 0 &&
-        Date.now() - snapshotAtMs > this.activeTripSnapshotMaxAgeMs
-      ) {
-        return false;
-      }
-
-      const restoredTrip = {
-        ...snapshot,
-        status: "active",
-      };
-      this.updateTrip(restoredTrip);
-      return true;
-    } catch (error) {
-      console.warn("Failed to restore live trip snapshot:", error);
-      return false;
-    }
-  }
-
-  clearActiveTripSnapshot() {
-    try {
-      localStorage.removeItem(this.activeTripSnapshotKey);
-    } catch (error) {
-      console.warn("Failed to clear live trip snapshot:", error);
-    }
   }
 
   static extractCoordinates(trip) {
@@ -1415,18 +1314,14 @@ class LiveTripTracker {
     }
   }
 
-  clearTrip({ silent = false, preserveSnapshot = false } = {}) {
+  clearTrip({ silent = false } = {}) {
     this._stopInterpolation();
     this.activeTrip = null;
     this.lastCoord = null;
     this.lastBearing = null;
     this.lastUpdateTimestamp = null;
     this.lastTripSignature = null;
-    this.noUpdatePollCount = 0;
     this.updateFreshnessState();
-    if (!preserveSnapshot) {
-      this.clearActiveTripSnapshot();
-    }
 
     const lineSource = this.map.getSource(this.lineSourceId);
     if (lineSource) {
@@ -1451,7 +1346,6 @@ class LiveTripTracker {
     }
     this.freshnessTimer = setInterval(() => {
       this.updateFreshnessState();
-      this.recoverIfStale();
     }, 4000);
   }
 
@@ -1462,41 +1356,6 @@ class LiveTripTracker {
     if (this.hudElem) {
       this.hudElem.classList.toggle("data-stale", isStale);
     }
-  }
-
-  recoverIfStale() {
-    if (this.isDestroyed || this.recoveryInFlight || !this.hasActiveTrip) {
-      return;
-    }
-
-    const now = Date.now();
-    const staleByDataAge =
-      this.lastUpdateTimestamp !== null &&
-      now - this.lastUpdateTimestamp > this.staleRecoveryThresholdMs;
-    const staleByStreamAge =
-      this.lastStreamEventAt > 0 &&
-      now - this.lastStreamEventAt > this.staleRecoveryThresholdMs;
-
-    if (!staleByDataAge && !staleByStreamAge) {
-      return;
-    }
-
-    this.recoveryInFlight = true;
-    this.updateStatus(false, "Syncing live trip...");
-
-    Promise.resolve()
-      .then(async () => {
-        await this.poll({ reschedule: false });
-        if (!this.isWebSocketConnected() || staleByStreamAge) {
-          this.reconnectWebSocket({ immediate: true });
-        }
-      })
-      .catch((error) => {
-        console.warn("Live trip recovery failed:", error);
-      })
-      .finally(() => {
-        this.recoveryInFlight = false;
-      });
   }
 
   // --- Cleanup ----------------------------------------------------------
@@ -1570,7 +1429,7 @@ class LiveTripTracker {
       }
     }
 
-    this.clearTrip({ silent: true, preserveSnapshot: true });
+    this.clearTrip({ silent: true });
     this.updateStatus(false, "Disconnected");
 
     if (LiveTripTracker.instance === this) {

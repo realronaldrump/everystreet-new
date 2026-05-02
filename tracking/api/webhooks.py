@@ -1,29 +1,19 @@
-"""
-Bouncie webhook handler.
-
-Ensures fast 2xx responses to avoid webhook deactivation.
-
-CRITICAL: This module intentionally does NOT use the @api_route decorator.
-The @api_route decorator converts exceptions into non-2xx HTTPExceptions,
-which would cause Bouncie to consider the webhook delivery failed and
-eventually deactivate the webhook after repeated failures.  Instead, every
-code path here returns a 200 OK response unconditionally, and event
-processing is dispatched via asyncio.create_task() so it is fully decoupled
-from the HTTP response lifecycle.
-"""
+"""Bouncie live-tracking webhook handler."""
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
-from collections.abc import Awaitable, Callable, Coroutine
+import math
+import secrets
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from core.api import api_route
+from core.date_utils import parse_timestamp
 from setup.services.bouncie_credentials import get_bouncie_credentials
 from tracking.services.tracking_service import TrackingService
 
@@ -31,6 +21,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 TripHandler = Callable[[dict[str, Any]], Awaitable[None]]
+LIVE_BOUNCIE_WEBHOOK_PATH = "/api/webhooks/bouncie/live"
 
 TRIP_EVENT_HANDLERS: dict[str, TripHandler] = {
     "tripStart": TrackingService.process_trip_start,
@@ -39,9 +30,7 @@ TRIP_EVENT_HANDLERS: dict[str, TripHandler] = {
     "tripEnd": TrackingService.process_trip_end,
 }
 
-# Pre-built response bytes to avoid any per-request object creation.
 _OK_BODY = b'{"status":"ok"}'
-_BACKGROUND_TASKS: set[asyncio.Task[None]] = set()
 
 
 def _ok_response() -> Response:
@@ -50,6 +39,13 @@ def _ok_response() -> Response:
         status_code=status.HTTP_200_OK,
         media_type="application/json",
     )
+
+
+def _webhook_error(
+    status_code: int,
+    detail: str,
+) -> HTTPException:
+    return HTTPException(status_code=status_code, detail=detail)
 
 
 def _extract_auth_token(auth_header: str | None) -> str | None:
@@ -67,29 +63,27 @@ def _extract_auth_token(auth_header: str | None) -> str | None:
     return token
 
 
-def _schedule_background_task(
-    coro: Coroutine[Any, Any, None],
-) -> None:
-    task = asyncio.create_task(coro)
-    _BACKGROUND_TASKS.add(task)
-    task.add_done_callback(_BACKGROUND_TASKS.discard)
-
-
 async def _parse_request_payload(
     request: Request,
     *,
     source_label: str,
-) -> dict[str, Any] | None:
+) -> dict[str, Any]:
     raw_body = await request.body()
     if not raw_body:
         logger.warning("%s received empty body", source_label)
-        return None
+        raise _webhook_error(
+            status.HTTP_400_BAD_REQUEST,
+            "Request body must be a JSON object.",
+        )
 
     try:
         payload = json.loads(raw_body)
     except json.JSONDecodeError as exc:
         logger.warning("%s invalid JSON: %s", source_label, exc)
-        return None
+        raise _webhook_error(
+            status.HTTP_400_BAD_REQUEST,
+            "Request body must be valid JSON.",
+        ) from exc
 
     if not isinstance(payload, dict):
         logger.warning(
@@ -97,89 +91,200 @@ async def _parse_request_payload(
             source_label,
             type(payload).__name__,
         )
-        return None
+        raise _webhook_error(
+            status.HTTP_400_BAD_REQUEST,
+            "Request body must be a JSON object.",
+        )
 
     return payload
 
 
-async def _process_payload(payload: dict[str, Any]) -> None:
-    """Dispatch a parsed webhook payload to the matching trip handler."""
+def _payload_error(message: str) -> HTTPException:
+    return _webhook_error(status.HTTP_400_BAD_REQUEST, message)
+
+
+def _require_nonempty_string(payload: dict[str, Any], field: str) -> str:
+    value = payload.get(field)
+    if not isinstance(value, str) or not value.strip():
+        raise _payload_error(f"Missing or invalid '{field}'.")
+    return value.strip()
+
+
+def _require_object(payload: dict[str, Any], field: str) -> dict[str, Any]:
+    value = payload.get(field)
+    if not isinstance(value, dict):
+        raise _payload_error(f"Missing or invalid '{field}'.")
+    return value
+
+
+def _require_array(payload: dict[str, Any], field: str) -> list[Any]:
+    value = payload.get(field)
+    if not isinstance(value, list):
+        raise _payload_error(f"Missing or invalid '{field}'.")
+    return value
+
+
+def _require_timestamp(payload: dict[str, Any], field: str) -> datetime:
+    value = payload.get(field)
+    parsed = parse_timestamp(value)
+    if parsed is None:
+        raise _payload_error(f"Missing or invalid '{field}'.")
+    return parsed
+
+
+def _is_json_number(value: Any) -> bool:
+    return (
+        isinstance(value, int | float)
+        and not isinstance(value, bool)
+        and math.isfinite(float(value))
+    )
+
+
+def _require_number(payload: dict[str, Any], field: str) -> float:
+    value = payload.get(field)
+    if not _is_json_number(value):
+        raise _payload_error(f"Missing or invalid '{field}'.")
+    return float(value)
+
+
+def _validate_optional_number(payload: dict[str, Any], field: str) -> None:
+    if field in payload and payload.get(field) is not None:
+        _require_number(payload, field)
+
+
+def _validate_base_trip_payload(payload: dict[str, Any]) -> str:
     event_type = payload.get("eventType")
-    handler = TRIP_EVENT_HANDLERS.get(event_type)
-    if not handler:
-        if event_type:
-            logger.debug(
-                "Ignoring Bouncie webhook event type=%s", event_type,
-            )
-        else:
-            logger.warning("Bouncie webhook payload missing eventType")
-        return
+    if event_type not in TRIP_EVENT_HANDLERS:
+        raise _payload_error("Unsupported or missing 'eventType'.")
 
-    await handler(payload)
+    for field in ("imei", "vin", "transactionId"):
+        _require_nonempty_string(payload, field)
+
+    return str(event_type)
 
 
-async def _dispatch_event(payload: dict[str, Any], auth_header: str | None) -> None:
-    """Process a real Bouncie webhook event. Fully guarded — never raises."""
+def _validate_trip_start_payload(payload: dict[str, Any]) -> None:
+    start = _require_object(payload, "start")
+    _require_timestamp(start, "timestamp")
+    _require_nonempty_string(start, "timeZone")
+    _require_number(start, "odometer")
+
+
+def _validate_trip_data_payload(payload: dict[str, Any]) -> None:
+    data_points = _require_array(payload, "data")
+    for index, point in enumerate(data_points):
+        if not isinstance(point, dict):
+            raise _payload_error(f"Invalid 'data[{index}]'.")
+        _require_timestamp(point, "timestamp")
+        gps = _require_object(point, "gps")
+        for field in ("lat", "lon", "heading"):
+            _require_number(gps, field)
+        _validate_optional_number(point, "speed")
+        _validate_optional_number(point, "fuelLevelInput")
+
+
+def _validate_trip_metrics_payload(payload: dict[str, Any]) -> None:
+    metrics = _require_object(payload, "metrics")
+    _require_timestamp(metrics, "timestamp")
+    for field in (
+        "tripTime",
+        "tripDistance",
+        "totalIdlingTime",
+        "maxSpeed",
+        "averageDriveSpeed",
+        "hardBrakingCounts",
+        "hardAccelerationCounts",
+    ):
+        _require_number(metrics, field)
+
+
+def _validate_trip_end_payload(payload: dict[str, Any]) -> None:
+    end = _require_object(payload, "end")
+    _require_timestamp(end, "timestamp")
+    _require_nonempty_string(end, "timeZone")
+    _require_number(end, "odometer")
+    _require_number(end, "fuelConsumed")
+
+
+def _validate_live_trip_payload(payload: dict[str, Any]) -> str:
+    event_type = _validate_base_trip_payload(payload)
+    if event_type == "tripStart":
+        _validate_trip_start_payload(payload)
+    elif event_type == "tripData":
+        _validate_trip_data_payload(payload)
+    elif event_type == "tripMetrics":
+        _validate_trip_metrics_payload(payload)
+    elif event_type == "tripEnd":
+        _validate_trip_end_payload(payload)
+    return event_type
+
+
+async def _require_bouncie_authorization(request: Request) -> None:
+    auth_header = request.headers.get(
+        "x-bouncie-authorization",
+    ) or request.headers.get("authorization")
+    auth_token = _extract_auth_token(auth_header)
+    credentials = await get_bouncie_credentials()
+    webhook_key = (credentials.get("webhook_key") or "").strip()
+
+    if not webhook_key:
+        logger.error("Bouncie webhook key is not configured")
+        raise _webhook_error(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Bouncie webhook key is not configured.",
+        )
+
+    if not auth_token or not secrets.compare_digest(auth_token, webhook_key):
+        logger.warning("Bouncie webhook auth failed")
+        raise _webhook_error(
+            status.HTTP_401_UNAUTHORIZED,
+            "Invalid Bouncie webhook Authorization header.",
+        )
+
+
+async def _process_payload(payload: dict[str, Any]) -> str:
+    """Dispatch a validated webhook payload to the matching trip handler."""
+    event_type = _validate_live_trip_payload(payload)
+    handler = TRIP_EVENT_HANDLERS[event_type]
+
     try:
-        auth_token = _extract_auth_token(auth_header)
-        credentials = await get_bouncie_credentials()
-        webhook_key = (credentials.get("webhook_key") or "").strip()
-        if webhook_key and auth_token != webhook_key:
-            logger.warning(
-                "Bouncie webhook auth failed (eventType=%s)",
-                payload.get("eventType"),
-            )
-            return
+        await handler(payload)
+    except Exception as exc:
+        logger.exception(
+            "Failed to handle Bouncie live webhook event=%s",
+            payload.get("eventType"),
+        )
+        raise _webhook_error(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "Webhook processing failed.",
+        ) from exc
 
-        event_type = payload.get("eventType")
+    return event_type
+
+
+async def _handle_live_webhook_request(
+    request: Request,
+    *,
+    require_auth: bool,
+    source_label: str,
+) -> Response:
+    payload = await _parse_request_payload(request, source_label=source_label)
+    if require_auth:
+        await _require_bouncie_authorization(request)
+    event_type = await _process_payload(payload)
+    if require_auth:
         await TrackingService.record_webhook_event(event_type)
-        await _process_payload(payload)
-    except Exception:
-        logger.exception(
-            "Failed to handle Bouncie webhook event=%s",
-            payload.get("eventType"),
-        )
+    return _ok_response()
 
 
-async def _dispatch_simulator_event(payload: dict[str, Any]) -> None:
-    """Process a simulator webhook event without touching real webhook auth."""
-    try:
-        await _process_payload(payload)
-    except Exception:
-        logger.exception(
-            "Failed to handle simulator Bouncie webhook event=%s",
-            payload.get("eventType"),
-        )
-
-
-@router.post("/bouncie-webhook")
-@router.post("/bouncie-webhook/")
-async def bouncie_webhook(request: Request) -> Response:
-    """
-    Receive Bouncie webhook events and process them asynchronously.
-
-    Always returns 200 OK to prevent webhook deactivation.
-
-    NOTE: This handler deliberately avoids @api_route and response_model
-    so that *nothing* can convert the response to a non-2xx status code.
-    Event processing is fire-and-forget via asyncio.create_task().
-    """
-    try:
-        auth_header = request.headers.get(
-            "x-bouncie-authorization",
-        ) or request.headers.get("authorization")
-        payload = await _parse_request_payload(
-            request,
-            source_label="Bouncie webhook",
-        )
-        if payload is None:
-            return _ok_response()
-
-        _schedule_background_task(_dispatch_event(payload, auth_header))
-        return _ok_response()
-    except Exception:
-        logger.exception("Unhandled error in Bouncie webhook")
-        return _ok_response()
+@router.post(LIVE_BOUNCIE_WEBHOOK_PATH)
+async def bouncie_live_webhook(request: Request) -> Response:
+    """Receive authenticated Bouncie live-trip webhook events."""
+    return await _handle_live_webhook_request(
+        request,
+        require_auth=True,
+        source_label="Bouncie live webhook",
+    )
 
 
 @router.post("/api/simulator/bouncie-webhook")
@@ -190,26 +295,11 @@ async def simulator_bouncie_webhook(request: Request) -> Response:
     This endpoint intentionally bypasses real webhook auth validation so the
     production Bouncie webhook key is never coupled to a browser-side tool.
     """
-    try:
-        payload = await _parse_request_payload(
-            request,
-            source_label="Simulator Bouncie webhook",
-        )
-        if payload is None:
-            return _ok_response()
-
-        _schedule_background_task(_dispatch_simulator_event(payload))
-        return _ok_response()
-    except Exception:
-        logger.exception("Unhandled error in simulator Bouncie webhook")
-        return _ok_response()
-
-
-@router.get("/bouncie-webhook")
-@router.get("/bouncie-webhook/")
-async def bouncie_webhook_probe() -> Response:
-    """Lightweight probe endpoint for uptime and ingress checks."""
-    return _ok_response()
+    return await _handle_live_webhook_request(
+        request,
+        require_auth=False,
+        source_label="Simulator Bouncie webhook",
+    )
 
 
 @router.get("/api/webhooks/bouncie/status", response_model=dict[str, Any])

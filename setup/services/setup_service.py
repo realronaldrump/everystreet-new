@@ -340,9 +340,7 @@ async def get_service_health() -> dict[str, Any]:
     elif bouncie_ready and webhook_active is False:
         bouncie_status = "warning"
         bouncie_message = "Bouncie webhook is inactive"
-        bouncie_detail_parts.append(
-            "The monitor will re-enable it automatically once the public endpoint responds."
-        )
+        bouncie_detail_parts.append("Update the webhook in the Bouncie Developer Portal.")
 
     bouncie_detail = " | ".join(part for part in bouncie_detail_parts if part) or None
 
@@ -548,7 +546,7 @@ async def get_service_logs(service_name: str, tail: int = 100) -> dict[str, Any]
         "redis": "redis",
         "worker": "worker",
         "app": "app",
-        "bouncie": "bouncie-webhook",  # If separate, otherwise it might be part of app or worker
+        "bouncie": "app",
     }
 
     target_container = container_map.get(service_name, service_name)

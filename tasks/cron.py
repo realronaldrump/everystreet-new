@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from tasks.bouncie_webhook import monitor_bouncie_webhook
 from tasks.coverage import sync_geo_coverage, update_coverage_for_new_trips
 from tasks.fetch import periodic_fetch_trips
 from tasks.maintenance import remap_unmatched_trips, validate_trips
@@ -64,14 +63,6 @@ async def cron_monitor_map_data_jobs(ctx: dict) -> dict | None:
         ctx,
         "monitor_map_data_jobs",
         lambda: monitor_map_services(ctx),
-    )
-
-
-async def cron_monitor_bouncie_webhook(ctx: dict) -> dict | None:
-    return await run_task_if_due(
-        ctx,
-        "monitor_bouncie_webhook",
-        lambda: monitor_bouncie_webhook(ctx),
     )
 
 

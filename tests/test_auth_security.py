@@ -25,7 +25,10 @@ from core.auth import (
     require_owner_websocket,
     session_cookie_https_only,
 )
-from tracking.api import live as live_api
+from tracking.api import (
+    live as live_api,
+    webhooks as webhook_api,
+)
 
 
 class _FakeSettings:
@@ -159,6 +162,7 @@ def _build_auth_test_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(pages_router)
     app.include_router(live_api.router)
+    app.include_router(webhook_api.router)
 
     @app.get("/api/private")
     async def private_api() -> dict[str, str]:
@@ -352,6 +356,43 @@ def test_viewer_live_trip_endpoint_returns_empty_state(auth_test_client: TestCli
     assert response.status_code == 200
     body = response.json()
     assert body["has_active_trip"] is False
+
+
+def test_bouncie_live_webhook_bypasses_owner_session_and_csrf(
+    auth_test_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handler = AsyncMock()
+    monkeypatch.setattr(
+        webhook_api,
+        "get_bouncie_credentials",
+        AsyncMock(return_value={"webhook_key": "expected-token"}),
+    )
+    monkeypatch.setattr(
+        webhook_api.TrackingService,
+        "record_webhook_event",
+        AsyncMock(),
+    )
+    monkeypatch.setattr(webhook_api, "TRIP_EVENT_HANDLERS", {"tripStart": handler})
+
+    response = auth_test_client.post(
+        webhook_api.LIVE_BOUNCIE_WEBHOOK_PATH,
+        json={
+            "eventType": "tripStart",
+            "imei": "353816090000794",
+            "vin": "1FTFW1E88MFA00001",
+            "transactionId": "tx-live-auth",
+            "start": {
+                "timestamp": "2026-02-21T12:00:00Z",
+                "timeZone": "UTC",
+                "odometer": 1234.5,
+            },
+        },
+        headers={"Authorization": "expected-token"},
+    )
+
+    assert response.status_code == 200
+    handler.assert_awaited_once()
 
 
 def test_owner_live_trip_endpoint_returns_real_payload(auth_test_client: TestClient) -> None:

@@ -1,6 +1,6 @@
 import asyncio
 
-from tracking.api.webhooks import bouncie_webhook
+from tracking.api.webhooks import bouncie_live_webhook
 
 
 async def main():
@@ -9,7 +9,12 @@ async def main():
             self.headers = headers
 
         async def body(self):
-            return b'{"eventType": "test"}'
+            return (
+                b'{"eventType":"tripStart","imei":"353816090000794",'
+                b'"vin":"1FTFW1E88MFA00001","transactionId":"probe-trip",'
+                b'"start":{"timestamp":"2026-02-21T12:00:00Z",'
+                b'"timeZone":"UTC","odometer":1}}'
+            )
 
     req = DummyRequest(
         {
@@ -23,8 +28,7 @@ async def main():
 
     await init_db()
 
-    await bouncie_webhook(req)
-    await asyncio.sleep(2)  # Wait for background task
+    await bouncie_live_webhook(req)
 
 
 if __name__ == "__main__":
