@@ -21,7 +21,10 @@ test("settings toggles stay wired from template to bootstrap state", () => {
   assert.match(settingsHtml, /Show Only Trips Inside Selected Coverage Area/);
   assert.match(settingsHtml, /Use Heatmap Style for Trips & Matched Trips/);
 
-  assert.match(configSource, /mapTripsWithinCoverageOnly:\s*"mapTripsWithinCoverageOnly"/);
+  assert.match(
+    configSource,
+    /mapTripsWithinCoverageOnly:\s*"mapTripsWithinCoverageOnly"/
+  );
   assert.match(configSource, /tripLayersUseHeatmap:\s*"tripLayersUseHeatmap"/);
 
   assert.match(
@@ -95,8 +98,9 @@ test("trip fetching stays coverage-aware without wasting metric requests", () =>
     /async fetchMetrics\(\)\s*\{\s*if\s*\(this\.getCoverageTripClipState\(\)\.enabled\)\s*\{\s*return null;\s*\}/s
   );
 
-  const coverageAreaParamHits = (source.match(/params\.set\("coverage_area_id",/g) || [])
-    .length;
+  const coverageAreaParamHits = (
+    source.match(/params\.set\("coverage_area_id",/g) || []
+  ).length;
   const clipFlagHits = (
     source.match(/params\.set\("clip_to_coverage",\s*"true"\)/g) || []
   ).length;
@@ -121,4 +125,11 @@ test("swup visit URLs are always treated as strings", () => {
 
   assert.match(domUtilsSource, /pathnameFromSwupUrl\(visit\?\.from\?\.url\)/);
   assert.doesNotMatch(domUtilsSource, /visit\?\.from\?\.url\?\.pathname/);
+});
+
+test("memory city deck stage is not hidden from assistive tech while focused", () => {
+  const memoryCityHtml = readTemplate("memory_city.html");
+
+  assert.match(memoryCityHtml, /id="memory-city-stage"/);
+  assert.doesNotMatch(memoryCityHtml, /id="memory-city-stage"[^>]*aria-hidden="true"/);
 });

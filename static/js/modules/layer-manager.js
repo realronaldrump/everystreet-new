@@ -43,6 +43,18 @@ const layerManager = {
   _heatmapRefreshHandler: null,
   _cachedFirstSymbolLayerId: null,
 
+  _isDeckTripBundleLayer(layerName, layerInfo = store.mapLayers[layerName]) {
+    return (
+      DECK_TRIP_LAYERS.has(layerName) && layerInfo?.layer?.type === "TripMapBundle"
+    );
+  },
+
+  _refreshDeckTripRenderer() {
+    import("./trip-map-renderer.js")
+      .then((module) => module.default.render())
+      .catch(() => {});
+  },
+
   getFirstSymbolLayerId() {
     if (!store.map) {
       return undefined;
@@ -566,7 +578,11 @@ const layerManager = {
       }
 
       Object.entries(store.mapLayers).forEach(([layerName, info]) => {
-        if (info?.isHeatmap && info.visible) {
+        if (
+          info?.isHeatmap &&
+          info.visible &&
+          !this._isDeckTripBundleLayer(layerName, info)
+        ) {
           this._refreshHeatmapStyle(layerName);
         }
       });
@@ -643,6 +659,11 @@ const layerManager = {
    * @private
    */
   async _toggleHeatmapLayer(name, layerInfo, visible) {
+    if (this._isDeckTripBundleLayer(name, layerInfo)) {
+      this._refreshDeckTripRenderer();
+      return;
+    }
+
     const firstGlowLayer = `${name}-layer-0`;
 
     if (store.map?.getLayer(firstGlowLayer)) {
@@ -776,6 +797,11 @@ const layerManager = {
 
     layerInfo[property] = value;
 
+    if (this._isDeckTripBundleLayer(name, layerInfo)) {
+      this._refreshDeckTripRenderer();
+      return;
+    }
+
     // Handle heatmap layers (2 stacked glow layers)
     if (layerInfo.isHeatmap) {
       if (property === "opacity") {
@@ -906,6 +932,9 @@ const layerManager = {
   _refreshHeatmapStyle(layerName) {
     const layerInfo = store.mapLayers[layerName];
     if (!layerInfo?.isHeatmap || !layerInfo.layer || !store.map) {
+      return;
+    }
+    if (this._isDeckTripBundleLayer(layerName, layerInfo)) {
       return;
     }
 
@@ -1046,6 +1075,7 @@ const layerManager = {
       await this._ensureStyleLoaded();
 
       if (DECK_TRIP_LAYERS.has(layerName) && data?.type === "TripMapBundle") {
+        this._removeExistingLayerAndSource(layerName, layerId, sourceId);
         const tripMapRenderer = (await import("./trip-map-renderer.js")).default;
         await tripMapRenderer.setLayerData(layerName, data.bundle);
         return;

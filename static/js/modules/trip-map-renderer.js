@@ -391,7 +391,9 @@ const tripMapRenderer = {
   getBeforeLayerId() {
     try {
       const style = store.map?.getStyle?.();
-      return style?.layers?.find?.((layer) => layer.type === "symbol")?.id;
+      return style?.layers?.find?.(
+        (layer) => layer.type === "symbol" && store.map?.getLayer?.(layer.id)
+      )?.id;
     } catch {
       return undefined;
     }

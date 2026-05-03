@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import store from "../static/js/modules/core/store.js";
 import tripMapRenderer from "../static/js/modules/trip-map-renderer.js";
 
 test.afterEach(() => {
   tripMapRenderer.layers.clear();
+  store.map = null;
 });
 
 test("trip map renderer derives layer bounds from decoded paths before stored bbox", () => {
@@ -91,4 +93,22 @@ test("trip map renderer omits features without decoded paths", () => {
     [-97.1467, 31.5493],
     [-97.1455, 31.5504],
   ]);
+});
+
+test("trip map renderer only uses live mapbox layers as deck beforeId", () => {
+  store.map = {
+    getStyle() {
+      return {
+        layers: [
+          { id: "stale-label-layer", type: "symbol" },
+          { id: "road-label-layer", type: "symbol" },
+        ],
+      };
+    },
+    getLayer(id) {
+      return id === "road-label-layer" ? { id } : null;
+    },
+  };
+
+  assert.equal(tripMapRenderer.getBeforeLayerId(), "road-label-layer");
 });
