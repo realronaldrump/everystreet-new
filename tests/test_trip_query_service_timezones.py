@@ -47,3 +47,32 @@ async def test_get_trips_datatable_includes_timezone_alias_fields(
     assert row["startTimeZone"] == "America/Chicago"
     assert row["endTimeZone"] == "America/Chicago"
     assert row["timeZone"] == "America/Chicago"
+
+
+@pytest.mark.asyncio
+async def test_get_trips_datatable_treats_search_as_literal(beanie_db) -> None:
+    del beanie_db
+
+    await Trip(
+        transactionId="tx-literal",
+        source="bouncie",
+        imei="plain-imei",
+        startTime=datetime(2026, 3, 1, 10, 0, tzinfo=UTC),
+        endTime=datetime(2026, 3, 1, 11, 0, tzinfo=UTC),
+    ).insert()
+
+    result = await TripQueryService.get_trips_datatable(
+        draw=1,
+        start=0,
+        length=10,
+        search_value=".*",
+        order=[],
+        columns=[],
+        filters={},
+        start_date=None,
+        end_date=None,
+        price_map={},
+    )
+
+    assert result["recordsFiltered"] == 0
+    assert result["data"] == []

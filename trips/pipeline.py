@@ -55,6 +55,7 @@ class TripProcessingRequest:
     )
     prevalidated_state: str | None = None
     sync_mobility: bool = True
+    bump_revision: bool = True
 
     @classmethod
     def bouncie_ingest(
@@ -69,6 +70,7 @@ class TripProcessingRequest:
         prevalidated_history: list[ProcessingHistoryEntry] | None = None,
         prevalidated_state: str | None = None,
         sync_mobility: bool = True,
+        bump_revision: bool = True,
     ) -> TripProcessingRequest:
         return cls(
             raw_data=raw_data,
@@ -81,6 +83,7 @@ class TripProcessingRequest:
             prevalidated_history=list(prevalidated_history or []),
             prevalidated_state=prevalidated_state,
             sync_mobility=sync_mobility,
+            bump_revision=bump_revision,
         )
 
     @classmethod
@@ -187,6 +190,7 @@ class TripPipeline:
         prevalidated_history: list[ProcessingHistoryEntry] | None = None,
         prevalidated_state: str | None = None,
         sync_mobility: bool = True,
+        bump_revision: bool = True,
     ) -> Trip | None:
         """Process a raw trip through validation, matching, geocoding, coverage, and
         save.
@@ -341,7 +345,8 @@ class TripPipeline:
         else:
             await final_trip.insert()
 
-        await bump_trip_map_revision()
+        if bump_revision:
+            await bump_trip_map_revision()
 
         await self._enqueue_geo_coverage_sync_for_ingest(
             source=getattr(final_trip, "source", source),
@@ -374,6 +379,7 @@ class TripPipeline:
             prevalidated_history=request.prevalidated_history,
             prevalidated_state=request.prevalidated_state,
             sync_mobility=request.sync_mobility,
+            bump_revision=request.bump_revision,
         )
 
     @staticmethod

@@ -17,6 +17,7 @@ from core.bouncie_normalization import normalize_rest_trip_payload
 from core.clients.bouncie import BouncieClient
 from core.date_utils import ensure_utc, parse_timestamp
 from core.http.session import get_session
+from core.trip_map_cache import bump_trip_map_revision
 from core.trip_source_policy import BOUNCIE_SOURCE
 from db.models import Trip
 from setup.services.bouncie_oauth import BouncieOAuth
@@ -30,6 +31,7 @@ from trips.services.trip_history_import_service_config import (
     MIN_WINDOW_HOURS,
     REQUEST_TIMEOUT_SECONDS,
     SPLIT_CHUNK_HOURS,
+    build_import_windows,
 )
 from trips.services.trip_ingest_issue_service import TripIngestIssueService
 
@@ -59,6 +61,13 @@ def merge_ingest_counters(target: dict[str, int], delta: dict[str, int]) -> None
     """Merge ingest counters into a target dictionary in place."""
     for key, value in delta.items():
         target[key] = int(target.get(key, 0) or 0) + int(value or 0)
+
+
+def ingest_counters_changed_trips(counters: dict[str, int]) -> bool:
+    """Return whether ingest counters represent persisted trip changes."""
+    return int(counters.get("inserted", 0) or 0) > 0 or int(
+        counters.get("updated", 0) or 0
+    ) > 0
 
 
 def is_duplicate_trip_error(exc: Exception) -> bool:
@@ -91,7 +100,7 @@ def filter_trips_to_window(
     window_start: datetime,
     window_end: datetime,
 ) -> list[dict[str, Any]]:
-    """Defensively enforce window bounds on returned trips."""
+    """Keep trips that overlap a request window."""
     start = ensure_utc(window_start) or window_start
     end = ensure_utc(window_end) or window_end
     kept: list[dict[str, Any]] = []
@@ -108,9 +117,9 @@ def filter_trips_to_window(
             continue
         st = ensure_utc(st) or st
         et = ensure_utc(et) or et
-        if st < start:
+        if et < start:
             continue
-        if et > end:
+        if st > end:
             continue
         kept.append(trip)
     return kept
@@ -319,6 +328,7 @@ async def process_bouncie_trips(
     do_coverage: bool,
     sync_mobility: bool,
     force_rematch_all: bool = False,
+    bump_revision: bool = True,
 ) -> dict[str, Any]:
     """
     Process Bouncie trips through a single shared ingest path.
@@ -456,6 +466,7 @@ async def process_bouncie_trips(
                     prevalidated_history=processing_status.get("history") or [],
                     prevalidated_state=processing_status.get("state"),
                     sync_mobility=sync_mobility,
+                    bump_revision=bump_revision,
                 ),
             )
         except Exception as exc:
@@ -577,11 +588,8 @@ async def run_ingest_for_range(
 
     chunk_windows: list[tuple[str, datetime, datetime]] = []
     for imei in imeis:
-        current_start = start_dt
-        while current_start < end_dt:
-            current_end = min(current_start + timedelta(days=7), end_dt)
-            chunk_windows.append((imei, current_start, current_end))
-            current_start = current_end
+        for window_start, window_end in build_import_windows(start_dt, end_dt):
+            chunk_windows.append((imei, window_start, window_end))
 
     total_chunks = max(1, len(chunk_windows))
     completed_chunks = 0
@@ -614,6 +622,7 @@ async def run_ingest_for_range(
                     do_coverage=do_coverage,
                     sync_mobility=sync_mobility,
                     force_rematch_all=force_rematch_all,
+                    bump_revision=False,
                 )
         except Exception as exc:
             counters["fetch_errors"] += 1
@@ -657,6 +666,9 @@ async def run_ingest_for_range(
     await asyncio.gather(
         *(process_chunk(imei, s, e) for imei, s, e in chunk_windows),
     )
+
+    if ingest_counters_changed_trips(counters):
+        await bump_trip_map_revision()
 
     return {
         "processed_transaction_ids": list(dict.fromkeys(processed_ids)),
@@ -715,6 +727,7 @@ __all__ = [
     "dedupe_trips_by_transaction_id",
     "fetch_trips_for_window",
     "filter_trips_to_window",
+    "ingest_counters_changed_trips",
     "is_duplicate_trip_error",
     "merge_ingest_counters",
     "process_bouncie_trips",

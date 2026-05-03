@@ -8,12 +8,10 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
-from analytics.services.mobility_insights_service import MobilityInsightsService
-from core.date_utils import get_current_utc_time
 from core.job_serialization import serialize_job_progress
 from core.jobs import JobHandle, create_job, find_job
 from core.mapping.factory import get_router
-from core.spatial import GeometryService, extract_timestamps_for_coordinates
+from core.spatial import GeometryService
 from core.trip_map_cache import bump_trip_map_revision
 from core.trip_query_spec import TripQuerySpec
 from db.models import Job, Trip
@@ -21,12 +19,13 @@ from tasks.config import update_task_history_entry
 from tasks.ops import abort_job, enqueue_task
 from trips.models import (
     MapMatchJobRequest,
-    TripMapMatchProjection,
     TripPreviewProjection,
 )
-from trips.pipeline import TripPipeline
 from trips.services.matching import MapMatchingService
-from trips.services.trip_map_geometry import apply_trip_map_path_fields
+from trips.services.trip_match_mutation_service import (
+    HistoricalTripMatchMutationService,
+    TripMatchMutationResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -448,6 +447,9 @@ class MapMatchingJobRunner:
 
     def __init__(self) -> None:
         self._map_matching_service = MapMatchingService()
+        self._match_mutations = HistoricalTripMatchMutationService(
+            self._map_matching_service,
+        )
 
     async def run(self, job_id: str, request: MapMatchJobRequest) -> dict[str, Any]:
         """
@@ -493,7 +495,7 @@ class MapMatchingJobRunner:
 
             # Find trips to process
             query = self._build_query(request)
-            trips = await Trip.find(query).project(TripMapMatchProjection).to_list()
+            trips = await Trip.find(query).to_list()
 
             total_trips = len(trips)
             await self._update_progress(
@@ -527,6 +529,8 @@ class MapMatchingJobRunner:
                 total_trips,
                 job_id,
             )
+            if int(results.get("changed", 0) or 0) > 0:
+                await bump_trip_map_revision()
 
             if results.get("cancelled"):
                 progress_pct = (
@@ -722,7 +726,7 @@ class MapMatchingJobRunner:
 
     async def _process_trips_directly(
         self,
-        trips: list[TripMapMatchProjection],
+        trips: list[Trip],
         progress: Job,
         total: int,
         job_id: str,
@@ -732,25 +736,34 @@ class MapMatchingJobRunner:
         failed = 0
         skipped = 0
         processed = 0
+        changed = 0
+
+        def snapshot(*, cancelled: bool = False) -> dict[str, int | bool]:
+            result: dict[str, int | bool] = {
+                "matched": matched,
+                "failed": failed,
+                "skipped": skipped,
+                "processed": processed,
+                "changed": changed,
+            }
+            if cancelled:
+                result["cancelled"] = True
+            return result
 
         for trip in trips:
             if processed % 5 == 0 and await self._is_cancelled(job_id):
-                return {
-                    "matched": matched,
-                    "failed": failed,
-                    "skipped": skipped,
-                    "processed": processed,
-                    "cancelled": True,
-                }
+                return snapshot(cancelled=True)
             processed += 1
             trip_id = trip.transactionId or "unknown"
 
             try:
                 result = await self._map_match_single_trip(trip)
+                if result.changed:
+                    changed += 1
 
-                if result == "matched":
+                if result.outcome == "matched":
                     matched += 1
-                elif result == "skipped":
+                elif result.outcome == "skipped":
                     skipped += 1
                 else:
                     failed += 1
@@ -762,13 +775,7 @@ class MapMatchingJobRunner:
             # Update progress every trip (for responsiveness)
             if processed % 5 == 0 or processed == total:
                 if await self._is_cancelled(job_id):
-                    return {
-                        "matched": matched,
-                        "failed": failed,
-                        "skipped": skipped,
-                        "processed": processed,
-                        "cancelled": True,
-                    }
+                    return snapshot(cancelled=True)
                 await self._update_progress(
                     progress,
                     progress_pct=int((processed / total) * 100),
@@ -778,127 +785,37 @@ class MapMatchingJobRunner:
                     skipped=skipped,
                     processed=processed,
                     total=total,
+                    changed=changed,
                 )
 
-        return {
-            "matched": matched,
-            "failed": failed,
-            "skipped": skipped,
-            "processed": processed,
-        }
+        return snapshot()
 
-    async def _map_match_single_trip(self, trip: TripMapMatchProjection) -> str:
+    async def _map_match_single_trip(self, trip: Trip) -> TripMatchMutationResult:
         """
         Map match a single trip and update it in the database.
 
-        Returns: "matched", "skipped", or "failed"
+        Returns mutation details with outcome "matched", "skipped", or "failed".
         """
-        trip_id = trip.transactionId
-        gps_data = trip.gps
-
-        # Check if we have valid GPS data
-        if not gps_data or not isinstance(gps_data, dict):
-            logger.debug("Trip %s: No GPS data, skipping", trip_id)
-            await self._update_trip_match_status(trip_id, "skipped:no-gps")
-            return "skipped"
-
-        gps_type = gps_data.get("type")
-        coords = gps_data.get("coordinates", [])
-
-        if gps_type == "Point":
-            logger.debug("Trip %s: Single point GPS, skipping", trip_id)
-            await self._update_trip_match_status(trip_id, "skipped:single-point")
-            return "skipped"
-
-        if gps_type != "LineString":
+        result = await self._match_mutations.rematch_trip(
+            trip,
+            bump_revision=False,
+            sync_mobility=True,
+        )
+        if result.outcome == "matched":
+            logger.debug("Trip %s: Successfully matched", trip.transactionId)
+        elif result.outcome == "skipped":
             logger.debug(
-                "Trip %s: Unsupported GPS type '%s', skipping",
-                trip_id,
-                gps_type,
+                "Trip %s: Map matching skipped with status %s",
+                trip.transactionId,
+                result.status,
             )
-            await self._update_trip_match_status(
-                trip_id,
-                f"skipped:unsupported-type:{gps_type}",
+        else:
+            logger.warning(
+                "Trip %s: Map matching failed with status %s",
+                trip.transactionId,
+                result.status,
             )
-            return "skipped"
-
-        if not coords or len(coords) < 2:
-            logger.debug("Trip %s: Insufficient coordinates, skipping", trip_id)
-            await self._update_trip_match_status(trip_id, "skipped:insufficient-coords")
-            return "skipped"
-
-        # Extract timestamps for better matching
-        trip_dict = trip.model_dump()
-        timestamps = extract_timestamps_for_coordinates(coords, trip_dict)
-
-        # Call the active routing provider
-        logger.debug(
-            "Trip %s: Calling routing provider with %d coordinates",
-            trip_id,
-            len(coords),
-        )
-        result = await self._map_matching_service.map_match_coordinates(
-            coords,
-            timestamps,
-        )
-
-        if result.get("code") != "Ok":
-            error_msg = result.get("message", "Unknown error")
-            logger.warning("Trip %s: Map matching failed: %s", trip_id, error_msg)
-            await self._update_trip_match_status(trip_id, f"error:{error_msg[:50]}")
-            return "failed"
-
-        # Extract matched geometry
-        matchings = result.get("matchings", [])
-        if not matchings or not matchings[0].get("geometry"):
-            logger.warning("Trip %s: No geometry returned", trip_id)
-            await self._update_trip_match_status(trip_id, "error:no-geometry")
-            return "failed"
-
-        matched_geometry = matchings[0]["geometry"]
-        matched_geometry.get("type", "unknown")
-
-        # Update the trip in the database
-        await self._update_trip_matched_gps(trip_id, matched_geometry)
-        logger.debug("Trip %s: Successfully matched", trip_id)
-        return "matched"
-
-    async def _update_trip_match_status(self, trip_id: str, status: str) -> None:
-        """Update just the match status for a trip."""
-        trip = await Trip.find_one(Trip.transactionId == trip_id)
-        if trip:
-            trip.matchStatus = status
-            trip.matched_at = get_current_utc_time()
-            TripPipeline.sanitize_trip_document_geospatial_fields(trip)
-            apply_trip_map_path_fields(trip)
-            await trip.save()
-            await bump_trip_map_revision()
-
-    async def _update_trip_matched_gps(
-        self,
-        trip_id: str,
-        geometry: dict[str, Any],
-    ) -> None:
-        """Update the matched GPS geometry for a trip."""
-        trip = await Trip.find_one(Trip.transactionId == trip_id)
-        if trip:
-            trip.matchedGps = geometry
-            trip.matchStatus = f"matched:{geometry.get('type', 'unknown').lower()}"
-            trip.matched_at = get_current_utc_time()
-            trip.mobility_synced_at = None
-            TripPipeline.sanitize_trip_document_geospatial_fields(trip)
-            if not getattr(trip, "matchedGps", None):
-                trip.matchStatus = "error:sanitization-failed"
-            apply_trip_map_path_fields(trip)
-            await trip.save()
-            await bump_trip_map_revision()
-            try:
-                await MobilityInsightsService.sync_trip(trip)
-            except Exception:
-                logger.exception(
-                    "Failed to sync mobility profile after map match for trip %s",
-                    trip_id,
-                )
+        return result
 
     async def _get_or_create_progress(self, job_id: str) -> Job:
         """Get existing progress or create new one."""
@@ -962,7 +879,7 @@ class MapMatchingJobRunner:
             retryable_filter = {
                 "matchStatus": {
                     "$not": {
-                        "$regex": "^(?:skipped:|error:|no-valid-geometry)",
+                            "$regex": "^(?:skipped:|error:)",
                         "$options": "i",
                     },
                 },

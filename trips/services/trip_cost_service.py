@@ -26,18 +26,26 @@ class TripCostService:
         Returns:
             dict: { imei: ([timestamps], [prices]) } where lists are sorted by timestamp.
         """
-        if query is None:
-            query = {}
+        user_query = query or {}
 
         # Ensure we only get fill-ups with usable price info, time, and IMEI.
         # We accept either explicit `price_per_gallon` or derived `total_cost/gallons`.
         fillup_query = {
-            **query,
-            "fillup_time": {"$ne": None},
-            "imei": {"$ne": None},
-            "$or": [
-                {"price_per_gallon": {"$ne": None}},
-                {"$and": [{"total_cost": {"$ne": None}}, {"gallons": {"$ne": None}}]},
+            "$and": [
+                user_query,
+                {"fillup_time": {"$ne": None}},
+                {"imei": {"$ne": None}},
+                {
+                    "$or": [
+                        {"price_per_gallon": {"$ne": None}},
+                        {
+                            "$and": [
+                                {"total_cost": {"$ne": None}},
+                                {"gallons": {"$ne": None}},
+                            ],
+                        },
+                    ],
+                },
             ],
         }
 

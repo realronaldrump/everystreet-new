@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -41,6 +42,7 @@ class _PipelineStub:
         prevalidated_history: list[dict[str, Any]] | None = None,
         prevalidated_state: str | None = None,
         sync_mobility: bool = True,
+        bump_revision: bool = True,
     ) -> Any:
         del (
             prevalidated_data,
@@ -55,6 +57,7 @@ class _PipelineStub:
                 "do_map_match": do_map_match,
                 "do_geocode": do_geocode,
                 "do_coverage": do_coverage,
+                "bump_revision": bump_revision,
             },
         )
         return SimpleNamespace(id="trip-id")
@@ -228,3 +231,110 @@ async def test_process_bouncie_trips_skips_conflicting_non_bouncie_source(
     assert pipeline.calls == []
     assert len(recorded_issues) == 1
     assert recorded_issues[0]["issue_type"] == "conflicting_existing_source"
+
+
+@pytest.mark.asyncio
+async def test_process_bouncie_trips_forwards_bump_revision_option(beanie_db) -> None:
+    del beanie_db
+
+    pipeline = _PipelineStub()
+    result = await process_bouncie_trips(
+        [
+            {
+                "transactionId": "tx-no-per-trip-bump",
+                "imei": "imei-1",
+                "startTime": "2025-01-04T12:00:00Z",
+                "endTime": "2025-01-04T12:30:00Z",
+            },
+        ],
+        pipeline=pipeline,
+        mode="insert_only",
+        do_map_match=False,
+        do_geocode=False,
+        do_coverage=False,
+        sync_mobility=False,
+        bump_revision=False,
+    )
+
+    assert result["processed_transaction_ids"] == ["tx-no-per-trip-bump"]
+    assert pipeline.calls[0]["bump_revision"] is False
+
+
+@pytest.mark.asyncio
+async def test_range_ingest_dedupes_overlapped_windows_and_bumps_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_bump_flags: list[bool] = []
+
+    async def fake_get_config() -> dict[str, Any]:
+        return {
+            "authorized_devices": ["imei-1"],
+            "fetch_concurrency": 2,
+        }
+
+    async def fake_get_session() -> object:
+        return object()
+
+    async def fake_get_token(_session: object, _credentials: dict[str, Any]) -> str:
+        return "token"
+
+    async def fake_fetch_trips_for_window(*_args: Any, **_kwargs: Any) -> list[dict]:
+        return [{"transactionId": "tx-overlap"}]
+
+    async def fake_process_bouncie_trips(*_args: Any, **kwargs: Any) -> dict[str, Any]:
+        captured_bump_flags.append(bool(kwargs["bump_revision"]))
+        return {
+            "processed_transaction_ids": ["tx-overlap"],
+            "counters": {
+                "found_raw": 1,
+                "found_unique": 1,
+                "skipped_existing": 0,
+                "skipped_conflicting_source": 0,
+                "validation_failed": 0,
+                "inserted": 1,
+                "updated": 0,
+                "fetch_errors": 0,
+                "process_errors": 0,
+            },
+        }
+
+    bump_revision = AsyncMock()
+
+    monkeypatch.setattr(
+        bouncie_ingest_runtime,
+        "get_bouncie_config",
+        fake_get_config,
+    )
+    monkeypatch.setattr(bouncie_ingest_runtime, "get_session", fake_get_session)
+    monkeypatch.setattr(
+        bouncie_ingest_runtime.BouncieOAuth,
+        "get_access_token",
+        fake_get_token,
+    )
+    monkeypatch.setattr(
+        bouncie_ingest_runtime,
+        "fetch_trips_for_window",
+        fake_fetch_trips_for_window,
+    )
+    monkeypatch.setattr(
+        bouncie_ingest_runtime,
+        "process_bouncie_trips",
+        fake_process_bouncie_trips,
+    )
+    monkeypatch.setattr(
+        bouncie_ingest_runtime,
+        "bump_trip_map_revision",
+        bump_revision,
+    )
+
+    result = await bouncie_ingest_runtime.run_ingest_for_range(
+        start_dt=datetime(2025, 1, 1, tzinfo=UTC),
+        end_dt=datetime(2025, 1, 10, tzinfo=UTC),
+        mode="upsert_bouncie",
+        do_geocode=False,
+    )
+
+    assert result["processed_transaction_ids"] == ["tx-overlap"]
+    assert captured_bump_flags
+    assert set(captured_bump_flags) == {False}
+    assert bump_revision.await_count == 1

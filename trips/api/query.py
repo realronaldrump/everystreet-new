@@ -162,12 +162,6 @@ async def get_failed_trips(request: Request):
                     "$or": [
                         {"matchStatus": {"$regex": "^skipped:", "$options": "i"}},
                         {"matchStatus": {"$regex": "^error:", "$options": "i"}},
-                        {
-                            "matchStatus": {
-                                "$regex": "no-valid-geometry",
-                                "$options": "i",
-                            }
-                        },
                     ],
                 },
             ],

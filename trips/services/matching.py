@@ -16,9 +16,6 @@ logger = logging.getLogger(__name__)
 class MapMatchingService:
     """Service for map matching coordinates to road networks using Valhalla."""
 
-    def __init__(self) -> None:
-        pass
-
     async def map_match_coordinates(
         self,
         coordinates: list[list[float]],
@@ -580,7 +577,7 @@ class TripMapMatcher:
                 return "matched", processed_data
 
             logger.info("No valid matchedGps data for trip %s", transaction_id)
-            set_match_status("no-valid-geometry")
+            set_match_status("error:no-geometry")
 
         except Exception as exc:
             logger.warning(

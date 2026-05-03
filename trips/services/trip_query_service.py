@@ -1,6 +1,7 @@
 """Business logic for trip querying and filtering."""
 
 import logging
+import re
 from typing import Any
 
 from beanie.operators import In
@@ -171,8 +172,9 @@ class TripQueryService:
             existing["$gt"] = 0
             query["fuelConsumed"] = existing
 
-        if search_value:
-            search_regex = {"$regex": search_value, "$options": "i"}
+        search_text = str(search_value or "").strip()
+        if search_text:
+            search_regex = {"$regex": re.escape(search_text), "$options": "i"}
             query["$or"] = [
                 {"transactionId": search_regex},
                 {"imei": search_regex},

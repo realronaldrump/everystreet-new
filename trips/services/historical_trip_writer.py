@@ -23,6 +23,7 @@ class HistoricalTripWrite:
     prevalidated_history: list[ProcessingHistoryEntry] = field(default_factory=list)
     prevalidated_state: str | None = None
     sync_mobility: bool = True
+    bump_revision: bool = True
 
 
 class BouncieHistoricalTripWriter:
@@ -47,6 +48,7 @@ class BouncieHistoricalTripWriter:
             prevalidated_history=request.prevalidated_history,
             prevalidated_state=request.prevalidated_state,
             sync_mobility=request.sync_mobility,
+            bump_revision=request.bump_revision,
         )
         if hasattr(self._pipeline, "process_trip"):
             return await self._pipeline.process_trip(processing_request)
@@ -60,6 +62,7 @@ class BouncieHistoricalTripWriter:
             "prevalidated_history": processing_request.prevalidated_history,
             "prevalidated_state": processing_request.prevalidated_state,
             "sync_mobility": processing_request.sync_mobility,
+            "bump_revision": processing_request.bump_revision,
         }
         legacy_signature = signature(self._pipeline.process_raw_trip)
         accepted = {

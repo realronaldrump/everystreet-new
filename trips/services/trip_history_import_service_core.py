@@ -21,6 +21,7 @@ from config import get_bouncie_config
 from core.date_utils import ensure_utc
 from core.http.session import get_session
 from core.jobs import JobHandle
+from core.trip_map_cache import bump_trip_map_revision
 from db.models import Vehicle
 from setup.services.bouncie_oauth import BouncieOAuth
 from trips.pipeline import TripPipeline
@@ -28,6 +29,7 @@ from trips.services.bouncie_ingest_runtime import (
     build_ingest_counters,
     fetch_trips_for_window as fetch_trips_for_window_runtime,
     filter_trips_to_window as filter_trips_to_window_runtime,
+    ingest_counters_changed_trips,
     merge_ingest_counters,
     process_bouncie_trips as process_bouncie_trips_runtime,
 )
@@ -280,6 +282,7 @@ async def _run_import_windows(
                     do_coverage=runtime.do_coverage,
                     sync_mobility=False,
                     force_rematch_all=False,
+                    bump_revision=False,
                 )
                 delta = dict(result.get("counters", {}))
                 runtime.add_event(
@@ -377,6 +380,11 @@ async def _finalize_import_success(
         )
 
 
+async def _bump_trip_map_revision_if_needed(counters: dict[str, int]) -> None:
+    if ingest_counters_changed_trips(counters):
+        await bump_trip_map_revision()
+
+
 async def _finalize_import_failure(
     *,
     progress_ctx: ImportProgressContext,
@@ -450,6 +458,15 @@ async def run_import(
         )
 
     windows_completed = 0
+    revision_bumped = False
+
+    async def bump_revision_once() -> None:
+        nonlocal revision_bumped
+        if revision_bumped:
+            return
+        await _bump_trip_map_revision_if_needed(progress_ctx.counters)
+        revision_bumped = True
+
     session = await get_session()
     try:
         _validate_import_setup(setup)
@@ -484,6 +501,7 @@ async def run_import(
             windows=setup.windows,
             progress_ctx=progress_ctx,
         )
+        await bump_revision_once()
         if cancelled:
             return await _write_cancelled_progress(
                 add_event=progress_ctx.add_event,
@@ -507,6 +525,9 @@ async def run_import(
         }
     except asyncio.CancelledError:
         cancelled_via_job = await progress_ctx.is_cancelled(force=True)
+        await asyncio.shield(
+            bump_revision_once(),
+        )
         if cancelled_via_job:
             await asyncio.shield(
                 _write_cancelled_progress(
@@ -528,6 +549,7 @@ async def run_import(
             )
         raise
     except Exception as exc:
+        await bump_revision_once()
         await _finalize_import_failure(
             progress_ctx=progress_ctx,
             windows_completed=windows_completed,

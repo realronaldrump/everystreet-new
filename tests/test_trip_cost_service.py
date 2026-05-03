@@ -57,3 +57,28 @@ async def test_trip_cost_uses_end_time_when_available(beanie_db) -> None:
     }
     cost = TripCostService.calculate_trip_cost(trip, price_map)
     assert cost == pytest.approx(4.0)  # 1 gal * ($40/10 gal)
+
+
+@pytest.mark.asyncio
+async def test_fillup_price_map_preserves_imei_filter(beanie_db) -> None:
+    t0 = datetime(2025, 1, 1, tzinfo=UTC)
+
+    await GasFillup(
+        imei="imei-a",
+        fillup_time=t0,
+        gallons=10.0,
+        total_cost=30.0,
+        price_per_gallon=None,
+    ).insert()
+    await GasFillup(
+        imei="imei-b",
+        fillup_time=t0,
+        gallons=10.0,
+        total_cost=50.0,
+        price_per_gallon=None,
+    ).insert()
+
+    price_map = await TripCostService.get_fillup_price_map({"imei": "imei-a"})
+
+    assert set(price_map) == {"imei-a"}
+    assert price_map["imei-a"][1] == [pytest.approx(3.0)]
