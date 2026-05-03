@@ -242,22 +242,58 @@ async def _require_bouncie_authorization(request: Request) -> None:
         )
 
 
-async def _process_payload(payload: dict[str, Any]) -> str:
-    """Dispatch a validated webhook payload to the matching trip handler."""
-    event_type = _validate_live_trip_payload(payload)
+def _extract_trip_event_type(
+    payload: dict[str, Any],
+    *,
+    source_label: str,
+) -> str | None:
+    event_type = payload.get("eventType")
+    if not isinstance(event_type, str) or not event_type.strip():
+        logger.warning("%s missing eventType; acknowledging receipt", source_label)
+        return None
+
+    event_type = event_type.strip()
+    if event_type not in TRIP_EVENT_HANDLERS:
+        logger.warning(
+            "%s unsupported eventType=%s; acknowledging receipt",
+            source_label,
+            event_type,
+        )
+        return event_type
+
+    return event_type
+
+
+async def _process_payload(
+    payload: dict[str, Any],
+    *,
+    source_label: str,
+    strict_schema: bool,
+) -> str | None:
+    """Dispatch a webhook payload to the matching trip handler."""
+    if strict_schema:
+        event_type = _validate_live_trip_payload(payload)
+    else:
+        event_type = _extract_trip_event_type(payload, source_label=source_label)
+        if event_type not in TRIP_EVENT_HANDLERS:
+            return event_type
+
+    assert event_type in TRIP_EVENT_HANDLERS
     handler = TRIP_EVENT_HANDLERS[event_type]
 
     try:
         await handler(payload)
     except Exception as exc:
         logger.exception(
-            "Failed to handle Bouncie live webhook event=%s",
-            payload.get("eventType"),
+            "%s failed to process event=%s",
+            source_label,
+            event_type,
         )
-        raise _webhook_error(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "Webhook processing failed.",
-        ) from exc
+        if strict_schema:
+            raise _webhook_error(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                "Webhook processing failed.",
+            ) from exc
 
     return event_type
 
@@ -267,11 +303,16 @@ async def _handle_live_webhook_request(
     *,
     require_auth: bool,
     source_label: str,
+    strict_schema: bool,
 ) -> Response:
     payload = await _parse_request_payload(request, source_label=source_label)
     if require_auth:
         await _require_bouncie_authorization(request)
-    event_type = await _process_payload(payload)
+    event_type = await _process_payload(
+        payload,
+        source_label=source_label,
+        strict_schema=strict_schema,
+    )
     if require_auth:
         await TrackingService.record_webhook_event(event_type)
     return _ok_response()
@@ -284,6 +325,7 @@ async def bouncie_live_webhook(request: Request) -> Response:
         request,
         require_auth=True,
         source_label="Bouncie live webhook",
+        strict_schema=False,
     )
 
 
@@ -299,6 +341,7 @@ async def simulator_bouncie_webhook(request: Request) -> Response:
         request,
         require_auth=False,
         source_label="Simulator Bouncie webhook",
+        strict_schema=True,
     )
 
 

@@ -234,11 +234,11 @@ def test_live_webhook_rejects_non_object_json(webhook_client: TestClient) -> Non
     assert resp.status_code == 400
 
 
-def test_live_webhook_rejects_unsupported_event_type(
+def test_live_webhook_acknowledges_unsupported_event_type(
     webhook_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _patch_authorized_handler(monkeypatch)
+    handler = _patch_authorized_handler(monkeypatch)
     payload = _trip_start_payload()
     payload["eventType"] = "connect"
 
@@ -248,14 +248,18 @@ def test_live_webhook_rejects_unsupported_event_type(
         headers={"Authorization": "expected-token"},
     )
 
-    assert resp.status_code == 400
+    assert resp.status_code == 200
+    handler.assert_not_awaited()
+    webhook_api.TrackingService.record_webhook_event.assert_awaited_once_with(
+        "connect",
+    )
 
 
-def test_live_webhook_rejects_trip_data_without_required_gps_heading(
+def test_live_webhook_acknowledges_trip_data_without_gps_heading(
     webhook_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _patch_authorized_handler(monkeypatch, event_type="tripData")
+    handler = _patch_authorized_handler(monkeypatch, event_type="tripData")
     payload = _trip_data_payload()
     data = payload["data"]
     assert isinstance(data, list)
@@ -271,10 +275,11 @@ def test_live_webhook_rejects_trip_data_without_required_gps_heading(
         headers={"Authorization": "expected-token"},
     )
 
-    assert resp.status_code == 400
+    assert resp.status_code == 200
+    handler.assert_awaited_once_with(payload)
 
 
-def test_live_webhook_returns_500_when_processing_fails(
+def test_live_webhook_acknowledges_when_processing_fails(
     webhook_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -287,7 +292,10 @@ def test_live_webhook_returns_500_when_processing_fails(
         headers={"Authorization": "expected-token"},
     )
 
-    assert resp.status_code == 500
+    assert resp.status_code == 200
+    webhook_api.TrackingService.record_webhook_event.assert_awaited_once_with(
+        "tripStart",
+    )
 
 
 def test_simulator_webhook_bypasses_real_auth(
@@ -305,6 +313,30 @@ def test_simulator_webhook_bypasses_real_auth(
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
     handler.assert_awaited_once()
+
+
+def test_simulator_webhook_rejects_trip_data_without_required_gps_heading(
+    webhook_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handler = AsyncMock()
+    monkeypatch.setattr(webhook_api, "TRIP_EVENT_HANDLERS", {"tripData": handler})
+    payload = _trip_data_payload()
+    data = payload["data"]
+    assert isinstance(data, list)
+    point = data[0]
+    assert isinstance(point, dict)
+    gps = point["gps"]
+    assert isinstance(gps, dict)
+    gps.pop("heading")
+
+    resp = webhook_client.post(
+        "/api/simulator/bouncie-webhook",
+        json=payload,
+    )
+
+    assert resp.status_code == 400
+    handler.assert_not_awaited()
 
 
 @pytest.mark.parametrize(
