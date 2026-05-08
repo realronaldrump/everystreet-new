@@ -21,6 +21,7 @@ let recentFillups = [];
 let vehicleDiscoveryAttempted = false;
 let pageSignal = null;
 let featureApi = createFeatureApi();
+const DEFAULT_ODOMETER_SOURCE = "manual";
 const apiRaw = (url, options = {}) => featureApi.raw(url, options);
 
 // Use shared notification manager
@@ -285,6 +286,7 @@ async function updateLocationAndOdometer() {
   const odometerInput = document.getElementById("odometer");
 
   if (!vehicleSelect.value) {
+    clearAutoManagedOdometer({ force: true });
     if (locationText) {
       locationText.textContent = "Select a vehicle to see location";
     }
@@ -344,7 +346,7 @@ async function updateLocationAndOdometer() {
     currentLocation = data;
 
     // Update map
-    if (data.latitude && data.longitude) {
+    if (data.latitude != null && data.longitude != null) {
       updateMap(data.latitude, data.longitude);
       if (locationText) {
         locationText.textContent = data.address
@@ -366,8 +368,14 @@ async function updateLocationAndOdometer() {
       if (odometerDisplay) {
         odometerDisplay.textContent = `Last known: ${odoVal.toLocaleString()} mi`;
       }
-      if (odometerInput && !odometerInput.value) {
-        odometerInput.value = odoVal;
+      if (odometerInput && isAutoManagedOdometer(odometerInput)) {
+        const odometerSource =
+          data.odometer_source || data.source || "vehicle_location";
+        setOdometerFromSource(odoVal, odometerSource, {
+          estimated:
+            Boolean(data.odometer_is_estimated) ||
+            odometerSource === "trip_interpolated",
+        });
       }
     } else {
       if (odometerDisplay) {
@@ -455,6 +463,76 @@ function parseOptionalNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+function clearOdometerSourceState(odometerInput) {
+  if (!odometerInput) {
+    return;
+  }
+  delete odometerInput.dataset.autoOdometerValue;
+  delete odometerInput.dataset.odometerSource;
+  delete odometerInput.dataset.odometerEstimated;
+}
+
+function isAutoManagedOdometer(odometerInput) {
+  if (!odometerInput) {
+    return false;
+  }
+  const autoValue = odometerInput.dataset.autoOdometerValue;
+  return (
+    !odometerInput.value || (autoValue != null && odometerInput.value === autoValue)
+  );
+}
+
+function clearAutoManagedOdometer({ force = false } = {}) {
+  const odometerInput = document.getElementById("odometer");
+  if (!odometerInput) {
+    return;
+  }
+  if (force || isAutoManagedOdometer(odometerInput)) {
+    odometerInput.value = "";
+    clearOdometerSourceState(odometerInput);
+  }
+}
+
+function setOdometerFromSource(value, source, { estimated = false } = {}) {
+  const odometerInput = document.getElementById("odometer");
+  if (!odometerInput) {
+    return;
+  }
+  const normalizedValue = String(value);
+  odometerInput.value = normalizedValue;
+  odometerInput.dataset.autoOdometerValue = normalizedValue;
+  odometerInput.dataset.odometerSource = source || DEFAULT_ODOMETER_SOURCE;
+  odometerInput.dataset.odometerEstimated = estimated ? "true" : "false";
+}
+
+function markOdometerManual() {
+  const odometerInput = document.getElementById("odometer");
+  if (!odometerInput || !odometerInput.value) {
+    clearOdometerSourceState(odometerInput);
+    return;
+  }
+  delete odometerInput.dataset.autoOdometerValue;
+  odometerInput.dataset.odometerSource = DEFAULT_ODOMETER_SOURCE;
+  odometerInput.dataset.odometerEstimated = "false";
+}
+
+function getOdometerSourcePayload(odometerValue, isNoOdo) {
+  if (isNoOdo || odometerValue == null) {
+    return {
+      odometer_source: null,
+      odometer_is_estimated: false,
+    };
+  }
+
+  const odometerInput = document.getElementById("odometer");
+  const source = odometerInput?.dataset.odometerSource || DEFAULT_ODOMETER_SOURCE;
+  return {
+    odometer_source: source,
+    odometer_is_estimated:
+      source === "estimated" || odometerInput?.dataset.odometerEstimated === "true",
+  };
+}
+
 function getMpgReadinessData(override = null) {
   const isNoOdo =
     override?.isNoOdo ?? document.getElementById("odometer-not-recorded").checked;
@@ -487,19 +565,21 @@ function getMpgReadiness(override = null) {
     };
   }
 
+  if (state.missedPrevious) {
+    return {
+      state: "warning",
+      title: "MPG paused for this entry",
+      body: state.isFullTank
+        ? "You marked a missed fill-up, so MPG is intentionally not calculated for accuracy."
+        : "This partial fill will also break the MPG chain until the next complete full-tank anchor.",
+    };
+  }
+
   if (!state.isFullTank) {
     return {
       state: "info",
       title: "Saved as a partial fill",
       body: "Costs and gallons will be tracked, but MPG is skipped for partial/top-off fill-ups.",
-    };
-  }
-
-  if (state.missedPrevious) {
-    return {
-      state: "warning",
-      title: "MPG paused for this entry",
-      body: "You marked a missed fill-up, so MPG is intentionally not calculated for accuracy.",
     };
   }
 
@@ -526,13 +606,9 @@ function syncMpgRuleControls() {
     return;
   }
 
-  const disableMissed = !fullTank.checked;
-  if (disableMissed && missedPrevious.checked) {
-    missedPrevious.checked = false;
-  }
-  missedPrevious.disabled = disableMissed;
+  missedPrevious.disabled = false;
   if (missedLabel) {
-    missedLabel.classList.toggle("is-disabled", disableMissed);
+    missedLabel.classList.remove("is-disabled");
   }
 }
 
@@ -573,6 +649,8 @@ function setupEventListeners(signal) {
       const selected = event.target.value || null;
       setStorage("selectedVehicleImei", selected);
       store.updateFilters({ vehicle: selected }, { source: "vehicle" });
+      clearAutoManagedOdometer({ force: true });
+      currentLocation = null;
       await updateLocationAndOdometer();
       await loadRecentFillups();
       await loadStatistics();
@@ -581,15 +659,21 @@ function setupEventListeners(signal) {
   );
 
   // Fill-up time change
-  document
-    .getElementById("fillup-time")
-    .addEventListener("change", updateLocationAndOdometer, signal ? { signal } : false);
+  document.getElementById("fillup-time").addEventListener(
+    "change",
+    () => {
+      clearAutoManagedOdometer();
+      updateLocationAndOdometer();
+    },
+    signal ? { signal } : false
+  );
 
   // Use Now button
   document.getElementById("use-now-btn").addEventListener(
     "click",
     () => {
       setCurrentTime();
+      clearAutoManagedOdometer();
       updateLocationAndOdometer();
     },
     signal ? { signal } : false
@@ -630,6 +714,7 @@ function setupEventListeners(signal) {
       const odoInput = document.getElementById("odometer");
       if (e.target.checked) {
         odoInput.value = "";
+        clearOdometerSourceState(odoInput);
         odoInput.disabled = true;
         odoInput.placeholder = "Not recorded";
       } else {
@@ -641,9 +726,14 @@ function setupEventListeners(signal) {
     signal ? { signal } : false
   );
 
-  document
-    .getElementById("odometer")
-    .addEventListener("input", updateMpgReadiness, signal ? { signal } : false);
+  document.getElementById("odometer").addEventListener(
+    "input",
+    () => {
+      markOdometerManual();
+      updateMpgReadiness();
+    },
+    signal ? { signal } : false
+  );
 
   document.getElementById("full-tank").addEventListener(
     "change",
@@ -757,7 +847,9 @@ async function autoCalcOdometer() {
     const result = await response.json();
 
     if (result.estimated_odometer !== null) {
-      odoInput.value = result.estimated_odometer;
+      setOdometerFromSource(result.estimated_odometer, "estimated", {
+        estimated: true,
+      });
       // Visual feedback
       odoInput.classList.add("is-valid");
       setTimeout(() => {
@@ -798,6 +890,10 @@ async function handleFormSubmit(e) {
 
     // Gather form data
     const isNoOdo = document.getElementById("odometer-not-recorded").checked;
+    const odometerValue = isNoOdo
+      ? null
+      : parseOptionalNumber(document.getElementById("odometer").value);
+    const odometerPayload = getOdometerSourcePayload(odometerValue, isNoOdo);
 
     const formData = {
       imei: document.getElementById("vehicle-select").value,
@@ -807,11 +903,10 @@ async function handleFormSubmit(e) {
         document.getElementById("price-per-gallon").value
       ),
       total_cost: parseOptionalNumber(document.getElementById("total-cost").value),
-      odometer: isNoOdo
-        ? null
-        : parseOptionalNumber(document.getElementById("odometer").value),
-      latitude: currentLocation?.latitude || null,
-      longitude: currentLocation?.longitude || null,
+      odometer: odometerValue,
+      ...odometerPayload,
+      latitude: currentLocation?.latitude ?? null,
+      longitude: currentLocation?.longitude ?? null,
       is_full_tank: document.getElementById("full-tank").checked,
       missed_previous: document.getElementById("missed-previous").checked,
     };
@@ -917,6 +1012,7 @@ function resetFormState() {
   odoCheck.checked = false;
   odoInput.disabled = false;
   odoInput.placeholder = "Miles";
+  clearOdometerSourceState(odoInput);
 
   // Reset helper text
   document.getElementById("location-text").textContent =
@@ -1032,6 +1128,12 @@ function createFillupItem(fillup) {
   const pricePerGallon =
     ppg != null && Number.isFinite(ppg) && ppg > 0 ? `$${ppg.toFixed(2)}` : "--";
   const fillType = fillup.is_full_tank ? "Full" : "Partial";
+  const odometerValue =
+    fillup.odometer != null
+      ? `${Math.round(fillup.odometer).toLocaleString()} mi${
+          fillup.odometer_is_estimated ? " est." : ""
+        }`
+      : "--";
 
   // Lookup vehicle name
   const vehicle = vehicles.find((v) => v.imei === fillup.imei);
@@ -1064,7 +1166,7 @@ function createFillupItem(fillup) {
         </div>
         <div class="fillup-detail">
           <span class="fillup-detail-label">Odometer</span>
-          <span class="fillup-detail-value">${fillup.odometer != null ? `${Math.round(fillup.odometer).toLocaleString()} mi` : "--"}</span>
+          <span class="fillup-detail-value">${odometerValue}</span>
         </div>
         <div class="fillup-detail">
           <span class="fillup-detail-label">Fill Type</span>
@@ -1134,11 +1236,21 @@ function editFillup(id) {
     odoInput.value = "";
     odoInput.disabled = true;
     odoInput.placeholder = "Not recorded";
+    clearOdometerSourceState(odoInput);
   } else {
     odoCheck.checked = false;
     odoInput.value = fillup.odometer;
     odoInput.disabled = false;
     odoInput.placeholder = "Miles";
+    odoInput.dataset.odometerSource = fillup.odometer_source || DEFAULT_ODOMETER_SOURCE;
+    odoInput.dataset.odometerEstimated = fillup.odometer_is_estimated
+      ? "true"
+      : "false";
+    if (fillup.odometer_source && fillup.odometer_source !== DEFAULT_ODOMETER_SOURCE) {
+      odoInput.dataset.autoOdometerValue = String(fillup.odometer);
+    } else {
+      delete odoInput.dataset.autoOdometerValue;
+    }
   }
 
   document.getElementById("full-tank").checked = Boolean(fillup.is_full_tank);
@@ -1154,12 +1266,26 @@ function editFillup(id) {
   };
 
   // Update map marker
-  if (fillup.latitude && fillup.longitude) {
+  if (fillup.latitude != null && fillup.longitude != null) {
     updateMap(fillup.latitude, fillup.longitude);
     document.getElementById("location-text").textContent = "Location from record";
     document.getElementById("odometer-display").textContent =
       fillup.odometer != null
-        ? `${Math.round(fillup.odometer).toLocaleString()} mi`
+        ? `${Math.round(fillup.odometer).toLocaleString()} mi${
+            fillup.odometer_is_estimated ? " est." : ""
+          }`
+        : "Not recorded";
+  } else {
+    if (marker) {
+      marker.remove();
+      marker = null;
+    }
+    document.getElementById("location-text").textContent = "Location not recorded";
+    document.getElementById("odometer-display").textContent =
+      fillup.odometer != null
+        ? `${Math.round(fillup.odometer).toLocaleString()} mi${
+            fillup.odometer_is_estimated ? " est." : ""
+          }`
         : "Not recorded";
   }
 

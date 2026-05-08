@@ -16,6 +16,27 @@ class StatisticsService:
     """Service class for gas statistics and vehicle operations."""
 
     @staticmethod
+    def _safe_float(value: Any) -> float | None:
+        try:
+            if value is None:
+                return None
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _effective_price_per_gallon(fillup: GasFillup) -> float | None:
+        gallons = StatisticsService._safe_float(fillup.gallons)
+        total_cost = StatisticsService._safe_float(fillup.total_cost)
+        price_per_gallon = StatisticsService._safe_float(fillup.price_per_gallon)
+
+        if gallons is not None and gallons > 0 and total_cost is not None:
+            return total_cost / gallons
+        if price_per_gallon is not None and price_per_gallon > 0:
+            return price_per_gallon
+        return None
+
+    @staticmethod
     async def get_gas_statistics(
         imei: str | None = None,
         start_date: str | None = None,
@@ -32,127 +53,24 @@ class StatisticsService:
         Returns:
             Statistics dict with totals and averages
         """
-        match_stage: dict[str, Any] = {}
+        conditions: list[Any] = []
 
         if imei:
-            match_stage["imei"] = imei
+            conditions.append(GasFillup.imei == imei)
 
-        # Date filtering
-        if start_date or end_date:
-            date_query: dict[str, Any] = {}
-            if start_date:
-                date_query["$gte"] = parse_timestamp(start_date)
-            if end_date:
-                date_query["$lte"] = parse_timestamp(end_date)
-            match_stage["fillup_time"] = date_query
+        if start_date:
+            start_dt = parse_timestamp(start_date)
+            if start_dt:
+                conditions.append(GasFillup.fillup_time >= start_dt)
+        if end_date:
+            end_dt = parse_timestamp(end_date)
+            if end_dt:
+                conditions.append(GasFillup.fillup_time <= end_dt)
 
-        pipeline: list[dict[str, Any]] = []
-        if match_stage:
-            pipeline.append({"$match": match_stage})
+        query = GasFillup.find(*conditions) if conditions else GasFillup.find_all()
+        fillups = await query.sort(GasFillup.fillup_time).to_list()
 
-        pipeline.extend(
-            [
-                {
-                    "$group": {
-                        "_id": None,
-                        "total_fillups": {"$sum": 1},
-                        "total_gallons": {"$sum": "$gallons"},
-                        "total_cost": {"$sum": "$total_cost"},
-                        "average_mpg": {"$avg": "$calculated_mpg"},
-                        "average_price_per_gallon": {"$avg": "$price_per_gallon"},
-                        "min_date": {"$min": "$fillup_time"},
-                        "max_date": {"$max": "$fillup_time"},
-                    },
-                },
-                {
-                    "$project": {
-                        "imei": "$_id",
-                        "total_fillups": 1,
-                        "total_gallons": {"$round": ["$total_gallons", 2]},
-                        "total_cost": {"$round": ["$total_cost", 2]},
-                        "average_mpg": {"$round": ["$average_mpg", 2]},
-                        "average_price_per_gallon": {
-                            "$round": ["$average_price_per_gallon", 2],
-                        },
-                        "period_start": "$min_date",
-                        "period_end": "$max_date",
-                    },
-                },
-            ],
-        )
-
-        results = await aggregate_to_list(GasFillup, pipeline)
-
-        record_pipeline: list[dict[str, Any]] = []
-        if match_stage:
-            record_pipeline.append({"$match": match_stage})
-        record_pipeline.extend(
-            [
-                {
-                    "$addFields": {
-                        "numeric_mpg": {
-                            "$convert": {
-                                "input": "$calculated_mpg",
-                                "to": "double",
-                                "onError": 0.0,
-                                "onNull": 0.0,
-                            },
-                        },
-                        "numeric_price": {
-                            "$convert": {
-                                "input": "$price_per_gallon",
-                                "to": "double",
-                                "onError": 0.0,
-                                "onNull": 0.0,
-                            },
-                        },
-                    },
-                },
-                {
-                    "$facet": {
-                        "best_mpg": [
-                            {"$match": {"numeric_mpg": {"$gt": 0}}},
-                            {
-                                "$sort": {
-                                    "numeric_mpg": -1,
-                                    "fillup_time": -1,
-                                },
-                            },
-                            {"$limit": 1},
-                            {
-                                "$project": {
-                                    "_id": 0,
-                                    "mpg": "$numeric_mpg",
-                                    "fillup_time": 1,
-                                    "price_per_gallon": "$numeric_price",
-                                },
-                            },
-                        ],
-                        "cheapest_price": [
-                            {"$match": {"numeric_price": {"$gt": 0}}},
-                            {
-                                "$sort": {
-                                    "numeric_price": 1,
-                                    "fillup_time": -1,
-                                },
-                            },
-                            {"$limit": 1},
-                            {
-                                "$project": {
-                                    "_id": 0,
-                                    "price_per_gallon": "$numeric_price",
-                                    "fillup_time": 1,
-                                },
-                            },
-                        ],
-                    },
-                },
-            ],
-        )
-
-        record_results = await aggregate_to_list(GasFillup, record_pipeline)
-
-        if not results:
+        if not fillups:
             return {
                 "imei": imei,
                 "total_fillups": 0,
@@ -166,33 +84,93 @@ class StatisticsService:
                 "records": {},
             }
 
-        stats = results[0]
+        total_gallons = 0.0
+        total_cost = 0.0
+        price_cost = 0.0
+        price_gallons = 0.0
+        mpg_miles = 0.0
+        mpg_gallons = 0.0
+        best_mpg: GasFillup | None = None
+        cheapest_price: tuple[GasFillup, float] | None = None
 
-        # Calculate cost per mile if we have MPG
-        if stats.get("average_mpg") and stats["average_mpg"] > 0:
-            avg_price = stats.get("average_price_per_gallon", 0)
-            stats["cost_per_mile"] = round(avg_price / stats["average_mpg"], 3)
-        else:
-            stats["cost_per_mile"] = None
+        for fillup in fillups:
+            gallons = StatisticsService._safe_float(fillup.gallons)
+            cost = StatisticsService._safe_float(fillup.total_cost)
+            if gallons is not None and gallons > 0:
+                total_gallons += gallons
+            if cost is not None and cost > 0:
+                total_cost += cost
+
+            effective_price = StatisticsService._effective_price_per_gallon(fillup)
+            if gallons is not None and gallons > 0 and effective_price is not None:
+                price_cost += effective_price * gallons
+                price_gallons += gallons
+                if (
+                    cheapest_price is None
+                    or effective_price < cheapest_price[1]
+                    or (
+                        effective_price == cheapest_price[1]
+                        and (fillup.fillup_time or datetime.min.replace(tzinfo=UTC))
+                        > (
+                            cheapest_price[0].fillup_time
+                            or datetime.min.replace(tzinfo=UTC)
+                        )
+                    )
+                ):
+                    cheapest_price = (fillup, effective_price)
+
+            mpg = StatisticsService._safe_float(fillup.calculated_mpg)
+            miles = StatisticsService._safe_float(fillup.miles_since_last_fillup)
+            if mpg is not None and mpg > 0 and miles is not None and miles > 0:
+                mpg_miles += miles
+                mpg_gallons += miles / mpg
+                if (
+                    best_mpg is None
+                    or mpg > (best_mpg.calculated_mpg or 0)
+                    or (
+                        mpg == (best_mpg.calculated_mpg or 0)
+                        and (fillup.fillup_time or datetime.min.replace(tzinfo=UTC))
+                        > (best_mpg.fillup_time or datetime.min.replace(tzinfo=UTC))
+                    )
+                ):
+                    best_mpg = fillup
+
+        average_mpg = round(mpg_miles / mpg_gallons, 2) if mpg_gallons > 0 else None
+        average_price = (
+            round(price_cost / price_gallons, 2) if price_gallons > 0 else None
+        )
+
+        stats: dict[str, Any] = {
+            "imei": imei,
+            "total_fillups": len(fillups),
+            "total_gallons": round(total_gallons, 2),
+            "total_cost": round(total_cost, 2),
+            "average_mpg": average_mpg,
+            "average_price_per_gallon": average_price,
+            "period_start": fillups[0].fillup_time,
+            "period_end": fillups[-1].fillup_time,
+            "cost_per_mile": (
+                round(average_price / average_mpg, 3)
+                if average_price is not None and average_mpg is not None and average_mpg > 0
+                else None
+            ),
+        }
 
         records: dict[str, Any] = {}
-        if record_results and record_results[0]:
-            record_data = record_results[0]
-            best_mpg = record_data.get("best_mpg") or []
-            cheapest_price = record_data.get("cheapest_price") or []
-            if best_mpg:
-                record = best_mpg[0]
-                records["best_mpg"] = {
-                    "mpg": record.get("mpg", 0.0),
-                    "fillup_time": record.get("fillup_time"),
-                    "price_per_gallon": record.get("price_per_gallon"),
-                }
-            if cheapest_price:
-                record = cheapest_price[0]
-                records["cheapest_price"] = {
-                    "price_per_gallon": record.get("price_per_gallon", 0.0),
-                    "fillup_time": record.get("fillup_time"),
-                }
+        if best_mpg is not None:
+            records["best_mpg"] = {
+                "mpg": best_mpg.calculated_mpg,
+                "fillup_time": best_mpg.fillup_time,
+                "price_per_gallon": StatisticsService._effective_price_per_gallon(
+                    best_mpg,
+                ),
+            }
+        if cheapest_price is not None:
+            fillup, price = cheapest_price
+            records["cheapest_price"] = {
+                "price_per_gallon": price,
+                "fillup_time": fillup.fillup_time,
+            }
 
         stats["records"] = records
 

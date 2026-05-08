@@ -95,6 +95,8 @@ class GasFillupCreateModel(BaseModel):
     price_per_gallon: float | None = None
     total_cost: float | None = None
     odometer: float | None = None
+    odometer_source: str | None = None
+    odometer_is_estimated: bool = False
     latitude: float | None = None
     longitude: float | None = None
     is_full_tank: bool
@@ -112,6 +114,8 @@ class GasFillupUpdateModel(BaseModel):
     price_per_gallon: float | None = None
     total_cost: float | None = None
     odometer: float | None = None
+    odometer_source: str | None = None
+    odometer_is_estimated: bool | None = None
     latitude: float | None = None
     longitude: float | None = None
     is_full_tank: bool | None = None

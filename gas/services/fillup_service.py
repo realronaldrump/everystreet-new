@@ -7,7 +7,11 @@ from typing import Any
 from beanie import PydanticObjectId
 
 from core.date_utils import parse_timestamp
-from core.exceptions import ResourceNotFoundException, ValidationException
+from core.exceptions import (
+    DuplicateResourceException,
+    ResourceNotFoundException,
+    ValidationException,
+)
 from core.trip_map_cache import bump_trip_map_revision
 from db.models import GasFillup, Vehicle
 
@@ -28,6 +32,37 @@ class FillupService:
     def _sort_asc():
         """Stable ascending sort for fill-up timeline traversal."""
         return [("fillup_time", 1), ("_id", 1)]
+
+    @staticmethod
+    async def _ensure_no_duplicate_fillup(
+        *,
+        imei: str,
+        fillup_time: datetime,
+        gallons: float | None,
+        odometer: float | None,
+        exclude_id: PydanticObjectId | None = None,
+    ) -> None:
+        """Reject exact duplicate submissions for the same vehicle reading."""
+
+        if gallons is None:
+            return
+
+        query: dict[str, Any] = {
+            "imei": imei,
+            "fillup_time": fillup_time,
+            "gallons": gallons,
+            "odometer": odometer,
+        }
+        if exclude_id is not None:
+            query["_id"] = {"$ne": exclude_id}
+
+        duplicate = await GasFillup.find_one(query)
+        if duplicate is not None:
+            msg = (
+                "A fill-up with this vehicle, time, gallons, and odometer "
+                "already exists"
+            )
+            raise DuplicateResourceException(msg)
 
     @staticmethod
     async def _get_previous_fillup(
@@ -279,6 +314,18 @@ class FillupService:
             msg = "odometer must be greater than or equal to 0"
             raise ValidationException(msg)
 
+        odometer_source = fillup_data.get("odometer_source")
+        if odometer_source is not None and not isinstance(odometer_source, str):
+            msg = "odometer_source must be a string"
+            raise ValidationException(msg)
+        odometer_source = odometer_source or ("manual" if odometer is not None else None)
+        odometer_is_estimated = bool(
+            fillup_data.get("odometer_is_estimated", odometer_source == "estimated"),
+        )
+        if odometer is None:
+            odometer_source = None
+            odometer_is_estimated = False
+
         price_per_gallon = fillup_data.get("price_per_gallon")
         if price_per_gallon is not None and price_per_gallon < 0:
             msg = "price_per_gallon must be greater than or equal to 0"
@@ -288,6 +335,13 @@ class FillupService:
         if total_cost is not None and total_cost < 0:
             msg = "total_cost must be greater than or equal to 0"
             raise ValidationException(msg)
+
+        await FillupService._ensure_no_duplicate_fillup(
+            imei=imei,
+            fillup_time=fillup_time,
+            gallons=gallons,
+            odometer=odometer,
+        )
 
         # Get vehicle info if available
         vehicle = await Vehicle.find_one(Vehicle.imei == imei)
@@ -302,7 +356,7 @@ class FillupService:
             imei=imei,
             fillup_time=fillup_time,
             current_id=None,
-            current_odometer=fillup_data.get("odometer"),
+            current_odometer=odometer,
             current_gallons=gallons,
             is_full_tank=is_full_tank,
             missed_previous=missed_previous,
@@ -320,7 +374,9 @@ class FillupService:
             gallons=gallons,
             price_per_gallon=price_per_gallon,
             total_cost=total_cost,
-            odometer=fillup_data.get("odometer"),
+            odometer=odometer,
+            odometer_source=odometer_source,
+            odometer_is_estimated=odometer_is_estimated,
             latitude=fillup_data.get("latitude"),
             longitude=fillup_data.get("longitude"),
             is_full_tank=is_full_tank,
@@ -400,6 +456,19 @@ class FillupService:
                 msg = "odometer must be greater than or equal to 0"
                 raise ValidationException(msg)
 
+        if "odometer_source" in update_data:
+            odometer_source = update_data.get("odometer_source")
+            if odometer_source is not None and not isinstance(odometer_source, str):
+                msg = "odometer_source must be a string"
+                raise ValidationException(msg)
+
+        if "odometer_is_estimated" in update_data and not isinstance(
+            update_data["odometer_is_estimated"],
+            bool,
+        ):
+            msg = "odometer_is_estimated must be a boolean"
+            raise ValidationException(msg)
+
         if "price_per_gallon" in update_data:
             price = update_data.get("price_per_gallon")
             if price is not None and price < 0:
@@ -430,6 +499,36 @@ class FillupService:
         if imei != original_imei:
             vehicle = await Vehicle.find_one(Vehicle.imei == imei)
             fillup.vin = vehicle.vin if vehicle else None
+
+        current_gallons_for_identity = update_data.get("gallons", fillup.gallons)
+        current_odometer_for_identity = update_data.get("odometer", fillup.odometer)
+        if current_time is not None:
+            await FillupService._ensure_no_duplicate_fillup(
+                imei=imei,
+                fillup_time=current_time,
+                gallons=current_gallons_for_identity,
+                odometer=current_odometer_for_identity,
+                exclude_id=fillup.id,
+            )
+
+        if "odometer" in update_data and update_data.get("odometer") is None:
+            update_data["odometer_source"] = None
+            update_data["odometer_is_estimated"] = False
+        elif (
+            current_odometer_for_identity is not None
+            and "odometer_source" not in update_data
+            and fillup.odometer_source is None
+        ):
+            update_data["odometer_source"] = "manual"
+
+        if (
+            current_odometer_for_identity is not None
+            and "odometer_source" in update_data
+            and "odometer_is_estimated" not in update_data
+        ):
+            update_data["odometer_is_estimated"] = (
+                update_data.get("odometer_source") == "estimated"
+            )
 
         # Recalculate MPG for THIS entry if fields that affect it changed
         fields_affecting_mpg = [

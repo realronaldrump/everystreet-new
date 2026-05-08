@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from pydantic import ValidationError
 
-from core.exceptions import ValidationException
+from core.exceptions import DuplicateResourceException, ValidationException
 from db.models import GasFillup, Trip, Vehicle
 from db.schemas import GasFillupUpdateModel
 from gas.services.fillup_service import FillupService
@@ -246,7 +246,7 @@ async def test_get_vehicle_location_at_time_handles_missing_optional_fields(
     assert result["longitude"] is None
     assert result["odometer"] == pytest.approx(12345.6)
     assert result["address"] is None
-    assert result["timestamp"] == target_time + timedelta(minutes=30)
+    assert result["timestamp"] == target_time
 
 
 @pytest.mark.asyncio
@@ -305,6 +305,119 @@ async def test_create_fillup_rolls_up_partial_fill_chain_for_mpg(beanie_db) -> N
     assert full.previous_odometer == pytest.approx(1000.0)
     assert full.miles_since_last_fillup == pytest.approx(200.0)
     assert full.calculated_mpg == pytest.approx(200.0 / 9.0)
+
+
+@pytest.mark.asyncio
+async def test_partial_fillup_marked_missed_previous_breaks_future_mpg(
+    beanie_db,
+) -> None:
+    imei = "imei-partial-missed"
+    t1 = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+    t2 = t1 + timedelta(days=1)
+    t3 = t2 + timedelta(days=1)
+
+    await GasFillup(
+        imei=imei,
+        fillup_time=t1,
+        gallons=10.0,
+        odometer=1000.0,
+        is_full_tank=True,
+        missed_previous=False,
+    ).insert()
+
+    partial = await FillupService.create_fillup(
+        {
+            "imei": imei,
+            "fillup_time": t2,
+            "gallons": 3.0,
+            "odometer": 1050.0,
+            "is_full_tank": False,
+            "missed_previous": True,
+        },
+    )
+    assert partial.calculated_mpg is None
+    assert partial.missed_previous is True
+
+    full = await FillupService.create_fillup(
+        {
+            "imei": imei,
+            "fillup_time": t3,
+            "gallons": 8.0,
+            "odometer": 1200.0,
+            "is_full_tank": True,
+            "missed_previous": False,
+        },
+    )
+
+    assert full.calculated_mpg is None
+    assert full.miles_since_last_fillup is None
+    assert full.previous_odometer == pytest.approx(1050.0)
+
+
+@pytest.mark.asyncio
+async def test_create_fillup_rejects_exact_duplicate_submission(beanie_db) -> None:
+    imei = "imei-duplicate"
+    fillup_time = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+    payload = {
+        "imei": imei,
+        "fillup_time": fillup_time,
+        "gallons": 10.0,
+        "odometer": 1000.0,
+        "is_full_tank": True,
+        "missed_previous": False,
+    }
+
+    await FillupService.create_fillup(payload)
+
+    with pytest.raises(DuplicateResourceException):
+        await FillupService.create_fillup(payload)
+
+
+@pytest.mark.asyncio
+async def test_gas_statistics_uses_weighted_mpg_and_price(beanie_db) -> None:
+    imei = "imei-weighted-stats"
+    t1 = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+    t2 = t1 + timedelta(days=1)
+    t3 = t2 + timedelta(days=1)
+
+    await GasFillup(
+        imei=imei,
+        fillup_time=t1,
+        gallons=10.0,
+        odometer=1000.0,
+        is_full_tank=True,
+        missed_previous=False,
+    ).insert()
+
+    await FillupService.create_fillup(
+        {
+            "imei": imei,
+            "fillup_time": t2,
+            "gallons": 10.0,
+            "price_per_gallon": 2.0,
+            "odometer": 1100.0,
+            "is_full_tank": True,
+            "missed_previous": False,
+        },
+    )
+    await FillupService.create_fillup(
+        {
+            "imei": imei,
+            "fillup_time": t3,
+            "gallons": 5.0,
+            "price_per_gallon": 4.0,
+            "odometer": 1300.0,
+            "is_full_tank": True,
+            "missed_previous": False,
+        },
+    )
+
+    stats = await StatisticsService.get_gas_statistics(imei=imei)
+
+    assert stats["average_mpg"] == pytest.approx(20.0)
+    assert stats["average_price_per_gallon"] == pytest.approx(2.67)
+    assert stats["cost_per_mile"] == pytest.approx(0.134)
+    assert stats["records"]["best_mpg"]["mpg"] == pytest.approx(40.0)
 
 
 @pytest.mark.asyncio
@@ -496,6 +609,10 @@ async def test_get_vehicle_location_at_time_interpolates_odometer_inside_trip(
         endTime=end_time,
         startOdometer=1000.0,
         endOdometer=1060.0,
+        coordinates=[
+            {"timestamp": start_time, "lat": 30.0, "lon": -97.0},
+            {"timestamp": end_time, "lat": 31.0, "lon": -96.0},
+        ],
         source="bouncie",
     ).insert()
 
@@ -506,6 +623,99 @@ async def test_get_vehicle_location_at_time_interpolates_odometer_inside_trip(
 
     assert result["timestamp"] == target_time
     assert result["odometer"] == pytest.approx(1015.0)
+    assert result["odometer_source"] == "trip_interpolated"
+    assert result["odometer_is_estimated"] is True
+    assert result["latitude"] == pytest.approx(30.25)
+    assert result["longitude"] == pytest.approx(-96.75)
+
+
+@pytest.mark.asyncio
+async def test_get_vehicle_location_at_time_uses_closest_future_trip_start(
+    beanie_db,
+) -> None:
+    imei = "imei-location-closest"
+    target_time = datetime(2026, 2, 8, 12, 0, tzinfo=UTC)
+
+    await Trip(
+        transactionId="tx-location-previous-far",
+        imei=imei,
+        startTime=target_time - timedelta(hours=3),
+        endTime=target_time - timedelta(hours=2),
+        startOdometer=900.0,
+        endOdometer=950.0,
+        gps={"type": "LineString", "coordinates": [[-100.0, 40.0], [-99.0, 41.0]]},
+        source="bouncie",
+    ).insert()
+    next_start = target_time + timedelta(minutes=5)
+    await Trip(
+        transactionId="tx-location-next-close",
+        imei=imei,
+        startTime=next_start,
+        endTime=next_start + timedelta(minutes=30),
+        startOdometer=1000.0,
+        endOdometer=1030.0,
+        gps={"type": "LineString", "coordinates": [[-97.0, 30.0], [-96.0, 31.0]]},
+        source="bouncie",
+    ).insert()
+
+    result = await OdometerService.get_vehicle_location_at_time(
+        imei,
+        target_time.isoformat(),
+    )
+
+    assert result["timestamp"] == next_start
+    assert result["odometer"] == pytest.approx(1000.0)
+    assert result["odometer_source"] == "trip_start"
+    assert result["latitude"] == pytest.approx(30.0)
+    assert result["longitude"] == pytest.approx(-97.0)
+
+
+@pytest.mark.asyncio
+async def test_estimate_odometer_reading_ignores_estimated_fillup_anchors(
+    beanie_db,
+) -> None:
+    imei = "imei-estimated-anchor"
+    trusted_time = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+    estimated_time = trusted_time + timedelta(days=1)
+    target_time = estimated_time + timedelta(hours=2)
+
+    await GasFillup(
+        imei=imei,
+        fillup_time=trusted_time,
+        gallons=10.0,
+        odometer=1000.0,
+        odometer_source="manual",
+        odometer_is_estimated=False,
+        is_full_tank=True,
+        missed_previous=False,
+    ).insert()
+    await GasFillup(
+        imei=imei,
+        fillup_time=estimated_time,
+        gallons=10.0,
+        odometer=5000.0,
+        odometer_source="estimated",
+        odometer_is_estimated=True,
+        is_full_tank=True,
+        missed_previous=False,
+    ).insert()
+    await Trip(
+        transactionId="tx-estimated-anchor-distance",
+        imei=imei,
+        startTime=trusted_time + timedelta(hours=1),
+        endTime=trusted_time + timedelta(hours=2),
+        distance=25.0,
+        source="bouncie",
+    ).insert()
+
+    result = await OdometerService.estimate_odometer_reading(
+        imei,
+        target_time.isoformat(),
+    )
+
+    assert result["method"] == "calculated_from_prev"
+    assert result["anchor_odometer"] == pytest.approx(1000.0)
+    assert result["estimated_odometer"] == pytest.approx(1025.0)
 
 
 @pytest.mark.asyncio

@@ -86,6 +86,8 @@ class BouncieService:
                     "longitude": location.get("lon"),
                     "address": location.get("address"),
                     "odometer": stats.get("odometer"),
+                    "odometer_source": "bouncie_api",
+                    "odometer_is_estimated": False,
                     "timestamp": stats.get("lastUpdated"),
                     "source": "bouncie_api",
                 }

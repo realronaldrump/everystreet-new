@@ -2,6 +2,7 @@
 
 import logging
 from datetime import datetime
+from itertools import pairwise
 from typing import Any
 
 from core.date_utils import parse_timestamp
@@ -66,6 +67,7 @@ class OdometerService:
                 .first_or_none()
             )
         else:
+            location_position = "interpolate"
             # Find the trip closest to this timestamp
             # First, try to find a trip that contains this timestamp
             trip = await Trip.find_one(
@@ -80,9 +82,10 @@ class OdometerService:
                 ),
             )
 
-            # If no trip contains the timestamp, find the closest trip before it
+            # If no trip contains the timestamp, compare the nearest trip before
+            # and after the target time instead of always preferring the prior trip.
             if not trip:
-                trip = (
+                previous_trip = (
                     await Trip.find(
                         enforce_bouncie_source(
                             apply_trip_record_filters(
@@ -97,9 +100,7 @@ class OdometerService:
                     .first_or_none()
                 )
 
-            # If still no trip, find the closest trip after it
-            if not trip:
-                trip = (
+                next_trip = (
                     await Trip.find(
                         enforce_bouncie_source(
                             apply_trip_record_filters(
@@ -113,6 +114,30 @@ class OdometerService:
                     .sort(Trip.startTime)
                     .first_or_none()
                 )
+
+                previous_end = parse_timestamp(previous_trip.endTime) if previous_trip else None
+                next_start = parse_timestamp(next_trip.startTime) if next_trip else None
+
+                if previous_trip and next_trip and previous_end and next_start:
+                    previous_gap = abs((target_time - previous_end).total_seconds())
+                    next_gap = abs((next_start - target_time).total_seconds())
+                    if next_gap < previous_gap:
+                        trip = next_trip
+                        location_position = "start"
+                    else:
+                        trip = previous_trip
+                        location_position = "end"
+                elif next_trip and next_start:
+                    trip = next_trip
+                    location_position = "start"
+                elif previous_trip and previous_end:
+                    trip = previous_trip
+                    location_position = "end"
+                else:
+                    trip = previous_trip or next_trip
+                    location_position = "end" if previous_trip else "start"
+        if use_now:
+            location_position = "end"
 
         if not trip:
             logger.warning(
@@ -131,8 +156,27 @@ class OdometerService:
             and trip.startTime <= target_time <= trip.endTime
         )
 
-        resolved_odometer = trip.endOdometer
-        resolved_timestamp = trip.endTime
+        if location_position == "start":
+            resolved_odometer = trip.startOdometer
+            resolved_timestamp = trip.startTime
+            odometer_source = "trip_start"
+        else:
+            resolved_odometer = trip.endOdometer
+            resolved_timestamp = trip.endTime
+            odometer_source = "trip_end"
+        trip_progress: float | None = None
+
+        if (
+            inside_trip_window
+            and target_time is not None
+            and trip.startTime is not None
+            and trip.endTime is not None
+            and trip.endTime > trip.startTime
+        ):
+            total_seconds = (trip.endTime - trip.startTime).total_seconds()
+            elapsed_seconds = (target_time - trip.startTime).total_seconds()
+            trip_progress = min(max(elapsed_seconds / total_seconds, 0.0), 1.0)
+            resolved_timestamp = target_time
 
         if (
             inside_trip_window
@@ -142,27 +186,35 @@ class OdometerService:
             and trip.endTime > trip.startTime
             and trip.startOdometer is not None
             and trip.endOdometer is not None
+            and trip_progress is not None
         ):
-            total_seconds = (trip.endTime - trip.startTime).total_seconds()
-            elapsed_seconds = (target_time - trip.startTime).total_seconds()
-            progress = min(max(elapsed_seconds / total_seconds, 0.0), 1.0)
             resolved_odometer = trip.startOdometer + (
-                (trip.endOdometer - trip.startOdometer) * progress
+                (trip.endOdometer - trip.startOdometer) * trip_progress
             )
             resolved_timestamp = target_time
+            odometer_source = "trip_interpolated"
 
         # Extract location from the end of the trip
-        destination_address = None
-        destination = getattr(trip, "destination", None)
-        if isinstance(destination, dict):
-            destination_address = destination.get("formatted_address")
+        location_address = None
+        if location_position == "start":
+            start_location = getattr(trip, "startLocation", None)
+            if isinstance(start_location, dict):
+                location_address = start_location.get("formatted_address")
+        else:
+            destination = getattr(trip, "destination", None)
+            if isinstance(destination, dict):
+                location_address = destination.get("formatted_address")
 
         location_data = {
             "latitude": None,
             "longitude": None,
             "odometer": resolved_odometer,
+            "odometer_source": odometer_source if resolved_odometer is not None else None,
+            "odometer_is_estimated": (
+                resolved_odometer is not None and odometer_source == "trip_interpolated"
+            ),
             "timestamp": resolved_timestamp,
-            "address": destination_address,
+            "address": location_address,
         }
 
         logger.info(
@@ -171,24 +223,43 @@ class OdometerService:
             location_data["odometer"],
         )
 
-        # Try to get coordinates from various sources
-        # 1. GPS Data (Most accurate)
-        if isinstance(trip.gps, dict) and trip.gps:
-            location_data = OdometerService._extract_gps_coordinates(
-                trip.gps,
+        # Try to get coordinates from various sources.
+        if (
+            location_position == "interpolate"
+            and target_time is not None
+            and isinstance(trip.coordinates, list)
+        ):
+            location_data = OdometerService._extract_coordinate_at_time(
+                trip.coordinates,
+                target_time,
                 location_data,
             )
 
-        # 2. End Location (Direct lat/lon)
+        # 1. GPS Data
+        if location_data["latitude"] is None and isinstance(trip.gps, dict) and trip.gps:
+            location_data = OdometerService._extract_gps_coordinates(
+                trip.gps,
+                location_data,
+                position=location_position,
+                progress=trip_progress,
+            )
+
+        start_location = getattr(trip, "startLocation", None)
         end_location = getattr(trip, "endLocation", None)
+        if (
+            location_data["latitude"] is None
+            and location_position == "start"
+            and isinstance(start_location, dict)
+        ):
+            location_data = OdometerService._extract_start_location(
+                start_location,
+                location_data,
+            )
         if location_data["latitude"] is None and isinstance(end_location, dict):
             location_data = OdometerService._extract_end_location(
                 end_location,
                 location_data,
             )
-
-        # 3. Start Location (if trip has no movement)
-        start_location = getattr(trip, "startLocation", None)
         if location_data["latitude"] is None and isinstance(start_location, dict):
             location_data = OdometerService._extract_start_location(
                 start_location,
@@ -209,9 +280,63 @@ class OdometerService:
         return location_data
 
     @staticmethod
+    def _extract_coordinate_at_time(
+        coordinate_entries: list[dict[str, Any]],
+        target_time: datetime,
+        location_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Interpolate a lat/lon from timestamped coordinate entries."""
+
+        valid_entries: list[tuple[datetime, float, float]] = []
+        for entry in coordinate_entries:
+            if not isinstance(entry, dict):
+                continue
+            timestamp = parse_timestamp(entry.get("timestamp"))
+            lat = entry.get("lat")
+            lon = entry.get("lon")
+            if timestamp is None or lat is None or lon is None:
+                continue
+            is_valid, validated = GeometryService.validate_coordinate_pair([lon, lat])
+            if is_valid and validated is not None:
+                valid_entries.append((timestamp, validated[0], validated[1]))
+
+        if not valid_entries:
+            return location_data
+
+        valid_entries.sort(key=lambda item: item[0])
+
+        if target_time <= valid_entries[0][0]:
+            _, lon, lat = valid_entries[0]
+        elif target_time >= valid_entries[-1][0]:
+            _, lon, lat = valid_entries[-1]
+        else:
+            lon = valid_entries[-1][1]
+            lat = valid_entries[-1][2]
+            for previous, current in pairwise(valid_entries):
+                prev_time, prev_lon, prev_lat = previous
+                curr_time, curr_lon, curr_lat = current
+                if prev_time <= target_time <= curr_time:
+                    duration = (curr_time - prev_time).total_seconds()
+                    if duration <= 0:
+                        lon = curr_lon
+                        lat = curr_lat
+                    else:
+                        progress = (target_time - prev_time).total_seconds() / duration
+                        lon = prev_lon + ((curr_lon - prev_lon) * progress)
+                        lat = prev_lat + ((curr_lat - prev_lat) * progress)
+                    break
+
+        location_data["longitude"] = lon
+        location_data["latitude"] = lat
+        return location_data
+
+    @staticmethod
     def _extract_gps_coordinates(
         gps: dict[str, Any],
         location_data: dict[str, Any],
+        *,
+        position: str = "end",
+        progress: float | None = None,
     ) -> dict[str, Any]:
         """
         Extract coordinates from GPS data.
@@ -230,7 +355,14 @@ class OdometerService:
         if g_type == "Point" and coords:
             candidate_coord = coords
         elif g_type == "LineString" and coords:
-            candidate_coord = coords[-1]
+            if position == "start":
+                candidate_coord = coords[0]
+            elif progress is not None and len(coords) > 1:
+                coord_index = round(progress * (len(coords) - 1))
+                coord_index = min(max(coord_index, 0), len(coords) - 1)
+                candidate_coord = coords[coord_index]
+            else:
+                candidate_coord = coords[-1]
         if candidate_coord:
             is_valid, validated = GeometryService.validate_coordinate_pair(
                 candidate_coord,
@@ -375,9 +507,13 @@ class OdometerService:
         # Previous trusted fill-up
         prev_fillup = await (
             GasFillup.find(
-                GasFillup.imei == imei,
-                GasFillup.fillup_time <= target_time,
-                GasFillup.odometer != None,  # noqa: E711
+                {
+                    "imei": imei,
+                    "fillup_time": {"$lte": target_time},
+                    "odometer": {"$ne": None},
+                    "odometer_source": {"$ne": "estimated"},
+                    "odometer_is_estimated": {"$ne": True},
+                },
             )
             .sort(-GasFillup.fillup_time)
             .first_or_none()
@@ -392,9 +528,13 @@ class OdometerService:
         # Next trusted fill-up
         next_fillup = await (
             GasFillup.find(
-                GasFillup.imei == imei,
-                GasFillup.fillup_time > target_time,
-                GasFillup.odometer != None,  # noqa: E711
+                {
+                    "imei": imei,
+                    "fillup_time": {"$gt": target_time},
+                    "odometer": {"$ne": None},
+                    "odometer_source": {"$ne": "estimated"},
+                    "odometer_is_estimated": {"$ne": True},
+                },
             )
             .sort(GasFillup.fillup_time)
             .first_or_none()
