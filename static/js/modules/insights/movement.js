@@ -40,9 +40,13 @@ function formatInt(value) {
   return Math.round(asNumber(value)).toLocaleString();
 }
 
-function pluralize(value, unit) {
+function pluralize(value, singularUnit, pluralUnit = `${singularUnit}s`) {
   const amount = asNumber(value);
-  return `${formatInt(amount)} ${unit}${amount === 1 ? "" : "s"}`;
+  return `${formatInt(amount)} ${amount === 1 ? singularUnit : pluralUnit}`;
+}
+
+function formatTimesDriven(value) {
+  return pluralize(value, "time driven", "times driven");
 }
 
 function formatMiles(value) {
@@ -286,7 +290,7 @@ function renderDetailPanel(payload) {
 
   const mode = selectedEntity?.type === "segments" ? "segments" : "streets";
   const label = getEntityLabel(selected, mode);
-  const timesDriven = pluralize(getTimesDriven(selected), "time driven");
+  const timesDriven = formatTimesDriven(getTimesDriven(selected));
   const trips = pluralize(selected?.trip_count, "trip");
   const distance = formatMiles(selected?.distance_miles);
   const typeLabel = mode === "segments" ? "Street segment" : "Street";
@@ -345,7 +349,7 @@ function renderRankingList(mode, payload) {
     .map((item) => {
       const key = getEntityKey(item, mode);
       const label = getEntityLabel(item, mode);
-      const timesDriven = pluralize(getTimesDriven(item), "time driven");
+      const timesDriven = formatTimesDriven(getTimesDriven(item));
       const trips = pluralize(item?.trip_count, "trip");
       const distance = formatMiles(item?.distance_miles);
       return `
@@ -521,7 +525,7 @@ function getTooltip(info) {
     html: `
       <div>
         <strong>${escapeHtml(object.label || "Street")}</strong><br />
-        ${escapeHtml(pluralize(object.timesDriven, "time driven"))}<br />
+        ${escapeHtml(formatTimesDriven(object.timesDriven))}<br />
         ${escapeHtml(pluralize(object.tripCount, "trip"))}<br />
         ${escapeHtml(formatMiles(object.distanceMiles))}
       </div>

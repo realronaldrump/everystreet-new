@@ -336,6 +336,8 @@ test("movement renders top 10 streets with progressive view-more and updates det
 
   assert.equal((streetsList.innerHTML.match(/movement-rank-btn/g) || []).length, 10);
   assert.equal(streetsMore.hidden, false);
+  assert.match(streetsList.innerHTML, /29 times driven/);
+  assert.doesNotMatch(streetsList.innerHTML, /time drivens/i);
 
   streetsMore.dispatch("click");
   assert.equal((streetsList.innerHTML.match(/movement-rank-btn/g) || []).length, 12);
@@ -357,6 +359,8 @@ test("movement renders top 10 streets with progressive view-more and updates det
 
   assert.match(detailPanel.innerHTML, /Street 1/);
   assert.match(detailPanel.innerHTML, /Times driven/);
+  assert.match(detailPanel.innerHTML, /29 times driven/);
+  assert.doesNotMatch(detailPanel.innerHTML, /time drivens/i);
 
   env.segmentsToggle.dispatch("click");
   assert.equal(env.movementPanels[0].classList.contains("is-active"), false);
@@ -392,6 +396,16 @@ test("movement map creates path layers and keeps selection-linked layer updates"
     deckInstance.props.layers.some((layer) => layer.kind === "PathLayer"),
     "expected at least one path layer"
   );
+  const tooltip = deckInstance.props.getTooltip({
+    object: {
+      label: "Tooltip Street",
+      timesDriven: 2,
+      tripCount: 1,
+      distanceMiles: 0.5,
+    },
+  });
+  assert.match(tooltip.html, /2 times driven/);
+  assert.doesNotMatch(tooltip.html, /time drivens/i);
 
   env.segmentsToggle.dispatch("click");
 
