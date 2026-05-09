@@ -1,0 +1,32 @@
+{
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.13",
+    "@eslint/js": "^9.39.2",
+    "autoprefixer": "^10.4.23",
+    "eslint": "^9.39.2",
+    "globals": "^17.1.0",
+    "postcss": "^8.5.6",
+    "stylelint": "^17.0.0",
+    "stylelint-config-standard": "^40.0.0",
+    "vite": "^7.3.1"
+  },
+  "name": "everystreet-new",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "dependencies": {},
+  "scripts": {
+    "test": "npm run test:js",
+    "test:all": "npm run test:js && npm run test:js:guardrails && npm run test:py",
+    "test:js": "node --test tests/*.test.js",
+    "test:js:guardrails": "node --test tests/guardrails/*.test.js",
+    "test:py": "python -m pytest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "directories": {
+    "test": "tests"
+  },
+  "description": ""
+}

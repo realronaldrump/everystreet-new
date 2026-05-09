@@ -13,8 +13,6 @@ __pycache__/
 # Node/tooling installed locally for this workspace
 node_modules/
 .prettierrc
-package.json
-package-lock.json
 eslint.config.mjs
 .stylelintrc.json
 

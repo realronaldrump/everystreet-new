@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { readRepoFile, readStaticJs, readTemplate } from "./helpers/fs-smoke.js";
+import { readRepoFile, readStaticJs, readTemplate } from "../helpers/fs-smoke.js";
 
 test("settings toggles stay wired from template to bootstrap state", () => {
   const settingsHtml = readTemplate("control_center.html");

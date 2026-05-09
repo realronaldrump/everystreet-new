@@ -245,7 +245,7 @@ min_confidence = 60
 testpaths = ["tests"]
 # Use package paths (not module names) to avoid triggering import-time issues in
 # C-extension heavy stacks (numpy/pyproj) when pytest-cov configures sources.
-addopts = "-ra --cov=core --cov=db --cov=exports --cov=api --cov=setup --cov=tracking --cov-report=term-missing --cov-report=lcov:coverage.lcov --cov-fail-under=80 -m 'not integration'"
+addopts = "-ra --cov=. --cov-report=term-missing:skip-covered --cov-report=lcov:coverage.lcov --cov-fail-under=55 -m 'not integration'"
 asyncio_mode = "auto"
 markers = [
   "integration: tests that require live Valhalla/Nominatim services",

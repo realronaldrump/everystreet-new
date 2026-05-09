@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { assertHasId, readStaticJs, readTemplate } from "./helpers/fs-smoke.js";
+import { assertHasId, readStaticJs, readTemplate } from "../helpers/fs-smoke.js";
 
 test("visits detail UI keeps its template and manager wiring aligned", () => {
   const templateSource = readTemplate("visits.html");

@@ -7,6 +7,12 @@ on:
       - '*.md'
       - 'docs/**'
       - '.gitignore'
+  pull_request:
+    branches: ['main']
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - '.gitignore'
   workflow_dispatch:
 
 concurrency:
@@ -22,7 +28,57 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            libexpat1 \
+            libexpat1-dev \
+            osmium-tool \
+            python3-dev
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          echo "setuptools<72.0.0" > pip-constraints.txt
+          echo "PIP_CONSTRAINT=$PWD/pip-constraints.txt" >> "$GITHUB_ENV"
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip check
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Run JavaScript behavior tests
+        run: npm test
+
+      - name: Run JavaScript guardrail tests
+        run: npm run test:js:guardrails
+
+      - name: Run Python tests
+        run: python -m pytest
+
   build-and-push:
+    needs: test
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

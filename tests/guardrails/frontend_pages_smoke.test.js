@@ -9,7 +9,7 @@ import {
   readRepoFile,
   readTemplate,
   repoPath,
-} from "./helpers/fs-smoke.js";
+} from "../helpers/fs-smoke.js";
 
 test("insights and routes templates keep the containers their pages rely on", () => {
   const insightsSource = readTemplate("insights.html");
