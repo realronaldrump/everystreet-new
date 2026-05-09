@@ -610,16 +610,16 @@ function renderJobs(jobs) {
               </div>
               <div class="history-job-progress">${progress}%</div>
               <div class="history-job-actions">
-                <button class="btn btn-ghost btn-sm" data-action="view" data-job-id="${job.job_id}" title="View">
+                <button class="btn btn-ghost btn-sm" data-action="view" data-job-id="${job.job_id}" title="View" aria-label="View job details">
                   <i class="fas fa-eye"></i>
                 </button>
-                <button class="btn btn-ghost btn-sm" data-action="preview" data-job-id="${job.job_id}" title="Show results" ${!isTerminal ? "disabled" : ""}>
+                <button class="btn btn-ghost btn-sm" data-action="preview" data-job-id="${job.job_id}" title="Show results" aria-label="Show job results" ${!isTerminal ? "disabled" : ""}>
                   <i class="fas fa-map"></i>
                 </button>
-                <button class="btn btn-ghost btn-sm text-danger" data-action="cancel" data-job-id="${job.job_id}" title="Cancel" ${!canCancel ? "disabled" : ""}>
+                <button class="btn btn-ghost btn-sm text-danger" data-action="cancel" data-job-id="${job.job_id}" title="Cancel" aria-label="Cancel job" ${!canCancel ? "disabled" : ""}>
                   <i class="fas fa-stop"></i>
                 </button>
-                <button class="btn btn-ghost btn-sm" data-action="delete" data-job-id="${job.job_id}" title="Remove" ${!isTerminal ? "disabled" : ""}>
+                <button class="btn btn-ghost btn-sm" data-action="delete" data-job-id="${job.job_id}" title="Remove" aria-label="Remove job" ${!isTerminal ? "disabled" : ""}>
                   <i class="fas fa-trash"></i>
                 </button>
               </div>
@@ -1516,10 +1516,10 @@ function updateMatchedPreviewTable(data) {
               <div class="result-trip-details">${distance}</div>
             </div>
             <div class="result-trip-actions">
-              <button class="btn btn-ghost btn-sm" data-action="unmatch" data-trip-id="${tripId}" title="Remove match">
+              <button class="btn btn-ghost btn-sm" data-action="unmatch" data-trip-id="${tripId}" title="Remove match" aria-label="Remove trip match">
                 <i class="fas fa-undo"></i>
               </button>
-              <button class="btn btn-ghost btn-sm text-danger" data-action="delete" data-trip-id="${tripId}" title="Delete trip">
+              <button class="btn btn-ghost btn-sm text-danger" data-action="delete" data-trip-id="${tripId}" title="Delete trip" aria-label="Delete trip">
                 <i class="fas fa-trash"></i>
               </button>
             </div>
@@ -1985,10 +1985,10 @@ function renderFailedTrips(trips) {
             </div>
           </div>
           <div class="failed-trip-actions">
-            <button class="btn btn-ghost btn-sm mm-btn-retry" data-action="retry" data-trip-id="${tripId}" title="Retry matching">
+            <button class="btn btn-ghost btn-sm mm-btn-retry" data-action="retry" data-trip-id="${tripId}" title="Retry matching" aria-label="Retry trip matching">
               <i class="fas fa-redo"></i>
             </button>
-            <button class="btn btn-ghost btn-sm text-danger" data-action="delete" data-trip-id="${tripId}" title="Delete trip">
+            <button class="btn btn-ghost btn-sm text-danger" data-action="delete" data-trip-id="${tripId}" title="Delete trip" aria-label="Delete trip">
               <i class="fas fa-trash"></i>
             </button>
           </div>

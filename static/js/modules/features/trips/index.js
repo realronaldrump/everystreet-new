@@ -2056,6 +2056,7 @@ function renderTripActionCell(trip) {
       <button class="trip-row-action-btn"
               type="button"
               title="Rematch trip"
+              aria-label="Rematch trip"
               data-trip-action="rematch">
         <i class="fas fa-route"></i>
       </button>
@@ -2064,18 +2065,21 @@ function renderTripActionCell(trip) {
       <button class="trip-row-action-btn"
               type="button"
               title="${inactive ? "Restore trip" : "Exclude from totals and maps"}"
+              aria-label="${inactive ? "Restore trip" : "Exclude trip from totals and maps"}"
               data-trip-action="inactive">
         <i class="fas ${inactive ? "fa-undo" : "fa-eye-slash"}"></i>
       </button>
       <button class="trip-row-action-btn"
               type="button"
               title="View details"
+              aria-label="View trip details"
               data-trip-action="view">
         <i class="fas fa-map"></i>
       </button>
       <button class="trip-row-action-btn delete"
               type="button"
               title="Delete"
+              aria-label="Delete trip"
               data-trip-action="delete">
         <i class="fas fa-trash"></i>
       </button>
@@ -2174,18 +2178,26 @@ function createTripCard(trip, allTrips) {
             inactive
               ? ""
               : `
-          <button class="trip-action-btn rematch" title="Rematch trip">
+          <button class="trip-action-btn rematch"
+                  title="Rematch trip"
+                  aria-label="Rematch trip">
             <i class="fas fa-route"></i>
           </button>
           `
           }
-          <button class="trip-action-btn inactive-toggle" title="${inactive ? "Restore trip" : "Exclude from totals and maps"}">
+          <button class="trip-action-btn inactive-toggle"
+                  title="${inactive ? "Restore trip" : "Exclude from totals and maps"}"
+                  aria-label="${inactive ? "Restore trip" : "Exclude trip from totals and maps"}">
             <i class="fas ${inactive ? "fa-rotate-left" : "fa-eye-slash"}"></i>
           </button>
-          <button class="trip-action-btn" title="View details">
+          <button class="trip-action-btn"
+                  title="View details"
+                  aria-label="View trip details">
             <i class="fas fa-map"></i>
           </button>
-          <button class="trip-action-btn delete" title="Delete">
+          <button class="trip-action-btn delete"
+                  title="Delete"
+                  aria-label="Delete trip">
             <i class="fas fa-trash"></i>
           </button>
         </div>

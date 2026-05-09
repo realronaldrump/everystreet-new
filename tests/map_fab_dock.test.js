@@ -40,6 +40,9 @@ function createElement(initial = {}) {
     getAttribute(name) {
       return attributes.get(name) ?? null;
     },
+    removeAttribute(name) {
+      attributes.delete(name);
+    },
   };
 }
 
@@ -116,6 +119,9 @@ test("map fab dock starts collapsed and toggles open/closed", () => {
     assert.equal(env.dock.classList.contains("is-collapsed"), true);
     assert.equal(env.toggle.getAttribute("aria-expanded"), "false");
     assert.equal(env.stack.getAttribute("aria-hidden"), "true");
+    assert.equal(env.stack.getAttribute("inert"), "");
+    assert.equal(env.firstItem.getAttribute("tabindex"), "-1");
+    assert.equal(env.secondItem.getAttribute("tabindex"), "-1");
     assert.equal(env.toggle.getAttribute("aria-label"), "Show map feature toggles (1 active feature)");
 
     env.toggle.dispatchEvent({ type: "click", target: env.toggle });
@@ -123,12 +129,18 @@ test("map fab dock starts collapsed and toggles open/closed", () => {
     assert.equal(env.dock.classList.contains("is-collapsed"), false);
     assert.equal(env.toggle.getAttribute("aria-expanded"), "true");
     assert.equal(env.stack.getAttribute("aria-hidden"), "false");
+    assert.equal(env.stack.getAttribute("inert"), null);
+    assert.equal(env.firstItem.getAttribute("tabindex"), null);
+    assert.equal(env.secondItem.getAttribute("tabindex"), null);
+    assert.equal(env.thirdItem.getAttribute("tabindex"), "-1");
     assert.equal(env.toggle.getAttribute("aria-label"), "Hide map feature toggles");
 
     env.toggle.dispatchEvent({ type: "click", target: env.toggle });
 
     assert.equal(env.dock.classList.contains("is-collapsed"), true);
     assert.equal(env.toggle.getAttribute("aria-expanded"), "false");
+    assert.equal(env.stack.getAttribute("inert"), "");
+    assert.equal(env.firstItem.getAttribute("tabindex"), "-1");
   } finally {
     controller.destroy();
   }

@@ -479,45 +479,6 @@
   cursor: pointer;
 }
 
-/* === Legend - Minimal === */
-.legend-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-4);
-  padding: var(--space-2) var(--space-4);
-  margin: 0 var(--space-4) var(--space-3);
-  background: var(--glass-input);
-  border-radius: var(--radius-md);
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-}
-
-.legend-indicator {
-  width: 12px;
-  height: 3px;
-  border-radius: var(--radius-sm);
-}
-
-.legend-indicator.driven {
-  background: var(--success);
-}
-
-.legend-indicator.undriven {
-  background: var(--color-undriven);
-  border: 1px dashed rgb(var(--color-undriven-rgb) / 50%);
-}
-
-.legend-indicator.all {
-  background: var(--cat-indigo);
-}
-
 /* === Mobile Bottom Sheet - Simplified === */
 @media (width <= 768px) {
   /* Prevent body scroll when sheet is expanded */

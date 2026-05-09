@@ -350,19 +350,22 @@ Failed Trips
                 <button class="btn btn-ghost btn-sm"
                         id="map-match-preview-clear-selection"
                         disabled
-                        title="Clear selection">
+                        title="Clear selection"
+                        aria-label="Clear selection">
                   <i class="fas fa-times"></i>
                 </button>
                 <button class="btn btn-ghost btn-sm"
                         id="map-match-preview-unmatch-selected"
                         disabled
-                        title="Remove match">
+                        title="Remove match"
+                        aria-label="Remove selected matches">
                   <i class="fas fa-undo"></i>
                 </button>
                 <button class="btn btn-ghost btn-sm text-danger"
                         id="map-match-preview-delete-selected"
                         disabled
-                        title="Delete trips">
+                        title="Delete trips"
+                        aria-label="Delete selected trips">
                   <i class="fas fa-trash"></i>
                 </button>
               </div>
@@ -396,7 +399,8 @@ Failed Trips
                 <button class="btn btn-ghost btn-sm text-danger"
                         id="mm-delete-failed-selected-btn"
                         disabled
-                        title="Delete trips">
+                        title="Delete trips"
+                        aria-label="Delete selected failed trips">
                   <i class="fas fa-trash"></i>
                 </button>
               </div>
@@ -434,15 +438,22 @@ Failed Trips
         Recent Activity
         </h2>
         <div class="mm-drawer-actions">
-          <button class="btn btn-ghost btn-sm" id="map-match-refresh" title="Refresh">
+          <button class="btn btn-ghost btn-sm"
+                  id="map-match-refresh"
+                  title="Refresh"
+                  aria-label="Refresh map matching activity">
             <i class="fas fa-sync"></i>
           </button>
           <button class="btn btn-ghost btn-sm"
                   id="map-match-history-clear"
-                  title="Clear completed">
+                  title="Clear completed"
+                  aria-label="Clear completed map matching activity">
             <i class="fas fa-trash-alt"></i>
           </button>
-          <button class="btn btn-ghost btn-sm mm-drawer-close" id="mm-drawer-close" title="Close">
+          <button class="btn btn-ghost btn-sm mm-drawer-close"
+                  id="mm-drawer-close"
+                  title="Close"
+                  aria-label="Close activity history">
             <i class="fas fa-times"></i>
           </button>
           <span class="settings-status is-hidden" id="map-match-history-status" role="status"></span>
@@ -455,7 +466,10 @@ Failed Trips
     </aside>
     <div class="mm-drawer-backdrop" id="mm-drawer-backdrop">
     </div>
-    <button class="mm-history-fab" id="mm-history-fab" title="View activity history">
+    <button class="mm-history-fab"
+            id="mm-history-fab"
+            title="View activity history"
+            aria-label="View activity history">
       <i class="fas fa-history"></i>
       <span class="mm-fab-badge" id="map-match-history-count">0</span>
     </button>

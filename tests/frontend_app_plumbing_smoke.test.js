@@ -127,6 +127,23 @@ test("swup visit URLs are always treated as strings", () => {
   assert.doesNotMatch(domUtilsSource, /visit\?\.from\?\.url\?\.pathname/);
 });
 
+test("landing route stays distinct from the map route state", () => {
+  const routeLoaderSource = readStaticJs("modules", "core", "route-loader.js");
+  const navigationSource = readStaticJs("modules", "core", "navigation.js");
+  const layoutSource = readRepoFile("static", "css", "layout", "layout.css");
+
+  assert.match(routeLoaderSource, /\["\/",\s*"\.\.\/\.\.\/pages\/landing\.js"\]/);
+  assert.match(navigationSource, /document\.body\.dataset\.route\s*=\s*path/);
+  assert.doesNotMatch(
+    navigationSource,
+    /(?:rawPath|path)\s*===\s*["']\/["']\s*\?\s*["']\/map["']/
+  );
+  assert.match(
+    layoutSource,
+    /body\[data-route="\/map"\]\s+\.route-content\s*\{\s*display:\s*none;\s*\}/s
+  );
+});
+
 test("memory city deck stage is not hidden from assistive tech while focused", () => {
   const memoryCityHtml = readTemplate("memory_city.html");
 

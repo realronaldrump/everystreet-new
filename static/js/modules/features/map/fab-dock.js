@@ -1,6 +1,14 @@
 const MOBILE_BREAKPOINT = "(max-width: 768px)";
 const DOCK_COLLAPSED_CLASS = "is-collapsed";
 
+function removeAttribute(element, name) {
+  if (typeof element.removeAttribute === "function") {
+    element.removeAttribute(name);
+    return;
+  }
+  element.setAttribute(name, name === "tabindex" ? "0" : "false");
+}
+
 function isButtonActive(button) {
   return (
     button.classList.contains("active") ||
@@ -66,6 +74,19 @@ export default function initMapFabDock() {
     if (icon) {
       icon.className = isExpanded ? "fas fa-xmark" : "fas fa-sliders";
     }
+
+    if (isExpanded) {
+      removeAttribute(stack, "inert");
+    } else {
+      stack.setAttribute("inert", "");
+    }
+    items.forEach((button) => {
+      if (isExpanded && !button.hidden) {
+        removeAttribute(button, "tabindex");
+      } else {
+        button.setAttribute("tabindex", "-1");
+      }
+    });
   };
 
   const setExpanded = (expanded) => {

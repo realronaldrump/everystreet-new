@@ -66,7 +66,9 @@ export function setActiveTab(tabName, { persist = true, updateHash = false } = {
   });
 
   tabContents.forEach((content) => {
-    content.classList.toggle("active", content.id === `${normalizedTabName}-tab`);
+    const active = content.id === `${normalizedTabName}-tab`;
+    content.classList.toggle("active", active);
+    content.hidden = !active;
   });
 
   if (persist) {
@@ -237,9 +239,13 @@ export function setupAppSettingsForm() {
     const mapServicesTabBtn = document.querySelector(
       `.settings-tab[data-tab="map-services"]`
     );
+    const mapServicesPanel = document.getElementById("map-services-tab");
     const usingGoogle = String(map_provider || "").toLowerCase() === "google";
     if (mapServicesTabBtn) {
       mapServicesTabBtn.style.display = usingGoogle ? "none" : "";
+    }
+    if (mapServicesPanel) {
+      mapServicesPanel.style.display = usingGoogle ? "none" : "";
     }
     if (usingGoogle) {
       const hashTab =

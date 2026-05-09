@@ -121,16 +121,19 @@ export function renderTaskConfigTable(config, intervalOptions = INTERVAL_OPTIONS
           <div class="btn-group btn-group-sm">
             <button class="btn btn-info run-now-btn" data-task-id="${taskId}"
               ${isManualOnly || isActive ? "disabled" : ""}
-              title="${isManualOnly ? "Use the manual fetch form below" : "Run task now"}">
+              title="${isManualOnly ? "Use the manual fetch form below" : "Run task now"}"
+              aria-label="${isManualOnly ? "Use the manual fetch form below" : "Run task now"}">
               <i class="fas fa-play"></i>
             </button>
             <button class="btn btn-warning force-stop-btn" data-task-id="${taskId}"
               ${canForceStop ? "" : "disabled"}
-              title="Force stop and reset task">
+              title="Force stop and reset task"
+              aria-label="Force stop and reset task">
               <i class="fas fa-stop-circle"></i>
             </button>
             <button class="btn btn-primary view-details-btn" data-task-id="${taskId}"
-              title="View task details">
+              title="View task details"
+              aria-label="View task details">
               <i class="fas fa-info-circle"></i>
             </button>
           </div>

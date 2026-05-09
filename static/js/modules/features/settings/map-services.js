@@ -503,7 +503,10 @@ function renderActions(status) {
   // Use muted styling to differentiate from action buttons
   if (!is_building) {
     buttons.push(`
-      <button class="btn btn-link btn-sm text-muted" id="refresh-btn" title="Check current status">
+      <button class="btn btn-link btn-sm text-muted"
+              id="refresh-btn"
+              title="Check current status"
+              aria-label="Check map services status">
         <i class="fas fa-sync"></i>
       </button>
     `);

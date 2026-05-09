@@ -1175,10 +1175,16 @@ function createFillupItem(fillup) {
       </div>
 
       <div class="fillup-actions">
-        <button data-action="edit" data-fillup-id="${fillupId}" title="Edit">
+        <button data-action="edit"
+                data-fillup-id="${fillupId}"
+                title="Edit"
+                aria-label="Edit fill-up">
           <i class="fas fa-edit"></i>
         </button>
-        <button data-action="delete" data-fillup-id="${fillupId}" title="Delete">
+        <button data-action="delete"
+                data-fillup-id="${fillupId}"
+                title="Delete"
+                aria-label="Delete fill-up">
           <i class="fas fa-trash"></i>
         </button>
       </div>

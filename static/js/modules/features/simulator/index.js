@@ -92,10 +92,16 @@ export class BouncieSimulator {
           <span class="sim-header-title">Bouncie Simulator</span>
         </div>
         <div class="sim-header-actions">
-          <button class="sim-btn-icon" data-action="collapse" title="Collapse">
+          <button class="sim-btn-icon"
+                  data-action="collapse"
+                  title="Collapse"
+                  aria-label="Collapse simulator">
             <i class="fas fa-chevron-down"></i>
           </button>
-          <button class="sim-btn-icon" data-action="close" title="Close">
+          <button class="sim-btn-icon"
+                  data-action="close"
+                  title="Close"
+                  aria-label="Close simulator">
             <i class="fas fa-times"></i>
           </button>
         </div>

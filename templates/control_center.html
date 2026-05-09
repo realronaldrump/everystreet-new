@@ -31,6 +31,7 @@ Manage app settings, operations health, logs, and account tools in one place.
     <div class="settings-nav-container">
       <nav class="settings-tabs" role="tablist">
         <button class="settings-tab active"
+                id="overview-tab-button"
                 data-tab="overview"
                 role="tab"
                 aria-selected="true"
@@ -39,6 +40,7 @@ Manage app settings, operations health, logs, and account tools in one place.
           <span>Overview</span>
         </button>
         <button class="settings-tab"
+                id="preferences-tab-button"
                 data-tab="preferences"
                 role="tab"
                 aria-selected="false"
@@ -47,6 +49,7 @@ Manage app settings, operations health, logs, and account tools in one place.
           <span>Preferences</span>
         </button>
         <button class="settings-tab"
+                id="credentials-tab-button"
                 data-tab="credentials"
                 role="tab"
                 aria-selected="false"
@@ -55,6 +58,7 @@ Manage app settings, operations health, logs, and account tools in one place.
           <span>Credentials</span>
         </button>
         <button class="settings-tab"
+                id="sync-settings-tab-button"
                 data-tab="sync-settings"
                 role="tab"
                 aria-selected="false"
@@ -63,6 +67,7 @@ Manage app settings, operations health, logs, and account tools in one place.
           <span>Sync</span>
         </button>
         <button class="settings-tab"
+                id="data-management-tab-button"
                 data-tab="data-management"
                 role="tab"
                 aria-selected="false"
@@ -71,6 +76,7 @@ Manage app settings, operations health, logs, and account tools in one place.
           <span>Data</span>
         </button>
         <button class="settings-tab"
+                id="storage-tab-button"
                 data-tab="storage"
                 role="tab"
                 aria-selected="false"
@@ -80,6 +86,7 @@ Manage app settings, operations health, logs, and account tools in one place.
         </button>
         {% if app_settings and (app_settings.get('map_provider') | default('', true) | lower) != 'google' %}
           <button class="settings-tab"
+                  id="map-services-tab-button"
                   data-tab="map-services"
                   role="tab"
                   aria-selected="false"
@@ -89,6 +96,7 @@ Manage app settings, operations health, logs, and account tools in one place.
           </button>
         {% endif %}
         <button class="settings-tab"
+                id="logs-tab-button"
                 data-tab="logs"
                 role="tab"
                 aria-selected="false"
@@ -97,6 +105,7 @@ Manage app settings, operations health, logs, and account tools in one place.
           <span>Logs</span>
         </button>
         <button class="settings-tab"
+                id="account-tab-button"
                 data-tab="account"
                 role="tab"
                 aria-selected="false"
@@ -106,7 +115,10 @@ Manage app settings, operations health, logs, and account tools in one place.
         </button>
       </nav>
     </div>
-    <div class="settings-tab-content active" id="overview-tab">
+    <div class="settings-tab-content active"
+         id="overview-tab"
+         role="tabpanel"
+         aria-labelledby="overview-tab-button">
       <div class="bento-grid control-center-overview-grid" data-stagger>
         <div class="settings-group bento-span-12">
           <h3 class="settings-group-title">
@@ -175,7 +187,11 @@ Loading recent task failures...
         </div>
       </div>
     </div>
-    <div class="settings-tab-content" id="preferences-tab">
+    <div class="settings-tab-content"
+         id="preferences-tab"
+         role="tabpanel"
+         aria-labelledby="preferences-tab-button"
+         hidden>
       <div class="preferences-section">
         <form id="app-settings-form">
           <div class="bento-grid" data-stagger>
@@ -185,14 +201,14 @@ Loading recent task failures...
               Appearance
               </h3>
               <div class="setting-item">
-                <div class="setting-label">
-                  <div class="setting-label-title">
+                <label class="setting-label" for="dark-mode-toggle">
+                  <span class="setting-label-title">
 Dark Mode
-                  </div>
-                  <div class="setting-label-description">
+                  </span>
+                  <span class="setting-label-description">
                   Use dark theme for the application interface
-                  </div>
-                </div>
+                  </span>
+                </label>
                 <div class="setting-control">
                   <div class="form-check form-switch">
                     <input class="form-check-input"
@@ -210,14 +226,14 @@ Dark Mode
               Personalization
               </h3>
               <div class="setting-item">
-                <div class="setting-label">
-                  <div class="setting-label-title">
+                <label class="setting-label" for="accent-color-picker">
+                  <span class="setting-label-title">
 Accent Color
-                  </div>
-                  <div class="setting-label-description">
+                  </span>
+                  <span class="setting-label-description">
                   Choose your primary accent color for highlights and glows
-                  </div>
-                </div>
+                  </span>
+                </label>
                 <div class="setting-control">
                   <input type="color" id="accent-color-picker" value="#7c9d96" />
                 </div>
@@ -257,14 +273,14 @@ Information Density
               Map
               </h3>
               <div class="setting-item">
-                <div class="setting-label">
-                  <div class="setting-label-title">
+                <label class="setting-label" for="map-provider-select">
+                  <span class="setting-label-title">
                     Map Engine
-                  </div>
-                  <div class="setting-label-description">
+                  </span>
+                  <span class="setting-label-description">
                     Choose between Local map services and Google Maps Cloud
-                  </div>
-                </div>
+                  </span>
+                </label>
                 <div class="setting-control">
                   <select class="form-select form-select-sm"
                           id="map-provider-select"
@@ -279,14 +295,14 @@ Google Maps
                 </div>
               </div>
               <div class="setting-item">
-                <div class="setting-label">
-                  <div class="setting-label-title">
+                <label class="setting-label" for="highlight-recent-trips">
+                  <span class="setting-label-title">
 Highlight Recent Trips
-                  </div>
-                  <div class="setting-label-description">
+                  </span>
+                  <span class="setting-label-description">
                   Visually emphasize recently completed trips on the map
-                  </div>
-                </div>
+                  </span>
+                </label>
                 <div class="setting-control">
                   <div class="form-check form-switch">
                     <input class="form-check-input"
@@ -298,15 +314,15 @@ Highlight Recent Trips
                 </div>
               </div>
               <div class="setting-item">
-                <div class="setting-label">
-                  <div class="setting-label-title">
+                <label class="setting-label" for="auto-center-toggle">
+                  <span class="setting-label-title">
 Auto-Center on Live Location
-                  </div>
-                  <div class="setting-label-description">
+                  </span>
+                  <span class="setting-label-description">
                   Automatically center the map on your current location during live
                   tracking
-                  </div>
-                </div>
+                  </span>
+                </label>
                 <div class="setting-control">
                   <div class="form-check form-switch">
                     <input class="form-check-input"
@@ -318,14 +334,14 @@ Auto-Center on Live Location
                 </div>
               </div>
               <div class="setting-item">
-                <div class="setting-label">
-                  <div class="setting-label-title">
+                <label class="setting-label" for="map-3d-buildings-toggle">
+                  <span class="setting-label-title">
 3D Buildings (Mapbox)
-                  </div>
-                  <div class="setting-label-description">
+                  </span>
+                  <span class="setting-label-description">
 Show 3D building extrusions on Mapbox styles that support vector buildings
-                  </div>
-                </div>
+                  </span>
+                </label>
                 <div class="setting-control">
                   <div class="form-check form-switch">
                     <input class="form-check-input"
@@ -337,14 +353,14 @@ Show 3D building extrusions on Mapbox styles that support vector buildings
                 </div>
               </div>
               <div class="setting-item">
-                <div class="setting-label">
-                  <div class="setting-label-title">
+                <label class="setting-label" for="map-trips-within-coverage-only">
+                  <span class="setting-label-title">
 Show Only Trips Inside Selected Coverage Area
-                  </div>
-                  <div class="setting-label-description">
+                  </span>
+                  <span class="setting-label-description">
 When enabled on the map page, only the in-area portions of trips are rendered for the selected coverage area.
-                  </div>
-                </div>
+                  </span>
+                </label>
                 <div class="setting-control">
                   <div class="form-check form-switch">
                     <input class="form-check-input"
@@ -355,14 +371,14 @@ When enabled on the map page, only the in-area portions of trips are rendered fo
                 </div>
               </div>
               <div class="setting-item">
-                <div class="setting-label">
-                  <div class="setting-label-title">
+                <label class="setting-label" for="trip-layers-use-heatmap">
+                  <span class="setting-label-title">
 Use Heatmap Style for Trips & Matched Trips
-                  </div>
-                  <div class="setting-label-description">
+                  </span>
+                  <span class="setting-label-description">
 Turn this off to render plain, mostly opaque route lines instead of heatmaps.
-                  </div>
-                </div>
+                  </span>
+                </label>
                 <div class="setting-control">
                   <div class="form-check form-switch">
                     <input class="form-check-input"
@@ -381,15 +397,15 @@ Turn this off to render plain, mostly opaque route lines instead of heatmaps.
               Trip Processing
               </h3>
               <div class="setting-item">
-                <div class="setting-label">
-                  <div class="setting-label-title">
+                <label class="setting-label" for="geocode-trips-on-fetch">
+                  <span class="setting-label-title">
 Geocode Trips on Fetch
-                  </div>
-                  <div class="setting-label-description">
+                  </span>
+                  <span class="setting-label-description">
                   Automatically reverse geocode trips when fetched from Bouncie to get
                   start and end locations. Disable to reduce processing time.
-                  </div>
-                </div>
+                  </span>
+                </label>
                 <div class="setting-control">
                   <div class="form-check form-switch">
                     <input class="form-check-input"
@@ -401,15 +417,15 @@ Geocode Trips on Fetch
                 </div>
               </div>
               <div class="setting-item">
-                <div class="setting-label">
-                  <div class="setting-label-title">
+                <label class="setting-label" for="map-match-trips-on-fetch">
+                  <span class="setting-label-title">
 Map Match Trips on Fetch
-                  </div>
-                  <div class="setting-label-description">
+                  </span>
+                  <span class="setting-label-description">
                   Automatically align fetched trip GPS traces to nearby roads.
                   Disable to reduce fetch processing time.
-                  </div>
-                </div>
+                  </span>
+                </label>
                 <div class="setting-control">
                   <div class="form-check form-switch">
                     <input class="form-check-input"
@@ -433,7 +449,11 @@ Map Match Trips on Fetch
         </form>
       </div>
     </div>
-    <div class="settings-tab-content" id="credentials-tab">
+    <div class="settings-tab-content"
+         id="credentials-tab"
+         role="tabpanel"
+         aria-labelledby="credentials-tab-button"
+         hidden>
       <div class="bento-grid" data-stagger>
         <div class="settings-group bento-span-12">
           <h3 class="settings-group-title">
@@ -658,7 +678,11 @@ Map Match Trips on Fetch
 
       </div>
     </div>
-    <div class="settings-tab-content" id="sync-settings-tab">
+    <div class="settings-tab-content"
+         id="sync-settings-tab"
+         role="tabpanel"
+         aria-labelledby="sync-settings-tab-button"
+         hidden>
       <div class="bento-grid" data-stagger>
         <div class="settings-group bento-span-12">
           <h3 class="settings-group-title">
@@ -666,14 +690,14 @@ Map Match Trips on Fetch
           Trip Sync
           </h3>
           <div class="setting-item">
-            <div class="setting-label">
-              <div class="setting-label-title">
+            <label class="setting-label" for="sync-auto-toggle">
+              <span class="setting-label-title">
 Auto-sync trips
-              </div>
-              <div class="setting-label-description">
+              </span>
+              <span class="setting-label-description">
               Keep trips updated automatically in the background.
-              </div>
-            </div>
+              </span>
+            </label>
             <div class="setting-control">
               <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" id="sync-auto-toggle" />
@@ -681,14 +705,14 @@ Auto-sync trips
             </div>
           </div>
           <div class="setting-item">
-            <div class="setting-label">
-              <div class="setting-label-title">
+            <label class="setting-label" for="sync-interval-select">
+              <span class="setting-label-title">
 Sync frequency
-              </div>
-              <div class="setting-label-description">
+              </span>
+              <span class="setting-label-description">
               How often to refresh recent trips when auto-sync is enabled.
-              </div>
-            </div>
+              </span>
+            </label>
             <div class="setting-control">
               <select class="form-select" id="sync-interval-select">
                 <option value="5">
@@ -768,14 +792,14 @@ Manual sync
             Global Task Control
             </h3>
             <div class="setting-item d-none d-md-flex">
-              <div class="setting-label">
-                <div class="setting-label-title">
+              <label class="setting-label" for="globalDisableSwitch">
+                <span class="setting-label-title">
 Globally Disable Tasks
-                </div>
-                <div class="setting-label-description">
+                </span>
+                <span class="setting-label-description">
                 Pause all automated background tasks
-                </div>
-              </div>
+                </span>
+              </label>
               <div class="setting-control">
                 <div class="form-check form-switch">
                   <input class="form-check-input" type="checkbox" id="globalDisableSwitch" />
@@ -1034,7 +1058,11 @@ Details
       </div>
     </details>
   </div>
-  <div class="settings-tab-content" id="data-management-tab">
+  <div class="settings-tab-content"
+       id="data-management-tab"
+       role="tabpanel"
+       aria-labelledby="data-management-tab-button"
+       hidden>
     <div class="bento-grid" data-stagger>
       <div class="settings-group bento-span-12 trip-data-health-card">
         <h3 class="settings-group-title trip-data-health-title">
@@ -1554,7 +1582,11 @@ Geocoding Progress
       </div>
     </div>
   </div>
-  <div class="settings-tab-content" id="storage-tab">
+  <div class="settings-tab-content"
+       id="storage-tab"
+       role="tabpanel"
+       aria-labelledby="storage-tab-button"
+       hidden>
     <div class="bento-grid" data-stagger>
       {% if storage_error %}
         <div class="settings-group bento-span-12">
@@ -1580,7 +1612,8 @@ Monitor your application's storage usage and database collections.
           <div class="storage-overview-actions">
             <button id="refresh-storage"
                     class="btn btn-secondary btn-sm"
-                    title="Refresh storage information">
+                    title="Refresh storage information"
+                    aria-label="Refresh storage information">
               <i class="fas fa-sync-alt"></i>
             </button>
           </div>
@@ -1840,27 +1873,37 @@ No collections available.
       </div>
     </div>
   </div>
-  <div class="settings-tab-content" id="map-services-tab">
-    <div class="bento-grid" data-stagger>
-      <div class="settings-group bento-span-12">
-        <h3 class="settings-group-title">
-          <i class="fas fa-globe"></i>
-          Map Services
-        </h3>
-        <p class="text-muted small mb-3">
-          Map services are configured automatically based on your trip locations.
-          Address lookup and route planning work seamlessly once configured.
-        </p>
-        <div id="map-services-content">
-          <div class="map-services-loading">
-            <i class="fas fa-spinner fa-spin"></i>
-            <span>Loading map services status...</span>
+  {% if app_settings and (app_settings.get('map_provider') | default('', true) | lower) != 'google' %}
+    <div class="settings-tab-content"
+         id="map-services-tab"
+         role="tabpanel"
+         aria-labelledby="map-services-tab-button"
+         hidden>
+      <div class="bento-grid" data-stagger>
+        <div class="settings-group bento-span-12">
+          <h3 class="settings-group-title">
+            <i class="fas fa-globe"></i>
+            Map Services
+          </h3>
+          <p class="text-muted small mb-3">
+            Map services are configured automatically based on your trip locations.
+            Address lookup and route planning work seamlessly once configured.
+          </p>
+          <div id="map-services-content">
+            <div class="map-services-loading">
+              <i class="fas fa-spinner fa-spin"></i>
+              <span>Loading map services status...</span>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
-  <div class="settings-tab-content" id="logs-tab">
+  {% endif %}
+  <div class="settings-tab-content"
+       id="logs-tab"
+       role="tabpanel"
+       aria-labelledby="logs-tab-button"
+       hidden>
     <div class="server-logs-page py-3">
       <div class="bento-grid mb-4" data-stagger>
         <div class="bento-span-12 widget" data-accent="slate">
@@ -2376,7 +2419,11 @@ Select one or more containers from the list above to view logs.
       </div>
     </div>
   </div>
-  <div class="settings-tab-content" id="account-tab">
+  <div class="settings-tab-content"
+       id="account-tab"
+       role="tabpanel"
+       aria-labelledby="account-tab-button"
+       hidden>
     <div class="bento-grid" data-stagger>
       <div class="settings-group bento-span-12">
         <h3 class="settings-group-title">
@@ -2487,7 +2534,10 @@ Select one or more containers from the list above to view logs.
           <h5 class="modal-title">
 Task Details
           </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal">
+          <button type="button"
+                  class="btn-close btn-close-white"
+                  data-bs-dismiss="modal"
+                  aria-label="Close">
           </button>
         </div>
         <div class="modal-body">
@@ -2512,7 +2562,10 @@ Task Details
           <h5 class="modal-title">
 Pause Tasks
           </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal">
+          <button type="button"
+                  class="btn-close btn-close-white"
+                  data-bs-dismiss="modal"
+                  aria-label="Close">
           </button>
         </div>
         <div class="modal-body">
@@ -2545,7 +2598,10 @@ Pause Tasks
           <h5 class="modal-title">
 Clear Task History
           </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal">
+          <button type="button"
+                  class="btn-close btn-close-white"
+                  data-bs-dismiss="modal"
+                  aria-label="Close">
           </button>
         </div>
         <div class="modal-body">
