@@ -2238,6 +2238,12 @@ const createMapProxy = (googleMap, { usesCloudMapStyling = false } = {}) => {
         if (!usesCloudMapStyling) {
           googleMap.setOptions?.({ styles: null });
         }
+      } else if (styleText.includes("terrain")) {
+        activeStyleName = "terrain";
+        googleMap.setMapTypeId?.("terrain");
+        if (!usesCloudMapStyling) {
+          googleMap.setOptions?.({ styles: null });
+        }
       } else if (styleText.includes("streets")) {
         activeStyleName = "streets";
         googleMap.setMapTypeId?.("roadmap");

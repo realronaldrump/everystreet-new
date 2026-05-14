@@ -949,6 +949,7 @@ class AppSettings(Document):
     autoCenter: bool = True
     mapTripsWithinCoverageOnly: bool = False
     tripLayersUseHeatmap: bool = True
+    mapTerrainReliefEnabled: bool = False
     geocodeTripsOnFetch: bool = True
     mapMatchTripsOnFetch: bool = False
 

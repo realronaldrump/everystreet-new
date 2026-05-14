@@ -82,6 +82,7 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "autoCenter": True,
     "mapTripsWithinCoverageOnly": False,
     "tripLayersUseHeatmap": True,
+    "mapTerrainReliefEnabled": False,
     "geocodeTripsOnFetch": True,
     "mapMatchTripsOnFetch": False,
     # Geo Service Configuration (defaults for Docker Compose)

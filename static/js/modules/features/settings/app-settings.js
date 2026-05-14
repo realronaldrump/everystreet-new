@@ -6,6 +6,7 @@ import apiClient from "../../core/api-client.js";
 import { CONFIG } from "../../core/config.js";
 import notificationManager from "../../ui/notifications.js";
 import { setMap3dBuildingsPreference } from "../map/buildings-3d.js";
+import { setTerrainReliefPreference } from "../map/terrain-relief.js";
 import { setTripLayerHeatmapPreference } from "../map/trip-layer-render-mode.js";
 
 const TAB_STORAGE_KEY = "es:settings-active-tab";
@@ -133,6 +134,7 @@ export function setupAppSettingsForm() {
   const highlightRecentTrips = document.getElementById("highlight-recent-trips");
   const autoCenterToggle = document.getElementById("auto-center-toggle");
   const map3dBuildingsToggle = document.getElementById("map-3d-buildings-toggle");
+  const mapTerrainReliefToggle = document.getElementById("map-terrain-relief-toggle");
   const mapTripsWithinCoverageOnlyToggle = document.getElementById(
     "map-trips-within-coverage-only"
   );
@@ -151,6 +153,7 @@ export function setupAppSettingsForm() {
       highlightRecentTrips: hrt,
       autoCenter,
       map3dBuildingsEnabled,
+      mapTerrainReliefEnabled,
       mapTripsWithinCoverageOnly,
       tripLayersUseHeatmap,
       geocodeTripsOnFetch: gtof,
@@ -187,6 +190,19 @@ export function setupAppSettingsForm() {
     }
     if (typeof resolvedMap3dBuildings === "boolean") {
       setMap3dBuildingsPreference(resolvedMap3dBuildings);
+    }
+    const storedMapTerrainRelief = readStoredBoolean(
+      CONFIG.STORAGE_KEYS.mapTerrainReliefEnabled
+    );
+    const resolvedMapTerrainRelief =
+      typeof storedMapTerrainRelief === "boolean"
+        ? storedMapTerrainRelief
+        : mapTerrainReliefEnabled;
+    if (mapTerrainReliefToggle) {
+      mapTerrainReliefToggle.checked = resolvedMapTerrainRelief === true;
+    }
+    if (typeof resolvedMapTerrainRelief === "boolean") {
+      setTerrainReliefPreference(resolvedMapTerrainRelief);
     }
     const storedCoverageOnly = readStoredBoolean(
       CONFIG.STORAGE_KEYS.mapTripsWithinCoverageOnly
@@ -281,6 +297,7 @@ export function setupAppSettingsForm() {
       highlightRecentTrips: highlightRecentTrips?.checked,
       autoCenter: autoCenterToggle?.checked,
       map3dBuildingsEnabled: map3dBuildingsToggle?.checked ?? true,
+      mapTerrainReliefEnabled: mapTerrainReliefToggle?.checked ?? false,
       mapTripsWithinCoverageOnly: mapTripsWithinCoverageOnlyToggle?.checked ?? false,
       tripLayersUseHeatmap: tripLayersUseHeatmapToggle?.checked ?? true,
       geocodeTripsOnFetch: geocodeTripsOnFetch?.checked,
@@ -300,6 +317,7 @@ export function setupAppSettingsForm() {
     localStorage.setItem("highlightRecentTrips", payload.highlightRecentTrips);
     localStorage.setItem("autoCenter", payload.autoCenter);
     setMap3dBuildingsPreference(payload.map3dBuildingsEnabled);
+    setTerrainReliefPreference(payload.mapTerrainReliefEnabled);
     localStorage.setItem(
       CONFIG.STORAGE_KEYS.mapTripsWithinCoverageOnly,
       payload.mapTripsWithinCoverageOnly ? "true" : "false"

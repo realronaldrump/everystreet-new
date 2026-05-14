@@ -23,6 +23,7 @@ async def _get_template_app_settings(include_sensitive: bool) -> dict[str, Any]:
         "mapbox_token": get_mapbox_token(),
         "mapTripsWithinCoverageOnly": False,
         "tripLayersUseHeatmap": True,
+        "mapTerrainReliefEnabled": False,
         "google_maps_api_key": None,
     }
     if settings is None:
@@ -35,6 +36,9 @@ async def _get_template_app_settings(include_sensitive: bool) -> dict[str, Any]:
     )
     payload["tripLayersUseHeatmap"] = bool(
         getattr(settings, "tripLayersUseHeatmap", True),
+    )
+    payload["mapTerrainReliefEnabled"] = bool(
+        getattr(settings, "mapTerrainReliefEnabled", False),
     )
     if include_sensitive:
         payload["google_maps_api_key"] = getattr(settings, "google_maps_api_key", None)

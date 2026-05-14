@@ -27,6 +27,14 @@ export const CONFIG = {
       satellite: "mapbox://styles/mapbox/satellite-v9",
       streets: "mapbox://styles/mapbox/streets-v12",
     },
+    terrainRelief: {
+      sourceId: "es-mapbox-dem",
+      hillshadeLayerId: "es-terrain-hillshade",
+      demUrl: "mapbox://mapbox.mapbox-terrain-dem-v1",
+      tileSize: 512,
+      maxzoom: 14,
+      exaggeration: 1.35,
+    },
     performanceOptions: {
       // Keep map canvas dimensions in sync with viewport changes.
       trackResize: true,
@@ -68,6 +76,7 @@ export const CONFIG = {
     mapType: "mapType",
     mapCinematicIntroSeen: "mapCinematicIntroSeen",
     map3dBuildingsEnabled: "map3dBuildingsEnabled",
+    mapTerrainReliefEnabled: "mapTerrainReliefEnabled",
     mapTripsWithinCoverageOnly: "mapTripsWithinCoverageOnly",
     tripLayersUseHeatmap: "tripLayersUseHeatmap",
     uiState: "uiState",

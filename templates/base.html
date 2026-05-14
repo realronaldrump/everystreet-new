@@ -361,7 +361,8 @@
             window.MAP_PROVIDER = envData.mapProvider || "self_hosted";
             window.APP_SETTINGS_FLAGS = {
                 mapTripsWithinCoverageOnly: envData.mapTripsWithinCoverageOnly || false,
-                tripLayersUseHeatmap: envData.tripLayersUseHeatmap !== false
+                tripLayersUseHeatmap: envData.tripLayersUseHeatmap !== false,
+                mapTerrainReliefEnabled: envData.mapTerrainReliefEnabled === true
             };
             window.GOOGLE_MAPS_BOOTSTRAP = {
                 configured: envData.googleMapsConfigured || false,

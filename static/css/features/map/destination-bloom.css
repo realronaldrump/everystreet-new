@@ -156,6 +156,10 @@
   --fab-accent-rgb: 153 214 255;
 }
 
+.map-fab-toggle--terrain {
+  --fab-accent-rgb: 123 214 151;
+}
+
 .map-fab-toggle--heatmap {
   --fab-accent-rgb: 255 161 120;
 }
@@ -192,6 +196,7 @@
 
 .destination-bloom-toggle::before,
 .map-3d-buildings-toggle::before,
+.map-terrain-relief-toggle::before,
 .trip-layer-heatmap-toggle::before {
   content: attr(aria-label);
   position: absolute;
@@ -214,6 +219,7 @@
 
 .destination-bloom-toggle:hover::before,
 .map-3d-buildings-toggle:hover::before,
+.map-terrain-relief-toggle:hover::before,
 .trip-layer-heatmap-toggle:hover::before {
   opacity: 1;
 }
@@ -316,6 +322,7 @@
   .destination-bloom-toggle::before,
   .map-fab-dock__toggle::before,
   .map-3d-buildings-toggle::before,
+  .map-terrain-relief-toggle::before,
   .trip-layer-heatmap-toggle::before,
   .particle-flow-toggle::before {
     display: none;

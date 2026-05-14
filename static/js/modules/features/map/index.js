@@ -14,6 +14,12 @@ import initCinematicIntro from "./cinematic-intro.js";
 import initMapFabDock from "./fab-dock.js";
 import initMapControls from "./map-controls.js";
 import { initMobileMap } from "./mobile-map.js";
+import initTerrainRelief, {
+  getTerrainReliefPreference,
+  isTerrainReliefSupported,
+  MAP_TERRAIN_RELIEF_SETTING_EVENT,
+  setTerrainReliefPreference,
+} from "./terrain-relief.js";
 import {
   getTripLayerHeatmapPreference,
   setTripLayerHeatmapPreference,
@@ -317,6 +323,9 @@ export default function initMapPage({ signal, cleanup } = {}) {
   registerCleanup(setupMapViewportSync());
 
   const mapInstance = store.map || window.map;
+  const terrainRelief = initTerrainRelief({ map: mapInstance });
+  registerCleanup(() => terrainRelief.destroy?.());
+
   const buildings3d = initBuildings3D({ map: mapInstance });
   registerCleanup(() => buildings3d.destroy?.());
 
@@ -342,6 +351,7 @@ export default function initMapPage({ signal, cleanup } = {}) {
   setupParticleFlowToggle(registerCleanup);
   setupDestinationBloomToggle(registerCleanup);
   setupExclusiveSceneModeGuard(registerCleanup);
+  setupTerrainReliefToggle(registerCleanup);
   setupMap3dBuildingsToggle(registerCleanup);
   setupTripLayerHeatmapToggle(registerCleanup);
 
@@ -781,6 +791,40 @@ export function setupMap3dBuildingsToggle(registerCleanup) {
 
   registerCleanup(() => btn.removeEventListener("click", handleClick));
   registerCleanup(() => document.removeEventListener(MAP_3D_SETTING_EVENT, syncState));
+  registerCleanup(() => document.removeEventListener("mapStyleLoaded", syncState));
+}
+
+export function setupTerrainReliefToggle(registerCleanup) {
+  const btn = document.getElementById("map-terrain-relief-fab");
+  if (!btn) return;
+
+  const syncState = () => {
+    const map = store.map || window.map;
+    const isRelevant = isTerrainReliefSupported(map);
+    setToggleVisibility(btn, isRelevant);
+    setToggleState(btn, isRelevant && getTerrainReliefPreference());
+  };
+
+  const handleClick = () => {
+    const map = store.map || window.map;
+    if (!isTerrainReliefSupported(map)) {
+      syncState();
+      return;
+    }
+
+    setTerrainReliefPreference(!getTerrainReliefPreference());
+    syncState();
+  };
+
+  btn.addEventListener("click", handleClick);
+  document.addEventListener(MAP_TERRAIN_RELIEF_SETTING_EVENT, syncState);
+  document.addEventListener("mapStyleLoaded", syncState);
+  syncState();
+
+  registerCleanup(() => btn.removeEventListener("click", handleClick));
+  registerCleanup(() =>
+    document.removeEventListener(MAP_TERRAIN_RELIEF_SETTING_EVENT, syncState)
+  );
   registerCleanup(() => document.removeEventListener("mapStyleLoaded", syncState));
 }
 

@@ -9,6 +9,7 @@ import {
   setupMap3dBuildingsToggle,
   setupParticleFlowToggle,
   setupRouteArtToggle,
+  setupTerrainReliefToggle,
   setupTripLayerHeatmapToggle,
 } from "../static/js/modules/features/map/index.js";
 import particleFlow from "../static/js/modules/particle-flow.js";
@@ -389,6 +390,58 @@ test("3D buildings toggle mirrors shared preference and hides when the map style
   mockMap.getStyle = () => rasterStyle;
   document.dispatchEvent(new CustomEvent("mapStyleLoaded"));
   assert.equal(buttons["map-3d-buildings-fab"].hidden, true);
+
+  cleanupFns.forEach((fn) => fn());
+});
+
+test("terrain relief FAB starts off, is visible when supported, and toggles persisted preference", () => {
+  global.CustomEvent = createCustomEventClass();
+  global.localStorage = createStorageMock();
+
+  const buttons = {
+    "map-terrain-relief-fab": createButton(),
+    "map-terrain-relief-toggle": { checked: false },
+  };
+
+  global.document = createDocumentMock(buttons);
+  global.window = {
+    MAP_PROVIDER: "self_hosted",
+    APP_SETTINGS_FLAGS: {},
+  };
+
+  store.map = {
+    addSource() {},
+    getSource() {
+      return null;
+    },
+    addLayer() {},
+    getLayer() {
+      return null;
+    },
+    setTerrain() {},
+    getStyle() {
+      return {
+        sources: { composite: { type: "vector" } },
+        layers: [{ id: "road-line", type: "line" }],
+      };
+    },
+  };
+
+  const cleanupFns = [];
+  setupTerrainReliefToggle((fn) => cleanupFns.push(fn));
+
+  assert.equal(buttons["map-terrain-relief-fab"].hidden, false);
+  assert.equal(buttons["map-terrain-relief-fab"].getAttribute("aria-pressed"), "false");
+
+  dispatchClick(buttons["map-terrain-relief-fab"]);
+  assert.equal(global.localStorage.getItem("mapTerrainReliefEnabled"), "true");
+  assert.equal(buttons["map-terrain-relief-toggle"].checked, true);
+  assert.equal(buttons["map-terrain-relief-fab"].getAttribute("aria-pressed"), "true");
+
+  dispatchClick(buttons["map-terrain-relief-fab"]);
+  assert.equal(global.localStorage.getItem("mapTerrainReliefEnabled"), "false");
+  assert.equal(buttons["map-terrain-relief-toggle"].checked, false);
+  assert.equal(buttons["map-terrain-relief-fab"].getAttribute("aria-pressed"), "false");
 
   cleanupFns.forEach((fn) => fn());
 });
