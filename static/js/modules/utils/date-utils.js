@@ -71,7 +71,8 @@ const DateUtils = {
         startDate = endDate = today;
         break;
       case "yesterday":
-        startDate = endDate = today.subtract(1, "day");
+        startDate = today.subtract(1, "day");
+        endDate = today;
         break;
       case "7days":
       case "last-week":

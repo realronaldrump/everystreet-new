@@ -366,13 +366,14 @@ const dateManager = {
     const today = dateUtils.getCurrentDate();
     const yesterday = dateUtils.getYesterday();
 
+    if (start === yesterday && end === today) {
+      return "yesterday";
+    }
+
     // Check if same day
     if (start === end) {
       if (start === today) {
         return "today";
-      }
-      if (start === yesterday) {
-        return "yesterday";
       }
     }
 
