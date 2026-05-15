@@ -1,6 +1,10 @@
 /* global deck, mapboxgl */
 
 import store from "./core/store.js";
+import {
+  MAP_TERRAIN_RELIEF_APPLIED_EVENT,
+  isTerrainReliefApplied,
+} from "./features/map/terrain-relief.js";
 import heatmapUtils from "./heatmap-utils.js";
 import MapStyles from "./map-styles.js";
 import tripInteractions from "./trip-interactions.js";
@@ -140,6 +144,8 @@ const tripMapRenderer = {
   pending: new Map(),
   layers: new Map(),
   selectedLayerId: "trip-map-selected-layer",
+  terrainActive: false,
+  _terrainListenerBound: false,
 
   isTripLayer,
 
@@ -189,15 +195,59 @@ const tripMapRenderer = {
   },
 
   ensureOverlay() {
+    this._bindTerrainListener();
     if (this.overlay || !this.isAvailable()) {
       return this.overlay;
     }
     this.overlay = new deck.MapboxOverlay({
-      interleaved: true,
+      // Interleaved rendering shares Mapbox's depth buffer. Once 3D terrain is
+      // enabled, flat (z=0) trip paths get occluded by the terrain mesh and
+      // flicker or vanish entirely when the camera is pitched. Overlaid mode
+      // composites deck.gl on top of the map, keeping trips reliably visible.
+      interleaved: !this.terrainActive,
       layers: [],
     });
     store.map.addControl(this.overlay);
     return this.overlay;
+  },
+
+  _bindTerrainListener() {
+    if (this._terrainListenerBound || typeof document === "undefined") {
+      return;
+    }
+    this._terrainListenerBound = true;
+    // Terrain may have been applied before any trips rendered (e.g. when the
+    // saved preference is on at page load), so capture the current state once.
+    this.terrainActive = isTerrainReliefApplied();
+    document.addEventListener(MAP_TERRAIN_RELIEF_APPLIED_EVENT, (event) => {
+      this.setTerrainActive(event?.detail?.active === true);
+    });
+  },
+
+  setTerrainActive(active) {
+    const next = Boolean(active);
+    if (next === this.terrainActive) {
+      return;
+    }
+    this.terrainActive = next;
+    // The interleaved flag is fixed at construction time, so the overlay has
+    // to be rebuilt to switch rendering modes.
+    if (this.overlay) {
+      this._rebuildOverlay();
+    }
+  },
+
+  _rebuildOverlay() {
+    const map = store.map;
+    if (this.overlay && map && typeof map.removeControl === "function") {
+      try {
+        map.removeControl(this.overlay);
+      } catch {
+        // Overlay may already be detached during teardown.
+      }
+    }
+    this.overlay = null;
+    this.render();
   },
 
   async setLayerData(layerName, bundle) {

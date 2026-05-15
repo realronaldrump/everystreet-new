@@ -4,6 +4,11 @@ import { resolveMapTypeHint } from "./map-type-hint.js";
 
 export const MAP_TERRAIN_RELIEF_SETTING_EVENT = "es:map-terrain-relief-setting-changed";
 
+// Fires whenever Mapbox 3D terrain is actually applied or removed (as opposed
+// to the user *preference* changing). Overlay renderers listen to this so they
+// can adapt their rendering mode to the presence of terrain.
+export const MAP_TERRAIN_RELIEF_APPLIED_EVENT = "es:map-terrain-relief-applied";
+
 const noopController = Object.freeze({
   refresh() {
     return false;
@@ -15,6 +20,30 @@ const noopController = Object.freeze({
 });
 
 let googleBaseStyleBeforeTerrain = null;
+let terrainReliefApplied = false;
+
+export function isTerrainReliefApplied() {
+  return terrainReliefApplied;
+}
+
+function setTerrainReliefApplied(active) {
+  const next = Boolean(active);
+  if (next === terrainReliefApplied) {
+    return;
+  }
+  terrainReliefApplied = next;
+
+  if (
+    typeof document !== "undefined" &&
+    typeof document.dispatchEvent === "function"
+  ) {
+    document.dispatchEvent(
+      new CustomEvent(MAP_TERRAIN_RELIEF_APPLIED_EVENT, {
+        detail: { active: next },
+      })
+    );
+  }
+}
 
 function normalizeStyleType(value) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -332,6 +361,7 @@ export function removeTerrainRelief(map) {
 
   const removedLayer = removeHillshadeLayer(map, config.hillshadeLayerId);
   const removedSource = removeDemSource(map, config.sourceId);
+  setTerrainReliefApplied(false);
   return removedLayer || removedSource;
 }
 
@@ -412,17 +442,22 @@ export function ensureTerrainRelief(map, { styleType } = {}) {
   };
 
   if (!ensureDemSource(map, config)) {
+    setTerrainReliefApplied(false);
     return false;
   }
 
+  let terrainApplied = false;
   try {
     map.setTerrain({
       source: config.sourceId,
       exaggeration: getTerrainExaggeration(styleType),
     });
+    terrainApplied = true;
   } catch (error) {
     console.warn("Unable to enable 3D terrain:", error);
   }
+
+  setTerrainReliefApplied(terrainApplied);
 
   return ensureHillshadeLayer(map, config, styleType);
 }

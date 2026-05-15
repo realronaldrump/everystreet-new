@@ -5,6 +5,7 @@ import initTerrainRelief, {
   ensureTerrainRelief,
   getTerrainReliefPreference,
   isMapboxTerrainReliefSupported,
+  isTerrainReliefApplied,
   isTerrainReliefSupported,
   setTerrainReliefPreference,
 } from "../static/js/modules/features/map/terrain-relief.js";
@@ -164,6 +165,24 @@ test("ensureTerrainRelief removes terrain layer and source when disabled", () =>
   assert.deepEqual(map.terrainCalls.at(-1), null);
   assert.ok(map.removedLayers.includes("es-terrain-hillshade"));
   assert.ok(map.removedSources.includes("es-mapbox-dem"));
+});
+
+test("ensureTerrainRelief broadcasts applied state for overlay renderers", () => {
+  const map = createMockMap();
+  const applied = [];
+  global.document.addEventListener("es:map-terrain-relief-applied", (event) => {
+    applied.push(event.detail?.active);
+  });
+
+  setTerrainReliefPreference(true);
+  ensureTerrainRelief(map, { styleType: "dark" });
+  assert.equal(isTerrainReliefApplied(), true);
+
+  setTerrainReliefPreference(false);
+  ensureTerrainRelief(map, { styleType: "dark" });
+  assert.equal(isTerrainReliefApplied(), false);
+
+  assert.deepEqual(applied, [true, false]);
 });
 
 test("initTerrainRelief re-applies terrain before other style-change handlers", async () => {
