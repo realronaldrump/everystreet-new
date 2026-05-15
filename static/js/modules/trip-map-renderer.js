@@ -146,6 +146,7 @@ const tripMapRenderer = {
   selectedLayerId: "trip-map-selected-layer",
   terrainActive: false,
   _terrainListenerBound: false,
+  _mapListenersBound: false,
 
   isTripLayer,
 
@@ -196,6 +197,7 @@ const tripMapRenderer = {
 
   ensureOverlay() {
     this._bindTerrainListener();
+    this._bindMapListeners();
     if (this.overlay || !this.isAvailable()) {
       return this.overlay;
     }
@@ -248,6 +250,112 @@ const tripMapRenderer = {
     }
     this.overlay = null;
     this.render();
+  },
+
+  _bindMapListeners() {
+    if (this._mapListenersBound) {
+      return;
+    }
+    const map = store.map;
+    if (!map || typeof map.on !== "function") {
+      return;
+    }
+    this._mapListenersBound = true;
+    // DEM tiles stream in progressively, so elevations sampled right after
+    // terrain is enabled are often incomplete. Re-sample once the map settles
+    // (and after zooming in for finer detail) so trip paths track the surface.
+    map.on("idle", () => this._handleMapIdle());
+  },
+
+  _handleMapIdle() {
+    if (!this.terrainActive || !this.layers.size) {
+      return;
+    }
+    const map = store.map;
+    const currentZoom = Math.floor(Number(map?.getZoom?.() ?? 0));
+    let changed = false;
+    for (const [layerName, layerState] of this.layers) {
+      if (!layerState?.decoded?.positions?.length) {
+        continue;
+      }
+      const needsResample =
+        !layerState.drapedPositions ||
+        layerState.drapePending === true ||
+        currentZoom > (layerState.drapeZoom ?? -1);
+      if (needsResample && this._drapeLayerPositions(layerName)) {
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.render();
+    }
+  },
+
+  // Builds a [lng, lat, elevation] position buffer so deck.gl renders the
+  // trip path on the terrain surface instead of at sea level (z=0).
+  _drapeLayerPositions(layerName) {
+    const map = store.map;
+    const layerState = this.layers.get(layerName);
+    const flat = layerState?.decoded?.positions;
+    if (!flat?.length || typeof map?.queryTerrainElevation !== "function") {
+      return false;
+    }
+
+    const pointCount = Math.floor(flat.length / 2);
+    const previous = layerState.drapedPositions;
+    const reusePrevious = previous && previous.length === pointCount * 3;
+    const draped = new Float64Array(pointCount * 3);
+    let pending = false;
+
+    for (let index = 0; index < pointCount; index += 1) {
+      const lng = flat[index * 2];
+      const lat = flat[index * 2 + 1];
+      const elevation = map.queryTerrainElevation([lng, lat]);
+      draped[index * 3] = lng;
+      draped[index * 3 + 1] = lat;
+      if (Number.isFinite(elevation)) {
+        draped[index * 3 + 2] = elevation;
+      } else if (reusePrevious) {
+        // Keep the last known elevation while the DEM tile reloads.
+        draped[index * 3 + 2] = previous[index * 3 + 2];
+        pending = true;
+      } else {
+        draped[index * 3 + 2] = 0;
+        pending = true;
+      }
+    }
+
+    layerState.drapedPositions = draped;
+    layerState.drapePending = pending;
+    layerState.drapeZoom = Math.floor(Number(map.getZoom?.() ?? 0));
+    return true;
+  },
+
+  _ensureDrape(layerName) {
+    const layerState = this.layers.get(layerName);
+    if (!layerState?.decoded?.positions?.length) {
+      return;
+    }
+    if (this.terrainActive) {
+      if (!layerState.drapedPositions) {
+        this._drapeLayerPositions(layerName);
+      }
+    } else if (layerState.drapedPositions) {
+      layerState.drapedPositions = null;
+      layerState.drapePending = false;
+      layerState.drapeZoom = -1;
+    }
+  },
+
+  _drapePath(path) {
+    const map = store.map;
+    if (!this.terrainActive || typeof map?.queryTerrainElevation !== "function") {
+      return path;
+    }
+    return path.map(([lng, lat]) => {
+      const elevation = map.queryTerrainElevation([lng, lat]);
+      return [lng, lat, Number.isFinite(elevation) ? elevation : 0];
+    });
   },
 
   async setLayerData(layerName, bundle) {
@@ -318,6 +426,7 @@ const tripMapRenderer = {
       if (!layerInfo?.visible || !layerState?.decoded?.length) {
         return;
       }
+      this._ensureDrape(layerName);
       layers.push(...this.buildLayersForTripLayer(layerName, layerInfo, layerState));
     });
 
@@ -328,11 +437,17 @@ const tripMapRenderer = {
 
   buildLayersForTripLayer(layerName, layerInfo, layerState) {
     const { decoded } = layerState;
+    const draped =
+      this.terrainActive && layerState.drapedPositions?.length
+        ? layerState.drapedPositions
+        : null;
     const data = {
       length: decoded.length,
       startIndices: decoded.startIndices,
       attributes: {
-        getPath: { value: decoded.positions, size: 2 },
+        getPath: draped
+          ? { value: draped, size: 3 }
+          : { value: decoded.positions, size: 2 },
       },
     };
     const beforeId = this.getBeforeLayerId();
@@ -402,6 +517,10 @@ const tripMapRenderer = {
       return [];
     }
 
+    const data = this.terrainActive
+      ? paths.map((path) => this._drapePath(path))
+      : paths;
+
     const highlightColor =
       (selectedLayer === "matchedTrips"
         ? MapStyles.MAP_LAYER_COLORS?.matchedTrips?.highlight
@@ -410,7 +529,7 @@ const tripMapRenderer = {
     return [
       new deck.PathLayer({
         id: this.selectedLayerId,
-        data: paths,
+        data,
         pickable: false,
         getPath: (path) => path,
         getColor: colorWithAlpha(highlightColor, 245),
