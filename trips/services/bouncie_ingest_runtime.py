@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Literal
 
@@ -29,8 +30,10 @@ from trips.services.historical_trip_writer import (
 )
 from trips.services.trip_history_import_service_config import (
     MIN_WINDOW_HOURS,
+    RECOVERY_MIN_WINDOW_SECONDS,
     REQUEST_TIMEOUT_SECONDS,
     SPLIT_CHUNK_HOURS,
+    SPLIT_CONCURRENCY,
     build_import_windows,
 )
 from trips.services.trip_ingest_issue_service import TripIngestIssueService
@@ -38,6 +41,42 @@ from trips.services.trip_ingest_issue_service import TripIngestIssueService
 logger = logging.getLogger(__name__)
 
 IngestMode = Literal["insert_only", "upsert_bouncie"]
+
+
+@dataclass(frozen=True)
+class FailedFetchWindow:
+    """A Bouncie window that still failed at the recovery floor."""
+
+    imei: str
+    window_start: datetime
+    window_end: datetime
+    error: str
+
+    def event_data(self) -> dict[str, str]:
+        return {
+            "imei": self.imei,
+            "start": self.window_start.isoformat(),
+            "end": self.window_end.isoformat(),
+            "error": self.error,
+        }
+
+
+@dataclass
+class WindowFetchResult:
+    """Trips recovered from one requested window plus any unrecoverable slices."""
+
+    trips: list[dict[str, Any]] = field(default_factory=list)
+    failed_windows: list[FailedFetchWindow] = field(default_factory=list)
+
+
+class WindowFetchIncompleteError(RuntimeError):
+    """Raised by the list-returning wrapper on partial fetch failure."""
+
+    def __init__(self, result: WindowFetchResult) -> None:
+        self.result = result
+        count = len(result.failed_windows)
+        super().__init__(f"Unable to fetch {count} Bouncie sub-window(s)")
+
 
 COUNTER_KEYS = (
     "found_raw",
@@ -65,9 +104,10 @@ def merge_ingest_counters(target: dict[str, int], delta: dict[str, int]) -> None
 
 def ingest_counters_changed_trips(counters: dict[str, int]) -> bool:
     """Return whether ingest counters represent persisted trip changes."""
-    return int(counters.get("inserted", 0) or 0) > 0 or int(
-        counters.get("updated", 0) or 0
-    ) > 0
+    return (
+        int(counters.get("inserted", 0) or 0) > 0
+        or int(counters.get("updated", 0) or 0) > 0
+    )
 
 
 def is_duplicate_trip_error(exc: Exception) -> bool:
@@ -125,32 +165,108 @@ def filter_trips_to_window(
     return kept
 
 
-async def fetch_trips_for_window(
+def _normalize_raw_trips(
+    raw_trips: list[dict[str, Any]], *, imei: str
+) -> list[dict[str, Any]]:
+    normalized_raw: list[dict[str, Any]] = []
+    for trip in raw_trips:
+        if not isinstance(trip, dict):
+            continue
+        if not trip.get("imei"):
+            trip = dict(trip)
+            trip["imei"] = imei
+        normalized_raw.append(trip)
+    return normalized_raw
+
+
+def _safe_error_text(exc: Exception) -> str:
+    text = str(exc).strip() or exc.__class__.__name__
+    text = text.replace("\n", " ").replace("\r", " ")
+    if len(text) > 240:
+        text = text[:237] + "..."
+    return text
+
+
+def _build_sub_windows(
+    window_start: datetime,
+    window_end: datetime,
+    *,
+    split_size: timedelta,
+) -> list[tuple[datetime, datetime]]:
+    sub_windows: list[tuple[datetime, datetime]] = []
+    cursor = window_start
+    while cursor < window_end:
+        sub_end = min(cursor + split_size, window_end)
+        if sub_end <= cursor:
+            break
+        sub_windows.append((cursor, sub_end))
+        cursor = sub_end
+    return sub_windows
+
+
+def _choose_recovery_split_size(
+    span: timedelta,
+    *,
+    min_window: timedelta,
+    split_chunk: timedelta,
+    recovery_floor: timedelta,
+) -> timedelta:
+    if span <= min_window:
+        return max(recovery_floor, span / 2)
+    return min(split_chunk, span / 2)
+
+
+def summarize_failed_fetch_windows(
+    failed_windows: list[FailedFetchWindow],
+    *,
+    sample_size: int = 5,
+) -> dict[str, Any]:
+    """Build a compact, serializable summary for progress metadata/events."""
+    if not failed_windows:
+        return {"count": 0, "samples": []}
+    starts = [w.window_start for w in failed_windows]
+    ends = [w.window_end for w in failed_windows]
+    return {
+        "count": len(failed_windows),
+        "first_start": min(starts).isoformat(),
+        "last_end": max(ends).isoformat(),
+        "samples": [w.event_data() for w in failed_windows[:sample_size]],
+    }
+
+
+async def fetch_trips_for_window_report(
     client: BouncieClient,
     *,
     imei: str,
     window_start: datetime,
     window_end: datetime,
     min_window_hours: float = MIN_WINDOW_HOURS,
+    recovery_min_window_seconds: int = RECOVERY_MIN_WINDOW_SECONDS,
     split_chunk_hours: int = SPLIT_CHUNK_HOURS,
     add_event: Callable[[str, str, dict[str, Any] | None], None] | None = None,
     chunk_semaphore: asyncio.Semaphore | None = None,
-) -> list[dict[str, Any]]:
+) -> WindowFetchResult:
     """
-    Fetch trips for a window using BouncieClient and split recursively on failure.
+    Fetch trips for a window and aggressively recover around failing slices.
 
-    Returned trips are raw Bouncie payload dictionaries.
+    Bouncie can return 500/timeouts for old ranges even when neighboring
+    minute-scale ranges are valid. This routine splits only after a failure,
+    keeps every recovered successful slice, and returns unrecoverable leaf
+    slices for the caller to report as fetch errors.
     """
     max_span = timedelta(days=7) - timedelta(seconds=2)
-    query_start = (ensure_utc(window_start) or window_start) - timedelta(seconds=1)
-    query_end = ensure_utc(window_end) or window_end
-    if query_end - query_start > max_span:
-        query_end = query_start + max_span
-
     if chunk_semaphore is None:
-        chunk_semaphore = asyncio.Semaphore(15)
+        chunk_semaphore = asyncio.Semaphore(SPLIT_CONCURRENCY)
 
-    try:
+    recovery_floor = timedelta(seconds=max(1, recovery_min_window_seconds))
+    min_window = timedelta(hours=max(min_window_hours, 0))
+    split_chunk = timedelta(hours=max(min_window_hours, split_chunk_hours))
+
+    async def fetch_once(start: datetime, end: datetime) -> list[dict[str, Any]]:
+        query_start = (ensure_utc(start) or start) - timedelta(seconds=1)
+        query_end = ensure_utc(end) or end
+        if query_end - query_start > max_span:
+            query_end = query_start + max_span
         async with asyncio.timeout(REQUEST_TIMEOUT_SECONDS):
             async with chunk_semaphore:
                 token = await client.ensure_token()
@@ -160,105 +276,135 @@ async def fetch_trips_for_window(
                     query_start,
                     query_end,
                 )
-    except Exception as exc:
-        span = window_end - window_start
-        if span <= timedelta(hours=min_window_hours):
-            raise
+        return _normalize_raw_trips(raw_trips, imei=imei)
 
-        split_size = min(
-            timedelta(hours=max(min_window_hours, split_chunk_hours)),
-            span / 2,
-        )
-        if split_size <= timedelta(0):
-            raise
-
-        sub_windows: list[tuple[datetime, datetime]] = []
-        cursor = window_start
-        while cursor < window_end:
-            sub_end = min(cursor + split_size, window_end)
-            if sub_end <= cursor:
-                break
-            sub_windows.append((cursor, sub_end))
-            cursor = sub_end
-
-        if len(sub_windows) < 2:
-            midpoint = window_start + span / 2
-            sub_windows = [
-                (window_start, midpoint),
-                (midpoint, window_end),
-            ]
-
-        logger.warning(
-            "Window fetch failed (imei=%s, %s - %s). Splitting into %d chunks: %s",
-            imei,
-            window_start.isoformat(),
-            window_end.isoformat(),
-            len(sub_windows),
-            exc,
-        )
-        if add_event:
-            add_event(
-                "warning",
-                f"Splitting failing window for {imei} into {len(sub_windows)} chunks",
-                {"imei": imei, "chunks": len(sub_windows)},
-            )
-
-        async def fetch_sub(
-            sub_start: datetime, sub_end: datetime
-        ) -> list[dict[str, Any]]:
-            try:
-                chunk = await fetch_trips_for_window(
-                    client,
+    async def fetch_recovering(start: datetime, end: datetime) -> WindowFetchResult:
+        start = ensure_utc(start) or start
+        end = ensure_utc(end) or end
+        try:
+            return WindowFetchResult(trips=await fetch_once(start, end))
+        except Exception as exc:
+            span = end - start
+            if span <= recovery_floor:
+                failure = FailedFetchWindow(
                     imei=imei,
-                    window_start=sub_start,
-                    window_end=sub_end,
-                    min_window_hours=min_window_hours,
-                    split_chunk_hours=split_chunk_hours,
-                    add_event=add_event,
-                    chunk_semaphore=chunk_semaphore,
+                    window_start=start,
+                    window_end=end,
+                    error=_safe_error_text(exc),
                 )
-            except Exception:
                 logger.exception(
-                    "Sub-window fetch failed (imei=%s, %s - %s)",
+                    "Bouncie recovery leaf failed (imei=%s, %s - %s)",
                     imei,
-                    sub_start.isoformat(),
-                    sub_end.isoformat(),
+                    start.isoformat(),
+                    end.isoformat(),
                 )
                 if add_event:
                     add_event(
                         "error",
-                        f"Sub-window fetch failed for {imei}",
-                        {"start": sub_start.isoformat(), "end": sub_end.isoformat()},
+                        f"Unrecoverable Bouncie slice for {imei}",
+                        failure.event_data(),
                     )
-                return []
-            if add_event and chunk:
+                return WindowFetchResult(failed_windows=[failure])
+
+            split_size = _choose_recovery_split_size(
+                span,
+                min_window=min_window,
+                split_chunk=split_chunk,
+                recovery_floor=recovery_floor,
+            )
+            if split_size <= timedelta(0):
+                failure = FailedFetchWindow(
+                    imei=imei,
+                    window_start=start,
+                    window_end=end,
+                    error=_safe_error_text(exc),
+                )
+                return WindowFetchResult(failed_windows=[failure])
+
+            sub_windows = _build_sub_windows(
+                start,
+                end,
+                split_size=split_size,
+            )
+            if len(sub_windows) < 2:
+                midpoint = start + span / 2
+                sub_windows = [(start, midpoint), (midpoint, end)]
+
+            logger.warning(
+                "Window fetch failed (imei=%s, %s - %s). Splitting into %d chunks: %s",
+                imei,
+                start.isoformat(),
+                end.isoformat(),
+                len(sub_windows),
+                exc,
+            )
+            if add_event:
                 add_event(
-                    "info",
-                    f"Fetched {len(chunk)} trips from sub-chunk",
+                    "warning",
+                    f"Splitting failing window for {imei} into {len(sub_windows)} chunks",
                     {
                         "imei": imei,
-                        "start": sub_start.isoformat(),
-                        "end": sub_end.isoformat(),
+                        "start": start.isoformat(),
+                        "end": end.isoformat(),
+                        "chunks": len(sub_windows),
+                        "error": _safe_error_text(exc),
                     },
                 )
-            return chunk
 
-        tasks = [fetch_sub(sub_start, sub_end) for sub_start, sub_end in sub_windows]
-        results_lists = await asyncio.gather(*tasks)
-        results: list[dict[str, Any]] = []
-        for chunk in results_lists:
-            results.extend(chunk)
-        return results
-    else:
-        normalized_raw: list[dict[str, Any]] = []
-        for trip in raw_trips:
-            if not isinstance(trip, dict):
-                continue
-            if not trip.get("imei"):
-                trip = dict(trip)
-                trip["imei"] = imei
-            normalized_raw.append(trip)
-        return normalized_raw
+            child_results = await asyncio.gather(
+                *[
+                    fetch_recovering(sub_start, sub_end)
+                    for sub_start, sub_end in sub_windows
+                ],
+            )
+            merged = WindowFetchResult()
+            for child in child_results:
+                merged.trips.extend(child.trips)
+                merged.failed_windows.extend(child.failed_windows)
+            return merged
+
+    result = await fetch_recovering(window_start, window_end)
+    if add_event and result.trips:
+        add_event(
+            "info",
+            f"Fetched {len(result.trips)} trips from recovered window",
+            {
+                "imei": imei,
+                "start": (ensure_utc(window_start) or window_start).isoformat(),
+                "end": (ensure_utc(window_end) or window_end).isoformat(),
+                "failed_slices": len(result.failed_windows),
+            },
+        )
+    return result
+
+
+async def fetch_trips_for_window(
+    client: BouncieClient,
+    *,
+    imei: str,
+    window_start: datetime,
+    window_end: datetime,
+    min_window_hours: float = MIN_WINDOW_HOURS,
+    recovery_min_window_seconds: int = RECOVERY_MIN_WINDOW_SECONDS,
+    split_chunk_hours: int = SPLIT_CHUNK_HOURS,
+    add_event: Callable[[str, str, dict[str, Any] | None], None] | None = None,
+    chunk_semaphore: asyncio.Semaphore | None = None,
+) -> list[dict[str, Any]]:
+    """Return trips as a list, raising if any leaf slices remain unavailable."""
+    result = await fetch_trips_for_window_report(
+        client,
+        imei=imei,
+        window_start=window_start,
+        window_end=window_end,
+        min_window_hours=min_window_hours,
+        recovery_min_window_seconds=recovery_min_window_seconds,
+        split_chunk_hours=split_chunk_hours,
+        add_event=add_event,
+        chunk_semaphore=chunk_semaphore,
+    )
+    if result.failed_windows:
+        raise WindowFetchIncompleteError(result)
+    return result.trips
 
 
 def _existing_source(existing: TripStatusProjection | dict[str, Any] | None) -> str:
@@ -602,12 +748,13 @@ async def run_ingest_for_range(
         chunk_result: dict[str, Any] | None = None
         try:
             async with semaphore:
-                raw = await fetch_trips_for_window(
+                fetch_result = await fetch_trips_for_window_report(
                     client,
                     imei=imei,
                     window_start=window_start,
                     window_end=window_end,
                 )
+                raw = fetch_result.trips
                 raw = filter_trips_to_window(
                     raw,
                     window_start=window_start,
@@ -624,6 +771,25 @@ async def run_ingest_for_range(
                     force_rematch_all=force_rematch_all,
                     bump_revision=False,
                 )
+                if fetch_result.failed_windows:
+                    failed_count = len(fetch_result.failed_windows)
+                    counters["fetch_errors"] += failed_count
+                    await _record_ingest_issue(
+                        issue_type="fetch_error",
+                        message=(
+                            "Bouncie fetch partially failed after adaptive recovery"
+                        ),
+                        transaction_id=None,
+                        imei=imei,
+                        details={
+                            "imei": imei,
+                            "window_start": window_start.isoformat(),
+                            "window_end": window_end.isoformat(),
+                            **summarize_failed_fetch_windows(
+                                fetch_result.failed_windows,
+                            ),
+                        },
+                    )
         except Exception as exc:
             counters["fetch_errors"] += 1
             await _record_ingest_issue(
@@ -722,10 +888,14 @@ async def run_ingest_for_transaction_id(
 
 __all__ = [
     "COUNTER_KEYS",
+    "FailedFetchWindow",
     "IngestMode",
+    "WindowFetchIncompleteError",
+    "WindowFetchResult",
     "build_ingest_counters",
     "dedupe_trips_by_transaction_id",
     "fetch_trips_for_window",
+    "fetch_trips_for_window_report",
     "filter_trips_to_window",
     "ingest_counters_changed_trips",
     "is_duplicate_trip_error",
@@ -733,4 +903,5 @@ __all__ = [
     "process_bouncie_trips",
     "run_ingest_for_range",
     "run_ingest_for_transaction_id",
+    "summarize_failed_fetch_windows",
 ]

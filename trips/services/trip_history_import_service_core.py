@@ -27,11 +27,12 @@ from setup.services.bouncie_oauth import BouncieOAuth
 from trips.pipeline import TripPipeline
 from trips.services.bouncie_ingest_runtime import (
     build_ingest_counters,
-    fetch_trips_for_window as fetch_trips_for_window_runtime,
+    fetch_trips_for_window_report as fetch_trips_for_window_runtime,
     filter_trips_to_window as filter_trips_to_window_runtime,
     ingest_counters_changed_trips,
     merge_ingest_counters,
     process_bouncie_trips as process_bouncie_trips_runtime,
+    summarize_failed_fetch_windows,
 )
 from trips.services.trip_history_import_service_config import (
     IMPORT_DO_COVERAGE,
@@ -261,13 +262,14 @@ async def _run_import_windows(
                 if await runtime.is_cancelled(force=False):
                     return
 
-                raw_trips = await fetch_trips_for_window_runtime(
+                fetch_result = await fetch_trips_for_window_runtime(
                     runtime.client,
                     imei=imei,
                     window_start=window_start,
                     window_end=window_end,
                     add_event=runtime.add_event,
                 )
+                raw_trips = fetch_result.trips
                 bounded_trips = filter_trips_to_window_runtime(
                     raw_trips,
                     window_start=window_start,
@@ -285,6 +287,28 @@ async def _run_import_windows(
                     bump_revision=False,
                 )
                 delta = dict(result.get("counters", {}))
+                if fetch_result.failed_windows:
+                    failed_count = len(fetch_result.failed_windows)
+                    delta["fetch_errors"] = (
+                        int(delta.get("fetch_errors", 0) or 0) + failed_count
+                    )
+                    summary = summarize_failed_fetch_windows(
+                        fetch_result.failed_windows,
+                    )
+                    runtime.record_failure_reason(
+                        "Bouncie fetch partially failed after adaptive recovery",
+                    )
+                    runtime.add_event(
+                        "error",
+                        f"Recovered window with {failed_count} failed Bouncie slices",
+                        {
+                            "imei": imei,
+                            "window_index": window_index,
+                            "start_iso": window_start.isoformat(),
+                            "end_iso": window_end.isoformat(),
+                            **summary,
+                        },
+                    )
                 runtime.add_event(
                     "info",
                     f"Window processed for {imei}",

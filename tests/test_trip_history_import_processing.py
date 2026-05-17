@@ -278,8 +278,13 @@ async def test_range_ingest_dedupes_overlapped_windows_and_bumps_once(
     async def fake_get_token(_session: object, _credentials: dict[str, Any]) -> str:
         return "token"
 
-    async def fake_fetch_trips_for_window(*_args: Any, **_kwargs: Any) -> list[dict]:
-        return [{"transactionId": "tx-overlap"}]
+    async def fake_fetch_trips_for_window_report(
+        *_args: Any,
+        **_kwargs: Any,
+    ) -> bouncie_ingest_runtime.WindowFetchResult:
+        return bouncie_ingest_runtime.WindowFetchResult(
+            trips=[{"transactionId": "tx-overlap"}],
+        )
 
     async def fake_process_bouncie_trips(*_args: Any, **kwargs: Any) -> dict[str, Any]:
         captured_bump_flags.append(bool(kwargs["bump_revision"]))
@@ -313,8 +318,8 @@ async def test_range_ingest_dedupes_overlapped_windows_and_bumps_once(
     )
     monkeypatch.setattr(
         bouncie_ingest_runtime,
-        "fetch_trips_for_window",
-        fake_fetch_trips_for_window,
+        "fetch_trips_for_window_report",
+        fake_fetch_trips_for_window_report,
     )
     monkeypatch.setattr(
         bouncie_ingest_runtime,

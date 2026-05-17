@@ -14,6 +14,8 @@ from core.jobs import JobHandle
 from db.models import Job
 from trips.services.trip_history_import_service_config import (
     OVERLAP_HOURS,
+    RECOVERY_MIN_WINDOW_SECONDS,
+    SPLIT_CONCURRENCY,
     STEP_HOURS,
     WINDOW_DAYS,
 )
@@ -151,6 +153,8 @@ class ImportProgressContext:
             "window_days": WINDOW_DAYS,
             "overlap_hours": OVERLAP_HOURS,
             "step_hours": STEP_HOURS,
+            "recovery_min_window_seconds": RECOVERY_MIN_WINDOW_SECONDS,
+            "split_concurrency": SPLIT_CONCURRENCY,
             "devices": self.devices,
             "windows_total": self.windows_total,
             "windows_completed": windows_completed,

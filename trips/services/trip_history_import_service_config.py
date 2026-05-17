@@ -24,10 +24,22 @@ except ValueError:
     _MIN_WINDOW_HOURS = 0.25
 MIN_WINDOW_HOURS = max((1.0 / 60.0), _MIN_WINDOW_HOURS)
 try:
+    _RECOVERY_MIN_WINDOW_SECONDS = int(
+        os.getenv("TRIP_HISTORY_IMPORT_RECOVERY_MIN_WINDOW_SECONDS", "60"),
+    )
+except ValueError:
+    _RECOVERY_MIN_WINDOW_SECONDS = 60
+RECOVERY_MIN_WINDOW_SECONDS = max(1, _RECOVERY_MIN_WINDOW_SECONDS)
+try:
     _SPLIT_CHUNK_HOURS = int(os.getenv("TRIP_HISTORY_IMPORT_SPLIT_CHUNK_HOURS", "12"))
 except ValueError:
     _SPLIT_CHUNK_HOURS = 12
 SPLIT_CHUNK_HOURS = max(1, _SPLIT_CHUNK_HOURS)
+try:
+    _SPLIT_CONCURRENCY = int(os.getenv("TRIP_HISTORY_IMPORT_SPLIT_CONCURRENCY", "4"))
+except ValueError:
+    _SPLIT_CONCURRENCY = 4
+SPLIT_CONCURRENCY = max(1, _SPLIT_CONCURRENCY)
 try:
     _REQUEST_TIMEOUT_SECONDS = int(
         os.getenv("TRIP_HISTORY_IMPORT_REQUEST_TIMEOUT_SECONDS", "60"),
@@ -199,6 +211,8 @@ async def build_import_plan(
         "window_days": WINDOW_DAYS,
         "overlap_hours": OVERLAP_HOURS,
         "step_hours": STEP_HOURS,
+        "recovery_min_window_seconds": RECOVERY_MIN_WINDOW_SECONDS,
+        "split_concurrency": SPLIT_CONCURRENCY,
         "windows_total": len(windows),
         "estimated_requests": len(windows) * len(devices),
         "fetch_concurrency": fetch_concurrency,
@@ -212,16 +226,20 @@ __all__ = [
     "IMPORT_DO_GEOCODE",
     "MIN_WINDOW_HOURS",
     "OVERLAP_HOURS",
+    "RECOVERY_MIN_WINDOW_SECONDS",
     "REQUEST_PAUSE_SECONDS",
     "REQUEST_TIMEOUT_SECONDS",
     "SPLIT_CHUNK_HOURS",
+    "SPLIT_CONCURRENCY",
     "STEP_HOURS",
     "WINDOW_DAYS",
     "_DEVICE_FETCH_TIMEOUT_SECONDS",
     "_MIN_WINDOW_HOURS",
+    "_RECOVERY_MIN_WINDOW_SECONDS",
     "_REQUEST_PAUSE_SECONDS",
     "_REQUEST_TIMEOUT_SECONDS",
     "_SPLIT_CHUNK_HOURS",
+    "_SPLIT_CONCURRENCY",
     "_vehicle_label",
     "build_import_plan",
     "build_import_windows",

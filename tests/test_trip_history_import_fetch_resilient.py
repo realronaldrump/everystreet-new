@@ -5,7 +5,11 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from trips.services.bouncie_ingest_runtime import fetch_trips_for_window
+from trips.services.bouncie_ingest_runtime import (
+    WindowFetchIncompleteError,
+    fetch_trips_for_window,
+    fetch_trips_for_window_report,
+)
 
 
 @pytest.mark.asyncio
@@ -170,7 +174,7 @@ async def test_fetch_trips_for_window_uses_chunked_split() -> None:
 
 @pytest.mark.asyncio
 async def test_fetch_trips_for_window_raises_for_small_window() -> None:
-    """When the window is too small to split, the error propagates."""
+    """When the recovery floor is reached, partial failure is surfaced."""
     window_start = datetime(2020, 3, 1, 6, 0, 0, tzinfo=UTC)
     window_end = datetime(2020, 3, 2, 0, 0, 0, tzinfo=UTC)  # 18 hours
 
@@ -179,14 +183,17 @@ async def test_fetch_trips_for_window_raises_for_small_window() -> None:
         "Server error",
     )
 
-    with pytest.raises(RuntimeError, match="Server error"):
+    with pytest.raises(WindowFetchIncompleteError) as exc_info:
         await fetch_trips_for_window(
             mock_client,
             imei="359486068397551",
             window_start=window_start,
             window_end=window_end,
-            min_window_hours=24,
+            recovery_min_window_seconds=24 * 60 * 60,
         )
+
+    assert len(exc_info.value.result.failed_windows) == 1
+    assert exc_info.value.result.failed_windows[0].error == "Server error"
 
 
 @pytest.mark.asyncio
@@ -278,3 +285,47 @@ async def test_fetch_trips_for_window_default_min_can_recover_hour() -> None:
     # 1 initial call + 2 half-window retries + 4 quarter-window successes
     assert call_count == 7
     assert len(trips) == 4
+
+
+@pytest.mark.asyncio
+async def test_fetch_trips_for_window_report_recovers_below_default_floor() -> None:
+    """A failing 22-minute range can salvage good minute-scale slices."""
+    window_start = datetime(2020, 3, 5, 0, 47, 0, tzinfo=UTC)
+    window_end = datetime(2020, 3, 5, 1, 9, 30, tzinfo=UTC)
+
+    raw_trip = {
+        "transactionId": "tx-recovered",
+        "imei": "359486068397551",
+        "startTime": datetime(2020, 3, 5, 0, 50, 0, tzinfo=UTC),
+        "endTime": datetime(2020, 3, 5, 0, 51, 0, tzinfo=UTC),
+        "distance": 1.0,
+    }
+
+    async def mock_fetch(token, imei, start_dt, end_dt):
+        del token, imei
+        span_seconds = (end_dt - start_dt).total_seconds()
+        if span_seconds > 61:
+            msg = "Server error"
+            raise RuntimeError(msg)
+        if start_dt <= raw_trip["startTime"] <= end_dt:
+            return [raw_trip]
+        if start_dt.minute == 58:
+            msg = "Poison trip"
+            raise RuntimeError(msg)
+        return []
+
+    mock_client = AsyncMock()
+    mock_client.fetch_trips_for_device_resilient.side_effect = mock_fetch
+
+    result = await fetch_trips_for_window_report(
+        mock_client,
+        imei="359486068397551",
+        window_start=window_start,
+        window_end=window_end,
+        recovery_min_window_seconds=60,
+        split_chunk_hours=999,
+    )
+
+    assert [trip["transactionId"] for trip in result.trips] == ["tx-recovered"]
+    assert len(result.failed_windows) == 1
+    assert result.failed_windows[0].error == "Poison trip"

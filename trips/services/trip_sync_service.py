@@ -655,6 +655,10 @@ class TripSyncService:
                     "window_days": plan.get("window_days"),
                     "overlap_hours": plan.get("overlap_hours"),
                     "step_hours": plan.get("step_hours"),
+                    "recovery_min_window_seconds": plan.get(
+                        "recovery_min_window_seconds",
+                    ),
+                    "split_concurrency": plan.get("split_concurrency"),
                     "devices": devices,
                     "selected_imeis": selected_imeis,
                     "windows_total": plan.get("windows_total", 0),
