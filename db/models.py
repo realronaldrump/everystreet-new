@@ -706,6 +706,10 @@ class CoverageState(Document):
                 unique=True,
             ),
             IndexModel(
+                [("segment_id", 1)],
+                name="coverage_state_segment_idx",
+            ),
+            IndexModel(
                 [("area_id", 1), ("status", 1)],
                 name="coverage_state_area_status_idx",
             ),
