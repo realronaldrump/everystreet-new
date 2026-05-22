@@ -85,6 +85,7 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "mapTerrainReliefEnabled": False,
     "geocodeTripsOnFetch": True,
     "mapMatchTripsOnFetch": False,
+    "mapMatchingProviderPolicy": "auto",
     # Geo Service Configuration (defaults for Docker Compose)
     "mapbox_token": get_mapbox_token(),
     "google_maps_api_key": None,

@@ -47,6 +47,34 @@ def test_normalize_request_rematch_clears_unmatched_only() -> None:
     assert normalized.unmatched_only is False
 
 
+def test_matching_engine_payload_reports_missing_mapbox_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("MAPBOX_MAP_MATCHING_TOKEN", raising=False)
+
+    payload = MapMatchingJobRunner._matching_engine_payload("auto")
+
+    assert payload == {
+        "provider_policy": "auto",
+        "mapbox_available": False,
+        "label": "Auto: Valhalla only, Mapbox token missing",
+    }
+
+
+def test_matching_engine_payload_reports_available_mapbox_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MAPBOX_MAP_MATCHING_TOKEN", "sk.test-token")
+
+    payload = MapMatchingJobRunner._matching_engine_payload("auto")
+
+    assert payload == {
+        "provider_policy": "auto",
+        "mapbox_available": True,
+        "label": "Auto: Valhalla first, Mapbox fallback available",
+    }
+
+
 def test_build_query_unmatched_sets_filter() -> None:
     request = MapMatchJobRequest(mode="unmatched")
     query = MapMatchingJobRunner._build_query(request)
@@ -57,6 +85,44 @@ def test_build_query_unmatched_sets_filter() -> None:
             "$options": "i",
         },
     }
+
+
+@pytest.mark.asyncio
+async def test_preflight_auto_allows_mapbox_when_valhalla_status_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = MapMatchingJobRunner()
+    runner._active_provider_policy = "auto"
+    monkeypatch.setenv("MAPBOX_MAP_MATCHING_TOKEN", "sk.test-token")
+
+    async def fail_get_router() -> None:
+        raise RuntimeError("Valhalla unavailable")
+
+    monkeypatch.setattr(map_matching_jobs, "get_router", fail_get_router)
+
+    ready, message = await runner._preflight_router()
+
+    assert ready is True
+    assert message is None
+
+
+@pytest.mark.asyncio
+async def test_preflight_auto_blocks_without_any_ready_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = MapMatchingJobRunner()
+    runner._active_provider_policy = "auto"
+    monkeypatch.delenv("MAPBOX_MAP_MATCHING_TOKEN", raising=False)
+
+    async def fail_get_router() -> None:
+        raise RuntimeError("Valhalla unavailable")
+
+    monkeypatch.setattr(map_matching_jobs, "get_router", fail_get_router)
+
+    ready, message = await runner._preflight_router()
+
+    assert ready is False
+    assert message == "Routing provider not ready: Valhalla unavailable"
 
 
 @pytest.mark.asyncio

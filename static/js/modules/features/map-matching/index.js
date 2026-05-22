@@ -3,7 +3,7 @@ import { createFeatureApi } from "../../core/feature-api.js";
 import { createMap } from "../../map-core.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
-import { DateUtils } from "../../utils.js";
+import { DateUtils, escapeHtml } from "../../utils.js";
 import { clearInlineStatus, setInlineStatus } from "../settings/status-utils.js";
 
 const { flatpickr } = globalThis;
@@ -32,6 +32,8 @@ function cacheElements() {
     previewStatus: document.getElementById("map-match-preview-status"),
     previewPanel: document.getElementById("map-match-preview-panel"),
     previewSummary: document.getElementById("map-match-preview-summary"),
+    engineSummary: document.getElementById("map-match-engine-summary"),
+    engineLabel: document.getElementById("map-match-engine-label"),
     previewMapBtn: document.getElementById("map-match-preview-map-btn"),
     previewMapStatus: document.getElementById("map-match-preview-map-status"),
     previewMapSummary: document.getElementById("map-match-preview-map-summary"),
@@ -50,6 +52,7 @@ function cacheElements() {
     progressRing: document.getElementById("map-match-progress-ring"),
     progressPercent: document.getElementById("map-match-progress-percent"),
     progressMessage: document.getElementById("map-match-progress-message"),
+    progressEngine: document.getElementById("map-match-progress-engine"),
     progressMetrics: document.getElementById("map-match-progress-metrics"),
     cancelBtn: document.getElementById("map-match-cancel-btn"),
     previewSelectAll: document.getElementById("map-match-preview-select-all"),
@@ -144,6 +147,11 @@ const apiDelete = (url, options = {}) => featureApi.delete(url, options);
 const LAST_JOB_STORAGE_KEY = "map_matching:last_job_id";
 const TERMINAL_STAGES = new Set(["completed", "failed", "error", "cancelled"]);
 const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * 42; // r=42
+const PROVIDER_LABELS = {
+  auto: "Auto",
+  valhalla_only: "Valhalla only",
+  mapbox_only: "Mapbox only",
+};
 
 // Friendly messages for different stages
 const FRIENDLY_MESSAGES = {
@@ -192,6 +200,94 @@ function formatFailureReason(matchStatus) {
   }
 
   return matchStatus;
+}
+
+function normalizeProviderPolicy(value) {
+  const normalized = String(value || "auto").trim().toLowerCase();
+  return Object.hasOwn(PROVIDER_LABELS, normalized) ? normalized : "auto";
+}
+
+function getSelectedProviderPolicy() {
+  const selected = document.querySelector('input[name="provider-policy"]:checked');
+  return normalizeProviderPolicy(selected?.value);
+}
+
+function providerPolicyFallbackLabel(policy) {
+  const normalized = normalizeProviderPolicy(policy);
+  if (normalized === "valhalla_only") {
+    return "Valhalla only";
+  }
+  if (normalized === "mapbox_only") {
+    return "Mapbox only";
+  }
+  return "Auto: Valhalla first, Mapbox fallback";
+}
+
+function matchingEngineLabel(value) {
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+  if (value?.label) {
+    return value.label;
+  }
+  return providerPolicyFallbackLabel(getSelectedProviderPolicy());
+}
+
+function updateEngineLabel(value) {
+  const label = matchingEngineLabel(value);
+  if (elements.engineLabel) {
+    elements.engineLabel.textContent = label;
+  }
+  if (elements.progressEngine) {
+    elements.progressEngine.textContent = label ? `Matching engine: ${label}` : "";
+  }
+}
+
+function updateProviderPolicyUI() {
+  const selected = getSelectedProviderPolicy();
+  document.querySelectorAll(".mm-provider-choice").forEach((choice) => {
+    const radio = choice.querySelector('input[type="radio"]');
+    choice.classList.toggle("is-selected", radio?.value === selected);
+  });
+  updateEngineLabel(providerPolicyFallbackLabel(selected));
+  invalidatePreview();
+}
+
+function providerBadgeLabel(metrics = {}) {
+  const valhalla = Number(metrics.valhalla_matched || 0);
+  const mapbox = Number(metrics.mapbox_matched || 0);
+  const fallbackAttempted =
+    Number(metrics.fallback_attempted || 0) > 0 ||
+    Number(metrics.fallback_matched || 0) > 0;
+  if ((valhalla > 0 && mapbox > 0) || fallbackAttempted) {
+    return "Valhalla + Mapbox";
+  }
+  if (mapbox > 0) {
+    return "Mapbox";
+  }
+  if (valhalla > 0 || normalizeProviderPolicy(metrics.provider_policy) !== "mapbox_only") {
+    return "Valhalla";
+  }
+  return "Mapbox";
+}
+
+function formatAttemptSummary(attempts) {
+  if (!Array.isArray(attempts) || attempts.length === 0) {
+    return "";
+  }
+  return attempts
+    .filter((attempt) => attempt && typeof attempt === "object")
+    .map((attempt) => {
+      const provider =
+        String(attempt.provider || "")
+          .trim()
+          .toLowerCase() === "mapbox"
+          ? "Mapbox"
+          : "Valhalla";
+      const detail = attempt.message || attempt.status || "";
+      return detail ? `${provider}: ${detail}` : provider;
+    })
+    .join("; ");
 }
 
 // ========================================
@@ -461,11 +557,24 @@ function updateProgressUI(progress) {
 
   // Simplified metrics
   const metrics = progress.metrics || {};
+  updateEngineLabel(metrics.matching_engine || progress.matching_engine);
   if (metrics.total != null && elements.progressMetrics) {
     const matchedCount = metrics.matched ?? metrics.map_matched ?? 0;
-    elements.progressMetrics.textContent = `${matchedCount} of ${metrics.total} trips matched`;
+    const mapboxMetricLabel =
+      normalizeProviderPolicy(metrics.provider_policy) === "mapbox_only"
+        ? "Mapbox matched"
+        : "Mapbox fallback matched";
+    const parts = [
+      `Valhalla matched ${metrics.valhalla_matched ?? matchedCount}`,
+      `${mapboxMetricLabel} ${metrics.fallback_matched ?? metrics.mapbox_matched ?? 0}`,
+      `Failed ${metrics.failed ?? 0}`,
+      `Skipped ${metrics.skipped ?? 0}`,
+    ];
+    elements.progressMetrics.innerHTML = parts
+      .map((part) => `<span class="mm-progress-metric-chip">${escapeHtml(part)}</span>`)
+      .join("");
   } else if (elements.progressMetrics) {
-    elements.progressMetrics.textContent = "";
+    elements.progressMetrics.innerHTML = "";
   }
 
   // Update ring color based on state
@@ -600,15 +709,18 @@ function renderJobs(jobs) {
           } else if (status === "queued") {
             message = "Waiting to start";
           }
+          const metrics = job.metrics || {};
+          const providerBadge = providerBadgeLabel(metrics);
 
           return `
             <div class="history-job" data-job-id="${job.job_id}">
               <div class="history-job-status ${statusClass}"></div>
               <div class="history-job-info">
-                <div class="history-job-time">${updated}</div>
-                <div class="history-job-message">${message}</div>
+                <div class="history-job-time">${escapeHtml(updated)}</div>
+                <div class="history-job-message">${escapeHtml(message)}</div>
+                <div class="history-job-provider">${escapeHtml(providerBadge)}</div>
               </div>
-              <div class="history-job-progress">${progress}%</div>
+              <div class="history-job-progress">${escapeHtml(progress)}%</div>
               <div class="history-job-actions">
                 <button class="btn btn-ghost btn-sm" data-action="view" data-job-id="${job.job_id}" title="View" aria-label="View job details">
                   <i class="fas fa-eye"></i>
@@ -633,8 +745,9 @@ function renderJobs(jobs) {
 
 function buildPayload() {
   const mode = getSelectedMode();
+  const provider_policy = getSelectedProviderPolicy();
   if (mode === "unmatched") {
-    return { mode: "unmatched" };
+    return { mode: "unmatched", provider_policy };
   }
 
   if (mode === "trip_id") {
@@ -642,7 +755,7 @@ function buildPayload() {
     if (!tripId) {
       throw new Error("Trip ID is required");
     }
-    return { mode: "trip_id", trip_id: tripId };
+    return { mode: "trip_id", trip_id: tripId, provider_policy };
   }
 
   const unmatchedOnly = Boolean(elements.unmatchedOnly?.checked);
@@ -653,6 +766,7 @@ function buildPayload() {
       mode: "date_range",
       interval_days: selectedQuickPick,
       unmatched_only: unmatchedOnly,
+      provider_policy,
     };
   }
 
@@ -667,6 +781,7 @@ function buildPayload() {
     start_date: start,
     end_date: end,
     unmatched_only: unmatchedOnly,
+    provider_policy,
   };
 }
 
@@ -685,6 +800,7 @@ function renderPreview(data) {
   if (!data || !elements.previewPanel) {
     return;
   }
+  updateEngineLabel(data.matching_engine);
 
   const total = data.total || 0;
   if (total === 0) {
@@ -780,6 +896,10 @@ function wireEvents(signal) {
       },
       eventOptions
     );
+  });
+
+  document.querySelectorAll('input[name="provider-policy"]').forEach((input) => {
+    input.addEventListener("change", updateProviderPolicyUI, eventOptions);
   });
 
   // New wizard: Quick pick buttons (mm-quick-pick)
@@ -1970,25 +2090,31 @@ function renderFailedTrips(trips) {
       const tripId = trip.transactionId || "";
       const dateStr = formatTripDate(trip.startTime);
       const reason = formatFailureReason(trip.matchStatus);
+      const attemptSummary = formatAttemptSummary(trip.matchAttemptSummary);
       const isSelected = failedSelection.has(String(tripId));
 
       return `
-        <div class="failed-trip" data-trip-id="${tripId}">
+        <div class="failed-trip" data-trip-id="${escapeHtml(tripId)}">
           <div class="failed-trip-select">
-            <input type="checkbox" class="form-check-input" data-trip-id="${tripId}" ${isSelected ? "checked" : ""} />
+            <input type="checkbox" class="form-check-input" data-trip-id="${escapeHtml(tripId)}" ${isSelected ? "checked" : ""} />
           </div>
           <div class="failed-trip-info">
-            <div class="failed-trip-date">${dateStr}</div>
+            <div class="failed-trip-date">${escapeHtml(dateStr)}</div>
             <div class="failed-trip-reason">
               <i class="fas fa-exclamation-circle"></i>
-              <span>${reason}</span>
+              <span>${escapeHtml(reason)}</span>
             </div>
+            ${
+              attemptSummary
+                ? `<div class="failed-trip-attempts">${escapeHtml(attemptSummary)}</div>`
+                : ""
+            }
           </div>
           <div class="failed-trip-actions">
-            <button class="btn btn-ghost btn-sm mm-btn-retry" data-action="retry" data-trip-id="${tripId}" title="Retry matching" aria-label="Retry trip matching">
+            <button class="btn btn-ghost btn-sm mm-btn-retry" data-action="retry" data-trip-id="${escapeHtml(tripId)}" title="Retry matching" aria-label="Retry trip matching">
               <i class="fas fa-redo"></i>
             </button>
-            <button class="btn btn-ghost btn-sm text-danger" data-action="delete" data-trip-id="${tripId}" title="Delete trip" aria-label="Delete trip">
+            <button class="btn btn-ghost btn-sm text-danger" data-action="delete" data-trip-id="${escapeHtml(tripId)}" title="Delete trip" aria-label="Delete trip">
               <i class="fas fa-trash"></i>
             </button>
           </div>
@@ -2080,6 +2206,7 @@ async function retryMatchingTrips(tripIds) {
     const payload = {
       mode: "trip_ids",
       trip_ids: tripIds,
+      provider_policy: getSelectedProviderPolicy(),
     };
 
     const result = await apiPost(CONFIG.API.mapMatchingJobs, payload);
@@ -2202,6 +2329,7 @@ export default async function initMapMatchingPage({ signal, cleanup, api } = {})
   // Initialize phase
   setPhase(PHASES.SELECT);
   setModeUI(getSelectedMode());
+  updateEngineLabel(providerPolicyFallbackLabel(getSelectedProviderPolicy()));
   invalidatePreview();
   updateMatchedSelectionUI();
   wireEvents(signal);

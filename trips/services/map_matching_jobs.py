@@ -9,20 +9,21 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
+from config import has_mapbox_map_matching_token
 from core.job_serialization import serialize_job_progress
 from core.jobs import JobHandle, create_job, find_job
 from core.mapping.factory import get_router
 from core.spatial import GeometryService
 from core.trip_map_cache import bump_trip_map_revision
 from core.trip_query_spec import TripQuerySpec
-from db.models import Job, Trip
+from db.models import AppSettings, Job, Trip
 from tasks.config import update_task_history_entry
 from tasks.ops import abort_job, enqueue_task
 from trips.models import (
     MapMatchJobRequest,
     TripPreviewProjection,
 )
-from trips.services.matching import MapMatchingService
+from trips.services.matching import MapMatchingService, normalize_provider_policy
 from trips.services.trip_match_mutation_service import (
     HistoricalTripMatchMutationService,
     TripMatchMutationResult,
@@ -50,7 +51,7 @@ class MapMatchingJobService:
         *,
         source: str = "manual",
     ) -> dict[str, Any]:
-        normalized = self._normalize_request(request)
+        normalized = await self._normalize_request_with_defaults(request)
 
         result = await enqueue_task(
             "map_match_trips",
@@ -206,7 +207,7 @@ class MapMatchingJobService:
         request: MapMatchJobRequest,
         limit: int = 25,
     ) -> dict[str, Any]:
-        normalized = self._normalize_request(request)
+        normalized = await self._normalize_request_with_defaults(request)
         query = MapMatchingJobRunner._build_query(normalized)
 
         total = await Trip.find(query).count()
@@ -234,6 +235,10 @@ class MapMatchingJobService:
 
         return {
             "total": total,
+            "provider_policy": normalized.provider_policy,
+            "matching_engine": MapMatchingJobRunner._matching_engine_payload(
+                normalized.provider_policy,
+            ),
             "sample": sample,
         }
 
@@ -347,6 +352,10 @@ class MapMatchingJobService:
                     "distance": trip_dict.get("distance"),
                     "matchStatus": trip_dict.get("matchStatus"),
                     "matched_at": trip_dict.get("matched_at"),
+                    "matchProvider": trip_dict.get("matchProvider"),
+                    "matchFallbackUsed": trip_dict.get("matchFallbackUsed"),
+                    "matchConfidence": trip_dict.get("matchConfidence"),
+                    "matchAttemptSummary": trip_dict.get("matchAttemptSummary"),
                 },
             )
             features.append(
@@ -366,6 +375,9 @@ class MapMatchingJobService:
                             else trip_dict.get("endTime")
                         ),
                         "distance": trip_dict.get("distance"),
+                        "matchProvider": trip_dict.get("matchProvider"),
+                        "matchFallbackUsed": trip_dict.get("matchFallbackUsed"),
+                        "matchConfidence": trip_dict.get("matchConfidence"),
                     },
                 ),
             )
@@ -374,6 +386,8 @@ class MapMatchingJobService:
             "job_id": job_id,
             "stage": progress.stage or "unknown",
             "mode": mode,
+            "provider_policy": metadata.get("provider_policy") or "auto",
+            "matching_engine": metadata.get("matching_engine"),
             "window": window,
             "total": total,
             "sample": sample,
@@ -383,6 +397,7 @@ class MapMatchingJobService:
 
     @staticmethod
     def _normalize_request(request: MapMatchJobRequest) -> MapMatchJobRequest:
+        request.provider_policy = normalize_provider_policy(request.provider_policy)
         if request.rematch:
             request.unmatched_only = False
 
@@ -405,6 +420,14 @@ class MapMatchingJobService:
                     detail="start/end date or interval_days is required",
                 )
         return request
+
+    @staticmethod
+    async def _normalize_request_with_defaults(
+        request: MapMatchJobRequest,
+    ) -> MapMatchJobRequest:
+        if request.provider_policy is None:
+            request.provider_policy = await MapMatchingJobRunner._default_provider_policy()
+        return MapMatchingJobService._normalize_request(request)
 
     @staticmethod
     async def _create_progress(
@@ -435,10 +458,20 @@ class MapMatchingJobService:
                 "trip_ids_count": len(request.trip_ids or []),
                 "unmatched_only": request.unmatched_only,
                 "rematch": request.rematch,
+                "provider_policy": request.provider_policy,
+                "matching_engine": MapMatchingJobRunner._matching_engine_payload(
+                    request.provider_policy,
+                ),
                 "total": 0,
                 "processed": 0,
                 "map_matched": 0,
+                "valhalla_matched": 0,
+                "mapbox_matched": 0,
+                "fallback_attempted": 0,
+                "fallback_matched": 0,
+                "mapbox_requests": 0,
                 "failed": 0,
+                "skipped": 0,
             },
         )
 
@@ -461,6 +494,7 @@ class MapMatchingJobRunner:
         2. Calls the active routing provider directly for each trip
         3. Updates the matchedGps field in the database
         """
+        request = await self._resolve_request_defaults(request)
         progress = await self._get_or_create_progress(job_id)
         if progress.stage == "cancelled" or progress.status == "cancelled":
             return {
@@ -472,6 +506,12 @@ class MapMatchingJobRunner:
             }
 
         try:
+            self._active_provider_policy = request.provider_policy
+            await self._update_progress(
+                progress,
+                provider_policy=request.provider_policy,
+                matching_engine=self._matching_engine_payload(request.provider_policy),
+            )
             router_ready, blocked_message = await self._preflight_router()
             if not router_ready:
                 message = (
@@ -483,6 +523,10 @@ class MapMatchingJobRunner:
                     stage="blocked",
                     progress_pct=0,
                     message=message,
+                    provider_policy=request.provider_policy,
+                    matching_engine=self._matching_engine_payload(
+                        request.provider_policy,
+                    ),
                 )
                 logger.warning("Map matching blocked: %s", message)
                 return {
@@ -504,6 +548,8 @@ class MapMatchingJobRunner:
                 stage="processing",
                 message=f"Found {total_trips} trips to map match",
                 total=total_trips,
+                provider_policy=request.provider_policy,
+                matching_engine=self._matching_engine_payload(request.provider_policy),
             )
 
             if total_trips == 0:
@@ -529,6 +575,7 @@ class MapMatchingJobRunner:
                 progress,
                 total_trips,
                 job_id,
+                provider_policy=request.provider_policy,
             )
             if int(results.get("changed", 0) or 0) > 0:
                 await bump_trip_map_revision()
@@ -556,12 +603,13 @@ class MapMatchingJobRunner:
                 }
 
             # Final update
+            done_message = self._completion_message(results)
             await self._update_progress(
                 progress,
                 status="completed",
                 stage="completed",
                 progress_pct=100,
-                message=f"Done: {results['matched']} matched, {results['skipped']} skipped, {results['failed']} failed",
+                message=done_message,
                 **results,
             )
 
@@ -598,12 +646,76 @@ class MapMatchingJobRunner:
             )
             raise
 
+    @staticmethod
+    def _completion_message(results: dict[str, Any]) -> str:
+        matched = int(results.get("matched", 0) or results.get("map_matched", 0) or 0)
+        skipped = int(results.get("skipped", 0) or 0)
+        failed = int(results.get("failed", 0) or 0)
+        mapbox = int(results.get("mapbox_matched", 0) or 0)
+        if mapbox > 0:
+            return (
+                f"Done: {matched} matched "
+                f"({mapbox} by Mapbox fallback), {skipped} skipped, {failed} failed"
+            )
+        return f"Done: {matched} matched, {skipped} skipped, {failed} failed"
+
+    @staticmethod
+    async def _default_provider_policy() -> str:
+        try:
+            settings = await AppSettings.find_one({"_id": "default"})
+        except Exception:
+            logger.warning("Unable to load map matching provider policy; using auto")
+            return "auto"
+        return normalize_provider_policy(
+            getattr(settings, "mapMatchingProviderPolicy", None) if settings else None
+        )
+
+    @staticmethod
+    async def _resolve_request_defaults(
+        request: MapMatchJobRequest,
+    ) -> MapMatchJobRequest:
+        if request.provider_policy is None:
+            request.provider_policy = await MapMatchingJobRunner._default_provider_policy()
+        request.provider_policy = normalize_provider_policy(request.provider_policy)
+        return request
+
+    @staticmethod
+    def _matching_engine_payload(provider_policy: str | None) -> dict[str, Any]:
+        policy = normalize_provider_policy(provider_policy)
+        mapbox_available = has_mapbox_map_matching_token()
+        if policy == "valhalla_only":
+            label = "Valhalla only"
+        elif policy == "mapbox_only":
+            label = "Mapbox only"
+        elif mapbox_available:
+            label = "Auto: Valhalla first, Mapbox fallback available"
+        else:
+            label = "Auto: Valhalla only, Mapbox token missing"
+        return {
+            "provider_policy": policy,
+            "mapbox_available": mapbox_available,
+            "label": label,
+        }
+
     async def _preflight_router(self) -> tuple[bool, str | None]:
-        """Verify that the active routing provider is ready for map matching."""
+        """Verify that configured map matching providers are ready."""
+        policy = normalize_provider_policy(getattr(self, "_active_provider_policy", None))
+        if policy == "mapbox_only":
+            if has_mapbox_map_matching_token():
+                return True, None
+            return False, "Mapbox map matching token is not configured"
+
         try:
             router = await get_router()
             router_status = await router.status()
         except Exception as exc:
+            if policy == "auto" and has_mapbox_map_matching_token():
+                logger.warning(
+                    "Valhalla status check failed, but Mapbox fallback is "
+                    "configured; proceeding. %s",
+                    exc,
+                )
+                return True, None
             return False, f"Routing provider not ready: {exc!s}"
 
         is_ready, provider_label, detail = self._evaluate_router_status(
@@ -611,6 +723,13 @@ class MapMatchingJobRunner:
             router_status,
         )
         if is_ready:
+            return True, None
+        if policy == "auto" and has_mapbox_map_matching_token():
+            logger.warning(
+                "%s not ready, but Mapbox fallback is configured; proceeding. %s",
+                provider_label,
+                detail,
+            )
             return True, None
         return False, f"{provider_label} not ready: {detail}"
 
@@ -744,9 +863,16 @@ class MapMatchingJobRunner:
         progress: Job,
         total: int,
         job_id: str,
+        *,
+        provider_policy: str,
     ) -> dict[str, int | bool]:
         """Process trips directly without going through the complex pipeline."""
         matched = 0
+        valhalla_matched = 0
+        mapbox_matched = 0
+        fallback_attempted = 0
+        fallback_matched = 0
+        mapbox_requests = 0
         failed = 0
         skipped = 0
         processed = 0
@@ -755,10 +881,18 @@ class MapMatchingJobRunner:
         def snapshot(*, cancelled: bool = False) -> dict[str, int | bool]:
             result: dict[str, int | bool] = {
                 "matched": matched,
+                "map_matched": matched,
+                "valhalla_matched": valhalla_matched,
+                "mapbox_matched": mapbox_matched,
+                "fallback_attempted": fallback_attempted,
+                "fallback_matched": fallback_matched,
+                "mapbox_requests": mapbox_requests,
                 "failed": failed,
                 "skipped": skipped,
                 "processed": processed,
                 "changed": changed,
+                "provider_policy": provider_policy,
+                "matching_engine": self._matching_engine_payload(provider_policy),
             }
             if cancelled:
                 result["cancelled"] = True
@@ -771,16 +905,32 @@ class MapMatchingJobRunner:
             trip_id = trip.transactionId or "unknown"
 
             try:
-                result = await self._map_match_single_trip(trip)
+                result = await self._map_match_single_trip(
+                    trip,
+                    provider_policy=provider_policy,
+                )
                 if result.changed:
                     changed += 1
 
                 if result.outcome == "matched":
                     matched += 1
+                    if result.provider == "mapbox":
+                        mapbox_matched += 1
+                    else:
+                        valhalla_matched += 1
+                    if result.fallback_used:
+                        fallback_matched += 1
                 elif result.outcome == "skipped":
                     skipped += 1
                 else:
                     failed += 1
+
+                if self._attempted_mapbox_fallback(
+                    result,
+                    provider_policy=provider_policy,
+                ):
+                    fallback_attempted += 1
+                mapbox_requests += int(result.mapbox_requests or 0)
 
             except Exception as e:
                 logger.warning("Map matching failed for trip %s: %s", trip_id, e)
@@ -795,16 +945,51 @@ class MapMatchingJobRunner:
                     progress_pct=int((processed / total) * 100),
                     message=f"Processing: {processed}/{total} trips",
                     matched=matched,
+                    map_matched=matched,
+                    valhalla_matched=valhalla_matched,
+                    mapbox_matched=mapbox_matched,
+                    fallback_attempted=fallback_attempted,
+                    fallback_matched=fallback_matched,
+                    mapbox_requests=mapbox_requests,
                     failed=failed,
                     skipped=skipped,
                     processed=processed,
                     total=total,
                     changed=changed,
+                    provider_policy=provider_policy,
+                    matching_engine=self._matching_engine_payload(provider_policy),
                 )
 
         return snapshot()
 
-    async def _map_match_single_trip(self, trip: Trip) -> TripMatchMutationResult:
+    @staticmethod
+    def _attempted_mapbox_fallback(
+        result: TripMatchMutationResult,
+        *,
+        provider_policy: str,
+    ) -> bool:
+        if normalize_provider_policy(provider_policy) != "auto":
+            return False
+        attempts = result.attempts or []
+        has_valhalla_failure = any(
+            attempt.get("provider") == "valhalla"
+            and attempt.get("status") != "matched"
+            for attempt in attempts
+            if isinstance(attempt, dict)
+        )
+        has_mapbox_attempt = any(
+            attempt.get("provider") == "mapbox"
+            for attempt in attempts
+            if isinstance(attempt, dict)
+        )
+        return has_valhalla_failure and has_mapbox_attempt
+
+    async def _map_match_single_trip(
+        self,
+        trip: Trip,
+        *,
+        provider_policy: str,
+    ) -> TripMatchMutationResult:
         """
         Map match a single trip and update it in the database.
 
@@ -812,6 +997,7 @@ class MapMatchingJobRunner:
         """
         result = await self._match_mutations.rematch_trip(
             trip,
+            provider_policy=provider_policy,
             bump_revision=False,
             sync_mobility=True,
         )

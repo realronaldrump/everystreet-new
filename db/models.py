@@ -109,6 +109,10 @@ class Trip(Document):
     matchedMapPath: dict[str, Any] | None = None
     matchStatus: str | None = None
     matched_at: datetime | None = None
+    matchProvider: str | None = None
+    matchFallbackUsed: bool | None = None
+    matchConfidence: float | None = None
+    matchAttemptSummary: list[dict[str, Any]] | None = None
 
     # Place associations
     startGeoPoint: dict[str, Any] | None = None
@@ -971,6 +975,7 @@ class AppSettings(Document):
     mapTerrainReliefEnabled: bool = False
     geocodeTripsOnFetch: bool = True
     mapMatchTripsOnFetch: bool = False
+    mapMatchingProviderPolicy: str = "auto"
 
     # User Locale
     user_timezone: str = "America/Chicago"

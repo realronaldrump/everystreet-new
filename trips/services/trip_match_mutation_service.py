@@ -7,12 +7,12 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from analytics.services.mobility_insights_service import MobilityInsightsService
-from core.date_utils import get_current_utc_time
+from core.date_utils import get_current_utc_time, parse_timestamp
 from core.spatial import extract_timestamps_for_coordinates
 from core.trip_map_cache import bump_trip_map_revision
 from db.models import Trip
 from trips.pipeline import TripPipeline
-from trips.services.matching import MapMatchingService
+from trips.services.matching import MapMatchingService, normalize_provider_policy
 from trips.services.trip_map_geometry import apply_trip_map_path_fields
 
 logger = logging.getLogger(__name__)
@@ -26,12 +26,17 @@ class TripMatchMutationResult:
     status: str | None
     changed: bool
     message: str | None = None
+    provider: str | None = None
+    fallback_used: bool = False
+    mapbox_requests: int = 0
+    attempts: list[dict[str, Any]] | None = None
 
 
 @dataclass(frozen=True)
 class _MatchInput:
     coords: list[list[float]]
     timestamps: list[int | None] | None
+    mapbox_timestamps: list[int | None] | None = None
 
 
 class HistoricalTripMatchMutationService:
@@ -51,6 +56,7 @@ class HistoricalTripMatchMutationService:
         trip.matchedMapPath = None
         trip.matchStatus = None
         trip.matched_at = None
+        self._clear_match_metadata(trip)
         trip.mobility_synced_at = None
         await self._save_trip(
             trip,
@@ -68,6 +74,7 @@ class HistoricalTripMatchMutationService:
         self,
         trip: Trip,
         *,
+        provider_policy: str | None = None,
         bump_revision: bool = True,
         sync_mobility: bool = True,
     ) -> TripMatchMutationResult:
@@ -85,6 +92,8 @@ class HistoricalTripMatchMutationService:
         result = await self._map_matching_service.map_match_coordinates(
             match_input.coords,
             match_input.timestamps,
+            mapbox_timestamps=match_input.mapbox_timestamps,
+            provider_policy=normalize_provider_policy(provider_policy),
         )
         if result.get("code") != "Ok":
             message = str(result.get("message") or "Unknown error").strip()
@@ -96,6 +105,7 @@ class HistoricalTripMatchMutationService:
                 clear_geometry=True,
                 bump_revision=bump_revision,
                 sync_mobility=sync_mobility,
+                match_result=result,
             )
 
         matchings = result.get("matchings", [])
@@ -108,6 +118,7 @@ class HistoricalTripMatchMutationService:
                 clear_geometry=True,
                 bump_revision=bump_revision,
                 sync_mobility=sync_mobility,
+                match_result=result,
             )
 
         matched_geometry = matchings[0]["geometry"]
@@ -124,11 +135,13 @@ class HistoricalTripMatchMutationService:
                 clear_geometry=True,
                 bump_revision=bump_revision,
                 sync_mobility=sync_mobility,
+                match_result=result,
             )
 
         return await self.apply_matched_geometry(
             trip,
             matched_geometry,
+            match_result=result,
             bump_revision=bump_revision,
             sync_mobility=sync_mobility,
         )
@@ -143,11 +156,13 @@ class HistoricalTripMatchMutationService:
         clear_geometry: bool = True,
         bump_revision: bool = True,
         sync_mobility: bool = False,
+        match_result: dict[str, Any] | None = None,
     ) -> TripMatchMutationResult:
         if clear_geometry:
             trip.matchedGps = None
             trip.matchedMapPath = None
             trip.mobility_synced_at = None
+        self._apply_match_metadata(trip, match_result)
         trip.matchStatus = status
         trip.matched_at = get_current_utc_time()
         await self._save_trip(
@@ -161,6 +176,10 @@ class HistoricalTripMatchMutationService:
             status=trip.matchStatus,
             changed=True,
             message=message,
+            provider=getattr(trip, "matchProvider", None),
+            fallback_used=bool(getattr(trip, "matchFallbackUsed", False)),
+            mapbox_requests=int((match_result or {}).get("mapbox_requests") or 0),
+            attempts=getattr(trip, "matchAttemptSummary", None),
         )
 
     async def apply_matched_geometry(
@@ -168,12 +187,14 @@ class HistoricalTripMatchMutationService:
         trip: Trip,
         geometry: dict[str, Any],
         *,
+        match_result: dict[str, Any] | None = None,
         bump_revision: bool = True,
         sync_mobility: bool = True,
     ) -> TripMatchMutationResult:
         trip.matchedGps = geometry
         trip.matchStatus = f"matched:{str(geometry.get('type', 'unknown')).lower()}"
         trip.matched_at = get_current_utc_time()
+        self._apply_match_metadata(trip, match_result)
         trip.mobility_synced_at = None
         TripPipeline.sanitize_trip_document_geospatial_fields(trip)
         if not getattr(trip, "matchedGps", None):
@@ -190,6 +211,10 @@ class HistoricalTripMatchMutationService:
                 status=trip.matchStatus,
                 changed=True,
                 message="Matched geometry failed sanitization",
+                provider=getattr(trip, "matchProvider", None),
+                fallback_used=bool(getattr(trip, "matchFallbackUsed", False)),
+                mapbox_requests=int((match_result or {}).get("mapbox_requests") or 0),
+                attempts=getattr(trip, "matchAttemptSummary", None),
             )
 
         await self._save_trip(
@@ -202,7 +227,35 @@ class HistoricalTripMatchMutationService:
             outcome="matched",
             status=trip.matchStatus,
             changed=True,
+            provider=getattr(trip, "matchProvider", None),
+            fallback_used=bool(getattr(trip, "matchFallbackUsed", False)),
+            mapbox_requests=int((match_result or {}).get("mapbox_requests") or 0),
+            attempts=getattr(trip, "matchAttemptSummary", None),
         )
+
+    @staticmethod
+    def _clear_match_metadata(trip: Trip) -> None:
+        trip.matchProvider = None
+        trip.matchFallbackUsed = None
+        trip.matchConfidence = None
+        trip.matchAttemptSummary = None
+
+    def _apply_match_metadata(
+        self,
+        trip: Trip,
+        match_result: dict[str, Any] | None,
+    ) -> None:
+        if not match_result:
+            self._clear_match_metadata(trip)
+            return
+        trip.matchProvider = match_result.get("provider")
+        trip.matchFallbackUsed = bool(match_result.get("fallback_used"))
+        confidence = match_result.get("confidence")
+        trip.matchConfidence = (
+            float(confidence) if isinstance(confidence, int | float) else None
+        )
+        attempts = match_result.get("attempts")
+        trip.matchAttemptSummary = attempts if isinstance(attempts, list) else None
 
     def _build_match_input(self, trip: Trip) -> tuple[_MatchInput | None, str | None]:
         gps_data = trip.gps
@@ -219,8 +272,59 @@ class HistoricalTripMatchMutationService:
         if not isinstance(coords, list) or len(coords) < 2:
             return None, "skipped:insufficient-coordinates"
 
-        timestamps = extract_timestamps_for_coordinates(coords, trip.model_dump())
-        return _MatchInput(coords=coords, timestamps=timestamps), None
+        trip_data = trip.model_dump()
+        timestamps = extract_timestamps_for_coordinates(coords, trip_data)
+        mapbox_timestamps = self._extract_unix_timestamps_for_coordinates(
+            coords,
+            trip_data,
+        )
+        return _MatchInput(
+            coords=coords,
+            timestamps=timestamps,
+            mapbox_timestamps=mapbox_timestamps,
+        ), None
+
+    @staticmethod
+    def _extract_unix_timestamps_for_coordinates(
+        coordinates: list[list[float]],
+        trip_data: dict[str, Any],
+    ) -> list[int | None] | None:
+        def normalize_timestamp(value: Any) -> int | None:
+            if isinstance(value, str):
+                parsed = parse_timestamp(value)
+                return int(parsed.timestamp()) if parsed else None
+            if hasattr(value, "timestamp"):
+                return int(value.timestamp())
+            if isinstance(value, int | float):
+                current = int(value)
+                if current > 10_000_000_000:
+                    return current // 1000
+                return current
+            return None
+
+        coordinate_records = trip_data.get("coordinates", [])
+        if coordinate_records and len(coordinate_records) == len(coordinates):
+            timestamps = [
+                normalize_timestamp(record.get("timestamp"))
+                if isinstance(record, dict)
+                else None
+                for record in coordinate_records
+            ]
+            if all(timestamp is not None for timestamp in timestamps):
+                return timestamps
+
+        start_ts = normalize_timestamp(trip_data.get("startTime"))
+        end_ts = normalize_timestamp(trip_data.get("endTime"))
+        if start_ts is None or end_ts is None or end_ts < start_ts:
+            return None
+        if len(coordinates) < 2:
+            return None
+
+        duration = end_ts - start_ts
+        return [
+            int(start_ts + (duration * (idx / (len(coordinates) - 1))))
+            for idx in range(len(coordinates))
+        ]
 
     async def _save_trip(
         self,

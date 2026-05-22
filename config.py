@@ -20,6 +20,19 @@ MAPBOX_PUBLIC_ACCESS_TOKEN: Final[str] = (
     "3Hnv3_ps0T7YS8cwSE3XKA"
 )
 MAPBOX_TOKEN_MIN_LENGTH: Final[int] = 20
+MAPBOX_MAP_MATCHING_TOKEN_ENV_VAR: Final[str] = "MAPBOX_MAP_MATCHING_TOKEN"
+MAPBOX_MAP_MATCHING_BASE_URL_ENV_VAR: Final[str] = "MAPBOX_MAP_MATCHING_BASE_URL"
+MAPBOX_MAP_MATCHING_RADIUS_METERS_ENV_VAR: Final[str] = (
+    "MAPBOX_MAP_MATCHING_RADIUS_METERS"
+)
+MAPBOX_MAP_MATCHING_TIMEOUT_SECONDS_ENV_VAR: Final[str] = (
+    "MAPBOX_MAP_MATCHING_TIMEOUT_SECONDS"
+)
+DEFAULT_MAPBOX_MAP_MATCHING_URL: Final[str] = (
+    "https://api.mapbox.com/matching/v5/mapbox/driving"
+)
+DEFAULT_MAPBOX_MAP_MATCHING_RADIUS_METERS: Final[float] = 25.0
+DEFAULT_MAPBOX_MAP_MATCHING_TIMEOUT_SECONDS: Final[float] = 45.0
 
 VALHALLA_MAX_SHAPE_POINTS_ENV_VAR: Final[str] = "VALHALLA_MAX_SHAPE_POINTS"
 VALHALLA_TRACE_SEARCH_RADIUS_METERS_ENV_VAR: Final[str] = (
@@ -93,6 +106,57 @@ def require_mapbox_token() -> str:
     token = get_mapbox_token()
     validate_mapbox_token(token)
     return token
+
+
+def get_mapbox_map_matching_token() -> str:
+    """Return the server-only Mapbox token used by historical map matching."""
+    return os.getenv(MAPBOX_MAP_MATCHING_TOKEN_ENV_VAR, "").strip()
+
+
+def has_mapbox_map_matching_token() -> bool:
+    return bool(get_mapbox_map_matching_token())
+
+
+def get_mapbox_map_matching_url() -> str:
+    return (
+        _get_url_env(MAPBOX_MAP_MATCHING_BASE_URL_ENV_VAR)
+        or DEFAULT_MAPBOX_MAP_MATCHING_URL
+    )
+
+
+def get_mapbox_map_matching_radius_meters() -> float:
+    raw_value = os.getenv(MAPBOX_MAP_MATCHING_RADIUS_METERS_ENV_VAR, "").strip()
+    if raw_value:
+        try:
+            parsed = float(raw_value)
+            if parsed <= 0:
+                return 0.0
+            return min(parsed, 50.0)
+        except ValueError:
+            logger.warning(
+                "Invalid MAPBOX_MAP_MATCHING_RADIUS_METERS value: %s. "
+                "Using default %.1f.",
+                raw_value,
+                DEFAULT_MAPBOX_MAP_MATCHING_RADIUS_METERS,
+            )
+    return DEFAULT_MAPBOX_MAP_MATCHING_RADIUS_METERS
+
+
+def get_mapbox_map_matching_timeout_seconds() -> float:
+    raw_value = os.getenv(MAPBOX_MAP_MATCHING_TIMEOUT_SECONDS_ENV_VAR, "").strip()
+    if raw_value:
+        try:
+            parsed = float(raw_value)
+            if parsed > 0:
+                return parsed
+        except ValueError:
+            logger.warning(
+                "Invalid MAPBOX_MAP_MATCHING_TIMEOUT_SECONDS value: %s. "
+                "Using default %.1f.",
+                raw_value,
+                DEFAULT_MAPBOX_MAP_MATCHING_TIMEOUT_SECONDS,
+            )
+    return DEFAULT_MAPBOX_MAP_MATCHING_TIMEOUT_SECONDS
 
 
 def _get_url_env(env_var: str) -> str | None:
@@ -313,6 +377,10 @@ __all__ = [
     "AUTH_URL",
     "get_bouncie_config",
     "get_geofabrik_mirror",
+    "get_mapbox_map_matching_radius_meters",
+    "get_mapbox_map_matching_timeout_seconds",
+    "get_mapbox_map_matching_token",
+    "get_mapbox_map_matching_url",
     "get_mapbox_token",
     "get_nominatim_base_url",
     "get_nominatim_reverse_url",
@@ -326,6 +394,7 @@ __all__ = [
     "get_valhalla_trace_route_timeout_seconds",
     "get_valhalla_trace_route_url",
     "get_valhalla_trace_search_radius_meters",
+    "has_mapbox_map_matching_token",
     "require_mapbox_token",
     "require_osm_data_path",
     "resolve_osm_data_path",

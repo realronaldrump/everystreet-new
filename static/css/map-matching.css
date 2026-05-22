@@ -613,6 +613,73 @@
   animation: mm-slide-down 0.3s ease-out;
 }
 
+.mm-provider-control {
+  margin-bottom: var(--space-3);
+}
+
+.mm-provider-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: var(--space-2);
+}
+
+.mm-provider-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.mm-provider-choice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid rgb(var(--border-rgb) / 14%);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mm-provider-choice input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mm-provider-choice.is-selected {
+  color: var(--primary);
+  border-color: rgb(var(--primary-rgb) / 36%);
+  background: rgb(var(--primary-rgb) / 8%);
+}
+
+.mm-provider-choice:focus-within {
+  outline: 2px solid rgb(var(--primary-rgb) / 45%);
+  outline-offset: 2px;
+}
+
+.mm-engine-summary,
+.mm-progress-engine {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.mm-engine-summary {
+  margin: var(--space-3) 0;
+}
+
 /* === Process Card === */
 .mm-process-card {
   text-align: center;
@@ -704,6 +771,18 @@
 .mm-progress-metrics {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: center;
+}
+
+.mm-progress-metric-chip {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  background: rgb(var(--border-rgb) / 8%);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
 }
 
 .mm-progress-actions {
@@ -1131,6 +1210,19 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.history-job-provider {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 2px;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  background: rgb(var(--primary-rgb) / 8%);
+  color: var(--primary);
+  font-size: 0.68rem;
+  font-weight: var(--font-weight-semibold);
 }
 
 .history-job-progress {
@@ -1601,6 +1693,13 @@
 .failed-trip-reason i {
   color: var(--warning);
   font-size: var(--font-size-xs);
+}
+
+.failed-trip-attempts {
+  margin-top: var(--space-1);
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  line-height: 1.35;
 }
 
 .failed-trip-actions {

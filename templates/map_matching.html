@@ -158,6 +158,10 @@ Trip ID
               <span class="mm-preview-icon"><i class="fas fa-check-circle"></i></span>
               <span class="mm-preview-text" id="map-match-preview-summary"></span>
             </div>
+            <div class="mm-engine-summary" id="map-match-engine-summary">
+              <i class="fas fa-route"></i>
+              <span id="map-match-engine-label">Auto: Valhalla first, Mapbox fallback</span>
+            </div>
             <div class="mm-actions">
               <button type="button" class="btn mm-btn-secondary" id="map-match-preview-btn">
                 <i class="fas fa-eye"></i>
@@ -179,6 +183,23 @@ Trip ID
               <i class="fas fa-chevron-down mm-toggle-arrow"></i>
             </button>
             <div class="mm-advanced-panel d-none" id="map-match-advanced-options">
+              <div class="mm-provider-control" aria-label="Matching engine">
+                <div class="mm-provider-title">Matching engine</div>
+                <div class="mm-provider-options">
+                  <label class="mm-provider-choice is-selected">
+                    <input type="radio" name="provider-policy" value="auto" checked />
+                    <span>Auto</span>
+                  </label>
+                  <label class="mm-provider-choice">
+                    <input type="radio" name="provider-policy" value="valhalla_only" />
+                    <span>Valhalla only</span>
+                  </label>
+                  <label class="mm-provider-choice">
+                    <input type="radio" name="provider-policy" value="mapbox_only" />
+                    <span>Mapbox only</span>
+                  </label>
+                </div>
+              </div>
               <label class="mm-option mm-option-small" data-mode="trip_id">
                 <input type="radio" name="match-mode" value="trip_id" class="visually-hidden" />
                 <div class="mm-option-icon">
@@ -225,6 +246,7 @@ Processing routes
               <div id="map-match-progress-message" class="mm-progress-message">
               Matching your trips to roads...
               </div>
+              <div id="map-match-progress-engine" class="mm-progress-engine"></div>
               <div id="map-match-progress-metrics" class="mm-progress-metrics">
               </div>
             </div>

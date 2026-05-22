@@ -197,6 +197,10 @@ async def get_failed_trips(request: Request):
                     "startLocation": trip_dict.get("startLocation"),
                     "destination": trip_dict.get("destination"),
                     "matchStatus": trip_dict.get("matchStatus"),
+                    "matchProvider": trip_dict.get("matchProvider"),
+                    "matchFallbackUsed": trip_dict.get("matchFallbackUsed"),
+                    "matchConfidence": trip_dict.get("matchConfidence"),
+                    "matchAttemptSummary": trip_dict.get("matchAttemptSummary"),
                 },
             )
         except Exception:

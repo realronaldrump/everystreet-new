@@ -1,4 +1,4 @@
-"""Trip map matching services using Valhalla."""
+"""Trip map matching services using Valhalla with optional Mapbox fallback."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from typing import Any
 
 from core.date_utils import get_current_utc_time
 from core.exceptions import ExternalServiceException
+from core.http.mapbox import MapboxMapMatchingClient, sanitize_mapbox_message
 from core.mapping.factory import get_router
 from core.spatial import (
     GeometryService,
@@ -17,9 +18,23 @@ from core.spatial import (
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_PROVIDER_POLICY = "auto"
+VALID_PROVIDER_POLICIES = {"auto", "valhalla_only", "mapbox_only"}
+
+
+def normalize_provider_policy(value: str | None) -> str:
+    normalized = str(value or DEFAULT_PROVIDER_POLICY).strip().lower()
+    if normalized not in VALID_PROVIDER_POLICIES:
+        return DEFAULT_PROVIDER_POLICY
+    return normalized
+
+
+def sanitize_match_message(value: Any) -> str:
+    return sanitize_mapbox_message(value)
+
 
 class MapMatchingService:
-    """Service for map matching coordinates to road networks using Valhalla."""
+    """Service for map matching coordinates to road networks."""
 
     _MIN_QUALITY_RAW_DISTANCE_MILES = 0.5
     _MIN_MATCHED_DISTANCE_RATIO = 0.65
@@ -33,8 +48,19 @@ class MapMatchingService:
     _MAX_OVERLAP_CONNECTOR_MILES = 0.08
     _MAX_RAW_GAP_FOR_MATCHED_DISCONTINUITY_MILES = 0.12
 
-    def __init__(self, router: Any | None = None) -> None:
+    _MAPBOX_MAX_POINTS = 100
+    _MAPBOX_CHUNK_OVERLAP = 5
+
+    def __init__(
+        self,
+        router: Any | None = None,
+        *,
+        mapbox_client: MapboxMapMatchingClient | None = None,
+        provider_policy: str | None = None,
+    ) -> None:
         self._router = router
+        self._mapbox_client = mapbox_client
+        self.provider_policy = normalize_provider_policy(provider_policy)
 
     async def _get_router(self) -> Any:
         if self._router is None:
@@ -45,7 +71,9 @@ class MapMatchingService:
         self,
         coordinates: list[list[float]],
         timestamps: list[int | None] | None = None,
+        mapbox_timestamps: list[int | None] | None = None,
         chunk_size: int | None = None,
+        provider_policy: str | None = None,
     ) -> dict[str, Any]:
         if not coordinates:
             return {
@@ -59,9 +87,14 @@ class MapMatchingService:
                 "message": "At least two coordinates are required for map matching.",
             }
 
-        filtered_coords, filtered_timestamps = self._filter_coordinates(
+        (
+            filtered_coords,
+            filtered_timestamps,
+            filtered_mapbox_timestamps,
+        ) = self._filter_coordinates(
             coordinates,
             timestamps,
+            mapbox_timestamps,
         )
         if len(filtered_coords) < 2:
             return {
@@ -69,6 +102,67 @@ class MapMatchingService:
                 "message": "No valid coordinates available for map matching.",
             }
 
+        policy = normalize_provider_policy(provider_policy or self.provider_policy)
+        if policy == "mapbox_only":
+            return await self._map_match_mapbox_coordinates(
+                filtered_coords,
+                filtered_mapbox_timestamps,
+                fallback_used=False,
+                previous_attempts=[],
+            )
+
+        valhalla_result = await self._map_match_valhalla_coordinates(
+            filtered_coords,
+            filtered_timestamps,
+            chunk_size,
+        )
+        if valhalla_result.get("code") == "Ok" or policy == "valhalla_only":
+            return self._attach_match_metadata(
+                valhalla_result,
+                provider="valhalla" if valhalla_result.get("code") == "Ok" else None,
+                fallback_used=False,
+                attempts=[
+                    self._attempt_summary(
+                        "valhalla",
+                        matched=valhalla_result.get("code") == "Ok",
+                        message=valhalla_result.get("message"),
+                    )
+                ],
+            )
+
+        valhalla_attempt = self._attempt_summary(
+            "valhalla",
+            matched=False,
+            message=valhalla_result.get("message"),
+        )
+        if not self._get_mapbox_client().configured:
+            return self._attach_match_metadata(
+                valhalla_result,
+                provider=None,
+                fallback_used=False,
+                attempts=[
+                    valhalla_attempt,
+                    self._attempt_summary(
+                        "mapbox",
+                        matched=False,
+                        message="Mapbox token missing",
+                    ),
+                ],
+            )
+
+        return await self._map_match_mapbox_coordinates(
+            filtered_coords,
+            filtered_mapbox_timestamps,
+            fallback_used=True,
+            previous_attempts=[valhalla_attempt],
+        )
+
+    async def _map_match_valhalla_coordinates(
+        self,
+        filtered_coords: list[list[float]],
+        filtered_timestamps: list[int | None] | None,
+        chunk_size: int | None,
+    ) -> dict[str, Any]:
         from config import get_valhalla_max_shape_points
 
         max_points = chunk_size or get_valhalla_max_shape_points()
@@ -86,13 +180,26 @@ class MapMatchingService:
             max_points,
         )
 
+    def _get_mapbox_client(self) -> MapboxMapMatchingClient:
+        if self._mapbox_client is None:
+            self._mapbox_client = MapboxMapMatchingClient()
+        return self._mapbox_client
+
     @staticmethod
     def _filter_coordinates(
         coordinates: list[list[float]],
         timestamps: list[int | None] | None,
-    ) -> tuple[list[list[float]], list[int | None] | None]:
+        mapbox_timestamps: list[int | None] | None = None,
+    ) -> tuple[
+        list[list[float]],
+        list[int | None] | None,
+        list[int | None] | None,
+    ]:
         valid_coords: list[list[float]] = []
         valid_timestamps: list[int | None] | None = [] if timestamps else None
+        valid_mapbox_timestamps: list[int | None] | None = (
+            [] if mapbox_timestamps else None
+        )
 
         for idx, coord in enumerate(coordinates):
             is_valid, _ = GeometryService.validate_coordinate_pair(coord)
@@ -101,11 +208,185 @@ class MapMatchingService:
             valid_coords.append(coord)
             if valid_timestamps is not None and idx < len(timestamps or []):
                 valid_timestamps.append((timestamps or [])[idx])
+            if valid_mapbox_timestamps is not None and idx < len(
+                mapbox_timestamps or []
+            ):
+                valid_mapbox_timestamps.append((mapbox_timestamps or [])[idx])
 
         if valid_timestamps is not None and len(valid_timestamps) != len(valid_coords):
             valid_timestamps = None
+        if (
+            valid_mapbox_timestamps is not None
+            and len(valid_mapbox_timestamps) != len(valid_coords)
+        ):
+            valid_mapbox_timestamps = None
 
-        return valid_coords, valid_timestamps
+        return valid_coords, valid_timestamps, valid_mapbox_timestamps
+
+    @staticmethod
+    def _attempt_summary(
+        provider: str,
+        *,
+        matched: bool,
+        message: Any = None,
+    ) -> dict[str, Any]:
+        entry: dict[str, Any] = {
+            "provider": provider,
+            "status": "matched" if matched else "failed",
+        }
+        if message:
+            entry["message"] = sanitize_match_message(message)
+        return entry
+
+    @staticmethod
+    def _attach_match_metadata(
+        result: dict[str, Any],
+        *,
+        provider: str | None,
+        fallback_used: bool,
+        attempts: list[dict[str, Any]],
+        confidence: float | None = None,
+        mapbox_requests: int = 0,
+    ) -> dict[str, Any]:
+        result = dict(result)
+        result["provider"] = provider
+        result["fallback_used"] = bool(fallback_used)
+        result["confidence"] = confidence
+        result["attempts"] = attempts
+        result["mapbox_requests"] = mapbox_requests
+        return result
+
+    async def _map_match_mapbox_coordinates(
+        self,
+        coordinates: list[list[float]],
+        timestamps: list[int | None] | None,
+        *,
+        fallback_used: bool,
+        previous_attempts: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        if not self._get_mapbox_client().configured:
+            result = {"code": "Error", "message": "Mapbox token missing"}
+            return self._attach_match_metadata(
+                result,
+                provider=None,
+                fallback_used=False,
+                attempts=[
+                    *previous_attempts,
+                    self._attempt_summary(
+                        "mapbox",
+                        matched=False,
+                        message=result.get("message"),
+                    ),
+                ],
+                mapbox_requests=0,
+            )
+
+        if len(coordinates) <= self._MAPBOX_MAX_POINTS:
+            result = await self._map_match_mapbox_chunk(coordinates, timestamps)
+            if result.get("code") == "Ok":
+                geometry = result.get("matchings", [{}])[0].get("geometry")
+                quality_error = self.validate_matched_geometry_quality(
+                    coordinates,
+                    geometry,
+                )
+                if quality_error:
+                    result = {"code": "Error", "message": quality_error}
+
+            return self._attach_match_metadata(
+                result,
+                provider="mapbox" if result.get("code") == "Ok" else None,
+                fallback_used=fallback_used and result.get("code") == "Ok",
+                attempts=[
+                    *previous_attempts,
+                    self._attempt_summary(
+                        "mapbox",
+                        matched=result.get("code") == "Ok",
+                        message=result.get("message"),
+                    ),
+                ],
+                confidence=result.get("confidence"),
+                mapbox_requests=1,
+            )
+
+        chunk_indices = self._create_chunk_indices_with_overlap(
+            coordinates,
+            self._MAPBOX_MAX_POINTS,
+            self._MAPBOX_CHUNK_OVERLAP,
+        )
+        final_segments: list[list[list[float]]] = []
+        request_count = 0
+        failed_messages: list[str] = []
+        confidences: list[float] = []
+
+        for start_i, end_i in chunk_indices:
+            chunk_coords = coordinates[start_i:end_i]
+            chunk_ts = (
+                timestamps[start_i:end_i]
+                if timestamps and len(timestamps) == len(coordinates)
+                else None
+            )
+            request_count += 1
+            result = await self._map_match_mapbox_chunk(chunk_coords, chunk_ts)
+            if result.get("code") != "Ok":
+                failed_messages.append(str(result.get("message") or "failed"))
+                continue
+            confidence = result.get("confidence")
+            if isinstance(confidence, int | float):
+                confidences.append(float(confidence))
+            self._append_matched_segments(
+                final_segments,
+                self._extract_matched_segments(result),
+            )
+
+        all_segments = self._normalize_matched_segments(final_segments)
+        if not all_segments:
+            message = (
+                failed_messages[0]
+                if failed_messages
+                else "Mapbox returned no usable geometry"
+            )
+            result = {"code": "Error", "message": sanitize_match_message(message)}
+        else:
+            result = (
+                self._create_matching_result(all_segments[0])
+                if len(all_segments) == 1
+                else self._create_multi_matching_result(all_segments)
+            )
+            geometry = result.get("matchings", [{}])[0].get("geometry")
+            quality_error = self.validate_matched_geometry_quality(
+                coordinates,
+                geometry,
+            )
+            if quality_error:
+                result = {"code": "Error", "message": quality_error}
+
+        return self._attach_match_metadata(
+            result,
+            provider="mapbox" if result.get("code") == "Ok" else None,
+            fallback_used=fallback_used and result.get("code") == "Ok",
+            attempts=[
+                *previous_attempts,
+                self._attempt_summary(
+                    "mapbox",
+                    matched=result.get("code") == "Ok",
+                    message=result.get("message"),
+                ),
+            ],
+            confidence=min(confidences) if confidences else None,
+            mapbox_requests=request_count,
+        )
+
+    async def _map_match_mapbox_chunk(
+        self,
+        coords: list[list[float]],
+        timestamps: list[int | None] | None,
+    ) -> dict[str, Any]:
+        try:
+            return await self._get_mapbox_client().match(coords, timestamps)
+        except ExternalServiceException as exc:
+            return {"code": "Error", "message": sanitize_match_message(exc.message)}
+        except Exception as exc:
+            return {"code": "Error", "message": sanitize_match_message(exc)}
 
     async def _map_match_chunk(
         self,
@@ -123,7 +404,9 @@ class MapMatchingService:
                 use_timestamps=use_timestamps,
             )
         except ExternalServiceException as exc:
-            return {"code": "Error", "message": str(exc)}
+            return {"code": "Error", "message": sanitize_match_message(exc)}
+        except Exception as exc:
+            return {"code": "Error", "message": sanitize_match_message(exc)}
         if result.get("code") != "Ok":
             return result
         geometry = result.get("matchings", [{}])[0].get("geometry")
@@ -806,10 +1089,11 @@ class TripMapMatcher:
 
             if match_result.get("code") != "Ok":
                 error_msg = match_result.get("message", "Unknown map matching error")
+                self._apply_match_metadata(processed_data, match_result)
                 logger.error(
                     "Map matching failed for trip %s: %s",
                     transaction_id,
-                    error_msg,
+                    sanitize_match_message(error_msg),
                 )
                 set_match_status(f"error:{error_msg}")
                 return "failed", processed_data
@@ -830,17 +1114,20 @@ class TripMapMatcher:
                         transaction_id,
                         quality_error,
                     )
+                    self._apply_match_metadata(processed_data, match_result)
                     set_match_status(f"error:{quality_error}")
                     return "failed", processed_data
 
                 processed_data["matchedGps"] = validated_matched_gps
                 processed_data["matched_at"] = get_current_utc_time()
+                self._apply_match_metadata(processed_data, match_result)
                 geom_type = validated_matched_gps.get("type", "unknown")
                 set_match_status(f"matched:{str(geom_type).lower()}")
                 logger.debug("Map matched trip %s successfully", transaction_id)
                 return "matched", processed_data
 
             logger.info("No valid matchedGps data for trip %s", transaction_id)
+            self._apply_match_metadata(processed_data, match_result)
             set_match_status("error:no-geometry")
 
         except Exception as exc:
@@ -851,6 +1138,16 @@ class TripMapMatcher:
             )
             processed_data["matchStatus"] = "error:exception"
         return "failed", processed_data
+
+    @staticmethod
+    def _apply_match_metadata(
+        processed_data: dict[str, Any],
+        match_result: dict[str, Any],
+    ) -> None:
+        processed_data["matchProvider"] = match_result.get("provider")
+        processed_data["matchFallbackUsed"] = bool(match_result.get("fallback_used"))
+        processed_data["matchConfidence"] = match_result.get("confidence")
+        processed_data["matchAttemptSummary"] = match_result.get("attempts")
 
     @staticmethod
     def _validate_matched_geometry(
@@ -910,7 +1207,10 @@ class TripMapMatcher:
 
 
 __all__ = [
+    "DEFAULT_PROVIDER_POLICY",
     "MapMatchingService",
     "TripMapMatcher",
     "extract_timestamps_for_coordinates",
+    "normalize_provider_policy",
+    "sanitize_match_message",
 ]

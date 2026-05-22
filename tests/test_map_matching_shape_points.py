@@ -80,6 +80,32 @@ class _PartialThenSegmentRouterStub:
         }
 
 
+class _MapboxMatchStub:
+    configured = True
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[list[list[float]], list[int | None] | None]] = []
+
+    async def match(
+        self,
+        coordinates: list[list[float]],
+        timestamps: list[int | None] | None = None,
+    ) -> dict:
+        self.calls.append((coordinates, timestamps))
+        return {
+            "code": "Ok",
+            "confidence": 0.9,
+            "matchings": [
+                {
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": coordinates,
+                    }
+                }
+            ],
+        }
+
+
 @pytest.mark.asyncio
 async def test_map_match_coordinates_rejects_low_quality_success_response() -> None:
     coords = [[-97.0, 32.0], [-97.5, 32.0]]
@@ -123,6 +149,99 @@ async def test_map_matching_service_reuses_router_for_batch() -> None:
     assert first["code"] == "Ok"
     assert second["code"] == "Ok"
     assert get_router_mock.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_auto_provider_uses_valhalla_success_without_mapbox() -> None:
+    coords = [[-97.0, 32.0], [-97.001, 32.001]]
+    mapbox = _MapboxMatchStub()
+    service = MapMatchingService(mapbox_client=mapbox)
+
+    async def valhalla_success(*_args, **_kwargs):
+        return {
+            "code": "Ok",
+            "matchings": [
+                {
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": coords,
+                    }
+                }
+            ],
+        }
+
+    with patch.object(
+        service,
+        "_map_match_valhalla_coordinates",
+        side_effect=valhalla_success,
+    ):
+        result = await service.map_match_coordinates(coords, provider_policy="auto")
+
+    assert result["code"] == "Ok"
+    assert result["provider"] == "valhalla"
+    assert result["fallback_used"] is False
+    assert result["mapbox_requests"] == 0
+    assert result["attempts"] == [{"provider": "valhalla", "status": "matched"}]
+    assert mapbox.calls == []
+
+
+@pytest.mark.asyncio
+async def test_auto_provider_falls_back_to_mapbox_after_valhalla_failure() -> None:
+    coords = [[-97.0, 32.0], [-97.001, 32.001]]
+    mapbox = _MapboxMatchStub()
+    service = MapMatchingService(mapbox_client=mapbox)
+
+    async def valhalla_failure(*_args, **_kwargs):
+        return {"code": "Error", "message": "low-quality-match:too-short:0.10"}
+
+    with patch.object(
+        service,
+        "_map_match_valhalla_coordinates",
+        side_effect=valhalla_failure,
+    ):
+        result = await service.map_match_coordinates(coords, provider_policy="auto")
+
+    assert result["code"] == "Ok"
+    assert result["provider"] == "mapbox"
+    assert result["fallback_used"] is True
+    assert result["confidence"] == 0.9
+    assert result["mapbox_requests"] == 1
+    assert result["attempts"] == [
+        {
+            "provider": "valhalla",
+            "status": "failed",
+            "message": "low-quality-match:too-short:0.10",
+        },
+        {"provider": "mapbox", "status": "matched"},
+    ]
+    assert len(mapbox.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_mapbox_only_skips_valhalla() -> None:
+    coords = [[-97.0, 32.0], [-97.001, 32.001]]
+    mapbox = _MapboxMatchStub()
+    service = MapMatchingService(mapbox_client=mapbox)
+
+    with patch.object(
+        service,
+        "_map_match_valhalla_coordinates",
+        side_effect=AssertionError("Valhalla should not be called"),
+    ):
+        result = await service.map_match_coordinates(
+            coords,
+            timestamps=[0, 5],
+            mapbox_timestamps=[1_700_000_000, 1_700_000_005],
+            provider_policy="mapbox_only",
+        )
+
+    assert result["code"] == "Ok"
+    assert result["provider"] == "mapbox"
+    assert result["fallback_used"] is False
+    assert result["mapbox_requests"] == 1
+    assert mapbox.calls == [
+        (coords, [1_700_000_000, 1_700_000_005]),
+    ]
 
 
 # --- _find_overlap_trim tests ---
