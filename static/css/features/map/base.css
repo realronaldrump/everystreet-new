@@ -117,11 +117,15 @@ body[data-route="/map"] .app-header {
 }
 
 /* === Map Canvas & Markers === */
+.mapboxgl-canvas-container.mapboxgl-interactive,
+.maplibregl-canvas-container.maplibregl-interactive,
 .mapboxgl-canvas-container,
 .maplibregl-canvas-container {
-  cursor: grab;
+  cursor: default;
 }
 
+.mapboxgl-canvas-container.mapboxgl-interactive:active,
+.maplibregl-canvas-container.maplibregl-interactive:active,
 .mapboxgl-canvas-container:active,
 .maplibregl-canvas-container:active {
   cursor: grabbing;

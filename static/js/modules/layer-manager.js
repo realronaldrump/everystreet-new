@@ -27,6 +27,7 @@ const DECK_TRIP_LAYERS = new Set(["trips", "matchedTrips"]);
 // Animation constants
 const FADE_DURATION = 320;
 const COVERAGE_OVERLAY_LAYER_NAME = "coverageAreaBoundingBox";
+const SMART_LEGEND_UPDATE_EVENT = "es:smart-legend-update";
 const COVERAGE_OUTSIDE_MASK_WORLD_RING = [
   [-180, -85],
   [180, -85],
@@ -42,6 +43,10 @@ const layerManager = {
   _heatmapEventsBound: false,
   _heatmapRefreshHandler: null,
   _cachedFirstSymbolLayerId: null,
+
+  _notifyLegendChanged() {
+    document.dispatchEvent(new CustomEvent(SMART_LEGEND_UPDATE_EVENT));
+  },
 
   _isDeckTripBundleLayer(layerName, layerInfo = store.mapLayers[layerName]) {
     return (
@@ -651,6 +656,7 @@ const layerManager = {
         loadingEl.classList.add("d-none");
       }
       this.syncVisibilityToStore();
+      this._notifyLegendChanged();
     }
   },
 
@@ -825,6 +831,8 @@ const layerManager = {
       const paintProperty = property === "color" ? "line-color" : "line-opacity";
       store.map.setPaintProperty(layerId, paintProperty, value);
     }
+
+    this._notifyLegendChanged();
   },
 
   /**
@@ -1055,6 +1063,7 @@ const layerManager = {
       if (this._layerUpdateQueue.get(layerName) === task) {
         this._layerUpdateQueue.delete(layerName);
       }
+      this._notifyLegendChanged();
     }
   },
 

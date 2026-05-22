@@ -47,6 +47,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-height: var(--touch-target);
   padding: var(--space-2) var(--space-3);
   width: 100%;
   border: 0;
@@ -55,8 +56,7 @@
   color: var(--text-primary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   cursor: pointer;
   transition: background var(--transition-fast);
 }
@@ -87,7 +87,7 @@
 
 .map-smart-legend__row {
   display: grid;
-  grid-template-columns: 18px 1fr auto;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-2);
   color: var(--text-secondary);
@@ -96,49 +96,75 @@
 .map-smart-legend__label {
   color: var(--text-primary);
   font-weight: var(--font-weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .map-smart-legend__hint {
   color: var(--text-tertiary);
   font-size: 0.68rem;
+  white-space: nowrap;
 }
 
 .map-smart-legend__swatch {
   display: inline-block;
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
-  box-shadow: 0 0 0 1px rgb(255 255 255 / 6%);
-}
-
-.map-smart-legend__swatch--driven {
-  background: var(--success);
+  width: 26px;
+  height: 10px;
+  border-radius: var(--radius-full);
   box-shadow:
-    0 0 10px rgb(var(--success-rgb) / 40%),
-    0 0 0 1px rgb(var(--success-rgb) / 30%);
+    0 0 0 1px rgb(255 255 255 / 8%),
+    0 0 10px rgb(255 255 255 / 4%);
 }
 
-.map-smart-legend__swatch--undriven {
-  background: var(--color-undriven);
+.map-smart-legend__swatch--line {
+  background: var(--legend-line-color, #727a84);
   box-shadow:
-    0 0 10px rgb(var(--color-undriven-rgb) / 40%),
-    0 0 0 1px rgb(var(--color-undriven-rgb) / 30%);
+    0 0 0 1px rgb(255 255 255 / 8%),
+    0 0 10px color-mix(in srgb, var(--legend-line-color, #727a84) 55%, transparent);
 }
 
-.map-smart-legend__swatch--trips {
-  background: linear-gradient(90deg, var(--accent), var(--primary));
+.map-smart-legend__swatch--dashed {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--legend-line-color, #727a84) 0 7px,
+    transparent 7px 11px
+  );
+}
+
+.map-smart-legend__swatch--heatmap {
+  background: linear-gradient(
+    90deg,
+    var(--legend-glow-color, #c86832),
+    var(--legend-core-color, #f0b840)
+  );
   box-shadow:
-    0 0 10px rgb(var(--accent-rgb) / 50%),
-    0 0 0 1px rgb(var(--accent-rgb) / 40%);
+    0 0 0 1px rgb(255 255 255 / 8%),
+    0 0 12px color-mix(in srgb, var(--legend-core-color, #f0b840) 45%, transparent);
 }
 
 
-@media (width <= 640px) {
+@media (width <= 768px) {
   .map-smart-legend {
-    top: var(--space-2);
-    right: var(--space-2);
-    min-width: 180px;
+    top: auto;
+    right: auto;
+    bottom: calc(
+      max(var(--map-sheet-visible-height, 60px), 60px) +
+      env(safe-area-inset-bottom, 0px) +
+      var(--space-2)
+    );
+    left: var(--space-2);
+    min-width: 0;
+    max-width: min(16rem, calc(100vw - 5rem));
     font-size: 0.72rem;
+  }
+
+  .map-smart-legend__body {
+    padding-inline: var(--space-2);
+  }
+
+  .map-smart-legend__row {
+    grid-template-columns: 26px minmax(6rem, 1fr);
   }
 
   .map-smart-legend__hint {
