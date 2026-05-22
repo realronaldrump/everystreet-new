@@ -24,6 +24,9 @@ compatibility, migration, or legacy code.
   with exactly: `ssh 100.96.182.111`
 - For production deploys, logs, process checks, and runtime debugging, SSH into
   the mini PC at `100.96.182.111`.
-- Unless the user explicitly asks for a local-only run, "deploy", "production",
-  "server", or "runtime" refers to the mini PC deployment, not a local dev
-  server on the MacBook Pro.
+- Never run, deploy, or browser-test this app locally on the MacBook Pro.
+- All app runtime inspection, testing, and deployment must happen against the
+  mini PC deployment, reached with `ssh 100.96.182.111`, or the public deployed
+  URL.
+- "deploy", "production", "server", "runtime", "run", and "test" always refer
+  to the mini PC deployment, never a local dev server on the MacBook Pro.

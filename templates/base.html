@@ -218,10 +218,13 @@
             <a href="/login" class="alert-link">Log in for full access.</a>
           </div>
         {% endif %}
-        <div id="nav-breadcrumb" class="nav-breadcrumb" aria-label="Breadcrumb">
-          <div id="nav-trail" class="nav-trail">
-          </div>
-        </div>
+        <nav id="nav-breadcrumb"
+             class="nav-breadcrumb is-empty"
+             aria-label="Breadcrumb"
+             hidden>
+          <ol id="nav-trail" class="nav-trail">
+          </ol>
+        </nav>
         <div id="persistent-shell" class="persistent-shell">
           {% block persistent_shell %}{% endblock %}
         </div>

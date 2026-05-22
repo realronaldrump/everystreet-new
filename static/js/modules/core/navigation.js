@@ -132,6 +132,86 @@ function normalizeForNav(pathname) {
   return pathname;
 }
 
+const BREADCRUMB_ROUTE_LABELS = new Map([
+  ["/", "Home"],
+  ["/map", "Map"],
+  ["/trips", "Trips"],
+  ["/routes", "Recurring Routes"],
+  ["/insights", "Insights"],
+  ["/visits", "Visits"],
+  ["/gas-tracking", "Gas Tracking"],
+  ["/export", "Export Data"],
+  ["/map-matching", "Map Matching"],
+  ["/coverage-management", "Coverage Management"],
+  ["/coverage-route-planner", "Route Planner"],
+  ["/live-navigation", "Live Navigation"],
+  ["/regional-coverage-explorer", "Region Explorer"],
+  ["/memory-city", "Memory City"],
+  ["/control-center", "Settings"],
+  ["/vehicles", "My Vehicle"],
+  ["/setup-wizard", "Setup"],
+  ["/login", "Owner Login"],
+]);
+
+const BREADCRUMB_DETAIL_ROUTES = [
+  {
+    pattern: /^\/trips\/[^/]+$/,
+    parent: "/trips",
+    label: "Trip Details",
+  },
+  {
+    pattern: /^\/routes\/[^/]+$/,
+    parent: "/routes",
+    label: "Route Details",
+  },
+];
+
+function normalizeBreadcrumbPath(pathname) {
+  if (typeof pathname !== "string" || !pathname.trim()) {
+    return "/";
+  }
+
+  let path = pathname.trim();
+  try {
+    path = new URL(path, globalThis.location?.origin || "http://localhost").pathname;
+  } catch {
+    path = path.split("#")[0].split("?")[0] || "/";
+  }
+
+  if (path.length > 1 && path.endsWith("/")) {
+    return path.slice(0, -1);
+  }
+  return path || "/";
+}
+
+export function buildBreadcrumbItems(pathname) {
+  const path = normalizeBreadcrumbPath(pathname);
+  const exactLabel = BREADCRUMB_ROUTE_LABELS.get(path);
+  if (exactLabel) {
+    return [{ path, label: exactLabel }];
+  }
+
+  const detailRoute = BREADCRUMB_DETAIL_ROUTES.find((route) => route.pattern.test(path));
+  if (detailRoute) {
+    return [
+      {
+        path: detailRoute.parent,
+        label: BREADCRUMB_ROUTE_LABELS.get(detailRoute.parent) || detailRoute.parent,
+      },
+      {
+        path,
+        label: detailRoute.label,
+      },
+    ];
+  }
+
+  return [];
+}
+
+function shouldShowBreadcrumb(items) {
+  return items.length > 1;
+}
+
 function updateNav(pathname) {
   if (!pathname) {
     return;
@@ -139,6 +219,9 @@ function updateNav(pathname) {
   const activePath = normalizeForNav(pathname);
 
   document.querySelectorAll("nav a[href]").forEach((anchor) => {
+    if (anchor.closest(".nav-breadcrumb")) {
+      return;
+    }
     if (!isInternalLink(anchor)) {
       return;
     }
@@ -219,31 +302,6 @@ function updatePersistentShell(visit) {
   }
 }
 
-const HISTORY_KEY = "es:route-history";
-
-function loadRouteHistory() {
-  try {
-    const raw = sessionStorage.getItem(HISTORY_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed.slice(-8);
-    }
-  } catch {
-    // Ignore parse errors.
-  }
-  return [
-    { path: window.location.pathname, title: document.title, timestamp: Date.now() },
-  ];
-}
-
-function saveRouteHistory(items) {
-  try {
-    sessionStorage.setItem(HISTORY_KEY, JSON.stringify(items.slice(-8)));
-  } catch {
-    // Ignore storage failures.
-  }
-}
-
 function updateRouteUsage(path) {
   try {
     const raw = localStorage.getItem("es:route-counts");
@@ -255,65 +313,66 @@ function updateRouteUsage(path) {
   }
 }
 
-function updateBreadcrumb(routeHistory) {
+function updateBreadcrumb(pathname) {
   const trail = document.getElementById("nav-trail");
   const container = document.getElementById("nav-breadcrumb");
   if (!trail || !container) {
     return;
   }
 
-  const items = routeHistory.slice(-3);
+  const items = buildBreadcrumbItems(pathname);
+  const visible = shouldShowBreadcrumb(items);
   trail.innerHTML = "";
+  container.hidden = !visible;
+  container.classList.toggle("is-empty", !visible);
+
+  if (!visible) {
+    return;
+  }
 
   items.forEach((item, index) => {
+    const entry = document.createElement("li");
+    entry.className = "nav-trail-entry";
+
     if (index > 0) {
       const divider = document.createElement("span");
       divider.className = "nav-trail-sep";
       divider.textContent = "›";
+      divider.setAttribute("aria-hidden", "true");
       divider.style.opacity = "0";
       divider.style.animation = `fadeIn 150ms ${60 + index * 40}ms cubic-bezier(0, 0, 0.2, 1) forwards`;
-      trail.appendChild(divider);
+      entry.appendChild(divider);
     }
 
-    const link = document.createElement("a");
-    link.href = item.path;
-    link.className = "nav-trail-item";
-    link.textContent = item.title || item.path;
-    link.style.opacity = "0";
-    link.style.animation = `fadeInUp 200ms ${80 + index * 50}ms cubic-bezier(0, 0, 0.2, 1) forwards`;
     if (index === items.length - 1) {
-      link.setAttribute("aria-current", "page");
-      link.classList.add("current");
+      const current = document.createElement("span");
+      current.className = "nav-trail-item current";
+      current.textContent = item.label;
+      current.setAttribute("aria-current", "page");
+      current.style.opacity = "0";
+      current.style.animation = `fadeInUp 200ms ${80 + index * 50}ms cubic-bezier(0, 0, 0.2, 1) forwards`;
+      entry.appendChild(current);
+    } else {
+      const link = document.createElement("a");
+      link.href = item.path;
+      link.className = "nav-trail-item";
+      link.textContent = item.label;
+      link.style.opacity = "0";
+      link.style.animation = `fadeInUp 200ms ${80 + index * 50}ms cubic-bezier(0, 0, 0.2, 1) forwards`;
+      entry.appendChild(link);
     }
-    trail.appendChild(link);
-  });
 
-  container.classList.toggle("is-empty", items.length === 0);
+    trail.appendChild(entry);
+  });
 }
 
-function updateHistoryAndBreadcrumb(pathname) {
+function updateRouteTelemetryAndBreadcrumb(pathname) {
   if (!pathname) {
     return;
   }
 
-  const label =
-    (document.title || pathname).replace(/\s*[-–—]\s*Every Street$/i, "").trim() ||
-    pathname;
-  const now = Date.now();
-
-  const history = loadRouteHistory();
-  const last = history[history.length - 1];
-  if (last && last.path === pathname) {
-    last.title = label;
-    last.timestamp = now;
-  } else {
-    history.push({ path: pathname, title: label, timestamp: now });
-  }
-
-  const trimmed = history.slice(-8);
-  saveRouteHistory(trimmed);
   updateRouteUsage(pathname);
-  updateBreadcrumb(trimmed);
+  updateBreadcrumb(pathname);
 }
 
 function setRouteState(pathname) {
@@ -513,13 +572,13 @@ export async function initNavigation() {
     store.applyUrlParams(href, { emit: true, source });
     store.clearElementCache();
 
-    updateHistoryAndBreadcrumb(window.location.pathname);
+    updateRouteTelemetryAndBreadcrumb(window.location.pathname);
   });
 
   // Initial route module and state.
   await ensureRouteModule(window.location.pathname);
   setRouteState(window.location.pathname);
-  updateHistoryAndBreadcrumb(window.location.pathname);
+  updateRouteTelemetryAndBreadcrumb(window.location.pathname);
 
   resolveReady?.(swup);
   return swup;
