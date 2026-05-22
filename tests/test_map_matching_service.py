@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
@@ -120,3 +121,56 @@ async def test_map_matching_job_bumps_revision_once_for_changed_batch(
     assert result["status"] == "success"
     assert result["map_matched"] == 2
     assert bump_revision.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_map_matching_job_marks_progress_failed_when_cancelled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = MapMatchingJobRunner()
+    progress = SimpleNamespace(
+        id="progress-1",
+        stage="processing",
+        status="running",
+        progress=32,
+        message="Processing",
+        error=None,
+        metadata={},
+        updated_at=None,
+        completed_at=None,
+        save=AsyncMock(),
+    )
+
+    class FakeFind:
+        async def to_list(self) -> list[Any]:
+            return [SimpleNamespace(transactionId="tx-1")]
+
+    monkeypatch.setattr(
+        runner,
+        "_get_or_create_progress",
+        AsyncMock(return_value=progress),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_preflight_router",
+        AsyncMock(return_value=(True, None)),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_process_trips_directly",
+        AsyncMock(side_effect=asyncio.CancelledError()),
+    )
+    monkeypatch.setattr(runner, "_update_progress", AsyncMock())
+    monkeypatch.setattr(map_matching_jobs.Trip, "find", lambda _query: FakeFind())
+    monkeypatch.setattr(map_matching_jobs, "find_job", AsyncMock(return_value=progress))
+
+    with pytest.raises(asyncio.CancelledError):
+        await runner.run(
+            "job-1",
+            MapMatchJobRequest(mode="trip_ids", trip_ids=["tx-1"]),
+        )
+
+    assert progress.status == "failed"
+    assert progress.stage == "error"
+    assert progress.error == "Task cancelled before completion."
+    progress.save.assert_awaited_once()

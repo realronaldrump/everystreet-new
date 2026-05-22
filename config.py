@@ -25,6 +25,9 @@ VALHALLA_MAX_SHAPE_POINTS_ENV_VAR: Final[str] = "VALHALLA_MAX_SHAPE_POINTS"
 VALHALLA_TRACE_SEARCH_RADIUS_METERS_ENV_VAR: Final[str] = (
     "VALHALLA_TRACE_SEARCH_RADIUS_METERS"
 )
+VALHALLA_TRACE_ROUTE_TIMEOUT_SECONDS_ENV_VAR: Final[str] = (
+    "VALHALLA_TRACE_ROUTE_TIMEOUT_SECONDS"
+)
 
 NOMINATIM_USER_AGENT_ENV_VAR: Final[str] = "NOMINATIM_USER_AGENT"
 OSM_DATA_PATH_ENV_VAR: Final[str] = "OSM_DATA_PATH"
@@ -36,6 +39,7 @@ DEFAULT_NOMINATIM_URL: Final[str] = "http://nominatim:8080"
 DEFAULT_VALHALLA_URL: Final[str] = "http://valhalla:8002"
 DEFAULT_VALHALLA_MAX_SHAPE_POINTS: Final[int] = 2000
 DEFAULT_VALHALLA_TRACE_SEARCH_RADIUS_METERS: Final[float] = 100.0
+DEFAULT_VALHALLA_TRACE_ROUTE_TIMEOUT_SECONDS: Final[float] = 60.0
 DEFAULT_NOMINATIM_USER_AGENT: Final[str] = "EveryStreet/1.0"
 DEFAULT_GEOFABRIK_MIRROR: Final[str] = "https://download.geofabrik.de"
 DEFAULT_OSM_EXTRACTS_PATH: Final[str] = "/osm"
@@ -131,6 +135,23 @@ def get_valhalla_trace_search_radius_meters() -> float:
                 DEFAULT_VALHALLA_TRACE_SEARCH_RADIUS_METERS,
             )
     return DEFAULT_VALHALLA_TRACE_SEARCH_RADIUS_METERS
+
+
+def get_valhalla_trace_route_timeout_seconds() -> float:
+    raw_value = os.getenv(VALHALLA_TRACE_ROUTE_TIMEOUT_SECONDS_ENV_VAR, "").strip()
+    if raw_value:
+        try:
+            parsed = float(raw_value)
+            if parsed > 0:
+                return parsed
+        except ValueError:
+            logger.warning(
+                "Invalid VALHALLA_TRACE_ROUTE_TIMEOUT_SECONDS value: %s. "
+                "Using default %.1f.",
+                raw_value,
+                DEFAULT_VALHALLA_TRACE_ROUTE_TIMEOUT_SECONDS,
+            )
+    return DEFAULT_VALHALLA_TRACE_ROUTE_TIMEOUT_SECONDS
 
 
 def get_nominatim_base_url() -> str:
@@ -263,6 +284,7 @@ __all__ = [
     "get_valhalla_base_url",
     "get_valhalla_route_url",
     "get_valhalla_status_url",
+    "get_valhalla_trace_route_timeout_seconds",
     "get_valhalla_trace_route_url",
     "get_valhalla_trace_search_radius_meters",
     "require_mapbox_token",

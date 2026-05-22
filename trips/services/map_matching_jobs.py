@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -572,6 +573,19 @@ class MapMatchingJobRunner:
                 "skipped": results["skipped"],
             }
 
+        except asyncio.CancelledError:
+            latest_progress = await find_job("map_matching", operation_id=job_id)
+            progress_to_update = latest_progress or progress
+            if not _is_terminal_progress(progress_to_update):
+                await JobHandle(progress_to_update).update(
+                    status="failed",
+                    stage="error",
+                    progress=progress_to_update.progress,
+                    message="Map matching job was interrupted before completion.",
+                    error="Task cancelled before completion.",
+                    completed_at=datetime.now(UTC),
+                )
+            raise
         except Exception as exc:
             logger.exception("Map matching job failed")
             await JobHandle(progress).update(

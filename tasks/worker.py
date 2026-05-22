@@ -67,6 +67,9 @@ COVERAGE_INGEST_TIMEOUT_SECONDS = int(
 COVERAGE_BACKFILL_TIMEOUT_SECONDS = int(
     os.getenv("COVERAGE_BACKFILL_JOB_TIMEOUT_SECONDS", str(4 * 60 * 60)),
 )
+MAP_MATCHING_JOB_TIMEOUT_SECONDS = int(
+    os.getenv("MAP_MATCHING_JOB_TIMEOUT_SECONDS", str(12 * 60 * 60)),
+)
 
 
 async def on_startup(ctx: dict) -> None:
@@ -93,7 +96,7 @@ class WorkerSettings:
         validate_trips,
         remap_unmatched_trips,
         backfill_trip_display_geometry,
-        map_match_trips,
+        func(map_match_trips, timeout=MAP_MATCHING_JOB_TIMEOUT_SECONDS),
         update_coverage_for_new_trips,
         sync_geo_coverage,
         func(sync_mobility_profiles, timeout=MOBILITY_SYNC_TIMEOUT_SECONDS),

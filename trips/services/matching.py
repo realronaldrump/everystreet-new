@@ -28,6 +28,14 @@ class MapMatchingService:
     _MAX_ENDPOINT_TOLERANCE_MILES = 2.0
     _ENDPOINT_TOLERANCE_RATIO = 0.10
 
+    def __init__(self, router: Any | None = None) -> None:
+        self._router = router
+
+    async def _get_router(self) -> Any:
+        if self._router is None:
+            self._router = await get_router()
+        return self._router
+
     async def map_match_coordinates(
         self,
         coordinates: list[list[float]],
@@ -539,7 +547,7 @@ class MapMatchingService:
         if use_timestamps and not any(point.get("time") for point in shape):
             use_timestamps = False
 
-        client = await get_router()
+        client = await self._get_router()
         result = await client.trace_route(
             shape,
             use_timestamps=use_timestamps or None,

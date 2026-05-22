@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -58,6 +58,23 @@ async def test_map_match_coordinates_rejects_low_quality_success_response() -> N
 
     assert result["code"] == "Error"
     assert result["message"].startswith("low-quality-match:too-short")
+
+
+@pytest.mark.asyncio
+async def test_map_matching_service_reuses_router_for_batch() -> None:
+    coords = [[-97.0, 32.0], [-97.001, 32.001]]
+    service = MapMatchingService()
+
+    with patch(
+        "trips.services.matching.get_router",
+        new=AsyncMock(return_value=_RouterStub()),
+    ) as get_router_mock:
+        first = await service.map_match_coordinates(coords)
+        second = await service.map_match_coordinates(coords)
+
+    assert first["code"] == "Ok"
+    assert second["code"] == "Ok"
+    assert get_router_mock.await_count == 1
 
 
 # --- _find_overlap_trim tests ---

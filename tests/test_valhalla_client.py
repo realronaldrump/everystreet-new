@@ -182,7 +182,10 @@ def test_normalize_route_response_decodes_polyline_shape() -> None:
 
 
 @pytest.mark.asyncio
-async def test_trace_route_includes_default_search_radius() -> None:
+async def test_trace_route_includes_default_search_radius(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("VALHALLA_TRACE_ROUTE_TIMEOUT_SECONDS", raising=False)
     client = ValhallaClient()
 
     with (
@@ -210,3 +213,4 @@ async def test_trace_route_includes_default_search_radius() -> None:
 
     payload = request_json.await_args.kwargs["json"]
     assert payload["trace_options"]["search_radius"] == 100.0
+    assert request_json.await_args.kwargs["timeout_s"] == 60.0

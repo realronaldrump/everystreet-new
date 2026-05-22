@@ -13,6 +13,7 @@ from typing import Any
 from config import (
     get_valhalla_route_url,
     get_valhalla_status_url,
+    get_valhalla_trace_route_timeout_seconds,
     get_valhalla_trace_route_url,
     get_valhalla_trace_search_radius_meters,
 )
@@ -98,6 +99,7 @@ class ValhallaClient:
         costing: str = "auto",
         use_timestamps: bool | None = None,
         trace_options: dict[str, Any] | None = None,
+        timeout_s: float | None = None,
     ) -> dict[str, Any]:
         if len(shape) < 2:
             msg = "Valhalla trace_route requires at least two points."
@@ -122,6 +124,11 @@ class ValhallaClient:
             session=session,
             json=payload,
             service_name="Valhalla trace_route",
+            timeout_s=(
+                timeout_s
+                if timeout_s is not None
+                else get_valhalla_trace_route_timeout_seconds()
+            ),
         )
         if not isinstance(data, dict):
             msg = "Valhalla trace_route error: unexpected response"
