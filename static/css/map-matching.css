@@ -555,6 +555,33 @@
   color: var(--text-primary);
 }
 
+.mm-btn-mapbox {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: rgb(var(--primary-rgb) / 8%);
+  border: 1px solid rgb(var(--primary-rgb) / 22%);
+  color: var(--primary);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mm-btn-mapbox:hover:not(:disabled) {
+  background: rgb(var(--primary-rgb) / 12%);
+  border-color: rgb(var(--primary-rgb) / 35%);
+  color: var(--primary);
+}
+
+.mm-btn-mapbox:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .mm-btn-cancel {
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-lg);
@@ -1381,6 +1408,10 @@
     width: 100%;
   }
 
+  .mm-btn-mapbox {
+    width: 100%;
+  }
+
   .mm-date-inputs {
     flex-direction: column;
     align-items: stretch;
@@ -1550,6 +1581,60 @@
   color: var(--text-on-primary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
+}
+
+.mm-match-summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.mm-match-summary-card {
+  min-width: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  border: 1px solid rgb(var(--border-rgb) / 12%);
+}
+
+.mm-match-summary-card span,
+.mm-match-summary-foot {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mm-match-summary-card strong {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--text-primary);
+  font-size: var(--font-size-lg);
+  line-height: 1.15;
+}
+
+.mm-match-summary-card.is-total {
+  background: rgb(var(--primary-rgb) / 8%);
+  border-color: rgb(var(--primary-rgb) / 20%);
+}
+
+.mm-match-summary-card.is-total strong {
+  color: var(--primary);
+}
+
+.mm-match-summary-foot {
+  grid-column: 1 / -1;
+  padding: 0 var(--space-1);
+}
+
+@media (width <= 1024px) {
+  .mm-match-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 /* === Results Tabs === */
@@ -1740,6 +1825,10 @@
 @media (width <= 768px) {
   .mm-quick-actions {
     flex-direction: column;
+  }
+
+  .mm-match-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .mm-results-tab {

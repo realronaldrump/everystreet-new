@@ -81,6 +81,14 @@ function cacheElements() {
     browseMatchedBtn: document.getElementById("mm-browse-matched-btn"),
     browseFailedBtn: document.getElementById("mm-browse-failed-btn"),
     failedCountBadge: document.getElementById("mm-failed-count"),
+    providerSummary: document.getElementById("mm-match-summary"),
+    summaryMatched: document.getElementById("mm-summary-matched"),
+    summaryValhalla: document.getElementById("mm-summary-valhalla"),
+    summaryMapbox: document.getElementById("mm-summary-mapbox"),
+    summaryFallback: document.getElementById("mm-summary-fallback"),
+    summaryFailed: document.getElementById("mm-summary-failed"),
+    summarySkipped: document.getElementById("mm-summary-skipped"),
+    summaryFoot: document.getElementById("mm-summary-foot"),
     // Results headers
     resultsHeaderSuccess: document.getElementById("mm-results-header-success"),
     resultsHeaderBrowse: document.getElementById("mm-results-header-browse"),
@@ -109,6 +117,7 @@ function cacheElements() {
     failedSelectAll: document.getElementById("mm-failed-select-all"),
     retryAllBtn: document.getElementById("mm-retry-all-btn"),
     matchMoreContainer: document.getElementById("mm-match-more-container"),
+    mapboxOnlyBtn: document.getElementById("map-match-mapbox-only-btn"),
   };
 }
 
@@ -130,6 +139,7 @@ let pageSignal = null;
 let failedTripsData = [];
 let failedSelection = new Set();
 let featureApi = createFeatureApi();
+let mapboxFallbackAvailable = false;
 
 // Result modes for the results phase
 const RESULT_MODES = {
@@ -212,6 +222,18 @@ function getSelectedProviderPolicy() {
   return normalizeProviderPolicy(selected?.value);
 }
 
+function setProviderPolicy(policy) {
+  const normalized = normalizeProviderPolicy(policy);
+  const input = document.querySelector(
+    `input[name="provider-policy"][value="${normalized}"]`
+  );
+  if (input) {
+    input.checked = true;
+    updateProviderPolicyUI();
+  }
+  return normalized;
+}
+
 function providerPolicyFallbackLabel(policy) {
   const normalized = normalizeProviderPolicy(policy);
   if (normalized === "valhalla_only") {
@@ -235,6 +257,9 @@ function matchingEngineLabel(value) {
 
 function updateEngineLabel(value) {
   const label = matchingEngineLabel(value);
+  if (typeof value === "object" && value) {
+    updateMapboxOnlyButton(Boolean(value.mapbox_available));
+  }
   if (elements.engineLabel) {
     elements.engineLabel.textContent = label;
   }
@@ -269,6 +294,63 @@ function providerBadgeLabel(metrics = {}) {
     return "Valhalla";
   }
   return "Mapbox";
+}
+
+function formatSummaryCount(value) {
+  return Number(value || 0).toLocaleString();
+}
+
+function updateMapboxOnlyButton(available) {
+  mapboxFallbackAvailable = Boolean(available);
+  if (!elements.mapboxOnlyBtn) {
+    return;
+  }
+  elements.mapboxOnlyBtn.disabled = !mapboxFallbackAvailable;
+  elements.mapboxOnlyBtn.title = mapboxFallbackAvailable
+    ? "Run current selection with Mapbox only"
+    : "Mapbox token missing";
+}
+
+function renderProviderSummary(summary = {}) {
+  const setText = (element, value) => {
+    if (element) {
+      element.textContent = formatSummaryCount(value);
+    }
+  };
+
+  setText(elements.summaryMatched, summary.matched);
+  setText(elements.summaryValhalla, summary.valhalla_matched);
+  setText(elements.summaryMapbox, summary.mapbox_matched);
+  setText(elements.summaryFallback, summary.mapbox_fallback_matched);
+  setText(elements.summaryFailed, summary.failed);
+  setText(elements.summarySkipped, summary.skipped);
+  if (summary.matching_engine && getSelectedProviderPolicy() === "auto") {
+    updateEngineLabel(summary.matching_engine);
+  } else {
+    updateMapboxOnlyButton(Boolean(summary.matching_engine?.mapbox_available));
+  }
+
+  if (elements.summaryFoot) {
+    const pending = formatSummaryCount(summary.unmatched);
+    const untracked = formatSummaryCount(summary.untracked_matched);
+    const mapboxOnly = formatSummaryCount(summary.mapbox_only_matched);
+    elements.summaryFoot.textContent =
+      `Pending ${pending} · Mapbox-only ${mapboxOnly} · No engine tag ${untracked}`;
+  }
+}
+
+async function loadProviderSummary() {
+  try {
+    const summary = await apiGet(CONFIG.API.mapMatchingSummary);
+    renderProviderSummary(summary || {});
+    return summary;
+  } catch (error) {
+    console.error("Failed to load map matching summary", error);
+    if (elements.summaryFoot) {
+      elements.summaryFoot.textContent = "Summary unavailable";
+    }
+    return null;
+  }
 }
 
 function formatAttemptSummary(attempts) {
@@ -420,6 +502,7 @@ function resetState() {
   _currentResultMode = RESULT_MODES.JOB;
   failedTripsData = [];
   failedSelection = new Set();
+  mapboxFallbackAvailable = false;
   destroyPreviewMap();
 }
 
@@ -617,6 +700,8 @@ async function fetchJob(jobId) {
         lastAutoPreviewJobId = jobId;
         setPhase(PHASES.RESULTS);
         loadMatchedPreview(jobId, { silent: true });
+        loadProviderSummary();
+        loadFailedTripsCount();
       } else if (
         data.stage === "failed" ||
         data.stage === "error" ||
@@ -743,9 +828,11 @@ function renderJobs(jobs) {
   }
 }
 
-function buildPayload() {
+function buildPayload({ providerPolicyOverride = null } = {}) {
   const mode = getSelectedMode();
-  const provider_policy = getSelectedProviderPolicy();
+  const provider_policy = normalizeProviderPolicy(
+    providerPolicyOverride || getSelectedProviderPolicy()
+  );
   if (mode === "unmatched") {
     return { mode: "unmatched", provider_policy };
   }
@@ -833,6 +920,18 @@ async function previewTrips() {
   }
 }
 
+async function submitMapMatchingPayload(payload) {
+  setInlineStatus(elements.submitStatus, "Starting...", "info");
+  const result = await apiPost(CONFIG.API.mapMatchingJobs, payload);
+  clearInlineStatus(elements.submitStatus);
+  notificationManager.show("Map matching started!", "success");
+  if (result?.job_id) {
+    startPolling(result.job_id);
+    loadJobs();
+  }
+  return result;
+}
+
 async function submitForm(event) {
   event.preventDefault();
   clearInlineStatus(elements.submitStatus);
@@ -852,14 +951,25 @@ async function submitForm(event) {
       payload = buildPayload();
     }
 
-    setInlineStatus(elements.submitStatus, "Starting...", "info");
-    const result = await apiPost(CONFIG.API.mapMatchingJobs, payload);
-    clearInlineStatus(elements.submitStatus);
-    notificationManager.show("Map matching started!", "success");
-    if (result?.job_id) {
-      startPolling(result.job_id);
-      loadJobs();
-    }
+    await submitMapMatchingPayload(payload);
+  } catch (error) {
+    setInlineStatus(elements.submitStatus, error.message, "danger");
+    notificationManager.show(error.message, "danger");
+  }
+}
+
+async function submitMapboxOnlySelection() {
+  clearInlineStatus(elements.submitStatus);
+  if (!mapboxFallbackAvailable) {
+    const message = "Mapbox token missing";
+    setInlineStatus(elements.submitStatus, message, "warning");
+    notificationManager.show(message, "warning");
+    return;
+  }
+  try {
+    setProviderPolicy("mapbox_only");
+    const payload = buildPayload({ providerPolicyOverride: "mapbox_only" });
+    await submitMapMatchingPayload(payload);
   } catch (error) {
     setInlineStatus(elements.submitStatus, error.message, "danger");
     notificationManager.show(error.message, "danger");
@@ -901,6 +1011,12 @@ function wireEvents(signal) {
   document.querySelectorAll('input[name="provider-policy"]').forEach((input) => {
     input.addEventListener("change", updateProviderPolicyUI, eventOptions);
   });
+
+  elements.mapboxOnlyBtn?.addEventListener(
+    "click",
+    submitMapboxOnlySelection,
+    eventOptions
+  );
 
   // New wizard: Quick pick buttons (mm-quick-pick)
   document.querySelectorAll(".mm-quick-pick").forEach((btn) => {
@@ -2330,6 +2446,7 @@ export default async function initMapMatchingPage({ signal, cleanup, api } = {})
   setPhase(PHASES.SELECT);
   setModeUI(getSelectedMode());
   updateEngineLabel(providerPolicyFallbackLabel(getSelectedProviderPolicy()));
+  updateMapboxOnlyButton(false);
   invalidatePreview();
   updateMatchedSelectionUI();
   wireEvents(signal);
@@ -2370,6 +2487,7 @@ export default async function initMapMatchingPage({ signal, cleanup, api } = {})
   }
 
   // Load failed trips count for the badge
+  loadProviderSummary();
   loadFailedTripsCount();
 
   const teardown = () => {

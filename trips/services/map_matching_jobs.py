@@ -101,6 +101,62 @@ class MapMatchingJobService:
         total = await Job.find(Job.job_type == "map_matching").count()
         return {"total": total, "jobs": jobs}
 
+    async def provider_summary(self) -> dict[str, Any]:
+        """Return persisted historical trip match totals by provider."""
+        base_query = TripQuerySpec().to_mongo_query(enforce_source=True)
+
+        def with_filters(extra: dict[str, Any]) -> dict[str, Any]:
+            query = dict(base_query)
+            query.update(extra)
+            return query
+
+        matched_filter = {"matchedGps": {"$ne": None}}
+        total = await Trip.find(base_query).count()
+        matched = await Trip.find(with_filters(matched_filter)).count()
+        valhalla_matched = await Trip.find(
+            with_filters({**matched_filter, "matchProvider": "valhalla"})
+        ).count()
+        mapbox_matched = await Trip.find(
+            with_filters({**matched_filter, "matchProvider": "mapbox"})
+        ).count()
+        mapbox_fallback_matched = await Trip.find(
+            with_filters(
+                {
+                    **matched_filter,
+                    "matchProvider": "mapbox",
+                    "matchFallbackUsed": True,
+                }
+            )
+        ).count()
+        untracked_matched = await Trip.find(
+            with_filters(
+                {
+                    **matched_filter,
+                    "matchProvider": {"$nin": ["valhalla", "mapbox"]},
+                }
+            )
+        ).count()
+        failed = await Trip.find(
+            with_filters({"matchStatus": {"$regex": "^error:", "$options": "i"}})
+        ).count()
+        skipped = await Trip.find(
+            with_filters({"matchStatus": {"$regex": "^skipped:", "$options": "i"}})
+        ).count()
+
+        return {
+            "total": total,
+            "matched": matched,
+            "unmatched": max(total - matched, 0),
+            "valhalla_matched": valhalla_matched,
+            "mapbox_matched": mapbox_matched,
+            "mapbox_fallback_matched": mapbox_fallback_matched,
+            "mapbox_only_matched": max(mapbox_matched - mapbox_fallback_matched, 0),
+            "untracked_matched": untracked_matched,
+            "failed": failed,
+            "skipped": skipped,
+            "matching_engine": MapMatchingJobRunner._matching_engine_payload("auto"),
+        }
+
     async def delete_job(
         self,
         job_id: str,

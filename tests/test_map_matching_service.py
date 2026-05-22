@@ -126,6 +126,73 @@ async def test_preflight_auto_blocks_without_any_ready_provider(
 
 
 @pytest.mark.asyncio
+async def test_provider_summary_counts_historical_matches_by_provider(
+    beanie_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    del beanie_db
+    monkeypatch.setenv("MAPBOX_MAP_MATCHING_TOKEN", "sk.test-token")
+    line = {"type": "LineString", "coordinates": [[-97.0, 32.0], [-97.1, 32.1]]}
+
+    await Trip(
+        transactionId="tx-valhalla",
+        source="bouncie",
+        matchedGps=line,
+        matchProvider="valhalla",
+    ).insert()
+    await Trip(
+        transactionId="tx-mapbox-fallback",
+        source="bouncie",
+        matchedGps=line,
+        matchProvider="mapbox",
+        matchFallbackUsed=True,
+    ).insert()
+    await Trip(
+        transactionId="tx-mapbox-only",
+        source="bouncie",
+        matchedGps=line,
+        matchProvider="mapbox",
+        matchFallbackUsed=False,
+    ).insert()
+    await Trip(
+        transactionId="tx-no-engine-tag",
+        source="bouncie",
+        matchedGps=line,
+    ).insert()
+    await Trip(
+        transactionId="tx-failed",
+        source="bouncie",
+        matchStatus="error:no-geometry",
+    ).insert()
+    await Trip(
+        transactionId="tx-skipped",
+        source="bouncie",
+        matchStatus="skipped:no-gps",
+    ).insert()
+    await Trip(transactionId="tx-unmatched", source="bouncie").insert()
+    await Trip(
+        transactionId="tx-live-ignored",
+        source="live",
+        matchedGps=line,
+        matchProvider="mapbox",
+    ).insert()
+
+    summary = await MapMatchingJobService().provider_summary()
+
+    assert summary["total"] == 7
+    assert summary["matched"] == 4
+    assert summary["unmatched"] == 3
+    assert summary["valhalla_matched"] == 1
+    assert summary["mapbox_matched"] == 2
+    assert summary["mapbox_fallback_matched"] == 1
+    assert summary["mapbox_only_matched"] == 1
+    assert summary["untracked_matched"] == 1
+    assert summary["failed"] == 1
+    assert summary["skipped"] == 1
+    assert summary["matching_engine"]["mapbox_available"] is True
+
+
+@pytest.mark.asyncio
 async def test_map_matching_job_bumps_revision_once_for_changed_batch(
     beanie_db,
     monkeypatch: pytest.MonkeyPatch,

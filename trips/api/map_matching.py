@@ -39,6 +39,13 @@ async def list_map_matching_jobs(
     return await service.list_jobs(limit=limit, offset=offset)
 
 
+@router.get("/api/map_matching/summary", response_model=dict[str, object])
+@api_route(logger)
+async def get_map_matching_summary():
+    """Return historical map matching totals by provider."""
+    return await service.provider_summary()
+
+
 @router.delete("/api/map_matching/jobs", response_model=dict[str, object])
 @api_route(logger)
 async def clear_map_matching_history(

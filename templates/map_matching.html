@@ -63,6 +63,34 @@
             <span class="mm-quick-action-badge d-none" id="mm-failed-count">0</span>
           </button>
         </div>
+        <div class="mm-match-summary" id="mm-match-summary" aria-live="polite">
+          <div class="mm-match-summary-card is-total">
+            <span>Total matched</span>
+            <strong id="mm-summary-matched">--</strong>
+          </div>
+          <div class="mm-match-summary-card">
+            <span>Valhalla</span>
+            <strong id="mm-summary-valhalla">--</strong>
+          </div>
+          <div class="mm-match-summary-card">
+            <span>Mapbox</span>
+            <strong id="mm-summary-mapbox">--</strong>
+          </div>
+          <div class="mm-match-summary-card">
+            <span>Fallback</span>
+            <strong id="mm-summary-fallback">--</strong>
+          </div>
+          <div class="mm-match-summary-card">
+            <span>Failed</span>
+            <strong id="mm-summary-failed">--</strong>
+          </div>
+          <div class="mm-match-summary-card">
+            <span>Skipped</span>
+            <strong id="mm-summary-skipped">--</strong>
+          </div>
+          <div class="mm-match-summary-foot" id="mm-summary-foot">
+          </div>
+        </div>
         <div class="mm-selection-card">
           <h2 class="mm-section-title">
 What would you like to match?
@@ -166,6 +194,10 @@ Trip ID
               <button type="button" class="btn mm-btn-secondary" id="map-match-preview-btn">
                 <i class="fas fa-eye"></i>
               Preview
+              </button>
+              <button type="button" class="btn mm-btn-mapbox" id="map-match-mapbox-only-btn">
+                <i class="fas fa-location-arrow"></i>
+              Mapbox Match
               </button>
               <button type="submit" class="btn mm-btn-primary" id="map-match-submit">
                 <i class="fas fa-sparkles"></i>

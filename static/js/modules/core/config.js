@@ -98,6 +98,7 @@ export const CONFIG = {
     failedTrips: "/api/failed_trips",
     mapMatchTrips: "/api/map_match_trips",
     mapMatchingJobs: "/api/map_matching/jobs",
+    mapMatchingSummary: "/api/map_matching/summary",
     mapMatchingJob: (id) => `/api/map_matching/jobs/${id}`,
     mapMatchingJobCancel: (id) => `/api/map_matching/jobs/${id}/cancel`,
     mapMatchingJobMatches: (id) => `/api/map_matching/jobs/${id}/matches`,
