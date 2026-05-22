@@ -133,6 +133,41 @@
 
 .area-card--job-active {
   cursor: pointer;
+  border-color: color-mix(in srgb, var(--info) 35%, var(--glass-border));
+  animation: card-job-glow 2.8s ease-in-out infinite;
+}
+
+.area-card--job-active:hover {
+  border-color: color-mix(in srgb, var(--info) 55%, var(--glass-border));
+}
+
+/* Accent stripe pulses during active job */
+.area-card--job-active::before {
+  animation: stripe-glow 2.8s ease-in-out infinite;
+}
+
+@keyframes card-job-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(var(--info-rgb) / 0%);
+  }
+
+  50% {
+    box-shadow: 0 0 0 3px rgb(var(--info-rgb) / 12%), 0 4px 20px -4px rgb(var(--info-rgb) / 18%);
+  }
+}
+
+@keyframes stripe-glow {
+  0%,
+  100% {
+    opacity: 0.65;
+    filter: brightness(1);
+  }
+
+  50% {
+    opacity: 1;
+    filter: brightness(1.4);
+  }
 }
 
 /* Accent left stripe via data-accent (mirrors .widget pattern) */
@@ -309,7 +344,87 @@
 .coverage-job-progress {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-2);
+}
+
+/* Progress track: always-visible scanning animation */
+.coverage-job-progress-bar {
+  height: 8px !important;
+  border-radius: var(--radius-pill) !important;
+  background: linear-gradient(
+    90deg,
+    rgb(var(--info-rgb) / 8%) 0%,
+    rgb(var(--info-rgb) / 16%) 50%,
+    rgb(var(--info-rgb) / 8%) 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  animation: track-scan 2.2s ease-in-out infinite;
+}
+
+.coverage-job-progress-bar .progress-bar {
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--info) 0%, var(--info-light, #79a0c0) 100%);
+  background-size: 200% 100%;
+  animation: bar-shimmer 1.8s ease-in-out infinite;
+  min-width: 0;
+}
+
+@keyframes track-scan {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes bar-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Job message text */
+.coverage-job-progress .small {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+/* Spinning arc overlay on the mini-ring during active jobs */
+.ring-spinner {
+  stroke: var(--info);
+  stroke-dasharray: 28 97.66;
+  stroke-dashoffset: 0;
+  opacity: 0.75;
+  animation: ring-spin 1.1s linear infinite;
+}
+
+@keyframes ring-spin {
+  to {
+    stroke-dashoffset: -125.66;
+  }
+}
+
+/* Dim stale progress data while rebuild is in progress */
+.area-card--job-active .area-pct-large,
+.area-card--job-active .area-pct-sub {
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
+}
+
+.area-card--job-active .area-card-stats {
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
 }
 
 .area-route-status {

@@ -48,7 +48,7 @@ function renderRouteStatus(area, routeJob) {
           <span class="badge bg-info">Generating…</span>
         </div>
         <div class="coverage-job-progress">
-          <div class="progress" style="height: 6px;">
+          <div class="progress coverage-job-progress-bar">
             <div class="progress-bar bg-info" role="progressbar"
                  style="width: ${percent}%"
                  aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"></div>
@@ -117,7 +117,7 @@ function renderStatus(area, coverageJob) {
       <div class="coverage-job-status">
         ${badge}
         <div class="coverage-job-progress">
-          <div class="progress" style="height: 6px;">
+          <div class="progress coverage-job-progress-bar">
             <div class="progress-bar" role="progressbar"
                  style="width: ${percent}%"
                  aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"></div>
@@ -329,6 +329,11 @@ function renderAreaCard(area, coverageJob, routeJob) {
                     stroke-linecap="round"
                     transform="rotate(-90 24 24)"
                     style="stroke-dasharray: ${miniCircumference.toFixed(2)}; stroke-dashoffset: ${miniOffset.toFixed(2)};" />
+            ${hasActiveCoverageJob ? `<circle class="ring-spinner"
+                    cx="24" cy="24" r="${MINI_R}"
+                    fill="none" stroke-width="4"
+                    stroke-linecap="round"
+                    transform="rotate(-90 24 24)" />` : ""}
           </svg>
         </div>
         <div class="area-progress-text">
