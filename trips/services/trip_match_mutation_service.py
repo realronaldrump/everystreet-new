@@ -110,9 +110,25 @@ class HistoricalTripMatchMutationService:
                 sync_mobility=sync_mobility,
             )
 
+        matched_geometry = matchings[0]["geometry"]
+        quality_error = MapMatchingService.validate_matched_geometry_quality(
+            match_input.coords,
+            matched_geometry,
+        )
+        if quality_error:
+            return await self.apply_match_status(
+                trip,
+                f"error:{quality_error}",
+                outcome="failed",
+                message=quality_error,
+                clear_geometry=True,
+                bump_revision=bump_revision,
+                sync_mobility=sync_mobility,
+            )
+
         return await self.apply_matched_geometry(
             trip,
-            matchings[0]["geometry"],
+            matched_geometry,
             bump_revision=bump_revision,
             sync_mobility=sync_mobility,
         )

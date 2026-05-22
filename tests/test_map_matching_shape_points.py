@@ -15,6 +15,51 @@ def test_build_shape_points_sets_break_and_via_types() -> None:
     assert shape[2]["type"] == "break"
 
 
+def test_match_quality_rejects_tiny_match_for_long_trip() -> None:
+    raw = [[-97.0, 32.0], [-97.5, 32.0]]
+    matched = {
+        "type": "LineString",
+        "coordinates": [[-97.0, 32.0], [-97.001, 32.001]],
+    }
+
+    error = MapMatchingService.validate_matched_geometry_quality(raw, matched)
+
+    assert error is not None
+    assert error.startswith("low-quality-match:too-short")
+
+
+def test_match_quality_accepts_plausible_match() -> None:
+    raw = [[-97.0, 32.0], [-97.5, 32.0]]
+    matched = {
+        "type": "LineString",
+        "coordinates": [[-97.0001, 32.0001], [-97.5001, 32.0001]],
+    }
+
+    assert MapMatchingService.validate_matched_geometry_quality(raw, matched) is None
+
+
+class _RouterStub:
+    async def trace_route(self, *_args, **_kwargs):
+        return {
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[-97.0, 32.0], [-97.001, 32.001]],
+            }
+        }
+
+
+@pytest.mark.asyncio
+async def test_map_match_coordinates_rejects_low_quality_success_response() -> None:
+    coords = [[-97.0, 32.0], [-97.5, 32.0]]
+    service = MapMatchingService()
+
+    with patch("trips.services.matching.get_router", return_value=_RouterStub()):
+        result = await service.map_match_coordinates(coords)
+
+    assert result["code"] == "Error"
+    assert result["message"].startswith("low-quality-match:too-short")
+
+
 # --- _find_overlap_trim tests ---
 
 

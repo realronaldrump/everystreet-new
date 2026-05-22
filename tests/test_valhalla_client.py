@@ -1,3 +1,5 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
 from core.exceptions import ExternalServiceException
@@ -177,3 +179,34 @@ def test_normalize_route_response_decodes_polyline_shape() -> None:
     normalized = ValhallaClient._normalize_route_response(data)
 
     assert normalized["geometry"]["coordinates"] == [[-97.0, 32.0], [-97.1, 32.1]]
+
+
+@pytest.mark.asyncio
+async def test_trace_route_includes_default_search_radius() -> None:
+    client = ValhallaClient()
+
+    with (
+        patch("core.http.valhalla.get_session", new=AsyncMock(return_value=object())),
+        patch(
+            "core.http.valhalla.request_json",
+            new=AsyncMock(
+                return_value={
+                    "trip": {
+                        "legs": [
+                            {
+                                "shape": {
+                                    "coordinates": [[-97.0, 32.0], [-97.1, 32.1]],
+                                }
+                            }
+                        ]
+                    }
+                }
+            ),
+        ) as request_json,
+    ):
+        await client.trace_route(
+            [{"lon": -97.0, "lat": 32.0}, {"lon": -97.1, "lat": 32.1}],
+        )
+
+    payload = request_json.await_args.kwargs["json"]
+    assert payload["trace_options"]["search_radius"] == 100.0

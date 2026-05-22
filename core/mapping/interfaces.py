@@ -70,6 +70,7 @@ class Router(Protocol):
         *,
         costing: str = "auto",
         use_timestamps: bool | None = None,
+        trace_options: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Snap a GPS trace to the road network (map matching)."""
         ...

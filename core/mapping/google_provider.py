@@ -467,8 +467,10 @@ class GoogleRouter(Router):
         *,
         costing: str = "auto",
         use_timestamps: bool | None = None,
+        trace_options: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        _ = (costing, use_timestamps)  # Preserved for protocol compatibility.
+        _ = (costing, use_timestamps, trace_options)
+        # Preserved for protocol compatibility.
         # Batch points. Google Snap to Roads limits to 100 points per request.
         # We need to split the shape into chunks of 100 if > 100.
         coords = []

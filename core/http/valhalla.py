@@ -14,6 +14,7 @@ from config import (
     get_valhalla_route_url,
     get_valhalla_status_url,
     get_valhalla_trace_route_url,
+    get_valhalla_trace_search_radius_meters,
 )
 from core.exceptions import ExternalServiceException
 from core.http.circuit_breaker import valhalla_breaker, with_circuit_breaker
@@ -96,12 +97,14 @@ class ValhallaClient:
         *,
         costing: str = "auto",
         use_timestamps: bool | None = None,
+        trace_options: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if len(shape) < 2:
             msg = "Valhalla trace_route requires at least two points."
             raise ExternalServiceException(
                 msg,
             )
+        merged_trace_options = self._build_trace_options(trace_options)
         payload = {
             "shape": shape,
             "costing": costing,
@@ -110,6 +113,8 @@ class ValhallaClient:
         }
         if use_timestamps is not None:
             payload["use_timestamps"] = use_timestamps
+        if merged_trace_options:
+            payload["trace_options"] = merged_trace_options
         session = await get_session()
         data = await request_json(
             "POST",
@@ -122,6 +127,24 @@ class ValhallaClient:
             msg = "Valhalla trace_route error: unexpected response"
             raise ExternalServiceException(msg, {"url": self._trace_route_url})
         return self._normalize_trace_response(data)
+
+    @staticmethod
+    def _build_trace_options(
+        trace_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        options: dict[str, Any] = {}
+        search_radius = get_valhalla_trace_search_radius_meters()
+        if search_radius > 0:
+            options["search_radius"] = search_radius
+        if trace_options:
+            options.update(
+                {
+                    key: value
+                    for key, value in trace_options.items()
+                    if value is not None
+                }
+            )
+        return options
 
     @staticmethod
     def _normalize_route_response(data: dict[str, Any]) -> dict[str, Any]:

@@ -27,6 +27,20 @@ class ValhallaConfigTests(unittest.TestCase):
                 == "http://valhalla:8002/trace_route"
             )
 
+    def test_get_valhalla_trace_search_radius_defaults_to_max_candidate_radius(
+        self,
+    ) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            assert config.get_valhalla_trace_search_radius_meters() == 100.0
+
+    def test_get_valhalla_trace_search_radius_clamps_to_valhalla_limit(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"VALHALLA_TRACE_SEARCH_RADIUS_METERS": "250"},
+            clear=True,
+        ):
+            assert config.get_valhalla_trace_search_radius_meters() == 100.0
+
 
 class NominatimConfigTests(unittest.TestCase):
     def test_get_nominatim_user_agent_defaults(self) -> None:

@@ -3,18 +3,30 @@
 from __future__ import annotations
 
 import logging
+from itertools import pairwise
 from typing import Any
 
 from core.date_utils import get_current_utc_time
 from core.exceptions import ExternalServiceException
 from core.mapping.factory import get_router
-from core.spatial import GeometryService, extract_timestamps_for_coordinates
+from core.spatial import (
+    GeometryService,
+    extract_line_sequences,
+    extract_timestamps_for_coordinates,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class MapMatchingService:
     """Service for map matching coordinates to road networks using Valhalla."""
+
+    _MIN_QUALITY_RAW_DISTANCE_MILES = 0.5
+    _MIN_MATCHED_DISTANCE_RATIO = 0.65
+    _MAX_MATCHED_DISTANCE_RATIO = 1.75
+    _MIN_ENDPOINT_TOLERANCE_MILES = 0.5
+    _MAX_ENDPOINT_TOLERANCE_MILES = 2.0
+    _ENDPOINT_TOLERANCE_RATIO = 0.10
 
     async def map_match_coordinates(
         self,
@@ -90,12 +102,19 @@ class MapMatchingService:
             timestamps if use_timestamps else None,
         )
         try:
-            return await self._execute_valhalla_request(
+            result = await self._execute_valhalla_request(
                 shape,
                 use_timestamps=use_timestamps,
             )
         except ExternalServiceException as exc:
             return {"code": "Error", "message": str(exc)}
+        if result.get("code") != "Ok":
+            return result
+        geometry = result.get("matchings", [{}])[0].get("geometry")
+        quality_error = self.validate_matched_geometry_quality(coords, geometry)
+        if quality_error:
+            return {"code": "Error", "message": quality_error}
+        return result
 
     # Number of GPS points to duplicate at each chunk boundary so that
     # Valhalla can produce a seamless match across chunks.
@@ -207,9 +226,100 @@ class MapMatchingService:
             total_points,
         )
 
-        if len(all_segments) == 1:
-            return self._create_matching_result(all_segments[0])
-        return self._create_multi_matching_result(all_segments)
+        result = (
+            self._create_matching_result(all_segments[0])
+            if len(all_segments) == 1
+            else self._create_multi_matching_result(all_segments)
+        )
+        if result.get("code") != "Ok":
+            return result
+
+        geometry = result.get("matchings", [{}])[0].get("geometry")
+        quality_error = self.validate_matched_geometry_quality(coordinates, geometry)
+        if quality_error:
+            return {"code": "Error", "message": quality_error}
+        return result
+
+    @classmethod
+    def validate_matched_geometry_quality(
+        cls,
+        input_coordinates: list[list[float]],
+        matched_geometry: dict[str, Any] | None,
+    ) -> str | None:
+        raw_line = cls._normalize_coordinate_pairs(input_coordinates)
+        if len(raw_line) < 2:
+            return None
+
+        raw_distance_miles = cls._line_distance_miles([raw_line])
+        if raw_distance_miles < cls._MIN_QUALITY_RAW_DISTANCE_MILES:
+            return None
+
+        matched_lines = extract_line_sequences(matched_geometry)
+        if not matched_lines:
+            return "low-quality-match:no-lines"
+
+        matched_distance_miles = cls._line_distance_miles(matched_lines)
+        if matched_distance_miles <= 0:
+            return "low-quality-match:empty-distance"
+
+        distance_ratio = matched_distance_miles / raw_distance_miles
+        if distance_ratio < cls._MIN_MATCHED_DISTANCE_RATIO:
+            return f"low-quality-match:too-short:{distance_ratio:.2f}"
+        if distance_ratio > cls._MAX_MATCHED_DISTANCE_RATIO:
+            return f"low-quality-match:too-long:{distance_ratio:.2f}"
+
+        start_delta = cls._coordinate_distance_miles(
+            raw_line[0],
+            matched_lines[0][0],
+        )
+        end_delta = cls._coordinate_distance_miles(
+            raw_line[-1],
+            matched_lines[-1][-1],
+        )
+        endpoint_delta = max(start_delta, end_delta)
+        endpoint_tolerance = min(
+            cls._MAX_ENDPOINT_TOLERANCE_MILES,
+            max(
+                cls._MIN_ENDPOINT_TOLERANCE_MILES,
+                raw_distance_miles * cls._ENDPOINT_TOLERANCE_RATIO,
+            ),
+        )
+        if endpoint_delta > endpoint_tolerance:
+            return f"low-quality-match:endpoint-drift:{endpoint_delta:.2f}mi"
+
+        return None
+
+    @staticmethod
+    def _normalize_coordinate_pairs(
+        coordinates: list[list[float]],
+    ) -> list[list[float]]:
+        normalized: list[list[float]] = []
+        for coord in coordinates:
+            is_valid, pair = GeometryService.validate_coordinate_pair(coord)
+            if is_valid and pair is not None:
+                normalized.append(pair)
+        return normalized
+
+    @classmethod
+    def _line_distance_miles(cls, lines: list[list[list[float]]]) -> float:
+        distance = 0.0
+        for line in lines:
+            for start, end in pairwise(line):
+                distance += cls._coordinate_distance_miles(start, end)
+        return distance
+
+    @staticmethod
+    def _coordinate_distance_miles(
+        start: list[float],
+        end: list[float],
+    ) -> float:
+        return GeometryService.haversine_distance(
+            start[0],
+            start[1],
+            end[0],
+            end[1],
+            unit="miles",
+        )
 
     @classmethod
     def _find_overlap_trim(
@@ -238,7 +348,10 @@ class MapMatchingService:
             dy = new_chunk[i][1] - tail[1]
             dist_sq = dx * dx + dy * dy
             # Phase 1: strict proximity
-            if abs(dx) < cls._OVERLAP_TRIM_TOL_DEG and abs(dy) < cls._OVERLAP_TRIM_TOL_DEG:
+            if (
+                abs(dx) < cls._OVERLAP_TRIM_TOL_DEG
+                and abs(dy) < cls._OVERLAP_TRIM_TOL_DEG
+            ):
                 best_trim = i + 1
             # Track closest point for fallback
             if dist_sq < best_dist_sq:
@@ -337,8 +450,14 @@ class MapMatchingService:
         # Cap overlap so each half is strictly smaller than the input
         overlap = min(self._CHUNK_OVERLAP, mid // 2)
         halves = [
-            (coords[: mid + overlap], timestamps[: mid + overlap] if timestamps else None),
-            (coords[mid - overlap :], timestamps[mid - overlap :] if timestamps else None),
+            (
+                coords[: mid + overlap],
+                timestamps[: mid + overlap] if timestamps else None,
+            ),
+            (
+                coords[mid - overlap :],
+                timestamps[mid - overlap :] if timestamps else None,
+            ),
         ]
 
         results: list[list[list[float]]] = []
@@ -353,7 +472,9 @@ class MapMatchingService:
                 if matched:
                     results.append(matched)
             else:
-                recovered = await self._retry_failed_chunk(sub_coords, sub_ts, depth + 1)
+                recovered = await self._retry_failed_chunk(
+                    sub_coords, sub_ts, depth + 1
+                )
                 if recovered:
                     results.append(recovered)
 
@@ -569,6 +690,19 @@ class TripMapMatcher:
             )
 
             if validated_matched_gps:
+                quality_error = MapMatchingService.validate_matched_geometry_quality(
+                    coords,
+                    validated_matched_gps,
+                )
+                if quality_error:
+                    logger.warning(
+                        "Map matching produced low-quality geometry for trip %s: %s",
+                        transaction_id,
+                        quality_error,
+                    )
+                    set_match_status(f"error:{quality_error}")
+                    return "failed", processed_data
+
                 processed_data["matchedGps"] = validated_matched_gps
                 processed_data["matched_at"] = get_current_utc_time()
                 geom_type = validated_matched_gps.get("type", "unknown")
