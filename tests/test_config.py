@@ -12,19 +12,38 @@ class ValhallaConfigTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             assert config.get_valhalla_route_url() == "http://valhalla:8002/route"
 
-    def test_get_valhalla_route_url_ignores_env(self) -> None:
+    def test_get_valhalla_route_url_uses_base_url_env(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"VALHALLA_BASE_URL": "http://100.108.79.105:8004/"},
+            clear=True,
+        ):
+            assert config.get_valhalla_route_url() == "http://100.108.79.105:8004/route"
+
+    def test_get_valhalla_route_url_uses_endpoint_env(self) -> None:
         with patch.dict(
             os.environ,
             {"VALHALLA_ROUTE_URL": "http://100.108.79.105:8004/route"},
             clear=True,
         ):
-            assert config.get_valhalla_route_url() == "http://valhalla:8002/route"
+            assert config.get_valhalla_route_url() == "http://100.108.79.105:8004/route"
 
     def test_get_valhalla_trace_route_url_defaults(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
             assert (
                 config.get_valhalla_trace_route_url()
                 == "http://valhalla:8002/trace_route"
+            )
+
+    def test_get_valhalla_trace_route_url_uses_endpoint_env(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"VALHALLA_TRACE_ROUTE_URL": "http://valhalla.test/trace_route"},
+            clear=True,
+        ):
+            assert (
+                config.get_valhalla_trace_route_url()
+                == "http://valhalla.test/trace_route"
             )
 
     def test_get_valhalla_trace_search_radius_defaults_to_max_candidate_radius(
@@ -43,6 +62,26 @@ class ValhallaConfigTests(unittest.TestCase):
 
 
 class NominatimConfigTests(unittest.TestCase):
+    def test_get_nominatim_search_url_defaults(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            assert config.get_nominatim_search_url() == "http://nominatim:8080/search"
+
+    def test_get_nominatim_search_url_uses_base_url_env(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"NOMINATIM_BASE_URL": "http://nominatim.test/"},
+            clear=True,
+        ):
+            assert config.get_nominatim_search_url() == "http://nominatim.test/search"
+
+    def test_get_nominatim_reverse_url_uses_endpoint_env(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"NOMINATIM_REVERSE_URL": "http://nominatim.test/reverse"},
+            clear=True,
+        ):
+            assert config.get_nominatim_reverse_url() == "http://nominatim.test/reverse"
+
     def test_get_nominatim_user_agent_defaults(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
             assert config.get_nominatim_user_agent() == "EveryStreet/1.0"

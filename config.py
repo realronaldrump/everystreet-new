@@ -28,7 +28,14 @@ VALHALLA_TRACE_SEARCH_RADIUS_METERS_ENV_VAR: Final[str] = (
 VALHALLA_TRACE_ROUTE_TIMEOUT_SECONDS_ENV_VAR: Final[str] = (
     "VALHALLA_TRACE_ROUTE_TIMEOUT_SECONDS"
 )
+VALHALLA_BASE_URL_ENV_VAR: Final[str] = "VALHALLA_BASE_URL"
+VALHALLA_STATUS_URL_ENV_VAR: Final[str] = "VALHALLA_STATUS_URL"
+VALHALLA_ROUTE_URL_ENV_VAR: Final[str] = "VALHALLA_ROUTE_URL"
+VALHALLA_TRACE_ROUTE_URL_ENV_VAR: Final[str] = "VALHALLA_TRACE_ROUTE_URL"
 
+NOMINATIM_BASE_URL_ENV_VAR: Final[str] = "NOMINATIM_BASE_URL"
+NOMINATIM_SEARCH_URL_ENV_VAR: Final[str] = "NOMINATIM_SEARCH_URL"
+NOMINATIM_REVERSE_URL_ENV_VAR: Final[str] = "NOMINATIM_REVERSE_URL"
 NOMINATIM_USER_AGENT_ENV_VAR: Final[str] = "NOMINATIM_USER_AGENT"
 OSM_DATA_PATH_ENV_VAR: Final[str] = "OSM_DATA_PATH"
 GEOFABRIK_MIRROR_ENV_VAR: Final[str] = "GEOFABRIK_MIRROR"
@@ -87,20 +94,38 @@ def require_mapbox_token() -> str:
     return token
 
 
+def _get_url_env(env_var: str) -> str | None:
+    value = os.getenv(env_var, "").strip()
+    return value.rstrip("/") or None
+
+
+def _append_url_path(base_url: str, path: str) -> str:
+    return f"{base_url.rstrip('/')}/{path.lstrip('/')}"
+
+
 def get_valhalla_base_url() -> str:
-    return DEFAULT_VALHALLA_URL
+    return _get_url_env(VALHALLA_BASE_URL_ENV_VAR) or DEFAULT_VALHALLA_URL
 
 
 def get_valhalla_status_url() -> str:
-    return f"{DEFAULT_VALHALLA_URL}/status"
+    return _get_url_env(VALHALLA_STATUS_URL_ENV_VAR) or _append_url_path(
+        get_valhalla_base_url(),
+        "status",
+    )
 
 
 def get_valhalla_route_url() -> str:
-    return f"{DEFAULT_VALHALLA_URL}/route"
+    return _get_url_env(VALHALLA_ROUTE_URL_ENV_VAR) or _append_url_path(
+        get_valhalla_base_url(),
+        "route",
+    )
 
 
 def get_valhalla_trace_route_url() -> str:
-    return f"{DEFAULT_VALHALLA_URL}/trace_route"
+    return _get_url_env(VALHALLA_TRACE_ROUTE_URL_ENV_VAR) or _append_url_path(
+        get_valhalla_base_url(),
+        "trace_route",
+    )
 
 
 def get_valhalla_max_shape_points() -> int:
@@ -155,15 +180,21 @@ def get_valhalla_trace_route_timeout_seconds() -> float:
 
 
 def get_nominatim_base_url() -> str:
-    return DEFAULT_NOMINATIM_URL
+    return _get_url_env(NOMINATIM_BASE_URL_ENV_VAR) or DEFAULT_NOMINATIM_URL
 
 
 def get_nominatim_search_url() -> str:
-    return f"{DEFAULT_NOMINATIM_URL}/search"
+    return _get_url_env(NOMINATIM_SEARCH_URL_ENV_VAR) or _append_url_path(
+        get_nominatim_base_url(),
+        "search",
+    )
 
 
 def get_nominatim_reverse_url() -> str:
-    return f"{DEFAULT_NOMINATIM_URL}/reverse"
+    return _get_url_env(NOMINATIM_REVERSE_URL_ENV_VAR) or _append_url_path(
+        get_nominatim_base_url(),
+        "reverse",
+    )
 
 
 def get_nominatim_user_agent() -> str:
