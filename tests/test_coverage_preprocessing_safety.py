@@ -39,7 +39,13 @@ def test_build_graph_with_limit_uses_subprocess(
 ) -> None:
     called = {"value": False}
 
-    def fake_subprocess(_osm_path, _routing_polygon, _graph_path, _max_mb) -> None:
+    def fake_subprocess(
+        _osm_path,
+        _routing_polygon,
+        _graph_path,
+        _max_mb,
+        _extract_metadata,
+    ) -> None:
         called["value"] = True
 
     monkeypatch.setattr(
@@ -61,7 +67,13 @@ def test_build_graph_with_limit_uses_subprocess(
 def test_build_graph_with_limit_raises_on_memory_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def fake_subprocess(_osm_path, _routing_polygon, _graph_path, _max_mb) -> None:
+    def fake_subprocess(
+        _osm_path,
+        _routing_polygon,
+        _graph_path,
+        _max_mb,
+        _extract_metadata,
+    ) -> None:
         msg = "Graph build failed or exceeded memory limit. Memory limit: 512 MB."
         raise RuntimeError(msg)
 
@@ -87,7 +99,13 @@ def test_build_graph_with_limit_retries_once_on_memory_error_in_auto_mode(
 ) -> None:
     calls: list[int] = []
 
-    def fake_subprocess(_osm_path, _routing_polygon, _graph_path, _max_mb) -> None:
+    def fake_subprocess(
+        _osm_path,
+        _routing_polygon,
+        _graph_path,
+        _max_mb,
+        _extract_metadata,
+    ) -> None:
         calls.append(int(_max_mb))
         if len(calls) == 1:
             msg = "Graph build failed or exceeded memory limit. Memory limit: 1012 MB."
@@ -115,7 +133,13 @@ def test_build_graph_with_limit_retries_once_on_memory_error_in_auto_mode(
 def test_build_graph_with_limit_raises_on_non_memory_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def fake_subprocess(_osm_path, _routing_polygon, _graph_path, _max_mb) -> None:
+    def fake_subprocess(
+        _osm_path,
+        _routing_polygon,
+        _graph_path,
+        _max_mb,
+        _extract_metadata,
+    ) -> None:
         msg = "boom"
         raise RuntimeError(msg)
 
