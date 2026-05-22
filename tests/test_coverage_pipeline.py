@@ -71,34 +71,39 @@ async def test_preprocess_and_ingestion_applies_public_road_filter_xml(
                 "get_configured_extract_identity",
                 _no_configured_extract,
             )
+            monkeypatch.setattr(
+                coverage_ingestion,
+                "get_configured_extract_identity",
+                _no_configured_extract,
+            )
             await preprocess_streets(location)
 
-        graph_path = graph_dir / "test-area.graphml"
-        assert graph_path.exists()
-        graph = nx.read_graphml(graph_path)
-        assert (
-            graph.graph.get(GRAPH_OSM_EXTRACT_ID_KEY)
-            == describe_osm_extract(
-                fixture_path,
-            )["id"]
-        )
+            graph_path = graph_dir / "test-area.graphml"
+            assert graph_path.exists()
+            graph = nx.read_graphml(graph_path)
+            assert (
+                graph.graph.get(GRAPH_OSM_EXTRACT_ID_KEY)
+                == describe_osm_extract(
+                    fixture_path,
+                )["id"]
+            )
 
-        area_stub = type(
-            "AreaStub",
-            (),
-            {
-                "id": "test-area",
-                "display_name": "Test Area",
-                "boundary": location["boundary"],
-                "bounding_box": None,
-                "area_version": 1,
-            },
-        )()
+            area_stub = type(
+                "AreaStub",
+                (),
+                {
+                    "id": "test-area",
+                    "display_name": "Test Area",
+                    "boundary": location["boundary"],
+                    "bounding_box": None,
+                    "area_version": 1,
+                },
+            )()
 
-        ways, filter_stats = await coverage_ingestion._load_osm_streets_from_graph(
-            area_stub,
-            None,
-        )
+            ways, filter_stats = await coverage_ingestion._load_osm_streets_from_graph(
+                area_stub,
+                None,
+            )
 
         names = {str(way["tags"].get("name") or "") for way in ways}
         assert "Driveable Way" in names
@@ -205,6 +210,11 @@ async def test_preprocess_filters_mocked_pbf_network(tmp_path: Path) -> None:
             )
             monkeypatch.setattr(
                 extract_module,
+                "get_configured_extract_identity",
+                _no_configured_extract,
+            )
+            monkeypatch.setattr(
+                coverage_ingestion,
                 "get_configured_extract_identity",
                 _no_configured_extract,
             )
