@@ -48,6 +48,9 @@ services:
     image: ${EVERYSTREET_IMAGE:-ghcr.io/realronaldrump/everystreet-new:main}
     restart: unless-stopped
     command: arq tasks.worker.WorkerSettings
+    cpus: ${WORKER_CPUS:-2.0}
+    mem_limit: ${WORKER_MEM_LIMIT:-4g}
+    memswap_limit: ${WORKER_MEMSWAP_LIMIT:-6g}
     env_file: .env
     volumes:
       - osm_extracts:/osm
@@ -151,7 +154,10 @@ services:
       PBF_PATH: /nominatim/data/region.osm.pbf
       REPLICATION_URL: ''
       NOMINATIM_IMPORT_STYLE: street
-      THREADS: '4'
+      THREADS: ${NOMINATIM_THREADS:-2}
+    cpus: ${NOMINATIM_CPUS:-2.0}
+    mem_limit: ${NOMINATIM_MEM_LIMIT:-8g}
+    memswap_limit: ${NOMINATIM_MEMSWAP_LIMIT:-10g}
     volumes:
       - nominatim_data:/var/lib/postgresql/16/main
       - nominatim_flatnode:/nominatim/flatnode
@@ -195,6 +201,9 @@ services:
       build_time_zones: 'True'
       use_tiles_ignore_pbf: 'True'
       force_rebuild: 'False'
+    cpus: ${VALHALLA_CPUS:-2.0}
+    mem_limit: ${VALHALLA_MEM_LIMIT:-6g}
+    memswap_limit: ${VALHALLA_MEMSWAP_LIMIT:-8g}
     volumes:
       - valhalla_tiles:/custom_files
       - osm_extracts:/data/osm:ro

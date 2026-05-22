@@ -8,6 +8,7 @@ configuration uses imperial units (miles/feet).
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import json
 import logging
@@ -34,6 +35,8 @@ class CoverageStats:
     trips_seen: int = 0
     geometries_used: int = 0
     points_used: int = 0
+    total_trips: int | None = None
+    skipped_reason: str | None = None
 
 
 _FEET_PER_MILE = 5280.0
@@ -89,6 +92,8 @@ async def build_trip_coverage_polygon(
     simplify_feet: float,
     max_points_per_trip: int,
     batch_size: int,
+    max_trips: int | None = None,
+    max_total_points: int | None = None,
     progress_callback: Callable[[CoverageStats], Any] | None = None,
     progress_every: int = 500,
     progress_interval: float = 2.0,
@@ -100,6 +105,12 @@ async def build_trip_coverage_polygon(
     simplify_feet = max(simplify_feet, 0.0)
     max_points_per_trip = max(int(max_points_per_trip), 1)
     batch_size = max(int(batch_size), 1)
+    max_trips = int(max_trips) if max_trips is not None else None
+    max_trips = max_trips if max_trips and max_trips > 0 else None
+    max_total_points = int(max_total_points) if max_total_points is not None else None
+    max_total_points = (
+        max_total_points if max_total_points and max_total_points > 0 else None
+    )
     progress_every = max(int(progress_every), 1)
     progress_interval = max(float(progress_interval), 0.1)
     buffer_units = buffer_miles * _FEET_PER_MILE * _PROJECTED_UNITS_PER_FOOT
@@ -122,10 +133,21 @@ async def build_trip_coverage_polygon(
         await progress_callback(stats)
 
     collection = Trip.get_pymongo_collection()
-    cursor = collection.find(
-        enforce_bouncie_source({"gps": {"$exists": True, "$ne": None}}),
-        {"gps": 1, "_id": 0},
-    )
+    trip_query = enforce_bouncie_source({"gps": {"$exists": True, "$ne": None}})
+    if max_trips is not None:
+        total_trips = await collection.count_documents(trip_query)
+        stats.total_trips = total_trips
+        if total_trips > max_trips:
+            stats.trips_seen = total_trips
+            stats.skipped_reason = (
+                f"trip count {total_trips:,} exceeds safety cap {max_trips:,}"
+            )
+            logger.warning("Skipping trip coverage polygon: %s", stats.skipped_reason)
+            if progress_callback:
+                await progress_callback(stats)
+            return None, stats
+
+    cursor = collection.find(trip_query, {"gps": 1, "_id": 0})
 
     async for doc in cursor:
         stats.trips_seen += 1
@@ -142,10 +164,23 @@ async def build_trip_coverage_polygon(
             continue
         stats.geometries_used += 1
         stats.points_used += points
+        if max_total_points is not None and stats.points_used > max_total_points:
+            stats.skipped_reason = (
+                f"point count {stats.points_used:,} exceeds safety cap "
+                f"{max_total_points:,}"
+            )
+            logger.warning(
+                "Skipping trip coverage polygon: %s",
+                stats.skipped_reason,
+            )
+            if progress_callback:
+                await progress_callback(stats)
+            return None, stats
         batch.append(projected)
         if len(batch) >= batch_size:
             combined = _merge_batch(combined, batch)
             batch = []
+            await asyncio.sleep(0)
 
         if progress_callback:
             now = time.monotonic()
@@ -156,6 +191,7 @@ async def build_trip_coverage_polygon(
                 await progress_callback(stats)
 
     combined = _merge_batch(combined, batch)
+    await asyncio.sleep(0)
     if combined is None:
         logger.warning("No trip geometries available for coverage polygon.")
         return None, stats
@@ -164,8 +200,10 @@ async def build_trip_coverage_polygon(
         await progress_callback(stats)
 
     buffered = combined.buffer(buffer_units)
+    await asyncio.sleep(0)
     if simplify_units > 0:
         buffered = buffered.simplify(simplify_units)
+        await asyncio.sleep(0)
     coverage = transform(unproject, buffered)
     return coverage, stats
 
@@ -276,6 +314,8 @@ async def build_trip_coverage_extract(
     simplify_feet: float,
     max_points_per_trip: int,
     batch_size: int,
+    max_trips: int | None = None,
+    max_total_points: int | None = None,
     coverage_dir: str | None = None,
     progress_callback: Callable[[CoverageStats], Any] | None = None,
     polygon_timeout_seconds: int | None = None,
@@ -302,6 +342,8 @@ async def build_trip_coverage_extract(
             simplify_feet=simplify_feet,
             max_points_per_trip=max_points_per_trip,
             batch_size=batch_size,
+            max_trips=max_trips,
+            max_total_points=max_total_points,
             progress_callback=progress_callback,
         )
 

@@ -49,13 +49,15 @@ logger = logging.getLogger(__name__)
 SETUP_JOB_TIMEOUT_SECONDS = int(
     os.getenv("MAP_SERVICE_SETUP_JOB_TIMEOUT_SECONDS", str(10 * 60 * 60)),
 )
-STALL_THRESHOLD_MINUTES = int(os.getenv("MAP_SERVICE_STALL_MINUTES", "25"))
+STALL_THRESHOLD_MINUTES = int(os.getenv("MAP_SERVICE_STALL_MINUTES", "5"))
 RETRY_BASE_SECONDS = int(os.getenv("MAP_SERVICE_RETRY_BASE_SECONDS", "90"))
 RETRY_MAX_SECONDS = int(os.getenv("MAP_SERVICE_RETRY_MAX_SECONDS", "900"))
 MAX_RETRIES = int(os.getenv("MAP_SERVICE_MAX_RETRIES", "3"))
 COVERAGE_BUILD_TIMEOUT_SECONDS = int(
     os.getenv("MAP_SERVICE_COVERAGE_TIMEOUT_SECONDS", "600"),
 )
+COVERAGE_MAX_TRIPS = int(os.getenv("MAP_SERVICE_COVERAGE_MAX_TRIPS", "1000"))
+COVERAGE_MAX_POINTS = int(os.getenv("MAP_SERVICE_COVERAGE_MAX_POINTS", "250000"))
 COVERAGE_EXTRACT_TIMEOUT_SECONDS = int(
     os.getenv("MAP_SERVICE_COVERAGE_EXTRACT_TIMEOUT_SECONDS", "1800"),
 )
@@ -519,7 +521,7 @@ async def _maybe_build_coverage_extract(
                 config,
                 progress,
                 status=MapServiceConfig.STATUS_DOWNLOADING,
-                message="Coverage analysis timed out; falling back to state bounds.",
+                message="Coverage analysis skipped; falling back to state bounds.",
                 overall_progress=MERGE_PROGRESS_END + 2.0,
                 phase=MapBuildProgress.PHASE_DOWNLOADING,
                 phase_progress=100.0,
@@ -589,6 +591,8 @@ async def _maybe_build_coverage_extract(
                         simplify_feet=simplify_feet,
                         max_points_per_trip=max_points,
                         batch_size=batch_size,
+                        max_trips=COVERAGE_MAX_TRIPS,
+                        max_total_points=COVERAGE_MAX_POINTS,
                         progress_callback=coverage_progress,
                         polygon_timeout_seconds=COVERAGE_BUILD_TIMEOUT_SECONDS,
                         extract_timeout_seconds=COVERAGE_EXTRACT_TIMEOUT_SECONDS,
@@ -838,19 +842,28 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
 
         coverage_geometry = None
         coverage_analysis_timed_out = False
+        coverage_analysis_skipped = False
         coverage_by_state: dict[str, Any] = {}
         if mode in {"trips", "auto"}:
 
             async def coverage_progress(stats: Any) -> None:
+                skip_reason = str(getattr(stats, "skipped_reason", "") or "").strip()
+                if skip_reason:
+                    message = (
+                        "Coverage analysis skipped; "
+                        f"{skip_reason}. Using selected state bounds."
+                    )
+                else:
+                    message = (
+                        "Analyzing trip coverage... "
+                        f"trips={stats.trips_seen:,} "
+                        f"geometries={stats.geometries_used:,}"
+                    )
                 await _update_progress(
                     config,
                     progress,
                     status=MapServiceConfig.STATUS_DOWNLOADING,
-                    message=(
-                        "Analyzing trip coverage... "
-                        f"trips={stats.trips_seen:,} "
-                        f"geometries={stats.geometries_used:,}"
-                    ),
+                    message=message,
                     overall_progress=0.0,
                     phase=MapBuildProgress.PHASE_DOWNLOADING,
                     phase_progress=0.0,
@@ -863,10 +876,14 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
                         simplify_feet=simplify_feet,
                         max_points_per_trip=max_points,
                         batch_size=batch_size,
+                        max_trips=COVERAGE_MAX_TRIPS,
+                        max_total_points=COVERAGE_MAX_POINTS,
                         progress_callback=coverage_progress,
                     ),
                     timeout=COVERAGE_BUILD_TIMEOUT_SECONDS,
                 )
+                if getattr(_stats, "skipped_reason", None):
+                    coverage_analysis_skipped = True
             except TimeoutError:
                 coverage_analysis_timed_out = True
                 logger.warning(
@@ -946,7 +963,9 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
                 progress,
                 coverage_geometry=coverage_geometry,
                 state_bounds_geometry=state_bounds_union,
-                skip_coverage_extract=coverage_analysis_timed_out,
+                skip_coverage_extract=(
+                    coverage_analysis_timed_out or coverage_analysis_skipped
+                ),
             )
             await _check_cancel(progress)
             extract_metadata = describe_osm_extract(coverage_pbf)
@@ -1070,14 +1089,21 @@ async def _monitor_map_services_logic() -> dict[str, Any]:
                 with contextlib.suppress(Exception):
                     await abort_job(progress.active_job_id)
             config.status = MapServiceConfig.STATUS_ERROR
-            config.last_error = "Setup stalled, restarting"
+            config.last_error = "Setup stalled and was stopped"
             config.last_error_at = now
-            config.message = "Setup paused, will retry automatically"
+            config.message = "Setup stopped after progress stalled"
             config.last_updated = now
             config.pending_extract_id = None
             config.pending_extract_path = None
             config.pending_extract_started_at = None
             await config.save()
+            progress.phase = MapBuildProgress.PHASE_IDLE
+            progress.phase_progress = 0.0
+            progress.total_progress = config.progress
+            progress.active_job_id = None
+            progress.cancellation_requested = False
+            progress.last_progress_at = now
+            await progress.save()
             restarted = True
 
     if (

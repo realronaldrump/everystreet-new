@@ -23,7 +23,10 @@ from beanie.exceptions import CollectionWasNotInitialized
 from config import get_nominatim_base_url, get_osm_extracts_path, get_valhalla_base_url
 from db.models import AppSettings, MapProvider
 from map_data.docker import is_docker_unavailable_error, run_docker
-from map_data.extracts import build_local_osm_artifact_status
+from map_data.extracts import (
+    build_local_osm_artifact_status,
+    try_resolved_osm_extract_metadata,
+)
 from map_data.models import GeoServiceHealth, MapServiceConfig
 from map_data.progress import MapBuildProgress
 from map_data.us_states import get_state, total_size_mb
@@ -109,6 +112,76 @@ def _clear_pending_extract_fields(config: MapServiceConfig) -> None:
     config.pending_extract_id = None
     config.pending_extract_path = None
     config.pending_extract_started_at = None
+
+
+def _metadata_datetime(metadata: dict[str, Any]) -> datetime | None:
+    mtime_ns = metadata.get("mtime_ns")
+    if isinstance(mtime_ns, int):
+        return datetime.fromtimestamp(mtime_ns / 1_000_000_000, UTC)
+    return None
+
+
+async def _adopt_existing_extract_if_healthy(
+    config: MapServiceConfig,
+    progress: MapBuildProgress,
+    selected_states: list[str],
+) -> bool:
+    metadata = try_resolved_osm_extract_metadata()
+    if not metadata:
+        return False
+
+    health = await check_service_health(force_refresh=True)
+    if not (
+        health.nominatim_healthy
+        and health.nominatim_has_data
+        and health.valhalla_healthy
+        and health.valhalla_has_data
+    ):
+        return False
+
+    now = datetime.now(UTC)
+    extract_id = str(metadata.get("id") or "")
+    extract_path = str(metadata.get("path") or "")
+
+    config.selected_states = selected_states
+    config.status = MapServiceConfig.STATUS_READY
+    config.progress = 100.0
+    config.message = "Maps ready"
+    config.geocoding_ready = True
+    config.routing_ready = True
+    config.last_error = None
+    config.last_error_at = None
+    config.retry_count = 0
+    config.last_updated = now
+    config.active_extract_id = extract_id
+    config.active_extract_algorithm = str(metadata.get("algorithm") or "")
+    config.active_extract_path = extract_path
+    config.active_extract_size_bytes = int(metadata.get("size_bytes") or 0)
+    config.active_extract_mtime_ns = int(metadata.get("mtime_ns") or 0)
+    config.active_extract_mtime = _metadata_datetime(metadata)
+    config.active_extract_built_at = now
+    config.nominatim_extract_id = extract_id
+    config.nominatim_imported_at = config.nominatim_imported_at or now
+    config.valhalla_extract_id = extract_id
+    config.valhalla_built_at = config.valhalla_built_at or now
+    _clear_pending_extract_fields(config)
+    await config.save()
+
+    progress.phase = MapBuildProgress.PHASE_IDLE
+    progress.phase_progress = 100.0
+    progress.total_progress = 100.0
+    progress.started_at = None
+    progress.last_progress_at = now
+    progress.active_job_id = None
+    progress.cancellation_requested = False
+    await progress.save()
+
+    logger.info(
+        "Adopted existing local map extract %s at %s without rebuilding services.",
+        extract_id,
+        extract_path,
+    )
+    return True
 
 
 async def _infer_compose_project(service_name: str) -> str | None:
@@ -441,6 +514,13 @@ async def configure_map_services(
     ):
         msg = "Map setup already in progress."
         raise RuntimeError(msg)
+
+    if force and await _adopt_existing_extract_if_healthy(
+        config,
+        progress,
+        selected_states,
+    ):
+        return await get_map_services_status(force_refresh=True)
 
     if (
         not force

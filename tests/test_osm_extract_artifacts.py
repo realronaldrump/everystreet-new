@@ -8,7 +8,7 @@ from db_helpers import init_mock_beanie
 
 import map_data.services as map_services
 import tasks.map_data as map_data_tasks
-from db.models import CoverageArea, Job, Street
+from db.models import CoverageArea, Job, Street, TaskConfig
 from map_data.extracts import build_local_osm_artifact_status, describe_osm_extract
 from map_data.models import GeoServiceHealth, MapServiceConfig
 from map_data.progress import MapBuildProgress
@@ -22,6 +22,7 @@ async def extract_db():
         Job,
         CoverageArea,
         Street,
+        TaskConfig,
     )
 
 
@@ -208,3 +209,77 @@ async def test_stalled_map_setup_clears_pending_extract(extract_db) -> None:
     assert refreshed.pending_extract_id is None
     assert refreshed.pending_extract_path is None
     assert refreshed.pending_extract_started_at is None
+    refreshed_progress = await MapBuildProgress.get_or_create()
+    assert refreshed_progress.phase == MapBuildProgress.PHASE_IDLE
+    assert refreshed_progress.active_job_id is None
+    assert refreshed_progress.cancellation_requested is False
+
+
+@pytest.mark.asyncio
+async def test_force_configure_adopts_healthy_existing_extract_without_rebuild(
+    extract_db,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _ = extract_db
+    pbf_path = tmp_path / "coverage.osm.pbf"
+    pbf_path.write_bytes(b"osm")
+    metadata = describe_osm_extract(pbf_path)
+
+    config = await MapServiceConfig.get_or_create()
+    config.status = MapServiceConfig.STATUS_READY
+    config.selected_states = ["TX"]
+    await config.save()
+
+    progress = await MapBuildProgress.get_or_create()
+    progress.active_job_id = "old-job"
+    await progress.save()
+
+    health = await GeoServiceHealth.get_or_create()
+    health.nominatim_healthy = True
+    health.nominatim_has_data = True
+    health.valhalla_healthy = True
+    health.valhalla_has_data = True
+    await health.save()
+
+    async def fake_check_service_health(*, force_refresh: bool = False):
+        _ = force_refresh
+        return health
+
+    async def fail_get_arq_pool():
+        raise AssertionError("force adoption should not enqueue setup")
+
+    async def fake_status(*, force_refresh: bool = False) -> dict:
+        _ = force_refresh
+        refreshed = await MapServiceConfig.get_or_create()
+        return {
+            "config": {
+                "status": refreshed.status,
+                "selected_states": refreshed.selected_states,
+                "active_extract_id": refreshed.active_extract_id,
+                "nominatim_extract_id": refreshed.nominatim_extract_id,
+                "valhalla_extract_id": refreshed.valhalla_extract_id,
+            },
+        }
+
+    monkeypatch.setattr(
+        map_services,
+        "try_resolved_osm_extract_metadata",
+        lambda: metadata,
+    )
+    monkeypatch.setattr(map_services, "check_service_health", fake_check_service_health)
+    monkeypatch.setattr(map_services, "get_arq_pool", fail_get_arq_pool)
+    monkeypatch.setattr(map_services, "get_map_services_status", fake_status)
+
+    result = await map_services.configure_map_services(["TX"], force=True)
+    refreshed = await MapServiceConfig.get_or_create()
+    refreshed_progress = await MapBuildProgress.get_or_create()
+
+    assert result["config"]["status"] == MapServiceConfig.STATUS_READY
+    assert refreshed.active_extract_id == metadata["id"]
+    assert refreshed.active_extract_path == metadata["path"]
+    assert refreshed.nominatim_extract_id == metadata["id"]
+    assert refreshed.valhalla_extract_id == metadata["id"]
+    assert refreshed.progress == 100.0
+    assert refreshed_progress.phase == MapBuildProgress.PHASE_IDLE
+    assert refreshed_progress.active_job_id is None
