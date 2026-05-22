@@ -31,6 +31,7 @@ from map_data.coverage import (
     build_trip_coverage_extract_from_geometry,
     build_trip_coverage_polygon,
 )
+from map_data.extracts import describe_osm_extract
 from map_data.geofabrik_index import (
     find_smallest_covering_extract,
     load_geofabrik_index,
@@ -150,6 +151,75 @@ def _retry_delay_seconds(retry_count: int) -> int:
     if retry_count <= 0:
         return 0
     return min(RETRY_BASE_SECONDS * (2 ** (retry_count - 1)), RETRY_MAX_SECONDS)
+
+
+def _metadata_datetime(metadata: dict[str, Any]) -> datetime | None:
+    mtime_ns = metadata.get("mtime_ns")
+    if isinstance(mtime_ns, int):
+        return datetime.fromtimestamp(mtime_ns / 1_000_000_000, UTC)
+    return None
+
+
+def _as_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+async def _mark_pending_extract(
+    config: MapServiceConfig,
+    metadata: dict[str, Any],
+) -> None:
+    config.pending_extract_id = str(metadata.get("id") or "")
+    config.pending_extract_path = str(metadata.get("path") or "")
+    config.pending_extract_started_at = datetime.now(UTC)
+    await config.save()
+
+
+async def _mark_built_extract_artifact(
+    config: MapServiceConfig,
+    metadata: dict[str, Any],
+    *,
+    artifact: str,
+) -> None:
+    now = datetime.now(UTC)
+    extract_id = str(metadata.get("id") or "")
+    if artifact == "nominatim":
+        config.nominatim_extract_id = extract_id
+        config.nominatim_imported_at = now
+    elif artifact == "valhalla":
+        config.valhalla_extract_id = extract_id
+        config.valhalla_built_at = now
+    await config.save()
+
+
+async def _activate_extract(
+    config: MapServiceConfig,
+    metadata: dict[str, Any],
+    *,
+    source_files: list[str],
+) -> None:
+    config.active_extract_id = str(metadata.get("id") or "")
+    config.active_extract_algorithm = str(metadata.get("algorithm") or "")
+    config.active_extract_path = str(metadata.get("path") or "")
+    config.active_extract_size_bytes = int(metadata.get("size_bytes") or 0)
+    config.active_extract_mtime_ns = int(metadata.get("mtime_ns") or 0)
+    config.active_extract_mtime = _metadata_datetime(metadata)
+    config.active_extract_built_at = datetime.now(UTC)
+    config.active_extract_source_files = list(source_files)
+    config.pending_extract_id = None
+    config.pending_extract_path = None
+    config.pending_extract_started_at = None
+    await config.save()
+
+
+async def _clear_pending_extract(config: MapServiceConfig) -> None:
+    config.pending_extract_id = None
+    config.pending_extract_path = None
+    config.pending_extract_started_at = None
+    await config.save()
 
 
 async def _sync_cancellation_flag(
@@ -879,12 +949,29 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
                 skip_coverage_extract=coverage_analysis_timed_out,
             )
             await _check_cancel(progress)
+            extract_metadata = describe_osm_extract(coverage_pbf)
+            await _mark_pending_extract(config, extract_metadata)
             pbf_relative = os.path.relpath(coverage_pbf, extracts_path)
 
             await _build_nominatim(pbf_relative, config, progress)
+            await _mark_built_extract_artifact(
+                config,
+                extract_metadata,
+                artifact="nominatim",
+            )
             await _check_cancel(progress)
             await _build_valhalla(pbf_relative, config, progress)
+            await _mark_built_extract_artifact(
+                config,
+                extract_metadata,
+                artifact="valhalla",
+            )
             await _check_cancel(progress)
+            await _activate_extract(
+                config,
+                extract_metadata,
+                source_files=download_result.files,
+            )
 
             await _verify_health(config, progress)
 
@@ -903,6 +990,7 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
         except MapSetupCancelledError as exc:
             config.last_error = None
             config.last_error_at = None
+            await _clear_pending_extract(config)
             await _update_progress(
                 config,
                 progress,
@@ -922,6 +1010,7 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
         except Exception as exc:
             logger.exception("Map setup failed")
             config.retry_count = min(config.retry_count + 1, MAX_RETRIES)
+            await _clear_pending_extract(config)
             retry_exhausted = config.retry_count >= MAX_RETRIES
             await _update_progress(
                 config,
@@ -971,7 +1060,7 @@ async def _monitor_map_services_logic() -> dict[str, Any]:
         MapServiceConfig.STATUS_DOWNLOADING,
         MapServiceConfig.STATUS_BUILDING,
     }:
-        last_progress = progress.last_progress_at or progress.started_at
+        last_progress = _as_utc(progress.last_progress_at or progress.started_at)
         if last_progress and now - last_progress > timedelta(
             minutes=STALL_THRESHOLD_MINUTES,
         ):
@@ -985,6 +1074,9 @@ async def _monitor_map_services_logic() -> dict[str, Any]:
             config.last_error_at = now
             config.message = "Setup paused, will retry automatically"
             config.last_updated = now
+            config.pending_extract_id = None
+            config.pending_extract_path = None
+            config.pending_extract_started_at = None
             await config.save()
             restarted = True
 
@@ -995,7 +1087,8 @@ async def _monitor_map_services_logic() -> dict[str, Any]:
         and config.selected_states
     ):
         delay_seconds = _retry_delay_seconds(config.retry_count)
-        if config.last_error_at and now >= config.last_error_at + timedelta(
+        last_error_at = _as_utc(config.last_error_at)
+        if last_error_at and now >= last_error_at + timedelta(
             seconds=delay_seconds,
         ):
             progress.phase = MapBuildProgress.PHASE_DOWNLOADING

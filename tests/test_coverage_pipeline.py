@@ -5,7 +5,12 @@ from pathlib import Path
 import networkx as nx
 import pytest
 
+import map_data.extracts as extract_module
 import street_coverage.preprocessing as preprocess_module
+from map_data.extracts import (
+    GRAPH_OSM_EXTRACT_ID_KEY,
+    describe_osm_extract,
+)
 from routing import constants as routing_constants
 from street_coverage import ingestion as coverage_ingestion
 from street_coverage.preprocessing import preprocess_streets
@@ -35,6 +40,10 @@ def _make_location(location_id: str = "test-area") -> dict:
     }
 
 
+async def _no_configured_extract() -> None:
+    return None
+
+
 @pytest.mark.asyncio
 async def test_preprocess_and_ingestion_applies_public_road_filter_xml(
     tmp_path: Path,
@@ -57,10 +66,22 @@ async def test_preprocess_and_ingestion_applies_public_road_filter_xml(
             monkeypatch.setenv("COVERAGE_GRAPH_MAX_MB", "0")
             monkeypatch.setenv("COVERAGE_PUBLIC_ROAD_FILTER_MODE", "balanced")
             monkeypatch.setenv("COVERAGE_TRACK_POLICY", "conditional")
+            monkeypatch.setattr(
+                extract_module,
+                "get_configured_extract_identity",
+                _no_configured_extract,
+            )
             await preprocess_streets(location)
 
         graph_path = graph_dir / "test-area.graphml"
         assert graph_path.exists()
+        graph = nx.read_graphml(graph_path)
+        assert (
+            graph.graph.get(GRAPH_OSM_EXTRACT_ID_KEY)
+            == describe_osm_extract(
+                fixture_path,
+            )["id"]
+        )
 
         area_stub = type(
             "AreaStub",
@@ -94,6 +115,10 @@ async def test_preprocess_and_ingestion_applies_public_road_filter_xml(
         assert "Road Area Polygon" not in names
 
         graph_filter_stats = filter_stats.get("graph_build_filter_stats") or {}
+        assert (
+            filter_stats.get("osm_extract_id")
+            == describe_osm_extract(fixture_path)["id"]
+        )
         assert int(graph_filter_stats.get("excluded_count", 0)) >= 6
         assert (
             graph_filter_stats.get("excluded_by_reason", {}).get(
@@ -177,6 +202,11 @@ async def test_preprocess_filters_mocked_pbf_network(tmp_path: Path) -> None:
                 preprocess_module,
                 "_graph_from_pbf",
                 fake_graph_from_pbf,
+            )
+            monkeypatch.setattr(
+                extract_module,
+                "get_configured_extract_identity",
+                _no_configured_extract,
             )
 
             location = _make_location("pbf-area")
@@ -269,6 +299,82 @@ async def test_graph_rebuilds_when_filter_signature_changes(tmp_path: Path) -> N
         assert rebuilt.graph.get(GRAPH_ROAD_FILTER_SIGNATURE_KEY) == (
             get_public_road_filter_signature()
         )
+    finally:
+        routing_constants.GRAPH_STORAGE_DIR = original_graph_dir
+        preprocess_module.GRAPH_STORAGE_DIR = original_graph_dir
+
+
+@pytest.mark.asyncio
+async def test_graph_rebuilds_when_osm_extract_id_changes(tmp_path: Path) -> None:
+    graph_dir = tmp_path / "graphs"
+    graph_dir.mkdir(parents=True, exist_ok=True)
+
+    original_graph_dir = routing_constants.GRAPH_STORAGE_DIR
+    routing_constants.GRAPH_STORAGE_DIR = graph_dir
+    preprocess_module.GRAPH_STORAGE_DIR = graph_dir
+
+    try:
+        stale_graph_path = graph_dir / "extract-area.graphml"
+        stale_graph = nx.MultiDiGraph()
+        stale_graph.add_node(1, x=-97.1460, y=31.5490)
+        stale_graph.add_node(2, x=-97.1455, y=31.5490)
+        stale_graph.add_edge(1, 2, key=0, highway="residential", osmid=10)
+        stale_graph.graph[GRAPH_ROAD_FILTER_SIGNATURE_KEY] = (
+            get_public_road_filter_signature()
+        )
+        stale_graph.graph[GRAPH_OSM_EXTRACT_ID_KEY] = "old-extract"
+        nx.write_graphml(stale_graph, stale_graph_path)
+
+        called = {"value": False}
+
+        async def fake_preprocess_streets(location: dict, task_id: str | None = None):
+            _ = location
+            _ = task_id
+            called["value"] = True
+            graph = nx.MultiDiGraph()
+            graph.add_node(1, x=-97.1460, y=31.5490)
+            graph.add_node(2, x=-97.1455, y=31.5490)
+            graph.add_edge(1, 2, key=0, highway="residential", osmid=99)
+            graph.graph[GRAPH_ROAD_FILTER_SIGNATURE_KEY] = (
+                get_public_road_filter_signature()
+            )
+            graph.graph[GRAPH_OSM_EXTRACT_ID_KEY] = "new-extract"
+            nx.write_graphml(graph, stale_graph_path)
+            return graph, stale_graph_path
+
+        async def fake_extract_identity():
+            return {"id": "new-extract"}
+
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            monkeypatch.setattr(
+                preprocess_module,
+                "preprocess_streets",
+                fake_preprocess_streets,
+            )
+            monkeypatch.setattr(
+                coverage_ingestion,
+                "get_configured_extract_identity",
+                fake_extract_identity,
+            )
+
+            area_stub = type(
+                "AreaStub",
+                (),
+                {
+                    "id": "extract-area",
+                    "display_name": "Extract Test Area",
+                    "boundary": _make_location("extract-area")["boundary"],
+                    "bounding_box": None,
+                    "area_version": 1,
+                },
+            )()
+            graph_path = await coverage_ingestion._ensure_area_graph(area_stub, None)
+
+        assert graph_path == stale_graph_path
+        assert called["value"] is True
+
+        rebuilt = nx.read_graphml(stale_graph_path)
+        assert rebuilt.graph.get(GRAPH_OSM_EXTRACT_ID_KEY) == "new-extract"
     finally:
         routing_constants.GRAPH_STORAGE_DIR = original_graph_dir
         preprocess_module.GRAPH_STORAGE_DIR = original_graph_dir

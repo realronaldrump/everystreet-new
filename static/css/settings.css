@@ -1211,6 +1211,154 @@
   margin-top: var(--space-1);
 }
 
+/* Local OSM Extract Status */
+.local-osm-status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
+}
+
+.local-osm-status[data-status="current"] {
+  border-color: rgb(var(--success-rgb) / 25%);
+}
+
+.local-osm-status[data-status="stale"],
+.local-osm-status[data-status="missing"] {
+  border-color: rgb(var(--warning-rgb) / 35%);
+}
+
+.local-osm-header,
+.local-osm-meta,
+.local-osm-artifacts,
+.local-osm-rebuild {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.local-osm-header {
+  justify-content: space-between;
+}
+
+.local-osm-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.local-osm-title i,
+.local-osm-artifact i {
+  color: var(--text-tertiary);
+}
+
+.local-osm-status[data-status="current"] .local-osm-title i,
+.local-osm-artifact[data-status="current"] i {
+  color: var(--success);
+}
+
+.local-osm-status[data-status="stale"] .local-osm-title i,
+.local-osm-status[data-status="missing"] .local-osm-title i,
+.local-osm-artifact[data-status="stale"] i,
+.local-osm-artifact[data-status="missing"] i {
+  color: var(--warning);
+}
+
+.local-osm-status[data-status="building"] .local-osm-title i,
+.local-osm-artifact[data-status="building"] i {
+  color: var(--info);
+}
+
+.local-osm-pill {
+  flex: 0 0 auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  background: var(--surface-2);
+}
+
+.local-osm-pill[data-status="current"] {
+  border-color: rgb(var(--success-rgb) / 25%);
+  color: var(--success);
+  background: rgb(var(--success-rgb) / 8%);
+}
+
+.local-osm-pill[data-status="stale"],
+.local-osm-pill[data-status="missing"] {
+  border-color: rgb(var(--warning-rgb) / 30%);
+  color: var(--warning);
+  background: rgb(var(--warning-rgb) / 10%);
+}
+
+.local-osm-meta {
+  flex-wrap: wrap;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+.local-osm-meta span {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-2);
+  background: var(--surface-2);
+}
+
+.local-osm-artifacts {
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.local-osm-artifact {
+  flex: 1 1 170px;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--surface-2);
+}
+
+.local-osm-artifact-label {
+  display: block;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.local-osm-artifact small {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+  margin-top: var(--space-1);
+}
+
+.local-osm-rebuild {
+  flex-wrap: wrap;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: rgb(var(--warning-rgb) / 10%);
+  color: var(--warning);
+  font-size: var(--font-size-sm);
+}
+
+.local-osm-rebuild a {
+  color: inherit;
+  font-weight: var(--font-weight-semibold);
+}
+
 /* Empty State */
 .map-services-empty {
   display: flex;

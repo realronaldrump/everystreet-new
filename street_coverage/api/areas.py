@@ -10,6 +10,7 @@ Simplified API for managing coverage areas:
 """
 
 import logging
+from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
 from beanie import PydanticObjectId
@@ -133,6 +134,9 @@ class AreaResponse(BaseModel):
     has_optimal_route: bool
     road_filter_version: str | None = None
     road_filter_stats: dict[str, Any] = Field(default_factory=dict)
+    osm_extract_id: str | None = None
+    graph_extract_id: str | None = None
+    coverage_backfill_extract_id: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -613,6 +617,9 @@ async def list_areas():
                 has_optimal_route=area.optimal_route is not None,
                 road_filter_version=area.road_filter_version,
                 road_filter_stats=area.road_filter_stats or {},
+                osm_extract_id=area.osm_extract_id,
+                graph_extract_id=area.graph_extract_id,
+                coverage_backfill_extract_id=area.coverage_backfill_extract_id,
             )
             for area in areas
         ]
@@ -665,6 +672,9 @@ async def get_area(area_id: PydanticObjectId):
             has_optimal_route=area.optimal_route is not None,
             road_filter_version=area.road_filter_version,
             road_filter_stats=area.road_filter_stats or {},
+            osm_extract_id=area.osm_extract_id,
+            graph_extract_id=area.graph_extract_id,
+            coverage_backfill_extract_id=area.coverage_backfill_extract_id,
         ),
         boundary=area.boundary if area.boundary else None,
         bounding_box=area.bounding_box if area.bounding_box else None,
@@ -856,6 +866,12 @@ async def trigger_backfill(
         logger.info("Starting backfill for area %s", area.display_name)
         segments_updated = await backfill_coverage_for_area(
             area_id, trip_mode=trip_mode
+        )
+        await area.set(
+            {
+                "coverage_backfill_extract_id": area.osm_extract_id,
+                "coverage_backfilled_at": datetime.now(UTC),
+            },
         )
     except Exception as e:
         logger.exception("Error during backfill for area %s", area.display_name)

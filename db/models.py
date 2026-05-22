@@ -595,6 +595,12 @@ class CoverageArea(Document):
     osm_fetched_at: datetime | None = None
     road_filter_version: str | None = None
     road_filter_stats: dict[str, Any] = Field(default_factory=dict)
+    osm_extract_id: str | None = None
+    graph_extract_id: str | None = None
+    graph_built_at: datetime | None = None
+    graph_path: str | None = None
+    coverage_backfill_extract_id: str | None = None
+    coverage_backfilled_at: datetime | None = None
     last_error: str | None = None
     optimal_route: dict[str, Any] | None = None
     optimal_route_generated_at: datetime | None = None
@@ -607,6 +613,10 @@ class CoverageArea(Document):
             IndexModel(
                 [("osm_fetched_at", 1)],
                 name="coverage_areas_osm_fetched_idx",
+            ),
+            IndexModel(
+                [("osm_extract_id", 1)],
+                name="coverage_areas_osm_extract_idx",
             ),
         ]
 
@@ -630,6 +640,7 @@ class Street(Document):
     osm_id: int | None = None
     length_miles: float = 0.0
     graph_edge: dict[str, Any] | None = None
+    osm_extract_id: str | None = None
 
     class Settings:
         name = "streets"
@@ -646,6 +657,10 @@ class Street(Document):
             IndexModel(
                 [("area_id", 1), ("area_version", 1)],
                 name="streets_area_version_idx",
+            ),
+            IndexModel(
+                [("area_id", 1), ("area_version", 1), ("osm_extract_id", 1)],
+                name="streets_area_version_extract_idx",
             ),
         ]
 

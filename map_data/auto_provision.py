@@ -16,6 +16,7 @@ from typing import Any
 
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import MapProvider
+from map_data.extracts import build_local_osm_artifact_status
 from map_data.models import MapServiceConfig
 from map_data.progress import MapBuildProgress
 from map_data.us_states import get_state, list_states
@@ -452,6 +453,12 @@ async def get_auto_provision_status() -> dict[str, Any]:
         container_name = (nominatim_container.get("container") or {}).get("name")
         nominatim_progress = await _get_nominatim_progress_snapshot(container_name)
 
+    local_osm = await build_local_osm_artifact_status(
+        config=config,
+        health=health,
+        is_building=is_building,
+    )
+
     return {
         "mode": "automatic",
         "status": config.status,
@@ -505,6 +512,7 @@ async def get_auto_provision_status() -> dict[str, Any]:
                 "container": valhalla_container.get("container"),
             },
         },
+        "local_osm": local_osm,
         "last_error": config.last_error,
         "retry_count": config.retry_count,
         "max_retries": MAX_RETRIES,

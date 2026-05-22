@@ -28,6 +28,10 @@ from core.spatial import (
     get_local_transformers,
 )
 from db.models import CoverageArea, CoverageState, Job, Street
+from map_data.extracts import (
+    extract_graph_metadata,
+    get_configured_extract_identity,
+)
 from map_data.us_states import get_state
 from street_coverage.constants import (
     BATCH_SIZE,
@@ -235,6 +239,12 @@ async def rebuild_area(
     area.last_error = None
     area.road_filter_version = None
     area.road_filter_stats = {}
+    area.osm_extract_id = None
+    area.graph_extract_id = None
+    area.graph_built_at = None
+    area.graph_path = None
+    area.coverage_backfill_extract_id = None
+    area.coverage_backfilled_at = None
     area.last_synced = None
     area.total_length_miles = 0.0
     area.driveable_length_miles = 0.0
@@ -493,12 +503,20 @@ async def _run_backfill_pipeline(
             progress_callback=handle_backfill_progress,
             trip_mode=selected_trip_mode,
         )
+        backfilled_at = datetime.now(UTC)
+        await area.set(
+            {
+                "coverage_backfill_extract_id": area.osm_extract_id,
+                "coverage_backfilled_at": backfilled_at,
+            },
+        )
 
         result = {
             "segments_updated": segments_updated,
             "processed_trips": int(backfill_state.get("processed_trips", 0) or 0),
             "matched_trips": int(backfill_state.get("matched_trips", 0) or 0),
             "trip_mode": selected_trip_mode,
+            "osm_extract_id": area.osm_extract_id,
         }
 
         await update_job(
@@ -708,6 +726,12 @@ async def _run_ingestion_pipeline(
             excluded,
             road_filter_stats.get("ambiguous_included_count", 0),
         )
+        osm_extract_id = str(road_filter_stats.get("osm_extract_id") or "").strip()
+        graph_built_at_raw = str(road_filter_stats.get("graph_built_at") or "").strip()
+        graph_built_at = None
+        if graph_built_at_raw:
+            with contextlib.suppress(ValueError):
+                graph_built_at = datetime.fromisoformat(graph_built_at_raw)
         await update_job(
             message=f"Loaded {len(osm_ways):,} streets ({excluded:,} non-public excluded)",
             stage_key="graph",
@@ -743,6 +767,7 @@ async def _run_ingestion_pipeline(
             osm_ways,
             area_doc_id,
             area.area_version,
+            osm_extract_id or None,
         )
         segment_ms = (datetime.now(UTC) - stage_start).total_seconds() * 1000
 
@@ -818,6 +843,12 @@ async def _run_ingestion_pipeline(
                     get_public_road_filter_signature(),
                 ),
                 "road_filter_stats": road_filter_stats,
+                "osm_extract_id": osm_extract_id or None,
+                "graph_extract_id": road_filter_stats.get("graph_extract_id")
+                or osm_extract_id
+                or None,
+                "graph_built_at": graph_built_at,
+                "graph_path": road_filter_stats.get("graph_path"),
             },
         )
         stats_area = await update_area_stats(area_doc_id)
@@ -967,6 +998,7 @@ async def _run_ingestion_pipeline(
                 backfill_state.get("segments_updated", 0) or 0,
             ),
             "backfill_trip_mode": selected_trip_mode,
+            "osm_extract_id": osm_extract_id or None,
             "pipeline_duration_ms": round(pipeline_ms),
             "segments_total": len(segments),
             "total_miles": round(total_miles, 2),
@@ -988,6 +1020,8 @@ async def _run_ingestion_pipeline(
                 "status": "ready",
                 "health": "healthy",
                 "last_error": None,
+                "coverage_backfill_extract_id": osm_extract_id or None,
+                "coverage_backfilled_at": datetime.now(UTC),
             },
         )
 
@@ -1391,6 +1425,8 @@ async def _ensure_area_graph(
     from routing.constants import GRAPH_STORAGE_DIR
 
     graph_path = GRAPH_STORAGE_DIR / f"{area.id}.graphml"
+    configured_extract = await get_configured_extract_identity()
+    expected_extract_id = str((configured_extract or {}).get("id") or "").strip()
     if graph_path.exists():
         from core.osmnx_graphml import load_graphml_robust
 
@@ -1400,19 +1436,40 @@ async def _ensure_area_graph(
             stored_signature = str(
                 graph.graph.get(GRAPH_ROAD_FILTER_SIGNATURE_KEY) or "",
             ).strip()
-            if stored_signature == expected_signature:
-                return graph_path
-            logger.info(
-                (
-                    "Graph road-filter signature mismatch for %s "
-                    "(stored=%s expected=%s); rebuilding graph."
-                ),
-                area.display_name,
-                stored_signature or "missing",
-                expected_signature,
+            graph_metadata = extract_graph_metadata(graph.graph)
+            stored_extract_id = str(graph_metadata.get("id") or "").strip()
+            extract_matches = (
+                not expected_extract_id or stored_extract_id == expected_extract_id
             )
+            if stored_signature == expected_signature and extract_matches:
+                return graph_path
+            if expected_extract_id and stored_extract_id != expected_extract_id:
+                logger.info(
+                    (
+                        "Graph OSM extract mismatch for %s "
+                        "(stored=%s expected=%s); rebuilding graph."
+                    ),
+                    area.display_name,
+                    stored_extract_id or "missing",
+                    expected_extract_id,
+                )
+            if stored_signature == expected_signature:
+                logger.info(
+                    "Graph metadata mismatch for %s; rebuilding graph.",
+                    area.display_name,
+                )
+            else:
+                logger.info(
+                    (
+                        "Graph road-filter signature mismatch for %s "
+                        "(stored=%s expected=%s); rebuilding graph."
+                    ),
+                    area.display_name,
+                    stored_signature or "missing",
+                    expected_signature,
+                )
         except Exception:
-            logger.warning(
+            logger.info(
                 "Unable to validate existing graph metadata for %s; rebuilding.",
                 area.display_name,
                 exc_info=True,
@@ -1443,7 +1500,7 @@ async def _load_osm_streets_from_graph(
     area: Any,
     job_id: PydanticObjectId | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Load street ways from the area's OSM graph (local extract or Overpass)."""
+    """Load street ways from the area's locally derived OSM graph."""
     graph_path = await _ensure_area_graph(area, job_id)
 
     boundary_geojson = area.boundary
@@ -1522,6 +1579,15 @@ async def _load_osm_streets_from_graph(
         audit_stats = dict(graph_stats) if graph_stats else {}
         if audit_stats:
             audit_stats.setdefault("graph_build_filter_stats", dict(graph_stats))
+        graph_metadata = extract_graph_metadata(G.graph)
+        if graph_metadata.get("id"):
+            audit_stats["osm_extract_id"] = graph_metadata["id"]
+            audit_stats["graph_extract_id"] = graph_metadata["id"]
+        if graph_metadata.get("path"):
+            audit_stats["osm_extract_path"] = graph_metadata["path"]
+        if graph_metadata.get("built_at"):
+            audit_stats["graph_built_at"] = graph_metadata["built_at"]
+        audit_stats["graph_path"] = str(graph_path)
 
         return result, audit_stats
 
@@ -1532,6 +1598,7 @@ def _segment_streets(
     osm_ways: list[dict[str, Any]],
     area_id: PydanticObjectId,
     area_version: int,
+    osm_extract_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """
     Segment OSM ways into coverage segments.
@@ -1581,6 +1648,7 @@ def _segment_streets(
                         "highway_type": highway_type,
                         "osm_id": osm_id,
                         "length_miles": geodesic_length_meters(line) * METERS_TO_MILES,
+                        "osm_extract_id": osm_extract_id,
                     },
                 )
                 seq += 1
@@ -1615,6 +1683,7 @@ def _segment_streets(
                             "osm_id": osm_id,
                             "length_miles": geodesic_length_meters(segment_wgs)
                             * METERS_TO_MILES,
+                            "osm_extract_id": osm_extract_id,
                         },
                     )
                     seq += 1

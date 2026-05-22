@@ -25,6 +25,24 @@ class MapServiceConfig(Document):
     last_updated: datetime | None = None
     last_error_at: datetime | None = None
 
+    active_extract_id: str | None = None
+    active_extract_algorithm: str | None = None
+    active_extract_path: str | None = None
+    active_extract_size_bytes: int | None = None
+    active_extract_mtime_ns: int | None = None
+    active_extract_mtime: datetime | None = None
+    active_extract_built_at: datetime | None = None
+    active_extract_source_files: list[str] = Field(default_factory=list)
+
+    pending_extract_id: str | None = None
+    pending_extract_path: str | None = None
+    pending_extract_started_at: datetime | None = None
+
+    nominatim_extract_id: str | None = None
+    nominatim_imported_at: datetime | None = None
+    valhalla_extract_id: str | None = None
+    valhalla_built_at: datetime | None = None
+
     STATUS_NOT_CONFIGURED: ClassVar[str] = "not_configured"
     STATUS_DOWNLOADING: ClassVar[str] = "downloading"
     STATUS_BUILDING: ClassVar[str] = "building"

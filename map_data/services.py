@@ -23,6 +23,7 @@ from beanie.exceptions import CollectionWasNotInitialized
 from config import get_nominatim_base_url, get_osm_extracts_path, get_valhalla_base_url
 from db.models import AppSettings, MapProvider
 from map_data.docker import is_docker_unavailable_error, run_docker
+from map_data.extracts import build_local_osm_artifact_status
 from map_data.models import GeoServiceHealth, MapServiceConfig
 from map_data.progress import MapBuildProgress
 from map_data.us_states import get_state, total_size_mb
@@ -102,6 +103,12 @@ def _cleanup_map_setup_artifacts() -> dict[str, int]:
                 removed["coverage"] += 1
 
     return removed
+
+
+def _clear_pending_extract_fields(config: MapServiceConfig) -> None:
+    config.pending_extract_id = None
+    config.pending_extract_path = None
+    config.pending_extract_started_at = None
 
 
 async def _infer_compose_project(service_name: str) -> str | None:
@@ -453,6 +460,9 @@ async def configure_map_services(
     config.last_error_at = None
     config.retry_count = 0
     config.last_updated = now
+    config.pending_extract_id = None
+    config.pending_extract_path = None
+    config.pending_extract_started_at = None
     await config.save()
 
     progress.phase = MapBuildProgress.PHASE_DOWNLOADING
@@ -505,6 +515,7 @@ async def cancel_map_setup() -> dict[str, Any]:
     config.last_error_at = None
     config.retry_count = 0
     config.last_updated = now
+    _clear_pending_extract_fields(config)
     await config.save()
 
     progress.phase = MapBuildProgress.PHASE_IDLE
@@ -630,6 +641,15 @@ async def get_map_services_status(force_refresh: bool = False) -> dict[str, Any]
     valhalla_container = await check_container_status("valhalla")
     geocoding_ready = bool(health.nominatim_healthy)
     routing_ready = bool(health.valhalla_healthy)
+    is_building = config.status in {
+        MapServiceConfig.STATUS_DOWNLOADING,
+        MapServiceConfig.STATUS_BUILDING,
+    }
+    local_osm = await build_local_osm_artifact_status(
+        config=config,
+        health=health,
+        is_building=is_building,
+    )
 
     if config.selected_states:
         if config.geocoding_ready != geocoding_ready:
@@ -706,5 +726,6 @@ async def get_map_services_status(force_refresh: bool = False) -> dict[str, Any]
                 "container": valhalla_container.get("container"),
             },
         },
+        "local_osm": local_osm,
         "total_size_mb": total_size,
     }

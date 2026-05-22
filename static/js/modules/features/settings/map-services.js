@@ -8,7 +8,10 @@
 
 import apiClient from "../../core/api-client.js";
 import notificationManager from "../../ui/notifications.js";
-import { formatBytes as formatBytesCanonical, formatDurationMs } from "../../utils/formatting.js";
+import {
+  formatBytes as formatBytesCanonical,
+  formatDurationMs,
+} from "../../utils/formatting.js";
 import { escapeHtml } from "../../utils.js";
 
 const MAP_SERVICES_API = "/api/map-services";
@@ -149,6 +152,7 @@ function renderAutoStatus(status) {
     <div class="map-services-auto">
       ${renderStatusHeader(status)}
       ${renderServicesStatus(status)}
+      ${renderLocalOsmStatus(status)}
       ${renderStatesCoverage(status)}
       ${renderProgressSection(status)}
       ${renderActions(status)}
@@ -280,6 +284,153 @@ function renderServicesStatus(status) {
       </div>
     </div>
   `;
+}
+
+function renderLocalOsmStatus(status) {
+  const local = status.local_osm || {};
+  const active = local.active_extract || {};
+  const artifacts = Array.isArray(local.artifacts) ? local.artifacts : [];
+  const activeStatus = local.active_extract_status || local.status || "not_configured";
+  const overallStatus = local.status || activeStatus;
+  const extractId = active.id ? shortExtractId(active.id) : "No active extract";
+  const extractPath = active.path || "";
+  const modified = active.mtime ? timeAgo(active.mtime) : null;
+  const size = Number(active.size_bytes);
+  const sizeLabel = Number.isFinite(size) && size > 0 ? formatBytes(size) : null;
+  const coverage = local.coverage || {};
+  const rebuildCount = Number(coverage.areas_needing_rebuild_count || 0);
+
+  return `
+    <div class="local-osm-status" data-status="${escapeHtml(overallStatus)}">
+      <div class="local-osm-header">
+        <div class="local-osm-title">
+          <i class="fas ${statusIcon(overallStatus)}"></i>
+          <span>Local OSM Extract</span>
+        </div>
+        <span class="local-osm-pill" data-status="${escapeHtml(activeStatus)}">
+          ${escapeHtml(statusLabel(activeStatus))}
+        </span>
+      </div>
+      <div class="local-osm-meta">
+        <span>${escapeHtml(extractId)}</span>
+        ${sizeLabel ? `<span>${escapeHtml(sizeLabel)}</span>` : ""}
+        ${modified ? `<span>Modified ${escapeHtml(modified)}</span>` : ""}
+        ${extractPath ? `<span title="${escapeHtml(extractPath)}">${escapeHtml(compactPath(extractPath))}</span>` : ""}
+      </div>
+      ${
+        artifacts.length
+          ? `
+            <div class="local-osm-artifacts">
+              ${artifacts.map(renderOsmArtifact).join("")}
+            </div>
+          `
+          : ""
+      }
+      ${
+        rebuildCount > 0
+          ? `
+            <div class="local-osm-rebuild">
+              <i class="fas fa-tools"></i>
+              <span>${rebuildCount} coverage area${rebuildCount === 1 ? "" : "s"} need rebuild/backfill after the active extract changed.</span>
+              <a href="/coverage-management">Open Coverage Management</a>
+            </div>
+          `
+          : ""
+      }
+    </div>
+  `;
+}
+
+function renderOsmArtifact(artifact) {
+  const status = artifact.status || "missing";
+  return `
+    <div class="local-osm-artifact" data-status="${escapeHtml(status)}">
+      <i class="fas ${statusIcon(status)}"></i>
+      <div>
+        <span class="local-osm-artifact-label">${escapeHtml(artifact.label || artifact.key || "Artifact")}</span>
+        <small>${escapeHtml(artifactSummary(artifact))}</small>
+      </div>
+    </div>
+  `;
+}
+
+function artifactSummary(artifact) {
+  const summary = artifact.summary || {};
+  const total =
+    Number(summary.current || 0) +
+    Number(summary.stale || 0) +
+    Number(summary.missing || 0);
+  if (total > 0) {
+    const parts = [];
+    if (summary.current) {
+      parts.push(`${summary.current} current`);
+    }
+    if (summary.stale) {
+      parts.push(`${summary.stale} stale`);
+    }
+    if (summary.missing) {
+      parts.push(`${summary.missing} missing`);
+    }
+    return parts.join(", ");
+  }
+  if (artifact.extract_id) {
+    return shortExtractId(artifact.extract_id);
+  }
+  return statusLabel(artifact.status || "missing");
+}
+
+function statusLabel(status) {
+  switch (status) {
+    case "current":
+      return "Current";
+    case "stale":
+      return "Needs rebuild";
+    case "missing":
+      return "Missing";
+    case "building":
+      return "Building";
+    case "not_configured":
+      return "Not configured";
+    case "not_applicable":
+      return "Not needed";
+    default:
+      return "Unknown";
+  }
+}
+
+function statusIcon(status) {
+  switch (status) {
+    case "current":
+      return "fa-check-circle";
+    case "stale":
+      return "fa-exclamation-triangle";
+    case "building":
+      return "fa-spinner fa-spin";
+    case "missing":
+      return "fa-times-circle";
+    case "not_applicable":
+      return "fa-minus-circle";
+    default:
+      return "fa-circle";
+  }
+}
+
+function shortExtractId(value) {
+  const text = String(value || "");
+  if (text.length <= 12) {
+    return text;
+  }
+  return `${text.slice(0, 8)}…${text.slice(-4)}`;
+}
+
+function compactPath(path) {
+  const parts = String(path || "")
+    .split("/")
+    .filter(Boolean);
+  if (parts.length <= 3) {
+    return path;
+  }
+  return `…/${parts.slice(-3).join("/")}`;
 }
 
 /**
