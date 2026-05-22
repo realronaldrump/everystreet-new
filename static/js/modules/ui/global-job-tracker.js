@@ -752,6 +752,10 @@ function updateBadgeUI() {
   if (pctEl) {
     pctEl.textContent = `${Math.round(activeJob?.progress || 0)}%`;
   }
+  badge.style.setProperty(
+    "--minimized-progress",
+    `${Math.max(0, Math.min(100, Math.round(activeJob?.progress || 0)))}%`
+  );
 }
 
 // =============================================================================

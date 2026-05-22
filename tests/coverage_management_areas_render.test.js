@@ -190,6 +190,76 @@ test("renderAreaCards separates route progress from coverage rebuild progress", 
   }
 });
 
+test("renderAreaCards keeps active coverage jobs visible even when area status is ready", async () => {
+  const grid = { innerHTML: "", style: { display: "none" } };
+  const loading = { style: { display: "block" } };
+  const emptyState = { classList: { add: () => {}, remove: () => {} } };
+
+  const originalDocument = global.document;
+  const originalWindow = global.window;
+  global.document = {
+    readyState: "loading",
+    addEventListener: () => {},
+    getElementById: (id) => {
+      if (id === "area-cards-grid") return grid;
+      if (id === "area-cards-loading") return loading;
+      if (id === "area-empty-state") return emptyState;
+      return null;
+    },
+  };
+  global.window = {
+    matchMedia: () => ({ matches: false }),
+  };
+
+  try {
+    const { renderAreaCards } = await import(
+      "../static/js/modules/features/coverage-management/areas.js"
+    );
+    renderAreaCards({
+      areas: [
+        {
+          id: "area-active-1",
+          display_name: "Beverly Hills, Texas, United States",
+          area_type: "city",
+          status: "ready",
+          total_segments: 10,
+          driven_segments: 3,
+          undriveable_segments: 0,
+          total_length_miles: 10,
+          driven_length_miles: 3,
+          coverage_percentage: 30,
+          last_synced: null,
+          has_optimal_route: false,
+          optimal_route_generated_at: null,
+        },
+      ],
+      activeJobsByAreaId: new Map([
+        [
+          "area-active-1",
+          {
+            status: "running",
+            progress: 15,
+            message: "Calculating coverage from historical trips",
+            job_type: "area_backfill",
+          },
+        ],
+      ]),
+      activeRouteJobsByAreaId: new Map(),
+      areaErrorById: new Map(),
+      areaNameById: new Map(),
+    });
+
+    assert.match(grid.innerHTML, /area-card--job-active/);
+    assert.match(grid.innerHTML, /coverage-job-status-pill/);
+    assert.match(grid.innerHTML, /area-job-panel/);
+    assert.match(grid.innerHTML, /Coverage calculation/);
+    assert.match(grid.innerHTML, /aria-valuenow="15"/);
+  } finally {
+    global.document = originalDocument;
+    global.window = originalWindow;
+  }
+});
+
 test("renderAreaCards exposes rebuild recovery actions when area is in error", async () => {
   const grid = { innerHTML: "", style: { display: "none" } };
   const loading = { style: { display: "block" } };

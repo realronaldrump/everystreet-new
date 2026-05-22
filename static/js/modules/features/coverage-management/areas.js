@@ -77,6 +77,14 @@ function renderRouteStatus(area, routeJob) {
 
 function renderStatus(area, coverageJob) {
   const status = area?.status;
+  if (coverageJob && isJobActiveStatus(coverageJob.status)) {
+    return `
+      <span class="coverage-job-status-pill">
+        <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+        <span>Calculating</span>
+      </span>`;
+  }
+
   const statusConfig = {
     ready: { cls: "success", icon: "check-circle", text: "Ready" },
     initializing: { cls: "info", icon: "spinner fa-spin", text: "Setting up…" },
@@ -103,31 +111,38 @@ function renderStatus(area, coverageJob) {
       </button>`;
   }
 
-  if (
-    coverageJob &&
-    isJobActiveStatus(coverageJob.status) &&
-    (status === "initializing" || status === "rebuilding")
-  ) {
-    const percent =
-      typeof coverageJob.progress === "number" ? Math.round(coverageJob.progress) : 0;
-    const detailText = coverageJob.message
-      ? escapeHtml(coverageJob.message)
-      : "Processing";
-    return `
-      <div class="coverage-job-status">
-        ${badge}
-        <div class="coverage-job-progress">
-          <div class="progress coverage-job-progress-bar">
-            <div class="progress-bar" role="progressbar"
-                 style="width: ${percent}%"
-                 aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"></div>
-          </div>
-          <div class="small text-muted">${detailText}</div>
-        </div>
-      </div>`;
+  return badge;
+}
+
+function renderCoverageJobPanel(coverageJob) {
+  if (!hasActiveJob(coverageJob)) {
+    return "";
   }
 
-  return badge;
+  const percent =
+    typeof coverageJob.progress === "number" ? Math.round(coverageJob.progress) : 0;
+  const detailText = coverageJob.message
+    ? escapeHtml(coverageJob.message)
+    : "Processing coverage area";
+
+  return `
+    <div class="area-job-panel" aria-live="polite">
+      <div class="area-job-panel-header">
+        <span class="area-job-panel-label">
+          <i class="fas fa-layer-group" aria-hidden="true"></i>
+          Coverage calculation
+        </span>
+        <span class="area-job-panel-percent">${percent}%</span>
+      </div>
+      <div class="coverage-job-progress">
+        <div class="progress coverage-job-progress-bar">
+          <div class="progress-bar" role="progressbar"
+               style="width: ${percent}%"
+               aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+      </div>
+      <div class="area-job-panel-message">${detailText}</div>
+    </div>`;
 }
 
 // -----------------------------------------------------------------------------
@@ -329,11 +344,15 @@ function renderAreaCard(area, coverageJob, routeJob) {
                     stroke-linecap="round"
                     transform="rotate(-90 24 24)"
                     style="stroke-dasharray: ${miniCircumference.toFixed(2)}; stroke-dashoffset: ${miniOffset.toFixed(2)};" />
-            ${hasActiveCoverageJob ? `<circle class="ring-spinner"
+            ${
+              hasActiveCoverageJob
+                ? `<circle class="ring-spinner"
                     cx="24" cy="24" r="${MINI_R}"
                     fill="none" stroke-width="4"
                     stroke-linecap="round"
-                    transform="rotate(-90 24 24)" />` : ""}
+                    transform="rotate(-90 24 24)" />`
+                : ""
+            }
           </svg>
         </div>
         <div class="area-progress-text">
@@ -341,6 +360,8 @@ function renderAreaCard(area, coverageJob, routeJob) {
           <span class="area-pct-sub">${formatMiles(area.driven_length_miles)} driven</span>
         </div>
       </div>
+
+      ${renderCoverageJobPanel(coverageJob)}
 
       <div class="area-card-stats">
         <div class="area-stat">

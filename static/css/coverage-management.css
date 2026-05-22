@@ -132,9 +132,20 @@
 }
 
 .area-card--job-active {
+  opacity: 1;
   cursor: pointer;
   border-color: color-mix(in srgb, var(--info) 35%, var(--glass-border));
+  background:
+    linear-gradient(180deg, rgb(var(--info-rgb) / 7%), transparent 42%),
+    var(--glass-panel);
   animation: card-job-glow 2.8s ease-in-out infinite;
+}
+
+.stagger-container > .area-card--job-active {
+  opacity: 1;
+  animation:
+    active-card-enter 280ms cubic-bezier(0, 0, 0.2, 1) forwards,
+    card-job-glow 2.8s ease-in-out 320ms infinite;
 }
 
 .area-card--job-active:hover {
@@ -144,6 +155,18 @@
 /* Accent stripe pulses during active job */
 .area-card--job-active::before {
   animation: stripe-glow 2.8s ease-in-out infinite;
+}
+
+@keyframes active-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes card-job-glow {
@@ -334,11 +357,86 @@
 }
 
 /* Job progress within card status */
-.coverage-job-status {
+.coverage-job-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.28rem 0.55rem;
+  border: 1px solid rgb(var(--info-rgb) / 35%);
+  border-radius: var(--radius-pill);
+  background: rgb(var(--info-rgb) / 13%);
+  color: var(--info-light, var(--info));
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 4%);
+}
+
+.area-job-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  min-width: 120px;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid rgb(var(--info-rgb) / 22%);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(135deg, rgb(var(--info-rgb) / 16%), rgb(var(--text-rgb) / 4%)),
+    rgb(var(--surface-rgb, 18 19 22) / 36%);
+  overflow: hidden;
+}
+
+.area-job-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(255 255 255 / 8%) 46%,
+    transparent 72%
+  );
+  transform: translateX(-110%);
+  animation: area-job-sheen 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.area-job-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.area-job-panel-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.area-job-panel-label i {
+  color: var(--info-light, var(--info));
+}
+
+.area-job-panel-percent {
+  color: var(--info-light, var(--info));
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  font-family: var(--font-family-display);
+  white-space: nowrap;
+}
+
+.area-job-panel-message {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .coverage-job-progress {
@@ -389,6 +487,17 @@
   }
 }
 
+@keyframes area-job-sheen {
+  0%,
+  35% {
+    transform: translateX(-110%);
+  }
+
+  100% {
+    transform: translateX(110%);
+  }
+}
+
 /* Job message text */
 .coverage-job-progress .small {
   font-size: var(--font-size-xs);
@@ -418,12 +527,12 @@
 /* Dim stale progress data while rebuild is in progress */
 .area-card--job-active .area-pct-large,
 .area-card--job-active .area-pct-sub {
-  opacity: 0.4;
+  opacity: 0.72;
   transition: opacity 0.3s ease;
 }
 
 .area-card--job-active .area-card-stats {
-  opacity: 0.4;
+  opacity: 0.58;
   transition: opacity 0.3s ease;
 }
 

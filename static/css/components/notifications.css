@@ -97,17 +97,24 @@
 
 /* Minimized coverage-job progress badge (global) */
 .minimized-progress-badge {
+  --minimized-progress: 0%;
+
   position: fixed;
   bottom: 20px;
   left: 20px;
   z-index: var(--z-drawer);
-  background: var(--surface-glass);
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgb(var(--info-rgb) / 18%), transparent 42%),
+    var(--surface-glass);
   color: var(--text-primary);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-pill);
-  box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(var(--blur-subtle));
-  border: 1px solid var(--glass-border-medium);
+  padding: var(--space-2) var(--space-3) calc(var(--space-2) + 3px);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    var(--shadow-lg),
+    0 0 0 1px rgb(var(--info-rgb) / 14%);
+  backdrop-filter: blur(var(--blur-strong));
+  border: 1px solid rgb(var(--info-rgb) / 30%);
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -117,13 +124,61 @@
   animation: slideInUp 250ms cubic-bezier(0, 0, 0.2, 1);
 }
 
+.minimized-progress-badge::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(255 255 255 / 9%) 45%,
+    transparent 72%
+  );
+  transform: translateX(-110%);
+  animation: minimized-badge-sheen 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.minimized-progress-badge::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: var(--minimized-progress);
+  height: 3px;
+  background: linear-gradient(90deg, var(--info), var(--success));
+  box-shadow: 0 -6px 18px rgb(var(--info-rgb) / 26%);
+  transition: width 240ms ease;
+}
+
 .minimized-progress-badge:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-xl);
   background: var(--surface-elevated);
 }
 
+.minimized-progress-icon {
+  position: relative;
+  z-index: 1;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: var(--radius-md);
+  background: rgb(var(--info-rgb) / 16%);
+  color: var(--info-light, var(--info));
+  box-shadow: inset 0 0 0 1px rgb(var(--info-rgb) / 22%);
+}
+
+.minimized-progress-icon i {
+  animation: minimized-icon-pulse 1.6s ease-in-out infinite;
+}
+
 .minimized-progress-badge .minimized-location-name {
+  position: relative;
+  z-index: 1;
   flex: 1 1 auto;
   min-width: 0;
   max-width: none;
@@ -134,14 +189,36 @@
 }
 
 .minimized-progress-badge .minimized-progress-percent {
+  position: relative;
+  z-index: 1;
   flex: 0 0 auto;
   margin-left: var(--space-1);
-  color: var(--text-secondary) !important;
+  color: var(--info-light, var(--info)) !important;
   font-weight: var(--font-weight-semibold);
 }
 
-.minimized-progress-badge .fa-cog {
-  color: var(--info);
+@keyframes minimized-badge-sheen {
+  0%,
+  40% {
+    transform: translateX(-110%);
+  }
+
+  100% {
+    transform: translateX(110%);
+  }
+}
+
+@keyframes minimized-icon-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.78;
+  }
+
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
 }
 
 /* Desktop-only: hide minimized coverage badge on tablet/mobile */
