@@ -30,6 +30,8 @@ class MapMatchingService:
     _MIN_RECOVERY_COORDINATES = 10
     _MAX_RECOVERY_DEPTH = 5
     _MAX_RECOVERY_JOIN_MILES = 0.05
+    _MAX_OVERLAP_CONNECTOR_MILES = 0.08
+    _MAX_RAW_GAP_FOR_MATCHED_DISCONTINUITY_MILES = 0.12
 
     def __init__(self, router: Any | None = None) -> None:
         self._router = router
@@ -339,7 +341,48 @@ class MapMatchingService:
         if endpoint_delta > endpoint_tolerance:
             return f"low-quality-match:endpoint-drift:{endpoint_delta:.2f}mi"
 
+        discontinuity_error = cls._validate_matched_segment_continuity(
+            raw_line,
+            matched_lines,
+        )
+        if discontinuity_error:
+            return discontinuity_error
+
         return None
+
+    @classmethod
+    def _validate_matched_segment_continuity(
+        cls,
+        raw_line: list[list[float]],
+        matched_lines: list[list[list[float]]],
+    ) -> str | None:
+        if len(matched_lines) <= 1:
+            return None
+
+        raw_max_gap = cls._max_adjacent_gap_miles(raw_line)
+        if raw_max_gap > cls._MAX_RAW_GAP_FOR_MATCHED_DISCONTINUITY_MILES:
+            return None
+
+        matched_max_gap = 0.0
+        for previous, current in pairwise(matched_lines):
+            if not previous or not current:
+                continue
+            matched_max_gap = max(
+                matched_max_gap,
+                cls._coordinate_distance_miles(previous[-1], current[0]),
+            )
+
+        if matched_max_gap > cls._MAX_RECOVERY_JOIN_MILES:
+            return f"low-quality-match:discontinuous:{matched_max_gap:.2f}mi"
+
+        return None
+
+    @classmethod
+    def _max_adjacent_gap_miles(cls, coords: list[list[float]]) -> float:
+        max_gap = 0.0
+        for previous, current in pairwise(coords):
+            max_gap = max(max_gap, cls._coordinate_distance_miles(previous, current))
+        return max_gap
 
     @staticmethod
     def _is_too_short_quality_error(message: str) -> bool:
@@ -386,36 +429,34 @@ class MapMatchingService:
         """
         Find the number of leading points to trim from *new_chunk*.
 
-        Phase 1: Walk through the head of *new_chunk* and find the last
-        point within the overlap tolerance of the existing tail.
-        Phase 2 (fallback): If Phase 1 found nothing, use the closest
-        point if it is within a relaxed tolerance (~1 km).
+        Walk through the head of *new_chunk* and find the last point within
+        the overlap tolerance of the existing tail. A trim is accepted only
+        when the next retained point is still close enough to continue the
+        line without adding a visible connector.
         """
         if not existing or not new_chunk:
             return 0
 
         tail = existing[-1]
         best_trim = 0
-        best_dist_sq = float("inf")
-        best_close_trim = 0
         search_limit = min(len(new_chunk), cls._CHUNK_OVERLAP * 4)
         for i in range(search_limit):
             dx = new_chunk[i][0] - tail[0]
             dy = new_chunk[i][1] - tail[1]
-            dist_sq = dx * dx + dy * dy
-            # Phase 1: strict proximity
             if (
                 abs(dx) < cls._OVERLAP_TRIM_TOL_DEG
                 and abs(dy) < cls._OVERLAP_TRIM_TOL_DEG
             ):
-                best_trim = i + 1
-            # Track closest point for fallback
-            if dist_sq < best_dist_sq:
-                best_dist_sq = dist_sq
-                best_close_trim = i + 1
-        # Phase 2: closest-point fallback (within ~1 km)
-        if best_trim == 0 and best_dist_sq < (cls._OVERLAP_TRIM_TOL_DEG * 10) ** 2:
-            best_trim = best_close_trim
+                trim = i + 1
+                if trim >= len(new_chunk):
+                    best_trim = trim
+                    continue
+                connector_miles = cls._coordinate_distance_miles(
+                    tail,
+                    new_chunk[trim],
+                )
+                if connector_miles <= cls._MAX_OVERLAP_CONNECTOR_MILES:
+                    best_trim = trim
         return best_trim
 
     @classmethod

@@ -38,6 +38,21 @@ def test_match_quality_accepts_plausible_match() -> None:
     assert MapMatchingService.validate_matched_geometry_quality(raw, matched) is None
 
 
+def test_match_quality_rejects_discontinuous_match_for_continuous_raw_gps() -> None:
+    raw = [[-97.0 + (i * 0.001), 32.0] for i in range(12)]
+    matched = {
+        "type": "MultiLineString",
+        "coordinates": [
+            [[-97.0, 32.0], [-96.996, 32.0]],
+            [[-96.993, 32.0], [-96.989, 32.0]],
+        ],
+    }
+
+    error = MapMatchingService.validate_matched_geometry_quality(raw, matched)
+
+    assert error == "low-quality-match:discontinuous:0.18mi"
+
+
 class _RouterStub:
     async def trace_route(self, *_args, **_kwargs):
         return {
@@ -119,30 +134,41 @@ def test_find_overlap_trim_proximity_still_works() -> None:
     # New chunk starts with a point very close to the tail of existing
     new_chunk = [
         [1.0 + 0.0005, 1.0 + 0.0005],  # within tolerance
-        [1.1, 1.1],
+        [1.0 + 0.0006, 1.0 + 0.0006],
         [1.2, 1.2],
     ]
     trim = MapMatchingService._find_overlap_trim(existing, new_chunk)
-    assert trim == 1  # first point is within tolerance, so trim it
+    assert trim == 1  # first point is within tolerance and leaves no jump
 
 
-def test_find_overlap_trim_uses_closest_fallback() -> None:
-    """When no point is within strict tolerance, fallback to closest point."""
+def test_find_overlap_trim_does_not_use_relaxed_closest_fallback() -> None:
+    """Nearby but non-overlapping streets should not be stitched together."""
     existing = [[0.0, 0.0], [1.0, 1.0]]
-    # New chunk: no point within 0.001° but the first is closest and within ~1km
     tol = MapMatchingService._OVERLAP_TRIM_TOL_DEG
     new_chunk = [
-        [1.0 + tol * 5, 1.0 + tol * 5],  # outside strict, but within 10x
+        [1.0 + tol * 5, 1.0 + tol * 5],
         [1.5, 1.5],
         [2.0, 2.0],
     ]
     trim = MapMatchingService._find_overlap_trim(existing, new_chunk)
-    # Fallback should pick the closest point (index 0) and trim it
-    assert trim == 1
+    assert trim == 0
+
+
+def test_find_overlap_trim_rejects_trim_that_would_leave_connector_jump() -> None:
+    existing = [[0.0, 0.0], [1.0, 1.0]]
+    new_chunk = [
+        [0.9, 0.9],
+        [1.0005, 1.0005],
+        [1.004, 1.004],
+    ]
+
+    trim = MapMatchingService._find_overlap_trim(existing, new_chunk)
+
+    assert trim == 0
 
 
 def test_find_overlap_trim_no_fallback_when_too_far() -> None:
-    """When closest point is beyond the relaxed threshold, trim nothing."""
+    """Distant incoming points should remain separate segments."""
     existing = [[0.0, 0.0], [1.0, 1.0]]
     # All points are very far from the tail
     new_chunk = [
