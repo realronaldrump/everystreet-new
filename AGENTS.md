@@ -20,5 +20,10 @@ compatibility, migration, or legacy code.
 - Production/runtime deployment is on your Linux mini PC.
 - Active development in this workspace is on your MacBook Pro.
 - Public app deployment URL is `https://www.everystreet.me`.
-- For production logs/process checks, SSH into the mini PC over Tailscale:
-  `ssh <user>@100.96.182.111`
+- When connected to Tailscale from this MacBook Pro, production can be reached
+  with exactly: `ssh 100.96.182.111`
+- For production deploys, logs, process checks, and runtime debugging, SSH into
+  the mini PC at `100.96.182.111`.
+- Unless the user explicitly asks for a local-only run, "deploy", "production",
+  "server", or "runtime" refers to the mini PC deployment, not a local dev
+  server on the MacBook Pro.
