@@ -48,6 +48,23 @@ class _RouterStub:
         }
 
 
+class _PartialThenSegmentRouterStub:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def trace_route(self, shape, *_args, **_kwargs):
+        self.calls += 1
+        coords = [[point["lon"], point["lat"]] for point in shape]
+        if len(coords) >= 20:
+            coords = coords[:2]
+        return {
+            "geometry": {
+                "type": "LineString",
+                "coordinates": coords,
+            }
+        }
+
+
 @pytest.mark.asyncio
 async def test_map_match_coordinates_rejects_low_quality_success_response() -> None:
     coords = [[-97.0, 32.0], [-97.5, 32.0]]
@@ -58,6 +75,22 @@ async def test_map_match_coordinates_rejects_low_quality_success_response() -> N
 
     assert result["code"] == "Error"
     assert result["message"].startswith("low-quality-match:too-short")
+
+
+@pytest.mark.asyncio
+async def test_map_match_coordinates_recovers_low_quality_match_by_splitting() -> None:
+    coords = [[-97.0 + (i * 0.001), 32.0] for i in range(20)]
+    router = _PartialThenSegmentRouterStub()
+    service = MapMatchingService(router=router)
+
+    result = await service.map_match_coordinates(coords)
+
+    assert result["code"] == "Ok"
+    matched = result["matchings"][0]["geometry"]
+    assert matched["type"] == "LineString"
+    assert matched["coordinates"][0] == coords[0]
+    assert matched["coordinates"][-1] == coords[-1]
+    assert router.calls >= 3
 
 
 @pytest.mark.asyncio
@@ -153,6 +186,24 @@ def test_merge_close_segments_single_segment_passthrough() -> None:
     assert len(result) == 1
 
 
+def test_append_matched_segments_keeps_distant_recovery_gaps_separate() -> None:
+    segments: list[list[list[float]]] = []
+
+    MapMatchingService._append_matched_segments(
+        segments,
+        [[[0.0, 0.0], [0.001, 0.001]]],
+    )
+    MapMatchingService._append_matched_segments(
+        segments,
+        [[[1.0, 1.0], [1.001, 1.001]]],
+    )
+
+    assert segments == [
+        [[0.0, 0.0], [0.001, 0.001]],
+        [[1.0, 1.0], [1.001, 1.001]],
+    ]
+
+
 # --- _retry_failed_chunk tests ---
 
 
@@ -173,13 +224,14 @@ async def test_retry_failed_chunk_recovers_halves() -> None:
         # Sub-chunks succeed
         return {
             "code": "Ok",
-            "matchings": [{"geometry": {"coordinates": c}}],
+            "matchings": [{"geometry": {"type": "LineString", "coordinates": c}}],
         }
 
     with patch.object(svc, "_map_match_chunk", side_effect=mock_chunk):
         result = await svc._retry_failed_chunk(coords, None)
 
     assert len(result) > 0
+    assert all(len(segment) >= 2 for segment in result)
     assert call_count >= 2  # at least two sub-chunk calls
 
 

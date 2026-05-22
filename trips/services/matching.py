@@ -27,6 +27,9 @@ class MapMatchingService:
     _MIN_ENDPOINT_TOLERANCE_MILES = 0.5
     _MAX_ENDPOINT_TOLERANCE_MILES = 2.0
     _ENDPOINT_TOLERANCE_RATIO = 0.10
+    _MIN_RECOVERY_COORDINATES = 10
+    _MAX_RECOVERY_DEPTH = 5
+    _MAX_RECOVERY_JOIN_MILES = 0.05
 
     def __init__(self, router: Any | None = None) -> None:
         self._router = router
@@ -70,7 +73,10 @@ class MapMatchingService:
         max_points = max(max_points, 2)
 
         if len(filtered_coords) <= max_points:
-            return await self._map_match_chunk(filtered_coords, filtered_timestamps)
+            return await self._map_match_chunk_with_recovery(
+                filtered_coords,
+                filtered_timestamps,
+            )
 
         return await self._map_match_chunked(
             filtered_coords,
@@ -124,6 +130,35 @@ class MapMatchingService:
             return {"code": "Error", "message": quality_error}
         return result
 
+    async def _map_match_chunk_with_recovery(
+        self,
+        coords: list[list[float]],
+        timestamps: list[int | None] | None,
+    ) -> dict[str, Any]:
+        result = await self._map_match_chunk(coords, timestamps)
+        if result.get("code") == "Ok":
+            return result
+
+        message = str(result.get("message") or "")
+        if not self._is_too_short_quality_error(message):
+            return result
+
+        recovered = await self._recover_failed_chunk_as_result(coords, timestamps)
+        if recovered.get("code") == "Ok":
+            logger.info(
+                "Recovered low-quality map match by splitting %d input coordinates",
+                len(coords),
+            )
+            return recovered
+
+        logger.info(
+            "Segmented recovery did not produce an acceptable match for %d input "
+            "coordinates: %s",
+            len(coords),
+            recovered.get("message"),
+        )
+        return result
+
     # Number of GPS points to duplicate at each chunk boundary so that
     # Valhalla can produce a seamless match across chunks.
     _CHUNK_OVERLAP = 20
@@ -155,7 +190,7 @@ class MapMatchingService:
             self._CHUNK_OVERLAP,
         )
 
-        final_matched: list[list[float]] = []
+        final_segments: list[list[list[float]]] = []
 
         for idx, (start_i, end_i) in enumerate(chunk_indices, 1):
             chunk_coords = coordinates[start_i:end_i]
@@ -180,14 +215,10 @@ class MapMatchingService:
                         idx,
                     )
                     continue
-                matched = recovered
+                matched_segments = recovered
             else:
-                matched = (
-                    result.get("matchings", [{}])[0]
-                    .get("geometry", {})
-                    .get("coordinates", [])
-                )
-            if not matched:
+                matched_segments = self._extract_matched_segments(result)
+            if not matched_segments:
                 logger.warning(
                     "Chunk %d of %d returned no geometry.",
                     idx,
@@ -195,29 +226,15 @@ class MapMatchingService:
                 )
                 continue
 
-            if not final_matched:
-                final_matched = list(matched)
-            else:
-                # Trim overlap: find the best join point between the
-                # previous chunk's tail and this chunk's head.  Walk
-                # forward through the new chunk looking for the first
-                # point that is closest to the last accepted point,
-                # then skip everything up to (and including) that best
-                # match to avoid duplication.
-                trim = self._find_overlap_trim(final_matched, matched)
-                final_matched.extend(matched[trim:])
+            self._append_matched_segments(final_segments, matched_segments)
 
-        if not final_matched:
+        if not final_segments:
             return {
                 "code": "Error",
                 "message": "All chunks failed map matching or returned no geometry.",
             }
 
-        # Validate continuity — instead of rejecting the entire result,
-        # split at discontinuities and keep ALL contiguous segments,
-        # then merge back segments whose gap is small enough.
-        all_segments = self._salvage_continuous_segments(final_matched)
-        all_segments = self._merge_close_segments(all_segments)
+        all_segments = self._normalize_matched_segments(final_segments)
         if not all_segments:
             return {
                 "code": "Error",
@@ -244,6 +261,33 @@ class MapMatchingService:
 
         geometry = result.get("matchings", [{}])[0].get("geometry")
         quality_error = self.validate_matched_geometry_quality(coordinates, geometry)
+        if quality_error:
+            return {"code": "Error", "message": quality_error}
+        return result
+
+    async def _recover_failed_chunk_as_result(
+        self,
+        coords: list[list[float]],
+        timestamps: list[int | None] | None,
+    ) -> dict[str, Any]:
+        recovered_segments = await self._retry_failed_chunk(coords, timestamps)
+        recovered_segments = self._normalize_matched_segments(recovered_segments)
+        if not recovered_segments:
+            return {
+                "code": "Error",
+                "message": "Segmented recovery produced no usable geometry.",
+            }
+
+        result = (
+            self._create_matching_result(recovered_segments[0])
+            if len(recovered_segments) == 1
+            else self._create_multi_matching_result(recovered_segments)
+        )
+        if result.get("code") != "Ok":
+            return result
+
+        geometry = result.get("matchings", [{}])[0].get("geometry")
+        quality_error = self.validate_matched_geometry_quality(coords, geometry)
         if quality_error:
             return {"code": "Error", "message": quality_error}
         return result
@@ -296,6 +340,10 @@ class MapMatchingService:
             return f"low-quality-match:endpoint-drift:{endpoint_delta:.2f}mi"
 
         return None
+
+    @staticmethod
+    def _is_too_short_quality_error(message: str) -> bool:
+        return message.startswith("low-quality-match:too-short:")
 
     @staticmethod
     def _normalize_coordinate_pairs(
@@ -446,12 +494,12 @@ class MapMatchingService:
         coords: list[list[float]],
         timestamps: list[int | None] | None,
         depth: int = 0,
-    ) -> list[list[float]]:
-        """Split a failed chunk in half and retry each half. Max depth 3."""
-        _MIN_RETRY_SIZE = 10
-        _MAX_DEPTH = 3
-
-        if len(coords) < _MIN_RETRY_SIZE or depth >= _MAX_DEPTH:
+    ) -> list[list[list[float]]]:
+        """Split a failed chunk and return validated matched line segments."""
+        if (
+            len(coords) < self._MIN_RECOVERY_COORDINATES
+            or depth >= self._MAX_RECOVERY_DEPTH
+        ):
             return []
 
         mid = len(coords) // 2
@@ -468,38 +516,72 @@ class MapMatchingService:
             ),
         ]
 
-        results: list[list[list[float]]] = []
+        segments: list[list[list[float]]] = []
         for sub_coords, sub_ts in halves:
             result = await self._map_match_chunk(sub_coords, sub_ts)
             if result.get("code") == "Ok":
-                matched = (
-                    result.get("matchings", [{}])[0]
-                    .get("geometry", {})
-                    .get("coordinates", [])
+                self._append_matched_segments(
+                    segments,
+                    self._extract_matched_segments(result),
                 )
-                if matched:
-                    results.append(matched)
             else:
                 recovered = await self._retry_failed_chunk(
                     sub_coords, sub_ts, depth + 1
                 )
                 if recovered:
-                    results.append(recovered)
+                    self._append_matched_segments(segments, recovered)
 
-        if not results:
-            return []
-
-        combined = list(results[0])
-        for subsequent in results[1:]:
-            trim = self._find_overlap_trim(combined, subsequent)
-            combined.extend(subsequent[trim:])
+        segments = self._normalize_matched_segments(segments)
 
         logger.info(
-            "Recovered %d points via sub-chunk retry (depth %d)",
-            len(combined),
+            "Recovered %d segment(s) via sub-chunk retry (depth %d)",
+            len(segments),
             depth,
         )
-        return combined
+        return segments
+
+    @staticmethod
+    def _extract_matched_segments(result: dict[str, Any]) -> list[list[list[float]]]:
+        geometry = result.get("matchings", [{}])[0].get("geometry")
+        return extract_line_sequences(geometry)
+
+    @classmethod
+    def _append_matched_segments(
+        cls,
+        existing: list[list[list[float]]],
+        incoming: list[list[list[float]]],
+    ) -> None:
+        for segment in cls._normalize_matched_segments(incoming):
+            if not existing:
+                existing.append(list(segment))
+                continue
+
+            previous = existing[-1]
+            trim = cls._find_overlap_trim(previous, segment)
+            if trim > 0:
+                previous.extend(segment[trim:])
+                continue
+
+            gap_miles = cls._coordinate_distance_miles(previous[-1], segment[0])
+            if gap_miles <= cls._MAX_RECOVERY_JOIN_MILES:
+                previous.extend(segment)
+                continue
+
+            existing.append(list(segment))
+
+    @classmethod
+    def _normalize_matched_segments(
+        cls,
+        segments: list[list[list[float]]],
+    ) -> list[list[list[float]]]:
+        normalized: list[list[list[float]]] = []
+        for segment in segments:
+            normalized.extend(
+                salvaged
+                for salvaged in cls._salvage_continuous_segments(segment)
+                if len(salvaged) >= 2
+            )
+        return normalized
 
     @staticmethod
     def _build_shape_points(
