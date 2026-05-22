@@ -13,6 +13,7 @@ from typing import Any
 from config import (
     get_valhalla_route_url,
     get_valhalla_status_url,
+    get_valhalla_trace_attributes_url,
     get_valhalla_trace_route_timeout_seconds,
     get_valhalla_trace_route_url,
     get_valhalla_trace_search_radius_meters,
@@ -31,6 +32,7 @@ class ValhallaClient:
         self._status_url = get_valhalla_status_url()
         self._route_url = get_valhalla_route_url()
         self._trace_route_url = get_valhalla_trace_route_url()
+        self._trace_attributes_url = get_valhalla_trace_attributes_url()
 
     @retry_async()
     async def status(self) -> dict[str, Any]:
@@ -135,6 +137,46 @@ class ValhallaClient:
             raise ExternalServiceException(msg, {"url": self._trace_route_url})
         return self._normalize_trace_response(data)
 
+    @with_circuit_breaker(valhalla_breaker)
+    @retry_async()
+    async def trace_attributes(
+        self,
+        shape: list[dict[str, float | int | str]],
+        *,
+        costing: str = "auto",
+        trace_options: dict[str, Any] | None = None,
+        timeout_s: float | None = None,
+    ) -> dict[str, Any]:
+        if len(shape) < 2:
+            msg = "Valhalla trace_attributes requires at least two points."
+            raise ExternalServiceException(msg)
+        merged_trace_options = self._build_trace_options(trace_options)
+        payload = {
+            "shape": shape,
+            "costing": costing,
+            "shape_match": "map_snap",
+            "filters": {"attributes": ["shape"], "action": "include"},
+        }
+        if merged_trace_options:
+            payload["trace_options"] = merged_trace_options
+        session = await get_session()
+        data = await request_json(
+            "POST",
+            self._trace_attributes_url,
+            session=session,
+            json=payload,
+            service_name="Valhalla trace_attributes",
+            timeout_s=(
+                timeout_s
+                if timeout_s is not None
+                else get_valhalla_trace_route_timeout_seconds()
+            ),
+        )
+        if not isinstance(data, dict):
+            msg = "Valhalla trace_attributes error: unexpected response"
+            raise ExternalServiceException(msg, {"url": self._trace_attributes_url})
+        return self._normalize_trace_attributes_response(data)
+
     @staticmethod
     def _build_trace_options(
         trace_options: dict[str, Any] | None = None,
@@ -171,6 +213,15 @@ class ValhallaClient:
     @staticmethod
     def _normalize_trace_response(data: dict[str, Any]) -> dict[str, Any]:
         coords = ValhallaClient._extract_shape_coordinates(data)
+        geometry = {"type": "LineString", "coordinates": coords} if coords else None
+        return {"geometry": geometry, "raw": data}
+
+    @staticmethod
+    def _normalize_trace_attributes_response(data: dict[str, Any]) -> dict[str, Any]:
+        coords = ValhallaClient._coerce_shape_coordinates(
+            data.get("shape"),
+            shape_format=data.get("shape_format"),
+        )
         geometry = {"type": "LineString", "coordinates": coords} if coords else None
         return {"geometry": geometry, "raw": data}
 

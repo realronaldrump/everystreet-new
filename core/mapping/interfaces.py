@@ -75,6 +75,16 @@ class Router(Protocol):
         """Snap a GPS trace to the road network (map matching)."""
         ...
 
+    async def trace_attributes(
+        self,
+        shape: list[dict[str, float | int | str]],
+        *,
+        costing: str = "auto",
+        trace_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Return matched trace geometry and attributes for a GPS trace."""
+        ...
+
     async def status(self) -> dict[str, Any]:
         """Check the health status of the routing engine."""
         ...

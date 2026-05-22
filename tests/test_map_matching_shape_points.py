@@ -54,7 +54,7 @@ def test_match_quality_rejects_discontinuous_match_for_continuous_raw_gps() -> N
 
 
 class _RouterStub:
-    async def trace_route(self, *_args, **_kwargs):
+    async def trace_attributes(self, *_args, **_kwargs):
         return {
             "geometry": {
                 "type": "LineString",
@@ -67,7 +67,7 @@ class _PartialThenSegmentRouterStub:
     def __init__(self) -> None:
         self.calls = 0
 
-    async def trace_route(self, shape, *_args, **_kwargs):
+    async def trace_attributes(self, shape, *_args, **_kwargs):
         self.calls += 1
         coords = [[point["lon"], point["lat"]] for point in shape]
         if len(coords) >= 20:

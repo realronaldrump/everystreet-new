@@ -671,9 +671,8 @@ class MapMatchingService:
             use_timestamps = False
 
         client = await self._get_router()
-        result = await client.trace_route(
+        result = await client.trace_attributes(
             shape,
-            use_timestamps=use_timestamps or None,
         )
         geometry = result.get("geometry")
         coords = geometry.get("coordinates", []) if geometry else []

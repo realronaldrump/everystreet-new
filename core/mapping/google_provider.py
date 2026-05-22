@@ -518,6 +518,19 @@ class GoogleRouter(Router):
         geometry = {"type": "LineString", "coordinates": deduped} if deduped else None
         return {"geometry": geometry, "raw": {"snappedPoints": all_snapped_coords}}
 
+    async def trace_attributes(
+        self,
+        shape: list[dict[str, float | int | str]],
+        *,
+        costing: str = "auto",
+        trace_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return await self.trace_route(
+            shape,
+            costing=costing,
+            trace_options=trace_options,
+        )
+
     async def status(self) -> dict[str, Any]:
         return {"status": "running", "engine": "google"}
 

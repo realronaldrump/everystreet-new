@@ -26,6 +26,16 @@ async def test_valhalla_trace_route_requires_two_points() -> None:
     assert "at least two points" in raised.value.message
 
 
+@pytest.mark.asyncio
+async def test_valhalla_trace_attributes_requires_two_points() -> None:
+    client = ValhallaClient()
+
+    with pytest.raises(ExternalServiceException) as raised:
+        await client.trace_attributes([{"lat": 0.0, "lon": 0.0}])
+
+    assert "at least two points" in raised.value.message
+
+
 def test_normalize_route_response_extracts_geometry() -> None:
     data = {
         "trip": {
@@ -81,6 +91,15 @@ def test_normalize_trace_response_extracts_geometry_from_top_level() -> None:
     data = {"shape": {"coordinates": [[0.0, 0.0], [1.0, 1.0]]}}
 
     normalized = ValhallaClient._normalize_trace_response(data)
+
+    assert normalized["geometry"]["type"] == "LineString"
+    assert normalized["geometry"]["coordinates"] == [[0.0, 0.0], [1.0, 1.0]]
+
+
+def test_normalize_trace_attributes_response_extracts_top_level_shape() -> None:
+    data = {"shape": {"coordinates": [[0.0, 0.0], [1.0, 1.0]]}}
+
+    normalized = ValhallaClient._normalize_trace_attributes_response(data)
 
     assert normalized["geometry"]["type"] == "LineString"
     assert normalized["geometry"]["coordinates"] == [[0.0, 0.0], [1.0, 1.0]]
@@ -212,5 +231,35 @@ async def test_trace_route_includes_default_search_radius(
         )
 
     payload = request_json.await_args.kwargs["json"]
+    assert payload["trace_options"]["search_radius"] == 100.0
+    assert request_json.await_args.kwargs["timeout_s"] == 60.0
+
+
+@pytest.mark.asyncio
+async def test_trace_attributes_includes_shape_filter_and_default_search_radius(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("VALHALLA_TRACE_ROUTE_TIMEOUT_SECONDS", raising=False)
+    client = ValhallaClient()
+
+    with (
+        patch("core.http.valhalla.get_session", new=AsyncMock(return_value=object())),
+        patch(
+            "core.http.valhalla.request_json",
+            new=AsyncMock(
+                return_value={
+                    "shape": {
+                        "coordinates": [[-97.0, 32.0], [-97.1, 32.1]],
+                    },
+                },
+            ),
+        ) as request_json,
+    ):
+        await client.trace_attributes(
+            [{"lon": -97.0, "lat": 32.0}, {"lon": -97.1, "lat": 32.1}],
+        )
+
+    payload = request_json.await_args.kwargs["json"]
+    assert payload["filters"] == {"attributes": ["shape"], "action": "include"}
     assert payload["trace_options"]["search_radius"] == 100.0
     assert request_json.await_args.kwargs["timeout_s"] == 60.0

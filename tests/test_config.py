@@ -46,6 +46,28 @@ class ValhallaConfigTests(unittest.TestCase):
                 == "http://valhalla.test/trace_route"
             )
 
+    def test_get_valhalla_trace_attributes_url_defaults(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            assert (
+                config.get_valhalla_trace_attributes_url()
+                == "http://valhalla:8002/trace_attributes"
+            )
+
+    def test_get_valhalla_trace_attributes_url_uses_endpoint_env(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "VALHALLA_TRACE_ATTRIBUTES_URL": (
+                    "http://valhalla.test/trace_attributes"
+                )
+            },
+            clear=True,
+        ):
+            assert (
+                config.get_valhalla_trace_attributes_url()
+                == "http://valhalla.test/trace_attributes"
+            )
+
     def test_get_valhalla_trace_search_radius_defaults_to_max_candidate_radius(
         self,
     ) -> None:

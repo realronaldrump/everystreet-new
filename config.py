@@ -32,6 +32,7 @@ VALHALLA_BASE_URL_ENV_VAR: Final[str] = "VALHALLA_BASE_URL"
 VALHALLA_STATUS_URL_ENV_VAR: Final[str] = "VALHALLA_STATUS_URL"
 VALHALLA_ROUTE_URL_ENV_VAR: Final[str] = "VALHALLA_ROUTE_URL"
 VALHALLA_TRACE_ROUTE_URL_ENV_VAR: Final[str] = "VALHALLA_TRACE_ROUTE_URL"
+VALHALLA_TRACE_ATTRIBUTES_URL_ENV_VAR: Final[str] = "VALHALLA_TRACE_ATTRIBUTES_URL"
 
 NOMINATIM_BASE_URL_ENV_VAR: Final[str] = "NOMINATIM_BASE_URL"
 NOMINATIM_SEARCH_URL_ENV_VAR: Final[str] = "NOMINATIM_SEARCH_URL"
@@ -125,6 +126,13 @@ def get_valhalla_trace_route_url() -> str:
     return _get_url_env(VALHALLA_TRACE_ROUTE_URL_ENV_VAR) or _append_url_path(
         get_valhalla_base_url(),
         "trace_route",
+    )
+
+
+def get_valhalla_trace_attributes_url() -> str:
+    return _get_url_env(VALHALLA_TRACE_ATTRIBUTES_URL_ENV_VAR) or _append_url_path(
+        get_valhalla_base_url(),
+        "trace_attributes",
     )
 
 
