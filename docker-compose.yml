@@ -23,6 +23,7 @@ services:
     env_file: .env
     volumes:
       - osm_extracts:/osm
+      - graph_data:/app/data/graphs
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       mongo-init:
@@ -54,6 +55,7 @@ services:
     env_file: .env
     volumes:
       - osm_extracts:/osm
+      - graph_data:/app/data/graphs
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       mongo-init:
@@ -262,6 +264,7 @@ volumes:
   nominatim_flatnode:
   valhalla_tiles:
   osm_extracts:
+  graph_data:
 
 networks:
   default: {}
