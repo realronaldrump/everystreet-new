@@ -153,6 +153,20 @@ class VehicleService:
         # Track if odometer is being updated
         odometer_updated = "odometer_reading" in update_data
 
+        if odometer_updated:
+            reading = update_data.get("odometer_reading")
+            if reading is not None and reading < 0:
+                msg = "odometer_reading must be greater than or equal to 0"
+                raise ValueError(msg)
+            if reading is None:
+                update_data["odometer_source"] = None
+                update_data["odometer_is_estimated"] = False
+            elif update_data.get("odometer_is_estimated") is None:
+                update_data["odometer_is_estimated"] = (
+                    update_data.get("odometer_source")
+                    in {"estimated", "bouncie_untrusted"}
+                )
+
         # Update fields
         for key, value in update_data.items():
             if hasattr(vehicle, key):

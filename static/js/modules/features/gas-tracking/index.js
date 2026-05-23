@@ -362,28 +362,11 @@ async function updateLocationAndOdometer() {
       }
     }
 
-    // Update odometer - strict check for null/undefined to allow 0
-    if (data.odometer != null) {
-      const odoVal = Math.round(data.odometer);
-      if (odometerDisplay) {
-        odometerDisplay.textContent = `Last known: ${odoVal.toLocaleString()} mi`;
-      }
-      if (odometerInput && isAutoManagedOdometer(odometerInput)) {
-        const odometerSource =
-          data.odometer_source || data.source || "vehicle_location";
-        setOdometerFromSource(odoVal, odometerSource, {
-          estimated:
-            Boolean(data.odometer_is_estimated) ||
-            odometerSource === "trip_interpolated",
-        });
-      }
-    } else {
-      if (odometerDisplay) {
-        odometerDisplay.textContent = "Enter odometer reading";
-      }
-      if (odometerInput) {
-        odometerInput.placeholder = "Enter miles";
-      }
+    if (odometerDisplay) {
+      odometerDisplay.textContent = "Use estimate or enter odometer";
+    }
+    if (odometerInput) {
+      odometerInput.placeholder = "Enter miles";
     }
   } catch {
     if (locationText) {
@@ -855,8 +838,10 @@ async function autoCalcOdometer() {
       setTimeout(() => {
         odoInput.classList.remove("is-valid");
       }, 1000);
+      const confidence =
+        result.confidence === "calibrated" ? "calibrated" : "low confidence";
       showSuccess(
-        `Estimated from ${result.method} (Anchor: ${result.anchor_odometer}, Diff: ${result.distance_diff} mi)`
+        `Estimated odometer (${confidence}, ${result.distance_diff} mi from anchor)`
       );
       updateMpgReadiness();
     } else {

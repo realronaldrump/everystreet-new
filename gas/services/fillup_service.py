@@ -173,7 +173,13 @@ class FillupService:
         while cursor is not None and steps < FillupService._MAX_CHAIN_LOOKBACK:
             steps += 1
 
-            if cursor.is_full_tank:
+            is_trusted_anchor = (
+                cursor.is_full_tank
+                and cursor.odometer is not None
+                and cursor.odometer_source == "manual"
+                and cursor.odometer_is_estimated is not True
+            )
+            if is_trusted_anchor:
                 # A full-tank row remains a valid anchor even if it was marked
                 # missed_previous; that flag only invalidates MPG before it.
                 anchor_fillup = cursor

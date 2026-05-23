@@ -1,6 +1,7 @@
 import { swupReady } from "../core/navigation.js";
 import store from "../core/store.js";
 import { moveModalsToContainer, utils } from "../utils.js";
+import { initAppSelects } from "./app-select.js";
 import contextualUI from "./contextual-ui.js";
 import dateManager from "./date-manager.js";
 import interactions from "./interactions.js";
@@ -46,6 +47,7 @@ function init() {
     themeManager.init();
     panelManager.init();
     interactions.init();
+    initAppSelects();
     metricAnimator.init?.();
     mobileNav.init?.();
     swipeActions.init?.();

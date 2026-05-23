@@ -70,4 +70,4 @@ const VisitsGeometry = {
   fitMapToGeometry,
 };
 
-export { VisitsGeometry };
+export { collectCoordinates, computeBounds, fitMapToGeometry, VisitsGeometry };

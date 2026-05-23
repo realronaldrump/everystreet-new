@@ -480,15 +480,18 @@ function displayVehicle(vehicle) {
   elements.vehicleYear.textContent = vehicle.year || "--";
 
   // Odometer
-  if (vehicle.odometer_reading) {
+  if (vehicle.odometer_reading != null) {
     elements.currentOdometer.textContent = formatVehicleOdometer(
       vehicle.odometer_reading
     );
 
     const sourceLabels = {
-      bouncie: "From Bouncie",
       manual: "Manually entered",
-      trip: "From trip data",
+      estimated: "Estimated",
+      bouncie: "Bouncie reading (untrusted)",
+      bouncie_api: "Bouncie reading (untrusted)",
+      bouncie_untrusted: "Bouncie reading (untrusted)",
+      trip: "Trip reading (untrusted)",
     };
     const sourceLabel = sourceLabels[vehicle.odometer_source] || "Unknown source";
     elements.odometerSource.innerHTML = `<i class="fas fa-info-circle me-1"></i>${sourceLabel}`;
@@ -509,7 +512,7 @@ function displayVehicle(vehicle) {
   elements.activeStatusToggle.checked = vehicle.is_active;
 
   // Pre-fill manual input with current reading
-  if (vehicle.odometer_reading) {
+  if (vehicle.odometer_reading != null) {
     elements.manualOdometerInput.placeholder = formatVehicleOdometer(
       vehicle.odometer_reading
     );
@@ -541,7 +544,7 @@ async function fetchBouncieOdometer() {
     );
     const data = await response.json();
 
-    if (data.odometer) {
+    if (data.odometer != null) {
       bouncieOdometer = data.odometer;
       elements.bouncieOdometer.textContent = `${formatVehicleOdometer(data.odometer)} mi`;
       elements.bouncieOdometer.classList.remove("error");
@@ -565,16 +568,16 @@ async function fetchBouncieOdometer() {
 }
 
 /**
- * Use the Bouncie reading as the current odometer
+ * Save the Bouncie reading as an untrusted odometer reference
  */
 async function useBouncieReading() {
-  if (!currentVehicle || !bouncieOdometer) {
+  if (!currentVehicle || bouncieOdometer == null) {
     return;
   }
 
   try {
-    await updateVehicleOdometer(bouncieOdometer, "bouncie");
-    notify.success("Odometer updated from Bouncie");
+    await updateVehicleOdometer(bouncieOdometer, "bouncie_untrusted", true);
+    notify.success("Untrusted Bouncie odometer saved");
   } catch (error) {
     if (isAbortError(error)) {
       return;
@@ -599,7 +602,7 @@ async function saveManualOdometer() {
   }
 
   try {
-    await updateVehicleOdometer(value, "manual");
+    await updateVehicleOdometer(value, "manual", false);
     elements.manualOdometerInput.value = "";
     notify.success("Odometer updated");
   } catch (error) {
@@ -614,7 +617,7 @@ async function saveManualOdometer() {
 /**
  * Update vehicle odometer via API
  */
-async function updateVehicleOdometer(reading, source) {
+async function updateVehicleOdometer(reading, source, isEstimated = false) {
   const response = await apiClient.raw(
     `/api/vehicles/${currentVehicle.imei}`,
     withSignal({
@@ -624,6 +627,7 @@ async function updateVehicleOdometer(reading, source) {
         imei: currentVehicle.imei,
         odometer_reading: reading,
         odometer_source: source,
+        odometer_is_estimated: isEstimated,
       }),
     })
   );

@@ -264,6 +264,41 @@ async def test_trip_pipeline_prefers_bouncie_source_when_merging_existing_trip(
 
 
 @pytest.mark.asyncio
+async def test_trip_pipeline_replaces_end_odometer_for_later_end_time(
+    beanie_db,
+) -> None:
+    del beanie_db
+
+    pipeline = TripPipeline(
+        geo_service=StubGeocoder(),
+        matcher=StubMatcher(),
+        coverage_service=_noop_coverage,
+    )
+
+    existing = Trip(**_build_raw_trip("tx-odo-merge"))
+    existing.endOdometer = 9000.0
+    existing.status = "processed"
+    existing.processing_state = "completed"
+    await existing.insert()
+
+    incoming = _build_raw_trip("tx-odo-merge")
+    incoming["endTime"] = "2024-01-01T00:20:00Z"
+    incoming["endOdometer"] = 1200.0
+
+    saved = await _process_trip(
+        pipeline,
+        incoming,
+        source="bouncie",
+        do_map_match=False,
+        do_geocode=False,
+        do_coverage=False,
+    )
+
+    assert saved is not None
+    assert saved.endOdometer == pytest.approx(1200.0)
+
+
+@pytest.mark.asyncio
 async def test_trip_pipeline_forces_rematch_for_existing_matches_in_google_mode(
     beanie_db,
     monkeypatch: pytest.MonkeyPatch,

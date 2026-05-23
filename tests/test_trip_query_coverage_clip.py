@@ -155,7 +155,7 @@ def test_trips_endpoint_clips_to_selected_coverage_area() -> None:
     with (
         patch("trips.api.query.Trip", _FakeTripModel),
         patch(
-            "trips.api.query.CoverageArea.get",
+            "api.coverage_clip.CoverageArea.get",
             new=AsyncMock(return_value=SimpleNamespace(boundary=_coverage_boundary())),
         ),
         patch(
@@ -199,7 +199,7 @@ def test_matched_trips_endpoint_clips_and_omits_non_intersecting_trips() -> None
     with (
         patch("trips.api.query.Trip", _FakeTripModel),
         patch(
-            "trips.api.query.CoverageArea.get",
+            "api.coverage_clip.CoverageArea.get",
             new=AsyncMock(return_value=SimpleNamespace(boundary=_coverage_boundary())),
         ),
         patch(
@@ -239,7 +239,7 @@ def test_trips_endpoint_uses_matched_geometry_prefilter_when_matched_only() -> N
     with (
         patch("trips.api.query.Trip", _FakeTripModel),
         patch(
-            "trips.api.query.CoverageArea.get",
+            "api.coverage_clip.CoverageArea.get",
             new=AsyncMock(return_value=SimpleNamespace(boundary=_coverage_boundary())),
         ),
         patch(
@@ -271,7 +271,7 @@ def test_invalid_boundary_returns_422_and_does_not_query_trips() -> None:
     with (
         patch("trips.api.query.Trip", _FakeTripModel),
         patch(
-            "trips.api.query.CoverageArea.get",
+            "api.coverage_clip.CoverageArea.get",
             new=AsyncMock(
                 return_value=SimpleNamespace(
                     boundary={"type": "Point", "coordinates": [0.0, 0.0]},

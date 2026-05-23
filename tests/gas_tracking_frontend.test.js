@@ -31,4 +31,39 @@ test("gas tracking UI keeps missed-fill and odometer provenance workflows intact
     /setOdometerFromSource\(result\.estimated_odometer,\s*"estimated"/,
     "auto-calculated odometers should be marked as estimated"
   );
+  assert.doesNotMatch(
+    source,
+    /setOdometerFromSource\(odoVal/,
+    "vehicle-location odometer values should not auto-fill gas odometer"
+  );
+  assert.match(
+    source,
+    /Use estimate or enter odometer/,
+    "gas form should steer odometer entry through manual input or estimates"
+  );
+});
+
+test("vehicles UI stores Bouncie odometer overrides as untrusted", () => {
+  const source = readStaticJs("modules", "features", "vehicles", "index.js");
+
+  assert.match(
+    source,
+    /vehicle\.odometer_reading != null/,
+    "vehicle odometer rendering should use null checks instead of truthiness"
+  );
+  assert.match(
+    source,
+    /data\.odometer != null/,
+    "Bouncie odometer fetch should allow zero readings"
+  );
+  assert.match(
+    source,
+    /bouncie_untrusted/,
+    "Bouncie overrides should use an untrusted source label"
+  );
+  assert.match(
+    source,
+    /odometer_is_estimated: isEstimated/,
+    "vehicle odometer updates should persist estimated/untrusted status"
+  );
 });

@@ -486,6 +486,29 @@ class OdometerService:
         return distance_sum
 
     @staticmethod
+    def _anchor_response(fillup: GasFillup | None) -> dict[str, Any] | None:
+        if fillup is None:
+            return None
+        anchor_time = parse_timestamp(fillup.fillup_time)
+        if anchor_time is None or fillup.odometer is None:
+            return None
+        return {
+            "timestamp": anchor_time,
+            "odometer": fillup.odometer,
+        }
+
+    @staticmethod
+    def _no_estimate_response() -> dict[str, Any]:
+        return {
+            "estimated_odometer": None,
+            "method": "no_data",
+            "confidence": "none",
+            "distance_diff": 0.0,
+            "previous_anchor": None,
+            "next_anchor": None,
+        }
+
+    @staticmethod
     async def estimate_odometer_reading(imei: str, timestamp: str) -> dict[str, Any]:
         """
         Estimate odometer reading by interpolating/extrapolating from nearest known
@@ -496,23 +519,26 @@ class OdometerService:
             timestamp: ISO datetime string to estimate at
 
         Returns:
-            Dict with estimated_odometer, anchor_date, anchor_odometer, distance_diff, method
+            Dict with estimated_odometer, method, confidence, distance_diff, and
+            trusted manual anchors when available.
         """
         target_time = parse_timestamp(timestamp)
         if not target_time:
             msg = "Invalid timestamp format"
             raise ValidationException(msg)
 
-        # 1. Find Anchors (Gas Fill-ups)
-        # Previous trusted fill-up
+        trusted_anchor_filter = {
+            "imei": imei,
+            "odometer": {"$ne": None},
+            "odometer_source": "manual",
+            "odometer_is_estimated": {"$ne": True},
+        }
+
         prev_fillup = await (
             GasFillup.find(
                 {
-                    "imei": imei,
+                    **trusted_anchor_filter,
                     "fillup_time": {"$lte": target_time},
-                    "odometer": {"$ne": None},
-                    "odometer_source": {"$ne": "estimated"},
-                    "odometer_is_estimated": {"$ne": True},
                 },
             )
             .sort(-GasFillup.fillup_time)
@@ -525,15 +551,11 @@ class OdometerService:
             else None
         )
 
-        # Next trusted fill-up
         next_fillup = await (
             GasFillup.find(
                 {
-                    "imei": imei,
+                    **trusted_anchor_filter,
                     "fillup_time": {"$gt": target_time},
-                    "odometer": {"$ne": None},
-                    "odometer_source": {"$ne": "estimated"},
-                    "odometer_is_estimated": {"$ne": True},
                 },
             )
             .sort(GasFillup.fillup_time)
@@ -546,103 +568,101 @@ class OdometerService:
             else None
         )
 
-        best_anchor = None
-        anchor_type = None  # "prev" or "next"
+        previous_anchor = OdometerService._anchor_response(prev_fillup)
+        next_anchor = OdometerService._anchor_response(next_fillup)
 
-        # Decide which anchor to use (closest)
         if (
             prev_fillup
             and next_fillup
             and prev_fillup_time is not None
             and next_fillup_time is not None
+            and prev_fillup.odometer is not None
+            and next_fillup.odometer is not None
         ):
-            diff_prev = abs((target_time - prev_fillup_time).total_seconds())
-            diff_next = abs((next_fillup_time - target_time).total_seconds())
-            if diff_prev < diff_next:
-                best_anchor = {
-                    "fillup_time": prev_fillup_time,
-                    "odometer": prev_fillup.odometer,
+            if target_time == prev_fillup_time:
+                return {
+                    "estimated_odometer": round(prev_fillup.odometer, 1),
+                    "method": "calibrated_between_manual_anchors",
+                    "confidence": "calibrated",
+                    "distance_diff": 0.0,
+                    "previous_anchor": previous_anchor,
+                    "next_anchor": next_anchor,
                 }
-                anchor_type = "prev"
-            else:
-                best_anchor = {
-                    "fillup_time": next_fillup_time,
-                    "odometer": next_fillup.odometer,
-                }
-                anchor_type = "next"
-        elif prev_fillup and prev_fillup_time is not None:
-            best_anchor = {
-                "fillup_time": prev_fillup_time,
-                "odometer": prev_fillup.odometer,
-            }
-            anchor_type = "prev"
-        elif next_fillup and next_fillup_time is not None:
-            best_anchor = {
-                "fillup_time": next_fillup_time,
-                "odometer": next_fillup.odometer,
-            }
-            anchor_type = "next"
 
-        # 2. If no fill-up anchor, try to find a trip anchor
-        if not best_anchor:
-            prev_trip = await (
-                Trip.find(
-                    enforce_bouncie_source(
-                        apply_trip_record_filters(
-                            {
-                            "imei": imei,
-                            "endTime": {"$lte": target_time},
-                            "endOdometer": {"$ne": None},
-                            }
-                        ),
-                    ),
+            raw_distance_to_target = (
+                await OdometerService._sum_trip_distance_over_interval(
+                    imei,
+                    prev_fillup_time,
+                    target_time,
                 )
-                .sort(-Trip.endTime)
-                .first_or_none()
             )
-            if prev_trip:
-                # Standardize structure to look like fillup for calc
-                prev_trip_end = parse_timestamp(prev_trip.endTime)
-                if prev_trip_end is None:
-                    return {"estimated_odometer": None, "method": "no_data"}
-                best_anchor = {
-                    "fillup_time": prev_trip_end,
-                    "odometer": prev_trip.endOdometer,
-                }
-                anchor_type = "prev"
+            raw_distance_between_anchors = (
+                await OdometerService._sum_trip_distance_over_interval(
+                    imei,
+                    prev_fillup_time,
+                    next_fillup_time,
+                )
+            )
 
-        if not best_anchor:
-            return {"estimated_odometer": None, "method": "no_data"}
+            odometer_delta = next_fillup.odometer - prev_fillup.odometer
+            if raw_distance_between_anchors <= 0 or odometer_delta < 0:
+                response = OdometerService._no_estimate_response()
+                response["previous_anchor"] = previous_anchor
+                response["next_anchor"] = next_anchor
+                return response
 
-        anchor_time = best_anchor.get("fillup_time")
-        if anchor_time is None:
-            return {"estimated_odometer": None, "method": "no_data"}
+            ratio = min(
+                max(raw_distance_to_target / raw_distance_between_anchors, 0.0),
+                1.0,
+            )
+            estimated_odometer = prev_fillup.odometer + (odometer_delta * ratio)
+            return {
+                "estimated_odometer": round(estimated_odometer, 1),
+                "method": "calibrated_between_manual_anchors",
+                "confidence": "calibrated",
+                "distance_diff": round(raw_distance_to_target, 1),
+                "previous_anchor": previous_anchor,
+                "next_anchor": next_anchor,
+            }
 
-        # 3. Sum Distance between anchor and target (including partial overlap)
-        if anchor_type == "prev":
-            interval_start = anchor_time
-            interval_end = target_time
-        else:  # next
-            interval_start = target_time
-            interval_end = anchor_time
+        if (
+            prev_fillup
+            and prev_fillup_time is not None
+            and prev_fillup.odometer is not None
+        ):
+            distance_sum = await OdometerService._sum_trip_distance_over_interval(
+                imei,
+                prev_fillup_time,
+                target_time,
+            )
+            distance_sum = round(distance_sum, 1)
+            return {
+                "estimated_odometer": round(prev_fillup.odometer + distance_sum, 1),
+                "method": "calculated_from_prev_manual",
+                "confidence": "low",
+                "distance_diff": distance_sum,
+                "previous_anchor": previous_anchor,
+                "next_anchor": None,
+            }
 
-        distance_sum = await OdometerService._sum_trip_distance_over_interval(
-            imei,
-            interval_start,
-            interval_end,
-        )
-        distance_sum = round(distance_sum, 1)
+        if (
+            next_fillup
+            and next_fillup_time is not None
+            and next_fillup.odometer is not None
+        ):
+            distance_sum = await OdometerService._sum_trip_distance_over_interval(
+                imei,
+                target_time,
+                next_fillup_time,
+            )
+            distance_sum = round(distance_sum, 1)
+            return {
+                "estimated_odometer": round(next_fillup.odometer - distance_sum, 1),
+                "method": "calculated_from_next_manual",
+                "confidence": "low",
+                "distance_diff": distance_sum,
+                "previous_anchor": None,
+                "next_anchor": next_anchor,
+            }
 
-        # 4. Calculate estimated odometer
-        if anchor_type == "prev":
-            estimated_odometer = best_anchor["odometer"] + distance_sum
-        else:
-            estimated_odometer = best_anchor["odometer"] - distance_sum
-
-        return {
-            "estimated_odometer": round(estimated_odometer, 1),
-            "anchor_date": best_anchor["fillup_time"],
-            "anchor_odometer": best_anchor["odometer"],
-            "distance_diff": distance_sum,
-            "method": f"calculated_from_{anchor_type}",
-        }
+        return OdometerService._no_estimate_response()

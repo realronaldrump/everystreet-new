@@ -21,7 +21,7 @@
     "lint:dead-code": "python -m vulture",
     "test:js": "node --test tests/*.test.js",
     "test:js:guardrails": "node --test tests/guardrails/*.test.js",
-    "test:py": "python -m pytest"
+    "test:py": "PYTHON=python; if [ -x venv/bin/python ]; then PYTHON=venv/bin/python; fi; \"$PYTHON\" -m pytest"
   },
   "keywords": [],
   "author": "",

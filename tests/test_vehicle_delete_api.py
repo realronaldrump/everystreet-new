@@ -19,6 +19,65 @@ def _build_app() -> FastAPI:
 
 
 @pytest.mark.asyncio
+async def test_update_vehicle_can_clear_odometer(vehicle_db) -> None:
+    imei = "111111111111111"
+    await Vehicle(
+        imei=imei,
+        custom_name="Test",
+        is_active=True,
+        odometer_reading=12345.0,
+        odometer_source="manual",
+        odometer_is_estimated=False,
+    ).insert()
+
+    client = TestClient(_build_app())
+    resp = client.put(
+        f"/api/vehicles/{imei}",
+        json={"imei": imei, "odometer_reading": None},
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["odometer_reading"] is None
+    assert body["odometer_source"] is None
+    assert body["odometer_is_estimated"] is False
+
+    saved = await Vehicle.find_one(Vehicle.imei == imei)
+    assert saved is not None
+    assert saved.odometer_reading is None
+    assert saved.odometer_source is None
+    assert saved.odometer_is_estimated is False
+
+
+@pytest.mark.asyncio
+async def test_update_vehicle_stores_bouncie_override_as_untrusted(vehicle_db) -> None:
+    imei = "222222222222222"
+    await Vehicle(imei=imei, custom_name="Test", is_active=True).insert()
+
+    client = TestClient(_build_app())
+    resp = client.put(
+        f"/api/vehicles/{imei}",
+        json={
+            "imei": imei,
+            "odometer_reading": 12345.0,
+            "odometer_source": "bouncie_untrusted",
+            "odometer_is_estimated": True,
+        },
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["odometer_reading"] == pytest.approx(12345.0)
+    assert body["odometer_source"] == "bouncie_untrusted"
+    assert body["odometer_is_estimated"] is True
+
+    saved = await Vehicle.find_one(Vehicle.imei == imei)
+    assert saved is not None
+    assert saved.odometer_source == "bouncie_untrusted"
+    assert saved.odometer_is_estimated is True
+
+
+@pytest.mark.asyncio
 async def test_delete_vehicle_removes_record_and_deauthorizes(vehicle_db) -> None:
     imei = "123456789012345"
 

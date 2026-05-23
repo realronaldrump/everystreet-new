@@ -54,7 +54,7 @@ async def update_vehicle(imei: str, vehicle_data: VehicleModel) -> Vehicle:
     try:
         update_data = vehicle_data.model_dump(
             exclude={"id", "imei", "created_at"},
-            exclude_none=True,
+            exclude_unset=True,
         )
         return await VehicleService.update_vehicle(imei, update_data)
 

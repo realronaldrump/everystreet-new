@@ -225,6 +225,7 @@ class VehicleModel(BaseModel):
 
     # Odometer tracking
     odometer_reading: float | None = None
-    odometer_source: str | None = None  # 'bouncie', 'manual', 'trip'
+    odometer_source: str | None = None  # 'manual', 'estimated', 'bouncie_untrusted'
+    odometer_is_estimated: bool | None = None
 
     model_config = ConfigDict(extra="allow")

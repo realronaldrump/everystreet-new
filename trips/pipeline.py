@@ -671,6 +671,7 @@ class TripPipeline:
         )
         if start_time:
             trip.startTime = start_time
+        incoming_start_time = parse_timestamp(incoming.get("startTime"))
 
         end_time = self._pick_latest(
             existing.get("endTime"),
@@ -678,6 +679,7 @@ class TripPipeline:
         )
         if end_time:
             trip.endTime = end_time
+        incoming_end_time = parse_timestamp(incoming.get("endTime"))
 
         last_update = self._pick_latest(
             existing.get("lastUpdate"),
@@ -695,7 +697,6 @@ class TripPipeline:
             "hardBrakingCounts",
             "hardAccelerationCounts",
             "fuelConsumed",
-            "endOdometer",
         }
         for key in max_fields:
             if key in incoming and incoming[key] is not None:
@@ -706,9 +707,30 @@ class TripPipeline:
         if (
             "startOdometer" in incoming
             and incoming["startOdometer"] is not None
-            and existing.get("startOdometer") is None
+            and (
+                existing.get("startOdometer") is None
+                or (
+                    incoming_start_time is not None
+                    and start_time is not None
+                    and incoming_start_time == start_time
+                )
+            )
         ):
             trip.startOdometer = incoming["startOdometer"]
+
+        if (
+            "endOdometer" in incoming
+            and incoming["endOdometer"] is not None
+            and (
+                existing.get("endOdometer") is None
+                or (
+                    incoming_end_time is not None
+                    and end_time is not None
+                    and incoming_end_time == end_time
+                )
+            )
+        ):
+            trip.endOdometer = incoming["endOdometer"]
 
         prefer_incoming = {
             "vin",
