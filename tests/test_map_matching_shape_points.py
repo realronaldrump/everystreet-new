@@ -298,39 +298,6 @@ def test_find_overlap_trim_no_fallback_when_too_far() -> None:
     assert trim == 0
 
 
-# --- _merge_close_segments tests ---
-
-
-def test_merge_close_segments_joins_nearby() -> None:
-    """Segments with a small gap should be merged into one."""
-    threshold = MapMatchingService._MAX_MATCHED_JUMP_DEG
-    segments = [
-        [[0.0, 0.0], [1.0, 1.0]],
-        [[1.0 + threshold, 1.0 + threshold], [2.0, 2.0]],  # within 2x threshold
-    ]
-    result = MapMatchingService._merge_close_segments(segments)
-    assert len(result) == 1
-    assert len(result[0]) == 4
-
-
-def test_merge_close_segments_keeps_distant() -> None:
-    """Segments with a large gap should remain separate."""
-    threshold = MapMatchingService._MAX_MATCHED_JUMP_DEG
-    segments = [
-        [[0.0, 0.0], [1.0, 1.0]],
-        [[1.0 + threshold * 3, 1.0 + threshold * 3], [5.0, 5.0]],  # beyond 2x
-    ]
-    result = MapMatchingService._merge_close_segments(segments)
-    assert len(result) == 2
-
-
-def test_merge_close_segments_single_segment_passthrough() -> None:
-    """A single segment should be returned as-is."""
-    segments = [[[0.0, 0.0], [1.0, 1.0]]]
-    result = MapMatchingService._merge_close_segments(segments)
-    assert len(result) == 1
-
-
 def test_append_matched_segments_keeps_distant_recovery_gaps_separate() -> None:
     segments: list[list[list[float]]] = []
 

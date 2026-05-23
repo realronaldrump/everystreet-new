@@ -486,7 +486,6 @@ export function computeFuelLens(totalFuel = 0, totalDistance = 0, totalTrips = 0
 }
 
 export function buildPatternCards(derivedData = {}) {
-  const consistency = derivedData.consistency || {};
   const timeSignature = derivedData.timeSignature || {};
   const exploration = derivedData.exploration || {};
   const fuelLens = derivedData.fuelLens || {};

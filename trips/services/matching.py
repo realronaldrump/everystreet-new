@@ -794,25 +794,6 @@ class MapMatchingService:
             )
         return segments
 
-    @classmethod
-    def _merge_close_segments(
-        cls,
-        segments: list[list[list[float]]],
-    ) -> list[list[list[float]]]:
-        """Merge adjacent segments whose gap is within 2x the jump threshold."""
-        if len(segments) <= 1:
-            return segments
-        threshold = cls._MAX_MATCHED_JUMP_DEG * 2
-        merged: list[list[list[float]]] = [list(segments[0])]
-        for seg in segments[1:]:
-            dx = abs(seg[0][0] - merged[-1][-1][0])
-            dy = abs(seg[0][1] - merged[-1][-1][1])
-            if dx <= threshold and dy <= threshold:
-                merged[-1].extend(seg)
-            else:
-                merged.append(list(seg))
-        return merged
-
     async def _retry_failed_chunk(
         self,
         coords: list[list[float]],

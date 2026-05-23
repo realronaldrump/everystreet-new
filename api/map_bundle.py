@@ -217,17 +217,6 @@ def _resolve_location_string(value: Any) -> str | None:
     return None
 
 
-def _trip_revision_source(
-    start_date: str,
-    end_date: str,
-    imei: str | None,
-    trip_count: int,
-    max_updated: datetime | None,
-) -> str:
-    stamp = ensure_utc(max_updated).isoformat() if max_updated else "none"
-    return f"{start_date}|{end_date}|{imei or 'all'}|{trip_count}|{stamp}"
-
-
 def _json_cache_key(payload: dict[str, Any]) -> str:
     raw = json.dumps(payload, sort_keys=True, default=str, separators=(",", ":"))
     digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]

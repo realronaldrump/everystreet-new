@@ -279,11 +279,6 @@ def verify_owner_password(password: str) -> bool:
         return False
 
 
-def hash_password_for_owner(password: str) -> str:
-    """Hash a plaintext password for env configuration."""
-    return _password_hasher.hash(password)
-
-
 def get_client_ip(request: Request) -> str:
     """Return the best-effort client IP for logging/rate limiting."""
     forwarded_for = (request.headers.get("x-forwarded-for") or "").strip()

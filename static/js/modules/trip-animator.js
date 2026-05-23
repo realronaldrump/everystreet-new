@@ -6,8 +6,6 @@
  * Also provides a full trip replay mode with an animated marker.
  */
 
-/* global mapboxgl */
-
 import layerManager from "./layer-manager.js";
 import {
   bearing as computeBearing,

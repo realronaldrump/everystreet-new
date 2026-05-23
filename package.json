@@ -18,6 +18,7 @@
   "scripts": {
     "test": "npm run test:js",
     "test:all": "npm run test:js && npm run test:js:guardrails && npm run test:py",
+    "lint:dead-code": "python -m vulture",
     "test:js": "node --test tests/*.test.js",
     "test:js:guardrails": "node --test tests/guardrails/*.test.js",
     "test:py": "python -m pytest"

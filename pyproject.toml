@@ -168,7 +168,12 @@ skip-magic-trailing-comma = false
 exclude = [
     "venv",
     "node_modules",
+    ".git",
+    ".claude",
+    ".codex",
     ".cursor",
+    ".pytest_cache",
+    ".ruff_cache",
     "__pycache__",
     "static",
     "scripts",
@@ -178,7 +183,7 @@ exclude = [
     "exports/models.py",
     "street_coverage/models.py",
     "trips/models.py",
-    "whitelist.py"  # Don't scan the whitelist file itself as code
+    "whitelist.py",  # Don't scan the whitelist file itself as code
 ]
 
 # Patterns to assume are always used (API routes, Tasks, Configs)

@@ -224,17 +224,6 @@ async def _clear_pending_extract(config: MapServiceConfig) -> None:
     await config.save()
 
 
-async def _sync_cancellation_flag(
-    progress: MapBuildProgress,
-    *,
-    raise_on_cancel: bool = False,
-) -> None:
-    config = await MapServiceConfig.get_or_create()
-    await MapSetupProgress(config, progress).sync_cancellation(
-        raise_on_cancel=raise_on_cancel,
-    )
-
-
 async def _update_progress(
     config: MapServiceConfig,
     progress: MapBuildProgress,

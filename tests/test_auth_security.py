@@ -8,6 +8,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.testclient import TestClient
+from pwdlib import PasswordHash
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.websockets import WebSocketDisconnect
@@ -19,7 +20,6 @@ from core.auth import (
     SESSION_TTL_SECONDS,
     AuthGuardMiddleware,
     get_session_secret,
-    hash_password_for_owner,
     parse_allowed_hosts,
     parse_cors_allowed_origins,
     require_owner_websocket,
@@ -29,6 +29,12 @@ from tracking.api import (
     live as live_api,
     webhooks as webhook_api,
 )
+
+_password_hasher = PasswordHash.recommended()
+
+
+def _hash_password_for_owner(password: str) -> str:
+    return _password_hasher.hash(password)
 
 
 class _FakeSettings:
@@ -91,7 +97,7 @@ def _configure_auth_test_env(
 ) -> None:
     password = "owner-secret"
     monkeypatch.setenv("APP_SESSION_SECRET", session_secret)
-    monkeypatch.setenv("OWNER_PASSWORD_HASH", hash_password_for_owner(password))
+    monkeypatch.setenv("OWNER_PASSWORD_HASH", _hash_password_for_owner(password))
     monkeypatch.setenv("CORS_ALLOWED_ORIGINS", cors_allowed_origins)
     monkeypatch.setenv("ALLOWED_HOSTS", allowed_hosts)
 
@@ -453,7 +459,7 @@ def test_missing_session_secret_raises_when_owner_auth_enabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("APP_SESSION_SECRET", raising=False)
-    monkeypatch.setenv("OWNER_PASSWORD_HASH", hash_password_for_owner("owner-secret"))
+    monkeypatch.setenv("OWNER_PASSWORD_HASH", _hash_password_for_owner("owner-secret"))
 
     with pytest.raises(RuntimeError, match="APP_SESSION_SECRET"):
         get_session_secret()

@@ -1,4 +1,4 @@
-/* global deck, mapboxgl */
+/* global deck */
 
 import store from "./core/store.js";
 import {

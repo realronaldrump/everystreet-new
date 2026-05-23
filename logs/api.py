@@ -407,14 +407,6 @@ def _raise_log_path_unavailable() -> None:
     )
 
 
-def _raise_log_file_not_found() -> None:
-    """Raise HTTPException for missing log file."""
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Log file not found for this container",
-    )
-
-
 async def _run_docker_command(args: list[str]) -> tuple[str, str, int]:
     """Run a docker command and return stdout, stderr, and return code."""
     try:

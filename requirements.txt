@@ -33,6 +33,7 @@ tenacity
 pytest
 pytest-asyncio
 pytest-cov
+vulture
 pymongo-async-mock>=0.1.3,<0.2
 aiofiles
 Pillow
