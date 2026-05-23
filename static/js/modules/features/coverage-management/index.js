@@ -70,6 +70,7 @@ const INITIAL_STATE = () => ({
   // Jobs/area tracking
   activeJobsByAreaId: new Map(),
   activeRouteJobsByAreaId: new Map(),
+  areaList: [],
   areaErrorById: new Map(),
   areaNameById: new Map(),
   areaRoadFilterVersionById: new Map(),
@@ -161,12 +162,13 @@ export default async function initCoverageManagementPage({
   featureApi = api || createFeatureApi({ signal: state.pageSignal });
   state.pageActive = true;
 
-  // Move modal to #modals-container to avoid z-index stacking issues
-  const addAreaModal = document.getElementById("addAreaModal");
   const modalsContainer = document.getElementById("modals-container");
-  if (addAreaModal && modalsContainer && !modalsContainer.contains(addAreaModal)) {
-    modalsContainer.appendChild(addAreaModal);
-  }
+  ["addAreaModal", "batchRecalculateModal"].forEach((modalId) => {
+    const modal = document.getElementById(modalId);
+    if (modal && modalsContainer && !modalsContainer.contains(modal)) {
+      modalsContainer.appendChild(modal);
+    }
+  });
 
   setupEventListeners(signal);
   setupSidebarTabs(signal);
@@ -227,6 +229,26 @@ function setupEventListeners(signal) {
   document
     .getElementById("refresh-list-btn")
     ?.addEventListener("click", loadAreas, opt);
+
+  document
+    .getElementById("batch-recalculate-open-btn")
+    ?.addEventListener("click", openBatchRecalculateModal, opt);
+
+  document
+    .getElementById("batch-select-ready-btn")
+    ?.addEventListener("click", selectAllBatchEligibleAreas, opt);
+
+  document
+    .getElementById("batch-clear-selection-btn")
+    ?.addEventListener("click", clearBatchSelection, opt);
+
+  document
+    .getElementById("batch-recalculate-area-list")
+    ?.addEventListener("change", updateBatchRecalculateSelectionState, opt);
+
+  document
+    .getElementById("batch-recalculate-start-btn")
+    ?.addEventListener("click", queueBatchRecalculate, opt);
 
   // Area cards container (delegated)
   document
@@ -991,6 +1013,184 @@ async function generateOptimalRoute(areaId, displayName, { restart = false } = {
 }
 
 // =============================================================================
+// Batch Recalculation
+// =============================================================================
+
+function isAreaBatchEligible(area) {
+  return area?.status === "ready" && !getActiveCoverageJob(area.id);
+}
+
+function getBatchEligibleAreas() {
+  return state.areaList.filter(isAreaBatchEligible);
+}
+
+function updateBatchOpenButtonState() {
+  const btn = document.getElementById("batch-recalculate-open-btn");
+  if (!btn) {
+    return;
+  }
+
+  const eligibleCount = getBatchEligibleAreas().length;
+  btn.disabled = eligibleCount < 2;
+  btn.setAttribute("aria-disabled", eligibleCount < 2 ? "true" : "false");
+  btn.title =
+    eligibleCount < 2
+      ? "At least two ready areas are needed"
+      : "Batch recalculate";
+}
+
+function getSelectedBatchAreaIds() {
+  return Array.from(
+    document.querySelectorAll(".batch-area-check:checked")
+  ).map((input) => input.value);
+}
+
+function getBatchAreaStatusLabel(area) {
+  const activeJob = getActiveCoverageJob(area.id);
+  if (activeJob) {
+    return "Queued";
+  }
+  if (area.status !== "ready") {
+    return area.status || "Unavailable";
+  }
+  const includeServiceRoads = getIncludeServiceRoadsSelection();
+  return shouldRebuildForServiceFilter(area.id, includeServiceRoads)
+    ? "Rebuild"
+    : "Backfill";
+}
+
+function renderBatchRecalculateModal() {
+  const list = document.getElementById("batch-recalculate-area-list");
+  if (!list) {
+    return;
+  }
+
+  const areas = state.areaList || [];
+  if (areas.length === 0) {
+    list.innerHTML = `
+      <div class="batch-empty-state">
+        <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
+        <span>No coverage areas yet.</span>
+      </div>`;
+    updateBatchRecalculateSelectionState();
+    return;
+  }
+
+  list.innerHTML = areas
+    .map((area) => {
+      const eligible = isAreaBatchEligible(area);
+      const pct = normalizeCoveragePercent(area.coverage_percentage);
+      const areaName = escapeHtml(area.display_name || "Coverage area");
+      const statusLabel = escapeHtml(getBatchAreaStatusLabel(area));
+      const lastSynced = area.last_synced
+        ? formatRelativeTime(area.last_synced)
+        : "Never synced";
+      return `
+        <label class="batch-area-row${eligible ? "" : " is-disabled"}" role="listitem">
+          <input type="checkbox"
+                 class="form-check-input batch-area-check"
+                 value="${area.id}"
+                 ${eligible ? "" : "disabled"}
+                 aria-label="Select ${areaName}" />
+          <span class="batch-area-copy">
+            <span class="batch-area-name">${areaName}</span>
+            <span class="batch-area-meta">
+              ${pct.toFixed(1)}% covered · ${escapeHtml(lastSynced)}
+            </span>
+          </span>
+          <span class="batch-area-status">${statusLabel}</span>
+        </label>`;
+    })
+    .join("");
+
+  updateBatchRecalculateSelectionState();
+}
+
+function openBatchRecalculateModal() {
+  renderBatchRecalculateModal();
+  const modal = document.getElementById("batchRecalculateModal");
+  if (!modal) {
+    return;
+  }
+  bootstrap.Modal.getOrCreateInstance(modal).show();
+}
+
+function selectAllBatchEligibleAreas() {
+  document.querySelectorAll(".batch-area-check:not(:disabled)").forEach((input) => {
+    input.checked = true;
+  });
+  updateBatchRecalculateSelectionState();
+}
+
+function clearBatchSelection() {
+  document.querySelectorAll(".batch-area-check").forEach((input) => {
+    input.checked = false;
+  });
+  updateBatchRecalculateSelectionState();
+}
+
+function updateBatchRecalculateSelectionState() {
+  const selectedIds = getSelectedBatchAreaIds();
+  const eligibleCount = getBatchEligibleAreas().length;
+  const summary = document.getElementById("batch-recalculate-summary");
+  const startBtn = document.getElementById("batch-recalculate-start-btn");
+
+  if (summary) {
+    summary.textContent =
+      selectedIds.length > 0
+        ? `${selectedIds.length} selected · ${eligibleCount} ready`
+        : `${eligibleCount} ready`;
+  }
+  if (startBtn) {
+    startBtn.disabled = selectedIds.length < 2;
+  }
+}
+
+async function queueBatchRecalculate() {
+  const selectedIds = getSelectedBatchAreaIds();
+  if (selectedIds.length < 2) {
+    notificationManager.show("Select at least two ready areas.", "warning");
+    return;
+  }
+
+  const startBtn = document.getElementById("batch-recalculate-start-btn");
+  const previousHtml = startBtn?.innerHTML;
+  if (startBtn) {
+    startBtn.disabled = true;
+    startBtn.innerHTML =
+      '<i class="fas fa-spinner fa-spin me-1" aria-hidden="true"></i>Queueing';
+  }
+
+  try {
+    const result = await apiPost("/areas/batch/recalculate", {
+      area_ids: selectedIds,
+      trip_mode: getCoverageTripModeSelection(),
+      rebuild_policy: "auto",
+    });
+
+    const modal = document.getElementById("batchRecalculateModal");
+    modal?.querySelector(":focus")?.blur();
+    bootstrap.Modal.getInstance(modal)?.hide();
+    notificationManager.show(
+      result.message || "Coverage recalculation batch queued.",
+      "info"
+    );
+    await loadAreas();
+  } catch (error) {
+    console.error("Failed to queue coverage batch:", error);
+    notificationManager.show(
+      `Failed to queue coverage batch: ${error.message}`,
+      "danger"
+    );
+  } finally {
+    if (startBtn) {
+      startBtn.innerHTML = previousHtml;
+      updateBatchRecalculateSelectionState();
+    }
+  }
+}
+
+// =============================================================================
 // Area List
 // =============================================================================
 
@@ -1029,9 +1229,14 @@ async function loadAreas() {
 
     const hasActiveJobs =
       state.activeJobsByAreaId.size > 0 || state.activeRouteJobsByAreaId.size > 0;
+    state.areaList = areasData.areas || [];
+    state.areaRoadFilterVersionById.clear();
+    state.areaList.forEach((area) => {
+      state.areaRoadFilterVersionById.set(area.id, area.road_filter_version || null);
+    });
 
     const { hasAreas } = renderAreaCards({
-      areas: areasData.areas || [],
+      areas: state.areaList,
       activeJobsByAreaId: state.activeJobsByAreaId,
       activeRouteJobsByAreaId: state.activeRouteJobsByAreaId,
       areaErrorById: state.areaErrorById,
@@ -1048,8 +1253,9 @@ async function loadAreas() {
 
     const countEl = document.getElementById("total-areas-count");
     if (countEl) {
-      countEl.textContent = (areasData.areas || []).length;
+      countEl.textContent = state.areaList.length;
     }
+    updateBatchOpenButtonState();
   } catch (error) {
     console.error("Failed to load areas:", error);
     notificationManager.show(
@@ -1059,6 +1265,7 @@ async function loadAreas() {
     scheduleActiveJobsRefresh(
       state.activeJobsByAreaId.size > 0 || state.activeRouteJobsByAreaId.size > 0
     );
+    updateBatchOpenButtonState();
   }
 }
 

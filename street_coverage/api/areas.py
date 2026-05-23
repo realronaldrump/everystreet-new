@@ -18,6 +18,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+from core.coverage import get_effective_coverage_trip_mode
 from core.mapping.factory import get_geocoder
 from db.models import CoverageArea, Job
 from street_coverage.ingestion import (
@@ -25,10 +26,14 @@ from street_coverage.ingestion import (
     _fetch_boundary,
     backfill_area,
     create_area,
+    create_area_backfill_job,
+    create_area_rebuild_job,
     delete_area,
     rebuild_area,
 )
+from street_coverage.public_road_filter import get_public_road_filter_signature
 from street_coverage.stats import update_area_stats
+from tasks.arq import get_arq_pool
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/coverage", tags=["coverage"])
@@ -171,6 +176,33 @@ class DeleteAreaResponse(BaseModel):
     """Response after deleting an area."""
 
     success: bool = True
+    message: str
+
+
+class BatchRecalculateRequest(BaseModel):
+    """Request to recalculate coverage for multiple areas sequentially."""
+
+    area_ids: list[PydanticObjectId] = Field(min_length=1, max_length=50)
+    trip_mode: Literal["regular", "matched", "both"] | None = None
+    rebuild_policy: Literal["auto", "never", "always"] = "auto"
+
+
+class BatchRecalculateQueuedJob(BaseModel):
+    """Child coverage job created for a sequential batch."""
+
+    area_id: str
+    area_display_name: str
+    job_id: str
+    operation: Literal["backfill", "rebuild"]
+
+
+class BatchRecalculateResponse(BaseModel):
+    """Response after queueing a sequential coverage recalculation batch."""
+
+    success: bool = True
+    batch_job_id: str
+    task_id: str | None = None
+    jobs: list[BatchRecalculateQueuedJob]
     message: str
 
 
@@ -375,6 +407,103 @@ def _candidate_bounding_box(
     if boundary:
         return _calculate_bounding_box(boundary)
     return None
+
+
+COVERAGE_RECALCULATION_JOB_TYPES = ["area_ingestion", "area_rebuild", "area_backfill"]
+ACTIVE_JOB_STATUSES = ["pending", "running"]
+
+
+def _extract_arq_job_id(arq_job: Any) -> str:
+    return str(
+        getattr(arq_job, "job_id", None) or getattr(arq_job, "id", None) or arq_job,
+    )
+
+
+def _dedupe_area_ids(area_ids: list[PydanticObjectId]) -> list[PydanticObjectId]:
+    seen: set[str] = set()
+    unique: list[PydanticObjectId] = []
+    for area_id in area_ids:
+        key = str(area_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(area_id)
+    return unique
+
+
+def _should_rebuild_area(area: CoverageArea, rebuild_policy: str) -> bool:
+    if area.status == "error":
+        return True
+    if rebuild_policy == "always":
+        return True
+    if rebuild_policy == "never":
+        return False
+    expected_signature = get_public_road_filter_signature()
+    return area.road_filter_version != expected_signature
+
+
+async def _load_batch_areas(
+    area_ids: list[PydanticObjectId],
+) -> list[CoverageArea]:
+    areas = await CoverageArea.find({"_id": {"$in": area_ids}}).to_list()
+    area_by_id = {str(area.id): area for area in areas}
+    missing_ids = [
+        str(area_id) for area_id in area_ids if str(area_id) not in area_by_id
+    ]
+    if missing_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Coverage areas not found: {', '.join(missing_ids)}",
+        )
+    return [area_by_id[str(area_id)] for area_id in area_ids]
+
+
+async def _ensure_batch_areas_available(
+    areas: list[CoverageArea],
+    operations_by_area_id: dict[str, str],
+) -> None:
+    invalid = [
+        area.display_name
+        for area in areas
+        if area.status != "ready"
+        and not (
+            area.status == "error"
+            and operations_by_area_id[str(area.id)] == "rebuild"
+        )
+    ]
+    if invalid:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Only ready areas can be recalculated. "
+                f"Unavailable areas: {', '.join(invalid)}"
+            ),
+        )
+
+    area_ids = [area.id for area in areas if area.id is not None]
+    active_jobs = await Job.find(
+        {
+            "area_id": {"$in": area_ids},
+            "job_type": {"$in": COVERAGE_RECALCULATION_JOB_TYPES},
+            "status": {"$in": ACTIVE_JOB_STATUSES},
+        },
+    ).to_list()
+    if not active_jobs:
+        return
+
+    area_name_by_id = {str(area.id): area.display_name for area in areas}
+    busy_names = [
+        area_name_by_id.get(str(job.area_id), str(job.area_id))
+        for job in active_jobs
+        if job.area_id is not None
+    ]
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=(
+            "Some selected areas already have coverage work running: "
+            f"{', '.join(busy_names)}"
+        ),
+    )
 
 
 # =============================================================================
@@ -632,6 +761,154 @@ async def list_areas():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
+
+
+@router.post("/areas/batch/recalculate", response_model=BatchRecalculateResponse)
+async def queue_batch_recalculate(request: BatchRecalculateRequest):
+    """
+    Queue street coverage recalculation for multiple areas.
+
+    The worker creates a single parent job and runs the child area jobs one at
+    a time so large coverage recalculations do not compete with each other.
+    """
+    area_ids = _dedupe_area_ids(request.area_ids)
+    selected_trip_mode = await get_effective_coverage_trip_mode(request.trip_mode)
+    areas = await _load_batch_areas(area_ids)
+
+    operations_by_area_id = {}
+    for area in areas:
+        operation = (
+            "rebuild"
+            if _should_rebuild_area(area, request.rebuild_policy)
+            else "backfill"
+        )
+        operations_by_area_id[str(area.id)] = operation
+    await _ensure_batch_areas_available(areas, operations_by_area_id)
+
+    parent_job = Job(
+        job_type="coverage_recalculate_batch",
+        status="pending",
+        stage="Queued",
+        message=f"Queued sequential coverage recalculation for {len(areas)} areas.",
+        metadata={
+            "trip_mode": selected_trip_mode,
+            "rebuild_policy": request.rebuild_policy,
+        },
+    )
+    await parent_job.insert()
+    if parent_job.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create coverage batch job.",
+        )
+
+    queued_jobs: list[BatchRecalculateQueuedJob] = []
+    batch_items: list[dict[str, Any]] = []
+    total = len(areas)
+    for index, area in enumerate(areas, start=1):
+        if area.id is None:
+            continue
+        operation = operations_by_area_id[str(area.id)]
+        message = f"Queued in sequential batch ({index} of {total})"
+        metadata = {
+            "batch_job_id": str(parent_job.id),
+            "batch_position": index,
+            "batch_total": total,
+            "rebuild_policy": request.rebuild_policy,
+        }
+        if operation == "rebuild":
+            child_job = await create_area_rebuild_job(
+                area.id,
+                selected_trip_mode,
+                message=message,
+                metadata=metadata,
+            )
+        else:
+            child_job = await create_area_backfill_job(
+                area.id,
+                selected_trip_mode,
+                message=message,
+                metadata=metadata,
+            )
+        if child_job.id is None:
+            continue
+
+        queued_jobs.append(
+            BatchRecalculateQueuedJob(
+                area_id=str(area.id),
+                area_display_name=area.display_name,
+                job_id=str(child_job.id),
+                operation=operation,
+            ),
+        )
+        batch_items.append(
+            {
+                "area_id": str(area.id),
+                "job_id": str(child_job.id),
+                "operation": operation,
+            },
+        )
+
+    try:
+        pool = await get_arq_pool()
+        arq_job = await pool.enqueue_job(
+            "run_area_recalculate_batch_job",
+            str(parent_job.id),
+            batch_items,
+            selected_trip_mode,
+        )
+        task_id = _extract_arq_job_id(arq_job)
+    except Exception as exc:
+        now = datetime.now(UTC)
+        await parent_job.set(
+            {
+                "status": "failed",
+                "stage": "Queue failed",
+                "message": "Failed to enqueue coverage batch.",
+                "error": str(exc),
+                "completed_at": now,
+                "updated_at": now,
+            },
+        )
+        for queued_job in queued_jobs:
+            job = await Job.get(PydanticObjectId(queued_job.job_id))
+            if job:
+                await job.set(
+                    {
+                        "status": "failed",
+                        "stage": "Queue failed",
+                        "message": "Parent batch could not be queued.",
+                        "error": str(exc),
+                        "completed_at": now,
+                        "updated_at": now,
+                    },
+                )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    await parent_job.set(
+        {
+            "operation_id": task_id,
+            "task_id": task_id,
+            "metadata": {
+                **(parent_job.metadata or {}),
+                "child_job_ids": [job.job_id for job in queued_jobs],
+            },
+            "updated_at": datetime.now(UTC),
+        },
+    )
+
+    return BatchRecalculateResponse(
+        batch_job_id=str(parent_job.id),
+        task_id=task_id,
+        jobs=queued_jobs,
+        message=(
+            f"Queued street coverage recalculation for {len(queued_jobs)} areas. "
+            "They will run one at a time in the background."
+        ),
+    )
 
 
 @router.get("/areas/{area_id}", response_model=AreaDetailResponse)

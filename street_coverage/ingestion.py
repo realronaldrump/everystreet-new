@@ -216,22 +216,13 @@ async def delete_area(area_id: PydanticObjectId) -> bool:
     return True
 
 
-async def rebuild_area(
-    area_id: PydanticObjectId,
-    trip_mode: str | None = None,
-) -> Job:
-    """
-    Trigger a rebuild of an area with fresh OSM data.
-
-    Returns the created job for tracking progress.
-    """
+async def reset_area_for_rebuild(area_id: PydanticObjectId) -> CoverageArea:
+    """Prepare an area for a full street rebuild without enqueueing work."""
     area = await CoverageArea.get(area_id)
     if not area:
         msg = f"Area {area_id} not found"
         raise ValueError(msg)
-    selected_trip_mode = await get_effective_coverage_trip_mode(trip_mode)
 
-    # Update area status
     area.status = "rebuilding"
     area.area_version += 1
     area.optimal_route = None
@@ -269,19 +260,79 @@ async def rebuild_area(
         if graph_path.exists():
             graph_path.unlink()
 
-    # Create ingestion job
+    return area
+
+
+async def create_area_rebuild_job(
+    area_id: PydanticObjectId,
+    selected_trip_mode: str,
+    *,
+    message: str = "Queued",
+    metadata: dict[str, Any] | None = None,
+) -> Job:
+    """Create a pending area rebuild job record."""
+    job_metadata = {"trip_mode": selected_trip_mode}
+    if metadata:
+        job_metadata.update(metadata)
+
     job = Job(
         job_type="area_rebuild",
         area_id=area_id,
         status="pending",
         stage="Queued",
-        metadata={"trip_mode": selected_trip_mode},
+        message=message,
+        metadata=job_metadata,
     )
     await job.insert()
 
     if job.id is None:
         msg = "Coverage ingestion job insert failed (missing id)"
         raise RuntimeError(msg)
+
+    return job
+
+
+async def create_area_backfill_job(
+    area_id: PydanticObjectId,
+    selected_trip_mode: str,
+    *,
+    message: str = "Queued",
+    metadata: dict[str, Any] | None = None,
+) -> Job:
+    """Create a pending area backfill job record."""
+    job_metadata = {"trip_mode": selected_trip_mode}
+    if metadata:
+        job_metadata.update(metadata)
+
+    job = Job(
+        job_type="area_backfill",
+        area_id=area_id,
+        status="pending",
+        stage="Queued",
+        message=message,
+        metadata=job_metadata,
+    )
+    await job.insert()
+
+    if job.id is None:
+        msg = "Coverage backfill job insert failed (missing id)"
+        raise RuntimeError(msg)
+
+    return job
+
+
+async def rebuild_area(
+    area_id: PydanticObjectId,
+    trip_mode: str | None = None,
+) -> Job:
+    """
+    Trigger a rebuild of an area with fresh OSM data.
+
+    Returns the created job for tracking progress.
+    """
+    selected_trip_mode = await get_effective_coverage_trip_mode(trip_mode)
+    area = await reset_area_for_rebuild(area_id)
+    job = await create_area_rebuild_job(area_id, selected_trip_mode)
 
     try:
         operation_id = await _enqueue_pipeline_job(
@@ -336,20 +387,7 @@ async def backfill_area(
         msg = f"Area {area_id} not found"
         raise ValueError(msg)
     selected_trip_mode = await get_effective_coverage_trip_mode(trip_mode)
-
-    job = Job(
-        job_type="area_backfill",
-        area_id=area_id,
-        status="pending",
-        stage="Queued",
-        message="Queued",
-        metadata={"trip_mode": selected_trip_mode},
-    )
-    await job.insert()
-
-    if job.id is None:
-        msg = "Coverage backfill job insert failed (missing id)"
-        raise RuntimeError(msg)
+    job = await create_area_backfill_job(area_id, selected_trip_mode)
 
     try:
         operation_id = await _enqueue_pipeline_job(
@@ -545,6 +583,8 @@ async def _run_ingestion_pipeline(
     area_id: PydanticObjectId,
     job_id: PydanticObjectId,
     trip_mode: str | None = None,
+    *,
+    allow_retries: bool = True,
 ) -> None:
     """
     Execute the full ingestion pipeline for an area.
@@ -1065,7 +1105,24 @@ async def _run_ingestion_pipeline(
         now = datetime.now(UTC)
 
         area_updates: dict[str, Any] = {}
-        if retry_count >= MAX_INGESTION_RETRIES:
+        if not allow_retries:
+            await job.set(
+                {
+                    "status": "failed",
+                    "stage": "Failed",
+                    "error": err_str,
+                    "retry_count": retry_count,
+                    "message": f"Failed: {err_str}",
+                    "completed_at": now,
+                    "updated_at": now,
+                },
+            )
+            area_updates = {
+                "status": "error",
+                "health": "unavailable",
+                "last_error": err_str,
+            }
+        elif retry_count >= MAX_INGESTION_RETRIES:
             await job.set(
                 {
                     "status": "needs_attention",
