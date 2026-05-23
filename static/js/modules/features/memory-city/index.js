@@ -37,8 +37,7 @@ const RECENCY_STOPS = [
 
 // Sculpture geometry tuning
 const MIN_COLUMN_HEIGHT_M = 15;
-const MAX_COLUMN_HEIGHT_M = 900;
-const COLUMN_RADIUS_M = 8;
+const MAX_COLUMN_HEIGHT_M = 500; // Capped to look less like spikes, more like monuments
 const PATH_GLOW_WIDTH_MIN_PX = 1.5;
 const PATH_GLOW_WIDTH_MAX_PX = 4;
 
@@ -70,6 +69,8 @@ export default async function initMemoryCityPage(ctx = {}) {
     autoRotate: false,
     rotateRaf: null,
     inflight: null,
+    hoveredRecencyIndex: null,
+    selectedRecencyIndex: null,
   };
 
   const elements = {
@@ -89,6 +90,9 @@ export default async function initMemoryCityPage(ctx = {}) {
     playBtn: document.getElementById("memory-city-play"),
     resetCamBtn: document.getElementById("memory-city-reset-cam"),
     spinBtn: document.getElementById("memory-city-toggle-spin"),
+    camCinematicBtn: document.getElementById("memory-city-cam-cinematic"),
+    camBlueprintBtn: document.getElementById("memory-city-cam-blueprint"),
+    camHorizonBtn: document.getElementById("memory-city-cam-horizon"),
     detail: document.getElementById("memory-city-detail"),
     stateOverlay: document.getElementById("memory-city-state"),
   };
@@ -148,6 +152,9 @@ export default async function initMemoryCityPage(ctx = {}) {
     addListener(elements.playBtn, "click", togglePlay);
     addListener(elements.resetCamBtn, "click", resetCamera);
     addListener(elements.spinBtn, "click", toggleAutoRotate);
+    addListener(elements.camCinematicBtn, "click", () => setCameraPreset("cinematic"));
+    addListener(elements.camBlueprintBtn, "click", () => setCameraPreset("blueprint"));
+    addListener(elements.camHorizonBtn, "click", () => setCameraPreset("horizon"));
 
     if (signal) {
       signal.addEventListener("abort", teardown, { once: true });
@@ -284,9 +291,12 @@ export default async function initMemoryCityPage(ctx = {}) {
       state.payload = payload;
       state.selectedSegmentId = null;
       state.hoveredSegmentId = null;
+      state.selectedRecencyIndex = null;
+      state.hoveredRecencyIndex = null;
       syncSelectedAreaOption(payload?.area);
 
       const segments = Array.isArray(payload.segments) ? payload.segments : [];
+      buildLegendRecency();
       if (segments.length === 0) {
         setState(
           "empty",
@@ -416,6 +426,7 @@ export default async function initMemoryCityPage(ctx = {}) {
         : formatDate(cutoff);
     setText(elements.scrubberCurrent, cutoffLabel);
     setScrubberProgress(clamp(pct * 100, 0, 100));
+    updateDynamicStats(cutoff);
     refreshLayers();
   }
 
@@ -644,6 +655,7 @@ export default async function initMemoryCityPage(ctx = {}) {
           if (state.autoRotate) {
             stopAutoRotate();
           }
+          updateCameraPresetActiveStates(null);
         },
         getTooltip: buildTooltip,
         onClick: onSculptureClick,
@@ -678,6 +690,9 @@ export default async function initMemoryCityPage(ctx = {}) {
     const cutoff = state.timeCutoff;
     const hoveredId = state.hoveredSegmentId;
     const selectedId = state.selectedSegmentId;
+
+    // Determine if any recency filter is currently active
+    const activeRecencyIndex = state.hoveredRecencyIndex !== null ? state.hoveredRecencyIndex : state.selectedRecencyIndex;
 
     const visible = [];
     for (const seg of segments) {
@@ -728,13 +743,20 @@ export default async function initMemoryCityPage(ctx = {}) {
         pickable: false,
         widthUnits: "pixels",
         getPath: (d) => d.path,
-        getColor: (d) => [d.color[0], d.color[1], d.color[2], 46],
+        getColor: (d) => {
+          const isDimmed = activeRecencyIndex !== null && getRecencyBucketIndex(d.daysSinceDriven) !== activeRecencyIndex;
+          const alpha = isDimmed ? 6 : 46;
+          return [d.color[0], d.color[1], d.color[2], alpha];
+        },
         getWidth: 8,
         widthMinPixels: 4,
         widthMaxPixels: 16,
         jointRounded: true,
         capRounded: true,
         parameters: { depthTest: false },
+        updateTriggers: {
+          getColor: [activeRecencyIndex],
+        },
       })
     );
 
@@ -747,9 +769,11 @@ export default async function initMemoryCityPage(ctx = {}) {
         widthUnits: "pixels",
         getPath: (d) => d.path,
         getColor: (d) => {
-          if (d.segmentId === selectedId) { return [255, 255, 255, 240]; }
-          if (d.segmentId === hoveredId) { return [255, 255, 255, 210]; }
-          return [d.color[0], d.color[1], d.color[2], 215];
+          const isDimmed = activeRecencyIndex !== null && getRecencyBucketIndex(d.daysSinceDriven) !== activeRecencyIndex;
+          const alpha = isDimmed ? 20 : 215;
+          if (d.segmentId === selectedId) { return [255, 255, 255, isDimmed ? 80 : 240]; }
+          if (d.segmentId === hoveredId) { return [255, 255, 255, isDimmed ? 70 : 210]; }
+          return [d.color[0], d.color[1], d.color[2], alpha];
         },
         getWidth: PATH_GLOW_WIDTH_MIN_PX + 0.8,
         widthMinPixels: PATH_GLOW_WIDTH_MIN_PX,
@@ -758,44 +782,61 @@ export default async function initMemoryCityPage(ctx = {}) {
         capRounded: true,
         parameters: { depthTest: false },
         updateTriggers: {
-          getColor: [hoveredId, selectedId],
+          getColor: [hoveredId, selectedId, activeRecencyIndex],
         },
       })
     );
 
-    // 3D columns at segment midpoints — the "buildings" of your city.
-    layers.push(
-      new deckNs.ColumnLayer({
-        id: "memory-city-columns",
-        data: visible,
-        pickable: true,
-        diskResolution: 16,
-        radius: COLUMN_RADIUS_M,
-        extruded: true,
-        elevationScale: 1,
-        getPosition: (d) => d.midpoint,
-        getElevation: (d) => d.height,
-        getFillColor: (d) => {
-          const [r, g, b] = d.color;
-          if (d.segmentId === selectedId) { return [255, 255, 255, 240]; }
-          if (d.segmentId === hoveredId) { return [r, g, b, 235]; }
-          return [r, g, b, 190];
-        },
-        getLineColor: (d) => {
-          const [r, g, b] = d.color;
-          return [Math.min(255, r + 35), Math.min(255, g + 35), Math.min(255, b + 35), 220];
-        },
-        material: {
-          ambient: 0.35,
-          diffuse: 0.75,
-          shininess: 140,
-          specularColor: [220, 220, 240],
-        },
-        updateTriggers: {
-          getFillColor: [hoveredId, selectedId],
-        },
-      })
-    );
+    // 3D columns at segment midpoints — ColumnLayer supports a constant radius
+    // per layer, so split by road class to keep road-type sizing.
+    const columnGroups = new Map();
+    for (const segment of visible) {
+      const radius = getColumnRadiusForHighwayType(segment.highwayType);
+      if (!columnGroups.has(radius)) {
+        columnGroups.set(radius, []);
+      }
+      columnGroups.get(radius).push(segment);
+    }
+
+    for (const [radius, data] of columnGroups.entries()) {
+      layers.push(
+        new deckNs.ColumnLayer({
+          id: `memory-city-columns-${radius}`,
+          data,
+          pickable: true,
+          diskResolution: 16,
+          radius,
+          extruded: true,
+          elevationScale: 1,
+          getPosition: (d) => d.midpoint,
+          getElevation: (d) => d.height,
+          getFillColor: (d) => {
+            const isDimmed = activeRecencyIndex !== null && getRecencyBucketIndex(d.daysSinceDriven) !== activeRecencyIndex;
+            const alpha = isDimmed ? 15 : 190;
+            const [r, g, b] = d.color;
+            if (d.segmentId === selectedId) { return [255, 255, 255, isDimmed ? 80 : 240]; }
+            if (d.segmentId === hoveredId) { return [r, g, b, isDimmed ? 25 : 235]; }
+            return [r, g, b, alpha];
+          },
+          getLineColor: (d) => {
+            const isDimmed = activeRecencyIndex !== null && getRecencyBucketIndex(d.daysSinceDriven) !== activeRecencyIndex;
+            const alpha = isDimmed ? 20 : 220;
+            const [r, g, b] = d.color;
+            return [Math.min(255, r + 35), Math.min(255, g + 35), Math.min(255, b + 35), alpha];
+          },
+          material: {
+            ambient: 0.35,
+            diffuse: 0.75,
+            shininess: 140,
+            specularColor: [220, 220, 240],
+          },
+          updateTriggers: {
+            getFillColor: [hoveredId, selectedId, activeRecencyIndex],
+            getLineColor: [hoveredId, selectedId, activeRecencyIndex],
+          },
+        })
+      );
+    }
 
     return layers;
   }
@@ -840,6 +881,7 @@ export default async function initMemoryCityPage(ctx = {}) {
   function renderDetailEmpty() {
     if (!elements.detail) { return; }
     elements.detail.classList.remove("is-locked");
+    elements.detail.style.removeProperty("--detail-glow-color-rgb");
     elements.detail.innerHTML = `
       <div class="memory-city-detail-empty">
         <i class="fas fa-hand-pointer" aria-hidden="true"></i>
@@ -851,6 +893,14 @@ export default async function initMemoryCityPage(ctx = {}) {
   function renderDetailForSegment(segObj) {
     if (!elements.detail || !segObj) { return; }
     elements.detail.classList.add("is-locked");
+
+    // Set custom glow color matching the recency of the selected segment
+    if (Array.isArray(segObj.color)) {
+      elements.detail.style.setProperty("--detail-glow-color-rgb", segObj.color.join(", "));
+    } else {
+      elements.detail.style.removeProperty("--detail-glow-color-rgb");
+    }
+
     const heightFt = Math.round(segObj.height * 3.281);
     elements.detail.innerHTML = `
       <button type="button" class="memory-city-detail-close" aria-label="Clear selection">
@@ -880,6 +930,9 @@ export default async function initMemoryCityPage(ctx = {}) {
           <dd>${escapeHtml(segObj.highwayType.replace(/_/g, " "))}</dd>
         </div>
       </dl>
+      <a href="/map?lat=${segObj.midpoint[1]}&lng=${segObj.midpoint[0]}&zoom=16" class="memory-city-detail-map-link" target="_blank">
+        <i class="fas fa-external-link-alt" aria-hidden="true"></i> View on Main Map
+      </a>
     `;
     const closeBtn = elements.detail.querySelector(".memory-city-detail-close");
     if (closeBtn) {
@@ -914,11 +967,192 @@ export default async function initMemoryCityPage(ctx = {}) {
     const t = overlay.querySelector(".memory-city-state-text");
     if (t) { t.textContent = text || ""; }
   }
+
+  // ===========================================================================
+  // Camera presets
+  // ===========================================================================
+
+  function setCameraPreset(mode) {
+    if (!state.deck || !state.viewState) { return; }
+
+    if (state.autoRotate) {
+      stopAutoRotate();
+    }
+
+    const targetViewState = { ...state.viewState };
+
+    if (mode === "cinematic") {
+      targetViewState.pitch = 55;
+      targetViewState.bearing = -18;
+    } else if (mode === "blueprint") {
+      targetViewState.pitch = 0;
+      targetViewState.bearing = 0;
+    } else if (mode === "horizon") {
+      targetViewState.pitch = 75;
+      targetViewState.bearing = -45;
+    }
+
+    targetViewState.transitionDuration = 1000;
+
+    if (window.deck?.FlyToInterpolator) {
+      targetViewState.transitionInterpolator = new window.deck.FlyToInterpolator();
+    }
+
+    updateViewState(targetViewState);
+    updateCameraPresetActiveStates(mode);
+  }
+
+  function updateCameraPresetActiveStates(activeMode) {
+    const presets = ["cinematic", "blueprint", "horizon"];
+    presets.forEach(mode => {
+      const btn = elements[`cam${mode.charAt(0).toUpperCase() + mode.slice(1)}Btn`];
+      if (btn) {
+        btn.setAttribute("aria-pressed", mode === activeMode ? "true" : "false");
+      }
+    });
+  }
+
+  // ===========================================================================
+  // Interactive Legend
+  // ===========================================================================
+
+  function buildLegendRecency() {
+    const container = document.getElementById("memory-city-legend-recency");
+    if (!container) { return; }
+
+    container.innerHTML = "";
+
+    const labelSpan = document.createElement("span");
+    labelSpan.className = "memory-city-legend-label";
+    labelSpan.textContent = "Color = recency:";
+    container.appendChild(labelSpan);
+
+    const swatchesWrap = document.createElement("div");
+    swatchesWrap.className = "memory-city-legend-swatches";
+
+    const labels = ["Today", "< 1 Week", "< 1 Month", "< 3 Months", "< 6 Months", "< 1 Year", "Older"];
+
+    RECENCY_STOPS.forEach(([threshold, rgb], index) => {
+      const swatch = document.createElement("span");
+      swatch.className = "mc-legend-swatch";
+      if (state.selectedRecencyIndex === index) {
+        swatch.classList.add("is-active");
+      }
+      const colorStr = `rgb(${rgb.join(",")})`;
+      swatch.style.backgroundColor = colorStr;
+      swatch.style.color = colorStr;
+      swatch.title = labels[index] || "Older";
+      swatch.dataset.index = index;
+
+      swatch.addEventListener("mouseenter", () => highlightRecencyBucket(index));
+      swatch.addEventListener("mouseleave", () => clearRecencyHighlight());
+      swatch.addEventListener("click", () => toggleRecencyFilter(index, swatch));
+
+      swatchesWrap.appendChild(swatch);
+    });
+
+    container.appendChild(swatchesWrap);
+  }
+
+  function highlightRecencyBucket(index) {
+    state.hoveredRecencyIndex = index;
+    refreshLayers();
+  }
+
+  function clearRecencyHighlight() {
+    state.hoveredRecencyIndex = null;
+    refreshLayers();
+  }
+
+  function toggleRecencyFilter(index, el) {
+    const alreadySelected = state.selectedRecencyIndex === index;
+    state.selectedRecencyIndex = alreadySelected ? null : index;
+
+    const container = document.getElementById("memory-city-legend-recency");
+    if (container) {
+      container.querySelectorAll(".mc-legend-swatch").forEach(sw => {
+        sw.classList.remove("is-active");
+      });
+      if (!alreadySelected && el) {
+        el.classList.add("is-active");
+      }
+    }
+    refreshLayers();
+  }
+
+  // ===========================================================================
+  // Real-time Dynamic Stats Calculation
+  // ===========================================================================
+
+  function updateDynamicStats(cutoff) {
+    if (!state.payload || !Array.isArray(state.payload.segments)) { return; }
+
+    let activeSegments = 0;
+    let activeMiles = 0;
+
+    for (const seg of state.payload.segments) {
+      const firstMs = parseIso(seg.first_driven_at);
+      if (firstMs === null) { continue; }
+      if (cutoff !== null && firstMs > cutoff) { continue; }
+
+      activeSegments += 1;
+      activeMiles += seg.length_miles || 0;
+    }
+
+    const formattedSegments = formatInt(activeSegments);
+    const formattedMiles = formatMiles(activeMiles);
+
+    const area = state.payload.area || {};
+    let formattedPercent = "—";
+    if (Number.isFinite(area.coverage_percentage) && area.coverage_percentage > 0) {
+      const totalMiles = area.driven_length_miles / (area.coverage_percentage / 100);
+      const activeCoverage = totalMiles > 0 ? (activeMiles / totalMiles) * 100 : 0;
+      formattedPercent = formatPercent(activeCoverage);
+    }
+
+    updateStatElement(elements.statSegments, formattedSegments);
+    updateStatElement(elements.statMiles, formattedMiles);
+    updateStatElement(elements.statPercent, formattedPercent);
+  }
+
+  function updateStatElement(el, nextValue) {
+    if (!el) { return; }
+    if (el.textContent === nextValue) { return; }
+
+    el.textContent = nextValue;
+
+    el.classList.remove("is-updating");
+    void el.offsetWidth; // Force reflow
+    el.classList.add("is-updating");
+  }
 }
 
 // ============================================================================
 // Helpers (pure)
 // ============================================================================
+
+function getRecencyBucketIndex(daysSinceDriven) {
+  for (let i = 0; i < RECENCY_STOPS.length; i++) {
+    if (daysSinceDriven <= RECENCY_STOPS[i][0]) {
+      return i;
+    }
+  }
+  return RECENCY_STOPS.length - 1;
+}
+
+function getColumnRadiusForHighwayType(highwayType) {
+  const type = String(highwayType || "").toLowerCase();
+  if (type.includes("motorway") || type.includes("trunk")) {
+    return 22;
+  }
+  if (type.includes("primary") || type.includes("secondary")) {
+    return 16;
+  }
+  if (type.includes("tertiary")) {
+    return 12;
+  }
+  return 8;
+}
 
 function parseIso(value) {
   if (value === null || value === undefined) { return null; }
