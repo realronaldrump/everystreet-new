@@ -3,6 +3,7 @@
  * Real-time segment coverage tracking and gamification.
  */
 
+import { MI_TO_M } from "../utils/geo-math.js";
 import LiveNavigationAPI from "./live-navigation-api.js";
 import { DISTANCE_THRESHOLDS } from "./live-navigation-config.js";
 import { distanceToLineString, toXY } from "./live-navigation-geo.js";
@@ -195,7 +196,7 @@ class LiveNavigationCoverage {
         const isDriven = status === "driven";
         const isUndriveable = status === "undriveable";
         const lengthMiles = feature.properties?.length_miles || 0;
-        const length = lengthMiles * 1609.344;
+        const length = lengthMiles * MI_TO_M;
 
         if (!segmentId || isUndriveable) {
           continue;
@@ -318,7 +319,7 @@ class LiveNavigationCoverage {
 
       // Track length
       const lengthMiles = feature.properties?.length_miles || 0;
-      const length = lengthMiles * 1609.344;
+      const length = lengthMiles * MI_TO_M;
       this.drivenSegmentLength += length;
       this.liveCoverageIncrease += length;
 

@@ -29,9 +29,8 @@ from core.auth import (
     parse_cors_allowed_origins,
     session_cookie_https_only,
 )
-from core.jinja import templates
 from core.startup import initialize_shared_runtime, shutdown_shared_runtime
-from core.template_context import build_base_template_context
+from core.template_context import render_template
 from db.logging_handler import MongoDBHandler
 from db.models import AppSettings, MapProvider
 from driving import router as driving_api_router
@@ -347,15 +346,11 @@ async def not_found_handler(request: Request, exc: HTTPException):
     if ".well-known/appspecific" not in str(request.url):
         logger.warning("404 Not Found: %s. Detail: %s", request.url, exc.detail)
     if _prefers_html(request):
-        context = await build_base_template_context(
-            request,
-            path=request.url.path,
-        )
-        return templates.TemplateResponse(
+        return await render_template(
             request,
             "404.html",
-            context,
             status_code=status.HTTP_404_NOT_FOUND,
+            path=request.url.path,
         )
     return JSONResponse(
         status_code=status.HTTP_404_NOT_FOUND,

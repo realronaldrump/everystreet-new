@@ -118,5 +118,11 @@ export function cardinalDirection(deg) {
 /** Meters-per-second → miles-per-hour */
 export const MPS_TO_MPH = 2.23694;
 
+/** Miles → meters */
+export const MI_TO_M = 1609.344;
+
 /** Meters → miles */
-export const M_TO_MI = 0.000621371;
+export const M_TO_MI = 1 / MI_TO_M;
+
+/** Meters → feet */
+export const M_TO_FT = 3.28084;

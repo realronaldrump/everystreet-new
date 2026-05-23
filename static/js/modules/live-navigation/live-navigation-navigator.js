@@ -4,6 +4,7 @@
  */
 
 import { loadCoverageAreasWithCache } from "../features/navigation-core/coverage-areas.js";
+import { MI_TO_M, MPS_TO_MPH } from "../utils/geo-math.js";
 import LiveNavigationAPI from "./live-navigation-api.js";
 import {
   DISTANCE_THRESHOLDS,
@@ -319,7 +320,9 @@ class LiveNavigationNavigator {
 
     try {
       // Validate selected area first so stale ids do not trigger repeated route 404s.
-      const coverageData = await LiveNavigationAPI.fetchCoverageArea(this.selectedAreaId);
+      const coverageData = await LiveNavigationAPI.fetchCoverageArea(
+        this.selectedAreaId
+      );
 
       // If no route exists yet, skip route fetches and go straight to generation.
       if (coverageData?.has_optimal_route === false) {
@@ -582,7 +585,7 @@ class LiveNavigationNavigator {
       this.estimatedDriveTime = duration;
     } else {
       // Default: assume 25 mph average
-      this.estimatedDriveTime = (this.totalDistance / 1609.344 / 25) * 3600;
+      this.estimatedDriveTime = (this.totalDistance / MI_TO_M / 25) * 3600;
     }
   }
 
@@ -878,7 +881,9 @@ class LiveNavigationNavigator {
     // Reconcile coverage baseline with server to capture all driven segments
     if (this.selectedAreaId) {
       try {
-        const coverageData = await LiveNavigationAPI.fetchCoverageArea(this.selectedAreaId);
+        const coverageData = await LiveNavigationAPI.fetchCoverageArea(
+          this.selectedAreaId
+        );
         if (coverageData) {
           this.coverageBaseline = {
             totalMi:
@@ -1057,7 +1062,7 @@ class LiveNavigationNavigator {
     } else {
       // Estimate coverage from route progress
       const baselinePercent = this.coverageBaseline.percentage || 0;
-      const routeMiles = smoothedProgress / 1609.344;
+      const routeMiles = smoothedProgress / MI_TO_M;
       const totalAreaMiles = this.coverageBaseline.totalMi || 1;
       const uncoveredFraction = (100 - baselinePercent) / 100;
       const estimatedNewCoverage =
@@ -1112,7 +1117,7 @@ class LiveNavigationNavigator {
    * Get dynamic zoom based on speed
    */
   getDynamicZoom(speedMps) {
-    const speedMph = speedMps ? speedMps * 2.23694 : 0;
+    const speedMph = speedMps ? speedMps * MPS_TO_MPH : 0;
     let zoom = ZOOM_LEVELS.default;
 
     if (speedMph > ZOOM_THRESHOLDS.highway) {

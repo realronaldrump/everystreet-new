@@ -1,4 +1,6 @@
 import notificationManager from "../ui/notifications.js";
+import { MI_TO_M } from "../utils/geo-math.js";
+import { escapeHtml } from "../utils.js";
 import { SCANNER_STAGES, STAGE_COPY } from "./constants.js";
 
 export class OptimalRouteUI {
@@ -68,8 +70,8 @@ export class OptimalRouteUI {
       option.dataset.status = String(status || "");
       option.dataset.processing = isProcessing ? "true" : "false";
       option.disabled = isProcessing;
-      const totalLengthMeters = (area.total_length_miles || 0) * 1609.344;
-      const drivenLengthMeters = (area.driven_length_miles || 0) * 1609.344;
+      const totalLengthMeters = (area.total_length_miles || 0) * MI_TO_M;
+      const drivenLengthMeters = (area.driven_length_miles || 0) * MI_TO_M;
       option.dataset.remaining = this.formatDistance(
         totalLengthMeters - drivenLengthMeters
       );
@@ -100,9 +102,9 @@ export class OptimalRouteUI {
         const date = area.optimal_route_generated_at
           ? new Date(area.optimal_route_generated_at).toLocaleDateString()
           : "Unknown";
-        const safeAreaId = this.escapeHtml(area.id || area._id || "");
-        const safeAreaName = this.escapeHtml(area.display_name || "Unknown");
-        const safeDate = this.escapeHtml(date);
+        const safeAreaId = escapeHtml(area.id || area._id || "");
+        const safeAreaName = escapeHtml(area.display_name || "Unknown");
+        const safeDate = escapeHtml(date);
         return `
           <div class="route-history-item" data-area-id="${safeAreaId}">
             <div class="route-history-main">
@@ -126,15 +128,6 @@ export class OptimalRouteUI {
         onRouteClick(areaId);
       });
     });
-  }
-
-  escapeHtml(value) {
-    return String(value ?? "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
   }
 
   updateAreaStats(areaId) {
@@ -478,7 +471,7 @@ export class OptimalRouteUI {
     if (!meters && meters !== 0) {
       return "--";
     }
-    return `${(meters / 1609.344).toFixed(2)} mi`;
+    return `${(meters / MI_TO_M).toFixed(2)} mi`;
   }
 
   setLiveNavigationEnabled(isEnabled) {

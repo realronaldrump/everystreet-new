@@ -6,7 +6,10 @@ import {
   saveBouncieCredentials as saveBouncieCredentialsShared,
 } from "../../settings/credentials.js";
 import notificationManager from "../../ui/notifications.js";
-import { formatDurationFromHours } from "../../utils/formatting.js";
+import {
+  formatDurationFromHours,
+  formatRelativeTimeShort,
+} from "../../utils/formatting.js";
 import { getBouncieFormValues } from "./steps/bouncie.js";
 import { readJsonResponse, responseErrorMessage } from "./validation.js";
 
@@ -1417,30 +1420,13 @@ function formatPhaseLabel(phase) {
 }
 
 function formatRelativeTime(timestamp) {
-  if (!timestamp) {
-    return "";
-  }
-  const parsed = new Date(timestamp);
-  if (Number.isNaN(parsed.getTime())) {
-    return "";
-  }
-  const diffMs = Date.now() - parsed.getTime();
-  if (diffMs < 0) {
-    return "";
-  }
-  const minutes = Math.floor(diffMs / 60000);
-  if (minutes < 1) {
-    return "just now";
-  }
-  if (minutes < 60) {
-    return `${minutes}m ago`;
-  }
-  const hours = Math.floor(minutes / 60);
-  const remaining = minutes % 60;
-  if (!remaining) {
-    return `${hours}h ago`;
-  }
-  return `${hours}h ${remaining}m ago`;
+  return formatRelativeTimeShort(timestamp, {
+    suffix: " ago",
+    default: "",
+    rejectFuture: true,
+    includeRemainingMinutes: true,
+    rolloverDays: false,
+  });
 }
 
 /* ── Status Display ───────────────────────────────────────────── */

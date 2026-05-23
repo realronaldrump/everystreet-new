@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 import time
 from datetime import UTC, datetime
 from typing import Any
+
+from beanie import PydanticObjectId
 
 from db.models import Job
 
@@ -195,3 +198,24 @@ async def find_job(
     if task_id is not None:
         query["task_id"] = task_id
     return await Job.find_one(query)
+
+
+async def resolve_job_reference(
+    reference: str | None,
+    *,
+    allow_task_id: bool = True,
+    allow_operation_id: bool = True,
+) -> Job | None:
+    """Look up a Job by ObjectId, task_id, or operation_id."""
+    if not reference:
+        return None
+
+    job = None
+    if len(reference) == 24:
+        with contextlib.suppress(Exception):
+            job = await Job.get(PydanticObjectId(reference))
+    if not job and allow_task_id:
+        job = await Job.find_one({"task_id": reference})
+    if not job and allow_operation_id:
+        job = await Job.find_one({"operation_id": reference})
+    return job

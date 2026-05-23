@@ -21,17 +21,22 @@ import notificationManager from "../../ui/notifications.js";
 import {
   DateUtils,
   escapeHtml,
+  formatCurrency,
   formatDateOnly,
   formatDateTime,
   formatDuration,
   formatGallons,
+  formatInteger,
   formatMiles,
+  formatOdometer,
+  formatRelativeTimeLong,
   formatSpeed,
   formatTimeOnly,
   formatVehicleName,
   getStorage,
   sanitizeLocation,
   setStorage,
+  toFiniteNumber,
 } from "../../utils.js";
 
 // State management
@@ -399,7 +404,7 @@ const TRIP_TABLE_COLUMNS = [
     label: "Cost",
     icon: "fa-dollar-sign",
     align: "right",
-    render: (trip) => renderMetricCell(formatUsd(trip.estimated_cost)),
+    render: (trip) => renderMetricCell(formatCurrency(trip.estimated_cost)),
   },
   {
     key: "totalIdleDuration",
@@ -2109,7 +2114,7 @@ function createTripCard(trip, allTrips) {
   // Format times
   const duration = trip.duration ? formatDuration(trip.duration) : "--";
   const timeAgo = formatRelativeTime(trip.startTime);
-  const tripCost = formatUsd(trip.estimated_cost);
+  const tripCost = formatCurrency(trip.estimated_cost);
   const footerLabel = inactive ? `Excluded from totals · ${timeAgo}` : timeAgo;
 
   card.innerHTML = `
@@ -2336,71 +2341,13 @@ function getTripUiColors() {
 }
 
 function formatRelativeTime(dateStr) {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) {
-    return "Just now";
-  }
-  if (diffMins < 60) {
-    return `${diffMins}m ago`;
-  }
-  if (diffHours < 24) {
-    return `${diffHours}h ago`;
-  }
-  if (diffDays === 1) {
-    return "Yesterday";
-  }
-  if (diffDays < 7) {
-    return `${diffDays} days ago`;
-  }
-
-  return formatDateTime(dateStr);
-}
-
-function formatUsd(value) {
-  if (value === null || value === undefined) {
-    return "--";
-  }
-  if (typeof value === "string" && value.trim() === "") {
-    return "--";
-  }
-
-  const n = Number(value);
-  if (!Number.isFinite(n)) {
-    return "--";
-  }
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n);
-}
-
-function toFiniteNumber(value) {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
-}
-
-function formatOdometer(value) {
-  const number = toFiniteNumber(value);
-  if (number === null || number <= 0) {
-    return "--";
-  }
-  return `${Math.round(number).toLocaleString()} mi`;
-}
-
-function formatInteger(value) {
-  const number = toFiniteNumber(value);
-  return number === null ? "--" : Math.round(number).toLocaleString();
+  return formatRelativeTimeLong(dateStr, {
+    capitalize: true,
+    maxDays: 7,
+    default: "--",
+    yesterdayLabel: "Yesterday",
+    fallbackFormatter: () => formatDateTime(dateStr),
+  });
 }
 
 function formatTripDuration(value) {
@@ -3722,7 +3669,7 @@ function updateModalContent(trip) {
       : "--";
   }
   if (costEl) {
-    costEl.textContent = formatUsd(trip.estimated_cost);
+    costEl.textContent = formatCurrency(trip.estimated_cost);
   }
   if (startEl) {
     const startLoc = sanitizeLocation(trip.startLocation);

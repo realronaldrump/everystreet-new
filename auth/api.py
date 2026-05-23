@@ -21,8 +21,7 @@ from core.auth import (
     validate_form_csrf_token,
     verify_owner_password,
 )
-from core.jinja import templates
-from core.template_context import build_base_template_context
+from core.template_context import render_template
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["auth"])
@@ -35,16 +34,12 @@ async def _render_login_page(
     error_message: str | None = None,
     status_code: int = status.HTTP_200_OK,
 ) -> HTMLResponse:
-    context = await build_base_template_context(
-        request,
-        login_next=next_path,
-        login_error=error_message,
-    )
-    return templates.TemplateResponse(
+    return await render_template(
         request,
         "login.html",
-        context,
         status_code=status_code,
+        login_next=next_path,
+        login_error=error_message,
     )
 
 

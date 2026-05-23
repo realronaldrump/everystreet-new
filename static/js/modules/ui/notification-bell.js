@@ -1,3 +1,4 @@
+import { escapeHtml } from "../utils.js";
 import { notificationHistory } from "./notifications.js";
 
 const ICON_MAP = {
@@ -60,11 +61,9 @@ class NotificationBell {
       this._toggle();
     });
 
-    document
-      .getElementById("notif-clear-all-btn")
-      ?.addEventListener("click", () => {
-        notificationHistory.clearAll();
-      });
+    document.getElementById("notif-clear-all-btn")?.addEventListener("click", () => {
+      notificationHistory.clearAll();
+    });
 
     notificationHistory.onChange(() => {
       this._updateBadge();
@@ -102,7 +101,11 @@ class NotificationBell {
   }
 
   _handleOutsideClick(e) {
-    if (!this._panel.contains(e.target) && e.target !== this._btn && !this._btn.contains(e.target)) {
+    if (
+      !this._panel.contains(e.target) &&
+      e.target !== this._btn &&
+      !this._btn.contains(e.target)
+    ) {
       this._close();
     }
   }
@@ -143,7 +146,7 @@ class NotificationBell {
       row.innerHTML = `
         <i class="fas ${icon} notif-history-icon" aria-hidden="true"></i>
         <div class="notif-history-body">
-          <p class="notif-history-message">${this._escapeHtml(item.message)}</p>
+          <p class="notif-history-message">${escapeHtml(item.message)}</p>
           <time class="notif-history-time" datetime="${new Date(item.timestamp).toISOString()}" title="${fullTimestamp(item.timestamp)}">${formatTimestamp(item.timestamp)}</time>
         </div>
         <button class="notif-history-remove" aria-label="Dismiss notification" data-id="${item.id}" type="button">
@@ -158,14 +161,6 @@ class NotificationBell {
 
       this._list.appendChild(row);
     }
-  }
-
-  _escapeHtml(str) {
-    return str
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
   }
 }
 

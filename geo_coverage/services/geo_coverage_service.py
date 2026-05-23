@@ -7,13 +7,15 @@ import logging
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from beanie import PydanticObjectId
 from bson import ObjectId
 from fastapi import BackgroundTasks, HTTPException, status
 from shapely import STRtree
 from shapely.geometry import Point, shape
 
 from core.date_utils import parse_timestamp
+from core.job_serialization import serialize_job_payload
+from core.jobs import resolve_job_reference
+from core.serialization import serialize_datetime
 from core.spatial import coerce_coordinate_pair, validate_and_fix_geometry
 from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
@@ -145,10 +147,6 @@ def _extract_stop_points(
     return stop_points
 
 
-def _to_iso(value: datetime | None) -> str | None:
-    return value.isoformat() if value else None
-
-
 def _percent(visited: int, total: int) -> float:
     if total <= 0:
         return 0.0
@@ -206,8 +204,8 @@ def _serialize_visit_map(
 ) -> dict[str, dict[str, str | None]]:
     return {
         key: {
-            "firstVisit": _to_iso(payload.get("firstVisit")),
-            "lastVisit": _to_iso(payload.get("lastVisit")),
+            "firstVisit": serialize_datetime(payload.get("firstVisit")),
+            "lastVisit": serialize_datetime(payload.get("lastVisit")),
         }
         for key, payload in raw_map.items()
     }
@@ -218,8 +216,8 @@ def _serialize_stop_map(
 ) -> dict[str, dict[str, str | None]]:
     return {
         key: {
-            "firstStop": _to_iso(payload.get("firstVisit")),
-            "lastStop": _to_iso(payload.get("lastVisit")),
+            "firstStop": serialize_datetime(payload.get("firstVisit")),
+            "lastStop": serialize_datetime(payload.get("lastVisit")),
         }
         for key, payload in raw_map.items()
     }
@@ -287,32 +285,31 @@ def _serialize_job(job: Job | None) -> dict[str, Any] | None:
     if not job:
         return None
 
+    payload = serialize_job_payload(job)
     mode = _normalize_recalc_mode((job.metadata or {}).get("mode"))
     return {
-        "id": str(job.id),
-        "status": job.status,
-        "stage": job.stage,
-        "progress": float(job.progress or 0.0),
-        "message": job.message or "",
-        "error": job.error,
+        "id": str(payload["job_id"]),
+        "status": payload["status"],
+        "stage": payload["stage"],
+        "progress": payload["progress"],
+        "message": payload["message"] or "",
+        "error": payload["error"],
         "mode": mode,
-        "createdAt": job.created_at.isoformat() if job.created_at else None,
-        "startedAt": job.started_at.isoformat() if job.started_at else None,
-        "updatedAt": job.updated_at.isoformat() if job.updated_at else None,
-        "completedAt": job.completed_at.isoformat() if job.completed_at else None,
+        "createdAt": payload["created_at"],
+        "startedAt": payload["started_at"],
+        "updatedAt": payload["updated_at"],
+        "completedAt": payload["completed_at"],
         "metrics": job.metrics or {},
-        "result": job.result or {},
+        "result": payload["result"] or {},
     }
 
 
 async def _resolve_job(job_id: str | None) -> Job | None:
-    if not job_id:
-        return None
-    if len(job_id) != 24:
-        return None
-    with contextlib.suppress(Exception):
-        return await Job.get(PydanticObjectId(job_id))
-    return None
+    return await resolve_job_reference(
+        job_id,
+        allow_task_id=False,
+        allow_operation_id=False,
+    )
 
 
 async def _get_active_geo_recalc_job() -> Job | None:
@@ -600,7 +597,7 @@ async def calculate_geo_coverage_task(
                 {
                     "mode": requested_mode,
                     "effective_mode": effective_mode,
-                    "checkpoint": _to_iso(checkpoint),
+                    "checkpoint": serialize_datetime(checkpoint),
                 }
             )
             job.metadata = metadata
@@ -903,10 +900,10 @@ async def calculate_geo_coverage_task(
             total = int(rollup.get("total") or 0)
             visited = int(rollup.get("visited") or 0)
             rollup["percent"] = _percent(visited, total)
-            rollup["firstVisit"] = _to_iso(rollup.get("firstVisit"))
-            rollup["lastVisit"] = _to_iso(rollup.get("lastVisit"))
-            rollup["firstStop"] = _to_iso(rollup.get("firstStop"))
-            rollup["lastStop"] = _to_iso(rollup.get("lastStop"))
+            rollup["firstVisit"] = serialize_datetime(rollup.get("firstVisit"))
+            rollup["lastVisit"] = serialize_datetime(rollup.get("lastVisit"))
+            rollup["firstStop"] = serialize_datetime(rollup.get("firstStop"))
+            rollup["lastStop"] = serialize_datetime(rollup.get("lastStop"))
 
         now = datetime.now(UTC)
         duration_seconds = (now - start_time).total_seconds()
@@ -969,8 +966,8 @@ async def calculate_geo_coverage_task(
             "requestedMode": requested_mode,
             "processedTrips": trips_analyzed,
             "totalTrips": total_trips,
-            "checkpoint": _to_iso(checkpoint),
-            "lastProcessedTripAt": _to_iso(last_processed_trip_at),
+            "checkpoint": serialize_datetime(checkpoint),
+            "lastProcessedTripAt": serialize_datetime(last_processed_trip_at),
             "visitedCounties": len(counties_serializable),
             "stoppedCounties": len(stops_serializable),
             "visitedCities": len(cities_serializable),
@@ -1174,8 +1171,8 @@ async def get_summary() -> dict[str, Any]:
                     "visited": county_visited,
                     "total": county_total,
                     "percent": _percent(county_visited, county_total),
-                    "firstVisit": _to_iso(county_entry.get("firstVisit")),
-                    "lastVisit": _to_iso(county_entry.get("lastVisit")),
+                    "firstVisit": serialize_datetime(county_entry.get("firstVisit")),
+                    "lastVisit": serialize_datetime(county_entry.get("lastVisit")),
                 },
                 "city": {
                     "visited": city_visited,

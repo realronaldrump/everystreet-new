@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 from shapely.geometry import LineString, mapping, shape
 from shapely.ops import transform
 
+from core.constants import METERS_TO_MILES
 from core.coverage import backfill_coverage_for_area, get_effective_coverage_trip_mode
 from core.spatial import (
     clip_lines_to_polygon,
@@ -37,7 +38,6 @@ from street_coverage.constants import (
     BATCH_SIZE,
     MAX_INGESTION_RETRIES,
     MAX_SEGMENT_LENGTH_METERS,
-    METERS_TO_MILES,
     RETRY_BASE_DELAY_SECONDS,
 )
 from street_coverage.public_road_filter import (

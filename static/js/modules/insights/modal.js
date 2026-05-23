@@ -5,7 +5,13 @@
  */
 
 import notificationManager from "../ui/notifications.js";
-import { escapeHtml } from "../utils.js";
+import {
+  escapeHtml,
+  formatDateTime,
+  formatGallons,
+  formatMiles,
+  formatSpeed,
+} from "../utils.js";
 import { fetchDrilldownTrips, fetchTimePeriodTrips } from "./api.js";
 import { formatDuration, formatHourLabel, getDateRange } from "./formatters.js";
 
@@ -14,24 +20,20 @@ function formatInsightValue(kind, trip) {
     return "-";
   }
   switch (kind) {
-    case "distance": {
-      const v = Number(trip.distance);
-      return Number.isFinite(v) && v > 0 ? `${v.toFixed(1)} mi` : "-";
-    }
+    case "distance":
+      return formatMiles(trip.distance, {
+        decimals: 1,
+        default: "-",
+        allowZero: false,
+      });
     case "duration":
       return formatDuration(Number(trip.duration) || 0);
-    case "fuel": {
-      const v = Number(trip.fuelConsumed);
-      return Number.isFinite(v) && v > 0 ? `${v.toFixed(2)} gal` : "-";
-    }
-    case "top_speed": {
-      const v = Number(trip.maxSpeed);
-      return Number.isFinite(v) && v > 0 ? `${v.toFixed(1)} mph` : "-";
-    }
-    case "avg_speed": {
-      const v = Number(trip.avgSpeed);
-      return Number.isFinite(v) && v > 0 ? `${v.toFixed(1)} mph` : "-";
-    }
+    case "fuel":
+      return formatGallons(trip.fuelConsumed, { default: "-" });
+    case "top_speed":
+      return formatSpeed(trip.maxSpeed, { decimals: 1, default: "-" });
+    case "avg_speed":
+      return formatSpeed(trip.avgSpeed, { decimals: 1, default: "-" });
     case "idle_time":
       return trip.totalIdleDuration
         ? formatDuration(Number(trip.totalIdleDuration) || 0)
@@ -69,21 +71,17 @@ function parseDateMs(value) {
   return Number.isFinite(t) ? t : 0;
 }
 
-function formatDateTime(value) {
-  if (!value) {
-    return "-";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
-  return date.toLocaleString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
+function formatTripDateTime(value) {
+  return formatDateTime(value, {
+    default: "-",
+    formatOptions: {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    },
   });
 }
 
@@ -281,7 +279,7 @@ export function displayTripsInModal(trips, opts = {}) {
 
     grid.innerHTML = sortedTrips
       .map((trip, idx) => {
-        const startTime = formatDateTime(trip.startTime);
+        const startTime = formatTripDateTime(trip.startTime);
         const duration = formatDuration(Number(trip.duration) || 0);
         const distanceVal = Number(trip.distance);
         const distance =

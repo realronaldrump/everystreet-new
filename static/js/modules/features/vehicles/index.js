@@ -5,7 +5,7 @@ import { createViewStateController } from "../../core/view-state.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import { notify } from "../../ui/notifications.js";
 import {
-  formatNumber,
+  formatOdometer,
   formatRelativeTimeLong,
   getStorage,
   setStorage,
@@ -27,8 +27,13 @@ let pageViewState = null;
 // LocalStorage key for persisting selected vehicle
 const STORAGE_KEY = "selectedVehicleImei";
 const BOUNCIE_ADD_VEHICLE_API = "/api/profile/bouncie-credentials/vehicles";
-const formatOdometer = (value) =>
-  formatNumber(value, { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+const formatVehicleOdometer = (value) =>
+  formatOdometer(value, {
+    allowZero: true,
+    blankAsZero: true,
+    decimals: 1,
+    suffix: "",
+  });
 
 // DOM Elements
 let elements = {};
@@ -475,7 +480,9 @@ function displayVehicle(vehicle) {
 
   // Odometer
   if (vehicle.odometer_reading) {
-    elements.currentOdometer.textContent = formatOdometer(vehicle.odometer_reading);
+    elements.currentOdometer.textContent = formatVehicleOdometer(
+      vehicle.odometer_reading
+    );
 
     const sourceLabels = {
       bouncie: "From Bouncie",
@@ -502,7 +509,9 @@ function displayVehicle(vehicle) {
 
   // Pre-fill manual input with current reading
   if (vehicle.odometer_reading) {
-    elements.manualOdometerInput.placeholder = formatOdometer(vehicle.odometer_reading);
+    elements.manualOdometerInput.placeholder = formatVehicleOdometer(
+      vehicle.odometer_reading
+    );
   }
 
   // Show delete button only for manually added vehicles (not from Bouncie)
@@ -533,7 +542,7 @@ async function fetchBouncieOdometer() {
 
     if (data.odometer) {
       bouncieOdometer = data.odometer;
-      elements.bouncieOdometer.textContent = `${formatOdometer(data.odometer)} mi`;
+      elements.bouncieOdometer.textContent = `${formatVehicleOdometer(data.odometer)} mi`;
       elements.bouncieOdometer.classList.remove("error");
       elements.useBouncieReadingBtn.disabled = false;
     } else {

@@ -1,4 +1,5 @@
 import apiClient from "../../core/api-client.js";
+import { withSignal as withAbortSignal } from "../../core/feature-api.js";
 import notificationManager from "../../ui/notifications.js";
 import { formatDateTime } from "../../utils.js";
 
@@ -40,17 +41,6 @@ function formatStatusVariant(statusValue) {
   );
 }
 
-function formatTimestamp(value) {
-  if (!value) {
-    return "--";
-  }
-  try {
-    return formatDateTime(value);
-  } catch {
-    return "--";
-  }
-}
-
 function renderOverviewHeader({ overviewData, healthData }) {
   const badge = document.getElementById("cc-overview-status-badge");
   const message = document.getElementById("cc-overview-status-message");
@@ -85,7 +75,7 @@ function renderOverviewHeader({ overviewData, healthData }) {
   }
 
   if (lastUpdated) {
-    lastUpdated.textContent = `Last updated: ${formatTimestamp(
+    lastUpdated.textContent = `Last updated: ${formatDateTime(
       overviewData?.last_updated || healthData?.overall?.last_updated
     )}`;
   }
@@ -151,7 +141,7 @@ function renderFailures(healthData) {
     .map((entry) => {
       const taskId = entry.task_id || "unknown-task";
       const error = entry.error || "No error details";
-      const stamp = formatTimestamp(entry.timestamp);
+      const stamp = formatDateTime(entry.timestamp);
       return `
         <div class="control-center-failure-item">
           <div class="control-center-failure-meta">
@@ -171,14 +161,13 @@ export default function initControlCenterOverview({ signal } = {}) {
     return () => {};
   }
 
-  const withSignal = (options = {}) => (signal ? { ...options, signal } : options);
   let refreshTimer = null;
 
   const refreshOverview = async (isManual = false) => {
     try {
       const [overviewData, healthData] = await Promise.all([
-        apiClient.get(OVERVIEW_API, withSignal()),
-        apiClient.get(HEALTH_API, withSignal()),
+        apiClient.get(OVERVIEW_API, withAbortSignal(signal)),
+        apiClient.get(HEALTH_API, withAbortSignal(signal)),
       ]);
 
       renderOverviewHeader({ overviewData, healthData });
@@ -218,7 +207,7 @@ export default function initControlCenterOverview({ signal } = {}) {
         await apiClient.post(
           `/api/services/${encodeURIComponent(service)}/restart`,
           {},
-          withSignal()
+          withAbortSignal(signal)
         );
         notificationManager.show(`${service} restart requested`, "success");
         await refreshOverview(true);

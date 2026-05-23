@@ -3,6 +3,7 @@
  * DOM element caching and UI updates.
  */
 
+import { MPS_TO_MPH } from "../utils/geo-math.js";
 import { DURATION_LABELS, NAV_STATES } from "./live-navigation-config.js";
 import {
   formatDistance,
@@ -441,7 +442,7 @@ class LiveNavigationUI {
       el.textContent = "--";
       return;
     }
-    const mph = speedMps * 2.23694;
+    const mph = speedMps * MPS_TO_MPH;
     el.textContent = `${Math.round(mph)} mph`;
   }
 

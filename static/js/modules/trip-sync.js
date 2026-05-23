@@ -19,17 +19,6 @@ function setText(el, value) {
   }
 }
 
-function formatTimestamp(value) {
-  if (!value) {
-    return "--";
-  }
-  try {
-    return formatDateTime(value);
-  } catch {
-    return new Date(value).toLocaleString();
-  }
-}
-
 function getButtonList(elements) {
   const buttons = [];
   const addButtons = (value) => {
@@ -105,7 +94,7 @@ function updateStatusUI(status, elements) {
         : status.state === "error"
           ? "Sync failed"
           : status.last_success_at
-            ? `Updated ${formatTimestamp(status.last_success_at)}`
+            ? `Updated ${formatDateTime(status.last_success_at)}`
             : "Up to date";
     setText(elements.miniText, text);
   }

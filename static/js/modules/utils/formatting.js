@@ -11,6 +11,8 @@
 
 /* global dayjs */
 
+import { M_TO_FT, M_TO_MI } from "./geo-math.js";
+
 // ============================================================================
 // XSS Prevention
 // ============================================================================
@@ -63,6 +65,68 @@ export function formatNumber(num, decimalsOrOptions = 0) {
 }
 
 /**
+ * Coerce a value to a finite number, returning null for blank/invalid values.
+ * @param {*} value
+ * @param {Object} [options]
+ * @param {boolean} [options.blankAsZero=false]
+ * @returns {number|null}
+ */
+export function toFiniteNumber(value, { blankAsZero = false } = {}) {
+  if (value === null || value === undefined || value === "") {
+    return value === "" && blankAsZero ? 0 : null;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+/**
+ * Format an integer with locale separators.
+ * @param {*} value
+ * @param {Object} [options]
+ * @param {string} [options.default="--"]
+ * @returns {string}
+ */
+export function formatInteger(value, { default: defaultValue = "--" } = {}) {
+  const number = toFiniteNumber(value);
+  return number === null ? defaultValue : Math.round(number).toLocaleString();
+}
+
+/**
+ * Format an odometer reading with configurable suffix and zero handling.
+ * @param {*} value
+ * @param {Object} [options]
+ * @param {string} [options.default="--"]
+ * @param {number} [options.decimals=0]
+ * @param {string} [options.suffix=" mi"]
+ * @param {boolean} [options.allowZero=false]
+ * @param {boolean} [options.blankAsZero=false]
+ * @returns {string}
+ */
+export function formatOdometer(
+  value,
+  {
+    default: defaultValue = "--",
+    decimals = 0,
+    suffix = " mi",
+    allowZero = false,
+    blankAsZero = false,
+  } = {}
+) {
+  const number = toFiniteNumber(value, { blankAsZero });
+  if (number === null || (!allowZero && number <= 0)) {
+    return defaultValue;
+  }
+  const rounded =
+    decimals > 0
+      ? number.toLocaleString(undefined, {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: decimals,
+        })
+      : Math.round(number).toLocaleString();
+  return `${rounded}${suffix}`;
+}
+
+/**
  * Format a percentage value
  * @param {number} value - Value between 0-100
  * @param {number} decimals - Decimal places (default 1)
@@ -73,6 +137,36 @@ export function formatPercentage(value, decimals = 1) {
     return "--";
   }
   return `${Number(value).toFixed(decimals)}%`;
+}
+
+/**
+ * Format a numeric value as currency.
+ * @param {number|string} value - Currency amount
+ * @param {Object} [options]
+ * @param {string} [options.currency="USD"]
+ * @param {string} [options.default="--"]
+ * @returns {string}
+ */
+export function formatCurrency(
+  value,
+  { currency = "USD", default: defaultValue = "--" } = {}
+) {
+  if (value === null || value === undefined) {
+    return defaultValue;
+  }
+  if (typeof value === "string" && value.trim() === "") {
+    return defaultValue;
+  }
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) {
+    return defaultValue;
+  }
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
 }
 
 // ============================================================================
@@ -107,11 +201,15 @@ export function formatDistance(miles, options = 1) {
  * @param {Object} [options]
  * @param {number} [options.decimals=1]
  * @param {string} [options.default="--"] - Returned when miles is invalid
+ * @param {boolean} [options.allowZero=true]
  * @returns {string}
  */
-export function formatMiles(miles, { decimals = 1, default: defaultValue = "--" } = {}) {
+export function formatMiles(
+  miles,
+  { decimals = 1, default: defaultValue = "--", allowZero = true } = {}
+) {
   const n = Number(miles);
-  if (!Number.isFinite(n)) {
+  if (!Number.isFinite(n) || (!allowZero && n <= 0)) {
     return defaultValue;
   }
   return `${n.toFixed(decimals)} mi`;
@@ -125,14 +223,15 @@ export function formatMiles(miles, { decimals = 1, default: defaultValue = "--" 
  * @param {string} [options.default="--"]
  * @returns {string}
  */
-export function formatSpeed(value, { decimals = 0, default: defaultValue = "--" } = {}) {
+export function formatSpeed(
+  value,
+  { decimals = 0, default: defaultValue = "--" } = {}
+) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) {
     return defaultValue;
   }
-  return decimals === 0
-    ? `${Math.round(n)} mph`
-    : `${n.toFixed(decimals)} mph`;
+  return decimals === 0 ? `${Math.round(n)} mph` : `${n.toFixed(decimals)} mph`;
 }
 
 /**
@@ -180,9 +279,9 @@ export function formatBytes(bytes, { default: defaultValue = "0 B" } = {}) {
  */
 export function distanceInUserUnits(meters, fixed = 2) {
   const safeMeters = typeof meters === "number" && !Number.isNaN(meters) ? meters : 0;
-  const miles = safeMeters * 0.000621371;
+  const miles = safeMeters * M_TO_MI;
   return miles < 0.1
-    ? `${(safeMeters * 3.28084).toFixed(0)} ft`
+    ? `${(safeMeters * M_TO_FT).toFixed(0)} ft`
     : `${miles.toFixed(fixed)} mi`;
 }
 
@@ -375,13 +474,33 @@ export function parseDurationToSeconds(duration = "") {
 /**
  * Format an ISO date/time string for display
  * @param {string|Date} isoString - ISO date string or Date object
- * @returns {string} Locale-formatted date/time or "--" if invalid
+ * @param {Object} [options]
+ * @param {string} [options.default="--"]
+ * @param {string} [options.invalid] - Returned when the date is invalid
+ * @param {string|string[]|null} [options.locale="en-US"]
+ * @param {Intl.DateTimeFormatOptions|null} [options.formatOptions]
+ * @returns {string} Locale-formatted date/time or fallback if invalid
  */
-export function formatDateTime(isoString) {
+export function formatDateTime(
+  isoString,
+  {
+    default: defaultValue = "--",
+    invalid = defaultValue,
+    locale = "en-US",
+    formatOptions = { hour12: true },
+  } = {}
+) {
   if (!isoString) {
-    return "--";
+    return defaultValue;
   }
-  return new Date(isoString).toLocaleString("en-US", { hour12: true });
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) {
+    return invalid;
+  }
+  const localeArg = locale === null ? undefined : locale;
+  return formatOptions === null
+    ? date.toLocaleString(localeArg)
+    : date.toLocaleString(localeArg, formatOptions);
 }
 
 /**
@@ -572,11 +691,21 @@ export function formatTimeAgo(dateInput, abbreviated = false) {
  * @param {string} [options.suffix] - Optional suffix (e.g., " ago")
  * @param {boolean} [options.capitalize] - Capitalize "just now"
  * @param {string} [options.default] - Default string for invalid inputs
+ * @param {boolean} [options.rejectFuture] - Return default for future dates
+ * @param {boolean} [options.includeRemainingMinutes] - Include minutes in hour labels
+ * @param {boolean} [options.rolloverDays] - Use day/week/month labels after 24h
  * @returns {string} Relative time string
  */
 export function formatRelativeTimeShort(
   dateInput,
-  { suffix = "", capitalize = false, default: defaultValue = "" } = {}
+  {
+    suffix = "",
+    capitalize = false,
+    default: defaultValue = "",
+    rejectFuture = false,
+    includeRemainingMinutes = false,
+    rolloverDays = true,
+  } = {}
 ) {
   if (!dateInput) {
     return defaultValue;
@@ -588,6 +717,9 @@ export function formatRelativeTimeShort(
 
   const now = new Date();
   const diffMs = now - date;
+  if (rejectFuture && diffMs < 0) {
+    return defaultValue;
+  }
   const seconds = Math.max(0, Math.floor(diffMs / 1000));
   if (seconds < 60) {
     return capitalize ? "Just now" : "just now";
@@ -597,7 +729,13 @@ export function formatRelativeTimeShort(
     return `${minutes}m${suffix}`;
   }
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) {
+  if (!rolloverDays || hours < 24) {
+    if (includeRemainingMinutes) {
+      const remainingMinutes = minutes % 60;
+      return remainingMinutes > 0
+        ? `${hours}h ${remainingMinutes}m${suffix}`
+        : `${hours}h${suffix}`;
+    }
     return `${hours}h${suffix}`;
   }
   const days = Math.floor(hours / 24);
@@ -617,11 +755,19 @@ export function formatRelativeTimeShort(
  * @param {boolean} [options.capitalize] - Capitalize "just now"
  * @param {number} [options.maxDays] - Max day count before showing date string
  * @param {string} [options.default] - Default string for invalid inputs
+ * @param {string|null} [options.yesterdayLabel] - Label for one-day-old dates
+ * @param {(date: Date) => string} [options.fallbackFormatter] - Formatter after maxDays
  * @returns {string} Relative time string
  */
 export function formatRelativeTimeLong(
   dateInput,
-  { capitalize = false, maxDays = 7, default: defaultValue = "" } = {}
+  {
+    capitalize = false,
+    maxDays = 7,
+    default: defaultValue = "",
+    yesterdayLabel = null,
+    fallbackFormatter = null,
+  } = {}
 ) {
   if (!dateInput) {
     return defaultValue;
@@ -646,10 +792,15 @@ export function formatRelativeTimeLong(
     return `${hours} hour${hours === 1 ? "" : "s"} ago`;
   }
   const days = Math.floor(hours / 24);
+  if (days === 1 && yesterdayLabel) {
+    return yesterdayLabel;
+  }
   if (days < maxDays) {
     return `${days} day${days === 1 ? "" : "s"} ago`;
   }
-  return date.toLocaleDateString();
+  return typeof fallbackFormatter === "function"
+    ? fallbackFormatter(date)
+    : date.toLocaleDateString();
 }
 
 // ============================================================================

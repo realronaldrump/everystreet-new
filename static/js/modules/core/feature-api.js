@@ -1,6 +1,6 @@
 import apiClient from "./api-client.js";
 
-function withSignal(signal, options = {}) {
+export function withSignal(signal, options = {}) {
   if (!signal) {
     return options;
   }

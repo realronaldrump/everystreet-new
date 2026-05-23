@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING, Any
 
 import pyproj
 
+from core.constants import FEET_PER_METER, METERS_TO_MILES
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
 
@@ -77,7 +79,7 @@ class GeometryService:
         if unit == "meters":
             return distance_m
         if unit == "miles":
-            return distance_m / 1609.344
+            return distance_m * METERS_TO_MILES
         if unit == "km":
             return distance_m / 1000.0
         msg = "Invalid unit. Use 'meters', 'miles', or 'km'."
@@ -251,6 +253,40 @@ def extract_line_sequences(
         return [[pair]] if pair is not None else []
 
     return []
+
+
+def flatten_line_coordinates(
+    geometry: dict[str, Any] | None,
+    *,
+    include_point: bool = False,
+) -> list[list[float]]:
+    """Flatten normalized line sequences into one continuous coordinate list."""
+    sequences = extract_line_sequences(geometry, include_point=include_point)
+    if not sequences:
+        return []
+
+    flattened: list[list[float]] = []
+    for line in sequences:
+        if not line:
+            continue
+        if flattened and flattened[-1] == line[0]:
+            flattened.extend(line[1:])
+        else:
+            flattened.extend(line)
+    return normalize_coordinate_list(flattened)
+
+
+def bboxes_intersect(
+    left: Sequence[float],
+    right: Sequence[float],
+) -> bool:
+    """Return whether two [min_lon, min_lat, max_lon, max_lat] boxes overlap."""
+    return not (
+        float(left[2]) < float(right[0])
+        or float(right[2]) < float(left[0])
+        or float(left[3]) < float(right[1])
+        or float(right[3]) < float(left[1])
+    )
 
 
 def _collect_polygon_parts(geojson: dict[str, Any]) -> list[BaseGeometry]:
@@ -624,7 +660,7 @@ def buffer_polygon_for_routing(
     polygon: Any,
     buffer_ft: float,
     *,
-    feet_per_meter: float = 3.28084,
+    feet_per_meter: float = FEET_PER_METER,
 ) -> Any:
     """Buffer a WGS84 polygon by feet (project to UTM, buffer, reproject)."""
     if buffer_ft <= 0:

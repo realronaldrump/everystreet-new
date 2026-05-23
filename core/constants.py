@@ -13,4 +13,6 @@ HTTP_TIMEOUT_SOCK_READ: Final[float] = 60.0
 HTTP_TIMEOUT_TOTAL: Final[float] = 300.0
 
 # Distance Conversion
-METERS_TO_MILES: Final[float] = 0.000621371
+MILES_TO_METERS: Final[float] = 1609.344
+METERS_TO_MILES: Final[float] = 1 / MILES_TO_METERS
+FEET_PER_METER: Final[float] = 3.28084

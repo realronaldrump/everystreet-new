@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 
 from beanie import PydanticObjectId
 
+from core.serialization import serialize_datetime
 from core.spatial import GeometryService
 from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
@@ -52,17 +53,6 @@ def _to_float(value: Any) -> float | None:
         if isinstance(raw, int | float):
             return float(raw)
     return None
-
-
-def _serialize_dt(value: Any) -> str | None:
-    if isinstance(value, datetime):
-        return value.isoformat()
-    if value is None:
-        return None
-    try:
-        return str(value)
-    except Exception:
-        return None
 
 
 def _hour_buckets() -> list[dict[str, Any]]:
@@ -567,10 +557,10 @@ def _build_variants(
                 "median_duration": median(durations) if durations else None,
                 "avgDistance": (sum(distances) / len(distances)) if distances else None,
                 "avgDuration": (sum(durations) / len(durations)) if durations else None,
-                "first_trip": _serialize_dt(group.get("first_start_time")),
-                "last_trip": _serialize_dt(group.get("last_start_time")),
-                "firstStartTime": _serialize_dt(group.get("first_start_time")),
-                "lastStartTime": _serialize_dt(group.get("last_start_time")),
+                "first_trip": serialize_datetime(group.get("first_start_time")),
+                "last_trip": serialize_datetime(group.get("last_start_time")),
+                "firstStartTime": serialize_datetime(group.get("first_start_time")),
+                "lastStartTime": serialize_datetime(group.get("last_start_time")),
                 "sample_trip_id": group.get("sample_trip_id"),
                 "representative_geometry": representative_geometry,
                 "preview_path": preview_path,
@@ -619,8 +609,8 @@ def _to_sample_trip(
 
     return {
         "transactionId": trip.get("transactionId"),
-        "startTime": _serialize_dt(trip.get("startTime")),
-        "endTime": _serialize_dt(trip.get("endTime")),
+        "startTime": serialize_datetime(trip.get("startTime")),
+        "endTime": serialize_datetime(trip.get("endTime")),
         "distance": trip.get("distance"),
         "duration": trip.get("duration"),
         "route_id": route_id,
@@ -757,7 +747,7 @@ async def analyze_place_pair(
                 "include_reverse": include_reverse,
                 "requested_timeframe": requested_timeframe,
                 "timeframe": effective_timeframe,
-                "timeframe_cutoff": _serialize_dt(timeframe_cutoff),
+                "timeframe_cutoff": serialize_datetime(timeframe_cutoff),
                 "sample_limit": sample_limit,
                 "scanned": scanned,
                 "matched": 0,
@@ -837,15 +827,15 @@ async def analyze_place_pair(
         "median_distance": median(distance_values) if distance_values else None,
         "median_duration": median(duration_values) if duration_values else None,
         "trips_per_week": trips_per_week,
-        "first_trip": _serialize_dt(first_trip),
-        "last_trip": _serialize_dt(last_trip),
+        "first_trip": serialize_datetime(first_trip),
+        "last_trip": serialize_datetime(last_trip),
         "totalTrips": total_trips,
         "totalDistance": stats.get("totalDistance"),
         "totalDuration": stats.get("totalDuration"),
         "avgDistance": stats.get("avgDistance"),
         "avgDuration": stats.get("avgDuration"),
-        "firstTrip": _serialize_dt(first_trip),
-        "lastTrip": _serialize_dt(last_trip),
+        "firstTrip": serialize_datetime(first_trip),
+        "lastTrip": serialize_datetime(last_trip),
     }
 
     return {
@@ -860,7 +850,7 @@ async def analyze_place_pair(
             "include_reverse": include_reverse,
             "requested_timeframe": requested_timeframe,
             "timeframe": effective_timeframe,
-            "timeframe_cutoff": _serialize_dt(timeframe_cutoff),
+            "timeframe_cutoff": serialize_datetime(timeframe_cutoff),
             "sample_limit": sample_limit,
             "scanned": scanned,
             "matched": len(matched_trips),

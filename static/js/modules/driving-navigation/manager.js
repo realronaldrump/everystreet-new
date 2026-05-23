@@ -2,6 +2,7 @@
 
 import confirmationDialog from "../ui/confirmation-dialog.js";
 import notificationManager from "../ui/notifications.js";
+import { M_TO_MI, MI_TO_M } from "../utils/geo-math.js";
 
 /**
  * Main manager for Driving Navigation.
@@ -437,7 +438,7 @@ export class DrivingNavigation {
     this.ui.displayTargetInfo(streetName, segmentId);
 
     const durationMinutes = Math.round(data.route_duration_seconds / 60);
-    const distanceMiles = (data.route_distance_meters * 0.000621371).toFixed(1);
+    const distanceMiles = (data.route_distance_meters * M_TO_MI).toFixed(1);
     const locationSource = data.location_source || "unknown";
 
     if (data.route_geometry?.coordinates) {
@@ -533,7 +534,7 @@ export class DrivingNavigation {
         this.displayEfficientClusters(data.suggested_clusters);
 
         const topCluster = data.suggested_clusters[0];
-        const distanceMiles = (topCluster.distance_to_cluster_m / 1609.34).toFixed(1);
+        const distanceMiles = (topCluster.distance_to_cluster_m / MI_TO_M).toFixed(1);
         this.ui.setStatus(
           `Found ${data.suggested_clusters.length} efficient clusters. Top cluster: ${topCluster.segment_count} streets, ${distanceMiles} mi away.`
         );

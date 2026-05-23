@@ -11,6 +11,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 
+from core.constants import METERS_TO_MILES
 from core.exceptions import ExternalServiceException
 from core.mapping.factory import get_router
 from core.mapping.interfaces import Router
@@ -130,7 +131,7 @@ async def fetch_bridge_route(
         logger.info(
             "Fetched bridge route with %d coordinates (%.2f miles)",
             len(coords),
-            (distance_m or 0) * 0.000621371,
+            (distance_m or 0) * METERS_TO_MILES,
         )
         return BridgeRoute(
             coordinates=coords,

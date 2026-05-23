@@ -118,13 +118,6 @@ const tripInteractions = {
       const numeric = Number(value);
       return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
     };
-    const formatCurrency = (value) =>
-      new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(value);
     const formatTime = (value) =>
       formatValue(
         value,
@@ -159,7 +152,7 @@ const tripInteractions = {
         ? ""
         : `
             <span class="trip-popup-label">Gas Price</span>
-            <span class="trip-popup-value">${formatCurrency(gasPrice)}</span>
+            <span class="trip-popup-value">${utils.formatCurrency(gasPrice)}</span>
           `;
 
     return `

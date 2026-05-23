@@ -7,7 +7,9 @@ from collections.abc import Callable
 import networkx as nx
 from shapely.geometry import LineString
 
-from .constants import FEET_PER_METER, MAX_OSM_MATCH_DISTANCE_FT
+from core.constants import FEET_PER_METER
+
+from .constants import MAX_OSM_MATCH_DISTANCE_FT
 from .types import EdgeRef
 
 logger = logging.getLogger(__name__)

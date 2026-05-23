@@ -5,23 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from core.spatial import extract_line_sequences, normalize_coordinate_list
-
-
-def _flatten_line_coords(geometry: dict[str, Any] | None) -> list[list[float]]:
-    sequences = extract_line_sequences(geometry)
-    if not sequences:
-        return []
-
-    flattened: list[list[float]] = []
-    for line in sequences:
-        if not line:
-            continue
-        if flattened and flattened[-1] == line[0]:
-            flattened.extend(line[1:])
-        else:
-            flattened.extend(line)
-    return normalize_coordinate_list(flattened)
+from core.spatial import flatten_line_coordinates
 
 
 def build_line_preview_svg_path(
@@ -36,7 +20,7 @@ def build_line_preview_svg_path(
     if not geometry:
         return None
 
-    coords = _flatten_line_coords(geometry)
+    coords = flatten_line_coordinates(geometry)
     if len(coords) < 2:
         return None
 

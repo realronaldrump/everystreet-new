@@ -3,6 +3,7 @@
  */
 
 import confirmationDialog from "../../ui/confirmation-dialog.js";
+import { M_TO_FT } from "../../utils/geo-math.js";
 import { escapeHtml, parseDurationToSeconds } from "../../utils.js";
 import { createVisitsDataService } from "../../visits/data-service.js";
 import { renderGeometryPreview } from "../../visits/preview-map-renderer.js";
@@ -12,8 +13,7 @@ const { bootstrap } = globalThis;
 
 // Configuration for imperial units
 const IMPERIAL_CONFIG = {
-  // Convert meters to feet (1 meter = 3.28084 feet)
-  metersToFeet: (meters) => Math.round(meters * 3.28084),
+  metersToFeet: (meters) => Math.round(meters * M_TO_FT),
   // Suggestion sizes in feet (converted from meters)
   suggestionSizes: {
     small: 150, // ~45m
@@ -569,7 +569,7 @@ class VisitsPageController {
 
   fetchSuggestions(cellSizeFt = 250) {
     // Convert feet to meters for API
-    const cellSizeM = Math.round(cellSizeFt / 3.28084);
+    const cellSizeM = Math.round(cellSizeFt / M_TO_FT);
     return this.dataService.fetchVisitSuggestions({
       cell_size_m: cellSizeM,
       min_visits: 5,

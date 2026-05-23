@@ -6,6 +6,7 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
 from fastapi.responses import FileResponse
 
+from core.job_serialization import serialize_job_payload
 from db.models import Job
 from exports.auth import enforce_owner, get_owner_key
 from exports.models import (
@@ -17,6 +18,49 @@ from exports.models import (
 from exports.services.export_service import ExportService
 
 router = APIRouter(prefix="/api/exports", tags=["exports"])
+
+
+def _export_result_from_job(job: Job) -> ExportResult | None:
+    if not job.result:
+        return None
+    return ExportResult(
+        artifact_name=job.result.get("artifact_name"),
+        artifact_size_bytes=job.result.get("artifact_size_bytes"),
+        records=job.result.get("records", {}),
+        files=job.result.get("files", []),
+    )
+
+
+def _export_job_response(job: Job) -> ExportJobResponse:
+    payload = serialize_job_payload(job)
+    return ExportJobResponse(
+        id=str(payload["job_id"]),
+        status=payload["status"],
+        progress=payload["progress"],
+        message=payload["message"],
+        created_at=payload["created_at"],
+    )
+
+
+def _export_status_response(job: Job) -> ExportStatusResponse:
+    payload = serialize_job_payload(job)
+    download_url = (
+        f"/api/exports/{job.id}/download"
+        if payload["status"] == "completed" and payload["result"]
+        else None
+    )
+    return ExportStatusResponse(
+        id=str(payload["job_id"]),
+        status=payload["status"],
+        progress=payload["progress"],
+        message=payload["message"],
+        created_at=payload["created_at"],
+        started_at=payload["started_at"],
+        completed_at=payload["completed_at"],
+        error=payload["error"],
+        result=_export_result_from_job(job),
+        download_url=download_url,
+    )
 
 
 @router.post("", response_model=ExportJobResponse)
@@ -36,13 +80,7 @@ async def create_export_job(
 
     background_tasks.add_task(ExportService.run_job, str(job.id))
 
-    return ExportJobResponse(
-        id=str(job.id),
-        status=job.status,
-        progress=job.progress,
-        message=job.message,
-        created_at=job.created_at.isoformat(),
-    )
+    return _export_job_response(job)
 
 
 @router.get("/{job_id}", response_model=ExportStatusResponse)
@@ -57,31 +95,7 @@ async def get_export_job(job_id: PydanticObjectId, request: Request):
 
     enforce_owner(job.owner_key, owner_key)
 
-    result = None
-    if job.result:
-        result = ExportResult(
-            artifact_name=job.result.get("artifact_name"),
-            artifact_size_bytes=job.result.get("artifact_size_bytes"),
-            records=job.result.get("records", {}),
-            files=job.result.get("files", []),
-        )
-
-    download_url = None
-    if job.status == "completed" and job.result:
-        download_url = f"/api/exports/{job.id}/download"
-
-    return ExportStatusResponse(
-        id=str(job.id),
-        status=job.status,
-        progress=job.progress,
-        message=job.message,
-        created_at=job.created_at.isoformat(),
-        started_at=job.started_at.isoformat() if job.started_at else None,
-        completed_at=job.completed_at.isoformat() if job.completed_at else None,
-        error=job.error,
-        result=result,
-        download_url=download_url,
-    )
+    return _export_status_response(job)
 
 
 @router.get("/{job_id}/download")

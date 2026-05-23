@@ -23,7 +23,8 @@ from core.coverage_clip import (
 )
 from core.date_utils import ensure_utc
 from core.redis import get_shared_redis
-from core.spatial import GeometryService, extract_line_sequences
+from core.serialization import serialize_utc_datetime
+from core.spatial import GeometryService, flatten_line_coordinates
 from core.trip_map_cache import TRIP_MAP_CACHE_PREFIX, get_trip_map_revision
 from core.trip_query_spec import TripQuerySpec
 from db.models import CoverageArea, CoverageState, Street, Trip
@@ -31,6 +32,7 @@ from trips.serialization import TripSerializer
 from trips.services.trip_cost_service import TripCostService
 from trips.services.trip_map_geometry import (
     TRIP_MAP_PATH_VERSION,
+    bbox_for_coords,
     build_encoded_path_metadata,
     encode_polyline6,
     materialized_path_is_current,
@@ -115,44 +117,6 @@ def _extract_if_none_match(request: Request) -> str | None:
     if not value:
         return None
     return value.strip()
-
-
-def _line_from_geometry(geometry: dict[str, Any] | None) -> list[list[float]]:
-    lines = extract_line_sequences(geometry)
-    if not lines:
-        return []
-    if len(lines) == 1:
-        return lines[0]
-
-    # MultiLineString is uncommon in this dataset; flatten into one continuous list.
-    merged: list[list[float]] = []
-    for line in lines:
-        if not line:
-            continue
-        if not merged:
-            merged.extend(line)
-            continue
-        if merged[-1] != line[0]:
-            merged.append(line[0])
-        merged.extend(line[1:])
-    return merged
-
-
-def _bbox_for_coords(coords: list[list[float]]) -> list[float]:
-    lons = [point[0] for point in coords]
-    lats = [point[1] for point in coords]
-    return [min(lons), min(lats), max(lons), max(lats)]
-
-
-def _merge_bboxes(bboxes: list[list[float]]) -> list[float]:
-    if not bboxes:
-        return [0.0, 0.0, 0.0, 0.0]
-    return [
-        min(b[0] for b in bboxes),
-        min(b[1] for b in bboxes),
-        max(b[2] for b in bboxes),
-        max(b[3] for b in bboxes),
-    ]
 
 
 def simplify_line_meters(
@@ -289,11 +253,6 @@ async def _set_cached_body(cache_key: str, body: str) -> None:
         await redis.set(cache_key, body, ex=600)
     except Exception:
         return
-
-
-def _serialize_dt(value: Any) -> str | None:
-    timestamp = ensure_utc(value)
-    return timestamp.isoformat().replace("+00:00", "Z") if timestamp else None
 
 
 def _duration_seconds(trip_doc: dict[str, Any]) -> float | None:
@@ -680,7 +639,7 @@ async def get_trip_map_bundle(
         "trips": features,
     }
 
-    body = json.dumps(payload, separators=(",", ":"), default=_serialize_dt)
+    body = json.dumps(payload, separators=(",", ":"), default=serialize_utc_datetime)
     await _set_cached_body(cache_key, body)
 
     return Response(
@@ -758,11 +717,11 @@ async def get_coverage_map_bundle(
             if status_filter == "undriven" and segment_status != "undriven":
                 continue
 
-            coords = _line_from_geometry(street.geometry)
+            coords = flatten_line_coordinates(street.geometry)
             if len(coords) < 2:
                 continue
 
-            bbox = _bbox_for_coords(coords)
+            bbox = bbox_for_coords(coords)
             feature_bboxes.append(bbox)
 
             medium = simplify_line_meters(coords, tolerance_m=2.0)
@@ -800,11 +759,11 @@ async def get_coverage_map_bundle(
             ).to_list()
 
             for street in streets:
-                coords = _line_from_geometry(street.geometry)
+                coords = flatten_line_coordinates(street.geometry)
                 if len(coords) < 2:
                     continue
 
-                bbox = _bbox_for_coords(coords)
+                bbox = bbox_for_coords(coords)
                 feature_bboxes.append(bbox)
 
                 medium = simplify_line_meters(coords, tolerance_m=2.0)
@@ -857,7 +816,7 @@ async def get_coverage_map_bundle(
         ),
         bbox=area.bounding_box
         if len(area.bounding_box) == 4
-        else _merge_bboxes(feature_bboxes),
+        else merge_bboxes(feature_bboxes) or [0.0, 0.0, 0.0, 0.0],
         segment_count=len(features),
         segments=features,
     )

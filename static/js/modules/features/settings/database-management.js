@@ -1,8 +1,13 @@
 import apiClient from "../../core/api-client.js";
+import { withSignal as withAbortSignal } from "../../core/feature-api.js";
 import { swupReady } from "../../core/navigation.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
-import { formatBytes, formatCompactNumber } from "../../utils/formatting.js";
+import {
+  formatBytes,
+  formatCompactNumber,
+  formatDateTime,
+} from "../../utils/formatting.js";
 import { escapeHtml } from "../../utils.js";
 
 function hasFiniteNumericAttribute(value) {
@@ -41,17 +46,13 @@ export function initDatabaseManagement({ signal } = {}) {
     Boolean(collectionsContainer?.querySelector(".collection-card"));
   let storageSummaryLoaded = hasInitialStorageSummary;
 
-  const withSignal = (options = {}) => (signal ? { ...options, signal } : options);
-
-  function formatTimestamp(value) {
-    if (!value) {
-      return "N/A";
-    }
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return value;
-    }
-    return date.toLocaleString();
+  function formatStorageTimestamp(value) {
+    return formatDateTime(value, {
+      default: "N/A",
+      invalid: value,
+      locale: null,
+      formatOptions: null,
+    });
   }
 
   function setButtonLoading(button, isLoading, action) {
@@ -80,9 +81,9 @@ export function initDatabaseManagement({ signal } = {}) {
   function performDatabaseAction(endpoint, body = {}) {
     const method = endpoint.includes("storage") ? "GET" : "POST";
     if (method === "GET") {
-      return apiClient.get(endpoint, withSignal());
+      return apiClient.get(endpoint, withAbortSignal(signal));
     }
-    return apiClient.post(endpoint, body, withSignal());
+    return apiClient.post(endpoint, body, withAbortSignal(signal));
   }
 
   function resolveCollectionName(button) {
@@ -127,7 +128,7 @@ export function initDatabaseManagement({ signal } = {}) {
     }
     if (storageUpdatedEl) {
       const iso = data.updated_at || "";
-      storageUpdatedEl.textContent = formatTimestamp(iso);
+      storageUpdatedEl.textContent = formatStorageTimestamp(iso);
       storageUpdatedEl.dataset.iso = iso;
     }
   }
@@ -412,7 +413,9 @@ export function initDatabaseManagement({ signal } = {}) {
       }
     }
     if (storageUpdatedEl?.dataset?.iso) {
-      storageUpdatedEl.textContent = formatTimestamp(storageUpdatedEl.dataset.iso);
+      storageUpdatedEl.textContent = formatStorageTimestamp(
+        storageUpdatedEl.dataset.iso
+      );
     }
   }
 

@@ -14,6 +14,8 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
+from core.job_serialization import serialize_job_payload
+from core.jobs import resolve_job_reference
 from core.streaming import format_sse_event, sse_queue_stream, sse_response
 from db.models import CoverageArea, Job
 from street_coverage.events import subscribe, unsubscribe
@@ -21,19 +23,6 @@ from tasks.ops import abort_job
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/coverage", tags=["coverage-jobs"])
-
-
-async def _resolve_job(job_id: str) -> Job | None:
-    """Look up a Job by ObjectId, task_id, or operation_id."""
-    job = None
-    if len(job_id) == 24:
-        with contextlib.suppress(Exception):
-            job = await Job.get(PydanticObjectId(job_id))
-    if not job:
-        job = await Job.find_one({"task_id": job_id})
-    if not job:
-        job = await Job.find_one({"operation_id": job_id})
-    return job
 
 
 # =============================================================================
@@ -70,6 +59,36 @@ class JobListResponse(BaseModel):
     jobs: list[JobStatusResponse]
 
 
+def _job_status_response(
+    job: Job,
+    *,
+    area_display_name: str | None = None,
+    fallback_area_id: PydanticObjectId | str | None = None,
+) -> JobStatusResponse:
+    payload = serialize_job_payload(job)
+    area_id = (
+        str(job.area_id)
+        if job.area_id
+        else (str(fallback_area_id) if fallback_area_id else None)
+    )
+    return JobStatusResponse(
+        job_id=str(payload["job_id"]),
+        task_id=payload["task_id"],
+        job_type=payload["job_type"],
+        area_id=area_id,
+        area_display_name=area_display_name,
+        status=payload["status"],
+        stage=payload["stage"],
+        progress=payload["progress"],
+        message=payload["message"],
+        error=payload["error"],
+        created_at=payload["created_at"],
+        started_at=payload["started_at"],
+        completed_at=payload["completed_at"],
+        result=payload["result"],
+    )
+
+
 # =============================================================================
 # Endpoints
 # =============================================================================
@@ -87,35 +106,19 @@ async def get_job_status(job_id: str):
     - Area rebuilds
     - Route generation
     """
-    job = await _resolve_job(job_id)
+    job = await resolve_job_reference(job_id)
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Job not found",
         )
 
-    area_id_str = str(job.area_id) if job.area_id else None
     area_display_name = None
     if job.area_id:
         area = await CoverageArea.get(job.area_id)
         area_display_name = area.display_name if area else None
 
-    return JobStatusResponse(
-        job_id=str(job.id),
-        task_id=job.task_id,
-        job_type=job.job_type,
-        area_id=area_id_str,
-        area_display_name=area_display_name,
-        status=job.status,
-        stage=job.stage,
-        progress=job.progress,
-        message=job.message,
-        error=job.error,
-        created_at=job.created_at.isoformat(),
-        started_at=job.started_at.isoformat() if job.started_at else None,
-        completed_at=job.completed_at.isoformat() if job.completed_at else None,
-        result=job.result,
-    )
+    return _job_status_response(job, area_display_name=area_display_name)
 
 
 @router.get("/areas/{area_id}/jobs", response_model=JobListResponse)
@@ -134,21 +137,10 @@ async def get_area_jobs(area_id: PydanticObjectId, limit: int = 10):
 
     return JobListResponse(
         jobs=[
-            JobStatusResponse(
-                job_id=str(job.id),
-                task_id=job.task_id,
-                job_type=job.job_type,
-                area_id=str(job.area_id) if job.area_id else str(area_id),
+            _job_status_response(
+                job,
                 area_display_name=area_display_name,
-                status=job.status,
-                stage=job.stage,
-                progress=job.progress,
-                message=job.message,
-                error=job.error,
-                created_at=job.created_at.isoformat(),
-                started_at=job.started_at.isoformat() if job.started_at else None,
-                completed_at=job.completed_at.isoformat() if job.completed_at else None,
-                result=job.result,
+                fallback_area_id=area_id,
             )
             for job in jobs
         ],
@@ -178,23 +170,11 @@ async def list_active_jobs():
 
     return JobListResponse(
         jobs=[
-            JobStatusResponse(
-                job_id=str(job.id),
-                task_id=job.task_id,
-                job_type=job.job_type,
-                area_id=str(job.area_id) if job.area_id else None,
+            _job_status_response(
+                job,
                 area_display_name=(
                     area_name_by_id.get(str(job.area_id)) if job.area_id else None
                 ),
-                status=job.status,
-                stage=job.stage,
-                progress=job.progress,
-                message=job.message,
-                error=job.error,
-                created_at=job.created_at.isoformat(),
-                started_at=job.started_at.isoformat() if job.started_at else None,
-                completed_at=job.completed_at.isoformat() if job.completed_at else None,
-                result=job.result,
             )
             for job in jobs
         ],
@@ -212,7 +192,7 @@ async def cancel_job(job_id: str):
     in the database. Ingestion pipelines also self-abort by checking job
     status between stages.
     """
-    job = await _resolve_job(job_id)
+    job = await resolve_job_reference(job_id)
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -287,20 +267,13 @@ async def _job_event_stream(job_id: str):
         area = await CoverageArea.get(job.area_id)
         area_name = area.display_name if area else None
 
-    snapshot = {
-        "job_id": str(job.id),
-        "job_type": job.job_type,
-        "area_id": str(job.area_id) if job.area_id else None,
-        "area_name": area_name,
-        "status": job.status,
-        "stage": job.stage,
-        "progress": job.progress,
-        "message": job.message,
-        "error": job.error,
-        "result": job.result,
-        "created_at": job.created_at.isoformat() if job.created_at else None,
-        "started_at": job.started_at.isoformat() if job.started_at else None,
-    }
+    snapshot = serialize_job_payload(job)
+    snapshot.update(
+        {
+            "area_id": str(job.area_id) if job.area_id else None,
+            "area_name": area_name,
+        },
+    )
     yield format_sse_event(snapshot, event="snapshot")
 
     # If already terminal, no need to stream
@@ -358,7 +331,7 @@ async def stream_job_progress(job_id: str):
     - heartbeat: Keep-alive (every 15s)
     """
     # Resolve to actual ObjectId for the stream
-    job = await _resolve_job(job_id)
+    job = await resolve_job_reference(job_id)
     resolved_id = str(job.id) if job else job_id
     return sse_response(
         _job_event_stream(resolved_id),

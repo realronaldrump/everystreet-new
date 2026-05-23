@@ -4,6 +4,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from core.casting import safe_float
 from core.date_utils import parse_timestamp
 from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
@@ -16,19 +17,10 @@ class StatisticsService:
     """Service class for gas statistics and vehicle operations."""
 
     @staticmethod
-    def _safe_float(value: Any) -> float | None:
-        try:
-            if value is None:
-                return None
-            return float(value)
-        except (TypeError, ValueError):
-            return None
-
-    @staticmethod
     def _effective_price_per_gallon(fillup: GasFillup) -> float | None:
-        gallons = StatisticsService._safe_float(fillup.gallons)
-        total_cost = StatisticsService._safe_float(fillup.total_cost)
-        price_per_gallon = StatisticsService._safe_float(fillup.price_per_gallon)
+        gallons = safe_float(fillup.gallons, None)
+        total_cost = safe_float(fillup.total_cost, None)
+        price_per_gallon = safe_float(fillup.price_per_gallon, None)
 
         if gallons is not None and gallons > 0 and total_cost is not None:
             return total_cost / gallons
@@ -94,8 +86,8 @@ class StatisticsService:
         cheapest_price: tuple[GasFillup, float] | None = None
 
         for fillup in fillups:
-            gallons = StatisticsService._safe_float(fillup.gallons)
-            cost = StatisticsService._safe_float(fillup.total_cost)
+            gallons = safe_float(fillup.gallons, None)
+            cost = safe_float(fillup.total_cost, None)
             if gallons is not None and gallons > 0:
                 total_gallons += gallons
             if cost is not None and cost > 0:
@@ -119,8 +111,8 @@ class StatisticsService:
                 ):
                     cheapest_price = (fillup, effective_price)
 
-            mpg = StatisticsService._safe_float(fillup.calculated_mpg)
-            miles = StatisticsService._safe_float(fillup.miles_since_last_fillup)
+            mpg = safe_float(fillup.calculated_mpg, None)
+            miles = safe_float(fillup.miles_since_last_fillup, None)
             if mpg is not None and mpg > 0 and miles is not None and miles > 0:
                 mpg_miles += miles
                 mpg_gallons += miles / mpg

@@ -1,8 +1,8 @@
+from core.constants import FEET_PER_METER
 from core.spatial import calculate_max_route_gap
 
 from .constants import (
     DEADHEAD_RATIO_REQUIRED_DISTANCE_FLOOR_M,
-    FEET_PER_METER,
     MAX_DEADHEAD_RATIO_ERROR,
     MAX_DEADHEAD_RATIO_WARN,
     MAX_ROUTE_GAP_FT,

@@ -3,6 +3,7 @@
  * Handles DOM elements, status messages, progress, popups, and user interactions.
  */
 
+import { M_TO_MI, MI_TO_M } from "../utils/geo-math.js";
 import { escapeHtml } from "../utils.js";
 import { LOCATION_SOURCE_LABELS, PROCESSING_STEPS } from "./constants.js";
 
@@ -209,7 +210,7 @@ export class DrivingNavigationUI {
 
     const durationHours = Math.floor(routeData.duration / 3600);
     const durationMinutes = Math.floor((routeData.duration % 3600) / 60);
-    const distanceMiles = (routeData.distance * 0.000621371).toFixed(1);
+    const distanceMiles = (routeData.distance * M_TO_MI).toFixed(1);
 
     if (this.routeStats) {
       this.routeStats.innerHTML = `
@@ -291,7 +292,7 @@ export class DrivingNavigationUI {
     if (!Number.isFinite(distanceMeters)) {
       return "--";
     }
-    return `${(distanceMeters / 1609.34).toFixed(1)} mi away`;
+    return `${(distanceMeters / MI_TO_M).toFixed(1)} mi away`;
   }
 
   formatClusterColor(color) {
@@ -333,7 +334,7 @@ export class DrivingNavigationUI {
 
     const totalSegments = clusters.reduce((sum, c) => sum + c.segment_count, 0);
     const totalLengthMiles =
-      clusters.reduce((sum, c) => sum + c.total_length_m, 0) / 1609.34;
+      clusters.reduce((sum, c) => sum + c.total_length_m, 0) / MI_TO_M;
 
     routeDetailsContent.innerHTML = `
       <div class="cluster-summary">
@@ -363,7 +364,7 @@ export class DrivingNavigationUI {
       clusters: clusters.length,
       segments: totalSegments,
       duration: 0,
-      distance: totalLengthMiles * 1609.34,
+      distance: totalLengthMiles * MI_TO_M,
     });
   }
 
@@ -469,8 +470,8 @@ export class DrivingNavigationUI {
    * @returns {string} HTML string for popup
    */
   createClusterPopup(cluster, rank) {
-    const distanceMiles = (cluster.distance_to_cluster_m / 1609.34).toFixed(1);
-    const lengthMiles = (cluster.total_length_m / 1609.34).toFixed(2);
+    const distanceMiles = (cluster.distance_to_cluster_m / MI_TO_M).toFixed(1);
+    const lengthMiles = (cluster.total_length_m / MI_TO_M).toFixed(2);
     const score = cluster.efficiency_score.toFixed(2);
 
     const content = `

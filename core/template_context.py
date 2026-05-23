@@ -5,10 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import Request
+from fastapi.responses import HTMLResponse
 
 from admin.services.admin_service import AdminService
 from config import get_mapbox_token
 from core.auth import get_request_auth_context, owner_login_enabled
+from core.jinja import templates
 from core.repo_info import get_repo_version_info
 
 
@@ -60,3 +62,23 @@ async def build_base_template_context(
         "owner_login_enabled": owner_login_enabled(),
         **extra,
     }
+
+
+async def render_template(
+    request: Request,
+    template_name: str,
+    *,
+    status_code: int = 200,
+    **context: Any,
+) -> HTMLResponse:
+    """Render a Jinja template with the shared base context."""
+    base_context = await build_base_template_context(request)
+    return templates.TemplateResponse(
+        request,
+        template_name,
+        {
+            **base_context,
+            **context,
+        },
+        status_code=status_code,
+    )

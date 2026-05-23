@@ -13,11 +13,11 @@ import math
 from collections.abc import Sequence
 from typing import Any
 
+from core.constants import METERS_TO_MILES
 from core.preview_path import build_line_preview_svg_path
 from core.spatial import (
     GeometryService,
-    extract_line_sequences,
-    normalize_coordinate_list,
+    flatten_line_coordinates,
 )
 
 logger = logging.getLogger(__name__)
@@ -44,22 +44,6 @@ def grid_cell(x_m: float, y_m: float, cell_size_m: float) -> tuple[int, int]:
     """Quantize Web Mercator meters into integer grid cells."""
     size = max(1.0, float(cell_size_m))
     return (math.floor(x_m / size), math.floor(y_m / size))
-
-
-def _flatten_line_coords(geometry: dict[str, Any] | None) -> list[list[float]]:
-    sequences = extract_line_sequences(geometry)
-    if not sequences:
-        return []
-
-    flattened: list[list[float]] = []
-    for line in sequences:
-        if not line:
-            continue
-        if flattened and flattened[-1] == line[0]:
-            flattened.extend(line[1:])
-        else:
-            flattened.extend(line)
-    return normalize_coordinate_list(flattened)
 
 
 def extract_trip_geometry(trip: dict[str, Any]) -> dict[str, Any] | None:
@@ -96,7 +80,7 @@ def extract_trip_geometry(trip: dict[str, Any]) -> dict[str, Any] | None:
 def extract_polyline(trip: dict[str, Any]) -> list[list[float]]:
     """Extract a [lon, lat] polyline from a trip in a stable priority order."""
     geom = extract_trip_geometry(trip)
-    coords = _flatten_line_coords(geom) if geom else []
+    coords = flatten_line_coordinates(geom) if geom else []
     if len(coords) >= 2:
         return coords
 
@@ -239,7 +223,7 @@ def compute_route_signature(trip: dict[str, Any], params: dict[str, Any]) -> str
             dist_miles = float(value)
     if dist_miles is None:
         _, total_m = _cumulative_distances_m(points)
-        dist_miles = total_m / 1609.344
+        dist_miles = total_m * METERS_TO_MILES
 
     if dist_miles < 0:
         dist_miles = 0.0

@@ -7,12 +7,13 @@ from beanie import PydanticObjectId
 from fastapi import HTTPException
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
+from core.casting import safe_float
+from core.constants import MILES_TO_METERS
 from core.mapping.factory import get_router
 from core.spatial import GeometryService, coerce_coordinate_pair, extract_line_sequences
 from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import CoverageArea, CoverageState, Street, Trip
-from street_coverage.constants import MILES_TO_METERS
 from tracking.services.tracking_service import TrackingService
 
 logger = logging.getLogger(__name__)
@@ -51,15 +52,6 @@ def sanitize_for_json(obj: Any) -> Any:
     if isinstance(obj, list):
         return [sanitize_for_json(v) for v in obj]
     return obj
-
-
-def get_safe_float(val: Any, default: float = 0.0) -> float:
-    """Safe float conversion handling NaN/Inf."""
-    try:
-        f = float(val)
-        return f if math.isfinite(f) else default
-    except (TypeError, ValueError):
-        return default
 
 
 def _normalize_location_source(source: str | None) -> str:
@@ -163,7 +155,7 @@ async def _load_undriven_segments(area: CoverageArea) -> list[dict[str, Any]]:
                 "segment_id": street.segment_id,
                 "street_name": street.street_name,
                 "geometry": street.geometry or {},
-                "length_m": get_safe_float(street.length_miles) * MILES_TO_METERS,
+                "length_m": safe_float(street.length_miles) * MILES_TO_METERS,
             },
         )
 

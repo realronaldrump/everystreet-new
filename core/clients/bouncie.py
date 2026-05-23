@@ -9,6 +9,7 @@ from config import API_BASE_URL, get_bouncie_config
 from core.date_utils import ensure_utc
 from core.http.retry import retry_async
 from core.http.session import get_session
+from core.serialization import serialize_utc_datetime
 from setup.services.bouncie_oauth import BouncieOAuth
 
 if TYPE_CHECKING:
@@ -28,8 +29,7 @@ def format_bouncie_datetime_param(dt: datetime) -> str:
     """
 
     utc = ensure_utc(dt) or dt
-    utc = utc.replace(microsecond=0)
-    return utc.isoformat().replace("+00:00", "Z")
+    return serialize_utc_datetime(utc, timespec="seconds") or utc.isoformat()
 
 
 class BouncieClient:

@@ -47,7 +47,7 @@ def encode_polyline6(coords: list[list[float]]) -> str:
     return "".join(output)
 
 
-def _bbox_for_coords(coords: list[list[float]]) -> list[float]:
+def bbox_for_coords(coords: list[list[float]]) -> list[float]:
     lons = [float(point[0]) for point in coords]
     lats = [float(point[1]) for point in coords]
     return [min(lons), min(lats), max(lons), max(lats)]
@@ -114,7 +114,7 @@ def build_encoded_path_metadata(
         "version": TRIP_MAP_PATH_VERSION,
         "geometry_source": geometry_source,
         "path": path,
-        "bbox": _bbox_for_coords(coords),
+        "bbox": bbox_for_coords(coords),
         "point_count": len(coords),
         "updated_at": datetime.now(UTC),
     }
@@ -172,6 +172,7 @@ def materialized_path_is_current(value: Any, *, geometry_source: str) -> bool:
 __all__ = [
     "TRIP_MAP_PATH_VERSION",
     "apply_trip_map_path_fields",
+    "bbox_for_coords",
     "build_encoded_path_metadata",
     "build_trip_map_path_fields",
     "encode_polyline6",

@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from core.cache import invalidate_cache_prefixes
-from core.spatial import extract_line_sequences
+from core.spatial import bboxes_intersect, extract_line_sequences
 from core.trip_map_cache import bump_trip_map_revision
 from db.models import CoverageArea, CoverageState, Job, Trip
 from geo_coverage.services.geo_coverage_service import (
@@ -16,6 +16,7 @@ from geo_coverage.services.geo_coverage_service import (
 from recurring_routes.models import BuildRecurringRoutesRequest
 from street_coverage.ingestion import backfill_area
 from tasks.ops import enqueue_task
+from trips.services.trip_map_geometry import bbox_for_coords
 
 logger = logging.getLogger(__name__)
 
@@ -196,7 +197,7 @@ class InactiveTripService:
             if area_bbox is None:
                 fallback.append(area)
                 continue
-            if cls._boxes_intersect(trip_bbox, area_bbox):
+            if bboxes_intersect(trip_bbox, area_bbox):
                 matched.append(area)
 
         return matched or fallback or areas
@@ -216,9 +217,8 @@ class InactiveTripService:
         if not coords:
             return None
 
-        lons = [float(coord[0]) for coord in coords]
-        lats = [float(coord[1]) for coord in coords]
-        return (min(lons), min(lats), max(lons), max(lats))
+        bbox = bbox_for_coords(coords)
+        return (bbox[0], bbox[1], bbox[2], bbox[3])
 
     @staticmethod
     def _area_bbox(area: CoverageArea) -> tuple[float, float, float, float] | None:
@@ -231,15 +231,3 @@ class InactiveTripService:
             return None
         min_lon, min_lat, max_lon, max_lat = map(float, raw_bbox)
         return (min_lon, min_lat, max_lon, max_lat)
-
-    @staticmethod
-    def _boxes_intersect(
-        left: tuple[float, float, float, float],
-        right: tuple[float, float, float, float],
-    ) -> bool:
-        return not (
-            left[2] < right[0]
-            or right[2] < left[0]
-            or left[3] < right[1]
-            or right[3] < left[1]
-        )

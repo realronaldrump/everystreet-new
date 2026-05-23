@@ -12,6 +12,7 @@ from admin.services.storage_service import StorageService
 from config import get_mapbox_token
 from core.date_utils import ensure_utc
 from core.mapping.factory import clear_local_provider_cache, get_geocoder
+from core.serialization import serialize_utc_datetime
 from core.service_config import apply_settings_to_env, clear_config_cache
 from db.manager import db_manager
 from db.models import (
@@ -402,7 +403,10 @@ class AdminService:
             now = datetime.now(UTC)
             return {"first_trip_date": now.isoformat()}
 
-        return {"first_trip_date": start_time.isoformat().replace("+00:00", "Z")}
+        return {
+            "first_trip_date": serialize_utc_datetime(start_time)
+            or start_time.isoformat()
+        }
 
 
 __all__ = [

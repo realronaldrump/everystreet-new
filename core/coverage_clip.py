@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from shapely.geometry import mapping, shape
 
+from core.constants import METERS_TO_MILES
 from core.spatial import (
     GeometryService,
     bounding_box_polygon,
@@ -134,7 +135,7 @@ def clip_geojson_lines(
 
     coverage_miles: float | None = None
     try:
-        coverage_miles = geodesic_length_meters(clipped_lines) / 1609.344
+        coverage_miles = geodesic_length_meters(clipped_lines) * METERS_TO_MILES
     except Exception:
         coverage_miles = None
 

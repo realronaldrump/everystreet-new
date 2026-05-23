@@ -11,7 +11,7 @@ import networkx as nx
 from beanie import PydanticObjectId
 
 from core.jobs import JobHandle, create_job, find_job
-from core.spatial import segment_midpoint
+from core.spatial import bboxes_intersect, segment_midpoint
 from db.models import CoverageArea, CoverageState, Street
 
 from .constants import (
@@ -209,12 +209,6 @@ async def _generate_optimal_route_with_progress_impl(
             and min_x <= max_x
             and min_y <= max_y
         )
-
-    def _bbox_intersects(
-        a: tuple[float, float, float, float],
-        b: tuple[float, float, float, float],
-    ) -> bool:
-        return not (a[2] < b[0] or b[2] < a[0] or a[3] < b[1] or b[3] < a[1])
 
     try:
         await update_progress("initializing", 0, "Starting optimal route generation...")
@@ -498,7 +492,7 @@ async def _generate_optimal_route_with_progress_impl(
             and area_bbox
             and _is_lonlat_bbox(graph_bbox)
             and _is_lonlat_bbox(area_bbox)
-            and not _bbox_intersects(graph_bbox, area_bbox)
+            and not bboxes_intersect(graph_bbox, area_bbox)
         ):
             msg = (
                 "Street network does not overlap this coverage area. "
