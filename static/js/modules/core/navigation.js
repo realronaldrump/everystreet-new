@@ -8,7 +8,7 @@ export const swupReady = new Promise((resolve) => {
   resolveReady = resolve;
 });
 
-function pathnameFromSwupUrl(urlish) {
+export function pathnameFromSwupUrl(urlish) {
   if (!urlish) {
     return null;
   }
@@ -173,7 +173,10 @@ function normalizeBreadcrumbPath(pathname) {
 
   let path = pathname.trim();
   try {
-    path = new URL(path, globalThis.location?.origin || "http://localhost").pathname;
+    path = new URL(
+      path,
+      globalThis.location?.origin || "https://www.everystreet.me"
+    ).pathname;
   } catch {
     path = path.split("#")[0].split("?")[0] || "/";
   }

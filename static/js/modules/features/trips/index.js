@@ -34,6 +34,7 @@ import {
   formatTimeOnly,
   formatVehicleName,
   getStorage,
+  isAbortError,
   sanitizeLocation,
   setStorage,
   toFiniteNumber,
@@ -503,10 +504,6 @@ function bindPageEvent(target, type, handler, options) {
     handler,
     pageSignal ? { ...(options || {}), signal: pageSignal } : options
   );
-}
-
-function isAbortError(error) {
-  return error?.name === "AbortError";
 }
 
 function isGoogleMapProvider() {
@@ -3345,7 +3342,7 @@ function showShareModal() {
       })
       .catch((err) => {
         // User cancelled - don't show error
-        if (err?.name === "AbortError") {
+        if (isAbortError(err)) {
           return;
         }
         // Native share failed, use copy modal

@@ -528,17 +528,17 @@ async def restart_service(service_name: str) -> dict[str, Any]:
 async def get_service_logs(service_name: str, tail: int = 100) -> dict[str, Any]:
     """Fetch recent logs for a service container."""
     service_name = service_name.strip().lower()
-    # Basic allowlist for security
     allowed = {"nominatim", "valhalla", "mongo", "redis", "worker", "app"}
     if (
         service_name not in allowed
         and not service_name.startswith("everystreet-")
         and service_name != "web"
     ):
-        # Also allow app service if named differently in compose
-        pass
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"message": "Unsupported service", "code": "invalid_service"},
+        )
 
-    # Actually, let's just use a mapped lookup for container names
     container_map = {
         "nominatim": "nominatim",
         "valhalla": "valhalla",

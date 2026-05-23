@@ -3,11 +3,13 @@ aiohttp
 beanie>=2.1,<2.2
 certifi
 fastapi
+starlette
 geopandas
 gpxpy
 httpx[http2]
 arq
 numpy
+pandas
 pydantic
 pymongo>=4.16,<5
 pyproj
@@ -27,4 +29,3 @@ osmnx
 networkx
 tenacity
 aiofiles
-Pillow

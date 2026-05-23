@@ -1484,24 +1484,6 @@
   box-shadow: var(--shadow-sm);
 }
 
-.coverage-route-planner .route-history-item[data-status="active"] {
-  border-left-color: var(--success);
-}
-
-.coverage-route-planner .route-history-item[data-status="paused"] {
-  border-left-color: var(--warning);
-}
-
-.coverage-route-planner .route-history-item[data-status="completed"] {
-  border-left-color: var(--cat-mint);
-}
-
-.coverage-route-planner .route-history-item[data-status="cancelled"] {
-  border-left-color: var(--danger);
-}
-
-/* Inner body for route history items */
-
 .coverage-route-planner .route-name {
   font-size: 0.8125rem;
   font-weight: 600;
@@ -1511,65 +1493,9 @@
   min-width: 0;
 }
 
-.coverage-route-planner .rhi-efficiency-badge {
-  font-size: 0.625rem;
-  font-weight: 700;
-  padding: 0.15rem 0.45rem;
-  border-radius: var(--radius-full);
-  background: rgb(var(--success-rgb) / 15%);
-  color: var(--success);
-  font-family: var(--font-family-mono);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.coverage-route-planner .rhi-efficiency-badge[data-eff="amber"] {
-  background: rgb(var(--warning-rgb) / 15%);
-  color: var(--warning);
-}
-
-.coverage-route-planner .rhi-efficiency-badge[data-eff="low"] {
-  background: rgb(var(--danger-rgb) / 15%);
-  color: var(--danger);
-}
-
 .coverage-route-planner .route-date {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
-}
-
-.coverage-route-planner .route-history-item[data-status="active"] .route-date {
-  color: var(--success);
-}
-
-.coverage-route-planner .route-history-item[data-status="paused"] .route-date {
-  color: var(--warning);
-}
-
-.coverage-route-planner .route-history-item[data-status="cancelled"] .route-date {
-  color: var(--danger);
-}
-
-/* Action buttons: reveal on hover */
-.coverage-route-planner .route-actions-inline {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  flex-wrap: wrap;
-  max-height: 0;
-  overflow: hidden;
-  opacity: 0;
-  transition:
-    max-height 200ms ease,
-    opacity 200ms ease,
-    margin-top 200ms ease;
-}
-
-.coverage-route-planner .route-history-item:hover .route-actions-inline,
-.coverage-route-planner .route-history-item:focus-within .route-actions-inline {
-  max-height: 60px;
-  opacity: 1;
-  margin-top: var(--space-2);
 }
 
 /* Route history chevron */
@@ -3364,12 +3290,6 @@
     box-shadow: none;
   }
 
-  /* Always show route action buttons on touch */
-  .coverage-route-planner .route-actions-inline {
-    max-height: 60px;
-    opacity: 1;
-    margin-top: var(--space-2);
-  }
 }
 
 /* ==========================================================================

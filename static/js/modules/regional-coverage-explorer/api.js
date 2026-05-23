@@ -9,7 +9,7 @@ function withQuery(path, params = {}) {
   const baseOrigin =
     typeof window !== "undefined" && window.location?.origin
       ? window.location.origin
-      : "http://localhost";
+      : "https://www.everystreet.me";
   const url = new URL(path, baseOrigin);
   Object.entries(params).forEach(([key, value]) => {
     if (value === undefined || value === null || value === "") {

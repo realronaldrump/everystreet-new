@@ -435,7 +435,7 @@ function initTemplateActions({ signal }) {
   });
 }
 
-export function initCoverageNavigatorUi(context = {}) {
+function initCoverageNavigatorUi(context = {}) {
   const { signal = null, onCleanup = () => {} } = context;
 
   initBottomNavInsets({ signal, onCleanup });

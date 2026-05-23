@@ -4,7 +4,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Request, status
 
-from analytics.services import DashboardService
+from analytics.services.dashboard_service import DashboardService
 from core.cache import cached
 from core.trip_query_spec import TripQuerySpec
 

@@ -23,7 +23,7 @@ function renderViewerPlaceholder() {
   routeContent.prepend(placeholder);
 }
 
-export function bootstrapPage(initFeature, route) {
+function bootstrapPage(initFeature, route) {
   onPageLoad(
     ({ signal, cleanup } = {}) => {
       if (window.AUTH_CONTEXT?.viewerMode) {

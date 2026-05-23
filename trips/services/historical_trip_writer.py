@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from inspect import signature
 from typing import Any
 
 from db.models import Trip
@@ -50,30 +49,7 @@ class BouncieHistoricalTripWriter:
             sync_mobility=request.sync_mobility,
             bump_revision=request.bump_revision,
         )
-        if hasattr(self._pipeline, "process_trip"):
-            return await self._pipeline.process_trip(processing_request)
-        kwargs = {
-            "source": processing_request.source,
-            "do_map_match": processing_request.do_map_match,
-            "do_geocode": processing_request.do_geocode,
-            "do_coverage": processing_request.do_coverage,
-            "force_map_match": processing_request.force_map_match,
-            "prevalidated_data": processing_request.prevalidated_data,
-            "prevalidated_history": processing_request.prevalidated_history,
-            "prevalidated_state": processing_request.prevalidated_state,
-            "sync_mobility": processing_request.sync_mobility,
-            "bump_revision": processing_request.bump_revision,
-        }
-        legacy_signature = signature(self._pipeline.process_raw_trip)
-        accepted = {
-            key: value
-            for key, value in kwargs.items()
-            if key in legacy_signature.parameters
-        }
-        return await self._pipeline.process_raw_trip(
-            processing_request.raw_data,
-            **accepted,
-        )
+        return await self._pipeline.process_trip(processing_request)
 
 
 __all__ = ["BouncieHistoricalTripWriter", "HistoricalTripWrite"]

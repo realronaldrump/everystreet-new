@@ -13,13 +13,11 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from starlette.responses import Response
 
+from api.coverage_clip import resolve_request_coverage_clip_context
 from core.coverage_clip import (
     CoverageClipContext,
-    CoverageClipError,
     apply_clip_prefilter,
     clip_geojson_lines,
-    parse_clip_bool,
-    resolve_coverage_clip_context,
 )
 from core.date_utils import ensure_utc
 from core.redis import get_shared_redis
@@ -277,46 +275,6 @@ def _format_avg_hour(hour_value: float | None) -> str:
     return f"{hour_12}:{minutes:02d} {suffix}"
 
 
-async def _resolve_trip_coverage_clip_context(
-    request: Request,
-) -> CoverageClipContext:
-    clip_requested = parse_clip_bool(request.query_params.get("clip_to_coverage"))
-    area_id = str(request.query_params.get("coverage_area_id") or "").strip()
-    area = None
-    if clip_requested and not area_id:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="coverage_area_id is required when clip_to_coverage is true.",
-        )
-
-    if clip_requested:
-        try:
-            area = await CoverageArea.get(area_id)
-        except Exception as exc:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Invalid coverage_area_id: {area_id}",
-            ) from exc
-
-        if area is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Coverage area not found: {area_id}",
-            )
-
-    try:
-        return resolve_coverage_clip_context(
-            clip_requested=clip_requested,
-            area=area,
-            area_id=area_id or None,
-        )
-    except CoverageClipError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exc),
-        ) from exc
-
-
 async def _query_has_missing_materialized_paths(
     query: dict[str, Any],
     *,
@@ -489,7 +447,7 @@ async def get_trip_map_bundle(
             detail=str(exc),
         ) from exc
 
-    coverage_clip = await _resolve_trip_coverage_clip_context(request)
+    coverage_clip = await resolve_request_coverage_clip_context(request)
 
     query["invalid"] = {"$ne": True}
     query[geometry_field] = {"$ne": None}

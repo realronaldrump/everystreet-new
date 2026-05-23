@@ -67,12 +67,6 @@
   min-width: 0; /* Allow content to shrink if needed */
 }
 
-.notification-title {
-  font-weight: var(--font-weight-semibold);
-  margin-bottom: var(--space-1);
-  color: var(--text-primary);
-}
-
 .notification-message {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
@@ -306,18 +300,6 @@
   align-items: flex-start;
 }
 
-.alert-icon {
-  /* Optional dedicated icon element */
-  margin-right: var(--space-3);
-  font-size: var(--font-size-xl);
-  margin-top: var(--space-1);
-}
-
-.alert-heading {
-  font-weight: var(--font-weight-semibold);
-  margin-bottom: var(--space-2);
-}
-
 .alert .btn-close {
   opacity: 0.7;
   transition: opacity var(--transition-fast);
@@ -329,29 +311,9 @@
   opacity: 1;
 }
 
-.alert-primary {
-  background-color: rgb(var(--primary-rgb) / 10%);
-  border-color: rgb(var(--primary-rgb) / 30%);
-  color: var(--primary-dark);
-}
-
-.alert-primary .alert-icon,
-.alert-primary .alert-heading {
-  color: var(--primary-dark);
-}
-
-body.light-mode .alert-primary {
-  color: var(--primary-dark);
-} /* Ensure text contrast */
-
 .alert-success {
   background-color: rgb(var(--success-rgb) / 10%);
   border-color: rgb(var(--success-rgb) / 30%);
-  color: var(--success-dark);
-}
-
-.alert-success .alert-icon,
-.alert-success .alert-heading {
   color: var(--success-dark);
 }
 
@@ -365,11 +327,6 @@ body.light-mode .alert-success {
   color: var(--danger-dark);
 }
 
-.alert-danger .alert-icon,
-.alert-danger .alert-heading {
-  color: var(--danger-dark);
-}
-
 body.light-mode .alert-danger {
   color: var(--danger-dark);
 }
@@ -380,11 +337,6 @@ body.light-mode .alert-danger {
   color: var(--warning-dark);
 }
 
-.alert-warning .alert-icon,
-.alert-warning .alert-heading {
-  color: var(--warning-dark);
-}
-
 body.light-mode .alert-warning {
   color: var(--warning-dark);
 }
@@ -392,11 +344,6 @@ body.light-mode .alert-warning {
 .alert-info {
   background-color: rgb(var(--info-rgb) / 10%);
   border-color: rgb(var(--info-rgb) / 30%);
-  color: var(--info-dark);
-}
-
-.alert-info .alert-icon,
-.alert-info .alert-heading {
   color: var(--info-dark);
 }
 

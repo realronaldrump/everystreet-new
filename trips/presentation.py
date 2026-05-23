@@ -13,13 +13,6 @@ def trip_to_dict(value: Any) -> dict[str, Any]:
     return TripSerializer.to_trip_dict(value)
 
 
-def first_non_empty(*values: Any) -> Any:
-    for value in values:
-        if value not in (None, ""):
-            return value
-    return None
-
-
 def derive_timezone_fields(trip_dict: dict[str, Any]) -> tuple[Any, Any, Any]:
     return TripSerializer.derive_timezone_fields(trip_dict)
 
@@ -83,6 +76,5 @@ __all__ = [
     "count_line_points",
     "derive_timezone_fields",
     "extract_trip_preview_geometry",
-    "first_non_empty",
     "trip_to_dict",
 ]

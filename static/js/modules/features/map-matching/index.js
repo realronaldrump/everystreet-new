@@ -4,9 +4,8 @@ import { createMap } from "../../map-core.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
 import { DateUtils, escapeHtml } from "../../utils.js";
+import { createCoordinateBounds } from "../../utils/bounds.js";
 import { clearInlineStatus, setInlineStatus } from "../settings/status-utils.js";
-
-const { flatpickr } = globalThis;
 
 let elements = {};
 
@@ -1395,14 +1394,7 @@ function wireEvents(signal) {
 }
 
 function initDatePickers() {
-  if (DateUtils?.initDatePicker) {
-    DateUtils.initDatePicker(".datepicker");
-  } else if (flatpickr) {
-    flatpickr(".datepicker", {
-      enableTime: false,
-      dateFormat: "Y-m-d",
-    });
-  }
+  DateUtils.initDatePicker(".datepicker");
 }
 
 function getMatchedPreviewColor() {
@@ -1582,25 +1574,7 @@ function buildBoundsFromGeojson(geojson) {
   if (!geojson?.features?.length) {
     return null;
   }
-  let minLng = Infinity;
-  let minLat = Infinity;
-  let maxLng = -Infinity;
-  let maxLat = -Infinity;
-
-  const extend = (coord) => {
-    if (!Array.isArray(coord) || coord.length < 2) {
-      return;
-    }
-    const lng = Number(coord[0]);
-    const lat = Number(coord[1]);
-    if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
-      return;
-    }
-    minLng = Math.min(minLng, lng);
-    minLat = Math.min(minLat, lat);
-    maxLng = Math.max(maxLng, lng);
-    maxLat = Math.max(maxLat, lat);
-  };
+  const bounds = createCoordinateBounds();
 
   geojson.features.forEach((feature) => {
     const geometry = feature?.geometry;
@@ -1609,27 +1583,16 @@ function buildBoundsFromGeojson(geojson) {
     }
     const { type, coordinates } = geometry;
     if (type === "LineString") {
-      coordinates.forEach(extend);
+      coordinates.forEach((coord) => bounds.extend(coord));
     } else if (type === "MultiLineString") {
       coordinates.forEach((line) => {
-        line.forEach(extend);
+        line.forEach((coord) => bounds.extend(coord));
       });
     } else if (type === "Point") {
-      extend(coordinates);
+      bounds.extend(coordinates);
     }
   });
-  if (
-    !Number.isFinite(minLng) ||
-    !Number.isFinite(minLat) ||
-    !Number.isFinite(maxLng) ||
-    !Number.isFinite(maxLat)
-  ) {
-    return null;
-  }
-  return [
-    [minLng, minLat],
-    [maxLng, maxLat],
-  ];
+  return bounds.toValue();
 }
 
 function updateMatchedPreviewMap(geojson) {

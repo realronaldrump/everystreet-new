@@ -33,7 +33,7 @@ from street_coverage.ingestion import (
 )
 from street_coverage.public_road_filter import get_public_road_filter_signature
 from street_coverage.stats import update_area_stats
-from tasks.arq import get_arq_pool
+from tasks.arq import extract_arq_job_id, get_arq_pool
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/coverage", tags=["coverage"])
@@ -411,12 +411,6 @@ def _candidate_bounding_box(
 
 COVERAGE_RECALCULATION_JOB_TYPES = ["area_ingestion", "area_rebuild", "area_backfill"]
 ACTIVE_JOB_STATUSES = ["pending", "running"]
-
-
-def _extract_arq_job_id(arq_job: Any) -> str:
-    return str(
-        getattr(arq_job, "job_id", None) or getattr(arq_job, "id", None) or arq_job,
-    )
 
 
 def _dedupe_area_ids(area_ids: list[PydanticObjectId]) -> list[PydanticObjectId]:
@@ -857,7 +851,7 @@ async def queue_batch_recalculate(request: BatchRecalculateRequest):
             batch_items,
             selected_trip_mode,
         )
-        task_id = _extract_arq_job_id(arq_job)
+        task_id = extract_arq_job_id(arq_job)
     except Exception as exc:
         now = datetime.now(UTC)
         await parent_job.set(

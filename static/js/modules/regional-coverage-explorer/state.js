@@ -48,17 +48,8 @@ let stateFeatureCollection = null;
 /** @type {Object.<string, Object>} Cached city feature collections keyed by state FIPS */
 let cityFeatureCollections = {};
 
-/** @type {Object.<string, {stateFips: string, stateName: string}>} */
-let countyToState = {};
-
-/** @type {Object.<string, {name: string, total: number}>} */
-let stateTotals = {};
-
 /** @type {Object.<string, [[number, number], [number, number]]>} */
 let stateBounds = {};
-
-/** @type {number} */
-let totalCounties = 0;
 
 /** @type {boolean} Whether recalculation is in progress */
 let isRecalculating = false;
@@ -71,9 +62,6 @@ let showStoppedCities = true;
 
 /** @type {boolean} Whether recalc polling is active */
 let recalcPollerActive = false;
-
-/** @type {Object.<string, {cities: Array<Object>, pagination: Object}>} */
-let cityListByState = {};
 
 function normalizeCountyFipsKey(value) {
   const raw = String(value ?? "").trim();
@@ -183,10 +171,6 @@ export function setCityVisitsForState(stateFips, visits) {
   cityVisitsByState[stateFips] = visits || {};
 }
 
-export function getAllCityVisits() {
-  return cityVisitsByState;
-}
-
 export function getCityStopsForState(stateFips) {
   return cityStopsByState[stateFips] || {};
 }
@@ -196,10 +180,6 @@ export function setCityStopsForState(stateFips, stops) {
     return;
   }
   cityStopsByState[stateFips] = stops || {};
-}
-
-export function getAllCityStops() {
-  return cityStopsByState;
 }
 
 // County data getters and setters
@@ -239,41 +219,12 @@ export function setCityFeatureCollection(stateFips, collection) {
   cityFeatureCollections[stateFips] = collection;
 }
 
-export function clearGeometryData() {
-  countyData = null;
-  statesData = null;
-}
-
-export function getCountyToState() {
-  return countyToState;
-}
-
-export function setCountyToState(index) {
-  countyToState = index || {};
-}
-
-export function getStateTotals() {
-  return stateTotals;
-}
-
-export function setStateTotals(totals) {
-  stateTotals = totals || {};
-}
-
 export function getStateBounds() {
   return stateBounds;
 }
 
 export function setStateBounds(bounds) {
   stateBounds = bounds || {};
-}
-
-export function getTotalCounties() {
-  return totalCounties;
-}
-
-export function setTotalCounties(value) {
-  totalCounties = Number.isFinite(value) ? value : 0;
 }
 
 // Recalculating state
@@ -311,17 +262,6 @@ export function setRecalcPollerActive(value) {
   recalcPollerActive = Boolean(value);
 }
 
-export function getCityListForState(stateFips) {
-  return cityListByState[stateFips] || null;
-}
-
-export function setCityListForState(stateFips, value) {
-  if (!stateFips) {
-    return;
-  }
-  cityListByState[stateFips] = value || null;
-}
-
 /**
  * Reset all state to initial values
  */
@@ -341,13 +281,9 @@ export function resetState() {
   statesData = null;
   stateFeatureCollection = null;
   cityFeatureCollections = {};
-  countyToState = {};
-  stateTotals = {};
   stateBounds = {};
-  totalCounties = 0;
   isRecalculating = false;
   showStoppedCounties = true;
   showStoppedCities = true;
   recalcPollerActive = false;
-  cityListByState = {};
 }

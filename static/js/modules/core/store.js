@@ -602,4 +602,3 @@ export async function optimisticAction({ optimistic, request, commit, rollback }
 const store = new ESStore();
 
 export default store;
-export { URL_PARAM_MAP };

@@ -27,6 +27,7 @@ from setup.services.bouncie_oauth import BouncieOAuth
 from trips.pipeline import TripPipeline
 from trips.services.bouncie_ingest_runtime import (
     build_ingest_counters,
+    build_ingest_device_counters,
     fetch_trips_for_window_report as fetch_trips_for_window_runtime,
     filter_trips_to_window as filter_trips_to_window_runtime,
     ingest_counters_changed_trips,
@@ -80,22 +81,6 @@ class ImportSetup:
     per_device: dict[str, dict[str, int]]
 
 
-def _build_per_device_counters() -> dict[str, int]:
-    return {
-        "windows_completed": 0,
-        "found_raw": 0,
-        "found_unique": 0,
-        "skipped_existing": 0,
-        "skipped_conflicting_source": 0,
-        "validation_failed": 0,
-        "inserted": 0,
-        "updated": 0,
-        "fetch_errors": 0,
-        "process_errors": 0,
-        "errors": 0,
-    }
-
-
 def _merge_per_device_counters(
     device_counters: dict[str, int],
     delta: dict[str, int],
@@ -146,7 +131,7 @@ async def _build_import_setup(
 
     counters = build_ingest_counters()
     per_device = {
-        device["imei"]: _build_per_device_counters()
+        device["imei"]: build_ingest_device_counters()
         for device in devices
         if device.get("imei")
     }

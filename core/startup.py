@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 
 from core.http.session import cleanup_session
-from db import db_manager
 from db.logging_handler import MongoDBHandler
+from db.manager import db_manager
 
 
 async def initialize_shared_runtime(

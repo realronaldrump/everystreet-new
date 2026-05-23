@@ -21,6 +21,10 @@ from tasks.config import (
     update_task_schedule,
 )
 from tasks.ops import abort_job, enqueue_task
+from trips.services.bouncie_ingest_runtime import (
+    build_ingest_counters,
+    build_ingest_device_counters,
+)
 from trips.services.trip_history_import_service import (
     build_import_plan,
     resolve_import_start_dt_from_db,
@@ -664,31 +668,9 @@ class TripSyncService:
                     "windows_total": plan.get("windows_total", 0),
                     "windows_completed": 0,
                     "current_window": None,
-                    "counters": {
-                        "found_raw": 0,
-                        "found_unique": 0,
-                        "skipped_existing": 0,
-                        "skipped_conflicting_source": 0,
-                        "validation_failed": 0,
-                        "inserted": 0,
-                        "updated": 0,
-                        "fetch_errors": 0,
-                        "process_errors": 0,
-                    },
+                    "counters": build_ingest_counters(),
                     "per_device": {
-                        d.get("imei"): {
-                            "windows_completed": 0,
-                            "found_raw": 0,
-                            "found_unique": 0,
-                            "skipped_existing": 0,
-                            "skipped_conflicting_source": 0,
-                            "validation_failed": 0,
-                            "inserted": 0,
-                            "updated": 0,
-                            "fetch_errors": 0,
-                            "process_errors": 0,
-                            "errors": 0,
-                        }
+                        d.get("imei"): build_ingest_device_counters()
                         for d in devices
                         if d.get("imei")
                     },

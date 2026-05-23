@@ -1,5 +1,6 @@
 import apiClient from "./core/api-client.js";
 import store from "./core/store.js";
+import { clearTripInteractionState } from "./trip-selection-state.js";
 import tripMapRenderer from "./trip-map-renderer.js";
 import confirmationDialog from "./ui/confirmation-dialog.js";
 import notificationManager from "./ui/notifications.js";
@@ -24,27 +25,6 @@ function emitDocumentEvent(type, detail = null) {
   ) {
     document.dispatchEvent(new CustomEvent(type, { detail }));
   }
-}
-
-function clearTripInteractionState(map = store.map) {
-  store.selectedTripId = null;
-  store.selectedTripLayer = null;
-
-  if (map?.getLayer?.("selected-trip-layer")) {
-    map.removeLayer?.("selected-trip-layer");
-  }
-  if (map?.getSource?.("selected-trip-source")) {
-    map.removeSource?.("selected-trip-source");
-  }
-
-  if (typeof document?.querySelectorAll !== "function") {
-    return;
-  }
-
-  document.querySelectorAll(".trip-popup-content").forEach((content) => {
-    content.closest?.(".mapboxgl-popup")?.remove?.();
-    content.closest?.(".maplibregl-popup")?.remove?.();
-  });
 }
 
 function formatDestinationLabel(value) {
@@ -117,7 +97,7 @@ function getFeatureTripId(feature) {
   return normalized || null;
 }
 
-export function extractDestinationPoint(feature, { layerName = "" } = {}) {
+function extractDestinationPoint(feature, { layerName = "" } = {}) {
   const coords = getDestinationPointFromGeometry(feature?.geometry);
   if (
     !coords ||
@@ -173,7 +153,7 @@ export function collectDestinationPoints(mapLayers = {}) {
   return [...pointsById.values(), ...anonymousPoints];
 }
 
-export function clusterCellSize(zoom = 12) {
+function clusterCellSize(zoom = 12) {
   return clamp(74 - zoom * 3.2, 24, 64);
 }
 

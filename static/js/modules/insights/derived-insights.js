@@ -183,7 +183,7 @@ export function aggregatePeriods(dailyDistances = [], mode = "weekly") {
     });
 }
 
-export function computePeriodDeltas(periods = []) {
+function computePeriodDeltas(periods = []) {
   return periods.map((period, index) => {
     const previous = index > 0 ? periods[index - 1] : null;
     const distanceDelta = previous ? period.distance - previous.distance : NaN;
@@ -485,7 +485,7 @@ export function computeFuelLens(totalFuel = 0, totalDistance = 0, totalTrips = 0
   };
 }
 
-export function buildPatternCards(derivedData = {}) {
+function buildPatternCards(derivedData = {}) {
   const timeSignature = derivedData.timeSignature || {};
   const exploration = derivedData.exploration || {};
   const fuelLens = derivedData.fuelLens || {};

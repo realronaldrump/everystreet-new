@@ -2015,13 +2015,3 @@
   transform: none;
   box-shadow: none;
 }
-
-@media (width <= 768px) {
-  #visits-page .visits-filters {
-    width: 100%;
-  }
-
-  #visits-page .visits-filters .form-select {
-    width: 100%;
-  }
-}

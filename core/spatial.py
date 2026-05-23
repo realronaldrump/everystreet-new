@@ -13,6 +13,7 @@ import math
 from typing import TYPE_CHECKING, Any
 
 import pyproj
+from shapely.validation import make_valid
 
 from core.constants import FEET_PER_METER, METERS_TO_MILES
 
@@ -22,14 +23,6 @@ if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
 
 logger = logging.getLogger(__name__)
-
-try:
-    from shapely.validation import make_valid as _make_valid
-except Exception:  # pragma: no cover - shapely version compatibility
-    try:
-        from shapely import make_valid as _make_valid
-    except Exception:  # pragma: no cover - fallback for old shapely
-        _make_valid = None
 
 WGS84 = pyproj.CRS("EPSG:4326")
 GEOD = pyproj.Geod(ellps="WGS84")
@@ -289,6 +282,29 @@ def bboxes_intersect(
     )
 
 
+def is_lonlat_bounds(bounds: Sequence[Any] | None) -> bool:
+    """Return whether bounds look like [min_lon, min_lat, max_lon, max_lat]."""
+    if not bounds or len(bounds) != 4:
+        return False
+    try:
+        min_x, min_y, max_x, max_y = (
+            float(bounds[0]),
+            float(bounds[1]),
+            float(bounds[2]),
+            float(bounds[3]),
+        )
+    except (TypeError, ValueError, IndexError):
+        return False
+    return (
+        -180.0 <= min_x <= 180.0
+        and -180.0 <= max_x <= 180.0
+        and -90.0 <= min_y <= 90.0
+        and -90.0 <= max_y <= 90.0
+        and min_x <= max_x
+        and min_y <= max_y
+    )
+
+
 def _collect_polygon_parts(geojson: dict[str, Any]) -> list[BaseGeometry]:
     from shapely.geometry import shape
 
@@ -460,7 +476,7 @@ def validate_and_fix_geometry(geometry: BaseGeometry | None) -> BaseGeometry | N
         return geometry
 
     try:
-        fixed = _make_valid(geometry) if _make_valid else geometry.buffer(0)
+        fixed = make_valid(geometry)
     except Exception:
         return None
     if fixed is None or fixed.is_empty or not fixed.is_valid:

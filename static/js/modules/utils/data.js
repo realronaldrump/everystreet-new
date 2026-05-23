@@ -180,13 +180,10 @@ export async function fetchWithRetry(
     store.apiCache.set(cacheKey, { data, timestamp: Date.now() });
     return data;
   } catch (error) {
-    if (timeoutTriggered && error?.name === "AbortError") {
+    if (timeoutTriggered && isAbortError(error)) {
       const timeoutError = new Error(`Request timeout: ${url}`);
       timeoutError.name = "TimeoutError";
       throw timeoutError;
-    }
-    if (error?.name === "AbortError") {
-      throw error;
     }
     throw error;
   } finally {
@@ -255,6 +252,10 @@ export function showNotification(...args) {
 // ============================================================================
 // Error Handling
 // ============================================================================
+
+export function isAbortError(error) {
+  return error?.name === "AbortError";
+}
 
 /**
  * Handle errors with logging and user notification

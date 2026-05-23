@@ -67,7 +67,7 @@ export const COLORS = {
 };
 
 /** FIPS code to state name mapping */
-export const STATE_FIPS_TO_NAME = {
+const STATE_FIPS_TO_NAME = {
   "01": "Alabama",
   "02": "Alaska",
   "04": "Arizona",

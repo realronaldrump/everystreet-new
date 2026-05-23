@@ -1,5 +1,4 @@
 import logging
-import os
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -135,29 +134,6 @@ async def static_versioned(_version: str, path: str, request: Request):
     stay within the same versioned prefix.
     """
     return await static_files.get_response(path, request.scope)
-
-
-@app.api_route(
-    "/npm/{npm_path:path}",
-    methods=["GET", "HEAD"],
-    include_in_schema=False,
-)
-async def npm_esm_compat_redirect(npm_path: str, request: Request) -> RedirectResponse:
-    """
-    Compatibility redirect for `/npm/*` ESM imports.
-
-    Some CDN-generated module graphs resolve nested imports to `/npm/...`.
-    Serving a redirect here keeps those requests functional behind our domain.
-    """
-    cleaned_path = (npm_path or "").lstrip("/")
-    if not cleaned_path:
-        raise HTTPException(status_code=404, detail="Not Found")
-
-    target = f"https://cdn.jsdelivr.net/npm/{cleaned_path}"
-    query = request.url.query
-    if query:
-        target = f"{target}?{query}"
-    return RedirectResponse(url=target, status_code=307)
 
 
 # Root-level icon requests (browser defaults)
@@ -376,18 +352,4 @@ async def internal_error_handler(request: Request, exc: Exception):
             "error_id": error_id,
             "detail": str(exc),
         },
-    )
-
-
-# --- Main Execution Block ---
-if __name__ == "__main__":
-    import uvicorn
-
-    port = int(os.getenv("PORT", "8080"))
-    uvicorn.run(
-        "app:app",
-        host="0.0.0.0",
-        port=port,
-        log_level="info",
-        reload=True,
     )

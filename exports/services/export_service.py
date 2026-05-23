@@ -22,8 +22,7 @@ from core.coverage_clip import (
 from core.jobs import JobHandle
 from core.spatial import GeometryService, extract_timestamps_for_coordinates
 from core.trip_query_spec import TripQuerySpec
-from db import CoverageArea, CoverageState, Street, Trip
-from db.models import Job
+from db.models import CoverageArea, CoverageState, Job, Street, Trip
 from exports.constants import (
     EXPORT_DEFAULT_FORMAT,
     EXPORT_FORMATS_BY_ENTITY,
@@ -45,6 +44,7 @@ from exports.services.export_writer import (
     write_gpx_tracks,
     write_json_array,
 )
+from trips.serialization import TripSerializer
 
 if TYPE_CHECKING:
     from exports.models import ExportItem, ExportRequest
@@ -239,16 +239,6 @@ class ExportService:
         except CoverageClipError as exc:
             raise ValueError(str(exc)) from exc
 
-    @staticmethod
-    def _model_to_dict(value: Any) -> dict[str, Any]:
-        if isinstance(value, dict):
-            return dict(value)
-        if hasattr(value, "model_dump"):
-            return value.model_dump()
-        if hasattr(value, "dict"):
-            return value.dict()
-        return dict(value)
-
     @classmethod
     def _prepare_trip_export_row(
         cls,
@@ -257,7 +247,7 @@ class ExportService:
         geometry_field: str,
         clip_context: _TripExportClipContext,
     ) -> dict[str, Any] | None:
-        row = cls._model_to_dict(trip)
+        row = TripSerializer.to_trip_dict(trip)
         coverage_distance_miles: float | None = None
         if clip_context.enabled:
             geometry, coverage_distance_miles = clip_geojson_lines(
@@ -423,55 +413,36 @@ class ExportService:
         query = cls._build_trip_query(trip_filters, matched_only, trip_clip_context)
         cursor = Trip.find(query).sort(Trip.startTime)
 
+        def serialize_structured_trip(trip: Any) -> dict[str, Any] | None:
+            row = cls._prepare_trip_export_row(
+                trip,
+                geometry_field=geometry_field,
+                clip_context=trip_clip_context,
+            )
+            if row is None:
+                return None
+            record = serialize_trip_record(
+                row,
+                include_geometry=include_geometry,
+            )
+            if not include_geometry:
+                record["gps"] = None
+                record["matchedGps"] = None
+            return record
+
         if fmt == "json":
-
-            def serializer(trip: Any) -> dict[str, Any] | None:
-                row = cls._prepare_trip_export_row(
-                    trip,
-                    geometry_field=geometry_field,
-                    clip_context=trip_clip_context,
-                )
-                if row is None:
-                    return None
-                record = serialize_trip_record(
-                    row,
-                    include_geometry=include_geometry,
-                )
-                if not include_geometry:
-                    record["gps"] = None
-                    record["matchedGps"] = None
-                return record
-
             return await write_json_array(
                 file_path,
                 cursor,
-                serializer,
+                serialize_structured_trip,
                 progress.bump,
             )
         if fmt == "csv":
-
-            def serializer(trip: Any) -> dict[str, Any] | None:
-                row = cls._prepare_trip_export_row(
-                    trip,
-                    geometry_field=geometry_field,
-                    clip_context=trip_clip_context,
-                )
-                if row is None:
-                    return None
-                record = serialize_trip_record(
-                    row,
-                    include_geometry=include_geometry,
-                )
-                if not include_geometry:
-                    record["gps"] = None
-                    record["matchedGps"] = None
-                return record
-
             return await write_csv(
                 file_path,
                 cursor,
                 TRIP_CSV_FIELDS,
-                serializer,
+                serialize_structured_trip,
                 progress.bump,
             )
         if fmt == "gpx":

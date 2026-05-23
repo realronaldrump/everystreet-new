@@ -1,6 +1,6 @@
 const POLYLINE6_SCALE = 1_000_000;
 
-export function decodePolyline6(encoded) {
+function decodePolyline6(encoded) {
   const coordinates = [];
   if (!encoded || typeof encoded !== "string") {
     return coordinates;

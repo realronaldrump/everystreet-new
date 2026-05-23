@@ -336,10 +336,12 @@ const layerManager = {
       if (store.mapLayers[name]) {
         const persistedLayerSettings =
           layerSettings && typeof layerSettings === "object" ? layerSettings : {};
-        const settingsWithoutOpacity = { ...persistedLayerSettings };
-        delete settingsWithoutOpacity.opacity;
-        delete settingsWithoutOpacity.isHeatmap;
-        Object.assign(store.mapLayers[name], settingsWithoutOpacity);
+        const {
+          opacity: _persistedOpacity,
+          isHeatmap: _persistedIsHeatmap,
+          ...visibleLayerSettings
+        } = persistedLayerSettings;
+        Object.assign(store.mapLayers[name], visibleLayerSettings);
       }
     });
 

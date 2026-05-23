@@ -51,32 +51,4 @@ export function createVisitsDataService(client = apiClient) {
 
 const visitsDataService = createVisitsDataService(apiClient);
 
-const fetchPlaces = (...args) => visitsDataService.fetchPlaces(...args);
-const fetchPlaceStatistics = (...args) =>
-  visitsDataService.fetchPlaceStatistics(...args);
-const fetchPlaceDetailStatistics = (...args) =>
-  visitsDataService.fetchPlaceDetailStatistics(...args);
-const fetchPlaceTrips = (...args) => visitsDataService.fetchPlaceTrips(...args);
-const fetchNonCustomVisits = (...args) =>
-  visitsDataService.fetchNonCustomVisits(...args);
-const fetchVisitSuggestions = (...args) =>
-  visitsDataService.fetchVisitSuggestions(...args);
-const fetchTrip = (...args) => visitsDataService.fetchTrip(...args);
-const deletePlace = (...args) => visitsDataService.deletePlace(...args);
-const createPlace = (...args) => visitsDataService.createPlace(...args);
-const updatePlace = (...args) => visitsDataService.updatePlace(...args);
-
-export {
-  createPlace,
-  deletePlace,
-  fetchNonCustomVisits,
-  fetchPlaceDetailStatistics,
-  fetchPlaceStatistics,
-  fetchPlaceTrips,
-  fetchPlaces,
-  fetchTrip,
-  fetchVisitSuggestions,
-  updatePlace,
-};
-
 export default visitsDataService;

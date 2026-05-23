@@ -91,7 +91,7 @@ export function setActiveTab(tabName, { persist = true, updateHash = false } = {
   return true;
 }
 
-export function setupTabSwitching({ signal } = {}) {
+function setupTabSwitching({ signal } = {}) {
   const tabs = document.querySelectorAll(".settings-tab");
 
   const hashTab = normalizeTabName(window.location.hash);
@@ -128,7 +128,7 @@ export function setupTabSwitching({ signal } = {}) {
   );
 }
 
-export function setupAppSettingsForm() {
+function setupAppSettingsForm() {
   const mapProviderSelect = document.getElementById("map-provider-select");
   const darkModeToggle = document.getElementById("dark-mode-toggle");
   const highlightRecentTrips = document.getElementById("highlight-recent-trips");

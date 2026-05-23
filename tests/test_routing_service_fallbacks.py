@@ -206,6 +206,7 @@ def _install_common_mocks(
                 "skipped_disconnected": 0,
                 "iterations": 1,
             },
+            [],
             None,
         )
 

@@ -444,7 +444,7 @@ function addCityLayers({ map, cityFeatureCollection, showStoppedCities }) {
   });
 }
 
-export function clearCoverageLayers(map = RegionalCoverageExplorerState.getMap()) {
+function clearCoverageLayers(map = RegionalCoverageExplorerState.getMap()) {
   if (!map) {
     return;
   }

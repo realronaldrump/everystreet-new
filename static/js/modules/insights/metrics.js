@@ -21,7 +21,7 @@ function setText(id, value) {
  * @param {number} endValue - Target value
  * @param {number} decimals - Number of decimal places (default 0)
  */
-export function animateCounter(elementId, endValue, decimals = 0) {
+function animateCounter(elementId, endValue, decimals = 0) {
   const element = document.getElementById(elementId);
   if (!element) {
     return;
@@ -40,7 +40,7 @@ export function animateCounter(elementId, endValue, decimals = 0) {
  * @param {string} elementId - ID of the element to update
  * @param {number} seconds - Duration in seconds
  */
-export function updateTimeMetric(elementId, seconds) {
+function updateTimeMetric(elementId, seconds) {
   const element = document.getElementById(elementId);
   if (!element) {
     return;

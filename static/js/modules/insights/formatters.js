@@ -9,12 +9,10 @@ import {
   formatDateToString,
   formatDuration,
   formatHourLabel,
-  formatMonth,
-  formatWeekRange,
 } from "../utils.js";
 
 // Re-export common formatters
-export { formatDuration, formatWeekRange, formatMonth, formatHourLabel };
+export { formatDuration, formatHourLabel };
 
 /**
  * Format a Date object to YYYY-MM-DD string

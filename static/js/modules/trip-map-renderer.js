@@ -709,4 +709,3 @@ const tripMapRenderer = {
 };
 
 export default tripMapRenderer;
-export { isTripLayer };

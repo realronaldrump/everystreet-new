@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from db.models import Trip
+from trips.pipeline import TripProcessingRequest
 from trips.services import bouncie_ingest_runtime
 from trips.services.bouncie_ingest_runtime import process_bouncie_trips
 
@@ -30,34 +31,18 @@ class _PipelineStub:
             },
         }
 
-    async def process_raw_trip(
+    async def process_trip(
         self,
-        trip: dict[str, Any],
-        *,
-        source: str,
-        do_map_match: bool,
-        do_geocode: bool,
-        do_coverage: bool,
-        prevalidated_data: dict[str, Any] | None = None,
-        prevalidated_history: list[dict[str, Any]] | None = None,
-        prevalidated_state: str | None = None,
-        sync_mobility: bool = True,
-        bump_revision: bool = True,
+        request: TripProcessingRequest,
     ) -> Any:
-        del (
-            prevalidated_data,
-            prevalidated_history,
-            prevalidated_state,
-            sync_mobility,
-        )
         self.calls.append(
             {
-                "transactionId": trip.get("transactionId"),
-                "source": source,
-                "do_map_match": do_map_match,
-                "do_geocode": do_geocode,
-                "do_coverage": do_coverage,
-                "bump_revision": bump_revision,
+                "transactionId": request.raw_data.get("transactionId"),
+                "source": request.source,
+                "do_map_match": request.do_map_match,
+                "do_geocode": request.do_geocode,
+                "do_coverage": request.do_coverage,
+                "bump_revision": request.bump_revision,
             },
         )
         return SimpleNamespace(id="trip-id")

@@ -9,7 +9,7 @@ export function clearCoverageAreasCache() {
   }
 }
 
-export function readCoverageAreasCache() {
+function readCoverageAreasCache() {
   if (typeof window === "undefined") {
     return null;
   }
@@ -20,7 +20,7 @@ export function readCoverageAreasCache() {
   return null;
 }
 
-export function writeCoverageAreasCache(areas) {
+function writeCoverageAreasCache(areas) {
   if (typeof window === "undefined") {
     return;
   }

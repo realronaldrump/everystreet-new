@@ -20,6 +20,11 @@ const DATE_STORAGE_KEYS = {
   endDate: "endDate",
 };
 
+const DEFAULT_DATE_PICKER_CONFIG = {
+  enableTime: false,
+  dateFormat: "Y-m-d",
+};
+
 const DateUtils = {
   parseDateString(dateStr) {
     if (!dateStr) {
@@ -180,12 +185,12 @@ const DateUtils = {
     return range;
   },
 
-  initDatePicker(element, config) {
+  initDatePicker(element, config = null) {
     if (flatpickr) {
-      return flatpickr(element, config);
+      return flatpickr(element, config || { ...DEFAULT_DATE_PICKER_CONFIG });
     }
     return null;
   },
 };
 
-export { DATE_STORAGE_KEYS, DateUtils };
+export { DateUtils };

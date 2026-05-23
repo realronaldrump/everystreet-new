@@ -4,11 +4,9 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Request, status
 
-from analytics.services import (
-    DrilldownService,
-    TimeAnalyticsService,
-    TripAnalyticsService,
-)
+from analytics.services.drilldown_service import DrilldownService
+from analytics.services.time_analytics_service import TimeAnalyticsService
+from analytics.services.trip_analytics_service import TripAnalyticsService
 from core.api import api_route
 from core.cache import cached
 from core.trip_query_spec import TripQuerySpec

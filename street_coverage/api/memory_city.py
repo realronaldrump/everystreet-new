@@ -84,7 +84,7 @@ def _extract_linestring(geometry: dict[str, Any] | None) -> list[list[float]]:
         return [
             [float(pt[0]), float(pt[1])]
             for pt in coords
-            if isinstance(pt, (list, tuple)) and len(pt) >= 2
+            if isinstance(pt, list | tuple) and len(pt) >= 2
         ]
 
     if geom_type == "MultiLineString" and isinstance(coords, list):
@@ -97,7 +97,7 @@ def _extract_linestring(geometry: dict[str, Any] | None) -> list[list[float]]:
             flat.extend(
                 [float(pt[0]), float(pt[1])]
                 for pt in part
-                if isinstance(pt, (list, tuple)) and len(pt) >= 2
+                if isinstance(pt, list | tuple) and len(pt) >= 2
             )
         return flat
 

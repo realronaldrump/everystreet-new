@@ -61,21 +61,3 @@ export function setChart(name, chartInstance) {
 export function getChart(name) {
   return state.charts[name] || null;
 }
-
-/**
- * Reset state to initial values
- */
-export function resetState() {
-  state.currentPeriod = 30;
-  state.currentView = "daily";
-  state.rhythmView = "weekly";
-  state.derivedInsights = null;
-  state.data = {
-    behavior: null,
-    insights: null,
-    analytics: null,
-    metrics: null,
-  };
-  state.isLoading = false;
-  state.prevRange = null;
-}

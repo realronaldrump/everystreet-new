@@ -11,4 +11,4 @@ bootstrapPage(async (context = {}) => {
     return;
   }
   initMapPage(context);
-}, (path) => path === "/" || path === "/map");
+}, "/map");

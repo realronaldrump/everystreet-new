@@ -46,7 +46,7 @@ from street_coverage.public_road_filter import (
     get_public_road_filter_signature,
 )
 from street_coverage.stats import update_area_stats
-from tasks.arq import get_arq_pool
+from tasks.arq import extract_arq_job_id, get_arq_pool
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -54,12 +54,6 @@ if TYPE_CHECKING:
     from beanie import PydanticObjectId
 
 logger = logging.getLogger(__name__)
-
-
-def _extract_arq_job_id(arq_job: Any) -> str:
-    return str(
-        getattr(arq_job, "job_id", None) or getattr(arq_job, "id", None) or arq_job,
-    )
 
 
 async def _enqueue_pipeline_job(
@@ -81,7 +75,7 @@ async def _enqueue_pipeline_job(
         trip_mode,
         **enqueue_kwargs,
     )
-    return _extract_arq_job_id(arq_job)
+    return extract_arq_job_id(arq_job)
 
 
 BACKFILL_PROGRESS_START = 75.0

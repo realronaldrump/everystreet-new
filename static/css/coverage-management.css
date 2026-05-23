@@ -586,21 +586,11 @@
   border-radius: var(--radius-pill);
   background: linear-gradient(90deg, var(--info) 0%, var(--info-light, #79a0c0) 100%);
   background-size: 200% 100%;
-  animation: bar-shimmer 1.8s ease-in-out infinite;
+  animation: track-scan 1.8s ease-in-out infinite;
   min-width: 0;
 }
 
 @keyframes track-scan {
-  0% {
-    background-position: 200% 0;
-  }
-
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-@keyframes bar-shimmer {
   0% {
     background-position: 200% 0;
   }

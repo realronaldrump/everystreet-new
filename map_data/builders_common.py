@@ -103,3 +103,26 @@ async def _safe_callback(
         if e.__class__.__name__ == "MapSetupCancelled":
             raise
         logger.warning("Progress callback failed: %s", e)
+
+
+async def _verify_container_path(
+    container_name: str,
+    path: str,
+    *,
+    error_context: str = "container",
+) -> None:
+    check_result = await asyncio.create_subprocess_exec(
+        "docker",
+        "exec",
+        container_name,
+        "ls",
+        "-la",
+        path,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    await check_result.wait()
+
+    if check_result.returncode != 0:
+        msg = f"PBF file not accessible in {error_context}: {path}"
+        _raise_error(msg, ValueError)

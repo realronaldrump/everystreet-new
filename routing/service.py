@@ -11,7 +11,7 @@ import networkx as nx
 from beanie import PydanticObjectId
 
 from core.jobs import JobHandle, create_job, find_job
-from core.spatial import bboxes_intersect, segment_midpoint
+from core.spatial import bboxes_intersect, is_lonlat_bounds, segment_midpoint
 from db.models import CoverageArea, CoverageState, Street
 
 from .constants import (
@@ -36,7 +36,6 @@ from .validation import validate_route
 from .workflow import (
     apply_gap_bridge_stats,
     build_route_result,
-    normalize_solver_result,
 )
 
 if TYPE_CHECKING:
@@ -186,29 +185,6 @@ async def _generate_optimal_route_with_progress_impl(
                     path.unlink()
                     removed += 1
         return removed
-
-    def _is_lonlat_bbox(
-        bounds: tuple[float, float, float, float] | list[float] | None,
-    ) -> bool:
-        if not bounds or len(bounds) != 4:
-            return False
-        try:
-            min_x, min_y, max_x, max_y = (
-                float(bounds[0]),
-                float(bounds[1]),
-                float(bounds[2]),
-                float(bounds[3]),
-            )
-        except Exception:
-            return False
-        return (
-            -180.0 <= min_x <= 180.0
-            and -180.0 <= max_x <= 180.0
-            and -90.0 <= min_y <= 90.0
-            and -90.0 <= max_y <= 90.0
-            and min_x <= max_x
-            and min_y <= max_y
-        )
 
     try:
         await update_progress("initializing", 0, "Starting optimal route generation...")
@@ -490,8 +466,8 @@ async def _generate_optimal_route_with_progress_impl(
         if (
             graph_bbox
             and area_bbox
-            and _is_lonlat_bbox(graph_bbox)
-            and _is_lonlat_bbox(area_bbox)
+            and is_lonlat_bounds(graph_bbox)
+            and is_lonlat_bounds(area_bbox)
             and not bboxes_intersect(graph_bbox, area_bbox)
         ):
             msg = (
@@ -1482,9 +1458,7 @@ async def _generate_optimal_route_with_progress_impl(
                     start_node_id,
                     node_xy=route_node_xy,
                 )
-                route_coords, stats, route_edges, service_sequence = (
-                    normalize_solver_result(zone_result)
-                )
+                route_coords, stats, route_edges, service_sequence = zone_result
             except Exception:
                 logger.exception(
                     "Zone-based solver failed; falling back to single solve",
@@ -1504,9 +1478,7 @@ async def _generate_optimal_route_with_progress_impl(
                     start_node_id,
                     req_segment_counts=req_segment_counts,
                 )
-                route_coords, stats, route_edges, service_sequence = (
-                    normalize_solver_result(solver_result)
-                )
+                route_coords, stats, route_edges, service_sequence = solver_result
             except Exception as e:
                 logger.exception("Greedy solver failed")
                 msg = f"Route solver failed: {e}"

@@ -204,5 +204,5 @@ const notify = {
   info: (message, duration) => notificationManager.show(message, "info", duration),
 };
 
-export { NotificationManager, notificationManager, notificationHistory, notify };
+export { notificationManager, notificationHistory, notify };
 export default notificationManager;

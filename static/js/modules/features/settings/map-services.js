@@ -25,14 +25,14 @@ let lastDbSample = null;
 let _coverageSettings = null;
 let _isGoogleMapsMode = false;
 
-export function initMapServicesTab() {
+function initMapServicesTab() {
   stopPolling();
   stopGeoCoveragePolling();
   _isGoogleMapsMode = false;
   void initializeMapServicesTab();
 }
 
-export function cleanupMapServicesTab() {
+function cleanupMapServicesTab() {
   stopPolling();
   stopGeoCoveragePolling();
 }

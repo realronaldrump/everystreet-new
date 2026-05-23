@@ -1,4 +1,5 @@
 import { CONFIG } from "../../core/config.js";
+import { isGoogleProvider, normalizeStyleType } from "./map-style.js";
 import { resolveMapTypeHint } from "./map-type-hint.js";
 
 const MAP_INTERACTION_EVENTS = ["dragstart", "zoomstart", "rotatestart", "pitchstart"];
@@ -11,20 +12,12 @@ const noopController = Object.freeze({
   destroy() {},
 });
 
-function normalizeStyleType(value) {
-  return typeof value === "string" ? value.trim().toLowerCase() : "";
-}
-
 function getCinematicConfig() {
   return CONFIG?.MAP?.cinematicIntro || {};
 }
 
 function getStorageKey() {
   return CONFIG?.STORAGE_KEYS?.mapCinematicIntroSeen || "mapCinematicIntroSeen";
-}
-
-function isGoogleProvider() {
-  return normalizeStyleType(globalThis?.window?.MAP_PROVIDER) === "google";
 }
 
 function getRequestFrame() {
@@ -106,7 +99,7 @@ function normalizeBearing(value) {
   return ((numeric % 360) + 360) % 360;
 }
 
-export function isDesktopViewport() {
+function isDesktopViewport() {
   if (typeof window === "undefined") {
     return false;
   }
@@ -119,14 +112,14 @@ export function isDesktopViewport() {
   return Number(window.innerWidth || 0) >= 1024;
 }
 
-export function prefersReducedMotion() {
+function prefersReducedMotion() {
   if (typeof window === "undefined") {
     return false;
   }
   return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
 }
 
-export function shouldRunCinematicIntro({ map, config = getCinematicConfig() } = {}) {
+function shouldRunCinematicIntro({ map, config = getCinematicConfig() } = {}) {
   if (!config.enabled) {
     return false;
   }

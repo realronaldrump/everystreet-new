@@ -571,7 +571,7 @@ export function updateTrendsChart() {
   chart.update();
 }
 
-export function updateTimeHeatmap() {
+function updateTimeHeatmap() {
   const state = getState();
   const { analytics } = state.data;
   const host = document.getElementById("timeHeatmap");

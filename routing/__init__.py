@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from importlib import import_module
+from core.lazy_imports import make_lazy_dir, make_lazy_getattr
 
 __all__ = [
     "generate_optimal_route",
@@ -21,16 +21,5 @@ _LAZY_IMPORTS: dict[str, tuple[str, str | None]] = {
 }
 
 
-def __getattr__(name: str):
-    target = _LAZY_IMPORTS.get(name)
-    if not target:
-        msg = f"module {__name__!r} has no attribute {name!r}"
-        raise AttributeError(msg)
-
-    module_name, attr_name = target
-    module = import_module(module_name)
-    return module if attr_name is None else getattr(module, attr_name)
-
-
-def __dir__():
-    return sorted(set(globals()) | set(_LAZY_IMPORTS))
+__getattr__ = make_lazy_getattr(__name__, _LAZY_IMPORTS)
+__dir__ = make_lazy_dir(globals(), _LAZY_IMPORTS)

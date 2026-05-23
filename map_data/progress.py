@@ -64,6 +64,24 @@ class MapBuildProgress:
             active_job_id=metadata.get("active_job_id"),
         )
 
+    def to_build_payload(self) -> dict[str, object]:
+        return {
+            "phase": self.phase,
+            "phase_progress": self.phase_progress,
+            "total_progress": self.total_progress,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "last_progress_at": (
+                self.last_progress_at.isoformat() if self.last_progress_at else None
+            ),
+            "active_job_id": self.active_job_id,
+        }
+
+    def to_progress_payload(self) -> dict[str, object]:
+        payload = self.to_build_payload()
+        payload.pop("active_job_id", None)
+        payload["cancellation_requested"] = self.cancellation_requested
+        return payload
+
     async def save(self) -> None:
         metadata = dict(self.job.metadata or {})
         metadata.update(

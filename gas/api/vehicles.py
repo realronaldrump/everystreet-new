@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 from core.exceptions import DuplicateResourceException, ResourceNotFoundException
 from db.models import Vehicle
 from db.schemas import VehicleModel
-from gas.services import VehicleService
+from gas.services.vehicle_service import VehicleService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

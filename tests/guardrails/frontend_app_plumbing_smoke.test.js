@@ -130,9 +130,12 @@ test("swup visit URLs are always treated as strings", () => {
 test("landing route stays distinct from the map route state", () => {
   const routeLoaderSource = readStaticJs("modules", "core", "route-loader.js");
   const navigationSource = readStaticJs("modules", "core", "navigation.js");
+  const mapPageSource = readStaticJs("pages", "map.js");
   const layoutSource = readRepoFile("static", "css", "layout", "layout.css");
 
   assert.match(routeLoaderSource, /\["\/",\s*"\.\.\/\.\.\/pages\/landing\.js"\]/);
+  assert.match(mapPageSource, /bootstrapPage\([\s\S]*,\s*"\/map"\s*\)/);
+  assert.doesNotMatch(mapPageSource, /path\s*===\s*["']\/["']/);
   assert.match(navigationSource, /document\.body\.dataset\.route\s*=\s*path/);
   assert.doesNotMatch(
     navigationSource,

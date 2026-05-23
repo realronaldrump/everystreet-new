@@ -98,15 +98,6 @@
   animation: spin 0.8s linear infinite;
 } /* Generic spinner class */
 
-/* === Legend Indicators === */
-.legend-indicator {
-  display: inline-block;
-  width: 18px;
-  height: 3px;
-  margin-right: var(--space-1);
-  border-radius: var(--radius-pill);
-}
-
 /* === Accessibility === */
 
 body[data-viewer-mode="true"] .owner-only {
@@ -203,7 +194,6 @@ body[data-viewer-mode="true"] .owner-only {
   }
 
   .card,
-  .side-panel,
   .control-panel,
   .widget,
   .modal-content,
@@ -243,7 +233,6 @@ body[data-viewer-mode="true"] .owner-only {
 
   .app-header,
   .mobile-nav-drawer,
-  .side-panel,
   .tools-section,
   .menu-toggle-btn,
   .notification-container,

@@ -21,7 +21,7 @@ import metricsManager from "./metrics-manager.js";
 import tripMapRenderer from "./trip-map-renderer.js";
 import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
-import { DateUtils, utils } from "./utils.js";
+import { DateUtils, isAbortError, utils } from "./utils.js";
 
 // ============================================================
 // Data Manager
@@ -121,7 +121,7 @@ const dataManager = {
       this._updateMetricsFromTripBundle(bundle);
       return bundle;
     } catch (error) {
-      if (error?.name === "AbortError") {
+      if (isAbortError(error)) {
         return null;
       }
       notificationManager.show("Failed to load trips", "danger");
@@ -179,7 +179,7 @@ const dataManager = {
 
       return null;
     } catch (error) {
-      if (error?.name === "AbortError") {
+      if (isAbortError(error)) {
         return null;
       }
       console.error("Error fetching matched trips:", error);
@@ -329,7 +329,7 @@ const dataManager = {
       return null;
     } catch (error) {
       state[loadedFlag] = false;
-      if (error?.name === "AbortError") {
+      if (isAbortError(error)) {
         return null;
       }
       console.error(`Error fetching ${label}:`, error);
@@ -425,7 +425,7 @@ const dataManager = {
 
       return data;
     } catch (error) {
-      if (error?.name === "AbortError") {
+      if (isAbortError(error)) {
         return null;
       }
       console.error("Error fetching metrics:", error);

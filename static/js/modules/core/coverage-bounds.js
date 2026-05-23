@@ -15,7 +15,7 @@ const isBoundaryGeometryType = (geometryType) =>
  * Normalize bbox input to [west, south, east, north] with finite numbers.
  * Returns null when input is invalid.
  */
-export function normalizeCoverageBoundingBox(rawBbox) {
+function normalizeCoverageBoundingBox(rawBbox) {
   if (!Array.isArray(rawBbox) || rawBbox.length !== 4) {
     return null;
   }

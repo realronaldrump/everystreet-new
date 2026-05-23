@@ -71,7 +71,7 @@ export function getPresetRoutes() {
   }));
 }
 
-export function getPresetById(id) {
+function getPresetById(id) {
   return PRESET_ROUTES.find((r) => r.id === id) ?? null;
 }
 
@@ -162,7 +162,7 @@ function parseDirectionsResponse(data) {
  * @param {number[][]} waypoints — array of [lng, lat] pairs (2–25 points)
  * @returns {Promise<ResolvedRoute>}
  */
-export async function fetchRoute(waypoints) {
+async function fetchRoute(waypoints) {
   const url = buildDirectionsUrl(waypoints);
   const res = await fetch(url);
   if (!res.ok) {

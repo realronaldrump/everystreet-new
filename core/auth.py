@@ -74,7 +74,6 @@ PUBLIC_EXACT_PATHS: Final[set[str]] = {
 PUBLIC_PREFIXES: Final[tuple[str, ...]] = (
     "/static/",
     "/static-v/",
-    "/npm/",
     "/api/search/",
     "/api/routing/",
 )
@@ -517,8 +516,6 @@ def parse_cors_allowed_origins() -> list[str]:
     return [
         "https://www.everystreet.me",
         "https://everystreet.me",
-        "http://localhost:8080",
-        "http://127.0.0.1:8080",
     ]
 
 
@@ -531,9 +528,6 @@ def parse_allowed_hosts() -> list[str]:
         "www.everystreet.me",
         "everystreet.me",
         "testserver",
-        "localhost",
-        "127.0.0.1",
-        "*.localhost",
     ]
 
 

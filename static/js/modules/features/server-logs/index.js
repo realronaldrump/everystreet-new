@@ -1,7 +1,7 @@
 import { createFeatureApi } from "../../core/feature-api.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
-import { escapeHtml } from "../../utils.js";
+import { downloadBlob, escapeHtml } from "../../utils.js";
 
 export default function initServerLogsPage({ signal, cleanup, api } = {}) {
   const noopTeardown = () => {};
@@ -443,14 +443,7 @@ export default function initServerLogsPage({ signal, cleanup, api } = {}) {
     try {
       const dataStr = JSON.stringify(currentLogs, null, 2);
       const dataBlob = new Blob([dataStr], { type: "application/json" });
-      const url = URL.createObjectURL(dataBlob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `server-logs-${new Date().toISOString()}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      downloadBlob(dataBlob, `server-logs-${new Date().toISOString()}.json`);
 
       notificationManager.show("Logs exported successfully", "success");
     } catch {
@@ -801,6 +794,16 @@ export default function initServerLogsPage({ signal, cleanup, api } = {}) {
     });
   }
 
+  function renderContainerOption(container) {
+    const safeName = escapeHtml(container.name);
+    return `
+      <div class="multi-select-option" role="option" aria-selected="false" data-value="${safeName}">
+        <input type="checkbox" value="${safeName}" tabindex="-1">
+        <span class="multi-select-option-label">${safeName}</span>
+      </div>
+    `;
+  }
+
   function getDockerLogLevel(message) {
     const lowerMessage = message.toLowerCase();
 
@@ -968,26 +971,12 @@ export default function initServerLogsPage({ signal, cleanup, api } = {}) {
 
       if (runningContainers.length > 0) {
         html += '<div class="multi-select-optgroup">Running</div>';
-        runningContainers.forEach((c) => {
-          html += `
-              <div class="multi-select-option" role="option" aria-selected="false" data-value="${escapeHtml(c.name)}">
-                <input type="checkbox" value="${escapeHtml(c.name)}" tabindex="-1">
-                <span class="multi-select-option-label">${escapeHtml(c.name)}</span>
-              </div>
-            `;
-        });
+        html += runningContainers.map(renderContainerOption).join("");
       }
 
       if (stoppedContainers.length > 0) {
         html += '<div class="multi-select-optgroup">Stopped</div>';
-        stoppedContainers.forEach((c) => {
-          html += `
-                <div class="multi-select-option" role="option" aria-selected="false" data-value="${escapeHtml(c.name)}">
-                  <input type="checkbox" value="${escapeHtml(c.name)}" tabindex="-1">
-                  <span class="multi-select-option-label">${escapeHtml(c.name)}</span>
-                </div>
-              `;
-        });
+        html += stoppedContainers.map(renderContainerOption).join("");
       }
 
       containerSelectOptions.innerHTML = html;
@@ -1502,14 +1491,7 @@ export default function initServerLogsPage({ signal, cleanup, api } = {}) {
         dataStr += `${group.logs.join("\n")}\n\n`;
       });
       const dataBlob = new Blob([dataStr], { type: "text/plain" });
-      const url = URL.createObjectURL(dataBlob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${fileSuffix}-${new Date().toISOString()}.log`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      downloadBlob(dataBlob, `${fileSuffix}-${new Date().toISOString()}.log`);
 
       notificationManager.show("Docker logs exported successfully", "success");
     } catch {

@@ -817,18 +817,19 @@ class LiveTripTracker {
     if (this.isDestroyed || this.reconnectTimer) {
       return;
     }
+    let reconnectDelayMs = delayMs;
     if (delayMs === undefined) {
       const base =
         this.reconnectMinDelayMs * this.reconnectMultiplier ** this.reconnectAttempt;
       const capped = Math.min(base, this.reconnectMaxDelayMs);
       // Add jitter (50-100% of capped value) to prevent thundering herd
-      delayMs = capped * (0.5 + Math.random() * 0.5);
+      reconnectDelayMs = capped * (0.5 + Math.random() * 0.5);
       this.reconnectAttempt++;
     }
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connectWebSocket();
-    }, delayMs);
+    }, reconnectDelayMs);
   }
 
   reconnectWebSocket({ immediate = false } = {}) {

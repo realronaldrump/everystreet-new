@@ -8,6 +8,7 @@ import networkx as nx
 from shapely.geometry import LineString
 
 from core.constants import FEET_PER_METER
+from core.spatial import is_lonlat_bounds
 
 from .constants import MAX_OSM_MATCH_DISTANCE_FT
 from .types import EdgeRef
@@ -122,28 +123,6 @@ def _build_point_projector(
     return _project_xy
 
 
-def _is_lonlat_bounds(bounds: tuple[float, float, float, float] | None) -> bool:
-    if not bounds or len(bounds) != 4:
-        return False
-    try:
-        min_x, min_y, max_x, max_y = (
-            float(bounds[0]),
-            float(bounds[1]),
-            float(bounds[2]),
-            float(bounds[3]),
-        )
-    except Exception:
-        return False
-    return (
-        -180.0 <= min_x <= 180.0
-        and -180.0 <= max_x <= 180.0
-        and -90.0 <= min_y <= 90.0
-        and -90.0 <= max_y <= 90.0
-        and min_x <= max_x
-        and min_y <= max_y
-    )
-
-
 def _repair_projected_edge_geometries(
     G: nx.MultiDiGraph,
     project_xy: Callable[[float, float], tuple[float, float]] | None,
@@ -167,7 +146,7 @@ def _repair_projected_edge_geometries(
             continue
 
         with contextlib.suppress(Exception):
-            if not _is_lonlat_bounds(tuple(float(x) for x in geom.bounds)):
+            if not is_lonlat_bounds(tuple(float(x) for x in geom.bounds)):
                 continue
 
             coords = list(geom.coords)

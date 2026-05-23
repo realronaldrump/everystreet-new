@@ -1,4 +1,4 @@
-import { swupReady } from "../core/navigation.js";
+import { pathnameFromSwupUrl, swupReady } from "../core/navigation.js";
 import store from "../core/store.js";
 
 /**
@@ -49,6 +49,21 @@ export function batchDOMUpdates(updates) {
   });
 }
 
+export function downloadBlob(blob, filename) {
+  if (!blob) {
+    return false;
+  }
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+  return true;
+}
+
 /**
  * Yield control back to the browser for responsive UI
  * @param {number} delay - Optional delay in milliseconds
@@ -78,36 +93,6 @@ function routeMatches(route, pathname) {
     return Boolean(route(pathname));
   }
   return false;
-}
-
-function pathnameFromSwupUrl(urlish) {
-  if (!urlish) {
-    return null;
-  }
-  if (typeof urlish === "string") {
-    try {
-      return new URL(urlish, window.location.origin).pathname || null;
-    } catch {
-      const trimmed = urlish.trim();
-      if (!trimmed) {
-        return null;
-      }
-      return trimmed.split("#")[0].split("?")[0] || null;
-    }
-  }
-  if (typeof urlish === "object") {
-    if (typeof urlish.pathname === "string" && urlish.pathname) {
-      return urlish.pathname;
-    }
-    if (typeof urlish.href === "string" && urlish.href) {
-      try {
-        return new URL(urlish.href, window.location.origin).pathname || null;
-      } catch {
-        return null;
-      }
-    }
-  }
-  return null;
 }
 
 export function onPageLoad(callback, options = {}) {

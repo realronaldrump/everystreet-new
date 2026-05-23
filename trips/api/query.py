@@ -5,29 +5,27 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
+from api.coverage_clip import resolve_request_coverage_clip_context
 from core.api import api_route
 from core.casting import safe_float
 from core.coverage_clip import (
-    CoverageClipContext,
-    CoverageClipError,
     apply_clip_prefilter,
     clip_geojson_lines,
-    parse_clip_bool,
-    resolve_coverage_clip_context,
 )
 from core.date_utils import parse_timestamp
 from core.spatial import GeometryService
 from core.streaming import geojson_response, stream_geojson_feature_collection
 from core.trip_query_spec import TripQuerySpec, apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
-from db.models import CoverageArea, Trip
+from db.models import Trip
 from trips.presentation import (
     build_trip_feature_properties,
     count_line_points,
     trip_to_dict,
 )
-from trips.services import TripCostService, TripQueryService
+from trips.services.trip_cost_service import TripCostService
 from trips.services.trip_ingest_issue_service import TripIngestIssueService
+from trips.services.trip_query_service import TripQueryService
 
 
 def _safe_int(value, default: int = 0):
@@ -35,50 +33,6 @@ def _safe_int(value, default: int = 0):
         return int(value)
     except (TypeError, ValueError):
         return default
-
-
-def _parse_bool_query_value(value: str | None) -> bool:
-    return parse_clip_bool(value)
-
-
-async def _resolve_coverage_clip_context(request: Request) -> CoverageClipContext:
-    clip_requested = _parse_bool_query_value(
-        request.query_params.get("clip_to_coverage")
-    )
-    area_id = str(request.query_params.get("coverage_area_id") or "").strip()
-    area = None
-    if clip_requested and not area_id:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="coverage_area_id is required when clip_to_coverage is true.",
-        )
-
-    if clip_requested:
-        try:
-            area = await CoverageArea.get(area_id)
-        except Exception as exc:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Invalid coverage_area_id: {area_id}",
-            ) from exc
-
-        if area is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Coverage area not found: {area_id}",
-            )
-
-    try:
-        return resolve_coverage_clip_context(
-            clip_requested=clip_requested,
-            area=area,
-            area_id=area_id or None,
-        )
-    except CoverageClipError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exc),
-        ) from exc
 
 
 logger = logging.getLogger(__name__)
@@ -98,7 +52,7 @@ async def get_matched_trips(request: Request):
         include_invalid=True,
     ).to_mongo_query(enforce_source=True)
 
-    coverage_clip = await _resolve_coverage_clip_context(request)
+    coverage_clip = await resolve_request_coverage_clip_context(request)
 
     # Only include trips with matched GPS data
     query["matchedGps"] = {"$ne": None}
@@ -218,7 +172,7 @@ async def get_trips(request: Request):
         include_invalid=True,
     ).to_mongo_query(enforce_source=True)
     matched_only = request.query_params.get("matched_only", "false").lower() == "true"
-    coverage_clip = await _resolve_coverage_clip_context(request)
+    coverage_clip = await resolve_request_coverage_clip_context(request)
 
     # Exclude invalid trips by default
     query["invalid"] = {"$ne": True}

@@ -92,20 +92,7 @@ def build_route_result(
     }
 
 
-def normalize_solver_result(result: tuple[Any, ...]) -> tuple[Any, Any, Any, Any]:
-    """Normalize old and new solver tuple shapes."""
-    if len(result) == 4:
-        route_coords, stats, route_edges, service_sequence = result
-        return route_coords, stats, route_edges, service_sequence
-    if len(result) == 3:
-        route_coords, stats, service_sequence = result
-        return route_coords, stats, [], service_sequence
-    msg = f"route solver returned an unexpected result shape ({len(result)} values)"
-    raise ValueError(msg)
-
-
 __all__ = [
     "apply_gap_bridge_stats",
     "build_route_result",
-    "normalize_solver_result",
 ]

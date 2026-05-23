@@ -22,7 +22,7 @@ def get_redis_settings() -> RedisSettings:
     """Build RedisSettings from REDIS_URL or component env vars."""
     redis_url = get_redis_url()
     parsed = urlparse(redis_url)
-    host = parsed.hostname or "localhost"
+    host = parsed.hostname or "redis"
     port = parsed.port or 6379
     database = int(parsed.path.lstrip("/") or 0)
     ssl = parsed.scheme == "rediss"
@@ -33,6 +33,12 @@ def get_redis_settings() -> RedisSettings:
         username=parsed.username,
         password=parsed.password,
         ssl=ssl,
+    )
+
+
+def extract_arq_job_id(arq_job) -> str:
+    return str(
+        getattr(arq_job, "job_id", None) or getattr(arq_job, "id", None) or arq_job,
     )
 
 

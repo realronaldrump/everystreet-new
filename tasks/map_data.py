@@ -31,7 +31,7 @@ from map_data.coverage import (
     build_trip_coverage_extract_from_geometry,
     build_trip_coverage_polygon,
 )
-from map_data.extracts import describe_osm_extract
+from map_data.extracts import describe_osm_extract, metadata_datetime
 from map_data.geofabrik_index import (
     find_smallest_covering_extract,
     load_geofabrik_index,
@@ -155,13 +155,6 @@ def _retry_delay_seconds(retry_count: int) -> int:
     return min(RETRY_BASE_SECONDS * (2 ** (retry_count - 1)), RETRY_MAX_SECONDS)
 
 
-def _metadata_datetime(metadata: dict[str, Any]) -> datetime | None:
-    mtime_ns = metadata.get("mtime_ns")
-    if isinstance(mtime_ns, int):
-        return datetime.fromtimestamp(mtime_ns / 1_000_000_000, UTC)
-    return None
-
-
 def _as_utc(value: datetime | None) -> datetime | None:
     if value is None:
         return None
@@ -208,7 +201,7 @@ async def _activate_extract(
     config.active_extract_path = str(metadata.get("path") or "")
     config.active_extract_size_bytes = int(metadata.get("size_bytes") or 0)
     config.active_extract_mtime_ns = int(metadata.get("mtime_ns") or 0)
-    config.active_extract_mtime = _metadata_datetime(metadata)
+    config.active_extract_mtime = metadata_datetime(metadata)
     config.active_extract_built_at = datetime.now(UTC)
     config.active_extract_source_files = list(source_files)
     config.pending_extract_id = None

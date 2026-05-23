@@ -1,17 +1,17 @@
 # Python Scripts
 
-These scripts are intended for manual maintenance and diagnostics.
+These scripts are intended for production maintenance.
 
 ## Available scripts
 
-- `debug_nominatim.py`: local docker/nominatim debug helper.
-- `debug_logs.py`: log inspection helper.
-- `check_setup_status.py`: setup status sanity check.
+- `seed_geo_coverage_boundaries.py`: seed state and city boundaries for the
+  regional coverage explorer.
 
 ## Usage
 
-Run from the repo root so imports resolve:
+Run from the repo root on the production mini PC so imports and environment
+settings resolve:
 
 ```bash
-python scripts/python/check_setup_status.py
+python scripts/python/seed_geo_coverage_boundaries.py
 ```

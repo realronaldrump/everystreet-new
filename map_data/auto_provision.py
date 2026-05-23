@@ -466,20 +466,7 @@ async def get_auto_provision_status() -> dict[str, Any]:
         "is_building": is_building,
         "progress": config.progress,
         "message": message,
-        "build": {
-            "phase": progress.phase,
-            "phase_progress": progress.phase_progress,
-            "total_progress": progress.total_progress,
-            "started_at": (
-                progress.started_at.isoformat() if progress.started_at else None
-            ),
-            "last_progress_at": (
-                progress.last_progress_at.isoformat()
-                if progress.last_progress_at
-                else None
-            ),
-            "active_job_id": progress.active_job_id,
-        },
+        "build": progress.to_build_payload(),
         "geocoder_progress": nominatim_progress,
         "configured_states": list(configured_states),
         "configured_state_names": configured_names,

@@ -5,10 +5,11 @@ from datetime import UTC, datetime
 from typing import Any
 
 from core.casting import safe_float
-from core.date_utils import parse_timestamp
 from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
 from db.models import GasFillup, Trip, Vehicle
+
+from .fillup_filters import build_fillup_date_conditions
 
 logger = logging.getLogger(__name__)
 
@@ -50,14 +51,7 @@ class StatisticsService:
         if imei:
             conditions.append(GasFillup.imei == imei)
 
-        if start_date:
-            start_dt = parse_timestamp(start_date)
-            if start_dt:
-                conditions.append(GasFillup.fillup_time >= start_dt)
-        if end_date:
-            end_dt = parse_timestamp(end_date)
-            if end_dt:
-                conditions.append(GasFillup.fillup_time <= end_dt)
+        conditions.extend(build_fillup_date_conditions(start_date, end_date))
 
         query = GasFillup.find(*conditions) if conditions else GasFillup.find_all()
         fillups = await query.sort(GasFillup.fillup_time).to_list()

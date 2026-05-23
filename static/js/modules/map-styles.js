@@ -265,11 +265,4 @@ const MapStyles = {
   getTripStyle,
 };
 
-export {
-  MAP_LAYER_COLORS,
-  MAP_LAYER_STYLES,
-  refreshMapStyles,
-  getClusterColor,
-  getTripStyle,
-};
 export default MapStyles;

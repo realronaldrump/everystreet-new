@@ -5,7 +5,7 @@ import {
   syncBouncieVehicles,
 } from "../../settings/credentials.js";
 import notificationManager from "../../ui/notifications.js";
-import { formatDateTime } from "../../utils.js";
+import { formatDateTime, isAbortError } from "../../utils.js";
 import { DEFAULT_FETCH_CONCURRENCY } from "../profile/state.js";
 
 const BOUNCIE_AUTHORIZE_URL = "/api/bouncie/authorize";
@@ -15,7 +15,6 @@ const BOUNCIE_ADD_VEHICLE_API = "/api/profile/bouncie-credentials/vehicles";
 const APP_SETTINGS_API = "/api/app_settings";
 const FETCH_CONCURRENCY_MIN = 1;
 const FETCH_CONCURRENCY_MAX = 50;
-const isAbortError = (error) => error?.name === "AbortError";
 
 function normalizeFetchConcurrency(value) {
   const parsed = parseInt(value, 10);
@@ -174,24 +173,6 @@ async function setupBouncieCredentials({ signal } = {}) {
       }
 
       const redirectUriVal = redirectUri?.value?.trim() || "";
-      const uriLower = redirectUriVal.toLowerCase();
-      if (uriLower.includes("localhost")) {
-        if (uriLower.startsWith("https://")) {
-          notificationManager.show(
-            "Localhost does not support HTTPS. Please use http://localhost:8080/api/bouncie/callback",
-            "danger"
-          );
-          return;
-        }
-        if (uriLower.includes("www.localhost")) {
-          notificationManager.show(
-            "www.localhost is invalid. Please use http://localhost:8080/api/bouncie/callback",
-            "danger"
-          );
-          return;
-        }
-      }
-
       const payload = {
         client_id: clientId?.value?.trim() || "",
         client_secret: secretInput?.value?.trim() || "",

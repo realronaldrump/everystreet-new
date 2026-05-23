@@ -15,6 +15,7 @@ from map_data.builders_common import (
     _resolve_pbf_path,
     _safe_callback,
     _safe_readline,
+    _verify_container_path,
 )
 from map_data.builders_container import _restart_container, start_container_on_demand
 from map_data.docker import get_container_name
@@ -109,25 +110,7 @@ async def build_nominatim_data(
         if fix_perm_proc.returncode != 0:
             logger.warning("Could not adjust flatnode permissions before import")
 
-        # First, check if the file is accessible in the container
-        check_cmd = [
-            "docker",
-            "exec",
-            container_name,
-            "ls",
-            "-la",
-            pbf_container_path,
-        ]
-        check_result = await asyncio.create_subprocess_exec(
-            *check_cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        await check_result.wait()
-
-        if check_result.returncode != 0:
-            msg = f"PBF file not accessible in container: {pbf_container_path}"
-            _raise_error(msg, ValueError)
+        await _verify_container_path(container_name, pbf_container_path)
 
         logger.info("PBF file verified in container: %s", pbf_container_path)
 

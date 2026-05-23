@@ -70,6 +70,13 @@ def describe_osm_extract(path: str | Path) -> dict[str, Any]:
     }
 
 
+def metadata_datetime(metadata: dict[str, Any]) -> datetime | None:
+    mtime_ns = metadata.get("mtime_ns")
+    if isinstance(mtime_ns, int):
+        return datetime.fromtimestamp(mtime_ns / 1_000_000_000, UTC)
+    return None
+
+
 def require_resolved_osm_extract_metadata() -> dict[str, Any]:
     """Resolve and describe the local extract, raising if no local file exists."""
     return describe_osm_extract(require_osm_data_path())

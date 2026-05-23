@@ -382,9 +382,5 @@ class ConfirmationDialog {
 
 const confirmationDialog = new ConfirmationDialog();
 
-const confirm = (options = {}) => confirmationDialog.show(options);
-const alert = (messageOrOptions) => confirmationDialog.alert(messageOrOptions);
-const prompt = (options = {}) => confirmationDialog.prompt(options);
-
-export { ConfirmationDialog, confirm, alert, prompt };
+export { ConfirmationDialog };
 export default confirmationDialog;

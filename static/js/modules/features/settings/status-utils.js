@@ -4,7 +4,7 @@ const STATUS_ALIASES = {
   warn: "warning",
 };
 
-export function initInlineStatus(element) {
+function initInlineStatus(element) {
   if (!element) {
     return;
   }

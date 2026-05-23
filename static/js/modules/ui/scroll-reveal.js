@@ -130,4 +130,3 @@ if (document.readyState === "loading") {
 }
 
 export default { refresh };
-export { refresh };

@@ -2,7 +2,7 @@ import { DateUtils } from "../utils.js";
 
 const dateUtils = DateUtils;
 
-export function formatDurationHms(seconds) {
+function formatDurationHms(seconds) {
   if (!seconds || Number.isNaN(seconds)) {
     return "--:--";
   }

@@ -10,8 +10,7 @@
 extra_css %}
 
 
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/landing.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+  {{ static_css("landing.css") }}
 {% endblock %}
 
 

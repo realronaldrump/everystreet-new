@@ -5,6 +5,8 @@
  * using canvas rendering (no external dependencies).
  */
 
+import { downloadBlob } from "../utils/dom.js";
+
 class ProgressCardGenerator {
   /**
    * Generate a shareable progress card image.
@@ -166,16 +168,7 @@ class ProgressCardGenerator {
    */
   async downloadCard(data, filename = "everystreet-progress.png") {
     const blob = await this.generateCard(data);
-    if (!blob) return;
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, filename);
   }
 
   /**

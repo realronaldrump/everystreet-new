@@ -6,7 +6,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Query
 
 from core.api import api_route
-from gas.services import OdometerService
+from gas.services.odometer_service import OdometerService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

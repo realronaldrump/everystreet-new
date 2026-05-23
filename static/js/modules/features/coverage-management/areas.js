@@ -6,12 +6,8 @@ import {
   normalizeCoveragePercent,
 } from "./stats.js";
 
-export function isJobActiveStatus(status) {
+function isJobActiveStatus(status) {
   return ["pending", "running"].includes(status);
-}
-
-export function isJobTerminalStatus(status) {
-  return ["completed", "failed", "cancelled", "needs_attention"].includes(status);
 }
 
 // -----------------------------------------------------------------------------

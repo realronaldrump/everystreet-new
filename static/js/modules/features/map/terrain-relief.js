@@ -1,6 +1,8 @@
 import { CONFIG } from "../../core/config.js";
 import mapCore from "../../map-core.js";
+import { isGoogleProvider, normalizeStyleType, readMapStyle } from "./map-style.js";
 import { resolveMapTypeHint } from "./map-type-hint.js";
+import { readStoredBoolean, writeStoredBoolean } from "./preference-storage.js";
 
 export const MAP_TERRAIN_RELIEF_SETTING_EVENT = "es:map-terrain-relief-setting-changed";
 
@@ -45,39 +47,8 @@ function setTerrainReliefApplied(active) {
   }
 }
 
-function normalizeStyleType(value) {
-  return typeof value === "string" ? value.trim().toLowerCase() : "";
-}
-
-function isGoogleProvider() {
-  return normalizeStyleType(globalThis?.window?.MAP_PROVIDER) === "google";
-}
-
 function getTerrainConfig() {
   return CONFIG?.MAP?.terrainRelief || {};
-}
-
-function readStoredBoolean(key) {
-  if (!key || typeof localStorage === "undefined") {
-    return null;
-  }
-
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw === "true") {
-      return true;
-    }
-    if (raw === "false") {
-      return false;
-    }
-    if (raw !== null) {
-      return Boolean(JSON.parse(raw));
-    }
-  } catch {
-    // Ignore storage parsing issues.
-  }
-
-  return null;
 }
 
 function getFlagDefault() {
@@ -94,20 +65,7 @@ export function getTerrainReliefPreference() {
 }
 
 function persistTerrainReliefPreference(enabled) {
-  if (typeof enabled !== "boolean" || typeof localStorage === "undefined") {
-    return;
-  }
-
-  const key = CONFIG?.STORAGE_KEYS?.mapTerrainReliefEnabled;
-  if (!key) {
-    return;
-  }
-
-  try {
-    localStorage.setItem(key, enabled ? "true" : "false");
-  } catch {
-    // Ignore storage failures.
-  }
+  writeStoredBoolean(CONFIG?.STORAGE_KEYS?.mapTerrainReliefEnabled, enabled);
 }
 
 function syncSettingsToggle(enabled) {
@@ -159,23 +117,6 @@ export function setTerrainReliefPreference(
   }
 
   return true;
-}
-
-function readMapStyle(map) {
-  if (!map || typeof map.getStyle !== "function") {
-    return null;
-  }
-
-  try {
-    const style = map.getStyle();
-    if (style && typeof style === "object") {
-      return style;
-    }
-  } catch {
-    // Style might not be ready yet.
-  }
-
-  return null;
 }
 
 function getCurrentMapTypeHint() {
@@ -344,7 +285,7 @@ function removeDemSource(map, sourceId) {
   }
 }
 
-export function removeTerrainRelief(map) {
+function removeTerrainRelief(map) {
   const config = {
     sourceId: "es-mapbox-dem",
     hillshadeLayerId: "es-terrain-hillshade",
@@ -381,7 +322,7 @@ export function isMapboxTerrainReliefSupported(map) {
   );
 }
 
-export function isGoogleTerrainReliefSupported(map) {
+function isGoogleTerrainReliefSupported(map) {
   return Boolean(isGoogleProvider() && map && typeof map.setStyle === "function");
 }
 

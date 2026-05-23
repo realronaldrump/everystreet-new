@@ -15,6 +15,7 @@ import {
   formatNumber,
   formatRelativeTimeShort,
   getStorage,
+  isAbortError,
 } from "../../utils.js";
 import { animateValue } from "./animations.js";
 import { updateGreeting } from "./hero.js";
@@ -53,8 +54,7 @@ let ambientCleanup = null;
 let featureApi = createFeatureApi();
 const apiGet = (url, options = {}) => featureApi.get(url, options);
 const apiRaw = (url, options = {}) => featureApi.raw(url, options);
-const isAbortError = (error) =>
-  error?.name === "AbortError" || pageSignal?.aborted === true;
+const isPageAbortError = (error) => isAbortError(error) || pageSignal?.aborted === true;
 
 /**
  * Initialize the landing page
@@ -139,7 +139,7 @@ async function loadAllData() {
       loadWeather(),
     ]);
   } catch (error) {
-    if (!isAbortError(error)) {
+    if (!isPageAbortError(error)) {
       console.warn("Failed to load landing data", error);
     }
   }
@@ -280,7 +280,7 @@ async function loadCountyStats() {
       });
     }
   } catch (error) {
-    if (!isAbortError(error)) {
+    if (!isPageAbortError(error)) {
       console.warn("Failed to load county stats", error);
     }
   }
@@ -293,7 +293,7 @@ async function loadCoverageStats() {
       setRecordSource("coverage", data);
     }
   } catch (error) {
-    if (!isAbortError(error)) {
+    if (!isPageAbortError(error)) {
       console.warn("Failed to load coverage stats", error);
     }
   }
@@ -758,86 +758,6 @@ function buildTripMetricsQueryParams() {
   return params;
 }
 
-function getExplicitDateRange() {
-  const storedStartDate =
-    store.get?.("filters.startDate") || getStorage(APP_CONFIG.STORAGE_KEYS.startDate);
-  const storedEndDate =
-    store.get?.("filters.endDate") || getStorage(APP_CONFIG.STORAGE_KEYS.endDate);
-
-  return {
-    startDate:
-      typeof storedStartDate === "string" && storedStartDate.trim()
-        ? storedStartDate.trim()
-        : null,
-    endDate:
-      typeof storedEndDate === "string" && storedEndDate.trim()
-        ? storedEndDate.trim()
-        : null,
-  };
-}
-
-function startOfLocalDay(date = new Date()) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function addDays(date, days) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-}
-
-function formatLocalDateInput(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function parseDateInput(value) {
-  if (!value || typeof value !== "string") {
-    return null;
-  }
-  const [yearRaw, monthRaw, dayRaw] = value.split("-");
-  const year = Number.parseInt(yearRaw, 10);
-  const month = Number.parseInt(monthRaw, 10);
-  const day = Number.parseInt(dayRaw, 10);
-  if (!year || !month || !day) {
-    return null;
-  }
-  return new Date(year, month - 1, day);
-}
-
-function resolveDateRange({
-  fallbackDays = null,
-  fallbackStart = null,
-  fallbackEnd = null,
-} = {}) {
-  const today = startOfLocalDay();
-  let { startDate, endDate } = getExplicitDateRange();
-
-  if (!startDate && !endDate) {
-    if (fallbackDays) {
-      startDate = formatLocalDateInput(addDays(today, -(fallbackDays - 1)));
-      endDate = formatLocalDateInput(today);
-    } else {
-      startDate = fallbackStart;
-      endDate = fallbackEnd;
-    }
-  } else {
-    const parsedEnd = parseDateInput(endDate) || parseDateInput(fallbackEnd) || today;
-    if (!startDate && fallbackDays) {
-      startDate = formatLocalDateInput(addDays(parsedEnd, -(fallbackDays - 1)));
-    } else if (!startDate) {
-      startDate = fallbackStart;
-    }
-    if (!endDate) {
-      endDate = fallbackEnd || formatLocalDateInput(today);
-    }
-  }
-
-  return { startDate, endDate };
-}
-
 /**
  * Fetch trip metrics and update stats
  */
@@ -864,7 +784,7 @@ async function loadMetrics() {
       animateValue(elements.statTrips, trips, formatNumber, CONFIG.animationDuration);
     }
   } catch (error) {
-    if (requestId !== metricsLoadRequestId || isAbortError(error)) {
+    if (requestId !== metricsLoadRequestId || isPageAbortError(error)) {
       return;
     }
     if (elements.statMiles) {
@@ -929,7 +849,7 @@ async function loadInsights() {
     );
     setRecordSource("insights", data);
   } catch (error) {
-    if (!isAbortError(error)) {
+    if (!isPageAbortError(error)) {
       console.warn("Failed to load driving insights", error);
     }
   }
@@ -950,7 +870,7 @@ async function loadGasStats() {
       }
     }
   } catch (error) {
-    if (!isAbortError(error)) {
+    if (!isPageAbortError(error)) {
       console.warn("Failed to load gas stats", error);
     }
   }
@@ -1173,5 +1093,3 @@ function cleanupAmbientBackground() {
   ambientCleanup?.();
   ambientCleanup = null;
 }
-
-export { cleanupAmbientBackground, getExplicitDateRange, resolveDateRange };

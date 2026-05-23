@@ -1,29 +1,7 @@
 import { CONFIG } from "../../core/config.js";
+import { readStoredBoolean, writeStoredBoolean } from "./preference-storage.js";
 
 export const TRIP_LAYER_RENDER_MODE_EVENT = "es:trip-layer-render-mode-setting-changed";
-
-function readStoredBoolean(key) {
-  if (!key || typeof localStorage === "undefined") {
-    return null;
-  }
-
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw === "true") {
-      return true;
-    }
-    if (raw === "false") {
-      return false;
-    }
-    if (raw !== null) {
-      return Boolean(JSON.parse(raw));
-    }
-  } catch {
-    // Ignore storage parsing issues.
-  }
-
-  return null;
-}
 
 export function getTripLayerHeatmapPreference() {
   const key = CONFIG?.STORAGE_KEYS?.tripLayersUseHeatmap;
@@ -36,20 +14,7 @@ export function getTripLayerHeatmapPreference() {
 }
 
 function persistTripLayerHeatmapPreference(useHeatmap) {
-  if (typeof useHeatmap !== "boolean" || typeof localStorage === "undefined") {
-    return;
-  }
-
-  const key = CONFIG?.STORAGE_KEYS?.tripLayersUseHeatmap;
-  if (!key) {
-    return;
-  }
-
-  try {
-    localStorage.setItem(key, useHeatmap ? "true" : "false");
-  } catch {
-    // Ignore storage failures.
-  }
+  writeStoredBoolean(CONFIG?.STORAGE_KEYS?.tripLayersUseHeatmap, useHeatmap);
 }
 
 function syncSettingsToggle(useHeatmap) {

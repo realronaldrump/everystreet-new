@@ -683,27 +683,6 @@ async function saveBouncieCredentials() {
     return false;
   }
 
-  // Guard against invalid localhost Redirect URIs that cause SSL errors
-  const uri = payload.redirect_uri.toLowerCase();
-  if (uri.includes("localhost")) {
-    if (uri.startsWith("https://")) {
-      showStatus(
-        "credentials-status",
-        "Localhost does not support HTTPS. Please use http://localhost:8080/api/bouncie/callback",
-        true
-      );
-      return false;
-    }
-    if (uri.includes("www.localhost")) {
-      showStatus(
-        "credentials-status",
-        "www.localhost is invalid. Please use http://localhost:8080/api/bouncie/callback",
-        true
-      );
-      return false;
-    }
-  }
-
   try {
     showStatus("credentials-status", "Saving credentials...", false);
     const data = await saveBouncieCredentialsShared(payload, withSignal());

@@ -9,7 +9,7 @@ from shapely.geometry import Point
 
 from core.http.nominatim import get_empty_location_schema, parse_geocode_response
 from core.mapping.factory import get_geocoder
-from db import Place
+from db.models import Place
 from map_data.models import GeoServiceHealth
 
 logger = logging.getLogger(__name__)

@@ -8,6 +8,7 @@ import {
   formatOdometer,
   formatRelativeTimeLong,
   getStorage,
+  isAbortError,
   setStorage,
 } from "../../utils.js";
 
@@ -243,7 +244,7 @@ async function loadVehicle() {
     // Render the sidebar vehicle list
     renderVehicleList(allVehicles);
   } catch (error) {
-    if (error.name === "AbortError") {
+    if (isAbortError(error)) {
       return;
     }
     console.error("Error loading vehicle:", error);
@@ -407,7 +408,7 @@ async function handleAddVehicleSubmit(event) {
     setStorage(STORAGE_KEY, imei);
     await loadVehicle();
   } catch (error) {
-    if (error?.name === "AbortError") {
+    if (isAbortError(error)) {
       return;
     }
     console.error("Error adding vehicle:", error);
@@ -552,7 +553,7 @@ async function fetchBouncieOdometer() {
       elements.useBouncieReadingBtn.disabled = true;
     }
   } catch (error) {
-    if (error.name === "AbortError") {
+    if (isAbortError(error)) {
       return;
     }
     console.error("Error fetching Bouncie odometer:", error);
@@ -575,7 +576,7 @@ async function useBouncieReading() {
     await updateVehicleOdometer(bouncieOdometer, "bouncie");
     notify.success("Odometer updated from Bouncie");
   } catch (error) {
-    if (error.name === "AbortError") {
+    if (isAbortError(error)) {
       return;
     }
     console.error("Error updating odometer:", error);
@@ -602,7 +603,7 @@ async function saveManualOdometer() {
     elements.manualOdometerInput.value = "";
     notify.success("Odometer updated");
   } catch (error) {
-    if (error.name === "AbortError") {
+    if (isAbortError(error)) {
       return;
     }
     console.error("Error saving manual odometer:", error);
@@ -667,7 +668,7 @@ async function saveSettings() {
     await loadVehicle();
     notify.success("Settings saved");
   } catch (error) {
-    if (error.name === "AbortError") {
+    if (isAbortError(error)) {
       return;
     }
     console.error("Error saving settings:", error);
@@ -711,7 +712,7 @@ async function deleteVehicle() {
     notify.success(`${name} has been removed`);
     await loadVehicle();
   } catch (error) {
-    if (error.name === "AbortError") {
+    if (isAbortError(error)) {
       return;
     }
     console.error("Error deleting vehicle:", error);
@@ -742,7 +743,7 @@ async function syncFromBouncie() {
     notify.success(data.message || "Vehicle synced from Bouncie");
     await loadVehicle();
   } catch (error) {
-    if (error.name === "AbortError") {
+    if (isAbortError(error)) {
       return;
     }
     console.error("Error syncing from Bouncie:", error);

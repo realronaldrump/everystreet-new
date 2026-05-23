@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from db.schemas import DestinationBloomPlaceResponse, PlaceResponse
-from visits.services import PlaceService
+from visits.services.place_service import PlaceService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

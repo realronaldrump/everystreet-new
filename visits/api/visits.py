@@ -6,7 +6,8 @@ from fastapi import APIRouter, HTTPException, status
 
 from core.api import api_route
 from db.schemas import NonCustomPlaceVisit, PlaceVisitsResponse
-from visits.services import PlaceService, VisitStatsService
+from visits.services.place_service import PlaceService
+from visits.services.visit_stats_service import VisitStatsService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

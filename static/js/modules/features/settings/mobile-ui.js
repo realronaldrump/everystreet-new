@@ -1,4 +1,4 @@
-/* global bootstrap, flatpickr */
+/* global bootstrap */
 
 import apiClient from "../../core/api-client.js";
 import loadingManager from "../../ui/loading-manager.js";
@@ -19,7 +19,7 @@ import { showErrorModal, showTaskDetails } from "./task-manager/modals.js";
  * Mobile UI module - handles all mobile-specific UI rendering and interactions
  */
 
-export function setupMobileAccordions() {
+function setupMobileAccordions() {
   const headers = document.querySelectorAll(".mobile-accordion-header");
   headers.forEach((header) => {
     header.addEventListener("click", () => {
@@ -36,7 +36,7 @@ export function setupMobileAccordions() {
   });
 }
 
-export function setupMobileTaskList(taskManager) {
+function setupMobileTaskList(taskManager) {
   // Hook into the existing updateTaskConfigTable function
   const originalUpdate = taskManager?.updateTaskConfigTable;
   if (!originalUpdate) {
@@ -49,7 +49,7 @@ export function setupMobileTaskList(taskManager) {
   };
 }
 
-export function updateMobileTaskList(config, taskManager) {
+function updateMobileTaskList(config, taskManager) {
   const mobileList = document.getElementById("mobile-task-list");
   if (!mobileList) {
     return;
@@ -172,7 +172,7 @@ export function updateMobileTaskList(config, taskManager) {
   });
 }
 
-export function setupMobileHistoryList(taskManager) {
+function setupMobileHistoryList(taskManager) {
   const originalUpdate = taskManager?.updateTaskHistoryTable;
   if (!originalUpdate) {
     return;
@@ -184,7 +184,7 @@ export function setupMobileHistoryList(taskManager) {
   };
 }
 
-export function updateMobileHistoryList(history, taskManager) {
+function updateMobileHistoryList(history, taskManager) {
   const mobileList = document.getElementById("mobile-history-list");
   if (!mobileList) {
     return;
@@ -262,7 +262,7 @@ export function updateMobileHistoryList(history, taskManager) {
   updateMobilePagination(taskManager);
 }
 
-export function updateMobilePagination(taskManager) {
+function updateMobilePagination(taskManager) {
   const pagination = document.getElementById("mobile-history-pagination");
   const prevBtn = document.getElementById("mobile-history-prev");
   const nextBtn = document.getElementById("mobile-history-next");
@@ -300,7 +300,7 @@ export function updateMobilePagination(taskManager) {
   };
 }
 
-export function setupMobileGlobalControls() {
+function setupMobileGlobalControls() {
   // Global disable switch
   const mobileGlobalSwitch = document.getElementById("mobile-globalDisableSwitch");
   const desktopGlobalSwitch = document.getElementById("globalDisableSwitch");
@@ -356,7 +356,7 @@ export function setupMobileGlobalControls() {
   }
 }
 
-export function setupMobileManualFetch(taskManager) {
+function setupMobileManualFetch(taskManager) {
   const form = document.getElementById("mobile-manualFetchTripsForm");
   if (!form) {
     return;
@@ -417,7 +417,7 @@ export function setupMobileManualFetch(taskManager) {
   });
 }
 
-export function setupMobileDataManagement() {
+function setupMobileDataManagement() {
   setupMobileGeocodeTrips();
   setupMobileRemapTrips();
 }
@@ -547,7 +547,7 @@ function updateGeocodeErrorUI(statusEl, progressBar, progressData) {
   }
 }
 
-export function setupMobileGeocodeTrips() {
+function setupMobileGeocodeTrips() {
   const geocodeTabs = document.querySelectorAll(
     '.mobile-date-method-tab[data-target="geocode"]'
   );
@@ -670,18 +670,10 @@ export function setupMobileGeocodeTrips() {
     }
   });
 
-  // Initialize date pickers
-  if (DateUtils?.initDatePicker) {
-    DateUtils.initDatePicker(".datepicker");
-  } else if (typeof flatpickr !== "undefined") {
-    flatpickr(".datepicker", {
-      enableTime: false,
-      dateFormat: "Y-m-d",
-    });
-  }
+  DateUtils.initDatePicker(".datepicker");
 }
 
-export function setupMobileRemapTrips() {
+function setupMobileRemapTrips() {
   const dateTab = document.querySelector(
     '.mobile-date-method-tab[data-target="remap"][data-method="date"]'
   );
@@ -761,18 +753,10 @@ export function setupMobileRemapTrips() {
     });
   }
 
-  // Initialize datepickers for mobile
-  if (DateUtils?.initDatePicker) {
-    DateUtils.initDatePicker(".mobile-form-input.datepicker");
-  } else if (typeof flatpickr !== "undefined") {
-    flatpickr(".mobile-form-input.datepicker", {
-      enableTime: false,
-      dateFormat: "Y-m-d",
-    });
-  }
+  DateUtils.initDatePicker(".mobile-form-input.datepicker");
 }
 
-export function setupMobileSaveFAB(taskManager) {
+function setupMobileSaveFAB(taskManager) {
   const fab = document.getElementById("mobile-save-config-fab");
   if (!fab) {
     return;

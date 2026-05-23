@@ -18,6 +18,7 @@
 
 import apiClient from "../../core/api-client.js";
 import notificationManager from "../../ui/notifications.js";
+import { isAbortError } from "../../utils.js";
 import { escapeHtml } from "../../utils.js";
 
 const DAY_MS = 86_400_000;
@@ -306,7 +307,9 @@ export default async function initMemoryCityPage(ctx = {}) {
       buildSculpture(payload);
       setState("hidden");
     } catch (error) {
-      if (error?.name === "AbortError") { return; }
+      if (isAbortError(error)) {
+        return;
+      }
       console.error("Failed to load Memory City area", error);
       setState("error", error?.message || "Failed to load area.");
       notificationManager?.show?.({

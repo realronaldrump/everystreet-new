@@ -15,9 +15,7 @@
 
 /* Desktop: Hide mobile-only elements globally */
 @media (width > 768px) {
-  .mobile-map-overlay,
   .mobile-fab-container,
-  .mobile-bottom-sheet,
   .mobile-sheet-handle,
   .mobile-sheet-backdrop {
     display: none;
@@ -42,7 +40,6 @@
     overflow-y: hidden;
   }
 
-  .side-panel,
   .control-panel-body,
   .modal-body,
   .table-responsive,

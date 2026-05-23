@@ -21,6 +21,7 @@ import {
   updateStopLayerVisibility,
 } from "../../regional-coverage-explorer/map-layers.js";
 import * as RegionalCoverageExplorerState from "../../regional-coverage-explorer/state.js";
+import { isAbortError } from "../../utils.js";
 import {
   clearStoredRecalcState,
   getStoredRecalcState,
@@ -71,10 +72,6 @@ export function canAttemptRecovery({
     return true;
   }
   return nowMs - lastAttemptAtMs >= cooldownMs;
-}
-
-function isAbortError(error) {
-  return error?.name === "AbortError";
 }
 
 function isRecalcStateStale(startedAt, nowMs = Date.now()) {
@@ -206,8 +203,6 @@ function forEachCoordinate(geometry, callback) {
 }
 
 function buildCountyIndexes(features) {
-  const countyToState = {};
-  const stateTotals = {};
   const stateBoundsAccumulator = {};
 
   features.forEach((feature) => {
@@ -223,19 +218,6 @@ function buildCountyIndexes(features) {
       feature.properties.state ||
       fallbackStateName ||
       "Unknown State";
-
-    countyToState[fips] = {
-      stateFips,
-      stateName: feature.properties.stateName,
-    };
-
-    if (!stateTotals[stateFips]) {
-      stateTotals[stateFips] = {
-        name: feature.properties.stateName,
-        total: 0,
-      };
-    }
-    stateTotals[stateFips].total += 1;
 
     if (!stateBoundsAccumulator[stateFips]) {
       stateBoundsAccumulator[stateFips] = {
@@ -279,8 +261,6 @@ function buildCountyIndexes(features) {
   });
 
   return {
-    countyToState,
-    stateTotals,
     stateBounds,
   };
 }
@@ -492,16 +472,11 @@ async function loadBaseData(signal) {
     countyTopologyPayload,
     countyTopologyPayload.objects.states
   );
-  const { countyToState, stateTotals, stateBounds } = buildCountyIndexes(
-    countyData.features
-  );
+  const { stateBounds } = buildCountyIndexes(countyData.features);
 
   RegionalCoverageExplorerState.setCountyData(countyData);
   RegionalCoverageExplorerState.setStatesData(statesData);
-  RegionalCoverageExplorerState.setCountyToState(countyToState);
-  RegionalCoverageExplorerState.setStateTotals(stateTotals);
   RegionalCoverageExplorerState.setStateBounds(stateBounds);
-  RegionalCoverageExplorerState.setTotalCounties(countyData.features.length);
 
   RegionalCoverageExplorerState.setCountyVisits(countyVisitsPayload.visits || {});
   RegionalCoverageExplorerState.setCountyStops(countyVisitsPayload.stopped || {});
@@ -605,13 +580,7 @@ function handleCityClickFromMap(event) {
   RegionalCoverageExplorerState.setSelectedCityId(cityId);
   setSelectionHighlight(cityId, "city");
   fitToFeatureGeometry(feature, { maxZoom: 10 });
-
-  document.querySelectorAll(".city-stat-item").forEach((row) => {
-    const rowCityId = String(row.dataset.cityId || "");
-    const isSelected = rowCityId === cityId;
-    row.classList.toggle("city-stat-item--selected", isSelected);
-    row.setAttribute("aria-selected", isSelected ? "true" : "false");
-  });
+  syncSelectedCityRow(cityId);
 }
 
 async function loadCityAssetsForState(stateFips, signal) {
@@ -654,6 +623,16 @@ function bindCityPaginationHandlers(stateFips, currentPage, totalPages) {
   });
 }
 
+function syncSelectedCityRow(cityId) {
+  const selectedCityId = String(cityId || "");
+  document.querySelectorAll(".city-stat-item").forEach((row) => {
+    const rowCityId = String(row.dataset.cityId || "");
+    const isSelected = rowCityId === selectedCityId;
+    row.classList.toggle("city-stat-item--selected", isSelected);
+    row.setAttribute("aria-selected", isSelected ? "true" : "false");
+  });
+}
+
 function bindCityRowHandlers(cities) {
   const map = RegionalCoverageExplorerState.getMap();
   if (!map) {
@@ -669,13 +648,7 @@ function bindCityRowHandlers(cities) {
 
       RegionalCoverageExplorerState.setSelectedCityId(cityId);
       setSelectionHighlight(cityId, "city");
-
-      document.querySelectorAll(".city-stat-item").forEach((row) => {
-        const rowCityId = String(row.dataset.cityId || "");
-        const isSelected = rowCityId === cityId;
-        row.classList.toggle("city-stat-item--selected", isSelected);
-        row.setAttribute("aria-selected", isSelected ? "true" : "false");
-      });
+      syncSelectedCityRow(cityId);
 
       const city = cities.find((row) => String(row.cityId) === String(cityId));
       if (!city || !Array.isArray(city.bbox) || city.bbox.length !== 4) {
@@ -723,7 +696,6 @@ async function loadCityList(stateFips, page = 1) {
     return;
   }
 
-  RegionalCoverageExplorerState.setCityListForState(stateFips, payload);
   renderCityRows(payload);
 
   const pagination = payload?.pagination || {};

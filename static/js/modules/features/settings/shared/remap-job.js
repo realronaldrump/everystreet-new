@@ -1,6 +1,6 @@
 import apiClient from "../../../core/api-client.js";
 
-export function buildRemapJobPayload({
+function buildRemapJobPayload({
   start_date,
   end_date,
   interval_days = null,

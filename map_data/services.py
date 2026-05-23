@@ -25,6 +25,7 @@ from db.models import AppSettings, MapProvider
 from map_data.docker import is_docker_unavailable_error, run_docker
 from map_data.extracts import (
     build_local_osm_artifact_status,
+    metadata_datetime,
     try_resolved_osm_extract_metadata,
 )
 from map_data.models import GeoServiceHealth, MapServiceConfig
@@ -114,13 +115,6 @@ def _clear_pending_extract_fields(config: MapServiceConfig) -> None:
     config.pending_extract_started_at = None
 
 
-def _metadata_datetime(metadata: dict[str, Any]) -> datetime | None:
-    mtime_ns = metadata.get("mtime_ns")
-    if isinstance(mtime_ns, int):
-        return datetime.fromtimestamp(mtime_ns / 1_000_000_000, UTC)
-    return None
-
-
 async def _adopt_existing_extract_if_healthy(
     config: MapServiceConfig,
     progress: MapBuildProgress,
@@ -158,7 +152,7 @@ async def _adopt_existing_extract_if_healthy(
     config.active_extract_path = extract_path
     config.active_extract_size_bytes = int(metadata.get("size_bytes") or 0)
     config.active_extract_mtime_ns = int(metadata.get("mtime_ns") or 0)
-    config.active_extract_mtime = _metadata_datetime(metadata)
+    config.active_extract_mtime = metadata_datetime(metadata)
     config.active_extract_built_at = now
     config.nominatim_extract_id = extract_id
     config.nominatim_imported_at = config.nominatim_imported_at or now
@@ -667,34 +661,8 @@ async def get_map_services_status(force_refresh: bool = False) -> dict[str, Any]
                     config.last_updated.isoformat() if config.last_updated else None
                 ),
             },
-            "build": {
-                "phase": progress.phase,
-                "phase_progress": progress.phase_progress,
-                "total_progress": progress.total_progress,
-                "started_at": (
-                    progress.started_at.isoformat() if progress.started_at else None
-                ),
-                "last_progress_at": (
-                    progress.last_progress_at.isoformat()
-                    if progress.last_progress_at
-                    else None
-                ),
-                "active_job_id": progress.active_job_id,
-            },
-            "progress": {
-                "phase": progress.phase,
-                "phase_progress": progress.phase_progress,
-                "total_progress": progress.total_progress,
-                "started_at": (
-                    progress.started_at.isoformat() if progress.started_at else None
-                ),
-                "last_progress_at": (
-                    progress.last_progress_at.isoformat()
-                    if progress.last_progress_at
-                    else None
-                ),
-                "cancellation_requested": progress.cancellation_requested,
-            },
+            "build": progress.to_build_payload(),
+            "progress": progress.to_progress_payload(),
             "services": {
                 "nominatim": {
                     "healthy": google_key_ready,
@@ -764,34 +732,8 @@ async def get_map_services_status(force_refresh: bool = False) -> dict[str, Any]
                 config.last_updated.isoformat() if config.last_updated else None
             ),
         },
-        "build": {
-            "phase": progress.phase,
-            "phase_progress": progress.phase_progress,
-            "total_progress": progress.total_progress,
-            "started_at": (
-                progress.started_at.isoformat() if progress.started_at else None
-            ),
-            "last_progress_at": (
-                progress.last_progress_at.isoformat()
-                if progress.last_progress_at
-                else None
-            ),
-            "active_job_id": progress.active_job_id,
-        },
-        "progress": {
-            "phase": progress.phase,
-            "phase_progress": progress.phase_progress,
-            "total_progress": progress.total_progress,
-            "started_at": (
-                progress.started_at.isoformat() if progress.started_at else None
-            ),
-            "last_progress_at": (
-                progress.last_progress_at.isoformat()
-                if progress.last_progress_at
-                else None
-            ),
-            "cancellation_requested": progress.cancellation_requested,
-        },
+        "build": progress.to_build_payload(),
+        "progress": progress.to_progress_payload(),
         "services": {
             "nominatim": {
                 "healthy": health.nominatim_healthy,

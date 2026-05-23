@@ -7,6 +7,8 @@
  * Exportable as high-res PNG.
  */
 
+import { downloadBlob } from "../utils/dom.js";
+
 const ROUTE_ART_OVERLAY_ID = "route-art-overlay";
 
 class RouteArt {
@@ -114,15 +116,7 @@ class RouteArt {
     if (!this._canvas) return;
     return new Promise((resolve) => {
       this._canvas.toBlob((blob) => {
-        if (!blob) { resolve(); return; }
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        downloadBlob(blob, filename);
         resolve();
       }, "image/png", 1.0);
     });

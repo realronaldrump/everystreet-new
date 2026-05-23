@@ -95,7 +95,7 @@ def route_display_name(route: RecurringRoute) -> str:
     return auto or "Route"
 
 
-def _route_place_id(route: RecurringRoute, *field_names: str) -> str | None:
+def route_place_id(route: RecurringRoute, *field_names: str) -> str | None:
     for field in field_names:
         place_id = coerce_place_id(getattr(route, field, None))
         if place_id:
@@ -104,8 +104,8 @@ def _route_place_id(route: RecurringRoute, *field_names: str) -> str | None:
 
 
 def serialize_route_summary(route: RecurringRoute) -> dict[str, Any]:
-    start_place_id = _route_place_id(route, "start_place_id", "startPlaceId")
-    end_place_id = _route_place_id(route, "end_place_id", "endPlaceId")
+    start_place_id = route_place_id(route, "start_place_id", "startPlaceId")
+    end_place_id = route_place_id(route, "end_place_id", "endPlaceId")
     return {
         "id": str(route.id) if route.id else None,
         "route_key": route.route_key,
@@ -138,8 +138,8 @@ def serialize_route_detail(route: RecurringRoute) -> dict[str, Any]:
     data = route.model_dump()
     data["id"] = str(route.id) if route.id else None
     data["display_name"] = route_display_name(route)
-    data["start_place_id"] = _route_place_id(route, "start_place_id", "startPlaceId")
-    data["end_place_id"] = _route_place_id(route, "end_place_id", "endPlaceId")
+    data["start_place_id"] = route_place_id(route, "start_place_id", "startPlaceId")
+    data["end_place_id"] = route_place_id(route, "end_place_id", "endPlaceId")
     data["first_start_time"] = serialize_datetime(route.first_start_time)
     data["last_start_time"] = serialize_datetime(route.last_start_time)
     data["updated_at"] = serialize_datetime(route.updated_at)
@@ -269,8 +269,8 @@ def build_place_link(
 
 async def resolve_route_place_links(route: RecurringRoute) -> dict[str, Any]:
     links: dict[str, Any] = {"start": None, "end": None}
-    start_place_id = _route_place_id(route, "start_place_id", "startPlaceId")
-    end_place_id = _route_place_id(route, "end_place_id", "endPlaceId")
+    start_place_id = route_place_id(route, "start_place_id", "startPlaceId")
+    end_place_id = route_place_id(route, "end_place_id", "endPlaceId")
 
     place_ids: set[str] = set()
     if start_place_id:

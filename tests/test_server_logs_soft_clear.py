@@ -8,8 +8,12 @@ from fastapi import BackgroundTasks
 
 from core.date_utils import parse_timestamp
 from db.models import AppSettings, ServerLog
-from logs.api import clear_server_logs, get_logs_stats, get_server_logs
-from logs.api import clear_docker_container_logs
+from logs.api import (
+    clear_docker_container_logs,
+    clear_server_logs,
+    get_logs_stats,
+    get_server_logs,
+)
 
 
 @pytest.fixture

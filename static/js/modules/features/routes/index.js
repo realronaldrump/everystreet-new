@@ -13,6 +13,7 @@ import {
   formatDuration,
   formatMiles,
   formatPercentage,
+  isAbortError,
   sanitizeLocation,
 } from "../../utils.js";
 
@@ -889,7 +890,7 @@ async function pollBuildJob(jobId) {
         }
       }
     } catch (e) {
-      if (e?.name === "AbortError") {
+      if (isAbortError(e)) {
         stopBuildPolling();
         return;
       }
@@ -2627,7 +2628,7 @@ async function runExplorerAnalysis() {
       );
     }
   } catch (error) {
-    if (error?.name === "AbortError") {
+    if (isAbortError(error)) {
       return;
     }
     destroyExplorerCharts();
@@ -2829,7 +2830,7 @@ async function openRouteModal(routeId) {
       tripsResp?.total
     );
   } catch (e) {
-    if (token !== routeModalOpenToken || e?.name === "AbortError") {
+    if (token !== routeModalOpenToken || isAbortError(e)) {
       return;
     }
     notificationManager.show?.(`Failed to open route: ${e?.message || e}`, "danger");

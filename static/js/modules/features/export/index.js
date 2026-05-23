@@ -4,7 +4,7 @@ import {
   fetchExportStatus,
   fetchVehicles,
 } from "../../export/api.js";
-import { announce, showNotification } from "../../utils.js";
+import { announce, isAbortError, showNotification } from "../../utils.js";
 
 const ENTITY_LABELS = {
   trips: "Trips",
@@ -375,7 +375,7 @@ function startPolling(elements, jobId, signal) {
         return;
       }
     } catch (error) {
-      if (error.name === "AbortError") {
+      if (isAbortError(error)) {
         polling = false;
         activePoll = null;
         return;

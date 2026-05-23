@@ -5,7 +5,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from gas.services import StatisticsService
+from gas.services.statistics_service import StatisticsService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

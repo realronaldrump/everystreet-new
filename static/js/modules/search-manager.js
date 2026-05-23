@@ -11,7 +11,7 @@ import state from "./core/store.js";
 import MapStyles from "./map-styles.js";
 import { getMapboxToken } from "./mapbox-token.js";
 import notificationManager from "./ui/notifications.js";
-import { createElement, escapeHtml, utils } from "./utils.js";
+import { createElement, escapeHtml, isAbortError, utils } from "./utils.js";
 
 const searchManager = {
   searchInput: null,
@@ -265,7 +265,7 @@ const searchManager = {
         notificationManager.show("No results found", "info", 2000);
       }
     } catch (error) {
-      if (error.name === "AbortError") {
+      if (isAbortError(error)) {
         return; // Request was aborted, ignore
       }
       console.error("Search error:", error);
@@ -312,7 +312,7 @@ const searchManager = {
         };
       });
     } catch (error) {
-      if (error.name === "AbortError") {
+      if (isAbortError(error)) {
         throw error; // Re-throw abort errors to be handled by caller
       }
       console.warn("Street search failed:", error);
@@ -363,7 +363,7 @@ const searchManager = {
         };
       });
     } catch (error) {
-      if (error.name === "AbortError") {
+      if (isAbortError(error)) {
         throw error;
       }
       console.error("Geocode search failed:", error);
@@ -456,7 +456,7 @@ const searchManager = {
         })
         .filter(Boolean);
     } catch (error) {
-      if (error.name === "AbortError") {
+      if (isAbortError(error)) {
         throw error;
       }
       console.warn("Mapbox search fallback failed:", error);
@@ -501,7 +501,7 @@ const searchManager = {
       this.streetGeometryCache.set(cacheKey, cachedValue);
       return cachedValue;
     } catch (error) {
-      if (error.name === "AbortError") {
+      if (isAbortError(error)) {
         return null;
       }
       console.warn("Street geometry lookup failed:", error);

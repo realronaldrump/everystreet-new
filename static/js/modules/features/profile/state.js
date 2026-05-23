@@ -147,11 +147,6 @@ const ProfileState = {
   createEditorState,
 };
 
-export {
-  DEFAULT_FETCH_CONCURRENCY,
-  areValuesEqual,
-  createEditorState,
-  normalizeValues,
-};
+export { DEFAULT_FETCH_CONCURRENCY };
 
 export default ProfileState;

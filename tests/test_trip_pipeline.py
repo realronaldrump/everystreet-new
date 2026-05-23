@@ -6,7 +6,7 @@ import pytest
 
 from core.date_utils import get_current_utc_time
 from db.models import Trip
-from trips.pipeline import TripPipeline
+from trips.pipeline import TripPipeline, TripProcessingRequest
 
 
 class StubMatcher:
@@ -47,6 +47,26 @@ async def _noop_coverage(*_args: Any, **_kwargs: Any) -> int:
     return 0
 
 
+async def _process_trip(
+    pipeline: TripPipeline,
+    raw_data: dict[str, Any],
+    *,
+    source: str = "test",
+    do_map_match: bool = True,
+    do_geocode: bool = True,
+    do_coverage: bool = True,
+) -> Trip | None:
+    return await pipeline.process_trip(
+        TripProcessingRequest(
+            raw_data=raw_data,
+            source=source,
+            do_map_match=do_map_match,
+            do_geocode=do_geocode,
+            do_coverage=do_coverage,
+        )
+    )
+
+
 @pytest.mark.asyncio
 async def test_trip_pipeline_happy_path(beanie_db) -> None:
     calls: list[tuple[dict[str, Any], Any]] = []
@@ -61,7 +81,8 @@ async def test_trip_pipeline_happy_path(beanie_db) -> None:
         coverage_service=coverage_stub,
     )
 
-    trip = await pipeline.process_raw_trip(
+    trip = await _process_trip(
+        pipeline,
         _build_raw_trip("tx-1"),
         source="test",
         do_map_match=True,
@@ -98,7 +119,7 @@ async def test_trip_pipeline_invalid_trip_returns_none(beanie_db) -> None:
         coverage_service=_noop_coverage,
     )
 
-    trip = await pipeline.process_raw_trip({"transactionId": "bad-trip"})
+    trip = await _process_trip(pipeline, {"transactionId": "bad-trip"})
     assert trip is None
 
 
@@ -110,7 +131,8 @@ async def test_trip_pipeline_handles_map_match_failure(beanie_db) -> None:
         coverage_service=_noop_coverage,
     )
 
-    trip = await pipeline.process_raw_trip(
+    trip = await _process_trip(
+        pipeline,
         _build_raw_trip("tx-2"),
         source="test",
         do_map_match=True,
@@ -135,7 +157,8 @@ async def test_trip_pipeline_salvages_single_point_linestring(beanie_db) -> None
     raw_trip = _build_raw_trip("tx-single-point-gps")
     raw_trip["gps"] = {"type": "LineString", "coordinates": [[-97.0, 32.0]]}
 
-    trip = await pipeline.process_raw_trip(
+    trip = await _process_trip(
+        pipeline,
         raw_trip,
         source="test",
         do_map_match=False,
@@ -166,7 +189,8 @@ async def test_trip_pipeline_accepts_trip_without_gps_when_other_data_present(
         "distance": 1.25,
     }
 
-    trip = await pipeline.process_raw_trip(
+    trip = await _process_trip(
+        pipeline,
         raw_trip,
         source="test",
         do_map_match=False,
@@ -194,7 +218,8 @@ async def test_trip_pipeline_sanitizes_invalid_geopoints_from_payload(
     raw_trip["startGeoPoint"] = {"type": "Point", "coordinates": [999, 999]}
     raw_trip["destinationGeoPoint"] = {"type": "Point", "coordinates": ["x", "y"]}
 
-    trip = await pipeline.process_raw_trip(
+    trip = await _process_trip(
+        pipeline,
         raw_trip,
         source="test",
         do_map_match=False,
@@ -225,7 +250,8 @@ async def test_trip_pipeline_prefers_bouncie_source_when_merging_existing_trip(
     existing.processing_state = "completed"
     await existing.insert()
 
-    saved = await pipeline.process_raw_trip(
+    saved = await _process_trip(
+        pipeline,
         _build_raw_trip("tx-reconcile-source-1"),
         source="bouncie",
         do_map_match=False,
@@ -278,7 +304,8 @@ async def test_trip_pipeline_forces_rematch_for_existing_matches_in_google_mode(
         coverage_service=_noop_coverage,
     )
 
-    saved = await pipeline.process_raw_trip(
+    saved = await _process_trip(
+        pipeline,
         _build_raw_trip("tx-google-rematch"),
         source="bouncie",
         do_map_match=True,

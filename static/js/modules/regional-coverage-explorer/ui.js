@@ -13,7 +13,7 @@ function setText(id, text) {
   }
 }
 
-export function getRecalculateButtons() {
+function getRecalculateButtons() {
   return ["recalculate-btn", "trigger-recalculate"]
     .map((id) => document.getElementById(id))
     .filter(Boolean);
@@ -257,7 +257,7 @@ function renderStateListSection() {
 // Level-specific renderers
 // =============================================================================
 
-export function renderCountyLevelView(container) {
+function renderCountyLevelView(container) {
   const summary = RegionalCoverageExplorerState.getSummary();
   const county = summary?.levels?.county || {};
   const percent = Number(county.percent || 0);
@@ -297,7 +297,7 @@ export function renderCountyLevelView(container) {
   container.innerHTML = html;
 }
 
-export function renderStateLevelView(container) {
+function renderStateLevelView(container) {
   const summary = RegionalCoverageExplorerState.getSummary();
   const state = summary?.levels?.state || {};
   const percent = Number(state.percent || 0);
@@ -332,7 +332,7 @@ export function renderStateLevelView(container) {
   container.innerHTML = html;
 }
 
-export function renderCityLevelView(container) {
+function renderCityLevelView(container) {
   const summary = RegionalCoverageExplorerState.getSummary();
   const city = summary?.levels?.city || {};
   const percent = Number(city.percent || 0);

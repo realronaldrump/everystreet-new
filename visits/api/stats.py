@@ -6,7 +6,8 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query, status
 
 from db.schemas import PlaceStatisticsResponse, VisitSuggestion
-from visits.services import PlaceService, VisitStatsService
+from visits.services.place_service import PlaceService
+from visits.services.visit_stats_service import VisitStatsService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

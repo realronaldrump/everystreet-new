@@ -158,8 +158,7 @@ class TripPipeline:
         Validate a raw trip with basic processing checks, without persistence.
 
         This matches the same validation+basic processing done by
-        process_raw_trip[_insert_only], but does not geocode, map-match,
-        or write.
+        process_trip, but does not geocode, map-match, or write.
         """
         success, processed_data, history, state, error = self._validate(raw_data)
         return {
@@ -177,24 +176,25 @@ class TripPipeline:
             },
         }
 
-    async def process_raw_trip(
+    async def process_trip(
         self,
-        raw_data: dict[str, Any],
-        *,
-        source: str = "api",
-        do_map_match: bool = True,
-        do_geocode: bool = True,
-        do_coverage: bool = True,
-        force_map_match: bool = False,
-        prevalidated_data: dict[str, Any] | None = None,
-        prevalidated_history: list[ProcessingHistoryEntry] | None = None,
-        prevalidated_state: str | None = None,
-        sync_mobility: bool = True,
-        bump_revision: bool = True,
+        request: TripProcessingRequest,
     ) -> Trip | None:
         """Process a raw trip through validation, matching, geocoding, coverage, and
         save.
         """
+        raw_data = request.raw_data
+        source = request.source
+        do_map_match = request.do_map_match
+        do_geocode = request.do_geocode
+        do_coverage = request.do_coverage
+        force_map_match = request.force_map_match
+        prevalidated_data = request.prevalidated_data
+        prevalidated_history = request.prevalidated_history
+        prevalidated_state = request.prevalidated_state
+        sync_mobility = request.sync_mobility
+        bump_revision = request.bump_revision
+
         if not raw_data:
             logger.warning("No trip data provided to pipeline")
             return None
@@ -365,22 +365,6 @@ class TripPipeline:
 
         logger.debug("Saved trip %s successfully", transaction_id)
         return final_trip
-
-    async def process_trip(self, request: TripProcessingRequest) -> Trip | None:
-        """Process a trip using a typed request instead of caller-managed flags."""
-        return await self.process_raw_trip(
-            request.raw_data,
-            source=request.source,
-            do_map_match=request.do_map_match,
-            do_geocode=request.do_geocode,
-            do_coverage=request.do_coverage,
-            force_map_match=request.force_map_match,
-            prevalidated_data=request.prevalidated_data,
-            prevalidated_history=request.prevalidated_history,
-            prevalidated_state=request.prevalidated_state,
-            sync_mobility=request.sync_mobility,
-            bump_revision=request.bump_revision,
-        )
 
     @staticmethod
     async def _enqueue_geo_coverage_sync_for_ingest(

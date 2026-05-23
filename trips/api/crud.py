@@ -12,8 +12,8 @@ from db.models import CoverageState, Trip
 from trips.models import TripInactiveUpdate
 from trips.pipeline import TripPipeline
 from trips.serialization import TripSerializer
-from trips.services import TripCostService
 from trips.services.inactive_trip_service import InactiveTripService
+from trips.services.trip_cost_service import TripCostService
 from trips.services.trip_map_geometry import apply_trip_map_path_fields
 from trips.services.trip_match_mutation_service import (
     HistoricalTripMatchMutationService,

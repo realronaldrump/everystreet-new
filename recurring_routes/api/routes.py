@@ -31,6 +31,7 @@ from recurring_routes.services.service import (
     find_place_id_for_point,
     normalize_hex_color,
     resolve_places_by_ids,
+    route_place_id,
     serialize_route_detail_with_place_links,
     serialize_route_summary,
 )
@@ -77,14 +78,6 @@ def _route_query(
         ]
 
     return query
-
-
-def _route_place_id(route: RecurringRoute, *field_names: str) -> str | None:
-    for field in field_names:
-        place_id = coerce_place_id(getattr(route, field, None))
-        if place_id:
-            return place_id
-    return None
 
 
 async def _resolve_raw_route_geometry(route: RecurringRoute) -> dict[str, Any] | None:
@@ -162,12 +155,12 @@ async def list_recurring_routes(
 
     needs_centroid_lookup = any(
         (
-            _route_place_id(route, "start_place_id", "startPlaceId") is None
+            route_place_id(route, "start_place_id", "startPlaceId") is None
             and isinstance(route.start_centroid, list)
             and bool(route.start_centroid)
         )
         or (
-            _route_place_id(route, "end_place_id", "endPlaceId") is None
+            route_place_id(route, "end_place_id", "endPlaceId") is None
             and isinstance(route.end_centroid, list)
             and bool(route.end_centroid)
         )
@@ -180,8 +173,8 @@ async def list_recurring_routes(
     resolved_place_ids: list[tuple[str | None, str | None]] = []
     place_ids: set[str] = set()
     for route in route_docs:
-        start_place_id = _route_place_id(route, "start_place_id", "startPlaceId")
-        end_place_id = _route_place_id(route, "end_place_id", "endPlaceId")
+        start_place_id = route_place_id(route, "start_place_id", "startPlaceId")
+        end_place_id = route_place_id(route, "end_place_id", "endPlaceId")
 
         if (
             not start_place_id

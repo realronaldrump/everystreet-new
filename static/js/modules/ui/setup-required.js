@@ -1,5 +1,5 @@
 import apiClient from "../core/api-client.js";
-import { onPageLoad } from "../utils.js";
+import { isAbortError, onPageLoad } from "../utils.js";
 
 const SETUP_STATUS_API = "/api/setup/status";
 const SETUP_ROUTE = "/setup-wizard";
@@ -235,7 +235,7 @@ async function refreshStatus({ signal, force = false } = {}) {
     const status = await fetchSetupStatus(signal, { force });
     updateUI(status);
   } catch (error) {
-    if (error?.name === "AbortError" || signal?.aborted) {
+    if (isAbortError(error) || signal?.aborted) {
       return;
     }
     console.warn("Setup status check failed", error);

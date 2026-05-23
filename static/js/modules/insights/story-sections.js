@@ -725,13 +725,6 @@ export function updatePeriodStory(mode, currentView = "daily") {
   renderTrendsNarrative(storyState.snapshot, nextMode, currentView);
 }
 
-export function updateTimeSignatureStory() {
-  if (!storyState.snapshot) {
-    return;
-  }
-  renderTimeSignature(storyState.snapshot.timeSignature, {});
-}
-
 export function destroyStorySections() {
   storyState.snapshot = null;
   storyState.periodMode = "weekly";

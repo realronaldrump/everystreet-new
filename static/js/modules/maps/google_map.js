@@ -3118,6 +3118,5 @@ export {
   createMapProxy,
   createGoogleMap,
   ensureMapboxCompatibility,
-  waitForGoogleMaps,
 };
 export default googleMapCore;

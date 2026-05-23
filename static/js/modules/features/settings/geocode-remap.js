@@ -1,5 +1,3 @@
-/* global flatpickr */
-
 /**
  * Setup functions for trip geocoding and remapping functionality
  */
@@ -344,15 +342,7 @@ export function setupGeocodeTrips(signal) {
     eventOptions
   );
 
-  // Initialize date pickers
-  if (DateUtils?.initDatePicker) {
-    DateUtils.initDatePicker(".datepicker");
-  } else if (typeof flatpickr !== "undefined") {
-    flatpickr(".datepicker", {
-      enableTime: false,
-      dateFormat: "Y-m-d",
-    });
-  }
+  DateUtils.initDatePicker(".datepicker");
 }
 
 export function setupRemapMatchedTrips(signal) {
@@ -447,14 +437,7 @@ export function setupRemapMatchedTrips(signal) {
     eventOptions
   );
 
-  if (DateUtils?.initDatePicker) {
-    DateUtils.initDatePicker(".datepicker");
-  } else if (typeof flatpickr !== "undefined") {
-    flatpickr(".datepicker", {
-      enableTime: false,
-      dateFormat: "Y-m-d",
-    });
-  }
+  DateUtils.initDatePicker(".datepicker");
 }
 
 export function setupRebuildDisplayPaths(signal) {

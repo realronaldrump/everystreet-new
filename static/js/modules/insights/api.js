@@ -10,7 +10,7 @@ import apiClient from "../core/api-client.js";
  * @param {URLSearchParams} params - Query parameters
  * @returns {Promise<Object>} Behavior data
  */
-export function fetchBehavior(params, signal) {
+function fetchBehavior(params, signal) {
   return apiClient.get(`/api/driver-behavior?${params}`, { cache: true, signal });
 }
 
@@ -19,7 +19,7 @@ export function fetchBehavior(params, signal) {
  * @param {URLSearchParams} params - Query parameters
  * @returns {Promise<Object>} Insights data
  */
-export function fetchInsights(params, signal) {
+function fetchInsights(params, signal) {
   return apiClient.get(`/api/driving-insights?${params}`, { cache: true, signal });
 }
 
@@ -28,7 +28,7 @@ export function fetchInsights(params, signal) {
  * @param {URLSearchParams} params - Query parameters
  * @returns {Promise<Object>} Analytics data
  */
-export function fetchAnalytics(params, signal) {
+function fetchAnalytics(params, signal) {
   return apiClient.get(`/api/trip-analytics?${params}`, { cache: true, signal });
 }
 
@@ -37,7 +37,7 @@ export function fetchAnalytics(params, signal) {
  * @param {URLSearchParams} params - Query parameters
  * @returns {Promise<Object>} Metrics data
  */
-export function fetchMetrics(params, signal) {
+function fetchMetrics(params, signal) {
   return apiClient.get(`/api/metrics?${params}`, { cache: true, signal });
 }
 

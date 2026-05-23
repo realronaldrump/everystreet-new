@@ -1,6 +1,8 @@
 import { CONFIG } from "../../core/config.js";
 import mapCore from "../../map-core.js";
+import { isGoogleProvider, normalizeStyleType, readMapStyle } from "./map-style.js";
 import { resolveMapTypeHint } from "./map-type-hint.js";
+import { readStoredBoolean, writeStoredBoolean } from "./preference-storage.js";
 
 const PRIMARY_FILTER = ["==", ["get", "extrude"], "true"];
 const FALLBACK_FILTER = ["has", "height"];
@@ -16,35 +18,8 @@ const noopController = Object.freeze({
   },
 });
 
-function normalizeStyleType(value) {
-  return typeof value === "string" ? value.trim().toLowerCase() : "";
-}
-
 function getBuildingsConfig() {
   return CONFIG?.MAP?.buildings3d || {};
-}
-
-function readStoredBoolean(key) {
-  if (!key || typeof localStorage === "undefined") {
-    return null;
-  }
-
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw === "true") {
-      return true;
-    }
-    if (raw === "false") {
-      return false;
-    }
-    if (raw !== null) {
-      return Boolean(JSON.parse(raw));
-    }
-  } catch {
-    // Ignore storage parsing issues.
-  }
-
-  return null;
 }
 
 export function getUserBuildingsPreference() {
@@ -57,20 +32,7 @@ export function getUserBuildingsPreference() {
 }
 
 function persistUserBuildingsPreference(enabled) {
-  if (typeof enabled !== "boolean" || typeof localStorage === "undefined") {
-    return;
-  }
-
-  const key = CONFIG?.STORAGE_KEYS?.map3dBuildingsEnabled;
-  if (!key) {
-    return;
-  }
-
-  try {
-    localStorage.setItem(key, enabled ? "true" : "false");
-  } catch {
-    // Ignore storage failures.
-  }
+  writeStoredBoolean(CONFIG?.STORAGE_KEYS?.map3dBuildingsEnabled, enabled);
 }
 
 function syncSettingsToggle(enabled) {
@@ -110,27 +72,6 @@ export function setMap3dBuildingsPreference(
   }
 
   return true;
-}
-
-function isGoogleProvider() {
-  return normalizeStyleType(globalThis?.window?.MAP_PROVIDER) === "google";
-}
-
-function readMapStyle(map) {
-  if (!map || typeof map.getStyle !== "function") {
-    return null;
-  }
-
-  try {
-    const style = map.getStyle();
-    if (style && typeof style === "object") {
-      return style;
-    }
-  } catch {
-    // Style might not be ready yet.
-  }
-
-  return null;
 }
 
 function getCurrentMapTypeHint() {
@@ -242,7 +183,7 @@ function updateExistingLayer(map, layerId, beforeLayerId, config) {
   }
 }
 
-export function removeBuildingsLayer(map) {
+function removeBuildingsLayer(map) {
   const layerId = getBuildingsConfig().layerId || "es-3d-buildings";
   if (
     !map ||

@@ -3,13 +3,13 @@
  * Canonical implementations for haversine distance, bearing, and coordinate conversions.
  */
 
-export const EARTH_RADIUS_M = 6_371_000;
+const EARTH_RADIUS_M = 6_371_000;
 
-export function toRad(deg) {
+function toRad(deg) {
   return deg * (Math.PI / 180);
 }
 
-export function toDeg(rad) {
+function toDeg(rad) {
   return rad * (180 / Math.PI);
 }
 

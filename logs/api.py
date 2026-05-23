@@ -12,8 +12,8 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 from pydantic import BaseModel
 
 from core.api import api_route
-from db import AppSettings, ServerLog
 from db.aggregation import aggregate_to_list
+from db.models import AppSettings, ServerLog
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["logs"])

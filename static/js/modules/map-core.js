@@ -17,11 +17,7 @@
 import CONFIG from "./core/config.js";
 import { getCurrentTheme, resolveMapStyle } from "./core/map-style-resolver.js";
 import state from "./core/store.js";
-import {
-  getMapboxToken,
-  isMapboxStyleUrl,
-  waitForMapboxToken,
-} from "./mapbox-token.js";
+import { isMapboxStyleUrl, waitForMapboxToken } from "./mapbox-token.js";
 import { createGoogleMap, ensureMapboxCompatibility } from "./maps/google_map.js";
 import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
@@ -447,7 +443,7 @@ const mapCore = {
     const baseUrl =
       typeof window !== "undefined" && window.location?.origin
         ? window.location.origin
-        : "http://localhost";
+        : "https://www.everystreet.me";
     let patched = false;
 
     if (
@@ -848,5 +844,5 @@ function createMap(containerId, options = {}) {
   return map;
 }
 
-export { createMap, getMapboxToken, isMapboxStyleUrl, waitForMapboxToken };
+export { createMap, isMapboxStyleUrl, waitForMapboxToken };
 export default mapCore;

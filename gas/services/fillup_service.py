@@ -15,6 +15,8 @@ from core.exceptions import (
 from core.trip_map_cache import bump_trip_map_revision
 from db.models import GasFillup, Vehicle
 
+from .fillup_filters import build_fillup_date_conditions
+
 logger = logging.getLogger(__name__)
 
 
@@ -242,15 +244,7 @@ class FillupService:
         if vin:
             conditions.append(GasFillup.vin == vin)
 
-        # Date filtering
-        if start_date:
-            start_dt = parse_timestamp(start_date)
-            if start_dt:
-                conditions.append(GasFillup.fillup_time >= start_dt)
-        if end_date:
-            end_dt = parse_timestamp(end_date)
-            if end_dt:
-                conditions.append(GasFillup.fillup_time <= end_dt)
+        conditions.extend(build_fillup_date_conditions(start_date, end_date))
 
         query = GasFillup.find(*conditions) if conditions else GasFillup.find_all()
 

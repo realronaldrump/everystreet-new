@@ -146,14 +146,11 @@
 
 @media (width <= 768px) {
   .map-smart-legend {
-    top: auto;
-    right: auto;
-    bottom: calc(
+    inset: auto auto calc(
       max(var(--map-sheet-visible-height, 60px), 60px) +
       env(safe-area-inset-bottom, 0px) +
       var(--space-2)
-    );
-    left: var(--space-2);
+    ) var(--space-2);
     min-width: 0;
     max-width: min(16rem, calc(100vw - 5rem));
     font-size: 0.72rem;

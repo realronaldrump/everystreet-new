@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from db import BouncieCredentials
+from db.models import BouncieCredentials
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
 import apiClient from "../../core/api-client.js";
 import { withSignal as withAbortSignal } from "../../core/feature-api.js";
 import notificationManager from "../../ui/notifications.js";
-import { formatDateTime } from "../../utils.js";
+import { formatDateTime, isAbortError } from "../../utils.js";
 
 const OVERVIEW_API = "/api/status/overview";
 const HEALTH_API = "/api/status/health";
@@ -174,7 +174,7 @@ export default function initControlCenterOverview({ signal } = {}) {
       renderServiceCards(healthData);
       renderFailures(healthData);
     } catch (error) {
-      if (error?.name === "AbortError") {
+      if (isAbortError(error)) {
         return;
       }
       if (isManual) {
@@ -212,7 +212,7 @@ export default function initControlCenterOverview({ signal } = {}) {
         notificationManager.show(`${service} restart requested`, "success");
         await refreshOverview(true);
       } catch (error) {
-        if (error?.name !== "AbortError") {
+        if (!isAbortError(error)) {
           notificationManager.show(
             `Failed to restart ${service}: ${error.message}`,
             "danger"

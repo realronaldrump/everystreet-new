@@ -783,14 +783,14 @@ details[open] .setup-help-toggle::after {
   inset: 0;
   background: linear-gradient(90deg, transparent, rgb(255 255 255 / 15%), transparent);
   transform: translateX(-100%);
-  animation: shimmer 3s ease-in-out infinite;
+  animation: setup-import-shimmer 3s ease-in-out infinite;
 }
 
 .setup-import-btn:disabled::after {
   animation: none;
 }
 
-@keyframes shimmer {
+@keyframes setup-import-shimmer {
   0% {
     transform: translateX(-100%);
   }

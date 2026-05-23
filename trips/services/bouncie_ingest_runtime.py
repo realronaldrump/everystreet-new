@@ -96,6 +96,15 @@ def build_ingest_counters() -> dict[str, int]:
     return dict.fromkeys(COUNTER_KEYS, 0)
 
 
+def build_ingest_device_counters() -> dict[str, int]:
+    """Build default per-device counters for history-import progress."""
+    return {
+        "windows_completed": 0,
+        **build_ingest_counters(),
+        "errors": 0,
+    }
+
+
 def merge_ingest_counters(target: dict[str, int], delta: dict[str, int]) -> None:
     """Merge ingest counters into a target dictionary in place."""
     for key, value in delta.items():
@@ -893,6 +902,7 @@ __all__ = [
     "WindowFetchIncompleteError",
     "WindowFetchResult",
     "build_ingest_counters",
+    "build_ingest_device_counters",
     "dedupe_trips_by_transaction_id",
     "fetch_trips_for_window",
     "fetch_trips_for_window_report",

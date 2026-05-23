@@ -2,6 +2,7 @@
 
 import confirmationDialog from "../ui/confirmation-dialog.js";
 import notificationManager from "../ui/notifications.js";
+import { isAbortError } from "../utils.js";
 import { M_TO_MI, MI_TO_M } from "../utils/geo-math.js";
 
 /**
@@ -42,7 +43,7 @@ export class DrivingNavigation {
     this.abortController = new AbortController();
 
     this.initializationPromise = this.initialize().catch((error) => {
-      if (error?.name === "AbortError" || this.abortController.signal.aborted) {
+      if (isAbortError(error) || this.abortController.signal.aborted) {
         return;
       }
       console.error("DrivingNavigation initialization failed:", error);

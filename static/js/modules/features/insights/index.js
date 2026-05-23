@@ -17,6 +17,7 @@ import {
 import * as InsightsState from "../../insights/state.js";
 import * as InsightsStories from "../../insights/story-sections.js";
 import notificationManager from "../../ui/notifications.js";
+import { isAbortError } from "../../utils.js";
 
 let tooltipInstances = [];
 let pageSignal = null;
@@ -109,7 +110,7 @@ let currentDataController = null;
 /**
  * Load all data for the insights page
  */
-export async function loadAllData(signalOverride) {
+async function loadAllData(signalOverride) {
   const baseSignal = signalOverride ?? pageSignal;
   if (baseSignal?.aborted) {
     return;
@@ -161,7 +162,7 @@ export async function loadAllData(signalOverride) {
     renderStorySectionsFromState();
     InsightsMetrics.updateAllMetrics();
   } catch (error) {
-    if (error?.name === "AbortError" || activeSignal?.aborted) {
+    if (isAbortError(error) || activeSignal?.aborted) {
       return;
     }
     console.error("Error loading data:", error);
@@ -249,7 +250,7 @@ function handleDrilldownClick(e) {
 /**
  * Show loading states for charts
  */
-export function showLoadingStates() {
+function showLoadingStates() {
   const trendsLoading = document.getElementById("trends-loading");
   const trendsChart = document.getElementById("trendsChart");
 
@@ -264,7 +265,7 @@ export function showLoadingStates() {
 /**
  * Hide loading states for charts
  */
-export function hideLoadingStates() {
+function hideLoadingStates() {
   const trendsLoading = document.getElementById("trends-loading");
   const trendsChart = document.getElementById("trendsChart");
 

@@ -1,9 +1,9 @@
 """
 Zone decomposition for large coverage areas.
 
-Splits large sets of required edges into geographic zones using K-Means
-clustering, solves each zone independently, then stitches the results
-together. Gap-filling handles inter-zone connections.
+Splits large sets of required edges into geographic zones, solves each
+zone independently, then stitches the results together. Gap-filling
+handles inter-zone connections.
 """
 
 import logging
@@ -50,12 +50,7 @@ def decompose_into_zones(
     node_xy: dict[int, tuple[float, float]],
     max_zone_size: int = 1500,
 ) -> list[Zone]:
-    """
-    Decompose required edges into geographic zones using K-Means clustering.
-
-    Falls back to simple geographic grid splitting if sklearn is
-    unavailable.
-    """
+    """Decompose required edges into deterministic geographic zones."""
     if len(required_reqs) <= max_zone_size:
         zone = Zone(zone_id=0)
         zone.required_reqs = dict(required_reqs)
@@ -80,40 +75,21 @@ def decompose_into_zones(
         zone.req_segment_counts = dict(req_segment_counts) if req_segment_counts else {}
         return [zone]
 
-    # Try K-Means clustering
-    labels: list[int] | None = None
-    try:
-        import numpy as np
-        from sklearn.cluster import KMeans
-
-        X = np.array(points)
-        kmeans = KMeans(n_clusters=n_zones, n_init=3, max_iter=100, random_state=42)
-        labels = kmeans.fit_predict(X).tolist()
-    except ImportError:
-        logger.warning("sklearn not available; using grid-based zone decomposition")
-    except Exception:
-        logger.warning(
-            "K-Means clustering failed; using grid-based decomposition",
-            exc_info=True,
+    sorted_indices = sorted(
+        range(len(points)),
+        key=lambda i: (points[i][0], points[i][1]),
+    )
+    chunk_size = max(1, len(sorted_indices) // n_zones)
+    labels = [0] * len(points)
+    for chunk_idx in range(n_zones):
+        start = chunk_idx * chunk_size
+        end = (
+            len(sorted_indices)
+            if chunk_idx == n_zones - 1
+            else (chunk_idx + 1) * chunk_size
         )
-
-    if labels is None:
-        # Fallback: grid-based decomposition by sorting on x then chunking
-        sorted_indices = sorted(
-            range(len(points)),
-            key=lambda i: (points[i][0], points[i][1]),
-        )
-        chunk_size = max(1, len(sorted_indices) // n_zones)
-        labels = [0] * len(points)
-        for chunk_idx in range(n_zones):
-            start = chunk_idx * chunk_size
-            end = (
-                len(sorted_indices)
-                if chunk_idx == n_zones - 1
-                else (chunk_idx + 1) * chunk_size
-            )
-            for i in range(start, end):
-                labels[sorted_indices[i]] = chunk_idx
+        for i in range(start, end):
+            labels[sorted_indices[i]] = chunk_idx
 
     # Build zones from labels
     zone_map: dict[int, Zone] = {}

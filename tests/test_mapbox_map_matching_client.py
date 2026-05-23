@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import pytest
+from http_fakes import FakeResponse, FakeSession
 
 from core.exceptions import ExternalServiceException
 from core.http import mapbox
 from core.http.mapbox import MapboxMapMatchingClient, sanitize_mapbox_message
-from http_fakes import FakeResponse, FakeSession
 
 
 def test_sanitize_mapbox_message_redacts_tokens_and_coordinates() -> None:
