@@ -19,10 +19,7 @@ from core.trip_query_spec import TripQuerySpec
 from db.models import AppSettings, Job, Trip
 from tasks.config import update_task_history_entry
 from tasks.ops import abort_job, enqueue_task
-from trips.models import (
-    MapMatchJobRequest,
-    TripPreviewProjection,
-)
+from trips.models import MapMatchJobRequest, TripPreviewProjection
 from trips.services.matching import MapMatchingService, normalize_provider_policy
 from trips.services.trip_match_mutation_service import (
     HistoricalTripMatchMutationService,
@@ -482,7 +479,9 @@ class MapMatchingJobService:
         request: MapMatchJobRequest,
     ) -> MapMatchJobRequest:
         if request.provider_policy is None:
-            request.provider_policy = await MapMatchingJobRunner._default_provider_policy()
+            request.provider_policy = (
+                await MapMatchingJobRunner._default_provider_policy()
+            )
         return MapMatchingJobService._normalize_request(request)
 
     @staticmethod
@@ -731,7 +730,9 @@ class MapMatchingJobRunner:
         request: MapMatchJobRequest,
     ) -> MapMatchJobRequest:
         if request.provider_policy is None:
-            request.provider_policy = await MapMatchingJobRunner._default_provider_policy()
+            request.provider_policy = (
+                await MapMatchingJobRunner._default_provider_policy()
+            )
         request.provider_policy = normalize_provider_policy(request.provider_policy)
         return request
 
@@ -755,7 +756,9 @@ class MapMatchingJobRunner:
 
     async def _preflight_router(self) -> tuple[bool, str | None]:
         """Verify that configured map matching providers are ready."""
-        policy = normalize_provider_policy(getattr(self, "_active_provider_policy", None))
+        policy = normalize_provider_policy(
+            getattr(self, "_active_provider_policy", None)
+        )
         if policy == "mapbox_only":
             if has_mapbox_map_matching_token():
                 return True, None
@@ -1028,8 +1031,7 @@ class MapMatchingJobRunner:
             return False
         attempts = result.attempts or []
         has_valhalla_failure = any(
-            attempt.get("provider") == "valhalla"
-            and attempt.get("status") != "matched"
+            attempt.get("provider") == "valhalla" and attempt.get("status") != "matched"
             for attempt in attempts
             if isinstance(attempt, dict)
         )
@@ -1049,7 +1051,8 @@ class MapMatchingJobRunner:
         """
         Map match a single trip and update it in the database.
 
-        Returns mutation details with outcome "matched", "skipped", or "failed".
+        Returns mutation details with outcome "matched", "skipped", or
+        "failed".
         """
         result = await self._match_mutations.rematch_trip(
             trip,
@@ -1135,14 +1138,13 @@ class MapMatchingJobRunner:
             retryable_filter = {
                 "matchStatus": {
                     "$not": {
-                            "$regex": "^(?:skipped:|error:)",
+                        "$regex": "^(?:skipped:|error:)",
                         "$options": "i",
                     },
                 },
             }
             return TripQuerySpec(unmatched_only=True).to_mongo_query(
-                extra_filters=retryable_filter,
-                enforce_source=True
+                extra_filters=retryable_filter, enforce_source=True
             )
 
         if request.mode == "trip_id":

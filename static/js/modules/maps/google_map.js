@@ -10,10 +10,10 @@
 import { CONFIG } from "../core/config.js";
 import state from "../core/store.js";
 import MapStyles from "../map-styles.js";
-import { waitForGoogleMaps } from "./google_maps_loader.js";
 import loadingManager from "../ui/loading-manager.js";
 import notificationManager from "../ui/notifications.js";
 import { utils } from "../utils.js";
+import { waitForGoogleMaps } from "./google_maps_loader.js";
 
 const MAPBOX_EVENT_TO_GOOGLE_EVENT = {
   click: "click",
@@ -3114,9 +3114,5 @@ const googleMapCore = {
   },
 };
 
-export {
-  createMapProxy,
-  createGoogleMap,
-  ensureMapboxCompatibility,
-};
+export { createMapProxy, createGoogleMap, ensureMapboxCompatibility };
 export default googleMapCore;

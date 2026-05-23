@@ -7,10 +7,7 @@
  */
 
 import layerManager from "./layer-manager.js";
-import {
-  bearing as computeBearing,
-  haversineDistance,
-} from "./utils/geo-math.js";
+import { bearing as computeBearing, haversineDistance } from "./utils/geo-math.js";
 
 const ANIM_SOURCE = "trip-animator-source";
 const ANIM_LINE_LAYER = "trip-animator-line";
@@ -39,7 +36,9 @@ class TripAnimator {
    * @param {Object} options - Animation options
    */
   animateRouteDraw(map, coordinates, options = {}) {
-    if (!map || !coordinates?.length || coordinates.length < 2) return;
+    if (!map || !coordinates?.length || coordinates.length < 2) {
+      return;
+    }
 
     this.stopDraw(map);
 
@@ -77,7 +76,9 @@ class TripAnimator {
     this._isDrawing = true;
 
     const animate = (now) => {
-      if (this._destroyed || !this._isDrawing) return;
+      if (this._destroyed || !this._isDrawing) {
+        return;
+      }
 
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
@@ -89,7 +90,9 @@ class TripAnimator {
       geojson.geometry.coordinates = partial;
 
       const source = map.getSource(ANIM_SOURCE);
-      if (source) source.setData(geojson);
+      if (source) {
+        source.setData(geojson);
+      }
 
       if (progress < 1) {
         this._drawFrameId = requestAnimationFrame(animate);
@@ -109,7 +112,9 @@ class TripAnimator {
    * @param {Object} options - Replay options
    */
   startReplay(map, coordinates, options = {}) {
-    if (!map || !coordinates?.length || coordinates.length < 2) return;
+    if (!map || !coordinates?.length || coordinates.length < 2) {
+      return;
+    }
 
     this.stopReplay(map);
 
@@ -181,14 +186,20 @@ class TripAnimator {
 
     const animate = (now) => {
       const state = this._replayState;
-      if (!state?.playing || this._destroyed) return;
+      if (!state?.playing || this._destroyed) {
+        return;
+      }
 
       const elapsed = now - state.startTime;
       const progress = Math.min(elapsed / state.duration, 1);
       const eased = progress; // Linear for replay (consistent speed feel)
       const targetDist = eased * state.totalDist;
 
-      const partial = this._interpolateAlongLine(coordinates, targetDist, state.totalDist);
+      const partial = this._interpolateAlongLine(
+        coordinates,
+        targetDist,
+        state.totalDist
+      );
       const currentPos = partial[partial.length - 1];
 
       // Update trail
@@ -198,10 +209,12 @@ class TripAnimator {
       // Update marker
       map.getSource(REPLAY_MARKER_SOURCE)?.setData({
         type: "FeatureCollection",
-        features: [{
-          type: "Feature",
-          geometry: { type: "Point", coordinates: currentPos },
-        }],
+        features: [
+          {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: currentPos },
+          },
+        ],
       });
 
       // Follow camera (throttled to avoid jitter)
@@ -236,7 +249,9 @@ class TripAnimator {
 
   /** Change replay speed */
   setReplaySpeed(speed) {
-    if (!this._replayState?.playing) return;
+    if (!this._replayState?.playing) {
+      return;
+    }
     const state = this._replayState;
     const now = performance.now();
     const elapsed = now - state.startTime;
@@ -276,16 +291,27 @@ class TripAnimator {
   cleanup(map) {
     this.stopDraw();
     this.stopReplay();
-    if (!map) return;
+    if (!map) {
+      return;
+    }
 
-    const layers = [ANIM_LINE_LAYER, ANIM_GLOW_LAYER, REPLAY_TRAIL_LAYER, REPLAY_MARKER_LAYER];
+    const layers = [
+      ANIM_LINE_LAYER,
+      ANIM_GLOW_LAYER,
+      REPLAY_TRAIL_LAYER,
+      REPLAY_MARKER_LAYER,
+    ];
     const sources = [ANIM_SOURCE, REPLAY_TRAIL_SOURCE, REPLAY_MARKER_SOURCE];
 
     for (const id of layers) {
-      if (map.getLayer(id)) map.removeLayer(id);
+      if (map.getLayer(id)) {
+        map.removeLayer(id);
+      }
     }
     for (const id of sources) {
-      if (map.getSource(id)) map.removeSource(id);
+      if (map.getSource(id)) {
+        map.removeSource(id);
+      }
     }
   }
 
@@ -316,20 +342,25 @@ class TripAnimator {
   }
 
   _ensureLineLayer(map, layerId, sourceId, style) {
-    if (map.getLayer(layerId)) return;
+    if (map.getLayer(layerId)) {
+      return;
+    }
     const beforeId = layerManager.getFirstSymbolLayerId();
-    map.addLayer({
-      id: layerId,
-      type: "line",
-      source: sourceId,
-      layout: { "line-cap": "round", "line-join": "round" },
-      paint: {
-        "line-color": style.color,
-        "line-width": style.width,
-        "line-blur": style.blur,
-        "line-opacity": style.opacity,
+    map.addLayer(
+      {
+        id: layerId,
+        type: "line",
+        source: sourceId,
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": style.color,
+          "line-width": style.width,
+          "line-blur": style.blur,
+          "line-opacity": style.opacity,
+        },
       },
-    }, beforeId);
+      beforeId
+    );
   }
 
   _setLineSourceData(map, sourceId, coordinates) {
@@ -369,8 +400,12 @@ class TripAnimator {
   }
 
   _interpolateAlongLine(coords, targetDist, totalDist) {
-    if (targetDist <= 0) return [coords[0]];
-    if (targetDist >= totalDist) return [...coords];
+    if (targetDist <= 0) {
+      return [coords[0]];
+    }
+    if (targetDist >= totalDist) {
+      return [...coords];
+    }
 
     const result = [coords[0]];
     let accum = 0;

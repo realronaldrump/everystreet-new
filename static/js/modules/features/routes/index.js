@@ -174,7 +174,8 @@ function computeCoveredWeeks(route) {
     return 0;
   }
 
-  const start = first && last && last.getTime() < first.getTime() ? last : first || last;
+  const start =
+    first && last && last.getTime() < first.getTime() ? last : first || last;
   const end = first && last && last.getTime() < first.getTime() ? first : last || first;
 
   const firstWeekStart = sundayWeekStartUtc(start);
@@ -314,7 +315,9 @@ function buildModalInsightSentence(route, analyticsData) {
   const parts = [];
   const tripCount = Number(route?.trip_count || 0);
   const coveredWeeks = computeCoveredWeeks(route);
-  const tripsPerWeek = formatTripsPerWeekLabel(resolveTripsPerWeek(route, analyticsData));
+  const tripsPerWeek = formatTripsPerWeekLabel(
+    resolveTripsPerWeek(route, analyticsData)
+  );
 
   if (tripCount > 0 && coveredWeeks > 0) {
     parts.push(
@@ -695,7 +698,9 @@ function renderRoutes(routes) {
   grid.innerHTML = "";
   if (!routes || routes.length === 0) {
     showEmpty(true);
-    if (showMoreContainer) showMoreContainer.classList.add("d-none");
+    if (showMoreContainer) {
+      showMoreContainer.classList.add("d-none");
+    }
     return;
   }
   showEmpty(false);
@@ -1320,11 +1325,9 @@ function renderMonthlyChart(data) {
     if (earlier.length > 0 && recent.length > 0) {
       const recentAvg = recentTotal / recent.length;
       const earlierAvg = earlier.reduce((s, c) => s + c, 0) / earlier.length;
-      monthlyInsight.textContent =
-        `Recent 3-mo avg ${recentAvg.toFixed(1)} trips; prior 3-mo avg ${earlierAvg.toFixed(1)}`;
+      monthlyInsight.textContent = `Recent 3-mo avg ${recentAvg.toFixed(1)} trips; prior 3-mo avg ${earlierAvg.toFixed(1)}`;
     } else {
-      monthlyInsight.textContent =
-        `Recent ${recent.length}-month total ${recentTotal} trip${recentTotal === 1 ? "" : "s"}`;
+      monthlyInsight.textContent = `Recent ${recent.length}-month total ${recentTotal} trip${recentTotal === 1 ? "" : "s"}`;
     }
   }
 }
@@ -3104,10 +3107,14 @@ function bindPageControls(signal) {
 
   const showMoreBtn = getEl("routes-show-more-btn");
   if (showMoreBtn) {
-    showMoreBtn.addEventListener("click", () => {
-      currentDisplayLimit += DISPLAY_CHUNK_SIZE;
-      renderRoutes(sortRoutes(allRoutes, listState.sort));
-    }, opts);
+    showMoreBtn.addEventListener(
+      "click",
+      () => {
+        currentDisplayLimit += DISPLAY_CHUNK_SIZE;
+        renderRoutes(sortRoutes(allRoutes, listState.sort));
+      },
+      opts
+    );
   }
 
   const sortSelect = getEl("routes-sort");

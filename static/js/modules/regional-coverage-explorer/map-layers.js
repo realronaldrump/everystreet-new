@@ -484,8 +484,10 @@ export function renderLevelLayers(level, options = {}) {
   clearCoverageLayers(map);
 
   if (level === "county") {
-    const countyData = options.countyData || RegionalCoverageExplorerState.getCountyData();
-    const statesData = options.statesData || RegionalCoverageExplorerState.getStatesData();
+    const countyData =
+      options.countyData || RegionalCoverageExplorerState.getCountyData();
+    const statesData =
+      options.statesData || RegionalCoverageExplorerState.getStatesData();
     if (!countyData || !statesData) {
       return;
     }
@@ -494,14 +496,16 @@ export function renderLevelLayers(level, options = {}) {
       countyData,
       statesData,
       showStoppedCounties:
-        options.showStoppedCounties ?? RegionalCoverageExplorerState.getShowStoppedCounties(),
+        options.showStoppedCounties ??
+        RegionalCoverageExplorerState.getShowStoppedCounties(),
     });
     return;
   }
 
   if (level === "state") {
     const stateFeatureCollection =
-      options.stateFeatureCollection || RegionalCoverageExplorerState.getStateFeatureCollection();
+      options.stateFeatureCollection ||
+      RegionalCoverageExplorerState.getStateFeatureCollection();
     if (!stateFeatureCollection) {
       return;
     }
@@ -518,7 +522,8 @@ export function renderLevelLayers(level, options = {}) {
       map,
       cityFeatureCollection,
       showStoppedCities:
-        options.showStoppedCities ?? RegionalCoverageExplorerState.getShowStoppedCities(),
+        options.showStoppedCities ??
+        RegionalCoverageExplorerState.getShowStoppedCities(),
     });
   }
 }
@@ -667,7 +672,10 @@ export function setHoverHighlight(value) {
   }
 }
 
-export function setSelectionHighlight(value, level = RegionalCoverageExplorerState.getActiveLevel()) {
+export function setSelectionHighlight(
+  value,
+  level = RegionalCoverageExplorerState.getActiveLevel()
+) {
   const map = RegionalCoverageExplorerState.getMap();
   if (!map) {
     return;
@@ -694,7 +702,9 @@ export function setSelectionHighlight(value, level = RegionalCoverageExplorerSta
   }
 }
 
-export function getInteractiveLayerId(level = RegionalCoverageExplorerState.getActiveLevel()) {
+export function getInteractiveLayerId(
+  level = RegionalCoverageExplorerState.getActiveLevel()
+) {
   if (level === "state") {
     return STATES_FILL_LAYER_ID;
   }

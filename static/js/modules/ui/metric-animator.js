@@ -49,7 +49,8 @@ const MetricAnimator = {
       const elapsed = Math.min((now - startTime) / targetDuration, 1);
       const eased = elapsed === 1 ? 1 : 1 - 2 ** (-10 * elapsed);
       const current = startValue + (numericValue - startValue) * eased;
-      element.textContent = elapsed === 1 ? finalText : `${formatter.format(current)}${suffix}`;
+      element.textContent =
+        elapsed === 1 ? finalText : `${formatter.format(current)}${suffix}`;
       if (elapsed < 1) {
         requestAnimationFrame(step);
       }

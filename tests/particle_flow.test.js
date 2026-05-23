@@ -3,10 +3,7 @@ import test from "node:test";
 
 import store from "../static/js/modules/core/store.js";
 import particleFlow from "../static/js/modules/particle-flow.js";
-import {
-  createCustomEventClass,
-  createEventTarget,
-} from "./helpers/dom-fixtures.js";
+import { createCustomEventClass, createEventTarget } from "./helpers/dom-fixtures.js";
 
 const originalGlobals = {
   window: global.window,

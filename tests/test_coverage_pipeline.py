@@ -7,10 +7,7 @@ import pytest
 
 import map_data.extracts as extract_module
 import street_coverage.preprocessing as preprocess_module
-from map_data.extracts import (
-    GRAPH_OSM_EXTRACT_ID_KEY,
-    describe_osm_extract,
-)
+from map_data.extracts import GRAPH_OSM_EXTRACT_ID_KEY, describe_osm_extract
 from routing import constants as routing_constants
 from street_coverage import ingestion as coverage_ingestion
 from street_coverage.preprocessing import preprocess_streets

@@ -37,10 +37,11 @@ Both processes share startup/shutdown initialization via `core/startup.py`.
 - Streets query: `GET /api/coverage/areas/{area_id}/streets/all` supports the
   `?status=...` filter (`undriven|driven|undriveable`).
 - Frontend integration:
-  - Route Planner (`static/js/modules/optimal-route/*`) manages area
-    selection, route generation, and route export.
-  - Live Navigation (`static/js/modules/live-navigation/*`) persists driven segments
-    through the same coverage endpoint without any separate session lifecycle.
+  - Route Planner (`static/js/modules/optimal-route/*`) manages area selection,
+    route generation, and route export.
+  - Live Navigation (`static/js/modules/live-navigation/*`) persists driven
+    segments through the same coverage endpoint without any separate session
+    lifecycle.
 
 ## External integration boundaries
 

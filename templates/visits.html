@@ -2,9 +2,14 @@
 
 {% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}Every Street - Places & Visits{% endblock %}
+{% block title %}
+
+Every Street - Places & Visits
+{% endblock %}
+
 
 {% block extra_css %}
+
   <link rel="stylesheet" href="{{ CDN.mapbox_draw_css }}" crossorigin="anonymous" />
   {{ include_mapbox_css() }}
   <link rel="stylesheet" href="{{ CDN.datatables_css }}" />
@@ -13,7 +18,9 @@
   {{ static_css("visits-redesign.css") }}
 {% endblock %}
 
+
 {% block content %}
+
   <div id="visits-page" class="visits-container">
     <section class="visits-section hero-section" data-accent="mint">
       <div class="hero-content">
@@ -296,7 +303,7 @@ Draw a new boundary, or click Edit and then a saved place boundary to modify it.
         <div class="drawing-toast-content">
           <i class="fas fa-info-circle text-warning"></i>
           <span id="drawing-toast-message">Click points to draw a boundary. Press Enter
-                                                                                                                                                      or click first point to close.</span>
+                                                                                                                                                                or click first point to close.</span>
         </div>
         <button type="button" class="btn btn-sm btn-outline-secondary" id="cancel-drawing">
         Cancel
@@ -389,7 +396,7 @@ Please enter a name for this place.
         <div class="section-title-wrapper">
           <h2 class="section-title">
             <i class="fas fa-route section-icon"></i>
-                                                                                                                                                                                              Visits to <span id="selected-place-name" class="text-primary"></span>
+                                                                                                                                                                                                        Visits to <span id="selected-place-name" class="text-primary"></span>
         </h2>
       </div>
       <button class="btn btn-outline-secondary" id="back-to-places-btn">
@@ -562,5 +569,6 @@ Place Name
   </div>
 </div>
 {% endblock %}
+
 
 {# Page scripts are loaded via route-loader + swup. #}

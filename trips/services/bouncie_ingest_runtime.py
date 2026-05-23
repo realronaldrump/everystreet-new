@@ -259,9 +259,9 @@ async def fetch_trips_for_window_report(
     Fetch trips for a window and aggressively recover around failing slices.
 
     Bouncie can return 500/timeouts for old ranges even when neighboring
-    minute-scale ranges are valid. This routine splits only after a failure,
-    keeps every recovered successful slice, and returns unrecoverable leaf
-    slices for the caller to report as fetch errors.
+    minute-scale ranges are valid. This routine splits only after a
+    failure, keeps every recovered successful slice, and returns
+    unrecoverable leaf slices for the caller to report as fetch errors.
     """
     max_span = timedelta(days=7) - timedelta(seconds=2)
     if chunk_semaphore is None:

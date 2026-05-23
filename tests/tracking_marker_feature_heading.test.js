@@ -11,10 +11,6 @@ test("createMarkerFeature always emits numeric heading", () => {
   );
   assert.equal(featureWithoutHeading.properties.heading, 0);
 
-  const featureWithHeading = createMarkerFeature(
-    [{ lon: -97.2, lat: 32.8 }],
-    91.5,
-    14
-  );
+  const featureWithHeading = createMarkerFeature([{ lon: -97.2, lat: 32.8 }], 91.5, 14);
   assert.equal(featureWithHeading.properties.heading, 91.5);
 });

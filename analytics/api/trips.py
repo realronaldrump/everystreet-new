@@ -137,8 +137,9 @@ async def driver_behavior_analytics(request: Request):
     """
     Aggregate driving behavior statistics within optional date range filters.
 
-    Accepts the same `start_date` and `end_date` query parameters used by other API endpoints.
-    If no filters are provided, all trips are considered.
+    Accepts the same `start_date` and `end_date` query parameters used
+    by other API endpoints. If no filters are provided, all trips are
+    considered.
     """
     query = TripQuerySpec.from_request(
         request,

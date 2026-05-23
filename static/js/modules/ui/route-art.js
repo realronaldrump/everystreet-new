@@ -44,7 +44,9 @@ class RouteArt {
    */
   launch(options = {}) {
     const { trips = [], bounds = null, onClose = null } = options;
-    if (!trips.length) return;
+    if (!trips.length) {
+      return;
+    }
 
     if (this._closeTimer) {
       clearTimeout(this._closeTimer);
@@ -113,12 +115,18 @@ class RouteArt {
   }
 
   async exportImage(filename = "route-art.png") {
-    if (!this._canvas) return;
+    if (!this._canvas) {
+      return;
+    }
     return new Promise((resolve) => {
-      this._canvas.toBlob((blob) => {
-        downloadBlob(blob, filename);
-        resolve();
-      }, "image/png", 1.0);
+      this._canvas.toBlob(
+        (blob) => {
+          downloadBlob(blob, filename);
+          resolve();
+        },
+        "image/png",
+        1.0
+      );
     });
   }
 
@@ -127,7 +135,9 @@ class RouteArt {
       clearTimeout(this._closeTimer);
       this._closeTimer = null;
     }
-    if (this._container) this._container.remove();
+    if (this._container) {
+      this._container.remove();
+    }
     if (this._keyHandler) {
       document.removeEventListener("keydown", this._keyHandler);
       this._keyHandler = null;
@@ -157,14 +167,20 @@ class RouteArt {
     `;
 
     // Bind events
-    el.querySelector(".route-art-close-btn")?.addEventListener("click", () => this.close());
-    el.querySelector(".route-art-export-btn")?.addEventListener("click", () => this.exportImage());
+    el.querySelector(".route-art-close-btn")?.addEventListener("click", () =>
+      this.close()
+    );
+    el.querySelector(".route-art-export-btn")?.addEventListener("click", () =>
+      this.exportImage()
+    );
     el.querySelectorAll(".route-art-mode-btn").forEach((btn) => {
       btn.addEventListener("click", () => this.setMode(btn.dataset.mode));
     });
 
     this._keyHandler = (e) => {
-      if (e.key === "Escape" && this._active) this.close();
+      if (e.key === "Escape" && this._active) {
+        this.close();
+      }
     };
     document.addEventListener("keydown", this._keyHandler);
 
@@ -176,7 +192,9 @@ class RouteArt {
   }
 
   _render() {
-    if (!this._canvas || !this._trips.length) return;
+    if (!this._canvas || !this._trips.length) {
+      return;
+    }
 
     const dpr = window.devicePixelRatio || 1;
     const w = window.innerWidth;
@@ -207,7 +225,9 @@ class RouteArt {
     // Draw each trip
     trips.forEach((trip, index) => {
       const coords = this._getCoordinates(trip);
-      if (coords.length < 2) return;
+      if (coords.length < 2) {
+        return;
+      }
 
       ctx.beginPath();
       const startPt = project(coords[0]);
@@ -251,17 +271,31 @@ class RouteArt {
       case "time": {
         const hour = this._getTripHour(trip);
         // Warm colors for day, cool for night
-        if (hour >= 6 && hour < 10) return "#f0b840"; // morning gold
-        if (hour >= 10 && hour < 14) return "#d09868"; // midday copper
-        if (hour >= 14 && hour < 18) return "#c45454"; // afternoon rose
-        if (hour >= 18 && hour < 22) return "#6a4fad"; // evening purple
+        if (hour >= 6 && hour < 10) {
+          return "#f0b840";
+        } // morning gold
+        if (hour >= 10 && hour < 14) {
+          return "#d09868";
+        } // midday copper
+        if (hour >= 14 && hour < 18) {
+          return "#c45454";
+        } // afternoon rose
+        if (hour >= 18 && hour < 22) {
+          return "#6a4fad";
+        } // evening purple
         return "#3b8a7f"; // night teal
       }
       case "speed": {
         const speed = trip.properties?.maxSpeed || trip.properties?.max_speed || 30;
-        if (speed < 25) return "#4d9a6a";
-        if (speed < 45) return "#d4a24a";
-        if (speed < 65) return "#d09868";
+        if (speed < 25) {
+          return "#4d9a6a";
+        }
+        if (speed < 45) {
+          return "#d4a24a";
+        }
+        if (speed < 65) {
+          return "#d09868";
+        }
         return "#c45454";
       }
       case "recency": {
@@ -279,21 +313,32 @@ class RouteArt {
 
   _getTripHour(trip) {
     const time = trip.properties?.startTime || trip.properties?.start_time;
-    if (!time) return 12;
+    if (!time) {
+      return 12;
+    }
     const d = new Date(time);
     return Number.isNaN(d.getTime()) ? 12 : d.getHours();
   }
 
   _getCoordinates(trip) {
     const geom = trip.geometry;
-    if (!geom) return [];
-    if (geom.type === "LineString") return geom.coordinates;
-    if (geom.type === "MultiLineString") return geom.coordinates.flat();
+    if (!geom) {
+      return [];
+    }
+    if (geom.type === "LineString") {
+      return geom.coordinates;
+    }
+    if (geom.type === "MultiLineString") {
+      return geom.coordinates.flat();
+    }
     return [];
   }
 
   _computeBounds(trips) {
-    let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+    let minLng = Infinity,
+      minLat = Infinity,
+      maxLng = -Infinity,
+      maxLat = -Infinity;
     for (const trip of trips) {
       for (const coord of this._getCoordinates(trip)) {
         minLng = Math.min(minLng, coord[0]);
@@ -306,8 +351,8 @@ class RouteArt {
   }
 
   _createProjection(bounds, w, h, padding) {
-    const sw = bounds.sw;
-    const ne = bounds.ne;
+    const { sw } = bounds;
+    const { ne } = bounds;
     const lngRange = ne[0] - sw[0] || 0.01;
     const latRange = ne[1] - sw[1] || 0.01;
     const drawW = w - padding * 2;

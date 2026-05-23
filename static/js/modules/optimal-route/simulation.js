@@ -22,7 +22,9 @@ export class DriveSimulation {
 
   /** Activate simulation mode for a given area. */
   activate(areaId) {
-    if (this.active && this.areaId === areaId) return;
+    if (this.active && this.areaId === areaId) {
+      return;
+    }
     this.areaId = areaId;
     this.active = true;
     this.selectedSegments.clear();
@@ -52,7 +54,9 @@ export class DriveSimulation {
   /** Toggle a segment on/off by its feature. */
   toggleSegment(feature) {
     const segId = feature.properties?.segment_id;
-    if (!segId) return;
+    if (!segId) {
+      return;
+    }
 
     if (this.selectedSegments.has(segId)) {
       this.selectedSegments.delete(segId);
@@ -82,7 +86,9 @@ export class DriveSimulation {
 
   _ensureMapLayer() {
     const mapgl = this.map.map;
-    if (!mapgl) return;
+    if (!mapgl) {
+      return;
+    }
 
     if (!mapgl.getSource("simulation-selected")) {
       mapgl.addSource("simulation-selected", {
@@ -110,7 +116,9 @@ export class DriveSimulation {
   _updateSourceData() {
     const mapgl = this.map.map;
     const source = mapgl?.getSource("simulation-selected");
-    if (!source) return;
+    if (!source) {
+      return;
+    }
 
     source.setData({
       type: "FeatureCollection",
@@ -124,7 +132,9 @@ export class DriveSimulation {
 
   _bindMapEvents() {
     const mapgl = this.map.map;
-    if (!mapgl) return;
+    if (!mapgl) {
+      return;
+    }
 
     mapgl.on("click", "streets-undriven-layer", this._handleClick);
     mapgl.on("click", "simulation-selected-layer", this._handleClick);
@@ -134,7 +144,9 @@ export class DriveSimulation {
 
   _unbindMapEvents() {
     const mapgl = this.map.map;
-    if (!mapgl) return;
+    if (!mapgl) {
+      return;
+    }
 
     mapgl.off("click", "streets-undriven-layer", this._handleClick);
     mapgl.off("click", "simulation-selected-layer", this._handleClick);
@@ -143,22 +155,32 @@ export class DriveSimulation {
   }
 
   _handleClick(e) {
-    if (!this.active || !e.features?.length) return;
+    if (!this.active || !e.features?.length) {
+      return;
+    }
     // Prevent normal map behavior
     e.originalEvent?.stopPropagation?.();
     this.toggleSegment(e.features[0]);
   }
 
   _handleMouseMove() {
-    if (!this.active) return;
+    if (!this.active) {
+      return;
+    }
     const mapgl = this.map.map;
-    if (mapgl) mapgl.getCanvas().style.cursor = "crosshair";
+    if (mapgl) {
+      mapgl.getCanvas().style.cursor = "crosshair";
+    }
   }
 
   _handleMouseLeave() {
-    if (!this.active) return;
+    if (!this.active) {
+      return;
+    }
     const mapgl = this.map.map;
-    if (mapgl) mapgl.getCanvas().style.cursor = "";
+    if (mapgl) {
+      mapgl.getCanvas().style.cursor = "";
+    }
   }
 
   // ---------------------------------------------------------------------------

@@ -28,5 +28,5 @@ compatibility, migration, or legacy code.
 - All app runtime inspection, testing, and deployment must happen against the
   mini PC deployment, reached with `ssh 100.96.182.111`, or the public deployed
   URL.
-- "deploy", "production", "server", "runtime", "run", and "test" always refer
-  to the mini PC deployment, never a local dev server on the MacBook Pro.
+- "deploy", "production", "server", "runtime", "run", and "test" always refer to
+  the mini PC deployment, never a local dev server on the MacBook Pro.

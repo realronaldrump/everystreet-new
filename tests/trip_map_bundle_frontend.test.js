@@ -76,7 +76,10 @@ test("map route and data manager use deck-backed trip map bundles", () => {
   );
   assert.doesNotMatch(dataManager, /updateMapLayer\("trips",\s*tripData\)/);
   assert.match(layerManager, /TripMapBundle/);
-  assert.match(tripMapRenderer, /estimated_cost:\s*trip\?\.estimated_cost\s*\?\?\s*null/);
+  assert.match(
+    tripMapRenderer,
+    /estimated_cost:\s*trip\?\.estimated_cost\s*\?\?\s*null/
+  );
   assert.match(tripMapRenderer, /closeOnClick:\s*false/);
   assert.match(tripMapRenderer, /srcEvent\?\.stopPropagation\?\.\(\)/);
 });

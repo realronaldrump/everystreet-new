@@ -143,14 +143,14 @@
     0 0 12px color-mix(in srgb, var(--legend-core-color, #f0b840) 45%, transparent);
 }
 
-
 @media (width <= 768px) {
   .map-smart-legend {
-    inset: auto auto calc(
-      max(var(--map-sheet-visible-height, 60px), 60px) +
-      env(safe-area-inset-bottom, 0px) +
-      var(--space-2)
-    ) var(--space-2);
+    inset: auto auto
+      calc(
+        max(var(--map-sheet-visible-height, 60px), 60px) + env(safe-area-inset-bottom, 0px) +
+          var(--space-2)
+      )
+      var(--space-2);
     min-width: 0;
     max-width: min(16rem, calc(100vw - 5rem));
     font-size: 0.72rem;

@@ -115,8 +115,8 @@ def _extract_linestring(geometry: dict[str, Any] | None) -> list[list[float]]:
 )
 async def get_memory_city(area_id: PydanticObjectId) -> MemoryCityResponse:
     """
-    Return all driven segments for an area with the temporal metadata
-    needed to render the Memory City sculpture.
+    Return all driven segments for an area with the temporal metadata needed to render
+    the Memory City sculpture.
 
     Streets that have never been driven are intentionally omitted — the
     view shows only "the city you've built."

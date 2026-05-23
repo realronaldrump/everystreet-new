@@ -174,10 +174,7 @@ const buildMapLayerColors = () => ({
       "--success-dark",
       DEFAULT_MAP_LAYER_COLORS.county.visitedBorder
     ),
-    stoppedFill: getCSSVariable(
-      "--info",
-      DEFAULT_MAP_LAYER_COLORS.county.stoppedFill
-    ),
+    stoppedFill: getCSSVariable("--info", DEFAULT_MAP_LAYER_COLORS.county.stoppedFill),
     stoppedBorder: getCSSVariable(
       "--info-dark",
       DEFAULT_MAP_LAYER_COLORS.county.stoppedBorder

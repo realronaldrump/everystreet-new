@@ -99,8 +99,7 @@
   z-index: var(--z-drawer);
   overflow: hidden;
   background:
-    linear-gradient(135deg, rgb(var(--info-rgb) / 18%), transparent 42%),
-    var(--surface-glass);
+    linear-gradient(135deg, rgb(var(--info-rgb) / 18%), transparent 42%), var(--surface-glass);
   color: var(--text-primary);
   padding: var(--space-2) var(--space-3) calc(var(--space-2) + 3px);
   border-radius: var(--radius-lg);
@@ -122,12 +121,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgb(255 255 255 / 9%) 45%,
-    transparent 72%
-  );
+  background: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / 9%) 45%, transparent 72%);
   transform: translateX(-110%);
   animation: minimized-badge-sheen 2.8s ease-in-out infinite;
   pointer-events: none;
@@ -710,7 +704,9 @@ body.light-mode .alert-info {
   color: var(--text-tertiary);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
-  transition: color 120ms ease, background-color 120ms ease;
+  transition:
+    color 120ms ease,
+    background-color 120ms ease;
 }
 
 .notif-clear-all-btn:hover {
@@ -753,10 +749,18 @@ body.light-mode .alert-info {
   opacity: 0.85;
 }
 
-.notif-history-item--success .notif-history-icon { color: var(--success); }
-.notif-history-item--error   .notif-history-icon { color: var(--danger); }
-.notif-history-item--warning .notif-history-icon { color: var(--warning); }
-.notif-history-item--info    .notif-history-icon { color: var(--info); }
+.notif-history-item--success .notif-history-icon {
+  color: var(--success);
+}
+.notif-history-item--error .notif-history-icon {
+  color: var(--danger);
+}
+.notif-history-item--warning .notif-history-icon {
+  color: var(--warning);
+}
+.notif-history-item--info .notif-history-icon {
+  color: var(--info);
+}
 
 .notif-history-body {
   flex: 1;
@@ -785,7 +789,9 @@ body.light-mode .alert-info {
   padding: var(--space-1);
   border-radius: var(--radius-sm);
   opacity: 0;
-  transition: opacity 120ms ease, color 120ms ease;
+  transition:
+    opacity 120ms ease,
+    color 120ms ease;
   flex-shrink: 0;
   font-size: var(--font-size-xs);
   line-height: 1;

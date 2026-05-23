@@ -34,7 +34,14 @@
         })();
     </script>
 
-    <title>{% block title %}Every Street{% endblock %}</title>
+    <title>
+
+      {% block title %}
+
+Every Street
+      {% endblock %}
+
+    </title>
     <link rel="dns-prefetch" href="//cdn.jsdelivr.net" />
     <link rel="dns-prefetch" href="//cdnjs.cloudflare.com" />
     <link rel="dns-prefetch" href="//api.mapbox.com" />
@@ -62,8 +69,14 @@
       <link rel="stylesheet" href="{{ CDN.flatpickr_css }}" />
     </noscript>
 
-    {% block extra_css %}{% endblock %}
-    {% block head_content %}{% endblock %}
+    {% block extra_css %}
+
+    {% endblock %}
+
+    {% block head_content %}
+
+    {% endblock %}
+
 
   </head>
   <body data-route="{{ es_route_path }}"
@@ -226,10 +239,18 @@
           </ol>
         </nav>
         <div id="persistent-shell" class="persistent-shell">
-          {% block persistent_shell %}{% endblock %}
+
+          {% block persistent_shell %}
+
+          {% endblock %}
+
         </div>
         <div id="route-content" class="route-content">
-          {% block content %}{% endblock %}
+
+          {% block content %}
+
+          {% endblock %}
+
         </div>
 
         <footer class="app-footer">

@@ -53,7 +53,9 @@ async def build_base_template_context(
 ) -> dict[str, Any]:
     """Return the shared base template context for HTML responses."""
     auth_context = get_request_auth_context(request)
-    app_settings = await _get_template_app_settings(include_sensitive=auth_context.is_owner)
+    app_settings = await _get_template_app_settings(
+        include_sensitive=auth_context.is_owner
+    )
     return {
         "repo_version": get_repo_version_info(),
         "app_settings": app_settings,

@@ -2,13 +2,20 @@
 
 {% from "partials/_map_assets.html" import static_css with context %}
 
-{% block title %}Memory City{% endblock %}
+{% block title %}
+
+Memory City
+{% endblock %}
+
 
 {% block extra_css %}
+
   {{ static_css("memory-city.css") }}
 {% endblock %}
 
+
 {% block content %}
+
   <section id="memory-city" class="memory-city-view" aria-label="Memory City">
     <div id="memory-city-stage" class="memory-city-stage">
       <div id="memory-city-canvas" class="memory-city-canvas">

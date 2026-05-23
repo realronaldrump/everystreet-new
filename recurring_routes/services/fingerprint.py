@@ -15,10 +15,7 @@ from typing import Any
 
 from core.constants import METERS_TO_MILES
 from core.preview_path import build_line_preview_svg_path
-from core.spatial import (
-    GeometryService,
-    flatten_line_coordinates,
-)
+from core.spatial import GeometryService, flatten_line_coordinates
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +163,8 @@ def _coerce_place_id_for_sig(value: Any) -> str | None:
 
 
 def compute_route_signature(trip: dict[str, Any], params: dict[str, Any]) -> str | None:
-    """Compute a stable signature string used for route clustering.
+    """
+    Compute a stable signature string used for route clustering.
 
     Algorithm v2+ uses Place IDs for start/end when available, producing
     more stable grouping that is immune to GPS noise at known locations.
@@ -235,13 +233,7 @@ def compute_route_signature(trip: dict[str, Any], params: dict[str, Any]) -> str
     )
 
     wp_part = ",".join(f"{cx}:{cy}" for cx, cy in waypoint_cells)
-    return (
-        f"v{algo}|"
-        f"{start_part}|"
-        f"{end_part}|"
-        f"w{wp_part}|"
-        f"d{bucket:.1f}"
-    )
+    return f"v{algo}|{start_part}|{end_part}|w{wp_part}|d{bucket:.1f}"
 
 
 def compute_route_key(signature: str) -> str:

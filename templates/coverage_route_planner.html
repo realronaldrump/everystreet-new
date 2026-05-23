@@ -2,14 +2,21 @@
 
 {% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}Route Planner{% endblock %}
+{% block title %}
+
+Route Planner
+{% endblock %}
+
 
 {% block extra_css %}
+
   {{ include_mapbox_css() }}
   {{ static_css("coverage-route-planner.css") }}
 {% endblock %}
 
+
 {% block content %}
+
   <div class="coverage-route-planner">
     <h1 class="visually-hidden">
 Route Planner
@@ -997,5 +1004,6 @@ Legend
     </div>
   </div>
 {% endblock %}
+
 
 {# Page scripts are loaded via route-loader + swup. #}

@@ -137,7 +137,9 @@ class StatisticsService:
             "period_end": fillups[-1].fillup_time,
             "cost_per_mile": (
                 round(average_price / average_mpg, 3)
-                if average_price is not None and average_mpg is not None and average_mpg > 0
+                if average_price is not None
+                and average_mpg is not None
+                and average_mpg > 0
                 else None
             ),
         }

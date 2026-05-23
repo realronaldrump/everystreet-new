@@ -2,14 +2,21 @@
 
 {% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}Gas Tracking{% endblock %}
+{% block title %}
+
+Gas Tracking
+{% endblock %}
+
 
 {% block extra_css %}
+
   {{ include_mapbox_css() }}
   {{ static_css("gas_tracking.css") }}
 {% endblock %}
 
+
 {% block content %}
+
   <div class="gas-tracking-page">
     <header class="gas-header" data-stagger>
       <div class="header-content">
@@ -270,5 +277,6 @@ No fill-ups yet
     </div>
   </div>
 {% endblock %}
+
 
 {# Page scripts are loaded via route-loader + swup. #}

@@ -233,9 +233,7 @@
   padding: 0.75rem 0.875rem;
   border: 1px solid rgb(255 206 135 / 18%);
   border-radius: 1rem;
-  background:
-    linear-gradient(180deg, rgb(18 15 12 / 94%), rgb(10 9 9 / 92%)),
-    rgb(13 12 11 / 94%);
+  background: linear-gradient(180deg, rgb(18 15 12 / 94%), rgb(10 9 9 / 92%)), rgb(13 12 11 / 94%);
   box-shadow:
     0 20px 40px rgb(0 0 0 / 24%),
     0 0 22px rgb(255 173 86 / 10%);
@@ -299,9 +297,8 @@
   .map-fab-dock {
     right: var(--space-4);
     bottom: calc(
-      max(var(--map-sheet-visible-height, 60px), 60px) +
-      env(safe-area-inset-bottom, 0px) +
-      var(--space-2)
+      max(var(--map-sheet-visible-height, 60px), 60px) + env(safe-area-inset-bottom, 0px) +
+        var(--space-2)
     );
   }
 

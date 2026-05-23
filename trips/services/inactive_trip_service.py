@@ -133,8 +133,9 @@ class InactiveTripService:
         """
         Rebuild driven coverage state for any areas touched by this trip.
 
-        We clear derived non-manual driven rows and re-run a full backfill so street
-        coverage reflects the current inactive/active state of historical trips.
+        We clear derived non-manual driven rows and re-run a full
+        backfill so street coverage reflects the current inactive/active
+        state of historical trips.
         """
         areas = await cls._find_affected_coverage_areas(trip)
         if not areas:

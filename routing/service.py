@@ -33,10 +33,7 @@ from .graph import (
     try_match_osmid,
 )
 from .validation import validate_route
-from .workflow import (
-    apply_gap_bridge_stats,
-    build_route_result,
-)
+from .workflow import apply_gap_bridge_stats, build_route_result
 
 if TYPE_CHECKING:
     from .types import EdgeRef, ReqId

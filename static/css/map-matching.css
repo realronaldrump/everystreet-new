@@ -5,11 +5,8 @@
 /* === Page Background === */
 .map-matching-page {
   min-height: calc(100vh - var(--header-height, 64px));
-  background: radial-gradient(
-      ellipse 800px 400px at 50% 0%,
-      rgb(var(--primary-rgb) / 6%),
-      transparent 70%
-    ),
+  background:
+    radial-gradient(ellipse 800px 400px at 50% 0%, rgb(var(--primary-rgb) / 6%), transparent 70%),
     var(--surface-0);
 }
 
@@ -60,7 +57,9 @@
   background: var(--primary);
   border-color: var(--primary);
   color: var(--text-on-primary);
-  box-shadow: 0 0 0 4px rgb(var(--primary-rgb) / 15%), 0 4px 12px rgb(var(--primary-rgb) / 25%);
+  box-shadow:
+    0 0 0 4px rgb(var(--primary-rgb) / 15%),
+    0 4px 12px rgb(var(--primary-rgb) / 25%);
 }
 
 .mm-phase-step.is-completed .mm-step-dot {
@@ -129,16 +128,9 @@
   text-align: center;
   padding: var(--space-8) var(--space-6);
   margin-bottom: var(--space-5);
-  background: radial-gradient(
-      600px ellipse at 50% 0%,
-      rgb(var(--cat-mint-rgb) / 12%),
-      transparent 60%
-    ),
-    radial-gradient(
-      400px circle at 80% 80%,
-      rgb(var(--primary-rgb) / 6%),
-      transparent 60%
-    ),
+  background:
+    radial-gradient(600px ellipse at 50% 0%, rgb(var(--cat-mint-rgb) / 12%), transparent 60%),
+    radial-gradient(400px circle at 80% 80%, rgb(var(--primary-rgb) / 6%), transparent 60%),
     var(--surface-1);
   border-radius: var(--radius-2xl);
   border: 1px solid rgb(var(--border-rgb) / 10%);
@@ -516,13 +508,15 @@
   gap: var(--space-2);
   cursor: pointer;
   transition: all var(--transition-normal);
-  box-shadow: 0 4px 14px rgb(var(--primary-rgb) / 25%),
+  box-shadow:
+    0 4px 14px rgb(var(--primary-rgb) / 25%),
     inset 0 1px 0 rgb(255 255 255 / 10%);
 }
 
 .mm-btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgb(var(--primary-rgb) / 35%),
+  box-shadow:
+    0 8px 24px rgb(var(--primary-rgb) / 35%),
     inset 0 1px 0 rgb(255 255 255 / 12%);
   filter: brightness(1.05);
 }
@@ -711,11 +705,8 @@
 .mm-process-card {
   text-align: center;
   padding: var(--space-10) var(--space-6);
-  background: radial-gradient(
-      500px circle at 50% 40%,
-      rgb(var(--primary-rgb) / 6%),
-      transparent 70%
-    ),
+  background:
+    radial-gradient(500px circle at 50% 40%, rgb(var(--primary-rgb) / 6%), transparent 70%),
     var(--surface-1);
   border-radius: var(--radius-2xl);
   border: 1px solid rgb(var(--border-rgb) / 10%);
@@ -831,11 +822,7 @@
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-5) var(--space-6);
-  background: linear-gradient(
-    135deg,
-    rgb(var(--success-rgb) / 10%),
-    rgb(var(--success-rgb) / 4%)
-  );
+  background: linear-gradient(135deg, rgb(var(--success-rgb) / 10%), rgb(var(--success-rgb) / 4%));
   border-bottom: 1px solid rgb(var(--border-rgb) / 10%);
 }
 
@@ -1278,7 +1265,9 @@
   border-radius: var(--radius-full);
   background: var(--surface-1);
   border: 1px solid rgb(var(--border-rgb) / 12%);
-  box-shadow: 0 4px 20px rgb(0 0 0 / 12%), 0 1px 3px rgb(0 0 0 / 8%);
+  box-shadow:
+    0 4px 20px rgb(0 0 0 / 12%),
+    0 1px 3px rgb(0 0 0 / 8%);
   color: var(--text-secondary);
   font-size: var(--font-size-lg);
   cursor: pointer;
@@ -1290,7 +1279,9 @@
   background: var(--surface-2);
   color: var(--primary);
   transform: translateY(-3px);
-  box-shadow: 0 8px 28px rgb(0 0 0 / 18%), 0 2px 6px rgb(0 0 0 / 10%);
+  box-shadow:
+    0 8px 28px rgb(0 0 0 / 18%),
+    0 2px 6px rgb(0 0 0 / 10%);
 }
 
 .mm-fab-badge {
@@ -1698,11 +1689,7 @@
 
 /* === Results Header Variants === */
 .mm-results-header-browse {
-  background: linear-gradient(
-    135deg,
-    rgb(var(--primary-rgb) / 10%),
-    rgb(var(--primary-rgb) / 4%)
-  );
+  background: linear-gradient(135deg, rgb(var(--primary-rgb) / 10%), rgb(var(--primary-rgb) / 4%));
 }
 
 .mm-results-icon-browse {
@@ -1711,11 +1698,7 @@
 }
 
 .mm-results-header-failed {
-  background: linear-gradient(
-    135deg,
-    rgb(var(--warning-rgb) / 10%),
-    rgb(var(--warning-rgb) / 4%)
-  );
+  background: linear-gradient(135deg, rgb(var(--warning-rgb) / 10%), rgb(var(--warning-rgb) / 4%));
 }
 
 .mm-results-icon-warning {

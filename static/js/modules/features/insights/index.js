@@ -232,7 +232,6 @@ function handleToggleChange(e) {
 
     InsightsCharts.updateTrendsChart();
     InsightsStories.updatePeriodStory(nextMode, nextMode);
-    return;
   }
 }
 

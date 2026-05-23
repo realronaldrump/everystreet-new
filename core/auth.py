@@ -82,9 +82,7 @@ PUBLIC_MUTATION_PATHS: Final[set[str]] = {
     "/api/driving-navigation/next-route",
     "/api/webhooks/bouncie/live",
 }
-PUBLIC_MUTATION_PREFIXES: Final[tuple[str, ...]] = (
-    "/api/routing/",
-)
+PUBLIC_MUTATION_PREFIXES: Final[tuple[str, ...]] = ("/api/routing/",)
 PUBLIC_SAFE_API_PATHS: Final[set[str]] = {
     "/api/active_trip",
     "/api/trip_updates",
@@ -239,7 +237,9 @@ def mark_owner_session(request: Request) -> AuthContext:
 def clear_auth_session(request: Request) -> None:
     """Remove any persisted auth session."""
     _session_store(request).clear()
-    request.state.auth = _open_auth_context() if not owner_login_enabled() else AuthContext()
+    request.state.auth = (
+        _open_auth_context() if not owner_login_enabled() else AuthContext()
+    )
 
 
 def refresh_owner_session(request: Request) -> None:
@@ -354,7 +354,10 @@ def is_public_page_path(path: str) -> bool:
 
 def is_owner_page_path(path: str) -> bool:
     """Return whether an HTML page is owner-only."""
-    return any(path == prefix or path.startswith(f"{prefix}/") for prefix in OWNER_PAGE_PREFIXES)
+    return any(
+        path == prefix or path.startswith(f"{prefix}/")
+        for prefix in OWNER_PAGE_PREFIXES
+    )
 
 
 def is_public_request(method: str, path: str) -> bool:
@@ -389,7 +392,9 @@ def is_html_request(request: Request) -> bool:
     accept = (request.headers.get("accept") or "").lower()
     if path.startswith("/api/"):
         return False
-    return "text/html" in accept or is_public_page_path(path) or is_owner_page_path(path)
+    return (
+        "text/html" in accept or is_public_page_path(path) or is_owner_page_path(path)
+    )
 
 
 async def validate_csrf(request: Request) -> bool:

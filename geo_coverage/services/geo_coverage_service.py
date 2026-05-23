@@ -247,11 +247,15 @@ def _get_incremental_checkpoint(
 def _build_trip_query(checkpoint: datetime | None = None) -> dict[str, Any]:
     geometry_filter = apply_trip_record_filters(
         {
-        "invalid": {"$ne": True},
-        "$or": [
-            {"gps.type": {"$in": ["LineString", "MultiLineString", "Point"]}},
-            {"matchedGps.type": {"$in": ["LineString", "MultiLineString", "Point"]}},
-        ],
+            "invalid": {"$ne": True},
+            "$or": [
+                {"gps.type": {"$in": ["LineString", "MultiLineString", "Point"]}},
+                {
+                    "matchedGps.type": {
+                        "$in": ["LineString", "MultiLineString", "Point"]
+                    }
+                },
+            ],
         },
         include_invalid=True,
     )
@@ -491,7 +495,6 @@ async def calculate_geo_coverage_task(
     job_id: str | None = None,
 ) -> None:
     """Background task to calculate county + city visit coverage."""
-
     requested_mode = _normalize_recalc_mode(mode)
     job = await _resolve_job(job_id)
 

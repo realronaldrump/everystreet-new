@@ -143,10 +143,9 @@ export class OptimalRouteAPI {
 
   async generateClusterRoute(areaId, segmentIds) {
     try {
-      const data = await apiClient.post(
-        `/api/coverage/areas/${areaId}/cluster-route`,
-        { segment_ids: segmentIds }
-      );
+      const data = await apiClient.post(`/api/coverage/areas/${areaId}/cluster-route`, {
+        segment_ids: segmentIds,
+      });
       return data.task_id;
     } catch (error) {
       console.error("Error starting cluster route generation:", error);

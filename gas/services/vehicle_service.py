@@ -162,10 +162,9 @@ class VehicleService:
                 update_data["odometer_source"] = None
                 update_data["odometer_is_estimated"] = False
             elif update_data.get("odometer_is_estimated") is None:
-                update_data["odometer_is_estimated"] = (
-                    update_data.get("odometer_source")
-                    in {"estimated", "bouncie_untrusted"}
-                )
+                update_data["odometer_is_estimated"] = update_data.get(
+                    "odometer_source"
+                ) in {"estimated", "bouncie_untrusted"}
 
         # Update fields
         for key, value in update_data.items():

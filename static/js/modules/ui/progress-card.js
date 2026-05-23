@@ -68,7 +68,9 @@ class ProgressCardGenerator {
     // Date range
     ctx.font = "400 14px 'IBM Plex Sans', sans-serif";
     ctx.fillStyle = "rgba(245, 242, 236, 0.5)";
-    if (data.dateRange) ctx.fillText(data.dateRange, 40, 96);
+    if (data.dateRange) {
+      ctx.fillText(data.dateRange, 40, 96);
+    }
 
     // Coverage ring
     const ringX = 160;
@@ -86,7 +88,12 @@ class ProgressCardGenerator {
     // Ring fill
     const startAngle = -Math.PI / 2;
     const endAngle = startAngle + (percent / 100) * Math.PI * 2;
-    const ringGrad = ctx.createLinearGradient(ringX - ringR, ringY, ringX + ringR, ringY);
+    const ringGrad = ctx.createLinearGradient(
+      ringX - ringR,
+      ringY,
+      ringX + ringR,
+      ringY
+    );
     ringGrad.addColorStop(0, "#3b8a7f");
     ringGrad.addColorStop(1, "#4d9a6a");
     ctx.beginPath();
@@ -177,12 +184,12 @@ class ProgressCardGenerator {
    */
   async copyCardToClipboard(data) {
     const blob = await this.generateCard(data);
-    if (!blob) return false;
+    if (!blob) {
+      return false;
+    }
 
     try {
-      await navigator.clipboard.write([
-        new ClipboardItem({ "image/png": blob }),
-      ]);
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
       return true;
     } catch {
       return false;
@@ -190,7 +197,9 @@ class ProgressCardGenerator {
   }
 
   _formatNumber(num, decimals = 0) {
-    if (!Number.isFinite(num)) return "0";
+    if (!Number.isFinite(num)) {
+      return "0";
+    }
     return num.toLocaleString("en-US", {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,

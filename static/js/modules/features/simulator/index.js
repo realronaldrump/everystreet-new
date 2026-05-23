@@ -254,7 +254,9 @@ export class BouncieSimulator {
     this.refs.startBtn.addEventListener("mousedown", () => this.startTrip());
     this.refs.stopBtn.addEventListener("mousedown", () => this.stopTrip());
 
-    this.dragHandle?.addEventListener("pointerdown", (event) => this._onDragStart(event));
+    this.dragHandle?.addEventListener("pointerdown", (event) =>
+      this._onDragStart(event)
+    );
     window.addEventListener("resize", this._handleViewportResize);
   }
 

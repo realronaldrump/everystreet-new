@@ -1856,7 +1856,7 @@ function createTripTableRow(trip, columns) {
 function bindTripTableHeaderSorting() {
   document.querySelectorAll(".trip-table-sort-btn").forEach((button) => {
     button.addEventListener("click", () => {
-      const sortKey = button.dataset.sortKey;
+      const { sortKey } = button.dataset;
       if (!sortKey) {
         return;
       }
@@ -3601,7 +3601,7 @@ async function loadTripData(tripId) {
     // Show/hide matched toggle based on if matchedGps exists
     const toggleContainer = document.querySelector(".trip-layer-toggle");
     if (toggleContainer) {
-      const hasMatched = !!(trip.matchedGps || trip.matched_gps);
+      const hasMatched = Boolean(trip.matchedGps || trip.matched_gps);
       if (hasMatched) {
         toggleContainer.classList.remove("d-none");
         toggleContainer.classList.add("d-flex");

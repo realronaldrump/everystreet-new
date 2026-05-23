@@ -26,7 +26,8 @@ function assignStagger(root) {
     if (el.dataset.revealReady === "1") {
       return;
     }
-    const groupKey = el.closest(`[${GROUP_ATTR}]`)?.getAttribute(GROUP_ATTR) || "default";
+    const groupKey =
+      el.closest(`[${GROUP_ATTR}]`)?.getAttribute(GROUP_ATTR) || "default";
     const idx = groups.get(groupKey) ?? 0;
     el.style.setProperty("--reveal-i", String(idx));
     groups.set(groupKey, idx + 1);
@@ -84,7 +85,7 @@ function applyParallax() {
   if (!parallaxElements.length) {
     return;
   }
-  const scrollY = window.scrollY;
+  const { scrollY } = window;
   parallaxElements.forEach((el) => {
     const speed = Number(el.dataset.parallax) || 0.1;
     const offset = scrollY * speed;

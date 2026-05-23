@@ -31,7 +31,9 @@ async def _get_routing_client() -> Any:
     return await get_router()
 
 
-def _validated_lon_lat(raw: list[float] | tuple[float, float], *, name: str) -> tuple[float, float]:
+def _validated_lon_lat(
+    raw: list[float] | tuple[float, float], *, name: str
+) -> tuple[float, float]:
     try:
         lon = float(raw[0])
         lat = float(raw[1])

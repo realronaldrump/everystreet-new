@@ -493,7 +493,8 @@ def trip_to_linestring_candidates(
     """
     Build candidate trip geometries for street matching.
 
-    Returns a list of ``(geometry, is_map_matched)`` ordered by preference.
+    Returns a list of ``(geometry, is_map_matched)`` ordered by
+    preference.
     """
     mode = normalize_coverage_trip_mode(trip_mode)
     matched_geom = _trip_to_matched_linestring(trip)
@@ -957,8 +958,8 @@ async def backfill_coverage_for_area(
     Backfill coverage for an area based on historical trips.
 
     When *full* is False (the default) and the area has a
-    ``last_backfill_trip_endtime``, only trips newer than that
-    timestamp are processed — making repeated backfills incremental.
+    ``last_backfill_trip_endtime``, only trips newer than that timestamp
+    are processed — making repeated backfills incremental.
 
     Pass *full=True* or an explicit *since* to force a full scan.
 

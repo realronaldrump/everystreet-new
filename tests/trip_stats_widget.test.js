@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  createClassList,
-  createEventTarget,
-} from "./helpers/dom-fixtures.js";
+import { createClassList, createEventTarget } from "./helpers/dom-fixtures.js";
 
 const originalGlobals = {
   document: global.document,

@@ -334,8 +334,9 @@ async def simulator_bouncie_webhook(request: Request) -> Response:
     """
     Simulator-only ingress for synthetic webhook traffic.
 
-    This endpoint intentionally bypasses real webhook auth validation so the
-    production Bouncie webhook key is never coupled to a browser-side tool.
+    This endpoint intentionally bypasses real webhook auth validation so
+    the production Bouncie webhook key is never coupled to a browser-
+    side tool.
     """
     return await _handle_live_webhook_request(
         request,

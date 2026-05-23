@@ -11,8 +11,8 @@
  */
 
 import store from "./core/store.js";
-import { clearTripInteractionState } from "./trip-selection-state.js";
 import tripMapRenderer from "./trip-map-renderer.js";
+import { clearTripInteractionState } from "./trip-selection-state.js";
 
 // ---------------------------------------------------------------------------
 // Tunables
@@ -28,24 +28,40 @@ const FADE_OUT_MS = 400;
 
 // Adaptive density: maps trip-count to particle-count
 function particleBudget(tripCount) {
-  if (tripCount <= 0) return 0;
-  if (tripCount <= 3) return Math.max(MIN_PARTICLES, tripCount * 25);
-  if (tripCount <= 20) return Math.min(tripCount * 15, 400);
-  if (tripCount <= 100) return Math.min(300 + tripCount * 3, 1200);
-  if (tripCount <= 500) return Math.min(1200 + tripCount, 3000);
-  if (tripCount <= 2000) return Math.min(3000 + Math.floor(tripCount * 0.8), 6000);
+  if (tripCount <= 0) {
+    return 0;
+  }
+  if (tripCount <= 3) {
+    return Math.max(MIN_PARTICLES, tripCount * 25);
+  }
+  if (tripCount <= 20) {
+    return Math.min(tripCount * 15, 400);
+  }
+  if (tripCount <= 100) {
+    return Math.min(300 + tripCount * 3, 1200);
+  }
+  if (tripCount <= 500) {
+    return Math.min(1200 + tripCount, 3000);
+  }
+  if (tripCount <= 2000) {
+    return Math.min(3000 + Math.floor(tripCount * 0.8), 6000);
+  }
   return Math.min(6000 + Math.floor(tripCount * 0.3), MAX_PARTICLES);
 }
 
 // Particle radius adapts so dense networks don't become a blob
 function particleRadius(tripCount, zoom) {
   let base = 2.2;
-  if (tripCount > 500) base = 1.6;
-  else if (tripCount > 100) base = 1.8;
-  else if (tripCount > 20) base = 2.0;
+  if (tripCount > 500) {
+    base = 1.6;
+  } else if (tripCount > 100) {
+    base = 1.8;
+  } else if (tripCount > 20) {
+    base = 2.0;
+  }
 
   // Scale with zoom
-  const zoomFactor = Math.pow(1.12, zoom - 12);
+  const zoomFactor = 1.12 ** (zoom - 12);
   return Math.max(0.8, Math.min(base * zoomFactor, 5));
 }
 
@@ -56,15 +72,21 @@ function particleRadius(tripCount, zoom) {
 /** Flatten GeoJSON features into an array of coordinate arrays (LineStrings). */
 function extractPaths(geojson) {
   const paths = [];
-  if (!geojson?.features) return paths;
+  if (!geojson?.features) {
+    return paths;
+  }
   for (const f of geojson.features) {
     const g = f.geometry;
-    if (!g) continue;
+    if (!g) {
+      continue;
+    }
     if (g.type === "LineString" && g.coordinates?.length >= 2) {
       paths.push(g.coordinates);
     } else if (g.type === "MultiLineString") {
       for (const line of g.coordinates) {
-        if (line?.length >= 2) paths.push(line);
+        if (line?.length >= 2) {
+          paths.push(line);
+        }
       }
     }
   }
@@ -86,7 +108,9 @@ function buildCumulativeDist(projected) {
 /** Interpolate screen position at fractional progress t ∈ [0,1] along path. */
 function samplePath(projected, cumDist, t) {
   const totalLen = cumDist[cumDist.length - 1];
-  if (totalLen === 0) return projected[0];
+  if (totalLen === 0) {
+    return projected[0];
+  }
   const target = t * totalLen;
 
   // Binary search for segment
@@ -94,12 +118,17 @@ function samplePath(projected, cumDist, t) {
   let hi = cumDist.length - 1;
   while (lo < hi - 1) {
     const mid = (lo + hi) >> 1;
-    if (cumDist[mid] <= target) lo = mid;
-    else hi = mid;
+    if (cumDist[mid] <= target) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
   }
 
   const segLen = cumDist[hi] - cumDist[lo];
-  if (segLen === 0) return projected[lo];
+  if (segLen === 0) {
+    return projected[lo];
+  }
   const frac = (target - cumDist[lo]) / segLen;
   return [
     projected[lo][0] + (projected[hi][0] - projected[lo][0]) * frac,
@@ -147,12 +176,16 @@ const particleFlow = {
 
   /** Activate particle flow mode. */
   activate() {
-    if (this._active) return;
+    if (this._active) {
+      return;
+    }
     this._active = true;
     this._destroyed = false;
 
-    const map = store.map;
-    if (!map) return;
+    const { map } = store;
+    if (!map) {
+      return;
+    }
 
     this._createCanvas(map);
     this._collectPaths();
@@ -173,7 +206,9 @@ const particleFlow = {
 
   /** Deactivate particle flow mode. */
   deactivate() {
-    if (!this._active) return;
+    if (!this._active) {
+      return;
+    }
 
     // Fade out then clean up
     this._fading = "out";
@@ -212,7 +247,9 @@ const particleFlow = {
 
   /** Re-read trip data (e.g. after date filter change). */
   refresh() {
-    if (!this._active) return;
+    if (!this._active) {
+      return;
+    }
     this._collectPaths();
     this._spawnParticles();
     this._reprojectAll();
@@ -230,9 +267,13 @@ const particleFlow = {
   // ------ Canvas management -------------------------------------------------
 
   _createCanvas(map) {
-    if (this._canvas) return;
+    if (this._canvas) {
+      return;
+    }
     const container = map.getCanvasContainer();
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     const mapCanvas = map.getCanvas();
     const canvas = document.createElement("canvas");
@@ -256,8 +297,10 @@ const particleFlow = {
   },
 
   _resizeCanvas() {
-    const map = store.map;
-    if (!this._canvas || !map) return;
+    const { map } = store;
+    if (!this._canvas || !map) {
+      return;
+    }
     const mapCanvas = map.getCanvas();
     if (
       this._canvas.width !== mapCanvas.width ||
@@ -274,7 +317,9 @@ const particleFlow = {
     this._paths = [];
     for (const layerName of ["trips", "matchedTrips"]) {
       const layerData = store.mapLayers[layerName];
-      if (!layerData?.visible || !layerData.layer) continue;
+      if (!layerData?.visible || !layerData.layer) {
+        continue;
+      }
       const source =
         layerData.layer?.type === "TripMapBundle"
           ? tripMapRenderer.getFeatureCollection(layerName)
@@ -293,8 +338,10 @@ const particleFlow = {
   // ------ Projection --------------------------------------------------------
 
   _reprojectAll() {
-    const map = store.map;
-    if (!map) return;
+    const { map } = store;
+    if (!map) {
+      return;
+    }
 
     for (const path of this._paths) {
       const projected = new Array(path.lngLat.length);
@@ -326,8 +373,7 @@ const particleFlow = {
         pathIdx,
         t: Math.random(), // progress along path [0,1]
         speed:
-          PARTICLE_SPEED_BASE *
-          (1 + (Math.random() * 2 - 1) * PARTICLE_SPEED_VARIANCE),
+          PARTICLE_SPEED_BASE * (1 + (Math.random() * 2 - 1) * PARTICLE_SPEED_VARIANCE),
         trail: [], // recent screen positions
         age: Math.random() * 100, // stagger initial age to avoid sync
       };
@@ -340,8 +386,7 @@ const particleFlow = {
     p.pathIdx = Math.floor(Math.random() * this._paths.length);
     p.t = Math.random() * RESPAWN_JITTER;
     p.speed =
-      PARTICLE_SPEED_BASE *
-      (1 + (Math.random() * 2 - 1) * PARTICLE_SPEED_VARIANCE);
+      PARTICLE_SPEED_BASE * (1 + (Math.random() * 2 - 1) * PARTICLE_SPEED_VARIANCE);
     p.trail = [];
     p.age = 0;
   },
@@ -362,11 +407,19 @@ const particleFlow = {
   },
 
   _unbindMapEvents() {
-    const map = store.map;
-    if (!map) return;
-    if (this._mapMoveHandler) map.off("move", this._mapMoveHandler);
-    if (this._mapZoomHandler) map.off("zoom", this._mapZoomHandler);
-    if (this._mapResizeHandler) map.off("resize", this._mapResizeHandler);
+    const { map } = store;
+    if (!map) {
+      return;
+    }
+    if (this._mapMoveHandler) {
+      map.off("move", this._mapMoveHandler);
+    }
+    if (this._mapZoomHandler) {
+      map.off("zoom", this._mapZoomHandler);
+    }
+    if (this._mapResizeHandler) {
+      map.off("resize", this._mapResizeHandler);
+    }
     this._mapMoveHandler = null;
     this._mapZoomHandler = null;
     this._mapResizeHandler = null;
@@ -375,22 +428,26 @@ const particleFlow = {
   // ------ Layer visibility management ---------------------------------------
 
   _hideTripLayers(map) {
-    if (!map) return;
+    if (!map) {
+      return;
+    }
     if (!Array.isArray(this._prevHiddenLayers)) {
       this._prevHiddenLayers = [];
     }
 
     const style = map.getStyle();
-    if (!style?.layers) return;
+    if (!style?.layers) {
+      return;
+    }
 
     for (const layer of style.layers) {
-      const id = layer.id;
+      const { id } = layer;
       // Hide any trip-related rendered layers (not hitbox)
       if (
-        (id.startsWith("trips-layer") ||
-          id.startsWith("matchedTrips-layer") ||
-          id === "trips-hitbox" ||
-          id === "matchedTrips-hitbox")
+        id.startsWith("trips-layer") ||
+        id.startsWith("matchedTrips-layer") ||
+        id === "trips-hitbox" ||
+        id === "matchedTrips-hitbox"
       ) {
         const currentVis = map.getLayoutProperty(id, "visibility");
         if (currentVis !== "none") {
@@ -404,7 +461,9 @@ const particleFlow = {
   },
 
   _restoreTripLayers(map) {
-    if (!map || !this._prevHiddenLayers) return;
+    if (!map || !this._prevHiddenLayers) {
+      return;
+    }
     for (const id of this._prevHiddenLayers) {
       try {
         if (map.getLayer(id)) {
@@ -420,7 +479,9 @@ const particleFlow = {
   // ------ Animation loop ----------------------------------------------------
 
   _startLoop() {
-    if (this._animFrame) return;
+    if (this._animFrame) {
+      return;
+    }
 
     // Initial projection
     this._reprojectAll();
@@ -429,7 +490,9 @@ const particleFlow = {
     let lastTime = performance.now();
 
     const frame = (now) => {
-      if (this._destroyed) return;
+      if (this._destroyed) {
+        return;
+      }
       this._animFrame = requestAnimationFrame(frame);
 
       const dt = Math.min((now - lastTime) / 16.667, 3); // normalize to 60fps, cap
@@ -439,7 +502,9 @@ const particleFlow = {
       if (this._fading === "in") {
         const elapsed = now - this._fadeStart;
         this._opacity = Math.min(elapsed / FADE_IN_MS, 1);
-        if (this._opacity >= 1) this._fading = null;
+        if (this._opacity >= 1) {
+          this._fading = null;
+        }
       } else if (this._fading === "out") {
         const elapsed = now - this._fadeStart;
         this._opacity = Math.max(1 - elapsed / FADE_OUT_MS, 0);
@@ -463,7 +528,9 @@ const particleFlow = {
 
   _simulate(dt) {
     const pathCount = this._paths.length;
-    if (pathCount === 0) return;
+    if (pathCount === 0) {
+      return;
+    }
 
     for (const p of this._particles) {
       p.t += p.speed * dt;
@@ -475,7 +542,9 @@ const particleFlow = {
       }
 
       const path = this._paths[p.pathIdx];
-      if (!path?.projected || !path.cumDist) continue;
+      if (!path?.projected || !path.cumDist) {
+        continue;
+      }
 
       const pos = samplePath(path.projected, path.cumDist, p.t);
       p.trail.push(pos);
@@ -490,14 +559,18 @@ const particleFlow = {
   _render() {
     const ctx = this._ctx;
     const canvas = this._canvas;
-    if (!ctx || !canvas) return;
+    if (!ctx || !canvas) {
+      return;
+    }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (this._opacity <= 0 || this._paths.length === 0) return;
+    if (this._opacity <= 0 || this._paths.length === 0) {
+      return;
+    }
 
     const tripCount = this._paths.length;
-    const map = store.map;
+    const { map } = store;
     const zoom = map ? map.getZoom() : 12;
     const radius = particleRadius(tripCount, zoom);
     const globalAlpha = this._opacity;
@@ -513,7 +586,9 @@ const particleFlow = {
     // Draw glow layer (larger, transparent)
     const glowRadius = radius * 2.5;
     for (const p of this._particles) {
-      if (p.trail.length === 0) continue;
+      if (p.trail.length === 0) {
+        continue;
+      }
       const head = p.trail[p.trail.length - 1];
 
       // Skip particles outside canvas bounds (with margin)
@@ -522,13 +597,16 @@ const particleFlow = {
         head[0] > canvas.width + glowRadius ||
         head[1] < -glowRadius ||
         head[1] > canvas.height + glowRadius
-      )
+      ) {
         continue;
+      }
 
       // Age-based fade in for newly spawned particles
       const ageFade = Math.min(p.age / 8, 1);
       const alpha = 0.12 * globalAlpha * ageFade;
-      if (alpha <= 0.005) continue;
+      if (alpha <= 0.005) {
+        continue;
+      }
 
       ctx.beginPath();
       ctx.arc(head[0], head[1], glowRadius, 0, Math.PI * 2);
@@ -539,8 +617,10 @@ const particleFlow = {
     // Draw trails
     ctx.globalCompositeOperation = "screen";
     for (const p of this._particles) {
-      const trail = p.trail;
-      if (trail.length < 2) continue;
+      const { trail } = p;
+      if (trail.length < 2) {
+        continue;
+      }
 
       const head = trail[trail.length - 1];
       if (
@@ -548,8 +628,9 @@ const particleFlow = {
         head[0] > canvas.width + 20 ||
         head[1] < -20 ||
         head[1] > canvas.height + 20
-      )
+      ) {
         continue;
+      }
 
       const ageFade = Math.min(p.age / 8, 1);
 
@@ -568,7 +649,9 @@ const particleFlow = {
     // Draw core dots (bright heads)
     ctx.globalCompositeOperation = "lighter";
     for (const p of this._particles) {
-      if (p.trail.length === 0) continue;
+      if (p.trail.length === 0) {
+        continue;
+      }
       const head = p.trail[p.trail.length - 1];
 
       if (
@@ -576,12 +659,15 @@ const particleFlow = {
         head[0] > canvas.width + radius ||
         head[1] < -radius ||
         head[1] > canvas.height + radius
-      )
+      ) {
         continue;
+      }
 
       const ageFade = Math.min(p.age / 8, 1);
       const alpha = 0.7 * globalAlpha * ageFade;
-      if (alpha <= 0.01) continue;
+      if (alpha <= 0.01) {
+        continue;
+      }
 
       ctx.beginPath();
       ctx.arc(head[0], head[1], radius, 0, Math.PI * 2);
@@ -595,9 +681,7 @@ const particleFlow = {
 
   _isDarkTheme() {
     const mapType =
-      store.state?.map?.style ||
-      localStorage.getItem("mapType") ||
-      "dark";
+      store.state?.map?.style || localStorage.getItem("mapType") || "dark";
     return mapType !== "light" && mapType !== "streets";
   },
 };

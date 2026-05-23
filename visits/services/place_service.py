@@ -132,7 +132,9 @@ class PlaceService:
             msg = "Selected trips do not contain usable destination coordinates"
             raise ValueError(msg)
 
-        boundary_geom = build_destination_cluster_boundary(points=points, cell_size_m=250)
+        boundary_geom = build_destination_cluster_boundary(
+            points=points, cell_size_m=250
+        )
         now = datetime.now(UTC)
         place = Place(
             name=cleaned_name,
@@ -183,9 +185,9 @@ class PlaceService:
         """
         Apply a bounded Python fallback when the Mongo backend lacks $geoWithin.
 
-        This path is intended for test/mock backends such as mongomock, where
-        correctness matters more than query efficiency because the production
-        code path uses Mongo's geospatial operator directly.
+        This path is intended for test/mock backends such as mongomock,
+        where correctness matters more than query efficiency because the
+        production code path uses Mongo's geospatial operator directly.
         """
         from db.models import Trip
 

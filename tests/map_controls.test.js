@@ -62,10 +62,9 @@ function createTestEnvironment({ selectedAreaId = "" } = {}) {
     offsetHeight: 420,
     getBoundingClientRect() {
       const left = !this.style.left ? 16 : Number.parseFloat(this.style.left);
-      const top =
-        !this.style.top
-          ? controlsParent.clientHeight - this.offsetHeight - 16
-          : Number.parseFloat(this.style.top);
+      const top = !this.style.top
+        ? controlsParent.clientHeight - this.offsetHeight - 16
+        : Number.parseFloat(this.style.top);
       return {
         left,
         top,

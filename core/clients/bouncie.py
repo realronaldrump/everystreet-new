@@ -27,7 +27,6 @@ def format_bouncie_datetime_param(dt: datetime) -> str:
     Bouncie expects RFC3339/ISO-8601 "date-time" strings. Use explicit
     UTC + 'Z' with second precision.
     """
-
     utc = ensure_utc(dt) or dt
     return serialize_utc_datetime(utc, timespec="seconds") or utc.isoformat()
 

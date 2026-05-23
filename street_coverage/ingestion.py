@@ -29,10 +29,7 @@ from core.spatial import (
     get_local_transformers,
 )
 from db.models import CoverageArea, CoverageState, Job, Street
-from map_data.extracts import (
-    extract_graph_metadata,
-    get_configured_extract_identity,
-)
+from map_data.extracts import extract_graph_metadata, get_configured_extract_identity
 from map_data.us_states import get_state
 from street_coverage.constants import (
     BATCH_SIZE,

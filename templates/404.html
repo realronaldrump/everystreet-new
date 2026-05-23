@@ -2,13 +2,20 @@
 
 {% from "partials/_map_assets.html" import static_css with context %}
 
-{% block title %}Page Not Found{% endblock %}
+{% block title %}
+
+Page Not Found
+{% endblock %}
+
 
 {% block extra_css %}
+
   {{ static_css("not-found.css") }}
 {% endblock %}
 
+
 {% block content %}
+
   <section class="not-found">
     <div class="not-found-card glass glass--prominent elevation-3">
       <div class="not-found-header">

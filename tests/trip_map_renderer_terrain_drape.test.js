@@ -80,9 +80,10 @@ test("trip paths drape onto terrain elevation (size 3) when terrain is active", 
   tripMapRenderer._ensureDrape("trips");
   const layerState = tripMapRenderer.layers.get("trips");
   assert.ok(layerState.drapedPositions instanceof Float64Array);
-  assert.deepEqual(Array.from(layerState.drapedPositions), [
-    -106.8, 39.2, 2000, -106.79, 39.21, 2100,
-  ]);
+  assert.deepEqual(
+    Array.from(layerState.drapedPositions),
+    [-106.8, 39.2, 2000, -106.79, 39.21, 2100]
+  );
   assert.equal(layerState.drapePending, false);
 
   const [layer] = tripMapRenderer.buildLayersForTripLayer(
@@ -91,10 +92,7 @@ test("trip paths drape onto terrain elevation (size 3) when terrain is active", 
     layerState
   );
   assert.equal(layer.props.data.attributes.getPath.size, 3);
-  assert.equal(
-    layer.props.data.attributes.getPath.value,
-    layerState.drapedPositions
-  );
+  assert.equal(layer.props.data.attributes.getPath.value, layerState.drapedPositions);
 });
 
 test("draping marks the layer pending and retries on map idle when DEM tiles arrive", () => {
@@ -113,18 +111,20 @@ test("draping marks the layer pending and retries on map idle when DEM tiles arr
   tripMapRenderer._ensureDrape("trips");
   let layerState = tripMapRenderer.layers.get("trips");
   assert.equal(layerState.drapePending, true);
-  assert.deepEqual(Array.from(layerState.drapedPositions), [
-    -106.8, 39.2, 0, -106.79, 39.21, 0,
-  ]);
+  assert.deepEqual(
+    Array.from(layerState.drapedPositions),
+    [-106.8, 39.2, 0, -106.79, 39.21, 0]
+  );
 
   // DEM tiles finish loading; the idle pass should resample the pending layer.
   elevationReady = true;
   tripMapRenderer._handleMapIdle();
   layerState = tripMapRenderer.layers.get("trips");
   assert.equal(layerState.drapePending, false);
-  assert.deepEqual(Array.from(layerState.drapedPositions), [
-    -106.8, 39.2, 2500, -106.79, 39.21, 2500,
-  ]);
+  assert.deepEqual(
+    Array.from(layerState.drapedPositions),
+    [-106.8, 39.2, 2500, -106.79, 39.21, 2500]
+  );
 });
 
 test("disabling terrain drops draped positions so paths fall back to flat", () => {
@@ -140,7 +140,9 @@ test("disabling terrain drops draped positions so paths fall back to flat", () =
   };
 
   tripMapRenderer._ensureDrape("trips");
-  assert.ok(tripMapRenderer.layers.get("trips").drapedPositions instanceof Float64Array);
+  assert.ok(
+    tripMapRenderer.layers.get("trips").drapedPositions instanceof Float64Array
+  );
 
   tripMapRenderer.terrainActive = false;
   tripMapRenderer._ensureDrape("trips");

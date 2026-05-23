@@ -2,8 +2,8 @@
 Execution engine for trip history import.
 
 This module keeps history-import orchestration/progress concerns, while
-delegating all Bouncie fetch/normalize/ingest execution to the shared runtime
-in ``trips.services.bouncie_ingest_runtime``.
+delegating all Bouncie fetch/normalize/ingest execution to the shared
+runtime in ``trips.services.bouncie_ingest_runtime``.
 """
 
 from __future__ import annotations

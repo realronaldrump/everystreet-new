@@ -49,7 +49,6 @@ TOPOLOGY_ALIASES: dict[str, str] = {
 
 def _resolve_variant_key(requested: str | None) -> str:
     """Normalize a requested projection/variant string."""
-
     if not requested:
         return DEFAULT_TOPOLOGY_VARIANT
 
@@ -73,11 +72,10 @@ async def get_county_topology_document(
     """
     Fetch a county TopoJSON document from MongoDB.
 
-    If ``ensure_available`` is True and the document is missing, the data will
-    be downloaded from the configured source URL and stored in the database
-    before being returned.
+    If ``ensure_available`` is True and the document is missing, the
+    data will be downloaded from the configured source URL and stored in
+    the database before being returned.
     """
-
     variant_key = _resolve_variant_key(projection)
     variant = TOPOLOGY_VARIANTS[variant_key]
 
@@ -96,7 +94,6 @@ async def _download_and_store_topology(
     variant: dict[str, str],
 ) -> dict[str, Any]:
     """Download a topology file from its source URL and persist it."""
-
     logger.info(
         "Downloading county topology for variant '%s' from %s",
         variant_key,
@@ -132,7 +129,6 @@ async def _download_and_store_topology(
 
 async def refresh_county_topology(projection: str | None = None) -> dict[str, Any]:
     """Force a fresh download for the requested projection."""
-
     variant_key = _resolve_variant_key(projection)
     variant = TOPOLOGY_VARIANTS[variant_key]
     return await _download_and_store_topology(variant_key, variant)

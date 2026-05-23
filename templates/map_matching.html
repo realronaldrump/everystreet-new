@@ -2,14 +2,21 @@
 
 {% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}Every Street - Map Matching{% endblock %}
+{% block title %}
+
+Every Street - Map Matching
+{% endblock %}
+
 
 {% block extra_css %}
+
   {{ include_mapbox_css() }}
   {{ static_css("map-matching.css") }}
 {% endblock %}
 
+
 {% block content %}
+
   <div class="container-fluid px-4 py-3 map-matching-page">
     <div class="mm-wizard-shell" id="mm-wizard-shell">
       <div class="mm-phase-indicator" role="navigation" aria-label="Wizard progress">
@@ -216,7 +223,9 @@ Trip ID
             </button>
             <div class="mm-advanced-panel d-none" id="map-match-advanced-options">
               <div class="mm-provider-control" aria-label="Matching engine">
-                <div class="mm-provider-title">Matching engine</div>
+                <div class="mm-provider-title">
+Matching engine
+                </div>
                 <div class="mm-provider-options">
                   <label class="mm-provider-choice is-selected">
                     <input type="radio" name="provider-policy" value="auto" checked />
@@ -278,7 +287,8 @@ Processing routes
               <div id="map-match-progress-message" class="mm-progress-message">
               Matching your trips to roads...
               </div>
-              <div id="map-match-progress-engine" class="mm-progress-engine"></div>
+              <div id="map-match-progress-engine" class="mm-progress-engine">
+              </div>
               <div id="map-match-progress-metrics" class="mm-progress-metrics">
               </div>
             </div>
@@ -530,5 +540,6 @@ Failed Trips
 
   </div>
 {% endblock %}
+
 
 {# Page scripts are loaded via route-loader + swup. #}

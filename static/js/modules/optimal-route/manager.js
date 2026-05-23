@@ -349,7 +349,9 @@ export class OptimalRoutesManager {
 
     // Enable/disable simulation toggle based on area selection
     const simToggle = document.getElementById("sim-toggle-btn");
-    if (simToggle) simToggle.disabled = !nextAreaId;
+    if (simToggle) {
+      simToggle.disabled = !nextAreaId;
+    }
 
     if (!nextAreaId) {
       const generateBtn = document.getElementById("generate-route-btn");
@@ -658,13 +660,27 @@ export class OptimalRoutesManager {
     const badge = document.getElementById("sim-count-badge");
 
     if (!data) {
-      if (countEl) countEl.textContent = "0";
-      if (addedEl) addedEl.textContent = "--";
-      if (currentEl) currentEl.textContent = "--";
-      if (projectedEl) projectedEl.textContent = "--";
-      if (deltaEl) deltaEl.textContent = "+0.00%";
-      if (currentBar) currentBar.style.width = "0%";
-      if (projectedBar) projectedBar.style.width = "0%";
+      if (countEl) {
+        countEl.textContent = "0";
+      }
+      if (addedEl) {
+        addedEl.textContent = "--";
+      }
+      if (currentEl) {
+        currentEl.textContent = "--";
+      }
+      if (projectedEl) {
+        projectedEl.textContent = "--";
+      }
+      if (deltaEl) {
+        deltaEl.textContent = "+0.00%";
+      }
+      if (currentBar) {
+        currentBar.style.width = "0%";
+      }
+      if (projectedBar) {
+        projectedBar.style.width = "0%";
+      }
       if (badge) {
         badge.textContent = "";
         badge.style.display = "none";
@@ -676,13 +692,27 @@ export class OptimalRoutesManager {
     const delta = projected.coverage_percentage - current.coverage_percentage;
     const fmtDist = (mi) => `${mi.toFixed(2)} mi`;
 
-    if (countEl) countEl.textContent = selectedCount;
-    if (addedEl) addedEl.textContent = fmtDist(simulated_length_miles);
-    if (currentEl) currentEl.textContent = `${current.coverage_percentage}%`;
-    if (projectedEl) projectedEl.textContent = `${projected.coverage_percentage}%`;
-    if (deltaEl) deltaEl.textContent = `+${delta.toFixed(2)}%`;
-    if (currentBar) currentBar.style.width = `${current.coverage_percentage}%`;
-    if (projectedBar) projectedBar.style.width = `${projected.coverage_percentage}%`;
+    if (countEl) {
+      countEl.textContent = selectedCount;
+    }
+    if (addedEl) {
+      addedEl.textContent = fmtDist(simulated_length_miles);
+    }
+    if (currentEl) {
+      currentEl.textContent = `${current.coverage_percentage}%`;
+    }
+    if (projectedEl) {
+      projectedEl.textContent = `${projected.coverage_percentage}%`;
+    }
+    if (deltaEl) {
+      deltaEl.textContent = `+${delta.toFixed(2)}%`;
+    }
+    if (currentBar) {
+      currentBar.style.width = `${current.coverage_percentage}%`;
+    }
+    if (projectedBar) {
+      projectedBar.style.width = `${projected.coverage_percentage}%`;
+    }
     if (badge) {
       badge.textContent = selectedCount;
       badge.style.display = selectedCount > 0 ? "inline-flex" : "none";

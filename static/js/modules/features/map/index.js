@@ -406,7 +406,9 @@ export default function initMapPage({ signal, cleanup } = {}) {
  * A replay button allows re-playing the route with an animated marker.
  */
 function setupTripSelectionAnimation(mapInstance, _signal, registerCleanup) {
-  if (!mapInstance) return;
+  if (!mapInstance) {
+    return;
+  }
 
   let replayControlsEl = null;
   let isReplaying = false;
@@ -450,7 +452,9 @@ function setupTripSelectionAnimation(mapInstance, _signal, registerCleanup) {
   };
 
   const getSelectedCoords = (selectedId = store.selectedTripId) => {
-    if (!selectedId) return null;
+    if (!selectedId) {
+      return null;
+    }
 
     if (
       store.selectedTripLayer === "trips" ||
@@ -469,7 +473,9 @@ function setupTripSelectionAnimation(mapInstance, _signal, registerCleanup) {
 
     for (const layerName of getLayerSearchOrder()) {
       const features = store.mapLayers[layerName]?.layer?.features;
-      if (!features) continue;
+      if (!features) {
+        continue;
+      }
       const match = features.find((f) => {
         const fId =
           f.properties?.transactionId ||
@@ -490,7 +496,9 @@ function setupTripSelectionAnimation(mapInstance, _signal, registerCleanup) {
 
     const mapContainer =
       document.getElementById("map") || document.getElementById("map-canvas");
-    if (!mapContainer) return;
+    if (!mapContainer) {
+      return;
+    }
 
     const el = document.createElement("div");
     el.className = "replay-controls";
@@ -502,7 +510,9 @@ function setupTripSelectionAnimation(mapInstance, _signal, registerCleanup) {
 
     el.addEventListener("click", (e) => {
       const btn = e.target.closest("[data-action]");
-      if (!btn) return;
+      if (!btn) {
+        return;
+      }
 
       if (btn.dataset.action === "replay") {
         if (isReplaying) {
@@ -570,7 +580,9 @@ function setupTripSelectionAnimation(mapInstance, _signal, registerCleanup) {
  */
 export function setupRouteArtToggle(registerCleanup) {
   const btn = document.getElementById("route-art-toggle");
-  if (!btn) return;
+  if (!btn) {
+    return;
+  }
 
   const syncState = () => setToggleState(btn, routeArt.isActive?.() === true);
 
@@ -613,7 +625,9 @@ export function setupRouteArtToggle(registerCleanup) {
  */
 export function setupParticleFlowToggle(registerCleanup) {
   const btn = document.getElementById("particle-flow-toggle");
-  if (!btn) return;
+  if (!btn) {
+    return;
+  }
 
   const syncState = () => setToggleState(btn, particleFlow.isActive());
 
@@ -665,12 +679,16 @@ export function setupParticleFlowToggle(registerCleanup) {
   const handleStyleChange = () => {
     if (particleFlow.isActive()) {
       setTimeout(() => {
-        const map = store.map;
-        if (!map) return;
+        const { map } = store;
+        if (!map) {
+          return;
+        }
         particleFlow.refresh();
         // Re-hide trip layers that style change may have restored
         const style = map.getStyle();
-        if (!style?.layers) return;
+        if (!style?.layers) {
+          return;
+        }
         for (const layer of style.layers) {
           if (
             (layer.id.startsWith("trips-layer") ||
@@ -700,7 +718,9 @@ export function setupParticleFlowToggle(registerCleanup) {
  */
 export function setupDestinationBloomToggle(registerCleanup) {
   const btn = document.getElementById("destination-bloom-toggle");
-  if (!btn) return;
+  if (!btn) {
+    return;
+  }
 
   const syncState = () => setToggleState(btn, destinationBloom.isActive());
 
@@ -764,7 +784,9 @@ export function setupDestinationBloomToggle(registerCleanup) {
 
 export function setupMap3dBuildingsToggle(registerCleanup) {
   const btn = document.getElementById("map-3d-buildings-fab");
-  if (!btn) return;
+  if (!btn) {
+    return;
+  }
 
   const syncState = () => {
     const map = store.map || window.map;
@@ -796,7 +818,9 @@ export function setupMap3dBuildingsToggle(registerCleanup) {
 
 export function setupTerrainReliefToggle(registerCleanup) {
   const btn = document.getElementById("map-terrain-relief-fab");
-  if (!btn) return;
+  if (!btn) {
+    return;
+  }
 
   const syncState = () => {
     const map = store.map || window.map;
@@ -830,7 +854,9 @@ export function setupTerrainReliefToggle(registerCleanup) {
 
 export function setupTripLayerHeatmapToggle(registerCleanup) {
   const btn = document.getElementById("trip-layer-heatmap-fab");
-  if (!btn) return;
+  if (!btn) {
+    return;
+  }
 
   const syncState = () => {
     setToggleVisibility(btn, true);

@@ -42,7 +42,6 @@ async def _periodic_fetch_trips_logic(
     Can optionally accept specific start/end times for explicit range
     fetches.
     """
-
     # Get current Bouncie credentials from database or environment
     bouncie_config = await get_bouncie_config()
     logger.info(
@@ -389,7 +388,6 @@ async def _fetch_all_missing_trips_logic(
 
     This is insert-only: existing trips are never modified.
     """
-
     start_dt = parse_timestamp(start_iso) if start_iso else None
     if start_iso and not start_dt:
         logger.error("Invalid start_iso provided: %s. Using default.", start_iso)

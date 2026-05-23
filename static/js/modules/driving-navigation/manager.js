@@ -2,8 +2,8 @@
 
 import confirmationDialog from "../ui/confirmation-dialog.js";
 import notificationManager from "../ui/notifications.js";
-import { isAbortError } from "../utils.js";
 import { M_TO_MI, MI_TO_M } from "../utils/geo-math.js";
+import { isAbortError } from "../utils.js";
 
 /**
  * Main manager for Driving Navigation.

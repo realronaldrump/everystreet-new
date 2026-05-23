@@ -263,7 +263,9 @@ function renderCountyLevelView(container) {
   const percent = Number(county.percent || 0);
   const visited = Number(county.visited || 0);
   const total = Number(county.total || 0);
-  const stoppedCount = Object.keys(RegionalCoverageExplorerState.getCountyStops()).length;
+  const stoppedCount = Object.keys(
+    RegionalCoverageExplorerState.getCountyStops()
+  ).length;
   const showStopped = RegionalCoverageExplorerState.getShowStoppedCounties();
 
   let html = renderHeroRing(percent, visited, total, "Counties Visited");
@@ -453,7 +455,9 @@ export function updateLevelUi(level) {
 export function renderStateStatsList(options = {}) {
   const { sortBy = "name", onSelectState, includeState } = options;
   const stateList = [...RegionalCoverageExplorerState.getStateRollups()];
-  const selectedStateFips = String(RegionalCoverageExplorerState.getSelectedStateFips() || "");
+  const selectedStateFips = String(
+    RegionalCoverageExplorerState.getSelectedStateFips() || ""
+  );
 
   switch (sortBy) {
     case "coverage-desc":
@@ -532,7 +536,9 @@ export function renderCityRows(payload) {
 
   const cities = payload?.cities || [];
   const pagination = payload?.pagination || {};
-  const selectedCityId = String(RegionalCoverageExplorerState.getSelectedCityId() || "");
+  const selectedCityId = String(
+    RegionalCoverageExplorerState.getSelectedCityId() || ""
+  );
 
   if (!cities.length) {
     listEl.innerHTML = '<div class="empty-list">No cities match this filter.</div>';

@@ -2516,7 +2516,8 @@
 
 /* Trip data health (Settings -> Data) */
 .trip-data-health-card {
-  background: linear-gradient(180deg, rgb(var(--surface-rgb) / 68%), rgb(var(--surface-rgb) / 92%)),
+  background:
+    linear-gradient(180deg, rgb(var(--surface-rgb) / 68%), rgb(var(--surface-rgb) / 92%)),
     var(--surface-1);
 }
 

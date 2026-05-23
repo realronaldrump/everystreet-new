@@ -173,10 +173,8 @@ function normalizeBreadcrumbPath(pathname) {
 
   let path = pathname.trim();
   try {
-    path = new URL(
-      path,
-      globalThis.location?.origin || "https://www.everystreet.me"
-    ).pathname;
+    path = new URL(path, globalThis.location?.origin || "https://www.everystreet.me")
+      .pathname;
   } catch {
     path = path.split("#")[0].split("?")[0] || "/";
   }
@@ -194,7 +192,9 @@ export function buildBreadcrumbItems(pathname) {
     return [{ path, label: exactLabel }];
   }
 
-  const detailRoute = BREADCRUMB_DETAIL_ROUTES.find((route) => route.pattern.test(path));
+  const detailRoute = BREADCRUMB_DETAIL_ROUTES.find((route) =>
+    route.pattern.test(path)
+  );
   if (detailRoute) {
     return [
       {

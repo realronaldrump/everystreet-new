@@ -45,7 +45,6 @@ class FillupService:
         exclude_id: PydanticObjectId | None = None,
     ) -> None:
         """Reject exact duplicate submissions for the same vehicle reading."""
-
         if gallons is None:
             return
 
@@ -77,10 +76,10 @@ class FillupService:
         """
         Fetch the previous fill-up in timeline order for an IMEI.
 
-        If `anchor_id` is provided, same-timestamp ordering is resolved via `_id`,
-        so we can reliably traverse records with identical fill-up timestamps.
+        If `anchor_id` is provided, same-timestamp ordering is resolved
+        via `_id`, so we can reliably traverse records with identical
+        fill-up timestamps.
         """
-
         query: dict[str, Any] = {"imei": imei}
         if anchor_id is not None:
             query["$or"] = [
@@ -108,9 +107,9 @@ class FillupService:
         """
         Fetch the next fill-up in timeline order for an IMEI.
 
-        If `anchor_id` is provided, same-timestamp ordering is resolved via `_id`.
+        If `anchor_id` is provided, same-timestamp ordering is resolved
+        via `_id`.
         """
-
         query: dict[str, Any] = {"imei": imei}
         if anchor_id is not None:
             query["$or"] = [
@@ -148,7 +147,6 @@ class FillupService:
         - Sum gallons from all fill-ups between anchor and current (inclusive current).
         - Abort if chain is broken by any missed_previous flag or missing anchor odometer.
         """
-
         previous_fillup = await FillupService._get_previous_fillup(
             imei=imei,
             before_time=fillup_time,
@@ -318,7 +316,9 @@ class FillupService:
         if odometer_source is not None and not isinstance(odometer_source, str):
             msg = "odometer_source must be a string"
             raise ValidationException(msg)
-        odometer_source = odometer_source or ("manual" if odometer is not None else None)
+        odometer_source = odometer_source or (
+            "manual" if odometer is not None else None
+        )
         odometer_is_estimated = bool(
             fillup_data.get("odometer_is_estimated", odometer_source == "estimated"),
         )

@@ -340,7 +340,8 @@
 .story-shell {
   border: 1px solid rgb(var(--cat-purple-rgb) / 30%);
   border-radius: var(--radius-xl);
-  background: radial-gradient(circle at 85% 20%, rgb(var(--cat-purple-rgb) / 16%), transparent 42%),
+  background:
+    radial-gradient(circle at 85% 20%, rgb(var(--cat-purple-rgb) / 16%), transparent 42%),
     linear-gradient(145deg, rgb(var(--surface-rgb) / 95%), rgb(var(--surface-rgb) / 78%));
   padding: var(--space-4);
 }
@@ -1253,7 +1254,8 @@
   gap: var(--space-2);
   padding: var(--space-3);
   border-bottom: 1px solid rgb(var(--border-rgb) / 18%);
-  background: radial-gradient(circle at 90% 12%, rgb(var(--cat-sky-rgb) / 12%), transparent 42%),
+  background:
+    radial-gradient(circle at 90% 12%, rgb(var(--cat-sky-rgb) / 12%), transparent 42%),
     linear-gradient(180deg, rgb(var(--surface-rgb) / 92%), rgb(var(--surface-rgb) / 78%));
 }
 
@@ -1300,7 +1302,8 @@
 #movement-map {
   width: 100%;
   height: clamp(19rem, 44vh, 33rem);
-  background: radial-gradient(circle at 18% 12%, rgb(var(--cat-sky-rgb) / 18%), transparent 56%),
+  background:
+    radial-gradient(circle at 18% 12%, rgb(var(--cat-sky-rgb) / 18%), transparent 56%),
     radial-gradient(circle at 82% 74%, rgb(var(--cat-lime-rgb) / 10%), transparent 52%),
     rgb(8 11 16);
 }

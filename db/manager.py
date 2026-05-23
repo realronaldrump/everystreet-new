@@ -150,9 +150,10 @@ class DatabaseManager:
         """
         Synchronously reset client state for loop change scenarios.
 
-        PyMongo async clients close asynchronously. Loop-change recovery can happen
-        from synchronous property access, so this path only drops references. Normal
-        application shutdown uses ``cleanup_connections`` and awaits client closure.
+        PyMongo async clients close asynchronously. Loop-change recovery
+        can happen from synchronous property access, so this path only
+        drops references. Normal application shutdown uses
+        ``cleanup_connections`` and awaits client closure.
         """
         self._client = None
         self._db = None
@@ -234,10 +235,11 @@ class DatabaseManager:
 
         This should be called once during application startup.
 
-        Uses an extended socket timeout during initialization because Beanie
-        triggers ``createIndexes`` for every model, and geospatial index builds
-        can take several minutes on resource-constrained hardware.  After init
-        completes the normal client (with standard timeouts) is used.
+        Uses an extended socket timeout during initialization because
+        Beanie triggers ``createIndexes`` for every model, and
+        geospatial index builds can take several minutes on resource-
+        constrained hardware.  After init completes the normal client
+        (with standard timeouts) is used.
         """
         self._check_loop_and_reconnect()
         current_loop = self._get_current_loop()

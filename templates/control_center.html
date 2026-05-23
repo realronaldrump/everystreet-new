@@ -2,15 +2,22 @@
 
 {% from "partials/_map_assets.html" import static_css with context %}
 
-{% block title %}Settings{% endblock %}
+{% block title %}
+
+Settings
+{% endblock %}
+
 
 {% block extra_css %}
+
   {{ static_css("settings.css") }}
   {{ static_css("server-logs.css") }}
   {{ static_css("profile.css") }}
 {% endblock %}
 
+
 {% block content %}
+
   <div class="container-fluid settings-container">
     <h1 class="visually-hidden">
 Settings
@@ -1031,7 +1038,7 @@ Actions
               <div id="mobile-history-page-info" class="small text-muted">
               </div>
               <button class="btn btn-outline-secondary btn-sm" id="mobile-history-next" type="button">
-                                                                                                                                                                                                                                                                          Next <i class="fas fa-chevron-right"></i>
+                                                                                                                                                                                                                                                                                        Next <i class="fas fa-chevron-right"></i>
             </button>
           </div>
           <div class="table-responsive d-none d-md-block">
@@ -3035,5 +3042,6 @@ Processing errors
 </div>
 
 {% endblock %}
+
 
 {# Page scripts are loaded via route-loader + swup. #}

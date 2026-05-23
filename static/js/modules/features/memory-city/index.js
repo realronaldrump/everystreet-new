@@ -18,8 +18,7 @@
 
 import apiClient from "../../core/api-client.js";
 import notificationManager from "../../ui/notifications.js";
-import { isAbortError } from "../../utils.js";
-import { escapeHtml } from "../../utils.js";
+import { escapeHtml, isAbortError } from "../../utils.js";
 
 const DAY_MS = 86_400_000;
 
@@ -142,7 +141,9 @@ export default async function initMemoryCityPage(ctx = {}) {
 
   function bindEvents() {
     const addListener = (el, type, handler, opts) => {
-      if (!el) { return; }
+      if (!el) {
+        return;
+      }
       const options = signal ? { ...(opts || {}), signal } : opts;
       el.addEventListener(type, handler, options);
     };
@@ -199,10 +200,7 @@ export default async function initMemoryCityPage(ctx = {}) {
     populateAreaSelect(buildable);
 
     if (buildable.length === 0) {
-      setState(
-        "empty",
-        "No driven areas yet — go build coverage, then return."
-      );
+      setState("empty", "No driven areas yet — go build coverage, then return.");
       return;
     }
 
@@ -220,7 +218,9 @@ export default async function initMemoryCityPage(ctx = {}) {
 
   function populateAreaSelect(areas) {
     const select = elements.areaSelect;
-    if (!select) { return; }
+    if (!select) {
+      return;
+    }
     select.innerHTML = "";
 
     if (areas.length === 0) {
@@ -249,11 +249,15 @@ export default async function initMemoryCityPage(ctx = {}) {
 
   function syncSelectedAreaOption(area) {
     const select = elements.areaSelect;
-    if (!select || !area?.id) { return; }
+    if (!select || !area?.id) {
+      return;
+    }
     const option = Array.from(select.options).find(
       (candidate) => candidate.value === String(area.id)
     );
-    if (!option) { return; }
+    if (!option) {
+      return;
+    }
     const pct =
       Number.isFinite(area.coverage_percentage) && area.coverage_percentage > 0
         ? ` · ${Number(area.coverage_percentage).toFixed(1)}%`
@@ -263,7 +267,9 @@ export default async function initMemoryCityPage(ctx = {}) {
 
   async function onAreaSelectChange(event) {
     const nextId = event.target.value;
-    if (!nextId || nextId === state.selectedAreaId) { return; }
+    if (!nextId || nextId === state.selectedAreaId) {
+      return;
+    }
     state.selectedAreaId = nextId;
     await loadArea(nextId);
   }
@@ -286,7 +292,9 @@ export default async function initMemoryCityPage(ctx = {}) {
         { signal: composite, cache: false }
       );
 
-      if (composite.aborted) { return; }
+      if (composite.aborted) {
+        return;
+      }
 
       state.payload = payload;
       state.selectedSegmentId = null;
@@ -298,10 +306,7 @@ export default async function initMemoryCityPage(ctx = {}) {
       const segments = Array.isArray(payload.segments) ? payload.segments : [];
       buildLegendRecency();
       if (segments.length === 0) {
-        setState(
-          "empty",
-          "This area has no driven streets yet. Drive something!"
-        );
+        setState("empty", "This area has no driven streets yet. Drive something!");
         renderStats(payload);
         configureScrubber(null);
         renderDetailEmpty();
@@ -351,10 +356,7 @@ export default async function initMemoryCityPage(ctx = {}) {
     setText(elements.statPercent, formatPercent(area.coverage_percentage));
 
     const firstIso = payload?.first_driven_min;
-    setText(
-      elements.statFirst,
-      firstIso ? formatDate(firstIso) : "—"
-    );
+    setText(elements.statFirst, firstIso ? formatDate(firstIso) : "—");
   }
 
   function buildSubtitle(payload) {
@@ -406,7 +408,9 @@ export default async function initMemoryCityPage(ctx = {}) {
 
   function onScrubberInput(event) {
     const range = state.timeRange;
-    if (!range) { return; }
+    if (!range) {
+      return;
+    }
     const ratio = clamp(Number(event.target.value) / 1000, 0, 1);
     const cutoff = range.min + (range.max - range.min) * ratio;
     applyCutoff(cutoff, ratio);
@@ -418,8 +422,13 @@ export default async function initMemoryCityPage(ctx = {}) {
   function applyCutoff(cutoff, ratio) {
     state.timeCutoff = cutoff;
     const range = state.timeRange;
-    if (!range) { return; }
-    const pct = typeof ratio === "number" ? ratio : (cutoff - range.min) / (range.max - range.min);
+    if (!range) {
+      return;
+    }
+    const pct =
+      typeof ratio === "number"
+        ? ratio
+        : (cutoff - range.min) / (range.max - range.min);
     const cutoffLabel =
       Math.abs(cutoff - range.max) < DAY_MS
         ? `now · ${formatDate(range.max)}`
@@ -432,10 +441,7 @@ export default async function initMemoryCityPage(ctx = {}) {
 
   function setScrubberProgress(percent) {
     if (elements.scrubber) {
-      elements.scrubber.style.setProperty(
-        "--mc-scrubber-progress",
-        `${percent}%`
-      );
+      elements.scrubber.style.setProperty("--mc-scrubber-progress", `${percent}%`);
     }
   }
 
@@ -444,7 +450,9 @@ export default async function initMemoryCityPage(ctx = {}) {
   // ===========================================================================
 
   function togglePlay() {
-    if (!state.timeRange) { return; }
+    if (!state.timeRange) {
+      return;
+    }
     if (state.isPlaying) {
       stopPlay();
     } else {
@@ -453,7 +461,9 @@ export default async function initMemoryCityPage(ctx = {}) {
   }
 
   function startPlay() {
-    if (!state.timeRange) { return; }
+    if (!state.timeRange) {
+      return;
+    }
     state.isPlaying = true;
     elements.playBtn?.classList.add("is-playing");
     setPlayIcon(true);
@@ -472,7 +482,9 @@ export default async function initMemoryCityPage(ctx = {}) {
     applyCutoff(initialCutoff, startRatio);
 
     const step = (now) => {
-      if (!state.isPlaying) { return; }
+      if (!state.isPlaying) {
+        return;
+      }
       const elapsed = now - start;
       const ratio = clamp(elapsed / durationMs, 0, 1);
       const cutoff = range.min + (range.max - range.min) * ratio;
@@ -502,7 +514,9 @@ export default async function initMemoryCityPage(ctx = {}) {
 
   function setPlayIcon(isPlaying) {
     const icon = elements.playBtn?.querySelector("i");
-    if (!icon) { return; }
+    if (!icon) {
+      return;
+    }
     icon.classList.remove("fa-play", "fa-pause");
     icon.classList.add(isPlaying ? "fa-pause" : "fa-play");
   }
@@ -520,17 +534,21 @@ export default async function initMemoryCityPage(ctx = {}) {
   }
 
   function startAutoRotate() {
-    if (!state.deck || state.autoRotate) { return; }
+    if (!state.deck || state.autoRotate) {
+      return;
+    }
     state.autoRotate = true;
     elements.spinBtn?.setAttribute("aria-pressed", "true");
     const degPerSec = 6;
     let last = performance.now();
     const step = (now) => {
-      if (!state.autoRotate) { return; }
+      if (!state.autoRotate) {
+        return;
+      }
       const dt = (now - last) / 1000;
       last = now;
       const current = state.viewState || DEFAULT_VIEW_STATE;
-      const nextBearing = (current.bearing + degPerSec * dt + 360) % 360 - 180;
+      const nextBearing = ((current.bearing + degPerSec * dt + 360) % 360) - 180;
       updateViewState({ ...current, bearing: nextBearing });
       state.rotateRaf = requestAnimationFrame(step);
     };
@@ -554,9 +572,13 @@ export default async function initMemoryCityPage(ctx = {}) {
   }
 
   function fitViewToArea(payload) {
-    if (!payload) { return null; }
+    if (!payload) {
+      return null;
+    }
     const segments = Array.isArray(payload.segments) ? payload.segments : [];
-    if (segments.length === 0) { return null; }
+    if (segments.length === 0) {
+      return null;
+    }
 
     let minLon = Infinity;
     let maxLon = -Infinity;
@@ -565,20 +587,36 @@ export default async function initMemoryCityPage(ctx = {}) {
 
     for (const seg of segments) {
       const { path } = seg;
-      if (!Array.isArray(path)) { continue; }
+      if (!Array.isArray(path)) {
+        continue;
+      }
       for (const pt of path) {
-        if (!Array.isArray(pt) || pt.length < 2) { continue; }
+        if (!Array.isArray(pt) || pt.length < 2) {
+          continue;
+        }
         const lon = Number(pt[0]);
         const lat = Number(pt[1]);
-        if (!Number.isFinite(lon) || !Number.isFinite(lat)) { continue; }
-        if (lon < minLon) { minLon = lon; }
-        if (lon > maxLon) { maxLon = lon; }
-        if (lat < minLat) { minLat = lat; }
-        if (lat > maxLat) { maxLat = lat; }
+        if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+          continue;
+        }
+        if (lon < minLon) {
+          minLon = lon;
+        }
+        if (lon > maxLon) {
+          maxLon = lon;
+        }
+        if (lat < minLat) {
+          minLat = lat;
+        }
+        if (lat > maxLat) {
+          maxLat = lat;
+        }
       }
     }
 
-    if (!Number.isFinite(minLon) || !Number.isFinite(minLat)) { return null; }
+    if (!Number.isFinite(minLon) || !Number.isFinite(minLat)) {
+      return null;
+    }
 
     const WebMercatorViewport = window.deck?.WebMercatorViewport;
     const container = elements.canvas;
@@ -674,13 +712,17 @@ export default async function initMemoryCityPage(ctx = {}) {
   }
 
   function refreshLayers() {
-    if (!state.deck || !state.payload) { return; }
+    if (!state.deck || !state.payload) {
+      return;
+    }
     state.deck.setProps({ layers: buildLayers(state.payload) });
   }
 
   function buildLayers(payload) {
     const deckNs = window.deck;
-    if (!deckNs) { return []; }
+    if (!deckNs) {
+      return [];
+    }
 
     const segments = Array.isArray(payload?.segments) ? payload.segments : [];
     const now = Date.now();
@@ -692,28 +734,38 @@ export default async function initMemoryCityPage(ctx = {}) {
     const selectedId = state.selectedSegmentId;
 
     // Determine if any recency filter is currently active
-    const activeRecencyIndex = state.hoveredRecencyIndex !== null ? state.hoveredRecencyIndex : state.selectedRecencyIndex;
+    const activeRecencyIndex =
+      state.hoveredRecencyIndex !== null
+        ? state.hoveredRecencyIndex
+        : state.selectedRecencyIndex;
 
     const visible = [];
     for (const seg of segments) {
       const firstMs = parseIso(seg.first_driven_at);
-      if (firstMs === null) { continue; }
-      if (cutoff !== null && firstMs > cutoff) { continue; }
+      if (firstMs === null) {
+        continue;
+      }
+      if (cutoff !== null && firstMs > cutoff) {
+        continue;
+      }
 
       const path = Array.isArray(seg.path) ? seg.path : [];
-      if (path.length < 2) { continue; }
+      if (path.length < 2) {
+        continue;
+      }
 
       const lastMs = parseIso(seg.last_driven_at) ?? firstMs;
       const mid = midpointOfPath(path);
-      if (!mid) { continue; }
+      if (!mid) {
+        continue;
+      }
 
       // Tenure: how long the street has been part of the city (0..1)
       const tenureRatio = clamp((firstMs - tenureMin) / tenureSpan, 0, 1);
       // Invert so older streets are TALLER (more established)
       const heightRatio = 1 - tenureRatio;
       const height =
-        MIN_COLUMN_HEIGHT_M +
-        heightRatio * (MAX_COLUMN_HEIGHT_M - MIN_COLUMN_HEIGHT_M);
+        MIN_COLUMN_HEIGHT_M + heightRatio * (MAX_COLUMN_HEIGHT_M - MIN_COLUMN_HEIGHT_M);
 
       const daysSinceDriven = Math.max(0, (now - lastMs) / DAY_MS);
       const color = recencyColor(daysSinceDriven);
@@ -744,7 +796,9 @@ export default async function initMemoryCityPage(ctx = {}) {
         widthUnits: "pixels",
         getPath: (d) => d.path,
         getColor: (d) => {
-          const isDimmed = activeRecencyIndex !== null && getRecencyBucketIndex(d.daysSinceDriven) !== activeRecencyIndex;
+          const isDimmed =
+            activeRecencyIndex !== null &&
+            getRecencyBucketIndex(d.daysSinceDriven) !== activeRecencyIndex;
           const alpha = isDimmed ? 6 : 46;
           return [d.color[0], d.color[1], d.color[2], alpha];
         },
@@ -769,10 +823,16 @@ export default async function initMemoryCityPage(ctx = {}) {
         widthUnits: "pixels",
         getPath: (d) => d.path,
         getColor: (d) => {
-          const isDimmed = activeRecencyIndex !== null && getRecencyBucketIndex(d.daysSinceDriven) !== activeRecencyIndex;
+          const isDimmed =
+            activeRecencyIndex !== null &&
+            getRecencyBucketIndex(d.daysSinceDriven) !== activeRecencyIndex;
           const alpha = isDimmed ? 20 : 215;
-          if (d.segmentId === selectedId) { return [255, 255, 255, isDimmed ? 80 : 240]; }
-          if (d.segmentId === hoveredId) { return [255, 255, 255, isDimmed ? 70 : 210]; }
+          if (d.segmentId === selectedId) {
+            return [255, 255, 255, isDimmed ? 80 : 240];
+          }
+          if (d.segmentId === hoveredId) {
+            return [255, 255, 255, isDimmed ? 70 : 210];
+          }
           return [d.color[0], d.color[1], d.color[2], alpha];
         },
         getWidth: PATH_GLOW_WIDTH_MIN_PX + 0.8,
@@ -811,18 +871,31 @@ export default async function initMemoryCityPage(ctx = {}) {
           getPosition: (d) => d.midpoint,
           getElevation: (d) => d.height,
           getFillColor: (d) => {
-            const isDimmed = activeRecencyIndex !== null && getRecencyBucketIndex(d.daysSinceDriven) !== activeRecencyIndex;
+            const isDimmed =
+              activeRecencyIndex !== null &&
+              getRecencyBucketIndex(d.daysSinceDriven) !== activeRecencyIndex;
             const alpha = isDimmed ? 15 : 190;
             const [r, g, b] = d.color;
-            if (d.segmentId === selectedId) { return [255, 255, 255, isDimmed ? 80 : 240]; }
-            if (d.segmentId === hoveredId) { return [r, g, b, isDimmed ? 25 : 235]; }
+            if (d.segmentId === selectedId) {
+              return [255, 255, 255, isDimmed ? 80 : 240];
+            }
+            if (d.segmentId === hoveredId) {
+              return [r, g, b, isDimmed ? 25 : 235];
+            }
             return [r, g, b, alpha];
           },
           getLineColor: (d) => {
-            const isDimmed = activeRecencyIndex !== null && getRecencyBucketIndex(d.daysSinceDriven) !== activeRecencyIndex;
+            const isDimmed =
+              activeRecencyIndex !== null &&
+              getRecencyBucketIndex(d.daysSinceDriven) !== activeRecencyIndex;
             const alpha = isDimmed ? 20 : 220;
             const [r, g, b] = d.color;
-            return [Math.min(255, r + 35), Math.min(255, g + 35), Math.min(255, b + 35), alpha];
+            return [
+              Math.min(255, r + 35),
+              Math.min(255, g + 35),
+              Math.min(255, b + 35),
+              alpha,
+            ];
           },
           material: {
             ambient: 0.35,
@@ -843,7 +916,9 @@ export default async function initMemoryCityPage(ctx = {}) {
 
   function onSculptureHover(info) {
     const nextId = info?.object?.segmentId ?? null;
-    if (nextId === state.hoveredSegmentId) { return; }
+    if (nextId === state.hoveredSegmentId) {
+      return;
+    }
     state.hoveredSegmentId = nextId;
     refreshLayers();
   }
@@ -863,7 +938,9 @@ export default async function initMemoryCityPage(ctx = {}) {
 
   function buildTooltip(info) {
     const obj = info?.object;
-    if (!obj) { return null; }
+    if (!obj) {
+      return null;
+    }
     const recency = formatRelativeDays(obj.daysSinceDriven);
     return {
       className: "memory-city-tooltip",
@@ -879,7 +956,9 @@ export default async function initMemoryCityPage(ctx = {}) {
   // ===========================================================================
 
   function renderDetailEmpty() {
-    if (!elements.detail) { return; }
+    if (!elements.detail) {
+      return;
+    }
     elements.detail.classList.remove("is-locked");
     elements.detail.style.removeProperty("--detail-glow-color-rgb");
     elements.detail.innerHTML = `
@@ -891,12 +970,17 @@ export default async function initMemoryCityPage(ctx = {}) {
   }
 
   function renderDetailForSegment(segObj) {
-    if (!elements.detail || !segObj) { return; }
+    if (!elements.detail || !segObj) {
+      return;
+    }
     elements.detail.classList.add("is-locked");
 
     // Set custom glow color matching the recency of the selected segment
     if (Array.isArray(segObj.color)) {
-      elements.detail.style.setProperty("--detail-glow-color-rgb", segObj.color.join(", "));
+      elements.detail.style.setProperty(
+        "--detail-glow-color-rgb",
+        segObj.color.join(", ")
+      );
     } else {
       elements.detail.style.removeProperty("--detail-glow-color-rgb");
     }
@@ -954,7 +1038,9 @@ export default async function initMemoryCityPage(ctx = {}) {
 
   function setState(kind, text) {
     const overlay = elements.stateOverlay;
-    if (!overlay) { return; }
+    if (!overlay) {
+      return;
+    }
     overlay.classList.remove("is-error");
     if (kind === "hidden") {
       overlay.classList.add("is-hidden");
@@ -965,7 +1051,9 @@ export default async function initMemoryCityPage(ctx = {}) {
       overlay.classList.add("is-error");
     }
     const t = overlay.querySelector(".memory-city-state-text");
-    if (t) { t.textContent = text || ""; }
+    if (t) {
+      t.textContent = text || "";
+    }
   }
 
   // ===========================================================================
@@ -973,7 +1061,9 @@ export default async function initMemoryCityPage(ctx = {}) {
   // ===========================================================================
 
   function setCameraPreset(mode) {
-    if (!state.deck || !state.viewState) { return; }
+    if (!state.deck || !state.viewState) {
+      return;
+    }
 
     if (state.autoRotate) {
       stopAutoRotate();
@@ -1004,7 +1094,7 @@ export default async function initMemoryCityPage(ctx = {}) {
 
   function updateCameraPresetActiveStates(activeMode) {
     const presets = ["cinematic", "blueprint", "horizon"];
-    presets.forEach(mode => {
+    presets.forEach((mode) => {
       const btn = elements[`cam${mode.charAt(0).toUpperCase() + mode.slice(1)}Btn`];
       if (btn) {
         btn.setAttribute("aria-pressed", mode === activeMode ? "true" : "false");
@@ -1018,7 +1108,9 @@ export default async function initMemoryCityPage(ctx = {}) {
 
   function buildLegendRecency() {
     const container = document.getElementById("memory-city-legend-recency");
-    if (!container) { return; }
+    if (!container) {
+      return;
+    }
 
     container.innerHTML = "";
 
@@ -1030,7 +1122,15 @@ export default async function initMemoryCityPage(ctx = {}) {
     const swatchesWrap = document.createElement("div");
     swatchesWrap.className = "memory-city-legend-swatches";
 
-    const labels = ["Today", "< 1 Week", "< 1 Month", "< 3 Months", "< 6 Months", "< 1 Year", "Older"];
+    const labels = [
+      "Today",
+      "< 1 Week",
+      "< 1 Month",
+      "< 3 Months",
+      "< 6 Months",
+      "< 1 Year",
+      "Older",
+    ];
 
     RECENCY_STOPS.forEach(([threshold, rgb], index) => {
       const swatch = document.createElement("span");
@@ -1070,7 +1170,7 @@ export default async function initMemoryCityPage(ctx = {}) {
 
     const container = document.getElementById("memory-city-legend-recency");
     if (container) {
-      container.querySelectorAll(".mc-legend-swatch").forEach(sw => {
+      container.querySelectorAll(".mc-legend-swatch").forEach((sw) => {
         sw.classList.remove("is-active");
       });
       if (!alreadySelected && el) {
@@ -1085,15 +1185,21 @@ export default async function initMemoryCityPage(ctx = {}) {
   // ===========================================================================
 
   function updateDynamicStats(cutoff) {
-    if (!state.payload || !Array.isArray(state.payload.segments)) { return; }
+    if (!state.payload || !Array.isArray(state.payload.segments)) {
+      return;
+    }
 
     let activeSegments = 0;
     let activeMiles = 0;
 
     for (const seg of state.payload.segments) {
       const firstMs = parseIso(seg.first_driven_at);
-      if (firstMs === null) { continue; }
-      if (cutoff !== null && firstMs > cutoff) { continue; }
+      if (firstMs === null) {
+        continue;
+      }
+      if (cutoff !== null && firstMs > cutoff) {
+        continue;
+      }
 
       activeSegments += 1;
       activeMiles += seg.length_miles || 0;
@@ -1116,8 +1222,12 @@ export default async function initMemoryCityPage(ctx = {}) {
   }
 
   function updateStatElement(el, nextValue) {
-    if (!el) { return; }
-    if (el.textContent === nextValue) { return; }
+    if (!el) {
+      return;
+    }
+    if (el.textContent === nextValue) {
+      return;
+    }
 
     el.textContent = nextValue;
 
@@ -1155,15 +1265,23 @@ function getColumnRadiusForHighwayType(highwayType) {
 }
 
 function parseIso(value) {
-  if (value === null || value === undefined) { return null; }
-  if (value instanceof Date) { return value.getTime(); }
-  if (typeof value === "number") { return Number.isFinite(value) ? value : null; }
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
   const ts = Date.parse(value);
   return Number.isFinite(ts) ? ts : null;
 }
 
 function midpointOfPath(path) {
-  if (!Array.isArray(path) || path.length < 2) { return null; }
+  if (!Array.isArray(path) || path.length < 2) {
+    return null;
+  }
   // Use the geometric midpoint along the polyline rather than the centroid,
   // so long curved streets place their "monument" on the road itself.
   const segmentLengths = [];
@@ -1197,38 +1315,52 @@ function midpointOfPath(path) {
 
 function recencyColor(daysSinceDriven) {
   for (const [threshold, rgb] of RECENCY_STOPS) {
-    if (daysSinceDriven <= threshold) { return rgb; }
+    if (daysSinceDriven <= threshold) {
+      return rgb;
+    }
   }
   return RECENCY_STOPS[RECENCY_STOPS.length - 1][1];
 }
 
 function clamp(n, min, max) {
-  if (n < min) { return min; }
-  if (n > max) { return max; }
+  if (n < min) {
+    return min;
+  }
+  if (n > max) {
+    return max;
+  }
   return n;
 }
 
 function formatInt(value) {
   const n = Number(value);
-  if (!Number.isFinite(n)) { return "—"; }
+  if (!Number.isFinite(n)) {
+    return "—";
+  }
   return Math.round(n).toLocaleString();
 }
 
 function formatMiles(value) {
   const n = Number(value);
-  if (!Number.isFinite(n)) { return "—"; }
+  if (!Number.isFinite(n)) {
+    return "—";
+  }
   return `${n.toFixed(1)} mi`;
 }
 
 function formatPercent(value) {
   const n = Number(value);
-  if (!Number.isFinite(n)) { return "—"; }
+  if (!Number.isFinite(n)) {
+    return "—";
+  }
   return `${n.toFixed(1)}%`;
 }
 
 function formatDate(value) {
   const ts = parseIso(value);
-  if (ts === null) { return "—"; }
+  if (ts === null) {
+    return "—";
+  }
   const d = new Date(ts);
   return d.toLocaleDateString(undefined, {
     year: "numeric",
@@ -1238,17 +1370,31 @@ function formatDate(value) {
 }
 
 function formatRelativeDays(days) {
-  if (!Number.isFinite(days)) { return "—"; }
-  if (days < 1) { return "driven today"; }
-  if (days < 2) { return "driven yesterday"; }
-  if (days < 7) { return `driven ${Math.round(days)} days ago`; }
-  if (days < 30) { return `driven ${Math.round(days / 7)} weeks ago`; }
-  if (days < 365) { return `driven ${Math.round(days / 30)} months ago`; }
+  if (!Number.isFinite(days)) {
+    return "—";
+  }
+  if (days < 1) {
+    return "driven today";
+  }
+  if (days < 2) {
+    return "driven yesterday";
+  }
+  if (days < 7) {
+    return `driven ${Math.round(days)} days ago`;
+  }
+  if (days < 30) {
+    return `driven ${Math.round(days / 7)} weeks ago`;
+  }
+  if (days < 365) {
+    return `driven ${Math.round(days / 30)} months ago`;
+  }
   return `driven ${(days / 365).toFixed(1)} years ago`;
 }
 
 function setText(el, value) {
-  if (el) { el.textContent = value ?? "—"; }
+  if (el) {
+    el.textContent = value ?? "—";
+  }
 }
 
 /**
@@ -1257,7 +1403,9 @@ function setText(el, value) {
 function anySignal(signals) {
   const controller = new AbortController();
   for (const sig of signals) {
-    if (!sig) { continue; }
+    if (!sig) {
+      continue;
+    }
     if (sig.aborted) {
       controller.abort(sig.reason);
       break;

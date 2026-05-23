@@ -278,11 +278,14 @@ class HistoricalTripMatchMutationService:
             coords,
             trip_data,
         )
-        return _MatchInput(
-            coords=coords,
-            timestamps=timestamps,
-            mapbox_timestamps=mapbox_timestamps,
-        ), None
+        return (
+            _MatchInput(
+                coords=coords,
+                timestamps=timestamps,
+                mapbox_timestamps=mapbox_timestamps,
+            ),
+            None,
+        )
 
     @staticmethod
     def _extract_unix_timestamps_for_coordinates(
@@ -305,9 +308,11 @@ class HistoricalTripMatchMutationService:
         coordinate_records = trip_data.get("coordinates", [])
         if coordinate_records and len(coordinate_records) == len(coordinates):
             timestamps = [
-                normalize_timestamp(record.get("timestamp"))
-                if isinstance(record, dict)
-                else None
+                (
+                    normalize_timestamp(record.get("timestamp"))
+                    if isinstance(record, dict)
+                    else None
+                )
                 for record in coordinate_records
             ]
             if all(timestamp is not None for timestamp in timestamps):

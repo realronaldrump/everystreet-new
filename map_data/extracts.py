@@ -133,9 +133,9 @@ async def get_preferred_osm_extract_metadata() -> dict[str, Any]:
     Describe the extract coverage GraphML builds should use.
 
     A configured active map-service extract wins over ad-hoc environment
-    resolution. If no active extract has been recorded yet, fall back to the
-    local resolver so tests and first-time setup can still build from an
-    explicit local OSM_DATA_PATH.
+    resolution. If no active extract has been recorded yet, fall back to
+    the local resolver so tests and first-time setup can still build
+    from an explicit local OSM_DATA_PATH.
     """
     configured = await get_configured_extract_identity()
     configured_path = str((configured or {}).get("path") or "").strip()

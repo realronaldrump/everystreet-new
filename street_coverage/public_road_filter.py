@@ -218,7 +218,6 @@ def get_public_road_filter_signature(
 
 def normalize_tag_values(value: Any) -> list[str]:
     """Normalize scalar/list/semicolon values into lowercase tokens."""
-
     if value is None:
         return []
 
@@ -247,7 +246,6 @@ def normalize_tag_values(value: Any) -> list[str]:
 
 def extract_relevant_tags(raw_tags: Mapping[str, Any] | None) -> dict[str, Any]:
     """Extract relevant classifier tags from an edge/way payload."""
-
     if not raw_tags:
         return {}
 
@@ -274,7 +272,6 @@ def classify_public_road(
     include_service: Any | None = None,
 ) -> PublicRoadDecision:
     """Classify an OSM way as public-road include/exclude."""
-
     effective_mode = get_public_road_filter_mode(mode)
     effective_track_policy = get_track_policy(track_policy)
     effective_include_service = get_include_service_roads(include_service)

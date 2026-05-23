@@ -2,15 +2,22 @@
 
 {% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}Recurring Routes - Every Street{% endblock %}
+{% block title %}
+
+Recurring Routes - Every Street
+{% endblock %}
+
 
 {% block extra_css %}
+
   {{ include_mapbox_css() }}
   {{ static_css("features/map/index.css") }}
   {{ static_css("routes.css") }}
 {% endblock %}
 
+
 {% block content %}
+
   <div id="routes-page" class="routes-page">
     <div class="routes-container">
       <header class="routes-hero" data-stagger>
@@ -409,16 +416,10 @@ Route
               </div>
             </div>
             <div class="modal-actions">
-              <button class="btn-icon"
-                      id="route-modal-pin-btn"
-                      title="Pin"
-                      aria-label="Pin route">
+              <button class="btn-icon" id="route-modal-pin-btn" title="Pin" aria-label="Pin route">
                 <i class="fas fa-thumbtack" aria-hidden="true"></i>
               </button>
-              <button class="btn-icon"
-                      id="route-modal-hide-btn"
-                      title="Hide"
-                      aria-label="Hide route">
+              <button class="btn-icon" id="route-modal-hide-btn" title="Hide" aria-label="Hide route">
                 <i class="fas fa-eye-slash" aria-hidden="true"></i>
               </button>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
@@ -663,5 +664,6 @@ All statistics
 
   </div>
 {% endblock %}
+
 
 {# Page scripts are loaded via route-loader + swup. #}

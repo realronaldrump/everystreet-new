@@ -3,8 +3,8 @@ import { createFeatureApi } from "../../core/feature-api.js";
 import { createMap } from "../../map-core.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
-import { DateUtils, escapeHtml } from "../../utils.js";
 import { createCoordinateBounds } from "../../utils/bounds.js";
+import { DateUtils, escapeHtml } from "../../utils.js";
 import { clearInlineStatus, setInlineStatus } from "../settings/status-utils.js";
 
 let elements = {};
@@ -212,7 +212,9 @@ function formatFailureReason(matchStatus) {
 }
 
 function normalizeProviderPolicy(value) {
-  const normalized = String(value || "auto").trim().toLowerCase();
+  const normalized = String(value || "auto")
+    .trim()
+    .toLowerCase();
   return Object.hasOwn(PROVIDER_LABELS, normalized) ? normalized : "auto";
 }
 
@@ -289,7 +291,10 @@ function providerBadgeLabel(metrics = {}) {
   if (mapbox > 0) {
     return "Mapbox";
   }
-  if (valhalla > 0 || normalizeProviderPolicy(metrics.provider_policy) !== "mapbox_only") {
+  if (
+    valhalla > 0 ||
+    normalizeProviderPolicy(metrics.provider_policy) !== "mapbox_only"
+  ) {
     return "Valhalla";
   }
   return "Mapbox";
@@ -333,8 +338,7 @@ function renderProviderSummary(summary = {}) {
     const pending = formatSummaryCount(summary.unmatched);
     const untracked = formatSummaryCount(summary.untracked_matched);
     const mapboxOnly = formatSummaryCount(summary.mapbox_only_matched);
-    elements.summaryFoot.textContent =
-      `Pending ${pending} · Mapbox-only ${mapboxOnly} · No engine tag ${untracked}`;
+    elements.summaryFoot.textContent = `Pending ${pending} · Mapbox-only ${mapboxOnly} · No engine tag ${untracked}`;
   }
 }
 

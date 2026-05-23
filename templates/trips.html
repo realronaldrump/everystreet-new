@@ -2,15 +2,22 @@
 
 {% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}Your Trips - Every Street{% endblock %}
+{% block title %}
+
+Your Trips - Every Street
+{% endblock %}
+
 
 {% block extra_css %}
+
   {{ include_mapbox_css() }}
   {{ static_css("features/map/index.css") }}
   {{ static_css("trips.css") }}
 {% endblock %}
 
+
 {% block content %}
+
   <div class="trips-journal-page">
     <div class="trips-container">
       <header class="trips-welcome" data-stagger>
@@ -47,10 +54,7 @@
             <span class="sync-dot"></span>
           </span>
           <span class="sync-text">Checking sync status...</span>
-          <button class="sync-btn"
-                  id="sync-now-btn"
-                  title="Sync now"
-                  aria-label="Sync trips now">
+          <button class="sync-btn" id="sync-now-btn" title="Sync now" aria-label="Sync trips now">
             <i class="fas fa-sync-alt"></i>
           </button>
         </div>
@@ -387,10 +391,7 @@ Inactive
               </div>
             </div>
             <div class="modal-actions">
-              <button class="btn-icon"
-                      id="modal-share-btn"
-                      title="Share"
-                      aria-label="Share trip">
+              <button class="btn-icon" id="modal-share-btn" title="Share" aria-label="Share trip">
                 <i class="fas fa-share-alt"></i>
               </button>
               <button class="btn-icon"
@@ -583,5 +584,6 @@ Recurring Route
     </div>
   </div>
 {% endblock %}
+
 
 {# Page scripts are loaded via route-loader + swup. #}

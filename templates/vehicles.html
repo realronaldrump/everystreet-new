@@ -2,13 +2,20 @@
 
 {% from "partials/_map_assets.html" import static_css with context %}
 
-{% block title %}My Vehicles{% endblock %}
+{% block title %}
+
+My Vehicles
+{% endblock %}
+
 
 {% block extra_css %}
+
   {{ static_css("vehicles.css") }}
 {% endblock %}
 
+
 {% block content %}
+
   <div class="container-fluid vehicles-page py-4">
     <div class="bento-grid" data-stagger>
       <div class="bento-span-12 widget" data-accent="purple">
@@ -60,7 +67,7 @@ IMEI
                 </div>
                 <div class="col-12 col-md-5">
                   <label for="fleet-add-vehicle-name" class="form-label">
-                                      Display name <span class="text-tertiary">(optional)</span>
+                                                        Display name <span class="text-tertiary">(optional)</span>
                 </label>
                 <input type="text"
                        class="form-control"
@@ -321,5 +328,6 @@ Inactive vehicles won't sync trips.
 </div>
 
 {% endblock %}
+
 
 {# Page scripts are loaded via route-loader + swup. #}

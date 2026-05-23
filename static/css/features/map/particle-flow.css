@@ -91,7 +91,9 @@
 /* === Mobile adjustments === */
 @media (width <= 768px) {
   .particle-flow-toggle {
-    bottom: calc(max(var(--map-sheet-visible-height, 60px), 60px) + env(safe-area-inset-bottom, 0px) + 160px);
+    bottom: calc(
+      max(var(--map-sheet-visible-height, 60px), 60px) + env(safe-area-inset-bottom, 0px) + 160px
+    );
     right: var(--space-2);
     width: 44px;
     height: 44px;

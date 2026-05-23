@@ -45,7 +45,9 @@ export default function initMapFabDock() {
   const sync = () => {
     const activeCount = getActiveCount();
     const countLabel =
-      activeCount > 0 ? `${activeCount} active feature${activeCount === 1 ? "" : "s"}` : "";
+      activeCount > 0
+        ? `${activeCount} active feature${activeCount === 1 ? "" : "s"}`
+        : "";
 
     dock.classList.toggle("has-active-items", activeCount > 0);
     toggle.classList.toggle("active", isExpanded || activeCount > 0);

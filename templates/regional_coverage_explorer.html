@@ -2,14 +2,21 @@
 
 {% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}Every Street - Region Explorer{% endblock %}
+{% block title %}
+
+Every Street - Region Explorer
+{% endblock %}
+
 
 {% block extra_css %}
+
   {{ include_mapbox_css() }}
   {{ static_css("regional-coverage-explorer.css") }}
 {% endblock %}
 
+
 {% block content %}
+
   <div class="regional-coverage-explorer-wrapper">
     <h1 class="visually-hidden">
 Region Explorer
@@ -121,5 +128,6 @@ Region Explorer
     </div>
   </div>
 {% endblock %}
+
 
 {# Page scripts are loaded via route-loader + swup. #}

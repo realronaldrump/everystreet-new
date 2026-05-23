@@ -1034,15 +1034,13 @@ function updateBatchOpenButtonState() {
   btn.disabled = eligibleCount < 2;
   btn.setAttribute("aria-disabled", eligibleCount < 2 ? "true" : "false");
   btn.title =
-    eligibleCount < 2
-      ? "At least two ready areas are needed"
-      : "Batch recalculate";
+    eligibleCount < 2 ? "At least two ready areas are needed" : "Batch recalculate";
 }
 
 function getSelectedBatchAreaIds() {
-  return Array.from(
-    document.querySelectorAll(".batch-area-check:checked")
-  ).map((input) => input.value);
+  return Array.from(document.querySelectorAll(".batch-area-check:checked")).map(
+    (input) => input.value
+  );
 }
 
 function getBatchAreaStatusLabel(area) {
@@ -1692,7 +1690,9 @@ function renderProgressRing(fillEl, pct) {
 // =============================================================================
 
 async function handleShareClick() {
-  if (!state.currentAreaData) return;
+  if (!state.currentAreaData) {
+    return;
+  }
 
   try {
     const { default: progressCardGenerator } = await import(

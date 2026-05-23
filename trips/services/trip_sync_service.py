@@ -114,7 +114,6 @@ class TripSyncService:
         other models bound to a previous DB instance. Avoid cross-DB
         queries so status doesn't leak across test databases.
         """
-
         try:
             job_db = Job.get_pymongo_collection().database
             history_db = TaskHistory.get_pymongo_collection().database
@@ -137,7 +136,6 @@ class TripSyncService:
         Some test harnesses (eg mongomock) drop tzinfo on round-trip;
         for sync staleness calculations we treat naive datetimes as UTC.
         """
-
         if dt.tzinfo is None:
             return dt.replace(tzinfo=UTC)
         return dt.astimezone(UTC)
@@ -165,11 +163,10 @@ class TripSyncService:
         """
         Mark stale RUNNING/PENDING trip sync history entries as FAILED.
 
-        This is a self-healing guard for cases where the worker crashed and the
-        TaskHistory row was never finalized, leaving the UI stuck in "Syncing..."
-        forever.
+        This is a self-healing guard for cases where the worker crashed
+        and the TaskHistory row was never finalized, leaving the UI
+        stuck in "Syncing..." forever.
         """
-
         now = datetime.now(UTC)
         candidates = (
             await TaskHistory.find(

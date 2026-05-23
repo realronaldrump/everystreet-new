@@ -151,7 +151,7 @@ const tripStatsWidget = {
 
   getWidgetBounds() {
     const container = this.elements.widget?.parentElement;
-    const widget = this.elements.widget;
+    const { widget } = this.elements;
     if (!container || !widget) {
       return null;
     }
@@ -166,7 +166,7 @@ const tripStatsWidget = {
   },
 
   applyWidgetPosition(left, top) {
-    const widget = this.elements.widget;
+    const { widget } = this.elements;
     const container = widget?.parentElement;
     if (!widget || !container) {
       return;
@@ -281,7 +281,7 @@ const tripStatsWidget = {
   },
 
   stopDrag() {
-    const header = this.elements.header;
+    const { header } = this.elements;
     const pointerId = this.dragState?.pointerId;
 
     header?.removeEventListener("pointermove", this.handlers?.onDragMove);
@@ -521,7 +521,10 @@ const tripStatsWidget = {
 
     this.stopDrag();
     this.elements.toggle?.removeEventListener("click", this.handlers?.onToggleClick);
-    this.elements.header?.removeEventListener("pointerdown", this.handlers?.onDragStart);
+    this.elements.header?.removeEventListener(
+      "pointerdown",
+      this.handlers?.onDragStart
+    );
     document.removeEventListener("metricsUpdated", this.handlers?.onMetricsUpdated);
     document.removeEventListener("tripsDataLoaded", this.handlers?.onTripsDataLoaded);
     window.removeEventListener("resize", this.handlers?.onResize);

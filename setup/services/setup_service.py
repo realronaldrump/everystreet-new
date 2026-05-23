@@ -334,13 +334,17 @@ async def get_service_health() -> dict[str, Any]:
         bouncie_status = "error"
         bouncie_message = "Public webhook endpoint is unreachable"
         if public_status_code is not None:
-            bouncie_detail_parts.append(f"Public probe status: HTTP {public_status_code}")
+            bouncie_detail_parts.append(
+                f"Public probe status: HTTP {public_status_code}"
+            )
         if public_error:
             bouncie_detail_parts.append(f"Probe error: {public_error}")
     elif bouncie_ready and webhook_active is False:
         bouncie_status = "warning"
         bouncie_message = "Bouncie webhook is inactive"
-        bouncie_detail_parts.append("Update the webhook in the Bouncie Developer Portal.")
+        bouncie_detail_parts.append(
+            "Update the webhook in the Bouncie Developer Portal."
+        )
 
     bouncie_detail = " | ".join(part for part in bouncie_detail_parts if part) or None
 

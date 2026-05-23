@@ -29,7 +29,8 @@ async def get_trip_map_revision() -> str:
 
 
 async def bump_trip_map_revision() -> str | None:
-    """Increment the historical trip map revision.
+    """
+    Increment the historical trip map revision.
 
     Bundle cache keys include this token, so older cached bodies become
     unreachable immediately and expire naturally by TTL.

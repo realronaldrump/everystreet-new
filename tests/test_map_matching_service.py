@@ -224,7 +224,9 @@ async def test_map_matching_job_bumps_revision_once_for_changed_batch(
     async def fake_update_progress(*_args: Any, **_kwargs: Any) -> None:
         return None
 
-    async def fake_process_trips_directly(*_args: Any, **_kwargs: Any) -> dict[str, int]:
+    async def fake_process_trips_directly(
+        *_args: Any, **_kwargs: Any
+    ) -> dict[str, int]:
         return {
             "matched": 2,
             "failed": 0,

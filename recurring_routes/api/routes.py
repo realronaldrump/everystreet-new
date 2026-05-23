@@ -90,8 +90,8 @@ async def _resolve_raw_route_geometry(route: RecurringRoute) -> dict[str, Any] |
             enforce_bouncie_source(
                 apply_trip_record_filters(
                     {
-                    "transactionId": rep_trip_id,
-                    "invalid": {"$ne": True},
+                        "transactionId": rep_trip_id,
+                        "invalid": {"$ne": True},
                     },
                     include_invalid=True,
                 ),
@@ -104,12 +104,12 @@ async def _resolve_raw_route_geometry(route: RecurringRoute) -> dict[str, Any] |
                 enforce_bouncie_source(
                     apply_trip_record_filters(
                         {
-                        "recurringRouteId": route.id,
-                        "invalid": {"$ne": True},
-                        "$or": [
-                            {"matchedGps": {"$ne": None}},
-                            {"gps": {"$ne": None}},
-                        ],
+                            "recurringRouteId": route.id,
+                            "invalid": {"$ne": True},
+                            "$or": [
+                                {"matchedGps": {"$ne": None}},
+                                {"gps": {"$ne": None}},
+                            ],
                         },
                         include_invalid=True,
                     ),
@@ -266,9 +266,8 @@ async def get_recurring_route(route_id: str):
         raise HTTPException(status_code=404, detail="Route not found")
 
     route_data = await serialize_route_detail_with_place_links(route)
-    route_data["geometry"] = (
-        await _resolve_raw_route_geometry(route)
-        or route_data.get("geometry")
+    route_data["geometry"] = await _resolve_raw_route_geometry(route) or route_data.get(
+        "geometry"
     )
 
     return {

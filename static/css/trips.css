@@ -65,12 +65,7 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(
-    90deg,
-    var(--primary),
-    var(--success),
-    var(--info)
-  );
+  background: linear-gradient(90deg, var(--primary), var(--success), var(--info));
 }
 
 .welcome-greeting {
@@ -397,11 +392,7 @@ body.light-mode .trips-journal-page .sort-control {
   border-radius: var(--radius-pill);
   background-color: var(--surface-1);
   background-image:
-    linear-gradient(
-      180deg,
-      rgb(var(--primary-rgb) / 7%) 0%,
-      rgb(var(--primary-rgb) / 2%) 100%
-    ),
+    linear-gradient(180deg, rgb(var(--primary-rgb) / 7%) 0%, rgb(var(--primary-rgb) / 2%) 100%),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='rgba(245,242,236,0.9)' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
   background-repeat: no-repeat, no-repeat;
   background-size:
@@ -420,11 +411,7 @@ body.light-mode .trips-journal-page .sort-control {
 
 body.light-mode .trips-journal-page .sort-select {
   background-image:
-    linear-gradient(
-      180deg,
-      rgb(var(--primary-rgb) / 9%) 0%,
-      rgb(var(--primary-rgb) / 3%) 100%
-    ),
+    linear-gradient(180deg, rgb(var(--primary-rgb) / 9%) 0%, rgb(var(--primary-rgb) / 3%) 100%),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='rgba(28,26,23,0.8)' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
 }
 
@@ -539,11 +526,7 @@ body.light-mode .trips-journal-page .sort-select {
 /* Filters Panel - Enhanced */
 #trips-filters-panel {
   border-top: 1px solid var(--surface-2);
-  background: linear-gradient(
-    to bottom,
-    var(--surface-3) 0%,
-    rgb(var(--primary-rgb) / 2%) 100%
-  );
+  background: linear-gradient(to bottom, var(--surface-3) 0%, rgb(var(--primary-rgb) / 2%) 100%);
   max-height: 0;
   overflow: hidden;
   opacity: 0;
@@ -559,11 +542,7 @@ body.light-mode .trips-journal-page .sort-select {
 }
 
 #trips-filters-panel.has-filters {
-  background: linear-gradient(
-    to bottom,
-    var(--surface-3) 0%,
-    rgb(var(--primary-rgb) / 5%) 100%
-  );
+  background: linear-gradient(to bottom, var(--surface-3) 0%, rgb(var(--primary-rgb) / 5%) 100%);
 }
 
 .filters-content {
@@ -896,8 +875,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   border: 1px solid rgb(var(--primary-rgb) / 14%);
   border-radius: 8px 8px 0 0;
   background:
-    linear-gradient(135deg, rgb(var(--primary-rgb) / 8%), transparent 45%),
-    var(--surface-1);
+    linear-gradient(135deg, rgb(var(--primary-rgb) / 8%), transparent 45%), var(--surface-1);
   box-shadow: var(--shadow-sm);
 }
 
@@ -1408,11 +1386,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .trip-card.inactive {
-  background: linear-gradient(
-    180deg,
-    rgb(var(--primary-rgb) / 4%) 0%,
-    var(--surface-1) 100%
-  );
+  background: linear-gradient(180deg, rgb(var(--primary-rgb) / 4%) 0%, var(--surface-1) 100%);
   border-color: rgb(var(--primary-rgb) / 10%);
   box-shadow: none;
 }

@@ -86,10 +86,7 @@ test("waitForGoogleMaps fails fast when Google provider is selected without an A
     state: "unconfigured",
   });
 
-  await assert.rejects(
-    waitForGoogleMaps(50),
-    /no Google Maps API key is configured/i
-  );
+  await assert.rejects(waitForGoogleMaps(50), /no Google Maps API key is configured/i);
 });
 
 test("waitForGoogleMaps resolves from the shared Google bootstrap promise", async () => {

@@ -46,7 +46,9 @@ def extract_destination_coords(doc: dict[str, Any]) -> tuple[float, float] | Non
 
 
 def extract_destination_label(doc: dict[str, Any]) -> str | None:
-    """Extract the best available human-readable destination label from a trip-like doc."""
+    """Extract the best available human-readable destination label from a trip-like
+    doc.
+    """
     for candidate in (
         doc.get("destinationPlaceName"),
         (doc.get("destination") or {}).get("formatted_address"),

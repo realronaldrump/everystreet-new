@@ -535,9 +535,9 @@ async def simulate_drive(
     """
     Simulate driving specific segments and return projected coverage stats.
 
-    This is a read-only operation that does NOT modify any data.
-    Returns current stats alongside projected stats if the given
-    segments were driven.
+    This is a read-only operation that does NOT modify any data. Returns
+    current stats alongside projected stats if the given segments were
+    driven.
     """
     area = await CoverageArea.get(area_id)
     if not area:
@@ -575,9 +575,7 @@ async def simulate_drive(
     already_counted = {s.segment_id for s in driven_states}
 
     # Get the street geometries for segments that would be newly driven
-    new_segment_ids = [
-        sid for sid in request.segment_ids if sid not in already_counted
-    ]
+    new_segment_ids = [sid for sid in request.segment_ids if sid not in already_counted]
 
     if not new_segment_ids:
         return {

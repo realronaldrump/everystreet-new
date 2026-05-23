@@ -53,7 +53,10 @@ test("visits map editing flow still supports editing an existing place boundary"
   const managerSource = readStaticJs("modules", "visits", "visits-manager.js");
   const drawingSource = readStaticJs("modules", "visits", "visits-drawing.js");
 
-  assert.match(managerSource, /const placeBeingEdited = this\.drawing\.getPlaceBeingEdited\(\);/);
+  assert.match(
+    managerSource,
+    /const placeBeingEdited = this\.drawing\.getPlaceBeingEdited\(\);/
+  );
   assert.match(
     managerSource,
     /if\s*\(placeBeingEdited\)\s*{\s*return this\._saveEditedPlaceFromMap\(/s

@@ -9,10 +9,7 @@ from core.http.mapbox import MapboxMapMatchingClient, sanitize_mapbox_message
 
 
 def test_sanitize_mapbox_message_redacts_tokens_and_coordinates() -> None:
-    message = (
-        "NoSegment near -97.123456,32.654321 "
-        "access_token=pk.secret-token"
-    )
+    message = "NoSegment near -97.123456,32.654321 access_token=pk.secret-token"
 
     sanitized = sanitize_mapbox_message(message)
 

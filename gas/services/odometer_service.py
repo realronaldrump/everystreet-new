@@ -74,9 +74,9 @@ class OdometerService:
                 enforce_bouncie_source(
                     apply_trip_record_filters(
                         {
-                        "imei": imei,
-                        "startTime": {"$lte": target_time},
-                        "endTime": {"$gte": target_time},
+                            "imei": imei,
+                            "startTime": {"$lte": target_time},
+                            "endTime": {"$gte": target_time},
                         }
                     ),
                 ),
@@ -90,8 +90,8 @@ class OdometerService:
                         enforce_bouncie_source(
                             apply_trip_record_filters(
                                 {
-                                "imei": imei,
-                                "endTime": {"$lte": target_time},
+                                    "imei": imei,
+                                    "endTime": {"$lte": target_time},
                                 }
                             ),
                         ),
@@ -105,8 +105,8 @@ class OdometerService:
                         enforce_bouncie_source(
                             apply_trip_record_filters(
                                 {
-                                "imei": imei,
-                                "startTime": {"$gte": target_time},
+                                    "imei": imei,
+                                    "startTime": {"$gte": target_time},
                                 }
                             ),
                         ),
@@ -115,7 +115,9 @@ class OdometerService:
                     .first_or_none()
                 )
 
-                previous_end = parse_timestamp(previous_trip.endTime) if previous_trip else None
+                previous_end = (
+                    parse_timestamp(previous_trip.endTime) if previous_trip else None
+                )
                 next_start = parse_timestamp(next_trip.startTime) if next_trip else None
 
                 if previous_trip and next_trip and previous_end and next_start:
@@ -209,7 +211,9 @@ class OdometerService:
             "latitude": None,
             "longitude": None,
             "odometer": resolved_odometer,
-            "odometer_source": odometer_source if resolved_odometer is not None else None,
+            "odometer_source": (
+                odometer_source if resolved_odometer is not None else None
+            ),
             "odometer_is_estimated": (
                 resolved_odometer is not None and odometer_source == "trip_interpolated"
             ),
@@ -236,7 +240,11 @@ class OdometerService:
             )
 
         # 1. GPS Data
-        if location_data["latitude"] is None and isinstance(trip.gps, dict) and trip.gps:
+        if (
+            location_data["latitude"] is None
+            and isinstance(trip.gps, dict)
+            and trip.gps
+        ):
             location_data = OdometerService._extract_gps_coordinates(
                 trip.gps,
                 location_data,
@@ -286,7 +294,6 @@ class OdometerService:
         location_data: dict[str, Any],
     ) -> dict[str, Any]:
         """Interpolate a lat/lon from timestamped coordinate entries."""
-
         valid_entries: list[tuple[datetime, float, float]] = []
         for entry in coordinate_entries:
             if not isinstance(entry, dict):
@@ -445,9 +452,9 @@ class OdometerService:
                 enforce_bouncie_source(
                     apply_trip_record_filters(
                         {
-                        "imei": imei,
-                        "startTime": {"$lt": end_time},
-                        "endTime": {"$gt": start_time},
+                            "imei": imei,
+                            "startTime": {"$lt": end_time},
+                            "endTime": {"$gt": start_time},
                         }
                     ),
                 ),

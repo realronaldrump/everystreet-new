@@ -1,7 +1,8 @@
-"""Derived display geometry for historical trips.
+"""
+Derived display geometry for historical trips.
 
-This module is intentionally scoped to persisted historical trips. It never
-mutates source GPS fields and is not used by live trip tracking.
+This module is intentionally scoped to persisted historical trips. It
+never mutates source GPS fields and is not used by live trip tracking.
 """
 
 from __future__ import annotations

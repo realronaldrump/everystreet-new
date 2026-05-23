@@ -8,10 +8,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 from api.coverage_clip import resolve_request_coverage_clip_context
 from core.api import api_route
 from core.casting import safe_float
-from core.coverage_clip import (
-    apply_clip_prefilter,
-    clip_geojson_lines,
-)
+from core.coverage_clip import apply_clip_prefilter, clip_geojson_lines
 from core.date_utils import parse_timestamp
 from core.spatial import GeometryService
 from core.streaming import geojson_response, stream_geojson_feature_collection

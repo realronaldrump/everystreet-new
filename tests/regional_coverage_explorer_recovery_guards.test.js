@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as RegionalCoverageExplorerState from "../static/js/modules/regional-coverage-explorer/state.js";
 import {
   canAttemptRecovery,
   getCityTabStateRollups,
   getCountyActivityStateFips,
 } from "../static/js/modules/features/regional-coverage-explorer/index.js";
+import * as RegionalCoverageExplorerState from "../static/js/modules/regional-coverage-explorer/state.js";
 
 test.afterEach(() => {
   RegionalCoverageExplorerState.resetState();
@@ -120,9 +120,11 @@ test("county map state normalizes county visit and stop keys to 5-digit FIPS", (
     2001: { firstStop: "2026-01-03T00:00:00.000Z" },
   });
 
-  assert.deepEqual(Object.keys(RegionalCoverageExplorerState.getCountyVisits()).sort(), [
-    "01001",
-    "06001",
+  assert.deepEqual(
+    Object.keys(RegionalCoverageExplorerState.getCountyVisits()).sort(),
+    ["01001", "06001"]
+  );
+  assert.deepEqual(Object.keys(RegionalCoverageExplorerState.getCountyStops()), [
+    "02001",
   ]);
-  assert.deepEqual(Object.keys(RegionalCoverageExplorerState.getCountyStops()), ["02001"]);
 });

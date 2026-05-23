@@ -547,7 +547,6 @@
   .header-container {
     padding: 0 var(--page-gutter-tight);
   }
-
 }
 
 @media (width <= 768px) {

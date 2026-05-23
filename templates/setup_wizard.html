@@ -2,18 +2,25 @@
 
 {% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}Every Street Setup{% endblock %}
+{% block title %}
+
+Every Street Setup
+{% endblock %}
+
 
 {% block extra_css %}
+
   {{ include_mapbox_css() }}
   {{ static_css("setup-wizard.css") }}
 {% endblock %}
 
+
 {% block content %}
+
   <div class="setup-page">
     <div class="container-fluid setup-shell">
 
-                                          {# ── Progress bar ── #}
+                                                {# ── Progress bar ── #}
       <div class="setup-progress-bar" aria-label="Setup progress">
         <div class="setup-progress-track">
           <div class="setup-progress-step is-active" data-progress-step="0">
@@ -39,7 +46,7 @@
         </div>
       </div>
 
-                                          {# ── Hero ── #}
+                                                {# ── Hero ── #}
       <div class="setup-hero" data-stagger>
         <div class="setup-hero-text">
           <div class="setup-eyebrow">
@@ -55,10 +62,10 @@ Get your streets online in&nbsp;minutes.
         </div>
       </div>
 
-                                          {# ── Main layout ── #}
+                                                {# ── Main layout ── #}
       <div class="setup-layout">
 
-                                                        {# ── Sidebar ── #}
+                                                                {# ── Sidebar ── #}
         <aside class="setup-sidebar">
           <ol class="setup-step-list" aria-label="Setup steps">
             <li class="setup-step-item is-active" data-step="0" data-step-key="engine">
@@ -112,7 +119,7 @@ Import &amp; build
           </div>
         </aside>
 
-                                                        {# ════════════════════════════════════════════════════
+                                                                {# ════════════════════════════════════════════════════
            STEP 0 — MAP ENGINE
            ════════════════════════════════════════════════════ #}
         <main class="setup-content">
@@ -181,7 +188,7 @@ Lightweight and zero maintenance. Uses Google's APIs for rendering, routing, and
             </div>
           </section>
 
-                                                                    {# ════════════════════════════════════════════════════
+                                                                              {# ════════════════════════════════════════════════════
            STEP 1 — CREDENTIALS
            ════════════════════════════════════════════════════ #}
           <section class="setup-step" data-step="1">
@@ -202,7 +209,7 @@ Credentials
               <div id="credentials-status" class="setup-status" role="status" aria-live="polite">
               </div>
 
-                                                                                                  {# ── Bouncie Credentials ── #}
+                                                                                                                {# ── Bouncie Credentials ── #}
               <div class="setup-card-section">
                 <div class="setup-card-section-header">
                   <div>
@@ -215,7 +222,7 @@ Enter your Bouncie OAuth app details to connect your devices.
                   </div>
                 </div>
 
-                                                                                                                {# Collapsible help #}
+                                                                                                                                {# Collapsible help #}
                 <details class="setup-help-panel">
                   <summary class="setup-help-toggle">
                     <i class="fas fa-question-circle"></i>
@@ -309,7 +316,7 @@ API Key
                   </div>
                 </form>
 
-                                                                                                                {# Bouncie connect actions — shown after credentials are saved #}
+                                                                                                                                {# Bouncie connect actions — shown after credentials are saved #}
                 <div class="setup-connect-actions" id="bouncie-connect-actions">
                   <a href="#" class="btn btn-success" id="connectBouncieBtn" role="button">
                     <i class="fas fa-plug"></i> Connect with Bouncie
@@ -354,7 +361,7 @@ Advanced: Sync vehicles manually
             </div>
           </section>
 
-                                                                      {# ════════════════════════════════════════════════════
+                                                                                {# ════════════════════════════════════════════════════
              STEP 2 — MAP COVERAGE (unified flow)
              ════════════════════════════════════════════════════ #}
           <section class="setup-step" data-step="2" id="step-coverage-section">
@@ -383,7 +390,7 @@ Not configured
               <div id="coverage-status" class="setup-status" role="status" aria-live="polite">
               </div>
 
-                                                                                                  {# ── Phase: Import Trips ── #}
+                                                                                                                {# ── Phase: Import Trips ── #}
               <div class="setup-phase" id="phase-import">
                 <div class="setup-phase-header">
                   <div class="setup-phase-icon">
@@ -412,14 +419,14 @@ Import Recent Trips
                   </div>
                 </div>
 
-                                                                                                                {# Live activity log — visible during import #}
+                                                                                                                                {# Live activity log — visible during import #}
                 <div class="setup-import-activity d-none" id="import-activity">
                   <div class="setup-import-activity-header">
                     <i class="fas fa-stream"></i>
                     <span>Import Activity</span>
                   </div>
                   <ul class="setup-import-activity-log" id="import-activity-log">
-                                                                                                                                            {# JS will populate this with live status lines #}
+                                                                                                                                                                {# JS will populate this with live status lines #}
                   </ul>
                 </div>
 
@@ -440,7 +447,7 @@ Import Recent Trips
                 </div>
               </div>
 
-                                                                                                  {# ── Phase: Detected Coverage ── #}
+                                                                                                                {# ── Phase: Detected Coverage ── #}
               <div class="setup-phase d-none" id="phase-detected">
                 <div class="setup-phase-header">
                   <div class="setup-phase-icon is-success">
@@ -480,7 +487,7 @@ Loading states...
                 </button>
               </div>
 
-                                                                                                  {# ── Phase: Building ── #}
+                                                                                                                {# ── Phase: Building ── #}
               <div class="setup-phase d-none" id="phase-building">
                 <div class="setup-phase-header">
                   <div class="setup-phase-icon is-building">
@@ -524,7 +531,7 @@ Building Coverage
                 </div>
               </div>
 
-                                                                                                  {# ── Phase: Ready / Finish ── #}
+                                                                                                                {# ── Phase: Ready / Finish ── #}
               <div class="setup-phase d-none" id="phase-ready">
                 <div class="setup-phase-header">
                   <div class="setup-phase-icon is-success is-celebrate">
@@ -562,6 +569,6 @@ You're All Set!
     </div>
   </div>
 
-              {# Page scripts are loaded via route-loader + swup. #}
+                {# Page scripts are loaded via route-loader + swup. #}
 
 {% endblock %}

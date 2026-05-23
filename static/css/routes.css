@@ -176,7 +176,8 @@
 
 /* Build Card */
 .routes-build-card {
-  background: linear-gradient(
+  background:
+    linear-gradient(
       180deg,
       rgb(var(--primary-rgb) / 10%) 0%,
       rgb(var(--primary-rgb) / 5%) 40%,
@@ -1083,8 +1084,8 @@ html[data-bs-theme="light"] .route-preview-svg path {
   margin: 0 0 var(--space-8);
   border: 1px solid rgb(var(--primary-rgb) / 25%);
   border-radius: var(--radius-xl);
-  background: linear-gradient(165deg, rgb(var(--primary-rgb) / 10%), transparent 35%),
-    var(--surface-1);
+  background:
+    linear-gradient(165deg, rgb(var(--primary-rgb) / 10%), transparent 35%), var(--surface-1);
   padding: var(--space-4);
   box-shadow: var(--shadow-md);
   display: grid;

@@ -19,8 +19,8 @@ async def aggregate_to_list(
     """
     Run an aggregation pipeline and return results as a list.
 
-    Handles PyMongo async collections and in-memory test doubles that return
-    cursors directly.
+    Handles PyMongo async collections and in-memory test doubles that
+    return cursors directly.
     """
     collection = model.get_pymongo_collection()
     cursor = collection.aggregate(pipeline, **kwargs)

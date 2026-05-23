@@ -6,8 +6,8 @@ attempts pairwise reversals of sub-sequences to reduce total deadhead
 distance.
 
 Uses a lazily-populated distance cache so each (from_node, to_node) pair
-is computed at most once per run, and evaluates swap candidates via
-O(1) delta computation rather than rescanning the entire sequence.
+is computed at most once per run, and evaluates swap candidates via O(1)
+delta computation rather than rescanning the entire sequence.
 """
 
 import logging
@@ -100,7 +100,11 @@ def _swap_delta(
     # Connection into segment i
     prev_end_old = start_node if i == 0 else sequence[i - 1][1][1]
     seg_i_start_old = sequence[i][1][0]
-    old_into_i = dist_cache.get(prev_end_old, seg_i_start_old) if prev_end_old != seg_i_start_old else 0.0
+    old_into_i = (
+        dist_cache.get(prev_end_old, seg_i_start_old)
+        if prev_end_old != seg_i_start_old
+        else 0.0
+    )
     if old_into_i is None:
         return None
 
@@ -108,7 +112,11 @@ def _swap_delta(
     seg_j_end_old = sequence[j][1][1]
     if j + 1 < n:
         seg_j1_start_old = sequence[j + 1][1][0]
-        old_out_j = dist_cache.get(seg_j_end_old, seg_j1_start_old) if seg_j_end_old != seg_j1_start_old else 0.0
+        old_out_j = (
+            dist_cache.get(seg_j_end_old, seg_j1_start_old)
+            if seg_j_end_old != seg_j1_start_old
+            else 0.0
+        )
         if old_out_j is None:
             return None
     else:
@@ -133,7 +141,11 @@ def _swap_delta(
 
     # Connection into reversed[0] = old sequence[j]
     new_first_start = sequence[j][1][0]
-    new_into = dist_cache.get(prev_end_old, new_first_start) if prev_end_old != new_first_start else 0.0
+    new_into = (
+        dist_cache.get(prev_end_old, new_first_start)
+        if prev_end_old != new_first_start
+        else 0.0
+    )
     if new_into is None:
         return None
 
@@ -141,7 +153,11 @@ def _swap_delta(
     new_last_end = sequence[i][1][1]
     if j + 1 < n:
         seg_j1_start = sequence[j + 1][1][0]
-        new_out = dist_cache.get(new_last_end, seg_j1_start) if new_last_end != seg_j1_start else 0.0
+        new_out = (
+            dist_cache.get(new_last_end, seg_j1_start)
+            if new_last_end != seg_j1_start
+            else 0.0
+        )
         if new_out is None:
             return None
     else:
@@ -297,19 +313,26 @@ def improve_route_2opt(
 
     if len(service_sequence) < 3:
         coords = _rebuild_route_coords(G, service_sequence, route_start_node, node_xy)
-        stats = _build_stats(G, service_sequence, route_start_node, required_reqs, dist_cache)
+        stats = _build_stats(
+            G, service_sequence, route_start_node, required_reqs, dist_cache
+        )
         return coords, stats, service_sequence
 
     service_lengths = _precompute_service_lengths(G, service_sequence)
     best_sequence = list(service_sequence)
     best_cost = _sequence_total_cost_fast(
-        best_sequence, service_lengths, route_start_node, dist_cache,
+        best_sequence,
+        service_lengths,
+        route_start_node,
+        dist_cache,
     )
 
     if best_cost is None:
         logger.warning("Cannot compute initial cost for 2-opt; returning original")
         coords = _rebuild_route_coords(G, service_sequence, route_start_node, node_xy)
-        stats = _build_stats(G, service_sequence, route_start_node, required_reqs, dist_cache)
+        stats = _build_stats(
+            G, service_sequence, route_start_node, required_reqs, dist_cache
+        )
         return coords, stats, service_sequence
 
     deadline = time.monotonic() + time_budget_s
@@ -331,8 +354,11 @@ def improve_route_2opt(
             for j in range(i + 2, max_j):
                 # Delta evaluation: only recompute affected connections
                 delta = _swap_delta(
-                    best_sequence, route_start_node,
-                    dist_cache, i, j,
+                    best_sequence,
+                    route_start_node,
+                    dist_cache,
+                    i,
+                    j,
                 )
                 if delta is not None and delta < -1e-6:
                     # Accept the swap

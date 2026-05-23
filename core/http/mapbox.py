@@ -1,8 +1,9 @@
-"""Mapbox Map Matching HTTP client.
+"""
+Mapbox Map Matching HTTP client.
 
-This client is intentionally scoped to historical trip map matching. It does
-not expose tokens to browser payloads and does not return raw provider
-responses to persistence paths.
+This client is intentionally scoped to historical trip map matching. It
+does not expose tokens to browser payloads and does not return raw
+provider responses to persistence paths.
 """
 
 from __future__ import annotations
@@ -48,7 +49,7 @@ class MapboxMapMatchingClient:
         token: str | None = None,
         url: str | None = None,
     ) -> None:
-        self._token = (token if token is not None else get_mapbox_map_matching_token())
+        self._token = token if token is not None else get_mapbox_map_matching_token()
         self._url = url or get_mapbox_map_matching_url()
 
     @property
@@ -67,7 +68,9 @@ class MapboxMapMatchingClient:
         timestamps: list[int | None] | None = None,
     ) -> dict[str, Any]:
         if not self.configured:
-            raise ExternalServiceException("Mapbox map matching token is not configured")
+            raise ExternalServiceException(
+                "Mapbox map matching token is not configured"
+            )
         if len(coordinates) < 2:
             raise ExternalServiceException(
                 "Mapbox map matching requires at least two coordinates."
@@ -127,7 +130,9 @@ class MapboxMapMatchingClient:
 
     @staticmethod
     def _coordinate_param(coordinates: list[list[float]]) -> str:
-        return ";".join(f"{float(lon):.6f},{float(lat):.6f}" for lon, lat in coordinates)
+        return ";".join(
+            f"{float(lon):.6f},{float(lat):.6f}" for lon, lat in coordinates
+        )
 
     @staticmethod
     def _valid_timestamps(

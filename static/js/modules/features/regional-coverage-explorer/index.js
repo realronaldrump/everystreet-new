@@ -5,8 +5,12 @@
 
 import { coverageBoundingBoxToMapBounds } from "../../core/coverage-bounds.js";
 import { swupReady } from "../../core/navigation.js";
+import { createMap } from "../../map-core.js";
 import * as RegionalCoverageExplorerAPI from "../../regional-coverage-explorer/api.js";
-import { getStateName, MAP_CONFIG } from "../../regional-coverage-explorer/constants.js";
+import {
+  getStateName,
+  MAP_CONFIG,
+} from "../../regional-coverage-explorer/constants.js";
 import {
   cleanupInteractions,
   setupInteractions,
@@ -21,7 +25,6 @@ import {
   updateStopLayerVisibility,
 } from "../../regional-coverage-explorer/map-layers.js";
 import * as RegionalCoverageExplorerState from "../../regional-coverage-explorer/state.js";
-import { isAbortError } from "../../utils.js";
 import {
   clearStoredRecalcState,
   getStoredRecalcState,
@@ -39,8 +42,8 @@ import {
   updateRecalculateUi,
   updateSummaryBar,
 } from "../../regional-coverage-explorer/ui.js";
-import { createMap } from "../../map-core.js";
 import notificationManager from "../../ui/notifications.js";
+import { isAbortError } from "../../utils.js";
 
 const MAX_CONTEXT_RECOVERY_ATTEMPTS = 2;
 const CONTEXT_RECOVERY_COOLDOWN_MS = 30_000;
@@ -302,7 +305,9 @@ export function getCityTabStateRollups(
   );
 }
 
-function getPreferredStateFips(stateRollups = RegionalCoverageExplorerState.getStateRollups()) {
+function getPreferredStateFips(
+  stateRollups = RegionalCoverageExplorerState.getStateRollups()
+) {
   const rollups = Array.isArray(stateRollups) ? stateRollups : [];
   const existing = RegionalCoverageExplorerState.getSelectedStateFips();
   if (existing && rollups.some((entry) => String(entry?.stateFips) === existing)) {
@@ -588,22 +593,37 @@ async function loadCityAssetsForState(stateFips, signal) {
     return;
   }
 
-  let cityFeatureCollection = RegionalCoverageExplorerState.getCityFeatureCollection(stateFips);
+  let cityFeatureCollection =
+    RegionalCoverageExplorerState.getCityFeatureCollection(stateFips);
   if (!cityFeatureCollection) {
-    const topologyResponse = await RegionalCoverageExplorerAPI.fetchCityTopology(stateFips, { signal });
+    const topologyResponse = await RegionalCoverageExplorerAPI.fetchCityTopology(
+      stateFips,
+      { signal }
+    );
     if (signal?.aborted || pageSignal?.aborted) {
       return;
     }
     cityFeatureCollection = topologyResponse.featureCollection;
-    RegionalCoverageExplorerState.setCityFeatureCollection(stateFips, cityFeatureCollection);
+    RegionalCoverageExplorerState.setCityFeatureCollection(
+      stateFips,
+      cityFeatureCollection
+    );
   }
 
-  const cityVisits = await RegionalCoverageExplorerAPI.fetchCityVisits(stateFips, { signal });
+  const cityVisits = await RegionalCoverageExplorerAPI.fetchCityVisits(stateFips, {
+    signal,
+  });
   if (signal?.aborted || pageSignal?.aborted) {
     return;
   }
-  RegionalCoverageExplorerState.setCityVisitsForState(stateFips, cityVisits.visits || {});
-  RegionalCoverageExplorerState.setCityStopsForState(stateFips, cityVisits.stopped || {});
+  RegionalCoverageExplorerState.setCityVisitsForState(
+    stateFips,
+    cityVisits.visits || {}
+  );
+  RegionalCoverageExplorerState.setCityStopsForState(
+    stateFips,
+    cityVisits.stopped || {}
+  );
 }
 
 function bindCityPaginationHandlers(stateFips, currentPage, totalPages) {
@@ -724,7 +744,10 @@ function renderCountyMode() {
     RegionalCoverageExplorerState.getCountyVisits(),
     RegionalCoverageExplorerState.getCountyStops()
   );
-  setSelectionHighlight(RegionalCoverageExplorerState.getSelectedCountyFips(), "county");
+  setSelectionHighlight(
+    RegionalCoverageExplorerState.getSelectedCountyFips(),
+    "county"
+  );
   updateStopLayerVisibility();
   detachLevelClickHandlers(map);
   attachCountyClickHandler(map);
@@ -786,7 +809,8 @@ async function renderCityMode(token) {
     return;
   }
 
-  const cityFeatureCollection = RegionalCoverageExplorerState.getCityFeatureCollection(stateFips);
+  const cityFeatureCollection =
+    RegionalCoverageExplorerState.getCityFeatureCollection(stateFips);
   renderLevelLayers("city", {
     cityFeatureCollection,
     showStoppedCities: RegionalCoverageExplorerState.getShowStoppedCities(),
@@ -1103,7 +1127,9 @@ async function triggerRecalculate() {
   });
 
   try {
-    const data = await RegionalCoverageExplorerAPI.triggerRecalculation({ signal: pageSignal });
+    const data = await RegionalCoverageExplorerAPI.triggerRecalculation({
+      signal: pageSignal,
+    });
     if (data.success) {
       const job = data?.job || null;
       const jobId = typeof data?.jobId === "string" ? data.jobId : job?.id || null;
@@ -1168,7 +1194,9 @@ async function checkAndRefresh(startedAt, activeJobId = null) {
   }
 
   try {
-    const data = await RegionalCoverageExplorerAPI.fetchCacheStatus({ signal: pageSignal });
+    const data = await RegionalCoverageExplorerAPI.fetchCacheStatus({
+      signal: pageSignal,
+    });
     const job = data?.recalculation?.job || null;
     const lastUpdated = toDate(data?.lastUpdated);
     const updatedAfterStart = lastUpdated ? lastUpdated >= startedAt : false;

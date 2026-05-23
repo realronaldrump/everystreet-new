@@ -35,10 +35,7 @@ function setTerrainReliefApplied(active) {
   }
   terrainReliefApplied = next;
 
-  if (
-    typeof document !== "undefined" &&
-    typeof document.dispatchEvent === "function"
-  ) {
+  if (typeof document !== "undefined" && typeof document.dispatchEvent === "function") {
     document.dispatchEvent(
       new CustomEvent(MAP_TERRAIN_RELIEF_APPLIED_EVENT, {
         detail: { active: next },
@@ -170,7 +167,7 @@ function getOverlayBeforeLayerId(style) {
 }
 
 function ensureDemSource(map, config) {
-  const sourceId = config.sourceId;
+  const { sourceId } = config;
   if (!sourceId || typeof map.getSource !== "function") {
     return false;
   }
@@ -199,7 +196,7 @@ function ensureDemSource(map, config) {
 
 function ensureHillshadeLayer(map, config, styleType) {
   const layerId = config.hillshadeLayerId;
-  const sourceId = config.sourceId;
+  const { sourceId } = config;
   if (!layerId || !sourceId || typeof map.getLayer !== "function") {
     return false;
   }

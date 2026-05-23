@@ -547,7 +547,6 @@ async def fetch_trips_manual(data: FetchTripsRangeRequest):
 @api_route(logger)
 async def stream_background_tasks_updates():
     """Stream real-time background task updates via Server-Sent Events."""
-
     last_config: dict[str, Any] | None = None
 
     async def fetch_updates() -> dict[str, Any] | None:

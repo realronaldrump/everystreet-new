@@ -50,7 +50,6 @@ async def publish_trip_state(
     Returns:
         True if published successfully, False otherwise.
     """
-
     try:
         client = await get_shared_redis()
 

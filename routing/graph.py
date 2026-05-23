@@ -131,10 +131,10 @@ def _repair_projected_edge_geometries(
     Repair graphs whose edge geometries stayed in lon/lat after projection.
 
     OSMnx only projects edge geometries in `project_graph` when
-    `G.graph["simplified"]` is truthy. Some of our GraphML sources include
-    geometry but omit this flag, which leaves projected node coordinates in
-    meters while edge geometries remain in degrees. That breaks distance-based
-    matching by many orders of magnitude.
+    `G.graph["simplified"]` is truthy. Some of our GraphML sources
+    include geometry but omit this flag, which leaves projected node
+    coordinates in meters while edge geometries remain in degrees. That
+    breaks distance-based matching by many orders of magnitude.
     """
     if project_xy is None or not _is_projected_graph(G):
         return 0
@@ -326,7 +326,10 @@ def _reconstruct_path_edges(
 
 
 def _haversine_distance_m(
-    lon1: float, lat1: float, lon2: float, lat2: float,
+    lon1: float,
+    lat1: float,
+    lon2: float,
+    lat2: float,
 ) -> float:
     """Great-circle distance between two lon/lat points, in meters."""
     R = 6_371_000.0  # Earth radius in meters
@@ -360,7 +363,11 @@ def edge_length_m(G: nx.Graph, u: int, v: int, key: int | None = None) -> float:
             if key is None:
                 # choose minimum length among parallel edges
                 lengths = [data.get("length") for data in G[u][v].values()]
-                valid = [float(length) for length in lengths if length is not None and float(length) > 0]
+                valid = [
+                    float(length)
+                    for length in lengths
+                    if length is not None and float(length) > 0
+                ]
                 if valid:
                     return min(valid)
                 return _edge_length_from_nodes(G, u, v)
@@ -622,15 +629,15 @@ def dijkstra_to_best_target(
     """
     Dijkstra from source to select a "best" target among the closest candidates.
 
-    This explores the graph once and collects up to `max_candidates` target nodes
-    in increasing path-distance order (bounded by `distance_cutoff_factor` times
-    the nearest target distance). The returned target is the one with the lowest
-    score (lower is better).
+    This explores the graph once and collects up to `max_candidates`
+    target nodes in increasing path-distance order (bounded by
+    `distance_cutoff_factor` times the nearest target distance). The
+    returned target is the one with the lowest score (lower is better).
 
     If `score_fn` is omitted, this behaves like "nearest by distance".
 
-    ``max_candidates`` is automatically clamped based on the target set size so
-    we don't over-explore when there are very few targets.
+    ``max_candidates`` is automatically clamped based on the target set
+    size so we don't over-explore when there are very few targets.
     """
     if source in targets:
         return (source, 0.0, [])

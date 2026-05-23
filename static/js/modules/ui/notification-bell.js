@@ -16,11 +16,21 @@ function formatTimestamp(ts) {
   const diffHr = Math.floor(diffMs / 3600000);
   const diffDay = Math.floor(diffMs / 86400000);
 
-  if (diffMin < 1) return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffHr < 24) return `${diffHr}h ago`;
-  if (diffDay === 1) return "yesterday";
-  if (diffDay < 7) return `${diffDay}d ago`;
+  if (diffMin < 1) {
+    return "just now";
+  }
+  if (diffMin < 60) {
+    return `${diffMin}m ago`;
+  }
+  if (diffHr < 24) {
+    return `${diffHr}h ago`;
+  }
+  if (diffDay === 1) {
+    return "yesterday";
+  }
+  if (diffDay < 7) {
+    return `${diffDay}d ago`;
+  }
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
@@ -54,7 +64,9 @@ class NotificationBell {
     this._list = document.getElementById("notif-history-list");
     this._empty = document.getElementById("notif-empty-state");
 
-    if (!this._btn || !this._panel) return;
+    if (!this._btn || !this._panel) {
+      return;
+    }
 
     this._btn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -67,7 +79,9 @@ class NotificationBell {
 
     notificationHistory.onChange(() => {
       this._updateBadge();
-      if (this._open) this._renderList();
+      if (this._open) {
+        this._renderList();
+      }
     });
 
     this._updateBadge();

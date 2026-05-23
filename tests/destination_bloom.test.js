@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-
+import apiClient from "../static/js/modules/core/api-client.js";
+import store from "../static/js/modules/core/store.js";
 import destinationBloom, {
   clusterDestinationPoints,
   collectDestinationPoints,
   getDestinationPointFromGeometry,
   radiusForCluster,
 } from "../static/js/modules/destination-bloom.js";
-import apiClient from "../static/js/modules/core/api-client.js";
-import store from "../static/js/modules/core/store.js";
 import confirmationDialog from "../static/js/modules/ui/confirmation-dialog.js";
 import notificationManager from "../static/js/modules/ui/notifications.js";
 import {
@@ -247,7 +246,8 @@ test.afterEach(() => {
   apiClient.post = originalApiClient.post;
   confirmationDialog.prompt = originalConfirmationDialog.prompt;
   notificationManager.show = originalNotificationManager.show;
-  destinationBloom._refreshTripLayers = originalDestinationBloomMethods.refreshTripLayers;
+  destinationBloom._refreshTripLayers =
+    originalDestinationBloomMethods.refreshTripLayers;
 });
 
 test("extracts destination endpoints from line and multiline geometries", () => {
@@ -276,7 +276,10 @@ test("extracts destination endpoints from line and multiline geometries", () => 
     [-97.4, 30.5]
   );
 
-  assert.equal(getDestinationPointFromGeometry({ type: "Point", coordinates: [0, 0] }), null);
+  assert.equal(
+    getDestinationPointFromGeometry({ type: "Point", coordinates: [0, 0] }),
+    null
+  );
 });
 
 test("collectDestinationPoints deduplicates by trip id and prefers matched trips", () => {
@@ -417,7 +420,10 @@ test("destination bloom hides trip layers on activate and restores them on destr
 
   destinationBloom.activate();
 
-  assert.equal(container.children.some((child) => child.className === "destination-bloom-canvas"), true);
+  assert.equal(
+    container.children.some((child) => child.className === "destination-bloom-canvas"),
+    true
+  );
   assert.equal(
     map.layoutUpdates.some(
       (update) => update.id === "trips-layer" && update.value === "none"

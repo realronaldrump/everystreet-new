@@ -4,7 +4,9 @@ import test from "node:test";
 import { buildBreadcrumbItems } from "../static/js/modules/core/navigation.js";
 
 test("top-level routes produce only their own breadcrumb item", () => {
-  assert.deepEqual(buildBreadcrumbItems("/trips"), [{ path: "/trips", label: "Trips" }]);
+  assert.deepEqual(buildBreadcrumbItems("/trips"), [
+    { path: "/trips", label: "Trips" },
+  ]);
   assert.deepEqual(buildBreadcrumbItems("/control-center"), [
     { path: "/control-center", label: "Settings" },
   ]);

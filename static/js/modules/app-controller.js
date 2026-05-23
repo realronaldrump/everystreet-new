@@ -236,8 +236,18 @@ const initializeLocationDropdown = async () => {
     const areas = response.areas || [];
 
     areas.sort((a, b) => {
-      const nameA = (a.display_name || a.location?.display_name || a.name || "").toLowerCase();
-      const nameB = (b.display_name || b.location?.display_name || b.name || "").toLowerCase();
+      const nameA = (
+        a.display_name ||
+        a.location?.display_name ||
+        a.name ||
+        ""
+      ).toLowerCase();
+      const nameB = (
+        b.display_name ||
+        b.location?.display_name ||
+        b.name ||
+        ""
+      ).toLowerCase();
       return nameA.localeCompare(nameB);
     });
 
@@ -255,9 +265,7 @@ const initializeLocationDropdown = async () => {
     clearItem.innerHTML =
       '<i class="fas fa-times-circle item-icon" aria-hidden="true"></i>' +
       '<span class="item-label">No area selected</span>';
-    clearItem.addEventListener("click", () =>
-      selectItem("", "Select location...")
-    );
+    clearItem.addEventListener("click", () => selectItem("", "Select location..."));
     menuFrag.appendChild(clearItem);
 
     areas.forEach((area) => {
@@ -297,9 +305,7 @@ const initializeLocationDropdown = async () => {
 
     const savedId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
     if (savedId) {
-      const matchingArea = areas.find(
-        (a) => (a.id || a._id) === savedId
-      );
+      const matchingArea = areas.find((a) => (a.id || a._id) === savedId);
       if (matchingArea) {
         const name =
           matchingArea.display_name ||

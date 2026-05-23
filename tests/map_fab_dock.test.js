@@ -122,7 +122,10 @@ test("map fab dock starts collapsed and toggles open/closed", () => {
     assert.equal(env.stack.getAttribute("inert"), "");
     assert.equal(env.firstItem.getAttribute("tabindex"), "-1");
     assert.equal(env.secondItem.getAttribute("tabindex"), "-1");
-    assert.equal(env.toggle.getAttribute("aria-label"), "Show map feature toggles (1 active feature)");
+    assert.equal(
+      env.toggle.getAttribute("aria-label"),
+      "Show map feature toggles (1 active feature)"
+    );
 
     env.toggle.dispatchEvent({ type: "click", target: env.toggle });
 

@@ -2,13 +2,20 @@
 
 {% from "partials/_map_assets.html" import static_css with context %}
 
-{% block title %}Driving Insights{% endblock %}
+{% block title %}
+
+Driving Insights
+{% endblock %}
+
 
 {% block extra_css %}
+
   {{ static_css("insights.css") }}
 {% endblock %}
 
+
 {% block content %}
+
   <div id="insights-page" class="insights-container">
     <section class="insights-hero" data-accent="lime" data-reveal="up">
       <div class="hero-content">
@@ -431,5 +438,6 @@ Trips
     </div>
   </div>
 {% endblock %}
+
 
 {# Page scripts are loaded via route-loader + swup. #}

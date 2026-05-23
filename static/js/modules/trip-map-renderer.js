@@ -2,8 +2,8 @@
 
 import store from "./core/store.js";
 import {
-  MAP_TERRAIN_RELIEF_APPLIED_EVENT,
   isTerrainReliefApplied,
+  MAP_TERRAIN_RELIEF_APPLIED_EVENT,
 } from "./features/map/terrain-relief.js";
 import heatmapUtils from "./heatmap-utils.js";
 import MapStyles from "./map-styles.js";
@@ -240,7 +240,7 @@ const tripMapRenderer = {
   },
 
   _rebuildOverlay() {
-    const map = store.map;
+    const { map } = store;
     if (this.overlay && map && typeof map.removeControl === "function") {
       try {
         map.removeControl(this.overlay);
@@ -256,7 +256,7 @@ const tripMapRenderer = {
     if (this._mapListenersBound) {
       return;
     }
-    const map = store.map;
+    const { map } = store;
     if (!map || typeof map.on !== "function") {
       return;
     }
@@ -271,7 +271,7 @@ const tripMapRenderer = {
     if (!this.terrainActive || !this.layers.size) {
       return;
     }
-    const map = store.map;
+    const { map } = store;
     const currentZoom = Math.floor(Number(map?.getZoom?.() ?? 0));
     let changed = false;
     for (const [layerName, layerState] of this.layers) {
@@ -294,7 +294,7 @@ const tripMapRenderer = {
   // Builds a [lng, lat, elevation] position buffer so deck.gl renders the
   // trip path on the terrain surface instead of at sea level (z=0).
   _drapeLayerPositions(layerName) {
-    const map = store.map;
+    const { map } = store;
     const layerState = this.layers.get(layerName);
     const flat = layerState?.decoded?.positions;
     if (!flat?.length || typeof map?.queryTerrainElevation !== "function") {
@@ -348,7 +348,7 @@ const tripMapRenderer = {
   },
 
   _drapePath(path) {
-    const map = store.map;
+    const { map } = store;
     if (!this.terrainActive || typeof map?.queryTerrainElevation !== "function") {
       return path;
     }

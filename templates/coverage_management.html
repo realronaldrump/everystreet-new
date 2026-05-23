@@ -2,14 +2,21 @@
 
 {% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}Coverage Management{% endblock %}
+{% block title %}
+
+Coverage Management
+{% endblock %}
+
 
 {% block extra_css %}
+
   {{ include_mapbox_css() }}
   {{ static_css("coverage-management.css") }}
 {% endblock %}
 
+
 {% block content %}
+
   <div id="coverage-list-view" class="coverage-view coverage-view--list">
     <div class="container-fluid">
       <div class="bento-grid" data-stagger>
@@ -609,10 +616,7 @@ Cancel
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
 Cancel
           </button>
-          <button type="button"
-                  id="batch-recalculate-start-btn"
-                  class="btn btn-info"
-                  disabled>
+          <button type="button" id="batch-recalculate-start-btn" class="btn btn-info" disabled>
             <i class="fas fa-calculator me-1" aria-hidden="true"></i>Queue Batch
           </button>
         </div>
@@ -621,5 +625,6 @@ Cancel
   </div>
 
 {% endblock %}
+
 
 {# Page scripts are loaded via route-loader + swup. #}

@@ -1052,7 +1052,9 @@ function clearIntervals() {
  */
 function setupAmbientBackground() {
   const ambientEl = document.querySelector(".ambient-background");
-  if (!ambientEl) return;
+  if (!ambientEl) {
+    return;
+  }
 
   ambientCleanup?.();
   ambientCleanup = null;

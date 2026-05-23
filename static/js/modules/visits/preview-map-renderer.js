@@ -134,7 +134,9 @@ function renderGeometryShape(geometry, project, colors) {
     }
     case "MultiPoint":
       return (Array.isArray(geometry.coordinates) ? geometry.coordinates : [])
-        .map((coords) => renderGeometryShape({ type: "Point", coordinates: coords }, project, colors))
+        .map((coords) =>
+          renderGeometryShape({ type: "Point", coordinates: coords }, project, colors)
+        )
         .join("");
     case "LineString": {
       const path = pointsToPath(geometry.coordinates, project);
@@ -146,7 +148,11 @@ function renderGeometryShape(geometry, project, colors) {
     case "MultiLineString":
       return (Array.isArray(geometry.coordinates) ? geometry.coordinates : [])
         .map((coords) =>
-          renderGeometryShape({ type: "LineString", coordinates: coords }, project, colors)
+          renderGeometryShape(
+            { type: "LineString", coordinates: coords },
+            project,
+            colors
+          )
         )
         .join("");
     case "Polygon": {

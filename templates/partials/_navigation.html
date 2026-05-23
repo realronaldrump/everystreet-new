@@ -1,8 +1,43 @@
 {% set primary_nav_items = [
-  {"href": "/map", "label": "Map", "title": "Map", "icon": "fa-map", "match": ["/", "/map"]},
-  {"href": "/trips", "label": "Trips", "title": "Trips", "icon": "fa-road", "match": ["/trips"], "prefix": "/trips/"},
-  {"href": "/insights", "label": "Insights", "title": "Insights", "icon": "fa-chart-line", "match": ["/insights"]},
-  {"href": "/gas-tracking", "label": "Gas", "title": "Gas Tracking", "icon": "fa-gas-pump", "match": ["/gas-tracking"], "owner": true}
+  {
+    "href": "/map",
+    "label": "Map",
+    "title": "Map",
+    "icon": "fa-map",
+    "match": [
+      "/",
+      "/map"
+    ]
+  },
+  {
+    "href": "/trips",
+    "label": "Trips",
+    "title": "Trips",
+    "icon": "fa-road",
+    "match": [
+      "/trips"
+    ],
+    "prefix": "/trips/"
+  },
+  {
+    "href": "/insights",
+    "label": "Insights",
+    "title": "Insights",
+    "icon": "fa-chart-line",
+    "match": [
+      "/insights"
+    ]
+  },
+  {
+    "href": "/gas-tracking",
+    "label": "Gas",
+    "title": "Gas Tracking",
+    "icon": "fa-gas-pump",
+    "match": [
+      "/gas-tracking"
+    ],
+    "owner": true
+  }
 ] %}
 
 {% set nav_sections = [
@@ -10,19 +45,89 @@
     "label": "Insights & Tracking",
     "owner_header": true,
     "items": [
-      {"href": "/visits", "label": "Visits", "mobile_label": "Visits", "icon": "fa-map-marker-alt", "match": ["/visits"], "owner": true},
-      {"href": "/routes", "label": "Recurring Routes", "mobile_label": "Recurring Routes", "icon": "fa-route", "match": ["/routes"], "prefix": "/routes/", "owner": true},
-      {"href": "/map-matching", "label": "Map Matching", "mobile_label": "Map Matching", "icon": "fa-layer-group", "match": ["/map-matching"], "owner": true}
+      {
+        "href": "/visits",
+        "label": "Visits",
+        "mobile_label": "Visits",
+        "icon": "fa-map-marker-alt",
+        "match": [
+          "/visits"
+        ],
+        "owner": true
+      },
+      {
+        "href": "/routes",
+        "label": "Recurring Routes",
+        "mobile_label": "Recurring Routes",
+        "icon": "fa-route",
+        "match": [
+          "/routes"
+        ],
+        "prefix": "/routes/",
+        "owner": true
+      },
+      {
+        "href": "/map-matching",
+        "label": "Map Matching",
+        "mobile_label": "Map Matching",
+        "icon": "fa-layer-group",
+        "match": [
+          "/map-matching"
+        ],
+        "owner": true
+      }
     ]
   },
   {
     "label": "Coverage & Routes",
     "items": [
-      {"href": "/coverage-management", "label": "Coverage Management", "mobile_label": "Coverage Areas", "icon": "fa-map-marked-alt", "match": ["/coverage-management"], "owner": true},
-      {"href": "/coverage-route-planner", "label": "Route Planner", "mobile_label": "Route Planner", "icon": "fa-route", "match": ["/coverage-route-planner"]},
-      {"href": "/live-navigation", "label": "Live Navigation", "mobile_label": "Live Navigation", "icon": "fa-location-arrow", "match": ["/live-navigation"], "owner": true},
-      {"href": "/regional-coverage-explorer", "label": "Region Explorer", "mobile_label": "Region Explorer", "icon": "fa-globe-americas", "match": ["/regional-coverage-explorer"]},
-      {"href": "/memory-city", "label": "Memory City", "mobile_label": "Memory City", "icon": "fa-city", "match": ["/memory-city"]}
+      {
+        "href": "/coverage-management",
+        "label": "Coverage Management",
+        "mobile_label": "Coverage Areas",
+        "icon": "fa-map-marked-alt",
+        "match": [
+          "/coverage-management"
+        ],
+        "owner": true
+      },
+      {
+        "href": "/coverage-route-planner",
+        "label": "Route Planner",
+        "mobile_label": "Route Planner",
+        "icon": "fa-route",
+        "match": [
+          "/coverage-route-planner"
+        ]
+      },
+      {
+        "href": "/live-navigation",
+        "label": "Live Navigation",
+        "mobile_label": "Live Navigation",
+        "icon": "fa-location-arrow",
+        "match": [
+          "/live-navigation"
+        ],
+        "owner": true
+      },
+      {
+        "href": "/regional-coverage-explorer",
+        "label": "Region Explorer",
+        "mobile_label": "Region Explorer",
+        "icon": "fa-globe-americas",
+        "match": [
+          "/regional-coverage-explorer"
+        ]
+      },
+      {
+        "href": "/memory-city",
+        "label": "Memory City",
+        "mobile_label": "Memory City",
+        "icon": "fa-city",
+        "match": [
+          "/memory-city"
+        ]
+      }
     ]
   },
   {
@@ -30,7 +135,16 @@
     "owner": true,
     "owner_header": true,
     "items": [
-      {"href": "/export", "label": "Export Data", "mobile_label": "Export Data", "icon": "fa-file-export", "match": ["/export"], "owner": true}
+      {
+        "href": "/export",
+        "label": "Export Data",
+        "mobile_label": "Export Data",
+        "icon": "fa-file-export",
+        "match": [
+          "/export"
+        ],
+        "owner": true
+      }
     ]
   },
   {
@@ -38,14 +152,32 @@
     "owner": true,
     "owner_header": true,
     "items": [
-      {"href": "/control-center", "label": "Settings", "mobile_label": "Settings", "icon": "fa-sliders-h", "match": ["/control-center"], "owner": true},
-      {"href": "/vehicles", "label": "My Vehicle", "mobile_label": "My Vehicle", "icon": "fa-car", "match": ["/vehicles"], "owner": true}
+      {
+        "href": "/control-center",
+        "label": "Settings",
+        "mobile_label": "Settings",
+        "icon": "fa-sliders-h",
+        "match": [
+          "/control-center"
+        ],
+        "owner": true
+      },
+      {
+        "href": "/vehicles",
+        "label": "My Vehicle",
+        "mobile_label": "My Vehicle",
+        "icon": "fa-car",
+        "match": [
+          "/vehicles"
+        ],
+        "owner": true
+      }
     ]
   }
 ] %}
 
 {% macro nav_item(item, current_path) -%}
-  {% set active = current_path in item.match or (item.prefix is defined and current_path.startswith(item.prefix)) %}
+{% set active = current_path in item.match or (item.prefix is defined and current_path.startswith(item.prefix)) %}
   <li class="nav-item{% if item.owner is defined and item.owner %} owner-only{% endif %}{% if active %} active{% endif %}">
     <a href="{{ item.href }}"
        title="{{ item.title or item.label }}"
@@ -57,7 +189,7 @@
 {%- endmacro %}
 
 {% macro dropdown_item(item, current_path) -%}
-  {% set active = current_path in item.match or (item.prefix is defined and current_path.startswith(item.prefix)) %}
+{% set active = current_path in item.match or (item.prefix is defined and current_path.startswith(item.prefix)) %}
   <li role="none">
     <a class="dropdown-item{% if item.owner is defined and item.owner %} owner-only{% endif %}{% if active %} active{% endif %}"
        href="{{ item.href }}"
@@ -70,8 +202,9 @@
 {%- endmacro %}
 
 {% macro drawer_link(item, current_path) -%}
-  {% set active = current_path in item.match or (item.prefix is defined and current_path.startswith(item.prefix)) %}
-  <li role="none"{% if item.owner is defined and item.owner %} class="owner-only"{% endif %}>
+{% set active = current_path in item.match or (item.prefix is defined and current_path.startswith(item.prefix)) %}
+  <li role="none"
+      {% if item.owner is defined and item.owner %} class="owner-only"{% endif %}>
     <a href="{{ item.href }}"
        class="{% if active %}active{% endif %}"
        {% if active %}aria-current="page"{% endif %}>
@@ -106,7 +239,8 @@
               {{ dropdown_item(item, current_path) }}
             {% endfor %}
             {% if not loop.last %}
-              <li role="separator"{% if section.owner is defined and section.owner %} class="owner-only"{% endif %}>
+              <li role="separator"
+                  {% if section.owner is defined and section.owner %} class="owner-only"{% endif %}>
                 <hr class="dropdown-divider" />
               </li>
             {% endif %}
@@ -157,8 +291,10 @@
 {% macro bottom_nav(current_path) -%}
   <nav id="bottom-nav" class="bottom-nav" aria-label="Primary">
     {% for item in primary_nav_items[:3] %}
-      {% set active = current_path in item.match or (item.prefix is defined and current_path.startswith(item.prefix)) %}
-      <a href="{{ item.href }}" class="bottom-nav-item{% if active %} active{% endif %}"{% if active %} aria-current="page"{% endif %}>
+{% set active = current_path in item.match or (item.prefix is defined and current_path.startswith(item.prefix)) %}
+      <a href="{{ item.href }}"
+         class="bottom-nav-item{% if active %} active{% endif %}"
+         {% if active %} aria-current="page"{% endif %}>
         <i class="fas {{ item.icon }}" aria-hidden="true"></i>
         <span>{{ item.label }}</span>
       </a>

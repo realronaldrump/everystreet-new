@@ -14,8 +14,8 @@ def topojson_to_geojson(
     """
     Convert a TopoJSON object into GeoJSON features.
 
-    Supports `Polygon` and `MultiPolygon` geometry types with optional TopoJSON
-    transform metadata.
+    Supports `Polygon` and `MultiPolygon` geometry types with optional
+    TopoJSON transform metadata.
     """
     features: list[dict[str, Any]] = []
 

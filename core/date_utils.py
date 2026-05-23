@@ -63,7 +63,6 @@ def parse_timestamp(ts: str | datetime) -> datetime | None:
 
 def ensure_utc(dt: datetime | None) -> datetime | None:
     """Return the datetime as an explicit UTC-aware value."""
-
     if dt is None:
         return None
 
@@ -75,7 +74,6 @@ def ensure_utc(dt: datetime | None) -> datetime | None:
 
 def normalize_to_utc_datetime(value: str | datetime | date | None) -> datetime | None:
     """Normalize arbitrary date/datetime inputs to a UTC-aware datetime."""
-
     if value is None:
         return None
 
@@ -107,7 +105,6 @@ def normalize_to_utc_datetime(value: str | datetime | date | None) -> datetime |
 
 def normalize_calendar_date(value: str | datetime | date | None) -> str | None:
     """Normalize a date-like input to a YYYY-MM-DD string."""
-
     normalized_dt = normalize_to_utc_datetime(value)
     if normalized_dt:
         return normalized_dt.date().isoformat()

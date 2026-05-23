@@ -618,9 +618,9 @@ async def get_active_trip() -> dict[str, Any] | None:
             end_time = _parse_timestamp(trip.get("endTime") or trip.get("lastUpdate"))
             completed = _finalize_live_trip_snapshot(
                 trip,
-                end_time=end_time
-                if isinstance(end_time, datetime)
-                else datetime.now(UTC),
+                end_time=(
+                    end_time if isinstance(end_time, datetime) else datetime.now(UTC)
+                ),
             )
             await _publish_completed_and_clear(transaction_id, completed)
             return None

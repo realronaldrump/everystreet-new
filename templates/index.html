@@ -2,13 +2,19 @@
 
 {% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}Every Street - Map{% endblock %}
+{% block title %}
+
+Every Street - Map
+{% endblock %}
+
 
 {% block extra_css %}
+
   {{ include_mapbox_css() }}
   {{ static_css("features/map/index.css") }}
   {{ static_css("search.css") }}
 {% endblock %}
+
 
 {% block persistent_shell %}
 
@@ -16,7 +22,9 @@
 
 {% endblock %}
 
+
 {% block content %}
+
   <div class="visually-hidden">
 Map view
   </div>

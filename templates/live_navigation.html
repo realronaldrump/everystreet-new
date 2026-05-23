@@ -2,14 +2,21 @@
 
 {% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
 
-{% block title %}Live Navigation{% endblock %}
+{% block title %}
+
+Live Navigation
+{% endblock %}
+
 
 {% block extra_css %}
+
   {{ include_mapbox_css() }}
   {{ static_css("features/navigation/index.css") }}
 {% endblock %}
 
+
 {% block content %}
+
   <div class="live-navigation" id="live-navigation">
     <h1 class="visually-hidden">
 Live Navigation
@@ -290,5 +297,6 @@ Select a coverage area...
     </div>
   </div>
 {% endblock %}
+
 
 {# Page scripts are loaded via route-loader + swup. #}

@@ -129,9 +129,9 @@ async def static_versioned(_version: str, path: str, request: Request):
     """
     Serve static files under a versioned prefix.
 
-    This is primarily to avoid stale ESM module caching behind CDNs/proxies.
-    The version segment becomes part of the URL path, so relative `import` paths
-    stay within the same versioned prefix.
+    This is primarily to avoid stale ESM module caching behind
+    CDNs/proxies. The version segment becomes part of the URL path, so
+    relative `import` paths stay within the same versioned prefix.
     """
     return await static_files.get_response(path, request.scope)
 

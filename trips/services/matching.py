@@ -215,9 +215,8 @@ class MapMatchingService:
 
         if valid_timestamps is not None and len(valid_timestamps) != len(valid_coords):
             valid_timestamps = None
-        if (
-            valid_mapbox_timestamps is not None
-            and len(valid_mapbox_timestamps) != len(valid_coords)
+        if valid_mapbox_timestamps is not None and len(valid_mapbox_timestamps) != len(
+            valid_coords
         ):
             valid_mapbox_timestamps = None
 
@@ -712,10 +711,10 @@ class MapMatchingService:
         """
         Find the number of leading points to trim from *new_chunk*.
 
-        Walk through the head of *new_chunk* and find the last point within
-        the overlap tolerance of the existing tail. A trim is accepted only
-        when the next retained point is still close enough to continue the
-        line without adding a visible connector.
+        Walk through the head of *new_chunk* and find the last point
+        within the overlap tolerance of the existing tail. A trim is
+        accepted only when the next retained point is still close enough
+        to continue the line without adding a visible connector.
         """
         if not existing or not new_chunk:
             return 0

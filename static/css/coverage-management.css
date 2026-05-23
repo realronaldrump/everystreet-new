@@ -120,8 +120,7 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   background:
-    linear-gradient(135deg, rgb(var(--info-rgb) / 8%), transparent 48%),
-    rgb(var(--text-rgb) / 3%);
+    linear-gradient(135deg, rgb(var(--info-rgb) / 8%), transparent 48%), rgb(var(--text-rgb) / 3%);
   cursor: pointer;
   transition:
     border-color var(--transition-fast),
@@ -259,8 +258,7 @@
   cursor: pointer;
   border-color: color-mix(in srgb, var(--info) 35%, var(--glass-border));
   background:
-    linear-gradient(180deg, rgb(var(--info-rgb) / 7%), transparent 42%),
-    var(--glass-panel);
+    linear-gradient(180deg, rgb(var(--info-rgb) / 7%), transparent 42%), var(--glass-panel);
   animation: card-job-glow 2.8s ease-in-out infinite;
 }
 
@@ -299,7 +297,9 @@
   }
 
   50% {
-    box-shadow: 0 0 0 3px rgb(var(--info-rgb) / 12%), 0 4px 20px -4px rgb(var(--info-rgb) / 18%);
+    box-shadow:
+      0 0 0 3px rgb(var(--info-rgb) / 12%),
+      0 4px 20px -4px rgb(var(--info-rgb) / 18%);
   }
 }
 
@@ -513,12 +513,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgb(255 255 255 / 8%) 46%,
-    transparent 72%
-  );
+  background: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / 8%) 46%, transparent 72%);
   transform: translateX(-110%);
   animation: area-job-sheen 2.6s ease-in-out infinite;
   pointer-events: none;

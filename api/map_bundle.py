@@ -761,9 +761,11 @@ async def get_coverage_map_bundle(
             total_segments=area.total_segments,
             driven_segments=area.driven_segments,
         ),
-        bbox=area.bounding_box
-        if len(area.bounding_box) == 4
-        else merge_bboxes(feature_bboxes) or [0.0, 0.0, 0.0, 0.0],
+        bbox=(
+            area.bounding_box
+            if len(area.bounding_box) == 4
+            else merge_bboxes(feature_bboxes) or [0.0, 0.0, 0.0, 0.0]
+        ),
         segment_count=len(features),
         segments=features,
     )

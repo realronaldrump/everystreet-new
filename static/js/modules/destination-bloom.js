@@ -1,7 +1,7 @@
 import apiClient from "./core/api-client.js";
 import store from "./core/store.js";
-import { clearTripInteractionState } from "./trip-selection-state.js";
 import tripMapRenderer from "./trip-map-renderer.js";
+import { clearTripInteractionState } from "./trip-selection-state.js";
 import confirmationDialog from "./ui/confirmation-dialog.js";
 import notificationManager from "./ui/notifications.js";
 import { escapeHtml } from "./utils.js";
@@ -158,8 +158,7 @@ function clusterCellSize(zoom = 12) {
 }
 
 export function radiusForCluster(count, zoom = 12) {
-  const radius =
-    8 + Math.sqrt(Math.max(count, 1)) * 2.4 + Math.max(0, 12 - zoom) * 0.4;
+  const radius = 8 + Math.sqrt(Math.max(count, 1)) * 2.4 + Math.max(0, 12 - zoom) * 0.4;
   return clamp(radius, MIN_BLOOM_RADIUS, MAX_BLOOM_RADIUS);
 }
 
@@ -199,7 +198,7 @@ export function clusterDestinationPoints(points, { zoom = 12 } = {}) {
   }
 
   const cellSize = clusterCellSize(zoom);
-  const neighborRadiusSq = Math.pow(cellSize * 0.9, 2);
+  const neighborRadiusSq = (cellSize * 0.9) ** 2;
   const grid = new Map();
 
   points.forEach((point, idx) => {
@@ -271,9 +270,7 @@ export function clusterDestinationPoints(points, { zoom = 12 } = {}) {
     const radius = radiusForCluster(members.length, zoom);
     const transactionIds = [
       ...new Set(
-        members
-          .map((member) => String(member?.id || "").trim())
-          .filter(Boolean)
+        members.map((member) => String(member?.id || "").trim()).filter(Boolean)
       ),
     ];
 
@@ -314,9 +311,7 @@ function getMapViewportRect(map) {
   const canvas = map?.getCanvas?.();
   const container = map?.getCanvasContainer?.();
   return (
-    canvas?.getBoundingClientRect?.() ||
-    container?.getBoundingClientRect?.() ||
-    null
+    canvas?.getBoundingClientRect?.() || container?.getBoundingClientRect?.() || null
   );
 }
 
@@ -367,7 +362,7 @@ const destinationBloom = {
       return;
     }
 
-    const map = store.map;
+    const { map } = store;
     if (!map) {
       return;
     }
@@ -476,8 +471,7 @@ const destinationBloom = {
 
     const canvas = document.createElement("canvas");
     canvas.className = "destination-bloom-canvas";
-    canvas.style.cssText =
-      "position:absolute;inset:0;pointer-events:none;z-index:10;";
+    canvas.style.cssText = "position:absolute;inset:0;pointer-events:none;z-index:10;";
     container.appendChild(canvas);
 
     this._canvas = canvas;
@@ -529,11 +523,15 @@ const destinationBloom = {
     );
     const height = Math.max(
       1,
-      Math.round(rect?.height || mapCanvas?.clientHeight || container?.clientHeight || 1)
+      Math.round(
+        rect?.height || mapCanvas?.clientHeight || container?.clientHeight || 1
+      )
     );
     const pixelWidth = Math.max(
       1,
-      Math.round(mapCanvas?.width || width * Math.max(globalThis.devicePixelRatio || 1, 1))
+      Math.round(
+        mapCanvas?.width || width * Math.max(globalThis.devicePixelRatio || 1, 1)
+      )
     );
     const pixelHeight = Math.max(
       1,
@@ -550,7 +548,7 @@ const destinationBloom = {
   },
 
   _reprojectAndCluster() {
-    const map = store.map;
+    const { map } = store;
     if (!map) {
       this._clusters = [];
       return;
@@ -593,7 +591,7 @@ const destinationBloom = {
   },
 
   _unbindMapEvents() {
-    const map = store.map;
+    const { map } = store;
     if (!map) {
       return;
     }
@@ -661,26 +659,35 @@ const destinationBloom = {
         return;
       }
 
-      this._pinnedClusterId =
-        this._pinnedClusterId === cluster.id ? null : cluster.id;
+      this._pinnedClusterId = this._pinnedClusterId === cluster.id ? null : cluster.id;
       this._hoveredClusterId = cluster.id;
       this._updateTooltip(cluster, pointer);
     };
 
-    container.addEventListener("pointermove", this._pointerMoveHandler, { passive: true });
+    container.addEventListener("pointermove", this._pointerMoveHandler, {
+      passive: true,
+    });
     container.addEventListener("pointerleave", this._pointerLeaveHandler);
     container.addEventListener("click", this._pointerClickHandler);
 
     this._touchStartHandler = (event) => {
-      if (!this._active || event.touches.length !== 1) return;
+      if (!this._active || event.touches.length !== 1) {
+        return;
+      }
       this._lastTouchStart = performance.now();
     };
     this._touchEndHandler = (event) => {
-      if (!this._active) return;
+      if (!this._active) {
+        return;
+      }
       const elapsed = performance.now() - (this._lastTouchStart || 0);
-      if (elapsed > 400) return;
+      if (elapsed > 400) {
+        return;
+      }
       const pointer = this._getPointerPosition(event);
-      if (!pointer) return;
+      if (!pointer) {
+        return;
+      }
       this._lastPointer = pointer;
       const cluster = this._findClusterAtPoint(pointer.x, pointer.y);
       if (!cluster) {
@@ -689,12 +696,13 @@ const destinationBloom = {
         this._hideTooltip();
         return;
       }
-      this._pinnedClusterId =
-        this._pinnedClusterId === cluster.id ? null : cluster.id;
+      this._pinnedClusterId = this._pinnedClusterId === cluster.id ? null : cluster.id;
       this._hoveredClusterId = cluster.id;
       this._updateTooltip(cluster, pointer);
     };
-    container.addEventListener("touchstart", this._touchStartHandler, { passive: true });
+    container.addEventListener("touchstart", this._touchStartHandler, {
+      passive: true,
+    });
     container.addEventListener("touchend", this._touchEndHandler);
   },
 
@@ -728,7 +736,7 @@ const destinationBloom = {
   },
 
   _getPointerPosition(event) {
-    const map = store.map;
+    const { map } = store;
     const container = map?.getCanvasContainer?.();
     const rect = getMapViewportRect(map);
     if (!container || !rect) {
@@ -791,9 +799,7 @@ const destinationBloom = {
       createTooltipSection(cluster.label, "destination-bloom-tooltip__title")
     );
     this._tooltip.appendChild(
-      createTooltipSection(
-        `${cluster.count} ${cluster.count === 1 ? "trip" : "trips"}`
-      )
+      createTooltipSection(`${cluster.count} ${cluster.count === 1 ? "trip" : "trips"}`)
     );
     this._tooltip.appendChild(
       createTooltipSection(
@@ -811,7 +817,9 @@ const destinationBloom = {
 
     const isPinned = this._pinnedClusterId === cluster.id;
     const canCreatePlace =
-      isPinned && Array.isArray(cluster.transactionIds) && cluster.transactionIds.length > 0;
+      isPinned &&
+      Array.isArray(cluster.transactionIds) &&
+      cluster.transactionIds.length > 0;
     this._tooltip.classList.toggle("is-interactive", canCreatePlace);
 
     if (canCreatePlace) {
@@ -851,8 +859,15 @@ const destinationBloom = {
   },
 
   async _nameClusterAsPlace(cluster) {
-    if (!cluster || !Array.isArray(cluster.transactionIds) || cluster.transactionIds.length === 0) {
-      notificationManager.show("No persisted trips were available for this cluster.", "warning");
+    if (
+      !cluster ||
+      !Array.isArray(cluster.transactionIds) ||
+      cluster.transactionIds.length === 0
+    ) {
+      notificationManager.show(
+        "No persisted trips were available for this cluster.",
+        "warning"
+      );
       return;
     }
     if (!confirmationDialog?.prompt) {
@@ -860,7 +875,9 @@ const destinationBloom = {
       return;
     }
 
-    const defaultValue = /^Area near /i.test(cluster.label || "") ? "" : cluster.label || "";
+    const defaultValue = /^Area near /i.test(cluster.label || "")
+      ? ""
+      : cluster.label || "";
     const name = await confirmationDialog.prompt({
       title: "Name this place",
       message: "Create a Visits place from this destination cluster.",
@@ -913,7 +930,10 @@ const destinationBloom = {
   async _refreshTripLayers() {
     try {
       const { default: dataManager } = await import("./data-manager.js");
-      await Promise.allSettled([dataManager.fetchTrips(), dataManager.fetchMatchedTrips()]);
+      await Promise.allSettled([
+        dataManager.fetchTrips(),
+        dataManager.fetchMatchedTrips(),
+      ]);
     } catch (error) {
       notificationManager.show(
         `Saved place, but refreshing trips failed: ${escapeHtml(error?.message || "Unexpected error")}`,
@@ -1138,12 +1158,16 @@ const destinationBloom = {
     // Render count labels on clusters large enough to fit text
     const MIN_LABEL_RADIUS = 10;
     this._clusters.forEach((cluster) => {
-      if (cluster.count < 2) return;
+      if (cluster.count < 2) {
+        return;
+      }
       const pulse = reducedMotion
         ? 1
         : 1 + Math.sin(now * 0.0014 + cluster.phase) * 0.08;
       const baseRadius = cluster.radius * pulse * dpr;
-      if (baseRadius / dpr < MIN_LABEL_RADIUS) return;
+      if (baseRadius / dpr < MIN_LABEL_RADIUS) {
+        return;
+      }
 
       const drawX = cluster.x * dpr;
       const drawY = cluster.y * dpr;
@@ -1161,8 +1185,7 @@ const destinationBloom = {
   },
 
   _paletteForCurrentStyle() {
-    const style =
-      store.state?.map?.style || localStorage.getItem("mapType") || "dark";
+    const style = store.state?.map?.style || localStorage.getItem("mapType") || "dark";
     if (style === "light" || style === "streets") {
       return {
         halo: [220, 120, 40],
@@ -1196,7 +1219,9 @@ const destinationBloom = {
 
   _updateCursor(cluster) {
     const container = store.map?.getCanvasContainer?.();
-    if (!container) return;
+    if (!container) {
+      return;
+    }
     container.style.cursor = cluster ? "pointer" : "";
   },
 
@@ -1205,10 +1230,14 @@ const destinationBloom = {
       this._removeEmptyNotice();
       return;
     }
-    if (this._emptyNotice) return;
+    if (this._emptyNotice) {
+      return;
+    }
 
     const container = store.map?.getCanvasContainer?.();
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     const notice = document.createElement("div");
     notice.className = "destination-bloom-empty";
@@ -1227,8 +1256,7 @@ const destinationBloom = {
     if (!this._canvas) {
       return;
     }
-    const style =
-      store.state?.map?.style || localStorage.getItem("mapType") || "dark";
+    const style = store.state?.map?.style || localStorage.getItem("mapType") || "dark";
     const usesScreen = style === "dark" || style === "satellite";
     this._canvas.classList.toggle("blend-screen", usesScreen);
   },

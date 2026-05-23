@@ -118,7 +118,9 @@ async def start_cluster_route_generation(
     area_id: PydanticObjectId,
     body: ClusterRouteRequest,
 ):
-    """Start a background task to generate an optimal route for a cluster of segments."""
+    """Start a background task to generate an optimal route for a cluster of
+    segments.
+    """
     from tasks.ops import enqueue_task
 
     coverage_area = await _get_coverage_area(area_id)

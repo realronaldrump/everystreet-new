@@ -5,11 +5,7 @@
  * Common formatters are imported from the central formatters module.
  */
 import store from "../core/store.js";
-import {
-  formatDateToString,
-  formatDuration,
-  formatHourLabel,
-} from "../utils.js";
+import { formatDateToString, formatDuration, formatHourLabel } from "../utils.js";
 
 // Re-export common formatters
 export { formatDuration, formatHourLabel };

@@ -27,12 +27,14 @@ const heatmapUtils = {
       return fallbackPalette;
     }
 
-    const glow = typeof palette.glow === "string" && palette.glow.trim()
-      ? palette.glow.trim()
-      : fallbackPalette.glow;
-    const core = typeof palette.core === "string" && palette.core.trim()
-      ? palette.core.trim()
-      : fallbackPalette.core;
+    const glow =
+      typeof palette.glow === "string" && palette.glow.trim()
+        ? palette.glow.trim()
+        : fallbackPalette.glow;
+    const core =
+      typeof palette.core === "string" && palette.core.trim()
+        ? palette.core.trim()
+        : fallbackPalette.core;
 
     return { glow, core };
   },

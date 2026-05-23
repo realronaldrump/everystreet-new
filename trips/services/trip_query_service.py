@@ -481,9 +481,7 @@ class TripQueryService:
                     price_map,
                 ),
                 "hardBrakingCounts": normalized_trip.get("hardBrakingCounts"),
-                "hardAccelerationCounts": normalized_trip.get(
-                    "hardAccelerationCounts"
-                ),
+                "hardAccelerationCounts": normalized_trip.get("hardAccelerationCounts"),
                 "startOdometer": normalized_trip.get("startOdometer"),
                 "endOdometer": normalized_trip.get("endOdometer"),
                 "matchStatus": normalized_trip.get("matchStatus"),

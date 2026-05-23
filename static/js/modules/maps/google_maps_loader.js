@@ -50,9 +50,7 @@ const buildGoogleMapsLoadError = () => {
   }
 
   if (provider === "google") {
-    return new Error(
-      "Google Maps JavaScript API script was not rendered on the page."
-    );
+    return new Error("Google Maps JavaScript API script was not rendered on the page.");
   }
 
   return new Error("Google Maps JS not loaded");

@@ -29,8 +29,9 @@ class BouncieHistoricalTripWriter:
     """
     Persistence seam for the Mongo historical trips collection.
 
-    Live webhook trips do not cross this seam. Historical writes are intentionally
-    Bouncie-owned so the caller does not choose the persisted source.
+    Live webhook trips do not cross this seam. Historical writes are
+    intentionally Bouncie-owned so the caller does not choose the
+    persisted source.
     """
 
     def __init__(self, pipeline: TripPipeline | None = None) -> None:

@@ -461,8 +461,7 @@ async def _ensure_batch_areas_available(
         for area in areas
         if area.status != "ready"
         and not (
-            area.status == "error"
-            and operations_by_area_id[str(area.id)] == "rebuild"
+            area.status == "error" and operations_by_area_id[str(area.id)] == "rebuild"
         )
     ]
     if invalid:
@@ -762,8 +761,9 @@ async def queue_batch_recalculate(request: BatchRecalculateRequest):
     """
     Queue street coverage recalculation for multiple areas.
 
-    The worker creates a single parent job and runs the child area jobs one at
-    a time so large coverage recalculations do not compete with each other.
+    The worker creates a single parent job and runs the child area jobs
+    one at a time so large coverage recalculations do not compete with
+    each other.
     """
     area_ids = _dedupe_area_ids(request.area_ids)
     selected_trip_mode = await get_effective_coverage_trip_mode(request.trip_mode)

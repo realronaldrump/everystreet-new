@@ -84,5 +84,7 @@ async def invalidate_cache_prefixes(*prefixes: str) -> int:
                 if str(cursor) == "0":
                     break
     except Exception:
-        logger.debug("Redis cache invalidation failed for %s", normalized, exc_info=True)
+        logger.debug(
+            "Redis cache invalidation failed for %s", normalized, exc_info=True
+        )
     return deleted

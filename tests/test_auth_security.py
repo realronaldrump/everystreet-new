@@ -253,7 +253,9 @@ def test_login_persists_owner_session_over_local_http(
         assert session_payload["is_owner"] is True
 
 
-def test_failed_login_rate_limits_after_ten_attempts(auth_test_client: TestClient) -> None:
+def test_failed_login_rate_limits_after_ten_attempts(
+    auth_test_client: TestClient,
+) -> None:
     for _ in range(10):
         response = auth_test_client.post(
             "/login",
@@ -268,14 +270,18 @@ def test_failed_login_rate_limits_after_ten_attempts(auth_test_client: TestClien
     assert blocked.status_code == 429
 
 
-def test_owner_only_page_redirects_viewer_to_login(auth_test_client: TestClient) -> None:
+def test_owner_only_page_redirects_viewer_to_login(
+    auth_test_client: TestClient,
+) -> None:
     response = auth_test_client.get("/control-center", follow_redirects=False)
 
     assert response.status_code == 303
     assert response.headers["location"].startswith("/login?next=/control-center")
 
 
-def test_owner_only_api_rejects_viewer_and_requires_csrf(auth_test_client: TestClient) -> None:
+def test_owner_only_api_rejects_viewer_and_requires_csrf(
+    auth_test_client: TestClient,
+) -> None:
     viewer_response = auth_test_client.get("/api/private")
     assert viewer_response.status_code == 401
 
@@ -348,7 +354,9 @@ def test_owner_form_submission_rejects_invalid_csrf(
     upsert_and_authorize.assert_not_awaited()
 
 
-def test_viewer_public_map_page_renders_shell_banner(auth_test_client: TestClient) -> None:
+def test_viewer_public_map_page_renders_shell_banner(
+    auth_test_client: TestClient,
+) -> None:
     response = auth_test_client.get("/map")
 
     assert response.status_code == 200
@@ -356,7 +364,9 @@ def test_viewer_public_map_page_renders_shell_banner(auth_test_client: TestClien
     assert "Viewer mode is active." in response.text
 
 
-def test_viewer_live_trip_endpoint_returns_empty_state(auth_test_client: TestClient) -> None:
+def test_viewer_live_trip_endpoint_returns_empty_state(
+    auth_test_client: TestClient,
+) -> None:
     response = auth_test_client.get("/api/active_trip")
 
     assert response.status_code == 200
@@ -401,7 +411,9 @@ def test_bouncie_live_webhook_bypasses_owner_session_and_csrf(
     handler.assert_awaited_once()
 
 
-def test_owner_live_trip_endpoint_returns_real_payload(auth_test_client: TestClient) -> None:
+def test_owner_live_trip_endpoint_returns_real_payload(
+    auth_test_client: TestClient,
+) -> None:
     client = _login(auth_test_client)
 
     response = client.get("/api/active_trip")
@@ -417,11 +429,15 @@ def test_websocket_requires_owner_session(auth_test_client: TestClient) -> None:
         pass
 
     client = _login(auth_test_client)
-    with client.websocket_connect("/ws/protected", headers=_cookie_header(client)) as websocket:
+    with client.websocket_connect(
+        "/ws/protected", headers=_cookie_header(client)
+    ) as websocket:
         assert websocket.receive_json() == {"ok": True}
 
 
-def test_live_trip_websocket_requires_owner_session(auth_test_client: TestClient) -> None:
+def test_live_trip_websocket_requires_owner_session(
+    auth_test_client: TestClient,
+) -> None:
     with (
         pytest.raises(WebSocketDisconnect),
         auth_test_client.websocket_connect("/ws/trips"),
@@ -429,7 +445,9 @@ def test_live_trip_websocket_requires_owner_session(auth_test_client: TestClient
         pass
 
     client = _login(auth_test_client)
-    with client.websocket_connect("/ws/trips", headers=_cookie_header(client)) as websocket:
+    with client.websocket_connect(
+        "/ws/trips", headers=_cookie_header(client)
+    ) as websocket:
         payload = websocket.receive_json()
         assert payload["type"] == "trip_state"
         assert payload["trip"]["transactionId"] == "trip-1"
