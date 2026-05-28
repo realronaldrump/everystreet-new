@@ -138,7 +138,7 @@ global.document = {
   },
 };
 
-const { RouteArt } = await import("../static/js/modules/ui/route-art.js");
+const { RouteArt } = await import("../static/js/modules/features/map/route-art.js");
 
 after(() => {
   global.document = originalDocument;

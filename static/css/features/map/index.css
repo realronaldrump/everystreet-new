@@ -6,7 +6,9 @@
 @import url("./trip-stats.css");
 @import url("./live-tracking.css");
 @import url("../simulator.css");
+@import url("./fab-dock.css");
 @import url("./particle-flow.css");
 @import url("./destination-bloom.css");
 @import url("./smart-legend.css");
-@import url("../../wow-features.css");
+@import url("./route-art.css");
+@import url("./trip-replay.css");

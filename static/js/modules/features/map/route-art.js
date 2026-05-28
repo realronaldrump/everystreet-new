@@ -7,7 +7,7 @@
  * Exportable as high-res PNG.
  */
 
-import { downloadBlob } from "../utils/dom.js";
+import { downloadBlob } from "../../utils/dom.js";
 
 const ROUTE_ART_OVERLAY_ID = "route-art-overlay";
 

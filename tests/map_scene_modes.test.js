@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import store from "../static/js/modules/core/store.js";
-import destinationBloom from "../static/js/modules/destination-bloom.js";
+import destinationBloom from "../static/js/modules/features/map/destination-bloom.js";
 import {
   setupDestinationBloomToggle,
   setupExclusiveSceneModeGuard,
@@ -12,8 +12,8 @@ import {
   setupTerrainReliefToggle,
   setupTripLayerHeatmapToggle,
 } from "../static/js/modules/features/map/index.js";
-import particleFlow from "../static/js/modules/particle-flow.js";
-import routeArt from "../static/js/modules/ui/route-art.js";
+import particleFlow from "../static/js/modules/features/map/particle-flow.js";
+import routeArt from "../static/js/modules/features/map/route-art.js";
 import {
   createClassList,
   createCustomEventClass,

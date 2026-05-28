@@ -7,7 +7,7 @@ import destinationBloom, {
   collectDestinationPoints,
   getDestinationPointFromGeometry,
   radiusForCluster,
-} from "../static/js/modules/destination-bloom.js";
+} from "../static/js/modules/features/map/destination-bloom.js";
 import confirmationDialog from "../static/js/modules/ui/confirmation-dialog.js";
 import notificationManager from "../static/js/modules/ui/notifications.js";
 import {

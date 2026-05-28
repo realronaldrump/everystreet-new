@@ -1,10 +1,10 @@
-import apiClient from "./core/api-client.js";
-import store from "./core/store.js";
-import tripMapRenderer from "./trip-map-renderer.js";
-import { clearTripInteractionState } from "./trip-selection-state.js";
-import confirmationDialog from "./ui/confirmation-dialog.js";
-import notificationManager from "./ui/notifications.js";
-import { escapeHtml } from "./utils.js";
+import apiClient from "../../core/api-client.js";
+import store from "../../core/store.js";
+import tripMapRenderer from "../../trip-map-renderer.js";
+import { clearTripInteractionState } from "../../trip-selection-state.js";
+import confirmationDialog from "../../ui/confirmation-dialog.js";
+import notificationManager from "../../ui/notifications.js";
+import { escapeHtml } from "../../utils.js";
 
 const LAYER_SEARCH_ORDER = ["trips", "matchedTrips"];
 const MAX_BLOOM_RADIUS = 34;

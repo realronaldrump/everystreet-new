@@ -10,9 +10,9 @@
  * where many trips overlap.
  */
 
-import store from "./core/store.js";
-import tripMapRenderer from "./trip-map-renderer.js";
-import { clearTripInteractionState } from "./trip-selection-state.js";
+import store from "../../core/store.js";
+import tripMapRenderer from "../../trip-map-renderer.js";
+import { clearTripInteractionState } from "../../trip-selection-state.js";
 
 // ---------------------------------------------------------------------------
 // Tunables

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import store from "../static/js/modules/core/store.js";
-import particleFlow from "../static/js/modules/particle-flow.js";
+import particleFlow from "../static/js/modules/features/map/particle-flow.js";
 import { createCustomEventClass, createEventTarget } from "./helpers/dom-fixtures.js";
 
 const originalGlobals = {

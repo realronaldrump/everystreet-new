@@ -1,9 +1,6 @@
 import store from "../../core/store.js";
-import destinationBloom from "../../destination-bloom.js";
-import particleFlow from "../../particle-flow.js";
 import tripAnimator from "../../trip-animator.js";
 import tripMapRenderer from "../../trip-map-renderer.js";
-import routeArt from "../../ui/route-art.js";
 import initBuildings3D, {
   getUserBuildingsPreference,
   isMapbox3DStyleSupported,
@@ -11,9 +8,12 @@ import initBuildings3D, {
   setMap3dBuildingsPreference,
 } from "./buildings-3d.js";
 import initCinematicIntro from "./cinematic-intro.js";
+import destinationBloom from "./destination-bloom.js";
 import initMapFabDock from "./fab-dock.js";
 import initMapControls from "./map-controls.js";
 import { initMobileMap } from "./mobile-map.js";
+import particleFlow from "./particle-flow.js";
+import routeArt from "./route-art.js";
 import initTerrainRelief, {
   getTerrainReliefPreference,
   isTerrainReliefSupported,
