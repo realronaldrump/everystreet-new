@@ -9,7 +9,6 @@ class LoadingManager {
     this.textElement = null;
     this.isVisible = false;
     this.activeCount = 0;
-    this.activeOptions = { blocking: true, compact: false };
     this.hideTimeout = null;
     this.minShowTime = 200; // Minimum time to show overlay (prevents flicker)
     this.showStartTime = null;
@@ -18,7 +17,6 @@ class LoadingManager {
       return;
     }
 
-    // Initialize when DOM is ready
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", () => this.init());
     } else {
@@ -31,41 +29,8 @@ class LoadingManager {
       return;
     }
 
-    // Find or create the loading overlay
     this.overlay = document.querySelector(".loading-overlay");
-
-    if (!this.overlay) {
-      this.createOverlay();
-    } else {
-      this.textElement = this.overlay.querySelector(".loading-text");
-    }
-  }
-
-  createOverlay() {
-    if (!this.hasDom) {
-      return;
-    }
-
-    this.overlay = document.createElement("div");
-    this.overlay.className = "loading-overlay";
-    this.overlay.setAttribute("role", "status");
-    this.overlay.setAttribute("aria-live", "polite");
-
-    const indicator = document.createElement("div");
-    indicator.className = "loading-indicator";
-
-    const spinner = document.createElement("div");
-    spinner.className = "loading-spinner";
-    spinner.setAttribute("aria-hidden", "true");
-
-    this.textElement = document.createElement("span");
-    this.textElement.className = "loading-text";
-    this.textElement.textContent = "Loading...";
-
-    indicator.appendChild(spinner);
-    indicator.appendChild(this.textElement);
-    this.overlay.appendChild(indicator);
-    document.body.appendChild(this.overlay);
+    this.textElement = this.overlay?.querySelector(".loading-text") ?? null;
   }
 
   /**
@@ -78,6 +43,13 @@ class LoadingManager {
    */
   show(message = "Loading...", options = {}) {
     if (!this.hasDom) {
+      return this;
+    }
+
+    if (!this.overlay) {
+      this.init();
+    }
+    if (!this.overlay) {
       return this;
     }
 
@@ -95,9 +67,7 @@ class LoadingManager {
       : typeof messageOptions.compact === "boolean"
         ? messageOptions.compact
         : true;
-    this.activeOptions = { blocking, compact };
 
-    // Cancel any pending hide
     if (this.hideTimeout) {
       clearTimeout(this.hideTimeout);
       this.hideTimeout = null;
@@ -110,19 +80,19 @@ class LoadingManager {
     }
 
     if (blocking === false) {
-      this.overlay?.classList.add("non-blocking");
+      this.overlay.classList.add("non-blocking");
     } else {
-      this.overlay?.classList.remove("non-blocking");
+      this.overlay.classList.remove("non-blocking");
     }
     if (compact) {
-      this.overlay?.classList.add("compact");
+      this.overlay.classList.add("compact");
     } else {
-      this.overlay?.classList.remove("compact");
+      this.overlay.classList.remove("compact");
     }
 
     if (!this.isVisible) {
       this.showStartTime = Date.now();
-      this.overlay?.classList.add("visible");
+      this.overlay.classList.add("visible");
       document.body?.classList.add("is-busy");
       this.isVisible = true;
     }
@@ -138,15 +108,24 @@ class LoadingManager {
     if (!this.hasDom) {
       return this;
     }
+    if (!this.overlay) {
+      this.activeCount = 0;
+      if (this.hideTimeout) {
+        clearTimeout(this.hideTimeout);
+        this.hideTimeout = null;
+      }
+      this.isVisible = false;
+      this.showStartTime = null;
+      document.body?.classList.remove("is-busy");
+      return this;
+    }
 
     this.activeCount = Math.max(0, this.activeCount - 1);
 
-    // Only hide if no active operations
     if (this.activeCount > 0) {
       return this;
     }
 
-    // Ensure minimum show time to prevent flicker
     const elapsed = this.showStartTime ? Date.now() - this.showStartTime : Infinity;
     const delay = Math.max(0, this.minShowTime - elapsed);
 
@@ -193,6 +172,9 @@ class LoadingManager {
    * @returns {LoadingManager} - Returns this for chaining
    */
   updateMessage(message) {
+    if (!this.textElement) {
+      this.init();
+    }
     if (this.textElement) {
       this.textElement.textContent = message;
     }
@@ -209,8 +191,6 @@ class LoadingManager {
       return;
     }
 
-    this.lastPulse = { message, duration, timestamp: Date.now() };
-    // Create a temporary notification that doesn't block the UI
     const notification = document.createElement("div");
     notification.className = "loading-pulse";
     notification.style.cssText = `
