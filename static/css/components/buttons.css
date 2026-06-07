@@ -69,11 +69,8 @@
   --btn-color: var(--text-on-primary);
   --btn-border: rgb(var(--primary-rgb) / 45%);
   --btn-border-hover: rgb(var(--primary-rgb) / 60%);
-  --btn-shadow-hover: var(--glow-primary);
-}
-
-.btn-primary:hover:not(:disabled, .disabled) {
-  box-shadow: var(--glow-primary);
+  --btn-shadow: var(--shadow-xs);
+  --btn-shadow-hover: var(--shadow-sm);
 }
 
 .btn-secondary {

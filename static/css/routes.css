@@ -176,14 +176,7 @@
 
 /* Build Card */
 .routes-build-card {
-  background:
-    linear-gradient(
-      180deg,
-      rgb(var(--primary-rgb) / 10%) 0%,
-      rgb(var(--primary-rgb) / 5%) 40%,
-      rgb(0 0 0 / 0%) 100%
-    ),
-    var(--surface-1);
+  background: var(--surface-1);
   border: 1px solid rgb(var(--primary-rgb) / 22%);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
@@ -285,7 +278,7 @@
 .build-progress-bar {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, var(--primary), var(--accent));
+  background: var(--primary);
   border-radius: 9999px;
   transition: width var(--transition-normal);
 }
@@ -606,7 +599,6 @@
 
 .route-freshness-dot.fresh {
   background: rgb(var(--success-rgb) / 90%);
-  box-shadow: 0 0 4px rgb(var(--success-rgb) / 40%);
 }
 
 .route-freshness-dot.recent {
@@ -652,7 +644,7 @@
   overflow: hidden;
   border-radius: 0.6rem;
   margin: 0 var(--space-3);
-  background: linear-gradient(135deg, rgb(var(--primary-rgb) / 4%), transparent 70%);
+  background: rgb(var(--primary-rgb) / 4%);
 }
 
 .route-card-visual .route-preview-svg {
@@ -730,11 +722,7 @@
 }
 
 .routes-modal-header {
-  background: linear-gradient(
-    90deg,
-    rgb(var(--primary-rgb) / 14%),
-    rgb(var(--cat-amber-rgb) / 10%)
-  );
+  background: var(--surface-2);
   border-bottom: 1px solid rgb(var(--border-rgb) / 18%);
 }
 
@@ -1084,8 +1072,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
   margin: 0 0 var(--space-8);
   border: 1px solid rgb(var(--primary-rgb) / 25%);
   border-radius: var(--radius-xl);
-  background:
-    linear-gradient(165deg, rgb(var(--primary-rgb) / 10%), transparent 35%), var(--surface-1);
+  background: var(--surface-1);
   padding: var(--space-4);
   box-shadow: var(--shadow-md);
   display: grid;
@@ -1463,7 +1450,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 .route-insight-banner {
   padding: var(--space-3);
   border-radius: 0.8rem;
-  background: linear-gradient(135deg, rgb(var(--primary-rgb) / 8%), transparent);
+  background: rgb(var(--primary-rgb) / 8%);
   border: 1px solid rgb(var(--primary-rgb) / 14%);
   display: grid;
   gap: var(--space-1);
@@ -1688,7 +1675,7 @@ html[data-bs-theme="light"] .route-personality-tag {
 }
 
 html[data-bs-theme="light"] .route-card-visual {
-  background: linear-gradient(135deg, rgb(var(--primary-rgb) / 3%), transparent 70%);
+  background: rgb(var(--primary-rgb) / 3%);
 }
 
 html[data-bs-theme="light"] .route-label-arrow {
@@ -1704,7 +1691,7 @@ html[data-bs-theme="light"] .route-card-stats {
 }
 
 html[data-bs-theme="light"] .route-insight-banner {
-  background: linear-gradient(135deg, rgb(var(--primary-rgb) / 5%), transparent);
+  background: rgb(var(--primary-rgb) / 5%);
   border-color: rgb(var(--primary-rgb) / 12%);
 }
 

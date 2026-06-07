@@ -160,20 +160,13 @@
 
 /* Hero Section */
 .hero-section {
-  background: linear-gradient(135deg, var(--surface-1) 0%, var(--surface-2) 100%);
+  background: var(--surface-1);
   position: relative;
   overflow: hidden;
 }
 
 .hero-section::before {
-  content: "";
-  position: absolute;
-  top: -50%;
-  right: -10%;
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(circle, rgb(var(--cat-mint-rgb) / 15%) 0%, transparent 70%);
-  pointer-events: none;
+  content: none;
 }
 
 .hero-content {
@@ -276,7 +269,7 @@
 
 .stat-card.highlight {
   border-color: var(--cat-ochre);
-  background: linear-gradient(135deg, var(--surface-2) 0%, rgb(var(--cat-ochre-rgb) / 10%) 100%);
+  background: rgb(var(--cat-ochre-rgb) / 8%);
 }
 
 .stat-number {
@@ -372,7 +365,7 @@
 }
 
 .place-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-1px);
   box-shadow: var(--shadow-elevation-2);
   border-color: var(--primary);
 }
@@ -392,51 +385,27 @@
 
 /* Card header gradients using existing accent colors */
 .place-card-header.mint {
-  background: linear-gradient(
-    135deg,
-    rgb(var(--cat-mint-rgb) / 20%) 0%,
-    rgb(var(--cat-mint-rgb) / 10%) 100%
-  );
+  background: rgb(var(--cat-mint-rgb) / 15%);
 }
 
 .place-card-header.purple {
-  background: linear-gradient(
-    135deg,
-    rgb(var(--cat-purple-rgb) / 20%) 0%,
-    rgb(var(--cat-purple-rgb) / 10%) 100%
-  );
+  background: rgb(var(--cat-purple-rgb) / 15%);
 }
 
 .place-card-header.sky {
-  background: linear-gradient(
-    135deg,
-    rgb(var(--cat-sky-rgb) / 20%) 0%,
-    rgb(var(--cat-sky-rgb) / 10%) 100%
-  );
+  background: rgb(var(--cat-sky-rgb) / 15%);
 }
 
 .place-card-header.lime {
-  background: linear-gradient(
-    135deg,
-    rgb(var(--cat-lime-rgb) / 20%) 0%,
-    rgb(var(--cat-lime-rgb) / 10%) 100%
-  );
+  background: rgb(var(--cat-lime-rgb) / 15%);
 }
 
 .place-card-header.ochre {
-  background: linear-gradient(
-    135deg,
-    rgb(var(--cat-ochre-rgb) / 20%) 0%,
-    rgb(var(--cat-ochre-rgb) / 10%) 100%
-  );
+  background: rgb(var(--cat-ochre-rgb) / 15%);
 }
 
 .place-card-header.slate {
-  background: linear-gradient(
-    135deg,
-    rgb(var(--cat-slate-rgb) / 20%) 0%,
-    rgb(var(--cat-slate-rgb) / 10%) 100%
-  );
+  background: rgb(var(--cat-slate-rgb) / 15%);
 }
 
 .place-map-preview {
@@ -581,7 +550,7 @@
 
 /* Patterns Section */
 .patterns-section {
-  background: linear-gradient(135deg, var(--surface-1) 0%, rgb(var(--cat-purple-rgb) / 8%) 100%);
+  background: var(--surface-1);
   border-color: rgb(var(--cat-purple-rgb) / 30%);
 }
 
@@ -665,7 +634,7 @@
 
 /* Discoveries Section */
 .discoveries-section {
-  background: linear-gradient(135deg, var(--surface-1) 0%, rgb(var(--cat-sky-rgb) / 8%) 100%);
+  background: var(--surface-1);
   border-color: rgb(var(--cat-sky-rgb) / 30%);
 }
 
@@ -721,12 +690,12 @@
 
 .discovery-card:hover {
   border-color: var(--cat-sky);
-  box-shadow: 0 0 20px rgb(var(--cat-sky-rgb) / 20%);
+  box-shadow: var(--shadow-md);
 }
 
 .discovery-map-preview {
   height: 140px;
-  background: linear-gradient(135deg, var(--surface-3) 0%, var(--surface-4) 100%);
+  background: var(--surface-3);
   position: relative;
   display: flex;
   align-items: center;
@@ -878,7 +847,7 @@
 
 /* Map Section */
 .map-section {
-  background: linear-gradient(135deg, var(--surface-1) 0%, rgb(var(--cat-lime-rgb) / 8%) 100%);
+  background: var(--surface-1);
   border-color: rgb(var(--cat-lime-rgb) / 30%);
 }
 
@@ -1005,11 +974,7 @@
 }
 
 .btn-draw {
-  background: linear-gradient(
-    135deg,
-    rgb(var(--primary-rgb) / 95%) 0%,
-    rgb(var(--cat-mint-rgb) / 95%) 100%
-  );
+  background: var(--primary);
   color: #fff;
   border-color: rgb(var(--primary-rgb) / 70%);
   text-shadow: 0 1px 2px rgb(0 0 0 / 30%);
@@ -1025,11 +990,7 @@
   padding: var(--space-4);
   border-radius: var(--radius-lg);
   border: 1px solid rgb(var(--primary-rgb) / 25%);
-  background: linear-gradient(
-    135deg,
-    rgb(var(--surface-rgb) / 75%) 0%,
-    rgb(var(--cat-sky-rgb) / 8%) 100%
-  );
+  background: var(--surface-1);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -1319,8 +1280,8 @@
 }
 
 .fab-btn:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 20px 40px rgb(var(--cat-coral-rgb) / 40%);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 .fab-btn.is-hidden {
@@ -1331,7 +1292,7 @@
 
 /* Trips Section */
 .trips-section {
-  background: linear-gradient(135deg, var(--surface-1) 0%, rgb(var(--cat-ochre-rgb) / 8%) 100%);
+  background: var(--surface-1);
   border-color: rgb(var(--cat-ochre-rgb) / 30%);
 }
 
@@ -1461,11 +1422,7 @@
 
 /* Modal Enhancements */
 .modal-header[data-accent="mint"] {
-  background: linear-gradient(
-    135deg,
-    rgb(var(--cat-mint-rgb) / 20%) 0%,
-    rgb(var(--cat-mint-rgb) / 10%) 100%
-  );
+  background: rgb(var(--cat-mint-rgb) / 15%);
   border-bottom-color: rgb(var(--cat-mint-rgb) / 30%);
 }
 
@@ -1780,7 +1737,7 @@
 }
 
 .visits-table thead {
-  background: linear-gradient(135deg, var(--surface-3), var(--surface-2));
+  background: var(--surface-3);
   border-bottom: 2px solid rgb(var(--primary-rgb) / 20%);
 }
 

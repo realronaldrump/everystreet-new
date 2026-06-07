@@ -566,7 +566,7 @@
 
 .storage-source-bar {
   height: 100%;
-  background: linear-gradient(90deg, var(--primary), var(--primary-light));
+  background: var(--primary);
   border-radius: var(--radius-pill);
   transition:
     width 0.5s ease,
@@ -575,7 +575,7 @@
 }
 
 .storage-source-bar.has-error {
-  background: linear-gradient(90deg, var(--danger), var(--danger-light));
+  background: var(--danger);
 }
 
 /* === Storage Source Footer === */
@@ -1396,11 +1396,7 @@
   border: 1px solid rgb(var(--info-rgb) / 24%);
   border-radius: var(--radius-lg);
   padding: var(--space-3);
-  background: linear-gradient(
-    135deg,
-    rgb(var(--info-rgb) / 10%) 0%,
-    rgb(var(--primary-rgb) / 8%) 100%
-  );
+  background: rgb(var(--info-rgb) / 10%);
 }
 
 .map-services-coverage-hint-title {
@@ -1525,18 +1521,7 @@
 }
 
 .map-services-progress.is-active .progress-bar::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    120deg,
-    transparent 0%,
-    rgb(var(--primary-rgb) / 25%) 45%,
-    rgb(var(--primary-rgb) / 45%) 55%,
-    transparent 100%
-  );
-  transform: translateX(-120%);
-  animation: map-services-progress-sheen 1.6s linear infinite;
+  content: none;
 }
 
 .map-services-progress .progress-block {
@@ -1570,7 +1555,7 @@
 
 .map-services-progress .progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, var(--primary), var(--primary-light, var(--primary)));
+  background: var(--primary);
   border-radius: var(--radius-pill);
   transition: width 0.3s ease;
 }
@@ -1730,11 +1715,7 @@
   border: 1px solid rgb(var(--warning-rgb) / 26%);
   border-radius: var(--radius-lg);
   padding: var(--space-3);
-  background: linear-gradient(
-    145deg,
-    rgb(var(--warning-rgb) / 12%) 0%,
-    rgb(var(--danger-rgb) / 8%) 100%
-  );
+  background: rgb(var(--warning-rgb) / 12%);
 }
 
 .geo-coverage-callout-title {
@@ -1775,7 +1756,7 @@
 
 .geo-coverage-rebuild-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 3px 14px rgb(var(--danger-rgb) / 18%);
+  box-shadow: var(--shadow-sm);
 }
 
 .geo-coverage-rebuild-status {
@@ -1786,7 +1767,7 @@
   border: 1px solid rgb(var(--text-rgb) / 12%);
   border-radius: var(--radius-lg);
   padding: var(--space-3);
-  background: linear-gradient(180deg, var(--surface-0) 0%, var(--surface-1) 100%);
+  background: var(--surface-1);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -1795,29 +1776,17 @@
 
 .geo-coverage-status-card.is-active {
   border-color: rgb(var(--info-rgb) / 35%);
-  background: linear-gradient(
-    160deg,
-    rgb(var(--info-rgb) / 10%) 0%,
-    rgb(var(--primary-rgb) / 8%) 100%
-  );
+  background: rgb(var(--info-rgb) / 10%);
 }
 
 .geo-coverage-status-card.is-done {
   border-color: rgb(var(--success-rgb) / 32%);
-  background: linear-gradient(
-    160deg,
-    rgb(var(--success-rgb) / 11%) 0%,
-    rgb(var(--info-rgb) / 7%) 100%
-  );
+  background: rgb(var(--success-rgb) / 11%);
 }
 
 .geo-coverage-status-card.is-failed {
   border-color: rgb(var(--danger-rgb) / 35%);
-  background: linear-gradient(
-    160deg,
-    rgb(var(--danger-rgb) / 10%) 0%,
-    rgb(var(--warning-rgb) / 8%) 100%
-  );
+  background: rgb(var(--danger-rgb) / 10%);
 }
 
 .geo-coverage-status-header {
@@ -1881,7 +1850,7 @@
 .geo-coverage-progress-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, rgb(var(--info-rgb) / 85%), rgb(var(--success-rgb) / 80%));
+  background: var(--info);
   box-shadow: 0 0 0 1px rgb(var(--text-rgb) / 5%) inset;
   transition: width 0.25s ease;
 }
@@ -2516,9 +2485,7 @@
 
 /* Trip data health (Settings -> Data) */
 .trip-data-health-card {
-  background:
-    linear-gradient(180deg, rgb(var(--surface-rgb) / 68%), rgb(var(--surface-rgb) / 92%)),
-    var(--surface-1);
+  background: var(--surface-1);
 }
 
 .trip-data-health-title {
@@ -2587,11 +2554,7 @@
 .trip-data-health-nav .show > .nav-link {
   color: var(--text-primary);
   border-color: rgb(var(--primary-rgb) / 45%);
-  background: linear-gradient(
-    135deg,
-    rgb(var(--primary-rgb) / 22%),
-    rgb(var(--surface-rgb) / 100%)
-  );
+  background: rgb(var(--primary-rgb) / 18%);
   box-shadow: inset 0 0 0 1px rgb(var(--primary-rgb) / 14%);
 }
 

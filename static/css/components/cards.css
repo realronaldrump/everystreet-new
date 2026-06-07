@@ -7,17 +7,15 @@
    flex-column layout, padding, and a slightly larger radius. */
 .card,
 .widget {
-  background: var(--glass-panel);
-  backdrop-filter: blur(var(--blur-strong));
+  background: var(--surface-1);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
   position: relative;
   transition:
     box-shadow var(--transition-normal),
-    border-color var(--transition-fast),
-    transform var(--transition-fast);
+    border-color var(--transition-fast);
 }
 
 .card {
@@ -26,9 +24,8 @@
 
 .card:hover,
 .widget:hover {
-  box-shadow: var(--shadow-elevation-2);
-  border-color: var(--glass-border-medium);
-  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-color-light);
 }
 
 /* Card with left border accent */
@@ -108,7 +105,7 @@
 }
 
 .widget:hover {
-  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 /* Widget with left border accent */

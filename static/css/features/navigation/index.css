@@ -86,14 +86,9 @@ body.light-mode .live-navigation {
   --nav-border: var(--border-color);
 }
 
-/* Ambient glow background - uses primary color */
+/* Ambient glow background removed for a cleaner, flat look */
 .live-navigation::before {
-  content: "";
-  position: absolute;
-  inset: -20%;
-  background: radial-gradient(circle at 70% 20%, rgb(var(--primary-rgb) / 12%), transparent 45%);
-  pointer-events: none;
-  z-index: 1;
+  content: none;
 }
 
 #live-navigation-map {
@@ -255,7 +250,7 @@ body.light-mode .live-navigation {
   width: 100%;
   transform-origin: left;
   transform: scaleX(0);
-  background: linear-gradient(120deg, var(--nav-accent), var(--nav-accent-light));
+  background: var(--nav-accent);
   transition: transform var(--nav-transition-normal);
 }
 
@@ -790,7 +785,7 @@ body.light-mode .live-navigation {
   left: 0;
   top: 0;
   height: 100%;
-  background: linear-gradient(90deg, var(--success), var(--success-light));
+  background: var(--success);
   transition: width var(--nav-transition-normal);
 }
 
@@ -998,7 +993,7 @@ body.light-mode .live-navigation {
 .nav-generating-fill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(120deg, var(--nav-accent), var(--nav-accent-light));
+  background: var(--nav-accent);
   border-radius: var(--radius-full);
   transition: width 0.5s ease;
 }

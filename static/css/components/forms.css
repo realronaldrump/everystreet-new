@@ -39,7 +39,7 @@
   border-color: var(--primary);
   outline: 0;
   background: var(--glass-input-focus);
-  box-shadow: var(--glow-accent);
+  box-shadow: var(--focus-ring);
 }
 
 .form-control::placeholder {

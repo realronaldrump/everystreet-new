@@ -72,13 +72,9 @@ body[data-route="/map"] .app-footer {
 
 /* Header adopts translucent glass treatment over the hero map */
 body[data-route="/map"] .app-header {
-  background: linear-gradient(
-    180deg,
-    rgb(var(--surface-rgb) / 72%) 0%,
-    rgb(var(--surface-rgb) / 40%) 100%
-  );
+  background: var(--glass-panel);
   backdrop-filter: blur(14px);
-  border-bottom: 1px solid rgb(var(--accent-rgb) / 14%);
+  border-bottom: 1px solid var(--glass-border-subtle);
 }
 
 /* === Map Init Error Overlay === */

@@ -51,13 +51,9 @@
   padding: 0;
   border: 1px solid rgb(255 255 255 / 14%);
   border-radius: 1rem;
-  background:
-    radial-gradient(circle at 30% 28%, rgb(255 255 255 / 10%), transparent 56%),
-    linear-gradient(180deg, rgb(25 29 35 / 88%), rgb(10 13 18 / 90%));
+  background: rgb(18 21 27 / 90%);
   backdrop-filter: blur(var(--blur-strong));
-  box-shadow:
-    0 12px 30px rgb(3 6 10 / 24%),
-    inset 0 1px 0 rgb(255 255 255 / 10%);
+  box-shadow: 0 8px 20px rgb(3 6 10 / 28%);
   color: rgb(188 194 203 / 92%);
   cursor: pointer;
   font-size: var(--font-size-md);
@@ -86,9 +82,7 @@
 .map-fab-toggle:hover {
   transform: translateY(-1px);
   border-color: rgb(255 255 255 / 22%);
-  box-shadow:
-    0 18px 34px rgb(3 6 10 / 28%),
-    inset 0 1px 0 rgb(255 255 255 / 12%);
+  box-shadow: 0 12px 26px rgb(3 6 10 / 32%);
   color: rgb(235 240 247 / 96%);
 }
 
@@ -99,22 +93,16 @@
 .map-fab-toggle:focus-visible {
   outline: none;
   box-shadow:
-    0 18px 34px rgb(3 6 10 / 30%),
-    0 0 0 2px rgb(var(--fab-accent-rgb) / 28%),
-    0 0 20px rgb(var(--fab-accent-rgb) / 20%);
+    0 8px 20px rgb(3 6 10 / 30%),
+    0 0 0 2px rgb(var(--fab-accent-rgb) / 45%);
 }
 
 .map-fab-toggle.active,
 .map-fab-toggle[aria-pressed="true"] {
-  background:
-    radial-gradient(circle at 30% 30%, rgb(var(--fab-accent-rgb) / 24%), transparent 56%),
-    linear-gradient(180deg, rgb(20 24 31 / 90%), rgb(9 11 15 / 92%));
+  background: rgb(var(--fab-accent-rgb) / 16%);
   border-color: rgb(var(--fab-accent-rgb) / 58%);
   color: rgb(var(--fab-accent-rgb));
-  box-shadow:
-    0 18px 34px rgb(3 6 10 / 34%),
-    0 0 24px rgb(var(--fab-accent-rgb) / 22%),
-    inset 0 0 22px rgb(var(--fab-accent-rgb) / 12%);
+  box-shadow: 0 8px 20px rgb(3 6 10 / 32%);
 }
 
 .map-fab-toggle.active i,
@@ -171,10 +159,8 @@
   height: 1.125rem;
   padding: 0 0.25rem;
   border-radius: var(--radius-full);
-  background: linear-gradient(180deg, rgb(255 176 107), rgb(255 116 76));
-  box-shadow:
-    0 10px 20px rgb(0 0 0 / 24%),
-    inset 0 1px 0 rgb(255 255 255 / 24%);
+  background: rgb(255 146 92);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 26%);
   color: rgb(32 15 7 / 92%);
   font-size: 0.625rem;
   font-weight: var(--font-weight-bold);
