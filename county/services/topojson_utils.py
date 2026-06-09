@@ -62,7 +62,11 @@ def topojson_to_geojson(
                 coords.extend(arc_coords)
         return coords
 
-    def normalize_ring(ring: list) -> list | None:
+    def normalize_ring(
+        ring: list,
+        *,
+        allow_degenerate_shell: bool = False,
+    ) -> list | None:
         normalized = [
             list(coord)
             for coord in ring
@@ -74,19 +78,23 @@ def topojson_to_geojson(
         if normalized[0] != normalized[-1]:
             normalized.append(normalized[0])
 
-        distinct_points = {
-            (float(coord[0]), float(coord[1])) for coord in normalized[:-1]
-        }
-        if len(normalized) < 4 or len(distinct_points) < 3:
+        if len(normalized) < 4 and not allow_degenerate_shell:
             return None
 
         return normalized
 
-    def normalize_polygon(rings: list) -> list | None:
+    def normalize_polygon(
+        rings: list,
+        *,
+        allow_degenerate_shell: bool = False,
+    ) -> list | None:
         if not rings:
             return None
 
-        shell = normalize_ring(rings[0])
+        shell = normalize_ring(
+            rings[0],
+            allow_degenerate_shell=allow_degenerate_shell,
+        )
         if shell is None:
             return None
 
@@ -107,7 +115,8 @@ def topojson_to_geojson(
         try:
             if geom_type == "Polygon":
                 rings = normalize_polygon(
-                    [arcs_to_coordinates(ring) for ring in arcs_data]
+                    [arcs_to_coordinates(ring) for ring in arcs_data],
+                    allow_degenerate_shell=True,
                 )
                 if not rings:
                     continue

@@ -71,3 +71,32 @@ def test_topojson_to_geojson_closes_open_polygon_shells() -> None:
     assert rings[0][0] == rings[0][-1]
     assert shape(features[0]["geometry"]).is_valid
 
+
+def test_topojson_to_geojson_keeps_repairable_degenerate_polygon_shells() -> None:
+    topology = {
+        "type": "Topology",
+        "objects": {
+            "counties": {
+                "type": "GeometryCollection",
+                "geometries": [
+                    {
+                        "type": "Polygon",
+                        "id": "51610",
+                        "properties": {"name": "Falls Church"},
+                        "arcs": [[0], [1]],
+                    },
+                ],
+            },
+        },
+        "arcs": [
+            [[0, 0], [1, 1], [-1, -1]],
+            [[5, 5], [0, 0]],
+        ],
+    }
+
+    features = topojson_to_geojson(topology, "counties")
+
+    assert len(features) == 1
+    rings = features[0]["geometry"]["coordinates"]
+    assert len(rings) == 1
+    assert shape(features[0]["geometry"]).geom_type == "Polygon"
