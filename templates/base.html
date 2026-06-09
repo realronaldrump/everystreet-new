@@ -97,8 +97,8 @@ Every Street
               <i class="fas fa-bars" aria-hidden="true"></i>
             </button>
             <a href="/" class="brand-logo" aria-label="Every Street Home">
-              <span class="brand-icon" aria-hidden="true"><i class="fas fa-route"></i></span>
-              <span class="brand-text">Every Street</span>
+              <span class="brand-wordmark">Every Street</span>
+              <span class="brand-monogram" aria-hidden="true">ES</span>
             </a>
           </div>
 
@@ -107,7 +107,6 @@ Every Street
             {% if owner_login_enabled and not auth_context.is_owner %}
               <div class="auth-actions">
                 <a href="/login" class="btn btn-sm btn-outline-light">
-                  <i class="fas fa-lock me-1" aria-hidden="true"></i>
                   Log in
                 </a>
               </div>
@@ -149,7 +148,6 @@ Every Street
                       aria-label="Select date range"
                       aria-expanded="false"
                       aria-controls="date-picker-dropdown">
-                <i class="fas fa-calendar trigger-icon" aria-hidden="true"></i>
                 <span id="date-display" class="trigger-text">Today</span>
                 <i class="fas fa-chevron-down trigger-chevron" aria-hidden="true"></i>
               </button>
@@ -256,16 +254,8 @@ Every Street
 
         <footer class="app-footer">
           <div class="footer-content">
-            <div class="footer-version-info">
-              <span class="footer-version-item" title="Current Version">
-                <i class="fas fa-code-branch"></i>
-                <span class="version-text">{{ repo_version.commit_count }} commits</span>
-              </span>
-              <span class="footer-version-item" title="Last Updated">
-                <i class="far fa-clock"></i>
-                {{ repo_version.last_updated }}
-              </span>
-            </div>
+            <span class="footer-colophon">Every Street</span>
+            <span class="footer-meta" title="Current version">Rev. {{ repo_version.commit_count }} &middot; Updated {{ repo_version.last_updated }}</span>
           </div>
         </footer>
       </main>
@@ -465,7 +455,6 @@ Every Street
         <div class="modal-content">
           <div class="modal-header d-flex align-items-center justify-content-between">
             <h5 class="modal-title mb-0">
-              <i class="fas fa-layer-group me-2 text-info"></i>
               <span id="task-progress-title">Processing…</span>
             </h5>
             <div class="d-flex align-items-center gap-2">

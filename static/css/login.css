@@ -1,0 +1,30 @@
+/* ============================
+   Owner login — editorial single column
+   ============================ */
+
+.login-page {
+  display: flex;
+  justify-content: center;
+  padding: clamp(3rem, 10vh, 7rem) var(--page-gutter) var(--space-16);
+}
+
+.login-panel {
+  width: 100%;
+  max-width: 420px;
+}
+
+.login-masthead {
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+.login-masthead .pm-title {
+  font-size: clamp(1.7rem, 1.3rem + 1.6vw, 2.4rem);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}

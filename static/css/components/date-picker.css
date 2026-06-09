@@ -9,17 +9,18 @@
   align-items: center;
 }
 
-/* === Trigger Button === */
+/* === Trigger Button — quiet, type-led range readout === */
 .date-picker-trigger {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  background: var(--surface-2);
+  background: transparent;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-pill);
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -28,19 +29,13 @@
 }
 
 .date-picker-trigger:hover {
-  background: var(--surface-3);
+  color: var(--text-primary);
   border-color: var(--border-color-light);
 }
 
 .date-picker-trigger:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
-}
-
-.date-picker-trigger .trigger-icon {
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  flex-shrink: 0;
 }
 
 .date-picker-trigger .trigger-text {
@@ -50,7 +45,7 @@
 
 .date-picker-trigger .trigger-chevron {
   color: var(--text-tertiary);
-  font-size: 0.65rem;
+  font-size: 0.55rem;
   margin-left: var(--space-1);
   transition: transform var(--transition-fast);
   flex-shrink: 0;
@@ -62,12 +57,7 @@
 
 /* Active state when filter is not "today" */
 .date-picker-trigger.has-filter {
-  background: rgb(var(--primary-rgb) / 12%);
-  border-color: rgb(var(--primary-rgb) / 30%);
-  color: var(--primary);
-}
-
-.date-picker-trigger.has-filter .trigger-icon {
+  border-color: rgb(var(--primary-rgb) / 45%);
   color: var(--primary);
 }
 

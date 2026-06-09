@@ -381,39 +381,17 @@
   padding: var(--space-4);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
-  background: var(--surface-2);
-  transition: all 0.2s ease;
-}
-
-.storage-metric-card:hover {
-  background: var(--surface-3);
-  border-color: var(--border-color-light);
+  background: var(--surface-1);
 }
 
 .storage-metric-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-xl);
+  width: 24px;
+  font-size: var(--font-size-md);
+  color: var(--text-tertiary);
   flex-shrink: 0;
-}
-
-.storage-metric-primary .storage-metric-icon {
-  background: rgb(var(--primary-rgb) / 12%);
-  color: var(--primary);
-}
-
-.storage-metric-secondary .storage-metric-icon {
-  background: rgb(var(--info-rgb) / 12%);
-  color: var(--info);
-}
-
-.storage-metric-tertiary .storage-metric-icon {
-  background: rgb(var(--secondary-rgb) / 12%);
-  color: var(--secondary);
 }
 
 .storage-metric-info {

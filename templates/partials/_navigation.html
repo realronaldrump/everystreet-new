@@ -182,7 +182,6 @@
     <a href="{{ item.href }}"
        title="{{ item.title or item.label }}"
        {% if active %}aria-current="page"{% endif %}>
-      <i class="fas {{ item.icon }}" aria-hidden="true"></i>
       <span>{{ item.label }}</span>
     </a>
   </li>
@@ -195,7 +194,6 @@
        href="{{ item.href }}"
        role="menuitem"
        {% if active %}aria-current="page"{% endif %}>
-      <i class="fas {{ item.icon }} me-2" aria-hidden="true"></i>
       {{ item.label }}
     </a>
   </li>
@@ -208,7 +206,6 @@
     <a href="{{ item.href }}"
        class="{% if active %}active{% endif %}"
        {% if active %}aria-current="page"{% endif %}>
-      <i class="fas {{ item.icon }} me-2" aria-hidden="true"></i>
       {{ item.mobile_label or item.label }}
     </a>
   </li>
@@ -227,8 +224,8 @@
            aria-expanded="false"
            aria-haspopup="true"
            role="button">
-          <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
           <span>More</span>
+          <i class="fas fa-chevron-down nav-caret" aria-hidden="true"></i>
         </a>
         <ul class="dropdown-menu dropdown-menu-end dropdown-menu-grouped" role="menu">
           {% for section in nav_sections %}

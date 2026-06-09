@@ -39,8 +39,7 @@ Driving Insights
     <section class="insights-section movement-section" data-accent="lime" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
-          <i class="fas fa-road section-icon"></i>
-            Most driven streets and street segments
+          Most driven streets and street segments
         </h2>
         <p class="section-subtitle">
 Built from matched trip geometry in your selected date range. Times driven counts how often your path traveled each street or segment.
@@ -126,111 +125,69 @@ View more segments
     <section class="insights-section" data-accent="mint" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
-          <i class="fas fa-star section-icon"></i>
-            At a glance
+          At a glance
         </h2>
         <p class="section-subtitle">
 Headline metrics with contextual cues from your latest patterns
         </p>
       </div>
 
-      <div class="metrics-grid" data-reveal-group="insights-metrics">
-        <div class="metric-card" data-reveal="up">
-          <div class="metric-accent mint">
-          </div>
-          <div class="metric-content">
-            <div class="metric-icon">
-              <i class="fas fa-route"></i>
-            </div>
-            <div class="metric-value counter" id="total-trips">
-0
-            </div>
-            <button type="button"
-                    class="metric-label insights-drilldown-trigger"
-                    data-drilldown="trips">
-trips taken
-            </button>
-            <div class="metric-context">
-              <i class="fas fa-info-circle"></i>
-              <span id="trips-context">Not enough trips in this range for derived ratios yet.</span>
-            </div>
-          </div>
+      <div class="figure-band metrics-band" data-reveal-group="insights-metrics">
+        <div class="figure metric-figure" data-reveal="up">
+          <button type="button"
+                  class="figure-label metric-figure-label insights-drilldown-trigger"
+                  data-drilldown="trips">
+            Trips taken
+          </button>
+          <span class="figure-readout">
+            <span class="figure-value counter" id="total-trips">0</span>
+          </span>
+          <p class="metric-context" id="trips-context">Not enough trips in this range for derived ratios yet.</p>
         </div>
-
-        <div class="metric-card" data-reveal="up">
-          <div class="metric-accent coral">
-          </div>
-          <div class="metric-content">
-            <div class="metric-icon">
-              <i class="fas fa-road"></i>
-            </div>
-            <div class="metric-value">
-              <span class="counter" id="total-distance">0</span>
-              <span class="metric-unit">mi</span>
-            </div>
-            <button type="button"
-                    class="metric-label insights-drilldown-trigger"
-                    data-drilldown="distance">
-total distance
-            </button>
-            <div class="metric-context">
-              <i class="fas fa-wave-square"></i>
-              <span id="distance-context">Add more trips to improve long-range comparison detail.</span>
-            </div>
-          </div>
+        <div class="figure-rule" aria-hidden="true"></div>
+        <div class="figure metric-figure" data-reveal="up">
+          <button type="button"
+                  class="figure-label metric-figure-label insights-drilldown-trigger"
+                  data-drilldown="distance">
+            Total distance
+          </button>
+          <span class="figure-readout">
+            <span class="figure-value counter" id="total-distance">0</span>
+            <span class="figure-unit">mi</span>
+          </span>
+          <p class="metric-context" id="distance-context">Add more trips to improve long-range comparison detail.</p>
         </div>
-
-        <div class="metric-card" data-reveal="up">
-          <div class="metric-accent sky">
-          </div>
-          <div class="metric-content">
-            <div class="metric-icon">
-              <i class="fas fa-clock"></i>
-            </div>
-            <div class="metric-value" id="total-time">
-0h 0m
-            </div>
-            <button type="button"
-                    class="metric-label insights-drilldown-trigger"
-                    data-drilldown="duration">
-time driving
-            </button>
-            <div class="metric-context">
-              <i class="fas fa-hourglass-half"></i>
-              <span id="time-context">Signature windows appear once time clusters emerge.</span>
-            </div>
-          </div>
+        <div class="figure-rule" aria-hidden="true"></div>
+        <div class="figure metric-figure" data-reveal="up">
+          <button type="button"
+                  class="figure-label metric-figure-label insights-drilldown-trigger"
+                  data-drilldown="duration">
+            Time driving
+          </button>
+          <span class="figure-readout">
+            <span class="figure-value figure-value-sm" id="total-time" data-value-flash>0h 0m</span>
+          </span>
+          <p class="metric-context" id="time-context">Signature windows appear once time clusters emerge.</p>
         </div>
-
-        <div class="metric-card" data-reveal="up">
-          <div class="metric-accent purple">
-          </div>
-          <div class="metric-content">
-            <div class="metric-icon">
-              <i class="fas fa-gas-pump"></i>
-            </div>
-            <div class="metric-value">
-              <span class="counter" id="total-fuel">0</span>
-              <span class="metric-unit">gal</span>
-            </div>
-            <button type="button"
-                    class="metric-label insights-drilldown-trigger"
-                    data-drilldown="fuel">
-fuel context
-            </button>
-            <div class="metric-context">
-              <i class="fas fa-leaf"></i>
-              <span id="fuel-context">Fuel context appears when fuel entries are available.</span>
-            </div>
-          </div>
+        <div class="figure-rule" aria-hidden="true"></div>
+        <div class="figure metric-figure" data-reveal="up">
+          <button type="button"
+                  class="figure-label metric-figure-label insights-drilldown-trigger"
+                  data-drilldown="fuel">
+            Fuel used
+          </button>
+          <span class="figure-readout">
+            <span class="figure-value counter" id="total-fuel">0</span>
+            <span class="figure-unit">gal</span>
+          </span>
+          <p class="metric-context" id="fuel-context">Fuel context appears when fuel entries are available.</p>
         </div>
       </div>
     </section>
     <section class="insights-section story-shell" data-accent="purple" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
-          <i class="fas fa-wave-square section-icon"></i>
-            Period analytics
+          Period analytics
         </h2>
         <p class="section-subtitle">
 Compare daily, weekly, and monthly totals with direct links to underlying trips
@@ -298,8 +255,7 @@ Not enough data in this range to compare periods yet.
     <section class="insights-section" data-accent="amber" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
-          <i class="fas fa-lightbulb section-icon"></i>
-            Pattern cards
+          Pattern cards
         </h2>
         <p class="section-subtitle">
 Data-driven summaries with one-click drilldowns
@@ -321,8 +277,7 @@ Not enough data in this range to compute pattern cards yet.
     <section class="insights-section" data-accent="sky" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
-          <i class="fas fa-clock section-icon"></i>
-            Driving rhythm
+          Driving rhythm
         </h2>
         <p class="section-subtitle">
 Weekday and hour patterns across the selected range
@@ -356,8 +311,7 @@ Not enough rhythm data in this range yet.
     <section class="insights-section" data-accent="mint" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
-          <i class="fas fa-map-marker-alt section-icon"></i>
-            Places orbit
+          Places orbit
         </h2>
         <p class="section-subtitle">
 Your places arranged by frequency, distance, and recency
@@ -385,8 +339,7 @@ Select a place bubble to see details.
     <section class="insights-section" data-accent="coral" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
-          <i class="fas fa-flag-checkered section-icon"></i>
-            Record timeline
+          Record timeline
         </h2>
         <p class="section-subtitle">
 Milestones from your selected range, presented as quick timeline cards

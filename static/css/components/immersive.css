@@ -8,9 +8,8 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-1) var(--page-gutter);
-  background: var(--glass-1);
+  background: var(--surface-0);
   border-bottom: 1px solid var(--divider-color);
-  backdrop-filter: blur(var(--blur-subtle));
   transition:
     opacity 180ms cubic-bezier(0, 0, 0.2, 1),
     transform 180ms cubic-bezier(0, 0, 0.2, 1);
@@ -199,7 +198,7 @@ body[data-route="/regional-coverage-explorer"] .nav-breadcrumb {
 
 .bottom-nav-item.active i,
 .bottom-nav-item:hover i {
-  color: var(--accent);
+  color: var(--text-primary);
 }
 
 .bottom-nav-item.active::after {
@@ -210,10 +209,7 @@ body[data-route="/regional-coverage-explorer"] .nav-breadcrumb {
   width: 28px;
   height: 2px;
   transform: translateX(-50%);
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  box-shadow: 0 0 12px rgb(var(--accent-rgb) / 35%);
-  animation: navIndicatorIn 250ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  background: var(--primary);
 }
 
 @media (width <= 768px) {

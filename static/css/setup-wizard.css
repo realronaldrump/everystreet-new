@@ -289,7 +289,6 @@
   border-radius: var(--radius-xl);
   padding: var(--space-5);
   box-shadow: var(--shadow-elevation-1);
-  backdrop-filter: blur(8px);
 }
 
 .setup-card-header {

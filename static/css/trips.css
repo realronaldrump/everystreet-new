@@ -668,66 +668,15 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 /* ============================================
-   INSIGHTS SECTION
+   INSIGHTS SECTION — hairline figure band
    ============================================ */
 .trips-insights {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--space-lg);
   margin-bottom: var(--space-2xl);
-}
-
-.insight-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-lg);
-  background: var(--surface-1);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  transition: all var(--transition-normal);
-  border: 1px solid transparent;
-}
-
-.insight-card:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-  border-color: rgb(var(--primary-rgb) / 20%);
-}
-
-.insight-icon {
-  font-size: 2rem;
-  width: 56px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--surface-3);
-  border-radius: var(--radius-md);
-}
-
-.insight-content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.insight-value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1;
-  transition: opacity 0.3s ease;
 }
 
 #insight-longest,
 #insight-fuel {
   transition: opacity 0.2s ease;
-}
-
-.insight-label {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
 }
 
 /* ============================================
@@ -1566,35 +1515,23 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .trips-empty {
   text-align: center;
   padding: var(--space-2xl) var(--space-xl);
-  background: var(--surface-1);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sm);
+  border: 1px dashed rgb(var(--border-rgb) / 30%);
+  border-radius: var(--radius-lg);
 }
 
 .empty-illustration {
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-md);
 }
 
 .empty-icon {
-  font-size: 4rem;
+  font-size: 1.5rem;
   display: block;
-  animation: bounce 2s ease-in-out infinite;
-}
-
-@keyframes bounce {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-10px);
-  }
+  color: var(--text-tertiary);
 }
 
 .empty-title {
   font-family: var(--font-display);
-  font-size: 1.75rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0 0 var(--space-sm);
@@ -2471,30 +2408,24 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .stat-item {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 16px;
-  background: rgb(255 255 255 / 3%);
-  border: 1px solid rgb(255 255 255 / 6%);
-  border-radius: 14px;
-  transition: all 0.2s ease;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: var(--radius-md);
+  transition: border-color 0.2s ease;
 }
 
 .stat-item:hover {
-  background: rgb(255 255 255 / 6%);
-  border-color: rgb(255 255 255 / 10%);
-  transform: translateY(-2px);
+  border-color: rgb(255 255 255 / 14%);
 }
 
 .stat-item i {
-  font-size: 1.125rem;
-  color: var(--accent);
-  width: 40px;
-  height: 40px;
+  font-size: 1rem;
+  color: rgb(255 255 255 / 45%);
+  width: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgb(var(--accent-rgb) / 10%);
-  border-radius: 10px;
 }
 
 .stat-info {
@@ -2825,20 +2756,6 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 @media (width <= 480px) {
   .trip-card-content {
     padding: var(--space-md);
-  }
-
-  .insight-card {
-    padding: var(--space-md);
-  }
-
-  .insight-icon {
-    width: 44px;
-    height: 44px;
-    font-size: 1.5rem;
-  }
-
-  .insight-value {
-    font-size: 1.25rem;
   }
 }
 

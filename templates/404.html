@@ -3,8 +3,7 @@
 {% from "partials/_map_assets.html" import static_css with context %}
 
 {% block title %}
-
-Page Not Found
+  Page Not Found
 {% endblock %}
 
 
@@ -17,58 +16,31 @@ Page Not Found
 {% block content %}
 
   <section class="not-found">
-    <div class="not-found-card glass glass--prominent elevation-3">
-      <div class="not-found-header">
-        <div class="not-found-code" aria-hidden="true">
-404
-        </div>
-        <div class="not-found-badge">
-          <i class="fas fa-compass" aria-hidden="true"></i>
-          <span>Off route</span>
-        </div>
+    <div class="not-found-panel">
+      <p class="pm-eyebrow">Off route</p>
+      <div class="not-found-code" aria-hidden="true">404</div>
+      <h1 class="pm-title">We can&rsquo;t find that page</h1>
+      <p class="pm-sub">
+        The route <span class="not-found-path">{{ path }}</span> doesn&rsquo;t exist here.
+      </p>
+      <div class="not-found-actions">
+        <a class="btn btn-primary" href="/map">Back to the map</a>
+        <a class="btn btn-outline" href="/">Home</a>
       </div>
-      <div class="not-found-body">
-        <h1>
-We can't find that page
-        </h1>
-        <p class="lead">
-        The route
-          <span class="not-found-path">{{ path }}</span>
-        doesn't exist here.
-        </p>
-      </div>
-      <div class="not-found-actions" data-stagger>
-        <a class="btn btn-primary" href="/">
-          <i class="fas fa-home" aria-hidden="true"></i>
-        Home
-        </a>
-        <a class="btn btn-outline" href="/map">
-          <i class="fas fa-map" aria-hidden="true"></i>
-        Map
-        </a>
-      </div>
-    </div>
 
-    <div class="not-found-suggestions">
-      <div class="not-found-suggest-title">
-Try one of these instead
-      </div>
-      <div class="not-found-grid" data-stagger>
-        <a class="not-found-tile" href="/map">
-          <span class="tile-icon" aria-hidden="true"><i class="fas fa-map"></i></span>
-          <span class="tile-title">Map</span>
-          <span class="tile-subtitle">Coverage overview</span>
-        </a>
-        <a class="not-found-tile" href="/trips">
-          <span class="tile-icon" aria-hidden="true"><i class="fas fa-road"></i></span>
-          <span class="tile-title">Trips</span>
-          <span class="tile-subtitle">Recent drives</span>
-        </a>
-        <a class="not-found-tile" href="/insights">
-          <span class="tile-icon" aria-hidden="true"><i class="fas fa-chart-line"></i></span>
-          <span class="tile-title">Insights</span>
-          <span class="tile-subtitle">Progress stats</span>
-        </a>
+      <div class="not-found-suggestions">
+        <p class="not-found-suggest-title">Or try one of these</p>
+        <ul class="not-found-links">
+          <li>
+            <a href="/trips">Trips<span class="link-note">Recent drives</span></a>
+          </li>
+          <li>
+            <a href="/insights">Insights<span class="link-note">Progress over time</span></a>
+          </li>
+          <li>
+            <a href="/coverage-management">Coverage<span class="link-note">Areas and streets</span></a>
+          </li>
+        </ul>
       </div>
     </div>
   </section>

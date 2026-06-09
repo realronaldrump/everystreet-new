@@ -20,31 +20,18 @@
 }
 
 .section-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
   margin-bottom: var(--space-1);
   font-family: var(--font-family-display);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
   color: var(--text-primary);
 }
 
 .section-subtitle {
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
-}
-
-.section-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-md);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.9rem;
-  background: rgb(var(--widget-accent-rgb, var(--primary-rgb)) / 16%);
-  color: var(--widget-accent, var(--primary));
+  max-width: 64ch;
 }
 
 .story-empty {
@@ -68,102 +55,31 @@
 }
 
 /* ============================================
-   METRICS
+   METRICS — hairline figure band
    ============================================ */
 
-.metrics-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-3);
+.metric-figure {
+  justify-content: flex-start;
 }
 
-.metric-card {
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border-color);
-  background: var(--surface-1);
-  transition:
-    box-shadow var(--transition-normal),
-    border-color var(--transition-fast);
-  box-shadow: var(--shadow-sm);
+.metric-figure-label {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
 }
 
-.metric-card:hover {
-  border-color: var(--border-color-light);
-  box-shadow: var(--shadow-md);
-}
-
-.metric-accent {
-  height: 4px;
-}
-
-.metric-accent.mint {
-  background: var(--cat-mint);
-}
-
-.metric-accent.coral {
-  background: var(--cat-coral);
-}
-
-.metric-accent.sky {
-  background: var(--cat-sky);
-}
-
-.metric-accent.purple {
-  background: var(--cat-purple);
-}
-
-.metric-content {
-  padding: var(--space-4);
-}
-
-.metric-icon {
-  width: 42px;
-  height: 42px;
-  margin-bottom: var(--space-3);
-  border-radius: var(--radius-lg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-on-primary);
-  background: var(--primary);
-}
-
-.metric-value {
-  margin-bottom: var(--space-2);
-  color: var(--text-primary);
-  font-family: var(--font-family-display);
-  font-size: var(--font-size-2xl);
-  font-variant-numeric: tabular-nums;
-}
-
-.metric-unit {
-  margin-left: var(--space-1);
-  color: var(--text-secondary);
-  font-size: var(--font-size-lg);
-}
-
-.metric-label {
-  margin-bottom: var(--space-2);
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+.metric-figure-label:hover {
+  color: var(--primary);
 }
 
 .metric-context {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  background: rgb(var(--surface-rgb) / 52%);
+  margin: var(--space-1) 0 0;
   color: var(--text-tertiary);
   font-size: var(--font-size-xs);
-}
-
-.metric-context i {
-  color: var(--primary);
+  max-width: 32ch;
 }
 
 /* ============================================
@@ -1446,10 +1362,6 @@
     padding: var(--space-4);
   }
 
-  .metrics-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .insight-scenes-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1499,10 +1411,6 @@
 @media (width >= 1024px) {
   .story-grid {
     grid-template-columns: 1.6fr 1fr;
-  }
-
-  .metrics-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .insight-scenes-grid {
@@ -1561,7 +1469,6 @@
     scroll-behavior: auto !important;
   }
 
-  .metric-card:hover,
   .rhythm-story-card:hover,
   .scene-card:hover,
   .orbit-node:hover {

@@ -50,14 +50,12 @@
 }
 
 .export-category-title i {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
+  width: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgb(var(--primary-rgb) / 12%);
-  color: var(--primary);
+  color: var(--text-tertiary);
+  font-size: 0.9em;
 }
 
 .export-category-chevron {

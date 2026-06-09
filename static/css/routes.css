@@ -39,24 +39,15 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  border-radius: 0.9rem;
-  border: 1px solid rgb(var(--primary-rgb) / 18%);
-  background: rgb(var(--primary-rgb) / 6%);
-}
-
-.routes-insight-tile.accent {
-  border-color: rgb(var(--cat-amber-rgb) / 18%);
-  background: rgb(var(--cat-amber-rgb) / 6%);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--surface-1);
 }
 
 .routes-insight-icon {
-  color: rgb(var(--primary-rgb) / 70%);
-  font-size: 1.1rem;
+  color: var(--text-tertiary);
+  font-size: 1rem;
   flex-shrink: 0;
-}
-
-.routes-insight-tile.accent .routes-insight-icon {
-  color: rgb(var(--cat-amber-rgb) / 70%);
 }
 
 .routes-insight-text {
@@ -73,9 +64,9 @@
 /* Build Card */
 .routes-build-card {
   background: var(--surface-1);
-  border: 1px solid rgb(var(--primary-rgb) / 22%);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   padding: var(--space-5);
 }
 
@@ -98,7 +89,6 @@
   height: 0.6rem;
   border-radius: 9999px;
   background: rgb(var(--primary-rgb) / 40%);
-  box-shadow: 0 0 0 6px rgb(var(--primary-rgb) / 0%);
 }
 
 .build-dot[data-state="running"] {
@@ -115,16 +105,13 @@
 }
 
 @keyframes routesPulse {
-  0% {
-    box-shadow: 0 0 0 0 rgb(var(--primary-rgb) / 38%);
-  }
-
-  70% {
-    box-shadow: 0 0 0 10px rgb(var(--primary-rgb) / 0%);
-  }
-
+  0%,
   100% {
-    box-shadow: 0 0 0 0 rgb(var(--primary-rgb) / 0%);
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.45;
   }
 }
 
@@ -1519,16 +1506,6 @@ html[data-bs-theme="light"] .routes-explorer-status,
 html[data-bs-theme="light"] .routes-inline-empty,
 html[data-bs-theme="light"] .route-trip-row {
   background: rgb(15 23 42 / 3%);
-}
-
-html[data-bs-theme="light"] .routes-insight-tile {
-  background: rgb(var(--primary-rgb) / 5%);
-  border-color: rgb(var(--primary-rgb) / 16%);
-}
-
-html[data-bs-theme="light"] .routes-insight-tile.accent {
-  background: rgb(var(--cat-amber-rgb) / 5%);
-  border-color: rgb(var(--cat-amber-rgb) / 16%);
 }
 
 html[data-bs-theme="light"] .route-personality-tag {

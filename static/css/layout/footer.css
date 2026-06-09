@@ -1,60 +1,40 @@
 /* ============================
-   Application Footer
+   Application Footer — colophon
    ============================ */
 
 .app-footer {
-  padding: var(--space-4) var(--page-gutter);
-  text-align: center;
+  padding: var(--space-6) var(--page-gutter);
   margin-top: auto;
   border-top: 1px solid var(--divider-color);
-  background-color: rgb(var(--surface-rgb) / 85%);
-  backdrop-filter: blur(4px);
 }
 
 .footer-content {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  font-size: 0.75rem; /* Equivalent to xs generally, but explicit for control */
-  color: var(--text-tertiary);
-  font-family: var(--font-mono);
-  letter-spacing: -0.01em;
-}
-
-.footer-version-info {
-  display: flex;
-  gap: var(--space-4);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-6);
   flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
 }
 
-.footer-version-item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  transition:
-    color 0.2s ease,
-    background-color 0.2s ease;
+.footer-colophon {
+  font-family: var(--font-family-display);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
 }
 
-.footer-version-item:hover {
-  color: var(--text-secondary);
-  background-color: rgb(255 255 255 / 3%);
-}
-
-.footer-version-item i {
-  font-size: 0.85em;
-  opacity: 0.7;
+.footer-meta {
+  font-family: var(--font-family-mono);
+  letter-spacing: -0.01em;
 }
 
 /* Mobile adjustments */
 @media (width <= 768px) {
   .app-footer {
-    padding-bottom: calc(var(--space-4) + 65px); /* Account for bottom nav */
+    padding-bottom: calc(var(--space-6) + 65px); /* Account for bottom nav */
   }
 }

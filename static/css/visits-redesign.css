@@ -103,56 +103,6 @@
   }
 }
 
-.section-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.9rem;
-}
-
-@media (width >= 768px) {
-  .section-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-lg);
-    font-size: 1.1rem;
-  }
-}
-
-/* Accent colors for section icons */
-[data-accent="mint"] .section-icon {
-  background: rgb(var(--cat-mint-rgb) / 15%);
-  color: var(--cat-mint);
-}
-
-[data-accent="purple"] .section-icon {
-  background: rgb(var(--cat-purple-rgb) / 15%);
-  color: var(--cat-purple);
-}
-
-[data-accent="sky"] .section-icon {
-  background: rgb(var(--cat-sky-rgb) / 15%);
-  color: var(--cat-sky);
-}
-
-[data-accent="lime"] .section-icon {
-  background: rgb(var(--cat-lime-rgb) / 15%);
-  color: var(--cat-lime);
-}
-
-[data-accent="slate"] .section-icon {
-  background: rgb(var(--cat-slate-rgb) / 15%);
-  color: var(--cat-slate);
-}
-
-[data-accent="amber"] .section-icon {
-  background: rgb(var(--cat-ochre-rgb) / 15%);
-  color: var(--cat-ochre);
-}
-
 .section-subtitle {
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
@@ -1313,10 +1263,9 @@
 }
 
 .empty-icon {
-  font-size: 4rem;
-  margin-bottom: var(--space-4);
+  font-size: 1.5rem;
+  margin-bottom: var(--space-3);
   color: var(--text-tertiary);
-  opacity: 0.5;
 }
 
 .empty-state h3 {
@@ -1348,12 +1297,6 @@
 .places-grid > .places-loading,
 .discoveries-grid > .discoveries-loading {
   grid-column: 1 / -1;
-}
-
-/* Modal Enhancements */
-.modal-header[data-accent="mint"] {
-  background: rgb(var(--cat-mint-rgb) / 15%);
-  border-bottom-color: rgb(var(--cat-mint-rgb) / 30%);
 }
 
 /* --- Visits Modal Header with Inline Actions --- */
