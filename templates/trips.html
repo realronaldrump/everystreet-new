@@ -4,7 +4,7 @@
 
 {% block title %}
 
-Your Trips - Every Street
+Trips - Every Street
 {% endblock %}
 
 
@@ -20,45 +20,51 @@ Your Trips - Every Street
 
   <div class="trips-journal-page">
     <div class="trips-container">
-      <header class="trips-welcome" data-stagger>
-        <div class="welcome-greeting">
-          <h1 class="welcome-title">
-            <span class="greeting-text">Welcome back</span>
-            <span class="greeting-icon"><i class="fas fa-sun"></i></span>
-          </h1>
-          <p class="welcome-subtitle" id="trips-summary-text">
-          You've traveled <strong>loading...</strong> in this range
+      <header class="page-masthead" data-stagger>
+        <div class="pm-lead">
+          <p class="pm-eyebrow">Every Street</p>
+          <h1 class="pm-title">Trips</h1>
+          <p class="pm-sub" id="trips-summary-text">
+            Loading trips for this range&hellip;
           </p>
         </div>
-
-        <div class="welcome-stats" id="welcome-stats">
-          <div class="stat-pill">
-            <span class="stat-icon"><i class="fas fa-road"></i></span>
-            <span class="stat-value" id="stat-total-miles">--</span>
-            <span class="stat-label">miles</span>
+        <div class="pm-aside">
+          <div class="sync-status-mini" id="sync-status-mini">
+            <span class="sync-indicator" data-state="idle">
+              <span class="sync-dot"></span>
+            </span>
+            <span class="sync-text">Checking sync status...</span>
+            <button class="sync-btn" id="sync-now-btn" title="Sync now" aria-label="Sync trips now">
+              <i class="fas fa-sync-alt"></i>
+            </button>
           </div>
-          <div class="stat-pill">
-            <span class="stat-icon"><i class="fas fa-car"></i></span>
-            <span class="stat-value" id="stat-total-trips">--</span>
-            <span class="stat-label">trips</span>
-          </div>
-          <div class="stat-pill">
-            <span class="stat-icon"><i class="fas fa-clock"></i></span>
-            <span class="stat-value" id="stat-total-time">--</span>
-            <span class="stat-label">hours</span>
-          </div>
-        </div>
-
-        <div class="sync-status-mini" id="sync-status-mini">
-          <span class="sync-indicator" data-state="idle">
-            <span class="sync-dot"></span>
-          </span>
-          <span class="sync-text">Checking sync status...</span>
-          <button class="sync-btn" id="sync-now-btn" title="Sync now" aria-label="Sync trips now">
-            <i class="fas fa-sync-alt"></i>
-          </button>
         </div>
       </header>
+
+      <div class="figure-band trips-figures" id="welcome-stats" data-stagger>
+        <div class="figure stat-pill">
+          <span class="figure-label stat-label">Miles</span>
+          <span class="figure-readout">
+            <span class="figure-value stat-value" id="stat-total-miles">--</span>
+            <span class="figure-unit">mi</span>
+          </span>
+        </div>
+        <span class="figure-rule" aria-hidden="true"></span>
+        <div class="figure stat-pill">
+          <span class="figure-label stat-label">Trips</span>
+          <span class="figure-readout">
+            <span class="figure-value stat-value" id="stat-total-trips">--</span>
+          </span>
+        </div>
+        <span class="figure-rule" aria-hidden="true"></span>
+        <div class="figure stat-pill">
+          <span class="figure-label stat-label">Hours</span>
+          <span class="figure-readout">
+            <span class="figure-value stat-value" id="stat-total-time">--</span>
+            <span class="figure-unit">h</span>
+          </span>
+        </div>
+      </div>
       <section class="trips-search-section" data-accent="mint">
         <div class="search-container">
           <div class="search-input-wrap">
@@ -339,8 +345,7 @@ Trip Ledger
 No trips yet
         </h3>
         <p class="empty-text">
-        Your adventure begins here. Sync with your vehicle to import your driving
-        history.
+          Sync with your vehicle to import your driving history.
         </p>
         <div class="empty-actions">
           <button class="btn btn-primary" id="empty-sync-btn" type="button">

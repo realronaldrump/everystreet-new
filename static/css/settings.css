@@ -1622,16 +1622,6 @@
   color: var(--warning);
 }
 
-@keyframes map-services-progress-sheen {
-  0% {
-    transform: translateX(-120%);
-  }
-
-  100% {
-    transform: translateX(120%);
-  }
-}
-
 @keyframes map-services-progress-indeterminate {
   0%,
   100% {

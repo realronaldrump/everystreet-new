@@ -1289,7 +1289,7 @@
 .coverage-route-planner .sim-clear-btn {
   margin-left: auto;
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
 }
@@ -1314,7 +1314,7 @@
   font-size: 0.6875rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   font-weight: 500;
 }
 
@@ -1347,7 +1347,7 @@
   font-size: 0.6875rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   font-weight: 500;
 }
 
@@ -1362,7 +1362,7 @@
 }
 
 .coverage-route-planner .sim-coverage-arrow {
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   font-size: 0.875rem;
 }
 

@@ -173,17 +173,6 @@
   font-weight: var(--font-weight-semibold);
 }
 
-@keyframes minimized-badge-sheen {
-  0%,
-  40% {
-    transform: translateX(-110%);
-  }
-
-  100% {
-    transform: translateX(110%);
-  }
-}
-
 @keyframes minimized-icon-pulse {
   0%,
   100% {
@@ -353,7 +342,7 @@ body.light-mode .alert-info {
 
 .pipeline-progress-bar {
   height: 6px;
-  background: var(--surface-sunken, #2b2b2b);
+  background: var(--surface-3);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -369,12 +358,12 @@ body.light-mode .alert-info {
   display: flex;
   justify-content: space-between;
   font-size: 0.75rem;
-  color: var(--text-secondary, #6c757d);
+  color: var(--text-secondary);
 }
 
 .pipeline-pct {
   font-weight: 600;
-  color: var(--info, #0dcaf0);
+  color: var(--info);
 }
 
 /* Stage list */
@@ -420,13 +409,13 @@ body.light-mode .alert-info {
 
 /* Pending state */
 .pipeline-stage.is-pending .pipeline-stage-dot {
-  background: var(--surface-sunken, #212529);
-  border: 2px solid var(--text-muted, #6c757d);
-  color: var(--text-muted, #6c757d);
+  background: var(--surface-2);
+  border: 2px solid var(--text-tertiary);
+  color: var(--text-tertiary);
 }
 
 .pipeline-stage.is-pending .pipeline-stage-line {
-  background: var(--surface-sunken, #343a40);
+  background: var(--surface-3);
 }
 
 .pipeline-stage.is-pending .pipeline-stage-content {
@@ -435,13 +424,13 @@ body.light-mode .alert-info {
 
 /* Active state */
 .pipeline-stage.is-active .pipeline-stage-dot {
-  background: rgb(var(--info-rgb, 13 110 253) / 15%);
-  border: 2px solid var(--info, #0d6efd);
-  color: var(--info, #0d6efd);
+  background: rgb(var(--info-rgb) / 15%);
+  border: 2px solid var(--info);
+  color: var(--info);
 }
 
 .pipeline-stage.is-active .pipeline-stage-line {
-  background: var(--info, #0d6efd);
+  background: var(--info);
 }
 
 .pipeline-stage.is-active .pipeline-stage-content {
@@ -450,13 +439,13 @@ body.light-mode .alert-info {
 
 /* Completed state */
 .pipeline-stage.is-completed .pipeline-stage-dot {
-  background: rgb(var(--success-rgb, 25 135 84) / 20%);
-  border: 2px solid var(--success, #198754);
-  color: var(--success, #198754);
+  background: rgb(var(--success-rgb) / 20%);
+  border: 2px solid var(--success);
+  color: var(--success);
 }
 
 .pipeline-stage.is-completed .pipeline-stage-line {
-  background: var(--success, #198754);
+  background: var(--success);
 }
 
 .pipeline-stage.is-completed .pipeline-stage-content {
@@ -481,27 +470,27 @@ body.light-mode .alert-info {
 .pipeline-stage-label {
   font-weight: 600;
   font-size: 0.875rem;
-  color: var(--text-primary, #dee2e6);
+  color: var(--text-primary);
 }
 
 .pipeline-stage-time {
   font-size: 0.75rem;
-  color: var(--text-secondary, #6c757d);
+  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .pipeline-stage.is-active .pipeline-stage-time {
-  color: var(--accent-cyan, #0dcaf0);
+  color: var(--info);
 }
 
 .pipeline-stage.is-completed .pipeline-stage-time {
-  color: var(--success, #198754);
+  color: var(--success);
 }
 
 .pipeline-stage-description {
   font-size: 0.775rem;
-  color: var(--text-secondary, #6c757d);
+  color: var(--text-secondary);
   margin-top: 0.1rem;
 }
 
@@ -524,10 +513,10 @@ body.light-mode .alert-info {
   align-items: center;
   gap: 0.3rem;
   padding: 0.15rem 0.5rem;
-  background: rgb(255 255 255 / 6%);
+  background: rgb(var(--border-rgb) / 10%);
   border-radius: 10px;
   font-size: 0.7rem;
-  color: var(--text-primary, #f8f9fa);
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
   animation: metricFadeIn 0.3s ease;
 }
@@ -553,7 +542,7 @@ body.light-mode .alert-info {
 .pipeline-message {
   text-align: center;
   font-size: 0.8rem;
-  color: var(--text-secondary, #6c757d);
+  color: var(--text-secondary);
   margin-top: 0.5rem;
   min-height: 1.25rem;
 }
@@ -722,7 +711,7 @@ body.light-mode .alert-info {
 }
 
 .notif-history-item:hover {
-  background-color: var(--surface-hover, rgb(255 255 255 / 4%));
+  background-color: rgb(var(--border-rgb) / 8%);
 }
 
 .notif-history-icon {
@@ -768,7 +757,7 @@ body.light-mode .alert-info {
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--text-muted, var(--text-tertiary));
+  color: var(--text-tertiary);
   padding: var(--space-1);
   border-radius: var(--radius-sm);
   opacity: 0;

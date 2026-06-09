@@ -13,16 +13,6 @@
   }
 }
 
-@keyframes fadeOut {
-  from {
-    opacity: 1;
-  }
-
-  to {
-    opacity: 0;
-  }
-}
-
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -56,16 +46,6 @@
   to {
     opacity: 1;
     transform: scale(1);
-  }
-}
-
-@keyframes fadeInMetric {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
   }
 }
 
@@ -218,19 +198,6 @@ html.swup-native::view-transition-new(route-content) {
   }
 }
 
-/* === Scale Animations === */
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
 /* === Pulse Animations === */
 @keyframes pulse {
   0%,
@@ -243,39 +210,6 @@ html.swup-native::view-transition-new(route-content) {
   }
 }
 
-@keyframes pulse-subtle {
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.9;
-  }
-}
-
-@keyframes pulse-marker {
-  0% {
-    box-shadow: 0 0 0 0 rgb(var(--primary-rgb) / 50%);
-  }
-
-  100% {
-    box-shadow: 0 0 0 6px rgb(var(--primary-rgb) / 0%);
-  }
-}
-
-@keyframes pulse-dot {
-  from {
-    transform: translate(-50%, -50%) scale(0.9);
-    opacity: 0.8;
-  }
-
-  to {
-    transform: translate(-50%, -50%) scale(1.1);
-    opacity: 1;
-  }
-}
-
 @keyframes loadingPulse {
   0%,
   100% {
@@ -284,17 +218,6 @@ html.swup-native::view-transition-new(route-content) {
 
   50% {
     opacity: 1;
-  }
-}
-
-@keyframes error-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgb(var(--danger-rgb) / 50%);
-  }
-
-  50% {
-    box-shadow: 0 0 0 6px rgb(var(--danger-rgb) / 0%);
   }
 }
 
@@ -337,70 +260,6 @@ html.swup-native::view-transition-new(route-content) {
   }
 }
 
-@keyframes progress-fill {
-  from {
-    width: 0%;
-  }
-
-  to {
-    width: 100%;
-  }
-}
-
-/* === Immersive Experience Animations === */
-
-@keyframes glow-pulse {
-  0%,
-  100% {
-    box-shadow: var(--glow-primary);
-    opacity: 1;
-  }
-
-  50% {
-    box-shadow: var(--glow-primary-intense);
-    opacity: 0.95;
-  }
-}
-
-@keyframes glow-pulse-success {
-  0%,
-  100% {
-    box-shadow:
-      0 0 6px rgb(var(--success-rgb) / 45%),
-      0 0 12px rgb(var(--success-rgb) / 25%);
-  }
-
-  50% {
-    box-shadow:
-      0 0 10px rgb(var(--success-rgb) / 55%),
-      0 0 18px rgb(var(--success-rgb) / 35%);
-  }
-}
-
-@keyframes ring-expand {
-  0% {
-    transform: scale(0.8);
-    opacity: 1;
-  }
-
-  100% {
-    transform: scale(1.8);
-    opacity: 0;
-  }
-}
-
-@keyframes ring-expand-delayed {
-  0% {
-    transform: scale(0.8);
-    opacity: 0.8;
-  }
-
-  100% {
-    transform: scale(1.6);
-    opacity: 0;
-  }
-}
-
 @keyframes value-flash {
   0% {
     background-color: rgb(var(--primary-rgb) / 12%);
@@ -428,18 +287,6 @@ html.swup-native::view-transition-new(route-content) {
   100% {
     transform: scale(2.5);
     opacity: 0;
-  }
-}
-
-@keyframes modal-rise {
-  0% {
-    opacity: 0;
-    transform: scale(0.97) translateY(6px);
-  }
-
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
   }
 }
 

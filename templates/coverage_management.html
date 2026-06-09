@@ -19,47 +19,43 @@ Coverage Management
 
   <div id="coverage-list-view" class="coverage-view coverage-view--list">
     <div class="container-fluid">
-      <div class="bento-grid" data-stagger>
-        <div class="bento-span-12 widget" data-accent="amber">
-          <div class="widget-header">
-            <div>
-              <h1 class="widget-title">
-                <i class="fas fa-route" aria-hidden="true"></i>
-              Every Street
-              </h1>
-              <p class="widget-meta">
-Track your street coverage challenge — how much have you driven?
-              </p>
-            </div>
-            <div class="list-header-actions">
-              <div class="total-areas-badge">
-                <span id="total-areas-count" class="total-areas-number">0</span>
-                <span class="total-areas-label">areas</span>
-              </div>
-              <button class="btn btn-outline-info btn-sm"
-                      id="batch-recalculate-open-btn"
-                      type="button"
-                      aria-label="Queue street coverage recalculation for multiple areas"
-                      aria-disabled="true"
-                      title="Batch recalculate"
-                      disabled>
-                <i class="fas fa-list-check me-1" aria-hidden="true"></i>Batch
-              </button>
-              <button class="btn btn-success btn-sm"
-                      data-bs-toggle="modal"
-                      data-bs-target="#addAreaModal"
-                      aria-label="Add a new coverage area">
-                <i class="fas fa-plus me-1" aria-hidden="true"></i>Add Area
-              </button>
-              <button class="btn btn-outline-secondary btn-sm"
-                      id="refresh-list-btn"
-                      aria-label="Refresh coverage data"
-                      title="Refresh">
-                <i class="fas fa-sync-alt" aria-hidden="true"></i>
-              </button>
-            </div>
+      <header class="page-masthead" data-stagger>
+        <div class="pm-lead">
+          <p class="pm-eyebrow">Every Street</p>
+          <h1 class="pm-title">Coverage</h1>
+          <p class="pm-sub">
+            How much of each area you've driven, street by street.
+            <strong id="total-areas-count">0</strong> areas tracked.
+          </p>
+        </div>
+        <div class="pm-aside">
+          <div class="list-header-actions">
+            <button class="btn btn-outline-info btn-sm"
+                    id="batch-recalculate-open-btn"
+                    type="button"
+                    aria-label="Queue street coverage recalculation for multiple areas"
+                    aria-disabled="true"
+                    title="Batch recalculate"
+                    disabled>
+              <i class="fas fa-list-check me-1" aria-hidden="true"></i>Batch
+            </button>
+            <button class="btn btn-success btn-sm"
+                    data-bs-toggle="modal"
+                    data-bs-target="#addAreaModal"
+                    aria-label="Add a new coverage area">
+              <i class="fas fa-plus me-1" aria-hidden="true"></i>Add Area
+            </button>
+            <button class="btn btn-outline-secondary btn-sm"
+                    id="refresh-list-btn"
+                    aria-label="Refresh coverage data"
+                    title="Refresh">
+              <i class="fas fa-sync-alt" aria-hidden="true"></i>
+            </button>
           </div>
         </div>
+      </header>
+
+      <div class="bento-grid" data-stagger>
         <div class="bento-span-12" id="alerts-container">
         </div>
         <div class="bento-span-12">

@@ -60,27 +60,6 @@
   flex-shrink: 0;
 }
 
-.total-areas-badge {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  line-height: 1.1;
-}
-
-.total-areas-number {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
-  font-family: var(--font-family-display);
-  color: var(--primary);
-}
-
-.total-areas-label {
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
 /* Batch recalculation modal */
 .batch-recalculate-toolbar {
   display: flex;
@@ -562,27 +541,6 @@
   border-radius: var(--radius-pill);
   background: var(--info);
   min-width: 0;
-}
-
-@keyframes track-scan {
-  0% {
-    background-position: 200% 0;
-  }
-
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-@keyframes area-job-sheen {
-  0%,
-  35% {
-    transform: translateX(-110%);
-  }
-
-  100% {
-    transform: translateX(110%);
-  }
 }
 
 /* Job message text */

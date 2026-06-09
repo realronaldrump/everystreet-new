@@ -22,43 +22,38 @@ Every Street - Places & Visits
 {% block content %}
 
   <div id="visits-page" class="visits-container">
-    <section class="visits-section hero-section" data-accent="mint">
-      <div class="hero-content">
-        <h1 class="hero-title">
-          Your places, <span>your story</span>
-        </h1>
-        <p class="hero-subtitle">
-        Every visit is a moment captured. Here's what your journey data shows.
+    <header class="page-masthead" data-stagger>
+      <div class="pm-lead">
+        <p class="pm-eyebrow">Every Street</p>
+        <h1 class="pm-title">Visits</h1>
+        <p class="pm-sub">
+          How often you stop at the places you've defined, and what those stops look like over time.
         </p>
-
-        <div class="hero-stats" id="hero-stats">
-          <div class="stat-card">
-            <div class="stat-number" id="total-places-count">
--
-            </div>
-            <div class="stat-label">
-Places defined
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-number" id="total-visits-count">
--
-            </div>
-            <div class="stat-label">
-Visits captured
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-number" id="month-visits-count">
--
-            </div>
-            <div class="stat-label">
-This month
-            </div>
-          </div>
-        </div>
       </div>
-    </section>
+    </header>
+
+    <div class="figure-band visits-figures" id="hero-stats" data-stagger>
+      <div class="figure">
+        <span class="figure-label">Places defined</span>
+        <span class="figure-readout">
+          <span class="figure-value" id="total-places-count">-</span>
+        </span>
+      </div>
+      <span class="figure-rule" aria-hidden="true"></span>
+      <div class="figure">
+        <span class="figure-label">Visits captured</span>
+        <span class="figure-readout">
+          <span class="figure-value" id="total-visits-count">-</span>
+        </span>
+      </div>
+      <span class="figure-rule" aria-hidden="true"></span>
+      <div class="figure">
+        <span class="figure-label">This month</span>
+        <span class="figure-readout">
+          <span class="figure-value" id="month-visits-count">-</span>
+        </span>
+      </div>
+    </div>
     <section class="visits-section places-section" data-accent="mint">
       <div class="section-header">
         <div class="section-title-wrapper">

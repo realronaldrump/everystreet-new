@@ -20,18 +20,12 @@ Recurring Routes - Every Street
 
   <div id="routes-page" class="routes-page">
     <div class="routes-container">
-      <header class="routes-hero" data-stagger>
-        <div class="routes-hero-left">
-          <div class="routes-badge">
-            <i class="fas fa-route" aria-hidden="true"></i>
-            <span>Recurring routes</span>
-          </div>
-          <h1 class="routes-title">
-            Your paths,
-            <span class="routes-title-accent">distilled</span>
-          </h1>
-          <p class="routes-subtitle">
-          Automatically grouped from your stored trips. Rename, pin, hide, and explore the patterns that emerge.
+      <header class="page-masthead" data-stagger>
+        <div class="pm-lead">
+          <p class="pm-eyebrow">Every Street</p>
+          <h1 class="pm-title">Recurring Routes</h1>
+          <p class="pm-sub">
+            Automatically grouped from your stored trips. Rename, pin, hide, and explore the patterns that emerge.
           </p>
           <div class="routes-hero-insights" id="routes-hero-insights">
             <div class="routes-insight-tile">
@@ -43,34 +37,9 @@ Recurring Routes - Every Street
               <span class="routes-insight-text" id="hero-insight-spotlight">Loading insights...</span>
             </div>
           </div>
-          <button type="button"
-                  class="routes-stats-toggle"
-                  id="routes-stats-toggle"
-                  aria-expanded="false">
-            <span>View stats</span>
-            <i class="fas fa-chevron-down" aria-hidden="true"></i>
-          </button>
-          <div class="routes-hero-stats collapsed" id="routes-hero-stats">
-            <div class="routes-hero-stat-card">
-              <span class="routes-hero-stat-label">Routes</span>
-              <span class="routes-hero-stat-value" id="hero-stat-routes">0</span>
-            </div>
-            <div class="routes-hero-stat-card">
-              <span class="routes-hero-stat-label">Trips</span>
-              <span class="routes-hero-stat-value" id="hero-stat-trips">0</span>
-            </div>
-            <div class="routes-hero-stat-card">
-              <span class="routes-hero-stat-label">Miles</span>
-              <span class="routes-hero-stat-value" id="hero-stat-miles">0</span>
-            </div>
-            <div class="routes-hero-stat-card">
-              <span class="routes-hero-stat-label">Top route</span>
-              <span class="routes-hero-stat-value" id="hero-stat-freq">--</span>
-            </div>
-          </div>
         </div>
 
-        <div class="routes-hero-right">
+        <div class="pm-aside routes-hero-right">
           <div class="routes-build-card" data-accent="mint">
             <div class="build-card-top">
               <div class="build-status">
@@ -110,6 +79,36 @@ Recurring Routes - Every Street
           </div>
         </div>
       </header>
+
+      <div class="figure-band routes-figures" id="routes-hero-stats" data-stagger>
+        <div class="figure">
+          <span class="figure-label">Routes</span>
+          <span class="figure-readout">
+            <span class="figure-value" id="hero-stat-routes">0</span>
+          </span>
+        </div>
+        <span class="figure-rule" aria-hidden="true"></span>
+        <div class="figure">
+          <span class="figure-label">Trips</span>
+          <span class="figure-readout">
+            <span class="figure-value" id="hero-stat-trips">0</span>
+          </span>
+        </div>
+        <span class="figure-rule" aria-hidden="true"></span>
+        <div class="figure">
+          <span class="figure-label">Miles</span>
+          <span class="figure-readout">
+            <span class="figure-value" id="hero-stat-miles">0</span>
+          </span>
+        </div>
+        <span class="figure-rule" aria-hidden="true"></span>
+        <div class="figure">
+          <span class="figure-label">Top route</span>
+          <span class="figure-readout">
+            <span class="figure-value figure-value-sm" id="hero-stat-freq">--</span>
+          </span>
+        </div>
+      </div>
       <section class="routes-controls" data-stagger>
         <div class="routes-controls-inner">
           <div class="routes-search">

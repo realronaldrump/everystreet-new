@@ -763,9 +763,6 @@ export default async function initTripsPage({ signal, cleanup, api } = {}) {
 }
 
 async function initializePage(signal, cleanup) {
-  // Update greeting based on time
-  updateGreeting();
-
   // Load vehicles for filter dropdown
   await loadVehicles();
 
@@ -846,7 +843,7 @@ function updateOverviewStats({ totalMiles, totalTrips: totalTripsCount, totalHou
     if (hasAnyFilters) {
       summaryEl.innerHTML = `Showing <strong>${safeTrips} trips</strong> totaling <strong>${milesText} miles</strong>`;
     } else {
-      summaryEl.innerHTML = `You've traveled <strong>${milesText} miles</strong> across <strong>${safeTrips} trips</strong> in this range`;
+      summaryEl.innerHTML = `<strong>${milesText} miles</strong> across <strong>${safeTrips} trips</strong> in this range`;
     }
   }
 }
@@ -1135,34 +1132,6 @@ function reorderTripTableColumn(sourceKey, targetKey) {
 }
 
 // ==========================================
-// GREETING & WELCOME
-// ==========================================
-
-function updateGreeting() {
-  const hour = new Date().getHours();
-  let greeting = "Good evening";
-  let iconHtml = '<i class="fas fa-moon text-info"></i>';
-
-  if (hour >= 5 && hour < 12) {
-    greeting = "Good morning";
-    iconHtml = '<i class="fas fa-sun text-warning"></i>';
-  } else if (hour >= 12 && hour < 17) {
-    greeting = "Good afternoon";
-    iconHtml = '<i class="fas fa-hand-paper text-primary"></i>';
-  }
-
-  const greetingText = document.querySelector(".greeting-text");
-  const greetingIcon = document.querySelector(".greeting-icon");
-
-  if (greetingText) {
-    greetingText.textContent = greeting;
-  }
-  if (greetingIcon) {
-    greetingIcon.innerHTML = iconHtml;
-  }
-}
-
-// ==========================================
 // SMART TITLE GENERATION
 // ==========================================
 
@@ -1196,9 +1165,17 @@ function generateSmartTitle(trip) {
     (startLoc.includes("home") && endLoc.includes("office")) ||
     (startLoc.includes("office") && endLoc.includes("home"));
 
-  // Smart title logic
+  // Smart title logic — prefer the most informative label first
   if (isCommute) {
     return isMorning ? "Morning Commute" : "Evening Commute";
+  }
+
+  // Use destination if available
+  if (endLocText) {
+    const dest = endLocText.split(",")[0];
+    if (dest && dest.length < 30) {
+      return `Trip to ${dest}`;
+    }
   }
 
   if (isShort) {
@@ -1210,19 +1187,11 @@ function generateSmartTitle(trip) {
   }
 
   if (isWeekend && distance > 10) {
-    return "Weekend Adventure";
+    return "Weekend Drive";
   }
 
   if (isEvening && distance > 5) {
     return "Evening Drive";
-  }
-
-  // Use destination if available
-  if (endLocText) {
-    const dest = endLocText.split(",")[0];
-    if (dest && dest.length < 30) {
-      return `Trip to ${dest}`;
-    }
   }
 
   return "Trip";

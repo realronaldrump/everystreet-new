@@ -1,7 +1,7 @@
 /* ─── Setup Wizard ───────────────────────────────────────────────── */
 
 .setup-page {
-  padding: var(--space-6) var(--space-6) var(--space-7);
+  padding: var(--space-6) var(--space-6) var(--space-8);
 }
 
 .setup-shell {
@@ -771,33 +771,6 @@ details[open] .setup-help-toggle::after {
 }
 
 /* ─── Import Button ─────────────────────────────────────────────── */
-
-.setup-import-btn {
-  position: relative;
-  overflow: hidden;
-}
-
-.setup-import-btn::after {
-  content: none;
-}
-
-.setup-import-btn:disabled::after {
-  animation: none;
-}
-
-@keyframes setup-import-shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  50% {
-    transform: translateX(100%);
-  }
-
-  100% {
-    transform: translateX(100%);
-  }
-}
 
 /* ─── Detected States ───────────────────────────────────────────── */
 

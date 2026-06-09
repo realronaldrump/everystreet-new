@@ -25,73 +25,12 @@
   }
 }
 
-/* Hero */
-.routes-hero {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-6);
-  margin-bottom: var(--space-8);
-}
-
-@media (width >= 992px) {
-  .routes-hero {
-    grid-template-columns: 1.15fr 0.85fr;
-    align-items: start;
-  }
-}
-
-.routes-badge {
-  display: inline-flex;
-  gap: var(--space-2);
-  align-items: center;
-  padding: 0.4rem 0.75rem;
-  border-radius: 9999px;
-  background: rgb(var(--primary-rgb) / 12%);
-  border: 1px solid rgb(var(--primary-rgb) / 24%);
-  color: var(--text-primary);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.02em;
-}
-
-.routes-title {
-  font-family: var(--font-family-display);
-  font-weight: var(--font-weight-extrabold);
-  letter-spacing: -0.02em;
-  margin: var(--space-3) 0 var(--space-2);
-  line-height: var(--line-height-tight);
-  font-size: clamp(2rem, 1.6rem + 2.4vw, 3.4rem);
-}
-
-.routes-title-accent {
-  color: var(--accent);
-  position: relative;
-}
-
-.routes-title-accent::after {
-  content: "";
-  position: absolute;
-  left: -0.1em;
-  right: -0.1em;
-  bottom: 0.06em;
-  height: 0.22em;
-  background: rgb(var(--cat-amber-rgb) / 28%);
-  z-index: -1;
-  border-radius: 9999px;
-  transform: rotate(-1deg);
-}
-
-.routes-subtitle {
-  margin: 0;
-  color: var(--text-secondary);
-  max-width: 60ch;
-}
-
 /* Hero Insight Tiles */
 .routes-hero-insights {
   display: flex;
   gap: var(--space-3);
   flex-wrap: wrap;
-  margin-top: var(--space-2);
+  margin-top: var(--space-5);
 }
 
 .routes-insight-tile {
@@ -126,52 +65,9 @@
   line-height: 1.45;
 }
 
-/* Stats Toggle */
-.routes-stats-toggle {
-  border: 0;
-  background: transparent;
-  color: var(--text-tertiary);
-  font-size: var(--font-size-xs);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
-  padding: var(--space-2) 0;
-  margin-top: var(--space-2);
-}
-
-.routes-stats-toggle:hover {
-  color: var(--text-secondary);
-}
-
-.routes-stats-toggle i {
-  transition: transform 0.2s ease;
-  font-size: 0.65rem;
-}
-
-.routes-stats-toggle[aria-expanded="true"] i {
-  transform: rotate(180deg);
-}
-
-.routes-hero-stats.collapsed {
-  max-height: 0;
-  overflow: hidden;
-  opacity: 0;
-  margin-top: 0;
-  transition:
-    max-height 0.3s ease,
-    opacity 0.2s ease,
-    margin-top 0.2s ease;
-}
-
-.routes-hero-stats.expanded {
-  max-height: 200px;
-  opacity: 1;
-  margin-top: var(--space-3);
-  transition:
-    max-height 0.3s ease,
-    opacity 0.2s ease,
-    margin-top 0.2s ease;
+/* Header figures */
+.routes-figures {
+  margin-bottom: var(--space-8);
 }
 
 /* Build Card */
@@ -906,47 +802,15 @@ html[data-bs-theme="light"] .route-preview-svg path {
   stroke: rgb(var(--primary-rgb) / 100%);
 }
 
-/* Contract alignment + progressive-disclosure refinements */
-.routes-hero-left {
-  display: grid;
-  gap: var(--space-4);
+/* Masthead aside sizing for the build card */
+.page-masthead .routes-hero-right {
+  flex: 0 1 26rem;
+  min-width: 18rem;
+  align-items: stretch;
 }
 
-.routes-hero-right {
-  display: grid;
-  align-self: stretch;
-}
-
-.routes-hero-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
-}
-
-@media (width >= 768px) {
-  .routes-hero-stats {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-.routes-hero-stat-card {
-  border: 1px solid rgb(var(--border-rgb) / 18%);
-  border-radius: 0.9rem;
-  background: rgb(0 0 0 / 12%);
-  padding: var(--space-3);
-  display: grid;
-  gap: 0.1rem;
-}
-
-.routes-hero-stat-label {
-  color: var(--text-tertiary);
-  font-size: var(--font-size-xs);
-}
-
-.routes-hero-stat-value {
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-semibold);
+.page-masthead .routes-build-card {
+  width: 100%;
 }
 
 .route-card {
@@ -1649,7 +1513,6 @@ html[data-bs-theme="light"] .route-preview-svg path {
   border-color: rgb(var(--primary-rgb) / 34%);
 }
 
-html[data-bs-theme="light"] .routes-hero-stat-card,
 html[data-bs-theme="light"] .routes-summary-kpi,
 html[data-bs-theme="light"] .routes-chart-panel,
 html[data-bs-theme="light"] .routes-explorer-status,

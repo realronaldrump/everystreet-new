@@ -170,6 +170,16 @@
   --btn-bg-hover: var(--surface-2);
 }
 
+/* === Ghost button — borderless tertiary action (icon rows, table actions) === */
+.btn-ghost {
+  --btn-bg: transparent;
+  --btn-bg-hover: rgb(var(--border-rgb) / 10%);
+  --btn-color: var(--text-secondary);
+  --btn-color-hover: var(--text-primary);
+  --btn-border: transparent;
+  --btn-border-hover: transparent;
+}
+
 .btn-link {
   --btn-bg: transparent;
   --btn-bg-hover: transparent;

@@ -334,25 +334,6 @@
   opacity: 0.4;
 }
 
-/* ---- Ghost button style ---- */
-.btn-ghost {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  border-radius: var(--radius-md);
-  padding: 0.25rem 0.5rem;
-  transition:
-    background var(--transition-fast),
-    color var(--transition-fast),
-    border-color var(--transition-fast);
-}
-
-.btn-ghost:hover {
-  background: var(--surface-3);
-  color: var(--text-primary);
-  border-color: var(--border-color-light);
-}
-
 /* ============================================================
    Responsive
    ============================================================ */

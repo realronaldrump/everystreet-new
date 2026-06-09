@@ -181,26 +181,12 @@
 }
 
 .mm-welcome-title {
+  font-family: var(--font-family-display);
   font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
   color: var(--text-primary);
   margin-bottom: var(--space-3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-}
-
-.mm-welcome-title i {
-  width: 48px;
-  height: 48px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-xl);
-  background: rgb(var(--cat-mint-rgb) / 15%);
-  color: var(--cat-mint);
-  font-size: var(--font-size-lg);
 }
 
 .mm-welcome-desc {
@@ -1295,27 +1281,6 @@
   display: none;
 }
 
-/* === Button Ghost === */
-.btn-ghost {
-  background: transparent;
-  border: none;
-  padding: var(--space-2);
-  border-radius: var(--radius-md);
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.btn-ghost:hover {
-  background: rgb(var(--border-rgb) / 10%);
-  color: var(--text-secondary);
-}
-
-.btn-ghost:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
 /* === Status indicators === */
 .settings-status {
   font-size: var(--font-size-xs);
@@ -1356,14 +1321,6 @@
 
   .mm-welcome-title {
     font-size: var(--font-size-xl);
-    flex-direction: column;
-    gap: var(--space-2);
-  }
-
-  .mm-welcome-title i {
-    width: 40px;
-    height: 40px;
-    font-size: var(--font-size-base);
   }
 
   .mm-selection-card {

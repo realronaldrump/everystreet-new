@@ -18,38 +18,36 @@ Gas Tracking
 {% block content %}
 
   <div class="gas-tracking-page">
-    <header class="gas-header" data-stagger>
-      <div class="header-content">
-        <div class="header-title-section">
-          <span class="header-icon"><i class="fas fa-gas-pump"></i></span>
-          <div class="header-text">
-            <h1 class="page-title">
-Fill Up
-            </h1>
-            <p class="page-subtitle">
-Track your fuel and see your efficiency
-            </p>
-          </div>
-        </div>
-        <div class="stats-row" id="header-stats">
-          <div class="stat-pill" data-stat="fillups">
-            <span class="stat-icon"><i class="fas fa-clipboard-check"></i></span>
-            <span class="stat-value" id="total-fillups">0</span>
-            <span class="stat-label">fill-ups</span>
-          </div>
-          <div class="stat-pill" data-stat="mpg">
-            <span class="stat-icon"><i class="fas fa-tachometer-alt"></i></span>
-            <span class="stat-value" id="avg-mpg">--</span>
-            <span class="stat-label">avg MPG</span>
-          </div>
-          <div class="stat-pill" data-stat="cost">
-            <span class="stat-icon"><i class="fas fa-dollar-sign"></i></span>
-            <span class="stat-value" id="total-spent">$0</span>
-            <span class="stat-label">spent</span>
-          </div>
-        </div>
+    <header class="page-masthead" data-stagger>
+      <div class="pm-lead">
+        <p class="pm-eyebrow">Every Street</p>
+        <h1 class="pm-title">Fuel</h1>
+        <p class="pm-sub">Fill-ups, efficiency, and cost over time.</p>
       </div>
     </header>
+
+    <div class="figure-band gas-figures" id="header-stats" data-stagger>
+      <div class="figure">
+        <span class="figure-label">Fill-ups</span>
+        <span class="figure-readout">
+          <span class="figure-value" id="total-fillups">0</span>
+        </span>
+      </div>
+      <span class="figure-rule" aria-hidden="true"></span>
+      <div class="figure">
+        <span class="figure-label">Avg MPG</span>
+        <span class="figure-readout">
+          <span class="figure-value" id="avg-mpg">--</span>
+        </span>
+      </div>
+      <span class="figure-rule" aria-hidden="true"></span>
+      <div class="figure">
+        <span class="figure-label">Spent</span>
+        <span class="figure-readout">
+          <span class="figure-value" id="total-spent">$0</span>
+        </span>
+      </div>
+    </div>
     <div class="gas-content">
       <section class="form-section" data-accent="mint">
         <div class="section-card">

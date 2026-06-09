@@ -1,0 +1,145 @@
+/* ============================================================
+   Page masthead + figure band — shared editorial header system
+   Extends the landing page's "Atlas" language to interior pages:
+   type-led mastheads (eyebrow / display title / factual subline)
+   and hairline-divided figure bands instead of boxed stat cards.
+   ============================================================ */
+
+.page-masthead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+  margin-bottom: var(--section-gap);
+}
+
+.pm-lead {
+  min-width: 0;
+}
+
+.pm-eyebrow {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--primary);
+}
+
+.pm-title {
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-size: clamp(1.9rem, 1.4rem + 2.4vw, 3rem);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--text-primary);
+}
+
+.pm-sub {
+  margin: var(--space-3) 0 0;
+  max-width: 56ch;
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+}
+
+.pm-sub strong {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.pm-aside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-3);
+  padding-bottom: var(--space-1);
+}
+
+/* ---- Figure band: hairline-divided numerals, no boxes -------- */
+.figure-band {
+  display: flex;
+  align-items: stretch;
+  gap: clamp(1.25rem, 3vw, 2.5rem);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.figure-band .figure {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-2);
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.figure-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-tertiary);
+}
+
+.figure-readout {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.figure-value {
+  font-family: var(--font-family-display);
+  font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.4rem);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.figure-value-sm {
+  font-size: clamp(1.1rem, 1rem + 0.8vw, 1.5rem);
+}
+
+.figure-unit {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+}
+
+.figure-rule {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border-color);
+  flex: 0 0 auto;
+}
+
+@media (width <= 720px) {
+  .page-masthead {
+    align-items: flex-start;
+  }
+
+  .pm-aside {
+    align-items: flex-start;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .figure-band {
+    flex-wrap: wrap;
+    gap: var(--space-4) var(--space-6);
+  }
+
+  .figure-band .figure {
+    flex: 1 1 40%;
+  }
+
+  .figure-rule {
+    display: none;
+  }
+}

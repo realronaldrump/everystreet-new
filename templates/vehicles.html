@@ -17,33 +17,30 @@ My Vehicles
 {% block content %}
 
   <div class="container-fluid vehicles-page py-4">
-    <div class="bento-grid" data-stagger>
-      <div class="bento-span-12 widget" data-accent="purple">
-        <div class="widget-header">
-          <div>
-            <h1 class="widget-title">
-              <i class="fas fa-car" aria-hidden="true"></i>
-              My Vehicles
-            </h1>
-            <div class="widget-meta">
-              Manage your vehicles, track mileage, and update settings.
-            </div>
-          </div>
-          <div class="d-flex gap-2 flex-wrap">
-            <button type="button" class="btn btn-outline-primary btn-sm" id="fleet-sync-btn">
-              <i class="fas fa-sync me-1"></i> Sync from Bouncie
-            </button>
-            <button type="button"
-                    class="btn btn-primary btn-sm"
-                    id="add-vehicle-toggle-btn"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#add-vehicle-collapse"
-                    aria-expanded="false">
-              <i class="fas fa-plus me-1"></i> Add Vehicle
-            </button>
-          </div>
+    <header class="page-masthead" data-stagger>
+      <div class="pm-lead">
+        <p class="pm-eyebrow">Every Street</p>
+        <h1 class="pm-title">Vehicles</h1>
+        <p class="pm-sub">Manage your vehicles, track mileage, and update settings.</p>
+      </div>
+      <div class="pm-aside">
+        <div class="d-flex gap-2 flex-wrap">
+          <button type="button" class="btn btn-outline-primary btn-sm" id="fleet-sync-btn">
+            <i class="fas fa-sync me-1"></i> Sync from Bouncie
+          </button>
+          <button type="button"
+                  class="btn btn-primary btn-sm"
+                  id="add-vehicle-toggle-btn"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#add-vehicle-collapse"
+                  aria-expanded="false">
+            <i class="fas fa-plus me-1"></i> Add Vehicle
+          </button>
         </div>
       </div>
+    </header>
+
+    <div class="bento-grid" data-stagger>
       <div class="bento-span-12 collapse" id="add-vehicle-collapse">
         <div class="widget is-compact" data-accent="mint">
           <div class="widget-body">

@@ -17,30 +17,25 @@ Driving Insights
 {% block content %}
 
   <div id="insights-page" class="insights-container">
-    <section class="insights-hero" data-accent="lime" data-reveal="up">
-      <div class="hero-content">
-        <div class="hero-badge" data-reveal="up">
-          <i class="fas fa-chart-line"></i>
-          <span>Your driving insights</span>
-        </div>
-        <h1 class="hero-title" data-reveal="up">
-          Your driving patterns,
-          <br />
-          <span class="highlight">broken down by data</span>
-        </h1>
-        <p class="hero-subtitle" data-reveal="up">
-          Use period comparisons, time distributions, and destination concentration to inspect exactly what changed in your selected range.
+    <header class="page-masthead" data-reveal="up">
+      <div class="pm-lead">
+        <p class="pm-eyebrow">Every Street</p>
+        <h1 class="pm-title">Insights</h1>
+        <p class="pm-sub">
+          Period comparisons, time distributions, and destination concentration for the selected range.
         </p>
-        <div class="hero-stat-card" data-reveal="scale">
-          <div class="hero-stat-value counter" id="hero-total-miles">
-0
-          </div>
-          <div class="hero-stat-label">
-miles in the selected range
-          </div>
-        </div>
       </div>
-    </section>
+    </header>
+
+    <div class="figure-band insights-figures" data-reveal="up">
+      <div class="figure">
+        <span class="figure-label">Miles in range</span>
+        <span class="figure-readout">
+          <span class="figure-value counter" id="hero-total-miles">0</span>
+          <span class="figure-unit">mi</span>
+        </span>
+      </div>
+    </div>
     <section class="insights-section movement-section" data-accent="lime" data-reveal="up">
       <div class="section-header">
         <h2 class="section-title">
