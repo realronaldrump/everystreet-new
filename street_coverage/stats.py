@@ -27,6 +27,16 @@ def _increment_nonnegative_expr(field: str, delta: int | float) -> dict[str, Any
     return {"$max": [0, {"$add": [{"$ifNull": [f"${field}", 0]}, delta]}]}
 
 
+def _round_nonnegative_expr(expression: Any, places: int) -> dict[str, Any]:
+    factor = 10**places
+    return {
+        "$divide": [
+            {"$trunc": {"$add": [{"$multiply": [expression, factor]}, 0.5]}},
+            factor,
+        ],
+    }
+
+
 async def apply_area_stats_delta(
     area_id: PydanticObjectId,
     *,
@@ -82,48 +92,42 @@ async def apply_area_stats_delta(
         {"$set": counter_set},
         {
             "$set": {
-                "driven_length_miles": {
-                    "$round": [
-                        {"$max": [0.0, {"$ifNull": ["$driven_length_miles", 0.0]}]},
-                        6,
-                    ],
-                },
-                "undriveable_length_miles": {
-                    "$round": [
-                        {
-                            "$max": [
-                                0.0,
-                                {"$ifNull": ["$undriveable_length_miles", 0.0]},
-                            ],
-                        },
-                        6,
-                    ],
-                },
+                "driven_length_miles": _round_nonnegative_expr(
+                    {"$max": [0.0, {"$ifNull": ["$driven_length_miles", 0.0]}]},
+                    6,
+                ),
+                "undriveable_length_miles": _round_nonnegative_expr(
+                    {
+                        "$max": [
+                            0.0,
+                            {"$ifNull": ["$undriveable_length_miles", 0.0]},
+                        ],
+                    },
+                    6,
+                ),
             },
         },
         {
             "$set": {
-                "driveable_length_miles": {
-                    "$round": [
-                        {
-                            "$max": [
-                                0.0,
-                                {
-                                    "$subtract": [
-                                        {"$ifNull": ["$total_length_miles", 0.0]},
-                                        {
-                                            "$ifNull": [
-                                                "$undriveable_length_miles",
-                                                0.0,
-                                            ],
-                                        },
-                                    ],
-                                },
-                            ],
-                        },
-                        3,
-                    ],
-                },
+                "driveable_length_miles": _round_nonnegative_expr(
+                    {
+                        "$max": [
+                            0.0,
+                            {
+                                "$subtract": [
+                                    {"$ifNull": ["$total_length_miles", 0.0]},
+                                    {
+                                        "$ifNull": [
+                                            "$undriveable_length_miles",
+                                            0.0,
+                                        ],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                    3,
+                ),
             },
         },
         {
@@ -155,22 +159,20 @@ async def apply_area_stats_delta(
                         {
                             "$min": [
                                 100.0,
-                                {
-                                    "$round": [
-                                        {
-                                            "$multiply": [
-                                                {
-                                                    "$divide": [
-                                                        "$driven_length_miles",
-                                                        "$driveable_length_miles",
-                                                    ],
-                                                },
-                                                100.0,
-                                            ],
-                                        },
-                                        2,
-                                    ],
-                                },
+                                _round_nonnegative_expr(
+                                    {
+                                        "$multiply": [
+                                            {
+                                                "$divide": [
+                                                    "$driven_length_miles",
+                                                    "$driveable_length_miles",
+                                                ],
+                                            },
+                                            100.0,
+                                        ],
+                                    },
+                                    2,
+                                ),
                             ],
                         },
                         0.0,
