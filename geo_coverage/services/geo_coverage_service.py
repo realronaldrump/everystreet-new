@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import contextlib
 import logging
-from datetime import UTC, datetime
+import os
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from bson import ObjectId
@@ -37,6 +38,9 @@ logger = logging.getLogger(__name__)
 GEO_COVERAGE_JOB_TYPE = "geo_coverage_recalc"
 GEO_RECALC_MODES: set[str] = {"incremental", "full"}
 GEO_RECALC_ACTIVE_STATUSES: set[str] = {"pending", "running"}
+GEO_RECALC_STALE_AFTER_SECONDS = int(
+    os.getenv("GEO_RECALC_STALE_AFTER_SECONDS", str(6 * 60 * 60))
+)
 
 _SUPPORTED_GEO_TYPES: set[str] = {"LineString", "MultiLineString", "Point"}
 
@@ -316,8 +320,8 @@ async def _resolve_job(job_id: str | None) -> Job | None:
     )
 
 
-async def _get_active_geo_recalc_job() -> Job | None:
-    jobs = (
+async def _get_active_geo_recalc_candidates() -> list[Job]:
+    return (
         await Job.find(
             {
                 "job_type": GEO_COVERAGE_JOB_TYPE,
@@ -325,10 +329,60 @@ async def _get_active_geo_recalc_job() -> Job | None:
             }
         )
         .sort("-created_at")
-        .limit(1)
         .to_list()
     )
-    return jobs[0] if jobs else None
+
+
+def _is_geo_recalc_job_stale(
+    job: Job,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    if job.status not in GEO_RECALC_ACTIVE_STATUSES:
+        return False
+
+    reference_time = (
+        parse_timestamp(job.updated_at)
+        or parse_timestamp(job.started_at)
+        or parse_timestamp(job.created_at)
+    )
+    if reference_time is None:
+        return True
+
+    current_time = now or datetime.now(UTC)
+    return current_time - reference_time > timedelta(
+        seconds=GEO_RECALC_STALE_AFTER_SECONDS
+    )
+
+
+async def _mark_geo_recalc_job_stale(
+    job: Job,
+    *,
+    now: datetime | None = None,
+) -> None:
+    current_time = now or datetime.now(UTC)
+    previous_status = job.status
+    job.status = "failed"
+    job.stage = "Stale"
+    job.progress = 100.0
+    job.message = "Region Explorer cache rebuild was marked failed after stalling."
+    job.error = (
+        "Region Explorer cache rebuild exceeded the stale-job timeout while "
+        f"status was '{previous_status}'."
+    )
+    job.completed_at = current_time
+    job.updated_at = current_time
+    await job.save()
+
+
+async def _get_active_geo_recalc_job() -> Job | None:
+    now = datetime.now(UTC)
+    for job in await _get_active_geo_recalc_candidates():
+        if _is_geo_recalc_job_stale(job, now=now):
+            await _mark_geo_recalc_job_stale(job, now=now)
+            continue
+        return job
+    return None
 
 
 async def _get_latest_geo_recalc_job() -> Job | None:

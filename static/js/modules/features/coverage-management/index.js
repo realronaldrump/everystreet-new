@@ -417,8 +417,9 @@ function setupSidebarTabs(signal) {
           panel.hidden = panel.id !== targetId;
         });
 
-        // Lazy-load history
+        // Lazy-load history (driving activity + background jobs)
         if (targetId === "sidebar-tab-history" && state.currentAreaId) {
+          loadDrivingActivity(state.currentAreaId);
           loadJobHistory(state.currentAreaId);
         }
       },
@@ -693,6 +694,26 @@ function shouldRebuildForServiceFilter(areaId, includeServiceRoads) {
   return areaIncludes !== includeServiceRoads;
 }
 
+function describeIncludeServiceRoadsScope(include) {
+  const base = include
+    ? "Service roads are included by default for new area builds."
+    : "Service roads are excluded by default for new area builds.";
+  if (state.view !== "area" || !state.currentAreaId) {
+    return { message: base, tone: "secondary" };
+  }
+  const differs = shouldRebuildForServiceFilter(state.currentAreaId, include);
+  if (differs) {
+    return {
+      message: `${base} This area uses a different filter; Recalculate Street Coverage to apply.`,
+      tone: "info",
+    };
+  }
+  return {
+    message: `${base} This area already matches.`,
+    tone: "secondary",
+  };
+}
+
 async function loadCoverageFilterSettings() {
   setIncludeServiceRoadsToggleState({ disabled: true });
   setCoverageTripModeSelectState({ disabled: true });
@@ -707,12 +728,8 @@ async function loadCoverageFilterSettings() {
     );
     setIncludeServiceRoadsToggleState({ checked: include });
     setCoverageTripModeSelectState({ mode: tripMode });
-    setIncludeServiceRoadsStatus(
-      include
-        ? "Service roads are included for new area builds."
-        : "Service roads are excluded for new area builds.",
-      "secondary"
-    );
+    const scope = describeIncludeServiceRoadsScope(include);
+    setIncludeServiceRoadsStatus(scope.message, scope.tone);
     setCoverageTripModeStatus(
       `Street coverage uses ${getCoverageTripModeLabel(tripMode)} by default.`,
       "secondary"
@@ -720,7 +737,8 @@ async function loadCoverageFilterSettings() {
   } catch {
     setIncludeServiceRoadsToggleState({ checked: true });
     setCoverageTripModeSelectState({ mode: DEFAULT_COVERAGE_TRIP_MODE });
-    setIncludeServiceRoadsStatus("Using default: include service roads.", "secondary");
+    const fallback = describeIncludeServiceRoadsScope(true);
+    setIncludeServiceRoadsStatus(fallback.message, fallback.tone);
     setCoverageTripModeStatus(
       "Using default trip source: both regular and matched trips.",
       "secondary"
@@ -748,14 +766,15 @@ async function handleIncludeServiceRoadsToggle(event) {
       { coverageIncludeServiceRoads: include },
       withSignal()
     );
-    setIncludeServiceRoadsStatus(
-      include
-        ? "Service roads are included for new area builds."
-        : "Service roads are excluded for new area builds.",
-      "success"
-    );
+    const scope = describeIncludeServiceRoadsScope(include);
+    setIncludeServiceRoadsStatus(scope.message, "success");
+    const onArea = state.view === "area" && state.currentAreaId;
+    const differs =
+      onArea && shouldRebuildForServiceFilter(state.currentAreaId, include);
     notificationManager.show(
-      "Street filter saved. Use Recalculate Street Coverage to apply it.",
+      differs
+        ? "Service road preference saved. Click \"Recalculate Street Coverage\" to apply it to this area."
+        : "Service road preference saved. Existing areas keep their current filter until rebuilt.",
       "success"
     );
   } catch (error) {
@@ -1571,6 +1590,11 @@ async function viewArea(areaId) {
       state.areaRoadFilterVersionById.set(area.id, state.currentAreaRoadFilterVersion);
     }
 
+    // Refresh the service-roads scope message now that we know which area is open.
+    const includeServiceRoads = getIncludeServiceRoadsSelection();
+    const scope = describeIncludeServiceRoadsScope(includeServiceRoads);
+    setIncludeServiceRoadsStatus(scope.message, scope.tone);
+
     // Update sidebar header
     const sidebarNameEl = document.getElementById("sidebar-area-name");
     if (sidebarNameEl) {
@@ -1671,6 +1695,100 @@ function updateStatsUI(area, summary) {
       ? formatRelativeTime(area.last_synced)
       : "—";
   }
+
+  // Completion celebration: toggle the .is-complete class on the sidebar
+  // and fire confetti the first time the user sees this area at 100%.
+  applyCompletionCelebration(area, pct);
+}
+
+const COMPLETION_SEEN_KEY = "everystreet:completion-seen-areas";
+
+function getCompletionSeenSet() {
+  try {
+    const raw = window.localStorage.getItem(COMPLETION_SEEN_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function markCompletionSeen(areaId) {
+  try {
+    const seen = getCompletionSeenSet();
+    seen.add(String(areaId));
+    window.localStorage.setItem(
+      COMPLETION_SEEN_KEY,
+      JSON.stringify(Array.from(seen))
+    );
+  } catch {
+    /* localStorage unavailable; fail silent */
+  }
+}
+
+function clearCompletionSeen(areaId) {
+  try {
+    const seen = getCompletionSeenSet();
+    if (seen.delete(String(areaId))) {
+      window.localStorage.setItem(
+        COMPLETION_SEEN_KEY,
+        JSON.stringify(Array.from(seen))
+      );
+    }
+  } catch {
+    /* localStorage unavailable; fail silent */
+  }
+}
+
+function applyCompletionCelebration(area, pct) {
+  const sidebar = document.getElementById("coverage-sidebar");
+  if (!sidebar) return;
+  const isComplete = area?.status === "ready" && pct >= 100;
+
+  if (!isComplete) {
+    sidebar.classList.remove("is-complete");
+    if (area?.id) {
+      // Reset the "seen" flag so re-completing later re-fires the confetti.
+      clearCompletionSeen(area.id);
+    }
+    return;
+  }
+
+  sidebar.classList.add("is-complete");
+
+  if (!area?.id) return;
+  const seen = getCompletionSeenSet();
+  if (seen.has(String(area.id))) {
+    return;
+  }
+  markCompletionSeen(area.id);
+  fireConfettiBurst();
+}
+
+function fireConfettiBurst() {
+  const host = document.getElementById("completion-confetti");
+  if (!host) return;
+  host.innerHTML = "";
+  const colors = ["#f59e0b", "#d97706", "#fbbf24", "#fde68a", "#16a34a", "#3b82f6"];
+  const PIECES = 28;
+  const fragment = document.createDocumentFragment();
+  for (let i = 0; i < PIECES; i += 1) {
+    const piece = document.createElement("span");
+    const left = Math.random() * 100;
+    const delay = Math.random() * 220;
+    const drift = (Math.random() - 0.5) * 60;
+    piece.style.left = `${left}%`;
+    piece.style.background = colors[i % colors.length];
+    piece.style.animationDelay = `${delay}ms`;
+    piece.style.transform = `translateX(${drift}px)`;
+    fragment.appendChild(piece);
+  }
+  host.appendChild(fragment);
+  // Clean up after animation so the DOM doesn't accumulate elements.
+  window.setTimeout(() => {
+    if (host.parentNode) host.innerHTML = "";
+  }, 1800);
 }
 
 function renderProgressRing(fillEl, pct) {
@@ -2201,14 +2319,150 @@ function updateStreetStatus(segmentId, newStatus) {
 // Job History
 // =============================================================================
 
+async function loadDrivingActivity(areaId) {
+  const container = document.getElementById("driving-activity-container");
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = `<p class="text-secondary small text-center mt-3">
+    <i class="fas fa-spinner fa-spin me-1" aria-hidden="true"></i>Loading activity…
+  </p>`;
+
+  try {
+    const data = await apiGet(`/areas/${areaId}/activity?limit=25`);
+    if (areaId !== state.currentAreaId) {
+      return;
+    }
+    renderDrivingActivity(data.activity || []);
+  } catch {
+    if (areaId !== state.currentAreaId) {
+      return;
+    }
+    container.innerHTML =
+      '<p class="text-secondary small text-center mt-3">Could not load driving activity.</p>';
+  }
+}
+
+function renderDrivingActivity(activity) {
+  const container = document.getElementById("driving-activity-container");
+  if (!container) {
+    return;
+  }
+
+  if (!activity.length) {
+    container.innerHTML = `<div class="activity-empty">
+      <i class="fas fa-flag-checkered me-1" aria-hidden="true"></i>
+      No streets driven yet for this area.
+    </div>`;
+    return;
+  }
+
+  const items = activity
+    .map((entry) => {
+      const isManual = Boolean(entry.manually_marked);
+      const isFirst = Boolean(entry.newly_driven);
+      let iconClass = "activity-icon";
+      let icon = "fa-check";
+      let label = "Re-driven";
+      if (isManual) {
+        iconClass += " activity-icon--manual";
+        icon = "fa-hand-pointer";
+        label = "Marked driven";
+      } else if (isFirst) {
+        icon = "fa-star";
+        label = "First drive";
+      } else {
+        iconClass += " activity-icon--reseen";
+      }
+      const length = Number.isFinite(entry.length_miles)
+        ? `${entry.length_miles.toFixed(2)} mi`
+        : "";
+      const meta = [label, length].filter(Boolean).join(" • ");
+      const time = entry.last_driven_at ? formatRelativeTime(entry.last_driven_at) : "";
+      const safeName = escapeHtml(entry.street_name || "Unnamed road");
+      const segmentId = escapeHtml(entry.segment_id || "");
+      return `<button type="button"
+                       class="activity-item"
+                       data-segment-id="${segmentId}"
+                       title="Focus on ${safeName}">
+        <span class="${iconClass}" aria-hidden="true">
+          <i class="fas ${icon}"></i>
+        </span>
+        <span class="activity-body">
+          <span class="activity-name">${safeName}</span>
+          <span class="activity-meta">${escapeHtml(meta)}</span>
+        </span>
+        <span class="activity-time">${escapeHtml(time)}</span>
+      </button>`;
+    })
+    .join("");
+
+  container.innerHTML = `<div class="activity-list">${items}</div>`;
+
+  container.querySelectorAll(".activity-item").forEach((el) => {
+    el.addEventListener("click", () => {
+      const segmentId = el.getAttribute("data-segment-id");
+      if (segmentId) {
+        focusSegmentOnMap(segmentId);
+      }
+    });
+  });
+}
+
+function focusSegmentOnMap(segmentId) {
+  if (!state.map || !segmentId || !state.streetsCacheGeojson) return;
+  const features = state.streetsCacheGeojson.features || [];
+  const feature = features.find(
+    (f) => f?.properties?.segment_id === segmentId
+  );
+  if (!feature || !feature.geometry) return;
+  try {
+    const coords =
+      feature.geometry.type === "MultiLineString"
+        ? feature.geometry.coordinates.flat()
+        : feature.geometry.coordinates;
+    if (!Array.isArray(coords) || coords.length === 0) return;
+    let minLon = Infinity;
+    let minLat = Infinity;
+    let maxLon = -Infinity;
+    let maxLat = -Infinity;
+    for (const c of coords) {
+      if (!Array.isArray(c) || c.length < 2) continue;
+      const [lon, lat] = c;
+      if (lon < minLon) minLon = lon;
+      if (lat < minLat) minLat = lat;
+      if (lon > maxLon) maxLon = lon;
+      if (lat > maxLat) maxLat = lat;
+    }
+    if (!Number.isFinite(minLon)) return;
+    state.map.fitBounds(
+      [
+        [minLon, minLat],
+        [maxLon, maxLat],
+      ],
+      { padding: 80, maxZoom: 17, duration: 600 }
+    );
+    if (state.map.setFilter) {
+      state.map.setFilter(HIGHLIGHT_LAYER_ID, [
+        "==",
+        ["get", "segment_id"],
+        segmentId,
+      ]);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 async function loadJobHistory(areaId) {
   const container = document.getElementById("job-history-container");
   if (!container) {
     return;
   }
 
-  container.innerHTML = `<p class="text-secondary small text-center mt-4">
-    <i class="fas fa-spinner fa-spin me-1" aria-hidden="true"></i>Loading history…
+  container.innerHTML = `<p class="text-secondary small text-center mt-3">
+    <i class="fas fa-spinner fa-spin me-1" aria-hidden="true"></i>Loading jobs…
   </p>`;
 
   try {
@@ -2222,7 +2476,7 @@ async function loadJobHistory(areaId) {
       return;
     }
     container.innerHTML =
-      '<p class="text-secondary small text-center mt-4">Could not load job history.</p>';
+      '<p class="text-secondary small text-center mt-3">Could not load job history.</p>';
   }
 }
 

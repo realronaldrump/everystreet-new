@@ -11,6 +11,8 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from pymongo import ReturnDocument
+
 from db.aggregation import aggregate_to_list
 from db.models import CoverageArea, CoverageState, Street
 from street_coverage.segment_ids import segment_id_regex_for_area_version
@@ -19,6 +21,10 @@ if TYPE_CHECKING:
     from beanie import PydanticObjectId
 
 logger = logging.getLogger(__name__)
+
+
+def _increment_nonnegative_expr(field: str, delta: int | float) -> dict[str, Any]:
+    return {"$max": [0, {"$add": [{"$ifNull": [f"${field}", 0]}, delta]}]}
 
 
 async def apply_area_stats_delta(
@@ -36,9 +42,9 @@ async def apply_area_stats_delta(
     This avoids expensive full recomputes for frequent updates (trip
     ingestion, live navigation mark-driven, manual segment edits).
 
-    The update is applied atomically via an aggregation pipeline update,
-    and the derived fields (driveable_length_miles, coverage_percentage,
-    last_synced) are recomputed from the updated totals.
+    The raw counters and derived fields are updated in one MongoDB update
+    pipeline. That keeps concurrent callers from losing increments or
+    overwriting freshly-computed percentages with stale snapshots.
     """
     if (
         driven_segments_delta == 0
@@ -50,42 +56,141 @@ async def apply_area_stats_delta(
         return await CoverageArea.get(area_id)
 
     now = datetime.now(UTC)
-    area = await CoverageArea.get(area_id)
-    if not area:
+
+    counter_set: dict[str, Any] = {
+        "driven_segments": _increment_nonnegative_expr(
+            "driven_segments",
+            int(driven_segments_delta),
+        ),
+        "driven_length_miles": _increment_nonnegative_expr(
+            "driven_length_miles",
+            float(driven_length_miles_delta),
+        ),
+        "undriveable_segments": _increment_nonnegative_expr(
+            "undriveable_segments",
+            int(undriveable_segments_delta),
+        ),
+        "undriveable_length_miles": _increment_nonnegative_expr(
+            "undriveable_length_miles",
+            float(undriveable_length_miles_delta),
+        ),
+    }
+    if update_last_synced:
+        counter_set["last_synced"] = now
+
+    update_pipeline: list[dict[str, Any]] = [
+        {"$set": counter_set},
+        {
+            "$set": {
+                "driven_length_miles": {
+                    "$round": [
+                        {"$max": [0.0, {"$ifNull": ["$driven_length_miles", 0.0]}]},
+                        6,
+                    ],
+                },
+                "undriveable_length_miles": {
+                    "$round": [
+                        {
+                            "$max": [
+                                0.0,
+                                {"$ifNull": ["$undriveable_length_miles", 0.0]},
+                            ],
+                        },
+                        6,
+                    ],
+                },
+            },
+        },
+        {
+            "$set": {
+                "driveable_length_miles": {
+                    "$round": [
+                        {
+                            "$max": [
+                                0.0,
+                                {
+                                    "$subtract": [
+                                        {"$ifNull": ["$total_length_miles", 0.0]},
+                                        {
+                                            "$ifNull": [
+                                                "$undriveable_length_miles",
+                                                0.0,
+                                            ],
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                        3,
+                    ],
+                },
+            },
+        },
+        {
+            "$set": {
+                "driven_length_miles": {
+                    "$cond": [
+                        {
+                            "$and": [
+                                {"$gt": ["$driveable_length_miles", 0.0]},
+                                {
+                                    "$gt": [
+                                        "$driven_length_miles",
+                                        "$driveable_length_miles",
+                                    ],
+                                },
+                            ],
+                        },
+                        "$driveable_length_miles",
+                        "$driven_length_miles",
+                    ],
+                },
+            },
+        },
+        {
+            "$set": {
+                "coverage_percentage": {
+                    "$cond": [
+                        {"$gt": ["$driveable_length_miles", 0.0]},
+                        {
+                            "$min": [
+                                100.0,
+                                {
+                                    "$round": [
+                                        {
+                                            "$multiply": [
+                                                {
+                                                    "$divide": [
+                                                        "$driven_length_miles",
+                                                        "$driveable_length_miles",
+                                                    ],
+                                                },
+                                                100.0,
+                                            ],
+                                        },
+                                        2,
+                                    ],
+                                },
+                            ],
+                        },
+                        0.0,
+                    ],
+                },
+            },
+        },
+    ]
+
+    collection = CoverageArea.get_pymongo_collection()
+    snapshot = await collection.find_one_and_update(
+        {"_id": area_id},
+        update_pipeline,
+        return_document=ReturnDocument.AFTER,
+    )
+
+    if snapshot is None:
         return None
 
-    area.driven_segments = max(0, area.driven_segments + int(driven_segments_delta))
-    area.driven_length_miles = max(
-        0.0,
-        area.driven_length_miles + float(driven_length_miles_delta),
-    )
-    area.undriveable_segments = max(
-        0,
-        area.undriveable_segments + int(undriveable_segments_delta),
-    )
-    area.undriveable_length_miles = max(
-        0.0,
-        area.undriveable_length_miles + float(undriveable_length_miles_delta),
-    )
-
-    driveable_length = max(0.0, area.total_length_miles - area.undriveable_length_miles)
-    area.driveable_length_miles = round(driveable_length, 3)
-
-    # Clamp driven length in case of floating drift or unexpected transitions.
-    if area.driven_length_miles > area.driveable_length_miles and driveable_length > 0:
-        area.driven_length_miles = area.driveable_length_miles
-
-    if driveable_length > 0:
-        pct = (area.driven_length_miles / driveable_length) * 100.0
-        area.coverage_percentage = min(100.0, round(pct, 2))
-    else:
-        area.coverage_percentage = 0.0
-
-    if update_last_synced:
-        area.last_synced = now
-
-    await area.save()
-    return area
+    return await CoverageArea.get(area_id)
 
 
 async def calculate_area_stats(

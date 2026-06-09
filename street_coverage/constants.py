@@ -34,8 +34,17 @@ COVERAGE_OVERLAP_RATIO = 0.50  # Require 50% of segment length to be covered
 RAW_GPS_OVERLAP_RATIO = 0.75
 
 # Bearing alignment: max angle difference (degrees) between trip and street segment
-# to count as a valid match. Prevents crediting parallel roads.
+# to count as a valid match. Prevents crediting perpendicular roads.
 MAX_BEARING_DIFF_DEGREES = 45.0
+
+# Parallel-road dominance threshold (meters). When two candidate segments
+# project to roughly the same trip position, a candidate is dropped if
+# another candidate is at least this much closer to the trip line. This
+# rejects parallel-road false positives that the buffer catches but that
+# the user did not actually drive (e.g., a road 8 m alongside the driven
+# road). Tuned so jitter of ~1 m doesn't cause valid matches at intersections
+# to be dropped, while parallel roads >=3 m apart get filtered out.
+PARALLEL_DOMINANCE_GAP_METERS = 2.0
 
 # Segment length categories for tiered overlap requirements
 SHORT_SEGMENT_THRESHOLD_METERS = 15.0  # Segments shorter than this need 75% overlap

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -8,6 +8,29 @@ import pytest
 from bson import ObjectId
 
 from geo_coverage.services import geo_coverage_service as service
+
+
+class _FakeGeoRecalcJob:
+    def __init__(
+        self,
+        *,
+        status: str,
+        updated_at: datetime,
+        created_at: datetime | None = None,
+    ) -> None:
+        self.status = status
+        self.updated_at = updated_at
+        self.started_at = updated_at
+        self.created_at = created_at or updated_at
+        self.completed_at = None
+        self.stage = "Processing"
+        self.progress = 12.0
+        self.message = "Working..."
+        self.error = None
+        self.saved = False
+
+    async def save(self) -> None:
+        self.saved = True
 
 
 def test_get_incremental_checkpoint_requires_both_caches_and_uses_earliest() -> None:
@@ -23,6 +46,56 @@ def test_get_incremental_checkpoint_requires_both_caches_and_uses_earliest() -> 
 
     assert service._get_incremental_checkpoint(county_cache, None) is None
     assert service._get_incremental_checkpoint(None, city_cache) is None
+
+
+def test_is_geo_recalc_job_stale_uses_updated_at() -> None:
+    now = datetime(2026, 6, 9, 18, 0, tzinfo=UTC)
+    stale_job = _FakeGeoRecalcJob(
+        status="running",
+        updated_at=now - timedelta(hours=7),
+    )
+    fresh_job = _FakeGeoRecalcJob(
+        status="running",
+        updated_at=now - timedelta(minutes=5),
+    )
+    completed_job = _FakeGeoRecalcJob(
+        status="completed",
+        updated_at=now - timedelta(days=1),
+    )
+
+    assert service._is_geo_recalc_job_stale(stale_job, now=now)
+    assert not service._is_geo_recalc_job_stale(fresh_job, now=now)
+    assert not service._is_geo_recalc_job_stale(completed_job, now=now)
+
+
+@pytest.mark.asyncio
+async def test_get_active_geo_recalc_job_marks_stale_jobs_and_returns_fresh(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = datetime.now(UTC)
+    stale_job = _FakeGeoRecalcJob(
+        status="running",
+        updated_at=now - timedelta(hours=7),
+    )
+    fresh_job = _FakeGeoRecalcJob(
+        status="running",
+        updated_at=now - timedelta(minutes=5),
+    )
+
+    monkeypatch.setattr(
+        service,
+        "_get_active_geo_recalc_candidates",
+        AsyncMock(return_value=[stale_job, fresh_job]),
+    )
+
+    active_job = await service._get_active_geo_recalc_job()
+
+    assert active_job is fresh_job
+    assert stale_job.saved
+    assert stale_job.status == "failed"
+    assert stale_job.stage == "Stale"
+    assert stale_job.completed_at is not None
+    assert "status was 'running'" in stale_job.error
 
 
 def test_build_trip_query_uses_invalid_field_and_incremental_markers() -> None:

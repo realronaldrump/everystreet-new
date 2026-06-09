@@ -289,6 +289,7 @@ function renderAreaCard(area, coverageJob, routeJob) {
   const isReady = area.status === "ready";
   const canRebuild = area.status === "ready" || area.status === "error";
   const isError = area.status === "error";
+  const isComplete = isReady && pct >= 100;
   const hasActiveCoverageJob = hasActiveJob(coverageJob);
   const hasActiveRouteJob = hasActiveJob(routeJob);
   const hasSavedRoute = Boolean(
@@ -316,12 +317,27 @@ function renderAreaCard(area, coverageJob, routeJob) {
   const primaryAction = isError ? "rebuild" : "view";
   const primaryActionDisabled = isError ? !canRebuild : !isReady;
 
+  const cardClasses = [
+    "area-card",
+    hasActiveCoverageJob ? "area-card--job-active" : "",
+    isComplete ? "area-card--complete" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const completionBanner = isComplete
+    ? `<div class="area-completion-banner" aria-label="Area fully covered">
+         <i class="fas fa-trophy" aria-hidden="true"></i>
+         <span>Every Street Driven</span>
+       </div>`
+    : "";
+
   return `
-    <div class="area-card${hasActiveCoverageJob ? " area-card--job-active" : ""}" data-area-id="${area.id}" data-accent="${accentClass}" role="listitem">
+    <div class="${cardClasses}" data-area-id="${area.id}" data-accent="${accentClass}" role="listitem">
       <div class="area-card-header">
         <div class="area-card-title-group">
           <h3 class="area-card-title" title="${areaName}">${areaName}</h3>
           <span class="area-type-badge">${escapeHtml(area.area_type || "")}</span>
+          ${completionBanner}
         </div>
         <div class="area-card-status">${renderStatus(area, coverageJob)}</div>
       </div>

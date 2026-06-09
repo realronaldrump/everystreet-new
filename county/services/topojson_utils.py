@@ -62,6 +62,41 @@ def topojson_to_geojson(
                 coords.extend(arc_coords)
         return coords
 
+    def normalize_ring(ring: list) -> list | None:
+        normalized = [
+            list(coord)
+            for coord in ring
+            if isinstance(coord, list | tuple) and len(coord) >= 2
+        ]
+        if len(normalized) < 3:
+            return None
+
+        if normalized[0] != normalized[-1]:
+            normalized.append(normalized[0])
+
+        distinct_points = {
+            (float(coord[0]), float(coord[1])) for coord in normalized[:-1]
+        }
+        if len(normalized) < 4 or len(distinct_points) < 3:
+            return None
+
+        return normalized
+
+    def normalize_polygon(rings: list) -> list | None:
+        if not rings:
+            return None
+
+        shell = normalize_ring(rings[0])
+        if shell is None:
+            return None
+
+        holes = [
+            normalized
+            for ring in rings[1:]
+            if (normalized := normalize_ring(ring)) is not None
+        ]
+        return [shell, *holes]
+
     obj = topology["objects"][object_name]
     geometries = obj.get("geometries", [])
 
@@ -71,7 +106,11 @@ def topojson_to_geojson(
 
         try:
             if geom_type == "Polygon":
-                rings = [arcs_to_coordinates(ring) for ring in arcs_data]
+                rings = normalize_polygon(
+                    [arcs_to_coordinates(ring) for ring in arcs_data]
+                )
+                if not rings:
+                    continue
                 features.append(
                     {
                         "type": "Feature",
@@ -88,8 +127,13 @@ def topojson_to_geojson(
             if geom_type == "MultiPolygon":
                 polygons = []
                 for polygon_arcs in arcs_data:
-                    rings = [arcs_to_coordinates(ring) for ring in polygon_arcs]
-                    polygons.append(rings)
+                    rings = normalize_polygon(
+                        [arcs_to_coordinates(ring) for ring in polygon_arcs]
+                    )
+                    if rings:
+                        polygons.append(rings)
+                if not polygons:
+                    continue
                 features.append(
                     {
                         "type": "Feature",

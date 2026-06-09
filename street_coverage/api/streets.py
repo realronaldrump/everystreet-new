@@ -629,3 +629,86 @@ async def simulate_drive(
             "coverage_percentage": projected_pct,
         },
     }
+
+
+@router.get("/areas/{area_id}/activity")
+async def get_area_activity(
+    area_id: PydanticObjectId,
+    limit: Annotated[int, Query(ge=1, le=100)] = 25,
+):
+    """
+    Recent driving activity for an area.
+
+    Returns the most recently driven street segments for an area, with
+    street name and length. Used by the History tab in the coverage UI.
+    """
+    area = await CoverageArea.get(area_id)
+    if not area:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Coverage area not found",
+        )
+
+    states = (
+        await CoverageState.find(
+            {
+                "area_id": area_id,
+                "status": "driven",
+                "last_driven_at": {"$ne": None},
+            },
+        )
+        .sort([("last_driven_at", -1), ("_id", -1)])
+        .limit(int(limit))
+        .to_list()
+    )
+
+    if not states:
+        return {
+            "success": True,
+            "area_id": str(area_id),
+            "activity": [],
+        }
+
+    segment_ids = [s.segment_id for s in states]
+    streets = await Street.find(
+        {
+            "area_id": area_id,
+            "area_version": area.area_version,
+            "segment_id": {"$in": segment_ids},
+        },
+    ).to_list()
+    street_by_id = {s.segment_id: s for s in streets}
+
+    activity = []
+    for state in states:
+        street = street_by_id.get(state.segment_id)
+        first_at = state.first_driven_at
+        last_at = state.last_driven_at
+        activity.append(
+            {
+                "segment_id": state.segment_id,
+                "street_name": (
+                    street.street_name if street and street.street_name else "Unnamed road"
+                ),
+                "highway_type": street.highway_type if street else "unclassified",
+                "length_miles": float(street.length_miles or 0.0) if street else 0.0,
+                "first_driven_at": (
+                    first_at.isoformat() if isinstance(first_at, datetime) else None
+                ),
+                "last_driven_at": (
+                    last_at.isoformat() if isinstance(last_at, datetime) else None
+                ),
+                "manually_marked": bool(state.manually_marked),
+                "newly_driven": bool(
+                    isinstance(first_at, datetime)
+                    and isinstance(last_at, datetime)
+                    and first_at == last_at,
+                ),
+            },
+        )
+
+    return {
+        "success": True,
+        "area_id": str(area_id),
+        "activity": activity,
+    }

@@ -42,6 +42,7 @@ from street_coverage.constants import (
     MEDIUM_SEGMENT_THRESHOLD_METERS,
     MIN_GPS_GAP_METERS,
     MIN_OVERLAP_METERS,
+    PARALLEL_DOMINANCE_GAP_METERS,
     RAW_GPS_BUFFER_METERS,
     RAW_GPS_OVERLAP_RATIO,
     SHORT_SEGMENT_OVERLAP_RATIO,
@@ -310,6 +311,16 @@ class AreaSegmentIndex:
         """
         Find all segments that match a trip line using the spatial index.
 
+        Two-phase matching:
+          1. Buffer-overlap candidate selection (existing logic): gather
+             every segment whose intersection with the buffered trip line
+             meets the required overlap ratio.
+          2. Nearest-road dominance filter: for each candidate, drop it if
+             a *different* candidate is significantly closer to the trip
+             line at the same trip position. This rejects parallel-road
+             false positives (e.g., a road 8 m away from the driven road
+             that falls inside the buffer).
+
         Returns list of segment_ids that were matched.
         """
         if not self._built or not self.strtree or not self.segments:
@@ -337,7 +348,8 @@ class AreaSegmentIndex:
                 if b is not None:
                     trip_bearings.append(b)
 
-        matched_ids = []
+        # Phase 1: gather candidate matches that pass overlap + bearing checks.
+        candidates: list[dict[str, Any]] = []
         for idx in candidate_indices:
             segment = self.segments[idx]
             if skip_segment_ids and segment.segment_id in skip_segment_ids:
@@ -367,27 +379,65 @@ class AreaSegmentIndex:
                 if segment_length <= 0:
                     continue
 
-                # Use tiered overlap ratio based on segment length
                 effective_ratio = _get_segment_overlap_ratio(
                     segment_length,
                     coverage_ratio,
                 )
-
                 required_overlap = max(
                     min_overlap_meters,
                     segment_length * effective_ratio,
                 )
-                # Never require more overlap than the segment actually has.
-                # Without this cap, sub-25ft micro-segments can become
-                # impossible to match even with perfect geometric overlap.
                 required_overlap = min(required_overlap, segment_length)
 
-                if intersection_length >= required_overlap:
-                    matched_ids.append(segment.segment_id)
+                if intersection_length < required_overlap:
+                    continue
+
+                # Compute trip-distance and trip-position for dominance
+                # filtering. Use the segment midpoint as the projection
+                # anchor because it is the most representative single point.
+                seg_midpoint = segment_meters.interpolate(0.5, normalized=True)
+                trip_distance = float(seg_midpoint.distance(trip_meters))
+                trip_position = float(trip_meters.project(seg_midpoint))
+
+                candidates.append(
+                    {
+                        "segment_id": segment.segment_id,
+                        "trip_distance": trip_distance,
+                        "trip_position": trip_position,
+                        "segment_length": segment_length,
+                    },
+                )
             except Exception:
                 continue
 
-        return matched_ids
+        if not candidates:
+            return []
+
+        # Phase 2: nearest-road dominance filter.
+        # A match is "dominated" by another match when:
+        #   - The other match is at least PARALLEL_DOMINANCE_GAP_METERS
+        #     closer to the trip line, AND
+        #   - Both project to within max(segment_length) meters of the same
+        #     trip position (i.e., they cover the same span of the trip).
+        # In that case the farther match is almost certainly a parallel
+        # road that the buffer caught incidentally.
+        candidates.sort(key=lambda c: c["trip_distance"])
+        accepted: list[dict[str, Any]] = []
+        for cand in candidates:
+            dominated = False
+            for acc in accepted:
+                closer_by = cand["trip_distance"] - acc["trip_distance"]
+                if closer_by < PARALLEL_DOMINANCE_GAP_METERS:
+                    continue
+                position_window = max(cand["segment_length"], acc["segment_length"])
+                if abs(cand["trip_position"] - acc["trip_position"]) > position_window:
+                    continue
+                dominated = True
+                break
+            if not dominated:
+                accepted.append(cand)
+
+        return [c["segment_id"] for c in accepted]
 
 
 @lru_cache(maxsize=10)

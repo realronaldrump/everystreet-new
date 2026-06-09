@@ -192,6 +192,12 @@ Error details
             <span id="ring-pct-value" class="progress-ring-pct" aria-live="polite">0%</span>
             <span class="progress-ring-label">covered</span>
           </div>
+          <div id="completion-confetti" class="completion-confetti" aria-hidden="true"></div>
+        </div>
+        <div class="completion-celebration" id="completion-celebration" aria-live="polite">
+          <i class="fas fa-trophy completion-trophy" aria-hidden="true"></i>
+          <div class="completion-headline">Every street driven</div>
+          <div class="completion-subline">Coverage is complete for this area.</div>
         </div>
         <div class="quick-stats-row">
           <div class="quick-stat-pill">
@@ -292,11 +298,26 @@ Matched trips only
            role="tabpanel"
            aria-labelledby="tab-btn-history"
            hidden>
-        <div id="job-history-container">
-          <p class="text-secondary small text-center mt-4">
-            <i class="fas fa-spinner fa-spin me-1" aria-hidden="true"></i>Loading history…
-          </p>
-        </div>
+        <section class="history-section">
+          <h4 class="history-section-title">
+            <i class="fas fa-road me-1" aria-hidden="true"></i>Recent driving
+          </h4>
+          <div id="driving-activity-container">
+            <p class="text-secondary small text-center mt-3">
+              <i class="fas fa-spinner fa-spin me-1" aria-hidden="true"></i>Loading activity…
+            </p>
+          </div>
+        </section>
+        <section class="history-section">
+          <h4 class="history-section-title">
+            <i class="fas fa-cog me-1" aria-hidden="true"></i>Background jobs
+          </h4>
+          <div id="job-history-container">
+            <p class="text-secondary small text-center mt-3">
+              <i class="fas fa-spinner fa-spin me-1" aria-hidden="true"></i>Loading jobs…
+            </p>
+          </div>
+        </section>
       </div>
 
     </aside>
