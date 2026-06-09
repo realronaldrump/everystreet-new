@@ -700,7 +700,7 @@ class VisitsPageController {
             mapId,
             geometry,
             accent,
-            previewImageUrl: place.previewImageUrl,
+            previewImageUrl: this.getPlacePreviewImageUrl(place),
             previewBounds: place.previewBounds,
           });
         }
@@ -1396,6 +1396,18 @@ class VisitsPageController {
 
   getPlacePreviewColors(accent = "slate") {
     return PLACE_PREVIEW_COLORS[accent] || PLACE_PREVIEW_COLORS.slate;
+  }
+
+  getCurrentPreviewTheme() {
+    return document.documentElement?.getAttribute("data-bs-theme") === "light"
+      ? "light"
+      : "dark";
+  }
+
+  getPlacePreviewImageUrl(place) {
+    const urls = place?.previewImageUrls || {};
+    const theme = this.getCurrentPreviewTheme();
+    return urls[theme] || place?.previewImageUrl || urls.dark || urls.light || null;
   }
 
   getRenderableGeometry(geometry) {

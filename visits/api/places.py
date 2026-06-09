@@ -62,18 +62,28 @@ async def create_place(place: PlaceModel):
 
 
 @router.get("/api/places/{place_id}/preview.png")
-async def get_place_preview_image(place_id: str, v: str | None = None):
+async def get_place_preview_image(
+    place_id: str,
+    v: str | None = None,
+    theme: str = "dark",
+):
     """Return the cached static map preview image for a custom place."""
+    preview_theme = PlacePreviewService.normalize_theme(theme)
     preview = await PlacePreviewService.get_preview(place_id)
-    if preview is None or (v is not None and preview.geometry_hash != v):
+    theme_image = PlacePreviewService.get_theme_image(preview, preview_theme)
+    if (
+        preview is None
+        or theme_image is None
+        or (v is not None and preview.geometry_hash != v)
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Place preview not found",
         )
 
     return Response(
-        content=preview.image_bytes,
-        media_type=preview.content_type or "image/png",
+        content=theme_image.image_bytes,
+        media_type=theme_image.content_type or "image/png",
         headers={
             "Cache-Control": "private, max-age=86400",
             "X-Content-Type-Options": "nosniff",

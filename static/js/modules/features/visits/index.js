@@ -65,6 +65,7 @@ export default function initVisitsPage({ cleanup, api } = {}) {
       if (mutation.attributeName === "data-bs-theme") {
         const newTheme = document.documentElement.getAttribute("data-bs-theme");
         visitsPage?.visitsManager?.updateMapTheme?.(newTheme);
+        visitsPage?.renderPlaces?.();
       }
     });
   });

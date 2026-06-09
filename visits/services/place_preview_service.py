@@ -14,11 +14,16 @@ from urllib.parse import quote
 import httpx
 
 from config import require_mapbox_token
-from db.models import Place, PlacePreviewImage
+from db.models import Place, PlacePreviewImage, PlacePreviewThemeImage
 
 logger = logging.getLogger(__name__)
 
-MAPBOX_STATIC_BASE_URL = "https://api.mapbox.com/styles/v1/mapbox/streets-v12/static"
+MAPBOX_STATIC_BASE_URL = "https://api.mapbox.com/styles/v1/mapbox/{style_id}/static"
+PREVIEW_THEME_STYLES = {
+    "dark": "dark-v11",
+    "light": "light-v11",
+}
+DEFAULT_PREVIEW_THEME = "dark"
 PREVIEW_WIDTH = 640
 PREVIEW_HEIGHT = 360
 PREVIEW_PIXEL_RATIO = "@2x"
@@ -27,7 +32,9 @@ BOUND_PADDING_RATIO = 0.18
 MAX_MERCATOR_LAT = 85.0511
 STATIC_MAP_TIMEOUT_SECONDS = 20.0
 
+PreviewTheme = Literal["dark", "light"]
 PreviewStatus = Literal["generated", "skipped", "failed"]
+SUPPORTED_PREVIEW_THEMES: tuple[PreviewTheme, ...] = ("dark", "light")
 
 
 @dataclass(slots=True)
@@ -113,6 +120,11 @@ def geometry_hash(geometry: dict[str, Any] | None) -> str | None:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:16]
 
 
+def normalize_preview_theme(theme: str | None) -> PreviewTheme:
+    """Return a supported preview theme."""
+    return "light" if theme == "light" else DEFAULT_PREVIEW_THEME
+
+
 def _clamp_lng(value: float) -> float:
     return max(-180.0, min(180.0, value))
 
@@ -177,12 +189,14 @@ def preview_bounds(geometry: dict[str, Any] | None) -> list[float] | None:
     ]
 
 
-def _build_static_map_url(bounds: list[float]) -> str:
+def _build_static_map_url(bounds: list[float], theme: str | None = None) -> str:
+    normalized_theme = normalize_preview_theme(theme)
+    style_id = PREVIEW_THEME_STYLES[normalized_theme]
     bbox = ",".join(f"{value:.7f}".rstrip("0").rstrip(".") for value in bounds)
     bbox_path = quote(f"[{bbox}]", safe=",")
     token = quote(require_mapbox_token(), safe="")
     return (
-        f"{MAPBOX_STATIC_BASE_URL}/{bbox_path}/"
+        f"{MAPBOX_STATIC_BASE_URL.format(style_id=style_id)}/{bbox_path}/"
         f"{PREVIEW_WIDTH}x{PREVIEW_HEIGHT}{PREVIEW_PIXEL_RATIO}"
         f"?access_token={token}"
     )
@@ -200,16 +214,42 @@ class PlacePreviewService:
         return preview_bounds(geometry)
 
     @staticmethod
-    def preview_image_url(place_id: str, geometry_hash_value: str) -> str:
+    def normalize_theme(theme: str | None) -> PreviewTheme:
+        return normalize_preview_theme(theme)
+
+    @staticmethod
+    def preview_themes() -> tuple[PreviewTheme, ...]:
+        return SUPPORTED_PREVIEW_THEMES
+
+    @staticmethod
+    def preview_image_url(
+        place_id: str,
+        geometry_hash_value: str,
+        theme: str | None = None,
+    ) -> str:
+        normalized_theme = normalize_preview_theme(theme)
         return (
             f"/api/places/{quote(str(place_id), safe='')}/preview.png"
-            f"?v={quote(geometry_hash_value, safe='')}"
+            f"?theme={quote(normalized_theme, safe='')}"
+            f"&v={quote(geometry_hash_value, safe='')}"
         )
 
     @staticmethod
-    async def fetch_static_map_image(bounds: list[float]) -> tuple[bytes, str]:
+    def get_theme_image(
+        preview: PlacePreviewImage | None,
+        theme: str | None,
+    ) -> PlacePreviewThemeImage | None:
+        if preview is None:
+            return None
+        return preview.images.get(normalize_preview_theme(theme))
+
+    @staticmethod
+    async def fetch_static_map_image(
+        bounds: list[float],
+        theme: str | None = None,
+    ) -> tuple[bytes, str]:
         """Fetch a static map image from Mapbox for the supplied bbox."""
-        url = _build_static_map_url(bounds)
+        url = _build_static_map_url(bounds, theme)
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(STATIC_MAP_TIMEOUT_SECONDS)
         ) as client:
@@ -248,6 +288,7 @@ class PlacePreviewService:
         place: Place,
         *,
         force: bool = False,
+        themes: tuple[PreviewTheme, ...] = SUPPORTED_PREVIEW_THEMES,
     ) -> PreviewGenerationResult:
         place_id = str(place.id)
         hash_value = geometry_hash(place.geometry)
@@ -258,36 +299,55 @@ class PlacePreviewService:
                 error="Place geometry cannot produce preview bounds",
             )
 
+        requested_themes = tuple(
+            dict.fromkeys(normalize_preview_theme(t) for t in themes)
+        )
         existing = await PlacePreviewService.get_preview(place_id)
         if (
             existing is not None
             and existing.geometry_hash == hash_value
             and existing.bounds == bounds
+            and all(existing.images.get(theme) for theme in requested_themes)
             and not force
         ):
             return PreviewGenerationResult(status="skipped")
 
-        image_bytes, content_type = await PlacePreviewService.fetch_static_map_image(
-            bounds
+        images = (
+            dict(existing.images)
+            if existing is not None
+            and existing.geometry_hash == hash_value
+            and existing.bounds == bounds
+            else {}
         )
         now = datetime.now(UTC)
+        for theme in requested_themes:
+            if theme in images and not force:
+                continue
+            (
+                image_bytes,
+                content_type,
+            ) = await PlacePreviewService.fetch_static_map_image(
+                bounds,
+                theme,
+            )
+            images[theme] = PlacePreviewThemeImage(
+                content_type=content_type,
+                image_bytes=image_bytes,
+                generated_at=now,
+            )
 
         if existing is None:
             preview = PlacePreviewImage(
                 place_id=place_id,
                 geometry_hash=hash_value,
                 bounds=bounds,
-                content_type=content_type,
-                image_bytes=image_bytes,
-                generated_at=now,
+                images=images,
             )
             await preview.insert()
         else:
             existing.geometry_hash = hash_value
             existing.bounds = bounds
-            existing.content_type = content_type
-            existing.image_bytes = image_bytes
-            existing.generated_at = now
+            existing.images = images
             await existing.save()
 
         return PreviewGenerationResult(status="generated")

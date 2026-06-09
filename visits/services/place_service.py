@@ -47,14 +47,23 @@ class PlaceService:
     def _place_to_response(place: Place, preview=None) -> PlaceResponse:
         """Convert a Place model to a PlaceResponse."""
         preview_image_url = None
+        preview_image_urls = {}
         preview_bounds = None
         place_id = str(place.id)
         geometry_hash = PlacePreviewService.geometry_hash(place.geometry)
         if preview is not None and geometry_hash == preview.geometry_hash:
-            preview_image_url = PlacePreviewService.preview_image_url(
-                place_id,
-                preview.geometry_hash,
-            )
+            preview_image_urls = {
+                theme: PlacePreviewService.preview_image_url(
+                    place_id,
+                    preview.geometry_hash,
+                    theme,
+                )
+                for theme in PlacePreviewService.preview_themes()
+                if PlacePreviewService.get_theme_image(preview, theme) is not None
+            }
+            preview_image_url = preview_image_urls.get(
+                "dark"
+            ) or preview_image_urls.get("light")
             preview_bounds = preview.bounds
 
         return PlaceResponse(
@@ -62,6 +71,7 @@ class PlaceService:
             name=place.name or "",
             geometry=place.geometry,
             previewImageUrl=preview_image_url,
+            previewImageUrls=preview_image_urls,
             previewBounds=preview_bounds,
             created_at=place.created_at,
         )

@@ -13,8 +13,12 @@ from visits.services.place_preview_service import PlacePreviewService
 
 @pytest.fixture
 async def destination_bloom_places_db(monkeypatch: pytest.MonkeyPatch):
-    async def fake_fetch_static_map_image(_bounds: list[float]) -> tuple[bytes, str]:
-        return b"preview-png", "image/png"
+    async def fake_fetch_static_map_image(
+        _bounds: list[float],
+        theme: str | None = None,
+    ) -> tuple[bytes, str]:
+        normalized_theme = PlacePreviewService.normalize_theme(theme)
+        return f"{normalized_theme}-preview-png".encode(), "image/png"
 
     monkeypatch.setattr(
         PlacePreviewService,

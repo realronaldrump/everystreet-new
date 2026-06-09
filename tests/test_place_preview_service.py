@@ -6,6 +6,7 @@ from db_helpers import init_mock_beanie
 from db.models import Place, PlacePreviewImage
 from visits.services.place_preview_service import (
     PREVIEW_HEIGHT,
+    PREVIEW_THEME_STYLES,
     PREVIEW_WIDTH,
     PlacePreviewService,
     geometry_hash,
@@ -84,11 +85,15 @@ async def test_generate_preview_creates_skips_and_forces_regeneration(
     place_preview_db,
 ) -> None:
     del place_preview_db
-    calls: list[list[float]] = []
+    calls: list[tuple[str, list[float]]] = []
 
-    async def fake_fetch_static_map_image(bounds: list[float]) -> tuple[bytes, str]:
-        calls.append(bounds)
-        return f"preview-{len(calls)}".encode(), "image/png"
+    async def fake_fetch_static_map_image(
+        bounds: list[float],
+        theme: str | None = None,
+    ) -> tuple[bytes, str]:
+        normalized_theme = PlacePreviewService.normalize_theme(theme)
+        calls.append((normalized_theme, bounds))
+        return f"preview-{normalized_theme}-{len(calls)}".encode(), "image/png"
 
     monkeypatch.setattr(
         PlacePreviewService,
@@ -105,24 +110,33 @@ async def test_generate_preview_creates_skips_and_forces_regeneration(
 
     first = await PlacePreviewService.generate_or_refresh_preview(place)
     assert first.status == "generated"
-    assert len(calls) == 1
+    assert [theme for theme, _bounds in calls] == ["dark", "light"]
 
     preview = await PlacePreviewService.get_preview(str(place.id))
     assert preview is not None
-    assert bytes(preview.image_bytes) == b"preview-1"
+    assert set(preview.images) == set(PREVIEW_THEME_STYLES)
+    assert bytes(preview.images["dark"].image_bytes) == b"preview-dark-1"
+    assert bytes(preview.images["light"].image_bytes) == b"preview-light-2"
     assert preview.geometry_hash == geometry_hash(place.geometry)
 
     second = await PlacePreviewService.generate_or_refresh_preview(place)
     assert second.status == "skipped"
-    assert len(calls) == 1
+    assert len(calls) == 2
 
     third = await PlacePreviewService.generate_or_refresh_preview(place, force=True)
     assert third.status == "generated"
-    assert len(calls) == 2
+    assert [theme for theme, _bounds in calls] == ["dark", "light", "dark", "light"]
 
     refreshed = await PlacePreviewService.get_preview(str(place.id))
     assert refreshed is not None
-    assert bytes(refreshed.image_bytes) == b"preview-2"
+    assert bytes(refreshed.images["dark"].image_bytes) == b"preview-dark-3"
+    assert bytes(refreshed.images["light"].image_bytes) == b"preview-light-4"
+
+    response = await PlaceService.get_place_by_id(str(place.id))
+    assert response is not None
+    assert set(response.previewImageUrls) == {"dark", "light"}
+    assert "theme=dark" in response.previewImageUrls["dark"]
+    assert "theme=light" in response.previewImageUrls["light"]
 
 
 @pytest.mark.asyncio
@@ -132,7 +146,10 @@ async def test_place_create_succeeds_when_preview_generation_fails(
 ) -> None:
     del place_preview_db
 
-    async def failing_fetch_static_map_image(_bounds: list[float]) -> tuple[bytes, str]:
+    async def failing_fetch_static_map_image(
+        _bounds: list[float],
+        _theme: str | None = None,
+    ) -> tuple[bytes, str]:
         raise RuntimeError("map provider unavailable")
 
     monkeypatch.setattr(

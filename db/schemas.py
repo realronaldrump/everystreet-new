@@ -148,6 +148,7 @@ class PlaceResponse(BaseModel):
     name: str
     geometry: dict[str, Any] | None = None
     previewImageUrl: str | None = None
+    previewImageUrls: dict[str, str] = Field(default_factory=dict)
     previewBounds: list[float] | None = None
     created_at: datetime | None = None
 

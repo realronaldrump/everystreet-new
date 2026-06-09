@@ -5,7 +5,7 @@ from db_helpers import init_mock_beanie
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from db.models import Place, PlacePreviewImage
+from db.models import Place, PlacePreviewImage, PlacePreviewThemeImage
 from visits.api import places as places_api
 from visits.services.place_preview_service import PlacePreviewService
 
@@ -52,9 +52,18 @@ async def test_get_place_preview_image_returns_cached_png(
         place_id=str(place.id),
         geometry_hash=hash_value,
         bounds=bounds,
-        content_type="image/png",
-        image_bytes=b"\x89PNG\r\npreview",
-        generated_at=datetime.now(UTC),
+        images={
+            "dark": PlacePreviewThemeImage(
+                content_type="image/png",
+                image_bytes=b"\x89PNG\r\ndark-preview",
+                generated_at=datetime.now(UTC),
+            ),
+            "light": PlacePreviewThemeImage(
+                content_type="image/png",
+                image_bytes=b"\x89PNG\r\nlight-preview",
+                generated_at=datetime.now(UTC),
+            ),
+        },
     ).insert()
 
     client = TestClient(_build_app())
@@ -63,7 +72,13 @@ async def test_get_place_preview_image_returns_cached_png(
     assert response.status_code == 200
     assert response.headers["content-type"] == "image/png"
     assert response.headers["x-content-type-options"] == "nosniff"
-    assert response.content == b"\x89PNG\r\npreview"
+    assert response.content == b"\x89PNG\r\ndark-preview"
+
+    light_response = client.get(
+        f"/api/places/{place.id}/preview.png?theme=light&v={hash_value}"
+    )
+    assert light_response.status_code == 200
+    assert light_response.content == b"\x89PNG\r\nlight-preview"
 
 
 @pytest.mark.asyncio
@@ -82,9 +97,13 @@ async def test_get_place_preview_image_returns_404_for_stale_hash(
         place_id=str(place.id),
         geometry_hash=hash_value,
         bounds=bounds,
-        content_type="image/png",
-        image_bytes=b"\x89PNG\r\npreview",
-        generated_at=datetime.now(UTC),
+        images={
+            "dark": PlacePreviewThemeImage(
+                content_type="image/png",
+                image_bytes=b"\x89PNG\r\npreview",
+                generated_at=datetime.now(UTC),
+            ),
+        },
     ).insert()
 
     client = TestClient(_build_app())
@@ -138,13 +157,26 @@ async def test_backfill_place_previews_counts_generated_skipped_and_failed(
         place_id=str(skipped_place.id),
         geometry_hash=skipped_hash,
         bounds=skipped_bounds,
-        content_type="image/png",
-        image_bytes=b"already-current",
-        generated_at=datetime.now(UTC),
+        images={
+            "dark": PlacePreviewThemeImage(
+                content_type="image/png",
+                image_bytes=b"already-current-dark",
+                generated_at=datetime.now(UTC),
+            ),
+            "light": PlacePreviewThemeImage(
+                content_type="image/png",
+                image_bytes=b"already-current-light",
+                generated_at=datetime.now(UTC),
+            ),
+        },
     ).insert()
 
-    async def fake_fetch_static_map_image(_bounds: list[float]) -> tuple[bytes, str]:
-        return b"generated-preview", "image/png"
+    async def fake_fetch_static_map_image(
+        _bounds: list[float],
+        theme: str | None = None,
+    ) -> tuple[bytes, str]:
+        normalized_theme = PlacePreviewService.normalize_theme(theme)
+        return f"generated-{normalized_theme}-preview".encode(), "image/png"
 
     monkeypatch.setattr(
         PlacePreviewService,
@@ -165,4 +197,9 @@ async def test_backfill_place_previews_counts_generated_skipped_and_failed(
 
     generated_preview = await PlacePreviewService.get_preview(str(generated_place.id))
     assert generated_preview is not None
-    assert bytes(generated_preview.image_bytes) == b"generated-preview"
+    assert bytes(generated_preview.images["dark"].image_bytes) == (
+        b"generated-dark-preview"
+    )
+    assert bytes(generated_preview.images["light"].image_bytes) == (
+        b"generated-light-preview"
+    )

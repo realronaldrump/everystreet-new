@@ -89,7 +89,15 @@ test("visits page keeps cached preview refresh controls wired", () => {
 
   assertHasId(template, "refresh-place-previews", "visits template");
   assert.match(controllerSource, /refreshPlacePreviews/);
-  assert.match(controllerSource, /previewImageUrl/);
+  assert.match(controllerSource, /previewImageUrls/);
+  assert.match(controllerSource, /getCurrentPreviewTheme/);
   assert.match(controllerSource, /previewBounds/);
   assert.match(dataServiceSource, /\/api\/places\/previews\/backfill/);
+});
+
+test("visits page re-renders place previews when theme changes", () => {
+  const visitsIndexSource = readStaticJs("modules", "features", "visits", "index.js");
+
+  assert.match(visitsIndexSource, /data-bs-theme/);
+  assert.match(visitsIndexSource, /visitsPage\?\.renderPlaces\?\.\(\)/);
 });

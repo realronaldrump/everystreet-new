@@ -574,15 +574,23 @@ class Place(Document):
     model_config = ConfigDict(extra="allow")
 
 
+class PlacePreviewThemeImage(BaseModel):
+    """Cached image bytes for one place preview theme."""
+
+    content_type: str = "image/png"
+    image_bytes: bytes
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    model_config = ConfigDict(extra="allow")
+
+
 class PlacePreviewImage(Document):
     """Cached static map preview image for a custom place."""
 
     place_id: str
     geometry_hash: str
     bounds: list[float] = Field(default_factory=list)
-    content_type: str = "image/png"
-    image_bytes: bytes
-    generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    images: dict[str, PlacePreviewThemeImage] = Field(default_factory=dict)
 
     class Settings:
         name = "place_preview_images"
