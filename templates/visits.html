@@ -157,21 +157,60 @@ No places yet
           Places detected from your trips that you haven't saved yet
           </p>
         </div>
-        <div class="suggestion-size-control">
-          <label for="suggestion-size">
+        <div class="discoveries-controls" aria-label="Discovery display controls">
+          <div class="discovery-control">
+            <label for="discovery-sort">
+Sort:
+            </label>
+            <select id="discovery-sort" class="form-select form-select-sm">
+              <option value="totalVisits-desc" selected>
+Most visits
+              </option>
+              <option value="totalVisits-asc">
+Fewest visits
+              </option>
+              <option value="lastVisit-desc">
+Last visit newest
+              </option>
+              <option value="lastVisit-asc">
+Last visit oldest
+              </option>
+              <option value="firstVisit-desc">
+First visit newest
+              </option>
+              <option value="firstVisit-asc">
+First visit oldest
+              </option>
+            </select>
+          </div>
+          <div class="discovery-control">
+            <label for="discovery-min-visits">
+Min visits:
+            </label>
+            <input id="discovery-min-visits"
+                   class="form-control form-control-sm"
+                   type="number"
+                   inputmode="numeric"
+                   min="1"
+                   step="1"
+                   value="5" />
+          </div>
+          <div class="discovery-control">
+            <label for="suggestion-size">
 Area size:
-          </label>
-          <select id="suggestion-size" class="form-select form-select-sm">
-            <option value="150">
+            </label>
+            <select id="suggestion-size" class="form-select form-select-sm">
+              <option value="150" selected>
 Small (~150 ft)
-            </option>
-            <option value="250" selected>
+              </option>
+              <option value="250">
 Medium (~250 ft)
-            </option>
-            <option value="360">
+              </option>
+              <option value="360">
 Large (~360 ft)
-            </option>
-          </select>
+              </option>
+            </select>
+          </div>
         </div>
       </div>
 

@@ -8,6 +8,12 @@ import { escapeHtml, parseDurationToSeconds } from "../../utils.js";
 import { createVisitsDataService } from "../../visits/data-service.js";
 import { renderGeometryPreview } from "../../visits/preview-map-renderer.js";
 import VisitsManager from "../../visits/visits-manager.js";
+import {
+  DEFAULT_DISCOVERY_MIN_VISITS,
+  DEFAULT_DISCOVERY_SORT,
+  normalizeDiscoveryMinVisits,
+  sortDiscoveries,
+} from "./discovery-controls.js";
 
 const { bootstrap } = globalThis;
 
@@ -57,7 +63,9 @@ class VisitsPageController {
     this.suggestions = [];
     this.nonCustomPlaces = [];
     this.currentView = "cards";
-    this.currentSuggestionSize = 250; // feet (converted from 75m)
+    this.currentSuggestionSize = IMPERIAL_CONFIG.suggestionSizes.small;
+    this.discoverySort = DEFAULT_DISCOVERY_SORT;
+    this.discoveryMinVisits = DEFAULT_DISCOVERY_MIN_VISITS;
     this.suggestionPage = 1;
     this.suggestionPageSize = 6;
     this.hasProcessedPlaceDeepLink = false;
@@ -113,6 +121,8 @@ class VisitsPageController {
       discoveriesNext: document.getElementById("discoveries-next"),
       discoveriesPageInfo: document.getElementById("discoveries-page-info"),
       suggestionSize: document.getElementById("suggestion-size"),
+      discoverySort: document.getElementById("discovery-sort"),
+      discoveryMinVisits: document.getElementById("discovery-min-visits"),
 
       // Map section
       drawingToast: document.getElementById("drawing-toast"),
@@ -159,6 +169,32 @@ class VisitsPageController {
       "change",
       (e) => {
         this.currentSuggestionSize = parseInt(e.target.value, 10);
+        this.suggestionPage = 1;
+        this.loadSuggestions();
+      },
+      { signal }
+    );
+
+    this.elements.discoverySort?.addEventListener(
+      "change",
+      (e) => {
+        this.discoverySort = e.target.value || DEFAULT_DISCOVERY_SORT;
+        this.suggestions = sortDiscoveries(this.suggestions, this.discoverySort);
+        this.suggestionPage = 1;
+        this.renderSuggestions();
+      },
+      { signal }
+    );
+
+    this.elements.discoveryMinVisits?.addEventListener(
+      "change",
+      (e) => {
+        const minVisits = normalizeDiscoveryMinVisits(
+          e.target.value,
+          this.discoveryMinVisits
+        );
+        this.discoveryMinVisits = minVisits;
+        e.target.value = String(minVisits);
         this.suggestionPage = 1;
         this.loadSuggestions();
       },
@@ -567,12 +603,15 @@ class VisitsPageController {
     return this.dataService.fetchPlaceTrips(placeId);
   }
 
-  fetchSuggestions(cellSizeFt = 250) {
+  fetchSuggestions(
+    cellSizeFt = this.currentSuggestionSize,
+    minVisits = this.discoveryMinVisits
+  ) {
     // Convert feet to meters for API
     const cellSizeM = Math.round(cellSizeFt / M_TO_FT);
     return this.dataService.fetchVisitSuggestions({
       cell_size_m: cellSizeM,
-      min_visits: 5,
+      min_visits: minVisits,
     });
   }
 
@@ -735,7 +774,11 @@ class VisitsPageController {
 
   async loadSuggestions() {
     try {
-      this.suggestions = await this.fetchSuggestions(this.currentSuggestionSize);
+      const suggestions = await this.fetchSuggestions(
+        this.currentSuggestionSize,
+        this.discoveryMinVisits
+      );
+      this.suggestions = sortDiscoveries(suggestions, this.discoverySort);
       this.suggestionPage = 1;
       this.renderSuggestions();
     } catch (error) {
@@ -750,6 +793,7 @@ class VisitsPageController {
       this.elements.discoveriesGrid.style.display = "none";
       this.elements.discoveriesEmptyState.style.display = "block";
       this.elements.discoveriesPagination.style.display = "none";
+      this.updateDiscoveriesEmptyState();
       return;
     }
 
@@ -811,6 +855,14 @@ class VisitsPageController {
     this.elements.discoveriesGrid.style.display = "grid";
     this.updateSuggestionPagination(pageSuggestions.length, startIndex);
     this.renderSuggestionPreviewMaps(pageSuggestions, startIndex);
+  }
+
+  updateDiscoveriesEmptyState() {
+    const emptyCopy = this.elements.discoveriesEmptyState?.querySelector("p");
+    if (!emptyCopy) {
+      return;
+    }
+    emptyCopy.textContent = `We need at least ${this.discoveryMinVisits} visits to the same area to suggest a new place. Keep tracking your trips!`;
   }
 
   async loadOtherStops() {
