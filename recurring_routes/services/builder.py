@@ -8,8 +8,10 @@ assigns trips to their template via Trip.recurringRouteId.
 from __future__ import annotations
 
 import logging
+import math
 import statistics
-from collections import Counter
+from collections import Counter, defaultdict
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -41,6 +43,10 @@ from trips.services.trip_cost_service import TripCostService
 logger = logging.getLogger(__name__)
 
 TERMINAL_STAGES = {"completed", "failed", "error", "cancelled"}
+_PLACE_LOOKUP_CELL_DEGREES = 0.005
+_PLACE_LOOKUP_POINT_PADDING_M = 250.0
+_PLACE_LOOKUP_MAX_INDEX_CELLS = 5000
+_BULK_ASSIGNMENT_ROUTE_BATCH_SIZE = 20
 
 
 class TripRouteBuildProjection(BaseModel):
@@ -176,12 +182,163 @@ def _param_int(params: dict[str, Any], key: str, default: int) -> int:
         return int(default)
 
 
+def _collect_geometry_points(value: Any) -> list[list[float]]:
+    points: list[list[float]] = []
+
+    def visit(node: Any) -> None:
+        if not isinstance(node, list):
+            return
+        if len(node) >= 2 and isinstance(node[0], int | float) and isinstance(
+            node[1],
+            int | float,
+        ):
+            valid, pair = GeometryService.validate_coordinate_pair(node)
+            if valid and pair:
+                points.append(pair)
+            return
+        for child in node:
+            visit(child)
+
+    visit(value)
+    return points
+
+
+def _expand_bbox_lonlat(
+    bbox: tuple[float, float, float, float],
+    padding_m: float,
+) -> tuple[float, float, float, float]:
+    min_lon, min_lat, max_lon, max_lat = bbox
+    center_lat = (min_lat + max_lat) / 2.0
+    lat_delta = padding_m / 111_320.0
+    lon_scale = max(0.001, abs(math.cos(math.radians(center_lat))))
+    lon_delta = padding_m / (111_320.0 * lon_scale)
+    return (
+        min_lon - lon_delta,
+        min_lat - lat_delta,
+        max_lon + lon_delta,
+        max_lat + lat_delta,
+    )
+
+
+def _place_geometry_bbox(place: Place) -> tuple[float, float, float, float] | None:
+    geometry = place.geometry
+    if not isinstance(geometry, dict):
+        return None
+
+    points = _collect_geometry_points(geometry.get("coordinates"))
+    if not points:
+        return None
+
+    lons = [float(point[0]) for point in points]
+    lats = [float(point[1]) for point in points]
+    bbox = (min(lons), min(lats), max(lons), max(lats))
+    if geometry.get("type") == "Point":
+        return _expand_bbox_lonlat(bbox, _PLACE_LOOKUP_POINT_PADDING_M)
+    return bbox
+
+
+def _bbox_cell_range(
+    bbox: tuple[float, float, float, float],
+) -> tuple[range, range]:
+    min_lon, min_lat, max_lon, max_lat = bbox
+    cell = _PLACE_LOOKUP_CELL_DEGREES
+    min_x = math.floor(min_lon / cell)
+    max_x = math.floor(max_lon / cell)
+    min_y = math.floor(min_lat / cell)
+    max_y = math.floor(max_lat / cell)
+    return range(min_x, max_x + 1), range(min_y, max_y + 1)
+
+
+def _point_lookup_cell(point: list[float]) -> tuple[int, int]:
+    return (
+        math.floor(float(point[0]) / _PLACE_LOOKUP_CELL_DEGREES),
+        math.floor(float(point[1]) / _PLACE_LOOKUP_CELL_DEGREES),
+    )
+
+
+@dataclass(frozen=True)
+class _PlaceLookupCandidate:
+    order: int
+    place: Place
+
+
+class _PlaceLookupIndex:
+    """Spatial prefilter for place endpoint resolution.
+
+    Matching still delegates to find_place_id_for_point, so this only reduces
+    the candidate list and preserves the existing point/polygon semantics.
+    """
+
+    def __init__(self, places: list[Place]) -> None:
+        self._candidates: list[_PlaceLookupCandidate] = []
+        self._cell_candidates: dict[tuple[int, int], set[int]] = defaultdict(set)
+        self._global_candidate_indices: set[int] = set()
+        self._cache: dict[tuple[float, float], str | None] = {}
+
+        for order, place in enumerate(places):
+            if not place.id:
+                continue
+            candidate_idx = len(self._candidates)
+            self._candidates.append(_PlaceLookupCandidate(order=order, place=place))
+
+            bbox = _place_geometry_bbox(place)
+            if bbox is None:
+                self._global_candidate_indices.add(candidate_idx)
+                continue
+
+            x_range, y_range = _bbox_cell_range(bbox)
+            cell_count = len(x_range) * len(y_range)
+            if cell_count <= 0 or cell_count > _PLACE_LOOKUP_MAX_INDEX_CELLS:
+                self._global_candidate_indices.add(candidate_idx)
+                continue
+
+            for x in x_range:
+                for y in y_range:
+                    self._cell_candidates[(x, y)].add(candidate_idx)
+
+    def __bool__(self) -> bool:
+        return bool(self._candidates)
+
+    def find_place_id_for_point(self, point: Any) -> str | None:
+        valid, pair = GeometryService.validate_coordinate_pair(
+            point if isinstance(point, list | tuple) else [],
+        )
+        if not valid or not pair:
+            return None
+
+        cache_key = (float(pair[0]), float(pair[1]))
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        candidate_indices = set(self._global_candidate_indices)
+        candidate_indices.update(
+            self._cell_candidates.get(_point_lookup_cell(pair), ()),
+        )
+        if not candidate_indices:
+            self._cache[cache_key] = None
+            return None
+
+        candidates = [
+            self._candidates[idx]
+            for idx in sorted(
+                candidate_indices,
+                key=lambda idx: self._candidates[idx].order,
+            )
+        ]
+        result = find_place_id_for_point(
+            pair,
+            [candidate.place for candidate in candidates],
+        )
+        self._cache[cache_key] = result
+        return result
+
+
 def _resolve_missing_endpoint_place_ids(
     trip_dict: dict[str, Any],
-    places: list[Place],
+    place_lookup: _PlaceLookupIndex | None,
 ) -> None:
     """Fill missing endpoint place ids in-memory before fingerprinting."""
-    if not places:
+    if not place_lookup:
         return
 
     start_place_id = coerce_place_id(trip_dict.get("startPlaceId"))
@@ -191,11 +348,11 @@ def _resolve_missing_endpoint_place_ids(
 
     start_pt, end_pt = _extract_start_end_points(trip_dict)
     if not start_place_id and start_pt:
-        resolved = find_place_id_for_point(start_pt, places)
+        resolved = place_lookup.find_place_id_for_point(start_pt)
         if resolved:
             trip_dict["startPlaceId"] = resolved
     if not end_place_id and end_pt:
-        resolved = find_place_id_for_point(end_pt, places)
+        resolved = place_lookup.find_place_id_for_point(end_pt)
         if resolved:
             trip_dict["destinationPlaceId"] = resolved
 
@@ -658,6 +815,44 @@ async def _job_cancelled(job: Job | None) -> bool:
     return stage == "cancelled" or status == "cancelled"
 
 
+async def _sequential_update_many(
+    collection: Any,
+    updates: list[tuple[dict[str, Any], dict[str, Any]]],
+) -> int:
+    modified = 0
+    for filter_doc, update_doc in updates:
+        result = await collection.update_many(filter_doc, update_doc)
+        modified += int(getattr(result, "modified_count", 0) or 0)
+    return modified
+
+
+async def _bulk_update_many(
+    collection: Any,
+    updates: list[tuple[dict[str, Any], dict[str, Any]]],
+) -> int:
+    if not updates:
+        return 0
+
+    try:
+        from pymongo import UpdateMany
+    except Exception:
+        return await _sequential_update_many(collection, updates)
+
+    operations = [
+        UpdateMany(filter_doc, update_doc) for filter_doc, update_doc in updates
+    ]
+    try:
+        result = await collection.bulk_write(operations, ordered=False)
+    except TypeError as exc:
+        if "unexpected keyword argument 'sort'" not in str(exc):
+            raise
+        return await _sequential_update_many(collection, updates)
+    except NotImplementedError:
+        return await _sequential_update_many(collection, updates)
+
+    return int(getattr(result, "modified_count", 0) or 0)
+
+
 class RecurringRoutesBuilder:
     """Build RecurringRoute templates and assign trips."""
 
@@ -711,13 +906,16 @@ class RecurringRoutesBuilder:
 
             await handle.update(
                 stage="fingerprinting",
-                message=f"Loading gas price history and fingerprinting {total_trips} trips...",
+                message=(
+                    "Loading gas price history and fingerprinting "
+                    f"{total_trips} trips..."
+                ),
                 metadata_patch={"total_trips": total_trips},
             )
 
             # Load gas fill-ups once for cost estimation.
             price_map = await TripCostService.get_fillup_price_map()
-            known_places = await Place.find_all().to_list()
+            place_lookup = _PlaceLookupIndex(await Place.find_all().to_list())
 
             # route_key -> aggregation
             groups: dict[str, dict[str, Any]] = {}
@@ -745,7 +943,7 @@ class RecurringRoutesBuilder:
                     }
 
                 trip_dict = trip.model_dump()
-                _resolve_missing_endpoint_place_ids(trip_dict, known_places)
+                _resolve_missing_endpoint_place_ids(trip_dict, place_lookup)
                 fingerprint = compute_route_fingerprint(trip_dict, params)
                 if not fingerprint:
                     continue
@@ -841,6 +1039,13 @@ class RecurringRoutesBuilder:
                 fuel = trip_dict.get("fuelConsumed")
                 if isinstance(fuel, int | float) and fuel > 0:
                     group["fuel"].append(float(fuel))
+                    if isinstance(imei, str) and imei in price_map:
+                        trip_cost = TripCostService.calculate_trip_cost(
+                            trip_dict,
+                            price_map,
+                        )
+                        if isinstance(trip_cost, int | float) and trip_cost > 0:
+                            group["costs"].append(float(trip_cost))
 
                 max_speed = trip_dict.get("maxSpeed")
                 if isinstance(max_speed, int | float) and max_speed >= 0:
@@ -850,10 +1055,6 @@ class RecurringRoutesBuilder:
                         if prev is None
                         else max(prev, float(max_speed))
                     )
-
-                trip_cost = TripCostService.calculate_trip_cost(trip_dict, price_map)
-                if isinstance(trip_cost, int | float) and trip_cost > 0:
-                    group["costs"].append(float(trip_cost))
 
                 st = trip_dict.get("startTime")
                 if isinstance(st, datetime):
@@ -876,7 +1077,7 @@ class RecurringRoutesBuilder:
                         group["rep_trip_id"] = transaction_id
                         group["rep_start_time"] = st
                         group["rep_geometry"] = rep_geom
-                        group["rep_preview"] = build_preview_svg_path(rep_geom)
+                        group["rep_preview"] = None
 
                 if total_trips > 0 and processed % 250 == 0:
                     pct = min(60.0, (processed / total_trips) * 60.0)
@@ -898,7 +1099,8 @@ class RecurringRoutesBuilder:
                 progress=60.0,
                 message=(
                     "Grouping trips into routes... "
-                    f"({merged_group_count} candidates from {exact_group_count} fingerprints)"
+                    f"({merged_group_count} candidates from "
+                    f"{exact_group_count} fingerprints)"
                 ),
                 metadata_patch={
                     "exact_groups": exact_group_count,
@@ -1018,6 +1220,8 @@ class RecurringRoutesBuilder:
                 )
                 rep_geom = group.get("rep_geometry")
                 preview = group.get("rep_preview")
+                if preview is None and rep_geom:
+                    preview = build_preview_svg_path(rep_geom)
 
                 route = existing_by_key.get(key)
                 if route is None:
@@ -1153,6 +1357,7 @@ class RecurringRoutesBuilder:
             staged = 0
             assignment_build_id = str(job_id)
             chunk_size = 500
+            staging_updates: list[tuple[dict[str, Any], dict[str, Any]]] = []
             for idx, key in enumerate(eligible_keys, 1):
                 if idx % 25 == 0 and await _job_cancelled(progress):
                     await trips_coll.update_many(
@@ -1188,24 +1393,35 @@ class RecurringRoutesBuilder:
 
                 for start in range(0, len(trip_ids), chunk_size):
                     chunk = trip_ids[start : start + chunk_size]
-                    result = await trips_coll.update_many(
-                        enforce_bouncie_source({"transactionId": {"$in": chunk}}),
-                        {
-                            "$set": {
-                                "recurringRoutePendingRouteId": route_id,
-                                "recurringRoutePendingBuildId": assignment_build_id,
+                    staging_updates.append(
+                        (
+                            enforce_bouncie_source({"transactionId": {"$in": chunk}}),
+                            {
+                                "$set": {
+                                    "recurringRoutePendingRouteId": route_id,
+                                    "recurringRoutePendingBuildId": assignment_build_id,
+                                },
                             },
-                        },
+                        ),
                     )
-                    staged += int(getattr(result, "modified_count", 0) or 0)
 
-                if len(eligible_keys) > 0 and idx % 20 == 0:
+                if (
+                    len(eligible_keys) > 0
+                    and idx % _BULK_ASSIGNMENT_ROUTE_BATCH_SIZE == 0
+                ):
+                    staged += await _bulk_update_many(trips_coll, staging_updates)
+                    staging_updates = []
                     pct = 85.0 + (idx / len(eligible_keys)) * 7.0
                     await handle.update(
                         progress=pct,
-                        message=f"Staging trip assignments... ({idx}/{len(eligible_keys)})",
+                        message=(
+                            "Staging trip assignments... "
+                            f"({idx}/{len(eligible_keys)})"
+                        ),
                         metadata_patch={"trips_staged": staged},
                     )
+
+            staged += await _bulk_update_many(trips_coll, staging_updates)
 
             await handle.update(
                 stage="finalizing_assignments",
@@ -1215,6 +1431,7 @@ class RecurringRoutesBuilder:
             )
 
             assigned = 0
+            finalize_updates: list[tuple[dict[str, Any], dict[str, Any]]] = []
             for idx, key in enumerate(eligible_keys, 1):
                 route_id = route_id_by_key.get(key)
                 if not route_id:
@@ -1225,33 +1442,44 @@ class RecurringRoutesBuilder:
 
                 for start in range(0, len(trip_ids), chunk_size):
                     chunk = trip_ids[start : start + chunk_size]
-                    result = await trips_coll.update_many(
-                        enforce_bouncie_source(
+                    finalize_updates.append(
+                        (
+                            enforce_bouncie_source(
+                                {
+                                    "transactionId": {"$in": chunk},
+                                    "recurringRoutePendingBuildId": assignment_build_id,
+                                },
+                            ),
                             {
-                                "transactionId": {"$in": chunk},
-                                "recurringRoutePendingBuildId": assignment_build_id,
+                                "$set": {
+                                    "recurringRouteId": route_id,
+                                    "recurringRouteBuildId": assignment_build_id,
+                                },
+                                "$unset": {
+                                    "recurringRoutePendingRouteId": "",
+                                    "recurringRoutePendingBuildId": "",
+                                },
                             },
                         ),
-                        {
-                            "$set": {
-                                "recurringRouteId": route_id,
-                                "recurringRouteBuildId": assignment_build_id,
-                            },
-                            "$unset": {
-                                "recurringRoutePendingRouteId": "",
-                                "recurringRoutePendingBuildId": "",
-                            },
-                        },
                     )
-                    assigned += int(getattr(result, "modified_count", 0) or 0)
 
-                if len(eligible_keys) > 0 and idx % 20 == 0:
+                if (
+                    len(eligible_keys) > 0
+                    and idx % _BULK_ASSIGNMENT_ROUTE_BATCH_SIZE == 0
+                ):
+                    assigned += await _bulk_update_many(trips_coll, finalize_updates)
+                    finalize_updates = []
                     pct = 92.0 + (idx / len(eligible_keys)) * 4.0
                     await handle.update(
                         progress=pct,
-                        message=f"Finalizing assignments... ({idx}/{len(eligible_keys)})",
+                        message=(
+                            "Finalizing assignments... "
+                            f"({idx}/{len(eligible_keys)})"
+                        ),
                         metadata_patch={"trips_assigned": assigned},
                     )
+
+            assigned += await _bulk_update_many(trips_coll, finalize_updates)
 
             stale_result = await trips_coll.update_many(
                 enforce_bouncie_source(
