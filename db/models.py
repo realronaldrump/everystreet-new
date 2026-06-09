@@ -574,6 +574,27 @@ class Place(Document):
     model_config = ConfigDict(extra="allow")
 
 
+class PlacePreviewImage(Document):
+    """Cached static map preview image for a custom place."""
+
+    place_id: str
+    geometry_hash: str
+    bounds: list[float] = Field(default_factory=list)
+    content_type: str = "image/png"
+    image_bytes: bytes
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    class Settings:
+        name = "place_preview_images"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [("place_id", 1)], name="place_preview_place_id_unique", unique=True
+            ),
+        ]
+
+    model_config = ConfigDict(extra="allow")
+
+
 class CoverageArea(Document):
     """
     A geographic area for street coverage tracking.
@@ -1191,6 +1212,7 @@ ALL_DOCUMENT_MODELS = [
     TripIngestIssue,
     OsmData,
     Place,
+    PlacePreviewImage,
     TaskConfig,
     TaskHistory,
     GasFillup,

@@ -6,13 +6,22 @@ from db_helpers import init_mock_beanie
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from db.models import Place, Trip
+from db.models import Place, PlacePreviewImage, Trip
 from visits.api import places as places_api
+from visits.services.place_preview_service import PlacePreviewService
 
 
 @pytest.fixture
-async def destination_bloom_places_db():
-    return await init_mock_beanie(Trip, Place)
+async def destination_bloom_places_db(monkeypatch: pytest.MonkeyPatch):
+    async def fake_fetch_static_map_image(_bounds: list[float]) -> tuple[bytes, str]:
+        return b"preview-png", "image/png"
+
+    monkeypatch.setattr(
+        PlacePreviewService,
+        "fetch_static_map_image",
+        staticmethod(fake_fetch_static_map_image),
+    )
+    return await init_mock_beanie(Trip, Place, PlacePreviewImage)
 
 
 def _build_app() -> FastAPI:

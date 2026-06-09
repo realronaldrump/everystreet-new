@@ -107,6 +107,7 @@ class VisitsPageController {
       placesGrid: document.getElementById("places-grid"),
       placesListView: document.getElementById("places-list-view"),
       placesEmptyState: document.getElementById("places-empty-state"),
+      refreshPlacePreviews: document.getElementById("refresh-place-previews"),
 
       // Patterns section
       patternsSection: document.getElementById("patterns-section"),
@@ -163,6 +164,14 @@ class VisitsPageController {
     this.elements.viewBtns.forEach((btn) => {
       btn.addEventListener("click", (e) => this.handleViewToggle(e), { signal });
     });
+
+    this.elements.refreshPlacePreviews?.addEventListener(
+      "click",
+      () => {
+        void this.refreshPlacePreviews();
+      },
+      { signal }
+    );
 
     // Suggestion size change
     this.elements.suggestionSize?.addEventListener(
@@ -623,6 +632,13 @@ class VisitsPageController {
     return this.dataService.createPlace({ name, geometry });
   }
 
+  backfillPlacePreviews(params = {}) {
+    return this.dataService.backfillPlacePreviews(params, {
+      retry: false,
+      timeout: 120000,
+    });
+  }
+
   // Data processing
   mergePlacesWithStats(places, stats) {
     return places.map((place) => {
@@ -680,7 +696,13 @@ class VisitsPageController {
         const mapId = `place-map-${index}`;
         const geometry = this.getRenderableGeometry(place?.geometry);
         if (geometry) {
-          placePreviewConfigs.push({ mapId, geometry, accent });
+          placePreviewConfigs.push({
+            mapId,
+            geometry,
+            accent,
+            previewImageUrl: place.previewImageUrl,
+            previewBounds: place.previewBounds,
+          });
         }
 
         return `
@@ -1393,21 +1415,27 @@ class VisitsPageController {
   }
 
   renderPlacePreviewMaps(placePreviewConfigs) {
-    placePreviewConfigs.forEach(({ mapId, geometry, accent }) => {
-      const container = document.getElementById(mapId);
-      if (!container || !geometry) {
-        return;
-      }
+    placePreviewConfigs.forEach(
+      ({ mapId, geometry, accent, previewImageUrl, previewBounds }) => {
+        const container = document.getElementById(mapId);
+        if (!container || !geometry) {
+          return;
+        }
 
-      const rendered = renderGeometryPreview(
-        container,
-        geometry,
-        this.getPlacePreviewColors(accent)
-      );
-      if (!rendered) {
-        this.updatePreviewFallback(container, "Boundary unavailable");
+        const rendered = renderGeometryPreview(
+          container,
+          geometry,
+          this.getPlacePreviewColors(accent),
+          {
+            backgroundImageUrl: previewImageUrl,
+            previewBounds,
+          }
+        );
+        if (!rendered) {
+          this.updatePreviewFallback(container, "Boundary unavailable");
+        }
       }
-    });
+    );
   }
 
   renderSuggestionPreviewMaps(pageSuggestions, startIndex) {
@@ -1450,6 +1478,49 @@ class VisitsPageController {
     } catch (error) {
       console.error("Error creating place:", error);
       this.showNotification("Error creating place. Please try again.", "error");
+    }
+  }
+
+  async refreshPlacePreviews() {
+    const button = this.elements.refreshPlacePreviews;
+    const icon = button?.querySelector("i");
+    const label = button?.querySelector("span");
+    const originalLabel = label?.textContent || "Refresh previews";
+
+    if (button) {
+      button.disabled = true;
+    }
+    icon?.classList.add("fa-spin");
+    if (label) {
+      label.textContent = "Refreshing...";
+    }
+
+    try {
+      const result = await this.backfillPlacePreviews({ force: false });
+      const generated = Number(result?.generated || 0);
+      const skipped = Number(result?.skipped || 0);
+      const failed = Number(result?.failed || 0);
+      const statusParts = [`${generated} generated`, `${skipped} already current`];
+      if (failed > 0) {
+        statusParts.push(`${failed} failed`);
+      }
+
+      this.showNotification(
+        `Map previews refreshed: ${statusParts.join(", ")}.`,
+        failed > 0 ? "warning" : "success"
+      );
+      await this.loadData();
+    } catch (error) {
+      console.error("Error refreshing place previews:", error);
+      this.showNotification("Unable to refresh map previews.", "error");
+    } finally {
+      if (button) {
+        button.disabled = false;
+      }
+      icon?.classList.remove("fa-spin");
+      if (label) {
+        label.textContent = originalLabel;
+      }
     }
   }
 

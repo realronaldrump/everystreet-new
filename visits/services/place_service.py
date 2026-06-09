@@ -13,6 +13,10 @@ from visits.services.destination_clusters import (
     build_destination_cluster_boundary,
     extract_destination_coords,
 )
+from visits.services.place_preview_service import (
+    PlacePreviewService,
+    generate_preview_best_effort,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,12 +44,25 @@ class PlaceService:
     """Service class for custom place operations."""
 
     @staticmethod
-    def _place_to_response(place: Place) -> PlaceResponse:
+    def _place_to_response(place: Place, preview=None) -> PlaceResponse:
         """Convert a Place model to a PlaceResponse."""
+        preview_image_url = None
+        preview_bounds = None
+        place_id = str(place.id)
+        geometry_hash = PlacePreviewService.geometry_hash(place.geometry)
+        if preview is not None and geometry_hash == preview.geometry_hash:
+            preview_image_url = PlacePreviewService.preview_image_url(
+                place_id,
+                preview.geometry_hash,
+            )
+            preview_bounds = preview.bounds
+
         return PlaceResponse(
-            id=str(place.id),
+            id=place_id,
             name=place.name or "",
             geometry=place.geometry,
+            previewImageUrl=preview_image_url,
+            previewBounds=preview_bounds,
             created_at=place.created_at,
         )
 
@@ -58,7 +75,12 @@ class PlaceService:
             List of PlaceResponse objects
         """
         places = await Place.find_all().to_list()
-        return [PlaceService._place_to_response(p) for p in places]
+        place_ids = [str(place.id) for place in places]
+        previews = await PlacePreviewService.get_previews_for_places(place_ids)
+        return [
+            PlaceService._place_to_response(place, previews.get(str(place.id)))
+            for place in places
+        ]
 
     @staticmethod
     async def create_place(name: str, geometry: dict[str, Any]) -> PlaceResponse:
@@ -72,13 +94,17 @@ class PlaceService:
         Returns:
             Created place as PlaceResponse
         """
+        now = datetime.now(UTC)
         place = Place(
             name=name,
             geometry=geometry,
-            created_at=datetime.now(UTC),
+            created_at=now,
+            updated_at=now,
         )
         await place.insert()
-        return PlaceService._place_to_response(place)
+        await generate_preview_best_effort(place)
+        preview = await PlacePreviewService.get_preview(str(place.id))
+        return PlaceService._place_to_response(place, preview)
 
     @staticmethod
     async def create_place_from_destination_bloom(
@@ -168,8 +194,10 @@ class PlaceService:
                 boundary_geom=boundary_geom,
             )
 
+        await generate_preview_best_effort(place)
+        preview = await PlacePreviewService.get_preview(str(place.id))
         return DestinationBloomPlaceResponse(
-            place=PlaceService._place_to_response(place),
+            place=PlaceService._place_to_response(place, preview),
             linkedTrips=int(getattr(result, "modified_count", 0) or 0),
             seedTrips=len(seed_trips),
         )
@@ -261,6 +289,7 @@ class PlaceService:
         place = await Place.get(place_id)
         if place:
             await place.delete()
+            await PlacePreviewService.delete_preview(place_id)
         return {
             "status": "success",
             "message": "Place deleted",
@@ -295,9 +324,13 @@ class PlaceService:
             place.name = name
         if geometry is not None:
             place.geometry = geometry
+        place.updated_at = datetime.now(UTC)
 
         await place.save()
-        return PlaceService._place_to_response(place)
+        if geometry is not None:
+            await generate_preview_best_effort(place)
+        preview = await PlacePreviewService.get_preview(str(place.id))
+        return PlaceService._place_to_response(place, preview)
 
     @staticmethod
     async def get_place_by_id(place_id: str) -> PlaceResponse | None:
@@ -316,4 +349,32 @@ class PlaceService:
         place = await Place.get(place_id)
         if not place:
             return None
-        return PlaceService._place_to_response(place)
+        preview = await PlacePreviewService.get_preview(str(place.id))
+        return PlaceService._place_to_response(place, preview)
+
+    @staticmethod
+    async def backfill_place_previews(force: bool = False) -> dict[str, int]:
+        """Generate missing or stale place previews."""
+        places = await Place.find_all().to_list()
+        summary = {
+            "processed": 0,
+            "generated": 0,
+            "skipped": 0,
+            "failed": 0,
+        }
+
+        for place in places:
+            summary["processed"] += 1
+            try:
+                result = await PlacePreviewService.generate_or_refresh_preview(
+                    place,
+                    force=force,
+                )
+            except Exception:
+                logger.exception("Failed to backfill preview for place %s", place.id)
+                summary["failed"] += 1
+                continue
+
+            summary[result.status] += 1
+
+        return summary

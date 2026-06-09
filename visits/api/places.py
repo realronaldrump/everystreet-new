@@ -3,10 +3,11 @@
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import BaseModel
 
 from db.schemas import DestinationBloomPlaceResponse, PlaceResponse
+from visits.services.place_preview_service import PlacePreviewService
 from visits.services.place_service import PlaceService
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,39 @@ async def create_place(place: PlaceModel):
         return await PlaceService.create_place(place.name, place.geometry)
     except Exception as e:
         logger.exception("Error creating place")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@router.get("/api/places/{place_id}/preview.png")
+async def get_place_preview_image(place_id: str, v: str | None = None):
+    """Return the cached static map preview image for a custom place."""
+    preview = await PlacePreviewService.get_preview(place_id)
+    if preview is None or (v is not None and preview.geometry_hash != v):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Place preview not found",
+        )
+
+    return Response(
+        content=preview.image_bytes,
+        media_type=preview.content_type or "image/png",
+        headers={
+            "Cache-Control": "private, max-age=86400",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.post("/api/places/previews/backfill")
+async def backfill_place_previews(force: bool = False):
+    """Generate missing or stale cached map previews for existing places."""
+    try:
+        return await PlaceService.backfill_place_previews(force=force)
+    except Exception as e:
+        logger.exception("Error backfilling place previews")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),

@@ -147,6 +147,8 @@ class PlaceResponse(BaseModel):
     id: str = Field(..., description="Place ID")
     name: str
     geometry: dict[str, Any] | None = None
+    previewImageUrl: str | None = None
+    previewBounds: list[float] | None = None
     created_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)

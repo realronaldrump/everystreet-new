@@ -4,9 +4,18 @@ const VIEWBOX_WIDTH = 160;
 const VIEWBOX_HEIGHT = 120;
 const PREVIEW_PADDING = 12;
 const MIN_BOUND_SPAN = 0.0025;
+const MAX_MERCATOR_LAT = 85.0511;
 
 function isFiniteCoordinate(value) {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function escapeAttribute(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }
 
 function normalizeBounds(bounds) {
@@ -45,11 +54,70 @@ function normalizeBounds(bounds) {
   };
 }
 
-function createProjector(bounds) {
-  const usableWidth = VIEWBOX_WIDTH - PREVIEW_PADDING * 2;
-  const usableHeight = VIEWBOX_HEIGHT - PREVIEW_PADDING * 2;
+function normalizePreviewBounds(value) {
+  const bounds = Array.isArray(value)
+    ? {
+        minLng: Number(value[0]),
+        minLat: Number(value[1]),
+        maxLng: Number(value[2]),
+        maxLat: Number(value[3]),
+      }
+    : value;
+
+  if (!bounds || typeof bounds !== "object") {
+    return null;
+  }
+
+  const normalized = {
+    minLng: Number(bounds.minLng),
+    minLat: Number(bounds.minLat),
+    maxLng: Number(bounds.maxLng),
+    maxLat: Number(bounds.maxLat),
+  };
+
+  const spanLng = normalized.maxLng - normalized.minLng;
+  const spanLat = normalized.maxLat - normalized.minLat;
+  if (
+    !Number.isFinite(spanLng) ||
+    !Number.isFinite(spanLat) ||
+    spanLng <= 0 ||
+    spanLat <= 0
+  ) {
+    return null;
+  }
+
+  return normalized;
+}
+
+function clampMercatorLat(lat) {
+  return Math.max(-MAX_MERCATOR_LAT, Math.min(MAX_MERCATOR_LAT, lat));
+}
+
+function mercatorY(lat) {
+  const radians = (clampMercatorLat(lat) * Math.PI) / 180;
+  return Math.log(Math.tan(Math.PI / 4 + radians / 2));
+}
+
+function createProjector(bounds, { padding = PREVIEW_PADDING, mercator = false } = {}) {
+  const usableWidth = VIEWBOX_WIDTH - padding * 2;
+  const usableHeight = VIEWBOX_HEIGHT - padding * 2;
   const spanLng = bounds.maxLng - bounds.minLng;
   const spanLat = bounds.maxLat - bounds.minLat;
+
+  if (mercator) {
+    const minY = mercatorY(bounds.minLat);
+    const maxY = mercatorY(bounds.maxLat);
+    const spanY = maxY - minY;
+    return ([lng, lat]) => {
+      if (!isFiniteCoordinate(lng) || !isFiniteCoordinate(lat) || spanY <= 0) {
+        return null;
+      }
+      const x = padding + ((lng - bounds.minLng) / spanLng) * usableWidth;
+      const y = padding + ((maxY - mercatorY(lat)) / spanY) * usableHeight;
+      return [x, y];
+    };
+  }
+
   const scale = Math.min(usableWidth / spanLng, usableHeight / spanLat);
   const scaledWidth = spanLng * scale;
   const scaledHeight = spanLat * scale;
@@ -199,6 +267,11 @@ function renderGridLines() {
   return `<g data-layer="grid" stroke="currentColor" stroke-opacity="0.08">${vertical}${horizontal}</g>`;
 }
 
+function renderMapBackground(imageUrl) {
+  const escapedImageUrl = escapeAttribute(imageUrl);
+  return `<image data-layer="map-background" href="${escapedImageUrl}" xlink:href="${escapedImageUrl}" x="0" y="0" width="${VIEWBOX_WIDTH}" height="${VIEWBOX_HEIGHT}" preserveAspectRatio="none" />`;
+}
+
 function renderCenterMarker(bounds, project, colors) {
   const point = project([
     (bounds.minLng + bounds.maxLng) / 2,
@@ -214,8 +287,18 @@ function renderCenterMarker(bounds, project, colors) {
   ].join("");
 }
 
-function buildGeometryPreviewMarkup(geometry, colors) {
-  const bounds = normalizeBounds(computeBounds(geometry));
+function buildGeometryPreviewMarkup(geometry, colors, options = {}) {
+  const backgroundImageUrl =
+    typeof options.backgroundImageUrl === "string"
+      ? options.backgroundImageUrl.trim()
+      : "";
+  const backgroundBounds = normalizePreviewBounds(
+    options.previewBounds || options.bounds
+  );
+  const hasMapBackground = Boolean(backgroundImageUrl && backgroundBounds);
+  const bounds = hasMapBackground
+    ? backgroundBounds
+    : normalizeBounds(computeBounds(geometry));
   if (!bounds) {
     return "";
   }
@@ -231,7 +314,10 @@ function buildGeometryPreviewMarkup(geometry, colors) {
     return "";
   }
 
-  const project = createProjector(bounds);
+  const project = createProjector(bounds, {
+    padding: hasMapBackground ? 0 : PREVIEW_PADDING,
+    mercator: hasMapBackground,
+  });
   const shapes = renderGeometryShape(geometry, project, colors);
   if (!shapes) {
     return "";
@@ -242,23 +328,25 @@ function buildGeometryPreviewMarkup(geometry, colors) {
       class="map-preview-graphic"
       viewBox="0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}"
       preserveAspectRatio="xMidYMid meet"
+      xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
       data-preview-geometry="${geometry.type}"
+      data-preview-background="${hasMapBackground ? "map" : "grid"}"
     >
-      ${renderGridLines()}
-      ${shapes}
-      ${renderCenterMarker(bounds, project, colors)}
+      ${hasMapBackground ? renderMapBackground(backgroundImageUrl) : renderGridLines()}
+      <g data-layer="boundary">${shapes}</g>
+      ${hasMapBackground ? "" : renderCenterMarker(bounds, project, colors)}
     </svg>
   `.trim();
 }
 
-function renderGeometryPreview(container, geometry, colors) {
+function renderGeometryPreview(container, geometry, colors, options = {}) {
   if (!container) {
     return false;
   }
 
   container.querySelector(".map-preview-graphic")?.remove();
-  const markup = buildGeometryPreviewMarkup(geometry, colors);
+  const markup = buildGeometryPreviewMarkup(geometry, colors, options);
   if (!markup) {
     container.classList.remove("has-map");
     return false;
