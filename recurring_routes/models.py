@@ -11,6 +11,11 @@ class BuildRecurringRoutesRequest(BaseModel):
     waypoint_cell_size_m: int = 650
     waypoint_count: int = 4
     distance_bucket_miles: float = 1.0
+    endpoint_merge_tolerance_m: int = 250
+    waypoint_merge_cell_tolerance: int = 1
+    waypoint_merge_min_ratio: float = 0.75
+    distance_merge_tolerance_miles: float = 1.5
+    route_identity_match_tolerance_m: int = 750
     min_assign_trips: int = 1
     min_recurring_trips: int = 3
 

@@ -3,20 +3,25 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from db_helpers import init_mock_beanie
 
-from db.models import GasFillup, Job, RecurringRoute, Trip, Vehicle
+from db.models import GasFillup, Job, Place, RecurringRoute, Trip, Vehicle
 from recurring_routes.models import BuildRecurringRoutesRequest
 from recurring_routes.services.builder import RecurringRoutesBuilder
+from recurring_routes.services.fingerprint import compute_route_signature
 
 _DEFAULT_GPS = object()
 
 
 @pytest.fixture
 async def routes_beanie_db():
-    return await init_mock_beanie(Trip, RecurringRoute, Job, GasFillup, Vehicle)
+    return await init_mock_beanie(Trip, RecurringRoute, Job, GasFillup, Vehicle, Place)
 
 
 def _gps_linestring(coords: list[list[float]]) -> dict:
     return {"type": "LineString", "coordinates": coords}
+
+
+def _point(coord: list[float]) -> dict:
+    return {"type": "Point", "coordinates": coord}
 
 
 async def _insert_trip(
@@ -30,18 +35,27 @@ async def _insert_trip(
     invalid: bool | None = None,
     gps: dict | None | object = _DEFAULT_GPS,
     matched_gps: dict | None = None,
+    start_place_id: str | None = None,
+    destination_place_id: str | None = None,
 ) -> None:
-    trip = Trip(
-        transactionId=transaction_id,
-        imei=imei,
-        startTime=start_time,
-        endTime=start_time + timedelta(seconds=int(duration_sec)),
-        duration=duration_sec,
-        distance=distance_miles,
-        gps=_gps_linestring(coords) if gps is _DEFAULT_GPS else gps,
-        matchedGps=matched_gps,
-        invalid=invalid,
-    )
+    trip_data = {
+        "transactionId": transaction_id,
+        "imei": imei,
+        "startTime": start_time,
+        "endTime": start_time + timedelta(seconds=int(duration_sec)),
+        "duration": duration_sec,
+        "distance": distance_miles,
+        "gps": _gps_linestring(coords) if gps is _DEFAULT_GPS else gps,
+        "matchedGps": matched_gps,
+        "startGeoPoint": _point(coords[0]),
+        "destinationGeoPoint": _point(coords[-1]),
+        "invalid": invalid,
+    }
+    if start_place_id:
+        trip_data["startPlaceId"] = start_place_id
+    if destination_place_id:
+        trip_data["destinationPlaceId"] = destination_place_id
+    trip = Trip(**trip_data)
     await trip.insert()
 
 
@@ -243,3 +257,141 @@ async def test_builder_default_assigns_single_trip_routes(routes_beanie_db) -> N
     trip = await Trip.find_one(Trip.transactionId == "single-0")
     assert trip is not None
     assert trip.recurringRouteId == routes[0].id
+
+
+@pytest.mark.asyncio
+async def test_builder_resolves_missing_endpoint_place_ids_before_fingerprinting(
+    routes_beanie_db,
+) -> None:
+    now = datetime(2026, 2, 10, tzinfo=UTC)
+    coords = [[-122.401, 37.790], [-122.398, 37.786], [-122.394, 37.781]]
+
+    start_place = Place(name="Home", geometry=_point(coords[0]), created_at=now)
+    await start_place.insert()
+    end_place = Place(name="Office", geometry=_point(coords[-1]), created_at=now)
+    await end_place.insert()
+
+    await _insert_trip(
+        transaction_id="place-tagged",
+        start_time=now,
+        coords=coords,
+        distance_miles=8.0,
+        duration_sec=900,
+        start_place_id=str(start_place.id),
+        destination_place_id=str(end_place.id),
+    )
+    await _insert_trip(
+        transaction_id="place-resolved",
+        start_time=now - timedelta(days=1),
+        coords=coords,
+        distance_miles=8.0,
+        duration_sec=900,
+    )
+
+    result = await RecurringRoutesBuilder().run(
+        job_id="test-job-place-resolution",
+        request=BuildRecurringRoutesRequest(),
+    )
+
+    assert result["status"] == "success"
+    routes = await RecurringRoute.find({}).to_list()
+    assert len(routes) == 1
+    assert routes[0].trip_count == 2
+    assert routes[0].start_place_id == str(start_place.id)
+    assert routes[0].end_place_id == str(end_place.id)
+
+
+@pytest.mark.asyncio
+async def test_builder_fuzzy_merges_neighbor_waypoint_cells(
+    routes_beanie_db,
+) -> None:
+    now = datetime(2026, 2, 10, tzinfo=UTC)
+    base = [[0.0, 0.0], [0.001, 0.001], [0.002, 0.0]]
+    shifted = [[0.0, 0.0], [0.00125, 0.001], [0.002, 0.0]]
+    request = BuildRecurringRoutesRequest(
+        waypoint_cell_size_m=25,
+        endpoint_merge_tolerance_m=50,
+        waypoint_merge_cell_tolerance=2,
+        distance_merge_tolerance_miles=1.0,
+    )
+    params = request.model_dump()
+
+    assert compute_route_signature(
+        {"gps": _gps_linestring(base), "distance": 1.0}, params
+    )
+    assert compute_route_signature(
+        {"gps": _gps_linestring(base), "distance": 1.0},
+        params,
+    ) != compute_route_signature(
+        {"gps": _gps_linestring(shifted), "distance": 1.0},
+        params,
+    )
+
+    await _insert_trip(
+        transaction_id="fuzzy-a",
+        start_time=now,
+        coords=base,
+        distance_miles=1.0,
+        duration_sec=300,
+    )
+    await _insert_trip(
+        transaction_id="fuzzy-b",
+        start_time=now - timedelta(days=1),
+        coords=shifted,
+        distance_miles=1.0,
+        duration_sec=310,
+    )
+
+    result = await RecurringRoutesBuilder().run(
+        job_id="test-job-fuzzy-merge",
+        request=request,
+    )
+
+    assert result["status"] == "success"
+    assert result["merged_groups"] == 1
+    routes = await RecurringRoute.find({}).to_list()
+    assert len(routes) == 1
+    assert routes[0].trip_count == 2
+
+
+@pytest.mark.asyncio
+async def test_builder_preserves_custom_fields_when_route_key_changes(
+    routes_beanie_db,
+) -> None:
+    now = datetime(2026, 2, 10, tzinfo=UTC)
+    coords = [[0.001, 0.001], [0.02, 0.02], [0.05, 0.05]]
+
+    for i in range(3):
+        await _insert_trip(
+            transaction_id=f"stable-route-{i}",
+            start_time=now - timedelta(days=i),
+            coords=coords,
+            distance_miles=10.2,
+            duration_sec=900,
+        )
+
+    builder = RecurringRoutesBuilder()
+    await builder.run("test-job-custom-v2", BuildRecurringRoutesRequest())
+    route = await RecurringRoute.find_one({})
+    assert route is not None
+    original_id = route.id
+
+    route.name = "My commute"
+    route.color = "#00aa88"
+    route.is_pinned = True
+    route.is_hidden = True
+    await route.save()
+
+    await builder.run(
+        "test-job-custom-v3",
+        BuildRecurringRoutesRequest(algorithm_version=3),
+    )
+
+    routes = await RecurringRoute.find({}).to_list()
+    assert len(routes) == 1
+    refreshed = routes[0]
+    assert refreshed.id == original_id
+    assert refreshed.name == "My commute"
+    assert refreshed.color == "#00aa88"
+    assert refreshed.is_pinned is True
+    assert refreshed.is_hidden is True

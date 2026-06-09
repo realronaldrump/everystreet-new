@@ -11,6 +11,7 @@ import hashlib
 import logging
 import math
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from core.constants import METERS_TO_MILES
@@ -22,6 +23,22 @@ logger = logging.getLogger(__name__)
 # Web Mercator (EPSG:3857) constants
 _ORIGIN_SHIFT_M = 20037508.342789244
 _MAX_MERCATOR_LAT = 85.05112878
+
+
+@dataclass(frozen=True)
+class RouteFingerprint:
+    """Structured route fingerprint components plus the stable signature string."""
+
+    signature: str
+    start_part: str
+    end_part: str
+    start_place_id: str | None
+    end_place_id: str | None
+    start_cell: tuple[int, int] | None
+    end_cell: tuple[int, int] | None
+    waypoint_cells: tuple[tuple[int, int], ...]
+    distance_miles: float
+    distance_bucket_miles: float
 
 
 def lonlat_to_mercator_m(lon: float, lat: float) -> tuple[float, float]:
@@ -162,9 +179,27 @@ def _coerce_place_id_for_sig(value: Any) -> str | None:
     return cleaned if cleaned else None
 
 
-def compute_route_signature(trip: dict[str, Any], params: dict[str, Any]) -> str | None:
+def _trip_distance_miles(trip: dict[str, Any], points: list[list[float]]) -> float:
+    dist_miles = None
+    raw_dist = trip.get("distance")
+    if isinstance(raw_dist, int | float):
+        dist_miles = float(raw_dist)
+    elif isinstance(raw_dist, dict):
+        value = raw_dist.get("value")
+        if isinstance(value, int | float):
+            dist_miles = float(value)
+    if dist_miles is None:
+        _, total_m = _cumulative_distances_m(points)
+        dist_miles = total_m * METERS_TO_MILES
+    return max(dist_miles, 0.0)
+
+
+def compute_route_fingerprint(
+    trip: dict[str, Any],
+    params: dict[str, Any],
+) -> RouteFingerprint | None:
     """
-    Compute a stable signature string used for route clustering.
+    Compute structured route fingerprint components used for route clustering.
 
     Algorithm v2+ uses Place IDs for start/end when available, producing
     more stable grouping that is immune to GPS noise at known locations.
@@ -189,6 +224,7 @@ def compute_route_signature(trip: dict[str, Any], params: dict[str, Any]) -> str
 
     if start_place_id:
         start_part = f"sp{start_place_id}"
+        start_cell = None
     else:
         start_pt = _extract_point_from_geopoint(trip.get("startGeoPoint")) or points[0]
         sx, sy = lonlat_to_mercator_m(start_pt[0], start_pt[1])
@@ -197,6 +233,7 @@ def compute_route_signature(trip: dict[str, Any], params: dict[str, Any]) -> str
 
     if end_place_id:
         end_part = f"ep{end_place_id}"
+        end_cell = None
     else:
         end_pt = (
             _extract_point_from_geopoint(trip.get("destinationGeoPoint")) or points[-1]
@@ -211,20 +248,7 @@ def compute_route_signature(trip: dict[str, Any], params: dict[str, Any]) -> str
         wx, wy = lonlat_to_mercator_m(wp[0], wp[1])
         waypoint_cells.append(grid_cell(wx, wy, waypoint_cell_m))
 
-    dist_miles = None
-    raw_dist = trip.get("distance")
-    if isinstance(raw_dist, int | float):
-        dist_miles = float(raw_dist)
-    elif isinstance(raw_dist, dict):
-        value = raw_dist.get("value")
-        if isinstance(value, int | float):
-            dist_miles = float(value)
-    if dist_miles is None:
-        _, total_m = _cumulative_distances_m(points)
-        dist_miles = total_m * METERS_TO_MILES
-
-    if dist_miles < 0:
-        dist_miles = 0.0
+    dist_miles = _trip_distance_miles(trip, points)
 
     bucket = (
         round(dist_miles / bucket_miles) * bucket_miles
@@ -233,7 +257,30 @@ def compute_route_signature(trip: dict[str, Any], params: dict[str, Any]) -> str
     )
 
     wp_part = ",".join(f"{cx}:{cy}" for cx, cy in waypoint_cells)
-    return f"v{algo}|{start_part}|{end_part}|w{wp_part}|d{bucket:.1f}"
+    signature = f"v{algo}|{start_part}|{end_part}|w{wp_part}|d{bucket:.1f}"
+    return RouteFingerprint(
+        signature=signature,
+        start_part=start_part,
+        end_part=end_part,
+        start_place_id=start_place_id,
+        end_place_id=end_place_id,
+        start_cell=start_cell,
+        end_cell=end_cell,
+        waypoint_cells=tuple(waypoint_cells),
+        distance_miles=dist_miles,
+        distance_bucket_miles=float(bucket),
+    )
+
+
+def compute_route_signature(trip: dict[str, Any], params: dict[str, Any]) -> str | None:
+    """
+    Compute a stable signature string used for route clustering.
+
+    Algorithm v2+ uses Place IDs for start/end when available, producing
+    more stable grouping that is immune to GPS noise at known locations.
+    """
+    fingerprint = compute_route_fingerprint(trip, params)
+    return fingerprint.signature if fingerprint else None
 
 
 def compute_route_key(signature: str) -> str:

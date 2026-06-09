@@ -14,25 +14,28 @@ from datetime import UTC, datetime
 from typing import Any
 
 from beanie import PydanticObjectId
-from beanie.operators import In
 from pydantic import BaseModel, ConfigDict
 
 from core.casting import safe_float
 from core.jobs import JobHandle, create_job, find_job
-from core.spatial import GeometryService
+from core.spatial import GeometryService, flatten_line_coordinates
 from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import Job, Place, RecurringRoute, Trip
 from recurring_routes.models import BuildRecurringRoutesRequest
 from recurring_routes.services.fingerprint import (
+    RouteFingerprint,
     build_preview_svg_path,
+    compute_route_fingerprint,
     compute_route_key,
-    compute_route_signature,
     extract_display_label,
     extract_polyline,
     extract_trip_geometry,
+    grid_cell,
+    lonlat_to_mercator_m,
+    sample_waypoints,
 )
-from recurring_routes.services.service import coerce_place_id
+from recurring_routes.services.service import coerce_place_id, find_place_id_for_point
 from trips.services.trip_cost_service import TripCostService
 
 logger = logging.getLogger(__name__)
@@ -153,6 +156,497 @@ def _extract_labels(trip_dict: dict[str, Any]) -> tuple[str | None, str | None]:
     return start_label, end_label
 
 
+def _param_float(params: dict[str, Any], key: str, default: float) -> float:
+    value = params.get(key)
+    if isinstance(value, int | float):
+        return float(value)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+
+def _param_int(params: dict[str, Any], key: str, default: int) -> int:
+    value = params.get(key)
+    if isinstance(value, int):
+        return value
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return int(default)
+
+
+def _resolve_missing_endpoint_place_ids(
+    trip_dict: dict[str, Any],
+    places: list[Place],
+) -> None:
+    """Fill missing endpoint place ids in-memory before fingerprinting."""
+    if not places:
+        return
+
+    start_place_id = coerce_place_id(trip_dict.get("startPlaceId"))
+    end_place_id = coerce_place_id(trip_dict.get("destinationPlaceId"))
+    if start_place_id and end_place_id:
+        return
+
+    start_pt, end_pt = _extract_start_end_points(trip_dict)
+    if not start_place_id and start_pt:
+        resolved = find_place_id_for_point(start_pt, places)
+        if resolved:
+            trip_dict["startPlaceId"] = resolved
+    if not end_place_id and end_pt:
+        resolved = find_place_id_for_point(end_pt, places)
+        if resolved:
+            trip_dict["destinationPlaceId"] = resolved
+
+
+def _group_trip_count(group: dict[str, Any]) -> int:
+    return len(group.get("trip_ids") or [])
+
+
+def _group_centroid(
+    group: dict[str, Any],
+    *,
+    prefix: str,
+) -> list[float] | None:
+    count = int(group.get(f"{prefix}_count") or 0)
+    if count <= 0:
+        return None
+    summed = group.get(f"{prefix}_sum")
+    if not isinstance(summed, list) or len(summed) < 2:
+        return None
+    return [float(summed[0]) / count, float(summed[1]) / count]
+
+
+def _point_distance_m(a: list[float] | None, b: list[float] | None) -> float | None:
+    if not a or not b:
+        return None
+    try:
+        return float(
+            GeometryService.haversine_distance(
+                float(a[0]),
+                float(a[1]),
+                float(b[0]),
+                float(b[1]),
+                unit="meters",
+            ),
+        )
+    except Exception:
+        return None
+
+
+def _endpoint_compatible(
+    left: dict[str, Any],
+    right: dict[str, Any],
+    *,
+    prefix: str,
+    tolerance_m: float,
+) -> bool:
+    field = "start_place_ids" if prefix == "start" else "end_place_ids"
+    left_place = _best_place_id(left.get(field) or Counter(), {})
+    right_place = _best_place_id(right.get(field) or Counter(), {})
+    if left_place and right_place:
+        return left_place == right_place
+
+    left_pt = _group_centroid(left, prefix=prefix)
+    right_pt = _group_centroid(right, prefix=prefix)
+    distance = _point_distance_m(left_pt, right_pt)
+    return distance is not None and distance <= tolerance_m
+
+
+def _waypoint_cell_ratio(
+    left: RouteFingerprint | None,
+    right: RouteFingerprint | None,
+    *,
+    cell_tolerance: int,
+) -> float:
+    if left is None or right is None:
+        return 0.0
+    left_cells = list(left.waypoint_cells)
+    right_cells = list(right.waypoint_cells)
+    if not left_cells or len(left_cells) != len(right_cells):
+        return 0.0
+
+    slop = max(0, int(cell_tolerance))
+    matches = 0
+    for (lx, ly), (rx, ry) in zip(left_cells, right_cells, strict=True):
+        if abs(lx - rx) <= slop and abs(ly - ry) <= slop:
+            matches += 1
+    return matches / len(left_cells)
+
+
+def _geometry_sample_points(
+    geometry: dict[str, Any] | None,
+    *,
+    waypoint_count: int,
+) -> list[list[float]]:
+    coords = flatten_line_coordinates(geometry)
+    if len(coords) < 2:
+        return []
+    count = max(1, int(waypoint_count))
+    return [coords[0], *sample_waypoints(coords, waypoint_count=count), coords[-1]]
+
+
+def _geometry_distance_stats_m(
+    left_geometry: dict[str, Any] | None,
+    right_geometry: dict[str, Any] | None,
+    *,
+    waypoint_count: int,
+) -> tuple[float, float] | None:
+    left_points = _geometry_sample_points(
+        left_geometry,
+        waypoint_count=waypoint_count,
+    )
+    right_points = _geometry_sample_points(
+        right_geometry,
+        waypoint_count=waypoint_count,
+    )
+    if not left_points or len(left_points) != len(right_points):
+        return None
+
+    distances: list[float] = []
+    for left_pt, right_pt in zip(left_points, right_points, strict=True):
+        distance = _point_distance_m(left_pt, right_pt)
+        if distance is None:
+            return None
+        distances.append(distance)
+    return (sum(distances) / len(distances), max(distances))
+
+
+def _distance_delta_ok(
+    left: dict[str, Any],
+    right: dict[str, Any],
+    *,
+    tolerance_miles: float,
+) -> bool:
+    left_med = _median(left.get("distances") or [])
+    right_med = _median(right.get("distances") or [])
+    if left_med is None or right_med is None:
+        return True
+    return abs(left_med - right_med) <= tolerance_miles
+
+
+def _groups_are_mergeable(
+    left: dict[str, Any],
+    right: dict[str, Any],
+    params: dict[str, Any],
+) -> bool:
+    endpoint_tolerance_m = max(
+        1.0,
+        _param_float(params, "endpoint_merge_tolerance_m", 250.0),
+    )
+    if not _endpoint_compatible(
+        left,
+        right,
+        prefix="start",
+        tolerance_m=endpoint_tolerance_m,
+    ):
+        return False
+    if not _endpoint_compatible(
+        left,
+        right,
+        prefix="end",
+        tolerance_m=endpoint_tolerance_m,
+    ):
+        return False
+
+    distance_tolerance_miles = max(
+        0.0,
+        _param_float(params, "distance_merge_tolerance_miles", 1.5),
+    )
+    if not _distance_delta_ok(
+        left,
+        right,
+        tolerance_miles=distance_tolerance_miles,
+    ):
+        return False
+
+    min_ratio = min(
+        1.0,
+        max(0.0, _param_float(params, "waypoint_merge_min_ratio", 0.75)),
+    )
+    cell_ratio = _waypoint_cell_ratio(
+        left.get("fingerprint"),
+        right.get("fingerprint"),
+        cell_tolerance=_param_int(params, "waypoint_merge_cell_tolerance", 1),
+    )
+    if cell_ratio >= min_ratio:
+        return True
+
+    waypoint_count = max(1, _param_int(params, "waypoint_count", 4))
+    stats = _geometry_distance_stats_m(
+        left.get("rep_geometry"),
+        right.get("rep_geometry"),
+        waypoint_count=waypoint_count,
+    )
+    if stats is None:
+        return False
+
+    avg_m, max_m = stats
+    waypoint_cell_m = max(1.0, _param_float(params, "waypoint_cell_size_m", 650.0))
+    return avg_m <= waypoint_cell_m and max_m <= waypoint_cell_m * 2.5
+
+
+def _merge_group(target: dict[str, Any], source: dict[str, Any]) -> None:
+    target["trip_ids"].extend(source.get("trip_ids") or [])
+    target["start_labels"].update(source.get("start_labels") or Counter())
+    target["end_labels"].update(source.get("end_labels") or Counter())
+    target["start_place_ids"].update(source.get("start_place_ids") or Counter())
+    target["end_place_ids"].update(source.get("end_place_ids") or Counter())
+
+    target["start_sum"][0] += source.get("start_sum", [0.0, 0.0])[0]
+    target["start_sum"][1] += source.get("start_sum", [0.0, 0.0])[1]
+    target["start_count"] += int(source.get("start_count") or 0)
+    target["end_sum"][0] += source.get("end_sum", [0.0, 0.0])[0]
+    target["end_sum"][1] += source.get("end_sum", [0.0, 0.0])[1]
+    target["end_count"] += int(source.get("end_count") or 0)
+
+    target["vehicle_imeis"].update(source.get("vehicle_imeis") or set())
+    target["distances"].extend(source.get("distances") or [])
+    target["durations"].extend(source.get("durations") or [])
+    target["fuel"].extend(source.get("fuel") or [])
+    target["costs"].extend(source.get("costs") or [])
+
+    source_max_speed = source.get("max_speed_max")
+    if isinstance(source_max_speed, int | float):
+        target_max_speed = target.get("max_speed_max")
+        target["max_speed_max"] = (
+            float(source_max_speed)
+            if target_max_speed is None
+            else max(float(target_max_speed), float(source_max_speed))
+        )
+
+    source_first = source.get("first_start_time")
+    if source_first and (
+        target.get("first_start_time") is None
+        or source_first < target.get("first_start_time")
+    ):
+        target["first_start_time"] = source_first
+
+    source_last = source.get("last_start_time")
+    if source_last and (
+        target.get("last_start_time") is None
+        or source_last > target.get("last_start_time")
+    ):
+        target["last_start_time"] = source_last
+
+    source_rep_start = source.get("rep_start_time")
+    target_rep_start = target.get("rep_start_time")
+    if source_rep_start and (
+        target_rep_start is None or source_rep_start > target_rep_start
+    ):
+        target["rep_trip_id"] = source.get("rep_trip_id")
+        target["rep_start_time"] = source_rep_start
+        target["rep_geometry"] = source.get("rep_geometry")
+        target["rep_preview"] = source.get("rep_preview")
+
+    target["merged_route_keys"].update(
+        source.get("merged_route_keys") or {source.get("route_key")},
+    )
+    target["merged_signatures"].update(
+        source.get("merged_signatures") or {source.get("route_signature")},
+    )
+
+
+def _point_to_cell(
+    point: list[float] | None, cell_size_m: float
+) -> tuple[int, int] | None:
+    if not point:
+        return None
+    try:
+        x_m, y_m = lonlat_to_mercator_m(point[0], point[1])
+        return grid_cell(x_m, y_m, cell_size_m)
+    except Exception:
+        return None
+
+
+def _endpoint_key_options(
+    place_id: str | None,
+    cell: tuple[int, int] | None,
+) -> list[str]:
+    keys: list[str] = []
+    if place_id:
+        keys.append(f"p:{place_id}")
+    if cell:
+        x, y = cell
+        keys.extend(
+            f"c:{x + dx}:{y + dy}"
+            for dx in range(-1, 2)
+            for dy in range(-1, 2)
+        )
+    return keys or ["unknown"]
+
+
+def _group_index_keys(group: dict[str, Any], params: dict[str, Any]) -> list[str]:
+    fingerprint: RouteFingerprint | None = group.get("fingerprint")
+    cell_size_m = max(1.0, _param_float(params, "start_end_cell_size_m", 200.0))
+    start_place_id = _best_place_id(group.get("start_place_ids") or Counter(), {})
+    end_place_id = _best_place_id(group.get("end_place_ids") or Counter(), {})
+    start_cell = fingerprint.start_cell if fingerprint else None
+    end_cell = fingerprint.end_cell if fingerprint else None
+    start_cell = start_cell or _point_to_cell(
+        _group_centroid(group, prefix="start"), cell_size_m
+    )
+    end_cell = end_cell or _point_to_cell(
+        _group_centroid(group, prefix="end"), cell_size_m
+    )
+
+    return [
+        f"s:{start_key}|e:{end_key}"
+        for start_key in _endpoint_key_options(start_place_id, start_cell)
+        for end_key in _endpoint_key_options(end_place_id, end_cell)
+    ]
+
+
+def _merge_similar_groups(
+    groups: dict[str, dict[str, Any]],
+    params: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    ordered = sorted(
+        groups.values(),
+        key=lambda group: (
+            -_group_trip_count(group),
+            str(group.get("route_key") or ""),
+        ),
+    )
+    merged: list[dict[str, Any]] = []
+    index: dict[str, list[int]] = {}
+
+    for group in ordered:
+        candidate_indices: set[int] = set()
+        for index_key in _group_index_keys(group, params):
+            candidate_indices.update(index.get(index_key, []))
+
+        best_idx: int | None = None
+        best_count = -1
+        for candidate_idx in candidate_indices:
+            candidate = merged[candidate_idx]
+            if not _groups_are_mergeable(candidate, group, params):
+                continue
+            candidate_count = _group_trip_count(candidate)
+            if candidate_count > best_count:
+                best_idx = candidate_idx
+                best_count = candidate_count
+
+        if best_idx is None:
+            merged.append(group)
+            group_idx = len(merged) - 1
+            for index_key in _group_index_keys(group, params):
+                index.setdefault(index_key, []).append(group_idx)
+            continue
+
+        target = merged[best_idx]
+        old_index_keys = set(_group_index_keys(target, params))
+        _merge_group(target, group)
+        for index_key in set(_group_index_keys(target, params)) - old_index_keys:
+            index.setdefault(index_key, []).append(best_idx)
+
+    return {str(group["route_key"]): group for group in merged}
+
+
+def _route_endpoint_compatible(
+    group: dict[str, Any],
+    route: RecurringRoute,
+    *,
+    prefix: str,
+    tolerance_m: float,
+) -> bool:
+    field = "start_place_ids" if prefix == "start" else "end_place_ids"
+    route_place_id = (
+        coerce_place_id(route.start_place_id)
+        if prefix == "start"
+        else coerce_place_id(route.end_place_id)
+    )
+    group_place_id = _best_place_id(group.get(field) or Counter(), {})
+    if route_place_id and group_place_id:
+        return route_place_id == group_place_id
+
+    route_centroid = route.start_centroid if prefix == "start" else route.end_centroid
+    group_centroid = _group_centroid(group, prefix=prefix)
+    distance = _point_distance_m(route_centroid, group_centroid)
+    return distance is not None and distance <= tolerance_m
+
+
+def _route_candidate_score(
+    group: dict[str, Any],
+    route: RecurringRoute,
+    params: dict[str, Any],
+) -> float | None:
+    endpoint_tolerance_m = max(
+        1.0,
+        _param_float(params, "route_identity_match_tolerance_m", 750.0),
+    )
+    if not _route_endpoint_compatible(
+        group,
+        route,
+        prefix="start",
+        tolerance_m=endpoint_tolerance_m,
+    ):
+        return None
+    if not _route_endpoint_compatible(
+        group,
+        route,
+        prefix="end",
+        tolerance_m=endpoint_tolerance_m,
+    ):
+        return None
+
+    distance_tolerance_miles = max(
+        0.0,
+        _param_float(params, "distance_merge_tolerance_miles", 1.5),
+    )
+    group_distance = _median(group.get("distances") or [])
+    route_distance = route.distance_miles_median or route.distance_miles_avg
+    if (
+        group_distance is not None
+        and isinstance(route_distance, int | float)
+        and abs(group_distance - float(route_distance)) > distance_tolerance_miles
+    ):
+        return None
+
+    waypoint_count = max(1, _param_int(params, "waypoint_count", 4))
+    stats = _geometry_distance_stats_m(
+        group.get("rep_geometry"),
+        route.geometry,
+        waypoint_count=waypoint_count,
+    )
+    if stats is None:
+        has_group_places = bool(group.get("start_place_ids")) and bool(
+            group.get("end_place_ids"),
+        )
+        has_route_places = bool(route.start_place_id) and bool(route.end_place_id)
+        return 25.0 if has_group_places and has_route_places else None
+
+    avg_m, max_m = stats
+    if avg_m > endpoint_tolerance_m or max_m > endpoint_tolerance_m * 2.5:
+        return None
+    return 100.0 - min(90.0, avg_m / 10.0)
+
+
+def _find_route_identity_candidate(
+    group: dict[str, Any],
+    routes: list[RecurringRoute],
+    *,
+    used_route_ids: set[PydanticObjectId],
+    params: dict[str, Any],
+    current_keys: set[str],
+) -> RecurringRoute | None:
+    best_route: RecurringRoute | None = None
+    best_score: float | None = None
+    for route in routes:
+        if route.id is None or route.id in used_route_ids:
+            continue
+        if route.route_key in current_keys:
+            continue
+        score = _route_candidate_score(group, route, params)
+        if score is None:
+            continue
+        if best_score is None or score > best_score:
+            best_route = route
+            best_score = score
+    return best_route
+
+
 async def _job_cancelled(job: Job | None) -> bool:
     if not job or not job.id:
         return False
@@ -223,6 +717,7 @@ class RecurringRoutesBuilder:
 
             # Load gas fill-ups once for cost estimation.
             price_map = await TripCostService.get_fillup_price_map()
+            known_places = await Place.find_all().to_list()
 
             # route_key -> aggregation
             groups: dict[str, dict[str, Any]] = {}
@@ -250,9 +745,11 @@ class RecurringRoutesBuilder:
                     }
 
                 trip_dict = trip.model_dump()
-                signature = compute_route_signature(trip_dict, params)
-                if not signature:
+                _resolve_missing_endpoint_place_ids(trip_dict, known_places)
+                fingerprint = compute_route_fingerprint(trip_dict, params)
+                if not fingerprint:
                     continue
+                signature = fingerprint.signature
                 route_key = compute_route_key(signature)
 
                 transaction_id = (trip_dict.get("transactionId") or "").strip()
@@ -286,6 +783,9 @@ class RecurringRoutesBuilder:
                         "rep_start_time": None,
                         "rep_geometry": None,
                         "rep_preview": None,
+                        "fingerprint": fingerprint,
+                        "merged_route_keys": {route_key},
+                        "merged_signatures": {signature},
                     }
                     groups[route_key] = group
 
@@ -389,11 +889,22 @@ class RecurringRoutesBuilder:
                         },
                     )
 
+            exact_group_count = len(groups)
+            groups = _merge_similar_groups(groups, params)
+            merged_group_count = len(groups)
+
             await handle.update(
                 stage="grouping",
                 progress=60.0,
-                message=f"Grouping trips into routes... ({len(groups)} candidates)",
-                metadata_patch={"groups": len(groups)},
+                message=(
+                    "Grouping trips into routes... "
+                    f"({merged_group_count} candidates from {exact_group_count} fingerprints)"
+                ),
+                metadata_patch={
+                    "exact_groups": exact_group_count,
+                    "groups": merged_group_count,
+                    "merged_groups": max(0, exact_group_count - merged_group_count),
+                },
             )
 
             min_assign = max(1, int(params.get("min_assign_trips") or 2))
@@ -420,6 +931,7 @@ class RecurringRoutesBuilder:
                 for k, g in groups.items()
                 if len(g.get("trip_ids") or []) >= min_assign
             ]
+            eligible_key_set = set(eligible_keys)
 
             await handle.update(
                 stage="upserting_routes",
@@ -428,17 +940,18 @@ class RecurringRoutesBuilder:
                 metadata_patch={"eligible_routes": len(eligible_keys)},
             )
 
-            existing_routes = (
-                await RecurringRoute.find(
-                    In(RecurringRoute.route_key, eligible_keys),
-                ).to_list()
-                if eligible_keys
-                else []
+            all_existing_routes = (
+                await RecurringRoute.find({}).to_list() if eligible_keys else []
             )
-            existing_by_key = {r.route_key: r for r in existing_routes if r.route_key}
+            existing_by_key = {
+                r.route_key: r
+                for r in all_existing_routes
+                if r.route_key in eligible_key_set
+            }
 
             seen_keys: set[str] = set()
             route_id_by_key: dict[str, Any] = {}
+            used_route_ids: set[PydanticObjectId] = set()
 
             created = 0
             updated = 0
@@ -507,8 +1020,17 @@ class RecurringRoutesBuilder:
                 preview = group.get("rep_preview")
 
                 route = existing_by_key.get(key)
+                if route is None:
+                    route = _find_route_identity_candidate(
+                        group,
+                        all_existing_routes,
+                        used_route_ids=used_route_ids,
+                        params=params,
+                        current_keys=eligible_key_set,
+                    )
                 if route:
                     # Preserve customization fields across rebuilds
+                    route.route_key = key
                     route.route_signature = str(
                         group.get("route_signature") or route.route_signature,
                     )
@@ -587,6 +1109,8 @@ class RecurringRoutesBuilder:
                     await route.insert()
                     created += 1
 
+                if route.id is not None:
+                    used_route_ids.add(route.id)
                 seen_keys.add(key)
                 route_id_by_key[key] = route.id
 
@@ -601,18 +1125,6 @@ class RecurringRoutesBuilder:
                         },
                     )
 
-            # Deactivate routes not seen in this run.
-            await handle.update(
-                stage="updating_inactive",
-                progress=85.0,
-                message="Marking inactive routes...",
-            )
-            routes_coll = RecurringRoute.get_pymongo_collection()
-            await routes_coll.update_many(
-                {"is_active": True, "route_key": {"$nin": list(seen_keys)}},
-                {"$set": {"is_active": False, "updated_at": now}},
-            )
-
             # Assignment step
             await handle.update(
                 stage="assigning_trips",
@@ -622,14 +1134,38 @@ class RecurringRoutesBuilder:
 
             trips_coll = Trip.get_pymongo_collection()
             await trips_coll.update_many(
-                # Keep the sparse index effective: sparse skips missing fields, not explicit nulls.
-                enforce_bouncie_source({"recurringRouteId": {"$exists": True}}),
-                {"$unset": {"recurringRouteId": ""}},
+                enforce_bouncie_source(
+                    {
+                        "$or": [
+                            {"recurringRoutePendingRouteId": {"$exists": True}},
+                            {"recurringRoutePendingBuildId": {"$exists": True}},
+                        ],
+                    },
+                ),
+                {
+                    "$unset": {
+                        "recurringRoutePendingRouteId": "",
+                        "recurringRoutePendingBuildId": "",
+                    },
+                },
             )
 
-            assigned = 0
+            staged = 0
+            assignment_build_id = str(job_id)
+            chunk_size = 500
             for idx, key in enumerate(eligible_keys, 1):
                 if idx % 25 == 0 and await _job_cancelled(progress):
+                    await trips_coll.update_many(
+                        enforce_bouncie_source(
+                            {"recurringRoutePendingBuildId": assignment_build_id},
+                        ),
+                        {
+                            "$unset": {
+                                "recurringRoutePendingRouteId": "",
+                                "recurringRoutePendingBuildId": "",
+                            },
+                        },
+                    )
                     await handle.update(
                         status="cancelled",
                         stage="cancelled",
@@ -650,33 +1186,119 @@ class RecurringRoutesBuilder:
                 if not trip_ids:
                     continue
 
-                chunk_size = 500
                 for start in range(0, len(trip_ids), chunk_size):
                     chunk = trip_ids[start : start + chunk_size]
                     result = await trips_coll.update_many(
                         enforce_bouncie_source({"transactionId": {"$in": chunk}}),
-                        {"$set": {"recurringRouteId": route_id}},
+                        {
+                            "$set": {
+                                "recurringRoutePendingRouteId": route_id,
+                                "recurringRoutePendingBuildId": assignment_build_id,
+                            },
+                        },
+                    )
+                    staged += int(getattr(result, "modified_count", 0) or 0)
+
+                if len(eligible_keys) > 0 and idx % 20 == 0:
+                    pct = 85.0 + (idx / len(eligible_keys)) * 7.0
+                    await handle.update(
+                        progress=pct,
+                        message=f"Staging trip assignments... ({idx}/{len(eligible_keys)})",
+                        metadata_patch={"trips_staged": staged},
+                    )
+
+            await handle.update(
+                stage="finalizing_assignments",
+                progress=92.0,
+                message="Finalizing trip route assignments...",
+                metadata_patch={"trips_staged": staged},
+            )
+
+            assigned = 0
+            for idx, key in enumerate(eligible_keys, 1):
+                route_id = route_id_by_key.get(key)
+                if not route_id:
+                    continue
+                trip_ids = list(groups[key].get("trip_ids") or [])
+                if not trip_ids:
+                    continue
+
+                for start in range(0, len(trip_ids), chunk_size):
+                    chunk = trip_ids[start : start + chunk_size]
+                    result = await trips_coll.update_many(
+                        enforce_bouncie_source(
+                            {
+                                "transactionId": {"$in": chunk},
+                                "recurringRoutePendingBuildId": assignment_build_id,
+                            },
+                        ),
+                        {
+                            "$set": {
+                                "recurringRouteId": route_id,
+                                "recurringRouteBuildId": assignment_build_id,
+                            },
+                            "$unset": {
+                                "recurringRoutePendingRouteId": "",
+                                "recurringRoutePendingBuildId": "",
+                            },
+                        },
                     )
                     assigned += int(getattr(result, "modified_count", 0) or 0)
 
                 if len(eligible_keys) > 0 and idx % 20 == 0:
-                    pct = 85.0 + (idx / len(eligible_keys)) * 15.0
+                    pct = 92.0 + (idx / len(eligible_keys)) * 4.0
                     await handle.update(
                         progress=pct,
-                        message=f"Assigning trips... ({idx}/{len(eligible_keys)})",
+                        message=f"Finalizing assignments... ({idx}/{len(eligible_keys)})",
                         metadata_patch={"trips_assigned": assigned},
                     )
+
+            stale_result = await trips_coll.update_many(
+                enforce_bouncie_source(
+                    {
+                        "recurringRouteId": {"$exists": True},
+                        "recurringRouteBuildId": {"$ne": assignment_build_id},
+                    },
+                ),
+                {
+                    "$set": {"recurringRouteBuildId": assignment_build_id},
+                    "$unset": {
+                        # Keep the sparse index effective: sparse skips missing
+                        # fields, not explicit nulls.
+                        "recurringRouteId": "",
+                        "recurringRoutePendingRouteId": "",
+                        "recurringRoutePendingBuildId": "",
+                    },
+                },
+            )
+            unassigned = int(getattr(stale_result, "modified_count", 0) or 0)
+
+            # Deactivate routes not seen only after assignments have finalized.
+            await handle.update(
+                stage="updating_inactive",
+                progress=98.0,
+                message="Marking inactive routes...",
+            )
+            routes_coll = RecurringRoute.get_pymongo_collection()
+            await routes_coll.update_many(
+                {"is_active": True, "route_key": {"$nin": list(seen_keys)}},
+                {"$set": {"is_active": False, "updated_at": now}},
+            )
 
             result = {
                 "status": "success",
                 "total_trips": total_trips,
                 "processed_trips": processed,
                 "usable_trips": usable,
+                "exact_groups": exact_group_count,
+                "merged_groups": max(0, exact_group_count - merged_group_count),
                 "eligible_routes": len(eligible_keys),
                 "routes_created": created,
                 "routes_updated": updated,
                 "routes_active": len(seen_keys),
+                "trips_staged": staged,
                 "trips_assigned": assigned,
+                "trips_unassigned": unassigned,
                 "updated_at": now.isoformat(),
             }
 

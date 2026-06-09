@@ -122,6 +122,9 @@ class Trip(Document):
 
     # Recurring route association (computed locally from stored trip data)
     recurringRouteId: PydanticObjectId | None = None
+    recurringRouteBuildId: str | None = None
+    recurringRoutePendingRouteId: PydanticObjectId | None = None
+    recurringRoutePendingBuildId: str | None = None
 
     # Validation fields
     invalid: bool | None = None
