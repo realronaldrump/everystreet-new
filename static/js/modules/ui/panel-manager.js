@@ -18,6 +18,14 @@ const panelManager = {
     }
     panel.style.transition = `transform ${this.transitionDuration}ms ease-in-out`;
     panel.classList.remove(CONFIG.UI.classes.open);
+    const toggle = store.getElement(CONFIG.UI.selectors.menuToggle);
+    if (toggle) {
+      toggle.setAttribute("aria-expanded", "false");
+      // Return focus to the trigger when the drawer was focused.
+      if (panel.contains(document.activeElement)) {
+        toggle.focus();
+      }
+    }
     if (overlay) {
       await utils.fadeOut(overlay, this.transitionDuration);
     }
@@ -48,6 +56,11 @@ const panelManager = {
       await utils.fadeIn(overlay, this.transitionDuration / 2);
     }
     panel.classList.add(CONFIG.UI.classes.open);
+    const toggle = store.getElement(CONFIG.UI.selectors.menuToggle);
+    toggle?.setAttribute("aria-expanded", "true");
+    // Move focus into the drawer for keyboard/screen-reader users.
+    const closeBtn = panel.querySelector(CONFIG.UI.selectors.closeBtn);
+    closeBtn?.focus();
   },
 
   toggle(type) {

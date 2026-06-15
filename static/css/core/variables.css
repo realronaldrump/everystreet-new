@@ -175,7 +175,12 @@
   --card-padding-lg: clamp(1.25rem, 2.1vw, 2rem);
 
   /* Layout */
-  --header-height: 64px;
+  /* Visual bar is 64px; on notched devices the header also covers the top
+     safe-area inset so its content is not clipped under the status bar/notch.
+     Every consumer that offsets content below the header references this var,
+     so baking the inset in here keeps the whole app aligned in one place. */
+  --header-bar-height: 64px;
+  --header-height: calc(var(--header-bar-height) + env(safe-area-inset-top, 0px));
   --content-max-width: 1440px;
   --sidebar-width: 280px;
   --panel-width: 360px;

@@ -264,7 +264,9 @@ function attachZoomPan(chart) {
   chart.canvas.addEventListener("pointerup", handlePointerUp);
   chart.canvas.addEventListener("pointercancel", handlePointerCancel);
   chart.canvas.addEventListener("touchstart", handleTouchStart, { passive: true });
-  chart.canvas.addEventListener("touchmove", handleTouchMove);
+  // handleTouchMove never calls preventDefault (it only reacts to 2-finger
+  // pinch), so mark it passive to keep single-finger page scroll smooth.
+  chart.canvas.addEventListener("touchmove", handleTouchMove, { passive: true });
 
   return () => {
     chart.canvas.removeEventListener("wheel", handleWheel);
