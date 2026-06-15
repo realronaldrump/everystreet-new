@@ -659,14 +659,24 @@ class VisitsPageController {
     const totalVisits = allStats.reduce((sum, s) => sum + (s.totalVisits || 0), 0);
     const monthVisits = monthStats.reduce((sum, s) => sum + (s.totalVisits || 0), 0);
 
-    this.elements.totalPlacesCount.textContent = totalPlaces;
-    this.elements.totalVisitsCount.textContent = totalVisits;
-    this.elements.monthVisitsCount.textContent = monthVisits;
+    if (this.elements.totalPlacesCount) {
+      this.elements.totalPlacesCount.textContent = totalPlaces;
+    }
+    if (this.elements.totalVisitsCount) {
+      this.elements.totalVisitsCount.textContent = totalVisits;
+    }
+    if (this.elements.monthVisitsCount) {
+      this.elements.monthVisitsCount.textContent = monthVisits;
+    }
   }
 
   // Rendering
   renderPlaces() {
     this.clearPlacePreviewMaps();
+
+    if (!this.elements.placesGrid || !this.elements.placesEmptyState) {
+      return;
+    }
 
     if (this.placesStats.length === 0) {
       this.elements.placesGrid.style.display = "none";

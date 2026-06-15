@@ -409,8 +409,13 @@ export function formatTimeFromHours(hours) {
   if (hours === null || hours === undefined) {
     return "--:--";
   }
-  const h = Math.floor(hours);
-  const m = Math.round((hours - h) * 60);
+  let h = Math.floor(hours);
+  let m = Math.round((hours - h) * 60);
+  if (m === 60) {
+    h += 1;
+    m = 0;
+  }
+  h %= 24;
   const displayHour = h % 12 === 0 ? 12 : h % 12;
   const amPm = h < 12 ? "AM" : "PM";
   return `${displayHour}:${m.toString().padStart(2, "0")} ${amPm}`;
@@ -590,7 +595,7 @@ export function formatWeekRange(weekStr) {
   const [year, week] = weekStr.split("-W");
   const simple = new Date(parseInt(year, 10), 0, 1 + (parseInt(week, 10) - 1) * 7);
   const dow = simple.getDay();
-  const ISOweekStart = simple;
+  const ISOweekStart = new Date(simple);
   if (dow <= 4) {
     ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
   } else {
@@ -601,7 +606,13 @@ export function formatWeekRange(weekStr) {
   ISOweekEnd.setDate(ISOweekEnd.getDate() + 6);
 
   const options = { month: "short", day: "numeric" };
-  return `${ISOweekStart.toLocaleDateString("en-US", options)}-${ISOweekEnd.getDate()}, ${year}`;
+  const startStr = ISOweekStart.toLocaleDateString("en-US", options);
+  // When the week spans a month boundary, show the month on the end date too.
+  const endStr =
+    ISOweekStart.getMonth() === ISOweekEnd.getMonth()
+      ? ISOweekEnd.getDate()
+      : ISOweekEnd.toLocaleDateString("en-US", options);
+  return `${startStr}-${endStr}, ${year}`;
 }
 
 /**

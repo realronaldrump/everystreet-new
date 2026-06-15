@@ -1252,7 +1252,7 @@ function getClientVisibleTrips() {
 
 function getRenderableTrips() {
   const searchValue = document.getElementById("trip-search-input")?.value?.trim() || "";
-  if (searchValue || tripsData.length > 0) {
+  if (searchValue || filteredTrips.length > 0) {
     return filteredTrips;
   }
   return tripsData;
@@ -1458,7 +1458,15 @@ async function loadTrips() {
       updateFilterResultsPreview();
     } else {
       hideEmptyState();
-      renderTrips(tripsData);
+      // Preserve any active client-side search across reloads (sort, pagination,
+      // filter-chip removal, sync completion) instead of silently dropping it.
+      const activeSearch =
+        document.getElementById("trip-search-input")?.value?.trim() || "";
+      if (activeSearch) {
+        performSearch(activeSearch);
+      } else {
+        renderTrips(tripsData);
+      }
       updatePagination();
 
       // Update stats based on filtered results
@@ -1824,7 +1832,7 @@ function createTripTableRow(trip, columns) {
 
 function bindTripTableHeaderSorting() {
   document.querySelectorAll(".trip-table-sort-btn").forEach((button) => {
-    button.addEventListener("click", () => {
+    bindPageEvent(button, "click", () => {
       const { sortKey } = button.dataset;
       if (!sortKey) {
         return;
@@ -3564,6 +3572,10 @@ async function loadTripData(tripId) {
 
   try {
     const data = await apiGet(CONFIG.API.tripById(tripId));
+    // Guard against a stale response after the user switched to another trip.
+    if (currentTripId !== tripId) {
+      return;
+    }
     const trip = data.trip || data;
     currentTripData = trip;
 
@@ -3619,20 +3631,20 @@ function updateModalContent(trip) {
   const endEl = document.getElementById("modal-end-loc");
 
   if (distanceEl) {
-    distanceEl.textContent = trip.distance
-      ? `${parseFloat(trip.distance).toFixed(2)} mi`
-      : "--";
+    const distance = toFiniteNumber(trip.distance);
+    distanceEl.textContent = distance === null ? "--" : `${distance.toFixed(2)} mi`;
   }
   if (durationEl) {
-    durationEl.textContent = trip.duration ? formatDuration(trip.duration) : "--";
+    const duration = toFiniteNumber(trip.duration);
+    durationEl.textContent = duration === null ? "--" : formatDuration(duration);
   }
   if (speedEl) {
-    speedEl.textContent = trip.maxSpeed ? `${Math.round(trip.maxSpeed)} mph` : "--";
+    const maxSpeed = toFiniteNumber(trip.maxSpeed);
+    speedEl.textContent = maxSpeed === null ? "--" : `${Math.round(maxSpeed)} mph`;
   }
   if (fuelEl) {
-    fuelEl.textContent = trip.fuelConsumed
-      ? `${parseFloat(trip.fuelConsumed).toFixed(2)} gal`
-      : "--";
+    const fuel = toFiniteNumber(trip.fuelConsumed);
+    fuelEl.textContent = fuel === null ? "--" : `${fuel.toFixed(2)} gal`;
   }
   if (costEl) {
     costEl.textContent = formatCurrency(trip.estimated_cost);
