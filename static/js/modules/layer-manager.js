@@ -1,19 +1,16 @@
 /**
- * LayerManager - Map Layer Rendering and Controls
+ * LayerManager - Map Layer Rendering
  *
  * This module handles:
  * - Layer creation and updates on the map
  * - Layer visibility toggling with fade animations
- * - Layer controls UI (toggles, color pickers)
  * - Heatmap rendering with dynamic opacity
- * - Drag-and-drop layer reordering
  * - Trip interaction hitbox layers
  *
  * Note: This module does NOT fetch data - it only renders provided data.
  * Data fetching is handled by data-manager.js
  */
 
-import { CONFIG } from "./core/config.js";
 import store from "./core/store.js";
 import heatmapUtils from "./heatmap-utils.js";
 import MapStyles from "./map-styles.js";
@@ -27,7 +24,7 @@ const DECK_TRIP_LAYERS = new Set(["trips", "matchedTrips"]);
 // Animation constants
 const FADE_DURATION = 320;
 const COVERAGE_OVERLAY_LAYER_NAME = "coverageAreaBoundingBox";
-const SMART_LEGEND_UPDATE_EVENT = "es:smart-legend-update";
+const LAYERS_CHANGE_EVENT = "es:layers-change";
 const COVERAGE_OUTSIDE_MASK_WORLD_RING = [
   [-180, -85],
   [180, -85],
@@ -45,7 +42,7 @@ const layerManager = {
   _cachedFirstSymbolLayerId: null,
 
   _notifyLegendChanged() {
-    document.dispatchEvent(new CustomEvent(SMART_LEGEND_UPDATE_EVENT));
+    document.dispatchEvent(new CustomEvent(LAYERS_CHANGE_EVENT));
   },
 
   _isDeckTripBundleLayer(layerName, layerInfo = store.mapLayers[layerName]) {
@@ -318,256 +315,6 @@ const layerManager = {
   },
 
   // ============================================================
-  // Layer Controls UI
-  // ============================================================
-
-  /**
-   * Initialize layer control UI elements
-   */
-  initializeControls() {
-    const container = utils.getElement("layer-toggles");
-    if (!container) {
-      return;
-    }
-
-    // Load saved layer settings
-    const settings = utils.getStorage(CONFIG.STORAGE_KEYS.layerSettings) || {};
-    Object.entries(settings).forEach(([name, layerSettings]) => {
-      if (store.mapLayers[name]) {
-        const persistedLayerSettings =
-          layerSettings && typeof layerSettings === "object" ? layerSettings : {};
-        const {
-          opacity: _persistedOpacity,
-          isHeatmap: _persistedIsHeatmap,
-          ...visibleLayerSettings
-        } = persistedLayerSettings;
-        Object.assign(store.mapLayers[name], visibleLayerSettings);
-      }
-    });
-
-    container.innerHTML = "";
-    const fragment = document.createDocumentFragment();
-
-    // Exclude street layers - they're controlled by radio buttons
-    const streetLayers = [
-      "undrivenStreets",
-      "drivenStreets",
-      "allStreets",
-      "coverageAreaBoundingBox",
-    ];
-
-    // Sort layers by order
-    const sortedLayers = Object.entries(store.mapLayers)
-      .filter(([name]) => !streetLayers.includes(name))
-      .sort(([, a], [, b]) => (a.order || 0) - (b.order || 0));
-
-    sortedLayers.forEach(([name, info]) => {
-      const div = document.createElement("div");
-      div.className = "layer-control d-flex align-items-center mb-2 p-2 rounded";
-      div.dataset.layerName = name;
-      div.draggable = true;
-      div.style.cursor = "move";
-
-      const checkboxId = `${name}-toggle`;
-      const supportsColorPicker =
-        info.supportsColorPicker !== false && name !== "customPlaces";
-      const colorValue = typeof info.color === "string" ? info.color : "#faf9f7";
-
-      const controls = [];
-
-      if (supportsColorPicker) {
-        controls.push(`
-          <input type="color" id="${name}-color" value="${colorValue}"
-                 class="form-control form-control-color me-2"
-                 style="width: 30px; height: 30px; padding: 2px;"
-                 title="Layer color">
-        `);
-      }
-
-      div.innerHTML = `
-        <i class="fas fa-grip-vertical me-2 text-secondary" style="cursor: move;" aria-hidden="true"></i>
-        <div class="form-check form-switch me-auto">
-          <input class="form-check-input" type="checkbox" id="${checkboxId}"
-                 ${info.visible ? "checked" : ""} role="switch">
-          <label class="form-check-label" for="${checkboxId}">
-            ${info.name || name}
-            <span class="layer-loading d-none" id="${name}-loading"></span>
-          </label>
-        </div>
-        ${controls.join("")}
-      `;
-
-      // Set initial disabled state for controls when layer is off
-      if (!info.visible) {
-        div.classList.add("layer-disabled");
-        div.querySelectorAll('input[type="color"]').forEach((el) => {
-          el.disabled = true;
-        });
-      }
-
-      fragment.appendChild(div);
-    });
-
-    container.appendChild(fragment);
-    this._setupControlEventListeners(container);
-    this._setupDragAndDrop(container);
-    this.syncVisibilityToStore();
-  },
-
-  /**
-   * Set up event listeners for layer controls
-   * @private
-   */
-  _setupControlEventListeners(container) {
-    container.addEventListener(
-      "change",
-      utils.debounce((e) => {
-        const input = e.target;
-        const layerName = input.closest(".layer-control")?.dataset.layerName;
-        if (!layerName) {
-          return;
-        }
-
-        if (input.type === "checkbox") {
-          this.toggleLayer(layerName, input.checked);
-          // Disable/enable sibling controls
-          const row = input.closest(".layer-control");
-          if (row) {
-            row.classList.toggle("layer-disabled", !input.checked);
-            row.querySelectorAll('input[type="color"]').forEach((el) => {
-              el.disabled = !input.checked;
-            });
-          }
-        } else if (input.type === "color") {
-          this.updateLayerStyle(layerName, "color", input.value);
-        }
-
-        this.saveLayerSettings();
-      }, 200)
-    );
-  },
-
-  /**
-   * Set up drag and drop for layer reordering
-   * @private
-   */
-  _setupDragAndDrop(container) {
-    let draggedElement = null;
-
-    container.addEventListener("dragstart", (e) => {
-      const { target } = e;
-      // Prevent drag on interactive elements
-      if (
-        target.tagName === "INPUT" ||
-        target.tagName === "LABEL" ||
-        target.closest("input") ||
-        target.closest("label") ||
-        target.closest("button")
-      ) {
-        e.preventDefault();
-        return;
-      }
-
-      draggedElement = target.closest(".layer-control");
-      if (draggedElement) {
-        draggedElement.classList.add("dragging");
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/html", draggedElement.outerHTML);
-      }
-    });
-
-    container.addEventListener("dragend", () => {
-      if (draggedElement) {
-        draggedElement.classList.remove("dragging");
-        draggedElement = null;
-        this._reorderLayersFromUI();
-      }
-    });
-
-    container.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-
-      if (!draggedElement) {
-        return;
-      }
-
-      const afterElement = this._getDragAfterElement(container, e.clientY);
-      if (afterElement == null) {
-        container.appendChild(draggedElement);
-      } else {
-        container.insertBefore(draggedElement, afterElement);
-      }
-    });
-
-    container.addEventListener("drop", (e) => {
-      e.preventDefault();
-    });
-  },
-
-  /**
-   * Get element to insert dragged element after
-   * @private
-   */
-  _getDragAfterElement(container, y) {
-    const draggableElements = [
-      ...container.querySelectorAll(".layer-control:not(.dragging)"),
-    ];
-
-    return draggableElements.reduce(
-      (closest, child) => {
-        const box = child.getBoundingClientRect();
-        const offset = y - box.top - box.height / 2;
-
-        if (offset < 0 && offset > closest.offset) {
-          return { offset, element: child };
-        }
-        return closest;
-      },
-      { offset: Number.NEGATIVE_INFINITY }
-    ).element;
-  },
-
-  /**
-   * Reorder map layers based on UI order
-   * @private
-   */
-  _reorderLayersFromUI() {
-    const container = utils.getElement("layer-toggles");
-    if (!container) {
-      return;
-    }
-
-    // Update order in state
-    Array.from(container.children).forEach((item, index) => {
-      const { layerName } = item.dataset;
-      if (store.mapLayers[layerName]) {
-        store.mapLayers[layerName].order = index;
-      }
-    });
-
-    // Reorder layers on map
-    if (store.map && store.mapInitialized) {
-      const sortedLayers = Object.entries(store.mapLayers).sort(
-        ([, a], [, b]) => (b.order || 0) - (a.order || 0)
-      );
-
-      let beforeLayer = null;
-      sortedLayers.forEach(([name]) => {
-        const layerId = `${name}-layer`;
-        if (store.map.getLayer(layerId)) {
-          if (beforeLayer) {
-            store.map.moveLayer(layerId, beforeLayer);
-          }
-          beforeLayer = layerId;
-        }
-      });
-    }
-
-    this.saveLayerSettings();
-  },
-
-  // ============================================================
   // Heatmap Event Management
   // ============================================================
 
@@ -785,71 +532,6 @@ const layerManager = {
         visible ? "visible" : "none"
       );
     }
-  },
-
-  // ============================================================
-  // Layer Style Updates
-  // ============================================================
-
-  /**
-   * Update layer style property
-   * @param {string} name - Layer name
-   * @param {string} property - Property to update (color, opacity)
-   * @param {*} value - New value
-   */
-  updateLayerStyle(name, property, value) {
-    const layerInfo = store.mapLayers[name];
-    if (!layerInfo) {
-      return;
-    }
-
-    layerInfo[property] = value;
-
-    if (this._isDeckTripBundleLayer(name, layerInfo)) {
-      this._refreshDeckTripRenderer();
-      return;
-    }
-
-    // Handle heatmap layers (2 stacked glow layers)
-    if (layerInfo.isHeatmap) {
-      if (property === "opacity") {
-        const tripCount = layerInfo.layer?.features?.length || 0;
-        const visibleTripCount = this._getHeatmapTripCountInView(name, tripCount);
-        const opacities = heatmapUtils.getUpdatedOpacities(visibleTripCount, value);
-
-        for (let i = 0; i < 2; i++) {
-          const glowLayerId = `${name}-layer-${i}`;
-          if (store.map?.getLayer(glowLayerId)) {
-            store.map.setPaintProperty(glowLayerId, "line-opacity", opacities[i]);
-          }
-        }
-      }
-      return;
-    }
-
-    // Handle standard layers
-    const layerId = `${name}-layer`;
-    if (store.map?.getLayer(layerId)) {
-      const paintProperty = property === "color" ? "line-color" : "line-opacity";
-      store.map.setPaintProperty(layerId, paintProperty, value);
-    }
-
-    this._notifyLegendChanged();
-  },
-
-  /**
-   * Save layer settings to storage
-   */
-  saveLayerSettings() {
-    const settings = {};
-    Object.entries(store.mapLayers).forEach(([name, info]) => {
-      settings[name] = {
-        visible: info.visible,
-        color: info.color,
-        order: info.order,
-      };
-    });
-    utils.setStorage(CONFIG.STORAGE_KEYS.layerSettings, settings);
   },
 
   async setTripLayerRenderMode(useHeatmap) {

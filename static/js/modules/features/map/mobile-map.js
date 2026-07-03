@@ -112,11 +112,11 @@ class MobileMapInterface {
   }
 
   cacheElements() {
-    this.sheet = document.getElementById("map-controls");
+    this.sheet = document.getElementById("atlas-rail");
     this.backdrop = document.querySelector(".mobile-sheet-backdrop");
     this.handle = this.sheet?.querySelector(".mobile-sheet-handle-container");
-    this.header = this.sheet?.querySelector(".control-panel-header");
-    this.sheetContent = this.sheet?.querySelector(".control-panel-body");
+    this.header = this.sheet?.querySelector(".atlas-rail-header");
+    this.sheetContent = this.sheet?.querySelector(".atlas-rail-body");
   }
 
   // ---------------------------------------------------------------------------

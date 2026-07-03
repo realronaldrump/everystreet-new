@@ -8,7 +8,6 @@ import "./modules/ui/notification-bell.js";
 import "./modules/ui/confirmation-dialog.js";
 import "./modules/ui/global-job-tracker.js";
 import "./modules/ui/scroll-reveal.js";
-import "./modules/ui/smart-legend.js";
 
 function markAppReady() {
   if (store.appReady) {

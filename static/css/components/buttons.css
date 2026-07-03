@@ -199,8 +199,6 @@
   border-radius: var(--radius-full);
 }
 
-/* Note: .btn-icon-only is defined in features/map/controls.css for control panel context */
-
 .btn-sm {
   padding: var(--space-1) var(--space-3);
   font-size: var(--font-size-xs);

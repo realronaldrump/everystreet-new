@@ -69,7 +69,7 @@ test("map coverage dropdown placeholder avoids bootstrap placeholder utility", (
     "css",
     "features",
     "map",
-    "controls.css"
+    "atlas-rail.css"
   );
 
   assert.match(

@@ -1,16 +1,20 @@
-/* Map Base */
+/* ============================================================
+   Map base — the atlas shell.
+   A docked editorial rail beside a full-bleed map plate.
+   Layout only; rail internals live in atlas-rail.css and the
+   on-map furniture (search, plate, popover) in map-plate.css.
+   ============================================================ */
 
-/* === Map Container & Wrapper === */
-.map-wrapper {
+.map-wrapper.atlas-shell {
+  --atlas-rail-width: clamp(300px, 24vw, 360px);
+
   flex-grow: 1;
   height: 100%;
   min-height: 0;
   display: flex;
+  align-items: stretch;
   position: relative;
   overflow: hidden;
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-md);
-  border: 1px solid var(--border-color);
 }
 
 /* Hero map — fully immersive on the /map route */
@@ -22,27 +26,35 @@ body[data-route="/map"] .map-wrapper {
 
 body[data-route="/map"] .main-content {
   padding-top: var(--header-height);
+  padding-bottom: 0;
+  overflow: hidden;
 }
 
 body[data-route="/map"] .persistent-shell {
   padding: 0;
   margin: 0;
+  min-height: 0;
 }
 
 body[data-route="/map"] .nav-breadcrumb {
   display: none;
 }
 
+body[data-route="/map"] .app-footer {
+  display: none;
+}
+
+/* === Map container === */
+#map.atlas-map,
 #map {
-  /* The Mapbox map container ID */
-  flex-grow: 1;
-  height: 100%; /* Ensure it fills its wrapper */
+  flex: 1 1 auto;
+  height: 100%;
   min-height: 0;
-  width: 100%;
-  position: relative; /* Anchor absolute children like #map-canvas + error overlays */
-  background-color: var(--surface-1); /* Default background */
+  min-width: 0;
+  position: relative; /* Anchor absolute children like #map-canvas + overlays */
+  background-color: var(--surface-1);
   z-index: var(--z-base);
-  outline: none; /* Remove focus outline from map container */
+  outline: none;
 }
 
 #map-canvas {
@@ -52,29 +64,30 @@ body[data-route="/map"] .nav-breadcrumb {
   width: 100%;
 }
 
-/* Prevent overscroll on map page to avoid interference with map controls */
+/* Gentle ease-in as tiles arrive — replaces the old cinematic intro */
+#map-canvas .mapboxgl-canvas {
+  animation: atlas-map-reveal 600ms ease-out both;
+}
+
+@keyframes atlas-map-reveal {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #map-canvas .mapboxgl-canvas {
+    animation: none;
+  }
+}
+
+/* Prevent overscroll on map page to avoid interference with map gestures */
 body.map-page {
   overscroll-behavior: none;
-}
-
-body[data-route="/map"] .main-content {
-  padding-bottom: 0;
-  overflow: hidden;
-}
-
-body[data-route="/map"] .persistent-shell {
-  min-height: 0;
-}
-
-body[data-route="/map"] .app-footer {
-  display: none;
-}
-
-/* Header adopts translucent glass treatment over the hero map */
-body[data-route="/map"] .app-header {
-  background: var(--glass-panel);
-  backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--glass-border-subtle);
 }
 
 /* === Map Init Error Overlay === */
@@ -91,10 +104,10 @@ body[data-route="/map"] .app-header {
 .map-init-error-card {
   width: min(560px, 100%);
   padding: var(--space-5);
-  border-radius: var(--radius-xl);
-  background: var(--glass-panel);
-  border: 1px solid var(--glass-border-subtle);
-  box-shadow: var(--shadow-glass-md);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg);
   color: var(--text-primary);
   text-align: center;
   pointer-events: auto;
@@ -134,14 +147,13 @@ body[data-route="/map"] .app-header {
 
 .mapboxgl-canvas.loading,
 .maplibregl-canvas.loading {
-  /* If Mapbox adds a loading class */
   opacity: 0.6;
 }
 
 .mapboxgl-marker,
 .maplibregl-marker {
   transition: transform 0.2s ease-out;
-  will-change: transform; /* Performance hint */
+  will-change: transform;
 }
 
 .mapboxgl-marker:hover,

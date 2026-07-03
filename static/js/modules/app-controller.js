@@ -10,14 +10,11 @@
  *
  * Initialization Flow:
  * 1. mapManager.initialize() → creates map via mapCore
- * 2. layerManager.initializeControls() → sets up layer UI
- * 3. layerManager.bindHeatmapEvents() → sets up heatmap refresh
- * 4. Wire up callbacks for cross-module communication
- * 5. Fetch initial data
- * 6. Set up UI event listeners
+ * 2. layerManager.bindHeatmapEvents() → sets up heatmap refresh
+ * 3. Wire up callbacks for cross-module communication
+ * 4. Fetch initial data
+ * 5. Set up UI event listeners
  */
-
-/* global bootstrap */
 
 import { CONFIG } from "./core/config.js";
 import { coverageBoundaryToFeatureCollection } from "./core/coverage-bounds.js";
@@ -33,7 +30,6 @@ import layerManager from "./layer-manager.js";
 import mapCore from "./map-core.js";
 import mapManager from "./map-manager.js";
 import searchManager from "./search-manager.js";
-import tripStatsWidget from "./trip-stats-widget.js";
 import confirmationDialog from "./ui/confirmation-dialog.js";
 import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
@@ -393,7 +389,6 @@ const AppController = {
         await this._applyTripLayerRenderModePreference();
 
         // Phase 2: Set up layer manager
-        layerManager.initializeControls();
         layerManager.bindHeatmapEvents();
 
         // Wire up callback for trip style refresh (avoids circular dependency)
@@ -408,7 +403,6 @@ const AppController = {
         await initializeLocationDropdown();
         initializeLiveTracker();
         searchManager.initialize();
-        tripStatsWidget.init();
 
         // Phase 4: Set up event listeners
         if (!this._listenersInitialized) {
@@ -583,12 +577,6 @@ const AppController = {
     if (persistentShell) {
       persistentShell.style.display = "";
     }
-
-    const controlsPanel = document.getElementById("map-controls");
-    if (controlsPanel) {
-      controlsPanel.style.display = "";
-      controlsPanel.style.visibility = "visible";
-    }
   },
 
   /**
@@ -614,33 +602,6 @@ const AppController = {
   // ============================================================
 
   setupEventListeners() {
-    // Controls toggle collapse icon
-    const controlsToggle = utils.getElement("controls-toggle");
-    const controlsContent = utils.getElement("controls-content");
-    if (controlsToggle && controlsContent) {
-      const collapse = new bootstrap.Collapse(controlsContent, { toggle: false });
-
-      controlsToggle.addEventListener("click", () => {
-        collapse.toggle();
-      });
-
-      controlsContent.addEventListener("shown.bs.collapse", () => {
-        const icon = controlsToggle.querySelector("i");
-        if (icon) {
-          icon.className = "fas fa-chevron-up";
-        }
-        controlsToggle.setAttribute("aria-expanded", "true");
-      });
-
-      controlsContent.addEventListener("hidden.bs.collapse", () => {
-        const icon = controlsToggle.querySelector("i");
-        if (icon) {
-          icon.className = "fas fa-chevron-down";
-        }
-        controlsToggle.setAttribute("aria-expanded", "false");
-      });
-    }
-
     // Location dropdown change
     const locationDropdown = utils.getElement("streets-location");
     if (locationDropdown) {

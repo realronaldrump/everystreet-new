@@ -48,14 +48,6 @@ export const CONFIG = {
       minZoom: 14.5,
       opacity: 0.7,
     },
-    cinematicIntro: {
-      enabled: true,
-      desktopOnly: true,
-      firstVisitOnly: true,
-      initialPitch: 60,
-      rotationDegPerSec: 0.25,
-      maxDurationMs: 12000,
-    },
   },
 
   // LocalStorage keys
@@ -74,7 +66,8 @@ export const CONFIG = {
     theme: "theme",
     mapView: "mapView",
     mapType: "mapType",
-    mapCinematicIntroSeen: "mapCinematicIntroSeen",
+    atlasLens: "mapAtlasLens",
+    atlasRailCollapsed: "mapAtlasRailCollapsed",
     map3dBuildingsEnabled: "map3dBuildingsEnabled",
     mapTerrainReliefEnabled: "mapTerrainReliefEnabled",
     mapTripsWithinCoverageOnly: "mapTripsWithinCoverageOnly",
@@ -259,10 +252,7 @@ export const CONFIG = {
       datePickerApply: "#date-picker-apply",
       datePickerReset: "#date-picker-reset",
       header: ".app-header",
-      mapControls: "#map-controls",
-      controlsToggle: "#controls-toggle",
-      controlsContent: "#controls-content",
-      toolsSection: ".tools-section",
+      mapControls: "#atlas-rail",
       mapTypeSelect: "#map-type-select",
     },
     classes: {

@@ -239,7 +239,7 @@ body[data-viewer-mode="true"] .owner-only {
   .loading-overlay,
   .control-panel,
   .btn,
-  #map-controls /* Hide specific map controls panel if it's different */ {
+  #atlas-rail /* Hide the map's atlas rail when printing */ {
     display: none;
   }
 

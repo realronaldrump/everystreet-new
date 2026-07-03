@@ -1,32 +1,17 @@
 import store from "../../core/store.js";
 import tripAnimator from "../../trip-animator.js";
 import tripMapRenderer from "../../trip-map-renderer.js";
-import initBuildings3D, {
-  getUserBuildingsPreference,
-  isMapbox3DStyleSupported,
-  MAP_3D_SETTING_EVENT,
-  setMap3dBuildingsPreference,
-} from "./buildings-3d.js";
-import initCinematicIntro from "./cinematic-intro.js";
+import initAtlasRail from "./atlas-rail.js";
+import initBasemapTreatment from "./basemap-treatment.js";
+import initBuildings3D from "./buildings-3d.js";
 import destinationBloom from "./destination-bloom.js";
-import initMapFabDock from "./fab-dock.js";
-import initMapControls from "./map-controls.js";
 import { initMobileMap } from "./mobile-map.js";
 import particleFlow from "./particle-flow.js";
-import routeArt from "./route-art.js";
-import initTerrainRelief, {
-  getTerrainReliefPreference,
-  isTerrainReliefSupported,
-  MAP_TERRAIN_RELIEF_SETTING_EVENT,
-  setTerrainReliefPreference,
-} from "./terrain-relief.js";
-import {
-  getTripLayerHeatmapPreference,
-  setTripLayerHeatmapPreference,
-  TRIP_LAYER_RENDER_MODE_EVENT,
-} from "./trip-layer-render-mode.js";
+import initPlateNotation from "./plate-notation.js";
+import initTerrainRelief from "./terrain-relief.js";
+import initViewPopover from "./view-popover.js";
 
-function setupMapTilt(signal, isCameraLocked = null) {
+function setupMapTilt(signal) {
   const prefersCoarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches;
   if (prefersCoarsePointer) {
     return;
@@ -43,9 +28,6 @@ function setupMapTilt(signal, isCameraLocked = null) {
   const applyTilt = () => {
     ticking = false;
     if (store.liveTracker?.followMode) {
-      return;
-    }
-    if (typeof isCameraLocked === "function" && isCameraLocked()) {
       return;
     }
     const scrollY = window.scrollY || 0;
@@ -147,11 +129,11 @@ function setupMapViewportSync() {
     teardownFns.push(() => observer.disconnect());
   }
 
-  const controlsPanel = document.getElementById("map-controls");
-  if (controlsPanel) {
-    bind(controlsPanel, "transitionend", (event) => {
+  const rail = document.getElementById("atlas-rail");
+  if (rail) {
+    bind(rail, "transitionend", (event) => {
       const prop = event?.propertyName || "";
-      if (prop === "transform" || prop === "height" || prop === "max-height") {
+      if (prop === "transform" || prop === "margin-left") {
         requestResize();
       }
     });
@@ -176,44 +158,7 @@ function setupMapViewportSync() {
   };
 }
 
-function setToggleState(button, isActive) {
-  if (!button) {
-    return;
-  }
-  button.classList.toggle("active", Boolean(isActive));
-  button.setAttribute("aria-pressed", String(Boolean(isActive)));
-  mapFabDockController?.sync?.();
-}
-
-function setToggleVisibility(button, isVisible) {
-  if (!button) {
-    return;
-  }
-  button.hidden = !isVisible;
-  mapFabDockController?.sync?.();
-}
-
-let mapFabDockController = null;
-
-function getRenderableTrips() {
-  const deckTrips = tripMapRenderer.getRenderableFeatures?.() || [];
-  if (deckTrips.length) {
-    return deckTrips;
-  }
-  const trips = [];
-  for (const layerName of ["trips", "matchedTrips"]) {
-    const features = store.mapLayers[layerName]?.layer?.features;
-    if (features?.length) {
-      trips.push(...features.filter((feature) => feature?.geometry));
-    }
-  }
-  return trips;
-}
-
 function deactivateExclusiveModes(except) {
-  if (except !== "routeArt" && routeArt.isActive?.()) {
-    routeArt.close({ immediate: true });
-  }
   if (except !== "particleFlow" && particleFlow.isActive()) {
     particleFlow.destroy();
   }
@@ -229,9 +174,7 @@ function repairExclusiveSceneMode(preferredMode = null) {
       ? "destinationBloom"
       : particleFlow.isActive()
         ? "particleFlow"
-        : routeArt.isActive?.()
-          ? "routeArt"
-          : null);
+        : null);
 
   if (!nextMode) {
     return;
@@ -250,13 +193,11 @@ function repairExclusiveSceneMode(preferredMode = null) {
 }
 
 export function setupExclusiveSceneModeGuard(registerCleanup) {
-  const handleRouteArtActivated = () => repairExclusiveSceneMode("routeArt");
   const handleParticleFlowActivated = () => repairExclusiveSceneMode("particleFlow");
   const handleDestinationBloomActivated = () =>
     repairExclusiveSceneMode("destinationBloom");
   const handleSceneRepair = () => repairExclusiveSceneMode();
 
-  document.addEventListener("routeArt:activated", handleRouteArtActivated);
   document.addEventListener("particleFlow:activated", handleParticleFlowActivated);
   document.addEventListener(
     "destinationBloom:activated",
@@ -268,9 +209,6 @@ export function setupExclusiveSceneModeGuard(registerCleanup) {
   document.addEventListener("es:layers-change", handleSceneRepair);
   document.addEventListener("mapStyleLoaded", handleSceneRepair);
 
-  registerCleanup(() =>
-    document.removeEventListener("routeArt:activated", handleRouteArtActivated)
-  );
   registerCleanup(() =>
     document.removeEventListener("particleFlow:activated", handleParticleFlowActivated)
   );
@@ -329,31 +267,18 @@ export default function initMapPage({ signal, cleanup } = {}) {
   const buildings3d = initBuildings3D({ map: mapInstance });
   registerCleanup(() => buildings3d.destroy?.());
 
-  const cinematicIntro = initCinematicIntro({ map: mapInstance, signal });
-  registerCleanup(() => cinematicIntro.destroy?.());
+  setupMapTilt(signal);
 
-  setupMapTilt(signal, () => cinematicIntro.isActive?.() === true);
-
-  initMapControls({ signal, cleanup: registerCleanup });
+  initAtlasRail({ registerCleanup });
+  initPlateNotation({ registerCleanup });
+  initViewPopover({ registerCleanup });
+  initBasemapTreatment({ registerCleanup });
   initMobileMap({ cleanup: registerCleanup });
-  mapFabDockController = initMapFabDock();
-  registerCleanup(() => {
-    mapFabDockController?.destroy?.();
-    mapFabDockController = null;
-  });
 
   // Trip animation on selection — draw route with glow when a trip is selected
   setupTripSelectionAnimation(mapInstance, signal, registerCleanup);
 
-  setupRouteArtToggle(registerCleanup);
-
-  // Particle Flow toggle
-  setupParticleFlowToggle(registerCleanup);
-  setupDestinationBloomToggle(registerCleanup);
   setupExclusiveSceneModeGuard(registerCleanup);
-  setupTerrainReliefToggle(registerCleanup);
-  setupMap3dBuildingsToggle(registerCleanup);
-  setupTripLayerHeatmapToggle(registerCleanup);
 
   // Bouncie Simulator — lazy-loaded on toggle click
   const simToggle = document.getElementById("sim-toggle");
@@ -572,308 +497,4 @@ function setupTripSelectionAnimation(mapInstance, _signal, registerCleanup) {
     tripAnimator.cleanup(mapInstance);
     removeReplayControls();
   });
-}
-
-/**
- * Set up the Route Art visualization toggle.
- * This is treated as a mutually exclusive scene mode.
- */
-export function setupRouteArtToggle(registerCleanup) {
-  const btn = document.getElementById("route-art-toggle");
-  if (!btn) {
-    return;
-  }
-
-  const syncState = () => setToggleState(btn, routeArt.isActive?.() === true);
-
-  const handleClick = () => {
-    if (routeArt.isActive?.()) {
-      routeArt.close();
-      setToggleState(btn, false);
-      return;
-    }
-
-    const trips = getRenderableTrips();
-    if (trips.length === 0) {
-      return;
-    }
-
-    deactivateExclusiveModes("routeArt");
-    routeArt.launch({ trips });
-    setToggleState(btn, true);
-  };
-
-  btn.addEventListener("click", handleClick);
-  document.addEventListener("routeArt:activated", syncState);
-  document.addEventListener("routeArt:deactivated", syncState);
-  syncState();
-
-  registerCleanup(() => btn.removeEventListener("click", handleClick));
-  registerCleanup(() => document.removeEventListener("routeArt:activated", syncState));
-  registerCleanup(() =>
-    document.removeEventListener("routeArt:deactivated", syncState)
-  );
-  registerCleanup(() => {
-    routeArt.close?.({ immediate: true });
-    setToggleState(btn, false);
-  });
-}
-
-/**
- * Set up the Particle Flow visualization toggle.
- * When active, trip polylines are replaced by animated flowing particles.
- */
-export function setupParticleFlowToggle(registerCleanup) {
-  const btn = document.getElementById("particle-flow-toggle");
-  if (!btn) {
-    return;
-  }
-
-  const syncState = () => setToggleState(btn, particleFlow.isActive());
-
-  const handleClick = () => {
-    if (particleFlow.isActive()) {
-      particleFlow.deactivate();
-      setToggleState(btn, false);
-      return;
-    }
-
-    deactivateExclusiveModes("particleFlow");
-    particleFlow.activate();
-    setToggleState(btn, true);
-  };
-
-  btn.addEventListener("click", handleClick);
-  syncState();
-  registerCleanup(() => btn.removeEventListener("click", handleClick));
-  document.addEventListener("particleFlow:activated", syncState);
-  document.addEventListener("particleFlow:deactivated", syncState);
-  registerCleanup(() =>
-    document.removeEventListener("particleFlow:activated", syncState)
-  );
-  registerCleanup(() =>
-    document.removeEventListener("particleFlow:deactivated", syncState)
-  );
-
-  // Refresh particles when trip data changes (date filter, new trips loaded)
-  const handleDataRefresh = () => {
-    if (particleFlow.isActive()) {
-      // Small delay to let layers settle
-      setTimeout(() => particleFlow.refresh(), 200);
-    }
-  };
-  document.addEventListener("tripsDataLoaded", handleDataRefresh);
-  document.addEventListener("matchedTripsDataLoaded", handleDataRefresh);
-  document.addEventListener("es:filters-change", handleDataRefresh);
-  registerCleanup(() =>
-    document.removeEventListener("tripsDataLoaded", handleDataRefresh)
-  );
-  registerCleanup(() =>
-    document.removeEventListener("matchedTripsDataLoaded", handleDataRefresh)
-  );
-  registerCleanup(() =>
-    document.removeEventListener("es:filters-change", handleDataRefresh)
-  );
-
-  // Re-hide trip layers after a style change restores them
-  const handleStyleChange = () => {
-    if (particleFlow.isActive()) {
-      setTimeout(() => {
-        const { map } = store;
-        if (!map) {
-          return;
-        }
-        particleFlow.refresh();
-        // Re-hide trip layers that style change may have restored
-        const style = map.getStyle();
-        if (!style?.layers) {
-          return;
-        }
-        for (const layer of style.layers) {
-          if (
-            (layer.id.startsWith("trips-layer") ||
-              layer.id.startsWith("matchedTrips-layer")) &&
-            !layer.id.includes("hitbox")
-          ) {
-            map.setLayoutProperty(layer.id, "visibility", "none");
-          }
-        }
-      }, 300);
-    }
-  };
-  document.addEventListener("mapStyleLoaded", handleStyleChange);
-  registerCleanup(() =>
-    document.removeEventListener("mapStyleLoaded", handleStyleChange)
-  );
-
-  registerCleanup(() => {
-    particleFlow.destroy();
-    setToggleState(btn, false);
-  });
-}
-
-/**
- * Set up the Destination Bloom visualization toggle.
- * When active, trip lines are hidden and trip endpoints render as glowing clusters.
- */
-export function setupDestinationBloomToggle(registerCleanup) {
-  const btn = document.getElementById("destination-bloom-toggle");
-  if (!btn) {
-    return;
-  }
-
-  const syncState = () => setToggleState(btn, destinationBloom.isActive());
-
-  const handleClick = () => {
-    if (destinationBloom.isActive()) {
-      destinationBloom.deactivate();
-      setToggleState(btn, false);
-      return;
-    }
-
-    deactivateExclusiveModes("destinationBloom");
-    destinationBloom.activate();
-    setToggleState(btn, true);
-  };
-
-  const handleDataRefresh = () => {
-    if (destinationBloom.isActive()) {
-      setTimeout(() => destinationBloom.refresh(), 180);
-    }
-  };
-
-  const handleStyleChange = () => {
-    if (destinationBloom.isActive()) {
-      setTimeout(() => destinationBloom.refresh(), 260);
-    }
-  };
-
-  btn.addEventListener("click", handleClick);
-  document.addEventListener("destinationBloom:activated", syncState);
-  document.addEventListener("destinationBloom:deactivated", syncState);
-  document.addEventListener("tripsDataLoaded", handleDataRefresh);
-  document.addEventListener("matchedTripsDataLoaded", handleDataRefresh);
-  document.addEventListener("es:filters-change", handleDataRefresh);
-  document.addEventListener("mapStyleLoaded", handleStyleChange);
-  syncState();
-
-  registerCleanup(() => btn.removeEventListener("click", handleClick));
-  registerCleanup(() =>
-    document.removeEventListener("destinationBloom:activated", syncState)
-  );
-  registerCleanup(() =>
-    document.removeEventListener("destinationBloom:deactivated", syncState)
-  );
-  registerCleanup(() =>
-    document.removeEventListener("tripsDataLoaded", handleDataRefresh)
-  );
-  registerCleanup(() =>
-    document.removeEventListener("matchedTripsDataLoaded", handleDataRefresh)
-  );
-  registerCleanup(() =>
-    document.removeEventListener("es:filters-change", handleDataRefresh)
-  );
-  registerCleanup(() =>
-    document.removeEventListener("mapStyleLoaded", handleStyleChange)
-  );
-  registerCleanup(() => {
-    destinationBloom.destroy();
-    setToggleState(btn, false);
-  });
-}
-
-export function setupMap3dBuildingsToggle(registerCleanup) {
-  const btn = document.getElementById("map-3d-buildings-fab");
-  if (!btn) {
-    return;
-  }
-
-  const syncState = () => {
-    const map = store.map || window.map;
-    const isRelevant = isMapbox3DStyleSupported(map);
-    setToggleVisibility(btn, isRelevant);
-    setToggleState(btn, isRelevant && getUserBuildingsPreference());
-  };
-
-  const handleClick = () => {
-    const map = store.map || window.map;
-    if (!isMapbox3DStyleSupported(map)) {
-      syncState();
-      return;
-    }
-
-    setMap3dBuildingsPreference(!getUserBuildingsPreference());
-    syncState();
-  };
-
-  btn.addEventListener("click", handleClick);
-  document.addEventListener(MAP_3D_SETTING_EVENT, syncState);
-  document.addEventListener("mapStyleLoaded", syncState);
-  syncState();
-
-  registerCleanup(() => btn.removeEventListener("click", handleClick));
-  registerCleanup(() => document.removeEventListener(MAP_3D_SETTING_EVENT, syncState));
-  registerCleanup(() => document.removeEventListener("mapStyleLoaded", syncState));
-}
-
-export function setupTerrainReliefToggle(registerCleanup) {
-  const btn = document.getElementById("map-terrain-relief-fab");
-  if (!btn) {
-    return;
-  }
-
-  const syncState = () => {
-    const map = store.map || window.map;
-    const isRelevant = isTerrainReliefSupported(map);
-    setToggleVisibility(btn, isRelevant);
-    setToggleState(btn, isRelevant && getTerrainReliefPreference());
-  };
-
-  const handleClick = () => {
-    const map = store.map || window.map;
-    if (!isTerrainReliefSupported(map)) {
-      syncState();
-      return;
-    }
-
-    setTerrainReliefPreference(!getTerrainReliefPreference());
-    syncState();
-  };
-
-  btn.addEventListener("click", handleClick);
-  document.addEventListener(MAP_TERRAIN_RELIEF_SETTING_EVENT, syncState);
-  document.addEventListener("mapStyleLoaded", syncState);
-  syncState();
-
-  registerCleanup(() => btn.removeEventListener("click", handleClick));
-  registerCleanup(() =>
-    document.removeEventListener(MAP_TERRAIN_RELIEF_SETTING_EVENT, syncState)
-  );
-  registerCleanup(() => document.removeEventListener("mapStyleLoaded", syncState));
-}
-
-export function setupTripLayerHeatmapToggle(registerCleanup) {
-  const btn = document.getElementById("trip-layer-heatmap-fab");
-  if (!btn) {
-    return;
-  }
-
-  const syncState = () => {
-    setToggleVisibility(btn, true);
-    setToggleState(btn, getTripLayerHeatmapPreference());
-  };
-
-  const handleClick = () => {
-    setTripLayerHeatmapPreference(!getTripLayerHeatmapPreference());
-    syncState();
-  };
-
-  btn.addEventListener("click", handleClick);
-  document.addEventListener(TRIP_LAYER_RENDER_MODE_EVENT, syncState);
-  syncState();
-
-  registerCleanup(() => btn.removeEventListener("click", handleClick));
-  registerCleanup(() =>
-    document.removeEventListener(TRIP_LAYER_RENDER_MODE_EVENT, syncState)
-  );
 }

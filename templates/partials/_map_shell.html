@@ -1,162 +1,360 @@
-<div class="map-wrapper d-flex flex-column flex-grow-1" data-es-shell-id="map-shell">
+<div class="map-wrapper atlas-shell" data-es-shell-id="map-shell">
   <h1 id="map-page-title" class="visually-hidden">
 Map
   </h1>
+
+  <aside id="atlas-rail"
+         class="atlas-rail"
+         role="complementary"
+         aria-label="Atlas panel">
+    <div class="mobile-sheet-handle-container">
+      <div class="mobile-sheet-handle">
+      </div>
+    </div>
+
+    <header class="atlas-rail-header">
+      <div class="atlas-masthead">
+        <p class="atlas-eyebrow">
+Personal atlas
+        </p>
+        <h2 class="atlas-title" id="atlas-title">
+Every Street
+        </h2>
+        <p class="atlas-context" id="atlas-context">
+&nbsp;
+        </p>
+      </div>
+      <button id="atlas-rail-toggle"
+              class="atlas-rail-toggle"
+              type="button"
+              aria-expanded="true"
+              aria-controls="atlas-rail"
+              title="Collapse panel">
+        <i class="fas fa-chevron-left" aria-hidden="true"></i>
+        <span class="visually-hidden">Collapse panel</span>
+      </button>
+    </header>
+
+    <div class="atlas-figures" id="atlas-figures" aria-label="Driving figures">
+      <div class="atlas-figure">
+        <span class="atlas-figure-value" id="figure-trips">0</span>
+        <span class="atlas-figure-label">Trips</span>
+      </div>
+      <div class="atlas-figure">
+        <span class="atlas-figure-value" id="figure-distance">0</span>
+        <span class="atlas-figure-label">Miles</span>
+      </div>
+      <div class="atlas-figure">
+        <span class="atlas-figure-value" id="figure-avg-speed">0</span>
+        <span class="atlas-figure-label">Avg mph</span>
+      </div>
+      <div class="atlas-figure">
+        <span class="atlas-figure-value" id="figure-drive-time">--:--</span>
+        <span class="atlas-figure-label">Drive time</span>
+      </div>
+    </div>
+
+    <nav class="atlas-lenses" role="tablist" aria-label="Map lenses">
+      <button class="atlas-lens-tab"
+              id="lens-tab-trips"
+              type="button"
+              role="tab"
+              data-lens="trips"
+              aria-selected="true"
+              aria-controls="lens-panel-trips">
+Trips
+      </button>
+      <button class="atlas-lens-tab"
+              id="lens-tab-coverage"
+              type="button"
+              role="tab"
+              data-lens="coverage"
+              aria-selected="false"
+              aria-controls="lens-panel-coverage"
+              tabindex="-1">
+Coverage
+      </button>
+      <button class="atlas-lens-tab"
+              id="lens-tab-places"
+              type="button"
+              role="tab"
+              data-lens="places"
+              aria-selected="false"
+              aria-controls="lens-panel-places"
+              tabindex="-1">
+Places
+      </button>
+      <button class="atlas-lens-tab"
+              id="lens-tab-flow"
+              type="button"
+              role="tab"
+              data-lens="flow"
+              aria-selected="false"
+              aria-controls="lens-panel-flow"
+              tabindex="-1">
+Flow
+      </button>
+    </nav>
+
+    <div class="atlas-rail-body">
+      <section id="lens-panel-trips"
+               class="atlas-lens-panel"
+               role="tabpanel"
+               data-lens-panel="trips"
+               aria-labelledby="lens-tab-trips">
+        <div class="lens-tools">
+          <div class="lens-segmented"
+               role="group"
+               aria-label="Trip rendering mode">
+            <button type="button"
+                    id="trip-render-paths"
+                    class="lens-segment"
+                    aria-pressed="true">
+Paths
+            </button>
+            <button type="button"
+                    id="trip-render-heat"
+                    class="lens-segment"
+                    aria-pressed="false">
+Heat
+            </button>
+          </div>
+          <label class="lens-check" for="matched-trips-toggle">
+            <input type="checkbox" id="matched-trips-toggle" />
+            <span>Matched</span>
+          </label>
+        </div>
+        <ol id="trip-journal" class="trip-journal" aria-label="Trip journal">
+        </ol>
+        <p class="lens-empty" id="trip-journal-empty" hidden>
+No trips in this range. Widen the dates from the header.
+        </p>
+      </section>
+
+      <section id="lens-panel-coverage"
+               class="atlas-lens-panel"
+               role="tabpanel"
+               data-lens-panel="coverage"
+               aria-labelledby="lens-tab-coverage"
+               hidden>
+        <div class="lens-block" id="location-selector-container">
+          <p class="lens-block-label">
+Coverage area
+          </p>
+          <select id="streets-location" hidden>
+            <option value="">
+Select location...
+            </option>
+          </select>
+          <div class="location-dropdown" id="location-dropdown">
+            <button type="button"
+                    class="location-dropdown-trigger"
+                    aria-haspopup="listbox"
+                    aria-expanded="false">
+              <span class="dropdown-label is-placeholder">Select location...</span>
+              <i class="fas fa-chevron-down dropdown-chevron" aria-hidden="true"></i>
+            </button>
+            <div class="location-dropdown-menu" role="listbox">
+            </div>
+          </div>
+        </div>
+
+        <div class="coverage-progress" id="coverage-progress" hidden>
+          <div class="coverage-progress-readout">
+            <span class="coverage-progress-value" id="coverage-percent">0%</span>
+            <span class="coverage-progress-detail" id="coverage-detail"></span>
+          </div>
+          <div class="coverage-progress-track"
+               role="progressbar"
+               id="coverage-progressbar"
+               aria-valuemin="0"
+               aria-valuemax="100"
+               aria-valuenow="0"
+               aria-label="Coverage progress">
+            <div class="coverage-progress-fill" id="coverage-progress-fill"></div>
+          </div>
+        </div>
+
+        <div class="lens-block">
+          <p class="lens-block-label">
+Streets
+          </p>
+          <div class="lens-chip-row" role="group" aria-label="Street layers">
+            <button class="quick-action-btn lens-chip"
+                    type="button"
+                    data-street-mode="undriven"
+                    disabled>
+Undriven
+            </button>
+            <button class="quick-action-btn lens-chip"
+                    type="button"
+                    data-street-mode="driven"
+                    disabled>
+Driven
+            </button>
+            <button class="quick-action-btn lens-chip"
+                    type="button"
+                    data-street-mode="all"
+                    disabled>
+All
+            </button>
+            <button id="focus-coverage-area-btn"
+                    class="lens-chip lens-chip-focus"
+                    type="button"
+                    aria-label="Focus map on selected coverage area"
+                    title="Focus on selected coverage area"
+                    disabled>
+              <i class="fas fa-crosshairs" aria-hidden="true"></i>
+              <span>Focus</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="lens-block" id="coverage-suggestions-block" hidden>
+          <p class="lens-block-label">
+Next streets
+          </p>
+          <ol class="coverage-suggestions" id="coverage-suggestions">
+          </ol>
+          <p class="lens-hint" id="coverage-suggestions-hint">
+Nearest clusters of undriven streets, measured from the map center.
+          </p>
+        </div>
+
+        <p class="lens-empty" id="coverage-empty">
+Select a coverage area to see progress and undriven streets.
+        </p>
+      </section>
+
+      <section id="lens-panel-places"
+               class="atlas-lens-panel"
+               role="tabpanel"
+               data-lens-panel="places"
+               aria-labelledby="lens-tab-places"
+               hidden>
+        <ol id="places-list" class="places-list" aria-label="Places by visits">
+        </ol>
+        <p class="lens-empty" id="places-empty" hidden>
+No saved places yet. Frequent destinations bloom on the map — name one to
+start keeping count.
+        </p>
+      </section>
+
+      <section id="lens-panel-flow"
+               class="atlas-lens-panel"
+               role="tabpanel"
+               data-lens-panel="flow"
+               aria-labelledby="lens-tab-flow"
+               hidden>
+        <p class="lens-hint lens-flow-note">
+Every recorded trip, set in motion. Particles trace your routes; brighter
+channels are roads you travel most.
+        </p>
+      </section>
+    </div>
+
+    <footer class="atlas-rail-footer">
+      <ul class="atlas-legend" id="atlas-legend" aria-label="Map legend">
+      </ul>
+    </footer>
+  </aside>
+
   <div id="map"
-       class="flex-grow-1 position-relative"
+       class="atlas-map"
        role="application"
        aria-label="Interactive map">
     <div id="map-canvas" class="map-canvas">
     </div>
-    <div id="map-loading-indicator" class="map-loading d-none">
-      <div class="loading-spinner">
+
+    <button id="atlas-rail-reopen"
+            class="atlas-rail-reopen"
+            type="button"
+            aria-label="Open atlas panel"
+            hidden>
+      <i class="fas fa-chevron-right" aria-hidden="true"></i>
+      <span class="atlas-rail-reopen-label">Atlas</span>
+    </button>
+
+    <div class="map-topbar">
+      <div class="map-search">
+        <i class="fas fa-search map-search-icon" aria-hidden="true"></i>
+        <input type="text"
+               id="map-search-input"
+               class="map-search-input"
+               placeholder="Search places, addresses, streets"
+               autocomplete="off"
+               aria-label="Search map" />
       </div>
-      <span class="map-loading-text">Loading map...</span>
-    </div>
-    <div id="trip-stats-widget" class="trip-stats-widget" aria-label="Trip statistics">
-      <div class="trip-stats-card" id="trip-stats-card">
-        <div class="trip-stats-compact" id="trip-stats-compact">
-          <div class="trip-stats-header">
-            <div class="trip-stats-icon">
-              <i class="fas fa-chart-bar" aria-hidden="true"></i>
+
+      <div class="map-view-control">
+        <button id="view-popover-toggle"
+                class="map-view-toggle"
+                type="button"
+                aria-expanded="false"
+                aria-haspopup="true"
+                aria-controls="view-popover">
+          <i class="fas fa-sliders" aria-hidden="true"></i>
+          <span>View</span>
+        </button>
+        <div id="view-popover" class="view-popover" hidden>
+          {% if not app_settings or (app_settings.get('map_provider') | default('', true) | lower) != 'google' %}
+            <div class="view-popover-row view-popover-row--select">
+              <label class="view-popover-label" for="map-type-select">Basemap</label>
+              <select id="map-type-select"
+                      class="view-popover-select"
+                      aria-label="Select map style">
+                <option value="dark">
+Dark
+                </option>
+                <option value="light">
+Light
+                </option>
+                <option value="streets">
+Streets
+                </option>
+                <option value="satellite">
+Satellite
+                </option>
+              </select>
             </div>
-            <div class="trip-stats-title">
-Trip Stats
-            </div>
-            <button class="trip-stats-toggle"
-                    id="trip-stats-toggle"
-                    type="button"
-                    aria-expanded="false"
-                    aria-label="Toggle statistics details">
-              <i class="fas fa-chevron-down" aria-hidden="true"></i>
-            </button>
-          </div>
-          <div class="trip-stats-summary">
-            <div class="trip-stats-summary-item">
-              <div class="trip-stats-summary-value" id="widget-total-trips">
-0
-              </div>
-              <div class="trip-stats-summary-label">
-trips
-              </div>
-            </div>
-            <div class="trip-stats-summary-divider">
-            </div>
-            <div class="trip-stats-summary-item">
-              <div class="trip-stats-summary-value" id="widget-total-distance">
-0
-              </div>
-              <div class="trip-stats-summary-label">
-miles
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="trip-stats-expanded" id="trip-stats-expanded" style="display: none">
-          <div class="trip-stats-expanded-content">
-            <div class="trip-stats-metric">
-              <div class="trip-stats-metric-icon">
-                <i class="fas fa-route" aria-hidden="true"></i>
-              </div>
-              <div class="trip-stats-metric-info">
-                <div class="trip-stats-metric-label">
-Total Trips
-                </div>
-                <div class="trip-stats-metric-value" id="widget-detailed-trips">
-0
-                </div>
-              </div>
-            </div>
-            <div class="trip-stats-metric">
-              <div class="trip-stats-metric-icon">
-                <i class="fas fa-road" aria-hidden="true"></i>
-              </div>
-              <div class="trip-stats-metric-info">
-                <div class="trip-stats-metric-label">
-Total Distance
-                </div>
-                <div class="trip-stats-metric-value">
-                  <span id="widget-detailed-distance">0</span>
-                  <span class="trip-stats-metric-unit">mi</span>
-                </div>
-              </div>
-            </div>
-            <div class="trip-stats-metric">
-              <div class="trip-stats-metric-icon">
-                <i class="fas fa-balance-scale" aria-hidden="true"></i>
-              </div>
-              <div class="trip-stats-metric-info">
-                <div class="trip-stats-metric-label">
-Avg Distance
-                </div>
-                <div class="trip-stats-metric-value">
-                  <span id="widget-detailed-avg-distance">0</span>
-                  <span class="trip-stats-metric-unit">mi</span>
-                </div>
-              </div>
-            </div>
-            <div class="trip-stats-metric">
-              <div class="trip-stats-metric-icon">
-                <i class="fas fa-tachometer-alt" aria-hidden="true"></i>
-              </div>
-              <div class="trip-stats-metric-info">
-                <div class="trip-stats-metric-label">
-Avg Speed
-                </div>
-                <div class="trip-stats-metric-value">
-                  <span id="widget-detailed-avg-speed">0</span>
-                  <span class="trip-stats-metric-unit">mph</span>
-                </div>
-              </div>
-            </div>
-            <div class="trip-stats-metric">
-              <div class="trip-stats-metric-icon">
-                <i class="fas fa-clock" aria-hidden="true"></i>
-              </div>
-              <div class="trip-stats-metric-info">
-                <div class="trip-stats-metric-label">
-Avg Start Time
-                </div>
-                <div class="trip-stats-metric-value" id="widget-detailed-avg-start">
-                  --:--
-                </div>
-              </div>
-            </div>
-            <div class="trip-stats-metric">
-              <div class="trip-stats-metric-icon">
-                <i class="fas fa-hourglass-half" aria-hidden="true"></i>
-              </div>
-              <div class="trip-stats-metric-info">
-                <div class="trip-stats-metric-label">
-Avg Duration
-                </div>
-                <div class="trip-stats-metric-value" id="widget-detailed-avg-duration">
-                  --:--
-                </div>
-              </div>
-            </div>
-          </div>
+          {% endif %}
+          <button type="button"
+                  id="view-3d-buildings"
+                  class="view-popover-row view-popover-switch"
+                  aria-pressed="false"
+                  hidden>
+            <span>3D buildings</span>
+            <span class="view-switch-mark" aria-hidden="true"></span>
+          </button>
+          <button type="button"
+                  id="view-terrain-relief"
+                  class="view-popover-row view-popover-switch"
+                  aria-pressed="false"
+                  hidden>
+            <span>Terrain relief</span>
+            <span class="view-switch-mark" aria-hidden="true"></span>
+          </button>
+          <div class="view-popover-divider" aria-hidden="true"></div>
+          <button type="button"
+                  id="sim-toggle"
+                  class="view-popover-row view-popover-action"
+                  aria-pressed="false">
+            <span>Bouncie simulator</span>
+            <i class="fas fa-broadcast-tower" aria-hidden="true"></i>
+          </button>
         </div>
       </div>
     </div>
-    <div id="map-smart-legend"
-         class="map-smart-legend"
-         aria-label="Map legend"
-         role="group">
-      <button type="button"
-              class="map-smart-legend__toggle"
-              id="map-smart-legend-toggle"
-              aria-expanded="true"
-              aria-controls="map-smart-legend-body"
-              title="Toggle legend">
-        <i class="fas fa-circle-info" aria-hidden="true"></i>
-        <span>Legend</span>
-      </button>
-      <div class="map-smart-legend__body" id="map-smart-legend-body">
-      </div>
+
+    <div id="search-results"
+         class="search-results-dropdown d-none"
+         role="listbox"
+         aria-label="Search results">
     </div>
+
     <div id="live-trip-hud" class="live-trip-hud" aria-hidden="true">
       <span class="live-trip-hud-dot" aria-hidden="true"></span>
+      <span class="live-trip-hud-label">Live</span>
       <span class="live-trip-hud-speed" id="live-trip-speed">--</span>
       <span class="live-trip-hud-unit">mph</span>
       <span class="live-trip-hud-divider"></span>
@@ -170,219 +368,15 @@ Avg Duration
         <i class="fas fa-location-arrow" aria-hidden="true"></i>
       </button>
     </div>
-    <div id="map-controls" class="control-panel" role="region" aria-label="Map controls">
-      <div class="mobile-sheet-handle-container">
-        <div class="mobile-sheet-handle">
-        </div>
-      </div>
-      <div class="control-panel-header">
-        <h2 class="control-panel-title">
-          <i class="fas fa-layer-group" aria-hidden="true"></i>
-          Map Controls
-        </h2>
-        <div class="control-panel-actions">
-          <button id="controls-toggle"
-                  class="btn btn-sm btn-icon-only"
-                  aria-label="Toggle Controls"
-                  aria-expanded="true">
-            <i class="fas fa-chevron-down" aria-hidden="true"></i>
-          </button>
-        </div>
-      </div>
-      <div class="control-panel-quick-actions">
-        <button class="quick-action-btn" type="button" data-street-mode="undriven">
-          <i class="fas fa-road"></i>
-          <span>Undriven</span>
-        </button>
-        <button class="quick-action-btn" type="button" data-street-mode="driven">
-          <i class="fas fa-check-circle"></i>
-          <span>Driven</span>
-        </button>
-        <button class="quick-action-btn" type="button" data-street-mode="all">
-          <i class="fas fa-layer-group"></i>
-          <span>All</span>
-        </button>
-        <button id="focus-coverage-area-btn"
-                class="quick-action-btn quick-action-btn--focus"
-                type="button"
-                aria-label="Focus map on selected coverage area"
-                title="Focus on selected coverage area">
-          <i class="fas fa-crosshairs" aria-hidden="true"></i>
-        </button>
-      </div>
-      <div class="control-panel-body">
-        <div class="control-section" id="location-selector-container">
-          <div class="layer-group">
-            <h3 class="layer-group-title">
-Coverage Area
-            </h3>
-            <select id="streets-location" hidden>
-              <option value="">
-Select location...
-              </option>
-            </select>
-            <div class="location-dropdown" id="location-dropdown">
-              <button type="button"
-                      class="location-dropdown-trigger"
-                      aria-haspopup="listbox"
-                      aria-expanded="false">
-                <span class="dropdown-label is-placeholder">Select location...</span>
-                <i class="fas fa-chevron-down dropdown-chevron" aria-hidden="true"></i>
-              </button>
-              <div class="location-dropdown-menu" role="listbox">
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {% if not app_settings or (app_settings.get('map_provider') | default('', true) | lower) != 'google' %}
-          <div class="control-section">
-            <div class="layer-group map-style-group">
-              <div class="map-style-header">
-                <h3 class="layer-group-title">
-Map Style
-                </h3>
-                <span class="map-style-hint">
-Basemap
-                </span>
-              </div>
-              <div class="map-style-select-wrap">
-                <i class="fas fa-palette map-style-select-icon" aria-hidden="true"></i>
-                <select id="map-type-select" class="map-style-select" aria-label="Select map style">
-                  <option value="dark">
-Dark
-                  </option>
-                  <option value="light">
-Light
-                  </option>
-                  <option value="streets">
-Streets
-                  </option>
-                  <option value="satellite">
-Satellite
-                  </option>
-                </select>
-              </div>
-            </div>
-          </div>
-        {% endif %}
-        <div class="control-section">
-          <div class="layer-group">
-            <h3 class="layer-group-title">
-Layers
-            </h3>
-            <div id="layer-toggles" class="layer-toggles-grid">
-            </div>
-          </div>
-        </div>
-        <div class="search-container">
-          <div class="search-wrapper">
-            <i class="fas fa-search search-icon" aria-hidden="true"></i>
-            <input type="text"
-                   id="map-search-input"
-                   class="search-input"
-                   placeholder="Search places, addresses..."
-                   autocomplete="off"
-                   aria-label="Search map" />
-          </div>
-        </div>
-      </div>
+    <div id="map-plate" class="map-plate" aria-hidden="true">
+      <span class="map-plate-item" id="plate-coords">--° --°</span>
+      <span class="map-plate-sep">·</span>
+      <span class="map-plate-item" id="plate-zoom">Z--</span>
+      <span class="map-plate-sep">·</span>
+      <span class="map-plate-item" id="plate-range">--</span>
     </div>
 
-    <div id="map-fab-dock"
-         class="map-fab-dock is-collapsed"
-         aria-label="Map feature toggles">
-      <div id="map-fab-dock-stack" class="map-fab-dock__stack" aria-hidden="true" inert>
-        <button id="sim-toggle"
-                class="sim-toggle-btn map-fab-toggle map-fab-toggle--sim"
-                type="button"
-                data-map-fab-item
-                aria-label="Toggle Bouncie Simulator"
-                aria-pressed="false"
-                title="Bouncie Simulator"
-                tabindex="-1">
-          <i class="fas fa-broadcast-tower" aria-hidden="true"></i>
-        </button>
-        <button id="route-art-toggle"
-                class="sim-toggle-btn map-fab-toggle map-fab-toggle--route-art"
-                type="button"
-                data-map-fab-item
-                aria-label="Open Route Art mode"
-                aria-pressed="false"
-                title="Route Art"
-                tabindex="-1">
-          <i class="fas fa-palette" aria-hidden="true"></i>
-        </button>
-        <button id="destination-bloom-toggle"
-                class="destination-bloom-toggle map-fab-toggle map-fab-toggle--destination-bloom"
-                type="button"
-                data-map-fab-item
-                aria-label="Destination Bloom"
-                aria-pressed="false"
-                title="Destination Bloom visualization"
-                tabindex="-1">
-          <i class="fas fa-location-dot" aria-hidden="true"></i>
-        </button>
-        <button id="particle-flow-toggle"
-                class="particle-flow-toggle map-fab-toggle map-fab-toggle--particle-flow"
-                type="button"
-                data-map-fab-item
-                aria-label="Particle Flow"
-                aria-pressed="false"
-                title="Particle Flow visualization"
-                tabindex="-1">
-          <i class="fas fa-water" aria-hidden="true"></i>
-        </button>
-        <button id="map-3d-buildings-fab"
-                class="map-3d-buildings-toggle map-fab-toggle map-fab-toggle--buildings-3d"
-                type="button"
-                data-map-fab-item
-                aria-label="3D Buildings"
-                aria-pressed="false"
-                title="Toggle 3D buildings"
-                tabindex="-1"
-                hidden>
-          <i class="fas fa-city" aria-hidden="true"></i>
-        </button>
-        <button id="map-terrain-relief-fab"
-                class="map-terrain-relief-toggle map-fab-toggle map-fab-toggle--terrain"
-                type="button"
-                data-map-fab-item
-                aria-label="Terrain Relief"
-                aria-pressed="false"
-                title="Toggle terrain relief"
-                tabindex="-1"
-                hidden>
-          <i class="fas fa-mountain" aria-hidden="true"></i>
-        </button>
-        <button id="trip-layer-heatmap-fab"
-                class="trip-layer-heatmap-toggle map-fab-toggle map-fab-toggle--heatmap"
-                type="button"
-                data-map-fab-item
-                aria-label="Heatmap"
-                aria-pressed="false"
-                title="Toggle heatmap trip rendering"
-                tabindex="-1">
-          <i class="fas fa-fire" aria-hidden="true"></i>
-        </button>
-      </div>
-
-      <button id="map-fab-dock-toggle"
-              class="map-fab-dock__toggle map-fab-toggle map-fab-toggle--dock"
-              type="button"
-              aria-label="Show map feature toggles"
-              aria-expanded="false"
-              title="Map feature toggles">
-        <span id="map-fab-dock-count" class="map-fab-dock__count" hidden>
-        </span>
-        <i class="fas fa-sliders" aria-hidden="true"></i>
-      </button>
-    </div>
-    <div id="search-results"
-         class="search-results-dropdown d-none"
-         role="listbox"
-         aria-label="Search results">
-    </div>
     <div class="mobile-sheet-backdrop">
     </div>
   </div>
