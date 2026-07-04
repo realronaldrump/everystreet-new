@@ -45,7 +45,6 @@ body[data-route="/map"] .app-footer {
 }
 
 /* === Map container === */
-#map.atlas-map,
 #map {
   flex: 1 1 auto;
   height: 100%;
@@ -55,6 +54,11 @@ body[data-route="/map"] .app-footer {
   background-color: var(--surface-1);
   z-index: var(--z-base);
   outline: none;
+}
+
+#map.atlas-map {
+  align-self: stretch;
+  height: auto;
 }
 
 #map-canvas {

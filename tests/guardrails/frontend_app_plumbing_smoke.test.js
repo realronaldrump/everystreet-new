@@ -147,6 +147,14 @@ test("landing route stays distinct from the map route state", () => {
   );
 });
 
+test("atlas map flex child stretches to the shell height", () => {
+  const mapBaseCss = readRepoFile("static", "css", "features", "map", "base.css");
+
+  assert.match(mapBaseCss, /#map\s*\{[\s\S]*height:\s*100%;/);
+  assert.match(mapBaseCss, /#map\.atlas-map\s*\{[\s\S]*align-self:\s*stretch;/);
+  assert.match(mapBaseCss, /#map\.atlas-map\s*\{[\s\S]*height:\s*auto;/);
+});
+
 test("memory city deck stage is not hidden from assistive tech while focused", () => {
   const memoryCityHtml = readTemplate("memory_city.html");
 
