@@ -24,7 +24,11 @@ class DashboardService:
     """Service class for dashboard and insights operations."""
 
     @staticmethod
-    async def get_driving_insights(query: dict[str, Any]) -> dict[str, Any]:
+    async def get_driving_insights(
+        query: dict[str, Any],
+        *,
+        include_movement: bool = True,
+    ) -> dict[str, Any]:
         """
         Get aggregated driving insights.
 
@@ -460,47 +464,48 @@ class DashboardService:
             if records.get("longest_trip"):
                 combined["longest_trip_distance"] = records["longest_trip"]["distance"]
 
-        try:
-            combined["movement"] = await MobilityInsightsService.get_mobility_insights(
-                query,
-            )
-        except Exception:
-            logger.exception("Failed to build movement insights payload")
-            combined["movement"] = {
-                "h3_resolution": 11,
-                "sample_spacing_m": 30.0,
-                "trip_count": 0,
-                "profiled_trip_count": 0,
-                "analyzed_trip_count": 0,
-                "analysis_scope": {
-                    "geometry_source": "matchedGps",
-                    "street_ranking": "times_driven",
-                    "segment_ranking": "times_driven",
-                },
-                "synced_trips_this_request": 0,
-                "pending_trip_sync_count": 0,
-                "metric_basis": {
-                    "top_streets_primary": "times_driven",
-                    "top_segments_primary": "times_driven",
-                    "map_cells_intensity": "times_driven",
-                },
-                "hex_cells": [],
-                "top_segments": [],
-                "top_streets": [],
-                "validation": {
-                    "warnings": [],
-                    "errors": [],
-                    "consistency": {
-                        "ranked_street_count": 0,
-                        "map_renderable_street_count": 0,
-                        "dropped_street_count": 0,
-                        "ranked_segment_count": 0,
-                        "map_renderable_segment_count": 0,
-                        "dropped_segment_count": 0,
+        if include_movement:
+            try:
+                combined["movement"] = await MobilityInsightsService.get_mobility_insights(
+                    query,
+                )
+            except Exception:
+                logger.exception("Failed to build movement insights payload")
+                combined["movement"] = {
+                    "h3_resolution": 11,
+                    "sample_spacing_m": 30.0,
+                    "trip_count": 0,
+                    "profiled_trip_count": 0,
+                    "analyzed_trip_count": 0,
+                    "analysis_scope": {
+                        "geometry_source": "matchedGps",
+                        "street_ranking": "times_driven",
+                        "segment_ranking": "times_driven",
                     },
-                },
-                "map_center": None,
-            }
+                    "synced_trips_this_request": 0,
+                    "pending_trip_sync_count": 0,
+                    "metric_basis": {
+                        "top_streets_primary": "times_driven",
+                        "top_segments_primary": "times_driven",
+                        "map_cells_intensity": "times_driven",
+                    },
+                    "hex_cells": [],
+                    "top_segments": [],
+                    "top_streets": [],
+                    "validation": {
+                        "warnings": [],
+                        "errors": [],
+                        "consistency": {
+                            "ranked_street_count": 0,
+                            "map_renderable_street_count": 0,
+                            "dropped_street_count": 0,
+                            "ranked_segment_count": 0,
+                            "map_renderable_segment_count": 0,
+                            "dropped_segment_count": 0,
+                        },
+                    },
+                    "map_center": None,
+                }
 
         return combined
 

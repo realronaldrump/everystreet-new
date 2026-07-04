@@ -49,6 +49,8 @@ let recordSources = {
 let pageSignal = null;
 let lastKnownLocation = null;
 let metricsLoadRequestId = 0;
+let recordsLoadRequestId = 0;
+let recordLoading = false;
 let removeFilterRefreshListener = null;
 let ambientCleanup = null;
 let featureApi = createFeatureApi();
@@ -131,8 +133,7 @@ async function loadAllData() {
 
     await Promise.all([
       loadMetrics(),
-      loadGasStats(),
-      loadInsights(),
+      loadRecordSources(),
       loadCountyStats(),
       loadCoverageStats(),
       checkLiveTracking(),
@@ -252,20 +253,21 @@ function bindRecordCard() {
 }
 
 function bindFilterRefresh() {
-  const refreshMetrics = () => {
-    loadMetrics();
+  const refreshDashboard = () => {
+    loadMetrics({ showLoading: true });
+    loadRecordSources({ showLoading: true });
   };
 
   if (pageSignal) {
-    document.addEventListener("filtersApplied", refreshMetrics, {
+    document.addEventListener("filtersApplied", refreshDashboard, {
       signal: pageSignal,
     });
     return () => {};
   }
 
-  document.addEventListener("filtersApplied", refreshMetrics);
+  document.addEventListener("filtersApplied", refreshDashboard);
   return () => {
-    document.removeEventListener("filtersApplied", refreshMetrics);
+    document.removeEventListener("filtersApplied", refreshDashboard);
   };
 }
 
@@ -301,7 +303,39 @@ async function loadCoverageStats() {
 
 function setRecordSource(key, data) {
   recordSources = { ...recordSources, [key]: data };
+  if (recordLoading) {
+    return;
+  }
   updateRecordEntries();
+}
+
+function setRecordLoading(isLoading) {
+  recordLoading = Boolean(isLoading);
+  if (!elements.recordCard) {
+    return;
+  }
+  elements.recordCard.classList.toggle("is-loading", recordLoading);
+  elements.recordCard.setAttribute("aria-busy", recordLoading ? "true" : "false");
+  if (recordLoading) {
+    renderRecordLoading();
+  }
+}
+
+function renderRecordLoading() {
+  if (recordRotationIntervalId) {
+    clearInterval(recordRotationIntervalId);
+    recordRotationIntervalId = null;
+  }
+  if (elements.recordValue) {
+    elements.recordValue.textContent = "...";
+  }
+  if (elements.recordTitle) {
+    elements.recordTitle.textContent = "Updating records";
+  }
+  if (elements.recordDate) {
+    elements.recordDate.textContent = getSelectedRangeStatusText();
+  }
+  currentRecordId = null;
 }
 
 function updateRecordEntries() {
@@ -758,11 +792,34 @@ function buildTripMetricsQueryParams() {
   return params;
 }
 
+function getSelectedRangeStatusText() {
+  const startDate = DateUtils.getStartDate?.();
+  const endDate = DateUtils.getEndDate?.();
+  if (startDate || endDate) {
+    return "Checking selected range";
+  }
+  return "Checking all time";
+}
+
+function setMetricsLoading(isLoading) {
+  [elements.statMiles, elements.statTrips].forEach((el) => {
+    const figure = el?.closest?.(".snapshot-figure");
+    if (!figure) {
+      return;
+    }
+    figure.classList.toggle("is-loading", Boolean(isLoading));
+    figure.setAttribute("aria-busy", isLoading ? "true" : "false");
+  });
+}
+
 /**
  * Fetch trip metrics and update stats
  */
-async function loadMetrics() {
+async function loadMetrics({ showLoading = false } = {}) {
   const requestId = ++metricsLoadRequestId;
+  if (showLoading) {
+    setMetricsLoading(true);
+  }
   try {
     const params = buildTripMetricsQueryParams();
     const qs = params.toString();
@@ -792,6 +849,10 @@ async function loadMetrics() {
     }
     if (elements.statTrips) {
       elements.statTrips.textContent = "--";
+    }
+  } finally {
+    if (requestId === metricsLoadRequestId && !pageSignal?.aborted) {
+      setMetricsLoading(false);
     }
   }
 }
@@ -837,42 +898,66 @@ async function loadRecentTrips() {
   }
 }
 
-/**
- * Fetch driving insights for records
- */
-async function loadInsights() {
-  try {
-    const params = buildTripMetricsQueryParams();
-    const qs = params.toString();
-    const data = await apiGet(
-      qs ? `/api/driving-insights?${qs}` : "/api/driving-insights"
-    );
-    setRecordSource("insights", data);
-  } catch (error) {
-    if (!isPageAbortError(error)) {
-      console.warn("Failed to load driving insights", error);
+async function loadRecordSources({ showLoading = false } = {}) {
+  const requestId = ++recordsLoadRequestId;
+  if (showLoading) {
+    recordSources = { ...recordSources, insights: null, gas: null };
+    setRecordLoading(true);
+  }
+
+  const [insightsResult, gasResult] = await Promise.allSettled([
+    fetchInsightsData(),
+    fetchGasStatsData(),
+  ]);
+
+  if (requestId !== recordsLoadRequestId || pageSignal?.aborted) {
+    return;
+  }
+
+  if (insightsResult.status === "rejected") {
+    if (!isPageAbortError(insightsResult.reason)) {
+      console.warn("Failed to load driving insights", insightsResult.reason);
     }
   }
+  if (gasResult.status === "rejected") {
+    if (!isPageAbortError(gasResult.reason)) {
+      console.warn("Failed to load gas stats", gasResult.reason);
+    }
+  }
+
+  recordSources = {
+    ...recordSources,
+    insights: insightsResult.status === "fulfilled" ? insightsResult.value : null,
+    gas: gasResult.status === "fulfilled" ? gasResult.value : null,
+  };
+
+  if (gasResult.status === "fulfilled") {
+    updateLastFillup(gasResult.value);
+  }
+
+  setRecordLoading(false);
+  updateRecordEntries();
 }
 
-/**
- * Fetch gas/fuel statistics
- */
-async function loadGasStats() {
-  try {
-    const data = await apiGet("/api/gas-statistics");
-    setRecordSource("gas", data);
+async function fetchInsightsData() {
+  const params = buildTripMetricsQueryParams();
+  params.set("include_movement", "false");
+  return apiGet(`/api/driving-insights?${params.toString()}`);
+}
 
-    if (elements.lastFillup) {
-      const valueEl = elements.lastFillup.querySelector(".meta-value");
-      if (valueEl && data.average_mpg) {
-        valueEl.textContent = data.average_mpg.toFixed(1);
-      }
-    }
-  } catch (error) {
-    if (!isPageAbortError(error)) {
-      console.warn("Failed to load gas stats", error);
-    }
+async function fetchGasStatsData() {
+  const params = buildTripMetricsQueryParams();
+  const qs = params.toString();
+  return apiGet(qs ? `/api/gas-statistics?${qs}` : "/api/gas-statistics");
+}
+
+function updateLastFillup(data) {
+  if (!elements.lastFillup) {
+    return;
+  }
+  const valueEl = elements.lastFillup.querySelector(".meta-value");
+  if (valueEl) {
+    valueEl.textContent = data?.average_mpg ? data.average_mpg.toFixed(1) : "--";
   }
 }
 

@@ -205,6 +205,23 @@
   font-feature-settings: "tnum";
 }
 
+.snapshot-figure.is-loading .snapshot-value {
+  opacity: 0.48;
+}
+
+.snapshot-figure.is-loading .snapshot-label::after {
+  content: "";
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-left: var(--space-2);
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 999px;
+  animation: homeSpin 0.8s linear infinite;
+  vertical-align: -0.05rem;
+}
+
 .snapshot-unit {
   font-family: var(--font-family-display);
   font-size: var(--font-size-lg);
@@ -247,6 +264,17 @@
   box-shadow: var(--shadow-sm);
 }
 
+.snapshot-record.is-loading {
+  cursor: wait;
+  pointer-events: none;
+}
+
+.snapshot-record.is-loading .record-value,
+.snapshot-record.is-loading .record-title,
+.snapshot-record.is-loading .record-date {
+  opacity: 0.64;
+}
+
 .snapshot-record:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
@@ -272,6 +300,10 @@
 
 .snapshot-record:hover .record-eyebrow i {
   transform: rotate(90deg);
+}
+
+.snapshot-record.is-loading .record-eyebrow i {
+  animation: homeSpin 0.8s linear infinite;
 }
 
 .record-value {
@@ -579,6 +611,12 @@
   }
 }
 
+@keyframes homeSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .activity-empty {
   display: flex;
   align-items: center;
@@ -751,7 +789,9 @@
 @media (prefers-reduced-motion: reduce) {
   .live-dot.active,
   .activity-live-dot,
-  .loading-pulse {
+  .loading-pulse,
+  .snapshot-record.is-loading .record-eyebrow i,
+  .snapshot-figure.is-loading .snapshot-label::after {
     animation: none;
   }
 

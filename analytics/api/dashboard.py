@@ -13,8 +13,11 @@ router = APIRouter()
 
 
 @cached("driving_insights", ttl_seconds=300)
-async def _driving_insights_cached(query: dict):
-    return await DashboardService.get_driving_insights(query)
+async def _driving_insights_cached(query: dict, include_movement: bool = True):
+    return await DashboardService.get_driving_insights(
+        query,
+        include_movement=include_movement,
+    )
 
 
 @cached("metrics", ttl_seconds=300)
@@ -26,12 +29,16 @@ async def _metrics_cached(query: dict):
 async def get_driving_insights(request: Request):
     """Get aggregated driving insights."""
     try:
+        include_movement = (
+            str(request.query_params.get("include_movement", "true")).lower()
+            not in {"0", "false", "no", "off"}
+        )
         query = TripQuerySpec.from_request(
             request,
             include_invalid=True,
         ).to_mongo_query(enforce_source=True)
         query["invalid"] = {"$ne": True}
-        return await _driving_insights_cached(query)
+        return await _driving_insights_cached(query, include_movement)
     except Exception as e:
         logger.exception("Error in get_driving_insights")
         raise HTTPException(
