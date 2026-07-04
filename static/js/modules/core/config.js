@@ -29,6 +29,7 @@ export const CONFIG = {
     },
     terrainRelief: {
       sourceId: "es-mapbox-dem",
+      hillshadeSourceId: "es-mapbox-hillshade-dem",
       hillshadeLayerId: "es-terrain-hillshade",
       demUrl: "mapbox://mapbox.mapbox-terrain-dem-v1",
       tileSize: 512,

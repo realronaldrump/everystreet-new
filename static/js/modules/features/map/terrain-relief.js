@@ -166,8 +166,7 @@ function getOverlayBeforeLayerId(style) {
   return firstLineOrSymbol?.id;
 }
 
-function ensureDemSource(map, config) {
-  const { sourceId } = config;
+function ensureDemSource(map, sourceId, config) {
   if (!sourceId || typeof map.getSource !== "function") {
     return false;
   }
@@ -196,8 +195,8 @@ function ensureDemSource(map, config) {
 
 function ensureHillshadeLayer(map, config, styleType) {
   const layerId = config.hillshadeLayerId;
-  const { sourceId } = config;
-  if (!layerId || !sourceId || typeof map.getLayer !== "function") {
+  const { hillshadeSourceId } = config;
+  if (!layerId || !hillshadeSourceId || typeof map.getLayer !== "function") {
     return false;
   }
 
@@ -226,7 +225,7 @@ function ensureHillshadeLayer(map, config, styleType) {
       {
         id: layerId,
         type: "hillshade",
-        source: sourceId,
+        source: hillshadeSourceId,
         paint,
       },
       beforeLayerId
@@ -285,6 +284,7 @@ function removeDemSource(map, sourceId) {
 function removeTerrainRelief(map) {
   const config = {
     sourceId: "es-mapbox-dem",
+    hillshadeSourceId: "es-mapbox-hillshade-dem",
     hillshadeLayerId: "es-terrain-hillshade",
     ...getTerrainConfig(),
   };
@@ -298,9 +298,10 @@ function removeTerrainRelief(map) {
   }
 
   const removedLayer = removeHillshadeLayer(map, config.hillshadeLayerId);
-  const removedSource = removeDemSource(map, config.sourceId);
+  const removedTerrainSource = removeDemSource(map, config.sourceId);
+  const removedHillshadeSource = removeDemSource(map, config.hillshadeSourceId);
   setTerrainReliefApplied(false);
-  return removedLayer || removedSource;
+  return removedLayer || removedTerrainSource || removedHillshadeSource;
 }
 
 export function isMapboxTerrainReliefSupported(map) {
@@ -372,6 +373,7 @@ export function ensureTerrainRelief(map, { styleType } = {}) {
 
   const config = {
     sourceId: "es-mapbox-dem",
+    hillshadeSourceId: "es-mapbox-hillshade-dem",
     hillshadeLayerId: "es-terrain-hillshade",
     demUrl: "mapbox://mapbox.mapbox-terrain-dem-v1",
     tileSize: 512,
@@ -379,7 +381,12 @@ export function ensureTerrainRelief(map, { styleType } = {}) {
     ...getTerrainConfig(),
   };
 
-  if (!ensureDemSource(map, config)) {
+  if (!ensureDemSource(map, config.sourceId, config)) {
+    setTerrainReliefApplied(false);
+    return false;
+  }
+
+  if (!ensureDemSource(map, config.hillshadeSourceId, config)) {
     setTerrainReliefApplied(false);
     return false;
   }

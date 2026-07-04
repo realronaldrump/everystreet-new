@@ -136,9 +136,16 @@ test("ensureTerrainRelief adds DEM source, terrain, and hillshade when enabled",
   const applied = ensureTerrainRelief(map, { styleType: "streets" });
 
   assert.equal(applied, true);
-  assert.equal(map.addedSources.length, 1);
+  assert.equal(map.addedSources.length, 2);
   assert.equal(map.addedSources[0].id, "es-mapbox-dem");
   assert.deepEqual(map.addedSources[0].source, {
+    type: "raster-dem",
+    url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+    tileSize: 512,
+    maxzoom: 14,
+  });
+  assert.equal(map.addedSources[1].id, "es-mapbox-hillshade-dem");
+  assert.deepEqual(map.addedSources[1].source, {
     type: "raster-dem",
     url: "mapbox://mapbox.mapbox-terrain-dem-v1",
     tileSize: 512,
@@ -151,7 +158,10 @@ test("ensureTerrainRelief adds DEM source, terrain, and hillshade when enabled",
   assert.equal(map.addedLayers.length, 1);
   assert.equal(map.addedLayers[0].beforeLayerId, "road-line");
   assert.equal(map.addedLayers[0].layerDefinition.type, "hillshade");
-  assert.equal(map.addedLayers[0].layerDefinition.source, "es-mapbox-dem");
+  assert.equal(
+    map.addedLayers[0].layerDefinition.source,
+    "es-mapbox-hillshade-dem"
+  );
 });
 
 test("ensureTerrainRelief removes terrain layer and source when disabled", () => {
@@ -165,6 +175,7 @@ test("ensureTerrainRelief removes terrain layer and source when disabled", () =>
   assert.deepEqual(map.terrainCalls.at(-1), null);
   assert.ok(map.removedLayers.includes("es-terrain-hillshade"));
   assert.ok(map.removedSources.includes("es-mapbox-dem"));
+  assert.ok(map.removedSources.includes("es-mapbox-hillshade-dem"));
 });
 
 test("ensureTerrainRelief broadcasts applied state for overlay renderers", () => {
@@ -214,7 +225,7 @@ test("initTerrainRelief re-applies terrain before other style-change handlers", 
     map.setStyleData(makeStyle());
     await capturedHandler("satellite");
 
-    assert.equal(map.addedSources.length, 2);
+    assert.equal(map.addedSources.length, 4);
     assert.equal(map.addedLayers.length, 2);
     assert.deepEqual(map.terrainCalls.at(-1), {
       source: "es-mapbox-dem",
