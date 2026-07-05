@@ -10,6 +10,7 @@ const originalGlobals = {
   deck: globalThis.deck,
   document: globalThis.document,
 };
+const originalTripLayer = structuredClone(store.mapLayers.trips);
 
 function createOverlayClass(constructed) {
   return class MapboxOverlay {
@@ -45,6 +46,7 @@ function resetRenderer() {
   tripMapRenderer.terrainActive = false;
   tripMapRenderer._terrainListenerBound = false;
   tripMapRenderer.layers.clear();
+  tripMapRenderer._suppressedBy.clear();
 }
 
 test.beforeEach(() => {
@@ -55,6 +57,7 @@ test.beforeEach(() => {
 test.afterEach(() => {
   resetRenderer();
   store.map = null;
+  store.mapLayers.trips = structuredClone(originalTripLayer);
   globalThis.deck = originalGlobals.deck;
   globalThis.document = originalGlobals.document;
 });
@@ -147,5 +150,56 @@ test("redundant terrain events do not rebuild the trip overlay", () => {
   assert.deepEqual(
     events.map((entry) => entry.type),
     ["addControl"]
+  );
+});
+
+test("trip layer suppression clears and restores deck trip paths", () => {
+  const constructed = [];
+  const events = [];
+  globalThis.deck = {
+    MapboxOverlay: createOverlayClass(constructed),
+    PathLayer: class PathLayer {
+      constructor(props) {
+        this.props = props;
+      }
+    },
+  };
+  store.map = createMapMock(events);
+  store.mapLayers.trips = {
+    ...structuredClone(originalTripLayer),
+    visible: true,
+    isHeatmap: false,
+    color: "#d4943c",
+    weight: 2,
+    opacity: 1,
+  };
+  tripMapRenderer.layers.set("trips", {
+    bundle: { trips: [{ id: "trip-1" }] },
+    decoded: {
+      length: 1,
+      positions: new Float64Array([-97.75, 30.25, -97.71, 30.29]),
+      startIndices: new Uint32Array([0, 2]),
+      tripIndices: new Uint32Array([0]),
+    },
+    tripById: new Map([["trip-1", { trip: { id: "trip-1" }, index: 0 }]]),
+    featureCollection: null,
+  });
+
+  tripMapRenderer.render();
+  assert.deepEqual(
+    tripMapRenderer.overlay.props.layers.map((layer) => layer.props.id),
+    ["trips-trip-map-line"]
+  );
+
+  tripMapRenderer.suppressTripLayers("particle-flow");
+  assert.deepEqual(tripMapRenderer.overlay.props.layers, []);
+
+  tripMapRenderer.render();
+  assert.deepEqual(tripMapRenderer.overlay.props.layers, []);
+
+  tripMapRenderer.restoreTripLayers("particle-flow");
+  assert.deepEqual(
+    tripMapRenderer.overlay.props.layers.map((layer) => layer.props.id),
+    ["trips-trip-map-line"]
   );
 });

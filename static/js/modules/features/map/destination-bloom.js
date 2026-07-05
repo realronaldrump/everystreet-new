@@ -13,6 +13,7 @@ const FADE_IN_MS = 420;
 const FADE_OUT_MS = 260;
 const TOOLTIP_OFFSET_X = 14;
 const TOOLTIP_OFFSET_Y = 16;
+const TRIP_RENDER_SUPPRESSION_KEY = "destination-bloom";
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -967,6 +968,8 @@ const destinationBloom = {
   },
 
   _hideTripLayers(map) {
+    tripMapRenderer.suppressTripLayers(TRIP_RENDER_SUPPRESSION_KEY);
+
     const style = map?.getStyle?.();
     if (!style?.layers) {
       return;
@@ -1003,6 +1006,8 @@ const destinationBloom = {
   },
 
   _restoreTripLayers(map) {
+    tripMapRenderer.restoreTripLayers(TRIP_RENDER_SUPPRESSION_KEY);
+
     if (!map || !Array.isArray(this._prevHiddenLayers)) {
       return;
     }

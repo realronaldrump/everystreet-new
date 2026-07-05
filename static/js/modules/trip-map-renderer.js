@@ -147,6 +147,7 @@ const tripMapRenderer = {
   terrainActive: false,
   _terrainListenerBound: false,
   _mapListenersBound: false,
+  _suppressedBy: new Set(),
 
   isTripLayer,
 
@@ -409,11 +410,42 @@ const tripMapRenderer = {
     this.render();
   },
 
+  suppressTripLayers(reason = "default") {
+    const key = String(reason || "default");
+    const wasSuppressed = this.areTripLayersSuppressed();
+    this._suppressedBy.add(key);
+    if (!wasSuppressed) {
+      this.render();
+    }
+  },
+
+  restoreTripLayers(reason = "default") {
+    const key = String(reason || "default");
+    if (!this._suppressedBy.delete(key)) {
+      return;
+    }
+    if (!this.areTripLayersSuppressed()) {
+      this.render();
+    }
+  },
+
+  areTripLayersSuppressed() {
+    return this._suppressedBy.size > 0;
+  },
+
   refreshSelection() {
     this.render();
   },
 
   render() {
+    if (this.areTripLayersSuppressed()) {
+      if (this.overlay) {
+        this.overlay.setProps({ layers: [] });
+      }
+      performance.mark?.("trip-map:suppressed");
+      return;
+    }
+
     const overlay = this.ensureOverlay();
     if (!overlay) {
       return;

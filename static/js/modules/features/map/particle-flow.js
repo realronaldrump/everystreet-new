@@ -25,6 +25,7 @@ const TRAIL_LENGTH = 6; // number of historical positions to draw
 const RESPAWN_JITTER = 0.15; // random head-start when recycling
 const FADE_IN_MS = 600;
 const FADE_OUT_MS = 400;
+const TRIP_RENDER_SUPPRESSION_KEY = "particle-flow";
 
 // Adaptive density: maps trip-count to particle-count
 function particleBudget(tripCount) {
@@ -428,6 +429,8 @@ const particleFlow = {
   // ------ Layer visibility management ---------------------------------------
 
   _hideTripLayers(map) {
+    tripMapRenderer.suppressTripLayers(TRIP_RENDER_SUPPRESSION_KEY);
+
     if (!map) {
       return;
     }
@@ -461,6 +464,8 @@ const particleFlow = {
   },
 
   _restoreTripLayers(map) {
+    tripMapRenderer.restoreTripLayers(TRIP_RENDER_SUPPRESSION_KEY);
+
     if (!map || !this._prevHiddenLayers) {
       return;
     }
