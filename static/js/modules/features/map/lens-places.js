@@ -69,16 +69,17 @@ export default function createPlacesLens({ registerCleanup }) {
     registerCleanup(() => target.removeEventListener(eventName, handler, options));
   };
 
-  const renderPlaces = async () => {
+  const renderPlaces = async ({ fresh = false } = {}) => {
     if (!list || loaded) {
       return;
     }
     loaded = true;
 
     try {
+      const cacheTime = fresh ? 0 : undefined;
       const [places, stats] = await Promise.all([
-        utils.fetchWithRetry("/api/places"),
-        utils.fetchWithRetry("/api/places/statistics"),
+        utils.fetchWithRetry("/api/places", {}, undefined, cacheTime),
+        utils.fetchWithRetry("/api/places/statistics", {}, undefined, cacheTime),
       ]);
       const statsById = new Map(
         (Array.isArray(stats) ? stats : []).map((s) => [String(s.id), s])
@@ -150,6 +151,14 @@ export default function createPlacesLens({ registerCleanup }) {
   on(document, "matchedTripsDataLoaded", refreshBloom);
   on(document, "es:filters-change", refreshBloom);
   on(document, "mapStyleLoaded", refreshBloom);
+
+  // A place saved from the bloom tooltip should appear in the list.
+  on(document, "destinationBloom:placeSaved", () => {
+    loaded = false;
+    if (isActive) {
+      renderPlaces({ fresh: true });
+    }
+  });
 
   registerCleanup(() => {
     if (destinationBloom.isActive()) {

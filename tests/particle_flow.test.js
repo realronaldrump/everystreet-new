@@ -216,3 +216,53 @@ test("particle flow keeps trip layers hidden across repeated repair passes", () 
     ]
   );
 });
+
+test("particle flow reactivated during fade-out survives the deactivation timer", async () => {
+  const documentMock = createDocumentMock();
+  const container = createDomNode();
+  const map = createMapMock(container);
+
+  global.document = documentMock;
+  global.window = {};
+
+  store.map = map;
+  store.mapLayers = {
+    trips: {
+      visible: true,
+      layer: {
+        features: [
+          {
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-97.75, 30.25],
+                [-97.71, 30.29],
+              ],
+            },
+          },
+        ],
+      },
+    },
+    matchedTrips: {
+      visible: false,
+      layer: { features: [] },
+    },
+  };
+
+  particleFlow.activate();
+  assert.equal(particleFlow.isActive(), true);
+
+  // Deactivation flips the flag immediately so a reactivation is honored.
+  particleFlow.deactivate();
+  assert.equal(particleFlow.isActive(), false);
+
+  particleFlow.activate();
+  assert.equal(particleFlow.isActive(), true);
+
+  // Wait past FADE_OUT_MS + 50; a stale timer would tear the scene down.
+  await new Promise((resolve) => setTimeout(resolve, 520));
+
+  assert.equal(particleFlow.isActive(), true);
+  assert.equal(container.children.length, 1);
+  assert.equal(map.getLayoutProperty("trips-layer", "visibility"), "none");
+});

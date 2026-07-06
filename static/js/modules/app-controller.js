@@ -329,20 +329,12 @@ const restoreLayerVisibility = () => {
   const saved = utils.getStorage(CONFIG.STORAGE_KEYS.layerVisibility) || {};
 
   Object.keys(state.mapLayers).forEach((layerName) => {
-    const toggle = document.getElementById(`${layerName}-toggle`);
-
     if (layerName === "trips") {
       // Trips layer is always visible by default
       state.mapLayers[layerName].visible = true;
-      if (toggle) {
-        toggle.checked = true;
-      }
     } else if (saved[layerName] !== undefined) {
       // Restore saved visibility state
       state.mapLayers[layerName].visible = saved[layerName];
-      if (toggle) {
-        toggle.checked = saved[layerName];
-      }
     }
   });
 };
@@ -677,35 +669,6 @@ const AppController = {
       }
     });
 
-    // Street view mode toggle buttons
-    const streetToggleButtons = document.querySelectorAll(".street-mode-btn");
-    if (streetToggleButtons.length > 0) {
-      const savedStates = getSavedStreetViewModes();
-
-      streetToggleButtons.forEach((btn) => {
-        const mode = btn.dataset.streetMode;
-        const isActive = savedStates[mode] === true;
-
-        if (isActive) {
-          btn.classList.add("active");
-        }
-
-        btn.addEventListener("click", async () => {
-          const isCurrentlyActive = btn.classList.contains("active");
-          btn.classList.toggle("active");
-
-          let currentStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
-          if (typeof currentStates !== "object" || currentStates === null) {
-            currentStates = {};
-          }
-          currentStates[mode] = !isCurrentlyActive;
-          utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, currentStates);
-
-          await this.handleStreetViewModeChange(mode, isCurrentlyActive);
-        });
-      });
-    }
-
     // Map style reload – re-apply layers via serialized handler (priority 1 = runs first)
     this._styleChangeHandlerRef = mapCore.registerStyleChangeHandler(1, async () => {
       if (!state.map || !state.mapInitialized) {
@@ -728,15 +691,6 @@ const AppController = {
         loadingManager.hide();
       }
     });
-
-    // Highlight recent trips toggle
-    const highlightToggle = utils.getElement("highlight-recent-trips");
-    if (highlightToggle) {
-      highlightToggle.addEventListener("change", (e) => {
-        state.mapSettings.highlightRecentTrips = e.target.checked;
-        mapManager.refreshTripStyles();
-      });
-    }
 
     // Filters applied (date-range etc.)
     document.addEventListener("filtersApplied", async () => {

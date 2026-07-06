@@ -9,8 +9,6 @@
  * DOM is unified between desktop and mobile — no sync needed.
  */
 
-const MOBILE_TOGGLE_EVENT = "es:mapControls:toggle";
-
 /** Number of recent touch samples to keep for velocity calculation */
 const VELOCITY_SAMPLES = 6;
 /** Rubber-band resistance factor (0 = locked, 1 = no resistance) */
@@ -64,16 +62,12 @@ class MobileMapInterface {
   // ---------------------------------------------------------------------------
 
   static detectMobileViewport() {
-    const narrowScreen = window.matchMedia
+    // Must match the CSS bottom-sheet breakpoint in atlas-rail.css:
+    // wider viewports render the docked desktop rail, where sheet
+    // gestures and offsets would fight the layout.
+    return window.matchMedia
       ? window.matchMedia("(max-width: 768px)").matches
       : window.innerWidth <= 768;
-    if (narrowScreen) {
-      return true;
-    }
-
-    const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
-    const compactViewport = window.innerWidth <= 1024 && window.innerHeight <= 900;
-    return coarsePointer && compactViewport;
   }
 
   // ---------------------------------------------------------------------------
@@ -93,7 +87,6 @@ class MobileMapInterface {
     this.setState("collapsed", { immediate: true });
 
     this.setupDragInteractions();
-    this.setupProgrammaticToggle();
 
     window.addEventListener("resize", this.resizeHandler);
     this.cleanupCallbacks.push(() =>
@@ -459,14 +452,6 @@ class MobileMapInterface {
     return this.currentState === expanded
       ? collapsed
       : this.getNextStateUp(this.currentState);
-  }
-
-  setupProgrammaticToggle() {
-    const handler = () => this.toggleState();
-    document.addEventListener(MOBILE_TOGGLE_EVENT, handler);
-    this.cleanupCallbacks.push(() =>
-      document.removeEventListener(MOBILE_TOGGLE_EVENT, handler)
-    );
   }
 
   updateSheetClasses(state) {

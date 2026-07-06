@@ -85,6 +85,9 @@ class ESStore {
     this.selectedTripLayer = null;
     this.selectedLocationId = null;
 
+    // Last metricsUpdated payload, for listeners created after the initial load.
+    this.lastMetricsDetail = null;
+
     this.liveTracker = null;
 
     this.undrivenStreetsLoaded = false;

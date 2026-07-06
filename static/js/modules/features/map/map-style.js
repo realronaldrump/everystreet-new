@@ -1,5 +1,17 @@
+import { CONFIG } from "../../core/config.js";
+import { resolveMapTypeHint } from "./map-type-hint.js";
+
 export function normalizeStyleType(value) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+export function resolveActiveStyleType(fallback = "dark") {
+  return (
+    resolveMapTypeHint({
+      storageKey: CONFIG.STORAGE_KEYS.mapType,
+      normalizeStyleType,
+    }) || fallback
+  );
 }
 
 export function isGoogleProvider() {

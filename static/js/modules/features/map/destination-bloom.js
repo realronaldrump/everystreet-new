@@ -5,6 +5,7 @@ import { clearTripInteractionState } from "../../trip-selection-state.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
 import { escapeHtml } from "../../utils.js";
+import { resolveActiveStyleType } from "./map-style.js";
 
 const LAYER_SEARCH_ORDER = ["trips", "matchedTrips"];
 const MAX_BLOOM_RADIUS = 34;
@@ -913,6 +914,7 @@ const destinationBloom = {
         8000
       );
 
+      emitDocumentEvent("destinationBloom:placeSaved", { placeId, name });
       await this._refreshTripLayers();
       this.refresh();
     } catch (error) {
@@ -930,7 +932,7 @@ const destinationBloom = {
 
   async _refreshTripLayers() {
     try {
-      const { default: dataManager } = await import("./data-manager.js");
+      const { default: dataManager } = await import("../../data-manager.js");
       await Promise.allSettled([
         dataManager.fetchTrips(),
         dataManager.fetchMatchedTrips(),
@@ -1190,7 +1192,7 @@ const destinationBloom = {
   },
 
   _paletteForCurrentStyle() {
-    const style = store.state?.map?.style || localStorage.getItem("mapType") || "dark";
+    const style = resolveActiveStyleType();
     if (style === "light" || style === "streets") {
       return {
         halo: [220, 120, 40],
@@ -1261,7 +1263,7 @@ const destinationBloom = {
     if (!this._canvas) {
       return;
     }
-    const style = store.state?.map?.style || localStorage.getItem("mapType") || "dark";
+    const style = resolveActiveStyleType();
     const usesScreen = style === "dark" || style === "satellite";
     this._canvas.classList.toggle("blend-screen", usesScreen);
   },

@@ -253,7 +253,6 @@ export const CONFIG = {
       datePickerApply: "#date-picker-apply",
       datePickerReset: "#date-picker-reset",
       header: ".app-header",
-      mapControls: "#atlas-rail",
       mapTypeSelect: "#map-type-select",
     },
     classes: {

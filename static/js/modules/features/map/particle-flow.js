@@ -13,6 +13,7 @@
 import store from "../../core/store.js";
 import tripMapRenderer from "../../trip-map-renderer.js";
 import { clearTripInteractionState } from "../../trip-selection-state.js";
+import { resolveActiveStyleType } from "./map-style.js";
 
 // ---------------------------------------------------------------------------
 // Tunables
@@ -156,6 +157,7 @@ const particleFlow = {
   _mapResizeHandler: null,
   _styleChangeHandler: null,
   _prevHiddenLayers: null,
+  _deactivationTimer: null,
   _destroyed: false,
 
   // ------ Public API --------------------------------------------------------
@@ -182,6 +184,10 @@ const particleFlow = {
     }
     this._active = true;
     this._destroyed = false;
+    if (this._deactivationTimer) {
+      clearTimeout(this._deactivationTimer);
+      this._deactivationTimer = null;
+    }
 
     const { map } = store;
     if (!map) {
@@ -211,23 +217,20 @@ const particleFlow = {
       return;
     }
 
-    // Fade out then clean up
+    // Flag off immediately so reactivation during the fade is honored.
+    this._active = false;
     this._fading = "out";
     this._fadeStart = performance.now();
+    document.dispatchEvent(new CustomEvent("particleFlow:deactivated"));
 
-    const finishDeactivation = () => {
-      this._active = false;
-      this._stopLoop();
-      this._unbindMapEvents();
-      this._removeCanvas();
-      this._restoreTripLayers(store.map);
-      this._particles = [];
-      this._paths = [];
-      document.dispatchEvent(new CustomEvent("particleFlow:deactivated"));
-    };
-
-    // Let fade-out finish, then clean up
-    setTimeout(finishDeactivation, FADE_OUT_MS + 50);
+    // Let fade-out finish, then clean up (canceled if reactivated).
+    this._deactivationTimer = setTimeout(() => {
+      this._deactivationTimer = null;
+      if (this._destroyed) {
+        return;
+      }
+      this._finalizeDeactivate();
+    }, FADE_OUT_MS + 50);
   },
 
   /** Full cleanup (page teardown). */
@@ -235,15 +238,23 @@ const particleFlow = {
     const wasActive = this._active;
     this._destroyed = true;
     this._active = false;
+    if (this._deactivationTimer) {
+      clearTimeout(this._deactivationTimer);
+      this._deactivationTimer = null;
+    }
+    this._finalizeDeactivate();
+    if (wasActive) {
+      document.dispatchEvent(new CustomEvent("particleFlow:deactivated"));
+    }
+  },
+
+  _finalizeDeactivate() {
     this._stopLoop();
     this._unbindMapEvents();
     this._removeCanvas();
     this._restoreTripLayers(store.map);
     this._particles = [];
     this._paths = [];
-    if (wasActive) {
-      document.dispatchEvent(new CustomEvent("particleFlow:deactivated"));
-    }
   },
 
   /** Re-read trip data (e.g. after date filter change). */
@@ -685,8 +696,7 @@ const particleFlow = {
   },
 
   _isDarkTheme() {
-    const mapType =
-      store.state?.map?.style || localStorage.getItem("mapType") || "dark";
+    const mapType = resolveActiveStyleType();
     return mapType !== "light" && mapType !== "streets";
   },
 };

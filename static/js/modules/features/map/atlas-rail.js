@@ -328,6 +328,10 @@ export default function initAtlasRail({ registerCleanup }) {
   };
 
   on(document, "metricsUpdated", syncFigures);
+  // The initial load's metricsUpdated fires before this module exists.
+  if (store.lastMetricsDetail) {
+    syncFigures({ detail: store.lastMetricsDetail });
+  }
 
   // Matched-trips visibility affects the trips legend
   on(document, "es:layers-change", renderLegend);

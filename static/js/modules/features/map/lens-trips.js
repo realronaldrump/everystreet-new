@@ -91,10 +91,15 @@ export default function createTripsLens({ registerCleanup }) {
 
   // ---- Matched trips toggle -----------------------------------------
   if (matchedToggle) {
-    matchedToggle.checked = Boolean(store.mapLayers?.matchedTrips?.visible);
+    const syncMatchedToggle = () => {
+      matchedToggle.checked = Boolean(store.mapLayers?.matchedTrips?.visible);
+    };
+    syncMatchedToggle();
     on(matchedToggle, "change", async () => {
       await layerManager.toggleLayer("matchedTrips", matchedToggle.checked);
     });
+    // Visibility can change elsewhere (restored settings, style reloads).
+    on(document, "es:layers-change", syncMatchedToggle);
   }
 
   // ---- Journal --------------------------------------------------------
@@ -234,6 +239,14 @@ export default function createTripsLens({ registerCleanup }) {
   };
 
   on(document, "tripsDataLoaded", handleTripsLoaded);
+
+  // The initial load's tripsDataLoaded fires before this module exists;
+  // seed the journal from the bundle the renderer kept.
+  const initialBundle = store.mapLayers?.trips?.layer?.bundle;
+  if (Array.isArray(initialBundle?.trips)) {
+    ({ trips } = initialBundle);
+    renderJournal();
+  }
 
   // Keep journal selection in step with map-side selection (map clicks).
   syncTimer = window.setInterval(() => {

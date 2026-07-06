@@ -11,47 +11,6 @@ import initPlateNotation from "./plate-notation.js";
 import initTerrainRelief from "./terrain-relief.js";
 import initViewPopover from "./view-popover.js";
 
-function setupMapTilt(signal) {
-  const prefersCoarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches;
-  if (prefersCoarsePointer) {
-    return;
-  }
-
-  const { map } = window;
-  if (!map || typeof map.easeTo !== "function") {
-    return;
-  }
-  let ticking = false;
-  const maxPitch = 12;
-  const maxScroll = 320;
-
-  const applyTilt = () => {
-    ticking = false;
-    if (store.liveTracker?.followMode) {
-      return;
-    }
-    const scrollY = window.scrollY || 0;
-    const ratio = Math.min(scrollY / maxScroll, 1);
-    map.easeTo({
-      pitch: ratio * maxPitch,
-      duration: 300,
-      essential: true,
-    });
-  };
-
-  window.addEventListener(
-    "scroll",
-    () => {
-      if (ticking) {
-        return;
-      }
-      ticking = true;
-      requestAnimationFrame(applyTilt);
-    },
-    signal ? { signal, passive: true } : { passive: true }
-  );
-}
-
 function setupMapViewportSync() {
   const mapElement = document.getElementById("map");
   const mapCanvas = document.getElementById("map-canvas");
@@ -245,19 +204,6 @@ export default function initMapPage({ signal, cleanup } = {}) {
     }
   };
 
-  let perfObserver = null;
-  if ("PerformanceObserver" in window) {
-    perfObserver = new PerformanceObserver((list) => {
-      for (const entry of list.getEntries()) {
-        if (entry.entryType === "largest-contentful-paint") {
-          // LCP monitoring
-        }
-      }
-    });
-    perfObserver.observe({ entryTypes: ["largest-contentful-paint"] });
-    registerCleanup(() => perfObserver.disconnect());
-  }
-
   registerCleanup(setupMapViewportSync());
 
   const mapInstance = store.map || window.map;
@@ -266,8 +212,6 @@ export default function initMapPage({ signal, cleanup } = {}) {
 
   const buildings3d = initBuildings3D({ map: mapInstance });
   registerCleanup(() => buildings3d.destroy?.());
-
-  setupMapTilt(signal);
 
   initAtlasRail({ registerCleanup });
   initPlateNotation({ registerCleanup });
@@ -302,8 +246,8 @@ export default function initMapPage({ signal, cleanup } = {}) {
         console.error("Failed to load Bouncie Simulator:", err);
       }
     };
-    simToggle.addEventListener("mousedown", handleSimToggle);
-    registerCleanup(() => simToggle.removeEventListener("mousedown", handleSimToggle));
+    simToggle.addEventListener("click", handleSimToggle);
+    registerCleanup(() => simToggle.removeEventListener("click", handleSimToggle));
   }
 
   const teardown = () => {

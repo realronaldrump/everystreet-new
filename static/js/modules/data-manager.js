@@ -187,29 +187,6 @@ const dataManager = {
     }
   },
 
-  /**
-   * Tag trips as recent based on threshold
-   * @private
-   */
-  _tagRecentTrips(data) {
-    try {
-      const now = Date.now();
-      const threshold = CONFIG.MAP.recentTripThreshold;
-
-      data.features.forEach((f) => {
-        const endTime = f?.properties?.endTime;
-        const endTs = endTime ? new Date(endTime).getTime() : null;
-        f.properties = f.properties || {};
-        f.properties.isRecent =
-          typeof endTs === "number" && !Number.isNaN(endTs)
-            ? now - endTs <= threshold
-            : false;
-      });
-    } catch (err) {
-      console.warn("Failed to tag recent matched trips:", err);
-    }
-  },
-
   _coerceTripMapBundle(data) {
     return Boolean(
       data &&
@@ -232,21 +209,20 @@ const dataManager = {
       maxSpeed: Number(summary.max_speed || 0),
     };
     metricsManager.updateTripsTableFromApi?.(metrics);
-    document.dispatchEvent(
-      new CustomEvent("metricsUpdated", {
-        detail: {
-          source: "tripMapBundle",
-          updatedAt: Date.now(),
-          totals: {
-            totalTrips: metrics.totalTrips,
-            totalDistanceMiles: metrics.totalDistanceMiles,
-            avgSpeed: metrics.avgSpeed,
-            maxSpeed: metrics.maxSpeed,
-          },
-          metrics,
-        },
-      })
-    );
+    const detail = {
+      source: "tripMapBundle",
+      updatedAt: Date.now(),
+      totals: {
+        totalTrips: metrics.totalTrips,
+        totalDistanceMiles: metrics.totalDistanceMiles,
+        avgSpeed: metrics.avgSpeed,
+        maxSpeed: metrics.maxSpeed,
+      },
+      metrics,
+    };
+    // Late-created listeners (atlas rail) read the last detail from state.
+    state.lastMetricsDetail = detail;
+    document.dispatchEvent(new CustomEvent("metricsUpdated", { detail }));
   },
 
   /**
@@ -419,6 +395,7 @@ const dataManager = {
           totals: { totalTrips, totalDistanceMiles, avgSpeed, maxSpeed },
           metrics,
         };
+        state.lastMetricsDetail = detail;
         document.dispatchEvent(new CustomEvent("metricsUpdated", { detail }));
         return detail;
       }

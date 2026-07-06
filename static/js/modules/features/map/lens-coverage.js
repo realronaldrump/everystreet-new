@@ -52,6 +52,16 @@ export default function createCoverageLens({ registerCleanup }) {
   const activeChipMode = () =>
     chips.find((chip) => chip.classList.contains("active"))?.dataset.streetMode || null;
 
+  // app-controller persists the live street-layer state on every
+  // es:streetModeChange; read it back so chips always reflect the map.
+  const activeModeFromStorage = () => {
+    const saved = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
+    if (!saved || typeof saved !== "object") {
+      return null;
+    }
+    return STREET_MODES.find((mode) => saved[mode] === true) || null;
+  };
+
   const setChipStates = (activeMode) => {
     chips.forEach((chip) => {
       chip.classList.toggle("active", chip.dataset.streetMode === activeMode);
@@ -99,10 +109,8 @@ export default function createCoverageLens({ registerCleanup }) {
     const hasArea = Boolean(selectedAreaId());
     chips.forEach((chip) => {
       chip.disabled = !hasArea;
-      if (!hasArea) {
-        chip.classList.remove("active");
-      }
     });
+    setChipStates(hasArea ? activeModeFromStorage() : null);
     if (focusBtn) {
       focusBtn.disabled = !hasArea;
     }
@@ -261,10 +269,17 @@ export default function createCoverageLens({ registerCleanup }) {
       }
       syncControlAvailability();
       if (selectedAreaId()) {
-        const mode = lastStreetMode || "undriven";
-        setChipStates(mode);
-        lastStreetMode = mode;
-        dispatchStreetMode(mode, false);
+        const storedMode = activeModeFromStorage();
+        if (storedMode) {
+          // Streets already showing (restored by app-controller); just reflect it.
+          lastStreetMode = storedMode;
+          setChipStates(storedMode);
+        } else if (lastStreetMode) {
+          // Re-enable the mode this lens was last using. Stays off if the
+          // user explicitly cleared the chips (lastStreetMode === null).
+          setChipStates(lastStreetMode);
+          dispatchStreetMode(lastStreetMode, false);
+        }
         renderProgress();
         renderSuggestions();
       }

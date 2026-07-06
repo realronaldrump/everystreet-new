@@ -108,21 +108,6 @@ const mapControlsManager = {
   },
 
   /**
-   * Toggle control panel visibility
-   */
-  toggleControlPanel() {
-    const panel = store.getElement(CONFIG.UI.selectors.mapControls);
-    if (!panel) {
-      return;
-    }
-
-    panel.classList.toggle(CONFIG.UI.classes.open);
-    const isOpen = panel.classList.contains(CONFIG.UI.classes.open);
-    utils.setStorage(CONFIG.STORAGE_KEYS.mapControlsOpen, isOpen);
-    eventManager.emit("mapControlsToggled", { open: isOpen });
-  },
-
-  /**
    * Update map style/type
    * @param {string} type - Style type (dark, light, satellite, streets)
    */
