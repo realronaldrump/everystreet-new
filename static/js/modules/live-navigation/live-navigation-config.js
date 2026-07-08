@@ -4,7 +4,7 @@
  */
 
 /**
- * Navigation States - manages UX flow through the navigation experience
+ * Navigation states for the live navigation flow.
  */
 export const NAV_STATES = {
   SETUP: "setup", // Initial state, area selection

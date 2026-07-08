@@ -820,7 +820,7 @@ function updateCoveragePhase() {
   updateImportUI();
   updateDetectedStatesUI();
   updateBuildUI();
-  updateCoverageStatusPill();
+  updateCoverageStatusChip();
   updateCoverageDescription();
 
   if (coveragePhase === "building" || coveragePhase === "importing") {
@@ -836,9 +836,9 @@ function updateCoveragePhase() {
   }
 }
 
-function updateCoverageStatusPill() {
-  const pill = document.getElementById("coverage-status-pill");
-  if (!pill) {
+function updateCoverageStatusChip() {
+  const chip = document.getElementById("coverage-status-chip");
+  if (!chip) {
     return;
   }
   const labels = {
@@ -848,14 +848,14 @@ function updateCoverageStatusPill() {
     building: "Building...",
     ready: "Ready",
   };
-  pill.textContent = labels[coveragePhase] || "Not configured";
-  pill.classList.remove("is-muted", "is-warning", "is-success");
+  chip.textContent = labels[coveragePhase] || "Not configured";
+  chip.classList.remove("is-muted", "is-warning", "is-success");
   if (coveragePhase === "ready") {
-    pill.classList.add("is-success");
+    chip.classList.add("is-success");
   } else if (coveragePhase === "building" || coveragePhase === "importing") {
-    pill.classList.add("is-warning");
+    chip.classList.add("is-warning");
   } else {
-    pill.classList.add("is-muted");
+    chip.classList.add("is-muted");
   }
 }
 
@@ -872,9 +872,9 @@ function updateCoverageDescription() {
       "Import your recent trips so we can detect which states to download. Coverage data powers local geocoding and routing.";
   }
 
-  const modePill = document.getElementById("coverage-mode-pill");
-  if (modePill) {
-    modePill.textContent = coverageMode === "states" ? "Full states" : "Trip coverage";
+  const modeChip = document.getElementById("coverage-mode-chip");
+  if (modeChip) {
+    modeChip.textContent = coverageMode === "states" ? "Full states" : "Trip coverage";
   }
 }
 
@@ -960,17 +960,17 @@ function appendActivityEntry(icon, iconClass, text) {
 
 function updateTripSyncStatusUI() {
   const countEl = document.getElementById("trip-sync-count");
-  const statePill = document.getElementById("trip-sync-state-pill");
+  const stateChip = document.getElementById("trip-sync-state-chip");
   const hintEl = document.getElementById("trip-sync-hint");
 
   if (!tripSyncStatus) {
     if (countEl) {
       countEl.textContent = "--";
     }
-    if (statePill) {
-      statePill.textContent = "Idle";
-      statePill.classList.remove("is-warning", "is-danger", "is-success");
-      statePill.classList.add("is-muted");
+    if (stateChip) {
+      stateChip.textContent = "Idle";
+      stateChip.classList.remove("is-warning", "is-danger", "is-success");
+      stateChip.classList.add("is-muted");
     }
     if (hintEl) {
       hintEl.textContent = "";
@@ -988,25 +988,25 @@ function updateTripSyncStatusUI() {
 
   const state = tripSyncStatus.state || "idle";
   let label = "Idle";
-  let pillClass = "is-muted";
+  let chipClass = "is-muted";
   if (state === "syncing") {
     label = "Syncing";
-    pillClass = "is-warning";
+    chipClass = "is-warning";
   } else if (state === "paused") {
     label = "Paused";
-    pillClass = "is-warning";
+    chipClass = "is-warning";
   } else if (state === "error") {
     label = "Attention";
-    pillClass = "is-danger";
+    chipClass = "is-danger";
   } else if (tripCount > 0) {
     label = "Ready";
-    pillClass = "is-success";
+    chipClass = "is-success";
   }
 
-  if (statePill) {
-    statePill.textContent = label;
-    statePill.classList.remove("is-muted", "is-warning", "is-danger", "is-success");
-    statePill.classList.add(pillClass);
+  if (stateChip) {
+    stateChip.textContent = label;
+    stateChip.classList.remove("is-muted", "is-warning", "is-danger", "is-success");
+    stateChip.classList.add(chipClass);
   }
 
   let hint = "";

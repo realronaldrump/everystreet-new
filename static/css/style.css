@@ -1,11 +1,9 @@
 /* ============================
-   Modern UI Design System
+   UI Styles
    ============================ */
 
 /*
- * This file serves as the main entry point for the CSS architecture.
- * All styles have been modularized into separate files for better
- * maintainability and organization.
+ * Main entry point for the CSS architecture.
  *
  * Structure:
  * - core/     : Design tokens, reset, and utilities

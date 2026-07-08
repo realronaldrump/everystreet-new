@@ -28,61 +28,61 @@
   }
 }
 
-/* === Bento Grid === */
-.bento-grid {
+/* === Content Grid === */
+.content-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: var(--section-gap);
   align-items: stretch;
 }
 
-.bento-grid > * {
+.content-grid > * {
   min-width: 0;
 }
 
-.bento-span-12 {
+.grid-span-12 {
   grid-column: span 12;
 }
 
-.bento-span-8 {
+.grid-span-8 {
   grid-column: span 8;
 }
 
-.bento-span-7 {
+.grid-span-7 {
   grid-column: span 7;
 }
 
-.bento-span-6 {
+.grid-span-6 {
   grid-column: span 6;
 }
 
-.bento-span-5 {
+.grid-span-5 {
   grid-column: span 5;
 }
 
-.bento-span-4 {
+.grid-span-4 {
   grid-column: span 4;
 }
 
 @media (width <= 1200px) {
-  .bento-grid {
+  .content-grid {
     grid-template-columns: repeat(8, minmax(0, 1fr));
   }
 }
 
 @media (width <= 992px) {
-  .bento-grid {
+  .content-grid {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 
 @media (width <= 768px) {
-  .bento-grid {
+  .content-grid {
     grid-template-columns: 1fr;
     gap: var(--space-4);
   }
 
-  .bento-grid > * {
+  .content-grid > * {
     grid-column: 1 / -1;
   }
 }

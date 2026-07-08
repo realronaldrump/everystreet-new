@@ -102,9 +102,9 @@ function init() {
     }
 
     store.ui.initialized = true;
-    document.dispatchEvent(new CustomEvent("modernUIReady"));
+    document.dispatchEvent(new CustomEvent("uiReady"));
   } catch (err) {
-    console.error("Modern UI init error", err);
+    console.error("UI init error", err);
     utils.showNotification?.(`Error initializing UI: ${err.message}`, "danger");
   }
 }

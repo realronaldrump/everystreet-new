@@ -2,7 +2,7 @@
    Button Components
    ============================ */
 
-/* === Buttons - Refined & Clean === */
+/* === Buttons === */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -190,7 +190,7 @@
   text-decoration: none;
 }
 
-/* === Subtle Button (New - Phase 2) === */
+/* === Icon Button === */
 
 .btn-icon {
   width: var(--touch-target);

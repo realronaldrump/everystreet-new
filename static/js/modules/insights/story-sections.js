@@ -1,6 +1,6 @@
 /**
  * Story Sections Module
- * Renders the insights experience (period cards, pattern cards, orbit, timeline).
+ * Renders insights sections: periods, patterns, places, and timeline.
  */
 
 import { escapeHtml, formatHourLabel } from "../utils.js";

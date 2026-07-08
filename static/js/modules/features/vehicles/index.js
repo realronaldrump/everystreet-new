@@ -295,8 +295,8 @@ function renderVehicleList(vehicles) {
     // Make detail panel full-width
     const detailPanel = document.getElementById("vehicle-detail-panel");
     if (detailPanel) {
-      detailPanel.classList.remove("bento-span-8");
-      detailPanel.classList.add("bento-span-12");
+      detailPanel.classList.remove("grid-span-8");
+      detailPanel.classList.add("grid-span-12");
     }
     return;
   }
@@ -308,8 +308,8 @@ function renderVehicleList(vehicles) {
   }
   const detailPanel = document.getElementById("vehicle-detail-panel");
   if (detailPanel) {
-    detailPanel.classList.remove("bento-span-12");
-    detailPanel.classList.add("bento-span-8");
+    detailPanel.classList.remove("grid-span-12");
+    detailPanel.classList.add("grid-span-8");
   }
 
   list

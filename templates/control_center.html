@@ -117,14 +117,14 @@ Settings
          id="overview-tab"
          role="tabpanel"
          aria-labelledby="overview-tab-button">
-      <div class="bento-grid control-center-overview-grid" data-stagger>
-        <div class="settings-group bento-span-12">
+      <div class="content-grid control-center-overview-grid" data-stagger>
+        <div class="settings-group grid-span-12">
           <h3 class="settings-group-title">
             <i class="fas fa-heart-pulse"></i>
             System Overview
           </h3>
           <div class="control-center-overview-header">
-            <span class="status-pill cc-overview-status-badge" id="cc-overview-status-badge">
+            <span class="status-chip cc-overview-status-badge" id="cc-overview-status-badge">
               Loading
             </span>
             <span class="text-muted small" id="cc-overview-last-updated">Last updated: --</span>
@@ -137,7 +137,7 @@ Settings
           </p>
         </div>
 
-        <div class="settings-group bento-span-12">
+        <div class="settings-group grid-span-12">
           <h3 class="settings-group-title">
             <i class="fas fa-server"></i>
             Key Services
@@ -149,7 +149,7 @@ Loading services...
           </div>
         </div>
 
-        <div class="settings-group bento-span-6">
+        <div class="settings-group grid-span-6">
           <h3 class="settings-group-title">
             <i class="fas fa-triangle-exclamation"></i>
             Recent Failures
@@ -161,7 +161,7 @@ Loading recent task failures...
           </div>
         </div>
 
-        <div class="settings-group bento-span-6">
+        <div class="settings-group grid-span-6">
           <h3 class="settings-group-title">
             <i class="fas fa-bolt"></i>
             Quick Actions
@@ -192,8 +192,8 @@ Loading recent task failures...
          hidden>
       <div class="preferences-section">
         <form id="app-settings-form">
-          <div class="bento-grid" data-stagger>
-            <div class="settings-group bento-span-6">
+          <div class="content-grid" data-stagger>
+            <div class="settings-group grid-span-6">
               <h3 class="settings-group-title">
                 <i class="fas fa-palette"></i>
               Appearance
@@ -218,7 +218,7 @@ Dark Mode
                 </div>
               </div>
             </div>
-            <div class="settings-group bento-span-6">
+            <div class="settings-group grid-span-6">
               <h3 class="settings-group-title">
                 <i class="fas fa-magic"></i>
               Personalization
@@ -229,7 +229,7 @@ Dark Mode
 Accent Color
                   </span>
                   <span class="setting-label-description">
-                  Choose your primary accent color for highlights and glows
+                  Choose the accent color used for active controls and focus states
                   </span>
                 </label>
                 <div class="setting-control">
@@ -247,15 +247,15 @@ Information Density
                 </div>
                 <div class="setting-control">
                   <div class="option-group" role="radiogroup" aria-label="Information density">
-                    <label class="option-pill">
+                    <label class="density-option">
                       <input type="radio" name="ui-density" value="compact" />
                       <span>Compact</span>
                     </label>
-                    <label class="option-pill">
+                    <label class="density-option">
                       <input type="radio" name="ui-density" value="comfortable" checked />
                       <span>Comfortable</span>
                     </label>
-                    <label class="option-pill">
+                    <label class="density-option">
                       <input type="radio" name="ui-density" value="spacious" />
                       <span>Spacious</span>
                     </label>
@@ -265,7 +265,7 @@ Information Density
 
             </div>
 
-            <div class="settings-group bento-span-6">
+            <div class="settings-group grid-span-6">
               <h3 class="settings-group-title">
                 <i class="fas fa-map"></i>
               Map
@@ -407,7 +407,7 @@ Turn this off to render plain, mostly opaque route lines instead of heatmaps.
               </div>
             </div>
 
-            <div class="settings-group bento-span-6">
+            <div class="settings-group grid-span-6">
               <h3 class="settings-group-title">
                 <i class="fas fa-cogs"></i>
               Trip Processing
@@ -453,7 +453,7 @@ Map Match Trips on Fetch
               </div>
             </div>
 
-            <div class="preferences-actions bento-span-12">
+            <div class="preferences-actions grid-span-12">
               <button type="reset" class="btn btn-outline-secondary">
                 <i class="fas fa-undo"></i> Reset
               </button>
@@ -470,8 +470,8 @@ Map Match Trips on Fetch
          role="tabpanel"
          aria-labelledby="credentials-tab-button"
          hidden>
-      <div class="bento-grid" data-stagger>
-        <div class="settings-group bento-span-12">
+      <div class="content-grid" data-stagger>
+        <div class="settings-group grid-span-12">
           <h3 class="settings-group-title">
             <i class="fas fa-key"></i>
           Credentials
@@ -481,7 +481,7 @@ Map Match Trips on Fetch
           </p>
         </div>
 
-        <div class="settings-group bento-span-12">
+        <div class="settings-group grid-span-12">
           <h3 class="settings-group-title">
             <i class="fas fa-map-location-dot"></i>
           Google Maps Credentials
@@ -514,7 +514,7 @@ Map Match Trips on Fetch
           </form>
         </div>
 
-        <div class="settings-group bento-span-12">
+        <div class="settings-group grid-span-12">
           <h3 class="settings-group-title">
             <i class="fas fa-plug"></i>
           Bouncie Credentials
@@ -594,7 +594,7 @@ Map Match Trips on Fetch
           </form>
         </div>
 
-        <div class="settings-group bento-span-12" id="credentials-bouncie-vehicles-group">
+        <div class="settings-group grid-span-12" id="credentials-bouncie-vehicles-group">
           <h3 class="settings-group-title">
             <i class="fas fa-car"></i>
 	          Bouncie Vehicles
@@ -699,8 +699,8 @@ Map Match Trips on Fetch
          role="tabpanel"
          aria-labelledby="sync-settings-tab-button"
          hidden>
-      <div class="bento-grid" data-stagger>
-        <div class="settings-group bento-span-12">
+      <div class="content-grid" data-stagger>
+        <div class="settings-group grid-span-12">
           <h3 class="settings-group-title">
             <i class="fas fa-sync"></i>
           Trip Sync
@@ -801,8 +801,8 @@ Manual sync
           <span>Advanced background tasks (Admin)</span>
           <span class="sync-advanced-hint">Optional diagnostics and scheduling</span>
         </summary>
-        <div class="bento-grid" data-stagger>
-          <div class="settings-group bento-span-12">
+        <div class="content-grid" data-stagger>
+          <div class="settings-group grid-span-12">
             <h3 class="settings-group-title">
               <i class="fas fa-sliders-h"></i>
             Global Task Control
@@ -899,7 +899,7 @@ Pause all automated background tasks
               </button>
             </div>
           </div>
-          <div class="settings-group bento-span-12">
+          <div class="settings-group grid-span-12">
             <h3 class="settings-group-title">
               <i class="fas fa-tasks"></i>
             Task Configuration
@@ -941,7 +941,7 @@ Actions
               <i class="fas fa-save"></i> Save Configuration
             </button>
           </div>
-          <div class="settings-group bento-span-12" id="manual-fetch-card">
+          <div class="settings-group grid-span-12" id="manual-fetch-card">
             <h3 class="settings-group-title">
               <i class="fas fa-cloud-download-alt"></i>
             Manual Trip Fetch
@@ -1004,7 +1004,7 @@ Actions
               </div>
             </form>
           </div>
-          <div class="settings-group bento-span-12">
+          <div class="settings-group grid-span-12">
             <h3 class="settings-group-title">
               <i class="fas fa-history"></i>
             Task History
@@ -1079,8 +1079,8 @@ Details
        role="tabpanel"
        aria-labelledby="data-management-tab-button"
        hidden>
-    <div class="bento-grid" data-stagger>
-      <div class="settings-group bento-span-12 trip-data-health-card">
+    <div class="content-grid" data-stagger>
+      <div class="settings-group grid-span-12 trip-data-health-card">
         <h3 class="settings-group-title trip-data-health-title">
           <i class="fas fa-triangle-exclamation"></i>
 	          Trip Data Health
@@ -1103,7 +1103,7 @@ Details
                     aria-controls="trip-data-health-issues"
                     aria-selected="true">
 	              Ingest issues
-              <span class="trip-data-health-pill-badge" id="trip-ingest-issues-nav-count">0</span>
+              <span class="trip-data-health-count" id="trip-ingest-issues-nav-count">0</span>
             </button>
           </li>
           <li class="nav-item" role="presentation">
@@ -1116,7 +1116,7 @@ Details
                     aria-controls="trip-data-health-invalid"
                     aria-selected="false">
 	              Invalid trips
-              <span class="trip-data-health-pill-badge" id="invalid-trips-nav-count">0</span>
+              <span class="trip-data-health-count" id="invalid-trips-nav-count">0</span>
             </button>
           </li>
         </ul>
@@ -1312,7 +1312,7 @@ Details
           </div>
         </div>
       </div>
-      <div class="settings-group bento-span-6">
+      <div class="settings-group grid-span-6">
         <h3 class="settings-group-title">
           <i class="fas fa-map-marker-alt"></i>
           Re-geocode Trips
@@ -1543,7 +1543,7 @@ Geocoding Progress
           </div>
         </div>
       </div>
-      <div class="settings-group bento-span-6">
+      <div class="settings-group grid-span-6">
         <h3 class="settings-group-title">
           <i class="fas fa-route"></i>
           Map Matching
@@ -1556,7 +1556,7 @@ Geocoding Progress
           <i class="fas fa-layer-group"></i> Open Map Matching
         </a>
       </div>
-      <div class="settings-group bento-span-6">
+      <div class="settings-group grid-span-6">
         <h3 class="settings-group-title">
           <i class="fas fa-bezier-curve"></i>
           Rebuild Display Paths
@@ -1603,16 +1603,16 @@ Geocoding Progress
        role="tabpanel"
        aria-labelledby="storage-tab-button"
        hidden>
-    <div class="bento-grid" data-stagger>
+    <div class="content-grid" data-stagger>
       {% if storage_error %}
-        <div class="settings-group bento-span-12">
+        <div class="settings-group grid-span-12">
           <div class="storage-alert storage-alert-warning" role="alert">
             <i class="fas fa-exclamation-triangle"></i>
             <span>Some storage sources are unavailable. {{ storage_error }}</span>
           </div>
         </div>
       {% endif %}
-      <div class="settings-group bento-span-12">
+      <div class="settings-group grid-span-12">
         <div class="storage-overview-header">
           <div class="storage-overview-icon">
             <i class="fas fa-database"></i>
@@ -1635,7 +1635,7 @@ Monitor your application's storage usage and database collections.
           </div>
         </div>
       </div>
-      <div class="settings-group bento-span-4">
+      <div class="settings-group grid-span-4">
         <div class="storage-metric-card storage-metric-primary">
           <div class="storage-metric-icon">
             <i class="fas fa-hdd"></i>
@@ -1659,7 +1659,7 @@ Monitor your application's storage usage and database collections.
         </div>
       </div>
 
-      <div class="settings-group bento-span-4">
+      <div class="settings-group grid-span-4">
         <div class="storage-metric-card storage-metric-secondary">
           <div class="storage-metric-icon">
             <i class="fas fa-server"></i>
@@ -1683,7 +1683,7 @@ Monitor your application's storage usage and database collections.
         </div>
       </div>
 
-      <div class="settings-group bento-span-4">
+      <div class="settings-group grid-span-4">
         <div class="storage-metric-card storage-metric-tertiary">
           <div class="storage-metric-icon">
             <i class="fas fa-clock"></i>
@@ -1698,7 +1698,7 @@ Monitor your application's storage usage and database collections.
           </div>
         </div>
       </div>
-      <div class="settings-group bento-span-12">
+      <div class="settings-group grid-span-12">
         <div class="storage-section-header">
           <h3 class="settings-group-title">
             <i class="fas fa-layer-group"></i>
@@ -1800,7 +1800,7 @@ No storage sources available.
           {% endif %}
         </div>
       </div>
-      <div class="settings-group bento-span-12">
+      <div class="settings-group grid-span-12">
         <div class="storage-section-header">
           <h3 class="settings-group-title">
             <i class="fas fa-cubes"></i>
@@ -1895,15 +1895,15 @@ No collections available.
          role="tabpanel"
          aria-labelledby="map-services-tab-button"
          hidden>
-      <div class="bento-grid" data-stagger>
-        <div class="settings-group bento-span-12">
+      <div class="content-grid" data-stagger>
+        <div class="settings-group grid-span-12">
           <h3 class="settings-group-title">
             <i class="fas fa-globe"></i>
             Map Services
           </h3>
           <p class="text-muted small mb-3">
             Map services are configured automatically based on your trip locations.
-            Address lookup and route planning work seamlessly once configured.
+            Address lookup and route planning are available once configuration finishes.
           </p>
           <div id="map-services-content">
             <div class="map-services-loading">
@@ -1921,8 +1921,8 @@ No collections available.
        aria-labelledby="logs-tab-button"
        hidden>
     <div class="server-logs-page py-3">
-      <div class="bento-grid mb-4" data-stagger>
-        <div class="bento-span-12 widget" data-accent="slate">
+      <div class="content-grid mb-4" data-stagger>
+        <div class="grid-span-12 widget">
           <div class="widget-header">
             <h2 class="widget-title">
               <i class="fas fa-file-alt" aria-hidden="true"></i>
@@ -2440,8 +2440,8 @@ Select one or more containers from the list above to view logs.
        role="tabpanel"
        aria-labelledby="account-tab-button"
        hidden>
-    <div class="bento-grid" data-stagger>
-      <div class="settings-group bento-span-12">
+    <div class="content-grid" data-stagger>
+      <div class="settings-group grid-span-12">
         <h3 class="settings-group-title">
           <i class="fas fa-user-circle"></i>
           Account
@@ -2451,7 +2451,7 @@ Select one or more containers from the list above to view logs.
         </p>
       </div>
 
-      <div class="settings-group bento-span-12">
+      <div class="settings-group grid-span-12">
         <h3 class="settings-group-title">
           <i class="fas fa-key"></i>
           Bouncie API Credentials
@@ -2464,7 +2464,7 @@ Select one or more containers from the list above to view logs.
         </button>
       </div>
 
-      <div class="settings-group bento-span-6">
+      <div class="settings-group grid-span-6">
         <h3 class="settings-group-title">
           <i class="fas fa-car"></i>
           Vehicle Management
@@ -2477,7 +2477,7 @@ Select one or more containers from the list above to view logs.
         </a>
       </div>
 
-      <div class="settings-group bento-span-6">
+      <div class="settings-group grid-span-6">
         <h3 class="settings-group-title">
           <i class="fas fa-right-from-bracket"></i>
           Session
@@ -2506,7 +2506,7 @@ Select one or more containers from the list above to view logs.
         {% endif %}
       </div>
 
-      <div class="settings-group bento-span-6">
+      <div class="settings-group grid-span-6">
         <h3 class="settings-group-title">
           <i class="fas fa-question-circle"></i>
           Credential Shortcuts
@@ -2517,15 +2517,15 @@ Select one or more containers from the list above to view logs.
         </p>
         <ul class="profile-help-list">
           <li class="profile-help-item">
-            <span class="profile-help-pill">Setup Wizard</span>
+            <span class="profile-help-chip">Setup Wizard</span>
             Validate credentials and finish OAuth in one flow.
           </li>
           <li class="profile-help-item">
-            <span class="profile-help-pill">Redirect URI</span>
+            <span class="profile-help-chip">Redirect URI</span>
             Match the callback in Bouncie to your app domain.
           </li>
           <li class="profile-help-item">
-            <span class="profile-help-pill">Devices</span>
+            <span class="profile-help-chip">Devices</span>
             Sync IMEIs after you connect to keep trips flowing.
           </li>
         </ul>

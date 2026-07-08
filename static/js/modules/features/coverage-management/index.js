@@ -1665,7 +1665,7 @@ function updateStatsUI(area, summary) {
     mapPctEl.textContent = `${pct.toFixed(1)}%`;
   }
 
-  // Quick stat pills
+  // Quick stats
   const remaining = Math.max(
     0,
     (area.total_length_miles || 0) - (area.driven_length_miles || 0)
@@ -2158,10 +2158,10 @@ function openStreetDetailPanel(feature) {
     nameEl.textContent = getStreetDisplayName(props.street_name, segmentId);
   }
 
-  const statusPillEl = document.getElementById("street-detail-status-pill");
-  if (statusPillEl) {
-    statusPillEl.textContent = formatStatus(status);
-    statusPillEl.className = `street-status-pill status-${status}`;
+  const statusChipEl = document.getElementById("street-detail-status-chip");
+  if (statusChipEl) {
+    statusChipEl.textContent = formatStatus(status);
+    statusChipEl.className = `street-status-chip status-${status}`;
   }
 
   const typeEl = document.getElementById("street-detail-type");

@@ -1,7 +1,7 @@
 /**
  * Progress Card Generator
  *
- * Generates beautiful shareable progress cards as downloadable PNG images
+ * Generates shareable progress cards as downloadable PNG images.
  * using canvas rendering (no external dependencies).
  */
 

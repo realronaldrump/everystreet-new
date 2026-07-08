@@ -52,7 +52,7 @@ function renderOverviewHeader({ overviewData, healthData }) {
   const variant = formatStatusVariant(status);
 
   if (badge) {
-    badge.className = `status-pill cc-overview-status-badge ${variant.badgeClass}`;
+    badge.className = `status-chip cc-overview-status-badge ${variant.badgeClass}`;
     badge.textContent = overall.label || variant.label;
   }
 

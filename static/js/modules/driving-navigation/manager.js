@@ -8,7 +8,7 @@ import { isAbortError } from "../utils.js";
 /**
  * Main manager for Driving Navigation.
  * Coordinates between API, Map, and UI modules to provide
- * the complete driving navigation experience.
+ * the complete driving navigation flow.
  */
 
 import { DrivingNavigationAPI } from "./api.js";

@@ -75,7 +75,7 @@ function renderStatus(area, coverageJob) {
   const status = area?.status;
   if (coverageJob && isJobActiveStatus(coverageJob.status)) {
     return `
-      <span class="coverage-job-status-pill">
+      <span class="coverage-job-status-chip">
         <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
         <span>Calculating</span>
       </span>`;
@@ -139,32 +139,6 @@ function renderCoverageJobPanel(coverageJob) {
       </div>
       <div class="area-job-panel-message">${detailText}</div>
     </div>`;
-}
-
-// -----------------------------------------------------------------------------
-// Coverage tier → card accent class
-// -----------------------------------------------------------------------------
-
-function getCoverageAccent(pct, status) {
-  if (status === "error") {
-    return "danger";
-  }
-  if (status !== "ready") {
-    return "secondary";
-  }
-  if (pct >= 100) {
-    return "amber";
-  }
-  if (pct >= 76) {
-    return "success";
-  }
-  if (pct >= 51) {
-    return "info";
-  }
-  if (pct >= 26) {
-    return "warning";
-  }
-  return "danger";
 }
 
 const US_STATE_NAME_TO_CODE = Object.freeze({
@@ -276,7 +250,6 @@ function formatCityDisplayName(displayName) {
 
 function renderAreaCard(area, coverageJob, routeJob) {
   const pct = normalizeCoveragePercent(area.coverage_percentage);
-  const accentClass = getCoverageAccent(pct, area.status);
   const tierClass = getCoverageTierClass(pct);
   const normalizedAreaType = String(area.area_type || "")
     .trim()
@@ -332,7 +305,7 @@ function renderAreaCard(area, coverageJob, routeJob) {
     : "";
 
   return `
-    <div class="${cardClasses}" data-area-id="${area.id}" data-accent="${accentClass}" role="listitem">
+    <div class="${cardClasses}" data-area-id="${area.id}" role="listitem">
       <div class="area-card-header">
         <div class="area-card-title-group">
           <h3 class="area-card-title" title="${areaName}">${areaName}</h3>

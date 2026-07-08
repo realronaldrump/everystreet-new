@@ -1,7 +1,7 @@
 /**
  * Map Services Tab - Settings Page
  *
- * Provides automatic map coverage detection and seamless provisioning.
+ * Provides automatic map coverage detection and provisioning.
  * States are automatically detected from trip data and map services
  * are configured without manual intervention.
  */
@@ -1242,8 +1242,8 @@ function renderGeoCoverageStatus({ active, job, defaultMode }) {
         <span class="geo-coverage-status-percent">${Math.round(progress)}%</span>
       </div>
       <div class="geo-coverage-status-meta">
-        <span class="geo-coverage-status-pill">${escapeHtml(statusLabel)}</span>
-        <span class="geo-coverage-status-pill">${escapeHtml(modeLabel)}</span>
+        <span class="geo-coverage-status-chip">${escapeHtml(statusLabel)}</span>
+        <span class="geo-coverage-status-chip">${escapeHtml(modeLabel)}</span>
       </div>
       <div class="geo-coverage-status-message">${escapeHtml(
         job.message || "Processing Region Explorer cache..."

@@ -250,7 +250,7 @@ test("renderAreaCards keeps active coverage jobs visible even when area status i
     });
 
     assert.match(grid.innerHTML, /area-card--job-active/);
-    assert.match(grid.innerHTML, /coverage-job-status-pill/);
+    assert.match(grid.innerHTML, /coverage-job-status-chip/);
     assert.match(grid.innerHTML, /area-job-panel/);
     assert.match(grid.innerHTML, /Coverage calculation/);
     assert.match(grid.innerHTML, /aria-valuenow="15"/);

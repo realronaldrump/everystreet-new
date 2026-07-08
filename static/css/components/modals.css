@@ -31,7 +31,7 @@
   position: relative;
 }
 
-/* === Modal - Glassmorphism Refined (Phase 3) === */
+/* === Modal Surface === */
 .modal-content {
   background: var(--glass-3);
   backdrop-filter: blur(var(--blur-modal));

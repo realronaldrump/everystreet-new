@@ -130,8 +130,6 @@ body[data-viewer-mode="true"] .owner-only {
 
 /* High contrast mode support - merged into single block below */
 
-/* === Phase 2 Refined Utilities === */
-
 /* Accent color utilities */
 .text-accent {
   color: var(--accent);

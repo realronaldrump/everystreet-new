@@ -291,7 +291,7 @@ html.swup-native::view-transition-new(route-content) {
 }
 
 /* ============================
-   Scroll-Reveal System (Phase 3)
+   Scroll reveal
    Elements with [data-reveal] are invisible until an IntersectionObserver
    adds the `is-visible` class. Stagger is handled by an inline --reveal-i
    style set by the observer. All variants below share the trigger.

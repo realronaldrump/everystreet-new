@@ -372,7 +372,7 @@ const AppController = {
 
       // Only initialize map if we're on the map page
       if (isMapPage) {
-        // Phase 1: Initialize map
+        // Initialize map
         const mapOk = await mapManager.initialize();
         if (!mapOk) {
           throw new Error("Map initialization failed");
@@ -380,7 +380,7 @@ const AppController = {
 
         await this._applyTripLayerRenderModePreference();
 
-        // Phase 2: Set up layer manager
+        // Set up layer manager
         layerManager.bindHeatmapEvents();
 
         // Wire up callback for trip style refresh (avoids circular dependency)
@@ -391,27 +391,27 @@ const AppController = {
         // Keep initial map load scoped to the current day unless URL params override it.
         this._applyDefaultDateRange();
 
-        // Phase 3: Initialize supporting modules
+        // Initialize supporting modules
         await initializeLocationDropdown();
         initializeLiveTracker();
         searchManager.initialize();
 
-        // Phase 4: Set up event listeners
+        // Set up event listeners
         if (!this._listenersInitialized) {
           this.setupEventListeners();
           this._setupDataEventListeners();
           this._listenersInitialized = true;
         }
 
-        // Phase 5: Restore saved state
+        // Restore saved state
         restoreLayerVisibility();
         await this._initializeStreetViewModes();
 
-        // Phase 6: Load initial data
+        // Load initial data
         mapLoading?.update("Loading map data...");
         await this._loadInitialData();
 
-        // Phase 7: Post-initialization
+        // Apply initial UI state
         this._applyPostInitialization();
 
         document.dispatchEvent(new CustomEvent("initialDataLoaded"));

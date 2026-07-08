@@ -1,6 +1,6 @@
 /* ============================
-   Design Tokens: Refined Cartographic (Phase 4 — polish pass)
-   Palette (Muted, Professional)
+   Design Tokens
+   Palette
    - Sage Teal:   #3b8a7f (primary — cartographic anchor)
    - Teal:        #2f9e8f (accent — harmonized, no neon)
    - Warm Slate:  #727a84 (secondary)
@@ -9,7 +9,7 @@
    - Honey:       #d4a24a (warning)
    - Forest:      #4d9a6a (success)
 
-   Deepened Surfaces (Dramatic Dark)
+   Surfaces
    - Surface deep: #050507 (true-dark for modals/drawers)
    - Surface 0:    #0c0c0f
    - Surface 1:    #131317
@@ -31,7 +31,7 @@
    ============================ */
 
 :root {
-  /* Categorical Palette - Premium & Refined (Phase 1) */
+  /* Categorical palette */
   --cat-sage: #3b8a7f;
   --cat-sage-rgb: 59 138 127;
   --cat-slate: #727a84;
@@ -62,7 +62,7 @@
   --cat-indigo: #6a72a0;
   --cat-indigo-rgb: 106 114 160;
 
-  /* Semantic Colors - Refined (Phase 1) */
+  /* Semantic colors */
   --primary: var(--cat-sage);
   --primary-light: #4da396;
   --primary-dark: #2d6e65;
@@ -89,7 +89,7 @@
   --info-dark: #44688a;
   --info-rgb: var(--cat-steel-rgb);
 
-  /* Accent — refined teal harmonized with the sage primary (no neon pop) */
+  /* Accent */
   --accent: #2f9e8f;
   --accent-light: #46b3a4;
   --accent-dark: #24796d;
@@ -103,7 +103,7 @@
   --danger-gradient: var(--danger);
   --info-gradient: var(--info);
 
-  /* Dark Mode Surfaces (Default) - Dramatic Deep Palette (Phase 3) */
+  /* Dark mode surfaces */
   --surface-deep: #050507;
   --surface-0: #0c0c0f;
   --surface-1: #131317;
@@ -126,14 +126,14 @@
   --border-rgb: 150 142 132;
   --text-rgb: 248 246 242;
 
-  /* Typography - Refined (Phase 1) */
+  /* Typography */
   --font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --font-family-display: "Chivo", "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --font-family-mono:
     "JetBrains Mono", "IBM Plex Mono", ui-monospace, sfmono-regular, menlo, monaco, consolas,
     monospace;
 
-  /* Refined Font Size Hierarchy */
+  /* Font size hierarchy */
   --font-size-xs: clamp(0.72rem, 0.68rem + 0.2vw, 0.82rem);
   --font-size-sm: clamp(0.84rem, 0.8rem + 0.2vw, 0.98rem);
   --font-size-md: clamp(0.9375rem, 0.9rem + 0.2vw, 1rem);
@@ -203,10 +203,8 @@
   /* Accent colors */
   --gradient-accent-bar: var(--accent);
 
-  /* Interactive emphasis — restrained hairline rings, not neon glows.
-     Polish comes from crisp borders + layered shadows, not bloom.
-     Kept as transparent no-op shadows so they stay valid inside
-     comma-separated box-shadow lists. */
+  /* Interactive emphasis variables are transparent by default so legacy
+     comma-separated box-shadow lists remain valid without decorative bloom. */
   --glow-primary: 0 0 0 0 transparent;
   --glow-primary-intense: 0 0 0 0 transparent;
   --glow-success: 0 0 0 0 transparent;
@@ -217,7 +215,7 @@
   --glow-accent-intense: 0 0 0 0 transparent;
   --glow-accent-strong: 0 0 0 0 transparent;
 
-  /* Flat surfaces — no decorative gradients or ambient bloom */
+  /* Flat surfaces */
   --gradient-surface-glow: none;
   --gradient-ambient: none;
   --app-bg: none;
@@ -226,7 +224,7 @@
   --shadow-lift: 0 8px 20px rgb(0 0 0 / 24%), 0 2px 6px rgb(0 0 0 / 18%);
   --shadow-lift-intense: 0 14px 30px rgb(0 0 0 / 28%), 0 4px 10px rgb(0 0 0 / 20%);
 
-  /* Glass + Blur - Refined (Phase 1) */
+  /* Translucent surfaces */
   --blur-subtle: 8px;
   --blur-strong: 12px;
   --blur-modal: 18px;
@@ -343,7 +341,7 @@
   --bs-focus-ring-color: rgb(var(--accent-rgb) / 25%);
 }
 
-/* Light Mode Overrides - Crisp & Bright (Phase 3) */
+/* Light mode overrides */
 body.light-mode {
   --surface-deep: #fff;
   --surface-0: #fff;
@@ -399,15 +397,3 @@ body.light-mode {
   --shadow-glass-md: var(--shadow-md);
   --shadow-glass-lg: var(--shadow-lg);
 }
-
-/* Changelog: Polish Pass (Phase 4)
-   - Accent retuned from neon cyan (#2dd4bf) to a harmonized teal (#2f9e8f).
-   - Decorative glows neutralized to no-op shadows; emphasis now comes from
-     crisp borders + layered shadows.
-   - Ambient radial-gradient page background removed for a flat surface.
-   - Shadow scale rebuilt into crisp, two-layer elevations (light + dark).
-   - Cards/panels are solid surfaces (no translucent blur) with hairline borders.
-   - Decorative gradients, animated sheens, and floating "ambient orbs" removed
-     across pages; functional gradients (legend keys, scrims, progress, map
-     artwork) intentionally preserved.
-*/

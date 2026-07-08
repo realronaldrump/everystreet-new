@@ -1,6 +1,6 @@
 /**
  * Derived Insights Module
- * Pure data derivations for the insights experience.
+ * Pure data derivations for the insights page.
  */
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;

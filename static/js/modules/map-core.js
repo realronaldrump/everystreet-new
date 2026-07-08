@@ -228,7 +228,7 @@ const mapCore = {
         if (!mapboxgl.supported()) {
           mapElement.innerHTML =
             '<div class="webgl-unsupported-message p-4 text-center">' +
-            "WebGL is not supported by your browser. Please use a modern browser.</div>";
+            "WebGL is not supported by your browser. Please use a browser with WebGL support.</div>";
           throw new Error("WebGL not supported");
         }
       }

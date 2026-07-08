@@ -40,9 +40,9 @@ My Vehicles
       </div>
     </header>
 
-    <div class="bento-grid" data-stagger>
-      <div class="bento-span-12 collapse" id="add-vehicle-collapse">
-        <div class="widget is-compact" data-accent="mint">
+    <div class="content-grid" data-stagger>
+      <div class="grid-span-12 collapse" id="add-vehicle-collapse">
+        <div class="widget is-compact">
           <div class="widget-body">
             <form id="fleet-add-vehicle-form"
                   method="post"
@@ -87,8 +87,8 @@ IMEI
       </div>
     </div>
 
-    <div class="bento-span-12" id="loading-state">
-      <div class="widget" data-accent="mint">
+    <div class="grid-span-12" id="loading-state">
+      <div class="widget">
         <div class="widget-body text-center py-5">
           <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
@@ -99,8 +99,8 @@ Loading vehicles...
         </div>
       </div>
     </div>
-    <div class="bento-span-12" id="empty-state" style="display: none">
-      <div class="widget" data-accent="sky">
+    <div class="grid-span-12" id="empty-state" style="display: none">
+      <div class="widget">
         <div class="widget-body text-center py-5">
           <div class="empty-icon mb-4">
             <i class="fas fa-car-side fa-4x text-muted"></i>
@@ -125,14 +125,14 @@ No Vehicles Yet
         </div>
       </div>
     </div>
-    <div class="bento-span-12" id="vehicle-content" style="display: none">
-      <div class="bento-grid vehicles-layout">
-        <div class="bento-span-4 vehicle-list-panel" id="vehicle-list-panel">
+    <div class="grid-span-12" id="vehicle-content" style="display: none">
+      <div class="content-grid vehicles-layout">
+        <div class="grid-span-4 vehicle-list-panel" id="vehicle-list-panel">
           <div class="vehicle-list-cards" id="vehicle-list-cards">
           </div>
         </div>
-        <div class="bento-span-8 vehicle-detail-panel" id="vehicle-detail-panel">
-          <div class="widget vehicle-identity-widget" data-accent="purple">
+        <div class="grid-span-8 vehicle-detail-panel" id="vehicle-detail-panel">
+          <div class="widget vehicle-identity-widget">
             <div class="widget-body">
               <div class="vehicle-header">
                 <div class="vehicle-icon">
@@ -174,9 +174,9 @@ No Vehicles Yet
               </div>
             </div>
           </div>
-          <div class="bento-grid vehicle-lower-grid">
-            <div class="bento-span-7 vehicle-lower-col">
-              <div class="widget" data-accent="mint">
+          <div class="content-grid vehicle-lower-grid">
+            <div class="grid-span-7 vehicle-lower-col">
+              <div class="widget">
                 <div class="widget-header">
                   <div>
                     <h3 class="widget-title">
@@ -255,8 +255,8 @@ Manual Entry
                 </div>
               </div>
             </div>
-            <div class="bento-span-5 vehicle-lower-col">
-              <div class="widget" data-accent="sky">
+            <div class="grid-span-5 vehicle-lower-col">
+              <div class="widget">
                 <div class="widget-header">
                   <div>
                     <h3 class="widget-title">
@@ -301,7 +301,7 @@ Inactive vehicles won't sync trips.
                   </button>
                 </div>
               </div>
-              <div class="widget is-compact" data-accent="amber">
+              <div class="widget is-compact">
                 <div class="widget-body">
                   <div class="d-grid gap-2">
                     <button type="button" class="btn btn-outline-primary btn-sm" id="sync-vehicle-btn">

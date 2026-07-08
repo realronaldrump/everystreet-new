@@ -532,9 +532,9 @@ details[open] .setup-help-toggle::after {
   border-color: rgb(var(--success-rgb) / 35%);
 }
 
-/* ─── Pills ─────────────────────────────────────────────────────── */
+/* ─── Status chips ──────────────────────────────────────────────── */
 
-.setup-pill {
+.setup-status-chip {
   background: rgb(var(--primary-rgb) / 12%);
   border: 1px solid rgb(var(--primary-rgb) / 35%);
   border-radius: 999px;
@@ -545,31 +545,31 @@ details[open] .setup-help-toggle::after {
   white-space: nowrap;
 }
 
-.setup-pill.is-muted {
+.setup-status-chip.is-muted {
   background: var(--surface-1);
   border-color: var(--border-color);
   color: var(--text-secondary);
 }
 
-.setup-pill.is-warning {
+.setup-status-chip.is-warning {
   background: rgb(var(--warning-rgb) / 15%);
   border-color: rgb(var(--warning-rgb) / 35%);
   color: var(--text-primary);
 }
 
-.setup-pill.is-danger {
+.setup-status-chip.is-danger {
   background: rgb(var(--danger-rgb) / 15%);
   border-color: rgb(var(--danger-rgb) / 35%);
   color: var(--text-primary);
 }
 
-.setup-pill.is-success {
+.setup-status-chip.is-success {
   background: rgb(var(--success-rgb) / 15%);
   border-color: rgb(var(--success-rgb) / 35%);
   color: var(--text-primary);
 }
 
-.setup-pill-group {
+.setup-status-row {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
