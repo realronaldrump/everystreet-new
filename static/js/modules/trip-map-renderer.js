@@ -11,9 +11,17 @@ import tripInteractions from "./trip-interactions.js";
 
 const TRIP_LAYER_NAMES = new Set(["trips", "matchedTrips"]);
 const WORKER_URL = new URL("./trip-map-worker.js", import.meta.url);
+const NATIVE_LAYER_SUFFIXES = ["-hitbox", "-layer-1", "-layer-0", "-layer"];
+const SELECTED_NATIVE_SOURCE_ID = "trip-map-selected-source";
 
 function isTripLayer(layerName) {
   return TRIP_LAYER_NAMES.has(layerName);
+}
+
+function isGoogleMapProvider() {
+  return String(globalThis?.window?.MAP_PROVIDER || "")
+    .trim()
+    .toLowerCase() === "google";
 }
 
 function isFiniteBbox(bbox) {
@@ -82,6 +90,23 @@ function boundsFromDecoded(decoded) {
   return hasCoords ? bounds : null;
 }
 
+function toMapboxLineWidth(baseWidth = 2) {
+  const width = Number(baseWidth) || 2;
+  return [
+    "interpolate",
+    ["linear"],
+    ["zoom"],
+    7,
+    Math.max(0.5, width * 0.45),
+    12,
+    width,
+    16,
+    width * 1.6,
+    20,
+    width * 2.4,
+  ];
+}
+
 function normalizeTripId(trip) {
   return String(trip?.id ?? trip?.transactionId ?? "");
 }
@@ -148,16 +173,38 @@ const tripMapRenderer = {
   _terrainListenerBound: false,
   _mapListenersBound: false,
   _suppressedBy: new Set(),
+  _nativeHandlers: new Map(),
+  _nativeRendered: false,
 
   isTripLayer,
 
   isAvailable() {
+    if (isGoogleMapProvider()) {
+      return false;
+    }
     return Boolean(
       store.map &&
         typeof store.map.addControl === "function" &&
         globalThis.deck?.MapboxOverlay &&
         globalThis.deck?.PathLayer
     );
+  },
+
+  canRenderNativeLayers() {
+    const map = store.map;
+    return Boolean(
+      map &&
+        typeof map.addSource === "function" &&
+        typeof map.getSource === "function" &&
+        typeof map.addLayer === "function" &&
+        typeof map.getLayer === "function" &&
+        typeof map.setLayoutProperty === "function" &&
+        typeof map.setPaintProperty === "function"
+    );
+  },
+
+  shouldUseNativeRenderer() {
+    return !this.isAvailable() && this.canRenderNativeLayers();
   },
 
   ensureWorker() {
@@ -203,11 +250,10 @@ const tripMapRenderer = {
       return this.overlay;
     }
     this.overlay = new deck.MapboxOverlay({
-      // Interleaved rendering shares Mapbox's depth buffer. Once 3D terrain is
-      // enabled, flat (z=0) trip paths get occluded by the terrain mesh and
-      // flicker or vanish entirely when the camera is pitched. Overlaid mode
-      // composites deck.gl on top of the map, keeping trips reliably visible.
-      interleaved: !this.terrainActive,
+      // Keep deck.gl in Mapbox's render pass so camera transforms stay locked
+      // to the basemap through pan, zoom, pitch, and rotation. Terrain paths
+      // are draped with z values separately when relief is enabled.
+      interleaved: true,
       layers: [],
     });
     store.map.addControl(this.overlay);
@@ -233,11 +279,7 @@ const tripMapRenderer = {
       return;
     }
     this.terrainActive = next;
-    // The interleaved flag is fixed at construction time, so the overlay has
-    // to be rebuilt to switch rendering modes.
-    if (this.overlay) {
-      this._rebuildOverlay();
-    }
+    this.render();
   },
 
   _rebuildOverlay() {
@@ -442,8 +484,22 @@ const tripMapRenderer = {
       if (this.overlay) {
         this.overlay.setProps({ layers: [] });
       }
+      this._clearNativeLayers();
       performance.mark?.("trip-map:suppressed");
       return;
+    }
+
+    if (this.shouldUseNativeRenderer()) {
+      if (this.overlay) {
+        this.overlay.setProps({ layers: [] });
+      }
+      this.renderNativeLayers();
+      performance.mark?.("trip-map:native-rendered");
+      return;
+    }
+
+    if (this._nativeRendered) {
+      this._clearNativeLayers();
     }
 
     const overlay = this.ensureOverlay();
@@ -465,6 +521,379 @@ const tripMapRenderer = {
     layers.push(...this.buildSelectedLayers());
     overlay.setProps({ layers });
     performance.mark?.("trip-map:rendered");
+  },
+
+  renderNativeLayers() {
+    if (!this.canRenderNativeLayers()) {
+      return;
+    }
+
+    this._nativeRendered = true;
+    ["trips", "matchedTrips"].forEach((layerName) => {
+      const layerInfo = store.mapLayers[layerName];
+      const layerState = this.layers.get(layerName);
+      if (!layerInfo?.visible || !layerState?.decoded?.length) {
+        this._removeNativeTripLayer(layerName);
+        return;
+      }
+      this._renderNativeTripLayer(layerName, layerInfo, layerState);
+    });
+    this._renderNativeSelectedLayer();
+  },
+
+  _nativeLayerIds(layerName) {
+    return NATIVE_LAYER_SUFFIXES.map((suffix) => `${layerName}${suffix}`);
+  },
+
+  _safeMapCall(callback) {
+    try {
+      callback();
+    } catch (error) {
+      console.warn("Trip native map layer operation failed:", error);
+    }
+  },
+
+  _removeNativeHandlers(layerName) {
+    const record = this._nativeHandlers.get(layerName);
+    if (!record || !store.map?.off) {
+      this._nativeHandlers.delete(layerName);
+      return;
+    }
+    Object.entries(record.handlers || {}).forEach(([eventName, handler]) => {
+      this._safeMapCall(() => store.map.off(eventName, record.layerId, handler));
+    });
+    this._nativeHandlers.delete(layerName);
+  },
+
+  _removeNativeTripLayer(layerName) {
+    if (!store.map) {
+      return;
+    }
+    this._removeNativeHandlers(layerName);
+    this._nativeLayerIds(layerName).forEach((layerId) => {
+      if (store.map.getLayer?.(layerId)) {
+        this._safeMapCall(() => store.map.removeLayer(layerId));
+      }
+    });
+    const sourceId = `${layerName}-source`;
+    if (store.map.getSource?.(sourceId)) {
+      this._safeMapCall(() => store.map.removeSource(sourceId));
+    }
+  },
+
+  _clearNativeSelectedLayer() {
+    if (!store.map) {
+      return;
+    }
+    if (store.map.getLayer?.(this.selectedLayerId)) {
+      this._safeMapCall(() => store.map.removeLayer(this.selectedLayerId));
+    }
+    if (store.map.getSource?.(SELECTED_NATIVE_SOURCE_ID)) {
+      this._safeMapCall(() => store.map.removeSource(SELECTED_NATIVE_SOURCE_ID));
+    }
+  },
+
+  _clearNativeLayers() {
+    ["trips", "matchedTrips"].forEach((layerName) =>
+      this._removeNativeTripLayer(layerName)
+    );
+    this._clearNativeSelectedLayer();
+    this._nativeRendered = false;
+  },
+
+  _ensureNativeSource(sourceId, data, options = {}) {
+    const source = store.map.getSource(sourceId);
+    if (source) {
+      source.setData(data);
+      return source;
+    }
+    store.map.addSource(sourceId, {
+      type: "geojson",
+      data,
+      tolerance: 0.375,
+      buffer: 64,
+      maxzoom: 18,
+      ...options,
+    });
+    return store.map.getSource(sourceId);
+  },
+
+  _removeNativeLayer(layerId) {
+    if (store.map?.getLayer?.(layerId)) {
+      this._safeMapCall(() => store.map.removeLayer(layerId));
+    }
+  },
+
+  _setNativeLayerVisibility(layerId, visible) {
+    if (store.map?.getLayer?.(layerId)) {
+      store.map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
+    }
+  },
+
+  _renderNativeTripLayer(layerName, layerInfo) {
+    const sourceId = `${layerName}-source`;
+    const featureCollection = this.getFeatureCollection(layerName);
+    const beforeId = this.getBeforeLayerId();
+
+    this._ensureNativeSource(sourceId, featureCollection, {
+      lineMetrics: true,
+      promoteId: "transactionId",
+    });
+
+    if (layerInfo.isHeatmap) {
+      this._renderNativeHeatmapLayers(layerName, layerInfo, sourceId, beforeId);
+    } else {
+      this._renderNativeLineLayer(layerName, layerInfo, sourceId, beforeId);
+    }
+    this._renderNativeHitboxLayer(layerName, layerInfo, sourceId);
+  },
+
+  _renderNativeLineLayer(layerName, layerInfo, sourceId, beforeId) {
+    const layerId = `${layerName}-layer`;
+    [`${layerName}-layer-0`, `${layerName}-layer-1`].forEach((id) =>
+      this._removeNativeLayer(id)
+    );
+
+    const paint = {
+      "line-color": layerInfo.color || "#d4943c",
+      "line-opacity": layerInfo.opacity ?? 1,
+      "line-width": toMapboxLineWidth(layerInfo.weight || 2),
+    };
+
+    if (!store.map.getLayer(layerId)) {
+      store.map.addLayer(
+        {
+          id: layerId,
+          type: "line",
+          source: sourceId,
+          minzoom: layerInfo.minzoom || 0,
+          maxzoom: layerInfo.maxzoom || 22,
+          layout: {
+            visibility: layerInfo.visible ? "visible" : "none",
+            "line-join": "round",
+            "line-cap": "round",
+          },
+          paint,
+        },
+        beforeId
+      );
+      return;
+    }
+
+    Object.entries(paint).forEach(([property, value]) => {
+      store.map.setPaintProperty(layerId, property, value);
+    });
+    this._setNativeLayerVisibility(layerId, layerInfo.visible);
+  },
+
+  _renderNativeHeatmapLayers(layerName, layerInfo, sourceId, beforeId) {
+    this._removeNativeLayer(`${layerName}-layer`);
+
+    const theme = document.documentElement?.getAttribute("data-bs-theme") || "dark";
+    const featureCollection = this.getFeatureCollection(layerName);
+    const visibleTripCount = featureCollection.features?.length || 0;
+    const { glowLayers } = heatmapUtils.generateHeatmapConfig(featureCollection, {
+      theme,
+      opacity: layerInfo.opacity ?? 1,
+      visibleTripCount,
+      palette: layerName === "matchedTrips" ? this.getHeatmapPalette(layerName) : null,
+    });
+
+    glowLayers.forEach((glowConfig, index) => {
+      const layerId = `${layerName}-layer-${index}`;
+      if (!store.map.getLayer(layerId)) {
+        store.map.addLayer(
+          {
+            id: layerId,
+            type: "line",
+            source: sourceId,
+            minzoom: layerInfo.minzoom || 0,
+            maxzoom: layerInfo.maxzoom || 22,
+            layout: {
+              visibility: layerInfo.visible ? "visible" : "none",
+              "line-join": "round",
+              "line-cap": "round",
+            },
+            paint: glowConfig.paint,
+          },
+          beforeId
+        );
+        return;
+      }
+
+      Object.entries(glowConfig.paint).forEach(([property, value]) => {
+        store.map.setPaintProperty(layerId, property, value);
+      });
+      this._setNativeLayerVisibility(layerId, layerInfo.visible);
+    });
+  },
+
+  _getNativeTripHitboxWidth() {
+    return [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      6,
+      8,
+      10,
+      12,
+      14,
+      16,
+      18,
+      20,
+      22,
+      24,
+    ];
+  },
+
+  _renderNativeHitboxLayer(layerName, layerInfo, sourceId) {
+    const hitboxLayerId = `${layerName}-hitbox`;
+    const paint = {
+      "line-color": "#000000",
+      "line-opacity": 0.02,
+      "line-width": this._getNativeTripHitboxWidth(),
+    };
+
+    if (!store.map.getLayer(hitboxLayerId)) {
+      store.map.addLayer({
+        id: hitboxLayerId,
+        type: "line",
+        source: sourceId,
+        minzoom: layerInfo.minzoom || 0,
+        maxzoom: layerInfo.maxzoom || 22,
+        layout: {
+          visibility: layerInfo.visible ? "visible" : "none",
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint,
+      });
+    } else {
+      Object.entries(paint).forEach(([property, value]) => {
+        store.map.setPaintProperty(hitboxLayerId, property, value);
+      });
+      this._setNativeLayerVisibility(hitboxLayerId, layerInfo.visible);
+    }
+
+    this._bindNativeTripInteractions(layerName, hitboxLayerId);
+  },
+
+  _bindNativeTripInteractions(layerName, hitboxLayerId) {
+    if (!store.map?.on) {
+      return;
+    }
+
+    this._removeNativeHandlers(layerName);
+
+    const clickHandler = (event) => {
+      if (
+        typeof event?.originalEvent?.button === "number" &&
+        event.originalEvent.button !== 0
+      ) {
+        return;
+      }
+      if (typeof store.map?.isMoving === "function" && store.map.isMoving()) {
+        return;
+      }
+      if (layerName === "trips" && store.map.getLayer?.("matchedTrips-hitbox")) {
+        const matchedHits = store.map.queryRenderedFeatures?.(event.point, {
+          layers: ["matchedTrips-hitbox"],
+        });
+        if (matchedHits?.length > 0) {
+          return;
+        }
+      }
+
+      const feature = event?.features?.[0];
+      if (!feature) {
+        return;
+      }
+      event.originalEvent?.stopPropagation?.();
+      tripInteractions.handleTripClick(event, feature, layerName);
+    };
+
+    const mouseEnterHandler = () => {
+      const canvas = store.map?.getCanvas?.();
+      if (canvas?.style) {
+        canvas.style.cursor = "pointer";
+      }
+    };
+
+    const mouseLeaveHandler = () => {
+      const canvas = store.map?.getCanvas?.();
+      if (canvas?.style) {
+        canvas.style.cursor = "";
+      }
+    };
+
+    store.map.on("click", hitboxLayerId, clickHandler);
+    store.map.on("mouseenter", hitboxLayerId, mouseEnterHandler);
+    store.map.on("mouseleave", hitboxLayerId, mouseLeaveHandler);
+
+    this._nativeHandlers.set(layerName, {
+      layerId: hitboxLayerId,
+      handlers: {
+        click: clickHandler,
+        mouseenter: mouseEnterHandler,
+        mouseleave: mouseLeaveHandler,
+      },
+    });
+  },
+
+  _renderNativeSelectedLayer() {
+    const selectedId = store.selectedTripId ? String(store.selectedTripId) : null;
+    const selectedLayer = store.selectedTripLayer;
+    if (!selectedId || !isTripLayer(selectedLayer)) {
+      this._clearNativeSelectedLayer();
+      return;
+    }
+
+    const feature = this.getTripFeature(selectedLayer, selectedId, {
+      lightweight: false,
+    });
+    if (!feature) {
+      this._clearNativeSelectedLayer();
+      return;
+    }
+
+    const featureCollection = { type: "FeatureCollection", features: [feature] };
+    this._ensureNativeSource(SELECTED_NATIVE_SOURCE_ID, featureCollection, {
+      promoteId: "transactionId",
+    });
+
+    const highlightColor =
+      (selectedLayer === "matchedTrips"
+        ? MapStyles.MAP_LAYER_COLORS?.matchedTrips?.highlight
+        : MapStyles.MAP_LAYER_COLORS?.trips?.selected) || "#d09868";
+
+    const paint = {
+      "line-color": highlightColor,
+      "line-opacity": 0.95,
+      "line-width": toMapboxLineWidth(5),
+    };
+
+    if (!store.map.getLayer(this.selectedLayerId)) {
+      store.map.addLayer(
+        {
+          id: this.selectedLayerId,
+          type: "line",
+          source: SELECTED_NATIVE_SOURCE_ID,
+          layout: {
+            visibility: "visible",
+            "line-join": "round",
+            "line-cap": "round",
+          },
+          paint,
+        },
+        this.getBeforeLayerId()
+      );
+      return;
+    }
+
+    Object.entries(paint).forEach(([property, value]) => {
+      store.map.setPaintProperty(this.selectedLayerId, property, value);
+    });
+    this._setNativeLayerVisibility(this.selectedLayerId, true);
   },
 
   buildLayersForTripLayer(layerName, layerInfo, layerState) {
@@ -736,6 +1165,7 @@ const tripMapRenderer = {
     if (store.mapLayers[layerName]) {
       store.mapLayers[layerName].layer = null;
     }
+    this._removeNativeTripLayer(layerName);
     this.render();
   },
 };

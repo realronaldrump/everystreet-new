@@ -19,6 +19,7 @@ import { getCurrentTheme, resolveMapStyle } from "./core/map-style-resolver.js";
 import state from "./core/store.js";
 import { isMapboxStyleUrl, waitForMapboxToken } from "./mapbox-token.js";
 import { createGoogleMap, ensureMapboxCompatibility } from "./maps/google_map.js";
+import { waitForGoogleMaps } from "./maps/google_maps_loader.js";
 import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
 import { utils } from "./utils.js";
@@ -67,6 +68,12 @@ function isMapboxTelemetryUrl(input, baseUrl) {
   } catch {
     return false;
   }
+}
+
+function isGoogleMapProvider() {
+  return String(globalThis?.window?.MAP_PROVIDER || "")
+    .trim()
+    .toLowerCase() === "google";
 }
 
 /**
@@ -191,7 +198,13 @@ const mapCore = {
         throw new Error("Map container elements not found");
       }
 
-      await this._waitForMapboxGL();
+      const usingGoogleProvider = isGoogleMapProvider();
+      if (usingGoogleProvider) {
+        await waitForGoogleMaps();
+        ensureMapboxCompatibility();
+      } else {
+        await this._waitForMapboxGL();
+      }
 
       // Prevent double initialization
       if (state.map) {
@@ -199,22 +212,25 @@ const mapCore = {
         return true;
       }
 
-      // Use centralized Mapbox token from config.
       loadingManager?.updateMessage("Loading map resources...");
-      const token = CONFIG?.MAP?.accessToken;
 
-      if (!token) {
-        throw new Error("Mapbox access token not available");
-      }
+      if (!usingGoogleProvider) {
+        // Use centralized Mapbox token from config.
+        const token = CONFIG?.MAP?.accessToken;
 
-      mapboxgl.accessToken = token;
+        if (!token) {
+          throw new Error("Mapbox access token not available");
+        }
 
-      // Check WebGL support
-      if (!mapboxgl.supported()) {
-        mapElement.innerHTML =
-          '<div class="webgl-unsupported-message p-4 text-center">' +
-          "WebGL is not supported by your browser. Please use a modern browser.</div>";
-        throw new Error("WebGL not supported");
+        mapboxgl.accessToken = token;
+
+        // Check WebGL support
+        if (!mapboxgl.supported()) {
+          mapElement.innerHTML =
+            '<div class="webgl-unsupported-message p-4 text-center">' +
+            "WebGL is not supported by your browser. Please use a modern browser.</div>";
+          throw new Error("WebGL not supported");
+        }
       }
 
       loadingManager?.updateMessage("Configuring map...");
@@ -241,18 +257,25 @@ const mapCore = {
       loadingManager?.updateMessage("Creating map instance...");
 
       // Create the map instance
-      const map = new mapboxgl.Map({
-        container: "map-canvas",
-        style: mapStyle,
-        center: initialView.center,
-        zoom: initialView.zoom,
-        maxZoom: CONFIG.MAP.maxZoom,
-        attributionControl: false,
-        performanceMetricsCollection: false,
-        logoPosition: "bottom-right",
-        ...CONFIG.MAP.performanceOptions,
-        transformRequest: this._createTransformRequest(),
-      });
+      const map = usingGoogleProvider
+        ? createGoogleMap(mapCanvas, {
+            style: mapStyle,
+            center: initialView.center,
+            zoom: initialView.zoom,
+            maxZoom: CONFIG.MAP.maxZoom,
+          })
+        : new mapboxgl.Map({
+            container: "map-canvas",
+            style: mapStyle,
+            center: initialView.center,
+            zoom: initialView.zoom,
+            maxZoom: CONFIG.MAP.maxZoom,
+            attributionControl: false,
+            performanceMetricsCollection: false,
+            logoPosition: "bottom-right",
+            ...CONFIG.MAP.performanceOptions,
+            transformRequest: this._createTransformRequest(),
+          });
 
       // Store references
       state.map = map;

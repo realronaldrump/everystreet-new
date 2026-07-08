@@ -156,11 +156,16 @@ body.map-page {
 
 .mapboxgl-marker,
 .maplibregl-marker {
-  transition: transform 0.2s ease-out;
-  will-change: transform;
+  transition: filter 0.2s ease-out;
 }
 
-.mapboxgl-marker:hover,
-.maplibregl-marker:hover {
+.mapboxgl-marker > *,
+.maplibregl-marker > * {
+  transition: transform 0.2s ease-out;
+  transform-origin: center;
+}
+
+.mapboxgl-marker:hover > *,
+.maplibregl-marker:hover > * {
   transform: scale(1.1);
 }

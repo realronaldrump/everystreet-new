@@ -370,6 +370,7 @@ Every Street
             "mapProvider": {{ ((app_settings.get('map_provider') | default('self_hosted', true) | lower) if app_settings else 'self_hosted') | tojson }},
             "mapTripsWithinCoverageOnly": {{ ((app_settings.get('mapTripsWithinCoverageOnly', false)) if app_settings else false) | tojson }},
             "tripLayersUseHeatmap": {{ ((app_settings.get('tripLayersUseHeatmap', true)) if app_settings else true) | tojson }},
+            "mapTerrainReliefEnabled": {{ ((app_settings.get('mapTerrainReliefEnabled', false)) if app_settings else false) | tojson }},
             "googleMapsConfigured": {{ (app_settings and app_settings.get('google_maps_api_key') and (app_settings.get('map_provider') | default('', true) | lower) == 'google') | tojson }},
             "cdn": {
                 "chartjs": {{ CDN.chartjs | tojson }},

@@ -46,6 +46,8 @@ test("settings toggles stay wired from template to bootstrap state", () => {
 
   assert.match(baseTemplate, /APP_SETTINGS_FLAGS[\s\S]*mapTripsWithinCoverageOnly:/);
   assert.match(baseTemplate, /APP_SETTINGS_FLAGS[\s\S]*tripLayersUseHeatmap:/);
+  assert.match(baseTemplate, /APP_SETTINGS_FLAGS[\s\S]*mapTerrainReliefEnabled:/);
+  assert.match(baseTemplate, /"mapTerrainReliefEnabled":/);
   assert.match(baseTemplate, /GOOGLE_MAPS_BOOTSTRAP/);
   assert.match(baseTemplate, /callback=__esGoogleMapsLoaded/);
   assert.match(baseTemplate, /data-google-maps-loader="true"/);
