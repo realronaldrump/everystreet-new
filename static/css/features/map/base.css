@@ -9,7 +9,11 @@
   --atlas-rail-width: clamp(300px, 24vw, 360px);
 
   flex-grow: 1;
-  height: 100%;
+  /* Keep the WebGL canvas viewport-sized. Without an explicit height, a
+     long journal in the rail stretches the sibling map into a giant canvas,
+     eventually exceeding the browser's renderable texture size. */
+  height: calc(100vh - var(--header-height));
+  height: calc(100dvh - var(--header-height));
   min-height: 0;
   display: flex;
   align-items: stretch;
