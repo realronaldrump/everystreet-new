@@ -32,8 +32,10 @@ from trips.services.trip_history_import_service_config import (
     LEAF_RETRY_ATTEMPTS,
     LEAF_RETRY_DELAY_SECONDS,
     MIN_WINDOW_HOURS,
+    RECOVERY_BOUNDARY_JITTER_SECONDS,
     RECOVERY_GPS_FORMATS,
     RECOVERY_MIN_WINDOW_SECONDS,
+    REQUEST_PAUSE_SECONDS,
     REQUEST_TIMEOUT_SECONDS,
     SPLIT_CHUNK_HOURS,
     SPLIT_CONCURRENCY,
@@ -242,6 +244,21 @@ def _normalize_recovery_gps_formats(
     return tuple(normalized)
 
 
+def _normalize_boundary_jitters(
+    values: tuple[int, ...] | list[int] | None,
+) -> tuple[int, ...]:
+    normalized: list[int] = []
+    for value in values or ():
+        try:
+            seconds = int(value)
+        except (TypeError, ValueError):
+            continue
+        if seconds <= 0 or seconds in normalized:
+            continue
+        normalized.append(seconds)
+    return tuple(normalized)
+
+
 def _leaf_retry_delay(base_delay_seconds: float, attempt_index: int) -> float:
     if base_delay_seconds <= 0:
         return 0.0
@@ -278,6 +295,9 @@ async def fetch_trips_for_window_report(
     leaf_retry_attempts: int = LEAF_RETRY_ATTEMPTS,
     leaf_retry_delay_seconds: float = LEAF_RETRY_DELAY_SECONDS,
     recovery_gps_formats: tuple[str, ...] | list[str] | None = RECOVERY_GPS_FORMATS,
+    recovery_boundary_jitter_seconds: tuple[int, ...]
+    | list[int]
+    | None = RECOVERY_BOUNDARY_JITTER_SECONDS,
     add_event: Callable[[str, str, dict[str, Any] | None], None] | None = None,
     chunk_semaphore: asyncio.Semaphore | None = None,
 ) -> WindowFetchResult:
@@ -299,6 +319,9 @@ async def fetch_trips_for_window_report(
     retry_attempts = max(0, int(leaf_retry_attempts))
     retry_delay = max(0.0, float(leaf_retry_delay_seconds))
     gps_formats = _normalize_recovery_gps_formats(recovery_gps_formats)
+    boundary_jitters = _normalize_boundary_jitters(
+        recovery_boundary_jitter_seconds,
+    )
 
     async def fetch_once(
         start: datetime,
@@ -306,32 +329,65 @@ async def fetch_trips_for_window_report(
         *,
         gps_format: str = "geojson",
         include_start_overlap: bool = True,
+        start_shift: timedelta = timedelta(0),
+        end_shift: timedelta = timedelta(0),
     ) -> list[dict[str, Any]]:
-        query_start = ensure_utc(start) or start
+        query_start = (ensure_utc(start) or start) + start_shift
         if include_start_overlap:
             query_start = query_start - timedelta(seconds=1)
-        query_end = ensure_utc(end) or end
+        query_end = (ensure_utc(end) or end) + end_shift
+        if query_end <= query_start:
+            return []
         if query_end - query_start > max_span:
             query_end = query_start + max_span
-        async with asyncio.timeout(REQUEST_TIMEOUT_SECONDS):
-            async with chunk_semaphore:
-                token = await client.ensure_token()
-                if gps_format == "geojson":
-                    raw_trips = await client.fetch_trips_for_device_resilient(
-                        token,
-                        imei,
-                        query_start,
-                        query_end,
-                    )
-                else:
-                    raw_trips = await client.fetch_trips_for_device_resilient(
-                        token,
-                        imei,
-                        query_start,
-                        query_end,
-                        gps_format,
-                    )
+        try:
+            async with asyncio.timeout(REQUEST_TIMEOUT_SECONDS):
+                async with chunk_semaphore:
+                    token = await client.ensure_token()
+                    if gps_format == "geojson":
+                        raw_trips = await client.fetch_trips_for_device_resilient(
+                            token,
+                            imei,
+                            query_start,
+                            query_end,
+                        )
+                    else:
+                        raw_trips = await client.fetch_trips_for_device_resilient(
+                            token,
+                            imei,
+                            query_start,
+                            query_end,
+                            gps_format,
+                        )
+        finally:
+            if REQUEST_PAUSE_SECONDS > 0:
+                await asyncio.sleep(REQUEST_PAUSE_SECONDS)
         return _normalize_raw_trips(raw_trips, imei=imei)
+
+    def build_boundary_probe_specs() -> list[dict[str, Any]]:
+        specs: list[dict[str, Any]] = []
+        for seconds in boundary_jitters:
+            delta = timedelta(seconds=seconds)
+            specs.extend(
+                [
+                    {
+                        "label": "pad-both",
+                        "start_shift": -delta,
+                        "end_shift": delta,
+                    },
+                    {
+                        "label": "pad-end",
+                        "start_shift": timedelta(0),
+                        "end_shift": delta,
+                    },
+                    {
+                        "label": "pad-start",
+                        "start_shift": -delta,
+                        "end_shift": timedelta(0),
+                    },
+                ],
+            )
+        return specs
 
     async def fetch_leaf_with_retries(
         start: datetime,
@@ -394,6 +450,46 @@ async def fetch_trips_for_window_report(
                             "start": start.isoformat(),
                             "end": end.isoformat(),
                             "attempt": attempt_index + 1,
+                            "gps_format": gps_format,
+                        },
+                    )
+                return WindowFetchResult(trips=trips)
+
+        for spec in build_boundary_probe_specs():
+            for gps_format in gps_formats:
+                delay = _leaf_retry_delay(retry_delay, 0)
+                if delay:
+                    await asyncio.sleep(delay)
+                try:
+                    trips = await fetch_once(
+                        start,
+                        end,
+                        gps_format=gps_format,
+                        include_start_overlap=False,
+                        start_shift=spec["start_shift"],
+                        end_shift=spec["end_shift"],
+                    )
+                except Exception as exc:
+                    last_error = exc
+                    continue
+                if add_event:
+                    add_event(
+                        "warning",
+                        (
+                            f"Recovered Bouncie leaf for {imei} with "
+                            f"{spec['label']} boundary probe"
+                        ),
+                        {
+                            "imei": imei,
+                            "start": start.isoformat(),
+                            "end": end.isoformat(),
+                            "probe": spec["label"],
+                            "start_shift_seconds": int(
+                                spec["start_shift"].total_seconds(),
+                            ),
+                            "end_shift_seconds": int(
+                                spec["end_shift"].total_seconds(),
+                            ),
                             "gps_format": gps_format,
                         },
                     )
@@ -521,6 +617,9 @@ async def fetch_trips_for_window(
     leaf_retry_attempts: int = LEAF_RETRY_ATTEMPTS,
     leaf_retry_delay_seconds: float = LEAF_RETRY_DELAY_SECONDS,
     recovery_gps_formats: tuple[str, ...] | list[str] | None = RECOVERY_GPS_FORMATS,
+    recovery_boundary_jitter_seconds: tuple[int, ...]
+    | list[int]
+    | None = RECOVERY_BOUNDARY_JITTER_SECONDS,
     add_event: Callable[[str, str, dict[str, Any] | None], None] | None = None,
     chunk_semaphore: asyncio.Semaphore | None = None,
 ) -> list[dict[str, Any]]:
@@ -536,6 +635,7 @@ async def fetch_trips_for_window(
         leaf_retry_attempts=leaf_retry_attempts,
         leaf_retry_delay_seconds=leaf_retry_delay_seconds,
         recovery_gps_formats=recovery_gps_formats,
+        recovery_boundary_jitter_seconds=recovery_boundary_jitter_seconds,
         add_event=add_event,
         chunk_semaphore=chunk_semaphore,
     )

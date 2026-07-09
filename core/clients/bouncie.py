@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from aiohttp import ClientResponseError
+
 from config import API_BASE_URL, get_bouncie_config
 from core.date_utils import ensure_utc
 from core.http.retry import retry_async
@@ -50,13 +52,19 @@ class BouncieClient:
     async def get_access_token(
         self,
         credentials: dict[str, Any] | None = None,
+        *,
+        force_refresh: bool = False,
     ) -> str | None:
         if credentials is None:
             credentials = self._credentials or await get_bouncie_config()
         session = await self._get_session()
-        return await BouncieOAuth.get_access_token(session, credentials)
+        return await BouncieOAuth.get_access_token(
+            session,
+            credentials,
+            force_refresh=force_refresh,
+        )
 
-    async def ensure_token(self) -> str:
+    async def ensure_token(self, *, force_refresh: bool = False) -> str:
         """
         Return a valid token, auto-refreshing if expired.
 
@@ -64,7 +72,7 @@ class BouncieClient:
         cached token is still valid, this is a cheap dict lookup. For
         long-running imports this prevents mid-run 401 failures.
         """
-        token = await self.get_access_token()
+        token = await self.get_access_token(force_refresh=force_refresh)
         if not token:
             msg = "Failed to obtain Bouncie access token"
             raise RuntimeError(msg)
@@ -86,10 +94,6 @@ class BouncieClient:
         client-side retries here so failing windows split immediately
         instead of burning time on repeated requests.
         """
-        headers = {
-            "Authorization": token,
-            "Content-Type": "application/json",
-        }
         params = {
             "imei": imei,
             "gps-format": (gps_format or "geojson"),
@@ -99,19 +103,41 @@ class BouncieClient:
         url = f"{API_BASE_URL}/trips"
 
         session = await self._get_session()
-        try:
+
+        async def request_with_token(access_token: str) -> list[dict[str, Any]]:
+            headers = {
+                "Authorization": access_token,
+                "Content-Type": "application/json",
+            }
             async with session.get(url, headers=headers, params=params) as response:
                 response.raise_for_status()
-                trips = await response.json()
+                data = await response.json()
+            if not isinstance(data, list):
+                msg = f"Unexpected /trips response type: {type(data).__name__}"
+                raise TypeError(msg)
+            return data
+
+        try:
+            return await request_with_token(token)
+        except ClientResponseError as exc:
+            if exc.status != 401:
+                logger.exception(
+                    "Error fetching trips for device %s (resilient)",
+                    imei,
+                )
+                raise
+            refreshed = await self.ensure_token(force_refresh=True)
+            try:
+                return await request_with_token(refreshed)
+            except Exception:
+                logger.exception(
+                    "Error fetching trips for device %s after token refresh",
+                    imei,
+                )
+                raise
         except Exception:
             logger.exception("Error fetching trips for device %s (resilient)", imei)
             raise
-
-        if not isinstance(trips, list):
-            msg = f"Unexpected /trips response type: {type(trips).__name__}"
-            raise TypeError(msg)
-
-        return trips
 
     @retry_async(max_retries=3, retry_delay=1.5)
     async def fetch_trip_by_transaction_id(

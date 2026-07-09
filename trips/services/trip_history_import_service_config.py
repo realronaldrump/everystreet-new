@@ -86,6 +86,20 @@ RECOVERY_GPS_FORMATS = tuple(
         if fmt.strip()
     ),
 ) or ("geojson",)
+_RECOVERY_BOUNDARY_JITTER_SECONDS_RAW = os.getenv(
+    "TRIP_HISTORY_IMPORT_RECOVERY_BOUNDARY_JITTER_SECONDS",
+    "1,5,30,60",
+)
+RECOVERY_BOUNDARY_JITTER_SECONDS = tuple(
+    dict.fromkeys(
+        int(value)
+        for value in (
+            raw.strip()
+            for raw in _RECOVERY_BOUNDARY_JITTER_SECONDS_RAW.split(",")
+        )
+        if value and value.lstrip("-").isdigit() and int(value) > 0
+    ),
+) or (1, 5, 30, 60)
 
 # History import is intended to be fast. Expensive downstream work should be
 # deferred to dedicated jobs (e.g. geocoding/re-coverage runs), otherwise a
@@ -242,6 +256,9 @@ async def build_import_plan(
         "leaf_retry_attempts": LEAF_RETRY_ATTEMPTS,
         "leaf_retry_delay_seconds": LEAF_RETRY_DELAY_SECONDS,
         "recovery_gps_formats": list(RECOVERY_GPS_FORMATS),
+        "recovery_boundary_jitter_seconds": list(
+            RECOVERY_BOUNDARY_JITTER_SECONDS,
+        ),
         "windows_total": len(windows),
         "estimated_requests": len(windows) * len(devices),
         "fetch_concurrency": fetch_concurrency,
@@ -257,6 +274,7 @@ __all__ = [
     "LEAF_RETRY_DELAY_SECONDS",
     "MIN_WINDOW_HOURS",
     "OVERLAP_HOURS",
+    "RECOVERY_BOUNDARY_JITTER_SECONDS",
     "RECOVERY_GPS_FORMATS",
     "RECOVERY_MIN_WINDOW_SECONDS",
     "REQUEST_PAUSE_SECONDS",
@@ -272,6 +290,7 @@ __all__ = [
     "_RECOVERY_GPS_FORMATS_RAW",
     "_RECOVERY_MIN_WINDOW_SECONDS",
     "_REQUEST_PAUSE_SECONDS",
+    "_RECOVERY_BOUNDARY_JITTER_SECONDS_RAW",
     "_REQUEST_TIMEOUT_SECONDS",
     "_SPLIT_CHUNK_HOURS",
     "_SPLIT_CONCURRENCY",

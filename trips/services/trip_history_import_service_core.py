@@ -24,10 +24,12 @@ from core.date_utils import ensure_utc
 from core.http.session import get_session
 from core.jobs import JobHandle
 from core.trip_map_cache import bump_trip_map_revision
+from core.trip_source_policy import BOUNCIE_SOURCE
 from db.models import Vehicle
 from setup.services.bouncie_oauth import BouncieOAuth
 from trips.pipeline import TripPipeline
 from trips.services.bouncie_ingest_runtime import (
+    FailedFetchWindow,
     build_ingest_counters,
     build_ingest_device_counters,
     fetch_trips_for_window_report as fetch_trips_for_window_runtime,
@@ -37,6 +39,7 @@ from trips.services.bouncie_ingest_runtime import (
     process_bouncie_trips as process_bouncie_trips_runtime,
     summarize_failed_fetch_windows,
 )
+from trips.services.trip_ingest_issue_service import TripIngestIssueService
 from trips.services.trip_history_import_service_config import (
     DEVICE_FETCH_TIMEOUT_SECONDS,
     IMPORT_DO_COVERAGE,
@@ -105,6 +108,34 @@ def _merge_per_device_counters(
     device_counters["errors"] = int(device_counters.get("fetch_errors", 0) or 0) + int(
         device_counters.get("process_errors", 0) or 0,
     )
+
+
+async def _record_failed_fetch_windows(
+    *,
+    failed_windows: list[FailedFetchWindow],
+    parent_window_start: datetime,
+    parent_window_end: datetime,
+) -> None:
+    for failed in failed_windows:
+        await TripIngestIssueService.record_issue(
+            issue_type="fetch_error",
+            message=(
+                "Bouncie fetch failed for slice "
+                f"{failed.window_start.isoformat()} -> "
+                f"{failed.window_end.isoformat()}"
+            ),
+            source=BOUNCIE_SOURCE,
+            transaction_id=None,
+            imei=failed.imei,
+            details={
+                "imei": failed.imei,
+                "slice_start": failed.window_start.isoformat(),
+                "slice_end": failed.window_end.isoformat(),
+                "parent_window_start": parent_window_start.isoformat(),
+                "parent_window_end": parent_window_end.isoformat(),
+                "error": failed.error,
+            },
+        )
 
 
 async def _build_import_setup(
@@ -351,6 +382,11 @@ async def _run_import_windows(
                     )
                     summary = summarize_failed_fetch_windows(
                         fetch_result.failed_windows,
+                    )
+                    await _record_failed_fetch_windows(
+                        failed_windows=fetch_result.failed_windows,
+                        parent_window_start=window_start,
+                        parent_window_end=window_end,
                     )
                     runtime.record_failure_reason(
                         "Bouncie fetch partially failed after adaptive recovery",

@@ -268,6 +268,42 @@ async def test_fetch_trips_for_window_tries_polyline_leaf_fallback() -> None:
 
 
 @pytest.mark.asyncio
+async def test_fetch_trips_for_window_tries_boundary_jitter_leaf_fallback() -> None:
+    window_start = datetime(2020, 3, 1, 0, 0, 0, tzinfo=UTC)
+    window_end = datetime(2020, 3, 1, 0, 0, 2, tzinfo=UTC)
+    calls: list[tuple[datetime, datetime, str]] = []
+
+    async def mock_fetch(token, imei, start_dt, end_dt, gps_format="geojson"):
+        del token, imei
+        calls.append((start_dt, end_dt, gps_format))
+        if (
+            start_dt == window_start.replace(second=0)
+            and end_dt == window_end.replace(second=7)
+        ):
+            return [{"transactionId": "tx-boundary"}]
+        raise RuntimeError("Bouncie boundary failure")
+
+    mock_client = AsyncMock()
+    mock_client.fetch_trips_for_device_resilient.side_effect = mock_fetch
+
+    result = await fetch_trips_for_window_report(
+        mock_client,
+        imei="359486068397551",
+        window_start=window_start,
+        window_end=window_end,
+        recovery_min_window_seconds=5,
+        leaf_retry_attempts=0,
+        leaf_retry_delay_seconds=0,
+        recovery_gps_formats=("geojson",),
+        recovery_boundary_jitter_seconds=(5,),
+    )
+
+    assert result.failed_windows == []
+    assert [trip["transactionId"] for trip in result.trips] == ["tx-boundary"]
+    assert calls[-1] == (window_start, window_end.replace(second=7), "geojson")
+
+
+@pytest.mark.asyncio
 async def test_fetch_trips_for_window_can_split_below_24_hours() -> None:
     """A failing 18-hour window can recover by splitting below one day."""
     window_start = datetime(2020, 3, 1, 6, 0, 0, tzinfo=UTC)

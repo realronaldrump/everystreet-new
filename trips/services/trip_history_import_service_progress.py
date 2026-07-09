@@ -16,6 +16,7 @@ from trips.services.trip_history_import_service_config import (
     LEAF_RETRY_ATTEMPTS,
     LEAF_RETRY_DELAY_SECONDS,
     OVERLAP_HOURS,
+    RECOVERY_BOUNDARY_JITTER_SECONDS,
     RECOVERY_GPS_FORMATS,
     RECOVERY_MIN_WINDOW_SECONDS,
     SPLIT_CONCURRENCY,
@@ -161,6 +162,9 @@ class ImportProgressContext:
             "leaf_retry_attempts": LEAF_RETRY_ATTEMPTS,
             "leaf_retry_delay_seconds": LEAF_RETRY_DELAY_SECONDS,
             "recovery_gps_formats": list(RECOVERY_GPS_FORMATS),
+            "recovery_boundary_jitter_seconds": list(
+                RECOVERY_BOUNDARY_JITTER_SECONDS,
+            ),
             "devices": self.devices,
             "windows_total": self.windows_total,
             "windows_completed": windows_completed,
