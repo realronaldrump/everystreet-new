@@ -1,6 +1,6 @@
 {% macro static_css(path) -%}
   <link rel="stylesheet"
-        href="{{ url_for('static_versioned', _version=repo_version.commit_count, path='css/' ~ path) | replace('http://', '//') }}" />
+        href="/static-v/{{ repo_version.commit_count }}/css/{{ path }}" />
 {%- endmacro %}
 
 {% macro include_mapbox_css() -%}
