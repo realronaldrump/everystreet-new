@@ -69,13 +69,10 @@ export function updateAllMetrics() {
   // Context copy sourced from derived insights
   const derived = state.derivedInsights;
   if (!derived) {
-    setText("trips-context", "Not enough trips in this range for derived ratios yet.");
-    setText(
-      "distance-context",
-      "Not enough period history for distance comparison yet."
-    );
-    setText("time-context", "Not enough time-distribution data yet.");
-    setText("fuel-context", "Fuel context appears when fuel entries are available.");
+    setText("trips-context", "Needs a few more trips.");
+    setText("distance-context", "Needs more trips to compare against.");
+    setText("time-context", "Your usual driving hours show up here.");
+    setText("fuel-context", "Log fill-ups to see cost per mile.");
     return;
   }
 
@@ -86,20 +83,20 @@ export function updateAllMetrics() {
 
   setText(
     "trips-context",
-    `${(consistency.activeDaysRatio || 0).toFixed(1)}% of days active in this range`
+    `Drove on ${(consistency.activeDaysRatio || 0).toFixed(1)}% of days in this range`
   );
   setText(
     "distance-context",
-    `${Number(consistency.activeDays) || 0} active driving days in this range`
+    `${Number(consistency.activeDays) || 0} driving days in this range`
   );
   setText(
     "time-context",
-    `Signature window: ${formatHourLabel(Number(timeSignature.peakHour) || 0)}`
+    `Most trips start around ${formatHourLabel(Number(timeSignature.peakHour) || 0)}`
   );
 
   const fuelText =
     fuelLens.mpg == null
-      ? "Add fuel entries for a stronger fuel lens"
+      ? "Log fill-ups to see MPG here"
       : `${fuelLens.mpg.toFixed(1)} MPG with ${fuelLens.fuelPerTrip.toFixed(2)} gal/trip`;
   setText("fuel-context", fuelText);
 

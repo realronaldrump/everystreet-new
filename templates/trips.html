@@ -22,7 +22,7 @@ Trips - Every Street
     <div class="trips-container">
       <header class="page-masthead" data-stagger>
         <div class="pm-lead">
-          <p class="pm-eyebrow">Every Street</p>
+          <p class="pm-eyebrow">The ledger</p>
           <h1 class="pm-title">Trips</h1>
           <p class="pm-sub" id="trips-summary-text">
             Loading trips for this range&hellip;
@@ -221,7 +221,7 @@ All vehicles
         </div>
       </section>
       <section class="trips-timeline" id="trips-timeline">
-        <div class="timeline-section" data-section="today">
+        <div class="timeline-section" data-section="today" style="display: none">
           <h2 class="timeline-header">
             <span class="timeline-title">Today</span>
             <span class="timeline-count" id="count-today">0 trips</span>
@@ -230,7 +230,7 @@ All vehicles
           </div>
         </div>
 
-        <div class="timeline-section" data-section="yesterday">
+        <div class="timeline-section" data-section="yesterday" style="display: none">
           <h2 class="timeline-header">
             <span class="timeline-title">Yesterday</span>
             <span class="timeline-count" id="count-yesterday">0 trips</span>
@@ -239,25 +239,25 @@ All vehicles
           </div>
         </div>
 
-        <div class="timeline-section" data-section="week">
+        <div class="timeline-section" data-section="week" style="display: none">
           <h2 class="timeline-header">
-            <span class="timeline-title">Earlier This Week</span>
+            <span class="timeline-title">Earlier this week</span>
             <span class="timeline-count" id="count-week">0 trips</span>
           </h2>
           <div class="trips-cards-container" id="trips-week">
           </div>
         </div>
 
-        <div class="timeline-section" data-section="month">
+        <div class="timeline-section" data-section="month" style="display: none">
           <h2 class="timeline-header">
-            <span class="timeline-title">Earlier This Month</span>
+            <span class="timeline-title">Earlier this month</span>
             <span class="timeline-count" id="count-month">0 trips</span>
           </h2>
           <div class="trips-cards-container" id="trips-month">
           </div>
         </div>
 
-        <div class="timeline-section" data-section="older">
+        <div class="timeline-section" data-section="older" style="display: none">
           <h2 class="timeline-header">
             <span class="timeline-title">Earlier</span>
             <span class="timeline-count" id="count-older">0 trips</span>
@@ -266,9 +266,11 @@ All vehicles
           </div>
         </div>
 
-        <div class="timeline-section timeline-section-inactive" data-section="inactive">
+        <div class="timeline-section timeline-section-inactive"
+             data-section="inactive"
+             style="display: none">
           <h2 class="timeline-header">
-            <span class="timeline-title">Inactive Trips</span>
+            <span class="timeline-title">Inactive trips</span>
             <span class="timeline-count" id="count-inactive">0 trips</span>
           </h2>
           <p class="timeline-section-note">

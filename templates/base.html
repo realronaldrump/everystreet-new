@@ -24,7 +24,7 @@
                 document.documentElement.classList.add("light-mode");
                 document
                     .querySelector('meta[name="theme-color"]')
-                    ?.setAttribute("content", "#ffffff");
+                    ?.setAttribute("content", "#f4f1e8");
             } else {
                 document.documentElement.setAttribute("data-bs-theme", "dark");
                 document
@@ -293,7 +293,7 @@ Every Street
               </circle>
             </svg>
           </div>
-          <span class="loading-text">Loading...</span>
+          <span class="loading-text">Loading&hellip;</span>
         </div>
       </div>
     </div>
@@ -334,7 +334,7 @@ Every Street
           </div>
           <div class="setup-required-actions">
             <a class="btn btn-primary" href="/setup-wizard" id="setup-required-cta">
-              <i class="fas fa-wand-magic-sparkles me-2" aria-hidden="true"></i>
+              <i class="fas fa-compass-drafting me-2" aria-hidden="true"></i>
               Run Setup Wizard
             </a>
             <span class="setup-required-footnote">Takes ~5 minutes.</span>
@@ -346,7 +346,7 @@ Every Street
             id="setup-required-fab"
             type="button"
             aria-label="Open setup wizard reminder">
-      <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
+      <i class="fas fa-compass-drafting" aria-hidden="true"></i>
       <span>Setup required</span>
     </button>
     <script src="{{ CDN.bootstrap_js }}" crossorigin="anonymous"></script>

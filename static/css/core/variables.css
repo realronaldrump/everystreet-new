@@ -15,6 +15,7 @@
    - Surface 1:    #131317
    - Surface 2:    #1b1b20
    - Surface 3:    #24242a
+   - Light mode:   warm paper-map surfaces (#f4f1e8 family), not pure white
 
    Radii
    - Containers/cards: 7-12px
@@ -119,7 +120,7 @@
   --surface-rgb: 19 19 23;
   --text-primary: rgb(248 246 242 / 96%);
   --text-secondary: rgb(210 206 198 / 82%);
-  --text-tertiary: rgb(140 136 128 / 60%);
+  --text-tertiary: rgb(160 156 148 / 80%);
   --text-on-primary: #050507;
   --text-on-secondary: #0c0c0f;
   --text-on-dark: #050507;
@@ -179,6 +180,7 @@
   --card-padding-lg: clamp(1.25rem, 2.1vw, 2rem);
 
   /* Layout */
+
   /* Visual bar is 64px; on notched devices the header also covers the top
      safe-area inset so its content is not clipped under the status bar/notch.
      Every consumer that offsets content below the header references this var,
@@ -345,35 +347,42 @@
   --bs-focus-ring-color: rgb(var(--accent-rgb) / 25%);
 }
 
-/* Light mode overrides */
+/* Light mode overrides — warm paper, like a printed street map */
 body.light-mode {
-  --surface-deep: #fff;
-  --surface-0: #fff;
-  --surface-1: #fafafb;
-  --surface-2: #f3f3f6;
-  --surface-3: #e7e7ec;
-  --surface-4: #d9d9df;
-  --surface-elevated: #fff;
-  --surface-glass: rgb(255 255 255 / 92%);
-  --surface-rgb: 255 255 255;
-  --text-primary: rgb(15 17 23 / 94%);
-  --text-secondary: rgb(71 75 86 / 78%);
-  --text-tertiary: rgb(124 128 138 / 60%);
-  --border-color: rgb(15 17 23 / 7%);
-  --border-color-light: rgb(15 17 23 / 14%);
-  --divider-color: rgb(15 17 23 / 4%);
-  --border-rgb: 15 17 23;
-  --text-rgb: 15 17 23;
-  --shadow-xs: 0 1px 2px rgb(15 22 33 / 8%);
-  --shadow-sm: 0 1px 2px rgb(15 22 33 / 8%), 0 2px 5px rgb(15 22 33 / 8%);
-  --shadow-md: 0 2px 6px rgb(15 22 33 / 8%), 0 6px 16px rgb(15 22 33 / 12%);
-  --shadow-lg: 0 4px 10px rgb(15 22 33 / 10%), 0 14px 32px rgb(15 22 33 / 14%);
-  --shadow-xl: 0 8px 16px rgb(15 22 33 / 12%), 0 24px 48px rgb(15 22 33 / 16%);
-  --shadow-elevation-1: 0 1px 2px rgb(15 22 33 / 8%), 0 2px 6px rgb(15 22 33 / 8%);
-  --shadow-elevation-2: 0 2px 6px rgb(15 22 33 / 8%), 0 8px 18px rgb(15 22 33 / 12%);
-  --shadow-elevation-3: 0 4px 10px rgb(15 22 33 / 10%), 0 14px 30px rgb(15 22 33 / 14%);
-  --shadow-elevation-4: 0 8px 16px rgb(15 22 33 / 12%), 0 22px 44px rgb(15 22 33 / 16%);
-  --shadow-elevation-5: 0 12px 24px rgb(15 22 33 / 14%), 0 30px 56px rgb(15 22 33 / 18%);
+  --surface-deep: #fcfbf7;
+  --surface-0: #f4f1e8;
+  --surface-1: #fbf9f3;
+  --surface-2: #efebe0;
+  --surface-3: #e5e0d2;
+  --surface-4: #d6d0bf;
+  --surface-elevated: #fdfcf8;
+  --surface-glass: rgb(251 249 243 / 92%);
+  --surface-rgb: 251 249 243;
+  --text-primary: rgb(30 28 22 / 95%);
+  --text-secondary: rgb(74 70 58 / 85%);
+  --text-tertiary: rgb(92 87 72 / 88%);
+
+  /* Deeper sage so small text and links clear AA on paper */
+  --primary: #2f7268;
+  --primary-light: #3b8a7f;
+  --primary-dark: #275e56;
+  --primary-rgb: 47 114 104;
+  --text-on-primary: #fff;
+  --border-color: rgb(76 68 50 / 15%);
+  --border-color-light: rgb(76 68 50 / 26%);
+  --divider-color: rgb(76 68 50 / 9%);
+  --border-rgb: 76 68 50;
+  --text-rgb: 30 28 22;
+  --shadow-xs: 0 1px 2px rgb(56 48 30 / 8%);
+  --shadow-sm: 0 1px 2px rgb(56 48 30 / 8%), 0 2px 5px rgb(56 48 30 / 8%);
+  --shadow-md: 0 2px 6px rgb(56 48 30 / 8%), 0 6px 16px rgb(56 48 30 / 12%);
+  --shadow-lg: 0 4px 10px rgb(56 48 30 / 10%), 0 14px 32px rgb(56 48 30 / 14%);
+  --shadow-xl: 0 8px 16px rgb(56 48 30 / 12%), 0 24px 48px rgb(56 48 30 / 16%);
+  --shadow-elevation-1: 0 1px 2px rgb(56 48 30 / 8%), 0 2px 6px rgb(56 48 30 / 8%);
+  --shadow-elevation-2: 0 2px 6px rgb(56 48 30 / 8%), 0 8px 18px rgb(56 48 30 / 12%);
+  --shadow-elevation-3: 0 4px 10px rgb(56 48 30 / 10%), 0 14px 30px rgb(56 48 30 / 14%);
+  --shadow-elevation-4: 0 8px 16px rgb(56 48 30 / 12%), 0 22px 44px rgb(56 48 30 / 16%);
+  --shadow-elevation-5: 0 12px 24px rgb(56 48 30 / 14%), 0 30px 56px rgb(56 48 30 / 18%);
   --scrollbar-thumb-color: rgb(var(--border-rgb) / 28%);
   --scrollbar-track-color: rgb(var(--border-rgb) / 6%);
   --scrollbar-thumb-hover-color: rgb(var(--border-rgb) / 42%);

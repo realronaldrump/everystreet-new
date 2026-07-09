@@ -13,14 +13,14 @@
 
 {% block content %}
 
-  <div class="home" data-stagger data-reveal-group="home">
+  <div class="home">
 
     <!-- Masthead -->
-    <header class="home-masthead" data-reveal="up">
+    <header class="home-masthead">
       <div class="masthead-lead">
-        <p class="masthead-eyebrow">Every Street</p>
-        <h1 class="masthead-title" id="greeting-title">Welcome back</h1>
-        <p class="masthead-sub" id="greeting-subtitle"></p>
+        <p class="masthead-date" id="home-date">&nbsp;</p>
+        <h1 class="masthead-title" id="home-headline">Every street, eventually.</h1>
+        <p class="masthead-sub" id="home-mission" hidden></p>
       </div>
       <div class="masthead-aside">
         <span class="status-chip" aria-live="polite">
@@ -28,12 +28,12 @@
           <span class="status-label status-off">Idle</span>
           <span class="status-label status-on">Live now</span>
         </span>
-        <span class="weather-chip" id="weather-chip" data-value-flash>Weather: --</span>
+        <span class="weather-chip" id="weather-chip" data-value-flash hidden></span>
       </div>
     </header>
 
     <!-- Snapshot -->
-    <section class="home-snapshot" aria-label="Driving snapshot" data-reveal="up">
+    <section class="home-snapshot" aria-label="Driving snapshot">
       <div class="snapshot-figure">
         <span class="snapshot-label">Miles driven</span>
         <span class="snapshot-readout">
@@ -68,132 +68,95 @@
       </div>
     </section>
 
-    <!-- Primary actions -->
-    <section class="home-feature" aria-label="Primary actions" data-stagger data-reveal-group="feature">
-      <a href="/map" class="feature-card nav-tile" data-tile="map" data-reveal="up">
-        <span class="feature-icon"><i class="fas fa-map" aria-hidden="true"></i></span>
-        <span class="feature-body">
-          <span class="feature-title">Open the Map</span>
-          <span class="feature-sub">Explore live coverage and your trips</span>
-        </span>
-        <span class="feature-go" aria-hidden="true"><i class="fas fa-arrow-right"></i></span>
-      </a>
-
-      <a href="/coverage-route-planner"
-         class="feature-card nav-tile"
-         data-tile="navigate"
-         data-reveal="up">
-        <span class="feature-icon"><i class="fas fa-route" aria-hidden="true"></i></span>
-        <span class="feature-body">
-          <span class="feature-title">Plan a Route</span>
-          <span class="feature-sub">Build the most efficient next drive</span>
-        </span>
-        <span class="feature-go" aria-hidden="true"><i class="fas fa-arrow-right"></i></span>
-      </a>
-    </section>
-
-    <!-- Explore -->
-    <section class="home-explore" aria-label="Explore">
-      <div class="section-head" data-reveal="up">
-        <span class="section-eyebrow">Explore</span>
-      </div>
-
-      <div class="explore-grid" data-stagger data-reveal-group="explore">
-        <a href="/trips" class="explore-item nav-tile" data-tile="trips" data-reveal="up">
-          <span class="explore-icon"><i class="fas fa-road" aria-hidden="true"></i></span>
-          <span class="explore-text">
-            <span class="explore-title">Trips</span>
-            <span class="explore-sub">Browse your history</span>
-          </span>
-          <span class="explore-meta" id="recent-trip">
-            <span class="meta-value">--</span>
-            <span class="meta-label">ago</span>
-          </span>
-          <span class="explore-chevron" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
-        </a>
-
-        <a href="/insights" class="explore-item nav-tile" data-tile="insights" data-reveal="up">
-          <span class="explore-icon"><i class="fas fa-chart-line" aria-hidden="true"></i></span>
-          <span class="explore-text">
-            <span class="explore-title">Insights</span>
-            <span class="explore-sub">Analytics &amp; trends</span>
-          </span>
-          <span class="explore-chevron" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
-        </a>
-
-        <a href="/gas-tracking" class="explore-item nav-tile" data-tile="gas" data-reveal="up">
-          <span class="explore-icon"><i class="fas fa-gas-pump" aria-hidden="true"></i></span>
-          <span class="explore-text">
-            <span class="explore-title">Gas</span>
-            <span class="explore-sub">Fuel &amp; efficiency</span>
-          </span>
-          <span class="explore-meta" id="last-fillup">
-            <span class="meta-value">--</span>
-            <span class="meta-label">mpg avg</span>
-          </span>
-          <span class="explore-chevron" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
-        </a>
-
-        <a href="/visits" class="explore-item nav-tile" data-tile="visits" data-reveal="up">
-          <span class="explore-icon"><i class="fas fa-map-marker-alt" aria-hidden="true"></i></span>
-          <span class="explore-text">
-            <span class="explore-title">Visits</span>
-            <span class="explore-sub">Places you've tracked</span>
-          </span>
-          <span class="explore-chevron" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
-        </a>
-
-        <a href="/map-matching"
-           class="explore-item nav-tile"
-           data-tile="map-matching"
-           data-reveal="up">
-          <span class="explore-icon"><i class="fas fa-diagram-project" aria-hidden="true"></i></span>
-          <span class="explore-text">
-            <span class="explore-title">Map Matching</span>
-            <span class="explore-sub">Queue matching jobs</span>
-          </span>
-          <span class="explore-chevron" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
-        </a>
-
-        <a href="/coverage-management"
-           class="explore-item nav-tile"
-           data-tile="areas"
-           data-reveal="up">
-          <span class="explore-icon"><i class="fas fa-vector-square" aria-hidden="true"></i></span>
-          <span class="explore-text">
-            <span class="explore-title">Coverage</span>
-            <span class="explore-sub">Manage target areas</span>
-          </span>
-          <span class="explore-chevron" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
-        </a>
-
-        <a href="/export" class="explore-item nav-tile" data-tile="export" data-reveal="up">
-          <span class="explore-icon"><i class="fas fa-download" aria-hidden="true"></i></span>
-          <span class="explore-text">
-            <span class="explore-title">Export</span>
-            <span class="explore-sub">Download your data</span>
-          </span>
-          <span class="explore-chevron" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
-        </a>
-
-        <a href="/control-center"
-           class="explore-item nav-tile"
-           data-tile="settings"
-           data-reveal="up">
-          <span class="explore-icon"><i class="fas fa-sliders" aria-hidden="true"></i></span>
-          <span class="explore-text">
-            <span class="explore-title">Settings</span>
-            <span class="explore-sub">Control center</span>
-          </span>
-          <span class="explore-chevron" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
-        </a>
-      </div>
-    </section>
-
-    <!-- Recent activity -->
-    <section class="home-activity" aria-label="Recent activity" data-reveal="up">
+    <!-- Coverage ledger -->
+    <section class="home-coverage" id="home-coverage" aria-label="Coverage progress" hidden>
       <div class="section-head">
-        <span class="section-eyebrow">Recent activity</span>
+        <span class="section-eyebrow">The mission</span>
+        <a class="section-link" href="/coverage-management">All areas</a>
+      </div>
+      <ol class="coverage-ledger" id="coverage-ledger"></ol>
+    </section>
+
+    <!-- Primary actions -->
+    <section class="home-actions" aria-label="Primary actions">
+      <a href="/map" class="action-card nav-tile" data-tile="map">
+        <span class="action-text">
+          <span class="action-title">Open the map</span>
+          <span class="action-sub">Trips, coverage, heat, and your live position</span>
+        </span>
+        <span class="action-arrow" aria-hidden="true">&rarr;</span>
+      </a>
+
+      <a href="/coverage-route-planner" class="action-card nav-tile" data-tile="navigate">
+        <span class="action-text">
+          <span class="action-title">Plan a route</span>
+          <span class="action-sub">The shortest loop through streets you haven't driven</span>
+        </span>
+        <span class="action-arrow" aria-hidden="true">&rarr;</span>
+      </a>
+    </section>
+
+    <!-- Index -->
+    <section class="home-index" aria-label="Index">
+      <div class="section-head">
+        <span class="section-eyebrow">Index</span>
+      </div>
+
+      <nav class="index-columns" aria-label="All pages">
+        <a href="/trips" class="index-row nav-tile" data-tile="trips">
+          <span class="index-title">Trips</span>
+          <span class="index-leader" aria-hidden="true"></span>
+          <span class="index-meta" id="recent-trip"><span class="meta-value">--</span> <span class="meta-label">ago</span></span>
+        </a>
+
+        <a href="/insights" class="index-row nav-tile" data-tile="insights">
+          <span class="index-title">Insights</span>
+          <span class="index-leader" aria-hidden="true"></span>
+          <span class="index-meta"></span>
+        </a>
+
+        <a href="/gas-tracking" class="index-row nav-tile" data-tile="gas">
+          <span class="index-title">Fuel log</span>
+          <span class="index-leader" aria-hidden="true"></span>
+          <span class="index-meta" id="last-fillup"><span class="meta-value">--</span> <span class="meta-label">mpg avg</span></span>
+        </a>
+
+        <a href="/visits" class="index-row nav-tile" data-tile="visits">
+          <span class="index-title">Visits</span>
+          <span class="index-leader" aria-hidden="true"></span>
+          <span class="index-meta"></span>
+        </a>
+
+        <a href="/map-matching" class="index-row nav-tile" data-tile="map-matching">
+          <span class="index-title">Map matching</span>
+          <span class="index-leader" aria-hidden="true"></span>
+          <span class="index-meta"></span>
+        </a>
+
+        <a href="/coverage-management" class="index-row nav-tile" data-tile="areas">
+          <span class="index-title">Coverage areas</span>
+          <span class="index-leader" aria-hidden="true"></span>
+          <span class="index-meta"></span>
+        </a>
+
+        <a href="/export" class="index-row nav-tile" data-tile="export">
+          <span class="index-title">Export</span>
+          <span class="index-leader" aria-hidden="true"></span>
+          <span class="index-meta"></span>
+        </a>
+
+        <a href="/control-center" class="index-row nav-tile" data-tile="settings">
+          <span class="index-title">Settings</span>
+          <span class="index-leader" aria-hidden="true"></span>
+          <span class="index-meta"></span>
+        </a>
+      </nav>
+    </section>
+
+    <!-- Recent trips -->
+    <section class="home-activity" aria-label="Recent trips">
+      <div class="section-head">
+        <span class="section-eyebrow">Recent trips</span>
         <span class="activity-live-dot" aria-hidden="true"></span>
       </div>
       <div class="activity-feed" id="activity-feed">

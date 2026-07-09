@@ -82,7 +82,7 @@ function createVisitsTable({ onPlaceSelected }) {
     ],
     language: {
       emptyTable:
-        '<div class="empty-state"><i class="fas fa-map-marked-alt"></i><h5>No Custom Places Yet</h5><p>Draw your first place on the map to start tracking visits</p></div>',
+        '<div class="empty-state"><h5>No places yet</h5><p>Draw a boundary on the map — visits start counting from your very first trip there</p></div>',
       info: "Showing _START_ to _END_ of _TOTAL_ places",
       search: "",
       searchPlaceholder: "Search places...",
@@ -173,7 +173,7 @@ function createNonCustomVisitsTable() {
     ],
     language: {
       emptyTable:
-        '<div class="empty-state"><i class="fas fa-globe"></i><h5>No Other Locations Visited</h5><p>Visit tracking data will appear here</p></div>',
+        '<div class="empty-state"><h5>No other stops detected</h5><p>Trip destinations outside your drawn places will collect here</p></div>',
       info: "Showing _START_ to _END_ of _TOTAL_ locations",
       search: "",
       searchPlaceholder: "Search locations...",
@@ -283,7 +283,7 @@ function createTripsTable({ onTripSelected }) {
     ],
     language: {
       emptyTable:
-        '<div class="empty-state"><i class="fas fa-route"></i><h5>No Trips Found</h5><p>No trips found for this place</p></div>',
+        '<div class="empty-state"><h5>No trips end here</h5><p>Drives that stop inside this boundary will be listed here</p></div>',
       info: "Showing _START_ to _END_ of _TOTAL_ trips",
       search: "",
       searchPlaceholder: "Search trips...",
@@ -402,7 +402,7 @@ function createSuggestionsTable({ onCreatePlace, onPreview } = {}) {
     ],
     language: {
       emptyTable:
-        '<div class="empty-state"><i class="fas fa-lightbulb"></i><h5>No Suggestions Yet</h5><p>Suggestions appear once you have enough trips</p></div>',
+        '<div class="empty-state"><h5>No suggestions yet</h5><p>Once enough trips stop at the same unnamed spot, it shows up here</p></div>',
       info: "Showing _START_ to _END_ of _TOTAL_ suggestions",
       search: "",
       searchPlaceholder: "Search suggestions...",

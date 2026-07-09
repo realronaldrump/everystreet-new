@@ -18,7 +18,7 @@ import {
   isAbortError,
 } from "../../utils.js";
 import { animateValue } from "./animations.js";
-import { updateGreeting } from "./hero.js";
+import { buildMissionLine, updateMastheadDate } from "./hero.js";
 
 // Configuration
 const CONFIG = {
@@ -52,7 +52,6 @@ let metricsLoadRequestId = 0;
 let recordsLoadRequestId = 0;
 let recordLoading = false;
 let removeFilterRefreshListener = null;
-let ambientCleanup = null;
 let featureApi = createFeatureApi();
 const apiGet = (url, options = {}) => featureApi.get(url, options);
 const apiRaw = (url, options = {}) => featureApi.raw(url, options);
@@ -65,7 +64,7 @@ export default function initLandingPage({ signal, cleanup, api } = {}) {
   pageSignal = signal || null;
   featureApi = api || createFeatureApi({ signal: pageSignal });
   cacheElements();
-  updateGreeting(elements);
+  updateMastheadDate(elements);
 
   highlightFrequentTiles();
 
@@ -76,10 +75,7 @@ export default function initLandingPage({ signal, cleanup, api } = {}) {
   bindRecordCard();
   removeFilterRefreshListener = bindFilterRefresh();
 
-  // Ambient background
-  setupAmbientBackground();
   const teardown = () => {
-    cleanupAmbientBackground();
     clearIntervals();
     removeFilterRefreshListener?.();
     removeFilterRefreshListener = null;
@@ -101,8 +97,10 @@ export default function initLandingPage({ signal, cleanup, api } = {}) {
  */
 function cacheElements() {
   elements = {
-    greetingTitle: document.getElementById("greeting-title"),
-    greetingSubtitle: document.getElementById("greeting-subtitle"),
+    mastheadDate: document.getElementById("home-date"),
+    missionLine: document.getElementById("home-mission"),
+    coverageSection: document.getElementById("home-coverage"),
+    coverageLedger: document.getElementById("coverage-ledger"),
     weatherChip: document.getElementById("weather-chip"),
     statMiles: document.getElementById("stat-miles"),
     statTrips: document.getElementById("stat-trips"),
@@ -124,7 +122,7 @@ function cacheElements() {
  */
 async function loadAllData() {
   try {
-    updateGreeting(elements);
+    updateMastheadDate(elements);
 
     highlightFrequentTiles();
 
@@ -179,6 +177,11 @@ function highlightFrequentTiles() {
   });
 }
 
+function showWeatherChip(temp, label) {
+  elements.weatherChip.textContent = `${temp}°F · ${label}`;
+  elements.weatherChip.hidden = false;
+}
+
 async function loadWeather() {
   if (!elements.weatherChip) {
     return;
@@ -186,12 +189,12 @@ async function loadWeather() {
 
   const cached = getCachedWeather();
   if (cached) {
-    elements.weatherChip.textContent = `Weather: ${cached.temp}F ${cached.label}`;
+    showWeatherChip(cached.temp, cached.label);
     return;
   }
 
   if (!navigator.geolocation && !lastKnownLocation) {
-    elements.weatherChip.textContent = "Weather: --";
+    elements.weatherChip.hidden = true;
     return;
   }
 
@@ -223,10 +226,10 @@ async function loadWeather() {
       throw new Error("Weather data missing");
     }
 
-    elements.weatherChip.textContent = `Weather: ${temp}F ${label}`;
+    showWeatherChip(temp, label);
     setCachedWeather({ temp, label });
   } catch {
-    elements.weatherChip.textContent = "Weather: --";
+    elements.weatherChip.hidden = true;
   }
 }
 
@@ -293,12 +296,97 @@ async function loadCoverageStats() {
     const data = await apiGet("/api/coverage/areas");
     if (data?.areas) {
       setRecordSource("coverage", data);
+      renderCoverageLedger(data.areas);
+      renderMissionLine(data.areas);
     }
   } catch (error) {
     if (!isPageAbortError(error)) {
       console.warn("Failed to load coverage stats", error);
     }
   }
+}
+
+function renderMissionLine(areas) {
+  if (!elements.missionLine) {
+    return;
+  }
+  const line = buildMissionLine(areas);
+  if (!line) {
+    elements.missionLine.hidden = true;
+    return;
+  }
+  elements.missionLine.textContent = line;
+  elements.missionLine.hidden = false;
+}
+
+function renderCoverageLedger(areas) {
+  if (!elements.coverageSection || !elements.coverageLedger) {
+    return;
+  }
+
+  const rows = (Array.isArray(areas) ? areas : [])
+    .filter((area) => Number.isFinite(Number(area?.coverage_percentage)))
+    .sort(
+      (a, b) =>
+        (Number(b?.total_length_miles) || 0) - (Number(a?.total_length_miles) || 0)
+    )
+    .slice(0, 3);
+
+  if (rows.length === 0) {
+    elements.coverageSection.hidden = true;
+    return;
+  }
+
+  elements.coverageLedger.innerHTML = "";
+  rows.forEach((area) => {
+    const pct = Math.max(0, Math.min(100, Number(area.coverage_percentage)));
+    const total = Number(area.total_length_miles);
+    const driven = Number(area.driven_length_miles);
+    const remaining =
+      Number.isFinite(total) && Number.isFinite(driven)
+        ? Math.max(0, total - driven)
+        : null;
+    const name = area.display_name?.split(",")[0]?.trim() || "Unnamed area";
+
+    const item = document.createElement("li");
+    item.className = "coverage-ledger-row";
+
+    const link = document.createElement("a");
+    link.className = "coverage-ledger-link";
+    link.href = "/coverage-management";
+    link.setAttribute(
+      "aria-label",
+      `${name}: ${pct.toFixed(1)} percent driven${
+        remaining !== null ? `, ${remaining.toFixed(1)} miles left` : ""
+      }`
+    );
+
+    const nameEl = document.createElement("span");
+    nameEl.className = "coverage-ledger-name";
+    nameEl.textContent = name;
+
+    const track = document.createElement("span");
+    track.className = "coverage-ledger-track";
+    track.setAttribute("aria-hidden", "true");
+    const fill = document.createElement("span");
+    fill.className = "coverage-ledger-fill";
+    fill.style.width = `${pct}%`;
+    track.appendChild(fill);
+
+    const pctEl = document.createElement("span");
+    pctEl.className = "coverage-ledger-pct";
+    pctEl.textContent = `${pct.toFixed(1)}%`;
+
+    const leftEl = document.createElement("span");
+    leftEl.className = "coverage-ledger-left";
+    leftEl.textContent = remaining !== null ? `${remaining.toFixed(1)} mi left` : "";
+
+    link.append(nameEl, track, pctEl, leftEl);
+    item.appendChild(link);
+    elements.coverageLedger.appendChild(item);
+  });
+
+  elements.coverageSection.hidden = false;
 }
 
 function setRecordSource(key, data) {
@@ -995,8 +1083,7 @@ function populateActivityFeed(trips) {
   if (!trips || trips.length === 0) {
     elements.activityFeed.innerHTML = `
       <div class="activity-empty">
-        <i class="fas fa-road" style="margin-right: 8px; opacity: 0.5;"></i>
-        No recent activity
+        No trips yet in this range &mdash; drives appear here as Bouncie reports them.
       </div>
     `;
     return;
@@ -1004,7 +1091,7 @@ function populateActivityFeed(trips) {
 
   const activityHtml = trips
     .slice(0, CONFIG.activityLimit)
-    .map((trip, index) => {
+    .map((trip) => {
       const distance = trip.distance ? parseFloat(trip.distance).toFixed(1) : "?";
       const destination = formatDestination(trip.destination);
       const time = trip.endTime || trip.startTime;
@@ -1021,10 +1108,7 @@ function populateActivityFeed(trips) {
           </button>
         </div>
         <div class="swipe-content">
-          <div class="activity-item" style="animation-delay: ${index * 0.1}s">
-            <div class="activity-icon trip">
-              <i class="fas fa-car"></i>
-            </div>
+          <div class="activity-item">
             <div class="activity-text">
               <div class="activity-description">
                 ${distance} mi to ${destination}
@@ -1129,54 +1213,4 @@ function clearIntervals() {
     clearInterval(recordRotationIntervalId);
     recordRotationIntervalId = null;
   }
-}
-
-/**
- * Data-responsive ambient background
- * Changes orb colors/intensity based on time of day and driving activity
- */
-function setupAmbientBackground() {
-  const ambientEl = document.querySelector(".ambient-background");
-  if (!ambientEl) {
-    return;
-  }
-
-  ambientCleanup?.();
-  ambientCleanup = null;
-  ambientEl.classList.add("data-responsive");
-
-  const hour = new Date().getHours();
-  const isNight = hour < 6 || hour >= 22;
-  const isEvening = hour >= 18 && hour < 22;
-
-  if (isNight) {
-    ambientEl.classList.add("ambient-night");
-    ambientEl.style.setProperty("--ambient-intensity", "0.06");
-  } else if (isEvening) {
-    ambientEl.style.setProperty("--ambient-intensity", "0.08");
-  } else {
-    ambientEl.style.setProperty("--ambient-intensity", "0.12");
-  }
-
-  // If live tracking is active, pulse warmer
-  const checkLive = () => {
-    if (elements.liveIndicator?.classList.contains("active")) {
-      ambientEl.classList.add("ambient-driving");
-    } else {
-      ambientEl.classList.remove("ambient-driving");
-    }
-  };
-
-  checkLive();
-  const liveCheckId = setInterval(checkLive, 10000);
-
-  ambientCleanup = () => {
-    clearInterval(liveCheckId);
-    ambientEl.classList.remove("data-responsive", "ambient-night", "ambient-driving");
-  };
-}
-
-function cleanupAmbientBackground() {
-  ambientCleanup?.();
-  ambientCleanup = null;
 }

@@ -17,17 +17,17 @@ Driving Insights
 {% block content %}
 
   <div id="insights-page" class="insights-container">
-    <header class="page-masthead" data-reveal="up">
+    <header class="page-masthead">
       <div class="pm-lead">
-        <p class="pm-eyebrow">Every Street</p>
+        <p class="pm-eyebrow">The patterns</p>
         <h1 class="pm-title">Insights</h1>
         <p class="pm-sub">
-          Period comparisons, time distributions, and destination concentration for the selected range.
+          Where the miles went: totals, rhythms, and the places that keep pulling you back.
         </p>
       </div>
     </header>
 
-    <div class="figure-band insights-figures" data-reveal="up">
+    <div class="figure-band insights-figures">
       <div class="figure">
         <span class="figure-label">Miles in range</span>
         <span class="figure-readout">
@@ -36,7 +36,7 @@ Driving Insights
         </span>
       </div>
     </div>
-    <section class="insights-section movement-section" data-reveal="up">
+    <section class="insights-section movement-section">
       <div class="section-header">
         <h2 class="section-title">
           Most driven streets and street segments
@@ -122,18 +122,15 @@ View more segments
         </aside>
       </div>
     </section>
-    <section class="insights-section" data-reveal="up">
+    <section class="insights-section">
       <div class="section-header">
         <h2 class="section-title">
           At a glance
         </h2>
-        <p class="section-subtitle">
-Headline metrics with contextual cues from your latest patterns
-        </p>
       </div>
 
-      <div class="figure-band metrics-band" data-reveal-group="insights-metrics">
-        <div class="figure metric-figure" data-reveal="up">
+      <div class="figure-band metrics-band">
+        <div class="figure metric-figure">
           <button type="button"
                   class="figure-label metric-figure-label insights-drilldown-trigger"
                   data-drilldown="trips">
@@ -142,10 +139,10 @@ Headline metrics with contextual cues from your latest patterns
           <span class="figure-readout">
             <span class="figure-value counter" id="total-trips">0</span>
           </span>
-          <p class="metric-context" id="trips-context">Not enough trips in this range for derived ratios yet.</p>
+          <p class="metric-context" id="trips-context">Needs a few more trips.</p>
         </div>
         <div class="figure-rule" aria-hidden="true"></div>
-        <div class="figure metric-figure" data-reveal="up">
+        <div class="figure metric-figure">
           <button type="button"
                   class="figure-label metric-figure-label insights-drilldown-trigger"
                   data-drilldown="distance">
@@ -155,10 +152,10 @@ Headline metrics with contextual cues from your latest patterns
             <span class="figure-value counter" id="total-distance">0</span>
             <span class="figure-unit">mi</span>
           </span>
-          <p class="metric-context" id="distance-context">Add more trips to improve long-range comparison detail.</p>
+          <p class="metric-context" id="distance-context">Needs more trips to compare against.</p>
         </div>
         <div class="figure-rule" aria-hidden="true"></div>
-        <div class="figure metric-figure" data-reveal="up">
+        <div class="figure metric-figure">
           <button type="button"
                   class="figure-label metric-figure-label insights-drilldown-trigger"
                   data-drilldown="duration">
@@ -167,10 +164,10 @@ Headline metrics with contextual cues from your latest patterns
           <span class="figure-readout">
             <span class="figure-value figure-value-sm" id="total-time" data-value-flash>0h 0m</span>
           </span>
-          <p class="metric-context" id="time-context">Signature windows appear once time clusters emerge.</p>
+          <p class="metric-context" id="time-context">Your usual driving hours show up here.</p>
         </div>
         <div class="figure-rule" aria-hidden="true"></div>
-        <div class="figure metric-figure" data-reveal="up">
+        <div class="figure metric-figure">
           <button type="button"
                   class="figure-label metric-figure-label insights-drilldown-trigger"
                   data-drilldown="fuel">
@@ -180,17 +177,17 @@ Headline metrics with contextual cues from your latest patterns
             <span class="figure-value counter" id="total-fuel">0</span>
             <span class="figure-unit">gal</span>
           </span>
-          <p class="metric-context" id="fuel-context">Fuel context appears when fuel entries are available.</p>
+          <p class="metric-context" id="fuel-context">Log fill-ups to see cost per mile.</p>
         </div>
       </div>
     </section>
-    <section class="insights-section story-shell" data-reveal="up">
+    <section class="insights-section story-shell">
       <div class="section-header">
         <h2 class="section-title">
-          Period analytics
+          Over time
         </h2>
         <p class="section-subtitle">
-Compare daily, weekly, and monthly totals with direct links to underlying trips
+Daily, weekly, and monthly totals. Click a chart title to open the trips behind it.
         </p>
       </div>
 
@@ -252,13 +249,13 @@ Not enough data in this range to compare periods yet.
         </article>
       </div>
     </section>
-    <section class="insights-section" data-reveal="up">
+    <section class="insights-section">
       <div class="section-header">
         <h2 class="section-title">
-          Pattern cards
+          Habits
         </h2>
         <p class="section-subtitle">
-Data-driven summaries with one-click drilldowns
+What keeps repeating in this range. Click a card for the trips behind it.
         </p>
       </div>
 
@@ -274,7 +271,7 @@ Not enough data in this range to compute pattern cards yet.
         </div>
       </div>
     </section>
-    <section class="insights-section" data-reveal="up">
+    <section class="insights-section">
       <div class="section-header">
         <h2 class="section-title">
           Driving rhythm
@@ -308,7 +305,7 @@ Not enough rhythm data in this range yet.
         </aside>
       </div>
     </section>
-    <section class="insights-section" data-reveal="up">
+    <section class="insights-section">
       <div class="section-header">
         <h2 class="section-title">
           Places orbit
@@ -336,13 +333,13 @@ Select a place bubble to see details.
         </aside>
       </div>
     </section>
-    <section class="insights-section" data-reveal="up">
+    <section class="insights-section">
       <div class="section-header">
         <h2 class="section-title">
-          Record timeline
+          Records
         </h2>
         <p class="section-subtitle">
-Milestones from your selected range, presented as quick timeline cards
+Personal bests set inside this range.
         </p>
       </div>
 
