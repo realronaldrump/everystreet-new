@@ -130,15 +130,15 @@ const heatmapUtils = {
       ["exponential", 1.5],
       ["zoom"],
       4,
-      baseWidth * 0.2,
+      baseWidth * 0.35,
       8,
-      baseWidth * 0.5,
+      baseWidth * 0.65,
       12,
       baseWidth,
       16,
-      baseWidth * 2,
+      baseWidth * 1.6,
       20,
-      baseWidth * 4,
+      baseWidth * 2.8,
     ];
   },
 
@@ -245,32 +245,39 @@ const heatmapUtils = {
     const colors = this._resolveColorPalette(theme, palette);
     const settings = this.getAdaptiveSettings(tripCount);
     const opacityMult = userOpacity;
+    // Thousands of routes previously drove the per-line treatment below a
+    // useful screen-pixel threshold at regional zooms. Keep the full overlap
+    // signal, but give each route enough presence to contribute to it.
+    const coreWidth = Math.max(settings.baseWidth, 1.1);
+    const glowWidth = Math.max(settings.glowWidth, 2.2);
+    const coreOpacity = Math.max(settings.coreOpacity, 0.22);
+    const glowOpacity = Math.max(settings.glowOpacity, 0.09);
 
     return [
       {
         name: "atmosphere",
         paint: {
           "line-color": colors.halo,
-          "line-width": this._zoomWidth(settings.glowWidth * 2.2),
-          "line-opacity": this._zoomOpacity(settings.glowOpacity * 0.45 * opacityMult),
-          "line-blur": this._zoomBlur(settings.glowWidth * 0.8),
+          "line-width": this._zoomWidth(glowWidth * 2.2),
+          "line-opacity": this._zoomOpacity(glowOpacity * 0.45 * opacityMult),
+          "line-blur": this._zoomBlur(glowWidth * 0.8),
         },
       },
       {
         name: "body",
         paint: {
           "line-color": colors.glow,
-          "line-width": this._zoomWidth(settings.glowWidth),
-          "line-opacity": this._zoomOpacity(settings.glowOpacity * 1.1 * opacityMult),
-          "line-blur": this._zoomBlur(settings.glowWidth * 0.18),
+          "line-width": this._zoomWidth(glowWidth),
+          "line-opacity": this._zoomOpacity(glowOpacity * 1.1 * opacityMult),
+          "line-blur": this._zoomBlur(glowWidth * 0.18),
         },
       },
       {
         name: "core",
         paint: {
           "line-color": colors.core,
-          "line-width": this._zoomWidth(settings.baseWidth),
-          "line-opacity": this._zoomOpacity(settings.coreOpacity * opacityMult),
+          "line-width": this._zoomWidth(coreWidth),
+          "line-opacity": this._zoomOpacity(coreOpacity * opacityMult),
           "line-blur": 0,
         },
       },
