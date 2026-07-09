@@ -1,10 +1,11 @@
 import asyncio
+import copy
 import logging
 import math
+import time
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
-from beanie.operators import In
 from fastapi import APIRouter, Body, HTTPException, status
 from pydantic import BaseModel
 
@@ -16,6 +17,7 @@ from db.models import TaskHistory
 from db.schemas import BackgroundTasksConfigModel
 from tasks.config import (
     check_dependencies,
+    get_latest_task_history,
     get_task_config,
     get_task_config_entry,
     set_global_disable,
@@ -29,6 +31,10 @@ from tasks.registry import TASK_DEFINITIONS
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+TASK_SNAPSHOT_CACHE_TTL_SECONDS = 2.0
+_task_snapshot_cache: tuple[float, dict[str, Any]] | None = None
+_task_snapshot_lock = asyncio.Lock()
+
 
 class FetchTripsRangeRequest(BaseModel):
     start_date: datetime
@@ -36,25 +42,10 @@ class FetchTripsRangeRequest(BaseModel):
     map_match: bool = False
 
 
-async def _get_latest_history(task_ids: list[str]) -> dict[str, TaskHistory]:
-    if not task_ids:
-        return {}
-    entries = (
-        await TaskHistory.find(In(TaskHistory.task_id, task_ids))
-        .sort(-TaskHistory.timestamp)
-        .to_list()
-    )
-    latest: dict[str, TaskHistory] = {}
-    for entry in entries:
-        if entry.task_id and entry.task_id not in latest:
-            latest[entry.task_id] = entry
-    return latest
-
-
 async def _build_task_snapshot() -> dict[str, Any]:
     config = await get_task_config()
     task_ids = list(config.get("tasks", {}).keys())
-    latest_history = await _get_latest_history(task_ids)
+    latest_history = await get_latest_task_history(task_ids)
 
     for task_id, task_config in config.get("tasks", {}).items():
         task_def = TASK_DEFINITIONS.get(task_id, {})
@@ -93,6 +84,37 @@ async def _build_task_snapshot() -> dict[str, Any]:
     return config
 
 
+def _invalidate_task_snapshot_cache() -> None:
+    global _task_snapshot_cache
+    _task_snapshot_cache = None
+
+
+async def _get_task_snapshot() -> dict[str, Any]:
+    """Return a short-lived shared snapshot without leaking mutable state."""
+    global _task_snapshot_cache
+
+    now = time.monotonic()
+    cached_snapshot = _task_snapshot_cache
+    if (
+        cached_snapshot
+        and now - cached_snapshot[0] < TASK_SNAPSHOT_CACHE_TTL_SECONDS
+    ):
+        return copy.deepcopy(cached_snapshot[1])
+
+    async with _task_snapshot_lock:
+        now = time.monotonic()
+        cached_snapshot = _task_snapshot_cache
+        if (
+            cached_snapshot
+            and now - cached_snapshot[0] < TASK_SNAPSHOT_CACHE_TTL_SECONDS
+        ):
+            return copy.deepcopy(cached_snapshot[1])
+
+        snapshot = await _build_task_snapshot()
+        _task_snapshot_cache = (time.monotonic(), snapshot)
+        return copy.deepcopy(snapshot)
+
+
 async def _task_schedule_action(
     payload: dict[str, object],
     *,
@@ -119,6 +141,7 @@ async def _task_schedule_action(
         )
 
     logger.info("Successfully completed task schedule action: %s", action)
+    _invalidate_task_snapshot_cache()
     return {"status": "success", "message": success_message}
 
 
@@ -204,7 +227,7 @@ async def update_background_tasks_config(
 async def get_background_tasks_config():
     """Get current configuration of background tasks."""
     try:
-        return await _build_task_snapshot()
+        return await _get_task_snapshot()
     except Exception as e:
         logger.exception(
             "Error getting task configuration",
@@ -225,6 +248,7 @@ async def pause_background_tasks(
         data = {"duration": 30}
     minutes = int(data.get("duration", 30))
     await set_global_disable(True)
+    _invalidate_task_snapshot_cache()
     return {
         "status": "success",
         "message": f"Background tasks paused for {minutes} minutes",
@@ -236,6 +260,7 @@ async def pause_background_tasks(
 async def resume_background_tasks():
     """Resume all background tasks."""
     await set_global_disable(False)
+    _invalidate_task_snapshot_cache()
     return {"status": "success", "message": "Background tasks resumed"}
 
 
@@ -552,7 +577,7 @@ async def stream_background_tasks_updates():
     async def fetch_updates() -> dict[str, Any] | None:
         nonlocal last_config
         try:
-            current_config = await _build_task_snapshot()
+            current_config = await _get_task_snapshot()
             current_tasks = current_config.get("tasks", {})
 
             if last_config is None:
@@ -584,8 +609,8 @@ async def stream_background_tasks_updates():
         sse_event_stream(
             fetch_updates,
             is_terminal=lambda _: False,
-            poll_interval=1,
-            max_polls=3600,
+            poll_interval=5,
+            max_polls=720,
             keepalive_every=15,
             deduplicate=False,
         ),

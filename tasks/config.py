@@ -8,11 +8,10 @@ updating task history.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
-
-from beanie.operators import In
 
 from db.models import TaskConfig, TaskHistory
 from tasks.registry import TASK_DEFINITIONS, get_dependencies, is_enabled_by_default
@@ -20,6 +19,31 @@ from tasks.registry import TASK_DEFINITIONS, get_dependencies, is_enabled_by_def
 logger = logging.getLogger(__name__)
 
 GLOBAL_TASK_ID = "__global__"
+
+
+async def get_latest_task_history(task_ids: list[str]) -> dict[str, TaskHistory]:
+    """Return only the newest history entry for each requested task.
+
+    The task-history index is ordered by ``task_id`` and descending
+    ``timestamp``. Querying one task at a time with a limit of one lets MongoDB
+    satisfy each lookup from the first index entry instead of loading every
+    historical execution and discarding all but the newest one in Python.
+    """
+    unique_task_ids = list(dict.fromkeys(task_id for task_id in task_ids if task_id))
+    if not unique_task_ids:
+        return {}
+
+    async def get_latest(task_id: str) -> TaskHistory | None:
+        entries = (
+            await TaskHistory.find(TaskHistory.task_id == task_id)
+            .sort(-TaskHistory.timestamp)
+            .limit(1)
+            .to_list()
+        )
+        return entries[0] if entries else None
+
+    entries = await asyncio.gather(*(get_latest(task_id) for task_id in unique_task_ids))
+    return {entry.task_id: entry for entry in entries if entry and entry.task_id}
 
 
 async def _get_or_create_task_config(task_id: str) -> TaskConfig:
@@ -157,18 +181,7 @@ async def check_dependencies(
         if not dependencies:
             return {"can_run": True}
 
-        dep_histories = (
-            await TaskHistory.find(
-                In(TaskHistory.task_id, dependencies),
-            )
-            .sort(-TaskHistory.timestamp)
-            .to_list()
-        )
-
-        latest_by_task: dict[str, TaskHistory] = {}
-        for history in dep_histories:
-            if history.task_id and history.task_id not in latest_by_task:
-                latest_by_task[history.task_id] = history
+        latest_by_task = await get_latest_task_history(dependencies)
 
         for dep_id in dependencies:
             history = latest_by_task.get(dep_id)
