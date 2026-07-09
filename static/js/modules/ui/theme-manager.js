@@ -72,19 +72,22 @@ const themeManager = {
       return;
     }
 
-    // Respect an explicit map-style choice from the map controls.
+    // Keep theme-independent basemaps selected, but let dark/light follow the
+    // application theme even when the previous value was persisted.
     const storedMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType);
-    const hasExplicitMapStylePreference =
+    const hasThemeIndependentMapStylePreference =
       typeof storedMapType === "string" &&
-      Object.hasOwn(CONFIG.MAP.styles, storedMapType);
+      Object.hasOwn(CONFIG.MAP.styles, storedMapType) &&
+      storedMapType !== "dark" &&
+      storedMapType !== "light";
 
-    if (hasExplicitMapStylePreference) {
+    if (hasThemeIndependentMapStylePreference) {
       document.dispatchEvent(new CustomEvent("mapThemeChanged", { detail: { theme } }));
       return;
     }
 
     const { styleType } = resolveMapStyle({ requestedType: theme, theme });
-    void mapCore.setStyle(styleType, { persistPreference: false }).catch((error) => {
+    void mapCore.setStyle(styleType, { persistPreference: true }).catch((error) => {
       console.warn("Theme map style update failed:", error);
     });
     document.dispatchEvent(new CustomEvent("mapThemeChanged", { detail: { theme } }));
