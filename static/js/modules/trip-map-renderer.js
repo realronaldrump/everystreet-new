@@ -205,7 +205,20 @@ const tripMapRenderer = {
   },
 
   shouldUseNativeRenderer() {
-    return !this.isAvailable() && this.canRenderNativeLayers();
+    return (
+      this.canRenderNativeLayers() &&
+      (!this.isAvailable() || !this.hasVisibleHeatmapTripLayer())
+    );
+  },
+
+  hasVisibleHeatmapTripLayer() {
+    return ["trips", "matchedTrips"].some((layerName) => {
+      const layerInfo = store.mapLayers[layerName];
+      const layerState = this.layers.get(layerName);
+      return Boolean(
+        layerInfo?.visible && layerInfo.isHeatmap && layerState?.decoded?.length
+      );
+    });
   },
 
   ensureWorker() {
@@ -284,6 +297,11 @@ const tripMapRenderer = {
   },
 
   _rebuildOverlay() {
+    this._detachOverlay();
+    this.render();
+  },
+
+  _detachOverlay() {
     const { map } = store;
     if (this.overlay && map && typeof map.removeControl === "function") {
       try {
@@ -293,7 +311,6 @@ const tripMapRenderer = {
       }
     }
     this.overlay = null;
-    this.render();
   },
 
   _bindMapListeners() {
@@ -491,9 +508,9 @@ const tripMapRenderer = {
     }
 
     if (this.shouldUseNativeRenderer()) {
-      if (this.overlay) {
-        this.overlay.setProps({ layers: [] });
-      }
+      // deck.gl shares Mapbox's WebGL context. Removing it while showing
+      // plain paths prevents a stale overlay from clearing the basemap.
+      this._detachOverlay();
       this.renderNativeLayers();
       performance.mark?.("trip-map:native-rendered");
       return;

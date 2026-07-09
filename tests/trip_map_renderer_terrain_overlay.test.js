@@ -300,9 +300,53 @@ test("google provider renders trip bundles as native map layers", () => {
   assert.ok(store.map.getLayer("trips-layer"));
   assert.ok(store.map.getLayer("trips-hitbox"));
   assert.deepEqual(
-    events
-      .filter((entry) => entry.type === "addLayer")
-      .map((entry) => entry.id),
+    events.filter((entry) => entry.type === "addLayer").map((entry) => entry.id),
     ["trips-layer", "trips-hitbox"]
   );
+});
+
+test("switching to plain paths detaches deck and uses native Mapbox lines", () => {
+  const constructed = [];
+  const events = [];
+  globalThis.window = { MAP_PROVIDER: "self_hosted" };
+  globalThis.deck = {
+    MapboxOverlay: createOverlayClass(constructed),
+    PathLayer: class PathLayer {},
+  };
+  store.map = createNativeMapMock(events);
+  store.map.addControl = (control) => {
+    events.push({ type: "addControl", control });
+  };
+  store.map.removeControl = (control) => {
+    events.push({ type: "removeControl", control });
+  };
+  store.mapLayers.trips = {
+    ...structuredClone(originalTripLayer),
+    visible: true,
+    isHeatmap: true,
+    color: "#3d9be9",
+    weight: 2,
+    opacity: 1,
+  };
+  tripMapRenderer.layers.set("trips", {
+    bundle: { trips: [{ id: "trip-1" }] },
+    decoded: {
+      length: 1,
+      positions: new Float64Array([-97.75, 30.25, -97.71, 30.29]),
+      startIndices: new Uint32Array([0, 2]),
+      tripIndices: new Uint32Array([0]),
+    },
+    tripById: new Map([["trip-1", { trip: { id: "trip-1" }, index: 0 }]]),
+    featureCollection: null,
+  });
+
+  tripMapRenderer.render();
+  assert.equal(constructed.length, 1);
+
+  store.mapLayers.trips.isHeatmap = false;
+  tripMapRenderer.render();
+
+  assert.equal(tripMapRenderer.overlay, null);
+  assert.ok(store.map.getSource("trips-source"));
+  assert.ok(store.map.getLayer("trips-layer"));
 });
