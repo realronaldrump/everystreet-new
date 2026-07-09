@@ -54,3 +54,21 @@ def test_normalize_rest_trip_payload_preserves_explicit_start_end_timezones() ->
     assert normalized.get("startTimeZone") == "America/Denver"
     assert normalized.get("endTimeZone") == "America/Phoenix"
     assert "timeZone" not in normalized
+
+
+def test_normalize_rest_trip_payload_decodes_polyline_gps() -> None:
+    normalized = normalize_rest_trip_payload(
+        {
+            "transactionId": "tx-polyline",
+            "gps": "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+        },
+    )
+
+    assert normalized["gps"] == {
+        "type": "LineString",
+        "coordinates": [
+            [-120.2, 38.5],
+            [-120.95, 40.7],
+            [-126.453, 43.252],
+        ],
+    }

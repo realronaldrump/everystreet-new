@@ -13,6 +13,46 @@ from core.spatial import GeometryService, sanitize_geojson_geometry
 logger = logging.getLogger(__name__)
 
 
+def _decode_polyline5(encoded: str) -> list[list[float]]:
+    """Decode a precision-5 encoded polyline into [lon, lat] coordinate pairs."""
+    coords: list[list[float]] = []
+    index = 0
+    lat = 0
+    lng = 0
+    length = len(encoded or "")
+
+    while index < length:
+        shift = 0
+        result = 0
+        while True:
+            if index >= length:
+                raise ValueError("Invalid polyline encoding")
+            byte = ord(encoded[index]) - 63
+            index += 1
+            result |= (byte & 0x1F) << shift
+            shift += 5
+            if byte < 0x20:
+                break
+        lat += ~(result >> 1) if (result & 1) else (result >> 1)
+
+        shift = 0
+        result = 0
+        while True:
+            if index >= length:
+                raise ValueError("Invalid polyline encoding")
+            byte = ord(encoded[index]) - 63
+            index += 1
+            result |= (byte & 0x1F) << shift
+            shift += 5
+            if byte < 0x20:
+                break
+        lng += ~(result >> 1) if (result & 1) else (result >> 1)
+
+        coords.append([lng / 1e5, lat / 1e5])
+
+    return coords
+
+
 def normalize_webhook_trip_data_points(
     data_points: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -154,6 +194,16 @@ def _normalize_rest_gps(value: Any) -> dict[str, Any] | None:
     # If we received a list of coordinate pairs, try to build geometry.
     if isinstance(value, list):
         geometry = GeometryService.geometry_from_coordinate_pairs(value)
+        if geometry is not None:
+            return geometry
+
+    if isinstance(value, str) and value.strip():
+        try:
+            coords = _decode_polyline5(value.strip())
+        except ValueError:
+            logger.warning("Invalid gps polyline from Bouncie REST payload")
+            return None
+        geometry = GeometryService.geometry_from_coordinate_pairs(coords)
         if geometry is not None:
             return geometry
 

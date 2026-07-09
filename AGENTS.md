@@ -30,3 +30,4 @@ compatibility, migration, or legacy code.
   URL.
 - "deploy", "production", "server", "runtime", "run", and "test" always refer to
   the mini PC deployment, never a local dev server on the MacBook Pro.
+- Pushing/commiting the app to Github will automatically trigger an update on the Mini PC through watchtower/actions.  Just give it some time after pushing/commiting, and then all tests/deployment checks can thoroughly and comprehensively be run on the mini pc.

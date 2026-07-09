@@ -118,8 +118,9 @@ async def _build_import_setup(
     fetch_concurrency = credentials.get("fetch_concurrency", 12)
     if not isinstance(fetch_concurrency, int) or fetch_concurrency < 1:
         fetch_concurrency = 12
-    # History import can stress upstream APIs; keep bounded.
-    fetch_concurrency = min(fetch_concurrency, 4)
+    # History import can stress upstream APIs; bias toward successful recovery
+    # over raw throughput.
+    fetch_concurrency = min(fetch_concurrency, 2)
 
     vehicles = await Vehicle.find(In(Vehicle.imei, imeis)).to_list() if imeis else []
     vehicles_by_imei = {v.imei: v for v in vehicles if v and getattr(v, "imei", None)}

@@ -29,7 +29,10 @@ from trips.services.historical_trip_writer import (
     HistoricalTripWrite,
 )
 from trips.services.trip_history_import_service_config import (
+    LEAF_RETRY_ATTEMPTS,
+    LEAF_RETRY_DELAY_SECONDS,
     MIN_WINDOW_HOURS,
+    RECOVERY_GPS_FORMATS,
     RECOVERY_MIN_WINDOW_SECONDS,
     REQUEST_TIMEOUT_SECONDS,
     SPLIT_CHUNK_HOURS,
@@ -225,6 +228,26 @@ def _choose_recovery_split_size(
     return min(split_chunk, span / 2)
 
 
+def _normalize_recovery_gps_formats(
+    formats: tuple[str, ...] | list[str] | None,
+) -> tuple[str, ...]:
+    normalized: list[str] = []
+    for value in formats or ():
+        fmt = str(value or "").strip().lower()
+        if fmt not in {"geojson", "polyline"} or fmt in normalized:
+            continue
+        normalized.append(fmt)
+    if "geojson" not in normalized:
+        normalized.insert(0, "geojson")
+    return tuple(normalized)
+
+
+def _leaf_retry_delay(base_delay_seconds: float, attempt_index: int) -> float:
+    if base_delay_seconds <= 0:
+        return 0.0
+    return base_delay_seconds * (2 ** max(0, attempt_index))
+
+
 def summarize_failed_fetch_windows(
     failed_windows: list[FailedFetchWindow],
     *,
@@ -252,6 +275,9 @@ async def fetch_trips_for_window_report(
     min_window_hours: float = MIN_WINDOW_HOURS,
     recovery_min_window_seconds: int = RECOVERY_MIN_WINDOW_SECONDS,
     split_chunk_hours: int = SPLIT_CHUNK_HOURS,
+    leaf_retry_attempts: int = LEAF_RETRY_ATTEMPTS,
+    leaf_retry_delay_seconds: float = LEAF_RETRY_DELAY_SECONDS,
+    recovery_gps_formats: tuple[str, ...] | list[str] | None = RECOVERY_GPS_FORMATS,
     add_event: Callable[[str, str, dict[str, Any] | None], None] | None = None,
     chunk_semaphore: asyncio.Semaphore | None = None,
 ) -> WindowFetchResult:
@@ -270,22 +296,129 @@ async def fetch_trips_for_window_report(
     recovery_floor = timedelta(seconds=max(1, recovery_min_window_seconds))
     min_window = timedelta(hours=max(min_window_hours, 0))
     split_chunk = timedelta(hours=max(min_window_hours, split_chunk_hours))
+    retry_attempts = max(0, int(leaf_retry_attempts))
+    retry_delay = max(0.0, float(leaf_retry_delay_seconds))
+    gps_formats = _normalize_recovery_gps_formats(recovery_gps_formats)
 
-    async def fetch_once(start: datetime, end: datetime) -> list[dict[str, Any]]:
-        query_start = (ensure_utc(start) or start) - timedelta(seconds=1)
+    async def fetch_once(
+        start: datetime,
+        end: datetime,
+        *,
+        gps_format: str = "geojson",
+        include_start_overlap: bool = True,
+    ) -> list[dict[str, Any]]:
+        query_start = ensure_utc(start) or start
+        if include_start_overlap:
+            query_start = query_start - timedelta(seconds=1)
         query_end = ensure_utc(end) or end
         if query_end - query_start > max_span:
             query_end = query_start + max_span
         async with asyncio.timeout(REQUEST_TIMEOUT_SECONDS):
             async with chunk_semaphore:
                 token = await client.ensure_token()
-                raw_trips = await client.fetch_trips_for_device_resilient(
-                    token,
-                    imei,
-                    query_start,
-                    query_end,
-                )
+                if gps_format == "geojson":
+                    raw_trips = await client.fetch_trips_for_device_resilient(
+                        token,
+                        imei,
+                        query_start,
+                        query_end,
+                    )
+                else:
+                    raw_trips = await client.fetch_trips_for_device_resilient(
+                        token,
+                        imei,
+                        query_start,
+                        query_end,
+                        gps_format,
+                    )
         return _normalize_raw_trips(raw_trips, imei=imei)
+
+    async def fetch_leaf_with_retries(
+        start: datetime,
+        end: datetime,
+        *,
+        initial_error: Exception,
+    ) -> WindowFetchResult:
+        last_error: Exception = initial_error
+
+        for attempt_index in range(retry_attempts):
+            delay = _leaf_retry_delay(retry_delay, attempt_index)
+            if delay:
+                await asyncio.sleep(delay)
+            try:
+                trips = await fetch_once(
+                    start,
+                    end,
+                    include_start_overlap=False,
+                )
+            except Exception as exc:
+                last_error = exc
+                continue
+            if add_event:
+                add_event(
+                    "info",
+                    f"Recovered Bouncie leaf for {imei} after retry",
+                    {
+                        "imei": imei,
+                        "start": start.isoformat(),
+                        "end": end.isoformat(),
+                        "attempt": attempt_index + 1,
+                        "gps_format": "geojson",
+                    },
+                )
+            return WindowFetchResult(trips=trips)
+
+        for gps_format in gps_formats:
+            if gps_format == "geojson":
+                continue
+            for attempt_index in range(max(1, retry_attempts)):
+                delay = _leaf_retry_delay(retry_delay, attempt_index)
+                if delay:
+                    await asyncio.sleep(delay)
+                try:
+                    trips = await fetch_once(
+                        start,
+                        end,
+                        gps_format=gps_format,
+                        include_start_overlap=False,
+                    )
+                except Exception as exc:
+                    last_error = exc
+                    continue
+                if add_event:
+                    add_event(
+                        "warning",
+                        f"Recovered Bouncie leaf for {imei} with {gps_format}",
+                        {
+                            "imei": imei,
+                            "start": start.isoformat(),
+                            "end": end.isoformat(),
+                            "attempt": attempt_index + 1,
+                            "gps_format": gps_format,
+                        },
+                    )
+                return WindowFetchResult(trips=trips)
+
+        failure = FailedFetchWindow(
+            imei=imei,
+            window_start=start,
+            window_end=end,
+            error=_safe_error_text(last_error),
+        )
+        logger.error(
+            "Bouncie recovery leaf failed (imei=%s, %s - %s)",
+            imei,
+            start.isoformat(),
+            end.isoformat(),
+            exc_info=last_error,
+        )
+        if add_event:
+            add_event(
+                "error",
+                f"Unrecoverable Bouncie slice for {imei}",
+                failure.event_data(),
+            )
+        return WindowFetchResult(failed_windows=[failure])
 
     async def fetch_recovering(start: datetime, end: datetime) -> WindowFetchResult:
         start = ensure_utc(start) or start
@@ -295,25 +428,11 @@ async def fetch_trips_for_window_report(
         except Exception as exc:
             span = end - start
             if span <= recovery_floor:
-                failure = FailedFetchWindow(
-                    imei=imei,
-                    window_start=start,
-                    window_end=end,
-                    error=_safe_error_text(exc),
+                return await fetch_leaf_with_retries(
+                    start,
+                    end,
+                    initial_error=exc,
                 )
-                logger.exception(
-                    "Bouncie recovery leaf failed (imei=%s, %s - %s)",
-                    imei,
-                    start.isoformat(),
-                    end.isoformat(),
-                )
-                if add_event:
-                    add_event(
-                        "error",
-                        f"Unrecoverable Bouncie slice for {imei}",
-                        failure.event_data(),
-                    )
-                return WindowFetchResult(failed_windows=[failure])
 
             split_size = _choose_recovery_split_size(
                 span,
@@ -350,7 +469,10 @@ async def fetch_trips_for_window_report(
             if add_event:
                 add_event(
                     "warning",
-                    f"Splitting failing window for {imei} into {len(sub_windows)} chunks",
+                    (
+                        f"Splitting failing window for {imei} into "
+                        f"{len(sub_windows)} chunks"
+                    ),
                     {
                         "imei": imei,
                         "start": start.isoformat(),
@@ -396,6 +518,9 @@ async def fetch_trips_for_window(
     min_window_hours: float = MIN_WINDOW_HOURS,
     recovery_min_window_seconds: int = RECOVERY_MIN_WINDOW_SECONDS,
     split_chunk_hours: int = SPLIT_CHUNK_HOURS,
+    leaf_retry_attempts: int = LEAF_RETRY_ATTEMPTS,
+    leaf_retry_delay_seconds: float = LEAF_RETRY_DELAY_SECONDS,
+    recovery_gps_formats: tuple[str, ...] | list[str] | None = RECOVERY_GPS_FORMATS,
     add_event: Callable[[str, str, dict[str, Any] | None], None] | None = None,
     chunk_semaphore: asyncio.Semaphore | None = None,
 ) -> list[dict[str, Any]]:
@@ -408,6 +533,9 @@ async def fetch_trips_for_window(
         min_window_hours=min_window_hours,
         recovery_min_window_seconds=recovery_min_window_seconds,
         split_chunk_hours=split_chunk_hours,
+        leaf_retry_attempts=leaf_retry_attempts,
+        leaf_retry_delay_seconds=leaf_retry_delay_seconds,
+        recovery_gps_formats=recovery_gps_formats,
         add_event=add_event,
         chunk_semaphore=chunk_semaphore,
     )

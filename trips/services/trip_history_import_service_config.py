@@ -25,10 +25,10 @@ except ValueError:
 MIN_WINDOW_HOURS = max((1.0 / 60.0), _MIN_WINDOW_HOURS)
 try:
     _RECOVERY_MIN_WINDOW_SECONDS = int(
-        os.getenv("TRIP_HISTORY_IMPORT_RECOVERY_MIN_WINDOW_SECONDS", "60"),
+        os.getenv("TRIP_HISTORY_IMPORT_RECOVERY_MIN_WINDOW_SECONDS", "1"),
     )
 except ValueError:
-    _RECOVERY_MIN_WINDOW_SECONDS = 60
+    _RECOVERY_MIN_WINDOW_SECONDS = 1
 RECOVERY_MIN_WINDOW_SECONDS = max(1, _RECOVERY_MIN_WINDOW_SECONDS)
 try:
     _SPLIT_CHUNK_HOURS = int(os.getenv("TRIP_HISTORY_IMPORT_SPLIT_CHUNK_HOURS", "12"))
@@ -36,9 +36,9 @@ except ValueError:
     _SPLIT_CHUNK_HOURS = 12
 SPLIT_CHUNK_HOURS = max(1, _SPLIT_CHUNK_HOURS)
 try:
-    _SPLIT_CONCURRENCY = int(os.getenv("TRIP_HISTORY_IMPORT_SPLIT_CONCURRENCY", "4"))
+    _SPLIT_CONCURRENCY = int(os.getenv("TRIP_HISTORY_IMPORT_SPLIT_CONCURRENCY", "1"))
 except ValueError:
-    _SPLIT_CONCURRENCY = 4
+    _SPLIT_CONCURRENCY = 1
 SPLIT_CONCURRENCY = max(1, _SPLIT_CONCURRENCY)
 try:
     _REQUEST_TIMEOUT_SECONDS = int(
@@ -61,6 +61,31 @@ try:
 except ValueError:
     _REQUEST_PAUSE_SECONDS = 0.0
 REQUEST_PAUSE_SECONDS = max(0.0, _REQUEST_PAUSE_SECONDS)
+try:
+    _LEAF_RETRY_ATTEMPTS = int(
+        os.getenv("TRIP_HISTORY_IMPORT_LEAF_RETRY_ATTEMPTS", "3"),
+    )
+except ValueError:
+    _LEAF_RETRY_ATTEMPTS = 3
+LEAF_RETRY_ATTEMPTS = max(0, _LEAF_RETRY_ATTEMPTS)
+try:
+    _LEAF_RETRY_DELAY_SECONDS = float(
+        os.getenv("TRIP_HISTORY_IMPORT_LEAF_RETRY_DELAY_SECONDS", "0.75"),
+    )
+except ValueError:
+    _LEAF_RETRY_DELAY_SECONDS = 0.75
+LEAF_RETRY_DELAY_SECONDS = max(0.0, _LEAF_RETRY_DELAY_SECONDS)
+_RECOVERY_GPS_FORMATS_RAW = os.getenv(
+    "TRIP_HISTORY_IMPORT_RECOVERY_GPS_FORMATS",
+    "geojson,polyline",
+)
+RECOVERY_GPS_FORMATS = tuple(
+    dict.fromkeys(
+        fmt.strip().lower()
+        for fmt in _RECOVERY_GPS_FORMATS_RAW.split(",")
+        if fmt.strip()
+    ),
+) or ("geojson",)
 
 # History import is intended to be fast. Expensive downstream work should be
 # deferred to dedicated jobs (e.g. geocoding/re-coverage runs), otherwise a
@@ -192,8 +217,9 @@ async def build_import_plan(
     fetch_concurrency = credentials.get("fetch_concurrency", 12)
     if not isinstance(fetch_concurrency, int) or fetch_concurrency < 1:
         fetch_concurrency = 12
-    # History import tends to stress the upstream API; keep concurrency bounded.
-    fetch_concurrency = min(fetch_concurrency, 4)
+    # History import tends to stress the upstream API; bias toward correctness
+    # and upstream stability over raw throughput.
+    fetch_concurrency = min(fetch_concurrency, 2)
 
     vehicles = await Vehicle.find(In(Vehicle.imei, imeis)).to_list() if imeis else []
     vehicles_by_imei = {v.imei: v for v in vehicles if v and getattr(v, "imei", None)}
@@ -213,6 +239,9 @@ async def build_import_plan(
         "step_hours": STEP_HOURS,
         "recovery_min_window_seconds": RECOVERY_MIN_WINDOW_SECONDS,
         "split_concurrency": SPLIT_CONCURRENCY,
+        "leaf_retry_attempts": LEAF_RETRY_ATTEMPTS,
+        "leaf_retry_delay_seconds": LEAF_RETRY_DELAY_SECONDS,
+        "recovery_gps_formats": list(RECOVERY_GPS_FORMATS),
         "windows_total": len(windows),
         "estimated_requests": len(windows) * len(devices),
         "fetch_concurrency": fetch_concurrency,
@@ -224,8 +253,11 @@ __all__ = [
     "DEVICE_FETCH_TIMEOUT_SECONDS",
     "IMPORT_DO_COVERAGE",
     "IMPORT_DO_GEOCODE",
+    "LEAF_RETRY_ATTEMPTS",
+    "LEAF_RETRY_DELAY_SECONDS",
     "MIN_WINDOW_HOURS",
     "OVERLAP_HOURS",
+    "RECOVERY_GPS_FORMATS",
     "RECOVERY_MIN_WINDOW_SECONDS",
     "REQUEST_PAUSE_SECONDS",
     "REQUEST_TIMEOUT_SECONDS",
@@ -234,7 +266,10 @@ __all__ = [
     "STEP_HOURS",
     "WINDOW_DAYS",
     "_DEVICE_FETCH_TIMEOUT_SECONDS",
+    "_LEAF_RETRY_ATTEMPTS",
+    "_LEAF_RETRY_DELAY_SECONDS",
     "_MIN_WINDOW_HOURS",
+    "_RECOVERY_GPS_FORMATS_RAW",
     "_RECOVERY_MIN_WINDOW_SECONDS",
     "_REQUEST_PAUSE_SECONDS",
     "_REQUEST_TIMEOUT_SECONDS",

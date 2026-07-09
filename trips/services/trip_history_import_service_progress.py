@@ -13,7 +13,10 @@ from beanie import PydanticObjectId
 from core.jobs import JobHandle
 from db.models import Job
 from trips.services.trip_history_import_service_config import (
+    LEAF_RETRY_ATTEMPTS,
+    LEAF_RETRY_DELAY_SECONDS,
     OVERLAP_HOURS,
+    RECOVERY_GPS_FORMATS,
     RECOVERY_MIN_WINDOW_SECONDS,
     SPLIT_CONCURRENCY,
     STEP_HOURS,
@@ -155,6 +158,9 @@ class ImportProgressContext:
             "step_hours": STEP_HOURS,
             "recovery_min_window_seconds": RECOVERY_MIN_WINDOW_SECONDS,
             "split_concurrency": SPLIT_CONCURRENCY,
+            "leaf_retry_attempts": LEAF_RETRY_ATTEMPTS,
+            "leaf_retry_delay_seconds": LEAF_RETRY_DELAY_SECONDS,
+            "recovery_gps_formats": list(RECOVERY_GPS_FORMATS),
             "devices": self.devices,
             "windows_total": self.windows_total,
             "windows_completed": windows_completed,

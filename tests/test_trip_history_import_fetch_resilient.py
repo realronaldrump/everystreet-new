@@ -190,10 +190,81 @@ async def test_fetch_trips_for_window_raises_for_small_window() -> None:
             window_start=window_start,
             window_end=window_end,
             recovery_min_window_seconds=24 * 60 * 60,
+            leaf_retry_attempts=0,
+            leaf_retry_delay_seconds=0,
+            recovery_gps_formats=("geojson",),
         )
 
     assert len(exc_info.value.result.failed_windows) == 1
     assert exc_info.value.result.failed_windows[0].error == "Server error"
+
+
+@pytest.mark.asyncio
+async def test_fetch_trips_for_window_retries_leaf_without_boundary_overlap() -> None:
+    window_start = datetime(2020, 3, 1, 0, 0, 0, tzinfo=UTC)
+    window_end = datetime(2020, 3, 1, 0, 0, 2, tzinfo=UTC)
+    calls: list[tuple[datetime, datetime]] = []
+
+    async def mock_fetch(token, imei, start_dt, end_dt):
+        del token, imei
+        calls.append((start_dt, end_dt))
+        if len(calls) == 1:
+            raise RuntimeError("Bouncie timeout")
+        return [{"transactionId": "tx-retried"}]
+
+    mock_client = AsyncMock()
+    mock_client.fetch_trips_for_device_resilient.side_effect = mock_fetch
+
+    trips = await fetch_trips_for_window(
+        mock_client,
+        imei="359486068397551",
+        window_start=window_start,
+        window_end=window_end,
+        recovery_min_window_seconds=5,
+        leaf_retry_attempts=1,
+        leaf_retry_delay_seconds=0,
+    )
+
+    assert [trip["transactionId"] for trip in trips] == ["tx-retried"]
+    assert calls[0][0] < window_start
+    assert calls[1][0] == window_start
+
+
+@pytest.mark.asyncio
+async def test_fetch_trips_for_window_tries_polyline_leaf_fallback() -> None:
+    window_start = datetime(2020, 3, 1, 0, 0, 0, tzinfo=UTC)
+    window_end = datetime(2020, 3, 1, 0, 0, 2, tzinfo=UTC)
+    gps_formats: list[str] = []
+
+    async def mock_fetch(token, imei, start_dt, end_dt, gps_format="geojson"):
+        del token, imei, start_dt, end_dt
+        gps_formats.append(gps_format)
+        if gps_format == "polyline":
+            return [
+                {
+                    "transactionId": "tx-polyline",
+                    "gps": "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+                },
+            ]
+        raise RuntimeError("Bouncie timeout")
+
+    mock_client = AsyncMock()
+    mock_client.fetch_trips_for_device_resilient.side_effect = mock_fetch
+
+    result = await fetch_trips_for_window_report(
+        mock_client,
+        imei="359486068397551",
+        window_start=window_start,
+        window_end=window_end,
+        recovery_min_window_seconds=5,
+        leaf_retry_attempts=0,
+        leaf_retry_delay_seconds=0,
+        recovery_gps_formats=("geojson", "polyline"),
+    )
+
+    assert result.failed_windows == []
+    assert [trip["transactionId"] for trip in result.trips] == ["tx-polyline"]
+    assert gps_formats == ["geojson", "polyline"]
 
 
 @pytest.mark.asyncio
@@ -324,6 +395,9 @@ async def test_fetch_trips_for_window_report_recovers_below_default_floor() -> N
         window_end=window_end,
         recovery_min_window_seconds=60,
         split_chunk_hours=999,
+        leaf_retry_attempts=0,
+        leaf_retry_delay_seconds=0,
+        recovery_gps_formats=("geojson",),
     )
 
     assert [trip["transactionId"] for trip in result.trips] == ["tx-recovered"]

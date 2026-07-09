@@ -77,6 +77,7 @@ class BouncieClient:
         imei: str,
         start_dt: datetime,
         end_dt: datetime,
+        gps_format: str = "geojson",
     ) -> list[dict[str, Any]]:
         """
         Fetch trips with light retry for history import / backfill.
@@ -91,7 +92,7 @@ class BouncieClient:
         }
         params = {
             "imei": imei,
-            "gps-format": "geojson",
+            "gps-format": (gps_format or "geojson"),
             "starts-after": format_bouncie_datetime_param(start_dt),
             "ends-before": format_bouncie_datetime_param(end_dt),
         }
