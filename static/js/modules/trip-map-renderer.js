@@ -1,5 +1,6 @@
 /* global deck */
 
+import { CONFIG } from "./core/config.js";
 import store from "./core/store.js";
 import {
   isTerrainReliefApplied,
@@ -655,7 +656,7 @@ const tripMapRenderer = {
     );
 
     const paint = {
-      "line-color": layerInfo.color || "#d4943c",
+      "line-color": layerInfo.color || CONFIG.LAYER_DEFAULTS.trips.color,
       "line-opacity": layerInfo.opacity ?? 1,
       "line-width": toMapboxLineWidth(layerInfo.weight || 2),
     };
@@ -959,7 +960,10 @@ const tripMapRenderer = {
         ...common,
         id: `${layerName}-trip-map-line`,
         pickable: true,
-        getColor: colorWithAlpha(layerInfo.color || "#d4943c", 230),
+        getColor: colorWithAlpha(
+          layerInfo.color || CONFIG.LAYER_DEFAULTS.trips.color,
+          230
+        ),
         getWidth: layerInfo.weight || 2,
         opacity: layerInfo.opacity ?? 1,
         onClick: (info) => this.handleTripClick(info, layerName),

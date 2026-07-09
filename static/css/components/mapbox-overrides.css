@@ -8,8 +8,39 @@
   display: none !important;
 }
 
+/* Map page navigation lives above the mobile sheet and matches the atlas UI. */
+body[data-route="/map"] .mapboxgl-ctrl-bottom-right,
+body[data-route="/map"] .maplibregl-ctrl-bottom-right {
+  right: var(--space-3);
+  bottom: var(--space-3);
+}
+
+body[data-route="/map"] .mapboxgl-ctrl-group,
+body[data-route="/map"] .maplibregl-ctrl-group {
+  background: var(--surface-glass);
+  backdrop-filter: blur(var(--blur-strong));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+body[data-route="/map"] .mapboxgl-ctrl-group button,
+body[data-route="/map"] .maplibregl-ctrl-group button {
+  width: 38px;
+  height: 38px;
+}
+
 /* === Mobile: Enlarge Mapbox navigation controls for touch === */
 @media (width <= 768px) {
+  body[data-route="/map"] .mapboxgl-ctrl-bottom-right,
+  body[data-route="/map"] .maplibregl-ctrl-bottom-right {
+    bottom: calc(
+      var(--map-sheet-visible-height, 0px) +
+      env(safe-area-inset-bottom, 0px) +
+      var(--space-3)
+    );
+  }
+
   .mapboxgl-ctrl-group,
   .maplibregl-ctrl-group {
     background: var(--glass-panel);
@@ -21,8 +52,8 @@
 
   .mapboxgl-ctrl-group button,
   .maplibregl-ctrl-group button {
-    width: 44px;
-    height: 44px;
+    width: var(--touch-target);
+    height: var(--touch-target);
   }
 
   .mapboxgl-ctrl-group button + button,

@@ -9,10 +9,10 @@ const CAN_READ_DOCUMENT =
 
 const DEFAULT_MAP_LAYER_COLORS = Object.freeze({
   trips: {
-    default: "#3b8a7f",
-    selected: "#d09868",
-    recentLight: "#d09868",
-    recentDark: "#a87449",
+    default: "#3d9be9",
+    selected: "#e7f7ff",
+    recentLight: "#3d9be9",
+    recentDark: "#287dbd",
   },
   matchedTrips: {
     default: "#c45454",
@@ -83,14 +83,20 @@ const getCSSVariable = (varName, fallback = "") => {
 
 const buildMapLayerColors = () => ({
   trips: {
-    default: getCSSVariable("--primary", DEFAULT_MAP_LAYER_COLORS.trips.default),
-    selected: getCSSVariable("--accent", DEFAULT_MAP_LAYER_COLORS.trips.selected),
+    default: getCSSVariable("--map-trip-path", DEFAULT_MAP_LAYER_COLORS.trips.default),
+    selected: getCSSVariable(
+      "--map-trip-path-selected",
+      DEFAULT_MAP_LAYER_COLORS.trips.selected
+    ),
     recent: {
       light: getCSSVariable(
-        "--accent-light",
+        "--map-trip-path",
         DEFAULT_MAP_LAYER_COLORS.trips.recentLight
       ),
-      dark: getCSSVariable("--accent", DEFAULT_MAP_LAYER_COLORS.trips.recentDark),
+      dark: getCSSVariable(
+        "--map-trip-path",
+        DEFAULT_MAP_LAYER_COLORS.trips.recentDark
+      ),
     },
   },
   matchedTrips: {

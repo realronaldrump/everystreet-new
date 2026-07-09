@@ -14,18 +14,29 @@ import createCoverageLens from "./lens-coverage.js";
 import createFlowLens from "./lens-flow.js";
 import createPlacesLens from "./lens-places.js";
 import createTripsLens from "./lens-trips.js";
+import {
+  getTripLayerHeatmapPreference,
+  TRIP_LAYER_RENDER_MODE_EVENT,
+} from "./trip-layer-render-mode.js";
 
 const LENS_ORDER = ["trips", "coverage", "places", "flow"];
 const LENS_STORAGE_KEY = CONFIG.STORAGE_KEYS.atlasLens;
 const RAIL_COLLAPSED_KEY = CONFIG.STORAGE_KEYS.atlasRailCollapsed;
 
 const LEGEND_PRESETS = {
-  trips: [
+  tripPaths: [
     {
-      label: "Trips",
-      type: "gradient",
+      label: "Recorded paths",
+      type: "line",
       color: CONFIG.LAYER_DEFAULTS.trips.color,
-      color2: "#f4d03f",
+    },
+  ],
+  tripHeat: [
+    {
+      label: "Drive frequency",
+      type: "gradient",
+      color: "#c86832",
+      color2: "#f0b840",
     },
   ],
   tripsMatched: {
@@ -55,15 +66,7 @@ const LEGEND_PRESETS = {
       color: CONFIG.LAYER_DEFAULTS.coverageAreaBoundingBox.color,
     },
   ],
-  places: [
-    { label: "Destinations", type: "dot", color: "#2f9e8f" },
-    {
-      label: "Trips",
-      type: "gradient",
-      color: CONFIG.LAYER_DEFAULTS.trips.color,
-      color2: "#f4d03f",
-    },
-  ],
+  places: [{ label: "Destinations", type: "dot", color: "#2f9e8f" }],
   flow: [
     {
       label: "Flow",
@@ -144,11 +147,18 @@ export default function initAtlasRail({ registerCleanup }) {
 
   let activeLens = null;
 
+  const getTripLegend = () =>
+    getTripLayerHeatmapPreference()
+      ? LEGEND_PRESETS.tripHeat
+      : LEGEND_PRESETS.tripPaths;
+
   const renderLegend = () => {
     if (!legendList) {
       return;
     }
-    const items = [...(LEGEND_PRESETS[activeLens] || [])];
+    const items = [
+      ...(activeLens === "trips" ? getTripLegend() : LEGEND_PRESETS[activeLens] || []),
+    ];
     if (activeLens === "trips" && store.mapLayers?.matchedTrips?.visible) {
       items.push(LEGEND_PRESETS.tripsMatched);
     }
@@ -335,6 +345,7 @@ export default function initAtlasRail({ registerCleanup }) {
 
   // Matched-trips visibility affects the trips legend
   on(document, "es:layers-change", renderLegend);
+  on(document, TRIP_LAYER_RENDER_MODE_EVENT, renderLegend);
 
   // ---- Boot ---------------------------------------------------------
   const savedLens = utils.getStorage(LENS_STORAGE_KEY);

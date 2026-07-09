@@ -142,7 +142,11 @@ export const CONFIG = {
   LAYER_DEFAULTS: {
     trips: {
       order: 1,
-      color: "#d4943c",
+      // Keep individual journeys in a cool lane. Heat intensity owns the
+      // warm amber scale, so the two rendering modes read at a glance.
+      color: "#3d9be9",
+      highlightColor: "#e7f7ff",
+      glowColor: "#87d3ff",
       opacity: 1,
       visible: true,
       name: "Trips",

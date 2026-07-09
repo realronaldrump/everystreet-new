@@ -11,6 +11,32 @@ import initPlateNotation from "./plate-notation.js";
 import initTerrainRelief from "./terrain-relief.js";
 import initViewPopover from "./view-popover.js";
 
+const mapsWithNavigationControl = new WeakSet();
+
+function ensureMapNavigationControl(map) {
+  const provider = String(globalThis?.window?.MAP_PROVIDER || "")
+    .trim()
+    .toLowerCase();
+  const NavigationControl = globalThis?.mapboxgl?.NavigationControl;
+  if (
+    provider === "google" ||
+    !map ||
+    typeof map !== "object" ||
+    mapsWithNavigationControl.has(map) ||
+    typeof map.addControl !== "function" ||
+    typeof NavigationControl !== "function"
+  ) {
+    return;
+  }
+
+  try {
+    map.addControl(new NavigationControl(), "bottom-right");
+    mapsWithNavigationControl.add(map);
+  } catch (error) {
+    console.warn("Map navigation controls could not be added", error);
+  }
+}
+
 function setupMapViewportSync() {
   const mapElement = document.getElementById("map");
   const mapCanvas = document.getElementById("map-canvas");
@@ -207,6 +233,7 @@ export default function initMapPage({ signal, cleanup } = {}) {
   registerCleanup(setupMapViewportSync());
 
   const mapInstance = store.map || window.map;
+  ensureMapNavigationControl(mapInstance);
   const terrainRelief = initTerrainRelief({ map: mapInstance });
   registerCleanup(() => terrainRelief.destroy?.());
 

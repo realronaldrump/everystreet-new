@@ -39,9 +39,8 @@
 
 .map-search-input {
   width: 100%;
-  min-height: 38px;
-  padding: var(--space-2) var(--space-3) var(--space-2)
-    calc(var(--space-3) + 1.35rem);
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-3) var(--space-2) calc(var(--space-3) + 1.35rem);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   background: var(--surface-glass);
@@ -72,7 +71,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 38px;
+  min-height: var(--touch-target);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
@@ -108,7 +107,7 @@
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  width: 232px;
+  width: min(232px, calc(100vw - var(--space-4)));
   padding: var(--space-2);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
@@ -123,7 +122,7 @@
   justify-content: space-between;
   gap: var(--space-3);
   width: 100%;
-  min-height: 38px;
+  min-height: var(--touch-target);
   padding: var(--space-2) var(--space-2);
   border: 0;
   border-radius: var(--radius-sm);
@@ -319,6 +318,12 @@ button.view-popover-row:focus-visible {
 
   .map-view-toggle span {
     display: none;
+  }
+
+  .map-view-toggle {
+    justify-content: center;
+    min-width: var(--touch-target);
+    padding: var(--space-2);
   }
 
   .map-plate {

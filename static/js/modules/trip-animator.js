@@ -6,6 +6,7 @@
  * Also provides a full trip replay mode with an animated marker.
  */
 
+import { CONFIG } from "./core/config.js";
 import layerManager from "./layer-manager.js";
 import { bearing as computeBearing, haversineDistance } from "./utils/geo-math.js";
 
@@ -44,8 +45,8 @@ class TripAnimator {
 
     const {
       duration = 2000,
-      color = "#3b8a7f",
-      glowColor = "#d09868",
+      color = CONFIG.LAYER_DEFAULTS.trips.color,
+      glowColor = CONFIG.LAYER_DEFAULTS.trips.glowColor,
       lineWidth = 3,
       onComplete = null,
     } = options;
@@ -121,7 +122,7 @@ class TripAnimator {
     const {
       speed = 1,
       followCamera = true,
-      color = "#3b8a7f",
+      color = CONFIG.LAYER_DEFAULTS.trips.color,
       onProgress = null,
       onComplete = null,
     } = options;

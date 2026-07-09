@@ -109,12 +109,14 @@ Flow
             <button type="button"
                     id="trip-render-paths"
                     class="lens-segment"
+                    title="Show each recorded trip as a blue path"
                     aria-pressed="true">
 Paths
             </button>
             <button type="button"
                     id="trip-render-heat"
                     class="lens-segment"
+                    title="Make roads you drive most glow warmer and brighter"
                     aria-pressed="false">
 Heat
             </button>
@@ -124,6 +126,9 @@ Heat
             <span>Matched</span>
           </label>
         </div>
+        <p class="lens-render-hint">
+Paths show individual trips. Heat makes repeat roads brighter.
+        </p>
         <ol id="trip-journal" class="trip-journal" aria-label="Trip journal">
         </ol>
         <p class="lens-empty" id="trip-journal-empty" hidden>

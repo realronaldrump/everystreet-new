@@ -95,6 +95,10 @@
   --accent-dark: #24796d;
   --accent-rgb: 47 158 143;
 
+  /* Map visual language: cool individual routes, warm frequency heat. */
+  --map-trip-path: #3d9be9;
+  --map-trip-path-selected: #e7f7ff;
+
   /* Flat colors - no gradients */
   --primary-gradient: var(--primary);
   --secondary-gradient: var(--secondary);
@@ -386,6 +390,8 @@ body.light-mode {
   --glass-input: rgb(var(--surface-rgb) / 50%);
   --glass-input-focus: rgb(var(--surface-rgb) / 60%);
   --toggle-knob: var(--surface-0);
+  --map-trip-path: #167bbd;
+  --map-trip-path-selected: #063b63;
 
   /* Light mode glass borders */
   --glass-border-subtle: rgb(var(--border-rgb) / 6%);
