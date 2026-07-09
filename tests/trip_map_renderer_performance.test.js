@@ -23,6 +23,7 @@ function decodedFixture() {
 test.beforeEach(() => {
   tripMapRenderer.layers.clear();
   tripMapRenderer.overlay = null;
+  tripMapRenderer._nativeSourceData.clear();
   store.map = null;
   store.mapLayers.trips = {
     ...structuredClone(originalTripsLayer),
@@ -34,6 +35,7 @@ test.beforeEach(() => {
 test.afterEach(() => {
   tripMapRenderer.layers.clear();
   tripMapRenderer.overlay = null;
+  tripMapRenderer._nativeSourceData.clear();
   tripMapRenderer.decodeTrips = originalDecodeTrips;
   store.map = null;
   store.mapLayers.trips = structuredClone(originalTripsLayer);

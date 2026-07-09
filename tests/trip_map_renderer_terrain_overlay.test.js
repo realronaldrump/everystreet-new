@@ -51,6 +51,7 @@ function createNativeMapMock(events) {
         ...source,
         setData(data) {
           record.data = data;
+          events.push({ type: "setData", id });
         },
       };
       sources.set(id, record);
@@ -108,6 +109,7 @@ function resetRenderer() {
   tripMapRenderer.layers.clear();
   tripMapRenderer._suppressedBy.clear();
   tripMapRenderer._nativeHandlers.clear();
+  tripMapRenderer._nativeSourceData.clear();
   tripMapRenderer._nativeRendered = false;
 }
 
@@ -393,4 +395,41 @@ test("large heatmaps use worker-tiled native layers instead of duplicate deck pa
   assert.ok(store.map.getLayer("trips-layer-1"));
   assert.ok(store.map.getLayer("trips-layer-2"));
   assert.ok(store.map.getLayer("trips-hitbox"));
+});
+
+test("native mode changes do not retile unchanged trip geometry", () => {
+  const events = [];
+  globalThis.window = { MAP_PROVIDER: "self_hosted" };
+  globalThis.deck = {
+    MapboxOverlay: createOverlayClass([]),
+    PathLayer: class PathLayer {},
+  };
+  store.map = createNativeMapMock(events);
+  store.map.addControl = () => {};
+  store.map.removeControl = () => {};
+  store.mapLayers.trips = {
+    ...structuredClone(originalTripLayer),
+    visible: true,
+    isHeatmap: false,
+    color: "#3d9be9",
+    opacity: 1,
+  };
+  tripMapRenderer.layers.set("trips", {
+    bundle: { trip_count: 7_500, trips: [{ id: "trip-1" }] },
+    decoded: {
+      length: 1,
+      positions: new Float64Array([-97.75, 30.25, -97.71, 30.29]),
+      startIndices: new Uint32Array([0, 2]),
+      tripIndices: new Uint32Array([0]),
+    },
+    pathIndicesByTrip: new Map([[0, [0]]]),
+    tripById: new Map([["trip-1", { trip: { id: "trip-1" }, index: 0 }]]),
+    featureCollection: null,
+  });
+
+  tripMapRenderer.render();
+  store.mapLayers.trips.isHeatmap = true;
+  tripMapRenderer.render();
+
+  assert.equal(events.filter((entry) => entry.type === "setData").length, 0);
 });

@@ -195,6 +195,7 @@ const tripMapRenderer = {
   _mapListenersBound: false,
   _suppressedBy: new Set(),
   _nativeHandlers: new Map(),
+  _nativeSourceData: new Map(),
   _nativeRendered: false,
 
   isTripLayer,
@@ -639,6 +640,7 @@ const tripMapRenderer = {
     if (store.map.getSource?.(sourceId)) {
       this._safeMapCall(() => store.map.removeSource(sourceId));
     }
+    this._nativeSourceData.delete(sourceId);
   },
 
   _clearNativeSelectedLayer() {
@@ -651,6 +653,7 @@ const tripMapRenderer = {
     if (store.map.getSource?.(SELECTED_NATIVE_SOURCE_ID)) {
       this._safeMapCall(() => store.map.removeSource(SELECTED_NATIVE_SOURCE_ID));
     }
+    this._nativeSourceData.delete(SELECTED_NATIVE_SOURCE_ID);
   },
 
   _clearNativeLayers() {
@@ -664,7 +667,11 @@ const tripMapRenderer = {
   _ensureNativeSource(sourceId, data, options = {}) {
     const source = store.map.getSource(sourceId);
     if (source) {
-      source.setData(data);
+      const cached = this._nativeSourceData.get(sourceId);
+      if (cached?.map !== store.map || cached.data !== data) {
+        source.setData(data);
+        this._nativeSourceData.set(sourceId, { map: store.map, data });
+      }
       return source;
     }
     store.map.addSource(sourceId, {
@@ -675,6 +682,7 @@ const tripMapRenderer = {
       maxzoom: 18,
       ...options,
     });
+    this._nativeSourceData.set(sourceId, { map: store.map, data });
     return store.map.getSource(sourceId);
   },
 
