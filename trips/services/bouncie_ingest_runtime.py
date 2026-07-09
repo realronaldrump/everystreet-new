@@ -395,6 +395,7 @@ async def fetch_trips_for_window_report(
         *,
         initial_error: Exception,
     ) -> WindowFetchResult:
+        primary_error = initial_error
         last_error: Exception = initial_error
 
         for attempt_index in range(retry_attempts):
@@ -499,7 +500,7 @@ async def fetch_trips_for_window_report(
             imei=imei,
             window_start=start,
             window_end=end,
-            error=_safe_error_text(last_error),
+            error=_safe_error_text(primary_error),
         )
         logger.error(
             "Bouncie recovery leaf failed (imei=%s, %s - %s)",
