@@ -9,7 +9,9 @@ runtime in ``trips.services.bouncie_ingest_runtime``.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -36,6 +38,7 @@ from trips.services.bouncie_ingest_runtime import (
     summarize_failed_fetch_windows,
 )
 from trips.services.trip_history_import_service_config import (
+    DEVICE_FETCH_TIMEOUT_SECONDS,
     IMPORT_DO_COVERAGE,
     IMPORT_DO_GEOCODE,
     _vehicle_label,
@@ -225,6 +228,64 @@ async def _run_import_windows(
     total_vehicle_windows = max(1, runtime.windows_total or len(units))
     windows_completed = 0
 
+    async def write_processing_progress(
+        current_window: dict[str, Any],
+        *,
+        message: str | None = None,
+    ) -> None:
+        async with runtime.lock:
+            completed = windows_completed
+            progress = min(
+                99.0,
+                (completed / total_vehicle_windows) * 100.0,
+            )
+
+        await runtime.write_progress(
+            status="running",
+            stage="processing",
+            message=message
+            or (
+                f"Processed {completed}/{total_vehicle_windows} "
+                "vehicle-windows"
+            ),
+            progress=progress,
+            current_window=current_window,
+            windows_completed=completed,
+        )
+
+    async def emit_window_heartbeat(
+        imei: str,
+        window_index: int,
+        current_window: dict[str, Any],
+    ) -> None:
+        started = time.monotonic()
+        last_event_at = started
+        try:
+            while True:
+                await asyncio.sleep(15)
+                elapsed = time.monotonic() - started
+                if time.monotonic() - last_event_at >= 60:
+                    last_event_at = time.monotonic()
+                    runtime.add_event(
+                        "info",
+                        f"Still processing Bouncie window for {imei}",
+                        {
+                            "imei": imei,
+                            "window_index": window_index,
+                            "elapsed_seconds": int(elapsed),
+                        },
+                    )
+                await write_processing_progress(current_window)
+        except asyncio.CancelledError:
+            raise
+
+    async def cancel_heartbeat(task: asyncio.Task[None] | None) -> None:
+        if task is None:
+            return
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
     async def process_unit(
         imei: str,
         window_index: int,
@@ -242,19 +303,29 @@ async def _run_import_windows(
             "end_iso": window_end.isoformat(),
         }
         delta = build_ingest_counters()
+        heartbeat_task: asyncio.Task[None] | None = None
 
         try:
             async with runtime.semaphore:
                 if await runtime.is_cancelled(force=False):
                     return
 
-                fetch_result = await fetch_trips_for_window_runtime(
-                    runtime.client,
-                    imei=imei,
-                    window_start=window_start,
-                    window_end=window_end,
-                    add_event=runtime.add_event,
+                heartbeat_task = asyncio.create_task(
+                    emit_window_heartbeat(imei, window_index, current_window),
                 )
+                try:
+                    async with asyncio.timeout(DEVICE_FETCH_TIMEOUT_SECONDS):
+                        fetch_result = await fetch_trips_for_window_runtime(
+                            runtime.client,
+                            imei=imei,
+                            window_start=window_start,
+                            window_end=window_end,
+                            add_event=runtime.add_event,
+                        )
+                finally:
+                    await cancel_heartbeat(heartbeat_task)
+                    heartbeat_task = None
+
                 raw_trips = fetch_result.trips
                 bounded_trips = filter_trips_to_window_runtime(
                     raw_trips,
@@ -305,6 +376,7 @@ async def _run_import_windows(
                     },
                 )
         except Exception as exc:
+            error_text = str(exc).strip() or exc.__class__.__name__
             logger.exception(
                 "History import window failed (imei=%s, %s - %s)",
                 imei,
@@ -320,11 +392,12 @@ async def _run_import_windows(
                     "window_index": window_index,
                     "start_iso": window_start.isoformat(),
                     "end_iso": window_end.isoformat(),
-                    "error": str(exc),
+                    "error": error_text,
                 },
             )
-            runtime.record_failure_reason(str(exc))
+            runtime.record_failure_reason(error_text)
         finally:
+            await cancel_heartbeat(heartbeat_task)
             async with runtime.lock:
                 merge_ingest_counters(runtime.counters, delta)
                 per_device = runtime.per_device.get(imei)

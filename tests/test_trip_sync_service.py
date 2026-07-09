@@ -358,6 +358,100 @@ async def test_sync_status_clears_stale_running_lock(beanie_db_with_tasks) -> No
 
 
 @pytest.mark.asyncio
+async def test_sync_status_clears_stale_history_import_job(
+    beanie_db_with_history_import,
+) -> None:
+    await seed_credentials()
+    old = datetime.now(UTC) - timedelta(hours=1)
+
+    history = TaskHistory(
+        task_id="fetch_all_missing_trips",
+        status="RUNNING",
+        timestamp=old,
+        start_time=old,
+        manual_run=True,
+    )
+    history.id = "arq-history-stale"
+    await history.insert()
+
+    job = Job(
+        job_type="trip_history_import",
+        task_id="fetch_all_missing_trips",
+        status="running",
+        stage="processing",
+        progress=2.0,
+        message="Processing",
+        created_at=old,
+        updated_at=old,
+        started_at=old,
+        operation_id="arq-history-stale",
+        metadata={},
+    )
+    await job.insert()
+
+    status = await TripSyncService.get_sync_status()
+    assert status["state"] == "error"
+    assert status["current_job_id"] is None
+
+    updated_history = await TaskHistory.get("arq-history-stale")
+    assert updated_history is not None
+    assert updated_history.status == "FAILED"
+    assert updated_history.error
+
+    updated_job = await Job.get(PydanticObjectId(str(job.id)))
+    assert updated_job is not None
+    assert updated_job.status == "failed"
+    assert updated_job.completed_at is not None
+    assert updated_job.error
+
+
+@pytest.mark.asyncio
+async def test_sync_status_keeps_long_history_import_with_recent_heartbeat(
+    beanie_db_with_history_import,
+) -> None:
+    await seed_credentials()
+    old = datetime.now(UTC) - timedelta(hours=1)
+    now = datetime.now(UTC)
+
+    history = TaskHistory(
+        task_id="fetch_all_missing_trips",
+        status="RUNNING",
+        timestamp=old,
+        start_time=old,
+        manual_run=True,
+    )
+    history.id = "arq-history-active"
+    await history.insert()
+
+    job = Job(
+        job_type="trip_history_import",
+        task_id="fetch_all_missing_trips",
+        status="running",
+        stage="processing",
+        progress=2.0,
+        message="Processing",
+        created_at=old,
+        updated_at=now,
+        started_at=old,
+        operation_id="arq-history-active",
+        metadata={},
+    )
+    await job.insert()
+
+    status = await TripSyncService.get_sync_status()
+    assert status["state"] == "syncing"
+    assert status["history_import_progress_job_id"] == str(job.id)
+
+    updated_history = await TaskHistory.get("arq-history-active")
+    assert updated_history is not None
+    assert updated_history.status == "RUNNING"
+
+    updated_job = await Job.get(PydanticObjectId(str(job.id)))
+    assert updated_job is not None
+    assert updated_job.status == "running"
+
+
+@pytest.mark.asyncio
 async def test_start_sync_ignores_stale_running_lock(
     beanie_db_with_tasks,
     monkeypatch,

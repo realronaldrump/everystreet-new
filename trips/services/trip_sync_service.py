@@ -56,11 +56,15 @@ _SYNC_STALE_AFTER_SECONDS_BY_TASK_ID: dict[str, int] = {
         os.getenv("TRIP_SYNC_STALE_RANGE_SECONDS", str(6 * 60 * 60)),
     ),
     "fetch_all_missing_trips": int(
-        os.getenv("TRIP_SYNC_STALE_HISTORY_SECONDS", str(72 * 60 * 60)),
+        os.getenv("TRIP_SYNC_STALE_HISTORY_SECONDS", str(45 * 60)),
     ),
 }
 _SYNC_STALE_DEFAULT_SECONDS = int(
     os.getenv("TRIP_SYNC_STALE_DEFAULT_SECONDS", str(6 * 60 * 60)),
+)
+_HISTORY_IMPORT_STALE_HEARTBEAT_SECONDS = max(
+    60,
+    int(os.getenv("TRIP_HISTORY_IMPORT_STALE_HEARTBEAT_SECONDS", str(30 * 60))),
 )
 
 
@@ -216,7 +220,9 @@ class TripSyncService:
                 )
                 if heartbeat_at:
                     heartbeat_at = TripSyncService._coerce_utc(heartbeat_at)
-                    if (now - heartbeat_at).total_seconds() <= 30 * 60:
+                    if (
+                        now - heartbeat_at
+                    ).total_seconds() <= _HISTORY_IMPORT_STALE_HEARTBEAT_SECONDS:
                         continue
 
             reason = (
@@ -250,6 +256,76 @@ class TripSyncService:
                         "Failed to update stale trip history import progress job %s",
                         getattr(progress_job, "id", None),
                     )
+
+        if TripSyncService._job_db_matches_task_history_db():
+            await TripSyncService._clear_stale_history_import_jobs(now)
+
+    @staticmethod
+    async def _clear_stale_history_import_jobs(now: datetime) -> None:
+        """
+        Mark abandoned history-import progress jobs as failed.
+
+        History imports can outlive their ARQ worker if the worker is restarted
+        or killed while inside Bouncie recovery. The progress job heartbeat is
+        the authoritative signal that work is still moving.
+        """
+        active_jobs = (
+            await Job.find(
+                {
+                    "job_type": "trip_history_import",
+                    "status": {"$in": ["pending", "running"]},
+                },
+            )
+            .sort("-updated_at")
+            .to_list()
+        )
+        for job in active_jobs:
+            heartbeat_at = job.updated_at or job.started_at or job.created_at
+            if not heartbeat_at:
+                continue
+
+            heartbeat_at = TripSyncService._coerce_utc(heartbeat_at)
+            stale_for = (now - heartbeat_at).total_seconds()
+            if stale_for <= _HISTORY_IMPORT_STALE_HEARTBEAT_SECONDS:
+                continue
+
+            reason = (
+                "Stale history import cleared automatically: "
+                f"job_id={job.id}, status={job.status}, "
+                f"updated_at={heartbeat_at.isoformat()}"
+            )
+            operation_id = str(job.operation_id or "").strip()
+            if operation_id:
+                history = await TaskHistory.get(operation_id)
+                if history and str(history.status or "").upper() in {
+                    "RUNNING",
+                    "PENDING",
+                }:
+                    started_at = TripSyncService._history_started_at(history) or now
+                    runtime_ms = (now - started_at).total_seconds() * 1000
+                    await update_task_history_entry(
+                        job_id=operation_id,
+                        task_name=history.task_id or "fetch_all_missing_trips",
+                        status="FAILED",
+                        manual_run=bool(history.manual_run),
+                        error=reason,
+                        end_time=now,
+                        runtime_ms=runtime_ms,
+                    )
+
+            try:
+                await JobHandle(job).update(
+                    status="failed",
+                    stage="failed",
+                    message="Failed (stale job cleared automatically)",
+                    error=reason,
+                    completed_at=now,
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to update stale trip history import job %s",
+                    getattr(job, "id", None),
+                )
 
     @staticmethod
     async def get_sync_status() -> dict[str, Any]:
