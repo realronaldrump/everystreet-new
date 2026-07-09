@@ -291,62 +291,67 @@ channels are roads you travel most.
                aria-label="Search map" />
       </div>
 
-      <div class="map-view-control">
-        <button id="view-popover-toggle"
-                class="map-view-toggle"
-                type="button"
-                aria-expanded="false"
-                aria-haspopup="true"
-                aria-controls="view-popover">
-          <i class="fas fa-sliders" aria-hidden="true"></i>
-          <span>View</span>
-        </button>
-        <div id="view-popover" class="view-popover" hidden>
-          {% if not app_settings or (app_settings.get('map_provider') | default('', true) | lower) != 'google' %}
-            <div class="view-popover-row view-popover-row--select">
-              <label class="view-popover-label" for="map-type-select">Basemap</label>
-              <select id="map-type-select"
-                      class="view-popover-select"
-                      aria-label="Select map style">
-                <option value="dark">
+      <div class="map-topbar-actions">
+        <div id="trip-replay-controls-slot"
+             class="trip-replay-controls-slot"></div>
+
+        <div class="map-view-control">
+          <button id="view-popover-toggle"
+                  class="map-view-toggle"
+                  type="button"
+                  aria-expanded="false"
+                  aria-haspopup="true"
+                  aria-controls="view-popover">
+            <i class="fas fa-sliders" aria-hidden="true"></i>
+            <span>View</span>
+          </button>
+          <div id="view-popover" class="view-popover" hidden>
+            {% if not app_settings or (app_settings.get('map_provider') | default('', true) | lower) != 'google' %}
+              <div class="view-popover-row view-popover-row--select">
+                <label class="view-popover-label" for="map-type-select">Basemap</label>
+                <select id="map-type-select"
+                        class="view-popover-select"
+                        aria-label="Select map style">
+                  <option value="dark">
 Dark
-                </option>
-                <option value="light">
+                  </option>
+                  <option value="light">
 Light
-                </option>
-                <option value="streets">
+                  </option>
+                  <option value="streets">
 Streets
-                </option>
-                <option value="satellite">
+                  </option>
+                  <option value="satellite">
 Satellite
-                </option>
-              </select>
-            </div>
-          {% endif %}
-          <button type="button"
-                  id="view-3d-buildings"
-                  class="view-popover-row view-popover-switch"
-                  aria-pressed="false"
-                  hidden>
-            <span>3D buildings</span>
-            <span class="view-switch-mark" aria-hidden="true"></span>
-          </button>
-          <button type="button"
-                  id="view-terrain-relief"
-                  class="view-popover-row view-popover-switch"
-                  aria-pressed="false"
-                  hidden>
-            <span>Terrain relief</span>
-            <span class="view-switch-mark" aria-hidden="true"></span>
-          </button>
-          <div class="view-popover-divider" aria-hidden="true"></div>
-          <button type="button"
-                  id="sim-toggle"
-                  class="view-popover-row view-popover-action"
-                  aria-pressed="false">
-            <span>Bouncie simulator</span>
-            <i class="fas fa-broadcast-tower" aria-hidden="true"></i>
-          </button>
+                  </option>
+                </select>
+              </div>
+            {% endif %}
+            <button type="button"
+                    id="view-3d-buildings"
+                    class="view-popover-row view-popover-switch"
+                    aria-pressed="false"
+                    hidden>
+              <span>3D buildings</span>
+              <span class="view-switch-mark" aria-hidden="true"></span>
+            </button>
+            <button type="button"
+                    id="view-terrain-relief"
+                    class="view-popover-row view-popover-switch"
+                    aria-pressed="false"
+                    hidden>
+              <span>Terrain relief</span>
+              <span class="view-switch-mark" aria-hidden="true"></span>
+            </button>
+            <div class="view-popover-divider" aria-hidden="true"></div>
+            <button type="button"
+                    id="sim-toggle"
+                    class="view-popover-row view-popover-action"
+                    aria-pressed="false">
+              <span>Bouncie simulator</span>
+              <i class="fas fa-broadcast-tower" aria-hidden="true"></i>
+            </button>
+          </div>
         </div>
       </div>
     </div>

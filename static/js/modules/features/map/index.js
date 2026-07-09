@@ -390,19 +390,36 @@ function setupTripSelectionAnimation(mapInstance, _signal, registerCleanup) {
   const showReplayControls = (coords) => {
     removeReplayControls();
 
-    const mapContainer =
-      document.getElementById("map") || document.getElementById("map-canvas");
-    if (!mapContainer) {
+    const replayControlsSlot = document.getElementById("trip-replay-controls-slot");
+    if (!replayControlsSlot) {
       return;
     }
 
     const el = document.createElement("div");
     el.className = "replay-controls";
+    el.setAttribute("role", "group");
+    el.setAttribute("aria-label", "Selected trip playback");
     el.innerHTML = `
-      <button class="replay-btn" data-action="replay" type="button">
-        <i class="fas fa-play"></i> Replay
+      <button class="replay-btn"
+              data-action="replay"
+              type="button"
+              aria-label="Replay selected trip"
+              title="Replay selected trip">
+        <i class="fas fa-play" aria-hidden="true"></i>
+        <span class="replay-btn-label">Replay</span>
       </button>
     `;
+
+    const updateReplayButton = (button, playing) => {
+      const icon = button.querySelector("i");
+      const label = button.querySelector(".replay-btn-label");
+      const action = playing ? "Stop" : "Replay";
+      icon.className = playing ? "fas fa-stop" : "fas fa-play";
+      label.textContent = action;
+      button.classList.toggle("active", playing);
+      button.setAttribute("aria-label", `${action} selected trip`);
+      button.setAttribute("title", `${action} selected trip`);
+    };
 
     el.addEventListener("click", (e) => {
       const btn = e.target.closest("[data-action]");
@@ -414,26 +431,22 @@ function setupTripSelectionAnimation(mapInstance, _signal, registerCleanup) {
         if (isReplaying) {
           tripAnimator.stopReplay(mapInstance);
           isReplaying = false;
-          btn.innerHTML = '<i class="fas fa-play"></i> Replay';
-          btn.classList.remove("active");
+          updateReplayButton(btn, false);
         } else {
           tripAnimator.startReplay(mapInstance, coords, {
             speed: 1,
             onComplete: () => {
               isReplaying = false;
-              btn.innerHTML = '<i class="fas fa-play"></i> Replay';
-              btn.classList.remove("active");
+              updateReplayButton(btn, false);
             },
           });
           isReplaying = true;
-          btn.innerHTML = '<i class="fas fa-stop"></i> Stop';
-          btn.classList.add("active");
+          updateReplayButton(btn, true);
         }
       }
     });
 
-    mapContainer.style.position = "relative";
-    mapContainer.appendChild(el);
+    replayControlsSlot.appendChild(el);
     replayControlsEl = el;
   };
 

@@ -22,6 +22,13 @@
   pointer-events: auto;
 }
 
+.map-topbar-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
 .map-search {
   position: relative;
   display: flex;
@@ -90,6 +97,10 @@
 
 .map-view-toggle i {
   font-size: 0.75rem;
+}
+
+.map-view-toggle span {
+  display: none;
 }
 
 .map-view-toggle:hover,
@@ -316,10 +327,6 @@ button.view-popover-row:focus-visible {
     width: auto;
   }
 
-  .map-view-toggle span {
-    display: none;
-  }
-
   .map-view-toggle {
     justify-content: center;
     min-width: var(--touch-target);
@@ -332,5 +339,11 @@ button.view-popover-row:focus-visible {
 
   .atlas-rail-reopen {
     display: none;
+  }
+}
+
+@media (width > 768px) {
+  .map-view-toggle span {
+    display: inline;
   }
 }
