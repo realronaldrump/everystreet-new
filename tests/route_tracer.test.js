@@ -1,19 +1,17 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const baseHtml = readFileSync(join(root, "templates/base.html"), "utf8");
-const tracerCss = readFileSync(
-  join(root, "static/css/route-tracer.css"),
-  "utf8",
-);
+const tracerCss = readFileSync(join(root, "static/css/route-tracer.css"), "utf8");
 const loadingManagerJs = readFileSync(
   join(root, "static/js/modules/ui/loading-manager.js"),
-  "utf8",
+  "utf8"
 );
+const loadingStyles = readFileSync(join(root, "static/css/loading-styles.css"), "utf8");
 
 const ROUTE_D = "M6 25 H20 V11 H38 V21 H52 V7 H66";
 
@@ -50,4 +48,14 @@ test("tracer degrades gracefully for reduced motion", () => {
   assert.ok(reduced.length > 0, "a prefers-reduced-motion block must exist");
   assert.match(reduced, /animation:\s*none/);
   assert.match(reduced, /display:\s*none/); // the travelling dot is hidden
+});
+
+test("map loading status is anchored above map furniture and the mobile sheet", () => {
+  assert.match(
+    loadingStyles,
+    /body\[data-route="\/map"\] \.loading-overlay\.non-blocking \.loading-indicator/
+  );
+  assert.match(loadingStyles, /bottom:\s*calc\(var\(--space-3\) \+ 30px\)/);
+  assert.match(loadingStyles, /var\(--map-sheet-visible-height, 96px\)/);
+  assert.match(loadingStyles, /font-family:\s*var\(--font-family-mono\)/);
 });

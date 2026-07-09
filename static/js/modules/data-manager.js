@@ -68,7 +68,10 @@ const dataManager = {
       return null;
     }
 
-    loadingManager.show("Loading trips...", { blocking: false, compact: true });
+    loadingManager.show("Reading your trip archive…", {
+      blocking: false,
+      compact: true,
+    });
 
     try {
       const { start, end } = DateUtils.getCachedDateRange();
@@ -82,7 +85,7 @@ const dataManager = {
         params.set("coverage_area_id", coverageClip.areaId);
         params.set("clip_to_coverage", "true");
       }
-      loadingManager.updateMessage(`Loading trips from ${start} to ${end}...`);
+      loadingManager.updateMessage("Gathering recorded routes…");
 
       performance.mark?.("trip-map:trips:fetch-start");
       const bundle = await utils.fetchWithRetry(
@@ -105,7 +108,9 @@ const dataManager = {
         return null;
       }
 
-      loadingManager.updateMessage(`Rendering ${bundle.trip_count} trips...`);
+      loadingManager.updateMessage(
+        `Drawing ${Number(bundle.trip_count || 0).toLocaleString()} recorded trips…`
+      );
       await tripMapRenderer.setLayerData("trips", bundle);
 
       document.dispatchEvent(

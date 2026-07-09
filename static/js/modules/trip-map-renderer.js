@@ -12,8 +12,9 @@ import tripInteractions from "./trip-interactions.js";
 
 const TRIP_LAYER_NAMES = new Set(["trips", "matchedTrips"]);
 const WORKER_URL = new URL("./trip-map-worker.js", import.meta.url);
-const NATIVE_LAYER_SUFFIXES = ["-hitbox", "-layer-1", "-layer-0", "-layer"];
+const NATIVE_LAYER_SUFFIXES = ["-hitbox", "-layer-2", "-layer-1", "-layer-0", "-layer"];
 const SELECTED_NATIVE_SOURCE_ID = "trip-map-selected-source";
+const LARGE_NATIVE_HEATMAP_TRIP_THRESHOLD = 2_500;
 
 function isTripLayer(layerName) {
   return TRIP_LAYER_NAMES.has(layerName);
@@ -163,6 +164,25 @@ function colorWithAlpha(hex, alpha = 255) {
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255, alpha];
 }
 
+function indexDecodedPathsByTrip(decoded) {
+  const pathIndicesByTrip = new Map();
+  const tripIndices = decoded?.tripIndices;
+  if (!tripIndices?.length) {
+    return pathIndicesByTrip;
+  }
+
+  for (let pathIndex = 0; pathIndex < tripIndices.length; pathIndex += 1) {
+    const tripIndex = tripIndices[pathIndex];
+    const pathIndices = pathIndicesByTrip.get(tripIndex);
+    if (pathIndices) {
+      pathIndices.push(pathIndex);
+    } else {
+      pathIndicesByTrip.set(tripIndex, [pathIndex]);
+    }
+  }
+  return pathIndicesByTrip;
+}
+
 const tripMapRenderer = {
   overlay: null,
   worker: null,
@@ -207,7 +227,9 @@ const tripMapRenderer = {
   shouldUseNativeRenderer() {
     return (
       this.canRenderNativeLayers() &&
-      (!this.isAvailable() || !this.hasVisibleHeatmapTripLayer())
+      (!this.isAvailable() ||
+        !this.hasVisibleHeatmapTripLayer() ||
+        this.hasLargeVisibleHeatmapTripLayer())
     );
   },
 
@@ -217,6 +239,22 @@ const tripMapRenderer = {
       const layerState = this.layers.get(layerName);
       return Boolean(
         layerInfo?.visible && layerInfo.isHeatmap && layerState?.decoded?.length
+      );
+    });
+  },
+
+  hasLargeVisibleHeatmapTripLayer() {
+    return ["trips", "matchedTrips"].some((layerName) => {
+      const layerInfo = store.mapLayers[layerName];
+      const layerState = this.layers.get(layerName);
+      const tripCount = Number(
+        layerState?.bundle?.trip_count || layerState?.bundle?.trips?.length || 0
+      );
+      return Boolean(
+        layerInfo?.visible &&
+          layerInfo.isHeatmap &&
+          layerState?.decoded?.length &&
+          tripCount >= LARGE_NATIVE_HEATMAP_TRIP_THRESHOLD
       );
     });
   },
@@ -440,8 +478,10 @@ const tripMapRenderer = {
     const layerState = {
       bundle,
       decoded,
+      pathIndicesByTrip: indexDecodedPathsByTrip(decoded),
       tripById,
       featureCollection: null,
+      deckDataCache: null,
     };
     this.layers.set(layerName, layerState);
     store.mapLayers[layerName].layer = {
@@ -509,7 +549,9 @@ const tripMapRenderer = {
 
     if (this.shouldUseNativeRenderer()) {
       // deck.gl shares Mapbox's WebGL context. Removing it while showing
-      // plain paths prevents a stale overlay from clearing the basemap.
+      // native paths prevents a stale overlay from clearing the basemap.
+      // Large heatmaps also stay responsive by letting Mapbox tile the full
+      // geometry in workers instead of drawing duplicate full-world buffers.
       this._detachOverlay();
       this.renderNativeLayers();
       performance.mark?.("trip-map:native-rendered");
@@ -668,8 +710,8 @@ const tripMapRenderer = {
 
   _renderNativeLineLayer(layerName, layerInfo, sourceId, beforeId) {
     const layerId = `${layerName}-layer`;
-    [`${layerName}-layer-0`, `${layerName}-layer-1`].forEach((id) =>
-      this._removeNativeLayer(id)
+    [0, 1, 2].forEach((index) =>
+      this._removeNativeLayer(`${layerName}-layer-${index}`)
     );
 
     const paint = {
@@ -710,12 +752,12 @@ const tripMapRenderer = {
     const theme = document.documentElement?.getAttribute("data-bs-theme") || "dark";
     const featureCollection = this.getFeatureCollection(layerName);
     const visibleTripCount = featureCollection.features?.length || 0;
-    const { glowLayers } = heatmapUtils.generateHeatmapConfig(featureCollection, {
-      theme,
-      opacity: layerInfo.opacity ?? 1,
+    const glowLayers = heatmapUtils.generateTripHeatLayers(
       visibleTripCount,
-      palette: layerName === "matchedTrips" ? this.getHeatmapPalette(layerName) : null,
-    });
+      layerInfo.opacity ?? 1,
+      theme,
+      layerName === "matchedTrips" ? this.getHeatmapPalette(layerName) : null
+    );
 
     glowLayers.forEach((glowConfig, index) => {
       const layerId = `${layerName}-layer-${index}`;
@@ -920,15 +962,31 @@ const tripMapRenderer = {
       this.terrainActive && layerState.drapedPositions?.length
         ? layerState.drapedPositions
         : null;
-    const data = {
-      length: decoded.length,
-      startIndices: decoded.startIndices,
-      attributes: {
-        getPath: draped
-          ? { value: draped, size: 3 }
-          : { value: decoded.positions, size: 2 },
-      },
-    };
+    const positions = draped || decoded.positions;
+    const positionSize = draped ? 3 : 2;
+    const cache = layerState.deckDataCache;
+    const data =
+      cache?.positions === positions &&
+      cache?.startIndices === decoded.startIndices &&
+      cache?.length === decoded.length &&
+      cache?.positionSize === positionSize
+        ? cache.data
+        : {
+            length: decoded.length,
+            startIndices: decoded.startIndices,
+            attributes: {
+              getPath: { value: positions, size: positionSize },
+            },
+          };
+    if (data !== cache?.data) {
+      layerState.deckDataCache = {
+        positions,
+        startIndices: decoded.startIndices,
+        length: decoded.length,
+        positionSize,
+        data,
+      };
+    }
     const beforeId = this.getBeforeLayerId();
     const common = {
       data,
@@ -948,11 +1006,22 @@ const tripMapRenderer = {
       return [
         new deck.PathLayer({
           ...common,
-          id: `${layerName}-trip-map-glow`,
+          id: `${layerName}-trip-map-atmosphere`,
+          pickable: false,
+          getColor: colorWithAlpha(
+            palette.halo,
+            Math.round(settings.glowOpacity * 0.45 * 255)
+          ),
+          getWidth: settings.glowWidth * 2.2,
+          opacity: layerInfo.opacity ?? 1,
+        }),
+        new deck.PathLayer({
+          ...common,
+          id: `${layerName}-trip-map-body`,
           pickable: false,
           getColor: colorWithAlpha(
             palette.glow,
-            Math.round(settings.glowOpacity * 255)
+            Math.round(settings.glowOpacity * 1.1 * 255)
           ),
           getWidth: settings.glowWidth,
           opacity: layerInfo.opacity ?? 1,
@@ -1031,6 +1100,7 @@ const tripMapRenderer = {
     if (layerName === "matchedTrips") {
       const colors = MapStyles.MAP_LAYER_COLORS?.matchedTrips || {};
       return {
+        halo: colors.default || "#8f3040",
         glow: colors.default || "#c45454",
         core: colors.highlight || "#5fa0c4",
       };
@@ -1116,11 +1186,12 @@ const tripMapRenderer = {
       return [];
     }
     const paths = [];
-    const { positions, startIndices, tripIndices } = layerState.decoded;
-    for (let pathIndex = 0; pathIndex < tripIndices.length; pathIndex += 1) {
-      if (tripIndices[pathIndex] !== match.index) {
-        continue;
-      }
+    const { positions, startIndices } = layerState.decoded;
+    if (!(layerState.pathIndicesByTrip instanceof Map)) {
+      layerState.pathIndicesByTrip = indexDecodedPathsByTrip(layerState.decoded);
+    }
+    const pathIndices = layerState.pathIndicesByTrip.get(match.index) || [];
+    pathIndices.forEach((pathIndex) => {
       const start = startIndices[pathIndex];
       const end = startIndices[pathIndex + 1];
       const path = [];
@@ -1130,7 +1201,7 @@ const tripMapRenderer = {
       if (path.length >= 2) {
         paths.push(path);
       }
-    }
+    });
     return paths;
   },
 

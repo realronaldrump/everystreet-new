@@ -350,3 +350,47 @@ test("switching to plain paths detaches deck and uses native Mapbox lines", () =
   assert.ok(store.map.getSource("trips-source"));
   assert.ok(store.map.getLayer("trips-layer"));
 });
+
+test("large heatmaps use worker-tiled native layers instead of duplicate deck paths", () => {
+  const constructed = [];
+  const events = [];
+  globalThis.window = { MAP_PROVIDER: "self_hosted" };
+  globalThis.deck = {
+    MapboxOverlay: createOverlayClass(constructed),
+    PathLayer: class PathLayer {},
+  };
+  store.map = createNativeMapMock(events);
+  store.map.addControl = (control) => {
+    events.push({ type: "addControl", control });
+  };
+  store.map.removeControl = (control) => {
+    events.push({ type: "removeControl", control });
+  };
+  store.mapLayers.trips = {
+    ...structuredClone(originalTripLayer),
+    visible: true,
+    isHeatmap: true,
+    opacity: 1,
+  };
+  tripMapRenderer.layers.set("trips", {
+    bundle: { trip_count: 7_500, trips: [{ id: "trip-1" }] },
+    decoded: {
+      length: 1,
+      positions: new Float64Array([-97.75, 30.25, -97.71, 30.29]),
+      startIndices: new Uint32Array([0, 2]),
+      tripIndices: new Uint32Array([0]),
+    },
+    pathIndicesByTrip: new Map([[0, [0]]]),
+    tripById: new Map([["trip-1", { trip: { id: "trip-1" }, index: 0 }]]),
+    featureCollection: null,
+  });
+
+  tripMapRenderer.render();
+
+  assert.equal(constructed.length, 0);
+  assert.ok(store.map.getSource("trips-source"));
+  assert.ok(store.map.getLayer("trips-layer-0"));
+  assert.ok(store.map.getLayer("trips-layer-1"));
+  assert.ok(store.map.getLayer("trips-layer-2"));
+  assert.ok(store.map.getLayer("trips-hitbox"));
+});

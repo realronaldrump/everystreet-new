@@ -131,6 +131,7 @@ const layerManager = {
     const layerIds = [
       `${layerName}-layer-0`,
       `${layerName}-layer-1`,
+      `${layerName}-layer-2`,
       `${layerName}-layer`,
     ];
     layerIds.forEach((layerId) => this._removeLayerById(layerId));
@@ -1333,7 +1334,8 @@ const layerManager = {
     const hasLayerVariants =
       Boolean(store.map.getLayer(layerId)) ||
       Boolean(store.map.getLayer(`${layerName}-layer-0`)) ||
-      Boolean(store.map.getLayer(`${layerName}-layer-1`));
+      Boolean(store.map.getLayer(`${layerName}-layer-1`)) ||
+      Boolean(store.map.getLayer(`${layerName}-layer-2`));
 
     if (hasLayerVariants || existingSource) {
       if (this._shouldEnableTripInteractions(layerName)) {

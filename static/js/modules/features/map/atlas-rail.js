@@ -33,10 +33,11 @@ const LEGEND_PRESETS = {
   ],
   tripHeat: [
     {
-      label: "Drive frequency",
+      label: "Frequency · low → high",
       type: "gradient",
-      color: "#c86832",
-      color2: "#f0b840",
+      color: "#b93b24",
+      color2: "#f06a2a",
+      color3: "#fff0c2",
     },
   ],
   tripsMatched: {
@@ -171,6 +172,9 @@ export default function initAtlasRail({ registerCleanup }) {
         swatch.style.setProperty("--legend-color", item.color);
         if (item.color2) {
           swatch.style.setProperty("--legend-color-2", item.color2);
+        }
+        if (item.color3) {
+          swatch.style.setProperty("--legend-color-3", item.color3);
         }
         const label = document.createElement("span");
         label.textContent = item.label;

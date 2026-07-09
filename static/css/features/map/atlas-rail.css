@@ -792,13 +792,16 @@
 }
 
 .atlas-legend-swatch--gradient {
+  width: 34px;
   height: 4px;
   border-radius: 2px;
   background: linear-gradient(
     90deg,
     var(--legend-color, #d4943c) 0%,
-    var(--legend-color-2, #f4d03f) 100%
+    var(--legend-color-2, #f4a03f) 52%,
+    var(--legend-color-3, #fff0c2) 100%
   );
+  box-shadow: 0 0 7px color-mix(in srgb, var(--legend-color-2) 34%, transparent);
 }
 
 /* ---- Mobile: rail becomes the bottom sheet ----------------------- */

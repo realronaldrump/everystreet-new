@@ -92,6 +92,7 @@ test("deck trip bundle updates remove stale mapbox trip layers", async () => {
   const liveLayers = new Set([
     "trips-layer-0",
     "trips-layer-1",
+    "trips-layer-2",
     "trips-layer",
     "trips-hitbox",
   ]);
@@ -132,6 +133,7 @@ test("deck trip bundle updates remove stale mapbox trip layers", async () => {
     "trips-hitbox",
     "trips-layer-0",
     "trips-layer-1",
+    "trips-layer-2",
     "trips-layer",
   ]);
   assert.deepEqual(removedSources, ["trips-source"]);

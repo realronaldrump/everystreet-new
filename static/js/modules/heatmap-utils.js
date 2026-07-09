@@ -7,17 +7,17 @@
  */
 
 const heatmapUtils = {
-  /**
-   * Strava-style colors - bright orange/yellow core with red/purple glow
-   */
+  /** Thermal road-atlas palette: ember halo, molten body, pale hot core. */
   COLORS: {
     dark: {
-      glow: "#c86832", // Warm deep orange glow
-      core: "#f0b840", // Bright golden core
+      halo: "#b93b24",
+      glow: "#f06a2a",
+      core: "#fff0c2",
     },
     light: {
-      glow: "#b87a4a",
-      core: "#d09868",
+      halo: "#8f2f20",
+      glow: "#d85a24",
+      core: "#f2a93b",
     },
   },
 
@@ -31,12 +31,16 @@ const heatmapUtils = {
       typeof palette.glow === "string" && palette.glow.trim()
         ? palette.glow.trim()
         : fallbackPalette.glow;
+    const halo =
+      typeof palette.halo === "string" && palette.halo.trim()
+        ? palette.halo.trim()
+        : fallbackPalette.halo;
     const core =
       typeof palette.core === "string" && palette.core.trim()
         ? palette.core.trim()
         : fallbackPalette.core;
 
-    return { glow, core };
+    return { halo, glow, core };
   },
 
   /**
@@ -221,6 +225,52 @@ const heatmapUtils = {
           "line-color": colors.core,
           "line-width": this._zoomWidth(settings.baseWidth),
           "line-opacity": coreOpacity,
+          "line-blur": 0,
+        },
+      },
+    ];
+  },
+
+  /**
+   * Build the richer trip-frequency treatment used by the main map.
+   * Three shared-source layers preserve every route while giving repeated
+   * roads a legible progression from ember to warm body to a pale hot core.
+   */
+  generateTripHeatLayers(
+    tripCount,
+    userOpacity = 0.85,
+    theme = "dark",
+    palette = null
+  ) {
+    const colors = this._resolveColorPalette(theme, palette);
+    const settings = this.getAdaptiveSettings(tripCount);
+    const opacityMult = userOpacity;
+
+    return [
+      {
+        name: "atmosphere",
+        paint: {
+          "line-color": colors.halo,
+          "line-width": this._zoomWidth(settings.glowWidth * 2.2),
+          "line-opacity": this._zoomOpacity(settings.glowOpacity * 0.45 * opacityMult),
+          "line-blur": this._zoomBlur(settings.glowWidth * 0.8),
+        },
+      },
+      {
+        name: "body",
+        paint: {
+          "line-color": colors.glow,
+          "line-width": this._zoomWidth(settings.glowWidth),
+          "line-opacity": this._zoomOpacity(settings.glowOpacity * 1.1 * opacityMult),
+          "line-blur": this._zoomBlur(settings.glowWidth * 0.18),
+        },
+      },
+      {
+        name: "core",
+        paint: {
+          "line-color": colors.core,
+          "line-width": this._zoomWidth(settings.baseWidth),
+          "line-opacity": this._zoomOpacity(settings.coreOpacity * opacityMult),
           "line-blur": 0,
         },
       },
