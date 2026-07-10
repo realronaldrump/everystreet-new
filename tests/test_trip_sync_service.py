@@ -336,7 +336,7 @@ async def test_start_sync_history_requires_at_least_one_selected_vehicle(
 @pytest.mark.asyncio
 async def test_sync_status_clears_stale_running_lock(beanie_db_with_tasks) -> None:
     await seed_credentials()
-    old = datetime.now(UTC) - timedelta(days=90)
+    old = datetime.now(UTC) - timedelta(days=1)
     running = TaskHistory(
         task_id="periodic_fetch_trips",
         status="RUNNING",
