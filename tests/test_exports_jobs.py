@@ -87,7 +87,8 @@ class ExportJobLifecycleTests(unittest.IsolatedAsyncioTestCase):
                     new=AsyncMock(side_effect=RuntimeError("boom")),
                 ),
             ):
-                await ExportService.run_job(str(job.id))
+                with pytest.raises(RuntimeError, match="boom"):
+                    await ExportService.run_job(str(job.id))
 
         assert job.status == "failed"
         assert job.error == "boom"

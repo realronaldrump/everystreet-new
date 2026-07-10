@@ -485,11 +485,11 @@ class TestSyncVehiclesAfterAuth:
     """Tests for the automatic vehicle sync."""
 
     @pytest.mark.asyncio
-    async def test_sync_preserves_existing_authorized_devices(
+    async def test_sync_reconciles_authorized_devices_to_provider(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """OAuth callback sync should merge, not replace, authorized IMEIs."""
+        """OAuth callback sync treats the provider fleet as authoritative."""
         sync_mock = AsyncMock(
             return_value={
                 "vehicles": [],
@@ -512,7 +512,7 @@ class TestSyncVehiclesAfterAuth:
             mock_session,
             "test_token",
             credentials=credentials,
-            merge_authorized_devices=True,
+            merge_authorized_devices=False,
             update_authorized_devices=True,
         )
 

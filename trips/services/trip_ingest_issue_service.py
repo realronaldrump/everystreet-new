@@ -234,11 +234,15 @@ class TripIngestIssueService:
         if not tx:
             return 0
         now = datetime.now(UTC)
-        result = await TripIngestIssue.get_pymongo_collection().update_many(
-            {"transaction_id": tx, "resolved": {"$ne": True}},
-            {"$set": {"resolved": True, "resolved_at": now}},
-        )
-        return int(result.modified_count or 0)
+        try:
+            result = await TripIngestIssue.get_pymongo_collection().update_many(
+                {"transaction_id": tx, "resolved": {"$ne": True}},
+                {"$set": {"resolved": True, "resolved_at": now}},
+            )
+            return int(result.modified_count or 0)
+        except Exception:
+            logger.exception("Unable to close ingest incidents for transaction %s", tx)
+            return 0
 
     @staticmethod
     async def resolve_fetch_window(
@@ -252,25 +256,32 @@ class TripIngestIssueService:
         if not normalized_imei:
             return 0
         now = datetime.now(UTC)
-        result = await TripIngestIssue.get_pymongo_collection().update_many(
-            {
-                "issue_type": "fetch_error",
-                "imei": normalized_imei,
-                "resolved": {"$ne": True},
-                "$or": [
-                    {
-                        "details.window_start": {"$gte": window_start.isoformat()},
-                        "details.window_end": {"$lte": window_end.isoformat()},
-                    },
-                    {
-                        "details.slice_start": {"$gte": window_start.isoformat()},
-                        "details.slice_end": {"$lte": window_end.isoformat()},
-                    },
-                ],
-            },
-            {"$set": {"resolved": True, "resolved_at": now}},
-        )
-        return int(result.modified_count or 0)
+        try:
+            result = await TripIngestIssue.get_pymongo_collection().update_many(
+                {
+                    "issue_type": "fetch_error",
+                    "imei": normalized_imei,
+                    "resolved": {"$ne": True},
+                    "$or": [
+                        {
+                            "details.window_start": {"$gte": window_start.isoformat()},
+                            "details.window_end": {"$lte": window_end.isoformat()},
+                        },
+                        {
+                            "details.slice_start": {"$gte": window_start.isoformat()},
+                            "details.slice_end": {"$lte": window_end.isoformat()},
+                        },
+                    ],
+                },
+                {"$set": {"resolved": True, "resolved_at": now}},
+            )
+            return int(result.modified_count or 0)
+        except Exception:
+            logger.exception(
+                "Unable to close fetch incidents for device %s",
+                normalized_imei,
+            )
+            return 0
 
     @staticmethod
     async def delete_issue(issue_id: str) -> bool:

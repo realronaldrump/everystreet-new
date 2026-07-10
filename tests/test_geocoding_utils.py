@@ -31,7 +31,7 @@ async def test_search_raw_raises_on_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     response = FakeResponse(status=500, text_data="oops")
-    session = FakeSession(get_responses=[response])
+    session = FakeSession(get_responses=[response, response, response, response])
     monkeypatch.setattr(
         "core.http.nominatim.get_session",
         AsyncMock(return_value=session),
@@ -61,7 +61,7 @@ async def test_reverse_geocode_raises_on_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     response = FakeResponse(status=500, text_data="boom")
-    session = FakeSession(get_responses=[response])
+    session = FakeSession(get_responses=[response, response, response, response])
     monkeypatch.setattr(
         "core.http.nominatim.get_session",
         AsyncMock(return_value=session),
@@ -79,9 +79,9 @@ async def test_reverse_geocode_raises_on_rate_limit(
     response = FakeResponse(
         status=429,
         text_data="rate limited",
-        headers={"Retry-After": "7"},
+        headers={"Retry-After": "0"},
     )
-    session = FakeSession(get_responses=[response])
+    session = FakeSession(get_responses=[response, response, response, response])
     monkeypatch.setattr(
         "core.http.nominatim.get_session",
         AsyncMock(return_value=session),

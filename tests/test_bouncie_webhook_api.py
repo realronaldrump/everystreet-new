@@ -279,7 +279,7 @@ def test_live_webhook_acknowledges_trip_data_without_gps_heading(
     handler.assert_awaited_once_with(payload)
 
 
-def test_live_webhook_acknowledges_when_processing_fails(
+def test_live_webhook_returns_retryable_error_when_processing_fails(
     webhook_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -292,10 +292,8 @@ def test_live_webhook_acknowledges_when_processing_fails(
         headers={"Authorization": "expected-token"},
     )
 
-    assert resp.status_code == 200
-    webhook_api.TrackingService.record_webhook_event.assert_awaited_once_with(
-        "tripStart",
-    )
+    assert resp.status_code == 500
+    webhook_api.TrackingService.record_webhook_event.assert_not_awaited()
 
 
 def test_simulator_webhook_bypasses_real_auth(

@@ -60,7 +60,7 @@ def retry_async(
             return False
         status = exc.details.get("status")
         if status is None:
-            return True
+            return "timeout_s" in exc.details
         try:
             return int(status) == 429 or int(status) >= 500
         except (TypeError, ValueError):
