@@ -259,8 +259,8 @@ body[data-viewer-mode="true"] .owner-only {
 /* === Print Styles === */
 @media print {
   body {
-    background-color: #fff; /* White background for printing */
-    color: #000; /* Black text */
+    background-color: var(--print-bg);
+    color: var(--print-text);
     font-size: 12pt; /* Readable print size */
     line-height: 1.4;
   }
@@ -284,19 +284,19 @@ body[data-viewer-mode="true"] .owner-only {
 
   .card {
     box-shadow: none;
-    border: 1px solid #ccc;
+    border: 1px solid var(--print-border);
     break-inside: avoid;
   }
 
   .table,
   .table th,
   .table td {
-    border-color: #ccc;
+    border-color: var(--print-border);
   }
 
   a {
     text-decoration: none;
-    color: #000;
+    color: var(--print-text);
   }
 
   a[href^="http"]::after {

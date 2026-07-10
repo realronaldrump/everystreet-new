@@ -144,7 +144,7 @@
   opacity: 0.45;
 }
 
-body.light-mode .es-select__menu,
+html.light-mode body .es-select__menu,
 html.light-mode .es-select__menu {
   background: var(--surface-elevated);
 }

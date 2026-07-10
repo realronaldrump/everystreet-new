@@ -716,7 +716,7 @@ class VisitsPageController {
         }
 
         return `
-        <div class="place-card" data-place-id="${placeId}">
+        <div class="place-card card card--object" data-place-id="${placeId}">
           <div class="place-card-header ${accent}">
             <div class="place-map-preview" id="${mapId}">
               <div class="map-preview-default">

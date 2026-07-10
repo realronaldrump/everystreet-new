@@ -407,7 +407,7 @@ function setPhase(phase) {
   const phaseOrder = [PHASES.SELECT, PHASES.PROCESS, PHASES.RESULTS];
   const currentIndex = phaseOrder.indexOf(phase);
 
-  document.querySelectorAll(".mm-phase-step").forEach((step, _index) => {
+  document.querySelectorAll(".mm-phase-step").forEach((step) => {
     const stepPhase = step.dataset.phase;
     const stepIndex = phaseOrder.indexOf(stepPhase);
 
@@ -418,11 +418,6 @@ function setPhase(phase) {
     } else if (stepIndex === currentIndex) {
       step.classList.add("is-active");
     }
-  });
-
-  // Update connectors
-  document.querySelectorAll(".mm-phase-connector").forEach((connector, index) => {
-    connector.classList.toggle("is-active", index < currentIndex);
   });
 }
 

@@ -150,8 +150,8 @@
 }
 
 .toggle-btn.active {
-  color: var(--text-on-primary);
-  background: var(--primary);
+  color: var(--text-on-action);
+  background: var(--action);
 }
 
 /* ============================================
@@ -624,7 +624,7 @@
   margin: 0;
   color: var(--text-primary);
   font-family: var(--font-family-display);
-  font-size: clamp(1.35rem, 1.05rem + 0.9vw, 2rem);
+  font-size: var(--font-size-2xl);
   line-height: var(--line-height-tight);
 }
 
@@ -776,7 +776,7 @@
   height: 22px;
   border-radius: var(--radius-full);
   font-family: var(--font-family-mono);
-  font-size: 0.68rem;
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   flex-shrink: 0;
   background: rgb(var(--border-rgb) / 16%);
@@ -830,7 +830,7 @@
 
 .modal-trip-route i {
   color: var(--text-tertiary);
-  font-size: 0.6rem;
+  font-size: var(--font-size-xs);
   flex-shrink: 0;
 }
 
@@ -860,14 +860,14 @@
 }
 
 .modal-trip-meta i {
-  font-size: 0.65rem;
+  font-size: var(--font-size-xs);
   opacity: 0.55;
 }
 
 /* Chevron arrow on right */
 .modal-trip-arrow {
   color: var(--text-tertiary);
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   flex-shrink: 0;
   opacity: 0;
   transform: translateX(-4px);
@@ -979,13 +979,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.65rem;
+  font-size: var(--font-size-xs);
   line-height: 1.2;
 }
 
 .orbit-node-visits {
   font-family: var(--font-family-display);
-  font-size: 0.9rem;
+  font-size: var(--font-size-md);
 }
 
 .places-detail-panel {

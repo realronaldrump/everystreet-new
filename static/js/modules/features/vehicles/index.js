@@ -317,7 +317,7 @@ function renderVehicleList(vehicles) {
     .sort((a, b) => getVehicleDisplayName(a).localeCompare(getVehicleDisplayName(b)))
     .forEach((vehicle) => {
       const card = document.createElement("div");
-      card.className = "vehicle-list-card";
+      card.className = "vehicle-list-card card card--object";
       if (currentVehicle?.imei && vehicle?.imei === currentVehicle.imei) {
         card.classList.add("is-selected");
       }
@@ -356,7 +356,9 @@ function renderVehicleList(vehicles) {
       const badgeWrap = document.createElement("div");
       badgeWrap.className = "vl-badge";
       const badge = document.createElement("span");
-      badge.className = vehicle?.is_active ? "badge bg-success" : "badge bg-secondary";
+      badge.className = vehicle?.is_active
+        ? "badge badge--success"
+        : "badge bg-secondary";
       badge.textContent = vehicle?.is_active ? "Active" : "Inactive";
       badgeWrap.appendChild(badge);
 
@@ -466,7 +468,7 @@ function displayVehicle(vehicle) {
   // Status badge
   if (vehicle.is_active) {
     elements.vehicleStatusBadge.innerHTML =
-      '<span class="badge bg-success">Active</span>';
+      '<span class="badge badge--success">Active</span>';
   } else {
     elements.vehicleStatusBadge.innerHTML =
       '<span class="badge bg-secondary">Inactive</span>';

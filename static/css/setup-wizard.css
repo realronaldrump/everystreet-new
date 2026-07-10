@@ -38,7 +38,7 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 1rem;
+  font-size: var(--font-size-md);
   background: var(--surface-2);
   border: 2px solid var(--border-color);
   color: var(--text-tertiary);
@@ -124,7 +124,7 @@
 }
 
 .setup-title {
-  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-size: var(--font-size-3xl);
   margin: var(--space-2) 0 var(--space-3);
   color: var(--text-primary);
 }
@@ -347,10 +347,10 @@
 
 .setup-help-panel {
   margin: var(--space-3) 0;
-  border: 1px solid rgb(var(--primary-rgb) / 20%);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  background: rgb(var(--primary-rgb) / 4%);
+  background: var(--surface-1);
 }
 
 .setup-help-toggle {
@@ -387,7 +387,7 @@ details[open] .setup-help-toggle::after {
 }
 
 .setup-help-toggle:hover {
-  background: rgb(var(--primary-rgb) / 8%);
+  background: var(--surface-2);
 }
 
 .setup-help-content {
@@ -410,8 +410,8 @@ details[open] .setup-help-toggle::after {
   gap: var(--space-2);
   padding: var(--space-3);
   border-radius: var(--radius-md);
-  background: rgb(var(--primary-rgb) / 8%);
-  border: 1px solid rgb(var(--primary-rgb) / 15%);
+  background: var(--surface-2);
+  border: 1px solid var(--border-color);
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   margin-top: var(--space-3);
@@ -515,9 +515,9 @@ details[open] .setup-help-toggle::after {
   display: none;
   padding: var(--space-3);
   border-radius: var(--radius-md);
-  background: rgb(var(--primary-rgb) / 10%);
+  background: var(--surface-2);
   color: var(--text-secondary);
-  border: 1px solid rgb(var(--primary-rgb) / 20%);
+  border: 1px solid var(--border-color);
   animation: wizardFadeIn 0.3s ease;
 }
 
@@ -535,8 +535,8 @@ details[open] .setup-help-toggle::after {
 /* ─── Status chips ──────────────────────────────────────────────── */
 
 .setup-status-chip {
-  background: rgb(var(--primary-rgb) / 12%);
-  border: 1px solid rgb(var(--primary-rgb) / 35%);
+  background: var(--surface-2);
+  border: 1px solid var(--border-color-light);
   border-radius: 999px;
   color: var(--text-primary);
   font-size: var(--font-size-xs);
@@ -600,10 +600,10 @@ details[open] .setup-help-toggle::after {
   border-radius: var(--radius-lg);
   display: grid;
   place-items: center;
-  font-size: 1.25rem;
-  background: rgb(var(--primary-rgb) / 15%);
-  color: rgb(var(--primary-rgb));
-  border: 1px solid rgb(var(--primary-rgb) / 25%);
+  font-size: var(--font-size-lg);
+  background: transparent;
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 
@@ -686,9 +686,9 @@ details[open] .setup-help-toggle::after {
 
 .setup-import-activity {
   margin-bottom: var(--space-4);
-  border: 1px solid rgb(var(--primary-rgb) / 20%);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  background: rgb(var(--primary-rgb) / 4%);
+  background: var(--surface-1);
   overflow: hidden;
   animation: wizardFadeIn 0.3s ease;
 }
@@ -698,13 +698,13 @@ details[open] .setup-help-toggle::after {
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  background: rgb(var(--primary-rgb) / 8%);
+  background: var(--surface-2);
   font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: var(--font-weight-semibold);
-  color: rgb(var(--primary-rgb));
-  border-bottom: 1px solid rgb(var(--primary-rgb) / 12%);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .setup-import-activity-log {
@@ -786,8 +786,8 @@ details[open] .setup-help-toggle::after {
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
-  border: 1px solid rgb(var(--primary-rgb) / 25%);
-  background: rgb(var(--primary-rgb) / 8%);
+  border: 1px solid var(--border-color-light);
+  background: var(--surface-2);
   font-size: var(--font-size-sm);
   color: var(--text-primary);
   font-weight: var(--font-weight-semibold);
@@ -860,7 +860,7 @@ details[open] .setup-help-toggle::after {
 
 .setup-finish-btn {
   padding: var(--space-3) var(--space-5);
-  font-size: 1rem;
+  font-size: var(--font-size-md);
   position: relative;
   overflow: hidden;
 }
@@ -915,4 +915,81 @@ details[open] .setup-help-toggle::after {
   .setup-card-header {
     flex-direction: column;
   }
+}
+
+/* Field Atlas: one visible workflow stepper and hairline content cards. */
+.setup-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.setup-sidebar {
+  display: none;
+}
+
+.setup-progress-track.atlas-stepper {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(4.5rem, 1fr);
+  max-width: 42rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.setup-progress-step.atlas-step {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-3) var(--space-2) 0;
+}
+
+.setup-progress-step.atlas-step .setup-progress-dot.atlas-step-index,
+.setup-progress-step.atlas-step.is-active .setup-progress-dot.atlas-step-index,
+.setup-progress-step.atlas-step.is-complete .setup-progress-dot.atlas-step-index {
+  width: auto;
+  height: auto;
+  min-width: 2ch;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-tertiary);
+}
+
+.setup-progress-step.atlas-step.is-active .setup-progress-dot.atlas-step-index {
+  color: var(--text-primary);
+}
+
+.setup-progress-step.atlas-step.is-complete .setup-progress-dot.atlas-step-index {
+  color: transparent;
+}
+
+.setup-progress-step.atlas-step .setup-progress-label.atlas-step-label,
+.setup-progress-step.atlas-step.is-active .setup-progress-label.atlas-step-label {
+  color: inherit;
+}
+
+.setup-progress-connector {
+  display: none;
+}
+
+.setup-hero.page-masthead {
+  justify-content: center;
+  text-align: center;
+}
+
+.setup-card {
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+}
+
+.setup-card-header {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.setup-card-section {
+  border-right: 0;
+  border-left: 0;
+  border-radius: 0;
+  background: transparent;
 }

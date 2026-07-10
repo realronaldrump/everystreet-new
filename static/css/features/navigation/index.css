@@ -77,7 +77,7 @@ body.live-navigation-active .main-content {
 }
 
 /* Light mode overrides */
-body.light-mode .live-navigation {
+html.light-mode body .live-navigation {
   --nav-surface: var(--surface-glass);
   --nav-surface-strong: var(--surface-1);
   --nav-surface-elevated: var(--surface-2);
@@ -150,7 +150,7 @@ body.light-mode .live-navigation {
   padding: 8px 12px;
   border-radius: 999px;
   background: var(--nav-surface);
-  font-size: 0.8rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--nav-muted);
   box-shadow: var(--nav-shadow);
@@ -240,7 +240,7 @@ body.light-mode .live-navigation {
 .nav-progress-bar {
   width: 100%;
   height: 6px;
-  background: rgb(15 23 42 / 8%);
+  background: rgb(var(--text-rgb) / 8%);
   border-radius: 999px;
   overflow: hidden;
 }
@@ -271,7 +271,7 @@ body.light-mode .live-navigation {
 }
 
 .nav-stat .label {
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--nav-muted);
@@ -279,7 +279,7 @@ body.light-mode .live-navigation {
 }
 
 .nav-stat .value {
-  font-size: 1.05rem;
+  font-size: var(--font-size-lg);
   font-weight: 700;
   color: var(--nav-text);
 }
@@ -292,7 +292,7 @@ body.light-mode .live-navigation {
 }
 
 .nav-status {
-  font-size: 0.85rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--nav-muted);
 }
@@ -350,7 +350,7 @@ body.light-mode .live-navigation {
 }
 
 .nav-setup-title {
-  font-size: 1.4rem;
+  font-size: var(--font-size-xl);
   font-weight: 700;
   color: var(--nav-text);
 }
@@ -358,11 +358,11 @@ body.light-mode .live-navigation {
 .nav-setup-subtitle {
   margin: 6px 0 0;
   color: var(--nav-muted);
-  font-size: 0.95rem;
+  font-size: var(--font-size-md);
 }
 
 .nav-label {
-  font-size: 0.8rem;
+  font-size: var(--font-size-sm);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--nav-muted);
@@ -395,8 +395,8 @@ body.light-mode .live-navigation {
   border: none;
   padding: var(--nav-space-sm) var(--nav-space-md);
   border-radius: var(--nav-radius-md);
-  background: var(--primary-gradient);
-  color: var(--text-on-primary);
+  background: var(--action);
+  color: var(--text-on-action);
   font-weight: var(--font-weight-bold);
   cursor: pointer;
   transition:
@@ -456,14 +456,14 @@ body.light-mode .live-navigation {
 }
 
 .nav-setup-status {
-  font-size: 0.9rem;
+  font-size: var(--font-size-md);
   color: var(--nav-muted);
 }
 
 .nav-setup-summary {
   display: grid;
   gap: 8px;
-  font-size: 0.9rem;
+  font-size: var(--font-size-md);
   color: var(--nav-text);
 }
 
@@ -489,7 +489,7 @@ body.light-mode .live-navigation {
   display: grid;
   place-items: center;
   color: var(--text-on-primary);
-  font-size: 0.6rem;
+  font-size: var(--font-size-xs);
 }
 
 .nav-position-marker i {
@@ -825,7 +825,7 @@ body.light-mode .live-navigation {
   color: var(--nav-warning);
   display: grid;
   place-items: center;
-  font-size: 1rem;
+  font-size: var(--font-size-md);
 }
 
 .nav-resume-title {
@@ -899,7 +899,7 @@ body.light-mode .live-navigation {
 .nav-stale-regen {
   border: none;
   background: var(--nav-warning);
-  color: #000;
+  color: var(--text-on-warning);
   padding: var(--nav-space-xs) var(--nav-space-sm);
   border-radius: var(--radius-full);
   font-size: var(--font-size-xs);
@@ -965,12 +965,12 @@ body.light-mode .live-navigation {
   color: var(--nav-accent);
   display: grid;
   place-items: center;
-  font-size: 1.3rem;
+  font-size: var(--font-size-xl);
   animation: pulse 2s ease-in-out infinite;
 }
 
 .nav-generating-title {
-  font-size: 1.2rem;
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   color: var(--nav-text);
 }

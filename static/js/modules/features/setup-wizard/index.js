@@ -442,30 +442,6 @@ function updateProgressBar({
       step.classList.toggle("is-complete", coverageRequired && coverageComplete);
     }
   });
-
-  // Connector fill
-  const connector0 = document.getElementById("progress-connector-0");
-  const connector1 = document.getElementById("progress-connector-1");
-
-  if (connector0) {
-    connector0.classList.remove("is-half", "is-full");
-    if (providerComplete) {
-      connector0.classList.add("is-full");
-    }
-  }
-
-  if (connector1) {
-    connector1.classList.remove("is-half", "is-full");
-    if (!coverageRequired) {
-      // Hidden in Google mode.
-      return;
-    }
-    if (coverageComplete) {
-      connector1.classList.add("is-full");
-    } else if (credentialsComplete) {
-      connector1.classList.add("is-half");
-    }
-  }
 }
 
 function goToStep(stepIndex, { force = false } = {}) {
@@ -532,7 +508,6 @@ function updateProviderUI() {
       googleForm.style.display = "";
     }
     document.getElementById("progress-step-coverage")?.classList.add("d-none");
-    document.getElementById("progress-connector-container-1")?.classList.add("d-none");
     document.getElementById("sidebar-step-coverage")?.classList.add("d-none");
     if (currentStep > 1) {
       goToStep(1, { force: true });
@@ -545,9 +520,6 @@ function updateProviderUI() {
       googleForm.style.display = "none";
     }
     document.getElementById("progress-step-coverage")?.classList.remove("d-none");
-    document
-      .getElementById("progress-connector-container-1")
-      ?.classList.remove("d-none");
     document.getElementById("sidebar-step-coverage")?.classList.remove("d-none");
   }
 }

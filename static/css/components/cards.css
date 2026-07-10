@@ -215,7 +215,7 @@ button.card:hover,
   border: 1px solid var(--surface-2);
 }
 
-body.light-mode .card.bg-darker {
+html.light-mode body .card.bg-darker {
   background-color: var(--surface-3);
   border: 1px solid var(--surface-4);
 }

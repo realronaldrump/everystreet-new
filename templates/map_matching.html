@@ -18,23 +18,26 @@ Every Street - Map Matching
 {% block content %}
 
   <div class="container-fluid px-4 py-3 map-matching-page">
+    <header class="page-masthead" data-stagger>
+      <div class="pm-lead">
+        <p class="pm-eyebrow">The alignment</p>
+        <h1 class="pm-title">Map Matching</h1>
+        <p class="pm-sub">Align recorded GPS traces with the roads they followed.</p>
+      </div>
+    </header>
     <div class="mm-wizard-shell" id="mm-wizard-shell">
-      <div class="mm-phase-indicator" role="navigation" aria-label="Wizard progress">
-        <div class="mm-phase-step is-active" data-phase="select">
-          <span class="mm-step-dot">1</span>
-          <span class="mm-step-label">Select</span>
+      <div class="mm-phase-indicator atlas-stepper" role="navigation" aria-label="Wizard progress">
+        <div class="mm-phase-step atlas-step is-active" data-phase="select">
+          <span class="mm-step-dot atlas-step-index">1</span>
+          <span class="mm-step-label atlas-step-label">Select</span>
         </div>
-        <div class="mm-phase-connector">
+        <div class="mm-phase-step atlas-step" data-phase="process">
+          <span class="mm-step-dot atlas-step-index">2</span>
+          <span class="mm-step-label atlas-step-label">Match</span>
         </div>
-        <div class="mm-phase-step" data-phase="process">
-          <span class="mm-step-dot">2</span>
-          <span class="mm-step-label">Match</span>
-        </div>
-        <div class="mm-phase-connector">
-        </div>
-        <div class="mm-phase-step" data-phase="results">
-          <span class="mm-step-dot">3</span>
-          <span class="mm-step-label">Review</span>
+        <div class="mm-phase-step atlas-step" data-phase="results">
+          <span class="mm-step-dot atlas-step-index">3</span>
+          <span class="mm-step-label atlas-step-label">Review</span>
         </div>
       </div>
       <section class="mm-phase is-active"
@@ -48,9 +51,9 @@ Every Street - Map Matching
             </svg>
           </div>
           <div class="mm-welcome-content">
-            <h1 class="mm-welcome-title" id="mm-select-heading">
+            <h2 class="mm-welcome-title" id="mm-select-heading">
             Match Trips to Roads
-            </h1>
+            </h2>
             <p class="mm-welcome-desc">
             GPS signals can be imprecise, causing trips to appear off-road or jagged.
             Route matching snaps your trips to actual roads for cleaner, more accurate
@@ -377,13 +380,13 @@ Failed Trips
               </button>
             </div>
           </div>
-          <div class="mm-results-tabs" id="mm-results-tabs">
-            <button class="mm-results-tab is-active" data-tab="matched" id="mm-tab-matched">
+          <div class="mm-results-tabs atlas-tabs" id="mm-results-tabs">
+            <button class="mm-results-tab atlas-tab is-active" data-tab="matched" id="mm-tab-matched">
               <i class="fas fa-check"></i>
               <span>Matched</span>
               <span class="mm-tab-count" id="mm-tab-matched-count">0</span>
             </button>
-            <button class="mm-results-tab" data-tab="failed" id="mm-tab-failed">
+            <button class="mm-results-tab atlas-tab" data-tab="failed" id="mm-tab-failed">
               <i class="fas fa-exclamation-circle"></i>
               <span>Issues</span>
               <span class="mm-tab-count mm-tab-count-warning" id="mm-tab-failed-count">0</span>

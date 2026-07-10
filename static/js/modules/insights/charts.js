@@ -35,6 +35,35 @@ const HEATMAP_X_TICKS = [0, 3, 6, 9, 12, 15, 18, 21, 23].map((hour) =>
 );
 let pendingHeatmapResize = false;
 
+function readColorToken(name, fallback) {
+  return (
+    getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
+  );
+}
+
+function withAlpha(color, alpha) {
+  const hex = color.match(/^#([0-9a-f]{6})$/i)?.[1];
+  if (hex) {
+    const channels = [0, 2, 4].map((offset) =>
+      Number.parseInt(hex.slice(offset, offset + 2), 16)
+    );
+    return `rgba(${channels.join(", ")}, ${alpha})`;
+  }
+  const channels = color.match(/[\d.]+/g)?.slice(0, 3);
+  return channels?.length === 3 ? `rgba(${channels.join(", ")}, ${alpha})` : color;
+}
+
+function getAtlasChartPalette() {
+  return [
+    readColorToken("--cat-sage", "#3b8a7f"),
+    readColorToken("--cat-ochre", "#d4a24a"),
+    readColorToken("--cat-steel", "#5a86b0"),
+    readColorToken("--cat-coral", "#c47050"),
+    readColorToken("--cat-slate", "#727a84"),
+    readColorToken("--cat-purple", "#8a7ab0"),
+  ];
+}
+
 function registerChartCleanup(chart, cleanup) {
   if (!chart || typeof cleanup !== "function") {
     return;
@@ -351,6 +380,8 @@ function initTrendsChart() {
     destroyChartInstance(existingChart);
   }
 
+  const [sage, ochre] = getAtlasChartPalette();
+
   const chart = new Chart(trendsCtx, {
     type: "line",
     data: {
@@ -359,26 +390,26 @@ function initTrendsChart() {
         {
           label: "Distance",
           data: [],
-          borderColor: "rgb(59, 138, 127)",
-          backgroundColor: "rgba(59, 138, 127, 0.12)",
+          borderColor: sage,
+          backgroundColor: withAlpha(sage, 0.12),
           fill: true,
           borderWidth: 3,
           yAxisID: "y",
           pointRadius: 2,
-          pointBackgroundColor: "rgb(59, 138, 127)",
+          pointBackgroundColor: sage,
           pointHoverRadius: 4,
           tension: 0.3,
         },
         {
           label: "Trips",
           data: [],
-          borderColor: "rgb(196, 84, 84)",
-          backgroundColor: "rgba(196, 84, 84, 0.12)",
+          borderColor: ochre,
+          backgroundColor: withAlpha(ochre, 0.12),
           fill: true,
           borderWidth: 3,
           yAxisID: "y1",
           pointRadius: 2,
-          pointBackgroundColor: "rgb(196, 84, 84)",
+          pointBackgroundColor: ochre,
           pointHoverRadius: 4,
           tension: 0.3,
         },
@@ -597,6 +628,7 @@ function updateTimeHeatmap() {
   }
 
   const maxCount = Math.max(...cells.map((cell) => cell.count), 1);
+  const [sage] = getAtlasChartPalette();
   const width = Math.max(760, Math.round(host.clientWidth || 760));
   const height = width < 820 ? 330 : 370;
 
@@ -628,7 +660,7 @@ function updateTimeHeatmap() {
     color: {
       type: "linear",
       domain: [0, maxCount],
-      range: ["rgba(106, 159, 192, 0.10)", "rgba(106, 159, 192, 0.95)"],
+      range: [withAlpha(sage, 0.1), withAlpha(sage, 0.95)],
       label: "Trips",
       legend: true,
     },
@@ -647,7 +679,7 @@ function updateTimeHeatmap() {
           x: "hourLabel",
           y: "dayName",
           text: "count",
-          fill: "#0a0a0c",
+          fill: readColorToken("--text-on-primary", "#050507"),
           fontSize: 11,
           fontWeight: 700,
           pointerEvents: "none",

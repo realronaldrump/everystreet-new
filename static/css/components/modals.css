@@ -97,7 +97,7 @@
   filter: invert(1) grayscale(100%) brightness(200%);
 }
 
-body.light-mode .btn-close-white {
+html.light-mode body .btn-close-white {
   filter: none;
 }
 

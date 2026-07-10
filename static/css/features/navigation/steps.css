@@ -16,11 +16,11 @@
   width: 56px;
   height: 56px;
   border-radius: var(--nav-radius-md);
-  background: var(--primary-gradient);
-  color: var(--text-on-primary);
+  background: var(--action);
+  color: var(--text-on-action);
   display: grid;
   place-items: center;
-  font-size: 1.3rem;
+  font-size: var(--font-size-xl);
   box-shadow: var(--nav-glow), var(--nav-shadow);
 }
 
@@ -45,7 +45,7 @@
 }
 
 .nav-distance {
-  font-size: 0.85rem;
+  font-size: var(--font-size-sm);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--nav-muted);
@@ -53,12 +53,12 @@
 }
 
 .nav-primary {
-  font-size: 1.3rem;
+  font-size: var(--font-size-xl);
   font-weight: 700;
   color: var(--nav-text);
 }
 
 .nav-road {
-  font-size: 0.95rem;
+  font-size: var(--font-size-md);
   color: var(--nav-muted);
 }

@@ -77,7 +77,7 @@
   padding: var(--space-sm) var(--space-md);
   background: var(--surface-2);
   border-radius: var(--radius-pill);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
 
@@ -91,7 +91,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--success);
+  background: var(--text-tertiary);
   position: relative;
 }
 
@@ -188,9 +188,9 @@
   min-height: 44px;
   padding: 4px;
   gap: 4px;
-  border: 1px solid rgb(var(--primary-rgb) / 18%);
-  border-radius: 8px;
-  background: var(--surface-0);
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
 }
 
 .trip-view-btn {
@@ -204,7 +204,7 @@
   border-radius: 6px;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   cursor: pointer;
   transition:
@@ -220,9 +220,9 @@
 }
 
 .trip-view-btn.active {
-  color: var(--text-on-primary);
-  background: var(--primary);
-  border-color: var(--primary);
+  color: var(--text-on-action);
+  background: var(--action);
+  border-color: var(--action);
   box-shadow: var(--shadow-sm);
 }
 
@@ -247,7 +247,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -256,7 +256,7 @@
 }
 
 .sort-control-label i {
-  font-size: 0.8125rem;
+  font-size: var(--font-size-sm);
   color: var(--primary);
 }
 
@@ -276,14 +276,14 @@
   background-size: 12px 8px;
   background-position: right 0.875rem center;
   color: var(--text-primary);
-  font-size: 0.9rem;
+  font-size: var(--font-size-md);
   font-weight: 500;
   line-height: 1.2;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
-body.light-mode .trips-journal-page .sort-select {
+html.light-mode body .trips-journal-page .sort-select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='rgba(28,26,23,0.8)' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
 }
 
@@ -306,17 +306,17 @@ body.light-mode .trips-journal-page .sort-select {
   position: absolute;
   left: var(--space-md);
   color: var(--text-tertiary);
-  font-size: 1rem;
+  font-size: var(--font-size-md);
   pointer-events: none;
 }
 
 .search-input {
   width: 100%;
   padding: var(--space-md) var(--space-md) var(--space-md) 2.75rem;
-  border: 2px solid var(--surface-2);
-  border-radius: var(--radius-pill);
-  background: var(--surface-0);
-  font-size: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  font-size: var(--font-size-md);
   color: var(--text-primary);
   transition: all var(--transition-fast);
 }
@@ -361,7 +361,7 @@ body.light-mode .trips-journal-page .sort-select {
   background: var(--surface-2);
   border: 2px solid transparent;
   border-radius: var(--radius-pill);
-  font-size: 0.9375rem;
+  font-size: var(--font-size-md);
   font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
@@ -388,9 +388,9 @@ body.light-mode .trips-journal-page .sort-select {
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
-  background: var(--primary);
-  color: var(--text-on-primary);
-  font-size: 0.75rem;
+  background: var(--action);
+  color: var(--text-on-action);
+  font-size: var(--font-size-sm);
   font-weight: 600;
   border-radius: var(--radius-pill);
 }
@@ -448,7 +448,7 @@ body.light-mode .trips-journal-page .sort-select {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -457,14 +457,14 @@ body.light-mode .trips-journal-page .sort-select {
 
 .filters-header-title i {
   color: var(--primary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
 }
 
 .filters-header-status {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: 0.8125rem;
+  font-size: var(--font-size-sm);
   color: var(--text-tertiary);
 }
 
@@ -472,8 +472,8 @@ body.light-mode .trips-journal-page .sort-select {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--primary);
-  animation: pulse 2s ease-in-out infinite;
+  background: var(--text-tertiary);
+  animation: none;
 }
 
 .filter-group {
@@ -483,7 +483,7 @@ body.light-mode .trips-journal-page .sort-select {
 }
 
 .filter-label {
-  font-size: 0.8125rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -495,7 +495,7 @@ body.light-mode .trips-journal-page .sort-select {
 
 .filter-label i {
   color: var(--text-tertiary);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
 }
 
 .filter-select,
@@ -504,7 +504,7 @@ body.light-mode .trips-journal-page .sort-select {
   border: 2px solid var(--surface-2);
   border-radius: var(--radius-md);
   background: var(--surface-1);
-  font-size: 0.9375rem;
+  font-size: var(--font-size-md);
   color: var(--text-primary);
   color-scheme: dark;
   transition: all var(--transition-fast);
@@ -529,8 +529,8 @@ body.light-mode .trips-journal-page .sort-select {
   background: rgb(var(--primary-rgb) / 3%);
 }
 
-body.light-mode .trips-journal-page .sort-select,
-body.light-mode .trips-journal-page .filter-select {
+html.light-mode body .trips-journal-page .sort-select,
+html.light-mode body .trips-journal-page .filter-select {
   color-scheme: light;
 }
 
@@ -540,16 +540,16 @@ body.light-mode .trips-journal-page .filter-select {
   color: var(--text-primary);
 }
 
-body.light-mode .trips-journal-page .sort-select option,
-body.light-mode .trips-journal-page .filter-select option {
+html.light-mode body .trips-journal-page .sort-select option,
+html.light-mode body .trips-journal-page .filter-select option {
   background: var(--surface-1);
-  color: rgb(28 26 23 / 96%);
+  color: var(--text-primary);
 }
 
-body:not(.light-mode) .trips-journal-page .sort-select option,
-body:not(.light-mode) .trips-journal-page .filter-select option {
+html:not(.light-mode) body .trips-journal-page .sort-select option,
+html:not(.light-mode) body .trips-journal-page .filter-select option {
   background: var(--surface-1);
-  color: rgb(245 242 236 / 94%);
+  color: var(--text-primary);
 }
 
 .range-inputs {
@@ -565,7 +565,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .range-inputs span {
   color: var(--text-tertiary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   font-weight: 500;
 }
 
@@ -580,7 +580,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .filter-results-preview {
   margin-left: auto;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
 
@@ -593,21 +593,21 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .btn-reset {
   padding: var(--space-sm) var(--space-lg);
   border-radius: var(--radius-pill);
-  font-size: 0.9375rem;
+  font-size: var(--font-size-md);
   font-weight: 600;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .btn-apply {
-  background: var(--primary);
-  border: 2px solid var(--primary);
-  color: var(--text-on-primary);
+  background: var(--action);
+  border: 2px solid var(--action);
+  color: var(--text-on-action);
 }
 
 .btn-apply:hover {
-  background: var(--primary-dark);
-  border-color: var(--primary-dark);
+  background: var(--action-hover);
+  border-color: var(--action-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
 }
@@ -639,7 +639,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   background: rgb(var(--primary-rgb) / 10%);
   border: 1px solid rgb(var(--primary-rgb) / 20%);
   border-radius: var(--radius-pill);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   color: var(--text-primary);
   transition: all var(--transition-fast);
 }
@@ -703,7 +703,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   display: inline-flex;
   margin-bottom: var(--space-xs);
   color: var(--primary);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -712,7 +712,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   margin: 0;
   color: var(--text-primary);
   font-family: var(--font-display);
-  font-size: 1.5rem;
+  font-size: var(--font-size-xl);
   font-weight: 800;
   line-height: 1.2;
 }
@@ -720,7 +720,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .trips-list-summary {
   margin: var(--space-xs) 0 0;
   color: var(--text-secondary);
-  font-size: 0.9375rem;
+  font-size: var(--font-size-md);
 }
 
 .trips-list-actions {
@@ -741,7 +741,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   border-radius: 8px;
   background: var(--surface-0);
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   font-weight: 800;
   cursor: pointer;
   transition:
@@ -779,13 +779,13 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   flex-direction: column;
   gap: var(--space-xs);
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   line-height: 1.45;
 }
 
 .column-panel-copy strong {
   color: var(--text-primary);
-  font-size: 1rem;
+  font-size: var(--font-size-md);
 }
 
 .trip-column-list {
@@ -830,7 +830,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   align-items: center;
   gap: var(--space-sm);
   margin: 0;
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   cursor: pointer;
 }
@@ -868,7 +868,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   border-bottom: 1px solid rgb(var(--primary-rgb) / 20%);
   background: var(--surface-3);
   color: var(--text-secondary);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   font-weight: 900;
   text-align: left;
   text-transform: uppercase;
@@ -914,14 +914,14 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .sort-icon {
   color: var(--text-tertiary);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
 }
 
 .trip-table-cell {
   padding: var(--space-md);
   border-bottom: 1px solid var(--surface-2);
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   vertical-align: middle;
 }
 
@@ -991,7 +991,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .trip-table-stack span,
 .trip-table-ids span {
   color: var(--text-tertiary);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   line-height: 1.35;
 }
 
@@ -1036,7 +1036,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   border-radius: 6px;
   background: rgb(var(--primary-rgb) / 9%);
   color: var(--text-secondary);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   font-weight: 800;
   text-transform: capitalize;
 }
@@ -1132,14 +1132,14 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .timeline-title {
   font-family: var(--font-display);
-  font-size: 1.5rem;
+  font-size: var(--font-size-xl);
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
 }
 
 .timeline-count {
-  font-size: 0.9375rem;
+  font-size: var(--font-size-md);
   color: var(--text-secondary);
   background: var(--surface-2);
   padding: var(--space-xs) var(--space-md);
@@ -1149,7 +1149,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .timeline-section-note {
   margin: calc(-1 * var(--space-sm)) 0 var(--space-lg);
   color: var(--text-tertiary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   line-height: 1.5;
 }
 
@@ -1280,10 +1280,10 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   position: absolute;
   top: var(--space-sm);
   right: var(--space-sm);
-  background: rgb(0 0 0 / 50%);
+  background: rgb(var(--backdrop-rgb) / 50%);
   backdrop-filter: blur(4px);
   color: var(--text-primary);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-pill);
@@ -1314,7 +1314,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .trip-route-line .route-end {
-  fill: var(--primary);
+  fill: var(--map-trip-path);
 }
 
 /* Card Content */
@@ -1334,7 +1334,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .trip-title {
-  font-size: 1.125rem;
+  font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
@@ -1351,7 +1351,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   padding: var(--space-xs) var(--space-sm);
   background: var(--surface-3);
   border-radius: var(--radius-pill);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--text-secondary);
 }
@@ -1377,7 +1377,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   display: flex;
   align-items: stretch;
   gap: var(--space-sm);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
 
@@ -1401,7 +1401,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .trip-route-timeline .timeline-dot.end {
-  background: var(--primary);
+  background: var(--map-trip-path);
 }
 
 .trip-route-timeline .timeline-connector {
@@ -1431,7 +1431,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-sm);
-  font-size: 0.8125rem;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
 
@@ -1443,7 +1443,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .trip-meta-item i {
   color: var(--text-tertiary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
 }
 
 /* Card Footer */
@@ -1456,7 +1456,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .trip-date {
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   color: var(--text-tertiary);
 }
 
@@ -1524,21 +1524,21 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .empty-icon {
-  font-size: 1.5rem;
+  font-size: var(--font-size-xl);
   display: block;
   color: var(--text-tertiary);
 }
 
 .empty-title {
   font-family: var(--font-display);
-  font-size: 1.35rem;
+  font-size: var(--font-size-xl);
   font-weight: 700;
   color: var(--text-primary);
   margin: 0 0 var(--space-sm);
 }
 
 .empty-text {
-  font-size: 1.0625rem;
+  font-size: var(--font-size-lg);
   color: var(--text-secondary);
   margin-bottom: var(--space-xl);
   max-width: 400px;
@@ -1558,16 +1558,16 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   gap: var(--space-sm);
   padding: var(--space-md) var(--space-xl);
   border-radius: var(--radius-pill);
-  font-size: 1rem;
+  font-size: var(--font-size-md);
   font-weight: 600;
 }
 
 .trips-journal-page .btn-primary {
-  --btn-bg: var(--primary);
-  --btn-bg-hover: var(--primary-dark);
-  --btn-border: var(--primary);
-  --btn-border-hover: var(--primary-dark);
-  --btn-color: var(--text-on-primary);
+  --btn-bg: var(--action);
+  --btn-bg-hover: var(--action-hover);
+  --btn-border: var(--action);
+  --btn-border-hover: var(--action-hover);
+  --btn-color: var(--text-on-action);
   --btn-shadow-hover: var(--shadow-md);
 }
 
@@ -1599,7 +1599,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .pagination-info {
-  font-size: 0.9375rem;
+  font-size: var(--font-size-md);
   color: var(--text-secondary);
 }
 
@@ -1617,7 +1617,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   --pagination-btn-hover-bg: var(--surface-2);
   --pagination-btn-hover-border-color: var(--primary-light);
   --pagination-btn-color: var(--text-primary);
-  --pagination-btn-font-size: 0.9375rem;
+  --pagination-btn-font-size: var(--font-size-md);
   --pagination-btn-disabled-opacity: 0.5;
 }
 
@@ -1635,7 +1635,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   background: var(--surface-0);
   border: 1px solid var(--surface-2);
   border-radius: var(--radius-md);
-  font-size: 0.9375rem;
+  font-size: var(--font-size-md);
   font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
@@ -1648,9 +1648,9 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .page-number.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: var(--text-on-primary);
+  background: var(--action);
+  border-color: var(--action);
+  color: var(--text-on-action);
 }
 
 /* ============================================
@@ -1686,7 +1686,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .bulk-info {
-  font-size: 0.9375rem;
+  font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--text-primary);
   padding-right: var(--space-md);
@@ -1706,7 +1706,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   background: var(--surface-0);
   border: 1px solid var(--surface-2);
   border-radius: var(--radius-pill);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
@@ -1744,16 +1744,16 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .trip-details-modal .modal-content {
   background: var(--surface-1);
   border-radius: 24px;
-  border: 1px solid rgb(255 255 255 / 8%);
+  border: 1px solid rgb(var(--text-rgb) / 8%);
   box-shadow:
-    0 0 0 1px rgb(0 0 0 / 30%),
-    0 25px 80px -20px rgb(0 0 0 / 70%);
+    0 0 0 1px rgb(var(--backdrop-rgb) / 30%),
+    0 25px 80px -20px rgb(var(--backdrop-rgb) / 70%);
   overflow: hidden;
 }
 
 .trip-details-modal .modal-header {
   padding: 28px 32px;
-  border-bottom: 1px solid rgb(255 255 255 / 6%);
+  border-bottom: 1px solid rgb(var(--text-rgb) / 6%);
   background: transparent;
   position: relative;
 }
@@ -1768,29 +1768,29 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .modal-title {
   font-family: var(--font-display);
-  font-size: 1.75rem;
+  font-size: var(--font-size-2xl);
   font-weight: 800;
   color: var(--text-primary);
   margin: 0;
   letter-spacing: -0.02em;
-  text-shadow: 0 2px 10px rgb(0 0 0 / 30%);
+  text-shadow: 0 2px 10px rgb(var(--backdrop-rgb) / 30%);
 }
 
 .modal-subtitle {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: 0.875rem;
-  color: rgb(255 255 255 / 50%);
+  font-size: var(--font-size-sm);
+  color: rgb(var(--text-rgb) / 50%);
   margin-top: 6px;
   font-weight: 500;
 }
 
 .modal-subtitle .trip-id {
   font-family: var(--font-family-mono);
-  font-size: 0.75rem;
-  color: rgb(255 255 255 / 30%);
-  background: rgb(255 255 255 / 5%);
+  font-size: var(--font-size-sm);
+  color: rgb(var(--text-rgb) / 30%);
+  background: rgb(var(--text-rgb) / 5%);
   padding: 2px 8px;
   border-radius: 4px;
   letter-spacing: 0.02em;
@@ -1803,8 +1803,8 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   border-radius: 999px;
   background: rgb(var(--primary-rgb) / 16%);
   border: 1px dashed rgb(var(--primary-rgb) / 35%);
-  color: rgb(255 255 255 / 80%);
-  font-size: 0.6875rem;
+  color: rgb(var(--text-rgb) / 80%);
+  font-size: var(--font-size-xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1821,21 +1821,21 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgb(255 255 255 / 4%);
-  border: 1px solid rgb(255 255 255 / 8%);
+  background: rgb(var(--text-rgb) / 4%);
+  border: 1px solid rgb(var(--text-rgb) / 8%);
   border-radius: 12px;
-  color: rgb(255 255 255 / 60%);
+  color: rgb(var(--text-rgb) / 60%);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  font-size: 1rem;
+  font-size: var(--font-size-md);
 }
 
 .btn-icon:hover {
-  background: rgb(255 255 255 / 10%);
-  border-color: rgb(255 255 255 / 15%);
+  background: rgb(var(--text-rgb) / 10%);
+  border-color: rgb(var(--text-rgb) / 15%);
   color: var(--text-primary);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgb(0 0 0 / 20%);
+  box-shadow: 0 4px 12px rgb(var(--backdrop-rgb) / 20%);
 }
 
 .btn-icon.btn-danger:hover {
@@ -1851,8 +1851,8 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .btn-close {
-  background: rgb(255 255 255 / 4%);
-  border: 1px solid rgb(255 255 255 / 8%);
+  background: rgb(var(--text-rgb) / 4%);
+  border: 1px solid rgb(var(--text-rgb) / 8%);
   border-radius: 12px;
   width: 42px;
   height: 42px;
@@ -1862,7 +1862,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .btn-close:hover {
   opacity: 1;
-  background: rgb(255 255 255 / 10%);
+  background: rgb(var(--text-rgb) / 10%);
   transform: translateY(-2px);
 }
 
@@ -1891,13 +1891,13 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   flex-direction: column;
   gap: 16px;
   padding: 18px 20px;
-  background: rgb(23 25 35 / 85%);
-  border: 1px solid rgb(255 255 255 / 10%);
+  background: rgb(var(--surface-rgb) / 85%);
+  border: 1px solid rgb(var(--text-rgb) / 10%);
   backdrop-filter: blur(20px);
   border-radius: 16px;
   box-shadow:
-    0 8px 32px rgb(0 0 0 / 40%),
-    0 0 0 1px rgb(var(--accent-rgb) / 10%);
+    0 8px 32px rgb(var(--backdrop-rgb) / 40%),
+    0 0 0 1px rgb(var(--primary-rgb) / 10%);
   min-width: 200px;
 }
 
@@ -1907,12 +1907,12 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   justify-content: center;
   gap: 10px;
   padding: 12px 20px;
-  background: var(--accent);
+  background: var(--action);
   border: none;
   border-radius: 12px;
-  font-size: 0.9375rem;
+  font-size: var(--font-size-md);
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text-on-action);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--shadow-sm);
@@ -1943,18 +1943,18 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .playback-speed label {
-  font-size: 0.6875rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
-  color: rgb(255 255 255 / 50%);
+  color: rgb(var(--text-rgb) / 50%);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
 .playback-speed input[type="range"] {
   width: 100%;
-  accent-color: var(--accent);
+  accent-color: var(--action);
   height: 4px;
-  background: rgb(255 255 255 / 10%);
+  background: rgb(var(--text-rgb) / 10%);
   border-radius: 2px;
   outline: none;
 }
@@ -1963,15 +1963,15 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   appearance: none;
   width: 14px;
   height: 14px;
-  background: var(--accent);
+  background: var(--action);
   border-radius: 50%;
   cursor: pointer;
   box-shadow: var(--shadow-sm);
 }
 
 #trip-playback-speed-label {
-  font-size: 0.75rem;
-  color: rgb(255 255 255 / 70%);
+  font-size: var(--font-size-sm);
+  color: rgb(var(--text-rgb) / 70%);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -1982,7 +1982,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgb(15 17 25 / 95%);
+  background: rgb(var(--surface-rgb) / 95%);
   z-index: 10;
   backdrop-filter: blur(8px);
 }
@@ -1996,16 +1996,16 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .loading-content span {
-  color: rgb(255 255 255 / 60%);
-  font-size: 0.875rem;
+  color: rgb(var(--text-rgb) / 60%);
+  font-size: var(--font-size-sm);
   font-weight: 500;
 }
 
 .spinner {
   width: 44px;
   height: 44px;
-  border: 3px solid rgb(255 255 255 / 10%);
-  border-top-color: var(--accent);
+  border: 3px solid rgb(var(--text-rgb) / 10%);
+  border-top-color: var(--action);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -2024,7 +2024,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   transform: translate(-50%, -50%);
   width: 16px;
   height: 16px;
-  background: var(--accent);
+  background: var(--primary);
   border-radius: 50%;
   border: 2px solid rgb(var(--text-rgb) / 85%);
   box-shadow: var(--shadow-sm);
@@ -2038,7 +2038,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   transform: translate(-50%, -50%);
   width: 16px;
   height: 16px;
-  background: rgb(var(--accent-rgb) / 60%);
+  background: rgb(var(--primary-rgb) / 60%);
   border-radius: 50%;
   z-index: 1;
   animation: markerPulse 2s ease-out infinite;
@@ -2069,23 +2069,23 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .trip-route-marker--end {
-  --marker-color: var(--accent);
-  --marker-rgb: 184, 122, 74;
+  --marker-color: var(--map-trip-path);
+  --marker-rgb: var(--map-trip-path-rgb);
 }
 
 .trip-route-marker__label {
   padding: 4px 10px;
-  font-size: 0.625rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: rgb(255 255 255 / 85%);
-  background: rgb(23 25 35 / 88%);
-  border: 1px solid rgb(255 255 255 / 18%);
+  color: rgb(var(--text-rgb) / 85%);
+  background: rgb(var(--surface-rgb) / 88%);
+  border: 1px solid rgb(var(--text-rgb) / 18%);
   border-radius: 999px;
   backdrop-filter: blur(8px);
   box-shadow:
-    0 10px 20px rgb(0 0 0 / 35%),
+    0 10px 20px rgb(var(--backdrop-rgb) / 35%),
     0 0 0 1px rgb(var(--marker-rgb) / 25%);
 }
 
@@ -2094,10 +2094,10 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   height: 18px;
   border-radius: 50%;
   background: var(--marker-color);
-  border: 2px solid rgb(255 255 255 / 95%);
+  border: 2px solid rgb(var(--text-rgb) / 95%);
   box-shadow:
     0 0 0 6px rgb(var(--marker-rgb) / 25%),
-    0 10px 18px rgb(0 0 0 / 45%);
+    0 10px 18px rgb(var(--backdrop-rgb) / 45%);
   position: relative;
 }
 
@@ -2106,15 +2106,15 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   position: absolute;
   inset: 4px;
   border-radius: 50%;
-  background: rgb(255 255 255 / 35%);
+  background: rgb(var(--text-rgb) / 35%);
 }
 
 /* Side Panel */
 .trip-modal-panel {
-  background: rgb(23 25 35 / 40%);
+  background: rgb(var(--surface-rgb) / 40%);
   max-height: 70vh;
   overflow-y: auto;
-  border-left: 1px solid rgb(255 255 255 / 6%);
+  border-left: 1px solid rgb(var(--text-rgb) / 6%);
 }
 
 .panel-content {
@@ -2144,9 +2144,9 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .section-title {
-  font-size: 0.6875rem;
+  font-size: var(--font-size-xs);
   font-weight: 800;
-  color: rgb(255 255 255 / 40%);
+  color: rgb(var(--text-rgb) / 40%);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   margin: 0 0 16px;
@@ -2159,7 +2159,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   content: "";
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, rgb(255 255 255 / 10%) 0%, transparent 100%);
+  background: linear-gradient(90deg, rgb(var(--text-rgb) / 10%) 0%, transparent 100%);
 }
 
 /* Route Display - Timeline Style */
@@ -2175,7 +2175,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   top: 24px;
   bottom: 24px;
   width: 2px;
-  background: var(--accent);
+  background: var(--map-trip-path);
   border-radius: 1px;
 }
 
@@ -2184,16 +2184,16 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   align-items: flex-start;
   gap: 16px;
   padding: 18px;
-  background: rgb(255 255 255 / 3%);
-  border: 1px solid rgb(255 255 255 / 6%);
+  background: rgb(var(--text-rgb) / 3%);
+  border: 1px solid rgb(var(--text-rgb) / 6%);
   border-radius: 14px;
   transition: all 0.2s ease;
   position: relative;
 }
 
 .route-point:hover {
-  background: rgb(255 255 255 / 6%);
-  border-color: rgb(255 255 255 / 10%);
+  background: rgb(var(--text-rgb) / 6%);
+  border-color: rgb(var(--text-rgb) / 10%);
   transform: translateX(4px);
 }
 
@@ -2218,13 +2218,13 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .route-point.end::before {
-  background: var(--accent-light);
-  border-color: var(--accent-light);
-  box-shadow: 0 0 0 4px rgb(var(--accent-rgb) / 20%);
+  background: var(--map-trip-path);
+  border-color: var(--map-trip-path);
+  box-shadow: 0 0 0 4px rgb(var(--map-trip-path-rgb) / 20%);
 }
 
 .route-point i {
-  font-size: 1.25rem;
+  font-size: var(--font-size-lg);
   margin-top: 2px;
   width: 24px;
   height: 24px;
@@ -2232,7 +2232,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   align-items: center;
   justify-content: center;
   border-radius: 6px;
-  background: rgb(255 255 255 / 5%);
+  background: rgb(var(--text-rgb) / 5%);
 }
 
 .route-point.start i {
@@ -2241,8 +2241,8 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .route-point.end i {
-  color: var(--accent-light);
-  background: rgb(var(--accent-rgb) / 10%);
+  color: var(--map-trip-path);
+  background: rgb(var(--map-trip-path-rgb) / 10%);
 }
 
 .route-info {
@@ -2253,22 +2253,22 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .route-label {
-  font-size: 0.6875rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
-  color: rgb(255 255 255 / 40%);
+  color: rgb(var(--text-rgb) / 40%);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
 .route-location {
-  font-size: 1rem;
+  font-size: var(--font-size-md);
   font-weight: 600;
-  color: rgb(255 255 255 / 90%);
+  color: rgb(var(--text-rgb) / 90%);
   line-height: 1.4;
 }
 
 .route-location.unknown {
-  color: rgb(255 255 255 / 40%);
+  color: rgb(var(--text-rgb) / 40%);
   font-style: italic;
   font-weight: 500;
 }
@@ -2277,8 +2277,8 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 .section-action-btn {
   background: none;
   border: none;
-  color: rgb(255 255 255 / 25%);
-  font-size: 0.6rem;
+  color: rgb(var(--text-rgb) / 25%);
+  font-size: var(--font-size-xs);
   cursor: pointer;
   padding: 3px 5px;
   border-radius: 4px;
@@ -2296,19 +2296,19 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .section-action-btn:hover {
-  color: rgb(255 255 255 / 65%);
-  background: rgb(255 255 255 / 8%);
+  color: rgb(var(--text-rgb) / 65%);
+  background: rgb(var(--text-rgb) / 8%);
 }
 
 .section-action-btn:active {
-  color: rgb(255 255 255 / 80%);
-  background: rgb(255 255 255 / 12%);
+  color: rgb(var(--text-rgb) / 80%);
+  background: rgb(var(--text-rgb) / 12%);
 }
 
 .section-action-btn:disabled {
   cursor: not-allowed;
   opacity: 1;
-  color: rgb(255 255 255 / 30%);
+  color: rgb(var(--text-rgb) / 30%);
 }
 
 .section-action-btn.is-loading {
@@ -2335,14 +2335,14 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   border-radius: 14px;
   background: rgb(var(--primary-rgb) / 10%);
   border: 1px dashed rgb(var(--primary-rgb) / 28%);
-  color: rgb(255 255 255 / 78%);
-  font-size: 0.875rem;
+  color: rgb(var(--text-rgb) / 78%);
+  font-size: var(--font-size-sm);
   line-height: 1.5;
 }
 
 .trip-inactive-note i {
   margin-top: 2px;
-  color: var(--accent-light);
+  color: var(--text-tertiary);
 }
 
 .btn-route-action {
@@ -2353,11 +2353,11 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   justify-content: center;
   gap: 10px;
   padding: 12px 16px;
-  border: 1px solid rgb(var(--accent-rgb) / 22%);
+  border: 1px solid var(--border-color-light);
   border-radius: 14px;
-  background: rgb(var(--accent-rgb) / 12%);
-  color: rgb(255 255 255 / 85%);
-  font-size: 0.9375rem;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
   font-weight: 700;
   letter-spacing: -0.01em;
   cursor: pointer;
@@ -2370,10 +2370,10 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .btn-route-action:hover {
   transform: translateY(-1px);
-  border-color: rgb(var(--accent-rgb) / 35%);
+  border-color: rgb(var(--action-rgb) / 35%);
   box-shadow:
-    0 10px 30px -16px rgb(0 0 0 / 55%),
-    0 0 0 1px rgb(var(--accent-rgb) / 10%);
+    0 10px 30px -16px rgb(var(--backdrop-rgb) / 55%),
+    0 0 0 1px rgb(var(--action-rgb) / 10%);
 }
 
 .btn-route-action:active {
@@ -2393,8 +2393,8 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 .route-action-status {
   min-height: 1.1em;
-  font-size: 0.8125rem;
-  color: rgb(255 255 255 / 45%);
+  font-size: var(--font-size-sm);
+  color: rgb(var(--text-rgb) / 45%);
   line-height: 1.35;
 }
 
@@ -2410,18 +2410,18 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  border: 1px solid rgb(255 255 255 / 8%);
+  border: 1px solid rgb(var(--text-rgb) / 8%);
   border-radius: var(--radius-md);
   transition: border-color 0.2s ease;
 }
 
 .stat-item:hover {
-  border-color: rgb(255 255 255 / 14%);
+  border-color: rgb(var(--text-rgb) / 14%);
 }
 
 .stat-item i {
-  font-size: 1rem;
-  color: rgb(255 255 255 / 45%);
+  font-size: var(--font-size-md);
+  color: rgb(var(--text-rgb) / 45%);
   width: 20px;
   display: flex;
   align-items: center;
@@ -2435,7 +2435,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .stat-info .stat-value {
-  font-size: 1.25rem;
+  font-size: var(--font-size-lg);
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.02em;
@@ -2443,9 +2443,9 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .stat-info .stat-label {
-  font-size: 0.6875rem;
+  font-size: var(--font-size-xs);
   font-weight: 600;
-  color: rgb(255 255 255 / 40%);
+  color: rgb(var(--text-rgb) / 40%);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -2462,26 +2462,26 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   align-items: center;
   min-height: 44px;
   padding: 8px 16px;
-  background: rgb(var(--accent-rgb) / 10%);
-  border: 1px solid rgb(var(--accent-rgb) / 25%);
+  background: transparent;
+  border: 1px solid var(--border-color-light);
   border-radius: 20px;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
-  color: rgb(255 255 255 / 70%);
+  color: rgb(var(--text-rgb) / 70%);
   text-decoration: none;
   transition: all 0.2s ease;
   cursor: pointer;
 }
 
 .trip-tag:hover {
-  background: rgb(var(--accent-rgb) / 20%);
-  border-color: rgb(var(--accent-rgb) / 40%);
+  background: var(--surface-2);
+  border-color: var(--border-color-light);
   color: var(--text-primary);
   transform: translateY(-1px);
 }
 
 .trip-tag:focus-visible {
-  outline: 2px solid rgb(var(--accent-rgb) / 55%);
+  outline: 2px solid rgb(var(--primary-rgb) / 55%);
   outline-offset: 3px;
 }
 
@@ -2494,7 +2494,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 }
 
 .form-group label {
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--text-secondary);
 }
@@ -2504,7 +2504,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   border: 2px solid var(--surface-2);
   border-radius: var(--radius-md);
   background: var(--surface-0);
-  font-size: 0.9375rem;
+  font-size: var(--font-size-md);
   color: var(--text-primary);
   transition: all var(--transition-fast);
 }
@@ -2545,13 +2545,13 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   }
 
   .modal-title {
-    font-size: 1.375rem;
+    font-size: var(--font-size-xl);
   }
 
   .trip-modal-panel {
     max-height: none;
     border-left: none;
-    border-top: 1px solid rgb(255 255 255 / 6%);
+    border-top: 1px solid rgb(var(--text-rgb) / 6%);
   }
 
   .panel-content {
@@ -2597,7 +2597,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   }
 
   .sort-control-label {
-    font-size: 0.6875rem;
+    font-size: var(--font-size-xs);
   }
 
   .sort-select {
@@ -2702,7 +2702,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   }
 
   .modal-title {
-    font-size: 1.25rem;
+    font-size: var(--font-size-lg);
   }
 
   .modal-actions {
@@ -2771,7 +2771,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 #shareModal .modal-title {
   display: flex;
   align-items: center;
-  font-size: 1.1rem;
+  font-size: var(--font-size-lg);
 }
 
 #shareModal .modal-body {
@@ -2780,7 +2780,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 #shareModal .share-description {
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: var(--font-size-md);
   margin-bottom: var(--space-3);
 }
 
@@ -2794,7 +2794,7 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
   background: var(--glass-1);
   border: 1px solid var(--glass-border);
   color: var(--text-primary);
-  font-size: 0.8rem;
+  font-size: var(--font-size-sm);
   padding: 12px 14px;
   border-radius: var(--radius-md);
   font-family: var(--font-family-mono);
@@ -2803,14 +2803,14 @@ body:not(.light-mode) .trips-journal-page .filter-select option {
 
 #shareModal .share-url-input:focus {
   background: var(--glass-2);
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 10%);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgb(var(--primary-rgb) / 10%);
   outline: none;
 }
 
 #shareModal .copy-btn {
   padding: 14px 20px;
-  font-size: 0.95rem;
+  font-size: var(--font-size-md);
   font-weight: 500;
   border-radius: var(--radius-md);
   transition: all 0.2s ease;

@@ -607,7 +607,7 @@ function updateResultsHeader(total) {
 /* ───── route cards ───── */
 function createRouteCard(route) {
   const card = document.createElement("div");
-  card.className = "route-card";
+  card.className = "route-card card card--object";
   card.dataset.routeId = route.id;
   const strokeColor = routeStrokeColor(route);
   card.style.setProperty("--route-stroke", strokeColor);

@@ -18,10 +18,6 @@ Every Street - Region Explorer
 {% block content %}
 
   <div class="regional-coverage-explorer-wrapper">
-    <h1 class="visually-hidden">
-Region Explorer
-    </h1>
-
     <div id="regional-coverage-explorer-map"
          class="regional-coverage-explorer-map"
          role="application"
@@ -29,11 +25,11 @@ Region Explorer
     </div>
 
     <div class="county-stats-panel" id="stats-panel">
-      <div class="stats-header">
-        <h2 class="stats-title">
-          <i class="fas fa-layer-group me-2" aria-hidden="true"></i>
-        Region Explorer
-        </h2>
+      <div class="stats-header page-masthead">
+        <div class="pm-lead">
+          <p class="pm-eyebrow">The wider map</p>
+          <h1 class="stats-title pm-title">Region Explorer</h1>
+        </div>
         <button class="stats-toggle-btn"
                 id="stats-toggle"
                 aria-label="Toggle stats panel"
@@ -43,45 +39,45 @@ Region Explorer
       </div>
 
       <div class="stats-content" id="stats-content">
-        <div class="coverage-summary-bar" id="coverage-summary-bar">
-          <div class="summary-pill summary-pill--active" data-level="county">
+        <div class="coverage-summary-bar figure-band" id="coverage-summary-bar">
+          <div class="summary-pill figure summary-pill--active" data-level="county">
             <span class="summary-pill-icon"><i class="fas fa-vector-square" aria-hidden="true"></i></span>
             <div class="summary-pill-text">
-              <span class="summary-pill-value" id="summary-county-count">0/0</span>
-              <span class="summary-pill-label">Counties</span>
+              <span class="summary-pill-value figure-value" id="summary-county-count">0/0</span>
+              <span class="summary-pill-label figure-label">Counties</span>
             </div>
           </div>
-          <div class="summary-pill" data-level="state">
+          <div class="summary-pill figure" data-level="state">
             <span class="summary-pill-icon"><i class="fas fa-map" aria-hidden="true"></i></span>
             <div class="summary-pill-text">
-              <span class="summary-pill-value" id="summary-state-count">0/0</span>
-              <span class="summary-pill-label">States</span>
+              <span class="summary-pill-value figure-value" id="summary-state-count">0/0</span>
+              <span class="summary-pill-label figure-label">States</span>
             </div>
           </div>
-          <div class="summary-pill" data-level="city">
+          <div class="summary-pill figure" data-level="city">
             <span class="summary-pill-icon"><i class="fas fa-city" aria-hidden="true"></i></span>
             <div class="summary-pill-text">
-              <span class="summary-pill-value" id="summary-city-count">0/0</span>
-              <span class="summary-pill-label">Cities</span>
+              <span class="summary-pill-value figure-value" id="summary-city-count">0/0</span>
+              <span class="summary-pill-label figure-label">Cities</span>
             </div>
           </div>
         </div>
-        <div class="coverage-level-switcher" role="tablist" aria-label="Coverage level">
-          <button class="coverage-level-btn coverage-level-btn--active"
+        <div class="coverage-level-switcher atlas-tabs" role="tablist" aria-label="Coverage level">
+          <button class="coverage-level-btn atlas-tab coverage-level-btn--active"
                   data-level="county"
                   role="tab"
                   aria-selected="true"
                   type="button">
             Counties
           </button>
-          <button class="coverage-level-btn"
+          <button class="coverage-level-btn atlas-tab"
                   data-level="state"
                   role="tab"
                   aria-selected="false"
                   type="button">
             States
           </button>
-          <button class="coverage-level-btn"
+          <button class="coverage-level-btn atlas-tab"
                   data-level="city"
                   role="tab"
                   aria-selected="false"

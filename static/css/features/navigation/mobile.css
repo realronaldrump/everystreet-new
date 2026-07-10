@@ -10,7 +10,7 @@
   }
 
   .nav-primary {
-    font-size: 1.1rem;
+    font-size: var(--font-size-lg);
   }
 
   .nav-turn-icon {

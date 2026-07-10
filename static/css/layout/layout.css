@@ -181,7 +181,7 @@ body[data-route="/regional-coverage-explorer"] .route-content {
   color: var(--primary);
 }
 
-body.light-mode .hero-section {
+html.light-mode body .hero-section {
   background: var(--surface-1);
 }
 

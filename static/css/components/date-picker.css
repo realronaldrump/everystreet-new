@@ -312,11 +312,11 @@
 }
 
 /* Light mode adjustments */
-body.light-mode .date-picker-dropdown {
+html.light-mode body .date-picker-dropdown {
   box-shadow: var(--shadow-elevation-2);
 }
 
-body.light-mode .preset-btn:hover {
+html.light-mode body .preset-btn:hover {
   background: var(--surface-3);
 }
 

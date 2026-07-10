@@ -24,24 +24,24 @@
 
 .route-tracer__line {
   fill: none;
-  stroke: var(--accent);
+  stroke: var(--action);
   stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-dasharray: 100;
   stroke-dashoffset: 100;
-  filter: drop-shadow(0 0 4px rgb(var(--accent-rgb) / 55%));
+  filter: drop-shadow(0 0 4px rgb(var(--action-rgb) / 55%));
   animation: route-tracer-draw 1.9s ease-in-out infinite;
 }
 
 .route-tracer__origin {
-  fill: var(--primary);
+  fill: var(--action);
   opacity: 0.85;
 }
 
 .route-tracer__dest {
   fill: none;
-  stroke: var(--accent);
+  stroke: var(--action);
   stroke-width: 2;
   transform-box: fill-box;
   transform-origin: center;
@@ -49,8 +49,8 @@
 }
 
 .route-tracer__dot {
-  fill: var(--accent);
-  filter: drop-shadow(0 0 4px rgb(var(--accent-rgb) / 70%));
+  fill: var(--action);
+  filter: drop-shadow(0 0 4px rgb(var(--action-rgb) / 70%));
 }
 
 @keyframes route-tracer-draw {

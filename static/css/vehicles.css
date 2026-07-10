@@ -67,8 +67,8 @@
 }
 
 .vehicle-list-card.is-selected {
-  background: rgb(var(--primary-rgb) / 12%);
-  border-color: var(--primary);
+  background: var(--surface-2);
+  border-color: rgb(var(--action-rgb) / 45%);
   box-shadow: var(--shadow-sm);
 }
 
@@ -80,7 +80,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
+  font-size: var(--font-size-md);
   color: var(--text-secondary);
   flex-shrink: 0;
   transition:
@@ -89,8 +89,8 @@
 }
 
 .vehicle-list-card.is-selected .vl-icon {
-  background: var(--primary);
-  color: var(--text-on-primary);
+  background: var(--action);
+  color: var(--text-on-action);
 }
 
 .vehicle-list-card .vl-info {
@@ -121,7 +121,7 @@
 }
 
 .vehicle-list-card .vl-badge .badge {
-  font-size: 0.65rem;
+  font-size: var(--font-size-xs);
   padding: 0.2em 0.55em;
 }
 
@@ -140,7 +140,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.35rem;
+  font-size: var(--font-size-xl);
   color: var(--text-tertiary);
   flex-shrink: 0;
 }
@@ -151,7 +151,7 @@
 }
 
 .vehicle-name {
-  font-size: 1.35rem;
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   margin: 0;
@@ -200,7 +200,7 @@
 
 .detail-chip-mono {
   font-family: var(--font-family-mono);
-  font-size: 0.72rem;
+  font-size: var(--font-size-sm);
   letter-spacing: 0.02em;
 }
 
@@ -221,7 +221,7 @@
 }
 
 .odometer-value {
-  font-size: 2.75rem;
+  font-size: var(--font-size-4xl);
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
@@ -229,7 +229,7 @@
 }
 
 .odometer-unit {
-  font-size: 1.1rem;
+  font-size: var(--font-size-lg);
   color: var(--text-tertiary);
   font-weight: var(--font-weight-medium);
 }
@@ -278,7 +278,7 @@
 }
 
 .odometer-action-info > i {
-  font-size: 1rem;
+  font-size: var(--font-size-md);
   width: 20px;
   text-align: center;
   flex-shrink: 0;
@@ -377,15 +377,15 @@
   .vehicle-icon {
     width: 48px;
     height: 48px;
-    font-size: 1.25rem;
+    font-size: var(--font-size-lg);
   }
 
   .vehicle-name {
-    font-size: 1.15rem;
+    font-size: var(--font-size-lg);
   }
 
   .odometer-value {
-    font-size: 2.25rem;
+    font-size: var(--font-size-3xl);
   }
 
   .vehicle-detail-chips {
@@ -409,13 +409,13 @@
 /* ============================================================
    Light mode
    ============================================================ */
-body.light-mode .vehicle-list-card.is-selected {
+html.light-mode body .vehicle-list-card.is-selected {
   background: rgb(var(--primary-rgb) / 8%);
 }
 
-body.light-mode .detail-chip,
-body.light-mode .odometer-display,
-body.light-mode .odometer-action-row {
+html.light-mode body .detail-chip,
+html.light-mode body .odometer-display,
+html.light-mode body .odometer-action-row {
   background: var(--surface-1);
-  border-color: rgb(0 0 0 / 8%);
+  border-color: var(--border-color);
 }

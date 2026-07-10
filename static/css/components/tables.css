@@ -54,6 +54,6 @@
   background-color: rgb(var(--surface-rgb) / 40%);
 }
 
-body.light-mode .table-striped tbody tr:nth-of-type(odd) {
+html.light-mode body .table-striped tbody tr:nth-of-type(odd) {
   background-color: rgb(var(--surface-rgb) / 50%);
 }

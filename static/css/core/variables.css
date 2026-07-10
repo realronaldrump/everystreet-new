@@ -100,9 +100,15 @@
   --action-hover: #f8f6ef;
   --action-rgb: 237 234 224;
   --text-on-action: #16150f;
+  --text-on-warning: #16150f;
+  --backdrop-rgb: 0 0 0;
+  --print-bg: #fff;
+  --print-text: #000;
+  --print-border: #ccc;
 
   /* Map visual language: cool individual routes, warm frequency heat. */
   --map-trip-path: #3d9be9;
+  --map-trip-path-rgb: 61 155 233;
   --map-trip-path-selected: #e7f7ff;
 
   /* Flat colors - no gradients */
@@ -411,6 +417,7 @@ html.light-mode body {
   --glass-input-focus: rgb(var(--surface-rgb) / 60%);
   --toggle-knob: var(--surface-0);
   --map-trip-path: #167bbd;
+  --map-trip-path-rgb: 22 123 189;
   --map-trip-path-selected: #063b63;
 
   /* Light mode glass borders */

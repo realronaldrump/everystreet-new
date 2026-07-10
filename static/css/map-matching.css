@@ -52,9 +52,9 @@
 }
 
 .mm-phase-step.is-active .mm-step-dot {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: var(--text-on-primary);
+  background: var(--action);
+  border-color: var(--action);
+  color: var(--text-on-action);
   box-shadow:
     0 0 0 4px rgb(var(--primary-rgb) / 15%),
     0 4px 12px rgb(var(--primary-rgb) / 25%);
@@ -96,7 +96,7 @@
 }
 
 .mm-phase-connector.is-active {
-  background: var(--primary);
+  background: var(--action);
 }
 
 /* === Phase Sections === */
@@ -134,15 +134,7 @@
 }
 
 .mm-welcome-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--cat-mint);
-  opacity: 0.6;
-  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  content: none;
 }
 
 .mm-welcome-visual {
@@ -259,8 +251,8 @@
 }
 
 .mm-option.is-selected .mm-option-icon {
-  background: var(--primary);
-  color: var(--text-on-primary);
+  background: var(--action);
+  color: var(--text-on-action);
 }
 
 .mm-option-content {
@@ -297,9 +289,9 @@
 }
 
 .mm-option.is-selected .mm-option-check {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: var(--text-on-primary);
+  border-color: var(--action);
+  background: var(--action);
+  color: var(--text-on-action);
 }
 
 .mm-option-small {
@@ -446,8 +438,9 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  background: rgb(var(--success-rgb) / 10%);
-  border-radius: var(--radius-lg);
+  background: transparent;
+  border: 1px solid rgb(var(--success-rgb) / 35%);
+  border-radius: var(--radius-md);
   margin-bottom: var(--space-4);
   animation: mm-slide-down 0.3s ease-out;
 }
@@ -474,9 +467,9 @@
   flex: 1;
   padding: var(--space-4);
   border-radius: var(--radius-xl);
-  background: var(--primary);
+  background: var(--action);
   border: 1px solid rgb(255 255 255 / 8%);
-  color: var(--text-on-primary);
+  color: var(--text-on-action);
   font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-base);
   display: flex;
@@ -877,7 +870,7 @@
 }
 
 .mm-empty-map-content i {
-  font-size: 2rem;
+  font-size: var(--font-size-2xl);
   color: rgb(var(--primary-rgb) / 20%);
   width: 56px;
   height: 56px;
@@ -1071,7 +1064,7 @@
 .mm-drawer-backdrop {
   position: fixed;
   inset: 0;
-  background: rgb(0 0 0 / 40%);
+  background: rgb(var(--backdrop-rgb) / 40%);
   z-index: calc(var(--z-drawer) - 1);
   opacity: 0;
   visibility: hidden;
@@ -1210,7 +1203,7 @@
   border-radius: var(--radius-full);
   background: rgb(var(--primary-rgb) / 8%);
   color: var(--primary);
-  font-size: 0.68rem;
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -1270,8 +1263,8 @@
   justify-content: center;
   padding: 0 var(--space-1);
   border-radius: var(--radius-full);
-  background: var(--primary);
-  color: var(--text-on-primary);
+  background: var(--action);
+  color: var(--text-on-action);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
 }
@@ -1308,7 +1301,7 @@
   }
 
   .mm-step-label {
-    font-size: 10px;
+    font-size: var(--font-size-xs);
   }
 
   .mm-phase-connector {
@@ -1401,6 +1394,84 @@
     border-top: 1px solid rgb(var(--border-rgb) / 8%);
     margin-top: var(--space-2);
   }
+}
+
+/* Field Atlas stepper and underline results tabs. */
+.mm-phase-indicator.atlas-stepper {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(4.5rem, 1fr);
+  justify-content: normal;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
+  background: transparent;
+}
+
+.mm-phase-step.atlas-step {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-3) var(--space-2) 0;
+}
+
+.mm-phase-step.atlas-step .mm-step-dot.atlas-step-index,
+.mm-phase-step.atlas-step.is-active .mm-step-dot.atlas-step-index,
+.mm-phase-step.atlas-step.is-completed .mm-step-dot.atlas-step-index {
+  width: auto;
+  height: auto;
+  min-width: 2ch;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-tertiary);
+}
+
+.mm-phase-step.atlas-step.is-active .mm-step-dot.atlas-step-index {
+  color: var(--text-primary);
+}
+
+.mm-phase-step.atlas-step.is-completed .mm-step-dot.atlas-step-index {
+  color: transparent;
+}
+
+.mm-phase-step.atlas-step .mm-step-label.atlas-step-label,
+.mm-phase-step.atlas-step.is-active .mm-step-label.atlas-step-label {
+  color: inherit;
+}
+
+.mm-phase-connector {
+  display: none;
+}
+
+.mm-results-tabs.atlas-tabs {
+  gap: var(--space-5);
+  padding: 0 var(--space-4);
+  background: transparent;
+}
+
+.mm-results-tab.atlas-tab,
+.mm-results-tab.atlas-tab:hover,
+.mm-results-tab.atlas-tab.is-active {
+  flex: 0 0 auto;
+  padding: 0 0 var(--space-2);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.mm-results-tab.atlas-tab.is-active {
+  border-bottom: 2px solid var(--action);
+  color: var(--text-primary);
+}
+
+.mm-results-tab.is-active .mm-tab-count {
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 /* === Reduced motion === */
@@ -1502,8 +1573,8 @@
 }
 
 .mm-quick-action:hover i {
-  background: var(--primary);
-  color: var(--text-on-primary);
+  background: var(--action);
+  color: var(--text-on-action);
 }
 
 .mm-quick-action-badge {
@@ -1639,7 +1710,8 @@
 }
 
 .mm-results-icon-browse {
-  background: var(--primary);
+  background: var(--action);
+  color: var(--text-on-action);
   box-shadow: var(--shadow-sm);
 }
 
@@ -1711,7 +1783,7 @@
 
 .failed-trip-attempts {
   margin-top: var(--space-1);
-  font-size: 0.72rem;
+  font-size: var(--font-size-sm);
   color: var(--text-tertiary);
   line-height: 1.35;
 }
@@ -1745,7 +1817,7 @@
 }
 
 .mm-failed-empty i {
-  font-size: 2rem;
+  font-size: var(--font-size-2xl);
   margin-bottom: var(--space-2);
   opacity: 0.5;
 }

@@ -75,16 +75,16 @@ Select a street or segment to see times driven, trips, and distance.
         </article>
 
         <aside class="movement-rankings">
-          <div class="toggle-group movement-toggle-group"
+          <div class="toggle-group segmented-control movement-toggle-group"
                id="movement-layer-toggle"
                aria-label="Movement ranking type">
-            <button class="toggle-btn active"
+            <button class="toggle-btn segment active"
                     type="button"
                     data-movement-layer="streets"
                     aria-pressed="true">
 Top streets
             </button>
-            <button class="toggle-btn"
+            <button class="toggle-btn segment"
                     type="button"
                     data-movement-layer="segments"
                     aria-pressed="false">
@@ -202,14 +202,14 @@ Movement over time
               </button>
             </h3>
             <div class="chart-controls">
-              <div class="toggle-group" aria-label="Trend resolution">
-                <button class="toggle-btn active" data-view="daily" aria-pressed="true">
+              <div class="toggle-group segmented-control" aria-label="Trend resolution">
+                <button class="toggle-btn segment active" data-view="daily" aria-pressed="true">
 Daily
                 </button>
-                <button class="toggle-btn" data-view="weekly" aria-pressed="false">
+                <button class="toggle-btn segment" data-view="weekly" aria-pressed="false">
 Weekly
                 </button>
-                <button class="toggle-btn" data-view="monthly" aria-pressed="false">
+                <button class="toggle-btn segment" data-view="monthly" aria-pressed="false">
 Monthly
                 </button>
               </div>
@@ -232,11 +232,11 @@ Monthly
             <h3>
 Period comparison
             </h3>
-            <div class="toggle-group" id="rhythm-period-toggle" aria-label="Comparison period">
-              <button class="toggle-btn active" data-rhythm-view="weekly" aria-pressed="true">
+            <div class="toggle-group segmented-control" id="rhythm-period-toggle" aria-label="Comparison period">
+              <button class="toggle-btn segment active" data-rhythm-view="weekly" aria-pressed="true">
 Weekly
               </button>
-              <button class="toggle-btn" data-rhythm-view="monthly" aria-pressed="false">
+              <button class="toggle-btn segment" data-rhythm-view="monthly" aria-pressed="false">
 Monthly
               </button>
             </div>

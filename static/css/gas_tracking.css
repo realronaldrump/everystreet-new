@@ -24,7 +24,7 @@
   background: var(--surface-1);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
   overflow: hidden;
 }
 
@@ -51,8 +51,8 @@
 
 .card-badge {
   padding: var(--space-1) var(--space-3);
-  background: var(--accent);
-  color: var(--text-on-primary);
+  background: rgb(var(--warning-rgb) / 16%);
+  color: var(--warning);
   border-radius: var(--radius-full);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
@@ -125,6 +125,11 @@
   color: var(--text-secondary);
   font-weight: var(--font-weight-medium);
   z-index: 1;
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-family-mono);
 }
 
 .input-prefix .form-control {
@@ -136,7 +141,7 @@
 .form-select {
   width: 100%;
   padding: var(--space-3) var(--space-4);
-  background: var(--surface-0);
+  background: var(--surface-1);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   color: var(--text-primary);
@@ -196,8 +201,8 @@
 }
 
 .gas-tracking-page .btn-primary {
-  background: var(--primary-gradient);
-  color: var(--text-on-primary);
+  background: var(--action);
+  color: var(--text-on-action);
   box-shadow: var(--shadow-sm);
 }
 
@@ -245,9 +250,9 @@
 }
 
 .btn-icon:hover {
-  background: var(--primary);
-  color: var(--text-on-primary);
-  border-color: var(--primary);
+  background: var(--action);
+  color: var(--text-on-action);
+  border-color: var(--action);
 }
 
 /* Odometer Row */
@@ -274,7 +279,8 @@
   justify-content: space-between;
   padding: var(--space-3) 0;
   background: none;
-  border: none;
+  border: 0;
+  border-top: 1px solid var(--border-color);
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
@@ -532,7 +538,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: var(--font-size-xl);
   color: var(--text-tertiary);
   margin-bottom: var(--space-4);
 }
@@ -604,8 +610,10 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-3);
-  background: var(--primary);
-  color: var(--text-on-primary);
+  background: transparent;
+  border: 1px solid var(--border-color-light);
+  color: var(--text-primary);
+  font-family: var(--font-family-mono);
   border-radius: var(--radius-full);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
@@ -639,7 +647,7 @@
 
 .fillup-actions button[data-action="delete"]:hover {
   background: var(--danger);
-  color: white;
+  color: var(--text-on-primary);
   border-color: var(--danger);
 }
 
@@ -772,36 +780,36 @@
 }
 
 /* ===== Light Mode Adjustments ===== */
-body.light-mode .section-card {
+html.light-mode body .section-card {
   background: var(--surface-1);
   border-color: var(--border-color);
 }
 
-body.light-mode .card-header {
-  background: var(--surface-0);
+html.light-mode body .card-header {
+  background: transparent;
 }
 
-body.light-mode .form-control,
-body.light-mode .form-select {
-  background: var(--surface-0);
+html.light-mode body .form-control,
+html.light-mode body .form-select {
+  background: var(--surface-1);
   border-color: var(--border-color);
 }
 
-body.light-mode .fillup-item {
+html.light-mode body .fillup-item {
   background: var(--surface-1);
 }
 
-body.light-mode .btn-quick,
-body.light-mode .btn-icon {
+html.light-mode body .btn-quick,
+html.light-mode body .btn-icon {
   background: var(--surface-2);
   border-color: var(--border-color);
 }
 
-body.light-mode .map-container {
+html.light-mode body .map-container {
   border-color: var(--border-color);
 }
 
-body.light-mode .mini-map {
+html.light-mode body .mini-map {
   background: var(--surface-2);
 }
 

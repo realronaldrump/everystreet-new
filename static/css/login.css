@@ -20,7 +20,7 @@
 }
 
 .login-masthead .pm-title {
-  font-size: clamp(1.7rem, 1.3rem + 1.6vw, 2.4rem);
+  font-size: var(--font-size-3xl);
 }
 
 .login-form {

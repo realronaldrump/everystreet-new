@@ -13,9 +13,10 @@
 
 /* === Collapsible Categories === */
 .export-category {
-  background: var(--surface-1);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-xl);
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--border-color);
+  border-radius: 0;
   overflow: hidden;
   margin-bottom: var(--space-3);
 }
@@ -133,13 +134,13 @@
 }
 
 .export-quick-option input:checked + .export-quick-option-content {
-  background: rgb(var(--primary-rgb) / 12%);
-  border-color: rgb(var(--primary-rgb) / 40%);
-  color: var(--primary);
+  background: var(--action);
+  border-color: var(--action);
+  color: var(--text-on-action);
 }
 
 .export-quick-option-content i {
-  font-size: 14px;
+  font-size: var(--font-size-sm);
 }
 
 /* === Subsections === */
@@ -171,7 +172,7 @@
 .export-format-select {
   width: 100%;
   max-width: 280px;
-  background: var(--surface-2);
+  background: var(--surface-1);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-3);
@@ -231,7 +232,7 @@
 }
 
 .export-filter-input {
-  background: var(--surface-2);
+  background: var(--surface-1);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-3);
@@ -303,12 +304,12 @@
 }
 
 .export-btn-primary {
-  background: var(--primary);
-  color: var(--text-on-primary);
+  background: var(--action);
+  color: var(--text-on-action);
 }
 
 .export-btn-primary:hover:not(:disabled) {
-  background: var(--primary-dark);
+  background: var(--action-hover);
   box-shadow: var(--shadow-sm);
 }
 
@@ -365,7 +366,7 @@
 }
 
 .export-summary-empty i {
-  font-size: 32px;
+  font-size: var(--font-size-2xl);
   opacity: 0.5;
 }
 
@@ -403,7 +404,7 @@
   width: 8px;
   height: 8px;
   border-radius: var(--radius-full);
-  background: var(--primary);
+  background: var(--text-tertiary);
   flex-shrink: 0;
 }
 
@@ -435,7 +436,7 @@
 
 .export-progress-bar {
   height: 100%;
-  background: var(--primary);
+  background: var(--warning);
   border-radius: var(--radius-pill);
   transition: width var(--transition-normal);
 }
@@ -478,7 +479,7 @@
 }
 
 .export-result-icon {
-  font-size: 40px;
+  font-size: var(--font-size-3xl);
   color: var(--success);
   margin-bottom: var(--space-3);
 }

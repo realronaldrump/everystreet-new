@@ -12,10 +12,10 @@
 .memory-city-view {
   --mc-dock-height: 148px;
   --mc-topbar-height: 96px;
-  --mc-accent: var(--accent);
-  --mc-accent-rgb: var(--accent-rgb);
-  --mc-sky-1: #06070b;
-  --mc-sky-2: #0b0d16;
+  --mc-accent: var(--primary);
+  --mc-accent-rgb: var(--primary-rgb);
+  --mc-sky-1: var(--surface-deep);
+  --mc-sky-2: var(--surface-0);
 
   position: relative;
   width: 100%;
@@ -24,11 +24,6 @@
   overflow: hidden;
   isolation: isolate;
   background: linear-gradient(180deg, var(--mc-sky-1) 0%, var(--mc-sky-2) 100%);
-}
-
-body.light-mode .memory-city-view {
-  --mc-sky-1: #0a0d16;
-  --mc-sky-2: #12172b;
 }
 
 /* Negate app footer inside this view — we want the sculpture to fill */
@@ -100,12 +95,12 @@ body.light-mode .memory-city-view {
   font-size: var(--font-size-xs);
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: rgb(var(--accent-rgb) / 90%);
+  color: rgb(var(--primary-rgb) / 90%);
 }
 
 .memory-city-title {
   font-family: var(--font-family-display);
-  font-size: clamp(1.6rem, 1.2rem + 1.8vw, 2.8rem);
+  font-size: var(--font-size-4xl);
   font-weight: var(--font-weight-semibold);
   line-height: 1.1;
   color: var(--text-primary);
@@ -152,12 +147,12 @@ body.light-mode .memory-city-view {
 
 .memory-city-area-select:hover {
   background: var(--glass-panel-hover);
-  border-color: rgb(var(--accent-rgb) / 50%);
+  border-color: rgb(var(--primary-rgb) / 50%);
 }
 
 .memory-city-area-select:focus-visible {
   outline: none;
-  border-color: rgb(var(--accent-rgb) / 70%);
+  border-color: rgb(var(--primary-rgb) / 70%);
   box-shadow: var(--shadow-glass-sm), var(--focus-ring);
 }
 
@@ -167,7 +162,7 @@ body.light-mode .memory-city-view {
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-tertiary);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   pointer-events: none;
 }
 
@@ -201,7 +196,7 @@ body.light-mode .memory-city-view {
 
 .memory-city-stat-label {
   font-family: var(--font-family-mono);
-  font-size: 0.66rem;
+  font-size: var(--font-size-xs);
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--text-tertiary);
@@ -244,7 +239,7 @@ body.light-mode .memory-city-view {
 }
 
 .memory-city-detail.is-locked {
-  border-color: rgb(var(--detail-glow-color-rgb, var(--accent-rgb)) / 65%);
+  border-color: rgb(var(--detail-glow-color-rgb, var(--primary-rgb)) / 65%);
   box-shadow: var(--shadow-glass-md);
 }
 
@@ -255,10 +250,10 @@ body.light-mode .memory-city-view {
   gap: var(--space-2);
   margin-top: var(--space-4);
   padding: var(--space-2) var(--space-4);
-  background: rgb(var(--accent-rgb) / 12%);
-  border: 1px solid rgb(var(--accent-rgb) / 35%);
+  background: var(--action);
+  border: 1px solid rgb(var(--action-rgb) / 45%);
   border-radius: var(--radius-md);
-  color: var(--text-primary);
+  color: var(--text-on-action);
   font-size: var(--font-size-xs);
   font-family: var(--font-family);
   font-weight: var(--font-weight-semibold);
@@ -269,15 +264,15 @@ body.light-mode .memory-city-view {
 }
 
 .memory-city-detail-map-link:hover {
-  background: rgb(var(--accent-rgb) / 22%);
-  border-color: rgb(var(--accent-rgb) / 75%);
-  color: #fff;
+  background: var(--action-hover);
+  border-color: rgb(var(--action-rgb) / 75%);
+  color: var(--text-on-action);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
 
 .memory-city-detail-map-link i {
-  font-size: 0.8rem;
+  font-size: var(--font-size-sm);
 }
 
 .memory-city-detail-empty {
@@ -289,15 +284,15 @@ body.light-mode .memory-city-view {
 }
 
 .memory-city-detail-empty i {
-  color: rgb(var(--accent-rgb) / 80%);
+  color: rgb(var(--primary-rgb) / 80%);
 }
 
 .memory-city-detail-label {
   font-family: var(--font-family-mono);
-  font-size: 0.66rem;
+  font-size: var(--font-size-xs);
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgb(var(--accent-rgb) / 90%);
+  color: rgb(var(--primary-rgb) / 90%);
   margin-bottom: var(--space-1);
 }
 
@@ -404,14 +399,14 @@ body.light-mode .memory-city-view {
 /* Play / pause button */
 
 .memory-city-play-btn {
-  width: 40px;
-  height: 40px;
+  width: var(--touch-target);
+  height: var(--touch-target);
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  background: rgb(var(--accent-rgb) / 20%);
-  color: var(--text-primary);
-  border: 1px solid rgb(var(--accent-rgb) / 45%);
+  background: var(--action);
+  color: var(--text-on-action);
+  border: 1px solid rgb(var(--action-rgb) / 45%);
   border-radius: var(--radius-full);
   cursor: pointer;
   transition: var(--transition-normal);
@@ -421,16 +416,16 @@ body.light-mode .memory-city-view {
 .memory-city-play-btn:hover {
   transform: scale(1.06);
   box-shadow: var(--shadow-md);
-  border-color: rgb(var(--accent-rgb) / 80%);
+  border-color: rgb(var(--action-rgb) / 80%);
 }
 
 .memory-city-play-btn.is-playing {
-  background: rgb(var(--accent-rgb) / 32%);
+  background: var(--action-hover);
   box-shadow: var(--shadow-md);
 }
 
 .memory-city-play-btn i {
-  font-size: 0.9rem;
+  font-size: var(--font-size-md);
 }
 
 /* Scrubber */
@@ -448,13 +443,13 @@ body.light-mode .memory-city-view {
   justify-content: space-between;
   gap: var(--space-3);
   font-family: var(--font-family-mono);
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   letter-spacing: 0.08em;
   color: var(--text-tertiary);
 }
 
 .memory-city-scrubber-current {
-  color: rgb(var(--accent-rgb) / 95%);
+  color: var(--text-primary);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -464,8 +459,8 @@ body.light-mode .memory-city-view {
   height: 6px;
   background: linear-gradient(
     to right,
-    rgb(var(--accent-rgb) / 65%) 0%,
-    rgb(var(--accent-rgb) / 65%) var(--mc-scrubber-progress, 100%),
+    rgb(var(--action-rgb) / 65%) 0%,
+    rgb(var(--action-rgb) / 65%) var(--mc-scrubber-progress, 100%),
     rgb(var(--border-rgb) / 15%) var(--mc-scrubber-progress, 100%),
     rgb(var(--border-rgb) / 15%) 100%
   );
@@ -480,8 +475,8 @@ body.light-mode .memory-city-view {
   width: 18px;
   height: 18px;
   border-radius: var(--radius-full);
-  background: var(--accent);
-  border: 2px solid rgb(var(--accent-rgb) / 90%);
+  background: var(--action);
+  border: 2px solid rgb(var(--action-rgb) / 90%);
   box-shadow: var(--shadow-sm);
   cursor: grab;
   transition: var(--transition-fast);
@@ -491,8 +486,8 @@ body.light-mode .memory-city-view {
   width: 18px;
   height: 18px;
   border-radius: var(--radius-full);
-  background: var(--accent);
-  border: 2px solid rgb(var(--accent-rgb) / 90%);
+  background: var(--action);
+  border: 2px solid rgb(var(--action-rgb) / 90%);
   box-shadow: var(--shadow-sm);
   cursor: grab;
 }
@@ -522,8 +517,8 @@ body.light-mode .memory-city-view {
   width: 12px;
   height: 24px;
   border-radius: 2px;
-  background: linear-gradient(to top, rgb(var(--accent-rgb) / 15%), rgb(var(--accent-rgb) / 80%));
-  box-shadow: inset 0 0 6px rgb(var(--accent-rgb) / 40%);
+  background: linear-gradient(to top, rgb(var(--primary-rgb) / 15%), rgb(var(--primary-rgb) / 80%));
+  box-shadow: inset 0 0 6px rgb(var(--primary-rgb) / 40%);
 }
 
 .memory-city-legend-gradient {
@@ -532,11 +527,11 @@ body.light-mode .memory-city-view {
   border-radius: var(--radius-full);
   background: linear-gradient(
     to right,
-    #f2a04a 0%,
-    #d88355 22%,
-    #8a7ab0 55%,
-    #5a7bb0 82%,
-    #3d4a82 100%
+    var(--cat-ochre) 0%,
+    var(--cat-coral) 22%,
+    var(--cat-purple) 55%,
+    var(--cat-steel) 82%,
+    var(--cat-slate) 100%
   );
 }
 
@@ -564,14 +559,14 @@ body.light-mode .memory-city-view {
 .memory-city-cam-btn:hover {
   background: rgb(var(--border-rgb) / 12%);
   color: var(--text-primary);
-  border-color: rgb(var(--accent-rgb) / 50%);
+  border-color: rgb(var(--action-rgb) / 50%);
 }
 
 .memory-city-cam-btn[aria-pressed="true"] {
-  color: rgb(var(--accent-rgb) / 95%);
-  border-color: rgb(var(--accent-rgb) / 60%);
+  color: var(--text-primary);
+  border-color: rgb(var(--action-rgb) / 60%);
   box-shadow: var(--shadow-sm);
-  background: rgb(var(--accent-rgb) / 12%);
+  background: rgb(var(--action-rgb) / 12%);
 }
 
 /* =============================================================================
@@ -602,7 +597,7 @@ body.light-mode .memory-city-view {
   width: 64px;
   height: 64px;
   border-radius: var(--radius-full);
-  background: radial-gradient(circle, rgb(var(--accent-rgb) / 45%) 0%, transparent 70%);
+  background: radial-gradient(circle, rgb(var(--primary-rgb) / 45%) 0%, transparent 70%);
   animation: mcPulse 2s ease-in-out infinite;
 }
 
@@ -681,7 +676,7 @@ body.light-mode .memory-city-view {
   50% {
     transform: scale(1.04);
     filter: brightness(1.2);
-    color: rgb(var(--accent-rgb));
+    color: rgb(var(--primary-rgb));
   }
 
   100% {
@@ -716,12 +711,12 @@ body.light-mode .memory-city-view {
 
 .mc-legend-swatch:hover {
   transform: scale(1.15);
-  border-color: rgb(255 255 255 / 55%);
+  border-color: var(--border-color-light);
 }
 
 .mc-legend-swatch.is-active {
   transform: scale(1.1);
-  border: 2px solid #fff;
+  border: 2px solid var(--text-primary);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -781,12 +776,21 @@ body.light-mode .memory-city-view {
   font-size: var(--font-size-xs) !important;
   background: var(--glass-dropdown) !important;
   color: var(--text-primary) !important;
-  border: 1px solid rgb(var(--accent-rgb) / 40%) !important;
+  border: 1px solid rgb(var(--primary-rgb) / 40%) !important;
   border-radius: var(--radius-md) !important;
   padding: var(--space-2) var(--space-3) !important;
   backdrop-filter: blur(var(--blur-strong));
   box-shadow:
     var(--shadow-md),
-    0 0 18px rgb(var(--accent-rgb) / 20%);
+    0 0 18px rgb(var(--primary-rgb) / 20%);
   pointer-events: none;
+}
+
+.memory-city-topbar.page-masthead {
+  align-items: flex-start;
+  margin: 0;
+}
+
+.memory-city-eyebrow.pm-eyebrow {
+  color: var(--text-tertiary);
 }

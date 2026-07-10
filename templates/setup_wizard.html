@@ -22,40 +22,32 @@ Every Street Setup
 
                                                 {# ── Progress bar ── #}
       <div class="setup-progress-bar" aria-label="Setup progress">
-        <div class="setup-progress-track">
-          <div class="setup-progress-step is-active" data-progress-step="0">
-            <span class="setup-progress-dot"><i class="fas fa-layer-group"></i></span>
-            <span class="setup-progress-label">Engine</span>
+        <div class="setup-progress-track atlas-stepper">
+          <div class="setup-progress-step atlas-step is-active" data-progress-step="0">
+            <span class="setup-progress-dot atlas-step-index">1</span>
+            <span class="setup-progress-label atlas-step-label">Engine</span>
           </div>
-          <div class="setup-progress-connector">
-            <div class="setup-progress-connector-fill" id="progress-connector-0">
-            </div>
+          <div class="setup-progress-step atlas-step" data-progress-step="1">
+            <span class="setup-progress-dot atlas-step-index">2</span>
+            <span class="setup-progress-label atlas-step-label">Credentials</span>
           </div>
-          <div class="setup-progress-step" data-progress-step="1">
-            <span class="setup-progress-dot"><i class="fas fa-key"></i></span>
-            <span class="setup-progress-label">Credentials</span>
-          </div>
-          <div class="setup-progress-connector" id="progress-connector-container-1">
-            <div class="setup-progress-connector-fill" id="progress-connector-1">
-            </div>
-          </div>
-          <div class="setup-progress-step" data-progress-step="2" id="progress-step-coverage">
-            <span class="setup-progress-dot"><i class="fas fa-map"></i></span>
-            <span class="setup-progress-label">Map Coverage</span>
+          <div class="setup-progress-step atlas-step" data-progress-step="2" id="progress-step-coverage">
+            <span class="setup-progress-dot atlas-step-index">3</span>
+            <span class="setup-progress-label atlas-step-label">Map Coverage</span>
           </div>
         </div>
       </div>
 
                                                 {# ── Hero ── #}
-      <div class="setup-hero" data-stagger>
-        <div class="setup-hero-text">
-          <div class="setup-eyebrow">
+      <div class="setup-hero page-masthead" data-stagger>
+        <div class="setup-hero-text pm-lead">
+          <div class="setup-eyebrow pm-eyebrow">
 Every Street Setup
           </div>
-          <h1 class="setup-title">
+          <h1 class="setup-title pm-title">
 Wire up the&nbsp;map.
           </h1>
-          <p class="setup-subtitle">
+          <p class="setup-subtitle pm-sub">
             Three steps: choose a mapping engine, save your API credentials,
             then import your Bouncie trips so coverage, geocoding, and routing work locally.
           </p>
@@ -67,12 +59,12 @@ Wire up the&nbsp;map.
 
                                                                 {# ── Sidebar ── #}
         <aside class="setup-sidebar">
-          <ol class="setup-step-list" aria-label="Setup steps">
-            <li class="setup-step-item is-active" data-step="0" data-step-key="engine">
+          <ol class="setup-step-list atlas-stepper" aria-label="Setup steps">
+            <li class="setup-step-item atlas-step is-active" data-step="0" data-step-key="engine">
               <button class="setup-step-button" type="button" data-step-target="0">
-                <span class="step-number">1</span>
+                <span class="step-number atlas-step-index">1</span>
                 <div>
-                  <div class="step-title">
+                  <div class="step-title atlas-step-label">
 Map Engine
                   </div>
                   <div class="step-note">
@@ -81,11 +73,11 @@ Google vs. Local
                 </div>
               </button>
             </li>
-            <li class="setup-step-item" data-step="1" data-step-key="credentials">
+            <li class="setup-step-item atlas-step" data-step="1" data-step-key="credentials">
               <button class="setup-step-button" type="button" data-step-target="1">
-                <span class="step-number">2</span>
+                <span class="step-number atlas-step-index">2</span>
                 <div>
-                  <div class="step-title">
+                  <div class="step-title atlas-step-label">
 Credentials
                   </div>
                   <div class="step-note">
@@ -94,14 +86,14 @@ Bouncie + Maps
                 </div>
               </button>
             </li>
-            <li class="setup-step-item"
+            <li class="setup-step-item atlas-step"
                 data-step="2"
                 data-step-key="coverage"
                 id="sidebar-step-coverage">
               <button class="setup-step-button" type="button" data-step-target="2">
-                <span class="step-number">3</span>
+                <span class="step-number atlas-step-index">3</span>
                 <div>
-                  <div class="step-title">
+                  <div class="step-title atlas-step-label">
 Map Coverage
                   </div>
                   <div class="step-note">

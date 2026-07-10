@@ -44,7 +44,7 @@ import { DateUtils, utils } from "./utils.js";
  */
 const createMapLoadingHelper = () => ({
   show(message) {
-    loadingManager.show(message, { blocking: true, compact: false });
+    loadingManager.show(message, { blocking: false, compact: true });
   },
   update(message) {
     loadingManager.updateMessage(message);

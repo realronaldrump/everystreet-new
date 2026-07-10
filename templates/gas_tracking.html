@@ -50,7 +50,7 @@ Gas Tracking
     </div>
     <div class="gas-content">
       <section class="form-section">
-        <div class="section-card">
+        <div class="section-card card">
           <div class="card-header">
             <h2 class="card-title">
             New Fill-up
@@ -110,7 +110,7 @@ Choose your vehicle...
                   Price/gal
                 </label>
                 <div class="input-prefix">
-                  <span class="prefix">$</span>
+                  <span class="prefix input-unit">$</span>
                   <input type="number"
                          class="form-control"
                          id="price-per-gallon"
@@ -126,7 +126,7 @@ Choose your vehicle...
                 Total Cost
               </label>
               <div class="input-prefix">
-                <span class="prefix">$</span>
+                <span class="prefix input-unit">$</span>
                 <input type="number"
                        class="form-control calculated"
                        id="total-cost"
@@ -175,7 +175,7 @@ MPG needs one more step
             </div>
             <div class="advanced-section">
               <button type="button"
-                      class="advanced-toggle"
+                      class="advanced-toggle section-toggle"
                       id="advanced-toggle"
                       aria-expanded="false">
                 <span class="toggle-text">More options</span>
@@ -230,7 +230,7 @@ Location
               <span class="mpg-value" id="mpg-value">--</span>
             </div>
             <div class="form-actions">
-              <button type="submit" class="btn-primary btn-submit" id="submit-btn">
+              <button type="submit" class="btn btn-primary btn-submit" id="submit-btn">
                 <span id="submit-btn-text">Save Fill-up</span>
                 <span class="spinner-border spinner-border-sm ms-2"
                       id="submit-spinner"
@@ -247,7 +247,7 @@ Location
         </div>
       </section>
       <aside class="history-section">
-        <div class="section-card">
+        <div class="section-card card">
           <div class="card-header">
             <h2 class="card-title">
             Recent Fill-ups

@@ -39,8 +39,9 @@ test("the drawn trace follows exactly the same geometry as the road", () => {
 });
 
 test("tracer inherits theme tokens", () => {
-  assert.match(tracerCss, /var\(--accent\)/);
-  assert.match(tracerCss, /var\(--primary\)/);
+  assert.match(tracerCss, /var\(--action\)/);
+  assert.match(tracerCss, /var\(--action-rgb\)/);
+  assert.doesNotMatch(tracerCss, /var\(--accent\)/);
 });
 
 test("tracer degrades gracefully for reduced motion", () => {

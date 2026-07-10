@@ -2005,7 +2005,7 @@
 }
 
 .coverage-route-planner .progress-bar-container .progress-bar {
-  background: var(--primary-gradient);
+  background: var(--warning);
   transition: width 0.3s ease;
 }
 
@@ -2444,7 +2444,7 @@
   justify-content: center;
   width: 36px;
   height: 36px;
-  background: var(--primary);
+  background: transparent;
   color: var(--text-on-primary);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
@@ -2692,7 +2692,7 @@
 .coverage-route-planner .layer-opacity .form-range::-webkit-slider-thumb {
   width: 14px;
   height: 14px;
-  background: var(--primary);
+  background: var(--action);
   border: none;
   box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
 }
@@ -3009,7 +3009,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--primary);
+  background: var(--warning);
   flex-shrink: 0;
 }
 
