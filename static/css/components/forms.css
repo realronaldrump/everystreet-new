@@ -20,31 +20,46 @@
   width: 100%;
   padding: var(--space-2) var(--space-3);
   min-height: var(--touch-target);
-  background: var(--glass-input);
-  border: 1px solid var(--glass-border-subtle);
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: var(--font-size-md);
   line-height: var(--line-height-normal);
-  transition: all var(--transition-fast);
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .form-control:hover,
 .form-select:hover {
-  border-color: var(--glass-border-medium);
+  border-color: var(--border-color-light);
 }
 
 .form-control:focus,
 .form-select:focus {
   border-color: var(--primary);
   outline: 0;
-  background: var(--glass-input-focus);
+  background: var(--surface-1);
   box-shadow: var(--focus-ring);
 }
 
 .form-control::placeholder {
   color: var(--text-tertiary);
   opacity: 1; /* Firefox fix */
+}
+
+.input-unit,
+.input-group-text {
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-1);
+  border-color: var(--border-color);
+  color: var(--text-tertiary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
 }
 
 /* iOS Safari auto-zooms when a focused field's font-size is below 16px.

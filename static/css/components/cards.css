@@ -9,7 +9,7 @@
   background: var(--surface-1);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   overflow: hidden;
   position: relative;
   transition:
@@ -25,7 +25,7 @@
 a.card:hover,
 button.card:hover,
 .widget.is-interactive:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-xs);
   border-color: var(--border-color-light);
 }
 
@@ -50,7 +50,7 @@ button.card:hover,
 }
 
 .card[data-accent="accent"] {
-  --card-accent: var(--accent);
+  --card-accent: var(--primary);
 }
 
 .card[data-ripple] {
@@ -78,9 +78,27 @@ button.card:hover,
 }
 
 .card-title {
+  font-family: var(--font-family-display);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
   margin: 0;
+}
+
+/* Object cards are reserved for distinct nouns: vehicles, places, and areas. */
+.card--object {
+  background: var(--surface-1);
+  border-color: var(--border-color-light);
+  box-shadow: none;
+}
+
+.card--object .card-header {
+  background: transparent;
+  border-bottom-color: var(--border-color);
+}
+
+.card--object .card-footer {
+  background: transparent;
+  border-top-color: var(--border-color);
 }
 
 /* === Widget — card variant with built-in padding and flex layout === */
@@ -124,8 +142,8 @@ button.card:hover,
 }
 
 .widget[data-accent="accent"] {
-  --widget-accent: var(--accent);
-  --widget-accent-rgb: var(--accent-rgb);
+  --widget-accent: var(--primary);
+  --widget-accent-rgb: var(--primary-rgb);
 }
 
 .widget-header {
@@ -145,15 +163,14 @@ button.card:hover,
 }
 
 .widget-title i {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
+  width: 1.5em;
+  height: 1.5em;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgb(var(--widget-accent-rgb) / 16%);
-  color: var(--widget-accent);
-  box-shadow: inset 0 0 0 1px rgb(var(--widget-accent-rgb) / 28%);
+  background: transparent;
+  color: var(--text-tertiary);
+  box-shadow: none;
 }
 
 .widget-meta {
@@ -173,8 +190,8 @@ button.card:hover,
 }
 
 .widget.is-compact .widget-title i {
-  width: 32px;
-  height: 32px;
+  width: 1.5em;
+  height: 1.5em;
 }
 
 .widget.is-muted {

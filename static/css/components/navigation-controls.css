@@ -1,0 +1,124 @@
+/* Shared underline tabs. Page code may keep its JS hook classes alongside these. */
+.atlas-tabs {
+  display: flex;
+  gap: var(--space-5);
+  min-height: var(--touch-target);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border-color);
+  scrollbar-width: none;
+}
+
+.atlas-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.atlas-tab {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  padding: 0 0 var(--space-2);
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.atlas-tab::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: transparent;
+}
+
+.atlas-tab:hover,
+.atlas-tab.active,
+.atlas-tab.is-active,
+.atlas-tab[aria-selected="true"] {
+  color: var(--text-primary);
+}
+
+.atlas-tab.active::after,
+.atlas-tab.is-active::after,
+.atlas-tab[aria-selected="true"]::after {
+  background: var(--action);
+}
+
+.segmented-control {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 2px;
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.segmented-control > button,
+.segment {
+  min-height: calc(var(--touch-target) - 6px);
+  padding: var(--space-1) var(--space-3);
+  border: 0;
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.segmented-control > button:hover,
+.segment:hover {
+  color: var(--text-primary);
+}
+
+.segmented-control > button.active,
+.segmented-control > button.is-active,
+.segmented-control > button[aria-pressed="true"],
+.segment.active,
+.segment.is-active,
+.segment[aria-pressed="true"] {
+  background: var(--action);
+  color: var(--text-on-action);
+}
+
+.section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: var(--space-3) 0;
+  border: 0;
+  border-top: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  text-align: left;
+}
+
+.section-toggle i,
+.section-toggle .toggle-icon {
+  color: var(--text-tertiary);
+  transition: transform var(--transition-fast);
+}
+
+.section-toggle[aria-expanded="true"] i:last-child,
+.section-toggle[aria-expanded="true"] .toggle-icon {
+  transform: rotate(180deg);
+}
+
+@media (min-width: 48rem) {
+  .atlas-tabs {
+    gap: var(--space-6);
+  }
+}

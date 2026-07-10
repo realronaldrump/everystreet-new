@@ -1,0 +1,56 @@
+/* Shared empty states and single-hue progress language. */
+.empty-state {
+  display: grid;
+  place-items: center;
+  gap: var(--space-3);
+  min-height: 10rem;
+  padding: var(--space-8) var(--space-4);
+  border: 1px dashed var(--border-color-light);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.empty-state > i,
+.empty-state-icon {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-2xl);
+}
+
+.empty-state h2,
+.empty-state h3,
+.empty-state-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-lg);
+}
+
+.empty-state p,
+.empty-state-body {
+  max-width: 46ch;
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.atlas-progress-track {
+  color: var(--border-color);
+  stroke: currentcolor;
+}
+
+.atlas-progress-fill {
+  color: var(--color-driven);
+  stroke: currentcolor;
+}
+
+.atlas-progress-fill.is-stalled,
+.atlas-progress-fill.is-warning {
+  color: var(--warning);
+}
+
+.atlas-progress-value {
+  color: var(--text-primary);
+  font-family: var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+}

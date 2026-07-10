@@ -1,0 +1,46 @@
+/* Field Atlas ledger rows: type and rules carry structure, not boxes. */
+.ledger {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ledger-row {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(var(--space-6), 1fr) minmax(0, auto);
+  align-items: baseline;
+  gap: var(--space-3);
+  min-height: var(--touch-target);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--divider-color);
+}
+
+.ledger-row:last-child {
+  border-bottom: 0;
+}
+
+.ledger-leader {
+  min-width: var(--space-6);
+  border-bottom: 1px dotted var(--border-color-light);
+  transform: translateY(-0.2em);
+}
+
+.ledger-label {
+  min-width: 0;
+  color: var(--text-secondary);
+}
+
+.ledger-value {
+  color: var(--text-primary);
+  font-family: var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+@media (min-width: 48rem) {
+  .ledger-row {
+    gap: var(--space-4);
+  }
+}

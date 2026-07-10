@@ -46,6 +46,42 @@
   font-weight: var(--font-weight-semibold);
 }
 
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 1.75rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.badge--success,
+.badge.bg-success {
+  background: rgb(var(--success-rgb) / 16%) !important;
+  border: 1px solid rgb(var(--success-rgb) / 40%);
+  color: var(--success) !important;
+}
+
+.badge--warning,
+.badge.bg-warning {
+  background: rgb(var(--warning-rgb) / 16%) !important;
+  border: 1px solid rgb(var(--warning-rgb) / 40%);
+  color: var(--warning) !important;
+}
+
+.badge--danger,
+.badge.bg-danger {
+  background: rgb(var(--danger-rgb) / 16%) !important;
+  border: 1px solid rgb(var(--danger-rgb) / 40%);
+  color: var(--danger) !important;
+}
+
 .rounded,
 .rounded-3 {
   border-radius: var(--radius-lg) !important;
@@ -132,12 +168,12 @@ body[data-viewer-mode="true"] .owner-only {
 
 /* Accent color utilities */
 .text-accent {
-  color: var(--accent);
+  color: var(--primary);
 }
 
 .bg-accent {
-  background-color: var(--accent);
-  color: var(--text-on-primary);
+  background-color: var(--action);
+  color: var(--text-on-action);
 }
 
 /* Glassmorphism utility classes */
@@ -170,7 +206,7 @@ body[data-viewer-mode="true"] .owner-only {
 }
 
 .status-dot.active {
-  background: var(--success);
+  background: var(--live);
   box-shadow: var(--glow-success);
 }
 

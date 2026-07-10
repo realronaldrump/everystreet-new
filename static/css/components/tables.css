@@ -20,15 +20,13 @@
   transition: background-color var(--transition-fast);
 }
 
-/* Glassmorphic sticky header */
 .table thead th {
-  background: var(--glass-2);
-  backdrop-filter: blur(var(--blur-strong));
+  background: var(--surface-1);
   font-weight: var(--font-weight-semibold);
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.14em;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -38,21 +36,20 @@
   overflow-wrap: anywhere;
 }
 
+.table td[data-numeric],
+.table .data-num,
+.table .numeric {
+  text-align: right;
+  font-family: var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Hover with left border accent */
 .table-hover tbody tr:hover {
   background-color: var(--surface-2);
 }
 
-.table-hover tbody tr td:first-child {
-  box-shadow: inset 2px 0 0 transparent;
-  transition: box-shadow var(--transition-fast);
-}
-
-.table-hover tbody tr:hover td:first-child {
-  box-shadow: inset 2px 0 0 var(--primary);
-}
-
-/* Subtle striping with glass effect */
+/* Subtle striping */
 .table-striped tbody tr:nth-of-type(odd) {
   background-color: rgb(var(--surface-rgb) / 40%);
 }

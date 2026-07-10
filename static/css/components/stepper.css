@@ -1,0 +1,89 @@
+/* One workflow language: 01 — 02 — 03, with sage reserved for completion. */
+.atlas-stepper {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(4.5rem, 1fr);
+  gap: 0;
+  width: 100%;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.atlas-step {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-3) var(--space-2) 0;
+  color: var(--text-tertiary);
+}
+
+.atlas-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: var(--space-2);
+  width: clamp(0.75rem, 3vw, 2.5rem);
+  border-top: 1px solid var(--border-color-light);
+}
+
+.atlas-step-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2ch;
+  color: inherit;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.atlas-step-index::before {
+  content: "0";
+}
+
+.atlas-step-label {
+  padding-bottom: var(--space-1);
+  border-bottom: 2px solid transparent;
+  color: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.atlas-step.active,
+.atlas-step.is-active,
+.atlas-step[aria-current="step"] {
+  color: var(--text-primary);
+}
+
+.atlas-step.active .atlas-step-label,
+.atlas-step.is-active .atlas-step-label,
+.atlas-step[aria-current="step"] .atlas-step-label {
+  border-bottom-color: var(--action);
+}
+
+.atlas-step.completed,
+.atlas-step.is-complete {
+  color: var(--text-secondary);
+}
+
+.atlas-step.completed .atlas-step-index,
+.atlas-step.is-complete .atlas-step-index {
+  color: transparent;
+}
+
+.atlas-step.completed .atlas-step-index::after,
+.atlas-step.is-complete .atlas-step-index::after {
+  content: "✓";
+  position: absolute;
+  color: var(--primary);
+  font-family: var(--font-family-mono);
+}
+
+@media (min-width: 48rem) {
+  .atlas-step {
+    padding-right: var(--space-5);
+  }
+}

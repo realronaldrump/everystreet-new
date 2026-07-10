@@ -24,7 +24,7 @@
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.22em;
-  color: var(--primary);
+  color: var(--text-tertiary);
 }
 
 .pm-title {
@@ -91,7 +91,7 @@
 }
 
 .figure-value {
-  font-family: var(--font-family-display);
+  font-family: var(--font-family-mono);
   font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.4rem);
   font-weight: var(--font-weight-bold);
   line-height: 1;
