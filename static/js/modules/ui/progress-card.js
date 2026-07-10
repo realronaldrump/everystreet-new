@@ -48,8 +48,8 @@ class ProgressCardGenerator {
 
     // Accent stripe at top
     const accentGrad = ctx.createLinearGradient(0, 0, width, 0);
-    accentGrad.addColorStop(0, "#3b8a7f");
-    accentGrad.addColorStop(1, "#d09868");
+    accentGrad.addColorStop(0, "#6f8fce");
+    accentGrad.addColorStop(1, "#d4a24a");
     ctx.fillStyle = accentGrad;
     ctx.fillRect(0, 0, width, 4);
 
@@ -94,8 +94,8 @@ class ProgressCardGenerator {
       ringX + ringR,
       ringY
     );
-    ringGrad.addColorStop(0, "#3b8a7f");
-    ringGrad.addColorStop(1, "#4d9a6a");
+    ringGrad.addColorStop(0, "#6f8fce");
+    ringGrad.addColorStop(1, "#8aa7df");
     ctx.beginPath();
     ctx.arc(ringX, ringY, ringR, startAngle, endAngle);
     ctx.strokeStyle = ringGrad;
@@ -158,8 +158,8 @@ class ProgressCardGenerator {
 
     // Bottom border glow
     const bottomGrad = ctx.createLinearGradient(0, height - 3, 0, height);
-    bottomGrad.addColorStop(0, "rgba(59, 138, 127, 0.3)");
-    bottomGrad.addColorStop(1, "rgba(59, 138, 127, 0)");
+    bottomGrad.addColorStop(0, "rgba(111, 143, 206, 0.3)");
+    bottomGrad.addColorStop(1, "rgba(111, 143, 206, 0)");
     ctx.fillStyle = bottomGrad;
     ctx.fillRect(0, height - 3, width, 3);
 

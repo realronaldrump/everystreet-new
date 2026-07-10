@@ -239,9 +239,9 @@
   }
 }
 
-/* Card header gradients using existing accent colors */
-.place-card-header.mint {
-  background: rgb(var(--cat-mint-rgb) / 15%);
+/* Card header washes use the fixed categorical palette. */
+.place-card-header.cobalt {
+  background: rgb(var(--primary-rgb) / 15%);
 }
 
 .place-card-header.purple {
@@ -250,10 +250,6 @@
 
 .place-card-header.sky {
   background: rgb(var(--cat-sky-rgb) / 15%);
-}
-
-.place-card-header.lime {
-  background: rgb(var(--cat-lime-rgb) / 15%);
 }
 
 .place-card-header.ochre {
@@ -728,7 +724,7 @@
 /* Map Section */
 .map-section {
   background: var(--surface-1);
-  border-color: rgb(var(--cat-lime-rgb) / 30%);
+  border-color: rgb(var(--primary-rgb) / 30%);
 }
 
 .map-container-wrapper {
@@ -909,9 +905,9 @@
 }
 
 .boundary-mode-pill.boundary-mode-editing {
-  border-color: rgb(var(--cat-mint-rgb) / 60%);
-  color: var(--cat-mint);
-  background: rgb(var(--cat-mint-rgb) / 14%);
+  border-color: rgb(var(--primary-rgb) / 60%);
+  color: var(--primary);
+  background: rgb(var(--primary-rgb) / 14%);
 }
 
 .boundary-mode-text {

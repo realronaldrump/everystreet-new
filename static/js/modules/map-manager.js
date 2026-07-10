@@ -378,7 +378,7 @@ const mapManager = {
 
     const defaultHighlight =
       selectedLayer === "matchedTrips"
-        ? "#4da396"
+        ? "#8aa7df"
         : CONFIG.LAYER_DEFAULTS.trips.highlightColor;
     const highlightColor =
       (selectedLayer === "matchedTrips"

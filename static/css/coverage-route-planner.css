@@ -974,7 +974,7 @@
 
 .coverage-route-planner .coverage-bar-fill {
   height: 100%;
-  background: var(--cat-mint);
+  background: var(--primary);
   border-radius: var(--radius-full);
   width: 0%;
   transition: width 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -2443,7 +2443,7 @@
 }
 
 .coverage-route-planner .stat-card[data-stat="coverage"] .stat-icon {
-  background: var(--cat-mint);
+  background: var(--primary);
 }
 
 .coverage-route-planner .stat-card[data-stat="required"] .stat-icon {

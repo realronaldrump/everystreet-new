@@ -173,7 +173,7 @@ test("google map proxy re-renders source updates and evaluates zoom style expres
     source: "trips-source",
     layout: { visibility: "visible" },
     paint: {
-      "line-color": "#b87a4a",
+      "line-color": "#b68433",
       "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2, 18, 6],
       "line-opacity": ["interpolate", ["linear"], ["zoom"], 10, 0.3, 18, 0.9],
     },

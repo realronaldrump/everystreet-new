@@ -55,9 +55,9 @@ function withAlpha(color, alpha) {
 
 function getAtlasChartPalette() {
   return [
-    readColorToken("--cat-sage", "#3b8a7f"),
+    readColorToken("--cat-cobalt", "#6f8fce"),
     readColorToken("--cat-ochre", "#d4a24a"),
-    readColorToken("--cat-steel", "#5a86b0"),
+    readColorToken("--cat-steel", "#6290ad"),
     readColorToken("--cat-coral", "#c47050"),
     readColorToken("--cat-slate", "#727a84"),
     readColorToken("--cat-purple", "#8a7ab0"),
@@ -380,7 +380,7 @@ function initTrendsChart() {
     destroyChartInstance(existingChart);
   }
 
-  const [sage, ochre] = getAtlasChartPalette();
+  const [cobalt, ochre] = getAtlasChartPalette();
 
   const chart = new Chart(trendsCtx, {
     type: "line",
@@ -390,13 +390,13 @@ function initTrendsChart() {
         {
           label: "Distance",
           data: [],
-          borderColor: sage,
-          backgroundColor: withAlpha(sage, 0.12),
+          borderColor: cobalt,
+          backgroundColor: withAlpha(cobalt, 0.12),
           fill: true,
           borderWidth: 3,
           yAxisID: "y",
           pointRadius: 2,
-          pointBackgroundColor: sage,
+          pointBackgroundColor: cobalt,
           pointHoverRadius: 4,
           tension: 0.3,
         },
@@ -628,7 +628,7 @@ function updateTimeHeatmap() {
   }
 
   const maxCount = Math.max(...cells.map((cell) => cell.count), 1);
-  const [sage] = getAtlasChartPalette();
+  const [cobalt] = getAtlasChartPalette();
   const width = Math.max(760, Math.round(host.clientWidth || 760));
   const height = width < 820 ? 330 : 370;
 
@@ -660,7 +660,7 @@ function updateTimeHeatmap() {
     color: {
       type: "linear",
       domain: [0, maxCount],
-      range: [withAlpha(sage, 0.1), withAlpha(sage, 0.95)],
+      range: [withAlpha(cobalt, 0.1), withAlpha(cobalt, 0.95)],
       label: "Trips",
       legend: true,
     },

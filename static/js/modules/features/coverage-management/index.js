@@ -1696,7 +1696,7 @@ function updateStatsUI(area, summary) {
       : "—";
   }
 
-  // Completion is expressed as a quiet Atlas stamp and sage hairline.
+  // Completion is expressed as a quiet Atlas stamp and cobalt hairline.
   applyCompletionCelebration(area, pct);
 }
 
@@ -1857,7 +1857,7 @@ async function loadStreets(areaId, areaSyncToken = null) {
         type: "line",
         source: "streets",
         filter: ["==", ["get", "status"], "driven"],
-        paint: { "line-color": "#4d9a6a", "line-width": 4, "line-opacity": 0.85 },
+        paint: { "line-color": "#6f8fce", "line-width": 4, "line-opacity": 0.85 },
       });
 
       // Undriveable streets (dashed)

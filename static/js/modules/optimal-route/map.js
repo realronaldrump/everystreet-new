@@ -23,7 +23,7 @@ export class OptimalRouteMap extends BaseFeatureMap {
       driven: pickColor(
         MapStyles.MAP_LAYER_COLORS?.optimalRoute?.driven,
         MapStyles.MAP_LAYER_COLORS?.streets?.driven,
-        "#4d9a6a"
+        "#6f8fce"
       ),
       undriven: pickColor(
         MapStyles.MAP_LAYER_COLORS?.optimalRoute?.undriven,
@@ -33,12 +33,12 @@ export class OptimalRouteMap extends BaseFeatureMap {
       route: pickColor(
         MapStyles.MAP_LAYER_COLORS?.optimalRoute?.route,
         MapStyles.MAP_LAYER_COLORS?.routes?.default,
-        "#b87a4a"
+        "#8a7ab0"
       ),
       arrow: pickColor(
         MapStyles.MAP_LAYER_COLORS?.optimalRoute?.arrow,
         MapStyles.MAP_LAYER_COLORS?.routes?.default,
-        "#b87a4a"
+        "#8a7ab0"
       ),
       arrowStroke: pickColor(
         MapStyles.MAP_LAYER_COLORS?.googleDefaults?.circleStroke,

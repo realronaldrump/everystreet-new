@@ -274,7 +274,7 @@
 }
 
 .hero-ring-fill--city {
-  stroke: var(--cat-sage);
+  stroke: var(--primary);
 }
 
 .hero-ring-value {

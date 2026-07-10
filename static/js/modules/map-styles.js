@@ -9,64 +9,64 @@ const CAN_READ_DOCUMENT =
 
 const DEFAULT_MAP_LAYER_COLORS = Object.freeze({
   trips: {
-    default: "#3d9be9",
-    selected: "#e7f7ff",
-    recentLight: "#3d9be9",
-    recentDark: "#287dbd",
+    default: "#4ca3d2",
+    selected: "#dcefff",
+    recentLight: "#4ca3d2",
+    recentDark: "#287ba7",
   },
   matchedTrips: {
     default: "#c45454",
-    highlight: "#5fa0c4",
+    highlight: "#8aa7df",
   },
   streets: {
     undriven: "#c47050",
-    driven: "#4d9a6a",
-    all: "#6a9fc0",
+    driven: "#6f8fce",
+    all: "#72a6c4",
   },
   routes: {
-    default: "#d09868",
-    active: "#3b8a7f",
-    completed: "#4d9a6a",
+    default: "#d4a24a",
+    active: "#6f8fce",
+    completed: "#6f8fce",
   },
   clusters: {
     small: "#d4a24a",
-    medium: "#d09868",
+    medium: "#c49050",
     large: "#c45454",
   },
   coverage: {
-    driven: "#4d9a6a",
+    driven: "#6f8fce",
     undriven: "#c47050",
     undriveable: "#727a84",
   },
   customPlaces: {
-    fill: "#3b8a7f",
-    outline: "#2a6b63",
-    highlight: "#d09868",
+    fill: "#6f8fce",
+    outline: "#526fae",
+    highlight: "#d4a24a",
   },
   optimalRoute: {
-    driven: "#4d9a6a",
+    driven: "#6f8fce",
     undriven: "#c47050",
     route: "#8a7ab0",
     arrow: "#8a7ab0",
   },
   googleDefaults: {
-    line: "#d4943c",
-    circle: "#b87a4a",
+    line: "#d4a24a",
+    circle: "#b68433",
     circleStroke: "#ffffff",
-    fill: "#b87a4a",
-    fillOutline: "#b87a4a",
+    fill: "#b68433",
+    fillOutline: "#b68433",
   },
   county: {
-    visitedFill: "#4d9a6a",
-    visitedBorder: "#3b7a53",
-    stoppedFill: "#5b9bd5",
-    stoppedBorder: "#4a80b4",
+    visitedFill: "#6f8fce",
+    visitedBorder: "#526fae",
+    stoppedFill: "#6290ad",
+    stoppedBorder: "#476d85",
     hoverFill: "#faf9f7",
     borderCounty: "rgba(245, 242, 236, 0.15)",
     borderCity: "rgba(245, 242, 236, 0.25)",
     stateLow: "rgba(245, 242, 236, 0.08)",
-    stateMedium: "rgba(111, 179, 136, 0.45)",
-    stateHigh: "rgba(62, 132, 91, 0.75)",
+    stateMedium: "rgba(111, 143, 206, 0.45)",
+    stateHigh: "rgba(63, 95, 156, 0.75)",
     cityUnvisited: "rgba(245, 242, 236, 0.08)",
   },
 });
@@ -115,13 +115,13 @@ const buildMapLayerColors = () => ({
     all: getCSSVariable("--primary-light", DEFAULT_MAP_LAYER_COLORS.streets.all),
   },
   routes: {
-    default: getCSSVariable("--accent", DEFAULT_MAP_LAYER_COLORS.routes.default),
-    active: getCSSVariable("--info", DEFAULT_MAP_LAYER_COLORS.routes.active),
+    default: getCSSVariable("--warning", DEFAULT_MAP_LAYER_COLORS.routes.default),
+    active: getCSSVariable("--primary", DEFAULT_MAP_LAYER_COLORS.routes.active),
     completed: getCSSVariable("--success", DEFAULT_MAP_LAYER_COLORS.routes.completed),
   },
   clusters: {
     small: getCSSVariable("--warning", DEFAULT_MAP_LAYER_COLORS.clusters.small),
-    medium: getCSSVariable("--accent", DEFAULT_MAP_LAYER_COLORS.clusters.medium),
+    medium: getCSSVariable("--cat-amber", DEFAULT_MAP_LAYER_COLORS.clusters.medium),
     large: getCSSVariable("--danger", DEFAULT_MAP_LAYER_COLORS.clusters.large),
   },
   coverage: {
@@ -142,7 +142,7 @@ const buildMapLayerColors = () => ({
       DEFAULT_MAP_LAYER_COLORS.customPlaces.outline
     ),
     highlight: getCSSVariable(
-      "--accent",
+      "--warning",
       DEFAULT_MAP_LAYER_COLORS.customPlaces.highlight
     ),
   },
@@ -156,18 +156,21 @@ const buildMapLayerColors = () => ({
     arrow: getCSSVariable("--cat-purple", DEFAULT_MAP_LAYER_COLORS.optimalRoute.arrow),
   },
   googleDefaults: {
-    line: getCSSVariable("--accent", DEFAULT_MAP_LAYER_COLORS.googleDefaults.line),
+    line: getCSSVariable("--warning", DEFAULT_MAP_LAYER_COLORS.googleDefaults.line),
     circle: getCSSVariable(
-      "--accent-dark",
+      "--warning-dark",
       DEFAULT_MAP_LAYER_COLORS.googleDefaults.circle
     ),
     circleStroke: getCSSVariable(
       "--surface-1",
       DEFAULT_MAP_LAYER_COLORS.googleDefaults.circleStroke
     ),
-    fill: getCSSVariable("--accent-dark", DEFAULT_MAP_LAYER_COLORS.googleDefaults.fill),
+    fill: getCSSVariable(
+      "--warning-dark",
+      DEFAULT_MAP_LAYER_COLORS.googleDefaults.fill
+    ),
     fillOutline: getCSSVariable(
-      "--accent-dark",
+      "--warning-dark",
       DEFAULT_MAP_LAYER_COLORS.googleDefaults.fillOutline
     ),
   },

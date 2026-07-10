@@ -1,12 +1,12 @@
 /* ============================
    Design Tokens
    Palette
-   - Sage Teal:   #3b8a7f (primary — cartographic anchor)
+   - Survey Blue: #6f8fce (primary — blueprint ink)
    - Warm Slate:  #727a84 (secondary)
    - Brick:       #c45454 (danger)
-   - Steel:       #5a86b0 (info)
+   - Steel:       #6290ad (info)
    - Honey:       #d4a24a (warning)
-   - Forest:      #4d9a6a (success)
+   - Cobalt:      #6f8fce (success / covered / live)
 
    Surfaces
    - Surface deep: #050507 (true-dark for modals/drawers)
@@ -31,31 +31,25 @@
    ============================ */
 
 :root {
-  /* Categorical palette.
-     Chart order is fixed: sage → ochre → steel → coral → slate → purple. */
-  --cat-sage: #3b8a7f;
-  --cat-sage-rgb: 59 138 127;
+  /* Blueprint & Brass categorical palette.
+     Chart order is fixed: cobalt → ochre → steel → coral → slate → purple. */
+  --cat-cobalt: #6f8fce;
+  --cat-cobalt-rgb: 111 143 206;
   --cat-slate: #727a84;
   --cat-slate-rgb: 114 122 132;
   --cat-rose: #c45454;
   --cat-rose-rgb: 196 84 84;
-  --cat-steel: #5a86b0;
-  --cat-steel-rgb: 90 134 176;
+  --cat-steel: #6290ad;
+  --cat-steel-rgb: 98 144 173;
   --cat-ochre: #d4a24a;
   --cat-ochre-rgb: 212 162 74;
-  --cat-olive: #4d9a6a;
-  --cat-olive-rgb: 77 154 106;
-  --cat-sky: #6a9fc0;
-  --cat-sky-rgb: 106 159 192;
-  --cat-lime: var(--cat-olive);
-  --cat-lime-rgb: var(--cat-olive-rgb);
+  --cat-sky: #72a6c4;
+  --cat-sky-rgb: 114 166 196;
   --cat-amber: #c49050;
   --cat-amber-rgb: 196 144 80;
   --amber-rgb: var(--cat-amber-rgb);
   --cat-coral: #c47050;
   --cat-coral-rgb: 196 112 80;
-  --cat-mint: var(--cat-sage);
-  --cat-mint-rgb: var(--cat-sage-rgb);
   --cat-red: var(--cat-rose);
   --cat-red-rgb: var(--cat-rose-rgb);
   --cat-purple: #8a7ab0;
@@ -64,19 +58,19 @@
   --cat-indigo-rgb: 106 114 160;
 
   /* Semantic colors */
-  --primary: var(--cat-sage);
-  --primary-light: #4da396;
-  --primary-dark: #2d6e65;
+  --primary: var(--cat-cobalt);
+  --primary-light: #8aa7df;
+  --primary-dark: #526fae;
   --primary-hover: var(--primary-dark);
-  --primary-rgb: var(--cat-sage-rgb);
+  --primary-rgb: var(--cat-cobalt-rgb);
   --secondary: var(--cat-slate);
   --secondary-light: #8c949e;
   --secondary-dark: #5a616a;
   --secondary-rgb: var(--cat-slate-rgb);
-  --success: var(--cat-olive);
-  --success-light: #6bb285;
-  --success-dark: #3b7a53;
-  --success-rgb: var(--cat-olive-rgb);
+  --success: var(--primary);
+  --success-light: var(--primary-light);
+  --success-dark: var(--primary-dark);
+  --success-rgb: var(--primary-rgb);
   --warning: var(--cat-ochre);
   --warning-light: #e0b464;
   --warning-dark: #b68433;
@@ -90,12 +84,6 @@
   --info-dark: #44688a;
   --info-rgb: var(--cat-steel-rgb);
 
-  /* Retained as compatibility aliases. New code uses the semantic token. */
-  --accent: var(--primary);
-  --accent-light: var(--primary-light);
-  --accent-dark: var(--primary-dark);
-  --accent-rgb: var(--primary-rgb);
-
   /* UI actions are bone-on-ink in light mode and ink-on-bone in dark mode. */
   --action: #edeae0;
   --action-hover: #f8f6ef;
@@ -108,9 +96,9 @@
   --print-border: #ccc;
 
   /* Map visual language: cool individual routes, warm frequency heat. */
-  --map-trip-path: #3d9be9;
-  --map-trip-path-rgb: 61 155 233;
-  --map-trip-path-selected: #e7f7ff;
+  --map-trip-path: #4ca3d2;
+  --map-trip-path-rgb: 76 163 210;
+  --map-trip-path-selected: #dcefff;
 
   /* Flat colors - no gradients */
   --primary-gradient: var(--primary);
@@ -218,7 +206,7 @@
   --shadow-elevation-4: 0 8px 16px rgb(0 0 0 / 26%), 0 22px 44px rgb(0 0 0 / 36%);
   --shadow-elevation-5: 0 12px 24px rgb(0 0 0 / 28%), 0 30px 56px rgb(0 0 0 / 40%);
 
-  /* Accent colors */
+  /* Structural emphasis */
   --gradient-accent-bar: var(--action);
 
   /* Interactive emphasis variables are transparent by default so legacy
@@ -229,9 +217,6 @@
   --glow-success-intense: 0 0 0 0 transparent;
   --glow-warning: 0 0 0 0 transparent;
   --glow-danger: 0 0 0 0 transparent;
-  --glow-accent: 0 0 0 0 transparent;
-  --glow-accent-intense: 0 0 0 0 transparent;
-  --glow-accent-strong: 0 0 0 0 transparent;
 
   /* Flat surfaces */
   --gradient-surface-glow: none;
@@ -319,7 +304,6 @@
   /* Utility Aliases */
   --text-color: var(--text-primary);
   --primary-color: var(--primary);
-  --accent-color: var(--accent);
   --font-mono: var(--font-family-mono);
   --border-hover: var(--border-color-light);
 
@@ -357,7 +341,7 @@
   --bs-link-color: var(--primary);
   --bs-link-hover-color: var(--primary-dark);
   --bs-box-shadow: var(--shadow-sm);
-  --bs-focus-ring-color: rgb(var(--accent-rgb) / 25%);
+  --bs-focus-ring-color: rgb(var(--primary-rgb) / 25%);
 }
 
 /* Light mode overrides — warm paper, like a printed street map */
@@ -376,11 +360,11 @@ html.light-mode body {
   --text-secondary: rgb(74 70 58 / 85%);
   --text-tertiary: rgb(92 87 72 / 88%);
 
-  /* Deeper sage so small text and links clear AA on paper */
-  --primary: #2f7268;
-  --primary-light: #3b8a7f;
-  --primary-dark: #275e56;
-  --primary-rgb: 47 114 104;
+  /* Deeper survey blue so small text and links clear AA on paper. */
+  --primary: #3f5f9c;
+  --primary-light: #5878b6;
+  --primary-dark: #304a7c;
+  --primary-rgb: 63 95 156;
   --text-on-primary: #fff;
   --action: #26241f;
   --action-hover: #3a372f;
@@ -417,9 +401,9 @@ html.light-mode body {
   --glass-input: rgb(var(--surface-rgb) / 50%);
   --glass-input-focus: rgb(var(--surface-rgb) / 60%);
   --toggle-knob: var(--surface-0);
-  --map-trip-path: #167bbd;
-  --map-trip-path-rgb: 22 123 189;
-  --map-trip-path-selected: #063b63;
+  --map-trip-path: #287ba7;
+  --map-trip-path-rgb: 40 123 167;
+  --map-trip-path-selected: #073a54;
 
   /* Light mode glass borders */
   --glass-border-subtle: rgb(var(--border-rgb) / 6%);

@@ -59,6 +59,14 @@ def _total_size_bytes(stats: dict[str, Any], index_key: str, data_key: str) -> i
     return int(stats.get(data_key, 0) or 0)
 
 
+def _public_app_settings_payload(settings: AppSettings) -> dict[str, Any]:
+    payload = settings.model_dump()
+    payload.pop("accentColor", None)
+    payload.pop("mapbox_access_token", None)
+    payload["mapbox_token"] = get_mapbox_token()
+    return payload
+
+
 # Map collection names to Beanie Document models for admin operations
 COLLECTION_TO_MODEL = {
     "trips": Trip,
@@ -125,14 +133,12 @@ class AdminService:
     @staticmethod
     async def get_app_settings_payload() -> dict[str, Any]:
         settings = await AdminService.get_persisted_app_settings()
-        payload = settings.model_dump()
-        payload.pop("mapbox_access_token", None)
-        payload["mapbox_token"] = get_mapbox_token()
-        return payload
+        return _public_app_settings_payload(settings)
 
     @staticmethod
-    async def update_app_settings(settings: dict[str, Any]) -> AppSettings:
+    async def update_app_settings(settings: dict[str, Any]) -> dict[str, Any]:
         settings = dict(settings)
+        settings.pop("accentColor", None)
         settings.pop("mapbox_token", None)
         settings.pop("mapbox_access_token", None)
 
@@ -174,7 +180,7 @@ class AdminService:
             clear_local_provider_cache()
         updated = await AdminService.get_persisted_app_settings()
         apply_settings_to_env(updated, force=True)
-        return updated
+        return _public_app_settings_payload(updated)
 
     @staticmethod
     async def clear_collection(collection: str) -> dict[str, Any]:

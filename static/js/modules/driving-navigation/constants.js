@@ -15,16 +15,16 @@ export const DRIVING_NAV_DEFAULTS = {
  * Used when MapStyles module is not yet loaded.
  */
 export const DEFAULT_CLUSTER_COLORS = [
-  "#3b8a7f",
+  "#6f8fce",
   "#727a84",
-  "#5a86b0",
+  "#6290ad",
   "#c45454",
   "#d4a24a",
-  "#4d9a6a",
-  "#6a9fc0",
-  "#7aaa58",
+  "#72a6c4",
   "#c49050",
   "#8a7ab0",
+  "#c47050",
+  "#6a72a0",
 ];
 
 /**
@@ -32,15 +32,15 @@ export const DEFAULT_CLUSTER_COLORS = [
  */
 export const DEFAULT_STREET_COLORS = {
   undriven: "#c47050",
-  driven: "#4d9a6a",
+  driven: "#6f8fce",
 };
 
 /**
  * Default route colors with defaults.
  */
 export const DEFAULT_ROUTE_COLORS = {
-  calculated: "#3b8a7f",
-  target: "#b87a4a",
+  calculated: "#6f8fce",
+  target: "#d4a24a",
 };
 
 /**

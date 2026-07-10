@@ -145,7 +145,7 @@ const contextualUI = {
     if (tone === "cool") {
       return style.getPropertyValue("--info-rgb").trim();
     }
-    return style.getPropertyValue("--accent-rgb").trim();
+    return style.getPropertyValue("--primary-rgb").trim();
   },
 
   formatAmbient(rgb, timeTone) {

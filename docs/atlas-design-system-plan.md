@@ -1,6 +1,6 @@
 # Every Street — "Field Atlas" Identity & Design-System Plan
 
-**Status:** Implemented 2026-07-09 (original audit: live everystreet.me Rev. 3222 / local `main` @ 0314d2b5)
+**Status:** Historical implementation record. Superseded 2026-07-09 by the fixed Blueprint & Brass palette documented in [`design-language.md`](design-language.md); the configurable accent and the green-led palette described below have been retired.
 **Goal:** One cohesive, professional identity across all ~20 pages; kill the "green everywhere" problem with an intentional color system; no generic AI-slop patterns.
 
 ---

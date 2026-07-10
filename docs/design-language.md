@@ -1,27 +1,34 @@
-# Field Atlas design language
+# Blueprint & Brass design language
 
-Field Atlas is Every Street's permanent visual identity: a personal
-cartographic ledger built from paper, ink, hairlines, and measured figures.
-This document is the implementation reference. The full audit and migration
-record lives in [`atlas-design-system-plan.md`](atlas-design-system-plan.md).
+Blueprint & Brass is Every Street's fixed visual identity: a personal
+cartographic ledger built from warm paper, charcoal ink, survey blue, drafting
+ochre, hairlines, and measured figures. This document is the implementation
+reference. The original audit and migration record lives in
+[`atlas-design-system-plan.md`](atlas-design-system-plan.md).
 
-## Governing rule: green is earned
+## Governing rule: color is authored, not personalized
 
-Sage means the product's payoff: driven streets, coverage progress, live data,
-and completed work. Success green is for successful feedback. Green is never a
-decorative fill for buttons, tabs, navigation, or page chrome.
+The product has one closed palette. There is no user-selectable global accent,
+no runtime rewriting of design tokens, and no `--accent` compatibility alias.
+The interface should feel like one designed instrument in every session.
 
-- UI actions and active chrome use `--action`, `--action-hover`, and
-  `--text-on-action`.
-- Planning and attention use ochre via `--warning`.
-- Destructive and error states use `--danger`; never use red for ordinary data.
+- Cobalt is the survey ink. It marks driven streets, coverage progress, live
+  data, confirmed states, links, focus, and enabled controls.
+- Ink and bone are the action colors. Primary buttons and selected navigation
+  use `--action`, `--action-hover`, and `--text-on-action` so blue remains
+  meaningful rather than becoming generic chrome.
+- Ochre is the drafting pencil. Planning, attention, and work in progress use
+  `--warning`.
+- Coral marks remaining or undriven streets through `--color-undriven`.
+- Brick is reserved for destructive actions and errors through `--danger`.
+- Steel carries secondary information and stopped-in-region data through
+  `--info` and `--cat-steel`.
 - Neutral, idle, disabled, and checking states use surface, border, and text
   tokens.
-- Sage remains valid for text links, focus rings, enabled toggles, and measured
-  live/driven/progress data.
 
-All colors come from `static/css/core/variables.css`. `--accent` is a legacy
-alias and must not appear in new CSS. Page styles must not contain raw colors.
+All application colors come from `static/css/core/variables.css`. Page styles
+must not contain raw colors. New hues require a deliberate design-language
+change, not a page-local exception.
 
 ## Visual grammar
 
@@ -42,8 +49,8 @@ vehicle, place, or coverage area.
 | Segmented control | `.segmented-control` and its existing item classes | Compact view or mode switching. |
 | Stepper | `.atlas-stepper`, `.atlas-step`, `.atlas-step-index`, `.atlas-step-label` | All multi-step workflows. Do not add connector elements. |
 | Buttons | `.btn-primary`, `.btn-secondary`, `.btn-ghost`, `.btn-danger` | Ink primary, hairline secondary, quiet ghost, destructive danger. |
-| Forms | shared form/input/select classes | Surface fill, hairline border, token focus ring; never page-local beige or dark variants. |
-| Status | `.status-badge`, `.status-dot`, and semantic modifiers | Sage live/ok, ochre attention, brick error, neutral idle. |
+| Forms | shared form/input/select classes | Surface fill, hairline border, cobalt focus ring; never page-local beige or dark variants. |
+| Status | `.status-badge`, `.status-dot`, and semantic modifiers | Cobalt live/ok, ochre attention, brick error, neutral idle. |
 | Empty state | shared empty-state classes | Dashed hairline, one line icon, one sentence, at most one quiet action. |
 | Navigation controls | `.atlas-nav-controls` family | Consistent map and page navigation controls. |
 
@@ -55,16 +62,17 @@ or hero exemption recorded in the design guardrail test.
 
 | Meaning | Token |
 |---|---|
-| Driven, covered, live | `--color-driven`, `--live` |
+| Driven, covered, live, confirmed | `--color-driven`, `--live`, `--success` |
 | Undriven, remaining | `--color-undriven` |
 | Individual trip path | `--map-trip-path` |
 | Planned route | `--warning` |
 | Stopped-in region | `--cat-steel` |
 
-Categorical charts use at most six colors in this fixed order: sage, ochre,
-steel, coral, slate, purple. Heatmaps use a sequential sage ramp unless the data
-already has a documented semantic scale. Coverage/progress rings are sage on a
-border-color track; ochre is reserved for stalled or attention states.
+Categorical charts use at most six colors in this fixed order: cobalt, ochre,
+steel, coral, slate, purple. Heatmaps use a sequential cobalt ramp unless the
+data already has a documented semantic scale. Coverage and progress rings are
+cobalt on a border-color track; ochre is reserved for stalled or attention
+states.
 
 ## Responsive and accessible behavior
 
@@ -82,7 +90,8 @@ border-color track; ochre is reserved for stalled or attention states.
 Before merging a UI change:
 
 1. Reuse a canonical component and token; do not fork a page-local visual.
-2. Confirm every green use communicates driven/live/progress/success meaning.
+2. Keep the palette fixed and verify no personalized accent path or green-hued
+   color literal has been introduced.
 3. Put measured numbers in mono tabular figures.
 4. Check light and dark themes plus the four reference widths.
 5. Run `pytest tests/guardrails/test_design_tokens.py --no-cov` and the

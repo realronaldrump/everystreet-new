@@ -149,7 +149,7 @@ class LiveNavigationMap extends BaseFeatureMap {
           "line-color": [
             "case",
             ["boolean", ["feature-state", "driven"], false],
-            getThemeColor("--success", "#4d9a6a"),
+            getThemeColor("--success", "#6f8fce"),
             getThemeColor("--color-undriven", "#c47050"),
           ],
           "line-width": 4,
@@ -171,7 +171,7 @@ class LiveNavigationMap extends BaseFeatureMap {
         source: "coverage-segments",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": getThemeColor("--success", "#4d9a6a"),
+          "line-color": getThemeColor("--success", "#6f8fce"),
           "line-width": 10,
           "line-opacity": [
             "case",
@@ -191,7 +191,7 @@ class LiveNavigationMap extends BaseFeatureMap {
         source: "coverage-segments",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": getThemeColor("--success", "#4d9a6a"),
+          "line-color": getThemeColor("--success", "#6f8fce"),
           "line-width": 5,
           "line-opacity": [
             "case",
@@ -260,7 +260,7 @@ class LiveNavigationMap extends BaseFeatureMap {
         source: "nav-route-progress",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": getThemeColor("--primary", "#3b8a7f"),
+          "line-color": getThemeColor("--primary", "#6f8fce"),
           "line-width": 7,
           "line-opacity": 0.95,
         },
@@ -275,7 +275,7 @@ class LiveNavigationMap extends BaseFeatureMap {
         source: "nav-to-start",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": getThemeColor("--accent-light", "#d09868"),
+          "line-color": getThemeColor("--warning", "#d4a24a"),
           "line-width": 4,
           "line-opacity": 0.9,
           "line-dasharray": [2, 1],

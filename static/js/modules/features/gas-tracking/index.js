@@ -415,7 +415,7 @@ function updateMap(lat, lon) {
   }
 
   // Add new marker
-  marker = new mapboxgl.Marker({ color: "#3b8a7f" }).setLngLat([lon, lat]).addTo(map);
+  marker = new mapboxgl.Marker({ color: "#6f8fce" }).setLngLat([lon, lat]).addTo(map);
 
   // Fly to location
   map.flyTo({

@@ -143,7 +143,6 @@ function setupAppSettingsForm() {
   const mapMatchTripsOnFetch = document.getElementById("map-match-trips-on-fetch");
   const form = document.getElementById("app-settings-form");
   const themeToggleCheckbox = document.getElementById("theme-toggle-checkbox");
-  const accentColorPicker = document.getElementById("accent-color-picker");
   const densityOptions = document.querySelectorAll("input[name='ui-density']");
 
   // Function to apply settings to UI
@@ -158,7 +157,6 @@ function setupAppSettingsForm() {
       tripLayersUseHeatmap,
       geocodeTripsOnFetch: gtof,
       mapMatchTripsOnFetch: mmtof,
-      accentColor,
       uiDensity,
     } = settings;
 
@@ -240,11 +238,6 @@ function setupAppSettingsForm() {
       mapMatchTripsOnFetch.checked = mmtof === true;
     }
 
-    const storedAccent =
-      accentColor || localStorage.getItem("es:accent-color") || "#b87a4a";
-    if (accentColorPicker) {
-      accentColorPicker.value = storedAccent;
-    }
     const densityValue =
       uiDensity || localStorage.getItem("es:ui-density") || "comfortable";
     densityOptions.forEach((input) => {
@@ -271,11 +264,7 @@ function setupAppSettingsForm() {
         setActiveTab("overview", { updateHash: true });
       }
     }
-    window.personalization?.applyPreferences?.({
-      accentColor: storedAccent,
-      density: densityValue,
-      persist: false,
-    });
+    window.densityManager?.apply?.(densityValue, { persist: false });
   }
 
   // Load settings from server
@@ -302,7 +291,6 @@ function setupAppSettingsForm() {
       tripLayersUseHeatmap: tripLayersUseHeatmapToggle?.checked ?? true,
       geocodeTripsOnFetch: geocodeTripsOnFetch?.checked,
       mapMatchTripsOnFetch: mapMatchTripsOnFetch?.checked,
-      accentColor: accentColorPicker?.value,
       uiDensity: densityValue || "comfortable",
     };
 
@@ -323,14 +311,9 @@ function setupAppSettingsForm() {
       payload.mapTripsWithinCoverageOnly ? "true" : "false"
     );
     setTripLayerHeatmapPreference(payload.tripLayersUseHeatmap);
-    localStorage.setItem("es:accent-color", payload.accentColor || "");
     localStorage.setItem("es:ui-density", payload.uiDensity);
 
-    window.personalization?.applyPreferences?.({
-      accentColor: payload.accentColor,
-      density: payload.uiDensity,
-      persist: false,
-    });
+    window.densityManager?.apply?.(payload.uiDensity, { persist: false });
 
     // Show success
     notificationManager.show("Settings saved successfully", "success");
@@ -365,20 +348,10 @@ function setupAppSettingsForm() {
     });
   }
 
-  accentColorPicker?.addEventListener("input", () => {
-    window.personalization?.applyPreferences?.({
-      accentColor: accentColorPicker.value,
-      persist: false,
-    });
-  });
-
   densityOptions.forEach((input) => {
     input.addEventListener("change", () => {
       if (input.checked) {
-        window.personalization?.applyPreferences?.({
-          density: input.value,
-          persist: false,
-        });
+        window.densityManager?.apply?.(input.value, { persist: false });
       }
     });
   });

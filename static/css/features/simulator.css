@@ -35,7 +35,7 @@
 
 .sim-toggle-btn.active {
   color: var(--primary);
-  border-color: rgb(59 138 127 / 40%);
+  border-color: rgb(var(--primary-rgb) / 40%);
 }
 
 /* --- Panel Container --- */
@@ -293,8 +293,8 @@
 }
 
 .sim-speed-btn.active {
-  background: rgb(59 138 127 / 18%);
-  border-color: rgb(59 138 127 / 40%);
+  background: rgb(var(--primary-rgb) / 18%);
+  border-color: rgb(var(--primary-rgb) / 40%);
   color: var(--primary);
 }
 
@@ -326,13 +326,13 @@
 }
 
 .sim-btn-start {
-  background: rgb(77 154 106 / 14%);
-  border-color: rgb(77 154 106 / 30%);
+  background: rgb(var(--success-rgb) / 14%);
+  border-color: rgb(var(--success-rgb) / 30%);
   color: var(--success);
 }
 
 .sim-btn-start:hover:not(:disabled) {
-  background: rgb(77 154 106 / 24%);
+  background: rgb(var(--success-rgb) / 24%);
 }
 
 .sim-btn-stop {

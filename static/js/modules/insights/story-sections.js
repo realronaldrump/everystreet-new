@@ -201,7 +201,7 @@ function renderInsightScenes(scenes = []) {
     .map(
       (scene, index) => `
         <button type="button"
-                class="scene-card tone-${scene.tone || "mint"}"
+                class="scene-card tone-${scene.tone || "cobalt"}"
                 data-scene-index="${index}"
                 aria-label="Open data for ${escapeHtml(scene.title || "pattern")}">
           <div class="scene-icon"><i class="fas ${escapeHtml(scene.icon || "fa-circle")}"></i></div>

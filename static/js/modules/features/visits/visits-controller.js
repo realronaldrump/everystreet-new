@@ -32,15 +32,15 @@ const IMPERIAL_CONFIG = {
 const PLACE_ICON = "📍";
 
 const DISCOVERY_PREVIEW_COLORS = {
-  fill: "#6a9fc0",
-  line: "#6a9fc0",
+  fill: "#6290ad",
+  line: "#6290ad",
 };
 
 const PLACE_PREVIEW_COLORS = {
-  mint: { fill: "#22b7a2", line: "#49d7c3" },
-  purple: { fill: "#9176d2", line: "#b39ce5" },
-  sky: { fill: "#5d9fd9", line: "#82bbea" },
-  slate: { fill: "#6f7f96", line: "#94a3b8" },
+  cobalt: { fill: "#6f8fce", line: "#8aa7df" },
+  purple: { fill: "#8a7ab0", line: "#8a7ab0" },
+  sky: { fill: "#72a6c4", line: "#72a6c4" },
+  slate: { fill: "#727a84", line: "#8c949e" },
 };
 
 // Day names for pattern detection
@@ -1111,7 +1111,7 @@ class VisitsPageController {
 
   getPlaceAccent(visits, maxVisits) {
     if (visits === maxVisits) {
-      return "mint";
+      return "cobalt";
     }
     if (visits > maxVisits * 0.7) {
       return "purple";

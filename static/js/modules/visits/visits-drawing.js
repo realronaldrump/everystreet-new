@@ -597,9 +597,9 @@ class VisitsDrawing {
    */
   _getDrawStyles() {
     const colors = MapStyles.MAP_LAYER_COLORS?.customPlaces || {
-      fill: "#3b8a7f",
-      outline: "#2d6e65",
-      highlight: "#b87a4a",
+      fill: "#6f8fce",
+      outline: "#526fae",
+      highlight: "#d4a24a",
     };
 
     return [

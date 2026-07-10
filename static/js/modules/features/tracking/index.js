@@ -305,7 +305,7 @@ class LiveTripTracker {
   refreshPrimaryColor() {
     const defaultRgb = [59, 138, 127];
     const primaryRgbVar = LiveTripTracker.getCssVar("--primary-rgb", "").trim();
-    const primaryVar = LiveTripTracker.getCssVar("--primary", "#3b8a7f");
+    const primaryVar = LiveTripTracker.getCssVar("--primary", "#6f8fce");
     const resolvedRgb =
       (primaryRgbVar && LiveTripTracker.resolveRgbChannels(`rgb(${primaryRgbVar})`)) ||
       LiveTripTracker.resolveRgbChannels(primaryVar) ||

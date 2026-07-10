@@ -932,7 +932,7 @@ const tripMapRenderer = {
     const highlightColor =
       (selectedLayer === "matchedTrips"
         ? MapStyles.MAP_LAYER_COLORS?.matchedTrips?.highlight
-        : MapStyles.MAP_LAYER_COLORS?.trips?.selected) || "#d09868";
+        : MapStyles.MAP_LAYER_COLORS?.trips?.selected) || "#dcefff";
 
     const paint = {
       "line-color": highlightColor,
@@ -1083,7 +1083,7 @@ const tripMapRenderer = {
     const highlightColor =
       (selectedLayer === "matchedTrips"
         ? MapStyles.MAP_LAYER_COLORS?.matchedTrips?.highlight
-        : MapStyles.MAP_LAYER_COLORS?.trips?.selected) || "#d09868";
+        : MapStyles.MAP_LAYER_COLORS?.trips?.selected) || "#dcefff";
 
     return [
       new deck.PathLayer({
@@ -1110,7 +1110,7 @@ const tripMapRenderer = {
       return {
         halo: colors.default || "#8f3040",
         glow: colors.default || "#c45454",
-        core: colors.highlight || "#5fa0c4",
+        core: colors.highlight || "#8aa7df",
       };
     }
     const theme = document.documentElement?.getAttribute("data-bs-theme") || "dark";

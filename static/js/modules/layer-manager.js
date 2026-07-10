@@ -1443,7 +1443,7 @@ const layerManager = {
     const matchedTripColors = MapStyles.MAP_LAYER_COLORS?.matchedTrips || {};
     const fallbackPalette = {
       glow: "#c45454",
-      core: "#5fa0c4",
+      core: "#8aa7df",
     };
 
     return {

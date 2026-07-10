@@ -37,7 +37,7 @@ async def get_app_settings_endpoint() -> dict[str, Any]:
 @api_route(logger)
 async def update_app_settings_endpoint(
     settings: Annotated[dict, Body()],
-) -> AppSettings:
+) -> dict[str, Any]:
     """Persist application settings changes."""
     if not isinstance(settings, dict):
         raise HTTPException(status_code=400, detail="Invalid payload")

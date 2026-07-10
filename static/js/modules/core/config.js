@@ -144,9 +144,9 @@ export const CONFIG = {
       order: 1,
       // Keep individual journeys in a cool lane. Heat intensity owns the
       // warm amber scale, so the two rendering modes read at a glance.
-      color: "#3d9be9",
-      highlightColor: "#e7f7ff",
-      glowColor: "#87d3ff",
+      color: "#4ca3d2",
+      highlightColor: "#dcefff",
+      glowColor: "#8aa7df",
       opacity: 1,
       visible: true,
       name: "Trips",
@@ -162,7 +162,7 @@ export const CONFIG = {
       color: "#c45454",
       opacity: 1,
       visible: false,
-      highlightColor: "#4da396",
+      highlightColor: "#8aa7df",
       name: "Matched Trips",
       weight: 2,
       minzoom: 0,
@@ -183,7 +183,7 @@ export const CONFIG = {
     },
     drivenStreets: {
       order: 2,
-      color: "#4d9a6a",
+      color: "#6f8fce",
       opacity: 0.8,
       visible: false,
       name: "Driven Streets",

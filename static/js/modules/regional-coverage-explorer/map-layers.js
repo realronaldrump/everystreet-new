@@ -427,7 +427,7 @@ function addCityLayers({ map, cityFeatureCollection, showStoppedCities }) {
     source: CITIES_SOURCE_ID,
     filter: ["==", ["get", "cityId"], ""],
     paint: {
-      "fill-color": "rgba(156, 225, 179, 0.92)",
+      "fill-color": "rgba(138, 167, 223, 0.92)",
       "fill-opacity": 0.25,
     },
   });

@@ -146,18 +146,18 @@ const getGoogleColorScheme = (theme = "dark") => {
 };
 
 const GOOGLE_DEFAULTS = MapStyles.MAP_LAYER_COLORS?.googleDefaults || {};
-const DEFAULT_LINE_COLOR = GOOGLE_DEFAULTS.line || "#d4943c";
+const DEFAULT_LINE_COLOR = GOOGLE_DEFAULTS.line || "#d4a24a";
 const DEFAULT_LINE_OPACITY = 0.85;
 const DEFAULT_LINE_WIDTH = 2.5;
-const DEFAULT_CIRCLE_COLOR = GOOGLE_DEFAULTS.circle || "#b87a4a";
+const DEFAULT_CIRCLE_COLOR = GOOGLE_DEFAULTS.circle || "#b68433";
 const DEFAULT_CIRCLE_OPACITY = 0.85;
 const DEFAULT_CIRCLE_RADIUS = 5;
 const DEFAULT_CIRCLE_STROKE_COLOR = GOOGLE_DEFAULTS.circleStroke || "#ffffff";
 const DEFAULT_CIRCLE_STROKE_OPACITY = 1;
 const DEFAULT_CIRCLE_STROKE_WIDTH = 0;
-const DEFAULT_FILL_COLOR = GOOGLE_DEFAULTS.fill || "#b87a4a";
+const DEFAULT_FILL_COLOR = GOOGLE_DEFAULTS.fill || "#b68433";
 const DEFAULT_FILL_OPACITY = 0.28;
-const DEFAULT_FILL_OUTLINE_COLOR = GOOGLE_DEFAULTS.fillOutline || "#b87a4a";
+const DEFAULT_FILL_OUTLINE_COLOR = GOOGLE_DEFAULTS.fillOutline || "#b68433";
 const DEFAULT_HIT_TOLERANCE_PX = 8;
 const LINE_PAINT_PROPERTIES = new Set([
   "line-color",
@@ -210,7 +210,7 @@ const GOOGLE_DARK_STYLE = [
   {
     featureType: "poi.park",
     elementType: "labels.text.fill",
-    stylers: [{ color: "#6b9a76" }],
+    stylers: [{ color: "#647da7" }],
   },
   {
     featureType: "road",
@@ -2538,7 +2538,7 @@ const createMarkerIconFromColor = (color) => {
   return {
     path: google.maps.SymbolPath.CIRCLE,
     scale: 7,
-    fillColor: color || "#d09868",
+    fillColor: color || "#d4a24a",
     fillOpacity: 1,
     strokeColor: "#ffffff",
     strokeWeight: 2,

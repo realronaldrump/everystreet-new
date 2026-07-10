@@ -1642,7 +1642,7 @@ function updateMatchedPreviewMap(geojson) {
       source: sourceId,
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": highlightColor || "#4da396",
+        "line-color": highlightColor || "#8aa7df",
         "line-opacity": 0.95,
         "line-width": 6,
       },

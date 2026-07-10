@@ -2308,8 +2308,8 @@ function getThemeColor(variable, defaultColor) {
 
 function getTripUiColors() {
   return {
-    primary: getThemeColor("--primary", "#3b8a7f"),
-    success: getThemeColor("--success", "#4d9a6a"),
+    primary: getThemeColor("--primary", "#6f8fce"),
+    success: getThemeColor("--success", "#6f8fce"),
     stroke: getThemeColor("--text-primary", "#f5f2ec"),
   };
 }

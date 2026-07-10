@@ -26,7 +26,7 @@ body[data-route^="/trips/"] {
 }
 
 body[data-route="/insights"] {
-  --section-accent-rgb: var(--cat-lime-rgb);
+  --section-accent-rgb: var(--primary-rgb);
 }
 
 body[data-route="/coverage-management"],
@@ -40,7 +40,7 @@ body[data-route="/gas-tracking"] {
 }
 
 body[data-route="/visits"] {
-  --section-accent-rgb: var(--cat-mint-rgb);
+  --section-accent-rgb: var(--primary-rgb);
 }
 
 body[data-route="/vehicles"],

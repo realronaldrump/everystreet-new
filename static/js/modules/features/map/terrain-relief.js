@@ -139,8 +139,8 @@ function getHillshadePaint(styleType) {
     return {
       "hillshade-exaggeration": 0.58,
       "hillshade-shadow-color": "rgba(7, 13, 18, 0.54)",
-      "hillshade-highlight-color": "rgba(218, 232, 218, 0.16)",
-      "hillshade-accent-color": "rgba(121, 145, 122, 0.13)",
+      "hillshade-highlight-color": "rgba(218, 228, 242, 0.16)",
+      "hillshade-accent-color": "rgba(96, 124, 168, 0.13)",
     };
   }
 
@@ -148,7 +148,7 @@ function getHillshadePaint(styleType) {
     "hillshade-exaggeration": 0.52,
     "hillshade-shadow-color": "rgba(73, 63, 47, 0.26)",
     "hillshade-highlight-color": "rgba(255, 252, 239, 0.32)",
-    "hillshade-accent-color": "rgba(113, 127, 91, 0.12)",
+    "hillshade-accent-color": "rgba(78, 103, 145, 0.12)",
   };
 }
 

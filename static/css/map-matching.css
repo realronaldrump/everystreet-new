@@ -152,7 +152,7 @@
 
   50% {
     d: path("M10,30 Q35,22 60,30 T110,30");
-    stroke: var(--cat-mint);
+    stroke: var(--primary);
     stroke-dasharray: none;
   }
 }
@@ -1474,7 +1474,7 @@
   .mm-morph-path {
     animation: none;
     d: path("M10,30 Q35,22 60,30 T110,30");
-    stroke: var(--cat-mint);
+    stroke: var(--primary);
     stroke-dasharray: none;
   }
 

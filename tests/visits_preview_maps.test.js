@@ -19,8 +19,8 @@ test("geometry preview renderer outputs inline svg for polygon boundaries", () =
       ],
     },
     {
-      fill: "#22b7a2",
-      line: "#49d7c3",
+      fill: "#6f8fce",
+      line: "#8aa7df",
     }
   );
 
@@ -46,8 +46,8 @@ test("geometry preview renderer uses cached image background when available", ()
       ],
     },
     {
-      fill: "#22b7a2",
-      line: "#49d7c3",
+      fill: "#6f8fce",
+      line: "#8aa7df",
     },
     {
       backgroundImageUrl: "/api/places/place-1/preview.png?v=abc&mode=card",

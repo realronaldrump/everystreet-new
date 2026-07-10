@@ -1,5 +1,6 @@
-"""Structural guardrails for the Field Atlas design language."""
+"""Structural guardrails for the Blueprint & Brass design language."""
 
+import colorsys
 import re
 from pathlib import Path
 
@@ -11,7 +12,14 @@ TEMPLATES = tuple(sorted((ROOT / "templates").glob("*.html")))
 
 HEX_COLOR = re.compile(r"(?<![\w-])#[0-9a-fA-F]{3,8}\b")
 FONT_LITERAL = re.compile(r"font-size\s*:\s*[0-9]*\.?[0-9]+(?:px|rem)\b")
-ACCENT_TOKEN = re.compile(r"--accent(?:-(?:rgb|light|dark))?\b")
+ACCENT_TOKEN = re.compile(
+    r"--(?:glow-)?accent(?:-(?:rgb|light|dark|strong|intense))?\b"
+)
+SIX_DIGIT_HEX_COLOR = re.compile(r"(?<![\w-])#([0-9a-fA-F]{6})\b")
+NUMERIC_RGB_COLOR = re.compile(
+    r"\brgba?\(\s*(\d{1,3})\s*(?:,|\s)\s*(\d{1,3})\s*(?:,|\s)\s*(\d{1,3})(?:\s*[,/]\s*[\d.]+%?)?\s*\)",
+    re.IGNORECASE,
+)
 COLOR_DECLARATION = re.compile(
     r"^\s*(?:color|background(?:-color)?)\s*:\s*([^;]+);", re.MULTILINE
 )
@@ -45,9 +53,94 @@ def test_page_css_uses_type_scale_tokens() -> None:
     assert not (violations := _matches(PAGE_CSS, FONT_LITERAL)), "\n".join(violations)
 
 
-def test_accent_alias_is_confined_to_variables() -> None:
-    css_files = tuple(path for path in CSS_ROOT.rglob("*.css") if path != VARIABLES_CSS)
+def test_accent_tokens_are_removed() -> None:
+    css_files = tuple(sorted(CSS_ROOT.rglob("*.css")))
     assert not (violations := _matches(css_files, ACCENT_TOKEN)), "\n".join(violations)
+
+
+def test_personalized_accent_setting_is_removed() -> None:
+    personalization = ROOT / "static" / "js" / "modules" / "ui" / "personalization.js"
+    density_manager = ROOT / "static" / "js" / "modules" / "ui" / "density-manager.js"
+    sources = (
+        ROOT / "templates" / "control_center.html",
+        ROOT
+        / "static"
+        / "js"
+        / "modules"
+        / "features"
+        / "settings"
+        / "app-settings.js",
+        ROOT / "static" / "js" / "modules" / "ui" / "ui-init.js",
+    )
+    retired_markers = re.compile(
+        r"accent-color-picker|es:accent-color|window\.personalization|personalization\.js"
+    )
+    admin_service = _read(ROOT / "admin" / "services" / "admin_service.py")
+    models = _read(ROOT / "db" / "models.py")
+    app_settings_model = models[
+        models.index("class AppSettings") : models.index("class ServerLog")
+    ]
+
+    assert not personalization.exists()
+    assert density_manager.exists()
+    assert not (violations := _matches(sources, retired_markers)), "\n".join(violations)
+    assert 'payload.pop("accentColor", None)' in admin_service
+    assert 'settings.pop("accentColor", None)' in admin_service
+    assert "accentColor" not in app_settings_model
+
+
+def _is_green_hued(red: int, green: int, blue: int) -> bool:
+    hue, _lightness, saturation = colorsys.rgb_to_hls(
+        red / 255, green / 255, blue / 255
+    )
+    hue_degrees = hue * 360
+    return 75 <= hue_degrees <= 185 and saturation >= 0.15
+
+
+def test_application_palette_has_no_green_hued_color_literals() -> None:
+    sources = (
+        tuple(sorted(CSS_ROOT.rglob("*.css")))
+        + tuple(sorted((ROOT / "static" / "js").rglob("*.js")))
+        + TEMPLATES
+    )
+    violations: list[str] = []
+    for path in sources:
+        for line_number, line in enumerate(_read(path).splitlines(), start=1):
+            for match in SIX_DIGIT_HEX_COLOR.finditer(line):
+                value = match.group(1)
+                rgb = tuple(int(value[index : index + 2], 16) for index in (0, 2, 4))
+                if _is_green_hued(*rgb):
+                    violations.append(
+                        f"{path.relative_to(ROOT)}:{line_number}: #{value}"
+                    )
+            for match in NUMERIC_RGB_COLOR.finditer(line):
+                rgb = tuple(int(match.group(index)) for index in (1, 2, 3))
+                if max(rgb) <= 255 and _is_green_hued(*rgb):
+                    violations.append(
+                        f"{path.relative_to(ROOT)}:{line_number}: rgb{rgb}"
+                    )
+
+    assert not violations, "\n".join(violations)
+
+
+def test_foundation_palette_uses_fixed_survey_colors() -> None:
+    variables = _read(VARIABLES_CSS)
+    assert "--cat-cobalt: #6f8fce" in variables
+    assert "--cat-ochre: #d4a24a" in variables
+    assert "--cat-coral: #c47050" in variables
+    for retired_token in ("--cat-sage", "--cat-olive", "--cat-mint", "--cat-lime"):
+        assert retired_token not in variables
+
+    retired_colors = re.compile(
+        r"#(?:3b8a7f|2f7268|4d9a6a|2f9e8f|b87a4a|d09868|6a9fc0|5fa0c4|3d9be9|e7f7ff)\b",
+        re.IGNORECASE,
+    )
+    sources = (
+        tuple(sorted(CSS_ROOT.rglob("*.css")))
+        + tuple(sorted((ROOT / "static" / "js").rglob("*.js")))
+        + TEMPLATES
+    )
+    assert not (violations := _matches(sources, retired_colors)), "\n".join(violations)
 
 
 def test_page_color_declarations_have_no_color_literals() -> None:
