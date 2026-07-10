@@ -101,6 +101,14 @@ def test_theme_color_constants_match_surface_tokens() -> None:
         assert "#f4f1e8" in source
 
 
+def test_runtime_theme_switch_keeps_html_and_body_in_sync() -> None:
+    theme_manager = _read(
+        ROOT / "static" / "js" / "modules" / "ui" / "theme-manager.js"
+    )
+    light_mode_toggle = "classList.toggle(CONFIG.UI.classes.lightMode, isLight)"
+    assert theme_manager.count(light_mode_toggle) == 2
+
+
 def test_retired_component_patterns_stay_removed() -> None:
     patterns = {
         "Bootstrap pill tabs": re.compile(

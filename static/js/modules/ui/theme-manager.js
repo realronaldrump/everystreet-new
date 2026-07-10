@@ -38,6 +38,7 @@ const themeManager = {
       })
     )([
       () => {
+        document.documentElement.classList.toggle(CONFIG.UI.classes.lightMode, isLight);
         document.body.classList.toggle(CONFIG.UI.classes.lightMode, isLight);
         document.documentElement.setAttribute("data-bs-theme", theme);
       },
