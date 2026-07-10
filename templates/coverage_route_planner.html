@@ -18,9 +18,6 @@ Route Planner
 {% block content %}
 
   <div class="coverage-route-planner">
-    <h1 class="visually-hidden">
-Route Planner
-    </h1>
     <button type="button"
             class="mobile-panel-toggle"
             id="mobile-panel-toggle"
@@ -34,13 +31,11 @@ Route Planner
     <aside class="control-panel" id="control-panel">
       <div class="sidebar-header">
         <div class="sidebar-identity">
-          <div class="sidebar-identity-icon">
-            <i class="fas fa-route" aria-hidden="true"></i>
-          </div>
           <div class="sidebar-identity-text">
-            <h2 class="sidebar-title">
+            <p class="pm-eyebrow sidebar-eyebrow">The field plan</p>
+            <h1 class="sidebar-title">
 Route Planner
-            </h2>
+            </h1>
             <p class="sidebar-subtitle" id="sidebar-subtitle">
 Select an area to begin planning
             </p>
@@ -57,9 +52,9 @@ Select an area to begin planning
           <span class="ring-pct" id="sidebar-ring-pct">0%</span>
         </div>
       </div>
-      <nav class="sidebar-tabs" aria-label="Sidebar sections" role="tablist">
+      <nav class="sidebar-tabs atlas-tabs" aria-label="Sidebar sections" role="tablist">
         <button type="button"
-                class="sidebar-tab active"
+                class="sidebar-tab atlas-tab active"
                 data-tab="plan"
                 aria-selected="true"
                 aria-controls="tab-panel-plan"
@@ -68,7 +63,7 @@ Select an area to begin planning
           <span class="tab-label">Plan</span>
         </button>
         <button type="button"
-                class="sidebar-tab"
+                class="sidebar-tab atlas-tab"
                 data-tab="navigate"
                 aria-selected="false"
                 aria-controls="tab-panel-navigate"
@@ -77,7 +72,7 @@ Select an area to begin planning
           <span class="tab-label">Find</span>
         </button>
         <button type="button"
-                class="sidebar-tab"
+                class="sidebar-tab atlas-tab"
                 data-tab="status"
                 aria-selected="false"
                 aria-controls="tab-panel-status"
@@ -86,7 +81,7 @@ Select an area to begin planning
           <span class="tab-label">Status</span>
         </button>
         <button type="button"
-                class="sidebar-tab"
+                class="sidebar-tab atlas-tab"
                 data-tab="results"
                 aria-selected="false"
                 aria-controls="tab-panel-results"
@@ -95,51 +90,45 @@ Select an area to begin planning
           <span class="tab-label">Results</span>
         </button>
       </nav>
-      <div class="workflow-stepper"
+      <div class="workflow-stepper atlas-stepper"
            id="workflow-stepper"
            role="list"
            aria-label="Planning progress">
-        <div class="workflow-step active"
+        <div class="workflow-step atlas-step active"
              data-step="1"
              role="listitem"
              aria-label="Step 1: Select area">
-          <div class="ws-node">
+          <div class="ws-node atlas-step-index">
             <span class="ws-number">1</span>
           </div>
-          <span class="ws-label">Select</span>
+          <span class="ws-label atlas-step-label">Select</span>
         </div>
-        <div class="ws-connector">
-        </div>
-        <div class="workflow-step"
+        <div class="workflow-step atlas-step"
              data-step="2"
              role="listitem"
              aria-label="Step 2: Generate route">
-          <div class="ws-node">
+          <div class="ws-node atlas-step-index">
             <span class="ws-number">2</span>
           </div>
-          <span class="ws-label">Generate</span>
+          <span class="ws-label atlas-step-label">Generate</span>
         </div>
-        <div class="ws-connector">
-        </div>
-        <div class="workflow-step"
+        <div class="workflow-step atlas-step"
              data-step="3"
              role="listitem"
              aria-label="Step 3: Review results">
-          <div class="ws-node">
+          <div class="ws-node atlas-step-index">
             <span class="ws-number">3</span>
           </div>
-          <span class="ws-label">Review</span>
+          <span class="ws-label atlas-step-label">Review</span>
         </div>
-        <div class="ws-connector">
-        </div>
-        <div class="workflow-step"
+        <div class="workflow-step atlas-step"
              data-step="4"
              role="listitem"
              aria-label="Step 4: Start navigation">
-          <div class="ws-node">
+          <div class="ws-node atlas-step-index">
             <span class="ws-number">4</span>
           </div>
-          <span class="ws-label">Navigate</span>
+          <span class="ws-label atlas-step-label">Navigate</span>
         </div>
       </div>
       <div class="tab-panel active" id="tab-panel-plan" role="tabpanel" data-tab="plan">
@@ -490,21 +479,18 @@ Planning vs. Navigating
             </h3>
           </div>
           <div class="widget-body">
-            <div class="progress-steps">
-              <div id="step-clustering" class="step" data-step="1">
-                <div class="step-indicator">
-                </div>
-                <span class="step-label">Clustering</span>
+            <div class="progress-steps atlas-stepper">
+              <div id="step-clustering" class="step atlas-step" data-step="1">
+                <div class="step-indicator atlas-step-index">1</div>
+                <span class="step-label atlas-step-label">Clustering</span>
               </div>
-              <div id="step-optimizing" class="step" data-step="2">
-                <div class="step-indicator">
-                </div>
-                <span class="step-label">Optimizing</span>
+              <div id="step-optimizing" class="step atlas-step" data-step="2">
+                <div class="step-indicator atlas-step-index">2</div>
+                <span class="step-label atlas-step-label">Optimizing</span>
               </div>
-              <div id="step-rendering" class="step" data-step="3">
-                <div class="step-indicator">
-                </div>
-                <span class="step-label">Rendering</span>
+              <div id="step-rendering" class="step atlas-step" data-step="3">
+                <div class="step-indicator atlas-step-index">3</div>
+                <span class="step-label atlas-step-label">Rendering</span>
               </div>
             </div>
             <div class="progress-bar-container">
@@ -671,7 +657,7 @@ An error occurred.
             </div>
           </div>
         </div>
-        <div class="tab-empty-state processing-ready-state" id="status-empty-state">
+        <div class="tab-empty-state empty-state processing-ready-state" id="status-empty-state">
           <div class="ready-animation" aria-hidden="true">
             <div class="ready-ring ready-ring--1">
             </div>
@@ -906,7 +892,7 @@ Map Layers
             </div>
           </div>
         </div>
-        <div class="tab-empty-state results-empty-state" id="results-empty-state">
+        <div class="tab-empty-state empty-state results-empty-state" id="results-empty-state">
           <div class="tab-empty-icon results-empty-art" aria-hidden="true">
             <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
 <rect x="8" y="14" width="48" height="36" rx="5" stroke="currentColor" stroke-width="1.5" opacity="0.22" />

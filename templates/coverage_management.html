@@ -39,7 +39,7 @@ Coverage Management
                     disabled>
               <i class="fas fa-list-check me-1" aria-hidden="true"></i>Batch
             </button>
-            <button class="btn btn-success btn-sm"
+            <button class="btn btn-primary btn-sm"
                     data-bs-toggle="modal"
                     data-bs-target="#addAreaModal"
                     aria-label="Add a new coverage area">
@@ -76,7 +76,7 @@ Coverage Management
                aria-label="Coverage areas"
                style="display: none">
           </div>
-          <div class="empty-state-coverage d-none" id="area-empty-state">
+          <div class="empty-state empty-state-coverage d-none" id="area-empty-state">
             <div class="empty-state-icon">
               <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
             </div>
@@ -87,7 +87,7 @@ Start Your Street Challenge
             Add a coverage area to begin tracking which streets you've driven.
             Coverage updates automatically every time you complete a trip.
             </p>
-            <button class="btn btn-success btn-lg"
+            <button class="btn btn-primary btn-lg"
                     data-bs-toggle="modal"
                     data-bs-target="#addAreaModal">
               <i class="fas fa-plus me-2" aria-hidden="true"></i>Add Your First Area
@@ -156,8 +156,8 @@ Error details
           </button>
         </div>
       </div>
-      <div class="coverage-sidebar-tabs" role="tablist" aria-label="Coverage detail tabs">
-        <button class="sidebar-tab-btn is-active"
+      <div class="coverage-sidebar-tabs atlas-tabs" role="tablist" aria-label="Coverage detail tabs">
+        <button class="sidebar-tab-btn atlas-tab is-active"
                 role="tab"
                 aria-selected="true"
                 aria-controls="sidebar-tab-stats"
@@ -165,7 +165,7 @@ Error details
                 id="tab-btn-stats">
           <i class="fas fa-chart-pie me-1" aria-hidden="true"></i>Stats
         </button>
-        <button class="sidebar-tab-btn"
+        <button class="sidebar-tab-btn atlas-tab"
                 role="tab"
                 aria-selected="false"
                 aria-controls="sidebar-tab-history"
@@ -192,10 +192,8 @@ Error details
             <span id="ring-pct-value" class="progress-ring-pct" aria-live="polite">0%</span>
             <span class="progress-ring-label">covered</span>
           </div>
-          <div id="completion-confetti" class="completion-confetti" aria-hidden="true"></div>
         </div>
         <div class="completion-celebration" id="completion-celebration" aria-live="polite">
-          <i class="fas fa-trophy completion-trophy" aria-hidden="true"></i>
           <div class="completion-headline">Every street driven</div>
           <div class="completion-subline">Coverage is complete for this area.</div>
         </div>

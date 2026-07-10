@@ -291,7 +291,7 @@ function renderAreaCard(area, coverageJob, routeJob) {
   const primaryActionDisabled = isError ? !canRebuild : !isReady;
 
   const cardClasses = [
-    "area-card",
+    "area-card card card--object",
     hasActiveCoverageJob ? "area-card--job-active" : "",
     isComplete ? "area-card--complete" : "",
   ]
@@ -299,7 +299,6 @@ function renderAreaCard(area, coverageJob, routeJob) {
     .join(" ");
   const completionBanner = isComplete
     ? `<div class="area-completion-banner" aria-label="Area fully covered">
-         <i class="fas fa-trophy" aria-hidden="true"></i>
          <span>Every Street Driven</span>
        </div>`
     : "";
@@ -366,7 +365,7 @@ function renderAreaCard(area, coverageJob, routeJob) {
       ${routeStatus}
 
       <div class="area-card-footer">
-        <button class="btn btn-primary btn-sm flex-grow-1"
+        <button class="btn ${isError ? "btn-outline-danger" : "btn-outline"} btn-sm flex-grow-1"
                 data-area-action="${primaryAction}"
                 data-area-id="${area.id}"
                 data-area-name="${areaName}"

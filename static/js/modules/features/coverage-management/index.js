@@ -1696,49 +1696,8 @@ function updateStatsUI(area, summary) {
       : "—";
   }
 
-  // Completion celebration: toggle the .is-complete class on the sidebar
-  // and fire confetti the first time the user sees this area at 100%.
+  // Completion is expressed as a quiet Atlas stamp and sage hairline.
   applyCompletionCelebration(area, pct);
-}
-
-const COMPLETION_SEEN_KEY = "everystreet:completion-seen-areas";
-
-function getCompletionSeenSet() {
-  try {
-    const raw = window.localStorage.getItem(COMPLETION_SEEN_KEY);
-    if (!raw) return new Set();
-    const parsed = JSON.parse(raw);
-    return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function markCompletionSeen(areaId) {
-  try {
-    const seen = getCompletionSeenSet();
-    seen.add(String(areaId));
-    window.localStorage.setItem(
-      COMPLETION_SEEN_KEY,
-      JSON.stringify(Array.from(seen))
-    );
-  } catch {
-    /* localStorage unavailable; fail silent */
-  }
-}
-
-function clearCompletionSeen(areaId) {
-  try {
-    const seen = getCompletionSeenSet();
-    if (seen.delete(String(areaId))) {
-      window.localStorage.setItem(
-        COMPLETION_SEEN_KEY,
-        JSON.stringify(Array.from(seen))
-      );
-    }
-  } catch {
-    /* localStorage unavailable; fail silent */
-  }
 }
 
 function applyCompletionCelebration(area, pct) {
@@ -1748,47 +1707,10 @@ function applyCompletionCelebration(area, pct) {
 
   if (!isComplete) {
     sidebar.classList.remove("is-complete");
-    if (area?.id) {
-      // Reset the "seen" flag so re-completing later re-fires the confetti.
-      clearCompletionSeen(area.id);
-    }
     return;
   }
 
   sidebar.classList.add("is-complete");
-
-  if (!area?.id) return;
-  const seen = getCompletionSeenSet();
-  if (seen.has(String(area.id))) {
-    return;
-  }
-  markCompletionSeen(area.id);
-  fireConfettiBurst();
-}
-
-function fireConfettiBurst() {
-  const host = document.getElementById("completion-confetti");
-  if (!host) return;
-  host.innerHTML = "";
-  const colors = ["#f59e0b", "#d97706", "#fbbf24", "#fde68a", "#16a34a", "#3b82f6"];
-  const PIECES = 28;
-  const fragment = document.createDocumentFragment();
-  for (let i = 0; i < PIECES; i += 1) {
-    const piece = document.createElement("span");
-    const left = Math.random() * 100;
-    const delay = Math.random() * 220;
-    const drift = (Math.random() - 0.5) * 60;
-    piece.style.left = `${left}%`;
-    piece.style.background = colors[i % colors.length];
-    piece.style.animationDelay = `${delay}ms`;
-    piece.style.transform = `translateX(${drift}px)`;
-    fragment.appendChild(piece);
-  }
-  host.appendChild(fragment);
-  // Clean up after animation so the DOM doesn't accumulate elements.
-  window.setTimeout(() => {
-    if (host.parentNode) host.innerHTML = "";
-  }, 1800);
 }
 
 function renderProgressRing(fillEl, pct) {

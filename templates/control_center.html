@@ -27,8 +27,8 @@ Settings
       </div>
     </header>
     <div class="settings-nav-container">
-      <nav class="settings-tabs" role="tablist">
-        <button class="settings-tab active"
+      <nav class="settings-tabs atlas-tabs" role="tablist">
+        <button class="settings-tab atlas-tab active"
                 id="overview-tab-button"
                 data-tab="overview"
                 role="tab"
@@ -37,7 +37,7 @@ Settings
           <i class="fas fa-compass"></i>
           <span>Overview</span>
         </button>
-        <button class="settings-tab"
+        <button class="settings-tab atlas-tab"
                 id="preferences-tab-button"
                 data-tab="preferences"
                 role="tab"
@@ -46,7 +46,7 @@ Settings
           <i class="fas fa-sliders-h"></i>
           <span>Preferences</span>
         </button>
-        <button class="settings-tab"
+        <button class="settings-tab atlas-tab"
                 id="credentials-tab-button"
                 data-tab="credentials"
                 role="tab"
@@ -55,7 +55,7 @@ Settings
           <i class="fas fa-key"></i>
           <span>Credentials</span>
         </button>
-        <button class="settings-tab"
+        <button class="settings-tab atlas-tab"
                 id="sync-settings-tab-button"
                 data-tab="sync-settings"
                 role="tab"
@@ -64,7 +64,7 @@ Settings
           <i class="fas fa-sync"></i>
           <span>Sync</span>
         </button>
-        <button class="settings-tab"
+        <button class="settings-tab atlas-tab"
                 id="data-management-tab-button"
                 data-tab="data-management"
                 role="tab"
@@ -73,7 +73,7 @@ Settings
           <i class="fas fa-database"></i>
           <span>Data</span>
         </button>
-        <button class="settings-tab"
+        <button class="settings-tab atlas-tab"
                 id="storage-tab-button"
                 data-tab="storage"
                 role="tab"
@@ -83,7 +83,7 @@ Settings
           <span>Storage</span>
         </button>
         {% if app_settings and (app_settings.get('map_provider') | default('', true) | lower) != 'google' %}
-          <button class="settings-tab"
+          <button class="settings-tab atlas-tab"
                   id="map-services-tab-button"
                   data-tab="map-services"
                   role="tab"
@@ -93,7 +93,7 @@ Settings
             <span>Map Services</span>
           </button>
         {% endif %}
-        <button class="settings-tab"
+        <button class="settings-tab atlas-tab"
                 id="logs-tab-button"
                 data-tab="logs"
                 role="tab"
@@ -102,7 +102,7 @@ Settings
           <i class="fas fa-file-alt"></i>
           <span>Logs</span>
         </button>
-        <button class="settings-tab"
+        <button class="settings-tab atlas-tab"
                 id="account-tab-button"
                 data-tab="account"
                 role="tab"
@@ -1090,13 +1090,13 @@ Details
 	          that were later marked invalid.
         </p>
 
-        <ul class="nav nav-pills trip-data-health-nav"
+        <ul class="nav atlas-tabs trip-data-health-nav"
             id="tripDataHealthNav"
             role="tablist">
           <li class="nav-item" role="presentation">
-            <button class="nav-link active"
+            <button class="nav-link atlas-tab active"
                     id="trip-data-health-issues-tab"
-                    data-bs-toggle="pill"
+                    data-bs-toggle="tab"
                     data-bs-target="#trip-data-health-issues"
                     type="button"
                     role="tab"
@@ -1107,9 +1107,9 @@ Details
             </button>
           </li>
           <li class="nav-item" role="presentation">
-            <button class="nav-link"
+            <button class="nav-link atlas-tab"
                     id="trip-data-health-invalid-tab"
-                    data-bs-toggle="pill"
+                    data-bs-toggle="tab"
                     data-bs-target="#trip-data-health-invalid"
                     type="button"
                     role="tab"
@@ -1323,20 +1323,20 @@ Details
         </p>
 
         <div class="d-md-none">
-          <div class="d-flex gap-2 flex-wrap mb-3" role="tablist" aria-label="Geocode method">
-            <button class="btn btn-outline-secondary btn-sm mobile-date-method-tab active"
+          <div class="d-flex gap-2 flex-wrap mb-3 segmented-control" role="tablist" aria-label="Geocode method">
+            <button class="btn btn-outline-secondary btn-sm mobile-date-method-tab segment active"
                     data-target="geocode"
                     data-method="date"
                     type="button">
               Date Range
             </button>
-            <button class="btn btn-outline-secondary btn-sm mobile-date-method-tab"
+            <button class="btn btn-outline-secondary btn-sm mobile-date-method-tab segment"
                     data-target="geocode"
                     data-method="interval"
                     type="button">
               Interval
             </button>
-            <button class="btn btn-outline-secondary btn-sm mobile-date-method-tab"
+            <button class="btn btn-outline-secondary btn-sm mobile-date-method-tab segment"
                     data-target="geocode"
                     data-method="all"
                     type="button">
@@ -1935,9 +1935,9 @@ No collections available.
         </div>
       </div>
 
-      <ul class="nav nav-tabs log-tabs mb-4" id="log-type-tabs" role="tablist">
+      <ul class="nav atlas-tabs log-tabs mb-4" id="log-type-tabs" role="tablist">
         <li class="nav-item" role="presentation">
-          <button class="nav-link active"
+          <button class="nav-link atlas-tab active"
                   id="app-logs-tab"
                   data-bs-toggle="tab"
                   data-bs-target="#app-logs-pane"
@@ -1949,7 +1949,7 @@ No collections available.
           </button>
         </li>
         <li class="nav-item" role="presentation">
-          <button class="nav-link"
+          <button class="nav-link atlas-tab"
                   id="docker-logs-tab"
                   data-bs-toggle="tab"
                   data-bs-target="#docker-logs-pane"
@@ -1977,63 +1977,63 @@ No collections available.
               </button>
             </div>
             <div class="card-body">
-              <div class="row" id="log-stats">
+              <div class="row figure-band" id="log-stats">
                 <div class="col-6 col-md-2">
-                  <div class="stat-item">
-                    <div class="stat-label">
+                  <div class="stat-item figure">
+                    <div class="stat-label figure-label">
                       Total Logs
                     </div>
-                    <div class="stat-value" id="total-count">
+                    <div class="stat-value figure-value data-num" id="total-count">
 -
                     </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
-                  <div class="stat-item">
-                    <div class="stat-label">
+                  <div class="stat-item figure">
+                    <div class="stat-label figure-label">
 DEBUG
                     </div>
-                    <div class="stat-value text-secondary" id="debug-count">
+                    <div class="stat-value figure-value data-num text-secondary" id="debug-count">
 0
                     </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
-                  <div class="stat-item">
-                    <div class="stat-label">
+                  <div class="stat-item figure">
+                    <div class="stat-label figure-label">
 INFO
                     </div>
-                    <div class="stat-value text-info" id="info-count">
+                    <div class="stat-value figure-value data-num text-info" id="info-count">
 0
                     </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
-                  <div class="stat-item">
-                    <div class="stat-label">
+                  <div class="stat-item figure">
+                    <div class="stat-label figure-label">
 WARNING
                     </div>
-                    <div class="stat-value text-warning" id="warning-count">
+                    <div class="stat-value figure-value data-num text-warning" id="warning-count">
 0
                     </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
-                  <div class="stat-item">
-                    <div class="stat-label">
+                  <div class="stat-item figure">
+                    <div class="stat-label figure-label">
 ERROR
                     </div>
-                    <div class="stat-value text-danger" id="error-count">
+                    <div class="stat-value figure-value data-num text-danger" id="error-count">
 0
                     </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
-                  <div class="stat-item">
-                    <div class="stat-label">
+                  <div class="stat-item figure">
+                    <div class="stat-label figure-label">
 CRITICAL
                     </div>
-                    <div class="stat-value text-danger" id="critical-count">
+                    <div class="stat-value figure-value data-num text-danger" id="critical-count">
 0
                     </div>
                   </div>
@@ -2115,19 +2115,19 @@ CRITICAL
               <div class="row mt-3">
                 <div class="col-12">
                   <div class="log-actions" role="group" aria-label="Server log actions">
-                    <button id="refresh-logs" class="btn btn-success">
+                    <button id="refresh-logs" class="btn btn-ghost">
                       <i class="fas fa-sync-alt"></i> Refresh Logs
                     </button>
-                    <button id="auto-refresh-toggle" class="btn btn-outline-success">
+                    <button id="auto-refresh-toggle" class="btn btn-ghost">
                       <i class="fas fa-clock"></i> Auto-Refresh: OFF
                     </button>
-                    <button id="copy-all-logs" class="btn btn-info">
+                    <button id="copy-all-logs" class="btn btn-ghost">
                       <i class="fas fa-copy"></i> Copy All
                     </button>
-                    <button id="export-logs" class="btn btn-secondary">
+                    <button id="export-logs" class="btn btn-ghost">
                       <i class="fas fa-download"></i> Export
                     </button>
-                    <button id="clear-logs" class="btn btn-danger">
+                    <button id="clear-logs" class="btn btn-outline-danger">
                       <i class="fas fa-trash"></i> Clear All
                     </button>
                   </div>
@@ -2174,63 +2174,63 @@ Loading logs...
               </button>
             </div>
             <div class="card-body">
-              <div class="row" id="docker-log-stats">
+              <div class="row figure-band" id="docker-log-stats">
                 <div class="col-6 col-md-2">
-                  <div class="stat-item">
-                    <div class="stat-label">
+                  <div class="stat-item figure">
+                    <div class="stat-label figure-label">
 Total Lines
                     </div>
-                    <div class="stat-value" id="docker-total-count">
+                    <div class="stat-value figure-value data-num" id="docker-total-count">
 -
                     </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
-                  <div class="stat-item">
-                    <div class="stat-label">
+                  <div class="stat-item figure">
+                    <div class="stat-label figure-label">
 DEBUG
                     </div>
-                    <div class="stat-value text-secondary" id="docker-debug-count">
+                    <div class="stat-value figure-value data-num text-secondary" id="docker-debug-count">
 0
                     </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
-                  <div class="stat-item">
-                    <div class="stat-label">
+                  <div class="stat-item figure">
+                    <div class="stat-label figure-label">
 INFO
                     </div>
-                    <div class="stat-value text-info" id="docker-info-count">
+                    <div class="stat-value figure-value data-num text-info" id="docker-info-count">
 0
                     </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
-                  <div class="stat-item">
-                    <div class="stat-label">
+                  <div class="stat-item figure">
+                    <div class="stat-label figure-label">
 WARNING
                     </div>
-                    <div class="stat-value text-warning" id="docker-warning-count">
+                    <div class="stat-value figure-value data-num text-warning" id="docker-warning-count">
 0
                     </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
-                  <div class="stat-item">
-                    <div class="stat-label">
+                  <div class="stat-item figure">
+                    <div class="stat-label figure-label">
 ERROR
                     </div>
-                    <div class="stat-value text-danger" id="docker-error-count">
+                    <div class="stat-value figure-value data-num text-danger" id="docker-error-count">
 0
                     </div>
                   </div>
                 </div>
                 <div class="col-6 col-md-2">
-                  <div class="stat-item">
-                    <div class="stat-label">
+                  <div class="stat-item figure">
+                    <div class="stat-label figure-label">
 CRITICAL
                     </div>
-                    <div class="stat-value text-danger" id="docker-critical-count">
+                    <div class="stat-value figure-value data-num text-danger" id="docker-critical-count">
 0
                     </div>
                   </div>
@@ -2382,16 +2382,16 @@ Last 7 days
               <div class="row mt-3">
                 <div class="col-12">
                   <div class="log-actions" role="group" aria-label="Docker log actions">
-                    <button id="docker-auto-refresh-toggle" class="btn btn-outline-success">
+                    <button id="docker-auto-refresh-toggle" class="btn btn-ghost">
                       <i class="fas fa-clock"></i> Auto-Refresh: OFF
                     </button>
-                    <button id="copy-docker-logs" class="btn btn-info">
+                    <button id="copy-docker-logs" class="btn btn-ghost">
                       <i class="fas fa-copy"></i> Copy All
                     </button>
-                    <button id="export-docker-logs" class="btn btn-secondary">
+                    <button id="export-docker-logs" class="btn btn-ghost">
                       <i class="fas fa-download"></i> Export
                     </button>
-                    <button id="clear-docker-logs" class="btn btn-danger">
+                    <button id="clear-docker-logs" class="btn btn-outline-danger">
                       <i class="fas fa-trash"></i> Clear Logs
                     </button>
                   </div>

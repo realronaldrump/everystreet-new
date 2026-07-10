@@ -49,8 +49,8 @@
 }
 
 .settings-tab.active {
-  color: var(--primary);
-  border-bottom-color: var(--primary);
+  color: var(--text-primary);
+  border-bottom-color: var(--action);
 }
 
 .settings-tab i {
@@ -99,7 +99,7 @@
 }
 
 .settings-group-title i {
-  color: var(--primary);
+  color: var(--text-tertiary);
   opacity: 0.8;
 }
 
@@ -221,9 +221,9 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
-  background: var(--surface-2);
+  background: var(--surface-1);
   flex-wrap: wrap;
 }
 
@@ -231,10 +231,11 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 6px 12px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border-color-light);
-  background: var(--surface-2);
+  min-height: calc(var(--touch-target) - 6px);
+  padding: var(--space-1) var(--space-3);
+  border-radius: calc(var(--radius-md) - 2px);
+  border: 0;
+  background: transparent;
   cursor: pointer;
   transition: var(--transition-fast);
   color: var(--text-secondary);
@@ -254,10 +255,10 @@
 .density-option input:checked + span {
   display: inline-flex;
   align-items: center;
-  color: var(--text-on-primary);
-  background: var(--primary);
-  border-radius: var(--radius-pill);
-  padding: 2px 8px;
+  color: var(--text-on-action);
+  background: var(--action);
+  border-radius: calc(var(--radius-md) - 2px);
+  padding: var(--space-1) var(--space-2);
 }
 
 /* === Preferences Actions === */
@@ -315,14 +316,14 @@
 /* === Form Controls === */
 .settings-group .form-control,
 .settings-group .form-select {
-  background: var(--surface-2);
+  background: var(--surface-1);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
 }
 
 .settings-group .form-control:focus,
 .settings-group .form-select:focus {
-  background: var(--surface-3);
+  background: var(--surface-1);
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgb(var(--primary-rgb) / 20%);
 }
@@ -544,7 +545,7 @@
 
 .storage-source-bar {
   height: 100%;
-  background: var(--primary);
+  background: var(--secondary);
   border-radius: var(--radius-pill);
   transition:
     width 0.5s ease,
@@ -618,8 +619,8 @@
   width: 40px;
   height: 40px;
   border-radius: var(--radius-md);
-  background: rgb(var(--accent-rgb) / 12%);
-  color: var(--accent);
+  background: transparent;
+  color: var(--text-tertiary);
   font-size: var(--font-size-lg);
   flex-shrink: 0;
 }
@@ -992,7 +993,7 @@
 }
 
 .rebuild-paths-bar-container .progress-bar {
-  background: var(--accent, var(--primary));
+  background: var(--color-driven);
   transition: width 0.4s ease;
 }
 
@@ -1045,7 +1046,7 @@
 }
 
 .form-check.form-switch .form-check-input::before {
-  background-color: white;
+  background-color: var(--toggle-knob);
   width: 21px;
   height: 21px;
   left: 3px;
@@ -1533,7 +1534,7 @@
 
 .map-services-progress .progress-bar {
   height: 100%;
-  background: var(--primary);
+  background: var(--info);
   border-radius: var(--radius-pill);
   transition: width 0.3s ease;
 }
@@ -1959,8 +1960,8 @@
 }
 
 .trip-import-step-indicator.is-active .trip-import-step-dot {
-  background: var(--primary);
-  color: var(--text-on-primary);
+  background: var(--action);
+  color: var(--text-on-action);
 }
 
 .trip-import-step-indicator.is-completed {
@@ -3365,6 +3366,44 @@
 /* Make embedded logs layout feel native in tab context */
 #logs-tab .server-logs-page {
   padding-inline: 0;
+}
+
+/* Field Atlas: secondary tab groups use the same underline language. */
+.trip-data-health-nav {
+  display: flex;
+  gap: var(--space-5);
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
+  background: transparent;
+}
+
+.trip-data-health-nav .nav-link,
+.trip-data-health-nav .nav-link:hover,
+.trip-data-health-nav .nav-link.active,
+.trip-data-health-nav .show > .nav-link {
+  min-height: var(--touch-target);
+  padding: 0 0 var(--space-2);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-secondary);
+}
+
+.trip-data-health-nav .nav-link.active,
+.trip-data-health-nav .show > .nav-link {
+  border-bottom: 2px solid var(--action);
+  color: var(--text-primary);
+}
+
+@media (width < 768px) {
+  .trip-data-health-nav {
+    display: flex;
+    width: 100%;
+    border-radius: 0;
+  }
 }
 
 @media (width <= 768px) {
