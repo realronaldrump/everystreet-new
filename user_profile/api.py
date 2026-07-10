@@ -140,8 +140,6 @@ async def update_credentials(credentials: BouncieCredentials):
                 "last_auth_error": None,
                 "last_auth_error_detail": None,
                 "last_auth_error_at": None,
-                "authorized_devices": [],
-                "history_imported_devices": [],
             },
         )
 
@@ -192,6 +190,10 @@ async def get_credentials_unmasked():
         }
 
 
+@router.post(
+    "/api/profile/bouncie-credentials/sync-vehicles",
+    response_model=dict[str, Any],
+)
 @api_route(logger)
 async def sync_vehicles_from_bouncie():
     """
@@ -291,6 +293,10 @@ async def sync_vehicles_from_bouncie():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post(
+    "/api/profile/bouncie-credentials/vehicles",
+    response_model=dict[str, Any],
+)
 @api_route(logger)
 async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
     """

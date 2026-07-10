@@ -42,11 +42,6 @@ def live_store_state(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
         trip = snapshots.get(tx)
         return dict(trip) if isinstance(trip, dict) else None
 
-    async def get_active_trip_snapshots() -> list[dict[str, object]]:
-        snapshots = state["snapshots"]
-        assert isinstance(snapshots, dict)
-        return [dict(trip) for trip in snapshots.values() if isinstance(trip, dict)]
-
     async def clear_trip_snapshot(
         transaction_id: str,
         *,
@@ -76,11 +71,6 @@ def live_store_state(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
         tracking_service,
         "get_active_trip_snapshot",
         get_active_trip_snapshot,
-    )
-    monkeypatch.setattr(
-        tracking_service,
-        "get_active_trip_snapshots",
-        get_active_trip_snapshots,
     )
     monkeypatch.setattr(tracking_service, "clear_trip_snapshot", clear_trip_snapshot)
     monkeypatch.setattr(

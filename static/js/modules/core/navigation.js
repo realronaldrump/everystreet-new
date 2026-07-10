@@ -141,6 +141,7 @@ const BREADCRUMB_ROUTE_LABELS = new Map([
   ["/visits", "Visits"],
   ["/gas-tracking", "Gas Tracking"],
   ["/export", "Export Data"],
+  ["/map-matching", "Map Matching"],
   ["/coverage-management", "Coverage Management"],
   ["/coverage-route-planner", "Route Planner"],
   ["/live-navigation", "Live Navigation"],

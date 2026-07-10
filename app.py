@@ -36,11 +36,14 @@ from driving import router as driving_api_router
 from exports import router as export_api_router
 from gas import router as gas_api_router
 from geo_coverage import router as geo_coverage_api_router
+from logs import router as logs_api_router
 from map_data.api import router as map_data_router
+from processing import router as processing_api_router
 from recurring_routes import router as recurring_routes_router
 from search import router as search_api_router
 from setup import router as setup_api_router
 from street_coverage.api import router as coverage_api_router
+from tasks.api import router as tasks_api_router
 from tasks.arq import close_arq_pool
 from tracking import router as tracking_api_router
 from trips import router as trips_router
@@ -196,11 +199,15 @@ app.include_router(routing_router)
 app.include_router(map_bundle_router)
 app.include_router(gas_api_router)
 app.include_router(tracking_api_router)
+app.include_router(logs_api_router)
 app.include_router(map_data_router)
+
+app.include_router(processing_api_router)
 app.include_router(profile_api_router)
 app.include_router(search_api_router)
 app.include_router(setup_api_router)
 app.include_router(status_router)
+app.include_router(tasks_api_router)
 app.include_router(trips_router)
 app.include_router(visits_router)
 app.include_router(recurring_routes_router)

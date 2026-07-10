@@ -2,6 +2,7 @@ import apiClient from "../core/api-client.js";
 
 const BOUNCIE_CREDENTIALS_API = "/api/profile/bouncie-credentials";
 const BOUNCIE_UNMASK_API = "/api/profile/bouncie-credentials/unmask";
+const BOUNCIE_SYNC_API = "/api/profile/bouncie-credentials/sync-vehicles";
 
 function getBouncieRedirectUriValidationError(redirectUri) {
   const uri = String(redirectUri || "")
@@ -47,5 +48,10 @@ export async function saveBouncieCredentials(payload, { signal } = {}) {
   };
 
   const data = await apiClient.post(BOUNCIE_CREDENTIALS_API, body, { signal });
+  return data;
+}
+
+export async function syncBouncieVehicles({ signal } = {}) {
+  const data = await apiClient.post(BOUNCIE_SYNC_API, null, { signal });
   return data;
 }

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { buildGeometryPreviewMarkup } from "../static/js/modules/visits/preview-map-renderer.js";
-import { readStaticJs, readTemplate } from "./helpers/fs-smoke.js";
+import { assertHasId, readStaticJs, readTemplate } from "./helpers/fs-smoke.js";
 
 test("geometry preview renderer outputs inline svg for polygon boundaries", () => {
   const markup = buildGeometryPreviewMarkup(
@@ -77,7 +77,7 @@ test("visits controller renders preview cards without a hard preview-map cap", (
   assert.doesNotMatch(controllerSource, /Preview paused to keep map stable/);
 });
 
-test("visits page consumes cached previews without manual refresh controls", () => {
+test("visits page keeps cached preview refresh controls wired", () => {
   const template = readTemplate("visits.html");
   const controllerSource = readStaticJs(
     "modules",
@@ -85,11 +85,14 @@ test("visits page consumes cached previews without manual refresh controls", () 
     "visits",
     "visits-controller.js"
   );
-  assert.doesNotMatch(template, /refresh-place-previews/);
-  assert.doesNotMatch(controllerSource, /refreshPlacePreviews/);
+  const dataServiceSource = readStaticJs("modules", "visits", "data-service.js");
+
+  assertHasId(template, "refresh-place-previews", "visits template");
+  assert.match(controllerSource, /refreshPlacePreviews/);
   assert.match(controllerSource, /previewImageUrls/);
   assert.match(controllerSource, /getCurrentPreviewTheme/);
   assert.match(controllerSource, /previewBounds/);
+  assert.match(dataServiceSource, /\/api\/places\/previews\/backfill/);
 });
 
 test("visits page re-renders place previews when theme changes", () => {

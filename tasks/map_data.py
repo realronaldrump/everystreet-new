@@ -22,7 +22,6 @@ from config import get_geofabrik_mirror, get_osm_extracts_path
 from core.service_config import get_service_config
 from map_data.auto_provision import US_STATE_BOUNDS
 from map_data.builders import (
-    _restart_container,
     build_nominatim_data,
     build_valhalla_tiles,
     start_container_on_demand,
@@ -772,8 +771,13 @@ async def _verify_health(
             return
         await asyncio.sleep(5)
 
-    msg = "Map data built, but geocoding or routing did not become healthy."
-    raise RuntimeError(msg)
+    await _update_progress(
+        config,
+        progress,
+        status=MapServiceConfig.STATUS_READY,
+        message="Map services starting up...",
+        overall_progress=VERIFY_PROGRESS_END,
+    )
 
 
 async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
@@ -1008,11 +1012,16 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
             logger.exception("Map setup failed")
             config.retry_count = min(config.retry_count + 1, MAX_RETRIES)
             await _clear_pending_extract(config)
+            retry_exhausted = config.retry_count >= MAX_RETRIES
             await _update_progress(
                 config,
                 progress,
                 status=MapServiceConfig.STATUS_ERROR,
-                message="Setup paused, will retry automatically",
+                message=(
+                    "Setup failed, retry limit reached"
+                    if retry_exhausted
+                    else "Setup paused, will retry automatically"
+                ),
                 overall_progress=config.progress,
                 last_error=str(exc),
             )
@@ -1062,7 +1071,6 @@ async def _monitor_map_services_logic() -> dict[str, Any]:
                 with contextlib.suppress(Exception):
                     await abort_job(progress.active_job_id)
             config.status = MapServiceConfig.STATUS_ERROR
-            config.retry_count = min(config.retry_count + 1, MAX_RETRIES)
             config.last_error = "Setup stalled and was stopped"
             config.last_error_at = now
             config.message = "Setup stopped after progress stalled"
@@ -1083,6 +1091,7 @@ async def _monitor_map_services_logic() -> dict[str, Any]:
     if (
         config.status == MapServiceConfig.STATUS_ERROR
         and config.retry_count > 0
+        and config.retry_count < MAX_RETRIES
         and config.selected_states
     ):
         delay_seconds = _retry_delay_seconds(config.retry_count)
@@ -1113,17 +1122,9 @@ async def _monitor_map_services_logic() -> dict[str, Any]:
             with contextlib.suppress(Exception):
                 await start_container_on_demand("nominatim")
                 restarted = True
-        elif not health.nominatim_healthy:
-            with contextlib.suppress(Exception):
-                await _restart_container("nominatim")
-                restarted = True
         if not health.valhalla_container_running:
             with contextlib.suppress(Exception):
                 await start_container_on_demand("valhalla")
-                restarted = True
-        elif not health.valhalla_healthy:
-            with contextlib.suppress(Exception):
-                await _restart_container("valhalla")
                 restarted = True
 
     return {

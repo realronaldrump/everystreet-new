@@ -30,11 +30,26 @@ Coverage Management
         </div>
         <div class="pm-aside">
           <div class="list-header-actions">
+            <button class="btn btn-outline-info btn-sm"
+                    id="batch-recalculate-open-btn"
+                    type="button"
+                    aria-label="Queue street coverage recalculation for multiple areas"
+                    aria-disabled="true"
+                    title="Batch recalculate"
+                    disabled>
+              <i class="fas fa-list-check me-1" aria-hidden="true"></i>Batch
+            </button>
             <button class="btn btn-primary btn-sm"
                     data-bs-toggle="modal"
                     data-bs-target="#addAreaModal"
                     aria-label="Add a new coverage area">
               <i class="fas fa-plus me-1" aria-hidden="true"></i>Add Area
+            </button>
+            <button class="btn btn-outline-secondary btn-sm"
+                    id="refresh-list-btn"
+                    aria-label="Refresh coverage data"
+                    title="Refresh">
+              <i class="fas fa-sync-alt" aria-hidden="true"></i>
             </button>
           </div>
         </div>
@@ -266,9 +281,12 @@ Matched trips only
                    aria-live="polite"></small>
           </div>
 
-          <p class="form-text text-secondary mb-0">
-            Street data, trip matching, and coverage statistics stay current automatically.
-          </p>
+          <button class="btn btn-info btn-sm w-100 mb-2" id="recalculate-coverage-btn">
+            <i class="fas fa-calculator me-1" aria-hidden="true"></i>Recalculate Street Coverage
+          </button>
+          <button class="btn btn-outline-warning btn-sm w-100" id="rebuild-area-btn">
+            <i class="fas fa-sync me-1" aria-hidden="true"></i>Rebuild from OSM
+          </button>
         </div>
 
       </div>
@@ -562,6 +580,59 @@ Cancel
                   disabled
                   aria-disabled="true">
             <i class="fas fa-plus me-1" aria-hidden="true"></i>Add Area
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="batchRecalculateModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            Batch Recalculate
+          </h5>
+          <button type="button"
+                  class="btn-close btn-close-white"
+                  data-bs-dismiss="modal"
+                  aria-label="Close">
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="batch-recalculate-toolbar">
+            <div class="batch-recalculate-summary" id="batch-recalculate-summary">
+              Select ready areas
+            </div>
+            <div class="batch-recalculate-tools">
+              <button type="button"
+                      class="btn btn-outline-secondary btn-sm"
+                      id="batch-select-ready-btn">
+                <i class="fas fa-check-double me-1" aria-hidden="true"></i>Select Ready
+              </button>
+              <button type="button"
+                      class="btn btn-outline-secondary btn-sm"
+                      id="batch-clear-selection-btn">
+                <i class="fas fa-xmark me-1" aria-hidden="true"></i>Clear
+              </button>
+            </div>
+          </div>
+          <div id="batch-recalculate-area-list"
+               class="batch-recalculate-list"
+               role="list"
+               aria-label="Ready coverage areas">
+          </div>
+          <div class="batch-recalculate-note">
+            <i class="fas fa-clock" aria-hidden="true"></i>
+            <span>Queued areas run one at a time in the background.</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+Cancel
+          </button>
+          <button type="button" id="batch-recalculate-start-btn" class="btn btn-info" disabled>
+            <i class="fas fa-calculator me-1" aria-hidden="true"></i>Queue Batch
           </button>
         </div>
       </div>

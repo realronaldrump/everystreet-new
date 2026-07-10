@@ -33,6 +33,8 @@ let vehicles = [];
 let allRoutes = [];
 const DISPLAY_CHUNK_SIZE = 12;
 let currentDisplayLimit = DISPLAY_CHUNK_SIZE;
+let buildPollTimer = null;
+let activeBuildJobId = null;
 let routeModalInstance = null;
 let routeModalMap = null;
 let routeModalRouteId = null;
@@ -57,6 +59,7 @@ let explorerChartDay = null;
 
 /* ───── helpers ───── */
 const apiGet = (u, o = {}) => featureApi.get(u, o);
+const apiPost = (u, b, o = {}) => featureApi.post(u, b, o);
 const apiPatch = (u, b, o = {}) => featureApi.patch(u, b, o);
 const getEl = (id) => document.getElementById(id);
 
@@ -794,6 +797,154 @@ async function loadRoutes() {
     renderRoutes([]);
   } finally {
     setLoading(false);
+  }
+}
+
+/* ───── build lifecycle ───── */
+function setBuildUi(state) {
+  const dot = getEl("routes-build-dot");
+  const text = getEl("routes-build-text");
+  const progressWrap = getEl("routes-build-progress-wrap");
+  const progressBar = getEl("routes-build-progress-bar");
+  const stageEl = getEl("routes-build-stage");
+  const pctEl = getEl("routes-build-progress");
+  const cancelBtn = getEl("routes-cancel-btn");
+  if (dot) {
+    dot.dataset.state = state?.dotState || "idle";
+  }
+  if (text) {
+    text.textContent = state?.text || "Ready to build";
+  }
+  if (progressWrap) {
+    progressWrap.classList.toggle("d-none", !state?.showProgress);
+  }
+  if (progressBar) {
+    progressBar.style.width = `${Math.max(0, Math.min(100, Number(state?.progress || 0)))}%`;
+  }
+  if (stageEl) {
+    stageEl.textContent = state?.stage || "Queued";
+  }
+  if (pctEl) {
+    pctEl.textContent = `${Math.round(Number(state?.progress || 0))}%`;
+  }
+  if (cancelBtn) {
+    cancelBtn.classList.toggle("d-none", !state?.showCancel);
+  }
+}
+
+function stopBuildPolling() {
+  if (buildPollTimer) {
+    clearTimeout(buildPollTimer);
+    buildPollTimer = null;
+  }
+  activeBuildJobId = null;
+}
+
+async function pollBuildJob(jobId) {
+  if (!jobId) {
+    return;
+  }
+  activeBuildJobId = jobId;
+  if (buildPollTimer) {
+    clearTimeout(buildPollTimer);
+    buildPollTimer = null;
+  }
+
+  const tick = async () => {
+    if (activeBuildJobId !== jobId || pageSignal?.aborted) {
+      stopBuildPolling();
+      return;
+    }
+    try {
+      const s = await apiGet(
+        `/api/recurring_routes/jobs/${encodeURIComponent(jobId)}`,
+        { cache: false }
+      );
+      const stage = s?.stage || "unknown";
+      const pct = Number(s?.progress || 0);
+      const terminal = ["completed", "failed", "cancelled", "error"];
+      const key = String(s?.status || stage).toLowerCase();
+      const done =
+        terminal.includes(key) || terminal.includes(String(stage).toLowerCase());
+      setBuildUi({
+        dotState: done
+          ? key === "completed"
+            ? "success"
+            : key === "cancelled"
+              ? "idle"
+              : "error"
+          : "running",
+        text: s?.message || "Building...",
+        showProgress: !done,
+        showCancel: !done,
+        stage,
+        progress: pct,
+      });
+      if (done) {
+        stopBuildPolling();
+        if (key === "completed") {
+          setBuildUi({
+            dotState: "success",
+            text: "Build complete",
+            showProgress: false,
+            showCancel: false,
+            stage,
+            progress: 100,
+          });
+          await loadRoutes();
+        }
+      }
+    } catch (e) {
+      if (isAbortError(e)) {
+        stopBuildPolling();
+        return;
+      }
+    }
+    if (activeBuildJobId === jobId && !pageSignal?.aborted) {
+      buildPollTimer = setTimeout(tick, 2000);
+    }
+  };
+  await tick();
+}
+
+async function startBuild() {
+  try {
+    setBuildUi({
+      dotState: "running",
+      text: "Queueing build...",
+      showProgress: true,
+      showCancel: true,
+      stage: "queued",
+      progress: 0,
+    });
+    const resp = await apiPost("/api/recurring_routes/jobs/build", {});
+    const jobId = resp?.job_id;
+    if (!jobId) {
+      throw new Error("Build job did not return a job_id");
+    }
+    await pollBuildJob(jobId);
+  } catch (e) {
+    setBuildUi({
+      dotState: "error",
+      text: `Failed: ${e?.message || e}`,
+      showProgress: false,
+      showCancel: false,
+      stage: "error",
+      progress: 0,
+    });
+    notificationManager.show?.(`Failed to start build: ${e?.message || e}`, "danger");
+  }
+}
+
+async function cancelBuild() {
+  const jobId = activeBuildJobId;
+  if (!jobId) {
+    return;
+  }
+  try {
+    await apiPost(`/api/recurring_routes/jobs/${encodeURIComponent(jobId)}/cancel`, {});
+  } catch (e) {
+    notificationManager.show?.(`Failed to cancel: ${e?.message || e}`, "warning");
   }
 }
 
@@ -2871,6 +3022,9 @@ function bindPageControls(signal) {
   const minTrips = getEl("routes-min-trips");
   const vehicle = getEl("routes-vehicle");
   const includeHidden = getEl("routes-include-hidden");
+  const buildBtn = getEl("routes-build-btn");
+  const cancelBtn = getEl("routes-cancel-btn");
+  const emptyBuildBtn = getEl("routes-empty-build-btn");
 
   const triggerLoad = debounce(() => loadRoutes(), 250);
   const opts = signal ? { signal } : undefined;
@@ -2976,12 +3130,31 @@ function bindPageControls(signal) {
     );
   }
 
+  const startBuildHandler = () => startBuild();
+  if (buildBtn) {
+    buildBtn.addEventListener("click", startBuildHandler, opts);
+  }
+  if (emptyBuildBtn) {
+    emptyBuildBtn.addEventListener("click", startBuildHandler, opts);
+  }
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", cancelBuild, opts);
+  }
 }
 
 /* ───── entry-point ───── */
 export default async function initRoutesPage({ signal, cleanup, api } = {}) {
   pageSignal = signal || null;
   featureApi = api || createFeatureApi({ signal: pageSignal });
+
+  setBuildUi({
+    dotState: "idle",
+    text: "Ready to build",
+    showProgress: false,
+    showCancel: false,
+    stage: "idle",
+    progress: 0,
+  });
 
   initModalTabs();
   bindPageControls(signal);
@@ -2998,6 +3171,7 @@ export default async function initRoutesPage({ signal, cleanup, api } = {}) {
   }
 
   const teardown = () => {
+    stopBuildPolling();
     destroyCharts();
     destroyExplorerCharts();
     explorerRequestId += 1;

@@ -50,16 +50,24 @@ async def _get_or_create_task_config(task_id: str) -> TaskConfig:
     task_config = await TaskConfig.find_one(TaskConfig.task_id == task_id)
 
     if task_config:
+        # If the registry says this task should be enabled by default but the
+        # DB entry has interval=0 and is disabled, the entry is stale (e.g.
+        # left over from a deleted predecessor).  Re-apply registry defaults
+        # so the task actually runs.
         definition = TASK_DEFINITIONS.get(task_id, {})
-        if definition:
-            default_interval = int(definition["default_interval_minutes"])
-            if not task_config.enabled or task_config.interval_minutes != default_interval:
+        if (
+            definition.get("enabled_by_default")
+            and not task_config.enabled
+            and (task_config.interval_minutes or 0) <= 0
+        ):
+            default_interval = int(definition.get("default_interval_minutes", 0) or 0)
+            if default_interval > 0:
                 task_config.enabled = True
                 task_config.interval_minutes = default_interval
                 task_config.last_updated = datetime.now(UTC)
                 await task_config.save()
                 logger.info(
-                    "Reconciled automatic task policy for %s (interval=%dm)",
+                    "Re-enabled stale task config for %s (interval=%dm)",
                     task_id,
                     default_interval,
                 )
@@ -88,27 +96,20 @@ async def get_task_config_entry(task_id: str) -> TaskConfig:
 
 
 async def get_global_disable() -> bool:
-    """Automatic correctness work cannot be disabled from product state."""
-    return False
+    global_config = await TaskConfig.find_one(TaskConfig.task_id == GLOBAL_TASK_ID)
+    if not global_config:
+        return False
+    return bool(global_config.config.get("disabled", False))
 
 
 async def set_global_disable(disabled: bool) -> None:
-    if disabled:
-        msg = "Automatic reconciliation cannot be disabled from the application."
-        raise ValueError(msg)
-
-    legacy = await TaskConfig.find_one(TaskConfig.task_id == GLOBAL_TASK_ID)
-    if legacy:
-        await legacy.delete()
-
-
-async def reconcile_automatic_task_configs() -> None:
-    """Converge persisted scheduler state to the immutable operating policy."""
-    legacy = await TaskConfig.find_one(TaskConfig.task_id == GLOBAL_TASK_ID)
-    if legacy:
-        await legacy.delete()
-    for task_id in TASK_DEFINITIONS:
-        await _get_or_create_task_config(task_id)
+    global_config = await TaskConfig.find_one(TaskConfig.task_id == GLOBAL_TASK_ID)
+    if not global_config:
+        global_config = TaskConfig(task_id=GLOBAL_TASK_ID, enabled=not disabled)
+    global_config.config = global_config.config or {}
+    global_config.config["disabled"] = bool(disabled)
+    global_config.last_updated = datetime.now(UTC)
+    await global_config.save()
 
 
 async def get_task_config() -> dict[str, Any]:
@@ -125,7 +126,6 @@ async def get_task_config() -> dict[str, Any]:
         ).to_list()
 
         config_map = {cfg.task_id: cfg for cfg in all_configs if cfg.task_id}
-        latest_history = await get_latest_task_history(list(TASK_DEFINITIONS))
 
         tasks_output: dict[str, Any] = {}
 
@@ -144,14 +144,6 @@ async def get_task_config() -> dict[str, Any]:
                 "last_success_time": c.config.get("last_success_time"),
                 "last_finished_at": c.config.get("last_finished_at"),
                 "last_job_id": c.config.get("last_job_id"),
-                "waiting_reason": c.config.get("waiting_reason"),
-                "retry_after": c.config.get("retry_after"),
-                "consecutive_failures": c.config.get("consecutive_failures", 0),
-                "status": (
-                    latest_history[t_id].status
-                    if t_id in latest_history
-                    else c.status
-                ),
                 "last_updated": getattr(c, "last_updated", None),
                 "manual_only": bool(t_def.get("manual_only", False)),
             }
@@ -163,7 +155,10 @@ async def get_task_config() -> dict[str, Any]:
 
     except Exception:
         logger.exception("Error getting task config")
-        raise
+        return {
+            "disabled": False,
+            "tasks": {},
+        }
 
 
 async def check_dependencies(
@@ -298,9 +293,6 @@ async def update_task_success(task_id: str, finished_at: datetime) -> None:
     task_config.config["last_success_time"] = finished_at
     task_config.config["last_finished_at"] = finished_at
     task_config.config["last_error"] = None
-    task_config.config["consecutive_failures"] = 0
-    task_config.config["retry_after"] = None
-    task_config.config["waiting_reason"] = None
     await task_config.save()
 
 
@@ -310,30 +302,6 @@ async def update_task_failure(task_id: str, error: str, finished_at: datetime) -
     task_config.last_updated = finished_at
     task_config.config["last_error"] = error
     task_config.config["last_finished_at"] = finished_at
-    failures = int(task_config.config.get("consecutive_failures", 0) or 0) + 1
-    retry_delay_minutes = min(360, 5 * (2 ** min(failures - 1, 6)))
-    task_config.config["consecutive_failures"] = failures
-    task_config.config["retry_after"] = finished_at + timedelta(
-        minutes=retry_delay_minutes,
-    )
-    await task_config.save()
-
-
-async def update_task_waiting(
-    task_id: str,
-    reason: str,
-    finished_at: datetime,
-) -> None:
-    """Record a healthy wait for an external user-owned prerequisite."""
-    task_config = await _get_or_create_task_config(task_id)
-    task_config.config = task_config.config or {}
-    task_config.last_run = finished_at
-    task_config.last_updated = finished_at
-    task_config.config["last_finished_at"] = finished_at
-    task_config.config["last_error"] = None
-    task_config.config["waiting_reason"] = reason
-    task_config.config["retry_after"] = None
-    task_config.config["consecutive_failures"] = 0
     await task_config.save()
 
 
@@ -347,11 +315,89 @@ async def set_last_job_id(task_id: str, job_id: str) -> None:
 
 
 async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, Any]:
-    """Preserve compatibility for internal callers without accepting policy changes."""
-    del task_config_update
-    await reconcile_automatic_task_configs()
-    return {
-        "status": "success",
-        "message": "Automatic task policy is managed by the application.",
-        "changes": [],
-    }
+    """Updates the task scheduling configuration (enabled status, interval) in the
+    database.
+    """
+    try:
+        changes: list[str] = []
+
+        global_disable_update = task_config_update.get("globalDisable")
+        if isinstance(global_disable_update, bool):
+            await set_global_disable(global_disable_update)
+            changes.append(f"Global scheduling disable set to {global_disable_update}")
+
+        tasks_update = task_config_update.get("tasks", {})
+        if tasks_update:
+            for task_id, settings in tasks_update.items():
+                if task_id not in TASK_DEFINITIONS:
+                    logger.warning(
+                        "Attempted to update configuration for unknown task: %s",
+                        task_id,
+                    )
+                    continue
+
+                task_config = await _get_or_create_task_config(task_id)
+
+                if "enabled" in settings:
+                    new_val = settings["enabled"]
+                    if isinstance(new_val, bool):
+                        old_val = task_config.enabled
+                        if new_val != old_val:
+                            task_config.enabled = new_val
+                            changes.append(
+                                f"Task '{task_id}' enabled status: {old_val} -> {new_val}",
+                            )
+                    else:
+                        logger.warning(
+                            "Ignoring non-boolean value for enabled status of task '%s': %s",
+                            task_id,
+                            new_val,
+                        )
+
+                if "interval_minutes" in settings:
+                    try:
+                        new_val = int(settings["interval_minutes"])
+                        if new_val < 0:
+                            logger.warning(
+                                "Ignoring invalid interval < 0 for task '%s': %s",
+                                task_id,
+                                new_val,
+                            )
+                            continue
+                    except (ValueError, TypeError):
+                        logger.warning(
+                            "Ignoring non-integer interval for task '%s': %s",
+                            task_id,
+                            settings["interval_minutes"],
+                        )
+                        continue
+
+                    old_val = task_config.interval_minutes
+                    if new_val != old_val:
+                        task_config.interval_minutes = new_val
+                        changes.append(
+                            f"Task '{task_id}' interval: {old_val} -> {new_val} mins",
+                        )
+
+                await task_config.save()
+
+        if not changes:
+            logger.info("No valid configuration changes detected in update request.")
+            return {
+                "status": "success",
+                "message": "No valid configuration changes detected.",
+            }
+
+        logger.info("Task configuration updated: %s", "; ".join(changes))
+    except Exception as e:
+        logger.exception("Error updating task schedule")
+        return {
+            "status": "error",
+            "message": f"Error updating task schedule: {e}",
+        }
+    else:
+        return {
+            "status": "success",
+            "message": "Task configuration updated successfully.",
+            "changes": changes,
+        }

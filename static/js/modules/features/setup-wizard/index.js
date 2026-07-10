@@ -14,10 +14,12 @@ import { getBouncieFormValues } from "./steps/bouncie.js";
 import { readJsonResponse, responseErrorMessage } from "./validation.js";
 
 const SETUP_STATUS_API = "/api/setup/status";
+const PROFILE_API = "/api/profile";
 const MAP_SERVICES_API = "/api/map-services";
 const MAP_SERVICES_AUTO_STATUS_API = "/api/map-services/auto-status";
 const APP_SETTINGS_API = "/api/app_settings";
 const TRIP_SYNC_STATUS_API = "/api/actions/trips/sync/status";
+const TRIP_SYNC_START_API = "/api/actions/trips/sync";
 
 let pageSignal = null;
 let setupStatus = null;
@@ -136,6 +138,9 @@ function bindEvents(signal) {
   document
     .getElementById("connectBouncieBtn")
     ?.addEventListener("click", handleConnectBouncie, eventOptions);
+  document
+    .getElementById("syncVehiclesBtn")
+    ?.addEventListener("click", syncVehicles, eventOptions);
 
   document
     .getElementById("toggleClientSecret")
@@ -148,7 +153,14 @@ function bindEvents(signal) {
   document
     .getElementById("map-setup-btn")
     ?.addEventListener("click", startMapSetup, eventOptions);
-  // Setup continues in the worker after the user leaves this page.
+  document
+    .getElementById("map-cancel-btn")
+    ?.addEventListener("click", cancelMapSetup, eventOptions);
+  document
+    .getElementById("finish-setup-btn")
+    ?.addEventListener("click", completeSetupAndExit, eventOptions);
+
+  // Continue to Dashboard during build — completes setup and navigates away
   document.getElementById("build-continue-btn")?.addEventListener(
     "click",
     (event) => {
@@ -198,6 +210,9 @@ function bindEvents(signal) {
     );
   });
 
+  document
+    .getElementById("coverage-import-trips-btn")
+    ?.addEventListener("click", importTripsForCoverage, eventOptions);
 }
 
 async function loadSetupStatus() {
@@ -248,9 +263,11 @@ async function loadBouncieCredentials() {
       redirectUri.value = expectedRedirect;
     }
     bouncieConnected = Boolean(credentials.authorization_code);
+    updateBouncieActions();
   } catch {
     showStatus("credentials-status", "Unable to load Bouncie credentials.", true);
     bouncieConnected = false;
+    updateBouncieActions();
   }
 
   try {
@@ -272,6 +289,19 @@ async function loadBouncieCredentials() {
   } catch (error) {
     console.warn("Could not load app settings", error);
   }
+}
+
+function updateBouncieActions() {
+  const syncBtn = document.getElementById("syncVehiclesBtn");
+  if (!syncBtn) {
+    return;
+  }
+  const canSync = Boolean(bouncieConnected);
+  syncBtn.disabled = !canSync;
+  syncBtn.setAttribute("aria-disabled", String(!canSync));
+  syncBtn.title = canSync
+    ? "Sync vehicles from Bouncie"
+    : "Connect with Bouncie to enable vehicle sync.";
 }
 
 async function loadStateCatalog() {
@@ -581,7 +611,7 @@ async function handleCredentialsContinue() {
     if (missing.includes("authorized_devices")) {
       showStatus(
         "credentials-status",
-        "Vehicles will sync automatically after authorization.",
+        "You can sync vehicles later from Settings > Credentials.",
         false
       );
     }
@@ -592,7 +622,7 @@ async function handleCredentialsContinue() {
   if (missing.includes("authorized_devices")) {
     showStatus(
       "credentials-status",
-      "Vehicles will sync automatically after authorization.",
+      "You can sync vehicles later from Settings > Credentials.",
       false
     );
   }
@@ -633,6 +663,33 @@ async function saveBouncieCredentials() {
   } catch (error) {
     showStatus("credentials-status", error.message, true);
     return false;
+  }
+}
+
+async function syncVehicles() {
+  try {
+    if (!bouncieConnected) {
+      showStatus(
+        "credentials-status",
+        "Connect with Bouncie before syncing vehicles.",
+        true
+      );
+      return;
+    }
+    showStatus("credentials-status", "Syncing vehicles...", false);
+    const response = await apiClient.raw(
+      `${PROFILE_API}/bouncie-credentials/sync-vehicles`,
+      withSignal({ method: "POST" })
+    );
+    const data = await readJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(responseErrorMessage(response, data, "Vehicle sync failed"));
+    }
+    showStatus("credentials-status", data?.message || "Vehicles synced.", false);
+    await loadSetupStatus();
+    updateStepState();
+  } catch (error) {
+    showStatus("credentials-status", error.message, true);
   }
 }
 
@@ -744,15 +801,6 @@ function updateCoveragePhase() {
     stopStatusPolling();
   }
 
-  if (
-    coveragePhase === "detected" &&
-    (coverageMode === "trips" || coverageMode === "auto") &&
-    selectedStates.size > 0 &&
-    !mapSetupInFlight
-  ) {
-    queueMicrotask(() => void startMapSetup());
-  }
-
   // Hide back button on ready phase
   const actions = document.getElementById("coverage-actions");
   if (actions) {
@@ -805,7 +853,19 @@ function updateCoverageDescription() {
 /* ── Import Phase UI ──────────────────────────────────────────── */
 
 function updateImportUI() {
+  const btn = document.getElementById("coverage-import-trips-btn");
+  if (!btn) {
+    return;
+  }
+
   const isSyncing = tripSyncStatus?.state === "syncing";
+  btn.disabled = isSyncing;
+
+  if (isSyncing) {
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
+  } else {
+    btn.innerHTML = '<i class="fas fa-download"></i> Import Recent Trips';
+  }
 
   const descEl = document.getElementById("import-description");
   if (descEl) {
@@ -817,8 +877,9 @@ function updateImportUI() {
         `Import in progress${elapsedText}. Coverage will auto-detect when done.`;
     } else {
       descEl.innerHTML =
-        "EveryStreet is waiting for the background trip reconciler. It will fetch " +
-        "recent trips automatically, detect the states you drive in, and continue.";
+        "We'll fetch your trips from <strong>the last 7 days</strong> from Bouncie. " +
+        "This tells us which states you've been driving in so we download " +
+        "only the coverage data you actually need.";
     }
   }
 
@@ -1109,21 +1170,25 @@ function updateBuildUI() {
   const mapSetupBtn = document.getElementById("map-setup-btn");
   if (mapSetupBtn) {
     const { credentialsComplete } = getStepCompletion();
-    const requiresChoice = coverageMode === "states";
-    mapSetupBtn.classList.toggle(
-      "d-none",
-      coveragePhase !== "detected" || !requiresChoice
-    );
+    mapSetupBtn.classList.toggle("d-none", coveragePhase !== "detected");
     mapSetupBtn.disabled =
       !credentialsComplete || mapSetupInFlight || !selectedStates.size;
   }
 
+  // Cancel button
+  const cancelBtn = document.getElementById("map-cancel-btn");
+  if (cancelBtn) {
+    cancelBtn.classList.toggle("d-none", coveragePhase !== "building");
+  }
+
+  // Finish button
+  const finishBtn = document.getElementById("finish-setup-btn");
+  if (finishBtn) {
+    finishBtn.classList.toggle("d-none", coveragePhase !== "ready");
+  }
+
   if (status?.status === "error") {
-    showStatus(
-      "coverage-status",
-      status.message || "Setup was interrupted and will retry automatically.",
-      true
-    );
+    showStatus("coverage-status", status.message || "Setup failed.", true);
   } else if (status?.status === "ready") {
     showStatus("coverage-status", "Map coverage is ready.", false);
   } else {
@@ -1148,6 +1213,37 @@ function shouldBlockCoverageSetup() {
     return false;
   }
   return !hasTripsForCoverage;
+}
+
+async function importTripsForCoverage() {
+  const btn = document.getElementById("coverage-import-trips-btn");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting import...';
+  }
+  try {
+    showStatus("coverage-status", "Starting trip import...", false);
+    const response = await apiClient.raw(TRIP_SYNC_START_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "recent", trigger_source: "setup" }),
+    });
+    const data = await readJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(responseErrorMessage(response, data, "Trip import failed."));
+    }
+    notificationManager.show("Trip import started.", "success");
+    showStatus("coverage-status", "", false);
+    await loadTripSyncStatus();
+    await refreshMapServicesStatus();
+    updateCoveragePhase();
+  } catch (error) {
+    showStatus("coverage-status", error.message || "Trip import failed.", true);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-download"></i> Import Recent Trips';
+    }
+  }
 }
 
 async function startMapSetup() {
@@ -1187,11 +1283,24 @@ async function startMapSetup() {
   } catch (error) {
     mapSetupInFlight = false;
     updateCoveragePhase();
-    showStatus(
-      "coverage-status",
-      error.message || "Setup was interrupted and will retry automatically.",
-      true
-    );
+    showStatus("coverage-status", error.message || "Setup failed.", true);
+  }
+}
+
+async function cancelMapSetup() {
+  try {
+    showStatus("coverage-status", "Cancelling setup...", false);
+    const response = await apiClient.raw(`${MAP_SERVICES_API}/cancel`, {
+      method: "POST",
+    });
+    const data = await readJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(responseErrorMessage(response, data, "Cancel failed."));
+    }
+    await refreshMapServicesStatus();
+    updateCoveragePhase();
+  } catch (error) {
+    showStatus("coverage-status", error.message || "Cancel failed.", true);
   }
 }
 
@@ -1220,12 +1329,30 @@ function stopStatusPolling() {
 /* ── Finish ───────────────────────────────────────────────────── */
 
 async function completeSetupAndExit() {
-  swupReady.then((swup) => {
-    swup.navigate("/", {
-      cache: { read: false, write: true },
-      history: "replace",
+  try {
+    const response = await apiClient.raw(
+      "/api/setup/complete",
+      withSignal({ method: "POST" })
+    );
+    const data = await readJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(responseErrorMessage(response, data, "Unable to finish setup"));
+    }
+    try {
+      window.localStorage.setItem("es:setup-status-refresh", String(Date.now()));
+    } catch {
+      // Ignore storage errors
+    }
+    document.dispatchEvent(new CustomEvent("es:setup-status-refresh"));
+    swupReady.then((swup) => {
+      swup.navigate("/", {
+        cache: { read: false, write: true },
+        history: "replace",
+      });
     });
-  });
+  } catch (error) {
+    notificationManager.show(error.message || "Unable to finish setup.", "danger");
+  }
 }
 
 /* ── Formatting Helpers ───────────────────────────────────────── */

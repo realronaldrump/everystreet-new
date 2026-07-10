@@ -1,177 +1,239 @@
 import apiClient from "../../core/api-client.js";
+import { withSignal as withAbortSignal } from "../../core/feature-api.js";
+import notificationManager from "../../ui/notifications.js";
 import { formatDateTime, isAbortError } from "../../utils.js";
-import { setActiveTab } from "./app-settings.js";
 
-const STATUS_API = "/api/status/overview";
+const OVERVIEW_API = "/api/status/overview";
+const HEALTH_API = "/api/status/health";
 const POLL_INTERVAL_MS = 30000;
+
+const STATUS_VARIANTS = {
+  healthy: {
+    badgeClass: "bg-success",
+    label: "Healthy",
+  },
+  warning: {
+    badgeClass: "bg-warning text-dark",
+    label: "Warning",
+  },
+  error: {
+    badgeClass: "bg-danger",
+    label: "Error",
+  },
+};
+
 const SERVICE_ORDER = [
   "mongodb",
   "redis",
   "worker",
   "bouncie",
-  "mapping_provider",
   "nominatim",
   "valhalla",
 ];
-const SERVICE_ICONS = {
-  mongodb: "fa-database",
-  redis: "fa-bolt",
-  worker: "fa-gears",
-  bouncie: "fa-car-side",
-  mapping_provider: "fa-map",
-  nominatim: "fa-location-dot",
-  valhalla: "fa-route",
-};
+const RESTARTABLE_SERVICES = new Set(["nominatim", "valhalla"]);
 
-function titleFor(key) {
-  return {
-    mongodb: "Historical data",
-    redis: "Live state",
-    worker: "Background engine",
-    bouncie: "Bouncie",
-    mapping_provider: "Mapping provider",
-    nominatim: "Address lookup",
-    valhalla: "Routing",
-  }[key] || key.replaceAll("_", " ");
-}
-
-function renderHeader(data) {
-  const overall = data?.overall || {};
-  const state = overall.status || "recovering";
-  const pill = document.getElementById("settings-system-pill");
-  const hero = document.getElementById("system-hero");
-  if (pill) pill.dataset.state = state;
-  if (hero) hero.dataset.state = state;
-
-  const pillLabel = document.getElementById("settings-system-pill-label");
-  const label = document.getElementById("system-status-label");
-  const message = document.getElementById("system-status-message");
-  const detail = document.getElementById("system-status-detail");
-  const updated = document.getElementById("system-last-updated");
-  if (pillLabel) pillLabel.textContent = overall.label || "System status";
-  if (label) label.textContent = overall.label || "System status";
-  if (message) message.textContent = overall.message || "Status is temporarily unavailable.";
-  if (detail) {
-    detail.textContent =
-      state === "healthy"
-        ? "Trips and derived data stay current without this page being open."
-        : state === "action_required"
-          ? "Everything else will continue while you make this decision."
-          : "Temporary failures are using bounded retries; no action is needed.";
-  }
-  if (updated) {
-    updated.textContent = `Updated ${formatDateTime(data?.last_updated)}`;
-  }
-
-  const icon = hero?.querySelector(".system-hero-icon i");
-  if (icon) {
-    icon.className =
-      state === "healthy"
-        ? "fas fa-check"
-        : state === "action_required"
-          ? "fas fa-hand-pointer"
-          : "fas fa-arrows-rotate fa-spin";
-  }
-}
-
-function renderAutomation(data) {
-  const automation = data?.automation || {};
-  const total = document.getElementById("automation-total");
-  const running = document.getElementById("automation-running");
-  const recovering = document.getElementById("automation-recovering");
-  if (total) total.textContent = String(automation.total ?? 0);
-  if (running) running.textContent = String(automation.running ?? 0);
-  if (recovering) recovering.textContent = String(automation.recovering ?? 0);
-}
-
-function renderActions(data) {
-  const container = document.getElementById("system-actions");
-  if (!container) return;
-  const actions = Array.isArray(data?.actions) ? data.actions : [];
-  container.classList.toggle("d-none", actions.length === 0);
-  container.innerHTML = "";
-  actions.forEach((action) => {
-    const item = document.createElement("article");
-    item.className = "system-action";
-    const copy = document.createElement("div");
-    const title = document.createElement("strong");
-    title.textContent = action.label || "Action required";
-    const message = document.createElement("p");
-    message.textContent = action.message || "A decision is required.";
-    copy.append(title, message);
-    const link = document.createElement("a");
-    link.className = "btn btn-primary";
-    link.href = action.href || "#connections";
-    link.textContent = action.label || "Review";
-    if (link.href.includes("#connections")) {
-      link.addEventListener("click", (event) => {
-        event.preventDefault();
-        setActiveTab("connections", { updateHash: true });
-      });
-    }
-    item.append(copy, link);
-    container.appendChild(item);
-  });
-}
-
-function renderServices(data) {
-  const container = document.getElementById("system-services");
-  if (!container) return;
-  const services = data?.services || {};
-  container.innerHTML = "";
-  SERVICE_ORDER.filter((key) => services[key] && !services[key].skipped).forEach(
-    (key) => {
-      const service = services[key];
-      const state = service.status || "warning";
-      const card = document.createElement("article");
-      card.className = "service-card";
-      card.dataset.state = state;
-      const icon = document.createElement("span");
-      icon.className = "service-card-icon";
-      icon.innerHTML = `<i class="fas ${SERVICE_ICONS[key] || "fa-circle"}" aria-hidden="true"></i>`;
-      const copy = document.createElement("div");
-      const title = document.createElement("h3");
-      title.textContent = titleFor(key);
-      const message = document.createElement("p");
-      message.textContent =
-        service.message || (state === "healthy" ? "Ready" : "Recovering automatically");
-      copy.append(title, message);
-      card.append(icon, copy);
-      container.appendChild(card);
+function formatStatusVariant(statusValue) {
+  return (
+    STATUS_VARIANTS[statusValue] || {
+      badgeClass: "bg-secondary",
+      label: String(statusValue || "Unknown"),
     }
   );
-  if (!container.children.length) {
-    container.innerHTML = '<div class="service-placeholder">Capability status is temporarily unavailable.</div>';
+}
+
+function renderOverviewHeader({ overviewData, healthData }) {
+  const badge = document.getElementById("cc-overview-status-badge");
+  const message = document.getElementById("cc-overview-status-message");
+  const summary = document.getElementById("cc-overview-summary");
+  const lastUpdated = document.getElementById("cc-overview-last-updated");
+
+  const overall = overviewData?.overall || healthData?.overall || {};
+  const status = String(overall.status || "warning").toLowerCase();
+  const variant = formatStatusVariant(status);
+
+  if (badge) {
+    badge.className = `status-chip cc-overview-status-badge ${variant.badgeClass}`;
+    badge.textContent = overall.label || variant.label;
+  }
+
+  if (message) {
+    message.textContent =
+      overall.message || healthData?.overall?.message || "System status unavailable.";
+  }
+
+  if (summary) {
+    const taskSummary = overviewData?.tasks?.summary || {};
+    const docker = overviewData?.docker || {};
+    const integrationSummary = overviewData?.integrations?.summary || "";
+    summary.textContent = [
+      `Tasks: ${taskSummary.running || 0} running, ${taskSummary.failed || 0} failed`,
+      `Docker: ${docker.available ? "online" : "offline"}`,
+      integrationSummary,
+    ]
+      .filter(Boolean)
+      .join(" | ");
+  }
+
+  if (lastUpdated) {
+    lastUpdated.textContent = `Last updated: ${formatDateTime(
+      overviewData?.last_updated || healthData?.overall?.last_updated
+    )}`;
   }
 }
 
-export default function initControlCenterOverview({ signal, cleanup } = {}) {
-  let timer = null;
-  const refresh = async () => {
+function renderServiceCards(healthData) {
+  const servicesContainer = document.getElementById("cc-overview-services");
+  if (!servicesContainer) {
+    return;
+  }
+
+  const services = healthData?.services || {};
+  const availableKeys = SERVICE_ORDER.filter((key) => services[key]);
+  const keysToRender = availableKeys.length > 0 ? availableKeys : Object.keys(services);
+
+  if (!keysToRender.length) {
+    servicesContainer.innerHTML =
+      '<div class="text-muted small">No services available.</div>';
+    return;
+  }
+
+  servicesContainer.innerHTML = keysToRender
+    .map((key) => {
+      const entry = services[key] || {};
+      const status = String(entry.status || "warning").toLowerCase();
+      const variant = formatStatusVariant(status);
+      const canRestart = RESTARTABLE_SERVICES.has(key);
+      const restartButton = canRestart
+        ? `<button type="button" class="btn btn-outline-danger btn-sm cc-overview-restart-btn" data-service="${key}"><i class="fas fa-power-off"></i> Restart</button>`
+        : "";
+
+      return `
+        <article class="control-center-service-card" data-service-card="${key}">
+          <div class="control-center-service-card-head">
+            <h4>${key}</h4>
+            <span class="badge ${variant.badgeClass}">${entry.label || variant.label}</span>
+          </div>
+          <p class="control-center-service-message">${entry.message || "No status message."}</p>
+          <p class="control-center-service-detail text-muted small">${entry.detail || ""}</p>
+          <div class="control-center-service-actions">${restartButton}</div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderFailures(healthData) {
+  const failuresContainer = document.getElementById("cc-overview-failures");
+  if (!failuresContainer) {
+    return;
+  }
+
+  const entries = Array.isArray(healthData?.recent_errors)
+    ? healthData.recent_errors
+    : [];
+  if (entries.length === 0) {
+    failuresContainer.innerHTML =
+      '<div class="text-muted small">No recent task failures. System looks stable.</div>';
+    return;
+  }
+
+  failuresContainer.innerHTML = entries
+    .map((entry) => {
+      const taskId = entry.task_id || "unknown-task";
+      const error = entry.error || "No error details";
+      const stamp = formatDateTime(entry.timestamp);
+      return `
+        <div class="control-center-failure-item">
+          <div class="control-center-failure-meta">
+            <strong>${taskId}</strong>
+            <span>${stamp}</span>
+          </div>
+          <p>${error}</p>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+export default function initControlCenterOverview({ signal } = {}) {
+  const tab = document.getElementById("overview-tab");
+  if (!tab) {
+    return () => {};
+  }
+
+  let refreshTimer = null;
+
+  const refreshOverview = async (isManual = false) => {
     try {
-      const data = await apiClient.get(STATUS_API, { signal, cache: "no-store" });
-      renderHeader(data);
-      renderAutomation(data);
-      renderActions(data);
-      renderServices(data);
+      const [overviewData, healthData] = await Promise.all([
+        apiClient.get(OVERVIEW_API, withAbortSignal(signal)),
+        apiClient.get(HEALTH_API, withAbortSignal(signal)),
+      ]);
+
+      renderOverviewHeader({ overviewData, healthData });
+      renderServiceCards(healthData);
+      renderFailures(healthData);
     } catch (error) {
-      if (isAbortError(error)) return;
-      renderHeader({
-        overall: {
-          status: "recovering",
-          label: "Reconnecting",
-          message: "System status is temporarily unavailable.",
-        },
-      });
+      if (isAbortError(error)) {
+        return;
+      }
+      if (isManual) {
+        notificationManager.show(
+          `Failed to refresh overview: ${error.message}`,
+          "warning"
+        );
+      }
     }
   };
 
-  refresh();
-  timer = window.setInterval(refresh, POLL_INTERVAL_MS);
-  const stop = () => {
-    if (timer) window.clearInterval(timer);
-    timer = null;
+  const servicesContainer = document.getElementById("cc-overview-services");
+  const serviceActionOptions = signal ? { signal } : false;
+
+  servicesContainer?.addEventListener(
+    "click",
+    async (event) => {
+      const button = event.target.closest(".cc-overview-restart-btn");
+      if (!button) {
+        return;
+      }
+
+      const service = button.getAttribute("data-service");
+      if (!service) {
+        return;
+      }
+
+      try {
+        button.disabled = true;
+        await apiClient.post(
+          `/api/services/${encodeURIComponent(service)}/restart`,
+          {},
+          withAbortSignal(signal)
+        );
+        notificationManager.show(`${service} restart requested`, "success");
+        await refreshOverview(true);
+      } catch (error) {
+        if (!isAbortError(error)) {
+          notificationManager.show(
+            `Failed to restart ${service}: ${error.message}`,
+            "danger"
+          );
+        }
+      } finally {
+        button.disabled = false;
+      }
+    },
+    serviceActionOptions
+  );
+
+  refreshOverview();
+  refreshTimer = setInterval(() => {
+    refreshOverview();
+  }, POLL_INTERVAL_MS);
+
+  return () => {
+    if (refreshTimer) {
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
   };
-  signal?.addEventListener("abort", stop, { once: true });
-  cleanup?.(stop);
 }

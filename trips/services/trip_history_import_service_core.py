@@ -402,12 +402,6 @@ async def _run_import_windows(
                             **summary,
                         },
                     )
-                else:
-                    await TripIngestIssueService.resolve_fetch_window(
-                        imei=imei,
-                        window_start=window_start,
-                        window_end=window_end,
-                    )
                 runtime.add_event(
                     "info",
                     f"Window processed for {imei}",

@@ -14,7 +14,9 @@ import {
   hasGoogleMapsApi,
   waitForGoogleMaps,
 } from "../../maps/google_maps_loader.js";
+import { initTripSync } from "../../trip-sync.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
+import loadingManager from "../../ui/loading-manager.js";
 import notificationManager from "../../ui/notifications.js";
 import {
   DateUtils,
@@ -51,6 +53,8 @@ let tripModalMap = null;
 let tripModalInstance = null;
 let currentTripId = null;
 let currentTripData = null;
+let regeocodeInFlight = false;
+let modalRouteActionsTripId = null;
 let modalRouteChipToken = 0;
 let playbackControlsBound = false;
 let modalActionsBound = false;
@@ -653,6 +657,8 @@ function resetTripsState() {
   isLoading = false;
   currentTripId = null;
   currentTripData = null;
+  regeocodeInFlight = false;
+  modalRouteActionsTripId = null;
   playbackControlsBound = false;
   modalActionsBound = false;
   appliedTripSort = DEFAULT_TRIP_SORT;
@@ -770,6 +776,21 @@ async function initializePage(signal, cleanup) {
   setupTripViewControls();
   setupBulkActions();
   setupTripCardInteractions();
+
+  // Initialize trip sync functionality
+  initTripSync({
+    onSyncComplete: () => {
+      if (pageSignal?.aborted) {
+        return;
+      }
+      void loadTrips();
+      void loadTripStats();
+    },
+    onSyncError: () => {
+      updateSyncStatus("error");
+    },
+    cleanup,
+  });
 
   // Listen for date/vehicle filter changes from global filter panel
   document.addEventListener(
@@ -1361,6 +1382,39 @@ async function loadTripStats() {
   }
 }
 
+function updateSyncStatus(state) {
+  const indicator = document.querySelector(".sync-indicator");
+  const text = document.querySelector(".sync-text");
+  const btn = document.getElementById("sync-now-btn");
+
+  if (indicator) {
+    indicator.setAttribute("data-state", state);
+  }
+
+  if (state === "syncing") {
+    if (text) {
+      text.textContent = "Syncing...";
+    }
+    if (btn) {
+      btn.classList.add("syncing");
+    }
+  } else if (state === "error") {
+    if (text) {
+      text.textContent = "Sync failed";
+    }
+    if (btn) {
+      btn.classList.remove("syncing");
+    }
+  } else {
+    if (text) {
+      text.textContent = "Up to date";
+    }
+    if (btn) {
+      btn.classList.remove("syncing");
+    }
+  }
+}
+
 // ==========================================
 // TRIPS LOADING & RENDERING
 // ==========================================
@@ -1829,6 +1883,20 @@ function bindTripActionButtons(scope, trip) {
     openTripModal(trip.transactionId);
   });
 
+  const rematchBtn = scope.querySelector("[data-trip-action='rematch']");
+  rematchBtn?.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    const confirmed = await confirmationDialog.show({
+      title: "Rematch Trip",
+      message: "Are you sure you want to run map matching on this trip again?",
+      confirmText: "Rematch",
+      confirmButtonClass: "btn-primary",
+    });
+    if (confirmed) {
+      rematchTrip(trip.transactionId);
+    }
+  });
+
   const inactiveToggleBtn = scope.querySelector("[data-trip-action='inactive']");
   inactiveToggleBtn?.addEventListener("click", async (event) => {
     event.stopPropagation();
@@ -1960,6 +2028,19 @@ function renderTripActionCell(trip) {
   const inactive = isInactiveTrip(trip);
   return `
     <div class="trip-row-actions">
+      ${
+        inactive
+          ? ""
+          : `
+      <button class="trip-row-action-btn"
+              type="button"
+              title="Rematch trip"
+              aria-label="Rematch trip"
+              data-trip-action="rematch">
+        <i class="fas fa-route"></i>
+      </button>
+      `
+      }
       <button class="trip-row-action-btn"
               type="button"
               title="${inactive ? "Restore trip" : "Exclude from totals and maps"}"
@@ -2072,6 +2153,17 @@ function createTripCard(trip, allTrips) {
       <div class="trip-card-footer">
         <span class="trip-date">${escapeHtml(footerLabel)}</span>
         <div class="trip-actions">
+          ${
+            inactive
+              ? ""
+              : `
+          <button class="trip-action-btn rematch"
+                  title="Rematch trip"
+                  aria-label="Rematch trip">
+            <i class="fas fa-route"></i>
+          </button>
+          `
+          }
           <button class="trip-action-btn inactive-toggle"
                   title="${inactive ? "Restore trip" : "Exclude from totals and maps"}"
                   aria-label="${inactive ? "Restore trip" : "Exclude trip from totals and maps"}">
@@ -2140,6 +2232,22 @@ function createTripCard(trip, allTrips) {
     e.stopPropagation();
     openTripModal(trip.transactionId);
   });
+
+  const rematchBtn = card.querySelector(".trip-action-btn.rematch");
+  if (rematchBtn) {
+    rematchBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const confirmed = await confirmationDialog.show({
+        title: "Rematch Trip",
+        message: "Are you sure you want to run map matching on this trip again?",
+        confirmText: "Rematch",
+        confirmButtonClass: "btn-primary",
+      });
+      if (confirmed) {
+        rematchTrip(trip.transactionId);
+      }
+    });
+  }
 
   const inactiveToggleBtn = card.querySelector(".trip-action-btn.inactive-toggle");
   inactiveToggleBtn.addEventListener("click", async (e) => {
@@ -2859,6 +2967,33 @@ function setupTripCardInteractions() {
 // TRIP OPERATIONS
 // ==========================================
 
+async function rematchTrip(id) {
+  try {
+    loadingManager.show("Queueing map matching job...");
+    const res = await apiPost("/api/map_matching/jobs", {
+      mode: "trip_id",
+      trip_id: id,
+      rematch: true,
+      unmatched_only: false,
+    });
+    if (res) {
+      notificationManager.show(
+        "Map matching job queued. View progress in Map Matching.",
+        "success"
+      );
+      // Optionally reload the map after a short delay
+      setTimeout(() => {
+        loadTrips();
+      }, 3000);
+    }
+  } catch (err) {
+    console.error("Rematch error:", err);
+    notificationManager.show(`Map matching error: ${err.message}`, "danger");
+  } finally {
+    loadingManager.hide();
+  }
+}
+
 async function deleteTrip(id) {
   try {
     await optimisticAction({
@@ -2974,6 +3109,8 @@ function openTripModal(tripId) {
       bindPageEvent(el, "hidden.bs.modal", () => {
         resetPlayback();
         currentTripData = null;
+        regeocodeInFlight = false;
+        modalRouteActionsTripId = null;
         clearTripModalRouteData();
       });
 
@@ -3002,7 +3139,9 @@ function bindTripModalActions() {
   const shareBtn = document.getElementById("modal-share-btn");
   const inactiveBtn = document.getElementById("modal-inactive-toggle-btn");
   const deleteBtn = document.getElementById("modal-delete-btn");
-  if (!shareBtn && !inactiveBtn && !deleteBtn) {
+  const regeocodeBtn = document.getElementById("modal-regeocode-btn");
+
+  if (!shareBtn && !inactiveBtn && !deleteBtn && !regeocodeBtn) {
     console.warn("Trip modal action buttons not found");
     return;
   }
@@ -3050,6 +3189,16 @@ function bindTripModalActions() {
     });
   }
 
+  if (regeocodeBtn) {
+    regeocodeBtn.type = "button";
+    bindPageEvent(regeocodeBtn, "click", () => regeocodeCurrentTrip());
+  }
+
+  const subtleRegeocodeBtn = document.getElementById("modal-regeocode-subtle-btn");
+  if (subtleRegeocodeBtn) {
+    bindPageEvent(subtleRegeocodeBtn, "click", () => regeocodeCurrentTrip());
+  }
+
   const matchToggle = document.getElementById("trip-modal-matched-toggle");
   if (matchToggle) {
     bindPageEvent(matchToggle, "change", () => {
@@ -3060,6 +3209,97 @@ function bindTripModalActions() {
   }
 
   modalActionsBound = true;
+}
+
+function updateRegeocodeControls(trip) {
+  const wrap = document.getElementById("modal-route-actions");
+  const btn = document.getElementById("modal-regeocode-btn");
+  const statusEl = document.getElementById("modal-regeocode-status");
+  const subtleBtn = document.getElementById("modal-regeocode-subtle-btn");
+
+  const tripId = trip?.transactionId || null;
+  if (!regeocodeInFlight && tripId && tripId !== modalRouteActionsTripId) {
+    modalRouteActionsTripId = tripId;
+    if (statusEl) {
+      statusEl.textContent = "";
+    }
+  }
+
+  const startLoc = sanitizeLocation(trip?.startLocation);
+  const endLoc = sanitizeLocation(trip?.destination);
+  const needsGeocode = startLoc === "Unknown" || endLoc === "Unknown";
+
+  // Prominent button — only for missing addresses
+  if (wrap && btn) {
+    wrap.style.display = needsGeocode ? "flex" : "none";
+    if (needsGeocode) {
+      btn.disabled = regeocodeInFlight;
+      btn.classList.toggle("is-loading", regeocodeInFlight);
+
+      const textEl = btn.querySelector(".btn-route-action__text");
+      if (textEl) {
+        textEl.textContent = regeocodeInFlight ? "Geocoding..." : "Geocode this trip";
+      }
+
+      if (statusEl && !regeocodeInFlight && !statusEl.textContent) {
+        statusEl.textContent = "Addresses are missing. Click to geocode this trip.";
+      }
+    } else if (statusEl) {
+      statusEl.textContent = "";
+    }
+  }
+
+  // Subtle button in section title — always available
+  if (subtleBtn) {
+    subtleBtn.disabled = regeocodeInFlight;
+    subtleBtn.classList.toggle("is-loading", regeocodeInFlight);
+    subtleBtn.title = regeocodeInFlight ? "Geocoding..." : "Re-geocode addresses";
+  }
+}
+
+async function regeocodeCurrentTrip() {
+  const tripId = currentTripData?.transactionId || currentTripId;
+  if (!tripId || regeocodeInFlight) {
+    return;
+  }
+
+  const btn = document.getElementById("modal-regeocode-btn");
+  const statusEl = document.getElementById("modal-regeocode-status");
+  const textEl = btn?.querySelector(".btn-route-action__text");
+
+  try {
+    regeocodeInFlight = true;
+    if (btn) {
+      btn.disabled = true;
+      btn.classList.add("is-loading");
+    }
+    if (textEl) {
+      textEl.textContent = "Geocoding...";
+    }
+    if (statusEl) {
+      statusEl.textContent = "Running geocoder for this trip...";
+    }
+
+    const resp = await apiPost(CONFIG.API.tripRegeocode(tripId), {});
+    notificationManager.show(resp?.message || "Trip geocoded", "success");
+    if (statusEl) {
+      statusEl.textContent = resp?.message || "Geocoding finished. Refreshing trip...";
+    }
+
+    await loadTripData(tripId);
+  } catch (err) {
+    console.error("Failed to geocode trip:", err);
+    notificationManager.show(
+      err?.message ? `Geocode failed: ${err.message}` : "Failed to geocode trip",
+      "danger"
+    );
+    if (statusEl) {
+      statusEl.textContent = err?.message || "Failed to geocode trip.";
+    }
+  } finally {
+    regeocodeInFlight = false;
+    updateRegeocodeControls(currentTripData);
+  }
 }
 
 function showShareModal() {
@@ -3421,6 +3661,7 @@ function updateModalContent(trip) {
   }
 
   void updateTripRouteChip(trip);
+  updateRegeocodeControls(trip);
 }
 
 function updateInactiveTripControls(trip) {

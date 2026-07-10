@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 LIVE_TRIP_TTL_SECONDS = 3 * 60 * 60
 LIVE_TRIP_STALE_SECONDS = 30 * 60
 _ACTIVE_TRIP_TX_KEY = "tracking:live:active_tx"
-_ACTIVE_TRIPS_KEY = "tracking:live:active_transactions"
 _TRIP_KEY_PREFIX = "tracking:live:trip:"
 _CLOSED_KEY_PREFIX = "tracking:live:closed:"
 
@@ -62,8 +61,6 @@ async def save_trip_snapshot(trip: dict[str, Any]) -> None:
     await _resolve_awaitable(
         pipe.set(_ACTIVE_TRIP_TX_KEY, transaction_id, ex=LIVE_TRIP_TTL_SECONDS),
     )
-    await _resolve_awaitable(pipe.sadd(_ACTIVE_TRIPS_KEY, transaction_id))
-    await _resolve_awaitable(pipe.expire(_ACTIVE_TRIPS_KEY, LIVE_TRIP_TTL_SECONDS))
     await _resolve_awaitable(pipe.delete(_closed_key(transaction_id)))
     await _resolve_awaitable(pipe.execute())
 
@@ -108,36 +105,6 @@ async def get_active_trip_snapshot() -> dict[str, Any] | None:
     return trip
 
 
-async def get_active_trip_snapshots() -> list[dict[str, Any]]:
-    """Load every active live trip so lifecycle work is never UI-read driven."""
-    client = await get_shared_redis()
-    transaction_ids = await client.smembers(_ACTIVE_TRIPS_KEY)
-    active_tx = await client.get(_ACTIVE_TRIP_TX_KEY)
-    normalized = {
-        value.decode() if isinstance(value, bytes | bytearray) else str(value)
-        for value in (transaction_ids or set())
-        if value
-    }
-    if active_tx:
-        normalized.add(
-            active_tx.decode()
-            if isinstance(active_tx, bytes | bytearray)
-            else str(active_tx)
-        )
-
-    snapshots: list[dict[str, Any]] = []
-    stale_ids: list[str] = []
-    for transaction_id in normalized:
-        trip = await get_trip_snapshot(transaction_id)
-        if trip is None:
-            stale_ids.append(transaction_id)
-        else:
-            snapshots.append(trip)
-    if stale_ids:
-        await client.srem(_ACTIVE_TRIPS_KEY, *stale_ids)
-    return snapshots
-
-
 async def clear_trip_snapshot(
     transaction_id: str,
     *,
@@ -153,7 +120,6 @@ async def clear_trip_snapshot(
 
     pipe = await _resolve_awaitable(client.pipeline())
     await _resolve_awaitable(pipe.delete(_trip_key(tx)))
-    await _resolve_awaitable(pipe.srem(_ACTIVE_TRIPS_KEY, tx))
     if active_tx == tx:
         await _resolve_awaitable(pipe.delete(_ACTIVE_TRIP_TX_KEY))
     if mark_closed:
@@ -193,7 +159,6 @@ __all__ = [
     "LIVE_TRIP_TTL_SECONDS",
     "clear_trip_snapshot",
     "get_active_trip_snapshot",
-    "get_active_trip_snapshots",
     "get_trip_snapshot",
     "is_trip_marked_closed",
     "live_trip_is_stale",

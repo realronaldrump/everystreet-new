@@ -30,6 +30,7 @@ import layerManager from "./layer-manager.js";
 import mapCore from "./map-core.js";
 import mapManager from "./map-manager.js";
 import searchManager from "./search-manager.js";
+import confirmationDialog from "./ui/confirmation-dialog.js";
 import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
 import { DateUtils, utils } from "./utils.js";
@@ -741,6 +742,45 @@ const AppController = {
   // ============================================================
   // Public Methods
   // ============================================================
+
+  async mapMatchTrips() {
+    try {
+      const confirmed = await confirmationDialog.show({
+        title: "Map Match Trips",
+        message:
+          "This will process all trips in the selected date range. " +
+          "This may take several minutes for large date ranges. Continue?",
+        confirmText: "Start Map Matching",
+        confirmButtonClass: "btn-primary",
+      });
+      if (!confirmed) {
+        return;
+      }
+
+      loadingManager.show("Queueing map matching job...");
+      const res = await utils.fetchWithRetry("/api/map_matching/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "date_range",
+          start_date: DateUtils.getStartDate(),
+          end_date: DateUtils.getEndDate(),
+          unmatched_only: true,
+        }),
+      });
+      if (res) {
+        notificationManager.show(
+          "Map matching job queued. View progress in Map Matching.",
+          "success"
+        );
+      }
+    } catch (err) {
+      console.error("Map match error:", err);
+      notificationManager.show(`Map matching error: ${err.message}`, "danger");
+    } finally {
+      loadingManager.hide();
+    }
+  },
 
   async refreshTripLayersForCoverageSelectionChange({
     nextLocationId = "",

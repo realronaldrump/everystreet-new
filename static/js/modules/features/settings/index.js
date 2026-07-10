@@ -1,9 +1,635 @@
-import { initAppSettings } from "./app-settings.js";
+/* global bootstrap */
+
+/**
+ * Settings Page Entry Point
+ *
+ * This module imports and initializes all settings page components:
+ * - TaskManager: Background task management with SSE updates
+ * - InvalidTripReview: Invalid trip table management
+ * - Geocode/Remap: Trip geocoding and remapping forms
+ * - Mobile UI: Mobile-specific rendering
+ * - App Settings: Tab switching and preferences
+ */
+
+import apiClient from "../../core/api-client.js";
+import { CONFIG } from "../../core/config.js";
+import loadingManager from "../../ui/loading-manager.js";
+import notificationManager from "../../ui/notifications.js";
+import { formatDateTime } from "../../utils.js";
+import initServerLogsPage from "../server-logs/index.js";
+import {
+  initAppSettings,
+  SETTINGS_TAB_CHANGED_EVENT,
+  setActiveTab,
+} from "./app-settings.js";
 import initControlCenterOverview from "./control-center-overview.js";
 import { setupCredentialsSettings } from "./credentials-settings.js";
+import { initDatabaseManagement } from "./database-management.js";
+import {
+  setupGeocodeTrips,
+  setupManualFetchTripsForm,
+  setupRebuildDisplayPaths,
+  setupRemapMatchedTrips,
+} from "./geocode-remap.js";
+import { InvalidTripReview } from "./invalid-trip-review.js";
+import mapServices from "./map-services.js";
+import { initMobileUI } from "./mobile-ui.js";
+import { gatherTaskConfigFromUI, submitTaskConfigUpdate } from "./task-manager/api.js";
+import { showTaskDetails } from "./task-manager/modals.js";
+import { TaskManager } from "./task-manager/task-manager.js";
+import { initTripHistoryImportWizard } from "./trip-history-import-wizard.js";
+import { TripIngestIssues } from "./trip-ingest-issues.js";
 
-export default function initSettingsPage({ signal, cleanup } = {}) {
-  initAppSettings({ signal });
-  initControlCenterOverview({ signal, cleanup });
+let taskManager = null;
+const SETTINGS_MODAL_IDS = [
+  "taskDetailsModal",
+  "pauseModal",
+  "clearHistoryModal",
+  "tripHistoryImportWizardModal",
+];
+
+function moveSettingsModals() {
+  const modalsContainer = document.getElementById("modals-container");
+  if (!modalsContainer) {
+    return;
+  }
+
+  SETTINGS_MODAL_IDS.forEach((id) => {
+    const routeModal = document.querySelector(`#route-content #${id}`);
+    const modal = routeModal || document.getElementById(id);
+    if (!modal) {
+      return;
+    }
+
+    const existing = modalsContainer.querySelector(`#${id}`);
+    if (existing && existing !== modal) {
+      existing.remove();
+    }
+    if (!modalsContainer.contains(modal)) {
+      modalsContainer.appendChild(modal);
+    }
+  });
+}
+
+async function loadSyncSettings() {
+  const autoToggle = document.getElementById("sync-auto-toggle");
+  const intervalSelect = document.getElementById("sync-interval-select");
+  const lastSuccess = document.getElementById("sync-last-success");
+  const alertEl = document.getElementById("sync-settings-alert");
+  const syncNowBtn = document.getElementById("sync-now-btn");
+  const importBtn = document.getElementById("sync-import-btn");
+
+  if (!autoToggle || !intervalSelect) {
+    return;
+  }
+
+  try {
+    const [config, status] = await Promise.all([
+      apiClient.get(CONFIG.API.tripSyncConfig),
+      apiClient.get(CONFIG.API.tripSyncStatus),
+    ]);
+
+    autoToggle.checked = config.auto_sync_enabled !== false;
+    const intervalValue = String(config.interval_minutes || 720);
+    const options = [...intervalSelect.options].map((opt) => opt.value);
+    if (!options.includes(intervalValue)) {
+      const option = document.createElement("option");
+      option.value = intervalValue;
+      option.textContent = `Every ${intervalValue} minutes`;
+      intervalSelect.appendChild(option);
+    }
+    intervalSelect.value = intervalValue;
+
+    if (lastSuccess) {
+      lastSuccess.textContent = config.last_success_at
+        ? formatDateTime(config.last_success_at)
+        : "--";
+    }
+
+    if (alertEl) {
+      if (["paused", "error"].includes(status.state) && status.error?.message) {
+        alertEl.textContent = status.error.message;
+        alertEl.classList.remove("d-none");
+      } else {
+        alertEl.classList.add("d-none");
+      }
+    }
+
+    const paused = status.state === "paused";
+    if (syncNowBtn) {
+      syncNowBtn.disabled = paused;
+    }
+    if (importBtn) {
+      importBtn.disabled = paused;
+    }
+  } catch (error) {
+    notificationManager.show(
+      `Failed to load sync settings: ${error.message}`,
+      "danger"
+    );
+  }
+}
+
+function setupTripSyncSettings(signal) {
+  const eventOptions = signal ? { signal } : false;
+  const autoToggle = document.getElementById("sync-auto-toggle");
+  const intervalSelect = document.getElementById("sync-interval-select");
+  const saveBtn = document.getElementById("sync-settings-save");
+  const resetBtn = document.getElementById("sync-settings-reset");
+  const syncNowBtn = document.getElementById("sync-now-btn");
+
+  if (!autoToggle || !intervalSelect) {
+    return;
+  }
+
+  loadSyncSettings();
+
+  saveBtn?.addEventListener(
+    "click",
+    async () => {
+      try {
+        const payload = {
+          auto_sync_enabled: autoToggle.checked,
+          interval_minutes: parseInt(intervalSelect.value, 10),
+        };
+        await apiClient.post(CONFIG.API.tripSyncConfig, payload);
+        notificationManager.show("Sync settings saved", "success");
+        await loadSyncSettings();
+      } catch (error) {
+        notificationManager.show(
+          `Failed to save sync settings: ${error.message}`,
+          "danger"
+        );
+      }
+    },
+    eventOptions
+  );
+
+  resetBtn?.addEventListener(
+    "click",
+    () => {
+      autoToggle.checked = true;
+      intervalSelect.value = "720";
+    },
+    eventOptions
+  );
+
+  syncNowBtn?.addEventListener(
+    "click",
+    async () => {
+      try {
+        await apiClient.post(CONFIG.API.tripSyncStart, { mode: "recent" });
+        notificationManager.show("Trip sync started", "info");
+      } catch (error) {
+        notificationManager.show(error.message, "danger");
+      }
+    },
+    eventOptions
+  );
+}
+
+/**
+ * Setup task configuration event listeners (buttons, checkboxes, etc.)
+ */
+function setupTaskConfigEventListeners(taskMgr, signal) {
+  const eventOptions = signal ? { signal } : false;
+  const saveTaskConfigBtn = document.getElementById("saveTaskConfigBtn");
+  const confirmPauseBtn = document.getElementById("confirmPause");
+  const resumeBtn = document.getElementById("resumeBtn");
+  const stopAllBtn = document.getElementById("stopAllBtn");
+  const enableAllBtn = document.getElementById("enableAllBtn");
+  const disableAllBtn = document.getElementById("disableAllBtn");
+  const manualRunAllBtn = document.getElementById("manualRunAllBtn");
+  const globalSwitch = document.getElementById("globalDisableSwitch");
+  const clearHistoryBtn = document.getElementById("clearHistoryBtn");
+
+  if (saveTaskConfigBtn) {
+    saveTaskConfigBtn.addEventListener(
+      "mousedown",
+      (e) => {
+        if (e.button !== 0) {
+          return;
+        }
+        const config = gatherTaskConfigFromUI();
+        submitTaskConfigUpdate(config)
+          .then(() => {
+            notificationManager.show(
+              "Task configuration updated successfully",
+              "success"
+            );
+            taskMgr.loadTaskConfig();
+          })
+          .catch((error) => {
+            notificationManager.show(
+              `Error updating task config: ${error.message}`,
+              "danger"
+            );
+          });
+      },
+      eventOptions
+    );
+  }
+
+  const resetTasksBtn = document.getElementById("resetTasksBtn");
+  if (resetTasksBtn) {
+    resetTasksBtn.addEventListener(
+      "mousedown",
+      async (e) => {
+        if (e.button !== 0) {
+          return;
+        }
+        try {
+          loadingManager.show();
+          const response = await apiClient.raw("/api/background_tasks/reset", {
+            method: "POST",
+          });
+
+          loadingManager.hide();
+
+          if (!response.ok) {
+            throw new Error("Failed to reset tasks");
+          }
+
+          const result = await response.json();
+          notificationManager.show(result.message, "success");
+          taskManager.loadTaskConfig();
+        } catch {
+          loadingManager.hide();
+          notificationManager.show("Failed to reset tasks", "danger");
+        }
+      },
+      eventOptions
+    );
+  }
+
+  if (confirmPauseBtn) {
+    confirmPauseBtn.addEventListener(
+      "mousedown",
+      async (e) => {
+        if (e.button !== 0) {
+          return;
+        }
+        const duration = document.getElementById("pauseDuration")?.value || 60;
+        try {
+          loadingManager.show();
+          const response = await apiClient.raw("/api/background_tasks/pause", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ duration: parseInt(duration, 10) }),
+          });
+
+          loadingManager.hide();
+
+          if (!response.ok) {
+            throw new Error("Failed to pause tasks");
+          }
+
+          notificationManager.show(`Tasks paused for ${duration} minutes`, "success");
+
+          const modal = bootstrap.Modal.getInstance(
+            document.getElementById("pauseModal")
+          );
+          if (modal) {
+            modal.hide();
+          }
+
+          taskManager.loadTaskConfig();
+        } catch {
+          loadingManager.hide();
+          notificationManager.show("Failed to pause tasks", "danger");
+        }
+      },
+      eventOptions
+    );
+  }
+
+  if (resumeBtn) {
+    resumeBtn.addEventListener(
+      "mousedown",
+      async (e) => {
+        if (e.button !== 0) {
+          return;
+        }
+        try {
+          loadingManager.show();
+          const response = await apiClient.raw("/api/background_tasks/resume", {
+            method: "POST",
+          });
+
+          loadingManager.hide();
+
+          if (!response.ok) {
+            throw new Error("Failed to resume tasks");
+          }
+
+          notificationManager.show("Tasks resumed", "success");
+          taskManager.loadTaskConfig();
+        } catch {
+          loadingManager.hide();
+          notificationManager.show("Failed to resume tasks", "danger");
+        }
+      },
+      eventOptions
+    );
+  }
+
+  if (stopAllBtn) {
+    stopAllBtn.addEventListener(
+      "mousedown",
+      async (e) => {
+        if (e.button !== 0) {
+          return;
+        }
+        try {
+          loadingManager.show();
+          const response = await apiClient.raw("/api/background_tasks/stop", {
+            method: "POST",
+          });
+
+          loadingManager.hide();
+
+          if (!response.ok) {
+            throw new Error("Failed to stop tasks");
+          }
+
+          notificationManager.show("All running tasks stopped", "success");
+          taskManager.loadTaskConfig();
+        } catch {
+          loadingManager.hide();
+          notificationManager.show("Failed to stop tasks", "danger");
+        }
+      },
+      eventOptions
+    );
+  }
+
+  if (enableAllBtn) {
+    enableAllBtn.addEventListener(
+      "mousedown",
+      async (e) => {
+        if (e.button !== 0) {
+          return;
+        }
+        try {
+          loadingManager.show();
+          const response = await apiClient.raw("/api/background_tasks/enable", {
+            method: "POST",
+          });
+
+          loadingManager.hide();
+
+          if (!response.ok) {
+            throw new Error("Failed to enable all tasks");
+          }
+
+          notificationManager.show("All tasks enabled", "success");
+          taskManager.loadTaskConfig();
+        } catch {
+          loadingManager.hide();
+          notificationManager.show("Failed to enable tasks", "danger");
+        }
+      },
+      eventOptions
+    );
+  }
+
+  if (disableAllBtn) {
+    disableAllBtn.addEventListener(
+      "mousedown",
+      async (e) => {
+        if (e.button !== 0) {
+          return;
+        }
+        try {
+          loadingManager.show();
+          const response = await apiClient.raw("/api/background_tasks/disable", {
+            method: "POST",
+          });
+
+          loadingManager.hide();
+
+          if (!response.ok) {
+            throw new Error("Failed to disable all tasks");
+          }
+
+          notificationManager.show("All tasks disabled", "success");
+          taskManager.loadTaskConfig();
+        } catch {
+          loadingManager.hide();
+          notificationManager.show("Failed to disable tasks", "danger");
+        }
+      },
+      eventOptions
+    );
+  }
+
+  if (manualRunAllBtn) {
+    manualRunAllBtn.addEventListener(
+      "mousedown",
+      (e) => {
+        if (e.button !== 0) {
+          return;
+        }
+        taskManager.runTask("ALL");
+      },
+      eventOptions
+    );
+  }
+
+  if (globalSwitch) {
+    globalSwitch.addEventListener(
+      "change",
+      () => {
+        const config = gatherTaskConfigFromUI();
+        submitTaskConfigUpdate(config)
+          .then(() => notificationManager.show("Global disable toggled", "success"))
+          .catch(() =>
+            notificationManager.show("Failed to toggle global disable", "danger")
+          );
+      },
+      eventOptions
+    );
+  }
+
+  if (clearHistoryBtn) {
+    clearHistoryBtn.addEventListener(
+      "mousedown",
+      (e) => {
+        if (e.button !== 0) {
+          return;
+        }
+        const modal = new bootstrap.Modal(document.getElementById("clearHistoryModal"));
+        modal.show();
+      },
+      eventOptions
+    );
+  }
+
+  const confirmClearHistory = document.getElementById("confirmClearHistory");
+  if (confirmClearHistory) {
+    confirmClearHistory.addEventListener(
+      "mousedown",
+      async (e) => {
+        if (e.button !== 0) {
+          return;
+        }
+        await taskManager.clearTaskHistory();
+        const modal = bootstrap.Modal.getInstance(
+          document.getElementById("clearHistoryModal")
+        );
+        modal.hide();
+      },
+      eventOptions
+    );
+  }
+
+  // Task table row button handlers
+  const taskTableBody = document.querySelector("#taskConfigTable tbody");
+  if (taskTableBody) {
+    taskTableBody.addEventListener(
+      "mousedown",
+      (e) => {
+        const detailsBtn = e.target.closest(".view-details-btn");
+        const runBtn = e.target.closest(".run-now-btn");
+        const forceBtn = e.target.closest(".force-stop-btn");
+        if (detailsBtn) {
+          const { taskId } = detailsBtn.dataset;
+          showTaskDetails(taskId);
+        } else if (runBtn) {
+          const { taskId } = runBtn.dataset;
+          taskManager.runTask(taskId);
+        } else if (forceBtn) {
+          const { taskId } = forceBtn.dataset;
+          taskManager.forceStopTask(taskId);
+        }
+      },
+      eventOptions
+    );
+  }
+
+  // Task details modal run button
+  const taskDetailsModal = document.getElementById("taskDetailsModal");
+  if (taskDetailsModal) {
+    const runBtn = taskDetailsModal.querySelector(".run-task-btn");
+    if (runBtn) {
+      runBtn.addEventListener(
+        "mousedown",
+        async (e) => {
+          const { taskId } = e.target.dataset;
+          if (taskId) {
+            await taskMgr.runTask(taskId);
+            bootstrap.Modal.getInstance(taskDetailsModal).hide();
+          }
+        },
+        eventOptions
+      );
+    }
+  }
+}
+
+function setupControlCenterTabShortcuts(signal) {
+  const eventOptions = signal ? { signal } : false;
+  document.querySelectorAll("[data-open-tab]").forEach((el) => {
+    el.addEventListener(
+      "click",
+      () => {
+        const tabName = el.getAttribute("data-open-tab");
+        if (tabName) {
+          setActiveTab(tabName, { updateHash: true });
+        }
+      },
+      eventOptions
+    );
+  });
+}
+
+/**
+ * Main initialization function
+ */
+export default function initSettingsPage({ cleanup, signal } = {}) {
+  // Keep settings modals outside layout stacking contexts so they remain clickable.
+  moveSettingsModals();
+
+  // Create TaskManager instance
+  taskManager = new TaskManager();
+
+  // Setup all event listeners and modules
+  setupTaskConfigEventListeners(taskManager, signal);
+  setupManualFetchTripsForm(taskManager, signal);
+  setupGeocodeTrips(signal);
+  setupRemapMatchedTrips(signal);
+  setupRebuildDisplayPaths(signal);
+  setupTripSyncSettings(signal);
   setupCredentialsSettings({ signal });
+  initTripHistoryImportWizard({ signal });
+
+  // Initialize mobile UI
+  const mobileCleanup = initMobileUI(taskManager);
+
+  // Initialize overview panel and shortcuts.
+  const overviewCleanup = initControlCenterOverview({ signal });
+  setupControlCenterTabShortcuts(signal);
+
+  // Lazily initialize logs tooling when the Logs tab is first opened.
+  let logsCleanup = null;
+  let logsInitialized = false;
+  const initializeLogsTab = () => {
+    if (logsInitialized || !document.getElementById("logs-tab")) {
+      return;
+    }
+    logsCleanup = initServerLogsPage({ signal });
+    logsInitialized = true;
+  };
+  const eventOptions = signal ? { signal } : false;
+  document.addEventListener(
+    SETTINGS_TAB_CHANGED_EVENT,
+    (event) => {
+      if (event?.detail?.tabName === "logs") {
+        initializeLogsTab();
+      }
+    },
+    eventOptions
+  );
+
+  // Initialize app settings (tabs, preferences)
+  initAppSettings({ signal });
+
+  // Initialize storage management tab
+  initDatabaseManagement({ signal });
+
+  // Initialize InvalidTripReview
+  new InvalidTripReview();
+  // Initialize TripIngestIssues
+  new TripIngestIssues();
+
+  // Initialize Map Services tab
+  mapServices.initMapServicesTab();
+
+  // Load initial task config
+  taskManager.loadTaskConfig();
+
+  const teardown = () => {
+    if (typeof mobileCleanup === "function") {
+      mobileCleanup();
+    }
+    if (typeof overviewCleanup === "function") {
+      overviewCleanup();
+    }
+    if (typeof logsCleanup === "function") {
+      logsCleanup();
+    }
+    if (taskManager) {
+      taskManager.cleanup();
+    }
+    // Cleanup map services
+    mapServices.cleanupMapServicesTab();
+  };
+
+  if (typeof cleanup === "function") {
+    cleanup(teardown);
+  } else {
+    return teardown;
+  }
+
+  return teardown;
 }

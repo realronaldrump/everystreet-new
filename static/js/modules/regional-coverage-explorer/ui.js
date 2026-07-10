@@ -3,6 +3,7 @@
  * Handles UI updates, loading states, level-specific renderers, and recalculation prompts.
  */
 
+import { escapeHtml } from "../utils.js";
 import * as RegionalCoverageExplorerState from "./state.js";
 
 function setText(id, text) {
@@ -12,7 +13,107 @@ function setText(id, text) {
   }
 }
 
-export function showRecalculatePrompt() {
+function getRecalculateButtons() {
+  return ["recalculate-btn", "trigger-recalculate"]
+    .map((id) => document.getElementById(id))
+    .filter(Boolean);
+}
+
+function formatCount(value) {
+  return Number.isFinite(value) ? Number(value).toLocaleString() : null;
+}
+
+export function updateRecalculateUi(isActive, message, details = null) {
+  const status = document.getElementById("recalculate-status");
+  if (status) {
+    if (isActive) {
+      const progressRaw = Number(details?.progress);
+      const progress = Number.isFinite(progressRaw)
+        ? Math.max(0, Math.min(100, progressRaw))
+        : null;
+      const mode = String(details?.mode || "").toLowerCase();
+      const modeLabel =
+        mode === "full"
+          ? "Full rebuild (all trips)"
+          : "Incremental (new/updated trips)";
+      const stage = details?.stage ? String(details.stage) : "";
+      const processedTrips = formatCount(Number(details?.processedTrips));
+      const totalTrips = formatCount(Number(details?.totalTrips));
+      const visitedCounties = formatCount(Number(details?.visitedCounties));
+      const visitedCities = formatCount(Number(details?.visitedCities));
+      const stoppedCounties = formatCount(Number(details?.stoppedCounties));
+      const stoppedCities = formatCount(Number(details?.stoppedCities));
+
+      const chips = [];
+      chips.push(`<span class="recalc-chip">${escapeHtml(modeLabel)}</span>`);
+      if (processedTrips && totalTrips) {
+        chips.push(
+          `<span class="recalc-chip">Trips ${escapeHtml(processedTrips)}/${escapeHtml(totalTrips)}</span>`
+        );
+      } else if (processedTrips) {
+        chips.push(
+          `<span class="recalc-chip">Trips ${escapeHtml(processedTrips)}</span>`
+        );
+      }
+      if (visitedCounties) {
+        chips.push(
+          `<span class="recalc-chip">Counties ${escapeHtml(visitedCounties)}</span>`
+        );
+      }
+      if (visitedCities) {
+        chips.push(
+          `<span class="recalc-chip">Cities ${escapeHtml(visitedCities)}</span>`
+        );
+      }
+      if (stoppedCounties) {
+        chips.push(
+          `<span class="recalc-chip">County Stops ${escapeHtml(stoppedCounties)}</span>`
+        );
+      }
+      if (stoppedCities) {
+        chips.push(
+          `<span class="recalc-chip">City Stops ${escapeHtml(stoppedCities)}</span>`
+        );
+      }
+
+      status.classList.add("recalculate-status--active");
+      status.innerHTML = `
+        <div class="recalc-header">
+          <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+          <span class="recalc-message">${escapeHtml(message || "Rebuilding Region Explorer cache...")}</span>
+        </div>
+        ${stage ? `<div class="recalc-stage">${escapeHtml(stage)}</div>` : ""}
+        ${
+          progress !== null
+            ? `
+          <div class="recalc-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(progress)}">
+            <div class="recalc-progress-fill" style="width:${progress}%"></div>
+          </div>
+          <div class="recalc-progress-label">${Math.round(progress)}%</div>
+        `
+            : ""
+        }
+        ${chips.length > 0 ? `<div class="recalc-chips">${chips.join("")}</div>` : ""}
+      `;
+    } else {
+      status.classList.remove("recalculate-status--active");
+      status.textContent = "";
+    }
+  }
+
+  const buttons = getRecalculateButtons();
+  buttons.forEach((btn) => {
+    if (!btn.dataset.defaultLabel) {
+      btn.dataset.defaultLabel = btn.innerHTML;
+    }
+    btn.disabled = isActive;
+    btn.innerHTML = isActive
+      ? '<i class="fas fa-spinner fa-spin me-2"></i>Rebuilding cache...'
+      : btn.dataset.defaultLabel;
+  });
+}
+
+export function showRecalculatePrompt(onRecalculate) {
   const statsContent = document.getElementById("stats-content");
   if (statsContent) {
     if (statsContent.querySelector(".recalculate-prompt")) {
@@ -21,9 +122,16 @@ export function showRecalculatePrompt() {
     const prompt = document.createElement("div");
     prompt.className = "recalculate-prompt";
     prompt.innerHTML = `
-      <p>Region Explorer is preparing this view from your trips. It will appear automatically.</p>
+      <p>Region Explorer cache has not been built yet from your trips.</p>
+      <button class="btn btn-primary btn-sm" id="trigger-recalculate">
+        <i class="fas fa-database me-2"></i>Build Explorer Cache
+      </button>
     `;
     statsContent.insertBefore(prompt, statsContent.firstChild);
+
+    document
+      .getElementById("trigger-recalculate")
+      ?.addEventListener("click", onRecalculate);
   }
 }
 

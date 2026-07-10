@@ -71,6 +71,7 @@ async def configure_map_services_endpoint(
         )
 
 
+@router.post("/cancel")
 async def cancel_map_services_setup() -> dict[str, Any]:
     """Cancel the current map setup pipeline."""
     try:

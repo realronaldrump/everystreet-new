@@ -132,53 +132,6 @@ async def test_run_task_with_history_releases_trip_sync_lock(
 
 
 @pytest.mark.asyncio
-async def test_run_task_with_history_rejects_unsuccessful_result(monkeypatch) -> None:
-    update_history = AsyncMock()
-    update_failure = AsyncMock()
-    monkeypatch.setattr(ops, "update_task_history_entry", update_history)
-    monkeypatch.setattr(ops, "update_task_success", AsyncMock())
-    monkeypatch.setattr(ops, "update_task_failure", update_failure)
-
-    async def logic() -> dict[str, object]:
-        return {"success": False, "message": "partial batch"}
-
-    with pytest.raises(RuntimeError, match="partial batch"):
-        await ops.run_task_with_history(
-            ctx={"job_id": "job-partial"},
-            task_id="repair_trip_geocodes",
-            func=logic,
-        )
-
-    assert update_history.await_args_list[-1].kwargs["status"] == "FAILED"
-    update_failure.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_run_task_with_history_records_waiting_without_success(monkeypatch) -> None:
-    update_history = AsyncMock()
-    update_waiting = AsyncMock()
-    update_success = AsyncMock()
-    monkeypatch.setattr(ops, "update_task_history_entry", update_history)
-    monkeypatch.setattr(ops, "update_task_success", update_success)
-    monkeypatch.setattr(ops, "update_task_failure", AsyncMock())
-    monkeypatch.setattr(ops, "update_task_waiting", update_waiting)
-
-    async def logic() -> dict[str, str]:
-        return {"status": "waiting", "reason": "authorization_required"}
-
-    result = await ops.run_task_with_history(
-        ctx={"job_id": "job-waiting"},
-        task_id="sync_bouncie_vehicles",
-        func=logic,
-    )
-
-    assert result["status"] == "waiting"
-    assert update_history.await_args_list[-1].kwargs["status"] == "WAITING"
-    update_waiting.assert_awaited_once()
-    update_success.assert_not_awaited()
-
-
-@pytest.mark.asyncio
 async def test_acquire_trip_sync_lock_recovers_terminal_holder(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

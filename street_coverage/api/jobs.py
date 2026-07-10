@@ -181,6 +181,7 @@ async def list_active_jobs():
     )
 
 
+@router.delete("/jobs/{job_id}")
 async def cancel_job(job_id: str):
     """
     Cancel a pending or running job.

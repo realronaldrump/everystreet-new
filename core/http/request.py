@@ -71,13 +71,7 @@ async def request_json(
                 )
                 return None
             if response.status == 429:
-                try:
-                    retry_after = max(
-                        0,
-                        int(response.headers.get("Retry-After", 5)),
-                    )
-                except (TypeError, ValueError):
-                    retry_after = 5
+                retry_after = int(response.headers.get("Retry-After", 5))
                 msg = f"{service_name} error: 429"
                 raise ExternalServiceException(
                     msg,

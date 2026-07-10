@@ -13,6 +13,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from admin.services.admin_service import AdminService
 from config import get_bouncie_config
 from core.date_utils import parse_timestamp
 from core.trip_source_policy import enforce_bouncie_source
@@ -26,7 +27,6 @@ from trips.services.trip_history_import_service import (
     resolve_import_start_dt_from_db,
     run_import,
 )
-from setup.services.bouncie_credentials import update_bouncie_credentials
 
 logger = logging.getLogger(__name__)
 
@@ -53,30 +53,6 @@ async def _periodic_fetch_trips_logic(
         "set" if bouncie_config.get("authorization_code") else "NOT SET",
         len(bouncie_config.get("authorized_devices", [])),
     )
-    if not all(
-        bouncie_config.get(field)
-        for field in ("client_id", "client_secret", "redirect_uri")
-    ):
-        return {
-            "status": "waiting",
-            "reason": "credentials_missing",
-            "message": "Waiting for Bouncie credentials.",
-        }
-    if not (
-        bouncie_config.get("authorization_code")
-        or bouncie_config.get("access_token")
-    ):
-        return {
-            "status": "waiting",
-            "reason": "authorization_required",
-            "message": "Waiting for Bouncie authorization.",
-        }
-    if not bouncie_config.get("authorized_devices"):
-        return {
-            "status": "waiting",
-            "reason": "devices_required",
-            "message": "Waiting for a Bouncie device.",
-        }
 
     logger.info("Determining date range for fetching trips...")
     now_utc = datetime.now(UTC)
@@ -120,9 +96,7 @@ async def _periodic_fetch_trips_logic(
                 latest_trip_source,
                 latest_trip.endTime,
             )
-            # A rolling overlap makes late Bouncie records and previously failed
-            # slices converge without a manual range import.
-            start_date_fetch = latest_trip.endTime - timedelta(hours=48)
+            start_date_fetch = latest_trip.endTime
             logger.info(
                 "Using latest trip endTime as start_date_fetch: %s",
                 start_date_fetch.isoformat(),
@@ -150,13 +124,24 @@ async def _periodic_fetch_trips_logic(
         (end_date_fetch if "end_date_fetch" in locals() else now_utc).isoformat(),
     )
 
+    map_match_on_fetch = False
+    try:
+        app_settings = await AdminService.get_persisted_app_settings()
+        map_match_on_fetch = bool(
+            app_settings.model_dump().get("mapMatchTripsOnFetch", False),
+        )
+    except Exception:
+        logger.exception(
+            "Failed to load map match preference; defaulting to disabled",
+        )
+
     logger.info("Calling shared range ingest runtime...")
     try:
         ingest_result = await run_ingest_for_range(
             start_dt=start_date_fetch,
             end_dt=end_date_fetch if "end_date_fetch" in locals() else now_utc,
             mode="upsert_bouncie",
-            do_map_match=True,
+            do_map_match=map_match_on_fetch,
             do_coverage=True,
             sync_mobility=True,
         )
@@ -171,18 +156,30 @@ async def _periodic_fetch_trips_logic(
         else:
             logger.info("Fetched %d trips in the date range", len(fetched_trips))
 
-        counters = ingest_result.get("counters") or {}
-        incomplete = sum(
-            int(counters.get(key, 0) or 0)
-            for key in ("fetch_errors", "process_errors", "validation_failed")
-        )
-        if incomplete:
-            msg = f"Recent trip reconciliation left {incomplete} retryable failures."
-            raise RuntimeError(msg)
-
     except Exception:
         logger.exception("Error in shared range ingest runtime")
         raise
+
+    logger.info("Updating last_success_time in task config...")
+    logger.info("Updating last_success_time in task config...")
+    try:
+        from db.models import TaskConfig
+
+        # Update specific task config
+        task_config = await TaskConfig.find_one(
+            TaskConfig.task_id == "periodic_fetch_trips",
+        )
+        if not task_config:
+            task_config = TaskConfig(task_id="periodic_fetch_trips")
+
+        task_config.config["last_success_time"] = now_utc
+        task_config.last_updated = now_utc
+
+        await task_config.save()
+        logger.info("Successfully updated last_success_time")
+
+    except Exception:
+        logger.exception("Error updating task config")
 
     try:
         trips_after_fetch = await Trip.find({"source": "bouncie"}).count()
@@ -255,10 +252,21 @@ async def _fetch_trip_by_transaction_id_logic(
         trigger_source,
     )
 
+    map_match_on_fetch = False
+    try:
+        app_settings = await AdminService.get_persisted_app_settings()
+        map_match_on_fetch = bool(
+            app_settings.model_dump().get("mapMatchTripsOnFetch", False),
+        )
+    except Exception:
+        logger.exception(
+            "Failed to load map match preference; defaulting to disabled",
+        )
+
     ingest_result = await run_ingest_for_transaction_id(
         transaction_id=transaction_id,
         mode="upsert_bouncie",
-        do_map_match=True,
+        do_map_match=map_match_on_fetch,
         do_coverage=True,
         sync_mobility=True,
     )
@@ -395,34 +403,12 @@ async def _fetch_all_missing_trips_logic(
         progress_job_id,
     )
 
-    result = await run_import(
+    return await run_import(
         progress_job_id=progress_job_id,
         start_dt=start_dt,
         end_dt=end_dt,
         selected_imeis=selected_imeis,
     )
-    counters = result.get("counters") or {}
-    incomplete = sum(
-        int(counters.get(key, 0) or 0)
-        for key in ("fetch_errors", "process_errors", "validation_failed")
-    )
-    if incomplete:
-        msg = f"History reconciliation left {incomplete} retryable failures."
-        raise RuntimeError(msg)
-
-    credentials = await get_bouncie_config()
-    completed_devices = selected_imeis or list(
-        credentials.get("authorized_devices") or [],
-    )
-    previously_completed = list(credentials.get("history_imported_devices") or [])
-    await update_bouncie_credentials(
-        {
-            "history_imported_devices": list(
-                dict.fromkeys([*previously_completed, *completed_devices]),
-            ),
-        },
-    )
-    return result
 
 
 async def fetch_all_missing_trips(

@@ -93,6 +93,7 @@ async def get_matched_trips(request: Request):
     )
 
 
+@router.get("/api/failed_trips", tags=["Trips API"])
 async def get_failed_trips(request: Request):
     """
     Get trips that failed map matching.
@@ -268,12 +269,14 @@ async def get_trips_datatable(request: Request):
     )
 
 
+@router.get("/api/trips/invalid", tags=["Trips API"])
 @api_route(logger)
 async def get_invalid_trips():
     """Get all invalid trips for review."""
     return await TripQueryService.get_invalid_trips()
 
 
+@router.get("/api/trips/ingest-issues", tags=["Trips API"])
 @api_route(logger)
 async def list_trip_ingest_issues(
     page: Annotated[int, Query(ge=1)] = 1,
@@ -292,6 +295,7 @@ async def list_trip_ingest_issues(
     )
 
 
+@router.post("/api/trips/ingest-issues/{issue_id}/resolve", tags=["Trips API"])
 @api_route(logger)
 async def resolve_trip_ingest_issue(issue_id: str):
     """Mark a trip ingest issue as resolved/dismissed."""
@@ -304,6 +308,7 @@ async def resolve_trip_ingest_issue(issue_id: str):
     return {"status": "success"}
 
 
+@router.delete("/api/trips/ingest-issues/{issue_id}", tags=["Trips API"])
 @api_route(logger)
 async def delete_trip_ingest_issue(issue_id: str):
     """Delete an ingest issue entry."""
@@ -316,6 +321,7 @@ async def delete_trip_ingest_issue(issue_id: str):
     return {"status": "success"}
 
 
+@router.post("/api/trips/ingest-issues/bulk_resolve", tags=["Trips API"])
 @api_route(logger)
 async def bulk_resolve_trip_ingest_issues(request: Request):
     """Bulk resolve/dismiss matching ingest issues (does not delete trips)."""
@@ -334,6 +340,7 @@ async def bulk_resolve_trip_ingest_issues(request: Request):
     return {"status": "success", "resolved": resolved}
 
 
+@router.post("/api/trips/ingest-issues/bulk_delete", tags=["Trips API"])
 @api_route(logger)
 async def bulk_delete_trip_ingest_issues(request: Request):
     """Bulk delete matching ingest issue records (does not delete trips)."""

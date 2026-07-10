@@ -163,7 +163,7 @@ export default async function initCoverageManagementPage({
   state.pageActive = true;
 
   const modalsContainer = document.getElementById("modals-container");
-  ["addAreaModal"].forEach((modalId) => {
+  ["addAreaModal", "batchRecalculateModal"].forEach((modalId) => {
     const modal = document.getElementById(modalId);
     if (modal && modalsContainer && !modalsContainer.contains(modal)) {
       modalsContainer.appendChild(modal);
@@ -224,6 +224,31 @@ export default async function initCoverageManagementPage({
 
 function setupEventListeners(signal) {
   const opt = signal ? { signal } : false;
+
+  // List view controls
+  document
+    .getElementById("refresh-list-btn")
+    ?.addEventListener("click", loadAreas, opt);
+
+  document
+    .getElementById("batch-recalculate-open-btn")
+    ?.addEventListener("click", openBatchRecalculateModal, opt);
+
+  document
+    .getElementById("batch-select-ready-btn")
+    ?.addEventListener("click", selectAllBatchEligibleAreas, opt);
+
+  document
+    .getElementById("batch-clear-selection-btn")
+    ?.addEventListener("click", clearBatchSelection, opt);
+
+  document
+    .getElementById("batch-recalculate-area-list")
+    ?.addEventListener("change", updateBatchRecalculateSelectionState, opt);
+
+  document
+    .getElementById("batch-recalculate-start-btn")
+    ?.addEventListener("click", queueBatchRecalculate, opt);
 
   // Area cards container (delegated)
   document
@@ -319,6 +344,29 @@ function setupEventListeners(signal) {
   document
     .getElementById("share-coverage-btn")
     ?.addEventListener("click", handleShareClick, opt);
+
+  // Recalculate / rebuild buttons in sidebar
+  document.getElementById("recalculate-coverage-btn")?.addEventListener(
+    "click",
+    () => {
+      if (state.currentAreaId) {
+        const name = state.areaNameById.get(state.currentAreaId) || "this area";
+        recalculateCoverage(state.currentAreaId, name);
+      }
+    },
+    opt
+  );
+
+  document.getElementById("rebuild-area-btn")?.addEventListener(
+    "click",
+    () => {
+      if (state.currentAreaId) {
+        const name = state.areaNameById.get(state.currentAreaId) || "this area";
+        rebuildArea(state.currentAreaId, name);
+      }
+    },
+    opt
+  );
 
   // Map filter chips
   document.getElementById("map-filter-overlay")?.addEventListener(
@@ -656,7 +704,7 @@ function describeIncludeServiceRoadsScope(include) {
   const differs = shouldRebuildForServiceFilter(state.currentAreaId, include);
   if (differs) {
     return {
-      message: `${base} This area is being reconciled to the current filter automatically.`,
+      message: `${base} This area uses a different filter; Recalculate Street Coverage to apply.`,
       tone: "info",
     };
   }
@@ -725,7 +773,7 @@ async function handleIncludeServiceRoadsToggle(event) {
       onArea && shouldRebuildForServiceFilter(state.currentAreaId, include);
     notificationManager.show(
       differs
-        ? "Service road preference saved. Existing areas will update automatically."
+        ? "Service road preference saved. Click \"Recalculate Street Coverage\" to apply it to this area."
         : "Service road preference saved. Existing areas keep their current filter until rebuilt.",
       "success"
     );
@@ -1287,6 +1335,15 @@ function handleAreaCardClick(event) {
       break;
     case "cancel-route":
       cancelRouteJob(areaId, areaName);
+      break;
+    case "cancel-job":
+      cancelCoverageJob(areaId, areaName);
+      break;
+    case "recalculate":
+      recalculateCoverage(areaId, areaName);
+      break;
+    case "rebuild":
+      rebuildArea(areaId, areaName);
       break;
     case "delete":
       deleteArea(areaId, areaName);

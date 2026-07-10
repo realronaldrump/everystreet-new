@@ -1,11 +1,5 @@
 name: ${COMPOSE_PROJECT_NAME:-everystreet}
 
-x-default-logging: &default-logging
-  driver: json-file
-  options:
-    max-size: ${DOCKER_LOG_MAX_SIZE:-10m}
-    max-file: ${DOCKER_LOG_MAX_FILES:-3}
-
 # EveryStreet - Self-hosted street coverage tracking application
 #
 # Features:
@@ -46,7 +40,7 @@ services:
       test:
         [
           'CMD-SHELL',
-          'curl -sf -H "Host: www.everystreet.me" http://localhost:8080/api/status/ready >/dev/null || exit 1',
+          'curl -sf -H "Host: www.everystreet.me" http://localhost:8080/api/status/live >/dev/null || exit 1',
         ]
       interval: 30s
       timeout: 10s
@@ -54,7 +48,6 @@ services:
       start_period: 5m
     labels:
       - com.centurylinklabs.watchtower.enable=true
-    logging: *default-logging
 
   worker:
     image: ${EVERYSTREET_IMAGE:-ghcr.io/realronaldrump/everystreet-new:main}
@@ -74,16 +67,11 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ['CMD-SHELL', 'kill -0 1']
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
+      disable: true
     networks:
       - default
     labels:
       - com.centurylinklabs.watchtower.enable=true
-    logging: *default-logging
 
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -95,7 +83,6 @@ services:
     networks:
       - default
     profiles: ['tunnel']
-    logging: *default-logging
 
   redis:
     image: redis:7-alpine
@@ -112,7 +99,6 @@ services:
       start_period: 5s
     networks:
       - default
-    logging: *default-logging
 
   mongo:
     image: mongo:7
@@ -138,7 +124,6 @@ services:
       start_period: 10s
     networks:
       - default
-    logging: *default-logging
 
   mongo-init:
     image: mongo:7
@@ -163,7 +148,6 @@ services:
     restart: on-failure
     networks:
       - default
-    logging: *default-logging
 
   # Nominatim - Self-hosted geocoding service (address lookup)
   # Supports both amd64 and arm64 architectures
@@ -203,7 +187,6 @@ services:
     networks:
       - default
     shm_size: 1g
-    logging: *default-logging
     # Resource guidance:
     # - Nominatim imports are memory intensive. For large states, allocate 8-16 GB RAM to Docker.
     # - If you see exit code 137 / OOM, lower NOMINATIM_IMPORT_THREADS in .env.
@@ -248,7 +231,6 @@ services:
       start_period: 60s
     networks:
       - default
-    logging: *default-logging
     # Resource guidance:
     # - Valhalla tile builds also need significant RAM.
     # - If builds fail, set VALHALLA_BUILD_TILES_ARGS in .env to reduce concurrency.
@@ -278,7 +260,6 @@ services:
       - '8090:8080'
     networks:
       - default
-    logging: *default-logging
 
 volumes:
   redis_data:

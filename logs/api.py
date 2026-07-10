@@ -1,0 +1,731 @@
+"""API endpoints for viewing and managing server logs."""
+
+import asyncio
+import logging
+import os
+import re
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Annotated, Any
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
+from pydantic import BaseModel
+
+from core.api import api_route
+from db.aggregation import aggregate_to_list
+from db.models import AppSettings, ServerLog
+
+logger = logging.getLogger(__name__)
+router = APIRouter(tags=["logs"])
+
+
+class LogsResponse(BaseModel):
+    """Response model for logs endpoint."""
+
+    logs: list[ServerLog]
+    total_count: int
+    returned_count: int
+    limit: int
+
+
+class ClearLogsResponse(BaseModel):
+    """Response model for clearing logs."""
+
+    message: str
+    deleted_count: int
+    filter: dict[str, Any]
+    soft_cleared: bool = False
+    cutoff_timestamp: str | None = None
+    purge_job_id: str | None = None
+
+
+async def _get_logs_cutoff() -> datetime | None:
+    """Return the current server logs cutoff timestamp, if set."""
+    try:
+        settings = await AppSettings.find_one()
+    except Exception:
+        logger.exception("Failed to load AppSettings for server log cutoff")
+        return None
+
+    cutoff = getattr(settings, "serverLogsCutoff", None) if settings else None
+    return cutoff if isinstance(cutoff, datetime) else None
+
+
+class LogsStatsResponse(BaseModel):
+    """Response model for logs statistics."""
+
+    total_count: int
+    by_level: dict[str, int]
+    oldest_timestamp: str | None
+    newest_timestamp: str | None
+
+
+@router.get("/api/server-logs", response_model=LogsResponse)
+@api_route(logger)
+async def get_server_logs(
+    limit: Annotated[int, Query(ge=1, le=5000)] = 500,
+    level: Annotated[str | None, Query()] = None,
+    search: Annotated[str | None, Query()] = None,
+) -> dict[str, Any]:
+    """
+    Get recent server logs from the database.
+
+    Args:
+        limit: Maximum number of logs to return (1-5000, default 500)
+        level: Filter by log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        search: Search term to filter log messages
+
+    Returns:
+        Dictionary containing logs array and metadata
+    """
+    try:
+        query_filter: dict[str, Any] = {}
+
+        cutoff = await _get_logs_cutoff()
+        if cutoff:
+            query_filter["timestamp"] = {"$gte": cutoff}
+
+        if level:
+            query_filter["level"] = level.upper()
+
+        if search:
+            # Escape regex metacharacters to prevent regex injection attacks
+            escaped_search = re.escape(search)
+            query_filter["message"] = {"$regex": escaped_search, "$options": "i"}
+
+        logs = (
+            await ServerLog.find(query_filter).sort("-timestamp").limit(limit).to_list()
+        )
+
+        total_count = await ServerLog.find(query_filter).count()
+
+        return {
+            "logs": logs,
+            "total_count": total_count,
+            "returned_count": len(logs),
+            "limit": limit,
+        }
+
+    except Exception as e:
+        logger.exception("Error fetching server logs")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve server logs: {e!s}",
+        )
+
+
+@router.delete("/api/server-logs", response_model=ClearLogsResponse)
+@api_route(logger)
+async def clear_server_logs(
+    background_tasks: BackgroundTasks,
+    level: Annotated[str | None, Query()] = None,
+    older_than_days: Annotated[int | None, Query(ge=1)] = None,
+) -> dict[str, Any]:
+    """
+    Clear server logs from the database.
+
+    Args:
+        level: Only delete logs of this level (optional)
+        older_than_days: Only delete logs older than this many days (optional)
+
+    Returns:
+        Dictionary with deletion result
+    """
+    try:
+        delete_filter: dict[str, Any] = {}
+
+        # No filters means "clear everything". For large collections this can be slow if
+        # we hard-delete synchronously, so we do an instant "soft clear" by setting a
+        # cutoff timestamp and enqueueing a background purge.
+        if not level and not older_than_days:
+            cutoff_date = datetime.now(UTC)
+
+            settings = await AppSettings.find_one()
+            if settings:
+                settings.serverLogsCutoff = cutoff_date
+                settings.updated_at = cutoff_date
+                await settings.save()
+            else:
+                await AppSettings(
+                    serverLogsCutoff=cutoff_date,
+                    updated_at=cutoff_date,
+                ).insert()
+
+            # Best-effort background purge via ARQ; if Redis/worker isn't available,
+            # use a local background task so the request still returns fast.
+            purge_job_id: str | None = None
+
+            async def _local_purge() -> None:
+                try:
+                    delete_result = (
+                        await ServerLog.get_pymongo_collection().delete_many(
+                            {"timestamp": {"$lt": cutoff_date}},
+                        )
+                    )
+                    local_deleted = int(getattr(delete_result, "deleted_count", 0))
+                    logger.info(
+                        "Locally purged %d server log entries older than %s",
+                        local_deleted,
+                        cutoff_date.isoformat(),
+                    )
+                except Exception:
+                    logger.exception("Local server log purge failed")
+
+            try:
+                from tasks.arq import get_arq_pool
+
+                pool = await asyncio.wait_for(get_arq_pool(), timeout=0.75)
+                job = await asyncio.wait_for(
+                    pool.enqueue_job(
+                        "purge_server_logs_before",
+                        cutoff_iso=cutoff_date.isoformat(),
+                    ),
+                    timeout=0.75,
+                )
+                purge_job_id = (
+                    getattr(job, "job_id", None) or getattr(job, "id", None) or str(job)
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Failed to enqueue server log purge job; falling back to local purge: %s",
+                    exc,
+                )
+                background_tasks.add_task(_local_purge)
+
+            logger.info(
+                "Soft-cleared server logs at cutoff %s (purge_job_id=%s)",
+                cutoff_date.isoformat(),
+                purge_job_id,
+            )
+
+            return {
+                "message": (
+                    "Server logs cleared (hidden immediately). "
+                    + (
+                        "Background purge scheduled."
+                        if purge_job_id
+                        else "Purging in background."
+                    )
+                ),
+                "deleted_count": 0,
+                "filter": delete_filter,
+                "soft_cleared": True,
+                "cutoff_timestamp": cutoff_date.isoformat(),
+                "purge_job_id": purge_job_id,
+            }
+
+        if level:
+            delete_filter["level"] = level.upper()
+
+        if older_than_days:
+            cutoff_date = datetime.now(UTC) - timedelta(days=older_than_days)
+            delete_filter["timestamp"] = {"$lt": cutoff_date}
+
+        # Use a single bulk delete instead of fetching and deleting documents
+        # one-by-one. This keeps the endpoint fast even with 100k+ log rows.
+        delete_result = await ServerLog.get_pymongo_collection().delete_many(
+            delete_filter,
+        )
+        deleted_count = int(getattr(delete_result, "deleted_count", 0))
+
+        logger.info(
+            "Cleared %d server log entries (filter: %s)",
+            deleted_count,
+            delete_filter,
+        )
+
+    except Exception as e:
+        logger.exception("Error clearing server logs")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to clear server logs: {e!s}",
+        )
+    else:
+        return {
+            "message": f"Successfully cleared {deleted_count} log entries",
+            "deleted_count": deleted_count,
+            "filter": delete_filter,
+            "soft_cleared": False,
+            "cutoff_timestamp": None,
+            "purge_job_id": None,
+        }
+
+
+@router.get("/api/server-logs/stats", response_model=LogsStatsResponse)
+@api_route(logger)
+async def get_logs_stats() -> dict[str, Any]:
+    """
+    Get statistics about server logs.
+
+    Returns:
+        Dictionary containing log statistics
+    """
+    try:
+        query_filter: dict[str, Any] = {}
+        cutoff = await _get_logs_cutoff()
+        if cutoff:
+            query_filter["timestamp"] = {"$gte": cutoff}
+
+        total_count = await ServerLog.find(query_filter).count()
+
+        pipeline: list[dict[str, Any]] = []
+        if query_filter:
+            pipeline.append({"$match": query_filter})
+
+        pipeline.extend(
+            [
+                {"$group": {"_id": "$level", "count": {"$sum": 1}}},
+                {"$sort": {"_id": 1}},
+            ],
+        )
+        level_counts = await aggregate_to_list(ServerLog, pipeline)
+
+        oldest_log = (
+            await ServerLog.find(query_filter).sort("+timestamp").first_or_none()
+        )
+        newest_log = (
+            await ServerLog.find(query_filter).sort("-timestamp").first_or_none()
+        )
+
+        return {
+            "total_count": total_count,
+            "by_level": {item["_id"]: item["count"] for item in level_counts},
+            "oldest_timestamp": (
+                oldest_log.timestamp.isoformat()
+                if oldest_log and oldest_log.timestamp
+                else None
+            ),
+            "newest_timestamp": (
+                newest_log.timestamp.isoformat()
+                if newest_log and newest_log.timestamp
+                else None
+            ),
+        }
+
+    except Exception as e:
+        logger.exception("Error fetching server logs statistics")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve log statistics: {e!s}",
+        )
+
+
+# =============================================================================
+# Docker Container Logs API
+# =============================================================================
+
+
+class ContainerInfo(BaseModel):
+    """Information about a Docker container."""
+
+    name: str
+    status: str
+    image: str
+    created: str | None = None
+
+
+class ContainersResponse(BaseModel):
+    """Response model for listing Docker containers."""
+
+    containers: list[ContainerInfo]
+
+
+class DockerLogsResponse(BaseModel):
+    """Response model for Docker container logs."""
+
+    container: str
+    logs: list[str]
+    line_count: int
+    truncated: bool
+
+
+class DockerClearResponse(BaseModel):
+    """Response model for clearing Docker container logs."""
+
+    container: str
+    log_driver: str
+    cleared: bool
+    message: str | None = None
+
+
+def _raise_container_not_found(container_name: str) -> None:
+    """Raise HTTPException for container not found."""
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Container '{container_name}' not found",
+    )
+
+
+def _raise_docker_command_failed(stderr: str) -> None:
+    """Raise HTTPException for docker command failure."""
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=f"Docker command failed: {stderr or 'Unknown error'}",
+    )
+
+
+def _raise_docker_logs_failed(stderr: str) -> None:
+    """Raise HTTPException for docker logs command failure."""
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=f"Docker logs command failed: {stderr or 'Unknown error'}",
+    )
+
+
+def _raise_docker_inspect_failed(stderr: str) -> None:
+    """Raise HTTPException for docker inspect command failure."""
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=f"Docker inspect command failed: {stderr or 'Unknown error'}",
+    )
+
+
+def _raise_log_config_error() -> None:
+    """Raise HTTPException for log configuration error."""
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Failed to determine container log configuration",
+    )
+
+
+def _raise_unsupported_log_driver(log_driver: str) -> None:
+    """Raise HTTPException for unsupported log driver."""
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=(
+            "Clearing logs is only supported for json-file or local log drivers "
+            f"(found '{log_driver}')"
+        ),
+    )
+
+
+def _raise_log_path_unavailable() -> None:
+    """Raise HTTPException for unavailable log path."""
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Log path not available for this container",
+    )
+
+
+async def _run_docker_command(args: list[str]) -> tuple[str, str, int]:
+    """Run a docker command and return stdout, stderr, and return code."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "docker",
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        return (
+            stdout.decode("utf-8", errors="replace"),
+            stderr.decode("utf-8", errors="replace"),
+            proc.returncode or 0,
+        )
+    except FileNotFoundError:
+        return "", "Docker command not found", 1
+    except Exception as e:
+        return "", str(e), 1
+
+
+COMPOSE_SERVICES = (
+    "mongo-init",
+    "nominatim",
+    "valhalla",
+    "watchtower",
+    "worker",
+    "redis",
+    "mongo",
+    "web",
+)
+
+
+async def _infer_compose_project() -> str | None:
+    """Infer the docker compose project name for this app."""
+    env_project = os.getenv("COMPOSE_PROJECT_NAME", "").strip()
+    if env_project:
+        return env_project
+
+    for service in COMPOSE_SERVICES:
+        stdout, _, returncode = await _run_docker_command(
+            [
+                "ps",
+                "-a",
+                "--filter",
+                f"label=com.docker.compose.service={service}",
+                "--format",
+                '{{.Label "com.docker.compose.project"}}',
+            ],
+        )
+        if returncode != 0:
+            continue
+        for line in stdout.splitlines():
+            value = line.strip()
+            if value:
+                return value
+
+    return None
+
+
+def _extract_compose_index(container_name: str) -> str | None:
+    """Extract the trailing compose index from a container name."""
+    parts = container_name.split("-")
+    if parts and parts[-1].isdigit():
+        return parts[-1]
+    return None
+
+
+def _extract_compose_service(container_name: str) -> str | None:
+    """Infer service name from a container name using known service list."""
+    lower_name = container_name.lower()
+    for service in COMPOSE_SERVICES:
+        token = service.lower()
+        if (
+            lower_name == token
+            or lower_name.startswith(f"{token}-")
+            or lower_name.endswith(f"-{token}")
+            or f"-{token}-" in lower_name
+        ):
+            return service
+    return None
+
+
+async def _list_container_names(filter_args: list[str] | None = None) -> list[str]:
+    """List container names via docker ps."""
+    cmd = ["ps", "-a", "--format", "{{.Names}}"]
+    if filter_args:
+        cmd.extend(filter_args)
+
+    stdout, _, returncode = await _run_docker_command(cmd)
+    if returncode != 0:
+        return []
+    return [line.strip() for line in stdout.splitlines() if line.strip()]
+
+
+async def _resolve_container_name(container_name: str) -> str | None:
+    """Resolve a possibly stale container name to an existing container."""
+    names = await _list_container_names()
+    if container_name in names:
+        return container_name
+
+    service = _extract_compose_service(container_name)
+    if service:
+        candidates = await _list_container_names(
+            ["--filter", f"label=com.docker.compose.service={service}"],
+        )
+        if candidates:
+            index = _extract_compose_index(container_name)
+            if index:
+                for candidate in candidates:
+                    if candidate.endswith(f"-{index}"):
+                        return candidate
+
+            project = await _infer_compose_project()
+            if project:
+                for candidate in candidates:
+                    if candidate.startswith(f"{project}-"):
+                        return candidate
+
+            return candidates[0]
+
+    return None
+
+
+@router.get("/api/docker-logs/containers", response_model=ContainersResponse)
+@api_route(logger)
+async def list_docker_containers() -> dict[str, Any]:
+    """
+    List available Docker containers.
+
+    Returns:
+        Dictionary containing list of containers with their info
+    """
+    try:
+        # Get container info in JSON format
+        project = await _infer_compose_project()
+        cmd = [
+            "ps",
+            "-a",
+            "--format",
+            "{{.Names}}\t{{.Status}}\t{{.Image}}\t{{.CreatedAt}}",
+        ]
+        if project:
+            cmd.extend(["--filter", f"label=com.docker.compose.project={project}"])
+
+        stdout, stderr, returncode = await _run_docker_command(cmd)
+
+        if returncode != 0:
+            logger.warning("Docker ps command failed: %s", stderr)
+            _raise_docker_command_failed(stderr)
+        else:
+            containers = []
+            for line in stdout.strip().split("\n"):
+                if not line.strip():
+                    continue
+                parts = line.split("\t")
+                if len(parts) >= 3:
+                    containers.append(
+                        ContainerInfo(
+                            name=parts[0],
+                            status=parts[1],
+                            image=parts[2],
+                            created=parts[3] if len(parts) > 3 else None,
+                        ),
+                    )
+
+            return {"containers": containers}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error listing Docker containers")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list containers: {e!s}",
+        )
+
+
+@router.get("/api/docker-logs/{container_name}", response_model=DockerLogsResponse)
+@api_route(logger)
+async def get_docker_container_logs(
+    container_name: str,
+    tail: Annotated[int, Query(ge=1, le=10000)] = 500,
+    since: Annotated[str | None, Query()] = None,
+) -> dict[str, Any]:
+    """
+    Get logs for a specific Docker container.
+
+    Args:
+        container_name: Name of the container to get logs from
+        tail: Number of lines to return from the end (1-10000, default 500)
+        since: Only return logs since this timestamp (e.g., "1h", "30m", "2024-01-01")
+
+    Returns:
+        Dictionary containing container logs and metadata
+    """
+    try:
+        resolved_name = await _resolve_container_name(container_name) or container_name
+
+        # Build docker logs command
+        args = ["logs", "--tail", str(tail), "--timestamps"]
+
+        if since:
+            args.extend(["--since", since])
+
+        args.append(resolved_name)
+
+        stdout, stderr, returncode = await _run_docker_command(args)
+
+        if returncode != 0:
+            # Check if container doesn't exist
+            if "No such container" in stderr or "no such container" in stderr.lower():
+                _raise_container_not_found(container_name)
+            _raise_docker_logs_failed(stderr)
+
+        # Docker logs may output to stdout or stderr depending on the container
+        # Combine both and split into lines
+        combined_output = stdout + stderr
+        lines = [line for line in combined_output.split("\n") if line.strip()]
+
+        # Limit to requested tail (docker might return more due to timing)
+        truncated = len(lines) > tail
+        if truncated:
+            lines = lines[-tail:]
+
+        return {
+            "container": resolved_name,
+            "logs": lines,
+            "line_count": len(lines),
+            "truncated": truncated,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error fetching Docker container logs for %s", container_name)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve container logs: {e!s}",
+        )
+
+
+@router.delete("/api/docker-logs/{container_name}", response_model=DockerClearResponse)
+@api_route(logger)
+async def clear_docker_container_logs(container_name: str) -> dict[str, Any]:
+    """
+    Clear logs for a specific Docker container.
+
+    Args:
+        container_name: Name of the container to clear logs for
+
+    Returns:
+        Dictionary containing clear status metadata
+    """
+    try:
+        resolved_name = await _resolve_container_name(container_name) or container_name
+
+        stdout, stderr, returncode = await _run_docker_command(
+            [
+                "inspect",
+                "--format",
+                "{{.HostConfig.LogConfig.Type}}\t{{.LogPath}}",
+                resolved_name,
+            ],
+        )
+
+        if returncode != 0:
+            if "No such container" in stderr or "no such container" in stderr.lower():
+                _raise_container_not_found(container_name)
+            _raise_docker_inspect_failed(stderr)
+        else:
+            parts = stdout.strip().split("\t")
+            if len(parts) < 2:
+                _raise_log_config_error()
+
+            log_driver = parts[0].strip()
+            log_path = parts[1].strip()
+
+            if log_driver not in {"json-file", "local"}:
+                _raise_unsupported_log_driver(log_driver)
+
+            if not log_path:
+                _raise_log_path_unavailable()
+
+            log_file = Path(log_path)
+            if not log_file.exists():
+                logger.info(
+                    "Docker log file already absent for %s (%s)",
+                    resolved_name,
+                    log_path,
+                )
+                return {
+                    "container": resolved_name,
+                    "log_driver": log_driver,
+                    "cleared": True,
+                    "message": "Log file already absent",
+                }
+
+            try:
+                log_file.write_bytes(b"")
+            except OSError as exc:
+                logger.exception("Error clearing Docker logs for %s", container_name)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to clear container logs: {exc!s}",
+                )
+            else:
+                return {
+                    "container": resolved_name,
+                    "log_driver": log_driver,
+                    "cleared": True,
+                    "message": None,
+                }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error clearing Docker container logs for %s", container_name)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to clear container logs: {e!s}",
+        )

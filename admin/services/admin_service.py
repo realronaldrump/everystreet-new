@@ -92,6 +92,8 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "mapTripsWithinCoverageOnly": False,
     "tripLayersUseHeatmap": True,
     "mapTerrainReliefEnabled": False,
+    "geocodeTripsOnFetch": True,
+    "mapMatchTripsOnFetch": False,
     "mapMatchingProviderPolicy": "auto",
     # Geo Service Configuration (defaults for Docker Compose)
     "mapbox_token": get_mapbox_token(),

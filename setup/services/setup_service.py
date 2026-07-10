@@ -11,12 +11,12 @@ from fastapi import HTTPException, status
 from config import get_mapbox_token, validate_mapbox_token
 from core.mapping.factory import get_router
 from core.service_config import clear_config_cache
-from db.models import AppSettings, TaskHistory
+from db.models import AppSettings, TaskConfig, TaskHistory
 from map_data.models import MapServiceConfig
 from map_data.services import check_service_health
 from setup.services.bouncie_credentials import get_bouncie_credentials
 from tasks.arq import get_arq_pool
-from tasks.config import reconcile_automatic_task_configs, set_global_disable
+from tasks.config import set_global_disable
 from tasks.ops import enqueue_task
 from tasks.registry import TASK_DEFINITIONS
 
@@ -135,6 +135,17 @@ async def get_setup_status() -> dict[str, Any]:
     }
 
 
+async def _enable_task(task_id: str, interval_minutes: int) -> None:
+    task_config = await TaskConfig.find_one(TaskConfig.task_id == task_id)
+    if not task_config:
+        task_config = TaskConfig(task_id=task_id)
+    task_config.enabled = True
+    task_config.interval_minutes = interval_minutes
+    task_config.last_updated = datetime.now(UTC)
+    task_config.config = task_config.config or {}
+    await task_config.save()
+
+
 async def complete_setup() -> dict[str, Any]:
     settings = await _get_or_create_settings()
     now = datetime.now(UTC)
@@ -167,13 +178,13 @@ async def complete_setup() -> dict[str, Any]:
     clear_config_cache()
 
     await set_global_disable(False)
-    await reconcile_automatic_task_configs()
+    await _enable_task("periodic_fetch_trips", 5)
 
     initial_fetch = None
     try:
         initial_fetch = await enqueue_task(
             "periodic_fetch_trips",
-            manual_run=False,
+            manual_run=True,
             trigger_source="setup",
         )
     except Exception as exc:

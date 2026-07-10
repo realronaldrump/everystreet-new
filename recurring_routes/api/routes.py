@@ -7,15 +7,20 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from beanie import PydanticObjectId
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Body, HTTPException, Query, status
 
 from core.api import api_route
+from core.job_serialization import serialize_job_progress
+from core.jobs import JobHandle, create_job, find_job
 from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
 from db.aggregation_utils import get_mongo_tz_expr
-from db.models import Place, RecurringRoute, Trip
-from recurring_routes.models import PatchRecurringRouteRequest
+from db.models import Job, Place, RecurringRoute, Trip
+from recurring_routes.models import (
+    BuildRecurringRoutesRequest,
+    PatchRecurringRouteRequest,
+)
 from recurring_routes.services.fingerprint import extract_trip_geometry
 from recurring_routes.services.place_pair_analysis import analyze_place_pair
 from recurring_routes.services.service import (
@@ -37,8 +42,13 @@ from recurring_routes.services.temporal_analytics import (
     normalize_month_buckets,
     serialize_stats_for_response,
 )
+from tasks.config import update_task_history_entry
+from tasks.ops import abort_job, enqueue_task
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+ACTIVE_JOB_STATUSES = {"queued", "pending", "running"}
 
 
 def _route_query(
@@ -483,4 +493,132 @@ async def patch_recurring_route(route_id: str, payload: PatchRecurringRouteReque
     return {
         "status": "success",
         "route": await serialize_route_detail_with_place_links(route),
+    }
+
+
+async def _find_active_build_job() -> Job | None:
+    cursor = Job.find(
+        {
+            "job_type": "recurring_routes_build",
+            "status": {"$in": list(ACTIVE_JOB_STATUSES)},
+        },
+    ).sort("-created_at")
+    return await cursor.first_or_none()
+
+
+@router.post("/api/recurring_routes/jobs/build", response_model=dict[str, Any])
+@api_route(logger)
+async def start_recurring_routes_build(
+    data: Annotated[dict[str, Any] | None, Body()] = None,
+):
+    """Start a background job to build recurring routes from stored trips."""
+    active = await _find_active_build_job()
+    if active and (active.operation_id or active.task_id):
+        return {
+            "status": "already_running",
+            "job_id": active.operation_id or active.task_id,
+        }
+
+    build_request = BuildRecurringRoutesRequest(**(data or {}))
+    enqueue_result = await enqueue_task(
+        "build_recurring_routes",
+        build_request=build_request.model_dump(),
+        manual_run=True,
+    )
+    job_id = enqueue_result.get("job_id")
+    if not job_id:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to enqueue build job",
+        )
+
+    await create_job(
+        "recurring_routes_build",
+        operation_id=job_id,
+        task_id=job_id,
+        status="queued",
+        stage="queued",
+        progress=0.0,
+        message="Task queued, waiting for worker...",
+        started_at=datetime.now(UTC),
+        metadata={"params": build_request.model_dump()},
+    )
+
+    return {"status": "queued", "job_id": job_id}
+
+
+@router.get("/api/recurring_routes/jobs/{job_id}", response_model=dict[str, Any])
+@api_route(logger)
+async def get_recurring_routes_build(job_id: str):
+    """Get progress for a recurring routes build job."""
+    progress = await find_job("recurring_routes_build", operation_id=job_id)
+    if not progress:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    return serialize_job_progress(
+        progress,
+        job_id=job_id,
+        metadata_field="metrics",
+        include_status=True,
+    )
+
+
+@router.post(
+    "/api/recurring_routes/jobs/{job_id}/cancel",
+    response_model=dict[str, Any],
+)
+@api_route(logger)
+async def cancel_recurring_routes_build(job_id: str):
+    """Cancel a running recurring routes build job."""
+    progress = await find_job("recurring_routes_build", operation_id=job_id)
+    if not progress:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    stage = (progress.stage or "").lower()
+    status_value = (progress.status or "").lower()
+    if stage in {"cancelled", "completed", "failed", "error"} or status_value in {
+        "cancelled",
+        "completed",
+        "failed",
+    }:
+        return {
+            "status": "already_finished",
+            "job": await get_recurring_routes_build(job_id),
+        }
+
+    aborted = False
+    try:
+        aborted = await abort_job(job_id)
+    except Exception as exc:
+        logger.warning("Failed to abort job %s: %s", job_id, exc)
+
+    now = datetime.now(UTC)
+    await JobHandle(progress).update(
+        status="cancelled",
+        stage="cancelled",
+        message="Cancelled by user",
+        completed_at=now,
+        metadata_patch={"cancelled": True},
+    )
+
+    try:
+        await update_task_history_entry(
+            job_id=job_id,
+            task_name="build_recurring_routes",
+            status="CANCELLED",
+            manual_run=True,
+            error="Cancelled by user",
+            end_time=now,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Failed to update task history for cancelled job %s: %s",
+            job_id,
+            exc,
+        )
+
+    return {
+        "status": "cancelled",
+        "aborted": aborted,
+        "job": await get_recurring_routes_build(job_id),
     }

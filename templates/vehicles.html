@@ -23,9 +23,70 @@ My Vehicles
         <h1 class="pm-title">Vehicles</h1>
         <p class="pm-sub">Each Bouncie device, its odometer, and how it reports.</p>
       </div>
+      <div class="pm-aside">
+        <div class="d-flex gap-2 flex-wrap">
+          <button type="button" class="btn btn-outline-primary btn-sm" id="fleet-sync-btn">
+            <i class="fas fa-sync me-1"></i> Sync from Bouncie
+          </button>
+          <button type="button"
+                  class="btn btn-primary btn-sm"
+                  id="add-vehicle-toggle-btn"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#add-vehicle-collapse"
+                  aria-expanded="false">
+            <i class="fas fa-plus me-1"></i> Add Vehicle
+          </button>
+        </div>
+      </div>
     </header>
 
     <div class="content-grid" data-stagger>
+      <div class="grid-span-12 collapse" id="add-vehicle-collapse">
+        <div class="widget is-compact">
+          <div class="widget-body">
+            <form id="fleet-add-vehicle-form"
+                  method="post"
+                  action="/vehicles/add-vehicle"
+                  novalidate>
+              <input type="hidden" name="csrf_token" value="{{ auth_context.csrf_token or '' }}" />
+              <div class="row g-3 align-items-end">
+                <div class="col-12 col-md-4">
+                  <label for="fleet-add-vehicle-imei" class="form-label">
+IMEI
+                  </label>
+                  <input type="text"
+                         class="form-control"
+                         id="fleet-add-vehicle-imei"
+                         name="imei"
+                         placeholder="123456789012345"
+                         inputmode="numeric"
+                         autocomplete="off" />
+                </div>
+                <div class="col-12 col-md-5">
+                  <label for="fleet-add-vehicle-name" class="form-label">
+                                                        Display name <span class="text-tertiary">(optional)</span>
+                </label>
+                <input type="text"
+                       class="form-control"
+                       id="fleet-add-vehicle-name"
+                       name="custom_name"
+                       placeholder="My car"
+                       autocomplete="off" />
+              </div>
+              <div class="col-12 col-md-3">
+                <button type="submit" class="btn btn-primary w-100" id="fleet-add-vehicle-btn">
+                  <i class="fas fa-plus me-1"></i> Add Vehicle
+                </button>
+              </div>
+            </div>
+            <div class="form-text mt-2">
+                Validates the IMEI against your Bouncie account and authorizes it for trip syncing.
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
     <div class="grid-span-12" id="loading-state">
       <div class="widget">
         <div class="widget-body text-center py-5">
@@ -48,11 +109,19 @@ Loading vehicles...
 No Vehicles Yet
           </h3>
           <p class="text-secondary mb-4">
-              Vehicles appear automatically after Bouncie is connected.
+              Sync your vehicles from Bouncie or add one manually to get started.
           </p>
-          <a class="btn btn-primary" href="/control-center#connections">
-            <i class="fas fa-plug me-2"></i>Review Connection
-          </a>
+          <div class="d-flex gap-2 justify-content-center flex-wrap">
+            <button type="button" class="btn btn-primary" id="sync-from-empty-btn">
+              <i class="fas fa-sync me-2"></i>Sync from Bouncie
+            </button>
+            <button type="button"
+                    class="btn btn-outline-primary"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#add-vehicle-collapse">
+              <i class="fas fa-plus me-2"></i>Add Manually
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -144,6 +213,13 @@ Bouncie Live (untrusted)
                       </div>
                       <div class="odometer-action-btns">
                         <button type="button"
+                                class="btn btn-sm btn-ghost"
+                                id="refresh-bouncie-btn"
+                                title="Refresh untrusted Bouncie reading"
+                                aria-label="Refresh untrusted Bouncie odometer reading">
+                          <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button type="button"
                                 class="btn btn-sm btn-primary"
                                 id="use-bouncie-reading-btn"
                                 disabled>
@@ -228,10 +304,13 @@ Inactive vehicles won't sync trips.
               <div class="widget is-compact">
                 <div class="widget-body">
                   <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="sync-vehicle-btn">
+                      <i class="fas fa-sync me-1"></i> Re-sync Vehicle
+                    </button>
                     <a href="/gas-tracking" class="btn btn-outline-secondary btn-sm">
                       <i class="fas fa-gas-pump me-1"></i> Gas Tracking
                     </a>
-                    <a href="/control-center#connections" class="btn btn-outline-secondary btn-sm" data-no-swup>
+                    <a href="/control-center" class="btn btn-outline-secondary btn-sm" data-no-swup>
                       <i class="fas fa-key me-1"></i> Bouncie Credentials
                     </a>
                   </div>

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Literal
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, BackgroundTasks, Query
 
 from core.api import api_route
 from geo_coverage.services.geo_coverage_service import GeoCoverageService
@@ -65,6 +65,16 @@ async def get_geo_coverage_cities(
         page=page,
         page_size=pageSize,
     )
+
+
+@router.post("/recalculate", response_model=dict[str, Any])
+@api_route(logger)
+async def recalculate_geo_coverage(
+    background_tasks: BackgroundTasks,
+    mode: Literal["incremental", "full"] | None = Query(default=None),
+) -> dict[str, Any]:
+    """Trigger unified county/city recalculation in the background."""
+    return await GeoCoverageService.recalculate(background_tasks, mode=mode)
 
 
 @router.get("/cache-status", response_model=dict[str, Any])

@@ -43,6 +43,14 @@ export function createVisitsDataService(client = apiClient) {
       return client.post("/api/places", payload, options);
     },
 
+    backfillPlacePreviews(params = {}, options = {}) {
+      return client.post(
+        `/api/places/previews/backfill${buildQuery(params)}`,
+        null,
+        options
+      );
+    },
+
     updatePlace(placeId, payload, options = {}) {
       return client.patch(`/api/places/${placeId}`, payload, options);
     },

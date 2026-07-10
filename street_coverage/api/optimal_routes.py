@@ -96,7 +96,6 @@ async def start_optimal_route_generation(
         progress=0.0,
         message="Task queued, waiting for worker...",
         started_at=datetime.now(UTC),
-        metadata={"start_lon": start_lon, "start_lat": start_lat},
     )
 
     logger.info(
@@ -160,11 +159,6 @@ async def start_cluster_route_generation(
         progress=0.0,
         message="Cluster route queued, waiting for worker...",
         started_at=datetime.now(UTC),
-        metadata={
-            "start_lon": body.start_lon,
-            "start_lat": body.start_lat,
-            "segment_ids": body.segment_ids,
-        },
     )
 
     logger.info(
