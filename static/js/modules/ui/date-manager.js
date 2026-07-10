@@ -15,6 +15,17 @@ const dateManager = {
   usingMobilePortal: false,
   viewportSyncHandler: null,
 
+  syncRangePickerLayout() {
+    const picker = this.flatpickrInstances.get("range");
+    if (!picker) {
+      return;
+    }
+    const showMonths = this.isMobileViewport() ? 1 : 2;
+    if (picker.config.showMonths !== showMonths) {
+      picker.set("showMonths", showMonths);
+    }
+  },
+
   getSelectedDateRange() {
     const today = dateUtils.getCurrentDate();
     const startDate =
@@ -104,6 +115,7 @@ const dateManager = {
     this.viewportSyncHandler = utils.debounce(() => {
       const wasUsingMobilePortal = this.usingMobilePortal;
       this.syncMobilePortal();
+      this.syncRangePickerLayout();
 
       // If the viewport mode changes while open, close cleanly so users
       // don't keep a stale desktop/mobile layout.
@@ -117,7 +129,9 @@ const dateManager = {
   init() {
     const startInput = store.getElement(CONFIG.UI.selectors.dpStartDate);
     const endInput = store.getElement(CONFIG.UI.selectors.dpEndDate);
-    if (!startInput || !endInput) {
+    const rangeInput = store.getElement(CONFIG.UI.selectors.dpRangeDate);
+    const calendarHost = store.getElement(CONFIG.UI.selectors.dpCalendarHost);
+    if (!startInput || !endInput || !rangeInput || !calendarHost) {
       return;
     }
 
@@ -129,42 +143,28 @@ const dateManager = {
 
     const fpConfig = {
       enableTime: false,
-      altInput: true,
-      altFormat: "M j, Y",
+      mode: "range",
+      inline: true,
       dateFormat: "Y-m-d",
       maxDate: "today",
       disableMobile: true,
-      allowInput: true,
+      allowInput: false,
       animate: CONFIG.UI.animations.enabled && !store.ui.reducedMotion,
       locale: { firstDayOfWeek: 0 },
-      // Append calendar to body so it's not clipped by the bottom sheet overflow
-      appendTo: document.body,
+      ariaDateFormat: "F j, Y",
+      showMonths: this.isMobileViewport() ? 1 : 2,
+      defaultDate: [startDate, endDate],
+      appendTo: calendarHost,
+      onChange: (selectedDates, _dateString, instance) => {
+        this.handleRangeSelection(selectedDates, instance);
+      },
     };
 
-    if (!startInput._flatpickr) {
-      const sp = dateUtils.initDatePicker(startInput, {
-        ...fpConfig,
-        maxDate: endDate,
-        onChange: (sel) => {
-          if (sel.length) {
-            this.flatpickrInstances.get("end")?.set("minDate", sel[0]);
-          }
-        },
-      });
-      this.flatpickrInstances.set("start", sp);
-    }
-
-    if (!endInput._flatpickr) {
-      const ep = dateUtils.initDatePicker(endInput, {
-        ...fpConfig,
-        minDate: startDate,
-        onChange: (sel) => {
-          if (sel.length) {
-            this.flatpickrInstances.get("start")?.set("maxDate", sel[0]);
-          }
-        },
-      });
-      this.flatpickrInstances.set("end", ep);
+    if (!rangeInput._flatpickr) {
+      const rangePicker = dateUtils.initDatePicker(rangeInput, fpConfig);
+      this.flatpickrInstances.set("range", rangePicker);
+    } else {
+      this.flatpickrInstances.set("range", rangeInput._flatpickr);
     }
 
     this.updateInputs(startDate, endDate);
@@ -207,11 +207,15 @@ const dateManager = {
     // Bind apply and reset buttons
     const applyBtn = store.getElement(CONFIG.UI.selectors.datePickerApply);
     const resetBtn = store.getElement(CONFIG.UI.selectors.datePickerReset);
+    const closeBtn = store.getElement(CONFIG.UI.selectors.datePickerClose);
     if (applyBtn) {
       eventManager.add(applyBtn, "click", () => this.applyFilters());
     }
     if (resetBtn) {
       eventManager.add(resetBtn, "click", () => this.reset());
+    }
+    if (closeBtn) {
+      eventManager.add(closeBtn, "click", () => this.closeDropdown());
     }
 
     // Close dropdown on click outside
@@ -222,10 +226,6 @@ const dateManager = {
       const wrapper = store.getElement(CONFIG.UI.selectors.datePickerWrapper);
       const dropdown = store.getElement(CONFIG.UI.selectors.datePickerDropdown);
       if (wrapper && !wrapper.contains(e.target) && !dropdown?.contains(e.target)) {
-        // Check if click is inside a flatpickr calendar
-        if (e.target.closest(".flatpickr-calendar")) {
-          return;
-        }
         this.closeDropdown();
       }
     });
@@ -264,13 +264,22 @@ const dateManager = {
     }
 
     dropdown.classList.add("open");
+    dropdown.setAttribute("aria-hidden", "false");
     trigger?.setAttribute("aria-expanded", "true");
     this.isDropdownOpen = true;
+    this.syncRangePickerLayout();
 
     // Show overlay on mobile
     if (window.innerWidth <= 768 && overlay) {
       overlay.classList.add("visible");
+      document.body.classList.add("date-picker-open");
     }
+
+    requestAnimationFrame(() => {
+      const activePreset = dropdown.querySelector(".preset-btn.active");
+      const closeButton = dropdown.querySelector(".dp-close-btn");
+      (activePreset || closeButton)?.focus();
+    });
   },
 
   closeDropdown() {
@@ -282,9 +291,14 @@ const dateManager = {
       return;
     }
 
+    if (dropdown.contains(document.activeElement)) {
+      trigger?.focus();
+    }
     dropdown.classList.remove("open");
+    dropdown.setAttribute("aria-hidden", "true");
     trigger?.setAttribute("aria-expanded", "false");
     this.isDropdownOpen = false;
+    document.body.classList.remove("date-picker-open");
 
     // Hide overlay
     if (overlay) {
@@ -299,35 +313,66 @@ const dateManager = {
   updateInputs(startDate, endDate) {
     const startInputEl = store.getElement(CONFIG.UI.selectors.dpStartDate);
     const endInputEl = store.getElement(CONFIG.UI.selectors.dpEndDate);
+    if (!startInputEl || !endInputEl) {
+      return;
+    }
 
-    if (startInputEl?._flatpickr && endInputEl && endInputEl._flatpickr) {
-      // Relax constraints temporarily
-      startInputEl._flatpickr.set("maxDate", "today");
-      endInputEl._flatpickr.set("minDate", null);
+    startInputEl.value = startDate;
+    endInputEl.value = endDate;
+    this.flatpickrInstances
+      .get("range")
+      ?.setDate([startDate, endDate], false, "Y-m-d");
+    this.renderRangeSummary(startDate, endDate);
+  },
 
-      // Set the dates
-      startInputEl._flatpickr.setDate(startDate, false);
-      endInputEl._flatpickr.setDate(endDate, false);
+  handleRangeSelection(selectedDates, instance) {
+    const startInput = store.getElement(CONFIG.UI.selectors.dpStartDate);
+    const endInput = store.getElement(CONFIG.UI.selectors.dpEndDate);
+    if (!startInput || !endInput || !selectedDates.length) {
+      return;
+    }
 
-      // Re-establish strict cross-linking
-      startInputEl._flatpickr.set("maxDate", endDate);
-      endInputEl._flatpickr.set("minDate", startDate);
-    } else {
-      // Default
-      if (startInputEl) {
-        if (startInputEl._flatpickr) {
-          startInputEl._flatpickr.setDate(startDate, true);
-        } else {
-          startInputEl.value = startDate;
-        }
-      }
-      if (endInputEl) {
-        if (endInputEl._flatpickr) {
-          endInputEl._flatpickr.setDate(endDate, true);
-        } else {
-          endInputEl.value = endDate;
-        }
-      }
+    const startDate = instance.formatDate(selectedDates[0], "Y-m-d");
+    const hasEndDate = selectedDates.length > 1;
+    const endDate = hasEndDate
+      ? instance.formatDate(selectedDates[1], "Y-m-d")
+      : startDate;
+
+    startInput.value = startDate;
+    endInput.value = endDate;
+    this.renderRangeSummary(startDate, hasEndDate ? endDate : null, !hasEndDate);
+    store.getAllElements(".preset-btn").forEach((btn) => btn.classList.remove("active"));
+  },
+
+  renderRangeSummary(startDate, endDate, selectionInProgress = false) {
+    const startDisplay = store.getElement(CONFIG.UI.selectors.dpStartDisplay);
+    const endDisplay = store.getElement(CONFIG.UI.selectors.dpEndDisplay);
+    const hint = store.getElement(CONFIG.UI.selectors.dpRangeHint);
+    const applyBtn = store.getElement(CONFIG.UI.selectors.datePickerApply);
+    const formatDate = (date) =>
+      date
+        ? dateUtils.formatForDisplay(date, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          }) || date
+        : "Choose date";
+
+    if (startDisplay) {
+      startDisplay.textContent = formatDate(startDate);
+    }
+    if (endDisplay) {
+      endDisplay.textContent = selectionInProgress
+        ? "Same day or choose end"
+        : formatDate(endDate);
+    }
+    if (hint) {
+      hint.textContent = selectionInProgress
+        ? "Now choose an end date, or Apply for one day."
+        : "Choose a start date, then an end date.";
+    }
+    if (applyBtn) {
+      applyBtn.disabled = !startDate;
     }
   },
 
@@ -469,10 +514,9 @@ const dateManager = {
     const endDateVal = eIn.value;
     if (!dateUtils.isValidDateRange(startDateVal, endDateVal)) {
       utils.showNotification("Invalid date range", "warning");
-      [sIn, eIn].forEach((el) => {
-        el.classList.add("invalid-shake");
-        setTimeout(() => el.classList.remove("invalid-shake"), 600);
-      });
+      const calendarHost = store.getElement(CONFIG.UI.selectors.dpCalendarHost);
+      calendarHost?.classList.add("invalid-shake");
+      setTimeout(() => calendarHost?.classList.remove("invalid-shake"), 600);
       return;
     }
     if (btn) {

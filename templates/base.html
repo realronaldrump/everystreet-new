@@ -154,8 +154,21 @@ Every Street
               <div id="date-picker-dropdown"
                    class="date-picker-dropdown"
                    role="dialog"
-                   aria-label="Date range selection">
-                <div class="dp-section">
+                   aria-label="Date range selection"
+                   aria-hidden="true">
+                <div class="dp-header">
+                  <div>
+                    <span class="dp-eyebrow">Trip filters</span>
+                    <span class="dp-title">Choose a date range</span>
+                  </div>
+                  <button type="button"
+                          id="date-picker-close"
+                          class="dp-close-btn"
+                          aria-label="Close date picker">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                  </button>
+                </div>
+                <div class="dp-section dp-preset-section">
                   <span class="dp-section-label">Quick Select</span>
                   <div class="dp-presets" role="group" aria-label="Date range presets">
                     <button type="button" class="preset-btn" data-range="today">
@@ -178,20 +191,33 @@ Every Street
                     </button>
                   </div>
                 </div>
-                <div class="dp-section">
-                  <span class="dp-section-label">Custom Range</span>
-                  <div class="dp-custom-range">
+                <div class="dp-section dp-custom-section">
+                  <div class="dp-section-heading">
+                    <span class="dp-section-label">Custom Range</span>
+                    <span id="dp-range-hint" class="dp-range-hint">
+                      Choose a start date, then an end date.
+                    </span>
+                  </div>
+                  <div class="dp-range-summary" aria-live="polite">
+                    <div class="dp-range-endpoint">
+                      <span class="dp-range-label">Start</span>
+                      <strong id="dp-start-display">Choose date</strong>
+                    </div>
+                    <i class="fas fa-arrow-right dp-range-arrow" aria-hidden="true"></i>
+                    <div class="dp-range-endpoint">
+                      <span class="dp-range-label">End</span>
+                      <strong id="dp-end-display">Choose date</strong>
+                    </div>
+                  </div>
+                  <input type="hidden" id="dp-start-date" />
+                  <input type="hidden" id="dp-end-date" />
+                  <div id="dp-calendar-host" class="dp-calendar-host">
                     <input type="text"
-                           id="dp-start-date"
-                           class="dp-date-input datepicker"
-                           placeholder="Start date"
-                           aria-label="Start date" />
-                    <span class="dp-separator">to</span>
-                    <input type="text"
-                           id="dp-end-date"
-                           class="dp-date-input datepicker"
-                           placeholder="End date"
-                           aria-label="End date" />
+                           id="dp-range-date"
+                           class="dp-range-input"
+                           aria-label="Choose a custom date range"
+                           aria-describedby="dp-range-hint"
+                           tabindex="-1" />
                   </div>
                 </div>
                 <div class="dp-actions">

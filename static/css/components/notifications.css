@@ -5,7 +5,7 @@
 /* === Notifications - Glassmorphism === */
 .notification-container {
   position: fixed;
-  top: var(--space-4);
+  top: calc(var(--header-height) + var(--space-3));
   right: var(--space-4);
   z-index: var(--z-tooltip);
   display: flex;
@@ -17,10 +17,12 @@
 }
 
 .notification {
-  background: var(--glass-2);
+  min-height: 3.5rem;
+  background: rgb(var(--surface-rgb) / 96%);
+  color: var(--text-primary);
   backdrop-filter: blur(var(--blur-strong));
   border-radius: var(--radius-lg);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
   box-shadow: var(--shadow-glass-lg);
   transform: translateX(120%);
   opacity: 0;
@@ -28,7 +30,7 @@
     transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1),
     opacity 200ms cubic-bezier(0, 0, 0.2, 1);
   pointer-events: auto;
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--border-color);
   border-left: 3px solid var(--border-color);
   display: flex;
   align-items: flex-start;
@@ -58,35 +60,52 @@
   margin-right: var(--space-3);
   display: flex;
   align-items: center;
-  height: calc(var(--font-size-sm) * var(--line-height-normal));
+  min-height: var(--touch-target);
   flex-shrink: 0; /* Prevent icon from shrinking */
 }
 
 .notification-content {
   flex: 1;
   min-width: 0; /* Allow content to shrink if needed */
+  align-self: center;
 }
 
 .notification-message {
   font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  color: var(--text-primary);
   line-height: var(--line-height-normal);
+  overflow-wrap: anywhere;
 }
 
 .notification-close {
-  background: transparent;
+  display: inline-flex;
+  flex: 0 0 var(--touch-target);
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  padding: 0;
   border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;
-  padding: var(--space-1);
-  margin-left: var(--space-2);
+  margin-left: var(--space-1);
   font-size: var(--font-size-lg);
-  transition: color 120ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    color 120ms cubic-bezier(0.4, 0, 0.2, 1),
+    background 120ms cubic-bezier(0.4, 0, 0.2, 1);
   align-self: flex-start; /* Align close button to top right */
 }
 
 .notification-close:hover {
-  color: var(--text-secondary);
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.notification-close:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 1px;
 }
 
 /* Minimized coverage-job progress badge (global) */
