@@ -172,6 +172,9 @@ const dateManager = {
     }
 
     this.syncRangePickerLayout();
+    this.flatpickrInstances
+      .get("range")
+      ?.calendarContainer?.setAttribute("aria-hidden", "true");
     this.updateInputs(startDate, endDate);
     this.updateDateDisplay();
     this.highlightActivePreset();
@@ -268,7 +271,7 @@ const dateManager = {
       return;
     }
 
-    dropdown.inert = false;
+    dropdown.removeAttribute("inert");
     dropdown.classList.add("open");
     dropdown.setAttribute("aria-hidden", "false");
     trigger?.setAttribute("aria-expanded", "true");
@@ -276,6 +279,7 @@ const dateManager = {
     this.syncRangePickerLayout();
 
     const rangePicker = this.flatpickrInstances.get("range");
+    rangePicker?.calendarContainer?.setAttribute("aria-hidden", "false");
     const { endDate } = this.getSelectedDateRange();
     const visibleDate = dateUtils.parseDateString(endDate);
     if (visibleDate && !this.isMobileViewport()) {
@@ -311,7 +315,10 @@ const dateManager = {
     }
     dropdown.classList.remove("open");
     dropdown.setAttribute("aria-hidden", "true");
-    dropdown.inert = true;
+    dropdown.setAttribute("inert", "");
+    this.flatpickrInstances
+      .get("range")
+      ?.calendarContainer?.setAttribute("aria-hidden", "true");
     trigger?.setAttribute("aria-expanded", "false");
     this.isDropdownOpen = false;
     document.body.classList.remove("date-picker-open");
