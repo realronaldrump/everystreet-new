@@ -109,6 +109,18 @@ def test_runtime_theme_switch_keeps_html_and_body_in_sync() -> None:
     assert theme_manager.count(light_mode_toggle) == 2
 
 
+def test_disabled_buttons_keep_canonical_action_colors() -> None:
+    buttons = _read(CSS_ROOT / "components" / "buttons.css")
+    disabled_rule = buttons[
+        buttons.index(".btn:disabled,") : buttons.index(
+            ".btn:hover:not(:disabled, .disabled)"
+        )
+    ]
+    assert "background-color: var(--btn-bg, transparent)" in disabled_rule
+    assert "color: var(--btn-color, var(--text-primary))" in disabled_rule
+    assert "border-color: var(--btn-border, transparent)" in disabled_rule
+
+
 def test_retired_component_patterns_stay_removed() -> None:
     patterns = {
         "Bootstrap pill tabs": re.compile(
