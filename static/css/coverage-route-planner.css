@@ -458,19 +458,6 @@
   flex-shrink: 0;
 }
 
-.coverage-route-planner .ws-connector {
-  flex: 1;
-  height: 2px;
-  background: var(--divider-color);
-  margin: 0 3px;
-  margin-bottom: 14px; /* align with node center (node is ~24px tall + 14px label below) */
-  transition: background 400ms ease;
-}
-
-.coverage-route-planner .workflow-step.completed + .ws-connector {
-  background: var(--success);
-}
-
 .coverage-route-planner .ws-node {
   width: 24px;
   height: 24px;
@@ -1332,7 +1319,7 @@
   margin-bottom: var(--space-3);
   padding: var(--space-3);
   border-radius: var(--radius-md);
-  background: var(--surface-2, rgb(0 0 0 / 3%));
+  background: var(--surface-2);
 }
 
 .coverage-route-planner .sim-coverage-current,

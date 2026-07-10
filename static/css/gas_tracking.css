@@ -328,7 +328,7 @@
   left: 0;
   right: 0;
   padding: var(--space-3) var(--space-4);
-  background: linear-gradient(to top, rgb(0 0 0 / 70%), transparent);
+  background: linear-gradient(to top, rgb(var(--backdrop-rgb) / 70%), transparent);
   color: var(--text-primary);
 }
 

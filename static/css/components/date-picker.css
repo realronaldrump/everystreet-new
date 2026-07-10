@@ -207,18 +207,18 @@
 
 .dp-actions .btn-apply {
   padding: var(--space-2) var(--space-4);
-  background: var(--primary);
+  background: var(--action);
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--text-on-primary);
+  color: var(--text-on-action);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .dp-actions .btn-apply:hover {
-  background: var(--primary-hover);
+  background: var(--action-hover);
 }
 
 .dp-actions .btn-apply:disabled {

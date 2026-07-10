@@ -80,35 +80,6 @@
   color: rgb(var(--success-rgb));
 }
 
-.setup-progress-connector {
-  flex: 1;
-  height: 2px;
-  background: var(--border-color);
-  position: relative;
-  margin: 0 var(--space-1);
-  margin-bottom: calc(var(--space-2) + var(--font-size-xs) + 0.25em);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.setup-progress-connector-fill {
-  position: absolute;
-  inset: 0;
-  background: rgb(var(--success-rgb));
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 2px;
-}
-
-.setup-progress-connector-fill.is-half {
-  transform: scaleX(0.5);
-}
-
-.setup-progress-connector-fill.is-full {
-  transform: scaleX(1);
-}
-
 /* ─── Hero ──────────────────────────────────────────────────────── */
 
 .setup-hero {
@@ -966,10 +937,6 @@ details[open] .setup-help-toggle::after {
 .setup-progress-step.atlas-step .setup-progress-label.atlas-step-label,
 .setup-progress-step.atlas-step.is-active .setup-progress-label.atlas-step-label {
   color: inherit;
-}
-
-.setup-progress-connector {
-  display: none;
 }
 
 .setup-hero.page-masthead {

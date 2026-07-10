@@ -209,7 +209,7 @@ body[data-route="/regional-coverage-explorer"] .nav-breadcrumb {
   width: 28px;
   height: 2px;
   transform: translateX(-50%);
-  background: var(--primary);
+  background: var(--action);
 }
 
 @media (width <= 768px) {

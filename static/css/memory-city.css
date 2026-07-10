@@ -58,7 +58,11 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse at center, transparent 35%, rgb(0 0 0 / 55%) 100%);
+  background: radial-gradient(
+    ellipse at center,
+    transparent 35%,
+    rgb(var(--backdrop-rgb) / 55%) 100%
+  );
   mix-blend-mode: multiply;
 }
 

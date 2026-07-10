@@ -145,7 +145,7 @@
   left: var(--space-3);
   right: var(--space-3);
   height: 2px;
-  background: var(--primary);
+  background: var(--action);
 }
 
 /* Editorial nav is type-led: the "More" caret is the only glyph */
@@ -241,8 +241,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: var(--touch-target);
+  height: var(--touch-target);
   cursor: pointer;
   border-radius: var(--radius-full);
   color: var(--text-secondary);
@@ -274,12 +274,6 @@
   align-items: center;
   justify-content: center;
   font-size: var(--font-size-sm);
-}
-
-/* Show the destination theme: sun while dark, moon while light */
-.theme-toggle input:not(:checked) + .theme-slider .fa-moon,
-.theme-toggle input:checked + .theme-slider .fa-sun {
-  display: none;
 }
 
 /* === Mobile Navigation Drawer === */
@@ -470,7 +464,7 @@
 .drawer-nav-section-list li a.active {
   background-color: var(--surface-2);
   color: var(--text-primary);
-  border-left-color: var(--primary);
+  border-left-color: var(--action);
   font-weight: var(--font-weight-medium);
 }
 

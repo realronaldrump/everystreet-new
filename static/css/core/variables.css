@@ -31,7 +31,8 @@
    ============================ */
 
 :root {
-  /* Categorical palette */
+  /* Categorical palette.
+     Chart order is fixed: sage → ochre → steel → coral → slate → purple. */
   --cat-sage: #3b8a7f;
   --cat-sage-rgb: 59 138 127;
   --cat-slate: #727a84;

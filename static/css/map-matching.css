@@ -84,21 +84,6 @@
   color: var(--success);
 }
 
-.mm-phase-connector {
-  width: 72px;
-  height: 2px;
-  background: rgb(var(--border-rgb) / 15%);
-  margin: 0 var(--space-3);
-  margin-bottom: var(--space-5);
-  border-radius: var(--radius-full);
-  transition: background var(--transition-normal);
-  position: relative;
-}
-
-.mm-phase-connector.is-active {
-  background: var(--action);
-}
-
 /* === Phase Sections === */
 .mm-phase {
   display: none;
@@ -1304,10 +1289,6 @@
     font-size: var(--font-size-xs);
   }
 
-  .mm-phase-connector {
-    width: 40px;
-  }
-
   .mm-welcome-card {
     padding: var(--space-4);
   }
@@ -1441,10 +1422,6 @@
 .mm-phase-step.atlas-step .mm-step-label.atlas-step-label,
 .mm-phase-step.atlas-step.is-active .mm-step-label.atlas-step-label {
   color: inherit;
-}
-
-.mm-phase-connector {
-  display: none;
 }
 
 .mm-results-tabs.atlas-tabs {

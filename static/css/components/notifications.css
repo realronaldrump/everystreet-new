@@ -29,7 +29,7 @@
     opacity 200ms cubic-bezier(0, 0, 0.2, 1);
   pointer-events: auto;
   border: 1px solid var(--glass-border);
-  border-left: 3px solid var(--primary);
+  border-left: 3px solid var(--border-color);
   display: flex;
   align-items: flex-start;
   width: 100%;
