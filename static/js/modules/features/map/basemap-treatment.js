@@ -27,14 +27,17 @@ const TONES = {
     },
   },
   light: {
-    background: "#faf9f7",
-    water: "#d8e1e6",
-    park: "#e8ede3",
-    labelText: "#8b8375",
-    labelHalo: "#faf9f7",
+    // Match the light UI's warm paper surface instead of Mapbox's neutral
+    // white. Keep water and parks distinct, but bring both into the same
+    // quiet, slightly ochre atlas palette.
+    background: "#f4f1e8",
+    water: "#dfe3dc",
+    park: "#e8e8d9",
+    labelText: "#716a5e",
+    labelHalo: "#f4f1e8",
     fog: {
-      color: "#faf9f7",
-      "high-color": "#eef0f2",
+      color: "#f4f1e8",
+      "high-color": "#eee9dc",
       "horizon-blend": 0.04,
       "star-intensity": 0,
     },
@@ -63,7 +66,7 @@ function trySet(fn) {
   }
 }
 
-function applyTreatment(map) {
+export function applyBasemapTreatment(map) {
   if (!map?.isStyleLoaded || !map.getStyle) {
     return;
   }
@@ -119,7 +122,9 @@ export default function initBasemapTreatment({ registerCleanup }) {
 
   const handleStyleLoaded = () => {
     // Give the style a beat to settle before painting over it.
-    requestAnimationFrame(() => applyTreatment(store.map || window.map));
+    requestAnimationFrame(() =>
+      applyBasemapTreatment(store.map || window.map)
+    );
   };
 
   document.addEventListener("mapStyleLoaded", handleStyleLoaded);
@@ -128,8 +133,8 @@ export default function initBasemapTreatment({ registerCleanup }) {
   );
 
   if (map.isStyleLoaded?.()) {
-    applyTreatment(map);
+    applyBasemapTreatment(map);
   } else {
-    map.once?.("style.load", () => applyTreatment(map));
+    map.once?.("style.load", () => applyBasemapTreatment(map));
   }
 }
