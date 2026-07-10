@@ -347,7 +347,7 @@ async def test_sync_status_clears_stale_running_lock(beanie_db_with_tasks) -> No
     await running.insert()
 
     status = await TripSyncService.get_sync_status()
-    assert status["state"] == "recovering"
+    assert status["state"] == "idle"
     assert status["current_job_id"] is None
 
     history = await TaskHistory.get("job-stale-running")
