@@ -74,7 +74,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-height: min(92dvh, 52rem);
+  max-height: min(calc(100dvh - max(var(--space-4), env(safe-area-inset-top))), 52rem);
   overflow: hidden;
   border: 1px solid var(--border-color);
   border-bottom: 0;
@@ -183,12 +183,13 @@ body.date-picker-open {
 
 .dp-preset-section {
   flex: 0 0 auto;
+  padding-block: var(--space-3);
   border-bottom: 1px solid var(--divider-color);
 }
 
 .dp-section-label {
   display: block;
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
 }
 
 .dp-presets {
@@ -243,7 +244,7 @@ body.date-picker-open {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-top: var(--space-3);
+  padding: var(--space-3) var(--space-4) 0;
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb-color) transparent;
 }
@@ -254,7 +255,7 @@ body.date-picker-open {
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-1) var(--space-3);
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
 }
 
 .dp-section-heading .dp-section-label {
@@ -271,12 +272,12 @@ body.date-picker-open {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: stretch;
   gap: var(--space-2);
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
 }
 
 .dp-range-endpoint {
   min-width: 0;
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--surface-2);
@@ -418,6 +419,8 @@ body.date-picker-open {
     z-index: var(--z-dropdown);
     width: min(44rem, calc(100vw - var(--space-8)));
     max-height: calc(100dvh - var(--header-height) - var(--space-4));
+    grid-template-columns: 9.5rem minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
     border-bottom: 1px solid var(--border-color);
     border-radius: var(--radius-xl);
     transform: translateY(-0.5rem) scale(0.985);
@@ -429,23 +432,36 @@ body.date-picker-open {
   }
 
   .date-picker-dropdown.open {
+    display: grid;
     transform: translateY(0) scale(1);
   }
 
   .dp-header {
+    grid-column: 1 / -1;
     padding: var(--space-4) var(--space-5);
   }
 
-  .dp-preset-section,
+  .dp-preset-section {
+    grid-column: 1;
+    grid-row: 2;
+    padding: var(--space-4);
+    border-right: 1px solid var(--divider-color);
+    border-bottom: 0;
+  }
+
   .dp-custom-section {
-    padding-inline: var(--space-5);
+    grid-column: 2;
+    grid-row: 2;
+    padding: var(--space-4);
   }
 
   .dp-presets {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .dp-actions {
+    grid-column: 1 / -1;
+    grid-row: 3;
     justify-content: flex-end;
     padding: var(--space-3) var(--space-5);
   }
@@ -734,12 +750,46 @@ body .flatpickr-calendar .flatpickr-time .flatpickr-am-pm:focus {
   line-height: var(--touch-target);
 }
 
+.dp-calendar-host .flatpickr-month {
+  min-height: 2.75rem;
+}
+
+.dp-calendar-host .flatpickr-current-month {
+  padding-top: var(--space-2);
+}
+
+.dp-calendar-host .flatpickr-weekdays {
+  height: 2rem;
+}
+
+.dp-calendar-host .flatpickr-days {
+  padding: var(--space-1);
+}
+
+.dp-calendar-host .flatpickr-calendar.es-single-month,
+.dp-calendar-host .flatpickr-calendar.es-single-month .flatpickr-months,
+.dp-calendar-host .flatpickr-calendar.es-single-month .flatpickr-month,
+.dp-calendar-host .flatpickr-calendar.es-single-month .flatpickr-weekdays,
+.dp-calendar-host .flatpickr-calendar.es-single-month .flatpickr-weekdaycontainer,
+.dp-calendar-host .flatpickr-calendar.es-single-month .flatpickr-days,
+.dp-calendar-host .flatpickr-calendar.es-single-month .dayContainer {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+}
+
 .dp-calendar-host .flatpickr-calendar.multiMonth .dayContainer:nth-child(n + 1) {
   border-left: 1px solid var(--divider-color);
   box-shadow: none;
 }
 
 @media (min-width: 769px) {
+  .dp-calendar-host .flatpickr-day {
+    height: 2.5rem;
+    line-height: 2.5rem;
+  }
+
   .dp-calendar-host .flatpickr-calendar.multiMonth .dayContainer,
   .dp-calendar-host .flatpickr-calendar.multiMonth .flatpickr-weekdaycontainer,
   .dp-calendar-host .flatpickr-calendar.multiMonth .flatpickr-month {

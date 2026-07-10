@@ -142,10 +142,7 @@ class NotificationManager {
 
     const closeButton = notification.querySelector(".notification-close");
     if (closeButton) {
-      closeButton.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) {
-          return;
-        }
+      closeButton.addEventListener("click", () => {
         clearTimeout(timeout);
         this._removeNotification(notification);
       });

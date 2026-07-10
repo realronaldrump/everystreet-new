@@ -24,6 +24,10 @@ const dateManager = {
     if (picker.config.showMonths !== showMonths) {
       picker.set("showMonths", showMonths);
     }
+    picker.calendarContainer?.classList.toggle(
+      "es-single-month",
+      showMonths === 1
+    );
   },
 
   getSelectedDateRange() {
@@ -167,6 +171,7 @@ const dateManager = {
       this.flatpickrInstances.set("range", rangeInput._flatpickr);
     }
 
+    this.syncRangePickerLayout();
     this.updateInputs(startDate, endDate);
     this.updateDateDisplay();
     this.highlightActivePreset();
@@ -263,11 +268,21 @@ const dateManager = {
       return;
     }
 
+    dropdown.inert = false;
     dropdown.classList.add("open");
     dropdown.setAttribute("aria-hidden", "false");
     trigger?.setAttribute("aria-expanded", "true");
     this.isDropdownOpen = true;
     this.syncRangePickerLayout();
+
+    const rangePicker = this.flatpickrInstances.get("range");
+    const { endDate } = this.getSelectedDateRange();
+    const visibleDate = dateUtils.parseDateString(endDate);
+    if (visibleDate && !this.isMobileViewport()) {
+      visibleDate.setDate(1);
+      visibleDate.setMonth(visibleDate.getMonth() - 1);
+    }
+    rangePicker?.jumpToDate(visibleDate || endDate, false);
 
     // Show overlay on mobile
     if (window.innerWidth <= 768 && overlay) {
@@ -296,6 +311,7 @@ const dateManager = {
     }
     dropdown.classList.remove("open");
     dropdown.setAttribute("aria-hidden", "true");
+    dropdown.inert = true;
     trigger?.setAttribute("aria-expanded", "false");
     this.isDropdownOpen = false;
     document.body.classList.remove("date-picker-open");
