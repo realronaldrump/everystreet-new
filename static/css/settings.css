@@ -15,12 +15,12 @@
   min-height: 2.75rem;
   align-items: center;
   gap: 0.6rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-color, rgb(255 255 255 / 12%));
   border-radius: 999px;
   padding: 0.55rem 0.85rem;
-  color: var(--text-secondary);
-  background: var(--surface-elevated);
-  font-size: var(--font-size-sm);
+  color: var(--text-secondary, #b9c1c8);
+  background: var(--surface-elevated, rgb(255 255 255 / 5%));
+  font-size: 0.875rem;
   font-weight: 650;
 }
 
@@ -28,23 +28,23 @@
   width: 0.6rem;
   height: 0.6rem;
   border-radius: 50%;
-  background: var(--secondary);
-  box-shadow: 0 0 0 0.25rem rgb(var(--secondary-rgb) / 14%);
+  background: #879099;
+  box-shadow: 0 0 0 0.25rem rgb(135 144 153 / 14%);
 }
 
 .settings-system-pill[data-state="healthy"] .settings-system-dot {
-  background: var(--success);
-  box-shadow: 0 0 0 0.25rem rgb(var(--success-rgb) / 14%);
+  background: #54b987;
+  box-shadow: 0 0 0 0.25rem rgb(84 185 135 / 14%);
 }
 
 .settings-system-pill[data-state="recovering"] .settings-system-dot {
-  background: var(--warning);
-  box-shadow: 0 0 0 0.25rem rgb(var(--warning-rgb) / 15%);
+  background: #d7a34c;
+  box-shadow: 0 0 0 0.25rem rgb(215 163 76 / 15%);
 }
 
 .settings-system-pill[data-state="action_required"] .settings-system-dot {
-  background: var(--danger);
-  box-shadow: 0 0 0 0.25rem rgb(var(--danger-rgb) / 15%);
+  background: #de6f6f;
+  box-shadow: 0 0 0 0.25rem rgb(222 111 111 / 15%);
 }
 
 .settings-tabs {
@@ -85,10 +85,10 @@
 
 .system-hero,
 .settings-card {
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-color, rgb(255 255 255 / 11%));
   border-radius: 1rem;
-  background: var(--surface-elevated);
-  box-shadow: var(--shadow-md);
+  background: var(--surface-elevated, rgb(255 255 255 / 4%));
+  box-shadow: 0 1rem 3rem rgb(0 0 0 / 8%);
 }
 
 .system-hero {
@@ -106,18 +106,18 @@
   width: 11rem;
   height: 11rem;
   border-radius: 50%;
-  background: radial-gradient(circle, rgb(var(--success-rgb) / 14%), transparent 68%);
+  background: radial-gradient(circle, rgb(84 185 135 / 14%), transparent 68%);
   content: "";
   inset: auto -4rem -6rem auto;
   pointer-events: none;
 }
 
 .system-hero[data-state="recovering"]::after {
-  background: radial-gradient(circle, rgb(var(--warning-rgb) / 16%), transparent 68%);
+  background: radial-gradient(circle, rgb(215 163 76 / 16%), transparent 68%);
 }
 
 .system-hero[data-state="action_required"]::after {
-  background: radial-gradient(circle, rgb(var(--danger-rgb) / 16%), transparent 68%);
+  background: radial-gradient(circle, rgb(222 111 111 / 16%), transparent 68%);
 }
 
 .system-hero-icon {
@@ -126,16 +126,16 @@
   height: 3rem;
   place-items: center;
   border-radius: 0.8rem;
-  color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 14%, transparent);
-  font-size: var(--font-size-lg);
+  color: var(--accent-color, #b87a4a);
+  background: color-mix(in srgb, var(--accent-color, #b87a4a) 14%, transparent);
+  font-size: 1.2rem;
 }
 
 .system-hero-kicker,
 .settings-card-eyebrow {
   margin: 0 0 0.2rem;
-  color: var(--primary);
-  font-size: var(--font-size-xs);
+  color: var(--accent-color, #b87a4a);
+  font-size: 0.75rem;
   font-weight: 750;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -145,7 +145,7 @@
 .settings-card h2,
 .account-card h2 {
   margin: 0;
-  color: var(--text-primary);
+  color: var(--text-primary, #f5f6f7);
   font-size: clamp(1.15rem, 4vw, 1.55rem);
 }
 
@@ -154,14 +154,14 @@
 .account-card p {
   max-width: 68ch;
   margin: 0.35rem 0 0;
-  color: var(--text-secondary);
+  color: var(--text-secondary, #aeb6bd);
   line-height: 1.55;
 }
 
 .system-hero time {
   grid-column: 2;
-  color: var(--text-tertiary);
-  font-size: var(--font-size-xs);
+  color: var(--text-tertiary, #7f8992);
+  font-size: 0.8rem;
 }
 
 .system-actions {
@@ -175,10 +175,10 @@
   flex-direction: column;
   gap: 0.8rem;
   align-items: flex-start;
-  border: 1px solid rgb(var(--danger-rgb) / 35%);
+  border: 1px solid rgb(222 111 111 / 35%);
   border-radius: 0.9rem;
   padding: 1rem;
-  background: rgb(var(--danger-rgb) / 7%);
+  background: rgb(222 111 111 / 7%);
 }
 
 .system-action strong,
@@ -187,8 +187,8 @@
 }
 
 .system-action p {
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
+  color: var(--text-secondary, #aeb6bd);
+  font-size: 0.9rem;
 }
 
 .system-summary-grid {
@@ -203,29 +203,29 @@
   grid-template-columns: auto 1fr;
   gap: 0.05rem 0.85rem;
   align-items: center;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-color, rgb(255 255 255 / 10%));
   border-radius: 0.85rem;
   padding: 0.9rem 1rem;
-  background: var(--surface-1);
+  background: var(--surface-subtle, rgb(255 255 255 / 2%));
 }
 
 .system-summary-value {
   grid-row: 1 / span 2;
-  color: var(--text-primary);
+  color: var(--text-primary, #f5f6f7);
   font-family: var(--font-family-display, inherit);
-  font-size: var(--font-size-2xl);
+  font-size: 1.65rem;
   font-weight: 750;
 }
 
 .system-summary-label {
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
+  color: var(--text-primary, #f5f6f7);
+  font-size: 0.9rem;
   font-weight: 650;
 }
 
 .system-summary-note {
-  color: var(--text-tertiary);
-  font-size: var(--font-size-xs);
+  color: var(--text-tertiary, #7f8992);
+  font-size: 0.78rem;
 }
 
 .settings-card {
@@ -247,16 +247,16 @@
 
 .settings-card-meta,
 .autosave-state {
-  color: var(--text-tertiary);
-  font-size: var(--font-size-xs);
+  color: var(--text-tertiary, #7f8992);
+  font-size: 0.8rem;
 }
 
 .autosave-state[data-state="saving"] {
-  color: var(--warning);
+  color: #d7a34c;
 }
 
 .autosave-state[data-state="error"] {
-  color: var(--danger);
+  color: #de6f6f;
 }
 
 .service-grid {
@@ -270,10 +270,10 @@
   grid-template-columns: auto minmax(0, 1fr);
   gap: 0.75rem;
   align-items: start;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-color, rgb(255 255 255 / 9%));
   border-radius: 0.8rem;
   padding: 0.9rem;
-  background: var(--surface-1);
+  background: var(--surface-subtle, rgb(255 255 255 / 2%));
 }
 
 .service-card-icon {
@@ -282,25 +282,25 @@
   height: 2.4rem;
   place-items: center;
   border-radius: 50%;
-  color: var(--success);
-  background: rgb(var(--success-rgb) / 12%);
+  color: #54b987;
+  background: rgb(84 185 135 / 12%);
 }
 
 .service-card[data-state="warning"] .service-card-icon,
 .service-card[data-state="error"] .service-card-icon {
-  color: var(--warning);
-  background: rgb(var(--warning-rgb) / 12%);
+  color: #d7a34c;
+  background: rgb(215 163 76 / 12%);
 }
 
 .service-card h3 {
   margin: 0;
-  color: var(--text-primary);
-  font-size: var(--font-size-md);
+  color: var(--text-primary, #f5f6f7);
+  font-size: 0.95rem;
 }
 
 .service-card p {
   margin-top: 0.2rem;
-  font-size: var(--font-size-xs);
+  font-size: 0.82rem;
 }
 
 .automation-explainer {
@@ -317,8 +317,8 @@
   height: 2.75rem;
   place-items: center;
   border-radius: 0.8rem;
-  color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 13%, transparent);
+  color: var(--accent-color, #b87a4a);
+  background: color-mix(in srgb, var(--accent-color, #b87a4a) 13%, transparent);
 }
 
 .preference-grid {
@@ -331,7 +331,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--border-color, rgb(255 255 255 / 8%));
   padding: 0.8rem 0;
   color: inherit;
 }
@@ -346,14 +346,14 @@
 }
 
 .preference-row strong {
-  color: var(--text-primary);
-  font-size: var(--font-size-md);
+  color: var(--text-primary, #f5f6f7);
+  font-size: 0.95rem;
 }
 
 .preference-row small {
   max-width: 52ch;
-  color: var(--text-tertiary);
-  font-size: var(--font-size-xs);
+  color: var(--text-tertiary, #7f8992);
+  font-size: 0.82rem;
   line-height: 1.4;
 }
 
@@ -367,6 +367,15 @@
   min-height: 1.5rem;
 }
 
+#accent-color-picker {
+  width: 3rem;
+  height: 2.75rem;
+  border: 0;
+  border-radius: 0.6rem;
+  padding: 0.2rem;
+  background: transparent;
+}
+
 .preference-density {
   margin: 0;
   border-right: 0;
@@ -376,7 +385,7 @@
 
 .segmented-control {
   display: flex;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-color, rgb(255 255 255 / 12%));
   border-radius: 0.65rem;
   overflow: hidden;
 }
@@ -396,13 +405,13 @@
   min-height: 2.75rem;
   place-items: center;
   padding: 0.45rem 0.75rem;
-  color: var(--text-secondary);
-  font-size: var(--font-size-xs);
+  color: var(--text-secondary, #aeb6bd);
+  font-size: 0.8rem;
 }
 
 .segmented-control input:checked + span {
-  color: var(--text-on-primary);
-  background: var(--primary);
+  color: #fff;
+  background: var(--accent-color, #b87a4a);
 }
 
 .connection-card {
@@ -415,15 +424,15 @@
 }
 
 .connection-state[data-state="connected"] {
-  color: var(--success-light);
-  border-color: rgb(var(--success-rgb) / 32%);
-  background: rgb(var(--success-rgb) / 8%);
+  color: #70d39f;
+  border-color: rgb(84 185 135 / 32%);
+  background: rgb(84 185 135 / 8%);
 }
 
 .connection-state[data-state="required"] {
-  color: var(--warning-light);
-  border-color: rgb(var(--warning-rgb) / 32%);
-  background: rgb(var(--warning-rgb) / 8%);
+  color: #e5b664;
+  border-color: rgb(215 163 76 / 32%);
+  background: rgb(215 163 76 / 8%);
 }
 
 .connection-intro {
@@ -439,8 +448,8 @@
 .connection-form label {
   display: grid;
   gap: 0.35rem;
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
+  color: var(--text-secondary, #aeb6bd);
+  font-size: 0.86rem;
   font-weight: 650;
 }
 
@@ -463,8 +472,8 @@
 
 .connection-footnote {
   margin-top: 1rem;
-  color: var(--text-tertiary);
-  font-size: var(--font-size-xs);
+  color: var(--text-tertiary, #7f8992);
+  font-size: 0.8rem;
   overflow-wrap: anywhere;
 }
 
@@ -479,7 +488,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--border-color, rgb(255 255 255 / 8%));
   padding: 0.6rem 0;
 }
 
@@ -493,7 +502,7 @@
 }
 
 .connected-vehicle small {
-  color: var(--text-tertiary);
+  color: var(--text-tertiary, #7f8992);
 }
 
 .account-card {
@@ -509,8 +518,8 @@
 }
 
 .service-placeholder {
-  color: var(--text-tertiary);
-  font-size: var(--font-size-sm);
+  color: var(--text-tertiary, #7f8992);
+  font-size: 0.9rem;
 }
 
 @media (min-width: 36rem) {
@@ -531,7 +540,7 @@
   }
 
   .system-summary-value {
-    font-size: var(--font-size-3xl);
+    font-size: 2rem;
   }
 
   .settings-card-heading,

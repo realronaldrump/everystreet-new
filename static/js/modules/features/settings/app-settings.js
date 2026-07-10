@@ -104,6 +104,7 @@ function setupPreferences(signal) {
     terrain: document.getElementById("map-terrain-relief-toggle"),
     coverageOnly: document.getElementById("map-trips-within-coverage-only"),
     heatmap: document.getElementById("trip-layers-use-heatmap"),
+    accent: document.getElementById("accent-color-picker"),
     saveState: document.getElementById("preferences-save-state"),
   };
   const densityInputs = [...form.querySelectorAll("input[name='ui-density']")];
@@ -122,6 +123,7 @@ function setupPreferences(signal) {
   const applyLocalPreferences = (payload) => {
     localStorage.setItem("highlightRecentTrips", String(payload.highlightRecentTrips));
     localStorage.setItem("autoCenter", String(payload.autoCenter));
+    localStorage.setItem("es:accent-color", payload.accentColor);
     localStorage.setItem("es:ui-density", payload.uiDensity);
     localStorage.setItem(
       CONFIG.STORAGE_KEYS.mapTripsWithinCoverageOnly,
@@ -130,6 +132,11 @@ function setupPreferences(signal) {
     setMap3dBuildingsPreference(payload.map3dBuildingsEnabled);
     setTerrainReliefPreference(payload.mapTerrainReliefEnabled);
     setTripLayerHeatmapPreference(payload.tripLayersUseHeatmap);
+    window.personalization?.applyPreferences?.({
+      accentColor: payload.accentColor,
+      density: payload.uiDensity,
+      persist: false,
+    });
     window.densityManager?.apply?.(payload.uiDensity, { persist: false });
   };
 
@@ -141,6 +148,7 @@ function setupPreferences(signal) {
     mapTerrainReliefEnabled: fields.terrain?.checked ?? false,
     mapTripsWithinCoverageOnly: fields.coverageOnly?.checked ?? false,
     tripLayersUseHeatmap: fields.heatmap?.checked ?? true,
+    accentColor: fields.accent?.value || "#b87a4a",
     uiDensity: densityInputs.find((input) => input.checked)?.value || "comfortable",
   });
 
@@ -203,6 +211,9 @@ function setupPreferences(signal) {
     if (fields.terrain) fields.terrain.checked = terrain;
     if (fields.coverageOnly) fields.coverageOnly.checked = coverageOnly;
     if (fields.heatmap) fields.heatmap.checked = heatmap;
+    if (fields.accent) {
+      fields.accent.value = localStorage.getItem("es:accent-color") || "#b87a4a";
+    }
     const density = localStorage.getItem("es:ui-density") || "comfortable";
     densityInputs.forEach((input) => {
       input.checked = input.value === density;
@@ -217,6 +228,7 @@ function setupPreferences(signal) {
 
   const options = signal ? { signal } : undefined;
   form.addEventListener("change", scheduleSave, options);
+  fields.accent?.addEventListener("input", scheduleSave, options);
   fields.darkMode?.addEventListener(
     "change",
     () => {

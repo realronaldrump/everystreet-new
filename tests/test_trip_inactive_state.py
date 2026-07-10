@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import BackgroundTasks
 
 from db.models import Trip
 from trips.api.crud import set_trip_inactive
@@ -94,6 +95,7 @@ async def test_set_trip_inactive_updates_trip_and_queues_refreshes(
     response = await set_trip_inactive(
         "trip-to-disable",
         TripInactiveUpdate(inactive=True),
+        BackgroundTasks(),
     )
 
     refreshed = await Trip.find_one(Trip.transactionId == "trip-to-disable")
@@ -150,6 +152,7 @@ async def test_set_trip_inactive_is_noop_when_state_unchanged(
     response = await set_trip_inactive(
         "already-inactive",
         TripInactiveUpdate(inactive=True),
+        BackgroundTasks(),
     )
 
     assert response["changed"] is False

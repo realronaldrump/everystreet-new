@@ -299,6 +299,61 @@ def test_owner_only_api_rejects_viewer_and_requires_csrf(
     assert with_csrf.json() == {"status": "updated"}
 
 
+def test_owner_form_submission_keeps_form_fields_after_csrf_validation(
+    auth_test_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    upsert_and_authorize = AsyncMock()
+    monkeypatch.setattr(
+        "api.pages.VehicleService.upsert_and_authorize",
+        upsert_and_authorize,
+    )
+
+    client = _login(auth_test_client)
+    csrf_token = client.get("/api/auth/session").json()["csrf_token"]
+
+    response = client.post(
+        "/vehicles/add-vehicle",
+        data={
+            "imei": "123456789012345",
+            "custom_name": "Test Vehicle",
+            "csrf_token": csrf_token,
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    upsert_and_authorize.assert_awaited_once_with(
+        "123456789012345",
+        "Test Vehicle",
+    )
+
+
+def test_owner_form_submission_rejects_invalid_csrf(
+    auth_test_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    upsert_and_authorize = AsyncMock()
+    monkeypatch.setattr(
+        "api.pages.VehicleService.upsert_and_authorize",
+        upsert_and_authorize,
+    )
+
+    client = _login(auth_test_client)
+    response = client.post(
+        "/vehicles/add-vehicle",
+        data={
+            "imei": "123456789012345",
+            "custom_name": "Test Vehicle",
+            "csrf_token": "invalid-token",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 403
+    upsert_and_authorize.assert_not_awaited()
+
+
 def test_viewer_public_map_page_renders_shell_banner(
     auth_test_client: TestClient,
 ) -> None:

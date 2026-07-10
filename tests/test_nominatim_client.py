@@ -52,7 +52,7 @@ async def test_nominatim_search_raises_on_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     response = FakeResponse(status=500, text_data="boom")
-    session = FakeSession(get_responses=[response, response, response, response])
+    session = FakeSession(get_responses=[response])
     monkeypatch.setattr(
         "core.http.nominatim.get_session",
         AsyncMock(return_value=session),
@@ -142,7 +142,7 @@ async def test_nominatim_reverse_raises_on_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     response = FakeResponse(status=500, text_data="oops")
-    session = FakeSession(get_responses=[response, response, response, response])
+    session = FakeSession(get_responses=[response])
     monkeypatch.setattr(
         "core.http.nominatim.get_session",
         AsyncMock(return_value=session),

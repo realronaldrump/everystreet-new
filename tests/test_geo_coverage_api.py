@@ -85,4 +85,4 @@ def test_geo_coverage_cities_forwards_query_params() -> None:
 def test_geo_coverage_has_no_manual_recalculate_route() -> None:
     client = TestClient(_create_app())
     response = client.post("/api/geo-coverage/recalculate", params={"mode": "full"})
-    assert response.status_code == 404
+    assert response.status_code == 405

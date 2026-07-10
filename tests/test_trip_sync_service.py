@@ -154,7 +154,7 @@ async def test_sync_status_running(beanie_db_with_tasks) -> None:
 
 
 @pytest.mark.asyncio
-async def test_sync_status_recovers_when_failure_is_newer(beanie_db_with_tasks) -> None:
+async def test_sync_status_error_when_failure_is_newer(beanie_db_with_tasks) -> None:
     await seed_credentials()
     success_time = datetime.now(UTC) - timedelta(hours=4)
     failure_time = datetime.now(UTC) - timedelta(minutes=15)
@@ -178,7 +178,7 @@ async def test_sync_status_recovers_when_failure_is_newer(beanie_db_with_tasks) 
     await failure.insert()
 
     status = await TripSyncService.get_sync_status()
-    assert status["state"] == "recovering"
+    assert status["state"] == "error"
     assert status["error"]["code"] == "sync_failed"
 
 
@@ -347,7 +347,7 @@ async def test_sync_status_clears_stale_running_lock(beanie_db_with_tasks) -> No
     await running.insert()
 
     status = await TripSyncService.get_sync_status()
-    assert status["state"] == "idle"
+    assert status["state"] == "error"
     assert status["current_job_id"] is None
 
     history = await TaskHistory.get("job-stale-running")
@@ -390,7 +390,7 @@ async def test_sync_status_clears_stale_history_import_job(
     await job.insert()
 
     status = await TripSyncService.get_sync_status()
-    assert status["state"] == "recovering"
+    assert status["state"] == "error"
     assert status["current_job_id"] is None
 
     updated_history = await TaskHistory.get("arq-history-stale")

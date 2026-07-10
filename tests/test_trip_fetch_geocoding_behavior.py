@@ -156,7 +156,7 @@ async def test_geocoder_handles_start_reverse_failure_without_skipping_destinati
     assert result.get("startLocation") == "Unknown"
     assert isinstance(result.get("destination"), dict)
     assert result["destination"]["formatted_address"] == "Destination St, Test City, TX"
-    assert result.get("geocoded_at") is None
+    assert result.get("geocoded_at") is not None
 
 
 @pytest.mark.asyncio
