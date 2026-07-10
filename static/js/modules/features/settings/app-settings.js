@@ -1,10 +1,5 @@
-/**
- * App Settings Module - Handles app preferences, tab switching, and settings form
- */
-
 import apiClient from "../../core/api-client.js";
 import { CONFIG } from "../../core/config.js";
-import notificationManager from "../../ui/notifications.js";
 import { setMap3dBuildingsPreference } from "../map/buildings-3d.js";
 import { setTerrainReliefPreference } from "../map/terrain-relief.js";
 import { setTripLayerHeatmapPreference } from "../map/trip-layer-render-mode.js";
@@ -12,355 +7,247 @@ import { setTripLayerHeatmapPreference } from "../map/trip-layer-render-mode.js"
 const TAB_STORAGE_KEY = "es:settings-active-tab";
 export const SETTINGS_TAB_CHANGED_EVENT = "settings:tab-changed";
 const TAB_ALIASES = {
-  sync: "sync-settings",
-  coverage: "map-services",
-  status: "overview",
-  "server-logs": "logs",
+  overview: "system",
+  status: "system",
+  sync: "system",
+  "sync-settings": "system",
+  "data-management": "system",
+  storage: "system",
+  logs: "system",
+  "server-logs": "system",
+  "map-services": "system",
+  credentials: "connections",
   profile: "account",
 };
 
 function normalizeTabName(value) {
-  if (!value) {
-    return "";
-  }
-  const name = value.replace(/^#/, "").trim();
-  const normalized = name.endsWith("-tab") ? name.slice(0, -4) : name;
-  return TAB_ALIASES[normalized] || normalized;
-}
-
-function readStoredBoolean(key) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw === "true") {
-      return true;
-    }
-    if (raw === "false") {
-      return false;
-    }
-  } catch {
-    // Ignore storage failures.
-  }
-  return null;
+  const name = String(value || "")
+    .replace(/^#/, "")
+    .replace(/-tab$/, "")
+    .trim();
+  return TAB_ALIASES[name] || name;
 }
 
 export function setActiveTab(tabName, { persist = true, updateHash = false } = {}) {
-  const normalizedTabName = normalizeTabName(tabName);
-  if (!normalizedTabName) {
+  const normalized = normalizeTabName(tabName);
+  const button = document.querySelector(`.settings-tab[data-tab="${normalized}"]`);
+  const panel = document.getElementById(`${normalized}-tab`);
+  if (!button || !panel) {
     return false;
   }
 
-  const tabs = document.querySelectorAll(".settings-tab");
-  const tabContents = document.querySelectorAll(".settings-tab-content");
-  const tabButton = document.querySelector(
-    `.settings-tab[data-tab="${normalizedTabName}"]`
-  );
-  const tabContent = document.getElementById(`${normalizedTabName}-tab`);
-
-  if (!tabButton || !tabContent) {
-    return false;
-  }
-
-  tabs.forEach((tab) => {
-    const active = tab.dataset.tab === normalizedTabName;
+  document.querySelectorAll(".settings-tab").forEach((tab) => {
+    const active = tab === button;
     tab.classList.toggle("active", active);
     tab.setAttribute("aria-selected", String(active));
   });
-
-  tabContents.forEach((content) => {
-    const active = content.id === `${normalizedTabName}-tab`;
-    content.classList.toggle("active", active);
-    content.hidden = !active;
+  document.querySelectorAll(".settings-panel").forEach((candidate) => {
+    const active = candidate === panel;
+    candidate.classList.toggle("active", active);
+    candidate.hidden = !active;
   });
 
   if (persist) {
-    localStorage.setItem(TAB_STORAGE_KEY, normalizedTabName);
+    localStorage.setItem(TAB_STORAGE_KEY, normalized);
   }
-
   if (updateHash) {
     const url = new URL(window.location.href);
-    url.hash = normalizedTabName;
-    window.history.replaceState(window.history.state, document.title, url.toString());
+    url.hash = normalized;
+    window.history.replaceState(window.history.state, document.title, url);
   }
-
   document.dispatchEvent(
-    new CustomEvent(SETTINGS_TAB_CHANGED_EVENT, {
-      detail: { tabName: normalizedTabName },
-    })
+    new CustomEvent(SETTINGS_TAB_CHANGED_EVENT, { detail: { tabName: normalized } })
   );
-
   return true;
 }
 
-function setupTabSwitching({ signal } = {}) {
-  const tabs = document.querySelectorAll(".settings-tab");
-
-  const hashTab = normalizeTabName(window.location.hash);
-  const storedTab = normalizeTabName(localStorage.getItem(TAB_STORAGE_KEY));
-  const initialTab = hashTab || storedTab || "overview";
-  if (!setActiveTab(initialTab, { persist: true })) {
-    if (storedTab) {
-      localStorage.removeItem(TAB_STORAGE_KEY);
-    }
-    setActiveTab("overview", { persist: true });
+function setupTabs(signal) {
+  const options = signal ? { signal } : undefined;
+  const initial =
+    normalizeTabName(window.location.hash) ||
+    normalizeTabName(localStorage.getItem(TAB_STORAGE_KEY)) ||
+    "system";
+  if (!setActiveTab(initial)) {
+    setActiveTab("system");
   }
 
-  const eventOptions = signal ? { signal } : false;
-
-  tabs.forEach((tab) => {
+  document.querySelectorAll(".settings-tab").forEach((tab) => {
     tab.addEventListener(
       "click",
-      function () {
-        const tabName = this.dataset.tab;
-
-        setActiveTab(tabName, { updateHash: true });
-      },
-      eventOptions
+      () => setActiveTab(tab.dataset.tab, { updateHash: true }),
+      options
     );
   });
-
   window.addEventListener(
     "hashchange",
-    () => {
-      const tabName = normalizeTabName(window.location.hash);
-      setActiveTab(tabName);
-    },
-    eventOptions
+    () => setActiveTab(normalizeTabName(window.location.hash)),
+    options
   );
 }
 
-function setupAppSettingsForm() {
-  const mapProviderSelect = document.getElementById("map-provider-select");
-  const darkModeToggle = document.getElementById("dark-mode-toggle");
-  const highlightRecentTrips = document.getElementById("highlight-recent-trips");
-  const autoCenterToggle = document.getElementById("auto-center-toggle");
-  const map3dBuildingsToggle = document.getElementById("map-3d-buildings-toggle");
-  const mapTerrainReliefToggle = document.getElementById("map-terrain-relief-toggle");
-  const mapTripsWithinCoverageOnlyToggle = document.getElementById(
-    "map-trips-within-coverage-only"
-  );
-  const tripLayersUseHeatmapToggle = document.getElementById("trip-layers-use-heatmap");
-  const geocodeTripsOnFetch = document.getElementById("geocode-trips-on-fetch");
-  const mapMatchTripsOnFetch = document.getElementById("map-match-trips-on-fetch");
+function readStoredBoolean(key) {
+  const raw = localStorage.getItem(key);
+  return raw === "true" ? true : raw === "false" ? false : null;
+}
+
+function setupPreferences(signal) {
   const form = document.getElementById("app-settings-form");
-  const themeToggleCheckbox = document.getElementById("theme-toggle-checkbox");
-  const densityOptions = document.querySelectorAll("input[name='ui-density']");
-
-  // Function to apply settings to UI
-  function applySettings(settings = {}) {
-    const {
-      map_provider,
-      highlightRecentTrips: hrt,
-      autoCenter,
-      map3dBuildingsEnabled,
-      mapTerrainReliefEnabled,
-      mapTripsWithinCoverageOnly,
-      tripLayersUseHeatmap,
-      geocodeTripsOnFetch: gtof,
-      mapMatchTripsOnFetch: mmtof,
-      uiDensity,
-    } = settings;
-
-    const isDarkMode =
-      document.documentElement.getAttribute("data-bs-theme") === "dark";
-
-    // Apply settings to form elements
-    if (mapProviderSelect) {
-      mapProviderSelect.value = map_provider || "self_hosted";
-    }
-    if (darkModeToggle) {
-      darkModeToggle.checked = isDarkMode;
-    }
-    if (highlightRecentTrips) {
-      highlightRecentTrips.checked = hrt !== false;
-    }
-    if (autoCenterToggle) {
-      autoCenterToggle.checked = autoCenter !== false;
-    }
-    const storedMap3dBuildings = readStoredBoolean(
-      CONFIG.STORAGE_KEYS.map3dBuildingsEnabled
-    );
-    const resolvedMap3dBuildings =
-      typeof map3dBuildingsEnabled === "boolean"
-        ? map3dBuildingsEnabled
-        : storedMap3dBuildings;
-    if (map3dBuildingsToggle) {
-      map3dBuildingsToggle.checked = resolvedMap3dBuildings !== false;
-    }
-    if (typeof resolvedMap3dBuildings === "boolean") {
-      setMap3dBuildingsPreference(resolvedMap3dBuildings);
-    }
-    const storedMapTerrainRelief = readStoredBoolean(
-      CONFIG.STORAGE_KEYS.mapTerrainReliefEnabled
-    );
-    const resolvedMapTerrainRelief =
-      typeof storedMapTerrainRelief === "boolean"
-        ? storedMapTerrainRelief
-        : mapTerrainReliefEnabled;
-    if (mapTerrainReliefToggle) {
-      mapTerrainReliefToggle.checked = resolvedMapTerrainRelief === true;
-    }
-    if (typeof resolvedMapTerrainRelief === "boolean") {
-      setTerrainReliefPreference(resolvedMapTerrainRelief);
-    }
-    const storedCoverageOnly = readStoredBoolean(
-      CONFIG.STORAGE_KEYS.mapTripsWithinCoverageOnly
-    );
-    const resolvedCoverageOnly =
-      typeof mapTripsWithinCoverageOnly === "boolean"
-        ? mapTripsWithinCoverageOnly
-        : storedCoverageOnly;
-    if (mapTripsWithinCoverageOnlyToggle) {
-      mapTripsWithinCoverageOnlyToggle.checked = resolvedCoverageOnly === true;
-    }
-    if (typeof resolvedCoverageOnly === "boolean") {
-      localStorage.setItem(
-        CONFIG.STORAGE_KEYS.mapTripsWithinCoverageOnly,
-        resolvedCoverageOnly ? "true" : "false"
-      );
-    }
-    const storedTripLayersUseHeatmap = readStoredBoolean(
-      CONFIG.STORAGE_KEYS.tripLayersUseHeatmap
-    );
-    const resolvedTripLayersUseHeatmap =
-      typeof tripLayersUseHeatmap === "boolean"
-        ? tripLayersUseHeatmap
-        : storedTripLayersUseHeatmap;
-    if (tripLayersUseHeatmapToggle) {
-      tripLayersUseHeatmapToggle.checked = resolvedTripLayersUseHeatmap !== false;
-    }
-    if (typeof resolvedTripLayersUseHeatmap === "boolean") {
-      setTripLayerHeatmapPreference(resolvedTripLayersUseHeatmap);
-    }
-    if (geocodeTripsOnFetch) {
-      geocodeTripsOnFetch.checked = gtof !== false;
-    }
-    if (mapMatchTripsOnFetch) {
-      mapMatchTripsOnFetch.checked = mmtof === true;
-    }
-
-    const densityValue =
-      uiDensity || localStorage.getItem("es:ui-density") || "comfortable";
-    densityOptions.forEach((input) => {
-      input.checked = input.value === densityValue;
-    });
-
-    // Hide Map Services tab if Map Provider is Google Maps
-    const mapServicesTabBtn = document.querySelector(
-      `.settings-tab[data-tab="map-services"]`
-    );
-    const mapServicesPanel = document.getElementById("map-services-tab");
-    const usingGoogle = String(map_provider || "").toLowerCase() === "google";
-    if (mapServicesTabBtn) {
-      mapServicesTabBtn.style.display = usingGoogle ? "none" : "";
-    }
-    if (mapServicesPanel) {
-      mapServicesPanel.style.display = usingGoogle ? "none" : "";
-    }
-    if (usingGoogle) {
-      const hashTab =
-        normalizeTabName(window.location.hash) ||
-        normalizeTabName(localStorage.getItem(TAB_STORAGE_KEY));
-      if (hashTab === "map-services") {
-        setActiveTab("overview", { updateHash: true });
-      }
-    }
-    window.densityManager?.apply?.(densityValue, { persist: false });
+  if (!form) {
+    return;
   }
+  const fields = {
+    mapProvider: document.getElementById("map-provider-select"),
+    darkMode: document.getElementById("dark-mode-toggle"),
+    highlightRecent: document.getElementById("highlight-recent-trips"),
+    autoCenter: document.getElementById("auto-center-toggle"),
+    buildings: document.getElementById("map-3d-buildings-toggle"),
+    terrain: document.getElementById("map-terrain-relief-toggle"),
+    coverageOnly: document.getElementById("map-trips-within-coverage-only"),
+    heatmap: document.getElementById("trip-layers-use-heatmap"),
+    accent: document.getElementById("accent-color-picker"),
+    saveState: document.getElementById("preferences-save-state"),
+  };
+  const densityInputs = [...form.querySelectorAll("input[name='ui-density']")];
+  const headerThemeToggle = document.getElementById("theme-toggle-checkbox");
+  let saveTimer = null;
+  let previousProvider = null;
 
-  // Load settings from server
-  (async () => {
-    try {
-      const data = await apiClient.get("/api/app_settings");
-      applySettings(data);
-    } catch {
-      applySettings();
-    }
-  })();
-
-  // Save preferences function
-  async function savePreferences() {
-    const densityValue = [...densityOptions].find((input) => input.checked)?.value;
-    const mapProvider = mapProviderSelect?.value || "self_hosted";
-    const payload = {
-      map_provider: mapProvider,
-      highlightRecentTrips: highlightRecentTrips?.checked,
-      autoCenter: autoCenterToggle?.checked,
-      map3dBuildingsEnabled: map3dBuildingsToggle?.checked ?? true,
-      mapTerrainReliefEnabled: mapTerrainReliefToggle?.checked ?? false,
-      mapTripsWithinCoverageOnly: mapTripsWithinCoverageOnlyToggle?.checked ?? false,
-      tripLayersUseHeatmap: tripLayersUseHeatmapToggle?.checked ?? true,
-      geocodeTripsOnFetch: geocodeTripsOnFetch?.checked,
-      mapMatchTripsOnFetch: mapMatchTripsOnFetch?.checked,
-      uiDensity: densityValue || "comfortable",
-    };
-
-    try {
-      await apiClient.post("/api/app_settings", payload);
-    } catch {
-      notificationManager.show("Failed to save settings on server", "danger");
+  const setSaveState = (label, state = "saved") => {
+    if (!fields.saveState) {
       return;
     }
+    fields.saveState.textContent = label;
+    fields.saveState.dataset.state = state;
+  };
 
-    // Mirror to localStorage
-    localStorage.setItem("highlightRecentTrips", payload.highlightRecentTrips);
-    localStorage.setItem("autoCenter", payload.autoCenter);
-    setMap3dBuildingsPreference(payload.map3dBuildingsEnabled);
-    setTerrainReliefPreference(payload.mapTerrainReliefEnabled);
+  const applyLocalPreferences = (payload) => {
+    localStorage.setItem("highlightRecentTrips", String(payload.highlightRecentTrips));
+    localStorage.setItem("autoCenter", String(payload.autoCenter));
+    localStorage.setItem("es:accent-color", payload.accentColor);
+    localStorage.setItem("es:ui-density", payload.uiDensity);
     localStorage.setItem(
       CONFIG.STORAGE_KEYS.mapTripsWithinCoverageOnly,
-      payload.mapTripsWithinCoverageOnly ? "true" : "false"
+      String(payload.mapTripsWithinCoverageOnly)
     );
+    setMap3dBuildingsPreference(payload.map3dBuildingsEnabled);
+    setTerrainReliefPreference(payload.mapTerrainReliefEnabled);
     setTripLayerHeatmapPreference(payload.tripLayersUseHeatmap);
-    localStorage.setItem("es:ui-density", payload.uiDensity);
-
+    window.personalization?.applyPreferences?.({
+      accentColor: payload.accentColor,
+      density: payload.uiDensity,
+      persist: false,
+    });
     window.densityManager?.apply?.(payload.uiDensity, { persist: false });
+  };
 
-    // Show success
-    notificationManager.show("Settings saved successfully", "success");
-
-    // Reload if map provider changed
-    if (
-      window.MAP_PROVIDER &&
-      window.MAP_PROVIDER.toLowerCase() !== payload.map_provider.toLowerCase()
-    ) {
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
-      notificationManager.show("Map Provider changed. Reloading app...", "info");
-    }
-  }
-
-  // Form submission
-  if (form) {
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      await savePreferences();
-    });
-  }
-
-  // Dark mode toggle sync
-  if (darkModeToggle) {
-    darkModeToggle.addEventListener("change", function () {
-      if (themeToggleCheckbox) {
-        themeToggleCheckbox.checked = !this.checked;
-        themeToggleCheckbox.dispatchEvent(new Event("change"));
-      }
-    });
-  }
-
-  densityOptions.forEach((input) => {
-    input.addEventListener("change", () => {
-      if (input.checked) {
-        window.densityManager?.apply?.(input.value, { persist: false });
-      }
-    });
+  const collect = () => ({
+    map_provider: fields.mapProvider?.value || "self_hosted",
+    highlightRecentTrips: fields.highlightRecent?.checked ?? true,
+    autoCenter: fields.autoCenter?.checked ?? true,
+    map3dBuildingsEnabled: fields.buildings?.checked ?? true,
+    mapTerrainReliefEnabled: fields.terrain?.checked ?? false,
+    mapTripsWithinCoverageOnly: fields.coverageOnly?.checked ?? false,
+    tripLayersUseHeatmap: fields.heatmap?.checked ?? true,
+    accentColor: fields.accent?.value || "#b87a4a",
+    uiDensity: densityInputs.find((input) => input.checked)?.value || "comfortable",
   });
+
+  const save = async () => {
+    const payload = collect();
+    applyLocalPreferences(payload);
+    setSaveState("Saving…", "saving");
+    try {
+      await apiClient.post("/api/app_settings", payload, { signal });
+      setSaveState("Saved automatically");
+      if (previousProvider && previousProvider !== payload.map_provider) {
+        window.location.reload();
+      }
+      previousProvider = payload.map_provider;
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+      setSaveState("Couldn’t save — retrying on next change", "error");
+    }
+  };
+
+  const scheduleSave = () => {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+    }
+    setSaveState("Saving…", "saving");
+    saveTimer = setTimeout(save, 450);
+  };
+
+  const applySettings = (settings = {}) => {
+    previousProvider = settings.map_provider || "self_hosted";
+    if (fields.mapProvider) fields.mapProvider.value = previousProvider;
+    if (fields.darkMode) {
+      fields.darkMode.checked =
+        document.documentElement.getAttribute("data-bs-theme") === "dark";
+    }
+    if (fields.highlightRecent) {
+      fields.highlightRecent.checked = settings.highlightRecentTrips !== false;
+    }
+    if (fields.autoCenter) fields.autoCenter.checked = settings.autoCenter !== false;
+
+    const buildings =
+      typeof settings.map3dBuildingsEnabled === "boolean"
+        ? settings.map3dBuildingsEnabled
+        : (readStoredBoolean(CONFIG.STORAGE_KEYS.map3dBuildingsEnabled) ?? true);
+    const terrain =
+      typeof settings.mapTerrainReliefEnabled === "boolean"
+        ? settings.mapTerrainReliefEnabled
+        : (readStoredBoolean(CONFIG.STORAGE_KEYS.mapTerrainReliefEnabled) ?? false);
+    const coverageOnly =
+      typeof settings.mapTripsWithinCoverageOnly === "boolean"
+        ? settings.mapTripsWithinCoverageOnly
+        : (readStoredBoolean(CONFIG.STORAGE_KEYS.mapTripsWithinCoverageOnly) ?? false);
+    const heatmap =
+      typeof settings.tripLayersUseHeatmap === "boolean"
+        ? settings.tripLayersUseHeatmap
+        : (readStoredBoolean(CONFIG.STORAGE_KEYS.tripLayersUseHeatmap) ?? true);
+    if (fields.buildings) fields.buildings.checked = buildings;
+    if (fields.terrain) fields.terrain.checked = terrain;
+    if (fields.coverageOnly) fields.coverageOnly.checked = coverageOnly;
+    if (fields.heatmap) fields.heatmap.checked = heatmap;
+    if (fields.accent) {
+      fields.accent.value = localStorage.getItem("es:accent-color") || "#b87a4a";
+    }
+    const density = localStorage.getItem("es:ui-density") || "comfortable";
+    densityInputs.forEach((input) => {
+      input.checked = input.value === density;
+    });
+    applyLocalPreferences(collect());
+  };
+
+  apiClient
+    .get("/api/app_settings", { signal })
+    .then(applySettings)
+    .catch(() => applySettings());
+
+  const options = signal ? { signal } : undefined;
+  form.addEventListener("change", scheduleSave, options);
+  fields.accent?.addEventListener("input", scheduleSave, options);
+  fields.darkMode?.addEventListener(
+    "change",
+    () => {
+      if (headerThemeToggle) {
+        headerThemeToggle.checked = !fields.darkMode.checked;
+        headerThemeToggle.dispatchEvent(new Event("change"));
+      } else {
+        document.documentElement.setAttribute(
+          "data-bs-theme",
+          fields.darkMode.checked ? "dark" : "light"
+        );
+      }
+    },
+    options
+  );
+  signal?.addEventListener("abort", () => clearTimeout(saveTimer), { once: true });
 }
 
-/**
- * Initialize all app settings functionality
- */
 export function initAppSettings({ signal } = {}) {
-  setupTabSwitching({ signal });
-  setupAppSettingsForm();
+  setupTabs(signal);
+  setupPreferences(signal);
 }

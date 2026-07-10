@@ -165,8 +165,16 @@ class TripGeocoder:
 
             from core.date_utils import get_current_utc_time
 
-            processed_data["location_schema_version"] = 2
-            processed_data["geocoded_at"] = get_current_utc_time()
+            locations_complete = not self._needs_geocode(
+                processed_data.get("startLocation"),
+            ) and not self._needs_geocode(processed_data.get("destination"))
+            if locations_complete:
+                processed_data["location_schema_version"] = 2
+                processed_data["geocoded_at"] = get_current_utc_time()
+            else:
+                # Leave the projection visibly incomplete so the scheduled
+                # reconciler retries after the provider recovers.
+                processed_data.pop("geocoded_at", None)
 
         except Exception as exc:
             logger.warning(

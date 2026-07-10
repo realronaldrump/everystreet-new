@@ -2,3024 +2,334 @@
 
 {% from "partials/_map_assets.html" import static_css with context %}
 
-{% block title %}
-
-Settings
-{% endblock %}
-
+{% block title %}Settings{% endblock %}
 
 {% block extra_css %}
-
   {{ static_css("settings.css") }}
-  {{ static_css("server-logs.css") }}
-  {{ static_css("profile.css") }}
 {% endblock %}
-
 
 {% block content %}
-
-  <div class="container-fluid settings-container">
-    <header class="page-masthead" data-stagger>
+  <main class="settings-shell">
+    <header class="page-masthead settings-masthead" data-stagger>
       <div class="pm-lead">
-        <p class="pm-eyebrow">The engine room</p>
+        <p class="pm-eyebrow">Runs itself</p>
         <h1 class="pm-title">Settings</h1>
-        <p class="pm-sub">App preferences, operations health, logs, and account tools.</p>
+        <p class="pm-sub">
+          EveryStreet keeps trips, maps, coverage, and insights current automatically.
+          You only need to choose how it looks and connect the services you use.
+        </p>
+      </div>
+      <div class="pm-aside settings-system-pill" id="settings-system-pill" data-state="loading">
+        <span class="settings-system-dot" aria-hidden="true"></span>
+        <span id="settings-system-pill-label">Checking system</span>
       </div>
     </header>
-    <div class="settings-nav-container">
-      <nav class="settings-tabs atlas-tabs" role="tablist">
-        <button class="settings-tab atlas-tab active"
-                id="overview-tab-button"
-                data-tab="overview"
-                role="tab"
-                aria-selected="true"
-                aria-controls="overview-tab">
-          <i class="fas fa-compass"></i>
-          <span>Overview</span>
-        </button>
-        <button class="settings-tab atlas-tab"
-                id="preferences-tab-button"
-                data-tab="preferences"
-                role="tab"
-                aria-selected="false"
-                aria-controls="preferences-tab">
-          <i class="fas fa-sliders-h"></i>
-          <span>Preferences</span>
-        </button>
-        <button class="settings-tab atlas-tab"
-                id="credentials-tab-button"
-                data-tab="credentials"
-                role="tab"
-                aria-selected="false"
-                aria-controls="credentials-tab">
-          <i class="fas fa-key"></i>
-          <span>Credentials</span>
-        </button>
-        <button class="settings-tab atlas-tab"
-                id="sync-settings-tab-button"
-                data-tab="sync-settings"
-                role="tab"
-                aria-selected="false"
-                aria-controls="sync-settings-tab">
-          <i class="fas fa-sync"></i>
-          <span>Sync</span>
-        </button>
-        <button class="settings-tab atlas-tab"
-                id="data-management-tab-button"
-                data-tab="data-management"
-                role="tab"
-                aria-selected="false"
-                aria-controls="data-management-tab">
-          <i class="fas fa-database"></i>
-          <span>Data</span>
-        </button>
-        <button class="settings-tab atlas-tab"
-                id="storage-tab-button"
-                data-tab="storage"
-                role="tab"
-                aria-selected="false"
-                aria-controls="storage-tab">
-          <i class="fas fa-server"></i>
-          <span>Storage</span>
-        </button>
-        {% if app_settings and (app_settings.get('map_provider') | default('', true) | lower) != 'google' %}
-          <button class="settings-tab atlas-tab"
-                  id="map-services-tab-button"
-                  data-tab="map-services"
-                  role="tab"
-                  aria-selected="false"
-                  aria-controls="map-services-tab">
-            <i class="fas fa-globe"></i>
-            <span>Map Services</span>
-          </button>
-        {% endif %}
-        <button class="settings-tab atlas-tab"
-                id="logs-tab-button"
-                data-tab="logs"
-                role="tab"
-                aria-selected="false"
-                aria-controls="logs-tab">
-          <i class="fas fa-file-alt"></i>
-          <span>Logs</span>
-        </button>
-        <button class="settings-tab atlas-tab"
-                id="account-tab-button"
-                data-tab="account"
-                role="tab"
-                aria-selected="false"
-                aria-controls="account-tab">
-          <i class="fas fa-user-circle"></i>
-          <span>Account</span>
-        </button>
-      </nav>
-    </div>
-    <div class="settings-tab-content active"
-         id="overview-tab"
-         role="tabpanel"
-         aria-labelledby="overview-tab-button">
-      <div class="content-grid control-center-overview-grid" data-stagger>
-        <div class="settings-group grid-span-12">
-          <h3 class="settings-group-title">
-            <i class="fas fa-heart-pulse"></i>
-            System Overview
-          </h3>
-          <div class="control-center-overview-header">
-            <span class="status-chip cc-overview-status-badge" id="cc-overview-status-badge">
-              Loading
-            </span>
-            <span class="text-muted small" id="cc-overview-last-updated">Last updated: --</span>
-          </div>
-          <p class="control-center-overview-message" id="cc-overview-status-message">
-            Loading system status...
-          </p>
-          <p class="text-muted small" id="cc-overview-summary">
-            Checking services, storage, and background tasks.
-          </p>
+
+    <nav class="settings-tabs atlas-tabs" role="tablist" aria-label="Settings sections">
+      <button class="settings-tab atlas-tab active"
+              id="system-tab-button"
+              data-tab="system"
+              role="tab"
+              aria-selected="true"
+              aria-controls="system-tab">
+        <i class="fas fa-heart-pulse" aria-hidden="true"></i>
+        <span>System</span>
+      </button>
+      <button class="settings-tab atlas-tab"
+              id="preferences-tab-button"
+              data-tab="preferences"
+              role="tab"
+              aria-selected="false"
+              aria-controls="preferences-tab">
+        <i class="fas fa-sliders" aria-hidden="true"></i>
+        <span>Preferences</span>
+      </button>
+      <button class="settings-tab atlas-tab"
+              id="connections-tab-button"
+              data-tab="connections"
+              role="tab"
+              aria-selected="false"
+              aria-controls="connections-tab">
+        <i class="fas fa-link" aria-hidden="true"></i>
+        <span>Connections</span>
+      </button>
+      <button class="settings-tab atlas-tab"
+              id="account-tab-button"
+              data-tab="account"
+              role="tab"
+              aria-selected="false"
+              aria-controls="account-tab">
+        <i class="fas fa-user" aria-hidden="true"></i>
+        <span>Account</span>
+      </button>
+    </nav>
+
+    <section class="settings-panel active"
+             id="system-tab"
+             role="tabpanel"
+             aria-labelledby="system-tab-button">
+      <div class="system-hero" id="system-hero" data-state="loading">
+        <div class="system-hero-icon" aria-hidden="true">
+          <i class="fas fa-circle-notch fa-spin"></i>
         </div>
-
-        <div class="settings-group grid-span-12">
-          <h3 class="settings-group-title">
-            <i class="fas fa-server"></i>
-            Key Services
-          </h3>
-          <div class="control-center-services-grid" id="cc-overview-services">
-            <div class="text-muted small">
-Loading services...
-            </div>
-          </div>
-        </div>
-
-        <div class="settings-group grid-span-6">
-          <h3 class="settings-group-title">
-            <i class="fas fa-triangle-exclamation"></i>
-            Recent Failures
-          </h3>
-          <div id="cc-overview-failures" class="control-center-failures-list">
-            <div class="text-muted small">
-Loading recent task failures...
-            </div>
-          </div>
-        </div>
-
-        <div class="settings-group grid-span-6">
-          <h3 class="settings-group-title">
-            <i class="fas fa-bolt"></i>
-            Quick Actions
-          </h3>
-          <div class="control-center-quick-actions">
-            <button type="button" class="btn btn-outline-light text-start" data-open-tab="storage">
-              <i class="fas fa-database me-2"></i> Open Storage Tools
-            </button>
-            <button type="button" class="btn btn-outline-light text-start" data-open-tab="logs">
-              <i class="fas fa-terminal me-2"></i> Open Logs
-            </button>
-            <button type="button"
-                    class="btn btn-outline-light text-start"
-                    data-open-tab="sync-settings">
-              <i class="fas fa-sync me-2"></i> Open Sync Settings
-            </button>
-            <a class="btn btn-outline-light text-start" href="/setup-wizard">
-              <i class="fas fa-compass-drafting me-2"></i> Open Setup Wizard
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="settings-tab-content"
-         id="preferences-tab"
-         role="tabpanel"
-         aria-labelledby="preferences-tab-button"
-         hidden>
-      <div class="preferences-section">
-        <form id="app-settings-form">
-          <div class="content-grid" data-stagger>
-            <div class="settings-group grid-span-6">
-              <h3 class="settings-group-title">
-                <i class="fas fa-palette"></i>
-              Appearance
-              </h3>
-              <div class="setting-item">
-                <label class="setting-label" for="dark-mode-toggle">
-                  <span class="setting-label-title">
-Dark Mode
-                  </span>
-                  <span class="setting-label-description">
-                  Use dark theme for the application interface
-                  </span>
-                </label>
-                <div class="setting-control">
-                  <div class="form-check form-switch">
-                    <input class="form-check-input"
-                           type="checkbox"
-                           role="switch"
-                           id="dark-mode-toggle"
-                           checked />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="settings-group grid-span-6">
-              <h3 class="settings-group-title">
-                <i class="fas fa-ruler-combined"></i>
-                Layout
-              </h3>
-              <div class="setting-item">
-                <div class="setting-label">
-                  <div class="setting-label-title">
-Information Density
-                  </div>
-                  <div class="setting-label-description">
-                  Adjust spacing to fit more or less on each screen
-                  </div>
-                </div>
-                <div class="setting-control">
-                  <div class="option-group" role="radiogroup" aria-label="Information density">
-                    <label class="density-option">
-                      <input type="radio" name="ui-density" value="compact" />
-                      <span>Compact</span>
-                    </label>
-                    <label class="density-option">
-                      <input type="radio" name="ui-density" value="comfortable" checked />
-                      <span>Comfortable</span>
-                    </label>
-                    <label class="density-option">
-                      <input type="radio" name="ui-density" value="spacious" />
-                      <span>Spacious</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-            <div class="settings-group grid-span-6">
-              <h3 class="settings-group-title">
-                <i class="fas fa-map"></i>
-              Map
-              </h3>
-              <div class="setting-item">
-                <label class="setting-label" for="map-provider-select">
-                  <span class="setting-label-title">
-                    Map Engine
-                  </span>
-                  <span class="setting-label-description">
-                    Choose between Local map services and Google Maps Cloud
-                  </span>
-                </label>
-                <div class="setting-control">
-                  <select class="form-select form-select-sm"
-                          id="map-provider-select"
-                          style="min-width: 140px">
-                    <option value="self_hosted">
-Self-Hosted
-                    </option>
-                    <option value="google">
-Google Maps
-                    </option>
-                  </select>
-                </div>
-              </div>
-              <div class="setting-item">
-                <label class="setting-label" for="highlight-recent-trips">
-                  <span class="setting-label-title">
-Highlight Recent Trips
-                  </span>
-                  <span class="setting-label-description">
-                  Visually emphasize recently completed trips on the map
-                  </span>
-                </label>
-                <div class="setting-control">
-                  <div class="form-check form-switch">
-                    <input class="form-check-input"
-                           type="checkbox"
-                           role="switch"
-                           id="highlight-recent-trips"
-                           checked />
-                  </div>
-                </div>
-              </div>
-              <div class="setting-item">
-                <label class="setting-label" for="auto-center-toggle">
-                  <span class="setting-label-title">
-Auto-Center on Live Location
-                  </span>
-                  <span class="setting-label-description">
-                  Automatically center the map on your current location during live
-                  tracking
-                  </span>
-                </label>
-                <div class="setting-control">
-                  <div class="form-check form-switch">
-                    <input class="form-check-input"
-                           type="checkbox"
-                           role="switch"
-                           id="auto-center-toggle"
-                           checked />
-                  </div>
-                </div>
-              </div>
-              <div class="setting-item">
-                <label class="setting-label" for="map-3d-buildings-toggle">
-                  <span class="setting-label-title">
-3D Buildings (Mapbox)
-                  </span>
-                  <span class="setting-label-description">
-Show 3D building extrusions on Mapbox styles that support vector buildings
-                  </span>
-                </label>
-                <div class="setting-control">
-                  <div class="form-check form-switch">
-                    <input class="form-check-input"
-                           type="checkbox"
-                           role="switch"
-                           id="map-3d-buildings-toggle"
-                           checked />
-                  </div>
-                </div>
-              </div>
-              <div class="setting-item">
-                <label class="setting-label" for="map-terrain-relief-toggle">
-                  <span class="setting-label-title">
-Terrain Relief
-                  </span>
-                  <span class="setting-label-description">
-Show hillshade and 3D elevation on the main map when enabled from the map controls
-                  </span>
-                </label>
-                <div class="setting-control">
-                  <div class="form-check form-switch">
-                    <input class="form-check-input"
-                           type="checkbox"
-                           role="switch"
-                           id="map-terrain-relief-toggle" />
-                  </div>
-                </div>
-              </div>
-              <div class="setting-item">
-                <label class="setting-label" for="map-trips-within-coverage-only">
-                  <span class="setting-label-title">
-Show Only Trips Inside Selected Coverage Area
-                  </span>
-                  <span class="setting-label-description">
-When enabled on the map page, only the in-area portions of trips are rendered for the selected coverage area.
-                  </span>
-                </label>
-                <div class="setting-control">
-                  <div class="form-check form-switch">
-                    <input class="form-check-input"
-                           type="checkbox"
-                           role="switch"
-                           id="map-trips-within-coverage-only" />
-                  </div>
-                </div>
-              </div>
-              <div class="setting-item">
-                <label class="setting-label" for="trip-layers-use-heatmap">
-                  <span class="setting-label-title">
-Use Heatmap Style for Trips & Matched Trips
-                  </span>
-                  <span class="setting-label-description">
-Turn this off to render plain, mostly opaque route lines instead of heatmaps.
-                  </span>
-                </label>
-                <div class="setting-control">
-                  <div class="form-check form-switch">
-                    <input class="form-check-input"
-                           type="checkbox"
-                           role="switch"
-                           id="trip-layers-use-heatmap"
-                           checked />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-group grid-span-6">
-              <h3 class="settings-group-title">
-                <i class="fas fa-cogs"></i>
-              Trip Processing
-              </h3>
-              <div class="setting-item">
-                <label class="setting-label" for="geocode-trips-on-fetch">
-                  <span class="setting-label-title">
-Geocode Trips on Fetch
-                  </span>
-                  <span class="setting-label-description">
-                  Automatically reverse geocode trips when fetched from Bouncie to get
-                  start and end locations. Disable to reduce processing time.
-                  </span>
-                </label>
-                <div class="setting-control">
-                  <div class="form-check form-switch">
-                    <input class="form-check-input"
-                           type="checkbox"
-                           role="switch"
-                           id="geocode-trips-on-fetch"
-                           checked />
-                  </div>
-                </div>
-              </div>
-              <div class="setting-item">
-                <label class="setting-label" for="map-match-trips-on-fetch">
-                  <span class="setting-label-title">
-Map Match Trips on Fetch
-                  </span>
-                  <span class="setting-label-description">
-                  Automatically align fetched trip GPS traces to nearby roads.
-                  Disable to reduce fetch processing time.
-                  </span>
-                </label>
-                <div class="setting-control">
-                  <div class="form-check form-switch">
-                    <input class="form-check-input"
-                           type="checkbox"
-                           role="switch"
-                           id="map-match-trips-on-fetch" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="preferences-actions grid-span-12">
-              <button type="reset" class="btn btn-outline-secondary">
-                <i class="fas fa-undo"></i> Reset
-              </button>
-              <button type="submit" class="btn btn-primary">
-                <i class="fas fa-save"></i> Save Preferences
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
-    <div class="settings-tab-content"
-         id="credentials-tab"
-         role="tabpanel"
-         aria-labelledby="credentials-tab-button"
-         hidden>
-      <div class="content-grid" data-stagger>
-        <div class="settings-group grid-span-12">
-          <h3 class="settings-group-title">
-            <i class="fas fa-key"></i>
-          Credentials
-          </h3>
-          <p class="text-muted small">
-          Manage Google Maps and Bouncie credentials in one place.
-          </p>
-        </div>
-
-        <div class="settings-group grid-span-12">
-          <h3 class="settings-group-title">
-            <i class="fas fa-map-location-dot"></i>
-          Google Maps Credentials
-          </h3>
-          <p class="text-muted small">
-          Configure the API key used by the Google Maps JavaScript API loader.
-          </p>
-          <form id="credentials-google-form">
-            <div class="row">
-              <div class="col-12 mb-3">
-                <label for="credentials-google-maps-api-key" class="form-label">
-                Google Maps API Key
-                </label>
-                <input type="text"
-                       class="form-control"
-                       id="credentials-google-maps-api-key"
-                       autocomplete="off"
-                       spellcheck="false"
-                       placeholder="AIzaSy..." />
-                <div class="form-text">
-                Applied on next page load.
-                </div>
-              </div>
-            </div>
-            <div class="d-flex justify-content-end gap-2 flex-wrap">
-              <button type="submit" class="btn btn-primary" id="credentials-save-google-btn">
-                <i class="fas fa-save"></i> Save Google Key
-              </button>
-            </div>
-          </form>
-        </div>
-
-        <div class="settings-group grid-span-12">
-          <h3 class="settings-group-title">
-            <i class="fas fa-plug"></i>
-          Bouncie Credentials
-          </h3>
-          <p class="text-muted small">
-          Configure your Bouncie API credentials for trip fetching.
-          </p>
-          <form id="credentials-bouncie-form">
-            <div class="row">
-              <div class="col-md-6 mb-3">
-                <label for="credentials-clientId" class="form-label">
- Client ID
-                </label>
-                <input type="text"
-                       class="form-control"
-                       id="credentials-clientId"
-                       placeholder="Enter Client ID" />
-              </div>
-              <div class="col-md-6 mb-3">
-                <label for="credentials-clientSecret" class="form-label">
-                Client Secret
-                </label>
-                <div class="input-group">
-                  <input type="password"
-                         class="form-control"
-                         id="credentials-clientSecret"
-                         placeholder="Enter Client Secret" />
-                  <button class="btn btn-outline-secondary"
-                          type="button"
-                          id="credentials-toggle-client-secret">
-                    <i class="fas fa-eye"></i>
-                  </button>
-                </div>
-              </div>
-              <div class="col-12 col-md-8 mb-3">
-                <label for="credentials-redirectUri" class="form-label">
-                Redirect URI
-                </label>
-                <input type="url"
-                       class="form-control"
-                       id="credentials-redirectUri"
-                       placeholder="https://your-domain.com/api/bouncie/callback" />
-              </div>
-              <div class="col-12 col-md-4 mb-3">
-                <label for="credentials-fetchConcurrency" class="form-label">
-                Fetch concurrency
-                </label>
-                <input type="number"
-                       class="form-control"
-                       id="credentials-fetchConcurrency"
-                       min="1"
-                       max="50"
-                       step="1"
-                       inputmode="numeric"
-                       placeholder="12" />
-                <div class="form-text">
-                Controls simultaneous Bouncie fetch requests (default 12).
-                </div>
-              </div>
-            </div>
-            <div class="d-flex justify-content-end gap-2 flex-wrap">
-              <button type="button"
-                      class="btn btn-outline-secondary"
-                      id="credentials-sync-vehicles-btn">
-                <i class="fas fa-sync"></i> Sync Vehicles
-              </button>
-              <a href="/api/bouncie/authorize"
-                 class="btn btn-outline-primary"
-                 id="credentials-connect-bouncie-btn"
-                 data-no-swup>
-                <i class="fas fa-plug"></i> Connect/Authorize
-              </a>
-              <button type="submit" class="btn btn-primary" id="credentials-save-bouncie-btn">
-                <i class="fas fa-save"></i> Save Credentials
-              </button>
-            </div>
-          </form>
-        </div>
-
-        <div class="settings-group grid-span-12" id="credentials-bouncie-vehicles-group">
-          <h3 class="settings-group-title">
-            <i class="fas fa-car"></i>
-	          Bouncie Vehicles
-          </h3>
-          <p class="text-muted small">
-	          Vehicles synced from Bouncie and authorized for trip fetching.
-          </p>
-
-          <div class="d-flex justify-content-end gap-2 flex-wrap mb-3">
-            <button type="button"
-                    class="btn btn-outline-secondary"
-                    id="credentials-refresh-vehicles-btn">
-              <i class="fas fa-rotate-right"></i> Refresh List
-            </button>
-            <a href="/vehicles" class="btn btn-outline-secondary" data-no-swup>
-              <i class="fas fa-car"></i> My Vehicles
-            </a>
-          </div>
-
-          <div id="credentials-vehicles-loading" class="text-muted small">
-	          Loading vehicles...
-          </div>
-          <div id="credentials-vehicles-empty" class="text-muted small" style="display: none">
-	          No vehicles synced yet. Click "Sync Vehicles" above to pull them from Bouncie.
-          </div>
-          <div class="table-responsive"
-               id="credentials-vehicles-table-wrapper"
-               style="display: none">
-            <table class="table align-middle mb-0">
-              <thead>
-                <tr>
-                  <th scope="col">
-	                  Vehicle
-                  </th>
-                  <th scope="col">
-	                  IMEI
-                  </th>
-                  <th scope="col">
-	                  VIN
-                  </th>
-                  <th scope="col">
-	                  Last synced
-                  </th>
-                </tr>
-              </thead>
-              <tbody id="credentials-vehicles-tbody">
-              </tbody>
-            </table>
-          </div>
-
-          <hr class="my-4" />
-
-          <h4 class="h6 text-muted text-uppercase mb-3">
-	          Add Vehicle
-          </h4>
-          <form id="credentials-add-vehicle-form"
-                method="post"
-                action="/control-center/credentials/add-vehicle"
-                novalidate>
-            <input type="hidden" name="csrf_token" value="{{ auth_context.csrf_token or '' }}" />
-            <div class="row g-3 align-items-end">
-              <div class="col-12 col-md-4">
-                <label for="credentials-add-vehicle-imei" class="form-label">
-	                IMEI
-                </label>
-                <input type="text"
-                       class="form-control"
-                       id="credentials-add-vehicle-imei"
-                       name="imei"
-                       placeholder="123456789012345"
-                       inputmode="numeric"
-                       autocomplete="off" />
-              </div>
-              <div class="col-12 col-md-5">
-                <label for="credentials-add-vehicle-name" class="form-label">
-	                Display name (optional)
-                </label>
-                <input type="text"
-                       class="form-control"
-                       id="credentials-add-vehicle-name"
-                       name="custom_name"
-                       placeholder="My car"
-                       autocomplete="off" />
-              </div>
-              <div class="col-12 col-md-3">
-                <button type="submit" class="btn btn-primary w-100" id="credentials-add-vehicle-btn">
-                  <i class="fas fa-plus"></i> Add Vehicle
-                </button>
-              </div>
-            </div>
-            <div class="form-text mt-2">
-	            Adds the IMEI to your local vehicle list and authorizes it for trip syncing.
-	            Use "Sync Vehicles" above to discover all vehicles on the account automatically.
-            </div>
-          </form>
-        </div>
-
-      </div>
-    </div>
-    <div class="settings-tab-content"
-         id="sync-settings-tab"
-         role="tabpanel"
-         aria-labelledby="sync-settings-tab-button"
-         hidden>
-      <div class="content-grid" data-stagger>
-        <div class="settings-group grid-span-12">
-          <h3 class="settings-group-title">
-            <i class="fas fa-sync"></i>
-          Trip Sync
-          </h3>
-          <div class="setting-item">
-            <label class="setting-label" for="sync-auto-toggle">
-              <span class="setting-label-title">
-Auto-sync trips
-              </span>
-              <span class="setting-label-description">
-              Keep trips updated automatically in the background.
-              </span>
-            </label>
-            <div class="setting-control">
-              <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="sync-auto-toggle" />
-              </div>
-            </div>
-          </div>
-          <div class="setting-item">
-            <label class="setting-label" for="sync-interval-select">
-              <span class="setting-label-title">
-Sync frequency
-              </span>
-              <span class="setting-label-description">
-              How often to refresh recent trips when auto-sync is enabled.
-              </span>
-            </label>
-            <div class="setting-control">
-              <select class="form-select" id="sync-interval-select">
-                <option value="5">
-Every 5 minutes
-                </option>
-                <option value="15">
-Every 15 minutes
-                </option>
-                <option value="60">
-Hourly
-                </option>
-                <option value="180">
-Every 3 hours
-                </option>
-                <option value="720">
-Twice daily
-                </option>
-                <option value="1440">
-Daily
-                </option>
-              </select>
-            </div>
-          </div>
-          <div class="setting-item">
-            <div class="setting-label">
-              <div class="setting-label-title">
-Last successful sync
-              </div>
-              <div class="setting-label-description">
-              Latest time trips were refreshed successfully.
-              </div>
-            </div>
-            <div class="setting-control">
-              <span class="text-muted" id="sync-last-success">--</span>
-            </div>
-          </div>
-          <div class="setting-item">
-            <div class="setting-label">
-              <div class="setting-label-title">
-Manual sync
-              </div>
-              <div class="setting-label-description">
-              Trigger an on-demand refresh or import older history.
-              </div>
-            </div>
-            <div class="setting-control sync-settings-actions">
-              <button class="btn btn-primary btn-sm" id="sync-now-btn">
-                <i class="fas fa-sync"></i> Sync trips now
-              </button>
-              <button class="btn btn-outline-secondary btn-sm" id="sync-import-btn">
-                <i class="fas fa-cloud-download-alt"></i> Import history
-              </button>
-            </div>
-          </div>
-          <div class="sync-settings-alert d-none" id="sync-settings-alert">
-          </div>
-          <div class="sync-settings-actions-row">
-            <button class="btn btn-outline-secondary" id="sync-settings-reset">
-              <i class="fas fa-undo"></i> Reset
-            </button>
-            <button class="btn btn-primary" id="sync-settings-save">
-              <i class="fas fa-save"></i> Save Sync Settings
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <details class="sync-advanced-details" id="sync-advanced-details">
-        <summary>
-          <span>Advanced background tasks (Admin)</span>
-          <span class="sync-advanced-hint">Optional diagnostics and scheduling</span>
-        </summary>
-        <div class="content-grid" data-stagger>
-          <div class="settings-group grid-span-12">
-            <h3 class="settings-group-title">
-              <i class="fas fa-sliders-h"></i>
-            Global Task Control
-            </h3>
-            <div class="setting-item d-none d-md-flex">
-              <label class="setting-label" for="globalDisableSwitch">
-                <span class="setting-label-title">
-Globally Disable Tasks
-                </span>
-                <span class="setting-label-description">
-                Pause all automated background tasks
-                </span>
-              </label>
-              <div class="setting-control">
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" id="globalDisableSwitch" />
-                </div>
-              </div>
-            </div>
-
-            <div class="d-md-none">
-              <div class="form-check form-switch mb-3">
-                <input class="form-check-input" type="checkbox" id="mobile-globalDisableSwitch" />
-                <label class="form-check-label" for="mobile-globalDisableSwitch">
-                Globally Disable Tasks
-                </label>
-                <div class="form-text">
-Pause all automated background tasks
-                </div>
-              </div>
-              <div class="task-action-buttons">
-                <button class="btn btn-warning" id="mobile-pauseBtn" type="button">
-                  <i class="fas fa-pause"></i>
-                  <span class="btn-text">Pause Tasks</span>
-                </button>
-                <button class="btn btn-success" id="mobile-resumeBtn" type="button">
-                  <i class="fas fa-play"></i>
-                  <span class="btn-text">Resume Tasks</span>
-                </button>
-                <button class="btn btn-danger" id="mobile-stopAllBtn" type="button">
-                  <i class="fas fa-stop"></i>
-                  <span class="btn-text">Stop All</span>
-                </button>
-                <button class="btn btn-warning" id="mobile-resetTasksBtn" type="button">
-                  <i class="fas fa-sync"></i>
-                  <span class="btn-text">Reset Tasks</span>
-                </button>
-                <button class="btn btn-primary" id="mobile-enableAllBtn" type="button">
-                  <i class="fas fa-check"></i>
-                  <span class="btn-text">Enable All</span>
-                </button>
-                <button class="btn btn-secondary" id="mobile-disableAllBtn" type="button">
-                  <i class="fas fa-times"></i>
-                  <span class="btn-text">Disable All</span>
-                </button>
-                <button class="btn btn-info" id="mobile-manualRunAllBtn" type="button">
-                  <i class="fas fa-play-circle"></i>
-                  <span class="btn-text">Run All Now</span>
-                </button>
-              </div>
-            </div>
-
-            <div class="task-action-buttons d-none d-md-flex">
-              <button class="btn btn-warning"
-                      data-bs-toggle="modal"
-                      data-bs-target="#pauseModal"
-                      id="pauseBtn">
-                <i class="fas fa-pause"></i>
-                <span class="btn-text">Pause Tasks</span>
-              </button>
-              <button class="btn btn-success" id="resumeBtn">
-                <i class="fas fa-play"></i>
-                <span class="btn-text">Resume Tasks</span>
-              </button>
-              <button class="btn btn-danger" id="stopAllBtn">
-                <i class="fas fa-stop"></i>
-                <span class="btn-text">Stop All</span>
-              </button>
-              <button class="btn btn-warning" id="resetTasksBtn">
-                <i class="fas fa-sync"></i>
-                <span class="btn-text">Reset Tasks</span>
-              </button>
-              <button class="btn btn-primary" id="enableAllBtn">
-                <i class="fas fa-check"></i>
-                <span class="btn-text">Enable All</span>
-              </button>
-              <button class="btn btn-secondary" id="disableAllBtn">
-                <i class="fas fa-times"></i>
-                <span class="btn-text">Disable All</span>
-              </button>
-              <button class="btn btn-info" id="manualRunAllBtn">
-                <i class="fas fa-play-circle"></i>
-                <span class="btn-text">Run All Now</span>
-              </button>
-            </div>
-          </div>
-          <div class="settings-group grid-span-12">
-            <h3 class="settings-group-title">
-              <i class="fas fa-tasks"></i>
-            Task Configuration
-            </h3>
-            <div id="mobile-task-list" class="d-md-none" role="list">
-            </div>
-            <div class="table-responsive d-none d-md-block">
-              <table class="table table-dark" id="taskConfigTable">
-                <thead>
-                  <tr>
-                    <th>
-Task
-                    </th>
-                    <th>
-Interval
-                    </th>
-                    <th>
-Enabled
-                    </th>
-                    <th style="width: 150px">
-Status
-                    </th>
-                    <th class="col-hide-mobile">
-Last Run
-                    </th>
-                    <th class="col-hide-mobile">
-Next Run
-                    </th>
-                    <th>
-Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                </tbody>
-              </table>
-            </div>
-            <button class="btn btn-primary d-none d-md-inline-flex" id="saveTaskConfigBtn">
-              <i class="fas fa-save"></i> Save Configuration
-            </button>
-          </div>
-          <div class="settings-group grid-span-12" id="manual-fetch-card">
-            <h3 class="settings-group-title">
-              <i class="fas fa-cloud-download-alt"></i>
-            Manual Trip Fetch
-            </h3>
-            <p class="text-muted small">
-            Schedule an on-demand trip fetch for a specific date range.
-            </p>
-            <form id="manualFetchTripsForm" class="row g-3 d-none d-md-flex" novalidate>
-              <div class="col-md-6">
-                <label for="manual-fetch-start" class="form-label">
- Start
-                </label>
-                <input type="datetime-local" class="form-control" id="manual-fetch-start" required />
-              </div>
-              <div class="col-md-6">
-                <label for="manual-fetch-end" class="form-label">
- End
-                </label>
-                <input type="datetime-local" class="form-control" id="manual-fetch-end" required />
-              </div>
-              <div class="col-12 d-flex align-items-center gap-3 flex-wrap">
-                <button type="submit" class="btn btn-success" id="manual-fetch-submit">
-                  <i class="fas fa-cloud-download-alt"></i> Fetch Trips
-                </button>
-                <span class="settings-status is-hidden"
-                      id="manual-fetch-status"
-                      role="status"
-                      aria-live="polite"
-                      aria-atomic="true"></span>
-              </div>
-            </form>
-            <form id="mobile-manualFetchTripsForm" class="row g-3 d-md-none" novalidate>
-              <div class="col-12">
-                <label for="mobile-manual-fetch-start" class="form-label">
- Start
-                </label>
-                <input type="datetime-local"
-                       class="form-control"
-                       id="mobile-manual-fetch-start"
-                       required />
-              </div>
-              <div class="col-12">
-                <label for="mobile-manual-fetch-end" class="form-label">
- End
-                </label>
-                <input type="datetime-local"
-                       class="form-control"
-                       id="mobile-manual-fetch-end"
-                       required />
-              </div>
-              <div class="col-12 d-flex align-items-center gap-3 flex-wrap">
-                <button type="submit" class="btn btn-success w-100">
-                  <i class="fas fa-cloud-download-alt"></i> Fetch Trips
-                </button>
-                <span class="settings-status is-hidden w-100"
-                      id="mobile-manual-fetch-status"
-                      role="status"
-                      aria-live="polite"
-                      aria-atomic="true"></span>
-              </div>
-            </form>
-          </div>
-          <div class="settings-group grid-span-12">
-            <h3 class="settings-group-title">
-              <i class="fas fa-history"></i>
-            Task History
-            </h3>
-            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 d-none d-md-flex">
-              <button class="btn btn-danger btn-sm" id="clearHistoryBtn">
-                <i class="fas fa-trash"></i> Clear History
-              </button>
-            </div>
-            <div class="d-md-none mb-3">
-              <button class="btn btn-danger btn-sm w-100" id="mobile-clearHistoryBtn" type="button">
-                <i class="fas fa-trash"></i> Clear History
-              </button>
-            </div>
-            <div id="mobile-history-list" class="d-md-none" role="list">
-            </div>
-            <div id="mobile-history-pagination"
-                 class="d-md-none mt-3 align-items-center justify-content-between">
-              <button class="btn btn-outline-secondary btn-sm" id="mobile-history-prev" type="button">
-                <i class="fas fa-chevron-left"></i> Prev
-              </button>
-              <div id="mobile-history-page-info" class="small text-muted">
-              </div>
-              <button class="btn btn-outline-secondary btn-sm" id="mobile-history-next" type="button">
-                                                                                                                                                                                                                                                                                        Next <i class="fas fa-chevron-right"></i>
-            </button>
-          </div>
-          <div class="table-responsive d-none d-md-block">
-            <table class="table table-dark" id="taskHistoryTable">
-              <thead>
-                <tr>
-                  <th>
-Task
-                  </th>
-                  <th>
-Status
-                  </th>
-                  <th class="col-hide-mobile">
-Start Time
-                  </th>
-                  <th>
-Duration
-                  </th>
-                  <th class="col-hide-mobile">
-Result
-                  </th>
-                  <th>
-Details
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-              </tbody>
-            </table>
-            <div id="taskHistoryPagination" class="mt-3">
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="mobile-fab-container d-md-none">
-        <button class="btn btn-primary mobile-fab"
-                id="mobile-save-config-fab"
-                type="button"
-                aria-label="Save task configuration">
-          <i class="fas fa-save"></i>
-        </button>
-      </div>
-    </details>
-  </div>
-  <div class="settings-tab-content"
-       id="data-management-tab"
-       role="tabpanel"
-       aria-labelledby="data-management-tab-button"
-       hidden>
-    <div class="content-grid" data-stagger>
-      <div class="settings-group grid-span-12 trip-data-health-card">
-        <h3 class="settings-group-title trip-data-health-title">
-          <i class="fas fa-triangle-exclamation"></i>
-	          Trip Data Health
-        </h3>
-        <p class="trip-data-health-description text-muted small">
-	          Review trips that failed to fetch/process (with reasons), plus any stored trips
-	          that were later marked invalid.
-        </p>
-
-        <ul class="nav atlas-tabs trip-data-health-nav"
-            id="tripDataHealthNav"
-            role="tablist">
-          <li class="nav-item" role="presentation">
-            <button class="nav-link atlas-tab active"
-                    id="trip-data-health-issues-tab"
-                    data-bs-toggle="tab"
-                    data-bs-target="#trip-data-health-issues"
-                    type="button"
-                    role="tab"
-                    aria-controls="trip-data-health-issues"
-                    aria-selected="true">
-	              Ingest issues
-              <span class="trip-data-health-count" id="trip-ingest-issues-nav-count">0</span>
-            </button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button class="nav-link atlas-tab"
-                    id="trip-data-health-invalid-tab"
-                    data-bs-toggle="tab"
-                    data-bs-target="#trip-data-health-invalid"
-                    type="button"
-                    role="tab"
-                    aria-controls="trip-data-health-invalid"
-                    aria-selected="false">
-	              Invalid trips
-              <span class="trip-data-health-count" id="invalid-trips-nav-count">0</span>
-            </button>
-          </li>
-        </ul>
-
-        <div class="tab-content trip-data-health-panels mt-3">
-          <div class="tab-pane fade show active trip-data-health-pane"
-               id="trip-data-health-issues"
-               role="tabpanel"
-               aria-labelledby="trip-data-health-issues-tab"
-               tabindex="0">
-            <div class="trip-issues-toolbar">
-              <div class="trip-issues-chips" id="trip-ingest-issues-chips" role="list">
-                <button type="button"
-                        class="trip-issues-chip is-active"
-                        data-issue-type=""
-                        role="listitem">
-	                  All
-                  <span class="trip-issues-chip-count" id="trip-ingest-issues-count-all">0</span>
-                </button>
-                <button type="button"
-                        class="trip-issues-chip"
-                        data-issue-type="fetch_error"
-                        role="listitem">
-	                  Fetch
-                  <span class="trip-issues-chip-count" id="trip-ingest-issues-count-fetch">0</span>
-                </button>
-                <button type="button"
-                        class="trip-issues-chip"
-                        data-issue-type="validation_failed"
-                        role="listitem">
-	                  Validation
-                  <span class="trip-issues-chip-count" id="trip-ingest-issues-count-validation">0</span>
-                </button>
-                <button type="button"
-                        class="trip-issues-chip"
-                        data-issue-type="process_error"
-                        role="listitem">
-	                  Processing
-                  <span class="trip-issues-chip-count" id="trip-ingest-issues-count-process">0</span>
-                </button>
-              </div>
-
-              <div class="trip-issues-controls">
-                <input type="search"
-                       class="form-control form-control-sm trip-issues-search"
-                       id="trip-ingest-issues-search"
-                       placeholder="Search by trip ID, IMEI, or error details"
-                       autocomplete="off" />
-                <div class="form-check form-switch trip-issues-switch">
-                  <input class="form-check-input"
-                         type="checkbox"
-                         role="switch"
-                         id="trip-ingest-issues-include-resolved" />
-                  <label class="form-check-label trip-issues-switch-label"
-                         for="trip-ingest-issues-include-resolved">
-	                    Include dismissed
-                  </label>
-                </div>
-                <button type="button"
-                        class="btn btn-outline-secondary btn-sm trip-issues-refresh"
-                        id="trip-ingest-issues-refresh"
-                        title="Refresh ingest issues">
-                  <i class="fas fa-rotate-right"></i>
-                  <span class="d-none d-md-inline">Refresh</span>
-                </button>
-                <div class="dropdown">
-                  <button class="btn btn-outline-secondary btn-sm dropdown-toggle trip-issues-bulk-toggle"
-                          type="button"
-                          id="trip-ingest-issues-bulk-menu"
-                          data-bs-toggle="dropdown"
-                          aria-expanded="false">
-                    <i class="fas fa-layer-group"></i>
-	                    Bulk actions
-                  </button>
-                  <ul class="dropdown-menu dropdown-menu-end"
-                      aria-labelledby="trip-ingest-issues-bulk-menu">
-                    <li>
-                      <button class="dropdown-item" type="button" id="trip-ingest-issues-dismiss-all">
-	                        Dismiss all matching
-                      </button>
-                    </li>
-                    <li>
-                      <button class="dropdown-item text-danger"
-                              type="button"
-                              id="trip-ingest-issues-delete-all">
-	                        Delete all matching...
-                      </button>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            <div class="table-responsive trip-issues-table-wrap">
-              <table class="table table-sm table-hover align-middle trip-issues-table"
-                     id="tripIngestIssuesTable">
-                <caption class="visually-hidden">
-                  Ingest issues from trip fetching, validation, and processing.
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">
-	                      Last seen
-                    </th>
-                    <th scope="col">
-	                      Type
-                    </th>
-                    <th scope="col" class="col-hide-mobile">
-	                      Trip
-                    </th>
-                    <th scope="col" class="col-hide-mobile">
-	                      Device
-                    </th>
-                    <th scope="col">
-	                      Count
-                    </th>
-                    <th scope="col">
-	                      Reason
-                    </th>
-                    <th scope="col">
-	                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                </tbody>
-              </table>
-            </div>
-
-            <div id="tripIngestIssuesPagination" class="trip-issues-pagination mt-3">
-            </div>
-          </div>
-
-          <div class="tab-pane fade trip-data-health-pane"
-               id="trip-data-health-invalid"
-               role="tabpanel"
-               aria-labelledby="trip-data-health-invalid-tab"
-               tabindex="0">
-            <div class="trip-issues-toolbar">
-              <p class="trip-data-health-note text-muted small mb-0">
-	                Trips already stored in your database but later marked invalid
-	                (usually by validation maintenance). Ingest-time failures appear
-	                in “Ingest issues”.
-              </p>
-              <div class="trip-issues-controls">
-                <button type="button"
-                        class="btn btn-outline-secondary btn-sm trip-issues-refresh"
-                        id="invalid-trips-refresh"
-                        title="Refresh invalid trips">
-                  <i class="fas fa-rotate-right"></i>
-                  <span class="d-none d-md-inline">Refresh</span>
-                </button>
-                <button type="button"
-                        class="btn btn-outline-danger btn-sm"
-                        id="invalid-trips-delete-all"
-                        title="Delete all invalid trips">
-                  <i class="fas fa-trash"></i>
-                  <span class="d-none d-md-inline">Delete invalid</span>
-                </button>
-              </div>
-            </div>
-            <div class="table-responsive trip-invalid-table-wrap">
-              <table class="table table-sm table-hover align-middle trip-invalid-table"
-                     id="invalidTripsTable">
-                <caption class="visually-hidden">
-                  Invalid trips currently stored in the database.
-                </caption>
-                <thead>
-                  <tr>
-                    <th>
-	                      Trip ID
-                    </th>
-                    <th>
-	                      Source
-                    </th>
-                    <th class="col-hide-mobile">
-	                      Date
-                    </th>
-                    <th>
-	                      Reason
-                    </th>
-                    <th>
-	                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                </tbody>
-              </table>
-            </div>
-            <div id="invalidTripsPagination" class="trip-issues-pagination mt-3">
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="settings-group grid-span-6">
-        <h3 class="settings-group-title">
-          <i class="fas fa-map-marker-alt"></i>
-          Re-geocode Trips
-        </h3>
-        <p class="text-muted small">
-          Re-geocode trips within a date range. Only trips without addresses will be
-          geocoded. Efficiently checks against custom places.
-        </p>
-
-        <div class="d-md-none">
-          <div class="d-flex gap-2 flex-wrap mb-3 segmented-control" role="tablist" aria-label="Geocode method">
-            <button class="btn btn-outline-secondary btn-sm mobile-date-method-tab segment active"
-                    data-target="geocode"
-                    data-method="date"
-                    type="button">
-              Date Range
-            </button>
-            <button class="btn btn-outline-secondary btn-sm mobile-date-method-tab segment"
-                    data-target="geocode"
-                    data-method="interval"
-                    type="button">
-              Interval
-            </button>
-            <button class="btn btn-outline-secondary btn-sm mobile-date-method-tab segment"
-                    data-target="geocode"
-                    data-method="all"
-                    type="button">
-              All Trips
-            </button>
-          </div>
-
-          <div id="mobile-geocode-date-range">
-            <div class="row g-3">
-              <div class="col-12">
-                <label for="mobile-geocode-start" class="form-label">
-                  Start Date:
-                </label>
-                <input type="text"
-                       id="mobile-geocode-start"
-                       class="form-control mobile-form-input datepicker" />
-              </div>
-              <div class="col-12">
-                <label for="mobile-geocode-end" class="form-label">
- End Date:
-                </label>
-                <input type="text"
-                       id="mobile-geocode-end"
-                       class="form-control mobile-form-input datepicker" />
-              </div>
-            </div>
-          </div>
-
-          <div id="mobile-geocode-interval" style="display: none">
-            <div class="mb-3">
-              <label for="mobile-geocode-interval-select" class="form-label">
-                Select Interval:
-              </label>
-              <select id="mobile-geocode-interval-select" class="form-select">
-                <option value="1">
-Last Day
-                </option>
-                <option value="3">
-Last 3 Days
-                </option>
-                <option value="7">
-Last Week
-                </option>
-                <option value="30">
-Last Month
-                </option>
-                <option value="90">
-Last 3 Months
-                </option>
-                <option value="180">
-Last 6 Months
-                </option>
-                <option value="365">
-Last Year
-                </option>
-                <option value="730">
-Last 2 Years
-                </option>
-              </select>
-            </div>
-          </div>
-
-          <div class="mt-3">
-            <button id="mobile-geocode-trips-btn" class="btn btn-warning w-100" type="button">
-              <i class="fas fa-sync-alt"></i> Re-geocode Trips
-            </button>
-            <div id="mobile-geocode-trips-status"
-                 class="settings-status is-hidden mt-2"
-                 role="status"
-                 aria-live="polite"
-                 aria-atomic="true">
-            </div>
-          </div>
-
-          <div id="mobile-geocode-progress-panel" class="mt-3" style="display: none">
-            <div class="card">
-              <div class="card-body">
-                <h5 class="card-title">
-Geocoding Progress
-                </h5>
-                <div class="progress mb-2" style="height: 25px">
-                  <div id="mobile-geocode-progress-bar"
-                       class="progress-bar progress-bar-striped progress-bar-animated"
-                       role="progressbar"
-                       style="width: 0%"
-                       aria-valuenow="0"
-                       aria-valuemin="0"
-                       aria-valuemax="100">
-                    0%
-                  </div>
-                </div>
-                <div id="mobile-geocode-progress-message" class="small mb-2">
-                </div>
-                <div id="mobile-geocode-progress-metrics" class="small text-muted">
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="d-none d-md-block">
-          <div class="mb-3">
-            <label for="geocode-type" class="form-label">
- Select Method:
-            </label>
-            <select id="geocode-type" class="form-select">
-              <option value="date">
-Pick a Date Range
-              </option>
-              <option value="interval">
-Use a Predefined Interval
-              </option>
-              <option value="all">
-All Trips
-              </option>
-            </select>
-          </div>
-
-          <div id="geocode-date-range">
-            <div class="row g-3">
-              <div class="col-md-6">
-                <label for="geocode-start" class="form-label">
- Start Date:
-                </label>
-                <input type="text" id="geocode-start" class="form-control datepicker" />
-              </div>
-              <div class="col-md-6">
-                <label for="geocode-end" class="form-label">
- End Date:
-                </label>
-                <input type="text" id="geocode-end" class="form-control datepicker" />
-              </div>
-            </div>
-          </div>
-
-          <div id="geocode-interval" style="display: none">
-            <div class="mb-3">
-              <label for="geocode-interval-select" class="form-label">
-                Select Interval:
-              </label>
-              <select id="geocode-interval-select" class="form-select">
-                <option value="1">
-Last Day
-                </option>
-                <option value="3">
-Last 3 Days
-                </option>
-                <option value="7">
-Last Week
-                </option>
-                <option value="30">
-Last Month
-                </option>
-                <option value="90">
-Last 3 Months
-                </option>
-                <option value="180">
-Last 6 Months
-                </option>
-                <option value="365">
-Last Year
-                </option>
-                <option value="730">
-Last 2 Years
-                </option>
-              </select>
-            </div>
-          </div>
-
-          <div class="mt-3">
-            <button id="geocode-trips-btn" class="btn btn-warning">
-              <i class="fas fa-sync-alt"></i> Re-geocode Trips
-            </button>
-            <div id="geocode-trips-status"
-                 class="settings-status is-hidden mt-2"
-                 role="status"
-                 aria-live="polite"
-                 aria-atomic="true">
-            </div>
-          </div>
-          <div id="geocode-progress-panel" class="mt-3" style="display: none">
-            <div class="card">
-              <div class="card-body">
-                <h5 class="card-title">
-Geocoding Progress
-                </h5>
-                <div class="progress mb-2" style="height: 25px">
-                  <div id="geocode-progress-bar"
-                       class="progress-bar progress-bar-striped progress-bar-animated"
-                       role="progressbar"
-                       style="width: 0%"
-                       aria-valuenow="0"
-                       aria-valuemin="0"
-                       aria-valuemax="100">
-                    0%
-                  </div>
-                </div>
-                <div id="geocode-progress-message" class="small mb-2">
-                </div>
-                <div id="geocode-progress-metrics" class="small text-muted">
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="settings-group grid-span-6">
-        <h3 class="settings-group-title">
-          <i class="fas fa-route"></i>
-          Map Matching
-        </h3>
-        <p class="text-muted small">
-          Map matching is managed in one place now. Queue jobs and track progress from
-          the Map Matching workspace.
-        </p>
-        <a class="btn btn-outline-primary" href="/map-matching">
-          <i class="fas fa-layer-group"></i> Open Map Matching
-        </a>
-      </div>
-      <div class="settings-group grid-span-6">
-        <h3 class="settings-group-title">
-          <i class="fas fa-bezier-curve"></i>
-          Rebuild Display Paths
-        </h3>
-        <p class="text-muted small">
-          Recompute the simplified display paths shown on the map for all historical
-          trips. Raw GPS data, map-matched geometry, coverage stats, and trip metrics
-          are not affected.
-        </p>
         <div>
-          <button id="rebuild-display-paths-btn" class="btn btn-warning" type="button">
-            <i class="fas fa-sync-alt"></i> Rebuild Display Paths
-          </button>
-        </div>
-        <div id="rebuild-display-paths-progress"
-             class="rebuild-paths-progress mt-3"
-             style="display: none">
-          <div class="rebuild-paths-status-row">
-            <span id="rebuild-paths-status-icon" class="rebuild-paths-spinner">
-              <i class="fas fa-circle-notch fa-spin"></i>
-            </span>
-            <span id="rebuild-paths-status-text">Running&hellip;</span>
-          </div>
-          <div class="progress rebuild-paths-bar-container mt-2" style="height: 6px">
-            <div id="rebuild-paths-progress-bar"
-                 class="progress-bar progress-bar-striped progress-bar-animated"
-                 role="progressbar"
-                 style="width: 0%"
-                 aria-valuenow="0"
-                 aria-valuemin="0"
-                 aria-valuemax="100">
-            </div>
-          </div>
-          <div id="rebuild-paths-metrics-live"
-               class="rebuild-paths-metrics-live mt-2"
-               style="display: none">
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="settings-tab-content"
-       id="storage-tab"
-       role="tabpanel"
-       aria-labelledby="storage-tab-button"
-       hidden>
-    <div class="content-grid" data-stagger>
-      {% if storage_error %}
-        <div class="settings-group grid-span-12">
-          <div class="storage-alert storage-alert-warning" role="alert">
-            <i class="fas fa-exclamation-triangle"></i>
-            <span>Some storage sources are unavailable. {{ storage_error }}</span>
-          </div>
-        </div>
-      {% endif %}
-      <div class="settings-group grid-span-12">
-        <div class="storage-overview-header">
-          <div class="storage-overview-icon">
-            <i class="fas fa-database"></i>
-          </div>
-          <div class="storage-overview-content">
-            <h3 class="storage-overview-title">
-Storage Overview
-            </h3>
-            <p class="storage-overview-message">
-Monitor your application's storage usage and database collections.
-            </p>
-          </div>
-          <div class="storage-overview-actions">
-            <button id="refresh-storage"
-                    class="btn btn-secondary btn-sm"
-                    title="Refresh storage information"
-                    aria-label="Refresh storage information">
-              <i class="fas fa-sync-alt"></i>
-            </button>
-          </div>
-        </div>
-      </div>
-      <div class="settings-group grid-span-4">
-        <div class="storage-metric-card storage-metric-primary">
-          <div class="storage-metric-icon">
-            <i class="fas fa-hdd"></i>
-          </div>
-          <div class="storage-metric-info">
-            <span class="storage-metric-label">Total Storage Used</span>
-            <span class="storage-metric-value"
-                  id="storage-total-value"
-                  data-bytes="{{ storage_snapshot.get('total_bytes') if storage_snapshot.get('total_bytes') is not none else '' }}">
-              {% if storage_snapshot.get('total_mb') is not none %}
-                {% if storage_snapshot.get('total_mb') > 1024 %}
-                  {{ "%.2f"|format(storage_snapshot.get('total_mb') / 1024) }} GB
-                {% else %}
-                  {{ "%.2f"|format(storage_snapshot.get('total_mb') ) }} MB
-                {% endif %}
-              {% else %}
-                N/A
-              {% endif %}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-group grid-span-4">
-        <div class="storage-metric-card storage-metric-secondary">
-          <div class="storage-metric-icon">
-            <i class="fas fa-server"></i>
-          </div>
-          <div class="storage-metric-info">
-            <span class="storage-metric-label">MongoDB Size</span>
-            <span class="storage-metric-value"
-                  id="storage-db-value"
-                  data-bytes="{{ storage_snapshot.get('database_logical_bytes') if storage_snapshot.get('database_logical_bytes') is not none else '' }}">
-              {% if storage_snapshot.get('database_logical_mb') is not none %}
-                {% if storage_snapshot.get('database_logical_mb') > 1024 %}
-                  {{ "%.2f"|format(storage_snapshot.get('database_logical_mb') / 1024) }} GB
-                {% else %}
-                  {{ "%.2f"|format(storage_snapshot.get('database_logical_mb') ) }} MB
-                {% endif %}
-              {% else %}
-                N/A
-              {% endif %}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-group grid-span-4">
-        <div class="storage-metric-card storage-metric-tertiary">
-          <div class="storage-metric-icon">
-            <i class="fas fa-clock"></i>
-          </div>
-          <div class="storage-metric-info">
-            <span class="storage-metric-label">Last Updated</span>
-            <span class="storage-metric-value"
-                  id="storage-updated-at"
-                  data-iso="{{ storage_snapshot.get('updated_at') or '' }}">
-              {{ storage_snapshot.get("updated_at") or "N/A" }}
-            </span>
-          </div>
-        </div>
-      </div>
-      <div class="settings-group grid-span-12">
-        <div class="storage-section-header">
-          <h3 class="settings-group-title">
-            <i class="fas fa-layer-group"></i>
-            Storage Sources
-          </h3>
-          <div class="storage-section-controls">
-            <select id="storage-sort-select" class="form-select form-select-sm">
-              <option value="size-desc">
-Largest First
-              </option>
-              <option value="size-asc">
-Smallest First
-              </option>
-              <option value="name-asc">
-Name A-Z
-              </option>
-              <option value="name-desc">
-Name Z-A
-              </option>
-              <option value="category">
-By Category
-              </option>
-            </select>
-          </div>
-        </div>
-        <p class="text-muted small mb-3">
-Storage used by Docker volumes, app caches, and other sources.
-        </p>
-        <div id="storage-sources-container" class="storage-sources-grid">
-          {% if storage_sources %}
-            {% for source in storage_sources %}
-              <div class="storage-source-card"
-                   data-source="{{ source.label }}"
-                   data-category="{{ source.category }}"
-                   data-size="{{ source.size_bytes or 0 }}">
-                <div class="storage-source-header">
-                  <div class="storage-source-icon">
-                    {% if source.category == 'Docker Volume' %}
-                      <i class="fab fa-docker"></i>
-                    {% elif source.category == 'Cache' %}
-                      <i class="fas fa-bolt"></i>
-                    {% elif source.category == 'Database' %}
-                      <i class="fas fa-database"></i>
-                    {% elif source.category == 'Logs' %}
-                      <i class="fas fa-file-alt"></i>
-                    {% else %}
-                      <i class="fas fa-folder"></i>
-                    {% endif %}
-                  </div>
-                  <div class="storage-source-info">
-                    <span class="storage-source-name">{{ source.label }}</span>
-                    <span class="storage-source-category">{{ source.category }}</span>
-                  </div>
-                  <div class="storage-source-status">
-                    {% if source.error %}
-                      <span class="status-chip status-error" title="{{ source.error }}">
-                        <i class="fas fa-exclamation-circle"></i>
-                      Error
-                      </span>
-                    {% else %}
-                      <span class="status-chip status-ok">
-                        <i class="fas fa-check-circle"></i>
-                      OK
-                      </span>
-                    {% endif %}
-                  </div>
-                </div>
-                <div class="storage-source-bar-container">
-                  <div class="storage-source-bar"
-                       style="width: 0%"
-                       data-size="{{ source.size_bytes or 0 }}">
-                  </div>
-                </div>
-                <div class="storage-source-footer">
-                  <span class="storage-source-size">
-                    {% if source.size_mb is not none %}
-                      {% if source.size_mb > 1024 %}
-                      {{ "%.2f"|format(source.size_mb / 1024) }} GB
-                      {% else %}
-                      {{ "%.2f"|format(source.size_mb) }} MB
-                      {% endif %}
-                    {% else %}
-                    N/A
-                    {% endif %}
-                  </span>
-                  {% if source.detail %}
-                    <span class="storage-source-detail">{{ source.detail }}</span>
-                  {% endif %}
-                </div>
-              </div>
-            {% endfor %}
-          {% else %}
-            <div class="storage-empty-state">
-              <i class="fas fa-inbox"></i>
-              <p>
-No storage sources available.
-              </p>
-            </div>
-          {% endif %}
-        </div>
-      </div>
-      <div class="settings-group grid-span-12">
-        <div class="storage-section-header">
-          <h3 class="settings-group-title">
-            <i class="fas fa-cubes"></i>
-            Database Collections
-          </h3>
-          <div class="storage-section-controls">
-            <select id="collections-sort-select" class="form-select form-select-sm">
-              <option value="size-desc">
-Largest First
-              </option>
-              <option value="size-asc">
-Smallest First
-              </option>
-              <option value="name-asc">
-Name A-Z
-              </option>
-              <option value="name-desc">
-Name Z-A
-              </option>
-              <option value="count-desc">
-Most Documents
-              </option>
-              <option value="count-asc">
-Fewest Documents
-              </option>
-            </select>
-          </div>
-        </div>
-        <p class="text-muted small mb-3">
-Manage your MongoDB collections and their data.
-        </p>
-        <div id="collections-container" class="collections-grid">
-          {% if collections %}
-            {% for collection in collections %}
-              <div class="collection-card"
-                   data-collection="{{ collection.name }}"
-                   data-count="{{ collection.document_count }}"
-                   data-size="{{ collection.size_mb or 0 }}">
-                <div class="collection-card-header">
-                  <div class="collection-icon">
-                    <i class="fas fa-table"></i>
-                  </div>
-                  <div class="collection-info">
-                    <span class="collection-name">{{ collection.name }}</span>
-                  </div>
-                </div>
-                <div class="collection-stats">
-                  <div class="collection-stat">
-                    <span class="collection-stat-value">{{ collection.document_count|format_number }}</span>
-                    <span class="collection-stat-label">Documents</span>
-                  </div>
-                  <div class="collection-stat">
-                    <span class="collection-stat-value">
-                      {% if collection.size_mb is not none %}
-                        {% if collection.size_mb > 1024 %}
-                        {{ "%.2f"|format(collection.size_mb / 1024) }} GB
-                        {% else %}
-                        {{ "%.2f"|format(collection.size_mb) }} MB
-                        {% endif %}
-                      {% else %}
-                      N/A
-                      {% endif %}
-                    </span>
-                    <span class="collection-stat-label">Size</span>
-                  </div>
-                </div>
-                <div class="collection-card-actions">
-                  <button class="btn btn-outline-danger btn-sm clear-collection"
-                          data-collection="{{ collection.name }}"
-                          title="Clear all documents from this collection">
-                    <i class="fas fa-trash-alt"></i>
-                  Clear
-                  </button>
-                </div>
-              </div>
-            {% endfor %}
-          {% else %}
-            <div class="storage-empty-state">
-              <i class="fas fa-inbox"></i>
-              <p>
-No collections available.
-              </p>
-            </div>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-  </div>
-  {% if app_settings and (app_settings.get('map_provider') | default('', true) | lower) != 'google' %}
-    <div class="settings-tab-content"
-         id="map-services-tab"
-         role="tabpanel"
-         aria-labelledby="map-services-tab-button"
-         hidden>
-      <div class="content-grid" data-stagger>
-        <div class="settings-group grid-span-12">
-          <h3 class="settings-group-title">
-            <i class="fas fa-globe"></i>
-            Map Services
-          </h3>
-          <p class="text-muted small mb-3">
-            Map services are configured automatically based on your trip locations.
-            Address lookup and route planning are available once configuration finishes.
+          <div class="system-hero-kicker" id="system-status-label">Checking</div>
+          <h2 id="system-status-message">Looking across the whole system…</h2>
+          <p id="system-status-detail">
+            Background work continues whether this page is open or not.
           </p>
-          <div id="map-services-content">
-            <div class="map-services-loading">
-              <i class="fas fa-spinner fa-spin"></i>
-              <span>Loading map services status...</span>
-            </div>
-          </div>
         </div>
-      </div>
-    </div>
-  {% endif %}
-  <div class="settings-tab-content"
-       id="logs-tab"
-       role="tabpanel"
-       aria-labelledby="logs-tab-button"
-       hidden>
-    <div class="server-logs-page py-3">
-      <div class="content-grid mb-4" data-stagger>
-        <div class="grid-span-12 widget">
-          <div class="widget-header">
-            <h2 class="widget-title">
-              <i class="fas fa-file-alt" aria-hidden="true"></i>
-              Server Logs
-            </h2>
-            <div class="widget-meta">
-              Monitor application events and container activity in one place.
-            </div>
-          </div>
-        </div>
+        <time id="system-last-updated">—</time>
       </div>
 
-      <ul class="nav atlas-tabs log-tabs mb-4" id="log-type-tabs" role="tablist">
-        <li class="nav-item" role="presentation">
-          <button class="nav-link atlas-tab active"
-                  id="app-logs-tab"
-                  data-bs-toggle="tab"
-                  data-bs-target="#app-logs-pane"
-                  type="button"
-                  role="tab"
-                  aria-controls="app-logs-pane"
-                  aria-selected="true">
-            <i class="fas fa-code me-1"></i> Application Logs
-          </button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link atlas-tab"
-                  id="docker-logs-tab"
-                  data-bs-toggle="tab"
-                  data-bs-target="#docker-logs-pane"
-                  type="button"
-                  role="tab"
-                  aria-controls="docker-logs-pane"
-                  aria-selected="false">
-            <i class="fab fa-docker me-1"></i> Docker Container Logs
-          </button>
-        </li>
-      </ul>
+      <div class="system-actions d-none" id="system-actions" aria-live="polite"></div>
 
-      <div class="tab-content" id="log-type-content">
-        <div class="tab-pane fade show active"
-             id="app-logs-pane"
-             role="tabpanel"
-             aria-labelledby="app-logs-tab">
-          <div class="card log-card log-card--filters mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <h2 class="h5 mb-0">
-                Log Statistics
-              </h2>
-              <button id="refresh-stats" class="btn btn-sm btn-outline-primary">
-                <i class="fas fa-sync-alt"></i> Refresh
-              </button>
-            </div>
-            <div class="card-body">
-              <div class="row figure-band" id="log-stats">
-                <div class="col-6 col-md-2">
-                  <div class="stat-item figure">
-                    <div class="stat-label figure-label">
-                      Total Logs
-                    </div>
-                    <div class="stat-value figure-value data-num" id="total-count">
--
-                    </div>
-                  </div>
-                </div>
-                <div class="col-6 col-md-2">
-                  <div class="stat-item figure">
-                    <div class="stat-label figure-label">
-DEBUG
-                    </div>
-                    <div class="stat-value figure-value data-num text-secondary" id="debug-count">
-0
-                    </div>
-                  </div>
-                </div>
-                <div class="col-6 col-md-2">
-                  <div class="stat-item figure">
-                    <div class="stat-label figure-label">
-INFO
-                    </div>
-                    <div class="stat-value figure-value data-num text-info" id="info-count">
-0
-                    </div>
-                  </div>
-                </div>
-                <div class="col-6 col-md-2">
-                  <div class="stat-item figure">
-                    <div class="stat-label figure-label">
-WARNING
-                    </div>
-                    <div class="stat-value figure-value data-num text-warning" id="warning-count">
-0
-                    </div>
-                  </div>
-                </div>
-                <div class="col-6 col-md-2">
-                  <div class="stat-item figure">
-                    <div class="stat-label figure-label">
-ERROR
-                    </div>
-                    <div class="stat-value figure-value data-num text-danger" id="error-count">
-0
-                    </div>
-                  </div>
-                </div>
-                <div class="col-6 col-md-2">
-                  <div class="stat-item figure">
-                    <div class="stat-label figure-label">
-CRITICAL
-                    </div>
-                    <div class="stat-value figure-value data-num text-danger" id="critical-count">
-0
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card log-card log-card--filters mb-4">
-            <div class="card-header">
-              <h2 class="h5 mb-0">
-Filters &amp; Actions
-              </h2>
-            </div>
-            <div class="card-body">
-              <div class="row g-3">
-                <div class="col-md-3">
-                  <label for="level-filter" class="form-label">
-                    Log Level
-                  </label>
-                  <select id="level-filter" class="form-select">
-                    <option value="">
-                      All Levels
-                    </option>
-                    <option value="DEBUG">
-DEBUG
-                    </option>
-                    <option value="INFO">
-INFO
-                    </option>
-                    <option value="WARNING">
-WARNING
-                    </option>
-                    <option value="ERROR">
-ERROR
-                    </option>
-                    <option value="CRITICAL">
-CRITICAL
-                    </option>
-                  </select>
-                </div>
-                <div class="col-md-3">
-                  <label for="limit-filter" class="form-label">
-                    Limit
-                  </label>
-                  <select id="limit-filter" class="form-select">
-                    <option value="100">
-100
-                    </option>
-                    <option value="250">
-250
-                    </option>
-                    <option value="500" selected>
-500
-                    </option>
-                    <option value="1000">
-1000
-                    </option>
-                    <option value="2500">
-2500
-                    </option>
-                  </select>
-                </div>
-                <div class="col-md-4">
-                  <label for="search-filter" class="form-label">
-                    Search Message
-                  </label>
-                  <input type="text"
-                         id="search-filter"
-                         class="form-control"
-                         placeholder="Search log messages..." />
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                  <button id="apply-logs-filters" class="btn btn-primary w-100">
-                    <i class="fas fa-filter"></i> Apply
-                  </button>
-                </div>
-              </div>
-              <div class="row mt-3">
-                <div class="col-12">
-                  <div class="log-actions" role="group" aria-label="Server log actions">
-                    <button id="refresh-logs" class="btn btn-ghost">
-                      <i class="fas fa-sync-alt"></i> Refresh Logs
-                    </button>
-                    <button id="auto-refresh-toggle" class="btn btn-ghost">
-                      <i class="fas fa-clock"></i> Auto-Refresh: OFF
-                    </button>
-                    <button id="copy-all-logs" class="btn btn-ghost">
-                      <i class="fas fa-copy"></i> Copy All
-                    </button>
-                    <button id="export-logs" class="btn btn-ghost">
-                      <i class="fas fa-download"></i> Export
-                    </button>
-                    <button id="clear-logs" class="btn btn-outline-danger">
-                      <i class="fas fa-trash"></i> Clear All
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card log-card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <h2 class="h5 mb-0">
-Log Entries
-              </h2>
-              <small class="text-muted" id="logs-info" aria-live="polite">Loading...</small>
-            </div>
-            <div class="card-body p-0">
-              <div id="logs-container" class="logs-container">
-                <div class="text-center py-5">
-                  <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                  </div>
-                  <p class="mt-2">
-Loading logs...
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="tab-pane fade"
-             id="docker-logs-pane"
-             role="tabpanel"
-             aria-labelledby="docker-logs-tab">
-          <div class="card log-card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <h2 class="h5 mb-0">
-                Log Statistics (Client-Side)
-              </h2>
-              <button id="refresh-docker-stats"
-                      class="btn btn-sm btn-outline-primary"
-                      style="display: none">
-                <i class="fas fa-sync-alt"></i> Refresh
-              </button>
-            </div>
-            <div class="card-body">
-              <div class="row figure-band" id="docker-log-stats">
-                <div class="col-6 col-md-2">
-                  <div class="stat-item figure">
-                    <div class="stat-label figure-label">
-Total Lines
-                    </div>
-                    <div class="stat-value figure-value data-num" id="docker-total-count">
--
-                    </div>
-                  </div>
-                </div>
-                <div class="col-6 col-md-2">
-                  <div class="stat-item figure">
-                    <div class="stat-label figure-label">
-DEBUG
-                    </div>
-                    <div class="stat-value figure-value data-num text-secondary" id="docker-debug-count">
-0
-                    </div>
-                  </div>
-                </div>
-                <div class="col-6 col-md-2">
-                  <div class="stat-item figure">
-                    <div class="stat-label figure-label">
-INFO
-                    </div>
-                    <div class="stat-value figure-value data-num text-info" id="docker-info-count">
-0
-                    </div>
-                  </div>
-                </div>
-                <div class="col-6 col-md-2">
-                  <div class="stat-item figure">
-                    <div class="stat-label figure-label">
-WARNING
-                    </div>
-                    <div class="stat-value figure-value data-num text-warning" id="docker-warning-count">
-0
-                    </div>
-                  </div>
-                </div>
-                <div class="col-6 col-md-2">
-                  <div class="stat-item figure">
-                    <div class="stat-label figure-label">
-ERROR
-                    </div>
-                    <div class="stat-value figure-value data-num text-danger" id="docker-error-count">
-0
-                    </div>
-                  </div>
-                </div>
-                <div class="col-6 col-md-2">
-                  <div class="stat-item figure">
-                    <div class="stat-label figure-label">
-CRITICAL
-                    </div>
-                    <div class="stat-value figure-value data-num text-danger" id="docker-critical-count">
-0
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card log-card mb-4">
-            <div class="card-header">
-              <h2 class="h5 mb-0">
-Filters &amp; Actions
-              </h2>
-            </div>
-            <div class="card-body">
-              <div class="row g-3">
-                <div class="col-md-3">
-                  <label for="container-select-btn" class="form-label">
-                    Containers
-                  </label>
-                  <div class="multi-select-container" id="container-multi-select">
-                    <button type="button"
-                            class="form-select text-start multi-select-button"
-                            id="container-select-btn"
-                            aria-haspopup="listbox"
-                            aria-expanded="false"
-                            aria-controls="container-select-dropdown">
-                      Select Containers...
-                    </button>
-                    <div class="multi-select-dropdown" id="container-select-dropdown">
-                      <div class="multi-select-actions p-2 border-bottom">
-                        <div class="btn-group w-100 btn-group-sm">
-                          <button type="button" class="btn btn-outline-secondary" id="docker-select-all">
-                            Select All
-                          </button>
-                          <button type="button" class="btn btn-outline-secondary" id="docker-clear-selection">
-                            Clear
-                          </button>
-                        </div>
-                      </div>
-                      <div class="multi-select-options p-1" id="container-select-options" role="listbox">
-                        <div class="text-center p-2 text-muted">
-Loading...
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="col-md-2">
-                  <label for="docker-level-filter" class="form-label">
-                    Log Level
-                  </label>
-                  <select id="docker-level-filter" class="form-select">
-                    <option value="">
-                      All Levels
-                    </option>
-                    <option value="DEBUG">
-DEBUG
-                    </option>
-                    <option value="INFO">
-INFO
-                    </option>
-                    <option value="WARNING">
-WARNING
-                    </option>
-                    <option value="ERROR">
-ERROR
-                    </option>
-                    <option value="CRITICAL">
-CRITICAL
-                    </option>
-                  </select>
-                </div>
-                <div class="col-md-2">
-                  <label for="docker-limit-filter" class="form-label">
-                    Lines
-                  </label>
-                  <select id="docker-limit-filter" class="form-select">
-                    <option value="100">
-100
-                    </option>
-                    <option value="250">
-250
-                    </option>
-                    <option value="500" selected>
-500
-                    </option>
-                    <option value="1000">
-1000
-                    </option>
-                    <option value="2500">
-2500
-                    </option>
-                    <option value="5000">
-5000
-                    </option>
-                  </select>
-                </div>
-                <div class="col-md-3">
-                  <label for="docker-since-filter" class="form-label">
-                    Since
-                  </label>
-                  <select id="docker-since-filter" class="form-select">
-                    <option value="">
-                      All time
-                    </option>
-                    <option value="5m">
-Last 5 minutes
-                    </option>
-                    <option value="15m">
-Last 15 minutes
-                    </option>
-                    <option value="1h" selected>
-Last 1 hour
-                    </option>
-                    <option value="6h">
-Last 6 hours
-                    </option>
-                    <option value="24h">
-Last 24 hours
-                    </option>
-                    <option value="7d">
-Last 7 days
-                    </option>
-                  </select>
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                  <button id="refresh-docker-logs" class="btn btn-primary w-100">
-                    <i class="fas fa-sync-alt"></i> Refresh
-                  </button>
-                </div>
-              </div>
-              <div class="row mt-3 g-3">
-                <div class="col-md-10">
-                  <label for="docker-search-filter" class="form-label">
-                    Search Message (Local Filter)
-                  </label>
-                  <input type="text"
-                         id="docker-search-filter"
-                         class="form-control"
-                         placeholder="Filter loaded logs..." />
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                  <button id="apply-docker-filters" class="btn btn-primary w-100">
-                    <i class="fas fa-filter"></i> Apply Local
-                  </button>
-                </div>
-              </div>
-              <div class="row mt-3">
-                <div class="col-12">
-                  <div class="log-actions" role="group" aria-label="Docker log actions">
-                    <button id="docker-auto-refresh-toggle" class="btn btn-ghost">
-                      <i class="fas fa-clock"></i> Auto-Refresh: OFF
-                    </button>
-                    <button id="copy-docker-logs" class="btn btn-ghost">
-                      <i class="fas fa-copy"></i> Copy All
-                    </button>
-                    <button id="export-docker-logs" class="btn btn-ghost">
-                      <i class="fas fa-download"></i> Export
-                    </button>
-                    <button id="clear-docker-logs" class="btn btn-outline-danger">
-                      <i class="fas fa-trash"></i> Clear Logs
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card log-card mb-4" id="container-status-card" style="display: none">
-            <div class="card-body py-2">
-              <div class="d-flex align-items-center">
-                <span class="badge rounded-pill me-2" id="container-status-badge">
-                  Unknown
-                </span>
-                <span class="text-muted" id="container-image-info"></span>
-              </div>
-            </div>
-          </div>
-
-          <div class="card log-card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <h2 class="h5 mb-0">
-Container Logs
-              </h2>
-              <small class="text-muted" id="docker-logs-info" aria-live="polite">
-                Select containers to view logs
-              </small>
-            </div>
-            <div class="card-body p-0">
-              <div id="docker-logs-container" class="logs-container">
-                <div class="text-center py-5 text-muted">
-                  <i class="fab fa-docker fa-3x mb-3"></i>
-                  <p>
-Select one or more containers from the list above to view logs.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="settings-tab-content"
-       id="account-tab"
-       role="tabpanel"
-       aria-labelledby="account-tab-button"
-       hidden>
-    <div class="content-grid" data-stagger>
-      <div class="settings-group grid-span-12">
-        <h3 class="settings-group-title">
-          <i class="fas fa-user-circle"></i>
-          Account
-        </h3>
-        <p class="text-muted small">
-          Manage credential workflows and setup shortcuts.
-        </p>
+      <div class="system-summary-grid" aria-label="Automatic workflow summary">
+        <article class="system-summary-card">
+          <span class="system-summary-value" id="automation-total">—</span>
+          <span class="system-summary-label">Automatic workflows</span>
+          <span class="system-summary-note">Always on</span>
+        </article>
+        <article class="system-summary-card">
+          <span class="system-summary-value" id="automation-running">—</span>
+          <span class="system-summary-label">Working now</span>
+          <span class="system-summary-note">No supervision needed</span>
+        </article>
+        <article class="system-summary-card">
+          <span class="system-summary-value" id="automation-recovering">—</span>
+          <span class="system-summary-label">Recovering</span>
+          <span class="system-summary-note">Retrying automatically</span>
+        </article>
       </div>
 
-      <div class="settings-group grid-span-12">
-        <h3 class="settings-group-title">
-          <i class="fas fa-key"></i>
-          Bouncie API Credentials
-        </h3>
-        <p class="text-muted small">
-          Manage Bouncie credentials and Mapbox tokens from the centralized settings hub.
-        </p>
-        <button type="button" class="btn btn-primary" data-open-tab="credentials">
-          <i class="fas fa-sliders-h"></i> Open Credentials
-        </button>
-      </div>
-
-      <div class="settings-group grid-span-6">
-        <h3 class="settings-group-title">
-          <i class="fas fa-car"></i>
-          Vehicle Management
-        </h3>
-        <p class="text-muted small">
-          Manage your vehicle details, odometer settings, and more.
-        </p>
-        <a href="/vehicles" class="btn btn-outline-primary">
-          <i class="fas fa-car me-2"></i>Go to My Vehicle
-        </a>
-      </div>
-
-      <div class="settings-group grid-span-6">
-        <h3 class="settings-group-title">
-          <i class="fas fa-right-from-bracket"></i>
-          Session
-        </h3>
-        {% if not owner_login_enabled %}
-          <p class="text-muted small">
-            Owner authentication is disabled for this deployment.
-          </p>
-        {% elif auth_context.is_owner %}
-          <p class="text-muted small">
-            Sign out of the owner account on this device.
-          </p>
-          <form action="/logout" method="post" class="auth-action-form">
-            <input type="hidden" name="csrf_token" value="{{ auth_context.csrf_token or '' }}" />
-            <button type="submit" class="btn btn-outline-danger">
-              <i class="fas fa-right-from-bracket me-2" aria-hidden="true"></i>Log out
-            </button>
-          </form>
-        {% else %}
-          <p class="text-muted small">
-            Sign in to access owner-only controls.
-          </p>
-          <a href="/login" class="btn btn-outline-primary">
-            <i class="fas fa-lock me-2" aria-hidden="true"></i>Log in
-          </a>
-        {% endif %}
-      </div>
-
-      <div class="settings-group grid-span-6">
-        <h3 class="settings-group-title">
-          <i class="fas fa-question-circle"></i>
-          Credential Shortcuts
-        </h3>
-        <p class="text-muted small profile-help-intro">
-          Keep your Bouncie connection tidy. Use the wizard to validate details and
-          keep your devices in sync.
-        </p>
-        <ul class="profile-help-list">
-          <li class="profile-help-item">
-            <span class="profile-help-chip">Setup Wizard</span>
-            Validate credentials and finish OAuth in one flow.
-          </li>
-          <li class="profile-help-item">
-            <span class="profile-help-chip">Redirect URI</span>
-            Match the callback in Bouncie to your app domain.
-          </li>
-          <li class="profile-help-item">
-            <span class="profile-help-chip">Devices</span>
-            Sync IMEIs after you connect to keep trips flowing.
-          </li>
-        </ul>
-        <div class="profile-help-actions">
-          <a href="/setup-wizard" class="btn btn-primary">
-            <i class="fas fa-compass-drafting me-2"></i>Open Setup Wizard
-          </a>
-          <a href="https://bouncie.dev"
-             class="btn btn-outline-primary"
-             target="_blank"
-             rel="noopener">
-            <i class="fas fa-up-right-from-square me-2"></i>Bouncie Developer Portal
-          </a>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="modal fade" id="taskDetailsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-      <div class="modal-content bg-dark text-white">
-        <div class="modal-header">
-          <h5 class="modal-title">
-Task Details
-          </h5>
-          <button type="button"
-                  class="btn-close btn-close-white"
-                  data-bs-dismiss="modal"
-                  aria-label="Close">
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="task-details-content">
+      <section class="settings-card">
+        <div class="settings-card-heading">
+          <div>
+            <p class="settings-card-eyebrow">Capabilities</p>
+            <h2>What keeps EveryStreet running</h2>
           </div>
+          <span class="settings-card-meta">Live status</span>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-            Close
-          </button>
-          <button type="button" class="btn btn-primary run-task-btn">
-            <i class="fas fa-play"></i> Run Now
-          </button>
+        <div class="service-grid" id="system-services">
+          <div class="service-placeholder">Loading capabilities…</div>
         </div>
-      </div>
-    </div>
-  </div>
-  <div class="modal fade" id="pauseModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content bg-dark text-white">
-        <div class="modal-header">
-          <h5 class="modal-title">
-Pause Tasks
-          </h5>
-          <button type="button"
-                  class="btn-close btn-close-white"
-                  data-bs-dismiss="modal"
-                  aria-label="Close">
-          </button>
+      </section>
+
+      <section class="settings-card automation-explainer">
+        <div class="automation-explainer-icon" aria-hidden="true">
+          <i class="fas fa-arrows-rotate"></i>
         </div>
-        <div class="modal-body">
+        <div>
+          <h2>Designed to converge</h2>
           <p>
-            Pausing tasks will temporarily stop scheduled task execution. Running tasks
-            will complete, but no new tasks will start.
+            Trip imports overlap to catch late data. Missing geocodes, map matches,
+            display paths, coverage, route patterns, vehicle metadata, and map data are
+            detected and repaired in the background. Temporary failures back off and retry.
           </p>
-          <div class="mb-3">
-            <label for="pauseDuration" class="form-label">
-              Pause Duration (minutes):
+        </div>
+      </section>
+    </section>
+
+    <section class="settings-panel"
+             id="preferences-tab"
+             role="tabpanel"
+             aria-labelledby="preferences-tab-button"
+             hidden>
+      <form id="app-settings-form" class="settings-stack">
+        <section class="settings-card">
+          <div class="settings-card-heading">
+            <div>
+              <p class="settings-card-eyebrow">Appearance</p>
+              <h2>Make it yours</h2>
+            </div>
+            <span class="autosave-state" id="preferences-save-state" aria-live="polite">Saved automatically</span>
+          </div>
+          <div class="preference-grid">
+            <label class="preference-row" for="dark-mode-toggle">
+              <span><strong>Dark mode</strong><small>Use the dark map and interface palette.</small></span>
+              <input class="form-check-input" type="checkbox" role="switch" id="dark-mode-toggle" />
             </label>
-            <input type="number" class="form-control" id="pauseDuration" min="1" value="60" />
+            <label class="preference-row" for="accent-color-picker">
+              <span><strong>Accent color</strong><small>Choose the color used for emphasis.</small></span>
+              <input type="color" id="accent-color-picker" value="#b87a4a" />
+            </label>
+            <fieldset class="preference-row preference-density">
+              <span><strong>Interface density</strong><small>Adjust spacing throughout the app.</small></span>
+              <div class="segmented-control" role="radiogroup" aria-label="Interface density">
+                <label><input type="radio" name="ui-density" value="comfortable" checked /><span>Comfortable</span></label>
+                <label><input type="radio" name="ui-density" value="compact" /><span>Compact</span></label>
+              </div>
+            </fieldset>
           </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-            Cancel
-          </button>
-          <button type="button" class="btn btn-warning" id="confirmPause">
-            Pause Tasks
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="modal fade" id="clearHistoryModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content bg-dark text-white">
-        <div class="modal-header">
-          <h5 class="modal-title">
-Clear Task History
-          </h5>
-          <button type="button"
-                  class="btn-close btn-close-white"
-                  data-bs-dismiss="modal"
-                  aria-label="Close">
-          </button>
-        </div>
-        <div class="modal-body">
-          <p>
-            Are you sure you want to clear the task history? This action cannot be
-            undone.
+        </section>
+
+        <section class="settings-card">
+          <div class="settings-card-heading">
+            <div>
+              <p class="settings-card-eyebrow">Maps</p>
+              <h2>Display preferences</h2>
+            </div>
+          </div>
+          <div class="preference-grid">
+            <label class="preference-row" for="map-provider-select">
+              <span><strong>Mapping provider</strong><small>Choose local maps or Google Maps.</small></span>
+              <select class="form-select" id="map-provider-select">
+                <option value="self_hosted">Local maps</option>
+                <option value="google">Google Maps</option>
+              </select>
+            </label>
+            <label class="preference-row" for="highlight-recent-trips">
+              <span><strong>Highlight recent trips</strong><small>Emphasize your newest drives.</small></span>
+              <input class="form-check-input" type="checkbox" role="switch" id="highlight-recent-trips" checked />
+            </label>
+            <label class="preference-row" for="auto-center-toggle">
+              <span><strong>Auto-center maps</strong><small>Frame visible data when a map opens.</small></span>
+              <input class="form-check-input" type="checkbox" role="switch" id="auto-center-toggle" checked />
+            </label>
+            <label class="preference-row" for="map-3d-buildings-toggle">
+              <span><strong>3D buildings</strong><small>Show buildings on compatible Mapbox styles.</small></span>
+              <input class="form-check-input" type="checkbox" role="switch" id="map-3d-buildings-toggle" checked />
+            </label>
+            <label class="preference-row" for="map-terrain-relief-toggle">
+              <span><strong>Terrain relief</strong><small>Show hillshade and elevation.</small></span>
+              <input class="form-check-input" type="checkbox" role="switch" id="map-terrain-relief-toggle" />
+            </label>
+            <label class="preference-row" for="map-trips-within-coverage-only">
+              <span><strong>Clip trips to coverage area</strong><small>When an area is selected, show only the parts inside it.</small></span>
+              <input class="form-check-input" type="checkbox" role="switch" id="map-trips-within-coverage-only" />
+            </label>
+            <label class="preference-row" for="trip-layers-use-heatmap">
+              <span><strong>Trip heatmaps</strong><small>Blend overlapping trip paths into a heatmap.</small></span>
+              <input class="form-check-input" type="checkbox" role="switch" id="trip-layers-use-heatmap" checked />
+            </label>
+          </div>
+        </section>
+      </form>
+    </section>
+
+    <section class="settings-panel"
+             id="connections-tab"
+             role="tabpanel"
+             aria-labelledby="connections-tab-button"
+             hidden>
+      <div class="settings-stack">
+        <section class="settings-card connection-card">
+          <div class="settings-card-heading">
+            <div>
+              <p class="settings-card-eyebrow">Trip source</p>
+              <h2>Bouncie</h2>
+            </div>
+            <span class="connection-state" id="bouncie-connection-state" data-state="loading">Checking</span>
+          </div>
+          <p class="connection-intro">
+            Authorize once. Vehicles, recent trips, and complete history stay synchronized automatically afterward.
           </p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-            Cancel
-          </button>
-          <button type="button" class="btn btn-danger" id="confirmClearHistory">
-            Clear History
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-  <template id="task-status-template">
-    <div class="task-status d-flex align-items-center">
-      <div class="spinner-border spinner-border-sm me-2" role="status">
-        <span class="visually-hidden">Running...</span>
-      </div>
-      <span class="status-text">Running...</span>
-      <div class="progress ms-2" style="width: 100px; height: 6px">
-        <div class="progress-bar progress-bar-striped progress-bar-animated"
-             role="progressbar"
-             style="width: 0%">
-        </div>
-      </div>
-    </div>
-  </template>
-  <div class="modal fade"
-       id="tripHistoryImportWizardModal"
-       tabindex="-1"
-       aria-labelledby="tripHistoryImportWizardLabel"
-       aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
-      <div class="modal-content trip-import-modal">
-        <div class="modal-header">
-          <div class="d-flex flex-column">
-            <h5 class="modal-title" id="tripHistoryImportWizardLabel">
-	              Import Trip History
-            </h5>
-            <small class="text-muted">
-	            Backfill missing trips from Bouncie without modifying existing records.
-            </small>
+          <form id="credentials-bouncie-form" class="connection-form">
+            <label>
+              <span>Client ID</span>
+              <input type="text" class="form-control" id="credentials-clientId" autocomplete="off" required />
+            </label>
+            <label>
+              <span>Client secret</span>
+              <div class="input-group">
+                <input type="password" class="form-control" id="credentials-clientSecret" autocomplete="off" required />
+                <button class="btn btn-outline-secondary connection-secret-toggle"
+                        type="button"
+                        id="credentials-toggle-client-secret"
+                        aria-label="Show client secret">
+                  <i class="fas fa-eye" aria-hidden="true"></i>
+                </button>
+              </div>
+            </label>
+            <input type="hidden" id="credentials-redirectUri" />
+            <div class="connection-form-actions">
+              <a class="btn btn-outline-secondary" href="https://bouncie.dev" target="_blank" rel="noopener">
+                Developer portal
+              </a>
+              <button type="submit" class="btn btn-primary" id="credentials-connect-bouncie-btn">
+                <i class="fas fa-link" aria-hidden="true"></i>
+                Connect Bouncie
+              </button>
+            </div>
+          </form>
+          <div class="connection-footnote">
+            Callback URL: <code id="bouncie-callback-url">Loading…</code>
           </div>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
-          </button>
-        </div>
+        </section>
 
-        <div class="modal-body">
-          <nav class="trip-import-steps" aria-label="Import steps">
-            <div class="trip-import-step-indicator is-active" data-step="config">
-              <span class="trip-import-step-dot">1</span>
-              <span class="trip-import-step-label">Configure</span>
+        <section class="settings-card connection-card">
+          <div class="settings-card-heading">
+            <div>
+              <p class="settings-card-eyebrow">Cloud maps</p>
+              <h2>Google Maps</h2>
             </div>
-            <div class="trip-import-step-connector" aria-hidden="true">
-            </div>
-            <div class="trip-import-step-indicator" data-step="import">
-              <span class="trip-import-step-dot">2</span>
-              <span class="trip-import-step-label">Import</span>
-            </div>
-            <div class="trip-import-step-connector" aria-hidden="true">
-            </div>
-            <div class="trip-import-step-indicator" data-step="summary">
-              <span class="trip-import-step-dot">3</span>
-              <span class="trip-import-step-label">Summary</span>
-            </div>
-          </nav>
-          <section class="trip-import-step is-active" data-step="config">
-            <div class="row g-4">
-              <div class="col-12 col-lg-5">
-                <div class="trip-import-card">
-                  <h6 class="trip-import-card-title">
-	                  Start date
-                  </h6>
-                  <p class="text-muted small mb-3">
-	                  Trips are fetched in 7-day windows with a 24-hour overlap for safety.
-                  </p>
-                  <label for="trip-import-start" class="form-label">
-	Start from (local time)
-                  </label>
-                  <input type="datetime-local"
-                         class="form-control"
-                         id="trip-import-start"
-                         autocomplete="off" />
-                  <div class="form-text">
-	                  Default is your earliest saved trip date.
-                  </div>
-
-                  <div class="alert alert-warning mt-3 mb-0" role="alert">
-                    <strong>Safe mode:</strong> Existing trips are never modified. Only missing trips
-	                    are inserted.
-                  </div>
-                </div>
-              </div>
-
-              <div class="col-12 col-lg-7">
-                <div class="trip-import-card">
-                  <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
-                    <div>
-                      <h6 class="trip-import-card-title mb-1">
-	                      Plan preview
-                      </h6>
-                      <p class="text-muted small mb-0">
-	                      Estimated workload and devices to scan.
-                      </p>
-                    </div>
-                    <span class="badge text-bg-light border trip-import-plan-badge">
-	                      7d windows + 24h overlap
-                    </span>
-                  </div>
-
-                  <div class="trip-import-plan-grid mt-3">
-                    <div class="trip-import-plan-item">
-                      <div class="trip-import-plan-k">
-Windows
-                      </div>
-                      <div class="trip-import-plan-v" id="trip-import-plan-windows">
---
-                      </div>
-                    </div>
-                    <div class="trip-import-plan-item">
-                      <div class="trip-import-plan-k">
-Requests
-                      </div>
-                      <div class="trip-import-plan-v" id="trip-import-plan-requests">
---
-                      </div>
-                    </div>
-                    <div class="trip-import-plan-item">
-                      <div class="trip-import-plan-k">
-Concurrency
-                      </div>
-                      <div class="trip-import-plan-v" id="trip-import-plan-concurrency">
---
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="trip-import-devices mt-3">
-                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                      <div class="small text-muted">
-	                      Vehicles / devices
-                      </div>
-                      <div class="d-flex align-items-center gap-2">
-                        <button type="button"
-                                class="btn btn-sm btn-outline-secondary"
-                                id="trip-import-select-all-btn">
-	                          Select all
-                        </button>
-                        <button type="button"
-                                class="btn btn-sm btn-outline-secondary"
-                                id="trip-import-clear-all-btn">
-	                          Clear all
-                        </button>
-                        <div class="small text-muted" id="trip-import-devices-count">
-	                          --
-                        </div>
-                      </div>
-                    </div>
-                    <div class="form-text mt-2">
-	                      Only selected vehicles will be scanned and imported.
-                    </div>
-                    <div class="trip-import-devices-list" id="trip-import-devices-list" role="list">
-                    </div>
-                  </div>
-
-                  <div class="trip-import-inline-error d-none mt-3"
-                       id="trip-import-config-error"
-                       role="alert">
-                  </div>
-
-                  <div class="trip-import-config-actions d-none mt-3" id="trip-import-config-actions">
-                    <button type="button" class="btn btn-outline-danger" id="trip-import-stop-sync-btn">
-	                    Cancel current sync
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-          <section class="trip-import-step" data-step="import">
-            <div class="trip-import-progress-header">
-              <div class="trip-import-progress-title">
-                <span class="trip-import-stage" id="trip-import-stage">Queued</span>
-                <span class="trip-import-message" id="trip-import-message" aria-live="polite">
-	                Waiting to start...
-                </span>
-              </div>
-              <div class="trip-import-window-info">
-                <span class="trip-import-window-label">Window:</span>
-                <span id="trip-import-window">--</span>
-                <span class="trip-import-window-sep">·</span>
-                <span class="trip-import-window-label">Progress:</span>
-                <span id="trip-import-windows">--</span>
-              </div>
-            </div>
-
-            <div class="progress trip-import-progress-bar"
-                 role="progressbar"
-                 aria-label="Import progress">
-              <div class="progress-bar progress-bar-striped progress-bar-animated"
-                   id="trip-import-progress-bar"
-                   style="width: 0%">
-	              0%
-              </div>
-            </div>
-            <div class="trip-import-pipeline" aria-label="Import pipeline counters">
-              <div class="trip-import-pipeline-card">
-                <div class="trip-import-pipeline-card-title">
-                  <i class="fas fa-cloud-download-alt"></i> Fetch
-                </div>
-                <div class="trip-import-pipeline-row">
-                  <span class="trip-import-pipeline-k">API results</span>
-                  <span class="trip-import-pipeline-v" id="trip-import-count-found-raw">0</span>
-                </div>
-                <div class="trip-import-pipeline-row trip-import-pipeline-row--error">
-                  <span class="trip-import-pipeline-k">Fetch errors</span>
-                  <span class="trip-import-pipeline-v" id="trip-import-count-fetch-errors">0</span>
-                </div>
-              </div>
-              <div class="trip-import-pipeline-card">
-                <div class="trip-import-pipeline-card-title">
-                  <i class="fas fa-filter"></i> Filter
-                </div>
-                <div class="trip-import-pipeline-row">
-                  <span class="trip-import-pipeline-k">After dedup</span>
-                  <span class="trip-import-pipeline-v" id="trip-import-count-found-unique">0</span>
-                </div>
-                <div class="trip-import-pipeline-row trip-import-pipeline-row--warn">
-                  <span class="trip-import-pipeline-k">Conflicting source</span>
-                  <span class="trip-import-pipeline-v"
-                        id="trip-import-count-skipped-conflicting-source">0</span>
-                </div>
-              </div>
-              <div class="trip-import-pipeline-card">
-                <div class="trip-import-pipeline-card-title">
-                  <i class="fas fa-database"></i> Compare
-                </div>
-                <div class="trip-import-pipeline-row">
-                  <span class="trip-import-pipeline-k">Already in DB</span>
-                  <span class="trip-import-pipeline-v" id="trip-import-count-skipped-existing">0</span>
-                </div>
-                <div class="trip-import-pipeline-row">
-                  <span class="trip-import-pipeline-k">Updated</span>
-                  <span class="trip-import-pipeline-v" id="trip-import-count-updated">0</span>
-                </div>
-              </div>
-              <div class="trip-import-pipeline-card">
-                <div class="trip-import-pipeline-card-title">
-                  <i class="fas fa-check-circle"></i> Save
-                </div>
-                <div class="trip-import-pipeline-row trip-import-pipeline-row--success">
-                  <span class="trip-import-pipeline-k">Saved</span>
-                  <span class="trip-import-pipeline-v" id="trip-import-count-inserted">0</span>
-                </div>
-                <div class="trip-import-pipeline-row trip-import-pipeline-row--error">
-                  <span class="trip-import-pipeline-k">Failed validation</span>
-                  <span class="trip-import-pipeline-v" id="trip-import-count-validation-failed">0</span>
-                </div>
-                <div class="trip-import-pipeline-row trip-import-pipeline-row--error">
-                  <span class="trip-import-pipeline-k">Processing errors</span>
-                  <span class="trip-import-pipeline-v" id="trip-import-count-process-errors">0</span>
-                </div>
-              </div>
-
-            </div>
-
-            <div class="trip-import-surface mt-3">
-              <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <h6 class="mb-0">
-                  <i class="fas fa-car"></i> Per-Vehicle Breakdown
-                </h6>
-              </div>
-              <div class="trip-import-table-wrap mt-2">
-                <table class="table table-sm table-striped align-middle mb-0 trip-import-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">
-Device
-                      </th>
-                      <th scope="col">
-Windows
-                      </th>
-                      <th scope="col">
-API results
-                      </th>
-                      <th scope="col">
-After dedup
-                      </th>
-                      <th scope="col">
-In DB
-                      </th>
-                      <th scope="col">
-Conflicts
-                      </th>
-                      <th scope="col">
-Invalid
-                      </th>
-                      <th scope="col">
-Inserted
-                      </th>
-                      <th scope="col">
-Errors
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody id="trip-import-vehicles-tbody">
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <details class="trip-import-surface trip-import-log-details mt-3">
-              <summary class="trip-import-log-summary">
-                <i class="fas fa-terminal"></i> Event Log
-                <small class="text-muted ms-2">Latest 60 entries</small>
-              </summary>
-              <div class="trip-import-failure-summary mt-2" id="trip-import-failure-summary">
-              </div>
-              <div class="trip-import-events mt-2" id="trip-import-events" aria-live="polite">
-              </div>
-            </details>
-
-            <div class="trip-import-inline-error d-none mt-3"
-                 id="trip-import-progress-error"
-                 role="alert">
-            </div>
-          </section>
-          <section class="trip-import-step" data-step="summary">
-            <div class="trip-import-card">
-              <h6 class="trip-import-card-title" id="trip-import-summary-title">
-	              Import complete
-              </h6>
-              <p class="text-muted mb-3" id="trip-import-summary-body">
-	              --
-              </p>
-              <div class="trip-import-summary-grid">
-                <div class="trip-import-summary-item">
-                  <div class="trip-import-summary-k">
-Saved
-                  </div>
-                  <div class="trip-import-summary-v" id="trip-import-summary-inserted">
-0
-                  </div>
-                </div>
-                <div class="trip-import-summary-item">
-                  <div class="trip-import-summary-k">
-Already in DB
-                  </div>
-                  <div class="trip-import-summary-v" id="trip-import-summary-existing">
-0
-                  </div>
-                </div>
-                <div class="trip-import-summary-item">
-                  <div class="trip-import-summary-k">
-Failed validation
-                  </div>
-                  <div class="trip-import-summary-v" id="trip-import-summary-validation-failed">
-0
-                  </div>
-                </div>
-                <div class="trip-import-summary-item">
-                  <div class="trip-import-summary-k">
-Fetch errors
-                  </div>
-                  <div class="trip-import-summary-v" id="trip-import-summary-fetch-errors">
-0
-                  </div>
-                </div>
-                <div class="trip-import-summary-item">
-                  <div class="trip-import-summary-k">
-Processing errors
-                  </div>
-                  <div class="trip-import-summary-v" id="trip-import-summary-process-errors">
-0
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <div class="modal-footer trip-import-footer">
-          <div class="me-auto text-muted small" id="trip-import-footer-hint">
           </div>
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-	          Close
-          </button>
-          <button type="button" class="btn btn-outline-danger d-none" id="trip-import-cancel-btn">
-	          Cancel import
-          </button>
-          <a class="btn btn-outline-primary d-none"
-             href="/trips"
-             id="trip-import-go-trips"
-             data-no-swup>
-	          Go to trips
-          </a>
-          <button type="button" class="btn btn-outline-primary d-none" id="trip-import-new-btn">
-	          Start another import
-          </button>
-          <button type="button" class="btn btn-primary" id="trip-import-start-btn">
-	          Start import
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+          <p class="connection-intro">
+            Only required when Google Maps is your selected mapping provider.
+          </p>
+          <form id="credentials-google-form" class="connection-form connection-form-single">
+            <label>
+              <span>Google Maps API key</span>
+              <input type="password"
+                     class="form-control"
+                     id="credentials-google-maps-api-key"
+                     autocomplete="off"
+                     placeholder="AIzaSy…" />
+            </label>
+            <div class="connection-form-actions">
+              <button type="submit" class="btn btn-primary" id="credentials-save-google-btn">
+                Save key
+              </button>
+            </div>
+          </form>
+        </section>
 
+        <section class="settings-card">
+          <div class="settings-card-heading">
+            <div>
+              <p class="settings-card-eyebrow">Fleet</p>
+              <h2>Connected vehicles</h2>
+            </div>
+            <a href="/vehicles" class="btn btn-sm btn-outline-secondary">Manage vehicle choices</a>
+          </div>
+          <div class="connected-vehicles" id="connected-vehicles">
+            <span class="text-muted">Loading vehicles…</span>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="settings-panel"
+             id="account-tab"
+             role="tabpanel"
+             aria-labelledby="account-tab-button"
+             hidden>
+      <div class="settings-stack">
+        <section class="settings-card account-card">
+          <div class="account-icon" aria-hidden="true"><i class="fas fa-user-shield"></i></div>
+          <div>
+            <p class="settings-card-eyebrow">Owner access</p>
+            {% if not owner_login_enabled %}
+              <h2>Authentication is disabled</h2>
+              <p>This private deployment does not currently require an owner login.</p>
+            {% elif auth_context.is_owner %}
+              <h2>You’re signed in</h2>
+              <p>Owner-only data and controls are available on this device.</p>
+              <form action="/logout" method="post">
+                <input type="hidden" name="csrf_token" value="{{ auth_context.csrf_token or '' }}" />
+                <button type="submit" class="btn btn-outline-danger">
+                  <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+                  Log out
+                </button>
+              </form>
+            {% else %}
+              <h2>Sign in as the owner</h2>
+              <p>Authentication is required for owner-only data and settings.</p>
+              <a href="/login" class="btn btn-primary">Log in</a>
+            {% endif %}
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
 {% endblock %}
-
-
-{# Page scripts are loaded via route-loader + swup. #}

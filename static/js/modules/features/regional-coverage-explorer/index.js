@@ -4,7 +4,6 @@
  */
 
 import { coverageBoundingBoxToMapBounds } from "../../core/coverage-bounds.js";
-import { swupReady } from "../../core/navigation.js";
 import { createMap } from "../../map-core.js";
 import * as RegionalCoverageExplorerAPI from "../../regional-coverage-explorer/api.js";
 import {
@@ -26,11 +25,6 @@ import {
 } from "../../regional-coverage-explorer/map-layers.js";
 import * as RegionalCoverageExplorerState from "../../regional-coverage-explorer/state.js";
 import {
-  clearStoredRecalcState,
-  getStoredRecalcState,
-  storeRecalcState,
-} from "../../regional-coverage-explorer/storage.js";
-import {
   hideLoading,
   renderCityRows,
   renderStateStatsList,
@@ -39,17 +33,12 @@ import {
   updateLastUpdated,
   updateLevelUi,
   updateLoadingText,
-  updateRecalculateUi,
   updateSummaryBar,
 } from "../../regional-coverage-explorer/ui.js";
-import notificationManager from "../../ui/notifications.js";
 import { isAbortError } from "../../utils.js";
 
 const MAX_CONTEXT_RECOVERY_ATTEMPTS = 2;
 const CONTEXT_RECOVERY_COOLDOWN_MS = 30_000;
-const RECALC_STALE_MS = 6 * 60 * 60 * 1000;
-const RECALC_POLL_MS = 1500;
-const RECALC_NO_JOB_GRACE_MS = 20_000;
 
 let pageSignal = null;
 let inFlightRequestController = null;
@@ -75,37 +64,6 @@ export function canAttemptRecovery({
     return true;
   }
   return nowMs - lastAttemptAtMs >= cooldownMs;
-}
-
-function isRecalcStateStale(startedAt, nowMs = Date.now()) {
-  if (!(startedAt instanceof Date) || Number.isNaN(startedAt.getTime())) {
-    return true;
-  }
-  return nowMs - startedAt.getTime() > RECALC_STALE_MS;
-}
-
-function toDate(value) {
-  if (!value) {
-    return null;
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-  return parsed;
-}
-
-function isJobActive(job) {
-  const status = String(job?.status || "").toLowerCase();
-  return status === "pending" || status === "running";
-}
-
-function isJobFailed(job) {
-  return String(job?.status || "").toLowerCase() === "failed";
-}
-
-function isJobCompleted(job) {
-  return String(job?.status || "").toLowerCase() === "completed";
 }
 
 function abortInFlightRequests() {
@@ -873,7 +831,7 @@ async function loadAndRenderCoverage(map, { recovery = false } = {}) {
     const hasStops = Object.keys(countyStops).length > 0;
 
     if (!hasVisits && !hasStops) {
-      showRecalculatePrompt(triggerRecalculate);
+      showRecalculatePrompt();
     }
   } catch (error) {
     if (isAbortError(error) || requestSignal.aborted || pageSignal?.aborted) {
@@ -1065,232 +1023,6 @@ function bindLevelControls() {
 }
 
 /**
- * Clear recalculation state
- */
-function clearRecalcState() {
-  clearStoredRecalcState();
-  RegionalCoverageExplorerState.setIsRecalculating(false);
-  RegionalCoverageExplorerState.setRecalcPollerActive(false);
-  updateRecalculateUi(false);
-}
-
-function buildRecalculateDetails(job = null) {
-  const metrics = job?.metrics || {};
-  const result = job?.result || {};
-  const processedTrips = Number(metrics.processedTrips ?? result.processedTrips ?? 0);
-  const totalTrips = Number(metrics.totalTrips ?? result.totalTrips ?? 0);
-  const visitedCounties = Number(
-    metrics.visitedCounties ?? result.visitedCounties ?? 0
-  );
-  const visitedCities = Number(metrics.visitedCities ?? result.visitedCities ?? 0);
-  const stoppedCounties = Number(
-    metrics.stoppedCounties ?? result.stoppedCounties ?? 0
-  );
-  const stoppedCities = Number(metrics.stoppedCities ?? result.stoppedCities ?? 0);
-
-  return {
-    stage: job?.stage || "Working",
-    progress: Number(job?.progress ?? 0),
-    mode: job?.mode || metrics.mode || result.mode || "incremental",
-    processedTrips,
-    totalTrips,
-    visitedCounties,
-    visitedCities,
-    stoppedCounties,
-    stoppedCities,
-  };
-}
-
-function refreshCoveragePage() {
-  swupReady.then((swup) => {
-    swup.navigate(window.location.href, {
-      cache: { read: false, write: true },
-      history: "replace",
-    });
-  });
-}
-
-/**
- * Trigger Region Explorer cache rebuild
- */
-async function triggerRecalculate() {
-  if (RegionalCoverageExplorerState.getIsRecalculating()) {
-    return;
-  }
-
-  const startedAt = new Date();
-  RegionalCoverageExplorerState.setIsRecalculating(true);
-  storeRecalcState(startedAt, null);
-  updateRecalculateUi(true, "Starting Region Explorer cache rebuild...", {
-    stage: "Queued",
-    progress: 0,
-  });
-
-  try {
-    const data = await RegionalCoverageExplorerAPI.triggerRecalculation({
-      signal: pageSignal,
-    });
-    if (data.success) {
-      const job = data?.job || null;
-      const jobId = typeof data?.jobId === "string" ? data.jobId : job?.id || null;
-      storeRecalcState(startedAt, jobId);
-      if (job) {
-        updateRecalculateUi(
-          true,
-          job.message || "Rebuilding Region Explorer cache...",
-          buildRecalculateDetails(job)
-        );
-      }
-      setTimeout(() => startRecalculatePolling(startedAt, jobId), 500);
-    } else {
-      notificationManager.show(`Error starting calculation: ${data.error}`, "danger");
-      clearRecalcState();
-    }
-  } catch (error) {
-    if (isAbortError(error)) {
-      if (!pageSignal?.aborted) {
-        clearRecalcState();
-      }
-      return;
-    }
-    clearRecalcState();
-  }
-}
-
-/**
- * Start polling for recalculation completion
- */
-function startRecalculatePolling(startedAt, jobId = null) {
-  if (pageSignal?.aborted) {
-    RegionalCoverageExplorerState.setRecalcPollerActive(false);
-    return;
-  }
-  if (RegionalCoverageExplorerState.getRecalcPollerActive()) {
-    return;
-  }
-  RegionalCoverageExplorerState.setRecalcPollerActive(true);
-  setTimeout(() => checkAndRefresh(startedAt, jobId), RECALC_POLL_MS);
-}
-
-/**
- * Check if calculation is done and refresh
- */
-async function checkAndRefresh(startedAt, activeJobId = null) {
-  if (pageSignal?.aborted) {
-    RegionalCoverageExplorerState.setRecalcPollerActive(false);
-    return;
-  }
-  if (!RegionalCoverageExplorerState.getIsRecalculating()) {
-    RegionalCoverageExplorerState.setRecalcPollerActive(false);
-    return;
-  }
-  if (isRecalcStateStale(startedAt)) {
-    clearRecalcState();
-    notificationManager.show(
-      "Region Explorer cache rebuild timed out. Please try again.",
-      "warning"
-    );
-    return;
-  }
-
-  try {
-    const data = await RegionalCoverageExplorerAPI.fetchCacheStatus({
-      signal: pageSignal,
-    });
-    const job = data?.recalculation?.job || null;
-    const lastUpdated = toDate(data?.lastUpdated);
-    const updatedAfterStart = lastUpdated ? lastUpdated >= startedAt : false;
-
-    if (job && isJobActive(job)) {
-      const jobId = typeof job?.id === "string" ? job.id : activeJobId;
-      storeRecalcState(startedAt, jobId);
-      updateRecalculateUi(
-        true,
-        job.message || "Rebuilding Region Explorer cache...",
-        buildRecalculateDetails(job)
-      );
-      if (!pageSignal?.aborted) {
-        setTimeout(() => checkAndRefresh(startedAt, jobId), RECALC_POLL_MS);
-      }
-      return;
-    }
-
-    if (job && isJobFailed(job)) {
-      clearRecalcState();
-      notificationManager.show(
-        job.error || job.message || "Region Explorer cache rebuild failed.",
-        "danger"
-      );
-      return;
-    }
-
-    const completedAt = toDate(job?.completedAt);
-    const completedAfterStart = completedAt ? completedAt >= startedAt : false;
-
-    if (
-      (job && isJobCompleted(job) && (completedAfterStart || updatedAfterStart)) ||
-      (data.cached && updatedAfterStart)
-    ) {
-      clearRecalcState();
-      refreshCoveragePage();
-      return;
-    }
-
-    if (!job) {
-      const elapsedMs = Date.now() - startedAt.getTime();
-      const workerShouldExist = Boolean(data?.isRecalculating);
-      if (!workerShouldExist && elapsedMs > RECALC_NO_JOB_GRACE_MS) {
-        clearRecalcState();
-        notificationManager.show(
-          "No active Region Explorer cache rebuild job was found. Please start it again.",
-          "warning"
-        );
-        return;
-      }
-
-      updateRecalculateUi(true, "Waiting for Region Explorer cache worker...", {
-        stage: "Starting",
-        progress: 0,
-        mode: data?.defaultMode || "incremental",
-      });
-    }
-
-    if (!pageSignal?.aborted) {
-      setTimeout(() => checkAndRefresh(startedAt, activeJobId), RECALC_POLL_MS);
-    }
-  } catch (error) {
-    if (!isAbortError(error) && !pageSignal?.aborted) {
-      setTimeout(() => checkAndRefresh(startedAt, activeJobId), 2500);
-    }
-  }
-}
-
-function setupRecalculateButton(signal) {
-  const eventOptions = signal ? { signal } : false;
-  const btn = document.getElementById("recalculate-btn");
-  if (btn) {
-    btn.addEventListener("click", triggerRecalculate, eventOptions);
-  }
-}
-
-function resumeRecalculateIfNeeded() {
-  const recalcState = getStoredRecalcState();
-  if (!recalcState) {
-    return;
-  }
-  if (isRecalcStateStale(recalcState.startedAt)) {
-    clearRecalcState();
-    return;
-  }
-  RegionalCoverageExplorerState.setIsRecalculating(true);
-  updateRecalculateUi(true, "Resuming Region Explorer cache rebuild...", {
-    stage: "Reconnecting",
-    progress: 0,
-  });
-  startRecalculatePolling(recalcState.startedAt, recalcState.jobId || null);
-}
-
-/**
  * Initialize the county map page.
  */
 export default function initCountyMapPage({ cleanup, signal } = {}) {
@@ -1307,8 +1039,6 @@ export default function initCountyMapPage({ cleanup, signal } = {}) {
 
   setupPanelToggle();
   setupLevelControls(pageSignal);
-  setupRecalculateButton(pageSignal);
-  resumeRecalculateIfNeeded();
 
   const teardown = () => {
     pageSignal = null;

@@ -91,7 +91,6 @@ async def get_place_preview_image(
     )
 
 
-@router.post("/api/places/previews/backfill")
 async def backfill_place_previews(force: bool = False):
     """Generate missing or stale cached map previews for existing places."""
     try:

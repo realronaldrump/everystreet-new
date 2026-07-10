@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from beanie import PydanticObjectId
@@ -11,6 +11,7 @@ from beanie import PydanticObjectId
 from db.models import Job
 
 logger = logging.getLogger(__name__)
+JOB_RETENTION_DAYS = 30
 
 
 class JobHandle:
@@ -110,6 +111,8 @@ class JobHandle:
         now = datetime.now(UTC)
         self.job.completed_at = now
         self.job.updated_at = now
+        if self.job.expires_at is None:
+            self.job.expires_at = now + timedelta(days=JOB_RETENTION_DAYS)
         try:
             await self.job.save()
             self._last_saved = time.monotonic()
@@ -135,6 +138,8 @@ class JobHandle:
         now = datetime.now(UTC)
         self.job.completed_at = now
         self.job.updated_at = now
+        if self.job.expires_at is None:
+            self.job.expires_at = now + timedelta(days=JOB_RETENTION_DAYS)
         try:
             await self.job.save()
             self._last_saved = time.monotonic()

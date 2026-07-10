@@ -269,6 +269,7 @@ async def _process_payload(
     *,
     source_label: str,
     strict_schema: bool,
+    fail_on_handler_error: bool = False,
 ) -> str | None:
     """Dispatch a webhook payload to the matching trip handler."""
     if strict_schema:
@@ -289,7 +290,7 @@ async def _process_payload(
             source_label,
             event_type,
         )
-        if strict_schema:
+        if strict_schema or fail_on_handler_error:
             raise _webhook_error(
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
                 "Webhook processing failed.",
@@ -312,6 +313,7 @@ async def _handle_live_webhook_request(
         payload,
         source_label=source_label,
         strict_schema=strict_schema,
+        fail_on_handler_error=require_auth,
     )
     if require_auth:
         await TrackingService.record_webhook_event(event_type)

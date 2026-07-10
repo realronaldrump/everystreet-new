@@ -313,30 +313,13 @@ API Key
                   <a href="#" class="btn btn-success" id="connectBouncieBtn" role="button">
                     <i class="fas fa-plug"></i> Connect with Bouncie
                   </a>
-                  <details class="setup-advanced-toggle">
-                    <summary>
-Advanced: Sync vehicles manually
-                    </summary>
-                    <div class="setup-advanced-content">
-                      <p class="text-muted small">
-                        Vehicles are synced automatically when you connect. Use this only
-                        if you need to re-sync after adding a new device.
-                      </p>
-                      <button class="btn btn-outline-light btn-sm"
-                              id="syncVehiclesBtn"
-                              type="button"
-                              disabled>
-                        <i class="fas fa-sync"></i> Sync Vehicles
-                      </button>
-                    </div>
-                  </details>
                 </div>
               </div>
 
               <div class="setup-card-footer-note">
                 <i class="fas fa-info-circle"></i>
                 Need to edit later? Manage credentials in
-                <a href="/control-center#credentials">Settings&nbsp;&gt;&nbsp;Credentials</a>.
+                <a href="/control-center#connections">Settings&nbsp;&gt;&nbsp;Connections</a>.
               </div>
 
               <div class="setup-actions">
@@ -390,12 +373,11 @@ Not configured
                   </div>
                   <div>
                     <h3>
-Import Recent Trips
+Preparing Trip Coverage
                     </h3>
                     <p class="text-muted" id="import-description">
-                      We'll fetch your trips from <strong>the last 7 days</strong> from Bouncie.
-                      This tells us which states you've been driving in so we download
-                      only the coverage data you actually need.
+                      EveryStreet imports recent Bouncie trips automatically, detects
+                      the states you drive in, and prepares the right map coverage.
                     </p>
                   </div>
                 </div>
@@ -425,17 +407,10 @@ Import Recent Trips
                 <div class="setup-import-hint d-none" id="trip-sync-hint">
                 </div>
 
-                <button class="btn btn-primary setup-import-btn"
-                        id="coverage-import-trips-btn"
-                        type="button">
-                  <i class="fas fa-download"></i>
-                  Import Recent Trips
-                </button>
-
                 <div class="setup-help-tip" id="import-tip">
                   <i class="fas fa-lightbulb"></i>
-                  <span>Need more history? You can import your full trip history later from
-                    <a href="/control-center#sync-settings">Settings&nbsp;&gt;&nbsp;Sync</a>.</span>
+                  <span>Your complete Bouncie history will continue importing safely in
+                    the background after setup.</span>
                 </div>
               </div>
 
@@ -511,15 +486,11 @@ Building Coverage
                   <a class="btn btn-primary" href="/" id="build-continue-btn">
                     <i class="fas fa-arrow-right"></i> Continue to Dashboard
                   </a>
-                  <button class="btn btn-outline-light" id="map-cancel-btn" type="button">
-                    <i class="fas fa-times"></i> Cancel Build
-                  </button>
                 </div>
                 <div class="setup-help-tip">
                   <i class="fas fa-info-circle"></i>
-                  <span>Coverage will finish building in the background.
-                    You'll be able to see progress any time from
-                    <a href="/control-center#map-services">Settings&nbsp;&gt;&nbsp;Map Services</a>.</span>
+                  <span>Coverage will finish building in the background and recover
+                    automatically if the download is interrupted.</span>
                 </div>
               </div>
 
@@ -540,10 +511,10 @@ You're All Set!
                   </div>
                 </div>
 
-                <button class="btn btn-success setup-finish-btn" id="finish-setup-btn" type="button">
+                <a class="btn btn-success setup-finish-btn" href="/">
                   <i class="fas fa-rocket"></i>
                   Go to Dashboard
-                </button>
+                </a>
               </div>
 
               <div class="setup-actions" id="coverage-actions">

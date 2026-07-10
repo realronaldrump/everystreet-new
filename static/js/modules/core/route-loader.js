@@ -41,7 +41,6 @@ const routes = [
   ["/control-center", "../../pages/control-center.js"],
   ["/vehicles", "../../pages/vehicles.js"],
   ["/gas-tracking", "../../pages/gas-tracking.js", ["map"]],
-  ["/map-matching", "../../pages/map-matching.js", ["map"]],
   ["/coverage-management", "../../pages/coverage-management.js", ["map"]],
   ["/coverage-route-planner", "../../pages/coverage-route-planner.js", ["map"]],
   ["/live-navigation", "../../pages/live-navigation.js", ["map"]],

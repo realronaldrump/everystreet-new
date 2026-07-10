@@ -901,6 +901,7 @@ async def process_bouncie_trips(
             continue
 
         processed_transaction_ids.append(tx)
+        await TripIngestIssueService.resolve_for_transaction(tx)
         if existing:
             counters["updated"] += 1
         else:
@@ -913,8 +914,7 @@ async def process_bouncie_trips(
 
 
 async def _resolve_geocode_preference() -> bool:
-    app_settings = await AdminService.get_persisted_app_settings()
-    return bool(app_settings.model_dump().get("geocodeTripsOnFetch", True))
+    return True
 
 
 async def _resolve_force_google_rematch(do_map_match: bool) -> bool:
@@ -956,7 +956,8 @@ async def run_ingest_for_range(
     session = await get_session()
     token = await BouncieOAuth.get_access_token(session, credentials)
     if not token:
-        return {"processed_transaction_ids": [], "counters": counters}
+        msg = "Bouncie authorization is unavailable."
+        raise RuntimeError(msg)
 
     if do_geocode is None:
         do_geocode = await _resolve_geocode_preference()
@@ -1027,6 +1028,12 @@ async def run_ingest_for_range(
                                 fetch_result.failed_windows,
                             ),
                         },
+                    )
+                else:
+                    await TripIngestIssueService.resolve_fetch_window(
+                        imei=imei,
+                        window_start=window_start,
+                        window_end=window_end,
                     )
         except Exception as exc:
             counters["fetch_errors"] += 1
@@ -1099,7 +1106,8 @@ async def run_ingest_for_transaction_id(
     session = await get_session()
     token = await BouncieOAuth.get_access_token(session, credentials)
     if not token:
-        return {"processed_transaction_ids": [], "counters": counters}
+        msg = "Bouncie authorization is unavailable."
+        raise RuntimeError(msg)
 
     if do_geocode is None:
         do_geocode = await _resolve_geocode_preference()

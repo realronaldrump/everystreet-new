@@ -260,7 +260,7 @@ test("renderAreaCards keeps active coverage jobs visible even when area status i
   }
 });
 
-test("renderAreaCards exposes rebuild recovery actions when area is in error", async () => {
+test("renderAreaCards leaves coverage recovery to automation", async () => {
   const grid = { innerHTML: "", style: { display: "none" } };
   const loading = { style: { display: "block" } };
   const emptyState = { classList: { add: () => {}, remove: () => {} } };
@@ -309,9 +309,9 @@ test("renderAreaCards exposes rebuild recovery actions when area is in error", a
       areaNameById: new Map(),
     });
 
-    assert.match(grid.innerHTML, /Retry Build/);
-    assert.match(grid.innerHTML, /Retry Build from OSM/);
-    assert.doesNotMatch(grid.innerHTML, /data-area-action="rebuild"[^>]*disabled/);
+    assert.match(grid.innerHTML, /Recovering automatically/);
+    assert.match(grid.innerHTML, /Coverage recovery is automatic/);
+    assert.doesNotMatch(grid.innerHTML, /data-area-action="rebuild"/);
   } finally {
     global.document = originalDocument;
     global.window = originalWindow;

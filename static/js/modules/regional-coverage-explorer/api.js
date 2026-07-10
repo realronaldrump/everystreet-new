@@ -49,17 +49,6 @@ export function fetchVisitedCounties(options = {}) {
 }
 
 /**
- * Trigger unified geo recalculation
- * @param {{signal?: AbortSignal}} [options]
- * @returns {Promise<Object>} Recalculation response
- */
-export function triggerRecalculation(options = {}) {
-  const { signal, mode } = options;
-  const path = withQuery("/api/geo-coverage/recalculate", { mode });
-  return apiClient.post(path, null, { signal });
-}
-
-/**
  * Check geo coverage cache status
  * @param {{signal?: AbortSignal}} [options]
  * @returns {Promise<Object>} Cache status response

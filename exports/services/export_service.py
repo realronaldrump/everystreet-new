@@ -87,6 +87,27 @@ _TripExportClipContext = CoverageClipContext
 
 class ExportService:
     @staticmethod
+    def cleanup_expired_artifacts() -> dict[str, int]:
+        """Remove export files after their matching job retention window."""
+        if not EXPORT_ROOT.exists():
+            return {"removed": 0}
+
+        cutoff = (datetime.now(UTC) - timedelta(days=EXPORT_RETENTION_DAYS)).timestamp()
+        removed = 0
+        for path in EXPORT_ROOT.iterdir():
+            try:
+                if path.stat().st_mtime >= cutoff:
+                    continue
+                if path.is_dir():
+                    shutil.rmtree(path, ignore_errors=True)
+                else:
+                    path.unlink(missing_ok=True)
+                removed += 1
+            except OSError:
+                logger.exception("Failed to remove expired export artifact %s", path)
+        return {"removed": removed}
+
+    @staticmethod
     def _normalize_item(item: ExportItem) -> dict[str, Any]:
         fmt = item.format or EXPORT_DEFAULT_FORMAT.get(item.entity)
         if fmt not in EXPORT_FORMATS_BY_ENTITY.get(item.entity, set()):
@@ -111,6 +132,7 @@ class ExportService:
         request: ExportRequest,
         owner_key: str,
     ) -> Job:
+        cls.cleanup_expired_artifacts()
         now = datetime.now(UTC)
         items = [cls._normalize_item(item) for item in request.items]
 
@@ -139,11 +161,11 @@ class ExportService:
         return job
 
     @classmethod
-    async def run_job(cls, job_id: str) -> None:
+    async def run_job(cls, job_id: str) -> dict[str, Any]:
         job = await Job.get(job_id)
         if not job or job.job_type != "export":
             logger.error("Export job %s not found", job_id)
-            return
+            raise ValueError(f"Export job {job_id} not found")
 
         try:
             await cls._update_job(
@@ -179,6 +201,7 @@ class ExportService:
                 completed_at=datetime.now(UTC),
                 result=result_payload,
             )
+            return {"status": "completed", "job_id": job_id}
 
         except Exception as exc:
             logger.exception("Export job %s failed", job_id)
@@ -189,8 +212,19 @@ class ExportService:
                 error=str(exc),
                 completed_at=datetime.now(UTC),
             )
+            raise
         finally:
             cls._cleanup_export_dir(job_id)
+
+    @classmethod
+    async def mark_enqueue_failed(cls, job: Job, error: str) -> None:
+        await cls._update_job(
+            job,
+            status="failed",
+            message="Export queue unavailable",
+            error=error,
+            completed_at=datetime.now(UTC),
+        )
 
     @staticmethod
     async def _update_job(

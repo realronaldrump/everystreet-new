@@ -756,7 +756,6 @@ async def list_areas():
         )
 
 
-@router.post("/areas/batch/recalculate", response_model=BatchRecalculateResponse)
 async def queue_batch_recalculate(request: BatchRecalculateRequest):
     """
     Queue street coverage recalculation for multiple areas.
@@ -1043,7 +1042,6 @@ async def remove_area(area_id: PydanticObjectId):
     )
 
 
-@router.post("/areas/{area_id}/rebuild")
 async def trigger_rebuild(
     area_id: PydanticObjectId,
     trip_mode: Annotated[Literal["regular", "matched", "both"] | None, Query()] = None,
@@ -1080,7 +1078,6 @@ async def trigger_rebuild(
         )
 
 
-@router.post("/areas/{area_id}/backfill")
 async def trigger_backfill(
     area_id: PydanticObjectId,
     background: Annotated[bool, Query()] = False,
@@ -1158,7 +1155,6 @@ async def trigger_backfill(
         }
 
 
-@router.post("/areas/{area_id}/recalculate")
 async def trigger_recalculate(area_id: PydanticObjectId):
     """
     Recalculate coverage statistics for an area.

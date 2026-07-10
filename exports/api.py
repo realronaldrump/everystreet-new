@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from beanie import PydanticObjectId
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import FileResponse
 
 from core.job_serialization import serialize_job_payload
@@ -16,6 +16,7 @@ from exports.models import (
     ExportStatusResponse,
 )
 from exports.services.export_service import ExportService
+from tasks.arq import get_arq_pool
 
 router = APIRouter(prefix="/api/exports", tags=["exports"])
 
@@ -66,7 +67,6 @@ def _export_status_response(job: Job) -> ExportStatusResponse:
 @router.post("", response_model=ExportJobResponse)
 async def create_export_job(
     export_request: ExportRequest,
-    background_tasks: BackgroundTasks,
     request: Request,
 ):
     owner_key = get_owner_key(request)
@@ -78,7 +78,17 @@ async def create_export_job(
             detail=str(exc),
         ) from exc
 
-    background_tasks.add_task(ExportService.run_job, str(job.id))
+    try:
+        queue = await get_arq_pool()
+        queued = await queue.enqueue_job("run_export_job", str(job.id))
+        if queued is None:
+            raise RuntimeError("Export worker rejected the job")
+    except Exception as exc:
+        await ExportService.mark_enqueue_failed(job, str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Export could not be queued. Automatic worker recovery is in progress.",
+        ) from exc
 
     return _export_job_response(job)
 

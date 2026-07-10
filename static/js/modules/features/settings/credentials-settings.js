@@ -1,69 +1,26 @@
 import apiClient from "../../core/api-client.js";
-import {
-  fetchBouncieCredentials,
-  saveBouncieCredentials,
-  syncBouncieVehicles,
-} from "../../settings/credentials.js";
+import { fetchBouncieCredentials, saveBouncieCredentials } from "../../settings/credentials.js";
 import notificationManager from "../../ui/notifications.js";
-import { formatDateTime, isAbortError } from "../../utils.js";
-import { DEFAULT_FETCH_CONCURRENCY } from "../profile/state.js";
+import { isAbortError } from "../../utils.js";
 
+const APP_SETTINGS_API = "/api/app_settings";
 const BOUNCIE_AUTHORIZE_URL = "/api/bouncie/authorize";
 const BOUNCIE_REDIRECT_URI_API = "/api/bouncie/redirect-uri";
+const BOUNCIE_STATUS_API = "/api/bouncie/status";
 const VEHICLES_API = "/api/vehicles?active_only=false";
-const BOUNCIE_ADD_VEHICLE_API = "/api/profile/bouncie-credentials/vehicles";
-const APP_SETTINGS_API = "/api/app_settings";
-const FETCH_CONCURRENCY_MIN = 1;
-const FETCH_CONCURRENCY_MAX = 50;
 
-function normalizeFetchConcurrency(value) {
-  const parsed = parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed < FETCH_CONCURRENCY_MIN) {
-    return DEFAULT_FETCH_CONCURRENCY;
-  }
-  return parsed;
-}
-
-function parseFetchConcurrencyInput(value) {
-  if (value === "" || value === undefined || value === null) {
-    return DEFAULT_FETCH_CONCURRENCY;
-  }
-  const parsed = parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : NaN;
-}
-
-function validateFetchConcurrency(value) {
-  if (!Number.isFinite(value)) {
-    return false;
-  }
-  return value >= FETCH_CONCURRENCY_MIN && value <= FETCH_CONCURRENCY_MAX;
-}
-
-export function setupCredentialsSettings({ signal } = {}) {
-  setupGoogleMapsCredentials({ signal });
-  setupBouncieCredentials({ signal });
-  setupBouncieVehicles({ signal });
-}
-
-async function setupGoogleMapsCredentials({ signal } = {}) {
-  const eventOptions = signal ? { signal } : false;
+async function setupGoogleMapsCredentials(signal) {
   const form = document.getElementById("credentials-google-form");
-  const saveBtn = document.getElementById("credentials-save-google-btn");
-  const keyInput = document.getElementById("credentials-google-maps-api-key");
-
-  if (!form || !saveBtn || !keyInput) {
-    return;
-  }
+  const input = document.getElementById("credentials-google-maps-api-key");
+  const button = document.getElementById("credentials-save-google-btn");
+  if (!form || !input || !button) return;
 
   try {
     const settings = await apiClient.get(APP_SETTINGS_API, { signal });
-    keyInput.value = settings?.google_maps_api_key || "";
+    input.value = settings?.google_maps_api_key || "";
   } catch (error) {
     if (!isAbortError(error)) {
-      notificationManager.show(
-        `Failed to load Google Maps key: ${error.message}`,
-        "danger"
-      );
+      notificationManager.show("Couldn’t load the Google Maps connection.", "danger");
     }
   }
 
@@ -71,402 +28,143 @@ async function setupGoogleMapsCredentials({ signal } = {}) {
     "submit",
     async (event) => {
       event.preventDefault();
-      const googleKey = keyInput.value.trim();
-      if (!googleKey) {
-        notificationManager.show("Google Maps API key is required.", "danger");
-        return;
-      }
-
       try {
-        saveBtn.disabled = true;
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        button.disabled = true;
+        button.textContent = "Saving…";
         await apiClient.post(
           APP_SETTINGS_API,
-          { google_maps_api_key: googleKey },
+          { google_maps_api_key: input.value.trim() || null },
           { signal }
         );
-        notificationManager.show("Google Maps API key saved.", "success");
-        saveBtn.innerHTML = '<i class="fas fa-check"></i> Saved';
-        setTimeout(() => {
-          saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Google Key';
-          saveBtn.disabled = false;
-        }, 2000);
+        button.textContent = "Saved";
       } catch (error) {
-        if (!isAbortError(error)) {
-          notificationManager.show(error.message, "danger");
-        }
-        saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Google Key';
-        saveBtn.disabled = false;
+        if (!isAbortError(error)) notificationManager.show(error.message, "danger");
+        button.textContent = "Save key";
+      } finally {
+        window.setTimeout(() => {
+          button.disabled = false;
+          button.textContent = "Save key";
+        }, 1200);
       }
     },
-    eventOptions
+    signal ? { signal } : undefined
   );
 }
 
-async function setupBouncieCredentials({ signal } = {}) {
-  const eventOptions = signal ? { signal } : false;
+async function setupBouncieConnection(signal) {
   const form = document.getElementById("credentials-bouncie-form");
-  const saveBtn = document.getElementById("credentials-save-bouncie-btn");
-  const connectBtn = document.getElementById("credentials-connect-bouncie-btn");
-  const syncBtn = document.getElementById("credentials-sync-vehicles-btn");
-  const toggleBtn = document.getElementById("credentials-toggle-client-secret");
-  const secretInput = document.getElementById("credentials-clientSecret");
   const clientId = document.getElementById("credentials-clientId");
+  const clientSecret = document.getElementById("credentials-clientSecret");
   const redirectUri = document.getElementById("credentials-redirectUri");
-  const fetchConcurrencyInput = document.getElementById("credentials-fetchConcurrency");
-
-  if (!form || !saveBtn) {
-    return;
-  }
+  const callback = document.getElementById("bouncie-callback-url");
+  const statusBadge = document.getElementById("bouncie-connection-state");
+  const connectButton = document.getElementById("credentials-connect-bouncie-btn");
+  const secretToggle = document.getElementById("credentials-toggle-client-secret");
+  if (!form || !clientId || !clientSecret || !redirectUri || !connectButton) return;
 
   try {
-    const creds = await fetchBouncieCredentials({ signal });
-    if (clientId) {
-      clientId.value = creds.client_id || "";
+    const [credentials, redirect, status] = await Promise.all([
+      fetchBouncieCredentials({ signal }),
+      apiClient.get(BOUNCIE_REDIRECT_URI_API, { signal }),
+      apiClient.get(BOUNCIE_STATUS_API, { signal }),
+    ]);
+    clientId.value = credentials.client_id || "";
+    clientSecret.value = credentials.client_secret || "";
+    redirectUri.value = redirect.redirect_uri || `${window.location.origin}/api/bouncie/callback`;
+    if (callback) callback.textContent = redirectUri.value;
+    if (statusBadge) {
+      statusBadge.dataset.state = status.connected ? "connected" : "required";
+      statusBadge.textContent = status.connected ? "Connected" : "Connection required";
     }
-    if (secretInput) {
-      secretInput.value = creds.client_secret || "";
-    }
-    if (redirectUri) {
-      redirectUri.value =
-        creds.redirect_uri || (await getExpectedRedirectUri({ signal }));
-    }
-    if (fetchConcurrencyInput) {
-      fetchConcurrencyInput.value = String(
-        normalizeFetchConcurrency(creds.fetch_concurrency)
-      );
-    }
+    connectButton.innerHTML = status.connected
+      ? '<i class="fas fa-rotate" aria-hidden="true"></i> Reconnect Bouncie'
+      : '<i class="fas fa-link" aria-hidden="true"></i> Connect Bouncie';
   } catch (error) {
-    if (!isAbortError(error)) {
-      notificationManager.show(
-        `Failed to load Bouncie credentials: ${error.message}`,
-        "danger"
-      );
+    if (!isAbortError(error) && statusBadge) {
+      statusBadge.dataset.state = "required";
+      statusBadge.textContent = "Connection unavailable";
     }
   }
 
-  if (toggleBtn && secretInput) {
-    toggleBtn.addEventListener(
-      "click",
-      () => {
-        const type =
-          secretInput.getAttribute("type") === "password" ? "text" : "password";
-        secretInput.setAttribute("type", type);
-        toggleBtn.querySelector("i")?.classList.toggle("fa-eye");
-        toggleBtn.querySelector("i")?.classList.toggle("fa-eye-slash");
-      },
-      eventOptions
-    );
-  }
+  secretToggle?.addEventListener(
+    "click",
+    () => {
+      const visible = clientSecret.type === "text";
+      clientSecret.type = visible ? "password" : "text";
+      secretToggle.querySelector("i")?.classList.toggle("fa-eye", visible);
+      secretToggle.querySelector("i")?.classList.toggle("fa-eye-slash", !visible);
+    },
+    signal ? { signal } : undefined
+  );
 
   form.addEventListener(
     "submit",
     async (event) => {
       event.preventDefault();
-      const fetchConcurrency = parseFetchConcurrencyInput(fetchConcurrencyInput?.value);
-      if (fetchConcurrencyInput && !validateFetchConcurrency(fetchConcurrency)) {
-        notificationManager.show(
-          `Fetch concurrency must be between ${FETCH_CONCURRENCY_MIN} and ${FETCH_CONCURRENCY_MAX}.`,
-          "danger"
-        );
-        return;
-      }
-
-      const redirectUriVal = redirectUri?.value?.trim() || "";
-      const payload = {
-        client_id: clientId?.value?.trim() || "",
-        client_secret: secretInput?.value?.trim() || "",
-        redirect_uri: redirectUriVal,
-        fetch_concurrency: fetchConcurrency,
-      };
-
       try {
-        saveBtn.disabled = true;
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-        const response = await saveBouncieCredentials(payload, { signal });
-        notificationManager.show(
-          response?.message || "Bouncie credentials saved",
-          "success"
+        connectButton.disabled = true;
+        connectButton.textContent = "Connecting…";
+        await saveBouncieCredentials(
+          {
+            client_id: clientId.value,
+            client_secret: clientSecret.value,
+            redirect_uri: redirectUri.value,
+          },
+          { signal }
         );
-        saveBtn.innerHTML = '<i class="fas fa-check"></i> Saved';
-        setTimeout(() => {
-          saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Credentials';
-          saveBtn.disabled = false;
-        }, 2000);
+        window.location.href = BOUNCIE_AUTHORIZE_URL;
       } catch (error) {
-        if (!isAbortError(error)) {
-          notificationManager.show(error.message, "danger");
-        }
-        saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Credentials';
-        saveBtn.disabled = false;
+        connectButton.disabled = false;
+        connectButton.textContent = "Connect Bouncie";
+        if (!isAbortError(error)) notificationManager.show(error.message, "danger");
       }
     },
-    eventOptions
+    signal ? { signal } : undefined
   );
-
-  if (connectBtn) {
-    connectBtn.addEventListener(
-      "click",
-      async (event) => {
-        event.preventDefault();
-        const fetchConcurrency = parseFetchConcurrencyInput(
-          fetchConcurrencyInput?.value
-        );
-        if (fetchConcurrencyInput && !validateFetchConcurrency(fetchConcurrency)) {
-          notificationManager.show(
-            `Fetch concurrency must be between ${FETCH_CONCURRENCY_MIN} and ${FETCH_CONCURRENCY_MAX}.`,
-            "danger"
-          );
-          return;
-        }
-        const payload = {
-          client_id: clientId?.value?.trim() || "",
-          client_secret: secretInput?.value?.trim() || "",
-          redirect_uri: redirectUri?.value?.trim() || "",
-          fetch_concurrency: fetchConcurrency,
-        };
-        try {
-          await saveBouncieCredentials(payload, { signal });
-          window.location.href = BOUNCIE_AUTHORIZE_URL;
-        } catch (error) {
-          if (!isAbortError(error)) {
-            notificationManager.show(error.message, "danger");
-          }
-        }
-      },
-      eventOptions
-    );
-  }
-
-  if (syncBtn) {
-    syncBtn.addEventListener(
-      "click",
-      async () => {
-        try {
-          syncBtn.disabled = true;
-          syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
-          const response = await syncBouncieVehicles({ signal });
-          notificationManager.show(
-            response?.message || "Vehicles synced from Bouncie",
-            "success"
-          );
-          await loadBouncieVehicles({ signal });
-        } catch (error) {
-          if (!isAbortError(error)) {
-            notificationManager.show(error.message, "danger");
-          }
-        } finally {
-          syncBtn.innerHTML = '<i class="fas fa-sync"></i> Sync Vehicles';
-          syncBtn.disabled = false;
-        }
-      },
-      eventOptions
-    );
-  }
 }
 
-function setupBouncieVehicles({ signal } = {}) {
-  const eventOptions = signal ? { signal } : false;
-
-  const loadingEl = document.getElementById("credentials-vehicles-loading");
-  const emptyEl = document.getElementById("credentials-vehicles-empty");
-  const tableWrapper = document.getElementById("credentials-vehicles-table-wrapper");
-  const tbody = document.getElementById("credentials-vehicles-tbody");
-  const refreshBtn = document.getElementById("credentials-refresh-vehicles-btn");
-
-  const addForm = document.getElementById("credentials-add-vehicle-form");
-  const addBtn = document.getElementById("credentials-add-vehicle-btn");
-  const imeiInput = document.getElementById("credentials-add-vehicle-imei");
-  const nameInput = document.getElementById("credentials-add-vehicle-name");
-
-  if (!loadingEl || !emptyEl || !tableWrapper || !tbody) {
-    return;
-  }
-
-  if (refreshBtn) {
-    refreshBtn.addEventListener(
-      "click",
-      () => loadBouncieVehicles({ signal }),
-      eventOptions
-    );
-  }
-
-  if (addForm) {
-    addForm.addEventListener(
-      "submit",
-      async (event) => {
-        event.preventDefault();
-
-        const imei = String(imeiInput?.value || "").trim();
-        const customName = String(nameInput?.value || "").trim();
-
-        if (!imei) {
-          notificationManager.show("IMEI is required.", "danger");
-          return;
-        }
-
-        const originalHtml = addBtn?.innerHTML;
-        try {
-          if (addBtn) {
-            addBtn.disabled = true;
-            addBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
-          }
-
-          const response = await apiClient.post(
-            BOUNCIE_ADD_VEHICLE_API,
-            {
-              imei,
-              custom_name: customName || null,
-            },
-            { signal }
-          );
-
-          notificationManager.show(
-            response?.message || "Vehicle added successfully.",
-            "success"
-          );
-
-          if (imeiInput) {
-            imeiInput.value = "";
-          }
-          if (nameInput) {
-            nameInput.value = "";
-          }
-
-          await loadBouncieVehicles({ signal });
-        } catch (error) {
-          if (!isAbortError(error)) {
-            notificationManager.show(error.message, "danger");
-          }
-        } finally {
-          if (addBtn) {
-            addBtn.disabled = false;
-            addBtn.innerHTML =
-              originalHtml || '<i class="fas fa-plus"></i> Add Vehicle';
-          }
-        }
-      },
-      eventOptions
-    );
-  }
-
-  loadBouncieVehicles({ signal });
+function vehicleName(vehicle) {
+  if (vehicle?.custom_name) return vehicle.custom_name;
+  const description = [vehicle?.year, vehicle?.make, vehicle?.model].filter(Boolean);
+  return description.join(" ") || `Vehicle ${vehicle?.imei || ""}`.trim();
 }
 
-async function getExpectedRedirectUri({ signal } = {}) {
+async function loadVehicles(signal) {
+  const container = document.getElementById("connected-vehicles");
+  if (!container) return;
   try {
-    const data = await apiClient.get(BOUNCIE_REDIRECT_URI_API, { signal });
-    if (data?.redirect_uri) {
-      return data.redirect_uri;
-    }
-  } catch {
-    // use constructing from window.location
-  }
-  return `${window.location.origin}/api/bouncie/callback`;
-}
-
-async function loadBouncieVehicles({ signal } = {}) {
-  const loadingEl = document.getElementById("credentials-vehicles-loading");
-  const emptyEl = document.getElementById("credentials-vehicles-empty");
-  const tableWrapper = document.getElementById("credentials-vehicles-table-wrapper");
-  const tbody = document.getElementById("credentials-vehicles-tbody");
-
-  if (!loadingEl || !emptyEl || !tableWrapper || !tbody) {
-    return;
-  }
-
-  loadingEl.style.display = "";
-  emptyEl.style.display = "none";
-  tableWrapper.style.display = "none";
-  tbody.innerHTML = "";
-
-  try {
-    const response = await apiClient.raw(VEHICLES_API, { signal, cache: "no-store" });
-    if (!response.ok) {
-      const data = await response.json().catch(() => null);
-      throw new Error(data?.detail || "Failed to load vehicles.");
-    }
-
-    const vehicles = await response.json();
+    const vehicles = await apiClient.get(VEHICLES_API, { signal, cache: "no-store" });
     const list = Array.isArray(vehicles) ? vehicles : [];
-
-    loadingEl.style.display = "none";
-
-    if (list.length === 0) {
-      emptyEl.style.display = "";
-      tableWrapper.style.display = "none";
+    if (!list.length) {
+      container.innerHTML =
+        '<span class="text-muted">Vehicles will appear here after Bouncie authorization.</span>';
       return;
     }
-
-    emptyEl.style.display = "none";
-    tableWrapper.style.display = "";
-
-    const getVehicleName = (vehicle) => {
-      if (vehicle?.custom_name) {
-        return vehicle.custom_name;
-      }
-      const parts = [vehicle?.year, vehicle?.make, vehicle?.model].filter(Boolean);
-      return parts.length > 0
-        ? parts.join(" ")
-        : `Vehicle ${vehicle?.imei || ""}`.trim();
-    };
-
-    const getVehicleSubtitle = (vehicle) => {
-      if (!vehicle) {
-        return "";
-      }
-      if (vehicle.custom_name) {
-        const parts = [vehicle?.year, vehicle?.make, vehicle?.model].filter(Boolean);
-        return parts.length > 0 ? parts.join(" ") : "";
-      }
-      return vehicle?.vin ? String(vehicle.vin) : "";
-    };
-
-    list
-      .slice()
-      .sort((a, b) => getVehicleName(a).localeCompare(getVehicleName(b)))
-      .forEach((vehicle) => {
-        const row = document.createElement("tr");
-
-        const nameCell = document.createElement("td");
-        const title = document.createElement("div");
-        title.className = "fw-semibold";
-        title.textContent = getVehicleName(vehicle);
-        nameCell.appendChild(title);
-
-        const subtitleText = getVehicleSubtitle(vehicle);
-        if (subtitleText) {
-          const subtitle = document.createElement("div");
-          subtitle.className = "text-muted small";
-          subtitle.textContent = subtitleText;
-          nameCell.appendChild(subtitle);
-        }
-
-        const imeiCell = document.createElement("td");
-        const imeiCode = document.createElement("code");
-        imeiCode.textContent = vehicle?.imei || "--";
-        imeiCell.appendChild(imeiCode);
-
-        const vinCell = document.createElement("td");
-        vinCell.textContent = vehicle?.vin || "--";
-
-        const syncedCell = document.createElement("td");
-        const stamp = vehicle?.last_synced_at || vehicle?.updated_at || null;
-        syncedCell.textContent = stamp ? formatDateTime(stamp) : "--";
-
-        row.appendChild(nameCell);
-        row.appendChild(imeiCell);
-        row.appendChild(vinCell);
-        row.appendChild(syncedCell);
-        tbody.appendChild(row);
-      });
+    container.innerHTML = "";
+    list.sort((a, b) => vehicleName(a).localeCompare(vehicleName(b))).forEach((vehicle) => {
+      const row = document.createElement("div");
+      row.className = "connected-vehicle";
+      const copy = document.createElement("div");
+      const name = document.createElement("strong");
+      name.textContent = vehicleName(vehicle);
+      const imei = document.createElement("small");
+      imei.textContent = vehicle.imei ? `IMEI ${vehicle.imei}` : "Provider-managed";
+      copy.append(name, imei);
+      const state = document.createElement("span");
+      state.className = vehicle.is_active === false ? "text-muted" : "text-success";
+      state.textContent = vehicle.is_active === false ? "Excluded" : "Active";
+      row.append(copy, state);
+      container.appendChild(row);
+    });
   } catch (error) {
-    if (isAbortError(error)) {
-      return;
+    if (!isAbortError(error)) {
+      container.innerHTML = '<span class="text-muted">Vehicle status is temporarily unavailable.</span>';
     }
-    loadingEl.style.display = "none";
-    emptyEl.textContent = error.message || "Failed to load vehicles.";
-    emptyEl.style.display = "";
-    tableWrapper.style.display = "none";
   }
+}
+
+export function setupCredentialsSettings({ signal } = {}) {
+  setupGoogleMapsCredentials(signal);
+  setupBouncieConnection(signal);
+  loadVehicles(signal);
 }

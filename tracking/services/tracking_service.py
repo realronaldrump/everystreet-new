@@ -22,6 +22,7 @@ from db.models import BouncieCredentials
 from tracking.services.live_trip_store import (
     clear_trip_snapshot,
     get_active_trip_snapshot,
+    get_active_trip_snapshots,
     get_trip_snapshot,
     is_trip_marked_closed,
     live_trip_is_stale,
@@ -69,6 +70,8 @@ def _new_live_trip_snapshot(
 async def _publish_trip_snapshot(
     trip_doc: dict[str, Any],
     status: str = "active",
+    *,
+    required: bool = False,
 ) -> None:
     """Publish trip update to WebSocket clients via Redis."""
     trip_dict = dict(trip_doc)
@@ -82,6 +85,8 @@ async def _publish_trip_snapshot(
         await publish_trip_state(transaction_id, trip_dict, status=status)
     except Exception:
         logger.exception("Failed to publish trip %s", transaction_id)
+        if required:
+            raise
 
 
 def _parse_timestamp(timestamp_value: Any) -> datetime | None:
@@ -363,7 +368,11 @@ async def _publish_completed_and_clear(
     completion event before Redis-backed live state is cleared and marked
     closed for late webhook suppression.
     """
-    await _publish_trip_snapshot(completed_trip, status="completed")
+    await _publish_trip_snapshot(
+        completed_trip,
+        status="completed",
+        required=True,
+    )
     await clear_trip_snapshot(transaction_id, mark_closed=True)
 
 
@@ -595,20 +604,19 @@ async def process_trip_end(data: dict[str, Any]) -> None:
 # ============================================================================
 
 
-async def get_active_trip() -> dict[str, Any] | None:
-    """Get the currently active live trip from ephemeral storage."""
-    try:
-        trip = await get_active_trip_snapshot()
-        if not trip:
-            return None
-
+async def reconcile_live_trips() -> dict[str, Any]:
+    """Publish and clear terminal/stale live trips without requiring a UI read."""
+    snapshots = await get_active_trip_snapshots()
+    reconciled = 0
+    for trip in snapshots:
         transaction_id = str(trip.get("transactionId") or "").strip()
         if not transaction_id:
-            return None
+            continue
 
         if trip.get("status") == "completed":
-            await clear_trip_snapshot(transaction_id, mark_closed=True)
-            return None
+            await _publish_completed_and_clear(transaction_id, trip)
+            reconciled += 1
+            continue
 
         if live_trip_is_stale(trip):
             logger.warning(
@@ -623,6 +631,21 @@ async def get_active_trip() -> dict[str, Any] | None:
                 ),
             )
             await _publish_completed_and_clear(transaction_id, completed)
+            reconciled += 1
+
+    return {
+        "status": "success",
+        "active_count": max(0, len(snapshots) - reconciled),
+        "reconciled_count": reconciled,
+    }
+
+
+async def get_active_trip() -> dict[str, Any] | None:
+    """Get the latest active live trip from ephemeral storage."""
+    try:
+        await reconcile_live_trips()
+        trip = await get_active_trip_snapshot()
+        if not trip:
             return None
 
     except Exception:
@@ -753,11 +776,16 @@ class TrackingService:
     async def get_webhook_status() -> dict[str, Any]:
         return await get_webhook_status()
 
+    @staticmethod
+    async def reconcile_live_trips() -> dict[str, Any]:
+        return await reconcile_live_trips()
+
 
 __all__ = [
     "TrackingService",
     "get_active_trip",
     "get_trip_updates",
+    "reconcile_live_trips",
     "get_webhook_status",
     "process_trip_data",
     "process_trip_end",

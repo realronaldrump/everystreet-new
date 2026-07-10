@@ -27,7 +27,6 @@ let pageViewState = null;
 
 // LocalStorage key for persisting selected vehicle
 const STORAGE_KEY = "selectedVehicleImei";
-const BOUNCIE_ADD_VEHICLE_API = "/api/profile/bouncie-credentials/vehicles";
 const formatVehicleOdometer = (value) =>
   formatOdometer(value, {
     allowZero: true,
@@ -74,13 +73,6 @@ function cacheElements() {
     emptyState: document.getElementById("empty-state"),
     vehicleContent: document.getElementById("vehicle-content"),
 
-    // Fleet management
-    fleetSyncBtn: document.getElementById("fleet-sync-btn"),
-    fleetAddVehicleForm: document.getElementById("fleet-add-vehicle-form"),
-    fleetAddVehicleBtn: document.getElementById("fleet-add-vehicle-btn"),
-    fleetAddVehicleImei: document.getElementById("fleet-add-vehicle-imei"),
-    fleetAddVehicleName: document.getElementById("fleet-add-vehicle-name"),
-
     // Vehicle list (new sidebar)
     vehicleListCards: document.getElementById("vehicle-list-cards"),
 
@@ -107,9 +99,6 @@ function cacheElements() {
     activeStatusToggle: document.getElementById("active-status-toggle"),
 
     // Buttons
-    syncFromEmptyBtn: document.getElementById("sync-from-empty-btn"),
-    syncVehicleBtn: document.getElementById("sync-vehicle-btn"),
-    refreshBouncieBtn: document.getElementById("refresh-bouncie-btn"),
     useBouncieReadingBtn: document.getElementById("use-bouncie-reading-btn"),
     saveManualOdometerBtn: document.getElementById("save-manual-odometer-btn"),
     saveSettingsBtn: document.getElementById("save-settings-btn"),
@@ -131,34 +120,6 @@ function withSignal(options = {}) {
  * Initialize event listeners
  */
 function initializeEventListeners(signal) {
-  if (elements.syncFromEmptyBtn) {
-    elements.syncFromEmptyBtn.addEventListener(
-      "click",
-      syncFromBouncie,
-      signal ? { signal } : false
-    );
-  }
-  if (elements.syncVehicleBtn) {
-    elements.syncVehicleBtn.addEventListener(
-      "click",
-      syncFromBouncie,
-      signal ? { signal } : false
-    );
-  }
-  if (elements.fleetSyncBtn) {
-    elements.fleetSyncBtn.addEventListener(
-      "click",
-      syncFromBouncie,
-      signal ? { signal } : false
-    );
-  }
-  if (elements.refreshBouncieBtn) {
-    elements.refreshBouncieBtn.addEventListener(
-      "click",
-      fetchBouncieOdometer,
-      signal ? { signal } : false
-    );
-  }
   if (elements.useBouncieReadingBtn) {
     elements.useBouncieReadingBtn.addEventListener(
       "click",
@@ -188,13 +149,6 @@ function initializeEventListeners(signal) {
     );
   }
 
-  if (elements.fleetAddVehicleForm) {
-    elements.fleetAddVehicleForm.addEventListener(
-      "submit",
-      handleAddVehicleSubmit,
-      signal ? { signal } : false
-    );
-  }
 }
 
 /**
@@ -368,61 +322,6 @@ function renderVehicleList(vehicles) {
       elements.vehicleListCards.appendChild(card);
     });
 }
-async function handleAddVehicleSubmit(event) {
-  event.preventDefault();
-  const imei = elements.fleetAddVehicleImei?.value?.trim() || "";
-  const customName = elements.fleetAddVehicleName?.value?.trim() || "";
-
-  if (!imei) {
-    notify.error("IMEI is required.");
-    return;
-  }
-
-  const btn = elements.fleetAddVehicleBtn;
-  const originalHtml = btn?.innerHTML;
-
-  try {
-    if (btn) {
-      btn.disabled = true;
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
-    }
-
-    const payload = {
-      imei,
-      custom_name: customName || null,
-    };
-    const response = await apiClient.post(
-      BOUNCIE_ADD_VEHICLE_API,
-      payload,
-      withSignal()
-    );
-
-    notify.success(response?.message || "Vehicle added successfully.");
-
-    if (elements.fleetAddVehicleImei) {
-      elements.fleetAddVehicleImei.value = "";
-    }
-    if (elements.fleetAddVehicleName) {
-      elements.fleetAddVehicleName.value = "";
-    }
-
-    // Prefer showing the newly added vehicle.
-    setStorage(STORAGE_KEY, imei);
-    await loadVehicle();
-  } catch (error) {
-    if (isAbortError(error)) {
-      return;
-    }
-    console.error("Error adding vehicle:", error);
-    notify.error(error.message || "Failed to add vehicle.");
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = originalHtml || '<i class="fas fa-plus"></i> Add Vehicle';
-    }
-  }
-}
-
 /**
  * Select and display a vehicle by IMEI
  */
@@ -530,7 +429,7 @@ function displayVehicle(vehicle) {
 /**
  * Fetch live odometer reading from Bouncie
  */
-async function fetchBouncieOdometer() {
+async function fetchBouncieOdometer(attempt = 0) {
   if (!currentVehicle) {
     return;
   }
@@ -556,6 +455,12 @@ async function fetchBouncieOdometer() {
       elements.bouncieOdometer.textContent = "Unable to retrieve";
       elements.bouncieOdometer.classList.add("error");
       elements.useBouncieReadingBtn.disabled = true;
+      if (attempt < 3 && !pageSignal?.aborted) {
+        window.setTimeout(
+          () => fetchBouncieOdometer(attempt + 1),
+          Math.min(30000, 2000 * 2 ** attempt)
+        );
+      }
     }
   } catch (error) {
     if (isAbortError(error)) {
@@ -566,6 +471,12 @@ async function fetchBouncieOdometer() {
     elements.bouncieOdometer.textContent = "Connection error";
     elements.bouncieOdometer.classList.add("error");
     elements.useBouncieReadingBtn.disabled = true;
+    if (attempt < 3 && !pageSignal?.aborted) {
+      window.setTimeout(
+        () => fetchBouncieOdometer(attempt + 1),
+        Math.min(30000, 2000 * 2 ** attempt)
+      );
+    }
   }
 }
 
@@ -723,39 +634,6 @@ async function deleteVehicle() {
     }
     console.error("Error deleting vehicle:", error);
     notify.error(error.message || "Failed to delete vehicle");
-  }
-}
-
-/**
- * Sync vehicles from Bouncie
- */
-async function syncFromBouncie() {
-  showLoading();
-
-  try {
-    const response = await apiClient.raw(
-      "/api/profile/bouncie-credentials/sync-vehicles",
-      withSignal({
-        method: "POST",
-      })
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.detail || "Sync failed");
-    }
-
-    notify.success(data.message || "Vehicle synced from Bouncie");
-    await loadVehicle();
-  } catch (error) {
-    if (isAbortError(error)) {
-      return;
-    }
-    console.error("Error syncing from Bouncie:", error);
-    notify.error(error.message || "Failed to sync from Bouncie");
-    // Reload to show whatever state we have
-    await loadVehicle();
   }
 }
 

@@ -815,6 +815,11 @@ class Job(Document):
             ),
             IndexModel([("status", 1)], name="jobs_status_idx"),
             IndexModel([("created_at", -1)], name="jobs_created_idx"),
+            IndexModel(
+                [("expires_at", 1)],
+                name="jobs_expiry_idx",
+                expireAfterSeconds=0,
+            ),
         ]
 
     model_config = ConfigDict(extra="allow")
@@ -861,6 +866,11 @@ class TaskHistory(Document):
             IndexModel(
                 [("task_id", 1), ("timestamp", -1)],
                 name="task_history_task_timestamp_idx",
+            ),
+            IndexModel(
+                [("timestamp", 1)],
+                name="task_history_ttl_idx",
+                expireAfterSeconds=30 * 24 * 60 * 60,
             ),
         ]
 
@@ -1006,8 +1016,6 @@ class AppSettings(Document):
     mapTripsWithinCoverageOnly: bool = False
     tripLayersUseHeatmap: bool = True
     mapTerrainReliefEnabled: bool = False
-    geocodeTripsOnFetch: bool = True
-    mapMatchTripsOnFetch: bool = False
     mapMatchingProviderPolicy: str = "auto"
 
     # User Locale
@@ -1096,6 +1104,7 @@ class BouncieCredentials(Document):
     webhook_last_checked_at: datetime | None = None
     webhook_last_error: str | None = None
     authorized_devices: list[str] = Field(default_factory=list)
+    history_imported_devices: list[str] = Field(default_factory=list)
     fetch_concurrency: int = 12
     access_token: str | None = None
     expires_at: float | None = None

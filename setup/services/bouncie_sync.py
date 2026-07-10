@@ -131,8 +131,10 @@ async def sync_bouncie_vehicles(
             existing_vehicle.model = vehicle_doc["model"]
             existing_vehicle.year = vehicle_doc["year"]
             existing_vehicle.nickName = vehicle_doc["nickName"]
-            existing_vehicle.custom_name = vehicle_doc["custom_name"]
-            existing_vehicle.is_active = vehicle_doc["is_active"]
+            # Provider reconciliation owns provider metadata. User choices such
+            # as the display name and active/excluded state remain authoritative.
+            if not existing_vehicle.custom_name:
+                existing_vehicle.custom_name = vehicle_doc["custom_name"]
             existing_vehicle.updated_at = vehicle_doc["updated_at"]
             existing_vehicle.last_synced_at = vehicle_doc["last_synced_at"]
             existing_vehicle.bouncie_data = vehicle_doc["bouncie_data"]

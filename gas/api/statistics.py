@@ -26,7 +26,6 @@ async def get_gas_statistics(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/api/vehicles/sync-from-trips")
 async def sync_vehicles_from_trips() -> dict[str, Any]:
     """Sync vehicles from trip data - creates vehicle records with VIN info from trips."""
     try:

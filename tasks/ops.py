@@ -18,6 +18,7 @@ from tasks.config import (
     update_task_failure,
     update_task_history_entry,
     update_task_success,
+    update_task_waiting,
 )
 from tasks.registry import is_manual_only
 
@@ -218,6 +219,8 @@ async def enqueue_task(
     job_kwargs = dict(kwargs)
     job_kwargs.setdefault("manual_run", manual_run)
     job = await redis.enqueue_job(task_id, *args, **job_kwargs)
+    if job is None:
+        raise RuntimeError(f"Worker queue rejected task {task_id}")
     job_id = getattr(job, "job_id", None) or getattr(job, "id", None) or str(job)
     now = datetime.now(UTC)
 
@@ -290,6 +293,16 @@ async def run_task_with_history(
         )
 
         result_data = await func()
+        if isinstance(result_data, dict):
+            outcome_status = str(result_data.get("status") or "").lower()
+            success_flag = result_data.get("success")
+            if success_flag is False or outcome_status in {"error", "failed", "failure"}:
+                message = str(
+                    result_data.get("error")
+                    or result_data.get("message")
+                    or f"{task_id} returned an unsuccessful outcome"
+                )
+                raise RuntimeError(message)
     except asyncio.CancelledError:
         end_time = datetime.now(UTC)
         runtime_ms = (end_time - start_time).total_seconds() * 1000
@@ -325,6 +338,29 @@ async def run_task_with_history(
 
     end_time = datetime.now(UTC)
     runtime_ms = (end_time - start_time).total_seconds() * 1000
+    outcome_status = (
+        str(result_data.get("status") or "").lower()
+        if isinstance(result_data, dict)
+        else "success"
+    )
+    if outcome_status in {"waiting", "deferred", "skipped"}:
+        reason = str(
+            result_data.get("reason")
+            or result_data.get("message")
+            or outcome_status
+        )
+        await update_task_history_entry(
+            job_id=job_id,
+            task_name=task_id,
+            status="WAITING",
+            manual_run=manual_run,
+            result=result_data,
+            end_time=end_time,
+            runtime_ms=runtime_ms,
+        )
+        await update_task_waiting(task_id, reason, end_time)
+        return result_data
+
     await update_task_history_entry(
         job_id=job_id,
         task_name=task_id,
@@ -364,8 +400,20 @@ async def run_task_if_due(
         logger.info("Skipping %s (interval not configured)", task_id)
         return None
 
-    last_run = task_config.last_run
     now = datetime.now(UTC)
+    retry_after = task_config.config.get("retry_after")
+    if isinstance(retry_after, str):
+        try:
+            retry_after = datetime.fromisoformat(retry_after)
+        except ValueError:
+            retry_after = None
+    if isinstance(retry_after, datetime):
+        if retry_after.tzinfo is None:
+            retry_after = retry_after.replace(tzinfo=UTC)
+        if now < retry_after:
+            return None
+
+    last_run = task_config.last_run
     if last_run:
         next_due = last_run + timedelta(minutes=interval_minutes)
         if now < next_due:

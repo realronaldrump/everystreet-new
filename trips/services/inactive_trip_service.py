@@ -10,9 +10,6 @@ from core.cache import invalidate_cache_prefixes
 from core.spatial import bboxes_intersect, extract_line_sequences
 from core.trip_map_cache import bump_trip_map_revision
 from db.models import CoverageArea, CoverageState, Job, Trip
-from geo_coverage.services.geo_coverage_service import (
-    recalculate as recalculate_geo_coverage,
-)
 from recurring_routes.models import BuildRecurringRoutesRequest
 from street_coverage.ingestion import backfill_area
 from tasks.ops import enqueue_task
@@ -107,7 +104,7 @@ class InactiveTripService:
         enqueue_result = await enqueue_task(
             "build_recurring_routes",
             build_request=BuildRecurringRoutesRequest().model_dump(),
-            manual_run=True,
+            manual_run=False,
         )
         return {
             "status": "queued",
@@ -115,14 +112,16 @@ class InactiveTripService:
         }
 
     @classmethod
-    async def queue_geo_coverage_refresh(cls, background_tasks) -> dict[str, Any]:
+    async def queue_geo_coverage_refresh(cls) -> dict[str, Any]:
         """Queue a full Region Explorer cache rebuild after trip state changes."""
-        response = await recalculate_geo_coverage(background_tasks, mode="full")
+        response = await enqueue_task(
+            "sync_geo_coverage",
+            manual_run=False,
+            mode="full",
+        )
         return {
-            "status": (
-                "already_running" if response.get("alreadyRunning") else "queued"
-            ),
-            "job_id": response.get("jobId"),
+            "status": "queued",
+            "job_id": response.get("job_id"),
         }
 
     @classmethod

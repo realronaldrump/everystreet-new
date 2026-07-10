@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
-
 import pytest
 
-from tasks import api, config
+from tasks import config
 
 
 class _SortField:
@@ -63,26 +61,3 @@ async def test_get_latest_task_history_limits_each_task_to_one_result(
     assert set(latest) == {"first", "second"}
     assert all(query.limit_value == 1 for query in queries.values())
     assert all(query.sort_value == "descending-timestamp" for query in queries.values())
-
-
-@pytest.mark.asyncio
-async def test_task_snapshot_cache_coalesces_requests_and_returns_copies(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    build_snapshot = AsyncMock(
-        return_value={"tasks": {"periodic_fetch_trips": {"status": "IDLE"}}},
-    )
-    monkeypatch.setattr(api, "_build_task_snapshot", build_snapshot)
-    monkeypatch.setattr(api, "_task_snapshot_cache", None)
-
-    first_snapshot = await api._get_task_snapshot()
-    first_snapshot["tasks"]["periodic_fetch_trips"]["status"] = "CHANGED"
-    second_snapshot = await api._get_task_snapshot()
-
-    assert build_snapshot.await_count == 1
-    assert second_snapshot["tasks"]["periodic_fetch_trips"]["status"] == "IDLE"
-
-    api._invalidate_task_snapshot_cache()
-    await api._get_task_snapshot()
-
-    assert build_snapshot.await_count == 2

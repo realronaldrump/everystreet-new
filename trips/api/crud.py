@@ -3,7 +3,7 @@
 import logging
 
 from beanie.operators import In
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from analytics.services.mobility_insights_service import MobilityInsightsService
 from core.api import api_route
@@ -93,7 +93,6 @@ async def get_single_trip(trip_id: str):
 async def set_trip_inactive(
     trip_id: str,
     payload: TripInactiveUpdate,
-    background_tasks: BackgroundTasks,
 ):
     """Mark or unmark a historical trip as inactive throughout the app."""
     trip = await _get_trip_or_404(trip_id)
@@ -111,9 +110,7 @@ async def set_trip_inactive(
             inactive=payload.inactive,
         )
         recurring_routes = await InactiveTripService.queue_recurring_routes_refresh()
-        geo_coverage = await InactiveTripService.queue_geo_coverage_refresh(
-            background_tasks,
-        )
+        geo_coverage = await InactiveTripService.queue_geo_coverage_refresh()
         coverage = await InactiveTripService.queue_coverage_reprocessing_for_trip(
             updated_trip,
         )
@@ -174,7 +171,6 @@ async def delete_trip(trip_id: str):
     }
 
 
-@router.delete("/api/matched_trips/{trip_id}", tags=["Trips API"])
 @api_route(logger)
 async def unmatch_trip(trip_id: str):
     """Clear matched GPS data for a trip."""
@@ -187,7 +183,6 @@ async def unmatch_trip(trip_id: str):
     }
 
 
-@router.post("/api/trips/{trip_id}/rematch", tags=["Trips API"])
 @api_route(logger)
 async def rematch_trip(trip_id: str):
     """Rematch a single trip, replacing any existing matched data."""
@@ -266,7 +261,6 @@ async def bulk_delete_trips(request: Request):
     }
 
 
-@router.post("/api/matched_trips/bulk_unmatch", tags=["Trips API"])
 @api_route(logger)
 async def bulk_unmatch_trips(request: Request):
     """Bulk clear matched GPS data for trips."""

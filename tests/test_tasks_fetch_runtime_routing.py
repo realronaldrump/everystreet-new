@@ -1,19 +1,10 @@
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
 
 from tasks import fetch as fetch_tasks
-
-
-class _SettingsStub:
-    def __init__(self, map_match_on_fetch: bool = False) -> None:
-        self._map_match_on_fetch = map_match_on_fetch
-
-    def model_dump(self) -> dict[str, Any]:
-        return {"mapMatchTripsOnFetch": self._map_match_on_fetch}
 
 
 @pytest.mark.asyncio
@@ -41,11 +32,6 @@ async def test_manual_fetch_range_routes_to_shared_runtime(
 async def test_fetch_by_transaction_id_routes_to_shared_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        fetch_tasks.AdminService,
-        "get_persisted_app_settings",
-        AsyncMock(return_value=_SettingsStub(map_match_on_fetch=True)),
-    )
     mocked = AsyncMock(return_value={"processed_transaction_ids": ["tx-1"]})
     monkeypatch.setattr(fetch_tasks, "run_ingest_for_transaction_id", mocked)
 
@@ -56,6 +42,7 @@ async def test_fetch_by_transaction_id_routes_to_shared_runtime(
     kwargs = mocked.await_args.kwargs
     assert kwargs["mode"] == "upsert_bouncie"
     assert kwargs["transaction_id"] == "tx-1"
+    assert kwargs["do_map_match"] is True
 
 
 @pytest.mark.asyncio
@@ -68,12 +55,15 @@ async def test_periodic_fetch_routes_to_shared_runtime(
     monkeypatch.setattr(
         fetch_tasks,
         "get_bouncie_config",
-        AsyncMock(return_value={"authorized_devices": ["imei-1"]}),
-    )
-    monkeypatch.setattr(
-        fetch_tasks.AdminService,
-        "get_persisted_app_settings",
-        AsyncMock(return_value=_SettingsStub(map_match_on_fetch=False)),
+        AsyncMock(
+            return_value={
+                "client_id": "client",
+                "client_secret": "secret",
+                "redirect_uri": "https://example.com/callback",
+                "authorization_code": "code",
+                "authorized_devices": ["imei-1"],
+            },
+        ),
     )
 
     mocked = AsyncMock(return_value={"processed_transaction_ids": ["tx-1"]})
@@ -89,3 +79,4 @@ async def test_periodic_fetch_routes_to_shared_runtime(
     mocked.assert_awaited_once()
     kwargs = mocked.await_args.kwargs
     assert kwargs["mode"] == "upsert_bouncie"
+    assert kwargs["do_map_match"] is True

@@ -58,6 +58,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
         "webhook_last_checked_at": None,
         "webhook_last_error": None,
         "authorized_devices": [],
+        "history_imported_devices": [],
         "fetch_concurrency": DEFAULT_FETCH_CONCURRENCY,
         "access_token": None,
         "expires_at": None,
@@ -95,6 +96,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             "webhook_last_checked_at": credentials.webhook_last_checked_at,
             "webhook_last_error": credentials.webhook_last_error,
             "authorized_devices": credentials.authorized_devices or [],
+            "history_imported_devices": credentials.history_imported_devices or [],
             "fetch_concurrency": fetch_concurrency,
             "access_token": credentials.access_token,
             "expires_at": credentials.expires_at,
@@ -176,6 +178,15 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                     elif not isinstance(devices, list):
                         devices = []
                     existing.authorized_devices = devices
+                elif key == "history_imported_devices":
+                    if value is None:
+                        continue
+                    devices = value
+                    if isinstance(devices, str):
+                        devices = [d.strip() for d in devices.split(",") if d.strip()]
+                    elif not isinstance(devices, list):
+                        devices = []
+                    existing.history_imported_devices = list(dict.fromkeys(devices))
                 elif key == "fetch_concurrency":
                     if value is None:
                         continue
@@ -240,6 +251,11 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                 elif not isinstance(devices, list):
                     devices = []
                 new_creds.authorized_devices = devices
+            if "history_imported_devices" in credentials:
+                devices = credentials["history_imported_devices"] or []
+                if isinstance(devices, str):
+                    devices = [d.strip() for d in devices.split(",") if d.strip()]
+                new_creds.history_imported_devices = list(dict.fromkeys(devices))
             fetch_concurrency = credentials.get("fetch_concurrency")
             if fetch_concurrency is not None:
                 try:

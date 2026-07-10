@@ -350,8 +350,7 @@ async def _sync_vehicles_after_auth(
             session,
             token,
             credentials=credentials,
-            # Preserve manually-added IMEIs that may not be returned by /v1/vehicles.
-            merge_authorized_devices=True,
+            merge_authorized_devices=False,
             update_authorized_devices=True,
         )
         if not result.get("imeis"):

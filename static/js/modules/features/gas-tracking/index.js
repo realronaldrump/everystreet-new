@@ -18,7 +18,6 @@ let marker = null;
 let currentLocation = null;
 let vehicles = [];
 let recentFillups = [];
-let vehicleDiscoveryAttempted = false;
 let pageSignal = null;
 let featureApi = createFeatureApi();
 const DEFAULT_ODOMETER_SOURCE = "manual";
@@ -147,8 +146,7 @@ function toggleVehicleLoading(isLoading, _message = "Detecting vehicles...") {
 /**
  * Load vehicles from API
  */
-async function loadVehicles(options = {}) {
-  const { skipDiscovery = false } = options;
+async function loadVehicles() {
   const vehicleSelect = document.getElementById("vehicle-select");
 
   try {
@@ -164,19 +162,11 @@ async function loadVehicles(options = {}) {
 
     vehicleSelect.innerHTML = '<option value="">Choose your vehicle...</option>';
 
-    if (vehicles.length === 0 && !vehicleDiscoveryAttempted && !skipDiscovery) {
-      vehicleDiscoveryAttempted = true;
-      const discovered = await attemptVehicleDiscovery();
-      if (discovered) {
-        return loadVehicles({ skipDiscovery: true });
-      }
-    }
-
     if (vehicles.length === 0) {
       vehicleSelect.innerHTML =
-        '<option value="">No vehicles found. Go to Profile to sync/add.</option>';
+        '<option value="">Waiting for Bouncie vehicles...</option>';
       setVehicleStatus(
-        "No vehicles detected. Try syncing from your Profile page.",
+        "No vehicle is available yet. Fleet discovery runs automatically after Bouncie connects.",
         "warning"
       );
       return vehicles;
@@ -216,63 +206,12 @@ async function loadVehicles(options = {}) {
     }
     return vehicles;
   } catch {
-    setVehicleStatus("Could not load vehicles. Please sync from Profile.", "danger");
+    setVehicleStatus("Could not load vehicles. Automatic recovery will retry.", "danger");
     showError("Failed to load vehicles");
     return [];
   } finally {
     toggleVehicleLoading(false);
   }
-}
-
-/**
- * Attempt to auto-discover vehicles via Bouncie or trip history
- */
-async function attemptVehicleDiscovery() {
-  const discoverySteps = [
-    {
-      label: "Connecting to Bouncie…",
-      url: "/api/profile/bouncie-credentials/sync-vehicles",
-      method: "POST",
-      successMessage: "Pulled vehicles directly from Bouncie.",
-      tolerateStatuses: [400, 401],
-      hasVehicles: (data) => Array.isArray(data?.vehicles) && data.vehicles.length > 0,
-    },
-    {
-      label: "Scanning trip history…",
-      url: "/api/vehicles/sync-from-trips",
-      method: "POST",
-      successMessage: "Created vehicles from your recorded trips.",
-      hasVehicles: (data) =>
-        (data?.synced ?? 0) > 0 ||
-        (data?.updated ?? 0) > 0 ||
-        (data?.total_vehicles ?? 0) > 0,
-    },
-  ];
-
-  for (const step of discoverySteps) {
-    try {
-      toggleVehicleLoading(true, step.label);
-      const response = await apiRaw(step.url, { method: step.method });
-
-      if (!response.ok) {
-        if (step.tolerateStatuses?.includes(response.status)) {
-          continue;
-        }
-        continue;
-      }
-
-      const data = await response.json().catch(() => ({}));
-      if (step.hasVehicles?.(data)) {
-        setVehicleStatus(step.successMessage, "success");
-        showSuccess(step.successMessage);
-        return true;
-      }
-    } catch {
-      // Vehicle discovery error, continue to next step
-    }
-  }
-
-  return false;
 }
 
 /**

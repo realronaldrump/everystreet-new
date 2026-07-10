@@ -43,37 +43,11 @@ Recurring Routes - Every Street
           <div class="routes-build-card">
             <div class="build-card-top">
               <div class="build-status">
-                <span class="build-dot" id="routes-build-dot" data-state="idle" aria-hidden="true"></span>
-                <span class="build-text" id="routes-build-text">Ready to build</span>
+                <span class="build-dot" data-state="success" aria-hidden="true"></span>
+                <span class="build-text">Maintained automatically</span>
               </div>
-              <div class="build-meta" id="routes-build-meta">
-                <span class="build-meta-item" id="routes-last-built">Not built yet</span>
-              </div>
-            </div>
-
-            <div class="build-actions">
-              <button type="button" class="btn btn-primary routes-build-btn" id="routes-build-btn">
-                <i class="fas fa-diagram-project me-2" aria-hidden="true"></i>
-              Build / Refresh Routes
-              </button>
-              <button type="button"
-                      class="btn btn-outline-secondary routes-cancel-btn d-none"
-                      id="routes-cancel-btn">
-                <i class="fas fa-ban me-2" aria-hidden="true"></i>
-              Cancel
-              </button>
-            </div>
-
-            <div class="build-progress-wrap d-none"
-                 id="routes-build-progress-wrap"
-                 aria-live="polite">
-              <div class="build-progress">
-                <div class="build-progress-bar" id="routes-build-progress-bar" style="width: 0%">
-                </div>
-              </div>
-              <div class="build-progress-labels">
-                <span id="routes-build-stage">Queued</span>
-                <span id="routes-build-progress">0%</span>
+              <div class="build-meta">
+                <span class="build-meta-item" id="routes-last-built">Analyzing trip patterns</span>
               </div>
             </div>
           </div>
@@ -393,12 +367,8 @@ Choose a place
 No routes yet
           </h3>
           <p class="routes-empty-text">
-          Build your route templates to group similar trips into recurring patterns.
+          Route patterns will appear automatically after enough similar trips are recorded.
           </p>
-          <button type="button" class="btn btn-primary btn-lg" id="routes-empty-build-btn">
-            <i class="fas fa-diagram-project me-2" aria-hidden="true"></i>
-          Build routes
-          </button>
         </div>
       </section>
     </div>
@@ -568,7 +538,7 @@ All statistics
                   <section class="routes-modal-tab-content" data-tab-content="analytics">
                     <div class="routes-rebuild-hint d-none" id="route-analytics-rebuild-hint">
                       <i class="fas fa-sync-alt me-2" aria-hidden="true"></i>
-                      Trip assignments are out of date. Run a <strong>Rebuild</strong> from the routes page to populate analytics.
+                      Trip assignments are catching up automatically. Analytics will update shortly.
                     </div>
                     <div class="routes-chart-panel">
                       <div class="routes-chart-panel-head">

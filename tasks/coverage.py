@@ -14,9 +14,13 @@ import os
 import uuid
 from typing import Any
 
-from db.models import CoverageArea
+from core.date_utils import ensure_utc
+from core.trip_source_policy import enforce_bouncie_source
+from db.models import CoverageArea, Job, Trip
 from geo_coverage.services.geo_coverage_service import run_scheduled_recalculate
 from street_coverage.stats import update_area_stats
+from street_coverage.ingestion import backfill_area, rebuild_area
+from street_coverage.public_road_filter import get_public_road_filter_signature
 from tasks.arq import get_arq_pool
 from tasks.config import get_global_disable, get_task_config_entry
 from tasks.ops import enqueue_task, run_task_with_history
@@ -56,8 +60,39 @@ async def _update_coverage_for_new_trips_logic() -> dict[str, Any]:
         len(coverage_areas),
     )
 
+    latest_trip = (
+        await Trip.find(enforce_bouncie_source({})).sort("-endTime").first_or_none()
+    )
+    latest_trip_end = ensure_utc(latest_trip.endTime) if latest_trip else None
+    expected_filter = get_public_road_filter_signature()
+
     for area in coverage_areas:
         display_name = area.display_name or f"Unknown (ID: {area.id})"
+
+        active_job = await Job.find_one(
+            {
+                "area_id": area.id,
+                "job_type": {"$in": ["area_ingestion", "area_rebuild", "area_backfill"]},
+                "status": {"$in": ["pending", "running"]},
+            },
+        )
+        if active_job:
+            skipped_areas += 1
+            continue
+
+        needs_rebuild = area.status == "error" or (
+            area.status in {"ready", "degraded"}
+            and area.road_filter_version != expected_filter
+        )
+        if needs_rebuild and area.id:
+            job = await rebuild_area(area.id)
+            return {
+                "status": "success",
+                "action": "rebuild_queued",
+                "area_id": str(area.id),
+                "job_id": str(job.id) if job.id else None,
+                "message": f"Queued automatic rebuild for {display_name}.",
+            }
 
         # Skip areas that aren't ready
         if area.status not in ("ready", "degraded"):
@@ -68,6 +103,17 @@ async def _update_coverage_for_new_trips_logic() -> dict[str, Any]:
             )
             skipped_areas += 1
             continue
+
+        cursor = ensure_utc(area.last_backfill_trip_endtime)
+        if area.id and latest_trip_end and (cursor is None or cursor < latest_trip_end):
+            job = await backfill_area(area.id)
+            return {
+                "status": "success",
+                "action": "backfill_queued",
+                "area_id": str(area.id),
+                "job_id": str(job.id) if job.id else None,
+                "message": f"Queued automatic backfill for {display_name}.",
+            }
 
         try:
             # Update statistics for this area
@@ -100,6 +146,9 @@ async def _update_coverage_for_new_trips_logic() -> dict[str, Any]:
         failed_areas,
         skipped_areas,
     )
+    if failed_areas:
+        msg = f"Coverage statistics remained incomplete for {failed_areas} areas."
+        raise RuntimeError(msg)
 
     return {
         "status": "success",
@@ -126,7 +175,7 @@ async def update_coverage_for_new_trips(
     )
 
 
-async def _sync_geo_coverage_logic() -> dict[str, Any]:
+async def _sync_geo_coverage_logic(mode: str = "incremental") -> dict[str, Any]:
     """
     Incrementally refresh geo coverage explorer caches.
 
@@ -134,7 +183,8 @@ async def _sync_geo_coverage_logic() -> dict[str, Any]:
     newer than that checkpoint unless there is no checkpoint yet (first
     run).
     """
-    result = await run_scheduled_recalculate(mode="incremental")
+    selected_mode = "full" if mode == "full" else "incremental"
+    result = await run_scheduled_recalculate(mode=selected_mode)
     status = str(result.get("status") or "")
     if status == "skipped":
         logger.info(
@@ -165,12 +215,13 @@ async def _sync_geo_coverage_logic() -> dict[str, Any]:
 async def sync_geo_coverage(
     ctx: dict[str, Any],
     manual_run: bool = False,
+    mode: str = "incremental",
 ) -> dict[str, Any]:
     """ARQ job for incremental geo coverage sync."""
     return await run_task_with_history(
         ctx,
         "sync_geo_coverage",
-        _sync_geo_coverage_logic,
+        lambda: _sync_geo_coverage_logic(mode),
         manual_run=manual_run,
     )
 

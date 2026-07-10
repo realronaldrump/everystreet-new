@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from db.models import Place, PlacePreviewImage, PlacePreviewThemeImage
 from visits.api import places as places_api
 from visits.services.place_preview_service import PlacePreviewService
+from visits.services.place_service import PlaceService
 
 
 @pytest.fixture
@@ -184,11 +185,9 @@ async def test_backfill_place_previews_counts_generated_skipped_and_failed(
         staticmethod(fake_fetch_static_map_image),
     )
 
-    client = TestClient(_build_app())
-    response = client.post("/api/places/previews/backfill")
+    result = await PlaceService.backfill_place_previews(force=False)
 
-    assert response.status_code == 200
-    assert response.json() == {
+    assert result == {
         "processed": 3,
         "generated": 1,
         "skipped": 1,

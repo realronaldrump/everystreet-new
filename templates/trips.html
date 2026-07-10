@@ -28,17 +28,6 @@ Trips - Every Street
             Loading trips for this range&hellip;
           </p>
         </div>
-        <div class="pm-aside">
-          <div class="sync-status-mini" id="sync-status-mini">
-            <span class="sync-indicator" data-state="idle">
-              <span class="sync-dot"></span>
-            </span>
-            <span class="sync-text">Checking sync status...</span>
-            <button class="sync-btn" id="sync-now-btn" title="Sync now" aria-label="Sync trips now">
-              <i class="fas fa-sync-alt"></i>
-            </button>
-          </div>
-        </div>
       </header>
 
       <div class="figure-band trips-figures" id="welcome-stats" data-stagger>
@@ -342,16 +331,12 @@ Trip Ledger
 No trips yet
         </h3>
         <p class="empty-text">
-          Sync with your vehicle to import your driving history.
+          Trips will appear automatically after Bouncie is connected.
         </p>
         <div class="empty-actions">
-          <button class="btn btn-primary" id="empty-sync-btn" type="button">
-            <i class="fas fa-sync-alt"></i>
-          Sync my vehicle
-          </button>
-          <a href="/control-center" class="btn btn-secondary">
-            <i class="fas fa-cog"></i>
-          Setup
+          <a href="/control-center#connections" class="btn btn-primary">
+            <i class="fas fa-link"></i>
+          Review connection
           </a>
         </div>
       </div>
@@ -467,16 +452,7 @@ Speed
               <div class="col-lg-4 trip-modal-panel">
                 <div class="panel-content">
                   <div class="detail-section">
-                    <h6 class="section-title">
-Route
-                      <button class="section-action-btn"
-                              id="modal-regeocode-subtle-btn"
-                              type="button"
-                              title="Re-geocode addresses"
-                              aria-label="Re-geocode trip addresses">
-                        <i class="fas fa-sync-alt"></i>
-                      </button>
-                    </h6>
+                    <h6 class="section-title">Route</h6>
                     <div class="route-display">
                       <div class="route-point start">
                         <i class="fas fa-map-marker-alt"></i>
@@ -498,14 +474,6 @@ Route
                       <span>
                       This trip is inactive. It stays in history but is excluded from totals, maps, routes, gas, coverage, and insights.
                       </span>
-                    </div>
-                    <div class="route-actions" id="modal-route-actions" style="display: none">
-                      <button class="btn-route-action" id="modal-regeocode-btn" type="button">
-                        <i class="fas fa-map-marked-alt"></i>
-                        <span class="btn-route-action__text">Geocode this trip</span>
-                      </button>
-                      <div class="route-action-status" id="modal-regeocode-status" aria-live="polite">
-                      </div>
                     </div>
                   </div>
 

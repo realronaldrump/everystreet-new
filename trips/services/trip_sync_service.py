@@ -496,7 +496,7 @@ class TripSyncService:
                         "code": "credentials_missing",
                         "message": "Bouncie credentials are incomplete.",
                         "cta_label": "Update credentials",
-                        "cta_href": "/profile",
+                        "cta_href": "/control-center#connections",
                     },
                 },
             )
@@ -544,8 +544,8 @@ class TripSyncService:
                     "error": {
                         "code": "devices_required",
                         "message": "Sync vehicles to enable trip fetching.",
-                        "cta_label": "Sync vehicles",
-                        "cta_href": "/profile",
+                        "cta_label": "Review connection",
+                        "cta_href": "/control-center#connections",
                     },
                 },
             )
@@ -560,7 +560,7 @@ class TripSyncService:
                         "code": "sync_paused",
                         "message": "Trip sync is paused in settings.",
                         "cta_label": "Sync settings",
-                        "cta_href": "/settings#sync-settings",
+                        "cta_href": "/control-center",
                     },
                 },
             )
@@ -579,12 +579,11 @@ class TripSyncService:
             ):
                 status_payload.update(
                     {
-                        "state": "error",
+                        "state": "recovering",
                         "error": {
                             "code": "sync_failed",
-                            "message": last_failure.error or "Trip sync failed.",
-                            "cta_label": "View activity",
-                            "cta_href": "/settings#sync-settings",
+                            "message": "Trip reconciliation will retry automatically.",
+                            "detail": last_failure.error or "Trip sync failed.",
                         },
                     },
                 )

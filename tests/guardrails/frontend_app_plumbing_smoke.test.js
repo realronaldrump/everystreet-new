@@ -18,8 +18,8 @@ test("settings toggles stay wired from template to bootstrap state", () => {
 
   assert.match(settingsHtml, /id="map-trips-within-coverage-only"/);
   assert.match(settingsHtml, /id="trip-layers-use-heatmap"/);
-  assert.match(settingsHtml, /Show Only Trips Inside Selected Coverage Area/);
-  assert.match(settingsHtml, /Use Heatmap Style for Trips & Matched Trips/);
+  assert.match(settingsHtml, /Clip trips to coverage area/);
+  assert.match(settingsHtml, /Trip heatmaps/);
 
   assert.match(
     configSource,
@@ -41,7 +41,7 @@ test("settings toggles stay wired from template to bootstrap state", () => {
   );
   assert.match(
     appSettingsSource,
-    /setTripLayerHeatmapPreference\(resolvedTripLayersUseHeatmap\)/
+    /setTripLayerHeatmapPreference\(payload\.tripLayersUseHeatmap\)/
   );
 
   assert.match(baseTemplate, /APP_SETTINGS_FLAGS[\s\S]*mapTripsWithinCoverageOnly:/);
