@@ -28,6 +28,10 @@ const dateManager = {
       "es-single-month",
       showMonths === 1
     );
+    picker.calendarContainer?.classList.toggle(
+      "es-multi-month",
+      showMonths === 2
+    );
   },
 
   getSelectedDateRange() {

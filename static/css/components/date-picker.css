@@ -718,7 +718,7 @@ body .flatpickr-calendar .flatpickr-time .flatpickr-am-pm:focus {
   position: relative;
   inset: auto;
   display: block;
-  width: 100%;
+  width: 100% !important;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -734,6 +734,7 @@ body .flatpickr-calendar .flatpickr-time .flatpickr-am-pm:focus {
 }
 
 .dp-calendar-host .flatpickr-days {
+  width: 100% !important;
   overflow: visible;
 }
 
@@ -790,9 +791,9 @@ body .flatpickr-calendar .flatpickr-time .flatpickr-am-pm:focus {
     line-height: 2.5rem;
   }
 
-  .dp-calendar-host .flatpickr-calendar.multiMonth .dayContainer,
-  .dp-calendar-host .flatpickr-calendar.multiMonth .flatpickr-weekdaycontainer,
-  .dp-calendar-host .flatpickr-calendar.multiMonth .flatpickr-month {
+  .dp-calendar-host .flatpickr-calendar.es-multi-month .dayContainer,
+  .dp-calendar-host .flatpickr-calendar.es-multi-month .flatpickr-weekdaycontainer,
+  .dp-calendar-host .flatpickr-calendar.es-multi-month .flatpickr-month {
     flex: 0 0 50%;
     width: 50%;
     min-width: 50%;
