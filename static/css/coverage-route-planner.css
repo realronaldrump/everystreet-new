@@ -2646,7 +2646,7 @@
 }
 
 .coverage-route-planner .layer-color--route {
-  background: var(--cat-purple);
+  background: var(--warning);
 }
 
 .coverage-route-planner .layer-color--driven {
@@ -3068,7 +3068,7 @@
 }
 
 .coverage-route-planner .legend-color--route {
-  background: var(--cat-purple);
+  background: var(--warning);
 }
 
 .coverage-route-planner .legend-color--simulated {

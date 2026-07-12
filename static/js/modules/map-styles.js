@@ -46,8 +46,8 @@ const DEFAULT_MAP_LAYER_COLORS = Object.freeze({
   optimalRoute: {
     driven: "#6f8fce",
     undriven: "#c47050",
-    route: "#8a7ab0",
-    arrow: "#8a7ab0",
+    route: "#d4a24a",
+    arrow: "#d4a24a",
   },
   googleDefaults: {
     line: "#d4a24a",
@@ -152,8 +152,8 @@ const buildMapLayerColors = () => ({
       "--color-undriven",
       DEFAULT_MAP_LAYER_COLORS.optimalRoute.undriven
     ),
-    route: getCSSVariable("--cat-purple", DEFAULT_MAP_LAYER_COLORS.optimalRoute.route),
-    arrow: getCSSVariable("--cat-purple", DEFAULT_MAP_LAYER_COLORS.optimalRoute.arrow),
+    route: getCSSVariable("--warning", DEFAULT_MAP_LAYER_COLORS.optimalRoute.route),
+    arrow: getCSSVariable("--warning", DEFAULT_MAP_LAYER_COLORS.optimalRoute.arrow),
   },
   googleDefaults: {
     line: getCSSVariable("--warning", DEFAULT_MAP_LAYER_COLORS.googleDefaults.line),
