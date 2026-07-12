@@ -631,6 +631,12 @@
   box-shadow: var(--shadow-md);
 }
 
+/* The custom area select menu extends beyond the compact selector card. */
+.coverage-route-planner .area-selector-widget,
+.coverage-route-planner .area-selector-widget .collapsible-content:not(.is-collapsed) {
+  overflow: visible;
+}
+
 /* Widget header */
 .coverage-route-planner .widget-header {
   display: flex;
