@@ -99,7 +99,9 @@
   transform: rotate(180deg);
 }
 
-.coverage-route-planner .mobile-panel-toggle[aria-expanded="false"] .toggle-text::after {
+.coverage-route-planner
+  .mobile-panel-toggle[aria-expanded="false"]
+  .toggle-text::after {
   content: "Show Controls";
 }
 
@@ -164,6 +166,14 @@
 
 .coverage-route-planner .control-panel::-webkit-scrollbar-thumb:hover {
   background: var(--text-tertiary);
+}
+
+.coverage-route-planner .planner-flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4) var(--space-6);
 }
 
 /* Mobile panel behavior - bottom sheet pattern */
@@ -276,44 +286,6 @@
   transition: color 0.3s ease;
 }
 
-/* Coverage ring in header */
-.coverage-route-planner .sidebar-coverage-ring {
-  position: relative;
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-}
-
-.coverage-route-planner .coverage-ring-svg {
-  width: 44px;
-  height: 44px;
-  transform: rotate(-90deg);
-}
-
-.coverage-route-planner .ring-track {
-  stroke: var(--surface-3);
-}
-
-.coverage-route-planner .ring-fill {
-  stroke: var(--color-driven);
-  stroke-linecap: round;
-  transition: stroke-dashoffset 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  filter: none;
-}
-
-.coverage-route-planner .ring-pct {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1;
-}
-
 @media (width <= 480px) {
   .coverage-route-planner .sidebar-header {
     padding: var(--space-3) var(--space-3) var(--space-2);
@@ -326,293 +298,6 @@
   .coverage-route-planner .sidebar-title {
     font-size: var(--font-size-sm);
   }
-}
-
-/* ==========================================================================
-   Tab Navigation
-   ========================================================================== */
-
-.coverage-route-planner .sidebar-tabs {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 2px;
-  padding: var(--space-2) var(--space-3);
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: var(--surface-0);
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--divider-color);
-}
-
-.coverage-route-planner .sidebar-tab {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.5rem 0.25rem;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-md);
-  color: var(--text-tertiary);
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    color 0.15s ease,
-    background-color 0.15s ease;
-  position: relative;
-  min-height: 44px;
-}
-
-.coverage-route-planner .sidebar-tab i {
-  font-size: var(--font-size-sm);
-}
-
-.coverage-route-planner .sidebar-tab:hover {
-  color: var(--text-secondary);
-  background: var(--surface-2);
-}
-
-.coverage-route-planner .sidebar-tab.active {
-  color: var(--primary);
-  background: rgb(var(--primary-rgb) / 8%);
-  font-weight: 600;
-}
-
-.coverage-route-planner .sidebar-tab.active::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 20%;
-  right: 20%;
-  height: 2px;
-  background: var(--action);
-  border-radius: 1px;
-}
-
-.coverage-route-planner .sidebar-tab:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
-/* Status badge (pulsing dot) on the Status tab */
-.coverage-route-planner .sidebar-tab[data-has-activity]::before {
-  content: "";
-  position: absolute;
-  top: 6px;
-  right: calc(50% - 16px);
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--warning);
-  animation: status-pulse 1.8s ease-in-out infinite;
-}
-
-@keyframes status-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 0.5;
-    transform: scale(0.8);
-  }
-}
-
-@media (width <= 480px) {
-  .coverage-route-planner .sidebar-tab .tab-label {
-    display: none;
-  }
-
-  .coverage-route-planner .sidebar-tab {
-    padding: 0.625rem 0.25rem;
-  }
-
-  .coverage-route-planner .sidebar-tab i {
-    font-size: var(--font-size-md);
-  }
-}
-
-/* ==========================================================================
-   Workflow Stepper
-   ========================================================================== */
-
-.coverage-route-planner .workflow-stepper {
-  display: flex;
-  align-items: center;
-  padding: var(--space-3) var(--space-4);
-  gap: 0;
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--divider-color);
-  background: var(--surface-0);
-}
-
-.coverage-route-planner .workflow-step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  flex-shrink: 0;
-}
-
-.coverage-route-planner .ws-node {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--surface-3);
-  border: 2px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  color: var(--text-tertiary);
-  flex-shrink: 0;
-  transition: all 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.coverage-route-planner .workflow-step.completed .ws-node {
-  background: var(--success);
-  border-color: var(--success);
-  color: var(--text-on-primary);
-  font-size: var(--font-size-xs);
-}
-
-.coverage-route-planner .workflow-step.completed .ws-number {
-  display: none;
-}
-
-.coverage-route-planner .workflow-step.completed .ws-node::after {
-  content: "\f00c";
-  font-family: "Font Awesome 6 Free", sans-serif;
-  font-weight: 900;
-  font-size: var(--font-size-xs);
-}
-
-.coverage-route-planner .workflow-step.active .ws-node {
-  background: var(--action);
-  border-color: var(--action);
-  color: var(--text-on-action);
-  box-shadow: 0 0 0 4px rgb(var(--primary-rgb) / 20%);
-  animation: ws-pulse 2s ease-in-out infinite;
-}
-
-@keyframes ws-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 3px rgb(var(--primary-rgb) / 25%);
-  }
-
-  50% {
-    box-shadow:
-      0 0 0 6px rgb(var(--primary-rgb) / 10%),
-      0 0 12px rgb(var(--primary-rgb) / 20%);
-  }
-}
-
-.coverage-route-planner .ws-label {
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-  transition: color 0.2s ease;
-}
-
-.coverage-route-planner .workflow-step.active .ws-label {
-  color: var(--primary);
-  font-weight: 600;
-}
-
-.coverage-route-planner .workflow-step.completed .ws-label {
-  color: var(--success);
-}
-
-/* ==========================================================================
-   Tab Panels
-   ========================================================================== */
-
-.coverage-route-planner .tab-panel {
-  display: none;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  flex: 1;
-}
-
-.coverage-route-planner .tab-panel.active {
-  display: flex;
-  animation: tabPanelIn 200ms cubic-bezier(0, 0, 0.2, 1) both;
-}
-
-@keyframes tabPanelIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Tab Empty States */
-.coverage-route-planner .tab-empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: var(--space-8) var(--space-4);
-  gap: var(--space-3);
-}
-
-.coverage-route-planner .tab-empty-icon {
-  font-size: var(--font-size-3xl);
-  color: var(--text-tertiary);
-  opacity: 0.35;
-}
-
-.coverage-route-planner .tab-empty-title {
-  font-size: var(--font-size-md);
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.coverage-route-planner .tab-empty-hint {
-  font-size: var(--font-size-sm);
-  color: var(--text-tertiary);
-  max-width: 260px;
-  line-height: 1.55;
-}
-
-/* Hide empty states when sibling widgets are visible */
-.coverage-route-planner .tab-panel .widget[style*="display: block"] ~ .tab-empty-state,
-.coverage-route-planner .tab-panel .widget[style*="display: flex"] ~ .tab-empty-state,
-.coverage-route-planner .tab-panel .widget.active ~ .tab-empty-state {
-  display: none;
-}
-
-/* Mode indicator border on sidebar */
-.coverage-route-planner[data-mode="planning"] .control-panel {
-  border-right-color: var(--primary);
-}
-
-.coverage-route-planner[data-mode="navigating"] .control-panel {
-  border-right-color: var(--info);
-}
-
-.coverage-route-planner[data-mode="processing"] .control-panel {
-  border-right-color: var(--warning);
-}
-
-.coverage-route-planner[data-mode="results"] .control-panel {
-  border-right-color: var(--success);
 }
 
 /* ==========================================================================
@@ -674,6 +359,12 @@
 .coverage-route-planner .widget-title i {
   font-size: var(--font-size-sm);
   opacity: 0.8;
+}
+
+.coverage-route-planner .widget-title > .atlas-step-index {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-weight: var(--font-weight-semibold);
 }
 
 .coverage-route-planner .widget-body {
@@ -1498,7 +1189,7 @@
 }
 
 /* ==========================================================================
-   Find Tab — Action Tiles
+   On the Road — Action Tiles
    ========================================================================== */
 
 .coverage-route-planner .find-action-grid {
@@ -1584,52 +1275,6 @@
   line-height: 1.3;
 }
 
-/* Find helper card */
-.coverage-route-planner .find-helper-card {
-  border-style: dashed;
-  border-color: var(--border-color);
-  background: transparent;
-  box-shadow: none;
-}
-
-.coverage-route-planner .find-helper-card:hover {
-  box-shadow: none;
-}
-
-.coverage-route-planner .find-helper-content {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-}
-
-.coverage-route-planner .find-helper-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-md);
-  background: rgb(var(--cat-ochre-rgb) / 12%);
-  color: var(--cat-ochre);
-  font-size: var(--font-size-sm);
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.coverage-route-planner .find-helper-title {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin: 0 0 var(--space-1) 0;
-}
-
-.coverage-route-planner .find-helper-desc {
-  font-size: var(--font-size-sm);
-  color: var(--text-tertiary);
-  line-height: 1.55;
-  margin: 0;
-}
-
 /* ==========================================================================
    Status Messages
    ========================================================================== */
@@ -1675,7 +1320,7 @@
 }
 
 /* ==========================================================================
-   Route Info (Find Tab)
+   On the Road — Route Info
    ========================================================================== */
 
 .coverage-route-planner .route-info {
@@ -1892,7 +1537,7 @@
 }
 
 /* ==========================================================================
-   Status Tab — Processing States
+   On the Road — Cluster Progress
    ========================================================================== */
 
 /* Route progress container */
@@ -2011,12 +1656,8 @@
 }
 
 /* ==========================================================================
-   Live Progress — Vertical Solver Pipeline
+   Inline Solver Progress
    ========================================================================== */
-
-.coverage-route-planner .is-live .widget-header {
-  background: var(--surface-2);
-}
 
 .coverage-route-planner .live-badge {
   display: inline-flex;
@@ -2050,111 +1691,6 @@
   50% {
     opacity: 0.6;
   }
-}
-
-/* Vertical pipeline */
-.coverage-route-planner .solver-pipeline {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: var(--space-4);
-}
-
-.coverage-route-planner .solver-pipeline .stage {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-1) 0;
-  opacity: 0.38;
-  transition: opacity 300ms ease;
-}
-
-.coverage-route-planner .solver-pipeline .stage.active {
-  opacity: 1;
-}
-
-.coverage-route-planner .solver-pipeline .stage.completed {
-  opacity: 0.75;
-}
-
-.coverage-route-planner .stage-node {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--surface-3);
-  border: 2px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--font-size-sm);
-  color: var(--text-tertiary);
-  flex-shrink: 0;
-  transition: all 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.coverage-route-planner .stage.active .stage-node {
-  background: var(--warning);
-  border-color: var(--warning);
-  color: var(--text-on-primary);
-  box-shadow:
-    0 0 0 5px rgb(var(--warning-rgb) / 18%),
-    0 0 16px rgb(var(--warning-rgb) / 28%);
-  animation: node-pulse 1.6s ease-in-out infinite;
-}
-
-.coverage-route-planner .stage.completed .stage-node {
-  background: var(--success);
-  border-color: var(--success);
-  color: var(--text-on-primary);
-}
-
-@keyframes node-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 4px rgb(var(--warning-rgb) / 18%);
-  }
-
-  50% {
-    box-shadow:
-      0 0 0 8px rgb(var(--warning-rgb) / 8%),
-      0 0 20px rgb(var(--warning-rgb) / 25%);
-  }
-}
-
-.coverage-route-planner .pipeline-connector {
-  width: 2px;
-  height: 18px;
-  background: var(--divider-color);
-  margin-left: 15px; /* center on 32px node */
-  transition: background 400ms ease;
-  flex-shrink: 0;
-}
-
-.coverage-route-planner .stage.completed + .pipeline-connector {
-  background: var(--success);
-}
-
-.coverage-route-planner .stage-content {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding-top: 7px;
-  flex: 1;
-  min-width: 0;
-}
-
-.coverage-route-planner .solver-pipeline .stage-label {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--text-primary);
-  text-transform: none;
-  letter-spacing: 0;
-  text-align: left;
-}
-
-.coverage-route-planner .stage-detail {
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
-  line-height: 1.4;
 }
 
 /* Progress messages */
@@ -2194,110 +1730,89 @@
   min-height: 40px;
 }
 
-/* ==========================================================================
-   Status Tab Empty State — Animated Rings
-   ========================================================================== */
-
-.coverage-route-planner .processing-ready-state {
-  gap: var(--space-4);
+.coverage-route-planner .route-progress-inline {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--warning);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
 }
 
-.coverage-route-planner .ready-animation {
-  position: relative;
-  width: 64px;
-  height: 64px;
+.coverage-route-planner .inline-progress-heading,
+.coverage-route-planner .inline-progress-footer {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  gap: var(--space-3);
 }
 
-.coverage-route-planner .ready-ring {
-  position: absolute;
-  border-radius: 50%;
-  border: 2px solid rgb(var(--primary-rgb) / 22%);
-  animation: ready-expand 3s ease-out infinite;
-  width: 64px;
-  height: 64px;
+.coverage-route-planner .inline-progress-stage {
+  min-width: 0;
+  color: var(--text-primary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
 }
 
-.coverage-route-planner .ready-ring--2 {
-  animation-delay: 1.5s;
+.coverage-route-planner .route-progress-inline .progress-messages {
+  text-align: left;
 }
 
-@keyframes ready-expand {
-  0% {
-    transform: scale(0.6);
-    opacity: 0.6;
-  }
-
-  100% {
-    transform: scale(2.4);
-    opacity: 0;
-  }
+.coverage-route-planner .route-progress-inline .elapsed-time {
+  justify-content: flex-start;
+  margin-top: var(--space-3);
+  padding: 0;
+  background: transparent;
+  font-family: var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
 }
 
-.coverage-route-planner .ready-icon {
-  position: relative;
-  z-index: 1;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: rgb(var(--primary-rgb) / 12%);
-  border: 1px solid rgb(var(--primary-rgb) / 20%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--primary);
-  font-size: var(--font-size-md);
+.coverage-route-planner .route-progress-inline .btn-cancel {
+  width: auto;
+  min-height: var(--touch-target);
+  margin-top: var(--space-3);
 }
 
-.coverage-route-planner .status-go-plan-btn,
-.coverage-route-planner .results-go-plan-btn {
-  margin-top: var(--space-1);
-}
-
-/* ==========================================================================
-   Error Section
-   ========================================================================== */
-
-.coverage-route-planner .is-error .widget-header {
-  background: rgb(var(--danger-rgb) / 10%);
-}
-
-.coverage-route-planner .is-error .widget-title {
-  color: var(--danger);
-}
-
-.coverage-route-planner .error-content {
+.coverage-route-planner .inline-error-section {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: stretch;
   gap: var(--space-3);
-  padding: var(--space-2);
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid rgb(var(--danger-rgb) / 35%);
+  border-left: 3px solid var(--danger);
+  border-radius: var(--radius-md);
+  background: rgb(var(--danger-rgb) / 8%);
 }
 
-.coverage-route-planner .error-illustration {
-  opacity: 0.85;
-}
-
-.coverage-route-planner .error-message {
-  font-size: var(--font-size-sm);
-  color: var(--danger);
-  line-height: 1.5;
-  max-width: 260px;
-}
-
-.coverage-route-planner .error-actions {
+.coverage-route-planner .inline-error-copy {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  justify-content: center;
+  align-items: flex-start;
+  gap: var(--space-3);
+  color: var(--danger);
+}
+
+.coverage-route-planner .inline-error-copy p {
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+@media (width >= 400px) {
+  .coverage-route-planner .inline-error-section {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
 }
 
 /* ==========================================================================
-   Results Tab — Hero + Supporting Grid
+   Route Summary — Hero + Supporting Grid
    ========================================================================== */
 
 /* Hero efficiency card */
@@ -2408,6 +1923,10 @@
 @media (width >= 400px) {
   .coverage-route-planner .stats-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .coverage-route-planner .results-supporting-grid .stat-card:last-child {
+    grid-column: 1 / -1;
   }
 }
 
@@ -2564,7 +2083,7 @@
 
 @media (width >= 400px) {
   .coverage-route-planner .export-actions {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
@@ -2579,13 +2098,6 @@
   justify-content: center;
   gap: 0.35rem;
   padding-inline: 0.5rem;
-}
-
-/* Results empty state */
-.coverage-route-planner .results-empty-state .results-empty-art {
-  color: var(--text-tertiary);
-  opacity: 0.4;
-  font-size: 0;
 }
 
 /* ==========================================================================
@@ -2688,6 +2200,25 @@
   background: var(--action);
   border: none;
   box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+}
+
+.coverage-route-planner #route-progress-container {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-color);
+}
+
+.coverage-route-planner .route-details {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-color);
+}
+
+.coverage-route-planner .route-details-heading {
+  margin: 0 0 var(--space-3);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
 }
 
 /* ==========================================================================
@@ -3031,6 +2562,7 @@
   backdrop-filter: blur(8px);
 }
 
+.coverage-route-planner .map-legend h2,
 .coverage-route-planner .map-legend h6 {
   margin: 0 0 var(--space-2) 0;
   font-size: var(--font-size-xs);
@@ -3122,7 +2654,11 @@
   .coverage-route-planner .map-legend {
     left: var(--space-3);
     right: var(--space-3);
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-offset, 0px));
+    bottom: calc(
+      72px +
+      env(safe-area-inset-bottom, 0px) +
+      var(--bottom-nav-offset, 0px)
+    );
     padding: var(--space-2) var(--space-3);
   }
 
@@ -3131,7 +2667,11 @@
   .coverage-route-planner .maplibregl-ctrl-bottom-left,
   .coverage-route-planner .mapboxgl-ctrl-bottom-right,
   .coverage-route-planner .maplibregl-ctrl-bottom-right {
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-offset, 0px));
+    bottom: calc(
+      72px +
+      env(safe-area-inset-bottom, 0px) +
+      var(--bottom-nav-offset, 0px)
+    );
   }
 
   /* Touch targets */
@@ -3158,11 +2698,6 @@
 }
 
 @media (width <= 480px) {
-  .coverage-route-planner .tab-panel {
-    padding: var(--space-3);
-    gap: var(--space-2);
-  }
-
   .coverage-route-planner .widget-body {
     padding: var(--space-3);
   }
@@ -3220,14 +2755,6 @@
   .coverage-route-planner .hero-eff-details {
     text-align: center;
   }
-
-  .coverage-route-planner .workflow-stepper {
-    padding: var(--space-2) var(--space-3);
-  }
-
-  .coverage-route-planner .ws-label {
-    display: none;
-  }
 }
 
 @media (hover: none) {
@@ -3254,15 +2781,7 @@
   .coverage-route-planner .map-scanner-overlay::before,
   .coverage-route-planner .map-scanner-overlay::after,
   .coverage-route-planner .hud-dot,
-  .coverage-route-planner .live-badge,
-  .coverage-route-planner .sidebar-tab[data-has-activity]::before,
-  .coverage-route-planner .ready-ring,
-  .coverage-route-planner .workflow-step.active .ws-node,
-  .coverage-route-planner .stage.active .stage-node {
-    animation: none;
-  }
-
-  .coverage-route-planner .tab-panel.active {
+  .coverage-route-planner .live-badge {
     animation: none;
   }
 
@@ -3272,21 +2791,18 @@
   .coverage-route-planner .stat-card,
   .coverage-route-planner .layer-item,
   .coverage-route-planner .route-history-item,
-  .coverage-route-planner .coverage-ring-svg .ring-fill,
   .coverage-route-planner .donut-driven,
   .coverage-route-planner .eff-ring-fill,
   .coverage-route-planner .coverage-bar-fill {
     transition: none;
   }
 
-  .coverage-route-planner .collapsible-content,
-  .coverage-route-planner .sidebar-tab {
+  .coverage-route-planner .collapsible-content {
     transition: none;
   }
 }
 
 /* Focus styles for accessibility */
-.coverage-route-planner .sidebar-tab:focus-visible,
 .coverage-route-planner .find-tile:focus-visible,
 .coverage-route-planner .btn-generate:focus-visible,
 .coverage-route-planner .btn-results-nav:focus-visible,
@@ -3351,40 +2867,6 @@
   letter-spacing: -0.015em;
 }
 
-.coverage-route-planner .sidebar-tabs.atlas-tabs {
-  display: flex;
-  gap: var(--space-5);
-  padding: 0 var(--space-4);
-  border-bottom: 1px solid var(--border-color);
-  background: var(--surface-0);
-}
-
-.coverage-route-planner .sidebar-tab.atlas-tab {
-  flex: 0 0 auto;
-  flex-direction: row;
-  gap: var(--space-2);
-  min-height: var(--touch-target);
-  padding: 0 0 var(--space-2);
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-secondary);
-}
-
-.coverage-route-planner .sidebar-tab.atlas-tab:hover,
-.coverage-route-planner .sidebar-tab.atlas-tab.active {
-  background: transparent;
-  color: var(--text-primary);
-}
-
-.coverage-route-planner .sidebar-tab.atlas-tab.active::after {
-  right: 0;
-  bottom: -1px;
-  left: 0;
-  border-radius: 0;
-  background: var(--action);
-}
-
-.coverage-route-planner .workflow-stepper.atlas-stepper,
 .coverage-route-planner .progress-steps.atlas-stepper {
   display: grid;
   grid-auto-flow: column;
@@ -3395,7 +2877,6 @@
   background: var(--surface-0);
 }
 
-.coverage-route-planner .workflow-step.atlas-step,
 .coverage-route-planner .step.atlas-step {
   flex-direction: row;
   align-items: center;
@@ -3404,11 +2885,8 @@
   padding: var(--space-2) var(--space-3) var(--space-2) 0;
 }
 
-.coverage-route-planner .workflow-step.atlas-step .ws-node.atlas-step-index,
 .coverage-route-planner .step.atlas-step .step-indicator.atlas-step-index,
-.coverage-route-planner .workflow-step.atlas-step.active .ws-node.atlas-step-index,
 .coverage-route-planner .step.atlas-step.active .step-indicator.atlas-step-index,
-.coverage-route-planner .workflow-step.atlas-step.completed .ws-node.atlas-step-index,
 .coverage-route-planner .step.atlas-step.completed .step-indicator.atlas-step-index {
   width: auto;
   height: auto;
@@ -3421,19 +2899,15 @@
   animation: none;
 }
 
-.coverage-route-planner .workflow-step.atlas-step.active .ws-node.atlas-step-index,
 .coverage-route-planner .step.atlas-step.active .step-indicator.atlas-step-index {
   color: var(--text-primary);
 }
 
-.coverage-route-planner .workflow-step.atlas-step.completed .ws-node.atlas-step-index,
 .coverage-route-planner .step.atlas-step.completed .step-indicator.atlas-step-index {
   color: transparent;
 }
 
-.coverage-route-planner .workflow-step.atlas-step .ws-label.atlas-step-label,
 .coverage-route-planner .step.atlas-step .step-label.atlas-step-label,
-.coverage-route-planner .workflow-step.atlas-step.active .ws-label.atlas-step-label,
 .coverage-route-planner .step.atlas-step.active .step-label.atlas-step-label {
   color: inherit;
   text-transform: none;
@@ -3475,12 +2949,10 @@
   border-radius: 0;
 }
 
-.coverage-route-planner .donut-track,
-.coverage-route-planner .ring-track {
+.coverage-route-planner .donut-track {
   stroke: var(--border-color);
 }
 
-.coverage-route-planner .tab-empty-state,
 .coverage-route-planner .empty-state {
   min-height: 10rem;
   padding: var(--space-8) var(--space-4);

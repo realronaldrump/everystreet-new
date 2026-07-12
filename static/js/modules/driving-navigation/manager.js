@@ -623,17 +623,15 @@ export class DrivingNavigation {
       return;
     }
 
-    // Switch to the Plan/Status tab so the user can see progress
-    const statusTab = document.querySelector('[data-tab="status"]');
-    if (statusTab) {
-      statusTab.click();
-    }
-
     document.dispatchEvent(
       new CustomEvent("generateClusterRoute", {
         detail: { areaId, segmentIds },
       })
     );
+    document.getElementById("route-progress-container")?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
   }
 
   /**

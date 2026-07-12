@@ -1,5 +1,3 @@
-const TAB_STORAGE_KEY = "coverage-route-planner-active-tab";
-
 function initBottomNavInsets({ signal, onCleanup }) {
   const root = document.querySelector(".coverage-route-planner");
   if (!root) {
@@ -82,11 +80,12 @@ function initCollapsibleSections({ signal }) {
       return;
     }
 
-    const saved = localStorage.getItem(`coverage-route-planner-${toggleId}`);
-    if (saved === "collapsed") {
-      content.classList.add("is-collapsed");
-      collapseBtn.setAttribute("aria-expanded", "false");
-    }
+    const storageKey = `coverage-route-planner-${toggleId}`;
+    const saved = localStorage.getItem(storageKey);
+    const isDefaultCollapsed = header.hasAttribute("data-default-collapsed");
+    const isCollapsed = saved === "collapsed" || (saved === null && isDefaultCollapsed);
+    content.classList.toggle("is-collapsed", isCollapsed);
+    collapseBtn.setAttribute("aria-expanded", String(!isCollapsed));
 
     const toggleHandler = (event) => {
       const isFormControl = event.target.closest(".form-switch, .form-check-input");
@@ -100,11 +99,11 @@ function initCollapsibleSections({ signal }) {
       if (isNowCollapsed) {
         content.classList.add("is-collapsed");
         collapseBtn.setAttribute("aria-expanded", "false");
-        localStorage.setItem(`coverage-route-planner-${toggleId}`, "collapsed");
+        localStorage.setItem(storageKey, "collapsed");
       } else {
         content.classList.remove("is-collapsed");
         collapseBtn.setAttribute("aria-expanded", "true");
-        localStorage.setItem(`coverage-route-planner-${toggleId}`, "expanded");
+        localStorage.setItem(storageKey, "expanded");
       }
     };
 
@@ -260,151 +259,9 @@ function enhanceAccessibility() {
   });
 }
 
-function updateModeIndicator() {
-  const root = document.querySelector(".coverage-route-planner");
-  const activeTab = document.querySelector(".sidebar-tab.active");
-  if (!root || !activeTab) {
-    return;
-  }
-
-  const modeMap = {
-    plan: "planning",
-    navigate: "navigating",
-    status: "processing",
-    results: "results",
-  };
-  root.dataset.mode = modeMap[activeTab.dataset.tab] || "planning";
-}
-
-function switchTab(tabName) {
-  const tabs = document.querySelectorAll(".sidebar-tab");
-  const panels = document.querySelectorAll(".tab-panel");
-
-  tabs.forEach((tab) => {
-    const isActive = tab.dataset.tab === tabName;
-    tab.classList.toggle("active", isActive);
-    tab.setAttribute("aria-selected", isActive.toString());
-  });
-
-  panels.forEach((panel) => {
-    panel.classList.toggle("active", panel.dataset.tab === tabName);
-  });
-
-  localStorage.setItem(TAB_STORAGE_KEY, tabName);
-  updateModeIndicator();
-}
-
-function initTabNavigation({ signal }) {
-  const tabs = document.querySelectorAll(".sidebar-tab");
-  if (!tabs.length) {
-    return;
-  }
-  const eventOptions = signal ? { signal } : false;
-  tabs.forEach((tab) => {
-    tab.addEventListener("click", () => switchTab(tab.dataset.tab), eventOptions);
-  });
-
-  const saved = localStorage.getItem(TAB_STORAGE_KEY);
-  if (saved && document.querySelector(`.sidebar-tab[data-tab="${saved}"]`)) {
-    switchTab(saved);
-  }
-}
-
-function initAutoTabSwitch({ signal, onCleanup }) {
-  const progressSection = document.getElementById("progress-section");
-  const routeProgressContainer = document.getElementById("route-progress-container");
-  const resultsSection = document.getElementById("results-section");
-  const errorSection = document.getElementById("error-section");
-  const observers = [];
-
-  const isVisible = (el) => {
-    if (!el) {
-      return false;
-    }
-    if (el.id === "route-progress-container") {
-      return el.classList.contains("active");
-    }
-    return el.style.display !== "none";
-  };
-
-  const checkStatusActivity = () => {
-    const hasActivity =
-      isVisible(progressSection) ||
-      isVisible(routeProgressContainer) ||
-      isVisible(errorSection);
-    const statusTab = document.querySelector('.sidebar-tab[data-tab="status"]');
-    if (statusTab) {
-      if (hasActivity) {
-        statusTab.setAttribute("data-has-activity", "");
-      } else {
-        statusTab.removeAttribute("data-has-activity");
-      }
-    }
-    const emptyState = document.getElementById("status-empty-state");
-    if (emptyState) {
-      emptyState.style.display = hasActivity ? "none" : "";
-    }
-  };
-
-  const checkResultsActivity = () => {
-    const hasResults = isVisible(resultsSection);
-    const emptyState = document.getElementById("results-empty-state");
-    if (emptyState) {
-      emptyState.style.display = hasResults ? "none" : "";
-    }
-  };
-
-  const onStatusVisible = () => {
-    if (
-      isVisible(progressSection) ||
-      isVisible(routeProgressContainer) ||
-      isVisible(errorSection)
-    ) {
-      switchTab("status");
-    }
-    checkStatusActivity();
-  };
-
-  const onResultsVisible = () => {
-    if (isVisible(resultsSection)) {
-      switchTab("results");
-    }
-    checkResultsActivity();
-  };
-
-  [
-    { el: progressSection, cb: onStatusVisible },
-    { el: routeProgressContainer, cb: onStatusVisible },
-    { el: errorSection, cb: onStatusVisible },
-    { el: resultsSection, cb: onResultsVisible },
-  ].forEach(({ el, cb }) => {
-    if (!el) {
-      return;
-    }
-    const observer = new MutationObserver(cb);
-    observer.observe(el, { attributes: true, attributeFilter: ["style", "class"] });
-    observers.push(observer);
-  });
-
-  onCleanup(() => {
-    observers.forEach((observer) => observer.disconnect());
-  });
-
-  signal?.addEventListener(
-    "abort",
-    () => {
-      observers.forEach((observer) => observer.disconnect());
-    },
-    { once: true }
-  );
-
-  checkStatusActivity();
-  checkResultsActivity();
-}
-
 function initTemplateActions({ signal }) {
   const algoInfoBtn = document.getElementById("algo-explainer-toggle");
-  const backToPlanBtns = document.querySelectorAll('[data-action="go-to-plan-tab"]');
+  const generateBtn = document.getElementById("generate-route-btn");
 
   algoInfoBtn?.addEventListener(
     "click",
@@ -424,15 +281,18 @@ function initTemplateActions({ signal }) {
     signal ? { signal } : false
   );
 
-  backToPlanBtns.forEach((btn) => {
-    btn.addEventListener(
-      "click",
-      () => {
-        switchTab("plan");
-      },
-      signal ? { signal } : false
-    );
-  });
+  generateBtn?.addEventListener(
+    "click",
+    () => {
+      requestAnimationFrame(() => {
+        document.getElementById("route-progress-inline")?.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+        });
+      });
+    },
+    signal ? { signal } : false
+  );
 }
 
 function initCoverageNavigatorUi(context = {}) {
@@ -446,10 +306,7 @@ function initCoverageNavigatorUi(context = {}) {
   handleResponsiveLayout({ signal });
   initKeyboardShortcuts({ signal });
   enhanceAccessibility();
-  initTabNavigation({ signal });
-  initAutoTabSwitch({ signal, onCleanup });
   initTemplateActions({ signal });
-  updateModeIndicator();
 }
 
 export default initCoverageNavigatorUi;

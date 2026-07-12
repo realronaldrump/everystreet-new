@@ -1,42 +1,48 @@
-"""
-2-opt local search improvement for greedy route solutions.
-
-Takes the ordered sequence of service edges from the greedy solver and
-attempts pairwise reversals of sub-sequences to reduce total deadhead
-distance.
-
-Uses a lazily-populated distance cache so each (from_node, to_node) pair
-is computed at most once per run, and evaluates swap candidates via O(1)
-delta computation rather than rescanning the entire sequence.
-"""
+"""Local-search improvements for greedy route solutions."""
 
 import logging
 import time
 
 import networkx as nx
 
-from .graph import dijkstra_to_best_target, edge_length_m, get_edge_geometry
+from .constants import TELEPORT_PENALTY_FACTOR
+from .graph import (
+    _haversine_distance_m,
+    dijkstra_to_best_target,
+    edge_length_m,
+    get_edge_geometry,
+)
 from .types import EdgeRef, ReqId
 
 logger = logging.getLogger(__name__)
 
 
 class _DistanceCache:
-    """Lazy cache for node-to-node shortest-path distances."""
+    """Lazy cache for real and teleport-penalized node distances."""
 
-    __slots__ = ("_G", "_cache")
+    __slots__ = ("_G", "_cache", "_network_cache", "_node_xy")
 
-    def __init__(self, G: nx.MultiDiGraph) -> None:
+    def __init__(
+        self,
+        G: nx.MultiDiGraph,
+        node_xy: dict[int, tuple[float, float]] | None = None,
+    ) -> None:
         self._G = G
         self._cache: dict[tuple[int, int], float | None] = {}
+        self._network_cache: dict[tuple[int, int], float | None] = {}
+        self._node_xy = node_xy or {
+            node: (float(data["x"]), float(data["y"]))
+            for node, data in G.nodes(data=True)
+            if data.get("x") is not None and data.get("y") is not None
+        }
 
-    def get(self, from_node: int, to_node: int) -> float | None:
-        """Return cached shortest-path distance, computing on first access."""
+    def get_network_distance(self, from_node: int, to_node: int) -> float | None:
+        """Return the real shortest-path distance, or ``None`` if unreachable."""
         if from_node == to_node:
             return 0.0
         key = (from_node, to_node)
-        if key in self._cache:
-            return self._cache[key]
+        if key in self._network_cache:
+            return self._network_cache[key]
         result = dijkstra_to_best_target(
             self._G,
             from_node,
@@ -46,6 +52,23 @@ class _DistanceCache:
             distance_cutoff_factor=5.0,
         )
         dist = result[1] if result is not None else None
+        self._network_cache[key] = dist
+        return dist
+
+    def get(self, from_node: int, to_node: int) -> float | None:
+        """Return a finite search cost when coordinates exist for a teleport."""
+        if from_node == to_node:
+            return 0.0
+        key = (from_node, to_node)
+        if key in self._cache:
+            return self._cache[key]
+
+        dist = self.get_network_distance(from_node, to_node)
+        if dist is None:
+            from_xy = self._node_xy.get(from_node)
+            to_xy = self._node_xy.get(to_node)
+            if from_xy is not None and to_xy is not None:
+                dist = _haversine_distance_m(*from_xy, *to_xy) * TELEPORT_PENALTY_FACTOR
         self._cache[key] = dist
         return dist
 
@@ -179,6 +202,179 @@ def _swap_delta(
     return new_total - old_total
 
 
+def _connection_cost(
+    dist_cache: _DistanceCache,
+    from_node: int | None,
+    to_node: int | None,
+) -> float | None:
+    """Return a search connection cost, treating an open-route boundary as zero."""
+    if from_node is None or to_node is None or from_node == to_node:
+        return 0.0
+    return dist_cache.get(from_node, to_node)
+
+
+def _orientation_pass(
+    sequence: list[tuple[ReqId, EdgeRef]],
+    service_lengths: list[float],
+    required_reqs: dict[ReqId, list[EdgeRef]],
+    G: nx.MultiDiGraph,
+    start_node: int,
+    dist_cache: _DistanceCache,
+    deadline: float,
+) -> int:
+    """Flip reversible service edges when doing so reduces adjacent travel."""
+    improvements = 0
+    for index, (rid, current_edge) in enumerate(sequence):
+        if time.monotonic() >= deadline:
+            break
+        options = required_reqs.get(rid, [])
+        if len(options) < 2:
+            continue
+
+        prev_end = start_node if index == 0 else sequence[index - 1][1][1]
+        next_start = sequence[index + 1][1][0] if index + 1 < len(sequence) else None
+        best_edge = current_edge
+        best_cost: float | None = None
+
+        for option in options:
+            u, v, key = option
+            into = _connection_cost(dist_cache, prev_end, u)
+            out = _connection_cost(dist_cache, v, next_start)
+            if into is None or out is None:
+                continue
+            cost = into + edge_length_m(G, u, v, key) + out
+            if best_cost is None or cost < best_cost:
+                best_cost = cost
+                best_edge = option
+
+        if best_edge == current_edge or best_cost is None:
+            continue
+
+        u, v, key = current_edge
+        current_into = _connection_cost(dist_cache, prev_end, u)
+        current_out = _connection_cost(dist_cache, v, next_start)
+        if current_into is None or current_out is None:
+            continue
+        current_cost = current_into + edge_length_m(G, u, v, key) + current_out
+        if best_cost < current_cost - 1e-6:
+            sequence[index] = (rid, best_edge)
+            service_lengths[index] = edge_length_m(G, *best_edge)
+            improvements += 1
+
+    return improvements
+
+
+def _relocate_delta(
+    sequence: list[tuple[ReqId, EdgeRef]],
+    start_node: int,
+    dist_cache: _DistanceCache,
+    i: int,
+    j: int,
+) -> float | None:
+    """Return the cost delta for removing item ``i`` and inserting it after ``j``."""
+    n = len(sequence)
+    if not 0 <= i < n or not -1 <= j < n or j in {i, i - 1}:
+        return None
+
+    prev_i_end = start_node if i == 0 else sequence[i - 1][1][1]
+    item_start = sequence[i][1][0]
+    item_end = sequence[i][1][1]
+    next_i_start = sequence[i + 1][1][0] if i + 1 < n else None
+
+    insert_after_end = start_node if j == -1 else sequence[j][1][1]
+    insert_before_start = sequence[j + 1][1][0] if j + 1 < n else None
+
+    old_pairs = (
+        (prev_i_end, item_start),
+        (item_end, next_i_start),
+        (insert_after_end, insert_before_start),
+    )
+    new_pairs = (
+        (prev_i_end, next_i_start),
+        (insert_after_end, item_start),
+        (item_end, insert_before_start),
+    )
+
+    old_cost = 0.0
+    new_cost = 0.0
+    for from_node, to_node in old_pairs:
+        cost = _connection_cost(dist_cache, from_node, to_node)
+        if cost is None:
+            return None
+        old_cost += cost
+    for from_node, to_node in new_pairs:
+        cost = _connection_cost(dist_cache, from_node, to_node)
+        if cost is None:
+            return None
+        new_cost += cost
+    return new_cost - old_cost
+
+
+def _apply_relocation(
+    sequence: list[tuple[ReqId, EdgeRef]],
+    service_lengths: list[float],
+    i: int,
+    j: int,
+) -> None:
+    item = sequence.pop(i)
+    service_length = service_lengths.pop(i)
+    insert_at = j + 1 if j < i else j
+    sequence.insert(insert_at, item)
+    service_lengths.insert(insert_at, service_length)
+
+
+def _relocation_pass(
+    sequence: list[tuple[ReqId, EdgeRef]],
+    service_lengths: list[float],
+    start_node: int,
+    dist_cache: _DistanceCache,
+    deadline: float,
+) -> int:
+    """Relocate individual service edges without reversing their direction."""
+    improvements = 0
+    n = len(sequence)
+    for i in range(n):
+        if time.monotonic() >= deadline:
+            break
+        candidate_js = (
+            range(max(-1, i - 50), min(n - 1, i + 50) + 1) if n > 100 else range(-1, n)
+        )
+        best_j = None
+        best_delta = 0.0
+        for j in candidate_js:
+            delta = _relocate_delta(sequence, start_node, dist_cache, i, j)
+            if delta is not None and delta < best_delta - 1e-6:
+                best_delta = delta
+                best_j = j
+        if best_j is not None:
+            _apply_relocation(sequence, service_lengths, i, best_j)
+            improvements += 1
+    return improvements
+
+
+def _two_opt_pass(
+    sequence: list[tuple[ReqId, EdgeRef]],
+    service_lengths: list[float],
+    start_node: int,
+    dist_cache: _DistanceCache,
+    deadline: float,
+) -> int:
+    """Run one improving 2-opt pass over the current service order."""
+    improvements = 0
+    n = len(sequence)
+    for i in range(n - 1):
+        if time.monotonic() >= deadline:
+            break
+        max_j = min(n, i + 50) if n > 100 else n
+        for j in range(i + 2, max_j):
+            delta = _swap_delta(sequence, start_node, dist_cache, i, j)
+            if delta is not None and delta < -1e-6:
+                sequence[i : j + 1] = sequence[i : j + 1][::-1]
+                service_lengths[i : j + 1] = service_lengths[i : j + 1][::-1]
+                improvements += 1
+    return improvements
+
+
 def _rebuild_route_coords(
     G: nx.MultiDiGraph,
     sequence: list[tuple[ReqId, EdgeRef]],
@@ -236,15 +432,18 @@ def _build_stats(
     total_dist = 0.0
     service_dist = 0.0
     deadhead_dist = 0.0
+    teleports = 0.0
     current_node = start_node
 
     for _rid, edge in sequence:
         u, v, k = edge
         if current_node != u:
-            dh = dist_cache.get(current_node, u)
+            dh = dist_cache.get_network_distance(current_node, u)
             if dh is not None:
                 deadhead_dist += dh
                 total_dist += dh
+            else:
+                teleports += 1.0
         el = edge_length_m(G, u, v, k)
         service_dist += el
         total_dist += el
@@ -275,7 +474,7 @@ def _build_stats(
         "completed_reqs": float(len(sequence)),
         "skipped_disconnected": float(max(0, len(required_reqs) - len(sequence))),
         "opportunistic_completed": 0.0,
-        "teleports": 0.0,
+        "teleports": teleports,
         "iterations": 0.0,
     }
 
@@ -290,15 +489,7 @@ def improve_route_2opt(
     time_budget_s: float = 30.0,
 ) -> tuple[list[list[float]], dict[str, float], list[tuple[ReqId, EdgeRef]]]:
     """
-    Apply 2-opt local search to improve the service edge ordering.
-
-    Tries reversing sub-sequences of the service order. If a reversal
-    reduces total deadhead cost, it is accepted. Runs until no improvement
-    is found or the time budget is exhausted.
-
-    Uses a distance cache so each (from_node → to_node) pair is computed
-    at most once, and evaluates swaps via O(1) delta evaluation rather
-    than rescanning the full sequence each time.
+    Improve service order with orientation, 2-opt, and Or-opt passes.
 
     Returns:
         (route_coords, stats, improved_sequence)
@@ -309,9 +500,9 @@ def improve_route_2opt(
         else (service_sequence[0][1][0] if service_sequence else 0)
     )
 
-    dist_cache = _DistanceCache(G)
+    dist_cache = _DistanceCache(G, node_xy)
 
-    if len(service_sequence) < 3:
+    if not service_sequence:
         coords = _rebuild_route_coords(G, service_sequence, route_start_node, node_xy)
         stats = _build_stats(
             G, service_sequence, route_start_node, required_reqs, dist_cache
@@ -328,7 +519,7 @@ def improve_route_2opt(
     )
 
     if best_cost is None:
-        logger.warning("Cannot compute initial cost for 2-opt; returning original")
+        logger.warning("Cannot compute initial local-search cost; returning original")
         coords = _rebuild_route_coords(G, service_sequence, route_start_node, node_xy)
         stats = _build_stats(
             G, service_sequence, route_start_node, required_reqs, dist_cache
@@ -336,42 +527,58 @@ def improve_route_2opt(
         return coords, stats, service_sequence
 
     deadline = time.monotonic() + time_budget_s
-    improved = True
     passes = 0
-    total_improvements = 0
-    n = len(best_sequence)
+    orientation_improvements = 0
+    two_opt_improvements = 0
+    relocation_improvements = 0
 
-    while improved and time.monotonic() < deadline:
-        improved = False
+    while time.monotonic() < deadline:
         passes += 1
+        pass_orientation = _orientation_pass(
+            best_sequence,
+            service_lengths,
+            required_reqs,
+            G,
+            route_start_node,
+            dist_cache,
+            deadline,
+        )
+        pass_two_opt = _two_opt_pass(
+            best_sequence,
+            service_lengths,
+            route_start_node,
+            dist_cache,
+            deadline,
+        )
+        pass_relocation = _relocation_pass(
+            best_sequence,
+            service_lengths,
+            route_start_node,
+            dist_cache,
+            deadline,
+        )
+        orientation_improvements += pass_orientation
+        two_opt_improvements += pass_two_opt
+        relocation_improvements += pass_relocation
+        if pass_orientation + pass_two_opt + pass_relocation == 0:
+            break
 
-        for i in range(n - 1):
-            if time.monotonic() >= deadline:
-                break
-
-            # Limit inner loop to nearby swaps for large sequences
-            max_j = min(n, i + 50) if n > 100 else n
-            for j in range(i + 2, max_j):
-                # Delta evaluation: only recompute affected connections
-                delta = _swap_delta(
-                    best_sequence,
-                    route_start_node,
-                    dist_cache,
-                    i,
-                    j,
-                )
-                if delta is not None and delta < -1e-6:
-                    # Accept the swap
-                    best_sequence[i : j + 1] = best_sequence[i : j + 1][::-1]
-                    service_lengths[i : j + 1] = service_lengths[i : j + 1][::-1]
-                    best_cost += delta
-                    improved = True
-                    total_improvements += 1
+    final_cost = _sequence_total_cost_fast(
+        best_sequence,
+        service_lengths,
+        route_start_node,
+        dist_cache,
+    )
 
     logger.info(
-        "2-opt completed: %d passes, %d improvements, %.1fs, cache_size=%d",
+        "Local search completed: %d passes, orientation=%d, 2-opt=%d, "
+        "relocation=%d, cost=%.1f->%.1f, %.1fs, cache_size=%d",
         passes,
-        total_improvements,
+        orientation_improvements,
+        two_opt_improvements,
+        relocation_improvements,
+        best_cost,
+        final_cost if final_cost is not None else best_cost,
         time.monotonic() - (deadline - time_budget_s),
         len(dist_cache._cache),
     )

@@ -10,7 +10,6 @@ omit =
     .pytest_cache/*
     .ruff_cache/*
     .vscode/*
-    conftest.py
     node_modules/*
     pytest-of-*/*
     scripts/*

@@ -5,6 +5,7 @@ import {
   readCoverageRouteDraft,
 } from "../features/coverage-diorama/draft.js";
 import { buildLiveNavigationUrl } from "../live-navigation/live-navigation-api.js";
+import confirmationDialog from "../ui/confirmation-dialog.js";
 import { OptimalRouteAPI } from "./api.js";
 import { OPTIMAL_ROUTES_DEFAULTS } from "./constants.js";
 import { OptimalRouteMap } from "./map.js";
@@ -103,11 +104,11 @@ export class OptimalRoutesManager {
       signal ? { signal } : false
     );
 
-    // Clear route
-    document.getElementById("clear-route-btn")?.addEventListener(
+    // Delete saved route
+    document.getElementById("delete-route-btn")?.addEventListener(
       "click",
       () => {
-        this.clearRoute();
+        this.deleteRoute();
       },
       signal ? { signal } : false
     );
@@ -207,51 +208,6 @@ export class OptimalRoutesManager {
         },
         signal ? { signal } : false
       );
-    });
-
-    // Ordering logic (basic moving)
-    document.querySelectorAll(".layer-up").forEach((btn) => {
-      btn.addEventListener(
-        "click",
-        (e) => {
-          const item = e.target.closest(".layer-item");
-          if (item.previousElementSibling) {
-            item.parentNode.insertBefore(item, item.previousElementSibling);
-            this.updateLayerOrder();
-          }
-        },
-        signal ? { signal } : false
-      );
-    });
-
-    document.querySelectorAll(".layer-down").forEach((btn) => {
-      btn.addEventListener(
-        "click",
-        (e) => {
-          const item = e.target.closest(".layer-item");
-          if (item.nextElementSibling) {
-            item.parentNode.insertBefore(item.nextElementSibling, item);
-            this.updateLayerOrder();
-          }
-        },
-        signal ? { signal } : false
-      );
-    });
-  }
-
-  updateLayerOrder() {
-    const items = Array.from(document.querySelectorAll(".layer-item"));
-    const layerGroups = {
-      route: ["optimal-route-line", "optimal-route-arrows"],
-      driven: ["streets-driven-layer"],
-      undriven: ["streets-undriven-layer"],
-    };
-
-    // Reverse: bottom of list = bottom of map stack
-    items.reverse().forEach((item) => {
-      const groupId = item.dataset.layerId;
-      const layers = layerGroups[groupId];
-      this.map.moveLayers(layers || []);
     });
   }
 
@@ -365,9 +321,10 @@ export class OptimalRoutesManager {
       if (generateBtn) {
         generateBtn.disabled = true;
       }
-      document.getElementById("area-stats").style.display = "none";
+      this.ui.updateAreaStats(null);
+      this.ui.setGenerateState("idle");
       document.getElementById("map-legend").style.display = "none";
-      this.clearRoute();
+      this.clearRouteDisplay();
       this.map.clearStreets();
       return;
     }
@@ -377,17 +334,23 @@ export class OptimalRoutesManager {
       generateBtn.disabled = false;
     }
 
+    const selectedArea = this.coverageAreas.find(
+      (area) => String(area?._id || area?.id || "") === nextAreaId
+    );
+    this.clearRouteDisplay();
+    this.ui.updateAreaStats(selectedArea || null);
+    this.ui.setGenerateState(selectedArea?.has_optimal_route ? "done" : "ready");
+
     // Wait for map
     await this.map.bindMapLoad();
-
-    this.ui.updateAreaStats(nextAreaId);
 
     // Load streets
     let undrivenFeatures = [];
     try {
       const streetNetwork = await this.api.loadStreetNetwork(nextAreaId);
-      const { drivenFeatures } = streetNetwork;
-      undrivenFeatures = streetNetwork.undrivenFeatures;
+      const { drivenFeatures, undrivenFeatures: loadedUndrivenFeatures } =
+        streetNetwork;
+      undrivenFeatures = loadedUndrivenFeatures;
       this.map.updateStreets(drivenFeatures, undrivenFeatures);
     } catch {
       // already logged in api
@@ -395,9 +358,6 @@ export class OptimalRoutesManager {
 
     // Check for existing route only when metadata says one is saved.
     // This avoids expected 404 noise for areas that have never generated a route.
-    const selectedArea = this.coverageAreas.find(
-      (area) => String(area?._id || area?.id || "") === nextAreaId
-    );
     if (selectedArea?.has_optimal_route) {
       try {
         const routeData = await this.api.loadExistingRoute(nextAreaId);
@@ -541,7 +501,7 @@ export class OptimalRoutesManager {
       this.currentTaskId = taskId;
       this.api.connectSSE(taskId);
     } catch (error) {
-      this.ui.showError(error.message);
+      this.onError(error.message);
     }
   }
 
@@ -563,7 +523,7 @@ export class OptimalRoutesManager {
       this.api.connectSSE(taskId);
     } catch (error) {
       this.isClusterRoute = false;
-      this.ui.showError(error.message);
+      this.onError(error.message);
     }
   }
 
@@ -597,11 +557,16 @@ export class OptimalRoutesManager {
         );
         if (selectedArea) {
           selectedArea.has_optimal_route = true;
+          selectedArea.optimal_route_generated_at =
+            routeData.generated_at || routeData.created_at || new Date().toISOString();
         }
       }
       this.currentRouteData = routeData;
       this.map.displayRoute(routeData.coordinates, routeData, true); // animate=true
       this.ui.showResults(routeData);
+      this.ui.updateSavedRoutes(this.coverageAreas, (areaId) =>
+        this.onAreaSelect(areaId)
+      );
     } else {
       this.ui.showError(
         progressData?.error ||
@@ -616,6 +581,10 @@ export class OptimalRoutesManager {
     this.isClusterRoute = false;
     this.ui.showError(message);
     this.ui.hideReplayButton();
+    const selectedArea = this.coverageAreas.find(
+      (area) => String(area?._id || area?.id || "") === String(this.selectedAreaId)
+    );
+    this.ui.setGenerateState(selectedArea?.has_optimal_route ? "done" : "ready");
   }
 
   async cancelTask() {
@@ -638,24 +607,63 @@ export class OptimalRoutesManager {
     if (generateBtn) {
       generateBtn.disabled = false;
     }
+    const selectedArea = this.coverageAreas.find(
+      (area) => String(area?._id || area?.id || "") === String(this.selectedAreaId)
+    );
+    this.ui.setGenerateState(selectedArea?.has_optimal_route ? "done" : "ready");
     this.ui.showNotification("Task cancelled", "info");
   }
 
-  async clearRoute() {
+  clearRouteDisplay() {
     this.map.clearRoute();
-    document.getElementById("results-section").style.display = "none";
-    document.getElementById("error-section").style.display = "none";
+    this.ui.hideProgressSection();
+    const resultsSection = document.getElementById("results-section");
+    const errorSection = document.getElementById("error-section");
+    if (resultsSection) {
+      resultsSection.style.display = "none";
+    }
+    if (errorSection) {
+      errorSection.style.display = "none";
+    }
     this.ui.setLiveNavigationEnabled(false);
     this.ui.hideReplayButton();
+    this.currentRouteData = null;
+  }
 
-    if (this.selectedAreaId) {
+  async deleteRoute() {
+    if (!this.selectedAreaId) {
+      return;
+    }
+
+    const selectedArea = this.coverageAreas.find(
+      (area) => String(area?._id || area?.id || "") === String(this.selectedAreaId)
+    );
+    const areaName =
+      selectedArea?.display_name || selectedArea?.location?.display_name || "this area";
+    const confirmed = await confirmationDialog.show({
+      title: "Delete Saved Route",
+      message: `Delete the saved optimal route for ${areaName}? This cannot be undone.`,
+      confirmText: "Delete Route",
+      confirmButtonClass: "btn-danger",
+    });
+    if (!confirmed) {
+      return;
+    }
+
+    try {
       await this.api.clearRoute(this.selectedAreaId);
-      const selectedArea = this.coverageAreas.find(
-        (area) => String(area?._id || area?.id || "") === String(this.selectedAreaId)
-      );
       if (selectedArea) {
         selectedArea.has_optimal_route = false;
+        selectedArea.optimal_route_generated_at = null;
       }
+      this.clearRouteDisplay();
+      this.ui.setGenerateState("ready");
+      this.ui.updateSavedRoutes(this.coverageAreas, (areaId) =>
+        this.onAreaSelect(areaId)
+      );
+      this.ui.showNotification("Saved route deleted", "info");
+    } catch {
+      this.ui.showNotification("Failed to delete saved route", "danger");
     }
   }
 

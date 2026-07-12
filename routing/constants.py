@@ -26,6 +26,8 @@ GRAPH_STORAGE_DIR = Path("data/graphs")
 # 2-opt local search configuration
 LOCAL_SEARCH_TIME_BUDGET_S = 30
 LOCAL_SEARCH_MIN_REQS = 10  # skip for tiny routes
+# Search-only multiplier for straight-line jumps between disconnected components.
+TELEPORT_PENALTY_FACTOR = 10.0
 
 # Zone decomposition for large areas
 ZONE_DECOMPOSITION_THRESHOLD = 2000

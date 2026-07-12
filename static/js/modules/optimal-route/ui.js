@@ -130,21 +130,71 @@ export class OptimalRouteUI {
     });
   }
 
-  updateAreaStats(areaId) {
+  updateAreaStats(area) {
     const areaStats = document.getElementById("area-stats");
     if (!areaStats) {
       return;
     }
 
-    const selectedOption = this.areaSelect?.querySelector(`option[value="${areaId}"]`);
-    if (selectedOption) {
-      document.getElementById("area-coverage").textContent =
-        `${selectedOption.dataset.coverage}%`;
-      document.getElementById("area-remaining").textContent =
-        selectedOption.dataset.remaining;
-      areaStats.style.display = "block";
-    } else {
+    const emptyHint = document.getElementById("area-empty-hint");
+    const subtitle = document.getElementById("sidebar-subtitle");
+    if (!area) {
       areaStats.style.display = "none";
+      if (emptyHint) {
+        emptyHint.style.display = "";
+      }
+      if (subtitle) {
+        subtitle.textContent = "Select an area to begin planning";
+      }
+      return;
+    }
+
+    const coverage = Math.min(100, Math.max(0, Number(area.coverage_percentage) || 0));
+    const totalMiles = Number(area.total_length_miles) || 0;
+    const drivenMiles = Number(area.driven_length_miles) || 0;
+    const remainingMeters = Math.max(0, totalMiles - drivenMiles) * MI_TO_M;
+    const remainingLabel = this.formatDistance(remainingMeters);
+    const areaName =
+      area.display_name || area.location?.display_name || "Selected area";
+
+    const coverageValue = document.getElementById("area-coverage");
+    const remainingValue = document.getElementById("area-remaining");
+    const drivenValue = document.querySelector(".acstat-driven-val");
+    const totalValue = document.querySelector(".acstat-total-val");
+    const donutArc = document.getElementById("donut-driven-arc");
+    const coverageBar = document.getElementById("area-coverage-bar");
+
+    if (coverageValue) {
+      coverageValue.textContent = `${coverage.toFixed(2)}%`;
+    }
+    if (remainingValue) {
+      remainingValue.textContent = remainingLabel;
+    }
+    if (drivenValue) {
+      drivenValue.textContent = this.formatDistance(drivenMiles * MI_TO_M);
+    }
+    if (totalValue) {
+      totalValue.textContent = this.formatCount(Number(area.total_segments));
+    }
+    if (donutArc) {
+      donutArc.style.strokeDashoffset = String(201.06 * (1 - coverage / 100));
+    }
+    if (coverageBar) {
+      coverageBar.style.width = `${coverage}%`;
+    }
+    if (emptyHint) {
+      emptyHint.style.display = "none";
+    }
+    if (subtitle) {
+      subtitle.textContent = `${areaName} · ${remainingLabel} remaining`;
+    }
+    areaStats.style.display = "block";
+  }
+
+  setGenerateState(state) {
+    const generateBtn = document.getElementById("generate-route-btn");
+    if (generateBtn) {
+      generateBtn.dataset.state = state;
     }
   }
 
@@ -159,28 +209,20 @@ export class OptimalRouteUI {
 
     const progressBar = document.getElementById("progress-bar");
     if (progressBar) {
-      progressBar.style.width = `${data.progress}%`;
+      const progress = Math.min(100, Math.max(0, Number(data.progress) || 0));
+      progressBar.style.width = `${progress}%`;
+      progressBar.setAttribute("aria-valuenow", String(progress));
     }
 
     const { primary, secondary, label } = this.buildProgressMessages(
       stage,
       data.message
     );
+    const stageLabel = document.getElementById("progress-stage-label");
+    if (stageLabel) {
+      stageLabel.textContent = label;
+    }
     this.setStatusMessage(primary, secondary, stage, metrics, label);
-
-    const stages = document.querySelectorAll(".progress-stages .stage");
-    stages.forEach((stageEl) => {
-      const stageNames = stageEl.dataset.stage
-        .split(",")
-        .map((name) => name.trim().toLowerCase());
-      stageEl.classList.remove("active", "completed");
-
-      if (stageNames.includes(stage)) {
-        stageEl.classList.add("active");
-      } else if (this.isStageComplete(stage, stageNames)) {
-        stageEl.classList.add("completed");
-      }
-    });
 
     this.setScannerActive(SCANNER_STAGES.has(stage));
   }
@@ -329,43 +371,25 @@ export class OptimalRouteUI {
     this.updateHudMetrics({});
   }
 
-  isStageComplete(currentStage, stageNames) {
-    const stageOrder = [
-      "queued",
-      "waiting",
-      "initializing",
-      "loading_area",
-      "loading_segments",
-      "loading_graph",
-      "fetching_osm",
-      "mapping_segments",
-      "connectivity_check",
-      "routing",
-      "finalizing",
-      "complete",
-      "error",
-    ];
-
-    const currentIndex = stageOrder.indexOf(currentStage);
-    if (currentIndex === -1) {
-      return false;
-    }
-
-    return stageNames.every((name) => {
-      const stageIndex = stageOrder.indexOf(name);
-      return stageIndex !== -1 && stageIndex < currentIndex;
-    });
-  }
-
   showProgressSection(startTime) {
-    document.getElementById("results-section").style.display = "none";
-    document.getElementById("error-section").style.display = "none";
-    const progressSection = document.getElementById("progress-section");
+    const resultsSection = document.getElementById("results-section");
+    const errorSection = document.getElementById("error-section");
+    if (resultsSection) {
+      resultsSection.style.display = "none";
+    }
+    if (errorSection) {
+      errorSection.style.display = "none";
+    }
+    const progressSection = document.getElementById("route-progress-inline");
     if (progressSection) {
       progressSection.style.display = "block";
     }
 
-    document.getElementById("progress-bar").style.width = "0%";
+    const progressBar = document.getElementById("progress-bar");
+    if (progressBar) {
+      progressBar.style.width = "0%";
+      progressBar.setAttribute("aria-valuenow", "0");
+    }
     this.currentStage = "initializing";
     this.currentMetrics = {};
     this.resetHud();
@@ -373,14 +397,15 @@ export class OptimalRouteUI {
       "initializing",
       ""
     );
+    const stageLabel = document.getElementById("progress-stage-label");
+    if (stageLabel) {
+      stageLabel.textContent = label;
+    }
     this.setStatusMessage(primary, secondary, "initializing", {}, label);
     this.setHudActive(true);
     this.setScannerActive(true);
 
-    document.querySelectorAll(".progress-stages .stage").forEach((stage) => {
-      stage.classList.remove("active", "completed");
-    });
-
+    this.stopElapsedTimer();
     this.startTime = startTime || Date.now();
     this.updateElapsedTime();
     this.elapsedTimer = setInterval(() => this.updateElapsedTime(), 1000);
@@ -389,11 +414,12 @@ export class OptimalRouteUI {
     if (generateBtn) {
       generateBtn.disabled = true;
     }
+    this.setGenerateState("ready");
   }
 
   hideProgressSection() {
     this.stopElapsedTimer();
-    const progressSection = document.getElementById("progress-section");
+    const progressSection = document.getElementById("route-progress-inline");
     if (progressSection) {
       progressSection.style.display = "none";
     }
@@ -434,7 +460,10 @@ export class OptimalRouteUI {
 
   showResults(data) {
     this.hideProgressSection();
-    document.getElementById("generate-route-btn").disabled = false;
+    const generateBtn = document.getElementById("generate-route-btn");
+    if (generateBtn) {
+      generateBtn.disabled = false;
+    }
 
     document.getElementById("stat-total-distance").textContent = this.formatDistance(
       data.total_distance_m
@@ -445,11 +474,32 @@ export class OptimalRouteUI {
     document.getElementById("stat-deadhead-distance").textContent = this.formatDistance(
       data.deadhead_distance_m
     );
-    document.getElementById("stat-deadhead-percent").textContent = `${(
-      100 - (data.deadhead_percentage || 0)
-    ).toFixed(2)}%`;
+    const efficiency = Math.min(
+      100,
+      Math.max(0, 100 - (Number(data.deadhead_percentage) || 0))
+    );
+    document.getElementById("stat-deadhead-percent").textContent =
+      `${efficiency.toFixed(2)}%`;
+
+    const ring = document.getElementById("eff-ring-fill");
+    if (ring) {
+      ring.style.strokeDashoffset = String(188.5 * (1 - efficiency / 100));
+    }
+    const grade = document.getElementById("eff-grade");
+    if (grade) {
+      grade.textContent =
+        efficiency >= 90
+          ? "Excellent"
+          : efficiency >= 75
+            ? "Good"
+            : efficiency >= 60
+              ? "Fair"
+              : "Heavy deadhead";
+      grade.style.display = "inline-block";
+    }
 
     document.getElementById("results-section").style.display = "block";
+    this.setGenerateState("done");
 
     // Show legend
     document.getElementById("map-legend").style.display = "block";
