@@ -1,4 +1,9 @@
 import { swupReady } from "../core/navigation.js";
+import {
+  clearCoverageRouteDraft,
+  isDioramaDraftRequest,
+  readCoverageRouteDraft,
+} from "../features/coverage-diorama/draft.js";
 import { buildLiveNavigationUrl } from "../live-navigation/live-navigation-api.js";
 import { OptimalRouteAPI } from "./api.js";
 import { OPTIMAL_ROUTES_DEFAULTS } from "./constants.js";
@@ -21,6 +26,7 @@ export class OptimalRoutesManager {
     this.coverageAreas = [];
     this.lastSelectedAreaId = "";
     this.abortController = new AbortController();
+    this.pendingDioramaDraft = this.readPendingDioramaDraft();
 
     // Initialize modules
     this.ui = new OptimalRouteUI(this.config);
@@ -313,6 +319,7 @@ export class OptimalRoutesManager {
 
       this.ui.populateAreaSelect(areas);
       this.ui.updateSavedRoutes(areas, (areaId) => this.onAreaSelect(areaId));
+      await this.openPendingDioramaDraft();
     } catch (error) {
       console.error("Error loading coverage areas:", error);
       this.ui.showNotification("Failed to load coverage areas", "danger");
@@ -376,9 +383,11 @@ export class OptimalRoutesManager {
     this.ui.updateAreaStats(nextAreaId);
 
     // Load streets
+    let undrivenFeatures = [];
     try {
-      const { drivenFeatures, undrivenFeatures } =
-        await this.api.loadStreetNetwork(nextAreaId);
+      const streetNetwork = await this.api.loadStreetNetwork(nextAreaId);
+      const { drivenFeatures } = streetNetwork;
+      undrivenFeatures = streetNetwork.undrivenFeatures;
       this.map.updateStreets(drivenFeatures, undrivenFeatures);
     } catch {
       // already logged in api
@@ -431,6 +440,78 @@ export class OptimalRoutesManager {
     if (bounds) {
       this.map.flyToBounds(bounds);
       document.getElementById("map-legend").style.display = "block";
+    }
+
+    this.hydratePendingDioramaDraft(nextAreaId, undrivenFeatures);
+  }
+
+  readPendingDioramaDraft() {
+    if (!isDioramaDraftRequest()) {
+      return null;
+    }
+    try {
+      return readCoverageRouteDraft(window.sessionStorage);
+    } catch {
+      return null;
+    }
+  }
+
+  async openPendingDioramaDraft() {
+    const draft = this.pendingDioramaDraft;
+    if (!draft) {
+      return;
+    }
+    const areaExists = this.coverageAreas.some(
+      (area) => String(area?._id || area?.id || "") === draft.areaId
+    );
+    if (!areaExists) {
+      this.ui.showNotification(
+        "The Diorama route draft references an unavailable area.",
+        "warning"
+      );
+      this.clearPendingDioramaDraft();
+      return;
+    }
+    if (this.ui.areaSelect) {
+      this.ui.areaSelect.value = draft.areaId;
+    }
+    await this.onAreaSelect(draft.areaId);
+  }
+
+  hydratePendingDioramaDraft(areaId, undrivenFeatures) {
+    const draft = this.pendingDioramaDraft;
+    if (!draft || String(areaId) !== draft.areaId) {
+      return;
+    }
+    const requested = new Set(draft.segmentIds);
+    const validFeatures = (undrivenFeatures || []).filter((feature) =>
+      requested.has(String(feature?.properties?.segment_id || ""))
+    );
+    const selectedCount = this.simulation.hydrateSelection(areaId, validFeatures);
+    const legend = document.getElementById("legend-simulated");
+    if (legend) {
+      legend.style.display = selectedCount > 0 ? "" : "none";
+    }
+    if (selectedCount > 0) {
+      this.ui.showNotification(
+        `Loaded ${selectedCount} street segment${selectedCount === 1 ? "" : "s"} from Coverage Diorama.`,
+        "success"
+      );
+    } else {
+      this.ui.showNotification(
+        "None of the Diorama draft streets are currently available to plan.",
+        "warning"
+      );
+    }
+    this.clearPendingDioramaDraft();
+  }
+
+  clearPendingDioramaDraft() {
+    this.pendingDioramaDraft = null;
+    try {
+      clearCoverageRouteDraft(window.sessionStorage);
+    } catch {
+      // Browser storage can be disabled; the in-memory draft is still cleared.
     }
   }
 

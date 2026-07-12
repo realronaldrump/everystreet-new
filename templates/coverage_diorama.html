@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% from "partials/_map_assets.html" import static_css with context %}
+
+{% block title %}
+Coverage Diorama
+{% endblock %}
+
+{% block extra_css %}
+  {{ static_css("coverage-diorama.css") }}
+{% endblock %}
+
+{% block content %}
+  <section id="coverage-diorama" class="coverage-diorama" aria-label="Coverage Diorama">
+    <div class="coverage-diorama-stage" id="coverage-diorama-stage">
+      <div class="coverage-diorama-canvas" id="coverage-diorama-canvas"></div>
+      <div class="coverage-diorama-grid" aria-hidden="true"></div>
+      <div class="coverage-diorama-vignette" aria-hidden="true"></div>
+    </div>
+
+    <header class="coverage-diorama-masthead page-masthead">
+      <div class="coverage-diorama-heading">
+        <p class="coverage-diorama-eyebrow">Field model · live coverage</p>
+        <h1 id="coverage-diorama-title">Coverage Diorama</h1>
+        <p id="coverage-diorama-subtitle">
+          A terrain-cut survey of what is finished—and what remains.
+        </p>
+      </div>
+      <label class="coverage-diorama-area-picker">
+        <span class="visually-hidden">Coverage area</span>
+        <select id="coverage-diorama-area-select" aria-label="Select coverage area">
+          <option value="" selected disabled>Loading areas…</option>
+        </select>
+        <i class="fas fa-chevron-down" aria-hidden="true"></i>
+      </label>
+    </header>
+
+    <div class="coverage-diorama-mode" role="group" aria-label="Diorama interaction mode">
+      <button type="button" id="coverage-diorama-explore" class="is-active" aria-pressed="true">
+        <i class="fas fa-compass" aria-hidden="true"></i>
+        <span>Explore</span>
+      </button>
+      <button type="button" id="coverage-diorama-plan" aria-pressed="false">
+        <i class="fas fa-pen-ruler" aria-hidden="true"></i>
+        <span>Plan</span>
+      </button>
+    </div>
+
+    <aside class="coverage-diorama-ledger" aria-label="Coverage summary">
+      <div class="coverage-diorama-figure coverage-diorama-figure--hero">
+        <span>Current coverage</span>
+        <strong id="coverage-diorama-current">—</strong>
+      </div>
+      <div class="coverage-diorama-figure">
+        <span>Driven</span>
+        <strong id="coverage-diorama-driven">—</strong>
+      </div>
+      <div class="coverage-diorama-figure">
+        <span>Remaining</span>
+        <strong id="coverage-diorama-remaining">—</strong>
+      </div>
+      <div class="coverage-diorama-key" aria-label="Street legend">
+        <span><i class="is-driven" aria-hidden="true"></i>Driven</span>
+        <span><i class="is-undriven" aria-hidden="true"></i>Undriven</span>
+        <span><i class="is-selected" aria-hidden="true"></i>Selected</span>
+      </div>
+    </aside>
+
+    <aside class="coverage-diorama-detail" id="coverage-diorama-detail" aria-live="polite">
+      <span class="coverage-diorama-detail-kicker">Survey cursor</span>
+      <strong>Hover a street to inspect it</strong>
+      <span>Switch to Plan to paint undriven streets.</span>
+    </aside>
+
+    <aside class="coverage-diorama-plan-tray" id="coverage-diorama-plan-tray">
+      <div class="coverage-diorama-tray-handle" aria-hidden="true"></div>
+      <div class="coverage-diorama-tray-head">
+        <div>
+          <span class="coverage-diorama-tray-kicker">Next field run</span>
+          <h2>Selection forecast</h2>
+        </div>
+        <span class="coverage-diorama-count" id="coverage-diorama-count">0</span>
+      </div>
+      <p class="coverage-diorama-plan-hint" id="coverage-diorama-plan-hint">
+        Enter Plan mode, then tap or drag across the brass streets.
+      </p>
+      <div class="coverage-diorama-forecast" aria-live="polite">
+        <div>
+          <span>Added miles</span>
+          <strong id="coverage-diorama-added-miles">—</strong>
+        </div>
+        <div>
+          <span>Projected</span>
+          <strong id="coverage-diorama-projected">—</strong>
+        </div>
+        <div>
+          <span>Gain</span>
+          <strong id="coverage-diorama-gain">—</strong>
+        </div>
+      </div>
+      <div class="coverage-diorama-selected-list" id="coverage-diorama-selected-list">
+        <span>No streets selected.</span>
+      </div>
+      <div class="coverage-diorama-tray-actions">
+        <button type="button" id="coverage-diorama-clear" class="coverage-diorama-secondary" disabled>
+          Clear
+        </button>
+        <button type="button" id="coverage-diorama-continue" class="coverage-diorama-primary" disabled>
+          Continue to planner
+          <i class="fas fa-arrow-right" aria-hidden="true"></i>
+        </button>
+      </div>
+    </aside>
+
+    <div class="coverage-diorama-controls" role="group" aria-label="Diorama camera controls">
+      <button type="button" id="coverage-diorama-reset" aria-label="Reset camera" title="Reset camera">
+        <i class="fas fa-location-crosshairs" aria-hidden="true"></i>
+      </button>
+      <button type="button"
+              id="coverage-diorama-elevation"
+              aria-label="Toggle terrain exaggeration"
+              aria-pressed="true"
+              title="Terrain elevation 2.5 times">
+        <span>2.5×</span>
+      </button>
+    </div>
+
+    <div class="coverage-diorama-state" id="coverage-diorama-state" role="status" aria-live="polite">
+      <div class="coverage-diorama-loader" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+      <strong id="coverage-diorama-state-title">Reading the land…</strong>
+      <p id="coverage-diorama-state-message">Loading street geometry and elevation tiles.</p>
+      <button type="button" id="coverage-diorama-retry" hidden>Try again</button>
+    </div>
+
+    <p class="coverage-diorama-attribution">
+      Elevation © <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener">Mapbox</a>
+      · Streets © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
+    </p>
+  </section>
+{% endblock %}

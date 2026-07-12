@@ -12,6 +12,8 @@ export class DriveSimulation {
     this.active = false;
     this.selectedSegments = new Map(); // segmentId → feature
     this.debounceTimer = null;
+    this.simulationController = null;
+    this.simulationSequence = 0;
 
     this.onStatsUpdate = options.onStatsUpdate || (() => {});
 
@@ -37,6 +39,9 @@ export class DriveSimulation {
   /** Deactivate simulation mode and clean up. */
   deactivate() {
     this.active = false;
+    clearTimeout(this.debounceTimer);
+    this.simulationController?.abort();
+    this.simulationController = null;
     this._unbindMapEvents();
     this.selectedSegments.clear();
     this._updateSourceData();
@@ -46,6 +51,9 @@ export class DriveSimulation {
 
   /** Clear the current selection without deactivating. */
   clearSelection() {
+    clearTimeout(this.debounceTimer);
+    this.simulationController?.abort();
+    this.simulationController = null;
     this.selectedSegments.clear();
     this._updateSourceData();
     this.onStatsUpdate(null);
@@ -66,6 +74,27 @@ export class DriveSimulation {
 
     this._updateSourceData();
     this._debouncedSimulate();
+  }
+
+  /** Hydrate a trusted set of undriven features from another planning surface. */
+  hydrateSelection(areaId, features) {
+    this.activate(areaId);
+    this.selectedSegments.clear();
+    for (const feature of features || []) {
+      const segmentId = String(feature?.properties?.segment_id || "");
+      const status = String(feature?.properties?.status || "undriven").toLowerCase();
+      if (segmentId && status === "undriven") {
+        this.selectedSegments.set(segmentId, feature);
+      }
+    }
+    this._updateSourceData();
+    this._updateUI();
+    if (this.selectedSegments.size > 0) {
+      void this._simulate();
+    } else {
+      this.onStatsUpdate(null);
+    }
+    return this.selectedSegments.size;
   }
 
   /** Set the area for the simulation (e.g. on area change). */
@@ -199,12 +228,25 @@ export class DriveSimulation {
     }
 
     const segmentIds = Array.from(this.selectedSegments.keys());
+    const signature = segmentIds.slice().sort().join("|");
+    const sequence = ++this.simulationSequence;
+    this.simulationController?.abort();
+    const controller = new AbortController();
+    this.simulationController = controller;
 
     try {
       const data = await apiClient.post(
         `/api/coverage/areas/${this.areaId}/streets/simulate`,
-        { segment_ids: segmentIds }
+        { segment_ids: segmentIds },
+        { signal: controller.signal, retry: false }
       );
+
+      const currentSignature = Array.from(this.selectedSegments.keys())
+        .sort()
+        .join("|");
+      if (sequence !== this.simulationSequence || signature !== currentSignature) {
+        return;
+      }
 
       if (data.success) {
         this.onStatsUpdate({
@@ -213,8 +255,15 @@ export class DriveSimulation {
         });
       }
     } catch (err) {
+      if (err?.name === "AbortError") {
+        return;
+      }
       console.error("Simulation API error:", err);
       notificationManager.show("Failed to simulate drive", "danger");
+    } finally {
+      if (this.simulationController === controller) {
+        this.simulationController = null;
+      }
     }
   }
 

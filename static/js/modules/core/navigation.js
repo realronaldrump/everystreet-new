@@ -147,6 +147,7 @@ const BREADCRUMB_ROUTE_LABELS = new Map([
   ["/live-navigation", "Live Navigation"],
   ["/regional-coverage-explorer", "Region Explorer"],
   ["/memory-city", "Memory City"],
+  ["/coverage-diorama", "Coverage Diorama"],
   ["/control-center", "Settings"],
   ["/vehicles", "My Vehicle"],
   ["/setup-wizard", "Setup"],

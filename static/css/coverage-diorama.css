@@ -1,0 +1,708 @@
+.coverage-diorama {
+  --diorama-blue: var(--cat-cobalt);
+  --diorama-brass: var(--cat-ochre);
+  --diorama-panel: rgb(12 12 15 / 88%);
+  --diorama-bottom-nav: calc(72px + env(safe-area-inset-bottom, 0px));
+
+  position: relative;
+  width: 100%;
+  height: calc(100vh - var(--header-height));
+  height: calc(100dvh - var(--header-height));
+  min-height: 34rem;
+  overflow: hidden;
+  isolation: isolate;
+  color: var(--text-primary);
+  background: var(--surface-deep);
+}
+
+.coverage-diorama + .app-footer,
+.coverage-diorama ~ .app-footer {
+  display: none;
+}
+
+.coverage-diorama-stage,
+.coverage-diorama-canvas,
+.coverage-diorama-grid,
+.coverage-diorama-vignette {
+  position: absolute;
+  inset: 0;
+}
+
+.coverage-diorama-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+  touch-action: none;
+}
+
+.coverage-diorama-canvas canvas.is-planning {
+  cursor: crosshair;
+}
+
+.coverage-diorama-grid,
+.coverage-diorama-vignette {
+  pointer-events: none;
+}
+
+.coverage-diorama-grid {
+  opacity: 0.18;
+  background-image:
+    linear-gradient(rgb(var(--primary-rgb) / 18%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--primary-rgb) / 18%) 1px, transparent 1px);
+  background-size: 3rem 3rem;
+  mask-image: radial-gradient(circle at center, black 0%, transparent 76%);
+}
+
+.coverage-diorama-vignette {
+  background:
+    linear-gradient(180deg, rgb(var(--backdrop-rgb) / 72%) 0%, transparent 28%),
+    radial-gradient(
+      circle at 50% 46%,
+      transparent 34%,
+      rgb(var(--backdrop-rgb) / 58%) 100%
+    );
+}
+
+.coverage-diorama-masthead {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem 0;
+  pointer-events: none;
+}
+
+.coverage-diorama-heading,
+.coverage-diorama-area-picker {
+  pointer-events: auto;
+}
+
+.coverage-diorama-heading {
+  min-width: 0;
+}
+
+.coverage-diorama-eyebrow,
+.coverage-diorama-tray-kicker,
+.coverage-diorama-detail-kicker {
+  display: block;
+  margin: 0 0 0.2rem;
+  color: var(--diorama-brass);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.coverage-diorama-heading h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-family-display);
+  font-size: clamp(1.55rem, 5.8vw, 2.75rem);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  text-shadow: 0 2px 20px rgb(0 0 0 / 60%);
+}
+
+.coverage-diorama-heading > p:last-child {
+  display: none;
+  max-width: 42ch;
+  margin: 0.45rem 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.coverage-diorama-area-picker {
+  position: relative;
+  display: flex;
+  width: min(100%, 20rem);
+}
+
+.coverage-diorama-area-picker select {
+  width: 100%;
+  min-height: 2.75rem;
+  appearance: none;
+  padding: 0.6rem 2.5rem 0.6rem 0.85rem;
+  color: var(--text-primary);
+  font: 500 var(--font-size-sm) / 1.2 var(--font-family);
+  background: var(--diorama-panel);
+  border: 1px solid rgb(var(--border-rgb) / 34%);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(1rem);
+}
+
+.coverage-diorama-area-picker i {
+  position: absolute;
+  top: 50%;
+  right: 0.9rem;
+  color: var(--text-tertiary);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.coverage-diorama-mode {
+  position: absolute;
+  z-index: 6;
+  top: 7.4rem;
+  right: 1rem;
+  display: flex;
+  padding: 0.2rem;
+  background: var(--diorama-panel);
+  border: 1px solid rgb(var(--border-rgb) / 30%);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(1rem);
+}
+
+.coverage-diorama-mode button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-width: 3rem;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.75rem;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: calc(var(--radius-md) - 2px);
+  font: 600 var(--font-size-xs) / 1 var(--font-family);
+}
+
+.coverage-diorama-mode button span {
+  display: none;
+}
+
+.coverage-diorama-mode button.is-active {
+  color: var(--text-on-action);
+  background: var(--action);
+}
+
+.coverage-diorama-ledger {
+  position: absolute;
+  z-index: 4;
+  top: 10.75rem;
+  left: 1rem;
+  right: 1rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  background: rgb(var(--border-rgb) / 24%);
+  border: 1px solid rgb(var(--border-rgb) / 28%);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(1rem);
+}
+
+.coverage-diorama-figure {
+  min-width: 0;
+  padding: 0.6rem 0.7rem;
+  background: var(--diorama-panel);
+}
+
+.coverage-diorama-figure span,
+.coverage-diorama-forecast span {
+  display: block;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.coverage-diorama-figure strong {
+  display: block;
+  margin-top: 0.18rem;
+  overflow: hidden;
+  color: var(--text-primary);
+  font: 600 var(--font-size-sm) / 1.1 var(--font-family-display);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coverage-diorama-figure--hero strong {
+  color: var(--primary-light);
+}
+
+.coverage-diorama-key {
+  display: none;
+}
+
+.coverage-diorama-detail {
+  display: none;
+}
+
+.coverage-diorama-plan-tray {
+  position: absolute;
+  z-index: 8;
+  right: 0.75rem;
+  bottom: var(--diorama-bottom-nav);
+  left: 0.75rem;
+  min-height: 17rem;
+  max-height: min(62vh, 31rem);
+  padding: 0.6rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+  overflow: auto;
+  color: var(--text-primary);
+  background: var(--diorama-panel);
+  border: 1px solid rgb(var(--border-rgb) / 34%);
+  border-bottom: 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  box-shadow: var(--shadow-xl);
+  backdrop-filter: blur(1.2rem);
+  transform: translateY(calc(100% - 4.5rem));
+  transition: transform var(--transition-normal);
+}
+
+.coverage-diorama.is-plan-mode .coverage-diorama-plan-tray {
+  transform: translateY(0);
+}
+
+.coverage-diorama-tray-handle {
+  width: 2.5rem;
+  height: 3px;
+  margin: 0 auto 0.6rem;
+  background: rgb(var(--border-rgb) / 55%);
+  border-radius: 999px;
+}
+
+.coverage-diorama-tray-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.coverage-diorama-tray-head h2 {
+  margin: 0;
+  font: 600 1.15rem/1.15 var(--font-family-display);
+}
+
+.coverage-diorama-count {
+  display: inline-grid;
+  min-width: 2rem;
+  min-height: 2rem;
+  place-items: center;
+  color: var(--text-on-warning);
+  background: var(--diorama-brass);
+  border-radius: 999px;
+  font: 600 var(--font-size-xs) / 1 var(--font-family-mono);
+}
+
+.coverage-diorama-plan-hint {
+  margin: 0.7rem 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+}
+
+.coverage-diorama-forecast {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.coverage-diorama-forecast > div {
+  min-width: 0;
+  padding: 0.7rem;
+  background: rgb(var(--surface-rgb) / 72%);
+  border: 1px solid rgb(var(--border-rgb) / 18%);
+  border-radius: var(--radius-md);
+}
+
+.coverage-diorama-forecast strong {
+  display: block;
+  margin-top: 0.25rem;
+  overflow: hidden;
+  color: var(--text-primary);
+  font: 600 var(--font-size-sm) / 1.1 var(--font-family-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coverage-diorama-selected-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  min-height: 2.25rem;
+  margin: 0.7rem 0;
+}
+
+.coverage-diorama-selected-list span {
+  align-self: center;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+.coverage-diorama-selected-list .coverage-diorama-street-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0.35rem 0.55rem;
+  overflow: hidden;
+  color: var(--text-secondary);
+  background: rgb(var(--warning-rgb) / 12%);
+  border: 1px solid rgb(var(--warning-rgb) / 30%);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coverage-diorama-tray-actions {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.6rem;
+}
+
+.coverage-diorama-tray-actions button,
+.coverage-diorama-controls button,
+.coverage-diorama-state button {
+  min-height: 2.75rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+}
+
+.coverage-diorama-secondary {
+  padding: 0.65rem 0.9rem;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid rgb(var(--border-rgb) / 35%);
+}
+
+.coverage-diorama-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.65rem 0.9rem;
+  color: var(--text-on-action);
+  background: var(--action);
+  border: 1px solid var(--action);
+}
+
+.coverage-diorama-tray-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.coverage-diorama-controls {
+  position: absolute;
+  z-index: 7;
+  right: 1rem;
+  bottom: calc(var(--diorama-bottom-nav) + 5rem);
+  display: flex;
+  gap: 0.45rem;
+}
+
+.coverage-diorama.is-plan-mode .coverage-diorama-controls {
+  display: none;
+}
+
+.coverage-diorama-controls button {
+  display: inline-grid;
+  min-width: 2.75rem;
+  place-items: center;
+  padding: 0.55rem;
+  color: var(--text-primary);
+  background: var(--diorama-panel);
+  border: 1px solid rgb(var(--border-rgb) / 35%);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(1rem);
+}
+
+.coverage-diorama-controls span {
+  font: 600 var(--font-size-xs) / 1 var(--font-family-mono);
+}
+
+.coverage-diorama-state {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  background: rgb(var(--backdrop-rgb) / 82%);
+  backdrop-filter: blur(0.7rem);
+}
+
+.coverage-diorama-state.is-hidden {
+  display: none;
+}
+
+.coverage-diorama-state strong {
+  margin-top: 1rem;
+  font: 600 1.25rem/1.2 var(--font-family-display);
+}
+
+.coverage-diorama-state p {
+  max-width: 38ch;
+  margin: 0.5rem 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.coverage-diorama-state button {
+  margin-top: 1rem;
+  padding: 0.6rem 1rem;
+  color: var(--text-on-action);
+  background: var(--action);
+  border: 0;
+}
+
+.coverage-diorama-loader {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.coverage-diorama-loader span {
+  width: 0.42rem;
+  height: 2.3rem;
+  background: var(--primary);
+  transform-origin: center bottom;
+  animation: dioramaSurvey 900ms ease-in-out infinite alternate;
+}
+
+.coverage-diorama-loader span:nth-child(2) {
+  animation-delay: 140ms;
+}
+
+.coverage-diorama-loader span:nth-child(3) {
+  animation-delay: 280ms;
+}
+
+.coverage-diorama-attribution {
+  position: absolute;
+  z-index: 5;
+  right: 0.6rem;
+  bottom: calc(var(--diorama-bottom-nav) + 0.3rem);
+  margin: 0;
+  color: rgb(var(--text-rgb) / 50%);
+  font-size: var(--font-size-xs);
+}
+
+.coverage-diorama-attribution a {
+  color: inherit;
+}
+
+@keyframes dioramaSurvey {
+  from {
+    opacity: 0.35;
+    transform: scaleY(0.35);
+  }
+
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@media (width >= 576px) {
+  .coverage-diorama-masthead {
+    grid-template-columns: 1fr minmax(14rem, 19rem);
+    align-items: start;
+  }
+
+  .coverage-diorama-area-picker {
+    justify-self: end;
+  }
+
+  .coverage-diorama-mode {
+    top: 5.5rem;
+  }
+
+  .coverage-diorama-mode button span {
+    display: inline;
+  }
+
+  .coverage-diorama-ledger {
+    top: 7.8rem;
+    right: auto;
+    width: min(30rem, calc(100vw - 2rem));
+  }
+}
+
+@media (width >= 768px) {
+  .coverage-diorama {
+    --diorama-bottom-nav: 0px;
+  }
+
+  .coverage-diorama-heading > p:last-child {
+    display: block;
+  }
+
+  .coverage-diorama-plan-tray {
+    bottom: 0;
+  }
+
+  .coverage-diorama-attribution {
+    bottom: 0.35rem;
+  }
+}
+
+@media (width >= 1024px) {
+  .coverage-diorama-masthead {
+    top: 0.65rem;
+    padding: 1rem 2rem 0;
+  }
+
+  .coverage-diorama-mode {
+    top: 1.65rem;
+    right: 50%;
+    transform: translateX(50%);
+  }
+
+  .coverage-diorama-ledger {
+    top: 9rem;
+    left: 2rem;
+    display: flex;
+    width: 12.5rem;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .coverage-diorama-figure {
+    padding: 0.75rem 0.9rem;
+  }
+
+  .coverage-diorama-figure strong {
+    font-size: var(--font-size-lg);
+  }
+
+  .coverage-diorama-key {
+    display: grid;
+    gap: 0.45rem;
+    padding: 0.8rem 0.9rem;
+    background: var(--diorama-panel);
+  }
+
+  .coverage-diorama-key span {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+  }
+
+  .coverage-diorama-key i {
+    width: 1.4rem;
+    height: 2px;
+    background: currentcolor;
+    box-shadow: 0 0 0.45rem currentcolor;
+  }
+
+  .coverage-diorama-key .is-driven {
+    color: var(--diorama-blue);
+  }
+
+  .coverage-diorama-key .is-undriven {
+    color: var(--diorama-brass);
+  }
+
+  .coverage-diorama-key .is-selected {
+    color: var(--warning-light);
+  }
+
+  .coverage-diorama-detail {
+    position: absolute;
+    z-index: 5;
+    bottom: 2rem;
+    left: 2rem;
+    display: flex;
+    width: min(20rem, calc(100vw - 4rem));
+    min-height: 5.5rem;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0.9rem 1rem;
+    color: var(--text-primary);
+    background: var(--diorama-panel);
+    border: 1px solid rgb(var(--border-rgb) / 28%);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    backdrop-filter: blur(1rem);
+  }
+
+  .coverage-diorama-detail strong {
+    overflow: hidden;
+    font: 600 1rem/1.2 var(--font-family-display);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .coverage-diorama-detail > span:last-child {
+    margin-top: 0.2rem;
+    color: var(--text-tertiary);
+    font-size: var(--font-size-xs);
+  }
+
+  .coverage-diorama-plan-tray {
+    inset: 8rem 2rem 2rem auto;
+    width: 22rem;
+    min-height: 0;
+    padding: 1rem;
+    border: 1px solid rgb(var(--border-rgb) / 34%);
+    border-radius: var(--radius-lg);
+    transform: none;
+  }
+
+  .coverage-diorama-tray-handle {
+    display: none;
+  }
+
+  .coverage-diorama-controls,
+  .coverage-diorama.is-plan-mode .coverage-diorama-controls {
+    right: 50%;
+    bottom: 2rem;
+    display: flex;
+    transform: translateX(50%);
+  }
+
+  .coverage-diorama-attribution {
+    right: 2.25rem;
+    bottom: 0.4rem;
+  }
+}
+
+html.light-mode .coverage-diorama {
+  --diorama-panel: rgb(244 241 232 / 88%);
+}
+
+html.light-mode .coverage-diorama-vignette {
+  background:
+    linear-gradient(180deg, rgb(var(--surface-rgb) / 78%) 0%, transparent 28%),
+    radial-gradient(
+      circle at 50% 46%,
+      transparent 38%,
+      rgb(var(--border-rgb) / 24%) 100%
+    );
+}
+
+html.light-mode .coverage-diorama-heading h1 {
+  text-shadow: 0 2px 16px rgb(255 255 255 / 75%);
+}
+
+html.light-mode .coverage-diorama-state {
+  background: rgb(var(--surface-rgb) / 86%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coverage-diorama-plan-tray {
+    transition: none;
+  }
+
+  .coverage-diorama-loader span {
+    animation: none;
+  }
+}

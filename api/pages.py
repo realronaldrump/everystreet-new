@@ -184,6 +184,15 @@ async def memory_city_page(request: Request):
     return await render_template(request, "memory_city.html")
 
 
+@router.get(
+    "/coverage-diorama",
+    response_class=HTMLResponse,
+)
+async def coverage_diorama_page(request: Request):
+    """Render the owner-facing 3D coverage planning diorama."""
+    return await render_template(request, "coverage_diorama.html")
+
+
 @router.get("/setup-wizard", response_class=HTMLResponse)
 async def setup_wizard_page(request: Request):
     """Render the setup wizard."""
