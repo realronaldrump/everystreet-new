@@ -161,6 +161,15 @@ async def get_failed_trips(request: Request):
     return {"total": total, "trips": trips}
 
 
+@router.get("/api/trips/history", tags=["Trips API"])
+@api_route(logger)
+async def get_recent_trip_history(
+    limit: Annotated[int, Query(ge=1, le=60)] = 5,
+):
+    """Get recent Historical Trips for the landing page activity feed."""
+    return {"trips": await TripQueryService.get_recent_trips(limit)}
+
+
 @router.get("/api/trips", tags=["Trips API"])
 async def get_trips(request: Request):
     """Stream all trips as GeoJSON to improve performance."""

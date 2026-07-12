@@ -82,6 +82,32 @@ class TripQueryService:
     """Service class for trip querying and filtering operations."""
 
     @staticmethod
+    async def get_recent_trips(limit: int = 5) -> list[dict[str, Any]]:
+        """Return recent visible Historical Trips for the landing page."""
+        query = TripQuerySpec().to_mongo_query(enforce_source=True)
+        trips = await Trip.find(query).sort(-Trip.endTime).limit(limit).to_list()
+
+        recent_trips: list[dict[str, Any]] = []
+        for trip in trips:
+            trip_dict = TripSerializer.to_trip_dict(trip)
+            normalized = TripSerializer.to_dict(trip_dict)
+            recent_trips.append(
+                {
+                    "transactionId": normalized.get("transactionId"),
+                    "source": normalized.get("source"),
+                    "startTime": normalized.get("startTime"),
+                    "endTime": normalized.get("endTime"),
+                    "distance": normalized.get("distance"),
+                    "startLocation": normalized.get("startLocation"),
+                    "destination": normalized.get("destination"),
+                    "destinationGeoPoint": trip_dict.get("destinationGeoPoint"),
+                    "maxSpeed": normalized.get("maxSpeed"),
+                }
+            )
+
+        return recent_trips
+
+    @staticmethod
     async def get_trips_datatable(
         draw: int,
         start: int,
