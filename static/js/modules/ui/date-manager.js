@@ -14,6 +14,7 @@ const dateManager = {
   },
   usingMobilePortal: false,
   viewportSyncHandler: null,
+  isCustomRangeOpen: false,
 
   syncRangePickerLayout() {
     const picker = this.flatpickrInstances.get("range");
@@ -24,14 +25,8 @@ const dateManager = {
     if (picker.config.showMonths !== showMonths) {
       picker.set("showMonths", showMonths);
     }
-    picker.calendarContainer?.classList.toggle(
-      "es-single-month",
-      showMonths === 1
-    );
-    picker.calendarContainer?.classList.toggle(
-      "es-multi-month",
-      showMonths === 2
-    );
+    picker.calendarContainer?.classList.toggle("es-single-month", showMonths === 1);
+    picker.calendarContainer?.classList.toggle("es-multi-month", showMonths === 2);
   },
 
   getSelectedDateRange() {
@@ -216,15 +211,17 @@ const dateManager = {
       eventManager.add(btn, "click", () => this.setRange(btn.dataset.range));
     });
 
-    // Bind apply and reset buttons
+    // Bind the custom range disclosure and apply action
     const applyBtn = store.getElement(CONFIG.UI.selectors.datePickerApply);
-    const resetBtn = store.getElement(CONFIG.UI.selectors.datePickerReset);
+    const customToggle = store.getElement(CONFIG.UI.selectors.dpCustomToggle);
     const closeBtn = store.getElement(CONFIG.UI.selectors.datePickerClose);
     if (applyBtn) {
       eventManager.add(applyBtn, "click", () => this.applyFilters());
     }
-    if (resetBtn) {
-      eventManager.add(resetBtn, "click", () => this.reset());
+    if (customToggle) {
+      eventManager.add(customToggle, "click", () => {
+        this.setCustomRangeOpen(!this.isCustomRangeOpen);
+      });
     }
     if (closeBtn) {
       eventManager.add(closeBtn, "click", () => this.closeDropdown());
@@ -264,6 +261,33 @@ const dateManager = {
     }
   },
 
+  setCustomRangeOpen(open) {
+    const dropdown = store.getElement(CONFIG.UI.selectors.datePickerDropdown);
+    const toggle = store.getElement(CONFIG.UI.selectors.dpCustomToggle);
+    const panel = store.getElement(CONFIG.UI.selectors.dpCustomPanel);
+    if (!toggle || !panel) {
+      return;
+    }
+
+    this.isCustomRangeOpen = open;
+    toggle.setAttribute("aria-expanded", String(open));
+    panel.hidden = !open;
+    dropdown?.classList.toggle("custom-open", open);
+
+    const rangePicker = this.flatpickrInstances.get("range");
+    rangePicker?.calendarContainer?.setAttribute(
+      "aria-hidden",
+      String(!open || !this.isDropdownOpen)
+    );
+
+    if (open) {
+      requestAnimationFrame(() => {
+        this.syncRangePickerLayout();
+        rangePicker?.redraw();
+      });
+    }
+  },
+
   openDropdown() {
     this.syncMobilePortal();
 
@@ -280,10 +304,11 @@ const dateManager = {
     dropdown.setAttribute("aria-hidden", "false");
     trigger?.setAttribute("aria-expanded", "true");
     this.isDropdownOpen = true;
+    this.setCustomRangeOpen(false);
     this.syncRangePickerLayout();
 
     const rangePicker = this.flatpickrInstances.get("range");
-    rangePicker?.calendarContainer?.setAttribute("aria-hidden", "false");
+    rangePicker?.calendarContainer?.setAttribute("aria-hidden", "true");
     const { endDate } = this.getSelectedDateRange();
     const visibleDate = dateUtils.parseDateString(endDate);
     if (visibleDate && !this.isMobileViewport()) {
@@ -325,6 +350,7 @@ const dateManager = {
       ?.calendarContainer?.setAttribute("aria-hidden", "true");
     trigger?.setAttribute("aria-expanded", "false");
     this.isDropdownOpen = false;
+    this.setCustomRangeOpen(false);
     document.body.classList.remove("date-picker-open");
 
     // Hide overlay
@@ -346,9 +372,7 @@ const dateManager = {
 
     startInputEl.value = startDate;
     endInputEl.value = endDate;
-    this.flatpickrInstances
-      .get("range")
-      ?.setDate([startDate, endDate], false, "Y-m-d");
+    this.flatpickrInstances.get("range")?.setDate([startDate, endDate], false, "Y-m-d");
     this.renderRangeSummary(startDate, endDate);
   },
 
@@ -368,13 +392,17 @@ const dateManager = {
     startInput.value = startDate;
     endInput.value = endDate;
     this.renderRangeSummary(startDate, hasEndDate ? endDate : null, !hasEndDate);
-    store.getAllElements(".preset-btn").forEach((btn) => btn.classList.remove("active"));
+    store.getAllElements(".preset-btn").forEach((btn) => {
+      btn.classList.remove("active");
+      btn.setAttribute("aria-pressed", "false");
+    });
   },
 
   renderRangeSummary(startDate, endDate, selectionInProgress = false) {
     const startDisplay = store.getElement(CONFIG.UI.selectors.dpStartDisplay);
     const endDisplay = store.getElement(CONFIG.UI.selectors.dpEndDisplay);
     const hint = store.getElement(CONFIG.UI.selectors.dpRangeHint);
+    const customSummary = store.getElement(CONFIG.UI.selectors.dpCustomSummary);
     const applyBtn = store.getElement(CONFIG.UI.selectors.datePickerApply);
     const formatDate = (date) =>
       date
@@ -395,8 +423,16 @@ const dateManager = {
     }
     if (hint) {
       hint.textContent = selectionInProgress
-        ? "Now choose an end date, or Apply for one day."
-        : "Choose a start date, then an end date.";
+        ? "Choose an end date, or apply this as a single day."
+        : "Select a start date, then an end date.";
+    }
+    if (customSummary) {
+      const preset = this.detectPreset(startDate, endDate);
+      customSummary.textContent = selectionInProgress
+        ? `${formatDate(startDate)} — choose end`
+        : preset
+          ? "Choose exact dates"
+          : `${formatDate(startDate)} – ${formatDate(endDate)}`;
     }
     if (applyBtn) {
       applyBtn.disabled = !startDate;
@@ -484,10 +520,9 @@ const dateManager = {
     const activePreset = preset || this.detectPreset(savedStartDate, savedEndDate);
 
     store.getAllElements(".preset-btn").forEach((btn) => {
-      btn.classList.toggle(
-        CONFIG.UI.classes.active,
-        btn.dataset.range === activePreset
-      );
+      const isActive = btn.dataset.range === activePreset;
+      btn.classList.toggle(CONFIG.UI.classes.active, isActive);
+      btn.setAttribute("aria-pressed", String(isActive));
     });
   },
 
@@ -508,7 +543,7 @@ const dateManager = {
     // Map preset names to display text
     const presetLabels = {
       today: "Today",
-      yesterday: "Yesterday",
+      yesterday: "Since Yesterday",
       "last-week": "Last 7 Days",
       "last-month": "Last 30 Days",
       "last-quarter": "Last Quarter",
@@ -570,15 +605,6 @@ const dateManager = {
         btn.classList.remove("btn-loading");
       }
     }
-  },
-
-  reset() {
-    const today = dateUtils.getCurrentDate();
-    this.updateInputs(today, today);
-    this.highlightActivePreset("today");
-    this.updateDateDisplay();
-    this.applyFilters();
-    document.dispatchEvent(new Event("filtersReset"));
   },
 };
 
