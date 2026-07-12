@@ -24,17 +24,45 @@ Memory City
       </div>
     </div>
     <header class="memory-city-topbar page-masthead">
-      <div class="memory-city-topbar-lead pm-lead">
+      <div class="memory-city-lead pm-lead">
         <span class="memory-city-eyebrow pm-eyebrow">Memory City</span>
         <h1 id="memory-city-title" class="memory-city-title pm-title">
 Pick an area to see your city
         </h1>
         <p id="memory-city-subtitle" class="memory-city-subtitle pm-sub">
-          A 3D monument of the streets you've driven. Undriven roads don't exist here.
+          Every street floats at the moment you first drove it. Undriven roads don't exist here.
         </p>
+        <dl class="memory-city-figures" aria-label="City summary">
+          <div class="memory-city-figure">
+            <dt class="memory-city-figure-label">Streets</dt>
+            <dd class="memory-city-figure-value" id="mc-stat-segments">—</dd>
+          </div>
+          <div class="memory-city-figure">
+            <dt class="memory-city-figure-label">Miles built</dt>
+            <dd class="memory-city-figure-value" id="mc-stat-miles">—</dd>
+          </div>
+          <div class="memory-city-figure">
+            <dt class="memory-city-figure-label">Coverage</dt>
+            <dd class="memory-city-figure-value" id="mc-stat-percent">—</dd>
+          </div>
+          <div class="memory-city-figure">
+            <dt class="memory-city-figure-label">Founded</dt>
+            <dd class="memory-city-figure-value memory-city-figure-value--small"
+                id="mc-stat-first">
+—
+            </dd>
+          </div>
+        </dl>
+        <section id="memory-city-records"
+                 class="memory-city-records is-hidden"
+                 aria-label="City records">
+          <h2 class="memory-city-records-title">City records</h2>
+          <ul id="mc-records-list" class="memory-city-records-list">
+          </ul>
+        </section>
       </div>
 
-      <div class="memory-city-topbar-actions">
+      <div class="memory-city-side">
         <label class="memory-city-area-picker">
           <span class="visually-hidden">Coverage area</span>
           <select id="memory-city-area-select"
@@ -46,42 +74,47 @@ Loading areas…
           </select>
           <i class="fas fa-chevron-down memory-city-area-chevron" aria-hidden="true"></i>
         </label>
+        <div id="memory-city-search" class="memory-city-search">
+          <i class="fas fa-search memory-city-search-icon" aria-hidden="true"></i>
+          <input type="text"
+                 id="mc-search-input"
+                 class="memory-city-search-input"
+                 placeholder="Find a street…"
+                 autocomplete="off"
+                 role="combobox"
+                 aria-expanded="false"
+                 aria-controls="mc-search-results"
+                 aria-label="Find a street" />
+          <button type="button"
+                  id="mc-search-clear"
+                  class="memory-city-search-clear"
+                  aria-label="Clear street focus">
+            <i class="fas fa-times" aria-hidden="true"></i>
+          </button>
+          <ul id="mc-search-results"
+              class="memory-city-search-results"
+              role="listbox"
+              hidden>
+          </ul>
+        </div>
+        <aside class="memory-city-detail"
+               id="memory-city-detail"
+               aria-live="polite"
+               aria-label="Selected street">
+          <div class="memory-city-detail-empty">
+            <i class="fas fa-hand-pointer" aria-hidden="true"></i>
+            <span>Click a thread to read its record</span>
+          </div>
+        </aside>
       </div>
     </header>
-    <aside class="memory-city-stats" aria-label="Sculpture summary">
-      <div class="memory-city-stat">
-        <span class="memory-city-stat-label">Driven streets</span>
-        <span class="memory-city-stat-value" id="mc-stat-segments">—</span>
-      </div>
-      <div class="memory-city-stat">
-        <span class="memory-city-stat-label">Miles built</span>
-        <span class="memory-city-stat-value" id="mc-stat-miles">—</span>
-      </div>
-      <div class="memory-city-stat">
-        <span class="memory-city-stat-label">Coverage</span>
-        <span class="memory-city-stat-value" id="mc-stat-percent">—</span>
-      </div>
-      <div class="memory-city-stat">
-        <span class="memory-city-stat-label">First stone laid</span>
-        <span class="memory-city-stat-value memory-city-stat-value--small" id="mc-stat-first">—</span>
-      </div>
-    </aside>
-    <aside class="memory-city-detail"
-           id="memory-city-detail"
-           aria-live="polite"
-           aria-label="Selected street">
-      <div class="memory-city-detail-empty">
-        <i class="fas fa-hand-pointer" aria-hidden="true"></i>
-        <span>Hover a thread to inspect a street</span>
-      </div>
-    </aside>
-    <div class="memory-city-dock" role="group" aria-label="Sculpture controls">
+    <div class="memory-city-dock" role="group" aria-label="Timeline and sculpture controls">
       <div class="memory-city-dock-row memory-city-dock-row--scrubber">
         <button type="button"
                 class="memory-city-play-btn"
                 id="memory-city-play"
-                aria-label="Play grow animation"
-                title="Play grow animation">
+                aria-label="Play timelapse"
+                title="Play timelapse (Space)">
           <i class="fas fa-play" aria-hidden="true"></i>
         </button>
         <div class="memory-city-scrubber-wrap">
@@ -90,27 +123,40 @@ Loading areas…
             <span id="mc-scrubber-current" class="memory-city-scrubber-current">—</span>
             <span id="mc-scrubber-max">—</span>
           </div>
-          <input type="range"
-                 id="memory-city-scrubber"
-                 class="memory-city-scrubber"
-                 min="0"
-                 max="1000"
-                 step="1"
-                 value="1000"
-                 aria-label="Time scrubber" />
+          <div class="memory-city-scrubber-track">
+            <input type="range"
+                   id="memory-city-scrubber"
+                   class="memory-city-scrubber"
+                   min="0"
+                   max="1000"
+                   step="1"
+                   value="1000"
+                   aria-label="Time scrubber" />
+            <div id="mc-scrubber-ticks"
+                 class="memory-city-scrubber-ticks"
+                 aria-hidden="true">
+            </div>
+          </div>
         </div>
       </div>
 
+      <div id="memory-city-chapters"
+           class="memory-city-chapters is-hidden"
+           role="group"
+           aria-label="Chapters of this city">
+      </div>
+
       <div class="memory-city-dock-row memory-city-dock-row--meta">
-        <div class="memory-city-legend" aria-label="Legend">
-          <div class="memory-city-legend-item">
-            <span class="memory-city-legend-swatch memory-city-legend-swatch--height"
-                  aria-hidden="true"></span>
-            <span>Height = how long you've known it</span>
+        <div class="memory-city-encoding">
+          <div id="memory-city-lens"
+               class="segmented-control memory-city-lens"
+               role="group"
+               aria-label="Color lens">
           </div>
-          <div class="memory-city-legend-item" id="memory-city-legend-recency">
-            <span class="memory-city-legend-gradient" aria-hidden="true"></span>
-            <span>Color = recency (warm → cool)</span>
+          <div class="memory-city-legend-block">
+            <span id="mc-legend-caption" class="memory-city-legend-caption"></span>
+            <div id="memory-city-legend" class="memory-city-legend" aria-label="Legend">
+            </div>
           </div>
         </div>
         <div class="memory-city-cam-controls" role="group" aria-label="Camera controls">
@@ -149,6 +195,13 @@ Loading areas…
                   title="Toggle auto-rotate"
                   aria-pressed="false">
             <i class="fas fa-sync-alt" aria-hidden="true"></i>
+          </button>
+          <button type="button"
+                  class="memory-city-cam-btn"
+                  id="memory-city-postcard"
+                  aria-label="Save postcard image"
+                  title="Save postcard image">
+            <i class="fas fa-image" aria-hidden="true"></i>
           </button>
         </div>
       </div>
