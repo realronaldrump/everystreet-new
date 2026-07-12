@@ -90,6 +90,24 @@ test("map coverage dropdown placeholder avoids bootstrap placeholder utility", (
   assert.doesNotMatch(mapControlsCss, /\.dropdown-label\.placeholder/);
 });
 
+test("route planner legend matches the optimal route map color", () => {
+  const plannerCss = readRepoFile("static", "css", "coverage-route-planner.css");
+  const mapStylesSource = readStaticJs("modules", "map-styles.js");
+
+  assert.match(
+    mapStylesSource,
+    /optimalRoute:[\s\S]*route:\s*getCSSVariable\("--cat-purple"/
+  );
+  assert.match(
+    plannerCss,
+    /\.legend-color--route\s*\{\s*background:\s*var\(--cat-purple\);\s*\}/
+  );
+  assert.match(
+    plannerCss,
+    /\.layer-color--route\s*\{\s*background:\s*var\(--cat-purple\);\s*\}/
+  );
+});
+
 test("trip fetching stays coverage-aware without wasting metric requests", () => {
   const source = readStaticJs("modules", "data-manager.js");
 
