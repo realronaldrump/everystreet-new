@@ -870,6 +870,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-height: var(--touch-target);
   margin-top: var(--space-2);
   padding: 0;
   background: none;
@@ -1357,7 +1358,7 @@
 }
 
 .coverage-route-planner .route-actions .btn {
-  min-height: 40px;
+  min-height: var(--touch-target);
   font-size: var(--font-size-sm);
   white-space: normal;
   text-wrap: balance;
@@ -2061,7 +2062,7 @@
 }
 
 .coverage-route-planner .results-secondary-actions .btn {
-  min-height: 40px;
+  min-height: var(--touch-target);
   font-size: var(--font-size-sm);
   display: inline-flex;
   align-items: center;
@@ -2088,7 +2089,7 @@
 }
 
 .coverage-route-planner .export-actions .btn {
-  min-height: 40px;
+  min-height: var(--touch-target);
   font-size: var(--font-size-sm);
   white-space: normal;
   text-wrap: balance;
