@@ -1,5 +1,5 @@
 export const COVERAGE_ROUTE_DRAFT_KEY = "everystreet:coverage-route-draft:v1";
-export const COVERAGE_ROUTE_DRAFT_MAX_AGE_MS = 30 * 60 * 1000;
+const COVERAGE_ROUTE_DRAFT_MAX_AGE_MS = 30 * 60 * 1000;
 
 export function createCoverageRouteDraft(areaId, segmentIds, now = Date.now()) {
   const normalizedAreaId = String(areaId || "").trim();

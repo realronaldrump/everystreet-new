@@ -407,10 +407,6 @@
    SCENES
    ============================================ */
 
-.scene-chips {
-  display: none;
-}
-
 .insight-scenes-grid {
   display: grid;
   grid-template-columns: 1fr;

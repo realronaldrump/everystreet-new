@@ -25,7 +25,7 @@ Every Street - Map Matching
         <p class="pm-sub">Align recorded GPS traces with the roads they followed.</p>
       </div>
     </header>
-    <div class="mm-wizard-shell" id="mm-wizard-shell">
+    <div class="mm-wizard-shell">
       <div class="mm-phase-indicator atlas-stepper" role="navigation" aria-label="Wizard progress">
         <div class="mm-phase-step atlas-step is-active" data-phase="select">
           <span class="mm-step-dot atlas-step-index">1</span>
@@ -72,7 +72,7 @@ Every Street - Map Matching
             <span class="mm-quick-action-badge d-none" id="mm-failed-count">0</span>
           </button>
         </div>
-        <div class="mm-match-summary" id="mm-match-summary" aria-live="polite">
+        <div class="mm-match-summary" aria-live="polite">
           <div class="mm-match-summary-card is-total">
             <span>Total matched</span>
             <strong id="mm-summary-matched">--</strong>
@@ -195,7 +195,7 @@ Trip ID
               <span class="mm-preview-icon"><i class="fas fa-check-circle"></i></span>
               <span class="mm-preview-text" id="map-match-preview-summary"></span>
             </div>
-            <div class="mm-engine-summary" id="map-match-engine-summary">
+            <div class="mm-engine-summary">
               <i class="fas fa-route"></i>
               <span id="map-match-engine-label">Auto: Valhalla first, Mapbox fallback</span>
             </div>
@@ -208,7 +208,7 @@ Trip ID
                 <i class="fas fa-location-arrow"></i>
               Mapbox Match
               </button>
-              <button type="submit" class="btn mm-btn-primary" id="map-match-submit">
+              <button type="submit" class="btn mm-btn-primary">
                 <i class="fas fa-sparkles"></i>
               Start Matching
               </button>
@@ -384,12 +384,10 @@ Failed Trips
             <button class="mm-results-tab atlas-tab is-active" data-tab="matched" id="mm-tab-matched">
               <i class="fas fa-check"></i>
               <span>Matched</span>
-              <span class="mm-tab-count" id="mm-tab-matched-count">0</span>
             </button>
             <button class="mm-results-tab atlas-tab" data-tab="failed" id="mm-tab-failed">
               <i class="fas fa-exclamation-circle"></i>
               <span>Issues</span>
-              <span class="mm-tab-count mm-tab-count-warning" id="mm-tab-failed-count">0</span>
             </button>
           </div>
           <div class="mm-results-map-container">
@@ -525,7 +523,7 @@ Failed Trips
           <span class="settings-status is-hidden" id="map-match-history-status" role="status"></span>
         </div>
       </div>
-      <div class="mm-drawer-body" id="map-match-history-body">
+      <div class="mm-drawer-body">
         <div class="mm-history-list" id="map-match-jobs-list">
         </div>
       </div>

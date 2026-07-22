@@ -1726,19 +1726,6 @@
   opacity: 0;
 }
 
-.btn,
-.form-control,
-.form-select {
-  transition: var(--transition-fast);
-}
-
-.btn:focus-visible,
-.form-control:focus-visible,
-.form-select:focus-visible {
-  outline: var(--focus-outline, 2px solid var(--primary));
-  outline-offset: 2px;
-}
-
 /* =============================================================================
    RESPONSIVE — Mobile
    ============================================================================= */

@@ -743,12 +743,15 @@ html.light-mode body .alert-info {
 .notif-history-item--success .notif-history-icon {
   color: var(--success);
 }
+
 .notif-history-item--error .notif-history-icon {
   color: var(--danger);
 }
+
 .notif-history-item--warning .notif-history-icon {
   color: var(--warning);
 }
+
 .notif-history-item--info .notif-history-icon {
   color: var(--info);
 }

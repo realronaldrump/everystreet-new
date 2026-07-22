@@ -1,19 +1,12 @@
-const cdnFallbacks = {
-  chartjs: "https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js",
-  datatablesJs: "https://cdn.datatables.net/2.3.6/js/dataTables.min.js",
-  deckGl: "https://cdn.jsdelivr.net/npm/deck.gl@9.2.7/dist.min.js",
-  jquery: "https://code.jquery.com/jquery-3.7.1.min.js",
-  mapboxDrawJs:
-    "https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.5.0/mapbox-gl-draw.js",
-  mapboxGlJs: "https://api.mapbox.com/mapbox-gl-js/v3.17.0/mapbox-gl.js",
-  observablePlot: "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.17/+esm",
-  topojson:
-    "https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js",
-};
-
 const pending = new Map();
 const loadedModules = new Map();
-const cdnUrl = (key) => globalThis.ES_CDN?.[key] || cdnFallbacks[key];
+const cdnUrl = (key) => {
+  const src = globalThis.ES_CDN?.[key];
+  if (!src) {
+    throw new Error(`Missing CDN URL for library: ${key}`);
+  }
+  return src;
+};
 const isGoogleProvider = () =>
   String(globalThis.MAP_PROVIDER || "self_hosted").toLowerCase() === "google";
 
@@ -32,9 +25,6 @@ function loadScript(key, id, isReady) {
   }
 
   const src = cdnUrl(key);
-  if (!src) {
-    return Promise.resolve();
-  }
   if (pending.has(src)) {
     return pending.get(src);
   }
@@ -80,15 +70,12 @@ function loadScript(key, id, isReady) {
   return promise;
 }
 
-async function loadModule(key) {
+function loadModule(key) {
   if (loadedModules.has(key)) {
     return loadedModules.get(key);
   }
 
   const src = cdnUrl(key);
-  if (!src) {
-    return null;
-  }
   if (pending.has(src)) {
     return pending.get(src);
   }
@@ -139,9 +126,16 @@ const loaders = {
 };
 
 export async function ensureLibraries(names = []) {
-  for (const name of new Set(names.filter(Boolean))) {
-    await loaders[name]?.();
-  }
+  const requested = [...new Set(names.filter(Boolean))];
+  await Promise.all(
+    requested.map((name) => {
+      const load = loaders[name];
+      if (!load) {
+        throw new Error(`Unknown library requested: ${name}`);
+      }
+      return load();
+    })
+  );
 }
 
 export function getLoadedLibrary(name) {

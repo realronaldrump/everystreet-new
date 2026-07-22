@@ -20,59 +20,11 @@
   display: none;
 }
 
-body[data-route="/trips"],
-body[data-route^="/trips/"] {
-  --section-accent-rgb: var(--cat-sky-rgb);
-}
-
-body[data-route="/insights"] {
-  --section-accent-rgb: var(--primary-rgb);
-}
-
-body[data-route="/coverage-management"],
-body[data-route="/coverage-route-planner"],
-body[data-route="/live-navigation"] {
-  --section-accent-rgb: var(--cat-amber-rgb);
-}
-
-body[data-route="/gas-tracking"] {
-  --section-accent-rgb: var(--cat-coral-rgb);
-}
-
-body[data-route="/visits"] {
-  --section-accent-rgb: var(--primary-rgb);
-}
-
-body[data-route="/vehicles"],
-body[data-route="/profile"] {
-  --section-accent-rgb: var(--cat-purple-rgb);
-}
-
-body[data-time-of-day="morning"] {
-  --ambient-tint: rgb(var(--section-accent-rgb) / 10%);
-}
-
-body[data-time-of-day="evening"],
-body[data-time-of-day="night"] {
-  --ambient-tint: rgb(var(--section-accent-rgb) / 12%);
-}
-
 /* Glass surfaces */
 .glass {
   background: var(--glass-1);
   border: 1px solid var(--glass-border);
   backdrop-filter: blur(var(--blur-subtle)) saturate(1.1);
-}
-
-.glass--prominent {
-  background: var(--glass-2);
-  backdrop-filter: blur(var(--blur-strong)) saturate(1.15);
-}
-
-/* Elevation utilities */
-
-.elevation-3 {
-  box-shadow: var(--shadow-elevation-3);
 }
 
 /* Ripple base */

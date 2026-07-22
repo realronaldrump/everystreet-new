@@ -51,5 +51,3 @@ export function createFeatureApi({ signal = null } = {}) {
     },
   };
 }
-
-export default createFeatureApi;

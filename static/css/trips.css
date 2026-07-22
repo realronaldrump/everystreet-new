@@ -17,12 +17,7 @@
   /* Typography */
   --font-display: var(--font-family-display);
   --font-body: var(--font-family);
-}
 
-/* ============================================
-   BASE LAYOUT
-   ============================================ */
-.trips-journal-page {
   min-height: 100vh;
   background: var(--surface-0);
   color: var(--text-primary);
@@ -30,6 +25,10 @@
   position: relative;
   overflow-x: hidden;
 }
+
+/* ============================================
+   BASE LAYOUT
+   ============================================ */
 
 .trips-container {
   position: relative;
@@ -2483,44 +2482,6 @@ html:not(.light-mode) body .trips-journal-page .filter-select option {
 .trip-tag:focus-visible {
   outline: 2px solid rgb(var(--primary-rgb) / 55%);
   outline-offset: 3px;
-}
-
-/* Import History Modal */
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.form-group label {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.form-control {
-  padding: var(--space-md);
-  border: 2px solid var(--surface-2);
-  border-radius: var(--radius-md);
-  background: var(--surface-0);
-  font-size: var(--font-size-md);
-  color: var(--text-primary);
-  transition: all var(--transition-fast);
-}
-
-.form-control:focus {
-  outline: none;
-  border-color: var(--primary);
-  background: var(--surface-1);
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-md);
-  padding: var(--space-lg) var(--space-xl);
-  border-top: 1px solid var(--surface-2);
 }
 
 /* ============================================

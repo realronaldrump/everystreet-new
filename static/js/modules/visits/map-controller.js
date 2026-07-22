@@ -20,10 +20,13 @@ class VisitsMapController {
     this.placeFeatures = new Map();
     this.activePopup = null;
     this.placeInteractionHandlers = null;
+    this.destroyed = false;
+    this.resolveInitialization = null;
   }
 
   initialize(theme) {
     return new Promise((resolve, reject) => {
+      this.resolveInitialization = resolve;
       try {
         const initialStyle = resolveMapStyle({ requestedType: theme || "dark", theme });
         this.mapStyle = initialStyle.styleType;
@@ -44,6 +47,11 @@ class VisitsMapController {
         );
 
         this.map.on("load", () => {
+          this.resolveInitialization = null;
+          if (this.destroyed || !this.map) {
+            resolve();
+            return;
+          }
           this._addPlacesSource();
           this._addPlacesLayers();
           this._bindPlaceInteractions();
@@ -56,6 +64,9 @@ class VisitsMapController {
           resolve();
         });
       } catch (error) {
+        this.resolveInitialization = null;
+        this.map?.remove();
+        this.map = null;
         reject(error);
       }
     });
@@ -101,39 +112,6 @@ class VisitsMapController {
     this._refreshPlacesSource();
   }
 
-  previewSuggestion(suggestion) {
-    if (!this.map || !suggestion?.boundary) {
-      return;
-    }
-
-    if (this.map.getLayer("suggestion-preview-fill")) {
-      this.map.removeLayer("suggestion-preview-fill");
-    }
-    if (this.map.getSource("suggestion-preview")) {
-      this.map.removeSource("suggestion-preview");
-    }
-
-    this.map.addSource("suggestion-preview", {
-      type: "geojson",
-      data: suggestion.boundary,
-    });
-
-    this.map.addLayer({
-      id: "suggestion-preview-fill",
-      type: "fill",
-      source: "suggestion-preview",
-      paint: {
-        "fill-color": "#d4a24a",
-        "fill-opacity": 0.25,
-      },
-    });
-
-    this.geometryUtils.fitMapToGeometry(this.map, suggestion.boundary, {
-      padding: 50,
-      duration: 1000,
-    });
-  }
-
   animateToPlace(place) {
     if (!place?.geometry || !this.map) {
       return;
@@ -158,20 +136,6 @@ class VisitsMapController {
     });
   }
 
-  toggleCustomPlacesVisibility(isVisible) {
-    if (!this.map) {
-      return;
-    }
-    const visibility = isVisible ? "visible" : "none";
-    ["custom-places-fill", "custom-places-outline", "custom-places-highlight"].forEach(
-      (layerId) => {
-        if (this.map.getLayer(layerId)) {
-          this.map.setLayoutProperty(layerId, "visibility", visibility);
-        }
-      }
-    );
-  }
-
   toggleMapStyle() {
     const nextStyleType = this.mapStyle === "satellite" ? "dark" : "satellite";
     const { styleType, styleUrl } = resolveMapStyle({ requestedType: nextStyleType });
@@ -179,6 +143,9 @@ class VisitsMapController {
 
     this.map.setStyle(styleUrl);
     this.map.once("style.load", () => {
+      if (!this.map) {
+        return;
+      }
       this._addPlacesSource();
       this._addPlacesLayers();
       this._refreshPlacesSource();
@@ -200,6 +167,9 @@ class VisitsMapController {
 
     this.map?.setStyle(styleUrl);
     this.map?.once("style.load", () => {
+      if (!this.map) {
+        return;
+      }
       if (center) {
         this.map.jumpTo({ center, zoom, bearing, pitch });
       }
@@ -267,6 +237,19 @@ class VisitsMapController {
   closePopup() {
     this.activePopup?.remove?.();
     this.activePopup = null;
+  }
+
+  destroy() {
+    this.destroyed = true;
+    this.resolveInitialization?.();
+    this.resolveInitialization = null;
+    this.closePopup();
+    this.map?.remove();
+    this.map = null;
+    this.placeFeatures.clear();
+    this.customPlacesData.features = [];
+    this.onPlaceClicked = null;
+    this.placeInteractionHandlers = null;
   }
 
   static _resolvePlaceId(place) {

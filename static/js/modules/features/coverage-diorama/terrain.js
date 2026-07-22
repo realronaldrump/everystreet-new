@@ -6,7 +6,7 @@ export function decodeTerrainRgb(red, green, blue) {
   return -10_000 + (red * 256 * 256 + green * 256 + blue) * 0.1;
 }
 
-export function padBounds(bounds, ratio = 0.05) {
+function padBounds(bounds, ratio = 0.05) {
   assertBounds(bounds);
   const [minLon, minLat, maxLon, maxLat] = bounds.map(Number);
   const lonPad = Math.max((maxLon - minLon) * ratio, 0.0001);
@@ -14,7 +14,7 @@ export function padBounds(bounds, ratio = 0.05) {
   return [minLon - lonPad, minLat - latPad, maxLon + lonPad, maxLat + latPad];
 }
 
-export function lonLatToTileFraction(lon, lat, zoom) {
+function lonLatToTileFraction(lon, lat, zoom) {
   const scale = 2 ** zoom;
   const safeLat = Math.max(-MAX_MERCATOR_LAT, Math.min(MAX_MERCATOR_LAT, lat));
   const latRad = (safeLat * Math.PI) / 180;
@@ -59,7 +59,7 @@ export function selectTerrainTiles(
   throw new Error("Coverage area is too large for the 3D terrain tile budget.");
 }
 
-export function mercatorMeters(lon, lat) {
+function mercatorMeters(lon, lat) {
   const safeLat = Math.max(-MAX_MERCATOR_LAT, Math.min(MAX_MERCATOR_LAT, lat));
   const lonRad = (lon * Math.PI) / 180;
   const latRad = (safeLat * Math.PI) / 180;
@@ -85,7 +85,7 @@ export function projectLonLat(lon, lat, projection) {
   };
 }
 
-export function bilinearSampleGrid(values, width, height, x, y) {
+function bilinearSampleGrid(values, width, height, x, y) {
   const safeX = Math.max(0, Math.min(width - 1, x));
   const safeY = Math.max(0, Math.min(height - 1, y));
   const x0 = Math.floor(safeX);
@@ -99,7 +99,7 @@ export function bilinearSampleGrid(values, width, height, x, y) {
   return top * (1 - ty) + bottom * ty;
 }
 
-export function sampleTerrainMosaic(mosaic, lon, lat) {
+function sampleTerrainMosaic(mosaic, lon, lat) {
   const tilePoint = lonLatToTileFraction(lon, lat, mosaic.zoom);
   const pixelX = (tilePoint.x - mosaic.minX) * TILE_SIZE - 0.5;
   const pixelY = (tilePoint.y - mosaic.minY) * TILE_SIZE - 0.5;
@@ -248,7 +248,7 @@ export function extractLineParts(geometry) {
   return [];
 }
 
-export function densifyLinePart(part, projection, maxDistanceM = 100) {
+function densifyLinePart(part, projection, maxDistanceM = 100) {
   if (!Array.isArray(part) || part.length < 2) {
     return [];
   }

@@ -103,7 +103,7 @@ One blessed implementation each; page CSS may *compose* them, never re-invent th
 |---|---|---|
 | **Masthead** | existing `.page-masthead` (eyebrow / Chivo title / factual sub) — but eyebrow color changes `var(--primary)` → `var(--text-tertiary)` (masthead.css:27). Green eyebrows were 40% of the "green everywhere" feel. | bespoke headers on 10 pages |
 | **Figure band** | existing `.figure-band` hairline numerals | boxed stat chips (regional explorer, server-logs stat cards) |
-| **Ledger row** | dotted-leader / hairline row list (extract from home Index into `components/ledger.css`) | ad-hoc lists |
+| **Measured data** | existing `.figure-*` and `.data-num` vocabulary for hairline rows and tabular figures | ad-hoc statistic treatments |
 | **Card** | `.card` stays; new modifier `.card--object` for true objects (vehicle, area, place). Beige header bands (`gas`, wizard) are retired — card titles sit on the card surface with a hairline below. | 3 divergent card styles |
 | **Buttons** | `.btn-primary` re-skinned to **ink fill** (`--action` tokens above). Rules: ≤1 filled button per view; repeated per-card CTAs (coverage "Explore Map" ×10) become `.btn-outline`; pastel `btn-success/info/warning` rows in server-logs become `.btn-ghost` with leading icon. Danger keeps brick tint for destructive. | green fills everywhere; pastel Bootstrap rows |
 | **Tabs** | one system: text + 2px underline, ink text, `aria-selected` underline in ink (map sidebar TRIPS/COVERAGE/PLACES/FLOW is the reference). Kill pill tabs (logs, regional explorer). | 3 tab systems |

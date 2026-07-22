@@ -23,34 +23,9 @@
 
 .card[data-ripple]:hover,
 a.card:hover,
-button.card:hover,
-.widget.is-interactive:hover {
+button.card:hover {
   box-shadow: var(--shadow-xs);
   border-color: var(--border-color-light);
-}
-
-.card[data-accent="primary"] {
-  --card-accent: var(--primary);
-}
-
-.card[data-accent="success"] {
-  --card-accent: var(--success);
-}
-
-.card[data-accent="warning"] {
-  --card-accent: var(--warning);
-}
-
-.card[data-accent="danger"] {
-  --card-accent: var(--danger);
-}
-
-.card[data-accent="info"] {
-  --card-accent: var(--info);
-}
-
-.card[data-accent="accent"] {
-  --card-accent: var(--primary);
 }
 
 .card[data-ripple] {
@@ -69,12 +44,6 @@ button.card:hover,
 
 .card-body {
   padding: var(--card-padding-lg);
-}
-
-.card-footer {
-  background-color: transparent;
-  padding: var(--card-padding) var(--card-padding-lg);
-  border-top: 1px solid var(--divider-color);
 }
 
 .card-title {
@@ -96,11 +65,6 @@ button.card:hover,
   border-bottom-color: var(--border-color);
 }
 
-.card--object .card-footer {
-  background: transparent;
-  border-top-color: var(--border-color);
-}
-
 /* === Widget — card variant with built-in padding and flex layout === */
 .widget {
   border-radius: var(--radius-xl);
@@ -108,42 +72,6 @@ button.card:hover,
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  --widget-accent: var(--primary);
-  --widget-accent-rgb: var(--primary-rgb);
-}
-
-.widget.is-interactive:hover {
-  box-shadow: var(--shadow-md);
-}
-
-.widget[data-accent="primary"] {
-  --widget-accent: var(--primary);
-  --widget-accent-rgb: var(--primary-rgb);
-}
-
-.widget[data-accent="success"] {
-  --widget-accent: var(--success);
-  --widget-accent-rgb: var(--success-rgb);
-}
-
-.widget[data-accent="warning"] {
-  --widget-accent: var(--warning);
-  --widget-accent-rgb: var(--warning-rgb);
-}
-
-.widget[data-accent="danger"] {
-  --widget-accent: var(--danger);
-  --widget-accent-rgb: var(--danger-rgb);
-}
-
-.widget[data-accent="info"] {
-  --widget-accent: var(--info);
-  --widget-accent-rgb: var(--info-rgb);
-}
-
-.widget[data-accent="accent"] {
-  --widget-accent: var(--primary);
-  --widget-accent-rgb: var(--primary-rgb);
 }
 
 .widget-header {
@@ -196,26 +124,4 @@ button.card:hover,
 
 .widget.is-muted {
   background: var(--surface-2);
-}
-
-.stagger-item {
-  opacity: 0;
-  animation: fadeInUp 0.45s ease forwards;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .stagger-item {
-    animation: none;
-    opacity: 1;
-  }
-}
-
-.card.bg-darker {
-  background-color: var(--surface-0);
-  border: 1px solid var(--surface-2);
-}
-
-html.light-mode body .card.bg-darker {
-  background-color: var(--surface-3);
-  border: 1px solid var(--surface-4);
 }

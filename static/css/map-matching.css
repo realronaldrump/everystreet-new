@@ -1446,11 +1446,6 @@
   color: var(--text-primary);
 }
 
-.mm-results-tab.is-active .mm-tab-count {
-  background: var(--surface-2);
-  color: var(--text-primary);
-}
-
 /* === Reduced motion === */
 @media (prefers-reduced-motion: reduce) {
   .mm-phase,
@@ -1656,29 +1651,6 @@
   color: var(--primary);
   border-bottom-color: var(--primary);
   font-weight: var(--font-weight-semibold);
-}
-
-.mm-tab-count {
-  min-width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-full);
-  background: rgb(var(--border-rgb) / 15%);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-}
-
-.mm-results-tab.is-active .mm-tab-count {
-  background: rgb(var(--primary-rgb) / 15%);
-  color: var(--primary);
-}
-
-.mm-tab-count-warning {
-  background: rgb(var(--warning-rgb) / 15%);
-  color: var(--warning);
 }
 
 /* === Results Header Variants === */

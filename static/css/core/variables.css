@@ -47,10 +47,8 @@
   --cat-sky-rgb: 114 166 196;
   --cat-amber: #c49050;
   --cat-amber-rgb: 196 144 80;
-  --amber-rgb: var(--cat-amber-rgb);
   --cat-coral: #c47050;
   --cat-coral-rgb: 196 112 80;
-  --cat-red: var(--cat-rose);
   --cat-red-rgb: var(--cat-rose-rgb);
   --cat-purple: #8a7ab0;
   --cat-purple-rgb: 138 122 176;
@@ -61,11 +59,8 @@
   --primary: var(--cat-cobalt);
   --primary-light: #8aa7df;
   --primary-dark: #526fae;
-  --primary-hover: var(--primary-dark);
   --primary-rgb: var(--cat-cobalt-rgb);
   --secondary: var(--cat-slate);
-  --secondary-light: #8c949e;
-  --secondary-dark: #5a616a;
   --secondary-rgb: var(--cat-slate-rgb);
   --success: var(--primary);
   --success-light: var(--primary-light);
@@ -98,15 +93,10 @@
   /* Map visual language: cool individual routes, warm frequency heat. */
   --map-trip-path: #4ca3d2;
   --map-trip-path-rgb: 76 163 210;
-  --map-trip-path-selected: #dcefff;
 
   /* Flat colors - no gradients */
-  --primary-gradient: var(--primary);
-  --secondary-gradient: var(--secondary);
   --success-gradient: var(--success);
-  --warning-gradient: var(--warning);
   --danger-gradient: var(--danger);
-  --info-gradient: var(--info);
 
   /* Dark mode surfaces */
   --surface-deep: #050507;
@@ -122,9 +112,7 @@
   --text-secondary: rgb(210 206 198 / 82%);
   --text-tertiary: rgb(160 156 148 / 80%);
   --text-on-primary: #050507;
-  --text-on-secondary: #0c0c0f;
   --text-on-dark: #050507;
-  --text-on-light: #1c1a18;
   --border-color: rgb(150 142 132 / 20%);
   --border-color-light: rgb(150 142 132 / 34%);
   --divider-color: rgb(150 142 132 / 10%);
@@ -148,14 +136,11 @@
   --font-size-2xl: clamp(1.5rem, 1.4rem + 0.5vw, 2.25rem);
   --font-size-3xl: clamp(1.8rem, 1.55rem + 1vw, 2.35rem);
   --font-size-4xl: clamp(2rem, 1.8rem + 1vw, 3.5rem);
-  --font-size-display: clamp(2.2rem, 2rem + 1.2vw, 3.6rem);
-  --font-weight-light: 300;
   --font-weight-regular: 400;
   --font-weight-normal: var(--font-weight-regular);
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
-  --font-weight-extrabold: 800;
   --line-height-tight: 1.15;
   --line-height-normal: 1.5;
   --line-height-relaxed: 1.7;
@@ -188,8 +173,6 @@
   --header-bar-height: 64px;
   --header-height: calc(var(--header-bar-height) + env(safe-area-inset-top, 0px));
   --content-max-width: 1440px;
-  --sidebar-width: 280px;
-  --panel-width: 360px;
 
   /* Effects */
   --transition-fast: 180ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -200,32 +183,11 @@
   --shadow-lg: 0 4px 10px rgb(0 0 0 / 24%), 0 14px 32px rgb(0 0 0 / 32%);
   --shadow-xl: 0 8px 16px rgb(0 0 0 / 26%), 0 24px 48px rgb(0 0 0 / 38%);
   --shadow-inset: inset 0 1px 2px rgb(0 0 0 / 16%);
-  --shadow-elevation-1: 0 1px 2px rgb(0 0 0 / 22%), 0 2px 6px rgb(0 0 0 / 20%);
   --shadow-elevation-2: 0 2px 6px rgb(0 0 0 / 22%), 0 8px 18px rgb(0 0 0 / 28%);
-  --shadow-elevation-3: 0 4px 10px rgb(0 0 0 / 24%), 0 14px 30px rgb(0 0 0 / 32%);
-  --shadow-elevation-4: 0 8px 16px rgb(0 0 0 / 26%), 0 22px 44px rgb(0 0 0 / 36%);
   --shadow-elevation-5: 0 12px 24px rgb(0 0 0 / 28%), 0 30px 56px rgb(0 0 0 / 40%);
 
-  /* Structural emphasis */
-  --gradient-accent-bar: var(--action);
-
-  /* Interactive emphasis variables are transparent by default so legacy
-     comma-separated box-shadow lists remain valid without decorative bloom. */
-  --glow-primary: 0 0 0 0 transparent;
-  --glow-primary-intense: 0 0 0 0 transparent;
-  --glow-success: 0 0 0 0 transparent;
-  --glow-success-intense: 0 0 0 0 transparent;
-  --glow-warning: 0 0 0 0 transparent;
-  --glow-danger: 0 0 0 0 transparent;
-
   /* Flat surfaces */
-  --gradient-surface-glow: none;
-  --gradient-ambient: none;
   --app-bg: none;
-
-  /* Interactive lift shadows */
-  --shadow-lift: 0 8px 20px rgb(0 0 0 / 24%), 0 2px 6px rgb(0 0 0 / 18%);
-  --shadow-lift-intense: 0 14px 30px rgb(0 0 0 / 28%), 0 4px 10px rgb(0 0 0 / 20%);
 
   /* Translucent surfaces */
   --blur-subtle: 8px;
@@ -235,7 +197,6 @@
   --glass-2: rgb(var(--surface-rgb) / 80%);
   --glass-3: rgb(var(--surface-rgb) / 90%);
   --glass-border: rgb(255 255 255 / 8%);
-  --glass-shadow: var(--shadow-sm);
 
   /* Extended Glass Palette */
   --glass-panel: rgb(var(--surface-rgb) / 72%);
@@ -251,7 +212,6 @@
 
   /* Semantic street colors */
   --color-undriven: var(--cat-coral);
-  --color-undriven-rgb: var(--cat-coral-rgb);
   --color-driven: var(--primary);
   --live: var(--primary);
 
@@ -286,7 +246,6 @@
   /* Z-Index */
   --z-base: 1;
   --z-dropdown: 1000;
-  --z-sticky: 1020;
   --z-fixed: 1030;
   --z-drawer: 1040;
   --z-modal-backdrop: 1050;
@@ -302,8 +261,6 @@
   --scrollbar-thumb-hover-color: rgb(var(--border-rgb) / 65%);
 
   /* Utility Aliases */
-  --text-color: var(--text-primary);
-  --primary-color: var(--primary);
   --font-mono: var(--font-family-mono);
   --border-hover: var(--border-color-light);
 
@@ -380,10 +337,7 @@ html.light-mode body {
   --shadow-md: 0 2px 6px rgb(56 48 30 / 8%), 0 6px 16px rgb(56 48 30 / 12%);
   --shadow-lg: 0 4px 10px rgb(56 48 30 / 10%), 0 14px 32px rgb(56 48 30 / 14%);
   --shadow-xl: 0 8px 16px rgb(56 48 30 / 12%), 0 24px 48px rgb(56 48 30 / 16%);
-  --shadow-elevation-1: 0 1px 2px rgb(56 48 30 / 8%), 0 2px 6px rgb(56 48 30 / 8%);
   --shadow-elevation-2: 0 2px 6px rgb(56 48 30 / 8%), 0 8px 18px rgb(56 48 30 / 12%);
-  --shadow-elevation-3: 0 4px 10px rgb(56 48 30 / 10%), 0 14px 30px rgb(56 48 30 / 14%);
-  --shadow-elevation-4: 0 8px 16px rgb(56 48 30 / 12%), 0 22px 44px rgb(56 48 30 / 16%);
   --shadow-elevation-5: 0 12px 24px rgb(56 48 30 / 14%), 0 30px 56px rgb(56 48 30 / 18%);
   --scrollbar-thumb-color: rgb(var(--border-rgb) / 28%);
   --scrollbar-track-color: rgb(var(--border-rgb) / 6%);
@@ -403,7 +357,6 @@ html.light-mode body {
   --toggle-knob: var(--surface-0);
   --map-trip-path: #287ba7;
   --map-trip-path-rgb: 40 123 167;
-  --map-trip-path-selected: #073a54;
 
   /* Light mode glass borders */
   --glass-border-subtle: rgb(var(--border-rgb) / 6%);

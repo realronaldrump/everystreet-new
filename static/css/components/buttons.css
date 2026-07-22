@@ -58,10 +58,6 @@
   transition: transform 0.1s ease;
 }
 
-.btn:active:not(:disabled, .disabled) {
-  transform: translateY(1px);
-}
-
 .btn i {
   font-size: 1.1em; /* Slightly larger icons in buttons */
 }

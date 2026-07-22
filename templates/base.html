@@ -391,19 +391,6 @@ Every Street
     <script src="{{ CDN.bootstrap_js }}" crossorigin="anonymous"></script>
 
     <script src="{{ CDN.dayjs }}"></script>
-    <script src="{{ CDN.dayjs_relativeTime }}"></script>
-    <script src="{{ CDN.dayjs_duration }}"></script>
-    <script src="{{ CDN.dayjs_weekOfYear }}"></script>
-    <script src="{{ CDN.dayjs_isoWeek }}"></script>
-    <script src="{{ CDN.dayjs_isBetween }}"></script>
-    <script>
-        // Initialize Day.js plugins
-        dayjs.extend(dayjs_plugin_relativeTime);
-        dayjs.extend(dayjs_plugin_duration);
-        dayjs.extend(dayjs_plugin_weekOfYear);
-        dayjs.extend(dayjs_plugin_isoWeek);
-        dayjs.extend(dayjs_plugin_isBetween);
-    </script>
     <script src="{{ CDN.flatpickr_js }}"></script>
     <script type="text/template" id="es-env-data">
         {
@@ -418,7 +405,6 @@ Every Street
                 "chartjs": {{ CDN.chartjs | tojson }},
                 "datatablesJs": {{ CDN.datatables_js | tojson }},
                 "deckGl": {{ CDN.deck_gl | tojson }},
-                "threeJs": {{ CDN.three_js | tojson }},
                 "jquery": {{ CDN.jquery | tojson }},
                 "mapboxDrawJs": {{ CDN.mapbox_draw_js | tojson }},
                 "mapboxGlJs": {{ CDN.mapbox_gl_js | tojson }},

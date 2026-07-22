@@ -151,4 +151,3 @@ const utils = {
 };
 
 export { utils };
-export default utils;

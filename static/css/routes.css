@@ -424,6 +424,8 @@
 
 /* Route card */
 .route-card {
+  display: grid;
+  grid-template-rows: auto auto auto;
   background: var(--surface-1);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-xl);
@@ -684,7 +686,7 @@
 
 .routes-modal-stats {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
 }
 
@@ -734,11 +736,11 @@
 
 .route-trip-row {
   display: grid;
-  gap: 0.1rem;
+  gap: var(--space-2);
   padding: 0.65rem 0.75rem;
-  border-radius: 12px;
+  border-radius: 0.75rem;
   border: 1px solid rgb(var(--border-rgb) / 18%);
-  background: rgb(var(--backdrop-rgb) / 12%);
+  background: rgb(var(--backdrop-rgb) / 14%);
   text-decoration: none;
   color: inherit;
 }
@@ -798,11 +800,6 @@ html[data-bs-theme="light"] .route-preview-svg path {
 
 .page-masthead .routes-build-card {
   width: 100%;
-}
-
-.route-card {
-  display: grid;
-  grid-template-rows: auto auto auto;
 }
 
 .endpoint-dot {
@@ -1397,10 +1394,6 @@ html[data-bs-theme="light"] .route-preview-svg path {
   display: none;
 }
 
-.routes-modal-stats {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .routes-modal-places {
   display: grid;
   gap: var(--space-2);
@@ -1442,15 +1435,6 @@ html[data-bs-theme="light"] .route-preview-svg path {
   padding: var(--space-3);
   color: var(--text-tertiary);
   text-align: center;
-}
-
-.route-trip-row {
-  display: grid;
-  gap: var(--space-2);
-  border: 1px solid rgb(var(--border-rgb) / 18%);
-  background: rgb(var(--backdrop-rgb) / 14%);
-  border-radius: 0.75rem;
-  padding: 0.65rem 0.75rem;
 }
 
 .route-trip-row-places {

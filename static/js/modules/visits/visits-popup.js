@@ -26,14 +26,6 @@ class VisitsPopup {
   }
 
   /**
-   * Set the data loader reference
-   * @param {Object} dataLoader - Data loader instance
-   */
-  setDataLoader(dataLoader) {
-    this.dataLoader = dataLoader;
-  }
-
-  /**
    * Show place statistics in a popup
    * @param {string} placeId - Place ID
    * @param {Object} place - Place data

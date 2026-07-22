@@ -34,14 +34,10 @@ body.live-navigation-active .main-content {
 .live-navigation {
   /* Map app CSS variables to nav-specific aliases */
   --nav-accent: var(--primary);
-  --nav-accent-light: var(--primary-light);
   --nav-accent-dark: var(--primary-dark);
-  --nav-accent-rgb: var(--primary-rgb);
   --nav-success: var(--success);
-  --nav-success-light: var(--success-light);
   --nav-warning: var(--warning);
   --nav-danger: var(--danger);
-  --nav-danger-light: var(--danger-light);
 
   /* Surfaces - dark mode defaults */
   --nav-surface: var(--surface-glass);
@@ -54,7 +50,6 @@ body.live-navigation-active .main-content {
   /* Effects from app system */
   --nav-shadow: var(--shadow-lg);
   --nav-shadow-xl: var(--shadow-xl);
-  --nav-glow: var(--glow-primary);
 
   /* Spacing and radius from app system */
   --nav-radius-lg: var(--radius-xl);
@@ -162,18 +157,15 @@ html.light-mode body .live-navigation {
   height: 8px;
   border-radius: 50%;
   background: var(--nav-warning);
-  box-shadow: var(--glow-warning);
   animation: pulse 1.8s ease-in-out infinite;
 }
 
 .nav-signal.good .nav-signal-dot {
   background: var(--nav-success);
-  box-shadow: var(--glow-success);
 }
 
 .nav-signal.poor .nav-signal-dot {
   background: var(--nav-danger);
-  box-shadow: var(--glow-danger);
 }
 
 .nav-controls {
@@ -204,7 +196,6 @@ html.light-mode body .live-navigation {
 .nav-control-btn.active {
   background: var(--nav-accent);
   color: var(--text-on-primary);
-  box-shadow: var(--nav-glow), var(--nav-shadow);
 }
 
 .nav-control-btn:hover {
@@ -407,7 +398,6 @@ html.light-mode body .live-navigation {
 
 .nav-primary-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: var(--nav-glow);
 }
 
 .nav-primary-btn:disabled {
@@ -1033,7 +1023,7 @@ html.light-mode body .live-navigation {
   border-radius: var(--nav-radius-lg);
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
-  box-shadow: var(--glow-success-intense), var(--nav-shadow-xl);
+  box-shadow: var(--nav-shadow-xl);
   z-index: 100;
   pointer-events: none;
   animation: segment-complete 0.6s ease-out forwards;

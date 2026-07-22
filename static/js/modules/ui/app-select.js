@@ -274,7 +274,7 @@ class AppSelect {
   }
 }
 
-export function enhanceSelect(select) {
+function enhanceSelect(select) {
   if (!(select instanceof HTMLSelectElement) || instances.has(select)) {
     return null;
   }
@@ -292,7 +292,7 @@ export function enhanceSelect(select) {
   return instance;
 }
 
-export function enhanceSelects(root = document) {
+function enhanceSelects(root = document) {
   if (!root?.querySelectorAll) {
     return [];
   }
@@ -333,11 +333,4 @@ export function initAppSelects() {
     });
   });
   documentObserver.observe(document.body, { childList: true, subtree: true });
-}
-
-export function resetAppSelectsForTests() {
-  initialized = false;
-  openInstance = null;
-  documentObserver?.disconnect();
-  documentObserver = null;
 }

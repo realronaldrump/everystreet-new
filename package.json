@@ -10,9 +10,11 @@
   "name": "everystreet-new",
   "version": "1.0.0",
   "type": "module",
-  "main": "index.js",
   "dependencies": {},
   "scripts": {
+    "lint": "npm run lint:js && npm run lint:css",
+    "lint:js": "eslint static/js",
+    "lint:css": "stylelint \"static/css/**/*.css\"",
     "test": "npm run test:js",
     "test:all": "npm run test:js && npm run test:js:guardrails && npm run test:py",
     "lint:dead-code": "python -m vulture",

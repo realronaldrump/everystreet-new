@@ -1211,7 +1211,7 @@ function renderGeoCoverageStatus({ active, job, defaultMode }) {
     String(job.mode || defaultMode || "incremental").toLowerCase() === "full"
       ? "All trips (full rebuild)"
       : "New/updated trips (incremental)";
-  const statusLabel = formatGeoCoverageJobStatus(job.status, active);
+  const jobStatusLabel = formatGeoCoverageJobStatus(job.status, active);
   const metrics = job.metrics || {};
   const result = job.result || {};
   const processedTrips = formatCoverageCount(
@@ -1242,7 +1242,7 @@ function renderGeoCoverageStatus({ active, job, defaultMode }) {
         <span class="geo-coverage-status-percent">${Math.round(progress)}%</span>
       </div>
       <div class="geo-coverage-status-meta">
-        <span class="geo-coverage-status-chip">${escapeHtml(statusLabel)}</span>
+        <span class="geo-coverage-status-chip">${escapeHtml(jobStatusLabel)}</span>
         <span class="geo-coverage-status-chip">${escapeHtml(modeLabel)}</span>
       </div>
       <div class="geo-coverage-status-message">${escapeHtml(

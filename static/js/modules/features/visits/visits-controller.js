@@ -70,6 +70,7 @@ class VisitsPageController {
     this.suggestionPageSize = 6;
     this.hasProcessedPlaceDeepLink = false;
     this.activePlaceId = "";
+    this.destroyed = false;
     this.listenerAbortController = new AbortController();
     this.modalWatchdogObserver = null;
     this.visitsModalIds = ["place-detail-modal", "edit-place-modal", "view-trip-modal"];
@@ -81,19 +82,24 @@ class VisitsPageController {
 
     // DOM Elements
     this.elements = {};
-
-    this.init();
   }
 
-  async init() {
+  async initialize() {
     this.cacheElements();
     this.setupEventListeners();
 
-    // Initialize the existing VisitsManager for map functionality
-    this.visitsManager = new VisitsManager();
+    // Initialize the map Manager with the same data Interface used by this page.
+    this.visitsManager = new VisitsManager({
+      dataService: this.dataService,
+      onDataChanged: (data) => this.loadData(data),
+    });
 
-    // Load initial data
-    await this.loadData();
+    // Reuse the manager's initial place snapshot instead of fetching it twice.
+    const initialData = await this.visitsManager.initialize();
+    if (this.destroyed) {
+      return;
+    }
+    await this.loadData(initialData);
   }
 
   cacheElements() {
@@ -126,19 +132,11 @@ class VisitsPageController {
       discoveryMinVisits: document.getElementById("discovery-min-visits"),
 
       // Map section
-      drawingToast: document.getElementById("drawing-toast"),
-      savePlaceForm: document.getElementById("save-place-form"),
       placeNameInput: document.getElementById("place-name"),
 
       // Other stops
       otherStopsSection: document.getElementById("other-stops-section"),
       otherStopsList: document.getElementById("other-stops-list"),
-
-      // Trips section
-      tripsSection: document.getElementById("trips-section"),
-      selectedPlaceName: document.getElementById("selected-place-name"),
-      placeStatsSummary: document.getElementById("place-stats-summary"),
-      visitTimeline: document.getElementById("visit-timeline"),
 
       // FAB
       startDrawingFab: document.getElementById("start-drawing-fab"),
@@ -222,15 +220,6 @@ class VisitsPageController {
       "click",
       () => {
         this.setSuggestionPage(this.suggestionPage + 1);
-      },
-      { signal }
-    );
-
-    // Back button
-    document.getElementById("back-to-places-btn")?.addEventListener(
-      "click",
-      () => {
-        this.showPlacesSection();
       },
       { signal }
     );
@@ -557,17 +546,29 @@ class VisitsPageController {
     this._hideModalById("place-detail-modal");
     this._hideModalById("edit-place-modal");
     this.activePlaceId = "";
-    await this.loadData();
   }
 
-  async loadData() {
+  async loadData(initialData = null) {
+    if (this.destroyed) {
+      return;
+    }
+
     try {
-      // Load all data in parallel
-      const [places, allStats, monthStats] = await Promise.all([
-        this.fetchPlaces(),
-        this.fetchAllStats("all"),
-        this.fetchAllStats("month"),
-      ]);
+      const [places, allStats, monthStats] = initialData
+        ? await Promise.all([
+            initialData.places,
+            initialData.stats,
+            this.fetchAllStats("month"),
+          ])
+        : await Promise.all([
+            this.fetchPlaces(),
+            this.fetchAllStats("all"),
+            this.fetchAllStats("month"),
+          ]);
+
+      if (this.destroyed) {
+        return;
+      }
 
       this.places = places;
       this.placesStats = this.mergePlacesWithStats(places, allStats);
@@ -583,15 +584,23 @@ class VisitsPageController {
 
       // Load suggestions
       await this.loadSuggestions();
+      if (this.destroyed) {
+        return;
+      }
 
       // Load other stops
       await this.loadOtherStops();
+      if (this.destroyed) {
+        return;
+      }
 
       // Deep-link to a place once after initial data is available.
       this.processInitialPlaceDeepLink();
     } catch (error) {
-      console.error("Error loading visits data:", error);
-      this.showNotification("Error loading data. Please try refreshing.", "error");
+      if (!this.destroyed) {
+        console.error("Error loading visits data:", error);
+        this.showNotification("Error loading data. Please try refreshing.", "error");
+      }
     }
   }
 
@@ -1292,6 +1301,12 @@ class VisitsPageController {
   }
 
   destroy() {
+    if (this.destroyed) {
+      return;
+    }
+    this.destroyed = true;
+    this.visitsManager?.destroy?.();
+    this.visitsManager = null;
     this.clearPlacePreviewMaps();
     this.clearSuggestionPreviewMaps();
     this.listenerAbortController.abort();
@@ -1558,15 +1573,6 @@ class VisitsPageController {
       `Draw a boundary for "${customName}", then save it as a place.`,
       "info"
     );
-  }
-
-  showPlacesSection() {
-    this.elements.tripsSection.style.display = "none";
-    document.querySelectorAll(".visits-section").forEach((s) => {
-      if (s.id !== "trips-section") {
-        s.style.display = "block";
-      }
-    });
   }
 
   showNotification(message, type = "info") {

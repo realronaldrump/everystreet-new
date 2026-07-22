@@ -17,7 +17,6 @@
   height: calc(100dvh - var(--header-height));
 
   /* Set by JS based on the mobile bottom nav so fixed UI doesn't get covered. */
-  --bottom-nav-height: 0px;
   --bottom-nav-offset: 0px;
 
   background: var(--surface-0);
@@ -33,7 +32,6 @@
 /* Phone-sized viewports typically show the fixed bottom nav. */
 @media (width <= 768px) {
   .coverage-route-planner {
-    --bottom-nav-height: calc(72px + env(safe-area-inset-bottom, 0px));
     --bottom-nav-offset: 72px;
   }
 }
@@ -138,7 +136,7 @@
 
 .coverage-route-planner .control-panel {
   background: var(--surface-0);
-  border-right: 1px solid var(--divider-color);
+  border-right: 1px solid var(--warning);
   display: flex;
   flex-direction: column;
   overflow: hidden auto;
@@ -233,8 +231,8 @@
   gap: var(--space-3);
   padding: var(--space-4) var(--space-4) var(--space-3);
   flex-shrink: 0;
-  border-bottom: 1px solid var(--divider-color);
-  background: var(--surface-0);
+  border-bottom: 1px solid var(--border-color);
+  background: transparent;
 }
 
 .coverage-route-planner .sidebar-identity {
@@ -245,29 +243,16 @@
   flex: 1;
 }
 
-.coverage-route-planner .sidebar-identity-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: rgb(var(--primary-rgb) / 12%);
-  border: 1px solid rgb(var(--primary-rgb) / 20%);
-  border-radius: var(--radius-md);
-  color: var(--primary);
-  font-size: var(--font-size-sm);
-  flex-shrink: 0;
-  transition: all 0.3s ease;
-}
-
 .coverage-route-planner .sidebar-identity-text {
   min-width: 0;
 }
 
 .coverage-route-planner .sidebar-title {
   margin: 0;
-  font-size: var(--font-size-md);
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-lg);
   font-weight: 700;
+  letter-spacing: -0.015em;
   color: var(--text-primary);
   line-height: 1.25;
   white-space: nowrap;
@@ -291,10 +276,6 @@
     padding: var(--space-3) var(--space-3) var(--space-2);
   }
 
-  .coverage-route-planner .sidebar-identity-icon {
-    display: none;
-  }
-
   .coverage-route-planner .sidebar-title {
     font-size: var(--font-size-sm);
   }
@@ -308,12 +289,13 @@
   background: var(--surface-1);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
+  box-shadow: none;
   overflow: hidden;
   transition: box-shadow 0.2s ease;
 }
 
 .coverage-route-planner .widget:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
 }
 
 /* The custom area select menu extends beyond the compact selector card. */
@@ -376,8 +358,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--touch-target);
+  height: var(--touch-target);
   padding: 0;
   background: transparent;
   border: none;
@@ -534,9 +516,11 @@
   align-items: flex-start;
   gap: var(--space-4);
   padding: var(--space-3);
-  background: var(--surface-2);
+  background: transparent;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-right: 0;
+  border-left: 0;
+  border-radius: 0;
 }
 
 /* Donut chart */
@@ -554,7 +538,7 @@
 }
 
 .coverage-route-planner .donut-track {
-  stroke: var(--surface-4);
+  stroke: var(--border-color);
 }
 
 .coverage-route-planner .donut-driven {
@@ -1122,12 +1106,12 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-5) var(--space-4);
+  min-height: 10rem;
+  padding: var(--space-8) var(--space-4);
+  border: 1px dashed var(--border-color-light);
+  border-radius: var(--radius-lg);
+  background: transparent;
   color: var(--text-tertiary);
-}
-
-.coverage-route-planner .empty-state-art {
-  opacity: 0.6;
 }
 
 .coverage-route-planner .empty-state i {
@@ -1139,15 +1123,6 @@
   font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--text-secondary);
-  margin: 0;
-}
-
-.coverage-route-planner .empty-state-hint {
-  font-size: var(--font-size-sm);
-  color: var(--text-tertiary);
-  text-align: center;
-  line-height: 1.5;
-  max-width: 200px;
   margin: 0;
 }
 
@@ -1544,6 +1519,9 @@
 /* Route progress container */
 .coverage-route-planner #route-progress-container {
   display: none;
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-color);
 }
 
 .coverage-route-planner #route-progress-container.active {
@@ -2105,20 +2083,6 @@
    Layer Controls
    ========================================================================== */
 
-.coverage-route-planner .layer-controls {
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border-color);
-}
-
-.coverage-route-planner .layer-controls-title {
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-secondary);
-  margin-bottom: var(--space-3);
-}
-
 .coverage-route-planner .layer-list {
   display: flex;
   flex-direction: column;
@@ -2201,12 +2165,6 @@
   background: var(--action);
   border: none;
   box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
-}
-
-.coverage-route-planner #route-progress-container {
-  margin-top: var(--space-4);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border-color);
 }
 
 .coverage-route-planner .route-details {
@@ -2849,23 +2807,8 @@
    Field Atlas component alignment
    ========================================================================== */
 
-.coverage-route-planner .control-panel {
-  border-right-color: var(--warning);
-}
-
-.coverage-route-planner .sidebar-header {
-  background: transparent;
-  border-bottom: 1px solid var(--border-color);
-}
-
 .coverage-route-planner .sidebar-eyebrow {
   margin-bottom: var(--space-1);
-}
-
-.coverage-route-planner .sidebar-title {
-  font-family: var(--font-family-display);
-  font-size: var(--font-size-lg);
-  letter-spacing: -0.015em;
 }
 
 .coverage-route-planner .progress-steps.atlas-stepper {
@@ -2919,15 +2862,6 @@
   display: none;
 }
 
-.coverage-route-planner .widget {
-  border-radius: var(--radius-lg);
-  box-shadow: none;
-}
-
-.coverage-route-planner .widget:hover {
-  box-shadow: none;
-}
-
 .coverage-route-planner .widget-header,
 .coverage-route-planner .widget-header.collapsible,
 .coverage-route-planner .widget-header.collapsible:hover {
@@ -2937,38 +2871,9 @@
   background: transparent;
 }
 
-.coverage-route-planner .btn-collapse {
-  width: var(--touch-target);
-  height: var(--touch-target);
-  background: transparent;
-}
-
-.coverage-route-planner .area-context-body {
-  background: transparent;
-  border-right: 0;
-  border-left: 0;
-  border-radius: 0;
-}
-
-.coverage-route-planner .donut-track {
-  stroke: var(--border-color);
-}
-
-.coverage-route-planner .empty-state {
-  min-height: 10rem;
-  padding: var(--space-8) var(--space-4);
-  border: 1px dashed var(--border-color-light);
-  border-radius: var(--radius-lg);
-  background: transparent;
-}
-
 .coverage-route-planner .stat-card .stat-icon,
 .coverage-route-planner .stat-card[data-stat="deadhead"] .stat-icon,
 .coverage-route-planner .stat-card[data-stat="efficiency"] .stat-icon {
   background: transparent;
   color: var(--text-tertiary);
-}
-
-.coverage-route-planner .hud-activity-item::before {
-  background: var(--warning);
 }

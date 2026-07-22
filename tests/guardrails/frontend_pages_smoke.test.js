@@ -73,7 +73,7 @@ test("global app bootstrap stays light and route libraries load lazily", () => {
   assert.doesNotMatch(baseTemplate, /<script src="{{ CDN\.datatables_js }}"/);
   [
     /"\/routes\/\*"[\s\S]*\["map",\s*"chart"\]/,
-    /"\/visits"[\s\S]*\["map",\s*"mapDraw",\s*"chart",\s*"datatables"\]/,
+    /"\/visits"[\s\S]*\["map",\s*"mapDraw",\s*"datatables"\]/,
   ].forEach((pattern) => assert.match(routeLoaderSource, pattern));
 });
 

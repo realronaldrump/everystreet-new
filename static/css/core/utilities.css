@@ -11,12 +11,6 @@
   background-color: var(--surface-2) !important;
 }
 
-.text-primary-subtle,
-.bg-primary-subtle {
-  background-color: rgb(var(--primary-rgb) / 14%) !important;
-  color: var(--primary) !important;
-}
-
 .text-secondary {
   color: var(--text-secondary);
 } /* Note: this is different from --secondary color */
@@ -36,10 +30,6 @@
 .text-info {
   color: var(--info);
 }
-
-.text-light {
-  color: var(--text-tertiary);
-} /* For lighter text on dark backgrounds */
 
 .badge {
   border-radius: var(--radius-pill);
@@ -68,14 +58,12 @@
   color: var(--success) !important;
 }
 
-.badge--warning,
 .badge.bg-warning {
   background: rgb(var(--warning-rgb) / 16%) !important;
   border: 1px solid rgb(var(--warning-rgb) / 40%);
   color: var(--warning) !important;
 }
 
-.badge--danger,
 .badge.bg-danger {
   background: rgb(var(--danger-rgb) / 16%) !important;
   border: 1px solid rgb(var(--danger-rgb) / 40%);
@@ -166,36 +154,6 @@ body[data-viewer-mode="true"] .owner-only {
 
 /* High contrast mode support - merged into single block below */
 
-/* Accent color utilities */
-.text-accent {
-  color: var(--primary);
-}
-
-.bg-accent {
-  background-color: var(--action);
-  color: var(--text-on-action);
-}
-
-/* Glassmorphism utility classes */
-
-/* Glow effects */
-
-/* Left border accent utilities */
-
-/* Monospace text for data display */
-
-.text-mono-lg {
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-lg);
-}
-
-.text-mono-xl {
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-xl);
-}
-
-/* Display font for headlines */
-
 /* Status indicator dots */
 .status-dot {
   display: inline-block;
@@ -207,7 +165,6 @@ body[data-viewer-mode="true"] .owner-only {
 
 .status-dot.active {
   background: var(--live);
-  box-shadow: var(--glow-success);
 }
 
 .status-dot.warning {

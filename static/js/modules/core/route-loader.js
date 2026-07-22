@@ -9,15 +9,11 @@ async function importOnce([pattern, specifier, libraries = []]) {
   }
   loadedRoutes.add(key);
   try {
-    try {
-      await ensureLibraries(libraries);
-    } catch (error) {
-      console.error(`Failed to load route libraries: ${key}`, error);
-    }
+    await ensureLibraries(libraries);
     await import(specifier);
   } catch (error) {
     loadedRoutes.delete(key);
-    console.error(`Failed to import route module: ${key}`, error);
+    console.error(`Failed to load route: ${key}`, error);
   }
 }
 
@@ -37,7 +33,7 @@ const routes = [
   ["/trips/*", "../../pages/trips.js", ["map"]],
   ["/routes/*", "../../pages/routes.js", ["map", "chart"]],
   ["/insights", "../../pages/insights.js", ["chart", "deck", "plot"]],
-  ["/visits", "../../pages/visits.js", ["map", "mapDraw", "chart", "datatables"]],
+  ["/visits", "../../pages/visits.js", ["map", "mapDraw", "datatables"]],
   ["/control-center", "../../pages/control-center.js"],
   ["/vehicles", "../../pages/vehicles.js"],
   ["/gas-tracking", "../../pages/gas-tracking.js", ["map"]],

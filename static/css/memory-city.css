@@ -73,10 +73,7 @@
 
 .memory-city-topbar {
   position: absolute;
-  top: var(--space-5);
-  left: var(--space-5);
-  right: var(--space-5);
-  bottom: calc(var(--mc-dock-height) + var(--space-6));
+  inset: var(--space-5) var(--space-5) calc(var(--mc-dock-height) + var(--space-6)) var(--space-5);
   z-index: 3;
   display: flex;
   align-items: flex-start;
@@ -339,7 +336,7 @@
 
 .memory-city-search-input {
   width: 100%;
-  padding: var(--space-2) var(--space-8) var(--space-2) var(--space-7);
+  padding: var(--space-2) var(--space-8);
   min-height: 38px;
   background: var(--glass-panel);
   backdrop-filter: blur(var(--blur-strong));
@@ -1143,8 +1140,7 @@
 
   .memory-city-side {
     width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
+    flex-flow: row wrap;
   }
 
   .memory-city-area-picker {

@@ -6,7 +6,6 @@ function initBottomNavInsets({ signal, onCleanup }) {
 
   const bottomNav = document.getElementById("bottom-nav");
   if (!bottomNav) {
-    root.style.setProperty("--bottom-nav-height", "0px");
     root.style.setProperty("--bottom-nav-offset", "0px");
     return;
   }
@@ -20,7 +19,6 @@ function initBottomNavInsets({ signal, onCleanup }) {
     const isHidden = bottomNav.classList.contains("hidden");
 
     if (!isDisplayed || isHidden) {
-      root.style.setProperty("--bottom-nav-height", "0px");
       root.style.setProperty("--bottom-nav-offset", "0px");
       return;
     }
@@ -31,7 +29,6 @@ function initBottomNavInsets({ signal, onCleanup }) {
     const safeArea = Math.max(0, paddingBottom - paddingTop);
     const offset = Math.max(0, navHeight - safeArea);
 
-    root.style.setProperty("--bottom-nav-height", `${navHeight}px`);
     root.style.setProperty("--bottom-nav-offset", `${Math.round(offset)}px`);
   };
 

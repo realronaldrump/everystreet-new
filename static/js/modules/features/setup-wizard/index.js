@@ -170,22 +170,6 @@ function bindEvents(signal) {
     eventOptions
   );
 
-  document.querySelectorAll(".setup-step-button").forEach((button) => {
-    button.addEventListener(
-      "click",
-      () => {
-        const target = Number(button.dataset.stepTarget || 0);
-        if (Number.isNaN(target)) {
-          return;
-        }
-        if (target <= currentStep) {
-          goToStep(target);
-        }
-      },
-      eventOptions
-    );
-  });
-
   document.querySelectorAll(".setup-step-button-back").forEach((button) => {
     button.addEventListener(
       "click",
@@ -376,12 +360,6 @@ function updateStepState() {
     currentStep = 1;
   }
 
-  updateStepList({
-    providerComplete,
-    credentialsComplete,
-    coverageComplete,
-    coverageRequired,
-  });
   updateProgressBar({
     providerComplete,
     credentialsComplete,
@@ -398,28 +376,6 @@ function updateStepState() {
   }
 
   goToStep(currentStep, { force: true });
-}
-
-function updateStepList({
-  providerComplete,
-  credentialsComplete,
-  coverageComplete,
-  coverageRequired,
-}) {
-  const stepItems = document.querySelectorAll(".setup-step-item");
-  stepItems.forEach((item) => {
-    const step = Number(item.dataset.step || 0);
-    if (step === 0) {
-      item.classList.toggle("is-complete", providerComplete);
-    }
-    if (step === 1) {
-      item.classList.toggle("is-complete", credentialsComplete);
-    }
-    if (step === 2) {
-      item.classList.toggle("is-complete", coverageRequired && coverageComplete);
-    }
-    item.classList.toggle("is-active", step === currentStep);
-  });
 }
 
 function updateProgressBar({
@@ -467,14 +423,7 @@ function goToStep(stepIndex, { force = false } = {}) {
   });
 
   const completion = getStepCompletion(provider);
-  updateStepList({
-    ...completion,
-    coverageComplete: completion.coverageComplete,
-  });
-  updateProgressBar({
-    ...completion,
-    coverageComplete: completion.coverageComplete,
-  });
+  updateProgressBar(completion);
 
   if (currentStep === 2) {
     updateCoveragePhase();
@@ -508,7 +457,6 @@ function updateProviderUI() {
       googleForm.style.display = "";
     }
     document.getElementById("progress-step-coverage")?.classList.add("d-none");
-    document.getElementById("sidebar-step-coverage")?.classList.add("d-none");
     if (currentStep > 1) {
       goToStep(1, { force: true });
     }
@@ -520,7 +468,6 @@ function updateProviderUI() {
       googleForm.style.display = "none";
     }
     document.getElementById("progress-step-coverage")?.classList.remove("d-none");
-    document.getElementById("sidebar-step-coverage")?.classList.remove("d-none");
   }
 }
 

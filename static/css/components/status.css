@@ -33,24 +33,3 @@
   margin: 0;
   color: var(--text-secondary);
 }
-
-.atlas-progress-track {
-  color: var(--border-color);
-  stroke: currentcolor;
-}
-
-.atlas-progress-fill {
-  color: var(--color-driven);
-  stroke: currentcolor;
-}
-
-.atlas-progress-fill.is-stalled,
-.atlas-progress-fill.is-warning {
-  color: var(--warning);
-}
-
-.atlas-progress-value {
-  color: var(--text-primary);
-  font-family: var(--font-family-mono);
-  font-variant-numeric: tabular-nums;
-}

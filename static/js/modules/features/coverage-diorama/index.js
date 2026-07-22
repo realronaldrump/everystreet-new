@@ -32,7 +32,7 @@ export default async function initCoverageDioramaPage(context = {}) {
   try {
     state.renderer = new CoverageDioramaRenderer(elements.canvas, {
       onHover: renderStreetDetail,
-      onSelectionChange: onSelectionChange,
+      onSelectionChange,
       onInteractionError: (error) => {
         console.error("Coverage Diorama render failed", error);
         setOverlay(

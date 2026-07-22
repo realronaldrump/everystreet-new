@@ -54,22 +54,9 @@ const createMapLoadingHelper = () => ({
   },
 });
 
-/**
- * Get saved street view mode states, migrating from old string format if needed
- */
 const getSavedStreetViewModes = () => {
-  let savedStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
-  if (typeof savedStates === "string") {
-    const oldMode = savedStates;
-    savedStates = {};
-    if (oldMode && oldMode !== "none") {
-      savedStates[oldMode] = true;
-    }
-    utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, savedStates);
-  } else if (!savedStates || typeof savedStates !== "object") {
-    savedStates = {};
-  }
-  return savedStates;
+  const savedStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
+  return savedStates && typeof savedStates === "object" ? savedStates : {};
 };
 
 /**

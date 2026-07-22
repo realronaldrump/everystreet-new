@@ -43,7 +43,7 @@ vehicle, place, or coverage area.
 | Part | Canonical API | Use |
 |---|---|---|
 | Masthead | `.page-masthead`, `.page-masthead-eyebrow`, `.page-masthead-title`, `.page-masthead-subtitle` | One editorial introduction per standard page. |
-| Ledger/data | `.ledger-list`, `.ledger-row`, `.figure-band`, `.figure-label`, `.figure-value`, `.data-num` | Dense facts, totals, and measured values. |
+| Measured data | `.figure-band`, `.figure-label`, `.figure-value`, `.data-num` | Dense facts, totals, and measured values. |
 | Object card | `.card.card--object` | A truly discrete object only; use hairline internals and no ornamental shadow. |
 | Tabs | `.atlas-tabs`, `.atlas-tab` | Route or panel switching with an ink underline. |
 | Segmented control | `.segmented-control` and its existing item classes | Compact view or mode switching. |

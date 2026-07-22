@@ -117,7 +117,7 @@ export function recencyBucketIndex(daysSinceDriven) {
 }
 
 /** Geometric midpoint along a polyline, so the marker sits on the road. */
-export function midpointOfPath(path) {
+function midpointOfPath(path) {
   if (!Array.isArray(path) || path.length < 2) {
     return null;
   }

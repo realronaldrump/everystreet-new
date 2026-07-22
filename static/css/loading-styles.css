@@ -218,36 +218,6 @@ html.light-mode body .loading-text,
   }
 }
 
-/* === Map-specific Loading (inline indicator) === */
-.map-loading {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  background: var(--surface-glass);
-  backdrop-filter: blur(var(--blur-subtle));
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgb(0 0 0 / 20%);
-  pointer-events: none;
-}
-
-.map-loading .spinner-border {
-  width: 1.5rem;
-  height: 1.5rem;
-  border-width: 0.2em;
-  color: var(--action);
-}
-
-.map-loading-text {
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-}
-
 /* === Reduced Motion Support === */
 @media (prefers-reduced-motion: reduce) {
   .loading-spinner,

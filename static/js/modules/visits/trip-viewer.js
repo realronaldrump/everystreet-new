@@ -127,6 +127,20 @@ class TripViewer {
     });
   }
 
+  destroy() {
+    const modalElement = document.getElementById("view-trip-modal");
+    if (modalElement && this._handleTripModalShown) {
+      modalElement.removeEventListener("shown.bs.modal", this._handleTripModalShown);
+    }
+    this._handleTripModalShown = null;
+    this.startMarker?.remove();
+    this.endMarker?.remove();
+    this.startMarker = null;
+    this.endMarker = null;
+    this.tripViewMap?.remove();
+    this.tripViewMap = null;
+  }
+
   _initializeOrUpdateTripMap(trip) {
     const mapContainer = document.getElementById("trip-map-container");
     if (!mapContainer) {

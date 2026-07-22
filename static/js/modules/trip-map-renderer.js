@@ -213,7 +213,7 @@ const tripMapRenderer = {
   },
 
   canRenderNativeLayers() {
-    const map = store.map;
+    const { map } = store;
     return Boolean(
       map &&
         typeof map.addSource === "function" &&

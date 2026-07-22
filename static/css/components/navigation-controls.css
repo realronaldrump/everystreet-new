@@ -117,7 +117,7 @@
   transform: rotate(180deg);
 }
 
-@media (min-width: 48rem) {
+@media (width >= 48rem) {
   .atlas-tabs {
     gap: var(--space-6);
   }

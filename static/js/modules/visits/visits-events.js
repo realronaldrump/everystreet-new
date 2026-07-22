@@ -20,7 +20,6 @@ class VisitsEvents {
 
     this._setupButtonListeners();
     this._setupFormListeners();
-    this._setupToggleListeners();
     this._setupKeyboardShortcuts();
     this._setupResizeHandler();
   }
@@ -93,21 +92,6 @@ class VisitsEvents {
       (e) => {
         e.preventDefault();
         this.manager.saveEditedPlace();
-      },
-      { signal: this.abortController?.signal }
-    );
-  }
-
-  /**
-   * Set up toggle/filter listeners
-   */
-  _setupToggleListeners() {
-    // Note: time-filter and toggle-custom-places removed in redesign
-    // Suggestion size change is now handled by VisitsPageController
-    document.getElementById("suggestion-size")?.addEventListener(
-      "change",
-      () => {
-        this.manager.loadSuggestions();
       },
       { signal: this.abortController?.signal }
     );

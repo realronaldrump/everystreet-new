@@ -1,12 +1,10 @@
 /**
- * Setup functions for trip geocoding and remapping functionality
+ * Setup functions for trip geocoding and display-path maintenance.
  */
 
 import apiClient from "../../core/api-client.js";
-import loadingManager from "../../ui/loading-manager.js";
 import notificationManager from "../../ui/notifications.js";
 import { DateUtils } from "../../utils.js";
-import { queueRemapJob } from "./shared/remap-job.js";
 import { clearInlineStatus, setInlineStatus } from "./status-utils.js";
 
 function setInputInvalid(input, isInvalid) {
@@ -30,7 +28,6 @@ export function setupManualFetchTripsForm(taskManager, signal) {
 
   const startInput = document.getElementById("manual-fetch-start");
   const endInput = document.getElementById("manual-fetch-end");
-  const mapMatchInput = document.getElementById("manual-fetch-map-match");
   const statusEl = document.getElementById("manual-fetch-status");
 
   const clearInputErrors = () => {
@@ -103,14 +100,11 @@ export function setupManualFetchTripsForm(taskManager, signal) {
         return;
       }
 
-      const mapMatchEnabled = Boolean(mapMatchInput?.checked);
-
       try {
         setInlineStatus(statusEl, "Scheduling fetch...", "info");
         await taskManager.scheduleManualFetch(
           startDate.toISOString(),
-          endDate.toISOString(),
-          mapMatchEnabled
+          endDate.toISOString()
         );
         setInlineStatus(statusEl, "Fetch scheduled successfully.", "success");
       } catch (error) {
@@ -142,7 +136,7 @@ export function setupGeocodeTrips(signal) {
   let pollInterval = null;
   const stopPolling = () => {
     if (pollInterval) {
-      stopPolling();
+      clearInterval(pollInterval);
       pollInterval = null;
     }
   };
@@ -337,101 +331,6 @@ export function setupGeocodeTrips(signal) {
         geocodeBtn.disabled = false;
         setInlineStatus(statusEl, "Error starting geocoding. See console.", "danger");
         notificationManager.show("Failed to start geocoding", "danger");
-      }
-    },
-    eventOptions
-  );
-
-  DateUtils.initDatePicker(".datepicker");
-}
-
-export function setupRemapMatchedTrips(signal) {
-  const eventOptions = signal ? { signal } : false;
-  const remapType = document.getElementById("remap-type");
-  const dateRangeDiv = document.getElementById("remap-date-range");
-  const intervalDiv = document.getElementById("remap-interval");
-  const remapStartInput = document.getElementById("remap-start");
-  const remapEndInput = document.getElementById("remap-end");
-  const remapStatus = document.getElementById("remap-status");
-  if (!remapType || !dateRangeDiv || !intervalDiv) {
-    return;
-  }
-
-  remapType.addEventListener(
-    "change",
-    function () {
-      dateRangeDiv.style.display = this.value === "date" ? "block" : "none";
-      intervalDiv.style.display = this.value === "date" ? "none" : "block";
-      setInputInvalid(remapStartInput, false);
-      setInputInvalid(remapEndInput, false);
-      clearInlineStatus(remapStatus);
-    },
-    eventOptions
-  );
-
-  const remapBtn = document.getElementById("remap-btn");
-  if (!remapBtn) {
-    return;
-  }
-
-  remapBtn.addEventListener(
-    "mousedown",
-    async (e) => {
-      if (e.button !== 0) {
-        return;
-      }
-      const method = remapType.value;
-      let start_date = "";
-      let end_date = "";
-      let interval_days = 0;
-
-      if (method === "date") {
-        start_date = remapStartInput?.value || "";
-        end_date = remapEndInput?.value || "";
-        if (!start_date || !end_date) {
-          setInputInvalid(remapStartInput, !start_date);
-          setInputInvalid(remapEndInput, !end_date);
-          setInlineStatus(
-            remapStatus,
-            "Please select both start and end dates.",
-            "danger"
-          );
-          notificationManager.show("Please select both start and end dates", "danger");
-          return;
-        }
-      } else {
-        setInputInvalid(remapStartInput, false);
-        setInputInvalid(remapEndInput, false);
-        interval_days = parseInt(
-          document.getElementById("remap-interval-select").value,
-          10
-        );
-        const startDateObj = new Date();
-        startDateObj.setDate(startDateObj.getDate() - interval_days);
-        start_date = DateUtils.formatDateToString(startDateObj);
-        end_date = DateUtils.formatDateToString(new Date());
-      }
-
-      try {
-        loadingManager.show();
-        setInlineStatus(remapStatus, "Remapping trips...", "info");
-
-        await queueRemapJob({ start_date, end_date, interval_days });
-        loadingManager.hide();
-
-        setInlineStatus(
-          remapStatus,
-          "Rematch job queued. View progress in Map Matching.",
-          "success"
-        );
-        notificationManager.show(
-          "Rematch job queued. View progress in Map Matching.",
-          "success"
-        );
-      } catch {
-        loadingManager.hide();
-        setInlineStatus(remapStatus, "Error re-matching trips.", "danger");
-        notificationManager.show("Failed to re-match trips", "danger");
       }
     },
     eventOptions

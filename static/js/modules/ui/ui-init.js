@@ -2,7 +2,6 @@ import { swupReady } from "../core/navigation.js";
 import store from "../core/store.js";
 import { moveModalsToContainer, utils } from "../utils.js";
 import { initAppSelects } from "./app-select.js";
-import contextualUI from "./contextual-ui.js";
 import dateManager from "./date-manager.js";
 import densityManager from "./density-manager.js";
 import interactions from "./interactions.js";
@@ -52,19 +51,8 @@ function init() {
     mobileNav.init?.();
     swipeActions.init?.();
     densityManager.init?.();
-    contextualUI.init?.();
     mapControlsManager.init?.();
     setupRequired.init?.();
-
-    // Pause animations when tab is hidden (saves CPU)
-    document.addEventListener("visibilitychange", () => {
-      const root = document.documentElement;
-      if (document.hidden) {
-        root.style.setProperty("--transition-duration", "0ms");
-      } else {
-        root.style.removeProperty("--transition-duration");
-      }
-    });
 
     // Throttled resize event for responsive components
     const debouncedResize = utils.debounce(() => {

@@ -1836,7 +1836,7 @@ async function loadTripsOverlay(routeId, token) {
   }
 }
 
-async function toggleAllTrips() {
+function toggleAllTrips() {
   const map = routeModalMap;
   if (!map) {
     return;

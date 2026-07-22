@@ -12,6 +12,7 @@ import VisitsDataService from "./data-service.js";
 
 class VisitsActions {
   constructor(options = {}) {
+    this.dataService = options.dataService || VisitsDataService;
     this.loadingManager = options.loadingManager || loadingManager;
     this.notificationManager = options.notificationManager || notificationManager;
     this.confirmationDialog = options.confirmationDialog || confirmationDialog;
@@ -52,7 +53,7 @@ class VisitsActions {
     this.loadingManager?.show("Saving Place");
 
     try {
-      const savedPlace = await VisitsDataService.createPlace({
+      const savedPlace = await this.dataService.createPlace({
         name,
         geometry,
       });
@@ -118,7 +119,7 @@ class VisitsActions {
     this.loadingManager?.show("Deleting Place");
 
     try {
-      await VisitsDataService.deletePlace(placeId);
+      await this.dataService.deletePlace(placeId);
 
       this.notificationManager?.show(
         `Place "${place.name}" deleted successfully.`,
@@ -173,7 +174,7 @@ class VisitsActions {
         requestBody.geometry = newGeometry;
       }
 
-      const updatedPlace = await VisitsDataService.updatePlace(placeId, requestBody);
+      const updatedPlace = await this.dataService.updatePlace(placeId, requestBody);
 
       const modalEl = document.getElementById("edit-place-modal");
       if (modalEl) {

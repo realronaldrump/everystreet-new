@@ -6,7 +6,7 @@
  * This module imports and initializes all settings page components:
  * - TaskManager: Background task management with SSE updates
  * - InvalidTripReview: Invalid trip table management
- * - Geocode/Remap: Trip geocoding and remapping forms
+ * - Geocoding: Trip geocoding and display-path maintenance
  * - Mobile UI: Mobile-specific rendering
  * - App Settings: Tab switching and preferences
  */
@@ -29,7 +29,6 @@ import {
   setupGeocodeTrips,
   setupManualFetchTripsForm,
   setupRebuildDisplayPaths,
-  setupRemapMatchedTrips,
 } from "./geocode-remap.js";
 import { InvalidTripReview } from "./invalid-trip-review.js";
 import mapServices from "./map-services.js";
@@ -557,7 +556,6 @@ export default function initSettingsPage({ cleanup, signal } = {}) {
   setupTaskConfigEventListeners(taskManager, signal);
   setupManualFetchTripsForm(taskManager, signal);
   setupGeocodeTrips(signal);
-  setupRemapMatchedTrips(signal);
   setupRebuildDisplayPaths(signal);
   setupTripSyncSettings(signal);
   setupCredentialsSettings({ signal });

@@ -8,7 +8,6 @@
   overflow: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;
-  clip: rect(0 0 0 0) !important;
   clip-path: inset(50%) !important;
 }
 
@@ -149,7 +148,6 @@ html.light-mode .es-select__menu {
   background: var(--surface-elevated);
 }
 
-.map-style-select-wrap:has(.es-select)::after,
 .coverage-route-planner .select-wrapper:has(.es-select)::after {
   content: none;
 }

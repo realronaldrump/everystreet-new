@@ -249,15 +249,19 @@ export function clusterDestinationPoints(points, { zoom = 12 } = {}) {
     let lastArrival = null;
 
     members.forEach((member) => {
+      const {
+        coordinates: [memberLng, memberLat],
+        lastArrival: memberLastArrival,
+      } = member;
       sumX += member.x;
       sumY += member.y;
-      sumLng += member.coordinates[0];
-      sumLat += member.coordinates[1];
+      sumLng += memberLng;
+      sumLat += memberLat;
       if (member.label) {
         labelCounts.set(member.label, (labelCounts.get(member.label) || 0) + 1);
       }
-      if (member.lastArrival && (!lastArrival || member.lastArrival > lastArrival)) {
-        lastArrival = member.lastArrival;
+      if (memberLastArrival && (!lastArrival || memberLastArrival > lastArrival)) {
+        lastArrival = memberLastArrival;
       }
     });
 
@@ -1185,7 +1189,7 @@ const destinationBloom = {
       ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
       ctx.shadowBlur = 3 * dpr;
       ctx.fillStyle = `rgba(255, 255, 255, ${0.95 * this._opacity})`;
-      ctx.fillText(String(cluster.count), drawX, drawY + 1 * dpr);
+      ctx.fillText(String(cluster.count), drawX, drawY + dpr);
       ctx.shadowColor = "transparent";
       ctx.shadowBlur = 0;
     });

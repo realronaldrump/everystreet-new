@@ -130,7 +130,7 @@
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
-  background: var(--surface);
+  background: var(--surface-1);
   color: var(--text-secondary);
   font-family: var(--font-family);
   font-size: var(--font-size-sm);
@@ -424,12 +424,6 @@
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: var(--space-4);
   }
-}
-
-.patterns-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--space-4);
 }
 
 .pattern-card {
@@ -1250,31 +1244,6 @@
   font-size: var(--font-size-xs);
   display: block;
   margin-top: var(--space-1);
-}
-
-/* Empty State */
-.empty-state {
-  text-align: center;
-  padding: var(--space-12) var(--space-8);
-}
-
-.empty-icon {
-  font-size: var(--font-size-xl);
-  margin-bottom: var(--space-3);
-  color: var(--text-tertiary);
-}
-
-.empty-state h3 {
-  font-family: var(--font-family-display);
-  font-size: var(--font-size-xl);
-  color: var(--text-primary);
-  margin-bottom: var(--space-3);
-}
-
-.empty-state p {
-  color: var(--text-secondary);
-  max-width: 400px;
-  margin: 0 auto var(--space-4);
 }
 
 /* Loading States */

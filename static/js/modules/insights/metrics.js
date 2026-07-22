@@ -78,7 +78,6 @@ export function updateAllMetrics() {
 
   const consistency = derived.consistency || {};
   const timeSignature = derived.timeSignature || {};
-  const exploration = derived.exploration || {};
   const fuelLens = derived.fuelLens || {};
 
   setText(
@@ -99,17 +98,4 @@ export function updateAllMetrics() {
       ? "Log fill-ups to see MPG here"
       : `${fuelLens.mpg.toFixed(1)} MPG with ${fuelLens.fuelPerTrip.toFixed(2)} gal/trip`;
   setText("fuel-context", fuelText);
-
-  setText(
-    "scene-exploration-value",
-    `${Number(exploration.top3ShareTrips || 0).toFixed(1)}% top-3 concentration`
-  );
-  setText(
-    "scene-signature-value",
-    `${timeSignature.dominantDaypartLabel || "Daytime"} rhythm`
-  );
-  setText(
-    "scene-active-ratio-value",
-    `${(consistency.activeDaysRatio || 0).toFixed(1)}% active-day ratio`
-  );
 }

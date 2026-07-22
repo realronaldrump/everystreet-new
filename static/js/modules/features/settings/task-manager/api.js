@@ -163,7 +163,6 @@ export async function forceStopTask(taskId, context, onSuccess) {
  * Schedule a manual trip fetch for a date range
  * @param {string} startIso - Start date in ISO format
  * @param {string} endIso - End date in ISO format
- * @param {boolean} mapMatch - Whether to map match the trips
  * @param {Object} context - Context object with notifier
  * @param {Function} onSuccess - Callback on successful scheduling
  * @returns {Promise<boolean>} True if fetch scheduled successfully
@@ -171,7 +170,6 @@ export async function forceStopTask(taskId, context, onSuccess) {
 export async function scheduleManualFetch(
   startIso,
   endIso,
-  mapMatch,
   context,
   onSuccess
 ) {
@@ -182,7 +180,6 @@ export async function scheduleManualFetch(
     const result = await apiClient.post(API_ENDPOINTS.FETCH_TRIPS_RANGE, {
       start_date: startIso,
       end_date: endIso,
-      map_match: mapMatch,
     });
     loadingManager.hide();
 

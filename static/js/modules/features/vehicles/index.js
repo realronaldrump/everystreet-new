@@ -99,7 +99,6 @@ function cacheElements() {
     odometerSource: document.getElementById("odometer-source"),
     odometerUpdated: document.getElementById("odometer-updated"),
     bouncieOdometer: document.getElementById("bouncie-odometer"),
-    bouncieReadingSection: document.getElementById("bouncie-reading-section"),
     manualOdometerInput: document.getElementById("manual-odometer-input"),
 
     // Settings

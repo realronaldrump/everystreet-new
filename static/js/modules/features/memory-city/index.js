@@ -246,7 +246,7 @@ export default async function initMemoryCityPage(ctx = {}) {
     if (event.code !== "Space" || event.repeat) {
       return;
     }
-    const target = event.target;
+    const { target } = event;
     const tag = target?.tagName;
     if (
       tag === "INPUT" ||
@@ -539,7 +539,7 @@ export default async function initMemoryCityPage(ctx = {}) {
   }
 
   function buildSubtitle() {
-    const model = state.model;
+    const { model } = state;
     if (!model) {
       return "A sculpture of the streets you've driven. This area is empty so far.";
     }
@@ -552,7 +552,7 @@ export default async function initMemoryCityPage(ctx = {}) {
   }
 
   function renderStats() {
-    const model = state.model;
+    const { model } = state;
     const area = state.area || {};
     if (!model) {
       setText(elements.statSegments, formatInt(area.driven_segments ?? 0));
@@ -566,7 +566,7 @@ export default async function initMemoryCityPage(ctx = {}) {
   }
 
   function updateLiveStats() {
-    const model = state.model;
+    const { model } = state;
     if (!model) {
       return;
     }
@@ -607,7 +607,7 @@ export default async function initMemoryCityPage(ctx = {}) {
   // ===========================================================================
 
   function configureTimeline() {
-    const model = state.model;
+    const { model } = state;
     const usable = Boolean(model && model.count > 1 && model.lastMs > model.firstMs);
 
     if (elements.scrubber) {
@@ -643,7 +643,7 @@ export default async function initMemoryCityPage(ctx = {}) {
       return;
     }
     container.innerHTML = "";
-    const model = state.model;
+    const { model } = state;
     if (!model || model.chapters.length < 2) {
       return;
     }
@@ -667,7 +667,7 @@ export default async function initMemoryCityPage(ctx = {}) {
   }
 
   function applyProgress(value) {
-    const model = state.model;
+    const { model } = state;
     if (!model) {
       return;
     }
@@ -716,7 +716,7 @@ export default async function initMemoryCityPage(ctx = {}) {
   }
 
   function startPlay(fromV, toV, durationMs) {
-    const model = state.model;
+    const { model } = state;
     if (!model || model.count < 2 || elements.playBtn?.disabled) {
       return;
     }
@@ -788,7 +788,7 @@ export default async function initMemoryCityPage(ctx = {}) {
       return;
     }
     container.innerHTML = "";
-    const model = state.model;
+    const { model } = state;
     const chapters = model?.chapters || [];
     container.classList.toggle("is-hidden", chapters.length < 2);
     if (chapters.length < 2) {
@@ -816,7 +816,7 @@ export default async function initMemoryCityPage(ctx = {}) {
   }
 
   function playChapter(chapter) {
-    const model = state.model;
+    const { model } = state;
     if (!model) {
       return;
     }
@@ -828,7 +828,7 @@ export default async function initMemoryCityPage(ctx = {}) {
 
   function updateActiveChapterChip() {
     const container = elements.chapters;
-    const model = state.model;
+    const { model } = state;
     if (!container || !model) {
       return;
     }
@@ -886,8 +886,7 @@ export default async function initMemoryCityPage(ctx = {}) {
   }
 
   function legendItems() {
-    const model = state.model;
-    const palette = state.palette;
+    const { model, palette } = state;
     if (!palette) {
       return [];
     }
@@ -1005,7 +1004,7 @@ export default async function initMemoryCityPage(ctx = {}) {
   }
 
   function lensColor(seg) {
-    const palette = state.palette;
+    const { palette } = state;
     if (state.lens === "chapter") {
       return palette.cat[seg.chapterIndex % palette.cat.length];
     }
@@ -1100,17 +1099,14 @@ export default async function initMemoryCityPage(ctx = {}) {
 
   function buildLayers() {
     const deckNs = window.deck;
-    const model = state.model;
+    const { model, palette, lens, colorRev } = state;
     if (!deckNs || !model || !state.palette) {
       return [];
     }
 
-    const palette = state.palette;
-    const lens = state.lens;
     const focusName = state.focusStreet?.name || null;
     const selectedId = state.selected?.segmentId || null;
     const activeBucket = state.legendHover ?? state.legendSelected;
-    const colorRev = state.colorRev;
     const data = state.filterExt ? model.segments : state.cpuVisible || model.segments;
     const filterProps = timeFilterProps();
     const highlight = [...palette.action, 150];
@@ -1297,7 +1293,7 @@ export default async function initMemoryCityPage(ctx = {}) {
   // ===========================================================================
 
   function fitViewToModel() {
-    const model = state.model;
+    const { model } = state;
     if (!model) {
       return null;
     }
@@ -1479,7 +1475,7 @@ export default async function initMemoryCityPage(ctx = {}) {
       return;
     }
     list.innerHTML = "";
-    const model = state.model;
+    const { model } = state;
     elements.records?.classList.toggle("is-hidden", !model);
     if (!model) {
       return;
@@ -1597,7 +1593,7 @@ export default async function initMemoryCityPage(ctx = {}) {
   }
 
   function runSearch() {
-    const model = state.model;
+    const { model } = state;
     const input = elements.searchInput;
     if (!model || !input) {
       return;
@@ -1725,7 +1721,7 @@ export default async function initMemoryCityPage(ctx = {}) {
     if (!elements.detail) {
       return;
     }
-    const model = state.model;
+    const { model } = state;
     elements.detail.classList.add("is-locked");
     elements.detail.style.setProperty(
       "--detail-glow-color-rgb",
@@ -1853,7 +1849,7 @@ export default async function initMemoryCityPage(ctx = {}) {
   }
 
   async function savePostcard() {
-    const model = state.model;
+    const { model } = state;
     if (!model || !state.deck) {
       return;
     }
@@ -1905,7 +1901,7 @@ export default async function initMemoryCityPage(ctx = {}) {
           ctx2d.fillStyle = token("--border-color", "#333");
           ctx2d.fillRect(0, img.height, canvas.width, Math.max(1, Math.round(footer * 0.015)));
 
-          const model = state.model;
+          const { model } = state;
           const area = state.area || {};
           const titleSize = Math.round(footer * 0.32);
           const metaSize = Math.round(footer * 0.17);

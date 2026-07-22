@@ -9,6 +9,7 @@ import VisitsDataService from "./data-service.js";
 
 class VisitsDataLoader {
   constructor(options = {}) {
+    this.dataService = options.dataService || VisitsDataService;
     this.loadingManager = options.loadingManager || loadingManager;
     this.notificationManager = options.notificationManager || notificationManager;
   }
@@ -22,7 +23,7 @@ class VisitsDataLoader {
     this.loadingManager?.show("Loading Places");
 
     try {
-      const places = await VisitsDataService.fetchPlaces();
+      const places = await this.dataService.fetchPlaces();
       const placesMap = new Map(
         places
           .map((place) => {
@@ -50,56 +51,13 @@ class VisitsDataLoader {
   }
 
   /**
-   * Load non-custom places visits
-   * @param {Object} params - Query parameters
-   * @returns {Promise<Array>} Array of visit data
-   */
-  async loadNonCustomPlacesVisits(params = {}) {
-    this.loadingManager?.updateMessage("Loading other locations...");
-
-    try {
-      return await VisitsDataService.fetchNonCustomVisits(params);
-    } catch (error) {
-      console.error("Error fetching non-custom places visits:", error);
-      this.notificationManager?.show(
-        "Failed to load non-custom places visits",
-        "danger"
-      );
-      return [];
-    }
-  }
-
-  /**
-   * Load visit suggestions
-   * @param {Object} params - Query parameters
-   * @returns {Promise<Array>} Array of suggestions
-   */
-  async loadSuggestions(params = {}) {
-    try {
-      // Timeframe filter removed in redesign - suggestions now always use all time
-      const sizeSelect = document.getElementById("suggestion-size");
-      if (sizeSelect?.value && sizeSelect.value !== "auto") {
-        const size = Number.parseInt(sizeSelect.value, 10);
-        if (!Number.isNaN(size) && size > 0) {
-          params.cell_size_m = size;
-        }
-      }
-
-      return await VisitsDataService.fetchVisitSuggestions(params);
-    } catch (error) {
-      console.error("Error loading visit suggestions", error);
-      return [];
-    }
-  }
-
-  /**
    * Load place statistics
    * @param {Object} params - Query parameters
    * @returns {Promise<Array>} Array of statistics
    */
   async loadPlaceStatistics(params = {}) {
     try {
-      return await VisitsDataService.fetchPlaceStatistics(params);
+      return await this.dataService.fetchPlaceStatistics(params);
     } catch (error) {
       console.error("Error loading place statistics:", error);
       throw error;
@@ -113,7 +71,7 @@ class VisitsDataLoader {
    */
   async loadPlaceDetailStatistics(placeId) {
     try {
-      return await VisitsDataService.fetchPlaceDetailStatistics(placeId);
+      return await this.dataService.fetchPlaceDetailStatistics(placeId);
     } catch (error) {
       console.error("Error fetching place statistics:", error);
       throw error;
@@ -129,7 +87,7 @@ class VisitsDataLoader {
     this.loadingManager?.show("Loading Trips");
 
     try {
-      const data = await VisitsDataService.fetchPlaceTrips(placeId);
+      const data = await this.dataService.fetchPlaceTrips(placeId);
       this.loadingManager?.hide();
       return data;
     } catch (error) {
@@ -152,7 +110,7 @@ class VisitsDataLoader {
     this.loadingManager?.show("Loading Trip");
 
     try {
-      const tripResponse = await VisitsDataService.fetchTrip(tripId);
+      const tripResponse = await this.dataService.fetchTrip(tripId);
       this.loadingManager?.hide();
       return tripResponse.trip || tripResponse;
     } catch (error) {
@@ -162,26 +120,6 @@ class VisitsDataLoader {
         "Error loading trip data. Please try again.",
         "danger"
       );
-      throw error;
-    }
-  }
-
-  /**
-   * Filter data by timeframe and reload relevant tables
-   * @param {string} timeframe - Timeframe filter value
-   * @returns {Promise<Object>} Object containing customStats and otherStats
-   */
-  async filterByTimeframe(timeframe) {
-    try {
-      const [customStats, otherStats] = await Promise.all([
-        VisitsDataService.fetchPlaceStatistics({ timeframe }),
-        VisitsDataService.fetchNonCustomVisits({ timeframe }),
-      ]);
-
-      return { customStats, otherStats };
-    } catch (error) {
-      console.error("Error filtering by timeframe:", error);
-      this.notificationManager?.show("Error filtering data", "danger");
       throw error;
     }
   }

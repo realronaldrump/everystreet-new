@@ -1702,7 +1702,9 @@ function updateStatsUI(area, summary) {
 
 function applyCompletionCelebration(area, pct) {
   const sidebar = document.getElementById("coverage-sidebar");
-  if (!sidebar) return;
+  if (!sidebar) {
+    return;
+  }
   const isComplete = area?.status === "ready" && pct >= 100;
 
   if (!isComplete) {
@@ -2333,31 +2335,49 @@ function renderDrivingActivity(activity) {
 }
 
 function focusSegmentOnMap(segmentId) {
-  if (!state.map || !segmentId || !state.streetsCacheGeojson) return;
+  if (!state.map || !segmentId || !state.streetsCacheGeojson) {
+    return;
+  }
   const features = state.streetsCacheGeojson.features || [];
   const feature = features.find(
     (f) => f?.properties?.segment_id === segmentId
   );
-  if (!feature || !feature.geometry) return;
+  if (!feature || !feature.geometry) {
+    return;
+  }
   try {
     const coords =
       feature.geometry.type === "MultiLineString"
         ? feature.geometry.coordinates.flat()
         : feature.geometry.coordinates;
-    if (!Array.isArray(coords) || coords.length === 0) return;
+    if (!Array.isArray(coords) || coords.length === 0) {
+      return;
+    }
     let minLon = Infinity;
     let minLat = Infinity;
     let maxLon = -Infinity;
     let maxLat = -Infinity;
     for (const c of coords) {
-      if (!Array.isArray(c) || c.length < 2) continue;
+      if (!Array.isArray(c) || c.length < 2) {
+        continue;
+      }
       const [lon, lat] = c;
-      if (lon < minLon) minLon = lon;
-      if (lat < minLat) minLat = lat;
-      if (lon > maxLon) maxLon = lon;
-      if (lat > maxLat) maxLat = lat;
+      if (lon < minLon) {
+        minLon = lon;
+      }
+      if (lat < minLat) {
+        minLat = lat;
+      }
+      if (lon > maxLon) {
+        maxLon = lon;
+      }
+      if (lat > maxLat) {
+        maxLat = lat;
+      }
     }
-    if (!Number.isFinite(minLon)) return;
+    if (!Number.isFinite(minLon)) {
+      return;
+    }
     state.map.fitBounds(
       [
         [minLon, minLat],

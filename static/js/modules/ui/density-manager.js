@@ -45,10 +45,4 @@ const densityManager = {
   },
 };
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => densityManager.init());
-} else {
-  densityManager.init();
-}
-
 export default densityManager;

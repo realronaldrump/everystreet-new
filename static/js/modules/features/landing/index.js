@@ -97,7 +97,6 @@ export default function initLandingPage({ signal, cleanup, api } = {}) {
  */
 function cacheElements() {
   elements = {
-    mastheadDate: document.getElementById("home-date"),
     missionLine: document.getElementById("home-mission"),
     coverageSection: document.getElementById("home-coverage"),
     coverageLedger: document.getElementById("coverage-ledger"),
@@ -1027,13 +1026,13 @@ async function loadRecordSources({ showLoading = false } = {}) {
   updateRecordEntries();
 }
 
-async function fetchInsightsData() {
+function fetchInsightsData() {
   const params = buildTripMetricsQueryParams();
   params.set("include_movement", "false");
   return apiGet(`/api/driving-insights?${params.toString()}`);
 }
 
-async function fetchGasStatsData() {
+function fetchGasStatsData() {
   const params = buildTripMetricsQueryParams();
   const qs = params.toString();
   return apiGet(qs ? `/api/gas-statistics?${qs}` : "/api/gas-statistics");

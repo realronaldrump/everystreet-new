@@ -80,16 +80,6 @@
   flex-wrap: wrap;
 }
 
-.masthead-date {
-  margin: 0 0 var(--space-2);
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: var(--text-tertiary);
-}
-
 .masthead-title {
   margin: 0;
   font-family: var(--font-family-display);

@@ -174,5 +174,3 @@ export class BaseFeatureMap {
     this.ownsMap = false;
   }
 }
-
-export default BaseFeatureMap;

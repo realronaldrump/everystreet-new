@@ -65,8 +65,8 @@
 /* iOS Safari auto-zooms when a focused field's font-size is below 16px.
    Force at least 16px on touch viewports to keep typing zoom-free. The
    visual difference from the desktop size is negligible. */
-@media (max-width: 768px) {
-  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+@media (width <= 768px) {
+  input:not([type="checkbox"], [type="radio"], [type="range"]),
   select,
   textarea,
   .form-control,
@@ -86,12 +86,6 @@
 
 html.light-mode body .form-select {
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='rgba(0,0,0,0.6)' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
-}
-
-.form-control-color {
-  /* For color inputs */
-  height: calc(1.5em + var(--space-2) * 2 + 2px); /* Match height of other inputs */
-  padding: var(--space-2);
 }
 
 .form-check {

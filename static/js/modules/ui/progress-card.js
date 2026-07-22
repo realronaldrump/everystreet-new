@@ -21,7 +21,7 @@ class ProgressCardGenerator {
    * @param {string} data.dateRange - Date range string
    * @returns {Promise<Blob>} PNG image blob
    */
-  async generateCard(data) {
+  generateCard(data) {
     const width = 800;
     const height = 480;
     const canvas = document.createElement("canvas");

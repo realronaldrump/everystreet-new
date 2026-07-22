@@ -1,4 +1,4 @@
-/* global Chart, MapboxDraw, bootstrap, mapboxgl, $ */
+/* global MapboxDraw, bootstrap, mapboxgl, $ */
 
 import VisitsPageController from "./visits-controller.js";
 
@@ -26,9 +26,6 @@ export default function initVisitsPage({ cleanup, api } = {}) {
   const usingGoogleProvider = mapProvider === "google";
   const missingLibraries = [];
 
-  if (typeof Chart === "undefined") {
-    missingLibraries.push("Chart.js");
-  }
   if (typeof $ === "undefined") {
     missingLibraries.push("jQuery");
   }
@@ -56,9 +53,14 @@ export default function initVisitsPage({ cleanup, api } = {}) {
     return noopTeardown;
   }
 
-  // Initialize new visits page controller
   repairModalUiState();
-  visitsPage = new VisitsPageController({ api });
+  const page = new VisitsPageController({ api });
+  visitsPage = page;
+  void page.initialize().catch((error) => {
+    if (!page.destroyed) {
+      console.error("Failed to initialize visits page:", error);
+    }
+  });
 
   const themeObserver = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
@@ -78,9 +80,6 @@ export default function initVisitsPage({ cleanup, api } = {}) {
   const teardown = () => {
     themeObserver.disconnect();
     visitsPage?.destroy?.();
-    visitsPage?.clearPlacePreviewMaps?.();
-    visitsPage?.clearSuggestionPreviewMaps?.();
-    visitsPage?.visitsManager?.destroy?.();
     repairModalUiState();
     visitsPage = null;
   };

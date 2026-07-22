@@ -51,9 +51,7 @@
   background: rgb(var(--primary-rgb) / 18%);
   border-color: rgb(var(--primary-rgb) / 70%);
   color: rgb(var(--primary-rgb));
-  box-shadow:
-    0 0 0 4px rgb(var(--primary-rgb) / 12%),
-    var(--glow-primary);
+  box-shadow: 0 0 0 4px rgb(var(--primary-rgb) / 12%);
 }
 
 .setup-progress-step.is-complete .setup-progress-dot {
@@ -111,118 +109,9 @@
 
 .setup-layout {
   display: grid;
-  grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-6);
   align-items: start;
-}
-
-.setup-sidebar {
-  position: sticky;
-  top: calc(var(--header-height) + var(--space-4));
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.setup-step-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: var(--space-3);
-}
-
-.setup-step-item {
-  padding: 0;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-color);
-  background: var(--surface-1);
-  transition:
-    border-color 0.3s ease,
-    box-shadow 0.3s ease,
-    transform 0.2s ease;
-}
-
-.setup-step-item:hover {
-  transform: translateY(-1px);
-}
-
-.setup-step-button {
-  width: 100%;
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
-  padding: var(--space-3);
-  background: transparent;
-  border: none;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  min-height: 44px;
-}
-
-.setup-step-button:focus-visible {
-  outline: 2px solid rgb(var(--primary-rgb) / 60%);
-  outline-offset: 2px;
-  border-radius: var(--radius-lg);
-}
-
-.setup-step-item.is-active {
-  border-color: rgb(var(--primary-rgb) / 50%);
-  box-shadow:
-    0 0 0 1px rgb(var(--primary-rgb) / 20%),
-    0 4px 12px rgb(var(--primary-rgb) / 8%);
-}
-
-.setup-step-item.is-complete {
-  border-color: rgb(var(--success-rgb) / 40%);
-}
-
-.setup-step-item .step-number {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: rgb(var(--primary-rgb) / 16%);
-  color: var(--text-primary);
-  display: grid;
-  place-items: center;
-  font-weight: var(--font-weight-semibold);
-  transition: background 0.3s ease;
-}
-
-.setup-step-item.is-complete .step-number {
-  background: rgb(var(--success-rgb) / 20%);
-  color: var(--text-primary);
-}
-
-.step-title {
-  font-weight: var(--font-weight-semibold);
-}
-
-.step-note {
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
-}
-
-.setup-sidebar-help {
-  padding: var(--space-2) 0;
-}
-
-.setup-sidebar-help-link {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-size-sm);
-  color: var(--text-tertiary);
-  text-decoration: none;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  transition: all 0.2s ease;
-}
-
-.setup-sidebar-help-link:hover {
-  color: var(--text-primary);
-  background: var(--surface-1);
 }
 
 /* ─── Steps ─────────────────────────────────────────────────────── */
@@ -257,9 +146,9 @@
 .setup-card {
   background: var(--surface-1);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: var(--space-5);
-  box-shadow: var(--shadow-elevation-1);
+  box-shadow: none;
 }
 
 .setup-card-header {
@@ -268,6 +157,8 @@
   align-items: flex-start;
   gap: var(--space-4);
   margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .setup-card-header h2 {
@@ -294,9 +185,11 @@
 /* ─── Credentials Section ───────────────────────────────────────── */
 
 .setup-card-section {
-  background: var(--surface-2);
+  background: transparent;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
+  border-right: 0;
+  border-left: 0;
+  border-radius: 0;
   padding: var(--space-4);
   margin-top: var(--space-4);
 }
@@ -855,10 +748,6 @@ details[open] .setup-help-toggle::after {
     grid-template-columns: 1fr;
   }
 
-  .setup-sidebar {
-    position: static;
-  }
-
   .setup-progress-track {
     max-width: 100%;
   }
@@ -889,13 +778,6 @@ details[open] .setup-help-toggle::after {
 }
 
 /* Field Atlas: one visible workflow stepper and hairline content cards. */
-.setup-layout {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.setup-sidebar {
-  display: none;
-}
 
 .setup-progress-track.atlas-stepper {
   display: grid;
@@ -942,21 +824,4 @@ details[open] .setup-help-toggle::after {
 .setup-hero.page-masthead {
   justify-content: center;
   text-align: center;
-}
-
-.setup-card {
-  border-radius: var(--radius-lg);
-  box-shadow: none;
-}
-
-.setup-card-header {
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.setup-card-section {
-  border-right: 0;
-  border-left: 0;
-  border-radius: 0;
-  background: transparent;
 }

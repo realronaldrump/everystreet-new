@@ -6,7 +6,7 @@ function bootstrapPage(initFeature, route) {
     ({ signal, cleanup } = {}) => {
       if (window.AUTH_CONTEXT?.viewerMode) {
         // The base template already shows the viewer-mode notice.
-        return;
+        return null;
       }
       return initFeature(createPageContext({ signal: signal || null, cleanup }));
     },

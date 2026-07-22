@@ -21,7 +21,7 @@
   display: grid;
   place-items: center;
   font-size: var(--font-size-xl);
-  box-shadow: var(--nav-glow), var(--nav-shadow);
+  box-shadow: var(--nav-shadow);
 }
 
 .nav-turn-icon i {
@@ -30,12 +30,10 @@
 
 .nav-turn-icon.off-route {
   background: var(--danger-gradient);
-  box-shadow: var(--glow-danger), var(--nav-shadow);
 }
 
 .nav-turn-icon.arrive {
   background: var(--success-gradient);
-  box-shadow: var(--glow-success), var(--nav-shadow);
 }
 
 .nav-instruction-text {

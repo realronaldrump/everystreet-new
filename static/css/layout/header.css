@@ -37,8 +37,9 @@
   align-items: center;
   justify-content: space-between;
   height: 100%;
+
   /* Keep header content below the top safe-area inset (notch/status bar). */
-  padding: env(safe-area-inset-top, 0px) var(--page-gutter) 0;
+  padding: env(safe-area-inset-top, 0) var(--page-gutter) 0;
   max-width: var(--content-max-width);
   margin: 0 auto;
   width: 100%;

@@ -82,7 +82,7 @@
   font-family: var(--font-family-mono);
 }
 
-@media (min-width: 48rem) {
+@media (width >= 48rem) {
   .atlas-step {
     padding-right: var(--space-5);
   }

@@ -9,21 +9,17 @@ h2,
 h3,
 h4,
 h5,
-h6,
-.display-3,
-.display-4 {
+h6 {
   font-family: var(--font-family-display);
   letter-spacing: -0.015em;
   line-height: var(--line-height-tight);
 }
 
-p,
-.lead {
+p {
   line-height: var(--line-height-relaxed);
 }
 
 .route-content p,
-.route-content .lead,
 .route-content .text-muted,
 .route-content .text-secondary {
   max-width: 72ch;

@@ -74,10 +74,4 @@ const MetricAnimator = {
   },
 };
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => MetricAnimator.init());
-} else {
-  MetricAnimator.init();
-}
-
 export default MetricAnimator;

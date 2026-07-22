@@ -216,14 +216,12 @@ export class TaskManager {
    * Schedule a manual trip fetch
    * @param {string} startIso - Start date in ISO format
    * @param {string} endIso - End date in ISO format
-   * @param {boolean} mapMatch - Whether to map match the trips
    * @returns {Promise<boolean>} True if fetch scheduled successfully
    */
-  scheduleManualFetch(startIso, endIso, mapMatch) {
+  scheduleManualFetch(startIso, endIso) {
     return apiScheduleManualFetch(
       startIso,
       endIso,
-      mapMatch,
       { notifier: this.notifier },
       () => this.loadTaskConfig()
     );

@@ -18,6 +18,11 @@
   position: fixed;
   inset: 0;
   pointer-events: auto;
+  background: rgb(0 0 0 / 55%);
+  backdrop-filter: blur(4px);
+  transition:
+    opacity 200ms cubic-bezier(0, 0, 0.2, 1),
+    backdrop-filter 200ms cubic-bezier(0, 0, 0.2, 1);
 }
 
 /* Ensure modal dialog and content are interactive */
@@ -29,10 +34,6 @@
 .modal-content {
   pointer-events: auto;
   position: relative;
-}
-
-/* === Modal Surface === */
-.modal-content {
   background: var(--glass-3);
   backdrop-filter: blur(var(--blur-modal));
   border: 1px solid var(--glass-border-medium);
@@ -60,14 +61,6 @@
 
 .modal.show .modal-dialog {
   opacity: 1;
-}
-
-.modal-backdrop {
-  background: rgb(0 0 0 / 55%);
-  backdrop-filter: blur(4px);
-  transition:
-    opacity 200ms cubic-bezier(0, 0, 0.2, 1),
-    backdrop-filter 200ms cubic-bezier(0, 0, 0.2, 1);
 }
 
 .modal-header {

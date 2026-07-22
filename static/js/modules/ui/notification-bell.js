@@ -185,5 +185,3 @@ if (document.readyState === "loading") {
 } else {
   notificationBell.init();
 }
-
-export default notificationBell;

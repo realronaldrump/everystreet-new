@@ -126,8 +126,7 @@
 
   .pm-aside {
     align-items: flex-start;
-    flex-direction: row;
-    flex-wrap: wrap;
+    flex-flow: row wrap;
   }
 
   .figure-band {

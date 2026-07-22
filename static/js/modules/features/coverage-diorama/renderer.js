@@ -119,7 +119,7 @@ export default class CoverageDioramaRenderer {
     return Math.min(globalThis.devicePixelRatio || 1, isCompact ? 1.25 : 1.5);
   }
 
-  async setModel(source) {
+  setModel(source) {
     this.source = source;
     this.projection = createLocalProjection(source.bounds);
     this.selectedIds.clear();

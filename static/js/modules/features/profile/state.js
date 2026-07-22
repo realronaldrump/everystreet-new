@@ -140,18 +140,9 @@ function createEditorState(initialValues = null) {
   };
 }
 
-const ProfileState = {
-  DEFAULT_FETCH_CONCURRENCY,
-  normalizeValues,
-  areValuesEqual,
-  createEditorState,
-};
-
 export {
   DEFAULT_FETCH_CONCURRENCY,
   areValuesEqual,
   createEditorState,
   normalizeValues,
 };
-
-export default ProfileState;

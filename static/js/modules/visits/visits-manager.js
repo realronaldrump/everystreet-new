@@ -4,15 +4,9 @@ import MapStyles from "../map-styles.js";
 import confirmationDialog from "../ui/confirmation-dialog.js";
 import loadingManager from "../ui/loading-manager.js";
 import notificationManager from "../ui/notifications.js";
-import VisitsChartManager from "./chart-manager.js";
 import { VisitsGeometry } from "./geometry.js";
 import VisitsMapController from "./map-controller.js";
-import {
-  createNonCustomVisitsTable,
-  createSuggestionsTable,
-  createTripsTable,
-  createVisitsTable,
-} from "./table-factory.js";
+import { createTripsTable, createVisitsTable } from "./table-factory.js";
 import TripViewer from "./trip-viewer.js";
 import VisitsActions from "./visits-actions.js";
 import VisitsDataLoader from "./visits-data-loader.js";
@@ -20,7 +14,6 @@ import VisitsDrawing from "./visits-drawing.js";
 import VisitsEvents from "./visits-events.js";
 import VisitsHelpers from "./visits-helpers.js";
 import VisitsPopup from "./visits-popup.js";
-import VisitsStatsManager from "./visits-stats-manager.js";
 import VisitsUIManager from "./visits-ui-manager.js";
 
 /**
@@ -29,15 +22,15 @@ import VisitsUIManager from "./visits-ui-manager.js";
  */
 
 class VisitsManager {
-  constructor() {
+  constructor({ dataService = null, onDataChanged = null } = {}) {
     // Core state
     this.map = null;
     this.places = new Map();
+    this.destroyed = false;
+    this.onDataChanged = onDataChanged;
 
     // External managers
     this.loadingManager = loadingManager;
-    this.chartManager = new VisitsChartManager("visitsChart");
-    this.statsManager = new VisitsStatsManager();
     this.uiManager = new VisitsUIManager(this);
 
     // Map controller
@@ -55,11 +48,13 @@ class VisitsManager {
 
     // Initialize new modular components
     this.dataLoader = new VisitsDataLoader({
+      dataService,
       loadingManager: this.loadingManager,
       notificationManager,
     });
 
     this.actions = new VisitsActions({
+      dataService,
       loadingManager: this.loadingManager,
       notificationManager,
       confirmationDialog,
@@ -87,12 +82,9 @@ class VisitsManager {
     // Tables
     this.visitsTable = null;
     this.tripsTable = null;
-    this.nonCustomVisitsTable = null;
-    this.suggestionsTable = null;
 
-    // Set up duration sorting and initialize
+    // Set up duration sorting; initialization is owned by the page controller.
     VisitsHelpers.setupDurationSorting();
-    this.initialize();
   }
 
   async initialize() {
@@ -101,6 +93,9 @@ class VisitsManager {
 
     try {
       await this.mapController.initialize(VisitsHelpers.getCurrentTheme());
+      if (this.destroyed) {
+        return null;
+      }
       this.map = this.mapController.getMap();
 
       // Initialize drawing with the map
@@ -111,22 +106,11 @@ class VisitsManager {
 
       this.initializeTables();
       this.events.setupEventListeners();
-      this.uiManager.setupEnhancedUI();
 
-      await Promise.all([
-        this.loadPlaces(),
-        this.loadNonCustomPlacesVisits(),
-        this.loadSuggestions(),
-      ]);
-
-      // Start stats animation
-      // Stats are now handled by VisitsPageController in visits-new.js
-      /*
-      this.updateStatsCounts();
-      this.statsManager.startStatsAnimation(this.places.size, () =>
-        this.updateStatsCounts()
-      );
-      */
+      const initialData = await this.loadPlaces();
+      if (this.destroyed) {
+        return null;
+      }
 
       this.loadingManager?.hide();
       VisitsHelpers.hideInitialLoading();
@@ -138,10 +122,14 @@ class VisitsManager {
 
       // Trigger stagger animations for widgets
       this._triggerStaggerAnimations();
+      return initialData;
     } catch (error) {
-      console.error("Error initializing visits page:", error);
       this.loadingManager?.hide();
-      VisitsHelpers.showErrorState();
+      if (!this.destroyed) {
+        console.error("Error initializing visits page:", error);
+        VisitsHelpers.showErrorState();
+      }
+      return null;
     }
   }
 
@@ -212,69 +200,55 @@ class VisitsManager {
 
   async loadPlaces() {
     const placesMap = await this.dataLoader.loadPlaces((places) => {
-      this.mapController.setPlaces(places);
+      if (!this.destroyed) {
+        this.mapController.setPlaces(places);
+      }
     });
 
+    if (this.destroyed) {
+      return null;
+    }
     this.places = placesMap;
-    await this.updateVisitsData();
-    this.updateStatsCounts();
-  }
-
-  async loadNonCustomPlacesVisits() {
-    if (!this.nonCustomVisitsTable) {
-      return;
-    }
-
-    const visitsData = await this.dataLoader.loadNonCustomPlacesVisits();
-    this.nonCustomVisitsTable.clear().rows.add(visitsData).draw();
-  }
-
-  async loadSuggestions() {
-    if (!this.suggestionsTable) {
-      return;
-    }
-
-    if (this.suggestionsTable?.processing) {
-      this.suggestionsTable.processing(true);
-    }
-
-    try {
-      const data = await this.dataLoader.loadSuggestions();
-      this.suggestionsTable.clear().rows.add(data).draw();
-    } finally {
-      if (this.suggestionsTable?.processing) {
-        this.suggestionsTable.processing(false);
-      }
-    }
+    const stats = await this.refreshStatistics();
+    return { places: [...placesMap.values()], stats };
   }
 
   // --- Stats & Data Updates ---
 
-  async updateStatsCounts() {
-    try {
-      const customStats = await this.dataLoader.loadPlaceStatistics();
-      const totalVisits = customStats.reduce((sum, p) => sum + (p.totalVisits || 0), 0);
-      this.statsManager.updateStatsCounts(this.places.size, totalVisits);
-    } catch (error) {
-      console.error("Error updating stats:", error);
-      this.statsManager.updateStatsCounts(this.places.size, null);
+  async refreshStatistics() {
+    if (this.destroyed) {
+      return [];
+    }
+    const stats = await this.dataLoader.loadPlaceStatistics({ timeframe: "all" });
+    if (!this.destroyed) {
+      this.updateVisitsData(stats);
+    }
+    return stats;
+  }
+
+  async refreshAfterMutation() {
+    if (this.destroyed) {
+      return;
+    }
+    const stats = await this.refreshStatistics();
+    if (!this.destroyed) {
+      void this.onDataChanged?.({ places: [...this.places.values()], stats });
     }
   }
 
-  async updateVisitsData(statsData = null) {
+  updateVisitsData(statsList) {
+    if (this.destroyed) {
+      return;
+    }
     this.loadingManager?.show("Updating Statistics");
-    const placeEntries = Array.from(this.places.entries());
 
-    if (placeEntries.length === 0) {
-      this.chartManager.update([], null);
+    if (this.places.size === 0) {
       this.visitsTable?.clear().draw();
-      this.statsManager.updateInsights([]);
       this.loadingManager?.hide();
       return;
     }
 
     try {
-      const statsList = statsData || (await this.dataLoader.loadPlaceStatistics());
       statsList.sort((a, b) => b.totalVisits - a.totalVisits);
 
       const validResults = statsList.map((d) => ({
@@ -286,45 +260,12 @@ class VisitsManager {
         avgTimeSpent: d.averageTimeSpent || "N/A",
       }));
 
-      this.chartManager.update(validResults, (placeName) => {
-        const placeEntry = Array.from(this.places.entries()).find(
-          ([, placeData]) => placeData.name === placeName
-        );
-        if (placeEntry) {
-          const [placeId] = placeEntry;
-          this.uiManager.toggleView(placeId);
-        }
-      });
-
       this.visitsTable?.clear().rows.add(validResults).draw();
-      this.statsManager.updateInsights(statsList);
     } catch (error) {
       console.error("Error updating place statistics:", error);
       notificationManager?.show("Error updating place statistics", "danger");
     } finally {
       this.loadingManager?.hide();
-    }
-  }
-
-  async filterByTimeframe(timeframe) {
-    const tables = [this.visitsTable, this.nonCustomVisitsTable];
-    tables.forEach((table) => {
-      table?.processing?.(true);
-    });
-
-    try {
-      const { customStats, otherStats } =
-        await this.dataLoader.filterByTimeframe(timeframe);
-
-      this.updateVisitsData(customStats);
-      this.nonCustomVisitsTable?.clear().rows.add(otherStats).draw();
-      await this.loadSuggestions();
-    } catch (error) {
-      console.error("Error filtering by timeframe:", error);
-    } finally {
-      tables.forEach((table) => {
-        table?.processing?.(false);
-      });
     }
   }
 
@@ -356,6 +297,9 @@ class VisitsManager {
       name: placeName,
       geometry: currentPolygon?.geometry,
       onSuccess: async (place) => {
+        if (this.destroyed) {
+          return;
+        }
         const placeId = this._setPlace(this._resolvePlaceId(place), place);
         if (!placeId) {
           notificationManager?.show(
@@ -365,9 +309,8 @@ class VisitsManager {
         }
         this.mapController.addPlace(place);
         this.mapController.animateToPlace(place);
-        await this.updateVisitsData();
+        await this.refreshAfterMutation();
         this.resetDrawing();
-        this.updateStatsCounts();
       },
     });
 
@@ -384,6 +327,9 @@ class VisitsManager {
       place: placeToUpdate,
       newGeometry: currentPolygon?.geometry || null,
       onSuccess: async (place) => {
+        if (this.destroyed) {
+          return;
+        }
         const updatedPlaceId = this._setPlace(normalizedPlaceId, place);
         this.mapController.removePlace(normalizedPlaceId);
         if (updatedPlaceId && updatedPlaceId !== normalizedPlaceId) {
@@ -391,9 +337,8 @@ class VisitsManager {
         }
         this.mapController.addPlace(place);
         this.mapController.animateToPlace(place);
-        await this.updateVisitsData();
+        await this.refreshAfterMutation();
         this.resetDrawing();
-        this.updateStatsCounts();
       },
     });
 
@@ -413,6 +358,9 @@ class VisitsManager {
       resolvedPlaceId,
       placeToDelete,
       async () => {
+        if (this.destroyed) {
+          return;
+        }
         this.mapController.removePlace(resolvedPlaceId);
         if (requestedPlaceId && requestedPlaceId !== resolvedPlaceId) {
           this.mapController.removePlace(requestedPlaceId);
@@ -421,9 +369,7 @@ class VisitsManager {
         if (requestedPlaceId && requestedPlaceId !== resolvedPlaceId) {
           this.places.delete(requestedPlaceId);
         }
-        await this.updateVisitsData();
-        this.uiManager.refreshManagePlacesModal(this.places);
-        this.updateStatsCounts();
+        await this.refreshAfterMutation();
       }
     );
 
@@ -451,14 +397,16 @@ class VisitsManager {
       place: placeToUpdate,
       newGeometry,
       onSuccess: async (place, hadGeometry) => {
+        if (this.destroyed) {
+          return;
+        }
         const updatedPlaceId = this._setPlace(resolvedPlaceId, place);
         this.mapController.removePlace(resolvedPlaceId);
         if (updatedPlaceId && updatedPlaceId !== resolvedPlaceId) {
           this.mapController.removePlace(updatedPlaceId);
         }
         this.mapController.addPlace(place);
-        await this.updateVisitsData();
-        this.updateStatsCounts();
+        await this.refreshAfterMutation();
 
         if (hadGeometry) {
           this.resetDrawing();
@@ -551,19 +499,12 @@ class VisitsManager {
   }
 
   applySuggestion(suggestion) {
-    if (!suggestion || !suggestion.boundary) {
+    if (!suggestion?.boundary) {
       return;
     }
 
     this.drawing.applySuggestion(suggestion);
     this.mapController.animateToPlace({ geometry: suggestion.boundary });
-
-    const customTab = document.getElementById("custom-places-tab");
-    if (customTab) {
-      bootstrap.Tab.getOrCreateInstance(customTab).show();
-    }
-
-    this.uiManager.previewSuggestion?.(suggestion);
   }
 
   // --- Tables ---
@@ -572,13 +513,8 @@ class VisitsManager {
     this.visitsTable = createVisitsTable({
       onPlaceSelected: (placeId) => this.uiManager.toggleView(placeId),
     });
-    this.nonCustomVisitsTable = createNonCustomVisitsTable();
     this.tripsTable = createTripsTable({
       onTripSelected: (tripId) => this.confirmViewTripOnMap(tripId),
-    });
-    this.suggestionsTable = createSuggestionsTable({
-      onCreatePlace: (suggestion) => this.applySuggestion(suggestion),
-      onPreview: (suggestion) => this.mapController.previewSuggestion(suggestion),
     });
   }
 
@@ -664,14 +600,19 @@ class VisitsManager {
   // --- Cleanup ---
 
   destroy() {
+    if (this.destroyed) {
+      return;
+    }
+    this.destroyed = true;
+    this.loadingManager?.hide();
+    VisitsHelpers.hideInitialLoading();
     this.events?.destroy?.();
-    this.statsManager.destroy();
-    this.map?.remove();
-    this.chartManager.destroy();
+    this.onDataChanged = null;
+    this.mapController.destroy();
+    this.map = null;
+    this.tripViewer.destroy();
     this.visitsTable?.destroy();
-    this.nonCustomVisitsTable?.destroy();
     this.tripsTable?.destroy();
-    this.suggestionsTable?.destroy();
   }
 }
 

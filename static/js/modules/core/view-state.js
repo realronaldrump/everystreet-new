@@ -38,5 +38,3 @@ export function createViewStateController(states = {}) {
     },
   };
 }
-
-export default createViewStateController;

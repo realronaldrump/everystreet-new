@@ -1,10 +1,8 @@
 /* global bootstrap */
 
 import apiClient from "../../core/api-client.js";
-import loadingManager from "../../ui/loading-manager.js";
 import notificationManager from "../../ui/notifications.js";
 import { DateUtils } from "../../utils.js";
-import { queueRemapJob } from "./shared/remap-job.js";
 import { getDurationState, getResultText } from "./shared/task-history-entry.js";
 import { clearInlineStatus, setInlineStatus } from "./status-utils.js";
 import { submitTaskConfigUpdate } from "./task-manager/api.js";
@@ -18,23 +16,6 @@ import { showErrorModal, showTaskDetails } from "./task-manager/modals.js";
 /**
  * Mobile UI module - handles all mobile-specific UI rendering and interactions
  */
-
-function setupMobileAccordions() {
-  const headers = document.querySelectorAll(".mobile-accordion-header");
-  headers.forEach((header) => {
-    header.addEventListener("click", () => {
-      const content = header.nextElementSibling;
-      const icon = header.querySelector(".mobile-accordion-icon");
-      if (content.classList.contains("expanded")) {
-        content.classList.remove("expanded");
-        icon?.classList.remove("expanded");
-      } else {
-        content.classList.add("expanded");
-        icon?.classList.add("expanded");
-      }
-    });
-  });
-}
 
 function setupMobileTaskList(taskManager) {
   // Hook into the existing updateTaskConfigTable function
@@ -364,7 +345,6 @@ function setupMobileManualFetch(taskManager) {
 
   const startInput = document.getElementById("mobile-manual-fetch-start");
   const endInput = document.getElementById("mobile-manual-fetch-end");
-  const mapMatchInput = document.getElementById("mobile-manual-fetch-map-match");
   const statusEl = document.getElementById("mobile-manual-fetch-status");
 
   form.addEventListener("submit", async (event) => {
@@ -401,14 +381,11 @@ function setupMobileManualFetch(taskManager) {
       return;
     }
 
-    const mapMatchEnabled = Boolean(mapMatchInput?.checked);
-
     try {
       setInlineStatus(statusEl, "Scheduling fetch...", "info");
       await taskManager.scheduleManualFetch(
         startDate.toISOString(),
-        endDate.toISOString(),
-        mapMatchEnabled
+        endDate.toISOString()
       );
       setInlineStatus(statusEl, "Fetch scheduled successfully.", "success");
     } catch (error) {
@@ -419,7 +396,6 @@ function setupMobileManualFetch(taskManager) {
 
 function setupMobileDataManagement() {
   setupMobileGeocodeTrips();
-  setupMobileRemapTrips();
 }
 
 // Helper function for geocode progress polling
@@ -673,89 +649,6 @@ function setupMobileGeocodeTrips() {
   DateUtils.initDatePicker(".datepicker");
 }
 
-function setupMobileRemapTrips() {
-  const dateTab = document.querySelector(
-    '.mobile-date-method-tab[data-target="remap"][data-method="date"]'
-  );
-  const intervalTab = document.querySelector(
-    '.mobile-date-method-tab[data-target="remap"][data-method="interval"]'
-  );
-  const dateRange = document.getElementById("mobile-remap-date-range");
-  const intervalDiv = document.getElementById("mobile-remap-interval");
-
-  if (dateTab && intervalTab && dateRange && intervalDiv) {
-    dateTab.addEventListener("click", () => {
-      dateTab.classList.add("active");
-      intervalTab.classList.remove("active");
-      dateRange.style.display = "block";
-      intervalDiv.style.display = "none";
-    });
-
-    intervalTab.addEventListener("click", () => {
-      intervalTab.classList.add("active");
-      dateTab.classList.remove("active");
-      dateRange.style.display = "none";
-      intervalDiv.style.display = "block";
-    });
-  }
-
-  const remapBtn = document.getElementById("mobile-remap-btn");
-  const remapStatus = document.getElementById("mobile-remap-status");
-
-  if (remapBtn) {
-    remapBtn.addEventListener("click", async () => {
-      const method =
-        document.querySelector('.mobile-date-method-tab[data-target="remap"].active')
-          ?.dataset.method || "date";
-      let start_date = "";
-      let end_date = "";
-      let interval_days = 0;
-
-      if (method === "date") {
-        start_date = document.getElementById("mobile-remap-start").value;
-        end_date = document.getElementById("mobile-remap-end").value;
-        if (!start_date || !end_date) {
-          notificationManager.show("Please select both start and end dates", "danger");
-          return;
-        }
-      } else {
-        interval_days = parseInt(
-          document.getElementById("mobile-remap-interval-select").value,
-          10
-        );
-        const startDateObj = new Date();
-        startDateObj.setDate(startDateObj.getDate() - interval_days);
-        start_date = DateUtils.formatDateToString(startDateObj);
-        end_date = DateUtils.formatDateToString(new Date());
-      }
-
-      try {
-        loadingManager.show();
-        setInlineStatus(remapStatus, "Queueing rematch job...", "info");
-
-        await queueRemapJob({ start_date, end_date, interval_days });
-        loadingManager.hide();
-
-        setInlineStatus(
-          remapStatus,
-          "Rematch job queued. View progress in Map Matching.",
-          "success"
-        );
-        notificationManager.show(
-          "Rematch job queued. View progress in Map Matching.",
-          "success"
-        );
-      } catch {
-        loadingManager.hide();
-        setInlineStatus(remapStatus, "Error re-matching trips.", "danger");
-        notificationManager.show("Failed to re-match trips", "danger");
-      }
-    });
-  }
-
-  DateUtils.initDatePicker(".mobile-form-input.datepicker");
-}
-
 function setupMobileSaveFAB(taskManager) {
   const fab = document.getElementById("mobile-save-config-fab");
   if (!fab) {
@@ -810,7 +703,6 @@ function setupMobileSaveFAB(taskManager) {
  * Initialize all mobile UI components
  */
 export function initMobileUI(taskManager) {
-  setupMobileAccordions();
   setupMobileTaskList(taskManager);
   setupMobileHistoryList(taskManager);
   setupMobileGlobalControls();

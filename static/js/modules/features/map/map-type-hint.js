@@ -32,5 +32,3 @@ export function resolveMapTypeHint({
     return "";
   }
 }
-
-export default resolveMapTypeHint;
