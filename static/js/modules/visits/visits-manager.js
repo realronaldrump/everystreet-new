@@ -151,7 +151,7 @@ class VisitsManager {
   }
 
   _resolvePlaceId(place) {
-    const rawId = place?._id ?? place?.id;
+    const rawId = place?.id;
     if (rawId === undefined || rawId === null) {
       return "";
     }
@@ -252,7 +252,7 @@ class VisitsManager {
       statsList.sort((a, b) => b.totalVisits - a.totalVisits);
 
       const validResults = statsList.map((d) => ({
-        _id: d._id || d.id,
+        id: d.id,
         name: d.name,
         totalVisits: d.totalVisits,
         firstVisit: d.firstVisit,

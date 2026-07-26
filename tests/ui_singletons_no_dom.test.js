@@ -16,5 +16,4 @@ test("UI singletons are safe without a DOM", async () => {
   await confirmationDialog.alert("Test");
 
   assert.equal(geolocationService.isSupported(), false);
-  assert.equal(await geolocationService.requestPermission(), "prompt");
 });

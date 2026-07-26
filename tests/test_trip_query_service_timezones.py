@@ -9,7 +9,7 @@ from trips.services.trip_query_service import TripQueryService
 
 
 @pytest.mark.asyncio
-async def test_get_trips_datatable_includes_timezone_alias_fields(
+async def test_get_trips_datatable_includes_canonical_timezone_fields(
     beanie_db,
 ) -> None:
     del beanie_db
@@ -46,7 +46,7 @@ async def test_get_trips_datatable_includes_timezone_alias_fields(
     row = result["data"][0]
     assert row["startTimeZone"] == "America/Chicago"
     assert row["endTimeZone"] == "America/Chicago"
-    assert row["timeZone"] == "America/Chicago"
+    assert "timeZone" not in row
 
 
 @pytest.mark.asyncio

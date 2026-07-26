@@ -41,7 +41,8 @@ def test_to_dict_normalizes_trip_fields() -> None:
     assert serialized["transactionId"] == "tx-1"
     assert serialized["startTime"].startswith("2024-01-01T00:00:00")
     assert serialized["endTime"].startswith("2024-01-01T00:30:00")
-    assert serialized["timeZone"] == "America/Chicago"
+    assert serialized["startTimeZone"] == "America/Chicago"
+    assert "timeZone" not in serialized
     assert serialized["distance"] == 12.34
     assert serialized["maxSpeed"] == 55.5
     assert serialized["fuelConsumed"] == 1.2

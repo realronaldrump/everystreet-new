@@ -44,7 +44,7 @@ async def process_single_trip(
 
     trip_dict = trip.model_dump()
 
-    source = trip_dict.get("source") or getattr(trip, "source", None) or "unknown"
+    source = trip.source or "unknown"
 
     processing_options = ProcessingOptions(
         validate=True,
@@ -86,19 +86,17 @@ async def get_trip_status(trip_id: str):
         return {
             "transaction_id": trip_id,
             "collection": "trips",  # Static name
-            "source": getattr(trip, "source", "unknown"),
+            "source": trip.source or "unknown",
             "has_start_location": bool(trip.startGeoPoint),
             "has_destination": bool(trip.destinationGeoPoint),
             "has_matched_trip": bool(trip.matchedGps),
-            "processing_history": getattr(trip, "processing_history", []),
-            "validation_status": getattr(trip, "validation_status", "unknown"),
-            "validation_message": getattr(trip, "validation_message", ""),
-            "validated_at": (
-                trip.validated_at if hasattr(trip, "validated_at") else None
-            ),
+            "processing_history": trip.processing_history,
+            "validation_status": trip.validation_status,
+            "validation_message": trip.validation_message,
+            "validated_at": trip.validated_at,
             "geocoded_at": getattr(trip, "geocoded_at", None),
-            "matched_at": getattr(trip, "matched_at", None),
-            "last_processed": getattr(trip, "lastUpdate", None),
+            "matched_at": trip.matched_at,
+            "last_processed": trip.lastUpdate,
         }
 
     except Exception as e:

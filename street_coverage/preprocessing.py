@@ -363,17 +363,11 @@ def _graph_from_pbf(osm_path: Path) -> nx.MultiDiGraph:
             warnings.filterwarnings("ignore", category=pd.errors.ChainedAssignmentError)
 
     osm = OSM(str(osm_path))
-    try:
-        network = osm.get_network(
-            network_type="driving",
-            nodes=True,
-            extra_attributes=_PYROSM_EXTRA_ATTRIBUTES,
-        )
-    except TypeError:
-        try:
-            network = osm.get_network(network_type="driving", nodes=True)
-        except TypeError:
-            network = osm.get_network(network_type="driving")
+    network = osm.get_network(
+        network_type="driving",
+        nodes=True,
+        extra_attributes=_PYROSM_EXTRA_ATTRIBUTES,
+    )
 
     if isinstance(network, nx.MultiDiGraph):
         return network

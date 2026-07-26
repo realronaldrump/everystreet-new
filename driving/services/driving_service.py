@@ -5,7 +5,7 @@ from typing import Any
 
 from beanie import PydanticObjectId
 from fastapi import HTTPException
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 from core.casting import safe_float
 from core.constants import MILES_TO_METERS
@@ -22,23 +22,12 @@ CLUSTER_DISTANCE_M = 120.0
 MIN_GRID_SCALE = 0.01
 
 
-class CoverageLocation(BaseModel):
-    id: PydanticObjectId | None = Field(
-        default=None,
-        validation_alias=AliasChoices("id", "_id"),
-    )
-    display_name: str | None = None
-    location: str | None = None
-
-    model_config = ConfigDict(extra="allow")
-
-
 class DrivingNavigationRequest(BaseModel):
-    location: CoverageLocation | None = None
+    area_id: PydanticObjectId
     current_position: dict[str, Any] | None = None
     segment_id: str | None = None
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
 
 def sanitize_for_json(obj: Any) -> Any:
@@ -61,15 +50,9 @@ def _normalize_location_source(source: str | None) -> str:
 
 
 async def _resolve_coverage_area(
-    location: CoverageLocation | None,
+    area_id: PydanticObjectId,
 ) -> CoverageArea:
-    if location is None:
-        raise HTTPException(status_code=400, detail="Missing location data.")
-
-    if location.id is None:
-        raise HTTPException(status_code=400, detail="Missing location id.")
-
-    area = await CoverageArea.get(location.id)
+    area = await CoverageArea.get(area_id)
     if not area:
         raise HTTPException(status_code=404, detail="Coverage area not found.")
 
@@ -406,13 +389,9 @@ def _extract_position_from_gps_data(gps_data: dict) -> tuple[float, float, str] 
 
 
 async def get_current_position(
-    request_data: DrivingNavigationRequest | dict[str, Any],
+    current_position: dict[str, Any] | None,
 ) -> tuple[float, float, str]:
     """Determines the current position from request, live tracking, or last trip."""
-    if isinstance(request_data, DrivingNavigationRequest):
-        current_position = request_data.current_position
-    else:
-        current_position = request_data.get("current_position")
     if current_position and "lat" in current_position and "lon" in current_position:
         return (
             float(current_position["lat"]),
@@ -423,13 +402,8 @@ async def get_current_position(
     try:
         active_trip = await TrackingService.get_active_trip()
         if active_trip:
-            active_trip_data = (
-                active_trip.model_dump()
-                if hasattr(active_trip, "model_dump")
-                else dict(active_trip)
-            )
             position = _extract_position_from_gps_data(
-                active_trip_data.get("gps", {}),
+                active_trip.get("gps", {}),
             )
             if position:
                 return position
@@ -472,7 +446,7 @@ class DrivingService:
         payload: DrivingNavigationRequest,
     ) -> dict[str, Any]:
         """Find a route to the nearest undriven street (or a specific segment)."""
-        area = await _resolve_coverage_area(payload.location)
+        area = await _resolve_coverage_area(payload.area_id)
         undriven_segments = await _load_undriven_segments(area)
 
         if not undriven_segments:
@@ -496,7 +470,7 @@ class DrivingService:
 
         if current_lon is None or current_lat is None:
             current_lat, current_lon, location_source = await get_current_position(
-                payload,
+                payload.current_position,
             )
 
         location_source = _normalize_location_source(location_source)
@@ -624,4 +598,4 @@ class DrivingService:
         )
 
 
-__all__ = ["CoverageLocation", "DrivingNavigationRequest", "DrivingService"]
+__all__ = ["DrivingNavigationRequest", "DrivingService"]

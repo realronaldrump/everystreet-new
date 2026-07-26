@@ -645,43 +645,26 @@ async def fetch_trips_for_window(
     return result.trips
 
 
-def _existing_source(existing: TripStatusProjection | dict[str, Any] | None) -> str:
+def _existing_source(existing: TripStatusProjection | None) -> str:
     if existing is None:
         return ""
-    if isinstance(existing, dict):
-        value = existing.get("source")
-    else:
-        value = getattr(existing, "source", None)
-    return str(value or "").strip().lower()
+    return str(existing.source or "").strip().lower()
 
 
 def _existing_is_processed(
-    existing: TripStatusProjection | dict[str, Any] | None,
+    existing: TripStatusProjection | None,
 ) -> bool:
     if existing is None:
         return False
-    if isinstance(existing, dict):
-        status_value = existing.get("status")
-        processing_state = existing.get("processing_state")
-        matched = existing.get("matchedGps")
-    else:
-        status_value = getattr(existing, "status", None)
-        processing_state = getattr(existing, "processing_state", None)
-        matched = getattr(existing, "matchedGps", None)
-
     return bool(
-        status_value == "processed"
-        or processing_state in {"completed", "map_matched"}
-        or matched is not None,
+        existing.status == "processed"
+        or existing.processing_state in {"completed", "map_matched"}
+        or existing.matchedGps is not None,
     )
 
 
-def _existing_has_match(existing: TripStatusProjection | dict[str, Any] | None) -> bool:
-    if existing is None:
-        return False
-    if isinstance(existing, dict):
-        return bool(existing.get("matchedGps"))
-    return bool(getattr(existing, "matchedGps", None))
+def _existing_has_match(existing: TripStatusProjection | None) -> bool:
+    return bool(existing and existing.matchedGps)
 
 
 async def _record_ingest_issue(
@@ -762,7 +745,7 @@ async def process_bouncie_trips(
     )
     existing_by_id: dict[str, TripStatusProjection] = {}
     for doc in existing_docs:
-        tx = str(getattr(doc, "transactionId", "") or "").strip()
+        tx = str(doc.transactionId or "").strip()
         if tx:
             existing_by_id[tx] = doc
 
@@ -800,10 +783,10 @@ async def process_bouncie_trips(
                 do_geocode
                 and not (
                     TripPipeline._has_meaningful_location(
-                        getattr(existing, "startLocation", None),
+                        existing.startLocation,
                     )
                     and TripPipeline._has_meaningful_location(
-                        getattr(existing, "destination", None),
+                        existing.destination,
                     )
                 ),
             )
@@ -874,7 +857,7 @@ async def process_bouncie_trips(
                         details={
                             "transactionId": tx,
                             "imei": imei,
-                            "existing_source": getattr(existing_after, "source", None),
+                            "existing_source": existing_after.source,
                         },
                     )
                     continue
@@ -889,7 +872,7 @@ async def process_bouncie_trips(
             )
             continue
 
-        if not saved or not getattr(saved, "id", None):
+        if not saved or not saved.id:
             counters["process_errors"] += 1
             await _record_ingest_issue(
                 issue_type="process_error",

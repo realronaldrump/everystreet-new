@@ -178,24 +178,6 @@ class ProgressCardGenerator {
     downloadBlob(blob, filename);
   }
 
-  /**
-   * Generate and copy to clipboard.
-   * @param {Object} data - Card data
-   */
-  async copyCardToClipboard(data) {
-    const blob = await this.generateCard(data);
-    if (!blob) {
-      return false;
-    }
-
-    try {
-      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
   _formatNumber(num, decimals = 0) {
     if (!Number.isFinite(num)) {
       return "0";

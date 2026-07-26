@@ -42,7 +42,7 @@ export function getPreloadTripIdFromUrl(href = window.location.href) {
       return tripPathMatch[1] || null;
     }
 
-    return url.searchParams.get("trip_id") || url.searchParams.get("highlight");
+    return url.searchParams.get("highlight");
   } catch {
     return null;
   }

@@ -1109,7 +1109,7 @@ class VisitsPageController {
   }
 
   getPlaceIdentifier(place) {
-    const placeId = place?.id ?? place?._id;
+    const placeId = place?.id;
     return placeId === undefined || placeId === null ? "" : String(placeId);
   }
 

@@ -127,8 +127,6 @@ class ESStore {
 
     // SPA store state
     this.state = deepClone(DEFAULT_STATE);
-    this.listeners = new Set();
-    this.pathListeners = new Map();
     this.initialized = false;
     this.appReady = false;
 
@@ -170,11 +168,6 @@ class ESStore {
     } catch (e) {
       console.warn("Failed to save UI state:", e);
     }
-  }
-
-  updateMobileState() {
-    this.ui.isMobile = window.innerWidth < CONFIG.UI.mobileBreakpoint;
-    return this.ui.isMobile;
   }
 
   // DOM element caching with stale-reference validation
@@ -273,8 +266,6 @@ class ESStore {
     this.loadingStates.clear();
     this.pendingRequests.clear();
     this.layerLoadPromises.clear();
-    this.listeners.clear();
-    this.pathListeners.clear();
   }
 
   resetStreetCache() {
@@ -318,83 +309,16 @@ class ESStore {
     document.dispatchEvent(new CustomEvent(type, { detail }));
   }
 
-  _notify(change) {
-    this.listeners.forEach((listener) => {
-      try {
-        listener(change, this.state);
-      } catch (e) {
-        console.warn("Store listener failed:", e);
-      }
-    });
-
-    if (change?.path && this.pathListeners.has(change.path)) {
-      this.pathListeners.get(change.path).forEach((listener) => {
-        try {
-          listener(change.value, change);
-        } catch (e) {
-          console.warn("Store path listener failed:", e);
-        }
-      });
-    }
-  }
-
   get(path) {
     return getByPath(this.state, path);
   }
 
-  getState() {
-    return this.state;
-  }
-
-  subscribe(pathOrListener, maybeListener) {
-    if (typeof pathOrListener === "function") {
-      this.listeners.add(pathOrListener);
-      return () => this.listeners.delete(pathOrListener);
-    }
-
-    if (typeof maybeListener !== "function") {
-      return () => {};
-    }
-
-    if (!this.pathListeners.has(pathOrListener)) {
-      this.pathListeners.set(pathOrListener, new Set());
-    }
-    const bucket = this.pathListeners.get(pathOrListener);
-    bucket.add(maybeListener);
-    return () => bucket.delete(maybeListener);
-  }
-
-  set(path, value, options = {}) {
+  set(path, value) {
     setByPath(this.state, path, value);
     if (path?.startsWith("ui.")) {
       this._applyUIState(this.state.ui || {});
     }
-    if (options.persist !== false) {
-      this._persist();
-    }
-    if (!options.silent) {
-      this._notify({ path, value, source: options.source || "set" });
-    }
-  }
-
-  update(partial, options = {}) {
-    this.state = {
-      ...this.state,
-      ...partial,
-    };
-    if (partial.ui) {
-      this._applyUIState(this.state.ui || {});
-    }
-    if (options.persist !== false) {
-      this._persist();
-    }
-    if (!options.silent) {
-      this._notify({
-        path: null,
-        value: partial,
-        source: options.source || "update",
-      });
-    }
+    this._persist();
   }
 
   updateFilters(filters, options = {}) {
@@ -413,11 +337,6 @@ class ESStore {
       });
       this._emit("filtersApplied", { ...nextFilters });
     }
-    this._notify({
-      path: "filters",
-      value: nextFilters,
-      source: options.source,
-    });
   }
 
   updateMapView(view, options = {}) {
@@ -428,7 +347,6 @@ class ESStore {
     if (options.emit !== false) {
       this._emit("es:map-view-change", { view, source: options.source });
     }
-    this._notify({ path: "map.view", value: view, source: options.source });
   }
 
   updateLayerVisibility(visibility, options = {}) {
@@ -442,11 +360,6 @@ class ESStore {
     if (options.emit !== false) {
       this._emit("es:layers-change", { visibility, source: options.source });
     }
-    this._notify({
-      path: "layers.visibility",
-      value: visibility,
-      source: options.source,
-    });
   }
 
   applyUrlParams(url, options = {}) {
@@ -508,12 +421,6 @@ class ESStore {
         source: options.source || "url",
       });
     }
-
-    this._notify({
-      path: "url",
-      value: parsedUrl.toString(),
-      source: options.source,
-    });
   }
 
   syncUrl({ push = false, replace: _replace = false } = {}) {
@@ -571,10 +478,6 @@ class ESStore {
 
     // Preserve swup's history.state so back/forward navigation keeps working.
     window.history.replaceState(window.history.state, document.title, url.toString());
-  }
-
-  getDefaultState() {
-    return deepClone(DEFAULT_STATE);
   }
 }
 

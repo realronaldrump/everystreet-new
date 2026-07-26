@@ -257,7 +257,7 @@ class LiveNavigationNavigator {
       return;
     }
 
-    const selectedAreaId = String(selectedArea.id || selectedArea._id || areaId);
+    const selectedAreaId = String(selectedArea.id);
     this.ui.setAreaSelectValue(selectedAreaId);
     this.selectedAreaId = selectedAreaId;
     this.selectedAreaName = this.getCoverageAreaName(selectedArea);
@@ -641,19 +641,11 @@ class LiveNavigationNavigator {
       return null;
     }
     const target = String(areaId);
-    return (
-      this.coverageAreas.find((area) => String(area?.id || area?._id) === target) ||
-      null
-    );
+    return this.coverageAreas.find((area) => String(area.id) === target) || null;
   }
 
   getCoverageAreaName(area) {
-    return (
-      area?.display_name ||
-      area?.location?.display_name ||
-      area?.name ||
-      "Coverage Area"
-    );
+    return area.display_name;
   }
 
   clearPersistedAreaSelection(areaId) {

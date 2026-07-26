@@ -50,14 +50,14 @@ export class DrivingNavigationAPI {
   /**
    * Find the next route to an undriven street.
    * @param {Object} params - Request parameters
-   * @param {Object} params.location - The location object
+   * @param {string} params.areaId - The coverage area ID
    * @param {Object} [params.currentPosition] - Current user position {lat, lon}
    * @param {string} [params.segmentId] - Optional specific segment to navigate to
    * @returns {Promise<Object>} Route data with geometry and target street info
    */
-  findNextRoute({ location, currentPosition, segmentId }) {
+  findNextRoute({ areaId, currentPosition, segmentId }) {
     const requestPayload = {
-      location,
+      area_id: areaId,
       ...(currentPosition && { current_position: currentPosition }),
       ...(segmentId && { segment_id: segmentId }),
     };

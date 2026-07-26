@@ -222,11 +222,9 @@ export class OptimalRoutesManager {
       return "";
     }
     const targetId = String(areaId);
-    const match = this.coverageAreas.find(
-      (area) => String(area._id || area.id || "") === targetId
-    );
+    const match = this.coverageAreas.find((area) => String(area.id) === targetId);
     if (match) {
-      return match.status || match.location?.status || "";
+      return match.status;
     }
     const options = this.ui.areaSelect?.options || [];
     for (const option of options) {
@@ -355,7 +353,7 @@ export class OptimalRoutesManager {
     }
 
     const selectedArea = this.coverageAreas.find(
-      (area) => String(area?._id || area?.id || "") === nextAreaId
+      (area) => String(area.id) === nextAreaId
     );
     this.clearRouteDisplay();
     this.ui.updateAreaStats(selectedArea || null);
@@ -442,7 +440,7 @@ export class OptimalRoutesManager {
       return;
     }
     const areaExists = this.coverageAreas.some(
-      (area) => String(area?._id || area?.id || "") === draft.areaId
+      (area) => String(area.id) === draft.areaId
     );
     if (!areaExists) {
       this.ui.showNotification(
@@ -573,7 +571,7 @@ export class OptimalRoutesManager {
     if (routeData?.coordinates) {
       if (!isCluster) {
         const selectedArea = this.coverageAreas.find(
-          (area) => String(area?._id || area?.id || "") === String(this.selectedAreaId)
+          (area) => String(area.id) === String(this.selectedAreaId)
         );
         if (selectedArea) {
           selectedArea.has_optimal_route = true;
@@ -602,7 +600,7 @@ export class OptimalRoutesManager {
     this.ui.showError(message);
     this.ui.hideReplayButton();
     const selectedArea = this.coverageAreas.find(
-      (area) => String(area?._id || area?.id || "") === String(this.selectedAreaId)
+      (area) => String(area.id) === String(this.selectedAreaId)
     );
     this.ui.setGenerateState(selectedArea?.has_optimal_route ? "done" : "ready");
   }
@@ -628,7 +626,7 @@ export class OptimalRoutesManager {
       generateBtn.disabled = false;
     }
     const selectedArea = this.coverageAreas.find(
-      (area) => String(area?._id || area?.id || "") === String(this.selectedAreaId)
+      (area) => String(area.id) === String(this.selectedAreaId)
     );
     this.ui.setGenerateState(selectedArea?.has_optimal_route ? "done" : "ready");
     this.ui.showNotification("Task cancelled", "info");
@@ -656,10 +654,9 @@ export class OptimalRoutesManager {
     }
 
     const selectedArea = this.coverageAreas.find(
-      (area) => String(area?._id || area?.id || "") === String(this.selectedAreaId)
+      (area) => String(area.id) === String(this.selectedAreaId)
     );
-    const areaName =
-      selectedArea?.display_name || selectedArea?.location?.display_name || "this area";
+    const areaName = selectedArea?.display_name || "this area";
     const confirmed = await confirmationDialog.show({
       title: "Delete Saved Route",
       message: `Delete the saved optimal route for ${areaName}? This cannot be undone.`,

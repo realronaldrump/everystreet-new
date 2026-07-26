@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, cast
+from typing import Any
 
 from shapely.geometry import Point
 
@@ -99,18 +99,13 @@ class TripGeocoder:
             if self._needs_geocode(processed_data.get("startLocation")):
                 start_place = await self.get_place_at_point(start_pt)
                 if start_place:
-                    place_obj = cast("Any", start_place)
-                    start_place_data = (
-                        place_obj.model_dump()
-                        if hasattr(place_obj, "model_dump")
-                        else dict(place_obj)
-                    )
+                    start_place_data = start_place.model_dump()
                     processed_data["startLocation"] = self._build_location_from_place(
                         start_place_data,
                         start_coord,
                         transaction_id,
                     )
-                    processed_data["startPlaceId"] = str(getattr(place_obj, "id", ""))
+                    processed_data["startPlaceId"] = str(start_place.id)
                 else:
                     rev_start = await self._reverse_geocode_safe(
                         geocoder=await resolve_geocoder(),
@@ -129,19 +124,14 @@ class TripGeocoder:
             if self._needs_geocode(processed_data.get("destination")):
                 end_place = await self.get_place_at_point(end_pt)
                 if end_place:
-                    place_obj = cast("Any", end_place)
-                    end_place_data = (
-                        place_obj.model_dump()
-                        if hasattr(place_obj, "model_dump")
-                        else dict(place_obj)
-                    )
+                    end_place_data = end_place.model_dump()
                     processed_data["destination"] = self._build_location_from_place(
                         end_place_data,
                         end_coord,
                         transaction_id,
                     )
                     processed_data["destinationPlaceId"] = str(
-                        getattr(place_obj, "id", ""),
+                        end_place.id,
                     )
                 else:
                     rev_end = await self._reverse_geocode_safe(

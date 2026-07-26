@@ -268,13 +268,6 @@ class APIClient {
   }
 
   /**
-   * PUT request
-   */
-  put(url, body, options = {}) {
-    return this.request(url, { ...options, method: "PUT", body });
-  }
-
-  /**
    * PATCH request
    */
   patch(url, body, options = {}) {
@@ -322,19 +315,6 @@ class APIClient {
       return;
     }
     headers["X-CSRF-Token"] = csrfToken;
-  }
-
-  clearCache(pattern = null) {
-    if (!pattern) {
-      this.cache.clear();
-    } else {
-      const regex = new RegExp(pattern);
-      for (const key of this.cache.keys()) {
-        if (regex.test(key)) {
-          this.cache.delete(key);
-        }
-      }
-    }
   }
 
   /**

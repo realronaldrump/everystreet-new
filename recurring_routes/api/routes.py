@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, Body, HTTPException, Query, status
@@ -31,7 +31,6 @@ from recurring_routes.services.service import (
     find_place_id_for_point,
     normalize_hex_color,
     resolve_places_by_ids,
-    route_place_id,
     serialize_route_detail_with_place_links,
     serialize_route_summary,
 )
@@ -155,12 +154,12 @@ async def list_recurring_routes(
 
     needs_centroid_lookup = any(
         (
-            route_place_id(route, "start_place_id", "startPlaceId") is None
+            coerce_place_id(route.start_place_id) is None
             and isinstance(route.start_centroid, list)
             and bool(route.start_centroid)
         )
         or (
-            route_place_id(route, "end_place_id", "endPlaceId") is None
+            coerce_place_id(route.end_place_id) is None
             and isinstance(route.end_centroid, list)
             and bool(route.end_centroid)
         )
@@ -173,8 +172,8 @@ async def list_recurring_routes(
     resolved_place_ids: list[tuple[str | None, str | None]] = []
     place_ids: set[str] = set()
     for route in route_docs:
-        start_place_id = route_place_id(route, "start_place_id", "startPlaceId")
-        end_place_id = route_place_id(route, "end_place_id", "endPlaceId")
+        start_place_id = coerce_place_id(route.start_place_id)
+        end_place_id = coerce_place_id(route.end_place_id)
 
         if (
             not start_place_id
@@ -234,8 +233,7 @@ async def get_place_pair_analysis(
     start_place_id: Annotated[str, Query(min_length=1)],
     end_place_id: Annotated[str, Query(min_length=1)],
     include_reverse: bool = False,
-    timeframe: Annotated[str, Query(pattern="^(90d|all)$")] = "all",
-    limit: Annotated[int, Query(ge=1, le=500)] = 500,
+    timeframe: Literal["90d", "all"] = "all",
 ):
     """Analyze trips between two places, optionally including reverse direction."""
     try:
@@ -244,7 +242,6 @@ async def get_place_pair_analysis(
             end_place_id=end_place_id,
             include_reverse=bool(include_reverse),
             timeframe=timeframe,
-            limit=limit,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

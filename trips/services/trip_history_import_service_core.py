@@ -39,7 +39,6 @@ from trips.services.bouncie_ingest_runtime import (
     process_bouncie_trips as process_bouncie_trips_runtime,
     summarize_failed_fetch_windows,
 )
-from trips.services.trip_ingest_issue_service import TripIngestIssueService
 from trips.services.trip_history_import_service_config import (
     DEVICE_FETCH_TIMEOUT_SECONDS,
     IMPORT_DO_COVERAGE,
@@ -53,6 +52,7 @@ from trips.services.trip_history_import_service_progress import (
     _load_progress_job,
     _write_cancelled_progress,
 )
+from trips.services.trip_ingest_issue_service import TripIngestIssueService
 
 logger = logging.getLogger(__name__)
 
@@ -291,24 +291,21 @@ async def _run_import_windows(
     ) -> None:
         started = time.monotonic()
         last_event_at = started
-        try:
-            while True:
-                await asyncio.sleep(15)
-                elapsed = time.monotonic() - started
-                if time.monotonic() - last_event_at >= 60:
-                    last_event_at = time.monotonic()
-                    runtime.add_event(
-                        "info",
-                        f"Still processing Bouncie window for {imei}",
-                        {
-                            "imei": imei,
-                            "window_index": window_index,
-                            "elapsed_seconds": int(elapsed),
-                        },
-                    )
-                await write_processing_progress(current_window)
-        except asyncio.CancelledError:
-            raise
+        while True:
+            await asyncio.sleep(15)
+            elapsed = time.monotonic() - started
+            if time.monotonic() - last_event_at >= 60:
+                last_event_at = time.monotonic()
+                runtime.add_event(
+                    "info",
+                    f"Still processing Bouncie window for {imei}",
+                    {
+                        "imei": imei,
+                        "window_index": window_index,
+                        "elapsed_seconds": int(elapsed),
+                    },
+                )
+            await write_processing_progress(current_window)
 
     async def cancel_heartbeat(task: asyncio.Task[None] | None) -> None:
         if task is None:

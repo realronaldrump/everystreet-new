@@ -113,5 +113,5 @@ def test_trip_popup_metrics_match_for_regular_and_matched_layers() -> None:
     assert matched_props["estimated_cost"] == 4.56
     assert regular_props["startTimeZone"] == "America/Chicago"
     assert regular_props["endTimeZone"] == "America/Chicago"
-    assert regular_props["timeZone"] == "America/Chicago"
-    assert matched_props["timeZone"] == "America/Chicago"
+    assert "timeZone" not in regular_props
+    assert "timeZone" not in matched_props

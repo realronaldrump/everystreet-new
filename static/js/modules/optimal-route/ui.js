@@ -58,8 +58,8 @@ export class OptimalRouteUI {
 
     areas.forEach((area) => {
       const option = document.createElement("option");
-      const areaId = area.id || area._id || "";
-      const areaName = area.display_name || area.location?.display_name || "Unknown";
+      const areaId = area.id;
+      const areaName = area.display_name;
       const status = area.status || "";
       const isProcessing = this.isCoverageCalculationActive(status);
       option.value = String(areaId);
@@ -102,7 +102,7 @@ export class OptimalRouteUI {
         const date = area.optimal_route_generated_at
           ? new Date(area.optimal_route_generated_at).toLocaleDateString()
           : "Unknown";
-        const safeAreaId = escapeHtml(area.id || area._id || "");
+        const safeAreaId = escapeHtml(area.id);
         const safeAreaName = escapeHtml(area.display_name || "Unknown");
         const safeDate = escapeHtml(date);
         return `
@@ -154,8 +154,7 @@ export class OptimalRouteUI {
     const drivenMiles = Number(area.driven_length_miles) || 0;
     const remainingMeters = Math.max(0, totalMiles - drivenMiles) * MI_TO_M;
     const remainingLabel = this.formatDistance(remainingMeters);
-    const areaName =
-      area.display_name || area.location?.display_name || "Selected area";
+    const areaName = area.display_name;
 
     const coverageValue = document.getElementById("area-coverage");
     const remainingValue = document.getElementById("area-remaining");

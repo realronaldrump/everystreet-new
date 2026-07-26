@@ -274,7 +274,7 @@ class MapMatchingJobService:
 
         sample = []
         for trip in trips:
-            trip_dict = trip.model_dump() if hasattr(trip, "model_dump") else dict(trip)
+            trip_dict = trip.model_dump()
             sample.append(
                 {
                     "transactionId": trip_dict.get("transactionId"),
@@ -391,7 +391,7 @@ class MapMatchingJobService:
         skipped = 0
 
         for trip in trips:
-            trip_dict = trip.model_dump() if hasattr(trip, "model_dump") else dict(trip)
+            trip_dict = trip.model_dump()
             matched_geom = GeometryService.parse_geojson(trip_dict.get("matchedGps"))
             if not matched_geom or not matched_geom.get("coordinates"):
                 skipped += 1

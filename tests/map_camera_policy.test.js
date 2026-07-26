@@ -78,6 +78,7 @@ const tripMapRenderer = (await import(
 const AppController = (await import("../static/js/modules/app-controller.js")).default;
 
 const originalFitBounds = mapManager.fitBounds;
+const initialStoreState = JSON.parse(JSON.stringify(store.state));
 
 function createMapMock() {
   return {
@@ -98,7 +99,7 @@ function resetHarness() {
   global.sessionStorage = createStorageMock();
   setWindowLocation("https://www.everystreet.me/map");
 
-  store.state = store.getDefaultState();
+  store.state = JSON.parse(JSON.stringify(initialStoreState));
   store.map = createMapMock();
   store.mapInitialized = true;
   store.mapLayers = JSON.parse(JSON.stringify(CONFIG.LAYER_DEFAULTS));

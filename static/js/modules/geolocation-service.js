@@ -4,16 +4,9 @@
  * Replaces 5+ scattered geolocation implementations
  */
 
-import {
-  cardinalDirection,
-  bearing as computeBearing,
-  haversineDistance,
-} from "./utils/geo-math.js";
-
 class GeolocationService {
   constructor() {
     this.watchId = null;
-    this.lastPosition = null;
     this.isWatching = false;
     this.defaultOptions = {
       enableHighAccuracy: true,
@@ -42,7 +35,6 @@ class GeolocationService {
     return new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          this.lastPosition = position;
           resolve(this._formatPosition(position));
         },
         (error) => {
@@ -69,7 +61,6 @@ class GeolocationService {
 
     this.watchId = navigator.geolocation.watchPosition(
       (position) => {
-        this.lastPosition = position;
         this.isWatching = true;
         callback(this._formatPosition(position));
       },
@@ -96,41 +87,6 @@ class GeolocationService {
       this.watchId = null;
       this.isWatching = false;
     }
-  }
-
-  /**
-   * Get last known position
-   */
-  getLastPosition() {
-    return this.lastPosition ? this._formatPosition(this.lastPosition) : null;
-  }
-
-  /**
-   * Calculate distance between two positions (Haversine formula)
-   */
-  calculateDistance(lat1, lon1, lat2, lon2) {
-    return haversineDistance(lat1, lon1, lat2, lon2);
-  }
-
-  /**
-   * Calculate bearing between two positions
-   */
-  calculateBearing(lat1, lon1, lat2, lon2) {
-    return computeBearing(lat1, lon1, lat2, lon2);
-  }
-
-  /**
-   * Get cardinal direction from bearing
-   */
-  getCardinalDirection(deg) {
-    return cardinalDirection(deg);
-  }
-
-  /**
-   * Check if position has acceptable accuracy
-   */
-  hasAcceptableAccuracy(position, maxAccuracy = 100) {
-    return position.accuracy && position.accuracy <= maxAccuracy;
   }
 
   /**
@@ -174,40 +130,6 @@ class GeolocationService {
       errorMessages[error.code] || "An unknown geolocation error occurred";
 
     return new Error(message);
-  }
-
-  /**
-   * Request permission (if Permissions API is available)
-   */
-  async requestPermission() {
-    if (typeof navigator !== "undefined" && "permissions" in navigator) {
-      try {
-        const result = await navigator.permissions.query({ name: "geolocation" });
-        return result.state; // 'granted', 'denied', or 'prompt'
-      } catch {
-        // Permissions API not fully supported, use trying getCurrentPosition
-        return "prompt";
-      }
-    }
-    return "prompt";
-  }
-
-  /**
-   * Get position with timeout and default
-   */
-  async getPositionWithDefault(primaryOptions = {}, defaultOptions = {}) {
-    try {
-      return await this.getCurrentPosition(primaryOptions);
-    } catch {
-      // Try with less strict options as default
-      const relaxedOptions = {
-        enableHighAccuracy: false,
-        timeout: 15000,
-        maximumAge: 60000, // Accept cached position up to 1 minute old
-        ...defaultOptions,
-      };
-      return this.getCurrentPosition(relaxedOptions);
-    }
   }
 }
 

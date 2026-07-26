@@ -533,12 +533,8 @@ class LiveNavigationUI {
 
     select.innerHTML = '<option value="">Select a coverage area...</option>';
     areas.forEach((area) => {
-      const areaId = area._id || area.id;
-      const name =
-        area.display_name ||
-        area.location?.display_name ||
-        area.name ||
-        "Coverage Area";
+      const areaId = area.id;
+      const name = area.display_name;
       if (!areaId) {
         return;
       }

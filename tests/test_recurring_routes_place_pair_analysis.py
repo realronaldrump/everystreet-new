@@ -140,7 +140,6 @@ async def test_place_pair_analysis_honors_90d_timeframe_and_place_default(
             "start_place_id": str(start_place.id),
             "end_place_id": str(end_place.id),
             "timeframe": "90d",
-            "limit": 500,
         },
     )
 
@@ -154,10 +153,8 @@ async def test_place_pair_analysis_honors_90d_timeframe_and_place_default(
     assert body["timeframe"] == "90d"
     assert body["query"]["matched"] == 3
     assert body["query"]["include_reverse"] is False
-    assert body["query"]["requested_timeframe"] == "90d"
     assert body["query"]["timeframe"] == "90d"
     assert body["query"]["timeframe_cutoff"] is not None
-    assert body["query"]["sample_limit"] == 500
 
     assert body["places"]["start"]["id"] == str(start_place.id)
     assert body["places"]["end"]["id"] == str(end_place.id)
@@ -167,7 +164,7 @@ async def test_place_pair_analysis_honors_90d_timeframe_and_place_default(
     assert body["summary"]["median_distance"] is not None
     assert body["summary"]["median_duration"] is not None
     assert body["summary"]["trips_per_week"] == pytest.approx(1.5)
-    assert body["tripsPerWeek"] == pytest.approx(1.5)
+    assert "tripsPerWeek" not in body
     assert body["summary"]["first_trip"] is not None
     assert body["summary"]["last_trip"] is not None
     assert len(body["byHour"]) == 24
@@ -186,18 +183,11 @@ async def test_place_pair_analysis_honors_90d_timeframe_and_place_default(
     assert linked_variant["preview_path"]
     assert linked_variant["representative_geometry"]
 
-    assert len(body["sampleTrips"]) == 3
-    assert "pp-forward-old" not in {
-        trip["transactionId"] for trip in body["sampleTrips"]
-    }
-    assert body["sampleTrips"][0]["startPlaceId"] == str(start_place.id)
-    assert body["sampleTrips"][0]["destinationPlaceId"] == str(end_place.id)
-    assert body["sampleTrips"][0]["place_links"]["start"]["label"] == "Home"
-    assert body["sampleTrips"][0]["place_links"]["end"]["label"] == "Office"
+    assert "sampleTrips" not in body
 
 
 @pytest.mark.asyncio
-async def test_place_pair_analysis_include_reverse_all_and_limit(place_pair_db) -> None:
+async def test_place_pair_analysis_include_reverse_all(place_pair_db) -> None:
     now = datetime(2026, 2, 10, 8, 0, tzinfo=UTC)
 
     start_place = Place(name="Gym", geometry=_point(-122.431, 37.765), created_at=now)
@@ -280,7 +270,6 @@ async def test_place_pair_analysis_include_reverse_all_and_limit(place_pair_db) 
             "end_place_id": str(end_place.id),
             "include_reverse": "true",
             "timeframe": "all",
-            "limit": 3,
         },
     )
 
@@ -291,12 +280,7 @@ async def test_place_pair_analysis_include_reverse_all_and_limit(place_pair_db) 
     assert body["timeframe"] == "all"
     assert body["query"]["matched"] == 4
     assert body["query"]["include_reverse"] is True
-    assert body["query"]["sample_limit"] == 3
     assert body["query"]["timeframe"] == "all"
-    assert len(body["sampleTrips"]) == 3
-
-    directions = {trip["direction"] for trip in body["sampleTrips"]}
-    assert "reverse" in directions
 
     # Grouping prefers recurringRouteId when present, with default for unlinked trips.
     variants = body["variants"]
@@ -387,7 +371,6 @@ async def test_place_pair_analysis_excludes_non_bouncie_sources(place_pair_db) -
             "start_place_id": str(start_place.id),
             "end_place_id": str(end_place.id),
             "timeframe": "all",
-            "limit": 500,
         },
     )
 
@@ -395,4 +378,4 @@ async def test_place_pair_analysis_excludes_non_bouncie_sources(place_pair_db) -
     body = resp.json()
     assert body["query"]["matched"] == 1
     assert body["summary"]["trip_count"] == 1
-    assert {trip["transactionId"] for trip in body["sampleTrips"]} == {"pp-bouncie"}
+    assert sum(variant["trip_count"] for variant in body["variants"]) == 1

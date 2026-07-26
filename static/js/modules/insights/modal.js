@@ -295,7 +295,7 @@ export function displayTripsInModal(trips, opts = {}) {
             : "-";
         const insightValue = formatInsightValue(insightKind, trip);
         const insight = escapeHtml(insightValue === "-" ? distance : insightValue);
-        const tripId = trip.transactionId || trip._id?.$oid || trip._id || "-";
+        const tripId = trip.transactionId;
         const tripUrl = `/trips?highlight=${encodeURIComponent(tripId)}`;
 
         // Bar fill percentage based on the metric

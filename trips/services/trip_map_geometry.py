@@ -148,7 +148,7 @@ def _metadata_equal(left: Any, right: Any) -> bool:
 
 def apply_trip_map_path_fields(trip: Any) -> bool:
     """Update a Trip-like object with materialized map path fields."""
-    trip_doc = trip.model_dump() if hasattr(trip, "model_dump") else dict(trip)
+    trip_doc = trip.model_dump()
     fields = build_trip_map_path_fields(trip_doc)
     changed = False
     for field, value in fields.items():

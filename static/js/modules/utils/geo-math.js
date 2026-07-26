@@ -105,16 +105,6 @@ export function angleDelta(from, to) {
   return ((to - from + 540) % 360) - 180;
 }
 
-/**
- * Cardinal direction from bearing.
- * @param {number} deg - Bearing in degrees
- * @returns {string} One of "N","NE","E","SE","S","SW","W","NW"
- */
-export function cardinalDirection(deg) {
-  const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-  return directions[Math.round(deg / 45) % 8];
-}
-
 /** Meters-per-second → miles-per-hour */
 export const MPS_TO_MPH = 2.23694;
 

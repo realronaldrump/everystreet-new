@@ -66,6 +66,7 @@
 
 .coverage-diorama-masthead {
   position: absolute;
+
   /* Keep the expanded area menu above the desktop planning tray (layer 8). */
   z-index: 9;
   top: 0;

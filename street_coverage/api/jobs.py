@@ -63,19 +63,13 @@ def _job_status_response(
     job: Job,
     *,
     area_display_name: str | None = None,
-    fallback_area_id: PydanticObjectId | str | None = None,
 ) -> JobStatusResponse:
     payload = serialize_job_payload(job)
-    area_id = (
-        str(job.area_id)
-        if job.area_id
-        else (str(fallback_area_id) if fallback_area_id else None)
-    )
     return JobStatusResponse(
         job_id=str(payload["job_id"]),
         task_id=payload["task_id"],
         job_type=payload["job_type"],
-        area_id=area_id,
+        area_id=str(job.area_id) if job.area_id else None,
         area_display_name=area_display_name,
         status=payload["status"],
         stage=payload["stage"],
@@ -140,7 +134,6 @@ async def get_area_jobs(area_id: PydanticObjectId, limit: int = 10):
             _job_status_response(
                 job,
                 area_display_name=area_display_name,
-                fallback_area_id=area_id,
             )
             for job in jobs
         ],

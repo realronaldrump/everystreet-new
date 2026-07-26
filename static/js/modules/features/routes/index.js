@@ -1928,10 +1928,6 @@ function setExplorerLoading(isLoading) {
   runBtn.classList.toggle("is-loading", Boolean(isLoading));
 }
 
-function getExplorerTimeframe() {
-  return "all";
-}
-
 function toExplorerArray(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -1999,7 +1995,7 @@ function populateExplorerPlaceSelectors(places) {
     '<option value="">Choose a place</option>',
     ...items
       .map((p) => {
-        const id = escapeHtml(String(p.id || p._id || ""));
+        const id = escapeHtml(String(p.id));
         const name = escapeHtml(p.name || "Unnamed place");
         return `<option value="${id}">${name}</option>`;
       })
@@ -2013,10 +2009,10 @@ function populateExplorerPlaceSelectors(places) {
   end.disabled = disabled;
 
   if (items.length >= 2) {
-    start.value = String(items[0].id || items[0]._id || "");
-    end.value = String(items[1].id || items[1]._id || "");
+    start.value = String(items[0].id);
+    end.value = String(items[1].id);
   } else if (items.length === 1) {
-    start.value = String(items[0].id || items[0]._id || "");
+    start.value = String(items[0].id);
     end.value = "";
   }
 
@@ -2035,193 +2031,65 @@ function populateExplorerPlaceSelectors(places) {
 
 function normalizeExplorerByMonth(data) {
   return toExplorerArray(data).map((entry) => ({
-    label: entry?._id || entry?.month || entry?.yearMonth || entry?.label || "",
-    count: Number(entry?.count ?? entry?.trips ?? entry?.total ?? 0) || 0,
+    label: entry._id || "",
+    count: Number(entry.count) || 0,
   }));
 }
 
 function normalizeExplorerByHour(data) {
-  const source = toExplorerArray(data);
-  const byHour = Array.from({ length: 24 }, (_, hour) => ({
-    hour,
-    count: 0,
+  return toExplorerArray(data).map((entry) => ({
+    hour: Number(entry.hour),
+    count: Number(entry.count) || 0,
   }));
-  source.forEach((entry) => {
-    const hour = Number(entry?.hour ?? entry?._id);
-    if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
-      return;
-    }
-    byHour[hour].count = Number(entry?.count ?? entry?.trips ?? entry?.total ?? 0) || 0;
-  });
-  return byHour;
 }
 
 function normalizeExplorerByDay(data) {
-  const source = toExplorerArray(data);
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const byDay = dayNames.map((dayName, index) => ({
-    dayName,
-    count: 0,
-    index,
+  return toExplorerArray(data).map((entry) => ({
+    dayName: entry.dayName,
+    count: Number(entry.count) || 0,
+    index: Number(entry.day) - 1,
   }));
-  source.forEach((entry) => {
-    const dayFromName = dayNames.findIndex(
-      (n) => String(n).toLowerCase() === String(entry?.dayName || "").toLowerCase()
-    );
-    const dayRaw = Number(entry?.day ?? entry?._id ?? entry?.index);
-    const zeroBased =
-      dayFromName >= 0
-        ? dayFromName
-        : Number.isInteger(dayRaw)
-          ? dayRaw >= 1 && dayRaw <= 7
-            ? dayRaw - 1
-            : dayRaw
-          : -1;
-    if (zeroBased < 0 || zeroBased > 6) {
-      return;
-    }
-    byDay[zeroBased].count =
-      Number(entry?.count ?? entry?.trips ?? entry?.total ?? 0) || 0;
-  });
-  return byDay;
 }
 
 function normalizeExplorerVariants(data) {
   return toExplorerArray(data).map((entry, idx) => {
-    const trips = Number(entry?.trip_count ?? entry?.trips ?? entry?.count ?? 0) || 0;
-    let share = Number(
-      entry?.share ??
-        entry?.share_ratio ??
-        entry?.share_pct ??
-        entry?.sharePercent ??
-        entry?.percentage ??
-        Number.NaN
-    );
-    if (Number.isFinite(share) && share > 1) {
-      share /= 100;
-    }
+    const trips = Number(entry.trip_count) || 0;
+    const share = Number(entry.share);
     return {
-      key:
-        entry?.variant_id ||
-        entry?.variantId ||
-        entry?.route_id ||
-        entry?.routeId ||
-        `variant-${idx + 1}`,
-      label:
-        entry?.label ||
-        entry?.display_name ||
-        entry?.name ||
-        entry?.route_name ||
-        entry?.routeName ||
-        `Variant ${idx + 1}`,
+      key: entry.variant_key,
+      label: entry.label || `Variant ${idx + 1}`,
       trips,
       share: Number.isFinite(share) ? share : null,
-      distance: Number(
-        entry?.median_distance ?? entry?.distance_miles ?? entry?.distance ?? Number.NaN
-      ),
-      duration: Number(
-        entry?.median_duration ?? entry?.duration_sec ?? entry?.duration ?? Number.NaN
-      ),
-      routeId: entry?.route_id || entry?.routeId || entry?.id || null,
-      tripId:
-        entry?.sample_trip_id ||
-        entry?.trip_id ||
-        entry?.tripId ||
-        entry?.transactionId ||
-        entry?.example_trip_id ||
-        null,
+      distance: Number(entry.median_distance),
+      duration: Number(entry.median_duration),
+      routeId: entry.route_id,
+      tripId: entry.sample_trip_id,
     };
   });
 }
 
-function normalizeExplorerVariantShare(data, variants, totalTrips) {
-  const source = toExplorerArray(data);
-  if (source.length > 0) {
-    return source.map((entry, idx) => {
-      const trips = Number(entry?.trip_count ?? entry?.trips ?? entry?.count ?? 0) || 0;
-      let share = Number(
-        entry?.share ??
-          entry?.share_ratio ??
-          entry?.share_pct ??
-          entry?.sharePercent ??
-          entry?.percentage ??
-          Number.NaN
-      );
-      if (!Number.isFinite(share) && totalTrips > 0) {
-        share = trips / totalTrips;
-      }
-      if (share > 1) {
-        share /= 100;
-      }
-      return {
-        key: entry?.variant_id || entry?.variantId || `variant-share-${idx + 1}`,
-        label: entry?.label || entry?.name || `Variant ${idx + 1}`,
-        trips,
-        share: Number.isFinite(share) ? share : 0,
-      };
-    });
-  }
-
-  const sourceVariants = variants.filter((v) => v.trips > 0);
-  if (sourceVariants.length === 0) {
-    return [];
-  }
-  const denom =
-    totalTrips > 0 ? totalTrips : sourceVariants.reduce((sum, v) => sum + v.trips, 0);
-  return sourceVariants.map((variant) => ({
+function explorerVariantShare(variants) {
+  return variants.map((variant) => ({
     key: variant.key,
     label: variant.label,
     trips: variant.trips,
-    share: denom > 0 ? variant.trips / denom : 0,
+    share: variant.share,
   }));
 }
 
-function normalizeExplorerResponse(raw, timeframe) {
-  const data = raw?.data && typeof raw.data === "object" ? raw.data : raw || {};
-  const summaryRaw = data?.summary || data?.kpis || data?.stats || {};
-  const variants = normalizeExplorerVariants(
-    data?.variants || data?.route_variants || data?.variant_routes
-  );
-  const totalTripsFromSummary =
-    Number(
-      summaryRaw?.totalTrips ??
-        summaryRaw?.total_trips ??
-        summaryRaw?.trip_count ??
-        data?.totalTrips ??
-        data?.total_trips
-    ) || 0;
-  const variantShare = normalizeExplorerVariantShare(
-    data?.variant_share || data?.variantShare || data?.variantShares,
-    variants,
-    totalTripsFromSummary
-  );
-  const totalTrips =
-    totalTripsFromSummary ||
-    variantShare.reduce((sum, entry) => sum + (entry.trips || 0), 0) ||
-    variants.reduce((sum, entry) => sum + (entry.trips || 0), 0);
-  const variantCount =
-    Number(
-      summaryRaw?.variantCount ??
-        summaryRaw?.variant_count ??
-        summaryRaw?.totalVariants ??
-        data?.variantCount
-    ) ||
-    variantShare.length ||
-    variants.length;
+function normalizeExplorerResponse(raw) {
+  const data = raw || {};
+  const summaryRaw = data.summary || {};
+  const variants = normalizeExplorerVariants(data.variants);
+  const variantShare = explorerVariantShare(variants);
+  const totalTrips = Number(summaryRaw.trip_count) || 0;
+  const variantCount = Number(summaryRaw.variant_count) || 0;
   const topShare =
-    Number(
-      summaryRaw?.topShare ??
-        summaryRaw?.top_share ??
-        summaryRaw?.dominantShare ??
-        summaryRaw?.dominant_share
-    ) ||
-    (variantShare.length > 0
-      ? Math.max(...variantShare.map((entry) => Number(entry.share || 0)))
-      : 0);
-  const firstTripRaw =
-    summaryRaw?.first_trip ?? summaryRaw?.firstTrip ?? data?.first_trip ?? null;
-  const lastTripRaw =
-    summaryRaw?.last_trip ?? summaryRaw?.lastTrip ?? data?.last_trip ?? null;
+    variantShare.length > 0
+      ? Math.max(...variantShare.map((entry) => Number(entry.share) || 0))
+      : 0;
+  const firstTripRaw = summaryRaw.first_trip;
+  const lastTripRaw = summaryRaw.last_trip;
   const firstTrip = firstTripRaw ? new Date(firstTripRaw) : null;
   const lastTrip = lastTripRaw ? new Date(lastTripRaw) : null;
   const spanFromDates =
@@ -2231,31 +2099,20 @@ function normalizeExplorerResponse(raw, timeframe) {
     !Number.isNaN(lastTrip.getTime())
       ? Math.max(1, Math.round((lastTrip.getTime() - firstTrip.getTime()) / 86400000))
       : 0;
-  const spanDays =
-    Number(
-      summaryRaw?.spanDays ??
-        summaryRaw?.span_days ??
-        summaryRaw?.coveredDays ??
-        summaryRaw?.days
-    ) ||
-    spanFromDates ||
-    (timeframe === "90d" ? 90 : 0);
   return {
     totalTrips,
     variantCount,
     topShare,
-    spanDays,
-    byMonth: normalizeExplorerByMonth(data?.byMonth || data?.monthly || data?.by_month),
-    byHour: normalizeExplorerByHour(data?.byHour || data?.hourly || data?.by_hour),
-    byDay: normalizeExplorerByDay(
-      data?.byDayOfWeek || data?.byDay || data?.by_day || data?.day_of_week
-    ),
+    spanDays: spanFromDates,
+    byMonth: normalizeExplorerByMonth(data.byMonth),
+    byHour: normalizeExplorerByHour(data.byHour),
+    byDay: normalizeExplorerByDay(data.byDayOfWeek),
     variantShare,
     variants,
   };
 }
 
-function renderExplorerSummary(summary, timeframe) {
+function renderExplorerSummary(summary) {
   const setVal = (id, value) => {
     const el = getEl(id);
     if (el) {
@@ -2278,7 +2135,7 @@ function renderExplorerSummary(summary, timeframe) {
   if (summary?.spanDays) {
     setVal("routes-explorer-kpi-span", `${Math.round(summary.spanDays)} days`);
   } else {
-    setVal("routes-explorer-kpi-span", timeframe === "all" ? "All time" : "--");
+    setVal("routes-explorer-kpi-span", "All time");
   }
 
   // Generate explorer insight sentence
@@ -2567,8 +2424,6 @@ async function requestExplorerAnalysis(payload) {
   params.set("start_place_id", payload.start_place_id);
   params.set("end_place_id", payload.end_place_id);
   params.set("include_reverse", payload.include_reverse ? "true" : "false");
-  params.set("timeframe", payload.timeframe);
-  params.set("limit", "500");
   const response = await apiGet(
     `/api/recurring_routes/place_pair_analysis?${params.toString()}`,
     {
@@ -2596,7 +2451,6 @@ async function runExplorerAnalysis() {
     return;
   }
 
-  const timeframe = getExplorerTimeframe();
   const requestId = ++explorerRequestId;
   setExplorerLoading(true);
   setExplorerStatus("Analyzing selected place pair...", "muted");
@@ -2606,15 +2460,14 @@ async function runExplorerAnalysis() {
       start_place_id: startPlaceId,
       end_place_id: endPlaceId,
       include_reverse: Boolean(includeReverse?.checked),
-      timeframe,
     };
     const raw = await requestExplorerAnalysis(payload);
     if (requestId !== explorerRequestId) {
       return;
     }
 
-    const normalized = normalizeExplorerResponse(raw, timeframe);
-    renderExplorerSummary(normalized, timeframe);
+    const normalized = normalizeExplorerResponse(raw);
+    renderExplorerSummary(normalized);
     renderExplorerVariantShareList(normalized.variantShare);
     renderExplorerVariantShareChart(normalized.variantShare);
     renderExplorerMonthlyChart(normalized.byMonth);

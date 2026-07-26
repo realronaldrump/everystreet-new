@@ -5,6 +5,7 @@ import pytest
 from db_helpers import init_mock_beanie
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from shapely.geometry import Point, shape
 
 from db.models import Place, PlacePreviewImage, Trip
 from visits.api import places as places_api
@@ -25,7 +26,51 @@ async def destination_bloom_places_db(monkeypatch: pytest.MonkeyPatch):
         "fetch_static_map_image",
         staticmethod(fake_fetch_static_map_image),
     )
-    return await init_mock_beanie(Trip, Place, PlacePreviewImage)
+    database = await init_mock_beanie(Trip, Place, PlacePreviewImage)
+    mock_collection = Trip.get_pymongo_collection()
+
+    class GeoWithinCollectionProxy:
+        def __getattr__(self, name):
+            return getattr(mock_collection, name)
+
+        async def update_many(self, query, update):
+            or_clauses = query.get("$or", [])
+            if len(or_clauses) != 2 or "$geoWithin" not in or_clauses[1].get(
+                "destinationGeoPoint", {}
+            ):
+                return await mock_collection.update_many(query, update)
+
+            transaction_ids = set(
+                or_clauses[0].get("transactionId", {}).get("$in", [])
+            )
+            boundary = shape(
+                or_clauses[1]["destinationGeoPoint"]["$geoWithin"]["$geometry"]
+            )
+            documents = await mock_collection.find({}).to_list(length=None)
+            for document in documents:
+                destination = document.get("destinationGeoPoint") or {}
+                coordinates = destination.get("coordinates")
+                if (
+                    isinstance(coordinates, list)
+                    and len(coordinates) >= 2
+                    and isinstance(coordinates[0], int | float)
+                    and isinstance(coordinates[1], int | float)
+                    and boundary.covers(Point(coordinates[0], coordinates[1]))
+                ):
+                    transaction_ids.add(document.get("transactionId"))
+
+            transaction_ids.discard(None)
+            return await mock_collection.update_many(
+                {"transactionId": {"$in": list(transaction_ids)}},
+                update,
+            )
+
+    monkeypatch.setattr(
+        Trip,
+        "get_pymongo_collection",
+        MethodType(lambda _self: GeoWithinCollectionProxy(), Trip),
+    )
+    return database
 
 
 def _build_app() -> FastAPI:

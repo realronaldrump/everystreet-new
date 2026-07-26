@@ -33,7 +33,6 @@ import layerManager from "./layer-manager.js";
 import mapCore from "./map-core.js";
 import mapManager from "./map-manager.js";
 import searchManager from "./search-manager.js";
-import confirmationDialog from "./ui/confirmation-dialog.js";
 import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
 import { DateUtils, utils } from "./utils.js";
@@ -222,18 +221,8 @@ const initializeLocationDropdown = async () => {
     const areas = response.areas || [];
 
     areas.sort((a, b) => {
-      const nameA = (
-        a.display_name ||
-        a.location?.display_name ||
-        a.name ||
-        ""
-      ).toLowerCase();
-      const nameB = (
-        b.display_name ||
-        b.location?.display_name ||
-        b.name ||
-        ""
-      ).toLowerCase();
+      const nameA = a.display_name.toLowerCase();
+      const nameB = b.display_name.toLowerCase();
       return nameA.localeCompare(nameB);
     });
 
@@ -255,12 +244,8 @@ const initializeLocationDropdown = async () => {
     menuFrag.appendChild(clearItem);
 
     areas.forEach((area) => {
-      const id = area.id || area._id;
-      const name =
-        area.display_name ||
-        area.location?.display_name ||
-        area.name ||
-        "Unknown Location";
+      const { id } = area;
+      const name = area.display_name;
 
       const option = document.createElement("option");
       option.value = id;
@@ -291,13 +276,9 @@ const initializeLocationDropdown = async () => {
 
     const savedId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
     if (savedId) {
-      const matchingArea = areas.find((a) => (a.id || a._id) === savedId);
+      const matchingArea = areas.find((area) => area.id === savedId);
       if (matchingArea) {
-        const name =
-          matchingArea.display_name ||
-          matchingArea.location?.display_name ||
-          matchingArea.name ||
-          "Unknown Location";
+        const name = matchingArea.display_name;
         hiddenSelect.value = savedId;
         label.textContent = name;
         label.classList.remove("is-placeholder");
@@ -609,7 +590,7 @@ const AppController = {
           await this.handleStreetViewModeChange("undriven", true);
           await this.handleStreetViewModeChange("driven", true);
           await this.handleStreetViewModeChange("all", true);
-          state.resetStreetCache?.();
+          state.resetStreetCache();
         }
 
         if (nextLocationId) {
@@ -732,45 +713,6 @@ const AppController = {
   // ============================================================
   // Public Methods
   // ============================================================
-
-  async mapMatchTrips() {
-    try {
-      const confirmed = await confirmationDialog.show({
-        title: "Map Match Trips",
-        message:
-          "This will process all trips in the selected date range. " +
-          "This may take several minutes for large date ranges. Continue?",
-        confirmText: "Start Map Matching",
-        confirmButtonClass: "btn-primary",
-      });
-      if (!confirmed) {
-        return;
-      }
-
-      loadingManager.show("Queueing map matching job...");
-      const res = await utils.fetchWithRetry("/api/map_matching/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "date_range",
-          start_date: DateUtils.getStartDate(),
-          end_date: DateUtils.getEndDate(),
-          unmatched_only: true,
-        }),
-      });
-      if (res) {
-        notificationManager.show(
-          "Map matching job queued. View progress in Map Matching.",
-          "success"
-        );
-      }
-    } catch (err) {
-      console.error("Map match error:", err);
-      notificationManager.show(`Map matching error: ${err.message}`, "danger");
-    } finally {
-      loadingManager.hide();
-    }
-  },
 
   async refreshTripLayersForCoverageSelectionChange({
     nextLocationId = "",

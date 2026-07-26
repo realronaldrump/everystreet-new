@@ -14,6 +14,8 @@ class _SortField:
 
 
 class _TaskIDField:
+    __hash__ = object.__hash__
+
     def __eq__(self, task_id: object) -> str:  # type: ignore[override]
         return str(task_id)
 
@@ -51,7 +53,7 @@ async def test_get_latest_task_history_limits_each_task_to_one_result(
         timestamp = _SortField()
 
         @classmethod
-        def find(_cls, task_id: str) -> _HistoryQuery:
+        def find(cls, task_id: str) -> _HistoryQuery:
             query = _HistoryQuery(histories[task_id])
             queries[task_id] = query
             return query

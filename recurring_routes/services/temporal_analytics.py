@@ -164,8 +164,6 @@ def normalize_day_buckets(rows: list[dict[str, Any]] | None) -> list[dict[str, A
 
 def normalize_month_buckets(
     rows: list[dict[str, Any]] | None,
-    *,
-    include_month_alias: bool = False,
 ) -> list[dict[str, Any]]:
     result: list[dict[str, Any]] = []
     for row in rows or []:
@@ -177,8 +175,6 @@ def normalize_month_buckets(
             "avgDistance": row.get("avgDistance"),
             "avgDuration": row.get("avgDuration"),
         }
-        if include_month_alias:
-            item["month"] = month_id
         result.append(item)
     return result
 

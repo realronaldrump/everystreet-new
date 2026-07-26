@@ -5,10 +5,6 @@
 
 import { COVERAGE_BBOX_LINE_COLOR } from "./coverage-bounds.js";
 
-export const MAPBOX_PUBLIC_ACCESS_TOKEN =
-  globalThis?.window?.MAPBOX_PUBLIC_ACCESS_TOKEN ||
-  "pk.eyJ1IjoicmVhbHJvbmFsZHJ1bXAiLCJhIjoiY204eXBvMzRhMDNubTJrb2NoaDIzN2dodyJ9.3Hnv3_ps0T7YS8cwSE3XKA";
-
 export const CONFIG = {
   // Map configuration
   MAP: {
@@ -16,7 +12,7 @@ export const CONFIG = {
     defaultZoom: 4,
     maxZoom: 19,
     // Canonical front-end Mapbox token source.
-    accessToken: MAPBOX_PUBLIC_ACCESS_TOKEN,
+    accessToken: globalThis.window?.MAPBOX_PUBLIC_ACCESS_TOKEN || "",
     recentTripThreshold: 6 * 60 * 60 * 1000, // 6 hours
     recencyWindowMs: 30 * 24 * 60 * 60 * 1000, // 30 days
     debounceDelay: 150,
@@ -60,9 +56,7 @@ export const CONFIG = {
     tripsSort: "tripsSort",
     tripsViewMode: "tripsViewMode",
     tripsTableColumns: "tripsTableColumns",
-    sidebarState: "sidebarCollapsed",
     layerVisibility: "layerVisibility",
-    layerSettings: "layerSettings",
     streetViewMode: "streetViewMode",
     theme: "theme",
     mapType: "mapType",
@@ -78,7 +72,6 @@ export const CONFIG = {
   // API endpoints - centralized location for all backend routes
   API: {
     // Trip endpoints
-    trips: "/api/trips",
     tripMapBundle: "/api/map/trips/bundle",
     tripById: (id) => `/api/trips/${id}`,
     tripInactive: (id) => `/api/trips/${id}/inactive`,
@@ -89,14 +82,11 @@ export const CONFIG = {
     matchedTripById: (id) => `/api/matched_trips/${id}`,
     matchedTripsBulkUnmatch: "/api/matched_trips/bulk_unmatch",
     failedTrips: "/api/failed_trips",
-    mapMatchTrips: "/api/map_match_trips",
     mapMatchingJobs: "/api/map_matching/jobs",
     mapMatchingSummary: "/api/map_matching/summary",
     mapMatchingJob: (id) => `/api/map_matching/jobs/${id}`,
     mapMatchingJobCancel: (id) => `/api/map_matching/jobs/${id}/cancel`,
     mapMatchingJobMatches: (id) => `/api/map_matching/jobs/${id}/matches`,
-    geocodeTrips: "/api/geocode_trips",
-    tripAnalytics: "/api/trip-analytics",
     tripMetrics: "/api/metrics",
     drivingInsights: "/api/driving-insights",
     tripSyncStatus: "/api/actions/trips/sync/status",
@@ -115,8 +105,6 @@ export const CONFIG = {
     // Coverage endpoints
     coverageAreas: "/api/coverage/areas",
     coverageAreaById: (id) => `/api/coverage/areas/${id}`,
-    coverageAreaStreets: (id, params = "") =>
-      `/api/coverage/areas/${id}/streets${params ? `?${params}` : ""}`,
     // Full-area street export endpoint (FeatureCollection). Supports `status=undriven|driven|undriveable`.
     coverageAreaAllStreets: (id, params = "") =>
       `/api/coverage/areas/${id}/streets/all${params ? `?${params}` : ""}`,
@@ -132,9 +120,7 @@ export const CONFIG = {
     // Caching and retry settings
     cacheTime: 30000,
     retryAttempts: 3,
-    retryDelay: 1000,
     timeout: 120000,
-    batchSize: 100,
   },
 
   // Default layer configurations

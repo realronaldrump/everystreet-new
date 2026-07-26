@@ -855,8 +855,8 @@ function mapWeatherCode(code) {
 
 function buildTripMetricsQueryParams() {
   const params = new URLSearchParams();
-  const startDate = DateUtils.getStartDate?.();
-  const endDate = DateUtils.getEndDate?.();
+  const startDate = DateUtils.getStartDate();
+  const endDate = DateUtils.getEndDate();
 
   if (startDate) {
     params.set("start_date", startDate);
@@ -880,8 +880,8 @@ function buildTripMetricsQueryParams() {
 }
 
 function getSelectedRangeStatusText() {
-  const startDate = DateUtils.getStartDate?.();
-  const endDate = DateUtils.getEndDate?.();
+  const startDate = DateUtils.getStartDate();
+  const endDate = DateUtils.getEndDate();
   if (startDate || endDate) {
     return "Checking selected range";
   }

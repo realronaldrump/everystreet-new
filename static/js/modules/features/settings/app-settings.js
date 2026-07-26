@@ -11,21 +11,13 @@ import { setTripLayerHeatmapPreference } from "../map/trip-layer-render-mode.js"
 
 const TAB_STORAGE_KEY = "es:settings-active-tab";
 export const SETTINGS_TAB_CHANGED_EVENT = "settings:tab-changed";
-const TAB_ALIASES = {
-  sync: "sync-settings",
-  coverage: "map-services",
-  status: "overview",
-  "server-logs": "logs",
-  profile: "account",
-};
-
 function normalizeTabName(value) {
   if (!value) {
     return "";
   }
   const name = value.replace(/^#/, "").trim();
   const normalized = name.endsWith("-tab") ? name.slice(0, -4) : name;
-  return TAB_ALIASES[normalized] || normalized;
+  return normalized;
 }
 
 function readStoredBoolean(key) {

@@ -213,7 +213,7 @@ const dataManager = {
       avgSpeed: Number(summary.avg_speed || 0),
       maxSpeed: Number(summary.max_speed || 0),
     };
-    metricsManager.updateTripsTableFromApi?.(metrics);
+    metricsManager.updateTripsTableFromApi(metrics);
     const detail = {
       source: "tripMapBundle",
       updatedAt: Date.now(),
@@ -242,33 +242,6 @@ const dataManager = {
     if (state.mapLayers?.[name]) {
       return name;
     }
-    return null;
-  },
-
-  /**
-   * Normalize GeoJSON FeatureCollection payloads.
-   * @private
-   */
-  _coerceFeatureCollection(data) {
-    if (!data) {
-      return null;
-    }
-
-    const type = typeof data?.type === "string" ? data.type.toLowerCase() : "";
-    const hasFeatures = Array.isArray(data?.features);
-
-    if (type === "featurecollection" && hasFeatures) {
-      return data;
-    }
-
-    if (hasFeatures) {
-      return { ...data, type: "FeatureCollection" };
-    }
-
-    if (Array.isArray(data)) {
-      return { type: "FeatureCollection", features: data };
-    }
-
     return null;
   },
 
@@ -370,17 +343,13 @@ const dataManager = {
       );
 
       if (data) {
-        const totalTrips =
-          Number.parseInt(data?.total_trips ?? data?.totalTrips ?? 0, 10) || 0;
-        const totalDistanceMiles =
-          Number.parseFloat(data?.total_distance ?? data?.totalDistance ?? 0) || 0;
-        const avgSpeed = Number.parseFloat(data?.avg_speed ?? data?.avgSpeed ?? 0) || 0;
-        const maxSpeed = Number.parseFloat(data?.max_speed ?? data?.maxSpeed ?? 0) || 0;
-        const avgDistanceMiles =
-          Number.parseFloat(data?.avg_distance ?? data?.avgDistance ?? 0) || 0;
-        const avgStartTime = data?.avg_start_time ?? data?.avgStartTime ?? "--:--";
-        const avgDrivingTime =
-          data?.avg_driving_time ?? data?.avgDrivingTime ?? "--:--";
+        const totalTrips = Number.parseInt(data.total_trips ?? 0, 10) || 0;
+        const totalDistanceMiles = Number.parseFloat(data.total_distance ?? 0) || 0;
+        const avgSpeed = Number.parseFloat(data.avg_speed ?? 0) || 0;
+        const maxSpeed = Number.parseFloat(data.max_speed ?? 0) || 0;
+        const avgDistanceMiles = Number.parseFloat(data.avg_distance ?? 0) || 0;
+        const avgStartTime = data.avg_start_time ?? "--:--";
+        const avgDrivingTime = data.avg_driving_time ?? "--:--";
 
         const metrics = {
           totalTrips,
@@ -392,7 +361,7 @@ const dataManager = {
           maxSpeed,
         };
 
-        metricsManager.updateTripsTableFromApi?.(metrics);
+        metricsManager.updateTripsTableFromApi(metrics);
 
         const detail = {
           source: "dataManager",

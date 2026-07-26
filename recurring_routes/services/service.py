@@ -8,6 +8,10 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from beanie import PydanticObjectId
+from shapely.geometry import (
+    Point as ShapelyPoint,
+    shape as shapely_shape,
+)
 
 from core.serialization import serialize_datetime
 from core.spatial import GeometryService
@@ -15,15 +19,6 @@ from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import Place, RecurringRoute, Trip
 from recurring_routes.services.fingerprint import extract_display_label
-
-try:
-    from shapely.geometry import (
-        Point as ShapelyPoint,
-        shape as shapely_shape,
-    )
-except Exception:  # pragma: no cover - shapely may be unavailable in some envs
-    ShapelyPoint = None
-    shapely_shape = None
 
 _HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 _PLACE_POINT_TOLERANCE_METERS = 120.0
@@ -95,17 +90,9 @@ def route_display_name(route: RecurringRoute) -> str:
     return auto or "Route"
 
 
-def route_place_id(route: RecurringRoute, *field_names: str) -> str | None:
-    for field in field_names:
-        place_id = coerce_place_id(getattr(route, field, None))
-        if place_id:
-            return place_id
-    return None
-
-
 def serialize_route_summary(route: RecurringRoute) -> dict[str, Any]:
-    start_place_id = route_place_id(route, "start_place_id", "startPlaceId")
-    end_place_id = route_place_id(route, "end_place_id", "endPlaceId")
+    start_place_id = coerce_place_id(route.start_place_id)
+    end_place_id = coerce_place_id(route.end_place_id)
     return {
         "id": str(route.id) if route.id else None,
         "route_key": route.route_key,
@@ -138,8 +125,8 @@ def serialize_route_detail(route: RecurringRoute) -> dict[str, Any]:
     data = route.model_dump()
     data["id"] = str(route.id) if route.id else None
     data["display_name"] = route_display_name(route)
-    data["start_place_id"] = route_place_id(route, "start_place_id", "startPlaceId")
-    data["end_place_id"] = route_place_id(route, "end_place_id", "endPlaceId")
+    data["start_place_id"] = coerce_place_id(route.start_place_id)
+    data["end_place_id"] = coerce_place_id(route.end_place_id)
     data["first_start_time"] = serialize_datetime(route.first_start_time)
     data["last_start_time"] = serialize_datetime(route.last_start_time)
     data["updated_at"] = serialize_datetime(route.updated_at)
@@ -194,9 +181,6 @@ def _point_matches_place_geometry(place: Place, point: list[float]) -> bool:
             unit="meters",
         )
         return dist_m <= _PLACE_POINT_TOLERANCE_METERS
-
-    if not ShapelyPoint or not shapely_shape:
-        return False
 
     try:
         geom = shapely_shape(geometry)
@@ -269,8 +253,8 @@ def build_place_link(
 
 async def resolve_route_place_links(route: RecurringRoute) -> dict[str, Any]:
     links: dict[str, Any] = {"start": None, "end": None}
-    start_place_id = route_place_id(route, "start_place_id", "startPlaceId")
-    end_place_id = route_place_id(route, "end_place_id", "endPlaceId")
+    start_place_id = coerce_place_id(route.start_place_id)
+    end_place_id = coerce_place_id(route.end_place_id)
 
     place_ids: set[str] = set()
     if start_place_id:

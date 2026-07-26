@@ -52,17 +52,12 @@ async def websocket_endpoint(websocket: WebSocket):
         # Send initial trip state
         initial_trip = await TrackingService.get_active_trip()
         if initial_trip:
-            initial_trip_payload = (
-                initial_trip.model_dump()
-                if hasattr(initial_trip, "model_dump")
-                else dict(initial_trip)
-            )
             await websocket.send_text(
                 json.dumps(
                     {
                         "type": "trip_state",
-                        "trip": initial_trip_payload,
-                        "status": initial_trip_payload.get("status", "active"),
+                        "trip": initial_trip,
+                        "status": initial_trip.get("status", "active"),
                     },
                     default=json_serializer,
                 ),
@@ -165,14 +160,8 @@ async def active_trip_endpoint(request: Request):
     if not active_trip_doc:
         return NoActiveTripResponse(server_time=datetime.now(UTC))
 
-    active_trip_payload = (
-        active_trip_doc.model_dump()
-        if hasattr(active_trip_doc, "model_dump")
-        else dict(active_trip_doc)
-    )
-
     return ActiveTripSuccessResponse(
-        trip=active_trip_payload,
+        trip=active_trip_doc,
         server_time=datetime.now(UTC),
     )
 

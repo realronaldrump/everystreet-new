@@ -13,10 +13,6 @@ def trip_to_dict(value: Any) -> dict[str, Any]:
     return TripSerializer.to_trip_dict(value)
 
 
-def derive_timezone_fields(trip_dict: dict[str, Any]) -> tuple[Any, Any, Any]:
-    return TripSerializer.derive_timezone_fields(trip_dict)
-
-
 def count_line_points(geometry: dict[str, Any] | None) -> int:
     if not isinstance(geometry, dict):
         return 0
@@ -74,7 +70,6 @@ __all__ = [
     "build_trip_feature_properties",
     "build_trip_preview_path",
     "count_line_points",
-    "derive_timezone_fields",
     "extract_trip_preview_geometry",
     "trip_to_dict",
 ]

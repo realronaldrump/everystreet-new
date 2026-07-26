@@ -280,7 +280,6 @@ class TripQueryService:
             "inactive",
             "matchStatus",
             "pointsRecorded",
-            "timeZone",
             "startTimeZone",
             "endTimeZone",
         }
@@ -481,7 +480,6 @@ class TripQueryService:
             total_idle_duration = trip_dict.get("totalIdleDuration", 0)
             start_tz = normalized_trip.get("startTimeZone")
             end_tz = normalized_trip.get("endTimeZone")
-            alias_tz = normalized_trip.get("timeZone")
 
             formatted_trip = {
                 "transactionId": trip_dict.get("transactionId", ""),
@@ -493,7 +491,6 @@ class TripQueryService:
                 "endTime": normalized_trip.get("endTime"),
                 "startTimeZone": start_tz,
                 "endTimeZone": end_tz,
-                "timeZone": alias_tz,
                 "duration": normalized_trip.get("duration"),
                 "distance": normalized_trip.get("distance"),
                 "startLocation": start_location,

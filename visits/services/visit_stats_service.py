@@ -547,12 +547,10 @@ class VisitStatsService:
             if isinstance(distance, dict):
                 distance = distance.get("value", 0)
 
-            transaction_id = trip.get("transactionId", arrival_trip_id)
-
             trips_data.append(
                 VisitResponse(
                     id=arrival_trip_id,
-                    transactionId=transaction_id,
+                    transactionId=str(trip["transactionId"]),
                     endTime=visit["arrival_time"],
                     departureTime=visit["departure_time"],
                     timeSpent=duration_str,

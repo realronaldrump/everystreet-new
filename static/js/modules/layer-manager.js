@@ -154,7 +154,7 @@ const layerManager = {
    * @private
    */
   _getTripHitboxWidth() {
-    const deviceProfile = utils.getDeviceProfile?.() || {};
+    const deviceProfile = utils.getDeviceProfile();
     const baseWidth = deviceProfile.isMobile ? 14 : 10;
     return [
       "interpolate",
@@ -178,7 +178,7 @@ const layerManager = {
    * @private
    */
   _getTripHitboxOpacity() {
-    const deviceProfile = utils.getDeviceProfile?.() || {};
+    const deviceProfile = utils.getDeviceProfile();
     return deviceProfile.isMobile ? 0.03 : 0.02;
   },
 

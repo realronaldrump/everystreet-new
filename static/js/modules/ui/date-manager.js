@@ -449,7 +449,7 @@ const dateManager = {
       if (startDate && endDate) {
         this.updateInputs(startDate, endDate);
         this.highlightActivePreset(range);
-        store.set("ui.lastFilterPreset", range, { source: "ui" });
+        store.set("ui.lastFilterPreset", range);
         store.saveUIState();
         // Auto-apply for presets
         await this.applyFilters();

@@ -6,7 +6,7 @@ import re
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta, timezone
 from statistics import median
-from typing import Any
+from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 from beanie import PydanticObjectId
@@ -28,7 +28,6 @@ from recurring_routes.services.service import (
     build_place_link,
     coerce_place_id,
     compute_trips_per_week,
-    extract_location_label,
     extract_point_from_geojson_point,
     find_place_id_for_point,
     route_display_name,
@@ -102,7 +101,7 @@ def _to_local_start_dt(trip: dict[str, Any]) -> datetime | None:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=UTC)
 
-    tz = _normalize_tzinfo(trip.get("startTimeZone") or trip.get("timeZone"))
+    tz = _normalize_tzinfo(trip.get("startTimeZone"))
     try:
         return dt.astimezone(tz)
     except Exception:
@@ -545,9 +544,6 @@ def _build_variants(
                     route.route_key if route is not None else group.get("route_key")
                 ),
                 "route_signature": group.get("route_signature"),
-                "display_name": (
-                    route_display_name(route) if route else group.get("label")
-                ),
                 "label": route_display_name(route) if route else group.get("label"),
                 "trip_count": trip_count,
                 "share": (
@@ -555,12 +551,8 @@ def _build_variants(
                 ),
                 "median_distance": median(distances) if distances else None,
                 "median_duration": median(durations) if durations else None,
-                "avgDistance": (sum(distances) / len(distances)) if distances else None,
-                "avgDuration": (sum(durations) / len(durations)) if durations else None,
                 "first_trip": serialize_datetime(group.get("first_start_time")),
                 "last_trip": serialize_datetime(group.get("last_start_time")),
-                "firstStartTime": serialize_datetime(group.get("first_start_time")),
-                "lastStartTime": serialize_datetime(group.get("last_start_time")),
                 "sample_trip_id": group.get("sample_trip_id"),
                 "representative_geometry": representative_geometry,
                 "preview_path": preview_path,
@@ -570,60 +562,11 @@ def _build_variants(
     variants.sort(
         key=lambda item: (
             int(item.get("trip_count") or 0),
-            str(item.get("lastStartTime") or ""),
+            str(item.get("last_trip") or ""),
         ),
         reverse=True,
     )
     return variants
-
-
-def _to_sample_trip(
-    trip: dict[str, Any],
-    *,
-    places_by_id: dict[str, Place],
-) -> dict[str, Any]:
-    route_id = coerce_place_id(trip.get("recurringRouteId"))
-
-    start_place_id = coerce_place_id(trip.get("startPlaceId")) or coerce_place_id(
-        trip.get("_resolvedStartPlaceId"),
-    )
-    destination_place_id = coerce_place_id(
-        trip.get("destinationPlaceId"),
-    ) or coerce_place_id(trip.get("_resolvedEndPlaceId"))
-
-    start_label = extract_location_label(trip.get("startLocation"))
-    end_label = str(
-        trip.get("destinationPlaceName") or "",
-    ).strip() or extract_location_label(trip.get("destination"))
-
-    start_link = build_place_link(
-        start_place_id,
-        places_by_id=places_by_id,
-        default_label=start_label,
-    )
-    end_link = build_place_link(
-        destination_place_id,
-        places_by_id=places_by_id,
-        default_label=end_label,
-    )
-
-    return {
-        "transactionId": trip.get("transactionId"),
-        "startTime": serialize_datetime(trip.get("startTime")),
-        "endTime": serialize_datetime(trip.get("endTime")),
-        "distance": trip.get("distance"),
-        "duration": trip.get("duration"),
-        "route_id": route_id,
-        "direction": trip.get("_matchedDirection"),
-        "startPlaceId": start_place_id,
-        "destinationPlaceId": destination_place_id,
-        "startPlaceLabel": start_link.get("label") if start_link else start_label,
-        "destinationPlaceLabel": end_link.get("label") if end_link else end_label,
-        "place_links": {
-            "start": start_link,
-            "end": end_link,
-        },
-    }
 
 
 async def analyze_place_pair(
@@ -631,8 +574,7 @@ async def analyze_place_pair(
     start_place_id: str,
     end_place_id: str,
     include_reverse: bool,
-    timeframe: str,
-    limit: int,
+    timeframe: Literal["90d", "all"],
 ) -> dict[str, Any]:
     try:
         start_oid = PydanticObjectId(start_place_id)
@@ -647,10 +589,6 @@ async def analyze_place_pair(
         msg = "Place not found"
         raise LookupError(msg)
 
-    requested_timeframe = str(timeframe or "all").strip().lower()
-    effective_timeframe = "90d" if requested_timeframe == "90d" else "all"
-    sample_limit = min(max(int(limit), 1), 500)
-
     query = enforce_bouncie_source(
         apply_trip_record_filters(
             {"invalid": {"$ne": True}},
@@ -658,7 +596,7 @@ async def analyze_place_pair(
         )
     )
     timeframe_cutoff: datetime | None = None
-    if effective_timeframe == "90d":
+    if timeframe == "90d":
         timeframe_cutoff = datetime.now(UTC) - timedelta(days=90)
         query["startTime"] = {"$gte": timeframe_cutoff}
 
@@ -671,12 +609,10 @@ async def analyze_place_pair(
             "startTime": 1,
             "endTime": 1,
             "startTimeZone": 1,
-            "timeZone": 1,
             "distance": 1,
             "duration": 1,
             "startLocation": 1,
             "destination": 1,
-            "destinationPlaceName": 1,
             "startPlaceId": 1,
             "destinationPlaceId": 1,
             "startGeoPoint": 1,
@@ -727,28 +663,19 @@ async def analyze_place_pair(
             "trips_per_week": None,
             "first_trip": None,
             "last_trip": None,
-            "totalTrips": 0,
-            "totalDistance": 0,
-            "totalDuration": 0,
-            "avgDistance": None,
-            "avgDuration": None,
-            "firstTrip": None,
-            "lastTrip": None,
         }
         return {
             "status": "success",
             "start_place": start_link,
             "end_place": end_link,
             "include_reverse": include_reverse,
-            "timeframe": effective_timeframe,
+            "timeframe": timeframe,
             "query": {
                 "start_place_id": start_place_id,
                 "end_place_id": end_place_id,
                 "include_reverse": include_reverse,
-                "requested_timeframe": requested_timeframe,
-                "timeframe": effective_timeframe,
+                "timeframe": timeframe,
                 "timeframe_cutoff": serialize_datetime(timeframe_cutoff),
-                "sample_limit": sample_limit,
                 "scanned": scanned,
                 "matched": 0,
             },
@@ -757,12 +684,10 @@ async def analyze_place_pair(
                 "end": end_link,
             },
             "summary": summary,
-            "tripsPerWeek": None,
             "byHour": _hour_buckets(),
             "byDayOfWeek": _day_buckets(),
             "byMonth": [],
             "variants": [],
-            "sampleTrips": [],
         }
 
     route_ids = {
@@ -810,16 +735,7 @@ async def analyze_place_pair(
         if value is not None
     ]
 
-    month_items = normalize_month_buckets(
-        facets.get("byMonth"),
-        include_month_alias=True,
-    )
-
-    sample_size = min(len(matched_trips), sample_limit)
-    sample_trips = [
-        _to_sample_trip(doc, places_by_id=places_by_id)
-        for doc in matched_trips[:sample_size]
-    ]
+    month_items = normalize_month_buckets(facets.get("byMonth"))
 
     summary = {
         "trip_count": total_trips,
@@ -829,13 +745,6 @@ async def analyze_place_pair(
         "trips_per_week": trips_per_week,
         "first_trip": serialize_datetime(first_trip),
         "last_trip": serialize_datetime(last_trip),
-        "totalTrips": total_trips,
-        "totalDistance": stats.get("totalDistance"),
-        "totalDuration": stats.get("totalDuration"),
-        "avgDistance": stats.get("avgDistance"),
-        "avgDuration": stats.get("avgDuration"),
-        "firstTrip": serialize_datetime(first_trip),
-        "lastTrip": serialize_datetime(last_trip),
     }
 
     return {
@@ -843,15 +752,13 @@ async def analyze_place_pair(
         "start_place": start_link,
         "end_place": end_link,
         "include_reverse": include_reverse,
-        "timeframe": effective_timeframe,
+        "timeframe": timeframe,
         "query": {
             "start_place_id": start_place_id,
             "end_place_id": end_place_id,
             "include_reverse": include_reverse,
-            "requested_timeframe": requested_timeframe,
-            "timeframe": effective_timeframe,
+            "timeframe": timeframe,
             "timeframe_cutoff": serialize_datetime(timeframe_cutoff),
-            "sample_limit": sample_limit,
             "scanned": scanned,
             "matched": len(matched_trips),
         },
@@ -860,10 +767,8 @@ async def analyze_place_pair(
             "end": end_link,
         },
         "summary": summary,
-        "tripsPerWeek": trips_per_week,
         "byHour": by_hour,
         "byDayOfWeek": by_day,
         "byMonth": month_items,
         "variants": variants,
-        "sampleTrips": sample_trips,
     }

@@ -69,15 +69,9 @@ class TripCostService:
                 price_map[imei] = ([], [])
 
             if ts and effective_ppg is not None and effective_ppg > 0:
-                # Robustly handle string timestamps
-                if isinstance(ts, str):
-                    ts = parse_timestamp(ts)
-                    if ts is None:
-                        continue
-                elif hasattr(ts, "tzinfo"):
-                    ts = ensure_utc(ts)
-                    if ts is None:
-                        continue
+                ts = ensure_utc(ts)
+                if ts is None:
+                    continue
 
                 price_map[imei][0].append(ts)
                 price_map[imei][1].append(effective_ppg)

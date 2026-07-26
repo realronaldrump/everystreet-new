@@ -244,17 +244,14 @@ export class DrivingNavigation {
 
     try {
       const areaMatch = this.coverageAreas.find(
-        (area) => String(area.id || area._id || "") === selectedValue
+        (area) => String(area.id) === selectedValue
       );
 
-      if (areaMatch) {
-        this.selectedArea = areaMatch;
-      } else if (selectedValue.trim().startsWith("{")) {
-        // Default: try parsing if it looks like a JSON object
-        this.selectedArea = JSON.parse(selectedValue);
-      } else {
+      if (!areaMatch) {
         console.warn("Could not find area for ID:", selectedValue);
         this.selectedArea = null;
+      } else {
+        this.selectedArea = areaMatch;
       }
 
       if (!this.selectedArea) {
@@ -304,7 +301,7 @@ export class DrivingNavigation {
     try {
       this.ui.updateProgress(20, "Fetching undriven streets from database...");
 
-      const areaId = this.selectedArea.id || this.selectedArea._id;
+      const areaId = this.selectedArea.id;
       const geojson = await this.api.fetchUndrivenStreets(areaId);
 
       this.ui.updateProgress(60, "Processing street data...");
@@ -382,7 +379,7 @@ export class DrivingNavigation {
       this.ui.updateProgress(30, "Finding the nearest undriven street...");
 
       const data = await this.api.findNextRoute({
-        location: this.selectedArea.location,
+        areaId: this.selectedArea.id,
         currentPosition: this.lastKnownLocation,
       });
 
@@ -480,7 +477,7 @@ export class DrivingNavigation {
    * Find efficient street clusters to navigate to.
    */
   async findEfficientStreetClusters() {
-    const areaId = this.selectedArea?._id || this.selectedArea?.id;
+    const areaId = this.selectedArea?.id;
     if (!areaId) {
       this.ui.setStatus("Please select an area first.", true);
       return;
@@ -611,7 +608,7 @@ export class DrivingNavigation {
       return;
     }
 
-    const areaId = this.selectedArea?._id || this.selectedArea?.id;
+    const areaId = this.selectedArea?.id;
     if (!areaId) {
       notificationManager.show("No area selected", "warning");
       return;
@@ -650,7 +647,7 @@ export class DrivingNavigation {
 
     try {
       const data = await this.api.findNextRoute({
-        location: this.selectedArea.location,
+        areaId: this.selectedArea.id,
         currentPosition: this.lastKnownLocation,
         segmentId,
       });

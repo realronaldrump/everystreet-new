@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from aiohttp import ClientResponseError
 import pytest
+from aiohttp import ClientResponseError
 
 from core.clients.bouncie import BouncieClient
 
@@ -29,7 +29,6 @@ class _ResponseStub:
                 message="error",
                 headers=None,
             )
-        return
 
     async def json(self):
         return self._payload

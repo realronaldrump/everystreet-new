@@ -253,7 +253,7 @@ class VisitsMapController {
   }
 
   static _resolvePlaceId(place) {
-    const rawId = place?._id ?? place?.id;
+    const rawId = place?.id;
     if (rawId === undefined || rawId === null) {
       return "";
     }

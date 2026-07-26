@@ -171,7 +171,7 @@ class VisitResponse(BaseModel):
     """Response model for a single visit."""
 
     id: str
-    transactionId: str | None = None
+    transactionId: str
     endTime: datetime | None = None
     departureTime: datetime | None = None
     timeSpent: str | None = None

@@ -27,7 +27,7 @@ class VisitsDataLoader {
       const placesMap = new Map(
         places
           .map((place) => {
-            const placeId = place?._id ?? place?.id;
+            const placeId = place?.id;
             if (placeId === undefined || placeId === null) {
               return null;
             }
@@ -112,7 +112,7 @@ class VisitsDataLoader {
     try {
       const tripResponse = await this.dataService.fetchTrip(tripId);
       this.loadingManager?.hide();
-      return tripResponse.trip || tripResponse;
+      return tripResponse.trip;
     } catch (error) {
       console.error("Error fetching trip data:", error);
       this.loadingManager?.hide();

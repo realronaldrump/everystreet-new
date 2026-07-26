@@ -136,7 +136,7 @@ export default function createCoverageLens({ registerCleanup }) {
     try {
       const response = await utils.fetchWithRetry(CONFIG.API.coverageAreas);
       const areas = response?.areas || [];
-      const area = areas.find((a) => String(a.id || a._id) === areaId);
+      const area = areas.find((candidate) => String(candidate.id) === areaId);
       if (!area || selectedAreaId() !== areaId) {
         return;
       }

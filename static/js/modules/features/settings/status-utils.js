@@ -1,8 +1,4 @@
 const STATUS_TONES = new Set(["info", "success", "warning", "danger"]);
-const STATUS_ALIASES = {
-  error: "danger",
-  warn: "warning",
-};
 
 function initInlineStatus(element) {
   if (!element) {
@@ -38,8 +34,7 @@ export function setInlineStatus(element, message, tone = "info") {
     return;
   }
 
-  const normalizedTone = STATUS_ALIASES[tone] || tone;
-  const resolvedTone = STATUS_TONES.has(normalizedTone) ? normalizedTone : "info";
+  const resolvedTone = STATUS_TONES.has(tone) ? tone : "info";
 
   element.textContent = text;
   element.dataset.tone = resolvedTone;

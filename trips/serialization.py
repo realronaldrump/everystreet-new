@@ -14,13 +14,6 @@ from core.date_utils import parse_timestamp
 from core.serialization import serialize_datetime
 
 
-def _first_non_empty(*values: Any) -> Any:
-    for value in values:
-        if value not in (None, ""):
-            return value
-    return None
-
-
 class TripSerializer:
     """Canonical serializer for shared trip response shapes."""
 
@@ -28,18 +21,7 @@ class TripSerializer:
     def to_trip_dict(value: Any) -> dict[str, Any]:
         if isinstance(value, dict):
             return dict(value)
-        if hasattr(value, "model_dump"):
-            return value.model_dump()
-        if hasattr(value, "dict"):
-            return value.dict()
-        return dict(value)
-
-    @staticmethod
-    def derive_timezone_fields(trip_doc: dict[str, Any]) -> tuple[Any, Any, Any]:
-        start_tz = _first_non_empty(trip_doc.get("startTimeZone"))
-        end_tz = _first_non_empty(trip_doc.get("endTimeZone"))
-        alias_tz = _first_non_empty(start_tz, end_tz)
-        return start_tz, end_tz, alias_tz
+        return value.model_dump()
 
     @staticmethod
     def calculate_duration_seconds(trip_doc: dict[str, Any]) -> float | None:
@@ -71,8 +53,6 @@ class TripSerializer:
         """Serialize common trip fields with normalized timestamps/timezones."""
         start_dt = parse_timestamp(trip_doc.get("startTime"))
         end_dt = parse_timestamp(trip_doc.get("endTime"))
-        start_tz, end_tz, alias_tz = TripSerializer.derive_timezone_fields(trip_doc)
-
         serialized: dict[str, Any] = {
             "transactionId": trip_doc.get("transactionId"),
             "imei": trip_doc.get("imei"),
@@ -84,9 +64,8 @@ class TripSerializer:
             "inactiveReason": trip_doc.get("inactive_reason"),
             "startTime": start_dt.isoformat() if start_dt else None,
             "endTime": end_dt.isoformat() if end_dt else None,
-            "startTimeZone": start_tz,
-            "endTimeZone": end_tz,
-            "timeZone": alias_tz,
+            "startTimeZone": trip_doc.get("startTimeZone"),
+            "endTimeZone": trip_doc.get("endTimeZone"),
             "duration": TripSerializer.calculate_duration_seconds(trip_doc),
             "distance": safe_float(trip_doc.get("distance"), 0),
             "maxSpeed": safe_float(trip_doc.get("maxSpeed"), 0),

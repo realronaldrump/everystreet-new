@@ -7,15 +7,13 @@ from typing import Any
 BOUNCIE_SOURCE = "bouncie"
 
 
-def enforce_bouncie_source(query: dict[str, Any] | None) -> dict[str, Any]:
+def enforce_bouncie_source(query: dict[str, Any]) -> dict[str, Any]:
     """
     Ensure a query only returns Bouncie-owned trips.
 
     This intentionally overrides any existing `source` filter so callers
-    cannot accidentally include webhook/legacy records.
+    cannot accidentally include records owned by another source.
     """
-    if not isinstance(query, dict):
-        return {"source": BOUNCIE_SOURCE}
     constrained = dict(query)
     constrained["source"] = BOUNCIE_SOURCE
     return constrained

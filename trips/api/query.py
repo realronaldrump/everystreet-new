@@ -128,12 +128,7 @@ async def get_failed_trips(request: Request):
 
     async for trip in trip_cursor:
         try:
-            if hasattr(trip, "model_dump"):
-                trip_dict = trip.model_dump()
-            elif hasattr(trip, "dict"):
-                trip_dict = trip.dict()
-            else:
-                trip_dict = dict(trip)
+            trip_dict = trip.model_dump()
 
             st = parse_timestamp(trip_dict.get("startTime"))
             et = parse_timestamp(trip_dict.get("endTime"))

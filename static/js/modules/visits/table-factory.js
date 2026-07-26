@@ -25,7 +25,7 @@ function createVisitsTable({ onPlaceSelected }) {
         data: "name",
         render: (data, type, row) =>
           type === "display"
-            ? `<a href="#" class="place-link" data-place-id="${row._id}">
+            ? `<a href="#" class="place-link" data-place-id="${row.id}">
                   <i class="fas fa-map-marker-alt me-2"></i>${data}
                  </a>`
             : data,
@@ -142,8 +142,7 @@ function createTripsTable({ onTripSelected }) {
       {
         data: "transactionId",
         defaultContent: "",
-        render: (data, _type, row) =>
-          `<span class="badge bg-secondary">${data || row?.id || "N/A"}</span>`,
+        render: (data) => `<span class="badge bg-secondary">${data}</span>`,
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
         },
@@ -203,7 +202,7 @@ function createTripsTable({ onTripSelected }) {
         data: null,
         render: (data, type, row) =>
           type === "display"
-            ? `<button class="btn btn-sm btn-outline-primary view-trip-btn" data-trip-id="${row.transactionId || row.id || ""}">
+            ? `<button class="btn btn-sm btn-outline-primary view-trip-btn" data-trip-id="${row.transactionId}">
                 <i class="fas fa-map"></i>
               </button>`
             : data,

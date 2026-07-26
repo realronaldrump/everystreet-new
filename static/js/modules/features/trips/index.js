@@ -264,14 +264,14 @@ const TRIP_SORT_DEFINITIONS = {
     column: "matchStatus",
     dir: "asc",
   },
-  timeZone_desc: {
+  startTimeZone_desc: {
     label: "Timezone (Z to A)",
-    column: "timeZone",
+    column: "startTimeZone",
     dir: "desc",
   },
-  timeZone_asc: {
+  startTimeZone_asc: {
     label: "Timezone (A to Z)",
-    column: "timeZone",
+    column: "startTimeZone",
     dir: "asc",
   },
   transactionId_desc: {
@@ -447,10 +447,10 @@ const TRIP_TABLE_COLUMNS = [
     render: (trip) => renderMetricCell(formatInteger(trip.pointsRecorded)),
   },
   {
-    key: "timeZone",
+    key: "startTimeZone",
     label: "Timezone",
     icon: "fa-globe",
-    render: (trip) => renderTextCell(trip.timeZone || "--"),
+    render: (trip) => renderTextCell(trip.startTimeZone || "--"),
   },
   {
     key: "identifiers",
@@ -2284,7 +2284,7 @@ function createTripCard(trip, allTrips) {
 }
 
 function getTripPreviewPath(trip) {
-  const previewPath = trip?.previewPath || trip?.preview_path;
+  const previewPath = trip?.previewPath;
   return sanitizeSvgPath(previewPath);
 }
 
@@ -2688,8 +2688,8 @@ function getFilterValues() {
 }
 
 function getDateRangeFilters() {
-  const start_date = DateUtils.getStartDate?.() || null;
-  const end_date = DateUtils.getEndDate?.() || null;
+  const start_date = DateUtils.getStartDate() || null;
+  const end_date = DateUtils.getEndDate() || null;
   return { start_date, end_date };
 }
 
@@ -3576,13 +3576,13 @@ async function loadTripData(tripId) {
     if (currentTripId !== tripId) {
       return;
     }
-    const trip = data.trip || data;
+    const { trip } = data;
     currentTripData = trip;
 
     // Show/hide matched toggle based on if matchedGps exists
     const toggleContainer = document.querySelector(".trip-layer-toggle");
     if (toggleContainer) {
-      const hasMatched = Boolean(trip.matchedGps || trip.matched_gps);
+      const hasMatched = Boolean(trip.matchedGps);
       if (hasMatched) {
         toggleContainer.classList.remove("d-none");
         toggleContainer.classList.add("d-flex");

@@ -212,27 +212,16 @@ async def get_optimal_route(area_id: PydanticObjectId):
     if not coverage_area:
         raise HTTPException(status_code=404, detail="Coverage area not found")
 
-    # Get route from the model - check several possible locations
-    route = None
-    if coverage_area.optimal_route:
-        route = coverage_area.optimal_route
-
-    if not route:
+    if not coverage_area.optimal_route:
         raise HTTPException(
             status_code=404,
             detail="No optimal route generated yet. Use POST to generate one.",
         )
 
-    # Prepare route data (handle dict or Pydantic model)
-    route_data = route if isinstance(route, dict) else route.model_dump(by_alias=True)
-
-    # Get location name
-    location_name = coverage_area.display_name
-
     return {
         "status": "success",
-        "location_name": location_name,
-        **route_data,
+        "location_name": coverage_area.display_name,
+        **coverage_area.optimal_route,
     }
 
 
@@ -246,32 +235,14 @@ async def export_optimal_route_gpx(area_id: PydanticObjectId):
     if not coverage_area:
         raise HTTPException(status_code=404, detail="Coverage area not found")
 
-    # Get route from the model
-    route = None
-    if coverage_area.optimal_route:
-        route = coverage_area.optimal_route
-
-    # Prepare route data (handle dict or Pydantic model)
-    route_data = (
-        route
-        if isinstance(route, dict)
-        else (route.model_dump(by_alias=True) if route else None)
-    )
-
-    if (
-        route_data
-        and not route_data.get("coordinates")
-        and route_data.get("route_coordinates")
-    ):
-        route_data["coordinates"] = route_data["route_coordinates"]
+    route_data = coverage_area.optimal_route
     if not route_data or not route_data.get("coordinates"):
         raise HTTPException(
             status_code=404,
             detail="No optimal route available. Generate one first.",
         )
 
-    # Get location name
-    location_name = coverage_area.display_name or "Route"
+    location_name = coverage_area.display_name
     gpx_content = build_gpx_from_coords(
         route_data["coordinates"],
         name=f"Optimal Route - {location_name}",

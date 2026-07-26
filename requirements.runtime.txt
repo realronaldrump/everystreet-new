@@ -13,7 +13,7 @@ pandas
 pydantic
 pymongo>=4.16,<5
 pyproj
-pyrosm
+pyrosm==0.12.0
 python-dotenv
 itsdangerous
 python_dateutil

@@ -49,7 +49,7 @@ class TripViewer {
       }
     }
 
-    const transactionId = trip.transactionId || trip.id || trip._id;
+    const { transactionId } = trip;
     const startLocation =
       trip.startLocation?.formatted_address || trip.startPlace || "Unknown";
     const endLocation =

@@ -23,7 +23,7 @@ function getBouncieRedirectUriValidationError(redirectUri) {
 export async function fetchBouncieCredentials({ signal, unmask = true } = {}) {
   const url = unmask ? BOUNCIE_UNMASK_API : BOUNCIE_CREDENTIALS_API;
   const data = await apiClient.get(url, { signal });
-  return data?.credentials || data || {};
+  return data.credentials;
 }
 
 export async function saveBouncieCredentials(payload, { signal } = {}) {

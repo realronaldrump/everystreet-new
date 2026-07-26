@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _increment_nonnegative_expr(field: str, delta: int | float) -> dict[str, Any]:
+def _increment_nonnegative_expr(field: str, delta: float) -> dict[str, Any]:
     return {"$max": [0, {"$add": [{"$ifNull": [f"${field}", 0]}, delta]}]}
 
 

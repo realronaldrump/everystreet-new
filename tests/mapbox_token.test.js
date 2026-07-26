@@ -1,20 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { MAPBOX_PUBLIC_ACCESS_TOKEN } from "../static/js/modules/core/config.js";
 import {
   getMapboxToken,
   isMapboxStyleUrl,
   waitForMapboxToken,
 } from "../static/js/modules/mapbox-token.js";
 
-test("getMapboxToken returns the hard-coded token", () => {
-  assert.equal(getMapboxToken(), MAPBOX_PUBLIC_ACCESS_TOKEN);
+test("getMapboxToken is empty without server-injected configuration", () => {
+  assert.equal(getMapboxToken(), "");
 });
 
-test("waitForMapboxToken resolves immediately with hard-coded token", async () => {
-  const token = await waitForMapboxToken({ timeoutMs: 1 });
-  assert.equal(token, MAPBOX_PUBLIC_ACCESS_TOKEN);
+test("waitForMapboxToken rejects without server-injected configuration", async () => {
+  await assert.rejects(
+    waitForMapboxToken({ timeoutMs: 1 }),
+    /Mapbox access token not configured/
+  );
 });
 
 test("isMapboxStyleUrl detects mapbox styles and API URLs", () => {

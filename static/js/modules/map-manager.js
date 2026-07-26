@@ -52,14 +52,6 @@ const forEachGeometryCoordinate = (geometry, callback) => {
   }
 };
 
-const getLastGeometryCoordinate = (geometry) => {
-  let lastCoord = null;
-  forEachGeometryCoordinate(geometry, (coord) => {
-    lastCoord = coord;
-  });
-  return lastCoord;
-};
-
 const mapManager = {
   // Track if view state listener is bound
   _viewListenerBound: false,
@@ -525,73 +517,6 @@ const mapManager = {
   },
 
   /**
-   * Zoom to the most recent trip
-   * @param {number} targetZoom - Zoom level to use
-   */
-  zoomToLastTrip(targetZoom = 14) {
-    import("./trip-map-renderer.js")
-      .then((module) => {
-        const bundle = module.default.layers.get("trips")?.bundle;
-        const latestTrip = bundle?.trips?.[0];
-        if (!latestTrip) {
-          return;
-        }
-        const tripId = latestTrip.id ?? latestTrip.transactionId;
-        const bbox = module.default.getTripBounds("trips", tripId);
-        if (!bbox) {
-          return;
-        }
-        store.map.flyTo({
-          center: [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2],
-          zoom: targetZoom,
-          duration: 2000,
-          essential: true,
-        });
-      })
-      .catch(() => {});
-
-    if (!store.map || !store.mapLayers.trips?.layer?.features) {
-      return;
-    }
-
-    const { features } = store.mapLayers.trips.layer;
-
-    // Find the trip with the most recent end time
-    const lastTripFeature = features.reduce((latest, feature) => {
-      const endTime = feature.properties?.endTime;
-      if (!endTime) {
-        return latest;
-      }
-
-      const time = new Date(endTime).getTime();
-      const latestTime = latest?.properties?.endTime
-        ? new Date(latest.properties.endTime).getTime()
-        : 0;
-
-      return time > latestTime ? feature : latest;
-    }, null);
-
-    if (!lastTripFeature?.geometry) {
-      return;
-    }
-
-    const lastCoord = getLastGeometryCoordinate(lastTripFeature.geometry);
-
-    if (
-      lastCoord?.length === 2 &&
-      !Number.isNaN(lastCoord[0]) &&
-      !Number.isNaN(lastCoord[1])
-    ) {
-      store.map.flyTo({
-        center: lastCoord,
-        zoom: targetZoom,
-        duration: 2000,
-        essential: true,
-      });
-    }
-  },
-
-  /**
    * Pan to a specific location
    * @param {Array<number>} center - [lng, lat] coordinates
    * @param {number} zoom - Optional zoom level
@@ -607,24 +532,6 @@ const mapManager = {
     }
 
     store.map.flyTo(options);
-  },
-
-  /**
-   * Get current map view state
-   * @returns {Object|null}
-   */
-  getViewState() {
-    if (!store.map) {
-      return null;
-    }
-
-    const center = store.map.getCenter();
-    return {
-      center: [center.lng, center.lat],
-      zoom: store.map.getZoom(),
-      bearing: store.map.getBearing(),
-      pitch: store.map.getPitch(),
-    };
   },
 
   /**
