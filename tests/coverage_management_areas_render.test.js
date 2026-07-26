@@ -1,6 +1,68 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+test("sortCoverageAreas defaults to highest completion first", async () => {
+  const { sortCoverageAreas } = await import(
+    "../static/js/modules/features/coverage-management/areas.js"
+  );
+  const areas = [
+    { id: "low", display_name: "Low", coverage_percentage: 12.5 },
+    { id: "high", display_name: "High", coverage_percentage: 91 },
+    { id: "medium", display_name: "Medium", coverage_percentage: 48.25 },
+  ];
+
+  const sorted = sortCoverageAreas(areas);
+
+  assert.deepEqual(
+    sorted.map((area) => area.id),
+    ["high", "medium", "low"]
+  );
+  assert.deepEqual(
+    areas.map((area) => area.id),
+    ["low", "high", "medium"],
+    "sorting must not mutate the API response"
+  );
+});
+
+test("sortCoverageAreas supports completion, added date, name, and sync ordering", async () => {
+  const { sortCoverageAreas } = await import(
+    "../static/js/modules/features/coverage-management/areas.js"
+  );
+  const areas = [
+    {
+      id: "bravo",
+      display_name: "Bravo",
+      coverage_percentage: 50,
+      created_at: "2026-01-02T00:00:00Z",
+      last_synced: "2026-03-02T00:00:00Z",
+    },
+    {
+      id: "alpha",
+      display_name: "alpha",
+      coverage_percentage: 50,
+      created_at: "2026-01-03T00:00:00Z",
+      last_synced: null,
+    },
+    {
+      id: "charlie",
+      display_name: "Charlie",
+      coverage_percentage: 10,
+      created_at: "2026-01-01T00:00:00Z",
+      last_synced: "2026-02-01T00:00:00Z",
+    },
+  ];
+  const idsFor = (sortKey) =>
+    sortCoverageAreas(areas, sortKey).map((area) => area.id);
+
+  assert.deepEqual(idsFor("coverage-desc"), ["alpha", "bravo", "charlie"]);
+  assert.deepEqual(idsFor("coverage-asc"), ["charlie", "alpha", "bravo"]);
+  assert.deepEqual(idsFor("created-desc"), ["alpha", "bravo", "charlie"]);
+  assert.deepEqual(idsFor("created-asc"), ["charlie", "bravo", "alpha"]);
+  assert.deepEqual(idsFor("name-asc"), ["alpha", "bravo", "charlie"]);
+  assert.deepEqual(idsFor("name-desc"), ["charlie", "bravo", "alpha"]);
+  assert.deepEqual(idsFor("synced-desc"), ["bravo", "charlie", "alpha"]);
+});
+
 test("renderAreaCards normalizes missing coverage percentage values", async () => {
   const grid = { innerHTML: "", style: { display: "none" } };
   const loading = { style: { display: "block" } };

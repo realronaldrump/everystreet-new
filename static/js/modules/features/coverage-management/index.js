@@ -22,7 +22,11 @@ import confirmationDialog from "../../ui/confirmation-dialog.js";
 import GlobalJobTracker from "../../ui/global-job-tracker.js";
 import notificationManager from "../../ui/notifications.js";
 import { debounce, escapeHtml } from "../../utils.js";
-import { renderAreaCards } from "./areas.js";
+import {
+  DEFAULT_AREA_SORT,
+  renderAreaCards,
+  sortCoverageAreas,
+} from "./areas.js";
 import {
   getNextActiveMapFilters,
   getStatusFiltersForMapFilters,
@@ -71,6 +75,7 @@ const INITIAL_STATE = () => ({
   activeJobsByAreaId: new Map(),
   activeRouteJobsByAreaId: new Map(),
   areaList: [],
+  areaSort: DEFAULT_AREA_SORT,
   areaErrorById: new Map(),
   areaNameById: new Map(),
   areaRoadFilterVersionById: new Map(),
@@ -229,6 +234,22 @@ function setupEventListeners(signal) {
   document
     .getElementById("refresh-list-btn")
     ?.addEventListener("click", loadAreas, opt);
+
+  document.getElementById("coverage-area-sort")?.addEventListener(
+    "change",
+    (event) => {
+      state.areaSort = event.currentTarget.value || DEFAULT_AREA_SORT;
+      state.areaList = sortCoverageAreas(state.areaList, state.areaSort);
+      renderAreaCards({
+        areas: state.areaList,
+        activeJobsByAreaId: state.activeJobsByAreaId,
+        activeRouteJobsByAreaId: state.activeRouteJobsByAreaId,
+        areaErrorById: state.areaErrorById,
+        areaNameById: state.areaNameById,
+      });
+    },
+    opt
+  );
 
   document
     .getElementById("batch-recalculate-open-btn")
@@ -1246,7 +1267,7 @@ async function loadAreas() {
 
     const hasActiveJobs =
       state.activeJobsByAreaId.size > 0 || state.activeRouteJobsByAreaId.size > 0;
-    state.areaList = areasData.areas || [];
+    state.areaList = sortCoverageAreas(areasData.areas, state.areaSort);
     state.areaRoadFilterVersionById.clear();
     state.areaList.forEach((area) => {
       state.areaRoadFilterVersionById.set(area.id, area.road_filter_version || null);

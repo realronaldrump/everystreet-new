@@ -6,6 +6,57 @@ import {
   normalizeCoveragePercent,
 } from "./stats.js";
 
+export const DEFAULT_AREA_SORT = "coverage-desc";
+const AREA_NAME_COLLATOR = new Intl.Collator(undefined, {
+  sensitivity: "base",
+  numeric: true,
+});
+
+function compareAreaNames(a, b) {
+  const byName = AREA_NAME_COLLATOR.compare(
+    String(a?.display_name || ""),
+    String(b?.display_name || "")
+  );
+  return byName || String(a?.id || "").localeCompare(String(b?.id || ""));
+}
+
+function compareAreaDates(a, b, field, direction) {
+  const aTimestamp = Date.parse(a?.[field] || "");
+  const bTimestamp = Date.parse(b?.[field] || "");
+  const aHasDate = Number.isFinite(aTimestamp);
+  const bHasDate = Number.isFinite(bTimestamp);
+
+  if (aHasDate !== bHasDate) {
+    return aHasDate ? -1 : 1;
+  }
+  if (aHasDate && aTimestamp !== bTimestamp) {
+    return direction === "asc" ? aTimestamp - bTimestamp : bTimestamp - aTimestamp;
+  }
+  return compareAreaNames(a, b);
+}
+
+/**
+ * Return a sorted copy of the coverage areas for list and batch displays.
+ */
+export function sortCoverageAreas(areas, sortKey = DEFAULT_AREA_SORT) {
+  const sortedAreas = Array.isArray(areas) ? [...areas] : [];
+  const comparators = {
+    "coverage-desc": (a, b) =>
+      normalizeCoveragePercent(b?.coverage_percentage) -
+        normalizeCoveragePercent(a?.coverage_percentage) || compareAreaNames(a, b),
+    "coverage-asc": (a, b) =>
+      normalizeCoveragePercent(a?.coverage_percentage) -
+        normalizeCoveragePercent(b?.coverage_percentage) || compareAreaNames(a, b),
+    "created-desc": (a, b) => compareAreaDates(a, b, "created_at", "desc"),
+    "created-asc": (a, b) => compareAreaDates(a, b, "created_at", "asc"),
+    "name-asc": compareAreaNames,
+    "name-desc": (a, b) => compareAreaNames(b, a),
+    "synced-desc": (a, b) => compareAreaDates(a, b, "last_synced", "desc"),
+  };
+  sortedAreas.sort(comparators[sortKey] || comparators[DEFAULT_AREA_SORT]);
+  return sortedAreas;
+}
+
 function isJobActiveStatus(status) {
   return ["pending", "running"].includes(status);
 }
@@ -566,18 +617,24 @@ export function renderAreaCards({
     );
 
     const existing = existingCards.get(area.id);
+    let cardToPlace;
     if (existing) {
       // Compare innerHTML-normalized content; replace only if changed
       tempContainer.innerHTML = html;
       const newCard = tempContainer.firstElementChild;
       if (existing.outerHTML !== newCard.outerHTML) {
         existing.replaceWith(newCard);
+        cardToPlace = newCard;
+      } else {
+        cardToPlace = existing;
       }
     } else {
-      // New card — append
       tempContainer.innerHTML = html;
-      grid.appendChild(tempContainer.firstElementChild);
+      cardToPlace = tempContainer.firstElementChild;
     }
+
+    // Appending an existing node moves it, keeping the DOM in the selected order.
+    grid.appendChild(cardToPlace);
   }
 
   // Remove cards for areas no longer in the list
