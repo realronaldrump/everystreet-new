@@ -22,11 +22,7 @@ import confirmationDialog from "../../ui/confirmation-dialog.js";
 import GlobalJobTracker from "../../ui/global-job-tracker.js";
 import notificationManager from "../../ui/notifications.js";
 import { debounce, escapeHtml } from "../../utils.js";
-import {
-  DEFAULT_AREA_SORT,
-  renderAreaCards,
-  sortCoverageAreas,
-} from "./areas.js";
+import { DEFAULT_AREA_SORT, renderAreaCards, sortCoverageAreas } from "./areas.js";
 import {
   getNextActiveMapFilters,
   getStatusFiltersForMapFilters,
@@ -794,7 +790,7 @@ async function handleIncludeServiceRoadsToggle(event) {
       onArea && shouldRebuildForServiceFilter(state.currentAreaId, include);
     notificationManager.show(
       differs
-        ? "Service road preference saved. Click \"Recalculate Street Coverage\" to apply it to this area."
+        ? 'Service road preference saved. Click "Recalculate Street Coverage" to apply it to this area.'
         : "Service road preference saved. Existing areas keep their current filter until rebuilt.",
       "success"
     );
@@ -2390,9 +2386,7 @@ function focusSegmentOnMap(segmentId) {
     return;
   }
   const features = state.streetsCacheGeojson.features || [];
-  const feature = features.find(
-    (f) => f?.properties?.segment_id === segmentId
-  );
+  const feature = features.find((f) => f?.properties?.segment_id === segmentId);
   if (!feature || !feature.geometry) {
     return;
   }
@@ -2437,11 +2431,7 @@ function focusSegmentOnMap(segmentId) {
       { padding: 80, maxZoom: 17, duration: 600 }
     );
     if (state.map.setFilter) {
-      state.map.setFilter(HIGHLIGHT_LAYER_ID, [
-        "==",
-        ["get", "segment_id"],
-        segmentId,
-      ]);
+      state.map.setFilter(HIGHLIGHT_LAYER_ID, ["==", ["get", "segment_id"], segmentId]);
     }
   } catch {
     /* ignore */

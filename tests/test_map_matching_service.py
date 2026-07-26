@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from db.models import Trip
 from trips.models import MapMatchJobRequest
 from trips.services import map_matching_jobs
+from trips.services.inactive_trip_service import InactiveTripService
 from trips.services.map_matching_jobs import MapMatchingJobRunner, MapMatchingJobService
 
 
@@ -214,6 +215,7 @@ async def test_map_matching_job_bumps_revision_once_for_changed_batch(
 
     runner = MapMatchingJobRunner()
     bump_revision = AsyncMock()
+    queue_coverage_reprocessing = AsyncMock()
 
     async def fake_preflight_router() -> tuple[bool, None]:
         return True, None
@@ -244,6 +246,11 @@ async def test_map_matching_job_bumps_revision_once_for_changed_batch(
         fake_process_trips_directly,
     )
     monkeypatch.setattr(map_matching_jobs, "bump_trip_map_revision", bump_revision)
+    monkeypatch.setattr(
+        InactiveTripService,
+        "queue_coverage_reprocessing_for_trips",
+        queue_coverage_reprocessing,
+    )
 
     result = await runner.run(
         "job-1",
@@ -256,6 +263,7 @@ async def test_map_matching_job_bumps_revision_once_for_changed_batch(
     assert result["status"] == "success"
     assert result["map_matched"] == 2
     assert bump_revision.await_count == 1
+    queue_coverage_reprocessing.assert_awaited_once()
 
 
 @pytest.mark.asyncio

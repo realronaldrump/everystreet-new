@@ -739,8 +739,7 @@ export default async function initMemoryCityPage(ctx = {}) {
     setPlayIcon(true);
     elements.playBtn?.setAttribute("aria-label", "Pause timelapse");
 
-    const duration =
-      durationMs ?? clamp(8000 + model.count / 3, 9000, 16_000);
+    const duration = durationMs ?? clamp(8000 + model.count / 3, 9000, 16_000);
 
     if (!state.reducedMotion && !state.autoRotate) {
       state.cinemaRotate = true;
@@ -822,7 +821,11 @@ export default async function initMemoryCityPage(ctx = {}) {
         </span>
         <i class="fas fa-play mc-chapter-play" aria-hidden="true"></i>
       `;
-      btn.addEventListener("click", () => playChapter(chapter), signal ? { signal } : false);
+      btn.addEventListener(
+        "click",
+        () => playChapter(chapter),
+        signal ? { signal } : false
+      );
       container.appendChild(btn);
     }
     updateActiveChapterChip();
@@ -1916,7 +1919,12 @@ export default async function initMemoryCityPage(ctx = {}) {
           ctx2d.fillStyle = token("--surface-1", "#101018");
           ctx2d.fillRect(0, img.height, canvas.width, footer);
           ctx2d.fillStyle = token("--border-color", "#333");
-          ctx2d.fillRect(0, img.height, canvas.width, Math.max(1, Math.round(footer * 0.015)));
+          ctx2d.fillRect(
+            0,
+            img.height,
+            canvas.width,
+            Math.max(1, Math.round(footer * 0.015))
+          );
 
           const { model } = state;
           const area = state.area || {};

@@ -70,11 +70,7 @@ test("prepareModel returns null when nothing is renderable", () => {
 });
 
 test("segments are founding-ordered with strictly increasing progress and altitude", () => {
-  const segments = [
-    ...makeBurst(400, 20),
-    ...makeBurst(0, 20),
-    ...makeBurst(200, 20),
-  ];
+  const segments = [...makeBurst(400, 20), ...makeBurst(0, 20), ...makeBurst(200, 20)];
   const model = prepareModel(buildPayload(segments), NOW_MS);
 
   assert.equal(model.count, 60);
@@ -118,11 +114,7 @@ test("prefix miles accumulate in founding order", () => {
 });
 
 test("chapters split on long pauses and cover every segment contiguously", () => {
-  const segments = [
-    ...makeBurst(0, 20),
-    ...makeBurst(210, 30),
-    ...makeBurst(630, 15),
-  ];
+  const segments = [...makeBurst(0, 20), ...makeBurst(210, 30), ...makeBurst(630, 15)];
   const model = prepareModel(buildPayload(segments), NOW_MS);
 
   assert.equal(model.chapters.length, 3);
@@ -159,8 +151,7 @@ test("chapters merge down to at most six eras", () => {
 });
 
 test("sliver chapters are absorbed into neighbors", () => {
-  const enriched = (segments) =>
-    prepareModel(buildPayload(segments), NOW_MS).segments;
+  const enriched = (segments) => prepareModel(buildPayload(segments), NOW_MS).segments;
   const chapters = computeChapters(
     enriched([...makeBurst(0, 30), ...makeBurst(300, 3), ...makeBurst(600, 30)])
   );
@@ -218,7 +209,10 @@ test("records surface founding, newest, backbone, forgotten, and one-visit stree
   assert.equal(records.onceCount, 2);
   assert.ok(Math.abs(records.oncePct - 40) < 1e-9);
 
-  assert.equal(model.segments.find((s) => s.streetName === "Lost Lane").revisited, false);
+  assert.equal(
+    model.segments.find((s) => s.streetName === "Lost Lane").revisited,
+    false
+  );
   assert.equal(
     model.segments.find((s) => s.streetName === "Founders Way").revisited,
     true

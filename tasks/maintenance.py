@@ -17,6 +17,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from analytics.services.mobility_insights_service import MobilityInsightsService
 from core.jobs import create_job
 from core.trip_map_cache import bump_trip_map_revision
 from core.trip_query_spec import TripQuerySpec
@@ -32,9 +33,12 @@ from trips.services.trip_display_geometry import (
 from trips.services.trip_map_geometry import (
     TRIP_MAP_PATH_VERSION,
     apply_trip_map_path_fields,
+    build_encoded_path_metadata,
 )
 
 logger = logging.getLogger(__name__)
+
+_LINE_GEOMETRY_TYPES = ["LineString", "MultiLineString"]
 
 
 async def _validate_trips_logic() -> dict[str, Any]:
@@ -232,11 +236,22 @@ async def _backfill_trip_display_geometry_logic(
     if not force:
         filters["$or"] = [
             {"displayGpsVersion": {"$ne": DISPLAY_GEOMETRY_VERSION}},
-            {"displayMapPath.version": {"$ne": TRIP_MAP_PATH_VERSION}},
+            {
+                "$and": [
+                    {"displayGps.type": {"$in": _LINE_GEOMETRY_TYPES}},
+                    {"displayMapPath.version": {"$ne": TRIP_MAP_PATH_VERSION}},
+                ],
+            },
+            {
+                "$and": [
+                    {"matchedGps.type": {"$in": _LINE_GEOMETRY_TYPES}},
+                    {"matchedMapPath.version": {"$ne": TRIP_MAP_PATH_VERSION}},
+                ],
+            },
             {
                 "$and": [
                     {"matchedGps": {"$ne": None}},
-                    {"matchedMapPath.version": {"$ne": TRIP_MAP_PATH_VERSION}},
+                    {"matchedGps.type": {"$nin": _LINE_GEOMETRY_TYPES}},
                 ],
             },
         ]
@@ -266,19 +281,42 @@ async def _backfill_trip_display_geometry_logic(
             "processed": 0,
             "updated": 0,
             "unchanged": 0,
+            "normalized_degenerate_matches": 0,
         },
     )
 
     processed_count = 0
     modified_count = 0
+    normalized_degenerate_matches = 0
 
     try:
         async for trip in cursor:
             processed_count += 1
+            matched_geometry = getattr(trip, "matchedGps", None)
+            matched_path = build_encoded_path_metadata(
+                matched_geometry,
+                geometry_source="matchedGps",
+            )
+            normalized_degenerate_match = bool(
+                matched_geometry is not None and matched_path is None,
+            )
+            if normalized_degenerate_match:
+                trip.matchedGps = None
+                trip.matchedMapPath = None
+                trip.matchStatus = "skipped:degenerate-match"
+                trip.matched_at = datetime.now(UTC)
+                trip.matchProvider = None
+                trip.matchFallbackUsed = None
+                trip.matchConfidence = None
+                trip.matchAttemptSummary = None
+                trip.mobility_synced_at = None
+                normalized_degenerate_matches += 1
+
             fields = compute_trip_display_geometry_fields(trip.model_dump())
             changed = any(
                 getattr(trip, field) != value for field, value in fields.items()
             )
+            changed = normalized_degenerate_match or changed
 
             if changed:
                 trip.displayGps = fields["displayGps"]
@@ -292,6 +330,8 @@ async def _backfill_trip_display_geometry_logic(
             if changed:
                 await trip.save()
                 modified_count += 1
+                if normalized_degenerate_match:
+                    await MobilityInsightsService.sync_trip(trip)
 
             progress_pct = int((processed_count / total) * 100) if total > 0 else 0
             await job_handle.update(
@@ -301,6 +341,7 @@ async def _backfill_trip_display_geometry_logic(
                     "processed": processed_count,
                     "updated": modified_count,
                     "unchanged": processed_count - modified_count,
+                    "normalized_degenerate_matches": normalized_degenerate_matches,
                 },
             )
 
@@ -324,6 +365,7 @@ async def _backfill_trip_display_geometry_logic(
                 "processed": processed_count,
                 "updated": modified_count,
                 "unchanged": processed_count - modified_count,
+                "normalized_degenerate_matches": normalized_degenerate_matches,
             },
             completed_at=datetime.now(UTC),
         )
@@ -347,6 +389,7 @@ async def _backfill_trip_display_geometry_logic(
         ),
         "processed_count": processed_count,
         "modified_count": modified_count,
+        "normalized_degenerate_matches": normalized_degenerate_matches,
         "display_gps_version": DISPLAY_GEOMETRY_VERSION,
     }
 

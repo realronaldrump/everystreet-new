@@ -49,9 +49,9 @@ TASK_DEFINITIONS: dict[str, dict[str, object]] = {
         "default_interval_minutes": 0,
         "dependencies": [],
         "description": (
-            "Recomputes historical display-only trip paths used by the map. "
-            "Raw Bouncie GPS, matched GPS, trip metrics, coverage, insights, and "
-            "live trip state are left unchanged."
+            "Recomputes historical display-only trip paths used by the map and "
+            "clears degenerate matched geometry that cannot form a route. Raw "
+            "Bouncie GPS, trip metrics, coverage, and live trip state are unchanged."
         ),
         "manual_only": True,
         "hidden": True,

@@ -66,7 +66,6 @@ async def test_memory_city_repairs_stale_cached_stats_from_old_area_version(
         first_driven_at=stale_time,
         last_driven_at=stale_time,
     ).insert()
-
     payload = await get_memory_city(area.id)
 
     assert payload.area.driven_segments == 0

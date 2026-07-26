@@ -275,27 +275,6 @@ def _format_avg_hour(hour_value: float | None) -> str:
     return f"{hour_12}:{minutes:02d} {suffix}"
 
 
-async def _query_has_missing_materialized_paths(
-    query: dict[str, Any],
-    *,
-    path_field: str,
-) -> bool:
-    collection = Trip.get_pymongo_collection()
-    missing_query = {
-        "$and": [
-            query,
-            {
-                "$or": [
-                    {path_field: None},
-                    {f"{path_field}.version": {"$ne": TRIP_MAP_PATH_VERSION}},
-                ],
-            },
-        ],
-    }
-    doc = await collection.find_one(missing_query, projection={"_id": 1})
-    return doc is not None
-
-
 def _path_metadata_for_doc(
     trip_doc: dict[str, Any],
     *,
@@ -325,14 +304,7 @@ def _path_metadata_for_doc(
     materialized = trip_doc.get(path_field)
     if materialized_path_is_current(materialized, geometry_source=geometry_field):
         return materialized, None
-
-    geometry = GeometryService.parse_geojson(trip_doc.get(geometry_field))
-    if not geometry:
-        return None, None
-    return (
-        build_encoded_path_metadata(geometry, geometry_source=geometry_field),
-        None,
-    )
+    return None, None
 
 
 def _build_trip_map_summary(features: list[dict[str, Any]]) -> dict[str, Any]:
@@ -451,6 +423,7 @@ async def get_trip_map_bundle(
 
     query["invalid"] = {"$ne": True}
     query[geometry_field] = {"$ne": None}
+    query[f"{geometry_field}.type"] = {"$in": ["LineString", "MultiLineString"]}
     query = apply_clip_prefilter(
         query,
         coverage_clip,
@@ -488,13 +461,7 @@ async def get_trip_map_bundle(
             headers={"ETag": etag, "Cache-Control": "private, max-age=30"},
         )
 
-    include_geometry = (
-        coverage_clip.enabled
-        or await _query_has_missing_materialized_paths(
-            query,
-            path_field=path_field,
-        )
-    )
+    include_geometry = coverage_clip.enabled
     projection = {
         "_id": 1,
         "transactionId": 1,

@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from trips.services.matching import MapMatchingService
+from trips.services.matching import MapMatchingService, TripMapMatcher
 
 
 def test_build_shape_points_sets_break_and_via_types() -> None:
@@ -38,6 +38,18 @@ def test_match_quality_accepts_plausible_match() -> None:
     assert MapMatchingService.validate_matched_geometry_quality(raw, matched) is None
 
 
+def test_match_quality_rejects_degenerate_match_for_short_trip() -> None:
+    raw = [[-97.0, 32.0], [-97.0001, 32.0001]]
+    matched = {
+        "type": "LineString",
+        "coordinates": [[-97.0, 32.0], [-97.0, 32.0]],
+    }
+
+    error = MapMatchingService.validate_matched_geometry_quality(raw, matched)
+
+    assert error == "low-quality-match:no-lines"
+
+
 def test_match_quality_rejects_discontinuous_match_for_continuous_raw_gps() -> None:
     raw = [[-97.0 + (i * 0.001), 32.0] for i in range(12)]
     matched = {
@@ -61,6 +73,40 @@ class _RouterStub:
                 "coordinates": [[-97.0, 32.0], [-97.001, 32.001]],
             }
         }
+
+
+class _DegenerateMapMatcherStub:
+    async def map_match_coordinates(self, *_args, **_kwargs):
+        return {
+            "code": "Ok",
+            "provider": "valhalla",
+            "matchings": [
+                {
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [[-97.0, 32.0], [-97.0, 32.0]],
+                    }
+                }
+            ],
+        }
+
+
+@pytest.mark.asyncio
+async def test_trip_map_matcher_skips_degenerate_short_match() -> None:
+    matcher = TripMapMatcher(_DegenerateMapMatcherStub())
+    trip = {
+        "transactionId": "tx-degenerate-short",
+        "gps": {
+            "type": "LineString",
+            "coordinates": [[-97.0, 32.0], [-97.0001, 32.0001]],
+        },
+    }
+
+    outcome, processed = await matcher.map_match(trip)
+
+    assert outcome == "skipped"
+    assert processed["matchStatus"] == "skipped:degenerate-match"
+    assert processed.get("matchedGps") is None
 
 
 class _PartialThenSegmentRouterStub:

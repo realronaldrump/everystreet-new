@@ -305,14 +305,17 @@ const originalGlobals = {
   document: global.document,
   window: global.window,
 };
+const originalMapboxAccessToken = CONFIG.MAP.accessToken;
 
 let movementModule;
 
 test.before(async () => {
+  CONFIG.MAP.accessToken = "pk.test-token";
   movementModule = await import("../static/js/modules/insights/movement.js");
 });
 
 test.after(() => {
+  CONFIG.MAP.accessToken = originalMapboxAccessToken;
   global.document = originalGlobals.document;
   global.window = originalGlobals.window;
 });

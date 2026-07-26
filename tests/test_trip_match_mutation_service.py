@@ -288,6 +288,63 @@ async def test_rematch_trip_rejects_low_quality_matched_geometry(
 
 
 @pytest.mark.asyncio
+async def test_rematch_trip_skips_degenerate_short_match(
+    beanie_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    del beanie_db
+
+    trip = _trip("tx-match-degenerate-short")
+    trip.gps = {
+        "type": "LineString",
+        "coordinates": [[-97.0, 32.0], [-97.0001, 32.0001]],
+    }
+    await trip.insert()
+    bump_revision = AsyncMock()
+    sync_trip = AsyncMock()
+    monkeypatch.setattr(
+        trip_match_mutation_service,
+        "bump_trip_map_revision",
+        bump_revision,
+    )
+    monkeypatch.setattr(
+        trip_match_mutation_service.MobilityInsightsService,
+        "sync_trip",
+        sync_trip,
+    )
+
+    service = HistoricalTripMatchMutationService(
+        _MapMatcherStub(
+            {
+                "code": "Ok",
+                "provider": "valhalla",
+                "matchings": [
+                    {
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": [[-97.0, 32.0], [-97.0, 32.0]],
+                        }
+                    }
+                ],
+            }
+        )
+    )
+
+    result = await service.rematch_trip(trip)
+    saved = await Trip.find_one(Trip.transactionId == "tx-match-degenerate-short")
+
+    assert result.outcome == "skipped"
+    assert result.status == "skipped:degenerate-match"
+    assert saved is not None
+    assert saved.matchedGps is None
+    assert saved.matchedMapPath is None
+    assert saved.matchStatus == "skipped:degenerate-match"
+    assert saved.matchProvider == "valhalla"
+    assert bump_revision.await_count == 1
+    assert sync_trip.await_count == 1
+
+
+@pytest.mark.asyncio
 async def test_clear_match_clears_provider_metadata(
     beanie_db,
     monkeypatch: pytest.MonkeyPatch,

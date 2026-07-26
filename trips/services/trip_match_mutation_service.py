@@ -12,7 +12,11 @@ from core.spatial import extract_timestamps_for_coordinates
 from core.trip_map_cache import bump_trip_map_revision
 from db.models import Trip
 from trips.pipeline import TripPipeline
-from trips.services.matching import MapMatchingService, normalize_provider_policy
+from trips.services.matching import (
+    DEGENERATE_MATCH_ERRORS,
+    MapMatchingService,
+    normalize_provider_policy,
+)
 from trips.services.trip_map_geometry import apply_trip_map_path_fields
 
 logger = logging.getLogger(__name__)
@@ -127,6 +131,17 @@ class HistoricalTripMatchMutationService:
             matched_geometry,
         )
         if quality_error:
+            if quality_error in DEGENERATE_MATCH_ERRORS:
+                return await self.apply_match_status(
+                    trip,
+                    "skipped:degenerate-match",
+                    outcome="skipped",
+                    message=quality_error,
+                    clear_geometry=True,
+                    bump_revision=bump_revision,
+                    sync_mobility=sync_mobility,
+                    match_result=result,
+                )
             return await self.apply_match_status(
                 trip,
                 f"error:{quality_error}",

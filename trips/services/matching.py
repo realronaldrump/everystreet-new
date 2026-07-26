@@ -18,6 +18,13 @@ from core.spatial import (
 
 logger = logging.getLogger(__name__)
 
+DEGENERATE_MATCH_ERRORS = frozenset(
+    {
+        "low-quality-match:no-lines",
+        "low-quality-match:empty-distance",
+    },
+)
+
 DEFAULT_PROVIDER_POLICY = "auto"
 VALID_PROVIDER_POLICIES = {"auto", "valhalla_only", "mapbox_only"}
 
@@ -586,10 +593,6 @@ class MapMatchingService:
         if len(raw_line) < 2:
             return None
 
-        raw_distance_miles = cls._line_distance_miles([raw_line])
-        if raw_distance_miles < cls._MIN_QUALITY_RAW_DISTANCE_MILES:
-            return None
-
         matched_lines = extract_line_sequences(matched_geometry)
         if not matched_lines:
             return "low-quality-match:no-lines"
@@ -597,6 +600,10 @@ class MapMatchingService:
         matched_distance_miles = cls._line_distance_miles(matched_lines)
         if matched_distance_miles <= 0:
             return "low-quality-match:empty-distance"
+
+        raw_distance_miles = cls._line_distance_miles([raw_line])
+        if raw_distance_miles < cls._MIN_QUALITY_RAW_DISTANCE_MILES:
+            return None
 
         distance_ratio = matched_distance_miles / raw_distance_miles
         if distance_ratio < cls._MIN_MATCHED_DISTANCE_RATIO:
@@ -1095,6 +1102,9 @@ class TripMapMatcher:
                         quality_error,
                     )
                     self._apply_match_metadata(processed_data, match_result)
+                    if quality_error in DEGENERATE_MATCH_ERRORS:
+                        set_match_status("skipped:degenerate-match")
+                        return "skipped", processed_data
                     set_match_status(f"error:{quality_error}")
                     return "failed", processed_data
 
@@ -1151,10 +1161,7 @@ class TripMapMatcher:
                         "Trip %s: Matched LineString has identical points",
                         transaction_id,
                     )
-                    return {
-                        "type": "Point",
-                        "coordinates": geom_coords[0],
-                    }
+                    return matched_geometry
                 return matched_geometry
         elif geom_type == "MultiLineString":
             if isinstance(geom_coords, list) and len(geom_coords) >= 1:
@@ -1188,6 +1195,7 @@ class TripMapMatcher:
 
 __all__ = [
     "DEFAULT_PROVIDER_POLICY",
+    "DEGENERATE_MATCH_ERRORS",
     "MapMatchingService",
     "TripMapMatcher",
     "extract_timestamps_for_coordinates",

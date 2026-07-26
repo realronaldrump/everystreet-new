@@ -326,7 +326,8 @@ export function prepareModel(payload, now = Date.now()) {
   }
 
   parsed.sort(
-    (a, b) => a.firstMs - b.firstMs || String(a.segmentId).localeCompare(String(b.segmentId))
+    (a, b) =>
+      a.firstMs - b.firstMs || String(a.segmentId).localeCompare(String(b.segmentId))
   );
 
   // Area bounding box (from geometry, not the stored bbox, so it always

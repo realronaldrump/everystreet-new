@@ -113,6 +113,12 @@ function normalizeTripId(trip) {
   return String(trip?.id ?? trip?.transactionId ?? "");
 }
 
+function tripCountForLayer(layerState) {
+  return Number(
+    layerState?.bundle?.trip_count || layerState?.bundle?.trips?.length || 0
+  );
+}
+
 function toTripProperties(trip, layerName) {
   return {
     transactionId: normalizeTripId(trip),
@@ -197,6 +203,7 @@ const tripMapRenderer = {
   _nativeHandlers: new Map(),
   _nativeSourceData: new Map(),
   _nativeRendered: false,
+  _heatZoom: Number.NaN,
 
   isTripLayer,
 
@@ -248,16 +255,24 @@ const tripMapRenderer = {
     return ["trips", "matchedTrips"].some((layerName) => {
       const layerInfo = store.mapLayers[layerName];
       const layerState = this.layers.get(layerName);
-      const tripCount = Number(
-        layerState?.bundle?.trip_count || layerState?.bundle?.trips?.length || 0
-      );
       return Boolean(
         layerInfo?.visible &&
           layerInfo.isHeatmap &&
           layerState?.decoded?.length &&
-          tripCount >= LARGE_NATIVE_HEATMAP_TRIP_THRESHOLD
+          tripCountForLayer(layerState) >= LARGE_NATIVE_HEATMAP_TRIP_THRESHOLD
       );
     });
+  },
+
+  _currentTheme() {
+    return (
+      globalThis?.document?.documentElement?.getAttribute("data-bs-theme") || "dark"
+    );
+  },
+
+  _currentZoom() {
+    const zoom = Number(store.map?.getZoom?.());
+    return Number.isFinite(zoom) ? zoom : 12;
   },
 
   ensureWorker() {
@@ -365,6 +380,23 @@ const tripMapRenderer = {
     // terrain is enabled are often incomplete. Re-sample once the map settles
     // (and after zooming in for finer detail) so trip paths track the surface.
     map.on("idle", () => this._handleMapIdle());
+    // Mapbox resolves the heat ramps itself from zoom expressions; deck.gl
+    // gets fixed numbers, so its tiers have to be rebuilt as the camera
+    // moves. The geometry buffers are cached, so this is only a props diff.
+    map.on("zoomend", () => this._handleZoomEnd());
+  },
+
+  _handleZoomEnd() {
+    if (this._nativeRendered || !this.overlay || this.areTripLayersSuppressed()) {
+      return;
+    }
+    if (Math.abs(this._currentZoom() - this._heatZoom) < 0.25) {
+      return;
+    }
+    if (!this.hasVisibleHeatmapTripLayer()) {
+      return;
+    }
+    this.render();
   },
 
   _handleMapIdle() {
@@ -757,14 +789,11 @@ const tripMapRenderer = {
   _renderNativeHeatmapLayers(layerName, layerInfo, sourceId, beforeId) {
     this._removeNativeLayer(`${layerName}-layer`);
 
-    const theme = document.documentElement?.getAttribute("data-bs-theme") || "dark";
-    const featureCollection = this.getFeatureCollection(layerName);
-    const visibleTripCount = featureCollection.features?.length || 0;
     const glowLayers = heatmapUtils.generateTripHeatLayers(
-      visibleTripCount,
+      tripCountForLayer(this.layers.get(layerName)),
       layerInfo.opacity ?? 1,
-      theme,
-      layerName === "matchedTrips" ? this.getHeatmapPalette(layerName) : null
+      this._currentTheme(),
+      this.getHeatmapPalette(layerName)
     );
 
     glowLayers.forEach((glowConfig, index) => {
@@ -779,8 +808,10 @@ const tripMapRenderer = {
             maxzoom: layerInfo.maxzoom || 22,
             layout: {
               visibility: layerInfo.visible ? "visible" : "none",
-              "line-join": "round",
-              "line-cap": "round",
+              // Matches the deck.gl tiers: rounded joints and caps double up
+              // the alpha wherever a translucent trace bends or ends.
+              "line-join": "miter",
+              "line-cap": "butt",
             },
             paint: glowConfig.paint,
           },
@@ -1007,46 +1038,34 @@ const tripMapRenderer = {
     };
 
     if (layerInfo.isHeatmap) {
-      const palette = this.getHeatmapPalette(layerName);
-      const settings = heatmapUtils.getAdaptiveSettings(
-        layerState.bundle?.trip_count || layerState.bundle?.trips?.length || 0
+      this._heatZoom = this._currentZoom();
+      const tiers = heatmapUtils.tripHeatTiersAtZoom(
+        tripCountForLayer(layerState),
+        layerInfo.opacity ?? 1,
+        this._currentTheme(),
+        this.getHeatmapPalette(layerName),
+        this._heatZoom
       );
-      return [
-        new deck.PathLayer({
+
+      // Rounded joints emit a wedge at every vertex that overlaps the
+      // neighbouring segment quads. On a translucent line each overlap
+      // composites twice, so a dense GPS trace turns into a string of beads
+      // that tracks how slowly the car was moving. Mitred joints abut instead.
+      return tiers.map((tier, index) => {
+        const pickable = index === 0;
+        return new deck.PathLayer({
           ...common,
-          id: `${layerName}-trip-map-atmosphere`,
-          pickable: false,
-          getColor: colorWithAlpha(
-            palette.halo,
-            Math.round(settings.glowOpacity * 0.45 * 255)
-          ),
-          getWidth: settings.glowWidth * 2.2,
-          opacity: layerInfo.opacity ?? 1,
-        }),
-        new deck.PathLayer({
-          ...common,
-          id: `${layerName}-trip-map-body`,
-          pickable: false,
-          getColor: colorWithAlpha(
-            palette.glow,
-            Math.round(settings.glowOpacity * 1.1 * 255)
-          ),
-          getWidth: settings.glowWidth,
-          opacity: layerInfo.opacity ?? 1,
-        }),
-        new deck.PathLayer({
-          ...common,
-          id: `${layerName}-trip-map-core`,
-          pickable: true,
-          getColor: colorWithAlpha(
-            palette.core,
-            Math.round(settings.coreOpacity * 255)
-          ),
-          getWidth: settings.baseWidth,
-          opacity: layerInfo.opacity ?? 1,
-          onClick: (info) => this.handleTripClick(info, layerName),
-        }),
-      ];
+          id: `${layerName}-trip-map-${tier.name}`,
+          jointRounded: false,
+          capRounded: false,
+          miterLimit: 2,
+          pickable,
+          getColor: colorWithAlpha(tier.color, Math.round(tier.opacity * 255)),
+          getWidth: tier.width,
+          widthMinPixels: heatmapUtils.MIN_LINE_WIDTH,
+          onClick: pickable ? (info) => this.handleTripClick(info, layerName) : null,
+        });
+      });
     }
 
     return [
@@ -1107,14 +1126,16 @@ const tripMapRenderer = {
   getHeatmapPalette(layerName) {
     if (layerName === "matchedTrips") {
       const colors = MapStyles.MAP_LAYER_COLORS?.matchedTrips || {};
+      // Its own three-stop ramp in the matched hue. The layer's `highlight`
+      // is the selection colour, not a hot core — using it here left every
+      // tier the same red with a cool cast on top and no sense of frequency.
       return {
-        halo: colors.default || "#8f3040",
+        halo: "#6d2029",
         glow: colors.default || "#c45454",
-        core: colors.highlight || "#8aa7df",
+        core: "#ffdcd2",
       };
     }
-    const theme = document.documentElement?.getAttribute("data-bs-theme") || "dark";
-    return heatmapUtils.COLORS[theme] || heatmapUtils.COLORS.dark;
+    return heatmapUtils.COLORS[this._currentTheme()] || heatmapUtils.COLORS.dark;
   },
 
   getBeforeLayerId() {

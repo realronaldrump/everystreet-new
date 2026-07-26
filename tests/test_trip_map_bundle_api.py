@@ -44,19 +44,17 @@ class _FakeCursor:
 
 
 class _FakeTripCollection:
-    def __init__(self, docs: list[dict[str, Any]], *, has_missing_paths: bool = False):
+    def __init__(self, docs: list[dict[str, Any]]):
         self.docs = docs
-        self.has_missing_paths = has_missing_paths
         self.find_calls: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
 
     async def find_one(self, _query, projection=None):
-        if self.has_missing_paths:
-            return {"_id": "missing"}
-        return None
+        raise AssertionError("Normal map bundles must not probe for missing paths")
 
     def find(self, query, projection=None):
         self.find_calls.append((query, projection))
         geometry_field = "matchedGps" if "matchedGps" in query else "displayGps"
+        allowed_geometry_types = query.get(f"{geometry_field}.type", {}).get("$in")
         filtered = []
         for doc in self.docs:
             if doc.get("source") != "bouncie":
@@ -64,6 +62,11 @@ class _FakeTripCollection:
             if doc.get("invalid") is True or doc.get("inactive") is True:
                 continue
             if doc.get(geometry_field) is None:
+                continue
+            if (
+                allowed_geometry_types
+                and doc[geometry_field].get("type") not in allowed_geometry_types
+            ):
                 continue
             if projection:
                 filtered.append(
@@ -173,6 +176,12 @@ def test_trip_map_bundle_uses_display_and_matched_materialized_paths() -> None:
     assert display_trip["estimated_cost"] == 5.25
     assert matched_trip["estimated_cost"] == 5.25
     assert display.headers["etag"] != matched.headers["etag"]
+    display_projection = collection.find_calls[0][1]
+    matched_projection = collection.find_calls[1][1]
+    assert display_projection is not None
+    assert matched_projection is not None
+    assert "displayGps" not in display_projection
+    assert "matchedGps" not in matched_projection
 
 
 def test_trip_map_bundle_excludes_invalid_inactive_and_non_bouncie_trips() -> None:
@@ -196,6 +205,30 @@ def test_trip_map_bundle_excludes_invalid_inactive_and_non_bouncie_trips() -> No
     assert payload["trips"][0]["id"] == "visible"
 
 
+def test_trip_map_bundle_excludes_non_line_geometry() -> None:
+    line_trip = _trip("line")
+    point_trip = _trip(
+        "point",
+        display={"type": "Point", "coordinates": [-97.0, 32.0]},
+    )
+    point_trip["displayMapPath"] = {
+        "version": 2,
+        "geometry_source": "displayGps",
+        "path": "stale-point-path",
+        "bbox": [-97.0, 32.0, -97.0, 32.0],
+        "point_count": 1,
+    }
+    collection = _FakeTripCollection([line_trip, point_trip])
+
+    with _client_for(collection) as client:
+        response = client.get(
+            "/api/map/trips/bundle?start_date=2026-03-01&end_date=2026-03-02",
+        )
+
+    assert response.status_code == 200
+    assert [trip["id"] for trip in response.json()["trips"]] == ["line"]
+
+
 def test_trip_map_bundle_clips_to_coverage_area_with_full_detail_path() -> None:
     inside = _trip(
         "inside",
@@ -205,7 +238,7 @@ def test_trip_map_bundle_clips_to_coverage_area_with_full_detail_path() -> None:
         "outside",
         display=_line([5.0, 0.0], [6.0, 0.0]),
     )
-    collection = _FakeTripCollection([inside, outside], has_missing_paths=True)
+    collection = _FakeTripCollection([inside, outside])
     app = _create_app()
 
     boundary = {

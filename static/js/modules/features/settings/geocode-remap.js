@@ -379,6 +379,7 @@ export function setupRebuildDisplayPaths(signal) {
     const processed = metrics.processed ?? 0;
     const updated = metrics.updated ?? 0;
     const unchanged = metrics.unchanged ?? 0;
+    const normalizedMatches = metrics.normalized_degenerate_matches ?? 0;
 
     metricsLive.innerHTML = `
       <span class="rebuild-paths-metric">
@@ -396,6 +397,10 @@ export function setupRebuildDisplayPaths(signal) {
       <span class="rebuild-paths-metric">
         <span class="rebuild-paths-metric-value">${unchanged}</span>
         <span class="rebuild-paths-metric-label">Unchanged</span>
+      </span>
+      <span class="rebuild-paths-metric">
+        <span class="rebuild-paths-metric-value">${normalizedMatches}</span>
+        <span class="rebuild-paths-metric-label">Invalid matches cleared</span>
       </span>`;
     metricsLive.style.display = "";
   };
