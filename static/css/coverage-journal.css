@@ -23,6 +23,8 @@
 }
 
 .journal-masthead {
+  position: relative;
+  z-index: calc(var(--z-dropdown) + 1);
   align-items: end;
   margin-bottom: 0;
   border-bottom: 0;
