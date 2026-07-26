@@ -394,11 +394,22 @@
   background: var(--surface-1);
 }
 
+.journal-chart-scroll {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: var(--journal-steel) transparent;
+  scrollbar-width: thin;
+}
+
 .journal-pace-chart {
   width: 100%;
+  min-width: 720px;
   height: clamp(250px, 42vw, 420px);
   display: block;
   overflow: visible;
+  cursor: ew-resize;
+  touch-action: pan-x pan-y;
+  user-select: none;
 }
 
 .journal-chart-grid {
@@ -441,6 +452,36 @@
   vector-effect: non-scaling-stroke;
 }
 
+.journal-chart-cursor-dot {
+  fill: var(--surface-1);
+  stroke: var(--journal-ochre);
+  stroke-width: 3;
+  pointer-events: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.journal-chart-readout {
+  pointer-events: none;
+}
+
+.journal-chart-readout-panel {
+  fill: var(--surface-elevated);
+  stroke: var(--journal-line);
+  vector-effect: non-scaling-stroke;
+}
+
+.journal-chart-readout-value {
+  fill: var(--text-primary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.journal-chart-hit {
+  fill: transparent;
+  pointer-events: all;
+}
+
 .journal-cursor {
   display: grid;
   gap: var(--space-2);
@@ -454,6 +495,11 @@
   color: var(--text-secondary);
   font-family: var(--font-family-mono);
   font-size: var(--font-size-sm);
+}
+
+.journal-cursor .journal-chart-help {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
 }
 
 .journal-cursor input {

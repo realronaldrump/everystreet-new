@@ -135,16 +135,21 @@ Coverage Field Journal
             </div>
           </div>
           <div class="journal-chart-wrap">
-            <svg id="journal-pace-chart"
-                 class="journal-pace-chart"
-                 role="img"
-                 aria-labelledby="journal-chart-title journal-chart-desc"
-                 viewBox="0 0 960 360"
-                 preserveAspectRatio="none">
-              <title id="journal-chart-title">Cumulative street coverage over time</title>
-              <desc id="journal-chart-desc">Loading chart data.</desc>
-            </svg>
+            <div class="journal-chart-scroll" id="journal-chart-scroll">
+              <svg id="journal-pace-chart"
+                   class="journal-pace-chart"
+                   role="img"
+                   aria-labelledby="journal-chart-title journal-chart-desc"
+                   viewBox="0 0 960 360"
+                   preserveAspectRatio="none">
+                <title id="journal-chart-title">Cumulative street coverage over time</title>
+                <desc id="journal-chart-desc">Loading chart data.</desc>
+              </svg>
+            </div>
             <div class="journal-cursor">
+              <p class="journal-chart-help">
+                Drag across the chart to scrub the record. Scroll sideways on smaller screens.
+              </p>
               <label for="journal-timeline-cursor">
                 Coverage as of <strong id="journal-cursor-date">today</strong>
               </label>

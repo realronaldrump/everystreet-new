@@ -1,5 +1,3 @@
-/* global mapboxgl */
-
 import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
 import { createMap, isMapboxStyleUrl, waitForMapboxToken } from "../../map-core.js";
 import { escapeHtml } from "../../utils.js";
@@ -30,6 +28,8 @@ function initialState() {
     mapReady: false,
     mapMode: "progress",
     selectedIds: new Set(),
+    chartScrubbing: false,
+    chartStartIndex: 0,
     listeners: [],
   };
 }
@@ -567,6 +567,57 @@ function chartPath(points, close = false) {
     : path;
 }
 
+function timelineIndexFromPointer(event) {
+  const svg = $("journal-pace-chart");
+  const series = state.metadata?.series || [];
+  if (!svg || !series.length) {
+    return 0;
+  }
+  const bounds = svg.getBoundingClientRect();
+  const viewBoxX = ((event.clientX - bounds.left) / Math.max(1, bounds.width)) * 960;
+  const ratio = Math.max(0, Math.min(1, (viewBoxX - 62) / (930 - 62)));
+  return Math.round(ratio * Math.max(0, series.length - 1));
+}
+
+function updateTimelineVisuals(index) {
+  const series = state.metadata?.series || [];
+  const point = series[index];
+  if (!point) {
+    return;
+  }
+  const x = 62 + (index / Math.max(1, series.length - 1)) * (930 - 62);
+  const y = 270 - (Number(point.coverage_percentage || 0) / 100) * (270 - 28);
+  const line = $("journal-chart-cursor-line");
+  const dot = $("journal-chart-cursor-dot");
+  const readout = $("journal-chart-readout");
+  if (line) {
+    line.setAttribute("x1", String(x));
+    line.setAttribute("x2", String(x));
+  }
+  if (dot) {
+    dot.setAttribute("cx", String(x));
+    dot.setAttribute("cy", String(y));
+  }
+  if (readout) {
+    const tooltipX = Math.max(62, Math.min(740, x - 95));
+    readout.setAttribute("transform", `translate(${tooltipX} 38)`);
+  }
+  $("journal-chart-readout-date").textContent = formatDate(point.date, {
+    short: true,
+  });
+  $("journal-chart-readout-value").textContent = `${formatNumber(
+    point.coverage_percentage,
+    1
+  )}% covered · +${formatMiles(point.new_miles, 2)}`;
+  $("journal-cursor-date").textContent = formatDate(point.date);
+  $("journal-cursor-summary").textContent = `${formatNumber(
+    point.coverage_percentage,
+    1
+  )}% covered · ${formatMiles(point.new_miles, 2)} added that day · ${formatNumber(
+    point.new_segments
+  )} new segments.`;
+}
+
 function renderPaceChart() {
   const series = state.metadata?.series || [];
   const svg = $("journal-pace-chart");
@@ -634,6 +685,9 @@ function renderPaceChart() {
     : series.length - 1;
   cursor.value = String(Math.max(0, requestedIndex));
   const cursorX = x(Number(cursor.value));
+  const cursorPoint = series[Number(cursor.value)];
+  const cursorY = y(cursorPoint.coverage_percentage);
+  const readoutX = Math.max(62, Math.min(740, cursorX - 95));
   svg.innerHTML = `<title id="journal-chart-title">Cumulative street coverage over time</title>
     <desc id="journal-chart-desc">${series.length} active coverage days in ${escapeHtml(
       RANGE_LABELS[state.range]
@@ -641,6 +695,20 @@ function renderPaceChart() {
     ${grid}<path d="${chartPath(points, true)}" class="journal-chart-area"/>
     ${bars}<path d="${chartPath(points)}" class="journal-chart-line"/>
     ${milestoneMarks}<line x1="${cursorX}" y1="${top}" x2="${cursorX}" y2="${barBottom}" class="journal-chart-cursor" id="journal-chart-cursor-line"/>
+    <circle cx="${cursorX}" cy="${cursorY}" r="5" class="journal-chart-cursor-dot" id="journal-chart-cursor-dot"/>
+    <g id="journal-chart-readout" class="journal-chart-readout" transform="translate(${readoutX} 38)">
+      <rect width="190" height="54" class="journal-chart-readout-panel"/>
+      <text x="12" y="21" id="journal-chart-readout-date" class="journal-chart-axis">${escapeHtml(
+        formatDate(cursorPoint.date, { short: true })
+      )}</text>
+      <text x="12" y="42" id="journal-chart-readout-value" class="journal-chart-readout-value">${formatNumber(
+        cursorPoint.coverage_percentage,
+        1
+      )}% covered · +${formatMiles(cursorPoint.new_miles, 2)}</text>
+    </g>
+    <rect x="${left}" y="${top}" width="${right - left}" height="${
+      barBottom - top
+    }" class="journal-chart-hit" id="journal-chart-hit"/>
     <text x="${left}" y="350" class="journal-chart-axis">${escapeHtml(
       formatShortDate(series[0].date)
     )}</text><text x="${right}" y="350" text-anchor="end" class="journal-chart-axis">${escapeHtml(
@@ -663,24 +731,14 @@ function renderPaceChart() {
 
 function updateTimelineCursor(index, { updateUrl = true, updateMap = true } = {}) {
   const series = state.metadata?.series || [];
-  const point = series[index];
+  const safeIndex = Math.max(0, Math.min(series.length - 1, Number(index) || 0));
+  const point = series[safeIndex];
   if (!point) {
     return;
   }
   state.asOf = point.date;
-  $("journal-cursor-date").textContent = formatDate(point.date);
-  $("journal-cursor-summary").textContent = `${formatNumber(
-    point.coverage_percentage,
-    1
-  )}% covered · ${formatMiles(point.new_miles, 2)} added that day · ${formatNumber(
-    point.new_segments
-  )} new segments.`;
-  const x = 62 + (index / Math.max(1, series.length - 1)) * (930 - 62);
-  const line = $("journal-chart-cursor-line");
-  if (line) {
-    line.setAttribute("x1", String(x));
-    line.setAttribute("x2", String(x));
-  }
+  $("journal-timeline-cursor").value = String(safeIndex);
+  updateTimelineVisuals(safeIndex);
   if (updateMap) {
     setProgressMap(
       `${point.date}T23:59:59Z`,
@@ -963,6 +1021,47 @@ function setupListeners() {
   });
   listen($("journal-timeline-cursor"), "input", (event) => {
     updateTimelineCursor(Number(event.target.value));
+  });
+  listen($("journal-pace-chart"), "pointerdown", (event) => {
+    if (event.button !== 0) {
+      return;
+    }
+    state.chartScrubbing = true;
+    state.chartStartIndex = Number($("journal-timeline-cursor")?.value || 0);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    const index = timelineIndexFromPointer(event);
+    $("journal-timeline-cursor").value = String(index);
+    updateTimelineCursor(index, { updateUrl: false, updateMap: false });
+  });
+  listen($("journal-pace-chart"), "pointermove", (event) => {
+    const index = timelineIndexFromPointer(event);
+    if (state.chartScrubbing) {
+      event.preventDefault();
+      $("journal-timeline-cursor").value = String(index);
+      updateTimelineCursor(index, { updateUrl: false, updateMap: false });
+    } else if (event.pointerType === "mouse") {
+      updateTimelineVisuals(index);
+    }
+  });
+  listen($("journal-pace-chart"), "pointerup", (event) => {
+    if (!state.chartScrubbing) {
+      return;
+    }
+    state.chartScrubbing = false;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    updateTimelineCursor(timelineIndexFromPointer(event));
+  });
+  listen($("journal-pace-chart"), "pointercancel", () => {
+    state.chartScrubbing = false;
+    updateTimelineCursor(state.chartStartIndex, {
+      updateUrl: false,
+      updateMap: false,
+    });
+  });
+  listen($("journal-pace-chart"), "pointerleave", () => {
+    if (!state.chartScrubbing) {
+      updateTimelineVisuals(Number($("journal-timeline-cursor")?.value || 0));
+    }
   });
   listen($("journal-load-more"), "click", () => loadContributions({ append: true }));
   listen($("journal-map-reset"), "click", fitArea);
