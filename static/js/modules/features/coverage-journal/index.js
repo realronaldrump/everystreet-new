@@ -65,6 +65,17 @@ function formatMiles(value, digits = 1) {
 }
 
 function parseDate(value) {
+  const calendarDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(
+    String(value || "").trim()
+  );
+  if (calendarDate) {
+    return new Date(
+      Number(calendarDate[1]),
+      Number(calendarDate[2]) - 1,
+      Number(calendarDate[3]),
+      12
+    );
+  }
   const timestamp = Date.parse(value || "");
   return Number.isFinite(timestamp) ? new Date(timestamp) : null;
 }
