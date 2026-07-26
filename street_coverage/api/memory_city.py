@@ -20,6 +20,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 
 from db.models import CoverageArea, CoverageState, Street
+from street_coverage.journal import ensure_journal_rollup, mark_journal_pending
 from street_coverage.segment_ids import segment_id_regex_for_area_version
 from street_coverage.stats import update_area_stats
 
@@ -42,6 +43,7 @@ class MemoryCitySegment(BaseModel):
     path: list[list[float]]
     first_driven_at: datetime | None = None
     last_driven_at: datetime | None = None
+    distinct_trip_count: int = 0
 
 
 class MemoryCityArea(BaseModel):
@@ -151,6 +153,7 @@ async def get_memory_city(area_id: PydanticObjectId) -> MemoryCityResponse:
             refreshed_area = await update_area_stats(area_id)
             if refreshed_area is not None:
                 area = refreshed_area
+                await mark_journal_pending(area_id)
         return MemoryCityResponse(
             area=MemoryCityArea(
                 id=str(area.id),
@@ -215,6 +218,14 @@ async def get_memory_city(area_id: PydanticObjectId) -> MemoryCityResponse:
         refreshed_area = await update_area_stats(area_id)
         if refreshed_area is not None:
             area = refreshed_area
+            await mark_journal_pending(area_id)
+
+    journal_rollup = await ensure_journal_rollup(area_id)
+    journal_metrics = (journal_rollup.data or {}).get("segment_metrics") or {}
+    for segment in segments:
+        segment.distinct_trip_count = int(
+            (journal_metrics.get(segment.segment_id) or {}).get("trip_count", 0) or 0,
+        )
 
     return MemoryCityResponse(
         area=MemoryCityArea(

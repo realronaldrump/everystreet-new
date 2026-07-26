@@ -165,12 +165,14 @@ async def delete_trip(trip_id: str):
 
     await trip.delete()
     await bump_trip_map_revision()
+    coverage = await InactiveTripService.queue_coverage_reprocessing_for_trip(trip)
 
     return {
         "status": "success",
         "message": "Trip deleted successfully",
         "deleted_trips": 1,
         "coverage_states_updated": coverage_updated,
+        "coverage_refresh": coverage,
     }
 
 
@@ -180,10 +182,12 @@ async def unmatch_trip(trip_id: str):
     """Clear matched GPS data for a trip."""
     trip = await _get_trip_or_404(trip_id)
     await _match_mutations.clear_match(trip)
+    coverage = await InactiveTripService.queue_coverage_reprocessing_for_trip(trip)
     return {
         "status": "success",
         "message": "Matched data cleared",
         "updated_trips": 1,
+        "coverage_refresh": coverage,
     }
 
 
@@ -217,11 +221,14 @@ async def rematch_trip(trip_id: str):
             detail=detail,
         )
 
+    coverage = await InactiveTripService.queue_coverage_reprocessing_for_trip(trip)
+
     return {
         "status": "success",
         "message": "Trip rematched successfully",
         "trip_id": trip_id,
         "match_status": trip.matchStatus,
+        "coverage_refresh": coverage,
     }
 
 
@@ -257,12 +264,16 @@ async def bulk_delete_trips(request: Request):
     result = await Trip.find(In(Trip.transactionId, trip_ids)).delete()
     if result.deleted_count:
         await bump_trip_map_revision()
+    coverage_refresh = await InactiveTripService.queue_coverage_reprocessing_for_trips(
+        trips,
+    )
 
     return {
         "status": "success",
         "deleted_trips": result.deleted_count,
         "message": f"Deleted {result.deleted_count} trips",
         "coverage_states_updated": coverage_updated,
+        "coverage_refresh": coverage_refresh,
     }
 
 
@@ -289,11 +300,15 @@ async def bulk_unmatch_trips(request: Request):
 
     if trips:
         await bump_trip_map_revision()
+    coverage_refresh = await InactiveTripService.queue_coverage_reprocessing_for_trips(
+        trips,
+    )
 
     return {
         "status": "success",
         "updated_trips": len(trips),
         "message": f"Cleared matched data for {len(trips)} trips",
+        "coverage_refresh": coverage_refresh,
     }
 
 

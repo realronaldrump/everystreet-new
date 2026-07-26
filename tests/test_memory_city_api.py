@@ -1,15 +1,31 @@
 from datetime import UTC, datetime
 
 import pytest
+from beanie import PydanticObjectId
 from db_helpers import init_mock_beanie
 
-from db.models import CoverageArea, CoverageState, Street
+from db.models import (
+    CoverageArea,
+    CoverageDriveEvent,
+    CoverageJournalRollup,
+    CoverageState,
+    CoverageStatusEvent,
+    Street,
+)
 from street_coverage.api.memory_city import get_memory_city
+from street_coverage.journal import upsert_drive_event
 
 
 @pytest.fixture
 async def memory_city_db():
-    return await init_mock_beanie(CoverageArea, CoverageState, Street)
+    return await init_mock_beanie(
+        CoverageArea,
+        CoverageState,
+        CoverageDriveEvent,
+        CoverageStatusEvent,
+        CoverageJournalRollup,
+        Street,
+    )
 
 
 @pytest.mark.asyncio
@@ -105,6 +121,17 @@ async def test_memory_city_refreshes_area_stats_from_current_version_segments(
         first_driven_at=driven_at,
         last_driven_at=driven_at,
     ).insert()
+    await upsert_drive_event(
+        area_id=area.id,
+        area_version=area.area_version,
+        trip_id=PydanticObjectId(),
+        driven_at=driven_at,
+        segment_ids=[segment_id],
+        timezone="America/Chicago",
+        geometry_source="gps",
+        matching_mode="both",
+        invalidate=False,
+    )
 
     payload = await get_memory_city(area.id)
 
@@ -114,6 +141,7 @@ async def test_memory_city_refreshes_area_stats_from_current_version_segments(
     assert len(payload.segments) == 1
     assert payload.segments[0].segment_id == segment_id
     assert payload.segments[0].path == [[-97.7, 30.25], [-97.71, 30.26]]
+    assert payload.segments[0].distinct_trip_count == 1
 
     refreshed = await CoverageArea.get(area.id)
     assert refreshed is not None

@@ -15,7 +15,14 @@ const NOW_MS = BASE_MS + 730 * DAY_MS;
 
 let segmentCounter = 0;
 
-function makeSegment({ dayOffset, name, lastDayOffset, lengthMiles = 0.25, path }) {
+function makeSegment({
+  dayOffset,
+  name,
+  lastDayOffset,
+  lengthMiles = 0.25,
+  path,
+  distinctTripCount,
+}) {
   segmentCounter += 1;
   const firstMs = BASE_MS + dayOffset * DAY_MS;
   const lastMs = BASE_MS + (lastDayOffset ?? dayOffset) * DAY_MS;
@@ -30,6 +37,9 @@ function makeSegment({ dayOffset, name, lastDayOffset, lengthMiles = 0.25, path 
     ],
     first_driven_at: new Date(firstMs).toISOString(),
     last_driven_at: new Date(lastMs).toISOString(),
+    distinct_trip_count:
+      distinctTripCount ??
+      (lastDayOffset !== undefined && lastDayOffset !== dayOffset ? 2 : 1),
   };
 }
 

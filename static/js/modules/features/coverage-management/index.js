@@ -1345,6 +1345,11 @@ function handleAreaCardClick(event) {
   }
 
   switch (action) {
+    case "journal":
+      window.location.assign(
+        `/coverage-management/${encodeURIComponent(areaId)}/journal`
+      );
+      break;
     case "view":
       viewArea(areaId);
       break;
@@ -1624,6 +1629,14 @@ async function viewArea(areaId) {
     const sidebarTypeEl = document.getElementById("sidebar-area-type");
     if (sidebarTypeEl) {
       sidebarTypeEl.textContent = area.area_type || "";
+    }
+    const journalLink = document.getElementById("coverage-journal-link");
+    if (journalLink) {
+      journalLink.href = `/coverage-management/${encodeURIComponent(areaId)}/journal`;
+      journalLink.setAttribute(
+        "aria-label",
+        `Open the complete coverage Field Journal for ${area.display_name}`
+      );
     }
 
     // Update stats UI
@@ -2179,7 +2192,10 @@ async function markSegmentDriven(areaId, segmentId) {
     return;
   }
   try {
-    await apiPost(`/areas/${areaId}/streets/mark-driven`, { segment_ids: [segmentId] });
+    await apiPost(`/areas/${areaId}/streets/mark-driven`, {
+      segment_ids: [segmentId],
+      source: "manual",
+    });
     notificationManager.show("Segment marked as driven", "success");
     updateStreetStatus(segmentId, "driven");
     closeStreetDetailPanel();
@@ -2275,11 +2291,13 @@ async function loadDrivingActivity(areaId) {
   </p>`;
 
   try {
-    const data = await apiGet(`/areas/${areaId}/activity?limit=25`);
+    const data = await apiGet(
+      `/areas/${areaId}/journal/contributions?range=all&source=all&limit=8`
+    );
     if (areaId !== state.currentAreaId) {
       return;
     }
-    renderDrivingActivity(data.activity || []);
+    renderDrivingActivity(data.contributions || []);
   } catch {
     if (areaId !== state.currentAreaId) {
       return;
@@ -2305,28 +2323,40 @@ function renderDrivingActivity(activity) {
 
   const items = activity
     .map((entry) => {
-      const isManual = Boolean(entry.manually_marked);
-      const isFirst = Boolean(entry.newly_driven);
+      const isManual = entry.source === "manual";
       let iconClass = "activity-icon";
-      let icon = "fa-check";
-      let label = "Re-driven";
+      let icon = "fa-route";
+      let label = "Coverage drive";
       if (isManual) {
         iconClass += " activity-icon--manual";
         icon = "fa-hand-pointer";
-        label = "Marked driven";
-      } else if (isFirst) {
-        icon = "fa-star";
-        label = "First drive";
-      } else {
-        iconClass += " activity-icon--reseen";
+        label =
+          entry.action === "mark_undriven"
+            ? "Marked undriven"
+            : entry.action === "mark_undriveable"
+              ? "Marked undriveable"
+              : "Marked driven";
       }
       const length = Number.isFinite(entry.length_miles)
         ? `${entry.length_miles.toFixed(2)} mi`
-        : "";
-      const meta = [label, length].filter(Boolean).join(" • ");
-      const time = entry.last_driven_at ? formatRelativeTime(entry.last_driven_at) : "";
-      const safeName = escapeHtml(entry.street_name || "Unnamed road");
-      const segmentId = escapeHtml(entry.segment_id || "");
+        : Number.isFinite(entry.new_miles)
+          ? `${entry.new_miles.toFixed(2)} mi new`
+          : "";
+      const segmentCount = Number(entry.new_segments || 0);
+      const meta = [
+        label,
+        length,
+        segmentCount ? `${segmentCount} segment${segmentCount === 1 ? "" : "s"}` : "",
+      ]
+        .filter(Boolean)
+        .join(" • ");
+      const time = entry.occurred_at ? formatRelativeTime(entry.occurred_at) : "";
+      const safeName = escapeHtml(
+        entry.street_names?.length ? entry.street_names.join(", ") : "Unnamed roads"
+      );
+      const segmentId = escapeHtml(
+        entry.new_segment_ids?.[0] || entry.segment_ids?.[0] || ""
+      );
       return `<button type="button"
                        class="activity-item"
                        data-segment-id="${segmentId}"

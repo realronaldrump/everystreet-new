@@ -318,6 +318,30 @@
   pointer-events: none;
 }
 
+.memory-city-journal-link {
+  min-height: 44px;
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-3);
+  border: 1px solid rgb(var(--primary-rgb) / 42%);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  background: var(--glass-panel);
+  backdrop-filter: blur(var(--blur-strong));
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.memory-city-journal-link:hover,
+.memory-city-journal-link:focus-visible {
+  border-color: rgb(var(--primary-rgb) / 72%);
+  color: rgb(var(--primary-rgb));
+  background: rgb(var(--primary-rgb) / 12%);
+}
+
 /* ---- Street search --------------------------------------------------------- */
 
 .memory-city-search {

@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
+
+{% block title %}
+Coverage Field Journal
+{% endblock %}
+
+{% block extra_css %}
+  {{ include_mapbox_css() }}
+  {{ static_css("coverage-journal.css") }}
+{% endblock %}
+
+{% block content %}
+  <main id="coverage-journal"
+        class="coverage-journal"
+        data-area-id="{{ area_id }}"
+        aria-busy="true">
+    <div class="journal-shell">
+      <header class="journal-masthead page-masthead" data-stagger>
+        <div class="pm-lead">
+          <p class="pm-eyebrow">Coverage field journal</p>
+          <h1 class="pm-title" id="journal-title">Reconstructing the record…</h1>
+          <p class="pm-sub" id="journal-subtitle">
+            Every known street, placed in the order it entered the map.
+          </p>
+        </div>
+        <div class="pm-aside journal-masthead-actions">
+          <label class="journal-area-picker" for="journal-area-select">
+            <span>Coverage area</span>
+            <select id="journal-area-select" aria-label="Switch coverage area">
+              <option value="">Loading areas…</option>
+            </select>
+          </label>
+          <div class="journal-action-row">
+            <a class="btn btn-outline-secondary" href="/coverage-management">
+              <i class="fas fa-map" aria-hidden="true"></i>
+              Manage map
+            </a>
+            <a class="btn btn-outline-warning" id="journal-sculpture-link" href="/memory-city">
+              <i class="fas fa-city" aria-hidden="true"></i>
+              View as sculpture
+            </a>
+          </div>
+        </div>
+      </header>
+
+      <section class="journal-figure-band" aria-label="Coverage summary" data-stagger>
+        <dl>
+          <div>
+            <dt>Current coverage</dt>
+            <dd id="journal-stat-coverage">—</dd>
+          </div>
+          <div>
+            <dt>Covered miles</dt>
+            <dd id="journal-stat-miles">—</dd>
+          </div>
+          <div>
+            <dt>Historical trips</dt>
+            <dd id="journal-stat-trips">—</dd>
+          </div>
+          <div>
+            <dt>Active days</dt>
+            <dd id="journal-stat-days">—</dd>
+          </div>
+          <div>
+            <dt>First covered</dt>
+            <dd id="journal-stat-first">—</dd>
+          </div>
+          <div>
+            <dt>Newest street</dt>
+            <dd id="journal-stat-latest">—</dd>
+          </div>
+        </dl>
+      </section>
+
+      <div id="journal-state" class="journal-state" role="status" aria-live="polite">
+        <span class="journal-state-mark" aria-hidden="true"></span>
+        <span id="journal-state-text">Building the historical ledger…</span>
+      </div>
+
+      <div id="journal-content" class="journal-content" hidden>
+        <section class="journal-story" aria-labelledby="journal-story-title">
+          <div class="journal-section-heading">
+            <p class="journal-kicker">Folio I</p>
+            <h2 id="journal-story-title">How it was conquered</h2>
+            <p>
+              The stable all-time story, reconstructed against today’s boundary and street inventory.
+            </p>
+          </div>
+
+          <div class="journal-story-grid">
+            <ol id="journal-milestones"
+                class="journal-milestones"
+                aria-label="Coverage milestones">
+            </ol>
+            <aside class="journal-map-folio" id="journal-map-folio" aria-label="Synchronized street map">
+              <div class="journal-map-topline">
+                <div>
+                  <span class="journal-kicker">Map plate</span>
+                  <strong id="journal-map-caption">Current frontier</strong>
+                </div>
+                <button type="button"
+                        class="journal-map-reset"
+                        id="journal-map-reset"
+                        aria-label="Fit map to coverage area">
+                  <i class="fas fa-crosshairs" aria-hidden="true"></i>
+                  Reframe
+                </button>
+              </div>
+              <div id="journal-map" class="journal-map"></div>
+              <div class="journal-map-legend" id="journal-map-legend">
+                <span><i class="journal-swatch journal-swatch--earlier"></i>Earlier</span>
+                <span><i class="journal-swatch journal-swatch--chapter"></i>This chapter</span>
+                <span><i class="journal-swatch journal-swatch--remaining"></i>Remaining</span>
+              </div>
+              <p class="journal-map-equivalent" id="journal-map-equivalent" aria-live="polite">
+                Select a milestone to read its street additions.
+              </p>
+            </aside>
+          </div>
+        </section>
+
+        <section class="journal-folio journal-pace" id="pace" aria-labelledby="journal-pace-title">
+          <div class="journal-section-heading journal-section-heading--split">
+            <div>
+              <p class="journal-kicker">Folio II</p>
+              <h2 id="journal-pace-title">The pace of discovery</h2>
+              <p>Coverage gained over time, with each day’s new mileage below the line.</p>
+            </div>
+            <div class="journal-segmented" role="group" aria-label="Journal date range">
+              <button type="button" data-journal-range="all">All time</button>
+              <button type="button" data-journal-range="365d">12 months</button>
+              <button type="button" data-journal-range="90d">90 days</button>
+            </div>
+          </div>
+          <div class="journal-chart-wrap">
+            <svg id="journal-pace-chart"
+                 class="journal-pace-chart"
+                 role="img"
+                 aria-labelledby="journal-chart-title journal-chart-desc"
+                 viewBox="0 0 960 360"
+                 preserveAspectRatio="none">
+              <title id="journal-chart-title">Cumulative street coverage over time</title>
+              <desc id="journal-chart-desc">Loading chart data.</desc>
+            </svg>
+            <div class="journal-cursor">
+              <label for="journal-timeline-cursor">
+                Coverage as of <strong id="journal-cursor-date">today</strong>
+              </label>
+              <input id="journal-timeline-cursor"
+                     type="range"
+                     min="0"
+                     max="0"
+                     value="0"
+                     step="1"
+                     aria-describedby="journal-cursor-summary" />
+              <p id="journal-cursor-summary" aria-live="polite">—</p>
+            </div>
+          </div>
+          <div class="journal-record-strip" id="journal-records" aria-label="Coverage records"></div>
+          <details class="journal-data-table">
+            <summary>Read the chart as a table</summary>
+            <div class="journal-table-scroll">
+              <table>
+                <thead><tr><th>Date</th><th>Coverage</th><th>New miles</th><th>Sessions</th></tr></thead>
+                <tbody id="journal-series-table"></tbody>
+              </table>
+            </div>
+          </details>
+        </section>
+
+        <section class="journal-folio" id="field-notes" aria-labelledby="journal-notes-title">
+          <div class="journal-section-heading journal-section-heading--split">
+            <div>
+              <p class="journal-kicker">Folio III</p>
+              <h2 id="journal-notes-title">Recent field notes</h2>
+              <p>Coverage-changing trips and deliberate map adjustments, kept as distinct entries.</p>
+            </div>
+            <div class="journal-segmented" role="group" aria-label="Field note source">
+              <button type="button" data-journal-source="all">All activity</button>
+              <button type="button" data-journal-source="trip">Drives</button>
+              <button type="button" data-journal-source="manual">Manual</button>
+            </div>
+          </div>
+          <ol id="journal-contributions" class="journal-contributions"></ol>
+          <button type="button" id="journal-load-more" class="journal-load-more" hidden>
+            Load older notes
+          </button>
+        </section>
+
+        <section class="journal-folio" id="known-by-heart" aria-labelledby="journal-known-title">
+          <div class="journal-section-heading journal-section-heading--split">
+            <div>
+              <p class="journal-kicker">Folio IV</p>
+              <h2 id="journal-known-title">Roads known by heart</h2>
+              <p>Ranked by distinct completed historical trips—not GPS points or repeated segment hits.</p>
+            </div>
+            <div class="journal-segmented" role="group" aria-label="Ranking level">
+              <button type="button" data-journal-level="street">Named streets</button>
+              <button type="button" data-journal-level="segment">Segments</button>
+            </div>
+          </div>
+          <div class="journal-ranking-head" aria-hidden="true">
+            <span>Rank / road</span><span>Distinct trips</span><span>Known since</span><span>Last driven</span>
+          </div>
+          <ol id="journal-rankings" class="journal-rankings"></ol>
+          <p class="journal-list-note">Selecting a row switches the map plate to its exact current segments.</p>
+        </section>
+
+        <section class="journal-folio journal-frontier" id="frontier" aria-labelledby="journal-frontier-title">
+          <div class="journal-section-heading journal-section-heading--split">
+            <div>
+              <p class="journal-kicker">Folio V</p>
+              <h2 id="journal-frontier-title">Current frontier</h2>
+              <p>The roads still waiting, organized by class and longest named opportunity.</p>
+            </div>
+            <a class="journal-route-link" id="journal-route-link" href="/coverage-route-planner">
+              <i class="fas fa-route" aria-hidden="true"></i>
+              Plan this frontier
+            </a>
+          </div>
+          <div class="journal-frontier-grid">
+            <div>
+              <h3>Completion by road class</h3>
+              <div id="journal-road-classes" class="journal-road-classes"></div>
+            </div>
+            <div>
+              <h3>Longest roads remaining</h3>
+              <ol id="journal-frontier-list" class="journal-frontier-list"></ol>
+            </div>
+          </div>
+        </section>
+
+        <footer class="journal-methodology">
+          <p class="journal-kicker">Method note</p>
+          <p id="journal-methodology"></p>
+          <p id="journal-as-of"></p>
+        </footer>
+      </div>
+    </div>
+  </main>
+{% endblock %}

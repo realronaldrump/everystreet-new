@@ -416,6 +416,15 @@ function renderAreaCard(area, coverageJob, routeJob) {
       ${routeStatus}
 
       <div class="area-card-footer">
+        <button class="btn btn-outline-primary btn-sm flex-grow-1"
+                data-area-action="journal"
+                data-area-id="${area.id}"
+                data-area-name="${areaName}"
+                ${!isReady ? "disabled" : ""}
+                aria-label="Open the coverage Field Journal for ${areaName}"
+                title="Open Field Journal">
+          <i class="fas fa-book-open me-1" aria-hidden="true"></i>Open Journal
+        </button>
         <button class="btn ${isError ? "btn-outline-danger" : "btn-outline"} btn-sm flex-grow-1"
                 data-area-action="${primaryAction}"
                 data-area-id="${area.id}"

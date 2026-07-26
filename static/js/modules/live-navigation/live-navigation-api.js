@@ -144,6 +144,7 @@ const LiveNavigationAPI = {
   async persistDrivenSegments(segmentIds, locationId) {
     await apiClient.post(`/api/coverage/areas/${locationId}/streets/mark-driven`, {
       segment_ids: segmentIds,
+      source: "live_navigation",
     });
   },
 

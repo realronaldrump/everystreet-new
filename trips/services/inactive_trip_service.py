@@ -137,7 +137,19 @@ class InactiveTripService:
         backfill so street coverage reflects the current inactive/active
         state of historical trips.
         """
-        areas = await cls._find_affected_coverage_areas(trip)
+        return await cls.queue_coverage_reprocessing_for_trips([trip])
+
+    @classmethod
+    async def queue_coverage_reprocessing_for_trips(
+        cls,
+        trips: list[Trip],
+    ) -> dict[str, Any]:
+        """Queue one full coverage refresh per area touched by any trip."""
+        area_by_id: dict[str, CoverageArea] = {}
+        for trip in trips:
+            for area in await cls._find_affected_coverage_areas(trip):
+                area_by_id[str(area.id)] = area
+        areas = list(area_by_id.values())
         if not areas:
             return {
                 "queued": 0,

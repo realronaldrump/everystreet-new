@@ -641,6 +641,9 @@ class CoverageArea(Document):
     optimal_route: dict[str, Any] | None = None
     optimal_route_generated_at: datetime | None = None
     last_backfill_trip_endtime: datetime | None = None
+    journal_revision: int = 0
+    journal_status: str = "pending"
+    journal_built_at: datetime | None = None
 
     class Settings:
         name = "coverage_areas"
@@ -760,6 +763,110 @@ class CoverageState(Document):
             IndexModel(
                 [("area_id", 1), ("status", 1), ("segment_id", 1)],
                 name="coverage_state_area_status_segment_idx",
+            ),
+        ]
+
+    model_config = ConfigDict(extra="allow")
+
+
+class CoverageDriveEvent(Document):
+    """One historical trip's exact matches against a coverage-area version."""
+
+    area_id: Indexed(PydanticObjectId)
+    area_version: int
+    trip_id: Indexed(PydanticObjectId)
+    driven_at: datetime
+    timezone: str | None = None
+    geometry_source: str = "unknown"
+    matching_mode: str = "both"
+    matching_version: str = "coverage-v1"
+    segment_ids: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("driven_at", "created_at", "updated_at", mode="before")
+    @classmethod
+    def parse_datetime_fields(cls, v: Any) -> datetime | None:
+        if v is None:
+            return None
+        return parse_timestamp(v)
+
+    class Settings:
+        name = "coverage_drive_events"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [("area_id", 1), ("area_version", 1), ("trip_id", 1)],
+                name="coverage_drive_event_unique_idx",
+                unique=True,
+            ),
+            IndexModel(
+                [("area_id", 1), ("area_version", 1), ("driven_at", 1)],
+                name="coverage_drive_event_chronology_idx",
+            ),
+        ]
+
+    model_config = ConfigDict(extra="allow")
+
+
+class CoverageStatusEvent(Document):
+    """An explicit owner-authored coverage-state adjustment."""
+
+    area_id: Indexed(PydanticObjectId)
+    area_version: int
+    action: str
+    source: str = "manual"
+    occurred_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    segment_ids: list[str] = Field(default_factory=list)
+    coverage_before: float | None = None
+    coverage_after: float | None = None
+    driven_miles_before: float | None = None
+    driven_miles_after: float | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("occurred_at", "created_at", mode="before")
+    @classmethod
+    def parse_datetime_fields(cls, v: Any) -> datetime | None:
+        if v is None:
+            return None
+        return parse_timestamp(v)
+
+    class Settings:
+        name = "coverage_status_events"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [("area_id", 1), ("area_version", 1), ("occurred_at", -1)],
+                name="coverage_status_event_chronology_idx",
+            ),
+        ]
+
+    model_config = ConfigDict(extra="allow")
+
+
+class CoverageJournalRollup(Document):
+    """Materialized, current-network read model for the Coverage Journal."""
+
+    area_id: Indexed(PydanticObjectId)
+    area_version: int
+    revision: int = 0
+    status: str = "ready"
+    built_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    through_trip_endtime: datetime | None = None
+    data: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("built_at", "through_trip_endtime", mode="before")
+    @classmethod
+    def parse_datetime_fields(cls, v: Any) -> datetime | None:
+        if v is None:
+            return None
+        return parse_timestamp(v)
+
+    class Settings:
+        name = "coverage_journal_rollups"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [("area_id", 1), ("area_version", 1)],
+                name="coverage_journal_rollup_unique_idx",
+                unique=True,
             ),
         ]
 
@@ -1237,6 +1344,9 @@ ALL_DOCUMENT_MODELS = [
     # Coverage system models
     CoverageArea,
     CoverageState,
+    CoverageDriveEvent,
+    CoverageStatusEvent,
+    CoverageJournalRollup,
     Job,
     Street,
     # Map data management models

@@ -15,13 +15,31 @@ from core.coverage import (
     update_coverage_for_segments,
     update_coverage_for_trip,
 )
-from db.models import CoverageArea, CoverageState, Job, Street, Trip
+from db.models import (
+    CoverageArea,
+    CoverageDriveEvent,
+    CoverageJournalRollup,
+    CoverageState,
+    CoverageStatusEvent,
+    Job,
+    Street,
+    Trip,
+)
 from street_coverage import ingestion as coverage_ingestion
 
 
 @pytest.fixture
 async def coverage_db():
-    return await init_mock_beanie(CoverageArea, CoverageState, Job, Street, Trip)
+    return await init_mock_beanie(
+        CoverageArea,
+        CoverageState,
+        CoverageDriveEvent,
+        CoverageStatusEvent,
+        CoverageJournalRollup,
+        Job,
+        Street,
+        Trip,
+    )
 
 
 @pytest.mark.asyncio

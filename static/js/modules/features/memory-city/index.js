@@ -69,7 +69,7 @@ const LENSES = {
   },
   loyalty: {
     label: "Revisits",
-    caption: "Color — whether you ever came back",
+    caption: "Color — exact distinct historical trip count",
   },
 };
 
@@ -131,6 +131,7 @@ export default async function initMemoryCityPage(ctx = {}) {
     title: $("memory-city-title"),
     subtitle: $("memory-city-subtitle"),
     areaSelect: $("memory-city-area-select"),
+    journalLink: $("memory-city-journal-link"),
     statSegments: $("mc-stat-segments"),
     statMiles: $("mc-stat-miles"),
     statPercent: $("mc-stat-percent"),
@@ -371,11 +372,15 @@ export default async function initMemoryCityPage(ctx = {}) {
     }
 
     const preferred =
+      buildable.find(
+        (area) => area.id === new URLSearchParams(window.location.search).get("area")
+      ) ||
       buildable
         .slice()
         .sort(
           (a, b) => (b.driven_length_miles || 0) - (a.driven_length_miles || 0)
-        )[0] || buildable[0];
+        )[0] ||
+      buildable[0];
     state.selectedAreaId = preferred.id;
     elements.areaSelect.value = preferred.id;
   }
@@ -435,6 +440,9 @@ export default async function initMemoryCityPage(ctx = {}) {
       return;
     }
     state.selectedAreaId = nextId;
+    const url = new URL(window.location.href);
+    url.searchParams.set("area", nextId);
+    window.history.replaceState({}, "", url);
     await loadArea(nextId);
   }
 
@@ -468,6 +476,11 @@ export default async function initMemoryCityPage(ctx = {}) {
       state.legendSelected = null;
       state.searchResults = [];
       syncSelectedAreaOption(state.area);
+      if (elements.journalLink) {
+        elements.journalLink.href = `/coverage-management/${encodeURIComponent(
+          areaId
+        )}/journal`;
+      }
       if (elements.searchInput) {
         elements.searchInput.value = "";
       }
@@ -899,20 +912,12 @@ export default async function initMemoryCityPage(ctx = {}) {
       }));
     }
     if (state.lens === "loyalty") {
-      return [
-        {
-          bucket: 0,
-          color: palette.cat[0],
-          label: "Returned to",
-          title: "Streets you have driven again since first meeting them",
-        },
-        {
-          bucket: 1,
-          color: palette.cat[3],
-          label: "Met once",
-          title: "Streets you have only ever driven once",
-        },
-      ];
+      return ["0–1 trip", "2–4", "5–9", "10–19", "20+"].map((label, bucket) => ({
+        bucket,
+        color: palette.cat[bucket % palette.cat.length],
+        label,
+        title: `${label} distinct completed historical trips`,
+      }));
     }
     return RECENCY_LABELS.map((label, index) => ({
       bucket: index,
@@ -998,7 +1003,19 @@ export default async function initMemoryCityPage(ctx = {}) {
       return seg.chapterIndex;
     }
     if (state.lens === "loyalty") {
-      return seg.revisited ? 0 : 1;
+      if (seg.distinctTripCount >= 20) {
+        return 4;
+      }
+      if (seg.distinctTripCount >= 10) {
+        return 3;
+      }
+      if (seg.distinctTripCount >= 5) {
+        return 2;
+      }
+      if (seg.distinctTripCount >= 2) {
+        return 1;
+      }
+      return 0;
     }
     return recencyBucketIndex(seg.daysSinceDriven);
   }
@@ -1009,7 +1026,7 @@ export default async function initMemoryCityPage(ctx = {}) {
       return palette.cat[seg.chapterIndex % palette.cat.length];
     }
     if (state.lens === "loyalty") {
-      return seg.revisited ? palette.cat[0] : palette.cat[3];
+      return palette.cat[bucketOf(seg) % palette.cat.length];
     }
     return palette.ramp[recencyBucketIndex(seg.daysSinceDriven)];
   }
@@ -1754,8 +1771,8 @@ export default async function initMemoryCityPage(ctx = {}) {
           <dd>${escapeHtml(formatRelativeDays(seg.daysSinceDriven))}</dd>
         </div>
         <div class="memory-city-detail-row">
-          <dt>Standing</dt>
-          <dd>${seg.revisited ? "Returned to" : "Met once"}</dd>
+          <dt>Historical trips</dt>
+          <dd>${formatInt(seg.distinctTripCount)}</dd>
         </div>
         <div class="memory-city-detail-row">
           <dt>Length</dt>

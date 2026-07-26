@@ -149,6 +149,19 @@ async def coverage_management_page(request: Request):
 
 
 @router.get(
+    "/coverage-management/{area_id}/journal",
+    response_class=HTMLResponse,
+)
+async def coverage_journal_page(request: Request, area_id: str):
+    """Render one coverage area's historical Field Journal."""
+    return await render_template(
+        request,
+        "coverage_journal.html",
+        area_id=area_id,
+    )
+
+
+@router.get(
     "/coverage-route-planner",
     response_class=HTMLResponse,
 )

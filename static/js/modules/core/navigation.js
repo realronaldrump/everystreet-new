@@ -129,6 +129,9 @@ function normalizeForNav(pathname) {
   if (pathname === "/routes" || pathname.startsWith("/routes/")) {
     return "/routes";
   }
+  if (pathname.startsWith("/coverage-management/")) {
+    return "/coverage-management";
+  }
   return pathname;
 }
 
@@ -155,6 +158,11 @@ const BREADCRUMB_ROUTE_LABELS = new Map([
 ]);
 
 const BREADCRUMB_DETAIL_ROUTES = [
+  {
+    pattern: /^\/coverage-management\/[^/]+\/journal$/,
+    parent: "/coverage-management",
+    label: "Field Journal",
+  },
   {
     pattern: /^\/trips\/[^/]+$/,
     parent: "/trips",

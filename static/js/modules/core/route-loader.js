@@ -39,6 +39,7 @@ const routes = [
   ["/gas-tracking", "../../pages/gas-tracking.js", ["map"]],
   ["/map-matching", "../../pages/map-matching.js", ["map"]],
   ["/coverage-management", "../../pages/coverage-management.js", ["map"]],
+  ["/coverage-management/*", "../../pages/coverage-journal.js", ["map"]],
   ["/coverage-route-planner", "../../pages/coverage-route-planner.js", ["map"]],
   ["/live-navigation", "../../pages/live-navigation.js", ["map"]],
   [

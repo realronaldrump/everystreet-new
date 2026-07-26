@@ -29,7 +29,7 @@ from core.spatial import (
 )
 from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
-from db.models import CoverageArea, CoverageState, Street, Trip
+from db.models import CoverageArea, CoverageDriveEvent, CoverageState, Street, Trip
 from street_coverage.constants import (
     BACKFILL_BULK_WRITE_SIZE,
     COVERAGE_OVERLAP_RATIO,
@@ -47,6 +47,11 @@ from street_coverage.constants import (
     RAW_GPS_OVERLAP_RATIO,
     SHORT_SEGMENT_OVERLAP_RATIO,
     SHORT_SEGMENT_THRESHOLD_METERS,
+)
+from street_coverage.journal import (
+    mark_journal_pending,
+    rebuild_journal_rollup,
+    upsert_drive_event,
 )
 from street_coverage.stats import apply_area_stats_delta
 
@@ -677,7 +682,8 @@ async def update_coverage_for_trip(
     if not trip_data:
         return 0
 
-    matches = await match_trip_to_streets(trip_data, trip_mode=trip_mode)
+    selected_mode = await get_effective_coverage_trip_mode(trip_mode)
+    matches = await match_trip_to_streets(trip_data, trip_mode=selected_mode)
 
     if not matches:
         logger.debug("Trip did not match any coverage areas")
@@ -695,6 +701,30 @@ async def update_coverage_for_trip(
             driven_at=trip_driven_at,
         )
         total_updated += result.updated
+        if (
+            trip_oid is not None
+            and str(trip_data.get("source") or "").lower() == "bouncie"
+        ):
+            area = await CoverageArea.get(area_id)
+            if area is not None and trip_driven_at is not None:
+                geometry_source = (
+                    "matchedGps"
+                    if selected_mode != "regular" and trip_data.get("matchedGps")
+                    else "gps"
+                )
+                await upsert_drive_event(
+                    area_id=area_id,
+                    area_version=area.area_version,
+                    trip_id=trip_oid,
+                    driven_at=trip_driven_at,
+                    segment_ids=segment_ids,
+                    timezone=(
+                        trip_data.get("endTimeZone") or trip_data.get("startTimeZone")
+                    ),
+                    geometry_source=geometry_source,
+                    matching_mode=selected_mode,
+                    newly_driven_segment_ids=result.newly_driven_segment_ids,
+                )
 
     logger.info(
         "Trip coverage updated %s segments across %s areas",
@@ -1019,8 +1049,20 @@ async def backfill_coverage_for_area(
     if not area:
         return 0
 
-    # Use the stored cursor when no explicit window is given.
-    if since is None and not full and area.last_backfill_trip_endtime is not None:
+    existing_event_count = await CoverageDriveEvent.find(
+        {"area_id": area_id, "area_version": area.area_version},
+    ).count()
+    is_full_scan = bool(
+        full
+        or (since is None and area.last_backfill_trip_endtime is None)
+        or existing_event_count == 0
+    )
+    if is_full_scan:
+        since = None
+        await CoverageDriveEvent.find(
+            {"area_id": area_id, "area_version": area.area_version},
+        ).delete()
+    elif since is None and area.last_backfill_trip_endtime is not None:
         since = area.last_backfill_trip_endtime
 
     # Ingestion calls backfill before marking an area "ready", so allow it for
@@ -1047,6 +1089,7 @@ async def backfill_coverage_for_area(
     segment_first: dict[str, datetime] = {}
     segment_last: dict[str, datetime] = {}
     segment_last_trip: dict[str, PydanticObjectId] = {}
+    pending_drive_events: list[dict[str, Any]] = []
 
     undriveable_states = await CoverageState.find(
         {"area_id": area_id, "status": "undriveable"},
@@ -1121,6 +1164,7 @@ async def backfill_coverage_for_area(
                 continue
 
             matched_segment_ids: set[str] = set()
+            geometry_sources: set[str] = set()
             for trip_line, is_map_matched in trip_candidates:
                 buffer, overlap_ratio = _matching_params(is_map_matched)
                 matched = segment_index.find_matching_segments(
@@ -1131,10 +1175,23 @@ async def backfill_coverage_for_area(
                 )
                 if matched:
                     matched_segment_ids.update(matched)
+                    geometry_sources.add("matchedGps" if is_map_matched else "gps")
             if not matched_segment_ids:
                 continue
 
             matched_trips += 1
+
+            if trip.id is not None:
+                pending_drive_events.append(
+                    {
+                        "trip_id": trip.id,
+                        "driven_at": trip_time,
+                        "timezone": trip.endTimeZone or trip.startTimeZone,
+                        "geometry_source": "+".join(sorted(geometry_sources))
+                        or "unknown",
+                        "segment_ids": sorted(matched_segment_ids),
+                    },
+                )
 
             for segment_id in matched_segment_ids:
                 if segment_id in undriveable_ids:
@@ -1150,17 +1207,58 @@ async def backfill_coverage_for_area(
                     if trip.id is not None:
                         segment_last_trip[segment_id] = trip.id
 
+    async def flush_drive_events() -> None:
+        if not pending_drive_events:
+            return
+        now = datetime.now(UTC)
+        operations = [
+            (
+                {
+                    "area_id": area_id,
+                    "area_version": area.area_version,
+                    "trip_id": payload["trip_id"],
+                },
+                {
+                    "$set": {
+                        "driven_at": payload["driven_at"],
+                        "timezone": payload["timezone"],
+                        "geometry_source": payload["geometry_source"],
+                        "matching_mode": selected_mode,
+                        "matching_version": "coverage-v1",
+                        "segment_ids": payload["segment_ids"],
+                        "updated_at": now,
+                    },
+                    "$setOnInsert": {
+                        "area_id": area_id,
+                        "area_version": area.area_version,
+                        "trip_id": payload["trip_id"],
+                        "created_at": now,
+                    },
+                },
+                True,
+            )
+            for payload in pending_drive_events
+        ]
+        await _bulk_write_updates(
+            CoverageDriveEvent.get_pymongo_collection(),
+            operations,
+            ordered=False,
+        )
+        pending_drive_events.clear()
+
     cursor = Trip.find(query).sort([("endTime", 1), ("_id", 1)])
     batch: list[Trip] = []
     async for trip in cursor:
         batch.append(trip)
         if len(batch) >= _BACKFILL_BATCH_SIZE:
             _process_trip_batch(batch)
+            await flush_drive_events()
             await report_progress(total_trips=total_trip_count)
             batch = []
             gc.collect()
     if batch:
         _process_trip_batch(batch)
+        await flush_drive_events()
         await report_progress(total_trips=total_trip_count)
 
     if not segment_first:
@@ -1171,6 +1269,8 @@ async def backfill_coverage_for_area(
         # Still persist the high-water mark so we don't re-scan the same trips.
         if latest_trip_endtime is not None:
             await area.set({"last_backfill_trip_endtime": latest_trip_endtime})
+        await mark_journal_pending(area_id)
+        await rebuild_journal_rollup(area_id)
         await report_progress(total_trips=total_trip_count, force=True)
         return 0
 
@@ -1267,6 +1367,9 @@ async def backfill_coverage_for_area(
     # Persist the high-water mark so subsequent runs are incremental.
     if latest_trip_endtime is not None:
         await area.set({"last_backfill_trip_endtime": latest_trip_endtime})
+
+    await mark_journal_pending(area_id)
+    await rebuild_journal_rollup(area_id)
 
     logger.info(
         "Backfill complete for area %s: %d segments updated (%d newly driven), %.2f mi",

@@ -317,12 +317,24 @@ class TripPipeline:
             if final_trip.id is None:
                 final_trip.id = PydanticObjectId()
 
+        self._prepare_trip_display_geometry(final_trip)
+        self.sanitize_trip_document_geospatial_fields(final_trip)
+        self._prepare_trip_map_paths(final_trip)
+
+        if existing_trip:
+            await final_trip.save()
+        else:
+            await final_trip.insert()
+
+        # Coverage history may reference this trip, so write derived coverage only
+        # after the authoritative historical Trip document exists in Mongo.
         coverage_emitted_at = None
         if do_coverage and getattr(final_trip, "coverage_emitted_at", None) is None:
             try:
                 if processed_data.get("gps"):
+                    coverage_payload = final_trip.model_dump()
                     await self.coverage_service(
-                        processed_data,
+                        coverage_payload,
                         getattr(final_trip, "id", None),
                     )
                     coverage_emitted_at = get_current_utc_time()
@@ -335,15 +347,7 @@ class TripPipeline:
 
         if coverage_emitted_at:
             final_trip.coverage_emitted_at = coverage_emitted_at
-
-        self._prepare_trip_display_geometry(final_trip)
-        self.sanitize_trip_document_geospatial_fields(final_trip)
-        self._prepare_trip_map_paths(final_trip)
-
-        if existing_trip:
             await final_trip.save()
-        else:
-            await final_trip.insert()
 
         if bump_revision:
             await bump_trip_map_revision()

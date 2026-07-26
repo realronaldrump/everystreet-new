@@ -182,6 +182,10 @@ async def delete_area(area_id: PydanticObjectId) -> bool:
     if not area:
         return False
 
+    from street_coverage.journal import clear_journal_data
+
+    await clear_journal_data(area_id)
+
     # Delete all streets for this area
     await Street.find({"area_id": area_id}).delete()
 
@@ -214,6 +218,11 @@ async def reset_area_for_rebuild(area_id: PydanticObjectId) -> CoverageArea:
         msg = f"Area {area_id} not found"
         raise ValueError(msg)
 
+    from street_coverage.journal import clear_journal_data
+
+    await clear_journal_data(area_id)
+    area.journal_revision = int(area.journal_revision or 0) + 1
+
     area.status = "rebuilding"
     area.area_version += 1
     area.optimal_route = None
@@ -239,6 +248,8 @@ async def reset_area_for_rebuild(area_id: PydanticObjectId) -> CoverageArea:
     # Rebuilds are full rematches; clear incremental cursor so historical
     # trips are reprocessed against the new segment set.
     area.last_backfill_trip_endtime = None
+    area.journal_status = "pending"
+    area.journal_built_at = None
     await area.save()
 
     # Rebuilds are a clean slate: remove all prior derived data and cached graphs

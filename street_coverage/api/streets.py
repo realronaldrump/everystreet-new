@@ -8,8 +8,8 @@ No more loading entire GeoJSON files - streams segments as needed.
 import hashlib
 import json
 import logging
-from datetime import datetime
-from typing import Annotated, Any
+from datetime import UTC, datetime
+from typing import Annotated, Any, Literal
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, Request, status
@@ -55,12 +55,14 @@ class MarkSegmentRequest(BaseModel):
     """Request to mark a segment's status."""
 
     status: str  # "undriveable" or "undriven"
+    source: Literal["manual"] = "manual"
 
 
 class MarkDrivenSegmentsRequest(BaseModel):
     """Request to mark multiple segments as driven."""
 
     segment_ids: list[str]
+    source: Literal["manual", "live_navigation"]
 
 
 class SimulateDriveRequest(BaseModel):
@@ -439,6 +441,15 @@ async def update_segment_status(
     - Mark a segment as 'undriveable' (private road, highway, etc.)
     - Reset a segment to 'undriven' (undo driving detection)
     """
+    area_before = await CoverageArea.get(area_id)
+    if area_before is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Coverage area not found",
+        )
+    coverage_before = float(area_before.coverage_percentage or 0.0)
+    miles_before = float(area_before.driven_length_miles or 0.0)
+
     # Verify segment exists
     street = await Street.find_one({"area_id": area_id, "segment_id": segment_id})
     if not street:
@@ -461,6 +472,25 @@ async def update_segment_status(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update segment status",
         )
+
+    from street_coverage.journal import append_status_event
+
+    area_after = await CoverageArea.get(area_id)
+    await append_status_event(
+        area_id=area_id,
+        area_version=street.area_version,
+        action=f"mark_{request.status}",
+        segment_ids=[segment_id],
+        source=request.source,
+        coverage_before=coverage_before,
+        coverage_after=(
+            float(area_after.coverage_percentage or 0.0) if area_after else None
+        ),
+        driven_miles_before=miles_before,
+        driven_miles_after=(
+            float(area_after.driven_length_miles or 0.0) if area_after else None
+        ),
+    )
 
     return {
         "success": True,
@@ -485,6 +515,37 @@ async def mark_segments_driven(
         area_id=area_id,
         segment_ids=request.segment_ids,
     )
+
+    if request.source == "manual":
+        coverage_before = float(area.coverage_percentage or 0.0)
+        miles_before = float(area.driven_length_miles or 0.0)
+        now = datetime.now(UTC)
+        await CoverageState.get_pymongo_collection().update_many(
+            {
+                "area_id": area_id,
+                "segment_id": {"$in": result.newly_driven_segment_ids},
+            },
+            {"$set": {"manually_marked": True, "marked_at": now}},
+        )
+        from street_coverage.journal import append_status_event
+
+        area_after = await CoverageArea.get(area_id)
+        await append_status_event(
+            area_id=area_id,
+            area_version=area.area_version,
+            action="mark_driven",
+            segment_ids=result.newly_driven_segment_ids,
+            source=request.source,
+            occurred_at=now,
+            coverage_before=coverage_before,
+            coverage_after=(
+                float(area_after.coverage_percentage or 0.0) if area_after else None
+            ),
+            driven_miles_before=miles_before,
+            driven_miles_after=(
+                float(area_after.driven_length_miles or 0.0) if area_after else None
+            ),
+        )
 
     return {
         "success": True,
@@ -628,87 +689,4 @@ async def simulate_drive(
             "driven_length_miles": round(projected_driven_length, 3),
             "coverage_percentage": projected_pct,
         },
-    }
-
-
-@router.get("/areas/{area_id}/activity")
-async def get_area_activity(
-    area_id: PydanticObjectId,
-    limit: Annotated[int, Query(ge=1, le=100)] = 25,
-):
-    """
-    Recent driving activity for an area.
-
-    Returns the most recently driven street segments for an area, with
-    street name and length. Used by the History tab in the coverage UI.
-    """
-    area = await CoverageArea.get(area_id)
-    if not area:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Coverage area not found",
-        )
-
-    states = (
-        await CoverageState.find(
-            {
-                "area_id": area_id,
-                "status": "driven",
-                "last_driven_at": {"$ne": None},
-            },
-        )
-        .sort([("last_driven_at", -1), ("_id", -1)])
-        .limit(int(limit))
-        .to_list()
-    )
-
-    if not states:
-        return {
-            "success": True,
-            "area_id": str(area_id),
-            "activity": [],
-        }
-
-    segment_ids = [s.segment_id for s in states]
-    streets = await Street.find(
-        {
-            "area_id": area_id,
-            "area_version": area.area_version,
-            "segment_id": {"$in": segment_ids},
-        },
-    ).to_list()
-    street_by_id = {s.segment_id: s for s in streets}
-
-    activity = []
-    for state in states:
-        street = street_by_id.get(state.segment_id)
-        first_at = state.first_driven_at
-        last_at = state.last_driven_at
-        activity.append(
-            {
-                "segment_id": state.segment_id,
-                "street_name": (
-                    street.street_name if street and street.street_name else "Unnamed road"
-                ),
-                "highway_type": street.highway_type if street else "unclassified",
-                "length_miles": float(street.length_miles or 0.0) if street else 0.0,
-                "first_driven_at": (
-                    first_at.isoformat() if isinstance(first_at, datetime) else None
-                ),
-                "last_driven_at": (
-                    last_at.isoformat() if isinstance(last_at, datetime) else None
-                ),
-                "manually_marked": bool(state.manually_marked),
-                "newly_driven": bool(
-                    isinstance(first_at, datetime)
-                    and isinstance(last_at, datetime)
-                    and first_at == last_at,
-                ),
-            },
-        )
-
-    return {
-        "success": True,
-        "area_id": str(area_id),
-        "activity": activity,
     }

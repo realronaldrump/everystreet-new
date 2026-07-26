@@ -54,10 +54,6 @@ const HEIGHT_DIAGONAL_RATIO = 0.16;
 const MIN_HEIGHT_M = 400;
 const MAX_HEIGHT_M = 5200;
 
-// A street counts as "revisited" when it was driven again at least this
-// long after it was founded.
-const REVISIT_MIN_GAP_MS = 3_600_000;
-
 // Chapter detection: a pause in building longer than this starts a new era.
 const CHAPTER_GAP_MS = 45 * DAY_MS;
 const MAX_CHAPTERS = 6;
@@ -308,6 +304,7 @@ export function prepareModel(payload, now = Date.now()) {
       continue;
     }
     const lastMs = parseIso(seg.last_driven_at) ?? firstMs;
+    const distinctTripCount = Math.max(0, Number(seg.distinct_trip_count) || 0);
     parsed.push({
       segmentId: seg.segment_id,
       streetName: seg.street_name || null,
@@ -318,7 +315,8 @@ export function prepareModel(payload, now = Date.now()) {
       firstMs,
       lastMs,
       daysSinceDriven: Math.max(0, (now - lastMs) / DAY_MS),
-      revisited: lastMs - firstMs > REVISIT_MIN_GAP_MS,
+      distinctTripCount,
+      revisited: distinctTripCount > 1,
       baseWidth: baseWidthForHighwayType(seg.highway_type),
     });
   }

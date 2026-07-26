@@ -28,6 +28,7 @@ export class OptimalRoutesManager {
     this.lastSelectedAreaId = "";
     this.abortController = new AbortController();
     this.pendingDioramaDraft = this.readPendingDioramaDraft();
+    this.initialAreaId = new URLSearchParams(window.location.search).get("area") || "";
 
     // Initialize modules
     this.ui = new OptimalRouteUI(this.config);
@@ -276,6 +277,18 @@ export class OptimalRoutesManager {
       this.ui.populateAreaSelect(areas);
       this.ui.updateSavedRoutes(areas, (areaId) => this.onAreaSelect(areaId));
       await this.openPendingDioramaDraft();
+      if (
+        !this.selectedAreaId &&
+        this.initialAreaId &&
+        areas.some((area) => String(area.id) === this.initialAreaId)
+      ) {
+        if (this.ui.areaSelect) {
+          this.ui.areaSelect.value = this.initialAreaId;
+        }
+        const { initialAreaId } = this;
+        this.initialAreaId = "";
+        await this.onAreaSelect(initialAreaId);
+      }
     } catch (error) {
       console.error("Error loading coverage areas:", error);
       this.ui.showNotification("Failed to load coverage areas", "danger");
@@ -307,6 +320,13 @@ export class OptimalRoutesManager {
 
     this.selectedAreaId = nextAreaId || null;
     this.lastSelectedAreaId = nextAreaId;
+    const url = new URL(window.location.href);
+    if (nextAreaId) {
+      url.searchParams.set("area", nextAreaId);
+    } else {
+      url.searchParams.delete("area");
+    }
+    window.history.replaceState({}, "", url);
     this.ui.setLiveNavigationEnabled(false);
     this.simulation.deactivate();
 
