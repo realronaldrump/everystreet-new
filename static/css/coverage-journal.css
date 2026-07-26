@@ -315,6 +315,11 @@
   min-height: 400px;
 }
 
+.journal-map .mapboxgl-ctrl-group button {
+  width: 44px;
+  height: 44px;
+}
+
 .journal-map-legend {
   display: flex;
   flex-wrap: wrap;
@@ -568,6 +573,10 @@
 }
 
 .journal-contribution-link {
+  min-height: 44px;
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
   color: var(--journal-cobalt);
   font-size: var(--font-size-sm);
 }
