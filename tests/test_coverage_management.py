@@ -374,6 +374,66 @@ async def test_backfill_sets_first_last_and_driven_by_trip_id(coverage_db) -> No
 
 
 @pytest.mark.asyncio
+async def test_interrupted_full_backfill_restarts_chronological_event_scan(
+    coverage_db,
+) -> None:
+    area = CoverageArea(
+        display_name="Interrupted Journal Backfill Area",
+        status="ready",
+        health="healthy",
+        journal_status="building",
+        last_backfill_trip_endtime=datetime(2025, 1, 2, tzinfo=UTC),
+        total_length_miles=1.0,
+        driveable_length_miles=1.0,
+        total_segments=1,
+    )
+    await area.insert()
+    assert area.id is not None
+
+    segment_id = f"{area.id}-{area.area_version}-0"
+    await Street(
+        segment_id=segment_id,
+        area_id=area.id,
+        area_version=area.area_version,
+        geometry={
+            "type": "LineString",
+            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
+        },
+        length_miles=1.0,
+    ).insert()
+
+    trips = []
+    for day in (1, 2):
+        trip = Trip(
+            transactionId=f"interrupted-trip-{day}",
+            endTime=datetime(2025, 1, day, tzinfo=UTC),
+            gps={
+                "type": "LineString",
+                "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
+            },
+        )
+        await trip.insert()
+        trips.append(trip)
+
+    assert trips[1].id is not None
+    await CoverageDriveEvent(
+        area_id=area.id,
+        area_version=area.area_version,
+        trip_id=trips[1].id,
+        driven_at=trips[1].endTime,
+        segment_ids=[segment_id],
+    ).insert()
+
+    await backfill_coverage_for_area(area.id)
+
+    events = await CoverageDriveEvent.find(
+        {"area_id": area.id, "area_version": area.area_version},
+    ).to_list()
+    assert len(events) == 2
+    assert {event.trip_id for event in events} == {trip.id for trip in trips}
+
+
+@pytest.mark.asyncio
 async def test_backfill_uses_raw_gps_not_matched_gps(coverage_db) -> None:
     area = CoverageArea(
         display_name="Coverage Raw GPS Only Area",

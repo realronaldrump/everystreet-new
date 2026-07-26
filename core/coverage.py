@@ -1056,9 +1056,11 @@ async def backfill_coverage_for_area(
         full
         or (since is None and area.last_backfill_trip_endtime is None)
         or existing_event_count == 0
+        or area.journal_status == "building"
     )
     if is_full_scan:
         since = None
+        await area.set({"journal_status": "building", "journal_built_at": None})
         await CoverageDriveEvent.find(
             {"area_id": area_id, "area_version": area.area_version},
         ).delete()
