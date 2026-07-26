@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from beanie import PydanticObjectId
@@ -221,12 +222,17 @@ async def test_segment_geojson_supports_etag_revalidation(journal_db) -> None:
 
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         first = await client.get(path)
-        second = await client.get(
-            path,
-            headers={"If-None-Match": first.headers["etag"]},
-        )
+        with patch(
+            "street_coverage.api.journal.get_journal_segments",
+            new_callable=AsyncMock,
+        ) as segment_builder:
+            second = await client.get(
+                path,
+                headers={"If-None-Match": first.headers["etag"]},
+            )
 
     assert first.status_code == 200
     assert first.headers["content-type"].startswith("application/geo+json")
     assert first.json()["type"] == "FeatureCollection"
     assert second.status_code == 304
+    segment_builder.assert_not_awaited()

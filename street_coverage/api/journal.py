@@ -93,14 +93,11 @@ async def get_area_journal_segments(
     area_id: PydanticObjectId,
     range_key: Annotated[str, Query(alias="range")] = "all",
 ):
-    await _ready_area(area_id)
-    payload, revision, area_version = await get_journal_segments(
-        area_id,
-        range_key=range_key,
-    )
+    area = await _ready_area(area_id)
+    calendar_date = datetime.now(UTC).date().isoformat()
     etag_seed = (
-        f"{area_id}:{area_version}:{revision}:{range_key}:"
-        f"{datetime.now(UTC).date().isoformat()}"
+        f"{area_id}:{area.area_version}:{int(area.journal_revision or 0)}:"
+        f"{range_key}:{calendar_date}"
     )
     etag = f'"{hashlib.sha256(etag_seed.encode()).hexdigest()[:24]}"'
     if request.headers.get("if-none-match") == etag:
@@ -108,6 +105,17 @@ async def get_area_journal_segments(
             status_code=status.HTTP_304_NOT_MODIFIED,
             headers={"ETag": etag, "Cache-Control": "private, max-age=60"},
         )
+
+    payload, revision, area_version = await get_journal_segments(
+        area_id,
+        range_key=range_key,
+    )
+    if (
+        revision != int(area.journal_revision or 0)
+        or area_version != area.area_version
+    ):
+        etag_seed = f"{area_id}:{area_version}:{revision}:{range_key}:{calendar_date}"
+        etag = f'"{hashlib.sha256(etag_seed.encode()).hexdigest()[:24]}"'
     body = json.dumps(payload, separators=(",", ":"), default=str)
     return Response(
         content=body,
