@@ -636,9 +636,14 @@ class MapMatchingJobRunner:
                 await bump_trip_map_revision()
                 from trips.services.inactive_trip_service import InactiveTripService
 
-                await InactiveTripService.queue_coverage_reprocessing_for_trips(
-                    trips,
-                )
+                try:
+                    await InactiveTripService.queue_coverage_reprocessing_for_trips(
+                        trips,
+                    )
+                except Exception:
+                    logger.exception(
+                        "Unable to queue coverage reconciliation after map matching",
+                    )
 
             if results.get("cancelled"):
                 progress_pct = (

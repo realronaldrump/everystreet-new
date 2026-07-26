@@ -402,7 +402,7 @@
 .journal-chart-axis {
   fill: var(--text-tertiary);
   font-family: var(--font-family-mono);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
 }
 
 .journal-chart-area {
