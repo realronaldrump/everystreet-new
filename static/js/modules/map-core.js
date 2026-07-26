@@ -17,6 +17,7 @@
 import CONFIG from "./core/config.js";
 import { getCurrentTheme, resolveMapStyle } from "./core/map-style-resolver.js";
 import state from "./core/store.js";
+import { getExplicitMapViewFromUrl } from "./core/url-state.js";
 import { isMapboxStyleUrl, waitForMapboxToken } from "./mapbox-token.js";
 import { createGoogleMap, ensureMapboxCompatibility } from "./maps/google_map.js";
 import { waitForGoogleMaps } from "./maps/google_maps_loader.js";
@@ -387,26 +388,11 @@ const mapCore = {
    * @private
    */
   _getInitialView(options) {
-    // Check URL parameters first
-    const urlParams = new URLSearchParams(window.location.search);
-    const latParam = parseFloat(urlParams.get("lat"));
-    const lngParam = parseFloat(urlParams.get("lng"));
-    const zoomParam = parseFloat(urlParams.get("zoom"));
-
-    if (!Number.isNaN(latParam) && !Number.isNaN(lngParam)) {
-      return {
-        center: [lngParam, latParam],
-        zoom: !Number.isNaN(zoomParam) ? zoomParam : CONFIG.MAP.defaultZoom,
-      };
+    const explicitView = getExplicitMapViewFromUrl();
+    if (explicitView) {
+      return explicitView;
     }
 
-    // Check saved view state
-    const savedView = utils.getStorage(CONFIG.STORAGE_KEYS.mapView);
-    if (savedView?.center && savedView?.zoom) {
-      return savedView;
-    }
-
-    // Use options or defaults
     return {
       center: options.center || CONFIG.MAP.defaultCenter,
       zoom: options.zoom || CONFIG.MAP.defaultZoom,

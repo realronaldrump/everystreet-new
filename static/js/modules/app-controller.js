@@ -19,7 +19,10 @@
 import { CONFIG } from "./core/config.js";
 import { coverageBoundaryToFeatureCollection } from "./core/coverage-bounds.js";
 import state from "./core/store.js";
-import { getPreloadTripIdFromUrl } from "./core/url-state.js";
+import {
+  getPreloadTripIdFromUrl,
+  hasExplicitMapViewFromUrl,
+} from "./core/url-state.js";
 import dataManager from "./data-manager.js";
 import {
   getTripLayerHeatmapPreference,
@@ -535,7 +538,7 @@ const AppController = {
     const preloadTripId = getPreloadTripIdFromUrl();
     if (preloadTripId) {
       requestAnimationFrame(() => mapManager.zoomToTrip(preloadTripId));
-    } else {
+    } else if (!hasExplicitMapViewFromUrl()) {
       requestAnimationFrame(() => mapManager.fitBounds(false));
     }
   },

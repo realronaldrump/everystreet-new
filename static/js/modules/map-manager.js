@@ -220,29 +220,6 @@ const mapManager = {
   },
 
   /**
-   * Update URL with current map state
-   */
-  updateUrlState() {
-    if (!store.map || !window.history?.replaceState) {
-      return;
-    }
-
-    try {
-      const center = store.map.getCenter();
-      const zoom = store.map.getZoom();
-      const url = new URL(window.location.href);
-
-      url.searchParams.set("zoom", zoom.toFixed(2));
-      url.searchParams.set("lat", center.lat.toFixed(5));
-      url.searchParams.set("lng", center.lng.toFixed(5));
-
-      window.history.replaceState(window.history.state, document.title, url.toString());
-    } catch (error) {
-      console.warn("Failed to update URL:", error);
-    }
-  },
-
-  /**
    * Refresh trip styling based on selection state
    * Throttled to prevent excessive updates
    */
@@ -439,12 +416,13 @@ const mapManager = {
   },
 
   /**
-   * Fit map bounds to show all visible features
+   * Fit the map to visible trip data only, or restore the configured empty view.
    * @param {boolean} animate - Whether to animate the transition
+   * @returns {Promise<boolean>} Whether trip bounds were available
    */
   async fitBounds(animate = true) {
     if (!store.map || !store.mapInitialized) {
-      return;
+      return false;
     }
 
     const bounds = createBounds();
@@ -464,26 +442,20 @@ const mapManager = {
       hasFeatures = true;
     });
 
-    Object.values(store.mapLayers).forEach(({ visible, layer }) => {
-      if (visible && layer?.features) {
-        layer.features.forEach((feature) => {
-          if (feature.geometry) {
-            forEachGeometryCoordinate(feature.geometry, (coord) => {
-              bounds.extend(coord);
-              hasFeatures = true;
-            });
-          }
-        });
-      }
-    });
-
     if (hasFeatures && !bounds.isEmpty()) {
       await store.map.fitBounds(bounds.toValue(), {
         padding: 50,
         maxZoom: 15,
         duration: animate ? 1000 : 0,
       });
+      return true;
     }
+
+    store.map.jumpTo({
+      center: CONFIG.MAP.defaultCenter,
+      zoom: CONFIG.MAP.defaultZoom,
+    });
+    return false;
   },
 
   /**

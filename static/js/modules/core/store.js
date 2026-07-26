@@ -1,4 +1,5 @@
 import { CONFIG } from "./config.js";
+import { getExplicitMapViewFromUrl } from "./url-state.js";
 
 const STORAGE_KEY = "es:state";
 const VERSION = 1;
@@ -424,9 +425,6 @@ class ESStore {
     if (options.persist !== false) {
       this._persist();
     }
-    if (options.syncUrl !== false) {
-      this.syncUrl({ replace: true });
-    }
     if (options.emit !== false) {
       this._emit("es:map-view-change", { view, source: options.source });
     }
@@ -473,13 +471,10 @@ class ESStore {
       }
     });
 
-    const lat = parseFloat(params.get("lat"));
-    const lng = parseFloat(params.get("lng"));
-    const zoom = parseFloat(params.get("zoom"));
-    const hasMapParams =
-      !Number.isNaN(lat) && !Number.isNaN(lng) && !Number.isNaN(zoom);
-    if (hasMapParams) {
-      this.state.map.view = { center: [lng, lat], zoom };
+    const explicitMapView = getExplicitMapViewFromUrl(parsedUrl.toString());
+    const hasMapParams = explicitMapView !== null;
+    if (explicitMapView) {
+      this.state.map.view = explicitMapView;
     }
 
     if (params.has("layers")) {
@@ -545,13 +540,11 @@ class ESStore {
       url.searchParams.delete("vehicle");
     }
 
-    const { view } = this.state.map;
-    if (view && Array.isArray(view.center)) {
-      url.searchParams.set("lat", Number(view.center[1]).toFixed(5));
-      url.searchParams.set("lng", Number(view.center[0]).toFixed(5));
-      if (Number.isFinite(view.zoom)) {
-        url.searchParams.set("zoom", Number(view.zoom).toFixed(2));
-      }
+    if (!getExplicitMapViewFromUrl(url.toString())) {
+      url.searchParams.delete("map_view");
+      url.searchParams.delete("lat");
+      url.searchParams.delete("lng");
+      url.searchParams.delete("zoom");
     }
 
     const visibility = this.state.layers.visibility || {};

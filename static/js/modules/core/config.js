@@ -65,7 +65,6 @@ export const CONFIG = {
     layerSettings: "layerSettings",
     streetViewMode: "streetViewMode",
     theme: "theme",
-    mapView: "mapView",
     mapType: "mapType",
     atlasLens: "mapAtlasLens",
     atlasRailCollapsed: "mapAtlasRailCollapsed",

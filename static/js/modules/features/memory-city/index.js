@@ -1766,7 +1766,7 @@ export default async function initMemoryCityPage(ctx = {}) {
           <dd>${escapeHtml(String(seg.highwayType).replace(/_/g, " "))}</dd>
         </div>
       </dl>
-      <a href="/map?lat=${seg.midpoint[1]}&lng=${seg.midpoint[0]}&zoom=16" class="memory-city-detail-map-link" target="_blank">
+      <a href="/map?map_view=1&lat=${seg.midpoint[1]}&lng=${seg.midpoint[0]}&zoom=16" class="memory-city-detail-map-link" target="_blank">
         <i class="fas fa-external-link-alt" aria-hidden="true"></i> View on Main Map
       </a>
     `;
