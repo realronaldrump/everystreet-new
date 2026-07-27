@@ -1020,6 +1020,10 @@ function renderPaceChart() {
       const nearest = nearestSeriesIndex(milestone.reached_at, series);
       const pointY = y(milestone.coverage);
       const labelY = Math.max(top + 12, pointY - 10 - (milestoneIndex % 2) * 16);
+      const markerLabel =
+        milestone.key === "first"
+          ? "START"
+          : `${Math.round(milestone.threshold || milestone.coverage)}%`;
       return `<g class="journal-chart-milestone-mark">
         <line x1="${x(nearest)}" y1="${top}" x2="${x(
           nearest
@@ -1028,7 +1032,7 @@ function renderPaceChart() {
           milestone.label
         )} · ${escapeHtml(formatDate(milestone.reached_at))}</title></circle>
         <text x="${x(nearest)}" y="${labelY}" text-anchor="middle" class="journal-chart-milestone-label">${escapeHtml(
-          milestone.label
+          markerLabel
         )}</text>
       </g>`;
     })
