@@ -30,6 +30,7 @@ function initialState() {
     mapReady: false,
     mapMode: "progress",
     selectedIds: new Set(),
+    mapSelectionPinned: false,
     chartScrubbing: false,
     chartStartIndex: 0,
     listeners: [],
@@ -380,6 +381,7 @@ function renderMilestones() {
 
 function selectMilestone(chapter, { updateUrl = true } = {}) {
   state.activeMilestone = chapter.key;
+  state.mapSelectionPinned = false;
   document.querySelectorAll(".journal-milestone").forEach((item) => {
     item.classList.toggle("is-active", item.dataset.milestoneKey === chapter.key);
   });
@@ -520,6 +522,7 @@ function setFrequencyMap() {
     return;
   }
   state.mapMode = "frequency";
+  state.mapSelectionPinned = false;
   state.selectedIds.clear();
   const colors = palette();
   for (const feature of state.geojson.features || []) {
@@ -558,6 +561,7 @@ function setFrontierMap(selectedIds = []) {
     return;
   }
   state.mapMode = "frontier";
+  state.mapSelectionPinned = selectedIds.length > 0;
   state.selectedIds = new Set(selectedIds);
   const colors = palette();
   for (const feature of state.geojson.features || []) {
@@ -634,6 +638,7 @@ function highlightSegments(segmentIds, label, { reveal = false } = {}) {
   const ids = new Set(segmentIds || []);
   state.selectedIds = ids;
   state.mapMode = "selection";
+  state.mapSelectionPinned = true;
   const colors = palette();
   for (const feature of state.geojson.features || []) {
     const selected = ids.has(feature.properties?.segment_id);
@@ -1108,6 +1113,7 @@ function updateTimelineCursor(index, { updateUrl = true, updateMap = true } = {}
   $("journal-timeline-cursor").value = String(safeIndex);
   updateTimelineVisuals(safeIndex);
   if (updateMap) {
+    state.mapSelectionPinned = false;
     setProgressMap(
       `${point.date}T23:59:59Z`,
       null,
@@ -1452,8 +1458,26 @@ function setupListeners() {
   });
   listen($("journal-load-more"), "click", () => loadContributions({ append: true }));
   listen($("journal-map-reset"), "click", fitArea);
-  listen($("known-by-heart"), "mouseenter", setFrequencyMap, { once: true });
-  listen($("frontier"), "mouseenter", () => setFrontierMap(), { once: true });
+  listen(
+    $("known-by-heart"),
+    "mouseenter",
+    () => {
+      if (!state.mapSelectionPinned) {
+        setFrequencyMap();
+      }
+    },
+    { once: true }
+  );
+  listen(
+    $("frontier"),
+    "mouseenter",
+    () => {
+      if (!state.mapSelectionPinned) {
+        setFrontierMap();
+      }
+    },
+    { once: true }
+  );
   listen(window, "popstate", () => window.location.reload());
   if ("IntersectionObserver" in window) {
     const observer = new IntersectionObserver(
@@ -1462,6 +1486,9 @@ function setupListeners() {
           .filter((entry) => entry.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
         if (!visible) {
+          return;
+        }
+        if (state.mapSelectionPinned) {
           return;
         }
         if (visible.target.id === "known-by-heart") {
