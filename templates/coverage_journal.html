@@ -94,7 +94,10 @@ Coverage Field Journal
                 class="journal-milestones"
                 aria-label="Coverage milestones">
             </ol>
-            <aside class="journal-map-folio" id="journal-map-folio" aria-label="Synchronized street map">
+            <aside class="journal-map-folio"
+                   id="journal-map-folio"
+                   aria-label="Synchronized street map"
+                   tabindex="-1">
               <div class="journal-map-topline">
                 <div>
                   <span class="journal-kicker">Map plate</span>
@@ -109,11 +112,16 @@ Coverage Field Journal
                 </button>
               </div>
               <div id="journal-map" class="journal-map"></div>
-              <div class="journal-map-legend" id="journal-map-legend">
-                <span><i class="journal-swatch journal-swatch--earlier"></i>Earlier</span>
-                <span><i class="journal-swatch journal-swatch--chapter"></i>This chapter</span>
-                <span><i class="journal-swatch journal-swatch--remaining"></i>Remaining</span>
+              <div class="journal-map-legend"
+                   id="journal-map-legend"
+                   aria-label="Map key: road segment counts">
+                <span class="journal-map-legend-item"><i class="journal-swatch journal-swatch--earlier"></i>Previously covered</span>
+                <span class="journal-map-legend-item"><i class="journal-swatch journal-swatch--chapter"></i>Added in the selected period</span>
+                <span class="journal-map-legend-item"><i class="journal-swatch journal-swatch--remaining"></i>Not covered yet</span>
               </div>
+              <p class="journal-map-legend-note" id="journal-map-legend-note">
+                Counts individual road segments at the selected milestone.
+              </p>
               <p class="journal-map-equivalent" id="journal-map-equivalent" aria-live="polite">
                 Select a milestone to read its street additions.
               </p>
@@ -135,7 +143,25 @@ Coverage Field Journal
             </div>
           </div>
           <div class="journal-chart-wrap">
-            <div class="journal-chart-scroll" id="journal-chart-scroll">
+            <div class="journal-chart-toolbar">
+              <p>
+                Hover or drag to inspect a day. Swipe the chart, or use these controls, to move through the record.
+              </p>
+              <div class="journal-chart-pan-controls" aria-label="Move through chart">
+                <button type="button" id="journal-chart-earlier">
+                  <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                  Earlier
+                </button>
+                <button type="button" id="journal-chart-later">
+                  Later
+                  <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+            <div class="journal-chart-scroll"
+                 id="journal-chart-scroll"
+                 tabindex="0"
+                 aria-label="Scrollable coverage timeline">
               <svg id="journal-pace-chart"
                    class="journal-pace-chart"
                    role="img"
@@ -146,9 +172,12 @@ Coverage Field Journal
                 <desc id="journal-chart-desc">Loading chart data.</desc>
               </svg>
             </div>
+            <div class="journal-chart-events"
+                 id="journal-chart-events"
+                 aria-label="Momentous coverage dates"></div>
             <div class="journal-cursor">
               <p class="journal-chart-help">
-                Drag across the chart to scrub the record. Scroll sideways on smaller screens.
+                Use the slider’s arrow keys for precise dates. Selecting a momentous date also moves the map.
               </p>
               <label for="journal-timeline-cursor">
                 Coverage as of <strong id="journal-cursor-date">today</strong>
