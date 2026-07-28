@@ -1115,7 +1115,7 @@ class AppSettings(Document):
     google_maps_api_key: str | None = None
 
     # Nominatim (Geocoding) Configuration
-    nominatim_user_agent: str = "EveryStreet/1.0"
+    nominatim_user_agent: str = "Every Street/1.0"
 
     # OSM Data Configuration
     geofabrik_mirror: str = "https://download.geofabrik.de"

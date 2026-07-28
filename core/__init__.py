@@ -1,1 +1,1 @@
-"""Core utilities and shared functionality for the EveryStreet application."""
+"""Core utilities and shared functionality for the Every Street application."""

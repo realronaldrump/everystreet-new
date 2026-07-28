@@ -106,15 +106,15 @@ class NominatimConfigTests(unittest.TestCase):
 
     def test_get_nominatim_user_agent_defaults(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            assert config.get_nominatim_user_agent() == "EveryStreet/1.0"
+            assert config.get_nominatim_user_agent() == "Every Street/1.0"
 
     def test_get_nominatim_user_agent_present(self) -> None:
         with patch.dict(
             os.environ,
-            {"NOMINATIM_USER_AGENT": "EveryStreet/1.0"},
+            {"NOMINATIM_USER_AGENT": "Every Street/1.0"},
             clear=True,
         ):
-            assert config.get_nominatim_user_agent() == "EveryStreet/1.0"
+            assert config.get_nominatim_user_agent() == "Every Street/1.0"
 
 
 class MapboxConfigTests(unittest.TestCase):

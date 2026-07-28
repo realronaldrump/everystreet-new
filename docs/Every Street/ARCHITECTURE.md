@@ -1,4 +1,4 @@
-# EveryStreet Architecture
+# Every Street Architecture
 
 ## Runtime entrypoints
 

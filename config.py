@@ -61,7 +61,7 @@ DEFAULT_VALHALLA_URL: Final[str] = "http://valhalla:8002"
 DEFAULT_VALHALLA_MAX_SHAPE_POINTS: Final[int] = 2000
 DEFAULT_VALHALLA_TRACE_SEARCH_RADIUS_METERS: Final[float] = 100.0
 DEFAULT_VALHALLA_TRACE_ROUTE_TIMEOUT_SECONDS: Final[float] = 60.0
-DEFAULT_NOMINATIM_USER_AGENT: Final[str] = "EveryStreet/1.0"
+DEFAULT_NOMINATIM_USER_AGENT: Final[str] = "Every Street/1.0"
 DEFAULT_GEOFABRIK_MIRROR: Final[str] = "https://download.geofabrik.de"
 DEFAULT_OSM_EXTRACTS_PATH: Final[str] = "/osm"
 

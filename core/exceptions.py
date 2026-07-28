@@ -7,7 +7,7 @@ client-side error recovery.
 """
 
 
-class EveryStreetException(Exception):  # noqa: N818
+class ApplicationException(Exception):
     """Base exception for all application-specific errors."""
 
     def __init__(self, message: str, details: dict | None = None) -> None:
@@ -16,11 +16,11 @@ class EveryStreetException(Exception):  # noqa: N818
         super().__init__(self.message)
 
 
-class ValidationException(EveryStreetException):
+class ValidationException(ApplicationException):
     """Exception raised when data validation fails."""
 
 
-class ExternalServiceException(EveryStreetException):
+class ExternalServiceException(ApplicationException):
     """Exception raised when service calls fail."""
 
 
@@ -28,17 +28,17 @@ class RateLimitException(ExternalServiceException):
     """Exception raised when rate limits are exceeded."""
 
 
-class AuthenticationException(EveryStreetException):
+class AuthenticationException(ApplicationException):
     """Exception raised when authentication fails."""
 
 
-class AuthorizationException(EveryStreetException):
+class AuthorizationException(ApplicationException):
     """Exception raised when authorization fails."""
 
 
-class ResourceNotFoundException(EveryStreetException):
+class ResourceNotFoundException(ApplicationException):
     """Exception raised when a requested resource is not found."""
 
 
-class DuplicateResourceException(EveryStreetException):
+class DuplicateResourceException(ApplicationException):
     """Exception raised when attempting to create a duplicate resource."""

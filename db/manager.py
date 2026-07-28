@@ -112,7 +112,7 @@ class DatabaseManager:
                 "retryWrites": True,
                 "retryReads": True,
                 "waitQueueTimeoutMS": 30000,
-                "appname": "EveryStreet",
+                "appname": "Every Street",
             }
 
             # Configure TLS for MongoDB Atlas connections
@@ -285,7 +285,7 @@ class DatabaseManager:
             "retryWrites": True,
             "retryReads": True,
             "waitQueueTimeoutMS": init_timeout_ms,
-            "appname": "EveryStreet",
+            "appname": "Every Street",
         }
 
         if mongo_uri.startswith("mongodb+srv://"):

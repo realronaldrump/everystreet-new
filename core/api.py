@@ -7,10 +7,10 @@ from collections.abc import Callable
 from fastapi import HTTPException, status
 
 from core.exceptions import (
+    ApplicationException,
     AuthenticationException,
     AuthorizationException,
     DuplicateResourceException,
-    EveryStreetException,
     ExternalServiceException,
     RateLimitException,
     ResourceNotFoundException,
@@ -101,7 +101,7 @@ def api_route(logger: logging.Logger):
                     status_code=status.HTTP_502_BAD_GATEWAY,
                     detail=f"External service error: {e.message}",
                 ) from e
-            except EveryStreetException as e:  # pragma: no cover
+            except ApplicationException as e:  # pragma: no cover
                 # Catch-all for other custom exceptions
                 logger.exception(
                     "Application error in %s: %s",

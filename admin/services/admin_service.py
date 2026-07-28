@@ -98,7 +98,7 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     # Geo Service Configuration (defaults for Docker Compose)
     "mapbox_token": get_mapbox_token(),
     "google_maps_api_key": None,
-    "nominatim_user_agent": "EveryStreet/1.0",
+    "nominatim_user_agent": "Every Street/1.0",
     "geofabrik_mirror": "https://download.geofabrik.de",
     "osm_extracts_path": "/osm",
     "mapCoverageMode": "trips",

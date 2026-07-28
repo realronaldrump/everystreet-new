@@ -110,7 +110,7 @@ async def write_gpx_tracks(
 ) -> int:
     track_count = 0
     gpx = gpxpy.gpx.GPX()
-    gpx.creator = "EveryStreet"
+    gpx.creator = "Every Street"
 
     async for item in cursor:
         track_data = serializer(item)

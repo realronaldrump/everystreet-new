@@ -1,6 +1,6 @@
 name: ${COMPOSE_PROJECT_NAME:-everystreet}
 
-# EveryStreet - Self-hosted street coverage tracking application
+# Every Street - Self-hosted street coverage tracking application
 #
 # Features:
 # - Automatic updates via Watchtower (triggered on GitHub push or 5-minute polling)

@@ -1,4 +1,4 @@
-# EveryStreet Context
+# Every Street Context
 
 ## Domain Terms
 
