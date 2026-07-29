@@ -687,7 +687,7 @@ class DashboardService:
                 "total_distance": "0.00",
                 "avg_distance": "0.00",
                 "avg_start_time": "00:00 AM",
-                "avg_driving_time": "00:00",
+                "total_driving_time": "0:00",
                 "avg_speed": "0.00",
                 "max_speed": "0.00",
             }
@@ -723,21 +723,18 @@ class DashboardService:
 
             avg_start_time_str = f"{display_hour:02d}:{local_minute:02d} {am_pm}"
 
-        # Calculate average driving time
-        avg_driving_time_str = "00:00"
-        if total_trips > 0:
-            total_duration_seconds = metrics.get("total_duration_seconds", 0.0)
-            avg_duration_seconds = total_duration_seconds / total_trips
-            avg_driving_h = int(avg_duration_seconds // 3600)
-            avg_driving_m = int((avg_duration_seconds % 3600) // 60)
-            avg_driving_time_str = f"{avg_driving_h:02d}:{avg_driving_m:02d}"
+        # Total drive time across every trip in the filtered range.
+        total_duration_seconds = metrics.get("total_duration_seconds", 0.0)
+        total_driving_h = int(total_duration_seconds // 3600)
+        total_driving_m = int((total_duration_seconds % 3600) // 60)
+        total_driving_time_str = f"{total_driving_h}:{total_driving_m:02d}"
 
         return {
             "total_trips": total_trips,
             "total_distance": f"{round(metrics.get('total_distance', 0.0), 2)}",
             "avg_distance": f"{round(metrics.get('avg_distance', 0.0), 2)}",
             "avg_start_time": avg_start_time_str,
-            "avg_driving_time": avg_driving_time_str,
+            "total_driving_time": total_driving_time_str,
             "avg_speed": f"{round(metrics.get('avg_speed', 0.0), 2)}",
             "max_speed": f"{round(metrics.get('max_speed', 0.0), 2)}",
             "total_duration_seconds": round(

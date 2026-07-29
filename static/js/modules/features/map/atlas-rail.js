@@ -337,7 +337,7 @@ export default function initAtlasRail({ registerCleanup }) {
       figures.avgSpeed.textContent = String(Math.round(Number(metrics.avgSpeed || 0)));
     }
     if (figures.driveTime) {
-      figures.driveTime.textContent = String(metrics.avgDrivingTime || "--:--");
+      figures.driveTime.textContent = String(metrics.totalDrivingTime || "--:--");
     }
   };
 

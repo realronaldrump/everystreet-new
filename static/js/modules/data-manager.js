@@ -209,7 +209,7 @@ const dataManager = {
       totalDistanceMiles: Number(summary.total_distance_miles || 0),
       avgDistanceMiles: Number(summary.avg_distance_miles || 0),
       avgStartTime: summary.avg_start_time || "--:--",
-      avgDrivingTime: summary.avg_driving_time || "--:--",
+      totalDrivingTime: summary.total_driving_time || "--:--",
       avgSpeed: Number(summary.avg_speed || 0),
       maxSpeed: Number(summary.max_speed || 0),
     };
@@ -349,14 +349,14 @@ const dataManager = {
         const maxSpeed = Number.parseFloat(data.max_speed ?? 0) || 0;
         const avgDistanceMiles = Number.parseFloat(data.avg_distance ?? 0) || 0;
         const avgStartTime = data.avg_start_time ?? "--:--";
-        const avgDrivingTime = data.avg_driving_time ?? "--:--";
+        const totalDrivingTime = data.total_driving_time ?? "--:--";
 
         const metrics = {
           totalTrips,
           totalDistanceMiles,
           avgDistanceMiles,
           avgStartTime,
-          avgDrivingTime,
+          totalDrivingTime,
           avgSpeed,
           maxSpeed,
         };

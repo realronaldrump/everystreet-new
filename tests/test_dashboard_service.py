@@ -162,6 +162,6 @@ async def test_get_metrics_returns_aggregated_trip_totals(
     assert result["total_distance"] == "30.0"
     assert result["avg_distance"] == "15.0"
     assert result["avg_start_time"] == "11:00 AM"
-    assert result["avg_driving_time"] == "00:30"
+    assert result["total_driving_time"] == "1:00"
     assert result["avg_speed"] == "30.0"
     assert result["max_speed"] == "70.0"

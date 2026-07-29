@@ -11,7 +11,7 @@ const metricsManager = {
       totalDistance: utils.getElement("total-distance"),
       avgDistance: utils.getElement("avg-distance"),
       avgStartTime: utils.getElement("avg-start-time"),
-      avgDrivingTime: utils.getElement("avg-driving-time"),
+      totalDrivingTime: utils.getElement("total-driving-time"),
       avgSpeed: utils.getElement("avg-speed"),
       maxSpeed: utils.getElement("max-speed"),
     };
@@ -53,8 +53,8 @@ const metricsManager = {
         if (elements.avgStartTime) {
           elements.avgStartTime.textContent = metrics.avgStartTime ?? "--:--";
         }
-        if (elements.avgDrivingTime) {
-          elements.avgDrivingTime.textContent = metrics.avgDrivingTime ?? "--:--";
+        if (elements.totalDrivingTime) {
+          elements.totalDrivingTime.textContent = metrics.totalDrivingTime ?? "--:--";
         }
         if (elements.avgSpeed) {
           elements.avgSpeed.textContent = toFixedNumber(metrics.avgSpeed ?? 0, 1);

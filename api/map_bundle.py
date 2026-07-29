@@ -73,7 +73,7 @@ class TripMapSummary(BaseModel):
     avg_speed: float
     max_speed: float
     avg_start_time: str
-    avg_driving_time: str
+    total_driving_time: str
 
 
 class TripMapBundleResponse(BaseModel):
@@ -252,16 +252,11 @@ def _duration_seconds(trip_doc: dict[str, Any]) -> float | None:
         return None
 
 
-def _format_duration_hms(seconds: float | None) -> str:
-    if seconds is None or seconds <= 0:
-        return "--:--"
-    total = int(seconds)
+def _format_duration_hm(seconds: float | None) -> str:
+    total = max(0, int(seconds or 0))
     hours = total // 3600
     minutes = (total % 3600) // 60
-    secs = total % 60
-    if hours > 0:
-        return f"{hours}:{minutes:02d}:{secs:02d}"
-    return f"{minutes}:{secs:02d}"
+    return f"{hours}:{minutes:02d}"
 
 
 def _format_avg_hour(hour_value: float | None) -> str:
@@ -312,7 +307,6 @@ def _build_trip_map_summary(features: list[dict[str, Any]]) -> dict[str, Any]:
     total_full_distance = 0.0
     valid_full_distance_count = 0
     total_duration = 0.0
-    valid_duration_count = 0
     total_start_hours = 0.0
     valid_start_count = 0
     max_speed = 0.0
@@ -332,7 +326,6 @@ def _build_trip_map_summary(features: list[dict[str, Any]]) -> dict[str, Any]:
         duration = feature.get("duration_seconds")
         if duration is not None and float(duration) > 0:
             total_duration += float(duration)
-            valid_duration_count += 1
 
         start_raw = feature.get("start_time")
         start_dt = ensure_utc(start_raw)
@@ -353,17 +346,13 @@ def _build_trip_map_summary(features: list[dict[str, Any]]) -> dict[str, Any]:
     avg_start_hour = (
         total_start_hours / valid_start_count if valid_start_count else None
     )
-    avg_duration = (
-        total_duration / valid_duration_count if valid_duration_count else None
-    )
-
     return {
         "total_distance_miles": round(total_distance, 1),
         "avg_distance_miles": round(avg_distance, 1),
         "avg_speed": round(avg_speed, 1),
         "max_speed": round(max_speed, 0),
         "avg_start_time": _format_avg_hour(avg_start_hour),
-        "avg_driving_time": _format_duration_hms(avg_duration),
+        "total_driving_time": _format_duration_hm(total_duration),
     }
 
 

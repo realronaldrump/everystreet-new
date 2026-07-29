@@ -101,6 +101,7 @@ def _trip(
     source: str = "bouncie",
     invalid: bool | None = None,
     inactive: bool = False,
+    duration: float = 3600,
 ) -> dict[str, Any]:
     display_geom = display or _line([-97.0, 32.0], [-97.1, 32.1])
     matched_geom = matched or _line([-97.0, 32.0], [-97.05, 32.05], [-97.1, 32.1])
@@ -114,7 +115,7 @@ def _trip(
         "startTime": datetime(2026, 3, 1, 10, 0, tzinfo=UTC),
         "endTime": datetime(2026, 3, 1, 11, 0, tzinfo=UTC),
         "distance": 42.0,
-        "duration": 3600,
+        "duration": duration,
         "avgSpeed": 42.0,
         "maxSpeed": 75.0,
         "fuelConsumed": 1.5,
@@ -175,6 +176,8 @@ def test_trip_map_bundle_uses_display_and_matched_materialized_paths() -> None:
     assert "geom" not in display_trip
     assert display_trip["estimated_cost"] == 5.25
     assert matched_trip["estimated_cost"] == 5.25
+    assert display.json()["summary"]["total_driving_time"] == "1:00"
+    assert "avg_driving_time" not in display.json()["summary"]
     assert display.headers["etag"] != matched.headers["etag"]
     display_projection = collection.find_calls[0][1]
     matched_projection = collection.find_calls[1][1]
@@ -203,6 +206,25 @@ def test_trip_map_bundle_excludes_invalid_inactive_and_non_bouncie_trips() -> No
     payload = response.json()
     assert payload["trip_count"] == 1
     assert payload["trips"][0]["id"] == "visible"
+
+
+def test_trip_map_bundle_summary_reports_total_drive_time() -> None:
+    collection = _FakeTripCollection(
+        [
+            _trip("trip-1", duration=3600),
+            _trip("trip-2", duration=1800),
+        ],
+    )
+
+    with _client_for(collection) as client:
+        response = client.get(
+            "/api/map/trips/bundle?start_date=2026-03-01&end_date=2026-03-02",
+        )
+
+    assert response.status_code == 200
+    summary = response.json()["summary"]
+    assert summary["total_driving_time"] == "1:30"
+    assert "avg_driving_time" not in summary
 
 
 def test_trip_map_bundle_excludes_non_line_geometry() -> None:
