@@ -44,7 +44,7 @@
 }
 
 .date-picker-trigger .trigger-text {
-  max-width: 6.5rem;
+  max-width: 9rem;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -75,13 +75,15 @@
 }
 
 .date-picker-dropdown {
+  --dp-drag-y: 0px;
+
   position: fixed;
   inset: auto 0 0;
   z-index: var(--z-overlay);
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-height: min(calc(100dvh - max(var(--space-4), env(safe-area-inset-top))), 52rem);
+  max-height: min(94dvh, 46rem);
   overflow: hidden;
   border: 1px solid var(--border-color);
   border-bottom: 0;
@@ -98,24 +100,51 @@
     transform var(--transition-normal);
 }
 
-.date-picker-dropdown::before {
-  content: "";
+.date-picker-dropdown.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(var(--dp-drag-y));
+}
+
+/* While a drag is in flight the sheet must track the finger exactly. */
+.date-picker-dropdown.dragging {
+  transition: none;
+}
+
+/* Grab handle doubles as the swipe-to-dismiss target, so it needs a
+   real touch height rather than a decorative 4px bar. */
+.dp-grabber {
+  display: flex;
   flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  height: 1.5rem;
+  touch-action: none;
+  cursor: grab;
+}
+
+.dp-grabber-bar {
   width: 2.5rem;
   height: 0.25rem;
-  margin: var(--space-3) auto 0;
   border-radius: var(--radius-pill);
   background: var(--border-color-light);
 }
 
-.date-picker-dropdown.open {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
+.date-picker-dropdown.dragging .dp-grabber {
+  cursor: grabbing;
 }
 
 body.date-picker-open {
   overflow: hidden;
+}
+
+/* iOS Safari ignores `overflow: hidden` on the document scroller, so the
+   page behind the sheet keeps scrolling. Pinning the body is the only
+   reliable lock; date-manager.js restores the offset on close. */
+body.date-picker-scroll-locked {
+  position: fixed;
+  inset-inline: 0;
+  width: 100%;
 }
 
 .dp-header {
@@ -124,8 +153,9 @@ body.date-picker-open {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-3) var(--space-4);
+  padding: 0 var(--space-4) var(--space-3);
   border-bottom: 1px solid var(--divider-color);
+  touch-action: none;
 }
 
 .dp-title {
@@ -176,6 +206,20 @@ body.date-picker-open {
 .dp-actions button:focus-visible {
   outline: var(--focus-outline);
   outline-offset: 2px;
+}
+
+/* Single scroll container for the whole sheet. The footer lives outside it so
+   the primary action can never be pushed below the fold. */
+.dp-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb-color) transparent;
+  -webkit-overflow-scrolling: touch;
 }
 
 .dp-section {
@@ -314,13 +358,17 @@ body.date-picker-open {
   transform: rotate(180deg);
 }
 
+/* Expanded, the summary line just repeats the start/end fields below it. */
+.dp-custom-toggle[aria-expanded="true"] .dp-custom-copy span {
+  display: none;
+}
+
 .dp-custom-panel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: var(--space-3) var(--space-4) 0;
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb-color) transparent;
+  padding: var(--space-3) var(--space-4) var(--space-4);
 }
 
 .dp-custom-panel[hidden] {
@@ -332,9 +380,10 @@ body.date-picker-open {
 }
 
 .dp-range-hint {
-  margin: 0 0 var(--space-2);
+  margin: 0 0 var(--space-3);
   color: var(--text-tertiary);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
 }
 
 .dp-range-summary {
@@ -342,13 +391,20 @@ body.date-picker-open {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: stretch;
   gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .dp-range-endpoint {
   min-width: 0;
-  padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--divider-color);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.dp-range-endpoint.is-awaiting {
+  border-color: rgb(var(--primary-rgb) / 55%);
+  background: rgb(var(--primary-rgb) / 10%);
 }
 
 .dp-range-endpoint strong {
@@ -368,8 +424,11 @@ body.date-picker-open {
   font-size: var(--font-size-xs);
 }
 
+/* flex-shrink must stay 0: the calendar is a fixed-height grid, so squeezing
+   it just clips the last weeks of the month. Overflow scrolls in .dp-body. */
 .dp-calendar-host {
   position: relative;
+  flex: 0 0 auto;
   width: 100%;
   overflow: hidden;
   border: 1px solid var(--border-color);
@@ -388,17 +447,38 @@ body.date-picker-open {
   pointer-events: none;
 }
 
+/* Pinned action bar: always visible, never inside the scroll region. */
 .dp-actions {
   display: flex;
   flex: 0 0 auto;
-  justify-content: flex-end;
-  padding: var(--space-3) 0 calc(var(--space-3) + env(safe-area-inset-bottom));
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4)
+    max(var(--space-3), env(safe-area-inset-bottom));
+  border-top: 1px solid var(--divider-color);
+  background: var(--surface-1);
+}
+
+.dp-actions[hidden] {
+  display: none;
+}
+
+.dp-range-count {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dp-actions .btn-apply {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   min-height: var(--touch-target);
   min-width: 8rem;
+  max-width: 14rem;
   padding: var(--space-2) var(--space-4);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
@@ -474,7 +554,7 @@ body.date-picker-open {
     transform-origin: top right;
   }
 
-  .date-picker-dropdown::before {
+  .dp-grabber {
     display: none;
   }
 
@@ -488,6 +568,7 @@ body.date-picker-open {
 
   .dp-header {
     padding: var(--space-3) var(--space-4);
+    touch-action: auto;
   }
 
   .dp-preset-section {
@@ -500,6 +581,50 @@ body.date-picker-open {
 
   .dp-custom-panel {
     padding-inline: var(--space-4);
+  }
+
+  .dp-actions {
+    justify-content: flex-end;
+  }
+
+  .dp-actions .btn-apply {
+    flex: 0 0 auto;
+  }
+}
+
+/* Short viewports (most phones, and anything in landscape) — trade day-cell
+   height for a month grid that fits without scrolling. */
+@media (width <= 768px) and (height <= 740px) {
+  .dp-calendar-host {
+    --dp-day-size: 2.25rem;
+  }
+
+  body .dp-calendar-host .flatpickr-weekdays {
+    height: 1.75rem;
+  }
+
+  .dp-range-endpoint strong {
+    margin-top: 0;
+  }
+
+  .dp-range-hint {
+    margin-bottom: var(--space-2);
+  }
+
+  .dp-custom-panel {
+    padding-top: var(--space-2);
+  }
+}
+
+/* Smallest phones: the standing instruction is redundant once the start/end
+   fields spell out what is missing. */
+@media (width <= 768px) and (height <= 640px) {
+  .dp-calendar-host {
+    --dp-day-size: 2.125rem;
+  }
+
+  .dp-range-hint {
+    display: none;
   }
 }
 
@@ -558,37 +683,107 @@ body .flatpickr-calendar.arrowBottom::after {
   border-top-color: var(--surface-elevated);
 }
 
+/* Flatpickr absolutely positions the month nav inside a 75%-wide box and lets
+   the native month <select> size itself from its widest option. At the 16px
+   font touch viewports force (forms.css), that select outgrows its box and
+   shoves the year out of the clipped calendar — the month/year header ends up
+   as one giant control with no year at all. Lay the row out with flexbox so
+   the arrows, month and year always share the available width. */
 body .flatpickr-calendar .flatpickr-months {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
   border-bottom: 1px solid var(--divider-color);
   background: var(--surface-elevated);
 }
 
 body .flatpickr-calendar .flatpickr-month {
-  min-height: 3rem;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: auto;
+  min-height: var(--touch-target);
   color: var(--text-primary);
   fill: var(--text-primary);
 }
 
 body .flatpickr-calendar .flatpickr-current-month {
-  padding-top: var(--space-3);
+  position: static;
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  padding: 0;
   color: var(--text-primary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
+  transform: none;
 }
 
 body .flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months,
 body .flatpickr-calendar .flatpickr-current-month input.cur-year {
+  height: auto;
+  min-height: 2.25rem;
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-weight: var(--font-weight-semibold);
-  transition: background var(--transition-fast);
+  transition: background-color var(--transition-fast);
 }
 
+/* The month control is the one that overflows, so it gets an explicit
+   shrinkable box and an app-drawn caret instead of the native menulist. */
+body .flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: var(--space-1) calc(var(--space-4) + var(--space-3)) var(--space-1)
+    var(--space-2);
+  appearance: none;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--surface-2);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='rgba(255,255,255,0.65)' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right var(--space-2) center;
+  background-size: 0.7rem 0.55rem;
+  font-size: var(--font-size-sm);
+  text-overflow: ellipsis;
+}
+
+html.light-mode
+  body
+  .flatpickr-calendar
+  .flatpickr-current-month
+  .flatpickr-monthDropdown-months {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='rgba(0,0,0,0.6)' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+}
+
+body .flatpickr-calendar .flatpickr-current-month .numInputWrapper {
+  flex: 0 0 auto;
+  width: 4.25rem;
+}
+
+/* Deliberately no font-size override on the year field: forms.css forces 16px
+   on touch viewports so focusing it does not trigger iOS auto-zoom. */
+body .flatpickr-calendar .flatpickr-current-month input.cur-year {
+  padding: var(--space-1) 0 var(--space-1) var(--space-1);
+}
+
+/* `background-color`, not `background`: the shorthand would drop the caret. */
 body .flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months:hover,
 body .flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months:focus,
 body .flatpickr-calendar .flatpickr-current-month input.cur-year:hover,
 body .flatpickr-calendar .flatpickr-current-month input.cur-year:focus {
-  background: rgb(var(--primary-rgb) / 12%);
+  background-color: rgb(var(--primary-rgb) / 12%);
 }
 
 body
@@ -602,7 +797,9 @@ body
 
 body .flatpickr-calendar .flatpickr-months .flatpickr-prev-month,
 body .flatpickr-calendar .flatpickr-months .flatpickr-next-month {
+  position: static;
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   width: var(--touch-target);
@@ -648,9 +845,12 @@ body .flatpickr-calendar span.flatpickr-weekday {
   text-transform: uppercase;
 }
 
+/* Horizontal padding must stay 0: flatpickr hard-codes the day grid's width in
+   inline styles, so side padding pushes the last column past the calendar's
+   clipped edge (Saturdays lose ~6px). Vertical padding is safe. */
 body .flatpickr-calendar .flatpickr-days {
   border: 0;
-  padding: var(--space-2);
+  padding: var(--space-2) 0;
 }
 
 body .flatpickr-calendar .flatpickr-day {
@@ -684,15 +884,17 @@ body .flatpickr-calendar .flatpickr-day.today:focus {
   color: var(--text-primary);
 }
 
+/* Day cells tile edge to edge here, so flatpickr's ±5px box-shadow trick for
+   bridging its default gaps only produces overlapping, blotchy corners. A
+   square-cornered fill gives one continuous band instead. */
 body .flatpickr-calendar .flatpickr-day.inRange,
 body .flatpickr-calendar .flatpickr-day.prevMonthDay.inRange,
 body .flatpickr-calendar .flatpickr-day.nextMonthDay.inRange {
-  border-color: rgb(var(--primary-rgb) / 20%);
+  border-color: transparent;
+  border-radius: 0;
   background: rgb(var(--primary-rgb) / 18%);
   color: var(--text-primary);
-  box-shadow:
-    -5px 0 0 rgb(var(--primary-rgb) / 18%),
-    5px 0 0 rgb(var(--primary-rgb) / 18%);
+  box-shadow: none;
 }
 
 body .flatpickr-calendar .flatpickr-day.selected,
@@ -782,25 +984,18 @@ body .flatpickr-calendar .flatpickr-time .flatpickr-am-pm:focus {
 .dp-calendar-host .flatpickr-day {
   flex-basis: 14.2857%;
   max-width: none;
-  height: var(--touch-target);
-  line-height: var(--touch-target);
+  height: var(--dp-day-size, var(--touch-target));
+  line-height: var(--dp-day-size, var(--touch-target));
 }
 
-.dp-calendar-host .flatpickr-month {
-  min-height: 2.75rem;
-}
-
-.dp-calendar-host .flatpickr-current-month {
-  padding-top: var(--space-2);
-}
-
-.dp-calendar-host .flatpickr-weekdays {
+body .dp-calendar-host .flatpickr-weekdays {
   height: 2rem;
 }
 
+/* `.flatpickr-month` is intentionally excluded: it is a flex child of the nav
+   row and has to share that row with the two arrow buttons. */
 .dp-calendar-host .flatpickr-calendar.es-single-month,
 .dp-calendar-host .flatpickr-calendar.es-single-month .flatpickr-months,
-.dp-calendar-host .flatpickr-calendar.es-single-month .flatpickr-month,
 .dp-calendar-host .flatpickr-calendar.es-single-month .flatpickr-weekdays,
 .dp-calendar-host .flatpickr-calendar.es-single-month .flatpickr-weekdaycontainer,
 .dp-calendar-host .flatpickr-calendar.es-single-month .flatpickr-days,
@@ -823,12 +1018,19 @@ body .flatpickr-calendar .flatpickr-time .flatpickr-am-pm:focus {
   }
 
   .dp-calendar-host .flatpickr-calendar.es-multi-month .dayContainer,
-  .dp-calendar-host .flatpickr-calendar.es-multi-month .flatpickr-weekdaycontainer,
-  .dp-calendar-host .flatpickr-calendar.es-multi-month .flatpickr-month {
+  .dp-calendar-host .flatpickr-calendar.es-multi-month .flatpickr-weekdaycontainer {
     flex: 0 0 50%;
     width: 50%;
     min-width: 50%;
     max-width: 50%;
+  }
+
+  /* Both month headers grow into whatever the arrow buttons leave behind. */
+  .dp-calendar-host .flatpickr-calendar.es-multi-month .flatpickr-month {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    max-width: none;
   }
 }
 

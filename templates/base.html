@@ -166,7 +166,10 @@ Every Street
                    aria-label="Date range selection"
                    aria-hidden="true"
                    inert>
-                <div class="dp-header">
+                <div id="dp-grabber" class="dp-grabber" aria-hidden="true">
+                  <span class="dp-grabber-bar"></span>
+                </div>
+                <div id="dp-header" class="dp-header">
                   <span class="dp-title">Date range</span>
                   <button type="button"
                           id="date-picker-close"
@@ -175,72 +178,75 @@ Every Street
                     <i class="fas fa-times" aria-hidden="true"></i>
                   </button>
                 </div>
-                <div class="dp-section dp-preset-section">
-                  <span class="dp-section-label">Quick ranges</span>
-                  <div class="dp-presets" role="group" aria-label="Date range presets">
-                    <button type="button" class="preset-btn" data-range="today" aria-pressed="false">
-                      Today
-                    </button>
-                    <button type="button" class="preset-btn" data-range="yesterday" aria-pressed="false">
-                      Since Yesterday
-                    </button>
-                    <button type="button" class="preset-btn" data-range="last-week" aria-pressed="false">
-                      Last 7 Days
-                    </button>
-                    <button type="button" class="preset-btn" data-range="last-month" aria-pressed="false">
-                      Last 30 Days
-                    </button>
-                    <button type="button" class="preset-btn" data-range="last-year" aria-pressed="false">
-                      Last Year
-                    </button>
-                    <button type="button" class="preset-btn" data-range="all-time" aria-pressed="false">
-                      All Time
-                    </button>
+                <div id="dp-body" class="dp-body">
+                  <div class="dp-section dp-preset-section">
+                    <span class="dp-section-label">Quick ranges</span>
+                    <div class="dp-presets" role="group" aria-label="Date range presets">
+                      <button type="button" class="preset-btn" data-range="today" aria-pressed="false">
+                        Today
+                      </button>
+                      <button type="button" class="preset-btn" data-range="yesterday" aria-pressed="false">
+                        Since Yesterday
+                      </button>
+                      <button type="button" class="preset-btn" data-range="last-week" aria-pressed="false">
+                        Last 7 Days
+                      </button>
+                      <button type="button" class="preset-btn" data-range="last-month" aria-pressed="false">
+                        Last 30 Days
+                      </button>
+                      <button type="button" class="preset-btn" data-range="last-year" aria-pressed="false">
+                        Last Year
+                      </button>
+                      <button type="button" class="preset-btn" data-range="all-time" aria-pressed="false">
+                        All Time
+                      </button>
+                    </div>
+                  </div>
+                  <button type="button"
+                          id="dp-custom-toggle"
+                          class="dp-custom-toggle"
+                          aria-expanded="false"
+                          aria-controls="dp-custom-panel">
+                    <i class="far fa-calendar" aria-hidden="true"></i>
+                    <span class="dp-custom-copy">
+                      <strong>Custom range</strong>
+                      <span id="dp-custom-summary">Choose exact dates</span>
+                    </span>
+                    <i class="fas fa-chevron-down dp-custom-chevron" aria-hidden="true"></i>
+                  </button>
+                  <div id="dp-custom-panel" class="dp-custom-panel" hidden>
+                    <div class="dp-range-summary" aria-live="polite">
+                      <div class="dp-range-endpoint">
+                        <span class="dp-range-label">Start</span>
+                        <strong id="dp-start-display">Choose date</strong>
+                      </div>
+                      <i class="fas fa-arrow-right dp-range-arrow" aria-hidden="true"></i>
+                      <div class="dp-range-endpoint">
+                        <span class="dp-range-label">End</span>
+                        <strong id="dp-end-display">Choose date</strong>
+                      </div>
+                    </div>
+                    <p id="dp-range-hint" class="dp-range-hint">
+                      Select a start date, then an end date.
+                    </p>
+                    <input type="hidden" id="dp-start-date" />
+                    <input type="hidden" id="dp-end-date" />
+                    <div id="dp-calendar-host" class="dp-calendar-host">
+                      <input type="text"
+                             id="dp-range-date"
+                             class="dp-range-input"
+                             aria-label="Choose a custom date range"
+                             aria-describedby="dp-range-hint"
+                             aria-hidden="true"
+                             tabindex="-1" />
+                    </div>
                   </div>
                 </div>
-                <button type="button"
-                        id="dp-custom-toggle"
-                        class="dp-custom-toggle"
-                        aria-expanded="false"
-                        aria-controls="dp-custom-panel">
-                  <i class="far fa-calendar" aria-hidden="true"></i>
-                  <span class="dp-custom-copy">
-                    <strong>Custom range</strong>
-                    <span id="dp-custom-summary">Choose exact dates</span>
-                  </span>
-                  <i class="fas fa-chevron-down dp-custom-chevron" aria-hidden="true"></i>
-                </button>
-                <div id="dp-custom-panel" class="dp-custom-panel" hidden>
-                  <p id="dp-range-hint" class="dp-range-hint">
-                    Select a start date, then an end date.
-                  </p>
-                  <div class="dp-range-summary" aria-live="polite">
-                    <div class="dp-range-endpoint">
-                      <span class="dp-range-label">Start</span>
-                      <strong id="dp-start-display">Choose date</strong>
-                    </div>
-                    <i class="fas fa-arrow-right dp-range-arrow" aria-hidden="true"></i>
-                    <div class="dp-range-endpoint">
-                      <span class="dp-range-label">End</span>
-                      <strong id="dp-end-display">Choose date</strong>
-                    </div>
-                  </div>
-                  <input type="hidden" id="dp-start-date" />
-                  <input type="hidden" id="dp-end-date" />
-                  <div id="dp-calendar-host" class="dp-calendar-host">
-                    <input type="text"
-                           id="dp-range-date"
-                           class="dp-range-input"
-                           aria-label="Choose a custom date range"
-                           aria-describedby="dp-range-hint"
-                           aria-hidden="true"
-                           tabindex="-1" />
-                  </div>
-                  <div class="dp-actions">
-                    <button type="button" id="date-picker-apply" class="btn-apply">
-                      Apply dates
-                    </button>
-                  </div>
+                <div id="dp-footer" class="dp-actions" hidden>
+                  <span id="dp-range-count" class="dp-range-count" aria-live="polite"></span>
+                  <button type="button" id="date-picker-apply" class="btn-apply">
+                    Apply dates
+                  </button>
                 </div>
               </div>
             </div>

@@ -5,6 +5,9 @@ import eventManager from "./event-manager.js";
 
 const dateUtils = DateUtils;
 
+const MS_PER_DAY = 86_400_000;
+const SHEET_DISMISS_DISTANCE = 110;
+
 const dateManager = {
   flatpickrInstances: new Map(),
   isDropdownOpen: false,
@@ -15,6 +18,8 @@ const dateManager = {
   usingMobilePortal: false,
   viewportSyncHandler: null,
   isCustomRangeOpen: false,
+  scrollLock: null,
+  drag: null,
 
   syncRangePickerLayout() {
     const picker = this.flatpickrInstances.get("range");
@@ -44,6 +49,35 @@ const dateManager = {
 
   isMobileViewport() {
     return window.matchMedia("(max-width: 768px)").matches;
+  },
+
+  /**
+   * iOS Safari keeps scrolling the document behind a fixed bottom sheet even
+   * with `overflow: hidden` on <body>, which makes the sheet feel broken.
+   * Pinning the body is the only reliable lock, so the scroll offset is
+   * captured here and restored on close.
+   */
+  lockPageScroll() {
+    if (this.scrollLock) {
+      return;
+    }
+    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    this.scrollLock = { scrollY };
+    document.body.style.top = `-${scrollY}px`;
+    document.body.classList.add("date-picker-open", "date-picker-scroll-locked");
+  },
+
+  unlockPageScroll() {
+    document.body.classList.remove("date-picker-open", "date-picker-scroll-locked");
+    if (!this.scrollLock) {
+      return;
+    }
+    const { scrollY } = this.scrollLock;
+    this.scrollLock = null;
+    document.body.style.top = "";
+    // `behavior: instant` matters: the global `scroll-behavior: smooth` would
+    // otherwise animate the restore and leave the page mid-flight.
+    window.scrollTo({ top: scrollY, left: 0, behavior: "instant" });
   },
 
   cacheOriginalPlacement(key, element) {
@@ -111,6 +145,115 @@ const dateManager = {
     this.usingMobilePortal = false;
   },
 
+  /**
+   * Swipe-down-to-dismiss for the mobile sheet. The grab handle is drawn on
+   * mobile, so it has to actually do something.
+   */
+  bindSheetDrag() {
+    const dropdown = store.getElement(CONFIG.UI.selectors.datePickerDropdown);
+    const dragHandles = [
+      store.getElement(CONFIG.UI.selectors.dpGrabber),
+      store.getElement(CONFIG.UI.selectors.dpHeader),
+    ].filter(Boolean);
+    if (!dropdown || !dragHandles.length) {
+      return;
+    }
+
+    for (const handle of dragHandles) {
+      eventManager.add(handle, "pointerdown", (event) => this.startSheetDrag(event));
+    }
+    window.addEventListener("pointermove", (event) => this.moveSheetDrag(event), {
+      passive: false,
+    });
+    window.addEventListener("pointerup", () => this.endSheetDrag());
+    window.addEventListener("pointercancel", () => this.endSheetDrag());
+  },
+
+  startSheetDrag(event) {
+    if (!this.isDropdownOpen || !this.isMobileViewport() || this.drag) {
+      return;
+    }
+    // Never hijack the close button or any other control in the header.
+    if (event.target instanceof Element && event.target.closest("button")) {
+      return;
+    }
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+    const dropdown = store.getElement(CONFIG.UI.selectors.datePickerDropdown);
+    if (!dropdown) {
+      return;
+    }
+    this.drag = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      offset: 0,
+      height: dropdown.getBoundingClientRect().height,
+    };
+    dropdown.classList.add("dragging");
+  },
+
+  moveSheetDrag(event) {
+    if (!this.drag || event.pointerId !== this.drag.pointerId) {
+      return;
+    }
+    const dropdown = store.getElement(CONFIG.UI.selectors.datePickerDropdown);
+    if (!dropdown) {
+      return;
+    }
+    // Downward only — dragging up must not detach the sheet from the edge.
+    this.drag.offset = Math.max(0, event.clientY - this.drag.startY);
+    dropdown.style.setProperty("--dp-drag-y", `${this.drag.offset}px`);
+    if (event.cancelable) {
+      event.preventDefault();
+    }
+  },
+
+  endSheetDrag() {
+    if (!this.drag) {
+      return;
+    }
+    const { offset, height } = this.drag;
+    this.drag = null;
+    const dropdown = store.getElement(CONFIG.UI.selectors.datePickerDropdown);
+    dropdown?.classList.remove("dragging");
+    dropdown?.style.removeProperty("--dp-drag-y");
+    if (offset > Math.min(SHEET_DISMISS_DISTANCE, height * 0.3)) {
+      this.closeDropdown();
+    }
+  },
+
+  /**
+   * The mobile sheet is modal (overlay + locked page), so Tab must not walk
+   * out of it into the page behind.
+   */
+  trapFocus(event) {
+    if (event.key !== "Tab" || !this.isDropdownOpen || !this.isMobileViewport()) {
+      return;
+    }
+    const dropdown = store.getElement(CONFIG.UI.selectors.datePickerDropdown);
+    if (!dropdown) {
+      return;
+    }
+    const focusable = Array.from(
+      dropdown.querySelectorAll(
+        'button:not([disabled]), select, [href], input:not([type="hidden"]), [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((el) => el.tabIndex !== -1 && el.offsetParent !== null);
+    if (!focusable.length) {
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  },
+
   bindViewportSync() {
     if (this.viewportSyncHandler) {
       return;
@@ -171,9 +314,6 @@ const dateManager = {
     }
 
     this.syncRangePickerLayout();
-    this.flatpickrInstances
-      .get("range")
-      ?.calendarContainer?.setAttribute("aria-hidden", "true");
     this.updateInputs(startDate, endDate);
     this.updateDateDisplay();
     this.highlightActivePreset();
@@ -239,12 +379,16 @@ const dateManager = {
       }
     });
 
-    // Close on Escape key
+    // Close on Escape key, keep Tab inside the modal sheet
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && this.isDropdownOpen) {
         this.closeDropdown();
+        return;
       }
+      this.trapFocus(e);
     });
+
+    this.bindSheetDrag();
 
     // Overlay click closes dropdown (mobile)
     const overlay = store.getElement(CONFIG.UI.selectors.datePickerOverlay);
@@ -265,6 +409,7 @@ const dateManager = {
     const dropdown = store.getElement(CONFIG.UI.selectors.datePickerDropdown);
     const toggle = store.getElement(CONFIG.UI.selectors.dpCustomToggle);
     const panel = store.getElement(CONFIG.UI.selectors.dpCustomPanel);
+    const footer = store.getElement(CONFIG.UI.selectors.dpFooter);
     if (!toggle || !panel) {
       return;
     }
@@ -274,16 +419,19 @@ const dateManager = {
     panel.hidden = !open;
     dropdown?.classList.toggle("custom-open", open);
 
-    const rangePicker = this.flatpickrInstances.get("range");
-    rangePicker?.calendarContainer?.setAttribute(
-      "aria-hidden",
-      String(!open || !this.isDropdownOpen)
-    );
+    // Apply only ever acts on a custom range; presets auto-apply on tap.
+    if (footer) {
+      footer.hidden = !open;
+    }
 
     if (open) {
+      const body = store.getElement(CONFIG.UI.selectors.dpBody);
+      if (body) {
+        body.scrollTop = 0;
+      }
       requestAnimationFrame(() => {
         this.syncRangePickerLayout();
-        rangePicker?.redraw();
+        this.flatpickrInstances.get("range")?.redraw();
       });
     }
   },
@@ -299,6 +447,7 @@ const dateManager = {
       return;
     }
 
+    dropdown.style.removeProperty("--dp-drag-y");
     dropdown.removeAttribute("inert");
     dropdown.classList.add("open");
     dropdown.setAttribute("aria-hidden", "false");
@@ -308,7 +457,6 @@ const dateManager = {
     this.syncRangePickerLayout();
 
     const rangePicker = this.flatpickrInstances.get("range");
-    rangePicker?.calendarContainer?.setAttribute("aria-hidden", "true");
     const { endDate } = this.getSelectedDateRange();
     const visibleDate = dateUtils.parseDateString(endDate);
     if (visibleDate && !this.isMobileViewport()) {
@@ -317,16 +465,20 @@ const dateManager = {
     }
     rangePicker?.jumpToDate(visibleDate || endDate, false);
 
-    // Show overlay on mobile
-    if (window.innerWidth <= 768 && overlay) {
-      overlay.classList.add("visible");
-      document.body.classList.add("date-picker-open");
+    // Mobile renders as a modal bottom sheet: dim the page and stop it
+    // scrolling underneath.
+    if (this.isMobileViewport()) {
+      overlay?.classList.add("visible");
+      dropdown.setAttribute("aria-modal", "true");
+      this.lockPageScroll();
+    } else {
+      dropdown.removeAttribute("aria-modal");
     }
 
     requestAnimationFrame(() => {
       const activePreset = dropdown.querySelector(".preset-btn.active");
       const closeButton = dropdown.querySelector(".dp-close-btn");
-      (activePreset || closeButton)?.focus();
+      (activePreset || closeButton)?.focus({ preventScroll: true });
     });
   },
 
@@ -339,19 +491,23 @@ const dateManager = {
       return;
     }
 
-    if (dropdown.contains(document.activeElement)) {
-      trigger?.focus();
-    }
-    dropdown.classList.remove("open");
+    const restoreFocus = dropdown.contains(document.activeElement);
+    dropdown.classList.remove("open", "dragging");
+    dropdown.style.removeProperty("--dp-drag-y");
     dropdown.setAttribute("aria-hidden", "true");
+    dropdown.removeAttribute("aria-modal");
     dropdown.setAttribute("inert", "");
-    this.flatpickrInstances
-      .get("range")
-      ?.calendarContainer?.setAttribute("aria-hidden", "true");
     trigger?.setAttribute("aria-expanded", "false");
     this.isDropdownOpen = false;
+    this.drag = null;
     this.setCustomRangeOpen(false);
-    document.body.classList.remove("date-picker-open");
+    this.unlockPageScroll();
+
+    // `inert` above blurs whatever was focused inside the sheet, so hand
+    // focus back to the trigger rather than leaving it on <body>.
+    if (restoreFocus) {
+      trigger?.focus({ preventScroll: true });
+    }
 
     // Hide overlay
     if (overlay) {
@@ -398,12 +554,22 @@ const dateManager = {
     });
   },
 
+  countDays(startDate, endDate) {
+    const start = dateUtils.parseDateString(startDate);
+    const end = dateUtils.parseDateString(endDate);
+    if (!start || !end) {
+      return 0;
+    }
+    return Math.round((end - start) / MS_PER_DAY) + 1;
+  },
+
   renderRangeSummary(startDate, endDate, selectionInProgress = false) {
     const startDisplay = store.getElement(CONFIG.UI.selectors.dpStartDisplay);
     const endDisplay = store.getElement(CONFIG.UI.selectors.dpEndDisplay);
     const hint = store.getElement(CONFIG.UI.selectors.dpRangeHint);
     const customSummary = store.getElement(CONFIG.UI.selectors.dpCustomSummary);
     const applyBtn = store.getElement(CONFIG.UI.selectors.datePickerApply);
+    const rangeCount = store.getElement(CONFIG.UI.selectors.dpRangeCount);
     const formatDate = (date) =>
       date
         ? dateUtils.formatForDisplay(date, {
@@ -418,12 +584,15 @@ const dateManager = {
     }
     if (endDisplay) {
       endDisplay.textContent = selectionInProgress
-        ? "Same day or choose end"
+        ? "Tap an end date"
         : formatDate(endDate);
+      endDisplay
+        .closest(".dp-range-endpoint")
+        ?.classList.toggle("is-awaiting", selectionInProgress);
     }
     if (hint) {
       hint.textContent = selectionInProgress
-        ? "Choose an end date, or apply this as a single day."
+        ? "Tap an end date, or apply this as a single day."
         : "Select a start date, then an end date.";
     }
     if (customSummary) {
@@ -433,6 +602,12 @@ const dateManager = {
         : preset
           ? "Choose exact dates"
           : `${formatDate(startDate)} – ${formatDate(endDate)}`;
+    }
+    if (rangeCount) {
+      const days = selectionInProgress
+        ? this.countDays(startDate, startDate)
+        : this.countDays(startDate, endDate);
+      rangeCount.textContent = days > 0 ? `${days} ${days === 1 ? "day" : "days"}` : "";
     }
     if (applyBtn) {
       applyBtn.disabled = !startDate;
@@ -526,6 +701,47 @@ const dateManager = {
     });
   },
 
+  /**
+   * Compact label for the header trigger. "Jul 1 – 25" beats "Jul 1, 2026 -
+   * Jul…" when the button only has a few rem to work with on a phone.
+   */
+  formatTriggerRange(startDate, endDate) {
+    const start = dateUtils.parseDateString(startDate);
+    const end = dateUtils.parseDateString(endDate);
+    if (!start || !end) {
+      return `${startDate} - ${endDate}`;
+    }
+
+    const short = (value) =>
+      dateUtils.formatForDisplay(value, { month: "short", day: "numeric" }) || value;
+    const long = (value) =>
+      dateUtils.formatForDisplay(value, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }) || value;
+
+    const currentYear = dateUtils
+      .parseDateString(dateUtils.getCurrentDate())
+      ?.getFullYear();
+    const sameYear = start.getFullYear() === end.getFullYear();
+    const yearIsImplied = sameYear && start.getFullYear() === currentYear;
+
+    if (start.getTime() === end.getTime()) {
+      return yearIsImplied ? short(startDate) : long(startDate);
+    }
+    if (sameYear) {
+      // "Jul 6 – 15" inside one month, "Jan 3 – Jul 15" across months; the
+      // shared year is spelled out only when it is not the current one.
+      const tail =
+        start.getMonth() === end.getMonth() ? String(end.getDate()) : short(endDate);
+      return yearIsImplied
+        ? `${short(startDate)} – ${tail}`
+        : `${short(startDate)} – ${tail}, ${end.getFullYear()}`;
+    }
+    return `${long(startDate)} – ${long(endDate)}`;
+  },
+
   updateDateDisplay() {
     const display = store.getElement(CONFIG.UI.selectors.dateDisplay);
     const trigger = store.getElement(CONFIG.UI.selectors.datePickerTrigger);
@@ -537,7 +753,6 @@ const dateManager = {
       this.getSelectedDateRange();
     const today = dateUtils.getCurrentDate();
 
-    const fmt = (d) => dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;
     const preset = this.detectPreset(savedStartDate, savedEndDate);
 
     // Map preset names to display text
@@ -551,13 +766,22 @@ const dateManager = {
       "all-time": "All Time",
     };
 
-    if (preset && presetLabels[preset]) {
-      display.textContent = presetLabels[preset];
-    } else if (savedStartDate === savedEndDate) {
-      display.textContent = fmt(savedStartDate);
-    } else {
-      display.textContent = `${fmt(savedStartDate)} - ${fmt(savedEndDate)}`;
-    }
+    const label =
+      preset && presetLabels[preset]
+        ? presetLabels[preset]
+        : this.formatTriggerRange(savedStartDate, savedEndDate);
+    display.textContent = label;
+
+    // The compact label drops years, so spell the range out for assistive
+    // tech and on hover.
+    const fullRange = (value) =>
+      dateUtils.formatForDisplay(value, { dateStyle: "medium" }) || value;
+    const fullLabel =
+      savedStartDate === savedEndDate
+        ? fullRange(savedStartDate)
+        : `${fullRange(savedStartDate)} to ${fullRange(savedEndDate)}`;
+    trigger?.setAttribute("aria-label", `Select date range, currently ${fullLabel}`);
+    trigger?.setAttribute("title", fullLabel);
 
     // Update trigger active state
     const isNotToday = savedStartDate !== today || savedEndDate !== today;
