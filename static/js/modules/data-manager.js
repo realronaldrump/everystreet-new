@@ -401,12 +401,12 @@ const dataManager = {
 
       const promises = [];
 
-      // Keep aggregate stats in sync with date/vehicle filter changes.
-      promises.push(this.fetchMetrics());
-
-      // Fetch data for visible layers
+      // A visible trips layer supplies both map data and its authoritative
+      // summary. Only call /api/metrics when no trip bundle will be loaded.
       if (state.mapLayers.trips.visible) {
         promises.push(this.fetchTrips());
+      } else {
+        promises.push(this.fetchMetrics());
       }
       if (state.mapLayers.matchedTrips.visible) {
         promises.push(this.fetchMatchedTrips());

@@ -553,41 +553,61 @@ class DashboardService:
                         ],
                     },
                     "duration_seconds": {
-                        "$cond": {
-                            "if": {
-                                "$and": [
-                                    {
-                                        "$ifNull": [
-                                            "$startTime",
-                                            None,
-                                        ],
+                        "$let": {
+                            "vars": {
+                                "stored_duration": {
+                                    "$convert": {
+                                        "input": "$duration",
+                                        "to": "double",
+                                        "onError": None,
+                                        "onNull": None,
                                     },
-                                    {
-                                        "$ifNull": [
-                                            "$endTime",
-                                            None,
-                                        ],
-                                    },
-                                    {
-                                        "$lt": [
-                                            "$startTime",
-                                            "$endTime",
-                                        ],
-                                    },
-                                ],
+                                },
                             },
-                            "then": {
-                                "$divide": [
-                                    {
-                                        "$subtract": [
-                                            "$endTime",
-                                            "$startTime",
-                                        ],
+                            "in": {
+                                "$cond": {
+                                    "if": {"$gt": ["$$stored_duration", 0]},
+                                    "then": "$$stored_duration",
+                                    "else": {
+                                        "$cond": {
+                                            "if": {
+                                                "$and": [
+                                                    {
+                                                        "$ifNull": [
+                                                            "$startTime",
+                                                            None,
+                                                        ],
+                                                    },
+                                                    {
+                                                        "$ifNull": [
+                                                            "$endTime",
+                                                            None,
+                                                        ],
+                                                    },
+                                                    {
+                                                        "$lt": [
+                                                            "$startTime",
+                                                            "$endTime",
+                                                        ],
+                                                    },
+                                                ],
+                                            },
+                                            "then": {
+                                                "$divide": [
+                                                    {
+                                                        "$subtract": [
+                                                            "$endTime",
+                                                            "$startTime",
+                                                        ],
+                                                    },
+                                                    1000,
+                                                ],
+                                            },
+                                            "else": 0.0,
+                                        },
                                     },
-                                    1000,
-                                ],
+                                },
                             },
-                            "else": 0.0,
                         },
                     },
                     "startHourUTC": {

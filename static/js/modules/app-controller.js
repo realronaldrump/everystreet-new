@@ -486,7 +486,9 @@ const AppController = {
    * @private
    */
   async _loadInitialData() {
-    const fetchPromises = [dataManager.fetchTrips(), dataManager.fetchMetrics()];
+    // The trip bundle already contains the metrics shown in the map rail.
+    // Do not race it against /api/metrics and let response timing choose the UI.
+    const fetchPromises = [dataManager.fetchTrips()];
 
     // Fetch matched trips if visible
     if (state.mapLayers.matchedTrips.visible) {
@@ -741,9 +743,12 @@ const AppController = {
       requests.push(dataManager.fetchMatchedTrips());
     }
 
-    // When clip preference is enabled but no coverage area is selected, restore
-    // normal aggregate metrics from `/api/metrics`.
-    if (!dataManager.getCoverageTripClipState().enabled) {
+    // If no trip bundle is being loaded, use the aggregate endpoint as the
+    // single metrics source.
+    if (
+      !state.mapLayers.trips.visible &&
+      !dataManager.getCoverageTripClipState().enabled
+    ) {
       requests.push(dataManager.fetchMetrics());
     }
 
