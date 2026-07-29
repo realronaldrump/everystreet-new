@@ -190,7 +190,7 @@
   background: var(--action);
 }
 
-.coverage-diorama-ledger {
+.coverage-diorama-summary {
   position: absolute;
   z-index: 4;
   top: 10.75rem;
@@ -533,7 +533,7 @@
     display: inline;
   }
 
-  .coverage-diorama-ledger {
+  .coverage-diorama-summary {
     top: 7.8rem;
     right: auto;
     width: min(30rem, calc(100vw - 2rem));
@@ -570,7 +570,7 @@
     transform: translateX(50%);
   }
 
-  .coverage-diorama-ledger {
+  .coverage-diorama-summary {
     top: 9rem;
     left: 2rem;
     display: flex;

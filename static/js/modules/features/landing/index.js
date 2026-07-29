@@ -99,7 +99,7 @@ function cacheElements() {
   elements = {
     missionLine: document.getElementById("home-mission"),
     coverageSection: document.getElementById("home-coverage"),
-    coverageLedger: document.getElementById("coverage-ledger"),
+    coverageRegister: document.getElementById("coverage-register"),
     weatherChip: document.getElementById("weather-chip"),
     statMiles: document.getElementById("stat-miles"),
     statTrips: document.getElementById("stat-trips"),
@@ -295,7 +295,7 @@ async function loadCoverageStats() {
     const data = await apiGet("/api/coverage/areas");
     if (data?.areas) {
       setRecordSource("coverage", data);
-      renderCoverageLedger(data.areas);
+      renderCoverageRegister(data.areas);
       renderMissionLine(data.areas);
     }
   } catch (error) {
@@ -318,8 +318,8 @@ function renderMissionLine(areas) {
   elements.missionLine.hidden = false;
 }
 
-function renderCoverageLedger(areas) {
-  if (!elements.coverageSection || !elements.coverageLedger) {
+function renderCoverageRegister(areas) {
+  if (!elements.coverageSection || !elements.coverageRegister) {
     return;
   }
 
@@ -336,7 +336,7 @@ function renderCoverageLedger(areas) {
     return;
   }
 
-  elements.coverageLedger.innerHTML = "";
+  elements.coverageRegister.innerHTML = "";
   rows.forEach((area) => {
     const pct = Math.max(0, Math.min(100, Number(area.coverage_percentage)));
     const total = Number(area.total_length_miles);
@@ -348,10 +348,10 @@ function renderCoverageLedger(areas) {
     const name = area.display_name?.split(",")[0]?.trim() || "Unnamed area";
 
     const item = document.createElement("li");
-    item.className = "coverage-ledger-row";
+    item.className = "coverage-register-row";
 
     const link = document.createElement("a");
-    link.className = "coverage-ledger-link";
+    link.className = "coverage-register-link";
     link.href = "/coverage-management";
     link.setAttribute(
       "aria-label",
@@ -361,28 +361,28 @@ function renderCoverageLedger(areas) {
     );
 
     const nameEl = document.createElement("span");
-    nameEl.className = "coverage-ledger-name";
+    nameEl.className = "coverage-register-name";
     nameEl.textContent = name;
 
     const track = document.createElement("span");
-    track.className = "coverage-ledger-track";
+    track.className = "coverage-register-track";
     track.setAttribute("aria-hidden", "true");
     const fill = document.createElement("span");
-    fill.className = "coverage-ledger-fill";
+    fill.className = "coverage-register-fill";
     fill.style.width = `${pct}%`;
     track.appendChild(fill);
 
     const pctEl = document.createElement("span");
-    pctEl.className = "coverage-ledger-pct";
+    pctEl.className = "coverage-register-pct";
     pctEl.textContent = `${pct.toFixed(1)}%`;
 
     const leftEl = document.createElement("span");
-    leftEl.className = "coverage-ledger-left";
+    leftEl.className = "coverage-register-left";
     leftEl.textContent = remaining !== null ? `${remaining.toFixed(1)} mi left` : "";
 
     link.append(nameEl, track, pctEl, leftEl);
     item.appendChild(link);
-    elements.coverageLedger.appendChild(item);
+    elements.coverageRegister.appendChild(item);
   });
 
   elements.coverageSection.hidden = false;

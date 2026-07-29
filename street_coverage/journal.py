@@ -191,7 +191,7 @@ async def append_status_event(
     driven_miles_before: float | None = None,
     driven_miles_after: float | None = None,
 ) -> CoverageStatusEvent | None:
-    """Append an owner-authored state change to the Journal ledger."""
+    """Append an owner-authored state change to the coverage journal."""
     if source != "manual":
         return None
     deduped = sorted({str(segment_id) for segment_id in segment_ids if segment_id})

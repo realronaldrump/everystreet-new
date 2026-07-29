@@ -1,7 +1,7 @@
 # Blueprint & Brass design language
 
 Blueprint & Brass is Every Street's fixed visual identity: a personal
-cartographic ledger built from warm paper, charcoal ink, survey blue, drafting
+cartographic record built from warm paper, charcoal ink, survey blue, drafting
 ochre, hairlines, and measured figures. This document is the implementation
 reference. The original audit and migration record lives in
 [`atlas-design-system-plan.md`](atlas-design-system-plan.md).

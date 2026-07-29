@@ -1,7 +1,7 @@
 /* ============================================================
    Landing / Home — the atlas front page
    Date line, motto, one factual mission sentence, hairline
-   figures, a coverage ledger, and a table-of-contents index.
+   figures, a coverage register, and a table-of-contents index.
    No icon tiles, no chevrons, no greeting-card dashboard.
    ============================================================ */
 
@@ -341,9 +341,9 @@
 }
 
 /* ============================================================
-   Coverage ledger — the mission, area by area
+   Coverage register — the mission, area by area
    ============================================================ */
-.coverage-ledger {
+.coverage-register {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -351,11 +351,11 @@
   flex-direction: column;
 }
 
-.coverage-ledger-row + .coverage-ledger-row {
+.coverage-register-row + .coverage-register-row {
   border-top: 1px solid var(--divider-color);
 }
 
-.coverage-ledger-link {
+.coverage-register-link {
   display: flex;
   align-items: center;
   gap: var(--space-4);
@@ -367,16 +367,16 @@
   transition: background var(--transition-fast);
 }
 
-.coverage-ledger-link:hover {
+.coverage-register-link:hover {
   background: rgb(var(--primary-rgb) / 6%);
 }
 
-.coverage-ledger-link:focus-visible {
+.coverage-register-link:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
 }
 
-.coverage-ledger-name {
+.coverage-register-name {
   flex: 0 1 auto;
   min-width: 7ch;
   max-width: 15rem;
@@ -387,7 +387,7 @@
   color: var(--text-primary);
 }
 
-.coverage-ledger-track {
+.coverage-register-track {
   flex: 1 1 auto;
   height: 6px;
   border-radius: var(--radius-pill);
@@ -395,7 +395,7 @@
   overflow: hidden;
 }
 
-.coverage-ledger-fill {
+.coverage-register-fill {
   display: block;
   height: 100%;
   background: var(--home-accent);
@@ -403,11 +403,11 @@
   transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.coverage-ledger-link:hover .coverage-ledger-fill {
+.coverage-register-link:hover .coverage-register-fill {
   background: var(--primary-light);
 }
 
-.coverage-ledger-pct {
+.coverage-register-pct {
   flex: 0 0 auto;
   min-width: 5ch;
   text-align: right;
@@ -418,7 +418,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-.coverage-ledger-left {
+.coverage-register-left {
   flex: 0 0 auto;
   min-width: 9ch;
   text-align: right;
@@ -803,11 +803,11 @@
     grid-template-columns: 1fr;
   }
 
-  .coverage-ledger-left {
+  .coverage-register-left {
     display: none;
   }
 
-  .coverage-ledger-name {
+  .coverage-register-name {
     max-width: 9rem;
   }
 }
@@ -833,7 +833,7 @@
     transform: none;
   }
 
-  .coverage-ledger-fill {
+  .coverage-register-fill {
     transition: none;
   }
 }

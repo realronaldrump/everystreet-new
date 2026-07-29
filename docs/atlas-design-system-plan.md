@@ -17,7 +17,7 @@ Five distinct greens coexist and are used interchangeably for chrome, not meanin
 - `--accent` (teal) vs `--primary` (sage) split is arbitrary: memory-city.css uses `--accent` 33×, trips.css 26×.
 
 ### 1b. Component drift between pages (the "chaos")
-- **3+ card languages:** hairline ledger/figure-band (trips, routes, insights masthead) vs boxy white cards (coverage mgmt, visits) vs beige-header cards (gas "New Fill-up", setup wizard "Bouncie Credentials").
+- **3+ card languages:** hairline figure-band (trips, routes, insights masthead) vs boxy white cards (coverage mgmt, visits) vs beige-header cards (gas "New Fill-up", setup wizard "Bouncie Credentials").
 - **2 tab systems on one page:** control-center top nav = icon+underline; its Logs section = slate-green pill tabs. Regional explorer adds a third (gray pills).
 - **3 stepper styles:** map-matching (filled green circles 1-2-3), route planner (tiny numbered dots 1-4 + icon tabs Plan/Find/Status/Results), setup wizard (outlined green icon circles).
 - **Input drift:** trips search = white pill; gas/setup inputs = beige fill (look disabled); export = dark fills.
@@ -38,17 +38,17 @@ Five distinct greens coexist and are used interchangeably for chrome, not meanin
 
 ## 2. The identity: **Field Atlas**
 
-Extend (never replace) the existing Atlas voice: a personal cartographic ledger — paper, ink, hairlines, mono figures — specific and human-made, not a SaaS dashboard.
+Extend (never replace) the existing Atlas voice: a personal cartographic record — paper, ink, hairlines, mono figures — specific and human-made, not a SaaS dashboard.
 
 ### The one governing color rule: **"Green is earned."**
 Green is the product's payoff — a street turns green when you've driven it. So green is reserved exclusively for *accomplishment and live data*: driven streets, coverage progress, live tracking, success confirmations. **UI chrome never uses green decoratively.** Buttons, tabs, eyebrows, toggles-at-rest, active states, focus — all become ink and paper. When the user sees green, it always means "you drove this." That single rule simultaneously fixes "excessive green" and gives the app a memorable, ownable identity.
 
 Supporting principles:
 1. **Paper & ink first.** Light = warm paper `#f4f1e8` family; dark = charcoal `#0c0c0f` family. Structure comes from hairlines and type, not boxes and shadows.
-2. **Hairlines over boxes.** Prefer the ledger/figure-band language (1px rules, dotted leaders) to floating white cards. Cards only when content is truly a discrete object (a vehicle, a place, an area).
+2. **Hairlines over boxes.** Prefer the figure-band language (1px rules, dotted leaders) to floating white cards. Cards only when content is truly a discrete object (a vehicle, a place, an area).
 3. **Mono means data.** Every number the app measured (miles, %, coordinates, dates, revs) is JetBrains Mono with `tabular-nums`. Prose is IBM Plex Sans, display is Chivo. This is already half-true; make it law.
 4. **Ochre is the pencil.** `#d4a24a` remains the single warm accent for planning/attention (route planner rail, warnings, stalled states) — the cartographer's pencil against sage's "driven" ink.
-5. **One voice per page, one system across pages.** Per-page eyebrows keep their editorial voice ("The ledger", "The mission"…) but every page is built from the same canon of parts.
+5. **One voice per page, one system across pages.** Per-page eyebrows keep their editorial voice ("Trip history", "The mission"…) but every page is built from the same canon of parts.
 
 ---
 
@@ -133,7 +133,7 @@ Order = user traffic × visible damage.
    - Adopt canon inputs/cards throughout all 9 sections. Expect to delete thousands of lines.
 2. **coverage_management.html + coverage-management.css (42KB)**
    - Donuts single-hue; "Explore Map" ×N → outline; one filled "Add Area" stays ink.
-   - Cards → `.card--object` with hairline internals, mono stats, ledger row option for dense mode. 100% card per §4.
+   - Cards → `.card--object` with hairline internals, mono stats, dense row option for dense mode. 100% card per §4.
 3. **coverage_route_planner.html + CSS (77KB, 118 font literals)**
    - Adopt masthead-lite in sidebar header, canonical stepper, collapsible headers, tokens for all type; kill lavender CTA; ochre as the page's working accent (planning = pencil).
 4. **trips.html + trips.css (57KB, 81 literals)** — closest to canon already; retire its 26 `--accent` teal uses → primary/ink per rules; segmented control re-skin; skeleton shimmer for figure values (the gray boxes) → standard shimmer.
