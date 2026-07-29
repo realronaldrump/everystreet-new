@@ -7,6 +7,20 @@ const dateUtils = DateUtils;
 
 const MS_PER_DAY = 86_400_000;
 const SHEET_DISMISS_DISTANCE = 110;
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
 
 const dateManager = {
   flatpickrInstances: new Map(),
@@ -20,6 +34,7 @@ const dateManager = {
   isCustomRangeOpen: false,
   scrollLock: null,
   drag: null,
+  monthGridYear: null,
 
   syncRangePickerLayout() {
     const picker = this.flatpickrInstances.get("range");
@@ -143,6 +158,154 @@ const dateManager = {
       this.portalPlacements.overlay?.parent || wrapper?.parentElement || document.body
     );
     this.usingMobilePortal = false;
+  },
+
+  /**
+   * Month/year navigation, built from plain buttons.
+   *
+   * Flatpickr's own month picker is a native <select> nested inside an element
+   * it gives `transform: translate3d(0,0,0)`. iOS Safari refuses to open a
+   * select's picker in that situation, so the month control was simply dead on
+   * iPhone. Buttons have no such problem, so flatpickr's nav row is hidden
+   * (CSS) and this drives the calendar instead.
+   */
+  buildMonthGrid() {
+    const options = store.getElement(CONFIG.UI.selectors.dpMonthOptions);
+    if (!options || options.childElementCount) {
+      return;
+    }
+    for (const [index, name] of MONTH_NAMES.entries()) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "dp-month-option";
+      button.dataset.month = String(index);
+      button.textContent = name.slice(0, 3);
+      button.setAttribute("aria-label", name);
+      eventManager.add(button, "click", () => this.jumpToMonth(index));
+      options.append(button);
+    }
+  },
+
+  bindMonthNav() {
+    const picker = this.flatpickrInstances.get("range");
+    const bind = (selector, handler) => {
+      const element = store.getElement(selector);
+      if (element) {
+        eventManager.add(element, "click", handler);
+      }
+    };
+
+    this.buildMonthGrid();
+
+    bind(CONFIG.UI.selectors.dpPrevMonth, () => {
+      picker?.changeMonth(-1);
+      this.syncMonthNav();
+    });
+    bind(CONFIG.UI.selectors.dpNextMonth, () => {
+      picker?.changeMonth(1);
+      this.syncMonthNav();
+    });
+    bind(CONFIG.UI.selectors.dpMonthToggle, () => {
+      this.setMonthGridOpen(
+        store.getElement(CONFIG.UI.selectors.dpMonthGrid)?.hidden !== false
+      );
+    });
+    bind(CONFIG.UI.selectors.dpPrevYear, () => this.stepMonthGridYear(-1));
+    bind(CONFIG.UI.selectors.dpNextYear, () => this.stepMonthGridYear(1));
+  },
+
+  maxSelectableDate() {
+    const configured = this.flatpickrInstances.get("range")?.config?.maxDate;
+    return configured instanceof Date
+      ? configured
+      : dateUtils.parseDateString(dateUtils.getCurrentDate());
+  },
+
+  setMonthGridOpen(open) {
+    const grid = store.getElement(CONFIG.UI.selectors.dpMonthGrid);
+    const toggle = store.getElement(CONFIG.UI.selectors.dpMonthToggle);
+    if (!grid || !toggle) {
+      return;
+    }
+    grid.hidden = !open;
+    toggle.setAttribute("aria-expanded", String(open));
+    store
+      .getElement(CONFIG.UI.selectors.dpCalendarHost)
+      ?.classList.toggle("month-grid-open", open);
+    if (open) {
+      this.monthGridYear =
+        this.flatpickrInstances.get("range")?.currentYear ?? this.monthGridYear;
+      this.syncMonthNav();
+    }
+  },
+
+  stepMonthGridYear(step) {
+    const maxDate = this.maxSelectableDate();
+    const next = (this.monthGridYear ?? maxDate?.getFullYear() ?? 0) + step;
+    if (maxDate && next > maxDate.getFullYear()) {
+      return;
+    }
+    this.monthGridYear = next;
+    this.syncMonthNav();
+  },
+
+  jumpToMonth(month) {
+    const picker = this.flatpickrInstances.get("range");
+    const year = this.monthGridYear ?? picker?.currentYear;
+    if (!picker || year == null) {
+      return;
+    }
+    picker.jumpToDate(new Date(year, month, 1), false);
+    picker.redraw();
+    this.setMonthGridOpen(false);
+    this.syncMonthNav();
+  },
+
+  syncMonthNav() {
+    const picker = this.flatpickrInstances.get("range");
+    const label = store.getElement(CONFIG.UI.selectors.dpMonthText);
+    const yearText = store.getElement(CONFIG.UI.selectors.dpYearText);
+    const nextMonth = store.getElement(CONFIG.UI.selectors.dpNextMonth);
+    const nextYear = store.getElement(CONFIG.UI.selectors.dpNextYear);
+    if (!picker || picker.currentMonth == null) {
+      return;
+    }
+
+    const month = picker.currentMonth;
+    const year = picker.currentYear;
+    if (label) {
+      label.textContent = `${MONTH_NAMES[month]} ${year}`;
+    }
+
+    const maxDate = this.maxSelectableDate();
+    const gridYear = this.monthGridYear ?? year;
+    if (yearText) {
+      yearText.textContent = String(gridYear);
+    }
+    // Nothing past the latest selectable month is reachable.
+    if (nextMonth) {
+      nextMonth.disabled = Boolean(
+        maxDate &&
+          (year > maxDate.getFullYear() ||
+            (year === maxDate.getFullYear() && month >= maxDate.getMonth()))
+      );
+    }
+    if (nextYear) {
+      nextYear.disabled = Boolean(maxDate && gridYear >= maxDate.getFullYear());
+    }
+
+    for (const option of store.getAllElements(".dp-month-option")) {
+      const optionMonth = Number(option.dataset.month);
+      const beyondMax = Boolean(
+        maxDate &&
+          (gridYear > maxDate.getFullYear() ||
+            (gridYear === maxDate.getFullYear() && optionMonth > maxDate.getMonth()))
+      );
+      option.disabled = beyondMax;
+      const isCurrent = optionMonth === month && gridYear === year;
+      option.classList.toggle(CONFIG.UI.classes.active, isCurrent);
+      option.setAttribute("aria-pressed", String(isCurrent));
+    }
   },
 
   /**
@@ -304,6 +467,8 @@ const dateManager = {
       onChange: (selectedDates, _dateString, instance) => {
         this.handleRangeSelection(selectedDates, instance);
       },
+      onMonthChange: () => this.syncMonthNav(),
+      onYearChange: () => this.syncMonthNav(),
     };
 
     if (!rangeInput._flatpickr) {
@@ -314,6 +479,8 @@ const dateManager = {
     }
 
     this.syncRangePickerLayout();
+    this.bindMonthNav();
+    this.syncMonthNav();
     this.updateInputs(startDate, endDate);
     this.updateDateDisplay();
     this.highlightActivePreset();
@@ -424,6 +591,8 @@ const dateManager = {
       footer.hidden = !open;
     }
 
+    this.setMonthGridOpen(false);
+
     if (open) {
       const body = store.getElement(CONFIG.UI.selectors.dpBody);
       if (body) {
@@ -432,6 +601,7 @@ const dateManager = {
       requestAnimationFrame(() => {
         this.syncRangePickerLayout();
         this.flatpickrInstances.get("range")?.redraw();
+        this.syncMonthNav();
       });
     }
   },
@@ -464,6 +634,8 @@ const dateManager = {
       visibleDate.setMonth(visibleDate.getMonth() - 1);
     }
     rangePicker?.jumpToDate(visibleDate || endDate, false);
+    this.monthGridYear = rangePicker?.currentYear ?? null;
+    this.syncMonthNav();
 
     // Mobile renders as a modal bottom sheet: dim the page and stop it
     // scrolling underneath.

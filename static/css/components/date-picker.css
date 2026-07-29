@@ -988,8 +988,163 @@ body .flatpickr-calendar .flatpickr-time .flatpickr-am-pm:focus {
   line-height: var(--dp-day-size, var(--touch-target));
 }
 
+/* Flatpickr's month nav is replaced by .dp-month-nav: its native <select>
+   sits inside a translate3d'd element, which iOS Safari refuses to open. */
+body .dp-calendar-host .flatpickr-months {
+  display: none;
+}
+
 body .dp-calendar-host .flatpickr-weekdays {
   height: 2rem;
+}
+
+.dp-month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-bottom: 1px solid var(--divider-color);
+}
+
+.dp-month-step {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.dp-month-step:hover:not(:disabled) {
+  background: rgb(var(--primary-rgb) / 14%);
+  color: var(--text-primary);
+}
+
+.dp-month-step:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.dp-month-label {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 2.25rem;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.dp-month-label:hover {
+  border-color: var(--border-color-light);
+  background: var(--surface-3);
+}
+
+.dp-month-caret {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  font-size: 0.625rem;
+  transition: transform var(--transition-fast);
+}
+
+.dp-month-label[aria-expanded="true"] .dp-month-caret {
+  transform: rotate(180deg);
+}
+
+.dp-month-step:focus-visible,
+.dp-month-label:focus-visible,
+.dp-month-option:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 2px;
+}
+
+.dp-month-grid {
+  padding: var(--space-2);
+  background: var(--surface-1);
+}
+
+.dp-month-grid[hidden] {
+  display: none;
+}
+
+/* The month grid takes the day grid's place rather than pushing it down, so
+   the sheet keeps its height and nothing scrolls out of reach. */
+.dp-calendar-host.month-grid-open .flatpickr-calendar {
+  display: none;
+}
+
+.dp-year-step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.dp-year-value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.dp-month-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.dp-month-option {
+  min-height: var(--touch-target);
+  padding: var(--space-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.dp-month-option:hover:not(:disabled) {
+  border-color: var(--border-color-light);
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.dp-month-option.active {
+  border-color: rgb(var(--primary-rgb) / 70%);
+  background: rgb(var(--primary-rgb) / 16%);
+  color: var(--primary-light);
+}
+
+.dp-month-option:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
 }
 
 /* `.flatpickr-month` is intentionally excluded: it is a flex child of the nav

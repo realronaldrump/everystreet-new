@@ -232,6 +232,50 @@ Every Street
                     <input type="hidden" id="dp-start-date" />
                     <input type="hidden" id="dp-end-date" />
                     <div id="dp-calendar-host" class="dp-calendar-host">
+                      <div class="dp-month-nav">
+                        <button type="button"
+                                id="dp-prev-month"
+                                class="dp-month-step"
+                                aria-label="Previous month">
+                          <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                        </button>
+                        <button type="button"
+                                id="dp-month-toggle"
+                                class="dp-month-label"
+                                aria-expanded="false"
+                                aria-controls="dp-month-grid">
+                          <span id="dp-month-text">Month</span>
+                          <i class="fas fa-chevron-down dp-month-caret" aria-hidden="true"></i>
+                        </button>
+                        <button type="button"
+                                id="dp-next-month"
+                                class="dp-month-step"
+                                aria-label="Next month">
+                          <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                        </button>
+                      </div>
+                      <div id="dp-month-grid" class="dp-month-grid" hidden>
+                        <div class="dp-year-step">
+                          <button type="button"
+                                  id="dp-prev-year"
+                                  class="dp-month-step"
+                                  aria-label="Previous year">
+                            <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                          </button>
+                          <span id="dp-year-text" class="dp-year-value">Year</span>
+                          <button type="button"
+                                  id="dp-next-year"
+                                  class="dp-month-step"
+                                  aria-label="Next year">
+                            <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                          </button>
+                        </div>
+                        <div id="dp-month-options"
+                             class="dp-month-options"
+                             role="group"
+                             aria-label="Choose a month">
+                        </div>
+                      </div>
                       <input type="text"
                              id="dp-range-date"
                              class="dp-range-input"
