@@ -12,7 +12,7 @@ async def test_sync_geo_coverage_logic_success(monkeypatch) -> None:
     run_mock = AsyncMock(
         return_value={
             "status": "success",
-            "mode": "incremental",
+            "mode": "full",
             "job_id": "job-123",
             "message": "done",
             "result": {"processedTrips": 5},
@@ -23,10 +23,10 @@ async def test_sync_geo_coverage_logic_success(monkeypatch) -> None:
     result = await coverage._sync_geo_coverage_logic()
 
     assert result["status"] == "success"
-    assert result["mode"] == "incremental"
+    assert result["mode"] == "full"
     assert result["job_id"] == "job-123"
     assert result["result"]["processedTrips"] == 5
-    run_mock.assert_awaited_once_with(mode="incremental")
+    run_mock.assert_awaited_once_with()
 
 
 @pytest.mark.asyncio
@@ -49,7 +49,7 @@ async def test_sync_geo_coverage_logic_skipped_when_running(monkeypatch) -> None
         "job_id": "job-running",
         "message": "already running",
     }
-    run_mock.assert_awaited_once_with(mode="incremental")
+    run_mock.assert_awaited_once_with()
 
 
 @pytest.mark.asyncio

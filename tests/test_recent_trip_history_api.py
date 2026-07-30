@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -41,11 +41,19 @@ def test_recent_trip_history_route_wins_over_dynamic_trip_id_route(
     app.include_router(crud.router)
 
     with TestClient(app) as client:
-        response = client.get("/api/trips/history?limit=5")
+        response = client.get(
+            "/api/trips/history"
+            "?limit=5&start_date=2026-07-01&end_date=2026-07-12&imei=vehicle-1"
+        )
 
     assert response.status_code == 200
     assert response.json() == {"trips": recent_trips}
-    get_recent_trips.assert_awaited_once_with(5)
+    get_recent_trips.assert_awaited_once_with(
+        5,
+        start_date="2026-07-01",
+        end_date="2026-07-12",
+        imei="vehicle-1",
+    )
 
 
 @pytest.mark.asyncio
@@ -98,3 +106,33 @@ async def test_recent_trip_history_returns_only_visible_bouncie_trips(
         "type": "Point",
         "coordinates": [-97.1, 32.1],
     }
+
+
+@pytest.mark.asyncio
+async def test_recent_trip_history_applies_date_range_and_vehicle_filters(
+    beanie_db,
+) -> None:
+    del beanie_db
+    for transaction_id, imei, start_time in (
+        ("matching", "vehicle-1", datetime(2026, 7, 10, 18, tzinfo=UTC)),
+        ("wrong-vehicle", "vehicle-2", datetime(2026, 7, 10, 19, tzinfo=UTC)),
+        ("before-range", "vehicle-1", datetime(2026, 7, 8, 20, tzinfo=UTC)),
+        ("after-range", "vehicle-1", datetime(2026, 7, 12, 21, tzinfo=UTC)),
+    ):
+        await Trip(
+            transactionId=transaction_id,
+            imei=imei,
+            source="bouncie",
+            startTime=start_time,
+            endTime=start_time + timedelta(hours=1),
+            distance=1.0,
+        ).insert()
+
+    trips = await TripQueryService.get_recent_trips(
+        limit=10,
+        start_date="2026-07-09",
+        end_date="2026-07-11",
+        imei="vehicle-1",
+    )
+
+    assert [trip["transactionId"] for trip in trips] == ["matching"]

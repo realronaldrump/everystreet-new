@@ -7,6 +7,7 @@ import { CONFIG as APP_CONFIG } from "../../core/config.js";
 import { createFeatureApi } from "../../core/feature-api.js";
 import { swupReady } from "../../core/navigation.js";
 import store from "../../core/store.js";
+import { getRemainingDriveableMiles } from "../navigation-core/coverage-areas.js";
 import metricAnimator from "../../ui/metric-animator.js";
 import notificationManager from "../../ui/notifications.js";
 import { formatDurationCompact } from "../../utils/formatting.js";
@@ -50,6 +51,7 @@ let pageSignal = null;
 let lastKnownLocation = null;
 let metricsLoadRequestId = 0;
 let recordsLoadRequestId = 0;
+let recentTripsLoadRequestId = 0;
 let recordLoading = false;
 let removeFilterRefreshListener = null;
 let featureApi = createFeatureApi();
@@ -258,6 +260,7 @@ function bindFilterRefresh() {
   const refreshDashboard = () => {
     loadMetrics({ showLoading: true });
     loadRecordSources({ showLoading: true });
+    loadRecentTrips();
   };
 
   if (pageSignal) {
@@ -339,12 +342,7 @@ function renderCoverageRegister(areas) {
   elements.coverageRegister.innerHTML = "";
   rows.forEach((area) => {
     const pct = Math.max(0, Math.min(100, Number(area.coverage_percentage)));
-    const total = Number(area.total_length_miles);
-    const driven = Number(area.driven_length_miles);
-    const remaining =
-      Number.isFinite(total) && Number.isFinite(driven)
-        ? Math.max(0, total - driven)
-        : null;
+    const remaining = getRemainingDriveableMiles(area);
     const name = area.display_name?.split(",")[0]?.trim() || "Unnamed area";
 
     const item = document.createElement("li");
@@ -948,8 +946,14 @@ async function loadMetrics({ showLoading = false } = {}) {
  * Fetch recent trips for activity feed
  */
 async function loadRecentTrips() {
+  const requestId = ++recentTripsLoadRequestId;
   try {
-    const data = await apiGet("/api/trips/history?limit=60");
+    const params = buildTripMetricsQueryParams();
+    params.set("limit", "60");
+    const data = await apiGet(`/api/trips/history?${params.toString()}`);
+    if (requestId !== recentTripsLoadRequestId || pageSignal?.aborted) {
+      return;
+    }
     const trips = data.trips || data || [];
 
     // Extract last known location from the most recent trip
@@ -967,20 +971,27 @@ async function loadRecentTrips() {
     }
 
     // Update recent trip meta
-    if (trips.length > 0 && elements.recentTrip) {
+    if (elements.recentTrip) {
+      const valueEl = elements.recentTrip.querySelector(".meta-value");
       const lastTrip = trips[0];
-      const lastTripTime = lastTrip.endTime || lastTrip.startTime;
-      if (lastTripTime) {
-        const valueEl = elements.recentTrip.querySelector(".meta-value");
-        if (valueEl) {
-          valueEl.textContent = formatRelativeTimeShort(new Date(lastTripTime));
-        }
+      const lastTripTime = lastTrip?.endTime || lastTrip?.startTime;
+      if (valueEl) {
+        valueEl.textContent = lastTripTime
+          ? formatRelativeTimeShort(new Date(lastTripTime))
+          : "--";
       }
     }
 
     // Populate activity feed
     populateActivityFeed(trips);
-  } catch {
+  } catch (error) {
+    if (requestId !== recentTripsLoadRequestId || isPageAbortError(error)) {
+      return;
+    }
+    const valueEl = elements.recentTrip?.querySelector(".meta-value");
+    if (valueEl) {
+      valueEl.textContent = "--";
+    }
     populateActivityFeed([]);
   }
 }

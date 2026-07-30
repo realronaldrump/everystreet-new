@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import gc
 import itertools
 import logging
@@ -16,7 +17,8 @@ from statistics import median
 from typing import TYPE_CHECKING, Any, Literal
 
 from beanie import PydanticObjectId
-from pymongo import UpdateOne
+from pymongo import ReturnDocument, UpdateOne
+from pymongo.errors import DuplicateKeyError
 from shapely.geometry import LineString, MultiLineString, shape
 from shapely.ops import transform
 from shapely.strtree import STRtree
@@ -201,6 +203,153 @@ class CoverageSegmentsUpdateResult:
     updated: int
     newly_driven_segment_ids: list[str]
     newly_driven_length_miles: float
+
+
+def _driven_state_update_pipeline(
+    *,
+    area_id: PydanticObjectId,
+    segment_id: str,
+    first_driven_at: datetime,
+    last_driven_at: datetime,
+) -> list[dict[str, Any]]:
+    """Build an atomic monotonic update for one driveable segment state."""
+    return [
+        {
+            "$set": {
+                "area_id": area_id,
+                "segment_id": segment_id,
+                "status": "driven",
+                "first_driven_at": {
+                    "$min": [
+                        {"$ifNull": ["$first_driven_at", first_driven_at]},
+                        first_driven_at,
+                    ]
+                },
+                "last_driven_at": {
+                    "$max": [
+                        {"$ifNull": ["$last_driven_at", last_driven_at]},
+                        last_driven_at,
+                    ]
+                },
+                "manually_marked": {"$ifNull": ["$manually_marked", False]},
+            }
+        }
+    ]
+
+
+def _driven_state_would_change(
+    previous: dict[str, Any] | None,
+    *,
+    first_driven_at: datetime,
+    last_driven_at: datetime,
+) -> bool:
+    if previous is None or previous.get("status") != "driven":
+        return True
+    previous_first = normalize_to_utc_datetime(previous.get("first_driven_at"))
+    previous_last = normalize_to_utc_datetime(previous.get("last_driven_at"))
+    return (
+        previous_first is None
+        or first_driven_at < previous_first
+        or previous_last is None
+        or last_driven_at > previous_last
+    )
+
+
+async def _update_driven_states_atomic(
+    *,
+    area_id: PydanticObjectId,
+    first_by_segment: dict[str, datetime],
+    last_by_segment: dict[str, datetime],
+    trip_by_segment: dict[str, PydanticObjectId] | None = None,
+) -> tuple[int, list[str]]:
+    """Atomically update states and return the exact newly-driven segment IDs."""
+    collection = CoverageState.get_pymongo_collection()
+    semaphore = asyncio.Semaphore(32)
+
+    async def update_one(segment_id: str) -> tuple[str, bool, bool, bool]:
+        first_at = first_by_segment[segment_id]
+        last_at = last_by_segment.get(segment_id, first_at)
+        update_pipeline = _driven_state_update_pipeline(
+            area_id=area_id,
+            segment_id=segment_id,
+            first_driven_at=first_at,
+            last_driven_at=last_at,
+        )
+
+        async with semaphore:
+            try:
+                previous = await collection.find_one_and_update(
+                    {
+                        "area_id": area_id,
+                        "segment_id": segment_id,
+                        "status": {"$ne": "undriveable"},
+                    },
+                    update_pipeline,
+                    upsert=True,
+                    return_document=ReturnDocument.BEFORE,
+                )
+            except DuplicateKeyError:
+                # A concurrent first-drive upsert may win the unique-key race. Retry
+                # only an already-driven state; an undriveable state stays untouched.
+                previous = await collection.find_one_and_update(
+                    {
+                        "area_id": area_id,
+                        "segment_id": segment_id,
+                        "status": "driven",
+                    },
+                    update_pipeline,
+                    upsert=False,
+                    return_document=ReturnDocument.BEFORE,
+                )
+                if previous is None:
+                    return segment_id, False, False, False
+
+        newly_driven = previous is None or previous.get("status") != "driven"
+        changed = _driven_state_would_change(
+            previous,
+            first_driven_at=first_at,
+            last_driven_at=last_at,
+        )
+        return segment_id, True, changed, newly_driven
+
+    results: list[tuple[str, bool, bool, bool]] = []
+    segment_ids = list(first_by_segment)
+    for start in range(0, len(segment_ids), 128):
+        chunk = segment_ids[start : start + 128]
+        results.extend(
+            await asyncio.gather(*(update_one(segment_id) for segment_id in chunk))
+        )
+
+    accepted_ids = [segment_id for segment_id, accepted, _, _ in results if accepted]
+    newly_driven_ids = [segment_id for segment_id, _, _, newly in results if newly]
+
+    if trip_by_segment and accepted_ids:
+        trip_updates = []
+        for segment_id in accepted_ids:
+            trip_id = trip_by_segment.get(segment_id)
+            if trip_id is None:
+                continue
+            last_at = last_by_segment.get(segment_id, first_by_segment[segment_id])
+            trip_updates.append(
+                (
+                    {
+                        "area_id": area_id,
+                        "segment_id": segment_id,
+                        "status": "driven",
+                        "last_driven_at": last_at,
+                    },
+                    {"$set": {"driven_by_trip_id": trip_id}},
+                    False,
+                )
+            )
+        for start in range(0, len(trip_updates), BACKFILL_BULK_WRITE_SIZE):
+            await _bulk_write_updates(
+                collection,
+                trip_updates[start : start + BACKFILL_BULK_WRITE_SIZE],
+                ordered=False,
+            )
+
+    return sum(1 for _, _, changed, _ in results if changed), newly_driven_ids
 
 
 class AreaSegmentIndex:
@@ -743,8 +892,9 @@ async def update_coverage_for_segments(
     """
     Mark segments as driven for an area.
 
-    Uses bulk operations for efficiency. Returns the number of segments
-    updated and which segments were newly driven.
+    Uses atomic per-segment transitions so concurrent callers can identify the
+    exact newly driven set. Returns the number of changed segment states and
+    which segments were newly driven.
     """
     if not segment_ids:
         return CoverageSegmentsUpdateResult(
@@ -785,69 +935,18 @@ async def update_coverage_for_segments(
             newly_driven_length_miles=0.0,
         )
 
-    states = await CoverageState.find(
-        {
-            "area_id": area_id,
-            "segment_id": {"$in": segment_ids},
-            "status": {"$in": ["driven", "undriveable"]},
-        },
-    ).to_list()
-    undriveable_ids = {s.segment_id for s in states if s.status == "undriveable"}
-    if undriveable_ids:
-        segment_ids = [sid for sid in segment_ids if sid not in undriveable_ids]
-
-    if not segment_ids:
-        return CoverageSegmentsUpdateResult(
-            updated=0,
-            newly_driven_segment_ids=[],
-            newly_driven_length_miles=0.0,
-        )
-
-    # Determine which segments are newly driven so we can update cached stats
-    # without a full recompute.
-    driven_ids = {s.segment_id for s in states if s.status == "driven"}
-    newly_driven_ids = [sid for sid in segment_ids if sid not in driven_ids]
-
     driven_at = normalize_to_utc_datetime(driven_at) or get_current_utc_time()
-
-    collection = CoverageState.get_pymongo_collection()
-    updates = [
-        (
-            {"area_id": area_id, "segment_id": segment_id},
-            {
-                "$set": {"status": "driven"},
-                "$max": {"last_driven_at": driven_at},
-                "$min": {"first_driven_at": driven_at},
-                "$setOnInsert": {
-                    "area_id": area_id,
-                    "segment_id": segment_id,
-                    "manually_marked": False,
-                },
-            },
-            True,
-        )
-        for segment_id in segment_ids
-    ]
-    modified, upserted = await _bulk_write_updates(collection, updates, ordered=False)
-    updated = modified + upserted
-
-    # Only associate a trip with the segment if this update sets the most recent
-    # last_driven_at value. This preserves driven_by_trip_id for out-of-order trips.
-    if trip_id is not None and segment_ids:
-        trip_updates = [
-            (
-                {
-                    "area_id": area_id,
-                    "segment_id": segment_id,
-                    "last_driven_at": driven_at,
-                },
-                {"$set": {"driven_by_trip_id": trip_id}},
-                False,
-            )
-            for segment_id in segment_ids
-        ]
-        if trip_updates:
-            await _bulk_write_updates(collection, trip_updates, ordered=False)
+    first_by_segment = dict.fromkeys(segment_ids, driven_at)
+    last_by_segment = dict(first_by_segment)
+    trip_by_segment = (
+        dict.fromkeys(segment_ids, trip_id) if trip_id is not None else None
+    )
+    updated, newly_driven_ids = await _update_driven_states_atomic(
+        area_id=area_id,
+        first_by_segment=first_by_segment,
+        last_by_segment=last_by_segment,
+        trip_by_segment=trip_by_segment,
+    )
 
     if updated:
         logger.debug(
@@ -1284,69 +1383,12 @@ async def backfill_coverage_for_area(
         matched_trips,
     )
 
-    # Determine which segments are newly driven for stats deltas.
-    driven_states = await CoverageState.find(
-        {
-            "area_id": area_id,
-            "segment_id": {"$in": segments_to_update},
-            "status": "driven",
-        },
-    ).to_list()
-    existing_driven = {s.segment_id for s in driven_states}
-    newly_driven_ids = [sid for sid in segments_to_update if sid not in existing_driven]
-
-    # Bulk upsert coverage state with accurate first/last driven timestamps.
-    collection = CoverageState.get_pymongo_collection()
-    operations: list[tuple[dict[str, Any], dict[str, Any], bool]] = []
-    trip_updates: list[tuple[dict[str, Any], dict[str, Any], bool]] = []
-
-    for segment_id in segments_to_update:
-        first_at = segment_first[segment_id]
-        last_at = segment_last.get(segment_id, first_at)
-
-        operations.append(
-            (
-                {"area_id": area_id, "segment_id": segment_id},
-                {
-                    "$set": {"status": "driven"},
-                    "$max": {"last_driven_at": last_at},
-                    "$min": {"first_driven_at": first_at},
-                    "$setOnInsert": {
-                        "area_id": area_id,
-                        "segment_id": segment_id,
-                        "manually_marked": False,
-                    },
-                },
-                True,
-            ),
-        )
-
-        last_trip_id = segment_last_trip.get(segment_id)
-        if last_trip_id is not None:
-            trip_updates.append(
-                (
-                    {
-                        "area_id": area_id,
-                        "segment_id": segment_id,
-                        "last_driven_at": last_at,
-                    },
-                    {"$set": {"driven_by_trip_id": last_trip_id}},
-                    False,
-                ),
-            )
-
-        if len(operations) >= BACKFILL_BULK_WRITE_SIZE:
-            await _bulk_write_updates(collection, operations, ordered=False)
-            operations = []
-
-    if operations:
-        await _bulk_write_updates(collection, operations, ordered=False)
-
-    if trip_updates:
-        # Run in a second pass so last_driven_at is settled before we bind trip ids.
-        for i in range(0, len(trip_updates), BACKFILL_BULK_WRITE_SIZE):
-            chunk = trip_updates[i : i + BACKFILL_BULK_WRITE_SIZE]
-            await _bulk_write_updates(collection, chunk, ordered=False)
+    _updated, newly_driven_ids = await _update_driven_states_atomic(
+        area_id=area_id,
+        first_by_segment=segment_first,
+        last_by_segment=segment_last,
+        trip_by_segment=segment_last_trip,
+    )
 
     newly_driven_length = 0.0
     if newly_driven_ids:

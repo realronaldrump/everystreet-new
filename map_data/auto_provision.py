@@ -108,22 +108,25 @@ async def detect_trip_states() -> dict[str, Any]:
     detected_states: dict[str, int] = {}
     sample_size = 0
 
-    def _bump_state(lon: float, lat: float) -> None:
-        for state in get_states_for_coordinate(lon, lat):
-            detected_states[state] = detected_states.get(state, 0) + 1
-
     def _sample_gps_points(gps: dict[str, Any]) -> list[list[float]]:
-        coords = gps.get("coordinates", [])
-        geom_type = gps.get("type", "")
-        if geom_type == "Point" and len(coords) >= 2:
-            return [coords]
-        if geom_type == "LineString" and coords:
+        def sample_line(coords: Any) -> list[list[float]]:
+            if not isinstance(coords, list) or not coords:
+                return []
             points = [coords[0]]
             if len(coords) > 2:
                 points.append(coords[len(coords) // 2])
             if len(coords) > 1:
                 points.append(coords[-1])
             return points
+
+        coords = gps.get("coordinates", [])
+        geom_type = gps.get("type", "")
+        if geom_type == "Point" and len(coords) >= 2:
+            return [coords]
+        if geom_type == "LineString":
+            return sample_line(coords)
+        if geom_type == "MultiLineString" and isinstance(coords, list):
+            return [point for line in coords for point in sample_line(line)]
         return []
 
     collection = Trip.get_pymongo_collection()
@@ -132,18 +135,22 @@ async def detect_trip_states() -> dict[str, Any]:
         {"gps": 1, "destinationGeoPoint": 1, "_id": 0},
     )
     async for trip_doc in cursor:
+        trip_states: set[str] = set()
         gps = trip_doc.get("gps") or {}
         for point in _sample_gps_points(gps):
             if len(point) >= 2:
-                _bump_state(point[0], point[1])
+                trip_states.update(get_states_for_coordinate(point[0], point[1]))
                 sample_size += 1
 
         dest = trip_doc.get("destinationGeoPoint")
         if dest and "coordinates" in dest:
             coords = dest["coordinates"]
             if len(coords) >= 2:
-                _bump_state(coords[0], coords[1])
+                trip_states.update(get_states_for_coordinate(coords[0], coords[1]))
                 sample_size += 1
+
+        for state in trip_states:
+            detected_states[state] = detected_states.get(state, 0) + 1
 
     # Sort by trip count (most trips first)
     sorted_states = sorted(

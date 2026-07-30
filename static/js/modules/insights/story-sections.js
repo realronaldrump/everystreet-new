@@ -203,12 +203,13 @@ function renderInsightScenes(scenes = []) {
         <button type="button"
                 class="scene-card tone-${scene.tone || "cobalt"}"
                 data-scene-index="${index}"
+                ${scene.action ? "" : "disabled"}
                 aria-label="Open data for ${escapeHtml(scene.title || "pattern")}">
           <div class="scene-icon"><i class="fas ${escapeHtml(scene.icon || "fa-circle")}"></i></div>
           <p class="scene-title">${escapeHtml(scene.title || "Pattern")}</p>
           <p class="scene-value">${escapeHtml(scene.value || "-")}</p>
           <p class="scene-detail">${escapeHtml(scene.detail || "")}</p>
-          <p class="scene-action">Open underlying trips</p>
+          <p class="scene-action">${scene.action ? "Open underlying trips" : "No underlying trips"}</p>
         </button>
       `
     )

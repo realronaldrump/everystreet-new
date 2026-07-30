@@ -85,8 +85,7 @@ TASK_DEFINITIONS: dict[str, dict[str, object]] = {
         "enabled_by_default": True,
         "dependencies": [],
         "description": (
-            "Incrementally updates county/state/city coverage explorer caches using "
-            "new trips since the last geo coverage calculation."
+            "Rebuilds county/state/city coverage explorer caches from all current trips."
         ),
     },
     "sync_mobility_profiles": {

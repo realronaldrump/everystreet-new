@@ -3,6 +3,10 @@
 import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
 import { createMap, isMapboxStyleUrl, waitForMapboxToken } from "../../map-core.js";
 import { escapeHtml } from "../../utils.js";
+import {
+  isAtOrBeforeJournalBoundary,
+  journalDateKey as getJournalDateKey,
+} from "./date-boundaries.js";
 
 const VALID_RANGES = new Set(["all", "365d", "90d"]);
 const VALID_SOURCES = new Set(["all", "trip", "manual"]);
@@ -109,23 +113,7 @@ function dateOnly(value) {
 }
 
 function journalDateKey(value) {
-  const dateText = String(value || "").trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateText)) {
-    return dateText;
-  }
-  const date = parseDate(value);
-  if (!date) {
-    return "";
-  }
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: state.metadata?.timezone || undefined,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  })
-    .formatToParts(date)
-    .reduce((result, part) => ({ ...result, [part.type]: part.value }), {});
-  return `${parts.year}-${parts.month}-${parts.day}`;
+  return getJournalDateKey(value, state.metadata?.timezone);
 }
 
 function normalizeStreetKey(value) {
@@ -447,20 +435,26 @@ function setProgressMap(
   state.mapMode = "progress";
   state.selectedIds.clear();
   const colors = palette();
-  const cutoff = Date.parse(cutoffValue || "") || Number.POSITIVE_INFINITY;
-  const previous = Date.parse(previousValue || "") || Number.NEGATIVE_INFINITY;
+  const timeZone = state.metadata?.timezone;
+  const hasCutoff = Boolean(cutoffValue);
+  const hasPrevious = Boolean(previousValue);
   let earlier = 0;
   let chapter = 0;
   let remaining = 0;
   for (const feature of state.geojson.features || []) {
     const props = feature.properties || {};
-    const first = Date.parse(props.first_driven_at || "");
     if (props.status === "undriveable") {
       setMapFeatureStyle(feature, colors.steel, 1, 0.18);
-    } else if (Number.isFinite(first) && first <= previous) {
+    } else if (
+      hasPrevious &&
+      isAtOrBeforeJournalBoundary(props.first_driven_at, previousValue, timeZone)
+    ) {
       setMapFeatureStyle(feature, colors.steel, 1.7, 0.72);
       earlier += 1;
-    } else if (Number.isFinite(first) && first <= cutoff) {
+    } else if (
+      (!hasCutoff && Boolean(journalDateKey(props.first_driven_at))) ||
+      isAtOrBeforeJournalBoundary(props.first_driven_at, cutoffValue, timeZone)
+    ) {
       setMapFeatureStyle(feature, colors.cobalt, 3.2, 0.96);
       chapter += 1;
     } else {
@@ -1119,7 +1113,7 @@ function updateTimelineCursor(index, { updateUrl = true, updateMap = true } = {}
   if (updateMap) {
     state.mapSelectionPinned = false;
     setProgressMap(
-      `${point.date}T23:59:59Z`,
+      point.date,
       null,
       `Coverage as of ${formatDate(point.date)}`
     );

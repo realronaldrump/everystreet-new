@@ -15,7 +15,7 @@ from core.jobs import JobHandle, create_job, find_job
 from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
-from db.aggregation_utils import get_mongo_tz_expr
+from db.aggregation_utils import build_trip_duration_fields_stage, get_mongo_tz_expr
 from db.models import Job, Place, RecurringRoute, Trip
 from recurring_routes.models import (
     BuildRecurringRoutesRequest,
@@ -43,11 +43,134 @@ from recurring_routes.services.temporal_analytics import (
 )
 from tasks.config import update_task_history_entry
 from tasks.ops import abort_job, enqueue_task
+from trips.serialization import TripSerializer
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 ACTIVE_JOB_STATUSES = {"queued", "pending", "running"}
+
+
+async def _build_route_list_summary(
+    routes: list[RecurringRoute],
+    *,
+    imei: str | None = None,
+) -> dict[str, Any]:
+    route_by_id = {str(route.id): route for route in routes if route.id is not None}
+    route_ids = [route.id for route in routes if route.id is not None]
+    if route_ids:
+        trip_query = enforce_bouncie_source(
+            apply_trip_record_filters(
+                {
+                    "recurringRouteId": {"$in": route_ids},
+                    "invalid": {"$ne": True},
+                },
+                include_invalid=True,
+            )
+        )
+        if imei:
+            trip_query["imei"] = imei
+        rows = await aggregate_to_list(
+            Trip,
+            [
+                {"$match": trip_query},
+                build_trip_duration_fields_stage(include_day_key=False),
+                {
+                    "$addFields": {
+                        "validDistance": {
+                            "$cond": [
+                                {"$gte": ["$distance", 0]},
+                                "$distance",
+                                None,
+                            ]
+                        }
+                    }
+                },
+                {
+                    "$group": {
+                        "_id": "$recurringRouteId",
+                        "tripCount": {"$sum": 1},
+                        "totalMiles": {
+                            "$sum": {"$ifNull": ["$validDistance", 0.0]}
+                        },
+                        "distanceTripCount": {
+                            "$sum": {
+                                "$cond": [
+                                    {"$ne": ["$validDistance", None]},
+                                    1,
+                                    0,
+                                ]
+                            }
+                        },
+                        "totalDurationSeconds": {
+                            "$sum": {"$ifNull": ["$duration_seconds", 0.0]}
+                        },
+                        "durationTripCount": {
+                            "$sum": {
+                                "$cond": [
+                                    {"$ne": ["$duration_seconds", None]},
+                                    1,
+                                    0,
+                                ]
+                            }
+                        },
+                    }
+                },
+            ],
+        )
+    else:
+        rows = []
+
+    total_trips = sum(int(row.get("tripCount") or 0) for row in rows)
+    distance_trip_count = sum(
+        int(row.get("distanceTripCount") or 0) for row in rows
+    )
+    duration_trip_count = sum(
+        int(row.get("durationTripCount") or 0) for row in rows
+    )
+    total_miles = sum(float(row.get("totalMiles") or 0.0) for row in rows)
+    total_duration_seconds = sum(
+        float(row.get("totalDurationSeconds") or 0.0) for row in rows
+    )
+    most_frequent_row = max(
+        rows,
+        key=lambda row: int(row.get("tripCount") or 0),
+        default=None,
+    )
+    most_frequent = (
+        route_by_id.get(str(most_frequent_row.get("_id")))
+        if most_frequent_row
+        else None
+    )
+    most_frequent_count = (
+        int(most_frequent_row.get("tripCount") or 0) if most_frequent_row else 0
+    )
+
+    return {
+        "route_count": len(routes),
+        "trip_count": total_trips,
+        "total_miles": total_miles if distance_trip_count == total_trips else None,
+        "total_hours": (
+            total_duration_seconds / 3600.0
+            if duration_trip_count == total_trips
+            else None
+        ),
+        "distance_trip_count": distance_trip_count,
+        "duration_trip_count": duration_trip_count,
+        "most_frequent": (
+            {
+                "id": str(most_frequent.id),
+                "name": most_frequent.name
+                or most_frequent.auto_name
+                or (
+                    f"{most_frequent.start_label} to {most_frequent.end_label}"
+                ),
+                "trip_count": most_frequent_count,
+            }
+            if most_frequent is not None
+            else None
+        ),
+    }
 
 
 def _route_query(
@@ -223,8 +346,12 @@ async def list_recurring_routes(
         item["place_links"] = {"start": start_link, "end": end_link}
         routes.append(item)
 
-    total = await RecurringRoute.find(query).count()
-    return {"total": total, "routes": routes}
+    summary_routes = await RecurringRoute.find(query).to_list()
+    summary = await _build_route_list_summary(
+        summary_routes,
+        imei=str(imei).strip() if imei else None,
+    )
+    return {"total": summary["route_count"], "routes": routes, "summary": summary}
 
 
 @router.get("/api/recurring_routes/place_pair_analysis", response_model=dict[str, Any])
@@ -338,7 +465,7 @@ async def list_trips_for_route(
             "startTime": data.get("startTime"),
             "endTime": data.get("endTime"),
             "distance": data.get("distance"),
-            "duration": data.get("duration"),
+            "duration": TripSerializer.calculate_duration_seconds(data),
             "fuelConsumed": data.get("fuelConsumed"),
             "maxSpeed": data.get("maxSpeed"),
             "startLocation": data.get("startLocation"),

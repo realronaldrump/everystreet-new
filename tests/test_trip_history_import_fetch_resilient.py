@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -16,7 +16,7 @@ from trips.services.bouncie_ingest_runtime import (
 async def test_fetch_trips_for_window_success() -> None:
     """Happy path: shared fetch runtime returns raw trip payload dicts."""
     window_start = datetime(2020, 3, 1, 6, 0, 0, tzinfo=UTC)
-    window_end = datetime(2020, 3, 8, 6, 0, 0, tzinfo=UTC)
+    window_end = window_start + timedelta(days=7) - timedelta(seconds=1)
 
     raw_trip = {
         "transactionId": "tx-1",
@@ -56,9 +56,41 @@ async def test_fetch_trips_for_window_success() -> None:
 
 
 @pytest.mark.asyncio
+async def test_exact_seven_day_window_is_sliced_without_truncating_end() -> None:
+    window_start = datetime(2020, 3, 1, 6, 0, 0, tzinfo=UTC)
+    window_end = window_start + timedelta(days=7)
+    calls: list[tuple[datetime, datetime]] = []
+
+    async def mock_fetch(token, imei, start_dt, end_dt):
+        del token, imei
+        calls.append((start_dt, end_dt))
+        return []
+
+    mock_client = AsyncMock()
+    mock_client.fetch_trips_for_device_resilient.side_effect = mock_fetch
+
+    await fetch_trips_for_window(
+        mock_client,
+        imei="359486068397551",
+        window_start=window_start,
+        window_end=window_end,
+    )
+
+    assert len(calls) == 2
+    assert all(end - start <= timedelta(days=7) for start, end in calls)
+    assert set(calls) == {
+        (
+            window_start - timedelta(seconds=1),
+            window_end - timedelta(seconds=1),
+        ),
+        (window_end - timedelta(seconds=2), window_end),
+    }
+
+
+@pytest.mark.asyncio
 async def test_fetch_trips_for_window_backfills_missing_imei() -> None:
     window_start = datetime(2020, 3, 1, 6, 0, 0, tzinfo=UTC)
-    window_end = datetime(2020, 3, 8, 6, 0, 0, tzinfo=UTC)
+    window_end = window_start + timedelta(days=7) - timedelta(seconds=1)
 
     raw_trip = {
         "transactionId": "tx-no-imei",
@@ -85,7 +117,7 @@ async def test_fetch_trips_for_window_backfills_missing_imei() -> None:
 async def test_fetch_trips_for_window_splits_on_failure() -> None:
     """When the full window fails, the function splits and retries sub-windows."""
     window_start = datetime(2020, 3, 1, 6, 0, 0, tzinfo=UTC)
-    window_end = datetime(2020, 3, 8, 6, 0, 0, tzinfo=UTC)
+    window_end = window_start + timedelta(days=7) - timedelta(seconds=1)
 
     raw_trip = {
         "transactionId": "tx-1",
@@ -130,9 +162,9 @@ async def test_fetch_trips_for_window_splits_on_failure() -> None:
 
 @pytest.mark.asyncio
 async def test_fetch_trips_for_window_uses_chunked_split() -> None:
-    """A failed 7-day window can be split into fixed-size chunks."""
+    """A failed maximum-size request can be split into fixed-size chunks."""
     window_start = datetime(2020, 3, 1, 6, 0, 0, tzinfo=UTC)
-    window_end = datetime(2020, 3, 8, 6, 0, 0, tzinfo=UTC)
+    window_end = window_start + timedelta(days=7) - timedelta(seconds=1)
 
     raw_trip = {
         "transactionId": "tx-1",

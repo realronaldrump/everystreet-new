@@ -38,6 +38,7 @@ from recurring_routes.services.fingerprint import (
     sample_waypoints,
 )
 from recurring_routes.services.service import coerce_place_id, find_place_id_for_point
+from trips.serialization import TripSerializer
 from trips.services.trip_cost_service import TripCostService
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,6 @@ class TripRouteBuildProjection(BaseModel):
     imei: str | None = None
     startTime: datetime | None = None
     endTime: datetime | None = None
-    duration: float | None = None
     distance: float | None = None
     fuelConsumed: float | None = None
     maxSpeed: float | None = None
@@ -1022,19 +1022,9 @@ class RecurringRoutesBuilder:
                 if isinstance(dist, int | float) and dist >= 0:
                     group["distances"].append(float(dist))
 
-                duration = trip_dict.get("duration")
-                if isinstance(duration, int | float) and duration >= 0:
-                    group["durations"].append(float(duration))
-                else:
-                    st = trip_dict.get("startTime")
-                    et = trip_dict.get("endTime")
-                    if st and et:
-                        try:
-                            delta = (et - st).total_seconds()
-                            if delta >= 0:
-                                group["durations"].append(float(delta))
-                        except Exception:
-                            pass
+                duration = TripSerializer.calculate_duration_seconds(trip_dict)
+                if duration is not None:
+                    group["durations"].append(duration)
 
                 fuel = trip_dict.get("fuelConsumed")
                 if isinstance(fuel, int | float) and fuel > 0:

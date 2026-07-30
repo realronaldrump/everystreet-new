@@ -1,5 +1,6 @@
 import csv
 import json
+from datetime import UTC, datetime
 
 import gpxpy
 import pytest
@@ -68,12 +69,21 @@ async def test_write_geojson_features(tmp_path) -> None:
 async def test_write_gpx_tracks(tmp_path) -> None:
     items = [
         {
-            "coordinates": [[-122.0, 47.0], [-122.1, 47.1]],
+            "segments": [
+                {
+                    "coordinates": [[-122.0, 47.0], [-122.1, 47.1]],
+                    "timestamps": [1704067200, 1704067205],
+                },
+                {
+                    "coordinates": [[-123.0, 48.0], [-123.1, 48.1]],
+                    "timestamps": [1704067210, 1704067215],
+                },
+            ],
             "name": "Trip 1",
             "description": "start: 2024-01-01T00:00:00Z",
         },
         {
-            "coordinates": [],
+            "segments": [],
             "name": "Empty Trip",
         },
     ]
@@ -89,3 +99,10 @@ async def test_write_gpx_tracks(tmp_path) -> None:
     gpx = gpxpy.parse(path.read_text())
     assert len(gpx.tracks) == 1
     assert gpx.tracks[0].name == "Trip 1"
+    assert len(gpx.tracks[0].segments) == 2
+    assert gpx.tracks[0].segments[0].points[0].time == datetime(
+        2024,
+        1,
+        1,
+        tzinfo=UTC,
+    )

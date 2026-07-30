@@ -334,7 +334,7 @@ export class DrivingNavigation {
         this.ui.updateProgress(100, "Loaded undriven streets!");
         setTimeout(() => this.ui.hideProgressContainer(), 1000);
         this.ui.setStatus(
-          `Loaded ${driveableFeatures.length} undriven streets in ${this.selectedArea.display_name || "Unknown"}.`
+          `Loaded ${driveableFeatures.length} undriven segments in ${this.selectedArea.display_name || "Unknown"}.`
         );
       } else {
         this.ui.hideProgressContainer();
@@ -534,7 +534,7 @@ export class DrivingNavigation {
         const topCluster = data.suggested_clusters[0];
         const distanceMiles = (topCluster.distance_to_cluster_m / MI_TO_M).toFixed(1);
         this.ui.setStatus(
-          `Found ${data.suggested_clusters.length} efficient clusters. Top cluster: ${topCluster.segment_count} streets, ${distanceMiles} mi away.`
+          `Found ${data.suggested_clusters.length} efficient clusters. Top cluster: ${topCluster.segment_count} segments, ${distanceMiles} mi away.`
         );
         this.ui.displayEfficientClustersInfo(
           data.suggested_clusters,
@@ -546,7 +546,7 @@ export class DrivingNavigation {
           if (confirmationDialog.show) {
             const confirmed = await confirmationDialog.show({
               title: "Navigate to Cluster",
-              message: `Navigate to the top cluster with ${topCluster.segment_count} streets?`,
+              message: `Navigate to the top cluster with ${topCluster.segment_count} segments?`,
               confirmText: "Navigate",
               confirmButtonClass: "btn-primary",
             });

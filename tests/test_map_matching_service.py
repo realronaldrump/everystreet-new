@@ -182,7 +182,7 @@ async def test_provider_summary_counts_historical_matches_by_provider(
 
     assert summary["total"] == 7
     assert summary["matched"] == 4
-    assert summary["unmatched"] == 3
+    assert summary["pending"] == 1
     assert summary["valhalla_matched"] == 1
     assert summary["mapbox_matched"] == 2
     assert summary["mapbox_fallback_matched"] == 1

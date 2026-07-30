@@ -90,7 +90,9 @@ export function updateAllMetrics() {
   );
   setText(
     "time-context",
-    `Most trips start around ${formatHourLabel(Number(timeSignature.peakHour) || 0)}`
+    Number(timeSignature.totalTrips) > 0
+      ? `Most trips start around ${formatHourLabel(Number(timeSignature.peakHour))}`
+      : "No trip start-time data in this range."
   );
 
   const fuelText =

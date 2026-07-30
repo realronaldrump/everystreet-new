@@ -29,10 +29,11 @@ const dayFmt = new Intl.DateTimeFormat(undefined, {
   day: "numeric",
 });
 
-function formatDurationShort(seconds) {
+export function formatDurationShort(seconds) {
   const total = Math.max(0, Math.round(Number(seconds) || 0));
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.round((total % 3600) / 60);
+  const totalMinutes = Math.max(1, Math.round(total / 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
   if (hours > 0) {
     return `${hours}h ${minutes}m`;
   }

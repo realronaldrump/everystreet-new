@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
@@ -9,6 +10,7 @@ import pytest
 
 from trips.services import trip_history_import_service_core as import_runtime
 from trips.services.geocoding import TripGeocoder
+from trips.services.trip_batch_service import TripService
 
 
 @pytest.mark.asyncio
@@ -98,6 +100,151 @@ async def test_history_import_runtime_uses_geocode_setting(
 
     assert result["status"] == "cancelled"
     assert captured["do_geocode"] is geocode_on_fetch
+
+
+@pytest.mark.asyncio
+async def test_geocoding_progress_reports_only_after_trip_finishes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TripService()
+    processing_started = asyncio.Event()
+    allow_completion = asyncio.Event()
+    progress: list[tuple[int, int, str]] = []
+    trip = SimpleNamespace(
+        source="bouncie",
+        startLocation=None,
+        destination=None,
+        model_dump=lambda: {"transactionId": "tx-progress"},
+    )
+
+    async def fake_get_trip(_trip_id: str):
+        return trip
+
+    async def fake_process(*_args: Any, **_kwargs: Any):
+        processing_started.set()
+        await allow_completion.wait()
+        return {"status": "success"}
+
+    async def on_progress(current: int, total: int, trip_id: str) -> None:
+        progress.append((current, total, trip_id))
+
+    monkeypatch.setattr(service, "get_trip_by_id", fake_get_trip)
+    monkeypatch.setattr(service, "process_single_trip", fake_process)
+
+    task = asyncio.create_task(
+        service.refresh_geocoding(
+            ["tx-progress"],
+            progress_callback=on_progress,
+        )
+    )
+    await processing_started.wait()
+    assert progress == []
+
+    allow_completion.set()
+    result = await task
+
+    assert result["updated"] == 1
+    assert progress == [(1, 1, "tx-progress")]
+
+
+@pytest.mark.asyncio
+async def test_cancelled_geocoding_trip_is_not_reported_as_finished(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TripService()
+    processing_started = asyncio.Event()
+    progress: list[tuple[int, int, str]] = []
+    trip = SimpleNamespace(
+        source="bouncie",
+        startLocation=None,
+        destination=None,
+        model_dump=lambda: {"transactionId": "tx-cancelled-progress"},
+    )
+
+    async def fake_process(*_args: Any, **_kwargs: Any) -> None:
+        processing_started.set()
+        await asyncio.Event().wait()
+
+    async def on_progress(current: int, total: int, trip_id: str) -> None:
+        progress.append((current, total, trip_id))
+
+    monkeypatch.setattr(service, "get_trip_by_id", AsyncMock(return_value=trip))
+    monkeypatch.setattr(service, "process_single_trip", fake_process)
+
+    task = asyncio.create_task(
+        service.refresh_geocoding(
+            ["tx-cancelled-progress"],
+            progress_callback=on_progress,
+        )
+    )
+    await processing_started.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert progress == []
+
+
+@pytest.mark.asyncio
+async def test_cancelled_waiting_import_window_is_not_counted_completed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cancelled = False
+    progress_updates: list[dict[str, Any]] = []
+
+    async def is_cancelled(*, force: bool = False) -> bool:
+        del force
+        return cancelled
+
+    async def fake_fetch(*_args: Any, **_kwargs: Any):
+        nonlocal cancelled
+        await asyncio.sleep(0)
+        cancelled = True
+        return SimpleNamespace(trips=[], failed_windows=[])
+
+    async def fake_process(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        return {
+            "processed_transaction_ids": [],
+            "counters": import_runtime.build_ingest_counters(),
+        }
+
+    async def write_progress(**kwargs: Any) -> None:
+        progress_updates.append(kwargs)
+
+    monkeypatch.setattr(import_runtime, "fetch_trips_for_window_runtime", fake_fetch)
+    monkeypatch.setattr(import_runtime, "process_bouncie_trips_runtime", fake_process)
+
+    runtime = import_runtime.ImportRuntime(
+        client=object(),
+        imeis=["imei-1"],
+        windows_total=2,
+        semaphore=asyncio.Semaphore(1),
+        lock=asyncio.Lock(),
+        counters=import_runtime.build_ingest_counters(),
+        per_device={"imei-1": import_runtime.build_ingest_device_counters()},
+        pipeline=SimpleNamespace(),
+        do_geocode=False,
+        do_coverage=False,
+        add_event=lambda *_args, **_kwargs: None,
+        write_progress=write_progress,
+        is_cancelled=is_cancelled,
+        record_failure_reason=lambda _reason: None,
+    )
+    start = datetime(2025, 1, 1, tzinfo=UTC)
+
+    was_cancelled, windows_completed = await import_runtime._run_import_windows(
+        runtime=runtime,
+        windows=[
+            (start, start.replace(day=2)),
+            (start.replace(day=2), start.replace(day=3)),
+        ],
+        progress_ctx=SimpleNamespace(is_cancelled=is_cancelled),
+    )
+
+    assert was_cancelled is True
+    assert windows_completed == 1
+    assert runtime.per_device["imei-1"]["windows_completed"] == 1
+    assert len(progress_updates) == 1
 
 
 @pytest.mark.asyncio

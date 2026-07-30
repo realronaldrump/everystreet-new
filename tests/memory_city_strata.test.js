@@ -3,10 +3,12 @@ import test from "node:test";
 
 import {
   DAY_MS,
+  calendarDaysSince,
   computeChapters,
   formatChapterSpan,
   prepareModel,
   progressIndex,
+  recencyBucketIndex,
   searchStreets,
 } from "../static/js/modules/features/memory-city/strata.js";
 
@@ -61,6 +63,14 @@ test("prepareModel drops segments without dates or usable paths", () => {
   const model = prepareModel(buildPayload([good, noDate, shortPath]), NOW_MS);
   assert.equal(model.count, 1);
   assert.equal(model.segments[0].segmentId, good.segment_id);
+});
+
+test("recency treats earlier times on the current calendar day as Today", () => {
+  const now = Date.parse("2026-07-29T20:00:00Z");
+  const oneHourAgo = now - 60 * 60 * 1000;
+
+  assert.equal(calendarDaysSince(oneHourAgo, now), 0);
+  assert.equal(recencyBucketIndex(calendarDaysSince(oneHourAgo, now)), 0);
 });
 
 test("prepareModel returns null when nothing is renderable", () => {

@@ -129,7 +129,7 @@ class TripStatsService:
                 metrics["current_trip_id"] = trip_id
                 await job_handle.update(
                     progress=progress_pct,
-                    message=f"Geocoding trip {current} of {total}",
+                    message=f"Geocoded trip {current} of {total}",
                     metadata_patch={
                         "processed": metrics["processed"],
                         "current_trip_id": trip_id,

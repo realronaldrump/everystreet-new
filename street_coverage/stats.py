@@ -92,42 +92,22 @@ async def apply_area_stats_delta(
         {"$set": counter_set},
         {
             "$set": {
-                "driven_length_miles": _round_nonnegative_expr(
-                    {"$max": [0.0, {"$ifNull": ["$driven_length_miles", 0.0]}]},
-                    6,
-                ),
-                "undriveable_length_miles": _round_nonnegative_expr(
-                    {
-                        "$max": [
-                            0.0,
-                            {"$ifNull": ["$undriveable_length_miles", 0.0]},
-                        ],
-                    },
-                    6,
-                ),
-            },
-        },
-        {
-            "$set": {
-                "driveable_length_miles": _round_nonnegative_expr(
-                    {
-                        "$max": [
-                            0.0,
-                            {
-                                "$subtract": [
-                                    {"$ifNull": ["$total_length_miles", 0.0]},
-                                    {
-                                        "$ifNull": [
-                                            "$undriveable_length_miles",
-                                            0.0,
-                                        ],
-                                    },
-                                ],
-                            },
-                        ],
-                    },
-                    3,
-                ),
+                "driveable_length_miles": {
+                    "$max": [
+                        0.0,
+                        {
+                            "$subtract": [
+                                {"$ifNull": ["$total_length_miles", 0.0]},
+                                {
+                                    "$ifNull": [
+                                        "$undriveable_length_miles",
+                                        0.0,
+                                    ]
+                                },
+                            ]
+                        },
+                    ]
+                },
             },
         },
         {
@@ -304,10 +284,10 @@ async def calculate_area_stats(
         "total_segments": r.get("total_segments", 0),
         "driven_segments": r.get("driven_segments", 0),
         "undriveable_segments": r.get("undriveable_segments", 0),
-        "total_length_miles": round(total_length, 3),
-        "driven_length_miles": round(driven_length, 3),
-        "undriveable_length_miles": round(undriveable_length, 3),
-        "driveable_length_miles": round(driveable_length, 3),
+        "total_length_miles": total_length,
+        "driven_length_miles": driven_length,
+        "undriveable_length_miles": undriveable_length,
+        "driveable_length_miles": driveable_length,
         "coverage_percentage": coverage_pct,
     }
 

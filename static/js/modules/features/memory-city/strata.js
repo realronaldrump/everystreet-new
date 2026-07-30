@@ -112,6 +112,35 @@ export function recencyBucketIndex(daysSinceDriven) {
   return RECENCY_STOPS.length - 1;
 }
 
+export function calendarDaysSince(earlierTimestamp, laterTimestamp = Date.now()) {
+  if (
+    earlierTimestamp === null ||
+    earlierTimestamp === undefined ||
+    earlierTimestamp === "" ||
+    laterTimestamp === null ||
+    laterTimestamp === undefined ||
+    laterTimestamp === ""
+  ) {
+    return null;
+  }
+  const earlier = new Date(earlierTimestamp);
+  const later = new Date(laterTimestamp);
+  if (Number.isNaN(earlier.getTime()) || Number.isNaN(later.getTime())) {
+    return null;
+  }
+  const earlierDay = Date.UTC(
+    earlier.getFullYear(),
+    earlier.getMonth(),
+    earlier.getDate()
+  );
+  const laterDay = Date.UTC(
+    later.getFullYear(),
+    later.getMonth(),
+    later.getDate()
+  );
+  return Math.max(0, Math.floor((laterDay - earlierDay) / DAY_MS));
+}
+
 /** Geometric midpoint along a polyline, so the marker sits on the road. */
 function midpointOfPath(path) {
   if (!Array.isArray(path) || path.length < 2) {
@@ -314,7 +343,7 @@ export function prepareModel(payload, now = Date.now()) {
       midpoint,
       firstMs,
       lastMs,
-      daysSinceDriven: Math.max(0, (now - lastMs) / DAY_MS),
+      daysSinceDriven: calendarDaysSince(lastMs, now) ?? 0,
       distinctTripCount,
       revisited: distinctTripCount > 1,
       baseWidth: baseWidthForHighwayType(seg.highway_type),

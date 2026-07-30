@@ -3,11 +3,13 @@ from __future__ import annotations
 import math
 
 import networkx as nx
+import pytest
 from shapely.geometry import LineString
 
 from routing.graph import (
     build_osmid_index,
     choose_consensus_edge_match,
+    edge_length_m,
     graph_units_to_feet,
     prepare_spatial_matching_graph,
     project_linestring_coords,
@@ -32,6 +34,16 @@ def test_graph_units_to_feet_uses_projected_crs_units() -> None:
     G.graph["crs"] = "EPSG:3857"
     distance_ft = graph_units_to_feet(G, 100.0)
     assert math.isclose(distance_ft, 328.084, rel_tol=1e-4)
+
+
+def test_missing_edge_length_uses_projected_crs_linear_units() -> None:
+    G = nx.MultiDiGraph()
+    G.graph["crs"] = "EPSG:2276"  # US survey feet
+    G.add_node(1, x=0.0, y=0.0)
+    G.add_node(2, x=1_000.0, y=0.0)
+    G.add_edge(1, 2, key=0)
+
+    assert edge_length_m(G, 1, 2, 0) == pytest.approx(304.8006096)
 
 
 def test_graph_units_to_feet_geographic_is_latitude_aware() -> None:

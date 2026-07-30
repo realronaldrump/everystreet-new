@@ -31,11 +31,7 @@ export function updateRecalculateUi(isActive, message, details = null) {
       const progress = Number.isFinite(progressRaw)
         ? Math.max(0, Math.min(100, progressRaw))
         : null;
-      const mode = String(details?.mode || "").toLowerCase();
-      const modeLabel =
-        mode === "full"
-          ? "Full rebuild (all trips)"
-          : "Incremental (new/updated trips)";
+      const modeLabel = "Full rebuild (all trips)";
       const stage = details?.stage ? String(details.stage) : "";
       const processedTrips = formatCount(Number(details?.processedTrips));
       const totalTrips = formatCount(Number(details?.totalTrips));

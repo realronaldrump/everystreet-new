@@ -36,6 +36,17 @@ def _normalize_identifier(value: Any) -> str | None:
     return cleaned or None
 
 
+def _location_label(value: Any) -> str | None:
+    if isinstance(value, dict):
+        value = value.get("formatted_address")
+    if not isinstance(value, str):
+        return None
+    cleaned = value.strip()
+    if not cleaned or cleaned.lower() == "unknown":
+        return None
+    return cleaned
+
+
 def _vehicle_recency_score(vehicle: dict[str, Any]) -> float:
     for field in ("updated_at", "last_synced_at", "created_at"):
         dt = parse_timestamp(vehicle.get(field))
@@ -82,9 +93,19 @@ class TripQueryService:
     """Service class for trip querying and filtering operations."""
 
     @staticmethod
-    async def get_recent_trips(limit: int = 5) -> list[dict[str, Any]]:
+    async def get_recent_trips(
+        limit: int = 5,
+        *,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        imei: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Return recent visible Historical Trips for the landing page."""
-        query = TripQuerySpec().to_mongo_query(enforce_source=True)
+        query = TripQuerySpec(
+            start_date=start_date,
+            end_date=end_date,
+            imei=imei,
+        ).to_mongo_query(enforce_source=True)
         trips = await Trip.find(query).sort(-Trip.endTime).limit(limit).to_list()
 
         recent_trips: list[dict[str, Any]] = []
@@ -238,6 +259,160 @@ class TripQueryService:
                 row.get("filtered", [{}])[0].get("n", 0) if row.get("filtered") else 0
             )
 
+        active_filtered_query = {
+            "$and": [query, {"inactive": {"$ne": True}}],
+        }
+        summary_results = await aggregate_to_list(
+            Trip,
+            [
+                {"$match": active_filtered_query},
+                build_trip_duration_fields_stage(include_day_key=False),
+                {
+                    "$addFields": {
+                        "routeStart": {
+                            "$ifNull": [
+                                "$startLocation.formatted_address",
+                                "$startLocation",
+                            ]
+                        },
+                        "routeEnd": {
+                            "$ifNull": [
+                                "$destination.formatted_address",
+                                "$destination",
+                            ]
+                        },
+                    }
+                },
+                {
+                    "$addFields": {
+                        "validDistance": {
+                            "$cond": [
+                                {"$gte": ["$distance", 0]},
+                                "$distance",
+                                None,
+                            ]
+                        },
+                        "validFuel": {
+                            "$cond": [
+                                {"$gte": ["$fuelConsumed", 0]},
+                                "$fuelConsumed",
+                                None,
+                            ]
+                        },
+                    }
+                },
+                {
+                    "$facet": {
+                        "summary": [
+                            {
+                                "$group": {
+                                    "_id": None,
+                                    "totalTrips": {"$sum": 1},
+                                    "totalDistance": {
+                                        "$sum": {"$ifNull": ["$validDistance", 0.0]}
+                                    },
+                                    "distanceTripCount": {
+                                        "$sum": {
+                                            "$cond": [
+                                                {"$ne": ["$validDistance", None]},
+                                                1,
+                                                0,
+                                            ]
+                                        }
+                                    },
+                                    "totalDurationSeconds": {
+                                        "$sum": {"$ifNull": ["$duration_seconds", 0.0]}
+                                    },
+                                    "durationTripCount": {
+                                        "$sum": {
+                                            "$cond": [
+                                                {"$ne": ["$duration_seconds", None]},
+                                                1,
+                                                0,
+                                            ]
+                                        }
+                                    },
+                                    "totalFuel": {
+                                        "$sum": {"$ifNull": ["$validFuel", 0.0]}
+                                    },
+                                    "fuelTripCount": {
+                                        "$sum": {
+                                            "$cond": [
+                                                {"$ne": ["$validFuel", None]},
+                                                1,
+                                                0,
+                                            ]
+                                        }
+                                    },
+                                    "longestDistance": {"$max": "$validDistance"},
+                                }
+                            }
+                        ],
+                        "frequentRoutes": [
+                            {
+                                "$group": {
+                                    "_id": {
+                                        "start": "$routeStart",
+                                        "end": "$routeEnd",
+                                    },
+                                    "count": {"$sum": 1},
+                                }
+                            },
+                            {"$match": {"count": {"$gt": 3}}},
+                        ],
+                    }
+                },
+            ],
+            length=1,
+        )
+        summary_result = summary_results[0] if summary_results else {}
+        summary_rows = summary_result.get("summary") or []
+        summary_row = summary_rows[0] if summary_rows else {}
+        frequent_route_keys = {
+            (start_label, end_label)
+            for route in summary_result.get("frequentRoutes") or []
+            if isinstance(route, dict)
+            for route_id in [route.get("_id")]
+            if isinstance(route_id, dict)
+            for start_label, end_label in [
+                (
+                    _location_label(route_id.get("start")),
+                    _location_label(route_id.get("end")),
+                )
+            ]
+            if start_label is not None and end_label is not None
+        }
+        total_trips = int(summary_row.get("totalTrips") or 0)
+        distance_trip_count = int(summary_row.get("distanceTripCount") or 0)
+        duration_trip_count = int(summary_row.get("durationTripCount") or 0)
+        fuel_trip_count = int(summary_row.get("fuelTripCount") or 0)
+        filtered_summary = {
+            "totalTrips": total_trips,
+            "totalDistance": (
+                float(summary_row.get("totalDistance") or 0.0)
+                if distance_trip_count == total_trips
+                else None
+            ),
+            "distanceTripCount": distance_trip_count,
+            "totalDurationSeconds": (
+                float(summary_row.get("totalDurationSeconds") or 0.0)
+                if duration_trip_count == total_trips
+                else None
+            ),
+            "durationTripCount": duration_trip_count,
+            "totalFuel": (
+                float(summary_row.get("totalFuel") or 0.0)
+                if fuel_trip_count == total_trips
+                else None
+            ),
+            "fuelTripCount": fuel_trip_count,
+            "longestDistance": (
+                float(summary_row["longestDistance"])
+                if summary_row.get("longestDistance") is not None
+                else None
+            ),
+        }
+
         sort_column = None
         sort_direction = -1
         if isinstance(order, list) and order and isinstance(columns, list):
@@ -287,16 +462,157 @@ class TripQueryService:
             sort_column = "startTime"
             sort_direction = -1
 
-        # Cost is calculated after retrieval from fuel and vehicle-specific fillups.
-        # Fuel is the closest persisted server-side ordering signal for this view.
-        if sort_column == "estimated_cost":
-            sort_column = "fuelConsumed"
-
         # Determine if we need to use aggregation for sorting
         use_aggregation = False
         pipeline = [{"$match": query}]
 
-        if sort_column == "vehicleLabel":
+        if sort_column == "estimated_cost":
+            use_aggregation = True
+            pipeline.extend(
+                [
+                    {
+                        "$lookup": {
+                            "from": "gas_fillups",
+                            "let": {
+                                "tripImei": "$imei",
+                                "tripRefTime": {
+                                    "$ifNull": ["$endTime", "$startTime"]
+                                },
+                            },
+                            "pipeline": [
+                                {
+                                    "$match": {
+                                        "$expr": {
+                                            "$and": [
+                                                {"$ne": ["$imei", None]},
+                                                {"$ne": ["$imei", ""]},
+                                                {"$ne": ["$$tripImei", None]},
+                                                {"$ne": ["$$tripImei", ""]},
+                                                {"$eq": ["$imei", "$$tripImei"]},
+                                                {"$ne": ["$$tripRefTime", None]},
+                                                {
+                                                    "$lte": [
+                                                        "$fillup_time",
+                                                        "$$tripRefTime",
+                                                    ]
+                                                },
+                                            ]
+                                        }
+                                    }
+                                },
+                                {
+                                    "$addFields": {
+                                        "costGallons": {
+                                            "$convert": {
+                                                "input": "$gallons",
+                                                "to": "double",
+                                                "onError": None,
+                                                "onNull": None,
+                                            }
+                                        },
+                                        "costTotal": {
+                                            "$convert": {
+                                                "input": "$total_cost",
+                                                "to": "double",
+                                                "onError": None,
+                                                "onNull": None,
+                                            }
+                                        },
+                                        "costPrice": {
+                                            "$convert": {
+                                                "input": "$price_per_gallon",
+                                                "to": "double",
+                                                "onError": None,
+                                                "onNull": None,
+                                            }
+                                        },
+                                    }
+                                },
+                                {
+                                    "$addFields": {
+                                        "effectivePrice": {
+                                            "$cond": [
+                                                {
+                                                    "$and": [
+                                                        {"$gt": ["$costGallons", 0]},
+                                                        {"$ne": ["$costTotal", None]},
+                                                    ]
+                                                },
+                                                {
+                                                    "$divide": [
+                                                        "$costTotal",
+                                                        "$costGallons",
+                                                    ]
+                                                },
+                                                "$costPrice",
+                                            ]
+                                        }
+                                    }
+                                },
+                                {"$match": {"effectivePrice": {"$gt": 0}}},
+                                {"$sort": {"fillup_time": -1}},
+                                {"$limit": 1},
+                                {"$project": {"_id": 0, "effectivePrice": 1}},
+                            ],
+                            "as": "costFillup",
+                        }
+                    },
+                    {
+                        "$addFields": {
+                            "costFuel": {
+                                "$convert": {
+                                    "input": "$fuelConsumed",
+                                    "to": "double",
+                                    "onError": None,
+                                    "onNull": None,
+                                }
+                            },
+                            "costPrice": {
+                                "$arrayElemAt": [
+                                    "$costFillup.effectivePrice",
+                                    0,
+                                ]
+                            },
+                        }
+                    },
+                    {
+                        "$addFields": {
+                            "estimatedCostSort": {
+                                "$cond": [
+                                    {
+                                        "$and": [
+                                            {"$ne": ["$costFuel", None]},
+                                            {"$gt": ["$costPrice", 0]},
+                                        ]
+                                    },
+                                    {"$multiply": ["$costFuel", "$costPrice"]},
+                                    None,
+                                ]
+                            },
+                        }
+                    },
+                    {
+                        "$addFields": {
+                            "estimatedCostMissing": {
+                                "$cond": [
+                                    {"$eq": ["$estimatedCostSort", None]},
+                                    1,
+                                    0,
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        "$sort": {
+                            "estimatedCostMissing": 1,
+                            "estimatedCostSort": sort_direction,
+                            "startTime": -1,
+                        }
+                    },
+                ]
+            )
+
+        elif sort_column == "vehicleLabel":
             use_aggregation = True
             # Join with vehicles to get the label
             pipeline.extend(
@@ -386,9 +702,7 @@ class TripQueryService:
             use_aggregation = True
             pipeline.extend(
                 [
-                    build_trip_duration_fields_stage(
-                        default_duration_field="$duration",
-                    ),
+                    build_trip_duration_fields_stage(include_day_key=False),
                     {"$sort": {"duration_seconds": sort_direction, "startTime": -1}},
                 ],
             )
@@ -516,6 +830,24 @@ class TripQueryService:
                 "inactiveAt": normalized_trip.get("inactiveAt"),
                 "inactiveReason": normalized_trip.get("inactiveReason"),
             }
+            distance = normalized_trip.get("distance")
+            formatted_trip["isLongest"] = bool(
+                not formatted_trip["inactive"]
+                and isinstance(distance, int | float)
+                and distance > 10
+                and filtered_summary["longestDistance"] is not None
+                and distance == filtered_summary["longestDistance"]
+            )
+            route_key = (
+                _location_label(start_location),
+                _location_label(destination),
+            )
+            formatted_trip["isFrequentRoute"] = bool(
+                not formatted_trip["inactive"]
+                and route_key[0] is not None
+                and route_key[1] is not None
+                and route_key in frequent_route_keys
+            )
             formatted_data.append(formatted_trip)
 
         # Enrich with vehicle metadata if available
@@ -593,6 +925,7 @@ class TripQueryService:
             "draw": draw,
             "recordsTotal": total_count,
             "recordsFiltered": filtered_count,
+            "filteredSummary": filtered_summary,
             "data": formatted_data,
         }
 

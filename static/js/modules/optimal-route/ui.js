@@ -1,4 +1,7 @@
 import notificationManager from "../ui/notifications.js";
+import {
+  getRemainingDriveableMiles,
+} from "../features/navigation-core/coverage-areas.js";
 import { MI_TO_M } from "../utils/geo-math.js";
 import { escapeHtml } from "../utils.js";
 import { SCANNER_STAGES, STAGE_COPY } from "./constants.js";
@@ -70,10 +73,9 @@ export class OptimalRouteUI {
       option.dataset.status = String(status || "");
       option.dataset.processing = isProcessing ? "true" : "false";
       option.disabled = isProcessing;
-      const totalLengthMeters = (area.total_length_miles || 0) * MI_TO_M;
-      const drivenLengthMeters = (area.driven_length_miles || 0) * MI_TO_M;
+      const remainingMiles = getRemainingDriveableMiles(area);
       option.dataset.remaining = this.formatDistance(
-        totalLengthMeters - drivenLengthMeters
+        remainingMiles === null ? null : remainingMiles * MI_TO_M
       );
       this.areaSelect.appendChild(option);
     });
@@ -150,9 +152,9 @@ export class OptimalRouteUI {
     }
 
     const coverage = Math.min(100, Math.max(0, Number(area.coverage_percentage) || 0));
-    const totalMiles = Number(area.total_length_miles) || 0;
     const drivenMiles = Number(area.driven_length_miles) || 0;
-    const remainingMeters = Math.max(0, totalMiles - drivenMiles) * MI_TO_M;
+    const remainingMiles = getRemainingDriveableMiles(area);
+    const remainingMeters = remainingMiles === null ? null : remainingMiles * MI_TO_M;
     const remainingLabel = this.formatDistance(remainingMeters);
     const areaName = area.display_name;
 

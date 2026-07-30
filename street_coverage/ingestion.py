@@ -813,9 +813,7 @@ async def _run_ingestion_pipeline(
         )
         segment_ms = (datetime.now(UTC) - stage_start).total_seconds() * 1000
 
-        # Calculate total miles
-        total_length_m = sum(s.get("length_meters", 0) for s in segments)
-        total_miles = total_length_m * METERS_TO_MILES
+        total_miles = _total_segment_miles(segments)
 
         logger.info(
             "Created %s segments for %s",
@@ -1748,6 +1746,11 @@ def _segment_streets(
                     seq += 1
 
     return segments
+
+
+def _total_segment_miles(segments: list[dict[str, Any]]) -> float:
+    """Return the total persisted length for generated street segments."""
+    return sum(float(segment["length_miles"]) for segment in segments)
 
 
 def _extract_line_segment(

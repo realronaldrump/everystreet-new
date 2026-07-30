@@ -830,19 +830,28 @@ async function autoCalcOdometer() {
     const result = await response.json();
 
     if (result.estimated_odometer !== null) {
-      setOdometerFromSource(result.estimated_odometer, "estimated", {
-        estimated: true,
-      });
+      const isExactManualAnchor = result.confidence === "exact";
+      setOdometerFromSource(
+        result.estimated_odometer,
+        isExactManualAnchor ? "manual" : "estimated",
+        {
+          estimated: !isExactManualAnchor,
+        }
+      );
       // Visual feedback
       odoInput.classList.add("is-valid");
       setTimeout(() => {
         odoInput.classList.remove("is-valid");
       }, 1000);
-      const confidence =
-        result.confidence === "calibrated" ? "calibrated" : "low confidence";
-      showSuccess(
-        `Estimated odometer (${confidence}, ${result.distance_diff} mi from anchor)`
-      );
+      if (isExactManualAnchor) {
+        showSuccess("Trusted odometer (exact manual reading)");
+      } else {
+        const confidence =
+          result.confidence === "calibrated" ? "calibrated" : "low confidence";
+        showSuccess(
+          `Estimated odometer (${confidence}, ${result.distance_diff} mi from anchor)`
+        );
+      }
       updateMpgReadiness();
     } else {
       showError("Could not estimate: No previous/next trusted odometer found.");

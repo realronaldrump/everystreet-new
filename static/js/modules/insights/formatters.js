@@ -7,6 +7,38 @@
 import store from "../core/store.js";
 import { formatDateToString, formatDuration, formatHourLabel } from "../utils.js";
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+export function parseCalendarDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
+  if (!match) {
+    return null;
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+}
+
+export function formatCalendarDate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return [
+    date.getUTCFullYear(),
+    String(date.getUTCMonth() + 1).padStart(2, "0"),
+    String(date.getUTCDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 // Re-export common formatters
 export { formatDuration, formatHourLabel };
 
@@ -39,16 +71,11 @@ export function getDateRange() {
  * @returns {number} Number of days in range
  */
 export function calculateDaysDiff(startDate, endDate) {
-  try {
-    const startDateObj = new Date(startDate);
-    const endDateObj = new Date(endDate);
-    if (!Number.isNaN(startDateObj.getTime()) && !Number.isNaN(endDateObj.getTime())) {
-      const diffTime = endDateObj - startDateObj;
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-      return Math.max(diffDays, 1);
-    }
-  } catch {
-    // Ignore invalid dates
+  const startDateObj = parseCalendarDate(startDate);
+  const endDateObj = parseCalendarDate(endDate);
+  if (startDateObj && endDateObj) {
+    const diffDays = Math.floor((endDateObj - startDateObj) / MS_PER_DAY) + 1;
+    return Math.max(diffDays, 1);
   }
   return 1;
 }
@@ -60,17 +87,17 @@ export function calculateDaysDiff(startDate, endDate) {
  * @returns {Object} Previous period date range
  */
 export function calculatePreviousRange(startDate, periodDays) {
-  const prevEndDateObj = new Date(startDate);
-  if (Number.isNaN(prevEndDateObj.getTime())) {
+  const startDateObj = parseCalendarDate(startDate);
+  if (!startDateObj || !Number.isFinite(periodDays) || periodDays < 1) {
     throw new Error("Invalid date range");
   }
-  prevEndDateObj.setDate(prevEndDateObj.getDate() - 1);
-
-  const prevStartDateObj = new Date(prevEndDateObj);
-  prevStartDateObj.setDate(prevStartDateObj.getDate() - (periodDays - 1));
+  const prevEndDateObj = new Date(startDateObj.getTime() - MS_PER_DAY);
+  const prevStartDateObj = new Date(
+    prevEndDateObj.getTime() - (periodDays - 1) * MS_PER_DAY
+  );
 
   return {
-    start: formatDate(prevStartDateObj),
-    end: formatDate(prevEndDateObj),
+    start: formatCalendarDate(prevStartDateObj),
+    end: formatCalendarDate(prevEndDateObj),
   };
 }

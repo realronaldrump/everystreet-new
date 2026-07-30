@@ -56,11 +56,14 @@ def _build_trip_geometry(
         return Point(coords[0], coords[1]), 1
 
     if geom_type == "LineString" and len(coords) >= 2:
+        if max_points < 2:
+            return None, 0
         if len(coords) > max_points:
-            step = max(1, len(coords) // max_points)
-            coords = coords[::step]
-            if coords[-1] != gps.get("coordinates", [])[-1]:
-                coords.append(gps["coordinates"][-1])
+            last_index = len(coords) - 1
+            coords = [
+                coords[round(index * last_index / (max_points - 1))]
+                for index in range(max_points)
+            ]
         return LineString(coords), len(coords)
 
     return None, 0

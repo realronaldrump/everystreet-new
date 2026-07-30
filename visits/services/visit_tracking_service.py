@@ -5,6 +5,7 @@ from typing import Any
 
 from core.date_utils import normalize_to_utc_datetime
 from core.trip_query_spec import apply_trip_record_filters
+from core.trip_source_policy import BOUNCIE_SOURCE, enforce_bouncie_source
 from db.aggregation import aggregate_to_list
 from db.models import Place, Trip
 from db.schemas import PlaceResponse
@@ -16,13 +17,17 @@ class VisitTrackingService:
     """Service class for visit tracking and calculation."""
 
     @staticmethod
-    async def calculate_visits_for_place(place: Place | PlaceResponse) -> list[dict]:
+    async def calculate_visits_for_place(
+        place: Place | PlaceResponse,
+        *,
+        arrival_since: Any | None = None,
+    ) -> list[dict]:
         """
         Calculate visits for a place using a single MongoDB aggregation.
 
         This avoids the N+1 query pattern by:
         - Matching all trips that end at the place (destinationPlaceId or within geometry)
-        - Looking up the next global trip with startTime > arrival endTime
+        - Looking up the next visible Bouncie trip for the same vehicle
         - Using $setWindowFields to compute time since previous visit's departure
 
         Args:
@@ -57,12 +62,16 @@ class VisitTrackingService:
                 {"destinationGeoPoint": {"$geoWithin": {"$geometry": geometry}}},
             )
 
-        ended_at_place_match = apply_trip_record_filters(
-            {
-                "$or": match_conditions,
-                "endTime": {"$ne": None},
-            }
+        ended_at_place_match = enforce_bouncie_source(
+            apply_trip_record_filters(
+                {
+                    "$or": match_conditions,
+                    "endTime": {"$ne": None},
+                }
+            )
         )
+        if arrival_since is not None:
+            ended_at_place_match["endTime"] = {"$gte": arrival_since}
 
         pipeline = [
             {"$match": ended_at_place_match},
@@ -70,11 +79,30 @@ class VisitTrackingService:
             {
                 "$lookup": {
                     "from": "trips",
-                    "let": {"arrivalEnd": "$endTime"},
+                    "let": {
+                        "arrivalEnd": "$endTime",
+                        "arrivalImei": "$imei",
+                    },
                     "pipeline": [
-                        {"$match": {"$expr": {"$gt": ["$startTime", "$$arrivalEnd"]}}},
-                        {"$match": {"invalid": {"$ne": True}}},
-                        {"$match": {"inactive": {"$ne": True}}},
+                        {
+                            "$match": {
+                                "$expr": {
+                                    "$and": [
+                                        {"$ne": ["$$arrivalImei", None]},
+                                        {"$ne": ["$$arrivalImei", ""]},
+                                        {"$eq": ["$imei", "$$arrivalImei"]},
+                                        {"$gte": ["$startTime", "$$arrivalEnd"]},
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "$match": {
+                                "source": BOUNCIE_SOURCE,
+                                "invalid": {"$ne": True},
+                                "inactive": {"$ne": True},
+                            }
+                        },
                         {"$sort": {"startTime": 1}},
                         {"$limit": 1},
                         {"$project": {"_id": 0, "startTime": 1}},

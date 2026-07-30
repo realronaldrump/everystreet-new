@@ -1,6 +1,7 @@
 import apiClient from "../../core/api-client.js";
 import { swupReady } from "../../core/navigation.js";
 import { escapeHtml, isAbortError } from "../../utils.js";
+import { getRemainingDriveableMiles } from "../navigation-core/coverage-areas.js";
 import { createCoverageRouteDraft, saveCoverageRouteDraft } from "./draft.js";
 import CoverageDioramaRenderer from "./renderer.js";
 import { loadTerrainMosaic, selectTerrainTiles } from "./terrain.js";
@@ -202,10 +203,7 @@ export default async function initCoverageDioramaPage(context = {}) {
 
   function renderAreaSummary(area, features, tilePlan) {
     const drivenMiles = Number(area.driven_length_miles || 0);
-    const totalDriveable = Number(
-      area.driveable_length_miles || area.total_length_miles || 0
-    );
-    const remaining = Math.max(0, totalDriveable - drivenMiles);
+    const remaining = getRemainingDriveableMiles(area);
     setText(elements.title, area.display_name || "Coverage Diorama");
     setText(
       elements.subtitle,
@@ -213,7 +211,7 @@ export default async function initCoverageDioramaPage(context = {}) {
     );
     setText(elements.current, `${Number(area.coverage_percentage || 0).toFixed(1)}%`);
     setText(elements.driven, `${drivenMiles.toFixed(1)} mi`);
-    setText(elements.remaining, `${remaining.toFixed(1)} mi`);
+    setText(elements.remaining, remaining === null ? "—" : `${remaining.toFixed(1)} mi`);
   }
 
   function setMode(mode) {

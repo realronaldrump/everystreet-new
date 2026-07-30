@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import contextlib
 import logging
 import os
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
-from bson import ObjectId
 from fastapi import BackgroundTasks, HTTPException, status
 from shapely import STRtree
 from shapely.geometry import Point, shape
@@ -22,9 +20,7 @@ from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
 from county.services.county_data_service import get_county_topology_document
 from county.services.topojson_utils import topojson_to_geojson
-from db.aggregation import aggregate_to_list
 from db.models import (
-    AppSettings,
     CityBoundary,
     CityVisitedCache,
     CountyVisitedCache,
@@ -36,7 +32,6 @@ from db.models import (
 logger = logging.getLogger(__name__)
 
 GEO_COVERAGE_JOB_TYPE = "geo_coverage_recalc"
-GEO_RECALC_MODES: set[str] = {"incremental", "full"}
 GEO_RECALC_ACTIVE_STATUSES: set[str] = {"pending", "running"}
 GEO_RECALC_STALE_AFTER_SECONDS = int(
     os.getenv("GEO_RECALC_STALE_AFTER_SECONDS", str(6 * 60 * 60))
@@ -84,6 +79,29 @@ def _record_visit(
         visit_map[key]["firstVisit"] = visit_time
     if visit_map[key]["lastVisit"] is None or visit_time > visit_map[key]["lastVisit"]:
         visit_map[key]["lastVisit"] = visit_time
+
+
+def _record_boundary_visits(
+    *,
+    trip_geometry: Any,
+    boundary_tree: STRtree | None,
+    boundary_index_lookup: dict[int, int],
+    boundary_shapes: list[Any],
+    boundary_ids: list[str],
+    visit_map: dict[str, dict[str, datetime | None]],
+    visit_time: datetime | None,
+) -> None:
+    """Record every boundary intersected by any supported trip geometry."""
+    if boundary_tree is None:
+        return
+    for idx in _iter_tree_indexes(
+        boundary_tree,
+        boundary_index_lookup,
+        len(boundary_shapes),
+        trip_geometry,
+    ):
+        if boundary_shapes[idx].intersects(trip_geometry):
+            _record_visit(visit_map, boundary_ids[idx], visit_time)
 
 
 def _extract_stop_points(
@@ -164,43 +182,27 @@ def _state_fips(value: str | None) -> str:
     return raw
 
 
-def _normalize_recalc_mode(value: str | None) -> Literal["incremental", "full"]:
-    mode = str(value or "").strip().lower()
-    if mode in GEO_RECALC_MODES:
-        return mode  # type: ignore[return-value]
-    return "incremental"
+def _valid_state_fips(value: str | None) -> str | None:
+    normalized = _state_fips(value)
+    if len(normalized) == 2 and normalized.isdigit():
+        return normalized
+    return None
 
 
-def _trip_marker(trip: Trip) -> datetime | None:
-    trip_id_generation_time = parse_timestamp(
-        getattr(getattr(trip, "id", None), "generation_time", None)
-    )
-    candidates = [
-        parse_timestamp(trip.saved_at),
-        parse_timestamp(trip.lastUpdate),
-        parse_timestamp(trip.matched_at),
-        parse_timestamp(trip.endTime),
-        parse_timestamp(trip.startTime),
-        trip_id_generation_time,
-    ]
-    return max((value for value in candidates if value), default=None)
+def _county_fips(value: Any) -> str | None:
+    raw = str(value if value is not None else "").strip()
+    if not raw.isdigit() or len(raw) > 5:
+        return None
+    return raw.zfill(5)
 
 
-def _deserialize_visit_map(
-    raw_map: dict[str, Any] | None,
-    *,
-    first_key: str = "firstVisit",
-    last_key: str = "lastVisit",
-) -> dict[str, dict[str, datetime | None]]:
-    output: dict[str, dict[str, datetime | None]] = {}
-    for key, payload in (raw_map or {}).items():
-        if not isinstance(payload, dict):
-            continue
-        output[str(key)] = {
-            "firstVisit": parse_timestamp(payload.get(first_key)),
-            "lastVisit": parse_timestamp(payload.get(last_key)),
-        }
-    return output
+def _valid_boundary_geometry(value: Any) -> Any | None:
+    if not isinstance(value, dict):
+        return None
+    try:
+        return validate_and_fix_geometry(shape(value))
+    except Exception:
+        return None
 
 
 def _serialize_visit_map(
@@ -227,28 +229,7 @@ def _serialize_stop_map(
     }
 
 
-def _get_incremental_checkpoint(
-    county_cache: CountyVisitedCache | None,
-    city_cache: CityVisitedCache | None,
-) -> datetime | None:
-    if not county_cache or not city_cache:
-        return None
-
-    county_checkpoint = parse_timestamp(
-        getattr(county_cache, "last_processed_trip_at", None),
-    )
-    city_checkpoint = parse_timestamp(
-        getattr(city_cache, "last_processed_trip_at", None),
-    )
-
-    if county_checkpoint is None or city_checkpoint is None:
-        return None
-
-    # Use the earliest checkpoint so both caches are safely backfilled.
-    return min(county_checkpoint, city_checkpoint)
-
-
-def _build_trip_query(checkpoint: datetime | None = None) -> dict[str, Any]:
+def _build_trip_query() -> dict[str, Any]:
     geometry_filter = apply_trip_record_filters(
         {
             "invalid": {"$ne": True},
@@ -264,29 +245,7 @@ def _build_trip_query(checkpoint: datetime | None = None) -> dict[str, Any]:
         include_invalid=True,
     )
 
-    if not checkpoint:
-        return enforce_bouncie_source(geometry_filter)
-
-    checkpoint_filters: list[dict[str, Any]] = [
-        {"lastUpdate": {"$gt": checkpoint}},
-        {"matched_at": {"$gt": checkpoint}},
-        {"endTime": {"$gt": checkpoint}},
-        {"startTime": {"$gt": checkpoint}},
-        {"saved_at": {"$gt": checkpoint}},
-    ]
-    with contextlib.suppress(Exception):
-        checkpoint_filters.append({"_id": {"$gt": ObjectId.from_datetime(checkpoint)}})
-
-    return enforce_bouncie_source(
-        {
-            "$and": [
-                geometry_filter,
-                {
-                    "$or": checkpoint_filters,
-                },
-            ]
-        }
-    )
+    return enforce_bouncie_source(geometry_filter)
 
 
 def _serialize_job(job: Job | None) -> dict[str, Any] | None:
@@ -294,7 +253,6 @@ def _serialize_job(job: Job | None) -> dict[str, Any] | None:
         return None
 
     payload = serialize_job_payload(job)
-    mode = _normalize_recalc_mode((job.metadata or {}).get("mode"))
     return {
         "id": str(payload["job_id"]),
         "status": payload["status"],
@@ -302,7 +260,7 @@ def _serialize_job(job: Job | None) -> dict[str, Any] | None:
         "progress": payload["progress"],
         "message": payload["message"] or "",
         "error": payload["error"],
-        "mode": mode,
+        "mode": "full",
         "createdAt": payload["created_at"],
         "startedAt": payload["started_at"],
         "updatedAt": payload["updated_at"],
@@ -395,16 +353,6 @@ async def _get_latest_geo_recalc_job() -> Job | None:
     return jobs[0] if jobs else None
 
 
-async def _get_default_recalc_mode() -> Literal["incremental", "full"]:
-    settings = await AppSettings.find_one()
-    setting_mode = (
-        str(getattr(settings, "geoCoverageRecalcMode", "incremental"))
-        if settings
-        else "incremental"
-    )
-    return _normalize_recalc_mode(setting_mode)
-
-
 async def _update_geo_job(
     job: Job | None,
     *,
@@ -451,33 +399,6 @@ async def _get_county_topology_payload() -> dict[str, Any]:
         msg = "County topology could not be loaded from database"
         raise RuntimeError(msg)
     return document
-
-
-async def _get_county_state_totals() -> dict[str, dict[str, Any]]:
-    topology_document = await _get_county_topology_payload()
-    topology = topology_document["topology"]
-
-    counties_geojson = topojson_to_geojson(topology, "counties")
-    states_geojson = topojson_to_geojson(topology, "states")
-
-    state_names: dict[str, str] = {}
-    for feature in states_geojson:
-        state_fips = str(feature.get("id", "")).zfill(2)
-        state_name = str((feature.get("properties") or {}).get("name") or "Unknown")
-        state_names[state_fips] = state_name
-
-    totals: dict[str, dict[str, Any]] = {}
-    for feature in counties_geojson:
-        county_fips = str(feature.get("id", "")).zfill(5)
-        state_fips = county_fips[:2]
-        if state_fips not in totals:
-            totals[state_fips] = {
-                "name": state_names.get(state_fips, "Unknown"),
-                "total": 0,
-            }
-        totals[state_fips]["total"] += 1
-
-    return totals
 
 
 async def _get_state_feature_collection() -> dict[str, Any]:
@@ -545,16 +466,12 @@ def _iter_tree_indexes(
 
 async def calculate_geo_coverage_task(
     *,
-    mode: Literal["incremental", "full"] = "incremental",
     job_id: str | None = None,
 ) -> None:
     """Background task to calculate county + city visit coverage."""
-    requested_mode = _normalize_recalc_mode(mode)
     job = await _resolve_job(job_id)
 
-    logger.info(
-        "Starting unified geo coverage calculation (mode=%s)...", requested_mode
-    )
+    logger.info("Starting full unified geo coverage calculation...")
     start_time = datetime.now(UTC)
 
     await _update_geo_job(
@@ -571,21 +488,31 @@ async def calculate_geo_coverage_task(
 
         counties_geojson = topojson_to_geojson(topology, "counties")
 
+        state_names: dict[str, str] = {}
+        for feature in topojson_to_geojson(topology, "states"):
+            state_fips = _valid_state_fips(feature.get("id"))
+            if state_fips:
+                state_names[state_fips] = str(
+                    (feature.get("properties") or {}).get("name") or "Unknown"
+                )
+
         county_shapes = []
         county_fips = []
+        county_totals_by_state: dict[str, int] = {}
         invalid_counties = 0
 
         for feature in counties_geojson:
-            try:
-                geom = shape(feature["geometry"])
-                geom = validate_and_fix_geometry(geom)
-                if not geom:
-                    invalid_counties += 1
-                    continue
-                county_shapes.append(geom)
-                county_fips.append(str(feature.get("id", "")).zfill(5))
-            except Exception:
+            county_id = _county_fips(feature.get("id"))
+            geom = _valid_boundary_geometry(feature.get("geometry"))
+            if county_id is None or geom is None:
                 invalid_counties += 1
+                continue
+            state_fips = county_id[:2]
+            county_shapes.append(geom)
+            county_fips.append(county_id)
+            county_totals_by_state[state_fips] = (
+                county_totals_by_state.get(state_fips, 0) + 1
+            )
 
         county_tree = STRtree(county_shapes) if county_shapes else None
         county_index_lookup = _build_query_index(county_shapes)
@@ -604,29 +531,21 @@ async def calculate_geo_coverage_task(
         invalid_cities = 0
 
         for city in city_docs:
-            state_fips = _state_fips(city.state_fips)
-            if not state_fips:
+            state_fips = _valid_state_fips(city.state_fips)
+            geom = _valid_boundary_geometry(city.geometry)
+            if state_fips is None or geom is None:
                 invalid_cities += 1
                 continue
-
-            try:
-                geom = shape(city.geometry)
-                geom = validate_and_fix_geometry(geom)
-                if not geom:
-                    invalid_cities += 1
-                    continue
-                city_shapes.append(geom)
-                city_ids.append(city.id)
-                city_state_index[city.id] = state_fips
-                city_totals_by_state[state_fips] = (
-                    city_totals_by_state.get(state_fips, 0) + 1
-                )
-                city_state_names[state_fips] = city.state_name or city_state_names.get(
-                    state_fips,
-                    "Unknown",
-                )
-            except Exception:
-                invalid_cities += 1
+            city_shapes.append(geom)
+            city_ids.append(city.id)
+            city_state_index[city.id] = state_fips
+            city_totals_by_state[state_fips] = (
+                city_totals_by_state.get(state_fips, 0) + 1
+            )
+            city_state_names[state_fips] = city.state_name or city_state_names.get(
+                state_fips,
+                "Unknown",
+            )
 
         city_tree = STRtree(city_shapes) if city_shapes else None
         city_index_lookup = _build_query_index(city_shapes)
@@ -639,78 +558,34 @@ async def calculate_geo_coverage_task(
         county_cache = await CountyVisitedCache.get("visited_counties")
         city_cache = await CityVisitedCache.get("visited_cities")
 
-        checkpoint = (
-            _get_incremental_checkpoint(county_cache, city_cache)
-            if requested_mode == "incremental"
-            else None
-        )
-        effective_mode: Literal["incremental", "full"] = requested_mode
-        if requested_mode == "incremental" and checkpoint is None:
-            effective_mode = "full"
-
         if job:
             metadata = dict(job.metadata or {})
-            metadata.update(
-                {
-                    "mode": requested_mode,
-                    "effective_mode": effective_mode,
-                    "checkpoint": serialize_datetime(checkpoint),
-                }
-            )
+            metadata["mode"] = "full"
             job.metadata = metadata
             await job.save()
 
-        if effective_mode == "incremental":
-            county_visits = _deserialize_visit_map(
-                county_cache.counties if county_cache else {}
-            )
-            county_stops = _deserialize_visit_map(
-                county_cache.stopped_counties if county_cache else {},
-                first_key="firstStop",
-                last_key="lastStop",
-            )
-            city_visits = _deserialize_visit_map(
-                city_cache.cities if city_cache else {}
-            )
-            city_stops = _deserialize_visit_map(
-                city_cache.stopped_cities if city_cache else {},
-                first_key="firstStop",
-                last_key="lastStop",
-            )
-        else:
-            county_visits = {}
-            county_stops = {}
-            city_visits = {}
-            city_stops = {}
+        county_visits: dict[str, dict[str, datetime | None]] = {}
+        county_stops: dict[str, dict[str, datetime | None]] = {}
+        city_visits: dict[str, dict[str, datetime | None]] = {}
+        city_stops: dict[str, dict[str, datetime | None]] = {}
 
         await _update_geo_job(
             job,
             stage="Scanning trips",
             progress=8,
-            message=(
-                "Scanning trips since last calculation..."
-                if effective_mode == "incremental"
-                else "Scanning all trips for full rebuild..."
-            ),
+            message="Scanning all trips for full rebuild...",
         )
 
-        trip_query = _build_trip_query(
-            checkpoint if effective_mode == "incremental" else None
-        )
+        trip_query = _build_trip_query()
         total_trips = await Trip.find(trip_query).count()
 
         await _update_geo_job(
             job,
             stage="Processing trips",
             progress=12,
-            message=(
-                "No new trips found. Reusing existing coverage."
-                if total_trips == 0 and effective_mode == "incremental"
-                else "Processing trip geometry and stop points..."
-            ),
+            message="Processing trip geometry and stop points...",
             metrics={
-                "mode": effective_mode,
-                "requestedMode": requested_mode,
+                "mode": "full",
                 "processedTrips": 0,
                 "totalTrips": total_trips,
                 "visitedCounties": len(county_visits),
@@ -722,7 +597,6 @@ async def calculate_geo_coverage_task(
 
         trips_cursor = Trip.find(trip_query)
         trips_analyzed = 0
-        latest_processed_trip_at: datetime | None = checkpoint
 
         async for trip in trips_cursor:
             trips_analyzed += 1
@@ -730,42 +604,32 @@ async def calculate_geo_coverage_task(
             trip_start_time = parse_timestamp(trip.startTime)
             trip_end_time = parse_timestamp(trip.endTime)
             trip_time = trip_start_time or trip_end_time
-            trip_marker = _trip_marker(trip)
-            if trip_marker and (
-                latest_processed_trip_at is None
-                or trip_marker > latest_processed_trip_at
-            ):
-                latest_processed_trip_at = trip_marker
 
             gps_data = _select_trip_geometry(trip)
             if not gps_data:
                 continue
 
             try:
-                if gps_data.get("type") in {"LineString", "MultiLineString"}:
-                    trip_geom = shape(gps_data)
+                trip_geom = shape(gps_data)
 
-                    if county_tree:
-                        for idx in _iter_tree_indexes(
-                            county_tree,
-                            county_index_lookup,
-                            len(county_shapes),
-                            trip_geom,
-                        ):
-                            if county_shapes[idx].intersects(trip_geom):
-                                fips = county_fips[idx]
-                                _record_visit(county_visits, fips, trip_time)
-
-                    if city_tree:
-                        for idx in _iter_tree_indexes(
-                            city_tree,
-                            city_index_lookup,
-                            len(city_shapes),
-                            trip_geom,
-                        ):
-                            if city_shapes[idx].intersects(trip_geom):
-                                city_id = city_ids[idx]
-                                _record_visit(city_visits, city_id, trip_time)
+                _record_boundary_visits(
+                    trip_geometry=trip_geom,
+                    boundary_tree=county_tree,
+                    boundary_index_lookup=county_index_lookup,
+                    boundary_shapes=county_shapes,
+                    boundary_ids=county_fips,
+                    visit_map=county_visits,
+                    visit_time=trip_time,
+                )
+                _record_boundary_visits(
+                    trip_geometry=trip_geom,
+                    boundary_tree=city_tree,
+                    boundary_index_lookup=city_index_lookup,
+                    boundary_shapes=city_shapes,
+                    boundary_ids=city_ids,
+                    visit_map=city_visits,
+                    visit_time=trip_time,
+                )
 
                 for point, stop_time in _extract_stop_points(
                     gps_data,
@@ -807,8 +671,7 @@ async def calculate_geo_coverage_task(
                     else 12 + (min(trips_analyzed, total_trips) / total_trips) * 78
                 )
                 metrics = {
-                    "mode": effective_mode,
-                    "requestedMode": requested_mode,
+                    "mode": "full",
                     "processedTrips": trips_analyzed,
                     "totalTrips": total_trips,
                     "visitedCounties": len(county_visits),
@@ -828,8 +691,7 @@ async def calculate_geo_coverage_task(
                     metrics=metrics,
                 )
                 logger.info(
-                    "Geo coverage progress (%s): %d/%d trips, %d counties, %d cities",
-                    effective_mode,
+                    "Geo coverage progress: %d/%d trips, %d counties, %d cities",
                     trips_analyzed,
                     total_trips,
                     len(county_visits),
@@ -854,8 +716,7 @@ async def calculate_geo_coverage_task(
             progress=94,
             message="Saving county and city cache documents...",
             metrics={
-                "mode": effective_mode,
-                "requestedMode": requested_mode,
+                "mode": "full",
                 "processedTrips": trips_analyzed,
                 "totalTrips": total_trips,
                 "visitedCounties": len(county_visits),
@@ -869,6 +730,15 @@ async def calculate_geo_coverage_task(
         stops_serializable = _serialize_stop_map(county_stops)
         cities_serializable = _serialize_visit_map(city_visits)
         city_stops_serializable = _serialize_stop_map(city_stops)
+
+        county_state_rollups = {
+            state_fips: {
+                "stateFips": state_fips,
+                "stateName": state_names.get(state_fips, "Unknown"),
+                "total": total,
+            }
+            for state_fips, total in county_totals_by_state.items()
+        }
 
         state_rollups: dict[str, dict[str, Any]] = {}
         for state_fips, total in city_totals_by_state.items():
@@ -964,27 +834,26 @@ async def calculate_geo_coverage_task(
 
         now = datetime.now(UTC)
         duration_seconds = (now - start_time).total_seconds()
-        last_processed_trip_at = latest_processed_trip_at
 
         if county_cache:
             county_cache.counties = counties_serializable
             county_cache.stopped_counties = stops_serializable
+            county_cache.state_rollups = county_state_rollups
+            county_cache.total_counties = len(county_shapes)
             county_cache.trips_analyzed = trips_analyzed
             county_cache.updated_at = now
             county_cache.calculation_time_seconds = duration_seconds
-            county_cache.last_processed_trip_at = last_processed_trip_at
-            county_cache.last_calculation_mode = effective_mode
             county_cache.last_job_id = str(job.id) if job else None
             await county_cache.save()
         else:
             await CountyVisitedCache(
                 counties=counties_serializable,
                 stopped_counties=stops_serializable,
+                state_rollups=county_state_rollups,
+                total_counties=len(county_shapes),
                 trips_analyzed=trips_analyzed,
                 updated_at=now,
                 calculation_time_seconds=duration_seconds,
-                last_processed_trip_at=last_processed_trip_at,
-                last_calculation_mode=effective_mode,
                 last_job_id=str(job.id) if job else None,
             ).insert()
 
@@ -994,12 +863,10 @@ async def calculate_geo_coverage_task(
             city_cache.state_rollups = state_rollups
             city_cache.total_visited = len(cities_serializable)
             city_cache.total_stopped = len(city_stops_serializable)
-            city_cache.total_cities = len(city_docs)
+            city_cache.total_cities = len(city_shapes)
             city_cache.trips_analyzed = trips_analyzed
             city_cache.updated_at = now
             city_cache.calculation_time_seconds = duration_seconds
-            city_cache.last_processed_trip_at = last_processed_trip_at
-            city_cache.last_calculation_mode = effective_mode
             city_cache.last_job_id = str(job.id) if job else None
             await city_cache.save()
         else:
@@ -1009,22 +876,17 @@ async def calculate_geo_coverage_task(
                 state_rollups=state_rollups,
                 total_visited=len(cities_serializable),
                 total_stopped=len(city_stops_serializable),
-                total_cities=len(city_docs),
+                total_cities=len(city_shapes),
                 trips_analyzed=trips_analyzed,
                 updated_at=now,
                 calculation_time_seconds=duration_seconds,
-                last_processed_trip_at=last_processed_trip_at,
-                last_calculation_mode=effective_mode,
                 last_job_id=str(job.id) if job else None,
             ).insert()
 
         result = {
-            "mode": effective_mode,
-            "requestedMode": requested_mode,
+            "mode": "full",
             "processedTrips": trips_analyzed,
             "totalTrips": total_trips,
-            "checkpoint": serialize_datetime(checkpoint),
-            "lastProcessedTripAt": serialize_datetime(last_processed_trip_at),
             "visitedCounties": len(counties_serializable),
             "stoppedCounties": len(stops_serializable),
             "visitedCities": len(cities_serializable),
@@ -1041,8 +903,7 @@ async def calculate_geo_coverage_task(
                 f"Region Explorer cache rebuild complete: {trips_analyzed:,} trips processed."
             ),
             metrics={
-                "mode": effective_mode,
-                "requestedMode": requested_mode,
+                "mode": "full",
                 "processedTrips": trips_analyzed,
                 "totalTrips": total_trips,
                 "visitedCounties": len(counties_serializable),
@@ -1054,8 +915,7 @@ async def calculate_geo_coverage_task(
         )
 
         logger.info(
-            "Geo coverage calculation complete (%s): %d counties, %d county stops, %d cities, %d city stops, %d/%d trips, %.1fs",
-            effective_mode,
+            "Geo coverage calculation complete: %d counties, %d county stops, %d cities, %d city stops, %d/%d trips, %.1fs",
             len(counties_serializable),
             len(stops_serializable),
             len(cities_serializable),
@@ -1084,55 +944,15 @@ async def get_summary() -> dict[str, Any]:
     county_visits = county_cache.counties if county_cache else {}
     county_stops = county_cache.stopped_counties if county_cache else {}
 
-    county_totals = await _get_county_state_totals()
     city_state_totals: dict[str, dict[str, Any]] = {}
-
-    city_counts = await aggregate_to_list(
-        CityBoundary,
-        [
-            {
-                "$group": {
-                    "_id": "$state_fips",
-                    "total": {"$sum": 1},
-                    "state_name": {"$first": "$state_name"},
-                }
-            }
-        ],
-    )
-    for row in city_counts:
-        normalized = _state_fips(str(row.get("_id") or ""))
-        existing = city_state_totals.get(normalized)
-        row_name = str(row.get("state_name") or "Unknown")
-        if existing:
-            existing["total"] = int(existing.get("total") or 0) + int(
-                row.get("total") or 0,
-            )
-            if (
-                existing.get("name") in {None, "", "Unknown"}
-            ) and row_name != "Unknown":
-                existing["name"] = row_name
-            continue
-
-        city_state_totals[normalized] = {
-            "name": row_name,
-            "total": int(row.get("total") or 0),
-            "visited": 0,
-            "stopped": 0,
-            "firstVisit": None,
-            "lastVisit": None,
-            "firstStop": None,
-            "lastStop": None,
-        }
-
     if city_cache and city_cache.state_rollups:
         for state_fips, rollup in city_cache.state_rollups.items():
-            normalized = _state_fips(state_fips)
-            existing = city_state_totals.get(normalized, {})
+            normalized = _valid_state_fips(state_fips)
+            if normalized is None or not isinstance(rollup, dict):
+                continue
             city_state_totals[normalized] = {
-                "name": str(
-                    rollup.get("stateName") or existing.get("name") or "Unknown"
-                ),
-                "total": int(existing.get("total") or 0),
+                "name": str(rollup.get("stateName") or "Unknown"),
+                "total": int(rollup.get("total") or 0),
                 "visited": int(rollup.get("visited") or 0),
                 "stopped": int(rollup.get("stopped") or 0),
                 "firstVisit": rollup.get("firstVisit"),
@@ -1142,17 +962,24 @@ async def get_summary() -> dict[str, Any]:
             }
 
     county_rollup: dict[str, dict[str, Any]] = {}
-    for state_fips, totals in county_totals.items():
-        county_rollup[state_fips] = {
-            "name": totals.get("name") or "Unknown",
-            "total": int(totals.get("total") or 0),
-            "visited": 0,
-            "firstVisit": None,
-            "lastVisit": None,
-        }
+    if county_cache and county_cache.state_rollups:
+        for state_fips, rollup in county_cache.state_rollups.items():
+            normalized = _valid_state_fips(state_fips)
+            if normalized is None or not isinstance(rollup, dict):
+                continue
+            county_rollup[normalized] = {
+                "name": rollup.get("stateName") or "Unknown",
+                "total": int(rollup.get("total") or 0),
+                "visited": 0,
+                "firstVisit": None,
+                "lastVisit": None,
+            }
 
     for county_fips, visits in county_visits.items():
-        state_fips = str(county_fips)[:2]
+        normalized_county_fips = _county_fips(county_fips)
+        if normalized_county_fips is None:
+            continue
+        state_fips = normalized_county_fips[:2]
         if state_fips not in county_rollup:
             county_rollup[state_fips] = {
                 "name": "Unknown",
@@ -1325,8 +1152,8 @@ async def get_topology(
         }
 
     if level == "city":
-        normalized_fips = _state_fips(state_fips)
-        if not normalized_fips:
+        normalized_fips = _valid_state_fips(state_fips)
+        if normalized_fips is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="stateFips is required when level=city",
@@ -1338,22 +1165,25 @@ async def get_topology(
             .to_list()
         )
 
-        features = [
-            {
-                "type": "Feature",
-                "id": city.id,
-                "properties": {
-                    "cityId": city.id,
-                    "name": city.name,
-                    "stateFips": city.state_fips,
-                    "stateName": city.state_name,
-                    "classfp": city.classfp,
-                },
-                "geometry": city.geometry,
-            }
-            for city in cities
-            if city.geometry
-        ]
+        features = []
+        for city in cities:
+            geom = _valid_boundary_geometry(city.geometry)
+            if geom is None:
+                continue
+            features.append(
+                {
+                    "type": "Feature",
+                    "id": city.id,
+                    "properties": {
+                        "cityId": city.id,
+                        "name": city.name,
+                        "stateFips": city.state_fips,
+                        "stateName": city.state_name,
+                        "classfp": city.classfp,
+                    },
+                    "geometry": geom.__geo_interface__,
+                }
+            )
 
         return {
             "success": True,
@@ -1417,7 +1247,7 @@ async def get_visits(
 
         visits = cache.cities or {}
         stops = cache.stopped_cities or {}
-        normalized_fips = _state_fips(state_fips)
+        normalized_fips = _valid_state_fips(state_fips)
         if normalized_fips:
             city_ids = {
                 city.id
@@ -1454,6 +1284,19 @@ async def get_visits(
     )
 
 
+def _descending_activity_sort_key(
+    row: dict[str, Any],
+    field: str,
+) -> tuple[bool, float, str]:
+    """Sort dated activity newest-first while keeping missing values last."""
+    activity_at = parse_timestamp(row.get(field))
+    return (
+        activity_at is None,
+        -activity_at.timestamp() if activity_at is not None else 0.0,
+        str(row.get("name") or "").lower(),
+    )
+
+
 async def list_cities(
     *,
     state_fips: str,
@@ -1470,8 +1313,8 @@ async def list_cities(
     page: int = 1,
     page_size: int = 100,
 ) -> dict[str, Any]:
-    normalized_fips = _state_fips(state_fips)
-    if not normalized_fips:
+    normalized_fips = _valid_state_fips(state_fips)
+    if normalized_fips is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="stateFips is required",
@@ -1494,6 +1337,8 @@ async def list_cities(
     rows = []
     query = (q or "").strip().lower()
     for city in cities:
+        if _valid_boundary_geometry(city.geometry) is None:
+            continue
         visit = visits.get(city.id)
         stop = stops.get(city.id)
         visited = visit is not None
@@ -1559,32 +1404,11 @@ async def list_cities(
             )
         )
     elif sort == "last-stop-desc":
-        rows.sort(
-            key=lambda row: (
-                row["lastStop"] is None,
-                row["lastStop"] or "",
-                row["name"].lower(),
-            ),
-            reverse=True,
-        )
+        rows.sort(key=lambda row: _descending_activity_sort_key(row, "lastStop"))
     elif sort == "first-visit-desc":
-        rows.sort(
-            key=lambda row: (
-                row["firstVisit"] is None,
-                row["firstVisit"] or "",
-                row["name"].lower(),
-            ),
-            reverse=True,
-        )
+        rows.sort(key=lambda row: _descending_activity_sort_key(row, "firstVisit"))
     elif sort == "last-visit-desc":
-        rows.sort(
-            key=lambda row: (
-                row["lastVisit"] is None,
-                row["lastVisit"] or "",
-                row["name"].lower(),
-            ),
-            reverse=True,
-        )
+        rows.sort(key=lambda row: _descending_activity_sort_key(row, "lastVisit"))
     else:
         rows.sort(key=lambda row: row["name"].lower())
 
@@ -1608,7 +1432,6 @@ async def list_cities(
 
 async def recalculate(
     background_tasks: BackgroundTasks,
-    mode: Literal["incremental", "full"] | None = None,
 ) -> dict[str, Any]:
     active_job = await _get_active_geo_recalc_job()
     if active_job:
@@ -1618,32 +1441,24 @@ async def recalculate(
             "message": "A Region Explorer cache rebuild is already running.",
             "job": _serialize_job(active_job),
             "jobId": str(active_job.id),
-            "mode": _normalize_recalc_mode((active_job.metadata or {}).get("mode")),
+            "mode": "full",
         }
 
-    selected_mode = (
-        _normalize_recalc_mode(mode) if mode else await _get_default_recalc_mode()
-    )
     now = datetime.now(UTC)
-    queued_message = (
-        "Queued incremental Region Explorer cache update..."
-        if selected_mode == "incremental"
-        else "Queued full Region Explorer cache rebuild..."
-    )
 
     job = Job(
         job_type=GEO_COVERAGE_JOB_TYPE,
         status="pending",
         stage="Queued",
         progress=0.0,
-        message=queued_message,
+        message="Queued full Region Explorer cache rebuild...",
         created_at=now,
         updated_at=now,
         metadata={
-            "mode": selected_mode,
+            "mode": "full",
         },
         metrics={
-            "mode": selected_mode,
+            "mode": "full",
             "processedTrips": 0,
             "totalTrips": 0,
             "visitedCounties": 0,
@@ -1656,7 +1471,6 @@ async def recalculate(
 
     background_tasks.add_task(
         calculate_geo_coverage_task,
-        mode=selected_mode,
         job_id=str(job.id),
     )
     return {
@@ -1665,13 +1479,11 @@ async def recalculate(
         "message": "Region Explorer cache rebuild started in the background.",
         "job": _serialize_job(job),
         "jobId": str(job.id),
-        "mode": selected_mode,
+        "mode": "full",
     }
 
 
-async def run_scheduled_recalculate(
-    mode: Literal["incremental", "full"] = "incremental",
-) -> dict[str, Any]:
+async def run_scheduled_recalculate() -> dict[str, Any]:
     """Run Region Explorer cache rebuild from scheduled/background task context."""
     active_job = await _get_active_geo_recalc_job()
     if active_job:
@@ -1680,29 +1492,24 @@ async def run_scheduled_recalculate(
             "reason": "already_running",
             "message": "Region Explorer cache rebuild is already running.",
             "job_id": str(active_job.id),
-            "mode": _normalize_recalc_mode((active_job.metadata or {}).get("mode")),
+            "mode": "full",
         }
 
-    selected_mode = _normalize_recalc_mode(mode)
     now = datetime.now(UTC)
     job = Job(
         job_type=GEO_COVERAGE_JOB_TYPE,
         status="pending",
         stage="Queued",
         progress=0.0,
-        message=(
-            "Queued scheduled incremental Region Explorer cache update..."
-            if selected_mode == "incremental"
-            else "Queued scheduled full Region Explorer cache rebuild..."
-        ),
+        message="Queued scheduled full Region Explorer cache rebuild...",
         created_at=now,
         updated_at=now,
         metadata={
-            "mode": selected_mode,
+            "mode": "full",
             "trigger": "scheduled",
         },
         metrics={
-            "mode": selected_mode,
+            "mode": "full",
             "processedTrips": 0,
             "totalTrips": 0,
             "visitedCounties": 0,
@@ -1713,7 +1520,7 @@ async def run_scheduled_recalculate(
     )
     await job.insert()
 
-    await calculate_geo_coverage_task(mode=selected_mode, job_id=str(job.id))
+    await calculate_geo_coverage_task(job_id=str(job.id))
 
     finished = await _resolve_job(str(job.id))
     if not finished:
@@ -1724,7 +1531,7 @@ async def run_scheduled_recalculate(
         return {
             "status": "success",
             "job_id": str(finished.id),
-            "mode": selected_mode,
+            "mode": "full",
             "message": finished.message or "Region Explorer cache rebuild completed.",
             "result": finished.result or {},
         }
@@ -1746,7 +1553,6 @@ async def get_cache_status() -> dict[str, Any]:
     city_cache = await CityVisitedCache.get("visited_cities")
     active_job = await _get_active_geo_recalc_job()
     latest_job = await _get_latest_geo_recalc_job()
-    default_mode = await _get_default_recalc_mode()
 
     last_updated_candidates = [
         county_cache.updated_at if county_cache else None,
@@ -1762,6 +1568,7 @@ async def get_cache_status() -> dict[str, Any]:
             "totalStopped": (
                 len(county_cache.stopped_counties or {}) if county_cache else 0
             ),
+            "totalCounties": county_cache.total_counties if county_cache else 0,
             "tripsAnalyzed": county_cache.trips_analyzed if county_cache else 0,
         },
         "city": {
@@ -1773,11 +1580,9 @@ async def get_cache_status() -> dict[str, Any]:
         },
         "cached": county_cache is not None and city_cache is not None,
         "lastUpdated": last_updated,
-        "defaultMode": default_mode,
         "isRecalculating": active_job is not None,
         "recalculation": {
             "active": active_job is not None,
-            "defaultMode": default_mode,
             "job": _serialize_job(active_job or latest_job),
         },
     }
@@ -1833,15 +1638,12 @@ class GeoCoverageService:
     @staticmethod
     async def recalculate(
         background_tasks: BackgroundTasks,
-        mode: Literal["incremental", "full"] | None = None,
     ) -> dict[str, Any]:
-        return await recalculate(background_tasks, mode=mode)
+        return await recalculate(background_tasks)
 
     @staticmethod
-    async def run_scheduled_recalculate(
-        mode: Literal["incremental", "full"] = "incremental",
-    ) -> dict[str, Any]:
-        return await run_scheduled_recalculate(mode=mode)
+    async def run_scheduled_recalculate() -> dict[str, Any]:
+        return await run_scheduled_recalculate()
 
     @staticmethod
     async def get_cache_status() -> dict[str, Any]:

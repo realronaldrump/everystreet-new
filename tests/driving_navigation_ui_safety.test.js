@@ -34,3 +34,17 @@ test("displayTargetInfo escapes street-controlled strings", () => {
     assert.ok(!targetInfo.innerHTML.includes(untrustedSegmentId));
   });
 });
+
+test("cluster counts are labeled as segments", () => {
+  withMockDocument({}, () => {
+    const ui = new DrivingNavigationUI({ areaSelectId: "area-select" });
+    const markup = ui.buildClusterItemMarkup(
+      { segment_count: 3, distance_to_cluster_m: 1609.344 },
+      "#123456",
+      0
+    );
+
+    assert.match(markup, /3 segments/);
+    assert.doesNotMatch(markup, /3 streets/);
+  });
+});

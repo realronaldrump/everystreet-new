@@ -1,3 +1,5 @@
+import { getRemainingDriveableMiles } from "../navigation-core/coverage-areas.js";
+
 export function updateMastheadDate(elements = {}) {
   if (!elements.mastheadDate) {
     return;
@@ -31,10 +33,7 @@ export function buildMissionLine(areas) {
     return null;
   }
 
-  const total = Number(primary?.total_length_miles);
-  const driven = Number(primary?.driven_length_miles);
-  const remaining =
-    Number.isFinite(total) && Number.isFinite(driven) ? total - driven : null;
+  const remaining = getRemainingDriveableMiles(primary);
 
   if (remaining !== null && remaining > 0 && pct < 100) {
     return `${name} is ${pct.toFixed(1)}% driven — ${remaining.toFixed(1)} miles of streets to go.`;

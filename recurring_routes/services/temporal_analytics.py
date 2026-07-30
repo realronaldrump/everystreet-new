@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from core.serialization import serialize_datetime
+from db.aggregation_utils import build_trip_duration_fields_stage
 
 DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
@@ -21,7 +22,7 @@ def build_temporal_facet_pipeline(
     project: dict[str, Any] = {
         "startTime": 1,
         "distance": 1,
-        "duration": 1,
+        "duration": "$duration_seconds",
         "hour": {"$hour": {"date": "$startTime", "timezone": tz_expr}},
         "dayOfWeek": {"$dayOfWeek": {"date": "$startTime", "timezone": tz_expr}},
         "yearMonth": {
@@ -124,6 +125,7 @@ def build_temporal_facet_pipeline(
 
     return [
         {"$match": match_query},
+        build_trip_duration_fields_stage(tz_expr, include_day_key=False),
         {"$project": project},
         {"$facet": facet},
     ]

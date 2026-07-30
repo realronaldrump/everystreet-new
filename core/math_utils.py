@@ -13,7 +13,7 @@ import statistics
 
 def calculate_circular_average_hour(
     hours_list: list[float],
-) -> float:
+) -> float | None:
     """
     Calculate the circular average of a list of hours (0-23).
 
@@ -25,7 +25,8 @@ def calculate_circular_average_hour(
         hours_list: List of hour values in 24-hour format (0-23).
 
     Returns:
-        The circular average hour (0-23.999...).
+        The circular average hour (0-23.999...), or ``None`` when the input
+        is empty or its mean direction is undefined.
 
     Example:
         >>> calculate_circular_average_hour([23.0, 0.0, 1.0])
@@ -34,7 +35,7 @@ def calculate_circular_average_hour(
         12.0  # Standard average for non-wraparound hours
     """
     if not hours_list:
-        return 0.0
+        return None
 
     # Convert hours to angles (radians)
     angles = [(h / 24.0) * 2 * math.pi for h in hours_list]
@@ -42,6 +43,8 @@ def calculate_circular_average_hour(
     # Calculate mean of sin and cos components
     avg_sin = statistics.mean([math.sin(angle) for angle in angles])
     avg_cos = statistics.mean([math.cos(angle) for angle in angles])
+    if math.hypot(avg_sin, avg_cos) < 1e-12:
+        return None
 
     # Convert back to angle and then to hours
     avg_angle = math.atan2(avg_sin, avg_cos)

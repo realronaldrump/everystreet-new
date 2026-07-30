@@ -17,6 +17,11 @@
 import apiClient from "../../core/api-client.js";
 import { createFeatureApi } from "../../core/feature-api.js";
 import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
+import {
+  getDriveableMiles,
+  getDriveableSegments,
+  getRemainingDriveableMiles,
+} from "../navigation-core/coverage-areas.js";
 import { createMap, isMapboxStyleUrl, waitForMapboxToken } from "../../map-core.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import GlobalJobTracker from "../../ui/global-job-tracker.js";
@@ -1696,19 +1701,28 @@ function updateStatsUI(area, summary) {
   }
 
   // Quick stats
-  const remaining = Math.max(
-    0,
-    (area.total_length_miles || 0) - (area.driven_length_miles || 0)
-  );
+  const driveableMiles = getDriveableMiles(area);
+  const remaining = getRemainingDriveableMiles(area);
   setMetricValue("qs-driven", area.driven_length_miles || 0, {
     decimals: 1,
     suffix: " mi",
   });
-  setMetricValue("qs-remaining", remaining, { decimals: 1, suffix: " mi" });
-  setMetricValue("qs-total", area.total_length_miles || 0, {
-    decimals: 1,
-    suffix: " mi",
-  });
+  if (remaining === null) {
+    const remainingEl = document.getElementById("qs-remaining");
+    if (remainingEl) {
+      remainingEl.textContent = "—";
+    }
+  } else {
+    setMetricValue("qs-remaining", remaining, { decimals: 1, suffix: " mi" });
+  }
+  if (driveableMiles === null) {
+    const totalEl = document.getElementById("qs-total");
+    if (totalEl) {
+      totalEl.textContent = "—";
+    }
+  } else {
+    setMetricValue("qs-total", driveableMiles, { decimals: 1, suffix: " mi" });
+  }
 
   const undrivenSegs = summary?.segment_counts?.undriven || 0;
   setMetricValue("qs-segments-remaining", undrivenSegs);
@@ -1774,10 +1788,10 @@ async function handleShareClick() {
     await progressCardGenerator.downloadCard({
       areaName: area.display_name || "Coverage Area",
       coveragePercent: normalizeCoveragePercent(area.coverage_percentage),
-      milesDriven: area.driven_length_miles || 0,
-      areaMiles: area.total_length_miles || 0,
-      totalStreets: area.total_segments || 0,
-      streetsDriven: area.driven_segments || 0,
+      milesDriven: area.driven_length_miles,
+      areaMiles: getDriveableMiles(area),
+      totalSegments: getDriveableSegments(area),
+      segmentsDriven: area.driven_segments,
     });
     notificationManager.show("Progress card downloaded!", "success");
   } catch (error) {

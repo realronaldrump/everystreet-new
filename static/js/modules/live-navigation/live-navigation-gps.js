@@ -142,7 +142,7 @@ class LiveNavigationGPS {
   resolveSpeed(fix) {
     let speedMps = Number.isFinite(fix.speed) ? fix.speed : null;
 
-    if (!speedMps && this.lastPosition && this.lastPositionTime) {
+    if (speedMps === null && this.lastPosition && this.lastPositionTime) {
       const now = fix.timestamp;
       const last = this.lastPositionTime;
       const deltaTime = (now - last) / 1000;
@@ -156,7 +156,7 @@ class LiveNavigationGPS {
       }
     }
 
-    if (speedMps) {
+    if (speedMps !== null && Number.isFinite(speedMps)) {
       this.speedSamples.push(speedMps);
       if (this.speedSamples.length > this.config.maxSpeedSamples) {
         this.speedSamples.shift();

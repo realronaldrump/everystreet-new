@@ -127,14 +127,8 @@ async def update_coverage_for_new_trips(
 
 
 async def _sync_geo_coverage_logic() -> dict[str, Any]:
-    """
-    Incrementally refresh geo coverage explorer caches.
-
-    Uses the persisted last-processed checkpoint and only scans trips
-    newer than that checkpoint unless there is no checkpoint yet (first
-    run).
-    """
-    result = await run_scheduled_recalculate(mode="incremental")
+    """Fully rebuild geo coverage explorer caches from current trip data."""
+    result = await run_scheduled_recalculate()
     status = str(result.get("status") or "")
     if status == "skipped":
         logger.info(
@@ -155,7 +149,7 @@ async def _sync_geo_coverage_logic() -> dict[str, Any]:
     )
     return {
         "status": "success",
-        "mode": result.get("mode") or "incremental",
+        "mode": "full",
         "job_id": result.get("job_id"),
         "result": result.get("result") or {},
         "message": result.get("message") or "Geo coverage sync completed.",
@@ -166,7 +160,7 @@ async def sync_geo_coverage(
     ctx: dict[str, Any],
     manual_run: bool = False,
 ) -> dict[str, Any]:
-    """ARQ job for incremental geo coverage sync."""
+    """ARQ job for a full geo coverage cache rebuild."""
     return await run_task_with_history(
         ctx,
         "sync_geo_coverage",

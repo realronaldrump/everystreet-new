@@ -1,12 +1,35 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from db.models import Trip
 from tracking.services import tracking_service
+
+
+def _complete_trip_metrics(
+    *,
+    timestamp: str,
+    distance: float,
+    duration: float,
+    idle: float = 0.0,
+    max_speed: float = 65.0,
+    avg_speed: float = 30.0,
+    braking: int = 0,
+    acceleration: int = 0,
+) -> dict[str, object]:
+    return {
+        "timestamp": timestamp,
+        "tripDistance": distance,
+        "tripTime": duration,
+        "totalIdlingTime": idle,
+        "maxSpeed": max_speed,
+        "averageDriveSpeed": avg_speed,
+        "hardBrakingCounts": braking,
+        "hardAccelerationCounts": acceleration,
+    }
 
 
 @pytest.fixture
@@ -254,3 +277,168 @@ async def test_trip_end_without_snapshot_marks_trip_closed_and_blocks_late_trip_
     assert isinstance(snapshots, dict)
     assert "tx-late-1" not in snapshots
     publish_mock.assert_not_awaited()
+
+
+def test_calculate_trip_metrics_includes_provider_point_speed_in_maximum() -> None:
+    start = datetime(2026, 2, 21, 12, 0, tzinfo=UTC)
+    metrics = tracking_service._calculate_trip_metrics(
+        [
+            {"timestamp": start, "lat": 32.0, "lon": -97.0, "speed": 60.0},
+            {
+                "timestamp": start + timedelta(minutes=1),
+                "lat": 32.001,
+                "lon": -97.001,
+                "speed": 20.0,
+            },
+        ],
+        start,
+    )
+
+    assert metrics["maxSpeed"] == pytest.approx(60.0)
+
+
+@pytest.mark.asyncio
+async def test_trip_metrics_ignores_older_provider_snapshot(
+    live_store_state: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshots = live_store_state["snapshots"]
+    assert isinstance(snapshots, dict)
+    snapshots["tx-metrics-order"] = tracking_service._new_live_trip_snapshot(
+        "tx-metrics-order",
+        vin="VIN-1",
+        imei="imei-1",
+        start_time=datetime(2026, 2, 21, 12, 0, tzinfo=UTC),
+    )
+    live_store_state["active_tx"] = "tx-metrics-order"
+    monkeypatch.setattr(tracking_service, "publish_trip_state", AsyncMock())
+
+    await tracking_service.process_trip_metrics(
+        {
+            "transactionId": "tx-metrics-order",
+            "metrics": _complete_trip_metrics(
+                timestamp="2026-02-21T12:10:00Z",
+                distance=10.0,
+                duration=600.0,
+            ),
+        },
+    )
+    await tracking_service.process_trip_metrics(
+        {
+            "transactionId": "tx-metrics-order",
+            "metrics": _complete_trip_metrics(
+                timestamp="2026-02-21T12:05:00Z",
+                distance=8.0,
+                duration=300.0,
+            ),
+        },
+    )
+
+    saved = snapshots["tx-metrics-order"]
+    assert saved["distance"] == pytest.approx(10.0)
+    assert saved["duration"] == pytest.approx(600.0)
+    assert saved["providerMetricsTimestamp"] == datetime(
+        2026, 2, 21, 12, 10, tzinfo=UTC
+    )
+
+
+@pytest.mark.asyncio
+async def test_trip_data_does_not_add_gps_delta_to_provider_metrics(
+    live_store_state: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    start = datetime(2026, 2, 21, 12, 0, tzinfo=UTC)
+    snapshots = live_store_state["snapshots"]
+    assert isinstance(snapshots, dict)
+    snapshots["tx-metric-basis"] = {
+        **tracking_service._new_live_trip_snapshot(
+            "tx-metric-basis",
+            vin="VIN-1",
+            imei="imei-1",
+            start_time=start,
+        ),
+        "coordinates": [
+            {"timestamp": start, "lat": 32.0, "lon": -97.0},
+            {
+                "timestamp": start + timedelta(minutes=1),
+                "lat": 32.001,
+                "lon": -97.001,
+            },
+        ],
+        "pointsRecorded": 2,
+        "distance": 100.0,
+        "maxSpeed": 65.0,
+        "metricsSource": "provider",
+        "providerMetricsTimestamp": start + timedelta(minutes=1),
+        "lastUpdate": start + timedelta(minutes=1),
+    }
+    live_store_state["active_tx"] = "tx-metric-basis"
+    monkeypatch.setattr(tracking_service, "publish_trip_state", AsyncMock())
+
+    await tracking_service.process_trip_data(
+        {
+            "transactionId": "tx-metric-basis",
+            "data": [
+                {
+                    "timestamp": "2026-02-21T12:02:00Z",
+                    "gps": {"lat": 32.002, "lon": -97.002},
+                    "speed": 25.0,
+                },
+            ],
+        },
+    )
+
+    saved = snapshots["tx-metric-basis"]
+    assert saved["metricsSource"] == "provider"
+    assert saved["pointsRecorded"] == 3
+    assert saved["distance"] == pytest.approx(100.0)
+    assert saved["maxSpeed"] == pytest.approx(65.0)
+    assert saved["currentSpeed"] == pytest.approx(25.0)
+
+
+@pytest.mark.asyncio
+async def test_provider_snapshot_replaces_gps_estimates_without_mixing_bases(
+    live_store_state: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshots = live_store_state["snapshots"]
+    assert isinstance(snapshots, dict)
+    snapshots["tx-provider-switch"] = {
+        **tracking_service._new_live_trip_snapshot(
+            "tx-provider-switch",
+            vin="VIN-1",
+            imei="imei-1",
+            start_time=datetime(2026, 2, 21, 12, 0, tzinfo=UTC),
+        ),
+        "distance": 10.0,
+        "duration": 600.0,
+        "maxSpeed": 500.0,
+    }
+    live_store_state["active_tx"] = "tx-provider-switch"
+    monkeypatch.setattr(tracking_service, "publish_trip_state", AsyncMock())
+
+    await tracking_service.process_trip_metrics(
+        {
+            "transactionId": "tx-provider-switch",
+            "metrics": _complete_trip_metrics(
+                timestamp="2026-02-21T12:05:00Z",
+                distance=8.0,
+                duration=300.0,
+                idle=12.0,
+                max_speed=65.0,
+                avg_speed=24.0,
+                braking=2,
+                acceleration=1,
+            ),
+        },
+    )
+
+    saved = snapshots["tx-provider-switch"]
+    assert saved["metricsSource"] == "provider"
+    assert saved["distance"] == pytest.approx(8.0)
+    assert saved["duration"] == pytest.approx(300.0)
+    assert saved["totalIdleDuration"] == pytest.approx(12.0)
+    assert saved["maxSpeed"] == pytest.approx(65.0)
+    assert saved["avgSpeed"] == pytest.approx(24.0)
+    assert saved["hardBrakingCounts"] == 2
+    assert saved["hardAccelerationCounts"] == 1

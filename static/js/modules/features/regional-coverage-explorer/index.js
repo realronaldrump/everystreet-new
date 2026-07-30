@@ -1091,7 +1091,7 @@ function buildRecalculateDetails(job = null) {
   return {
     stage: job?.stage || "Working",
     progress: Number(job?.progress ?? 0),
-    mode: job?.mode || metrics.mode || result.mode || "incremental",
+    mode: "full",
     processedTrips,
     totalTrips,
     visitedCounties,
@@ -1251,7 +1251,7 @@ async function checkAndRefresh(startedAt, activeJobId = null) {
       updateRecalculateUi(true, "Waiting for Region Explorer cache worker...", {
         stage: "Starting",
         progress: 0,
-        mode: data?.defaultMode || "incremental",
+        mode: "full",
       });
     }
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -168,6 +169,56 @@ async def test_update_coverage_for_segments_ignores_unknown_segment_ids(
     assert refreshed_area is not None
     assert refreshed_area.driven_segments == 1
     assert refreshed_area.driven_length_miles == 1.0
+
+
+@pytest.mark.asyncio
+async def test_concurrent_first_drive_increments_cached_stats_once(coverage_db) -> None:
+    area = CoverageArea(
+        display_name="Concurrent Coverage Area",
+        status="ready",
+        health="healthy",
+        total_length_miles=1.0,
+        driveable_length_miles=1.0,
+        total_segments=1,
+    )
+    await area.insert()
+    assert area.id is not None
+
+    segment_id = f"{area.id}-{area.area_version}-0"
+    await Street(
+        segment_id=segment_id,
+        area_id=area.id,
+        area_version=area.area_version,
+        geometry={
+            "type": "LineString",
+            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
+        },
+        length_miles=1.0,
+    ).insert()
+
+    driven_at = datetime(2025, 1, 2, tzinfo=UTC)
+    results = await asyncio.gather(
+        *[
+            update_coverage_for_segments(
+                area_id=area.id,
+                segment_ids=[segment_id],
+                driven_at=driven_at,
+            )
+            for _ in range(8)
+        ]
+    )
+
+    assert sum(
+        segment_id in result.newly_driven_segment_ids for result in results
+    ) == 1
+    assert await CoverageState.find(
+        {"area_id": area.id, "segment_id": segment_id}
+    ).count() == 1
+
+    refreshed_area = await CoverageArea.get(area.id)
+    assert refreshed_area is not None
+    assert refreshed_area.driven_segments == 1
+    assert refreshed_area.driven_length_miles == pytest.approx(1.0)
 
 
 @pytest.mark.asyncio

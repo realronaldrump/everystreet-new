@@ -119,7 +119,7 @@ class VisitsPopup {
               <strong class="stat-value text-success">${formatAvg(stats.averageTimeSpent)}</strong>
             </p>
             <p>
-              <span class="stat-label">Time Since Last</span>
+              <span class="stat-label">Avg Time Between Visits</span>
               <strong class="stat-value text-info">${formatAvg(stats.averageTimeSinceLastVisit)}</strong>
             </p>
           </div>

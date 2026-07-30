@@ -469,7 +469,7 @@ class TripPipeline:
             if not gps_data:
                 has_minimum_trip_data = any(
                     processed_data.get(field) is not None
-                    for field in ("startTime", "endTime", "distance", "duration")
+                    for field in ("startTime", "endTime", "distance")
                 )
                 if not has_minimum_trip_data:
                     return False, "Trip missing GPS geometry and minimum trip telemetry"
@@ -694,7 +694,6 @@ class TripPipeline:
 
         max_fields = {
             "distance",
-            "duration",
             "pointsRecorded",
             "maxSpeed",
             "totalIdleDuration",

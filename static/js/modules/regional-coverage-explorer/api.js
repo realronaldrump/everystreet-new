@@ -54,9 +54,8 @@ export function fetchVisitedCounties(options = {}) {
  * @returns {Promise<Object>} Recalculation response
  */
 export function triggerRecalculation(options = {}) {
-  const { signal, mode } = options;
-  const path = withQuery("/api/geo-coverage/recalculate", { mode });
-  return apiClient.post(path, null, { signal });
+  const { signal } = options;
+  return apiClient.post("/api/geo-coverage/recalculate", null, { signal });
 }
 
 /**

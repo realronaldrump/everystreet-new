@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from types import SimpleNamespace
 
 import pytest
 
 from analytics.services.dashboard_service import DashboardService
-from db.models import AppSettings
+from db.aggregation_utils import build_mongo_tz_valid_expr
 
 
 @pytest.mark.asyncio
@@ -131,12 +130,34 @@ async def test_get_driving_insights_movement_default_includes_metric_basis(
 
 
 @pytest.mark.asyncio
+async def test_get_driving_insights_pairs_fuel_and_distance_for_mpg(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pipelines: list[list[dict]] = []
+
+    async def fake_aggregate_to_list(_model, pipeline, **_kwargs):
+        pipelines.append(pipeline)
+        return []
+
+    monkeypatch.setattr(
+        "analytics.services.dashboard_service.aggregate_to_list",
+        fake_aggregate_to_list,
+    )
+
+    await DashboardService.get_driving_insights({}, include_movement=False)
+
+    group = pipelines[0][2]["$group"]
+    fuel_condition = group["fuel_consumed_for_mpg"]["$sum"]["$cond"][0]
+    distance_condition = group["fuel_distance"]["$sum"]["$cond"][0]
+    assert fuel_condition == distance_condition
+    assert group["fuel_consumed_for_mpg"]["$sum"]["$cond"][1] == "$insightFuel"
+    assert group["fuel_distance"]["$sum"]["$cond"][1] == "$insightDistance"
+
+
+@pytest.mark.asyncio
 async def test_get_metrics_returns_aggregated_trip_totals(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def fake_find_one(cls, _query):
-        return SimpleNamespace(user_timezone="UTC")
-
     async def fake_aggregate_to_list(*_args, **_kwargs):
         return [
             {
@@ -146,11 +167,10 @@ async def test_get_metrics_returns_aggregated_trip_totals(
                 "max_speed": 70.0,
                 "avg_speed": 30.0,
                 "total_duration_seconds": 3600.0,
-                "start_hours_utc": [10, 12],
+                "start_hours_local": [10, 12],
             },
         ]
 
-    monkeypatch.setattr(AppSettings, "find_one", classmethod(fake_find_one))
     monkeypatch.setattr(
         "analytics.services.dashboard_service.aggregate_to_list",
         fake_aggregate_to_list,
@@ -165,3 +185,60 @@ async def test_get_metrics_returns_aggregated_trip_totals(
     assert result["total_driving_time"] == "1:00"
     assert result["avg_speed"] == "30.0"
     assert result["max_speed"] == "70.0"
+
+
+@pytest.mark.asyncio
+async def test_get_metrics_preserves_minutes_and_wraps_midnight(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_pipeline = None
+
+    async def fake_aggregate_to_list(_model, pipeline, **_kwargs):
+        nonlocal captured_pipeline
+        captured_pipeline = pipeline
+        return [
+            {
+                "total_trips": 2,
+                "total_distance": 110.0,
+                "avg_distance": 55.0,
+                "max_speed": 70.0,
+                "avg_speed": 10.0,
+                "total_duration_seconds": 3600.0,
+                "start_hours_local": [23.5, 0.5],
+            }
+        ]
+
+    monkeypatch.setattr(
+        "analytics.services.dashboard_service.aggregate_to_list",
+        fake_aggregate_to_list,
+    )
+
+    result = await DashboardService.get_metrics({})
+
+    assert result["avg_start_time"] == "12:00 AM"
+    assert result["avg_speed"] == "10.0"
+    assert captured_pipeline is not None
+    add_fields = captured_pipeline[1]["$addFields"]
+    assert "$minute" in str(add_fields["startHourLocal"])
+    timezone_guard = add_fields["startHourLocal"]["$cond"]["if"]["$and"]
+    assert build_mongo_tz_valid_expr("startTime") in timezone_guard
+    group = captured_pipeline[2]["$group"]
+    assert "paired_distance" in group
+    assert "paired_duration_seconds" in group
+
+
+@pytest.mark.asyncio
+async def test_get_metrics_reports_undefined_opposite_start_times(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_aggregate_to_list(*_args, **_kwargs):
+        return [{"total_trips": 2, "start_hours_local": [0.0, 12.0]}]
+
+    monkeypatch.setattr(
+        "analytics.services.dashboard_service.aggregate_to_list",
+        fake_aggregate_to_list,
+    )
+
+    result = await DashboardService.get_metrics({})
+
+    assert result["avg_start_time"] == "--:--"

@@ -75,7 +75,6 @@ class Trip(Document):
     currentSpeed: float | None = None
     maxSpeed: float | None = None
     avgSpeed: float | None = None
-    duration: float | None = None
     pointsRecorded: int | None = None
     sequence: int | None = None
     totalIdleDuration: float | None = None
@@ -1129,7 +1128,6 @@ class AppSettings(Document):
     mapCoverageBatchSize: int = 200
     coverageIncludeServiceRoads: bool = True
     streetCoverageTripMode: str = "both"
-    geoCoverageRecalcMode: str = "incremental"
 
     # Logs
     # When set, server log queries should hide entries older than this cutoff.
@@ -1210,11 +1208,11 @@ class CountyVisitedCache(Document):
     id: str = Field(default="visited_counties", alias="_id")
     counties: dict[str, Any] = Field(default_factory=dict)
     stopped_counties: dict[str, Any] = Field(default_factory=dict)
+    state_rollups: dict[str, Any] = Field(default_factory=dict)
+    total_counties: int = 0
     trips_analyzed: int = 0
     updated_at: datetime | None = None
     calculation_time_seconds: float | None = None
-    last_processed_trip_at: datetime | None = None
-    last_calculation_mode: str | None = None
     last_job_id: str | None = None
 
     class Settings:
@@ -1264,8 +1262,6 @@ class CityVisitedCache(Document):
     trips_analyzed: int = 0
     updated_at: datetime | None = None
     calculation_time_seconds: float | None = None
-    last_processed_trip_at: datetime | None = None
-    last_calculation_mode: str | None = None
     last_job_id: str | None = None
 
     class Settings:

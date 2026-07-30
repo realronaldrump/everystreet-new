@@ -82,7 +82,7 @@ def test_geo_coverage_cities_forwards_query_params() -> None:
     )
 
 
-def test_geo_coverage_recalculate_forwards_mode() -> None:
+def test_geo_coverage_recalculate_starts_full_rebuild() -> None:
     payload = {
         "success": True,
         "alreadyRunning": False,
@@ -97,9 +97,10 @@ def test_geo_coverage_recalculate_forwards_mode() -> None:
         new=mock_recalculate,
     ):
         client = TestClient(_create_app())
-        response = client.post("/api/geo-coverage/recalculate", params={"mode": "full"})
+        response = client.post("/api/geo-coverage/recalculate")
 
     assert response.status_code == 200
     assert response.json() == payload
     assert mock_recalculate.await_count == 1
-    assert mock_recalculate.await_args.kwargs["mode"] == "full"
+    assert len(mock_recalculate.await_args.args) == 1
+    assert mock_recalculate.await_args.kwargs == {}

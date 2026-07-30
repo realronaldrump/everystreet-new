@@ -327,7 +327,7 @@ function renderProviderSummary(summary = {}) {
   }
 
   if (elements.summaryFoot) {
-    const pending = formatSummaryCount(summary.unmatched);
+    const pending = formatSummaryCount(summary.pending);
     const untracked = formatSummaryCount(summary.untracked_matched);
     const mapboxOnly = formatSummaryCount(summary.mapbox_only_matched);
     elements.summaryFoot.textContent = `Pending ${pending} · Mapbox-only ${mapboxOnly} · No engine tag ${untracked}`;
@@ -2103,24 +2103,25 @@ async function browseFailedTrips({ silent = false } = {}) {
     // Fetch trips with failed/skipped match status
     const response = await apiGet(`${CONFIG.API.failedTrips}?limit=100`);
     const trips = response?.trips || [];
+    const total = Number(response?.total ?? trips.length);
     failedTripsData = trips;
 
     // Update summary
     if (elements.failedSummary) {
       elements.failedSummary.textContent =
-        trips.length > 0
-          ? `${trips.length} trip${trips.length !== 1 ? "s" : ""} with issues`
+        total > 0
+          ? `${total} trip${total !== 1 ? "s" : ""} with issues`
           : "No failed trips";
     }
 
     // Update count badge
     if (elements.failedCountBadge) {
-      elements.failedCountBadge.textContent = trips.length;
-      elements.failedCountBadge.classList.toggle("d-none", trips.length === 0);
+      elements.failedCountBadge.textContent = total;
+      elements.failedCountBadge.classList.toggle("d-none", total === 0);
     }
 
     // Render failed trips list
-    renderFailedTrips(trips);
+    renderFailedTrips(trips, total);
 
     // Update map - show empty state for failed trips
     updateMatchedPreviewEmptyState("Select trips to retry matching");
@@ -2132,7 +2133,7 @@ async function browseFailedTrips({ silent = false } = {}) {
   }
 }
 
-function renderFailedTrips(trips) {
+function renderFailedTrips(trips, total = trips.length) {
   if (!elements.failedTrips) {
     return;
   }
@@ -2140,8 +2141,8 @@ function renderFailedTrips(trips) {
   // Update count
   if (elements.failedListCount) {
     elements.failedListCount.textContent =
-      trips.length > 0
-        ? `${trips.length} trip${trips.length !== 1 ? "s" : ""} with issues`
+      total > 0
+        ? `${trips.length} of ${total} trip${total !== 1 ? "s" : ""} with issues`
         : "No issues";
   }
 

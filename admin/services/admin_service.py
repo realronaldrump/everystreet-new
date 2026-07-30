@@ -108,7 +108,6 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "mapCoverageBatchSize": 200,
     "coverageIncludeServiceRoads": True,
     "streetCoverageTripMode": "both",
-    "geoCoverageRecalcMode": "incremental",
     "setup_completed": False,
     "setup_completed_at": None,
 }

@@ -351,8 +351,10 @@ def _edge_length_from_nodes(G: nx.Graph, u: int, v: int) -> float:
     except (KeyError, TypeError, ValueError):
         return 0.0
     if _is_projected_graph(G):
-        # Projected CRS — Euclidean distance is already in linear units (meters)
-        return math.hypot(vx - ux, vy - uy)
+        meters_per_unit = _meters_per_graph_unit(G)
+        if meters_per_unit is None:
+            return 0.0
+        return math.hypot(vx - ux, vy - uy) * meters_per_unit
     return _haversine_distance_m(ux, uy, vx, vy)
 
 

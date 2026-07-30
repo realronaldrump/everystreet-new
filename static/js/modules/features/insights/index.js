@@ -100,6 +100,7 @@ function renderStorySectionsFromState() {
     ...state.data,
     currentView: state.currentView,
     rhythmView: state.rhythmView,
+    currentRange: state.currentRange,
   });
 
   InsightsState.updateState({ derivedInsights: snapshot });
@@ -138,7 +139,7 @@ async function loadAllData(signalOverride) {
       dateRange.start,
       dateRange.end
     );
-    InsightsState.updateState({ currentPeriod: periodDays });
+    InsightsState.updateState({ currentPeriod: periodDays, currentRange: dateRange });
 
     // Calculate previous-period date range for trend comparisons
     const prevRange = InsightsFormatters.calculatePreviousRange(

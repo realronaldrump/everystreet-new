@@ -16,8 +16,8 @@ class ProgressCardGenerator {
    * @param {number} data.milesDriven - Total miles driven
    * @param {number} data.areaMiles - Total drivable miles in the area
    * @param {number} data.totalTrips - Total trip count
-   * @param {number} data.streetsDriven - Number of driven streets
-   * @param {number} data.totalStreets - Total streets in area
+   * @param {number} data.segmentsDriven - Number of driven street segments
+   * @param {number} data.totalSegments - Total street segments in area
    * @param {string} data.dateRange - Date range string
    * @returns {Promise<Blob>} PNG image blob
    */
@@ -115,23 +115,30 @@ class ProgressCardGenerator {
     // Stats on the right
     const statsX = 360;
     const statsStartY = 170;
-    const milesDriven = this._firstFinite(data.milesDriven, data.totalMiles, 0);
-    const areaMiles = this._firstFinite(data.areaMiles, data.totalAreaMiles, null);
-    const totalTrips = this._firstFinite(data.totalTrips, null);
-    const streetsDriven = this._firstFinite(data.streetsDriven, data.drivenStreets, 0);
-    const totalStreets = this._firstFinite(data.totalStreets, 0);
+    const milesDriven = this._firstFiniteOrNull(data.milesDriven);
+    const areaMiles = this._firstFiniteOrNull(data.areaMiles);
+    const totalTrips = this._firstFiniteOrNull(data.totalTrips);
+    const segmentsDriven = this._firstFiniteOrNull(data.segmentsDriven);
+    const totalSegments = this._firstFiniteOrNull(data.totalSegments);
     const stats = [
-      { label: "Miles Driven", value: this._formatNumber(milesDriven, 1), unit: "mi" },
+      {
+        label: "Miles Driven",
+        value: milesDriven === null ? "—" : this._formatNumber(milesDriven, 1),
+        unit: milesDriven === null ? "" : "mi",
+      },
       totalTrips > 0
         ? { label: "Total Trips", value: this._formatNumber(totalTrips), unit: "" }
         : {
             label: "Area Miles",
-            value: this._formatNumber(areaMiles || 0, 1),
-            unit: "mi",
+            value: areaMiles === null ? "—" : this._formatNumber(areaMiles, 1),
+            unit: areaMiles === null ? "" : "mi",
           },
       {
-        label: "Streets Driven",
-        value: `${streetsDriven} / ${totalStreets}`,
+        label: "Segments Driven",
+        value:
+          segmentsDriven === null || totalSegments === null
+            ? "—"
+            : `${segmentsDriven} / ${totalSegments}`,
         unit: "",
       },
     ];
@@ -188,7 +195,7 @@ class ProgressCardGenerator {
     });
   }
 
-  _firstFinite(...values) {
+  _firstFiniteOrNull(...values) {
     for (const value of values) {
       if (value === null || value === undefined || value === "") {
         continue;
@@ -198,7 +205,7 @@ class ProgressCardGenerator {
         return numeric;
       }
     }
-    return 0;
+    return null;
   }
 }
 

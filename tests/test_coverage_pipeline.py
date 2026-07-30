@@ -37,6 +37,15 @@ def _make_location(location_id: str = "test-area") -> dict:
     }
 
 
+def test_total_segment_miles_uses_generated_segment_units() -> None:
+    segments = [
+        {"length_miles": 1.25},
+        {"length_miles": 0.75},
+    ]
+
+    assert coverage_ingestion._total_segment_miles(segments) == pytest.approx(2.0)
+
+
 async def _no_configured_extract() -> None:
     return None
 

@@ -26,13 +26,6 @@ class TripSerializer:
     @staticmethod
     def calculate_duration_seconds(trip_doc: dict[str, Any]) -> float | None:
         """Calculate trip duration in seconds from startTime and endTime."""
-        duration = trip_doc.get("duration")
-        if duration is not None:
-            try:
-                return float(duration)
-            except (TypeError, ValueError):
-                pass
-
         start_raw = trip_doc.get("startTime")
         end_raw = trip_doc.get("endTime")
         if not start_raw or not end_raw:
@@ -43,7 +36,8 @@ class TripSerializer:
         if start is None or end is None:
             return None
 
-        return (end - start).total_seconds()
+        duration = (end - start).total_seconds()
+        return duration if duration > 0 else None
 
     @staticmethod
     def to_dict(
@@ -67,13 +61,13 @@ class TripSerializer:
             "startTimeZone": trip_doc.get("startTimeZone"),
             "endTimeZone": trip_doc.get("endTimeZone"),
             "duration": TripSerializer.calculate_duration_seconds(trip_doc),
-            "distance": safe_float(trip_doc.get("distance"), 0),
-            "maxSpeed": safe_float(trip_doc.get("maxSpeed"), 0),
+            "distance": safe_float(trip_doc.get("distance"), None),
+            "maxSpeed": safe_float(trip_doc.get("maxSpeed"), None),
             "avgSpeed": trip_doc.get("avgSpeed"),
             "startLocation": trip_doc.get("startLocation"),
             "destination": trip_doc.get("destination"),
             "totalIdleDuration": trip_doc.get("totalIdleDuration"),
-            "fuelConsumed": safe_float(trip_doc.get("fuelConsumed"), 0),
+            "fuelConsumed": safe_float(trip_doc.get("fuelConsumed"), None),
             "hardBrakingCounts": trip_doc.get("hardBrakingCounts"),
             "hardAccelerationCounts": trip_doc.get("hardAccelerationCounts"),
             "startOdometer": trip_doc.get("startOdometer"),
@@ -101,7 +95,7 @@ class TripSerializer:
         """Serialize GeoJSON feature properties for trip responses."""
         props = TripSerializer.to_dict(trip_doc)
         props["pointsRecorded"] = points_recorded
-        props["estimated_cost"] = safe_float(estimated_cost, 0)
+        props["estimated_cost"] = safe_float(estimated_cost, None)
         if not include_matched_at:
             props.pop("matched_at", None)
         if coverage_distance_miles is not None:

@@ -558,7 +558,7 @@ export default async function initMemoryCityPage(ctx = {}) {
     }
     const founded = new Date(model.firstMs).getFullYear();
     return (
-      `${formatInt(model.count)} streets stacked in founding order — ` +
+      `${formatInt(model.count)} segments stacked in founding order — ` +
       `ground level is ${founded}, the summit is your newest street. ` +
       "Scrub the timeline to watch the city accrete."
     );
@@ -817,7 +817,7 @@ export default async function initMemoryCityPage(ctx = {}) {
         <span class="mc-chapter-numeral">${chapter.numeral}</span>
         <span class="mc-chapter-body">
           <span class="mc-chapter-dates">${escapeHtml(chapter.dateLabel)}</span>
-          <span class="mc-chapter-count">${formatInt(chapter.count)} streets · ${formatMiles(chapter.miles)}</span>
+          <span class="mc-chapter-count">${formatInt(chapter.count)} segments · ${formatMiles(chapter.miles)}</span>
         </span>
         <i class="fas fa-play mc-chapter-play" aria-hidden="true"></i>
       `;
@@ -911,7 +911,7 @@ export default async function initMemoryCityPage(ctx = {}) {
         bucket: chapter.index,
         color: palette.cat[chapter.index % palette.cat.length],
         label: `Ch. ${chapter.numeral}`,
-        title: `${chapter.dateLabel} · ${formatInt(chapter.count)} streets`,
+        title: `${chapter.dateLabel} · ${formatInt(chapter.count)} segments`,
       }));
     }
     if (state.lens === "loyalty") {
@@ -1537,7 +1537,7 @@ export default async function initMemoryCityPage(ctx = {}) {
         key: "once",
         label: "Met only once",
         value: `${records.oncePct.toFixed(0)}% of the city`,
-        sub: `${formatInt(records.onceCount)} streets you never returned to`,
+        sub: `${formatInt(records.onceCount)} segments you never returned to`,
         onSelect: () => {
           if (state.lens !== "loyalty") {
             setLens("loyalty");

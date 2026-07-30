@@ -150,6 +150,12 @@ class OdometerService:
             )
             return {"latitude": None, "longitude": None, "odometer": None}
 
+        if not use_now and target_time is not None:
+            if trip.startTime is not None and target_time == trip.startTime:
+                location_position = "start"
+            elif trip.endTime is not None and target_time == trip.endTime:
+                location_position = "end"
+
         inside_trip_window = (
             not use_now
             and target_time is not None
@@ -162,14 +168,19 @@ class OdometerService:
             resolved_odometer = trip.startOdometer
             resolved_timestamp = trip.startTime
             odometer_source = "trip_start"
-        else:
+        elif location_position == "end":
             resolved_odometer = trip.endOdometer
             resolved_timestamp = trip.endTime
             odometer_source = "trip_end"
+        else:
+            resolved_odometer = None
+            resolved_timestamp = target_time
+            odometer_source = None
         trip_progress: float | None = None
 
         if (
             inside_trip_window
+            and location_position == "interpolate"
             and target_time is not None
             and trip.startTime is not None
             and trip.endTime is not None
@@ -202,7 +213,7 @@ class OdometerService:
             start_location = getattr(trip, "startLocation", None)
             if isinstance(start_location, dict):
                 location_address = start_location.get("formatted_address")
-        else:
+        elif location_position == "end":
             destination = getattr(trip, "destination", None)
             if isinstance(destination, dict):
                 location_address = destination.get("formatted_address")
@@ -252,37 +263,25 @@ class OdometerService:
                 progress=trip_progress,
             )
 
-        start_location = getattr(trip, "startLocation", None)
-        end_location = getattr(trip, "endLocation", None)
         if (
             location_data["latitude"] is None
-            and location_position == "start"
-            and isinstance(start_location, dict)
+            and location_position in {"start", "end"}
         ):
-            location_data = OdometerService._extract_start_location(
-                start_location,
-                location_data,
-            )
-        if location_data["latitude"] is None and isinstance(end_location, dict):
-            location_data = OdometerService._extract_end_location(
-                end_location,
-                location_data,
-            )
-        if location_data["latitude"] is None and isinstance(start_location, dict):
-            location_data = OdometerService._extract_start_location(
-                start_location,
-                location_data,
-            )
+            if location_position == "start":
+                point = getattr(trip, "startGeoPoint", None)
+                structured_location = getattr(trip, "startLocation", None)
+            else:
+                point = getattr(trip, "destinationGeoPoint", None)
+                structured_location = getattr(trip, "destination", None)
 
-        # Odometer defaults
-        if location_data["odometer"] is None:
-            if trip.endOdometer is not None:
-                location_data["odometer"] = trip.endOdometer
-            elif trip.startOdometer is not None:
-                location_data["odometer"] = trip.startOdometer
-                logger.info(
-                    "Vehicle Loc Debug: Using startOdometer %s",
-                    location_data["odometer"],
+            location_data = OdometerService._extract_location_coordinates(
+                point,
+                location_data,
+            )
+            if location_data["latitude"] is None:
+                location_data = OdometerService._extract_location_coordinates(
+                    structured_location,
+                    location_data,
                 )
 
         return location_data
@@ -381,54 +380,30 @@ class OdometerService:
         return location_data
 
     @staticmethod
-    def _extract_end_location(
-        end_location: dict[str, Any],
+    def _extract_location_coordinates(
+        location: Any,
         location_data: dict[str, Any],
     ) -> dict[str, Any]:
-        """
-        Extract coordinates from end location.
+        """Extract a coordinate pair from canonical GeoJSON or location fields."""
+        if not isinstance(location, dict):
+            return location_data
 
-        Args:
-            end_location: End location object
-            location_data: Location data dict to update
+        candidate: Any = None
+        if location.get("type") == "Point":
+            candidate = location.get("coordinates")
+        else:
+            coordinates = location.get("coordinates")
+            if isinstance(coordinates, dict):
+                lon = coordinates.get("lng")
+                lat = coordinates.get("lat")
+                if lon is not None and lat is not None:
+                    candidate = [lon, lat]
 
-        Returns:
-            Updated location_data dict
-        """
-        if "lat" in end_location and "lon" in end_location:
-            is_valid, validated = GeometryService.validate_coordinate_pair(
-                [end_location["lon"], end_location["lat"]],
-            )
+        if candidate is not None:
+            is_valid, validated = GeometryService.validate_coordinate_pair(candidate)
             if is_valid and validated is not None:
                 location_data["longitude"] = validated[0]
                 location_data["latitude"] = validated[1]
-                logger.info("Vehicle Loc Debug: Used endLocation value")
-
-        return location_data
-
-    @staticmethod
-    def _extract_start_location(
-        start_location: dict[str, Any],
-        location_data: dict[str, Any],
-    ) -> dict[str, Any]:
-        """
-        Extract coordinates from start location.
-
-        Args:
-            start_location: Start location object
-            location_data: Location data dict to update
-
-        Returns:
-            Updated location_data dict
-        """
-        if "lat" in start_location and "lon" in start_location:
-            is_valid, validated = GeometryService.validate_coordinate_pair(
-                [start_location["lon"], start_location["lat"]],
-            )
-            if is_valid and validated is not None:
-                location_data["longitude"] = validated[0]
-                location_data["latitude"] = validated[1]
-                logger.info("Vehicle Loc Debug: Used startLocation value")
 
         return location_data
 
@@ -580,22 +555,27 @@ class OdometerService:
 
         if (
             prev_fillup
+            and prev_fillup_time is not None
+            and prev_fillup.odometer is not None
+            and target_time == prev_fillup_time
+        ):
+            return {
+                "estimated_odometer": round(prev_fillup.odometer, 1),
+                "method": "manual_anchor",
+                "confidence": "exact",
+                "distance_diff": 0.0,
+                "previous_anchor": previous_anchor,
+                "next_anchor": next_anchor,
+            }
+
+        if (
+            prev_fillup
             and next_fillup
             and prev_fillup_time is not None
             and next_fillup_time is not None
             and prev_fillup.odometer is not None
             and next_fillup.odometer is not None
         ):
-            if target_time == prev_fillup_time:
-                return {
-                    "estimated_odometer": round(prev_fillup.odometer, 1),
-                    "method": "calibrated_between_manual_anchors",
-                    "confidence": "calibrated",
-                    "distance_diff": 0.0,
-                    "previous_anchor": previous_anchor,
-                    "next_anchor": next_anchor,
-                }
-
             raw_distance_to_target = (
                 await OdometerService._sum_trip_distance_over_interval(
                     imei,

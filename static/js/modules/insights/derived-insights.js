@@ -70,7 +70,10 @@ function formatSignedNumber(value, decimals = 0, unit = "") {
 }
 
 function formatHourAmPm(hourRaw) {
-  const hour = clamp(Math.round(toNumber(hourRaw, 0)), 0, 23);
+  if (hourRaw === null || hourRaw === undefined || !Number.isFinite(Number(hourRaw))) {
+    return "--";
+  }
+  const hour = ((Math.round(Number(hourRaw)) % 24) + 24) % 24;
   const suffix = hour >= 12 ? "PM" : "AM";
   const display = hour % 12 || 12;
   return `${display} ${suffix}`;
@@ -217,7 +220,7 @@ function computePeriodDeltas(periods = []) {
   });
 }
 
-export function computeConsistencyStats(dailyDistances = []) {
+export function computeConsistencyStats(dailyDistances = [], range = {}) {
   const normalized = dailyDistances
     .map((entry) => ({
       date: entry?.date,
@@ -227,7 +230,18 @@ export function computeConsistencyStats(dailyDistances = []) {
     .filter((entry) => parseYmdUtc(entry.date))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  if (!normalized.length) {
+  const requestedStart = parseYmdUtc(range?.start);
+  const requestedEnd = parseYmdUtc(range?.end);
+  const hasValidRequestedRange =
+    requestedStart && requestedEnd && requestedStart <= requestedEnd;
+  const start = hasValidRequestedRange
+    ? requestedStart
+    : parseYmdUtc(normalized[0]?.date);
+  const end = hasValidRequestedRange
+    ? requestedEnd
+    : parseYmdUtc(normalized[normalized.length - 1]?.date);
+
+  if (!start || !end) {
     return {
       activeDays: 0,
       spanDays: 0,
@@ -239,8 +253,6 @@ export function computeConsistencyStats(dailyDistances = []) {
   }
 
   const byDate = new Map(normalized.map((entry) => [entry.date, entry]));
-  const start = parseYmdUtc(normalized[0].date);
-  const end = parseYmdUtc(normalized[normalized.length - 1].date);
   const spanDays = Math.floor((end - start) / MS_PER_DAY) + 1;
 
   let activeDays = 0;
@@ -321,10 +333,27 @@ export function computeTimeSignature(timeDistribution = [], weekdayDistribution 
     { day: 0, count: Number.POSITIVE_INFINITY }
   );
 
-  const weightedHourRaw =
-    totalTrips > 0
-      ? hourly.reduce((sum, count, hour) => sum + hour * count, 0) / totalTrips
-      : 0;
+  let weightedHourRaw = null;
+  if (totalTrips > 0) {
+    const vector = hourly.reduce(
+      (sum, count, hour) => {
+        const angle = (hour / 24) * Math.PI * 2;
+        return {
+          x: sum.x + Math.cos(angle) * count,
+          y: sum.y + Math.sin(angle) * count,
+        };
+      },
+      { x: 0, y: 0 }
+    );
+    const vectorStrength = Math.hypot(vector.x, vector.y) / totalTrips;
+    if (vectorStrength > 1e-12) {
+      const angle = Math.atan2(vector.y, vector.x);
+      weightedHourRaw = (((angle / (Math.PI * 2)) * 24 + 24) % 24 + 24) % 24;
+      if (weightedHourRaw > 23.999999) {
+        weightedHourRaw = 0;
+      }
+    }
+  }
 
   const topThreeHours = [...hourly].sort((a, b) => b - a).slice(0, 3);
   const concentration =
@@ -364,7 +393,8 @@ export function computeTimeSignature(timeDistribution = [], weekdayDistribution 
     quietHour: quietHour.hour,
     peakHourCount: Math.max(0, peakHour.count),
     quietHourCount: Number.isFinite(quietHour.count) ? quietHour.count : 0,
-    weightedHour: Number(weightedHourRaw.toFixed(1)),
+    weightedHour:
+      weightedHourRaw === null ? null : Number(weightedHourRaw.toFixed(1)),
     concentrationScore: Number((concentration * 100).toFixed(1)),
     dominantDaypart,
     dominantDaypartLabel: daypartLabel,
@@ -489,20 +519,25 @@ function buildPatternCards(derivedData = {}) {
   const timeSignature = derivedData.timeSignature || {};
   const exploration = derivedData.exploration || {};
   const fuelLens = derivedData.fuelLens || {};
+  const hasTimeData = toNumber(timeSignature.totalTrips) > 0;
 
   const scenes = [
     {
       id: "signature",
       icon: "fa-clock",
       title: "Weighted start hour",
-      value: timeSignature.weightedHourLabel || "12 AM",
-      detail: `Peak: ${formatHourAmPm(timeSignature.peakHour)} (${toNumber(timeSignature.peakHourCount)} trips)`,
+      value: hasTimeData ? timeSignature.weightedHourLabel || "--" : "--",
+      detail: hasTimeData
+        ? `Peak: ${formatHourAmPm(timeSignature.peakHour)} (${toNumber(timeSignature.peakHourCount)} trips)`
+        : "No trip start-time data in this range.",
       tone: "sky",
-      action: {
-        type: "time-period",
-        timeType: "hour",
-        timeValue: clamp(toNumber(timeSignature.peakHour), 0, 23),
-      },
+      action: hasTimeData
+        ? {
+            type: "time-period",
+            timeType: "hour",
+            timeValue: clamp(toNumber(timeSignature.peakHour), 0, 23),
+          }
+        : null,
     },
     {
       id: "exploration",
@@ -517,14 +552,20 @@ function buildPatternCards(derivedData = {}) {
       id: "weekday",
       icon: "fa-calendar-day",
       title: "Peak and quiet days",
-      value: `${timeSignature.peakDayLabel || "-"} / ${timeSignature.quietDayLabel || "-"}`,
-      detail: `Trips: ${toNumber(timeSignature.peakDayCount)} vs ${toNumber(timeSignature.quietDayCount)}`,
+      value: hasTimeData
+        ? `${timeSignature.peakDayLabel || "-"} / ${timeSignature.quietDayLabel || "-"}`
+        : "--",
+      detail: hasTimeData
+        ? `Trips: ${toNumber(timeSignature.peakDayCount)} vs ${toNumber(timeSignature.quietDayCount)}`
+        : "No weekday trip data in this range.",
       tone: "coral",
-      action: {
-        type: "time-period",
-        timeType: "day",
-        timeValue: clamp(toNumber(timeSignature.peakDay), 0, 6),
-      },
+      action: hasTimeData
+        ? {
+            type: "time-period",
+            timeType: "day",
+            timeValue: clamp(toNumber(timeSignature.peakDay), 0, 6),
+          }
+        : null,
     },
     {
       id: "fuel",
@@ -556,7 +597,7 @@ export function deriveInsightsSnapshot(stateData = {}) {
     monthly: computePeriodDeltas(monthlyBase),
   };
 
-  const consistency = computeConsistencyStats(dailyDistances);
+  const consistency = computeConsistencyStats(dailyDistances, stateData.currentRange);
   const timeSignature = computeTimeSignature(
     analytics.time_distribution || [],
     analytics.weekday_distribution || []
@@ -566,9 +607,9 @@ export function deriveInsightsSnapshot(stateData = {}) {
     toNumber(insights.total_trips)
   );
   const fuelLens = computeFuelLens(
-    toNumber(insights.total_fuel_consumed),
-    toNumber(insights.total_distance),
-    toNumber(insights.total_trips)
+    toNumber(insights.fuel_consumed_for_mpg),
+    toNumber(insights.fuel_distance),
+    toNumber(insights.fuel_trip_count)
   );
 
   const derived = {

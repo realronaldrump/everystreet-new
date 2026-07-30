@@ -40,6 +40,7 @@ from recurring_routes.services.temporal_analytics import (
     normalize_month_buckets,
     serialize_stats_for_response,
 )
+from trips.serialization import TripSerializer
 
 _OFFSET_RE = re.compile(r"^([+-])(\d{2}):?(\d{2})$")
 
@@ -340,7 +341,7 @@ def _compute_facets_from_trips(trips: list[dict[str, Any]]) -> dict[str, Any]:
         month_key = local_dt.strftime("%Y-%m")
 
         dist = _to_float(trip.get("distance"))
-        dur = _to_float(trip.get("duration"))
+        dur = TripSerializer.calculate_duration_seconds(trip)
 
         by_hour[hour]["count"] += 1
         by_dow[dow]["count"] += 1
@@ -491,7 +492,7 @@ def _build_variants(
         if dist is not None:
             group["distances"].append(dist)
 
-        duration = _to_float(trip.get("duration"))
+        duration = TripSerializer.calculate_duration_seconds(trip)
         if duration is not None:
             group["durations"].append(duration)
 
@@ -610,7 +611,6 @@ async def analyze_place_pair(
             "endTime": 1,
             "startTimeZone": 1,
             "distance": 1,
-            "duration": 1,
             "startLocation": 1,
             "destination": 1,
             "startPlaceId": 1,
@@ -731,7 +731,9 @@ async def analyze_place_pair(
     ]
     duration_values = [
         value
-        for value in (_to_float(trip.get("duration")) for trip in matched_trips)
+        for value in (
+            TripSerializer.calculate_duration_seconds(trip) for trip in matched_trips
+        )
         if value is not None
     ]
 

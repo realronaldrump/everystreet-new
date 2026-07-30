@@ -27,6 +27,19 @@ import LiveNavigationMap from "./live-navigation-map.js";
 import LiveNavigationState from "./live-navigation-state.js";
 import LiveNavigationUI from "./live-navigation-ui.js";
 
+export function resolveLiveCoveragePercent(baselinePercent, coverageStats) {
+  const baseline = Number(baselinePercent);
+  const safeBaseline = Number.isFinite(baseline)
+    ? Math.min(100, Math.max(0, baseline))
+    : 0;
+  const totalLength = Number(coverageStats?.totalLength);
+  const livePercent = Number(coverageStats?.percentage);
+  if (totalLength > 0 && Number.isFinite(livePercent)) {
+    return Math.min(100, Math.max(0, livePercent));
+  }
+  return safeBaseline;
+}
+
 /**
  * Main live navigation controller.
  */
@@ -56,8 +69,6 @@ class LiveNavigationNavigator {
 
     // Coverage baseline
     this.coverageBaseline = {
-      totalMi: 0,
-      coveredMi: 0,
       percentage: 0,
     };
 
@@ -342,12 +353,7 @@ class LiveNavigationNavigator {
 
       // Process coverage baseline
       if (coverageData) {
-        const driveableMiles =
-          coverageData.driveable_length_miles ?? coverageData.total_length_miles ?? 0;
-        const drivenMiles = coverageData.driven_length_miles ?? 0;
         this.coverageBaseline = {
-          totalMi: driveableMiles,
-          coveredMi: drivenMiles,
           percentage: coverageData.coverage_percentage || 0,
         };
       }
@@ -878,11 +884,6 @@ class LiveNavigationNavigator {
         );
         if (coverageData) {
           this.coverageBaseline = {
-            totalMi:
-              coverageData.driveable_length_miles ??
-              coverageData.total_length_miles ??
-              0,
-            coveredMi: coverageData.driven_length_miles ?? 0,
             percentage: coverageData.coverage_percentage || 0,
           };
           this.ui.initializeCoverageDisplay(this.coverageBaseline.percentage);
@@ -1046,22 +1047,12 @@ class LiveNavigationNavigator {
 
     // Update coverage if we have segment data
     const coverageStats = this.coverage.getCoverageStats();
-    if (coverageStats.totalLength > 0) {
-      this.ui.updateCoverageProgress(
-        this.coverageBaseline.percentage,
-        coverageStats.percentage
-      );
-    } else {
-      // Estimate coverage from route progress
-      const baselinePercent = this.coverageBaseline.percentage || 0;
-      const routeMiles = smoothedProgress / MI_TO_M;
-      const totalAreaMiles = this.coverageBaseline.totalMi || 1;
-      const uncoveredFraction = (100 - baselinePercent) / 100;
-      const estimatedNewCoverage =
-        (routeMiles / totalAreaMiles) * 100 * uncoveredFraction * 0.8;
-      const liveCoveragePercent = Math.min(100, baselinePercent + estimatedNewCoverage);
-      this.ui.updateCoverageProgress(baselinePercent, liveCoveragePercent);
-    }
+    const baselinePercent = this.coverageBaseline.percentage || 0;
+    const liveCoveragePercent = resolveLiveCoveragePercent(
+      baselinePercent,
+      coverageStats
+    );
+    this.ui.updateCoverageProgress(baselinePercent, liveCoveragePercent);
 
     // Update remaining distance
     this.ui.updateRemaining(remainingDistance);

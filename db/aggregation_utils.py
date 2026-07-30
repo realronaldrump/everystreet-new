@@ -11,6 +11,29 @@ from __future__ import annotations
 from typing import Any
 
 
+def build_mongo_tz_valid_expr(date_field: str = "startTime") -> dict[str, Any]:
+    """Return whether a trip has a syntactically valid local timezone value."""
+    timezone_field = "$endTimeZone" if date_field == "endTime" else "$startTimeZone"
+    safe_timezone = {"$ifNull": [timezone_field, ""]}
+    return {
+        "$or": [
+            {"$in": [timezone_field, ["UTC", "GMT"]]},
+            {
+                "$regexMatch": {
+                    "input": safe_timezone,
+                    "regex": r"^[+-](?:[01][0-9]|2[0-3]):?[0-5][0-9]$",
+                }
+            },
+            {
+                "$regexMatch": {
+                    "input": safe_timezone,
+                    "regex": r"^[a-zA-Z_]+(?:/[a-zA-Z0-9_+\-]+)+$",
+                }
+            },
+        ]
+    }
+
+
 def get_mongo_tz_expr(date_field: str = "startTime") -> dict[str, Any]:
     """
     Return the standard MongoDB timezone expression for aggregation pipelines.
@@ -234,48 +257,53 @@ def build_numeric_sort_field_stage(
     }
 
 
+def build_trip_duration_seconds_expr() -> dict[str, Any]:
+    """Return the canonical historical-trip duration expression.
+
+    Persisted trips come from the Bouncie REST API, whose duration is defined by
+    the stored start/end timestamps. Live webhook ``tripTime`` values never
+    belong in the historical trips collection.
+    """
+    return {
+        "$cond": {
+            "if": {
+                "$and": [
+                    {"$ifNull": ["$startTime", None]},
+                    {"$ifNull": ["$endTime", None]},
+                    {"$lt": ["$startTime", "$endTime"]},
+                ],
+            },
+            "then": {
+                "$divide": [
+                    {"$subtract": ["$endTime", "$startTime"]},
+                    1000,
+                ],
+            },
+            "else": None,
+        },
+    }
+
+
 def build_trip_duration_fields_stage(
     tz_expr: dict[str, Any] | None = None,
     *,
-    default_duration_field: str | None = None,
+    include_day_key: bool = True,
 ) -> dict[str, Any]:
     """Common duration and date bucketing fields for trip analytics pipelines."""
     tz_expr = tz_expr or get_mongo_tz_expr()
-    default_duration: float | dict[str, Any]
-    if default_duration_field:
-        default_duration = {"$ifNull": [default_duration_field, 0.0]}
-    else:
-        default_duration = 0.0
-    return {
-        "$addFields": {
-            "duration_seconds": {
-                "$cond": {
-                    "if": {
-                        "$and": [
-                            {"$ifNull": ["$startTime", None]},
-                            {"$ifNull": ["$endTime", None]},
-                            {"$lt": ["$startTime", "$endTime"]},
-                        ],
-                    },
-                    "then": {
-                        "$divide": [
-                            {"$subtract": ["$endTime", "$startTime"]},
-                            1000,
-                        ],
-                    },
-                    "else": default_duration,
-                },
-            },
-            "recorded_at": {"$ifNull": ["$endTime", "$startTime"]},
-            "day_key": {
-                "$dateToString": {
-                    "format": "%Y-%m-%d",
-                    "date": "$startTime",
-                    "timezone": tz_expr,
-                },
-            },
-        },
+    fields: dict[str, Any] = {
+        "duration_seconds": build_trip_duration_seconds_expr(),
+        "recorded_at": {"$ifNull": ["$endTime", "$startTime"]},
     }
+    if include_day_key:
+        fields["day_key"] = {
+            "$dateToString": {
+                "format": "%Y-%m-%d",
+                "date": "$startTime",
+                "timezone": tz_expr,
+            },
+        }
+    return {"$addFields": fields}
 
 
 def build_driver_behavior_fields_stage(

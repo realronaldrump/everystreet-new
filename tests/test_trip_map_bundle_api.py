@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from api.map_bundle import router as map_bundle_router
+from api.map_bundle import _build_trip_map_summary, router as map_bundle_router
 from core.http.valhalla import ValhallaClient
 from trips.services.trip_map_geometry import build_encoded_path_metadata
 
@@ -105,6 +105,7 @@ def _trip(
 ) -> dict[str, Any]:
     display_geom = display or _line([-97.0, 32.0], [-97.1, 32.1])
     matched_geom = matched or _line([-97.0, 32.0], [-97.05, 32.05], [-97.1, 32.1])
+    start_time = datetime(2026, 3, 1, 10, 0, tzinfo=UTC)
     return {
         "_id": f"oid-{trip_id}",
         "transactionId": trip_id,
@@ -112,10 +113,10 @@ def _trip(
         "invalid": invalid,
         "inactive": inactive,
         "imei": "imei-1",
-        "startTime": datetime(2026, 3, 1, 10, 0, tzinfo=UTC),
-        "endTime": datetime(2026, 3, 1, 11, 0, tzinfo=UTC),
+        "startTime": start_time,
+        "startTimeZone": "UTC",
+        "endTime": start_time + timedelta(seconds=duration),
         "distance": 42.0,
-        "duration": duration,
         "avgSpeed": 42.0,
         "maxSpeed": 75.0,
         "fuelConsumed": 1.5,
@@ -225,6 +226,80 @@ def test_trip_map_bundle_summary_reports_total_drive_time() -> None:
     summary = response.json()["summary"]
     assert summary["total_driving_time"] == "1:30"
     assert "avg_driving_time" not in summary
+
+
+def test_trip_map_summary_pairs_distance_and_duration_for_average_speed() -> None:
+    summary = _build_trip_map_summary(
+        [
+            {
+                "distance_miles": 100.0,
+                "duration_seconds": None,
+                "start_time": datetime(2026, 3, 1, 10, tzinfo=UTC),
+                "start_time_zone": "UTC",
+            },
+            {
+                "distance_miles": 10.0,
+                "duration_seconds": 3600.0,
+                "start_time": datetime(2026, 3, 1, 11, tzinfo=UTC),
+                "start_time_zone": "UTC",
+            },
+        ]
+    )
+
+    assert summary["avg_speed"] == 10.0
+    assert summary["total_driving_time"] == "1:00"
+
+
+def test_trip_map_summary_uses_circular_local_start_time_with_minutes() -> None:
+    summary = _build_trip_map_summary(
+        [
+            {
+                "start_time": datetime(2026, 1, 1, 23, 29, tzinfo=UTC),
+                "start_time_zone": "UTC",
+            },
+            {
+                "start_time": datetime(2026, 1, 2, 0, 31, tzinfo=UTC),
+                "start_time_zone": "UTC",
+            },
+        ]
+    )
+
+    assert summary["avg_start_time"] == "12:00 AM"
+
+
+def test_trip_map_summary_does_not_pair_clipped_distance_with_full_duration() -> None:
+    summary = _build_trip_map_summary(
+        [
+            {
+                "distance_miles": 100.0,
+                "coverage_distance_miles": 10.0,
+                "duration_seconds": 3600,
+                "start_time": datetime(2026, 1, 1, tzinfo=UTC),
+                "start_time_zone": "UTC",
+            }
+        ]
+    )
+
+    assert summary["total_distance_miles"] == 10.0
+    assert summary["avg_distance_miles"] == 10.0
+    assert summary["avg_speed"] == 100.0
+
+
+def test_trip_map_summary_reports_undefined_circular_start_time() -> None:
+    summary = _build_trip_map_summary(
+        [
+            {
+                "start_time": datetime(2026, 1, 1, 0, 0, tzinfo=UTC),
+                "start_time_zone": "UTC",
+            },
+            {
+                "start_time": datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+                "start_time_zone": "UTC",
+            },
+        ]
+    )
+
+    assert summary["avg_start_time"] == "--:--"
 
 
 def test_trip_map_bundle_excludes_non_line_geometry() -> None:

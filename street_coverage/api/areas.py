@@ -131,6 +131,8 @@ class AreaResponse(BaseModel):
     coverage_percentage: float
     total_segments: int
     driven_segments: int
+    undriveable_segments: int
+    undriveable_length_miles: float
 
     # Timestamps
     created_at: str
@@ -729,6 +731,8 @@ async def list_areas():
                 coverage_percentage=area.coverage_percentage,
                 total_segments=area.total_segments,
                 driven_segments=area.driven_segments,
+                undriveable_segments=area.undriveable_segments,
+                undriveable_length_miles=area.undriveable_length_miles,
                 created_at=area.created_at.isoformat(),
                 last_synced=area.last_synced.isoformat() if area.last_synced else None,
                 optimal_route_generated_at=(
@@ -933,6 +937,8 @@ async def get_area(area_id: PydanticObjectId):
             coverage_percentage=area.coverage_percentage,
             total_segments=area.total_segments,
             driven_segments=area.driven_segments,
+            undriveable_segments=area.undriveable_segments,
+            undriveable_length_miles=area.undriveable_length_miles,
             created_at=area.created_at.isoformat(),
             last_synced=area.last_synced.isoformat() if area.last_synced else None,
             optimal_route_generated_at=(

@@ -139,11 +139,27 @@ class MapMatchingJobService:
         skipped = await Trip.find(
             with_filters({"matchStatus": {"$regex": "^skipped:", "$options": "i"}})
         ).count()
+        pending = await Trip.find(
+            with_filters(
+                {
+                    "matchedGps": None,
+                    "$nor": [
+                        {"matchStatus": {"$regex": "^error:", "$options": "i"}},
+                        {
+                            "matchStatus": {
+                                "$regex": "^skipped:",
+                                "$options": "i",
+                            }
+                        },
+                    ],
+                }
+            )
+        ).count()
 
         return {
             "total": total,
             "matched": matched,
-            "unmatched": max(total - matched, 0),
+            "pending": pending,
             "valhalla_matched": valhalla_matched,
             "mapbox_matched": mapbox_matched,
             "mapbox_fallback_matched": mapbox_fallback_matched,

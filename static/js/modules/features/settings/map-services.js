@@ -917,10 +917,6 @@ function renderCoverageSettings(settings) {
   const simplifyFeet = sanitizeNumber(settings.mapCoverageSimplifyFeet, 150);
   const maxPoints = sanitizeInt(settings.mapCoverageMaxPointsPerTrip, 2000);
   const batchSize = sanitizeInt(settings.mapCoverageBatchSize, 200);
-  const geoCoverageRecalcMode =
-    String(settings.geoCoverageRecalcMode || "incremental").toLowerCase() === "full"
-      ? "full"
-      : "incremental";
 
   container.innerHTML = `
     <div class="settings-group map-services-settings-card">
@@ -1037,30 +1033,6 @@ function renderCoverageSettings(settings) {
           </div>
         </div>
 
-        <div class="setting-item">
-          <div class="setting-label">
-            <div class="setting-label-title">Region Explorer Cache Recalculation</div>
-            <div class="setting-label-description">
-              This controls county/city/state explorer cache updates only.
-              Incremental processes new or updated trips; full reprocesses all trips.
-            </div>
-          </div>
-          <div class="setting-control">
-            <select id="geo-coverage-recalc-mode" class="form-select">
-              <option value="incremental"${
-                geoCoverageRecalcMode === "incremental" ? " selected" : ""
-              }>
-                Incremental (new/updated trips for explorer cache)
-              </option>
-              <option value="full"${
-                geoCoverageRecalcMode === "full" ? " selected" : ""
-              }>
-                Full rebuild (all trips for explorer cache)
-              </option>
-            </select>
-          </div>
-        </div>
-
         <div class="d-flex gap-2 align-items-center mt-3">
           <button class="btn btn-primary" type="submit">
             <i class="fas fa-save"></i> Save Map Coverage Settings
@@ -1104,7 +1076,6 @@ function attachCoverageSettingsListeners() {
       const simplifyInput = document.getElementById("map-coverage-simplify-feet");
       const maxPointsInput = document.getElementById("map-coverage-max-points");
       const batchInput = document.getElementById("map-coverage-batch-size");
-      const recalcModeInput = document.getElementById("geo-coverage-recalc-mode");
       const statusEl = document.getElementById("coverage-settings-status");
 
       const mode = (modeInput?.value || "trips").toLowerCase();
@@ -1112,18 +1083,12 @@ function attachCoverageSettingsListeners() {
       const simplifyFeet = Math.max(0, sanitizeNumber(simplifyInput?.value, 150));
       const maxPoints = Math.max(100, sanitizeInt(maxPointsInput?.value, 2000));
       const batchSize = Math.max(50, sanitizeInt(batchInput?.value, 200));
-      const geoCoverageRecalcMode =
-        String(recalcModeInput?.value || "incremental").toLowerCase() === "full"
-          ? "full"
-          : "incremental";
-
       const payload = {
         mapCoverageMode: mode,
         mapCoverageBufferMiles: bufferMiles,
         mapCoverageSimplifyFeet: simplifyFeet,
         mapCoverageMaxPointsPerTrip: maxPoints,
         mapCoverageBatchSize: batchSize,
-        geoCoverageRecalcMode,
       };
 
       if (statusEl) {
@@ -1180,7 +1145,7 @@ function formatGeoCoverageJobStatus(status, active) {
     : "Idle";
 }
 
-function renderGeoCoverageStatus({ active, job, defaultMode }) {
+function renderGeoCoverageStatus({ active, job }) {
   const statusEl = document.getElementById("geo-coverage-rebuild-status");
   if (!statusEl) {
     return;
@@ -1191,9 +1156,7 @@ function renderGeoCoverageStatus({ active, job, defaultMode }) {
       <div class="geo-coverage-status-card">
         <div class="geo-coverage-status-header">
           <strong>No explorer cache rebuild has run yet</strong>
-          <span class="text-muted">Default mode: ${
-            defaultMode === "full" ? "full rebuild" : "incremental update"
-          }</span>
+          <span class="text-muted">Full rebuild</span>
         </div>
         <div class="geo-coverage-status-message">
           Run this when county/city/state explorer stats seem stale. It only touches explorer cache data.
@@ -1207,10 +1170,7 @@ function renderGeoCoverageStatus({ active, job, defaultMode }) {
   const progress = Number.isFinite(progressRaw)
     ? Math.max(0, Math.min(100, progressRaw))
     : 0;
-  const modeLabel =
-    String(job.mode || defaultMode || "incremental").toLowerCase() === "full"
-      ? "All trips (full rebuild)"
-      : "New/updated trips (incremental)";
+  const modeLabel = "All trips (full rebuild)";
   const jobStatusLabel = formatGeoCoverageJobStatus(job.status, active);
   const metrics = job.metrics || {};
   const result = job.result || {};
@@ -1290,9 +1250,7 @@ async function refreshGeoCoverageStatus() {
     const recalc = payload?.recalculation || {};
     const job = recalc.job || null;
     const active = Boolean(recalc.active);
-    const defaultMode = recalc.defaultMode || payload.defaultMode || "incremental";
-
-    renderGeoCoverageStatus({ active, job, defaultMode });
+    renderGeoCoverageStatus({ active, job });
 
     if (active) {
       if (!geoCoveragePollTimer) {
@@ -1317,7 +1275,7 @@ async function triggerGeoCoverageFullRebuild(buttonEl) {
 
   try {
     const response = await apiClient.post(
-      `${GEO_COVERAGE_API}/recalculate?mode=full`,
+      `${GEO_COVERAGE_API}/recalculate`,
       null
     );
     if (!response?.success) {

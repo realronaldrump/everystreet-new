@@ -5,8 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from datetime import UTC, datetime
+import re
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Annotated, Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, Request, status
@@ -20,6 +22,7 @@ from core.coverage_clip import (
     clip_geojson_lines,
 )
 from core.date_utils import ensure_utc
+from core.math_utils import calculate_circular_average_hour
 from core.redis import get_shared_redis
 from core.serialization import serialize_utc_datetime
 from core.spatial import GeometryService, flatten_line_coordinates
@@ -270,6 +273,44 @@ def _format_avg_hour(hour_value: float | None) -> str:
     return f"{hour_12}:{minutes:02d} {suffix}"
 
 
+def _nonnegative_finite_float(value: Any) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(number) or number < 0:
+        return None
+    return number
+
+
+_UTC_OFFSET_PATTERN = re.compile(r"^([+-])(\d{2}):?(\d{2})$")
+
+
+def _local_start_hour(value: Any, timezone_name: Any) -> float | None:
+    start = ensure_utc(value)
+    zone_name = str(timezone_name or "").strip()
+    if start is None or not zone_name:
+        return None
+
+    if zone_name in {"UTC", "GMT"}:
+        zone = UTC
+    elif match := _UTC_OFFSET_PATTERN.fullmatch(zone_name):
+        hours = int(match.group(2))
+        minutes = int(match.group(3))
+        if hours > 23 or minutes > 59:
+            return None
+        direction = 1 if match.group(1) == "+" else -1
+        zone = timezone(direction * timedelta(hours=hours, minutes=minutes))
+    else:
+        try:
+            zone = ZoneInfo(zone_name)
+        except ZoneInfoNotFoundError:
+            return None
+
+    local = start.astimezone(zone)
+    return local.hour + (local.minute / 60.0) + (local.second / 3600.0)
+
+
 def _path_metadata_for_doc(
     trip_doc: dict[str, Any],
     *,
@@ -304,47 +345,55 @@ def _path_metadata_for_doc(
 
 def _build_trip_map_summary(features: list[dict[str, Any]]) -> dict[str, Any]:
     total_distance = 0.0
-    total_full_distance = 0.0
-    valid_full_distance_count = 0
+    valid_distance_count = 0
     total_duration = 0.0
-    total_start_hours = 0.0
-    valid_start_count = 0
+    paired_distance = 0.0
+    paired_duration = 0.0
+    local_start_hours: list[float] = []
     max_speed = 0.0
 
     for feature in features:
-        distance = feature.get("distance_miles")
-        coverage_distance = feature.get("coverage_distance_miles")
+        distance = _nonnegative_finite_float(feature.get("distance_miles"))
+        coverage_distance = _nonnegative_finite_float(
+            feature.get("coverage_distance_miles")
+        )
         strict_distance = (
             coverage_distance if coverage_distance is not None else distance
         )
         if strict_distance is not None:
-            total_distance += float(strict_distance)
-        if distance is not None:
-            total_full_distance += float(distance)
-            valid_full_distance_count += 1
+            total_distance += strict_distance
+            valid_distance_count += 1
 
-        duration = feature.get("duration_seconds")
-        if duration is not None and float(duration) > 0:
-            total_duration += float(duration)
+        duration = _nonnegative_finite_float(feature.get("duration_seconds"))
+        if duration is not None and duration > 0:
+            total_duration += duration
+            if distance is not None:
+                paired_distance += distance
+                paired_duration += duration
 
-        start_raw = feature.get("start_time")
-        start_dt = ensure_utc(start_raw)
-        if start_dt is not None:
-            total_start_hours += start_dt.hour + start_dt.minute / 60
-            valid_start_count += 1
+        local_start_hour = _local_start_hour(
+            feature.get("start_time"),
+            feature.get("start_time_zone"),
+        )
+        if local_start_hour is not None:
+            local_start_hours.append(local_start_hour)
 
-        trip_max_speed = feature.get("max_speed")
+        trip_max_speed = _nonnegative_finite_float(feature.get("max_speed"))
         if trip_max_speed is not None:
-            max_speed = max(max_speed, float(trip_max_speed))
+            max_speed = max(max_speed, trip_max_speed)
 
     avg_distance = (
-        total_full_distance / valid_full_distance_count
-        if valid_full_distance_count
+        total_distance / valid_distance_count
+        if valid_distance_count
         else 0.0
     )
-    avg_speed = (total_full_distance / total_duration) * 3600 if total_duration else 0.0
+    avg_speed = (
+        (paired_distance / paired_duration) * 3600 if paired_duration else 0.0
+    )
     avg_start_hour = (
-        total_start_hours / valid_start_count if valid_start_count else None
+        calculate_circular_average_hour(local_start_hours)
+        if local_start_hours
+        else None
     )
     return {
         "total_distance_miles": round(total_distance, 1),
@@ -460,7 +509,6 @@ async def get_trip_map_bundle(
         "endTimeZone": 1,
         "imei": 1,
         "distance": 1,
-        "duration": 1,
         "avgSpeed": 1,
         "maxSpeed": 1,
         "fuelConsumed": 1,
@@ -498,27 +546,18 @@ async def get_trip_map_bundle(
         bbox = path_metadata["bbox"]
         feature_bboxes.append(bbox)
 
-        distance_miles = trip_doc.get("distance")
+        distance_miles = _nonnegative_finite_float(trip_doc.get("distance"))
         duration_seconds = _duration_seconds(trip_doc)
         feature = {
             "id": str(trip_doc.get("transactionId") or trip_doc.get("_id")),
             "start_time": start_time,
+            "start_time_zone": trip_doc.get("startTimeZone"),
             "end_time": ensure_utc(trip_doc.get("endTime")),
             "imei": str(trip_doc.get("imei") or ""),
-            "distance_miles": (
-                float(distance_miles) if distance_miles is not None else None
-            ),
+            "distance_miles": distance_miles,
             "duration_seconds": duration_seconds,
-            "avg_speed": (
-                float(trip_doc["avgSpeed"])
-                if trip_doc.get("avgSpeed") is not None
-                else None
-            ),
-            "max_speed": (
-                float(trip_doc["maxSpeed"])
-                if trip_doc.get("maxSpeed") is not None
-                else None
-            ),
+            "avg_speed": _nonnegative_finite_float(trip_doc.get("avgSpeed")),
+            "max_speed": _nonnegative_finite_float(trip_doc.get("maxSpeed")),
             "estimated_cost": TripCostService.calculate_trip_cost(
                 trip_doc,
                 price_map,
@@ -533,12 +572,16 @@ async def get_trip_map_bundle(
         }
         features.append(feature)
 
+    summary = _build_trip_map_summary(features)
+    for feature in features:
+        feature.pop("start_time_zone", None)
+
     payload = {
         "revision": revision,
         "generated_at": datetime.now(UTC),
         "bbox": merge_bboxes(feature_bboxes),
         "trip_count": len(features),
-        "summary": _build_trip_map_summary(features),
+        "summary": summary,
         "trips": features,
     }
 

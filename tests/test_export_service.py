@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 
 from exports.models import ExportItem
@@ -110,6 +112,96 @@ def test_build_trip_query_adds_clip_prefilter_when_enabled() -> None:
     assert (
         query["gps"]["$geoIntersects"]["$geometry"] == clip_context.prefilter_geometry
     )
+
+
+def test_build_matched_trip_query_prefilters_matched_geometry() -> None:
+    clip_context = _TripExportClipContext(
+        enabled=True,
+        prefilter_geometry={
+            "type": "Polygon",
+            "coordinates": [
+                [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]],
+            ],
+        },
+    )
+
+    query = ExportService._build_trip_query(
+        {},
+        matched_only=True,
+        trip_clip_context=clip_context,
+    )
+
+    assert "gps" not in query
+    assert (
+        query["matchedGps"]["$geoIntersects"]["$geometry"]
+        == clip_context.prefilter_geometry
+    )
+
+
+def test_gpx_segments_preserve_multiline_parts_and_absolute_times() -> None:
+    start = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+    row = {
+        "startTime": start,
+        "endTime": datetime(2024, 1, 1, 12, 0, 30, tzinfo=UTC),
+        "gps": {
+            "type": "MultiLineString",
+            "coordinates": [
+                [[-97.0, 31.0], [-97.1, 31.1]],
+                [[-98.0, 32.0], [-98.1, 32.1]],
+            ],
+        },
+    }
+
+    segments = ExportService._gpx_segments(row, geometry_field="gps")
+
+    assert [len(segment["coordinates"]) for segment in segments] == [2, 2]
+    assert segments[0]["timestamps"] == [
+        int(start.timestamp()),
+        int(start.timestamp()) + 10,
+    ]
+    assert segments[1]["timestamps"] == [
+        int(start.timestamp()) + 20,
+        int(start.timestamp()) + 30,
+    ]
+
+
+def test_gpx_segments_normalize_source_millisecond_timestamps() -> None:
+    row = {
+        "gps": {
+            "type": "LineString",
+            "coordinates": [[-97.0, 31.0], [-97.1, 31.1]],
+        },
+        "coordinates": [
+            {"timestamp": 1_704_110_400_000},
+            {"timestamp": 1_704_110_405_000},
+        ],
+    }
+
+    segments = ExportService._gpx_segments(row, geometry_field="gps")
+
+    assert segments[0]["timestamps"] == [1_704_110_400, 1_704_110_405]
+
+
+def test_gpx_segments_treat_small_numeric_timestamps_as_elapsed() -> None:
+    start = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+    row = {
+        "startTime": start,
+        "gps": {
+            "type": "LineString",
+            "coordinates": [[-97.0, 31.0], [-97.1, 31.1]],
+        },
+        "coordinates": [
+            {"timestamp": 100},
+            {"timestamp": 105},
+        ],
+    }
+
+    segments = ExportService._gpx_segments(row, geometry_field="gps")
+
+    assert segments[0]["timestamps"] == [
+        int(start.timestamp()),
+        int(start.timestamp()) + 5,
+    ]
 
 
 def test_entity_file_path_returns_correct_extension() -> None:

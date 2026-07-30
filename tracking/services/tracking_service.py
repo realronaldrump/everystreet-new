@@ -8,6 +8,7 @@ collection.
 
 import contextlib
 import logging
+import math
 from datetime import UTC, datetime
 from typing import Any
 
@@ -62,6 +63,7 @@ def _new_live_trip_snapshot(
         "hardBrakingCounts": 0,
         "hardAccelerationCounts": 0,
         "lastUpdate": effective_start,
+        "metricsSource": "gps",
         "source": "webhook",
     }
 
@@ -179,6 +181,17 @@ def _segment_speed_mph(prev: dict[str, Any], curr: dict[str, Any]) -> float:
     return (segment_dist / time_diff) * 3600
 
 
+def _coordinate_speed_mph(coordinate: dict[str, Any]) -> float | None:
+    """Return a valid provider-reported point speed, if present."""
+    try:
+        speed = float(coordinate.get("speed"))
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(speed) or speed < 0:
+        return None
+    return speed
+
+
 def _calculate_trip_metrics(
     coordinates: list[dict],
     start_time: datetime,
@@ -198,6 +211,11 @@ def _calculate_trip_metrics(
     max_speed = 0.0
     current_speed = 0.0
 
+    for coordinate in coordinates:
+        point_speed = _coordinate_speed_mph(coordinate)
+        if point_speed is not None:
+            max_speed = max(max_speed, point_speed)
+
     for i in range(1, len(coordinates)):
         prev = coordinates[i - 1]
         curr = coordinates[i]
@@ -216,8 +234,9 @@ def _calculate_trip_metrics(
             segment_speed = (segment_dist / time_diff) * 3600
             max_speed = max(max_speed, segment_speed)
 
-    if coordinates[-1].get("speed") is not None:
-        current_speed = coordinates[-1]["speed"]
+    last_point_speed = _coordinate_speed_mph(coordinates[-1])
+    if last_point_speed is not None:
+        current_speed = last_point_speed
     elif len(coordinates) > 1:
         prev = coordinates[-2]
         curr = coordinates[-1]
@@ -284,12 +303,16 @@ def _calculate_trip_metrics_incremental(
         segment_speed = _segment_speed_mph(prev, curr)
         if segment_speed > 0:
             max_speed = max(max_speed, segment_speed)
+        point_speed = _coordinate_speed_mph(curr)
+        if point_speed is not None:
+            max_speed = max(max_speed, point_speed)
         prev = curr
 
     current_speed = 0.0
     last_coord = coordinates[-1]
-    if last_coord.get("speed") is not None:
-        current_speed = float(last_coord["speed"])
+    last_point_speed = _coordinate_speed_mph(last_coord)
+    if last_point_speed is not None:
+        current_speed = last_point_speed
     elif len(coordinates) > 1:
         current_speed = _segment_speed_mph(coordinates[-2], coordinates[-1])
 
@@ -473,7 +496,11 @@ async def process_trip_data(data: dict[str, Any]) -> None:
     if not isinstance(start_time, datetime):
         start_time = all_coords[0]["timestamp"]
 
-    if append_only and appended_coords:
+    if (
+        append_only
+        and appended_coords
+        and trip.get("metricsSource", "gps") == "gps"
+    ):
         metrics = _calculate_trip_metrics_incremental(
             trip,
             all_coords,
@@ -488,8 +515,21 @@ async def process_trip_data(data: dict[str, Any]) -> None:
     trip["startTime"] = trip.get("startTime") or start_time
     trip["startTimeZone"] = trip.get("startTimeZone") or "UTC"
     trip.setdefault("source", "webhook")
-    for key, value in metrics.items():
-        trip[key] = value
+    if trip.get("metricsSource", "gps") == "gps":
+        for key, value in metrics.items():
+            trip[key] = value
+        trip["metricsSource"] = "gps"
+    else:
+        # A provider tripMetrics snapshot is a cumulative summary. Keep that
+        # summary on one basis instead of replacing any field with GPS values.
+        trip["currentSpeed"] = metrics["currentSpeed"]
+        trip["pointsRecorded"] = len(all_coords)
+        gps_updated_at = _parse_timestamp(metrics.get("lastUpdate"))
+        current_updated_at = _parse_timestamp(trip.get("lastUpdate"))
+        if gps_updated_at is not None and (
+            current_updated_at is None or gps_updated_at > current_updated_at
+        ):
+            trip["lastUpdate"] = gps_updated_at
 
     await save_trip_snapshot(trip)
 
@@ -497,7 +537,7 @@ async def process_trip_data(data: dict[str, Any]) -> None:
         "Trip %s updated: %d points, %.2fmi",
         transaction_id,
         len(all_coords),
-        metrics["distance"],
+        float(trip.get("distance") or 0.0),
     )
     await _publish_trip_snapshot(trip, status="active")
 
@@ -521,26 +561,57 @@ async def process_trip_metrics(data: dict[str, Any]) -> None:
         return
 
     normalized = normalize_webhook_trip_metrics(metrics_data)
-    if not normalized:
+    required_metric_fields = {
+        "avgSpeed",
+        "totalIdleDuration",
+        "hardBrakingCounts",
+        "hardAccelerationCounts",
+        "distance",
+        "duration",
+        "maxSpeed",
+        "lastUpdate",
+    }
+    if not required_metric_fields.issubset(normalized):
+        logger.warning("Trip %s metrics payload is incomplete", transaction_id)
         return
 
-    updates_made = False
+    metrics_timestamp = normalized.pop("lastUpdate", None)
+    if not isinstance(metrics_timestamp, datetime):
+        logger.warning("Trip %s metrics missing a valid timestamp", transaction_id)
+        return
 
-    for key, value in normalized.items():
-        if key == "maxSpeed":
-            current_max = trip.get("maxSpeed", 0.0) or 0.0
-            if value > current_max:
-                trip["maxSpeed"] = value
-                updates_made = True
-            continue
+    previous_metrics_timestamp = _parse_timestamp(
+        trip.get("providerMetricsTimestamp"),
+    )
+    if (
+        isinstance(previous_metrics_timestamp, datetime)
+        and metrics_timestamp <= previous_metrics_timestamp
+    ):
+        logger.info(
+            "Trip %s ignoring stale tripMetrics at %s (latest %s)",
+            transaction_id,
+            metrics_timestamp,
+            previous_metrics_timestamp,
+        )
+        return
 
-        trip[key] = value
-        updates_made = True
+    if any(
+        not math.isfinite(float(value)) or float(value) < 0
+        for value in normalized.values()
+    ):
+        logger.warning("Trip %s metrics payload contains invalid values", transaction_id)
+        return
 
-    if updates_made:
-        await save_trip_snapshot(trip)
-        logger.info("Trip %s metrics updated", transaction_id)
-        await _publish_trip_snapshot(trip, status="active")
+    trip.update(normalized)
+    trip["providerMetricsTimestamp"] = metrics_timestamp
+    trip["metricsSource"] = "provider"
+    current_last_update = _parse_timestamp(trip.get("lastUpdate"))
+    if current_last_update is None or metrics_timestamp > current_last_update:
+        trip["lastUpdate"] = metrics_timestamp
+
+    await save_trip_snapshot(trip)
+    logger.info("Trip %s metrics updated", transaction_id)
+    await _publish_trip_snapshot(trip, status="active")
 
 
 async def process_trip_end(data: dict[str, Any]) -> None:

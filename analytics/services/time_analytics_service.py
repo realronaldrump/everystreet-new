@@ -95,10 +95,7 @@ class TimeAnalyticsService:
 
         pipeline = [
             {"$match": query},
-            build_trip_duration_fields_stage(
-                tz_expr,
-                default_duration_field="$duration",
-            ),
+            build_trip_duration_fields_stage(tz_expr, include_day_key=False),
             {
                 "$project": {
                     "_id": 0,

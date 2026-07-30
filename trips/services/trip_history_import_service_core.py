@@ -332,11 +332,13 @@ async def _run_import_windows(
         }
         delta = build_ingest_counters()
         heartbeat_task: asyncio.Task[None] | None = None
+        attempted = False
 
         try:
             async with runtime.semaphore:
                 if await runtime.is_cancelled(force=False):
                     return
+                attempted = True
 
                 heartbeat_task = asyncio.create_task(
                     emit_window_heartbeat(imei, window_index, current_window),
@@ -408,6 +410,9 @@ async def _run_import_windows(
                         "processed": len(result.get("processed_transaction_ids", [])),
                     },
                 )
+        except asyncio.CancelledError:
+            attempted = False
+            raise
         except Exception as exc:
             error_text = str(exc).strip() or exc.__class__.__name__
             logger.exception(
@@ -431,35 +436,36 @@ async def _run_import_windows(
             runtime.record_failure_reason(error_text)
         finally:
             await cancel_heartbeat(heartbeat_task)
-            async with runtime.lock:
-                merge_ingest_counters(runtime.counters, delta)
-                per_device = runtime.per_device.get(imei)
-                if per_device is not None:
-                    _merge_per_device_counters(per_device, delta)
-                    per_device["windows_completed"] = (
-                        int(
-                            per_device.get("windows_completed", 0) or 0,
+            if attempted:
+                async with runtime.lock:
+                    merge_ingest_counters(runtime.counters, delta)
+                    per_device = runtime.per_device.get(imei)
+                    if per_device is not None:
+                        _merge_per_device_counters(per_device, delta)
+                        per_device["windows_completed"] = (
+                            int(
+                                per_device.get("windows_completed", 0) or 0,
+                            )
+                            + 1
                         )
-                        + 1
+
+                    windows_completed += 1
+                    progress = min(
+                        99.0,
+                        (windows_completed / total_vehicle_windows) * 100.0,
                     )
 
-                windows_completed += 1
-                progress = min(
-                    99.0,
-                    (windows_completed / total_vehicle_windows) * 100.0,
+                await runtime.write_progress(
+                    status="running",
+                    stage="processing",
+                    message=(
+                        f"Processed {windows_completed}/{total_vehicle_windows} "
+                        "vehicle-windows"
+                    ),
+                    progress=progress,
+                    current_window=current_window,
+                    windows_completed=windows_completed,
                 )
-
-            await runtime.write_progress(
-                status="running",
-                stage="processing",
-                message=(
-                    f"Processed {windows_completed}/{total_vehicle_windows} "
-                    "vehicle-windows"
-                ),
-                progress=progress,
-                current_window=current_window,
-                windows_completed=windows_completed,
-            )
 
     await asyncio.gather(*(process_unit(*unit) for unit in units))
 

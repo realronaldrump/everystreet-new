@@ -10,7 +10,12 @@ from pydantic import BaseModel, ConfigDict
 from core.casting import safe_float
 from core.constants import MILES_TO_METERS
 from core.mapping.factory import get_router
-from core.spatial import GeometryService, coerce_coordinate_pair, extract_line_sequences
+from core.spatial import (
+    GeometryService,
+    coerce_coordinate_pair,
+    extract_line_sequences,
+    segment_midpoint,
+)
 from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import CoverageArea, CoverageState, Street, Trip
@@ -73,14 +78,10 @@ def _segment_midpoint_coords(
             return None
         return pair[0], pair[1]
 
-    start = coerce_coordinate_pair(coords[0])
-    end = coerce_coordinate_pair(coords[-1])
-    if not start or not end:
+    normalized = [pair for coord in coords if (pair := coerce_coordinate_pair(coord))]
+    if len(normalized) < 2:
         return None
-
-    lon = (start[0] + end[0]) / 2.0
-    lat = (start[1] + end[1]) / 2.0
-    return lon, lat
+    return segment_midpoint([[lon, lat] for lon, lat in normalized])
 
 
 def _estimate_linestring_length_m(geometry: dict[str, Any] | None) -> float:

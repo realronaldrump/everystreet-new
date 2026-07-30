@@ -5,6 +5,7 @@
 
 const state = {
   currentPeriod: 30,
+  currentRange: null,
   currentView: "daily",
   rhythmView: "weekly",
   charts: {},

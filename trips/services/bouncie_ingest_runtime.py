@@ -305,11 +305,12 @@ async def fetch_trips_for_window_report(
     Fetch trips for a window and aggressively recover around failing slices.
 
     Bouncie can return 500/timeouts for old ranges even when neighboring
-    minute-scale ranges are valid. This routine splits only after a
-    failure, keeps every recovered successful slice, and returns
-    unrecoverable leaf slices for the caller to report as fetch errors.
+    minute-scale ranges are valid. This routine first plans API-safe request
+    windows, then splits failing windows further, keeps every recovered
+    successful slice, and returns unrecoverable leaf slices for reporting.
     """
-    max_span = timedelta(days=7) - timedelta(seconds=2)
+    max_request_span = timedelta(days=7)
+    max_logical_span = max_request_span - timedelta(seconds=1)
     if chunk_semaphore is None:
         chunk_semaphore = asyncio.Semaphore(SPLIT_CONCURRENCY)
 
@@ -338,8 +339,9 @@ async def fetch_trips_for_window_report(
         query_end = (ensure_utc(end) or end) + end_shift
         if query_end <= query_start:
             return []
-        if query_end - query_start > max_span:
-            query_end = query_start + max_span
+        if query_end - query_start > max_request_span:
+            msg = "Bouncie request window exceeds the seven-day API limit"
+            raise ValueError(msg)
         try:
             async with asyncio.timeout(REQUEST_TIMEOUT_SECONDS):
                 async with chunk_semaphore:
@@ -591,7 +593,26 @@ async def fetch_trips_for_window_report(
                 merged.failed_windows.extend(child.failed_windows)
             return merged
 
-    result = await fetch_recovering(window_start, window_end)
+    requested_start = ensure_utc(window_start) or window_start
+    requested_end = ensure_utc(window_end) or window_end
+    if requested_end - requested_start > max_logical_span:
+        planned_windows = _build_sub_windows(
+            requested_start,
+            requested_end,
+            split_size=max_logical_span,
+        )
+        planned_results = await asyncio.gather(
+            *[
+                fetch_recovering(planned_start, planned_end)
+                for planned_start, planned_end in planned_windows
+            ]
+        )
+        result = WindowFetchResult()
+        for planned_result in planned_results:
+            result.trips.extend(planned_result.trips)
+            result.failed_windows.extend(planned_result.failed_windows)
+    else:
+        result = await fetch_recovering(requested_start, requested_end)
     if add_event and result.trips:
         add_event(
             "info",

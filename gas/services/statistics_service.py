@@ -76,6 +76,8 @@ class StatisticsService:
         price_gallons = 0.0
         mpg_miles = 0.0
         mpg_gallons = 0.0
+        paired_interval_miles = 0.0
+        paired_interval_cost = 0.0
         best_mpg: GasFillup | None = None
         cheapest_price: tuple[GasFillup, float] | None = None
 
@@ -111,6 +113,13 @@ class StatisticsService:
                 mpg_miles += miles
                 mpg_gallons += miles / mpg
                 if (
+                    gallons is not None
+                    and gallons > 0
+                    and effective_price is not None
+                ):
+                    paired_interval_miles += miles
+                    paired_interval_cost += effective_price * gallons
+                if (
                     best_mpg is None
                     or mpg > (best_mpg.calculated_mpg or 0)
                     or (
@@ -136,10 +145,8 @@ class StatisticsService:
             "period_start": fillups[0].fillup_time,
             "period_end": fillups[-1].fillup_time,
             "cost_per_mile": (
-                round(average_price / average_mpg, 3)
-                if average_price is not None
-                and average_mpg is not None
-                and average_mpg > 0
+                round(paired_interval_cost / paired_interval_miles, 3)
+                if paired_interval_miles > 0
                 else None
             ),
         }

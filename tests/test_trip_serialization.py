@@ -5,13 +5,13 @@ from datetime import UTC, datetime
 from trips.serialization import TripSerializer
 
 
-def test_calculate_duration_seconds_prefers_existing_duration() -> None:
+def test_calculate_duration_seconds_ignores_legacy_stored_duration() -> None:
     trip = {
         "duration": "123.5",
         "startTime": "2024-01-01T00:00:00Z",
         "endTime": "2024-01-01T01:00:00Z",
     }
-    assert TripSerializer.calculate_duration_seconds(trip) == 123.5
+    assert TripSerializer.calculate_duration_seconds(trip) == 3600.0
 
 
 def test_calculate_duration_seconds_falls_back_to_start_end() -> None:
@@ -90,3 +90,26 @@ def test_to_geojson_properties_handles_optional_fields() -> None:
     assert props["pointsRecorded"] == 12
     assert props["coverageDistance"] == 0.7
     assert "matched_at" not in props
+
+
+def test_missing_trip_metrics_remain_unknown_in_serialized_responses() -> None:
+    serialized = TripSerializer.to_dict(
+        {
+            "transactionId": "tx-missing-metrics",
+            "startTime": "2024-01-01T00:00:00Z",
+            "endTime": "2024-01-01T00:01:00Z",
+        }
+    )
+    props = TripSerializer.to_geojson_properties(
+        {
+            "transactionId": "tx-missing-metrics",
+            "startTime": "2024-01-01T00:00:00Z",
+            "endTime": "2024-01-01T00:01:00Z",
+        },
+        estimated_cost=None,
+    )
+
+    assert serialized["distance"] is None
+    assert serialized["maxSpeed"] is None
+    assert serialized["fuelConsumed"] is None
+    assert props["estimated_cost"] is None

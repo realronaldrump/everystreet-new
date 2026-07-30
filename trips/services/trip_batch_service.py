@@ -165,13 +165,8 @@ class TripService:
         }
 
         for idx, trip_id in enumerate(trip_ids):
+            report_progress = True
             try:
-                if progress_callback:
-                    if asyncio.iscoroutinefunction(progress_callback):
-                        await progress_callback(idx + 1, len(trip_ids), trip_id)
-                    else:
-                        progress_callback(idx + 1, len(trip_ids), trip_id)
-
                 trip = await self.get_trip_by_id(trip_id)
                 if not trip:
                     results["failed"] += 1
@@ -211,6 +206,9 @@ class TripService:
                 )
                 results["updated"] += 1
 
+            except asyncio.CancelledError:
+                report_progress = False
+                raise
             except Exception as e:
                 results["failed"] += 1
                 results["errors"].append(f"Trip {trip_id}: {e!s}")
@@ -218,5 +216,17 @@ class TripService:
                     "Error refreshing geocoding for trip %s",
                     trip_id,
                 )
+            finally:
+                if progress_callback and report_progress:
+                    try:
+                        if asyncio.iscoroutinefunction(progress_callback):
+                            await progress_callback(idx + 1, len(trip_ids), trip_id)
+                        else:
+                            progress_callback(idx + 1, len(trip_ids), trip_id)
+                    except Exception:
+                        logger.exception(
+                            "Geocoding progress callback failed after trip %s",
+                            trip_id,
+                        )
 
         return results

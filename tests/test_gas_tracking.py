@@ -230,6 +230,32 @@ async def test_estimate_odometer_reading_uses_fillup_anchor_and_trip_distance(
 
 
 @pytest.mark.asyncio
+async def test_estimate_odometer_reading_returns_exact_manual_anchor(
+    beanie_db,
+) -> None:
+    imei = "imei-odo-exact"
+    anchor_time = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+    await _trusted_fillup(
+        imei=imei,
+        fillup_time=anchor_time,
+        gallons=10.0,
+        odometer=1000.0,
+        is_full_tank=True,
+        missed_previous=False,
+    ).insert()
+
+    result = await OdometerService.estimate_odometer_reading(
+        imei,
+        anchor_time.isoformat(),
+    )
+
+    assert result["estimated_odometer"] == pytest.approx(1000.0)
+    assert result["method"] == "manual_anchor"
+    assert result["confidence"] == "exact"
+    assert result["distance_diff"] == 0.0
+
+
+@pytest.mark.asyncio
 async def test_estimate_odometer_reading_calibrates_between_manual_anchors(
     beanie_db,
 ) -> None:
@@ -285,7 +311,7 @@ async def test_estimate_odometer_reading_calibrates_between_manual_anchors(
 
 
 @pytest.mark.asyncio
-async def test_get_vehicle_location_at_time_handles_missing_optional_fields(
+async def test_get_vehicle_location_at_time_does_not_substitute_other_endpoint(
     beanie_db,
 ) -> None:
     imei = "imei-location-optional"
@@ -307,7 +333,8 @@ async def test_get_vehicle_location_at_time_handles_missing_optional_fields(
 
     assert result["latitude"] is None
     assert result["longitude"] is None
-    assert result["odometer"] == pytest.approx(12345.6)
+    assert result["odometer"] is None
+    assert result["odometer_source"] is None
     assert result["address"] is None
     assert result["timestamp"] == target_time
 
@@ -447,6 +474,7 @@ async def test_gas_statistics_uses_weighted_mpg_and_price(beanie_db) -> None:
         imei=imei,
         fillup_time=t1,
         gallons=10.0,
+        price_per_gallon=10.0,
         odometer=1000.0,
         is_full_tank=True,
         missed_previous=False,
@@ -478,9 +506,37 @@ async def test_gas_statistics_uses_weighted_mpg_and_price(beanie_db) -> None:
     stats = await StatisticsService.get_gas_statistics(imei=imei)
 
     assert stats["average_mpg"] == pytest.approx(20.0)
-    assert stats["average_price_per_gallon"] == pytest.approx(2.67)
-    assert stats["cost_per_mile"] == pytest.approx(0.134)
+    assert stats["average_price_per_gallon"] == pytest.approx(5.6)
+    # Cost/mile uses the same two fillup intervals for both dollars and miles;
+    # the priced anchor has no preceding mileage and is correctly excluded.
+    assert stats["cost_per_mile"] == pytest.approx(0.133)
     assert stats["records"]["best_mpg"]["mpg"] == pytest.approx(40.0)
+
+
+@pytest.mark.asyncio
+async def test_gas_statistics_end_date_includes_the_full_calendar_day(beanie_db) -> None:
+    imei = "imei-date-boundary"
+    end_day = datetime(2024, 1, 2, 12, 0, tzinfo=UTC)
+    await _trusted_fillup(
+        imei=imei,
+        fillup_time=end_day,
+        gallons=5.0,
+        odometer=1000.0,
+    ).insert()
+    await _trusted_fillup(
+        imei=imei,
+        fillup_time=end_day + timedelta(days=1),
+        gallons=5.0,
+        odometer=1100.0,
+    ).insert()
+
+    stats = await StatisticsService.get_gas_statistics(
+        imei=imei,
+        end_date="2024-01-02",
+    )
+
+    assert stats["total_fillups"] == 1
+    assert stats["period_end"] == end_day
 
 
 @pytest.mark.asyncio
@@ -774,6 +830,35 @@ async def test_get_vehicle_location_at_time_interpolates_odometer_inside_trip(
 
 
 @pytest.mark.asyncio
+async def test_get_vehicle_location_at_exact_trip_start_uses_start_endpoint(
+    beanie_db,
+) -> None:
+    imei = "imei-location-exact-start"
+    start_time = datetime(2026, 2, 8, 4, 0, tzinfo=UTC)
+    await Trip(
+        transactionId="tx-location-exact-start",
+        imei=imei,
+        startTime=start_time,
+        endTime=start_time + timedelta(hours=1),
+        startOdometer=1000.0,
+        endOdometer=1060.0,
+        startGeoPoint={"type": "Point", "coordinates": [-97.0, 30.0]},
+        source="bouncie",
+    ).insert()
+
+    result = await OdometerService.get_vehicle_location_at_time(
+        imei,
+        start_time.isoformat(),
+    )
+
+    assert result["timestamp"] == start_time
+    assert result["odometer"] == pytest.approx(1000.0)
+    assert result["odometer_source"] == "trip_start"
+    assert result["latitude"] == pytest.approx(30.0)
+    assert result["longitude"] == pytest.approx(-97.0)
+
+
+@pytest.mark.asyncio
 async def test_get_vehicle_location_at_time_uses_closest_future_trip_start(
     beanie_db,
 ) -> None:
@@ -810,6 +895,36 @@ async def test_get_vehicle_location_at_time_uses_closest_future_trip_start(
     assert result["timestamp"] == next_start
     assert result["odometer"] == pytest.approx(1000.0)
     assert result["odometer_source"] == "trip_start"
+    assert result["latitude"] == pytest.approx(30.0)
+    assert result["longitude"] == pytest.approx(-97.0)
+
+
+@pytest.mark.asyncio
+async def test_future_trip_without_start_odometer_does_not_use_end_odometer(
+    beanie_db,
+) -> None:
+    imei = "imei-location-no-start-odo"
+    target_time = datetime(2026, 2, 8, 12, 0, tzinfo=UTC)
+    trip_start = target_time + timedelta(minutes=5)
+    await Trip(
+        transactionId="tx-location-no-start-odo",
+        imei=imei,
+        startTime=trip_start,
+        endTime=trip_start + timedelta(minutes=30),
+        startOdometer=None,
+        endOdometer=1100.0,
+        startGeoPoint={"type": "Point", "coordinates": [-97.0, 30.0]},
+        source="bouncie",
+    ).insert()
+
+    result = await OdometerService.get_vehicle_location_at_time(
+        imei,
+        target_time.isoformat(),
+    )
+
+    assert result["timestamp"] == trip_start
+    assert result["odometer"] is None
+    assert result["odometer_source"] is None
     assert result["latitude"] == pytest.approx(30.0)
     assert result["longitude"] == pytest.approx(-97.0)
 

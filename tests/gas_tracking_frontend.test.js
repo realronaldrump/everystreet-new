@@ -28,8 +28,23 @@ test("gas tracking UI keeps missed-fill and odometer provenance workflows intact
   );
   assert.match(
     source,
-    /setOdometerFromSource\(result\.estimated_odometer,\s*"estimated"/,
-    "auto-calculated odometers should be marked as estimated"
+    /isExactManualAnchor\s*=\s*result\.confidence\s*===\s*"exact"/,
+    "exact manual anchors should be distinguished from estimates"
+  );
+  assert.match(
+    source,
+    /isExactManualAnchor\s*\?\s*"manual"\s*:\s*"estimated"/,
+    "exact manual anchors should retain trusted manual provenance"
+  );
+  assert.match(
+    source,
+    /estimated:\s*!isExactManualAnchor/,
+    "exact manual anchors should be saved as non-estimated"
+  );
+  assert.match(
+    source,
+    /Trusted odometer \(exact manual reading\)/,
+    "exact manual anchors should be presented as trusted"
   );
   assert.doesNotMatch(
     source,

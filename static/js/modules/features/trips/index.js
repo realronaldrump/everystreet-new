@@ -46,6 +46,7 @@ let filteredTrips = [];
 let currentPage = 1;
 const pageSize = 25;
 let totalTrips = 0;
+let filteredTripSummary = null;
 let datatableDraw = 0;
 const selectedTripIds = new Set();
 let isLoading = false;
@@ -652,6 +653,7 @@ function resetTripsState() {
   filteredTrips = [];
   currentPage = 1;
   totalTrips = 0;
+  filteredTripSummary = null;
   datatableDraw = 0;
   selectedTripIds.clear();
   isLoading = false;
@@ -819,31 +821,33 @@ function updateOverviewStats({ totalMiles, totalTrips: totalTripsCount, totalHou
   const milesEl = document.getElementById("stat-total-miles");
   const tripsEl = document.getElementById("stat-total-trips");
   const hoursEl = document.getElementById("stat-total-time");
-  const safeMiles = Number.isFinite(Number(totalMiles)) ? Number(totalMiles) : 0;
+  const hasMiles = totalMiles !== null && Number.isFinite(Number(totalMiles));
+  const safeMiles = hasMiles ? Number(totalMiles) : 0;
   const safeTrips = Number.isFinite(Number(totalTripsCount))
     ? Number(totalTripsCount)
     : 0;
-  const safeHours = Number.isFinite(Number(totalHours)) ? Number(totalHours) : 0;
+  const hasHours = totalHours !== null && Number.isFinite(Number(totalHours));
+  const safeHours = hasHours ? Number(totalHours) : 0;
 
   if (milesEl) {
-    milesEl.textContent = safeMiles.toFixed(1);
+    milesEl.textContent = hasMiles ? safeMiles.toFixed(1) : "--";
   }
   if (tripsEl) {
     tripsEl.textContent = safeTrips;
   }
   if (hoursEl) {
-    hoursEl.textContent = safeHours;
+    hoursEl.textContent = hasHours ? safeHours : "--";
   }
 
   const summaryEl = document.getElementById("trips-summary-text");
   if (summaryEl) {
     const { hasAnyFilters } = getFilterState();
-    const milesText = safeMiles.toFixed(1);
+    const milesText = hasMiles ? `${safeMiles.toFixed(1)} miles` : "mileage unavailable";
 
     if (hasAnyFilters) {
-      summaryEl.innerHTML = `Showing <strong>${safeTrips} trips</strong> totaling <strong>${milesText} miles</strong>`;
+      summaryEl.innerHTML = `Showing <strong>${safeTrips} trips</strong> • <strong>${milesText}</strong>`;
     } else {
-      summaryEl.innerHTML = `<strong>${milesText} miles</strong> across <strong>${safeTrips} trips</strong> in this range`;
+      summaryEl.innerHTML = `<strong>${milesText}</strong> across <strong>${safeTrips} trips</strong> in this range`;
     }
   }
 }
@@ -860,7 +864,7 @@ function getStatsQueryFilters() {
   };
 }
 
-function shouldUseClientStats() {
+function hasDistanceFilters() {
   const localFilters = getLocalFilterValues();
   return Boolean(localFilters.distance_min || localFilters.distance_max);
 }
@@ -904,7 +908,7 @@ function applySavedFilters() {
   }
 
   if (hasAnyFilters) {
-    if (shouldUseClientStats()) {
+    if (hasDistanceFilters()) {
       updateFilteredStats();
     }
   }
@@ -1197,23 +1201,12 @@ function generateSmartTitle(trip) {
   return "Trip";
 }
 
-function getTripBadges(trip, allTrips) {
+function getTripBadges(trip) {
   const badges = [];
-  const activeTrips = allTrips.filter((candidate) => !isInactiveTrip(candidate));
-  const distance = parseFloat(trip.distance) || 0;
-
-  // Check if it's among the longest trips
-  const distances = activeTrips.map((t) => parseFloat(t.distance) || 0);
-  const maxDistance = Math.max(...distances);
-  if (distance === maxDistance && distance > 10) {
+  if (trip.isLongest) {
     badges.push({ text: "Longest", class: "new" });
   }
-
-  // Check for frequent route
-  const sameRouteCount = activeTrips.filter(
-    (t) => t.startLocation === trip.startLocation && t.destination === trip.destination
-  ).length;
-  if (sameRouteCount > 3) {
+  if (trip.isFrequentRoute) {
     badges.push({ text: "Frequent", class: "frequent" });
   }
 
@@ -1298,8 +1291,7 @@ async function loadVehicles() {
 async function loadTripStats() {
   try {
     const statsFilters = getStatsQueryFilters();
-    if (shouldUseClientStats()) {
-      updateFilteredStats();
+    if (hasDistanceFilters()) {
       return;
     }
 
@@ -1447,12 +1439,13 @@ async function loadTrips() {
     tripsData = response?.data || [];
     totalTrips =
       response?.recordsFiltered ?? response?.recordsTotal ?? tripsData.length;
+    filteredTripSummary = response?.filteredSummary || null;
     filteredTrips = [...tripsData];
     appliedTripSort = sortRequest.sort;
 
     if (tripsData.length === 0) {
       showEmptyState();
-      if (shouldUseClientStats()) {
+      if (hasDistanceFilters()) {
         updateFilteredStats();
       }
       updateFilterResultsPreview();
@@ -1470,7 +1463,7 @@ async function loadTrips() {
       updatePagination();
 
       // Update stats based on filtered results
-      if (shouldUseClientStats()) {
+      if (hasDistanceFilters()) {
         updateFilteredStats();
       }
       updateFilterResultsPreview();
@@ -1637,7 +1630,7 @@ function renderTripsFlatList(trips, sort) {
   if (container && activeTrips.length > 0) {
     container.innerHTML = "";
     activeTrips.forEach((trip) => {
-      const card = createTripCard(trip, trips);
+      const card = createTripCard(trip);
       container.appendChild(card);
     });
 
@@ -1649,7 +1642,7 @@ function renderTripsFlatList(trips, sort) {
     }
   }
 
-  renderInactiveTrips(inactiveTrips, trips);
+  renderInactiveTrips(inactiveTrips);
 }
 
 function renderTripsTimeline(trips, { direction = "desc" } = {}) {
@@ -1677,7 +1670,7 @@ function renderTripsTimeline(trips, { direction = "desc" } = {}) {
     if (container && periodTrips.length > 0) {
       container.innerHTML = "";
       periodTrips.forEach((trip) => {
-        const card = createTripCard(trip, trips);
+        const card = createTripCard(trip);
         container.appendChild(card);
       });
 
@@ -1690,10 +1683,10 @@ function renderTripsTimeline(trips, { direction = "desc" } = {}) {
     }
   });
 
-  renderInactiveTrips(inactiveTrips, trips);
+  renderInactiveTrips(inactiveTrips);
 }
 
-function renderInactiveTrips(inactiveTrips, allTrips) {
+function renderInactiveTrips(inactiveTrips) {
   const container = document.getElementById("trips-inactive");
   const section = container?.closest(".timeline-section");
   const countEl = document.getElementById("count-inactive");
@@ -1705,7 +1698,7 @@ function renderInactiveTrips(inactiveTrips, allTrips) {
   container.innerHTML = "";
   if (Array.isArray(inactiveTrips) && inactiveTrips.length > 0) {
     inactiveTrips.forEach((trip) => {
-      const card = createTripCard(trip, allTrips);
+      const card = createTripCard(trip);
       container.appendChild(card);
     });
     section.style.display = "block";
@@ -2066,7 +2059,7 @@ function renderTripActionCell(trip) {
   `;
 }
 
-function createTripCard(trip, allTrips) {
+function createTripCard(trip) {
   const card = document.createElement("div");
   card.className = "trip-card";
   card.dataset.tripId = trip.transactionId;
@@ -2082,7 +2075,7 @@ function createTripCard(trip, allTrips) {
 
   // Generate smart content
   const title = generateSmartTitle(trip);
-  const badges = getTripBadges(trip, allTrips);
+  const badges = getTripBadges(trip);
   const distance = parseFloat(trip.distance) || 0;
 
   // Format times
@@ -2463,9 +2456,7 @@ function setupSearchAndFilters(cleanup) {
       clearFilterFeedback();
     }
 
-    if (shouldUseClientStats()) {
-      updateFilteredStats();
-    } else {
+    if (!hasDistanceFilters()) {
       loadTripStats();
     }
 
@@ -2494,9 +2485,7 @@ function setupSearchAndFilters(cleanup) {
     currentPage = 1;
     loadTrips();
     updateFilterChips();
-    if (shouldUseClientStats()) {
-      updateFilteredStats();
-    } else {
+    if (!hasDistanceFilters()) {
       loadTripStats();
     }
 
@@ -2583,20 +2572,18 @@ function showFilterFeedback() {
 }
 
 function updateFilteredStats() {
-  // Calculate stats from currently filtered/displayed trips
-  const visibleTrips = getClientVisibleTrips();
-  const activeVisibleTrips = visibleTrips.filter((trip) => !isInactiveTrip(trip));
+  const summary = filteredTripSummary;
+  if (!summary) {
+    return;
+  }
 
-  const totalMiles = activeVisibleTrips.reduce(
-    (sum, trip) => sum + (parseFloat(trip.distance) || 0),
-    0
-  );
-  const totalTripsCount = activeVisibleTrips.length;
-  const totalDuration = activeVisibleTrips.reduce(
-    (sum, trip) => sum + (parseInt(trip.duration, 10) || 0),
-    0
-  );
-  const totalHours = Math.round(totalDuration / 3600);
+  const totalMiles =
+    summary.totalDistance === null ? null : Number(summary.totalDistance);
+  const totalTripsCount = Number(summary.totalTrips) || 0;
+  const totalHours =
+    summary.totalDurationSeconds === null
+      ? null
+      : Math.round(Number(summary.totalDurationSeconds) / 3600);
 
   updateOverviewStats({
     totalMiles,
@@ -2604,29 +2591,15 @@ function updateFilteredStats() {
     totalHours,
   });
 
-  // Update insight cards for filtered data
-  updateFilteredInsights(activeVisibleTrips);
+  updateFilteredInsights(summary);
 }
 
-function updateFilteredInsights(trips) {
-  if (trips.length === 0) {
-    const longestEl = document.getElementById("insight-longest");
-    const fuelEl = document.getElementById("insight-fuel");
-    if (longestEl) {
-      longestEl.textContent = "--";
-    }
-    if (fuelEl) {
-      fuelEl.textContent = "--";
-    }
-    return;
-  }
-
-  const distances = trips.map((t) => parseFloat(t.distance) || 0);
-  const longestTrip = Math.max(...distances);
-  const totalFuel = trips.reduce(
-    (sum, trip) => sum + (parseFloat(trip.fuelConsumed) || 0),
-    0
-  );
+function updateFilteredInsights(summary) {
+  const longestTrip = Number(summary.longestDistance);
+  const hasLongestTrip =
+    summary.longestDistance !== null && Number.isFinite(longestTrip);
+  const totalFuel = Number(summary.totalFuel);
+  const hasFuel = summary.totalFuel !== null && Number.isFinite(totalFuel);
 
   // Animate insight card updates
   const longestEl = document.getElementById("insight-longest");
@@ -2635,7 +2608,7 @@ function updateFilteredInsights(trips) {
   if (longestEl) {
     longestEl.style.opacity = "0";
     setTimeout(() => {
-      longestEl.textContent = longestTrip ? `${longestTrip.toFixed(1)} mi` : "--";
+      longestEl.textContent = hasLongestTrip ? `${longestTrip.toFixed(1)} mi` : "--";
       longestEl.style.opacity = "1";
     }, 150);
   }
@@ -2643,7 +2616,7 @@ function updateFilteredInsights(trips) {
   if (fuelEl) {
     fuelEl.style.opacity = "0";
     setTimeout(() => {
-      fuelEl.textContent = totalFuel ? `${totalFuel.toFixed(1)} gal` : "--";
+      fuelEl.textContent = hasFuel ? `${totalFuel.toFixed(1)} gal` : "--";
       fuelEl.style.opacity = "1";
     }, 150);
   }

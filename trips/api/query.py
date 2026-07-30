@@ -139,7 +139,7 @@ async def get_failed_trips(request: Request):
                     "imei": trip_dict.get("imei"),
                     "startTime": st.isoformat() if st else None,
                     "endTime": et.isoformat() if et else None,
-                    "distance": safe_float(trip_dict.get("distance"), 0),
+                    "distance": safe_float(trip_dict.get("distance"), None),
                     "startLocation": trip_dict.get("startLocation"),
                     "destination": trip_dict.get("destination"),
                     "matchStatus": trip_dict.get("matchStatus"),
@@ -160,9 +160,19 @@ async def get_failed_trips(request: Request):
 @api_route(logger)
 async def get_recent_trip_history(
     limit: Annotated[int, Query(ge=1, le=60)] = 5,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    imei: str | None = None,
 ):
     """Get recent Historical Trips for the landing page activity feed."""
-    return {"trips": await TripQueryService.get_recent_trips(limit)}
+    return {
+        "trips": await TripQueryService.get_recent_trips(
+            limit,
+            start_date=start_date,
+            end_date=end_date,
+            imei=imei,
+        ),
+    }
 
 
 @router.get("/api/trips", tags=["Trips API"])

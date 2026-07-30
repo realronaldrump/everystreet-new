@@ -118,38 +118,46 @@ async def write_gpx_tracks(
             if progress:
                 await progress(1)
             continue
-        coords = track_data.get("coordinates") or []
-        if not isinstance(coords, list):
-            coords = []
+        segment_data = track_data.get("segments") or []
+        if not isinstance(segment_data, list):
+            segment_data = []
 
-        segment = gpxpy.gpx.GPXTrackSegment()
-        timestamps = track_data.get("timestamps") or []
-        for idx, coord in enumerate(coords):
-            if not isinstance(coord, list | tuple) or len(coord) < 2:
+        track = gpxpy.gpx.GPXTrack()
+        for raw_segment in segment_data:
+            if not isinstance(raw_segment, dict):
                 continue
-            try:
-                lon = float(coord[0])
-                lat = float(coord[1])
-            except (TypeError, ValueError):
+            coords = raw_segment.get("coordinates") or []
+            timestamps = raw_segment.get("timestamps") or []
+            if not isinstance(coords, list) or not isinstance(timestamps, list):
                 continue
-            point = gpxpy.gpx.GPXTrackPoint(lat, lon)
-            if idx < len(timestamps) and timestamps[idx] is not None:
-                with contextlib.suppress(TypeError, ValueError, OSError):
-                    point.time = datetime.fromtimestamp(
-                        int(timestamps[idx]),
-                        tz=UTC,
-                    )
-            segment.points.append(point)
 
-        if segment.points:
-            track = gpxpy.gpx.GPXTrack()
+            segment = gpxpy.gpx.GPXTrackSegment()
+            for idx, coord in enumerate(coords):
+                if not isinstance(coord, list | tuple) or len(coord) < 2:
+                    continue
+                try:
+                    lon = float(coord[0])
+                    lat = float(coord[1])
+                except (TypeError, ValueError):
+                    continue
+                point = gpxpy.gpx.GPXTrackPoint(lat, lon)
+                if idx < len(timestamps) and timestamps[idx] is not None:
+                    with contextlib.suppress(TypeError, ValueError, OSError):
+                        point.time = datetime.fromtimestamp(
+                            int(timestamps[idx]),
+                            tz=UTC,
+                        )
+                segment.points.append(point)
+            if segment.points:
+                track.segments.append(segment)
+
+        if track.segments:
             name = track_data.get("name")
             if name:
                 track.name = str(name)
             description = track_data.get("description")
             if description:
                 track.description = str(description)
-            track.segments.append(segment)
             gpx.tracks.append(track)
             track_count += 1
 

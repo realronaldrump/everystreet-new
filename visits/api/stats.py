@@ -34,10 +34,17 @@ async def get_place_statistics(place_id: str):
 
 
 @router.get("/api/places/statistics", response_model=list[PlaceStatisticsResponse])
-async def get_all_places_statistics():
+async def get_all_places_statistics(
+    timeframe: Annotated[
+        str | None,
+        Query(description="Filter visits by arrival time (day/week/month/year)"),
+    ] = None,
+):
     """Get statistics for all custom places using robust, efficient calculation."""
     try:
-        return await VisitStatsService.get_all_places_statistics()
+        return await VisitStatsService.get_all_places_statistics(timeframe)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.exception("Error in get_all_places_statistics")
         raise HTTPException(status_code=500, detail=str(e))

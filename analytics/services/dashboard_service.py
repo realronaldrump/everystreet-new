@@ -1,16 +1,15 @@
 """Business logic for dashboard data aggregation and insights."""
 
 import logging
-from datetime import UTC, datetime, timedelta
 from typing import Any
-
-import pytz
 
 from analytics.services.mobility_insights_service import MobilityInsightsService
 from core.math_utils import calculate_circular_average_hour
 from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
 from db.aggregation_utils import (
+    build_mongo_tz_valid_expr,
+    build_trip_duration_seconds_expr,
     build_trip_duration_fields_stage,
     build_trip_numeric_fields_stage,
     get_mongo_tz_expr,
@@ -43,48 +42,131 @@ class DashboardService:
         pipeline = [
             {"$match": query},
             {
+                "$addFields": {
+                    "insightDistance": {
+                        "$convert": {
+                            "input": "$distance",
+                            "to": "double",
+                            "onError": None,
+                            "onNull": None,
+                        }
+                    },
+                    "insightFuel": {
+                        "$convert": {
+                            "input": "$fuelConsumed",
+                            "to": "double",
+                            "onError": None,
+                            "onNull": None,
+                        }
+                    },
+                    "insightMaxSpeed": {
+                        "$convert": {
+                            "input": "$maxSpeed",
+                            "to": "double",
+                            "onError": None,
+                            "onNull": None,
+                        }
+                    },
+                    "insightIdleSeconds": {
+                        "$convert": {
+                            "input": "$totalIdleDuration",
+                            "to": "double",
+                            "onError": None,
+                            "onNull": None,
+                        }
+                    },
+                }
+            },
+            {
                 "$group": {
                     "_id": None,
                     "total_trips": {"$sum": 1},
                     "total_distance": {
                         "$sum": {
-                            "$ifNull": [
-                                "$distance",
-                                0,
-                            ],
-                        },
+                            "$cond": [
+                                {"$gte": ["$insightDistance", 0]},
+                                "$insightDistance",
+                                0.0,
+                            ]
+                        }
                     },
                     "total_fuel_consumed": {
                         "$sum": {
-                            "$ifNull": [
-                                "$fuelConsumed",
+                            "$cond": [
+                                {"$gte": ["$insightFuel", 0]},
+                                "$insightFuel",
+                                0.0,
+                            ]
+                        }
+                    },
+                    "fuel_consumed_for_mpg": {
+                        "$sum": {
+                            "$cond": [
+                                {
+                                    "$and": [
+                                        {"$gt": ["$insightFuel", 0]},
+                                        {"$gte": ["$insightDistance", 0]},
+                                    ]
+                                },
+                                "$insightFuel",
+                                0.0,
+                            ]
+                        }
+                    },
+                    "fuel_distance": {
+                        "$sum": {
+                            "$cond": [
+                                {
+                                    "$and": [
+                                        {"$gt": ["$insightFuel", 0]},
+                                        {"$gte": ["$insightDistance", 0]},
+                                    ]
+                                },
+                                "$insightDistance",
+                                0.0,
+                            ]
+                        }
+                    },
+                    "fuel_trip_count": {
+                        "$sum": {
+                            "$cond": [
+                                {
+                                    "$and": [
+                                        {"$gt": ["$insightFuel", 0]},
+                                        {"$gte": ["$insightDistance", 0]},
+                                    ]
+                                },
+                                1,
                                 0,
-                            ],
-                        },
+                            ]
+                        }
                     },
                     "max_speed": {
                         "$max": {
-                            "$ifNull": [
-                                "$maxSpeed",
-                                0,
-                            ],
-                        },
+                            "$cond": [
+                                {"$gte": ["$insightMaxSpeed", 0]},
+                                "$insightMaxSpeed",
+                                None,
+                            ]
+                        }
                     },
                     "total_idle_duration": {
                         "$sum": {
-                            "$ifNull": [
-                                "$totalIdleDuration",
-                                0,
+                            "$cond": [
+                                {"$gte": ["$insightIdleSeconds", 0]},
+                                "$insightIdleSeconds",
+                                0.0,
                             ],
                         },
                     },
                     "longest_trip_distance": {
                         "$max": {
-                            "$ifNull": [
-                                "$distance",
-                                0,
-                            ],
-                        },
+                            "$cond": [
+                                {"$gte": ["$insightDistance", 0]},
+                                "$insightDistance",
+                                None,
+                            ]
+                        }
                     },
                 },
             },
@@ -93,28 +175,19 @@ class DashboardService:
         # Use aggregation helper
         trips_result = await aggregate_to_list(Trip, pipeline)
 
-        # Top destinations (up to 5) with basic stats
+        # Full destination distribution used by concentration/entropy metrics.
         pipeline_top_destinations = [
             {"$match": query},
             {
                 "$addFields": {
-                    "duration_seconds": {
-                        "$cond": {
-                            "if": {
-                                "$and": [
-                                    {"$ifNull": ["$startTime", None]},
-                                    {"$ifNull": ["$endTime", None]},
-                                    {"$lt": ["$startTime", "$endTime"]},
-                                ],
-                            },
-                            "then": {
-                                "$divide": [
-                                    {"$subtract": ["$endTime", "$startTime"]},
-                                    1000,
-                                ],
-                            },
-                            "else": 0.0,
-                        },
+                    "duration_seconds": build_trip_duration_seconds_expr(),
+                    "destinationDistance": {
+                        "$convert": {
+                            "input": "$distance",
+                            "to": "double",
+                            "onError": None,
+                            "onNull": None,
+                        }
                     },
                 },
             },
@@ -122,14 +195,21 @@ class DashboardService:
                 "$group": {
                     "_id": "$destination",
                     "visits": {"$sum": 1},
-                    "distance": {"$sum": {"$ifNull": ["$distance", 0]}},
+                    "distance": {
+                        "$sum": {
+                            "$cond": [
+                                {"$gte": ["$destinationDistance", 0]},
+                                "$destinationDistance",
+                                0.0,
+                            ]
+                        }
+                    },
                     "total_duration": {"$sum": "$duration_seconds"},
                     "last_visit": {"$max": "$endTime"},
                     "isCustomPlace": {"$first": "$isCustomPlace"},
                 },
             },
             {"$sort": {"visits": -1}},
-            {"$limit": 5},
         ]
 
         trips_top = await aggregate_to_list(Trip, pipeline_top_destinations)
@@ -302,6 +382,9 @@ class DashboardService:
             "total_trips": 0,
             "total_distance": 0.0,
             "total_fuel_consumed": 0.0,
+            "fuel_consumed_for_mpg": 0.0,
+            "fuel_distance": 0.0,
+            "fuel_trip_count": 0,
             "max_speed": 0.0,
             "total_idle_duration": 0,
             "longest_trip_distance": 0.0,
@@ -316,6 +399,12 @@ class DashboardService:
             combined["total_trips"] = r.get("total_trips", 0)
             combined["total_distance"] = r.get("total_distance", 0)
             combined["total_fuel_consumed"] = r.get("total_fuel_consumed", 0)
+            combined["fuel_consumed_for_mpg"] = r.get(
+                "fuel_consumed_for_mpg",
+                0,
+            )
+            combined["fuel_distance"] = r.get("fuel_distance", 0)
+            combined["fuel_trip_count"] = r.get("fuel_trip_count", 0)
             combined["max_speed"] = r.get("max_speed", 0)
             combined["total_idle_duration"] = r.get("total_idle_duration", 0)
             combined["longest_trip_distance"] = r.get(
@@ -522,99 +611,71 @@ class DashboardService:
         """
         query = enforce_bouncie_source(query)
 
-        # Resolve user timezone from settings (defaults to America/Chicago)
-        from db.models import AppSettings
-
-        settings = await AppSettings.find_one({"_id": "default"})
-        target_timezone_str = settings.user_timezone if settings else "America/Chicago"
-        try:
-            target_tz = pytz.timezone(target_timezone_str)
-        except pytz.UnknownTimeZoneError:
-            logger.warning(
-                "Invalid user timezone '%s'; falling back to America/Chicago.",
-                target_timezone_str,
-            )
-            target_tz = pytz.timezone("America/Chicago")
+        start_tz_expr = get_mongo_tz_expr("startTime")
 
         pipeline = [
             {"$match": query},
             {
                 "$addFields": {
                     "numericDistance": {
-                        "$ifNull": [
-                            {"$toDouble": "$distance"},
-                            0.0,
-                        ],
+                        "$convert": {
+                            "input": "$distance",
+                            "to": "double",
+                            "onError": None,
+                            "onNull": None,
+                        },
                     },
                     "numericMaxSpeed": {
-                        "$ifNull": [
-                            {"$toDouble": "$maxSpeed"},
-                            0.0,
-                        ],
-                    },
-                    "duration_seconds": {
-                        "$let": {
-                            "vars": {
-                                "stored_duration": {
-                                    "$convert": {
-                                        "input": "$duration",
-                                        "to": "double",
-                                        "onError": None,
-                                        "onNull": None,
-                                    },
-                                },
-                            },
-                            "in": {
-                                "$cond": {
-                                    "if": {"$gt": ["$$stored_duration", 0]},
-                                    "then": "$$stored_duration",
-                                    "else": {
-                                        "$cond": {
-                                            "if": {
-                                                "$and": [
-                                                    {
-                                                        "$ifNull": [
-                                                            "$startTime",
-                                                            None,
-                                                        ],
-                                                    },
-                                                    {
-                                                        "$ifNull": [
-                                                            "$endTime",
-                                                            None,
-                                                        ],
-                                                    },
-                                                    {
-                                                        "$lt": [
-                                                            "$startTime",
-                                                            "$endTime",
-                                                        ],
-                                                    },
-                                                ],
-                                            },
-                                            "then": {
-                                                "$divide": [
-                                                    {
-                                                        "$subtract": [
-                                                            "$endTime",
-                                                            "$startTime",
-                                                        ],
-                                                    },
-                                                    1000,
-                                                ],
-                                            },
-                                            "else": 0.0,
-                                        },
-                                    },
-                                },
-                            },
+                        "$convert": {
+                            "input": "$maxSpeed",
+                            "to": "double",
+                            "onError": None,
+                            "onNull": None,
                         },
                     },
-                    "startHourUTC": {
-                        "$hour": {
-                            "date": "$startTime",
-                            "timezone": "UTC",
-                        },
+                    "duration_seconds": build_trip_duration_seconds_expr(),
+                    "startHourLocal": {
+                        "$cond": {
+                            "if": {
+                                "$and": [
+                                    {"$ne": ["$startTime", None]},
+                                    build_mongo_tz_valid_expr("startTime"),
+                                ]
+                            },
+                            "then": {
+                                "$add": [
+                                    {
+                                        "$hour": {
+                                            "date": "$startTime",
+                                            "timezone": start_tz_expr,
+                                        }
+                                    },
+                                    {
+                                        "$divide": [
+                                            {
+                                                "$minute": {
+                                                    "date": "$startTime",
+                                                    "timezone": start_tz_expr,
+                                                }
+                                            },
+                                            60.0,
+                                        ]
+                                    },
+                                    {
+                                        "$divide": [
+                                            {
+                                                "$second": {
+                                                    "date": "$startTime",
+                                                    "timezone": start_tz_expr,
+                                                }
+                                            },
+                                            3600.0,
+                                        ]
+                                    },
+                                ]
+                            },
+                            "else": None,
+                        }
                     },
                 },
             },
@@ -622,16 +683,64 @@ class DashboardService:
                 "$group": {
                     "_id": None,
                     "total_trips": {"$sum": 1},
-                    "total_distance": {"$sum": "$numericDistance"},
+                    "total_distance": {
+                        "$sum": {
+                            "$cond": [
+                                {"$gte": ["$numericDistance", 0]},
+                                "$numericDistance",
+                                0.0,
+                            ]
+                        }
+                    },
+                    "distance_count": {
+                        "$sum": {
+                            "$cond": [
+                                {"$gte": ["$numericDistance", 0]},
+                                1,
+                                0,
+                            ]
+                        }
+                    },
                     "max_speed": {"$max": "$numericMaxSpeed"},
-                    "total_duration_seconds": {"$sum": "$duration_seconds"},
-                    "start_hours_utc": {"$push": "$startHourUTC"},
+                    "total_duration_seconds": {
+                        "$sum": {"$ifNull": ["$duration_seconds", 0.0]}
+                    },
+                    "paired_distance": {
+                        "$sum": {
+                            "$cond": [
+                                {
+                                    "$and": [
+                                        {"$gte": ["$numericDistance", 0]},
+                                        {"$gt": ["$duration_seconds", 0]},
+                                    ]
+                                },
+                                "$numericDistance",
+                                0.0,
+                            ]
+                        }
+                    },
+                    "paired_duration_seconds": {
+                        "$sum": {
+                            "$cond": [
+                                {
+                                    "$and": [
+                                        {"$gte": ["$numericDistance", 0]},
+                                        {"$gt": ["$duration_seconds", 0]},
+                                    ]
+                                },
+                                "$duration_seconds",
+                                0.0,
+                            ]
+                        }
+                    },
+                    "start_hours_local": {"$push": "$startHourLocal"},
                 },
             },
             {
                 "$project": {
                     "_id": 0,
                     "total_trips": 1,
+                    "distance_count": 1,
                     "total_distance": {
                         "$ifNull": [
                             "$total_distance",
@@ -650,9 +759,9 @@ class DashboardService:
                             0.0,
                         ],
                     },
-                    "start_hours_utc": {
+                    "start_hours_local": {
                         "$ifNull": [
-                            "$start_hours_utc",
+                            "$start_hours_local",
                             [],
                         ],
                     },
@@ -660,14 +769,14 @@ class DashboardService:
                         "$cond": {
                             "if": {
                                 "$gt": [
-                                    "$total_trips",
+                                    "$distance_count",
                                     0,
                                 ],
                             },
                             "then": {
                                 "$divide": [
                                     "$total_distance",
-                                    "$total_trips",
+                                    "$distance_count",
                                 ],
                             },
                             "else": 0.0,
@@ -677,16 +786,16 @@ class DashboardService:
                         "$cond": {
                             "if": {
                                 "$gt": [
-                                    "$total_duration_seconds",
+                                    "$paired_duration_seconds",
                                     0,
                                 ],
                             },
                             "then": {
                                 "$divide": [
-                                    "$total_distance",
+                                    "$paired_distance",
                                     {
                                         "$divide": [
-                                            "$total_duration_seconds",
+                                            "$paired_duration_seconds",
                                             3600.0,
                                         ],
                                     },
@@ -706,7 +815,7 @@ class DashboardService:
                 "total_trips": 0,
                 "total_distance": "0.00",
                 "avg_distance": "0.00",
-                "avg_start_time": "00:00 AM",
+                "avg_start_time": "--:--",
                 "total_driving_time": "0:00",
                 "avg_speed": "0.00",
                 "max_speed": "0.00",
@@ -715,33 +824,27 @@ class DashboardService:
         metrics = results[0]
         total_trips = metrics.get("total_trips", 0)
 
-        # Calculate average start time
-        start_hours_utc_list = metrics.get("start_hours_utc", [])
-        avg_start_time_str = "00:00 AM"
-        if start_hours_utc_list:
-            avg_hour_utc_float = calculate_circular_average_hour(
-                start_hours_utc_list,
-            )
+        # Each value is already the trip's local wall-clock time. Circular
+        # averaging keeps late-night starts adjacent to early-morning starts.
+        start_hours_local = [
+            float(value)
+            for value in metrics.get("start_hours_local", [])
+            if isinstance(value, int | float)
+        ]
+        avg_start_time_str = "--:--"
+        if start_hours_local:
+            avg_local_hour = calculate_circular_average_hour(start_hours_local)
+            if avg_local_hour is not None:
+                total_minutes = round(avg_local_hour * 60) % (24 * 60)
+                local_hour = total_minutes // 60
+                local_minute = total_minutes % 60
 
-            base_date = datetime.now(UTC).replace(
-                hour=0,
-                minute=0,
-                second=0,
-                microsecond=0,
-            )
-            avg_utc_dt = base_date + timedelta(hours=avg_hour_utc_float)
+                am_pm = "AM" if local_hour < 12 else "PM"
+                display_hour = local_hour % 12
+                if display_hour == 0:
+                    display_hour = 12
 
-            avg_local_dt = avg_utc_dt.astimezone(target_tz)
-
-            local_hour = avg_local_dt.hour
-            local_minute = avg_local_dt.minute
-
-            am_pm = "AM" if local_hour < 12 else "PM"
-            display_hour = local_hour % 12
-            if display_hour == 0:
-                display_hour = 12
-
-            avg_start_time_str = f"{display_hour:02d}:{local_minute:02d} {am_pm}"
+                avg_start_time_str = f"{display_hour:02d}:{local_minute:02d} {am_pm}"
 
         # Total drive time across every trip in the filtered range.
         total_duration_seconds = metrics.get("total_duration_seconds", 0.0)

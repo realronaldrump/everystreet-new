@@ -352,8 +352,9 @@ export function formatDurationFromHours(hours) {
   if (hours < 1) {
     return "Under 1 hour";
   }
-  const wholeHours = Math.floor(hours);
-  const minutes = Math.round((hours - wholeHours) * 60);
+  const totalMinutes = Math.round(hours * 60);
+  const wholeHours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
   if (minutes === 0) {
     return `${wholeHours} hour${wholeHours === 1 ? "" : "s"}`;
   }

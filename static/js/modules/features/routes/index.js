@@ -232,42 +232,41 @@ function buildCardInsightSentence(route) {
   return tripCount > 0 ? `${formatTripCount(tripCount)} logged` : "Summary unavailable";
 }
 
-function computeHeroInsights(routes) {
-  if (!routes || routes.length === 0) {
+function computeHeroInsights(summary) {
+  const routeCount = Number(summary?.route_count || 0);
+  const totalTrips = Number(summary?.trip_count || 0);
+  if (routeCount === 0) {
     return { dna: "", spotlight: "" };
   }
 
-  const totalTrips = routes.reduce((s, r) => s + (r.trip_count || 0), 0);
-  const totalMiles = routes.reduce(
-    (s, r) =>
-      s + (r.distance_miles_avg || r.distance_miles_median || 0) * (r.trip_count || 0),
-    0
-  );
-  const totalHours = routes.reduce(
-    (s, r) =>
-      s +
-      ((r.duration_sec_avg || r.duration_sec_median || 0) * (r.trip_count || 0)) / 3600,
-    0
-  );
+  const totalMiles =
+    summary?.total_miles == null ? null : Number(summary.total_miles);
+  const totalHours =
+    summary?.total_hours == null ? null : Number(summary.total_hours);
 
-  const milesStr =
-    totalMiles >= 1000
-      ? `${(totalMiles / 1000).toFixed(1)}k`
-      : Math.round(totalMiles).toLocaleString();
-  const hoursStr =
-    totalHours >= 100
-      ? `${Math.round(totalHours).toLocaleString()}`
-      : totalHours.toFixed(0);
-  const dna = `${routes.length} recurring routes across ${totalTrips.toLocaleString()} trips covering ${milesStr} miles and ${hoursStr} hours on the road.`;
+  const parts = [
+    `${routeCount.toLocaleString()} recurring routes across ${totalTrips.toLocaleString()} trips`,
+  ];
+  if (Number.isFinite(totalMiles)) {
+    const milesStr =
+      totalMiles >= 1000
+        ? `${(totalMiles / 1000).toFixed(1)}k`
+        : Math.round(totalMiles).toLocaleString();
+    parts.push(`covering ${milesStr} miles`);
+  }
+  if (Number.isFinite(totalHours)) {
+    const hoursStr =
+      totalHours >= 100
+        ? `${Math.round(totalHours).toLocaleString()}`
+        : totalHours.toFixed(0);
+    parts.push(`${hoursStr} hours on the road`);
+  }
+  const dna = `${parts.join(" · ")}.`;
 
-  const sorted = [...routes].sort((a, b) => (b.trip_count || 0) - (a.trip_count || 0));
-  const top = sorted[0];
-  const topName =
-    top?.display_name ||
-    top?.name ||
-    top?.auto_name ||
-    `${top?.start_label || "?"} to ${top?.end_label || "?"}`;
-  const spotlight = top ? `Most driven: ${topName} with ${top.trip_count} trips.` : "";
+  const top = summary?.most_frequent;
+  const spotlight = top
+    ? `Most driven: ${top.name} with ${top.trip_count} trips.`
+    : "";
 
   return { dna, spotlight };
 }
@@ -340,7 +339,7 @@ function buildModalInsightSentence(route, analyticsData) {
   return `${parts.join(". ")}.`;
 }
 
-function computeDistanceStats(analyticsData, route = null) {
+export function computeDistanceStats(analyticsData) {
   const timelineDistances = Array.isArray(analyticsData?.timeline)
     ? analyticsData.timeline
         .map((trip) => Number(trip?.distance))
@@ -361,25 +360,48 @@ function computeDistanceStats(analyticsData, route = null) {
     };
   }
 
-  const fallbackDistances = [route?.distance_miles_median, route?.distance_miles_avg]
-    .map((value) => Number(value))
-    .filter((distance) => Number.isFinite(distance) && distance > 0);
-
-  if (fallbackDistances.length > 0) {
-    const min = Math.min(...fallbackDistances);
-    const max = Math.max(...fallbackDistances);
-    const mean =
-      fallbackDistances.reduce((sum, distance) => sum + distance, 0) /
-      fallbackDistances.length;
-    return {
-      count: fallbackDistances.length,
-      min,
-      max,
-      mean,
-    };
-  }
-
   return null;
+}
+
+function parseMonthIndex(value) {
+  const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(String(value || ""));
+  if (!match) {
+    return null;
+  }
+  return Number(match[1]) * 12 + Number(match[2]) - 1;
+}
+
+function formatMonthIndex(index) {
+  const year = Math.floor(index / 12);
+  const month = (index % 12) + 1;
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+export function fillMissingMonthlyBuckets(byMonth = []) {
+  const countsByMonth = new Map();
+  for (const entry of Array.isArray(byMonth) ? byMonth : []) {
+    const index = parseMonthIndex(entry?._id);
+    if (index === null) {
+      continue;
+    }
+    const count = Number(entry?.count);
+    countsByMonth.set(
+      index,
+      (countsByMonth.get(index) || 0) + (Number.isFinite(count) ? count : 0)
+    );
+  }
+  const indices = [...countsByMonth.keys()].sort((a, b) => a - b);
+  if (indices.length === 0) {
+    return [];
+  }
+  const buckets = [];
+  for (let index = indices[0]; index <= indices.at(-1); index += 1) {
+    buckets.push({
+      _id: formatMonthIndex(index),
+      count: countsByMonth.get(index) || 0,
+    });
+  }
+  return buckets;
 }
 
 function formatDistanceRange(stats) {
@@ -541,18 +563,12 @@ function showEmpty(show) {
 }
 
 /* ───── hero stats ───── */
-function updateHeroStats(routes) {
-  const routeCount = routes.length;
-  const totalTrips = routes.reduce((s, r) => s + (r.trip_count || 0), 0);
-  const totalMiles = routes.reduce(
-    (s, r) =>
-      s + (r.distance_miles_avg || r.distance_miles_median || 0) * (r.trip_count || 0),
-    0
-  );
-  const mostFrequent =
-    routes.length > 0
-      ? routes.reduce((a, b) => ((b.trip_count || 0) > (a.trip_count || 0) ? b : a))
-      : null;
+function updateHeroStats(summary) {
+  const routeCount = Number(summary?.route_count || 0);
+  const totalTrips = Number(summary?.trip_count || 0);
+  const totalMiles =
+    summary?.total_miles == null ? null : Number(summary.total_miles);
+  const mostFrequent = summary?.most_frequent;
 
   const setVal = (id, v) => {
     const el = getEl(id);
@@ -564,13 +580,15 @@ function updateHeroStats(routes) {
   setVal("hero-stat-trips", totalTrips.toLocaleString());
   setVal(
     "hero-stat-miles",
-    totalMiles >= 1000
+    Number.isFinite(totalMiles) && totalMiles >= 1000
       ? `${(totalMiles / 1000).toFixed(1)}k`
-      : Math.round(totalMiles).toLocaleString()
+      : Number.isFinite(totalMiles)
+        ? Math.round(totalMiles).toLocaleString()
+        : "--"
   );
   setVal("hero-stat-freq", mostFrequent ? `${mostFrequent.trip_count} trips` : "--");
 
-  const insights = computeHeroInsights(routes);
+  const insights = computeHeroInsights(summary);
   setVal("hero-insight-dna", insights.dna || "No routes yet.");
   setVal(
     "hero-insight-spotlight",
@@ -777,7 +795,7 @@ async function loadRoutes() {
     const routes = Array.isArray(data?.routes) ? data.routes : [];
     allRoutes = routes;
     updateResultsHeader(data?.total ?? routes.length);
-    updateHeroStats(routes);
+    updateHeroStats(data?.summary);
     renderRoutes(sortRoutes(routes, listState.sort));
 
     const lastBuiltEl = getEl("routes-last-built");
@@ -1215,7 +1233,7 @@ function setModalStats(route, analyticsData) {
       : "";
   setVal("route-fact-distance", durStr ? `${distStr} / ${durStr}` : distStr);
 
-  const distanceStats = computeDistanceStats(analyticsData, route);
+  const distanceStats = computeDistanceStats(analyticsData);
   setVal("route-fact-consistency", formatDistanceRange(distanceStats));
   const distanceRangeEl = getEl("route-fact-consistency");
   if (distanceRangeEl) {
@@ -1263,7 +1281,7 @@ function renderMonthlyChart(data) {
   if (!canvas || typeof Chart === "undefined") {
     return;
   }
-  const byMonth = data?.byMonth || [];
+  const byMonth = fillMissingMonthlyBuckets(data?.byMonth);
   const hasData =
     Array.isArray(byMonth) &&
     byMonth.length > 0 &&
@@ -1601,7 +1619,7 @@ function renderDistanceTrendChart(data) {
     trendInsight.textContent = "";
   }
   if (trendInsight && distances.length >= 2) {
-    const distanceStats = computeDistanceStats(data, routeModalRoute);
+    const distanceStats = computeDistanceStats(data);
     if (distanceStats) {
       trendInsight.textContent =
         Math.abs(distanceStats.max - distanceStats.min) < 0.05

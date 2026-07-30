@@ -5,7 +5,11 @@
  */
 
 import { getLoadedLibrary } from "../core/library-loader.js";
-import { formatDate, formatHourLabel } from "./formatters.js";
+import {
+  formatCalendarDate,
+  formatHourLabel,
+  parseCalendarDate,
+} from "./formatters.js";
 import { loadAndShowTripsForDrilldown } from "./modal.js";
 import { getChart, getState, setChart } from "./state.js";
 
@@ -719,12 +723,19 @@ function processTimeSeriesData(dailyData, viewType) {
  * @param {string} viewType - View type (daily, weekly, monthly)
  * @returns {Array} Aggregated data
  */
-function aggregateByView(dailyData, viewType) {
+function formatCalendarLabel(value, options) {
+  const date = parseCalendarDate(value);
+  return date
+    ? date.toLocaleDateString("en-US", { ...options, timeZone: "UTC" })
+    : String(value || "");
+}
+
+export function aggregateByView(dailyData, viewType) {
   if (viewType === "daily") {
     return [...dailyData]
       .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")))
       .map((d) => ({
-        label: new Date(d.date).toLocaleDateString("en-US", {
+        label: formatCalendarLabel(d.date, {
           month: "short",
           day: "numeric",
         }),
@@ -739,23 +750,29 @@ function aggregateByView(dailyData, viewType) {
   const aggregated = {};
 
   dailyData.forEach((d) => {
-    const date = new Date(d.date);
+    const date = parseCalendarDate(d.date);
+    if (!date) {
+      return;
+    }
     let key = "";
     let start = "";
     let end = "";
 
     if (viewType === "weekly") {
       const weekStart = new Date(date);
-      weekStart.setDate(date.getDate() - date.getDay());
-      key = formatDate(weekStart);
+      const diffToMonday = (date.getUTCDay() + 6) % 7;
+      weekStart.setUTCDate(date.getUTCDate() - diffToMonday);
+      key = formatCalendarDate(weekStart);
       start = key;
       const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekEnd.getDate() + 6);
-      end = formatDate(weekEnd);
+      weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+      end = formatCalendarDate(weekEnd);
     } else {
-      key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
       start = `${key}-01`;
-      const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+      const lastDay = new Date(
+        Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)
+      ).getUTCDate();
       end = `${key}-${String(lastDay).padStart(2, "0")}`;
     }
 
@@ -771,8 +788,8 @@ function aggregateByView(dailyData, viewType) {
     .map(([key, value]) => {
       const label =
         viewType === "weekly"
-          ? `Wk ${new Date(key).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
-          : new Date(`${key}-01`).toLocaleDateString("en-US", {
+          ? `Wk ${formatCalendarLabel(key, { month: "short", day: "numeric" })}`
+          : formatCalendarLabel(`${key}-01`, {
               month: "short",
               year: "numeric",
             });
@@ -792,9 +809,9 @@ function formatRangeLabel(start, end, viewType) {
     return start || end || "";
   }
 
-  const startDate = new Date(start);
-  const endDate = new Date(end);
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+  const startDate = parseCalendarDate(start);
+  const endDate = parseCalendarDate(end);
+  if (!startDate || !endDate) {
     return `${start} - ${end}`;
   }
 
@@ -802,30 +819,37 @@ function formatRangeLabel(start, end, viewType) {
     const startText = startDate.toLocaleDateString("en-US", {
       month: "short",
       year: "numeric",
+      timeZone: "UTC",
     });
     const endText = endDate.toLocaleDateString("en-US", {
       month: "short",
       year: "numeric",
+      timeZone: "UTC",
     });
     return startText === endText ? startText : `${startText} - ${endText}`;
   }
 
   if (
-    startDate.getMonth() === endDate.getMonth() &&
-    startDate.getFullYear() === endDate.getFullYear()
+    startDate.getUTCMonth() === endDate.getUTCMonth() &&
+    startDate.getUTCFullYear() === endDate.getUTCFullYear()
   ) {
-    const month = startDate.toLocaleDateString("en-US", { month: "short" });
-    return `${month} ${startDate.getDate()}-${endDate.getDate()}`;
+    const month = startDate.toLocaleDateString("en-US", {
+      month: "short",
+      timeZone: "UTC",
+    });
+    return `${month} ${startDate.getUTCDate()}-${endDate.getUTCDate()}`;
   }
 
-  const sameYear = startDate.getFullYear() === endDate.getFullYear();
+  const sameYear = startDate.getUTCFullYear() === endDate.getUTCFullYear();
   const startText = startDate.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
+    timeZone: "UTC",
   });
   const endText = endDate.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
+    timeZone: "UTC",
     ...(sameYear ? {} : { year: "numeric" }),
   });
   return `${startText} - ${endText}`;

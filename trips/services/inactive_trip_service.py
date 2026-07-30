@@ -117,7 +117,7 @@ class InactiveTripService:
     @classmethod
     async def queue_geo_coverage_refresh(cls, background_tasks) -> dict[str, Any]:
         """Queue a full Region Explorer cache rebuild after trip state changes."""
-        response = await recalculate_geo_coverage(background_tasks, mode="full")
+        response = await recalculate_geo_coverage(background_tasks)
         return {
             "status": (
                 "already_running" if response.get("alreadyRunning") else "queued"

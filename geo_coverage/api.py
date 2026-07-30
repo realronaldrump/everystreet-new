@@ -71,10 +71,9 @@ async def get_geo_coverage_cities(
 @api_route(logger)
 async def recalculate_geo_coverage(
     background_tasks: BackgroundTasks,
-    mode: Literal["incremental", "full"] | None = Query(default=None),
 ) -> dict[str, Any]:
     """Trigger unified county/city recalculation in the background."""
-    return await GeoCoverageService.recalculate(background_tasks, mode=mode)
+    return await GeoCoverageService.recalculate(background_tasks)
 
 
 @router.get("/cache-status", response_model=dict[str, Any])

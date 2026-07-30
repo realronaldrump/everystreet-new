@@ -10,6 +10,7 @@ from shapely.geometry import MultiPoint, mapping
 
 from core.spatial import get_local_transformers
 from core.trip_query_spec import apply_trip_record_filters
+from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
 from db.models import Place, Trip
 from db.schemas import (
@@ -288,26 +289,28 @@ def _boundary_overlaps_existing(
 
 
 def _suggestion_match_stage(timeframe: str | None) -> dict[str, Any]:
-    match_stage = apply_trip_record_filters(
-        {
-            "$and": [
-                {
-                    "$or": [
-                        {"destinationPlaceId": {"$exists": False}},
-                        {"destinationPlaceId": None},
-                        {"destinationPlaceId": ""},
-                    ],
-                },
-                {
-                    "$or": [
-                        {"destinationGeoPoint": {"$exists": True}},
-                        {"gps": {"$exists": True}},
-                        {"destination.coordinates": {"$exists": True}},
-                    ],
-                },
-            ],
-            "endTime": {"$ne": None},
-        }
+    match_stage = enforce_bouncie_source(
+        apply_trip_record_filters(
+            {
+                "$and": [
+                    {
+                        "$or": [
+                            {"destinationPlaceId": {"$exists": False}},
+                            {"destinationPlaceId": None},
+                            {"destinationPlaceId": ""},
+                        ],
+                    },
+                    {
+                        "$or": [
+                            {"destinationGeoPoint": {"$exists": True}},
+                            {"gps": {"$exists": True}},
+                            {"destination.coordinates": {"$exists": True}},
+                        ],
+                    },
+                ],
+                "endTime": {"$ne": None},
+            },
+        ),
     )
 
     timeframe_start = _resolve_timeframe_start(
@@ -479,20 +482,29 @@ class VisitStatsService:
         )
 
     @staticmethod
-    async def get_all_places_statistics() -> list[PlaceStatisticsResponse]:
+    async def get_all_places_statistics(
+        timeframe: str | None = None,
+    ) -> list[PlaceStatisticsResponse]:
         """
         Get statistics for all custom places.
 
         Returns:
             List of PlaceStatisticsResponse objects
         """
+        arrival_since = _resolve_timeframe_start(
+            timeframe,
+            error_message="Unsupported timeframe. Choose from day, week, month, year.",
+        )
         places = await Place.find_all().to_list()
         if not places:
             return []
 
         results = []
         for place_model in places:
-            visits = await VisitTrackingService.calculate_visits_for_place(place_model)
+            visits = await VisitTrackingService.calculate_visits_for_place(
+                place_model,
+                arrival_since=arrival_since,
+            )
 
             total_visits = len(visits)
             durations = [
@@ -593,20 +605,42 @@ class VisitStatsService:
         Raises:
             ValueError: If timeframe is invalid
         """
-        match_stage = apply_trip_record_filters(
-            {
-                "destinationPlaceId": {"$exists": False},
-                "$or": [
-                    {"destinationPlaceName": {"$exists": True, "$ne": None}},
-                    {"destination.formatted_address": {"$exists": True, "$ne": ""}},
-                    {
-                        "destination.address_components.street": {
-                            "$exists": True,
-                            "$ne": "",
-                        }
-                    },
-                ],
-            }
+        match_stage = enforce_bouncie_source(
+            apply_trip_record_filters(
+                {
+                    "$and": [
+                        {
+                            "$or": [
+                                {"destinationPlaceId": {"$exists": False}},
+                                {"destinationPlaceId": None},
+                                {"destinationPlaceId": ""},
+                            ]
+                        },
+                        {
+                            "$or": [
+                                {
+                                    "destinationPlaceName": {
+                                        "$exists": True,
+                                        "$ne": None,
+                                    }
+                                },
+                                {
+                                    "destination.formatted_address": {
+                                        "$exists": True,
+                                        "$ne": "",
+                                    }
+                                },
+                                {
+                                    "destination.address_components.street": {
+                                        "$exists": True,
+                                        "$ne": "",
+                                    }
+                                },
+                            ]
+                        },
+                    ]
+                },
+            ),
         )
 
         start_date = _resolve_timeframe_start(

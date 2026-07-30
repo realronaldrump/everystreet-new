@@ -19,6 +19,7 @@ from core.coverage_clip import (
     parse_clip_bool,
     resolve_coverage_clip_context,
 )
+from core.date_utils import parse_timestamp
 from core.jobs import JobHandle
 from core.spatial import GeometryService, extract_timestamps_for_coordinates
 from core.trip_query_spec import TripQuerySpec
@@ -264,6 +265,106 @@ class ExportService:
             row["coverageDistance"] = coverage_distance_miles
         return row
 
+    @staticmethod
+    def _gpx_segments(
+        row: dict[str, Any],
+        *,
+        geometry_field: str,
+    ) -> list[dict[str, Any]]:
+        """Build timestamped GPX segments without joining disjoint line parts."""
+        geometry = GeometryService.parse_geojson(row.get(geometry_field))
+        if not geometry:
+            return []
+
+        raw_coords = geometry.get("coordinates")
+        geometry_type = geometry.get("type")
+        if geometry_type == "Point":
+            raw_segments = [[raw_coords]] if isinstance(raw_coords, list) else []
+        elif geometry_type == "LineString":
+            raw_segments = [raw_coords] if isinstance(raw_coords, list) else []
+        elif geometry_type == "MultiLineString":
+            raw_segments = raw_coords if isinstance(raw_coords, list) else []
+        else:
+            return []
+
+        coordinate_segments: list[list[list[float]]] = []
+        for raw_segment in raw_segments:
+            if not isinstance(raw_segment, list):
+                continue
+            segment: list[list[float]] = []
+            for coord in raw_segment:
+                is_valid, pair = GeometryService.validate_coordinate_pair(coord)
+                if is_valid and pair is not None:
+                    segment.append(pair)
+            if segment:
+                coordinate_segments.append(segment)
+
+        flat_coordinates = [
+            coord for segment in coordinate_segments for coord in segment
+        ]
+        if not flat_coordinates:
+            return []
+
+        absolute_timestamps: list[int | None] | None = None
+        source_coordinates = row.get("coordinates")
+        if (
+            isinstance(source_coordinates, list)
+            and len(source_coordinates) == len(flat_coordinates)
+            and source_coordinates
+        ):
+            source_timestamps: list[int] = []
+            for source_coordinate in source_coordinates:
+                if not isinstance(source_coordinate, dict):
+                    break
+                raw_timestamp = source_coordinate.get("timestamp")
+                if raw_timestamp is None:
+                    break
+                if isinstance(raw_timestamp, int | float):
+                    timestamp = int(raw_timestamp)
+                    if timestamp > 10_000_000_000:
+                        timestamp //= 1000
+                    if abs(timestamp) < 100_000_000:
+                        break
+                    source_timestamps.append(timestamp)
+                    continue
+                parsed = parse_timestamp(raw_timestamp)
+                if parsed is None:
+                    break
+                source_timestamps.append(int(parsed.timestamp()))
+            if len(source_timestamps) == len(source_coordinates):
+                absolute_timestamps = source_timestamps
+
+        if absolute_timestamps is None:
+            elapsed_timestamps = extract_timestamps_for_coordinates(
+                flat_coordinates,
+                {
+                    "coordinates": row.get("coordinates"),
+                    "startTime": row.get("startTime"),
+                    "endTime": row.get("endTime"),
+                },
+            )
+            start_time = parse_timestamp(row.get("startTime"))
+            timestamp_base = int(start_time.timestamp()) if start_time else None
+            absolute_timestamps = [
+                timestamp_base + elapsed
+                if timestamp_base is not None and elapsed is not None
+                else None
+                for elapsed in elapsed_timestamps
+            ]
+
+        segments: list[dict[str, Any]] = []
+        offset = 0
+        for coordinates in coordinate_segments:
+            end = offset + len(coordinates)
+            segments.append(
+                {
+                    "coordinates": coordinates,
+                    "timestamps": absolute_timestamps[offset:end],
+                }
+            )
+            offset = end
+        return segments
+
     @classmethod
     async def _write_exports(
         cls,
@@ -455,44 +556,7 @@ class ExportService:
                 )
                 if row is None:
                     return None
-                geometry = GeometryService.parse_geojson(
-                    row.get(geometry_field),
-                )
-                coords: list[list[float]] = []
-                if geometry:
-                    geom_type = geometry.get("type")
-                    raw_coords = geometry.get("coordinates")
-                    if geom_type == "Point":
-                        raw_coords = (
-                            [raw_coords] if isinstance(raw_coords, list) else []
-                        )
-                    elif geom_type == "LineString":
-                        raw_coords = raw_coords if isinstance(raw_coords, list) else []
-                    elif geom_type == "MultiLineString":
-                        flattened: list[Any] = []
-                        if isinstance(raw_coords, list):
-                            for line in raw_coords:
-                                if isinstance(line, list):
-                                    flattened.extend(line)
-                        raw_coords = flattened
-                    else:
-                        raw_coords = []
-
-                    for coord in raw_coords:
-                        is_valid, pair = GeometryService.validate_coordinate_pair(coord)
-                        if is_valid and pair is not None:
-                            coords.append(pair)
-
-                timestamps: list[int | None] = []
-                if coords:
-                    timestamps = extract_timestamps_for_coordinates(
-                        coords,
-                        {
-                            "coordinates": row.get("coordinates"),
-                            "startTime": row.get("startTime"),
-                            "endTime": row.get("endTime"),
-                        },
-                    )
+                segments = cls._gpx_segments(row, geometry_field=geometry_field)
 
                 base = serialize_trip_base(row)
                 trip_id = base.get("tripId") or base.get("transactionId")
@@ -518,8 +582,7 @@ class ExportService:
                 )
 
                 return {
-                    "coordinates": coords,
-                    "timestamps": timestamps,
+                    "segments": segments,
                     "name": name,
                     "description": description,
                 }
@@ -634,7 +697,7 @@ class ExportService:
             query = apply_clip_prefilter(
                 query,
                 trip_clip_context,
-                geometry_field="gps",
+                geometry_field="matchedGps" if matched_only else "gps",
             )
         return query
 

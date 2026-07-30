@@ -65,7 +65,19 @@ async def test_list_recurring_routes_empty(routes_api_db) -> None:
     client = TestClient(_build_app())
     resp = client.get("/api/recurring_routes")
     assert resp.status_code == 200
-    assert resp.json() == {"total": 0, "routes": []}
+    assert resp.json() == {
+        "total": 0,
+        "routes": [],
+        "summary": {
+            "route_count": 0,
+            "trip_count": 0,
+            "total_miles": 0.0,
+            "total_hours": 0.0,
+            "distance_trip_count": 0,
+            "duration_trip_count": 0,
+            "most_frequent": None,
+        },
+    }
 
 
 @pytest.mark.asyncio
@@ -82,6 +94,9 @@ async def test_list_and_patch_routes_after_build(routes_api_db) -> None:
     assert body["total"] == 1
     assert len(body["routes"]) == 1
     assert body["routes"][0]["trip_count"] == 3
+    assert body["summary"]["route_count"] == 1
+    assert body["summary"]["trip_count"] == 3
+    assert body["summary"]["total_miles"] == pytest.approx(30.6)
 
     # Lowering min_trips should show both route templates.
     resp = client.get("/api/recurring_routes?min_trips=2")
@@ -115,6 +130,73 @@ async def test_list_and_patch_routes_after_build(routes_api_db) -> None:
     route = get_resp.json()["route"]
     assert route["name"] == "Pinned Route"
     assert route["color"] == "#00ff00"
+
+
+@pytest.mark.asyncio
+async def test_route_list_summary_does_not_impute_missing_trip_metrics(
+    routes_api_db,
+) -> None:
+    await _seed_trips()
+    start = datetime(2026, 2, 11, tzinfo=UTC)
+    await Trip(
+        transactionId="r1-missing-distance",
+        imei="imei-1",
+        startTime=start,
+        endTime=start + timedelta(minutes=15),
+        distance=None,
+        gps=_gps_linestring([[0.001, 0.001], [0.02, 0.02], [0.05, 0.05]]),
+    ).insert()
+    await RecurringRoutesBuilder().run("test-job-summary", BuildRecurringRoutesRequest())
+
+    response = TestClient(_build_app()).get("/api/recurring_routes")
+
+    assert response.status_code == 200
+    summary = response.json()["summary"]
+    assert summary["trip_count"] == 4
+    assert summary["distance_trip_count"] == 3
+    assert summary["total_miles"] is None
+    assert summary["duration_trip_count"] == 4
+    assert summary["total_hours"] == pytest.approx(1.0)
+
+
+@pytest.mark.asyncio
+async def test_route_list_summary_applies_vehicle_filter(routes_api_db) -> None:
+    now = datetime(2026, 2, 10, tzinfo=UTC)
+    route = RecurringRoute(
+        route_key="mixed-vehicle-route-key",
+        route_signature="mixed-vehicle-route-signature",
+        auto_name="Mixed Vehicle Route",
+        start_label="Start",
+        end_label="End",
+        trip_count=4,
+        vehicle_imeis=["imei-1", "imei-2"],
+    )
+    await route.insert()
+
+    for index, (imei, distance) in enumerate(
+        [("imei-1", 5.0), ("imei-1", 7.0), ("imei-2", 50.0), ("imei-2", 70.0)]
+    ):
+        start = now + timedelta(hours=index)
+        await Trip(
+            transactionId=f"mixed-vehicle-{index}",
+            imei=imei,
+            startTime=start,
+            endTime=start + timedelta(minutes=30),
+            distance=distance,
+            recurringRouteId=route.id,
+        ).insert()
+
+    response = TestClient(_build_app()).get(
+        "/api/recurring_routes?min_trips=1&imei=imei-1"
+    )
+
+    assert response.status_code == 200
+    summary = response.json()["summary"]
+    assert summary["route_count"] == 1
+    assert summary["trip_count"] == 2
+    assert summary["total_miles"] == pytest.approx(12.0)
+    assert summary["total_hours"] == pytest.approx(1.0)
+    assert summary["most_frequent"]["trip_count"] == 2
 
 
 @pytest.mark.asyncio
@@ -290,8 +372,8 @@ async def test_route_analytics_timezone_buckets_are_complete(
 
     class _FakeTripsCollection:
         def aggregate(self, pipeline):
-            hour_tz = pipeline[1]["$project"]["hour"]["$hour"].get("timezone")
-            day_tz = pipeline[1]["$project"]["dayOfWeek"]["$dayOfWeek"].get("timezone")
+            hour_tz = pipeline[2]["$project"]["hour"]["$hour"].get("timezone")
+            day_tz = pipeline[2]["$project"]["dayOfWeek"]["$dayOfWeek"].get("timezone")
             assert hour_tz == "UTC"
             assert day_tz == "UTC"
             return _FakeAggregateCursor()

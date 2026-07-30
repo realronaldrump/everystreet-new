@@ -93,3 +93,33 @@ async def test_concurrent_apply_area_stats_delta_does_not_lose_increments(
     assert refreshed.driven_length_miles == pytest.approx(n * 0.5)
     assert refreshed.driveable_length_miles == pytest.approx(100.0)
     assert refreshed.coverage_percentage == pytest.approx(12.5)
+
+
+@pytest.mark.asyncio
+async def test_apply_area_stats_delta_preserves_sub_thousandth_mile_precision(
+    coverage_stats_db,
+) -> None:
+    _ = coverage_stats_db
+
+    area = CoverageArea(
+        display_name="Precise Stats Area",
+        status="ready",
+        health="healthy",
+        total_length_miles=0.0015,
+        driveable_length_miles=0.0015,
+        total_segments=3,
+    )
+    await area.insert()
+    assert area.id is not None
+
+    refreshed = await apply_area_stats_delta(
+        area.id,
+        driven_segments_delta=1,
+        driven_length_miles_delta=0.0005,
+        update_last_synced=False,
+    )
+
+    assert refreshed is not None
+    assert refreshed.driven_length_miles == pytest.approx(0.0005)
+    assert refreshed.driveable_length_miles == pytest.approx(0.0015)
+    assert refreshed.coverage_percentage == pytest.approx(33.33)
