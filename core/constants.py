@@ -7,7 +7,9 @@ This module contains shared constants used across the application core.
 from typing import Final
 
 # HTTP Client Constants
-HTTP_CONNECTION_LIMIT: Final[int] = 10
+# The Bouncie integration supports up to 50 user-configured concurrent fetches.
+# Leave headroom for the app's other HTTP clients in the shared session.
+HTTP_CONNECTION_LIMIT: Final[int] = 100
 HTTP_TIMEOUT_CONNECT: Final[float] = 10.0
 HTTP_TIMEOUT_SOCK_READ: Final[float] = 60.0
 HTTP_TIMEOUT_TOTAL: Final[float] = 300.0

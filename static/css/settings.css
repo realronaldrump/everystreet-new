@@ -3261,62 +3261,111 @@
   font-weight: var(--font-weight-medium);
 }
 
-.control-center-services-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-3);
-  align-items: start;
-}
-
-.control-center-service-card {
+.control-center-service-ledger {
   min-width: 0;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--surface-2);
-  padding: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  box-shadow: inset 3px 0 0 var(--border-color-light);
+  border-block: 1px solid var(--border-color-light);
 }
 
-.control-center-service-card[data-status="healthy"] {
-  box-shadow: inset 3px 0 0 rgb(var(--success-rgb) / 70%);
+.control-center-service-ledger-head {
+  display: none;
 }
 
-.control-center-service-card[data-status="warning"] {
-  box-shadow: inset 3px 0 0 rgb(var(--warning-rgb) / 75%);
-}
-
-.control-center-service-card[data-status="error"] {
-  box-shadow: inset 3px 0 0 rgb(var(--danger-rgb) / 75%);
-}
-
-.control-center-service-card-head {
-  display: flex;
+.control-center-service-row {
+  display: grid;
+  grid-template-areas:
+    "identity state"
+    "summary summary"
+    "signals signals"
+    "actions actions";
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2) var(--space-3);
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-color);
 }
 
-.control-center-service-card-head h4 {
+.control-center-service-row:last-child {
+  border-bottom: 0;
+}
+
+.control-center-service-identity {
+  grid-area: identity;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.control-center-service-ordinal {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.control-center-service-identity h4 {
   margin: 0;
   font-size: var(--font-size-md);
   color: var(--text-primary);
 }
 
-.control-center-service-card-head .badge {
-  flex: 0 0 auto;
+.control-center-service-state {
+  grid-area: state;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.control-center-service-state-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+}
+
+.control-center-service-state[data-status="healthy"] .control-center-service-state-dot {
+  background: var(--success);
+}
+
+.control-center-service-state[data-status="warning"] {
+  color: var(--warning);
+}
+
+.control-center-service-state[data-status="warning"] .control-center-service-state-dot {
+  background: var(--warning);
+}
+
+.control-center-service-state[data-status="error"] {
+  color: var(--danger);
+}
+
+.control-center-service-state[data-status="error"] .control-center-service-state-dot {
+  background: var(--danger);
 }
 
 .control-center-service-message {
+  grid-area: summary;
   margin: 0;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-size: var(--font-size-sm);
 }
 
+.control-center-service-signals {
+  grid-area: signals;
+  min-width: 0;
+}
+
 .control-center-service-details {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-1);
   margin: 0;
   padding: 0;
@@ -3325,15 +3374,19 @@
 
 .control-center-service-detail-row {
   display: grid;
-  grid-template-columns: minmax(6.75rem, 0.7fr) minmax(0, 1.3fr);
+  grid-template-columns: minmax(6.75rem, 0.55fr) minmax(0, 1.45fr);
   gap: var(--space-2);
-  align-items: center;
+  align-items: baseline;
   min-width: 0;
 }
 
 .control-center-service-detail-row dt {
-  color: var(--text-secondary);
-  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .control-center-service-detail-row dd {
@@ -3373,7 +3426,7 @@
   height: 44px;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: 2px;
   color: var(--text-secondary);
   background: transparent;
 }
@@ -3390,7 +3443,7 @@
 }
 
 .control-center-service-actions {
-  padding-top: var(--space-1);
+  grid-area: actions;
 }
 
 .control-center-service-actions .btn {
@@ -3399,6 +3452,13 @@
   justify-content: center;
   min-height: 44px;
   gap: var(--space-2);
+  border-radius: 2px;
+}
+
+.control-center-service-empty {
+  display: none;
+  color: var(--text-tertiary);
+  font-family: var(--font-family-mono);
 }
 
 .control-center-failures-list {
@@ -3452,15 +3512,67 @@
   font-size: var(--font-size-sm);
 }
 
-@media (width >= 768px) {
-  .control-center-services-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@media (width >= 1024px) {
+  .control-center-service-ledger-head,
+  .control-center-service-row {
+    grid-template-columns:
+      minmax(9rem, 0.8fr)
+      minmax(7rem, 0.55fr)
+      minmax(12rem, 1.15fr)
+      minmax(16rem, 1.55fr)
+      minmax(5.75rem, 0.4fr);
+    gap: var(--space-3);
   }
-}
 
-@media (width >= 1200px) {
-  .control-center-services-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .control-center-service-ledger-head {
+    display: grid;
+    align-items: center;
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--border-color-light);
+    color: var(--text-tertiary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .control-center-service-row {
+    grid-template-areas: none;
+    padding: var(--space-3);
+  }
+
+  .control-center-service-row:hover {
+    background: rgb(var(--text-rgb) / 2%);
+  }
+
+  .control-center-service-identity,
+  .control-center-service-state,
+  .control-center-service-message,
+  .control-center-service-signals,
+  .control-center-service-actions {
+    grid-area: auto;
+  }
+
+  .control-center-service-details {
+    flex-flow: row wrap;
+    gap: var(--space-1) var(--space-3);
+  }
+
+  .control-center-service-detail-row {
+    display: inline-flex;
+    gap: var(--space-1);
+  }
+
+  .control-center-service-detail-row[data-format="url"] {
+    flex: 1 1 100%;
+  }
+
+  .control-center-service-actions {
+    justify-self: end;
+  }
+
+  .control-center-service-empty {
+    display: inline;
   }
 }
 

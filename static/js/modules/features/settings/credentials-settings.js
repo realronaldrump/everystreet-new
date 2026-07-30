@@ -6,7 +6,7 @@ import {
 } from "../../settings/credentials.js";
 import notificationManager from "../../ui/notifications.js";
 import { formatDateTime, isAbortError } from "../../utils.js";
-const DEFAULT_FETCH_CONCURRENCY = 12;
+const DEFAULT_FETCH_CONCURRENCY = 50;
 
 const BOUNCIE_AUTHORIZE_URL = "/api/bouncie/authorize";
 const BOUNCIE_REDIRECT_URI_API = "/api/bouncie/redirect-uri";

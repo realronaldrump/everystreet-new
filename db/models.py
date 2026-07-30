@@ -1190,7 +1190,7 @@ class BouncieCredentials(Document):
     webhook_last_checked_at: datetime | None = None
     webhook_last_error: str | None = None
     authorized_devices: list[str] = Field(default_factory=list)
-    fetch_concurrency: int = 12
+    fetch_concurrency: int = 50
     access_token: str | None = None
     expires_at: float | None = None
 

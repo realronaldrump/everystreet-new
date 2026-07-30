@@ -19,7 +19,7 @@ const STATUS_VARIANTS = {
     label: "Healthy",
   },
   warning: {
-    badgeClass: "bg-warning text-dark",
+    badgeClass: "bg-warning",
     label: "Warning",
   },
   error: {
@@ -116,7 +116,7 @@ function renderServiceDetail(detail) {
     : "";
 
   return `
-    <div class="control-center-service-detail-row">
+    <div class="control-center-service-detail-row" data-format="${escapeHtml(format)}">
       <dt>${escapeHtml(label)}</dt>
       <dd>
         <span class="control-center-service-detail-line">
@@ -141,7 +141,7 @@ export function renderServiceDetails(details) {
     .join("")}</dl>`;
 }
 
-export function buildServiceCardMarkup(key, entry = {}) {
+export function buildServiceRowMarkup(key, entry = {}, index = 0) {
   const status = String(entry.status || "warning").toLowerCase();
   const variant = formatStatusVariant(status);
   const serviceName = SERVICE_NAMES[key] || String(key || "Unknown service");
@@ -158,20 +158,28 @@ export function buildServiceCardMarkup(key, entry = {}) {
     : "";
 
   return `
-    <article class="control-center-service-card"
+    <article class="control-center-service-row"
              data-service-card="${escapeHtml(key)}"
              data-status="${escapeHtml(status)}">
-      <div class="control-center-service-card-head">
+      <div class="control-center-service-identity">
+        <span class="control-center-service-ordinal" aria-hidden="true">${String(
+          index + 1
+        ).padStart(2, "0")}</span>
         <h4>${escapeHtml(serviceName)}</h4>
-        <span class="badge ${variant.badgeClass}">${escapeHtml(
-          entry.label || variant.label
-        )}</span>
+      </div>
+      <div class="control-center-service-state" data-status="${escapeHtml(status)}">
+        <span class="control-center-service-state-dot" aria-hidden="true"></span>
+        <span>${escapeHtml(entry.label || variant.label)}</span>
       </div>
       <p class="control-center-service-message">${escapeHtml(
         entry.message || "No status message."
       )}</p>
-      ${renderServiceDetails(entry.details)}
-      ${restartButton ? `<div class="control-center-service-actions">${restartButton}</div>` : ""}
+      <div class="control-center-service-signals">
+        ${renderServiceDetails(entry.details) || '<span class="control-center-service-empty" aria-hidden="true">—</span>'}
+      </div>
+      <div class="control-center-service-actions">
+        ${restartButton || '<span class="control-center-service-empty" aria-hidden="true">—</span>'}
+      </div>
     </article>
   `;
 }
@@ -187,7 +195,7 @@ function renderOverviewHeader({ overviewData, healthData }) {
   const variant = formatStatusVariant(status);
 
   if (badge) {
-    badge.className = `status-chip cc-overview-status-badge ${variant.badgeClass}`;
+    badge.className = `badge status-chip cc-overview-status-badge ${variant.badgeClass}`;
     badge.textContent = overall.label || variant.label;
   }
 
@@ -232,9 +240,20 @@ function renderServiceCards(healthData) {
     return;
   }
 
-  servicesContainer.innerHTML = keysToRender
-    .map((key) => buildServiceCardMarkup(key, services[key]))
-    .join("");
+  servicesContainer.innerHTML = `
+    <div class="control-center-service-ledger-head" aria-hidden="true">
+      <span>Service</span>
+      <span>State</span>
+      <span>Summary</span>
+      <span>Signals</span>
+      <span>Actions</span>
+    </div>
+    <div class="control-center-service-ledger-body">
+      ${keysToRender
+        .map((key, index) => buildServiceRowMarkup(key, services[key], index))
+        .join("")}
+    </div>
+  `;
 }
 
 function renderFailures(healthData) {

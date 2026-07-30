@@ -7,6 +7,7 @@ import pytest
 from db.models import Trip
 from trips.services.trip_history_import_service import build_import_windows
 from trips.services.trip_history_import_service_config import (
+    resolve_history_fetch_concurrency,
     resolve_import_start_dt_from_db,
 )
 
@@ -24,6 +25,12 @@ def test_build_import_windows_seven_day_windows_with_24h_overlap() -> None:
         datetime(2024, 1, 14, tzinfo=UTC),
     )
     assert windows[2] == (datetime(2024, 1, 13, tzinfo=UTC), end)
+
+
+def test_history_import_honors_configured_fetch_concurrency() -> None:
+    assert resolve_history_fetch_concurrency({"fetch_concurrency": 50}) == 50
+    assert resolve_history_fetch_concurrency({"fetch_concurrency": 17}) == 17
+    assert resolve_history_fetch_concurrency({"fetch_concurrency": 0}) == 50
 
 
 @pytest.mark.asyncio

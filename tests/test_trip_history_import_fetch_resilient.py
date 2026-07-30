@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
 
+from trips.services import bouncie_ingest_runtime as ingest_runtime
 from trips.services.bouncie_ingest_runtime import (
     WindowFetchIncompleteError,
     fetch_trips_for_window,
@@ -202,6 +204,74 @@ async def test_fetch_trips_for_window_uses_chunked_split() -> None:
     assert len(trips) == 14
     # 1 failed full-window call + 14 chunk calls
     assert call_count == 15
+
+
+@pytest.mark.asyncio
+async def test_request_timeout_starts_after_global_request_slot_is_acquired(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Queue wait must not masquerade as a failed Bouncie request."""
+    window_start = datetime(2020, 3, 1, 6, 0, 0, tzinfo=UTC)
+    window_end = window_start + timedelta(seconds=1)
+    request_slots = asyncio.Semaphore(1)
+    await request_slots.acquire()
+
+    mock_client = AsyncMock()
+    mock_client.fetch_trips_for_device_resilient.return_value = []
+    monkeypatch.setattr(ingest_runtime, "REQUEST_TIMEOUT_SECONDS", 0.01)
+
+    task = asyncio.create_task(
+        fetch_trips_for_window_report(
+            mock_client,
+            imei="359486068397551",
+            window_start=window_start,
+            window_end=window_end,
+            recovery_min_window_seconds=5,
+            leaf_retry_attempts=0,
+            leaf_retry_delay_seconds=0,
+            recovery_gps_formats=("geojson",),
+            recovery_boundary_jitter_seconds=(),
+            chunk_semaphore=request_slots,
+        ),
+    )
+
+    await asyncio.sleep(0.03)
+    request_slots.release()
+    result = await task
+
+    assert result.failed_windows == []
+    assert result.trips == []
+    mock_client.fetch_trips_for_device_resilient.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_transient_request_failures_back_off_before_recursive_split(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    window_start = datetime(2020, 3, 1, 6, 0, 0, tzinfo=UTC)
+    window_end = window_start + timedelta(seconds=1)
+    mock_client = AsyncMock()
+    mock_client.fetch_trips_for_device_resilient.side_effect = [
+        TimeoutError(),
+        TimeoutError(),
+        [],
+    ]
+    monkeypatch.setattr(ingest_runtime, "TRANSIENT_RETRY_ATTEMPTS", 2)
+    monkeypatch.setattr(ingest_runtime, "TRANSIENT_BACKOFF_BASE_SECONDS", 0)
+
+    result = await fetch_trips_for_window_report(
+        mock_client,
+        imei="359486068397551",
+        window_start=window_start,
+        window_end=window_end,
+        recovery_min_window_seconds=5,
+        leaf_retry_attempts=0,
+        recovery_gps_formats=("geojson",),
+        recovery_boundary_jitter_seconds=(),
+    )
+
+    assert result.failed_windows == []
+    assert mock_client.fetch_trips_for_device_resilient.await_count == 3
 
 
 @pytest.mark.asyncio

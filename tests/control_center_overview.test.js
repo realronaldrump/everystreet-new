@@ -3,12 +3,12 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
-  buildServiceCardMarkup,
+  buildServiceRowMarkup,
   renderServiceDetails,
 } from "../static/js/modules/features/settings/control-center-overview.js";
 
-test("service cards preserve brand names and escape API content", () => {
-  const markup = buildServiceCardMarkup("mongodb", {
+test("service rows preserve brand names and escape API content", () => {
+  const markup = buildServiceRowMarkup("mongodb", {
     status: "healthy",
     label: "Healthy",
     message: '<script>alert("nope")</script>',
@@ -17,6 +17,17 @@ test("service cards preserve brand names and escape API content", () => {
   assert.match(markup, /<h4>MongoDB<\/h4>/);
   assert.match(markup, /&lt;script&gt;/);
   assert.doesNotMatch(markup, /<script>/);
+});
+
+test("warning rows use a semantic state marker instead of a generic badge", () => {
+  const markup = buildServiceRowMarkup("bouncie", {
+    status: "warning",
+    label: "Stale",
+    message: "No recent deliveries",
+  });
+
+  assert.match(markup, /control-center-service-state" data-status="warning"/);
+  assert.doesNotMatch(markup, /class="badge/);
 });
 
 test("typed details render dates and copyable URLs without prose separators", () => {
@@ -40,14 +51,16 @@ test("typed details render dates and copyable URLs without prose separators", ()
   assert.doesNotMatch(details, /\s\|\s/);
 });
 
-test("service grid is mobile-first and contains long values", async () => {
+test("service ledger is mobile-first and contains long values", async () => {
   const css = await readFile(
     new URL("../static/css/settings.css", import.meta.url),
     "utf8"
   );
 
-  assert.match(css, /grid-template-columns: minmax\(0, 1fr\)/);
-  assert.match(css, /repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.control-center-service-ledger-head/);
+  assert.match(css, /\.control-center-service-row/);
+  assert.doesNotMatch(css, /\.control-center-service-card/);
+  assert.doesNotMatch(css, /box-shadow: inset 3px/);
   assert.match(css, /overflow-wrap: anywhere/);
   assert.match(css, /min-height: 44px/);
 });

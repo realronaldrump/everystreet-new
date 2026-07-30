@@ -16,13 +16,14 @@ Implementation is split across three files:
 from __future__ import annotations
 
 from trips.services.trip_history_import_service_config import (
-    DEVICE_FETCH_TIMEOUT_SECONDS,
+    FETCH_CONCURRENCY,
     IMPORT_DO_COVERAGE,
     IMPORT_DO_GEOCODE,
     LEAF_RETRY_ATTEMPTS,
     LEAF_RETRY_DELAY_SECONDS,
     MIN_WINDOW_HOURS,
     OVERLAP_HOURS,
+    PROCESS_CONCURRENCY,
     RECOVERY_BOUNDARY_JITTER_SECONDS,
     RECOVERY_GPS_FORMATS,
     RECOVERY_MIN_WINDOW_SECONDS,
@@ -31,6 +32,9 @@ from trips.services.trip_history_import_service_config import (
     SPLIT_CHUNK_HOURS,
     SPLIT_CONCURRENCY,
     STEP_HOURS,
+    TRANSIENT_BACKOFF_BASE_SECONDS,
+    TRANSIENT_BACKOFF_MAX_SECONDS,
+    TRANSIENT_RETRY_ATTEMPTS,
     WINDOW_DAYS,
     build_import_plan,
     build_import_windows,
@@ -41,13 +45,14 @@ from trips.services.trip_history_import_service_core import run_import
 from trips.services.trip_history_import_service_progress import ImportProgressContext
 
 __all__ = [
-    "DEVICE_FETCH_TIMEOUT_SECONDS",
+    "FETCH_CONCURRENCY",
     "IMPORT_DO_COVERAGE",
     "IMPORT_DO_GEOCODE",
     "LEAF_RETRY_ATTEMPTS",
     "LEAF_RETRY_DELAY_SECONDS",
     "MIN_WINDOW_HOURS",
     "OVERLAP_HOURS",
+    "PROCESS_CONCURRENCY",
     "RECOVERY_BOUNDARY_JITTER_SECONDS",
     "RECOVERY_GPS_FORMATS",
     "RECOVERY_MIN_WINDOW_SECONDS",
@@ -56,6 +61,9 @@ __all__ = [
     "SPLIT_CHUNK_HOURS",
     "SPLIT_CONCURRENCY",
     "STEP_HOURS",
+    "TRANSIENT_BACKOFF_BASE_SECONDS",
+    "TRANSIENT_BACKOFF_MAX_SECONDS",
+    "TRANSIENT_RETRY_ATTEMPTS",
     "WINDOW_DAYS",
     "ImportProgressContext",
     "build_import_plan",

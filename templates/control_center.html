@@ -142,7 +142,7 @@ Settings
             <i class="fas fa-server"></i>
             Key Services
           </h3>
-          <div class="control-center-services-grid" id="cc-overview-services">
+          <div class="control-center-service-ledger" id="cc-overview-services">
             <div class="text-muted small">
 Loading services...
             </div>
@@ -556,9 +556,10 @@ Map Match Trips on Fetch
                        max="50"
                        step="1"
                        inputmode="numeric"
-                       placeholder="12" />
+                       placeholder="50" />
                 <div class="form-text">
-                Controls simultaneous Bouncie fetch requests (default 12).
+                Controls simultaneous Bouncie fetch requests. Keep at 50 for the
+                fastest history imports; lower it only if this server is under pressure.
                 </div>
               </div>
             </div>

@@ -24,10 +24,10 @@ from core.date_utils import ensure_utc
 from core.http.session import get_session
 from core.jobs import JobHandle
 from core.trip_map_cache import bump_trip_map_revision
-from core.trip_source_policy import BOUNCIE_SOURCE
 from db.models import Vehicle
 from setup.services.bouncie_oauth import BouncieOAuth
 from trips.pipeline import TripPipeline
+from trips.services.bouncie_history_retry_service import BouncieHistoryRetryService
 from trips.services.bouncie_ingest_runtime import (
     FailedFetchWindow,
     build_ingest_counters,
@@ -40,11 +40,12 @@ from trips.services.bouncie_ingest_runtime import (
     summarize_failed_fetch_windows,
 )
 from trips.services.trip_history_import_service_config import (
-    DEVICE_FETCH_TIMEOUT_SECONDS,
     IMPORT_DO_COVERAGE,
     IMPORT_DO_GEOCODE,
+    PROCESS_CONCURRENCY,
     _vehicle_label,
     build_import_windows,
+    resolve_history_fetch_concurrency,
     resolve_import_imeis,
 )
 from trips.services.trip_history_import_service_progress import (
@@ -52,7 +53,6 @@ from trips.services.trip_history_import_service_progress import (
     _load_progress_job,
     _write_cancelled_progress,
 )
-from trips.services.trip_ingest_issue_service import TripIngestIssueService
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +73,8 @@ class ImportRuntime:
     write_progress: Callable[..., Awaitable[None]]
     is_cancelled: Callable[..., Awaitable[bool]]
     record_failure_reason: Callable[[str | None], None]
+    process_semaphore: asyncio.Semaphore | None = None
+    window_semaphore: asyncio.Semaphore | None = None
 
 
 @dataclass
@@ -116,26 +118,11 @@ async def _record_failed_fetch_windows(
     parent_window_start: datetime,
     parent_window_end: datetime,
 ) -> None:
-    for failed in failed_windows:
-        await TripIngestIssueService.record_issue(
-            issue_type="fetch_error",
-            message=(
-                "Bouncie fetch failed for slice "
-                f"{failed.window_start.isoformat()} -> "
-                f"{failed.window_end.isoformat()}"
-            ),
-            source=BOUNCIE_SOURCE,
-            transaction_id=None,
-            imei=failed.imei,
-            details={
-                "imei": failed.imei,
-                "slice_start": failed.window_start.isoformat(),
-                "slice_end": failed.window_end.isoformat(),
-                "parent_window_start": parent_window_start.isoformat(),
-                "parent_window_end": parent_window_end.isoformat(),
-                "error": failed.error,
-            },
-        )
+    await BouncieHistoryRetryService.queue_failed_windows(
+        failed_windows,
+        parent_window_start=parent_window_start,
+        parent_window_end=parent_window_end,
+    )
 
 
 async def _build_import_setup(
@@ -149,12 +136,7 @@ async def _build_import_setup(
         list(credentials.get("authorized_devices") or []),
         selected_imeis=selected_imeis,
     )
-    fetch_concurrency = credentials.get("fetch_concurrency", 12)
-    if not isinstance(fetch_concurrency, int) or fetch_concurrency < 1:
-        fetch_concurrency = 12
-    # History import can stress upstream APIs; bias toward successful recovery
-    # over raw throughput.
-    fetch_concurrency = min(fetch_concurrency, 2)
+    fetch_concurrency = resolve_history_fetch_concurrency(credentials)
 
     vehicles = await Vehicle.find(In(Vehicle.imei, imeis)).to_list() if imeis else []
     vehicles_by_imei = {v.imei: v for v in vehicles if v and getattr(v, "imei", None)}
@@ -253,11 +235,12 @@ async def _run_import_windows(
 ) -> tuple[bool, int]:
     units = [
         (imei, window_index, window_start, window_end)
-        for imei in runtime.imeis
         for window_index, (window_start, window_end) in enumerate(windows, start=1)
+        for imei in runtime.imeis
     ]
     total_vehicle_windows = max(1, runtime.windows_total or len(units))
     windows_completed = 0
+    window_slots = runtime.window_semaphore or asyncio.Semaphore(1)
 
     async def write_processing_progress(
         current_window: dict[str, Any],
@@ -274,11 +257,7 @@ async def _run_import_windows(
         await runtime.write_progress(
             status="running",
             stage="processing",
-            message=message
-            or (
-                f"Processed {completed}/{total_vehicle_windows} "
-                "vehicle-windows"
-            ),
+            message=message or "Processing vehicle windows",
             progress=progress,
             current_window=current_window,
             windows_completed=completed,
@@ -314,7 +293,7 @@ async def _run_import_windows(
         with contextlib.suppress(asyncio.CancelledError):
             await task
 
-    async def process_unit(
+    async def process_unit_in_slot(
         imei: str,
         window_index: int,
         window_start: datetime,
@@ -335,33 +314,34 @@ async def _run_import_windows(
         attempted = False
 
         try:
-            async with runtime.semaphore:
-                if await runtime.is_cancelled(force=False):
-                    return
-                attempted = True
+            if await runtime.is_cancelled(force=False):
+                return
+            attempted = True
 
-                heartbeat_task = asyncio.create_task(
-                    emit_window_heartbeat(imei, window_index, current_window),
-                )
-                try:
-                    async with asyncio.timeout(DEVICE_FETCH_TIMEOUT_SECONDS):
-                        fetch_result = await fetch_trips_for_window_runtime(
-                            runtime.client,
-                            imei=imei,
-                            window_start=window_start,
-                            window_end=window_end,
-                            add_event=runtime.add_event,
-                        )
-                finally:
-                    await cancel_heartbeat(heartbeat_task)
-                    heartbeat_task = None
-
-                raw_trips = fetch_result.trips
-                bounded_trips = filter_trips_to_window_runtime(
-                    raw_trips,
+            heartbeat_task = asyncio.create_task(
+                emit_window_heartbeat(imei, window_index, current_window),
+            )
+            try:
+                fetch_result = await fetch_trips_for_window_runtime(
+                    runtime.client,
+                    imei=imei,
                     window_start=window_start,
                     window_end=window_end,
+                    add_event=runtime.add_event,
+                    chunk_semaphore=runtime.semaphore,
                 )
+            finally:
+                await cancel_heartbeat(heartbeat_task)
+                heartbeat_task = None
+
+            raw_trips = fetch_result.trips
+            bounded_trips = filter_trips_to_window_runtime(
+                raw_trips,
+                window_start=window_start,
+                window_end=window_end,
+            )
+            process_semaphore = runtime.process_semaphore or runtime.semaphore
+            async with process_semaphore:
                 result = await process_bouncie_trips_runtime(
                     bounded_trips,
                     pipeline=runtime.pipeline,
@@ -373,43 +353,43 @@ async def _run_import_windows(
                     force_rematch_all=False,
                     bump_revision=False,
                 )
-                delta = dict(result.get("counters", {}))
-                if fetch_result.failed_windows:
-                    failed_count = len(fetch_result.failed_windows)
-                    delta["fetch_errors"] = (
-                        int(delta.get("fetch_errors", 0) or 0) + failed_count
-                    )
-                    summary = summarize_failed_fetch_windows(
-                        fetch_result.failed_windows,
-                    )
-                    await _record_failed_fetch_windows(
-                        failed_windows=fetch_result.failed_windows,
-                        parent_window_start=window_start,
-                        parent_window_end=window_end,
-                    )
-                    runtime.record_failure_reason(
-                        "Bouncie fetch partially failed after adaptive recovery",
-                    )
-                    runtime.add_event(
-                        "error",
-                        f"Recovered window with {failed_count} failed Bouncie slices",
-                        {
-                            "imei": imei,
-                            "window_index": window_index,
-                            "start_iso": window_start.isoformat(),
-                            "end_iso": window_end.isoformat(),
-                            **summary,
-                        },
-                    )
+            delta = dict(result.get("counters", {}))
+            if fetch_result.failed_windows:
+                failed_count = len(fetch_result.failed_windows)
+                delta["fetch_errors"] = (
+                    int(delta.get("fetch_errors", 0) or 0) + failed_count
+                )
+                summary = summarize_failed_fetch_windows(
+                    fetch_result.failed_windows,
+                )
+                await _record_failed_fetch_windows(
+                    failed_windows=fetch_result.failed_windows,
+                    parent_window_start=window_start,
+                    parent_window_end=window_end,
+                )
+                runtime.record_failure_reason(
+                    "Bouncie fetch partially failed after adaptive recovery",
+                )
                 runtime.add_event(
-                    "info",
-                    f"Window processed for {imei}",
+                    "error",
+                    f"Recovered window with {failed_count} failed Bouncie slices",
                     {
                         "imei": imei,
                         "window_index": window_index,
-                        "processed": len(result.get("processed_transaction_ids", [])),
+                        "start_iso": window_start.isoformat(),
+                        "end_iso": window_end.isoformat(),
+                        **summary,
                     },
                 )
+            runtime.add_event(
+                "info",
+                f"Window processed for {imei}",
+                {
+                    "imei": imei,
+                    "window_index": window_index,
+                    "processed": len(result.get("processed_transaction_ids", [])),
+                },
+            )
         except asyncio.CancelledError:
             attempted = False
             raise
@@ -458,14 +438,25 @@ async def _run_import_windows(
                 await runtime.write_progress(
                     status="running",
                     stage="processing",
-                    message=(
-                        f"Processed {windows_completed}/{total_vehicle_windows} "
-                        "vehicle-windows"
-                    ),
+                    message="Processing vehicle windows",
                     progress=progress,
                     current_window=current_window,
                     windows_completed=windows_completed,
                 )
+
+    async def process_unit(
+        imei: str,
+        window_index: int,
+        window_start: datetime,
+        window_end: datetime,
+    ) -> None:
+        async with window_slots:
+            await process_unit_in_slot(
+                imei,
+                window_index,
+                window_start,
+                window_end,
+            )
 
     await asyncio.gather(*(process_unit(*unit) for unit in units))
 
@@ -616,6 +607,10 @@ async def run_import(
             write_progress=progress_ctx.write_progress,
             is_cancelled=progress_ctx.is_cancelled,
             record_failure_reason=progress_ctx.record_failure_reason,
+            process_semaphore=asyncio.Semaphore(PROCESS_CONCURRENCY),
+            window_semaphore=asyncio.Semaphore(
+                max(setup.fetch_concurrency * 2, PROCESS_CONCURRENCY),
+            ),
         )
 
         cancelled, windows_completed = await _run_import_windows(

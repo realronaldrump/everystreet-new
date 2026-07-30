@@ -248,6 +248,83 @@ async def test_cancelled_waiting_import_window_is_not_counted_completed(
 
 
 @pytest.mark.asyncio
+async def test_history_import_schedules_vehicle_windows_round_robin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[tuple[str, int]] = []
+
+    async def fake_fetch(
+        *_args: Any,
+        imei: str,
+        window_start: datetime,
+        chunk_semaphore: asyncio.Semaphore | None = None,
+        **_kwargs: Any,
+    ) -> Any:
+        async def record() -> None:
+            observed.append((imei, window_start.day))
+            await asyncio.sleep(0)
+
+        if chunk_semaphore is None:
+            await record()
+        else:
+            async with chunk_semaphore:
+                await record()
+        return SimpleNamespace(trips=[], failed_windows=[])
+
+    async def fake_process(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        return {
+            "processed_transaction_ids": [],
+            "counters": import_runtime.build_ingest_counters(),
+        }
+
+    async def is_cancelled(*, force: bool = False) -> bool:
+        del force
+        return False
+
+    monkeypatch.setattr(import_runtime, "fetch_trips_for_window_runtime", fake_fetch)
+    monkeypatch.setattr(import_runtime, "process_bouncie_trips_runtime", fake_process)
+
+    runtime = import_runtime.ImportRuntime(
+        client=object(),
+        imeis=["imei-1", "imei-2"],
+        windows_total=4,
+        semaphore=asyncio.Semaphore(1),
+        lock=asyncio.Lock(),
+        counters=import_runtime.build_ingest_counters(),
+        per_device={
+            "imei-1": import_runtime.build_ingest_device_counters(),
+            "imei-2": import_runtime.build_ingest_device_counters(),
+        },
+        pipeline=SimpleNamespace(),
+        do_geocode=False,
+        do_coverage=False,
+        add_event=lambda *_args, **_kwargs: None,
+        write_progress=AsyncMock(),
+        is_cancelled=is_cancelled,
+        record_failure_reason=lambda _reason: None,
+    )
+    start = datetime(2025, 1, 1, tzinfo=UTC)
+
+    was_cancelled, windows_completed = await import_runtime._run_import_windows(
+        runtime=runtime,
+        windows=[
+            (start, start.replace(day=2)),
+            (start.replace(day=2), start.replace(day=3)),
+        ],
+        progress_ctx=SimpleNamespace(is_cancelled=is_cancelled),
+    )
+
+    assert was_cancelled is False
+    assert windows_completed == 4
+    assert observed == [
+        ("imei-1", 1),
+        ("imei-2", 1),
+        ("imei-1", 2),
+        ("imei-2", 2),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_geocoder_handles_start_reverse_failure_without_skipping_destination(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

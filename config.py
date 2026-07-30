@@ -363,7 +363,7 @@ async def get_bouncie_config() -> dict[str, Any]:
             - redirect_uri: str
             - authorization_code: str
             - authorized_devices: list[str]
-            - fetch_concurrency: int (defaults to 12)
+            - fetch_concurrency: int (defaults to 50)
             - access_token: str | None
             - expires_at: float | None (timestamp)
     """

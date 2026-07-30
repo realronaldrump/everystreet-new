@@ -10,6 +10,7 @@ This module provides ARQ jobs for fetching trips from external sources:
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -18,7 +19,9 @@ from config import get_bouncie_config
 from core.date_utils import parse_timestamp
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import Trip
+from tasks.arq import get_arq_pool
 from tasks.ops import run_task_with_history
+from trips.services.bouncie_history_retry_service import BouncieHistoryRetryService
 from trips.services.bouncie_ingest_runtime import (
     run_ingest_for_range,
     run_ingest_for_transaction_id,
@@ -29,6 +32,16 @@ from trips.services.trip_history_import_service import (
 )
 
 logger = logging.getLogger(__name__)
+
+_HISTORY_RETRY_LOCK_KEY = "locks:bouncie_history_retry"
+_TRIP_SYNC_LOCK_KEY = "locks:trip_sync_ingest"
+_HISTORY_RETRY_LOCK_SECONDS = 15 * 60
+_RELEASE_LOCK_SCRIPT = """
+if redis.call('get', KEYS[1]) == ARGV[1] then
+  return redis.call('del', KEYS[1])
+end
+return 0
+"""
 
 
 async def _periodic_fetch_trips_logic(
@@ -430,3 +443,34 @@ async def fetch_all_missing_trips(
         ),
         manual_run=manual_run,
     )
+
+
+async def retry_bouncie_history_windows(ctx: dict[str, Any]) -> dict[str, Any]:
+    """Retry durable Bouncie history leaves without overlapping active syncs."""
+    redis = await get_arq_pool()
+    if await redis.exists(_TRIP_SYNC_LOCK_KEY):
+        return {"status": "skipped", "reason": "trip_sync_active"}
+
+    token = f"{ctx.get('job_id') or uuid.uuid4()}:{uuid.uuid4()}"
+    acquired = await redis.set(
+        _HISTORY_RETRY_LOCK_KEY,
+        token,
+        ex=_HISTORY_RETRY_LOCK_SECONDS,
+        nx=True,
+    )
+    if not acquired:
+        return {"status": "skipped", "reason": "retry_already_running"}
+
+    try:
+        # Re-check after acquiring our own lock to narrow the race with a sync
+        # job starting at the same time.
+        if await redis.exists(_TRIP_SYNC_LOCK_KEY):
+            return {"status": "skipped", "reason": "trip_sync_active"}
+        return await BouncieHistoryRetryService.run_due_retries()
+    finally:
+        await redis.eval(
+            _RELEASE_LOCK_SCRIPT,
+            1,
+            _HISTORY_RETRY_LOCK_KEY,
+            token,
+        )

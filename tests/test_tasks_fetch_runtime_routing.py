@@ -89,3 +89,47 @@ async def test_periodic_fetch_routes_to_shared_runtime(
     mocked.assert_awaited_once()
     kwargs = mocked.await_args.kwargs
     assert kwargs["mode"] == "upsert_bouncie"
+
+
+@pytest.mark.asyncio
+async def test_history_retry_skips_while_trip_sync_is_active(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    redis = AsyncMock()
+    redis.exists.return_value = True
+    retry_due = AsyncMock()
+    monkeypatch.setattr(fetch_tasks, "get_arq_pool", AsyncMock(return_value=redis))
+    monkeypatch.setattr(
+        fetch_tasks.BouncieHistoryRetryService,
+        "run_due_retries",
+        retry_due,
+    )
+
+    result = await fetch_tasks.retry_bouncie_history_windows({"job_id": "job-1"})
+
+    assert result == {"status": "skipped", "reason": "trip_sync_active"}
+    redis.set.assert_not_awaited()
+    retry_due.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_history_retry_releases_its_lock_after_running(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    redis = AsyncMock()
+    redis.exists.side_effect = [False, False]
+    redis.set.return_value = True
+    expected = {"status": "success", "retried": 2}
+    retry_due = AsyncMock(return_value=expected)
+    monkeypatch.setattr(fetch_tasks, "get_arq_pool", AsyncMock(return_value=redis))
+    monkeypatch.setattr(
+        fetch_tasks.BouncieHistoryRetryService,
+        "run_due_retries",
+        retry_due,
+    )
+
+    result = await fetch_tasks.retry_bouncie_history_windows({"job_id": "job-1"})
+
+    assert result == expected
+    retry_due.assert_awaited_once_with()
+    redis.eval.assert_awaited_once()

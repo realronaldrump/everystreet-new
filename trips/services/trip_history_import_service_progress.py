@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -16,6 +17,7 @@ from trips.services.trip_history_import_service_config import (
     LEAF_RETRY_ATTEMPTS,
     LEAF_RETRY_DELAY_SECONDS,
     OVERLAP_HOURS,
+    PROCESS_CONCURRENCY,
     RECOVERY_BOUNDARY_JITTER_SECONDS,
     RECOVERY_GPS_FORMATS,
     RECOVERY_MIN_WINDOW_SECONDS,
@@ -116,6 +118,7 @@ class ImportProgressContext:
     per_device: dict[str, dict[str, int]]
     events: list[dict[str, Any]] = field(default_factory=list)
     failure_reasons: dict[str, int] = field(default_factory=dict)
+    write_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     cancel_state: dict[str, Any] = field(
         default_factory=lambda: {"checked_at": 0.0, "cancelled": False},
     )
@@ -151,39 +154,41 @@ class ImportProgressContext:
         if windows_completed is None:
             windows_completed = 0
 
-        meta_patch = {
-            "start_iso": self.start_dt.isoformat(),
-            "end_iso": self.end_dt.isoformat(),
-            "window_days": WINDOW_DAYS,
-            "overlap_hours": OVERLAP_HOURS,
-            "step_hours": STEP_HOURS,
-            "recovery_min_window_seconds": RECOVERY_MIN_WINDOW_SECONDS,
-            "split_concurrency": SPLIT_CONCURRENCY,
-            "leaf_retry_attempts": LEAF_RETRY_ATTEMPTS,
-            "leaf_retry_delay_seconds": LEAF_RETRY_DELAY_SECONDS,
-            "recovery_gps_formats": list(RECOVERY_GPS_FORMATS),
-            "recovery_boundary_jitter_seconds": list(
-                RECOVERY_BOUNDARY_JITTER_SECONDS,
-            ),
-            "devices": self.devices,
-            "windows_total": self.windows_total,
-            "windows_completed": windows_completed,
-            "current_window": current_window,
-            "counters": dict(self.counters),
-            "per_device": self.per_device,
-            "events": _trim_events(list(self.events)),
-            "failure_reasons": dict(self.failure_reasons),
-        }
-        await self.handle.update(
-            status=status,
-            stage=stage,
-            message=message,
-            progress=progress,
-            metadata_patch=meta_patch,
-            started_at=started_at,
-            completed_at=completed_at,
-            error=error,
-        )
+        async with self.write_lock:
+            meta_patch = {
+                "start_iso": self.start_dt.isoformat(),
+                "end_iso": self.end_dt.isoformat(),
+                "window_days": WINDOW_DAYS,
+                "overlap_hours": OVERLAP_HOURS,
+                "step_hours": STEP_HOURS,
+                "recovery_min_window_seconds": RECOVERY_MIN_WINDOW_SECONDS,
+                "split_concurrency": SPLIT_CONCURRENCY,
+                "process_concurrency": PROCESS_CONCURRENCY,
+                "leaf_retry_attempts": LEAF_RETRY_ATTEMPTS,
+                "leaf_retry_delay_seconds": LEAF_RETRY_DELAY_SECONDS,
+                "recovery_gps_formats": list(RECOVERY_GPS_FORMATS),
+                "recovery_boundary_jitter_seconds": list(
+                    RECOVERY_BOUNDARY_JITTER_SECONDS,
+                ),
+                "devices": self.devices,
+                "windows_total": self.windows_total,
+                "windows_completed": windows_completed,
+                "current_window": current_window,
+                "counters": dict(self.counters),
+                "per_device": self.per_device,
+                "events": _trim_events(list(self.events)),
+                "failure_reasons": dict(self.failure_reasons),
+            }
+            await self.handle.update(
+                status=status,
+                stage=stage,
+                message=message,
+                progress=progress,
+                metadata_patch=meta_patch,
+                started_at=started_at,
+                completed_at=completed_at,
+                error=error,
+            )
 
     async def is_cancelled(self, *, force: bool = False) -> bool:
         if not self.progress_job_id:

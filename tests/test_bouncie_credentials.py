@@ -57,7 +57,7 @@ async def test_get_bouncie_credentials_returns_defaults(bouncie_db) -> None:
 
     assert result["client_id"] == ""
     assert result["client_secret"] == ""
-    assert result["fetch_concurrency"] == 12
+    assert result["fetch_concurrency"] == 50
     assert result["authorized_devices"] == []
     assert result["oauth_state"] is None
     assert result["oauth_state_expires_at"] is None
@@ -160,10 +160,10 @@ async def test_update_bouncie_credentials_clamps_concurrency(bouncie_db) -> None
     creds = await BouncieCredentials.find_one(
         BouncieCredentials.id == "bouncie_credentials",
     )
-    assert creds.fetch_concurrency == 12  # Should remain default
+    assert creds.fetch_concurrency == 50  # Should remain default
 
     await update_bouncie_credentials({"fetch_concurrency": 0})
     creds = await BouncieCredentials.find_one(
         BouncieCredentials.id == "bouncie_credentials",
     )
-    assert creds.fetch_concurrency == 12  # Should remain default
+    assert creds.fetch_concurrency == 50  # Should remain default

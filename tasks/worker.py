@@ -26,6 +26,7 @@ from tasks.fetch import (
     fetch_trip_by_transaction_id,
     manual_fetch_trips_range,
     periodic_fetch_trips,
+    retry_bouncie_history_windows,
 )
 from tasks.health import worker_heartbeat
 from tasks.logs import purge_server_logs_before
@@ -55,6 +56,9 @@ PERIODIC_FETCH_TIMEOUT_SECONDS = int(
 )
 HISTORY_IMPORT_TIMEOUT_SECONDS = int(
     os.getenv("TRIP_HISTORY_IMPORT_JOB_TIMEOUT_SECONDS", str(24 * 60 * 60)),
+)
+HISTORY_RETRY_TIMEOUT_SECONDS = int(
+    os.getenv("TRIP_HISTORY_RETRY_JOB_TIMEOUT_SECONDS", str(15 * 60)),
 )
 LOG_PURGE_TIMEOUT_SECONDS = int(
     os.getenv("LOG_PURGE_JOB_TIMEOUT_SECONDS", str(30 * 60)),
@@ -121,6 +125,11 @@ class WorkerSettings:
     ]
     cron_jobs: ClassVar[list[object]] = [
         cron(cron_periodic_fetch_trips, timeout=PERIODIC_FETCH_TIMEOUT_SECONDS),
+        cron(
+            retry_bouncie_history_windows,
+            second={5, 15, 25, 35, 45, 55},
+            timeout=HISTORY_RETRY_TIMEOUT_SECONDS,
+        ),
         cron(cron_validate_trips),
         cron(cron_remap_unmatched_trips),
         cron(cron_update_coverage_for_new_trips),

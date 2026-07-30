@@ -14,7 +14,7 @@ from db.models import BouncieCredentials
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_FETCH_CONCURRENCY = 12
+DEFAULT_FETCH_CONCURRENCY = 50
 FETCH_CONCURRENCY_MIN = 1
 FETCH_CONCURRENCY_MAX = 50
 
@@ -34,7 +34,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             - authorization_code: str
             - webhook_key: str
             - authorized_devices: list[str]
-            - fetch_concurrency: int (defaults to 12)
+            - fetch_concurrency: int (defaults to 50)
             - access_token: str | None
 
             - expires_at: float | None (timestamp)

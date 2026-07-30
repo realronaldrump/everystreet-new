@@ -41,6 +41,20 @@ except ValueError:
     _SPLIT_CONCURRENCY = 1
 SPLIT_CONCURRENCY = max(1, _SPLIT_CONCURRENCY)
 try:
+    _FETCH_CONCURRENCY = int(
+        os.getenv("TRIP_HISTORY_IMPORT_FETCH_CONCURRENCY", "50"),
+    )
+except ValueError:
+    _FETCH_CONCURRENCY = 50
+FETCH_CONCURRENCY = max(1, min(50, _FETCH_CONCURRENCY))
+try:
+    _PROCESS_CONCURRENCY = int(
+        os.getenv("TRIP_HISTORY_IMPORT_PROCESS_CONCURRENCY", "10"),
+    )
+except ValueError:
+    _PROCESS_CONCURRENCY = 10
+PROCESS_CONCURRENCY = max(1, min(50, _PROCESS_CONCURRENCY))
+try:
     _REQUEST_TIMEOUT_SECONDS = int(
         os.getenv("TRIP_HISTORY_IMPORT_REQUEST_TIMEOUT_SECONDS", "60"),
     )
@@ -48,19 +62,36 @@ except ValueError:
     _REQUEST_TIMEOUT_SECONDS = 60
 REQUEST_TIMEOUT_SECONDS = max(3, _REQUEST_TIMEOUT_SECONDS)
 try:
-    _DEVICE_FETCH_TIMEOUT_SECONDS = int(
-        os.getenv("TRIP_HISTORY_IMPORT_DEVICE_FETCH_TIMEOUT_SECONDS", "600"),
-    )
-except ValueError:
-    _DEVICE_FETCH_TIMEOUT_SECONDS = 600
-DEVICE_FETCH_TIMEOUT_SECONDS = max(10, _DEVICE_FETCH_TIMEOUT_SECONDS)
-try:
     _REQUEST_PAUSE_SECONDS = float(
         os.getenv("TRIP_HISTORY_IMPORT_REQUEST_PAUSE_SECONDS", "0"),
     )
 except ValueError:
     _REQUEST_PAUSE_SECONDS = 0.0
 REQUEST_PAUSE_SECONDS = max(0.0, _REQUEST_PAUSE_SECONDS)
+try:
+    _TRANSIENT_RETRY_ATTEMPTS = int(
+        os.getenv("TRIP_HISTORY_IMPORT_TRANSIENT_RETRY_ATTEMPTS", "3"),
+    )
+except ValueError:
+    _TRANSIENT_RETRY_ATTEMPTS = 3
+TRANSIENT_RETRY_ATTEMPTS = max(0, _TRANSIENT_RETRY_ATTEMPTS)
+try:
+    _TRANSIENT_BACKOFF_BASE_SECONDS = float(
+        os.getenv("TRIP_HISTORY_IMPORT_TRANSIENT_BACKOFF_BASE_SECONDS", "0.5"),
+    )
+except ValueError:
+    _TRANSIENT_BACKOFF_BASE_SECONDS = 0.5
+TRANSIENT_BACKOFF_BASE_SECONDS = max(0.0, _TRANSIENT_BACKOFF_BASE_SECONDS)
+try:
+    _TRANSIENT_BACKOFF_MAX_SECONDS = float(
+        os.getenv("TRIP_HISTORY_IMPORT_TRANSIENT_BACKOFF_MAX_SECONDS", "8"),
+    )
+except ValueError:
+    _TRANSIENT_BACKOFF_MAX_SECONDS = 8.0
+TRANSIENT_BACKOFF_MAX_SECONDS = max(
+    TRANSIENT_BACKOFF_BASE_SECONDS,
+    _TRANSIENT_BACKOFF_MAX_SECONDS,
+)
 try:
     _LEAF_RETRY_ATTEMPTS = int(
         os.getenv("TRIP_HISTORY_IMPORT_LEAF_RETRY_ATTEMPTS", "3"),
@@ -217,6 +248,14 @@ def resolve_import_imeis(
     return [imei for imei in normalized_authorized if imei in selected_set]
 
 
+def resolve_history_fetch_concurrency(credentials: dict[str, Any]) -> int:
+    """Honor the user-configured Bouncie concurrency for history imports."""
+    configured = credentials.get("fetch_concurrency", FETCH_CONCURRENCY)
+    if not isinstance(configured, int) or configured < 1:
+        configured = FETCH_CONCURRENCY
+    return min(configured, 50)
+
+
 async def build_import_plan(
     *,
     start_dt: datetime,
@@ -228,12 +267,7 @@ async def build_import_plan(
         list(credentials.get("authorized_devices") or []),
         selected_imeis=selected_imeis,
     )
-    fetch_concurrency = credentials.get("fetch_concurrency", 12)
-    if not isinstance(fetch_concurrency, int) or fetch_concurrency < 1:
-        fetch_concurrency = 12
-    # History import tends to stress the upstream API; bias toward correctness
-    # and upstream stability over raw throughput.
-    fetch_concurrency = min(fetch_concurrency, 2)
+    fetch_concurrency = resolve_history_fetch_concurrency(credentials)
 
     vehicles = await Vehicle.find(In(Vehicle.imei, imeis)).to_list() if imeis else []
     vehicles_by_imei = {v.imei: v for v in vehicles if v and getattr(v, "imei", None)}
@@ -253,6 +287,7 @@ async def build_import_plan(
         "step_hours": STEP_HOURS,
         "recovery_min_window_seconds": RECOVERY_MIN_WINDOW_SECONDS,
         "split_concurrency": SPLIT_CONCURRENCY,
+        "process_concurrency": PROCESS_CONCURRENCY,
         "leaf_retry_attempts": LEAF_RETRY_ATTEMPTS,
         "leaf_retry_delay_seconds": LEAF_RETRY_DELAY_SECONDS,
         "recovery_gps_formats": list(RECOVERY_GPS_FORMATS),
@@ -267,13 +302,14 @@ async def build_import_plan(
 
 
 __all__ = [
-    "DEVICE_FETCH_TIMEOUT_SECONDS",
+    "FETCH_CONCURRENCY",
     "IMPORT_DO_COVERAGE",
     "IMPORT_DO_GEOCODE",
     "LEAF_RETRY_ATTEMPTS",
     "LEAF_RETRY_DELAY_SECONDS",
     "MIN_WINDOW_HOURS",
     "OVERLAP_HOURS",
+    "PROCESS_CONCURRENCY",
     "RECOVERY_BOUNDARY_JITTER_SECONDS",
     "RECOVERY_GPS_FORMATS",
     "RECOVERY_MIN_WINDOW_SECONDS",
@@ -282,11 +318,15 @@ __all__ = [
     "SPLIT_CHUNK_HOURS",
     "SPLIT_CONCURRENCY",
     "STEP_HOURS",
+    "TRANSIENT_BACKOFF_BASE_SECONDS",
+    "TRANSIENT_BACKOFF_MAX_SECONDS",
+    "TRANSIENT_RETRY_ATTEMPTS",
     "WINDOW_DAYS",
-    "_DEVICE_FETCH_TIMEOUT_SECONDS",
+    "_FETCH_CONCURRENCY",
     "_LEAF_RETRY_ATTEMPTS",
     "_LEAF_RETRY_DELAY_SECONDS",
     "_MIN_WINDOW_HOURS",
+    "_PROCESS_CONCURRENCY",
     "_RECOVERY_BOUNDARY_JITTER_SECONDS_RAW",
     "_RECOVERY_GPS_FORMATS_RAW",
     "_RECOVERY_MIN_WINDOW_SECONDS",
@@ -294,9 +334,13 @@ __all__ = [
     "_REQUEST_TIMEOUT_SECONDS",
     "_SPLIT_CHUNK_HOURS",
     "_SPLIT_CONCURRENCY",
+    "_TRANSIENT_BACKOFF_BASE_SECONDS",
+    "_TRANSIENT_BACKOFF_MAX_SECONDS",
+    "_TRANSIENT_RETRY_ATTEMPTS",
     "_vehicle_label",
     "build_import_plan",
     "build_import_windows",
+    "resolve_history_fetch_concurrency",
     "resolve_import_imeis",
     "resolve_import_start_dt",
     "resolve_import_start_dt_from_db",

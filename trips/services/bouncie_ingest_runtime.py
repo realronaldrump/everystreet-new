@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Literal
 
+from aiohttp import ClientError, ClientResponseError
 from beanie.operators import In
 from fastapi import HTTPException, status
 
@@ -29,6 +30,7 @@ from trips.services.historical_trip_writer import (
     HistoricalTripWrite,
 )
 from trips.services.trip_history_import_service_config import (
+    FETCH_CONCURRENCY,
     LEAF_RETRY_ATTEMPTS,
     LEAF_RETRY_DELAY_SECONDS,
     MIN_WINDOW_HOURS,
@@ -39,6 +41,9 @@ from trips.services.trip_history_import_service_config import (
     REQUEST_TIMEOUT_SECONDS,
     SPLIT_CHUNK_HOURS,
     SPLIT_CONCURRENCY,
+    TRANSIENT_BACKOFF_BASE_SECONDS,
+    TRANSIENT_BACKOFF_MAX_SECONDS,
+    TRANSIENT_RETRY_ATTEMPTS,
     build_import_windows,
 )
 from trips.services.trip_ingest_issue_service import TripIngestIssueService
@@ -265,6 +270,22 @@ def _leaf_retry_delay(base_delay_seconds: float, attempt_index: int) -> float:
     return base_delay_seconds * (2 ** max(0, attempt_index))
 
 
+def _should_backoff_request_error(exc: Exception) -> bool:
+    """Return whether a transport/upstream error should retry before splitting."""
+    if isinstance(exc, ClientResponseError):
+        return exc.status in {408, 425, 429, 502, 503, 504}
+    return isinstance(exc, (TimeoutError, ClientError))
+
+
+def _transient_backoff_delay(attempt_index: int) -> float:
+    if TRANSIENT_BACKOFF_BASE_SECONDS <= 0:
+        return 0.0
+    return min(
+        TRANSIENT_BACKOFF_MAX_SECONDS,
+        TRANSIENT_BACKOFF_BASE_SECONDS * (2 ** max(0, attempt_index)),
+    )
+
+
 def summarize_failed_fetch_windows(
     failed_windows: list[FailedFetchWindow],
     *,
@@ -342,29 +363,63 @@ async def fetch_trips_for_window_report(
         if query_end - query_start > max_request_span:
             msg = "Bouncie request window exceeds the seven-day API limit"
             raise ValueError(msg)
-        try:
-            async with asyncio.timeout(REQUEST_TIMEOUT_SECONDS):
+        for attempt_index in range(TRANSIENT_RETRY_ATTEMPTS + 1):
+            request_started = False
+            try:
+                # Queue wait is not request time. Starting the timeout only after
+                # acquiring a global slot prevents false failures and runaway
+                # recursive splitting when the importer is busy.
                 async with chunk_semaphore:
-                    token = await client.ensure_token()
-                    if gps_format == "geojson":
-                        raw_trips = await client.fetch_trips_for_device_resilient(
-                            token,
-                            imei,
-                            query_start,
-                            query_end,
-                        )
-                    else:
-                        raw_trips = await client.fetch_trips_for_device_resilient(
-                            token,
-                            imei,
-                            query_start,
-                            query_end,
-                            gps_format,
-                        )
-        finally:
-            if REQUEST_PAUSE_SECONDS > 0:
-                await asyncio.sleep(REQUEST_PAUSE_SECONDS)
-        return _normalize_raw_trips(raw_trips, imei=imei)
+                    request_started = True
+                    async with asyncio.timeout(REQUEST_TIMEOUT_SECONDS):
+                        token = await client.ensure_token()
+                        if gps_format == "geojson":
+                            raw_trips = await client.fetch_trips_for_device_resilient(
+                                token,
+                                imei,
+                                query_start,
+                                query_end,
+                            )
+                        else:
+                            raw_trips = await client.fetch_trips_for_device_resilient(
+                                token,
+                                imei,
+                                query_start,
+                                query_end,
+                                gps_format,
+                            )
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                if (
+                    attempt_index >= TRANSIENT_RETRY_ATTEMPTS
+                    or not _should_backoff_request_error(exc)
+                ):
+                    raise
+                delay = _transient_backoff_delay(attempt_index)
+                if add_event:
+                    add_event(
+                        "warning",
+                        f"Backing off transient Bouncie request for {imei}",
+                        {
+                            "imei": imei,
+                            "start": query_start.isoformat(),
+                            "end": query_end.isoformat(),
+                            "attempt": attempt_index + 1,
+                            "delay_seconds": delay,
+                            "error": _safe_error_text(exc),
+                        },
+                    )
+                if delay:
+                    await asyncio.sleep(delay)
+                continue
+            finally:
+                if request_started and REQUEST_PAUSE_SECONDS > 0:
+                    await asyncio.sleep(REQUEST_PAUSE_SECONDS)
+            return _normalize_raw_trips(raw_trips, imei=imei)
+
+        msg = "Bouncie request retries exhausted"
+        raise RuntimeError(msg)
 
     def build_boundary_probe_specs() -> list[dict[str, Any]]:
         specs: list[dict[str, Any]] = []
@@ -966,9 +1021,9 @@ async def run_ingest_for_range(
         do_geocode = await _resolve_geocode_preference()
     force_rematch_all = await _resolve_force_google_rematch(do_map_match)
 
-    fetch_concurrency = credentials.get("fetch_concurrency", 12)
+    fetch_concurrency = credentials.get("fetch_concurrency", FETCH_CONCURRENCY)
     if not isinstance(fetch_concurrency, int) or fetch_concurrency < 1:
-        fetch_concurrency = 12
+        fetch_concurrency = FETCH_CONCURRENCY
     semaphore = asyncio.Semaphore(fetch_concurrency)
 
     pipeline = TripPipeline()
