@@ -30,5 +30,5 @@ test("live navigation retains confirmed coverage when segment truth is unavailab
 
 test("live navigation duration rounding carries sixty minutes into hours", () => {
   const ui = new LiveNavigationUI();
-  assert.equal(ui.formatDuration(7_199), "2h 0m");
+  assert.equal(ui.formatDuration(7_199), "2h 0min");
 });
