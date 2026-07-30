@@ -177,7 +177,7 @@ def test_trip_history_import_cancel_endpoint_marks_job_cancelled_and_clears_task
             self.stage = "scanning"
             self.message = "Scanning"
             self.progress = 1.0
-            self.error = None
+            self.error = "Old worker timeout"
             self.created_at = None
             self.started_at = None
             self.completed_at = None
@@ -207,8 +207,53 @@ def test_trip_history_import_cancel_endpoint_marks_job_cancelled_and_clears_task
 
     assert response.status_code == 200
     assert stub.status == "cancelled"
+    assert stub.error is None
     abort_mock.assert_awaited()
     history_mock.assert_awaited()
+
+
+def test_trip_history_import_cancel_does_not_claim_success_before_worker_stops() -> (
+    None
+):
+    app = _create_app()
+
+    class StubJob:
+        def __init__(self) -> None:
+            self.id = "65b1b5b6b5b6b5b6b5b6b5b6"
+            self.job_type = "trip_history_import"
+            self.task_id = "fetch_all_missing_trips"
+            self.operation_id = "arq-job-1"
+            self.status = "running"
+            self.stage = "processing"
+            self.message = "Processing"
+            self.progress = 75.0
+            self.error = None
+            self.created_at = None
+            self.started_at = None
+            self.completed_at = None
+            self.updated_at = None
+            self.metadata = {}
+            self.result = None
+
+        async def save(self) -> None:
+            return None
+
+    stub = StubJob()
+    with (
+        patch("trips.api.sync.Job.get", new=AsyncMock(return_value=stub)),
+        patch("trips.api.sync.abort_job", new=AsyncMock(return_value=False)),
+        patch(
+            "trips.api.sync.update_task_history_entry",
+            new=AsyncMock(return_value=None),
+        ),
+    ):
+        client = TestClient(app)
+        response = client.delete(
+            "/api/actions/trips/sync/history_import/65b1b5b6b5b6b5b6b5b6b5b6",
+        )
+
+    assert response.status_code == 503
+    assert stub.status != "cancelled"
 
 
 def test_trip_history_import_cancel_endpoint_idempotent_does_not_overwrite_completed_task_history() -> (

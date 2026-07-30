@@ -12,7 +12,7 @@ from typing import Any
 from beanie import PydanticObjectId
 
 from core.jobs import JobHandle
-from db.models import Job
+from db.models import Job, TaskHistory
 from trips.services.trip_history_import_service_config import (
     LEAF_RETRY_ATTEMPTS,
     LEAF_RETRY_DELAY_SECONDS,
@@ -155,6 +155,10 @@ class ImportProgressContext:
             windows_completed = 0
 
         async with self.write_lock:
+            if status in {"pending", "running", "cancelled"}:
+                self.handle.job.error = None
+            if status in {"pending", "running"}:
+                self.handle.job.completed_at = None
             meta_patch = {
                 "start_iso": self.start_dt.isoformat(),
                 "end_iso": self.end_dt.isoformat(),
@@ -198,7 +202,18 @@ class ImportProgressContext:
             return bool(self.cancel_state.get("cancelled"))
         self.cancel_state["checked_at"] = now
         current = await _load_progress_job(self.progress_job_id)
-        cancelled = bool(current and current.status == "cancelled")
+        cancelled = bool(current and current.status in {"cancelling", "cancelled"})
+        operation_id = str(getattr(current, "operation_id", "") or "").strip()
+        if not cancelled and operation_id:
+            try:
+                history = await TaskHistory.get(operation_id)
+            except Exception:
+                history = None
+            cancelled = bool(
+                history
+                and str(getattr(history, "status", "") or "").upper()
+                in {"CANCELLED", "CANCELED"}
+            )
         self.cancel_state["cancelled"] = cancelled
         return cancelled
 

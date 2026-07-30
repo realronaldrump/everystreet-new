@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from tasks import ops
+from tasks.worker import WorkerSettings
 
 
 class _FakeTripSyncRedis:
@@ -36,6 +37,56 @@ def _fake_task_history(status: str, task_id: str = "periodic_fetch_trips"):
             return type("History", (), {"status": status, "task_id": task_id})()
 
     return FakeTaskHistory
+
+
+def test_worker_enables_arq_abort_handling() -> None:
+    assert WorkerSettings.allow_abort_jobs is True
+
+
+@pytest.mark.asyncio
+async def test_abort_job_does_not_report_timeout_as_success(monkeypatch) -> None:
+    class FakeArqJob:
+        def __init__(self, job_id: str, redis) -> None:
+            del job_id, redis
+
+        async def status(self):
+            return "in_progress"
+
+        async def abort(self, **_kwargs):
+            raise TimeoutError
+
+    monkeypatch.setattr(ops, "get_arq_pool", AsyncMock(return_value=object()))
+    monkeypatch.setattr("arq.jobs.Job", FakeArqJob)
+
+    assert await ops.abort_job("job-timeout") is False
+
+
+@pytest.mark.asyncio
+async def test_run_task_with_history_never_restarts_cancelled_job(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    logic = AsyncMock(return_value={"status": "success"})
+    cleanup = AsyncMock()
+    monkeypatch.setattr(
+        ops,
+        "_task_was_cancelled",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(ops, "_cleanup_pre_cancelled_task", cleanup)
+
+    result = await ops.run_task_with_history(
+        ctx={"job_id": "job-cancelled-before-replay"},
+        task_id="fetch_all_missing_trips",
+        func=logic,
+        manual_run=True,
+    )
+
+    assert result["status"] == "cancelled"
+    logic.assert_not_awaited()
+    cleanup.assert_awaited_once_with(
+        task_id="fetch_all_missing_trips",
+        job_id="job-cancelled-before-replay",
+    )
 
 
 @pytest.mark.asyncio

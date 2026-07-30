@@ -928,11 +928,13 @@ export function initTripHistoryImportWizard({ signal } = {}) {
       cancelBtn.disabled = true;
     }
     setProgressError("");
+    setText(stageEl, "Cancelling");
+    setText(messageEl, "Stopping import worker...");
+    notificationManager.show("Cancelling import...", "info");
     try {
       await apiClient.delete(CONFIG.API.tripSyncHistoryImportCancel(progressJobId), {
         signal,
       });
-      notificationManager.show("Cancelling import...", "info");
       // Force an immediate refresh so the UI transitions promptly.
       if (progressUrl) {
         const job = await apiClient.get(progressUrl, { signal }).catch(() => null);

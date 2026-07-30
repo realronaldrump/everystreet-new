@@ -99,6 +99,7 @@ async def on_shutdown(ctx: dict) -> None:
 
 
 class WorkerSettings:
+    allow_abort_jobs = True
     functions: ClassVar[list[object]] = [
         func(periodic_fetch_trips, timeout=PERIODIC_FETCH_TIMEOUT_SECONDS),
         fetch_trip_by_transaction_id,

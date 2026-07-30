@@ -205,7 +205,9 @@ class TripSyncService:
                         {
                             "job_type": "trip_history_import",
                             "operation_id": str(history.id),
-                            "status": {"$in": ["pending", "running"]},
+                            "status": {
+                                "$in": ["pending", "running", "cancelling"],
+                            },
                         },
                     )
                 except Exception:
@@ -273,7 +275,7 @@ class TripSyncService:
             await Job.find(
                 {
                     "job_type": "trip_history_import",
-                    "status": {"$in": ["pending", "running"]},
+                    "status": {"$in": ["pending", "running", "cancelling"]},
                 },
             )
             .sort("-updated_at")
@@ -346,7 +348,9 @@ class TripSyncService:
                     await Job.find(
                         {
                             "job_type": "trip_history_import",
-                            "status": {"$in": ["pending", "running"]},
+                            "status": {
+                                "$in": ["pending", "running", "cancelling"],
+                            },
                         },
                     )
                     .sort("-created_at")
@@ -447,7 +451,9 @@ class TripSyncService:
                     {
                         "job_type": "trip_history_import",
                         "operation_id": str(active.id),
-                        "status": {"$in": ["pending", "running"]},
+                        "status": {
+                            "$in": ["pending", "running", "cancelling"],
+                        },
                     },
                 )
             except Exception:
@@ -669,7 +675,9 @@ class TripSyncService:
                 await Job.find(
                     {
                         "job_type": "trip_history_import",
-                        "status": {"$in": ["pending", "running"]},
+                        "status": {
+                            "$in": ["pending", "running", "cancelling"],
+                        },
                     },
                 )
                 .sort("-created_at")
@@ -819,33 +827,42 @@ class TripSyncService:
                 detail="Sync job not found.",
             )
 
-        await abort_job(job_id)
+        now = datetime.now(UTC)
         await update_task_history_entry(
             job_id=job_id,
             task_name=history.task_id or "trip_sync",
             status="CANCELLED",
             manual_run=bool(history.manual_run),
             error="Cancelled by user",
-            end_time=datetime.now(UTC),
+            end_time=now,
         )
+
+        if not await abort_job(job_id):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Cancellation was requested, but the worker has not "
+                    "confirmed that the sync stopped. Try again."
+                ),
+            )
 
         # If this was a history import, also cancel the persisted progress Job
         # so refreshes/tabs don't stay "in progress".
         if history.task_id == "fetch_all_missing_trips":
-            now = datetime.now(UTC)
             progress_job = await Job.find_one(
                 {
                     "job_type": "trip_history_import",
                     "operation_id": job_id,
-                    "status": {"$in": ["pending", "running"]},
+                    "status": {"$in": ["pending", "running", "cancelling"]},
                 },
             )
             if progress_job:
-                await JobHandle(progress_job).update(
-                    status="cancelled",
-                    stage="cancelled",
-                    message="Cancelled",
-                    completed_at=now,
-                )
+                progress_job.status = "cancelled"
+                progress_job.stage = "cancelled"
+                progress_job.message = "Cancelled"
+                progress_job.error = None
+                progress_job.completed_at = now
+                progress_job.updated_at = now
+                await progress_job.save()
 
         return {"status": "success", "message": "Sync cancelled"}

@@ -12,7 +12,6 @@ from fastapi import APIRouter, HTTPException, Query, status
 from core.api import api_route
 from core.date_utils import parse_timestamp
 from core.job_serialization import serialize_job_payload
-from core.jobs import JobHandle
 from core.streaming import sse_event_stream, sse_response
 from db.models import Job, TaskHistory
 from tasks.config import update_task_history_entry
@@ -188,7 +187,7 @@ async def cancel_trip_history_import(progress_job_id: PydanticObjectId):
             detail="History import job not found",
         )
 
-    if job.status in {"completed", "failed", "cancelled"}:
+    if job.status in {"completed", "failed"}:
         # Idempotent cancel: also ensure any lingering TaskHistory lock is cleared.
         operation_id = job.operation_id
         if operation_id:
@@ -227,22 +226,12 @@ async def cancel_trip_history_import(progress_job_id: PydanticObjectId):
                 )
         return {"status": "success", "message": "Job is already finished."}
 
-    now = datetime.now(UTC)
-    await JobHandle(job).update(
-        status="cancelled",
-        stage="cancelled",
-        message="Cancelled",
-        completed_at=now,
-    )
-
     operation_id = job.operation_id
+    now = datetime.now(UTC)
     if operation_id:
-        try:
-            await abort_job(operation_id)
-        except Exception:
-            logger.exception("Failed to abort ARQ job %s", operation_id)
-
-        # Clear the task_history RUNNING/PENDING lock so new imports can start.
+        # TaskHistory is the durable cancellation signal read by the importer.
+        # Write it before requesting the ARQ abort so worker restarts cannot
+        # revive this job.
         try:
             await update_task_history_entry(
                 job_id=operation_id,
@@ -258,4 +247,40 @@ async def cancel_trip_history_import(progress_job_id: PydanticObjectId):
                 operation_id,
             )
 
-    return {"status": "success", "message": "Import cancelled"}
+    if job.status != "cancelled":
+        job.status = "cancelling"
+        job.stage = "cancelling"
+        job.message = "Stopping import worker..."
+        job.completed_at = None
+        job.updated_at = now
+        await job.save()
+
+    aborted = True
+    if operation_id:
+        try:
+            aborted = await abort_job(operation_id)
+        except Exception:
+            logger.exception("Failed to abort ARQ job %s", operation_id)
+            aborted = False
+
+    if not aborted:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Cancellation was requested, but the worker has not confirmed "
+                "that the import stopped. Try Cancel import again."
+            ),
+        )
+
+    # Abort confirmation means the worker is no longer able to write progress.
+    # Reload and make cancellation the final authoritative state.
+    final_job = await Job.get(progress_job_id) or job
+    final_job.status = "cancelled"
+    final_job.stage = "cancelled"
+    final_job.message = "Cancelled"
+    final_job.error = None
+    final_job.completed_at = datetime.now(UTC)
+    final_job.updated_at = final_job.completed_at
+    await final_job.save()
+
+    return {"status": "success", "message": "Import cancellation confirmed"}

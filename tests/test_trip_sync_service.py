@@ -581,3 +581,32 @@ async def test_cancel_sync_cancels_history_import_job_and_task_history(
     updated_job = await Job.get(PydanticObjectId(str(job.id)))
     assert updated_job is not None
     assert updated_job.status == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_cancel_sync_does_not_claim_success_before_worker_stops(
+    beanie_db_with_history_import,
+    monkeypatch,
+) -> None:
+    await seed_credentials()
+    now = datetime.now(UTC)
+
+    history = TaskHistory(
+        task_id="fetch_all_missing_trips",
+        status="RUNNING",
+        timestamp=now,
+        start_time=now,
+        manual_run=True,
+    )
+    history.id = "arq-job-that-keeps-running"
+    await history.insert()
+
+    async def fake_abort(job_id: str) -> bool:
+        return False
+
+    monkeypatch.setattr(trip_sync_service, "abort_job", fake_abort)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await TripSyncService.cancel_sync("arq-job-that-keeps-running")
+
+    assert exc_info.value.status_code == 503

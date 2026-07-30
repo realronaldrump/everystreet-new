@@ -8,7 +8,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from db.models import TaskHistory
+from db.models import Job, TaskHistory
 from tasks.arq import get_arq_pool
 from tasks.config import (
     check_dependencies,
@@ -65,6 +65,64 @@ def _decode_redis_value(value: Any) -> str:
         except Exception:
             return "<bytes>"
     return str(value)
+
+
+async def _task_was_cancelled(job_id: str) -> bool:
+    try:
+        history = await TaskHistory.get(job_id)
+    except Exception:
+        return False
+    return bool(
+        history
+        and str(getattr(history, "status", "") or "").upper()
+        in {"CANCELLED", "CANCELED"}
+    )
+
+
+async def _cleanup_pre_cancelled_task(*, task_id: str, job_id: str) -> None:
+    """Clear durable state for a cancelled ARQ job that was replayed."""
+    if task_id in _TRIP_SYNC_MUTEX_TASK_IDS:
+        try:
+            redis = await get_arq_pool()
+            holder_value = await redis.get(_TRIP_SYNC_LOCK_KEY)
+            if holder_value is not None:
+                holder = _decode_redis_value(holder_value)
+                parsed = _parse_trip_sync_lock_token(holder)
+                if parsed == (task_id, job_id):
+                    await redis.eval(
+                        _TRIP_SYNC_LOCK_RELEASE_SCRIPT,
+                        1,
+                        _TRIP_SYNC_LOCK_KEY,
+                        holder,
+                    )
+        except Exception:
+            logger.exception("Failed to clear cancelled trip-sync lock for %s", job_id)
+
+    if task_id != "fetch_all_missing_trips":
+        return
+
+    try:
+        progress_job = await Job.find_one(
+            {
+                "job_type": "trip_history_import",
+                "operation_id": job_id,
+                "status": {"$in": ["pending", "running", "cancelling"]},
+            },
+        )
+        if progress_job:
+            now = datetime.now(UTC)
+            progress_job.status = "cancelled"
+            progress_job.stage = "cancelled"
+            progress_job.message = "Cancelled"
+            progress_job.error = None
+            progress_job.completed_at = now
+            progress_job.updated_at = now
+            await progress_job.save()
+    except Exception:
+        logger.exception(
+            "Failed to finalize cancelled history import progress for %s",
+            job_id,
+        )
 
 
 def _parse_trip_sync_lock_token(lock_token: str) -> tuple[str, str] | None:
@@ -248,6 +306,17 @@ async def run_task_with_history(
     start_time = datetime.now(UTC)
     lock_handle: tuple[str, str] | None = None
 
+    # ARQ retries CancelledError after worker restarts. A durable cancellation
+    # in TaskHistory must win so an explicitly cancelled job can never revive.
+    if await _task_was_cancelled(job_id):
+        await _cleanup_pre_cancelled_task(task_id=task_id, job_id=job_id)
+        logger.info("Skipping replay of cancelled task %s (%s)", task_id, job_id)
+        return {
+            "status": "cancelled",
+            "message": "Cancelled task was not restarted.",
+            "task_id": task_id,
+        }
+
     if task_id in _TRIP_SYNC_MUTEX_TASK_IDS:
         lock_handle, lock_holder = await _acquire_trip_sync_lock(
             task_id=task_id,
@@ -385,21 +454,30 @@ async def run_task_if_due(
     return await func()
 
 
-async def abort_job(job_id: str) -> bool:
-    """Request an ARQ job abort by job id."""
+async def abort_job(job_id: str, *, abort_timeout_seconds: float = 10.0) -> bool:
+    """Abort an ARQ job and return only after it is confirmed stopped."""
     redis: ArqRedis = await get_arq_pool()
 
-    # arq 0.26.x exposes abort on Job instances, not on the redis pool.
     try:
         from arq.jobs import Job as ArqJob
 
         job = ArqJob(job_id, redis)
-        try:
-            # We want to send the abort signal without blocking the API for long.
-            # If the abort isn't confirmed quickly, treat it as "requested".
-            return await job.abort(timeout=0.5)
-        except TimeoutError:
+
+        async def has_stopped() -> bool:
+            job_status = await job.status()
+            value = str(getattr(job_status, "value", job_status) or "").lower()
+            return value in {"complete", "not_found"}
+
+        if await has_stopped():
             return True
+        try:
+            aborted = await job.abort(
+                timeout=max(0.1, abort_timeout_seconds),
+                poll_delay=0.1,
+            )
+        except TimeoutError:
+            return await has_stopped()
+        return bool(aborted) or await has_stopped()
     except Exception:
         logger.exception("Failed to abort ARQ job %s", job_id)
         return False
