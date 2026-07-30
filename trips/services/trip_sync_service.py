@@ -14,6 +14,7 @@ from core.jobs import JobHandle
 from core.serialization import serialize_datetime
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import Job, TaskHistory, Trip
+from fleet.registry import FleetRegistry
 from tasks.config import (
     get_global_disable,
     get_task_config_entry,
@@ -99,10 +100,6 @@ def _has_valid_access_token(credentials: dict[str, Any]) -> bool:
         # If expiry is malformed but a token exists, avoid falsely reporting
         # disconnected; subsequent token usage will still fail safely if invalid.
         return True
-
-
-def _devices_configured(credentials: dict[str, Any]) -> bool:
-    return bool(credentials.get("authorized_devices"))
 
 
 class TripSyncService:
@@ -362,7 +359,7 @@ class TripSyncService:
         credentials = await get_bouncie_config()
         credentials_ready = _credentials_configured(credentials)
         auth_connected = _auth_connected(credentials)
-        devices_ready = _devices_configured(credentials)
+        devices_ready = await FleetRegistry.has_active_devices()
         last_auth_error = credentials.get("last_auth_error")
         global_disabled = await get_global_disable()
         trip_count = await Trip.find(enforce_bouncie_source({})).count()

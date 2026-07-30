@@ -68,7 +68,12 @@ async def test_periodic_fetch_routes_to_shared_runtime(
     monkeypatch.setattr(
         fetch_tasks,
         "get_bouncie_config",
-        AsyncMock(return_value={"authorized_devices": ["imei-1"]}),
+        AsyncMock(return_value={}),
+    )
+    monkeypatch.setattr(
+        fetch_tasks.FleetRegistry,
+        "list_active_imeis",
+        AsyncMock(return_value=["imei-1"]),
     )
     monkeypatch.setattr(
         fetch_tasks.AdminService,

@@ -19,6 +19,7 @@ from config import get_bouncie_config
 from core.date_utils import parse_timestamp
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import Trip
+from fleet.registry import FleetRegistry
 from tasks.arq import get_arq_pool
 from tasks.ops import run_task_with_history
 from trips.services.bouncie_history_retry_service import BouncieHistoryRetryService
@@ -57,14 +58,15 @@ async def _periodic_fetch_trips_logic(
     """
     # Get current Bouncie credentials from database or environment
     bouncie_config = await get_bouncie_config()
+    fleet_device_count = len(await FleetRegistry.list_active_imeis())
     logger.info(
         "Bouncie credentials: CLIENT_ID=%s, CLIENT_SECRET=%s, "
-        "REDIRECT_URI=%s, AUTH_CODE=%s, AUTHORIZED_DEVICES count: %d",
+        "REDIRECT_URI=%s, AUTH_CODE=%s, FLEET_DEVICES count: %d",
         "set" if bouncie_config.get("client_id") else "NOT SET",
         "set" if bouncie_config.get("client_secret") else "NOT SET",
         "set" if bouncie_config.get("redirect_uri") else "NOT SET",
         "set" if bouncie_config.get("authorization_code") else "NOT SET",
-        len(bouncie_config.get("authorized_devices", [])),
+        fleet_device_count,
     )
 
     logger.info("Determining date range for fetching trips...")

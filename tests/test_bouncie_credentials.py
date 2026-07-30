@@ -22,14 +22,12 @@ async def test_validate_bouncie_credentials_missing_fields() -> None:
 
 
 @pytest.mark.asyncio
-async def test_validate_bouncie_credentials_requires_devices() -> None:
-    # It is now valid to have no devices
+async def test_validate_bouncie_credentials_does_not_require_fleet_devices() -> None:
     ok, message = await validate_bouncie_credentials(
         {
             "client_id": "client",
             "client_secret": "secret",
             "redirect_uri": "https://example.com/callback",
-            "authorized_devices": [],
         },
     )
     assert ok
@@ -43,7 +41,6 @@ async def test_validate_bouncie_credentials_accepts_valid_payload() -> None:
             "client_id": "client",
             "client_secret": "secret",
             "redirect_uri": "https://example.com/callback",
-            "authorized_devices": ["111"],
         },
     )
     assert ok
@@ -58,7 +55,7 @@ async def test_get_bouncie_credentials_returns_defaults(bouncie_db) -> None:
     assert result["client_id"] == ""
     assert result["client_secret"] == ""
     assert result["fetch_concurrency"] == 50
-    assert result["authorized_devices"] == []
+    assert "authorized_devices" not in result
     assert result["oauth_state"] is None
     assert result["oauth_state_expires_at"] is None
 
@@ -71,7 +68,6 @@ async def test_get_bouncie_credentials_returns_stored_values(bouncie_db) -> None
         client_id="test-client",
         client_secret="test-secret",
         redirect_uri="https://example.com/cb",
-        authorized_devices=["imei-1", "imei-2"],
         fetch_concurrency=5,
     )
     await creds.insert()
@@ -80,7 +76,7 @@ async def test_get_bouncie_credentials_returns_stored_values(bouncie_db) -> None
 
     assert result["client_id"] == "test-client"
     assert result["client_secret"] == "test-secret"
-    assert result["authorized_devices"] == ["imei-1", "imei-2"]
+    assert "authorized_devices" not in result
     assert result["fetch_concurrency"] == 5
 
 
@@ -91,7 +87,6 @@ async def test_update_bouncie_credentials_creates_new(bouncie_db) -> None:
         {
             "client_id": "new-client",
             "client_secret": "new-secret",
-            "authorized_devices": "device-1,device-2",
         },
     )
 
@@ -102,7 +97,7 @@ async def test_update_bouncie_credentials_creates_new(bouncie_db) -> None:
     )
     assert creds is not None
     assert creds.client_id == "new-client"
-    assert creds.authorized_devices == ["device-1", "device-2"]
+    assert creds.client_secret == "new-secret"
 
 
 @pytest.mark.asyncio

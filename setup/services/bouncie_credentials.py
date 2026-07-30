@@ -33,7 +33,6 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             - redirect_uri: str
             - authorization_code: str
             - webhook_key: str
-            - authorized_devices: list[str]
             - fetch_concurrency: int (defaults to 50)
             - access_token: str | None
 
@@ -57,7 +56,6 @@ async def get_bouncie_credentials() -> dict[str, Any]:
         "webhook_updated_at": None,
         "webhook_last_checked_at": None,
         "webhook_last_error": None,
-        "authorized_devices": [],
         "fetch_concurrency": DEFAULT_FETCH_CONCURRENCY,
         "access_token": None,
         "expires_at": None,
@@ -94,7 +92,6 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             "webhook_updated_at": credentials.webhook_updated_at,
             "webhook_last_checked_at": credentials.webhook_last_checked_at,
             "webhook_last_error": credentials.webhook_last_error,
-            "authorized_devices": credentials.authorized_devices or [],
             "fetch_concurrency": fetch_concurrency,
             "access_token": credentials.access_token,
             "expires_at": credentials.expires_at,
@@ -114,8 +111,8 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
         credentials: Dictionary containing credential fields to update.
             Only fields present in this dict will be updated.
             Can include: client_id, client_secret, redirect_uri,
-            authorization_code, authorized_devices (list or comma-separated string),
-            fetch_concurrency (int, optional), access_token, expires_at,
+            authorization_code, fetch_concurrency (int, optional), access_token,
+            expires_at,
             webhook_key, last_auth_error, last_auth_error_detail, last_auth_error_at
 
     Returns:
@@ -167,15 +164,6 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                     existing.webhook_last_checked_at = value
                 elif key == "webhook_last_error":
                     existing.webhook_last_error = value
-                elif key == "authorized_devices":
-                    if value is None:
-                        continue
-                    devices = value
-                    if isinstance(devices, str):
-                        devices = [d.strip() for d in devices.split(",") if d.strip()]
-                    elif not isinstance(devices, list):
-                        devices = []
-                    existing.authorized_devices = devices
                 elif key == "fetch_concurrency":
                     if value is None:
                         continue
@@ -231,15 +219,6 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                 ]
             if "webhook_last_error" in credentials:
                 new_creds.webhook_last_error = credentials["webhook_last_error"]
-            if "authorized_devices" in credentials:
-                devices = credentials["authorized_devices"]
-                if devices is None:
-                    devices = []
-                if isinstance(devices, str):
-                    devices = [d.strip() for d in devices.split(",") if d.strip()]
-                elif not isinstance(devices, list):
-                    devices = []
-                new_creds.authorized_devices = devices
             fetch_concurrency = credentials.get("fetch_concurrency")
             if fetch_concurrency is not None:
                 try:

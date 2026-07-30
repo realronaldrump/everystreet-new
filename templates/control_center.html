@@ -585,10 +585,10 @@ Map Match Trips on Fetch
         <div class="settings-group grid-span-12" id="credentials-bouncie-vehicles-group">
           <h3 class="settings-group-title">
             <i class="fas fa-car"></i>
-	          Bouncie Vehicles
+	          Fleet Registry
           </h3>
           <p class="text-muted small">
-	          Vehicles synced from Bouncie and authorized for trip fetching.
+	          Active Bouncie devices eligible for trip fetching, with optional vehicle metadata.
           </p>
 
           <div class="d-flex justify-content-end gap-2 flex-wrap mb-3">
@@ -606,7 +606,7 @@ Map Match Trips on Fetch
 	          Loading vehicles...
           </div>
           <div id="credentials-vehicles-empty" class="text-muted small" style="display: none">
-	          No vehicles synced yet. Click "Sync Vehicles" above to pull them from Bouncie.
+	          No active fleet devices yet. Click "Sync Vehicles" above to pull them from Bouncie.
           </div>
           <div class="table-responsive"
                id="credentials-vehicles-table-wrapper"
@@ -674,7 +674,7 @@ Map Match Trips on Fetch
               </div>
             </div>
             <div class="form-text mt-2">
-	            Adds the IMEI to your local vehicle list and authorizes it for trip syncing.
+	            Adds the IMEI to the active Fleet Registry so it is included in trip syncing.
 	            Use "Sync Vehicles" above to discover all vehicles on the account automatically.
             </div>
           </form>
@@ -2752,7 +2752,7 @@ Concurrency
                   <div class="trip-import-devices mt-3">
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                       <div class="small text-muted">
-	                      Vehicles / devices
+	                      Fleet devices
                       </div>
                       <div class="d-flex align-items-center gap-2">
                         <button type="button"
@@ -2881,7 +2881,7 @@ Concurrency
             <div class="trip-import-surface mt-3">
               <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <h6 class="mb-0">
-                  <i class="fas fa-car"></i> Per-Vehicle Breakdown
+                  <i class="fas fa-car"></i> Per-Device Breakdown
                 </h6>
               </div>
               <div class="trip-import-table-wrap mt-2">

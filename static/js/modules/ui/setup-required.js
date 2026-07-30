@@ -17,7 +17,7 @@ const SELF_HOSTED_STEP_META = [
   {
     key: "bouncie",
     title: "Connect Bouncie",
-    detail: "Client ID, secret, redirect, and authorized devices",
+    detail: "Client ID, secret, redirect, and active fleet devices",
   },
   {
     key: "mapbox",
@@ -35,7 +35,7 @@ const GOOGLE_STEP_META = [
   {
     key: "bouncie",
     title: "Connect Bouncie",
-    detail: "Client ID, secret, redirect, and authorized devices",
+    detail: "Client ID, secret, redirect, and active fleet devices",
   },
   {
     key: "google_maps",

@@ -6,12 +6,11 @@ import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from beanie.operators import In
-
 from config import get_bouncie_config
 from core.date_utils import ensure_utc
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import Trip, Vehicle
+from fleet.registry import FleetRegistry
 
 WINDOW_DAYS = 7
 OVERLAP_HOURS = 24
@@ -125,8 +124,7 @@ RECOVERY_BOUNDARY_JITTER_SECONDS = tuple(
     dict.fromkeys(
         int(value)
         for value in (
-            raw.strip()
-            for raw in _RECOVERY_BOUNDARY_JITTER_SECONDS_RAW.split(",")
+            raw.strip() for raw in _RECOVERY_BOUNDARY_JITTER_SECONDS_RAW.split(",")
         )
         if value and value.lstrip("-").isdigit() and int(value) > 0
     ),
@@ -208,6 +206,9 @@ def _vehicle_label(vehicle: Vehicle | None, imei: str) -> str:
         name = (vehicle.custom_name or "").strip()
         if name:
             return name
+        bouncie_name = (vehicle.bouncie_nickname or "").strip()
+        if bouncie_name:
+            return bouncie_name
         parts = [
             str(vehicle.year) if vehicle.year else None,
             vehicle.make,
@@ -220,32 +221,6 @@ def _vehicle_label(vehicle: Vehicle | None, imei: str) -> str:
             return f"VIN {vehicle.vin}"
     suffix = imei[-6:] if imei else "unknown"
     return f"Device {suffix}"
-
-
-def resolve_import_imeis(
-    authorized_imeis: list[str] | None,
-    selected_imeis: list[str] | None = None,
-) -> list[str]:
-    """Return a de-duplicated, authorized import IMEI list."""
-    normalized_authorized: list[str] = []
-    seen_authorized: set[str] = set()
-    for raw in authorized_imeis or []:
-        imei = str(raw or "").strip()
-        if not imei or imei in seen_authorized:
-            continue
-        seen_authorized.add(imei)
-        normalized_authorized.append(imei)
-
-    if selected_imeis is None:
-        return normalized_authorized
-
-    selected_set = {
-        str(raw or "").strip() for raw in selected_imeis if str(raw or "").strip()
-    }
-    if not selected_set:
-        return []
-
-    return [imei for imei in normalized_authorized if imei in selected_set]
 
 
 def resolve_history_fetch_concurrency(credentials: dict[str, Any]) -> int:
@@ -263,13 +238,12 @@ async def build_import_plan(
     selected_imeis: list[str] | None = None,
 ) -> dict[str, Any]:
     credentials = await get_bouncie_config()
-    imeis = resolve_import_imeis(
-        list(credentials.get("authorized_devices") or []),
+    vehicles = await FleetRegistry.list_active_devices(
         selected_imeis=selected_imeis,
     )
+    imeis = [vehicle.imei for vehicle in vehicles]
     fetch_concurrency = resolve_history_fetch_concurrency(credentials)
 
-    vehicles = await Vehicle.find(In(Vehicle.imei, imeis)).to_list() if imeis else []
     vehicles_by_imei = {v.imei: v for v in vehicles if v and getattr(v, "imei", None)}
 
     windows = build_import_windows(start_dt, end_dt)
@@ -341,7 +315,6 @@ __all__ = [
     "build_import_plan",
     "build_import_windows",
     "resolve_history_fetch_concurrency",
-    "resolve_import_imeis",
     "resolve_import_start_dt",
     "resolve_import_start_dt_from_db",
 ]

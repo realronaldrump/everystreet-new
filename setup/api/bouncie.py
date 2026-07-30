@@ -12,6 +12,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import RedirectResponse
 
 from core.api import api_route
+from fleet.registry import FleetRegistry
 from setup.services.bouncie_credentials import (
     get_bouncie_credentials,
     update_bouncie_credentials,
@@ -128,7 +129,7 @@ async def initiate_bouncie_auth(request: Request) -> RedirectResponse:
         if token:
             try:
                 vehicle_count = 0
-                if not credentials.get("authorized_devices"):
+                if not await FleetRegistry.has_active_devices():
                     vehicle_count = await _sync_vehicles_after_auth(
                         session,
                         token,
@@ -350,9 +351,6 @@ async def _sync_vehicles_after_auth(
             session,
             token,
             credentials=credentials,
-            # Preserve manually-added IMEIs that may not be returned by /v1/vehicles.
-            merge_authorized_devices=True,
-            update_authorized_devices=True,
         )
         if not result.get("imeis"):
             logger.info("No vehicles found in Bouncie account")
@@ -377,7 +375,8 @@ async def get_bouncie_auth_status() -> dict[str, Any]:
     has_redirect_uri = bool(credentials.get("redirect_uri"))
     has_auth_code = bool(credentials.get("authorization_code"))
     has_access_token = _has_valid_access_token(credentials)
-    has_devices = bool(credentials.get("authorized_devices"))
+    device_count = len(await FleetRegistry.list_active_imeis())
+    has_devices = device_count > 0
 
     return {
         "configured": has_client_id and has_client_secret and has_redirect_uri,
@@ -387,7 +386,7 @@ async def get_bouncie_auth_status() -> dict[str, Any]:
         and has_redirect_uri,
         "has_token": has_access_token,
         "has_devices": has_devices,
-        "device_count": len(credentials.get("authorized_devices", [])),
+        "device_count": device_count,
     }
 
 

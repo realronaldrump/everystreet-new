@@ -112,9 +112,12 @@ class TestBouncieAuthorize:
                     "client_secret": "secret",
                     "redirect_uri": "https://example.com/api/bouncie/callback",
                     "authorization_code": "auth_code",
-                    "authorized_devices": ["imei-1"],
                 },
             ),
+        )
+        monkeypatch.setattr(
+            "setup.api.bouncie.FleetRegistry.has_active_devices",
+            AsyncMock(return_value=True),
         )
         monkeypatch.setattr(
             "core.http.session.get_session",
@@ -379,9 +382,12 @@ class TestBouncieStatus:
                     "authorization_code": "",
                     "access_token": "cached-token",
                     "expires_at": time.time() + 300,
-                    "authorized_devices": [],
                 },
             ),
+        )
+        monkeypatch.setattr(
+            "setup.api.bouncie.FleetRegistry.list_active_imeis",
+            AsyncMock(return_value=[]),
         )
 
         status = await get_bouncie_auth_status()
@@ -405,9 +411,12 @@ class TestBouncieStatus:
                     "authorization_code": "",
                     "access_token": "expired-token",
                     "expires_at": time.time() - 10,
-                    "authorized_devices": [],
                 },
             ),
+        )
+        monkeypatch.setattr(
+            "setup.api.bouncie.FleetRegistry.list_active_imeis",
+            AsyncMock(return_value=[]),
         )
 
         status = await get_bouncie_auth_status()
@@ -430,7 +439,6 @@ class TestBouncieOAuthEndToEnd:
             "client_secret": "secret",
             "redirect_uri": "https://example.com/api/bouncie/callback",
             "authorization_code": "",
-            "authorized_devices": [],
             "oauth_state": None,
             "oauth_state_expires_at": None,
         }
@@ -485,22 +493,20 @@ class TestSyncVehiclesAfterAuth:
     """Tests for the automatic vehicle sync."""
 
     @pytest.mark.asyncio
-    async def test_sync_preserves_existing_authorized_devices(
+    async def test_sync_uses_fleet_registry_instead_of_credential_membership(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """OAuth callback sync should merge, not replace, authorized IMEIs."""
         sync_mock = AsyncMock(
             return_value={
                 "vehicles": [],
-                "authorized_devices": ["manual-imei", "api-imei"],
                 "imeis": ["api-imei"],
             },
         )
         monkeypatch.setattr("setup.api.bouncie.sync_bouncie_vehicles", sync_mock)
 
         mock_session = MagicMock()
-        credentials = {"authorized_devices": ["manual-imei"]}
+        credentials = {"client_id": "client"}
         count = await _sync_vehicles_after_auth(
             mock_session,
             "test_token",
@@ -512,8 +518,6 @@ class TestSyncVehiclesAfterAuth:
             mock_session,
             "test_token",
             credentials=credentials,
-            merge_authorized_devices=True,
-            update_authorized_devices=True,
         )
 
     @pytest.mark.asyncio
@@ -577,11 +581,6 @@ class TestSyncVehiclesAfterAuth:
         monkeypatch.setattr(
             "setup.services.bouncie_sync.Vehicle",
             mock_vehicle_class,
-        )
-
-        monkeypatch.setattr(
-            "setup.services.bouncie_sync.update_bouncie_credentials",
-            AsyncMock(return_value=True),
         )
 
         count = await _sync_vehicles_after_auth(mock_session, "test_token")

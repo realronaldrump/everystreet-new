@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock
 
 import pytest
 from db_helpers import init_mock_beanie
@@ -46,7 +47,6 @@ def _mock_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
             "client_id": "client",
             "client_secret": "secret",
             "redirect_uri": "https://example.com/callback",
-            "authorized_devices": ["device-1"],
         }
 
     monkeypatch.setattr(setup_service, "get_mapbox_token", fake_get_mapbox_token)
@@ -59,6 +59,11 @@ def _mock_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
         setup_service,
         "get_bouncie_credentials",
         fake_bouncie_credentials,
+    )
+    monkeypatch.setattr(
+        setup_service.FleetRegistry,
+        "list_active_imeis",
+        AsyncMock(return_value=["device-1"]),
     )
 
 

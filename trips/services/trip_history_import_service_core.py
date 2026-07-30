@@ -17,14 +17,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from beanie.operators import In
-
 from config import get_bouncie_config
 from core.date_utils import ensure_utc
 from core.http.session import get_session
 from core.jobs import JobHandle
 from core.trip_map_cache import bump_trip_map_revision
-from db.models import Vehicle
+from fleet.registry import FleetRegistry
 from setup.services.bouncie_oauth import BouncieOAuth
 from trips.pipeline import TripPipeline
 from trips.services.bouncie_history_retry_service import BouncieHistoryRetryService
@@ -46,7 +44,6 @@ from trips.services.trip_history_import_service_config import (
     _vehicle_label,
     build_import_windows,
     resolve_history_fetch_concurrency,
-    resolve_import_imeis,
 )
 from trips.services.trip_history_import_service_progress import (
     ImportProgressContext,
@@ -132,13 +129,12 @@ async def _build_import_setup(
     selected_imeis: list[str] | None = None,
 ) -> ImportSetup:
     credentials = await get_bouncie_config()
-    imeis = resolve_import_imeis(
-        list(credentials.get("authorized_devices") or []),
+    vehicles = await FleetRegistry.list_active_devices(
         selected_imeis=selected_imeis,
     )
+    imeis = [vehicle.imei for vehicle in vehicles]
     fetch_concurrency = resolve_history_fetch_concurrency(credentials)
 
-    vehicles = await Vehicle.find(In(Vehicle.imei, imeis)).to_list() if imeis else []
     vehicles_by_imei = {v.imei: v for v in vehicles if v and getattr(v, "imei", None)}
     devices = [
         {"imei": imei, "name": _vehicle_label(vehicles_by_imei.get(imei), imei)}

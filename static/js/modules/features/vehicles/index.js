@@ -259,6 +259,9 @@ function getVehicleDisplayName(vehicle) {
   if (vehicle.custom_name) {
     return vehicle.custom_name;
   }
+  if (vehicle.bouncie_nickname) {
+    return vehicle.bouncie_nickname;
+  }
   const parts = [vehicle.year, vehicle.make, vehicle.model].filter(Boolean);
   return parts.length > 0 ? parts.join(" ") : `Vehicle ${vehicle.imei}`;
 }

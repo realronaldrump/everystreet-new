@@ -27,7 +27,6 @@ async def test_add_bouncie_vehicle_allows_imei_only_when_not_in_vehicle_search(
         client_secret="secret",
         redirect_uri="https://example.com/callback",
         authorization_code="auth-code",
-        authorized_devices=[],
     ).insert()
 
     monkeypatch.setattr(
@@ -47,7 +46,6 @@ async def test_add_bouncie_vehicle_allows_imei_only_when_not_in_vehicle_search(
         BouncieVehicleCreate(
             imei=imei,
             custom_name="Trailer Tracker",
-            authorize=True,
             sync_trips=False,
         ),
     )
@@ -66,11 +64,7 @@ async def test_add_bouncie_vehicle_allows_imei_only_when_not_in_vehicle_search(
     assert getattr(vehicle, "bouncie_data", None) is None
     assert getattr(vehicle, "last_synced_at", None) is None
 
-    creds = await BouncieCredentials.find_one(
-        BouncieCredentials.id == "bouncie_credentials",
-    )
-    assert creds is not None
-    assert imei in (creds.authorized_devices or [])
+    assert vehicle.is_active is True
 
 
 @pytest.mark.asyncio
@@ -86,7 +80,6 @@ async def test_add_bouncie_vehicle_uses_vehicle_metadata_when_available(
         client_secret="secret",
         redirect_uri="https://example.com/callback",
         authorization_code="auth-code",
-        authorized_devices=[],
     ).insert()
 
     monkeypatch.setattr(
@@ -117,7 +110,6 @@ async def test_add_bouncie_vehicle_uses_vehicle_metadata_when_available(
     result = await add_bouncie_vehicle(
         BouncieVehicleCreate(
             imei=imei,
-            authorize=True,
             sync_trips=False,
         ),
     )

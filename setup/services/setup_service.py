@@ -12,6 +12,7 @@ from config import get_mapbox_token, validate_mapbox_token
 from core.mapping.factory import get_router
 from core.service_config import clear_config_cache
 from db.models import AppSettings, TaskConfig, TaskHistory
+from fleet.registry import FleetRegistry
 from map_data.models import MapServiceConfig
 from map_data.services import check_service_health
 from setup.services.bouncie_credentials import get_bouncie_credentials
@@ -31,14 +32,6 @@ async def _get_or_create_settings() -> AppSettings:
     return settings
 
 
-def _normalize_devices(devices: Any) -> list[str]:
-    if isinstance(devices, list):
-        return [str(device).strip() for device in devices if str(device).strip()]
-    if isinstance(devices, str):
-        return [device.strip() for device in devices.split(",") if device.strip()]
-    return []
-
-
 def _normalized_map_provider(value: Any) -> str:
     raw = getattr(value, "value", value)
     return str(raw or "self_hosted").strip().lower()
@@ -56,9 +49,9 @@ async def get_setup_status() -> dict[str, Any]:
         if not credentials.get(field)
     ]
 
-    devices = _normalize_devices(credentials.get("authorized_devices"))
+    devices = await FleetRegistry.list_active_imeis()
     if not devices:
-        bouncie_missing.append("authorized_devices")
+        bouncie_missing.append("fleet_devices")
 
     bouncie_complete = len(bouncie_missing) == 0
 
@@ -345,22 +338,25 @@ async def get_service_health() -> dict[str, Any]:
 
     credentials = await get_bouncie_credentials()
     webhook_status = await TrackingService.get_webhook_status()
-    bouncie_devices = _normalize_devices(credentials.get("authorized_devices"))
-    bouncie_ready = all(
+    bouncie_devices = await FleetRegistry.list_active_imeis()
+    credentials_ready = all(
         credentials.get(field)
         for field in [
             "client_id",
             "client_secret",
             "redirect_uri",
         ]
-    ) and bool(bouncie_devices)
+    )
+    bouncie_ready = credentials_ready and bool(bouncie_devices)
     bouncie_status = "healthy" if bouncie_ready else "warning"
     bouncie_label = "Configured" if bouncie_ready else "Setup needed"
-    bouncie_message = (
-        f"{len(bouncie_devices)} {'device' if len(bouncie_devices) == 1 else 'devices'} configured"
-        if bouncie_ready
-        else "Credentials not configured"
-    )
+    if bouncie_ready:
+        noun = "device" if len(bouncie_devices) == 1 else "devices"
+        bouncie_message = f"{len(bouncie_devices)} {noun} configured"
+    elif credentials_ready:
+        bouncie_message = "No active Fleet Registry devices"
+    else:
+        bouncie_message = "Credentials not configured"
     bouncie_details: list[dict[str, Any]] = []
     if bouncie_ready:
         bouncie_details.append(

@@ -1006,14 +1006,18 @@ class GasFillup(Document):
 
 
 class Vehicle(Document):
-    """Vehicle document for fleet management."""
+    """Fleet Registry record for a Bouncie Device and optional Vehicle metadata."""
 
-    imei: str  # Removed Indexed wrapper to avoid default index creation
+    imei: str
     vin: str | None = None
     custom_name: str | None = None
     make: str | None = None
     model: str | None = None
     year: int | None = None
+    bouncie_nickname: str | None = None
+    standard_engine: str | None = None
+    last_synced_at: datetime | None = None
+    bouncie_data: dict[str, Any] | None = None
     is_active: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -1024,10 +1028,23 @@ class Vehicle(Document):
     odometer_is_estimated: bool = False
     odometer_updated_at: datetime | None = None  # When odometer was last updated
 
+    @field_validator("imei", mode="before")
+    @classmethod
+    def normalize_imei(cls, value: Any) -> str:
+        imei = str(value or "").strip()
+        if not imei:
+            msg = "Vehicle IMEI is required"
+            raise ValueError(msg)
+        return imei
+
     class Settings:
         name = "vehicles"
         indexes: ClassVar[list[IndexModel]] = [
-            IndexModel([("imei", 1)], name="vehicles_imei_idx"),
+            IndexModel(
+                [("imei", 1)],
+                name="vehicles_imei_unique_idx",
+                unique=True,
+            ),
             IndexModel([("vin", 1)], name="vehicles_vin_idx", unique=True, sparse=True),
             IndexModel([("is_active", 1)], name="vehicles_is_active_idx"),
         ]
@@ -1189,7 +1206,6 @@ class BouncieCredentials(Document):
     webhook_updated_at: datetime | None = None
     webhook_last_checked_at: datetime | None = None
     webhook_last_error: str | None = None
-    authorized_devices: list[str] = Field(default_factory=list)
     fetch_concurrency: int = 50
     access_token: str | None = None
     expires_at: float | None = None

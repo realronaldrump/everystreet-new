@@ -13,7 +13,13 @@ from trips.services.trip_sync_service import TripSyncService
 
 @pytest.fixture
 async def beanie_db_with_tasks():
-    return await init_mock_beanie(Trip, TaskConfig, TaskHistory, BouncieCredentials)
+    return await init_mock_beanie(
+        Trip,
+        TaskConfig,
+        TaskHistory,
+        BouncieCredentials,
+        Vehicle,
+    )
 
 
 @pytest.fixture
@@ -34,9 +40,9 @@ async def seed_credentials() -> None:
         client_secret="secret",
         redirect_uri="https://example.com/callback",
         authorization_code="auth-code",
-        authorized_devices=["device-123"],
     )
     await creds.insert()
+    await Vehicle(imei="device-123", custom_name="Test", is_active=True).insert()
 
 
 @pytest.mark.asyncio
@@ -53,7 +59,6 @@ async def test_sync_status_requires_auth(beanie_db_with_tasks) -> None:
         client_secret="secret",
         redirect_uri="https://example.com/callback",
         authorization_code=None,
-        authorized_devices=["device-123"],
     )
     await creds.insert()
     status = await TripSyncService.get_sync_status()
@@ -72,9 +77,9 @@ async def test_sync_status_accepts_valid_cached_token_without_auth_code(
         authorization_code=None,
         access_token="cached-token",
         expires_at=(datetime.now(UTC) + timedelta(minutes=30)).timestamp(),
-        authorized_devices=["device-123"],
     )
     await creds.insert()
+    await Vehicle(imei="device-123", custom_name="Test", is_active=True).insert()
     status = await TripSyncService.get_sync_status()
     assert status["state"] == "idle"
     assert status["pause_reason"] is None
@@ -91,7 +96,6 @@ async def test_sync_status_requires_auth_when_cached_token_expired(
         authorization_code=None,
         access_token="expired-token",
         expires_at=(datetime.now(UTC) - timedelta(minutes=1)).timestamp(),
-        authorized_devices=["device-123"],
     )
     await creds.insert()
     status = await TripSyncService.get_sync_status()
@@ -106,7 +110,6 @@ async def test_sync_status_requires_devices(beanie_db_with_tasks) -> None:
         client_secret="secret",
         redirect_uri="https://example.com/callback",
         authorization_code="auth-code",
-        authorized_devices=[],
     )
     await creds.insert()
     status = await TripSyncService.get_sync_status()
@@ -202,7 +205,6 @@ async def test_start_sync_enqueues_history_with_progress_job(
     monkeypatch,
 ) -> None:
     await seed_credentials()
-    await Vehicle(imei="device-123", custom_name="Test Car").insert()
     enqueue_kwargs: dict[str, object] = {}
 
     async def fake_enqueue(task_id, *args, **kwargs):

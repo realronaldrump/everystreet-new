@@ -303,10 +303,10 @@ def test_owner_form_submission_keeps_form_fields_after_csrf_validation(
     auth_test_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    upsert_and_authorize = AsyncMock()
+    upsert_active_device = AsyncMock()
     monkeypatch.setattr(
-        "api.pages.VehicleService.upsert_and_authorize",
-        upsert_and_authorize,
+        "api.pages.VehicleService.upsert_active_device",
+        upsert_active_device,
     )
 
     client = _login(auth_test_client)
@@ -323,7 +323,7 @@ def test_owner_form_submission_keeps_form_fields_after_csrf_validation(
     )
 
     assert response.status_code == 303
-    upsert_and_authorize.assert_awaited_once_with(
+    upsert_active_device.assert_awaited_once_with(
         "123456789012345",
         "Test Vehicle",
     )
@@ -333,10 +333,10 @@ def test_owner_form_submission_rejects_invalid_csrf(
     auth_test_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    upsert_and_authorize = AsyncMock()
+    upsert_active_device = AsyncMock()
     monkeypatch.setattr(
-        "api.pages.VehicleService.upsert_and_authorize",
-        upsert_and_authorize,
+        "api.pages.VehicleService.upsert_active_device",
+        upsert_active_device,
     )
 
     client = _login(auth_test_client)
@@ -351,7 +351,7 @@ def test_owner_form_submission_rejects_invalid_csrf(
     )
 
     assert response.status_code == 403
-    upsert_and_authorize.assert_not_awaited()
+    upsert_active_device.assert_not_awaited()
 
 
 def test_viewer_public_map_page_renders_shell_banner(

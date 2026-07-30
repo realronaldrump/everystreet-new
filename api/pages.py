@@ -28,7 +28,7 @@ async def _handle_add_vehicle_form(
     name_value = (custom_name or "").strip() or None
 
     if imei_value:
-        await VehicleService.upsert_and_authorize(imei_value, name_value)
+        await VehicleService.upsert_active_device(imei_value, name_value)
 
     return RedirectResponse(url=redirect_url, status_code=303)
 

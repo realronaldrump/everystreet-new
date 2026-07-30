@@ -224,6 +224,10 @@ class VehicleModel(BaseModel):
     make: str | None = None
     model: str | None = None
     year: int | None = None
+    bouncie_nickname: str | None = None
+    standard_engine: str | None = None
+    last_synced_at: datetime | None = None
+    bouncie_data: dict[str, Any] | None = None
     is_active: bool = True
 
     # Odometer tracking

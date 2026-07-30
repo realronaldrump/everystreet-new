@@ -22,6 +22,7 @@ from core.http.session import get_session
 from core.trip_map_cache import bump_trip_map_revision
 from core.trip_source_policy import BOUNCIE_SOURCE
 from db.models import Trip
+from fleet.registry import FleetRegistry
 from setup.services.bouncie_oauth import BouncieOAuth
 from trips.models import TripStatusProjection
 from trips.pipeline import TripPipeline
@@ -274,7 +275,7 @@ def _should_backoff_request_error(exc: Exception) -> bool:
     """Return whether a transport/upstream error should retry before splitting."""
     if isinstance(exc, ClientResponseError):
         return exc.status in {408, 425, 429, 502, 503, 504}
-    return isinstance(exc, (TimeoutError, ClientError))
+    return isinstance(exc, TimeoutError | ClientError)
 
 
 def _transient_backoff_delay(attempt_index: int) -> float:
@@ -1001,13 +1002,9 @@ async def run_ingest_for_range(
     processed_ids: list[str] = []
 
     credentials = await get_bouncie_config()
-    imeis = list(credentials.get("authorized_devices") or [])
-    if selected_imeis is not None:
-        selected = {
-            str(v or "").strip() for v in selected_imeis if str(v or "").strip()
-        }
-        imeis = [imei for imei in imeis if str(imei or "").strip() in selected]
-    imeis = [str(imei or "").strip() for imei in imeis if str(imei or "").strip()]
+    imeis = await FleetRegistry.list_active_imeis(
+        selected_imeis=selected_imeis,
+    )
 
     if not imeis:
         return {"processed_transaction_ids": [], "counters": counters}

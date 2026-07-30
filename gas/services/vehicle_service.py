@@ -14,16 +14,14 @@ class VehicleService:
     """Service class for vehicle operations."""
 
     @staticmethod
-    async def upsert_and_authorize(
+    async def upsert_active_device(
         imei: str,
         custom_name: str | None = None,
     ) -> Vehicle:
         """
-        Create or update a vehicle and ensure it is in the authorized devices list.
+        Create or update an active Fleet Registry device.
 
         If the vehicle already exists, it is reactivated and its name updated.
-        The IMEI is appended to ``authorized_devices`` in Bouncie credentials
-        if not already present.
 
         Args:
             imei: Device IMEI (must be non-empty).
@@ -32,11 +30,6 @@ class VehicleService:
         Returns:
             The upserted Vehicle document.
         """
-        from setup.services.bouncie_credentials import (
-            get_bouncie_credentials,
-            update_bouncie_credentials,
-        )
-
         now = datetime.now(UTC)
         vehicle = await Vehicle.find_one(Vehicle.imei == imei)
         if vehicle:
@@ -54,17 +47,6 @@ class VehicleService:
                 updated_at=now,
             )
             await vehicle.insert()
-
-        credentials = await get_bouncie_credentials()
-        devices = credentials.get("authorized_devices") or []
-        if isinstance(devices, str):
-            devices = [d.strip() for d in devices.split(",") if d.strip()]
-        if not isinstance(devices, list):
-            devices = []
-        devices = [str(d).strip() for d in devices if str(d).strip()]
-        if imei not in devices:
-            devices.append(imei)
-            await update_bouncie_credentials({"authorized_devices": devices})
 
         return vehicle
 
@@ -184,7 +166,7 @@ class VehicleService:
     @staticmethod
     async def delete_vehicle(imei: str) -> dict[str, str]:
         """
-        Delete a vehicle from the local database and de-authorize it for trip sync.
+        Deactivate a device while preserving historical trip linkage.
 
         Args:
             imei: Vehicle IMEI
@@ -200,42 +182,8 @@ class VehicleService:
             msg = f"Vehicle with IMEI {imei} not found"
             raise ResourceNotFoundException(msg)
 
-        # Remove from the authorized_devices list so future syncs don't immediately
-        # re-add it to the local database.
-        updated: bool | None = None
-        try:
-            from setup.services.bouncie_credentials import (
-                get_bouncie_credentials,
-                update_bouncie_credentials,
-            )
+        vehicle.is_active = False
+        vehicle.updated_at = datetime.now(UTC)
+        await vehicle.save()
 
-            credentials = await get_bouncie_credentials()
-            devices = credentials.get("authorized_devices") or []
-            if isinstance(devices, str):
-                devices = [d.strip() for d in devices.split(",") if d.strip()]
-            if not isinstance(devices, list):
-                devices = []
-            devices = [str(d).strip() for d in devices if str(d).strip()]
-
-            if imei in devices:
-                next_devices = [d for d in devices if d != imei]
-                updated = await update_bouncie_credentials(
-                    {"authorized_devices": next_devices},
-                )
-        except Exception:
-            # Don't silently "succeed" if we couldn't deauthorize; the vehicle would
-            # likely come back on the next sync.
-            logger.exception(
-                "Failed to deauthorize vehicle %s from Bouncie credentials",
-                imei,
-            )
-            raise
-
-        if updated is False:
-            msg = "Failed to update authorized devices"
-            logger.error(msg)
-            raise RuntimeError(msg)
-
-        await vehicle.delete()
-
-        return {"status": "success", "message": "Vehicle deleted"}
+        return {"status": "success", "message": "Fleet device deactivated"}

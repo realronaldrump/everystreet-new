@@ -69,7 +69,7 @@ async def update_vehicle(imei: str, vehicle_data: VehicleModel) -> Vehicle:
 
 @router.delete("/api/vehicles/{imei}")
 async def delete_vehicle(imei: str) -> dict[str, str]:
-    """Delete a vehicle and de-authorize it for trip sync."""
+    """Deactivate a device while retaining its historical linkage metadata."""
     try:
         return await VehicleService.delete_vehicle(imei)
 

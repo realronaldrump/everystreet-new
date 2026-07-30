@@ -10,7 +10,7 @@ const DEFAULT_FETCH_CONCURRENCY = 50;
 
 const BOUNCIE_AUTHORIZE_URL = "/api/bouncie/authorize";
 const BOUNCIE_REDIRECT_URI_API = "/api/bouncie/redirect-uri";
-const VEHICLES_API = "/api/vehicles?active_only=false";
+const VEHICLES_API = "/api/vehicles?active_only=true";
 const BOUNCIE_ADD_VEHICLE_API = "/api/profile/bouncie-credentials/vehicles";
 const APP_SETTINGS_API = "/api/app_settings";
 const FETCH_CONCURRENCY_MIN = 1;
@@ -404,6 +404,9 @@ async function loadBouncieVehicles({ signal } = {}) {
     const getVehicleName = (vehicle) => {
       if (vehicle?.custom_name) {
         return vehicle.custom_name;
+      }
+      if (vehicle?.bouncie_nickname) {
+        return vehicle.bouncie_nickname;
       }
       const parts = [vehicle?.year, vehicle?.make, vehicle?.model].filter(Boolean);
       return parts.length > 0

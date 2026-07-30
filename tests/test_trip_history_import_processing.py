@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from db.models import Trip
+from fleet.registry import FleetRegistry
 from trips.pipeline import TripProcessingRequest
 from trips.services import bouncie_ingest_runtime
 from trips.services.bouncie_ingest_runtime import process_bouncie_trips
@@ -252,10 +253,7 @@ async def test_range_ingest_dedupes_overlapped_windows_and_bumps_once(
     captured_bump_flags: list[bool] = []
 
     async def fake_get_config() -> dict[str, Any]:
-        return {
-            "authorized_devices": ["imei-1"],
-            "fetch_concurrency": 2,
-        }
+        return {"fetch_concurrency": 2}
 
     async def fake_get_session() -> object:
         return object()
@@ -294,6 +292,11 @@ async def test_range_ingest_dedupes_overlapped_windows_and_bumps_once(
         bouncie_ingest_runtime,
         "get_bouncie_config",
         fake_get_config,
+    )
+    monkeypatch.setattr(
+        FleetRegistry,
+        "list_active_imeis",
+        AsyncMock(return_value=["imei-1"]),
     )
     monkeypatch.setattr(bouncie_ingest_runtime, "get_session", fake_get_session)
     monkeypatch.setattr(

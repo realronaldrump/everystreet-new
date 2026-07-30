@@ -39,16 +39,14 @@ class BouncieCredentials(BaseModel):
     client_secret: str
     redirect_uri: str
     authorization_code: str | None = None
-    authorized_devices: list[str] | str | None = None
     fetch_concurrency: int | None = None
 
 
 class BouncieVehicleCreate(BaseModel):
-    """Model for adding a vehicle IMEI to the local fleet + authorized devices."""
+    """Model for adding an active Bouncie Device to the Fleet Registry."""
 
     imei: str
     custom_name: str | None = None
-    authorize: bool = True
     sync_trips: bool = True
 
 
@@ -202,8 +200,7 @@ async def sync_vehicles_from_bouncie():
     This will:
     1. Authenticate with Bouncie using stored credentials
     2. Fetch all vehicles associated with the account
-    3. Update the 'authorized_devices' list in credentials
-    4. Create/Update records in the 'vehicles' collection
+    3. Create/update active Fleet Registry records
     """
 
     def _raise_http(status_code: int, detail: str) -> None:
@@ -244,8 +241,6 @@ async def sync_vehicles_from_bouncie():
                 session,
                 token,
                 credentials=credentials,
-                merge_authorized_devices=True,
-                update_authorized_devices=True,
             )
         except BouncieVehicleSyncError as exc:
             if exc.code == "unauthorized":
@@ -264,8 +259,6 @@ async def sync_vehicles_from_bouncie():
             )
 
         synced_vehicles = sync_result.get("vehicles", [])
-        updated_devices = sync_result.get("authorized_devices", [])
-
         if not synced_vehicles:
             return {
                 "status": "success",
@@ -274,7 +267,7 @@ async def sync_vehicles_from_bouncie():
             }
 
         logger.info(
-            "Synced %d vehicles from Bouncie. Updated authorized devices.",
+            "Synced %d vehicles from Bouncie into the Fleet Registry.",
             len(synced_vehicles),
         )
 
@@ -282,7 +275,6 @@ async def sync_vehicles_from_bouncie():
             "status": "success",
             "message": f"Successfully synced {len(synced_vehicles)} vehicles",
             "vehicles": list(synced_vehicles),
-            "authorized_devices": updated_devices,
         }
 
     except Exception as e:
@@ -300,13 +292,13 @@ async def sync_vehicles_from_bouncie():
 @api_route(logger)
 async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
     """
-    Add a vehicle to the local database and (optionally) authorize it for trip sync.
+    Add an active Bouncie device to the Fleet Registry.
 
     Note: The Bouncie REST API exposes vehicle search (`GET /v1/vehicles`) but does
-    not support creating vehicles in the user's Bouncie account. Some authorized
+    not support creating vehicles in the user's Bouncie account. Some connected
     devices may not appear in `/v1/vehicles` (for example IMEI-only/manual devices).
     This endpoint always supports IMEI-only add, stores/updates a local vehicle
-    record, and updates the `authorized_devices` list used for trip fetch.
+    record, which makes it eligible for trip fetch while active.
     """
     imei = (payload.imei or "").strip()
     if not imei:
@@ -404,11 +396,12 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
             vehicle.make = make
             vehicle.model = model_name
             vehicle.year = year
-            vehicle.nickName = vehicle_payload.get("nickName")
-            vehicle.standardEngine = vehicle_payload.get("standardEngine")
+            vehicle.bouncie_nickname = vehicle_payload.get("nickName")
+            vehicle.standard_engine = vehicle_payload.get("standardEngine")
             vehicle.last_synced_at = now
             vehicle.bouncie_data = vehicle_payload
-        vehicle.custom_name = display_name
+        if custom_name or not (vehicle.custom_name or "").strip():
+            vehicle.custom_name = display_name
         vehicle.is_active = True
         vehicle.updated_at = now
         await vehicle.save()
@@ -428,8 +421,8 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
                     "make": make,
                     "model": model_name,
                     "year": year,
-                    "nickName": vehicle_payload.get("nickName"),
-                    "standardEngine": vehicle_payload.get("standardEngine"),
+                    "bouncie_nickname": vehicle_payload.get("nickName"),
+                    "standard_engine": vehicle_payload.get("standardEngine"),
                     "last_synced_at": now,
                     "bouncie_data": vehicle_payload,
                 },
@@ -438,29 +431,9 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
         await vehicle.insert()
         created = True
 
-    if payload.authorize:
-        current_devices = credentials.get("authorized_devices") or []
-        if isinstance(current_devices, str):
-            current_devices = [
-                d.strip() for d in current_devices.split(",") if d.strip()
-            ]
-        if not isinstance(current_devices, list):
-            current_devices = []
-        current_devices = [str(d).strip() for d in current_devices if str(d).strip()]
-        if imei not in current_devices:
-            current_devices.append(imei)
-            success = await update_bouncie_credentials(
-                {"authorized_devices": current_devices},
-            )
-            if not success:
-                raise HTTPException(
-                    status_code=500,
-                    detail="Failed to update authorized devices.",
-                )
-
     trip_sync_job_id: str | None = None
     trip_sync_note: str | None = None
-    if payload.authorize and payload.sync_trips:
+    if payload.sync_trips:
         try:
             from trips.models import TripSyncRequest
             from trips.services.trip_sync_service import TripSyncService
@@ -494,7 +467,7 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
 
     if trip_sync_job_id:
         message = f"{message} Trip sync queued."
-    elif payload.authorize and payload.sync_trips and trip_sync_note:
+    elif payload.sync_trips and trip_sync_note:
         message = f"{message} Trip sync not started: {trip_sync_note}"
 
     return {

@@ -96,7 +96,7 @@ async def get_trip_history_import_plan(
         Query(
             description=(
                 "Optional comma-separated IMEI list to preview a scoped import plan. "
-                "When omitted, all authorized vehicles are included."
+                "When omitted, all active Fleet Registry devices are included."
             ),
         ),
     ] = None,

@@ -11,7 +11,6 @@ from setup.services.bouncie_api import (
     BouncieUnauthorizedError,
     fetch_all_vehicles,
 )
-from setup.services.bouncie_credentials import update_bouncie_credentials
 from setup.services.bouncie_oauth import BouncieOAuth
 
 logger = logging.getLogger(__name__)
@@ -64,8 +63,6 @@ async def sync_bouncie_vehicles(
     token: str,
     *,
     credentials: dict[str, Any] | None = None,
-    merge_authorized_devices: bool = False,
-    update_authorized_devices: bool = True,
 ) -> dict[str, Any]:
     vehicles_data = await _fetch_vehicles(
         session,
@@ -74,7 +71,7 @@ async def sync_bouncie_vehicles(
     )
 
     if not vehicles_data:
-        return {"vehicles": [], "authorized_devices": [], "imeis": []}
+        return {"vehicles": [], "imeis": []}
 
     synced_vehicles: list[dict[str, Any]] = []
     found_imeis: list[str] = []
@@ -96,7 +93,7 @@ async def sync_bouncie_vehicles(
             make = v.get("make")
             year = v.get("year")
 
-        custom_name = (
+        default_name = (
             v.get("nickName")
             or f"{year or ''} {make or ''} {model_name or ''}".strip()
             or f"Vehicle {imei}"
@@ -108,21 +105,24 @@ async def sync_bouncie_vehicles(
             "make": make,
             "model": model_name,
             "year": year,
-            "nickName": v.get("nickName"),
-            "standardEngine": v.get("standardEngine"),
-            "custom_name": custom_name,
+            "bouncie_nickname": v.get("nickName"),
+            "standard_engine": v.get("standardEngine"),
             "is_active": True,
             "updated_at": datetime.now(UTC),
             "last_synced_at": datetime.now(UTC),
             "bouncie_data": v,
         }
 
-        existing_vehicle = None
+        # A Bouncie Device is identified by IMEI. VIN describes the physical
+        # vehicle and can legitimately recur after a tracker is replaced.
+        existing_vehicle = await Vehicle.find_one({"imei": imei})
         vin_val = vehicle_doc.get("vin")
-        if vin_val:
-            existing_vehicle = await Vehicle.find_one({"vin": vin_val})
-        if not existing_vehicle:
-            existing_vehicle = await Vehicle.find_one({"imei": imei})
+        if not existing_vehicle and vin_val:
+            previous_assignment = await Vehicle.find_one({"vin": vin_val})
+            if previous_assignment and previous_assignment.imei != imei:
+                previous_assignment.vin = None
+                previous_assignment.updated_at = datetime.now(UTC)
+                await previous_assignment.save()
 
         if existing_vehicle:
             existing_vehicle.imei = vehicle_doc["imei"]
@@ -130,9 +130,10 @@ async def sync_bouncie_vehicles(
             existing_vehicle.make = vehicle_doc["make"]
             existing_vehicle.model = vehicle_doc["model"]
             existing_vehicle.year = vehicle_doc["year"]
-            existing_vehicle.nickName = vehicle_doc["nickName"]
-            existing_vehicle.custom_name = vehicle_doc["custom_name"]
-            existing_vehicle.is_active = vehicle_doc["is_active"]
+            existing_vehicle.bouncie_nickname = vehicle_doc["bouncie_nickname"]
+            existing_vehicle.standard_engine = vehicle_doc["standard_engine"]
+            if not (existing_vehicle.custom_name or "").strip():
+                existing_vehicle.custom_name = default_name
             existing_vehicle.updated_at = vehicle_doc["updated_at"]
             existing_vehicle.last_synced_at = vehicle_doc["last_synced_at"]
             existing_vehicle.bouncie_data = vehicle_doc["bouncie_data"]
@@ -141,6 +142,7 @@ async def sync_bouncie_vehicles(
             new_vehicle = Vehicle(
                 **{
                     **vehicle_doc,
+                    "custom_name": default_name,
                     "created_at": datetime.now(UTC),
                 },
             )
@@ -148,22 +150,7 @@ async def sync_bouncie_vehicles(
 
         synced_vehicles.append(vehicle_doc)
 
-    authorized_devices: list[str] = []
-    if update_authorized_devices and found_imeis:
-        if merge_authorized_devices and credentials:
-            current_devices = credentials.get("authorized_devices", [])
-            if isinstance(current_devices, str):
-                current_devices = [
-                    d.strip() for d in current_devices.split(",") if d.strip()
-                ]
-            authorized_devices = list(set(current_devices + found_imeis))
-        else:
-            authorized_devices = list(found_imeis)
-
-        await update_bouncie_credentials({"authorized_devices": authorized_devices})
-
     return {
         "vehicles": synced_vehicles,
-        "authorized_devices": authorized_devices,
         "imeis": found_imeis,
     }

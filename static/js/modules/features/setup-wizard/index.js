@@ -545,7 +545,7 @@ async function handleCredentialsContinue() {
   const mapboxComplete = setupStatus?.steps?.mapbox?.complete;
 
   const missing = setupStatus?.steps?.bouncie?.missing || [];
-  const missingNonDevice = missing.filter((item) => item !== "authorized_devices");
+  const missingNonDevice = missing.filter((item) => item !== "fleet_devices");
 
   if (provider === "google") {
     if (bouncieComplete || missingNonDevice.length === 0) {
@@ -555,7 +555,7 @@ async function handleCredentialsContinue() {
   }
 
   if ((bouncieComplete || missingNonDevice.length === 0) && mapboxComplete) {
-    if (missing.includes("authorized_devices")) {
+    if (missing.includes("fleet_devices")) {
       showStatus(
         "credentials-status",
         "You can sync vehicles later from Settings > Credentials.",
@@ -566,7 +566,7 @@ async function handleCredentialsContinue() {
     return;
   }
 
-  if (missing.includes("authorized_devices")) {
+  if (missing.includes("fleet_devices")) {
     showStatus(
       "credentials-status",
       "You can sync vehicles later from Settings > Credentials.",
