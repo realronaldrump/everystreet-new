@@ -9,7 +9,10 @@ from unittest.mock import AsyncMock, patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from api.map_bundle import _build_trip_map_summary, router as map_bundle_router
+from api.map_bundle import (
+    _build_trip_map_summary,
+    router as map_bundle_router,
+)
 from core.http.valhalla import ValhallaClient
 from trips.services.trip_map_geometry import build_encoded_path_metadata
 

@@ -57,8 +57,8 @@ def test_trip_geometry_downsampling_never_exceeds_point_cap() -> None:
 
     assert geometry is not None
     assert points_used == 100
-    assert list(geometry.coords)[0] == (0.0, 0.0)
-    assert list(geometry.coords)[-1] == (198.0, 0.0)
+    assert geometry.coords[0] == (0.0, 0.0)
+    assert geometry.coords[-1] == (198.0, 0.0)
 
 
 class _FakeTripCursor:

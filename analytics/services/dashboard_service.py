@@ -9,8 +9,8 @@ from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
 from db.aggregation_utils import (
     build_mongo_tz_valid_expr,
-    build_trip_duration_seconds_expr,
     build_trip_duration_fields_stage,
+    build_trip_duration_seconds_expr,
     build_trip_numeric_fields_stage,
     get_mongo_tz_expr,
 )

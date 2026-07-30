@@ -143,7 +143,7 @@ async def test_all_place_statistics_forwards_arrival_timeframe(
     )
     monkeypatch.setattr(
         "visits.services.visit_stats_service.Place.find_all",
-        lambda: _PlacesQuery(),
+        _PlacesQuery,
     )
     monkeypatch.setattr(
         "visits.services.visit_stats_service.VisitTrackingService.calculate_visits_for_place",
