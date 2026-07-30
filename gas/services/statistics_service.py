@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from core.casting import safe_float
+from core.date_utils import ensure_utc
 from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
 from db.models import GasFillup, Trip, Vehicle
@@ -142,8 +143,8 @@ class StatisticsService:
             "total_cost": round(total_cost, 2),
             "average_mpg": average_mpg,
             "average_price_per_gallon": average_price,
-            "period_start": fillups[0].fillup_time,
-            "period_end": fillups[-1].fillup_time,
+            "period_start": ensure_utc(fillups[0].fillup_time),
+            "period_end": ensure_utc(fillups[-1].fillup_time),
             "cost_per_mile": (
                 round(paired_interval_cost / paired_interval_miles, 3)
                 if paired_interval_miles > 0
@@ -155,7 +156,7 @@ class StatisticsService:
         if best_mpg is not None:
             records["best_mpg"] = {
                 "mpg": best_mpg.calculated_mpg,
-                "fillup_time": best_mpg.fillup_time,
+                "fillup_time": ensure_utc(best_mpg.fillup_time),
                 "price_per_gallon": StatisticsService._effective_price_per_gallon(
                     best_mpg,
                 ),
@@ -164,7 +165,7 @@ class StatisticsService:
             fillup, price = cheapest_price
             records["cheapest_price"] = {
                 "price_per_gallon": price,
-                "fillup_time": fillup.fillup_time,
+                "fillup_time": ensure_utc(fillup.fillup_time),
             }
 
         stats["records"] = records

@@ -5,6 +5,7 @@ import pytest
 from fastapi import FastAPI, HTTPException, status
 from fastapi.testclient import TestClient
 
+from core.trip_query_spec import TripQuerySpec
 from db.models import Trip
 from trips.api import crud, query
 from trips.services.trip_query_service import TripQueryService
@@ -111,8 +112,44 @@ async def test_recent_trip_history_returns_only_visible_bouncie_trips(
 @pytest.mark.asyncio
 async def test_recent_trip_history_applies_date_range_and_vehicle_filters(
     beanie_db,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     del beanie_db
+    # Mongomock does not implement MongoDB's timezone option for
+    # $dateToString. Query-spec tests cover the production timezone expression;
+    # this integration test exercises the same calendar bounds in UTC.
+    monkeypatch.setattr(
+        TripQuerySpec,
+        "build_calendar_date_expr",
+        staticmethod(
+            lambda start_date, end_date, **_kwargs: {
+                "$and": [
+                    {
+                        "$gte": [
+                            {
+                                "$dateToString": {
+                                    "format": "%Y-%m-%d",
+                                    "date": "$startTime",
+                                }
+                            },
+                            start_date,
+                        ]
+                    },
+                    {
+                        "$lte": [
+                            {
+                                "$dateToString": {
+                                    "format": "%Y-%m-%d",
+                                    "date": "$startTime",
+                                }
+                            },
+                            end_date,
+                        ]
+                    },
+                ]
+            }
+        ),
+    )
     for transaction_id, imei, start_time in (
         ("matching", "vehicle-1", datetime(2026, 7, 10, 18, tzinfo=UTC)),
         ("wrong-vehicle", "vehicle-2", datetime(2026, 7, 10, 19, tzinfo=UTC)),
