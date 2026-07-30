@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
-from typing import Any, cast
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi import HTTPException, status
 
@@ -219,13 +219,47 @@ def _derive_geo_status(
     return "warning"
 
 
-def _format_geo_detail(container_running: bool, has_data: bool) -> str:
+def _format_geo_details(
+    container_running: bool,
+    has_data: bool,
+) -> list[dict[str, Any]]:
     container_label = "Running" if container_running else "Stopped"
     if not container_running:
         service_label = "Unavailable"
     else:
         service_label = "Ready" if has_data else "Starting up"
-    return f"Container: {container_label} | Service: {service_label}"
+    return [
+        {"label": "Container", "value": container_label},
+        {"label": "Service", "value": service_label},
+    ]
+
+
+_BOUNCIE_WEBHOOK_STALE_AFTER = timedelta(days=7)
+_BOUNCIE_EVENT_LABELS = {
+    "tripStart": "Trip started",
+    "tripData": "Trip data",
+    "tripMetrics": "Trip metrics",
+    "tripEnd": "Trip ended",
+}
+
+
+def _parse_utc_datetime(value: Any) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _bouncie_delivery_is_stale(last_received: Any, *, now: datetime) -> bool:
+    received_at = _parse_utc_datetime(last_received)
+    if received_at is None:
+        return False
+    return now - received_at > _BOUNCIE_WEBHOOK_STALE_AFTER
 
 
 async def get_service_health() -> dict[str, Any]:
@@ -236,17 +270,17 @@ async def get_service_health() -> dict[str, Any]:
 
     mongo_status = "healthy"
     mongo_message = "Connected"
-    mongo_detail = None
+    mongo_details: list[dict[str, Any]] = []
     try:
         await AppSettings.find_one()
     except Exception as exc:
         mongo_status = "error"
         mongo_message = "MongoDB unavailable"
-        mongo_detail = str(exc)
+        mongo_details.append({"label": "Error", "value": str(exc)})
 
     redis_status = "healthy"
     redis_message = "Connected"
-    redis_detail = None
+    redis_details: list[dict[str, Any]] = []
     redis = None
     try:
         redis = await get_arq_pool()
@@ -254,11 +288,11 @@ async def get_service_health() -> dict[str, Any]:
     except Exception as exc:
         redis_status = "error"
         redis_message = "Redis unavailable"
-        redis_detail = str(exc)
+        redis_details.append({"label": "Error", "value": str(exc)})
 
     worker_status = "warning"
     worker_message = "Waiting for worker heartbeat"
-    worker_detail = None
+    worker_details: list[dict[str, Any]] = []
     active_tasks = 0
     if redis_status == "healthy" and redis:
         heartbeat = await redis.get("arq:worker:heartbeat")
@@ -272,25 +306,39 @@ async def get_service_health() -> dict[str, Any]:
             try:
                 heartbeat_dt = datetime.fromisoformat(heartbeat_value)
             except ValueError:
-                worker_detail = "Heartbeat timestamp unreadable"
+                worker_details.append(
+                    {"label": "Heartbeat", "value": "Unreadable timestamp"},
+                )
 
             if heartbeat_dt is not None:
-                age_seconds = (now - cast("datetime", heartbeat_dt)).total_seconds()
+                if heartbeat_dt.tzinfo is None:
+                    heartbeat_dt = heartbeat_dt.replace(tzinfo=UTC)
+                else:
+                    heartbeat_dt = heartbeat_dt.astimezone(UTC)
+                age_seconds = max(0, (now - heartbeat_dt).total_seconds())
                 if age_seconds <= 120:
                     worker_status = "healthy"
                     worker_message = "Worker online"
-                    worker_detail = f"Last heartbeat {int(age_seconds)}s ago"
                 else:
                     worker_status = "warning"
                     worker_message = "Worker heartbeat stale"
-                    worker_detail = f"Last heartbeat {int(age_seconds)}s ago"
+                worker_details.append(
+                    {
+                        "label": "Last heartbeat",
+                        "value": heartbeat_dt.isoformat(),
+                        "format": "relative_datetime",
+                    },
+                )
 
     active_tasks = await TaskHistory.find(
         {"status": {"$in": ["RUNNING", "PENDING"]}},
     ).count()
-    active_label = f"Active tasks: {active_tasks}"
-    worker_detail = (
-        f"{worker_detail} | {active_label}" if worker_detail else active_label
+    worker_details.append(
+        {
+            "label": "Active tasks",
+            "value": active_tasks,
+            "format": "integer",
+        },
     )
 
     from tracking.services.tracking_service import TrackingService
@@ -307,23 +355,52 @@ async def get_service_health() -> dict[str, Any]:
         ]
     ) and bool(bouncie_devices)
     bouncie_status = "healthy" if bouncie_ready else "warning"
+    bouncie_label = "Configured" if bouncie_ready else "Setup needed"
     bouncie_message = (
-        f"Configured for {len(bouncie_devices)} device(s)"
+        f"{len(bouncie_devices)} {'device' if len(bouncie_devices) == 1 else 'devices'} configured"
         if bouncie_ready
         else "Credentials not configured"
     )
-    bouncie_detail_parts: list[str] = []
+    bouncie_details: list[dict[str, Any]] = []
+    if bouncie_ready:
+        bouncie_details.append(
+            {
+                "label": "Devices",
+                "value": len(bouncie_devices),
+                "format": "integer",
+            },
+        )
+
     last_received = webhook_status.get("last_received")
     if last_received:
-        bouncie_detail_parts.append(
-            f"Last webhook: {last_received} ({webhook_status.get('event_type') or 'unknown'})"
+        bouncie_details.append(
+            {
+                "label": "Last delivery",
+                "value": last_received,
+                "format": "relative_datetime",
+            },
         )
+        event_type = webhook_status.get("event_type")
+        if event_type:
+            bouncie_details.append(
+                {
+                    "label": "Event",
+                    "value": _BOUNCIE_EVENT_LABELS.get(event_type, str(event_type)),
+                },
+            )
     elif bouncie_ready:
-        bouncie_detail_parts.append("No webhook deliveries recorded yet.")
+        bouncie_details.append({"label": "Last delivery", "value": "None yet"})
 
     webhook_url = webhook_status.get("webhook_url")
     if webhook_url:
-        bouncie_detail_parts.append(f"Webhook URL: {webhook_url}")
+        bouncie_details.append(
+            {
+                "label": "Webhook URL",
+                "value": webhook_url,
+                "format": "url",
+                "copyable": True,
+            },
+        )
 
     public_ok = webhook_status.get("webhook_public_ok")
     public_status_code = webhook_status.get("webhook_status_code")
@@ -332,21 +409,32 @@ async def get_service_health() -> dict[str, Any]:
 
     if bouncie_ready and public_ok is False:
         bouncie_status = "error"
+        bouncie_label = "Unreachable"
         bouncie_message = "Public webhook endpoint is unreachable"
         if public_status_code is not None:
-            bouncie_detail_parts.append(
-                f"Public probe status: HTTP {public_status_code}"
+            bouncie_details.append(
+                {"label": "Public probe", "value": f"HTTP {public_status_code}"},
             )
         if public_error:
-            bouncie_detail_parts.append(f"Probe error: {public_error}")
+            bouncie_details.append({"label": "Probe error", "value": public_error})
     elif bouncie_ready and webhook_active is False:
         bouncie_status = "warning"
+        bouncie_label = "Inactive"
         bouncie_message = "Bouncie webhook is inactive"
-        bouncie_detail_parts.append(
-            "Update the webhook in the Bouncie Developer Portal."
+        bouncie_details.append(
+            {
+                "label": "Action",
+                "value": "Update the webhook in the Bouncie Developer Portal",
+            },
         )
-
-    bouncie_detail = " | ".join(part for part in bouncie_detail_parts if part) or None
+    elif bouncie_ready and _bouncie_delivery_is_stale(last_received, now=now):
+        bouncie_status = "warning"
+        bouncie_label = "Stale"
+        bouncie_message = "No webhook deliveries in the past 7 days"
+    elif bouncie_ready and last_received:
+        bouncie_label = "Receiving data"
+    elif bouncie_ready:
+        bouncie_message = "Waiting for the first webhook delivery"
 
     provider_status = "healthy"
     provider_message = (
@@ -354,7 +442,7 @@ async def get_service_health() -> dict[str, Any]:
         if using_google
         else "Self-hosted provider active"
     )
-    provider_detail = None
+    provider_details: list[dict[str, Any]] = []
     if using_google:
         try:
             router = await get_router()
@@ -363,19 +451,30 @@ async def get_service_health() -> dict[str, Any]:
             if engine and engine != "google":
                 provider_status = "warning"
                 provider_message = f"Active router reports '{engine}'"
-                provider_detail = "Expected Google provider while map_provider=google."
+                provider_details.append(
+                    {
+                        "label": "Expected provider",
+                        "value": "Google Maps",
+                    },
+                )
         except Exception as exc:
             provider_status = "warning"
             provider_message = "Google routing provider not reachable"
-            provider_detail = str(exc)
+            provider_details.append({"label": "Error", "value": str(exc)})
 
     if using_google:
         nominatim_status = "healthy"
         nominatim_message = "Skipped (Google provider enabled)"
-        nominatim_detail = "Local Nominatim is not required in Google mode."
+        nominatim_details = [
+            {"label": "Provider", "value": "Google Maps"},
+            {"label": "Local service", "value": "Not required"},
+        ]
         valhalla_status = "healthy"
         valhalla_message = "Skipped (Google provider enabled)"
-        valhalla_detail = "Local Valhalla is not required in Google mode."
+        valhalla_details = [
+            {"label": "Provider", "value": "Google Maps"},
+            {"label": "Local service", "value": "Not required"},
+        ]
         nominatim_container_running = False
         nominatim_has_data = False
         valhalla_container_running = False
@@ -392,7 +491,7 @@ async def get_service_health() -> dict[str, Any]:
             if geo_health.nominatim_has_data
             else geo_health.nominatim_error or "Starting up"
         )
-        nominatim_detail = _format_geo_detail(
+        nominatim_details = _format_geo_details(
             geo_health.nominatim_container_running,
             geo_health.nominatim_has_data,
         )
@@ -407,7 +506,7 @@ async def get_service_health() -> dict[str, Any]:
             if geo_health.valhalla_has_data
             else geo_health.valhalla_error or "Starting up"
         )
-        valhalla_detail = _format_geo_detail(
+        valhalla_details = _format_geo_details(
             geo_health.valhalla_container_running,
             geo_health.valhalla_has_data,
         )
@@ -434,25 +533,25 @@ async def get_service_health() -> dict[str, Any]:
             "status": mongo_status,
             "label": _status_label(mongo_status),
             "message": mongo_message,
-            "detail": mongo_detail,
+            "details": mongo_details,
         },
         "redis": {
             "status": redis_status,
             "label": _status_label(redis_status),
             "message": redis_message,
-            "detail": redis_detail,
+            "details": redis_details,
         },
         "worker": {
             "status": worker_status,
             "label": _status_label(worker_status),
             "message": worker_message,
-            "detail": worker_detail,
+            "details": worker_details,
         },
         "nominatim": {
             "status": nominatim_status,
             "label": _status_label(nominatim_status),
             "message": nominatim_message,
-            "detail": nominatim_detail,
+            "details": nominatim_details,
             "container_running": nominatim_container_running,
             "has_data": nominatim_has_data,
             "skipped": using_google,
@@ -461,22 +560,22 @@ async def get_service_health() -> dict[str, Any]:
             "status": valhalla_status,
             "label": _status_label(valhalla_status),
             "message": valhalla_message,
-            "detail": valhalla_detail,
+            "details": valhalla_details,
             "container_running": valhalla_container_running,
             "has_data": valhalla_has_data,
             "skipped": using_google,
         },
         "bouncie": {
             "status": bouncie_status,
-            "label": _status_label(bouncie_status),
+            "label": bouncie_label,
             "message": bouncie_message,
-            "detail": bouncie_detail,
+            "details": bouncie_details,
         },
         "mapping_provider": {
             "status": provider_status,
             "label": _status_label(provider_status),
             "message": provider_message,
-            "detail": provider_detail,
+            "details": provider_details,
             "provider": map_provider,
         },
     }

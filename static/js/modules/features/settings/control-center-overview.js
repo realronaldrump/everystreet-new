@@ -1,7 +1,13 @@
 import apiClient from "../../core/api-client.js";
 import { withSignal as withAbortSignal } from "../../core/feature-api.js";
+import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
-import { formatDateTime, isAbortError } from "../../utils.js";
+import {
+  escapeHtml,
+  formatDateTime,
+  formatRelativeTimeLong,
+  isAbortError,
+} from "../../utils.js";
 
 const OVERVIEW_API = "/api/status/overview";
 const HEALTH_API = "/api/status/health";
@@ -31,6 +37,14 @@ const SERVICE_ORDER = [
   "valhalla",
 ];
 const RESTARTABLE_SERVICES = new Set(["nominatim", "valhalla"]);
+const SERVICE_NAMES = {
+  mongodb: "MongoDB",
+  redis: "Redis",
+  worker: "Worker",
+  bouncie: "Bouncie",
+  nominatim: "Nominatim",
+  valhalla: "Valhalla",
+};
 
 function formatStatusVariant(statusValue) {
   return (
@@ -39,6 +53,127 @@ function formatStatusVariant(statusValue) {
       label: String(statusValue || "Unknown"),
     }
   );
+}
+
+function formatServiceDateTime(value) {
+  const absolute = formatDateTime(value, {
+    formatOptions: {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+      timeZoneName: "short",
+    },
+  });
+  const relative = formatRelativeTimeLong(value, {
+    default: absolute,
+    maxDays: Number.MAX_SAFE_INTEGER,
+  });
+  const rawValue = String(value);
+
+  return `<time datetime="${escapeHtml(rawValue)}" title="${escapeHtml(
+    `${absolute} (${rawValue})`
+  )}">${escapeHtml(relative)}</time>`;
+}
+
+function renderServiceDetail(detail) {
+  const label = String(detail?.label || "Detail");
+  const value = detail?.value;
+  const format = String(detail?.format || "text");
+  let valueMarkup;
+
+  if (format === "relative_datetime") {
+    valueMarkup = formatServiceDateTime(value);
+  } else if (format === "integer") {
+    const numericValue = Number(value);
+    valueMarkup = escapeHtml(
+      Number.isFinite(numericValue)
+        ? new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(
+            numericValue
+          )
+        : value
+    );
+  } else {
+    valueMarkup = escapeHtml(value);
+  }
+
+  const valueClass =
+    format === "url"
+      ? "control-center-service-detail-value is-url"
+      : "control-center-service-detail-value";
+  const copyButton = detail?.copyable
+    ? `
+      <button type="button"
+              class="control-center-service-copy-btn"
+              data-copy-value="${escapeHtml(value)}"
+              title="Copy ${escapeHtml(label.toLowerCase())}"
+              aria-label="Copy ${escapeHtml(label.toLowerCase())}">
+        <i class="fas fa-copy" aria-hidden="true"></i>
+      </button>
+    `
+    : "";
+
+  return `
+    <div class="control-center-service-detail-row">
+      <dt>${escapeHtml(label)}</dt>
+      <dd>
+        <span class="control-center-service-detail-line">
+          <span class="${valueClass}"${format === "url" ? ` title="${escapeHtml(value)}"` : ""}>${valueMarkup}</span>
+          ${copyButton}
+        </span>
+      </dd>
+    </div>
+  `;
+}
+
+export function renderServiceDetails(details) {
+  const entries = Array.isArray(details)
+    ? details.filter((detail) => detail?.value !== null && detail?.value !== undefined)
+    : [];
+  if (!entries.length) {
+    return "";
+  }
+
+  return `<dl class="control-center-service-details">${entries
+    .map(renderServiceDetail)
+    .join("")}</dl>`;
+}
+
+export function buildServiceCardMarkup(key, entry = {}) {
+  const status = String(entry.status || "warning").toLowerCase();
+  const variant = formatStatusVariant(status);
+  const serviceName = SERVICE_NAMES[key] || String(key || "Unknown service");
+  const canRestart = RESTARTABLE_SERVICES.has(key);
+  const restartButton = canRestart
+    ? `
+      <button type="button"
+              class="btn btn-outline-danger btn-sm cc-overview-restart-btn"
+              data-service="${escapeHtml(key)}">
+        <i class="fas fa-power-off" aria-hidden="true"></i>
+        <span>Restart</span>
+      </button>
+    `
+    : "";
+
+  return `
+    <article class="control-center-service-card"
+             data-service-card="${escapeHtml(key)}"
+             data-status="${escapeHtml(status)}">
+      <div class="control-center-service-card-head">
+        <h4>${escapeHtml(serviceName)}</h4>
+        <span class="badge ${variant.badgeClass}">${escapeHtml(
+          entry.label || variant.label
+        )}</span>
+      </div>
+      <p class="control-center-service-message">${escapeHtml(
+        entry.message || "No status message."
+      )}</p>
+      ${renderServiceDetails(entry.details)}
+      ${restartButton ? `<div class="control-center-service-actions">${restartButton}</div>` : ""}
+    </article>
+  `;
 }
 
 function renderOverviewHeader({ overviewData, healthData }) {
@@ -98,27 +233,7 @@ function renderServiceCards(healthData) {
   }
 
   servicesContainer.innerHTML = keysToRender
-    .map((key) => {
-      const entry = services[key] || {};
-      const status = String(entry.status || "warning").toLowerCase();
-      const variant = formatStatusVariant(status);
-      const canRestart = RESTARTABLE_SERVICES.has(key);
-      const restartButton = canRestart
-        ? `<button type="button" class="btn btn-outline-danger btn-sm cc-overview-restart-btn" data-service="${key}"><i class="fas fa-power-off"></i> Restart</button>`
-        : "";
-
-      return `
-        <article class="control-center-service-card" data-service-card="${key}">
-          <div class="control-center-service-card-head">
-            <h4>${key}</h4>
-            <span class="badge ${variant.badgeClass}">${entry.label || variant.label}</span>
-          </div>
-          <p class="control-center-service-message">${entry.message || "No status message."}</p>
-          <p class="control-center-service-detail text-muted small">${entry.detail || ""}</p>
-          <div class="control-center-service-actions">${restartButton}</div>
-        </article>
-      `;
-    })
+    .map((key) => buildServiceCardMarkup(key, services[key]))
     .join("");
 }
 
@@ -145,10 +260,10 @@ function renderFailures(healthData) {
       return `
         <div class="control-center-failure-item">
           <div class="control-center-failure-meta">
-            <strong>${taskId}</strong>
-            <span>${stamp}</span>
+            <strong>${escapeHtml(taskId)}</strong>
+            <span>${escapeHtml(stamp)}</span>
           </div>
-          <p>${error}</p>
+          <p>${escapeHtml(error)}</p>
         </div>
       `;
     })
@@ -192,6 +307,24 @@ export default function initControlCenterOverview({ signal } = {}) {
   servicesContainer?.addEventListener(
     "click",
     async (event) => {
+      const copyButton = event.target.closest(".control-center-service-copy-btn");
+      if (copyButton) {
+        const value = copyButton.getAttribute("data-copy-value");
+        if (!value) {
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(value);
+          notificationManager.show("Webhook URL copied", "success");
+        } catch (error) {
+          notificationManager.show(
+            `Could not copy webhook URL: ${error.message}`,
+            "warning"
+          );
+        }
+        return;
+      }
+
       const button = event.target.closest(".cc-overview-restart-btn");
       if (!button) {
         return;
@@ -202,24 +335,44 @@ export default function initControlCenterOverview({ signal } = {}) {
         return;
       }
 
+      const serviceName = SERVICE_NAMES[service] || service;
+      const confirmed = await confirmationDialog.show({
+        title: `Restart ${serviceName}?`,
+        message: `${serviceName} will be briefly unavailable while its container restarts.`,
+        confirmText: "Restart service",
+        confirmButtonClass: "btn-danger",
+      });
+      if (!confirmed) {
+        return;
+      }
+
+      const originalMarkup = button.innerHTML;
+
       try {
         button.disabled = true;
+        button.setAttribute("aria-busy", "true");
+        button.innerHTML =
+          '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i><span>Restarting…</span>';
         await apiClient.post(
           `/api/services/${encodeURIComponent(service)}/restart`,
           {},
           withAbortSignal(signal)
         );
-        notificationManager.show(`${service} restart requested`, "success");
+        notificationManager.show(`${serviceName} restart requested`, "success");
         await refreshOverview(true);
       } catch (error) {
         if (!isAbortError(error)) {
           notificationManager.show(
-            `Failed to restart ${service}: ${error.message}`,
+            `Failed to restart ${serviceName}: ${error.message}`,
             "danger"
           );
         }
       } finally {
-        button.disabled = false;
+        if (button.isConnected) {
+          button.disabled = false;
+          button.removeAttribute("aria-busy");
+          button.innerHTML = originalMarkup;
+        }
       }
     },
     serviceActionOptions

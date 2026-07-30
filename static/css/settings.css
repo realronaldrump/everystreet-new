@@ -3263,11 +3263,13 @@
 
 .control-center-services-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
+  align-items: start;
 }
 
 .control-center-service-card {
+  min-width: 0;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   background: var(--surface-2);
@@ -3275,6 +3277,19 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  box-shadow: inset 3px 0 0 var(--border-color-light);
+}
+
+.control-center-service-card[data-status="healthy"] {
+  box-shadow: inset 3px 0 0 rgb(var(--success-rgb) / 70%);
+}
+
+.control-center-service-card[data-status="warning"] {
+  box-shadow: inset 3px 0 0 rgb(var(--warning-rgb) / 75%);
+}
+
+.control-center-service-card[data-status="error"] {
+  box-shadow: inset 3px 0 0 rgb(var(--danger-rgb) / 75%);
 }
 
 .control-center-service-card-head {
@@ -3286,9 +3301,12 @@
 
 .control-center-service-card-head h4 {
   margin: 0;
-  text-transform: capitalize;
   font-size: var(--font-size-md);
   color: var(--text-primary);
+}
+
+.control-center-service-card-head .badge {
+  flex: 0 0 auto;
 }
 
 .control-center-service-message {
@@ -3297,13 +3315,90 @@
   font-size: var(--font-size-sm);
 }
 
-.control-center-service-detail {
+.control-center-service-details {
+  display: grid;
+  gap: var(--space-1);
   margin: 0;
-  min-height: 1.2rem;
+  padding: 0;
+  font-size: var(--font-size-sm);
+}
+
+.control-center-service-detail-row {
+  display: grid;
+  grid-template-columns: minmax(6.75rem, 0.7fr) minmax(0, 1.3fr);
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+}
+
+.control-center-service-detail-row dt {
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.control-center-service-detail-row dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.control-center-service-detail-line {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: var(--space-1);
+}
+
+.control-center-service-detail-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.control-center-service-detail-value.is-url {
+  display: block;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.control-center-service-copy-btn {
+  display: inline-flex;
+  flex: 0 0 44px;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  background: transparent;
+}
+
+.control-center-service-copy-btn:hover {
+  border-color: var(--border-color-light);
+  color: var(--text-primary);
+  background: var(--surface-3);
+}
+
+.control-center-service-copy-btn:focus-visible {
+  outline: 2px solid rgb(var(--primary-rgb) / 60%);
+  outline-offset: 2px;
 }
 
 .control-center-service-actions {
-  margin-top: auto;
+  padding-top: var(--space-1);
+}
+
+.control-center-service-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  gap: var(--space-2);
 }
 
 .control-center-failures-list {
@@ -3357,17 +3452,24 @@
   font-size: var(--font-size-sm);
 }
 
+@media (width >= 768px) {
+  .control-center-services-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (width >= 1200px) {
+  .control-center-services-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 /* Make embedded logs layout feel native in tab context */
 #logs-tab .server-logs-page {
   padding-inline: 0;
 }
 
 @media (width <= 768px) {
-  .control-center-service-card-head {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
   .control-center-failure-meta {
     flex-direction: column;
     align-items: flex-start;

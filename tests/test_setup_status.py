@@ -1,9 +1,31 @@
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from db_helpers import init_mock_beanie
 
 from db.models import AppSettings, BouncieCredentials
 from map_data.models import MapServiceConfig
 from setup.services import setup_service
+
+
+def test_bouncie_delivery_freshness_uses_seven_day_threshold() -> None:
+    now = datetime(2026, 7, 30, 20, 0, tzinfo=UTC)
+
+    assert (
+        setup_service._bouncie_delivery_is_stale(
+            (now - timedelta(days=6, hours=23)).isoformat(),
+            now=now,
+        )
+        is False
+    )
+    assert (
+        setup_service._bouncie_delivery_is_stale(
+            (now - timedelta(days=7, seconds=1)).isoformat(),
+            now=now,
+        )
+        is True
+    )
+    assert setup_service._bouncie_delivery_is_stale("not-a-date", now=now) is False
 
 
 @pytest.fixture
