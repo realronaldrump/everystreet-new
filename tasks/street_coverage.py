@@ -53,6 +53,19 @@ async def run_area_backfill_job(
     area_obj_id = _parse_object_id(area_id, "area_id")
     job_obj_id = _parse_object_id(job_id, "job_id")
     await _run_backfill_pipeline(area_obj_id, job_obj_id, trip_mode=trip_mode)
+
+    # A refresh requested while this job was running was coalesced onto it
+    # rather than dropped; honour it now that the area is free.
+    from trips.services.inactive_trip_service import InactiveTripService
+
+    try:
+        await InactiveTripService.consume_pending_coverage_refresh(area_obj_id)
+    except Exception:
+        logger.exception(
+            "Failed to run deferred coverage refresh for area %s",
+            area_obj_id,
+        )
+
     return {
         "status": "ok",
         "area_id": str(area_obj_id),

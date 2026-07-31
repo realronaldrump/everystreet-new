@@ -629,6 +629,10 @@ class CoverageArea(Document):
     optimal_route: dict[str, Any] | None = None
     optimal_route_generated_at: datetime | None = None
     last_backfill_trip_endtime: datetime | None = None
+    # Set when a refresh is requested while a coverage job is already
+    # running, so the request is honoured once that job finishes instead
+    # of being dropped.
+    coverage_refresh_pending: bool = False
     journal_revision: int = 0
     journal_status: str = "pending"
     journal_built_at: datetime | None = None

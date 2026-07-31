@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.cache import invalidate_cache_prefixes
 from core.spatial import bboxes_intersect, extract_line_sequences
@@ -17,6 +17,9 @@ from recurring_routes.models import BuildRecurringRoutesRequest
 from street_coverage.ingestion import backfill_area
 from tasks.ops import enqueue_task
 from trips.services.trip_map_geometry import bbox_for_coords
+
+if TYPE_CHECKING:
+    from beanie import PydanticObjectId
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +164,7 @@ class InactiveTripService:
             }
 
         queued = 0
-        skipped = 0
+        deferred = 0
         job_ids: list[str] = []
 
         for area in areas:
@@ -173,28 +176,70 @@ class InactiveTripService:
                 },
             )
             if active_job:
-                skipped += 1
+                # Coalesce onto the running job rather than dropping the
+                # request: coverage would otherwise keep crediting trips
+                # that changed while that job was in flight.
+                await area.set({"coverage_refresh_pending": True})
+                deferred += 1
                 continue
 
-            await CoverageState.find(
-                {
-                    "area_id": area.id,
-                    "status": "driven",
-                    "manually_marked": {"$ne": True},
-                },
-            ).delete()
-            await area.set({"last_backfill_trip_endtime": None})
-
-            job = await backfill_area(area.id)
-            if getattr(job, "id", None) is not None:
-                job_ids.append(str(job.id))
+            job_id = await cls._start_area_refresh(area)
+            if job_id is not None:
+                job_ids.append(job_id)
             queued += 1
 
         return {
             "queued": queued,
-            "skipped": skipped,
+            "deferred": deferred,
+            # Retained for existing callers that read "skipped".
+            "skipped": deferred,
             "job_ids": job_ids,
         }
+
+    @classmethod
+    async def _start_area_refresh(cls, area: CoverageArea) -> str | None:
+        """Clear derived driven state for an area and queue a fresh backfill."""
+        await CoverageState.find(
+            {
+                "area_id": area.id,
+                "status": "driven",
+                "manually_marked": {"$ne": True},
+            },
+        ).delete()
+        # Clear the marker before enqueuing so a request arriving during
+        # the new job sets it again and earns its own follow-up run.
+        await area.set(
+            {
+                "last_backfill_trip_endtime": None,
+                "coverage_refresh_pending": False,
+            },
+        )
+
+        job = await backfill_area(area.id)
+        return str(job.id) if getattr(job, "id", None) is not None else None
+
+    @classmethod
+    async def consume_pending_coverage_refresh(
+        cls,
+        area_id: PydanticObjectId,
+    ) -> dict[str, Any]:
+        """
+        Run a refresh that was coalesced while a coverage job was active.
+
+        Called when a coverage job finishes. Does nothing unless a request
+        arrived while that job was running.
+        """
+        area = await CoverageArea.get(area_id)
+        if area is None or not getattr(area, "coverage_refresh_pending", False):
+            return {"queued": False, "job_id": None}
+
+        job_id = await cls._start_area_refresh(area)
+        logger.info(
+            "Ran deferred coverage refresh for area %s (job %s)",
+            area_id,
+            job_id,
+        )
+        return {"queued": True, "job_id": job_id}
 
     @classmethod
     async def _find_affected_coverage_areas(cls, trip: Trip) -> list[CoverageArea]:

@@ -85,7 +85,7 @@
 .brand-monogram {
   font-family: var(--font-family-display);
   font-weight: var(--font-weight-bold);
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-xl);
   letter-spacing: var(--tracking-snug);
   line-height: 1;
   color: var(--text-primary);

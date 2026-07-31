@@ -28,8 +28,8 @@
 }
 
 .footer-meta {
-  font-family: var(--font-numeric);
-  letter-spacing: var(--tracking-snug);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-normal);
 }
 
 /* Mobile adjustments */

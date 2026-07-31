@@ -7,6 +7,11 @@
 
 import { downloadBlob } from "../utils/dom.js";
 
+// Canvas cannot resolve CSS custom properties, so the exported card mirrors
+// the app's type stack. Keep in sync with core/variables.css.
+const DISPLAY_FONT = "'Source Serif 4', Georgia, serif";
+const TEXT_FONT = "'Source Sans 3', system-ui, sans-serif";
+
 class ProgressCardGenerator {
   /**
    * Generate a shareable progress card image.
@@ -54,19 +59,19 @@ class ProgressCardGenerator {
     ctx.fillRect(0, 0, width, 4);
 
     // Brand
-    ctx.font = "600 14px 'Chivo', sans-serif";
+    ctx.font = `600 14px ${TEXT_FONT}`;
     ctx.fillStyle = "rgba(255,255,255,0.4)";
     ctx.textAlign = "right";
     ctx.fillText("everystreet.me", width - 40, 36);
 
     // Area name
     ctx.textAlign = "left";
-    ctx.font = "700 32px 'Chivo', sans-serif";
+    ctx.font = `700 32px ${DISPLAY_FONT}`;
     ctx.fillStyle = "#f5f2ec";
     ctx.fillText(data.areaName || "My Coverage", 40, 72);
 
     // Date range
-    ctx.font = "400 14px 'IBM Plex Sans', sans-serif";
+    ctx.font = `400 14px ${TEXT_FONT}`;
     ctx.fillStyle = "rgba(245, 242, 236, 0.5)";
     if (data.dateRange) {
       ctx.fillText(data.dateRange, 40, 96);
@@ -105,10 +110,10 @@ class ProgressCardGenerator {
 
     // Percentage text
     ctx.textAlign = "center";
-    ctx.font = "700 42px 'JetBrains Mono', monospace";
+    ctx.font = `700 42px ${DISPLAY_FONT}`;
     ctx.fillStyle = "#f5f2ec";
     ctx.fillText(`${percent.toFixed(1)}%`, ringX, ringY + 8);
-    ctx.font = "500 14px 'IBM Plex Sans', sans-serif";
+    ctx.font = `500 14px ${TEXT_FONT}`;
     ctx.fillStyle = "rgba(245, 242, 236, 0.6)";
     ctx.fillText("covered", ringX, ringY + 30);
 
@@ -147,11 +152,11 @@ class ProgressCardGenerator {
       const y = statsStartY + i * 70;
 
       ctx.textAlign = "left";
-      ctx.font = "500 13px 'IBM Plex Sans', sans-serif";
+      ctx.font = `500 13px ${TEXT_FONT}`;
       ctx.fillStyle = "rgba(245, 242, 236, 0.45)";
       ctx.fillText(stat.label, statsX, y);
 
-      ctx.font = "700 28px 'JetBrains Mono', monospace";
+      ctx.font = `700 28px ${DISPLAY_FONT}`;
       ctx.fillStyle = "#f5f2ec";
       const valueText = stat.unit ? `${stat.value} ${stat.unit}` : stat.value;
       ctx.fillText(valueText, statsX, y + 28);
