@@ -1,13 +1,7 @@
 import apiClient from "../../core/api-client.js";
 import { withSignal as withAbortSignal } from "../../core/feature-api.js";
-import { swupReady } from "../../core/navigation.js";
-import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
-import {
-  formatBytes,
-  formatCompactNumber,
-  formatDateTime,
-} from "../../utils/formatting.js";
+import { formatBytes, formatDateTime } from "../../utils/formatting.js";
 import { escapeHtml } from "../../utils.js";
 
 function hasFiniteNumericAttribute(value) {
@@ -31,19 +25,13 @@ export function initDatabaseManagement({ signal } = {}) {
   const storageUpdatedEl = document.getElementById("storage-updated-at");
   const storageSourcesContainer = document.getElementById("storage-sources-container");
   const storageSortSelect = document.getElementById("storage-sort-select");
-  const collectionsSortSelect = document.getElementById("collections-sort-select");
-  const collectionsContainer = document.getElementById("collections-container");
 
-  let currentAction = null;
-  let currentCollection = null;
-  let currentButton = null;
   let storageSummaryLoading = false;
 
   const hasInitialStorageSummary =
     hasFiniteNumericAttribute(storageTotalEl?.dataset?.bytes) ||
     hasFiniteNumericAttribute(storageDbEl?.dataset?.bytes) ||
-    Boolean(storageSourcesContainer?.querySelector(".storage-source-card")) ||
-    Boolean(collectionsContainer?.querySelector(".collection-card"));
+    Boolean(storageSourcesContainer?.querySelector(".storage-source-card"));
   let storageSummaryLoaded = hasInitialStorageSummary;
 
   function formatStorageTimestamp(value) {
@@ -55,49 +43,19 @@ export function initDatabaseManagement({ signal } = {}) {
     });
   }
 
-  function setButtonLoading(button, isLoading, action) {
+  function setButtonLoading(button, isLoading) {
     if (!button) {
       return;
     }
 
     button.disabled = isLoading;
-
-    if (isLoading) {
-      button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    } else {
-      switch (action) {
-        case "refresh":
-          button.innerHTML = '<i class="fas fa-sync-alt"></i>';
-          break;
-        case "clear":
-          button.innerHTML = '<i class="fas fa-trash-alt"></i> Clear';
-          break;
-        default:
-          button.innerHTML = '<i class="fas fa-cog"></i> Manage';
-      }
-    }
+    button.innerHTML = isLoading
+      ? '<i class="fas fa-spinner fa-spin"></i>'
+      : '<i class="fas fa-sync-alt"></i>';
   }
 
-  function performDatabaseAction(endpoint, body = {}) {
-    const method = endpoint.includes("storage") ? "GET" : "POST";
-    if (method === "GET") {
-      return apiClient.get(endpoint, withAbortSignal(signal));
-    }
-    return apiClient.post(endpoint, body, withAbortSignal(signal));
-  }
-
-  function resolveCollectionName(button) {
-    if (!button) {
-      return "";
-    }
-    const fromDataset =
-      button.dataset.collection || button.getAttribute("data-collection");
-    if (fromDataset) {
-      return fromDataset;
-    }
-    const card = button.closest(".collection-card");
-    const nameEl = card?.querySelector(".collection-name");
-    return nameEl?.textContent?.trim() || "";
+  function performDatabaseAction(endpoint) {
+    return apiClient.get(endpoint, withAbortSignal(signal));
   }
 
   function updateStorageSummary(data) {
@@ -266,67 +224,6 @@ export function initDatabaseManagement({ signal } = {}) {
     });
   }
 
-  function renderCollections(collections = []) {
-    if (!collectionsContainer) {
-      return;
-    }
-
-    if (!collections.length) {
-      collectionsContainer.innerHTML = `
-        <div class="storage-empty-state">
-          <i class="fas fa-inbox"></i>
-          <p>No collections available.</p>
-        </div>
-      `;
-      return;
-    }
-
-    collectionsContainer.innerHTML = collections
-      .map((collection) => {
-        const sizeDisplay =
-          collection.size_mb != null
-            ? collection.size_mb > 1024
-              ? `${(collection.size_mb / 1024).toFixed(2)} GB`
-              : `${collection.size_mb.toFixed(2)} MB`
-            : "N/A";
-
-        return `
-          <div class="collection-card"
-               data-collection="${escapeHtml(collection.name)}"
-               data-count="${collection.document_count}"
-               data-size="${collection.size_mb || 0}">
-            <div class="collection-card-header">
-              <div class="collection-icon">
-                <i class="fas fa-table"></i>
-              </div>
-              <div class="collection-info">
-                <span class="collection-name">${escapeHtml(collection.name)}</span>
-              </div>
-            </div>
-            <div class="collection-stats">
-              <div class="collection-stat">
-                <span class="collection-stat-value">${formatCompactNumber(collection.document_count)}</span>
-                <span class="collection-stat-label">Documents</span>
-              </div>
-              <div class="collection-stat">
-                <span class="collection-stat-value">${escapeHtml(sizeDisplay)}</span>
-                <span class="collection-stat-label">Size</span>
-              </div>
-            </div>
-            <div class="collection-card-actions">
-              <button class="btn btn-outline-danger btn-sm clear-collection"
-                      data-collection="${escapeHtml(collection.name)}"
-                      title="Clear all documents from this collection">
-                <i class="fas fa-trash-alt"></i>
-                Clear
-              </button>
-            </div>
-          </div>
-        `;
-      })
-      .join("");
-  }
-
   function sortStorageSources(sortValue) {
     const cards = Array.from(
       storageSourcesContainer?.querySelectorAll(".storage-source-card") || []
@@ -360,43 +257,6 @@ export function initDatabaseManagement({ signal } = {}) {
     });
 
     cards.forEach((card) => storageSourcesContainer.appendChild(card));
-  }
-
-  function sortCollections(sortValue) {
-    const cards = Array.from(
-      collectionsContainer?.querySelectorAll(".collection-card") || []
-    );
-    if (!cards.length) {
-      return;
-    }
-
-    cards.sort((a, b) => {
-      const aSize = parseFloat(a.dataset.size) || 0;
-      const bSize = parseFloat(b.dataset.size) || 0;
-      const aCount = parseInt(a.dataset.count, 10) || 0;
-      const bCount = parseInt(b.dataset.count, 10) || 0;
-      const aName = a.dataset.collection || "";
-      const bName = b.dataset.collection || "";
-
-      switch (sortValue) {
-        case "size-desc":
-          return bSize - aSize;
-        case "size-asc":
-          return aSize - bSize;
-        case "name-asc":
-          return aName.localeCompare(bName);
-        case "name-desc":
-          return bName.localeCompare(aName);
-        case "count-desc":
-          return bCount - aCount;
-        case "count-asc":
-          return aCount - bCount;
-        default:
-          return 0;
-      }
-    });
-
-    cards.forEach((card) => collectionsContainer.appendChild(card));
   }
 
   function hydrateInitialStorage() {
@@ -434,20 +294,16 @@ export function initDatabaseManagement({ signal } = {}) {
 
     storageSummaryLoading = true;
     if (showLoading && refreshStorageBtn) {
-      setButtonLoading(refreshStorageBtn, true, "refresh");
+      setButtonLoading(refreshStorageBtn, true);
     }
 
     try {
       const data = await performDatabaseAction("/api/storage/summary");
       updateStorageSummary(data);
       renderStorageSources(data?.sources || []);
-      renderCollections(data?.collections || []);
 
       if (storageSortSelect?.value) {
         sortStorageSources(storageSortSelect.value);
-      }
-      if (collectionsSortSelect?.value) {
-        sortCollections(collectionsSortSelect.value);
       }
 
       storageSummaryLoaded = true;
@@ -462,7 +318,7 @@ export function initDatabaseManagement({ signal } = {}) {
     } finally {
       storageSummaryLoading = false;
       if (showLoading && refreshStorageBtn) {
-        setButtonLoading(refreshStorageBtn, false, "refresh");
+        setButtonLoading(refreshStorageBtn, false);
       }
     }
   }
@@ -519,87 +375,5 @@ export function initDatabaseManagement({ signal } = {}) {
     storageSortSelect.addEventListener("change", (e) => {
       sortStorageSources(e.target.value);
     });
-  }
-
-  // Collections sort handler
-  if (collectionsSortSelect) {
-    collectionsSortSelect.addEventListener("change", (e) => {
-      sortCollections(e.target.value);
-    });
-  }
-
-  // Clear collection handler using event delegation
-  document.body.addEventListener(
-    "click",
-    async (event) => {
-      if (typeof event.button === "number" && event.button !== 0) {
-        return;
-      }
-      const clearButton = event.target.closest(".clear-collection");
-
-      if (clearButton) {
-        currentAction = "clear";
-        currentCollection = resolveCollectionName(clearButton);
-        currentButton = clearButton;
-
-        if (!currentCollection) {
-          notificationManager.show(
-            "Could not determine which collection to clear.",
-            "danger"
-          );
-          return;
-        }
-
-        const confirmed = await confirmationDialog.show({
-          message: `Are you sure you want to clear all documents from the "${currentCollection}" collection? This action cannot be undone.`,
-          confirmButtonClass: "btn-danger",
-        });
-
-        if (confirmed) {
-          handleConfirmedAction();
-        }
-      }
-    },
-    signal ? { signal } : false
-  );
-
-  async function handleConfirmedAction() {
-    try {
-      let endpoint = "";
-      let body = {};
-
-      if (currentAction === "clear") {
-        endpoint = `/api/database/clear-collection?collection=${encodeURIComponent(
-          currentCollection
-        )}`;
-        body = { collection: currentCollection };
-      } else {
-        throw new Error("Invalid action");
-      }
-
-      setButtonLoading(currentButton, true, currentAction);
-      const result = await performDatabaseAction(endpoint, body);
-      notificationManager.show(
-        result.message || "Operation completed successfully",
-        "success"
-      );
-
-      setTimeout(() => {
-        if (!signal?.aborted) {
-          swupReady.then((swup) => {
-            swup.navigate(window.location.href, {
-              cache: { read: false, write: true },
-              history: "replace",
-            });
-          });
-        }
-      }, 1500);
-    } catch (error) {
-      notificationManager.show(
-        error.message || "Failed to perform storage action",
-        "danger"
-      );
-      setButtonLoading(currentButton, false, currentAction);
-    }
   }
 }

@@ -62,7 +62,6 @@ async def control_center_page(request: Request):
         storage_used_mb=None,
         database_logical_mb=None,
         storage_updated_at=None,
-        collections=[],
         storage_error=None,
     )
 

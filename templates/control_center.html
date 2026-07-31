@@ -1610,7 +1610,7 @@ Geocoding Progress
 Storage Overview
             </h3>
             <p class="storage-overview-message">
-Monitor your application's storage usage and database collections.
+Monitor how much disk space Every Street is using.
             </p>
           </div>
           <div class="storage-overview-actions">
@@ -1783,93 +1783,6 @@ Storage used by Docker volumes, app caches, and other sources.
               <i class="fas fa-inbox"></i>
               <p>
 No storage sources available.
-              </p>
-            </div>
-          {% endif %}
-        </div>
-      </div>
-      <div class="settings-group grid-span-12">
-        <div class="storage-section-header">
-          <h3 class="settings-group-title">
-            <i class="fas fa-cubes"></i>
-            Database Collections
-          </h3>
-          <div class="storage-section-controls">
-            <select id="collections-sort-select" class="form-select form-select-sm">
-              <option value="size-desc">
-Largest First
-              </option>
-              <option value="size-asc">
-Smallest First
-              </option>
-              <option value="name-asc">
-Name A-Z
-              </option>
-              <option value="name-desc">
-Name Z-A
-              </option>
-              <option value="count-desc">
-Most Documents
-              </option>
-              <option value="count-asc">
-Fewest Documents
-              </option>
-            </select>
-          </div>
-        </div>
-        <p class="text-muted small mb-3">
-Manage your MongoDB collections and their data.
-        </p>
-        <div id="collections-container" class="collections-grid">
-          {% if collections %}
-            {% for collection in collections %}
-              <div class="collection-card"
-                   data-collection="{{ collection.name }}"
-                   data-count="{{ collection.document_count }}"
-                   data-size="{{ collection.size_mb or 0 }}">
-                <div class="collection-card-header">
-                  <div class="collection-icon">
-                    <i class="fas fa-table"></i>
-                  </div>
-                  <div class="collection-info">
-                    <span class="collection-name">{{ collection.name }}</span>
-                  </div>
-                </div>
-                <div class="collection-stats">
-                  <div class="collection-stat">
-                    <span class="collection-stat-value">{{ collection.document_count|format_number }}</span>
-                    <span class="collection-stat-label">Documents</span>
-                  </div>
-                  <div class="collection-stat">
-                    <span class="collection-stat-value">
-                      {% if collection.size_mb is not none %}
-                        {% if collection.size_mb > 1024 %}
-                        {{ "%.2f"|format(collection.size_mb / 1024) }} GB
-                        {% else %}
-                        {{ "%.2f"|format(collection.size_mb) }} MB
-                        {% endif %}
-                      {% else %}
-                      N/A
-                      {% endif %}
-                    </span>
-                    <span class="collection-stat-label">Size</span>
-                  </div>
-                </div>
-                <div class="collection-card-actions">
-                  <button class="btn btn-outline-danger btn-sm clear-collection"
-                          data-collection="{{ collection.name }}"
-                          title="Clear all documents from this collection">
-                    <i class="fas fa-trash-alt"></i>
-                  Clear
-                  </button>
-                </div>
-              </div>
-            {% endfor %}
-          {% else %}
-            <div class="storage-empty-state">
-              <i class="fas fa-inbox"></i>
-              <p>
-No collections available.
               </p>
             </div>
           {% endif %}

@@ -3,10 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from fastapi import HTTPException, status
-from pymongo.errors import OperationFailure
 
 from admin.services.storage_service import StorageService
 from config import get_mapbox_token
@@ -15,24 +14,8 @@ from core.mapping.factory import clear_local_provider_cache, get_geocoder
 from core.serialization import serialize_utc_datetime
 from core.service_config import apply_settings_to_env, clear_config_cache
 from db.manager import db_manager
-from db.models import (
-    ALL_DOCUMENT_MODELS,
-    AppSettings,
-    GasFillup,
-    Job,
-    OsmData,
-    Place,
-    ServerLog,
-    Street,
-    TaskConfig,
-    TaskHistory,
-    Trip,
-    Vehicle,
-)
+from db.models import AppSettings, Trip
 from routing.graph_connectivity import clear_router_cache
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
 
 logger = logging.getLogger(__name__)
 
@@ -68,19 +51,6 @@ def _public_app_settings_payload(settings: AppSettings) -> dict[str, Any]:
 
 
 # Map collection names to Beanie Document models for admin operations
-COLLECTION_TO_MODEL = {
-    "trips": Trip,
-    "streets": Street,
-    "osm_data": OsmData,
-    "places": Place,
-    "task_config": TaskConfig,
-    "task_history": TaskHistory,
-    "jobs": Job,
-    "gas_fillups": GasFillup,
-    "vehicles": Vehicle,
-    "server_logs": ServerLog,
-}
-
 MAPBOX_SETTINGS_ERROR = (
     "Mapbox token is hard-coded in the application and cannot be changed in settings."
 )
@@ -182,25 +152,6 @@ class AdminService:
         return _public_app_settings_payload(updated)
 
     @staticmethod
-    async def clear_collection(collection: str) -> dict[str, Any]:
-        model = COLLECTION_TO_MODEL.get(collection)
-        if model is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "Unknown collection "
-                    f"'{collection}'. Supported: {list(COLLECTION_TO_MODEL.keys())}"
-                ),
-            )
-
-        result = await model.find_all().delete()
-        deleted_count = result.deleted_count if result else 0
-        return {
-            "message": f"Successfully cleared collection {collection}",
-            "deleted_count": deleted_count,
-        }
-
-    @staticmethod
     async def get_storage_info() -> dict[str, Any]:
         snapshot = await StorageService.get_storage_snapshot()
         db_logical_bytes: int | None = None
@@ -251,83 +202,7 @@ class AdminService:
 
     @staticmethod
     async def get_storage_summary() -> dict[str, Any]:
-        storage_info, collections = await asyncio.gather(
-            AdminService.get_storage_info(),
-            AdminService.get_collections_summary(),
-        )
-        storage_info["collections"] = collections
-        return storage_info
-
-    @staticmethod
-    async def get_collections_summary() -> list[dict[str, Any]]:
-        collection_models: dict[str, Any] = {}
-        for model in ALL_DOCUMENT_MODELS:
-            collection_models.setdefault(model.get_collection_name(), model)
-
-        collection_names = sorted(collection_models)
-        collection_sizes = await AdminService.get_collection_sizes_mb(collection_names)
-
-        async def _count_documents(collection_name: str) -> int:
-            model = collection_models[collection_name]
-            try:
-                return await model.find_all().count()
-            except Exception:
-                logger.exception(
-                    "Failed to count documents for collection %s",
-                    collection_name,
-                )
-                return 0
-
-        counts = await asyncio.gather(
-            *[
-                _count_documents(collection_name)
-                for collection_name in collection_names
-            ],
-        )
-
-        return [
-            {
-                "name": collection_name,
-                "document_count": counts[index],
-                "size_mb": collection_sizes.get(collection_name),
-            }
-            for index, collection_name in enumerate(collection_names)
-        ]
-
-    @staticmethod
-    async def get_collection_sizes_mb(
-        collection_names: Iterable[str],
-    ) -> dict[str, float | None]:
-        collection_name_list = list(collection_names)
-        try:
-            db = db_manager.db
-        except Exception as exc:
-            logger.warning(
-                "MongoDB unavailable while loading collection sizes: %s",
-                exc,
-            )
-            return dict.fromkeys(collection_name_list, None)
-
-        sizes: dict[str, float | None] = {}
-        for collection in collection_name_list:
-            try:
-                stats = await db.command({"collStats": collection})
-            except OperationFailure as exc:
-                if getattr(exc, "code", None) == 26:
-                    sizes[collection] = 0.0
-                    continue
-                logger.warning(
-                    "Failed to fetch stats for collection %s: %s",
-                    collection,
-                    exc,
-                )
-                sizes[collection] = None
-                continue
-
-            size_bytes = _total_size_bytes(stats, "totalIndexSize", "size")
-            sizes[collection] = _bytes_to_mb(size_bytes)
-
-        return sizes
+        return await AdminService.get_storage_info()
 
     @staticmethod
     async def validate_location(location: str, location_type: str) -> dict[str, Any]:
@@ -415,7 +290,6 @@ class AdminService:
 
 
 __all__ = [
-    "COLLECTION_TO_MODEL",
     "DEFAULT_APP_SETTINGS",
     "MAPBOX_SETTINGS_ERROR",
     "AdminService",
