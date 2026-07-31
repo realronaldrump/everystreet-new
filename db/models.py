@@ -345,6 +345,12 @@ class TripMobilityProfile(Document):
                 unique=True,
             ),
             IndexModel(
+                [("transaction_id", 1)],
+                name="trip_mobility_profiles_transaction_id_idx",
+                unique=True,
+                partialFilterExpression={"transaction_id": {"$type": "string"}},
+            ),
+            IndexModel(
                 [("start_time", -1)],
                 name="trip_mobility_profiles_start_time_desc_idx",
             ),

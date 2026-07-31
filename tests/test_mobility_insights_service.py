@@ -8,6 +8,7 @@ import h3
 import pytest
 from beanie import PydanticObjectId
 from db_helpers import init_mock_beanie
+from pymongo.errors import DuplicateKeyError
 
 from analytics.services.mobility_insights_service import MobilityInsightsService
 from db.models import H3StreetLabelCache, Trip, TripMobilityProfile
@@ -20,6 +21,13 @@ async def mobility_db():
         TripMobilityProfile,
         H3StreetLabelCache,
         database_name="test_mobility_db",
+    )
+
+
+async def _allow_corrupt_transaction_duplicates() -> None:
+    """Drop the guard only in tests that exercise reconciliation of old corruption."""
+    await TripMobilityProfile.get_pymongo_collection().drop_index(
+        "trip_mobility_profiles_transaction_id_idx",
     )
 
 
@@ -510,7 +518,9 @@ _PROFILE_GEOMETRY = {
 }
 
 
-async def _insert_bouncie_trip(transaction_id: str, imei: str = "imei-reimport") -> Trip:
+async def _insert_bouncie_trip(
+    transaction_id: str, imei: str = "imei-reimport"
+) -> Trip:
     now = datetime.now(UTC)
     trip = Trip(
         transactionId=transaction_id,
@@ -526,7 +536,9 @@ async def _insert_bouncie_trip(transaction_id: str, imei: str = "imei-reimport")
 
 
 @pytest.mark.asyncio
-async def test_sync_trip_reuses_profile_when_transaction_reimported(mobility_db) -> None:
+async def test_sync_trip_reuses_profile_when_transaction_reimported(
+    mobility_db,
+) -> None:
     """A re-imported transaction must not strand a second profile."""
     del mobility_db
     transaction_id = "trip-reimport-1"
@@ -556,6 +568,7 @@ async def test_remove_trip_clears_profile_from_previous_object_id(mobility_db) -
 
     trip = await _insert_bouncie_trip(transaction_id)
     await MobilityInsightsService.sync_trip(trip)
+    await _allow_corrupt_transaction_duplicates()
     # A profile left behind by an earlier ObjectId for the same transaction.
     await TripMobilityProfile(
         trip_id=stale_trip_id,
@@ -571,6 +584,7 @@ async def test_remove_trip_clears_profile_from_previous_object_id(mobility_db) -
 @pytest.mark.asyncio
 async def test_dedupe_profiles_keeps_the_live_trip_profile(mobility_db) -> None:
     del mobility_db
+    await _allow_corrupt_transaction_duplicates()
     transaction_id = "trip-dupe-1"
     now = datetime.now(UTC)
 
@@ -603,6 +617,7 @@ async def test_dedupe_profiles_keeps_the_live_trip_profile(mobility_db) -> None:
 @pytest.mark.asyncio
 async def test_dedupe_profiles_dry_run_removes_nothing(mobility_db) -> None:
     del mobility_db
+    await _allow_corrupt_transaction_duplicates()
     transaction_id = "trip-dupe-2"
     trip = await _insert_bouncie_trip(transaction_id)
     await TripMobilityProfile(
@@ -625,6 +640,7 @@ async def test_dedupe_profiles_dry_run_removes_nothing(mobility_db) -> None:
 async def test_sync_trip_collapses_pre_existing_duplicate_profiles(mobility_db) -> None:
     """Syncing must not collide with a sibling holding the same trip_id."""
     del mobility_db
+    await _allow_corrupt_transaction_duplicates()
     transaction_id = "trip-dupe-3"
     trip = await _insert_bouncie_trip(transaction_id)
 
@@ -647,6 +663,41 @@ async def test_sync_trip_collapses_pre_existing_duplicate_profiles(mobility_db) 
     assert len(remaining) == 1
     assert remaining[0].trip_id == trip.id
     assert remaining[0].transaction_id == transaction_id
+
+
+@pytest.mark.asyncio
+async def test_transaction_identity_rejects_a_second_mobility_profile(
+    mobility_db,
+) -> None:
+    del mobility_db
+    transaction_id = "trip-unique-1"
+    await TripMobilityProfile(
+        trip_id=PydanticObjectId(),
+        transaction_id=transaction_id,
+    ).insert()
+
+    with pytest.raises(DuplicateKeyError):
+        await TripMobilityProfile(
+            trip_id=PydanticObjectId(),
+            transaction_id=transaction_id,
+        ).insert()
+
+
+@pytest.mark.asyncio
+async def test_transaction_identity_allows_profiles_without_a_transaction(
+    mobility_db,
+) -> None:
+    del mobility_db
+    await TripMobilityProfile(
+        trip_id=PydanticObjectId(),
+        transaction_id=None,
+    ).insert()
+    await TripMobilityProfile(
+        trip_id=PydanticObjectId(),
+        transaction_id=None,
+    ).insert()
+
+    assert await TripMobilityProfile.find({"transaction_id": None}).count() == 2
 
 
 @pytest.mark.asyncio
