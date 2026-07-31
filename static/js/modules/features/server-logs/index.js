@@ -2,6 +2,9 @@ import { createFeatureApi } from "../../core/feature-api.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
 import { downloadBlob, escapeHtml } from "../../utils.js";
+import { settleWithConcurrency } from "./request-pool.js";
+
+const DOCKER_LOG_REQUEST_CONCURRENCY = 2;
 
 export default function initServerLogsPage({ signal, cleanup, api } = {}) {
   const noopTeardown = () => {};
@@ -546,6 +549,7 @@ export default function initServerLogsPage({ signal, cleanup, api } = {}) {
   // Docker logs state
   let dockerAutoRefreshInterval = null;
   let dockerAutoRefreshEnabled = false;
+  let dockerLogRequestController = null;
   let rawDockerLogs = [];
   let currentDockerLogs = [];
   let containersData = [];
@@ -1024,6 +1028,11 @@ export default function initServerLogsPage({ signal, cleanup, api } = {}) {
       return;
     }
 
+    if (dockerLogRequestController) {
+      dockerLogRequestController.abort();
+      dockerLogRequestController = null;
+    }
+
     const selectedContainers = getSelectedContainerNames();
     if (selectedContainers.length === 0) {
       rawDockerLogs = [];
@@ -1043,6 +1052,9 @@ export default function initServerLogsPage({ signal, cleanup, api } = {}) {
       }
       return;
     }
+
+    const requestController = new AbortController();
+    dockerLogRequestController = requestController;
 
     try {
       // Show loading state
@@ -1068,13 +1080,19 @@ export default function initServerLogsPage({ signal, cleanup, api } = {}) {
         params.append("since", dockerSinceFilter.value);
       }
 
-      const logRequests = selectedContainers.map((containerName) =>
-        apiGet(
-          `/api/docker-logs/${encodeURIComponent(containerName)}?${params.toString()}`
-        )
+      const results = await settleWithConcurrency(
+        selectedContainers,
+        DOCKER_LOG_REQUEST_CONCURRENCY,
+        (containerName) =>
+          apiGet(
+            `/api/docker-logs/${encodeURIComponent(containerName)}?${params.toString()}`,
+            { retry: false, signal: requestController.signal },
+          ),
       );
+      if (requestController.signal.aborted) {
+        return;
+      }
 
-      const results = await Promise.allSettled(logRequests);
       const logGroups = [];
       const failedContainers = [];
 
@@ -1129,7 +1147,10 @@ export default function initServerLogsPage({ signal, cleanup, api } = {}) {
           "warning"
         );
       }
-    } catch {
+    } catch (error) {
+      if (requestController.signal.aborted || error?.name === "AbortError") {
+        return;
+      }
       rawDockerLogs = [];
       currentDockerLogs = [];
       updateDockerStats([]);
@@ -1138,8 +1159,12 @@ export default function initServerLogsPage({ signal, cleanup, api } = {}) {
             <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
             <p>Failed to load Docker logs. Please try again.</p>
           </div>
-        `;
+      `;
       notificationManager.show("Failed to load Docker logs", "danger");
+    } finally {
+      if (dockerLogRequestController === requestController) {
+        dockerLogRequestController = null;
+      }
     }
   }
 
@@ -1575,6 +1600,8 @@ export default function initServerLogsPage({ signal, cleanup, api } = {}) {
       dockerAutoRefreshInterval = null;
     }
     dockerAutoRefreshEnabled = false;
+    dockerLogRequestController?.abort();
+    dockerLogRequestController = null;
   };
 
   if (typeof cleanup === "function") {

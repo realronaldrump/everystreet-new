@@ -17,6 +17,7 @@ from db.models import AppSettings, ServerLog
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["logs"])
+DOCKER_COMMAND_TIMEOUT_SECONDS = 15.0
 
 
 class LogsResponse(BaseModel):
@@ -416,7 +417,23 @@ async def _run_docker_command(args: list[str]) -> tuple[str, str, int]:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, stderr = await proc.communicate()
+        communicate_task = asyncio.create_task(proc.communicate())
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                asyncio.shield(communicate_task),
+                timeout=DOCKER_COMMAND_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            proc.kill()
+            stdout, stderr = await communicate_task
+            return (
+                stdout.decode("utf-8", errors="replace"),
+                (
+                    "Docker command timed out after "
+                    f"{DOCKER_COMMAND_TIMEOUT_SECONDS:g} seconds"
+                ),
+                124,
+            )
         return (
             stdout.decode("utf-8", errors="replace"),
             stderr.decode("utf-8", errors="replace"),
