@@ -276,6 +276,29 @@ class TripSyncService:
             .to_list()
         )
         for job in active_jobs:
+            operation_id = str(job.operation_id or "").strip()
+            history = await TaskHistory.get(operation_id) if operation_id else None
+            history_status = str(getattr(history, "status", "") or "").upper()
+
+            # TaskHistory is the durable cancellation signal. It must win
+            # immediately even when the cancellation request itself refreshed
+            # Job.updated_at or ARQ left an orphaned in-progress marker behind.
+            if history_status in {"CANCELLED", "CANCELED"}:
+                job.error = None
+                try:
+                    await JobHandle(job).update(
+                        status="cancelled",
+                        stage="cancelled",
+                        message="Cancelled",
+                        completed_at=now,
+                    )
+                except Exception:
+                    logger.exception(
+                        "Failed to finalize cancelled history import job %s",
+                        getattr(job, "id", None),
+                    )
+                continue
+
             heartbeat_at = job.updated_at or job.started_at or job.created_at
             if not heartbeat_at:
                 continue
@@ -290,41 +313,21 @@ class TripSyncService:
                 f"job_id={job.id}, status={job.status}, "
                 f"updated_at={heartbeat_at.isoformat()}"
             )
-            operation_id = str(job.operation_id or "").strip()
-            history = None
-            if operation_id:
-                history = await TaskHistory.get(operation_id)
-                history_status = str(getattr(history, "status", "") or "").upper()
-                if history_status in {"CANCELLED", "CANCELED"}:
-                    job.error = None
-                    try:
-                        await JobHandle(job).update(
-                            status="cancelled",
-                            stage="cancelled",
-                            message="Cancelled",
-                            completed_at=now,
-                        )
-                    except Exception:
-                        logger.exception(
-                            "Failed to finalize stale cancelled history import job %s",
-                            getattr(job, "id", None),
-                        )
-                    continue
-                if history and str(history.status or "").upper() in {
-                    "RUNNING",
-                    "PENDING",
-                }:
-                    started_at = TripSyncService._history_started_at(history) or now
-                    runtime_ms = (now - started_at).total_seconds() * 1000
-                    await update_task_history_entry(
-                        job_id=operation_id,
-                        task_name=history.task_id or "fetch_all_missing_trips",
-                        status="FAILED",
-                        manual_run=bool(history.manual_run),
-                        error=reason,
-                        end_time=now,
-                        runtime_ms=runtime_ms,
-                    )
+            if history and str(history.status or "").upper() in {
+                "RUNNING",
+                "PENDING",
+            }:
+                started_at = TripSyncService._history_started_at(history) or now
+                runtime_ms = (now - started_at).total_seconds() * 1000
+                await update_task_history_entry(
+                    job_id=operation_id,
+                    task_name=history.task_id or "fetch_all_missing_trips",
+                    status="FAILED",
+                    manual_run=bool(history.manual_run),
+                    error=reason,
+                    end_time=now,
+                    runtime_ms=runtime_ms,
+                )
 
             try:
                 await JobHandle(job).update(
@@ -848,13 +851,12 @@ class TripSyncService:
             end_time=now,
         )
 
-        if not await abort_job(job_id):
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=(
-                    "Cancellation was requested, but the worker has not "
-                    "confirmed that the sync stopped. Try again."
-                ),
+        aborted = await abort_job(job_id)
+        if not aborted:
+            logger.warning(
+                "ARQ did not acknowledge sync cancellation before its timeout; "
+                "durable cancellation remains authoritative: %s",
+                job_id,
             )
 
         # If this was a history import, also cancel the persisted progress Job
@@ -876,4 +878,5 @@ class TripSyncService:
                 progress_job.updated_at = now
                 await progress_job.save()
 
-        return {"status": "success", "message": "Sync cancelled"}
+        message = "Sync cancelled" if aborted else "Sync cancellation accepted"
+        return {"status": "success", "message": message}

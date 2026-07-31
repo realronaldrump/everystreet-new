@@ -451,6 +451,49 @@ async def test_sync_status_finalizes_stale_cancelled_history_import_job(
 
 
 @pytest.mark.asyncio
+async def test_sync_status_finalizes_recent_cancelled_history_import_job(
+    beanie_db_with_history_import,
+) -> None:
+    await seed_credentials()
+    now = datetime.now(UTC)
+
+    history = TaskHistory(
+        task_id="fetch_all_missing_trips",
+        status="CANCELLED",
+        timestamp=now,
+        start_time=now - timedelta(hours=1),
+        end_time=now,
+        manual_run=True,
+    )
+    history.id = "arq-history-recent-cancel"
+    await history.insert()
+
+    job = Job(
+        job_type="trip_history_import",
+        task_id="fetch_all_missing_trips",
+        status="cancelling",
+        stage="cancelling",
+        progress=87.0,
+        message="Stopping import worker...",
+        created_at=now - timedelta(hours=1),
+        updated_at=now,
+        started_at=now - timedelta(hours=1),
+        operation_id="arq-history-recent-cancel",
+        metadata={},
+    )
+    await job.insert()
+
+    status = await TripSyncService.get_sync_status()
+
+    assert status["state"] != "syncing"
+    updated_job = await Job.get(PydanticObjectId(str(job.id)))
+    assert updated_job is not None
+    assert updated_job.status == "cancelled"
+    assert updated_job.stage == "cancelled"
+    assert updated_job.completed_at is not None
+
+
+@pytest.mark.asyncio
 async def test_sync_status_keeps_long_history_import_with_recent_heartbeat(
     beanie_db_with_history_import,
 ) -> None:
@@ -629,7 +672,7 @@ async def test_cancel_sync_cancels_history_import_job_and_task_history(
 
 
 @pytest.mark.asyncio
-async def test_cancel_sync_does_not_claim_success_before_worker_stops(
+async def test_cancel_sync_accepts_durable_signal_when_arq_times_out(
     beanie_db_with_history_import,
     monkeypatch,
 ) -> None:
@@ -651,7 +694,9 @@ async def test_cancel_sync_does_not_claim_success_before_worker_stops(
 
     monkeypatch.setattr(trip_sync_service, "abort_job", fake_abort)
 
-    with pytest.raises(HTTPException) as exc_info:
-        await TripSyncService.cancel_sync("arq-job-that-keeps-running")
+    result = await TripSyncService.cancel_sync("arq-job-that-keeps-running")
 
-    assert exc_info.value.status_code == 503
+    assert result == {
+        "status": "success",
+        "message": "Sync cancellation accepted",
+    }

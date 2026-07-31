@@ -212,7 +212,7 @@ def test_trip_history_import_cancel_endpoint_marks_job_cancelled_and_clears_task
     history_mock.assert_awaited()
 
 
-def test_trip_history_import_cancel_does_not_claim_success_before_worker_stops() -> (
+def test_trip_history_import_cancel_accepts_durable_signal_when_arq_times_out() -> (
     None
 ):
     app = _create_app()
@@ -252,8 +252,11 @@ def test_trip_history_import_cancel_does_not_claim_success_before_worker_stops()
             "/api/actions/trips/sync/history_import/65b1b5b6b5b6b5b6b5b6b5b6",
         )
 
-    assert response.status_code == 503
-    assert stub.status != "cancelled"
+    assert response.status_code == 200
+    assert response.json()["message"] == "Import cancellation accepted"
+    assert stub.status == "cancelled"
+    assert stub.stage == "cancelled"
+    assert stub.completed_at is not None
 
 
 def test_trip_history_import_cancel_finalizes_stale_orphan_after_abort_timeout() -> (

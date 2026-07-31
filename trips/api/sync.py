@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Annotated
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, status
 
 from core.api import api_route
-from core.date_utils import ensure_utc, parse_timestamp
+from core.date_utils import parse_timestamp
 from core.job_serialization import serialize_job_payload
 from core.streaming import sse_event_stream, sse_response
 from db.models import Job, TaskHistory
@@ -25,15 +25,6 @@ from trips.services.trip_sync_service import TripSyncService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-_HISTORY_IMPORT_ORPHAN_AFTER = timedelta(minutes=2)
-
-
-def _history_import_progress_is_stale(job: Job, *, now: datetime) -> bool:
-    heartbeat_at = job.updated_at or job.started_at or job.created_at
-    heartbeat_at = ensure_utc(heartbeat_at)
-    return bool(heartbeat_at and now - heartbeat_at > _HISTORY_IMPORT_ORPHAN_AFTER)
-
-
 @router.get("/api/actions/trips/sync/status", response_model=dict)
 @api_route(logger)
 async def get_trip_sync_status():
@@ -194,7 +185,7 @@ async def cancel_trip_history_import(progress_job_id: PydanticObjectId):
             detail="History import job not found",
         )
 
-    if job.status in {"completed", "failed"}:
+    if job.status in {"completed", "failed", "cancelled"}:
         # Idempotent cancel: also ensure any lingering TaskHistory lock is cleared.
         operation_id = job.operation_id
         if operation_id:
@@ -235,7 +226,6 @@ async def cancel_trip_history_import(progress_job_id: PydanticObjectId):
 
     operation_id = job.operation_id
     now = datetime.now(UTC)
-    progress_was_stale = _history_import_progress_is_stale(job, now=now)
     if operation_id:
         # TaskHistory is the durable cancellation signal read by the importer.
         # Write it before requesting the ARQ abort so worker restarts cannot
@@ -271,18 +261,10 @@ async def cancel_trip_history_import(progress_job_id: PydanticObjectId):
             logger.exception("Failed to abort ARQ job %s", operation_id)
             aborted = False
 
-    if not aborted and not progress_was_stale:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "Cancellation was requested, but the worker has not confirmed "
-                "that the import stopped. Try Cancel import again."
-            ),
-        )
-
     if not aborted:
         logger.warning(
-            "Finalizing stale history import cancellation after ARQ abort timeout: %s",
+            "ARQ did not acknowledge history import cancellation before its "
+            "timeout; durable cancellation remains authoritative: %s",
             operation_id,
         )
 
@@ -297,4 +279,9 @@ async def cancel_trip_history_import(progress_job_id: PydanticObjectId):
     final_job.updated_at = final_job.completed_at
     await final_job.save()
 
-    return {"status": "success", "message": "Import cancellation confirmed"}
+    message = (
+        "Import cancellation confirmed"
+        if aborted
+        else "Import cancellation accepted"
+    )
+    return {"status": "success", "message": message}
