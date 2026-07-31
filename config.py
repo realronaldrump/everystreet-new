@@ -84,7 +84,7 @@ DEFAULT_OSM_EXTRACTS_PATH: Final[str] = "/osm"
 
 BOUNCIE_FETCH_CONCURRENCY_DEFAULT: Final[int] = 50
 BOUNCIE_FETCH_CONCURRENCY_MIN: Final[int] = 1
-BOUNCIE_FETCH_CONCURRENCY_MAX: Final[int] = 50
+BOUNCIE_FETCH_CONCURRENCY_MAX: Final[int] = 500
 
 logger = logging.getLogger(__name__)
 

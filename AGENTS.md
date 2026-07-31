@@ -3,6 +3,12 @@
 This project is under active development and requires no fallbacks, backwards
 compatibility, migration, or legacy code.
 
+## Implementation Guidelines
+
+- Do not preserve backward compatibility.
+- Choose the simplest implementation that fully meets the current requirements.
+- Prefer established, well-maintained libraries over custom implementations.
+
 ## Trip Storage Invariant (Critical)
 
 - Live webhook trip state is ephemeral only and must stay in Redis-backed live
