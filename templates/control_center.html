@@ -2871,29 +2871,70 @@ Already in DB
 0
                   </div>
                 </div>
-                <div class="trip-import-summary-item">
+                <button type="button"
+                        class="trip-import-summary-item trip-import-summary-item--interactive"
+                        data-trip-import-error-type="validation"
+                        aria-controls="trip-import-error-details"
+                        aria-expanded="false"
+                        disabled>
                   <div class="trip-import-summary-k">
 Failed validation
                   </div>
                   <div class="trip-import-summary-v" id="trip-import-summary-validation-failed">
 0
                   </div>
-                </div>
-                <div class="trip-import-summary-item">
+                  <span class="trip-import-summary-item-action">View details</span>
+                </button>
+                <button type="button"
+                        class="trip-import-summary-item trip-import-summary-item--interactive"
+                        data-trip-import-error-type="fetch"
+                        aria-controls="trip-import-error-details"
+                        aria-expanded="false"
+                        disabled>
                   <div class="trip-import-summary-k">
 Fetch errors
                   </div>
                   <div class="trip-import-summary-v" id="trip-import-summary-fetch-errors">
 0
                   </div>
-                </div>
-                <div class="trip-import-summary-item">
+                  <span class="trip-import-summary-item-action">View details</span>
+                </button>
+                <button type="button"
+                        class="trip-import-summary-item trip-import-summary-item--interactive"
+                        data-trip-import-error-type="processing"
+                        aria-controls="trip-import-error-details"
+                        aria-expanded="false"
+                        disabled>
                   <div class="trip-import-summary-k">
 Processing errors
                   </div>
                   <div class="trip-import-summary-v" id="trip-import-summary-process-errors">
 0
                   </div>
+                  <span class="trip-import-summary-item-action">View details</span>
+                </button>
+              </div>
+              <div class="trip-import-error-details d-none mt-3"
+                   id="trip-import-error-details"
+                   role="region"
+                   aria-live="polite"
+                   aria-labelledby="trip-import-error-details-title">
+                <div class="trip-import-error-details-header">
+                  <div>
+                    <div class="trip-import-error-details-k">Error details</div>
+                    <h6 class="trip-import-error-details-title mb-0"
+                        id="trip-import-error-details-title">
+                    </h6>
+                  </div>
+                  <button type="button"
+                          class="btn btn-sm btn-outline-secondary"
+                          id="trip-import-error-details-close"
+                          aria-label="Close error details">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>
+                <div class="trip-import-error-details-body mt-3"
+                     id="trip-import-error-details-body">
                 </div>
               </div>
             </div>

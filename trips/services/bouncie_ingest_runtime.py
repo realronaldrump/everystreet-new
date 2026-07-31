@@ -816,6 +816,7 @@ async def process_bouncie_trips(
     sync_mobility: bool,
     force_rematch_all: bool = False,
     bump_revision: bool = True,
+    add_event: Callable[[str, str, dict[str, Any] | None], None] | None = None,
 ) -> dict[str, Any]:
     """
     Process Bouncie trips through a single shared ingest path.
@@ -841,6 +842,17 @@ async def process_bouncie_trips(
             continue
         if not trip.get("endTime"):
             counters["validation_failed"] += 1
+            if add_event:
+                add_event(
+                    "error",
+                    f"Validation failed for {tx}",
+                    {
+                        "error_type": "validation",
+                        "transactionId": tx,
+                        "imei": trip.get("imei"),
+                        "error": "Missing endTime",
+                    },
+                )
             await _record_ingest_issue(
                 issue_type="validation_failed",
                 message="Missing endTime",
@@ -928,9 +940,21 @@ async def process_bouncie_trips(
                 .get("errors", {})
                 .get("validation")
             )
+            error_text = str(reason or "Trip failed basic validation")
+            if add_event:
+                add_event(
+                    "error",
+                    f"Validation failed for {tx}",
+                    {
+                        "error_type": "validation",
+                        "transactionId": tx,
+                        "imei": imei,
+                        "error": error_text,
+                    },
+                )
             await _record_ingest_issue(
                 issue_type="validation_failed",
-                message=str(reason),
+                message=error_text,
                 transaction_id=tx,
                 imei=imei,
                 details={"transactionId": tx, "imei": imei, "reason": reason},
@@ -983,17 +1007,40 @@ async def process_bouncie_trips(
                     continue
 
             counters["process_errors"] += 1
+            error_text = _safe_error_text(exc)
+            if add_event:
+                add_event(
+                    "error",
+                    f"Processing failed for {tx}",
+                    {
+                        "error_type": "processing",
+                        "transactionId": tx,
+                        "imei": imei,
+                        "error": error_text,
+                    },
+                )
             await _record_ingest_issue(
                 issue_type="process_error",
-                message=str(exc),
+                message=error_text,
                 transaction_id=tx,
                 imei=imei,
-                details={"transactionId": tx, "imei": imei, "error": str(exc)},
+                details={"transactionId": tx, "imei": imei, "error": error_text},
             )
             continue
 
         if not saved or not saved.id:
             counters["process_errors"] += 1
+            if add_event:
+                add_event(
+                    "error",
+                    f"Processing failed for {tx}",
+                    {
+                        "error_type": "processing",
+                        "transactionId": tx,
+                        "imei": imei,
+                        "error": "Trip processing returned no saved record",
+                    },
+                )
             await _record_ingest_issue(
                 issue_type="process_error",
                 message="Trip processing returned no saved record",

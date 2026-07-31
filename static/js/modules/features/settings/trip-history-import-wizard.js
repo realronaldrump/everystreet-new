@@ -259,6 +259,166 @@ function renderFailureSummary(container, failureReasons) {
   `;
 }
 
+const IMPORT_ERROR_TYPES = {
+  fetch: {
+    label: "Fetch errors",
+    counter: "fetch_errors",
+  },
+  validation: {
+    label: "Failed validation",
+    counter: "validation_failed",
+  },
+  processing: {
+    label: "Processing errors",
+    counter: "process_errors",
+  },
+};
+
+function normalizeImportErrorType(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "process" || normalized === "process_error") {
+    return "processing";
+  }
+  if (normalized === "validation_failed") {
+    return "validation";
+  }
+  if (normalized === "fetch_error") {
+    return "fetch";
+  }
+  return Object.hasOwn(IMPORT_ERROR_TYPES, normalized) ? normalized : null;
+}
+
+function importErrorTypeForEvent(event) {
+  const data = event?.data && typeof event.data === "object" ? event.data : {};
+  const explicitType = normalizeImportErrorType(
+    data.error_type || data.errorType || data.category
+  );
+  if (explicitType) {
+    return explicitType;
+  }
+
+  const message = String(event?.message || "").toLowerCase();
+  if (message.includes("validation") || message.includes("invalid")) {
+    return "validation";
+  }
+  if (message.includes("process") || message.includes("save")) {
+    return "processing";
+  }
+  if (
+    data.transactionId ||
+    data.transaction_id ||
+    data.transactionID
+  ) {
+    return "processing";
+  }
+  return "fetch";
+}
+
+function renderImportErrorDetails(container, titleEl, job, errorType) {
+  if (!container || !titleEl) {
+    return;
+  }
+
+  const config = IMPORT_ERROR_TYPES[errorType];
+  if (!config) {
+    return;
+  }
+
+  const counters = jobToCounters(job);
+  const count = Number(counters[config.counter]) || 0;
+  const events = Array.isArray(job?.metadata?.events)
+    ? job.metadata.events.filter(
+        (event) =>
+          String(event?.level || "").toLowerCase() === "error" &&
+          importErrorTypeForEvent(event) === errorType
+      )
+    : [];
+  const failureReasons =
+    errorType === "fetch"
+      ? Object.entries(job?.metadata?.failure_reasons || {})
+          .map(([reason, reasonCount]) => [String(reason), Number(reasonCount) || 0])
+          .filter(([, reasonCount]) => reasonCount > 0)
+      : [];
+
+  setText(titleEl, `${config.label} (${count})`);
+
+  const eventLines = events
+    .map((event) => {
+      const data = event?.data && typeof event.data === "object" ? event.data : null;
+      const timestamp = event?.ts_iso ? formatIsoToLocal(event.ts_iso) : "";
+      const sampleErrors = Array.isArray(data?.samples)
+        ? data.samples
+            .map((sample) => sample?.error)
+            .filter(Boolean)
+            .join(" • ")
+        : "";
+      const recordedError = data?.error || sampleErrors;
+      const context = [
+        data?.imei ? `Vehicle ${data.imei}` : "",
+        data?.transactionId ? `Trip ${data.transactionId}` : "",
+        data?.start_iso || data?.start
+          ? `${formatIsoToLocal(data.start_iso || data.start)} → ${formatIsoToLocal(
+              data.end_iso || data.end
+            )}`
+          : "",
+      ].filter(Boolean);
+      const rawData = data ? JSON.stringify(data, null, 2) : "";
+      const details = rawData
+        ? `
+          <details class="trip-import-error-entry-details">
+            <summary>View recorded details</summary>
+            <pre>${escapeHtml(rawData)}</pre>
+          </details>
+        `
+        : "";
+      return `
+        <article class="trip-import-error-entry">
+          <div class="trip-import-error-entry-meta">
+            ${timestamp ? `<span>${escapeHtml(timestamp)}</span>` : ""}
+            ${context.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
+          </div>
+          <div class="trip-import-error-entry-message">
+            ${escapeHtml(event?.message || "Recorded import error")}
+          </div>
+          ${
+            recordedError
+              ? `<div class="trip-import-error-entry-error">${escapeHtml(recordedError)}</div>`
+              : ""
+          }
+          ${details}
+        </article>
+      `;
+    })
+    .join("");
+
+  const reasonEntries = failureReasons
+    .sort((a, b) => b[1] - a[1])
+    .map(
+      ([reason, reasonCount]) => `
+        <div class="trip-import-error-reason">
+          <span class="trip-import-error-reason-count">${escapeHtml(reasonCount)}</span>
+          <span>${escapeHtml(reason)}</span>
+        </div>
+      `
+    )
+    .join("");
+
+  const intro =
+    events.length > 0
+      ? `<div class="trip-import-error-details-intro">Showing the recorded details from this import.</div>`
+      : `<div class="trip-import-error-details-empty">No individual event details were retained for this category.</div>`;
+  const reasons = reasonEntries
+    ? `
+      <div class="trip-import-error-reasons">
+        <div class="trip-import-error-reasons-title">Recorded reason summary</div>
+        ${reasonEntries}
+      </div>
+    `
+    : "";
+
+  container.innerHTML = `${intro}${eventLines}${reasons}`;
+}
+
 function renderPerDeviceTable(tbody, devices, perDevice) {
   if (!tbody) {
     return;
@@ -372,6 +532,13 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   const summaryValidationFailed = getEl("trip-import-summary-validation-failed");
   const summaryFetchErrors = getEl("trip-import-summary-fetch-errors");
   const summaryProcessErrors = getEl("trip-import-summary-process-errors");
+  const summaryErrorButtons = [
+    ...root.querySelectorAll("[data-trip-import-error-type]"),
+  ];
+  const errorDetails = getEl("trip-import-error-details");
+  const errorDetailsTitle = getEl("trip-import-error-details-title");
+  const errorDetailsBody = getEl("trip-import-error-details-body");
+  const errorDetailsClose = getEl("trip-import-error-details-close");
 
   let progressJobId = null;
   let progressSseUrl = null;
@@ -388,6 +555,8 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   let isPlanLoading = false;
   let isStartSubmitting = false;
   let isConfigBlocked = false;
+  let openErrorType = null;
+  let summaryJob = null;
 
   const getSelectedImeis = () =>
     allDevices
@@ -629,7 +798,54 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     }
   };
 
+  const closeErrorDetails = () => {
+    openErrorType = null;
+    errorDetails?.classList.add("d-none");
+    summaryErrorButtons.forEach((button) => {
+      button.classList.remove("is-active");
+      button.setAttribute("aria-expanded", "false");
+    });
+  };
+
+  const updateSummaryErrorButtons = (job) => {
+    const counters = jobToCounters(job);
+    summaryErrorButtons.forEach((button) => {
+      const errorType = normalizeImportErrorType(button.dataset.tripImportErrorType);
+      const config = errorType ? IMPORT_ERROR_TYPES[errorType] : null;
+      const count = config ? Number(counters[config.counter]) || 0 : 0;
+      button.disabled = count < 1;
+      button.setAttribute("aria-label", `${config?.label || "Import errors"}: ${count}`);
+    });
+  };
+
+  const openErrorDetailsFor = (errorType, job) => {
+    if (!errorDetails || !errorDetailsTitle || !errorDetailsBody) {
+      return;
+    }
+    if (openErrorType === errorType) {
+      closeErrorDetails();
+      return;
+    }
+    openErrorType = errorType;
+    renderImportErrorDetails(errorDetailsBody, errorDetailsTitle, job, errorType);
+    errorDetails.classList.remove("d-none");
+    summaryErrorButtons.forEach((button) => {
+      button.classList.toggle(
+        "is-active",
+        normalizeImportErrorType(button.dataset.tripImportErrorType) === errorType
+      );
+      button.setAttribute(
+        "aria-expanded",
+        String(
+          normalizeImportErrorType(button.dataset.tripImportErrorType) === errorType
+        )
+      );
+    });
+    errorDetails.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  };
+
   const renderSummary = (job) => {
+    summaryJob = job;
     const status = job?.status || "completed";
     const counters = jobToCounters(job);
 
@@ -658,6 +874,8 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     setText(summaryValidationFailed, counters.validation_failed);
     setText(summaryFetchErrors, counters.fetch_errors);
     setText(summaryProcessErrors, counters.process_errors);
+    updateSummaryErrorButtons(job);
+    closeErrorDetails();
   };
 
   const startPolling = () => {
@@ -748,6 +966,8 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     isStartSubmitting = false;
     isConfigBlocked = false;
     lastPlan = null;
+    openErrorType = null;
+    summaryJob = null;
     setConfigError("");
     setConfigActionsVisible(false);
     setProgressError("");
@@ -781,6 +1001,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     if (failureSummaryEl) {
       failureSummaryEl.innerHTML = "";
     }
+    closeErrorDetails();
     if (goTrips) {
       goTrips.classList.add("d-none");
     }
@@ -1040,6 +1261,20 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   selectAllDevicesBtn?.addEventListener("click", handleSelectAllDevices, eventOptions);
   clearAllDevicesBtn?.addEventListener("click", handleClearAllDevices, eventOptions);
   stopSyncBtn?.addEventListener("click", handleStopSync, eventOptions);
+  summaryErrorButtons.forEach((button) => {
+    button.addEventListener(
+      "click",
+      () => {
+        const errorType = normalizeImportErrorType(button.dataset.tripImportErrorType);
+        if (!errorType || button.disabled) {
+          return;
+        }
+        openErrorDetailsFor(errorType, summaryJob);
+      },
+      eventOptions
+    );
+  });
+  errorDetailsClose?.addEventListener("click", closeErrorDetails, eventOptions);
   startInput?.addEventListener("change", handleStartChange, eventOptions);
   startInput?.addEventListener("input", handleStartChange, eventOptions);
 

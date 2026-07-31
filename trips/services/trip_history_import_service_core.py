@@ -348,6 +348,7 @@ async def _run_import_windows(
                     sync_mobility=False,
                     force_rematch_all=False,
                     bump_revision=False,
+                    add_event=runtime.add_event,
                 )
             delta = dict(result.get("counters", {}))
             if fetch_result.failed_windows:
@@ -370,6 +371,7 @@ async def _run_import_windows(
                     "error",
                     f"Recovered window with {failed_count} failed Bouncie slices",
                     {
+                        "error_type": "fetch",
                         "imei": imei,
                         "window_index": window_index,
                         "start_iso": window_start.isoformat(),
@@ -402,6 +404,7 @@ async def _run_import_windows(
                 "error",
                 f"Window failed for {imei}",
                 {
+                    "error_type": "fetch",
                     "imei": imei,
                     "window_index": window_index,
                     "start_iso": window_start.isoformat(),

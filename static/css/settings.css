@@ -3216,6 +3216,44 @@
   background: var(--surface-1);
 }
 
+.trip-import-summary-item--interactive {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.trip-import-summary-item--interactive:hover:not(:disabled),
+.trip-import-summary-item--interactive:focus-visible,
+.trip-import-summary-item--interactive.is-active {
+  border-color: rgb(var(--primary-rgb) / 60%);
+  background: rgb(var(--primary-rgb) / 8%);
+}
+
+.trip-import-summary-item--interactive:focus-visible {
+  outline: 2px solid rgb(var(--primary-rgb) / 65%);
+  outline-offset: 2px;
+}
+
+.trip-import-summary-item--interactive:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.trip-import-summary-item-action {
+  display: block;
+  margin-top: var(--space-2);
+  color: rgb(var(--primary-rgb));
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.trip-import-summary-item--interactive:disabled .trip-import-summary-item-action {
+  color: var(--text-tertiary);
+}
+
 .trip-import-summary-k {
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
@@ -3244,6 +3282,126 @@
 
 #trip-import-summary-body {
   white-space: pre-line;
+}
+
+.trip-import-error-details {
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgb(var(--danger-rgb) / 35%);
+  background: var(--surface-1);
+}
+
+.trip-import-error-details-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.trip-import-error-details-k {
+  color: var(--danger);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.trip-import-error-details-title {
+  color: var(--text-primary);
+}
+
+.trip-import-error-details-body {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.trip-import-error-details-intro,
+.trip-import-error-details-empty {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.trip-import-error-entry {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--surface-2);
+}
+
+.trip-import-error-entry-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+.trip-import-error-entry-message {
+  margin-top: var(--space-1);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.trip-import-error-entry-error {
+  margin-top: var(--space-1);
+  color: var(--danger);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.trip-import-error-entry-details {
+  margin-top: var(--space-2);
+}
+
+.trip-import-error-entry-details summary {
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+}
+
+.trip-import-error-entry-details pre {
+  max-height: 16rem;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--surface-0);
+  color: var(--text-secondary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.trip-import-error-reasons {
+  display: grid;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-color);
+}
+
+.trip-import-error-reasons-title {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.trip-import-error-reason {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.trip-import-error-reason-count {
+  color: var(--danger);
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
 }
 
 /* === Control Center: Overview + Account === */
