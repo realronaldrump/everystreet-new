@@ -26,6 +26,7 @@ import initControlCenterOverview from "./control-center-overview.js";
 import { setupCredentialsSettings } from "./credentials-settings.js";
 import { initDatabaseManagement } from "./database-management.js";
 import {
+  setupDedupeMobilityProfiles,
   setupGeocodeTrips,
   setupManualFetchTripsForm,
   setupRebuildDisplayPaths,
@@ -557,6 +558,7 @@ export default function initSettingsPage({ cleanup, signal } = {}) {
   setupManualFetchTripsForm(taskManager, signal);
   setupGeocodeTrips(signal);
   setupRebuildDisplayPaths(signal);
+  setupDedupeMobilityProfiles(signal);
   setupTripSyncSettings(signal);
   setupCredentialsSettings({ signal });
   initTripHistoryImportWizard({ signal });

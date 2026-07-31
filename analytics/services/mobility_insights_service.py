@@ -401,12 +401,21 @@ class MobilityInsightsService:
         the one pointing at a Trip that still exists, most recently
         updated; the rest are removed.
         """
+        # Carry only the fields needed to choose a survivor. Profiles hold
+        # large cell/segment arrays, so loading whole documents here would
+        # pull hundreds of megabytes for no reason.
         pipeline = [
             {"$match": {"transaction_id": {"$type": "string", "$ne": ""}}},
             {
                 "$group": {
                     "_id": "$transaction_id",
-                    "profile_ids": {"$push": "$_id"},
+                    "members": {
+                        "$push": {
+                            "id": "$_id",
+                            "trip_id": "$trip_id",
+                            "updated_at": "$updated_at",
+                        },
+                    },
                     "count": {"$sum": 1},
                 },
             },
@@ -416,16 +425,11 @@ class MobilityInsightsService:
         if not groups:
             return {"transactions_scanned": 0, "profiles_removed": 0}
 
-        duplicate_ids = [
-            profile_id for group in groups for profile_id in group["profile_ids"]
-        ]
-        profiles = await TripMobilityProfile.find(
-            {"_id": {"$in": duplicate_ids}},
-        ).to_list()
-        by_id = {profile.id: profile for profile in profiles}
-
         candidate_trip_ids = [
-            profile.trip_id for profile in profiles if profile.trip_id is not None
+            member["trip_id"]
+            for group in groups
+            for member in group["members"]
+            if member.get("trip_id") is not None
         ]
         live_trip_ids: set[PydanticObjectId] = set()
         if candidate_trip_ids:
@@ -438,22 +442,15 @@ class MobilityInsightsService:
             )
             live_trip_ids = {row["_id"] for row in live_rows}
 
-        def _rank(profile: TripMobilityProfile) -> tuple[int, float]:
-            alive = 1 if profile.trip_id in live_trip_ids else 0
-            updated = profile.updated_at
+        def _rank(member: dict[str, Any]) -> tuple[int, float]:
+            alive = 1 if member.get("trip_id") in live_trip_ids else 0
+            updated = member.get("updated_at")
             return (alive, updated.timestamp() if updated else 0.0)
 
         removable: list[PydanticObjectId] = []
         for group in groups:
-            members = [
-                by_id[profile_id]
-                for profile_id in group["profile_ids"]
-                if profile_id in by_id
-            ]
-            if len(members) < 2:
-                continue
-            members.sort(key=_rank, reverse=True)
-            removable.extend(member.id for member in members[1:])
+            members = sorted(group["members"], key=_rank, reverse=True)
+            removable.extend(member["id"] for member in members[1:])
 
         if removable and not dry_run:
             await TripMobilityProfile.find({"_id": {"$in": removable}}).delete()

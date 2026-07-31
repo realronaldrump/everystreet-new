@@ -411,6 +411,7 @@ async def get_task_details(task_id: str):
         "next_run": serialize_datetime(next_run),
         "last_error": config.config.get("last_error"),
         "run_count": run_count,
+        "last_result": latest.result if latest else None,
     }
 
 

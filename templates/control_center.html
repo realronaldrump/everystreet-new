@@ -1584,6 +1584,26 @@ Geocoding Progress
           </div>
         </div>
       </div>
+      <div class="settings-group grid-span-6">
+        <h3 class="settings-group-title">
+          <i class="fas fa-broom"></i>
+          Clean Up Duplicate Trip Summaries
+        </h3>
+        <p class="text-muted small">
+          Every trip has a small summary used to build your Insights. Trips that were
+          re-imported at some point left their old summary behind, so duplicates built
+          up. This removes the leftovers, keeping the summary attached to the trip you
+          still have. Your trips, maps, and Insights results are not affected.
+        </p>
+        <div>
+          <button id="dedupe-mobility-profiles-btn" class="btn btn-warning" type="button">
+            <i class="fas fa-broom"></i> Clean Up Duplicates
+          </button>
+        </div>
+        <div id="dedupe-mobility-profiles-status"
+             class="settings-status is-hidden mt-3">
+        </div>
+      </div>
     </div>
   </div>
   <div class="settings-tab-content"

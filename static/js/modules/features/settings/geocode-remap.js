@@ -485,3 +485,94 @@ export function setupRebuildDisplayPaths(signal) {
     eventOptions
   );
 }
+
+export function setupDedupeMobilityProfiles(signal) {
+  const eventOptions = signal ? { signal } : false;
+  const btn = document.getElementById("dedupe-mobility-profiles-btn");
+  const statusEl = document.getElementById("dedupe-mobility-profiles-status");
+  if (!btn || !statusEl) {
+    return;
+  }
+
+  let pollTimer = null;
+
+  const stopPolling = () => {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  };
+
+  if (signal) {
+    signal.addEventListener("abort", stopPolling, { once: true });
+  }
+
+  const finish = (message, variant) => {
+    stopPolling();
+    btn.disabled = false;
+    setInlineStatus(statusEl, message, variant);
+  };
+
+  const describe = (result) => {
+    const removed = result?.profiles_removed;
+    const scanned = result?.transactions_scanned;
+    if (typeof removed !== "number") {
+      return "Cleanup finished.";
+    }
+    if (removed === 0) {
+      return "Nothing to clean up — no duplicate summaries found.";
+    }
+    return `Removed ${removed.toLocaleString()} duplicate ${
+      removed === 1 ? "summary" : "summaries"
+    } across ${(scanned ?? 0).toLocaleString()} trips.`;
+  };
+
+  const pollStatus = async () => {
+    try {
+      const details = await apiClient.get(
+        "/api/background_tasks/details/dedupe_mobility_profiles"
+      );
+      const state = details?.status;
+      if (state === "RUNNING" || state === "PENDING") {
+        return;
+      }
+      if (state === "COMPLETED") {
+        finish(describe(details?.last_result), "success");
+        return;
+      }
+      finish(
+        details?.last_error || "Cleanup did not complete. Check the logs.",
+        "danger"
+      );
+    } catch {
+      finish("Lost track of the cleanup. Check the logs.", "danger");
+    }
+  };
+
+  btn.addEventListener(
+    "click",
+    async (e) => {
+      if (typeof e.button === "number" && e.button !== 0) {
+        return;
+      }
+
+      try {
+        btn.disabled = true;
+        setInlineStatus(statusEl, "Cleaning up duplicate summaries…", "info");
+
+        const result = await apiClient.post("/api/background_tasks/run", {
+          task_id: "dedupe_mobility_profiles",
+        });
+
+        if (result.status !== "success") {
+          throw new Error(result.message || "Failed to start cleanup");
+        }
+        pollTimer = setInterval(pollStatus, 2000);
+      } catch (error) {
+        finish(error.message || "Failed to start cleanup", "danger");
+        notificationManager.show("Failed to start cleanup", "danger");
+      }
+    },
+    eventOptions
+  );
+}
