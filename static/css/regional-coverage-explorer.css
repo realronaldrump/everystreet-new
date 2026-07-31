@@ -151,7 +151,7 @@
   font-size: var(--font-size-md);
   font-weight: 700;
   color: var(--text-primary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -162,7 +162,7 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.55px;
+  letter-spacing: var(--tracking-wide);
   line-height: 1.2;
 }
 
@@ -285,7 +285,7 @@
   justify-content: center;
   font-size: var(--font-size-md);
   font-weight: 700;
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   color: var(--text-primary);
 }
 
@@ -312,7 +312,7 @@
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: var(--tracking-wide);
   margin-top: 0.2rem;
 }
 
@@ -527,7 +527,7 @@
   font-size: var(--font-size-md);
   font-weight: 700;
   color: var(--text-secondary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   line-height: 1.35;
 }
 
@@ -721,7 +721,7 @@
 .last-updated-label {
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  letter-spacing: 0.45px;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-tertiary);
 }
 
@@ -1164,6 +1164,6 @@
 .state-counties,
 .city-pagination-label {
   color: var(--text-primary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums;
 }

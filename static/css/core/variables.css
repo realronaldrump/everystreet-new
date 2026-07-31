@@ -25,9 +25,9 @@
    - 4px grid (0.25rem - 4rem)
 
    Typography
-   - Display: Chivo (headlines)
-   - Body: IBM Plex Sans (excellent data legibility)
-   - Mono: JetBrains Mono (superior number clarity)
+   - Display: Source Serif 4 (editorial headlines, engraved figures)
+   - Body: Source Sans 3 (humanist prose and UI)
+   - Mono: platform monospace, machine output only
    ============================ */
 
 :root {
@@ -119,31 +119,58 @@
   --border-rgb: 150 142 132;
   --text-rgb: 248 246 242;
 
-  /* Typography */
-  --font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
-  --font-family-display: "Chivo", "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  /* ---- Typography -------------------------------------------------
+     One superfamily, two variable font files. Source Serif 4 carries
+     display type and measured figures the way a printed atlas sets
+     them; Source Sans 3 carries prose, labels, and controls. Monospace
+     is reserved for machine output — logs and raw payloads — and uses
+     the platform face, so it costs nothing to load. Numbers the app
+     measured use --font-numeric with tabular figures rather than a
+     code face. */
+  --font-family: "Source Sans 3", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-family-display: "Source Serif 4", ui-serif, Georgia, "Times New Roman", serif;
   --font-family-mono:
-    "JetBrains Mono", "IBM Plex Mono", ui-monospace, sfmono-regular, menlo, monaco, consolas,
-    monospace;
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --font-numeric: var(--font-family);
+  --font-numeric-display: var(--font-family-display);
 
-  /* Font size hierarchy */
-  --font-size-xs: clamp(0.72rem, 0.68rem + 0.2vw, 0.82rem);
-  --font-size-sm: clamp(0.84rem, 0.8rem + 0.2vw, 0.98rem);
-  --font-size-md: clamp(0.9375rem, 0.9rem + 0.2vw, 1rem);
+  /* Type scale. Steps are fixed below the display sizes: when every
+     step carried its own vw coefficient the hierarchy collapsed on
+     wide screens (sm and md landed within 0.3px of each other) and
+     shrank below the legibility floor on phones. Display sizes stay
+     fluid because that is where the extra range actually reads. */
+  --font-size-xs: 0.75rem; /* 12px — eyebrows, table heads, meta */
+  --font-size-sm: 0.875rem; /* 14px — controls, dense UI, captions */
+  --font-size-md: 1rem; /* 16px — body */
   --font-size-base: var(--font-size-md);
-  --font-size-lg: clamp(1.08rem, 1.02rem + 0.3vw, 1.26rem);
-  --font-size-xl: clamp(1.125rem, 1.1rem + 0.3vw, 1.5rem);
-  --font-size-2xl: clamp(1.5rem, 1.4rem + 0.5vw, 2.25rem);
-  --font-size-3xl: clamp(1.8rem, 1.55rem + 1vw, 2.35rem);
-  --font-size-4xl: clamp(2rem, 1.8rem + 1vw, 3.5rem);
+  --font-size-lg: 1.125rem; /* 18px — lead paragraphs, card titles */
+  --font-size-xl: 1.3125rem; /* 21px — section headings */
+  --font-size-2xl: clamp(1.5rem, 1.36rem + 0.7vw, 1.875rem); /* 24 → 30px */
+  --font-size-3xl: clamp(1.875rem, 1.61rem + 1.32vw, 2.5rem); /* 30 → 40px */
+  --font-size-4xl: clamp(2.25rem, 1.66rem + 2.95vw, 3.5rem); /* 36 → 56px */
   --font-weight-regular: 400;
   --font-weight-normal: var(--font-weight-regular);
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
-  --line-height-tight: 1.15;
-  --line-height-normal: 1.5;
-  --line-height-relaxed: 1.7;
+  --line-height-tight: 1.1; /* display type */
+  --line-height-snug: 1.3; /* headings, card titles, wrapped labels */
+  --line-height-normal: 1.5; /* UI default */
+  --line-height-relaxed: 1.65; /* prose */
+
+  /* Letter-spacing. Large type tightens; small uppercase labels open
+     just enough to stay legible. Body text is never tracked — wide
+     tracking on running text is what made the interface read as a
+     machine readout instead of a record. */
+  --tracking-tight: -0.02em;
+  --tracking-snug: -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+  --tracking-caps: 0.06em;
+
+  /* Comfortable measure for running text */
+  --measure: 68ch;
+  --measure-tight: 54ch;
 
   /* Spacing System (4px grid) */
   --space-1: 0.25rem;
@@ -261,7 +288,6 @@
   --scrollbar-thumb-hover-color: rgb(var(--border-rgb) / 65%);
 
   /* Utility Aliases */
-  --font-mono: var(--font-family-mono);
   --border-hover: var(--border-color-light);
 
   /* Bootstrap Bridge */

@@ -17,7 +17,7 @@
   font-family: var(--font-family-display);
   font-size: var(--font-size-4xl);
   font-weight: var(--font-weight-bold);
-  letter-spacing: -0.03em;
+  letter-spacing: var(--tracking-tight);
   line-height: 1;
   color: var(--text-primary);
   margin: var(--space-2) 0 var(--space-4);
@@ -57,7 +57,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: var(--tracking-caps);
   color: var(--text-tertiary);
 }
 

@@ -684,7 +684,7 @@ html.light-mode body .alert-info {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-wide);
 }
 
 .notif-clear-all-btn {

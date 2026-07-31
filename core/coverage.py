@@ -88,6 +88,8 @@ async def get_effective_coverage_trip_mode(
     if isinstance(trip_mode, str) and trip_mode.strip():
         return normalize_coverage_trip_mode(trip_mode)
 
+    # Only an operator sets this now. The app used to seed it from the
+    # stored setting, which made the branch below permanently unreachable.
     env_mode = os.getenv("COVERAGE_TRIP_MODE")
     if isinstance(env_mode, str) and env_mode.strip():
         return normalize_coverage_trip_mode(env_mode)

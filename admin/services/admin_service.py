@@ -12,7 +12,7 @@ from config import get_mapbox_token
 from core.date_utils import ensure_utc
 from core.mapping.factory import clear_local_provider_cache, get_geocoder
 from core.serialization import serialize_utc_datetime
-from core.service_config import apply_settings_to_env, clear_config_cache
+from core.service_config import clear_config_cache, get_service_config
 from db.manager import db_manager
 from db.models import AppSettings, Trip
 from routing.graph_connectivity import clear_router_cache
@@ -147,8 +147,10 @@ class AdminService:
             clear_router_cache()
         if local_client_settings_changed:
             clear_local_provider_cache()
+        # Repopulate this process immediately; others refresh within the
+        # settings cache TTL.
+        await get_service_config(force_refresh=True)
         updated = await AdminService.get_persisted_app_settings()
-        apply_settings_to_env(updated, force=True)
         return _public_app_settings_payload(updated)
 
     @staticmethod

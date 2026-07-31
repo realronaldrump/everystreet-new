@@ -1,9 +1,36 @@
+/* ============================================================
+   Typography
+
+   Source Serif 4 sets display type and hero figures; Source Sans 3
+   sets everything you read or operate. Monospace appears only where
+   the app is showing machine output verbatim.
+
+   Rules of the system:
+   - Size comes from the scale tokens, never from a literal.
+   - Tracking comes from the tracking tokens. Body text is untracked.
+   - Uppercase is for short labels only, and always with --tracking-caps.
+   - Measured numbers get tabular figures, not a code font.
+   ============================================================ */
+
+/* Thinning light-on-dark text keeps it from blooming. On warm paper the
+   same setting makes ink look anemic, so light mode keeps the default. */
 body {
   font-family: var(--font-family);
   font-size: var(--font-size-md);
-  letter-spacing: 0.005em;
+  line-height: var(--line-height-normal);
+  letter-spacing: var(--tracking-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+html.light-mode body {
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+}
+
+/* === Headings ==============================================
+   The UA heading scale is relative to the parent, so nested h5/h6
+   ended up smaller than body text. These are absolute steps. */
 h1,
 h2,
 h3,
@@ -11,20 +38,83 @@ h4,
 h5,
 h6 {
   font-family: var(--font-family-display);
-  letter-spacing: -0.015em;
-  line-height: var(--line-height-tight);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-snug);
+  letter-spacing: var(--tracking-snug);
+  color: var(--text-primary);
+  text-wrap: balance;
 }
 
+h1 {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--tracking-tight);
+}
+
+h2 {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--tracking-tight);
+}
+
+h3 {
+  font-size: var(--font-size-xl);
+}
+
+h4 {
+  font-size: var(--font-size-lg);
+}
+
+h5 {
+  font-size: var(--font-size-md);
+  letter-spacing: var(--tracking-normal);
+}
+
+h6 {
+  font-family: var(--font-family);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--text-tertiary);
+}
+
+/* === Prose ================================================= */
 p {
   line-height: var(--line-height-relaxed);
+  text-wrap: pretty;
 }
 
 .route-content p,
 .route-content .text-muted,
 .route-content .text-secondary {
-  max-width: 72ch;
+  max-width: var(--measure);
 }
 
+small,
+.text-small {
+  font-size: var(--font-size-sm);
+}
+
+strong,
+b {
+  font-weight: var(--font-weight-semibold);
+}
+
+a {
+  text-underline-offset: 0.16em;
+  text-decoration-thickness: from-font;
+}
+
+/* === Measured numbers ======================================
+   The app used a code face for every value it measured, which is what
+   gave the interface its terminal look. Values now stay in the text
+   face and earn their alignment from tabular lining figures, so a
+   column of numbers lines up without changing voice mid-sentence.
+   Tracking is explicitly cleared: figures are already evenly spaced,
+   and inherited tracking is what makes digits look mechanical. */
 [data-numeric],
 .counter,
 .metric-value,
@@ -32,14 +122,47 @@ p {
 .preview-stat-value,
 .live-trip-hud-speed,
 .nav-stat .value,
-.meta-value {
-  font-family: var(--font-family-mono);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
+.meta-value,
+.data-num {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  letter-spacing: var(--tracking-normal);
 }
 
-.data-num {
+/* Hero figures are set in the display serif: at this size the serif
+   reads as an engraved measurement rather than a dashboard counter. */
+.figure-value,
+.stat-value,
+.preview-stat-value {
+  font-family: var(--font-numeric-display);
+}
+
+/* === Machine output ======================================== */
+code,
+kbd,
+samp,
+pre {
   font-family: var(--font-family-mono);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
+  font-size: 0.9375em;
+  font-variant-ligatures: none;
+}
+
+/* === Type roles ============================================
+   Shared roles so pages stop re-deriving the same label treatment. */
+.type-eyebrow {
+  font-family: var(--font-family);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-snug);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--text-tertiary);
+}
+
+.type-lead {
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-relaxed);
+  color: var(--text-secondary);
+  max-width: var(--measure-tight);
+  text-wrap: pretty;
 }

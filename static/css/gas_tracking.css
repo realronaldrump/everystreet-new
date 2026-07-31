@@ -122,7 +122,7 @@
   padding: 0;
   border: 0;
   background: transparent;
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
 }
 
 .input-prefix .form-control {
@@ -572,7 +572,7 @@
   background: transparent;
   border: 1px solid var(--border-color-light);
   color: var(--text-primary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   border-radius: var(--radius-full);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
@@ -628,7 +628,7 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-caps);
 }
 
 .fillup-detail-value {

@@ -252,7 +252,7 @@
   font-family: var(--font-family-display);
   font-size: var(--font-size-lg);
   font-weight: 700;
-  letter-spacing: -0.015em;
+  letter-spacing: var(--tracking-snug);
   color: var(--text-primary);
   line-height: 1.25;
   white-space: nowrap;
@@ -559,7 +559,7 @@
 }
 
 .coverage-route-planner .donut-pct {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-lg);
   font-weight: 700;
   color: var(--text-primary);
@@ -569,7 +569,7 @@
 .coverage-route-planner .donut-sublabel {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-tertiary);
   margin-top: 2px;
 }
@@ -630,7 +630,7 @@
   font-size: var(--font-size-xs);
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-tertiary);
   line-height: 1;
 }
@@ -982,7 +982,7 @@
 .coverage-route-planner .sim-stat-label {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-tertiary);
   font-weight: 500;
 }
@@ -1015,7 +1015,7 @@
 .coverage-route-planner .sim-cov-label {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-tertiary);
   font-weight: 500;
 }
@@ -1387,7 +1387,7 @@
 .coverage-route-planner .target-label {
   font-size: var(--font-size-xs);
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
   color: var(--text-tertiary);
 }
@@ -1595,7 +1595,7 @@
   font-weight: 500;
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: var(--tracking-wide);
   text-align: center;
   line-height: 1.25;
 }
@@ -1648,7 +1648,7 @@
   font-size: var(--font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: var(--tracking-wide);
   border-radius: var(--radius-sm);
   animation: pulse-badge 2s ease-in-out infinite;
 }
@@ -1729,7 +1729,7 @@
 .coverage-route-planner .inline-progress-stage {
   min-width: 0;
   color: var(--text-primary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-sm);
   font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-semibold);
@@ -1745,7 +1745,7 @@
   margin-top: var(--space-3);
   padding: 0;
   background: transparent;
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1847,7 +1847,7 @@
 }
 
 .coverage-route-planner .hero-eff-value {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-md);
   font-weight: 800;
   color: var(--success);
@@ -1857,7 +1857,7 @@
 .coverage-route-planner .hero-eff-unit {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-tertiary);
 }
 
@@ -1889,7 +1889,7 @@
   background: rgb(var(--success-rgb) / 15%);
   color: var(--success);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
 }
 
 /* 2×2 supporting grid */
@@ -1974,7 +1974,7 @@
   font-size: var(--font-size-xs);
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-tertiary);
 }
 
@@ -2410,7 +2410,7 @@
   font-size: var(--font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: var(--tracking-caps);
   color: var(--text-tertiary);
 }
 
@@ -2459,7 +2459,7 @@
   font-size: var(--font-size-xs);
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-tertiary);
 }
 
@@ -2527,7 +2527,7 @@
   font-size: var(--font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-secondary);
 }
 
@@ -2855,7 +2855,7 @@
 .coverage-route-planner .step.atlas-step.active .step-label.atlas-step-label {
   color: inherit;
   text-transform: none;
-  letter-spacing: 0;
+  letter-spacing: var(--tracking-normal);
 }
 
 .coverage-route-planner .progress-steps.atlas-stepper::before {

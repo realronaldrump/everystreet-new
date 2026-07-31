@@ -875,7 +875,7 @@
   font-size: var(--font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   border: 1px solid rgb(var(--border-rgb) / 40%);
   color: var(--text-secondary);
   background: rgb(var(--surface-rgb) / 70%);
@@ -980,7 +980,7 @@
   font-size: var(--font-size-xs);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
 }
 
 .boundary-adjust-actions {
@@ -1570,7 +1570,7 @@
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   font-size: var(--font-size-xs);
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-caps);
   padding: var(--space-3) var(--space-4);
   color: var(--text-secondary);
 }
@@ -1764,7 +1764,7 @@
 .custom-place-popup .stat-label {
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
 }
 
@@ -1787,7 +1787,7 @@
 
 #visits-page .visits-table thead th {
   text-transform: none;
-  letter-spacing: 0;
+  letter-spacing: var(--tracking-normal);
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }

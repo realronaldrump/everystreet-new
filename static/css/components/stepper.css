@@ -34,7 +34,7 @@
   justify-content: center;
   min-width: 2ch;
   color: inherit;
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
   font-variant-numeric: tabular-nums;
 }
@@ -79,7 +79,7 @@
   content: "✓";
   position: absolute;
   color: var(--primary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
 }
 
 @media (width >= 48rem) {

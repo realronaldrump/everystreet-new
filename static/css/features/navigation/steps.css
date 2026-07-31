@@ -45,7 +45,7 @@
 .nav-distance {
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: var(--tracking-caps);
   color: var(--nav-muted);
   font-weight: 600;
 }

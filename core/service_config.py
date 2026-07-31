@@ -9,30 +9,63 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from typing import TYPE_CHECKING
+
+from core.settings_snapshot import (
+    PUBLISHED_SETTING_NAMES,
+    clear_user_settings,
+    publish_user_settings,
+)
 
 if TYPE_CHECKING:
     from db.models import AppSettings
 
 logger = logging.getLogger(__name__)
 
-# Cache for settings to avoid repeated DB calls
+# Settings are cached per process. The cache is short-lived rather than
+# permanent so a change saved by the web process reaches the worker
+# without a restart -- the two processes cannot invalidate each other.
+DEFAULT_CACHE_TTL_SECONDS = 30.0
+
 _settings_cache: AppSettings | None = None
-_seeded_env_keys: set[str] = set()
+_cached_at: float = 0.0
 
 
-async def get_service_config() -> AppSettings:
+def _cache_ttl_seconds() -> float:
+    raw = os.getenv("SETTINGS_CACHE_TTL_SECONDS", "").strip()
+    if not raw:
+        return DEFAULT_CACHE_TTL_SECONDS
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return DEFAULT_CACHE_TTL_SECONDS
+
+
+def _cache_is_fresh() -> bool:
+    if _settings_cache is None:
+        return False
+    return (time.monotonic() - _cached_at) < _cache_ttl_seconds()
+
+
+def _publish(settings: AppSettings) -> None:
+    values = {
+        name: getattr(settings, name, None) for name in PUBLISHED_SETTING_NAMES
+    }
+    publish_user_settings(values)
+
+
+async def get_service_config(*, force_refresh: bool = False) -> AppSettings:
     """
     Get service configuration from the database.
 
-    Returns AppSettings document with user-specific settings.
-
-    This function caches the settings for the lifetime of the process.
-    Use clear_config_cache() to force a reload.
+    Returns the AppSettings document, cached for a short interval so that
+    frequent callers do not hit MongoDB on every read while still picking
+    up changes saved by another process.
     """
-    global _settings_cache
+    global _settings_cache, _cached_at
 
-    if _settings_cache is not None:
+    if not force_refresh and _cache_is_fresh() and _settings_cache is not None:
         return _settings_cache
 
     from db.models import AppSettings
@@ -43,51 +76,34 @@ async def get_service_config() -> AppSettings:
         await settings.insert()
         logger.info("Created default AppSettings document")
 
-    _apply_settings_to_env(settings)
     _settings_cache = settings
+    _cached_at = time.monotonic()
+    _publish(settings)
     return settings
 
 
-def _set_env_value(key: str, value: str | None, *, force: bool = False) -> None:
-    if not value:
-        return
-    existing = os.getenv(key)
-    if force or existing is None or key in _seeded_env_keys:
-        os.environ[key] = value
-        _seeded_env_keys.add(key)
-
-
-def _apply_settings_to_env(settings: AppSettings, *, force: bool = False) -> None:
-    """Seed environment variables from stored settings."""
-    _set_env_value(
-        "NOMINATIM_USER_AGENT",
-        settings.nominatim_user_agent,
-        force=force,
-    )
-    _set_env_value("GEOFABRIK_MIRROR", settings.geofabrik_mirror, force=force)
-    _set_env_value("OSM_EXTRACTS_PATH", settings.osm_extracts_path, force=force)
-    _set_env_value(
-        "COVERAGE_INCLUDE_SERVICE_ROADS",
-        "1" if settings.coverageIncludeServiceRoads else "0",
-        force=force,
-    )
-    _set_env_value(
-        "COVERAGE_TRIP_MODE",
-        str(getattr(settings, "streetCoverageTripMode", "both") or "both"),
-        force=force,
-    )
-
-
-def apply_settings_to_env(settings: AppSettings, *, force: bool = False) -> None:
-    """Public helper to sync settings into env vars for the running process."""
-    _apply_settings_to_env(settings, force=force)
+async def refresh_service_config() -> AppSettings:
+    """Force a reload, e.g. at the start of a background job."""
+    return await get_service_config(force_refresh=True)
 
 
 def clear_config_cache() -> None:
     """
-    Clear the settings cache.
+    Invalidate the settings cache so the next read refetches.
 
-    Called on settings update.
+    Called after a settings update so the writing process sees its own
+    change immediately. Other processes pick it up within the cache TTL.
+
+    The published snapshot is deliberately left in place: synchronous
+    readers cannot trigger a refetch, so keeping the last known values is
+    better than dropping them back to built-in defaults mid-request.
     """
-    global _settings_cache
+    global _settings_cache, _cached_at
     _settings_cache = None
+    _cached_at = 0.0
+
+
+def reset_service_config_state() -> None:
+    """Drop both the cache and the published snapshot (test teardown)."""
+    clear_config_cache()
+    clear_user_settings()

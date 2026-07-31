@@ -86,7 +86,7 @@
   font-family: var(--font-family-display);
   font-weight: var(--font-weight-bold);
   font-size: 1.15rem;
-  letter-spacing: -0.015em;
+  letter-spacing: var(--tracking-snug);
   line-height: 1;
   color: var(--text-primary);
   white-space: nowrap;
@@ -129,7 +129,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: var(--tracking-caps);
   background-color: transparent;
   position: relative;
 }
@@ -221,7 +221,7 @@
   font-weight: var(--font-weight-semibold);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: var(--tracking-caps);
   cursor: default;
 }
 
@@ -377,7 +377,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-caps);
   cursor: pointer;
   transition:
     color 120ms cubic-bezier(0.4, 0, 0.2, 1),
@@ -477,7 +477,7 @@
   /* Tablet and smaller — nav labels stay; just tighten the rhythm */
   .nav-item a {
     padding: 0 var(--space-2);
-    letter-spacing: 0.1em;
+    letter-spacing: var(--tracking-caps);
   }
 
   .nav-item.active a::after {

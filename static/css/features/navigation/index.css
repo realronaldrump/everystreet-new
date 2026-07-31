@@ -264,7 +264,7 @@ html.light-mode body .live-navigation {
 .nav-stat .label {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-caps);
   color: var(--nav-muted);
   font-weight: 600;
 }
@@ -355,7 +355,7 @@ html.light-mode body .live-navigation {
 .nav-label {
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--tracking-caps);
   color: var(--nav-muted);
   font-weight: 600;
 }
@@ -656,7 +656,7 @@ html.light-mode body .live-navigation {
 .preview-stat-label {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-caps);
   color: var(--nav-muted);
   font-weight: var(--font-weight-semibold);
 }
@@ -737,7 +737,7 @@ html.light-mode body .live-navigation {
 .nav-progress-item .progress-label {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--tracking-caps);
   color: var(--nav-muted);
   font-weight: var(--font-weight-semibold);
 }

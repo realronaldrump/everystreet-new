@@ -33,7 +33,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: var(--tracking-caps);
   color: var(--text-tertiary);
 }
 
@@ -48,7 +48,7 @@
   margin-left: auto;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-secondary);
   text-decoration: none;
   border-bottom: 1px solid transparent;
@@ -85,7 +85,7 @@
   font-family: var(--font-family-display);
   font-size: var(--font-size-4xl);
   font-weight: var(--font-weight-bold);
-  letter-spacing: -0.02em;
+  letter-spacing: var(--tracking-tight);
   line-height: 1.02;
   color: var(--text-primary);
 }
@@ -164,7 +164,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-sm);
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
@@ -197,7 +197,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: var(--tracking-caps);
   color: var(--text-tertiary);
 }
 
@@ -212,7 +212,7 @@
   font-size: var(--font-size-4xl);
   font-weight: var(--font-weight-bold);
   line-height: 0.95;
-  letter-spacing: -0.03em;
+  letter-spacing: var(--tracking-tight);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
@@ -301,7 +301,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: var(--tracking-caps);
   color: var(--home-accent);
 }
 
@@ -324,7 +324,7 @@
   font-family: var(--font-family-display);
   font-size: var(--font-size-3xl);
   font-weight: var(--font-weight-bold);
-  letter-spacing: -0.02em;
+  letter-spacing: var(--tracking-tight);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
@@ -411,7 +411,7 @@
   flex: 0 0 auto;
   min-width: 5ch;
   text-align: right;
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
@@ -499,7 +499,7 @@
   font-family: var(--font-family-display);
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
-  letter-spacing: -0.01em;
+  letter-spacing: var(--tracking-snug);
   color: var(--text-primary);
 }
 
@@ -570,7 +570,7 @@
 }
 
 .index-meta .meta-value {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
@@ -579,7 +579,7 @@
 .index-meta .meta-label {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-caps);
   color: var(--text-tertiary);
 }
 

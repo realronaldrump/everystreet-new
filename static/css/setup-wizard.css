@@ -65,7 +65,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-caps);
   color: var(--text-tertiary);
   transition: color 0.3s ease;
 }
@@ -88,7 +88,7 @@
 .setup-eyebrow {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: var(--tracking-caps);
   color: var(--text-tertiary);
 }
 
@@ -527,7 +527,7 @@ details[open] .setup-help-toggle::after {
 .setup-import-meta-label {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-caps);
   color: var(--text-tertiary);
 }
 
@@ -565,7 +565,7 @@ details[open] .setup-help-toggle::after {
   background: var(--surface-2);
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-caps);
   font-weight: var(--font-weight-semibold);
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-color);
@@ -593,7 +593,7 @@ details[open] .setup-help-toggle::after {
 
 .setup-import-activity-log li .activity-time {
   flex-shrink: 0;
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   min-width: 52px;
@@ -703,7 +703,7 @@ details[open] .setup-help-toggle::after {
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-caps);
 }
 
 /* ─── Build Progress ────────────────────────────────────────────── */

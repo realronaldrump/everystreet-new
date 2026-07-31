@@ -26,7 +26,7 @@
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: var(--tracking-caps);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -40,7 +40,7 @@
 .table .data-num,
 .table .numeric {
   text-align: right;
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums;
 }
 

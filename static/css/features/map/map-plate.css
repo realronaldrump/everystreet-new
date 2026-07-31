@@ -88,7 +88,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: var(--tracking-caps);
   cursor: pointer;
   transition:
     color var(--transition-fast),
@@ -164,7 +164,7 @@ button.view-popover-row:focus-visible {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--tracking-caps);
   color: var(--text-tertiary);
 }
 
@@ -247,9 +247,9 @@ button.view-popover-row:focus-visible {
   border-radius: var(--radius-sm);
   background: var(--surface-glass);
   backdrop-filter: blur(10px);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: 0.66rem;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
@@ -282,7 +282,7 @@ button.view-popover-row:focus-visible {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: var(--tracking-caps);
   cursor: pointer;
   z-index: var(--z-dropdown);
   transition:

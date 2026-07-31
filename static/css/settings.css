@@ -292,7 +292,7 @@
   font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-caps);
   padding: var(--space-3);
   border-bottom: 2px solid var(--border-color);
   white-space: nowrap;
@@ -400,7 +400,7 @@
 
 .storage-metric-label {
   font-size: var(--font-size-xs);
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
   color: var(--text-secondary);
 }
@@ -409,7 +409,7 @@
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   overflow-wrap: break-word;
 }
 
@@ -501,7 +501,7 @@
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-caps);
 }
 
 .storage-source-status {
@@ -562,7 +562,7 @@
 }
 
 .storage-source-size {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
@@ -653,7 +653,7 @@
 }
 
 .collection-stat-value {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
@@ -663,7 +663,7 @@
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-caps);
 }
 
 .collection-card-actions {
@@ -1017,7 +1017,7 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--tracking-wide);
 }
 
 /* === Task Status Badge Colors === */
@@ -1379,7 +1379,7 @@
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-caps);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -1512,7 +1512,7 @@
   align-items: center;
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
 }
 
@@ -1590,7 +1590,7 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
 }
 
 .map-services-progress .progress-activity.is-stale {
@@ -2030,7 +2030,7 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-caps);
 }
 
 .trip-import-plan-v {
@@ -2101,7 +2101,7 @@
 .trip-import-device-meta {
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2130,7 +2130,7 @@
   color: rgb(var(--primary-rgb));
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
 
@@ -2163,7 +2163,7 @@
 .trip-import-window-label {
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--tracking-caps);
   font-weight: var(--font-weight-medium);
 }
 
@@ -2200,7 +2200,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-caps);
   color: var(--text-tertiary);
   display: flex;
   align-items: center;
@@ -2384,7 +2384,7 @@
 
 .trip-import-failure-count {
   font-variant-numeric: tabular-nums;
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   color: var(--text-tertiary);
 }
 
@@ -2405,7 +2405,7 @@
 .trip-import-event-level {
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-caps);
   color: var(--text-secondary);
 }
 
@@ -2455,7 +2455,7 @@
 
 .trip-data-health-title {
   font-family: var(--font-family-display);
-  letter-spacing: 0.01em;
+  letter-spacing: var(--tracking-wide);
 }
 
 .trip-data-health-title i {
@@ -2524,7 +2524,7 @@
 
 .trip-data-health-count {
   font-variant-numeric: tabular-nums;
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
   line-height: 1;
   padding: 0.2rem 0.5rem;
@@ -2605,7 +2605,7 @@
 
 .trip-issues-chip-count {
   font-variant-numeric: tabular-nums;
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   border-left: 1px solid var(--border-color);
@@ -2781,7 +2781,7 @@
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-color-light);
   font-size: var(--font-size-xs);
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-caps);
   padding: var(--space-3);
 }
 
@@ -2881,7 +2881,7 @@
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.06em;
+  letter-spacing: var(--tracking-caps);
   line-height: 1;
   text-transform: uppercase;
   white-space: nowrap;
@@ -2908,7 +2908,7 @@
 .trip-issue-mono,
 .trip-issues-mono {
   font-variant-numeric: tabular-nums;
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
 }
 
 .trip-issue-link {
@@ -2933,12 +2933,12 @@
   color: var(--text-secondary);
   white-space: nowrap;
   font-size: var(--font-size-sm);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
 }
 
 .trip-issue-count {
   font-variant-numeric: tabular-nums;
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   color: var(--text-primary);
   font-weight: var(--font-weight-semibold);
 }
@@ -2968,7 +2968,7 @@
 
 .trip-issue-window {
   color: var(--text-tertiary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
 }
 
 .trip-issue-details {
@@ -3056,7 +3056,7 @@
   color: var(--info);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.06em;
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
 
@@ -3074,7 +3074,7 @@
 
 .trip-invalid-date {
   color: var(--text-secondary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   white-space: nowrap;
 }
 
@@ -3220,7 +3220,7 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-caps);
 }
 
 .trip-import-summary-v {
@@ -3300,7 +3300,7 @@
 .control-center-service-ordinal {
   flex: 0 0 auto;
   color: var(--text-tertiary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
   font-variant-numeric: tabular-nums;
 }
@@ -3317,10 +3317,10 @@
   align-items: center;
   gap: var(--space-2);
   color: var(--text-secondary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
 }
 
@@ -3382,10 +3382,10 @@
 
 .control-center-service-detail-row dt {
   color: var(--text-tertiary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-regular);
-  letter-spacing: 0.03em;
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
 }
 
@@ -3458,7 +3458,7 @@
 .control-center-service-empty {
   display: none;
   color: var(--text-tertiary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
 }
 
 .control-center-failures-list {
@@ -3530,9 +3530,9 @@
     padding: var(--space-2) var(--space-3);
     border-bottom: 1px solid var(--border-color-light);
     color: var(--text-tertiary);
-    font-family: var(--font-family-mono);
+    font-family: var(--font-numeric);
     font-size: var(--font-size-xs);
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-caps);
     text-transform: uppercase;
   }
 

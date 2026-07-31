@@ -121,10 +121,10 @@ body[data-route="/map"]
 
 body[data-route="/map"] .loading-overlay.non-blocking .loading-text {
   overflow: hidden;
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-caps);
   line-height: 1.25;
   text-overflow: ellipsis;
   text-transform: uppercase;

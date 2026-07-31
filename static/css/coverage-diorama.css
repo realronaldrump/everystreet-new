@@ -93,10 +93,10 @@
   display: block;
   margin: 0 0 0.2rem;
   color: var(--diorama-brass);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
   font-weight: 500;
-  letter-spacing: 0.16em;
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
 
@@ -106,7 +106,7 @@
   font-family: var(--font-family-display);
   font-size: clamp(1.55rem, 5.8vw, 2.75rem);
   font-weight: 600;
-  letter-spacing: -0.04em;
+  letter-spacing: var(--tracking-tight);
   line-height: 1;
   text-shadow: 0 2px 20px rgb(0 0 0 / 60%);
 }
@@ -218,9 +218,9 @@
   display: block;
   overflow: hidden;
   color: var(--text-tertiary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
-  letter-spacing: 0.06em;
+  letter-spacing: var(--tracking-caps);
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
@@ -301,7 +301,7 @@
   color: var(--text-on-warning);
   background: var(--diorama-brass);
   border-radius: 999px;
-  font: 600 var(--font-size-xs) / 1 var(--font-family-mono);
+  font: 600 var(--font-size-xs) / 1 var(--font-numeric);
 }
 
 .coverage-diorama-plan-hint {
@@ -330,7 +330,7 @@
   margin-top: 0.25rem;
   overflow: hidden;
   color: var(--text-primary);
-  font: 600 var(--font-size-sm) / 1.1 var(--font-family-mono);
+  font: 600 var(--font-size-sm) / 1.1 var(--font-numeric);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -427,7 +427,7 @@
 }
 
 .coverage-diorama-controls span {
-  font: 600 var(--font-size-xs) / 1 var(--font-family-mono);
+  font: 600 var(--font-size-xs) / 1 var(--font-numeric);
 }
 
 .coverage-diorama-state {

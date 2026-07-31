@@ -157,7 +157,7 @@
   font-weight: var(--font-weight-semibold);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-caps);
   margin-bottom: var(--space-3);
 }
 
@@ -165,7 +165,7 @@
   font-weight: var(--font-weight-medium);
   color: var(--primary);
   text-transform: none;
-  letter-spacing: normal;
+  letter-spacing: var(--tracking-normal);
 }
 
 /* === Format Select === */

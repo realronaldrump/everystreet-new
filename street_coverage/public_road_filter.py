@@ -13,6 +13,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from core.settings_snapshot import user_setting
+
 ROAD_FILTER_VERSION = "public-road-filter-v2"
 GRAPH_ROAD_FILTER_VERSION_KEY = "coverage_road_filter_version"
 GRAPH_ROAD_FILTER_SIGNATURE_KEY = "coverage_road_filter_signature"
@@ -191,7 +193,16 @@ def get_include_service_roads(raw: Any | None = None) -> bool:
 
     source: str
     if raw is None:
-        source = os.getenv("COVERAGE_INCLUDE_SERVICE_ROADS", "")
+        # A real environment variable is an operator override; otherwise
+        # use the setting the user last saved.
+        override = os.getenv("COVERAGE_INCLUDE_SERVICE_ROADS", "").strip()
+        if override:
+            source = override
+        else:
+            stored = user_setting("coverageIncludeServiceRoads")
+            if isinstance(stored, bool):
+                return stored
+            source = "" if stored is None else str(stored)
     else:
         source = str(raw)
     value = source.strip().lower()

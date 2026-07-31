@@ -110,7 +110,7 @@
   margin-bottom: 0.35rem;
   text-transform: uppercase;
   font-weight: 700;
-  letter-spacing: 0.5px;
+  letter-spacing: var(--tracking-wide);
 }
 
 .search-result-type.place {

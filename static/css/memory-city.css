@@ -106,9 +106,9 @@
 }
 
 .memory-city-eyebrow {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
-  letter-spacing: 0.28em;
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
 
@@ -159,16 +159,16 @@
 }
 
 .memory-city-figure-label {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
-  letter-spacing: 0.2em;
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
   color: var(--text-tertiary);
 }
 
 .memory-city-figure-value {
   margin: 0;
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
@@ -193,9 +193,9 @@
 
 .memory-city-records-title {
   margin: 0 0 var(--space-1);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
-  letter-spacing: 0.24em;
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
   color: var(--text-tertiary);
 }
@@ -239,9 +239,9 @@
 }
 
 .mc-record-label {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
-  letter-spacing: 0.18em;
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
   color: rgb(var(--primary-rgb) / 90%);
 }
@@ -460,7 +460,7 @@
 
 .mc-search-result-meta {
   color: var(--text-tertiary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
   white-space: nowrap;
 }
@@ -498,9 +498,9 @@
 }
 
 .memory-city-detail-label {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
-  letter-spacing: 0.2em;
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
   color: rgb(var(--primary-rgb) / 90%);
   margin-bottom: var(--space-1);
@@ -536,13 +536,13 @@
   font-size: var(--font-size-xs);
   margin: 0;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-caps);
 }
 
 .memory-city-detail-row dd {
   margin: 0;
   color: var(--text-primary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -691,9 +691,9 @@
   display: flex;
   justify-content: space-between;
   gap: var(--space-3);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-tertiary);
 }
 
@@ -819,7 +819,7 @@
 }
 
 .mc-chapter-numeral {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   color: rgb(var(--primary-rgb) / 95%);
@@ -842,7 +842,7 @@
 }
 
 .mc-chapter-count {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   white-space: nowrap;
@@ -883,9 +883,9 @@
 }
 
 .memory-city-legend-caption {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
-  letter-spacing: 0.12em;
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
   color: var(--text-tertiary);
 }
@@ -1015,9 +1015,9 @@
 .memory-city-state-text {
   margin: 0;
   color: var(--text-secondary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-sm);
-  letter-spacing: 0.12em;
+  letter-spacing: var(--tracking-normal);
 }
 
 .memory-city-state.is-error .memory-city-state-pulse {

@@ -189,7 +189,7 @@
 .detail-chip-label {
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   font-weight: var(--font-weight-medium);
 }
 
@@ -201,7 +201,7 @@
 .detail-chip-mono {
   font-family: var(--font-family-mono);
   font-size: var(--font-size-sm);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-wide);
 }
 
 /* ---- Odometer ---- */
@@ -225,7 +225,7 @@
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
 }
 
 .odometer-unit {
@@ -288,7 +288,7 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   font-weight: var(--font-weight-medium);
 }
 

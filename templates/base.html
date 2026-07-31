@@ -62,7 +62,9 @@ Every Street
           href="{{ url_for('static', path='apple-touch-icon.png') | replace('http://', '//') }}" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Chivo:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    {# Two variable families cover the whole weight range in two files.
+       The previous stack shipped nine static faces across three families. #}
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400..700&family=Source+Serif+4:opsz,wght@8..60,400..700&display=swap"
           rel="stylesheet" />
     <link rel="stylesheet" href="{{ CDN.bootstrap_css }}" crossorigin="anonymous" />
     <link rel="stylesheet" href="{{ CDN.fontawesome }}" crossorigin="anonymous" />

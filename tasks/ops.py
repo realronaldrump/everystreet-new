@@ -8,6 +8,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from core.service_config import refresh_service_config
 from db.models import Job, TaskHistory
 from tasks.arq import get_arq_pool
 from tasks.config import (
@@ -357,6 +358,18 @@ async def run_task_with_history(
             manual_run=manual_run,
             start_time=start_time,
         )
+
+        # Reload user settings before the job runs. The worker cannot be
+        # invalidated by the web process, so a job must not act on values
+        # cached from whenever this worker last happened to read them.
+        try:
+            await refresh_service_config()
+        except Exception:
+            logger.warning(
+                "Could not refresh settings before %s; using cached values",
+                task_id,
+                exc_info=True,
+            )
 
         result_data = await func()
     except asyncio.CancelledError:

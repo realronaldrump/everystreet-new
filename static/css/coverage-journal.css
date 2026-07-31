@@ -40,10 +40,10 @@
 .journal-kicker {
   margin: 0;
   color: var(--text-tertiary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.12em;
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
 
@@ -91,9 +91,9 @@
 .journal-figure-band dt {
   margin-bottom: var(--space-2);
   color: var(--text-tertiary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
-  letter-spacing: 0.06em;
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
 
@@ -101,7 +101,7 @@
   margin: 0;
   overflow: hidden;
   color: var(--text-primary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: clamp(1rem, 3vw, 1.45rem);
   font-weight: var(--font-weight-bold);
   text-overflow: ellipsis;
@@ -115,7 +115,7 @@
   align-items: center;
   justify-content: center;
   color: var(--text-secondary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
 }
 
 .journal-state-mark {
@@ -161,7 +161,7 @@
   font-family: var(--font-family-display);
   font-size: clamp(2rem, 7vw, 4.8rem);
   font-weight: var(--font-weight-bold);
-  letter-spacing: -0.045em;
+  letter-spacing: var(--tracking-tight);
   line-height: 0.96;
 }
 
@@ -234,7 +234,7 @@
   border-radius: 50%;
   color: var(--text-tertiary);
   background: var(--surface-0);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
 }
 
@@ -266,7 +266,7 @@
 
 .journal-milestone-copy time {
   margin-bottom: var(--space-2);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
 }
 
@@ -385,7 +385,7 @@
   padding: var(--space-3);
   border-top: 1px solid var(--journal-line);
   color: var(--text-secondary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
 }
 
@@ -458,7 +458,7 @@
   border-right-width: 0;
   color: var(--text-secondary);
   background: var(--surface-1);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
 }
 
@@ -512,7 +512,7 @@
   border: 1px solid var(--journal-line);
   color: var(--text-secondary);
   background: transparent;
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
 }
 
@@ -557,7 +557,7 @@
 
 .journal-chart-axis {
   fill: var(--text-tertiary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
 }
 
@@ -597,10 +597,10 @@
 .journal-chart-milestone-label,
 .journal-chart-record-mark text {
   fill: var(--journal-ochre);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
 }
 
 .journal-chart-record-mark line {
@@ -636,7 +636,7 @@
 
 .journal-chart-readout-value {
   fill: var(--text-primary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
 }
@@ -725,12 +725,12 @@
 .journal-chart-event time,
 .journal-chart-event small {
   color: var(--text-tertiary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
 }
 
 .journal-chart-event > span {
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
 
@@ -754,7 +754,7 @@
 .journal-cursor p {
   margin: 0;
   color: var(--text-secondary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-sm);
 }
 
@@ -786,7 +786,7 @@
 .journal-record small {
   display: block;
   color: var(--text-tertiary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
 }
 
@@ -830,12 +830,12 @@
 
 .journal-data-table th {
   color: var(--text-tertiary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
 }
 
 .journal-data-table td {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-sm);
 }
 
@@ -858,7 +858,7 @@
 .journal-contribution-date,
 .journal-contribution-metric,
 .journal-ranking-metric {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-sm);
 }
 
@@ -917,7 +917,7 @@
   display: grid;
   place-items: center;
   color: var(--text-tertiary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   border-right: 1px solid var(--journal-line-soft);
 }
 
@@ -935,7 +935,7 @@
 
 .journal-ranking-name small {
   color: var(--text-tertiary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
 }
 
 .journal-ranking-metric {
@@ -991,7 +991,7 @@
 
 .journal-road-class-head span {
   color: var(--text-secondary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
 }
 
@@ -1026,7 +1026,7 @@
 
 .journal-frontier-miles {
   color: var(--journal-coral);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
 }
 
 .journal-frontier-row:hover,
@@ -1082,7 +1082,7 @@
   .journal-ranking-head span {
     padding: var(--space-2) var(--space-3);
     color: var(--text-tertiary);
-    font-family: var(--font-family-mono);
+    font-family: var(--font-numeric);
     font-size: var(--font-size-xs);
   }
 

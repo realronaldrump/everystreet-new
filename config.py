@@ -12,6 +12,23 @@ import os
 from pathlib import Path
 from typing import Any, Final
 
+from core.settings_snapshot import user_setting
+
+
+def _user_configurable(env_var: str, setting_name: str, default: str) -> str:
+    """
+    Resolve a value the user can edit in Settings.
+
+    A real environment variable is operator configuration and wins.
+    Otherwise use whatever the user last saved, falling back to the
+    built-in default when settings have not been loaded yet.
+    """
+    override = os.getenv(env_var, "").strip()
+    if override:
+        return override
+    return str(user_setting(setting_name, default) or default).strip()
+
+
 # --- Bouncie API Endpoints (constants, not credentials) ---
 AUTH_URL: Final[str] = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL: Final[str] = "https://api.bouncie.dev/v1"
@@ -270,7 +287,11 @@ def get_nominatim_reverse_url() -> str:
 
 
 def get_nominatim_user_agent() -> str:
-    return os.getenv(NOMINATIM_USER_AGENT_ENV_VAR, DEFAULT_NOMINATIM_USER_AGENT).strip()
+    return _user_configurable(
+        NOMINATIM_USER_AGENT_ENV_VAR,
+        "nominatim_user_agent",
+        DEFAULT_NOMINATIM_USER_AGENT,
+    )
 
 
 def get_osm_data_path() -> str:
@@ -327,12 +348,20 @@ def resolve_osm_data_path() -> str | None:
 
 def get_geofabrik_mirror() -> str:
     """Get the Geofabrik mirror URL for downloading OSM extracts."""
-    return os.getenv(GEOFABRIK_MIRROR_ENV_VAR, DEFAULT_GEOFABRIK_MIRROR).strip()
+    return _user_configurable(
+        GEOFABRIK_MIRROR_ENV_VAR,
+        "geofabrik_mirror",
+        DEFAULT_GEOFABRIK_MIRROR,
+    )
 
 
 def get_osm_extracts_path() -> str:
     """Get the path to the OSM extracts directory (inside container)."""
-    return os.getenv(OSM_EXTRACTS_PATH_ENV_VAR, DEFAULT_OSM_EXTRACTS_PATH).strip()
+    return _user_configurable(
+        OSM_EXTRACTS_PATH_ENV_VAR,
+        "osm_extracts_path",
+        DEFAULT_OSM_EXTRACTS_PATH,
+    )
 
 
 def require_osm_data_path() -> str:

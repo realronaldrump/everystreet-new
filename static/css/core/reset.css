@@ -12,9 +12,12 @@
   -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
 }
 
+/* The root keeps the user's browser font size. It previously set
+   font-size to a rem-based token, which re-scaled the rem unit itself:
+   every size and spacing token then compounded off a ~15px root and the
+   whole interface rendered a step smaller than it was designed to. */
 html {
   height: 100%;
-  font-size: var(--font-size-md);
   scroll-behavior: smooth;
   background-color: var(--surface-0);
 }
@@ -31,8 +34,6 @@ body {
   color: var(--text-primary);
   font-family: var(--font-family);
   line-height: var(--line-height-normal);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   position: relative;
   z-index: 0;
   transition:

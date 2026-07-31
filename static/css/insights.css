@@ -24,7 +24,7 @@
   font-family: var(--font-family-display);
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
-  letter-spacing: -0.01em;
+  letter-spacing: var(--tracking-snug);
   color: var(--text-primary);
 }
 
@@ -337,7 +337,7 @@
   color: var(--text-tertiary);
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-wide);
 }
 
 .storyrail-delta {
@@ -448,7 +448,7 @@
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
 }
 
 .scene-value {
@@ -514,7 +514,7 @@
 .time-heatmap-scale-label {
   color: var(--text-tertiary);
   font-size: var(--font-size-sm);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
 }
 
 .time-heatmap-scroll {
@@ -558,8 +558,8 @@
 }
 
 .time-heatmap-svg text {
-  font-family: var(--font-family-mono);
-  letter-spacing: 0;
+  font-family: var(--font-numeric);
+  letter-spacing: var(--tracking-normal);
 }
 
 .time-heatmap-empty {
@@ -583,11 +583,11 @@
 .signature-kicker {
   margin: 0;
   color: var(--cat-sky);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0;
+  letter-spacing: var(--tracking-normal);
 }
 
 .signature-copy h3 {
@@ -653,9 +653,9 @@
 .rhythm-summary-grid strong {
   display: block;
   color: var(--text-primary);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-lg);
-  letter-spacing: 0;
+  letter-spacing: var(--tracking-normal);
 }
 
 /* ============================================
@@ -771,7 +771,7 @@
   width: 22px;
   height: 22px;
   border-radius: var(--radius-full);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   flex-shrink: 0;
@@ -851,8 +851,8 @@
   gap: 0.35rem;
   color: var(--text-tertiary);
   font-size: var(--font-size-xs);
-  font-family: var(--font-family-mono);
-  letter-spacing: -0.01em;
+  font-family: var(--font-numeric);
+  letter-spacing: var(--tracking-snug);
 }
 
 .modal-trip-meta i {
@@ -998,7 +998,7 @@
   color: var(--text-tertiary);
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
 }
 
 .places-detail-title {
@@ -1157,7 +1157,7 @@
   margin: 0;
   color: var(--text-tertiary);
   font-size: var(--font-size-xs);
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
 
@@ -1333,7 +1333,7 @@
   color: var(--text-tertiary);
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
 }
 
 .timeline-value {
