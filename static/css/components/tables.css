@@ -36,12 +36,12 @@
   overflow-wrap: anywhere;
 }
 
+/* Tabular figures come from core/typography.css; the table only decides
+   which edge the digits hang from. */
 .table td[data-numeric],
 .table .data-num,
 .table .numeric {
   text-align: right;
-  font-family: var(--font-numeric);
-  font-variant-numeric: tabular-nums;
 }
 
 /* Hover with left border accent */

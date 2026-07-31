@@ -231,7 +231,7 @@
 }
 
 .sim-config-label {
-  font-size: 0.68rem;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
 }
 
@@ -435,7 +435,7 @@
 }
 
 .sim-metric-unit {
-  font-size: 0.62rem;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
@@ -462,7 +462,7 @@
   padding: 2px var(--space-2);
   border-bottom: 1px solid rgb(255 255 255 / 3%);
   font-family: var(--font-family-mono);
-  font-size: 0.68rem;
+  font-size: var(--font-size-xs);
   line-height: 1.6;
 }
 
@@ -500,7 +500,7 @@
   border-radius: 50%;
   background: var(--primary);
   color: var(--text-on-primary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   display: flex;
   align-items: center;

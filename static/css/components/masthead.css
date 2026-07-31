@@ -30,18 +30,21 @@
 .pm-title {
   margin: 0;
   font-family: var(--font-family-display);
-  font-size: clamp(1.9rem, 1.4rem + 2.4vw, 3rem);
+  font-size: var(--font-size-4xl);
   font-weight: var(--font-weight-bold);
   letter-spacing: var(--tracking-tight);
-  line-height: 1.05;
+  line-height: var(--line-height-tight);
   color: var(--text-primary);
+  text-wrap: balance;
 }
 
 .pm-sub {
   margin: var(--space-3) 0 0;
-  max-width: 56ch;
-  font-size: var(--font-size-md);
+  max-width: var(--measure-tight);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-relaxed);
   color: var(--text-secondary);
+  text-wrap: pretty;
 }
 
 .pm-sub strong {
@@ -90,23 +93,23 @@
   gap: var(--space-2);
 }
 
+/* Family and tabular figures come from core/typography.css. */
 .figure-value {
-  font-family: var(--font-numeric);
-  font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.4rem);
+  font-size: var(--font-size-3xl);
   font-weight: var(--font-weight-bold);
   line-height: 1;
   letter-spacing: var(--tracking-tight);
   color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
 }
 
 .figure-value-sm {
-  font-size: clamp(1.1rem, 1rem + 0.8vw, 1.5rem);
+  font-size: var(--font-size-2xl);
 }
 
+/* The unit annotates the figure, so it stays in the text face — a sans
+   caption against a serif numeral reads as a legend, not a continuation. */
 .figure-unit {
-  font-family: var(--font-family-display);
+  font-family: var(--font-family);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--text-tertiary);

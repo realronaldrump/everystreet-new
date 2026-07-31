@@ -6,7 +6,7 @@ from typing import Any
 
 from shapely.geometry import mapping
 
-from db.models import Place
+from db.models import Place, RecurringRoute, Trip
 from db.schemas import DestinationBloomPlaceResponse, PlaceResponse
 from visits.services.destination_clusters import (
     build_destination_cluster_boundary,
@@ -148,8 +148,6 @@ class PlaceService:
             msg = "At least one transactionId is required"
             raise ValueError(msg)
 
-        from db.models import Trip
-
         seed_trips = await Trip.find(
             {"transactionId": {"$in": deduped_ids}},
         ).to_list()
@@ -201,26 +199,95 @@ class PlaceService:
         )
 
     @staticmethod
-    async def delete_place(place_id: str) -> dict[str, str]:
+    async def _clear_place_references(place_id: str) -> tuple[int, int]:
         """
-        Delete a custom place.
+        Drop references to a place that is going away.
+
+        Trips carry the place id and its name; recurring routes carry it
+        at either end, and the route signature is derived from those ids.
+        Left behind, they point at a place that no longer exists.
+        """
+        trip_result = await Trip.get_pymongo_collection().update_many(
+            {"destinationPlaceId": place_id},
+            {"$set": {"destinationPlaceId": None, "destinationPlaceName": None}},
+        )
+        route_result = await RecurringRoute.get_pymongo_collection().update_many(
+            {"$or": [{"start_place_id": place_id}, {"end_place_id": place_id}]},
+            [
+                {
+                    "$set": {
+                        "start_place_id": {
+                            "$cond": [
+                                {"$eq": ["$start_place_id", place_id]},
+                                None,
+                                "$start_place_id",
+                            ],
+                        },
+                        "end_place_id": {
+                            "$cond": [
+                                {"$eq": ["$end_place_id", place_id]},
+                                None,
+                                "$end_place_id",
+                            ],
+                        },
+                    },
+                },
+            ],
+        )
+        return (
+            int(getattr(trip_result, "modified_count", 0) or 0),
+            int(getattr(route_result, "modified_count", 0) or 0),
+        )
+
+    @staticmethod
+    async def delete_place(place_id: str) -> dict[str, Any]:
+        """
+        Delete a custom place and everything that pointed at it.
 
         Args:
             place_id: The place ID to delete
 
         Returns:
-            Success message
+            Success message with the number of cleared references
 
         Raises:
             ValueError: If place_id is invalid
         """
         place = await Place.get(place_id)
-        if place:
-            await place.delete()
-            await PlacePreviewService.delete_preview(place_id)
+        if not place:
+            return {
+                "status": "success",
+                "message": "Place deleted",
+                "trips_updated": 0,
+                "routes_updated": 0,
+            }
+
+        trips_updated, routes_updated = await PlaceService._clear_place_references(
+            place_id,
+        )
+        await place.delete()
+        await PlacePreviewService.delete_preview(place_id)
+
+        route_refresh = None
+        if routes_updated:
+            # Route signatures include the place ids, so the affected
+            # templates need rebuilding from the remaining trip data.
+            from trips.services.inactive_trip_service import InactiveTripService
+
+            try:
+                route_refresh = await InactiveTripService.queue_recurring_routes_refresh()
+            except Exception:
+                logger.exception(
+                    "Failed to queue recurring route rebuild after deleting place %s",
+                    place_id,
+                )
+
         return {
             "status": "success",
             "message": "Place deleted",
+            "trips_updated": trips_updated,
+            "routes_updated": routes_updated,
+            "route_refresh": route_refresh,
         }
 
     @staticmethod

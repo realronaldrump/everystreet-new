@@ -20,10 +20,9 @@
   background: var(--surface-glass);
   backdrop-filter: blur(10px);
   color: var(--text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-normal);
   cursor: pointer;
   transition:
     color var(--transition-fast),
@@ -32,7 +31,7 @@
 }
 
 .replay-btn i {
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
 }
 
 .replay-btn-label {

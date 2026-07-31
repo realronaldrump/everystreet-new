@@ -52,7 +52,7 @@
 .atlas-title {
   margin: 0;
   font-family: var(--font-family-display);
-  font-size: clamp(1.35rem, 1.2rem + 0.7vw, 1.7rem);
+  font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-bold);
   letter-spacing: var(--tracking-tight);
   line-height: 1.1;
@@ -115,7 +115,7 @@
 
 .atlas-figure-value {
   font-family: var(--font-family-display);
-  font-size: clamp(1.05rem, 1rem + 0.4vw, 1.3rem);
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   line-height: 1.1;
   letter-spacing: var(--tracking-snug);
@@ -126,7 +126,7 @@
 }
 
 .atlas-figure-label {
-  font-size: 0.66rem;
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: var(--tracking-caps);
@@ -148,10 +148,9 @@
   padding: var(--space-3) 0 calc(var(--space-3) - 2px);
   border: 0;
   background: transparent;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-normal);
   color: var(--text-tertiary);
   cursor: pointer;
   transition: color var(--transition-fast);
@@ -249,10 +248,9 @@
   padding: var(--space-1) var(--space-3);
   border: 0;
   background: transparent;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-normal);
   color: var(--text-tertiary);
   cursor: pointer;
   transition:
@@ -460,7 +458,7 @@
 }
 
 .journal-detail dt {
-  font-size: 0.66rem;
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: var(--tracking-caps);
@@ -491,7 +489,7 @@
 
 .coverage-progress-value {
   font-family: var(--font-family-display);
-  font-size: clamp(1.4rem, 1.2rem + 0.8vw, 1.9rem);
+  font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-bold);
   letter-spacing: var(--tracking-tight);
   color: var(--text-primary);
@@ -763,7 +761,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: 0.66rem;
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: var(--tracking-caps);

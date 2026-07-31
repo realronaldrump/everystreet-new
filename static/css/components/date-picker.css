@@ -60,7 +60,7 @@
   flex-shrink: 0;
   margin-left: var(--space-1);
   color: var(--text-tertiary);
-  font-size: 0.55rem;
+  font-size: var(--font-size-xs);
   transition: transform var(--transition-fast);
 }
 
@@ -350,7 +350,7 @@ body.date-picker-scroll-locked {
 
 .dp-custom-chevron {
   color: var(--text-tertiary);
-  font-size: 0.625rem;
+  font-size: var(--font-size-xs);
   transition: transform var(--transition-fast);
 }
 
@@ -839,7 +839,7 @@ body .flatpickr-calendar .flatpickr-weekdays {
 body .flatpickr-calendar span.flatpickr-weekday {
   color: var(--text-tertiary);
   font-family: var(--font-numeric);
-  font-size: 0.68rem;
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
@@ -1066,7 +1066,7 @@ body .dp-calendar-host .flatpickr-weekdays {
 .dp-month-caret {
   flex-shrink: 0;
   color: var(--text-tertiary);
-  font-size: 0.625rem;
+  font-size: var(--font-size-xs);
   transition: transform var(--transition-fast);
 }
 

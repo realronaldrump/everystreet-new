@@ -85,7 +85,7 @@
 .brand-monogram {
   font-family: var(--font-family-display);
   font-weight: var(--font-weight-bold);
-  font-size: 1.15rem;
+  font-size: var(--font-size-lg);
   letter-spacing: var(--tracking-snug);
   line-height: 1;
   color: var(--text-primary);
@@ -126,10 +126,9 @@
   color: var(--text-secondary);
   text-decoration: none;
   transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-normal);
   background-color: transparent;
   position: relative;
 }
@@ -152,7 +151,7 @@
 /* Editorial nav is type-led: the "More" caret is the only glyph */
 .nav-item .nav-caret {
   margin-left: var(--space-2);
-  font-size: 0.55rem;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }

@@ -51,7 +51,7 @@
 }
 
 .live-trip-hud-label {
-  font-size: 0.66rem;
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: var(--tracking-caps);

@@ -331,9 +331,8 @@
   background: transparent;
   color: var(--color-driven);
   font-family: var(--font-numeric);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
   letter-spacing: var(--tracking-normal);
   border: 1px solid rgb(var(--primary-rgb) / 45%);
 }
@@ -807,10 +806,9 @@
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--text-tertiary);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-normal);
   cursor: pointer;
   transition: var(--transition-fast);
 }
@@ -1639,8 +1637,7 @@
   color: var(--danger);
   font-size: var(--font-size-sm);
   font-weight: 600;
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
+  letter-spacing: var(--tracking-normal);
   cursor: pointer;
   transition: var(--transition-fast);
   font-family: inherit;

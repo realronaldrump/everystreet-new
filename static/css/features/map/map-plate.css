@@ -39,7 +39,7 @@
 .map-search-icon {
   position: absolute;
   left: var(--space-3);
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   pointer-events: none;
 }
@@ -85,10 +85,9 @@
   background: var(--surface-glass);
   backdrop-filter: blur(10px);
   color: var(--text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-normal);
   cursor: pointer;
   transition:
     color var(--transition-fast),
@@ -96,7 +95,7 @@
 }
 
 .map-view-toggle i {
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
 }
 
 .map-view-toggle span {
@@ -224,7 +223,7 @@ button.view-popover-row:focus-visible {
 }
 
 .view-popover-action i {
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   color: inherit;
 }
 
@@ -248,7 +247,7 @@ button.view-popover-row:focus-visible {
   background: var(--surface-glass);
   backdrop-filter: blur(10px);
   font-family: var(--font-numeric);
-  font-size: 0.66rem;
+  font-size: var(--font-size-xs);
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
   color: var(--text-tertiary);
@@ -301,7 +300,7 @@ button.view-popover-row:focus-visible {
 }
 
 .atlas-rail-reopen i {
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
 }
 
 /* When the rail is open the reopen tab is out of the flow entirely */

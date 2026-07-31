@@ -376,7 +376,7 @@ html.light-mode body .alert-info {
 .pipeline-progress-label {
   display: flex;
   justify-content: space-between;
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
 }
 
@@ -413,7 +413,7 @@ html.light-mode body .alert-info {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   transition: all 0.3s ease;
   flex-shrink: 0;
   z-index: 1;
@@ -488,12 +488,12 @@ html.light-mode body .alert-info {
 
 .pipeline-stage-label {
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   color: var(--text-primary);
 }
 
 .pipeline-stage-time {
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -508,7 +508,7 @@ html.light-mode body .alert-info {
 }
 
 .pipeline-stage-description {
-  font-size: 0.775rem;
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
   margin-top: 0.1rem;
 }
@@ -534,14 +534,14 @@ html.light-mode body .alert-info {
   padding: 0.15rem 0.5rem;
   background: rgb(var(--border-rgb) / 10%);
   border-radius: 10px;
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
   animation: metricFadeIn 0.3s ease;
 }
 
 .pipeline-metric i {
-  font-size: 0.6rem;
+  font-size: var(--font-size-xs);
   opacity: 0.7;
 }
 
@@ -560,7 +560,7 @@ html.light-mode body .alert-info {
 /* Live message */
 .pipeline-message {
   text-align: center;
-  font-size: 0.8rem;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
   margin-top: 0.5rem;
   min-height: 1.25rem;
@@ -631,7 +631,7 @@ html.light-mode body .alert-info {
   border-radius: var(--radius-full);
   background: var(--danger);
   color: var(--text-on-primary);
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   line-height: 16px;
   text-align: center;
@@ -770,7 +770,7 @@ html.light-mode body .alert-info {
 }
 
 .notif-history-time {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   display: block;
 }
@@ -812,7 +812,7 @@ html.light-mode body .alert-info {
 }
 
 .notif-empty-state i {
-  font-size: 1.5rem;
+  font-size: var(--font-size-2xl);
   opacity: 0.4;
 }
 

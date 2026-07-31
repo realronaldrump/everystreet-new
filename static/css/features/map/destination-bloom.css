@@ -23,7 +23,7 @@
   background: rgb(13 12 11 / 96%);
   box-shadow: 0 20px 40px rgb(0 0 0 / 24%);
   color: rgb(247 235 212);
-  font-size: 0.8125rem;
+  font-size: var(--font-size-sm);
   line-height: 1.35;
   pointer-events: none;
   opacity: 0;
@@ -58,7 +58,7 @@
   background: rgb(255 176 88 / 18%);
   color: rgb(255 233 191);
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   padding: 0.35rem 0.7rem;
   transition:

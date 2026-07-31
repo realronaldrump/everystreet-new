@@ -57,9 +57,7 @@
   background: var(--surface-1);
   border-color: var(--border-color);
   color: var(--text-tertiary);
-  font-family: var(--font-numeric);
   font-size: var(--font-size-sm);
-  font-variant-numeric: tabular-nums;
 }
 
 /* iOS Safari auto-zooms when a focused field's font-size is below 16px.
