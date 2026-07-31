@@ -263,14 +263,17 @@ const IMPORT_ERROR_TYPES = {
   fetch: {
     label: "Fetch errors",
     counter: "fetch_errors",
+    action: "failed windows",
   },
   validation: {
     label: "Failed validation",
     counter: "validation_failed",
+    action: "invalid trips",
   },
   processing: {
     label: "Processing errors",
     counter: "process_errors",
+    action: "processing failures",
   },
 };
 
@@ -326,13 +329,16 @@ function renderImportErrorDetails(container, titleEl, job, errorType) {
 
   const counters = jobToCounters(job);
   const count = Number(counters[config.counter]) || 0;
-  const events = Array.isArray(job?.metadata?.events)
-    ? job.metadata.events.filter(
-        (event) =>
-          String(event?.level || "").toLowerCase() === "error" &&
-          importErrorTypeForEvent(event) === errorType
-      )
-    : [];
+  const recordedEvents = Array.isArray(job?.metadata?.error_details)
+    ? job.metadata.error_details
+    : Array.isArray(job?.metadata?.events)
+      ? job.metadata.events
+      : [];
+  const events = recordedEvents.filter(
+    (event) =>
+      String(event?.level || "").toLowerCase() === "error" &&
+      importErrorTypeForEvent(event) === errorType
+  );
   const failureReasons =
     errorType === "fetch"
       ? Object.entries(job?.metadata?.failure_reasons || {})
@@ -407,7 +413,7 @@ function renderImportErrorDetails(container, titleEl, job, errorType) {
     events.length > 0
       ? `<div class="trip-import-error-details-intro">Showing the recorded details from this import.</div>`
       : `<div class="trip-import-error-details-empty">No individual event details were retained for this category.</div>`;
-  const reasons = reasonEntries
+  const reasons = reasonEntries && events.length === 0
     ? `
       <div class="trip-import-error-reasons">
         <div class="trip-import-error-reasons-title">Recorded reason summary</div>
@@ -557,6 +563,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   let isConfigBlocked = false;
   let openErrorType = null;
   let summaryJob = null;
+  let errorDetailsRequestToken = 0;
 
   const getSelectedImeis = () =>
     allDevices
@@ -799,6 +806,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   };
 
   const closeErrorDetails = () => {
+    errorDetailsRequestToken += 1;
     openErrorType = null;
     errorDetails?.classList.add("d-none");
     summaryErrorButtons.forEach((button) => {
@@ -815,10 +823,17 @@ export function initTripHistoryImportWizard({ signal } = {}) {
       const count = config ? Number(counters[config.counter]) || 0 : 0;
       button.disabled = count < 1;
       button.setAttribute("aria-label", `${config?.label || "Import errors"}: ${count}`);
+      const actionEl = button.querySelector(".trip-import-summary-item-action");
+      if (actionEl) {
+        actionEl.textContent =
+          count > 0 && config
+            ? `View ${count} ${config.action}`
+            : "None recorded";
+      }
     });
   };
 
-  const openErrorDetailsFor = (errorType, job) => {
+  const openErrorDetailsFor = async (errorType, job) => {
     if (!errorDetails || !errorDetailsTitle || !errorDetailsBody) {
       return;
     }
@@ -827,6 +842,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
       return;
     }
     openErrorType = errorType;
+    const requestToken = ++errorDetailsRequestToken;
     renderImportErrorDetails(errorDetailsBody, errorDetailsTitle, job, errorType);
     errorDetails.classList.remove("d-none");
     summaryErrorButtons.forEach((button) => {
@@ -842,6 +858,68 @@ export function initTripHistoryImportWizard({ signal } = {}) {
       );
     });
     errorDetails.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+    if (!job?.job_id) {
+      return;
+    }
+
+    errorDetailsBody.innerHTML =
+      '<div class="trip-import-error-details-intro">Loading detailed error records…</div>';
+
+    try {
+      const response = await apiClient.get(
+        CONFIG.API.tripSyncHistoryImportErrors(job.job_id),
+        { signal }
+      );
+      const persistedEvents = Array.isArray(response?.errors) ? response.errors : [];
+      if (
+        requestToken !== errorDetailsRequestToken ||
+        openErrorType !== errorType ||
+        persistedEvents.length === 0
+      ) {
+        if (
+          requestToken === errorDetailsRequestToken &&
+          openErrorType === errorType &&
+          persistedEvents.length === 0
+        ) {
+          renderImportErrorDetails(errorDetailsBody, errorDetailsTitle, job, errorType);
+        }
+        return;
+      }
+
+      const existingEvents = Array.isArray(job?.metadata?.error_details)
+        ? job.metadata.error_details
+        : Array.isArray(job?.metadata?.events)
+          ? job.metadata.events.filter(
+              (event) => String(event?.level || "").toLowerCase() === "error"
+            )
+          : [];
+      const preservedEvents = existingEvents.filter(
+        (event) => importErrorTypeForEvent(event) !== errorType
+      );
+      const enrichedJob = {
+        ...job,
+        metadata: {
+          ...(job.metadata || {}),
+          error_details: [...preservedEvents, ...persistedEvents],
+        },
+      };
+      summaryJob = enrichedJob;
+      renderImportErrorDetails(
+        errorDetailsBody,
+        errorDetailsTitle,
+        enrichedJob,
+        errorType
+      );
+    } catch {
+      // The job metadata remains available when the diagnostics endpoint is unavailable.
+      if (
+        requestToken === errorDetailsRequestToken &&
+        openErrorType === errorType
+      ) {
+        renderImportErrorDetails(errorDetailsBody, errorDetailsTitle, job, errorType);
+      }
+    }
   };
 
   const renderSummary = (job) => {

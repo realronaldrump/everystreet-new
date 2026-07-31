@@ -21,6 +21,7 @@ from trips.services.trip_history_import_service import (
     build_import_plan,
     resolve_import_start_dt_from_db,
 )
+from trips.services.trip_ingest_issue_service import TripIngestIssueService
 from trips.services.trip_sync_service import TripSyncService
 
 logger = logging.getLogger(__name__)
@@ -129,6 +130,28 @@ async def get_trip_history_import_status(progress_job_id: PydanticObjectId):
             detail="History import job not found",
         )
     return _job_payload(job)
+
+
+@router.get(
+    "/api/actions/trips/sync/history_import/{progress_job_id}/errors",
+    response_model=dict,
+)
+@api_route(logger)
+async def get_trip_history_import_errors(progress_job_id: PydanticObjectId):
+    """Fetch detailed ingest errors recorded during a history import."""
+    job = await Job.get(progress_job_id)
+    if not job or job.job_type != "trip_history_import":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="History import job not found",
+        )
+
+    end_at = job.completed_at or job.updated_at or datetime.now(UTC)
+    errors = await TripIngestIssueService.list_history_import_error_events(
+        start_at=job.created_at,
+        end_at=end_at,
+    )
+    return {"job_id": str(job.id), "errors": errors}
 
 
 @router.get(

@@ -99,6 +99,8 @@ export const CONFIG = {
       `/api/actions/trips/sync/history_import/${jobId}`,
     tripSyncHistoryImportSse: (jobId) =>
       `/api/actions/trips/sync/history_import/${jobId}/sse`,
+    tripSyncHistoryImportErrors: (jobId) =>
+      `/api/actions/trips/sync/history_import/${jobId}/errors`,
     tripSyncHistoryImportCancel: (jobId) =>
       `/api/actions/trips/sync/history_import/${jobId}`,
 

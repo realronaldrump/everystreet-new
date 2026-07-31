@@ -16,6 +16,8 @@ from typing import Any
 
 from beanie import PydanticObjectId
 
+from core.date_utils import ensure_utc
+from core.serialization import serialize_datetime
 from db.models import TripIngestIssue
 
 logger = logging.getLogger(__name__)
@@ -208,6 +210,70 @@ class TripIngestIssueService:
             "open_counts": type_counts,
             "open_filtered_count": open_filtered,
         }
+
+    @staticmethod
+    async def list_history_import_error_events(
+        *,
+        start_at: datetime | None,
+        end_at: datetime | None,
+        limit: int = 240,
+    ) -> list[dict[str, Any]]:
+        """Return detailed error events recorded during one history import."""
+        safe_limit = max(1, min(500, int(limit or 240)))
+        start = ensure_utc(start_at) if start_at else None
+        end = ensure_utc(end_at) if end_at else None
+
+        query: dict[str, Any] = {
+            "source": "bouncie",
+            "issue_type": {
+                "$in": ["fetch_error", "validation_failed", "process_error"],
+            },
+        }
+        if start or end:
+            date_filters: list[dict[str, Any]] = []
+            for field_name in ("created_at", "last_seen_at"):
+                bounds: dict[str, Any] = {}
+                if start:
+                    bounds["$gte"] = start
+                if end:
+                    bounds["$lte"] = end
+                date_filters.append({field_name: bounds})
+            query["$or"] = date_filters
+
+        issues = (
+            await TripIngestIssue.find(query)
+            .sort("-last_seen_at")
+            .limit(safe_limit)
+            .to_list()
+        )
+
+        type_map = {
+            "fetch_error": "fetch",
+            "validation_failed": "validation",
+            "process_error": "processing",
+        }
+        events: list[dict[str, Any]] = []
+        for issue in issues:
+            issue_type = str(issue.issue_type or "").strip()
+            details = dict(issue.details or {})
+            details["error_type"] = type_map.get(issue_type, "fetch")
+            details.setdefault("transactionId", issue.transactionId)
+            details.setdefault("imei", issue.imei)
+            if details.get("slice_start") is not None:
+                details["start_iso"] = serialize_datetime(details["slice_start"])
+            if details.get("slice_end") is not None:
+                details["end_iso"] = serialize_datetime(details["slice_end"])
+            if details.get("last_error") and not details.get("error"):
+                details["error"] = details["last_error"]
+            events.append(
+                {
+                    "ts_iso": serialize_datetime(issue.last_seen_at),
+                    "level": "error",
+                    "message": issue.message or "Recorded import error",
+                    "data": details,
+                },
+            )
+        return events
 
     @staticmethod
     async def resolve_issue(issue_id: str) -> bool:

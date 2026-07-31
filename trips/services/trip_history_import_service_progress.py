@@ -117,6 +117,7 @@ class ImportProgressContext:
     counters: dict[str, int]
     per_device: dict[str, dict[str, int]]
     events: list[dict[str, Any]] = field(default_factory=list)
+    error_details: list[dict[str, Any]] = field(default_factory=list)
     failure_reasons: dict[str, int] = field(default_factory=dict)
     write_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     cancel_state: dict[str, Any] = field(
@@ -133,6 +134,11 @@ class ImportProgressContext:
         data: dict[str, Any] | None = None,
     ) -> None:
         _add_progress_event(self.events, level, message, data)
+        if str(level or "").lower() == "error":
+            event = self.events[-1]
+            self.error_details.append(dict(event))
+            if len(self.error_details) > 240:
+                del self.error_details[:-240]
 
     async def write_progress(
         self,
@@ -186,6 +192,7 @@ class ImportProgressContext:
                 "counters": dict(self.counters),
                 "per_device": self.per_device,
                 "events": _trim_events(list(self.events)),
+                "error_details": list(self.error_details),
                 "failure_reasons": dict(self.failure_reasons),
             }
             await self.handle.update(
