@@ -166,7 +166,7 @@ audit):
 - **Keep**: Layout, mobile toggle/bottom-sheet, control panel, widget base,
   forms, area donut widget, generate button multi-state (now actually used!),
   algo explainer, simulation, saved routes, find tiles, status messages,
-  route info, solver pipeline → **repurpose compact styles** for 
+  route info, solver pipeline → **repurpose compact styles** for
   `#route-progress-inline`, error section, results hero + grid, layer
   controls, map/scanner/HUD/legend, responsive, a11y, print.
 - **Add**: `#route-progress-inline` compact styles; section-numbering header
