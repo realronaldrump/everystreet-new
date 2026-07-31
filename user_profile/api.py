@@ -8,7 +8,6 @@ other user- specific settings.
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -16,7 +15,7 @@ from pydantic import BaseModel
 
 from core.api import api_route
 from core.http.session import get_session
-from db.models import Vehicle
+from fleet.registry import FleetRegistry, normalize_bouncie_vehicle
 from setup.services.bouncie_credentials import (
     get_bouncie_credentials,
     update_bouncie_credentials,
@@ -305,7 +304,6 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
         raise HTTPException(status_code=400, detail="IMEI is required.")
 
     custom_name = (payload.custom_name or "").strip() or None
-    now = datetime.now(UTC)
 
     credentials = await get_bouncie_credentials()
     if not credentials.get("authorization_code"):
@@ -372,64 +370,21 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
             imei,
         )
 
-    model_data = vehicle_payload.get("model")
-    if isinstance(model_data, dict):
-        model_name = model_data.get("name")
-        make = vehicle_payload.get("make") or model_data.get("make")
-        year = vehicle_payload.get("year") or model_data.get("year")
-    else:
-        model_name = model_data
-        make = vehicle_payload.get("make")
-        year = vehicle_payload.get("year")
+    created = await FleetRegistry.get_device(imei) is None
 
-    derived_name = (
-        vehicle_payload.get("nickName")
-        or f"{year or ''} {make or ''} {model_name or ''}".strip()
-        or f"Vehicle {imei}"
-    )
-    display_name = custom_name or derived_name
-
-    vehicle = await Vehicle.find_one(Vehicle.imei == imei)
-    if vehicle:
-        if vehicle_found:
-            vehicle.vin = vehicle_payload.get("vin")
-            vehicle.make = make
-            vehicle.model = model_name
-            vehicle.year = year
-            vehicle.bouncie_nickname = vehicle_payload.get("nickName")
-            vehicle.standard_engine = vehicle_payload.get("standardEngine")
-            vehicle.last_synced_at = now
-            vehicle.bouncie_data = vehicle_payload
-        if custom_name or not (vehicle.custom_name or "").strip():
-            vehicle.custom_name = display_name
-        vehicle.is_active = True
-        vehicle.updated_at = now
-        await vehicle.save()
-        created = False
+    metadata = normalize_bouncie_vehicle({**vehicle_payload, "imei": imei})
+    if vehicle_found and metadata is not None:
+        # The user asked for this device explicitly, so activate it.
+        vehicle = await FleetRegistry.apply_bouncie_metadata(
+            metadata,
+            custom_name=custom_name,
+            activate=True,
+        )
     else:
-        vehicle_payload_for_create: dict[str, Any] = {
-            "imei": imei,
-            "custom_name": display_name,
-            "is_active": True,
-            "created_at": now,
-            "updated_at": now,
-        }
-        if vehicle_found:
-            vehicle_payload_for_create.update(
-                {
-                    "vin": vehicle_payload.get("vin"),
-                    "make": make,
-                    "model": model_name,
-                    "year": year,
-                    "bouncie_nickname": vehicle_payload.get("nickName"),
-                    "standard_engine": vehicle_payload.get("standardEngine"),
-                    "last_synced_at": now,
-                    "bouncie_data": vehicle_payload,
-                },
-            )
-        vehicle = Vehicle(**vehicle_payload_for_create)
-        await vehicle.insert()
-        created = True
+        vehicle = await FleetRegistry.register_device(
+            imei,
+            custom_name=custom_name or f"Vehicle {imei}",
+        )
 
     trip_sync_job_id: str | None = None
     trip_sync_note: str | None = None

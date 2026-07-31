@@ -1905,8 +1905,8 @@ export default async function initMemoryCityPage(ctx = {}) {
           const styles = getComputedStyle(document.documentElement);
           const token = (name, fallback) =>
             styles.getPropertyValue(name).trim() || fallback;
-          const displayFont = token("--font-family-display", "sans-serif");
-          const monoFont = token("--font-family-mono", "monospace");
+          const displayFont = token("--font-family-display", "Georgia, serif");
+          const textFont = token("--font-family", "system-ui, sans-serif");
 
           const footer = clamp(Math.round(img.width * 0.055), 96, 220);
           const pad = Math.round(footer * 0.34);
@@ -1953,11 +1953,11 @@ export default async function initMemoryCityPage(ctx = {}) {
             .filter(Boolean)
             .join(" · ");
           ctx2d.fillStyle = token("--text-secondary", "#aaa");
-          ctx2d.font = `500 ${metaSize}px ${monoFont}`;
+          ctx2d.font = `500 ${metaSize}px ${textFont}`;
           ctx2d.fillText(metaLine, pad, img.height + footer - pad, canvas.width * 0.62);
 
           ctx2d.fillStyle = token("--text-tertiary", "#888");
-          ctx2d.font = `600 ${metaSize}px ${monoFont}`;
+          ctx2d.font = `600 ${metaSize}px ${textFont}`;
           ctx2d.textAlign = "right";
           ctx2d.fillText(
             "EVERY STREET — MEMORY CITY",

@@ -121,7 +121,9 @@ body[data-route="/map"]
 
 body[data-route="/map"] .loading-overlay.non-blocking .loading-text {
   overflow: hidden;
-  font-family: var(--font-numeric);
+
+  /* The counter ticks in place, so the digits must not reflow. */
+  font-variant-numeric: tabular-nums;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   letter-spacing: var(--tracking-normal);

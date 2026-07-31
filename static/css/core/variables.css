@@ -128,9 +128,9 @@
      measured use --font-numeric with tabular figures rather than a
      code face. */
   --font-family: "Source Sans 3", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-family-display: "Source Serif 4", ui-serif, Georgia, "Times New Roman", serif;
+  --font-family-display: "Source Serif 4", ui-serif, georgia, "Times New Roman", serif;
   --font-family-mono:
-    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    ui-monospace, sfmono-regular, "SF Mono", menlo, consolas, "Liberation Mono", monospace;
   --font-numeric: var(--font-family);
   --font-numeric-display: var(--font-family-display);
 

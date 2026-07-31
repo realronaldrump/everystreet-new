@@ -225,7 +225,7 @@
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  font-family: var(--font-numeric);
+  font-family: var(--font-numeric-display);
 }
 
 .odometer-unit {

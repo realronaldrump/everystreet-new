@@ -465,7 +465,7 @@
 .area-pct-large {
   font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-bold);
-  font-family: var(--font-numeric);
+  font-family: var(--font-numeric-display);
   color: var(--text-primary);
   display: block;
   line-height: 1;
@@ -898,7 +898,7 @@
 .progress-ring-pct {
   font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-bold);
-  font-family: var(--font-numeric);
+  font-family: var(--font-numeric-display);
   line-height: 1;
   color: var(--text-primary);
   transition: color 0.4s ease;

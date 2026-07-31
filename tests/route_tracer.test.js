@@ -58,5 +58,7 @@ test("map loading status is anchored above map furniture and the mobile sheet", 
   );
   assert.match(loadingStyles, /bottom:\s*calc\(var\(--space-3\) \+ 30px\)/);
   assert.match(loadingStyles, /var\(--map-sheet-visible-height, 96px\)/);
-  assert.match(loadingStyles, /font-family:\s*var\(--font-family-mono\)/);
+
+  // The status counter updates in place, so its digits must not reflow.
+  assert.match(loadingStyles, /font-variant-numeric:\s*tabular-nums/);
 });

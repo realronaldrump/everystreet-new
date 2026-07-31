@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
 from typing import Any
 
-from db.models import Vehicle
+from fleet.registry import FleetRegistry, normalize_bouncie_vehicle
 from setup.services.bouncie_api import (
     BouncieApiError,
     BouncieRateLimitError,
@@ -77,80 +76,28 @@ async def sync_bouncie_vehicles(
     found_imeis: list[str] = []
 
     for v in vehicles_data:
-        imei = v.get("imei")
-        if not imei:
+        metadata = normalize_bouncie_vehicle(v)
+        if metadata is None:
             continue
 
-        found_imeis.append(imei)
+        found_imeis.append(metadata.imei)
+        vehicle = await FleetRegistry.apply_bouncie_metadata(metadata)
 
-        model_data = v.get("model")
-        if isinstance(model_data, dict):
-            model_name = model_data.get("name")
-            make = v.get("make") or model_data.get("make")
-            year = v.get("year") or model_data.get("year")
-        else:
-            model_name = model_data
-            make = v.get("make")
-            year = v.get("year")
-
-        default_name = (
-            v.get("nickName")
-            or f"{year or ''} {make or ''} {model_name or ''}".strip()
-            or f"Vehicle {imei}"
+        synced_vehicles.append(
+            {
+                "imei": vehicle.imei,
+                "vin": vehicle.vin,
+                "make": vehicle.make,
+                "model": vehicle.model,
+                "year": vehicle.year,
+                "bouncie_nickname": vehicle.bouncie_nickname,
+                "standard_engine": vehicle.standard_engine,
+                "is_active": vehicle.is_active,
+                "updated_at": vehicle.updated_at,
+                "last_synced_at": vehicle.last_synced_at,
+                "bouncie_data": vehicle.bouncie_data,
+            },
         )
-
-        vehicle_doc = {
-            "imei": imei,
-            "vin": v.get("vin"),
-            "make": make,
-            "model": model_name,
-            "year": year,
-            "bouncie_nickname": v.get("nickName"),
-            "standard_engine": v.get("standardEngine"),
-            "is_active": True,
-            "updated_at": datetime.now(UTC),
-            "last_synced_at": datetime.now(UTC),
-            "bouncie_data": v,
-        }
-
-        # A Bouncie Device is identified by IMEI. VIN describes the physical
-        # vehicle and can legitimately recur after a tracker is replaced. The
-        # replacement device may already be in the registry, so release the
-        # previous assignment whether or not this IMEI is new to us.
-        existing_vehicle = await Vehicle.find_one({"imei": imei})
-        vin_val = vehicle_doc.get("vin")
-        if vin_val:
-            previous_assignment = await Vehicle.find_one({"vin": vin_val})
-            if previous_assignment and previous_assignment.imei != imei:
-                previous_assignment.vin = None
-                previous_assignment.updated_at = datetime.now(UTC)
-                await previous_assignment.save()
-
-        if existing_vehicle:
-            existing_vehicle.imei = vehicle_doc["imei"]
-            existing_vehicle.vin = vehicle_doc["vin"]
-            existing_vehicle.make = vehicle_doc["make"]
-            existing_vehicle.model = vehicle_doc["model"]
-            existing_vehicle.year = vehicle_doc["year"]
-            existing_vehicle.bouncie_nickname = vehicle_doc["bouncie_nickname"]
-            existing_vehicle.standard_engine = vehicle_doc["standard_engine"]
-            if not (existing_vehicle.custom_name or "").strip():
-                existing_vehicle.custom_name = default_name
-            existing_vehicle.updated_at = vehicle_doc["updated_at"]
-            existing_vehicle.last_synced_at = vehicle_doc["last_synced_at"]
-            existing_vehicle.bouncie_data = vehicle_doc["bouncie_data"]
-            await existing_vehicle.save()
-        else:
-            new_vehicle = Vehicle(
-                **{
-                    **vehicle_doc,
-                    "custom_name": default_name,
-                    "created_at": datetime.now(UTC),
-                },
-            )
-            await new_vehicle.insert()
-
-        synced_vehicles.append(vehicle_doc)
 
     return {
         "vehicles": synced_vehicles,

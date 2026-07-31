@@ -8,7 +8,8 @@ from core.casting import safe_float
 from core.date_utils import ensure_utc
 from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
-from db.models import GasFillup, Trip, Vehicle
+from db.models import GasFillup, Trip
+from fleet.registry import FleetRegistry
 
 from .fillup_filters import build_fillup_date_conditions
 
@@ -201,38 +202,25 @@ class StatisticsService:
         synced_count = 0
         updated_count = 0
 
-        # Get all existing vehicles to memory to avoid N+1 queries
-        existing_vehicles = await Vehicle.find_all().to_list()
-        existing_map = {v.imei: v for v in existing_vehicles}
-
+        # Recovery path: Bouncie's vehicles endpoint has been observed
+        # omitting a device that is still producing trips. The registry
+        # enforces that this cannot overwrite higher-authority metadata.
         for tv in trip_vehicles:
             imei = tv["_id"]
-            vin = tv.get("vin")
-
             if not imei:
                 continue
 
-            existing = existing_map.get(imei)
+            before = await FleetRegistry.get_device(imei)
+            had_vin = bool((getattr(before, "vin", None) or "").strip())
 
-            if existing:
-                # Update VIN if we have it and it's not set
-                if vin and not existing.vin:
-                    existing.vin = vin
-                    existing.updated_at = datetime.now(UTC)
-                    await existing.save()
-                    updated_count += 1
-            else:
-                # Create new vehicle
-                vehicle = Vehicle(
-                    imei=imei,
-                    vin=vin,
-                    custom_name=None,
-                    is_active=True,
-                    created_at=datetime.now(UTC),
-                    updated_at=datetime.now(UTC),
-                )
-                await vehicle.insert()
+            vehicle, created = await FleetRegistry.recover_device_from_trips(
+                imei,
+                vin=tv.get("vin"),
+            )
+            if created:
                 synced_count += 1
+            elif vehicle is not None and not had_vin and (vehicle.vin or "").strip():
+                updated_count += 1
 
         logger.info(
             "Vehicle sync complete: %d new, %d updated",

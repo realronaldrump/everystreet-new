@@ -5,7 +5,8 @@ import {
   syncBouncieVehicles,
 } from "../../settings/credentials.js";
 import notificationManager from "../../ui/notifications.js";
-import { formatDateTime, isAbortError } from "../../utils.js";
+import { isAbortError } from "../../utils.js";
+
 const DEFAULT_FETCH_CONCURRENCY = 50;
 
 const BOUNCIE_AUTHORIZE_URL = "/api/bouncie/authorize";
@@ -268,10 +269,7 @@ async function setupBouncieCredentials({ signal } = {}) {
 function setupBouncieVehicles({ signal } = {}) {
   const eventOptions = signal ? { signal } : false;
 
-  const loadingEl = document.getElementById("credentials-vehicles-loading");
-  const emptyEl = document.getElementById("credentials-vehicles-empty");
-  const tableWrapper = document.getElementById("credentials-vehicles-table-wrapper");
-  const tbody = document.getElementById("credentials-vehicles-tbody");
+  const summaryEl = document.getElementById("credentials-vehicles-summary");
   const refreshBtn = document.getElementById("credentials-refresh-vehicles-btn");
 
   const addForm = document.getElementById("credentials-add-vehicle-form");
@@ -279,7 +277,7 @@ function setupBouncieVehicles({ signal } = {}) {
   const imeiInput = document.getElementById("credentials-add-vehicle-imei");
   const nameInput = document.getElementById("credentials-add-vehicle-name");
 
-  if (!loadingEl || !emptyEl || !tableWrapper || !tbody) {
+  if (!summaryEl) {
     return;
   }
 
@@ -365,20 +363,24 @@ async function getExpectedRedirectUri({ signal } = {}) {
   return `${window.location.origin}/api/bouncie/callback`;
 }
 
-async function loadBouncieVehicles({ signal } = {}) {
-  const loadingEl = document.getElementById("credentials-vehicles-loading");
-  const emptyEl = document.getElementById("credentials-vehicles-empty");
-  const tableWrapper = document.getElementById("credentials-vehicles-table-wrapper");
-  const tbody = document.getElementById("credentials-vehicles-tbody");
+function describeVehicle(vehicle) {
+  if (vehicle?.custom_name) {
+    return vehicle.custom_name;
+  }
+  if (vehicle?.bouncie_nickname) {
+    return vehicle.bouncie_nickname;
+  }
+  const parts = [vehicle?.year, vehicle?.make, vehicle?.model].filter(Boolean);
+  return parts.length > 0 ? parts.join(" ") : "Unnamed device";
+}
 
-  if (!loadingEl || !emptyEl || !tableWrapper || !tbody) {
+async function loadBouncieVehicles({ signal } = {}) {
+  const summaryEl = document.getElementById("credentials-vehicles-summary");
+  if (!summaryEl) {
     return;
   }
 
-  loadingEl.style.display = "";
-  emptyEl.style.display = "none";
-  tableWrapper.style.display = "none";
-  tbody.innerHTML = "";
+  summaryEl.textContent = "Loading vehicles\u2026";
 
   try {
     const response = await apiClient.raw(VEHICLES_API, { signal, cache: "no-store" });
@@ -390,86 +392,20 @@ async function loadBouncieVehicles({ signal } = {}) {
     const vehicles = await response.json();
     const list = Array.isArray(vehicles) ? vehicles : [];
 
-    loadingEl.style.display = "none";
-
     if (list.length === 0) {
-      emptyEl.style.display = "";
-      tableWrapper.style.display = "none";
+      summaryEl.textContent =
+        "No vehicles yet. Sync with Bouncie above to pull them in.";
       return;
     }
 
-    emptyEl.style.display = "none";
-    tableWrapper.style.display = "";
-
-    const getVehicleName = (vehicle) => {
-      if (vehicle?.custom_name) {
-        return vehicle.custom_name;
-      }
-      if (vehicle?.bouncie_nickname) {
-        return vehicle.bouncie_nickname;
-      }
-      const parts = [vehicle?.year, vehicle?.make, vehicle?.model].filter(Boolean);
-      return parts.length > 0
-        ? parts.join(" ")
-        : `Vehicle ${vehicle?.imei || ""}`.trim();
-    };
-
-    const getVehicleSubtitle = (vehicle) => {
-      if (!vehicle) {
-        return "";
-      }
-      if (vehicle.custom_name) {
-        const parts = [vehicle?.year, vehicle?.make, vehicle?.model].filter(Boolean);
-        return parts.length > 0 ? parts.join(" ") : "";
-      }
-      return vehicle?.vin ? String(vehicle.vin) : "";
-    };
-
-    list
-      .slice()
-      .sort((a, b) => getVehicleName(a).localeCompare(getVehicleName(b)))
-      .forEach((vehicle) => {
-        const row = document.createElement("tr");
-
-        const nameCell = document.createElement("td");
-        const title = document.createElement("div");
-        title.className = "fw-semibold";
-        title.textContent = getVehicleName(vehicle);
-        nameCell.appendChild(title);
-
-        const subtitleText = getVehicleSubtitle(vehicle);
-        if (subtitleText) {
-          const subtitle = document.createElement("div");
-          subtitle.className = "text-muted small";
-          subtitle.textContent = subtitleText;
-          nameCell.appendChild(subtitle);
-        }
-
-        const imeiCell = document.createElement("td");
-        const imeiCode = document.createElement("code");
-        imeiCode.textContent = vehicle?.imei || "--";
-        imeiCell.appendChild(imeiCode);
-
-        const vinCell = document.createElement("td");
-        vinCell.textContent = vehicle?.vin || "--";
-
-        const syncedCell = document.createElement("td");
-        const stamp = vehicle?.last_synced_at || vehicle?.updated_at || null;
-        syncedCell.textContent = stamp ? formatDateTime(stamp) : "--";
-
-        row.appendChild(nameCell);
-        row.appendChild(imeiCell);
-        row.appendChild(vinCell);
-        row.appendChild(syncedCell);
-        tbody.appendChild(row);
-      });
+    const names = list.map(describeVehicle).sort((a, b) => a.localeCompare(b));
+    summaryEl.textContent = `Tracking ${names.length} ${
+      names.length === 1 ? "vehicle" : "vehicles"
+    }: ${names.join(", ")}.`;
   } catch (error) {
     if (isAbortError(error)) {
       return;
     }
-    loadingEl.style.display = "none";
-    emptyEl.textContent = error.message || "Failed to load vehicles.";
-    emptyEl.style.display = "";
-    tableWrapper.style.display = "none";
+    summaryEl.textContent = error.message || "Failed to load vehicles.";
   }
 }

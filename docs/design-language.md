@@ -33,10 +33,40 @@ change, not a page-local exception.
 ## Visual grammar
 
 Light mode is warm paper; dark mode is charcoal. Structure comes from 1px
-hairlines and typography instead of shadows and floating panels. Use Chivo for
-display text, IBM Plex Sans for prose, and JetBrains Mono with tabular numerals
-for values the app measured. Cards are reserved for discrete objects such as a
-vehicle, place, or coverage area.
+hairlines and typography instead of shadows and floating panels. Cards are
+reserved for discrete objects such as a vehicle, place, or coverage area.
+
+## Typography
+
+The type is the interface. Two variable families carry the whole app:
+
+| Role | Token | Face |
+|---|---|---|
+| Display, hero figures | `--font-family-display` | Source Serif 4 |
+| Prose, labels, controls | `--font-family` | Source Sans 3 |
+| Measured values | `--font-numeric` | the text face, tabular figures |
+| Machine output | `--font-family-mono` | platform monospace |
+
+- **Monospace means machine, not measurement.** Logs, raw payloads, URLs, and
+  opaque identifiers get `--font-family-mono`. Every number the app measured
+  stays in the text face and earns its alignment from tabular lining figures.
+  A code face on distances and percentages is what made the interface read as
+  a terminal readout instead of a record.
+- **Size comes from the scale**, never a literal. Steps below `2xl` are fixed
+  rem values so the hierarchy holds at every width; only display steps are
+  fluid. 12px is the floor — nothing in the interface is set smaller.
+- **Tracking comes from the tracking tokens.** Body text is untracked. Large
+  display type takes `--tracking-tight`. Uppercase takes `--tracking-caps` and
+  nothing wider; heavily tracked capitals are a HUD, not a map legend.
+- **Uppercase is for short labels only** — eyebrows, column heads, status
+  badges. Navigation, tabs, buttons, headings, sentences, and values stay in
+  sentence case.
+- **Prose is measured.** Running text is capped at `--measure`; a masthead
+  subtitle at `--measure-tight`.
+
+The root element keeps the browser's font size. Never set `font-size` on
+`html` from a rem token — it rescales the rem unit and every size and spacing
+token compounds off it.
 
 ## Component canon
 
@@ -92,7 +122,8 @@ Before merging a UI change:
 1. Reuse a canonical component and token; do not fork a page-local visual.
 2. Keep the palette fixed and verify no personalized accent path or green-hued
    color literal has been introduced.
-3. Put measured numbers in mono tabular figures.
+3. Put measured numbers in tabular figures in the text face, and keep
+   monospace for machine output only.
 4. Check light and dark themes plus the four reference widths.
 5. Run `pytest tests/guardrails/test_design_tokens.py --no-cov` and the
    JavaScript tests.

@@ -99,8 +99,22 @@ async function ensureMap() {
   document.dispatchEvent(new CustomEvent("es:mapbox-gl-ready"));
 }
 
+// Chart.js defaults to its own Helvetica/Arial stack, so every chart spoke
+// in a different voice than the page around it. Adopt the app's text face
+// once, at load, rather than repeating it in each chart config.
+async function ensureChart() {
+  await loadScript("chartjs", "es-chart-js", () => globalThis.Chart);
+  const chart = globalThis.Chart;
+  const family = getComputedStyle(document.documentElement)
+    .getPropertyValue("--font-family")
+    .trim();
+  if (chart?.defaults?.font && family) {
+    chart.defaults.font.family = family;
+  }
+}
+
 const loaders = {
-  chart: () => loadScript("chartjs", "es-chart-js", () => globalThis.Chart),
+  chart: ensureChart,
   datatables: async () => {
     await loadScript("jquery", "es-jquery", () => globalThis.$);
     await loadScript(

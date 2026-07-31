@@ -588,96 +588,70 @@ Map Match Trips on Fetch
 	          Fleet Registry
           </h3>
           <p class="text-muted small">
-	          Active Bouncie devices eligible for trip fetching, with optional vehicle metadata.
+	          Devices eligible for trip fetching, kept in sync with your Bouncie account.
           </p>
 
-          <div class="d-flex justify-content-end gap-2 flex-wrap mb-3">
+          <div id="credentials-vehicles-summary" class="text-muted small mb-3">
+	          Loading vehicles&hellip;
+          </div>
+
+          <div class="d-flex gap-2 flex-wrap">
+            <a href="/vehicles" class="btn btn-primary" data-no-swup>
+              <i class="fas fa-car"></i> Manage vehicles
+            </a>
             <button type="button"
                     class="btn btn-outline-secondary"
                     id="credentials-refresh-vehicles-btn">
-              <i class="fas fa-rotate-right"></i> Refresh List
+              <i class="fas fa-rotate-right"></i> Refresh
             </button>
-            <a href="/vehicles" class="btn btn-outline-secondary" data-no-swup>
-              <i class="fas fa-car"></i> My Vehicles
-            </a>
           </div>
 
-          <div id="credentials-vehicles-loading" class="text-muted small">
-	          Loading vehicles...
-          </div>
-          <div id="credentials-vehicles-empty" class="text-muted small" style="display: none">
-	          No active fleet devices yet. Click "Sync Vehicles" above to pull them from Bouncie.
-          </div>
-          <div class="table-responsive"
-               id="credentials-vehicles-table-wrapper"
-               style="display: none">
-            <table class="table align-middle mb-0">
-              <thead>
-                <tr>
-                  <th scope="col">
-	                  Vehicle
-                  </th>
-                  <th scope="col">
+          <details class="mt-4 fleet-manual-add">
+            <summary class="fleet-manual-add-summary">
+	            Device missing from Bouncie?
+            </summary>
+            <p class="text-muted small mt-2">
+	            Bouncie occasionally leaves a device off its vehicle list even though the
+	            device is still recording trips. Add it here by IMEI and it will be
+	            included in trip syncing. The IMEI is printed on the device.
+            </p>
+            <form id="credentials-add-vehicle-form"
+                  method="post"
+                  action="/control-center/credentials/add-vehicle"
+                  novalidate>
+              <input type="hidden" name="csrf_token" value="{{ auth_context.csrf_token or '' }}" />
+              <div class="row g-3 align-items-end">
+                <div class="col-12 col-md-4">
+                  <label for="credentials-add-vehicle-imei" class="form-label">
 	                  IMEI
-                  </th>
-                  <th scope="col">
-	                  VIN
-                  </th>
-                  <th scope="col">
-	                  Last synced
-                  </th>
-                </tr>
-              </thead>
-              <tbody id="credentials-vehicles-tbody">
-              </tbody>
-            </table>
-          </div>
-
-          <hr class="my-4" />
-
-          <h4 class="h6 text-muted text-uppercase mb-3">
-	          Add Vehicle
-          </h4>
-          <form id="credentials-add-vehicle-form"
-                method="post"
-                action="/control-center/credentials/add-vehicle"
-                novalidate>
-            <input type="hidden" name="csrf_token" value="{{ auth_context.csrf_token or '' }}" />
-            <div class="row g-3 align-items-end">
-              <div class="col-12 col-md-4">
-                <label for="credentials-add-vehicle-imei" class="form-label">
-	                IMEI
-                </label>
-                <input type="text"
-                       class="form-control"
-                       id="credentials-add-vehicle-imei"
-                       name="imei"
-                       placeholder="123456789012345"
-                       inputmode="numeric"
-                       autocomplete="off" />
+                  </label>
+                  <input type="text"
+                         class="form-control"
+                         id="credentials-add-vehicle-imei"
+                         name="imei"
+                         placeholder="123456789012345"
+                         inputmode="numeric"
+                         autocomplete="off" />
+                </div>
+                <div class="col-12 col-md-5">
+                  <label for="credentials-add-vehicle-name" class="form-label">
+	                  Name it (optional)
+                  </label>
+                  <input type="text"
+                         class="form-control"
+                         id="credentials-add-vehicle-name"
+                         name="custom_name"
+                         placeholder="My car"
+                         autocomplete="off" />
+                </div>
+                <div class="col-12 col-md-3">
+                  <button type="submit" class="btn btn-outline-primary w-100" id="credentials-add-vehicle-btn">
+                    <i class="fas fa-plus"></i> Add
+                  </button>
+                </div>
               </div>
-              <div class="col-12 col-md-5">
-                <label for="credentials-add-vehicle-name" class="form-label">
-	                Display name (optional)
-                </label>
-                <input type="text"
-                       class="form-control"
-                       id="credentials-add-vehicle-name"
-                       name="custom_name"
-                       placeholder="My car"
-                       autocomplete="off" />
-              </div>
-              <div class="col-12 col-md-3">
-                <button type="submit" class="btn btn-primary w-100" id="credentials-add-vehicle-btn">
-                  <i class="fas fa-plus"></i> Add Vehicle
-                </button>
-              </div>
-            </div>
-            <div class="form-text mt-2">
-	            Adds the IMEI to the active Fleet Registry so it is included in trip syncing.
-	            Use "Sync Vehicles" above to discover all vehicles on the account automatically.
-            </div>
-          </form>
+            </form>
+          </details>
         </div>
 
       </div>

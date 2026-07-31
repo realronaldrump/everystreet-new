@@ -6,6 +6,7 @@ from typing import Any
 
 from core.exceptions import DuplicateResourceException, ResourceNotFoundException
 from db.models import Vehicle
+from fleet.registry import FleetRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -30,25 +31,7 @@ class VehicleService:
         Returns:
             The upserted Vehicle document.
         """
-        now = datetime.now(UTC)
-        vehicle = await Vehicle.find_one(Vehicle.imei == imei)
-        if vehicle:
-            if custom_name is not None:
-                vehicle.custom_name = custom_name
-            vehicle.is_active = True
-            vehicle.updated_at = now
-            await vehicle.save()
-        else:
-            vehicle = Vehicle(
-                imei=imei,
-                custom_name=custom_name,
-                is_active=True,
-                created_at=now,
-                updated_at=now,
-            )
-            await vehicle.insert()
-
-        return vehicle
+        return await FleetRegistry.register_device(imei, custom_name=custom_name)
 
     @staticmethod
     async def get_vehicles(
@@ -148,6 +131,15 @@ class VehicleService:
                     "odometer_source"
                 ) in {"estimated", "bouncie_untrusted"}
 
+        # A VIN can only move between devices via the registry, which
+        # frees whichever device held it before.
+        if "vin" in update_data:
+            await FleetRegistry.assign_vin(imei, update_data.pop("vin"))
+            vehicle = await FleetRegistry.get_device(imei)
+            if not vehicle:
+                msg = f"Vehicle with IMEI {imei} not found"
+                raise ResourceNotFoundException(msg)
+
         # Update fields
         for key, value in update_data.items():
             if hasattr(vehicle, key):
@@ -177,13 +169,9 @@ class VehicleService:
         Raises:
             ResourceNotFoundException: If vehicle not found
         """
-        vehicle = await Vehicle.find_one(Vehicle.imei == imei)
+        vehicle = await FleetRegistry.deactivate_device(imei)
         if not vehicle:
             msg = f"Vehicle with IMEI {imei} not found"
             raise ResourceNotFoundException(msg)
-
-        vehicle.is_active = False
-        vehicle.updated_at = datetime.now(UTC)
-        await vehicle.save()
 
         return {"status": "success", "message": "Fleet device deactivated"}

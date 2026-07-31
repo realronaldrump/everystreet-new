@@ -465,12 +465,12 @@ function getChartDefaults() {
     },
     scales: {
       x: {
-        ticks: { color: textColor, font: { size: 10 } },
+        ticks: { color: textColor, font: { size: 11 } },
         grid: { display: false },
         border: { display: false },
       },
       y: {
-        ticks: { color: textColor, font: { size: 10 } },
+        ticks: { color: textColor, font: { size: 11 } },
         grid: { color: gridColor },
         border: { display: false },
         beginAtZero: true,
@@ -1568,7 +1568,7 @@ function renderDistanceTrendChart(data) {
             color: "rgba(255,255,255,0.6)",
             boxWidth: 12,
             padding: 8,
-            font: { size: 10 },
+            font: { size: 11 },
           },
         },
         tooltip: {
@@ -1593,12 +1593,12 @@ function renderDistanceTrendChart(data) {
             display: true,
             text: "Miles",
             color: "rgba(255,255,255,0.4)",
-            font: { size: 10 },
+            font: { size: 11 },
           },
         },
         y1: {
           position: "right",
-          ticks: { color: "rgba(255,255,255,0.4)", font: { size: 10 } },
+          ticks: { color: "rgba(255,255,255,0.4)", font: { size: 11 } },
           grid: { display: false },
           border: { display: false },
           beginAtZero: true,
@@ -1606,7 +1606,7 @@ function renderDistanceTrendChart(data) {
             display: true,
             text: "Minutes",
             color: "rgba(255,255,255,0.4)",
-            font: { size: 10 },
+            font: { size: 11 },
           },
         },
       },

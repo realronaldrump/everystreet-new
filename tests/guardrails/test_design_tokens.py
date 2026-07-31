@@ -8,10 +8,15 @@ ROOT = Path(__file__).resolve().parents[2]
 CSS_ROOT = ROOT / "static" / "css"
 VARIABLES_CSS = CSS_ROOT / "core" / "variables.css"
 PAGE_CSS = tuple(sorted(CSS_ROOT.glob("*.css")))
+ALL_CSS = tuple(sorted(CSS_ROOT.rglob("*.css")))
 TEMPLATES = tuple(sorted((ROOT / "templates").glob("*.html")))
 
 HEX_COLOR = re.compile(r"(?<![\w-])#[0-9a-fA-F]{3,8}\b")
-FONT_LITERAL = re.compile(r"font-size\s*:\s*[0-9]*\.?[0-9]+(?:px|rem)\b")
+FONT_LITERAL = re.compile(
+    r"font-size\s*:\s*(?:clamp\(|[0-9]*\.?[0-9]+(?:px|rem)\b)"
+)
+TRACKING_LITERAL = re.compile(r"letter-spacing\s*:(?!\s*var\()")
+RETIRED_FONT_FAMILIES = re.compile(r"JetBrains Mono|IBM Plex|Chivo")
 ACCENT_TOKEN = re.compile(
     r"--(?:glow-)?accent(?:-(?:rgb|light|dark|strong|intense))?\b"
 )
@@ -49,8 +54,33 @@ def test_page_css_has_no_raw_hex_colors() -> None:
     assert not (violations := _matches(PAGE_CSS, HEX_COLOR)), "\n".join(violations)
 
 
-def test_page_css_uses_type_scale_tokens() -> None:
-    assert not (violations := _matches(PAGE_CSS, FONT_LITERAL)), "\n".join(violations)
+def test_css_uses_type_scale_tokens() -> None:
+    # forms.css pins a literal 16px so iOS Safari does not zoom on focus.
+    exempt = {CSS_ROOT / "components" / "forms.css"}
+    paths = tuple(path for path in ALL_CSS if path not in exempt)
+    assert not (violations := _matches(paths, FONT_LITERAL)), "\n".join(violations)
+
+
+def test_css_uses_tracking_tokens() -> None:
+    assert not (violations := _matches(ALL_CSS, TRACKING_LITERAL)), "\n".join(
+        violations
+    )
+
+
+def test_retired_font_families_stay_removed() -> None:
+    sources = (
+        ALL_CSS + tuple(sorted((ROOT / "static" / "js").rglob("*.js"))) + TEMPLATES
+    )
+    assert not (violations := _matches(sources, RETIRED_FONT_FAMILIES)), "\n".join(
+        violations
+    )
+
+
+def test_root_element_does_not_rescale_the_rem_unit() -> None:
+    """A rem-based font-size on html rescales every size and spacing token."""
+    reset = _read(CSS_ROOT / "core" / "reset.css")
+    start = reset.index("\nhtml {")
+    assert "font-size" not in reset[start : reset.index("}", start)]
 
 
 def test_accent_tokens_are_removed() -> None:
