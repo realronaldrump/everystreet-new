@@ -155,6 +155,11 @@ class ImportProgressContext:
             windows_completed = 0
 
         async with self.write_lock:
+            if self.progress_job_id and status in {"pending", "running"}:
+                current = await _load_progress_job(self.progress_job_id)
+                if current and current.status in {"cancelling", "cancelled"}:
+                    self.cancel_state["cancelled"] = True
+                    return
             if status in {"pending", "running", "cancelled"}:
                 self.handle.job.error = None
             if status in {"pending", "running"}:

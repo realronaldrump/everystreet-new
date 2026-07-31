@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -62,13 +63,15 @@ class FailedFetchWindow:
     window_start: datetime
     window_end: datetime
     error: str
+    retryable: bool = True
 
-    def event_data(self) -> dict[str, str]:
+    def event_data(self) -> dict[str, Any]:
         return {
             "imei": self.imei,
             "start": self.window_start.isoformat(),
             "end": self.window_end.isoformat(),
             "error": self.error,
+            "retryable": self.retryable,
         }
 
 
@@ -276,6 +279,22 @@ def _should_backoff_request_error(exc: Exception) -> bool:
     if isinstance(exc, ClientResponseError):
         return exc.status in {408, 425, 429, 502, 503, 504}
     return isinstance(exc, TimeoutError | ClientError)
+
+
+def is_non_retryable_fetch_error(exc: Exception) -> bool:
+    """Return whether Bouncie rejected this exact request permanently."""
+    return isinstance(exc, ClientResponseError) and exc.status == 400
+
+
+def is_non_retryable_fetch_error_text(error: str | None) -> bool:
+    """Recognize persisted HTTP 400 failures from earlier worker versions."""
+    return bool(
+        re.search(
+            r"(?:^|:\s)400,\s*message=['\"]bad request['\"]",
+            str(error or ""),
+            flags=re.IGNORECASE,
+        ),
+    )
 
 
 def _transient_backoff_delay(attempt_index: int) -> float:
@@ -581,6 +600,30 @@ async def fetch_trips_for_window_report(
         try:
             return WindowFetchResult(trips=await fetch_once(start, end))
         except Exception as exc:
+            if is_non_retryable_fetch_error(exc):
+                failure = FailedFetchWindow(
+                    imei=imei,
+                    window_start=start,
+                    window_end=end,
+                    error=_safe_error_text(exc),
+                    retryable=False,
+                )
+                logger.warning(
+                    "Bouncie rejected history window without retry "
+                    "(imei=%s, %s - %s): %s",
+                    imei,
+                    start.isoformat(),
+                    end.isoformat(),
+                    exc,
+                )
+                if add_event:
+                    add_event(
+                        "error",
+                        f"Bouncie rejected window for {imei} without retry",
+                        failure.event_data(),
+                    )
+                return WindowFetchResult(failed_windows=[failure])
+
             span = end - start
             if span <= recovery_floor:
                 return await fetch_leaf_with_retries(
@@ -1194,6 +1237,8 @@ __all__ = [
     "filter_trips_to_window",
     "ingest_counters_changed_trips",
     "is_duplicate_trip_error",
+    "is_non_retryable_fetch_error",
+    "is_non_retryable_fetch_error_text",
     "merge_ingest_counters",
     "process_bouncie_trips",
     "run_ingest_for_range",

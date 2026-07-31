@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
+from aiohttp import ClientResponseError
 
 from trips.services import bouncie_ingest_runtime as ingest_runtime
 from trips.services.bouncie_ingest_runtime import (
@@ -12,6 +13,15 @@ from trips.services.bouncie_ingest_runtime import (
     fetch_trips_for_window,
     fetch_trips_for_window_report,
 )
+
+
+def _client_response_error(status: int) -> ClientResponseError:
+    return ClientResponseError(
+        request_info=AsyncMock(real_url="https://api.bouncie.dev/v1/trips"),
+        history=(),
+        status=status,
+        message="Bad Request",
+    )
 
 
 @pytest.mark.asyncio
@@ -160,6 +170,38 @@ async def test_fetch_trips_for_window_splits_on_failure() -> None:
     assert len(trips) == 2  # One trip per sub-window
     # Total calls: 1 (failed full) + 2 (sub-windows) = 3
     assert call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_bad_request_is_reported_without_splitting_or_changing_dates() -> None:
+    window_start = datetime(2019, 10, 22, 22, 49, 0, tzinfo=UTC)
+    window_end = window_start + timedelta(seconds=2)
+    calls: list[tuple[datetime, datetime]] = []
+
+    async def mock_fetch(token, imei, start_dt, end_dt):
+        del token, imei
+        calls.append((start_dt, end_dt))
+        raise _client_response_error(400)
+
+    mock_client = AsyncMock()
+    mock_client.fetch_trips_for_device_resilient.side_effect = mock_fetch
+
+    result = await fetch_trips_for_window_report(
+        mock_client,
+        imei="359486068397551",
+        window_start=window_start,
+        window_end=window_end,
+        leaf_retry_attempts=0,
+        recovery_gps_formats=("geojson",),
+        recovery_boundary_jitter_seconds=(),
+    )
+
+    assert calls == [(window_start - timedelta(seconds=1), window_end)]
+    assert result.trips == []
+    assert len(result.failed_windows) == 1
+    assert result.failed_windows[0].window_start == window_start
+    assert result.failed_windows[0].window_end == window_end
+    assert result.failed_windows[0].retryable is False
 
 
 @pytest.mark.asyncio
@@ -378,9 +420,8 @@ async def test_fetch_trips_for_window_tries_boundary_jitter_leaf_fallback() -> N
     async def mock_fetch(token, imei, start_dt, end_dt, gps_format="geojson"):
         del token, imei
         calls.append((start_dt, end_dt, gps_format))
-        if (
-            start_dt == window_start.replace(second=0)
-            and end_dt == window_end.replace(second=7)
+        if start_dt == window_start.replace(second=0) and end_dt == window_end.replace(
+            second=7
         ):
             return [{"transactionId": "tx-boundary"}]
         raise RuntimeError("Bouncie boundary failure")

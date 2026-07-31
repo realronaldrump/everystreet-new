@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 from fastapi import FastAPI
@@ -254,6 +254,52 @@ def test_trip_history_import_cancel_does_not_claim_success_before_worker_stops()
 
     assert response.status_code == 503
     assert stub.status != "cancelled"
+
+
+def test_trip_history_import_cancel_finalizes_stale_orphan_after_abort_timeout() -> (
+    None
+):
+    app = _create_app()
+
+    class StubJob:
+        def __init__(self) -> None:
+            self.id = "65b1b5b6b5b6b5b6b5b6b5b6"
+            self.job_type = "trip_history_import"
+            self.task_id = "fetch_all_missing_trips"
+            self.operation_id = "orphaned-arq-job"
+            self.status = "running"
+            self.stage = "processing"
+            self.message = "Processing"
+            self.progress = 87.0
+            self.error = None
+            self.created_at = datetime.now(UTC) - timedelta(days=1)
+            self.started_at = self.created_at
+            self.completed_at = None
+            self.updated_at = datetime.now(UTC) - timedelta(minutes=10)
+            self.metadata = {}
+            self.result = None
+
+        async def save(self) -> None:
+            return None
+
+    stub = StubJob()
+    with (
+        patch("trips.api.sync.Job.get", new=AsyncMock(return_value=stub)),
+        patch("trips.api.sync.abort_job", new=AsyncMock(return_value=False)),
+        patch(
+            "trips.api.sync.update_task_history_entry",
+            new=AsyncMock(return_value=None),
+        ),
+    ):
+        client = TestClient(app)
+        response = client.delete(
+            "/api/actions/trips/sync/history_import/65b1b5b6b5b6b5b6b5b6b5b6",
+        )
+
+    assert response.status_code == 200
+    assert stub.status == "cancelled"
+    assert stub.stage == "cancelled"
+    assert stub.completed_at is not None
 
 
 def test_trip_history_import_cancel_endpoint_idempotent_does_not_overwrite_completed_task_history() -> (

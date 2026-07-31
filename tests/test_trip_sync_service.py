@@ -408,6 +408,49 @@ async def test_sync_status_clears_stale_history_import_job(
 
 
 @pytest.mark.asyncio
+async def test_sync_status_finalizes_stale_cancelled_history_import_job(
+    beanie_db_with_history_import,
+) -> None:
+    await seed_credentials()
+    old = datetime.now(UTC) - timedelta(hours=1)
+
+    history = TaskHistory(
+        task_id="fetch_all_missing_trips",
+        status="CANCELLED",
+        timestamp=old,
+        start_time=old,
+        end_time=old,
+        manual_run=True,
+    )
+    history.id = "arq-history-cancelled"
+    await history.insert()
+
+    job = Job(
+        job_type="trip_history_import",
+        task_id="fetch_all_missing_trips",
+        status="cancelling",
+        stage="cancelling",
+        progress=87.0,
+        message="Stopping import worker...",
+        created_at=old,
+        updated_at=old,
+        started_at=old,
+        operation_id="arq-history-cancelled",
+        metadata={},
+    )
+    await job.insert()
+
+    status = await TripSyncService.get_sync_status()
+
+    assert status["state"] != "syncing"
+    updated_job = await Job.get(PydanticObjectId(str(job.id)))
+    assert updated_job is not None
+    assert updated_job.status == "cancelled"
+    assert updated_job.stage == "cancelled"
+    assert updated_job.completed_at is not None
+
+
+@pytest.mark.asyncio
 async def test_sync_status_keeps_long_history_import_with_recent_heartbeat(
     beanie_db_with_history_import,
 ) -> None:

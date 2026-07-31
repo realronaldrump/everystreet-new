@@ -21,6 +21,7 @@ from trips.services.bouncie_ingest_runtime import (
     fetch_trips_for_window_report,
     filter_trips_to_window,
     ingest_counters_changed_trips,
+    is_non_retryable_fetch_error_text,
     merge_ingest_counters,
     process_bouncie_trips,
 )
@@ -73,24 +74,33 @@ class BouncieHistoryRetryService:
         now = datetime.now(UTC)
         next_retry_at = now + timedelta(seconds=max(0, retry_delay_seconds))
         for failed in failed_windows:
+            details: dict[str, Any] = {
+                "imei": failed.imei,
+                "slice_start": ensure_utc(failed.window_start),
+                "slice_end": ensure_utc(failed.window_end),
+                "parent_window_start": ensure_utc(parent_window_start),
+                "parent_window_end": ensure_utc(parent_window_end),
+                "last_error": failed.error,
+                "retryable": failed.retryable,
+            }
+            if failed.retryable:
+                details.update(
+                    {
+                        "retry_kind": RETRY_MARKER,
+                        "next_retry_at": next_retry_at,
+                    },
+                )
             issue = await TripIngestIssueService.record_issue(
                 issue_type="fetch_error",
                 message=_retry_message(failed),
                 source=BOUNCIE_SOURCE,
                 transaction_id=None,
                 imei=failed.imei,
-                details={
-                    "retry_kind": RETRY_MARKER,
-                    "imei": failed.imei,
-                    "slice_start": ensure_utc(failed.window_start),
-                    "slice_end": ensure_utc(failed.window_end),
-                    "parent_window_start": ensure_utc(parent_window_start),
-                    "parent_window_end": ensure_utc(parent_window_end),
-                    "last_error": failed.error,
-                    "next_retry_at": next_retry_at,
-                },
+                details=details,
             )
             if issue is None:
+                continue
+            if not failed.retryable:
                 continue
             details = dict(issue.details or {})
             details["retry_attempts"] = max(0, int(issue.occurrences or 1) - 1)
@@ -144,8 +154,21 @@ class BouncieHistoryRetryService:
             "inserted": 0,
             "skipped_existing": 0,
             "errors": 0,
+            "retired_non_retryable": 0,
         }
         if not issues:
+            return stats
+
+        retryable_issues: list[TripIngestIssue] = []
+        for issue in issues:
+            details = issue.details or {}
+            if is_non_retryable_fetch_error_text(details.get("last_error")):
+                await cls._resolve_issue(issue)
+                stats["retired_non_retryable"] += 1
+                continue
+            retryable_issues.append(issue)
+
+        if not retryable_issues:
             return stats
 
         credentials = await get_bouncie_config()
@@ -225,14 +248,18 @@ class BouncieHistoryRetryService:
 
             counters = dict(processed.get("counters") or {})
             failed_windows = fetch_result.failed_windows
+            retryable_failures = [
+                failed for failed in failed_windows if failed.retryable
+            ]
             if failed_windows:
                 await cls.queue_failed_windows(
                     failed_windows,
                     parent_window_start=window_start,
                     parent_window_end=window_end,
                 )
-                if not (
-                    len(failed_windows) == 1 and _same_window(issue, failed_windows[0])
+                if not retryable_failures or not (
+                    len(retryable_failures) == 1
+                    and _same_window(issue, retryable_failures[0])
                 ):
                     await cls._resolve_issue(issue)
             else:
@@ -250,7 +277,7 @@ class BouncieHistoryRetryService:
                 )
                 merge_ingest_counters(aggregate_counters, counters)
 
-        await asyncio.gather(*(retry_issue(issue) for issue in issues))
+        await asyncio.gather(*(retry_issue(issue) for issue in retryable_issues))
         if ingest_counters_changed_trips(aggregate_counters):
             await bump_trip_map_revision()
         return stats

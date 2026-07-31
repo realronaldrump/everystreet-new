@@ -180,9 +180,6 @@ class TripSyncService:
             .to_list()
         )
 
-        if not candidates:
-            return
-
         for history in candidates:
             started_at = TripSyncService._history_started_at(history)
             if not started_at:
@@ -262,7 +259,7 @@ class TripSyncService:
     @staticmethod
     async def _clear_stale_history_import_jobs(now: datetime) -> None:
         """
-        Mark abandoned history-import progress jobs as failed.
+        Finalize abandoned history-import progress jobs.
 
         History imports can outlive their ARQ worker if the worker is restarted
         or killed while inside Bouncie recovery. The progress job heartbeat is
@@ -294,8 +291,25 @@ class TripSyncService:
                 f"updated_at={heartbeat_at.isoformat()}"
             )
             operation_id = str(job.operation_id or "").strip()
+            history = None
             if operation_id:
                 history = await TaskHistory.get(operation_id)
+                history_status = str(getattr(history, "status", "") or "").upper()
+                if history_status in {"CANCELLED", "CANCELED"}:
+                    job.error = None
+                    try:
+                        await JobHandle(job).update(
+                            status="cancelled",
+                            stage="cancelled",
+                            message="Cancelled",
+                            completed_at=now,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Failed to finalize stale cancelled history import job %s",
+                            getattr(job, "id", None),
+                        )
+                    continue
                 if history and str(history.status or "").upper() in {
                     "RUNNING",
                     "PENDING",

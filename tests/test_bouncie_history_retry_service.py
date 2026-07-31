@@ -60,6 +60,67 @@ async def test_failed_history_window_is_queued_for_durable_retry(
 
 
 @pytest.mark.asyncio
+async def test_non_retryable_history_window_is_recorded_without_retry_marker(
+    retry_beanie_db,
+) -> None:
+    del retry_beanie_db
+    failed = _failed_window()
+    failed = FailedFetchWindow(
+        imei=failed.imei,
+        window_start=failed.window_start,
+        window_end=failed.window_end,
+        error="400, message='Bad Request'",
+        retryable=False,
+    )
+
+    queued = await BouncieHistoryRetryService.queue_failed_windows(
+        [failed],
+        parent_window_start=failed.window_start,
+        parent_window_end=failed.window_end,
+        retry_delay_seconds=0,
+    )
+
+    assert queued == 0
+    issue = await TripIngestIssue.find_one(TripIngestIssue.imei == "imei-1")
+    assert issue is not None
+    assert issue.resolved is False
+    assert issue.details is not None
+    assert issue.details["retryable"] is False
+    assert "retry_kind" not in issue.details
+
+
+@pytest.mark.asyncio
+async def test_existing_bad_request_retry_is_retired_without_bouncie_call(
+    retry_beanie_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    del retry_beanie_db
+    failed = _failed_window()
+    failed = FailedFetchWindow(
+        imei=failed.imei,
+        window_start=failed.window_start,
+        window_end=failed.window_end,
+        error="400, message='Bad Request'",
+    )
+    await BouncieHistoryRetryService.queue_failed_windows(
+        [failed],
+        parent_window_start=failed.window_start,
+        parent_window_end=failed.window_end,
+        retry_delay_seconds=0,
+    )
+    fetch = AsyncMock()
+    monkeypatch.setattr(retry_runtime, "fetch_trips_for_window_report", fetch)
+
+    result = await BouncieHistoryRetryService.run_due_retries(limit=10)
+
+    assert result["retired_non_retryable"] == 1
+    fetch.assert_not_awaited()
+    issue = await TripIngestIssue.find_one(TripIngestIssue.imei == "imei-1")
+    assert issue is not None
+    assert issue.resolved is True
+
+
+@pytest.mark.asyncio
 async def test_durable_retry_resolves_window_after_bouncie_recovers(
     retry_beanie_db,
     monkeypatch: pytest.MonkeyPatch,
