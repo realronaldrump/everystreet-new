@@ -683,21 +683,17 @@ async def test_transaction_identity_rejects_a_second_mobility_profile(
         ).insert()
 
 
-@pytest.mark.asyncio
-async def test_transaction_identity_allows_profiles_without_a_transaction(
-    mobility_db,
-) -> None:
-    del mobility_db
-    await TripMobilityProfile(
-        trip_id=PydanticObjectId(),
-        transaction_id=None,
-    ).insert()
-    await TripMobilityProfile(
-        trip_id=PydanticObjectId(),
-        transaction_id=None,
-    ).insert()
+def test_transaction_identity_guard_only_indexes_string_values() -> None:
+    index = next(
+        candidate
+        for candidate in TripMobilityProfile.Settings.indexes
+        if candidate.document.get("name") == "trip_mobility_profiles_transaction_id_idx"
+    )
 
-    assert await TripMobilityProfile.find({"transaction_id": None}).count() == 2
+    assert index.document.get("unique") is True
+    assert index.document.get("partialFilterExpression") == {
+        "transaction_id": {"$type": "string"},
+    }
 
 
 @pytest.mark.asyncio
