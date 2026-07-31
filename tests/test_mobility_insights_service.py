@@ -592,7 +592,9 @@ async def test_dedupe_profiles_keeps_the_live_trip_profile(mobility_db) -> None:
 
     result = await MobilityInsightsService.dedupe_profiles_by_transaction()
 
-    assert result == {"transactions_scanned": 1, "profiles_removed": 1}
+    assert result["transactions_scanned"] == 1
+    assert result["profiles_removed"] == 1
+    assert result["orphans_removed"] == 0
     remaining = await TripMobilityProfile.find({}).to_list()
     assert len(remaining) == 1
     assert remaining[0].trip_id == trip.id
@@ -614,7 +616,8 @@ async def test_dedupe_profiles_dry_run_removes_nothing(mobility_db) -> None:
 
     result = await MobilityInsightsService.dedupe_profiles_by_transaction(dry_run=True)
 
-    assert result == {"transactions_scanned": 1, "profiles_removed": 1}
+    assert result["transactions_scanned"] == 1
+    assert result["profiles_removed"] == 1
     assert await TripMobilityProfile.find({}).count() == 2
 
 
@@ -644,3 +647,72 @@ async def test_sync_trip_collapses_pre_existing_duplicate_profiles(mobility_db) 
     assert len(remaining) == 1
     assert remaining[0].trip_id == trip.id
     assert remaining[0].transaction_id == transaction_id
+
+
+@pytest.mark.asyncio
+async def test_dedupe_relinks_lone_survivor_pointing_at_stale_trip(mobility_db) -> None:
+    """A single profile on a stale ObjectId must be relinked, not left broken."""
+    del mobility_db
+    transaction_id = "trip-relink-1"
+    trip = await _insert_bouncie_trip(transaction_id)
+    await TripMobilityProfile(
+        trip_id=PydanticObjectId(),
+        transaction_id=transaction_id,
+        imei=trip.imei,
+    ).insert()
+
+    result = await MobilityInsightsService.dedupe_profiles_by_transaction()
+
+    assert result["profiles_removed"] == 0
+    assert result["profiles_relinked"] == 1
+    remaining = await TripMobilityProfile.find({}).to_list()
+    assert len(remaining) == 1
+    assert remaining[0].trip_id == trip.id
+
+
+@pytest.mark.asyncio
+async def test_dedupe_removes_profiles_whose_trip_is_gone(mobility_db) -> None:
+    del mobility_db
+    await TripMobilityProfile(
+        trip_id=PydanticObjectId(),
+        transaction_id="trip-orphan-1",
+        imei="imei-gone",
+    ).insert()
+
+    result = await MobilityInsightsService.dedupe_profiles_by_transaction()
+
+    assert result["orphans_removed"] == 1
+    assert result["profiles_removed"] == 0
+    assert await TripMobilityProfile.find({}).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_dedupe_leaves_a_correctly_linked_profile_untouched(mobility_db) -> None:
+    del mobility_db
+    transaction_id = "trip-clean-1"
+    trip = await _insert_bouncie_trip(transaction_id)
+    await MobilityInsightsService.sync_trip(trip)
+
+    result = await MobilityInsightsService.dedupe_profiles_by_transaction()
+
+    assert result["profiles_removed"] == 0
+    assert result["orphans_removed"] == 0
+    assert result["profiles_relinked"] == 0
+    assert await TripMobilityProfile.find({}).count() == 1
+
+
+@pytest.mark.asyncio
+async def test_remove_trip_clears_stale_only_profile(mobility_db) -> None:
+    """No profile points at the current trip; the stale one must still go."""
+    del mobility_db
+    transaction_id = "trip-stale-only"
+    trip = await _insert_bouncie_trip(transaction_id)
+    await TripMobilityProfile(
+        trip_id=PydanticObjectId(),
+        transaction_id=transaction_id,
+        imei=trip.imei,
+    ).insert()
+
+    await MobilityInsightsService.remove_trip(trip.id, trip.transactionId)
+
+    assert await TripMobilityProfile.find({}).count() == 0

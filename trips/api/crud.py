@@ -161,7 +161,7 @@ async def delete_trip(trip_id: str):
     # Clean up references in other collections before deleting
     coverage_updated = await _cleanup_trip_references([trip.id])
     if trip.id is not None:
-        await MobilityInsightsService.remove_trip(trip.id)
+        await MobilityInsightsService.remove_trip(trip.id, trip.transactionId)
 
     await trip.delete()
     await bump_trip_map_revision()
@@ -257,9 +257,9 @@ async def bulk_delete_trips(request: Request):
 
     # Clean up references in other collections before deleting
     coverage_updated = await _cleanup_trip_references(trip_object_ids)
-    for trip_oid in trip_object_ids:
-        if trip_oid is not None:
-            await MobilityInsightsService.remove_trip(trip_oid)
+    for trip in trips:
+        if trip.id is not None:
+            await MobilityInsightsService.remove_trip(trip.id, trip.transactionId)
 
     result = await Trip.find(In(Trip.transactionId, trip_ids)).delete()
     if result.deleted_count:

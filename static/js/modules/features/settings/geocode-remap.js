@@ -514,17 +514,26 @@ export function setupDedupeMobilityProfiles(signal) {
   };
 
   const describe = (result) => {
-    const removed = result?.profiles_removed;
-    const scanned = result?.transactions_scanned;
-    if (typeof removed !== "number") {
+    if (!result) {
       return "Cleanup finished.";
     }
-    if (removed === 0) {
-      return "Nothing to clean up — no duplicate summaries found.";
+    const removed = (result.profiles_removed ?? 0) + (result.orphans_removed ?? 0);
+    const relinked = result.profiles_relinked ?? 0;
+    if (!removed && !relinked) {
+      return "Nothing to clean up — every trip summary is already correct.";
     }
-    return `Removed ${removed.toLocaleString()} duplicate ${
-      removed === 1 ? "summary" : "summaries"
-    } across ${(scanned ?? 0).toLocaleString()} trips.`;
+    const parts = [];
+    if (removed) {
+      parts.push(
+        `removed ${removed.toLocaleString()} leftover ${
+          removed === 1 ? "summary" : "summaries"
+        }`
+      );
+    }
+    if (relinked) {
+      parts.push(`reconnected ${relinked.toLocaleString()}`);
+    }
+    return `Done — ${parts.join(" and ")}.`;
   };
 
   const pollStatus = async () => {

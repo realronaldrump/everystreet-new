@@ -78,7 +78,10 @@ class InactiveTripService:
         from analytics.services.mobility_insights_service import MobilityInsightsService
 
         if inactive:
-            await MobilityInsightsService.remove_trip(trip_id)
+            await MobilityInsightsService.remove_trip(
+                trip_id,
+                getattr(trip, "transactionId", None),
+            )
             return
 
         try:

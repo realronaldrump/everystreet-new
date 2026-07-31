@@ -387,6 +387,28 @@ class MobilityInsightsService:
         identity = cls._profile_identity_query(trip_id, resolved)
         await TripMobilityProfile.find(identity).delete()
 
+    @staticmethod
+    async def _trip_ids_by_transaction(
+        transaction_ids: list[str],
+    ) -> dict[str, PydanticObjectId]:
+        """Map Bouncie transaction ids to the ObjectId of the trip that holds them."""
+        resolved: dict[str, PydanticObjectId] = {}
+        chunk_size = 500
+        for start in range(0, len(transaction_ids), chunk_size):
+            chunk = transaction_ids[start : start + chunk_size]
+            rows = await aggregate_to_list(
+                Trip,
+                [
+                    {"$match": {"transactionId": {"$in": chunk}}},
+                    {"$project": {"_id": 1, "transactionId": 1}},
+                ],
+            )
+            for row in rows:
+                key = str(row.get("transactionId") or "").strip()
+                if key:
+                    resolved[key] = row["_id"]
+        return resolved
+
     @classmethod
     async def dedupe_profiles_by_transaction(
         cls,
@@ -394,12 +416,16 @@ class MobilityInsightsService:
         dry_run: bool = False,
     ) -> dict[str, int]:
         """
-        Collapse profiles that share one Bouncie transaction id.
+        Reconcile mobility profiles against their Bouncie transaction.
 
         Re-importing a transaction used to mint a second profile under the
-        new Trip ObjectId. For each transaction the surviving profile is
-        the one pointing at a Trip that still exists, most recently
-        updated; the rest are removed.
+        new Trip ObjectId. For every transaction this keeps one profile,
+        pointed at the trip that currently owns the transaction:
+
+        - extra profiles for the same transaction are removed
+        - a survivor pointing at the wrong ObjectId is relinked
+        - profiles whose transaction has no trip at all are removed, since
+          nothing can ever read them again
         """
         # Carry only the fields needed to choose a survivor. Profiles hold
         # large cell/segment arrays, so loading whole documents here would
@@ -416,54 +442,82 @@ class MobilityInsightsService:
                             "updated_at": "$updated_at",
                         },
                     },
-                    "count": {"$sum": 1},
                 },
             },
-            {"$match": {"count": {"$gt": 1}}},
         ]
         groups = await aggregate_to_list(TripMobilityProfile, pipeline)
+        empty = {
+            "transactions_scanned": 0,
+            "profiles_removed": 0,
+            "orphans_removed": 0,
+            "profiles_relinked": 0,
+        }
         if not groups:
-            return {"transactions_scanned": 0, "profiles_removed": 0}
+            return empty
 
-        candidate_trip_ids = [
-            member["trip_id"]
-            for group in groups
-            for member in group["members"]
-            if member.get("trip_id") is not None
-        ]
-        live_trip_ids: set[PydanticObjectId] = set()
-        if candidate_trip_ids:
-            live_rows = await aggregate_to_list(
-                Trip,
-                [
-                    {"$match": {"_id": {"$in": candidate_trip_ids}}},
-                    {"$project": {"_id": 1}},
-                ],
-            )
-            live_trip_ids = {row["_id"] for row in live_rows}
-
-        def _rank(member: dict[str, Any]) -> tuple[int, float]:
-            alive = 1 if member.get("trip_id") in live_trip_ids else 0
-            updated = member.get("updated_at")
-            return (alive, updated.timestamp() if updated else 0.0)
+        trip_by_transaction = await cls._trip_ids_by_transaction(
+            [str(group["_id"]) for group in groups],
+        )
 
         removable: list[PydanticObjectId] = []
-        for group in groups:
-            members = sorted(group["members"], key=_rank, reverse=True)
-            removable.extend(member["id"] for member in members[1:])
+        orphaned: list[PydanticObjectId] = []
+        relinks: list[tuple[PydanticObjectId, PydanticObjectId]] = []
 
-        if removable and not dry_run:
-            await TripMobilityProfile.find({"_id": {"$in": removable}}).delete()
+        for group in groups:
+            transaction_id = str(group["_id"])
+            members = group["members"]
+            current_trip_id = trip_by_transaction.get(transaction_id)
+
+            if current_trip_id is None:
+                # The transaction has no trip; every profile for it is dead.
+                orphaned.extend(member["id"] for member in members)
+                continue
+
+            def _rank(member: dict[str, Any], *, target=current_trip_id) -> tuple:
+                on_current_trip = 1 if member.get("trip_id") == target else 0
+                updated = member.get("updated_at")
+                return (on_current_trip, updated.timestamp() if updated else 0.0)
+
+            ordered = sorted(members, key=_rank, reverse=True)
+            survivor = ordered[0]
+            removable.extend(member["id"] for member in ordered[1:])
+            if survivor.get("trip_id") != current_trip_id:
+                relinks.append((survivor["id"], current_trip_id))
+
+        if not dry_run:
+            doomed = removable + orphaned
+            if doomed:
+                await TripMobilityProfile.find({"_id": {"$in": doomed}}).delete()
+            # Relink after deleting, so a freed trip_id cannot collide with
+            # a sibling still holding it on the unique index.
+            collection = TripMobilityProfile.get_pymongo_collection()
+            for profile_id, trip_id in relinks:
+                try:
+                    await collection.update_one(
+                        {"_id": profile_id},
+                        {"$set": {"trip_id": trip_id}},
+                    )
+                except Exception:
+                    logger.exception(
+                        "Failed to relink mobility profile %s to trip %s",
+                        profile_id,
+                        trip_id,
+                    )
 
         logger.info(
-            "Mobility profile dedupe: %d transactions, %d profiles %s",
+            "Mobility profile reconcile%s: %d transactions, %d duplicates, "
+            "%d orphans, %d relinked",
+            " (dry run)" if dry_run else "",
             len(groups),
             len(removable),
-            "would be removed (dry run)" if dry_run else "removed",
+            len(orphaned),
+            len(relinks),
         )
         return {
             "transactions_scanned": len(groups),
             "profiles_removed": len(removable),
+            "orphans_removed": len(orphaned),
+            "profiles_relinked": len(relinks),
         }
 
     @classmethod
