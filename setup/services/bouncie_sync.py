@@ -114,10 +114,12 @@ async def sync_bouncie_vehicles(
         }
 
         # A Bouncie Device is identified by IMEI. VIN describes the physical
-        # vehicle and can legitimately recur after a tracker is replaced.
+        # vehicle and can legitimately recur after a tracker is replaced. The
+        # replacement device may already be in the registry, so release the
+        # previous assignment whether or not this IMEI is new to us.
         existing_vehicle = await Vehicle.find_one({"imei": imei})
         vin_val = vehicle_doc.get("vin")
-        if not existing_vehicle and vin_val:
+        if vin_val:
             previous_assignment = await Vehicle.find_one({"vin": vin_val})
             if previous_assignment and previous_assignment.imei != imei:
                 previous_assignment.vin = None
