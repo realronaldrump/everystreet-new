@@ -5,6 +5,7 @@ This module provides ARQ jobs for maintaining trip data quality:
 - validate_trips: Validates trip data and marks invalid records
 - remap_unmatched_trips: Attempts to map-match retryable unmatched trips
 - backfill_trip_display_geometry: Recomputes historical display-only trip geometry
+- dedupe_mobility_profiles: Collapses mobility profiles duplicated by re-import
 """
 
 from __future__ import annotations
@@ -405,5 +406,37 @@ async def backfill_trip_display_geometry(
         ctx,
         "backfill_trip_display_geometry",
         lambda: _backfill_trip_display_geometry_logic(force=force, limit=limit),
+        manual_run=manual_run,
+    )
+
+
+async def _dedupe_mobility_profiles_logic(*, dry_run: bool) -> dict[str, Any]:
+    """Async logic for collapsing duplicate H3 mobility profiles."""
+    result = await MobilityInsightsService.dedupe_profiles_by_transaction(
+        dry_run=dry_run,
+    )
+    removed = result["profiles_removed"]
+    verb = "Would remove" if dry_run else "Removed"
+    return {
+        "status": "success",
+        "message": (
+            f"{verb} {removed} duplicate mobility profiles across "
+            f"{result['transactions_scanned']} transactions"
+        ),
+        **result,
+        "dry_run": dry_run,
+    }
+
+
+async def dedupe_mobility_profiles(
+    ctx: dict[str, Any],
+    manual_run: bool = False,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """ARQ job for collapsing mobility profiles duplicated by re-import."""
+    return await run_task_with_history(
+        ctx,
+        "dedupe_mobility_profiles",
+        lambda: _dedupe_mobility_profiles_logic(dry_run=dry_run),
         manual_run=manual_run,
     )

@@ -282,6 +282,25 @@ class MobilityInsightsService:
         trip.mobility_synced_at = synced_at
         await trip.save()
 
+    @staticmethod
+    def _profile_identity_query(
+        trip_id: PydanticObjectId | None,
+        transaction_id: str | None,
+    ) -> dict[str, Any]:
+        """
+        Match a trip's profile by Bouncie identity or current ObjectId.
+
+        `transaction_id` is the stable identity: re-importing a Bouncie
+        transaction mints a new Trip ObjectId, so matching on `trip_id`
+        alone would strand the previous profile.
+        """
+        clauses: list[dict[str, Any]] = []
+        if transaction_id:
+            clauses.append({"transaction_id": transaction_id})
+        if trip_id is not None:
+            clauses.append({"trip_id": trip_id})
+        return {"$or": clauses} if clauses else {"_id": None}
+
     @classmethod
     async def sync_trip(cls, trip: Trip) -> bool:
         """Compute and persist one trip's H3 traversal profile."""
@@ -291,9 +310,11 @@ class MobilityInsightsService:
         trip_data = trip.model_dump()
         lines, geometry_source = cls._select_trip_geometry(trip_data)
         synced_at = datetime.now(UTC)
+        transaction_id = (trip.transactionId or "").strip() or None
+        identity = cls._profile_identity_query(trip.id, transaction_id)
 
         if not lines:
-            await TripMobilityProfile.find({"trip_id": trip.id}).delete()
+            await TripMobilityProfile.find(identity).delete()
             await cls._set_trip_synced(trip.id, synced_at)
             return False
 
@@ -303,17 +324,29 @@ class MobilityInsightsService:
             spacing_m=H3_SAMPLE_SPACING_M,
         )
 
-        profile = await TripMobilityProfile.find_one({"trip_id": trip.id})
+        # A transaction may still carry profiles from earlier ObjectIds.
+        # Keep one and drop the rest, otherwise re-pointing the survivor at
+        # this trip would collide with a sibling on the unique trip_id index.
+        matches = await TripMobilityProfile.find(identity).to_list()
+        matches.sort(key=lambda candidate: candidate.trip_id != trip.id)
+        profile = matches[0] if matches else None
+        if len(matches) > 1:
+            await TripMobilityProfile.find(
+                {"_id": {"$in": [stale.id for stale in matches[1:]]}},
+            ).delete()
+
         if profile is None:
             profile = TripMobilityProfile(
                 trip_id=trip.id,
-                transaction_id=trip.transactionId,
+                transaction_id=transaction_id,
                 imei=trip.imei,
                 start_time=trip.startTime,
                 end_time=trip.endTime,
             )
 
-        profile.transaction_id = trip.transactionId
+        # Re-point the surviving profile at the trip's current ObjectId.
+        profile.trip_id = trip.id
+        profile.transaction_id = transaction_id
         profile.imei = trip.imei
         profile.start_time = trip.startTime
         profile.end_time = trip.endTime
@@ -334,9 +367,107 @@ class MobilityInsightsService:
         return True
 
     @classmethod
-    async def remove_trip(cls, trip_id: PydanticObjectId) -> None:
-        """Delete mobility profile for a trip that has been removed."""
-        await TripMobilityProfile.find({"trip_id": trip_id}).delete()
+    async def remove_trip(
+        cls,
+        trip_id: PydanticObjectId,
+        transaction_id: str | None = None,
+    ) -> None:
+        """
+        Delete mobility profiles for a trip that has been removed.
+
+        Removes by both identifiers so profiles left behind by an earlier
+        ObjectId for the same Bouncie transaction are cleared too.
+        """
+        resolved = (transaction_id or "").strip() or None
+        if resolved is None:
+            existing = await TripMobilityProfile.find_one({"trip_id": trip_id})
+            if existing is not None:
+                resolved = (existing.transaction_id or "").strip() or None
+
+        identity = cls._profile_identity_query(trip_id, resolved)
+        await TripMobilityProfile.find(identity).delete()
+
+    @classmethod
+    async def dedupe_profiles_by_transaction(
+        cls,
+        *,
+        dry_run: bool = False,
+    ) -> dict[str, int]:
+        """
+        Collapse profiles that share one Bouncie transaction id.
+
+        Re-importing a transaction used to mint a second profile under the
+        new Trip ObjectId. For each transaction the surviving profile is
+        the one pointing at a Trip that still exists, most recently
+        updated; the rest are removed.
+        """
+        pipeline = [
+            {"$match": {"transaction_id": {"$type": "string", "$ne": ""}}},
+            {
+                "$group": {
+                    "_id": "$transaction_id",
+                    "profile_ids": {"$push": "$_id"},
+                    "count": {"$sum": 1},
+                },
+            },
+            {"$match": {"count": {"$gt": 1}}},
+        ]
+        groups = await aggregate_to_list(TripMobilityProfile, pipeline)
+        if not groups:
+            return {"transactions_scanned": 0, "profiles_removed": 0}
+
+        duplicate_ids = [
+            profile_id for group in groups for profile_id in group["profile_ids"]
+        ]
+        profiles = await TripMobilityProfile.find(
+            {"_id": {"$in": duplicate_ids}},
+        ).to_list()
+        by_id = {profile.id: profile for profile in profiles}
+
+        candidate_trip_ids = [
+            profile.trip_id for profile in profiles if profile.trip_id is not None
+        ]
+        live_trip_ids: set[PydanticObjectId] = set()
+        if candidate_trip_ids:
+            live_rows = await aggregate_to_list(
+                Trip,
+                [
+                    {"$match": {"_id": {"$in": candidate_trip_ids}}},
+                    {"$project": {"_id": 1}},
+                ],
+            )
+            live_trip_ids = {row["_id"] for row in live_rows}
+
+        def _rank(profile: TripMobilityProfile) -> tuple[int, float]:
+            alive = 1 if profile.trip_id in live_trip_ids else 0
+            updated = profile.updated_at
+            return (alive, updated.timestamp() if updated else 0.0)
+
+        removable: list[PydanticObjectId] = []
+        for group in groups:
+            members = [
+                by_id[profile_id]
+                for profile_id in group["profile_ids"]
+                if profile_id in by_id
+            ]
+            if len(members) < 2:
+                continue
+            members.sort(key=_rank, reverse=True)
+            removable.extend(member.id for member in members[1:])
+
+        if removable and not dry_run:
+            await TripMobilityProfile.find({"_id": {"$in": removable}}).delete()
+
+        logger.info(
+            "Mobility profile dedupe: %d transactions, %d profiles %s",
+            len(groups),
+            len(removable),
+            "would be removed (dry run)" if dry_run else "removed",
+        )
+        return {
+            "transactions_scanned": len(groups),
+            "profiles_removed": len(removable),
+        }
 
     @classmethod
     async def sync_unsynced_trips_for_query(

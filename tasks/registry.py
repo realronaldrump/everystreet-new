@@ -56,6 +56,19 @@ TASK_DEFINITIONS: dict[str, dict[str, object]] = {
         "manual_only": True,
         "hidden": True,
     },
+    "dedupe_mobility_profiles": {
+        "display_name": "Dedupe Mobility Profiles",
+        "default_interval_minutes": 0,
+        "dependencies": [],
+        "description": (
+            "Collapses H3 mobility profiles that share a Bouncie transaction id. "
+            "Re-importing a trip used to leave the previous profile behind under "
+            "its old record id. The profile pointing at the current trip is kept; "
+            "trips, coverage, and Insights results are unchanged."
+        ),
+        "manual_only": True,
+        "hidden": True,
+    },
     "build_recurring_routes": {
         "display_name": "Build Recurring Routes",
         "default_interval_minutes": 0,

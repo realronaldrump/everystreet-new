@@ -32,6 +32,7 @@ from tasks.health import worker_heartbeat
 from tasks.logs import purge_server_logs_before
 from tasks.maintenance import (
     backfill_trip_display_geometry,
+    dedupe_mobility_profiles,
     remap_unmatched_trips,
     validate_trips,
 )
@@ -108,6 +109,7 @@ class WorkerSettings:
         validate_trips,
         remap_unmatched_trips,
         backfill_trip_display_geometry,
+        dedupe_mobility_profiles,
         func(map_match_trips, timeout=MAP_MATCHING_JOB_TIMEOUT_SECONDS),
         update_coverage_for_new_trips,
         sync_geo_coverage,

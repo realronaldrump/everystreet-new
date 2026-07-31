@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock
 
 import h3
 import pytest
+from beanie import PydanticObjectId
 from db_helpers import init_mock_beanie
 
 from analytics.services.mobility_insights_service import MobilityInsightsService
@@ -497,3 +498,149 @@ async def test_mobility_insights_excludes_profiles_without_matched_geometry(
     assert insights["profiled_trip_count"] == 1
     assert insights["top_streets"]
     assert insights["top_streets"][0]["street_name"] == "Matched Street"
+
+
+_PROFILE_GEOMETRY = {
+    "type": "LineString",
+    "coordinates": [
+        [-122.4312, 37.7731],
+        [-122.4250, 37.7765],
+        [-122.4185, 37.7801],
+    ],
+}
+
+
+async def _insert_bouncie_trip(transaction_id: str, imei: str = "imei-reimport") -> Trip:
+    now = datetime.now(UTC)
+    trip = Trip(
+        transactionId=transaction_id,
+        imei=imei,
+        source="bouncie",
+        startTime=now - timedelta(minutes=20),
+        endTime=now - timedelta(minutes=5),
+        gps=_PROFILE_GEOMETRY,
+        matchedGps=_PROFILE_GEOMETRY,
+    )
+    await trip.insert()
+    return trip
+
+
+@pytest.mark.asyncio
+async def test_sync_trip_reuses_profile_when_transaction_reimported(mobility_db) -> None:
+    """A re-imported transaction must not strand a second profile."""
+    del mobility_db
+    transaction_id = "trip-reimport-1"
+
+    original = await _insert_bouncie_trip(transaction_id)
+    assert await MobilityInsightsService.sync_trip(original) is True
+    original_id = original.id
+
+    # Simulate delete + re-import: same Bouncie transaction, new ObjectId.
+    await original.delete()
+    reimported = await _insert_bouncie_trip(transaction_id)
+    assert reimported.id != original_id
+    assert await MobilityInsightsService.sync_trip(reimported) is True
+
+    profiles = await TripMobilityProfile.find(
+        {"transaction_id": transaction_id},
+    ).to_list()
+    assert len(profiles) == 1
+    assert profiles[0].trip_id == reimported.id
+
+
+@pytest.mark.asyncio
+async def test_remove_trip_clears_profile_from_previous_object_id(mobility_db) -> None:
+    del mobility_db
+    transaction_id = "trip-reimport-2"
+    stale_trip_id = PydanticObjectId()
+
+    trip = await _insert_bouncie_trip(transaction_id)
+    await MobilityInsightsService.sync_trip(trip)
+    # A profile left behind by an earlier ObjectId for the same transaction.
+    await TripMobilityProfile(
+        trip_id=stale_trip_id,
+        transaction_id=transaction_id,
+        imei=trip.imei,
+    ).insert()
+
+    await MobilityInsightsService.remove_trip(trip.id)
+
+    assert await TripMobilityProfile.find({}).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_dedupe_profiles_keeps_the_live_trip_profile(mobility_db) -> None:
+    del mobility_db
+    transaction_id = "trip-dupe-1"
+    now = datetime.now(UTC)
+
+    trip = await _insert_bouncie_trip(transaction_id)
+    orphan_id = PydanticObjectId()
+    # Orphan is newer, so only liveness should decide the survivor.
+    await TripMobilityProfile(
+        trip_id=orphan_id,
+        transaction_id=transaction_id,
+        imei=trip.imei,
+        updated_at=now + timedelta(hours=1),
+    ).insert()
+    await TripMobilityProfile(
+        trip_id=trip.id,
+        transaction_id=transaction_id,
+        imei=trip.imei,
+        updated_at=now,
+    ).insert()
+
+    result = await MobilityInsightsService.dedupe_profiles_by_transaction()
+
+    assert result == {"transactions_scanned": 1, "profiles_removed": 1}
+    remaining = await TripMobilityProfile.find({}).to_list()
+    assert len(remaining) == 1
+    assert remaining[0].trip_id == trip.id
+
+
+@pytest.mark.asyncio
+async def test_dedupe_profiles_dry_run_removes_nothing(mobility_db) -> None:
+    del mobility_db
+    transaction_id = "trip-dupe-2"
+    trip = await _insert_bouncie_trip(transaction_id)
+    await TripMobilityProfile(
+        trip_id=trip.id,
+        transaction_id=transaction_id,
+    ).insert()
+    await TripMobilityProfile(
+        trip_id=PydanticObjectId(),
+        transaction_id=transaction_id,
+    ).insert()
+
+    result = await MobilityInsightsService.dedupe_profiles_by_transaction(dry_run=True)
+
+    assert result == {"transactions_scanned": 1, "profiles_removed": 1}
+    assert await TripMobilityProfile.find({}).count() == 2
+
+
+@pytest.mark.asyncio
+async def test_sync_trip_collapses_pre_existing_duplicate_profiles(mobility_db) -> None:
+    """Syncing must not collide with a sibling holding the same trip_id."""
+    del mobility_db
+    transaction_id = "trip-dupe-3"
+    trip = await _insert_bouncie_trip(transaction_id)
+
+    # The production shape: one profile on a stale ObjectId, one on the
+    # current trip, both under the same Bouncie transaction.
+    await TripMobilityProfile(
+        trip_id=PydanticObjectId(),
+        transaction_id=transaction_id,
+        imei=trip.imei,
+    ).insert()
+    await TripMobilityProfile(
+        trip_id=trip.id,
+        transaction_id=transaction_id,
+        imei=trip.imei,
+    ).insert()
+
+    assert await MobilityInsightsService.sync_trip(trip) is True
+
+    remaining = await TripMobilityProfile.find({}).to_list()
+    assert len(remaining) == 1
+    assert remaining[0].trip_id == trip.id
+    assert remaining[0].transaction_id == transaction_id
