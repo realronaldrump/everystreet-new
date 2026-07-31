@@ -121,7 +121,6 @@
   letter-spacing: var(--tracking-snug);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
   white-space: nowrap;
 }
 

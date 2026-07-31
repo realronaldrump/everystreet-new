@@ -65,7 +65,6 @@
 .live-trip-hud-speed {
   font-family: var(--font-family-display);
   font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
   font-weight: var(--font-weight-bold);
   font-size: var(--font-size-lg);
   line-height: 1;

@@ -72,13 +72,12 @@ h5 {
   letter-spacing: var(--tracking-normal);
 }
 
+/* h6 carries real section titles in this app, so it stays a small heading
+   rather than a label role. Pages that want an eyebrow use their own class. */
 h6 {
   font-family: var(--font-family);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+  letter-spacing: var(--tracking-normal);
 }
 
 /* === Prose ================================================= */
@@ -126,7 +125,6 @@ a {
 .numeric,
 .data-num {
   font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: "tnum" 1, "lnum" 1;
   letter-spacing: var(--tracking-normal);
 }
 
@@ -148,22 +146,3 @@ pre {
   font-variant-ligatures: none;
 }
 
-/* === Type roles ============================================
-   Shared roles so pages stop re-deriving the same label treatment. */
-.type-eyebrow {
-  font-family: var(--font-family);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--line-height-snug);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-  color: var(--text-tertiary);
-}
-
-.type-lead {
-  font-size: var(--font-size-lg);
-  line-height: var(--line-height-relaxed);
-  color: var(--text-secondary);
-  max-width: var(--measure-tight);
-  text-wrap: pretty;
-}

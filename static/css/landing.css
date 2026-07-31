@@ -215,7 +215,6 @@
   letter-spacing: var(--tracking-tight);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
 }
 
 .snapshot-figure.is-loading .snapshot-value {
