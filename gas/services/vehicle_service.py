@@ -1,7 +1,6 @@
 """Business logic for vehicle management."""
 
 import logging
-from datetime import UTC, datetime
 from typing import Any
 
 from core.exceptions import DuplicateResourceException, ResourceNotFoundException
@@ -86,12 +85,20 @@ class VehicleService:
             msg = "Vehicle with this IMEI already exists"
             raise DuplicateResourceException(msg)
 
-        vehicle_data["created_at"] = datetime.now(UTC)
-        vehicle_data["updated_at"] = datetime.now(UTC)
-
-        vehicle = Vehicle(**vehicle_data)
-        await vehicle.insert()
-
+        imei = vehicle_data["imei"]
+        await FleetRegistry.register_device(
+            imei,
+            custom_name=vehicle_data.get("custom_name"),
+        )
+        user_fields = {
+            key: value
+            for key, value in vehicle_data.items()
+            if key not in {"imei", "custom_name"}
+        }
+        vehicle = await FleetRegistry.update_user_device(imei, **user_fields)
+        if vehicle is None:  # pragma: no cover - registration just created it
+            msg = f"Vehicle with IMEI {imei} not found"
+            raise ResourceNotFoundException(msg)
         return vehicle
 
     @staticmethod
@@ -109,50 +116,10 @@ class VehicleService:
         Raises:
             ResourceNotFoundException: If vehicle not found
         """
-        # Find the vehicle
-        vehicle = await Vehicle.find_one(Vehicle.imei == imei)
-        if not vehicle:
+        vehicle = await FleetRegistry.update_user_device(imei, **update_data)
+        if vehicle is None:
             msg = f"Vehicle with IMEI {imei} not found"
             raise ResourceNotFoundException(msg)
-
-        # Track if odometer is being updated
-        odometer_updated = "odometer_reading" in update_data
-
-        if odometer_updated:
-            reading = update_data.get("odometer_reading")
-            if reading is not None and reading < 0:
-                msg = "odometer_reading must be greater than or equal to 0"
-                raise ValueError(msg)
-            if reading is None:
-                update_data["odometer_source"] = None
-                update_data["odometer_is_estimated"] = False
-            elif update_data.get("odometer_is_estimated") is None:
-                update_data["odometer_is_estimated"] = update_data.get(
-                    "odometer_source"
-                ) in {"estimated", "bouncie_untrusted"}
-
-        # A VIN can only move between devices via the registry, which
-        # frees whichever device held it before.
-        if "vin" in update_data:
-            await FleetRegistry.assign_vin(imei, update_data.pop("vin"))
-            vehicle = await FleetRegistry.get_device(imei)
-            if not vehicle:
-                msg = f"Vehicle with IMEI {imei} not found"
-                raise ResourceNotFoundException(msg)
-
-        # Update fields
-        for key, value in update_data.items():
-            if hasattr(vehicle, key):
-                setattr(vehicle, key, value)
-
-        vehicle.updated_at = datetime.now(UTC)
-
-        # Set odometer timestamp if odometer was updated
-        if odometer_updated:
-            vehicle.odometer_updated_at = datetime.now(UTC)
-
-        await vehicle.save()
-
         return vehicle
 
     @staticmethod

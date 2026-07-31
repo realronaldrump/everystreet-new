@@ -564,23 +564,15 @@ class TestSyncVehiclesAfterAuth:
             },
         ]
 
-        monkeypatch.setattr(
-            "setup.services.bouncie_sync.fetch_all_vehicles",
-            AsyncMock(return_value=vehicles),
-        )
-
         mock_session = MagicMock()
-
-        # Mock Vehicle model
-        mock_vehicle_class = MagicMock()
-        mock_vehicle_class.find_one = AsyncMock(return_value=None)
-        mock_vehicle_instance = MagicMock()
-        mock_vehicle_instance.insert = AsyncMock()
-        mock_vehicle_class.return_value = mock_vehicle_instance
-
         monkeypatch.setattr(
-            "setup.services.bouncie_sync.Vehicle",
-            mock_vehicle_class,
+            "setup.api.bouncie.sync_bouncie_vehicles",
+            AsyncMock(
+                return_value={
+                    "vehicles": vehicles,
+                    "imeis": [vehicle["imei"] for vehicle in vehicles],
+                },
+            ),
         )
 
         count = await _sync_vehicles_after_auth(mock_session, "test_token")

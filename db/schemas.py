@@ -236,3 +236,31 @@ class VehicleModel(BaseModel):
     odometer_is_estimated: bool | None = None
 
     model_config = ConfigDict(extra="allow")
+
+
+class VehicleCreateRequest(BaseModel):
+    """User-owned fields accepted when manually registering a device."""
+
+    imei: str
+    custom_name: str | None = None
+    is_active: bool = True
+    odometer_reading: float | None = None
+    odometer_source: str | None = None
+    odometer_is_estimated: bool | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class VehicleUpdateRequest(BaseModel):
+    """User-owned Fleet Registry fields accepted by the vehicle settings API."""
+
+    # The current UI includes the IMEI in its body; identity still comes from
+    # the route and this value is intentionally never written.
+    imei: str | None = None
+    custom_name: str | None = None
+    is_active: bool = True
+    odometer_reading: float | None = None
+    odometer_source: str | None = None
+    odometer_is_estimated: bool | None = None
+
+    model_config = ConfigDict(extra="forbid")

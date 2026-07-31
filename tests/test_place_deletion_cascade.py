@@ -61,6 +61,50 @@ async def test_deleting_a_place_clears_trip_references(places_db) -> None:
 
 
 @pytest.mark.asyncio
+async def test_deleting_a_place_clears_trip_start_reference(places_db) -> None:
+    """A deleted place cannot be restored onto a route from a Historical Trip."""
+    del places_db
+    place = await _make_place("Home")
+    place_id = str(place.id)
+    await Trip(
+        transactionId="tx-start",
+        source="bouncie",
+        startPlaceId=place_id,
+    ).insert()
+
+    result = await PlaceService.delete_place(place_id)
+
+    assert result["trips_updated"] == 1
+    trip = await Trip.find_one({"transactionId": "tx-start"})
+    assert trip is not None
+    assert getattr(trip, "startPlaceId", None) is None
+
+
+@pytest.mark.asyncio
+async def test_deleting_a_place_clears_both_trip_ends_once(places_db) -> None:
+    """One Historical Trip can reference the same place at both ends."""
+    del places_db
+    place = await _make_place("Depot")
+    place_id = str(place.id)
+    await Trip(
+        transactionId="tx-round-trip",
+        source="bouncie",
+        startPlaceId=place_id,
+        destinationPlaceId=place_id,
+        destinationPlaceName="Depot",
+    ).insert()
+
+    result = await PlaceService.delete_place(place_id)
+
+    assert result["trips_updated"] == 1
+    trip = await Trip.find_one({"transactionId": "tx-round-trip"})
+    assert trip is not None
+    assert getattr(trip, "startPlaceId", None) is None
+    assert trip.destinationPlaceId is None
+    assert trip.destinationPlaceName is None
+
+
+@pytest.mark.asyncio
 async def test_deleting_a_place_leaves_other_places_alone(places_db) -> None:
     del places_db
     doomed = await _make_place("Home")

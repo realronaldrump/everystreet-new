@@ -345,11 +345,6 @@ class TripMobilityProfile(Document):
                 unique=True,
             ),
             IndexModel(
-                [("transaction_id", 1)],
-                name="trip_mobility_profiles_transaction_id_idx",
-                sparse=True,
-            ),
-            IndexModel(
                 [("start_time", -1)],
                 name="trip_mobility_profiles_start_time_desc_idx",
             ),

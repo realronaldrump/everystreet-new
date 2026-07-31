@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from core.exceptions import DuplicateResourceException, ResourceNotFoundException
 from db.models import Vehicle
-from db.schemas import VehicleModel
+from db.schemas import VehicleCreateRequest, VehicleUpdateRequest
 from gas.services.vehicle_service import VehicleService
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ async def get_vehicles(
 
 
 @router.post("/api/vehicles")
-async def create_vehicle(vehicle_data: VehicleModel) -> Vehicle:
+async def create_vehicle(vehicle_data: VehicleCreateRequest) -> Vehicle:
     """Create a new vehicle record."""
     try:
         vehicle_dict = vehicle_data.model_dump(exclude={"id"}, exclude_none=True)
@@ -49,7 +49,7 @@ async def create_vehicle(vehicle_data: VehicleModel) -> Vehicle:
 
 
 @router.put("/api/vehicles/{imei}")
-async def update_vehicle(imei: str, vehicle_data: VehicleModel) -> Vehicle:
+async def update_vehicle(imei: str, vehicle_data: VehicleUpdateRequest) -> Vehicle:
     """Update a vehicle's information."""
     try:
         update_data = vehicle_data.model_dump(

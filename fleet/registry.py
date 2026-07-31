@@ -10,6 +10,8 @@ from beanie.operators import In
 
 from db.models import Vehicle
 
+_UNSET = object()
+
 
 def _normalize_imeis(values: list[str] | None) -> list[str]:
     return list(
@@ -306,6 +308,70 @@ class FleetRegistry:
             await FleetRegistry._release_vin(cleaned_vin, keep_imei=vehicle.imei)
         vehicle.vin = cleaned_vin
         vehicle.updated_at = datetime.now(UTC)
+        await vehicle.save()
+        return vehicle
+
+    @staticmethod
+    async def update_user_device(
+        imei: str,
+        *,
+        custom_name: Any = _UNSET,
+        is_active: Any = _UNSET,
+        odometer_reading: Any = _UNSET,
+        odometer_source: Any = _UNSET,
+        odometer_is_estimated: Any = _UNSET,
+    ) -> Vehicle | None:
+        """
+        Apply fields owned by the user-facing vehicle settings interface.
+
+        Bouncie-owned VIN and descriptive metadata are deliberately absent
+        from this interface, so settings writes cannot make those fields drift
+        from the next Bouncie synchronization.
+        """
+        vehicle = await FleetRegistry.get_device(imei)
+        if vehicle is None:
+            return None
+
+        now = datetime.now(UTC)
+        if custom_name is not _UNSET:
+            vehicle.custom_name = _clean(custom_name)
+
+        if is_active is not _UNSET:
+            if not isinstance(is_active, bool):
+                msg = "is_active must be a boolean"
+                raise ValueError(msg)
+            vehicle.is_active = is_active
+
+        reading_updated = odometer_reading is not _UNSET
+        if reading_updated:
+            if odometer_reading is not None and odometer_reading < 0:
+                msg = "odometer_reading must be greater than or equal to 0"
+                raise ValueError(msg)
+            vehicle.odometer_reading = odometer_reading
+            vehicle.odometer_updated_at = now
+
+            if odometer_reading is None:
+                odometer_source = None
+                odometer_is_estimated = False
+            elif odometer_is_estimated is _UNSET or odometer_is_estimated is None:
+                odometer_is_estimated = odometer_source in {
+                    "estimated",
+                    "bouncie_untrusted",
+                }
+
+        if odometer_source is not _UNSET:
+            if odometer_source is not None and not isinstance(odometer_source, str):
+                msg = "odometer_source must be a string"
+                raise ValueError(msg)
+            vehicle.odometer_source = odometer_source
+
+        if odometer_is_estimated is not _UNSET:
+            if not isinstance(odometer_is_estimated, bool):
+                msg = "odometer_is_estimated must be a boolean"
+                raise ValueError(msg)
+            vehicle.odometer_is_estimated = odometer_is_estimated
+
+        vehicle.updated_at = now
         await vehicle.save()
         return vehicle
 

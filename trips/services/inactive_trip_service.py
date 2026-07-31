@@ -168,25 +168,17 @@ class InactiveTripService:
         job_ids: list[str] = []
 
         for area in areas:
-            active_job = await Job.find_one(
-                {
-                    "area_id": area.id,
-                    "job_type": {"$in": list(_COVERAGE_JOB_TYPES)},
-                    "status": {"$in": list(_ACTIVE_JOB_STATUSES)},
-                },
-            )
-            if active_job:
-                # Coalesce onto the running job rather than dropping the
-                # request: coverage would otherwise keep crediting trips
-                # that changed while that job was in flight.
-                await area.set({"coverage_refresh_pending": True})
+            # Publish the durable request *before* inspecting the active job.
+            # If that job finishes concurrently, either its completion hook or
+            # this caller atomically claims the marker; neither can miss it.
+            await area.set({"coverage_refresh_pending": True})
+            refresh = await cls.consume_pending_coverage_refresh(area.id)
+            if refresh.get("queued"):
+                if refresh.get("job_id") is not None:
+                    job_ids.append(str(refresh["job_id"]))
+                queued += 1
+            else:
                 deferred += 1
-                continue
-
-            job_id = await cls._start_area_refresh(area)
-            if job_id is not None:
-                job_ids.append(job_id)
-            queued += 1
 
         return {
             "queued": queued,
@@ -206,12 +198,9 @@ class InactiveTripService:
                 "manually_marked": {"$ne": True},
             },
         ).delete()
-        # Clear the marker before enqueuing so a request arriving during
-        # the new job sets it again and earns its own follow-up run.
         await area.set(
             {
                 "last_backfill_trip_endtime": None,
-                "coverage_refresh_pending": False,
             },
         )
 
@@ -231,15 +220,45 @@ class InactiveTripService:
         """
         area = await CoverageArea.get(area_id)
         if area is None or not getattr(area, "coverage_refresh_pending", False):
-            return {"queued": False, "job_id": None}
+            return {"queued": False, "deferred": False, "job_id": None}
 
-        job_id = await cls._start_area_refresh(area)
+        active_job = await Job.find_one(
+            {
+                "area_id": area.id,
+                "job_type": {"$in": list(_COVERAGE_JOB_TYPES)},
+                "status": {"$in": list(_ACTIVE_JOB_STATUSES)},
+            },
+        )
+        if active_job:
+            return {
+                "queued": False,
+                "deferred": True,
+                "job_id": str(active_job.id),
+            }
+
+        claim = await CoverageArea.get_pymongo_collection().update_one(
+            {
+                "_id": area.id,
+                "coverage_refresh_pending": True,
+            },
+            {"$set": {"coverage_refresh_pending": False}},
+        )
+        if int(getattr(claim, "modified_count", 0) or 0) != 1:
+            return {"queued": False, "deferred": False, "job_id": None}
+
+        try:
+            job_id = await cls._start_area_refresh(area)
+        except Exception:
+            # Retain the request so a later completion hook or user action can
+            # retry it rather than silently losing a failed enqueue.
+            await area.set({"coverage_refresh_pending": True})
+            raise
         logger.info(
             "Ran deferred coverage refresh for area %s (job %s)",
             area_id,
             job_id,
         )
-        return {"queued": True, "job_id": job_id}
+        return {"queued": True, "deferred": False, "job_id": job_id}
 
     @classmethod
     async def _find_affected_coverage_areas(cls, trip: Trip) -> list[CoverageArea]:

@@ -26,6 +26,19 @@ def _parse_object_id(raw_id: str, field_name: str) -> PydanticObjectId:
         raise ValueError(msg) from exc
 
 
+async def _consume_pending_refresh(area_id: PydanticObjectId) -> None:
+    """Best-effort handoff for refreshes requested while a job was active."""
+    from trips.services.inactive_trip_service import InactiveTripService
+
+    try:
+        await InactiveTripService.consume_pending_coverage_refresh(area_id)
+    except Exception:
+        logger.exception(
+            "Failed to run deferred coverage refresh for area %s",
+            area_id,
+        )
+
+
 async def run_area_ingestion_job(
     _ctx: dict[str, Any],
     area_id: str,
@@ -35,7 +48,10 @@ async def run_area_ingestion_job(
     """Run the full area ingestion pipeline for an existing job."""
     area_obj_id = _parse_object_id(area_id, "area_id")
     job_obj_id = _parse_object_id(job_id, "job_id")
-    await _run_ingestion_pipeline(area_obj_id, job_obj_id, trip_mode=trip_mode)
+    try:
+        await _run_ingestion_pipeline(area_obj_id, job_obj_id, trip_mode=trip_mode)
+    finally:
+        await _consume_pending_refresh(area_obj_id)
     return {
         "status": "ok",
         "area_id": str(area_obj_id),
@@ -52,19 +68,10 @@ async def run_area_backfill_job(
     """Run the standalone area backfill pipeline for an existing job."""
     area_obj_id = _parse_object_id(area_id, "area_id")
     job_obj_id = _parse_object_id(job_id, "job_id")
-    await _run_backfill_pipeline(area_obj_id, job_obj_id, trip_mode=trip_mode)
-
-    # A refresh requested while this job was running was coalesced onto it
-    # rather than dropped; honour it now that the area is free.
-    from trips.services.inactive_trip_service import InactiveTripService
-
     try:
-        await InactiveTripService.consume_pending_coverage_refresh(area_obj_id)
-    except Exception:
-        logger.exception(
-            "Failed to run deferred coverage refresh for area %s",
-            area_obj_id,
-        )
+        await _run_backfill_pipeline(area_obj_id, job_obj_id, trip_mode=trip_mode)
+    finally:
+        await _consume_pending_refresh(area_obj_id)
 
     return {
         "status": "ok",
@@ -175,6 +182,8 @@ async def run_area_recalculate_batch_job(
                     "error": error,
                 },
             )
+            if area:
+                await _consume_pending_refresh(area_id)
             continue
 
         if child_job.status == "cancelled":
@@ -186,6 +195,7 @@ async def run_area_recalculate_batch_job(
                     "status": "cancelled",
                 },
             )
+            await _consume_pending_refresh(area_id)
             continue
 
         try:
@@ -213,6 +223,8 @@ async def run_area_recalculate_batch_job(
                 message="Coverage recalculation failed.",
                 error=str(exc),
             )
+        finally:
+            await _consume_pending_refresh(area_id)
 
         refreshed_child = await Job.get(child_job_id)
         outcomes.append(

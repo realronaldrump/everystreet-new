@@ -203,13 +203,45 @@ class PlaceService:
         """
         Drop references to a place that is going away.
 
-        Trips carry the place id and its name; recurring routes carry it
-        at either end, and the route signature is derived from those ids.
-        Left behind, they point at a place that no longer exists.
+        Trips carry place ids at both ends (and a destination display name);
+        recurring routes carry them at either end, and the route signature is
+        derived from those ids. Left behind, they point at a place that no
+        longer exists.
         """
         trip_result = await Trip.get_pymongo_collection().update_many(
-            {"destinationPlaceId": place_id},
-            {"$set": {"destinationPlaceId": None, "destinationPlaceName": None}},
+            {
+                "$or": [
+                    {"destinationPlaceId": place_id},
+                    {"startPlaceId": place_id},
+                ],
+            },
+            [
+                {
+                    "$set": {
+                        "destinationPlaceId": {
+                            "$cond": [
+                                {"$eq": ["$destinationPlaceId", place_id]},
+                                None,
+                                "$destinationPlaceId",
+                            ],
+                        },
+                        "destinationPlaceName": {
+                            "$cond": [
+                                {"$eq": ["$destinationPlaceId", place_id]},
+                                None,
+                                "$destinationPlaceName",
+                            ],
+                        },
+                        "startPlaceId": {
+                            "$cond": [
+                                {"$eq": ["$startPlaceId", place_id]},
+                                None,
+                                "$startPlaceId",
+                            ],
+                        },
+                    },
+                },
+            ],
         )
         route_result = await RecurringRoute.get_pymongo_collection().update_many(
             {"$or": [{"start_place_id": place_id}, {"end_place_id": place_id}]},
@@ -275,7 +307,9 @@ class PlaceService:
             from trips.services.inactive_trip_service import InactiveTripService
 
             try:
-                route_refresh = await InactiveTripService.queue_recurring_routes_refresh()
+                route_refresh = (
+                    await InactiveTripService.queue_recurring_routes_refresh()
+                )
             except Exception:
                 logger.exception(
                     "Failed to queue recurring route rebuild after deleting place %s",

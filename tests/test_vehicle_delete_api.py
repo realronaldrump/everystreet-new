@@ -78,6 +78,44 @@ async def test_update_vehicle_stores_bouncie_override_as_untrusted(vehicle_db) -
 
 
 @pytest.mark.asyncio
+async def test_update_vehicle_rejects_bouncie_owned_metadata(vehicle_db) -> None:
+    imei = "333333333333333"
+    await Vehicle(
+        imei=imei,
+        custom_name="Test",
+        make="Toyota",
+        year=2020,
+        is_active=True,
+    ).insert()
+
+    client = TestClient(_build_app())
+    resp = client.put(
+        f"/api/vehicles/{imei}",
+        json={"imei": imei, "make": "Overwritten", "year": 1999},
+    )
+
+    assert resp.status_code == 422
+    saved = await Vehicle.find_one(Vehicle.imei == imei)
+    assert saved is not None
+    assert saved.make == "Toyota"
+    assert saved.year == 2020
+
+
+@pytest.mark.asyncio
+async def test_create_vehicle_rejects_bouncie_owned_metadata(vehicle_db) -> None:
+    imei = "444444444444444"
+    client = TestClient(_build_app())
+
+    resp = client.post(
+        "/api/vehicles",
+        json={"imei": imei, "vin": "UNTRUSTED", "make": "Overwritten"},
+    )
+
+    assert resp.status_code == 422
+    assert await Vehicle.find_one(Vehicle.imei == imei) is None
+
+
+@pytest.mark.asyncio
 async def test_delete_vehicle_deactivates_record_and_preserves_linkage(
     vehicle_db,
 ) -> None:

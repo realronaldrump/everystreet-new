@@ -182,3 +182,42 @@ async def test_deactivate_preserves_the_record(fleet_db) -> None:
     assert saved.is_active is False
     assert saved.vin == "KEEP"
     assert await FleetRegistry.list_active_imeis() == []
+
+
+@pytest.mark.asyncio
+async def test_user_update_changes_owned_fields_without_touching_bouncie_metadata(
+    fleet_db,
+) -> None:
+    del fleet_db
+    imei = "121212121212121"
+    await Vehicle(
+        imei=imei,
+        custom_name="Old name",
+        make="Ford",
+        model="F-150",
+        year=2024,
+        bouncie_nickname="Bouncie truck",
+        standard_engine="5.0L",
+        bouncie_data={"source": "bouncie"},
+    ).insert()
+
+    updated = await FleetRegistry.update_user_device(
+        imei,
+        custom_name="My truck",
+        is_active=False,
+        odometer_reading=1234.5,
+        odometer_source="manual",
+        odometer_is_estimated=False,
+    )
+
+    assert updated is not None
+    assert updated.custom_name == "My truck"
+    assert updated.is_active is False
+    assert updated.odometer_reading == pytest.approx(1234.5)
+    assert updated.odometer_source == "manual"
+    assert updated.make == "Ford"
+    assert updated.model == "F-150"
+    assert updated.year == 2024
+    assert updated.bouncie_nickname == "Bouncie truck"
+    assert updated.standard_engine == "5.0L"
+    assert updated.bouncie_data == {"source": "bouncie"}
