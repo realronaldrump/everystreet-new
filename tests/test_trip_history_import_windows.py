@@ -4,6 +4,10 @@ from datetime import UTC, datetime
 
 import pytest
 
+from config import (
+    BOUNCIE_FETCH_CONCURRENCY_DEFAULT,
+    BOUNCIE_FETCH_CONCURRENCY_MAX,
+)
 from db.models import Trip
 from trips.services.trip_history_import_service import build_import_windows
 from trips.services.trip_history_import_service_config import (
@@ -28,9 +32,17 @@ def test_build_import_windows_seven_day_windows_with_24h_overlap() -> None:
 
 
 def test_history_import_honors_configured_fetch_concurrency() -> None:
-    assert resolve_history_fetch_concurrency({"fetch_concurrency": 50}) == 50
+    assert (
+        resolve_history_fetch_concurrency(
+            {"fetch_concurrency": BOUNCIE_FETCH_CONCURRENCY_MAX},
+        )
+        == BOUNCIE_FETCH_CONCURRENCY_MAX
+    )
     assert resolve_history_fetch_concurrency({"fetch_concurrency": 17}) == 17
-    assert resolve_history_fetch_concurrency({"fetch_concurrency": 0}) == 50
+    assert (
+        resolve_history_fetch_concurrency({"fetch_concurrency": 0})
+        == BOUNCIE_FETCH_CONCURRENCY_DEFAULT
+    )
 
 
 @pytest.mark.asyncio

@@ -3,6 +3,11 @@ from typing import Annotated
 from fastapi import APIRouter, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
+from config import (
+    BOUNCIE_FETCH_CONCURRENCY_DEFAULT,
+    BOUNCIE_FETCH_CONCURRENCY_MAX,
+    BOUNCIE_FETCH_CONCURRENCY_MIN,
+)
 from core.auth import validate_form_csrf_token
 from core.template_context import render_template
 from gas.services.vehicle_service import VehicleService
@@ -63,6 +68,11 @@ async def control_center_page(request: Request):
         database_logical_mb=None,
         storage_updated_at=None,
         storage_error=None,
+        bouncie_fetch_concurrency={
+            "default": BOUNCIE_FETCH_CONCURRENCY_DEFAULT,
+            "min": BOUNCIE_FETCH_CONCURRENCY_MIN,
+            "max": BOUNCIE_FETCH_CONCURRENCY_MAX,
+        },
     )
 
 

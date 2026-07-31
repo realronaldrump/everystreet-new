@@ -32,6 +32,7 @@ from beanie import Document, Indexed, PydanticObjectId
 from beanie.odm.fields import IndexModel
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from config import BOUNCIE_FETCH_CONCURRENCY_DEFAULT
 from core.date_utils import parse_timestamp
 from core.spatial import (
     GeometryService,
@@ -1211,7 +1212,7 @@ class BouncieCredentials(Document):
     webhook_updated_at: datetime | None = None
     webhook_last_checked_at: datetime | None = None
     webhook_last_error: str | None = None
-    fetch_concurrency: int = 50
+    fetch_concurrency: int = BOUNCIE_FETCH_CONCURRENCY_DEFAULT
     access_token: str | None = None
     expires_at: float | None = None
 

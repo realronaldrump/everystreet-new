@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock
 import pytest
 from db_helpers import init_mock_beanie
 
+from config import BOUNCIE_FETCH_CONCURRENCY_DEFAULT
 from db.models import Vehicle
 from trips.services import trip_history_import_service_config as import_config
 
@@ -40,7 +41,9 @@ async def test_history_import_plan_uses_every_active_fleet_device(
     monkeypatch.setattr(
         import_config,
         "get_bouncie_config",
-        AsyncMock(return_value={"fetch_concurrency": 50}),
+        AsyncMock(
+            return_value={"fetch_concurrency": BOUNCIE_FETCH_CONCURRENCY_DEFAULT},
+        ),
     )
 
     plan = await import_config.build_import_plan(

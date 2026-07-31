@@ -1,6 +1,10 @@
 import pytest
 from db_helpers import init_mock_beanie
 
+from config import (
+    BOUNCIE_FETCH_CONCURRENCY_DEFAULT,
+    BOUNCIE_FETCH_CONCURRENCY_MAX,
+)
 from db.models import BouncieCredentials
 from setup.services.bouncie_credentials import (
     get_bouncie_credentials,
@@ -54,7 +58,7 @@ async def test_get_bouncie_credentials_returns_defaults(bouncie_db) -> None:
 
     assert result["client_id"] == ""
     assert result["client_secret"] == ""
-    assert result["fetch_concurrency"] == 50
+    assert result["fetch_concurrency"] == BOUNCIE_FETCH_CONCURRENCY_DEFAULT
     assert "authorized_devices" not in result
     assert result["oauth_state"] is None
     assert result["oauth_state_expires_at"] is None
@@ -150,15 +154,17 @@ async def test_update_bouncie_credentials_clamps_concurrency(bouncie_db) -> None
     """update_bouncie_credentials should ignore out-of-range fetch_concurrency
     updates.
     """
-    await update_bouncie_credentials({"fetch_concurrency": 100})
+    await update_bouncie_credentials(
+        {"fetch_concurrency": BOUNCIE_FETCH_CONCURRENCY_MAX + 1},
+    )
 
     creds = await BouncieCredentials.find_one(
         BouncieCredentials.id == "bouncie_credentials",
     )
-    assert creds.fetch_concurrency == 50  # Should remain default
+    assert creds.fetch_concurrency == BOUNCIE_FETCH_CONCURRENCY_DEFAULT
 
     await update_bouncie_credentials({"fetch_concurrency": 0})
     creds = await BouncieCredentials.find_one(
         BouncieCredentials.id == "bouncie_credentials",
     )
-    assert creds.fetch_concurrency == 50  # Should remain default
+    assert creds.fetch_concurrency == BOUNCIE_FETCH_CONCURRENCY_DEFAULT

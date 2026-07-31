@@ -32,7 +32,6 @@ from trips.services.historical_trip_writer import (
     HistoricalTripWrite,
 )
 from trips.services.trip_history_import_service_config import (
-    FETCH_CONCURRENCY,
     LEAF_RETRY_ATTEMPTS,
     LEAF_RETRY_DELAY_SECONDS,
     MIN_WINDOW_HOURS,
@@ -47,6 +46,7 @@ from trips.services.trip_history_import_service_config import (
     TRANSIENT_BACKOFF_MAX_SECONDS,
     TRANSIENT_RETRY_ATTEMPTS,
     build_import_windows,
+    resolve_history_fetch_concurrency,
 )
 from trips.services.trip_ingest_issue_service import TripIngestIssueService
 
@@ -1108,9 +1108,7 @@ async def run_ingest_for_range(
         do_geocode = await _resolve_geocode_preference()
     force_rematch_all = await _resolve_force_google_rematch(do_map_match)
 
-    fetch_concurrency = credentials.get("fetch_concurrency", FETCH_CONCURRENCY)
-    if not isinstance(fetch_concurrency, int) or fetch_concurrency < 1:
-        fetch_concurrency = FETCH_CONCURRENCY
+    fetch_concurrency = resolve_history_fetch_concurrency(credentials)
     semaphore = asyncio.Semaphore(fetch_concurrency)
 
     pipeline = TripPipeline()

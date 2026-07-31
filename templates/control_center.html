@@ -552,13 +552,14 @@ Map Match Trips on Fetch
                 <input type="number"
                        class="form-control"
                        id="credentials-fetchConcurrency"
-                       min="1"
-                       max="50"
+                       min="{{ bouncie_fetch_concurrency.min }}"
+                       max="{{ bouncie_fetch_concurrency.max }}"
                        step="1"
                        inputmode="numeric"
-                       placeholder="50" />
+                       data-default="{{ bouncie_fetch_concurrency.default }}"
+                       placeholder="{{ bouncie_fetch_concurrency.default }}" />
                 <div class="form-text">
-                Controls simultaneous Bouncie fetch requests. Keep at 50 for the
+                Controls simultaneous Bouncie fetch requests. Keep at {{ bouncie_fetch_concurrency.default }} for the
                 fastest history imports; lower it only if this server is under pressure.
                 </div>
               </div>

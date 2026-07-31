@@ -7,37 +7,41 @@ import {
 import notificationManager from "../../ui/notifications.js";
 import { isAbortError } from "../../utils.js";
 
-const DEFAULT_FETCH_CONCURRENCY = 50;
-
 const BOUNCIE_AUTHORIZE_URL = "/api/bouncie/authorize";
 const BOUNCIE_REDIRECT_URI_API = "/api/bouncie/redirect-uri";
 const VEHICLES_API = "/api/vehicles?active_only=true";
 const BOUNCIE_ADD_VEHICLE_API = "/api/profile/bouncie-credentials/vehicles";
 const APP_SETTINGS_API = "/api/app_settings";
-const FETCH_CONCURRENCY_MIN = 1;
-const FETCH_CONCURRENCY_MAX = 50;
 
-function normalizeFetchConcurrency(value) {
+function readFetchConcurrencyConfig(input) {
+  return {
+    defaultValue: Number(input.dataset.default),
+    min: Number(input.min),
+    max: Number(input.max),
+  };
+}
+
+function normalizeFetchConcurrency(value, config) {
   const parsed = parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed < FETCH_CONCURRENCY_MIN) {
-    return DEFAULT_FETCH_CONCURRENCY;
+  if (!Number.isFinite(parsed) || parsed < config.min || parsed > config.max) {
+    return config.defaultValue;
   }
   return parsed;
 }
 
-function parseFetchConcurrencyInput(value) {
+function parseFetchConcurrencyInput(value, config) {
   if (value === "" || value === undefined || value === null) {
-    return DEFAULT_FETCH_CONCURRENCY;
+    return config.defaultValue;
   }
   const parsed = parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : NaN;
 }
 
-function validateFetchConcurrency(value) {
+function validateFetchConcurrency(value, config) {
   if (!Number.isFinite(value)) {
     return false;
   }
-  return value >= FETCH_CONCURRENCY_MIN && value <= FETCH_CONCURRENCY_MAX;
+  return value >= config.min && value <= config.max;
 }
 
 export function setupCredentialsSettings({ signal } = {}) {
@@ -116,9 +120,10 @@ async function setupBouncieCredentials({ signal } = {}) {
   const redirectUri = document.getElementById("credentials-redirectUri");
   const fetchConcurrencyInput = document.getElementById("credentials-fetchConcurrency");
 
-  if (!form || !saveBtn) {
+  if (!form || !saveBtn || !fetchConcurrencyInput) {
     return;
   }
+  const fetchConcurrencyConfig = readFetchConcurrencyConfig(fetchConcurrencyInput);
 
   try {
     const creds = await fetchBouncieCredentials({ signal });
@@ -132,11 +137,9 @@ async function setupBouncieCredentials({ signal } = {}) {
       redirectUri.value =
         creds.redirect_uri || (await getExpectedRedirectUri({ signal }));
     }
-    if (fetchConcurrencyInput) {
-      fetchConcurrencyInput.value = String(
-        normalizeFetchConcurrency(creds.fetch_concurrency)
-      );
-    }
+    fetchConcurrencyInput.value = String(
+      normalizeFetchConcurrency(creds.fetch_concurrency, fetchConcurrencyConfig)
+    );
   } catch (error) {
     if (!isAbortError(error)) {
       notificationManager.show(
@@ -164,10 +167,13 @@ async function setupBouncieCredentials({ signal } = {}) {
     "submit",
     async (event) => {
       event.preventDefault();
-      const fetchConcurrency = parseFetchConcurrencyInput(fetchConcurrencyInput?.value);
-      if (fetchConcurrencyInput && !validateFetchConcurrency(fetchConcurrency)) {
+      const fetchConcurrency = parseFetchConcurrencyInput(
+        fetchConcurrencyInput.value,
+        fetchConcurrencyConfig
+      );
+      if (!validateFetchConcurrency(fetchConcurrency, fetchConcurrencyConfig)) {
         notificationManager.show(
-          `Fetch concurrency must be between ${FETCH_CONCURRENCY_MIN} and ${FETCH_CONCURRENCY_MAX}.`,
+          `Fetch concurrency must be between ${fetchConcurrencyConfig.min} and ${fetchConcurrencyConfig.max}.`,
           "danger"
         );
         return;
@@ -211,11 +217,12 @@ async function setupBouncieCredentials({ signal } = {}) {
       async (event) => {
         event.preventDefault();
         const fetchConcurrency = parseFetchConcurrencyInput(
-          fetchConcurrencyInput?.value
+          fetchConcurrencyInput.value,
+          fetchConcurrencyConfig
         );
-        if (fetchConcurrencyInput && !validateFetchConcurrency(fetchConcurrency)) {
+        if (!validateFetchConcurrency(fetchConcurrency, fetchConcurrencyConfig)) {
           notificationManager.show(
-            `Fetch concurrency must be between ${FETCH_CONCURRENCY_MIN} and ${FETCH_CONCURRENCY_MAX}.`,
+            `Fetch concurrency must be between ${fetchConcurrencyConfig.min} and ${fetchConcurrencyConfig.max}.`,
             "danger"
           );
           return;

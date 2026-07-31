@@ -3,6 +3,11 @@ import re
 from fastapi.testclient import TestClient
 
 from app import app
+from config import (
+    BOUNCIE_FETCH_CONCURRENCY_DEFAULT,
+    BOUNCIE_FETCH_CONCURRENCY_MAX,
+    BOUNCIE_FETCH_CONCURRENCY_MIN,
+)
 
 
 def _find_route_content_close(html: str) -> int:
@@ -33,6 +38,9 @@ def test_control_center_page_renders_core_settings_before_footer() -> None:
     html = response.text
     assert 'id="map-trips-within-coverage-only"' in html
     assert 'id="trip-layers-use-heatmap"' in html
+    assert f'min="{BOUNCIE_FETCH_CONCURRENCY_MIN}"' in html
+    assert f'max="{BOUNCIE_FETCH_CONCURRENCY_MAX}"' in html
+    assert f'data-default="{BOUNCIE_FETCH_CONCURRENCY_DEFAULT}"' in html
 
     footer_pos = html.find('<footer class="app-footer">')
     assert footer_pos != -1, "Missing app footer"

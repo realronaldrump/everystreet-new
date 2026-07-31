@@ -10,13 +10,14 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from config import (
+    BOUNCIE_FETCH_CONCURRENCY_DEFAULT,
+    parse_bouncie_fetch_concurrency,
+    resolve_bouncie_fetch_concurrency,
+)
 from db.models import BouncieCredentials
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_FETCH_CONCURRENCY = 50
-FETCH_CONCURRENCY_MIN = 1
-FETCH_CONCURRENCY_MAX = 50
 
 
 async def get_bouncie_credentials() -> dict[str, Any]:
@@ -33,7 +34,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             - redirect_uri: str
             - authorization_code: str
             - webhook_key: str
-            - fetch_concurrency: int (defaults to 50)
+            - fetch_concurrency: int (uses the configured default)
             - access_token: str | None
 
             - expires_at: float | None (timestamp)
@@ -56,7 +57,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
         "webhook_updated_at": None,
         "webhook_last_checked_at": None,
         "webhook_last_error": None,
-        "fetch_concurrency": DEFAULT_FETCH_CONCURRENCY,
+        "fetch_concurrency": BOUNCIE_FETCH_CONCURRENCY_DEFAULT,
         "access_token": None,
         "expires_at": None,
     }
@@ -72,7 +73,9 @@ async def get_bouncie_credentials() -> dict[str, Any]:
     if credentials:
         logger.debug("Retrieved Bouncie credentials from database")
 
-        fetch_concurrency = credentials.fetch_concurrency or DEFAULT_FETCH_CONCURRENCY
+        fetch_concurrency = resolve_bouncie_fetch_concurrency(
+            credentials.fetch_concurrency,
+        )
 
         return {
             "client_id": credentials.client_id or "",
@@ -167,11 +170,8 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                 elif key == "fetch_concurrency":
                     if value is None:
                         continue
-                    try:
-                        parsed = int(value)
-                    except (TypeError, ValueError):
-                        continue
-                    if FETCH_CONCURRENCY_MIN <= parsed <= FETCH_CONCURRENCY_MAX:
+                    parsed = parse_bouncie_fetch_concurrency(value)
+                    if parsed is not None:
                         existing.fetch_concurrency = parsed
                 elif key == "access_token":
                     existing.access_token = value
@@ -219,19 +219,9 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                 ]
             if "webhook_last_error" in credentials:
                 new_creds.webhook_last_error = credentials["webhook_last_error"]
-            fetch_concurrency = credentials.get("fetch_concurrency")
-            if fetch_concurrency is not None:
-                try:
-                    parsed = int(fetch_concurrency)
-                except (TypeError, ValueError):
-                    new_creds.fetch_concurrency = DEFAULT_FETCH_CONCURRENCY
-                else:
-                    if FETCH_CONCURRENCY_MIN <= parsed <= FETCH_CONCURRENCY_MAX:
-                        new_creds.fetch_concurrency = parsed
-                    else:
-                        new_creds.fetch_concurrency = DEFAULT_FETCH_CONCURRENCY
-            else:
-                new_creds.fetch_concurrency = DEFAULT_FETCH_CONCURRENCY
+            new_creds.fetch_concurrency = resolve_bouncie_fetch_concurrency(
+                credentials.get("fetch_concurrency"),
+            )
 
             if "access_token" in credentials:
                 new_creds.access_token = credentials["access_token"]

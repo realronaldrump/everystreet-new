@@ -6,7 +6,12 @@ import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from config import get_bouncie_config
+from config import (
+    BOUNCIE_FETCH_CONCURRENCY_DEFAULT,
+    BOUNCIE_FETCH_CONCURRENCY_MAX,
+    BOUNCIE_FETCH_CONCURRENCY_MIN,
+    get_bouncie_config,
+)
 from core.date_utils import ensure_utc
 from core.trip_source_policy import enforce_bouncie_source
 from db.models import Trip, Vehicle
@@ -41,11 +46,17 @@ except ValueError:
 SPLIT_CONCURRENCY = max(1, _SPLIT_CONCURRENCY)
 try:
     _FETCH_CONCURRENCY = int(
-        os.getenv("TRIP_HISTORY_IMPORT_FETCH_CONCURRENCY", "50"),
+        os.getenv(
+            "TRIP_HISTORY_IMPORT_FETCH_CONCURRENCY",
+            str(BOUNCIE_FETCH_CONCURRENCY_DEFAULT),
+        ),
     )
 except ValueError:
-    _FETCH_CONCURRENCY = 50
-FETCH_CONCURRENCY = max(1, min(50, _FETCH_CONCURRENCY))
+    _FETCH_CONCURRENCY = BOUNCIE_FETCH_CONCURRENCY_DEFAULT
+FETCH_CONCURRENCY = max(
+    BOUNCIE_FETCH_CONCURRENCY_MIN,
+    min(BOUNCIE_FETCH_CONCURRENCY_MAX, _FETCH_CONCURRENCY),
+)
 try:
     _PROCESS_CONCURRENCY = int(
         os.getenv("TRIP_HISTORY_IMPORT_PROCESS_CONCURRENCY", "10"),
@@ -226,9 +237,12 @@ def _vehicle_label(vehicle: Vehicle | None, imei: str) -> str:
 def resolve_history_fetch_concurrency(credentials: dict[str, Any]) -> int:
     """Honor the user-configured Bouncie concurrency for history imports."""
     configured = credentials.get("fetch_concurrency", FETCH_CONCURRENCY)
-    if not isinstance(configured, int) or configured < 1:
+    if (
+        not isinstance(configured, int)
+        or configured < BOUNCIE_FETCH_CONCURRENCY_MIN
+    ):
         configured = FETCH_CONCURRENCY
-    return min(configured, 50)
+    return min(configured, BOUNCIE_FETCH_CONCURRENCY_MAX)
 
 
 async def build_import_plan(

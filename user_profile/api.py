@@ -13,6 +13,11 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from config import (
+    BOUNCIE_FETCH_CONCURRENCY_MAX,
+    BOUNCIE_FETCH_CONCURRENCY_MIN,
+    parse_bouncie_fetch_concurrency,
+)
 from core.api import api_route
 from core.http.session import get_session
 from fleet.registry import FleetRegistry, normalize_bouncie_vehicle
@@ -26,9 +31,6 @@ from setup.services.bouncie_sync import BouncieVehicleSyncError, sync_bouncie_ve
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["profile"])
-
-FETCH_CONCURRENCY_MIN = 1
-FETCH_CONCURRENCY_MAX = 50
 
 
 class BouncieCredentials(BaseModel):
@@ -105,15 +107,13 @@ async def update_credentials(credentials: BouncieCredentials):
                 status_code=400,
                 detail="Fetch concurrency must be an integer.",
             )
-        if (
-            fetch_concurrency < FETCH_CONCURRENCY_MIN
-            or fetch_concurrency > FETCH_CONCURRENCY_MAX
-        ):
+        if parse_bouncie_fetch_concurrency(fetch_concurrency) is None:
             raise HTTPException(
                 status_code=400,
                 detail=(
                     "Fetch concurrency must be between "
-                    f"{FETCH_CONCURRENCY_MIN} and {FETCH_CONCURRENCY_MAX}."
+                    f"{BOUNCIE_FETCH_CONCURRENCY_MIN} and "
+                    f"{BOUNCIE_FETCH_CONCURRENCY_MAX}."
                 ),
             )
 

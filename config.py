@@ -82,7 +82,35 @@ DEFAULT_NOMINATIM_USER_AGENT: Final[str] = "Every Street/1.0"
 DEFAULT_GEOFABRIK_MIRROR: Final[str] = "https://download.geofabrik.de"
 DEFAULT_OSM_EXTRACTS_PATH: Final[str] = "/osm"
 
+BOUNCIE_FETCH_CONCURRENCY_DEFAULT: Final[int] = 50
+BOUNCIE_FETCH_CONCURRENCY_MIN: Final[int] = 1
+BOUNCIE_FETCH_CONCURRENCY_MAX: Final[int] = 50
+
 logger = logging.getLogger(__name__)
+
+
+def parse_bouncie_fetch_concurrency(value: Any) -> int | None:
+    """Return a valid Bouncie fetch concurrency value, or ``None``."""
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+    if not (
+        BOUNCIE_FETCH_CONCURRENCY_MIN
+        <= parsed
+        <= BOUNCIE_FETCH_CONCURRENCY_MAX
+    ):
+        return None
+    return parsed
+
+
+def resolve_bouncie_fetch_concurrency(value: Any) -> int:
+    """Return a valid Bouncie fetch concurrency value or the default."""
+    return (
+        parse_bouncie_fetch_concurrency(value)
+        or BOUNCIE_FETCH_CONCURRENCY_DEFAULT
+    )
 
 
 def get_mapbox_token() -> str:
@@ -391,7 +419,7 @@ async def get_bouncie_config() -> dict[str, Any]:
             - client_secret: str
             - redirect_uri: str
             - authorization_code: str
-            - fetch_concurrency: int (defaults to 50)
+            - fetch_concurrency: int (uses the configured default)
             - access_token: str | None
             - expires_at: float | None (timestamp)
     """
@@ -403,6 +431,9 @@ async def get_bouncie_config() -> dict[str, Any]:
 __all__ = [
     "API_BASE_URL",
     "AUTH_URL",
+    "BOUNCIE_FETCH_CONCURRENCY_DEFAULT",
+    "BOUNCIE_FETCH_CONCURRENCY_MAX",
+    "BOUNCIE_FETCH_CONCURRENCY_MIN",
     "get_bouncie_config",
     "get_geofabrik_mirror",
     "get_mapbox_map_matching_radius_meters",
@@ -423,8 +454,10 @@ __all__ = [
     "get_valhalla_trace_route_url",
     "get_valhalla_trace_search_radius_meters",
     "has_mapbox_map_matching_token",
+    "parse_bouncie_fetch_concurrency",
     "require_mapbox_token",
     "require_osm_data_path",
+    "resolve_bouncie_fetch_concurrency",
     "resolve_osm_data_path",
     "validate_mapbox_token",
 ]
