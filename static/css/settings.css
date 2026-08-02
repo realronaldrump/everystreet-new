@@ -286,6 +286,10 @@
   margin-bottom: 0;
 }
 
+.task-config-save-button {
+  margin-top: var(--space-3);
+}
+
 .settings-group .table th {
   background: var(--surface-2);
   color: var(--text-secondary);
