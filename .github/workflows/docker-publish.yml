@@ -85,15 +85,15 @@ jobs:
           fetch-depth: 0 # Full history needed for git rev-list --count
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: linux/amd64
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -101,7 +101,7 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -109,7 +109,7 @@ jobs:
             type=sha,prefix=
 
       - name: Build and push (multi-platform)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         env:
           DOCKER_BUILD_RECORD_UPLOAD: false
         with:
@@ -137,11 +137,19 @@ jobs:
           fi
 
           echo "Triggering deployment via Cloudflare Tunnel..."
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+          set +e
+          RESPONSE=$(curl -sS -w "\n%{http_code}" -X POST \
             -H "Authorization: Bearer $WATCHTOWER_TOKEN" \
             "$WATCHTOWER_URL/v1/update" \
             --connect-timeout 15 \
             --max-time 60)
+          CURL_STATUS=$?
+          set -e
+
+          if [ "$CURL_STATUS" -ne 0 ]; then
+            echo "::warning::Watchtower trigger failed with curl exit $CURL_STATUS. Containers will update on the next poll cycle."
+            exit 0
+          fi
 
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
