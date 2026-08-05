@@ -1,4 +1,3 @@
-/* global DateUtils, $ */
 
 import notificationManager from "../ui/notifications.js";
 import { DateUtils as DateUtilsModule } from "../utils.js";

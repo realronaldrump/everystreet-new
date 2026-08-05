@@ -9,7 +9,6 @@
  * Map initialization is handled by map-core.js
  */
 
-/* global mapboxgl */
 
 import { CONFIG } from "./core/config.js";
 import store from "./core/store.js";

@@ -1,4 +1,3 @@
-/* global bootstrap, mapboxgl */
 /**
  * Coverage Management — Comprehensive Refactor
  *

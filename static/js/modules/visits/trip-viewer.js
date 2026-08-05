@@ -1,4 +1,3 @@
-/* global bootstrap, mapboxgl */
 
 import { resolveMapStyle } from "../core/map-style-resolver.js";
 import { createMap } from "../map-core.js";

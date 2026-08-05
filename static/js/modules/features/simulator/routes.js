@@ -228,7 +228,6 @@ export function enableRoutePickerMode(map, onRouteSelected) {
     el.className = "sim-route-marker";
     el.textContent = clickCount === 1 ? "A" : "B";
 
-    /* global mapboxgl */
     const marker = new mapboxgl.Marker({ element: el }).setLngLat(lngLat).addTo(map);
     markers.push(marker);
 

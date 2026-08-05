@@ -1,4 +1,3 @@
-/* global mapboxgl */
 
 /**
  * Map management for Driving Navigation.

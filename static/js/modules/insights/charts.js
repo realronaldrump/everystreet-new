@@ -1,4 +1,3 @@
-/* global Chart */
 /**
  * Insights Charts Module (ES6)
  * Chart initialization and update logic for the driving insights page

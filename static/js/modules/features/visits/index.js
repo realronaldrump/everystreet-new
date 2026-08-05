@@ -1,4 +1,3 @@
-/* global MapboxDraw, bootstrap, mapboxgl, $ */
 
 import VisitsPageController from "./visits-controller.js";
 

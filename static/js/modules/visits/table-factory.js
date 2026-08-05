@@ -1,4 +1,3 @@
-/* global $ */
 
 import { DateUtils } from "../utils.js";
 

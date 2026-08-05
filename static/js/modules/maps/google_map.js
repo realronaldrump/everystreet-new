@@ -1,4 +1,3 @@
-/* global google */
 
 /**
  * Google Maps Wrapper Module

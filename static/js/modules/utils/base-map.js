@@ -1,4 +1,3 @@
-/* global mapboxgl */
 
 import { createMap } from "../map-core.js";
 

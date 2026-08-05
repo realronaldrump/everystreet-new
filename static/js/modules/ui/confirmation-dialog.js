@@ -1,4 +1,3 @@
-/* global bootstrap */
 
 class ConfirmationDialog {
   constructor(config = {}) {

@@ -1,4 +1,3 @@
-/* global bootstrap */
 /**
  * Insights Modal Module (ES6)
  * Handles the trip details modal for the driving insights page

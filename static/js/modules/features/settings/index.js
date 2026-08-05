@@ -1,4 +1,3 @@
-/* global bootstrap */
 
 /**
  * Settings Page Entry Point

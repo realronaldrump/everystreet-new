@@ -1,4 +1,3 @@
-/* global topojson */
 /**
  * Unified Region Explorer
  */

@@ -1,4 +1,5 @@
 import { createMap } from "../../map-core.js";
+import MapStyles from "../../map-styles.js";
 import { ensureLibraries } from "../../core/library-loader.js";
 import { getGoogleMapsApi, waitForGoogleMaps } from "../../maps/google_maps_loader.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
@@ -14,14 +15,6 @@ const MAX_TOTAL_BYTES = 50 * 1024 * 1024;
 const MAP_SOURCE_ID = "manual-import-trips";
 const MAP_LINE_LAYER_ID = "manual-import-trip-lines";
 const MAP_ACTIVE_LAYER_ID = "manual-import-active-trip";
-const STATUS_COLORS = {
-  ready: "#43d7a1",
-  imported: "#43d7a1",
-  warning: "#f2b84b",
-  invalid: "#ff6f73",
-  existing: "#8d9aa9",
-};
-
 let pageSignal = null;
 let featureApi = null;
 let selectedFiles = [];
@@ -136,6 +129,23 @@ function statusLabel(status) {
       imported: "Imported",
     }[status] || "Unknown"
   );
+}
+
+function importMapColors() {
+  const colors = MapStyles.MAP_LAYER_COLORS;
+  return {
+    active: colors.trips.selected,
+    ready: colors.routes.active,
+    imported: colors.routes.active,
+    warning: colors.routes.default,
+    invalid: colors.matchedTrips.default,
+    existing: colors.coverage.undriveable,
+  };
+}
+
+function statusColor(status) {
+  const colors = importMapColors();
+  return colors[status] || colors.existing;
 }
 
 function displaySourceName(value) {
@@ -498,20 +508,21 @@ function featureCollection() {
 }
 
 function mapboxColorExpression() {
+  const colors = importMapColors();
   return [
     "match",
     ["get", "status"],
     "ready",
-    STATUS_COLORS.ready,
+    colors.ready,
     "imported",
-    STATUS_COLORS.imported,
+    colors.imported,
     "warning",
-    STATUS_COLORS.warning,
+    colors.warning,
     "invalid",
-    STATUS_COLORS.invalid,
+    colors.invalid,
     "existing",
-    STATUS_COLORS.existing,
-    STATUS_COLORS.existing,
+    colors.existing,
+    colors.existing,
   ];
 }
 
@@ -530,7 +541,7 @@ function setActiveMapRoute() {
   googlePolylines.forEach(({ key, polyline, status }) => {
     const active = key === activeRecordKey;
     polyline.setOptions({
-      strokeColor: active ? "#ffffff" : STATUS_COLORS[status] || STATUS_COLORS.existing,
+      strokeColor: active ? importMapColors().active : statusColor(status),
       strokeOpacity: active ? 1 : 0.78,
       strokeWeight: active ? 7 : 4,
       zIndex: active ? 50 : 1,
@@ -589,7 +600,7 @@ function renderGoogleRoutes() {
     const polyline = new maps.Polyline({
       map: importMap,
       path: coordinatesForRecord(record).map(([lng, lat]) => ({ lng, lat })),
-      strokeColor: STATUS_COLORS[record.status] || STATUS_COLORS.existing,
+      strokeColor: statusColor(record.status),
       strokeOpacity: 0.78,
       strokeWeight: 4,
       clickable: true,
@@ -662,7 +673,7 @@ async function initializeMap() {
     source: MAP_SOURCE_ID,
     filter: ["==", ["get", "key"], activeRecordKey || "__none__"],
     paint: {
-      "line-color": "#ffffff",
+      "line-color": importMapColors().active,
       "line-opacity": 1,
       "line-width": ["interpolate", ["linear"], ["zoom"], 4, 5, 12, 9],
     },

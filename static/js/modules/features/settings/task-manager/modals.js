@@ -1,4 +1,3 @@
-/* global bootstrap */
 
 /**
  * Task Manager Modals

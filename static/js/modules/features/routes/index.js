@@ -1,4 +1,3 @@
-/* global bootstrap, Chart */
 /**
  * Routes Page – Recurring Route Templates
  * Browse, filter, build, and explore route analytics with rich visualisations.

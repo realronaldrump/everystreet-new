@@ -1,4 +1,3 @@
-/* global mapboxgl */
 
 import MapStyles from "../map-styles.js";
 import { BaseFeatureMap } from "../utils/base-map.js";

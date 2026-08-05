@@ -3,7 +3,6 @@
  * Handles geocoding search for places, addresses, and streets with map highlighting
  * Fixed race conditions with proper AbortController usage
  */
-/* global mapboxgl */
 
 import apiClient from "./core/api-client.js";
 import { CONFIG } from "./core/config.js";

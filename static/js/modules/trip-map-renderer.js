@@ -1,4 +1,3 @@
-/* global deck */
 
 import { CONFIG } from "./core/config.js";
 import store from "./core/store.js";

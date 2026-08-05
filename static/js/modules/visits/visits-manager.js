@@ -1,4 +1,3 @@
-/* global bootstrap */
 
 import MapStyles from "../map-styles.js";
 import confirmationDialog from "../ui/confirmation-dialog.js";

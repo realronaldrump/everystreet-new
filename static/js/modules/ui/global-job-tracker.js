@@ -1,4 +1,3 @@
-/* global bootstrap */
 
 import apiClient from "../core/api-client.js";
 import { formatDurationMs } from "../utils/formatting.js";

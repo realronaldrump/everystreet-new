@@ -9,7 +9,6 @@
  * @module formatters
  */
 
-/* global dayjs */
 
 import { M_TO_FT, M_TO_MI } from "./geo-math.js";
 

@@ -1,4 +1,3 @@
-/* global bootstrap */
 
 import confirmationDialog from "../ui/confirmation-dialog.js";
 import loadingManager from "../ui/loading-manager.js";

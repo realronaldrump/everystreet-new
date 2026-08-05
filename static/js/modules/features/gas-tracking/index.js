@@ -1,4 +1,3 @@
-/* global mapboxgl */
 
 import { createFeatureApi } from "../../core/feature-api.js";
 import store from "../../core/store.js";

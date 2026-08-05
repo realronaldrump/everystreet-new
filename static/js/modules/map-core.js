@@ -12,7 +12,6 @@
  *   mapCore.onReady((map) => { ... });
  */
 
-/* global mapboxgl */
 
 import CONFIG from "./core/config.js";
 import { getCurrentTheme, resolveMapStyle } from "./core/map-style-resolver.js";

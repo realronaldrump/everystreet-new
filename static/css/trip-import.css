@@ -376,11 +376,11 @@
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-3);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid rgb(255 255 255 / 12%);
+  border: 1px solid var(--glass-border-medium);
   border-radius: var(--radius-md);
-  background: rgb(8 10 14 / 86%);
+  background: var(--glass-dropdown);
   box-shadow: var(--shadow-md);
-  color: #f5f3ee;
+  color: var(--text-primary);
   font-size: var(--font-size-xs);
   backdrop-filter: blur(10px);
 }
@@ -399,19 +399,19 @@
 }
 
 .legend-line.ready {
-  background: #43d7a1;
+  background: var(--success);
 }
 
 .legend-line.warning {
-  background: #f2b84b;
+  background: var(--warning);
 }
 
 .legend-line.invalid {
-  background: #ff6f73;
+  background: var(--danger);
 }
 
 .legend-line.existing {
-  background: #8d9aa9;
+  background: var(--secondary);
 }
 
 .import-trip-detail {

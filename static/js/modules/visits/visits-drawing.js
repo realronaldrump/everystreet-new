@@ -1,4 +1,3 @@
-/* global MapboxDraw */
 
 import MapStyles from "../map-styles.js";
 import notificationManager from "../ui/notifications.js";

@@ -3,7 +3,6 @@
  * Mapbox map initialization and layer management.
  */
 
-/* global mapboxgl */
 
 import { getCurrentTheme, resolveMapStyle } from "../core/map-style-resolver.js";
 import { BaseFeatureMap } from "../utils/base-map.js";

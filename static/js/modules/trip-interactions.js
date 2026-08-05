@@ -1,4 +1,3 @@
-/* global mapboxgl */
 
 import state from "./core/store.js";
 import mapManager from "./map-manager.js";
