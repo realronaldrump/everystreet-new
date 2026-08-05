@@ -133,6 +133,7 @@ function createMapMock(container) {
     getLayer(id) {
       return styleLayers.find((entry) => entry.id === id) || null;
     },
+    removeLayer() {},
   };
 }
 

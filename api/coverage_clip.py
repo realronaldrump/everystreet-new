@@ -17,7 +17,7 @@ async def resolve_request_coverage_clip_context(
     area = None
     if clip_requested and not area_id:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="coverage_area_id is required when clip_to_coverage is true.",
         )
 
@@ -26,7 +26,7 @@ async def resolve_request_coverage_clip_context(
             area = await CoverageArea.get(area_id)
         except Exception as exc:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Invalid coverage_area_id: {area_id}",
             ) from exc
 
@@ -44,6 +44,6 @@ async def resolve_request_coverage_clip_context(
         )
     except CoverageClipError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
         ) from exc

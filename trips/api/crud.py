@@ -217,7 +217,7 @@ async def rematch_trip(trip_id: str):
         else:
             detail = f"Map matching failed: {result.message or 'Unknown error'}"
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=detail,
         )
 

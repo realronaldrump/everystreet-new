@@ -7,6 +7,7 @@ starlette
 geopandas
 gpxpy
 httpx[http2]
+httpx2[http2]
 arq
 numpy
 pandas
