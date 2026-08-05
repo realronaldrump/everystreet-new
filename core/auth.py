@@ -52,6 +52,7 @@ PUBLIC_PAGE_PATHS: Final[set[str]] = {
 }
 OWNER_PAGE_PREFIXES: Final[tuple[str, ...]] = (
     "/control-center",
+    "/trip-import",
     "/vehicles",
     "/export",
     "/map-matching",

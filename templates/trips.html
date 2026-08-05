@@ -29,6 +29,12 @@ Trips - Every Street
           </p>
         </div>
         <div class="pm-aside">
+          {% if auth_context.is_owner %}
+            <a class="btn btn-secondary trip-import-link" href="/trip-import">
+              <i class="fas fa-file-import" aria-hidden="true"></i>
+              Import files
+            </a>
+          {% endif %}
           <div class="sync-status-mini" id="sync-status-mini">
             <span class="sync-indicator" data-state="idle">
               <span class="sync-dot"></span>

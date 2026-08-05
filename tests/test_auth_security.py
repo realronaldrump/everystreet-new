@@ -20,6 +20,7 @@ from core.auth import (
     SESSION_TTL_SECONDS,
     AuthGuardMiddleware,
     get_session_secret,
+    is_owner_page_path,
     parse_allowed_hosts,
     parse_cors_allowed_origins,
     require_owner_websocket,
@@ -277,6 +278,10 @@ def test_owner_only_page_redirects_viewer_to_login(
 
     assert response.status_code == 303
     assert response.headers["location"].startswith("/login?next=/control-center")
+
+
+def test_manual_trip_import_page_is_owner_only() -> None:
+    assert is_owner_page_path("/trip-import") is True
 
 
 def test_owner_only_api_rejects_viewer_and_requires_csrf(

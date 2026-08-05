@@ -26,3 +26,9 @@ async def trips_page(
 async def trip_details_page(request: Request, trip_id: str):
     """Render trips page with a specific trip preselected."""
     return await render_template(request, "trips.html", trip_id=trip_id)
+
+
+@router.get("/trip-import", response_class=HTMLResponse, tags=["Pages"])
+async def manual_trip_import_page(request: Request):
+    """Render the owner-only manual Bouncie trip import workflow."""
+    return await render_template(request, "trip_import.html")

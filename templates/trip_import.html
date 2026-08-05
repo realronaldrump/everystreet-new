@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
+
+{% block title %}
+
+Manual Trip Import - Every Street
+{% endblock %}
+
+
+{% block extra_css %}
+
+  {{ include_mapbox_css() }}
+  {{ static_css("features/map/index.css") }}
+  {{ static_css("trip-import.css") }}
+{% endblock %}
+
+
+{% block content %}
+
+  <div class="trip-import-page">
+    <header class="page-masthead" data-stagger>
+      <div class="pm-lead">
+        <p class="pm-eyebrow">Trip history / Manual import</p>
+        <h1 class="pm-title">Review before it becomes history.</h1>
+        <p class="pm-sub">
+          Upload a Bouncie ZIP or individual JSON files. Nothing is written until
+          you review the validation results and confirm the selected trips.
+        </p>
+      </div>
+      <div class="pm-aside">
+        <a class="btn btn-secondary" href="/trips" data-no-swup>
+          <i class="fas fa-arrow-left" aria-hidden="true"></i>
+          Back to trips
+        </a>
+      </div>
+    </header>
+
+    <section class="import-upload-panel" id="trip-import-upload-panel" data-stagger>
+      <div class="import-section-heading">
+        <div>
+          <span class="import-step-label">Step 1</span>
+          <h2>Choose Bouncie files</h2>
+        </div>
+        <span class="import-section-note">ZIP or JSON · 50 MB total</span>
+      </div>
+
+      <input id="trip-import-file-input"
+             class="visually-hidden"
+             type="file"
+             accept=".zip,.json,application/zip,application/json"
+             multiple />
+      <div class="import-drop-zone"
+           id="trip-import-drop-zone">
+        <span class="import-drop-icon" aria-hidden="true">
+          <i class="fas fa-file-arrow-up"></i>
+        </span>
+        <div class="import-drop-copy">
+          <strong>Drop the export here</strong>
+          <span>or choose the ZIP / individual trip files</span>
+        </div>
+        <button class="btn btn-secondary" id="trip-import-browse" type="button">
+          Browse files
+        </button>
+      </div>
+
+      <div class="import-file-selection" id="trip-import-file-selection" hidden>
+        <div class="import-file-selection-head">
+          <strong id="trip-import-file-summary">No files selected</strong>
+          <button class="import-text-button" id="trip-import-clear-files" type="button">
+            Clear
+          </button>
+        </div>
+        <ul class="import-file-list" id="trip-import-file-list"></ul>
+      </div>
+
+      <div class="import-upload-actions">
+        <button class="btn btn-primary" id="trip-import-scan" type="button" disabled>
+          <i class="fas fa-magnifying-glass-chart" aria-hidden="true"></i>
+          Scan and preview
+        </button>
+        <p class="import-upload-promise">
+          The scan is read-only. Existing trips are compared by transaction ID and
+          will never be overwritten.
+        </p>
+      </div>
+      <div class="import-live-status" id="trip-import-status" role="status" aria-live="polite"></div>
+    </section>
+
+    <section class="import-review" id="trip-import-review" hidden>
+      <div class="import-section-heading" data-stagger>
+        <div>
+          <span class="import-step-label">Step 2</span>
+          <h2>Review the dry run</h2>
+        </div>
+        <button class="btn btn-secondary" id="trip-import-rescan" type="button">
+          <i class="fas fa-rotate" aria-hidden="true"></i>
+          Scan again
+        </button>
+      </div>
+
+      <div class="figure-band import-summary-band" data-stagger>
+        <div class="figure">
+          <span class="figure-label">Trips found</span>
+          <span class="figure-readout">
+            <span class="figure-value" id="trip-import-total">0</span>
+          </span>
+        </div>
+        <span class="figure-rule" aria-hidden="true"></span>
+        <div class="figure">
+          <span class="figure-label">Ready</span>
+          <span class="figure-readout">
+            <span class="figure-value import-count-ready" id="trip-import-ready">0</span>
+          </span>
+        </div>
+        <span class="figure-rule" aria-hidden="true"></span>
+        <div class="figure">
+          <span class="figure-label">Warnings</span>
+          <span class="figure-readout">
+            <span class="figure-value import-count-warning" id="trip-import-warnings">0</span>
+          </span>
+        </div>
+        <span class="figure-rule" aria-hidden="true"></span>
+        <div class="figure">
+          <span class="figure-label">Blocked</span>
+          <span class="figure-readout">
+            <span class="figure-value import-count-invalid" id="trip-import-invalid">0</span>
+          </span>
+        </div>
+        <span class="figure-rule" aria-hidden="true"></span>
+        <div class="figure">
+          <span class="figure-label">Already here</span>
+          <span class="figure-readout">
+            <span class="figure-value" id="trip-import-existing">0</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="import-validation-note" id="trip-import-validation-note" data-tone="neutral">
+        <i class="fas fa-shield-halved" aria-hidden="true"></i>
+        <div>
+          <strong id="trip-import-validation-title">Validation complete</strong>
+          <p id="trip-import-validation-copy"></p>
+        </div>
+      </div>
+
+      <div class="import-review-toolbar" data-stagger>
+        <div class="import-filter-group" role="group" aria-label="Filter reviewed trips">
+          <button class="import-filter active" type="button" data-import-filter="all" aria-pressed="true">
+            All
+          </button>
+          <button class="import-filter" type="button" data-import-filter="importable" aria-pressed="false">
+            Importable
+          </button>
+          <button class="import-filter" type="button" data-import-filter="warning" aria-pressed="false">
+            Warnings
+          </button>
+          <button class="import-filter" type="button" data-import-filter="invalid" aria-pressed="false">
+            Blocked
+          </button>
+          <button class="import-filter" type="button" data-import-filter="existing" aria-pressed="false">
+            Already here
+          </button>
+        </div>
+        <div class="import-selection-tools">
+          <button class="import-text-button" id="trip-import-select-all" type="button">
+            Select ready + warnings
+          </button>
+          <button class="import-text-button" id="trip-import-select-none" type="button">
+            Clear selection
+          </button>
+        </div>
+      </div>
+
+      <div class="import-map-card" data-stagger>
+        <div class="import-map-head">
+          <div>
+            <span class="import-map-kicker">Visual review</span>
+            <h3>Uploaded routes</h3>
+          </div>
+          <button class="btn btn-secondary btn-sm" id="trip-import-fit-map" type="button">
+            <i class="fas fa-expand" aria-hidden="true"></i>
+            Fit all
+          </button>
+        </div>
+        <div class="import-map-shell">
+          <div id="trip-import-map" class="import-map" aria-label="Map of uploaded trip routes"></div>
+          <div class="import-map-empty" id="trip-import-map-empty" hidden>
+            No usable route geometry was found.
+          </div>
+          <div class="import-map-legend" aria-label="Route validation legend">
+            <span><i class="legend-line ready"></i>Ready</span>
+            <span><i class="legend-line warning"></i>Warning</span>
+            <span><i class="legend-line invalid"></i>Blocked</span>
+            <span><i class="legend-line existing"></i>Already here</span>
+          </div>
+        </div>
+        <aside class="import-trip-detail" id="trip-import-detail" aria-live="polite">
+          <span class="import-detail-kicker">Select a route or table row</span>
+          <strong>Trip details will appear here.</strong>
+        </aside>
+      </div>
+
+      <div class="import-table-card" data-stagger>
+        <div class="import-table-head">
+          <div>
+            <span class="import-map-kicker">Table review</span>
+            <h3>Trip-by-trip validation</h3>
+          </div>
+          <span id="trip-import-table-count">0 trips</span>
+        </div>
+        <div class="import-table-scroll">
+          <table class="import-table">
+            <thead>
+              <tr>
+                <th class="import-select-column" scope="col"><span class="visually-hidden">Import</span></th>
+                <th scope="col">Status</th>
+                <th scope="col">Trip</th>
+                <th scope="col">Date</th>
+                <th scope="col">Vehicle</th>
+                <th scope="col" class="is-number">Distance</th>
+                <th scope="col" class="is-number">Duration</th>
+                <th scope="col" class="is-number">GPS points</th>
+                <th scope="col">Validation</th>
+              </tr>
+            </thead>
+            <tbody id="trip-import-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="import-commit-bar" id="trip-import-commit-bar" data-stagger>
+        <div>
+          <strong id="trip-import-selection-count">0 trips selected</strong>
+          <span>Ready trips start selected. Warnings require an explicit choice; blocked and existing records stay excluded.</span>
+        </div>
+        <button class="btn btn-primary" id="trip-import-commit" type="button" disabled>
+          <i class="fas fa-file-import" aria-hidden="true"></i>
+          <span id="trip-import-commit-label">Import selected trips</span>
+        </button>
+      </div>
+
+      <div class="import-progress" id="trip-import-progress" hidden aria-live="polite">
+        <div class="import-progress-head">
+          <strong id="trip-import-progress-title">Importing historical trips</strong>
+          <span id="trip-import-progress-count">0 / 0</span>
+        </div>
+        <div class="import-progress-track"
+             id="trip-import-progress-track"
+             role="progressbar"
+             aria-label="Historical trip import progress"
+             aria-valuemin="0"
+             aria-valuemax="100"
+             aria-valuenow="0">
+          <span id="trip-import-progress-bar"></span>
+        </div>
+        <p id="trip-import-progress-copy">Validating the first batch&hellip;</p>
+      </div>
+
+      <div class="import-complete" id="trip-import-complete" hidden>
+        <span class="import-complete-icon" aria-hidden="true"><i class="fas fa-check"></i></span>
+        <div>
+          <span class="import-step-label">Import complete</span>
+          <h3 id="trip-import-complete-title">Trips added to history</h3>
+          <p id="trip-import-complete-copy"></p>
+        </div>
+        <a class="btn btn-primary" href="/trips" data-no-swup>Review trip history</a>
+      </div>
+    </section>
+  </div>
+{% endblock %}
+
+
+{# Page scripts are loaded via route-loader + swup. #}

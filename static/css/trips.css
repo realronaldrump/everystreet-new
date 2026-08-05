@@ -125,6 +125,12 @@
   animation: spin 1s linear infinite;
 }
 
+.trip-import-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
 /* ============================================
    SEARCH & FILTERS
    ============================================ */
