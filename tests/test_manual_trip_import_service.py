@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import zipfile
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -17,6 +18,7 @@ from trips.services.manual_trip_import_service import (
 )
 
 IMEI = "359486068397551"
+pytestmark = pytest.mark.usefixtures("beanie_db")
 
 
 def _trip_payload(**overrides: object) -> dict[str, object]:
@@ -68,7 +70,14 @@ def _service(
     service = ManualTripImportService()
     service._load_existing_sources = AsyncMock(return_value=existing or {})
     vehicles = (
-        {IMEI: Vehicle(imei=IMEI, custom_name="Archive car")} if known_vehicle else {}
+        {
+            IMEI: Vehicle.model_construct(
+                imei=IMEI,
+                custom_name="Archive car",
+            ),
+        }
+        if known_vehicle
+        else {}
     )
     service._load_vehicles = AsyncMock(return_value=vehicles)
     return service
@@ -123,6 +132,24 @@ async def test_preview_accepts_bouncie_id_with_epoch_seconds_in_middle() -> None
 
 
 @pytest.mark.asyncio
+async def test_preview_allows_incomplete_trip_with_usable_route() -> None:
+    analysis = await _service().analyze(
+        [_json_container(_trip_payload(endTime=None, distance=None))],
+    )
+
+    record = analysis.records[0]
+    assert record.status == "warning"
+    assert record.importable is True
+    assert record.end_time is None
+    assert record.duration_seconds is None
+    assert record.distance == pytest.approx(record.geometry_distance)
+    missing_end = next(
+        issue for issue in record.issues if issue.code == "missing_end_time"
+    )
+    assert "incomplete historical trip" in missing_end.message
+
+
+@pytest.mark.asyncio
 async def test_preview_surfaces_malformed_json_as_blocked_record() -> None:
     analysis = await _service().analyze(
         [UploadedTripContainer(name="broken.json", content=b'{"transactionId":')],
@@ -159,7 +186,6 @@ async def test_preview_counts_only_adjacent_duplicate_points_as_normalized() -> 
 @pytest.mark.parametrize(
     ("overrides", "issue_code"),
     [
-        ({"endTime": None}, "missing_end_time"),
         (
             {"gps": {"type": "LineString", "coordinates": []}},
             "missing_route_geometry",
@@ -190,6 +216,61 @@ async def test_preview_blocks_invalidating_trip_data(
 
 
 @pytest.mark.asyncio
+async def test_preview_blocks_missing_end_time_without_usable_route() -> None:
+    analysis = await _service().analyze(
+        [
+            _json_container(
+                _trip_payload(
+                    endTime=None,
+                    distance=None,
+                    gps={"type": "LineString", "coordinates": []},
+                ),
+            ),
+        ],
+    )
+
+    record = analysis.records[0]
+    assert record.status == "invalid"
+    assert record.importable is False
+    issues = {issue.code: issue for issue in record.issues}
+    assert issues["missing_end_time"].severity == "warning"
+    assert issues["missing_route_geometry"].severity == "error"
+
+
+@pytest.mark.asyncio
+async def test_preview_blocks_malformed_end_time() -> None:
+    analysis = await _service().analyze(
+        [_json_container(_trip_payload(endTime="not-a-timestamp"))],
+    )
+
+    record = analysis.records[0]
+    assert record.status == "invalid"
+    issues = {issue.code: issue for issue in record.issues}
+    assert issues["invalid_end_time"].severity == "error"
+    assert "missing_end_time" not in issues
+
+
+@pytest.mark.asyncio
+async def test_preview_validates_start_when_end_is_missing() -> None:
+    future_start = datetime.now(UTC) + timedelta(days=2)
+    analysis = await _service().analyze(
+        [
+            _json_container(
+                _trip_payload(
+                    startTime=future_start.isoformat(),
+                    endTime=None,
+                    distance=None,
+                ),
+            ),
+        ],
+    )
+
+    record = analysis.records[0]
+    assert record.status == "invalid"
+    assert "future_trip_date" in {issue.code for issue in record.issues}
+
+
+@pytest.mark.asyncio
 async def test_preview_warns_when_odometer_and_distance_disagree() -> None:
     analysis = await _service().analyze(
         [_json_container(_trip_payload(endOdometer=1010.0))],
@@ -198,6 +279,27 @@ async def test_preview_warns_when_odometer_and_distance_disagree() -> None:
     record = analysis.records[0]
     assert record.status == "warning"
     assert "odometer_distance_mismatch" in {issue.code for issue in record.issues}
+
+
+@pytest.mark.asyncio
+async def test_preview_explains_high_speed_with_recorded_values() -> None:
+    analysis = await _service().analyze(
+        [
+            _json_container(
+                _trip_payload(maxSpeed=124.2, averageSpeed=77.6),
+            ),
+        ],
+    )
+
+    record = analysis.records[0]
+    assert record.status == "warning"
+    high_speed = next(
+        issue for issue in record.issues if issue.code == "unusually_high_speed"
+    )
+    assert high_speed.message == (
+        "Recorded maximum speed is 124.2 mph, above the 120 mph review "
+        "threshold. Recorded average speed is 77.6 mph."
+    )
 
 
 @pytest.mark.asyncio
@@ -364,6 +466,7 @@ async def test_selected_import_uses_bouncie_historical_pipeline(
     assert kwargs["do_geocode"] is True
     assert kwargs["do_coverage"] is True
     assert kwargs["sync_mobility"] is True
+    assert kwargs["allow_incomplete_end_time"] is True
     assert kwargs["bump_revision"] is False
     bump_revision.assert_awaited_once()
 

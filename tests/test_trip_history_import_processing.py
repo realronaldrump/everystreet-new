@@ -9,7 +9,7 @@ import pytest
 
 from db.models import Trip
 from fleet.registry import FleetRegistry
-from trips.pipeline import TripProcessingRequest
+from trips.pipeline import TripPipeline, TripProcessingRequest
 from trips.services import bouncie_ingest_runtime
 from trips.services.bouncie_ingest_runtime import process_bouncie_trips
 
@@ -244,6 +244,195 @@ async def test_process_bouncie_trips_forwards_bump_revision_option(beanie_db) ->
 
     assert result["processed_transaction_ids"] == ["tx-no-per-trip-bump"]
     assert pipeline.calls[0]["bump_revision"] is False
+
+
+@pytest.mark.asyncio
+async def test_process_bouncie_trips_keeps_missing_end_time_strict_by_default(
+    beanie_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    del beanie_db
+    record_issue = AsyncMock()
+    monkeypatch.setattr(
+        bouncie_ingest_runtime.TripIngestIssueService,
+        "record_issue",
+        record_issue,
+    )
+
+    pipeline = _PipelineStub()
+    result = await process_bouncie_trips(
+        [
+            {
+                "transactionId": "tx-missing-end-default",
+                "imei": "imei-1",
+                "startTime": "2025-01-04T12:00:00Z",
+                "endTime": None,
+                "gps": {
+                    "type": "LineString",
+                    "coordinates": [[-107.0, 39.0], [-106.99, 39.0]],
+                },
+            },
+        ],
+        pipeline=pipeline,
+        mode="insert_only",
+        do_map_match=False,
+        do_geocode=False,
+        do_coverage=False,
+        sync_mobility=False,
+    )
+
+    assert result["processed_transaction_ids"] == []
+    assert result["counters"]["validation_failed"] == 1
+    assert pipeline.calls == []
+    assert await Trip.find_one(Trip.transactionId == "tx-missing-end-default") is None
+
+
+@pytest.mark.asyncio
+async def test_process_bouncie_trips_persists_explicit_incomplete_history(
+    beanie_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    del beanie_db
+    coverage = AsyncMock()
+    mobility_sync = AsyncMock(return_value=True)
+    pipeline = TripPipeline(coverage_service=coverage)
+    monkeypatch.setattr(
+        pipeline,
+        "_enqueue_geo_coverage_sync_for_ingest",
+        AsyncMock(),
+    )
+    monkeypatch.setattr(
+        "trips.pipeline.MobilityInsightsService.sync_trip",
+        mobility_sync,
+    )
+
+    transaction_id = "tx-manual-incomplete"
+    result = await process_bouncie_trips(
+        [
+            {
+                "transactionId": transaction_id,
+                "imei": "imei-1",
+                "startTime": "2025-01-04T12:00:00Z",
+                "endTime": None,
+                "gps": {
+                    "type": "LineString",
+                    "coordinates": [[-107.0, 39.0], [-106.99, 39.0]],
+                },
+            },
+        ],
+        pipeline=pipeline,
+        mode="insert_only",
+        do_map_match=False,
+        do_geocode=False,
+        do_coverage=True,
+        sync_mobility=True,
+        bump_revision=False,
+        allow_incomplete_end_time=True,
+    )
+
+    assert result["processed_transaction_ids"] == [transaction_id]
+    assert result["counters"]["inserted"] == 1
+    saved = await Trip.find_one(Trip.transactionId == transaction_id)
+    assert saved is not None
+    assert saved.source == "bouncie"
+    assert saved.endTime is None
+    assert saved.distance is not None
+    assert saved.distance > 0
+    assert saved.maxSpeed is None
+    assert saved.avgSpeed is None
+    assert saved.validation_status == "incomplete"
+    assert saved.validation_message == (
+        "Imported from a Bouncie export without an end time. Duration and speed "
+        "metrics are unavailable."
+    )
+    assert saved.closed_reason == "manual_import_missing_end_time"
+    assert saved.invalid is False
+    assert saved.coverage_emitted_at is not None
+    coverage.assert_awaited_once()
+    mobility_sync.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_process_bouncie_trips_rejects_incomplete_history_without_route(
+    beanie_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    del beanie_db
+    record_issue = AsyncMock()
+    monkeypatch.setattr(
+        bouncie_ingest_runtime.TripIngestIssueService,
+        "record_issue",
+        record_issue,
+    )
+
+    pipeline = _PipelineStub()
+    result = await process_bouncie_trips(
+        [
+            {
+                "transactionId": "tx-incomplete-without-route",
+                "imei": "imei-1",
+                "startTime": "2025-01-04T12:00:00Z",
+                "endTime": None,
+                "gps": {"type": "LineString", "coordinates": []},
+            },
+        ],
+        pipeline=pipeline,
+        mode="insert_only",
+        do_map_match=False,
+        do_geocode=False,
+        do_coverage=False,
+        sync_mobility=False,
+        allow_incomplete_end_time=True,
+    )
+
+    assert result["processed_transaction_ids"] == []
+    assert result["counters"]["validation_failed"] == 1
+    assert pipeline.calls == []
+    assert record_issue.await_args.kwargs["message"] == (
+        "Missing endTime requires usable route geometry"
+    )
+
+
+@pytest.mark.asyncio
+async def test_process_bouncie_trips_does_not_treat_invalid_end_as_incomplete(
+    beanie_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    del beanie_db
+    record_issue = AsyncMock()
+    monkeypatch.setattr(
+        bouncie_ingest_runtime.TripIngestIssueService,
+        "record_issue",
+        record_issue,
+    )
+
+    pipeline = _PipelineStub()
+    result = await process_bouncie_trips(
+        [
+            {
+                "transactionId": "tx-invalid-end-time",
+                "imei": "imei-1",
+                "startTime": "2025-01-04T12:00:00Z",
+                "endTime": "not-a-timestamp",
+                "gps": {
+                    "type": "LineString",
+                    "coordinates": [[-107.0, 39.0], [-106.99, 39.0]],
+                },
+            },
+        ],
+        pipeline=pipeline,
+        mode="insert_only",
+        do_map_match=False,
+        do_geocode=False,
+        do_coverage=False,
+        sync_mobility=False,
+        allow_incomplete_end_time=True,
+    )
+
+    assert result["processed_transaction_ids"] == []
+    assert result["counters"]["validation_failed"] == 1
+    assert pipeline.calls == []
+    assert record_issue.await_args.kwargs["message"] == "Invalid endTime"
 
 
 @pytest.mark.asyncio

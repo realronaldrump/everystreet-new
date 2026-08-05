@@ -47,6 +47,9 @@ test("manual import entrypoint is owner-routed and sends fingerprinted small bat
   assert.match(feature, /max_import_batch_size/);
   assert.match(feature, /retry:\s*false/);
   assert.match(feature, /record\.status === "ready"/);
+  assert.match(feature, /record\.max_speed/);
+  assert.match(feature, /record\.average_speed/);
+  assert.match(feature, /End time unavailable/);
   assert.match(tripsTemplate, /href="\/trip-import"/);
   assert.match(tripsTemplate, /auth_context\.is_owner/);
 });

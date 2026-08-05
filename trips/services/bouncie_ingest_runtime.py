@@ -20,6 +20,7 @@ from core.bouncie_normalization import normalize_rest_trip_payload
 from core.clients.bouncie import BouncieClient
 from core.date_utils import ensure_utc, parse_timestamp
 from core.http.session import get_session
+from core.spatial import sanitize_geojson_geometry
 from core.trip_map_cache import bump_trip_map_revision
 from core.trip_source_policy import BOUNCIE_SOURCE
 from db.models import Trip
@@ -53,6 +54,11 @@ from trips.services.trip_ingest_issue_service import TripIngestIssueService
 logger = logging.getLogger(__name__)
 
 IngestMode = Literal["insert_only", "upsert_bouncie"]
+
+INCOMPLETE_HISTORY_VALIDATION_MESSAGE = (
+    "Imported from a Bouncie export without an end time. Duration and speed "
+    "metrics are unavailable."
+)
 
 
 @dataclass(frozen=True)
@@ -814,6 +820,7 @@ async def process_bouncie_trips(
     do_geocode: bool,
     do_coverage: bool,
     sync_mobility: bool,
+    allow_incomplete_end_time: bool = False,
     force_rematch_all: bool = False,
     bump_revision: bool = True,
     add_event: Callable[[str, str, dict[str, Any] | None], None] | None = None,
@@ -829,19 +836,33 @@ async def process_bouncie_trips(
     processed_transaction_ids: list[str] = []
     writer = BouncieHistoricalTripWriter(pipeline)
 
-    normalized = [
-        normalize_rest_trip_payload(t) for t in raw_trips if isinstance(t, dict)
-    ]
+    normalized: list[dict[str, Any]] = []
+    source_missing_end_by_id: dict[str, bool] = {}
+    for raw_trip in raw_trips:
+        if not isinstance(raw_trip, dict):
+            continue
+        tx = str(raw_trip.get("transactionId") or "").strip()
+        if tx and tx not in source_missing_end_by_id:
+            end_value = raw_trip.get("endTime")
+            source_missing_end_by_id[tx] = end_value is None or end_value == ""
+        normalized.append(normalize_rest_trip_payload(raw_trip))
     unique_trips = dedupe_trips_by_transaction_id(normalized)
     counters["found_unique"] = len(unique_trips)
 
     candidates: list[dict[str, Any]] = []
+    incomplete_transaction_ids: set[str] = set()
     for trip in unique_trips:
         tx = str(trip.get("transactionId") or "").strip()
         if not tx:
             continue
-        if not trip.get("endTime"):
+        normalized_end_missing = trip.get("endTime") is None
+        source_end_missing = source_missing_end_by_id.get(tx, False)
+        incomplete_end_time = normalized_end_missing and source_end_missing
+        if normalized_end_missing and (
+            not incomplete_end_time or not allow_incomplete_end_time
+        ):
             counters["validation_failed"] += 1
+            error_text = "Missing endTime" if source_end_missing else "Invalid endTime"
             if add_event:
                 add_event(
                     "error",
@@ -850,17 +871,50 @@ async def process_bouncie_trips(
                         "error_type": "validation",
                         "transactionId": tx,
                         "imei": trip.get("imei"),
-                        "error": "Missing endTime",
+                        "error": error_text,
                     },
                 )
             await _record_ingest_issue(
                 issue_type="validation_failed",
-                message="Missing endTime",
+                message=error_text,
                 transaction_id=tx,
                 imei=str(trip.get("imei") or "") or None,
                 details={"transactionId": tx, "imei": trip.get("imei")},
             )
             continue
+        if incomplete_end_time:
+            gps = sanitize_geojson_geometry(trip.get("gps"))
+            coordinates = gps.get("coordinates") if isinstance(gps, dict) else None
+            has_usable_route = bool(
+                isinstance(gps, dict)
+                and gps.get("type") == "LineString"
+                and isinstance(coordinates, list)
+                and len(coordinates) >= 2
+                and len({tuple(point[:2]) for point in coordinates}) >= 2
+            )
+            if not has_usable_route:
+                counters["validation_failed"] += 1
+                error_text = "Missing endTime requires usable route geometry"
+                if add_event:
+                    add_event(
+                        "error",
+                        f"Validation failed for {tx}",
+                        {
+                            "error_type": "validation",
+                            "transactionId": tx,
+                            "imei": trip.get("imei"),
+                            "error": error_text,
+                        },
+                    )
+                await _record_ingest_issue(
+                    issue_type="validation_failed",
+                    message=error_text,
+                    transaction_id=tx,
+                    imei=str(trip.get("imei") or "") or None,
+                    details={"transactionId": tx, "imei": trip.get("imei")},
+                )
+                continue
+            incomplete_transaction_ids.add(tx)
         candidates.append(trip)
 
     incoming_ids = [
@@ -965,6 +1019,13 @@ async def process_bouncie_trips(
         validated_trip_data = validation.get("processed_data")
         if not isinstance(validated_trip_data, dict):
             validated_trip_data = None
+        elif tx in incomplete_transaction_ids:
+            validated_trip_data["validation_status"] = "incomplete"
+            validated_trip_data["validation_message"] = (
+                INCOMPLETE_HISTORY_VALIDATION_MESSAGE
+            )
+            validated_trip_data["closed_reason"] = "manual_import_missing_end_time"
+            validated_trip_data["invalid"] = False
 
         try:
             saved = await writer.write(

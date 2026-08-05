@@ -119,6 +119,14 @@ function formatDistance(value) {
   return Number.isFinite(distance) ? `${distance.toFixed(2)} mi` : "—";
 }
 
+function formatSpeed(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const speed = Number(value);
+  return Number.isFinite(speed) && speed >= 0 ? `${speed.toFixed(1)} mph` : null;
+}
+
 function statusLabel(status) {
   return (
     {
@@ -459,12 +467,22 @@ function renderDetail(record) {
     return;
   }
   const issues = Array.isArray(record.issues) ? record.issues : [];
+  const maxSpeed = formatSpeed(record.max_speed);
+  const averageSpeed = formatSpeed(record.average_speed);
   detail.innerHTML = `
     <span class="import-detail-kicker">${escapeHtml(statusLabel(record.status))}</span>
     <strong>${escapeHtml(record.transaction_id || "Trip without transaction ID")}</strong>
     <div class="import-detail-grid">
-      <span>${escapeHtml(formatDate(record.start_time))}</span>
-      <span>${escapeHtml(formatDistance(record.distance))}</span>
+      <span>Started ${escapeHtml(formatDate(record.start_time))}</span>
+      <span>${
+        record.end_time
+          ? `Ended ${escapeHtml(formatDate(record.end_time))}`
+          : "End time unavailable — incomplete historical trip"
+      }</span>
+      <span>Distance ${escapeHtml(formatDistance(record.distance))}</span>
+      <span>Duration ${escapeHtml(formatDuration(record.duration_seconds))}</span>
+      ${maxSpeed ? `<span>Maximum speed ${escapeHtml(maxSpeed)}</span>` : ""}
+      ${averageSpeed ? `<span>Average speed ${escapeHtml(averageSpeed)}</span>` : ""}
       <span>${Number(record.point_count || 0).toLocaleString()} GPS points</span>
       <span>${escapeHtml(record.vehicle_label || record.imei || "Unknown vehicle")}</span>
       <span>${escapeHtml(displaySourceName(record.source_file))}</span>

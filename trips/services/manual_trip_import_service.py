@@ -45,6 +45,7 @@ MIN_SUPPORTED_TRIP_TIME = datetime(2000, 1, 1, tzinfo=UTC)
 MAX_FUTURE_CLOCK_SKEW = timedelta(days=1)
 MAX_TRIP_DURATION = timedelta(days=7)
 MAX_REASONABLE_SPEED_MPH = 200.0
+HIGH_SPEED_REVIEW_THRESHOLD_MPH = 120.0
 VERY_SHORT_TRIP_MILES = 0.05
 
 IssueSeverity = Literal["error", "warning", "info"]
@@ -712,14 +713,23 @@ class ManualTripImportService:
             record.add_issue(
                 "error",
                 "implausible_speed",
-                f"Maximum speed exceeds {MAX_REASONABLE_SPEED_MPH:.0f} mph.",
+                (
+                    f"Recorded maximum speed is {max_speed:.1f} mph, above the "
+                    f"{MAX_REASONABLE_SPEED_MPH:.0f} mph safety limit."
+                ),
                 field="maxSpeed",
             )
-        elif max_speed is not None and max_speed > 120:
+        elif max_speed is not None and max_speed > HIGH_SPEED_REVIEW_THRESHOLD_MPH:
+            message = (
+                f"Recorded maximum speed is {max_speed:.1f} mph, above the "
+                f"{HIGH_SPEED_REVIEW_THRESHOLD_MPH:.0f} mph review threshold."
+            )
+            if average_speed is not None:
+                message += f" Recorded average speed is {average_speed:.1f} mph."
             record.add_issue(
                 "warning",
                 "unusually_high_speed",
-                "Maximum speed is unusually high; verify this trip before importing.",
+                message,
                 field="maxSpeed",
             )
 
@@ -826,46 +836,107 @@ class ManualTripImportService:
 
     @staticmethod
     def _validate_times(record: ManualImportRecord, payload: dict[str, Any]) -> None:
-        start_time = parse_timestamp(payload.get("startTime"))
-        end_time = parse_timestamp(payload.get("endTime"))
+        start_value = payload.get("startTime")
+        end_value = payload.get("endTime")
+        start_time = parse_timestamp(start_value)
+        end_time = parse_timestamp(end_value)
         record.start_time = start_time
         record.end_time = end_time
 
         if start_time is None:
+            invalid_start = start_value is not None and start_value != ""
             record.add_issue(
                 "error",
-                "missing_start_time",
-                "A valid start time is required.",
+                "invalid_start_time" if invalid_start else "missing_start_time",
+                (
+                    "Start time is not a valid timestamp."
+                    if invalid_start
+                    else "A start time is required."
+                ),
                 field="startTime",
             )
         if end_time is None:
-            record.add_issue(
-                "error",
-                "missing_end_time",
-                "A valid end time is required.",
-                field="endTime",
-            )
-        if start_time is None or end_time is None:
-            return
+            if end_value is not None and end_value != "":
+                record.add_issue(
+                    "error",
+                    "invalid_end_time",
+                    "End time is not a valid timestamp.",
+                    field="endTime",
+                )
+            else:
+                record.add_issue(
+                    "warning",
+                    "missing_end_time",
+                    (
+                        "End time is missing. A trip with usable route geometry can "
+                        "be imported as an incomplete historical trip; duration and "
+                        "speed metrics will remain unavailable."
+                    ),
+                    field="endTime",
+                )
 
         now = datetime.now(UTC)
-        if start_time < MIN_SUPPORTED_TRIP_TIME or end_time < MIN_SUPPORTED_TRIP_TIME:
+        if start_time is not None and start_time < MIN_SUPPORTED_TRIP_TIME:
             record.add_issue(
                 "error",
                 "unsupported_trip_date",
-                "Trip timestamps earlier than 2000 are not accepted.",
+                "Trip start time is earlier than 2000.",
                 field="startTime",
             )
-        if (
-            start_time > now + MAX_FUTURE_CLOCK_SKEW
-            or end_time > now + MAX_FUTURE_CLOCK_SKEW
-        ):
+        if start_time is not None and start_time > now + MAX_FUTURE_CLOCK_SKEW:
             record.add_issue(
                 "error",
                 "future_trip_date",
-                "Trip timestamp is more than one day in the future.",
+                "Trip start time is more than one day in the future.",
                 field="startTime",
             )
+        if end_time is not None and end_time < MIN_SUPPORTED_TRIP_TIME:
+            record.add_issue(
+                "error",
+                "unsupported_trip_date",
+                "Trip end time is earlier than 2000.",
+                field="endTime",
+            )
+        if end_time is not None and end_time > now + MAX_FUTURE_CLOCK_SKEW:
+            record.add_issue(
+                "error",
+                "future_trip_date",
+                "Trip end time is more than one day in the future.",
+                field="endTime",
+            )
+
+        if start_time is not None and record.transaction_id:
+            encoded_start_candidates: list[int] = []
+            for component in record.transaction_id.split("-")[1:]:
+                if len(component) == 10:
+                    encoded_start_candidates.append(int(component) * 1000)
+                elif len(component) == 13:
+                    encoded_start_candidates.append(int(component))
+                elif len(component) == 16:
+                    encoded_start_candidates.append(int(component) // 1000)
+            if not encoded_start_candidates:
+                record.add_issue(
+                    "warning",
+                    "transaction_time_missing",
+                    "Transaction ID does not contain a recognizable start timestamp.",
+                    field="transactionId",
+                )
+            else:
+                actual_start_ms = round(start_time.timestamp() * 1000)
+                if all(
+                    abs(encoded_start_ms - actual_start_ms) > 1000
+                    for encoded_start_ms in encoded_start_candidates
+                ):
+                    record.add_issue(
+                        "warning",
+                        "transaction_time_mismatch",
+                        "Transaction ID timestamp does not match the trip start time.",
+                        field="transactionId",
+                    )
+
+        if start_time is None or end_time is None:
+            return
+
         if end_time <= start_time:
             record.add_issue(
                 "error",
@@ -891,35 +962,6 @@ class ManualTripImportService:
                 "Trip lasts more than 24 hours; verify its timestamps.",
                 field="endTime",
             )
-
-        if record.transaction_id:
-            encoded_start_candidates: list[int] = []
-            for component in record.transaction_id.split("-")[1:]:
-                if len(component) == 10:
-                    encoded_start_candidates.append(int(component) * 1000)
-                elif len(component) == 13:
-                    encoded_start_candidates.append(int(component))
-                elif len(component) == 16:
-                    encoded_start_candidates.append(int(component) // 1000)
-            if not encoded_start_candidates:
-                record.add_issue(
-                    "warning",
-                    "transaction_time_missing",
-                    "Transaction ID does not contain a recognizable start timestamp.",
-                    field="transactionId",
-                )
-                return
-            actual_start_ms = round(start_time.timestamp() * 1000)
-            if all(
-                abs(encoded_start_ms - actual_start_ms) > 1000
-                for encoded_start_ms in encoded_start_candidates
-            ):
-                record.add_issue(
-                    "warning",
-                    "transaction_time_mismatch",
-                    "Transaction ID timestamp does not match the trip start time.",
-                    field="transactionId",
-                )
 
     @staticmethod
     def _validate_geometry(record: ManualImportRecord, payload: dict[str, Any]) -> None:
@@ -1105,11 +1147,7 @@ class ManualTripImportService:
         record.distance = record.reported_distance or record.geometry_distance
 
         has_structural_error = any(
-            issue.severity == "error"
-            and issue.code
-            not in {
-                "conflicting_duplicate",
-            }
+            issue.severity == "error" and issue.code != "conflicting_duplicate"
             for issue in record.issues
         )
         if not has_structural_error:
@@ -1333,6 +1371,7 @@ class ManualTripImportService:
                 do_geocode=True,
                 do_coverage=True,
                 sync_mobility=True,
+                allow_incomplete_end_time=True,
                 force_rematch_all=False,
                 bump_revision=False,
             )
