@@ -147,7 +147,11 @@ jobs:
           set -e
 
           if [ "$CURL_STATUS" -ne 0 ]; then
-            echo "::warning::Watchtower trigger failed with curl exit $CURL_STATUS. Containers will update on the next poll cycle."
+            if [ "$CURL_STATUS" -eq 28 ]; then
+              echo "::notice::Watchtower is still processing the deployment after 60 seconds. Containers will finish updating in this cycle or the next poll."
+            else
+              echo "::warning::Watchtower trigger failed with curl exit $CURL_STATUS. Containers will update on the next poll cycle."
+            fi
             exit 0
           fi
 
