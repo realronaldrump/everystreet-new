@@ -1,6 +1,6 @@
-# EveryStreet Intelligence for ChatGPT
+# Every Street Intelligence for ChatGPT
 
-EveryStreet exposes an anonymous, Streamable HTTP MCP server at:
+Every Street exposes an anonymous, Streamable HTTP MCP server at:
 
 `https://www.everystreet.me/mcp`
 
@@ -34,7 +34,7 @@ is `cf-tls-client-auth-cert-verified: success`.
 2. In ChatGPT developer mode, create an app/connector using the endpoint above.
 3. Copy the technical app ID assigned by ChatGPT into the private Codex plugin's
    `.app.json`, then reinstall the plugin.
-4. Start a new ChatGPT conversation and ask for an EveryStreet snapshot or a
+4. Start a new ChatGPT conversation and ask for an Every Street snapshot or a
    coverage mission.
 
 The technical app ID does not exist until ChatGPT registration, so `.app.json`
@@ -42,7 +42,7 @@ must not be guessed or committed beforehand.
 
 ## Operations
 
-The authenticated EveryStreet Control Center calls `/api/chatgpt/status` to show
+The authenticated Every Street Control Center calls `/api/chatgpt/status` to show
 the server version, tool count, authentication and mTLS mode, recent call count,
 and latest redacted tool call. It never returns secrets or tool arguments.
 

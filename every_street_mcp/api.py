@@ -1,4 +1,4 @@
-"""Owner-facing operational status for the EveryStreet ChatGPT connection."""
+"""Owner-facing operational status for the Every Street ChatGPT connection."""
 
 from __future__ import annotations
 

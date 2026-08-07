@@ -1,4 +1,4 @@
-"""EveryStreet Intelligence MCP application."""
+"""Every Street Intelligence MCP application."""
 
 from .server import mcp, mcp_exact_app, mcp_http_app, mcp_lifespan
 

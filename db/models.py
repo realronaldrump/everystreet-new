@@ -911,7 +911,7 @@ class CoverageMission(Document):
 
 
 class McpAuditEvent(Document):
-    """Redacted operational record for one EveryStreet MCP invocation."""
+    """Redacted operational record for one Every Street MCP invocation."""
 
     request_id: Indexed(str)
     subject_hash: str | None = None

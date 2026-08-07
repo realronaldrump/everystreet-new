@@ -1,4 +1,4 @@
-"""Anonymous MCP server and ChatGPT App resources for EveryStreet."""
+"""Anonymous MCP server and ChatGPT App resources for Every Street."""
 
 from __future__ import annotations
 
@@ -66,7 +66,7 @@ WRITE_ANNOTATIONS = ToolAnnotations(
 mcp = FastMCP(
     SERVER_NAME,
     instructions=(
-        "EveryStreet contains one owner's historical driving, live Redis trip state, "
+        "Every Street contains one owner's historical driving, live Redis trip state, "
         "street coverage, places, recurring routes, and vehicle economics. Use read "
         "tools before preparing an action. Never imply that a live trip is historical "
         "or persisted. Writes require prepare_every_street_action followed by a user "
@@ -228,7 +228,7 @@ async def _start_tool(tool_name: str, *, limit: int = 60) -> float:
         await redis.expire(key, 90)
     if count > limit:
         raise ValueError(
-            f"EveryStreet rate limit reached for {tool_name}; retry next minute"
+            f"Every Street rate limit reached for {tool_name}; retry next minute"
         )
     return time.monotonic()
 
@@ -337,10 +337,10 @@ async def _consume_action_nonce(nonce: str) -> None:
 
 
 @mcp.tool(
-    title="Get EveryStreet snapshot",
+    title="Get Every Street snapshot",
     description="Summarize historical driving, street coverage, places, recurring routes, and live-drive state.",
     annotations=READ_ANNOTATIONS,
-    meta=_tool_meta(invoking="Summarizing EveryStreet…", invoked="Snapshot ready"),
+    meta=_tool_meta(invoking="Summarizing Every Street…", invoked="Snapshot ready"),
     structured_output=False,
 )
 async def get_every_street_snapshot() -> CallToolResult:
@@ -376,7 +376,7 @@ async def get_every_street_snapshot() -> CallToolResult:
     }
     await _audit("get_every_street_snapshot", started, result_count=len(areas))
     return _result(
-        f"EveryStreet has {trip_count:,} historical trips and {len(areas)} coverage areas.",
+        f"Every Street has {trip_count:,} historical trips and {len(areas)} coverage areas.",
         structured,
     )
 
@@ -720,10 +720,10 @@ async def get_vehicle_economics(
 
 
 @mcp.tool(
-    title="Get EveryStreet system health",
+    title="Get Every Street system health",
     description="Check database-backed app data and Bouncie live-webhook health without exposing credentials or logs.",
     annotations=READ_ANNOTATIONS,
-    meta=_tool_meta(invoking="Checking EveryStreet…", invoked="Health ready"),
+    meta=_tool_meta(invoking="Checking Every Street…", invoked="Health ready"),
     structured_output=False,
 )
 async def get_system_health() -> CallToolResult:
@@ -752,11 +752,11 @@ async def get_system_health() -> CallToolResult:
         },
     }
     await _audit("get_system_health", started)
-    return _result("EveryStreet system health is ready.", result)
+    return _result("Every Street system health is ready.", result)
 
 
 @mcp.tool(
-    title="Open EveryStreet explorer",
+    title="Open Every Street explorer",
     description="Render a fullscreen map and analytical coverage explorer for one area.",
     annotations=READ_ANNOTATIONS,
     meta=_tool_meta(
@@ -813,7 +813,7 @@ async def render_every_street_explorer(area_id: str) -> CallToolResult:
 
 
 @mcp.tool(
-    title="Prepare an EveryStreet action",
+    title="Prepare an Every Street action",
     description="Prepare a reversible goal or mission change for explicit review. This tool never commits the change.",
     annotations=READ_ANNOTATIONS,
     meta=_tool_meta(
@@ -853,8 +853,8 @@ async def prepare_every_street_action(
 
 
 @mcp.tool(
-    title="Load EveryStreet view data",
-    description="Load paginated model-hidden geometry for an EveryStreet widget.",
+    title="Load Every Street view data",
+    description="Load paginated model-hidden geometry for an Every Street widget.",
     annotations=READ_ANNOTATIONS,
     meta=_tool_meta(
         visibility=["app"],
@@ -894,8 +894,8 @@ async def get_view_data(
 
 
 @mcp.tool(
-    title="Commit reviewed EveryStreet action",
-    description="Commit the exact signed action selected in the EveryStreet review widget.",
+    title="Commit reviewed Every Street action",
+    description="Commit the exact signed action selected in the Every Street review widget.",
     annotations=WRITE_ANNOTATIONS,
     meta=_tool_meta(
         visibility=["app"],
@@ -944,7 +944,7 @@ async def commit_every_street_action(action_token: str) -> CallToolResult:
         action_type=action,
     )
     return _result(
-        "The reviewed EveryStreet action was applied.",
+        "The reviewed Every Street action was applied.",
         {"success": True, "result": result},
     )
 
@@ -966,7 +966,7 @@ _RESOURCE_META = {
             "resourceDomains": ["https://api.mapbox.com", "https://*.tiles.mapbox.com"],
         },
     },
-    "openai/widgetDescription": "Interactive EveryStreet driving and coverage visualization.",
+    "openai/widgetDescription": "Interactive Every Street driving and coverage visualization.",
     "openai/widgetPrefersBorder": True,
     "openai/widgetDomain": PUBLIC_APP_URL,
     "openai/widgetCSP": {
@@ -983,7 +983,7 @@ _RESOURCE_META = {
 
 @mcp.resource(
     EXPLORER_RESOURCE_URI,
-    name="EveryStreet Explorer",
+    name="Every Street Explorer",
     description="Fullscreen coverage and historical-trip map explorer.",
     mime_type="text/html+skybridge",
     meta=_RESOURCE_META,
@@ -994,7 +994,7 @@ def explorer_resource() -> str:
 
 @mcp.resource(
     LIVE_RESOURCE_URI,
-    name="EveryStreet Live Drive",
+    name="Every Street Live Drive",
     description="Compact live-drive status and route visualization.",
     mime_type="text/html+skybridge",
     meta=_RESOURCE_META,
@@ -1005,12 +1005,12 @@ def live_resource() -> str:
 
 @mcp.resource(
     ACTION_RESOURCE_URI,
-    name="EveryStreet Action Review",
-    description="Review and explicitly commit a reversible EveryStreet action.",
+    name="Every Street Action Review",
+    description="Review and explicitly commit a reversible Every Street action.",
     mime_type="text/html+skybridge",
     meta={
         **_RESOURCE_META,
-        "openai/widgetDescription": "Review a reversible EveryStreet action before applying it.",
+        "openai/widgetDescription": "Review a reversible Every Street action before applying it.",
     },
 )
 def action_resource() -> str:
