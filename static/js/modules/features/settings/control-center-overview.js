@@ -11,6 +11,7 @@ import {
 
 const OVERVIEW_API = "/api/status/overview";
 const HEALTH_API = "/api/status/health";
+const CHATGPT_API = "/api/chatgpt/status";
 const POLL_INTERVAL_MS = 30000;
 
 const STATUS_VARIANTS = {
@@ -289,6 +290,29 @@ function renderFailures(healthData) {
     .join("");
 }
 
+export function renderChatGptStatus(data) {
+  const container = document.getElementById("cc-chatgpt-status");
+  if (!container) {
+    return;
+  }
+  const latest = data?.latest_call;
+  container.innerHTML = `
+    <div class="control-center-chatgpt-state">
+      <span class="badge bg-success">${escapeHtml(data?.status || "Ready")}</span>
+      <strong>Anonymous MCP</strong>
+      <span>${escapeHtml(data?.tools?.model_visible || 0)} conversational tools</span>
+      <span>${escapeHtml(data?.activity_24h?.calls || 0)} calls in 24 hours</span>
+    </div>
+    <p>ChatGPT can analyze trips, places, routes, live driving, vehicle economics, and street coverage. Goal and mission changes still require an explicit click.</p>
+    <dl class="control-center-chatgpt-details">
+      <div><dt>Endpoint</dt><dd><code>${escapeHtml(data?.endpoint || "--")}</code></dd></div>
+      <div><dt>Authentication</dt><dd>${escapeHtml(data?.authentication || "none")}</dd></div>
+      <div><dt>OpenAI mTLS</dt><dd>${data?.mtls_required ? "Required" : "Optional / disabled"}</dd></div>
+      <div><dt>Latest call</dt><dd>${latest ? `${escapeHtml(latest.tool)} · ${escapeHtml(formatDateTime(latest.at))}` : "None yet"}</dd></div>
+    </dl>
+  `;
+}
+
 export default function initControlCenterOverview({ signal } = {}) {
   const tab = document.getElementById("overview-tab");
   if (!tab) {
@@ -299,14 +323,20 @@ export default function initControlCenterOverview({ signal } = {}) {
 
   const refreshOverview = async (isManual = false) => {
     try {
-      const [overviewData, healthData] = await Promise.all([
+      const [overviewData, healthData, chatGptData] = await Promise.all([
         apiClient.get(OVERVIEW_API, withAbortSignal(signal)),
         apiClient.get(HEALTH_API, withAbortSignal(signal)),
+        apiClient
+          .get(CHATGPT_API, withAbortSignal(signal))
+          .catch((error) => (isAbortError(error) ? Promise.reject(error) : null)),
       ]);
 
       renderOverviewHeader({ overviewData, healthData });
       renderServiceCards(healthData);
       renderFailures(healthData);
+      if (chatGptData) {
+        renderChatGptStatus(chatGptData);
+      }
     } catch (error) {
       if (isAbortError(error)) {
         return;

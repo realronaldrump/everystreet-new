@@ -12,7 +12,7 @@ import logging
 
 from fastapi import APIRouter
 
-from . import areas, jobs, journal, memory_city, optimal_routes, streets
+from . import areas, intelligence, jobs, journal, memory_city, optimal_routes, streets
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -23,6 +23,7 @@ router.include_router(jobs.router)
 router.include_router(optimal_routes.router, tags=["optimal-routes"])
 router.include_router(memory_city.router)
 router.include_router(journal.router)
+router.include_router(intelligence.router)
 
 logger.info("Coverage API routes loaded successfully")
 
@@ -30,6 +31,7 @@ __all__ = [
     "areas",
     "jobs",
     "journal",
+    "intelligence",
     "memory_city",
     "optimal_routes",
     "router",

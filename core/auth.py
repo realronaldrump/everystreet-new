@@ -64,6 +64,7 @@ OWNER_PAGE_PREFIXES: Final[tuple[str, ...]] = (
     "/gas-tracking",
 )
 PUBLIC_EXACT_PATHS: Final[set[str]] = {
+    "/mcp",
     "/favicon.ico",
     "/apple-touch-icon.png",
     "/apple-touch-icon-precomposed.png",
@@ -73,6 +74,7 @@ PUBLIC_EXACT_PATHS: Final[set[str]] = {
     "/api/webhooks/bouncie/live",
 }
 PUBLIC_PREFIXES: Final[tuple[str, ...]] = (
+    "/mcp/",
     "/static/",
     "/static-v/",
     "/api/search/",

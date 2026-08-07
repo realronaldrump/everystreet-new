@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.14.0/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.14.0/mapbox-gl.js"></script>
+  <style>
+    :root{color-scheme:light dark;--ink:#182126;--paper:#f4efe2;--brass:#b3863d;--blue:#1e5266;--muted:#687278}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:ui-sans-serif,system-ui,sans-serif}
+    main{display:grid;grid-template-columns:minmax(250px,340px) 1fr;min-height:540px;border:1px solid color-mix(in srgb,var(--brass) 55%,transparent)}
+    aside{padding:22px;border-right:1px solid var(--brass);overflow:auto}.eyebrow{font:700 11px ui-monospace,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--blue)}
+    h1{margin:7px 0 4px;font:700 clamp(24px,3vw,40px) Georgia,serif}.sub{color:var(--muted);margin:0 0 18px}.metrics{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--brass)}
+    .metric{padding:13px 8px;border-bottom:1px solid color-mix(in srgb,var(--brass) 45%,transparent)}.metric:nth-child(odd){border-right:1px solid color-mix(in srgb,var(--brass) 45%,transparent)}
+    .metric b{display:block;font:700 22px ui-monospace,monospace}.metric span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+    .forecast{margin-top:20px;padding-top:16px;border-top:1px solid var(--brass)}.forecast h2{font:700 14px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.08em}.forecast p{line-height:1.45}
+    #map{min-height:540px}.empty{display:grid;place-items:center;height:100%;padding:30px;color:var(--muted);text-align:center}
+    button{border:1px solid var(--brass);background:transparent;color:inherit;padding:9px 12px;cursor:pointer;font-weight:700}button:hover{background:color-mix(in srgb,var(--brass) 14%,transparent)}
+    @media(max-width:700px){main{grid-template-columns:1fr;grid-template-rows:auto 430px}aside{border-right:0;border-bottom:1px solid var(--brass)}#map{min-height:430px}}
+    @media(prefers-color-scheme:dark){:root{--ink:#eee8dc;--paper:#141b1f;--brass:#cf9f50;--blue:#78b9cf;--muted:#a6afb2}}
+  </style>
+</head>
+<body>
+<main>
+  <aside>
+    <div class="eyebrow">EveryStreet Intelligence</div>
+    <h1 id="title">Driving explorer</h1>
+    <p class="sub" id="subtitle">Loading model-hidden map data…</p>
+    <div class="metrics" id="metrics"></div>
+    <section class="forecast" id="forecast"></section>
+    <button id="fullscreen" type="button">Open fullscreen</button>
+  </aside>
+  <div id="map"><div class="empty">Preparing the map…</div></div>
+</main>
+<script>
+  const output=window.openai?.toolOutput||{};
+  const envelope=window.openai?.toolResponseMetadata||{};
+  const hidden=envelope?.mcp_tool_result?._meta||envelope?.call_tool_result?._meta||envelope?._meta||{};
+  const intelligence=output.intelligence||{};
+  const area=intelligence.area||{};
+  const metricData=[
+    [area.coverage_percentage==null?'—':`${area.coverage_percentage.toFixed(1)}%`,'coverage'],
+    [area.remaining_miles==null?'—':`${area.remaining_miles.toFixed(1)} mi`,'remaining'],
+    [output.feature_count??'—','street segments'],
+    [intelligence.forecast?.confidence||'—','forecast confidence']
+  ];
+  document.getElementById('title').textContent=area.display_name||'Driving explorer';
+  document.getElementById('subtitle').textContent=output.view_id?'Street network and completion forecast':'Historical trip map';
+  document.getElementById('metrics').innerHTML=metricData.map(([v,l])=>`<div class="metric"><b>${v}</b><span>${l}</span></div>`).join('');
+  const forecast=intelligence.forecast;
+  document.getElementById('forecast').innerHTML=forecast?`<h2>Completion outlook</h2><p>${forecast.expected_completion_date?`Expected around <strong>${forecast.expected_completion_date}</strong>.`: 'Not enough trip-derived coverage days for a reliable completion date.'}</p><p>Based on ${forecast.active_days||0} active coverage days in the ${forecast.window_days||90}-day evidence window.</p>`:'';
+  document.getElementById('fullscreen').addEventListener('click',()=>window.openai?.requestDisplayMode?.({mode:'fullscreen'}));
+
+  const view=hidden.initial_view;
+  const tripMap=hidden.map;
+  const mapData=view||tripMap;
+  if(!mapData||typeof mapboxgl==='undefined'){
+    document.getElementById('map').innerHTML='<div class="empty">Map data is unavailable or this view expired. Ask ChatGPT to render it again.</div>';
+  }else{
+    mapboxgl.accessToken='pk.eyJ1IjoicmVhbHJvbmFsZHJ1bXAiLCJhIjoiY204eXBvMzRhMDNubTJrb2NoaDIzN2dodyJ9.3Hnv3_ps0T7YS8cwSE3XKA';
+    const bounds=view?.area?.bounding_box;
+    const center=bounds?.length===4?[(bounds[0]+bounds[2])/2,(bounds[1]+bounds[3])/2]:[-104.99,39.74];
+    const map=new mapboxgl.Map({container:'map',style:'mapbox://styles/mapbox/dark-v11',center,zoom:bounds?10:11,attributionControl:true});
+    map.addControl(new mapboxgl.NavigationControl(),'top-right');
+    map.on('load',()=>{
+      const features=view?(view.features||[]).filter(x=>x.geometry).map(x=>({type:'Feature',geometry:x.geometry,properties:{segment_id:x.segment_id,street_name:x.street_name||'Unnamed street',length_miles:x.length_miles||0}})):[{type:'Feature',geometry:tripMap.geometry,properties:{}}];
+      map.addSource('every-street',{type:'geojson',data:{type:'FeatureCollection',features}});
+      map.addLayer({id:'every-street-halo',type:'line',source:'every-street',paint:{'line-color':'#0a1115','line-width':view?5:7,'line-opacity':.85}});
+      map.addLayer({id:'every-street-line',type:'line',source:'every-street',paint:{'line-color':view?'#cf9f50':'#78b9cf','line-width':view?2:4,'line-opacity':.95}});
+      if(bounds?.length===4)map.fitBounds([[bounds[0],bounds[1]],[bounds[2],bounds[3]]],{padding:28,duration:0});
+      map.on('click','every-street-line',e=>{const p=e.features?.[0]?.properties||{};if(!p.street_name)return;new mapboxgl.Popup().setLngLat(e.lngLat).setHTML(`<strong>${p.street_name}</strong><br>${Number(p.length_miles||0).toFixed(3)} miles`).addTo(map)});
+    });
+  }
+</script>
+</body>
+</html>

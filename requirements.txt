@@ -24,6 +24,7 @@ Shapely
 h3
 uvicorn[standard]
 jinja2
+mcp>=1.26,<2
 python-multipart
 pwdlib[argon2]
 autoflake

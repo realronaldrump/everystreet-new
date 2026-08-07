@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.routing import Route
 
 from admin import router as admin_api_router
 from analytics import router as analytics_api_router
@@ -33,6 +34,8 @@ from core.template_context import render_template
 from db.logging_handler import MongoDBHandler
 from db.models import AppSettings, MapProvider
 from driving import router as driving_api_router
+from every_street_mcp import mcp_exact_app, mcp_http_app, mcp_lifespan
+from every_street_mcp.api import router as chatgpt_api_router
 from exports import router as export_api_router
 from gas import router as gas_api_router
 from geo_coverage import router as geo_coverage_api_router
@@ -88,7 +91,8 @@ class AppState:
 async def app_lifespan(_app: FastAPI):
     await startup_event()
     try:
-        yield
+        async with mcp_lifespan():
+            yield
     finally:
         await shutdown_event()
 
@@ -122,6 +126,16 @@ app.mount(
     static_files,
     name="static",
 )
+app.router.routes.append(
+    Route(
+        "/mcp",
+        endpoint=mcp_exact_app,
+        methods=["GET", "POST", "DELETE"],
+        name="every-street-mcp-exact",
+        include_in_schema=False,
+    ),
+)
+app.mount("/mcp", mcp_http_app, name="every-street-mcp")
 
 
 @app.get("/static-v/{_version}/{path:path}", include_in_schema=False)
@@ -188,6 +202,7 @@ app.add_middleware(
 
 # Include all the modular routers
 app.include_router(auth_router)
+app.include_router(chatgpt_api_router)
 app.include_router(pages_router)
 app.include_router(admin_api_router)
 app.include_router(analytics_api_router)

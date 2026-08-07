@@ -876,6 +876,25 @@ async def update_coverage_for_trip(
                     matching_mode=selected_mode,
                     newly_driven_segment_ids=result.newly_driven_segment_ids,
                 )
+                if result.newly_driven_segment_ids:
+                    try:
+                        from street_coverage.intelligence import (
+                            CoverageIntelligenceService,
+                        )
+
+                        await CoverageIntelligenceService.reconcile_historical_trip(
+                            area_id=area_id,
+                            area_version=area.area_version,
+                            trip_id=trip_oid,
+                            newly_driven_segment_ids=result.newly_driven_segment_ids,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Failed to reconcile coverage missions for historical "
+                            "trip %s in area %s",
+                            trip_oid,
+                            area_id,
+                        )
 
     logger.info(
         "Trip coverage updated %s segments across %s areas",

@@ -266,6 +266,46 @@ Coverage Field Journal
           </div>
         </section>
 
+        <section class="journal-folio journal-intelligence"
+                 id="coverage-intelligence"
+                 aria-labelledby="journal-intelligence-title">
+          <div class="journal-section-heading journal-section-heading--split">
+            <div>
+              <p class="journal-kicker">Folio VI</p>
+              <h2 id="journal-intelligence-title">Goal &amp; missions</h2>
+              <p>A trip-derived completion forecast and a durable record of bounded field missions.</p>
+            </div>
+            <a class="journal-route-link" id="journal-mission-planner-link" href="/coverage-route-planner">
+              <i class="fas fa-compass" aria-hidden="true"></i>
+              Plan a mission
+            </a>
+          </div>
+          <div class="journal-intelligence-grid">
+            <form id="journal-goal-form" class="journal-goal-form">
+              <h3>Coverage goal</h3>
+              <label>Target coverage
+                <span><input id="journal-goal-percentage" type="number" min="1" max="100" step="0.1" value="100">%</span>
+              </label>
+              <label>Target date
+                <input id="journal-goal-date" type="date">
+              </label>
+              <label>Preferred mission length
+                <span><input id="journal-goal-minutes" type="number" min="15" max="480" step="15" value="90"> minutes</span>
+              </label>
+              <button type="submit" class="journal-load-more">Save goal</button>
+              <p id="journal-goal-status" aria-live="polite"></p>
+            </form>
+            <div class="journal-forecast" id="journal-forecast">
+              <h3>Completion outlook</h3>
+              <p>Calculating from historical Bouncie coverage…</p>
+            </div>
+          </div>
+          <div class="journal-mission-history">
+            <h3>Mission record</h3>
+            <ol id="journal-missions" class="journal-missions"></ol>
+          </div>
+        </section>
+
         <footer class="journal-methodology">
           <p class="journal-kicker">Method note</p>
           <p id="journal-methodology"></p>

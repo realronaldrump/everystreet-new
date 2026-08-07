@@ -28,6 +28,8 @@ function initialState() {
     geojson: null,
     areas: [],
     contributions: [],
+    intelligence: null,
+    missions: [],
     nextCursor: null,
     map: null,
     mapReady: false,
@@ -244,6 +246,21 @@ async function loadMetadata() {
     `/api/coverage/areas/${encodeURIComponent(state.areaId)}/journal?${params}`,
     { cache: false }
   );
+}
+
+async function loadIntelligence() {
+  const [intelligence, missionResponse] = await Promise.all([
+    featureApi.get(`/api/coverage/areas/${encodeURIComponent(state.areaId)}/intelligence`, {
+      cache: false,
+    }),
+    featureApi.get(`/api/coverage/areas/${encodeURIComponent(state.areaId)}/missions?limit=12`, {
+      cache: false,
+    }),
+  ]);
+  state.intelligence = intelligence || null;
+  state.missions = Array.isArray(missionResponse?.missions)
+    ? missionResponse.missions
+    : [];
 }
 
 async function loadSegments() {
@@ -1323,6 +1340,72 @@ function renderMethodology() {
   )}.`;
 }
 
+function renderIntelligence() {
+  const intelligence = state.intelligence;
+  if (!intelligence) {
+    return;
+  }
+  const goal = intelligence.goal || {};
+  const forecast = intelligence.forecast || {};
+  const area = intelligence.area || {};
+  $("journal-goal-percentage").value = String(goal.target_percentage ?? 100);
+  $("journal-goal-date").value = dateOnly(goal.target_date);
+  $("journal-goal-minutes").value = String(goal.preferred_mission_minutes ?? 90);
+
+  let outlook = "Not enough trip-derived coverage days for a reliable date yet.";
+  if (forecast.confidence === "complete") {
+    outlook = "This coverage goal is complete.";
+  } else if (forecast.expected_completion_date) {
+    const range = forecast.completion_date_range || {};
+    outlook = `Expected ${formatDate(forecast.expected_completion_date)}${
+      range.earliest && range.latest
+        ? `, with an evidence range of ${formatShortDate(range.earliest)}–${formatShortDate(
+            range.latest
+          )}`
+        : ""
+    }.`;
+  }
+  const required = forecast.required_miles_per_week
+    ? `<p><strong>${formatMiles(
+        forecast.required_miles_per_week,
+        2
+      )} per week</strong> is required to reach the saved date.</p>`
+    : "";
+  $("journal-forecast").innerHTML = `<h3>Completion outlook</h3>
+    <p class="journal-forecast-lead">${escapeHtml(outlook)}</p>
+    <dl>
+      <div><dt>Remaining</dt><dd>${formatMiles(area.remaining_miles, 2)}</dd></div>
+      <div><dt>Median active day</dt><dd>${formatMiles(
+        forecast.median_new_miles_per_active_day,
+        2
+      )}</dd></div>
+      <div><dt>Active days / week</dt><dd>${formatNumber(
+        forecast.active_days_per_week,
+        2
+      )}</dd></div>
+      <div><dt>Confidence</dt><dd>${escapeHtml(titleCase(forecast.confidence))}</dd></div>
+    </dl>${required}`;
+
+  $("journal-missions").innerHTML = state.missions.length
+    ? state.missions
+        .map(
+          (mission) => `<li>
+            <div><strong>${escapeHtml(titleCase(mission.status))}</strong>
+              <span>${formatDate(mission.created_at, { short: true })}</span></div>
+            <p>${formatMiles(mission.target_miles, 2)} target · ${formatNumber(
+              Number(mission.completion_ratio || 0) * 100,
+              0
+            )}% completed · ${formatNumber(
+              mission.estimated_duration_minutes,
+              0
+            )} min estimate</p>
+            <small>${escapeHtml(mission.estimate_basis || "Awaiting route estimate")}</small>
+          </li>`
+        )
+        .join("")
+    : '<li class="journal-mission-empty">No missions have been created for this area yet.</li>';
+}
+
 function renderAll() {
   setActiveControls();
   renderSummary();
@@ -1331,6 +1414,7 @@ function renderAll() {
   renderRecords();
   renderRankings();
   renderFrontier();
+  renderIntelligence();
   renderMethodology();
 }
 
@@ -1455,6 +1539,31 @@ function setupListeners() {
   });
   listen($("journal-load-more"), "click", () => loadContributions({ append: true }));
   listen($("journal-map-reset"), "click", fitArea);
+  listen($("journal-goal-form"), "submit", async (event) => {
+    event.preventDefault();
+    const status = $("journal-goal-status");
+    status.textContent = "Saving goal…";
+    try {
+      await featureApi.rawJson(
+        `/api/coverage/areas/${encodeURIComponent(state.areaId)}/goal`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            target_percentage: Number($("journal-goal-percentage").value),
+            target_date: $("journal-goal-date").value || null,
+            preferred_mission_minutes: Number($("journal-goal-minutes").value),
+          }),
+          retry: false,
+        }
+      );
+      await loadIntelligence();
+      renderIntelligence();
+      status.textContent = "Goal saved.";
+    } catch (error) {
+      status.textContent = error.message || "Goal could not be saved.";
+    }
+  });
   listen(
     $("known-by-heart"),
     "mouseenter",
@@ -1517,7 +1626,7 @@ export default async function initCoverageJournalPage({ signal, cleanup, api } =
   setActiveControls();
   try {
     const areasPromise = loadAreas();
-    await loadMetadata();
+    await Promise.all([loadMetadata(), loadIntelligence()]);
     await areasPromise;
     await loadSegments();
     await loadContributions();

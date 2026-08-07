@@ -1045,7 +1045,121 @@
   }
 }
 
+.journal-intelligence-grid {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.journal-goal-form,
+.journal-forecast {
+  padding: var(--space-4);
+  border-block: 1px solid var(--journal-line);
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+}
+
+.journal-goal-form h3,
+.journal-forecast h3,
+.journal-mission-history h3 {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-heading);
+}
+
+.journal-goal-form label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--journal-line-soft);
+  color: var(--text-secondary);
+}
+
+.journal-goal-form input {
+  max-width: 150px;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--journal-line);
+  border-radius: 0;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-family: var(--font-numeric);
+}
+
+.journal-goal-form button {
+  margin-top: var(--space-3);
+}
+
+.journal-goal-form p {
+  min-height: 1.4em;
+  margin: var(--space-2) 0 0;
+  color: var(--text-secondary);
+}
+
+.journal-forecast-lead {
+  min-height: 3em;
+  color: var(--text-primary);
+  font-family: var(--font-heading);
+  font-size: var(--font-size-lg);
+}
+
+.journal-forecast dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--journal-line-soft);
+}
+
+.journal-forecast dl > div {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--journal-line-soft);
+}
+
+.journal-forecast dt {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+}
+
+.journal-forecast dd {
+  margin: var(--space-1) 0 0;
+  font-family: var(--font-numeric);
+  font-weight: 700;
+}
+
+.journal-mission-history {
+  margin-top: var(--space-5);
+}
+
+.journal-missions {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--journal-line);
+}
+
+.journal-missions li {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--journal-line-soft);
+}
+
+.journal-missions li > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.journal-missions p,
+.journal-missions small {
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+}
+
 @media (width >= 768px) {
+  .journal-intelligence-grid {
+    grid-template-columns: minmax(260px, 0.75fr) minmax(0, 1.25fr);
+  }
+
   .journal-shell {
     padding: var(--space-6);
   }

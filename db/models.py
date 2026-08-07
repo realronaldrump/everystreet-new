@@ -802,6 +802,151 @@ class CoverageDriveEvent(Document):
     model_config = ConfigDict(extra="allow")
 
 
+class CoverageGoal(Document):
+    """A persisted completion target for one coverage area."""
+
+    area_id: Indexed(PydanticObjectId)
+    target_percentage: float = 100.0
+    target_date: datetime | None = None
+    preferred_mission_minutes: int = 90
+    baseline_percentage: float = 0.0
+    baseline_driven_miles: float = 0.0
+    status: str = "active"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    completed_at: datetime | None = None
+
+    @field_validator(
+        "target_date",
+        "created_at",
+        "updated_at",
+        "completed_at",
+        mode="before",
+    )
+    @classmethod
+    def parse_datetime_fields(cls, v: Any) -> datetime | None:
+        if v is None:
+            return None
+        return parse_timestamp(v)
+
+    class Settings:
+        name = "coverage_goals"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [("area_id", 1)],
+                name="coverage_goal_area_unique_idx",
+                unique=True,
+            ),
+            IndexModel(
+                [("status", 1), ("target_date", 1)],
+                name="coverage_goal_status_target_idx",
+            ),
+        ]
+
+    model_config = ConfigDict(extra="allow")
+
+
+class CoverageMission(Document):
+    """A bounded drive plan for advancing one coverage goal."""
+
+    area_id: Indexed(PydanticObjectId)
+    goal_id: PydanticObjectId | None = None
+    area_version: int
+    journal_revision: int
+    status: str = "ready"
+    target_segment_ids: list[str] = Field(default_factory=list)
+    mapped_segment_ids: list[str] = Field(default_factory=list)
+    completed_segment_ids: list[str] = Field(default_factory=list)
+    start_location: dict[str, float] | None = None
+    requested_minutes: int = 90
+    target_miles: float = 0.0
+    route_distance_miles: float | None = None
+    estimated_duration_minutes: float | None = None
+    estimate_basis: str | None = None
+    predicted_coverage_gain: float = 0.0
+    predicted_coverage_after: float = 0.0
+    confidence: str = "low"
+    route_job_id: str | None = None
+    route: dict[str, Any] | None = None
+    actual_trip_ids: list[PydanticObjectId] = Field(default_factory=list)
+    actual_new_miles: float = 0.0
+    actual_coverage_gain: float = 0.0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+
+    @field_validator(
+        "created_at",
+        "updated_at",
+        "started_at",
+        "completed_at",
+        mode="before",
+    )
+    @classmethod
+    def parse_datetime_fields(cls, v: Any) -> datetime | None:
+        if v is None:
+            return None
+        return parse_timestamp(v)
+
+    class Settings:
+        name = "coverage_missions"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [("area_id", 1), ("status", 1), ("created_at", -1)],
+                name="coverage_mission_area_status_idx",
+            ),
+            IndexModel(
+                [("goal_id", 1), ("created_at", -1)],
+                name="coverage_mission_goal_idx",
+            ),
+            IndexModel(
+                [("route_job_id", 1)],
+                name="coverage_mission_route_job_idx",
+                sparse=True,
+            ),
+        ]
+
+    model_config = ConfigDict(extra="allow")
+
+
+class McpAuditEvent(Document):
+    """Redacted operational record for one EveryStreet MCP invocation."""
+
+    request_id: Indexed(str)
+    subject_hash: str | None = None
+    tool_name: Indexed(str)
+    outcome: str
+    duration_ms: int
+    result_count: int | None = None
+    action_type: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    expires_at: datetime
+
+    @field_validator("created_at", "expires_at", mode="before")
+    @classmethod
+    def parse_datetime_fields(cls, v: Any) -> datetime | None:
+        if v is None:
+            return None
+        return parse_timestamp(v)
+
+    class Settings:
+        name = "mcp_audit_events"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [("created_at", -1)],
+                name="mcp_audit_created_idx",
+            ),
+            IndexModel(
+                [("expires_at", 1)],
+                name="mcp_audit_ttl_idx",
+                expireAfterSeconds=0,
+            ),
+        ]
+
+    model_config = ConfigDict(extra="allow")
+
+
 class CoverageStatusEvent(Document):
     """An explicit owner-authored coverage-state adjustment."""
 
@@ -1352,8 +1497,11 @@ ALL_DOCUMENT_MODELS = [
     CoverageArea,
     CoverageState,
     CoverageDriveEvent,
+    CoverageGoal,
+    CoverageMission,
     CoverageStatusEvent,
     CoverageJournalRollup,
+    McpAuditEvent,
     Job,
     Street,
     # Map data management models

@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   buildServiceRowMarkup,
+  renderChatGptStatus,
   renderServiceDetails,
 } from "../static/js/modules/features/settings/control-center-overview.js";
 
@@ -63,4 +64,32 @@ test("service ledger is mobile-first and contains long values", async () => {
   assert.doesNotMatch(css, /box-shadow: inset 3px/);
   assert.match(css, /overflow-wrap: anywhere/);
   assert.match(css, /min-height: 44px/);
+});
+
+test("ChatGPT status explains anonymous access and confirmed writes", () => {
+  const originalDocument = globalThis.document;
+  const container = { innerHTML: "" };
+  globalThis.document = {
+    getElementById: (id) => (id === "cc-chatgpt-status" ? container : null),
+  };
+  try {
+    renderChatGptStatus({
+      status: "ready",
+      endpoint: "https://www.everystreet.me/mcp",
+      authentication: "none",
+      mtls_required: false,
+      tools: { model_visible: 15 },
+      activity_24h: { calls: 3 },
+      latest_call: null,
+    });
+  } finally {
+    globalThis.document = originalDocument;
+  }
+
+  assert.match(container.innerHTML, /Anonymous MCP/);
+  assert.match(container.innerHTML, /explicit click/);
+  assert.match(
+    container.innerHTML,
+    /https:&#x2F;&#x2F;www\.everystreet\.me&#x2F;mcp/
+  );
 });

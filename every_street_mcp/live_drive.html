@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    :root{color-scheme:light dark;--paper:#f4efe2;--ink:#182126;--brass:#b3863d;--blue:#1e5266;--muted:#687278}*{box-sizing:border-box}
+    body{margin:0;background:var(--paper);color:var(--ink);font-family:ui-sans-serif,system-ui,sans-serif}.card{padding:18px;border:1px solid var(--brass);min-height:170px}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:12px}.eyebrow{font:700 11px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--blue)}
+    .live{display:flex;align-items:center;gap:7px;font:700 11px ui-monospace,monospace;text-transform:uppercase}.dot{width:8px;height:8px;border-radius:50%;background:#d95040;box-shadow:0 0 0 5px color-mix(in srgb,#d95040 18%,transparent)}
+    h1{font:700 25px Georgia,serif;margin:10px 0 15px}.grid{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--brass)}.metric{padding:12px 8px;border-right:1px solid color-mix(in srgb,var(--brass) 45%,transparent)}.metric:last-child{border-right:0}.metric b{display:block;font:700 23px ui-monospace,monospace}.metric span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+    .note{font-size:11px;color:var(--muted);margin:12px 0 0}@media(prefers-color-scheme:dark){:root{--paper:#141b1f;--ink:#eee8dc;--brass:#cf9f50;--blue:#78b9cf;--muted:#a6afb2}}
+  </style>
+</head>
+<body><section class="card"><div class="top"><div class="eyebrow">EveryStreet live drive</div><div class="live" id="state"></div></div><h1 id="headline">Checking live state…</h1><div class="grid" id="metrics"></div><p class="note">Ephemeral Redis state only · refreshes every 10 seconds · never written to historical trips</p></section>
+<script>
+  function render(data){
+    const active=Boolean(data?.active);document.getElementById('state').innerHTML=active?'<span class="dot"></span> Live':'Idle';
+    document.getElementById('headline').textContent=active?'A drive is in progress':'No drive is currently active';
+    const rows=active?[[`${Number(data.distance_miles||0).toFixed(1)} mi`,'distance'],[`${Math.round(Number(data.current_speed_mph||0))} mph`,'current speed'],[`${Math.round(Number(data.maximum_speed_mph||0))} mph`,'maximum speed']]:[['—','distance'],['—','current speed'],['—','maximum speed']];
+    document.getElementById('metrics').innerHTML=rows.map(([v,l])=>`<div class="metric"><b>${v}</b><span>${l}</span></div>`).join('');
+  }
+  render(window.openai?.toolOutput||{});
+  setInterval(async()=>{try{const result=await window.openai?.callTool?.('get_live_drive',{});render(result?.structuredContent||result?.structured_content||result||{})}catch{}},10000);
+</script></body></html>
