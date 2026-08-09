@@ -27,6 +27,7 @@ from db.models import (
     Trip,
 )
 from street_coverage import ingestion as coverage_ingestion
+from street_coverage.stats import update_area_stats
 
 
 @pytest.fixture
@@ -482,6 +483,138 @@ async def test_interrupted_full_backfill_restarts_chronological_event_scan(
     ).to_list()
     assert len(events) == 2
     assert {event.trip_id for event in events} == {trip.id for trip in trips}
+
+
+@pytest.mark.asyncio
+async def test_backfill_repairs_missing_state_from_preserved_drive_events(
+    coverage_db,
+) -> None:
+    area = CoverageArea(
+        display_name="Coverage State Recovery Area",
+        status="ready",
+        health="healthy",
+        journal_status="ready",
+        last_backfill_trip_endtime=datetime(2025, 1, 2, tzinfo=UTC),
+        total_length_miles=2.0,
+        driveable_length_miles=2.0,
+        total_segments=2,
+    )
+    await area.insert()
+    assert area.id is not None
+
+    segment_ids = [
+        f"{area.id}-{area.area_version}-0",
+        f"{area.id}-{area.area_version}-1",
+    ]
+    for index, segment_id in enumerate(segment_ids):
+        await Street(
+            segment_id=segment_id,
+            area_id=area.id,
+            area_version=area.area_version,
+            geometry={
+                "type": "LineString",
+                "coordinates": [
+                    [-97.0 + index * 0.01, 31.0],
+                    [-97.0 + index * 0.01, 31.001],
+                ],
+            },
+            length_miles=1.0,
+        ).insert()
+
+    first_trip_id = PydanticObjectId()
+    latest_trip_id = PydanticObjectId()
+    first_driven_at = datetime(2025, 1, 1, tzinfo=UTC)
+    latest_driven_at = datetime(2025, 1, 2, tzinfo=UTC)
+    await CoverageDriveEvent(
+        area_id=area.id,
+        area_version=area.area_version,
+        trip_id=first_trip_id,
+        driven_at=first_driven_at,
+        segment_ids=segment_ids,
+    ).insert()
+    await CoverageDriveEvent(
+        area_id=area.id,
+        area_version=area.area_version,
+        trip_id=latest_trip_id,
+        driven_at=latest_driven_at,
+        segment_ids=[segment_ids[1]],
+    ).insert()
+
+    updated = await backfill_coverage_for_area(area.id)
+
+    assert updated == 2
+    states = await CoverageState.find(
+        {"area_id": area.id, "status": "driven"},
+    ).to_list()
+    assert {state.segment_id for state in states} == set(segment_ids)
+    first_state = next(state for state in states if state.segment_id == segment_ids[0])
+    latest_state = next(state for state in states if state.segment_id == segment_ids[1])
+    assert first_state.first_driven_at == first_driven_at
+    assert first_state.last_driven_at == first_driven_at
+    assert first_state.driven_by_trip_id == first_trip_id
+    assert latest_state.first_driven_at == first_driven_at
+    assert latest_state.last_driven_at == latest_driven_at
+    assert latest_state.driven_by_trip_id == latest_trip_id
+
+    refreshed_area = await CoverageArea.get(area.id)
+    assert refreshed_area is not None
+    assert refreshed_area.driven_segments == 2
+    assert refreshed_area.driven_length_miles == pytest.approx(2.0)
+    assert refreshed_area.coverage_percentage == pytest.approx(100.0)
+
+
+@pytest.mark.asyncio
+async def test_stats_refresh_repairs_missing_state_from_drive_events(
+    coverage_db,
+) -> None:
+    area = CoverageArea(
+        display_name="Coverage Stats Recovery Area",
+        status="ready",
+        health="healthy",
+        journal_status="ready",
+        total_length_miles=1.0,
+        driveable_length_miles=1.0,
+        total_segments=1,
+    )
+    await area.insert()
+    assert area.id is not None
+
+    segment_id = f"{area.id}-{area.area_version}-0"
+    await Street(
+        segment_id=segment_id,
+        area_id=area.id,
+        area_version=area.area_version,
+        geometry={
+            "type": "LineString",
+            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
+        },
+        length_miles=1.0,
+    ).insert()
+
+    trip_id = PydanticObjectId()
+    driven_at = datetime(2025, 1, 1, tzinfo=UTC)
+    await CoverageDriveEvent(
+        area_id=area.id,
+        area_version=area.area_version,
+        trip_id=trip_id,
+        driven_at=driven_at,
+        segment_ids=[segment_id],
+    ).insert()
+
+    refreshed_area = await update_area_stats(area.id)
+
+    assert refreshed_area is not None
+    assert refreshed_area.driven_segments == 1
+    assert refreshed_area.driven_length_miles == pytest.approx(1.0)
+    assert refreshed_area.coverage_percentage == pytest.approx(100.0)
+    state = await CoverageState.find_one(
+        {"area_id": area.id, "segment_id": segment_id},
+    )
+    assert state is not None
+    assert state.status == "driven"
+    assert state.first_driven_at == driven_at
+    assert state.last_driven_at == driven_at
+    assert state.driven_by_trip_id == trip_id
 
 
 @pytest.mark.asyncio

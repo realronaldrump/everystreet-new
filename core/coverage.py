@@ -55,7 +55,10 @@ from street_coverage.journal import (
     rebuild_journal_rollup,
     upsert_drive_event,
 )
-from street_coverage.stats import apply_area_stats_delta
+from street_coverage.stats import (
+    apply_area_stats_delta,
+    reconcile_area_state_from_drive_events,
+)
 
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
@@ -1198,6 +1201,19 @@ async def backfill_coverage_for_area(
         )
         return 0
 
+    recovered_state_count = 0
+    if not is_full_scan:
+        (
+            recovered_state_count,
+            recovered_state_length,
+        ) = await reconcile_area_state_from_drive_events(area_id, area.area_version)
+        if recovered_state_count:
+            await apply_area_stats_delta(
+                area_id,
+                driven_segments_delta=recovered_state_count,
+                driven_length_miles_delta=recovered_state_length,
+            )
+
     selected_mode = await get_effective_coverage_trip_mode(trip_mode)
 
     segment_index = await get_area_segment_index(area_id, area.area_version)
@@ -1394,7 +1410,7 @@ async def backfill_coverage_for_area(
         await mark_journal_pending(area_id)
         await rebuild_journal_rollup(area_id)
         await report_progress(total_trips=total_trip_count, force=True)
-        return 0
+        return recovered_state_count
 
     segments_to_update = list(segment_first.keys())
     logger.info(
@@ -1445,7 +1461,7 @@ async def backfill_coverage_for_area(
     )
 
     # Return the number of segments that were newly marked driven.
-    return len(newly_driven_ids)
+    return recovered_state_count + len(newly_driven_ids)
 
 
 def get_trip_driven_at(trip_data: dict[str, Any] | None) -> datetime | None:

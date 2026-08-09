@@ -7,14 +7,17 @@ aggregating data from the CoverageState collection.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
 
+from core.date_utils import normalize_to_utc_datetime
 from db.aggregation import aggregate_to_list
-from db.models import CoverageArea, CoverageState, Street
+from db.models import CoverageArea, CoverageDriveEvent, CoverageState, Street
 from street_coverage.segment_ids import segment_id_regex_for_area_version
 
 if TYPE_CHECKING:
@@ -175,6 +178,179 @@ async def apply_area_stats_delta(
     return await CoverageArea.get(area_id)
 
 
+async def reconcile_area_state_from_drive_events(
+    area_id: PydanticObjectId,
+    area_version: int | None = None,
+) -> tuple[int, float]:
+    """Restore missing current-version states from exact historical drive events.
+
+    ``CoverageDriveEvent`` is the durable record of a matched historical drive,
+    while ``CoverageState`` is the mutable projection used by the map and
+    cached statistics.  If the projection is lost but the event journal remains,
+    rebuilding stats from states alone silently turns real coverage into zero.
+
+    Only segment IDs that still belong to the current street inventory are
+    restored. Existing undriveable states are never changed.
+    """
+    area = await CoverageArea.get(area_id)
+    if not area:
+        return 0, 0.0
+
+    effective_version = area.area_version if area_version is None else area_version
+    if effective_version != area.area_version:
+        return 0, 0.0
+
+    events = (
+        await CoverageDriveEvent.find(
+            {"area_id": area_id, "area_version": effective_version},
+        )
+        .sort([("driven_at", 1), ("_id", 1)])
+        .to_list()
+    )
+    if not events:
+        return 0, 0.0
+
+    # Collapse the event journal into the exact first/last drive facts required
+    # by CoverageState. Sorting makes the latest trip deterministic for equal
+    # timestamps as well.
+    history: dict[str, tuple[datetime, datetime, Any]] = {}
+    for event in events:
+        driven_at = normalize_to_utc_datetime(event.driven_at)
+        if driven_at is None:
+            continue
+        for raw_segment_id in event.segment_ids:
+            segment_id = str(raw_segment_id)
+            existing = history.get(segment_id)
+            if existing is None:
+                history[segment_id] = (driven_at, driven_at, event.trip_id)
+                continue
+
+            first_at, last_at, latest_trip_id = existing
+            first_at = min(first_at, driven_at)
+            if driven_at >= last_at:
+                last_at = driven_at
+                latest_trip_id = event.trip_id
+            history[segment_id] = (first_at, last_at, latest_trip_id)
+
+    if not history:
+        return 0, 0.0
+
+    segment_ids = list(history)
+    streets = await Street.find(
+        {
+            "area_id": area_id,
+            "area_version": effective_version,
+            "segment_id": {"$in": segment_ids},
+        },
+    ).to_list()
+    length_by_segment = {
+        str(street.segment_id): float(street.length_miles or 0.0) for street in streets
+    }
+    if not length_by_segment:
+        return 0, 0.0
+
+    states = await CoverageState.find(
+        {
+            "area_id": area_id,
+            "segment_id": {"$in": list(length_by_segment)},
+        },
+    ).to_list()
+    state_by_segment = {state.segment_id: state for state in states}
+    candidates = [
+        segment_id
+        for segment_id in length_by_segment
+        if (
+            (state := state_by_segment.get(segment_id)) is None
+            or state.status not in {"driven", "undriveable"}
+        )
+    ]
+    if not candidates:
+        return 0, 0.0
+
+    collection = CoverageState.get_pymongo_collection()
+    semaphore = asyncio.Semaphore(32)
+
+    async def restore_one(segment_id: str) -> bool:
+        first_at, last_at, latest_trip_id = history[segment_id]
+        state_set: dict[str, Any] = {
+            "area_id": area_id,
+            "segment_id": segment_id,
+            "status": "driven",
+            "first_driven_at": {
+                "$min": [
+                    {"$ifNull": ["$first_driven_at", first_at]},
+                    first_at,
+                ],
+            },
+            "last_driven_at": {
+                "$max": [
+                    {"$ifNull": ["$last_driven_at", last_at]},
+                    last_at,
+                ],
+            },
+            "manually_marked": {"$ifNull": ["$manually_marked", False]},
+        }
+        if latest_trip_id is not None:
+            state_set["driven_by_trip_id"] = latest_trip_id
+        update_pipeline = [{"$set": state_set}]
+
+        async with semaphore:
+            try:
+                previous = await collection.find_one_and_update(
+                    {
+                        "area_id": area_id,
+                        "segment_id": segment_id,
+                        "status": {"$ne": "undriveable"},
+                    },
+                    update_pipeline,
+                    upsert=True,
+                    return_document=ReturnDocument.BEFORE,
+                )
+            except DuplicateKeyError:
+                # A concurrent writer may have inserted an undriveable state or
+                # won the unique-key race. Only retry an already-driveable row.
+                previous = await collection.find_one_and_update(
+                    {
+                        "area_id": area_id,
+                        "segment_id": segment_id,
+                        "status": "driven",
+                    },
+                    update_pipeline,
+                    upsert=False,
+                    return_document=ReturnDocument.BEFORE,
+                )
+                if previous is None:
+                    return False
+
+        return previous is None or previous.get("status") != "driven"
+
+    restored = [
+        restored
+        for start in range(0, len(candidates), 128)
+        for restored in await asyncio.gather(
+            *(
+                restore_one(segment_id)
+                for segment_id in candidates[start : start + 128]
+            ),
+        )
+    ]
+    restored_ids = [
+        segment_id
+        for segment_id, was_restored in zip(candidates, restored, strict=True)
+        if was_restored
+    ]
+    restored_length = sum(length_by_segment[segment_id] for segment_id in restored_ids)
+
+    if restored_ids:
+        logger.warning(
+            "Restored %d missing coverage states for area %s from %d drive events",
+            len(restored_ids),
+            area.display_name,
+            len(events),
+        )
+    return len(restored_ids), restored_length
+
+
 async def calculate_area_stats(
     area_id: PydanticObjectId,
     area_version: int | None = None,
@@ -304,6 +480,7 @@ async def update_area_stats(area_id: PydanticObjectId) -> CoverageArea | None:
         logger.warning("Area %s not found for stats update", area_id)
         return None
 
+    await reconcile_area_state_from_drive_events(area_id, area.area_version)
     stats = await calculate_area_stats(area_id, area.area_version)
 
     area.total_segments = stats["total_segments"]
