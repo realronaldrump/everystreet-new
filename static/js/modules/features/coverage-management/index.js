@@ -1520,7 +1520,7 @@ async function recalculateCoverage(areaId, displayName) {
     title: "Recalculate Street Coverage",
     message: needsRebuild
       ? `Recalculate street coverage for "<strong>${escapeHtml(displayName)}</strong>" using service-road policy <strong>${policyLabel}</strong> and <strong>${escapeHtml(tripModeLabel)}</strong>?<br><br>This will rebuild streets from OSM, then rematch trips.`
-      : `Recalculate street coverage for "<strong>${escapeHtml(displayName)}</strong>" using <strong>${escapeHtml(tripModeLabel)}</strong>?<br><br>Street filters already match — this will run a fast backfill.`,
+      : `Recalculate street coverage for "<strong>${escapeHtml(displayName)}</strong>" using <strong>${escapeHtml(tripModeLabel)}</strong>?<br><br>Street filters already match — this will run in the background.`,
     allowHtml: true,
     confirmText: needsRebuild
       ? "Recalculate Street Coverage + Rebuild Streets"
@@ -1557,21 +1557,28 @@ async function recalculateCoverage(areaId, displayName) {
     }
 
     notificationManager.show(
-      "Recalculating street coverage... This may take a moment.",
+      "Recalculating street coverage in the background...",
       "info"
     );
     const result = await apiPost(
-      `/areas/${areaId}/backfill?trip_mode=${getCoverageTripModeEndpointParam(tripMode)}`,
+      `/areas/${areaId}/backfill?background=true&trip_mode=${getCoverageTripModeEndpointParam(tripMode)}`,
       {}
     );
-    notificationManager.show(
-      `Street coverage recalculated. Updated ${result.segments_updated} segments.`,
-      "success"
-    );
     await loadAreas();
-    if (state.currentAreaId === areaId) {
-      await refreshDashboardStats(areaId);
+    if (result.job_id) {
+      GlobalJobTracker.start({
+        jobId: result.job_id,
+        jobType: "area_backfill",
+        areaId,
+        areaName: displayName,
+        initialMessage:
+          result.message || "Recalculating street coverage in the background...",
+      });
     }
+    notificationManager.show(
+      result.message || "Street coverage recalculation queued.",
+      "info"
+    );
   } catch (error) {
     console.error("Failed to recalculate street coverage:", error);
     notificationManager.show(
