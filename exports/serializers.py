@@ -69,7 +69,6 @@ def build_trip_values(trip: Any) -> dict[str, Any]:
         "status": common.get("status"),
         "startTime": common.get("startTime"),
         "endTime": common.get("endTime"),
-        "timeZone": common.get("timeZone"),
         "startTimeZone": common.get("startTimeZone"),
         "endTimeZone": common.get("endTimeZone"),
         "duration": common.get("duration"),

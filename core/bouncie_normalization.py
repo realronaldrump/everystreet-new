@@ -223,9 +223,12 @@ def normalize_rest_trip_payload(trip: dict[str, Any]) -> dict[str, Any]:
         normalized["endTime"] = parse_timestamp(end_time)
 
     time_zone = normalized.get("timeZone")
-    if time_zone:
-        normalized.setdefault("startTimeZone", time_zone)
-        normalized.setdefault("endTimeZone", time_zone)
+    for field in ("startTimeZone", "endTimeZone"):
+        value = normalized.get(field) or time_zone
+        if value:
+            normalized[field] = "UTC" if value == "0000" else value
+        else:
+            normalized.pop(field, None)
 
     if "averageSpeed" in normalized:
         with contextlib.suppress(TypeError, ValueError):

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import pytest
+
 from core.bouncie_normalization import normalize_rest_trip_payload
 
 
@@ -54,6 +56,27 @@ def test_normalize_rest_trip_payload_preserves_explicit_start_end_timezones() ->
     assert normalized.get("startTimeZone") == "America/Denver"
     assert normalized.get("endTimeZone") == "America/Phoenix"
     assert "timeZone" not in normalized
+
+
+@pytest.mark.parametrize("empty", [None, ""])
+def test_normalize_timezone_fills_empty_canonical_fields(empty: str | None) -> None:
+    normalized = normalize_rest_trip_payload(
+        {"timeZone": "-0700", "startTimeZone": empty, "endTimeZone": empty}
+    )
+    assert normalized["startTimeZone"] == "-0700"
+    assert normalized["endTimeZone"] == "-0700"
+
+
+def test_normalize_timezone_zero_offset_is_valid_utc() -> None:
+    normalized = normalize_rest_trip_payload({"timeZone": "0000"})
+    assert normalized["startTimeZone"] == "UTC"
+    assert normalized["endTimeZone"] == "UTC"
+
+
+def test_normalize_timezone_does_not_invent_missing_metadata() -> None:
+    normalized = normalize_rest_trip_payload({"transactionId": "no-timezone"})
+    assert normalized.get("startTimeZone") is None
+    assert normalized.get("endTimeZone") is None
 
 
 def test_normalize_rest_trip_payload_decodes_polyline_gps() -> None:

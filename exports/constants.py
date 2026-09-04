@@ -36,7 +36,6 @@ TRIP_BASE_FIELDS: Final[list[str]] = [
     "status",
     "startTime",
     "endTime",
-    "timeZone",
     "startTimeZone",
     "endTimeZone",
     "duration",

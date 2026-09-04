@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from core.bouncie_normalization import normalize_rest_trip_payload
 from db.models import Trip
 from trips.pipeline import ProcessingHistoryEntry, TripPipeline, TripProcessingRequest
 
@@ -38,13 +39,19 @@ class BouncieHistoricalTripWriter:
         self._pipeline = pipeline or TripPipeline()
 
     async def write(self, request: HistoricalTripWrite) -> Trip | None:
+        raw_data = normalize_rest_trip_payload(request.raw_data)
+        prevalidated_data = request.prevalidated_data
+        if prevalidated_data is not None:
+            prevalidated_data = normalize_rest_trip_payload(
+                {**request.raw_data, **prevalidated_data}
+            )
         processing_request = TripProcessingRequest.bouncie_ingest(
-            request.raw_data,
+            raw_data,
             do_map_match=request.do_map_match,
             do_geocode=request.do_geocode,
             do_coverage=request.do_coverage,
             force_map_match=request.force_map_match,
-            prevalidated_data=request.prevalidated_data,
+            prevalidated_data=prevalidated_data,
             prevalidated_history=request.prevalidated_history,
             prevalidated_state=request.prevalidated_state,
             sync_mobility=request.sync_mobility,

@@ -976,11 +976,16 @@ async def process_bouncie_trips(
                     )
                 ),
             )
+            needs_timezone_repair = any(
+                trip.get(field) and not getattr(existing, field)
+                for field in ("startTimeZone", "endTimeZone")
+            )
             needs_processing = (
                 not already_processed
                 or force_rematch_all
                 or (do_map_match and not has_match)
                 or needs_geocode_repair
+                or needs_timezone_repair
             )
             if not needs_processing:
                 counters["skipped_existing"] += 1

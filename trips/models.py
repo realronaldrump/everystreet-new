@@ -18,6 +18,8 @@ class TripStatusProjection(BaseModel):
     matchedGps: Any | None = None
     startLocation: Any | None = None
     destination: Any | None = None
+    startTimeZone: str | None = None
+    endTimeZone: str | None = None
 
     model_config = ConfigDict(extra="ignore")
 
