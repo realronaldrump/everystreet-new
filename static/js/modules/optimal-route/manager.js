@@ -23,12 +23,17 @@ export class OptimalRoutesManager {
     this.selectedAreaId = null;
     this.currentTaskId = null;
     this.currentRouteData = null;
+    this.currentRouteId = null;
     this.isClusterRoute = false;
     this.coverageAreas = [];
     this.lastSelectedAreaId = "";
     this.abortController = new AbortController();
     this.pendingDioramaDraft = this.readPendingDioramaDraft();
-    this.initialAreaId = new URLSearchParams(window.location.search).get("area") || "";
+    const initialParams = new URLSearchParams(window.location.search);
+    this.initialAreaId = initialParams.get("area") || "";
+    this.initialRouteId = initialParams.get("routeId");
+    this.initialTaskId = initialParams.get("taskId");
+    this.selectionEpoch = 0;
 
     // Initialize modules
     this.ui = new OptimalRouteUI(this.config);
@@ -60,6 +65,13 @@ export class OptimalRoutesManager {
 
   setupEventListeners() {
     const { signal } = this.abortController;
+    document.addEventListener(
+      "historicalTripsUpdated",
+      () => {
+        void this.refreshCoverageAreas();
+      },
+      { signal }
+    );
     // Area selection
     this.ui.areaSelect?.addEventListener(
       "change",
@@ -273,7 +285,26 @@ export class OptimalRoutesManager {
       }
 
       this.ui.populateAreaSelect(areas);
+      if (this.selectedAreaId && this.ui.areaSelect)
+        this.ui.areaSelect.value = this.selectedAreaId;
       this.ui.updateSavedRoutes(areas, (areaId) => this.onAreaSelect(areaId));
+      if (this.initialRouteId || this.initialTaskId) {
+        const routeId = this.initialRouteId;
+        const taskId = this.initialTaskId;
+        this.initialRouteId = null;
+        this.initialTaskId = null;
+        try {
+          const routeData = routeId ? await this.api.loadRoute(routeId) : null;
+          await this.onAreaSelect(routeData?.area_id || this.initialAreaId, {
+            routeData,
+            taskId,
+          });
+        } catch (error) {
+          this.ui.showError(error.message);
+        }
+        this.initialAreaId = "";
+        return;
+      }
       await this.openPendingDioramaDraft();
       if (
         !this.selectedAreaId &&
@@ -298,11 +329,27 @@ export class OptimalRoutesManager {
    * Useful after navigating back from coverage management.
    */
   async refreshCoverageAreas() {
-    this.api.clearCoverageAreasCache();
-    await this.loadCoverageAreas();
+    const epoch = this.selectionEpoch;
+    try {
+      this.api.clearCoverageAreasCache();
+      await this.loadCoverageAreas();
+      if (epoch !== this.selectionEpoch || this.abortController.signal.aborted) return;
+      const area = this.coverageAreas.find(
+        (item) => String(item.id) === String(this.selectedAreaId)
+      );
+      this.ui.updateAreaStats(area || null);
+      if (area) {
+        const streets = await this.api.loadStreetNetwork(area.id);
+        if (epoch !== this.selectionEpoch || this.abortController.signal.aborted)
+          return;
+        this.map.updateStreets(streets.drivenFeatures, streets.undrivenFeatures);
+      }
+    } catch (error) {
+      console.warn("Could not refresh coverage progress", error);
+    }
   }
 
-  async onAreaSelect(areaId) {
+  async onAreaSelect(areaId, { routeData: selectedRoute = null, taskId = null } = {}) {
     const nextAreaId = areaId ? String(areaId) : "";
     if (nextAreaId) {
       const status = this.getAreaStatus(nextAreaId);
@@ -316,9 +363,16 @@ export class OptimalRoutesManager {
       }
     }
 
+    const epoch = ++this.selectionEpoch;
+    this.api.disconnectSSE();
+    this.currentTaskId = null;
     this.selectedAreaId = nextAreaId || null;
     this.lastSelectedAreaId = nextAreaId;
+    if (this.ui.areaSelect) this.ui.areaSelect.value = nextAreaId;
+    this.config.onAreaSelectionChanged?.(nextAreaId);
     const url = new URL(window.location.href);
+    url.searchParams.delete("routeId");
+    url.searchParams.delete("taskId");
     if (nextAreaId) {
       url.searchParams.set("area", nextAreaId);
     } else {
@@ -356,16 +410,21 @@ export class OptimalRoutesManager {
       (area) => String(area.id) === nextAreaId
     );
     this.clearRouteDisplay();
+    this.currentRouteId = selectedRoute?.route_id || null;
+    this.currentTaskId = taskId;
+    this.updateRouteUrl();
     this.ui.updateAreaStats(selectedArea || null);
     this.ui.setGenerateState(selectedArea?.has_optimal_route ? "done" : "ready");
 
     // Wait for map
     await this.map.bindMapLoad();
+    if (epoch !== this.selectionEpoch) return;
 
     // Load streets
     let undrivenFeatures = [];
     try {
       const streetNetwork = await this.api.loadStreetNetwork(nextAreaId);
+      if (epoch !== this.selectionEpoch) return;
       const { drivenFeatures, undrivenFeatures: loadedUndrivenFeatures } =
         streetNetwork;
       undrivenFeatures = loadedUndrivenFeatures;
@@ -376,23 +435,27 @@ export class OptimalRoutesManager {
 
     // Check for existing route only when metadata says one is saved.
     // This avoids expected 404 noise for areas that have never generated a route.
-    if (selectedArea?.has_optimal_route) {
+    if (selectedRoute || (!taskId && selectedArea?.has_optimal_route)) {
       try {
-        const routeData = await this.api.loadExistingRoute(nextAreaId);
-        if (routeData?.coordinates) {
-          this.currentRouteData = routeData;
-          this.map.displayRoute(routeData.coordinates, routeData);
-          this.ui.showResults(routeData);
-        }
-      } catch {
-        // ignore
+        const routeData =
+          selectedRoute || (await this.api.loadExistingRoute(nextAreaId));
+        if (epoch !== this.selectionEpoch) return;
+        if (routeData) this.acceptRouteResult(routeData);
+      } catch (error) {
+        if (epoch === this.selectionEpoch) this.ui.showError(error.message);
       }
     }
 
     // Check for active task
-    const activeTask = await this.api.checkForActiveTask(nextAreaId);
+    const activeTask = taskId
+      ? { task_id: taskId, status: "pending" }
+      : selectedRoute
+        ? null
+        : await this.api.checkForActiveTask(nextAreaId);
+    if (epoch !== this.selectionEpoch) return;
     if (activeTask) {
       this.currentTaskId = activeTask.task_id;
+      this.updateRouteUrl();
 
       let startTime = Date.now();
       if (activeTask.started_at) {
@@ -415,6 +478,7 @@ export class OptimalRoutesManager {
 
     // Fly to area
     const bounds = await this.api.getAreaBounds(nextAreaId);
+    if (epoch !== this.selectionEpoch) return;
     if (bounds) {
       this.map.flyToBounds(bounds);
       document.getElementById("map-legend").style.display = "block";
@@ -499,6 +563,7 @@ export class OptimalRoutesManager {
   }
 
   async generateRoute() {
+    this.clearRouteDisplay();
     if (!this.selectedAreaId) {
       return;
     }
@@ -517,6 +582,7 @@ export class OptimalRoutesManager {
 
       const taskId = await this.api.generateRoute(this.selectedAreaId);
       this.currentTaskId = taskId;
+      this.updateRouteUrl();
       this.api.connectSSE(taskId);
     } catch (error) {
       this.onError(error.message);
@@ -524,6 +590,8 @@ export class OptimalRoutesManager {
   }
 
   async generateClusterRoute(areaId, segmentIds) {
+    if (String(areaId) !== String(this.selectedAreaId)) await this.onAreaSelect(areaId);
+    this.clearRouteDisplay();
     this.isClusterRoute = true;
     this.ui.showProgressSection();
 
@@ -538,6 +606,7 @@ export class OptimalRoutesManager {
 
       const taskId = await this.api.generateClusterRoute(areaId, segmentIds);
       this.currentTaskId = taskId;
+      this.updateRouteUrl();
       this.api.connectSSE(taskId);
     } catch (error) {
       this.isClusterRoute = false;
@@ -549,53 +618,71 @@ export class OptimalRoutesManager {
     this.ui.updateProgress(data);
   }
 
-  async onGenerationComplete(progressData = {}) {
-    const taskId = this.currentTaskId;
-    this.currentTaskId = null;
-    const isCluster = this.isClusterRoute;
-    this.isClusterRoute = false;
-
-    let routeData = null;
-
-    if (isCluster && taskId) {
-      // Cluster routes are stored in the job result, not on the CoverageArea
-      try {
-        routeData = await this.api.loadTaskResult(taskId);
-      } catch {
-        // fall through to error
-      }
-    } else {
-      routeData = await this.api.loadExistingRoute(this.selectedAreaId);
+  updateRouteUrl() {
+    const url = new URL(window.location.href);
+    for (const [key, value] of Object.entries({
+      area: this.selectedAreaId,
+      routeId: this.currentRouteId,
+      taskId: this.currentTaskId,
+    })) {
+      if (value) url.searchParams.set(key, value);
+      else url.searchParams.delete(key);
     }
+    window.history.replaceState({}, "", url);
+  }
 
-    if (routeData?.coordinates) {
-      if (!isCluster) {
-        const selectedArea = this.coverageAreas.find(
-          (area) => String(area.id) === String(this.selectedAreaId)
+  acceptRouteResult(routeData) {
+    if (
+      !routeData?.route_id ||
+      !routeData.coordinates ||
+      String(routeData.area_id) !== String(this.selectedAreaId)
+    ) {
+      throw new Error("The saved route does not match the selected area.");
+    }
+    this.currentRouteData = routeData;
+    this.currentRouteId = routeData.route_id;
+    this.updateRouteUrl();
+    this.map.displayRoute(routeData.coordinates, routeData, true);
+    this.ui.showResults(routeData);
+    if (routeData.coverage_changed) {
+      this.ui.showNotification(
+        "Coverage has changed since this route was planned. This preview keeps your selected route.",
+        "warning"
+      );
+    }
+  }
+
+  async onGenerationComplete() {
+    const taskId = this.currentTaskId;
+    const epoch = this.selectionEpoch;
+    if (!taskId) return;
+    try {
+      const routeData = await this.api.loadTaskResult(taskId);
+      if (epoch !== this.selectionEpoch || this.currentTaskId !== taskId) return;
+      this.currentTaskId = null;
+      this.isClusterRoute = false;
+      this.acceptRouteResult(routeData);
+      if (routeData.kind === "full_area") {
+        const area = this.coverageAreas.find(
+          (item) => String(item.id) === String(this.selectedAreaId)
         );
-        if (selectedArea) {
-          selectedArea.has_optimal_route = true;
-          selectedArea.optimal_route_generated_at =
-            routeData.generated_at || routeData.created_at || new Date().toISOString();
+        if (area) {
+          area.has_optimal_route = true;
+          area.optimal_route_id = routeData.route_id;
+          area.optimal_route_generated_at = routeData.generated_at;
         }
       }
-      this.currentRouteData = routeData;
-      this.map.displayRoute(routeData.coordinates, routeData, true); // animate=true
-      this.ui.showResults(routeData);
       this.ui.updateSavedRoutes(this.coverageAreas, (areaId) =>
         this.onAreaSelect(areaId)
       );
-    } else {
-      this.ui.showError(
-        progressData?.error ||
-          progressData?.message ||
-          "Route completed but failed to load route data"
-      );
+    } catch (error) {
+      if (epoch === this.selectionEpoch) this.onError(error.message);
     }
   }
 
   onError(message) {
     this.currentTaskId = null;
+    this.updateRouteUrl();
     this.isClusterRoute = false;
     this.ui.showError(message);
     this.ui.hideReplayButton();
@@ -619,6 +706,7 @@ export class OptimalRoutesManager {
 
   onCancelled() {
     this.currentTaskId = null;
+    this.updateRouteUrl();
     this.isClusterRoute = false;
     this.ui.hideProgressSection();
     const generateBtn = document.getElementById("generate-route-btn");
@@ -646,10 +734,12 @@ export class OptimalRoutesManager {
     this.ui.setLiveNavigationEnabled(false);
     this.ui.hideReplayButton();
     this.currentRouteData = null;
+    this.currentRouteId = null;
+    this.updateRouteUrl();
   }
 
   async deleteRoute() {
-    if (!this.selectedAreaId) {
+    if (!this.currentRouteId) {
       return;
     }
 
@@ -668,10 +758,11 @@ export class OptimalRoutesManager {
     }
 
     try {
-      await this.api.clearRoute(this.selectedAreaId);
-      if (selectedArea) {
+      await this.api.clearRoute(this.currentRouteId);
+      if (selectedArea?.optimal_route_id === this.currentRouteId) {
         selectedArea.has_optimal_route = false;
         selectedArea.optimal_route_generated_at = null;
+        selectedArea.optimal_route_id = null;
       }
       this.clearRouteDisplay();
       this.ui.setGenerateState("ready");
@@ -689,7 +780,7 @@ export class OptimalRoutesManager {
       this.ui.showNotification("Select a coverage area first.", "warning");
       return;
     }
-    if (this.ui.liveNavigationBtn?.disabled) {
+    if (!this.currentRouteId || this.ui.liveNavigationBtn?.disabled) {
       this.ui.showNotification(
         "Generate a route before starting navigation.",
         "warning"
@@ -697,17 +788,20 @@ export class OptimalRoutesManager {
       return;
     }
     window.localStorage.setItem("liveNavigationAreaId", this.selectedAreaId);
-    const href = buildLiveNavigationUrl({ areaId: this.selectedAreaId });
+    const href = buildLiveNavigationUrl({
+      areaId: this.selectedAreaId,
+      routeId: this.currentRouteId,
+    });
     swupReady.then((swup) => {
       swup.navigate(href);
     });
   }
 
   exportGPX() {
-    if (!this.selectedAreaId) {
+    if (!this.currentRouteId) {
       return;
     }
-    const url = `/api/coverage/areas/${this.selectedAreaId}/optimal-route/gpx`;
+    const url = `/api/generated-routes/${encodeURIComponent(this.currentRouteId)}/gpx`;
     window.open(url, "_blank");
   }
 
@@ -723,6 +817,8 @@ export class OptimalRoutesManager {
   }
 
   destroy() {
+    this.selectionEpoch += 1;
+    this.api.disconnectSSE();
     try {
       this.abortController.abort();
     } catch {

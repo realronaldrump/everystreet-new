@@ -28,6 +28,22 @@ Both processes share startup/shutdown initialization via `core/startup.py`.
 
 ## Coverage flow
 
+- Historical Trip writes include durable coverage work state. The initial
+  attempt runs after persistence; a bounded worker drain retries failed work
+  and recovers expired leases. Exhausted retries remain visible through
+  `/api/actions/trips/processing/status` and can be explicitly retried.
+- Historical credit commits CoverageState transitions, CoverageArea deltas,
+  CoverageDriveEvent evidence, and journal invalidation in one MongoDB
+  transaction. The drive event retains its original newly credited segments,
+  allowing journal/mission projection retries without counting credit twice.
+- Redis completion jobs carry a transaction ID only, deduplicate duplicate
+  webhooks, and retry delayed Bouncie history with bounded backoff. The existing
+  Fleet Registry and Bouncie ingest validation remain authoritative. No live
+  trip snapshot is written to Mongo.
+- The shared browser processing monitor observes the historical revision and
+  refreshes open trip/coverage views when processing advances. Failures retain
+  a visible Retry updates action.
+
 - Coverage state is modeled by `db/models.py::CoverageState`, keyed by
   `area_id + segment_id`.
 - Coverage writes use `core/coverage.py::update_coverage_for_segments` via
@@ -41,7 +57,33 @@ Both processes share startup/shutdown initialization via `core/startup.py`.
     route generation, and route export.
   - Live Navigation (`static/js/modules/live-navigation/*`) persists driven
     segments through the same coverage endpoint without any separate session
-    lifecycle.
+  lifecycle.
+
+## Generated routes
+
+- `routing/route_store.py` owns immutable GeneratedRoute records. Successful
+  generation atomically saves its result, updates the full-area pointer when
+  appropriate, and publishes Job completion. Cluster routes never replace
+  the current full-area pointer.
+- `/api/generated-routes/{route_id}` and its `/gpx` export address the exact
+  result. Planner and navigation URLs retain `routeId`; pending planner URLs
+  retain `taskId`. A deleted or rebuilt-area route produces an explicit error.
+- Coverage revision changes are reported as stale planning input without
+  substituting another route. Regeneration preserves a cluster's scope.
+- Route cancellation targets one task and cannot be undone by a later
+  progress update. Route deletion only clears an area pointer that still
+  references the deleted result.
+
+## Workflow verification
+
+- `tests/test_workflow_transactions.py` runs against an isolated Mongo replica
+  set with `WORKFLOW_TEST_MONGO_URI`; use `-m integration` explicitly. It covers
+  rollback, concurrent credit, projection replay, durable completion, route
+  identity, deletion, and stale area versions. Never point this suite at the
+  production database.
+- `tests/route_handoff.test.js` exercises planner/navigation/export selection
+  and late-result handling. Completion sync and recovery have focused Python
+  tests; the processing monitor has JavaScript event/teardown tests.
 
 ## External integration boundaries
 

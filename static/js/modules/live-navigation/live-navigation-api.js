@@ -5,11 +5,12 @@
 
 import apiClient from "../core/api-client.js";
 
-export function buildLiveNavigationUrl({ areaId, autoStart = false } = {}) {
+export function buildLiveNavigationUrl({ areaId, routeId, autoStart = false } = {}) {
   const params = new URLSearchParams();
   if (areaId) {
     params.set("areaId", String(areaId));
   }
+  if (routeId) params.set("routeId", String(routeId));
   if (autoStart) {
     params.set("autoStart", "true");
   }
@@ -48,17 +49,12 @@ const LiveNavigationAPI = {
    * @param {string} areaId
    * @returns {Promise<string>} GPX text
    */
-  async fetchOptimalRouteGpx(areaId) {
-    try {
-      return await apiClient.get(`/api/coverage/areas/${areaId}/optimal-route/gpx`, {
-        parseResponse: (response) => response.text(),
-      });
-    } catch (error) {
-      if (error.message?.includes("404")) {
-        throw new Error("No optimal route found. Generate one first.");
-      }
-      throw error;
-    }
+  async fetchGeneratedRoute(routeId) {
+    return apiClient.get(`/api/generated-routes/${encodeURIComponent(routeId)}`);
+  },
+
+  async fetchTaskResult(taskId) {
+    return apiClient.get(`/api/optimal-routes/${encodeURIComponent(taskId)}/result`);
   },
 
   /**
@@ -67,11 +63,7 @@ const LiveNavigationAPI = {
    * @returns {Promise<Object|null>}
    */
   async fetchOptimalRoute(areaId) {
-    try {
-      return await apiClient.get(`/api/coverage/areas/${areaId}/optimal-route`);
-    } catch {
-      return null;
-    }
+    return apiClient.get(`/api/coverage/areas/${areaId}/optimal-route`);
   },
 
   /**
@@ -153,8 +145,24 @@ const LiveNavigationAPI = {
    * @param {string} areaId
    * @returns {Promise<string>} task_id
    */
-  async startRouteGeneration(areaId) {
-    const data = await apiClient.post(`/api/coverage/areas/${areaId}/optimal-route`);
+  async startRouteGeneration(areaId, { segmentIds = null, startCoords = null } = {}) {
+    let data;
+    if (segmentIds) {
+      data = await apiClient.post(`/api/coverage/areas/${areaId}/cluster-route`, {
+        segment_ids: segmentIds,
+        start_lon: startCoords?.[0] ?? null,
+        start_lat: startCoords?.[1] ?? null,
+      });
+    } else {
+      const params = new URLSearchParams();
+      if (startCoords) {
+        params.set("start_lon", startCoords[0]);
+        params.set("start_lat", startCoords[1]);
+      }
+      data = await apiClient.post(
+        `/api/coverage/areas/${areaId}/optimal-route${params.size ? `?${params}` : ""}`
+      );
+    }
     return data.task_id;
   },
 
@@ -210,9 +218,8 @@ const LiveNavigationAPI = {
       try {
         const data = JSON.parse(event.data);
         const status = (data.status || "").toLowerCase();
-        const stage = (data.stage || "").toLowerCase();
 
-        if (status === "completed" || stage === "complete" || data.progress >= 100) {
+        if (status === "completed") {
           closeConnection();
           onComplete(data);
           return;
@@ -285,9 +292,8 @@ const LiveNavigationAPI = {
           return;
         }
         const status = (data.status || "").toLowerCase();
-        const stage = (data.stage || "").toLowerCase();
 
-        if (status === "completed" || stage === "complete" || data.progress >= 100) {
+        if (status === "completed") {
           cancelled = true;
           clearInterval(timer);
           onComplete(data);

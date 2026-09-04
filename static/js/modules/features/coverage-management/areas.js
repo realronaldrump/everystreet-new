@@ -71,9 +71,7 @@ function hasActiveJob(job) {
 
 function renderRouteStatus(area, routeJob) {
   const hasActiveRouteJob = hasActiveJob(routeJob);
-  const hasSavedRoute = Boolean(
-    area?.has_optimal_route || area?.optimal_route_generated_at
-  );
+  const hasSavedRoute = Boolean(area?.has_optimal_route);
 
   if (!hasActiveRouteJob && !hasSavedRoute) {
     return "";
@@ -316,9 +314,7 @@ function renderAreaCard(area, coverageJob, routeJob) {
   const isComplete = isReady && pct >= 100;
   const hasActiveCoverageJob = hasActiveJob(coverageJob);
   const hasActiveRouteJob = hasActiveJob(routeJob);
-  const hasSavedRoute = Boolean(
-    area.has_optimal_route || area.optimal_route_generated_at
-  );
+  const hasSavedRoute = Boolean(area.has_optimal_route);
   const totalSegments = area.total_segments || 0;
   const drivenSegments = area.driven_segments || 0;
   const undriveableSegments = area.undriveable_segments || 0;

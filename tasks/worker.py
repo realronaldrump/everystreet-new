@@ -51,6 +51,8 @@ from tasks.street_coverage import (
     run_area_ingestion_job,
     run_area_recalculate_batch_job,
 )
+from trips.services.completed_trip_sync import sync_completed_trip
+from trips.services.coverage_processing import drain_pending_coverage
 
 PERIODIC_FETCH_TIMEOUT_SECONDS = int(
     os.getenv("TRIP_FETCH_JOB_TIMEOUT_SECONDS", str(15 * 60)),
@@ -102,6 +104,7 @@ async def on_shutdown(ctx: dict) -> None:
 class WorkerSettings:
     allow_abort_jobs = True
     functions: ClassVar[list[object]] = [
+        func(sync_completed_trip, timeout=120, max_tries=8, keep_result=24 * 60 * 60),
         func(periodic_fetch_trips, timeout=PERIODIC_FETCH_TIMEOUT_SECONDS),
         fetch_trip_by_transaction_id,
         manual_fetch_trips_range,
@@ -127,6 +130,7 @@ class WorkerSettings:
         auto_provision_check,
     ]
     cron_jobs: ClassVar[list[object]] = [
+        cron(drain_pending_coverage, second={10, 40}, timeout=20 * 60),
         cron(cron_periodic_fetch_trips, timeout=PERIODIC_FETCH_TIMEOUT_SECONDS),
         cron(
             retry_bouncie_history_windows,

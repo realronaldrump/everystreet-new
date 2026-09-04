@@ -1,4 +1,3 @@
-
 import { createMap } from "../map-core.js";
 
 const NOOP = () => {};
@@ -77,6 +76,8 @@ export class BaseFeatureMap {
         }
         try {
           mapRef.off("load", handleLoad);
+          mapRef.off("idle", handleReady);
+          mapRef.off("styledata", handleReady);
         } catch {
           // Ignore map API differences.
         }
@@ -121,6 +122,10 @@ export class BaseFeatureMap {
         void succeed();
       };
 
+      const handleReady = () => {
+        if (mapRef.isStyleLoaded()) void succeed();
+      };
+
       const handleError = (event) => {
         const error = event?.error ?? event ?? new Error("Map failed to load");
         fail(error);
@@ -128,6 +133,8 @@ export class BaseFeatureMap {
 
       if (typeof mapRef.on === "function") {
         mapRef.on("load", handleLoad);
+        mapRef.on("idle", handleReady);
+        mapRef.on("styledata", handleReady);
         mapRef.on("error", handleError);
       }
 

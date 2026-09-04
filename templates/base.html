@@ -314,6 +314,10 @@ Every Street
       {{ mobile_drawer(es_route_path) }}
       <div id="content-overlay" class="content-overlay" aria-hidden="true">
       </div>
+      <div id="trip-processing-status" class="container-fluid py-2" role="status" aria-live="polite" hidden>
+        <span id="trip-processing-label"></span>
+        <button id="trip-processing-retry" class="btn btn-sm btn-outline-primary ms-2" type="button" hidden>Retry updates</button>
+      </div>
       <main id="main-content" class="main-content" role="main" tabindex="-1">
         {% if owner_login_enabled and auth_context.viewer_mode and request.url.path != '/login' %}
           <div class="alert alert-secondary mx-3 mt-3 mb-0" role="status">

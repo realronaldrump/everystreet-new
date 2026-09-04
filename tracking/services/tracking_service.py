@@ -29,6 +29,7 @@ from tracking.services.live_trip_store import (
     save_trip_snapshot,
 )
 from trips.events import publish_trip_state
+from trips.services.completed_trip_sync import enqueue_completed_trip_sync
 
 logger = logging.getLogger(__name__)
 
@@ -387,7 +388,10 @@ async def _publish_completed_and_clear(
     closed for late webhook suppression.
     """
     await _publish_trip_snapshot(completed_trip, status="completed")
-    await clear_trip_snapshot(transaction_id, mark_closed=True)
+    try:
+        await enqueue_completed_trip_sync(transaction_id)
+    finally:
+        await clear_trip_snapshot(transaction_id, mark_closed=True)
 
 
 # ============================================================================
@@ -496,11 +500,7 @@ async def process_trip_data(data: dict[str, Any]) -> None:
     if not isinstance(start_time, datetime):
         start_time = all_coords[0]["timestamp"]
 
-    if (
-        append_only
-        and appended_coords
-        and trip.get("metricsSource", "gps") == "gps"
-    ):
+    if append_only and appended_coords and trip.get("metricsSource", "gps") == "gps":
         metrics = _calculate_trip_metrics_incremental(
             trip,
             all_coords,
@@ -599,7 +599,9 @@ async def process_trip_metrics(data: dict[str, Any]) -> None:
         not math.isfinite(float(value)) or float(value) < 0
         for value in normalized.values()
     ):
-        logger.warning("Trip %s metrics payload contains invalid values", transaction_id)
+        logger.warning(
+            "Trip %s metrics payload contains invalid values", transaction_id
+        )
         return
 
     trip.update(normalized)
@@ -625,6 +627,7 @@ async def process_trip_end(data: dict[str, Any]) -> None:
 
     if await is_trip_marked_closed(transaction_id):
         logger.info("Trip %s already closed, ignoring tripEnd", transaction_id)
+        await enqueue_completed_trip_sync(transaction_id)
         return
 
     end_time = _parse_timestamp(end_data.get("timestamp"))
@@ -638,7 +641,10 @@ async def process_trip_end(data: dict[str, Any]) -> None:
             "Trip %s not found for tripEnd; marking closed to ignore late events",
             transaction_id,
         )
-        await clear_trip_snapshot(transaction_id, mark_closed=True)
+        try:
+            await enqueue_completed_trip_sync(transaction_id)
+        finally:
+            await clear_trip_snapshot(transaction_id, mark_closed=True)
         return
 
     if trip.get("status") == "processed":

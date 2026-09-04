@@ -1,6 +1,7 @@
 import { initNavigation } from "./modules/core/navigation.js";
 import { ensureRouteModule } from "./modules/core/route-loader.js";
 import store from "./modules/core/store.js";
+import { startTripProcessingMonitor } from "./modules/trip-processing-monitor.js";
 import "./modules/ui/ui-init.js";
 import "./modules/ui/loading-manager.js";
 import "./modules/ui/notifications.js";
@@ -25,6 +26,7 @@ const start = async () => {
     await ensureRouteModule(window.location.pathname);
   }
   markAppReady();
+  startTripProcessingMonitor();
 };
 
 if (document.readyState === "loading") {

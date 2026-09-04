@@ -986,6 +986,11 @@ async def process_bouncie_trips(
                 or (do_map_match and not has_match)
                 or needs_geocode_repair
                 or needs_timezone_repair
+                or (
+                    do_coverage
+                    and existing.coverage_emitted_at is None
+                    and existing.coverage_status == "not_requested"
+                )
             )
             if not needs_processing:
                 counters["skipped_existing"] += 1

@@ -666,6 +666,12 @@ const AppController = {
     });
 
     // Filters applied (date-range etc.)
+    document.addEventListener("historicalTripsUpdated", async () => {
+      if (state.mapInitialized && ["/", "/map"].includes(document.body.dataset.route)) {
+        await dataManager.updateMap(true);
+        await this.refreshStreetLayers();
+      }
+    });
     document.addEventListener("filtersApplied", async () => {
       if (state.mapInitialized) {
         utils.setStorage("cached_date_range", null);

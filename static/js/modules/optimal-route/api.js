@@ -179,12 +179,12 @@ export class OptimalRouteAPI {
     }
   }
 
-  async clearRoute(areaId) {
-    try {
-      await apiClient.delete(`/api/coverage/areas/${areaId}/optimal-route`);
-    } catch (error) {
-      console.warn("Failed to clear route from backend:", error);
-    }
+  async loadRoute(routeId) {
+    return apiClient.get(`/api/generated-routes/${encodeURIComponent(routeId)}`);
+  }
+
+  async clearRoute(routeId) {
+    return apiClient.delete(`/api/generated-routes/${encodeURIComponent(routeId)}`);
   }
 
   connectSSE(taskId) {
@@ -234,9 +234,8 @@ export class OptimalRouteAPI {
 
   handleTerminalState(data = {}) {
     const status = (data.status || "").toLowerCase();
-    const stage = (data.stage || "").toLowerCase();
 
-    if (status === "completed" || stage === "complete" || data.progress >= 100) {
+    if (status === "completed") {
       this.disconnectSSE();
       this.onComplete(data);
       return true;

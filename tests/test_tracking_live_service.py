@@ -34,6 +34,9 @@ def _complete_trip_metrics(
 
 @pytest.fixture
 def live_store_state(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
+    monkeypatch.setattr(
+        tracking_service, "enqueue_completed_trip_sync", AsyncMock(return_value=True)
+    )
     state: dict[str, object] = {
         "snapshots": {},
         "active_tx": None,

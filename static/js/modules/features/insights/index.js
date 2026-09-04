@@ -71,6 +71,13 @@ function initTooltips() {
  * Setup all event listeners
  */
 function setupEventListeners(signal) {
+  document.addEventListener(
+    "historicalTripsUpdated",
+    () => {
+      void loadAllData();
+    },
+    signal ? { signal } : false
+  );
   // React to global date-filter changes triggered elsewhere in the app
   document.addEventListener(
     "filtersApplied",

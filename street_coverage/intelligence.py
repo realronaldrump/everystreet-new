@@ -9,7 +9,6 @@ from typing import Any, Literal
 
 from beanie import PydanticObjectId
 
-from core.jobs import create_job
 from db.models import (
     CoverageArea,
     CoverageGoal,
@@ -63,7 +62,7 @@ def _serialize_goal(goal: CoverageGoal | None) -> dict[str, Any] | None:
     }
 
 
-def _serialize_mission(
+async def _serialize_mission(
     mission: CoverageMission,
     *,
     include_route: bool = False,
@@ -90,6 +89,10 @@ def _serialize_mission(
         "predicted_coverage_after": round(mission.predicted_coverage_after, 3),
         "confidence": mission.confidence,
         "route_job_id": mission.route_job_id,
+        "route_id": str(mission.route_id) if mission.route_id else None,
+        "navigation_url": f"/live-navigation?routeId={mission.route_id}&areaId={mission.area_id}"
+        if mission.route_id
+        else None,
         "actual_trip_ids": [str(value) for value in mission.actual_trip_ids],
         "actual_new_miles": round(mission.actual_new_miles, 3),
         "actual_coverage_gain": round(mission.actual_coverage_gain, 3),
@@ -99,7 +102,16 @@ def _serialize_mission(
         "completed_at": _iso(mission.completed_at),
     }
     if include_route:
-        payload["route"] = mission.route
+        from fastapi import HTTPException
+
+        from routing.route_store import get_generated_route
+
+        payload["route"] = None
+        if mission.route_id:
+            try:
+                payload["route"] = await get_generated_route(mission.route_id)
+            except HTTPException as exc:
+                payload["route_error"] = exc.detail
     return payload
 
 
@@ -310,7 +322,7 @@ class CoverageIntelligenceService:
             "goal": _serialize_goal(goal),
             "forecast": forecast,
             "active_mission": (
-                _serialize_mission(active_mission) if active_mission else None
+                await _serialize_mission(active_mission) if active_mission else None
             ),
         }
 
@@ -501,37 +513,20 @@ class CoverageIntelligenceService:
         )
         await mission.insert()
 
-        from tasks.ops import enqueue_task
+        from routing.route_store import enqueue_generated_route
 
-        result = await enqueue_task(
-            "generate_optimal_route",
-            location_id=str(area_id),
-            start_lon=start_lon,
-            start_lat=start_lat,
-            manual_run=True,
-            segment_ids=usable_ids,
-        )
-        task_id = result.get("job_id")
-        if not task_id:
+        try:
+            result = await enqueue_generated_route(
+                area, segment_ids=usable_ids, start_lon=start_lon, start_lat=start_lat
+            )
+            mission.route_job_id = result["task_id"]
+            await mission.save()
+        except Exception:
             mission.status = "failed"
             mission.updated_at = now
             await mission.save()
-            raise RuntimeError("Failed to queue mission route generation")
-        mission.route_job_id = str(task_id)
-        await mission.save()
-        await create_job(
-            "optimal_route",
-            task_id=str(task_id),
-            area_id=area_id,
-            location=str(area_id),
-            status="queued",
-            stage="queued",
-            progress=0.0,
-            message="Mission route queued, waiting for worker...",
-            started_at=now,
-            metadata={"coverage_mission_id": str(mission.id)},
-        )
-        return _serialize_mission(mission)
+            raise
+        return await _serialize_mission(mission)
 
     @staticmethod
     async def refresh_route_result(mission: CoverageMission) -> None:
@@ -550,13 +545,15 @@ class CoverageIntelligenceService:
             return
         if job.status not in {"completed", "success"} or not job.result:
             return
-        route = dict(job.result)
-        mission.route = route
+        from routing.route_store import get_generated_route
+
+        mission.route_id = PydanticObjectId(job.result["route_id"])
+        route = await get_generated_route(mission.route_id)
         mission.route_distance_miles = float(
             route.get("total_distance_miles")
             or route.get("route_distance_miles")
             or route.get("distance_miles")
-            or 0.0
+            or float(route.get("total_distance_m") or 0.0) / 1609.344
         )
         if mission.route_distance_miles > 0:
             mission.estimated_duration_minutes = round(
@@ -587,7 +584,7 @@ class CoverageIntelligenceService:
         for mission in missions:
             await CoverageIntelligenceService.refresh_route_result(mission)
         return [
-            _serialize_mission(mission, include_route=include_route)
+            await _serialize_mission(mission, include_route=include_route)
             for mission in missions
         ]
 
@@ -601,7 +598,7 @@ class CoverageIntelligenceService:
         if mission is None:
             raise ValueError("Coverage mission not found")
         await CoverageIntelligenceService.refresh_route_result(mission)
-        return _serialize_mission(mission, include_route=include_route)
+        return await _serialize_mission(mission, include_route=include_route)
 
     @staticmethod
     async def transition_mission(
@@ -640,7 +637,7 @@ class CoverageIntelligenceService:
             mission.completed_at = now
         mission.updated_at = now
         await mission.save()
-        return _serialize_mission(mission)
+        return await _serialize_mission(mission)
 
     @staticmethod
     async def reconcile_historical_trip(

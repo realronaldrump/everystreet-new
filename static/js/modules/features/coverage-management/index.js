@@ -229,6 +229,18 @@ export default async function initCoverageManagementPage({
 
 function setupEventListeners(signal) {
   const opt = signal ? { signal } : false;
+  document.addEventListener(
+    "historicalTripsUpdated",
+    async () => {
+      await loadAreas();
+      const areaId = state.currentAreaId;
+      if (areaId && !signal?.aborted) {
+        await refreshDashboardStats(areaId);
+        await loadStreets(areaId, state.currentAreaSyncToken);
+      }
+    },
+    opt
+  );
 
   // List view controls
   document
@@ -1251,6 +1263,7 @@ async function loadAreas() {
       }
 
       if (isRouteJobType(job.job_type)) {
+        if (job.route_kind !== "full_area") return;
         if (!state.activeRouteJobsByAreaId.has(job.area_id)) {
           state.activeRouteJobsByAreaId.set(job.area_id, job);
         }

@@ -48,6 +48,7 @@ async def apply_area_stats_delta(
     undriveable_segments_delta: int = 0,
     undriveable_length_miles_delta: float = 0.0,
     update_last_synced: bool = True,
+    session=None,
 ) -> CoverageArea | None:
     """
     Apply incremental deltas to CoverageArea cached stats.
@@ -66,7 +67,7 @@ async def apply_area_stats_delta(
         and undriveable_length_miles_delta == 0.0
         and not update_last_synced
     ):
-        return await CoverageArea.get(area_id)
+        return await CoverageArea.get(area_id, session=session)
 
     now = datetime.now(UTC)
 
@@ -170,12 +171,13 @@ async def apply_area_stats_delta(
         {"_id": area_id},
         update_pipeline,
         return_document=ReturnDocument.AFTER,
+        **({"session": session} if session else {}),
     )
 
     if snapshot is None:
         return None
 
-    return await CoverageArea.get(area_id)
+    return await CoverageArea.get(area_id, session=session)
 
 
 async def reconcile_area_state_from_drive_events(

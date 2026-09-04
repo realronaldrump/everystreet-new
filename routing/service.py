@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import logging
 import os
@@ -13,6 +14,7 @@ from beanie import PydanticObjectId
 from core.jobs import JobHandle, create_job, find_job
 from core.spatial import bboxes_intersect, is_lonlat_bounds, segment_midpoint
 from db.models import CoverageArea, CoverageState, Street
+from routing.route_store import update_route_progress
 
 from .constants import (
     GRAPH_STORAGE_DIR,
@@ -112,18 +114,15 @@ async def _generate_optimal_route_with_progress_impl(
     location_id_str = str(location_id)
     existing_job = await find_job("optimal_route", task_id=task_id)
     if existing_job:
-        if not existing_job.location:
-            existing_job.location = location_id_str
-        if isinstance(location_id, PydanticObjectId) and not existing_job.area_id:
-            existing_job.area_id = location_id
+        if existing_job.status == "cancelled":
+            raise asyncio.CancelledError("Route generation cancelled")
+        if existing_job.status == "completed" and existing_job.result:
+            from routing.route_store import get_generated_route
+
+            return await get_generated_route(
+                PydanticObjectId(existing_job.result["route_id"])
+            )
         job_handle = JobHandle(existing_job)
-        await job_handle.update(
-            status="running",
-            stage="initializing",
-            progress=0,
-            message="Starting optimal route generation...",
-            started_at=existing_job.started_at or datetime.now(UTC),
-        )
     else:
         job_handle = await create_job(
             "optimal_route",
@@ -143,7 +142,8 @@ async def _generate_optimal_route_with_progress_impl(
         message: str,
         metrics: dict[str, Any] | None = None,
     ) -> None:
-        await job_handle.update(
+        await update_route_progress(
+            task_id,
             stage=stage,
             progress=progress,
             message=message,
@@ -196,6 +196,14 @@ async def _generate_optimal_route_with_progress_impl(
             msg = f"Coverage area {location_id} not found"
             _raise_value_error(msg)
 
+        if (
+            existing_job
+            and existing_job.spec.get("area_version", coverage_area.area_version)
+            != coverage_area.area_version
+        ):
+            _raise_value_error(
+                "Coverage area changed while route generation was queued"
+            )
         location_name = coverage_area.display_name
         if (
             isinstance(coverage_area.boundary, dict)
@@ -533,7 +541,6 @@ async def _generate_optimal_route_with_progress_impl(
         project_xy = None
         if matching_cache_path.exists():
             try:
-                import asyncio
                 import pickle
 
                 graph_mtime = graph_path.stat().st_mtime if graph_path.exists() else 0
@@ -559,7 +566,6 @@ async def _generate_optimal_route_with_progress_impl(
             matching_graph, project_xy = prepare_spatial_matching_graph(G)
             # Persist the cache for future runs
             try:
-                import asyncio
                 import pickle
 
                 def _save_pickle():
@@ -1103,8 +1109,6 @@ async def _generate_optimal_route_with_progress_impl(
             ]
 
             try:
-                import asyncio
-
                 from routing.graph_connectivity import (
                     get_api_semaphore,
                     get_shared_router,
@@ -1607,16 +1611,17 @@ async def _generate_optimal_route_with_progress_impl(
             location_name=location_name,
         )
 
-        try:
-            # Store result in job for cluster routes (not saved to CoverageArea)
-            if segment_ids is not None:
-                await job_handle.complete(
-                    "Route generation complete!", result=route_result
-                )
-            else:
-                await job_handle.complete("Route generation complete!")
-        except Exception:
-            logger.exception("Final job progress update failed")
+        from routing.route_store import complete_generated_route
+
+        route_result = await complete_generated_route(
+            task_id=task_id,
+            area_id=location_id,
+            area_version=coverage_area.area_version,
+            journal_revision=coverage_area.journal_revision,
+            segment_ids=segment_ids,
+            start_coords=start_coords,
+            result=route_result,
+        )
 
     except Exception as e:
         error_msg = str(e)
@@ -1652,38 +1657,3 @@ async def generate_optimal_route(
         task_id,
         start_coords,
     )
-
-
-async def save_optimal_route(
-    location_id: str | PydanticObjectId,
-    route_result: dict[str, Any],
-) -> None:
-    if route_result.get("status") != "success":
-        return
-
-    try:
-        route_doc = dict(route_result)
-        # location_id may be str (from background job) or PydanticObjectId
-        if isinstance(location_id, str):
-            location_id = PydanticObjectId(location_id)
-
-        coverage_area = await CoverageArea.get(location_id)
-        if not coverage_area:
-            logger.warning(
-                "Could not find coverage area for %s to save route",
-                location_id,
-            )
-            return
-
-        await coverage_area.update(
-            {
-                "$set": {
-                    "optimal_route": route_doc,
-                    "optimal_route_generated_at": datetime.now(UTC),
-                },
-            },
-        )
-        logger.info("Saved optimal route to CoverageArea %s", location_id)
-
-    except Exception:
-        logger.exception("Failed to save optimal route")

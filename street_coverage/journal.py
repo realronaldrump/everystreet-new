@@ -75,7 +75,7 @@ def _range_start(range_key: str, as_of: datetime) -> datetime | None:
     return None
 
 
-async def mark_journal_pending(area_id: PydanticObjectId) -> int:
+async def mark_journal_pending(area_id: PydanticObjectId, *, session=None) -> int:
     """Advance an area's journal revision and mark its projection stale."""
     snapshot = await CoverageArea.get_pymongo_collection().find_one_and_update(
         {"_id": area_id},
@@ -84,6 +84,7 @@ async def mark_journal_pending(area_id: PydanticObjectId) -> int:
             "$set": {"journal_status": "pending"},
         },
         return_document=ReturnDocument.AFTER,
+        **({"session": session} if session else {}),
     )
     return int((snapshot or {}).get("journal_revision", 0) or 0)
 
@@ -1067,7 +1068,11 @@ async def rebuild_journal_rollup(
         upsert=True,
     )
     await CoverageArea.get_pymongo_collection().update_one(
-        {"_id": area_id},
+        {
+            "_id": area_id,
+            "area_version": area.area_version,
+            "journal_revision": target_revision,
+        },
         {
             "$set": {
                 "journal_status": "ready",

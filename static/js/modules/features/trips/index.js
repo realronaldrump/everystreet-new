@@ -788,6 +788,14 @@ async function initializePage(signal, cleanup) {
   );
 
   // Initial data load
+  document.addEventListener(
+    "historicalTripsUpdated",
+    () => {
+      void loadTrips();
+      void loadTripStats();
+    },
+    signal ? { signal } : false
+  );
   await Promise.all([loadTrips(), loadTripStats()]);
 
   // Apply any saved filters after data loads
@@ -825,7 +833,9 @@ function updateOverviewStats({ totalMiles, totalTrips: totalTripsCount, totalHou
   const summaryEl = document.getElementById("trips-summary-text");
   if (summaryEl) {
     const { hasAnyFilters } = getFilterState();
-    const milesText = hasMiles ? `${safeMiles.toFixed(1)} miles` : "mileage unavailable";
+    const milesText = hasMiles
+      ? `${safeMiles.toFixed(1)} miles`
+      : "mileage unavailable";
 
     if (hasAnyFilters) {
       summaryEl.innerHTML = `Showing <strong>${safeTrips} trips</strong> • <strong>${milesText}</strong>`;

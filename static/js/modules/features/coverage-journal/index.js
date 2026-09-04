@@ -1,4 +1,3 @@
-
 import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
 import { createMap, isMapboxStyleUrl, waitForMapboxToken } from "../../map-core.js";
 import { escapeHtml } from "../../utils.js";
@@ -71,9 +70,7 @@ function formatMiles(value, digits = 1) {
 }
 
 function parseDate(value) {
-  const calendarDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(
-    String(value || "").trim()
-  );
+  const calendarDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || "").trim());
   if (calendarDate) {
     return new Date(
       Number(calendarDate[1]),
@@ -250,12 +247,18 @@ async function loadMetadata() {
 
 async function loadIntelligence() {
   const [intelligence, missionResponse] = await Promise.all([
-    featureApi.get(`/api/coverage/areas/${encodeURIComponent(state.areaId)}/intelligence`, {
-      cache: false,
-    }),
-    featureApi.get(`/api/coverage/areas/${encodeURIComponent(state.areaId)}/missions?limit=12`, {
-      cache: false,
-    }),
+    featureApi.get(
+      `/api/coverage/areas/${encodeURIComponent(state.areaId)}/intelligence`,
+      {
+        cache: false,
+      }
+    ),
+    featureApi.get(
+      `/api/coverage/areas/${encodeURIComponent(state.areaId)}/missions?limit=12`,
+      {
+        cache: false,
+      }
+    ),
   ]);
   state.intelligence = intelligence || null;
   state.missions = Array.isArray(missionResponse?.missions)
@@ -498,7 +501,10 @@ function setProgressMap(
         {
           swatch: "journal-swatch--remaining",
           value: formatNumber(remaining),
-          label: label === "Current frontier" ? "Not covered yet" : `Still uncovered at ${label}`,
+          label:
+            label === "Current frontier"
+              ? "Not covered yet"
+              : `Still uncovered at ${label}`,
         },
       ],
       `Counts individual road segments. The selected period starts after ${startingMilestone} (${formatDate(
@@ -557,9 +563,9 @@ function setFrequencyMap() {
       { swatch: "journal-swatch--frequency-medium", label: "3–19 distinct trips" },
       { swatch: "journal-swatch--frequency-high", label: "20+ distinct trips" },
     ],
-    `Line thickness shows how many distinct completed trips touched each road during ${RANGE_LABELS[
-      state.range
-    ]}.`
+    `Line thickness shows how many distinct completed trips touched each road during ${
+      RANGE_LABELS[state.range]
+    }.`
   );
   $("journal-map-equivalent").textContent =
     "The ranking below is the non-map equivalent of this distinct-trip frequency lens.";
@@ -605,13 +611,15 @@ function revealMapFolio() {
   if (!folio) {
     return;
   }
-  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")
-    .matches;
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   folio.scrollIntoView({
     behavior: reducedMotion ? "auto" : "smooth",
     block: "center",
   });
-  window.setTimeout(() => folio.focus({ preventScroll: true }), reducedMotion ? 0 : 350);
+  window.setTimeout(
+    () => folio.focus({ preventScroll: true }),
+    reducedMotion ? 0 : 350
+  );
 }
 
 function segmentIdsForStreet(streetName) {
@@ -882,10 +890,7 @@ function renderPaceEvents(series) {
       occurredAt: biggest.point.date,
       detail: `+${formatMiles(biggest.point.new_miles, 2)} · ${formatNumber(
         biggest.point.new_segments
-      )} new segments · ${formatNumber(
-        biggest.point.coverage_percentage,
-        1
-      )}% reached`,
+      )} new segments · ${formatNumber(biggest.point.coverage_percentage, 1)}% reached`,
     });
   }
   for (const milestone of state.metadata?.milestones || []) {
@@ -1050,8 +1055,7 @@ function renderPaceChart() {
   let recordMark = "";
   if (biggestIndex >= 0 && biggestDay) {
     const recordX = x(biggestIndex);
-    const recordHeight =
-      (Number(series[biggestIndex]?.new_miles || 0) / maxMiles) * 42;
+    const recordHeight = (Number(series[biggestIndex]?.new_miles || 0) / maxMiles) * 42;
     const anchor = recordX < 180 ? "start" : recordX > 820 ? "end" : "middle";
     recordMark = `<g class="journal-chart-record-mark">
       <line x1="${recordX}" y1="${barBottom - recordHeight - 5}" x2="${recordX}" y2="${
@@ -1128,11 +1132,7 @@ function updateTimelineCursor(index, { updateUrl = true, updateMap = true } = {}
   updateTimelineVisuals(safeIndex);
   if (updateMap) {
     state.mapSelectionPinned = false;
-    setProgressMap(
-      point.date,
-      null,
-      `Coverage as of ${formatDate(point.date)}`
-    );
+    setProgressMap(point.date, null, `Coverage as of ${formatDate(point.date)}`);
   }
   if (updateUrl) {
     syncUrl();
@@ -1624,6 +1624,36 @@ export default async function initCoverageJournalPage({ signal, cleanup, api } =
   }
   setupListeners();
   setActiveControls();
+  let refreshing = false;
+  const refreshProgress = async () => {
+    if (refreshing || signal?.aborted) return;
+    refreshing = true;
+    try {
+      await loadAreas();
+      await loadIntelligence();
+      const selectedDate = state.asOf;
+      await loadMetadata();
+      await loadSegments();
+      state.contributions = [];
+      state.nextCursor = null;
+      await loadContributions();
+      state.asOf = selectedDate;
+      renderAll();
+      setFrequencyMap();
+    } catch (error) {
+      if (!signal?.aborted) setStateMessage(error.message, "error");
+    } finally {
+      refreshing = false;
+    }
+  };
+  document.addEventListener(
+    "historicalTripsUpdated",
+    refreshProgress,
+    signal ? { signal } : false
+  );
+  cleanup?.(() =>
+    document.removeEventListener("historicalTripsUpdated", refreshProgress)
+  );
   try {
     const areasPromise = loadAreas();
     await Promise.all([loadMetadata(), loadIntelligence()]);

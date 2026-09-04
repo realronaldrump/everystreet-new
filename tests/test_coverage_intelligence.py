@@ -145,14 +145,7 @@ async def test_create_mission_revalidates_revision_and_queues_cluster_route(
         enqueued.update({"task_id": task_id, **kwargs})
         return {"job_id": "mission-job", "status": "success"}
 
-    async def fake_create_job(*_args, **_kwargs):
-        return None
-
     monkeypatch.setattr("tasks.ops.enqueue_task", fake_enqueue)
-    monkeypatch.setattr(
-        "street_coverage.intelligence.create_job",
-        fake_create_job,
-    )
 
     mission = await CoverageIntelligenceService.create_mission(
         area.id,
@@ -163,7 +156,7 @@ async def test_create_mission_revalidates_revision_and_queues_cluster_route(
     )
 
     assert mission["status"] == "route_generating"
-    assert mission["route_job_id"] == "mission-job"
+    assert mission["route_job_id"] == enqueued["_job_id"]
     assert enqueued["task_id"] == "generate_optimal_route"
     assert enqueued["segment_ids"] == [street.segment_id]
 

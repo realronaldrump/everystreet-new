@@ -4,7 +4,6 @@ Route handlers for optimal route generation and management.
 Handles generating, retrieving, and exporting optimal completion routes.
 """
 
-import contextlib
 import logging
 from datetime import UTC, datetime
 from typing import Annotated
@@ -13,9 +12,13 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 
-from core.jobs import create_job
 from core.streaming import sse_event_stream, sse_response
-from db.models import CoverageArea, Job
+from db.models import CoverageArea, GeneratedRoute, Job
+from routing.route_store import (
+    delete_generated_route,
+    enqueue_generated_route,
+    get_generated_route,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,144 +34,47 @@ router = APIRouter()
 @router.post("/api/coverage/areas/{area_id}/optimal-route")
 async def start_optimal_route_generation(
     area_id: PydanticObjectId,
-    start_lon: Annotated[
-        float | None,
-        Query(description="Optional starting longitude"),
-    ] = None,
-    start_lat: Annotated[
-        float | None,
-        Query(description="Optional starting latitude"),
-    ] = None,
+    start_lon: Annotated[float | None, Query(ge=-180, le=180)] = None,
+    start_lat: Annotated[float | None, Query(ge=-90, le=90)] = None,
 ):
-    """Start a background task to generate optimal completion route."""
-    from tasks.ops import enqueue_task
-
-    coverage_area = await _get_coverage_area(area_id)
-
-    if not coverage_area:
+    area = await _get_coverage_area(area_id)
+    if area is None:
         raise HTTPException(status_code=404, detail="Coverage area not found")
-
-    if coverage_area.status != "ready":
-        raise HTTPException(
-            status_code=400,
-            detail=f"Coverage area is not ready (status: {coverage_area.status}).",
-        )
-
-    existing_task = await Job.find_one(
+    existing = await Job.find_one(
         {
             "job_type": "optimal_route",
-            "location": str(area_id),
+            "area_id": area_id,
+            "spec.kind": "full_area",
+            "spec.start_lon": start_lon,
+            "spec.start_lat": start_lat,
             "status": {"$in": ["queued", "running", "pending", "initializing"]},
         },
         sort=[("created_at", -1)],
     )
-    if existing_task and existing_task.task_id:
-        logger.info(
-            "Reusing active optimal route task %s for location %s",
-            existing_task.task_id,
-            area_id,
-        )
-        return {"task_id": existing_task.task_id, "status": "already_running"}
-
-    enqueue_result = await enqueue_task(
-        "generate_optimal_route",
-        location_id=str(area_id),
-        start_lon=start_lon,
-        start_lat=start_lat,
-        manual_run=True,
-    )
-    task_id = enqueue_result.get("job_id")
-    if not task_id:
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to enqueue optimal route generation task",
-        )
-
-    # Create initial progress document so SSE can track queued state
-    # before worker picks up the task
-    await create_job(
-        "optimal_route",
-        task_id=task_id,
-        area_id=area_id,
-        location=str(area_id),
-        status="queued",
-        stage="queued",
-        progress=0.0,
-        message="Task queued, waiting for worker...",
-        started_at=datetime.now(UTC),
-    )
-
-    logger.info(
-        "Started optimal route generation task %s for location %s",
-        task_id,
-        area_id,
-    )
-
-    return {"task_id": task_id, "status": "started"}
+    if existing and existing.task_id:
+        return {"task_id": existing.task_id, "status": "already_running"}
+    return await enqueue_generated_route(area, start_lon=start_lon, start_lat=start_lat)
 
 
 class ClusterRouteRequest(BaseModel):
-    segment_ids: list[str] = Field(..., min_length=1)
-    start_lon: float | None = None
-    start_lat: float | None = None
+    segment_ids: list[str] = Field(..., min_length=1, max_length=10000)
+    start_lon: float | None = Field(default=None, ge=-180, le=180)
+    start_lat: float | None = Field(default=None, ge=-90, le=90)
 
 
 @router.post("/api/coverage/areas/{area_id}/cluster-route")
 async def start_cluster_route_generation(
-    area_id: PydanticObjectId,
-    body: ClusterRouteRequest,
+    area_id: PydanticObjectId, body: ClusterRouteRequest
 ):
-    """Start a background task to generate an optimal route for a cluster of
-    segments.
-    """
-    from tasks.ops import enqueue_task
-
-    coverage_area = await _get_coverage_area(area_id)
-
-    if not coverage_area:
+    area = await _get_coverage_area(area_id)
+    if area is None:
         raise HTTPException(status_code=404, detail="Coverage area not found")
-
-    if coverage_area.status != "ready":
-        raise HTTPException(
-            status_code=400,
-            detail=f"Coverage area is not ready (status: {coverage_area.status}).",
-        )
-
-    enqueue_result = await enqueue_task(
-        "generate_optimal_route",
-        location_id=str(area_id),
+    return await enqueue_generated_route(
+        area,
+        segment_ids=sorted(set(body.segment_ids)),
         start_lon=body.start_lon,
         start_lat=body.start_lat,
-        manual_run=True,
-        segment_ids=body.segment_ids,
     )
-    task_id = enqueue_result.get("job_id")
-    if not task_id:
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to enqueue cluster route generation task",
-        )
-
-    await create_job(
-        "optimal_route",
-        task_id=task_id,
-        area_id=area_id,
-        location=str(area_id),
-        status="queued",
-        stage="queued",
-        progress=0.0,
-        message="Cluster route queued, waiting for worker...",
-        started_at=datetime.now(UTC),
-    )
-
-    logger.info(
-        "Started cluster route generation task %s for area %s (%d segments)",
-        task_id,
-        area_id,
-        len(body.segment_ids),
-    )
-
-    return {"task_id": task_id, "status": "started"}
 
 
 @router.get("/api/optimal-routes/worker-status")
@@ -204,74 +110,62 @@ async def get_worker_status():
         }
 
 
+@router.get("/api/generated-routes/{route_id}")
+async def get_route_by_id(route_id: PydanticObjectId):
+    return await get_generated_route(route_id)
+
+
+def _gpx_response(route: dict) -> Response:
+    from street_coverage.gpx import build_gpx_from_coords
+
+    content = build_gpx_from_coords(
+        route["coordinates"], name=f"Coverage Route - {route['location_name']}"
+    )
+    return Response(
+        content=content,
+        media_type="application/gpx+xml",
+        headers={
+            "Content-Disposition": f'attachment; filename="coverage_route_{route["route_id"]}.gpx"'
+        },
+    )
+
+
+@router.get("/api/generated-routes/{route_id}/gpx")
+async def export_route_by_id(route_id: PydanticObjectId):
+    return _gpx_response(await get_generated_route(route_id))
+
+
+@router.delete("/api/generated-routes/{route_id}")
+async def delete_route_by_id(route_id: PydanticObjectId):
+    await delete_generated_route(route_id)
+    return {"status": "success"}
+
+
 @router.get("/api/coverage/areas/{area_id}/optimal-route")
 async def get_optimal_route(area_id: PydanticObjectId):
-    """Retrieve the generated optimal route for a coverage area."""
-    coverage_area = await _get_coverage_area(area_id)
-
-    if not coverage_area:
+    area = await _get_coverage_area(area_id)
+    if area is None:
         raise HTTPException(status_code=404, detail="Coverage area not found")
-
-    if not coverage_area.optimal_route:
+    if area.optimal_route_id is None:
         raise HTTPException(
             status_code=404,
             detail="No optimal route generated yet. Use POST to generate one.",
         )
-
-    return {
-        "status": "success",
-        "location_name": coverage_area.display_name,
-        **coverage_area.optimal_route,
-    }
+    return await get_generated_route(area.optimal_route_id)
 
 
 @router.get("/api/coverage/areas/{area_id}/optimal-route/gpx")
 async def export_optimal_route_gpx(area_id: PydanticObjectId):
-    """Export optimal route as GPX file for navigation apps."""
-    from street_coverage.gpx import build_gpx_from_coords
-
-    coverage_area = await _get_coverage_area(area_id)
-
-    if not coverage_area:
-        raise HTTPException(status_code=404, detail="Coverage area not found")
-
-    route_data = coverage_area.optimal_route
-    if not route_data or not route_data.get("coordinates"):
-        raise HTTPException(
-            status_code=404,
-            detail="No optimal route available. Generate one first.",
-        )
-
-    location_name = coverage_area.display_name
-    gpx_content = build_gpx_from_coords(
-        route_data["coordinates"],
-        name=f"Optimal Route - {location_name}",
-    )
-
-    safe_filename = "".join(
-        c if c.isalnum() or c in "-_" else "_" for c in location_name[:50]
-    )
-    filename = f"optimal_route_{safe_filename}.gpx"
-
-    return Response(
-        content=gpx_content,
-        media_type="application/gpx+xml",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
+    return _gpx_response(await get_optimal_route(area_id))
 
 
 @router.delete("/api/coverage/areas/{area_id}/optimal-route")
 async def delete_optimal_route(area_id: PydanticObjectId):
-    """Delete saved optimal route for a coverage area."""
-    coverage_area = await _get_coverage_area(area_id)
-
-    if not coverage_area:
+    area = await _get_coverage_area(area_id)
+    if area is None:
         raise HTTPException(status_code=404, detail="Coverage area not found")
-
-    # Unset optimal_route field
-    coverage_area.optimal_route = None
-    await coverage_area.save()
-
+    if area.optimal_route_id:
+        await delete_generated_route(area.optimal_route_id)
     return {"status": "success", "message": "Optimal route deleted"}
 
 
@@ -289,6 +183,7 @@ async def get_active_route_task(area_id: str):
         {
             "job_type": "optimal_route",
             "location": area_id,
+            "spec.kind": "full_area",
             "status": {"$in": ["queued", "running", "pending", "initializing"]},
         },
         sort=[("created_at", -1)],
@@ -305,6 +200,7 @@ async def get_active_route_task(area_id: str):
         "progress": progress.progress or 0,
         "message": progress.message or "",
         "metrics": progress.metrics or {},
+        "kind": progress.spec.get("kind"),
         "started_at": progress.started_at,
         "updated_at": progress.updated_at,
     }
@@ -312,91 +208,39 @@ async def get_active_route_task(area_id: str):
 
 @router.delete("/api/optimal-routes/{task_id}")
 async def cancel_optimal_route_task(task_id: str):
-    """
-    Cancel an in-progress route generation task.
-
-    Aborts the ARQ job and marks it as cancelled in the database. Also
-    cancels any other active tasks for the same location.
-    """
     from tasks.ops import abort_job
 
-    # Check if task exists
-    progress = await Job.find_one({"job_type": "optimal_route", "task_id": task_id})
-
-    if not progress:
+    job = await Job.find_one({"job_type": "optimal_route", "task_id": task_id})
+    if job is None:
         raise HTTPException(status_code=404, detail="Task not found")
-
-    location_id = progress.location or (
-        str(progress.area_id) if progress.area_id else None
+    if job.status in {"completed", "failed", "cancelled"}:
+        return {"status": job.status}
+    now = datetime.now(UTC)
+    result = await Job.get_pymongo_collection().update_one(
+        {"_id": job.id, "status": {"$nin": ["completed", "failed", "cancelled"]}},
+        {
+            "$set": {
+                "status": "cancelled",
+                "stage": "cancelled",
+                "message": "Task cancelled by user",
+                "completed_at": now,
+                "updated_at": now,
+            }
+        },
     )
-    current_status = progress.status or ""
-
-    if current_status not in ("completed", "failed", "cancelled"):
-        try:
-            aborted = await abort_job(task_id)
-            if aborted:
-                logger.info("Requested ARQ abort for task %s", task_id)
-        except Exception as e:
-            logger.warning("Could not abort ARQ task %s: %s", task_id, e)
-
-    # Cancel ALL active tasks for this location (not just this one)
-    if location_id:
-        active_statuses = ["queued", "running", "pending", "initializing"]
-        active_tasks = await Job.find(
-            {
-                "job_type": "optimal_route",
-                "location": location_id,
-                "status": {"$in": active_statuses},
-            },
-        ).to_list()
-
-        cancelled_count = 0
-        for task in active_tasks:
-            tid = task.task_id
-            if tid:
-                # Abort each ARQ job
-                with contextlib.suppress(Exception):
-                    await abort_job(tid)
-
-                # Mark as cancelled
-                task.status = "cancelled"
-                task.stage = "cancelled"
-                task.message = "Task cancelled by user"
-                task.completed_at = datetime.now(UTC)
-                task.updated_at = datetime.now(UTC)
-                await task.save()
-                cancelled_count += 1
-
-        logger.info(
-            "Cancelled %d active tasks for location %s",
-            cancelled_count,
-            location_id,
-        )
-
-    return {"status": "cancelled", "message": "All active tasks cancelled"}
+    if result.modified_count:
+        await abort_job(task_id)
+    return {"status": "cancelled", "message": "Route generation cancelled"}
 
 
 @router.get("/api/optimal-routes/{task_id}/result")
 async def get_optimal_route_result(task_id: str):
-    """Get the route result for a completed task (used for cluster routes)."""
-    job = await Job.find_one({"job_type": "optimal_route", "task_id": task_id})
-
-    if not job:
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    if job.status != "completed":
+    route = await GeneratedRoute.find_one({"task_id": task_id})
+    if route is None:
         raise HTTPException(
-            status_code=400,
-            detail=f"Task is not completed (status: {job.status})",
+            status_code=404, detail="No saved route result is available for this task."
         )
-
-    if not job.result:
-        raise HTTPException(
-            status_code=404,
-            detail="No route result stored for this task",
-        )
-
-    return job.result
+    return await get_generated_route(route.id)
 
 
 @router.get("/api/optimal-routes/{task_id}/progress")
@@ -420,6 +264,7 @@ async def get_optimal_route_progress(task_id: str):
         "started_at": progress.started_at,
         "updated_at": progress.updated_at,
         "completed_at": progress.completed_at,
+        "route_id": (progress.result or {}).get("route_id"),
     }
 
 
@@ -448,6 +293,7 @@ async def stream_optimal_route_progress(task_id: str):
             "started_at": progress.started_at,
             "updated_at": progress.updated_at,
             "completed_at": progress.completed_at,
+            "route_id": (progress.result or {}).get("route_id"),
         }
 
     return sse_response(

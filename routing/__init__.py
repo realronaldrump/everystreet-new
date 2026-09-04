@@ -7,7 +7,6 @@ from core.lazy_imports import make_lazy_dir, make_lazy_getattr
 __all__ = [
     "generate_optimal_route",
     "generate_optimal_route_with_progress",
-    "save_optimal_route",
 ]
 
 _LAZY_IMPORTS: dict[str, tuple[str, str | None]] = {
@@ -16,7 +15,6 @@ _LAZY_IMPORTS: dict[str, tuple[str, str | None]] = {
         "routing.service",
         "generate_optimal_route_with_progress",
     ),
-    "save_optimal_route": ("routing.service", "save_optimal_route"),
     "service": ("routing.service", None),
 }
 

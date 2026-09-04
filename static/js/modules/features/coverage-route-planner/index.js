@@ -57,6 +57,9 @@ export default function initCoverageRoutePlannerPage(context = {}) {
     onCoverageAreasLoaded: (areas) => {
       drivingNavigation?.setCoverageAreas(areas);
     },
+    onAreaSelectionChanged: () => {
+      void drivingNavigation?.handleAreaChange();
+    },
   });
 
   let tornDown = false;

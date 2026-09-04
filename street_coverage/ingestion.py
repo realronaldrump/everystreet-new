@@ -28,7 +28,7 @@ from core.spatial import (
     geodesic_length_meters,
     get_local_transformers,
 )
-from db.models import CoverageArea, CoverageState, Job, Street
+from db.models import CoverageArea, CoverageState, GeneratedRoute, Job, Street
 from map_data.extracts import extract_graph_metadata, get_configured_extract_identity
 from map_data.us_states import get_state
 from street_coverage.constants import (
@@ -185,6 +185,7 @@ async def delete_area(area_id: PydanticObjectId) -> bool:
     from street_coverage.journal import clear_journal_data
 
     await clear_journal_data(area_id)
+    await GeneratedRoute.find({"area_id": area_id}).delete()
 
     # Delete all streets for this area
     await Street.find({"area_id": area_id}).delete()
@@ -225,7 +226,7 @@ async def reset_area_for_rebuild(area_id: PydanticObjectId) -> CoverageArea:
 
     area.status = "rebuilding"
     area.area_version += 1
-    area.optimal_route = None
+    area.optimal_route_id = None
     area.optimal_route_generated_at = None
     area.last_error = None
     area.road_filter_version = None

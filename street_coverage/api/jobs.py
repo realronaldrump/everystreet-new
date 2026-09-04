@@ -50,6 +50,7 @@ class JobStatusResponse(BaseModel):
     started_at: str | None = None
     completed_at: str | None = None
     result: dict[str, Any] | None = None
+    route_kind: str | None = None
 
 
 class JobListResponse(BaseModel):
@@ -80,6 +81,7 @@ def _job_status_response(
         started_at=payload["started_at"],
         completed_at=payload["completed_at"],
         result=payload["result"],
+        route_kind=job.spec.get("kind") if job.job_type == "optimal_route" else None,
     )
 
 
@@ -148,7 +150,7 @@ async def list_active_jobs():
     Useful for a global status view.
     """
     jobs = (
-        await Job.find({"status": {"$in": ["pending", "running"]}})
+        await Job.find({"status": {"$in": ["queued", "pending", "running"]}})
         .sort("-created_at")
         .to_list()
     )

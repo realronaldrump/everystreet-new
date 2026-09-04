@@ -22,6 +22,7 @@ from db.models import (
     CoverageJournalRollup,
     CoverageState,
     CoverageStatusEvent,
+    GeneratedRoute,
     Job,
     Street,
     Trip,
@@ -34,6 +35,7 @@ from street_coverage.stats import update_area_stats
 async def coverage_db():
     return await init_mock_beanie(
         CoverageArea,
+        GeneratedRoute,
         CoverageState,
         CoverageDriveEvent,
         CoverageStatusEvent,
@@ -209,12 +211,11 @@ async def test_concurrent_first_drive_increments_cached_stats_once(coverage_db) 
         ]
     )
 
-    assert sum(
-        segment_id in result.newly_driven_segment_ids for result in results
-    ) == 1
-    assert await CoverageState.find(
-        {"area_id": area.id, "segment_id": segment_id}
-    ).count() == 1
+    assert sum(segment_id in result.newly_driven_segment_ids for result in results) == 1
+    assert (
+        await CoverageState.find({"area_id": area.id, "segment_id": segment_id}).count()
+        == 1
+    )
 
     refreshed_area = await CoverageArea.get(area.id)
     assert refreshed_area is not None
@@ -242,7 +243,7 @@ async def test_update_coverage_for_segments_noops_when_area_missing(
 
 
 @pytest.mark.asyncio
-async def test_update_coverage_for_trip_ignores_invalid_trip_id(coverage_db) -> None:
+async def test_update_coverage_for_trip_rejects_unpersisted_trip(coverage_db) -> None:
     area = CoverageArea(
         display_name="Coverage Trip ID Area",
         status="ready",
@@ -267,26 +268,21 @@ async def test_update_coverage_for_trip_ignores_invalid_trip_id(coverage_db) -> 
         length_miles=1.0,
     ).insert()
 
-    with patch(
-        "core.coverage.match_trip_to_streets",
-        new=AsyncMock(return_value={area.id: [segment_id]}),
+    with (
+        patch(
+            "core.coverage.match_trip_to_streets",
+            new=AsyncMock(return_value={area.id: [segment_id]}),
+        ),
+        pytest.raises(ValueError, match="persisted Bouncie Historical Trip"),
     ):
-        updated = await update_coverage_for_trip(
-            {
-                "endTime": datetime(2025, 1, 2, tzinfo=UTC),
-                "gps": {
-                    "type": "LineString",
-                    "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
-                },
-            },
+        await update_coverage_for_trip(
+            {"source": "bouncie", "endTime": datetime(2025, 1, 2, tzinfo=UTC)},
             trip_id="not-an-object-id",
         )
-    assert updated == 1
-
-    state = await CoverageState.find_one({"area_id": area.id, "segment_id": segment_id})
-    assert state is not None
-    assert state.status == "driven"
-    assert state.driven_by_trip_id is None
+    assert (
+        await CoverageState.find_one({"area_id": area.id, "segment_id": segment_id})
+        is None
+    )
 
 
 @pytest.mark.asyncio

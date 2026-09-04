@@ -1,3 +1,5 @@
+from unittest.mock import AsyncMock
+
 import pytest
 from db_helpers import init_mock_beanie
 from network_blocker import install_network_blocker
@@ -7,6 +9,9 @@ from db.models import GasFillup, Trip, Vehicle
 
 @pytest.fixture(autouse=True)
 def _default_test_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "trips.services.coverage_processing.notify_coverage_updated", AsyncMock()
+    )
     monkeypatch.setenv("MAPBOX_TOKEN", "pk.test-token-12345678901234567890")
     monkeypatch.setenv("OSM_DATA_PATH", "/data/osm/test.osm")
     install_network_blocker(monkeypatch)

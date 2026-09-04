@@ -53,7 +53,6 @@ from street_coverage.constants import (
 from street_coverage.journal import (
     mark_journal_pending,
     rebuild_journal_rollup,
-    upsert_drive_event,
 )
 from street_coverage.stats import (
     apply_area_stats_delta,
@@ -174,6 +173,7 @@ async def _bulk_write_updates(
     updates: list[tuple[dict[str, Any], dict[str, Any], bool]],
     *,
     ordered: bool = False,
+    session=None,
 ) -> tuple[int, int]:
     """Run a batch of update operations efficiently."""
     if not updates:
@@ -181,7 +181,9 @@ async def _bulk_write_updates(
 
     operations = [UpdateOne(flt, doc, upsert=upsert) for flt, doc, upsert in updates]
     try:
-        result = await collection.bulk_write(operations, ordered=ordered)
+        result = await collection.bulk_write(
+            operations, ordered=ordered, **({"session": session} if session else {})
+        )
     except TypeError as exc:
         # pymongo>=4.11 passes `sort=` to UpdateOne bulk internals; older
         # mongomock implementations don't accept this kwarg. Fall back to
@@ -266,6 +268,7 @@ async def _update_driven_states_atomic(
     first_by_segment: dict[str, datetime],
     last_by_segment: dict[str, datetime],
     trip_by_segment: dict[str, PydanticObjectId] | None = None,
+    session=None,
 ) -> tuple[int, list[str]]:
     """Atomically update states and return the exact newly-driven segment IDs."""
     collection = CoverageState.get_pymongo_collection()
@@ -292,8 +295,11 @@ async def _update_driven_states_atomic(
                     update_pipeline,
                     upsert=True,
                     return_document=ReturnDocument.BEFORE,
+                    **({"session": session} if session else {}),
                 )
             except DuplicateKeyError:
+                if session is not None:
+                    raise
                 # A concurrent first-drive upsert may win the unique-key race. Retry
                 # only an already-driven state; an undriveable state stays untouched.
                 previous = await collection.find_one_and_update(
@@ -321,9 +327,13 @@ async def _update_driven_states_atomic(
     segment_ids = list(first_by_segment)
     for start in range(0, len(segment_ids), 128):
         chunk = segment_ids[start : start + 128]
-        results.extend(
-            await asyncio.gather(*(update_one(segment_id) for segment_id in chunk))
-        )
+        if session is not None:
+            # PyMongo sessions cannot execute concurrent operations.
+            results.extend([await update_one(segment_id) for segment_id in chunk])
+        else:
+            results.extend(
+                await asyncio.gather(*(update_one(segment_id) for segment_id in chunk))
+            )
 
     accepted_ids = [segment_id for segment_id, accepted, _, _ in results if accepted]
     newly_driven_ids = [segment_id for segment_id, _, _, newly in results if newly]
@@ -352,6 +362,7 @@ async def _update_driven_states_atomic(
                 collection,
                 trip_updates[start : start + BACKFILL_BULK_WRITE_SIZE],
                 ordered=False,
+                session=session,
             )
 
     return sum(1 for _, _, changed, _ in results if changed), newly_driven_ids
@@ -816,11 +827,8 @@ async def match_trip_to_streets(
                 if matched:
                     matched_ids.update(matched)
         except MemoryError:
-            logger.warning(
-                "Area %s too large for in-memory index, skipping",
-                area_id,
-            )
-            continue
+            logger.exception("Area %s could not be indexed for coverage", area_id)
+            raise
         if matched_ids:
             results[area_id] = sorted(matched_ids)
 
@@ -843,61 +851,20 @@ async def update_coverage_for_trip(
         logger.debug("Trip did not match any coverage areas")
         return 0
 
-    trip_driven_at = get_trip_driven_at(trip_data)
-    trip_oid = _coerce_trip_id(trip_id)
+    from street_coverage.trip_credit import credit_trip_area
 
+    trip_oid = _coerce_trip_id(trip_id)
+    if trip_oid is None or str(trip_data.get("source") or "").lower() != "bouncie":
+        raise ValueError("Coverage credit requires a persisted Bouncie Historical Trip")
     total_updated = 0
     for area_id, segment_ids in matches.items():
-        result = await update_coverage_for_segments(
-            area_id=area_id,
-            segment_ids=segment_ids,
-            trip_id=trip_oid,
-            driven_at=trip_driven_at,
+        total_updated += await credit_trip_area(
+            trip_data,
+            trip_oid,
+            area_id,
+            segment_ids,
+            selected_mode,
         )
-        total_updated += result.updated
-        if (
-            trip_oid is not None
-            and str(trip_data.get("source") or "").lower() == "bouncie"
-        ):
-            area = await CoverageArea.get(area_id)
-            if area is not None and trip_driven_at is not None:
-                geometry_source = (
-                    "matchedGps"
-                    if selected_mode != "regular" and trip_data.get("matchedGps")
-                    else "gps"
-                )
-                await upsert_drive_event(
-                    area_id=area_id,
-                    area_version=area.area_version,
-                    trip_id=trip_oid,
-                    driven_at=trip_driven_at,
-                    segment_ids=segment_ids,
-                    timezone=(
-                        trip_data.get("endTimeZone") or trip_data.get("startTimeZone")
-                    ),
-                    geometry_source=geometry_source,
-                    matching_mode=selected_mode,
-                    newly_driven_segment_ids=result.newly_driven_segment_ids,
-                )
-                if result.newly_driven_segment_ids:
-                    try:
-                        from street_coverage.intelligence import (
-                            CoverageIntelligenceService,
-                        )
-
-                        await CoverageIntelligenceService.reconcile_historical_trip(
-                            area_id=area_id,
-                            area_version=area.area_version,
-                            trip_id=trip_oid,
-                            newly_driven_segment_ids=result.newly_driven_segment_ids,
-                        )
-                    except Exception:
-                        logger.exception(
-                            "Failed to reconcile coverage missions for historical "
-                            "trip %s in area %s",
-                            trip_oid,
-                            area_id,
-                        )
 
     logger.info(
         "Trip coverage updated %s segments across %s areas",
@@ -912,6 +879,7 @@ async def update_coverage_for_segments(
     segment_ids: list[str],
     trip_id: PydanticObjectId | None = None,
     driven_at: datetime | str | None = None,
+    session=None,
 ) -> CoverageSegmentsUpdateResult:
     """
     Mark segments as driven for an area.
@@ -930,7 +898,7 @@ async def update_coverage_for_segments(
     # De-dupe but keep stable order for predictable behavior and smaller writes.
     segment_ids = list(dict.fromkeys(segment_ids))
 
-    area = await CoverageArea.get(area_id)
+    area = await CoverageArea.get(area_id, session=session)
     if not area:
         return CoverageSegmentsUpdateResult(
             updated=0,
@@ -945,6 +913,7 @@ async def update_coverage_for_segments(
             "area_version": area.area_version,
             "segment_id": {"$in": segment_ids},
         },
+        session=session,
     ).to_list()
     length_by_segment = {
         str(street.segment_id): float(street.length_miles or 0.0) for street in streets
@@ -970,6 +939,7 @@ async def update_coverage_for_segments(
         first_by_segment=first_by_segment,
         last_by_segment=last_by_segment,
         trip_by_segment=trip_by_segment,
+        session=session,
     )
 
     if updated:
@@ -989,6 +959,7 @@ async def update_coverage_for_segments(
             area_id,
             driven_segments_delta=len(newly_driven_ids),
             driven_length_miles_delta=newly_driven_length,
+            session=session,
         )
 
     return CoverageSegmentsUpdateResult(

@@ -139,6 +139,7 @@ class AreaResponse(BaseModel):
     last_synced: str | None
     optimal_route_generated_at: str | None
     has_optimal_route: bool
+    optimal_route_id: str | None = None
     road_filter_version: str | None = None
     road_filter_stats: dict[str, Any] = Field(default_factory=dict)
     osm_extract_id: str | None = None
@@ -163,6 +164,7 @@ class AreaDetailResponse(BaseModel):
     boundary: dict[str, Any] | None = None
     bounding_box: list[float] | None = None
     has_optimal_route: bool = False
+    optimal_route_id: str | None = None
 
 
 class CreateAreaResponse(BaseModel):
@@ -740,7 +742,10 @@ async def list_areas():
                     if area.optimal_route_generated_at
                     else None
                 ),
-                has_optimal_route=area.optimal_route is not None,
+                has_optimal_route=area.optimal_route_id is not None,
+                optimal_route_id=str(area.optimal_route_id)
+                if area.optimal_route_id
+                else None,
                 road_filter_version=area.road_filter_version,
                 road_filter_stats=area.road_filter_stats or {},
                 osm_extract_id=area.osm_extract_id,
@@ -946,16 +951,20 @@ async def get_area(area_id: PydanticObjectId):
                 if area.optimal_route_generated_at
                 else None
             ),
-            has_optimal_route=area.optimal_route is not None,
+            has_optimal_route=area.optimal_route_id is not None,
+            optimal_route_id=str(area.optimal_route_id)
+            if area.optimal_route_id
+            else None,
             road_filter_version=area.road_filter_version,
             road_filter_stats=area.road_filter_stats or {},
             osm_extract_id=area.osm_extract_id,
             graph_extract_id=area.graph_extract_id,
             coverage_backfill_extract_id=area.coverage_backfill_extract_id,
         ),
-        boundary=area.boundary if area.boundary else None,
-        bounding_box=area.bounding_box if area.bounding_box else None,
-        has_optimal_route=area.optimal_route is not None,
+        boundary=area.boundary or None,
+        bounding_box=area.bounding_box or None,
+        has_optimal_route=area.optimal_route_id is not None,
+        optimal_route_id=str(area.optimal_route_id) if area.optimal_route_id else None,
     )
 
 
@@ -973,7 +982,7 @@ async def add_area(request: CreateAreaRequest):
     No configuration options - the system "just works".
     """
     try:
-        boundary = request.boundary if request.boundary else None
+        boundary = request.boundary or None
         if boundary is None:
             try:
                 boundary = await _fetch_boundary(request.display_name)

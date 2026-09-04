@@ -20,6 +20,8 @@ class TripStatusProjection(BaseModel):
     destination: Any | None = None
     startTimeZone: str | None = None
     endTimeZone: str | None = None
+    coverage_emitted_at: datetime | None = None
+    coverage_status: str = "not_requested"
 
     model_config = ConfigDict(extra="ignore")
 

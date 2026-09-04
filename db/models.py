@@ -88,6 +88,12 @@ class Trip(Document):
     processing_state: str | None = None
     processing_history: list[dict[str, Any]] | None = None
     coverage_emitted_at: datetime | None = None
+    coverage_status: str = "not_requested"
+    coverage_attempts: int = 0
+    coverage_next_attempt_at: datetime | None = None
+    coverage_lease_until: datetime | None = None
+    coverage_lease_token: str | None = None
+    coverage_error: str | None = None
     mobility_synced_at: datetime | None = None
     inactive: bool = False
     inactive_at: datetime | None = None
@@ -225,6 +231,14 @@ class Trip(Document):
         name = "trips"
         use_state_management = True
         indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [
+                    ("coverage_status", 1),
+                    ("coverage_next_attempt_at", 1),
+                    ("coverage_lease_until", 1),
+                ],
+                name="trips_pending_coverage_idx",
+            ),
             IndexModel([("startTime", 1)], name="trips_startTime_asc_idx"),
             IndexModel([("endTime", 1)], name="trips_endTime_asc_idx"),
             IndexModel([("endTime", -1)], name="trips_endTime_desc_idx"),
@@ -628,7 +642,7 @@ class CoverageArea(Document):
     coverage_backfill_extract_id: str | None = None
     coverage_backfilled_at: datetime | None = None
     last_error: str | None = None
-    optimal_route: dict[str, Any] | None = None
+    optimal_route_id: PydanticObjectId | None = None
     optimal_route_generated_at: datetime | None = None
     last_backfill_trip_endtime: datetime | None = None
     # Set when a refresh is requested while a coverage job is already
@@ -654,6 +668,29 @@ class CoverageArea(Document):
         ]
 
     model_config = ConfigDict(extra="allow")
+
+
+class GeneratedRoute(Document):
+    """An immutable route result shared by preview, navigation and export."""
+
+    task_id: Indexed(str, unique=True)
+    area_id: Indexed(PydanticObjectId)
+    area_version: int
+    journal_revision: int
+    kind: str
+    segment_ids: list[str] = Field(default_factory=list)
+    start_coords: list[float] | None = None
+    result: dict[str, Any]
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    class Settings:
+        name = "generated_routes"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [("area_id", 1), ("created_at", -1)],
+                name="generated_routes_area_created_idx",
+            ),
+        ]
 
 
 class Street(Document):
@@ -775,6 +812,8 @@ class CoverageDriveEvent(Document):
     matching_mode: str = "both"
     matching_version: str = "coverage-v1"
     segment_ids: list[str] = Field(default_factory=list)
+    newly_driven_segment_ids: list[str] = Field(default_factory=list)
+    journal_revision: int | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -867,7 +906,7 @@ class CoverageMission(Document):
     predicted_coverage_after: float = 0.0
     confidence: str = "low"
     route_job_id: str | None = None
-    route: dict[str, Any] | None = None
+    route_id: PydanticObjectId | None = None
     actual_trip_ids: list[PydanticObjectId] = Field(default_factory=list)
     actual_new_miles: float = 0.0
     actual_coverage_gain: float = 0.0
@@ -1495,6 +1534,7 @@ ALL_DOCUMENT_MODELS = [
     CountyTopology,
     # Coverage system models
     CoverageArea,
+    GeneratedRoute,
     CoverageState,
     CoverageDriveEvent,
     CoverageGoal,

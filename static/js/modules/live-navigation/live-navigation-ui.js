@@ -51,6 +51,7 @@ class LiveNavigationUI {
     this.elements.navToStartBtn = document.getElementById("nav-start-from-here");
     this.elements.beginNavBtn = document.getElementById("nav-begin");
     this.elements.changeRouteBtn = document.getElementById("nav-change-route");
+    this.elements.plannerLink = document.getElementById("nav-planner-link");
 
     // Navigation HUD
     this.elements.navSignal = document.getElementById("nav-signal");

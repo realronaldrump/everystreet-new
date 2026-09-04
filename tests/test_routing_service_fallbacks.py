@@ -74,6 +74,8 @@ def _build_area_and_streets():
         },
         bounding_box=[-1.0, -1.0, 2.0, 2.0],
         area_version=1,
+        journal_revision=0,
+        status="ready",
     )
     streets = [
         SimpleNamespace(
@@ -108,6 +110,16 @@ def _install_common_mocks(
     graph = _build_graph()
     area, streets = _build_area_and_streets()
     job_handle = _DummyJobHandle()
+
+    async def progress(_task_id, **fields):
+        await job_handle.update(**fields)
+
+    async def complete(**kwargs):
+        job_handle.completed_message = "Route result persisted"
+        return {**kwargs["result"], "route_id": "test-route"}
+
+    monkeypatch.setattr(service, "update_route_progress", progress)
+    monkeypatch.setattr("routing.route_store.complete_generated_route", complete)
 
     graph_dir = tmp_path / "graphs"
     graph_dir.mkdir(parents=True, exist_ok=True)
@@ -256,7 +268,8 @@ async def test_spatial_fallback_maps_when_osm_phase_misses(
     assert result["mapped_segments"] > 0
     assert result["valhalla_trace_attempted"] == 0
     assert result["valhalla_trace_matched"] == 0
-    assert job_handle.completed_message == "Route generation complete!"
+    assert job_handle.completed_message == "Route result persisted"
+    assert result["route_id"] == "test-route"
 
 
 @pytest.mark.asyncio

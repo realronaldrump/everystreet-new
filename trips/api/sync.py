@@ -26,6 +26,34 @@ from trips.services.trip_sync_service import TripSyncService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+@router.get("/api/actions/trips/processing/status")
+@api_route(logger)
+async def get_trip_processing_status():
+    from core.trip_map_cache import get_trip_map_revision
+    from trips.services.completed_trip_sync import completion_sync_status
+    from trips.services.coverage_processing import coverage_processing_status
+
+    return {
+        "revision": await get_trip_map_revision(),
+        "coverage": await coverage_processing_status(),
+        "historical_sync": await completion_sync_status(),
+    }
+
+
+@router.post("/api/actions/trips/processing/retry")
+@api_route(logger)
+async def retry_trip_processing():
+    from trips.services.completed_trip_sync import retry_failed_completion_syncs
+    from trips.services.coverage_processing import retry_failed_coverage
+
+    return {
+        "coverage": await retry_failed_coverage(),
+        "historical_sync": await retry_failed_completion_syncs(),
+    }
+
+
 @router.get("/api/actions/trips/sync/status", response_model=dict)
 @api_route(logger)
 async def get_trip_sync_status():
@@ -303,8 +331,6 @@ async def cancel_trip_history_import(progress_job_id: PydanticObjectId):
     await final_job.save()
 
     message = (
-        "Import cancellation confirmed"
-        if aborted
-        else "Import cancellation accepted"
+        "Import cancellation confirmed" if aborted else "Import cancellation accepted"
     )
     return {"status": "success", "message": message}

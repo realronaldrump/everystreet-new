@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from routing import generate_optimal_route_with_progress, save_optimal_route
+from routing import generate_optimal_route_with_progress
 from tasks.ops import run_task_with_history
 
 logger = logging.getLogger(__name__)
@@ -58,15 +58,6 @@ async def _generate_optimal_route_logic(
         start_coords,
         segment_ids=set(segment_ids) if segment_ids else None,
     )
-
-    # Save to database if successful (only for full-area routes, not cluster routes)
-    if result.get("status") == "success" and not segment_ids:
-        await save_optimal_route(location_id, result)
-        logger.info(
-            "Optimal route generated: %d segments, %.1f%% deadhead",
-            result.get("segment_count", 0),
-            result.get("deadhead_percentage", 0),
-        )
 
     return result
 

@@ -321,33 +321,26 @@ class TripPipeline:
         self.sanitize_trip_document_geospatial_fields(final_trip)
         self._prepare_trip_map_paths(final_trip)
 
+        from trips.services.coverage_processing import (
+            prepare_coverage_work,
+            process_pending_trip_coverage,
+        )
+
+        if do_coverage:
+            prepare_coverage_work(final_trip)
+
         if existing_trip:
-            await final_trip.save()
+            await final_trip.save_changes()
         else:
             await final_trip.insert()
 
         # Coverage history may reference this trip, so write derived coverage only
         # after the authoritative historical Trip document exists in Mongo.
-        coverage_emitted_at = None
-        if do_coverage and getattr(final_trip, "coverage_emitted_at", None) is None:
-            try:
-                if processed_data.get("gps"):
-                    coverage_payload = final_trip.model_dump()
-                    await self.coverage_service(
-                        coverage_payload,
-                        getattr(final_trip, "id", None),
-                    )
-                    coverage_emitted_at = get_current_utc_time()
-            except Exception as exc:
-                logger.warning(
-                    "Failed to update coverage for trip %s: %s",
-                    transaction_id,
-                    exc,
-                )
-
-        if coverage_emitted_at:
-            final_trip.coverage_emitted_at = coverage_emitted_at
-            await final_trip.save()
+        if do_coverage:
+            await process_pending_trip_coverage(
+                final_trip.id, coverage_service=self.coverage_service
+            )
+            final_trip = await Trip.get(final_trip.id)
 
         if bump_revision:
             await bump_trip_map_revision()

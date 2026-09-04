@@ -1,7 +1,5 @@
 import notificationManager from "../ui/notifications.js";
-import {
-  getRemainingDriveableMiles,
-} from "../features/navigation-core/coverage-areas.js";
+import { getRemainingDriveableMiles } from "../features/navigation-core/coverage-areas.js";
 import { MI_TO_M } from "../utils/geo-math.js";
 import { escapeHtml } from "../utils.js";
 import { SCANNER_STAGES, STAGE_COPY } from "./constants.js";
@@ -505,7 +503,7 @@ export class OptimalRouteUI {
     // Show legend
     document.getElementById("map-legend").style.display = "block";
 
-    this.setLiveNavigationEnabled(true);
+    this.setLiveNavigationEnabled(Boolean(data.route_id));
     this.setReplayEnabled(true);
     this.showNotification("Route generated successfully!", "success");
   }

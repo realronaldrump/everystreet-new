@@ -57,6 +57,8 @@ class LiveNavigationNavigator {
     // Coverage area data
     this.coverageAreas = [];
     this.selectedAreaId = null;
+    this.selectedRouteId = null;
+    this.currentRouteData = null;
     this.selectedAreaName = null;
 
     // Route data
@@ -254,7 +256,18 @@ class LiveNavigationNavigator {
     const params = new URLSearchParams(window.location.search);
     const queryArea = params.get("areaId");
     const storedArea = window.localStorage.getItem("liveNavigationAreaId");
-    const areaId = queryArea || storedArea;
+    let areaId = queryArea || storedArea;
+    this.selectedRouteId = params.get("routeId");
+    if (this.selectedRouteId) {
+      try {
+        const route = await LiveNavigationAPI.fetchGeneratedRoute(this.selectedRouteId);
+        areaId = route.area_id;
+      } catch (error) {
+        this.ui.setSetupStatus(error.message, true);
+        this.ui.setStartEnabled(false);
+        return;
+      }
+    }
 
     if (!areaId) {
       return;
@@ -274,7 +287,11 @@ class LiveNavigationNavigator {
     this.selectedAreaName = this.getCoverageAreaName(selectedArea);
 
     // Check for in-progress generation first
-    const activeTask = await LiveNavigationAPI.checkActiveTask(selectedAreaId);
+    const activeTask = this.selectedRouteId
+      ? null
+      : params.get("taskId")
+        ? { task_id: params.get("taskId") }
+        : await LiveNavigationAPI.checkActiveTask(selectedAreaId);
     if (activeTask) {
       this.reconnectToGeneration(activeTask.task_id);
       return;
@@ -288,6 +305,8 @@ class LiveNavigationNavigator {
    * Handle area selection change
    */
   async handleAreaChange() {
+    this.selectedRouteId = null;
+    this.currentRouteData = null;
     const selectedValue = this.ui.getSelectedAreaId();
 
     if (!selectedValue) {
@@ -305,6 +324,7 @@ class LiveNavigationNavigator {
     this.resetRouteState();
     this.selectedAreaId = selectedValue;
     this.selectedAreaName = this.ui.getSelectedAreaName();
+    this.updateRouteUrl();
     window.localStorage.setItem("liveNavigationAreaId", selectedValue);
 
     this.ui.setLoadRouteEnabled(true);
@@ -322,6 +342,10 @@ class LiveNavigationNavigator {
       return;
     }
 
+    const loadEpoch = (this.routeLoadEpoch || 0) + 1;
+    this.routeLoadEpoch = loadEpoch;
+    const requestedRouteId = this.selectedRouteId;
+    const requestedAreaId = this.selectedAreaId;
     this.ui.setSetupStatus("Loading route...");
     this.ui.setNavStatus("Loading route...");
     this.ui.setLoadRouteLoading(true);
@@ -336,20 +360,31 @@ class LiveNavigationNavigator {
       );
 
       // If no route exists yet, skip route fetches and go straight to generation.
-      if (coverageData?.has_optimal_route === false) {
+      if (loadEpoch !== this.routeLoadEpoch || requestedAreaId !== this.selectedAreaId)
+        return;
+      if (!requestedRouteId && coverageData?.has_optimal_route === false) {
         await this.autoGenerateRoute();
         return;
       }
 
-      const [gpxText, routeData] = await Promise.all([
-        LiveNavigationAPI.fetchOptimalRouteGpx(this.selectedAreaId),
-        LiveNavigationAPI.fetchOptimalRoute(this.selectedAreaId).catch(() => null),
-      ]);
-
-      const { coords, name } = this.parseGpx(gpxText);
-      if (coords.length < 2) {
-        throw new Error("GPX route is empty.");
+      const routeData = requestedRouteId
+        ? await LiveNavigationAPI.fetchGeneratedRoute(requestedRouteId)
+        : await LiveNavigationAPI.fetchOptimalRoute(requestedAreaId);
+      if (loadEpoch !== this.routeLoadEpoch || requestedAreaId !== this.selectedAreaId)
+        return;
+      if (
+        !routeData?.route_id ||
+        String(routeData.area_id) !== String(requestedAreaId)
+      ) {
+        throw new Error("The saved route does not match this coverage area.");
       }
+      const coords = routeData.coordinates;
+      const name = routeData.location_name;
+      if (!Array.isArray(coords) || coords.length < 2)
+        throw new Error("The saved route is empty.");
+      this.selectedRouteId = routeData.route_id;
+      this.currentRouteData = routeData;
+      this.updateRouteUrl();
 
       // Process coverage baseline
       if (coverageData) {
@@ -401,18 +436,32 @@ class LiveNavigationNavigator {
 
       // Load coverage segments for real-time tracking
       await this.coverage.loadSegments(this.selectedAreaId);
+      if (loadEpoch !== this.routeLoadEpoch || requestedAreaId !== this.selectedAreaId)
+        return;
 
       // Fetch ETA and show preview
       await this.fetchRouteETA();
+      if (loadEpoch !== this.routeLoadEpoch || requestedAreaId !== this.selectedAreaId)
+        return;
       this.state.transitionTo(NAV_STATES.ROUTE_PREVIEW);
 
       // Check if route is stale
       this.checkRouteStale(routeData);
     } catch (error) {
+      if (loadEpoch !== this.routeLoadEpoch || requestedAreaId !== this.selectedAreaId)
+        return;
       this.map.clearRouteLayers();
       this.ui.resetGuidanceUI();
       this.routeLoaded = false;
 
+      if (requestedRouteId) {
+        this.ui.setSetupStatus(error.message, true);
+        this.ui.setNavStatus(
+          "Return to Route Planner to choose or regenerate this route.",
+          true
+        );
+        return;
+      }
       if (this.isNotFoundError(error)) {
         this.invalidateSelectedArea(this.selectedAreaId, {
           message: "Selected coverage area is no longer available.",
@@ -440,14 +489,43 @@ class LiveNavigationNavigator {
   /**
    * Auto-generate a route when none exists
    */
-  async autoGenerateRoute() {
+  updateRouteUrl() {
+    const url = new URL(window.location.href);
+    for (const [key, value] of Object.entries({
+      areaId: this.selectedAreaId,
+      routeId: this.selectedRouteId,
+      taskId: this.generationTaskId,
+    })) {
+      if (value) url.searchParams.set(key, value);
+      else url.searchParams.delete(key);
+    }
+    window.history.replaceState({}, "", url);
+    const plannerParams = new URLSearchParams();
+    if (this.selectedAreaId) plannerParams.set("area", this.selectedAreaId);
+    if (this.selectedRouteId) plannerParams.set("routeId", this.selectedRouteId);
+    if (this.generationTaskId) plannerParams.set("taskId", this.generationTaskId);
+    this.ui.elements?.plannerLink?.setAttribute(
+      "href",
+      `/coverage-route-planner?${plannerParams}`
+    );
+  }
+
+  async autoGenerateRoute(segmentIds = null, startCoords = null) {
     if (!this.selectedAreaId) {
       return;
     }
 
     try {
-      const taskId = await LiveNavigationAPI.startRouteGeneration(this.selectedAreaId);
+      const areaId = this.selectedAreaId;
+      const epoch = this.routeLoadEpoch;
+      const taskId = await LiveNavigationAPI.startRouteGeneration(areaId, {
+        segmentIds,
+        startCoords,
+      });
+      if (this.selectedAreaId !== areaId || this.routeLoadEpoch !== epoch) return;
+      this.selectedRouteId = null;
       this.generationTaskId = taskId;
+      this.updateRouteUrl();
       this.state.transitionTo(NAV_STATES.GENERATING);
 
       this.generationEventSource = LiveNavigationAPI.connectProgressSSE(taskId, {
@@ -496,10 +574,19 @@ class LiveNavigationNavigator {
    * Handle generation completion
    */
   async handleGenerationComplete() {
-    this.generationTaskId = null;
-    this.generationEventSource = null;
-    // Load the newly generated route
-    await this.loadRoute();
+    const taskId = this.generationTaskId;
+    if (!taskId) return;
+    try {
+      const route = await LiveNavigationAPI.fetchTaskResult(taskId);
+      if (this.generationTaskId !== taskId) return;
+      this.selectedRouteId = route.route_id;
+      this.generationTaskId = null;
+      this.generationEventSource = null;
+      this.updateRouteUrl();
+      await this.loadRoute();
+    } catch (error) {
+      this.handleGenerationError(error);
+    }
   }
 
   /**
@@ -545,6 +632,12 @@ class LiveNavigationNavigator {
    * Check if the loaded route is stale and show banner if so
    */
   checkRouteStale(routeData) {
+    if (routeData?.coverage_changed) {
+      this.ui.showStaleBanner(
+        "Coverage has changed since this route was planned. Tap to regenerate this route."
+      );
+      return;
+    }
     this.ui.hideStaleBanner();
 
     if (!routeData) {
@@ -577,8 +670,12 @@ class LiveNavigationNavigator {
    */
   async regenerateRoute() {
     this.ui.hideStaleBanner();
+    const route = this.currentRouteData;
     this.resetRouteState();
-    await this.autoGenerateRoute();
+    await this.autoGenerateRoute(
+      route?.kind === "cluster" ? route.selected_segment_ids : null,
+      route?.start_coords
+    );
   }
 
   /**
@@ -598,38 +695,6 @@ class LiveNavigationNavigator {
   /**
    * Parse GPX text to coordinates
    */
-  parseGpx(gpxText) {
-    const parser = new DOMParser();
-    const xml = parser.parseFromString(gpxText, "application/xml");
-
-    if (xml.querySelector("parsererror")) {
-      throw new Error("Invalid GPX file.");
-    }
-
-    let points = Array.from(xml.querySelectorAll("trkpt"));
-    if (points.length === 0) {
-      points = Array.from(xml.querySelectorAll("rtept"));
-    }
-
-    const coords = points
-      .map((pt) => {
-        const lat = parseFloat(pt.getAttribute("lat"));
-        const lon = parseFloat(pt.getAttribute("lon"));
-        if (Number.isFinite(lat) && Number.isFinite(lon)) {
-          return [lon, lat];
-        }
-        return null;
-      })
-      .filter(Boolean);
-
-    const nameNode =
-      xml.querySelector("trk > name") ||
-      xml.querySelector("rte > name") ||
-      xml.querySelector("metadata > name");
-    const name = nameNode?.textContent?.trim() || this.routeName;
-
-    return { coords, name };
-  }
 
   isNotFoundError(error) {
     if (!error) {
@@ -1285,6 +1350,9 @@ class LiveNavigationNavigator {
    * Reset route state
    */
   resetRouteState() {
+    this.routeLoadEpoch = (this.routeLoadEpoch || 0) + 1;
+    this.selectedRouteId = null;
+    this.currentRouteData = null;
     this.routeCoords = [];
     this.routeDistances = [];
     this.segmentLengths = [];
