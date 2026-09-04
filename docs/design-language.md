@@ -90,6 +90,21 @@ or hero exemption recorded in the design guardrail test.
 
 ## Map and chart colors
 
+### Coverage share film
+
+The City of Light share film is a fixed piece of export artwork. Its charcoal
+blue background, warm paper typography, and illuminated brass streets preserve
+the approved cinematic art direction in both application themes. These canvas
+colors are authored in the share renderer; they do not redefine driven or
+planning colors in the interactive map. The surrounding share dialog uses the
+standard application tokens and controls. The film and its PNG closing frame
+use Source Serif 4 and Source Sans 3, and retain OpenStreetMap attribution.
+
+The reveal follows recorded first-drive timestamps. Streets without a recorded
+date are visible from the beginning. Mileage and percentages are calculated
+from the same complete geometry snapshot; undriveable streets are excluded
+from the denominator. Exports contain no vehicle identifiers or live-trip data.
+
 | Meaning | Token |
 |---|---|
 | Driven, covered, live, confirmed | `--color-driven`, `--live`, `--success` |

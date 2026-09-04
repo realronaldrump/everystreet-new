@@ -18,7 +18,6 @@ import { createFeatureApi } from "../../core/feature-api.js";
 import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
 import {
   getDriveableMiles,
-  getDriveableSegments,
   getRemainingDriveableMiles,
 } from "../navigation-core/coverage-areas.js";
 import { createMap, isMapboxStyleUrl, waitForMapboxToken } from "../../map-core.js";
@@ -513,6 +512,8 @@ function setupKeyboardShortcuts(signal) {
   document.addEventListener(
     "keydown",
     (e) => {
+      // A native dialog owns keyboard interaction while the page is inert.
+      if (document.querySelector("dialog[open]")) return;
       // Don't fire in inputs
       const tag = e.target?.tagName?.toUpperCase();
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
@@ -1795,27 +1796,26 @@ function renderProgressRing(fillEl, pct) {
 // =============================================================================
 
 async function handleShareClick() {
-  if (!state.currentAreaData) {
+  if (!state.currentAreaData || state.currentAreaData.id !== state.currentAreaId) {
     return;
   }
 
   try {
-    const { default: progressCardGenerator } = await import(
-      "../../ui/progress-card.js"
-    );
     const area = state.currentAreaData;
-    await progressCardGenerator.downloadCard({
-      areaName: area.display_name || "Coverage Area",
-      coveragePercent: normalizeCoveragePercent(area.coverage_percentage),
-      milesDriven: area.driven_length_miles,
-      areaMiles: getDriveableMiles(area),
-      totalSegments: getDriveableSegments(area),
-      segmentsDriven: area.driven_segments,
-    });
-    notificationManager.show("Progress card downloaded!", "success");
+    const signal = state.pageSignal;
+    const { openCoverageShare } = await import("../coverage-share/index.js");
+    if (
+      signal?.aborted ||
+      state.currentAreaData !== area ||
+      state.currentAreaId !== area.id
+    ) return;
+    openCoverageShare({ area, signal });
   } catch (error) {
-    console.error("Failed to generate progress card:", error);
-    notificationManager.show("Failed to generate progress card", "danger");
+    console.error("Failed to open share preview:", error);
+    notificationManager.show(
+      "Could not open the share preview. Please try again.",
+      "danger"
+    );
   }
 }
 

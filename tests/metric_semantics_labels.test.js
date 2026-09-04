@@ -34,13 +34,6 @@ test("coverage metrics label segment counts as segments", () => {
     join(root, "templates/coverage_route_planner.html"),
     "utf8"
   );
-  const progressCard = readFileSync(
-    join(root, "static/js/modules/ui/progress-card.js"),
-    "utf8"
-  );
-
   assert.match(planner, />Total Segments</);
   assert.match(planner, />segments selected</);
-  assert.match(progressCard, /label: "Segments Driven"/);
-  assert.doesNotMatch(progressCard, /totalAreaMiles|drivenStreets/);
 });
