@@ -264,16 +264,6 @@ const TRIP_SORT_DEFINITIONS = {
     column: "matchStatus",
     dir: "asc",
   },
-  startTimeZone_desc: {
-    label: "Timezone (Z to A)",
-    column: "startTimeZone",
-    dir: "desc",
-  },
-  startTimeZone_asc: {
-    label: "Timezone (A to Z)",
-    column: "startTimeZone",
-    dir: "asc",
-  },
   transactionId_desc: {
     label: "Trip ID (Z to A)",
     column: "transactionId",
@@ -445,12 +435,6 @@ const TRIP_TABLE_COLUMNS = [
     icon: "fa-braille",
     align: "right",
     render: (trip) => renderMetricCell(formatInteger(trip.pointsRecorded)),
-  },
-  {
-    key: "startTimeZone",
-    label: "Timezone",
-    icon: "fa-globe",
-    render: (trip) => renderTextCell(trip.startTimeZone || "--"),
   },
   {
     key: "identifiers",
