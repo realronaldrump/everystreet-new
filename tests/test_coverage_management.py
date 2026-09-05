@@ -77,6 +77,27 @@ async def test_missing_area_is_an_explicit_error(coverage_db):
         await set_manual_status(PydanticObjectId(), ["unknown"], "driven")
 
 
+async def test_cancelling_batch_releases_pending_jobs_and_keeps_published_area(
+    coverage_db,
+):
+    from street_coverage.api.jobs import cancel_job
+
+    area, _ = await area_with_streets([1])
+    parent = Job(job_type="coverage_recalculate_batch", status="running")
+    await parent.insert()
+    child = Job(
+        job_type="area_rebuild",
+        area_id=area.id,
+        status="pending",
+        metadata={"batch_job_id": str(parent.id)},
+    )
+    await child.insert()
+    result = await cancel_job(str(parent.id))
+    assert result["success"]
+    assert (await Job.get(child.id)).status == "cancelled"
+    assert (await CoverageArea.get(area.id)).status == "ready"
+
+
 @pytest.mark.parametrize("trip_id", [None, "not-an-object-id", str(PydanticObjectId())])
 async def test_update_coverage_for_trip_rejects_unpersisted_trip(coverage_db, trip_id):
     with pytest.raises(ValueError, match="persisted Bouncie"):

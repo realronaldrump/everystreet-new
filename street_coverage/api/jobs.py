@@ -220,7 +220,7 @@ async def cancel_job(job_id: str):
     # UI doesn't remain stuck in initializing/rebuilding.
     if job.area_id and job.job_type in {"area_ingestion", "area_rebuild"}:
         area = await CoverageArea.get(job.area_id)
-        if area:
+        if area and area.status in {"initializing", "rebuilding"}:
             await area.set(
                 {
                     "status": "error",
@@ -228,6 +228,21 @@ async def cancel_job(job_id: str):
                     "last_error": "Cancelled by user",
                 },
             )
+
+    if job.job_type == "coverage_recalculate_batch":
+        children = await Job.find(
+            {
+                "metadata.batch_job_id": str(job.id),
+                "status": {"$in": ["pending", "running"]},
+            }
+        ).to_list()
+        for child in children:
+            try:
+                await cancel_job(str(child.id))
+            except HTTPException as exc:
+                # A child can finish between the list and its cancellation.
+                if exc.status_code not in {400, 404}:
+                    raise
 
     return {
         "success": True,

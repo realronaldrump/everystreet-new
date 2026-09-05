@@ -375,7 +375,11 @@ def _graph_from_pbf(osm_path: Path) -> nx.MultiDiGraph:
 
     osm = OSM(str(osm_path))
     network = osm.get_network(
-        network_type="all",
+        network_type="driving",
+        # Keep the complete highway inventory for our access-precedence policy;
+        # predefined reader filters would remove roads before that policy runs.
+        custom_filter='["highway"]',
+        filter_type="keep",
         nodes=True,
         extra_attributes=_PYROSM_EXTRA_ATTRIBUTES,
     )
