@@ -195,6 +195,85 @@ async def test_full_backfill_retracts_deleted_trip_evidence(coverage_db):
     assert (await CoverageArea.get(area.id)).driven_length_miles == 0
 
 
+async def test_trip_moving_outside_rebuild_area_queues_refresh_of_first_evidence(
+    coverage_db, monkeypatch
+):
+    from tasks.street_coverage import run_area_backfill_job
+    from trips.pipeline import TripPipeline, TripProcessingRequest
+    from trips.services.inactive_trip_service import InactiveTripService
+
+    monkeypatch.setenv("COVERAGE_TRIP_MODE", "regular")
+    enqueue = AsyncMock(return_value="coverage-followup")
+    monkeypatch.setattr(coverage_ingestion, "_enqueue_pipeline_job", enqueue)
+    pipeline = TripPipeline()
+    monkeypatch.setattr(pipeline, "_enqueue_geo_coverage_sync_for_ingest", AsyncMock())
+    area, ids = await area_with_streets([1])
+    other_area, _ = await area_with_streets([1])
+    geometry = (await Street.find_one({"segment_id": ids[0]})).geometry
+    trip = await _trace_trip(geometry, datetime(2025, 1, 1, tzinfo=UTC))
+    replacement = {
+        "transactionId": trip.transactionId,
+        "startTime": "2025-01-01T00:00:00Z",
+        "endTime": "2025-01-01T00:10:00Z",
+        "gps": {
+            "type": "LineString",
+            "coordinates": [[-108, 38], [-108, 38.001]],
+        },
+    }
+    changed = False
+
+    async def move_trip_after_matching(_progress):
+        nonlocal changed
+        if changed:
+            return
+        changed = True
+        assert await CoverageDriveEvent.find({"trip_id": trip.id}).count() == 0
+        assert (await CoverageArea.get(area.id)).coverage_rebuild_token is not None
+        updated = await pipeline.process_trip(
+            TripProcessingRequest.bouncie_ingest(
+                replacement,
+                do_map_match=False,
+                do_geocode=False,
+                do_coverage=True,
+                sync_mobility=False,
+                bump_revision=False,
+            )
+        )
+        assert updated is not None and updated.id == trip.id
+        # No old event or current-trace intersection can make this outbox defer.
+        assert updated.coverage_status == "complete"
+        assert (await CoverageArea.get(area.id)).coverage_refresh_pending
+        assert not (await CoverageArea.get(other_area.id)).coverage_refresh_pending
+
+    await backfill_coverage_for_area(
+        area.id,
+        trip_mode="regular",
+        progress_callback=move_trip_after_matching,
+        progress_interval=1,
+    )
+    published = await CoverageArea.get(area.id)
+    assert published.coverage_rebuild_token is None
+    assert published.coverage_refresh_pending
+    assert published.driven_length_miles == pytest.approx(1)
+    assert await CoverageDriveEvent.find({"trip_id": trip.id}).count() == 1
+
+    # Use the existing completion handoff, job creation, and worker pipeline.
+    # Only the external ARQ enqueue is replaced by an in-memory test double.
+    refresh = await InactiveTripService.consume_pending_coverage_refresh(area.id)
+    assert refresh["queued"]
+    enqueue.assert_awaited_once()
+    await run_area_backfill_job(
+        {}, str(area.id), refresh["job_id"], trip_mode="regular"
+    )
+    assert (await Job.get(PydanticObjectId(refresh["job_id"]))).status == "completed"
+    current = await CoverageArea.get(area.id)
+    assert not current.coverage_refresh_pending
+    assert current.driven_length_miles == 0
+    assert await CoverageDriveEvent.find({"trip_id": trip.id}).count() == 0
+    assert await CoverageState.find({"area_id": area.id}).count() == 0
+    assert (await Trip.get(trip.id)).coverage_status == "complete"
+
+
 async def test_stats_refresh_recovers_missing_projection_from_valid_evidence(
     coverage_db,
 ):

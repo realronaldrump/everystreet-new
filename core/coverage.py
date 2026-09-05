@@ -304,6 +304,14 @@ async def update_coverage_for_trip(trip_data, trip_id=None, trip_mode=None):
         raise ValueError("Coverage requires a persisted Bouncie Historical Trip")
     if trip_input_revision(persisted.model_dump()) != trip_input_revision(trip_data):
         raise ValueError("Trip geometry changed during coverage matching; retry")
+    # A rebuild can hold this trip's first evidence only in memory. Its old area
+    # then appears in neither the replacement trace nor persisted drive events.
+    # Mark held rebuilds before those reads: publication writes the same area
+    # document and preserves this request for its completion wrapper to consume.
+    await CoverageArea.get_pymongo_collection().update_many(
+        {"coverage_rebuild_token": {"$ne": None}},
+        {"$set": {"coverage_refresh_pending": True}},
+    )
     mode = await get_effective_coverage_trip_mode(trip_mode)
     matches = (
         {}
