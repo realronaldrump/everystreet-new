@@ -31,7 +31,10 @@ remaining length. Journal summaries, paginated contributions, and segment metric
 are bounded read models. Reads do not repair data. Timelines use elapsed calendar
 time; forecasts include inactive days and report pace scenarios.
 
-Validation uses local existing JavaScript/lint tools and isolated mini-PC Python
-and Mongo runtimes. No new packages, tools, or map extracts are downloaded.
-Production changes require a restricted backup, validated replacement projections,
-and verification of area totals, states, history, revision, and deployed UI.
+Focused local checks use existing tools and synthetic, in-memory data. Broader
+regression suites and real MongoDB transaction tests run in GitHub Actions.
+Code and maintenance tooling reach production only through `git push origin main`
+and the automated image deployment. No local app or parallel test installation is
+used. Necessary production recalculation requires a restricted coverage backup,
+the supported sequential job service, and verification of area totals, states,
+history, revision, and the deployed UI.
