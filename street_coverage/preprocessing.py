@@ -62,6 +62,10 @@ _REQUIRED_OSMNX_WAY_TAGS = {
     "motor_vehicle",
     "motorcar",
     "access:conditional",
+    "bridge",
+    "tunnel",
+    "layer",
+    "junction",
     "area",
 }
 
@@ -74,6 +78,10 @@ _RELEVANT_EDGE_TAG_KEYS = (
     "motor_vehicle",
     "motorcar",
     "access:conditional",
+    "bridge",
+    "tunnel",
+    "layer",
+    "junction",
     "area",
 )
 
@@ -86,6 +94,10 @@ _PYROSM_EXTRA_ATTRIBUTES = [
     "motor_vehicle",
     "motorcar",
     "access:conditional",
+    "bridge",
+    "tunnel",
+    "layer",
+    "junction",
     "area",
 ]
 
@@ -346,7 +358,6 @@ def _sanitize_graph_for_graphml(G: nx.MultiDiGraph) -> None:
 
 
 def _graph_from_pbf(osm_path: Path) -> nx.MultiDiGraph:
-    ox = _get_osmnx()
     try:
         from pyrosm import OSM
     except ImportError as exc:
@@ -364,7 +375,7 @@ def _graph_from_pbf(osm_path: Path) -> nx.MultiDiGraph:
 
     osm = OSM(str(osm_path))
     network = osm.get_network(
-        network_type="driving",
+        network_type="all",
         nodes=True,
         extra_attributes=_PYROSM_EXTRA_ATTRIBUTES,
     )
@@ -375,11 +386,7 @@ def _graph_from_pbf(osm_path: Path) -> nx.MultiDiGraph:
         nodes_edges = _coerce_nodes_edges(network)
         if nodes_edges is not None:
             nodes_gdf, edges_gdf = nodes_edges
-            graph = _try_pyrosm_to_graph(osm, nodes_gdf, edges_gdf)
-            if graph is not None:
-                return graph
-            nodes_gdf, edges_gdf = _normalize_pyrosm_gdfs(nodes_gdf, edges_gdf)
-            return ox.graph_from_gdfs(nodes_gdf, edges_gdf)
+            return _try_pyrosm_to_graph(osm, nodes_gdf, edges_gdf)
 
     msg = "Pyrosm returned unexpected network data for .pbf extraction."
     raise RuntimeError(msg)
@@ -475,6 +482,23 @@ def _build_graph_in_process(
         G = nx.MultiDiGraph(G)
     _prune_non_driveable_edges(G)
     G = _ensure_edge_lengths(G)
+    if not G.graph.get("simplified") and G.number_of_edges():
+        G = _get_osmnx().simplification.simplify_graph(
+            G,
+            edge_attrs_differ=[
+                "highway",
+                "name",
+                "access",
+                "vehicle",
+                "motor_vehicle",
+                "motorcar",
+                "oneway",
+                "bridge",
+                "tunnel",
+                "layer",
+            ],
+            remove_rings=False,
+        )
     if extract_metadata:
         G.graph.update(graph_metadata_attributes(extract_metadata))
 
@@ -653,97 +677,19 @@ def _try_pyrosm_to_graph(
     osm: Any,
     nodes_gdf: Any,
     edges_gdf: Any,
-) -> nx.MultiDiGraph | None:
-    if not hasattr(osm, "to_graph"):
-        return None
-    try:
-        graph = osm.to_graph(nodes_gdf, edges_gdf)
-    except Exception:
-        return None
-    if isinstance(graph, nx.MultiDiGraph):
-        return graph
-    return None
-
-
-def _normalize_pyrosm_gdfs(nodes_gdf: Any, edges_gdf: Any) -> tuple[Any, Any]:
-    import pandas as pd
-
-    nodes = nodes_gdf.copy()
-    edges = edges_gdf.copy()
-
-    if (
-        ("x" not in nodes.columns or "y" not in nodes.columns)
-        and "lon" in nodes.columns
-        and "lat" in nodes.columns
-    ):
-        nodes["x"] = nodes["lon"]
-        nodes["y"] = nodes["lat"]
-
-    # OSMnx expects the nodes GeoDataFrame to be uniquely indexed by osmid.
-    if nodes.index.name != "osmid" or not nodes.index.is_unique:
-        if "osmid" in nodes.columns:
-            nodes = nodes.set_index("osmid", drop=False)
-        elif "id" in nodes.columns:
-            # Pyrosm uses `id` for node ids. Keep values but normalize index name.
-            nodes = nodes.set_index("id", drop=False)
-            nodes.index.rename("osmid", inplace=True)
-        elif nodes.index.name == "id" and nodes.index.is_unique:
-            # Some pyrosm versions return nodes already indexed by `id` without a column.
-            nodes.index.rename("osmid", inplace=True)
-
-    if not nodes.index.is_unique:
-        dup_count = int(nodes.index.duplicated(keep="first").sum())
-        logger.warning(
-            "Pyrosm nodes GeoDataFrame has %d duplicate node ids; dropping duplicates.",
-            dup_count,
-        )
-        nodes = nodes[~nodes.index.duplicated(keep="first")].copy()
-
-    # OSMnx expects edges to be uniquely indexed by (u, v, key).
-    needs_edge_index = not isinstance(edges.index, pd.MultiIndex) or list(
-        edges.index.names,
-    ) != ["u", "v", "key"]
-
-    if needs_edge_index:
-        # Ensure u/v are present as columns so we can build an OSMnx
-        # MultiIndex, even if the incoming dataframe used them as index levels.
-        if "u" not in edges.columns or "v" not in edges.columns:
-            edges = edges.reset_index()
-
-        # Drop malformed edges (can't be represented in a (u, v, key) index).
-        if "u" in edges.columns and "v" in edges.columns:
-            bad_uv = edges["u"].isna() | edges["v"].isna()
-            if bool(bad_uv.any()):
-                dropped = int(bad_uv.sum())
-                logger.warning(
-                    "Pyrosm edges GeoDataFrame has %d rows with null u/v; dropping them.",
-                    dropped,
-                )
-                edges = edges.loc[~bad_uv].copy()
-
-        # If pyrosm didn't provide an edge key, create one per (u, v) so parallel
-        # edges are preserved and index uniqueness is guaranteed.
-        if "key" not in edges.columns:
-            edges["key"] = edges.groupby(["u", "v"], sort=False).cumcount().astype(int)
-
-        edges = edges.set_index(["u", "v", "key"])
-
-    if not edges.index.is_unique:
-        # A non-unique (u, v, key) will crash `ox.graph_from_gdfs`. Force a stable
-        # per-(u, v) key assignment to preserve parallel edges.
-        edges = edges.reset_index()
-        edges["key"] = edges.groupby(["u", "v"], sort=False).cumcount().astype(int)
-        edges = edges.set_index(["u", "v", "key"])
-
-    if not edges.index.is_unique:
-        dup_count = int(edges.index.duplicated(keep="first").sum())
-        logger.warning(
-            "Pyrosm edges GeoDataFrame still has %d duplicate edge ids after key normalization; dropping duplicates.",
-            dup_count,
-        )
-        edges = edges[~edges.index.duplicated(keep="first")].copy()
-
-    return nodes, edges
+) -> nx.MultiDiGraph:
+    graph = osm.to_graph(
+        nodes_gdf,
+        edges_gdf,
+        graph_type="networkx",
+        network_type="driving",
+        retain_all=True,
+        osmnx_compatible=True,
+        simplify=False,
+    )
+    if not isinstance(graph, nx.MultiDiGraph):
+        raise TypeError("Pyrosm must return a directed NetworkX driving graph")
+    return graph
 
 
 def _load_graph_from_extract(osm_path: Path, routing_polygon: Any) -> nx.MultiDiGraph:
@@ -753,7 +699,7 @@ def _load_graph_from_extract(osm_path: Path, routing_polygon: Any) -> nx.MultiDi
     if suffix in {".osm", ".xml"}:
         G = ox.graph_from_xml(
             osm_path,
-            simplify=True,
+            simplify=False,
             retain_all=True,
         )
     elif suffix == ".pbf":
@@ -860,7 +806,7 @@ async def preprocess_streets(
 
         def _download_and_save():
             GRAPH_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-            file_path = GRAPH_STORAGE_DIR / f"{location_id}.graphml"
+            file_path = GRAPH_STORAGE_DIR / f"{location_id}-{area_version or 1}.graphml"
 
             local_osm_path = Path(str(source_extract_metadata.get("path") or ""))
             logger.info("Using local OSM extract: %s", local_osm_path)

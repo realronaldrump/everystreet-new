@@ -12,6 +12,7 @@ from beanie import PydanticObjectId
 from pymongo import ReturnDocument
 
 from db.models import Trip
+from street_coverage.projection import CoverageDeferred
 
 logger = logging.getLogger(__name__)
 MAX_ATTEMPTS = 8
@@ -22,16 +23,25 @@ BATCH_SIZE = 5
 
 def prepare_coverage_work(trip: Trip) -> None:
     """Include the work marker in the same write that persists the trip."""
-    if trip.coverage_emitted_at or trip.coverage_status in {
+    from street_coverage.identity import trip_input_revision
+
+    revision = trip_input_revision(trip.model_dump())
+    if revision == trip.coverage_processed_revision:
+        return
+    if revision == trip.coverage_input_revision and trip.coverage_status in {
         "pending",
         "running",
         "retry",
         "failed",
     }:
         return
-    trip.coverage_status = "pending" if trip.gps else "skipped"
+    trip.coverage_input_revision = revision
+    trip.coverage_status = "pending"
+    trip.coverage_emitted_at = None
     trip.coverage_attempts = 0
     trip.coverage_next_attempt_at = None
+    trip.coverage_lease_until = None
+    trip.coverage_lease_token = None
     trip.coverage_error = None
 
 
@@ -96,10 +106,25 @@ async def process_pending_trip_coverage(
                     "Coverage processing stopped repeatedly. Retry updates to resume."
                 )
             # Recheck visibility after claiming so inactive trips are never credited.
-            if not claimed.get("inactive") and not claimed.get("invalid"):
-                await (coverage_service or update_coverage_for_trip)(claimed, trip_id)
+            await (coverage_service or update_coverage_for_trip)(claimed, trip_id)
             # A failed notification also retries; coverage writes are idempotent.
             await notify_coverage_updated()
+    except CoverageDeferred as exc:
+        await collection.update_one(
+            {"_id": trip_id, "coverage_lease_token": token},
+            {
+                "$set": {
+                    "coverage_status": "retry",
+                    "coverage_error": str(exc),
+                    "coverage_next_attempt_at": datetime.now(UTC)
+                    + timedelta(seconds=30),
+                    "coverage_lease_until": None,
+                    "coverage_lease_token": None,
+                },
+                "$inc": {"coverage_attempts": -1},
+            },
+        )
+        return False
     except Exception as exc:
         failed = attempts >= MAX_ATTEMPTS
         await collection.update_one(
@@ -125,11 +150,16 @@ async def process_pending_trip_coverage(
         )
         return False
     result = await collection.update_one(
-        {"_id": trip_id, "coverage_lease_token": token},
+        {
+            "_id": trip_id,
+            "coverage_lease_token": token,
+            "coverage_input_revision": claimed.get("coverage_input_revision"),
+        },
         {
             "$set": {
                 "coverage_status": "complete",
                 "coverage_emitted_at": datetime.now(UTC),
+                "coverage_processed_revision": claimed.get("coverage_input_revision"),
                 "coverage_error": None,
                 "coverage_next_attempt_at": None,
                 "coverage_lease_until": None,

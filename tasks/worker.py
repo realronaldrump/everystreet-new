@@ -53,6 +53,7 @@ from tasks.street_coverage import (
 )
 from trips.services.completed_trip_sync import sync_completed_trip
 from trips.services.coverage_processing import drain_pending_coverage
+from street_coverage.journal import drain_pending_journals
 
 PERIODIC_FETCH_TIMEOUT_SECONDS = int(
     os.getenv("TRIP_FETCH_JOB_TIMEOUT_SECONDS", str(15 * 60)),
@@ -131,6 +132,7 @@ class WorkerSettings:
     ]
     cron_jobs: ClassVar[list[object]] = [
         cron(drain_pending_coverage, second={10, 40}, timeout=20 * 60),
+        cron(drain_pending_journals, second={20, 50}, timeout=300),
         cron(cron_periodic_fetch_trips, timeout=PERIODIC_FETCH_TIMEOUT_SECONDS),
         cron(
             retry_bouncie_history_windows,

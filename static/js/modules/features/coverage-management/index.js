@@ -64,6 +64,7 @@ const INITIAL_STATE = () => ({
   streetsCacheGeojson: null,
   renderedStreetsCacheKey: null,
   streetsLoadRequestId: 0,
+  viewportAbort: null,
   hoveredSegmentId: null,
   hoverPopup: null,
 
@@ -141,11 +142,11 @@ function normalizeCoverageTripMode(value) {
 function getCoverageTripModeLabel(mode) {
   switch (normalizeCoverageTripMode(mode)) {
     case "regular":
-      return "regular trips only";
+      return "GPS traces";
     case "matched":
-      return "matched trips only";
+      return "map-matched traces";
     default:
-      return "both regular and matched trips";
+      return "the best available trace";
   }
 }
 
@@ -189,6 +190,7 @@ export default async function initCoverageManagementPage({
 
   // Teardown function
   const teardown = () => {
+    state.viewportAbort?.abort();
     state.pageActive = false;
     state.pageSignal = null;
     clearActiveJobsRefresh();
@@ -461,6 +463,18 @@ function setupSidebarTabs(signal) {
 }
 
 function setupStreetMarkingListeners(signal) {
+  document.getElementById("street-restore-automatic-btn")?.addEventListener(
+    "click",
+    () => {
+      if (state.selectedSegment)
+        void applyStreetDecision(
+          state.currentAreaId,
+          state.selectedSegment.segmentId,
+          "automatic"
+        );
+    },
+    signal ? { signal } : {}
+  );
   const opt = signal ? { signal } : false;
 
   document.getElementById("street-mark-driven-btn")?.addEventListener(
@@ -861,8 +875,8 @@ async function handleCoverageTripModeChange(event) {
 // API Helpers
 // =============================================================================
 
-function apiGet(endpoint) {
-  return apiClient.get(`${API_BASE}${endpoint}`, withSignal());
+function apiGet(endpoint, options = {}) {
+  return apiClient.get(`${API_BASE}${endpoint}`, withSignal(options));
 }
 
 function apiPost(endpoint, data) {
@@ -1629,7 +1643,7 @@ async function viewArea(areaId) {
     if (!area) {
       throw new Error("Area details are unavailable.");
     }
-    state.currentAreaSyncToken = area?.last_synced || area?.created_at || null;
+    state.currentAreaSyncToken = `${area.area_version}:${area.coverage_revision}`;
     state.currentAreaRoadFilterVersion = area?.road_filter_version || null;
     state.currentAreaData = area;
 
@@ -1689,6 +1703,8 @@ async function refreshDashboardStats(areaId) {
     if (!area) {
       return;
     }
+    state.currentAreaData = area;
+    state.currentAreaSyncToken = `${area.area_version}:${area.coverage_revision}`;
     updateStatsUI(area, summary);
   } catch (error) {
     console.error("Failed to refresh stats:", error);
@@ -1761,15 +1777,15 @@ function updateStatsUI(area, summary) {
   }
 
   // Completion is expressed as a quiet Atlas stamp and cobalt hairline.
-  applyCompletionCelebration(area, pct);
+  applyCompletionCelebration(area);
 }
 
-function applyCompletionCelebration(area, pct) {
+function applyCompletionCelebration(area) {
   const sidebar = document.getElementById("coverage-sidebar");
   if (!sidebar) {
     return;
   }
-  const isComplete = area?.status === "ready" && pct >= 100;
+  const isComplete = area?.is_complete === true;
 
   if (!isComplete) {
     sidebar.classList.remove("is-complete");
@@ -1808,7 +1824,8 @@ async function handleShareClick() {
       signal?.aborted ||
       state.currentAreaData !== area ||
       state.currentAreaId !== area.id
-    ) return;
+    )
+      return;
     openCoverageShare({ area, signal });
   } catch (error) {
     console.error("Failed to open share preview:", error);
@@ -1848,6 +1865,10 @@ async function initOrUpdateMap(areaId, bbox, areaSyncToken = null) {
       attributionControl: false,
     });
 
+    state.map.on(
+      "moveend",
+      debounce(() => loadStreets(state.currentAreaId, state.currentAreaSyncToken), 150)
+    );
     state.map.on("load", () => {
       if (state.currentAreaId) {
         loadStreets(state.currentAreaId, state.currentAreaSyncToken);
@@ -1877,19 +1898,30 @@ async function loadStreets(areaId, areaSyncToken = null) {
   }
 
   const requestId = ++state.streetsLoadRequestId;
-  const cacheKey = buildStreetsCacheKey(areaId, areaSyncToken);
+  const bounds = state.map.getBounds();
+  const params = new URLSearchParams({
+    min_lon: Math.max(-180, bounds.getWest()).toFixed(6),
+    min_lat: Math.max(-90, bounds.getSouth()).toFixed(6),
+    max_lon: Math.min(180, bounds.getEast()).toFixed(6),
+    max_lat: Math.min(90, bounds.getNorth()).toFixed(6),
+    revision: String(areaSyncToken),
+  });
+  const cacheKey = buildStreetsCacheKey(areaId, `${areaSyncToken}:${params}`);
 
   // Already rendered this version
   if (cacheKey === state.renderedStreetsCacheKey && state.map.getSource("streets")) {
     return;
   }
 
+  state.viewportAbort?.abort();
+  state.viewportAbort = new AbortController();
   try {
     let data = state.streetsCacheKey === cacheKey ? state.streetsCacheGeojson : null;
     if (!data) {
-      data = await apiGet(`/areas/${areaId}/streets/all`);
-      state.streetsCacheKey = cacheKey;
-      state.streetsCacheGeojson = data;
+      data = await apiGet(`/areas/${areaId}/streets/geojson?${params}`, {
+        signal: state.viewportAbort.signal,
+        cache: false,
+      });
     }
 
     if (
@@ -1900,6 +1932,18 @@ async function loadStreets(areaId, areaSyncToken = null) {
       return;
     }
 
+    state.streetsCacheKey = cacheKey;
+    state.streetsCacheGeojson = data;
+    let notice = document.getElementById("coverage-viewport-notice");
+    if (!notice) {
+      notice = document.createElement("p");
+      notice.id = "coverage-viewport-notice";
+      notice.className = "coverage-viewport-notice";
+      notice.setAttribute("role", "status");
+      document.querySelector(".coverage-map-wrapper")?.appendChild(notice);
+    }
+    notice.hidden = !data.truncated;
+    notice.textContent = "Zoom in to see all streets in this view.";
     if (state.map.getSource("streets")) {
       state.map.getSource("streets").setData(data);
       state.renderedStreetsCacheKey = cacheKey;
@@ -1960,7 +2004,8 @@ async function loadStreets(areaId, areaSyncToken = null) {
       setupStreetInteractivity();
     }
   } catch (error) {
-    console.error("Failed to load streets:", error);
+    if (error.name !== "AbortError")
+      notificationManager.show(`Street map unavailable: ${error.message}`, "warning");
   }
 }
 
@@ -2135,7 +2180,9 @@ function openStreetDetailPanel(feature) {
   const props = feature.properties || {};
   const segmentId = props.segment_id;
   const status =
-    typeof props.status === "string" ? props.status.toLowerCase() : "unknown";
+    typeof props.status === "string"
+      ? (props.segment_status || props.status).toLowerCase()
+      : "unknown";
 
   state.selectedSegment = { segmentId, properties: props };
 
@@ -2147,7 +2194,10 @@ function openStreetDetailPanel(feature) {
 
   const statusChipEl = document.getElementById("street-detail-status-chip");
   if (statusChipEl) {
-    statusChipEl.textContent = formatStatus(status);
+    statusChipEl.textContent =
+      props.coverage_fraction > 0 && props.coverage_fraction < 1
+        ? `Partly covered · ${(props.coverage_fraction * 100).toFixed(0)}%`
+        : formatStatus(status);
     statusChipEl.className = `street-status-chip status-${status}`;
   }
 
@@ -2186,6 +2236,22 @@ function openStreetDetailPanel(feature) {
     undrivenBtn.classList.toggle("d-none", status === "undriven");
   }
 
+  document.getElementById("street-detail-covered").textContent = formatMiles(
+    props.covered_length_miles
+  );
+  document.getElementById("street-detail-remaining").textContent = formatMiles(
+    props.remaining_length_miles
+  );
+  document.getElementById("street-detail-source").textContent = props.manually_marked
+    ? "Your correction"
+    : props.trip_count
+      ? `${props.trip_count} historical drive${props.trip_count === 1 ? "" : "s"}`
+      : "No drive evidence";
+  document
+    .getElementById("street-restore-automatic-btn")
+    .classList.toggle("d-none", !props.manually_marked);
+  void loadStreetEvidence(state.currentAreaId, segmentId);
+
   // Highlight segment on map
   setHighlightedSegment(segmentId);
 
@@ -2194,6 +2260,29 @@ function openStreetDetailPanel(feature) {
   if (panel) {
     panel.classList.add("is-open");
     panel.setAttribute("aria-hidden", "false");
+  }
+}
+
+async function loadStreetEvidence(areaId, segmentId) {
+  try {
+    const data = await apiGet(`/areas/${areaId}/streets/${segmentId}`, {
+      cache: false,
+    });
+    if (state.selectedSegment?.segmentId !== segmentId) return;
+    const element = document.getElementById("street-detail-evidence");
+    element.replaceChildren();
+    for (const evidence of data.evidence || []) {
+      const link = document.createElement("a");
+      link.href = `/trips/${encodeURIComponent(evidence.trip_id)}`;
+      link.textContent = `${evidence.source === "matchedGps" ? "Map-matched" : "GPS"} drive · ${new Date(evidence.driven_at).toLocaleDateString()}`;
+      const item = document.createElement("li");
+      item.append(link);
+      element.append(item);
+    }
+  } catch (error) {
+    if (state.selectedSegment?.segmentId === segmentId)
+      document.getElementById("street-detail-evidence").textContent =
+        `Evidence unavailable: ${error.message}`;
   }
 }
 
@@ -2212,96 +2301,62 @@ function closeStreetDetailPanel() {
 // Mark Segment Actions
 // =============================================================================
 
-async function markSegmentDriven(areaId, segmentId) {
-  if (!segmentId) {
-    notificationManager.show(
-      "Cannot mark segment: missing segment identifier.",
-      "danger"
-    );
-    return;
-  }
+async function applyStreetDecision(areaId, segmentId, status) {
+  if (!segmentId) return;
+  const buttons = [...document.querySelectorAll("#street-detail-actions button")];
+  buttons.forEach((button) => {
+    button.disabled = true;
+  });
   try {
-    await apiPost(`/areas/${areaId}/streets/mark-driven`, {
-      segment_ids: [segmentId],
-      source: "manual",
+    const result = await apiPatch(`/areas/${areaId}/streets/${segmentId}`, { status });
+    if (state.currentAreaId !== areaId) return;
+    const updated = result.states?.[segmentId];
+    if (updated) updateStreetStatus(segmentId, updated);
+    state.currentAreaData = { ...state.currentAreaData, ...result };
+    state.currentAreaSyncToken = `${state.currentAreaData.area_version}:${result.coverage_revision}`;
+    await refreshDashboardStats(areaId);
+    await loadStreets(areaId, state.currentAreaSyncToken);
+    const feature = state.streetsCacheGeojson?.features?.find(
+      (item) => item.properties.segment_id === segmentId
+    );
+    if (feature) openStreetDetailPanel(feature);
+    notificationManager.show(
+      status === "automatic"
+        ? "Automatic coverage restored"
+        : "Street correction saved",
+      "success"
+    );
+  } catch (error) {
+    notificationManager.show(error.message, "danger");
+  } finally {
+    buttons.forEach((button) => {
+      button.disabled = false;
     });
-    notificationManager.show("Segment marked as driven", "success");
-    updateStreetStatus(segmentId, "driven");
-    closeStreetDetailPanel();
-    await refreshDashboardStats(areaId);
-  } catch (error) {
-    notificationManager.show(`Failed to mark as driven: ${error.message}`, "danger");
   }
 }
-
+async function markSegmentDriven(areaId, segmentId) {
+  return applyStreetDecision(areaId, segmentId, "driven");
+}
 async function markSegmentUndriveable(areaId, segmentId) {
-  if (!segmentId) {
-    notificationManager.show(
-      "Cannot mark segment: missing segment identifier.",
-      "danger"
-    );
-    return;
-  }
-  try {
-    await apiPatch(`/areas/${areaId}/streets/${segmentId}`, { status: "undriveable" });
-    notificationManager.show("Segment marked as undriveable", "success");
-    updateStreetStatus(segmentId, "undriveable");
-    closeStreetDetailPanel();
-    await refreshDashboardStats(areaId);
-  } catch (error) {
-    notificationManager.show(
-      `Failed to mark as undriveable: ${error.message}`,
-      "danger"
-    );
-  }
+  return applyStreetDecision(areaId, segmentId, "undriveable");
 }
-
 async function markSegmentUndriven(areaId, segmentId) {
-  if (!segmentId) {
-    notificationManager.show(
-      "Cannot reset segment: missing segment identifier.",
-      "danger"
-    );
-    return;
-  }
-  try {
-    await apiPatch(`/areas/${areaId}/streets/${segmentId}`, { status: "undriven" });
-    notificationManager.show("Segment reset to undriven", "success");
-    updateStreetStatus(segmentId, "undriven");
-    closeStreetDetailPanel();
-    await refreshDashboardStats(areaId);
-  } catch (error) {
-    notificationManager.show(`Failed to reset segment: ${error.message}`, "danger");
-  }
+  return applyStreetDecision(areaId, segmentId, "undriven");
 }
 
 /**
  * Mutates the cached GeoJSON in-place and pushes updated data to the map source.
  * This gives instant visual feedback without a full reload.
  */
-function updateStreetStatus(segmentId, newStatus) {
-  const source = state.map?.getSource("streets");
-  if (!source || !state.streetsCacheGeojson?.features) {
-    return;
-  }
-
-  const feature = state.streetsCacheGeojson.features.find(
-    (f) => f.properties?.segment_id === segmentId
+function updateStreetStatus(segmentId, serverState) {
+  const feature = state.streetsCacheGeojson?.features?.find(
+    (item) => item.properties?.segment_id === segmentId
   );
-
-  if (feature) {
-    feature.properties.status = newStatus;
-    if (newStatus === "driven") {
-      const now = new Date().toISOString();
-      feature.properties.last_driven_at = now;
-      if (!feature.properties.first_driven_at) {
-        feature.properties.first_driven_at = now;
-      }
-    }
-  }
-
-  source.setData(state.streetsCacheGeojson);
-  // Invalidate rendered cache key so next viewArea re-fetches from server
+  if (feature)
+    Object.assign(feature.properties, serverState, {
+      segment_status: serverState.status,
+    });
+  state.map?.getSource("streets")?.setData(state.streetsCacheGeojson);
   state.renderedStreetsCacheKey = null;
 }
 

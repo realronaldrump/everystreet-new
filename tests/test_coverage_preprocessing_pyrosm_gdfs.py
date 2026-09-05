@@ -1,35 +1,32 @@
-import pandas as pd
+import geopandas as gpd
+import networkx as nx
+from pyrosm import OSM
+from shapely.geometry import LineString, Point
+from street_coverage.preprocessing import _try_pyrosm_to_graph
 
-from street_coverage.preprocessing import _normalize_pyrosm_gdfs
 
-
-def test_normalize_pyrosm_gdfs_makes_unique_indexes() -> None:
-    # Nodes have duplicate ids (common in some pyrosm outputs) and only lon/lat.
-    nodes = pd.DataFrame(
-        {
-            "id": [1, 1, 2],
-            "lon": [-97.0, -97.0, -96.9],
-            "lat": [31.5, 31.5, 31.6],
-        },
+def test_pyrosm_conversion_creates_legal_reverse_edges_and_keeps_oneway():
+    nodes = gpd.GeoDataFrame(
+        {"id": [1, 2, 3], "lon": [-107, -106.999, -106.998], "lat": [39, 39, 39]},
+        geometry=[Point(-107, 39), Point(-106.999, 39), Point(-106.998, 39)],
+        crs="EPSG:4326",
     )
-
-    # Edges have parallel edges between the same nodes but no `key` column.
-    edges = pd.DataFrame(
+    edges = gpd.GeoDataFrame(
         {
-            "u": [1, 1, 1],
-            "v": [2, 2, 2],
-            "highway": ["residential", "residential", "service"],
+            "id": [10, 11],
+            "u": [1, 2],
+            "v": [2, 3],
+            "oneway": ["no", "yes"],
+            "highway": ["residential", "residential"],
+            "length": [86.6, 86.6],
         },
+        geometry=[
+            LineString([(-107, 39), (-106.999, 39)]),
+            LineString([(-106.999, 39), (-106.998, 39)]),
+        ],
+        crs="EPSG:4326",
     )
-
-    norm_nodes, norm_edges = _normalize_pyrosm_gdfs(nodes, edges)
-
-    assert norm_nodes.index.name == "osmid"
-    assert norm_nodes.index.is_unique
-    assert {"x", "y"}.issubset(norm_nodes.columns)
-
-    assert isinstance(norm_edges.index, pd.MultiIndex)
-    assert list(norm_edges.index.names) == ["u", "v", "key"]
-    assert norm_edges.index.is_unique
-    # Parallel edges should be preserved by generating distinct keys.
-    assert len(norm_edges) == len(edges)
+    graph = _try_pyrosm_to_graph(OSM, nodes, edges)
+    assert isinstance(graph, nx.MultiDiGraph)
+    assert graph.has_edge(1, 2) and graph.has_edge(2, 1)
+    assert graph.has_edge(2, 3) and not graph.has_edge(3, 2)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 import statistics
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from beanie import PydanticObjectId
@@ -14,6 +14,9 @@ from db.models import (
     CoverageGoal,
     CoverageMission,
     CoverageState,
+    CoverageDriveEvent,
+    CoverageJournalEntry,
+    CoverageJournalRollup,
     Job,
     Street,
 )
@@ -67,8 +70,6 @@ async def _serialize_mission(
     *,
     include_route: bool = False,
 ) -> dict[str, Any]:
-    target_count = len(mission.mapped_segment_ids or mission.target_segment_ids)
-    completed_count = len(mission.completed_segment_ids)
     payload: dict[str, Any] = {
         "id": str(mission.id),
         "area_id": str(mission.area_id),
@@ -79,7 +80,9 @@ async def _serialize_mission(
         "target_segment_ids": mission.target_segment_ids,
         "mapped_segment_ids": mission.mapped_segment_ids,
         "completed_segment_ids": mission.completed_segment_ids,
-        "completion_ratio": round(completed_count / max(target_count, 1), 4),
+        "completion_ratio": min(1.0, mission.actual_new_miles / mission.target_miles)
+        if mission.target_miles > 0
+        else 0.0,
         "requested_minutes": mission.requested_minutes,
         "target_miles": round(mission.target_miles, 3),
         "route_distance_miles": mission.route_distance_miles,
@@ -125,31 +128,47 @@ async def _current_street_lengths(area: CoverageArea) -> dict[str, float]:
     }
 
 
-async def _daily_new_miles(
-    area: CoverageArea,
-    *,
-    since: datetime,
-) -> dict[date, float]:
-    lengths = await _current_street_lengths(area)
-    if not lengths:
+async def _daily_new_miles(area, *, since, timezone="UTC"):
+    from zoneinfo import ZoneInfo
+    from street_coverage.journal import normalize_timezone
+
+    rollup = await CoverageJournalRollup.find_one(
+        {"area_id": area.id, "area_version": area.area_version}
+    )
+    if rollup is None:
         return {}
-    states = await CoverageState.find(
+    rows = await CoverageJournalEntry.find(
         {
             "area_id": area.id,
-            "status": "driven",
-            "first_driven_at": {"$gte": since},
-            "driven_by_trip_id": {"$ne": None},
-            "manually_marked": {"$ne": True},
-            "segment_id": {"$in": list(lengths)},
-        },
+            "area_version": area.area_version,
+            "revision": rollup.revision,
+            "kind": "contribution",
+            "data.source": "trip",
+            "occurred_at": {"$gte": since},
+        }
     ).to_list()
-    totals: dict[date, float] = {}
-    for state in states:
-        if state.first_driven_at is None:
-            continue
-        day = state.first_driven_at.astimezone(UTC).date()
-        totals[day] = totals.get(day, 0.0) + lengths.get(state.segment_id, 0.0)
+    totals = {}
+    zone = ZoneInfo(normalize_timezone(timezone))
+    for row in rows:
+        day = row.occurred_at.astimezone(zone).date()
+        totals[day] = totals.get(day, 0.0) + float(row.data["new_miles"])
     return totals
+
+
+def _pace_date(now, days):
+    if not math.isfinite(days) or days > 365 * 50:
+        return None
+    return (now + timedelta(days=days)).date().isoformat()
+
+
+def target_reached(area, percentage):
+    if area.driveable_length_miles <= 0:
+        return False
+    return (
+        area.is_complete
+        if percentage >= 100
+        else area.coverage_percentage >= percentage
+    )
 
 
 class CoverageIntelligenceService:
@@ -183,15 +202,9 @@ class CoverageIntelligenceService:
                 baseline_percentage=float(area.coverage_percentage or 0.0),
                 baseline_driven_miles=float(area.driven_length_miles or 0.0),
                 status=(
-                    "completed"
-                    if float(area.coverage_percentage or 0.0) >= target_percentage
-                    else "active"
+                    "completed" if target_reached(area, target_percentage) else "active"
                 ),
-                completed_at=(
-                    now
-                    if float(area.coverage_percentage or 0.0) >= target_percentage
-                    else None
-                ),
+                completed_at=(now if target_reached(area, target_percentage) else None),
             )
             await goal.insert()
         else:
@@ -199,14 +212,16 @@ class CoverageIntelligenceService:
             goal.target_date = target_date
             goal.preferred_mission_minutes = preferred_mission_minutes
             goal.updated_at = now
-            completed = float(area.coverage_percentage or 0.0) >= target_percentage
+            completed = target_reached(area, target_percentage)
             goal.status = "completed" if completed else "active"
             goal.completed_at = now if completed else None
             await goal.save()
         return _serialize_goal(goal) or {}
 
     @staticmethod
-    async def get_intelligence(area_id: PydanticObjectId) -> dict[str, Any]:
+    async def get_intelligence(
+        area_id: PydanticObjectId, *, timezone: str = "UTC"
+    ) -> dict[str, Any]:
         area = await CoverageArea.get(area_id)
         if area is None:
             raise ValueError("Coverage area not found")
@@ -218,11 +233,15 @@ class CoverageIntelligenceService:
         remaining_miles = max(target_miles - driven_miles, 0.0)
         now = datetime.now(UTC)
 
-        recent = await _daily_new_miles(area, since=now - timedelta(days=90))
+        recent = await _daily_new_miles(
+            area, since=now - timedelta(days=90), timezone=timezone
+        )
         window_days = 90
         daily = recent
         if len(recent) < 4:
-            daily = await _daily_new_miles(area, since=now - timedelta(days=365))
+            daily = await _daily_new_miles(
+                area, since=now - timedelta(days=365), timezone=timezone
+            )
             window_days = 365
 
         values = [value for value in daily.values() if value > 0]
@@ -239,7 +258,7 @@ class CoverageIntelligenceService:
             "required_miles_per_week": None,
             "required_active_days_per_week": None,
         }
-        if remaining_miles <= 0:
+        if target_reached(area, target_percentage):
             forecast.update(
                 {
                     "available": True,
@@ -253,9 +272,8 @@ class CoverageIntelligenceService:
             )
         elif active_days >= 4:
             median_daily = statistics.median(values)
-            earliest_day = min(daily)
             latest_day = max(daily)
-            span_days = max((latest_day - earliest_day).days + 1, 7)
+            span_days = window_days
             active_days_per_week = active_days / span_days * 7
             weekly_miles = median_daily * active_days_per_week
             expected_days = remaining_miles / max(weekly_miles, 0.001) * 7
@@ -264,27 +282,36 @@ class CoverageIntelligenceService:
             fast_days = remaining_miles / max(p75 * active_days_per_week, 0.001) * 7
             slow_days = remaining_miles / max(p25 * active_days_per_week, 0.001) * 7
             confidence = (
-                "high"
-                if active_days >= 12 and span_days >= 60
-                else "medium"
-                if active_days >= 6
+                "medium"
+                if active_days >= 12 and (now.date() - latest_day).days <= 30
                 else "low"
             )
             forecast.update(
                 {
                     "median_new_miles_per_active_day": round(median_daily, 3),
                     "active_days_per_week": round(active_days_per_week, 2),
-                    "expected_completion_date": (now + timedelta(days=expected_days))
-                    .date()
-                    .isoformat(),
+                    "expected_completion_date": _pace_date(now, expected_days),
                     "completion_date_range": {
-                        "earliest": (now + timedelta(days=fast_days))
-                        .date()
-                        .isoformat(),
-                        "latest": (now + timedelta(days=slow_days)).date().isoformat(),
+                        "earliest": _pace_date(now, fast_days),
+                        "latest": _pace_date(now, slow_days),
                     },
                     "confidence": confidence,
+                    "basis": f"Trailing {window_days} calendar days, including days without new coverage",
+                    "last_progress_date": latest_day.isoformat(),
                 },
+            )
+
+        if (
+            remaining_miles > 0
+            and forecast["available"]
+            and forecast["expected_completion_date"] is None
+        ):
+            forecast.update(
+                {
+                    "available": False,
+                    "confidence": "insufficient",
+                    "reason": "Recent coverage pace does not support a useful completion date.",
+                }
             )
 
         if goal and goal.target_date and remaining_miles > 0:
@@ -479,7 +506,13 @@ class CoverageIntelligenceService:
         if goal is None:
             await CoverageIntelligenceService.save_goal(area_id)
             goal = await CoverageIntelligenceService.get_goal(area_id)
-        target_miles = sum(lengths[sid] for sid in usable_ids)
+        from street_coverage.intervals import covered_fraction
+
+        baseline = {state.segment_id: state.intervals for state in states}
+        target_miles = sum(
+            lengths[sid] * (1 - covered_fraction(baseline.get(sid, [])))
+            for sid in usable_ids
+        )
         coverage_gain = (
             target_miles / max(float(area.driveable_length_miles or 0.0), 0.001) * 100
         )
@@ -491,6 +524,7 @@ class CoverageIntelligenceService:
             journal_revision=int(area.journal_revision or 0),
             status="route_generating",
             target_segment_ids=usable_ids,
+            baseline_intervals=baseline,
             mapped_segment_ids=usable_ids,
             start_location=(
                 {"latitude": start_lat, "longitude": start_lon}
@@ -624,8 +658,11 @@ class CoverageIntelligenceService:
         elif action == "finish":
             if mission.status != "active":
                 raise ValueError("Only an active mission can be finished")
-            target_count = len(mission.mapped_segment_ids or mission.target_segment_ids)
-            ratio = len(mission.completed_segment_ids) / max(target_count, 1)
+            ratio = (
+                mission.actual_new_miles / mission.target_miles
+                if mission.target_miles > 0
+                else 0.0
+            )
             mission.status = (
                 "completed" if ratio >= MISSION_COMPLETION_RATIO else "partial"
             )
@@ -641,57 +678,113 @@ class CoverageIntelligenceService:
 
     @staticmethod
     async def reconcile_historical_trip(
-        *,
-        area_id: PydanticObjectId,
-        area_version: int,
-        trip_id: PydanticObjectId,
-        newly_driven_segment_ids: list[str],
-    ) -> None:
-        if not newly_driven_segment_ids:
-            return
-        area = await CoverageArea.get(area_id)
-        if area is None:
-            return
-        missions = await CoverageMission.find(
-            {"area_id": area_id, "status": "active"},
-        ).to_list()
-        newly_driven = set(newly_driven_segment_ids)
-        for mission in missions:
-            if mission.area_version != area_version:
-                mission.status = "stale"
-                mission.updated_at = datetime.now(UTC)
-                await mission.save()
-                continue
-            targets = set(mission.mapped_segment_ids or mission.target_segment_ids)
-            matched = targets & newly_driven
-            if not matched:
-                continue
-            completed = set(mission.completed_segment_ids) | matched
-            mission.completed_segment_ids = sorted(completed)
-            if trip_id not in mission.actual_trip_ids:
-                mission.actual_trip_ids.append(trip_id)
-            lengths = await _current_street_lengths(area)
-            mission.actual_new_miles = sum(lengths.get(sid, 0.0) for sid in completed)
-            mission.actual_coverage_gain = (
-                mission.actual_new_miles
-                / max(float(area.driveable_length_miles or 0.0), 0.001)
-                * 100
-            )
-            ratio = len(completed) / max(len(targets), 1)
-            if ratio >= MISSION_COMPLETION_RATIO:
-                mission.status = "completed"
-                mission.completed_at = datetime.now(UTC)
-            mission.updated_at = datetime.now(UTC)
-            await mission.save()
+        *, area_id, area_version, trip_id, newly_driven_segment_ids
+    ):
+        from street_coverage import transactions
+        from street_coverage.intervals import covered_fraction, union_intervals
+        from core.date_utils import normalize_to_utc_datetime
 
-        goal = await CoverageGoal.find_one({"area_id": area_id, "status": "active"})
-        if goal and float(area.coverage_percentage or 0.0) >= float(
-            goal.target_percentage
-        ):
-            goal.status = "completed"
-            goal.completed_at = datetime.now(UTC)
-            goal.updated_at = datetime.now(UTC)
-            await goal.save()
+        missions = await CoverageMission.find(
+            {"area_id": area_id, "status": {"$in": ["active", "completed", "partial"]}}
+        ).to_list()
+        for candidate in missions:
+
+            async def reconcile(session):
+                now = datetime.now(UTC)
+                collection = CoverageMission.get_pymongo_collection()
+                await collection.update_one(
+                    {"_id": candidate.id},
+                    {"$set": {"updated_at": now}},
+                    session=session,
+                )
+                mission = await CoverageMission.get(candidate.id, session=session)
+                area = await CoverageArea.get(area_id, session=session)
+                if mission is None or area is None:
+                    return
+                if mission.area_version != area.area_version:
+                    await collection.update_one(
+                        {"_id": mission.id},
+                        {"$set": {"status": "stale"}},
+                        session=session,
+                    )
+                    return
+                if not mission.started_at:
+                    return
+                targets = mission.mapped_segment_ids or mission.target_segment_ids
+                window = {"$gte": normalize_to_utc_datetime(mission.started_at)}
+                if mission.completed_at:
+                    window["$lte"] = normalize_to_utc_datetime(mission.completed_at)
+                events = await CoverageDriveEvent.find(
+                    {
+                        "area_id": area_id,
+                        "area_version": area.area_version,
+                        "segment_ids": {"$in": targets},
+                        "driven_at": window,
+                    },
+                    session=session,
+                ).to_list()
+                streets = await Street.find(
+                    {
+                        "area_id": area_id,
+                        "area_version": area.area_version,
+                        "segment_id": {"$in": targets},
+                    },
+                    session=session,
+                ).to_list()
+                accumulated = {}
+                for event in events:
+                    for sid, intervals in event.segment_intervals.items():
+                        if sid in targets:
+                            accumulated[sid] = union_intervals(
+                                [*accumulated.get(sid, []), *intervals]
+                            )
+                miles = 0.0
+                completed = []
+                for street in streets:
+                    baseline = mission.baseline_intervals.get(street.segment_id, [])
+                    union = union_intervals(
+                        [*baseline, *accumulated.get(street.segment_id, [])]
+                    )
+                    miles += (
+                        max(0.0, covered_fraction(union) - covered_fraction(baseline))
+                        * street.length_miles
+                    )
+                    if covered_fraction(union) >= 1 - 1e-9:
+                        completed.append(street.segment_id)
+                ratio = (
+                    miles / mission.target_miles if mission.target_miles > 0 else 0.0
+                )
+                status = (
+                    "completed"
+                    if ratio >= MISSION_COMPLETION_RATIO
+                    else "partial"
+                    if mission.completed_at
+                    else "active"
+                )
+                await collection.update_one(
+                    {"_id": mission.id},
+                    {
+                        "$set": {
+                            "completed_segment_ids": sorted(completed),
+                            "actual_trip_ids": sorted(
+                                {event.trip_id for event in events}, key=str
+                            ),
+                            "actual_new_miles": miles,
+                            "actual_coverage_gain": miles
+                            / area.driveable_length_miles
+                            * 100
+                            if area.driveable_length_miles
+                            else 0,
+                            "status": status,
+                            "completed_at": now
+                            if status == "completed" and not mission.completed_at
+                            else mission.completed_at,
+                        }
+                    },
+                    session=session,
+                )
+
+            await transactions.run_transaction(reconcile)
 
 
 __all__ = ["CoverageIntelligenceService"]

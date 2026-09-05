@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 from beanie import Document, Indexed, PydanticObjectId
 from beanie.odm.fields import IndexModel
@@ -94,6 +94,8 @@ class Trip(Document):
     coverage_lease_until: datetime | None = None
     coverage_lease_token: str | None = None
     coverage_error: str | None = None
+    coverage_input_revision: str | None = None
+    coverage_processed_revision: str | None = None
     mobility_synced_at: datetime | None = None
     inactive: bool = False
     inactive_at: datetime | None = None
@@ -652,6 +654,15 @@ class CoverageArea(Document):
     journal_revision: int = 0
     journal_status: str = "pending"
     journal_built_at: datetime | None = None
+    coverage_matching_version: str | None = None
+    coverage_built_at: datetime | None = None
+    last_coverage_trip_at: datetime | None = None
+    coverage_rebuild_token: str | None = None
+    pending_area_version: int | None = None
+    coverage_rebuild_until: datetime | None = None
+    remaining_length_miles: float = 0.0
+    remaining_segments: int = 0
+    is_complete: bool = False
 
     class Settings:
         name = "coverage_areas"
@@ -709,6 +720,10 @@ class Street(Document):
     highway_type: str = "unclassified"
     osm_id: int | None = None
     length_miles: float = 0.0
+    road_key: str = ""
+    street_key: str = ""
+    osm_way_ids: list[int] = Field(default_factory=list)
+    road_tags: dict[str, Any] = Field(default_factory=dict)
     graph_edge: dict[str, Any] | None = None
     osm_extract_id: str | None = None
 
@@ -727,6 +742,10 @@ class Street(Document):
             IndexModel(
                 [("area_id", 1), ("area_version", 1)],
                 name="streets_area_version_idx",
+            ),
+            IndexModel(
+                [("area_id", 1), ("area_version", 1), ("street_key", 1)],
+                name="streets_area_name_idx",
             ),
             IndexModel(
                 [("area_id", 1), ("area_version", 1), ("osm_extract_id", 1)],
@@ -753,6 +772,13 @@ class CoverageState(Document):
     driven_by_trip_id: PydanticObjectId | None = None
     manually_marked: bool = False
     marked_at: datetime | None = None
+    intervals: list[list[float]] = Field(default_factory=list)
+    discovery_intervals: list[dict[str, Any]] = Field(default_factory=list)
+    covered_length_miles: float = 0.0
+    coverage_fraction: float = 0.0
+    trip_count: int = 0
+    evidence_source: str | None = None
+    max_offset_meters: float | None = None
 
     @field_validator(
         "last_driven_at",
@@ -810,7 +836,10 @@ class CoverageDriveEvent(Document):
     timezone: str | None = None
     geometry_source: str = "unknown"
     matching_mode: str = "both"
-    matching_version: str = "coverage-v1"
+    matching_version: str = "coverage-intervals-v2"
+    input_revision: str = ""
+    segment_intervals: dict[str, list[list[float]]] = Field(default_factory=dict)
+    segment_offsets: dict[str, float] = Field(default_factory=dict)
     segment_ids: list[str] = Field(default_factory=list)
     newly_driven_segment_ids: list[str] = Field(default_factory=list)
     journal_revision: int | None = None
@@ -836,9 +865,72 @@ class CoverageDriveEvent(Document):
                 [("area_id", 1), ("area_version", 1), ("driven_at", 1)],
                 name="coverage_drive_event_chronology_idx",
             ),
+            IndexModel(
+                [("area_id", 1), ("area_version", 1), ("segment_ids", 1)],
+                name="coverage_drive_event_segments_idx",
+            ),
         ]
 
     model_config = ConfigDict(extra="allow")
+
+
+class CoverageOverride(Document):
+    """An owner decision tied to a road identity, independent of derived state."""
+
+    area_id: PydanticObjectId
+    road_key: str
+    status: Literal["driven", "undriven", "undriveable"]
+    geometry: dict[str, Any]
+    street_name: str | None = None
+    marked_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("marked_at", mode="before")
+    @classmethod
+    def normalize_mark_time(cls, value):
+        return parse_timestamp(value)
+
+    class Settings:
+        name = "coverage_overrides"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel([("area_id", 1), ("road_key", 1)], unique=True),
+        ]
+
+
+class CoverageJournalEntry(Document):
+    """A bounded row in a revisioned journal projection."""
+
+    area_id: PydanticObjectId
+    area_version: int
+    revision: int
+    kind: str
+    key: str
+    order: int = 0
+    occurred_at: datetime | None = None
+    data: dict[str, Any]
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("occurred_at", "created_at", mode="before")
+    @classmethod
+    def normalize_entry_time(cls, value):
+        return parse_timestamp(value) if value else None
+
+    class Settings:
+        name = "coverage_journal_entries"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [
+                    ("area_id", 1),
+                    ("area_version", 1),
+                    ("revision", 1),
+                    ("kind", 1),
+                    ("key", 1),
+                ],
+                unique=True,
+            ),
+            IndexModel(
+                [("area_id", 1), ("revision", 1), ("kind", 1), ("occurred_at", -1)]
+            ),
+        ]
 
 
 class CoverageGoal(Document):
@@ -894,6 +986,7 @@ class CoverageMission(Document):
     journal_revision: int
     status: str = "ready"
     target_segment_ids: list[str] = Field(default_factory=list)
+    baseline_intervals: dict[str, list[list[float]]] = Field(default_factory=dict)
     mapped_segment_ids: list[str] = Field(default_factory=list)
     completed_segment_ids: list[str] = Field(default_factory=list)
     start_location: dict[str, float] | None = None
@@ -1541,6 +1634,8 @@ ALL_DOCUMENT_MODELS = [
     CoverageMission,
     CoverageStatusEvent,
     CoverageJournalRollup,
+    CoverageOverride,
+    CoverageJournalEntry,
     McpAuditEvent,
     Job,
     Street,

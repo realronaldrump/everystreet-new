@@ -109,6 +109,7 @@ def _estimate_linestring_length_m(geometry: dict[str, Any] | None) -> float:
 
 
 async def _load_undriven_segments(area: CoverageArea) -> list[dict[str, Any]]:
+    covered_miles = {}
     driven_segment_ids = set()
     undriveable_segment_ids = set()
     # CoverageState may omit explicit "undriven" rows; only fetch the
@@ -116,9 +117,10 @@ async def _load_undriven_segments(area: CoverageArea) -> list[dict[str, Any]]:
     async for state in CoverageState.find(
         {
             "area_id": area.id,
-            "status": {"$in": ["driven", "undriveable"]},
+            "$or": [{"covered_length_miles": {"$gt": 0}}, {"status": "undriveable"}],
         },
     ):
+        covered_miles[state.segment_id] = state.covered_length_miles
         if state.status == "driven":
             driven_segment_ids.add(state.segment_id)
         elif state.status == "undriveable":
@@ -139,7 +141,12 @@ async def _load_undriven_segments(area: CoverageArea) -> list[dict[str, Any]]:
                 "segment_id": street.segment_id,
                 "street_name": street.street_name,
                 "geometry": street.geometry or {},
-                "length_m": safe_float(street.length_miles) * MILES_TO_METERS,
+                "length_m": max(
+                    0.0,
+                    safe_float(street.length_miles)
+                    - covered_miles.get(street.segment_id, 0.0),
+                )
+                * MILES_TO_METERS,
             },
         )
 
@@ -539,7 +546,7 @@ class DrivingService:
         current_lat: float,
         current_lon: float,
         top_n: int = 3,
-        min_cluster_size: int = 2,
+        min_cluster_size: int = 1,
     ) -> dict[str, Any]:
         """Suggest efficient clusters of undriven streets."""
         area = await CoverageArea.get(area_id)

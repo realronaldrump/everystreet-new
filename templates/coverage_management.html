@@ -287,7 +287,7 @@ Street Segments
             <select id="dashboard-coverage-trip-mode"
                     class="form-select form-select-sm sidebar-select-input">
               <option value="both" selected>
-Both (recommended)
+Best available trace
               </option>
               <option value="regular">
 Regular trips only
@@ -448,7 +448,14 @@ Last driven
           </dd>
         </dl>
 
+        <dl class="street-detail-grid">
+          <dt>Covered</dt><dd id="street-detail-covered">—</dd>
+          <dt>Remaining</dt><dd id="street-detail-remaining">—</dd>
+          <dt>Evidence</dt><dd id="street-detail-source">—</dd>
+        </dl>
+        <ul id="street-detail-evidence" class="street-evidence-list" aria-label="Supporting drives"></ul>
         <div class="street-detail-actions" id="street-detail-actions">
+          <button id="street-restore-automatic-btn" class="btn btn-outline-secondary btn-sm w-100 mb-2 d-none">Use drive history</button>
           <button id="street-mark-driven-btn"
                   class="btn btn-success btn-sm w-100 mb-2 d-none"
                   aria-label="Mark this segment as driven">
@@ -546,7 +553,7 @@ State / Region
               </label>
               <select id="modal-coverage-trip-mode" class="form-select">
                 <option value="both" selected>
-Both (recommended)
+Best available trace
                 </option>
                 <option value="regular">
 Regular trips only

@@ -43,26 +43,30 @@ export function buildShareModel(area, streets) {
       !lines.length ||
       !lines.every(validLine) ||
       !["driven", "undriven", "undriveable"].includes(props.status) ||
+      !Number.isFinite(props.section_length_miles) ||
+      props.section_length_miles < 0 ||
+      typeof feature.id !== "string" ||
+      !feature.id ||
       !Number.isFinite(props.length_miles) ||
       props.length_miles < 0 ||
       typeof props.segment_id !== "string" ||
       !props.segment_id ||
-      ids.has(props.segment_id)
+      ids.has(feature.id)
     ) {
       throw new Error("The street data is incomplete. Refresh the area and try again.");
     }
-    ids.add(props.segment_id);
+    ids.add(feature.id);
     const timestamp = props.first_driven_at
       ? Date.parse(String(props.first_driven_at).replace(" ", "T"))
       : NaN;
     return {
       feature,
       lines,
-      miles: props.length_miles,
+      miles: props.section_length_miles,
       driven: props.status === "driven",
       driveable: props.status !== "undriveable",
       date: Number.isFinite(timestamp) ? timestamp : null,
-      id: props.segment_id,
+      id: feature.id,
     };
   });
   const totalMiles = roads.reduce((sum, r) => sum + (r.driveable ? r.miles : 0), 0);

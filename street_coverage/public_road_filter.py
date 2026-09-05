@@ -15,7 +15,7 @@ from typing import Any
 
 from core.settings_snapshot import user_setting
 
-ROAD_FILTER_VERSION = "public-road-filter-v2"
+ROAD_FILTER_VERSION = "public-road-filter-v3"
 GRAPH_ROAD_FILTER_VERSION_KEY = "coverage_road_filter_version"
 GRAPH_ROAD_FILTER_SIGNATURE_KEY = "coverage_road_filter_signature"
 GRAPH_ROAD_FILTER_STATS_KEY = "coverage_road_filter_stats"
@@ -392,18 +392,20 @@ def _pick_driveable_highway(value: Any) -> str | None:
 
 
 def _has_hard_restriction(tags: Mapping[str, Any]) -> bool:
-    for key in ACCESS_KEYS:
+    for key in reversed(ACCESS_KEYS):
         values = normalize_tag_values(tags.get(key))
-        if any(token in HARD_RESTRICTION_VALUES for token in values):
-            return True
+        if values:
+            return any(token in HARD_RESTRICTION_VALUES for token in values)
     return False
 
 
 def _has_ambiguous_access(tags: Mapping[str, Any]) -> bool:
-    for key in ACCESS_KEYS:
+    for key in reversed(ACCESS_KEYS):
         values = normalize_tag_values(tags.get(key))
-        if any(token in AMBIGUOUS_ACCESS_VALUES for token in values):
-            return True
+        if values:
+            if any(token in AMBIGUOUS_ACCESS_VALUES for token in values):
+                return True
+            break
 
     conditional_raw = tags.get("access:conditional")
     if conditional_raw is None:

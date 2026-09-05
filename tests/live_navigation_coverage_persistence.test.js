@@ -1,103 +1,89 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-
 import LiveNavigationAPI from "../static/js/modules/live-navigation/live-navigation-api.js";
-import LiveNavigationCoverage from "../static/js/modules/live-navigation/live-navigation-coverage.js";
+import LiveNavigationCoverage, {
+  mergeIntervals,
+  traceIntervals,
+} from "../static/js/modules/live-navigation/live-navigation-coverage.js";
 
-test("persistDrivenSegments sends queued segments and clears state on success", async () => {
-  const coverage = new LiveNavigationCoverage();
-  coverage.selectedAreaId = "area-1";
-  coverage.pendingSegmentUpdates.add("seg-1");
-  coverage.pendingSegmentUpdates.add("seg-2");
-  const originalBasePersist = LiveNavigationAPI.persistDrivenSegments;
-  const baseCalls = [];
+const coordinates = [
+  [-107, 39],
+  [-106.998, 39],
+];
+const street = {
+  type: "Feature",
+  geometry: { type: "LineString", coordinates },
+  properties: {
+    segment_id: "street",
+    status: "undriven",
+    length_miles: 0.1,
+    intervals: [],
+  },
+};
 
-  LiveNavigationAPI.persistDrivenSegments = async (...args) => {
-    baseCalls.push(args);
-    return { success: true };
-  };
-
+test("navigation accumulates provisional intervals without persistent writes", async () => {
+  const original = LiveNavigationAPI.fetchCoverageSegments;
+  LiveNavigationAPI.fetchCoverageSegments = async () => ({
+    type: "FeatureCollection",
+    features: [structuredClone(street)],
+  });
   try {
-    await coverage.persistDrivenSegments();
-    assert.equal(coverage.pendingSegmentUpdates.size, 0);
-    assert.equal(coverage.consecutivePersistFailures, 0);
-    assert.deepEqual(baseCalls, [[["seg-1", "seg-2"], "area-1"]]);
+    const coverage = new LiveNavigationCoverage();
+    await coverage.loadSegments("area");
+    coverage.checkSegmentCoverage({ lon: -107, lat: 39, timestamp: 1000 });
+    assert.equal(coverage.getCoverageStats().percentage, 0);
+    coverage.checkSegmentCoverage({ lon: -106.999, lat: 39, timestamp: 10000 });
+    assert.ok(Math.abs(coverage.getCoverageStats().percentage - 50) < 0.001);
+    coverage.checkSegmentCoverage({ lon: -107, lat: 39, timestamp: 20000 });
+    assert.ok(Math.abs(coverage.getCoverageStats().percentage - 50) < 0.001);
+    assert.equal(coverage.getCoverageStats().provisional, true);
+    assert.equal(LiveNavigationAPI.persistDrivenSegments, undefined);
+    coverage.destroy();
   } finally {
-    clearTimeout(coverage.persistRetryTimeout);
-    LiveNavigationAPI.persistDrivenSegments = originalBasePersist;
+    LiveNavigationAPI.fetchCoverageSegments = original;
   }
 });
 
-test("persistDrivenSegments re-queues segments and schedules retry on failure", async () => {
-  const coverage = new LiveNavigationCoverage();
-  coverage.selectedAreaId = "area-2";
-  coverage.pendingSegmentUpdates.add("seg-a");
-  coverage.pendingSegmentUpdates.add("seg-b");
-
-  const originalBasePersist = LiveNavigationAPI.persistDrivenSegments;
-  const issues = [];
-
-  coverage.setCallbacks({
-    onPersistenceIssue: (payload) => {
-      issues.push(payload);
-    },
+test("outages and poor fixes cannot add provisional mileage", async () => {
+  const original = LiveNavigationAPI.fetchCoverageSegments;
+  LiveNavigationAPI.fetchCoverageSegments = async () => ({
+    features: [structuredClone(street)],
   });
-
-  LiveNavigationAPI.persistDrivenSegments = async () => {
-    throw new Error("base write failed");
-  };
-
   try {
-    await coverage.persistDrivenSegments();
-    assert.equal(coverage.pendingSegmentUpdates.size, 2);
-    assert.equal(coverage.consecutivePersistFailures, 1);
-    assert.ok(coverage.persistRetryTimeout);
-    assert.equal(
-      issues.some((issue) => issue?.type === "base_failed"),
-      true
-    );
-    assert.equal(
-      issues.some((issue) => issue?.type === "retry_scheduled"),
-      true
-    );
-    assert.deepEqual(Array.from(coverage.pendingSegmentUpdates).sort(), [
-      "seg-a",
-      "seg-b",
-    ]);
+    const coverage = new LiveNavigationCoverage();
+    await coverage.loadSegments("area");
+    coverage.checkSegmentCoverage({ lon: -107, lat: 39, timestamp: 1000 });
+    coverage.checkSegmentCoverage({ lon: -106.998, lat: 39, timestamp: 200000 });
+    assert.equal(coverage.getCoverageStats().percentage, 0);
+    coverage.checkSegmentCoverage({
+      lon: -107,
+      lat: 39,
+      timestamp: 201000,
+      accuracy: 150,
+    });
+    assert.equal(coverage.getCoverageStats().percentage, 0);
   } finally {
-    clearTimeout(coverage.persistRetryTimeout);
-    LiveNavigationAPI.persistDrivenSegments = originalBasePersist;
+    LiveNavigationAPI.fetchCoverageSegments = original;
   }
 });
 
-test("persistDrivenSegments stops auto-retrying after max consecutive failures", async () => {
-  const coverage = new LiveNavigationCoverage();
-  coverage.selectedAreaId = "area-3";
-  coverage.maxPersistRetries = 2;
-  coverage.pendingSegmentUpdates.add("seg-fail");
-
-  const issues = [];
-  coverage.setCallbacks({
-    onPersistenceIssue: (payload) => {
-      issues.push(payload);
-    },
-  });
-
-  const originalBasePersist = LiveNavigationAPI.persistDrivenSegments;
-  LiveNavigationAPI.persistDrivenSegments = async () => {
-    throw new Error("base write failed");
-  };
-
-  try {
-    await coverage.persistDrivenSegments();
-    await coverage.persistDrivenSegments();
-    assert.equal(coverage.consecutivePersistFailures, 2);
-    assert.equal(
-      issues.some((issue) => issue?.type === "retry_exhausted"),
-      true
-    );
-  } finally {
-    clearTimeout(coverage.persistRetryTimeout);
-    LiveNavigationAPI.persistDrivenSegments = originalBasePersist;
-  }
+test("live interval math rejects perpendicular crossings and preserves gaps", () => {
+  const result = traceIntervals(
+    coordinates,
+    [-106.999, 38.9999],
+    [-106.999, 39.0001],
+    39
+  );
+  assert.deepEqual(result, []);
+  assert.deepEqual(
+    mergeIntervals([
+      [0, 0.4],
+      [0.6, 1],
+      [0.1, 0.3],
+    ]),
+    [
+      [0, 0.4],
+      [0.6, 1],
+    ]
+  );
 });

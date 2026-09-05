@@ -2006,3 +2006,23 @@
     gap: var(--space-4);
   }
 }
+
+.coverage-viewport-notice {
+  position: absolute;
+  top: 4.5rem;
+  left: 1rem;
+  z-index: 5;
+  max-width: calc(100% - 2rem);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.street-evidence-list {
+  padding-left: 1rem;
+  font-size: var(--font-size-sm);
+}
+
+.street-evidence-list li { margin-bottom: 0.5rem; }

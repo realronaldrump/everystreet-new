@@ -136,7 +136,7 @@ export function openCoverageShare({ area, signal }) {
     });
     try {
       const [streets, { createShareRenderer }] = await Promise.all([
-        api.rawJson(`/api/coverage/areas/${encodeURIComponent(area.id)}/streets/all`, {
+        api.rawJson(`/api/coverage/areas/${encodeURIComponent(area.id)}/streets/all?render_parts=true`, {
           cache: "no-store",
           retry: false,
         }),

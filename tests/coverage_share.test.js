@@ -17,6 +17,7 @@ const area = {
 };
 const street = (id, status, miles, date = null) => ({
   type: "Feature",
+  id,
   geometry: {
     type: "LineString",
     coordinates: [
@@ -24,7 +25,13 @@ const street = (id, status, miles, date = null) => ({
       [-97.14, 31.51],
     ],
   },
-  properties: { segment_id: id, status, length_miles: miles, first_driven_at: date },
+  properties: {
+    segment_id: id,
+    status,
+    length_miles: miles,
+    section_length_miles: miles,
+    first_driven_at: date,
+  },
 });
 const collection = (...features) => ({ type: "FeatureCollection", features });
 

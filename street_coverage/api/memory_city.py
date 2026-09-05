@@ -20,9 +20,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 
 from db.models import CoverageArea, CoverageState, Street
-from street_coverage.journal import ensure_journal_rollup, mark_journal_pending
 from street_coverage.segment_ids import segment_id_regex_for_area_version
-from street_coverage.stats import update_area_stats
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/coverage", tags=["coverage-memory-city"])
@@ -149,11 +147,6 @@ async def get_memory_city(area_id: PydanticObjectId) -> MemoryCityResponse:
     ).to_list()
 
     if not driven_states:
-        if area.driven_segments or area.driven_length_miles or area.coverage_percentage:
-            refreshed_area = await update_area_stats(area_id)
-            if refreshed_area is not None:
-                area = refreshed_area
-                await mark_journal_pending(area_id)
         return MemoryCityResponse(
             area=MemoryCityArea(
                 id=str(area.id),
@@ -210,22 +203,8 @@ async def get_memory_city(area_id: PydanticObjectId) -> MemoryCityResponse:
     first_driven_min = min(first_driven_values) if first_driven_values else None
     first_driven_max = max(first_driven_values) if first_driven_values else None
 
-    rendered_length_miles = round(sum(segment.length_miles for segment in segments), 3)
-    if (
-        area.driven_segments != len(segments)
-        or round(float(area.driven_length_miles or 0.0), 3) != rendered_length_miles
-    ):
-        refreshed_area = await update_area_stats(area_id)
-        if refreshed_area is not None:
-            area = refreshed_area
-            await mark_journal_pending(area_id)
-
-    journal_rollup = await ensure_journal_rollup(area_id)
-    journal_metrics = (journal_rollup.data or {}).get("segment_metrics") or {}
     for segment in segments:
-        segment.distinct_trip_count = int(
-            (journal_metrics.get(segment.segment_id) or {}).get("trip_count", 0) or 0,
-        )
+        segment.distinct_trip_count = state_by_segment[segment.segment_id].trip_count
 
     return MemoryCityResponse(
         area=MemoryCityArea(

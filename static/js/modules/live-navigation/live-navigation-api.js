@@ -128,19 +128,6 @@ const LiveNavigationAPI = {
   },
 
   /**
-   * Persist driven segments to server
-   * @param {Array<string>} segmentIds
-   * @param {string} locationId
-   * @returns {Promise<void>}
-   */
-  async persistDrivenSegments(segmentIds, locationId) {
-    await apiClient.post(`/api/coverage/areas/${locationId}/streets/mark-driven`, {
-      segment_ids: segmentIds,
-      source: "live_navigation",
-    });
-  },
-
-  /**
    * Start route generation for a coverage area
    * @param {string} areaId
    * @returns {Promise<string>} task_id

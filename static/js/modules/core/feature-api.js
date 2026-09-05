@@ -4,7 +4,11 @@ export function withSignal(signal, options = {}) {
   if (!signal) {
     return options;
   }
-  return { ...options, signal };
+  const combined =
+    options.signal && options.signal !== signal
+      ? AbortSignal.any([signal, options.signal])
+      : signal;
+  return { ...options, signal: combined };
 }
 
 async function parseRawResponse(response, parser) {

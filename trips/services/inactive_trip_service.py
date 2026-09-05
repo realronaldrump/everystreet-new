@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from core.cache import invalidate_cache_prefixes
 from core.spatial import bboxes_intersect, extract_line_sequences
 from core.trip_map_cache import bump_trip_map_revision
-from db.models import CoverageArea, CoverageState, Job, Trip
+from db.models import CoverageArea, Job, Trip
 from geo_coverage.services.geo_coverage_service import (
     recalculate as recalculate_geo_coverage,
 )
@@ -190,20 +190,7 @@ class InactiveTripService:
 
     @classmethod
     async def _start_area_refresh(cls, area: CoverageArea) -> str | None:
-        """Clear derived driven state for an area and queue a fresh backfill."""
-        await CoverageState.find(
-            {
-                "area_id": area.id,
-                "status": "driven",
-                "manually_marked": {"$ne": True},
-            },
-        ).delete()
-        await area.set(
-            {
-                "last_backfill_trip_endtime": None,
-            },
-        )
-
+        """Keep the published projection available until its replacement commits."""
         job = await backfill_area(area.id)
         return str(job.id) if getattr(job, "id", None) is not None else None
 

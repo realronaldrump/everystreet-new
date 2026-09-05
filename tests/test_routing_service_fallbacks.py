@@ -21,6 +21,9 @@ class _AsyncIter:
     def __init__(self, items) -> None:
         self._items = list(items)
 
+    def limit(self, value):
+        return _AsyncIter(self._items[:value])
+
     def __aiter__(self):
         async def _gen():
             for item in self._items:
@@ -74,6 +77,7 @@ def _build_area_and_streets():
         },
         bounding_box=[-1.0, -1.0, 2.0, 2.0],
         area_version=1,
+        graph_path=None,
         journal_revision=0,
         status="ready",
     )
@@ -123,7 +127,7 @@ def _install_common_mocks(
 
     graph_dir = tmp_path / "graphs"
     graph_dir.mkdir(parents=True, exist_ok=True)
-    graph_path = graph_dir / f"{area.id}.graphml"
+    graph_path = graph_dir / f"{area.id}-{area.area_version}.graphml"
     graph_path.write_text("graph", encoding="utf-8")
 
     monkeypatch.setattr(service, "GRAPH_STORAGE_DIR", graph_dir)

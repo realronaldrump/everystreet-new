@@ -2,6 +2,7 @@ import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.
 import { createMap, isMapboxStyleUrl, waitForMapboxToken } from "../../map-core.js";
 import { escapeHtml } from "../../utils.js";
 import {
+  createTimelineScale,
   isAtOrBeforeJournalBoundary,
   journalDateKey as getJournalDateKey,
 } from "./date-boundaries.js";
@@ -38,6 +39,14 @@ function initialState() {
     chartScrubbing: false,
     chartStartIndex: 0,
     listeners: [],
+    metadataRequest: 0,
+    mapRequest: 0,
+    notesRequest: 0,
+    rangeAbort: null,
+    mapAbort: null,
+    notesAbort: null,
+    selectionLabel: "Selected streets",
+    progressSelection: [],
   };
 }
 
@@ -55,6 +64,7 @@ function listen(target, type, handler, options) {
 }
 
 function formatNumber(value, digits = 0) {
+  if (value === null || value === undefined || value === "") return "—";
   const number = Number(value);
   return Number.isFinite(number)
     ? new Intl.NumberFormat(undefined, {
@@ -65,6 +75,9 @@ function formatNumber(value, digits = 0) {
 }
 
 function formatMiles(value, digits = 1) {
+  if (value === null || value === undefined || value === "") return "—";
+  if (Number(value) > 0 && Number(value) < 0.1)
+    return `${Math.max(1, Math.round(Number(value) * 5280))} ft`;
   const number = Number(value);
   return Number.isFinite(number) ? `${formatNumber(number, digits)} mi` : "—";
 }
@@ -236,13 +249,16 @@ async function loadAreas() {
   select.value = state.areaId;
 }
 
-async function loadMetadata() {
+async function loadMetadata(signal = null) {
+  const request = ++state.metadataRequest;
+  const range = state.range;
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  const params = new URLSearchParams({ range: state.range, timezone });
-  state.metadata = await featureApi.get(
+  const params = new URLSearchParams({ range, timezone });
+  const data = await featureApi.get(
     `/api/coverage/areas/${encodeURIComponent(state.areaId)}/journal?${params}`,
-    { cache: false }
+    { cache: false, signal }
   );
+  if (request === state.metadataRequest && range === state.range) state.metadata = data;
 }
 
 async function loadIntelligence() {
@@ -266,23 +282,79 @@ async function loadIntelligence() {
     : [];
 }
 
-async function loadSegments() {
-  const response = await featureApi.raw(
-    `/api/coverage/areas/${encodeURIComponent(state.areaId)}/journal/segments?range=${encodeURIComponent(
-      state.range
-    )}`
-  );
-  if (!response.ok) {
-    let detail = `Street geometry failed (${response.status})`;
-    try {
-      const payload = await response.json();
-      detail = payload?.detail || detail;
-    } catch {
-      // Keep the status-based message.
-    }
-    throw new Error(detail);
+async function loadSegments({ signal = null } = {}) {
+  if (!state.mapReady) {
+    state.geojson = { type: "FeatureCollection", features: [] };
+    return;
   }
-  state.geojson = await response.json();
+  const request = ++state.mapRequest;
+  state.mapAbort?.abort();
+  state.mapAbort = new AbortController();
+  const bounds = state.map.getBounds();
+  const params = new URLSearchParams({
+    range: state.range,
+    timezone: state.metadata?.timezone || "UTC",
+    min_lon: bounds.getWest().toFixed(6),
+    min_lat: bounds.getSouth().toFixed(6),
+    max_lon: bounds.getEast().toFixed(6),
+    max_lat: bounds.getNorth().toFixed(6),
+  });
+  const combined = signal
+    ? AbortSignal.any([signal, state.mapAbort.signal])
+    : state.mapAbort.signal;
+  const data = await featureApi.get(
+    `/api/coverage/areas/${encodeURIComponent(state.areaId)}/journal/segments?${params}`,
+    { cache: false, signal: combined }
+  );
+  if (request !== state.mapRequest) return;
+  const selected = (state.geojson?.features || []).filter((feature) =>
+    state.selectedIds.has(feature.properties.segment_id)
+  );
+  const byId = new Map(
+    [...data.features, ...selected].map((feature) => [
+      feature.properties.segment_id,
+      feature,
+    ])
+  );
+  state.geojson = { ...data, features: [...byId.values()] };
+  repaintJournalMap();
+  if (data.truncated)
+    $("journal-map-equivalent").textContent =
+      "Showing streets in this viewport. Zoom in for the complete local detail.";
+}
+
+function repaintJournalMap() {
+  if (state.mapMode === "frequency") setFrequencyMap();
+  else if (state.mapMode === "frontier") setFrontierMap([...state.selectedIds]);
+  else if (state.mapMode === "selection") {
+    const colors = palette();
+    for (const feature of state.geojson?.features || []) {
+      const selected = state.selectedIds.has(feature.properties.segment_id);
+      setMapFeatureStyle(
+        feature,
+        selected ? colors.cobalt : colors.steel,
+        selected ? 5.2 : 1,
+        selected ? 1 : 0.16
+      );
+    }
+    refreshMapSource();
+  } else setProgressMap(...state.progressSelection);
+}
+
+async function ensureSelectedSegments(ids) {
+  const present = new Set(
+    (state.geojson?.features || []).map((feature) => feature.properties.segment_id)
+  );
+  const missing = ids.filter((id) => !present.has(id));
+  for (let start = 0; start < missing.length; start += 300) {
+    const params = new URLSearchParams({ range: state.range });
+    missing.slice(start, start + 300).forEach((id) => params.append("ids", id));
+    const data = await featureApi.get(
+      `/api/coverage/areas/${encodeURIComponent(state.areaId)}/journal/segments?${params}`,
+      { cache: false }
+    );
+    state.geojson.features.push(...data.features);
+  }
 }
 
 function renderSummary() {
@@ -326,7 +398,9 @@ function milestoneChapters() {
   if (!isDuplicate && reachedAt) {
     chapters.push({
       key: "current",
-      label: coverage >= 100 ? "Every street known" : "Current frontier",
+      label: state.metadata?.area?.is_complete
+        ? "Every street known"
+        : "Current frontier",
       threshold: coverage,
       reached_at: reachedAt,
       coverage,
@@ -451,6 +525,7 @@ function setProgressMap(
   if (!state.geojson) {
     return;
   }
+  state.progressSelection = [cutoffValue, previousValue, label, previousLabel];
   state.mapMode = "progress";
   state.selectedIds.clear();
   const colors = palette();
@@ -507,7 +582,7 @@ function setProgressMap(
               : `Still uncovered at ${label}`,
         },
       ],
-      `Counts individual road segments. The selected period starts after ${startingMilestone} (${formatDate(
+      `Counts visible street portions with drive evidence. Mileage includes only their covered portions. The selected period starts after ${startingMilestone} (${formatDate(
         previousValue
       )}) and ends at ${label} (${cutoffDate}).`
     );
@@ -527,7 +602,7 @@ function setProgressMap(
           label: `Not covered by ${momentLabel}`,
         },
       ],
-      `Counts individual road segments as of ${cutoffDate}.`
+      `Counts visible street portions with drive evidence as of ${cutoffDate}.`
     );
   }
   refreshMapSource();
@@ -622,34 +697,38 @@ function revealMapFolio() {
   );
 }
 
-function segmentIdsForStreet(streetName) {
-  const key = normalizeStreetKey(streetName);
-  if (!key) {
-    return [];
+async function showStreetOnMap(streetName) {
+  try {
+    const params = new URLSearchParams({ range: state.range, street_name: streetName });
+    const data = await featureApi.get(
+      `/api/coverage/areas/${encodeURIComponent(state.areaId)}/journal/segments?${params}`,
+      { cache: false }
+    );
+    const byId = new Map(
+      [...(state.geojson?.features || []), ...data.features].map((feature) => [
+        feature.properties.segment_id,
+        feature,
+      ])
+    );
+    state.geojson = { type: "FeatureCollection", features: [...byId.values()] };
+    await highlightSegments(
+      data.features.map((feature) => feature.properties.segment_id),
+      streetName,
+      { reveal: true }
+    );
+  } catch (error) {
+    $("journal-map-equivalent").textContent = error.message;
   }
-  return (state.geojson?.features || [])
-    .filter(
-      (feature) =>
-        normalizeStreetKey(
-          feature.properties?.street_key || feature.properties?.street_name
-        ) === key
-    )
-    .map((feature) => feature.properties?.segment_id)
-    .filter(Boolean);
 }
 
-function showStreetOnMap(streetName) {
-  const segmentIds = segmentIdsForStreet(streetName);
-  if (!segmentIds.length) {
-    $("journal-map-equivalent").textContent =
-      `${streetName} has no matching segment in the current street inventory.`;
-    revealMapFolio();
+async function highlightSegments(segmentIds, label, { reveal = false } = {}) {
+  try {
+    await ensureSelectedSegments(segmentIds || []);
+  } catch (error) {
+    $("journal-map-equivalent").textContent = error.message;
     return;
   }
-  highlightSegments(segmentIds, streetName, { reveal: true });
-}
-
-function highlightSegments(segmentIds, label, { reveal = false } = {}) {
+  state.selectionLabel = label;
   if (!state.geojson) {
     return;
   }
@@ -763,6 +842,19 @@ async function initMap() {
     },
   });
   state.mapReady = true;
+  let viewportTimer;
+  const reloadViewport = () => {
+    clearTimeout(viewportTimer);
+    viewportTimer = setTimeout(() => {
+      loadSegments().catch((error) => {
+        if (error.name !== "AbortError")
+          $("journal-map-equivalent").textContent = error.message;
+      });
+    }, 150);
+  };
+  state.map.on("moveend", reloadViewport);
+  state.listeners.push(() => clearTimeout(viewportTimer));
+  await loadSegments();
   state.map.resize();
   const selected = milestoneChapters().find(
     (item) => item.key === state.activeMilestone
@@ -777,7 +869,9 @@ function chartPath(points, close = false) {
     return "";
   }
   const path = points
-    .map(([x, y], index) => `${index ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`)
+    .map(([x, y], index) =>
+      index ? `H${x.toFixed(1)} V${y.toFixed(1)}` : `M${x.toFixed(1)},${y.toFixed(1)}`
+    )
     .join(" ");
   return close
     ? `${path} L${points.at(-1)[0].toFixed(1)},310 L${points[0][0].toFixed(1)},310 Z`
@@ -793,7 +887,7 @@ function timelineIndexFromPointer(event) {
   const bounds = svg.getBoundingClientRect();
   const viewBoxX = ((event.clientX - bounds.left) / Math.max(1, bounds.width)) * 960;
   const ratio = Math.max(0, Math.min(1, (viewBoxX - 62) / (930 - 62)));
-  return Math.round(ratio * Math.max(0, series.length - 1));
+  return createTimelineScale(series).nearest(ratio);
 }
 
 function nearestSeriesIndex(value, series = state.metadata?.series || []) {
@@ -849,7 +943,7 @@ function scrollChartToIndex(index) {
   if (!scroller || !svg || !series.length) {
     return;
   }
-  const ratio = index / Math.max(1, series.length - 1);
+  const ratio = createTimelineScale(series).ratio(index);
   const x = ratio * svg.scrollWidth;
   scroller.scrollTo({
     left: Math.max(0, x - scroller.clientWidth / 2),
@@ -935,7 +1029,7 @@ function updateTimelineVisuals(index) {
   if (!point) {
     return;
   }
-  const x = 62 + (index / Math.max(1, series.length - 1)) * (930 - 62);
+  const x = 62 + createTimelineScale(series).ratio(index) * (930 - 62);
   const y = 270 - (Number(point.coverage_percentage || 0) / 100) * (270 - 28);
   const line = $("journal-chart-cursor-line");
   const dot = $("journal-chart-cursor-dot");
@@ -999,7 +1093,8 @@ function renderPaceChart() {
     0.1
   );
   svg.style.minWidth = `${Math.min(2200, Math.max(960, series.length * 13))}px`;
-  const x = (index) => left + (index / Math.max(1, series.length - 1)) * (right - left);
+  const scale = createTimelineScale(series);
+  const x = (index) => left + scale.ratio(index) * (right - left);
   const y = (percentage) => bottom - (Number(percentage || 0) / 100) * (bottom - top);
   const points = series.map((point, index) => [x(index), y(point.coverage_percentage)]);
   const grid = [0, 25, 50, 75, 100]
@@ -1159,10 +1254,17 @@ function renderRecords() {
     }</strong><small>${escapeHtml(formatDate(latest?.occurred_at))}</small></div>`;
 }
 
-async function loadContributions({ append = false } = {}) {
+async function loadContributions({ append = false, signal = null } = {}) {
+  const request = ++state.notesRequest;
+  state.notesAbort?.abort();
+  state.notesAbort = new AbortController();
+  const combined = signal
+    ? AbortSignal.any([signal, state.notesAbort.signal])
+    : state.notesAbort.signal;
   const params = new URLSearchParams({
     range: state.range,
     source: state.source,
+    timezone: state.metadata?.timezone || "UTC",
     limit: "20",
   });
   if (append && state.nextCursor) {
@@ -1170,8 +1272,9 @@ async function loadContributions({ append = false } = {}) {
   }
   const response = await featureApi.get(
     `/api/coverage/areas/${encodeURIComponent(state.areaId)}/journal/contributions?${params}`,
-    { cache: false }
+    { cache: false, signal: combined }
   );
+  if (request !== state.notesRequest) return;
   state.contributions = append
     ? [...state.contributions, ...(response.contributions || [])]
     : response.contributions || [];
@@ -1419,17 +1522,20 @@ function renderAll() {
 }
 
 async function reloadRange() {
-  setStateMessage(`Loading ${RANGE_LABELS[state.range].toLowerCase()}…`);
-  state.asOf = "";
-  await loadMetadata();
-  await loadSegments();
-  state.contributions = [];
-  state.nextCursor = null;
-  await loadContributions();
-  renderAll();
-  setFrequencyMap();
-  setStateMessage("", "ready");
-  syncUrl();
+  state.rangeAbort?.abort();
+  state.rangeAbort = new AbortController();
+  const { signal } = state.rangeAbort;
+  $("coverage-journal").setAttribute("aria-busy", "true");
+  try {
+    await loadMetadata(signal);
+    await Promise.all([loadSegments({ signal }), loadContributions({ signal })]);
+    if (signal.aborted) return;
+    renderAll();
+    repaintJournalMap();
+    syncUrl();
+  } finally {
+    if (!signal.aborted) $("coverage-journal").setAttribute("aria-busy", "false");
+  }
 }
 
 function setupListeners() {
@@ -1465,6 +1571,7 @@ function setupListeners() {
       try {
         await reloadRange();
       } catch (error) {
+        if (error.name === "AbortError") return;
         console.error("Coverage Journal range failed", error);
         setStateMessage(error.message || "Could not load this range.", "error");
       }
@@ -1474,8 +1581,13 @@ function setupListeners() {
     listen(button, "click", async () => {
       state.source = button.dataset.journalSource;
       setActiveControls();
-      await loadContributions();
-      syncUrl();
+      try {
+        await loadContributions();
+        syncUrl();
+      } catch (error) {
+        if (error.name !== "AbortError")
+          $("journal-map-equivalent").textContent = error.message;
+      }
     });
   });
   document.querySelectorAll("[data-journal-level]").forEach((button) => {
@@ -1537,7 +1649,12 @@ function setupListeners() {
       updateTimelineVisuals(Number($("journal-timeline-cursor")?.value || 0));
     }
   });
-  listen($("journal-load-more"), "click", () => loadContributions({ append: true }));
+  listen($("journal-load-more"), "click", () =>
+    loadContributions({ append: true }).catch((error) => {
+      if (error.name !== "AbortError")
+        $("journal-map-equivalent").textContent = error.message;
+    })
+  );
   listen($("journal-map-reset"), "click", fitArea);
   listen($("journal-goal-form"), "submit", async (event) => {
     event.preventDefault();
@@ -1639,7 +1756,7 @@ export default async function initCoverageJournalPage({ signal, cleanup, api } =
       await loadContributions();
       state.asOf = selectedDate;
       renderAll();
-      setFrequencyMap();
+      repaintJournalMap();
     } catch (error) {
       if (!signal?.aborted) setStateMessage(error.message, "error");
     } finally {
@@ -1673,6 +1790,9 @@ export default async function initCoverageJournalPage({ signal, cleanup, api } =
   }
 
   cleanup?.(() => {
+    state.rangeAbort?.abort();
+    state.mapAbort?.abort();
+    state.notesAbort?.abort();
     for (const remove of state.listeners.splice(0)) {
       remove();
     }

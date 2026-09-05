@@ -134,6 +134,15 @@ class AreaResponse(BaseModel):
     undriveable_segments: int
     undriveable_length_miles: float
 
+    coverage_revision: int = 0
+    area_version: int = 1
+    remaining_length_miles: float = 0.0
+    remaining_segments: int = 0
+    is_complete: bool = False
+    coverage_built_at: datetime | None = None
+    last_coverage_trip_at: datetime | None = None
+    recalculating: bool = False
+
     # Timestamps
     created_at: str
     last_synced: str | None
@@ -735,6 +744,16 @@ async def list_areas():
                 driven_segments=area.driven_segments,
                 undriveable_segments=area.undriveable_segments,
                 undriveable_length_miles=area.undriveable_length_miles,
+                coverage_revision=area.journal_revision,
+                area_version=area.area_version,
+                remaining_length_miles=area.remaining_length_miles,
+                remaining_segments=area.remaining_segments,
+                is_complete=area.is_complete,
+                coverage_built_at=area.coverage_built_at,
+                last_coverage_trip_at=area.last_coverage_trip_at,
+                recalculating=bool(
+                    area.coverage_rebuild_token or area.pending_area_version
+                ),
                 created_at=area.created_at.isoformat(),
                 last_synced=area.last_synced.isoformat() if area.last_synced else None,
                 optimal_route_generated_at=(
@@ -944,6 +963,16 @@ async def get_area(area_id: PydanticObjectId):
             driven_segments=area.driven_segments,
             undriveable_segments=area.undriveable_segments,
             undriveable_length_miles=area.undriveable_length_miles,
+            coverage_revision=area.journal_revision,
+            area_version=area.area_version,
+            remaining_length_miles=area.remaining_length_miles,
+            remaining_segments=area.remaining_segments,
+            is_complete=area.is_complete,
+            coverage_built_at=area.coverage_built_at,
+            last_coverage_trip_at=area.last_coverage_trip_at,
+            recalculating=bool(
+                area.coverage_rebuild_token or area.pending_area_version
+            ),
             created_at=area.created_at.isoformat(),
             last_synced=area.last_synced.isoformat() if area.last_synced else None,
             optimal_route_generated_at=(

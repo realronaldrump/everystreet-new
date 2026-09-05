@@ -1,125 +1,46 @@
-from __future__ import annotations
-
 import asyncio
-
 import pytest
-from db_helpers import init_mock_beanie
-
+from coverage_helpers import area_with_streets, coverage_database, drive
 from db.models import CoverageArea
-from street_coverage.stats import apply_area_stats_delta
+from street_coverage.projection import set_manual_status
 
 
 @pytest.fixture
 async def coverage_stats_db():
-    return await init_mock_beanie(CoverageArea)
+    return await coverage_database()
 
 
-@pytest.mark.asyncio
-async def test_apply_area_stats_delta_respects_driveable_denominator(
+async def test_exact_stats_respect_the_driveable_denominator(coverage_stats_db):
+    area, ids = await area_with_streets([1, 1, 1])
+    await drive(area, {ids[0]: [[0, 1]]})
+    await set_manual_status(area.id, [ids[1]], "undriveable")
+    current = await CoverageArea.get(area.id)
+    assert current.total_length_miles == 3
+    assert current.driven_length_miles == 1
+    assert current.undriveable_length_miles == 1
+    assert current.driveable_length_miles == 2
+    assert current.coverage_percentage == 50
+
+
+async def test_concurrent_credits_do_not_lose_length_or_double_count_replays(
     coverage_stats_db,
-) -> None:
-    _ = coverage_stats_db
-
-    area = CoverageArea(
-        display_name="Stats Area",
-        status="ready",
-        health="healthy",
-        total_length_miles=3.0,
-        driveable_length_miles=3.0,
-        driven_length_miles=1.0,
-        driven_segments=1,
-        undriveable_segments=0,
-        undriveable_length_miles=0.0,
-        total_segments=3,
-    )
-    await area.insert()
-    assert area.id is not None
-
-    refreshed = await apply_area_stats_delta(
-        area.id,
-        undriveable_segments_delta=1,
-        undriveable_length_miles_delta=1.0,
-        update_last_synced=False,
-    )
-
-    assert refreshed is not None
-    assert refreshed.total_length_miles == 3.0
-    assert refreshed.driven_length_miles == 1.0
-    assert refreshed.undriveable_length_miles == 1.0
-    assert refreshed.driveable_length_miles == 2.0
-    assert refreshed.coverage_percentage == 50.0
-
-
-@pytest.mark.asyncio
-async def test_concurrent_apply_area_stats_delta_does_not_lose_increments(
-    coverage_stats_db,
-) -> None:
-    """
-    Regression test for the lost-update race in apply_area_stats_delta.
-
-    Concurrent invocations must use atomic ``$inc`` so that every delta
-    counts. Before the fix this test would intermittently fail with the
-    sum being less than the expected number of concurrent calls.
-    """
-    _ = coverage_stats_db
-
-    area = CoverageArea(
-        display_name="Concurrent Stats Area",
-        status="ready",
-        health="healthy",
-        total_length_miles=100.0,
-        driveable_length_miles=100.0,
-        total_segments=100,
-    )
-    await area.insert()
-    assert area.id is not None
-
-    n = 25
+):
+    area, ids = await area_with_streets([0.5] * 100)
+    trips = await asyncio.gather(*(drive(area, {sid: [[0, 1]]}) for sid in ids[:25]))
     await asyncio.gather(
-        *(
-            apply_area_stats_delta(
-                area.id,
-                driven_segments_delta=1,
-                driven_length_miles_delta=0.5,
-                update_last_synced=False,
-            )
-            for _ in range(n)
-        )
+        *(drive(area, {sid: [[0, 1]]}, trip=trip) for sid, trip in zip(ids, trips))
     )
-
-    refreshed = await CoverageArea.get(area.id)
-    assert refreshed is not None
-    assert refreshed.driven_segments == n
-    assert refreshed.driven_length_miles == pytest.approx(n * 0.5)
-    assert refreshed.driveable_length_miles == pytest.approx(100.0)
-    assert refreshed.coverage_percentage == pytest.approx(12.5)
+    current = await CoverageArea.get(area.id)
+    assert current.driven_segments == 25
+    assert current.driven_length_miles == 12.5
+    assert current.coverage_percentage == 25
 
 
-@pytest.mark.asyncio
-async def test_apply_area_stats_delta_preserves_sub_thousandth_mile_precision(
+async def test_sub_thousandth_mile_precision_is_not_rounded_in_storage(
     coverage_stats_db,
-) -> None:
-    _ = coverage_stats_db
-
-    area = CoverageArea(
-        display_name="Precise Stats Area",
-        status="ready",
-        health="healthy",
-        total_length_miles=0.0015,
-        driveable_length_miles=0.0015,
-        total_segments=3,
-    )
-    await area.insert()
-    assert area.id is not None
-
-    refreshed = await apply_area_stats_delta(
-        area.id,
-        driven_segments_delta=1,
-        driven_length_miles_delta=0.0005,
-        update_last_synced=False,
-    )
-
-    assert refreshed is not None
-    assert refreshed.driven_length_miles == pytest.approx(0.0005)
-    assert refreshed.driveable_length_miles == pytest.approx(0.0015)
-    assert refreshed.coverage_percentage == pytest.approx(33.33)
+):
+    area, ids = await area_with_streets([0.0005] * 3)
+    await drive(area, {ids[0]: [[0, 1]]})
+    current = await CoverageArea.get(area.id)
+    assert current.driven_length_miles == pytest.approx(0.0005)
+    assert current.coverage_percentage == pytest.approx(100 / 3)

@@ -323,6 +323,9 @@ async def restore_trip(trip_id: str):
     trip.validated_at = None
     TripPipeline.sanitize_trip_document_geospatial_fields(trip)
     apply_trip_map_path_fields(trip)
+    from trips.services.coverage_processing import prepare_coverage_work
+
+    prepare_coverage_work(trip)
     await trip.save()
     await bump_trip_map_revision()
     return {"status": "success", "message": "Trip allocated as valid."}

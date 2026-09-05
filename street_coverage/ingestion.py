@@ -42,7 +42,6 @@ from street_coverage.public_road_filter import (
     GRAPH_ROAD_FILTER_STATS_KEY,
     get_public_road_filter_signature,
 )
-from street_coverage.stats import update_area_stats
 from tasks.arq import extract_arq_job_id, get_arq_pool
 
 if TYPE_CHECKING:
@@ -186,6 +185,9 @@ async def delete_area(area_id: PydanticObjectId) -> bool:
 
     await clear_journal_data(area_id)
     await GeneratedRoute.find({"area_id": area_id}).delete()
+    from db.models import CoverageOverride
+
+    await CoverageOverride.find({"area_id": area_id}).delete()
 
     # Delete all streets for this area
     await Street.find({"area_id": area_id}).delete()
@@ -213,56 +215,19 @@ async def delete_area(area_id: PydanticObjectId) -> bool:
 
 
 async def reset_area_for_rebuild(area_id: PydanticObjectId) -> CoverageArea:
-    """Prepare an area for a full street rebuild without enqueueing work."""
+    """Stage a new inventory version while preserving the published projection."""
     area = await CoverageArea.get(area_id)
-    if not area:
-        msg = f"Area {area_id} not found"
-        raise ValueError(msg)
-
-    from street_coverage.journal import clear_journal_data
-
-    await clear_journal_data(area_id)
-    area.journal_revision = int(area.journal_revision or 0) + 1
-
-    area.status = "rebuilding"
-    area.area_version += 1
-    area.optimal_route_id = None
-    area.optimal_route_generated_at = None
-    area.last_error = None
-    area.road_filter_version = None
-    area.road_filter_stats = {}
-    area.osm_extract_id = None
-    area.graph_extract_id = None
-    area.graph_built_at = None
-    area.graph_path = None
-    area.coverage_backfill_extract_id = None
-    area.coverage_backfilled_at = None
-    area.last_synced = None
-    area.total_length_miles = 0.0
-    area.driveable_length_miles = 0.0
-    area.driven_length_miles = 0.0
-    area.coverage_percentage = 0.0
-    area.total_segments = 0
-    area.driven_segments = 0
-    area.undriveable_segments = 0
-    area.undriveable_length_miles = 0.0
-    # Rebuilds are full rematches; clear incremental cursor so historical
-    # trips are reprocessed against the new segment set.
-    area.last_backfill_trip_endtime = None
-    area.journal_status = "pending"
-    area.journal_built_at = None
-    await area.save()
-
-    # Rebuilds are a clean slate: remove all prior derived data and cached graphs
-    await Street.find({"area_id": area_id}).delete()
-    await CoverageState.find({"area_id": area_id}).delete()
-    with contextlib.suppress(Exception):
-        from routing.constants import GRAPH_STORAGE_DIR
-
-        graph_path = GRAPH_STORAGE_DIR / f"{area_id}.graphml"
-        if graph_path.exists():
-            graph_path.unlink()
-
+    if area is None:
+        raise ValueError("Coverage area not found")
+    if area.pending_area_version is not None:
+        raise ValueError("A street inventory rebuild is already pending")
+    await area.set(
+        {
+            "status": "rebuilding",
+            "pending_area_version": area.area_version + 1,
+            "last_error": None,
+        }
+    )
     return area
 
 
@@ -602,6 +567,7 @@ async def _run_ingestion_pipeline(
         logger.error("Area %s not found for job %s", area_id, job_id)
         return
 
+    target_version = area.pending_area_version or area.area_version
     job_id_str = str(job_id)
     selected_trip_mode = await get_effective_coverage_trip_mode(trip_mode)
     pipeline_start = datetime.now(UTC)
@@ -753,7 +719,10 @@ async def _run_ingestion_pipeline(
             stage_key="graph",
         )
 
-        osm_ways, road_filter_stats = await _load_osm_streets_from_graph(area, job_id)
+        graph_area = area.model_copy(update={"area_version": target_version})
+        osm_ways, road_filter_stats = await _load_osm_streets_from_graph(
+            graph_area, job_id
+        )
         graph_ms = (datetime.now(UTC) - stage_start).total_seconds() * 1000
         included = int(road_filter_stats.get("included_count", 0) or 0)
         excluded = int(road_filter_stats.get("excluded_count", 0) or 0)
@@ -809,7 +778,7 @@ async def _run_ingestion_pipeline(
             _segment_streets,
             osm_ways,
             area_doc_id,
-            area.area_version,
+            target_version,
             osm_extract_id or None,
         )
         segment_ms = (datetime.now(UTC) - stage_start).total_seconds() * 1000
@@ -847,7 +816,12 @@ async def _run_ingestion_pipeline(
             stage_key="storing",
         )
 
-        await _clear_existing_area_data(area_doc_id)
+        await Street.find(
+            {"area_id": area_doc_id, "area_version": target_version}
+        ).delete()
+        from core.coverage import invalidate_area_index
+
+        invalidate_area_index(area_doc_id, target_version)
         await _store_segments(segments)
         store_ms = (datetime.now(UTC) - stage_start).total_seconds() * 1000
 
@@ -876,43 +850,19 @@ async def _run_ingestion_pipeline(
             stage_key="statistics",
         )
 
-        await area.set(
-            {
-                "osm_fetched_at": datetime.now(UTC),
-                "road_filter_version": road_filter_stats.get(
-                    "road_filter_signature",
-                    get_public_road_filter_signature(),
-                ),
-                "road_filter_stats": road_filter_stats,
-                "osm_extract_id": osm_extract_id or None,
-                "graph_extract_id": road_filter_stats.get("graph_extract_id")
-                or osm_extract_id
-                or None,
-                "graph_built_at": graph_built_at,
-                "graph_path": road_filter_stats.get("graph_path"),
-            },
-        )
-        stats_area = await update_area_stats(area_doc_id)
-        stats_ms = (datetime.now(UTC) - stage_start).total_seconds() * 1000
-        stats_metrics: dict[str, Any] = {"duration_ms": round(stats_ms)}
-        if stats_area:
-            stats_metrics.update(
-                {
-                    "coverage_pct": round(stats_area.coverage_percentage, 1),
-                    "driven_miles": round(stats_area.driven_length_miles, 2),
-                    "driveable_miles": round(stats_area.driveable_length_miles, 2),
-                    "total_segments": stats_area.total_segments,
-                    "driven_segments": stats_area.driven_segments,
-                }
-            )
-            await update_job(
-                message=(
-                    f"Coverage: {stats_area.coverage_percentage:.1f}% "
-                    f"({stats_area.driven_length_miles:.1f}/{stats_area.driveable_length_miles:.1f} mi)"
-                ),
-                stage_key="statistics",
-                metrics=stats_metrics,
-            )
+        inventory_metadata = {
+            "osm_fetched_at": datetime.now(UTC),
+            "road_filter_version": road_filter_stats.get(
+                "road_filter_signature", get_public_road_filter_signature()
+            ),
+            "road_filter_stats": road_filter_stats,
+            "osm_extract_id": osm_extract_id or None,
+            "graph_extract_id": road_filter_stats.get("graph_extract_id")
+            or osm_extract_id
+            or None,
+            "graph_built_at": graph_built_at,
+            "graph_path": road_filter_stats.get("graph_path"),
+        }
 
         # Stage 6: Backfill with historical trips
         stage_start = datetime.now(UTC)
@@ -990,6 +940,8 @@ async def _run_ingestion_pipeline(
             area_doc_id,
             progress_callback=handle_backfill_progress,
             trip_mode=selected_trip_mode,
+            inventory_version=target_version,
+            inventory_metadata=inventory_metadata,
         )
         backfill_state["segments_updated"] = segments_updated
         backfill_ms = (datetime.now(UTC) - stage_start).total_seconds() * 1000
@@ -1482,7 +1434,7 @@ async def _ensure_area_graph(
 ) -> Path:
     from routing.constants import GRAPH_STORAGE_DIR
 
-    graph_path = GRAPH_STORAGE_DIR / f"{area.id}.graphml"
+    graph_path = GRAPH_STORAGE_DIR / f"{area.id}-{area.area_version}.graphml"
     configured_extract = await get_configured_extract_identity()
     expected_extract_id = str((configured_extract or {}).get("id") or "").strip()
     if graph_path.exists():
@@ -1610,6 +1562,22 @@ async def _load_osm_streets_from_graph(
                     # Pyrosm graphs sometimes use `id` instead of `osmid`.
                     "osm_id": _coerce_osm_id(data.get("osmid") or data.get("id")),
                     "tags": {
+                        **{
+                            key: data[key]
+                            for key in (
+                                "access",
+                                "vehicle",
+                                "motor_vehicle",
+                                "motorcar",
+                                "access:conditional",
+                                "layer",
+                                "bridge",
+                                "tunnel",
+                                "junction",
+                                "service",
+                            )
+                            if key in data
+                        },
                         "name": _coerce_name(name),
                         "highway": highway_type,
                     },
@@ -1705,6 +1673,8 @@ def _segment_streets(
                         "street_name": street_name,
                         "highway_type": highway_type,
                         "osm_id": osm_id,
+                        "road_tags": tags,
+                        "street_key": (street_name or "").strip().casefold(),
                         "length_miles": geodesic_length_meters(line) * METERS_TO_MILES,
                         "osm_extract_id": osm_extract_id,
                     },
@@ -1739,6 +1709,8 @@ def _segment_streets(
                             "street_name": street_name,
                             "highway_type": highway_type,
                             "osm_id": osm_id,
+                            "road_tags": tags,
+                            "street_key": (street_name or "").strip().casefold(),
                             "length_miles": geodesic_length_meters(segment_wgs)
                             * METERS_TO_MILES,
                             "osm_extract_id": osm_extract_id,
@@ -1746,7 +1718,14 @@ def _segment_streets(
                     )
                     seq += 1
 
-    return segments
+    from street_coverage.identity import road_key
+
+    unique = {}
+    for segment in segments:
+        key = road_key(segment["geometry"], segment["road_tags"])
+        segment["road_key"] = key
+        unique.setdefault(key, segment)
+    return list(unique.values())
 
 
 def _total_segment_miles(segments: list[dict[str, Any]]) -> float:
@@ -1815,15 +1794,3 @@ async def _store_segments(segments: list[dict[str, Any]]) -> None:
         await Street.insert_many(street_docs)
 
     logger.debug("Stored %s street segments", len(segments))
-
-
-async def _clear_existing_area_data(area_id: PydanticObjectId) -> None:
-    """
-    Clear existing derived data for an area.
-
-    Rebuilds are treated as clean slates, and ingestion retries should
-    be idempotent. We delete *all* streets and coverage state for the
-    area to avoid accumulating old versions.
-    """
-    await Street.find({"area_id": area_id}).delete()
-    await CoverageState.find({"area_id": area_id}).delete()

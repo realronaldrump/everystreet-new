@@ -46,6 +46,8 @@ export function setMetricValue(elementId, value, { decimals = 0, suffix = "" } =
 }
 
 export function formatMiles(miles) {
+  if (Number(miles) > 0 && Number(miles) < 0.1)
+    return `${Math.max(1, Math.round(Number(miles) * 5280))} ft`;
   return formatDistance(miles, { decimals: 2, default: "0 mi" });
 }
 

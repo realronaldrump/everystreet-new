@@ -275,11 +275,16 @@ async def _generate_optimal_route_with_progress_impl(
         street_doc_ids: dict[int, PydanticObjectId] = {}  # seg_index -> Street._id
         current_area_version = coverage_area.area_version
         seg_index = 0
-        async for street in Street.find(
-            Street.area_id == location_id,
-            Street.area_version == coverage_area.area_version,
-            limit=MAX_SEGMENTS,
-        ):
+        street_query = {
+            "area_id": location_id,
+            "area_version": coverage_area.area_version,
+            "segment_id": {
+                "$nin": sorted(driven_segment_ids | undriveable_segment_ids)
+            },
+        }
+        if segment_ids is not None:
+            street_query["segment_id"]["$in"] = sorted(segment_ids)
+        async for street in Street.find(street_query).limit(MAX_SEGMENTS + 1):
             # Skip driven or undriveable segments
             if street.segment_id in driven_segment_ids:
                 continue
@@ -318,6 +323,11 @@ async def _generate_optimal_route_with_progress_impl(
             )
             seg_index += 1
 
+        if len(undriven_objs) > MAX_SEGMENTS:
+            raise ValueError(
+                "Too many remaining streets for one route. Select a smaller group of streets."
+            )
+
         # Convert to list of dicts to match expected structure
         undriven = [
             u if isinstance(u, dict) else u.model_dump(by_alias=True)
@@ -341,7 +351,12 @@ async def _generate_optimal_route_with_progress_impl(
 
         await update_progress("loading_graph", 40, "Loading street network...")
 
-        graph_path = GRAPH_STORAGE_DIR / f"{location_id}.graphml"
+        graph_path = (
+            Path(coverage_area.graph_path)
+            if coverage_area.graph_path
+            else GRAPH_STORAGE_DIR
+            / f"{location_id}-{coverage_area.area_version}.graphml"
+        )
 
         async def _build_graph_from_extract(progress_message: str) -> None:
             await update_progress(
@@ -1336,7 +1351,7 @@ async def _generate_optimal_route_with_progress_impl(
                 f"(invalid geometry: {skipped_invalid_geometry}, "
                 f"unmatched: {skipped_mapping_distance}, "
                 f"match errors: {skipped_match_errors}; "
-                "note MAX_SEGMENTS may truncate)."
+                "all eligible streets were considered)."
             ),
             metrics={
                 "total_segments": total_segments,

@@ -1,518 +1,247 @@
-/**
- * Live Navigation Coverage Module
- * Real-time segment coverage tracking and gamification.
- */
-
+/** Provisional navigation progress. Historical Bouncie processing owns persistence. */
 import { MI_TO_M } from "../utils/geo-math.js";
 import LiveNavigationAPI from "./live-navigation-api.js";
-import { DISTANCE_THRESHOLDS } from "./live-navigation-config.js";
-import { distanceToLineString, toXY } from "./live-navigation-geo.js";
+import { toXY } from "./live-navigation-geo.js";
 
-/**
- * Coverage tracking for real-time segment completion
- */
-class LiveNavigationCoverage {
-  constructor(config = {}) {
-    this.config = {
-      segmentMatchThresholdMeters: DISTANCE_THRESHOLDS.segmentMatch,
-      spatialIndexCellSizeMeters: 160,
-      persistDebounceMs: 2000,
-      ...config,
-    };
+export function mergeIntervals(intervals) {
+  const result = [];
+  for (const [start, end] of intervals
+    .map(([a, b]) => [Math.max(0, a), Math.min(1, b)])
+    .filter(([a, b]) => b > a)
+    .sort((a, b) => a[0] - b[0])) {
+    const last = result.at(-1);
+    if (last && start <= last[1] + 1e-9) last[1] = Math.max(last[1], end);
+    else result.push([start, end]);
+  }
+  return result;
+}
+const fraction = (ranges) => ranges.reduce((sum, [a, b]) => sum + b - a, 0);
 
-    // Segment data
-    this.segmentsData = null;
+export function traceIntervals(
+  coordinates,
+  previous,
+  current,
+  referenceLat,
+  tolerance = 25
+) {
+  const points = coordinates.map((point) => toXY(point, referenceLat));
+  const a = toXY(previous, referenceLat),
+    b = toXY(current, referenceLat);
+  const length = Math.hypot(b.x - a.x, b.y - a.y);
+  if (length < 2 || length > 500) return [];
+  const ux = (b.x - a.x) / length,
+    uy = (b.y - a.y) / length;
+  const lengths = points
+    .slice(1)
+    .map((point, i) => Math.hypot(point.x - points[i].x, point.y - points[i].y));
+  const total = lengths.reduce((sum, value) => sum + value, 0);
+  if (!total) return [];
+  let distance = 0;
+  const intervals = [];
+  for (let i = 0; i < lengths.length; i++) {
+    const p = points[i],
+      q = points[i + 1],
+      edge = lengths[i];
+    if (!edge || Math.abs((q.x - p.x) * ux + (q.y - p.y) * uy) < edge * Math.SQRT1_2) {
+      distance += edge;
+      continue;
+    }
+    const along = (p.x - a.x) * ux + (p.y - a.y) * uy;
+    const across = (p.x - a.x) * -uy + (p.y - a.y) * ux;
+    const deltaAlong = (q.x - p.x) * ux + (q.y - p.y) * uy;
+    const deltaAcross = (q.x - p.x) * -uy + (q.y - p.y) * ux;
+    let low = 0,
+      high = 1;
+    for (const [origin, delta, min, max] of [
+      [along, deltaAlong, 0, length],
+      [across, deltaAcross, -tolerance, tolerance],
+    ]) {
+      if (Math.abs(delta) < 1e-9) {
+        if (origin < min || origin > max) high = -1;
+      } else {
+        const bounds = [(min - origin) / delta, (max - origin) / delta].sort(
+          (x, y) => x - y
+        );
+        low = Math.max(low, bounds[0]);
+        high = Math.min(high, bounds[1]);
+      }
+    }
+    if (high > low)
+      intervals.push([
+        (distance + edge * low) / total,
+        (distance + edge * high) / total,
+      ]);
+    distance += edge;
+  }
+  return mergeIntervals(intervals);
+}
+
+export default class LiveNavigationCoverage {
+  constructor() {
     this.segmentIndex = new Map();
     this.drivenSegmentIds = new Set();
     this.undrivenSegmentIds = new Set();
-    this.totalSegmentLength = 0;
-    this.drivenSegmentLength = 0;
-
-    // Spatial index of undriven segments for fast nearby matching.
-    this._spatialGrid = new Map(); // cellKey -> Set(segmentId)
-    this._segmentCells = new Map(); // segmentId -> Array(cellKey)
-    this._refLat = null;
-
-    // Live session tracking
-    this.liveSegmentsCovered = new Set();
-    this.liveCoverageIncrease = 0;
-    this.sessionSegmentsCompleted = 0;
-
-    // Persistence queue (debounced)
-    this.pendingSegmentUpdates = new Set();
-    this.persistSegmentsTimeout = null;
-    this.persistRetryTimeout = null;
+    this.coveredIntervals = new Map();
+    this.spatialGrid = new Map();
+    this.loadRevision = 0;
     this.selectedAreaId = null;
-    this.consecutivePersistFailures = 0;
-    this.persistRetryBaseMs = 5000;
-    this.persistRetryMaxMs = 30000;
-    this.maxPersistRetries = 5;
-
-    // UI feedback
-    this.completionPopupTimeout = null;
-
-    // Callbacks
-    this.onMapUpdate = null;
-    this.onCoverageUpdate = null;
-    this.onPersistenceIssue = null;
+    this.reset();
   }
-
-  _gridKey(cx, cy) {
-    return `${cx},${cy}`;
-  }
-
-  _indexUndrivenSegment(segmentId, coordinates) {
-    if (!segmentId || !Array.isArray(coordinates) || coordinates.length < 2) {
-      return;
-    }
-
-    if (!Number.isFinite(this._refLat)) {
-      const first = coordinates[0];
-      if (Array.isArray(first) && first.length >= 2 && Number.isFinite(first[1])) {
-        this._refLat = first[1];
-      } else {
-        this._refLat = 0;
-      }
-    }
-
-    // Compute a bbox in projected XY meters for grid indexing.
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    for (const coord of coordinates) {
-      if (!Array.isArray(coord) || coord.length < 2) {
-        continue;
-      }
-      const xy = toXY(coord, this._refLat);
-      if (!Number.isFinite(xy?.x) || !Number.isFinite(xy?.y)) {
-        continue;
-      }
-      minX = Math.min(minX, xy.x);
-      minY = Math.min(minY, xy.y);
-      maxX = Math.max(maxX, xy.x);
-      maxY = Math.max(maxY, xy.y);
-    }
-
-    if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
-      return;
-    }
-
-    const cellSize = Math.max(40, this.config.spatialIndexCellSizeMeters || 160);
-    const cx0 = Math.floor(minX / cellSize);
-    const cy0 = Math.floor(minY / cellSize);
-    const cx1 = Math.floor(maxX / cellSize);
-    const cy1 = Math.floor(maxY / cellSize);
-
-    const keys = [];
-    for (let cx = cx0; cx <= cx1; cx++) {
-      for (let cy = cy0; cy <= cy1; cy++) {
-        const key = this._gridKey(cx, cy);
-        if (!this._spatialGrid.has(key)) {
-          this._spatialGrid.set(key, new Set());
-        }
-        this._spatialGrid.get(key).add(segmentId);
-        keys.push(key);
-      }
-    }
-
-    this._segmentCells.set(segmentId, keys);
-  }
-
-  _unindexSegment(segmentId) {
-    const keys = this._segmentCells.get(segmentId);
-    if (!keys) {
-      return;
-    }
-    for (const key of keys) {
-      const bucket = this._spatialGrid.get(key);
-      if (!bucket) {
-        continue;
-      }
-      bucket.delete(segmentId);
-      if (bucket.size === 0) {
-        this._spatialGrid.delete(key);
-      }
-    }
-    this._segmentCells.delete(segmentId);
-  }
-
-  /**
-   * Set callbacks for UI updates
-   * @param {Object} callbacks
-   */
-  setCallbacks({ onMapUpdate, onCoverageUpdate, onPersistenceIssue }) {
+  setCallbacks({ onMapUpdate, onCoverageUpdate, onCoverageIssue }) {
     this.onMapUpdate = onMapUpdate;
     this.onCoverageUpdate = onCoverageUpdate;
-    this.onPersistenceIssue = onPersistenceIssue;
+    this.onCoverageIssue = onCoverageIssue;
   }
-
-  notifyPersistenceIssue(issue) {
-    if (!issue) {
-      return;
-    }
-    if (this.onPersistenceIssue) {
-      this.onPersistenceIssue(issue);
-    }
-    if (
-      issue.message &&
-      typeof window !== "undefined" &&
-      typeof console?.warn === "function"
-    ) {
-      // Keep a low-level trace for debugging without interrupting navigation.
-      console.warn(`[live-navigation] ${issue.message}`);
-    }
-  }
-
-  schedulePersistenceRetry(delayMs) {
-    const safeDelay = Math.max(
-      1000,
-      Math.min(Number(delayMs) || 0, this.persistRetryMaxMs)
-    );
-    clearTimeout(this.persistRetryTimeout);
-    this.persistRetryTimeout = setTimeout(() => {
-      this.persistDrivenSegments();
-    }, safeDelay);
-  }
-
-  /**
-   * Load coverage segments from API
-   * @param {string} areaId
-   */
   async loadSegments(areaId) {
-    this.selectedAreaId = areaId;
+    const revision = ++this.loadRevision;
     this.reset();
-
+    this.selectedAreaId = areaId;
     try {
-      const geojson = await LiveNavigationAPI.fetchCoverageSegments(areaId);
-      this.segmentsData = geojson;
-      const driveableFeatures = [];
-
-      // Index all segments and categorize
-      for (const feature of geojson.features) {
-        const segmentId = feature.properties?.segment_id;
-        const status = feature.properties?.status;
-        const isDriven = status === "driven";
-        const isUndriveable = status === "undriveable";
-        const lengthMiles = feature.properties?.length_miles || 0;
-        const length = lengthMiles * MI_TO_M;
-
-        if (!segmentId || isUndriveable) {
-          continue;
-        }
-
-        // Mapbox feature-state requires a stable feature id.
-        feature.id = segmentId;
-
-        this.segmentIndex.set(segmentId, feature);
-        this.totalSegmentLength += length;
-        driveableFeatures.push(feature);
-
-        if (isDriven) {
-          this.drivenSegmentIds.add(segmentId);
-          this.drivenSegmentLength += length;
-        } else {
-          this.undrivenSegmentIds.add(segmentId);
-          this._indexUndrivenSegment(segmentId, feature.geometry?.coordinates);
-        }
+      const data = await LiveNavigationAPI.fetchCoverageSegments(areaId);
+      if (revision !== this.loadRevision) return;
+      const features = [];
+      for (const feature of data.features) {
+        const p = feature.properties;
+        if (!p?.segment_id || p.status === "undriveable") continue;
+        feature.id = p.segment_id;
+        this.segmentIndex.set(p.segment_id, feature);
+        const intervals = mergeIntervals(p.intervals || []);
+        this.coveredIntervals.set(p.segment_id, intervals);
+        this.totalSegmentLength += p.length_miles * MI_TO_M;
+        this.drivenSegmentLength += fraction(intervals) * p.length_miles * MI_TO_M;
+        (p.status === "driven" ? this.drivenSegmentIds : this.undrivenSegmentIds).add(
+          p.segment_id
+        );
+        features.push(feature);
       }
-
-      // Notify map to update layers
-      if (this.onMapUpdate) {
-        this.onMapUpdate({
-          type: "init",
-          features: driveableFeatures,
-          drivenIds: Array.from(this.drivenSegmentIds),
-        });
-      }
-    } catch {
-      // Silently fail - coverage tracking is optional enhancement
-    }
-  }
-
-  /**
-   * Check if current position matches any undriven segments
-   * @param {{lon: number, lat: number}} position
-   */
-  checkSegmentCoverage(position) {
-    if (!this.segmentIndex.size || this.undrivenSegmentIds.size === 0) {
-      return;
-    }
-
-    const current = [position.lon, position.lat];
-    const newlyDriven = [];
-
-    const cellSize = Math.max(40, this.config.spatialIndexCellSizeMeters || 160);
-    if (!Number.isFinite(this._refLat)) {
-      this._refLat = current[1] || 0;
-    }
-    const p = toXY(current, this._refLat);
-    if (!Number.isFinite(p?.x) || !Number.isFinite(p?.y)) {
-      return;
-    }
-    const cx = Math.floor(p.x / cellSize);
-    const cy = Math.floor(p.y / cellSize);
-    const radiusCells = Math.max(
-      1,
-      Math.ceil(this.config.segmentMatchThresholdMeters / cellSize)
-    );
-
-    const candidates = new Set();
-    for (let dx = -radiusCells; dx <= radiusCells; dx++) {
-      for (let dy = -radiusCells; dy <= radiusCells; dy++) {
-        const bucket = this._spatialGrid.get(this._gridKey(cx + dx, cy + dy));
-        if (!bucket) {
-          continue;
-        }
-        for (const segmentId of bucket) {
-          candidates.add(segmentId);
+      this.referenceLat = features[0]?.geometry?.coordinates?.[0]?.[1] || 0;
+      for (const feature of features) {
+        const points = feature.geometry.coordinates.map((point) =>
+          toXY(point, this.referenceLat)
+        );
+        const xs = points.map((point) => point.x),
+          ys = points.map((point) => point.y);
+        for (
+          let x = Math.floor(Math.min(...xs) / 160);
+          x <= Math.floor(Math.max(...xs) / 160);
+          x++
+        ) {
+          for (
+            let y = Math.floor(Math.min(...ys) / 160);
+            y <= Math.floor(Math.max(...ys) / 160);
+            y++
+          ) {
+            const key = `${x},${y}`;
+            if (!this.spatialGrid.has(key)) this.spatialGrid.set(key, new Set());
+            this.spatialGrid.get(key).add(feature.id);
+          }
         }
       }
-    }
-
-    for (const segmentId of candidates) {
-      if (!this.undrivenSegmentIds.has(segmentId)) {
-        continue;
-      }
-      const feature = this.segmentIndex.get(segmentId);
-      if (!feature) {
-        continue;
-      }
-
-      // Check if current position is close to this segment
-      const distance = distanceToLineString(current, feature.geometry.coordinates);
-
-      if (distance <= this.config.segmentMatchThresholdMeters) {
-        newlyDriven.push(segmentId);
-      }
-    }
-
-    // Process newly driven segments
-    if (newlyDriven.length > 0) {
-      this.markSegmentsDriven(newlyDriven);
-    }
-  }
-
-  /**
-   * Mark segments as driven and update UI
-   * @param {Array<string>} segmentIds
-   */
-  markSegmentsDriven(segmentIds) {
-    const newlyDrivenIds = [];
-
-    for (const segmentId of segmentIds) {
-      if (!this.undrivenSegmentIds.has(segmentId)) {
-        continue;
-      }
-
-      const feature = this.segmentIndex.get(segmentId);
-      if (!feature) {
-        continue;
-      }
-
-      // Move from undriven to driven
-      this.undrivenSegmentIds.delete(segmentId);
-      this.drivenSegmentIds.add(segmentId);
-      this.liveSegmentsCovered.add(segmentId);
-      this._unindexSegment(segmentId);
-
-      // Track length
-      const lengthMiles = feature.properties?.length_miles || 0;
-      const length = lengthMiles * MI_TO_M;
-      this.drivenSegmentLength += length;
-      this.liveCoverageIncrease += length;
-
-      newlyDrivenIds.push(segmentId);
-    }
-
-    if (newlyDrivenIds.length === 0) {
-      return;
-    }
-
-    // Update map with glow effect on newly driven segments
-    if (this.onMapUpdate) {
-      this.onMapUpdate({
-        type: "segments-driven",
-        segmentIds: newlyDrivenIds,
+      this.onMapUpdate?.({
+        type: "init",
+        features,
+        drivenIds: [...this.drivenSegmentIds],
       });
+      this.onCoverageUpdate?.(this.getCoverageStats());
+    } catch (error) {
+      if (revision === this.loadRevision)
+        this.onCoverageIssue?.({
+          message: `Coverage preview is unavailable: ${error.message}`,
+        });
     }
-
-    // Update coverage stats in real-time
-    if (this.onCoverageUpdate) {
-      this.onCoverageUpdate(this.getCoverageStats());
-    }
-
-    // Trigger satisfaction feedback
-    this.onSegmentsCompleted(newlyDrivenIds.length);
-
-    // Persist to server (debounced)
-    this.queueSegmentPersistence(newlyDrivenIds);
   }
-
-  /**
-   * Get current coverage statistics
-   * @returns {{percentage: number, drivenLength: number, totalLength: number}}
-   */
+  checkSegmentCoverage(position) {
+    const current = [position.lon, position.lat];
+    if (
+      !current.every(Number.isFinite) ||
+      (Number.isFinite(position.accuracy) && position.accuracy > 50)
+    ) {
+      this.previous = null;
+      return;
+    }
+    const previous = this.previous;
+    this.previous = { coordinates: current, time: position.timestamp || Date.now() };
+    if (
+      !previous ||
+      this.previous.time - previous.time > 120000 ||
+      this.previous.time <= previous.time
+    )
+      return;
+    const a = toXY(previous.coordinates, this.referenceLat),
+      b = toXY(current, this.referenceLat);
+    if (Math.hypot(b.x - a.x, b.y - a.y) > 500) return;
+    const candidates = new Set();
+    for (
+      let x = Math.floor((Math.min(a.x, b.x) - 25) / 160);
+      x <= Math.floor((Math.max(a.x, b.x) + 25) / 160);
+      x++
+    ) {
+      for (
+        let y = Math.floor((Math.min(a.y, b.y) - 25) / 160);
+        y <= Math.floor((Math.max(a.y, b.y) + 25) / 160);
+        y++
+      ) {
+        for (const id of this.spatialGrid.get(`${x},${y}`) || []) candidates.add(id);
+      }
+    }
+    const completed = [];
+    for (const id of candidates) {
+      if (!this.undrivenSegmentIds.has(id)) continue;
+      const feature = this.segmentIndex.get(id);
+      const old = this.coveredIntervals.get(id) || [];
+      const next = mergeIntervals([
+        ...old,
+        ...traceIntervals(
+          feature.geometry.coordinates,
+          previous.coordinates,
+          current,
+          this.referenceLat
+        ),
+      ]);
+      const gain =
+        Math.max(0, fraction(next) - fraction(old)) *
+        feature.properties.length_miles *
+        MI_TO_M;
+      this.coveredIntervals.set(id, next);
+      this.drivenSegmentLength += gain;
+      this.liveCoverageIncrease += gain;
+      if (fraction(next) >= 1 - 1e-9) {
+        this.undrivenSegmentIds.delete(id);
+        this.drivenSegmentIds.add(id);
+        this.sessionSegmentsCompleted++;
+        completed.push(id);
+      }
+    }
+    if (completed.length)
+      this.onMapUpdate?.({ type: "segments-driven", segmentIds: completed });
+    this.onCoverageUpdate?.(this.getCoverageStats());
+  }
   getCoverageStats() {
-    const percentage =
-      this.totalSegmentLength > 0
-        ? (this.drivenSegmentLength / this.totalSegmentLength) * 100
-        : 0;
-
     return {
-      percentage,
+      percentage: this.totalSegmentLength
+        ? (this.drivenSegmentLength / this.totalSegmentLength) * 100
+        : 0,
       drivenLength: this.drivenSegmentLength,
       totalLength: this.totalSegmentLength,
       sessionIncrease: this.liveCoverageIncrease,
       sessionSegments: this.sessionSegmentsCompleted,
+      provisional: true,
     };
   }
-
-  /**
-   * Satisfaction feedback when segments are completed
-   * @param {number} count
-   */
-  onSegmentsCompleted(count) {
-    if (count === 0) {
-      return;
-    }
-
-    this.sessionSegmentsCompleted += count;
-
-    // Subtle haptic feedback if available
-    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-      navigator.vibrate(count > 1 ? [30, 20, 30] : 30);
-    }
-
-    // Show visual feedback for multiple segments
-    if (count >= 2) {
-      this.showSegmentCompletionPopup(count);
-    }
-  }
-
-  /**
-   * Show a brief popup when completing multiple segments at once
-   * @param {number} count
-   */
-  showSegmentCompletionPopup(count) {
-    // Don't spam popups
-    if (this.completionPopupTimeout) {
-      return;
-    }
-
-    const popup = document.createElement("div");
-    popup.className = "nav-segment-counter";
-    popup.textContent = `+${count} segments`;
-    document.body.appendChild(popup);
-
-    this.completionPopupTimeout = setTimeout(() => {
-      popup.remove();
-      this.completionPopupTimeout = null;
-    }, 700);
-  }
-
-  /**
-   * Queue segment persistence to server (debounced)
-   * @param {Array<string>} segmentIds
-   */
-  queueSegmentPersistence(segmentIds) {
-    for (const id of segmentIds) {
-      this.pendingSegmentUpdates.add(id);
-    }
-
-    // Debounce: persist after configured delay
-    clearTimeout(this.persistRetryTimeout);
-    clearTimeout(this.persistSegmentsTimeout);
-    this.persistSegmentsTimeout = setTimeout(() => {
-      this.persistDrivenSegments();
-    }, this.config.persistDebounceMs);
-  }
-
-  /**
-   * Persist driven segments to server
-   */
-  async persistDrivenSegments() {
-    if (!this.pendingSegmentUpdates || this.pendingSegmentUpdates.size === 0) {
-      return;
-    }
-
-    const segmentIds = Array.from(this.pendingSegmentUpdates);
-    this.pendingSegmentUpdates.clear();
-
-    try {
-      await LiveNavigationAPI.persistDrivenSegments(segmentIds, this.selectedAreaId);
-      this.consecutivePersistFailures = 0;
-      clearTimeout(this.persistRetryTimeout);
-    } catch (error) {
-      this.notifyPersistenceIssue({
-        type: "base_failed",
-        segmentCount: segmentIds.length,
-        message: `Coverage persistence failed (${error?.message || "unknown error"}).`,
-      });
-      // Re-queue failed segments
-      for (const id of segmentIds) {
-        this.pendingSegmentUpdates.add(id);
-      }
-      this.consecutivePersistFailures += 1;
-      if (this.consecutivePersistFailures >= this.maxPersistRetries) {
-        clearTimeout(this.persistRetryTimeout);
-        this.notifyPersistenceIssue({
-          type: "retry_exhausted",
-          failureCount: this.consecutivePersistFailures,
-          segmentCount: segmentIds.length,
-          message: `Coverage persistence paused after ${this.consecutivePersistFailures} consecutive failures.`,
-        });
-        return;
-      }
-      const retryDelay = Math.min(
-        this.persistRetryBaseMs * 2 ** (this.consecutivePersistFailures - 1),
-        this.persistRetryMaxMs
-      );
-      this.schedulePersistenceRetry(retryDelay);
-      this.notifyPersistenceIssue({
-        type: "retry_scheduled",
-        failureCount: this.consecutivePersistFailures,
-        retryDelayMs: retryDelay,
-        segmentCount: segmentIds.length,
-        message: `Coverage persistence retry ${this.consecutivePersistFailures} scheduled in ${Math.round(
-          retryDelay / 1000
-        )}s.`,
-      });
-    }
-  }
-
-  /**
-   * Reset all tracking state
-   */
   reset() {
-    this.segmentsData = null;
     this.segmentIndex.clear();
     this.drivenSegmentIds.clear();
     this.undrivenSegmentIds.clear();
+    this.coveredIntervals.clear();
+    this.spatialGrid.clear();
+    this.previous = null;
     this.totalSegmentLength = 0;
     this.drivenSegmentLength = 0;
-    this._spatialGrid.clear();
-    this._segmentCells.clear();
-    this._refLat = null;
-    this.liveSegmentsCovered.clear();
     this.liveCoverageIncrease = 0;
     this.sessionSegmentsCompleted = 0;
-    this.pendingSegmentUpdates.clear();
-    clearTimeout(this.persistSegmentsTimeout);
-    clearTimeout(this.persistRetryTimeout);
-    this.consecutivePersistFailures = 0;
   }
-
-  /**
-   * Cleanup on destroy
-   */
   destroy() {
-    // Flush pending updates
-    this.persistDrivenSegments();
+    ++this.loadRevision;
     this.reset();
-    clearTimeout(this.completionPopupTimeout);
   }
 }
-
-export default LiveNavigationCoverage;

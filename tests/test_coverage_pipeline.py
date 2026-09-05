@@ -84,7 +84,7 @@ async def test_preprocess_and_ingestion_applies_public_road_filter_xml(
             )
             await preprocess_streets(location)
 
-            graph_path = graph_dir / "test-area.graphml"
+            graph_path = graph_dir / "test-area-1.graphml"
             assert graph_path.exists()
             graph = nx.read_graphml(graph_path)
             assert (

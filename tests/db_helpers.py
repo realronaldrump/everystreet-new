@@ -25,8 +25,61 @@ async def init_mock_beanie(
     *document_models: Any,
     database_name: str = "test_db",
 ):
+    from db.models import (
+        CoverageArea,
+        AppSettings,
+        CoverageOverride,
+        CoverageJournalEntry,
+        CoverageJournalRollup,
+        CoverageMission,
+        CoverageGoal,
+        CoverageStatusEvent,
+        CoverageDriveEvent,
+        CoverageState,
+        Street,
+    )
+
+    models = list(document_models)
+    if CoverageArea in models:
+        models = list(
+            dict.fromkeys(
+                [
+                    *models,
+                    AppSettings,
+                    CoverageOverride,
+                    CoverageJournalEntry,
+                    CoverageJournalRollup,
+                    CoverageMission,
+                    CoverageGoal,
+                    CoverageStatusEvent,
+                    CoverageDriveEvent,
+                    CoverageState,
+                    Street,
+                ]
+            )
+        )
+    # PyMongo 4.18 adds an optional sort argument to bulk builders. Adapt the
+    # test double here, never the application's transaction path.
+    import mongomock.collection
+
+    builder = mongomock.collection.BulkOperationBuilder
+    if not getattr(builder, "_coverage_sort_adapter", False):
+        import inspect
+        original_update = inspect.unwrap(builder.add_update)
+        original_replace = inspect.unwrap(builder.add_replace)
+
+        def add_update(self, *args, sort=None, **kwargs):
+            return original_update(self, *args, **kwargs)
+
+        def add_replace(self, *args, sort=None, **kwargs):
+            return original_replace(self, *args, **kwargs)
+
+        add_update.__name__ = "add_update_compat"
+        builder.add_update = add_update
+        builder.add_replace = add_replace
+        builder._coverage_sort_adapter = True
     client = AsyncMongoMockClient()
     database = client[database_name]
     _patch_mock_database_for_beanie_2_1(client, database)
-    await init_beanie(database=database, document_models=list(document_models))
+    await init_beanie(database=database, document_models=models)
     return database

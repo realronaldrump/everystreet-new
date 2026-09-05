@@ -492,7 +492,7 @@ class LiveNavigationUI {
       this.elements.coverageProgressLive.style.width = `${livePercent}%`;
     }
     if (this.elements.coverageProgressValue) {
-      this.elements.coverageProgressValue.textContent = `${livePercent.toFixed(2)}%`;
+      this.elements.coverageProgressValue.textContent = `${livePercent.toFixed(1)}%`;
     }
   }
 

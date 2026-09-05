@@ -1,29 +1,27 @@
-"""Coverage update logic for trips and street segments."""
+"""Historical coverage matching and atomic replacement of derived projections."""
 
 from __future__ import annotations
 
 import asyncio
-import gc
-import itertools
 import logging
-import math
 import os
-import time
-from collections.abc import Awaitable, Callable
+from collections import OrderedDict
 from dataclasses import dataclass
-from datetime import UTC, datetime
-from functools import lru_cache
+from datetime import UTC, datetime, timedelta
+from itertools import pairwise
 from statistics import median
-from typing import TYPE_CHECKING, Any, Literal
+from types import SimpleNamespace
+from typing import Literal
+from uuid import uuid4
 
+import shapely
 from beanie import PydanticObjectId
-from pymongo import ReturnDocument, UpdateOne
-from pymongo.errors import DuplicateKeyError
-from shapely.geometry import LineString, MultiLineString, shape
+from pymongo import ReturnDocument
+from shapely.geometry import LineString, MultiLineString, box, shape
 from shapely.ops import transform
 from shapely.strtree import STRtree
 
-from core.date_utils import get_current_utc_time, normalize_to_utc_datetime
+from core.date_utils import normalize_to_utc_datetime
 from core.spatial import (
     extract_line_sequences,
     geodesic_distance_meters,
@@ -31,1427 +29,561 @@ from core.spatial import (
 )
 from core.trip_query_spec import apply_trip_record_filters
 from core.trip_source_policy import enforce_bouncie_source
-from db.models import CoverageArea, CoverageDriveEvent, CoverageState, Street, Trip
+from db.models import CoverageArea, CoverageDriveEvent, Street, Trip
 from street_coverage.constants import (
-    BACKFILL_BULK_WRITE_SIZE,
-    COVERAGE_OVERLAP_RATIO,
-    GPS_GAP_MULTIPLIER,
     MATCH_BUFFER_METERS,
-    MAX_BEARING_DIFF_DEGREES,
-    MAX_GPS_GAP_METERS,
-    MAX_SEGMENTS_IN_MEMORY,
-    MEDIUM_SEGMENT_OVERLAP_RATIO,
-    MEDIUM_SEGMENT_THRESHOLD_METERS,
-    MIN_GPS_GAP_METERS,
-    MIN_OVERLAP_METERS,
-    PARALLEL_DOMINANCE_GAP_METERS,
     RAW_GPS_BUFFER_METERS,
-    RAW_GPS_OVERLAP_RATIO,
-    SHORT_SEGMENT_OVERLAP_RATIO,
-    SHORT_SEGMENT_THRESHOLD_METERS,
+    MAX_SEGMENTS_IN_MEMORY,
 )
-from street_coverage.journal import (
-    mark_journal_pending,
-    rebuild_journal_rollup,
+from street_coverage.identity import trip_input_revision
+from street_coverage.matching import MATCHING_VERSION, match_projected_intervals
+from street_coverage.projection import (
+    CoverageDeferred,
+    claim_area,
+    project_segments,
+    set_manual_status,
 )
-from street_coverage.stats import (
-    apply_area_stats_delta,
-    reconcile_area_state_from_drive_events,
-)
-
-if TYPE_CHECKING:
-    from shapely.geometry.base import BaseGeometry
+from street_coverage import transactions
 
 logger = logging.getLogger(__name__)
-
-BackfillProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
 CoverageTripMode = Literal["regular", "matched", "both"]
 DEFAULT_COVERAGE_TRIP_MODE: CoverageTripMode = "both"
-VALID_COVERAGE_TRIP_MODES: frozenset[str] = frozenset({"regular", "matched", "both"})
+VALID_COVERAGE_TRIP_MODES = frozenset({"regular", "matched", "both"})
+INDEX_MEMORY_BUDGET = 128 * 1024 * 1024
+_INDEXES: OrderedDict[tuple, AreaSegmentIndex] = OrderedDict()
 
 
-def normalize_coverage_trip_mode(
-    value: str | None,
-    *,
-    default: str | None = DEFAULT_COVERAGE_TRIP_MODE,
-) -> CoverageTripMode:
+def normalize_coverage_trip_mode(value, *, default=DEFAULT_COVERAGE_TRIP_MODE):
     mode = str(value or "").strip().lower()
-    if mode in VALID_COVERAGE_TRIP_MODES:
-        return mode  # type: ignore[return-value]
-    fallback = str(default or DEFAULT_COVERAGE_TRIP_MODE).strip().lower()
-    if fallback in VALID_COVERAGE_TRIP_MODES:
-        return fallback  # type: ignore[return-value]
-    return DEFAULT_COVERAGE_TRIP_MODE
+    return mode if mode in VALID_COVERAGE_TRIP_MODES else default
 
 
-async def get_effective_coverage_trip_mode(
-    trip_mode: str | None = None,
-) -> CoverageTripMode:
-    if isinstance(trip_mode, str) and trip_mode.strip():
+async def get_effective_coverage_trip_mode(trip_mode=None):
+    if trip_mode:
         return normalize_coverage_trip_mode(trip_mode)
+    if os.getenv("COVERAGE_TRIP_MODE"):
+        return normalize_coverage_trip_mode(os.environ["COVERAGE_TRIP_MODE"])
+    from core.service_config import get_service_config
 
-    # Only an operator sets this now. The app used to seed it from the
-    # stored setting, which made the branch below permanently unreachable.
-    env_mode = os.getenv("COVERAGE_TRIP_MODE")
-    if isinstance(env_mode, str) and env_mode.strip():
-        return normalize_coverage_trip_mode(env_mode)
+    settings = await get_service_config()
+    return normalize_coverage_trip_mode(settings.streetCoverageTripMode)
 
-    try:
-        from core.service_config import get_service_config
 
-        settings = await get_service_config()
-        return normalize_coverage_trip_mode(
-            getattr(settings, "streetCoverageTripMode", None),
-            default=DEFAULT_COVERAGE_TRIP_MODE,
+class AreaSegmentIndex:
+    def __init__(self, area_id, area_version=None):
+        self.area_id = area_id
+        self.area_version = area_version
+        self.segments = []
+        self.segment_geoms_meters = []
+        self.strtree = None
+        self.to_meters = self.to_wgs84 = None
+        self._built = False
+        self._lock = asyncio.Lock()
+        self.estimated_bytes = 0
+
+    async def build(self):
+        async with self._lock:
+            if self._built:
+                return self
+            query = {"area_id": self.area_id, "area_version": self.area_version}
+            collection = Street.get_pymongo_collection()
+            rows = (
+                await collection.find(query, {"segment_id": 1, "geometry": 1})
+                .limit(MAX_SEGMENTS_IN_MEMORY + 1)
+                .to_list(None)
+            )
+            if len(rows) > MAX_SEGMENTS_IN_MEMORY:
+                raise ValueError(
+                    "Coverage inventory exceeds the bounded spatial index size"
+                )
+
+            def build_index():
+                valid = []
+                geometries = []
+                for row in rows:
+                    geometry = shape(row["geometry"])
+                    if (
+                        geometry.geom_type != "LineString"
+                        or not geometry.is_valid
+                        or geometry.is_empty
+                        or geometry.length == 0
+                    ):
+                        raise ValueError(
+                            f"Invalid street geometry: {row['segment_id']}"
+                        )
+                    valid.append(SimpleNamespace(segment_id=row["segment_id"]))
+                    geometries.append(geometry)
+                if not geometries:
+                    return valid, [], None, None, None, 0
+                forward, inverse = get_local_transformers(
+                    box(*shapely.total_bounds(geometries))
+                )
+                projected = [transform(forward, geometry) for geometry in geometries]
+                estimate = sum(len(g.wkb) + 512 for g in projected)
+                return valid, projected, STRtree(projected), forward, inverse, estimate
+
+            (
+                self.segments,
+                self.segment_geoms_meters,
+                self.strtree,
+                self.to_meters,
+                self.to_wgs84,
+                self.estimated_bytes,
+            ) = await asyncio.to_thread(build_index)
+            self._built = True
+            return self
+
+    def find_coverage_intervals(self, trip_line, *, buffer_meters=MATCH_BUFFER_METERS):
+        if not self._built or self.strtree is None:
+            return {}
+        return match_projected_intervals(
+            [s.segment_id for s in self.segments],
+            self.segment_geoms_meters,
+            self.strtree,
+            transform(self.to_meters, trip_line),
+            buffer_meters,
         )
-    except Exception:
-        logger.debug(
-            "Falling back to default coverage trip mode=%s",
-            DEFAULT_COVERAGE_TRIP_MODE,
-            exc_info=True,
+
+    def find_matching_segments(self, trip_line, *, buffer_meters=MATCH_BUFFER_METERS):
+        """IDs with supported traveled intervals, for spatial inspection callers."""
+        return list(
+            self.find_coverage_intervals(trip_line, buffer_meters=buffer_meters)
         )
-        return DEFAULT_COVERAGE_TRIP_MODE
 
 
-def _line_bearing(line: BaseGeometry) -> float | None:
-    """
-    Compute the overall bearing (0-360) of a LineString from start to end.
+async def get_area_segment_index(area_id, area_version=None):
+    if area_version is None:
+        area = await CoverageArea.get(area_id)
+        if area is None:
+            raise ValueError("Coverage area not found")
+        area_version = area.area_version
+    key = (area_id, area_version)
+    index = _INDEXES.setdefault(key, AreaSegmentIndex(area_id, area_version))
+    await index.build()
+    _INDEXES.move_to_end(key)
+    while (
+        len(_INDEXES) > 1
+        and sum(item.estimated_bytes for item in _INDEXES.values())
+        > INDEX_MEMORY_BUDGET
+    ):
+        _INDEXES.popitem(last=False)
+    return index
 
-    Uses projected (meters) coordinates. Returns None for degenerate
-    lines.
-    """
-    coords = list(line.coords)
-    if len(coords) < 2:
+
+def invalidate_area_index(area_id, area_version):
+    _INDEXES.pop((area_id, area_version), None)
+
+
+def _split_coords_by_gap(coords, timestamps=None):
+    distances = [geodesic_distance_meters(*a[:2], *b[:2]) for a, b in pairwise(coords)]
+    threshold = min(500.0, max(100.0, median(distances) * 5)) if distances else 100.0
+    lines, current = [], []
+    for index, point in enumerate(coords):
+        gap = index > 0 and distances[index - 1] > threshold
+        if (
+            index
+            and timestamps
+            and timestamps[index - 1] is not None
+            and timestamps[index] is not None
+        ):
+            seconds = (timestamps[index] - timestamps[index - 1]).total_seconds()
+            gap = (
+                gap
+                or seconds > 120
+                or (seconds <= 0 and distances[index - 1] > 2)
+                or (seconds > 0 and distances[index - 1] / seconds > 70)
+            )
+        if gap:
+            if len(current) > 1:
+                lines.append(LineString(current))
+            current = []
+        current.append(point)
+    if len(current) > 1:
+        lines.append(LineString(current))
+    return lines
+
+
+def _has_confirmed_matched_geometry(trip):
+    status = str(trip.get("matchStatus") or "").lower()
+    confidence = trip.get("matchConfidence")
+    if isinstance(confidence, (int, float)) and confidence < 0.5:
+        return False
+    return status.startswith("matched") or trip.get("matched_at") is not None
+
+
+def _trip_to_matched_linestring(trip):
+    if not _has_confirmed_matched_geometry(trip):
         return None
-    dx = coords[-1][0] - coords[0][0]
-    dy = coords[-1][1] - coords[0][1]
-    if abs(dx) < 1e-9 and abs(dy) < 1e-9:
-        return None
-    bearing = math.degrees(math.atan2(dx, dy)) % 360
-    return bearing
+    lines = [
+        LineString(coords)
+        for coords in extract_line_sequences(trip.get("matchedGps"))
+        if len(coords) >= 2
+    ]
+    return lines[0] if len(lines) == 1 else MultiLineString(lines) if lines else None
 
 
-def _bearing_aligned(
-    trip_bearing: float | None,
-    segment_bearing: float | None,
-    max_diff: float = MAX_BEARING_DIFF_DEGREES,
-) -> bool:
-    """
-    Check if two bearings are within max_diff degrees.
-
-    Roads are bidirectional, so bearings 0° and 180° are considered
-    aligned. Returns True if either bearing is None (skip check for
-    degenerate lines).
-    """
-    if trip_bearing is None or segment_bearing is None:
-        return True
-    diff = abs(trip_bearing - segment_bearing) % 360
-    if diff > 180:
-        diff = 360 - diff
-    # Roads are bidirectional — also check the reverse direction
-    return diff <= max_diff or abs(diff - 180) <= max_diff
+def _trip_to_raw_linestring(trip):
+    result = []
+    samples = trip.get("coordinates") or []
+    for coords in extract_line_sequences(trip.get("gps")):
+        timestamps = None
+        if len(samples) == len(coords) and all(
+            isinstance(sample, dict) for sample in samples
+        ):
+            timestamps = [
+                normalize_to_utc_datetime(sample.get("timestamp")) for sample in samples
+            ]
+        result.extend(_split_coords_by_gap(coords, timestamps))
+    return (
+        result[0] if len(result) == 1 else MultiLineString(result) if result else None
+    )
 
 
-def _get_segment_overlap_ratio(
-    segment_length: float,
-    base_ratio: float,
-) -> float:
-    """
-    Return the overlap ratio based on segment length.
-
-    Short segments need stronger evidence to be credited.
-    """
-    if segment_length < SHORT_SEGMENT_THRESHOLD_METERS:
-        return max(base_ratio, SHORT_SEGMENT_OVERLAP_RATIO)
-    if segment_length < MEDIUM_SEGMENT_THRESHOLD_METERS:
-        return max(base_ratio, MEDIUM_SEGMENT_OVERLAP_RATIO)
-    return base_ratio
+def trip_to_linestring_candidates(trip, trip_mode=DEFAULT_COVERAGE_TRIP_MODE):
+    mode = normalize_coverage_trip_mode(trip_mode)
+    matched = _trip_to_matched_linestring(trip) if mode != "regular" else None
+    if matched is not None:
+        return [(matched, True)]
+    if mode == "matched":
+        return []
+    raw = _trip_to_raw_linestring(trip)
+    return [(raw, False)] if raw is not None else []
 
 
-async def _bulk_write_updates(
-    collection: Any,
-    updates: list[tuple[dict[str, Any], dict[str, Any], bool]],
-    *,
-    ordered: bool = False,
-    session=None,
-) -> tuple[int, int]:
-    """Run a batch of update operations efficiently."""
-    if not updates:
-        return 0, 0
-
-    operations = [UpdateOne(flt, doc, upsert=upsert) for flt, doc, upsert in updates]
-    try:
-        result = await collection.bulk_write(
-            operations, ordered=ordered, **({"session": session} if session else {})
+async def match_trip_to_streets(trip, area_ids=None, trip_mode=None):
+    mode = await get_effective_coverage_trip_mode(trip_mode)
+    candidates = trip_to_linestring_candidates(trip, mode)
+    if not candidates:
+        return {}
+    trace, matched = candidates[0]
+    if area_ids is None:
+        minx, miny, maxx, maxy = trace.bounds
+        query = {
+            "bounding_box.0": {"$lte": maxx},
+            "bounding_box.2": {"$gte": minx},
+            "bounding_box.1": {"$lte": maxy},
+            "bounding_box.3": {"$gte": miny},
+        }
+    else:
+        query = {"_id": {"$in": area_ids}}
+    areas = await CoverageArea.find(query).to_list()
+    results = {}
+    for area in areas:
+        if area.status != "ready" or area.coverage_rebuild_token:
+            results[area.id] = {
+                "deferred": True,
+                "area_version": area.area_version,
+                "evidence": {},
+                "geometry_source": "none",
+            }
+            continue
+        index = await get_area_segment_index(area.id, area.area_version)
+        evidence = await asyncio.to_thread(
+            index.find_coverage_intervals,
+            trace,
+            buffer_meters=MATCH_BUFFER_METERS if matched else RAW_GPS_BUFFER_METERS,
         )
-    except TypeError as exc:
-        # pymongo>=4.11 passes `sort=` to UpdateOne bulk internals; older
-        # mongomock implementations don't accept this kwarg. Fall back to
-        # per-update writes in test environments.
-        if "unexpected keyword argument 'sort'" not in str(exc):
-            raise
-        modified = 0
-        upserted = 0
-        for flt, doc, upsert in updates:
-            single_result = await collection.update_one(flt, doc, upsert=upsert)
-            modified += int(getattr(single_result, "modified_count", 0) or 0)
-            if getattr(single_result, "upserted_id", None) is not None:
-                upserted += 1
-        return modified, upserted
-
-    upserted_count = getattr(result, "upserted_count", None)
-    if upserted_count is None:
-        upserted_count = len(getattr(result, "upserted_ids", {}) or {})
-    return int(getattr(result, "modified_count", 0) or 0), int(upserted_count or 0)
+        results[area.id] = {
+            "area_version": area.area_version,
+            "evidence": evidence,
+            "geometry_source": "matchedGps" if matched else "gps",
+        }
+    return results
 
 
-@dataclass(frozen=True, slots=True)
+async def update_coverage_for_trip(trip_data, trip_id=None, trip_mode=None):
+    trip_oid = _coerce_trip_id(trip_id)
+    if trip_oid is None or trip_data.get("source") != "bouncie":
+        raise ValueError("Coverage requires a persisted Bouncie Historical Trip")
+    mode = await get_effective_coverage_trip_mode(trip_mode)
+    matches = (
+        {}
+        if trip_data.get("inactive") or trip_data.get("invalid")
+        else await match_trip_to_streets(trip_data, trip_mode=mode)
+    )
+    # Changed/deleted geometry must retract evidence from previously touched areas.
+    previous = await CoverageDriveEvent.find({"trip_id": trip_oid}).to_list()
+    for event in previous:
+        if event.area_id not in matches:
+            matches[event.area_id] = {
+                "area_version": event.area_version,
+                "evidence": {},
+                "geometry_source": "none",
+            }
+    from street_coverage.trip_credit import credit_trip_area
+
+    total = 0
+    deferred = False
+    for area_id, match in matches.items():
+        if match.get("deferred"):
+            deferred = True
+            continue
+        total += await credit_trip_area(
+            trip_data,
+            trip_oid,
+            area_id,
+            match["evidence"],
+            mode,
+            area_version=match["area_version"],
+            geometry_source=match["geometry_source"],
+        )
+    if deferred:
+        raise CoverageDeferred(
+            "Waiting for an intersected area to finish recalculating"
+        )
+    return total
+
+
+@dataclass(frozen=True)
 class CoverageSegmentsUpdateResult:
     updated: int
     newly_driven_segment_ids: list[str]
     newly_driven_length_miles: float
 
 
-def _driven_state_update_pipeline(
-    *,
-    area_id: PydanticObjectId,
-    segment_id: str,
-    first_driven_at: datetime,
-    last_driven_at: datetime,
-) -> list[dict[str, Any]]:
-    """Build an atomic monotonic update for one driveable segment state."""
-    return [
-        {
-            "$set": {
-                "area_id": area_id,
-                "segment_id": segment_id,
-                "status": "driven",
-                "first_driven_at": {
-                    "$min": [
-                        {"$ifNull": ["$first_driven_at", first_driven_at]},
-                        first_driven_at,
-                    ]
-                },
-                "last_driven_at": {
-                    "$max": [
-                        {"$ifNull": ["$last_driven_at", last_driven_at]},
-                        last_driven_at,
-                    ]
-                },
-                "manually_marked": {"$ifNull": ["$manually_marked", False]},
-            }
-        }
-    ]
-
-
-def _driven_state_would_change(
-    previous: dict[str, Any] | None,
-    *,
-    first_driven_at: datetime,
-    last_driven_at: datetime,
-) -> bool:
-    if previous is None or previous.get("status") != "driven":
-        return True
-    previous_first = normalize_to_utc_datetime(previous.get("first_driven_at"))
-    previous_last = normalize_to_utc_datetime(previous.get("last_driven_at"))
-    return (
-        previous_first is None
-        or first_driven_at < previous_first
-        or previous_last is None
-        or last_driven_at > previous_last
-    )
-
-
-async def _update_driven_states_atomic(
-    *,
-    area_id: PydanticObjectId,
-    first_by_segment: dict[str, datetime],
-    last_by_segment: dict[str, datetime],
-    trip_by_segment: dict[str, PydanticObjectId] | None = None,
-    session=None,
-) -> tuple[int, list[str]]:
-    """Atomically update states and return the exact newly-driven segment IDs."""
-    collection = CoverageState.get_pymongo_collection()
-    semaphore = asyncio.Semaphore(32)
-
-    async def update_one(segment_id: str) -> tuple[str, bool, bool, bool]:
-        first_at = first_by_segment[segment_id]
-        last_at = last_by_segment.get(segment_id, first_at)
-        update_pipeline = _driven_state_update_pipeline(
-            area_id=area_id,
-            segment_id=segment_id,
-            first_driven_at=first_at,
-            last_driven_at=last_at,
-        )
-
-        async with semaphore:
-            try:
-                previous = await collection.find_one_and_update(
-                    {
-                        "area_id": area_id,
-                        "segment_id": segment_id,
-                        "status": {"$ne": "undriveable"},
-                    },
-                    update_pipeline,
-                    upsert=True,
-                    return_document=ReturnDocument.BEFORE,
-                    **({"session": session} if session else {}),
-                )
-            except DuplicateKeyError:
-                if session is not None:
-                    raise
-                # A concurrent first-drive upsert may win the unique-key race. Retry
-                # only an already-driven state; an undriveable state stays untouched.
-                previous = await collection.find_one_and_update(
-                    {
-                        "area_id": area_id,
-                        "segment_id": segment_id,
-                        "status": "driven",
-                    },
-                    update_pipeline,
-                    upsert=False,
-                    return_document=ReturnDocument.BEFORE,
-                )
-                if previous is None:
-                    return segment_id, False, False, False
-
-        newly_driven = previous is None or previous.get("status") != "driven"
-        changed = _driven_state_would_change(
-            previous,
-            first_driven_at=first_at,
-            last_driven_at=last_at,
-        )
-        return segment_id, True, changed, newly_driven
-
-    results: list[tuple[str, bool, bool, bool]] = []
-    segment_ids = list(first_by_segment)
-    for start in range(0, len(segment_ids), 128):
-        chunk = segment_ids[start : start + 128]
-        if session is not None:
-            # PyMongo sessions cannot execute concurrent operations.
-            results.extend([await update_one(segment_id) for segment_id in chunk])
-        else:
-            results.extend(
-                await asyncio.gather(*(update_one(segment_id) for segment_id in chunk))
-            )
-
-    accepted_ids = [segment_id for segment_id, accepted, _, _ in results if accepted]
-    newly_driven_ids = [segment_id for segment_id, _, _, newly in results if newly]
-
-    if trip_by_segment and accepted_ids:
-        trip_updates = []
-        for segment_id in accepted_ids:
-            trip_id = trip_by_segment.get(segment_id)
-            if trip_id is None:
-                continue
-            last_at = last_by_segment.get(segment_id, first_by_segment[segment_id])
-            trip_updates.append(
-                (
-                    {
-                        "area_id": area_id,
-                        "segment_id": segment_id,
-                        "status": "driven",
-                        "last_driven_at": last_at,
-                    },
-                    {"$set": {"driven_by_trip_id": trip_id}},
-                    False,
-                )
-            )
-        for start in range(0, len(trip_updates), BACKFILL_BULK_WRITE_SIZE):
-            await _bulk_write_updates(
-                collection,
-                trip_updates[start : start + BACKFILL_BULK_WRITE_SIZE],
-                ordered=False,
-                session=session,
-            )
-
-    return sum(1 for _, _, changed, _ in results if changed), newly_driven_ids
-
-
-class AreaSegmentIndex:
-    """
-    Pre-built spatial index for an area's street segments.
-
-    This provides O(log n) spatial lookups instead of O(n) database
-    queries for each trip during backfill operations.
-    """
-
-    def __init__(
-        self,
-        area_id: PydanticObjectId,
-        area_version: int | None = None,
-    ) -> None:
-        self.area_id = area_id
-        self.area_version = area_version
-        self.segments: list[Street] = []
-        self.segment_geoms: list[BaseGeometry] = []
-        self.segment_geoms_meters: list[BaseGeometry] = []
-        self.strtree: STRtree | None = None
-        self.to_meters = None
-        self.to_wgs84 = None
-        self._built = False
-
-    async def build(self) -> AreaSegmentIndex:
-        """Load all segments and build STRtree index."""
-        query: dict[str, Any] = {"area_id": self.area_id}
-        if self.area_version is not None:
-            query["area_version"] = self.area_version
-
-        # Check segment count before loading to prevent memory exhaustion
-        segment_count = await Street.find(query).count()
-        if segment_count == 0:
-            logger.info("No segments found for area %s", self.area_id)
-            self._built = True
-            return self
-
-        logger.info(
-            "Loading %d segments for area %s into spatial index",
-            segment_count,
-            self.area_id,
-        )
-
-        if segment_count > MAX_SEGMENTS_IN_MEMORY:
-            msg = (
-                f"Area {self.area_id} has {segment_count:,} segments, "
-                f"exceeding limit of {MAX_SEGMENTS_IN_MEMORY:,}. "
-                "Increase COVERAGE_MAX_SEGMENTS or process in smaller areas."
-            )
-            logger.error(msg)
-            raise MemoryError(msg)
-
-        if segment_count > MAX_SEGMENTS_IN_MEMORY // 2:
-            logger.warning(
-                "Area %s has %d segments - this may consume significant memory. "
-                "Consider splitting into smaller areas if memory issues occur.",
-                self.area_id,
-                segment_count,
-            )
-
-        self.segments = await Street.find(query).to_list()
-
-        if not self.segments:
-            self._built = True
-            return self
-
-        self.segment_geoms = []
-        valid_segments = []
-        for seg in self.segments:
-            try:
-                geom = shape(seg.geometry)
-                if geom.is_valid and not geom.is_empty:
-                    self.segment_geoms.append(geom)
-                    valid_segments.append(seg)
-            except Exception:
-                continue
-
-        self.segments = valid_segments
-
-        if not self.segment_geoms:
-            self._built = True
-            return self
-
-        representative_geom = self.segment_geoms[0]
-        self.to_meters, self.to_wgs84 = get_local_transformers(representative_geom)
-
-        self.segment_geoms_meters = [
-            transform(self.to_meters, g) for g in self.segment_geoms
-        ]
-
-        # Index in projected meters space to avoid lon/lat degree distortions.
-        self.strtree = STRtree(self.segment_geoms_meters)
-
-        self._built = True
-        logger.info(
-            "Built spatial index for area %s with %d segments",
-            self.area_id,
-            len(self.segments),
-        )
-        return self
-
-    def find_matching_segments(
-        self,
-        trip_line: BaseGeometry,
-        buffer_meters: float = MATCH_BUFFER_METERS,
-        min_overlap_meters: float = MIN_OVERLAP_METERS,
-        coverage_ratio: float = COVERAGE_OVERLAP_RATIO,
-        *,
-        skip_segment_ids: set[str] | None = None,
-        check_bearing: bool = True,
-    ) -> list[str]:
-        """
-        Find all segments that match a trip line using the spatial index.
-
-        Two-phase matching:
-          1. Buffer-overlap candidate selection (existing logic): gather
-             every segment whose intersection with the buffered trip line
-             meets the required overlap ratio.
-          2. Nearest-road dominance filter: for each candidate, drop it if
-             a *different* candidate is significantly closer to the trip
-             line at the same trip position. This rejects parallel-road
-             false positives (e.g., a road 8 m away from the driven road
-             that falls inside the buffer).
-
-        Returns list of segment_ids that were matched.
-        """
-        if not self._built or not self.strtree or not self.segments:
-            return []
-
-        trip_meters = transform(self.to_meters, trip_line)
-        trip_buffer_meters = trip_meters.buffer(buffer_meters)
-        candidate_indices = self.strtree.query(trip_buffer_meters)
-
-        if len(candidate_indices) == 0:
-            return []
-
-        # Pre-compute trip bearing for directional alignment check.
-        # For MultiLineString, compute bearing per sub-line and check
-        # alignment against any of them.
-        trip_bearings: list[float] = []
-        if check_bearing:
-            if isinstance(trip_meters, MultiLineString):
-                for sub_line in trip_meters.geoms:
-                    b = _line_bearing(sub_line)
-                    if b is not None:
-                        trip_bearings.append(b)
-            else:
-                b = _line_bearing(trip_meters)
-                if b is not None:
-                    trip_bearings.append(b)
-
-        # Phase 1: gather candidate matches that pass overlap + bearing checks.
-        candidates: list[dict[str, Any]] = []
-        for idx in candidate_indices:
-            segment = self.segments[idx]
-            if skip_segment_ids and segment.segment_id in skip_segment_ids:
-                continue
-            segment_meters = self.segment_geoms_meters[idx]
-
-            if not trip_buffer_meters.intersects(segment_meters):
-                continue
-
-            # Bearing alignment check: reject segments whose bearing
-            # doesn't align with any sub-line of the trip.
-            if check_bearing and trip_bearings:
-                seg_bearing = _line_bearing(segment_meters)
-                if seg_bearing is not None and not any(
-                    _bearing_aligned(tb, seg_bearing) for tb in trip_bearings
-                ):
-                    continue
-
-            try:
-                intersection = trip_buffer_meters.intersection(segment_meters)
-                if intersection.is_empty:
-                    continue
-
-                intersection_length = intersection.length
-                segment_length = segment_meters.length
-
-                if segment_length <= 0:
-                    continue
-
-                effective_ratio = _get_segment_overlap_ratio(
-                    segment_length,
-                    coverage_ratio,
-                )
-                required_overlap = max(
-                    min_overlap_meters,
-                    segment_length * effective_ratio,
-                )
-                required_overlap = min(required_overlap, segment_length)
-
-                if intersection_length < required_overlap:
-                    continue
-
-                # Compute trip-distance and trip-position for dominance
-                # filtering. Use the segment midpoint as the projection
-                # anchor because it is the most representative single point.
-                seg_midpoint = segment_meters.interpolate(0.5, normalized=True)
-                trip_distance = float(seg_midpoint.distance(trip_meters))
-                trip_position = float(trip_meters.project(seg_midpoint))
-
-                candidates.append(
-                    {
-                        "segment_id": segment.segment_id,
-                        "trip_distance": trip_distance,
-                        "trip_position": trip_position,
-                        "segment_length": segment_length,
-                    },
-                )
-            except Exception:
-                continue
-
-        if not candidates:
-            return []
-
-        # Phase 2: nearest-road dominance filter.
-        # A match is "dominated" by another match when:
-        #   - The other match is at least PARALLEL_DOMINANCE_GAP_METERS
-        #     closer to the trip line, AND
-        #   - Both project to within max(segment_length) meters of the same
-        #     trip position (i.e., they cover the same span of the trip).
-        # In that case the farther match is almost certainly a parallel
-        # road that the buffer caught incidentally.
-        candidates.sort(key=lambda c: c["trip_distance"])
-        accepted: list[dict[str, Any]] = []
-        for cand in candidates:
-            dominated = False
-            for acc in accepted:
-                closer_by = cand["trip_distance"] - acc["trip_distance"]
-                if closer_by < PARALLEL_DOMINANCE_GAP_METERS:
-                    continue
-                position_window = max(cand["segment_length"], acc["segment_length"])
-                if abs(cand["trip_position"] - acc["trip_position"]) > position_window:
-                    continue
-                dominated = True
-                break
-            if not dominated:
-                accepted.append(cand)
-
-        return [c["segment_id"] for c in accepted]
-
-
-@lru_cache(maxsize=10)
-def _get_area_segment_index(
-    area_id: PydanticObjectId,
-    area_version: int | None = None,
-) -> AreaSegmentIndex:
-    return AreaSegmentIndex(area_id, area_version)
-
-
-async def get_area_segment_index(
-    area_id: PydanticObjectId,
-    area_version: int | None = None,
-) -> AreaSegmentIndex:
-    index = _get_area_segment_index(area_id, area_version)
-    if not index._built:
-        await index.build()
-    return index
-
-
-def _adaptive_gap_threshold(distances: list[float]) -> float:
-    if not distances:
-        return MIN_GPS_GAP_METERS
-    typical = median(distances)
-    threshold = max(MIN_GPS_GAP_METERS, typical * GPS_GAP_MULTIPLIER)
-    return min(threshold, MAX_GPS_GAP_METERS)
-
-
-def _split_coords_by_gap(coords: list[list[float]]) -> list[LineString]:
-    if len(coords) < 2:
-        return []
-    distances = [
-        geodesic_distance_meters(prev[0], prev[1], curr[0], curr[1])
-        for prev, curr in itertools.pairwise(coords)
-    ]
-    gap_threshold = _adaptive_gap_threshold(distances)
-
-    segments: list[LineString] = []
-    current: list[list[float]] = [coords[0]]
-    for prev, curr in itertools.pairwise(coords):
-        gap = geodesic_distance_meters(prev[0], prev[1], curr[0], curr[1])
-        if gap > gap_threshold:
-            if len(current) >= 2:
-                segments.append(LineString(current))
-            current = [curr]
-        else:
-            current.append(curr)
-
-    if len(current) >= 2:
-        segments.append(LineString(current))
-
-    return segments
-
-
-def _has_confirmed_matched_geometry(trip: dict[str, Any]) -> bool:
-    match_status = str(trip.get("matchStatus") or "").strip().lower()
-    if match_status.startswith("matched"):
-        return True
-    return trip.get("matched_at") is not None
-
-
-def _trip_to_matched_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
-    matched_gps = trip.get("matchedGps")
-    if not isinstance(matched_gps, dict) or not _has_confirmed_matched_geometry(trip):
-        return None
-
-    matched_lines = extract_line_sequences(matched_gps)
-    if not matched_lines:
-        return None
-
-    segments = [
-        LineString(line_coords)
-        for line_coords in matched_lines
-        if len(line_coords) >= 2
-    ]
-    if not segments:
-        return None
-    return segments[0] if len(segments) == 1 else MultiLineString(segments)
-
-
-def _trip_to_raw_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
-    geom = trip.get("gps")
-    if not isinstance(geom, dict):
-        return None
-
-    lines = extract_line_sequences(geom)
-    if not lines:
-        return None
-
-    segments_raw: list[LineString] = []
-    for line_coords in lines:
-        segments_raw.extend(_split_coords_by_gap(line_coords))
-
-    if not segments_raw:
-        return None
-    return segments_raw[0] if len(segments_raw) == 1 else MultiLineString(segments_raw)
-
-
-def trip_to_linestring_candidates(
-    trip: dict[str, Any],
-    trip_mode: str = DEFAULT_COVERAGE_TRIP_MODE,
-) -> list[tuple[BaseGeometry, bool]]:
-    """
-    Build candidate trip geometries for street matching.
-
-    Returns a list of ``(geometry, is_map_matched)`` ordered by
-    preference.
-    """
-    mode = normalize_coverage_trip_mode(trip_mode)
-    matched_geom = _trip_to_matched_linestring(trip)
-    raw_geom = _trip_to_raw_linestring(trip)
-
-    if mode == "matched":
-        return [(matched_geom, True)] if matched_geom is not None else []
-    if mode == "regular":
-        return [(raw_geom, False)] if raw_geom is not None else []
-
-    # "both" evaluates both matched and raw traces and unions segment hits.
-    candidates: list[tuple[BaseGeometry, bool]] = []
-    if matched_geom is not None:
-        candidates.append((matched_geom, True))
-    if raw_geom is not None:
-        candidates.append((raw_geom, False))
-    return candidates
-
-
-def _matching_params(is_map_matched: bool) -> tuple[float, float]:
-    buffer = MATCH_BUFFER_METERS if is_map_matched else RAW_GPS_BUFFER_METERS
-    overlap_ratio = COVERAGE_OVERLAP_RATIO if is_map_matched else RAW_GPS_OVERLAP_RATIO
-    return buffer, overlap_ratio
-
-
-def _should_check_bearing(is_map_matched: bool) -> bool:
-    """
-    Return whether bearing alignment should be enforced for this candidate.
-
-    Map-matched geometry is already snapped to the road network;
-    applying a whole-trip bearing filter can incorrectly reject valid
-    turns on the same trip. Keep bearing checks for raw GPS traces only.
-    """
-    return not is_map_matched
-
-
-async def match_trip_to_streets(
-    trip: dict[str, Any],
-    area_ids: list[PydanticObjectId] | None = None,
-    trip_mode: str | None = None,
-) -> dict[PydanticObjectId, list[str]]:
-    """
-    Match a trip to streets in one or more areas.
-
-    Uses the cached STRtree spatial index for fast in-memory matching.
-    If area_ids is None, matches against all ready areas that intersect
-    the trip's bounding box.
-
-    Returns dict mapping area_id -> list of matched segment_ids.
-    """
-    selected_mode = await get_effective_coverage_trip_mode(trip_mode)
-    trip_candidates = trip_to_linestring_candidates(trip, trip_mode=selected_mode)
-    if not trip_candidates:
-        logger.warning("Trip has no valid geometry, skipping matching")
-        return {}
-
-    if selected_mode != "matched" and all(
-        not is_map_matched for _, is_map_matched in trip_candidates
-    ):
-        logger.warning(
-            "Trip using raw GPS fallback for coverage matching "
-            "(map matching unavailable) — results may be less accurate"
-        )
-
-    if area_ids is None:
-        minx, miny, maxx, maxy = trip_candidates[0][0].bounds
-        for trip_line, _ in trip_candidates[1:]:
-            cand_minx, cand_miny, cand_maxx, cand_maxy = trip_line.bounds
-            minx = min(minx, cand_minx)
-            miny = min(miny, cand_miny)
-            maxx = max(maxx, cand_maxx)
-            maxy = max(maxy, cand_maxy)
-
-        areas = await CoverageArea.find(
-            {
-                "status": "ready",
-                "bounding_box.0": {"$lte": maxx},
-                "bounding_box.2": {"$gte": minx},
-                "bounding_box.1": {"$lte": maxy},
-                "bounding_box.3": {"$gte": miny},
-            },
-        ).to_list()
-
-        area_ids = [area.id for area in areas]
-        area_versions = {area.id: area.area_version for area in areas}
-    else:
-        areas = await CoverageArea.find({"_id": {"$in": area_ids}}).to_list()
-        area_versions = {area.id: area.area_version for area in areas}
-
-    if not area_ids:
-        logger.debug("No areas to match against")
-        return {}
-
-    results = {}
-    for area_id in area_ids:
-        area_version = area_versions.get(area_id)
-        if area_version is None:
-            continue
-        try:
-            index = await get_area_segment_index(area_id, area_version)
-            matched_ids: set[str] = set()
-            for trip_line, is_map_matched in trip_candidates:
-                buffer, overlap_ratio = _matching_params(is_map_matched)
-                matched = index.find_matching_segments(
-                    trip_line,
-                    buffer_meters=buffer,
-                    coverage_ratio=overlap_ratio,
-                    check_bearing=_should_check_bearing(is_map_matched),
-                )
-                if matched:
-                    matched_ids.update(matched)
-        except MemoryError:
-            logger.exception("Area %s could not be indexed for coverage", area_id)
-            raise
-        if matched_ids:
-            results[area_id] = sorted(matched_ids)
-
-    return results
-
-
-async def update_coverage_for_trip(
-    trip_data: dict[str, Any],
-    trip_id: PydanticObjectId | str | None = None,
-    trip_mode: str | None = None,
-) -> int:
-    """Update coverage state for a completed trip."""
-    if not trip_data:
-        return 0
-
-    selected_mode = await get_effective_coverage_trip_mode(trip_mode)
-    matches = await match_trip_to_streets(trip_data, trip_mode=selected_mode)
-
-    if not matches:
-        logger.debug("Trip did not match any coverage areas")
-        return 0
-
-    from street_coverage.trip_credit import credit_trip_area
-
-    trip_oid = _coerce_trip_id(trip_id)
-    if trip_oid is None or str(trip_data.get("source") or "").lower() != "bouncie":
-        raise ValueError("Coverage credit requires a persisted Bouncie Historical Trip")
-    total_updated = 0
-    for area_id, segment_ids in matches.items():
-        total_updated += await credit_trip_area(
-            trip_data,
-            trip_oid,
-            area_id,
-            segment_ids,
-            selected_mode,
-        )
-
-    logger.info(
-        "Trip coverage updated %s segments across %s areas",
-        total_updated,
-        len(matches),
-    )
-    return total_updated
-
-
-async def update_coverage_for_segments(
-    area_id: PydanticObjectId,
-    segment_ids: list[str],
-    trip_id: PydanticObjectId | None = None,
-    driven_at: datetime | str | None = None,
-    session=None,
-) -> CoverageSegmentsUpdateResult:
-    """
-    Mark segments as driven for an area.
-
-    Uses atomic per-segment transitions so concurrent callers can identify the
-    exact newly driven set. Returns the number of changed segment states and
-    which segments were newly driven.
-    """
-    if not segment_ids:
-        return CoverageSegmentsUpdateResult(
-            updated=0,
-            newly_driven_segment_ids=[],
-            newly_driven_length_miles=0.0,
-        )
-
-    # De-dupe but keep stable order for predictable behavior and smaller writes.
-    segment_ids = list(dict.fromkeys(segment_ids))
-
-    area = await CoverageArea.get(area_id, session=session)
-    if not area:
-        return CoverageSegmentsUpdateResult(
-            updated=0,
-            newly_driven_segment_ids=[],
-            newly_driven_length_miles=0.0,
-        )
-
-    length_by_segment: dict[str, float] = {}
-    streets = await Street.find(
-        {
-            "area_id": area_id,
-            "area_version": area.area_version,
-            "segment_id": {"$in": segment_ids},
-        },
-        session=session,
-    ).to_list()
-    length_by_segment = {
-        str(street.segment_id): float(street.length_miles or 0.0) for street in streets
-    }
-    # Ignore unknown segment IDs to avoid inflating coverage counters.
-    segment_ids = [sid for sid in segment_ids if sid in length_by_segment]
-
-    if not segment_ids:
-        return CoverageSegmentsUpdateResult(
-            updated=0,
-            newly_driven_segment_ids=[],
-            newly_driven_length_miles=0.0,
-        )
-
-    driven_at = normalize_to_utc_datetime(driven_at) or get_current_utc_time()
-    first_by_segment = dict.fromkeys(segment_ids, driven_at)
-    last_by_segment = dict(first_by_segment)
-    trip_by_segment = (
-        dict.fromkeys(segment_ids, trip_id) if trip_id is not None else None
-    )
-    updated, newly_driven_ids = await _update_driven_states_atomic(
-        area_id=area_id,
-        first_by_segment=first_by_segment,
-        last_by_segment=last_by_segment,
-        trip_by_segment=trip_by_segment,
-        session=session,
-    )
-
-    if updated:
-        logger.debug(
-            "Updated %d segments for area %s",
-            updated,
-            area_id,
-        )
-
-    newly_driven_length = 0.0
-    # Sum lengths for newly driven segments to update cached area stats.
-    if newly_driven_ids:
-        newly_driven_length = sum(
-            length_by_segment.get(segment_id, 0.0) for segment_id in newly_driven_ids
-        )
-        await apply_area_stats_delta(
-            area_id,
-            driven_segments_delta=len(newly_driven_ids),
-            driven_length_miles_delta=newly_driven_length,
-            session=session,
-        )
-
+async def update_coverage_for_segments(area_id, segment_ids):
+    """Explicit owner marking; automatic credit must provide historical intervals."""
+    result = await set_manual_status(area_id, segment_ids, "driven")
     return CoverageSegmentsUpdateResult(
-        updated=updated,
-        newly_driven_segment_ids=newly_driven_ids,
-        newly_driven_length_miles=newly_driven_length,
+        result["updated"],
+        list(segment_ids),
+        sum(
+            state["covered_length_miles"]
+            for state in result["states"].values()
+            if state
+        ),
     )
 
 
-async def mark_segment_undriveable(
-    area_id: PydanticObjectId,
-    segment_id: str,
-) -> bool:
-    """Mark a segment as undriveable (e.g., highway, private road)."""
-    street = await Street.find_one({"area_id": area_id, "segment_id": segment_id})
-    if not street:
-        return False
-
-    length_miles = float(street.length_miles or 0.0)
-
-    existing = await CoverageState.find_one(
-        {"area_id": area_id, "segment_id": segment_id},
-    )
-    previous_status = existing.status if existing else "undriven"
-
-    if existing and previous_status == "undriveable":
-        # Ensure the manual flag is set, but no stats change needed.
-        existing.manually_marked = True
-        existing.marked_at = datetime.now(UTC)
-        await existing.save()
-        return True
-
-    if existing:
-        existing.status = "undriveable"
-        existing.last_driven_at = None
-        existing.first_driven_at = None
-        existing.driven_by_trip_id = None
-        existing.manually_marked = True
-        existing.marked_at = datetime.now(UTC)
-        await existing.save()
-    else:
-        state = CoverageState(
-            area_id=area_id,
-            segment_id=segment_id,
-            status="undriveable",
-            manually_marked=True,
-            marked_at=datetime.now(UTC),
-        )
-        await state.insert()
-
-    driven_delta = -1 if previous_status == "driven" else 0
-    driven_len_delta = -length_miles if previous_status == "driven" else 0.0
-
-    await apply_area_stats_delta(
-        area_id,
-        driven_segments_delta=driven_delta,
-        driven_length_miles_delta=driven_len_delta,
-        undriveable_segments_delta=1,
-        undriveable_length_miles_delta=length_miles,
-    )
-
+async def mark_segment_undriveable(area_id, segment_id):
+    await set_manual_status(area_id, [segment_id], "undriveable")
     return True
 
 
-async def mark_segment_undriven(
-    area_id: PydanticObjectId,
-    segment_id: str,
-) -> bool:
-    """Reset a segment to undriven state."""
-    street = await Street.find_one({"area_id": area_id, "segment_id": segment_id})
-    if not street:
-        return False
-
-    length_miles = float(street.length_miles or 0.0)
-
-    existing = await CoverageState.find_one(
-        {"area_id": area_id, "segment_id": segment_id},
-    )
-
-    if not existing:
-        # Missing state implies undriven already.
-        return True
-
-    previous_status = existing.status
-    await existing.delete()
-
-    driven_delta = -1 if previous_status == "driven" else 0
-    driven_len_delta = -length_miles if previous_status == "driven" else 0.0
-
-    undriveable_delta = -1 if previous_status == "undriveable" else 0
-    undriveable_len_delta = -length_miles if previous_status == "undriveable" else 0.0
-
-    if driven_delta or undriveable_delta:
-        await apply_area_stats_delta(
-            area_id,
-            driven_segments_delta=driven_delta,
-            driven_length_miles_delta=driven_len_delta,
-            undriveable_segments_delta=undriveable_delta,
-            undriveable_length_miles_delta=undriveable_len_delta,
-        )
-
+async def mark_segment_undriven(area_id, segment_id):
+    await set_manual_status(area_id, [segment_id], "undriven")
     return True
 
 
-def _build_backfill_trip_query(
-    area: CoverageArea,
-    *,
-    since: datetime | None,
-    trip_mode: CoverageTripMode,
-) -> dict[str, Any]:
-    geo_filter: dict[str, Any] = {"$ne": None}
-    if (
-        isinstance(area.bounding_box, list)
-        and len(area.bounding_box) == 4
-        and all(isinstance(v, int | float) for v in area.bounding_box)
-    ):
-        min_lon, min_lat, max_lon, max_lat = map(float, area.bounding_box)
-        bbox_polygon = {
-            "type": "Polygon",
-            "coordinates": [
-                [
-                    [min_lon, min_lat],
-                    [max_lon, min_lat],
-                    [max_lon, max_lat],
-                    [min_lon, max_lat],
-                    [min_lon, min_lat],
-                ],
-            ],
-        }
-        geo_filter = {"$geoIntersects": {"$geometry": bbox_polygon}}
-
-    matched_branch: dict[str, Any] = {
-        "matchedGps": geo_filter,
-        "$or": [
-            {"matchStatus": {"$regex": "^matched", "$options": "i"}},
-            {"matched_at": {"$ne": None}},
+def _build_backfill_trip_query(area, *, since=None, trip_mode="both"):
+    minx, miny, maxx, maxy = area.bounding_box
+    polygon = {
+        "type": "Polygon",
+        "coordinates": [
+            [[minx, miny], [maxx, miny], [maxx, maxy], [minx, maxy], [minx, miny]]
         ],
     }
-
-    query = apply_trip_record_filters(
-        {"invalid": {"$ne": True}},
-        include_invalid=True,
+    geo = {"$geoIntersects": {"$geometry": polygon}}
+    query = enforce_bouncie_source(
+        apply_trip_record_filters({"invalid": {"$ne": True}}, include_invalid=True)
     )
-    if trip_mode == "regular":
-        query["gps"] = geo_filter
-    elif trip_mode == "matched":
-        query.update(matched_branch)
-    else:
-        query["$or"] = [
-            {"gps": geo_filter},
-            matched_branch,
-        ]
-
-    if since:
-        query["endTime"] = {"$gte": since}
-    return enforce_bouncie_source(query)
+    query["$or"] = [{"gps": geo}, {"matchedGps": geo}]
+    return query
 
 
 async def backfill_coverage_for_area(
-    area_id: PydanticObjectId,
-    since: datetime | None = None,
-    progress_callback: BackfillProgressCallback | None = None,
-    progress_interval: int = 100,
-    progress_time_seconds: float = 0.5,
-    trip_mode: str | None = None,
+    area_id,
+    since=None,
+    progress_callback=None,
+    progress_interval=100,
+    progress_time_seconds=0.5,
+    trip_mode=None,
     *,
-    full: bool = False,
-) -> int:
-    """
-    Backfill coverage for an area based on historical trips.
-
-    When *full* is False (the default) and the area has a
-    ``last_backfill_trip_endtime``, only trips newer than that timestamp
-    are processed — making repeated backfills incremental.
-
-    Pass *full=True* or an explicit *since* to force a full scan.
-
-    Returns number of segments updated.
-    """
+    full=False,
+    inventory_version=None,
+    inventory_metadata=None,
+):
+    """Replace all eligible evidence and projection atomically; reuse unchanged matches."""
     area = await CoverageArea.get(area_id)
-    if not area:
-        return 0
-
-    existing_event_count = await CoverageDriveEvent.find(
-        {"area_id": area_id, "area_version": area.area_version},
-    ).count()
-    is_full_scan = bool(
-        full
-        or (since is None and area.last_backfill_trip_endtime is None)
-        or existing_event_count == 0
-        or area.journal_status == "building"
+    if area is None:
+        raise ValueError("Coverage area not found")
+    token = uuid4().hex
+    now = datetime.now(UTC)
+    lease_until = now + timedelta(hours=2)
+    collection = CoverageArea.get_pymongo_collection()
+    claimed = await collection.find_one_and_update(
+        {
+            "_id": area_id,
+            "$or": [
+                {"coverage_rebuild_token": None},
+                {"coverage_rebuild_until": {"$lte": now}},
+            ],
+        },
+        {
+            "$set": {
+                "coverage_rebuild_token": token,
+                "coverage_rebuild_until": lease_until,
+            }
+        },
+        return_document=ReturnDocument.AFTER,
     )
-    if is_full_scan:
-        since = None
-        await area.set({"journal_status": "building", "journal_built_at": None})
-        await CoverageDriveEvent.find(
-            {"area_id": area_id, "area_version": area.area_version},
-        ).delete()
-    elif since is None and area.last_backfill_trip_endtime is not None:
-        since = area.last_backfill_trip_endtime
-
-    # Ingestion calls backfill before marking an area "ready", so allow it for
-    # in-progress states as long as segments exist.
-    allowed_statuses = {"ready", "initializing", "rebuilding"}
-    if area.status not in allowed_statuses:
-        logger.warning(
-            "Skipping backfill for area %s: status=%s",
-            area.display_name,
-            area.status,
-        )
-        return 0
-
-    recovered_state_count = 0
-    if not is_full_scan:
-        (
-            recovered_state_count,
-            recovered_state_length,
-        ) = await reconcile_area_state_from_drive_events(area_id, area.area_version)
-        if recovered_state_count:
-            await apply_area_stats_delta(
-                area_id,
-                driven_segments_delta=recovered_state_count,
-                driven_length_miles_delta=recovered_state_length,
-            )
-
-    selected_mode = await get_effective_coverage_trip_mode(trip_mode)
-
-    segment_index = await get_area_segment_index(area_id, area.area_version)
-
-    processed_trips = 0
-    matched_trips = 0
-    last_reported_time = time.time()
-    latest_trip_endtime: datetime | None = None
-
-    # Track per-segment first/last driven timestamps (and the most-recent trip id).
-    segment_first: dict[str, datetime] = {}
-    segment_last: dict[str, datetime] = {}
-    segment_last_trip: dict[str, PydanticObjectId] = {}
-    pending_drive_events: list[dict[str, Any]] = []
-
-    undriveable_states = await CoverageState.find(
-        {"area_id": area_id, "status": "undriveable"},
-    ).to_list()
-    undriveable_ids = {state.segment_id for state in undriveable_states}
-
-    async def report_progress(
-        *,
-        total_trips: int | None = None,
-        force: bool = False,
-    ) -> None:
-        nonlocal last_reported_time
-        if not progress_callback:
-            return
-
-        now = time.time()
-        if (
-            not force
-            and processed_trips % progress_interval != 0
-            and now - last_reported_time < progress_time_seconds
-        ):
-            return
-
-        payload = {
-            "area_id": str(area_id),
-            "processed_trips": processed_trips,
-            "total_trips": total_trips,
-            "matched_trips": matched_trips,
-            "segments_updated": len(segment_first),
-            "stage": "matching",
-            "trip_mode": selected_mode,
-        }
-        await progress_callback(payload)
-        last_reported_time = now
-
-    query = _build_backfill_trip_query(area, since=since, trip_mode=selected_mode)
-
-    total_trip_count = await Trip.find(query).count()
-
-    logger.info(
-        "Processing %d trips for area %s (trip_mode=%s)",
-        total_trip_count,
-        area.display_name,
-        selected_mode,
-    )
-    await report_progress(total_trips=total_trip_count, force=True)
-
-    _BACKFILL_BATCH_SIZE = 100
-
-    def _process_trip_batch(
-        batch: list[Trip],
-    ) -> None:
-        nonlocal processed_trips, matched_trips, latest_trip_endtime
-        for trip in batch:
-            processed_trips += 1
-            trip_data = trip.model_dump()
-
-            # Track high-water mark (cursor is sorted by endTime asc)
-            trip_end = trip_data.get("endTime")
-            if isinstance(trip_end, datetime):
-                latest_trip_endtime = trip_end
-
-            trip_candidates = trip_to_linestring_candidates(
-                trip_data,
-                trip_mode=selected_mode,
-            )
-            if not trip_candidates:
+    if claimed is None:
+        raise ValueError("Coverage recalculation is already running")
+    original_version = area.area_version
+    version = inventory_version or area.area_version
+    mode = await get_effective_coverage_trip_mode(trip_mode)
+    try:
+        index = await get_area_segment_index(area_id, version)
+        current_events = await CoverageDriveEvent.find(
+            {"area_id": area_id, "area_version": version}
+        ).to_list()
+        by_trip = {str(event.trip_id): event for event in current_events}
+        events = []
+        processed = 0
+        query = _build_backfill_trip_query(area, trip_mode=mode)
+        total = await Trip.find(query).count()
+        latest = None
+        async for trip in Trip.find(query).sort([("endTime", 1), ("_id", 1)]):
+            processed += 1
+            data = trip.model_dump()
+            revision = trip_input_revision(data)
+            previous = by_trip.get(str(trip.id))
+            driven_at = get_trip_driven_at(data)
+            if driven_at is None:
                 continue
-
-            trip_time = get_trip_driven_at(trip_data)
-            if trip_time is None:
-                continue
-
-            matched_segment_ids: set[str] = set()
-            geometry_sources: set[str] = set()
-            for trip_line, is_map_matched in trip_candidates:
-                buffer, overlap_ratio = _matching_params(is_map_matched)
-                matched = segment_index.find_matching_segments(
-                    trip_line,
-                    buffer_meters=buffer,
-                    coverage_ratio=overlap_ratio,
-                    check_bearing=_should_check_bearing(is_map_matched),
-                )
-                if matched:
-                    matched_segment_ids.update(matched)
-                    geometry_sources.add("matchedGps" if is_map_matched else "gps")
-            if not matched_segment_ids:
-                continue
-
-            matched_trips += 1
-
-            if trip.id is not None:
-                pending_drive_events.append(
+            latest = max(latest, driven_at) if latest else driven_at
+            if (
+                not full
+                and previous
+                and previous.input_revision == revision
+                and previous.matching_version == MATCHING_VERSION
+                and previous.matching_mode == mode
+            ):
+                events.append(previous.model_dump(exclude={"id"}))
+            else:
+                candidates = trip_to_linestring_candidates(data, mode)
+                if candidates:
+                    trace, matched = candidates[0]
+                    evidence = await asyncio.to_thread(
+                        index.find_coverage_intervals,
+                        trace,
+                        buffer_meters=MATCH_BUFFER_METERS
+                        if matched
+                        else RAW_GPS_BUFFER_METERS,
+                    )
+                    if evidence:
+                        events.append(
+                            CoverageDriveEvent(
+                                area_id=area_id,
+                                area_version=version,
+                                trip_id=trip.id,
+                                driven_at=driven_at,
+                                timezone=trip.endTimeZone or trip.startTimeZone,
+                                geometry_source="matchedGps" if matched else "gps",
+                                matching_mode=mode,
+                                input_revision=revision,
+                                segment_ids=sorted(evidence),
+                                segment_intervals={
+                                    sid: item["intervals"]
+                                    for sid, item in evidence.items()
+                                },
+                                segment_offsets={
+                                    sid: item["max_offset_meters"]
+                                    for sid, item in evidence.items()
+                                },
+                            ).model_dump(exclude={"id"})
+                        )
+            if progress_callback and (
+                processed % max(1, progress_interval) == 0 or processed == total
+            ):
+                await progress_callback(
                     {
-                        "trip_id": trip.id,
-                        "driven_at": trip_time,
-                        "timezone": trip.endTimeZone or trip.startTimeZone,
-                        "geometry_source": "+".join(sorted(geometry_sources))
-                        or "unknown",
-                        "segment_ids": sorted(matched_segment_ids),
+                        "processed_trips": processed,
+                        "total_trips": total,
+                        "matched_trips": len(events),
+                        "segments_updated": 0,
+                        "trip_mode": mode,
+                    }
+                )
+            if processed % 100 == 0:
+                await collection.update_one(
+                    {"_id": area_id, "coverage_rebuild_token": token},
+                    {
+                        "$set": {
+                            "coverage_rebuild_until": datetime.now(UTC)
+                            + timedelta(hours=2)
+                        }
                     },
                 )
 
-            for segment_id in matched_segment_ids:
-                if segment_id in undriveable_ids:
-                    continue
-
-                existing_first = segment_first.get(segment_id)
-                if existing_first is None or trip_time < existing_first:
-                    segment_first[segment_id] = trip_time
-
-                existing_last = segment_last.get(segment_id)
-                if existing_last is None or trip_time > existing_last:
-                    segment_last[segment_id] = trip_time
-                    if trip.id is not None:
-                        segment_last_trip[segment_id] = trip.id
-
-    async def flush_drive_events() -> None:
-        if not pending_drive_events:
-            return
-        now = datetime.now(UTC)
-        operations = [
-            (
-                {
-                    "area_id": area_id,
-                    "area_version": area.area_version,
-                    "trip_id": payload["trip_id"],
-                },
+        async def publish(session):
+            active = await claim_area(
+                area_id, session, version=original_version, rebuild_token=token
+            )
+            metadata = dict(inventory_metadata or {})
+            if version != original_version:
+                metadata.update(
+                    {
+                        "area_version": version,
+                        "optimal_route_id": None,
+                        "optimal_route_generated_at": None,
+                    }
+                )
+                active.area_version = version
+            await collection.update_one(
+                {"_id": area_id},
+                {"$set": {**metadata, "status": "ready"}},
+                session=session,
+            )
+            history = CoverageDriveEvent.get_pymongo_collection()
+            await history.delete_many(
+                {"area_id": area_id, "area_version": version}, session=session
+            )
+            for start in range(0, len(events), 250):
+                await history.insert_many(events[start : start + 250], session=session)
+            result = await project_segments(active, [], session, replace_all=True)
+            await collection.update_one(
+                {"_id": area_id},
                 {
                     "$set": {
-                        "driven_at": payload["driven_at"],
-                        "timezone": payload["timezone"],
-                        "geometry_source": payload["geometry_source"],
-                        "matching_mode": selected_mode,
-                        "matching_version": "coverage-v1",
-                        "segment_ids": payload["segment_ids"],
-                        "updated_at": now,
-                    },
-                    "$setOnInsert": {
-                        "area_id": area_id,
-                        "area_version": area.area_version,
-                        "trip_id": payload["trip_id"],
-                        "created_at": now,
-                    },
+                        "coverage_rebuild_token": None,
+                        "coverage_rebuild_until": None,
+                        "pending_area_version": None,
+                        "last_backfill_trip_endtime": latest,
+                        "last_coverage_trip_at": latest,
+                    }
                 },
-                True,
+                session=session,
             )
-            for payload in pending_drive_events
-        ]
-        await _bulk_write_updates(
-            CoverageDriveEvent.get_pymongo_collection(),
-            operations,
-            ordered=False,
-        )
-        pending_drive_events.clear()
+            return result
 
-    cursor = Trip.find(query).sort([("endTime", 1), ("_id", 1)])
-    batch: list[Trip] = []
-    async for trip in cursor:
-        batch.append(trip)
-        if len(batch) >= _BACKFILL_BATCH_SIZE:
-            _process_trip_batch(batch)
-            await flush_drive_events()
-            await report_progress(total_trips=total_trip_count)
-            batch = []
-            gc.collect()
-    if batch:
-        _process_trip_batch(batch)
-        await flush_drive_events()
-        await report_progress(total_trips=total_trip_count)
+        result = await transactions.run_transaction(publish)
+        from street_coverage.journal import rebuild_journal_rollup
 
-    if not segment_first:
-        logger.info(
-            "Backfill found no matching segments for area %s",
-            area.display_name,
-        )
-        # Still persist the high-water mark so we don't re-scan the same trips.
-        if latest_trip_endtime is not None:
-            await area.set({"last_backfill_trip_endtime": latest_trip_endtime})
-        await mark_journal_pending(area_id)
         await rebuild_journal_rollup(area_id)
-        await report_progress(total_trips=total_trip_count, force=True)
-        return recovered_state_count
+        from trips.services.coverage_processing import notify_coverage_updated
 
-    segments_to_update = list(segment_first.keys())
-    logger.info(
-        "Backfill matching complete for area %s: %d segments from %d trips",
-        area.display_name,
-        len(segments_to_update),
-        matched_trips,
-    )
-
-    _updated, newly_driven_ids = await _update_driven_states_atomic(
-        area_id=area_id,
-        first_by_segment=segment_first,
-        last_by_segment=segment_last,
-        trip_by_segment=segment_last_trip,
-    )
-
-    newly_driven_length = 0.0
-    if newly_driven_ids:
-        streets = await Street.find(
-            {
-                "area_id": area_id,
-                "area_version": area.area_version,
-                "segment_id": {"$in": newly_driven_ids},
-            },
-        ).to_list()
-        newly_driven_length = sum(s.length_miles or 0.0 for s in streets)
-        await apply_area_stats_delta(
-            area_id,
-            driven_segments_delta=len(newly_driven_ids),
-            driven_length_miles_delta=newly_driven_length,
+        await notify_coverage_updated()
+        if progress_callback:
+            await progress_callback(
+                {
+                    "processed_trips": processed,
+                    "total_trips": total,
+                    "matched_trips": len(events),
+                    "segments_updated": result["metrics"]["driven_segments"],
+                    "trip_mode": mode,
+                }
+            )
+        return len(result["newly_driven_segment_ids"])
+    finally:
+        await collection.update_one(
+            {"_id": area_id, "coverage_rebuild_token": token},
+            {"$set": {"coverage_rebuild_token": None, "coverage_rebuild_until": None}},
         )
 
-    await report_progress(total_trips=total_trip_count, force=True)
 
-    # Persist the high-water mark so subsequent runs are incremental.
-    if latest_trip_endtime is not None:
-        await area.set({"last_backfill_trip_endtime": latest_trip_endtime})
-
-    await mark_journal_pending(area_id)
-    await rebuild_journal_rollup(area_id)
-
-    logger.info(
-        "Backfill complete for area %s: %d segments updated (%d newly driven), %.2f mi",
-        area.display_name,
-        len(segments_to_update),
-        len(newly_driven_ids),
-        newly_driven_length,
+def get_trip_driven_at(trip_data):
+    return (
+        normalize_to_utc_datetime(
+            trip_data.get("endTime") or trip_data.get("startTime")
+        )
+        if trip_data
+        else None
     )
 
-    # Return the number of segments that were newly marked driven.
-    return recovered_state_count + len(newly_driven_ids)
 
-
-def get_trip_driven_at(trip_data: dict[str, Any] | None) -> datetime | None:
-    if not trip_data:
-        return None
-
-    driven_at = (
-        trip_data.get("endTime")
-        or trip_data.get("startTime")
-        or trip_data.get("lastUpdate")
-    )
-    return normalize_to_utc_datetime(driven_at)
-
-
-def _coerce_trip_id(trip_id: PydanticObjectId | str | None) -> PydanticObjectId | None:
-    if trip_id is None or isinstance(trip_id, PydanticObjectId):
-        return trip_id
+def _coerce_trip_id(trip_id):
     try:
-        return PydanticObjectId(str(trip_id))
-    except Exception:
-        logger.warning("Ignoring invalid trip_id for coverage update: %r", trip_id)
+        return PydanticObjectId(str(trip_id)) if trip_id is not None else None
+    except (ValueError, TypeError):
         return None

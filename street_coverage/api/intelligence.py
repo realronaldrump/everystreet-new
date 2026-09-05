@@ -42,9 +42,13 @@ def _http_error(exc: Exception) -> HTTPException:
 
 
 @router.get("/areas/{area_id}/intelligence")
-async def get_coverage_intelligence(area_id: PydanticObjectId):
+async def get_coverage_intelligence(
+    area_id: PydanticObjectId, timezone: str = "America/Denver"
+):
     try:
-        return await CoverageIntelligenceService.get_intelligence(area_id)
+        return await CoverageIntelligenceService.get_intelligence(
+            area_id, timezone=timezone
+        )
     except ValueError as exc:
         raise _http_error(exc) from exc
 

@@ -125,32 +125,14 @@ class LiveNavigationNavigator {
         const baselinePercent = this.coverageBaseline.percentage || 0;
         this.ui.updateCoverageProgress(baselinePercent, stats.percentage);
       },
-      onPersistenceIssue: (issue) => {
-        this.handlePersistenceIssue(issue);
+      onCoverageIssue: (issue) => {
+        this.handleCoverageIssue(issue);
       },
     });
   }
 
-  handlePersistenceIssue(issue) {
-    if (!issue) {
-      return;
-    }
-
-    if (issue.type === "retry_scheduled") {
-      const retryDelaySec = Math.max(1, Math.round((issue.retryDelayMs || 0) / 1000));
-      this.ui.setNavStatus(
-        `Coverage sync retry ${issue.failureCount || 1} in ${retryDelaySec}s.`,
-        true
-      );
-      return;
-    }
-
-    if (issue.type === "retry_exhausted") {
-      this.ui.setNavStatus(
-        "Coverage sync paused after repeated failures. Check network or server health.",
-        true
-      );
-    }
+  handleCoverageIssue(issue) {
+    if (issue?.message) this.ui.setNavStatus(issue.message, true);
   }
 
   /**
@@ -1041,7 +1023,7 @@ class LiveNavigationNavigator {
     this.map.updatePositionMarker(current);
 
     // Check segment coverage for gamification
-    this.coverage.checkSegmentCoverage({ lon: fix.lon, lat: fix.lat });
+    this.coverage.checkSegmentCoverage(fix);
 
     // Handle NAVIGATING_TO_START state
     if (this.state.getState() === NAV_STATES.NAVIGATING_TO_START) {

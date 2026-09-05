@@ -15,6 +15,9 @@ from db.models import (
     CoverageArea,
     CoverageDriveEvent,
     CoverageState,
+    CoverageOverride,
+    CoverageGoal,
+    CoverageJournalEntry,
     GeneratedRoute,
     Job,
     Street,
@@ -50,6 +53,9 @@ async def workflow_db():
             Trip,
             CoverageArea,
             CoverageState,
+            CoverageOverride,
+            CoverageGoal,
+            CoverageJournalEntry,
             CoverageDriveEvent,
             Street,
             GeneratedRoute,
@@ -66,6 +72,7 @@ async def area_and_trip(workflow_db, monkeypatch):
     area = CoverageArea(
         display_name="Workflow test area",
         status="ready",
+        coverage_matching_version="coverage-intervals-v2",
         total_segments=1,
         total_length_miles=1.0,
         driveable_length_miles=1.0,
@@ -86,10 +93,6 @@ async def area_and_trip(workflow_db, monkeypatch):
         endTime=datetime(2026, 9, 1, 13, tzinfo=UTC),
     )
     await trip.insert()
-    monkeypatch.setattr(
-        trip_credit, "_increment_journal_rollup", AsyncMock(return_value=False)
-    )
-    monkeypatch.setattr(trip_credit, "ensure_journal_rollup", AsyncMock())
     from street_coverage.intelligence import CoverageIntelligenceService
 
     monkeypatch.setattr(
@@ -110,13 +113,21 @@ async def test_failed_event_write_rolls_back_streets_and_totals(
     )
     with pytest.raises(RuntimeError, match="crash"):
         await trip_credit.credit_trip_area(
-            trip.model_dump(), trip.id, area.id, [segment_id], "regular"
+            trip.model_dump(),
+            trip.id,
+            area.id,
+            {segment_id: {"intervals": [[0, 1]], "max_offset_meters": 0}},
+            "regular",
         )
     assert await CoverageState.find({"area_id": area.id}).count() == 0
     assert (await CoverageArea.get(area.id)).driven_segments == 0
     monkeypatch.setattr(CoverageDriveEvent, "insert", original)
     await trip_credit.credit_trip_area(
-        trip.model_dump(), trip.id, area.id, [segment_id], "regular"
+        trip.model_dump(),
+        trip.id,
+        area.id,
+        {segment_id: {"intervals": [[0, 1]], "max_offset_meters": 0}},
+        "regular",
     )
     assert (await CoverageArea.get(area.id)).driven_segments == 1
 
@@ -125,18 +136,28 @@ async def test_projection_failure_replays_original_credit_without_double_count(
     area_and_trip, monkeypatch
 ):
     area, trip, segment_id = area_and_trip
+    from street_coverage.intelligence import CoverageIntelligenceService
+
     monkeypatch.setattr(
-        trip_credit,
-        "ensure_journal_rollup",
+        CoverageIntelligenceService,
+        "reconcile_historical_trip",
         AsyncMock(side_effect=[RuntimeError("projection unavailable"), None]),
     )
     with pytest.raises(RuntimeError, match="projection"):
         await trip_credit.credit_trip_area(
-            trip.model_dump(), trip.id, area.id, [segment_id], "regular"
+            trip.model_dump(),
+            trip.id,
+            area.id,
+            {segment_id: {"intervals": [[0, 1]], "max_offset_meters": 0}},
+            "regular",
         )
     assert (await CoverageArea.get(area.id)).driven_segments == 1
     await trip_credit.credit_trip_area(
-        trip.model_dump(), trip.id, area.id, [segment_id], "regular"
+        trip.model_dump(),
+        trip.id,
+        area.id,
+        {segment_id: {"intervals": [[0, 1]], "max_offset_meters": 0}},
+        "regular",
     )
     assert (await CoverageArea.get(area.id)).driven_segments == 1
     assert await CoverageDriveEvent.find_all().count() == 1
@@ -159,7 +180,11 @@ async def test_concurrent_trips_credit_shared_street_once(area_and_trip):
     await asyncio.gather(
         *(
             trip_credit.credit_trip_area(
-                item.model_dump(), item.id, area.id, [segment_id], "regular"
+                item.model_dump(),
+                item.id,
+                area.id,
+                {segment_id: {"intervals": [[0, 1]], "max_offset_meters": 0}},
+                "regular",
             )
             for item in [trip, other]
         )

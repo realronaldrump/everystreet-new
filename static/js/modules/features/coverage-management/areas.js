@@ -311,7 +311,7 @@ function renderAreaCard(area, coverageJob, routeJob) {
   const isReady = area.status === "ready";
   const canRebuild = area.status === "ready" || area.status === "error";
   const isError = area.status === "error";
-  const isComplete = isReady && pct >= 100;
+  const isComplete = isReady && area.is_complete === true;
   const hasActiveCoverageJob = hasActiveJob(coverageJob);
   const hasActiveRouteJob = hasActiveJob(routeJob);
   const hasSavedRoute = Boolean(area.has_optimal_route);
