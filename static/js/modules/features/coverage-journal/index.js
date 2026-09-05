@@ -1,6 +1,7 @@
 import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
 import { createMap, isMapboxStyleUrl, waitForMapboxToken } from "../../map-core.js";
 import { escapeHtml } from "../../utils.js";
+import { mergeStreetFeatures } from "./map-features.js";
 import {
   createTimelineScale,
   isAtOrBeforeJournalBoundary,
@@ -125,13 +126,6 @@ function dateOnly(value) {
 
 function journalDateKey(value) {
   return getJournalDateKey(value, state.metadata?.timezone);
-}
-
-function normalizeStreetKey(value) {
-  return String(value || "")
-    .trim()
-    .replace(/\s+/g, " ")
-    .toLocaleLowerCase();
 }
 
 function streetButton(streetName) {
@@ -282,7 +276,7 @@ async function loadIntelligence() {
     : [];
 }
 
-async function loadSegments({ signal = null } = {}) {
+async function loadSegments({ signal = null, retry = true } = {}) {
   if (!state.mapReady) {
     state.geojson = { type: "FeatureCollection", features: [] };
     return;
@@ -302,21 +296,25 @@ async function loadSegments({ signal = null } = {}) {
   const combined = signal
     ? AbortSignal.any([signal, state.mapAbort.signal])
     : state.mapAbort.signal;
-  const data = await featureApi.get(
-    `/api/coverage/areas/${encodeURIComponent(state.areaId)}/journal/segments?${params}`,
-    { cache: false, signal: combined }
-  );
+  let data;
+  try {
+    data = await featureApi.get(
+      `/api/coverage/areas/${encodeURIComponent(state.areaId)}/journal/segments?${params}`,
+      { cache: false, signal: combined }
+    );
+  } catch (error) {
+    if (error.status !== 409 || !retry || combined.aborted) throw error;
+    await loadMetadata(signal);
+    return loadSegments({ signal, retry: false });
+  }
   if (request !== state.mapRequest) return;
-  const selected = (state.geojson?.features || []).filter((feature) =>
-    state.selectedIds.has(feature.properties.segment_id)
-  );
-  const byId = new Map(
-    [...data.features, ...selected].map((feature) => [
-      feature.properties.segment_id,
-      feature,
-    ])
-  );
-  state.geojson = { ...data, features: [...byId.values()] };
+  const selected =
+    state.geojson?.revision === data.revision
+      ? (state.geojson?.features || []).filter((feature) =>
+          state.selectedIds.has(feature.properties.segment_id)
+        )
+      : [];
+  state.geojson = { ...data, features: mergeStreetFeatures(selected, data.features) };
   repaintJournalMap();
   if (data.truncated)
     $("journal-map-equivalent").textContent =
@@ -347,13 +345,18 @@ async function ensureSelectedSegments(ids) {
   );
   const missing = ids.filter((id) => !present.has(id));
   for (let start = 0; start < missing.length; start += 300) {
-    const params = new URLSearchParams({ range: state.range });
+    const params = new URLSearchParams({
+      range: state.range,
+      timezone: state.metadata?.timezone || "UTC",
+    });
     missing.slice(start, start + 300).forEach((id) => params.append("ids", id));
     const data = await featureApi.get(
       `/api/coverage/areas/${encodeURIComponent(state.areaId)}/journal/segments?${params}`,
       { cache: false }
     );
-    state.geojson.features.push(...data.features);
+    const previous =
+      state.geojson?.revision === data.revision ? state.geojson.features : [];
+    state.geojson = { ...data, features: mergeStreetFeatures(previous, data.features) };
   }
 }
 
@@ -699,18 +702,18 @@ function revealMapFolio() {
 
 async function showStreetOnMap(streetName) {
   try {
-    const params = new URLSearchParams({ range: state.range, street_name: streetName });
+    const params = new URLSearchParams({
+      range: state.range,
+      street_name: streetName,
+      timezone: state.metadata?.timezone || "UTC",
+    });
     const data = await featureApi.get(
       `/api/coverage/areas/${encodeURIComponent(state.areaId)}/journal/segments?${params}`,
       { cache: false }
     );
-    const byId = new Map(
-      [...(state.geojson?.features || []), ...data.features].map((feature) => [
-        feature.properties.segment_id,
-        feature,
-      ])
-    );
-    state.geojson = { type: "FeatureCollection", features: [...byId.values()] };
+    const previous =
+      state.geojson?.revision === data.revision ? state.geojson.features : [];
+    state.geojson = { ...data, features: mergeStreetFeatures(previous, data.features) };
     await highlightSegments(
       data.features.map((feature) => feature.properties.segment_id),
       streetName,

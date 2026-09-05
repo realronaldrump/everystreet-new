@@ -1629,11 +1629,7 @@ async function viewArea(areaId) {
   await switchView("area");
 
   try {
-    // Fetch area details + segment summary in parallel
-    const [data, summary] = await Promise.all([
-      apiGet(`/areas/${areaId}`),
-      apiGet(`/areas/${areaId}/streets/summary`),
-    ]);
+    const data = await apiGet(`/areas/${areaId}`, { cache: false });
 
     if (requestId !== state.areaViewRequestId || state.currentAreaId !== areaId) {
       return;
@@ -1675,7 +1671,7 @@ async function viewArea(areaId) {
     }
 
     // Update stats UI
-    updateStatsUI(area, summary);
+    updateStatsUI(area);
 
     // Init or update map
     if (data.bounding_box) {
@@ -1692,10 +1688,7 @@ async function viewArea(areaId) {
 
 async function refreshDashboardStats(areaId) {
   try {
-    const [data, summary] = await Promise.all([
-      apiGet(`/areas/${areaId}`),
-      apiGet(`/areas/${areaId}/streets/summary`),
-    ]);
+    const data = await apiGet(`/areas/${areaId}`, { cache: false });
     if (areaId !== state.currentAreaId) {
       return;
     }
@@ -1705,7 +1698,7 @@ async function refreshDashboardStats(areaId) {
     }
     state.currentAreaData = area;
     state.currentAreaSyncToken = `${area.area_version}:${area.coverage_revision}`;
-    updateStatsUI(area, summary);
+    updateStatsUI(area);
   } catch (error) {
     console.error("Failed to refresh stats:", error);
   }
@@ -1715,7 +1708,7 @@ async function refreshDashboardStats(areaId) {
 // Stats UI + Progress Ring
 // =============================================================================
 
-function updateStatsUI(area, summary) {
+function updateStatsUI(area) {
   const pct = normalizeCoveragePercent(area.coverage_percentage);
 
   // Large ring
@@ -1760,19 +1753,19 @@ function updateStatsUI(area, summary) {
     setMetricValue("qs-total", driveableMiles, { decimals: 1, suffix: " mi" });
   }
 
-  const undrivenSegs = summary?.segment_counts?.undriven || 0;
+  const undrivenSegs = area.remaining_segments;
   setMetricValue("qs-segments-remaining", undrivenSegs);
 
   // Segment breakdown
-  setMetricValue("seg-driven", summary?.segment_counts?.driven || 0);
-  setMetricValue("seg-undriven", summary?.segment_counts?.undriven || 0);
-  setMetricValue("seg-undriveable", summary?.segment_counts?.undriveable || 0);
+  setMetricValue("seg-driven", area.driven_segments);
+  setMetricValue("seg-undriven", area.remaining_segments);
+  setMetricValue("seg-undriveable", area.undriveable_segments);
 
   // Last activity
   const lastActivityEl = document.getElementById("qs-last-activity");
   if (lastActivityEl) {
-    lastActivityEl.textContent = area.last_synced
-      ? formatRelativeTime(area.last_synced)
+    lastActivityEl.textContent = area.last_coverage_trip_at
+      ? formatRelativeTime(area.last_coverage_trip_at)
       : "—";
   }
 
@@ -1892,7 +1885,7 @@ function buildStreetsCacheKey(areaId, syncToken) {
   return `${areaId}:${syncToken || "unsynced"}`;
 }
 
-async function loadStreets(areaId, areaSyncToken = null) {
+async function loadStreets(areaId, areaSyncToken = null, retry = true) {
   if (!state.map || !areaId) {
     return;
   }
@@ -2004,6 +1997,10 @@ async function loadStreets(areaId, areaSyncToken = null) {
       setupStreetInteractivity();
     }
   } catch (error) {
+    if (error.status === 409 && retry && areaId === state.currentAreaId) {
+      await refreshDashboardStats(areaId);
+      return loadStreets(areaId, state.currentAreaSyncToken, false);
+    }
     if (error.name !== "AbortError")
       notificationManager.show(`Street map unavailable: ${error.message}`, "warning");
   }

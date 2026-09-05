@@ -182,6 +182,18 @@ async def test_matching_old_inventory_requests_retry_instead_of_losing_credit(
     assert await CoverageDriveEvent.find_all().count() == 0
 
 
+async def test_street_response_rejects_mixed_revision_snapshot(evidence_area):
+    from fastapi import HTTPException
+    from street_coverage.api.streets import _features
+
+    area, ids, trip = evidence_area
+    streets = await Street.find({"area_id": area.id}).to_list()
+    await credit(area, trip, ids[0], [[0, 1]])
+    with pytest.raises(HTTPException) as error:
+        await _features(area, streets, parts=True)
+    assert error.value.status_code == 409
+
+
 def test_completion_never_depends_on_rounded_percentage():
     values = area_metrics(
         total_segments=2,

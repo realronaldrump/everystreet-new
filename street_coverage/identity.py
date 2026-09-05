@@ -9,6 +9,13 @@ from core.date_utils import normalize_to_utc_datetime
 from street_coverage.matching import MATCHING_VERSION
 
 
+def _stored_timestamp(value):
+    value = normalize_to_utc_datetime(value)
+    # BSON stores datetimes to milliseconds. Hash the persisted precision so
+    # a save/reload cannot make an otherwise identical trip look different.
+    return value.isoformat(timespec="milliseconds") if value else None
+
+
 def road_key(geometry: dict, tags: dict | None = None) -> str:
     topology = {key: (tags or {}).get(key) for key in ("layer", "bridge", "tunnel")}
     payload = (
@@ -37,8 +44,11 @@ def trip_input_revision(trip: dict) -> str:
     }
     fields["matcher"] = MATCHING_VERSION
     for key in ("startTime", "endTime", "matched_at"):
-        value = normalize_to_utc_datetime(fields[key])
-        fields[key] = value.isoformat() if value else None
+        fields[key] = _stored_timestamp(fields[key])
+    fields["sample_timestamps"] = [
+        _stored_timestamp(sample.get("timestamp")) if isinstance(sample, dict) else None
+        for sample in trip.get("coordinates") or []
+    ]
     return hashlib.sha256(
         json.dumps(fields, sort_keys=True, separators=(",", ":"), default=str).encode()
     ).hexdigest()

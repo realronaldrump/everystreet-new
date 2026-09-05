@@ -117,18 +117,26 @@ async def _features(area, streets, *, parts=False):
     ).to_list()
     by_id = {state.segment_id: state for state in states}
     features = [_feature(street, by_id.get(street.segment_id)) for street in streets]
-    if not parts:
-        return features
-    from street_coverage.rendering import feature_parts
+    if parts:
+        from street_coverage.rendering import feature_parts
 
-    def split():
-        return [
-            StreetFeature(**part)
-            for feature in features
-            for part in feature_parts(feature.model_dump(mode="json"))
-        ]
+        def split():
+            return [
+                StreetFeature(**part)
+                for feature in features
+                for part in feature_parts(feature.model_dump(mode="json"))
+            ]
 
-    return await asyncio.to_thread(split)
+        features = await asyncio.to_thread(split)
+    current = await CoverageArea.get(area.id)
+    if current is None or (
+        current.area_version != area.area_version
+        or current.journal_revision != area.journal_revision
+    ):
+        raise HTTPException(
+            409, "Coverage changed during this request; refresh the map"
+        )
+    return features
 
 
 def _geojson_response(features, *, etag, **extra):

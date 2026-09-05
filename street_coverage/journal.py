@@ -872,7 +872,13 @@ async def get_journal_segments(
         lambda: [part for feature in features for part in feature_parts(feature)]
     )
     return (
-        {"type": "FeatureCollection", "features": features, "truncated": truncated},
+        {
+            "type": "FeatureCollection",
+            "features": features,
+            "truncated": truncated,
+            "revision": rollup.revision,
+            "area_version": rollup.area_version,
+        },
         rollup.revision,
         rollup.area_version,
     )
