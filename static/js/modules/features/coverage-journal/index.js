@@ -2,6 +2,7 @@ import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.
 import { createMap, isMapboxStyleUrl, waitForMapboxToken } from "../../map-core.js";
 import { escapeHtml } from "../../utils.js";
 import { mergeStreetFeatures } from "./map-features.js";
+import { completeJournalRequests } from "./requests.js";
 import {
   createTimelineScale,
   isAtOrBeforeJournalBoundary,
@@ -1531,8 +1532,11 @@ async function reloadRange() {
   $("coverage-journal").setAttribute("aria-busy", "true");
   try {
     await loadMetadata(signal);
-    await Promise.all([loadSegments({ signal }), loadContributions({ signal })]);
-    if (signal.aborted) return;
+    const complete = await completeJournalRequests(
+      [loadSegments({ signal }), loadContributions({ signal })],
+      signal
+    );
+    if (!complete) return;
     renderAll();
     repaintJournalMap();
     syncUrl();
