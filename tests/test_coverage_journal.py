@@ -44,6 +44,8 @@ async def test_rollup_reconstructs_exact_partial_history_and_distinct_trips(jour
     assert payload["summary"]["coverage_percentage"] == 75
     assert payload["summary"]["historical_trip_count"] == 2
     assert [row["coverage_percentage"] for row in payload["series"]] == [37.5, 75]
+    assert payload["records"]["last_period_addition"]["new_miles"] == 1.5
+    assert payload["records"]["longest_pause_days"] == 31
     main = next(
         row for row in payload["street_rankings"] if row["street_name"] == "Main Street"
     )

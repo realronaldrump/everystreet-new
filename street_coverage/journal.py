@@ -692,6 +692,14 @@ async def get_journal_payload(area_id, *, range_key="all", timezone="UTC"):
         row.setdefault("all_time_trip_count", row["trip_count"])
         row.setdefault("period_trip_count", row["trip_count"])
     records = rollup.data.get("records", {})
+    pauses = [
+        (
+            normalize_to_utc_datetime(b["occurred_at"])
+            - normalize_to_utc_datetime(a["occurred_at"])
+        ).total_seconds()
+        / 86400
+        for a, b in pairwise(contributions)
+    ]
     return {
         "success": True,
         "area": rollup.data["area"],
@@ -706,6 +714,8 @@ async def get_journal_payload(area_id, *, range_key="all", timezone="UTC"):
         "series": _bucket_contributions(contributions, timezone=timezone),
         "records": {
             **records,
+            "last_period_addition": contributions[-1] if contributions else None,
+            "longest_pause_days": max(pauses, default=0),
             "biggest_push": max(
                 contributions, key=lambda row: row["new_miles"], default=None
             ),
@@ -745,13 +755,16 @@ async def get_journal_contributions(
         import base64
 
         try:
-            revision, when, key = json.loads(base64.urlsafe_b64decode(cursor.encode()))
+            revision, when, key, kind = json.loads(
+                base64.urlsafe_b64decode(cursor.encode())
+            )
             if revision != rollup.revision:
                 raise ValueError("Coverage changed; refresh the journal")
             stamp = normalize_to_utc_datetime(when)
             query["$or"] = [
                 {"occurred_at": {"$lt": stamp}},
                 {"occurred_at": stamp, "key": {"$lt": key}},
+                {"occurred_at": stamp, "key": key, "kind": {"$lt": kind}},
             ]
         except (ValueError, TypeError) as exc:
             raise ValueError(
@@ -759,7 +772,7 @@ async def get_journal_contributions(
             ) from exc
     rows = (
         await CoverageJournalEntry.find(query)
-        .sort([("occurred_at", -1), ("key", -1)])
+        .sort([("occurred_at", -1), ("key", -1), ("kind", -1)])
         .limit(limit + 1)
         .to_list()
     )
@@ -770,7 +783,9 @@ async def get_journal_contributions(
 
         last = rows[limit - 1]
         next_cursor = base64.urlsafe_b64encode(
-            json.dumps([rollup.revision, _iso(last.occurred_at), last.key]).encode()
+            json.dumps(
+                [rollup.revision, _iso(last.occurred_at), last.key, last.kind]
+            ).encode()
         ).decode()
     return {
         "success": True,

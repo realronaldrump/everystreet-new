@@ -16,6 +16,7 @@ from uuid import uuid4
 
 import shapely
 from beanie import PydanticObjectId
+from bson.errors import InvalidId
 from pymongo import ReturnDocument
 from shapely.geometry import LineString, MultiLineString, box, shape
 from shapely.ops import transform
@@ -269,7 +270,10 @@ async def match_trip_to_streets(trip, area_ids=None, trip_mode=None):
     areas = await CoverageArea.find(query).to_list()
     results = {}
     for area in areas:
-        if area.status != "ready" or area.coverage_rebuild_token:
+        lease = normalize_to_utc_datetime(area.coverage_rebuild_until)
+        if area.status != "ready" or (
+            area.coverage_rebuild_token and lease and lease > datetime.now(UTC)
+        ):
             results[area.id] = {
                 "deferred": True,
                 "area_version": area.area_version,
@@ -295,6 +299,11 @@ async def update_coverage_for_trip(trip_data, trip_id=None, trip_mode=None):
     trip_oid = _coerce_trip_id(trip_id)
     if trip_oid is None or trip_data.get("source") != "bouncie":
         raise ValueError("Coverage requires a persisted Bouncie Historical Trip")
+    persisted = await Trip.get(trip_oid)
+    if persisted is None or persisted.source != "bouncie":
+        raise ValueError("Coverage requires a persisted Bouncie Historical Trip")
+    if trip_input_revision(persisted.model_dump()) != trip_input_revision(trip_data):
+        raise ValueError("Trip geometry changed during coverage matching; retry")
     mode = await get_effective_coverage_trip_mode(trip_mode)
     matches = (
         {}
@@ -585,5 +594,5 @@ def get_trip_driven_at(trip_data):
 def _coerce_trip_id(trip_id):
     try:
         return PydanticObjectId(str(trip_id)) if trip_id is not None else None
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, InvalidId):
         return None

@@ -184,7 +184,7 @@ async def test_consume_on_a_missing_area_is_a_no_op(
 
 
 @pytest.mark.asyncio
-async def test_refresh_clears_derived_driven_state_but_keeps_manual_marks(
+async def test_refresh_preserves_published_state_until_replacement_commits(
     coverage_db,
     stub_backfill,
 ) -> None:
@@ -206,7 +206,7 @@ async def test_refresh_clears_derived_driven_state_but_keeps_manual_marks(
     await InactiveTripService.consume_pending_coverage_refresh(area.id)
 
     remaining = await CoverageState.find({"area_id": area.id}).to_list()
-    assert [state.segment_id for state in remaining] == ["seg-manual"]
+    assert {state.segment_id for state in remaining} == {"seg-derived", "seg-manual"}
 
 
 @pytest.mark.asyncio

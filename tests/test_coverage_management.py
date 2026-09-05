@@ -7,955 +7,231 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from beanie import PydanticObjectId
-from db_helpers import init_mock_beanie
-
+from coverage_helpers import area_with_streets, coverage_database, drive
 from core.coverage import (
     backfill_coverage_for_area,
-    mark_segment_undriveable,
-    mark_segment_undriven,
-    update_coverage_for_segments,
     update_coverage_for_trip,
+    _build_backfill_trip_query,
 )
-from db.models import (
-    CoverageArea,
-    CoverageDriveEvent,
-    CoverageJournalRollup,
-    CoverageState,
-    CoverageStatusEvent,
-    GeneratedRoute,
-    Job,
-    Street,
-    Trip,
-)
+from db.models import CoverageArea, CoverageDriveEvent, CoverageState, Job, Street, Trip
 from street_coverage import ingestion as coverage_ingestion
+from street_coverage.projection import set_manual_status
 from street_coverage.stats import update_area_stats
 
 
 @pytest.fixture
-async def coverage_db():
-    return await init_mock_beanie(
-        CoverageArea,
-        GeneratedRoute,
-        CoverageState,
-        CoverageDriveEvent,
-        CoverageStatusEvent,
-        CoverageJournalRollup,
-        Job,
-        Street,
-        Trip,
-    )
+async def coverage_db(monkeypatch):
+    database = await coverage_database()
+    from beanie import init_beanie
+    from db.models import ALL_DOCUMENT_MODELS
 
-
-@pytest.mark.asyncio
-async def test_update_coverage_for_segments_monotonic_and_trip_id(coverage_db) -> None:
-    area = CoverageArea(
-        display_name="Coverage Test Area",
-        status="ready",
-        health="healthy",
-        total_length_miles=1.0,
-        driveable_length_miles=1.0,
-        total_segments=1,
-    )
-    await area.insert()
-    assert area.id is not None
-
-    segment_id = f"{area.id}-{area.area_version}-0"
-    await Street(
-        segment_id=segment_id,
-        area_id=area.id,
-        area_version=area.area_version,
-        geometry={
-            "type": "LineString",
-            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
+    await init_beanie(database=database, document_models=ALL_DOCUMENT_MODELS)
+    # Geometry itself is exercised by the real matcher. Mongo's spatial query
+    # is covered in the replica-set suite, because mongomock has no geo index.
+    monkeypatch.setattr(
+        "core.coverage._build_backfill_trip_query",
+        lambda *a, **kw: {
+            "source": "bouncie",
+            "invalid": {"$ne": True},
+            "inactive": {"$ne": True},
         },
-        length_miles=1.0,
-    ).insert()
-
-    trip_newer = PydanticObjectId()
-    t_newer = datetime(2025, 1, 2, tzinfo=UTC)
-    await CoverageState(
-        area_id=area.id,
-        segment_id=segment_id,
-        status="driven",
-        first_driven_at=t_newer,
-        last_driven_at=t_newer,
-        driven_by_trip_id=trip_newer,
-    ).insert()
-
-    trip_older = PydanticObjectId()
-    t_older = datetime(2025, 1, 1, tzinfo=UTC)
-    result = await update_coverage_for_segments(
-        area_id=area.id,
-        segment_ids=[segment_id],
-        trip_id=trip_older,
-        driven_at=t_older,
     )
-    assert result.newly_driven_segment_ids == []
-
-    state = await CoverageState.find_one(
-        {"area_id": area.id, "segment_id": segment_id},
-    )
-    assert state is not None
-    assert state.status == "driven"
-    assert state.last_driven_at == t_newer
-    assert state.first_driven_at == t_older
-    assert state.driven_by_trip_id == trip_newer
-
-    trip_latest = PydanticObjectId()
-    t_latest = datetime(2025, 1, 3, tzinfo=UTC)
-    result2 = await update_coverage_for_segments(
-        area_id=area.id,
-        segment_ids=[segment_id],
-        trip_id=trip_latest,
-        driven_at=t_latest,
-    )
-    assert result2.newly_driven_segment_ids == []
-
-    state2 = await CoverageState.find_one(
-        {"area_id": area.id, "segment_id": segment_id},
-    )
-    assert state2 is not None
-    assert state2.last_driven_at == t_latest
-    assert state2.first_driven_at == t_older
-    assert state2.driven_by_trip_id == trip_latest
+    return database
 
 
-@pytest.mark.asyncio
-async def test_update_coverage_for_segments_ignores_unknown_segment_ids(
+async def test_historical_first_last_and_latest_trip_are_monotonic(coverage_db):
+    area, ids = await area_with_streets([1])
+    newer = await drive(area, {ids[0]: [[0, 1]]}, datetime(2025, 1, 2, tzinfo=UTC))
+    await drive(area, {ids[0]: [[0, 1]]}, datetime(2025, 1, 1, tzinfo=UTC))
+    state = await CoverageState.find_one({"segment_id": ids[0]})
+    assert state.first_driven_at == datetime(2025, 1, 1, tzinfo=UTC)
+    assert state.last_driven_at == datetime(2025, 1, 2, tzinfo=UTC)
+    assert state.driven_by_trip_id == newer.id
+    latest = await drive(area, {ids[0]: [[0, 1]]}, datetime(2025, 1, 3, tzinfo=UTC))
+    state = await CoverageState.find_one({"segment_id": ids[0]})
+    assert state.driven_by_trip_id == latest.id
+    assert state.first_driven_at == datetime(2025, 1, 1, tzinfo=UTC)
+    assert (await CoverageArea.get(area.id)).driven_segments == 1
+
+
+async def test_unknown_manual_segments_are_rejected_instead_of_reported_saved(
     coverage_db,
-) -> None:
-    area = CoverageArea(
-        display_name="Coverage Unknown Segment Area",
-        status="ready",
-        health="healthy",
-        total_length_miles=1.0,
-        driveable_length_miles=1.0,
-        total_segments=1,
-    )
-    await area.insert()
-    assert area.id is not None
-
-    valid_segment_id = f"{area.id}-{area.area_version}-0"
-    unknown_segment_id = f"{area.id}-{area.area_version}-missing"
-    await Street(
-        segment_id=valid_segment_id,
-        area_id=area.id,
-        area_version=area.area_version,
-        geometry={
-            "type": "LineString",
-            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
-        },
-        length_miles=1.0,
-    ).insert()
-
-    result = await update_coverage_for_segments(
-        area_id=area.id,
-        segment_ids=[unknown_segment_id, valid_segment_id],
-        driven_at=datetime(2025, 1, 2, tzinfo=UTC),
-    )
-    assert result.updated == 1
-    assert result.newly_driven_segment_ids == [valid_segment_id]
-    assert result.newly_driven_length_miles == 1.0
-
-    valid_state = await CoverageState.find_one(
-        {"area_id": area.id, "segment_id": valid_segment_id},
-    )
-    assert valid_state is not None
-    assert valid_state.status == "driven"
-
-    unknown_state = await CoverageState.find_one(
-        {"area_id": area.id, "segment_id": unknown_segment_id},
-    )
-    assert unknown_state is None
-
-    refreshed_area = await CoverageArea.get(area.id)
-    assert refreshed_area is not None
-    assert refreshed_area.driven_segments == 1
-    assert refreshed_area.driven_length_miles == 1.0
+):
+    area, ids = await area_with_streets([1])
+    with pytest.raises(ValueError, match="changed"):
+        await set_manual_status(area.id, [ids[0], "missing"], "driven")
+    assert await CoverageState.find_all().count() == 0
 
 
-@pytest.mark.asyncio
-async def test_concurrent_first_drive_increments_cached_stats_once(coverage_db) -> None:
-    area = CoverageArea(
-        display_name="Concurrent Coverage Area",
-        status="ready",
-        health="healthy",
-        total_length_miles=1.0,
-        driveable_length_miles=1.0,
-        total_segments=1,
-    )
-    await area.insert()
-    assert area.id is not None
-
-    segment_id = f"{area.id}-{area.area_version}-0"
-    await Street(
-        segment_id=segment_id,
-        area_id=area.id,
-        area_version=area.area_version,
-        geometry={
-            "type": "LineString",
-            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
-        },
-        length_miles=1.0,
-    ).insert()
-
-    driven_at = datetime(2025, 1, 2, tzinfo=UTC)
-    results = await asyncio.gather(
-        *[
-            update_coverage_for_segments(
-                area_id=area.id,
-                segment_ids=[segment_id],
-                driven_at=driven_at,
-            )
-            for _ in range(8)
-        ]
-    )
-
-    assert sum(segment_id in result.newly_driven_segment_ids for result in results) == 1
-    assert (
-        await CoverageState.find({"area_id": area.id, "segment_id": segment_id}).count()
-        == 1
-    )
-
-    refreshed_area = await CoverageArea.get(area.id)
-    assert refreshed_area is not None
-    assert refreshed_area.driven_segments == 1
-    assert refreshed_area.driven_length_miles == pytest.approx(1.0)
+async def test_concurrent_first_drives_only_credit_one_street(coverage_db):
+    area, ids = await area_with_streets([1])
+    await asyncio.gather(*(drive(area, {ids[0]: [[0, 1]]}) for _ in range(6)))
+    current = await CoverageArea.get(area.id)
+    assert current.driven_segments == 1
+    assert current.driven_length_miles == 1
+    assert await CoverageDriveEvent.find_all().count() == 6
 
 
-@pytest.mark.asyncio
-async def test_update_coverage_for_segments_noops_when_area_missing(
-    coverage_db,
-) -> None:
-    missing_area_id = PydanticObjectId()
-    result = await update_coverage_for_segments(
-        area_id=missing_area_id,
-        segment_ids=[f"{missing_area_id}-1-0"],
-        driven_at=datetime(2025, 1, 2, tzinfo=UTC),
-    )
-
-    assert result.updated == 0
-    assert result.newly_driven_segment_ids == []
-    assert result.newly_driven_length_miles == 0.0
-
-    unexpected_state = await CoverageState.find_one({"area_id": missing_area_id})
-    assert unexpected_state is None
+async def test_missing_area_is_an_explicit_error(coverage_db):
+    with pytest.raises(ValueError, match="not found"):
+        await set_manual_status(PydanticObjectId(), ["unknown"], "driven")
 
 
-@pytest.mark.asyncio
-async def test_update_coverage_for_trip_rejects_unpersisted_trip(coverage_db) -> None:
-    area = CoverageArea(
-        display_name="Coverage Trip ID Area",
-        status="ready",
-        health="healthy",
-        total_length_miles=1.0,
-        driveable_length_miles=1.0,
-        total_segments=1,
-        bounding_box=[-98.0, 30.0, -96.0, 32.0],
-    )
-    await area.insert()
-    assert area.id is not None
-
-    segment_id = f"{area.id}-{area.area_version}-0"
-    await Street(
-        segment_id=segment_id,
-        area_id=area.id,
-        area_version=area.area_version,
-        geometry={
-            "type": "LineString",
-            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
-        },
-        length_miles=1.0,
-    ).insert()
-
-    with (
-        patch(
-            "core.coverage.match_trip_to_streets",
-            new=AsyncMock(return_value={area.id: [segment_id]}),
-        ),
-        pytest.raises(ValueError, match="persisted Bouncie Historical Trip"),
-    ):
-        await update_coverage_for_trip(
-            {"source": "bouncie", "endTime": datetime(2025, 1, 2, tzinfo=UTC)},
-            trip_id="not-an-object-id",
-        )
-    assert (
-        await CoverageState.find_one({"area_id": area.id, "segment_id": segment_id})
-        is None
-    )
+@pytest.mark.parametrize("trip_id", [None, "not-an-object-id", str(PydanticObjectId())])
+async def test_update_coverage_for_trip_rejects_unpersisted_trip(coverage_db, trip_id):
+    with pytest.raises(ValueError, match="persisted Bouncie"):
+        await update_coverage_for_trip({"source": "bouncie"}, trip_id=trip_id)
+    assert await CoverageState.find_all().count() == 0
 
 
-@pytest.mark.asyncio
-async def test_manual_status_transitions_update_cached_stats(coverage_db) -> None:
-    area = CoverageArea(
-        display_name="Coverage Manual Stats Area",
-        status="ready",
-        health="healthy",
-        total_length_miles=1.0,
-        driveable_length_miles=1.0,
-        total_segments=1,
-        driven_segments=0,
-        driven_length_miles=0.0,
-        undriveable_segments=0,
-        undriveable_length_miles=0.0,
-    )
-    await area.insert()
-    assert area.id is not None
-
-    segment_id = f"{area.id}-{area.area_version}-0"
-    await Street(
-        segment_id=segment_id,
-        area_id=area.id,
-        area_version=area.area_version,
-        geometry={
-            "type": "LineString",
-            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
-        },
-        length_miles=1.0,
-    ).insert()
-
-    await update_coverage_for_segments(
-        area_id=area.id,
-        segment_ids=[segment_id],
-        driven_at=datetime(2025, 1, 1, tzinfo=UTC),
-    )
-
-    area_after_drive = await CoverageArea.get(area.id)
-    assert area_after_drive is not None
-    assert area_after_drive.driven_segments == 1
-    assert area_after_drive.driven_length_miles == 1.0
-
-    ok = await mark_segment_undriveable(area.id, segment_id)
-    assert ok is True
-
-    area_after_undriveable = await CoverageArea.get(area.id)
-    assert area_after_undriveable is not None
-    assert area_after_undriveable.driven_segments == 0
-    assert area_after_undriveable.driven_length_miles == 0.0
-    assert area_after_undriveable.undriveable_segments == 1
-    assert area_after_undriveable.undriveable_length_miles == 1.0
-    assert area_after_undriveable.driveable_length_miles == 0.0
-    assert area_after_undriveable.coverage_percentage == 0.0
-
-    ok2 = await mark_segment_undriven(area.id, segment_id)
-    assert ok2 is True
-
-    area_after_reset = await CoverageArea.get(area.id)
-    assert area_after_reset is not None
-    assert area_after_reset.driven_segments == 0
-    assert area_after_reset.undriveable_segments == 0
-    assert area_after_reset.undriveable_length_miles == 0.0
-    assert area_after_reset.driveable_length_miles == 1.0
+async def test_manual_transitions_preserve_exact_counters_and_override(coverage_db):
+    area, ids = await area_with_streets([1, 1])
+    await set_manual_status(area.id, [ids[0]], "driven")
+    assert (await CoverageArea.get(area.id)).coverage_percentage == 50
+    await set_manual_status(area.id, [ids[0]], "undriveable")
+    current = await CoverageArea.get(area.id)
+    assert current.driven_length_miles == 0 and current.driveable_length_miles == 1
+    await set_manual_status(area.id, [ids[0]], "undriven")
+    current = await CoverageArea.get(area.id)
+    assert current.driveable_length_miles == 2 and current.driven_segments == 0
+    state = await CoverageState.find_one({"segment_id": ids[0]})
+    assert state.manually_marked and state.status == "undriven"
 
 
-@pytest.mark.asyncio
-async def test_backfill_sets_first_last_and_driven_by_trip_id(coverage_db) -> None:
-    area = CoverageArea(
-        display_name="Coverage Backfill Area",
-        status="initializing",
-        health="unavailable",
-        total_length_miles=1.0,
-        driveable_length_miles=1.0,
-        total_segments=1,
-    )
-    await area.insert()
-    assert area.id is not None
-
-    segment_id = f"{area.id}-{area.area_version}-0"
-    await Street(
-        segment_id=segment_id,
-        area_id=area.id,
-        area_version=area.area_version,
-        geometry={
-            "type": "LineString",
-            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
-        },
-        length_miles=1.0,
-    ).insert()
-
-    t1 = datetime(2025, 1, 1, tzinfo=UTC)
-    t2 = datetime(2025, 1, 2, tzinfo=UTC)
-    trip1 = Trip(
-        transactionId="trip-1",
-        endTime=t1,
-        gps={"type": "LineString", "coordinates": [[-97.0, 31.0], [-97.0, 31.001]]},
-    )
-    trip2 = Trip(
-        transactionId="trip-2",
-        endTime=t2,
-        gps={"type": "LineString", "coordinates": [[-97.0, 31.0], [-97.0, 31.001]]},
-    )
-    await trip1.insert()
-    await trip2.insert()
-    assert trip1.id is not None
-    assert trip2.id is not None
-
-    payloads: list[dict] = []
-
-    async def on_progress(payload: dict) -> None:
-        payloads.append(payload)
-
-    updated = await backfill_coverage_for_area(
-        area.id,
-        progress_callback=on_progress,
-        progress_interval=1,
-        progress_time_seconds=0.0,
-    )
-    assert updated == 1
-
-    state = await CoverageState.find_one({"area_id": area.id, "segment_id": segment_id})
-    assert state is not None
-    assert state.status == "driven"
-    assert state.first_driven_at == t1
-    assert state.last_driven_at == t2
-    assert state.driven_by_trip_id == trip2.id
-
-    assert payloads
-    assert {
-        "processed_trips",
-        "total_trips",
-        "matched_trips",
-        "segments_updated",
-    } <= set(payloads[-1].keys())
-    assert payloads[-1]["processed_trips"] == 2
-    assert payloads[-1]["matched_trips"] == 2
-
-
-@pytest.mark.asyncio
-async def test_interrupted_full_backfill_restarts_chronological_event_scan(
-    coverage_db,
-) -> None:
-    area = CoverageArea(
-        display_name="Interrupted Journal Backfill Area",
-        status="ready",
-        health="healthy",
-        journal_status="building",
-        last_backfill_trip_endtime=datetime(2025, 1, 2, tzinfo=UTC),
-        total_length_miles=1.0,
-        driveable_length_miles=1.0,
-        total_segments=1,
-    )
-    await area.insert()
-    assert area.id is not None
-
-    segment_id = f"{area.id}-{area.area_version}-0"
-    await Street(
-        segment_id=segment_id,
-        area_id=area.id,
-        area_version=area.area_version,
-        geometry={
-            "type": "LineString",
-            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
-        },
-        length_miles=1.0,
-    ).insert()
-
-    trips = []
-    for day in (1, 2):
-        trip = Trip(
-            transactionId=f"interrupted-trip-{day}",
-            endTime=datetime(2025, 1, day, tzinfo=UTC),
-            gps={
-                "type": "LineString",
-                "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
-            },
-        )
-        await trip.insert()
-        trips.append(trip)
-
-    assert trips[1].id is not None
-    await CoverageDriveEvent(
-        area_id=area.id,
-        area_version=area.area_version,
-        trip_id=trips[1].id,
-        driven_at=trips[1].endTime,
-        segment_ids=[segment_id],
-    ).insert()
-
-    await backfill_coverage_for_area(area.id)
-
-    events = await CoverageDriveEvent.find(
-        {"area_id": area.id, "area_version": area.area_version},
-    ).to_list()
-    assert len(events) == 2
-    assert {event.trip_id for event in events} == {trip.id for trip in trips}
-
-
-@pytest.mark.asyncio
-async def test_backfill_repairs_missing_state_from_preserved_drive_events(
-    coverage_db,
-) -> None:
-    area = CoverageArea(
-        display_name="Coverage State Recovery Area",
-        status="ready",
-        health="healthy",
-        journal_status="ready",
-        last_backfill_trip_endtime=datetime(2025, 1, 2, tzinfo=UTC),
-        total_length_miles=2.0,
-        driveable_length_miles=2.0,
-        total_segments=2,
-    )
-    await area.insert()
-    assert area.id is not None
-
-    segment_ids = [
-        f"{area.id}-{area.area_version}-0",
-        f"{area.id}-{area.area_version}-1",
-    ]
-    for index, segment_id in enumerate(segment_ids):
-        await Street(
-            segment_id=segment_id,
-            area_id=area.id,
-            area_version=area.area_version,
-            geometry={
-                "type": "LineString",
-                "coordinates": [
-                    [-97.0 + index * 0.01, 31.0],
-                    [-97.0 + index * 0.01, 31.001],
-                ],
-            },
-            length_miles=1.0,
-        ).insert()
-
-    first_trip_id = PydanticObjectId()
-    latest_trip_id = PydanticObjectId()
-    first_driven_at = datetime(2025, 1, 1, tzinfo=UTC)
-    latest_driven_at = datetime(2025, 1, 2, tzinfo=UTC)
-    await CoverageDriveEvent(
-        area_id=area.id,
-        area_version=area.area_version,
-        trip_id=first_trip_id,
-        driven_at=first_driven_at,
-        segment_ids=segment_ids,
-    ).insert()
-    await CoverageDriveEvent(
-        area_id=area.id,
-        area_version=area.area_version,
-        trip_id=latest_trip_id,
-        driven_at=latest_driven_at,
-        segment_ids=[segment_ids[1]],
-    ).insert()
-
-    updated = await backfill_coverage_for_area(area.id)
-
-    assert updated == 2
-    states = await CoverageState.find(
-        {"area_id": area.id, "status": "driven"},
-    ).to_list()
-    assert {state.segment_id for state in states} == set(segment_ids)
-    first_state = next(state for state in states if state.segment_id == segment_ids[0])
-    latest_state = next(state for state in states if state.segment_id == segment_ids[1])
-    assert first_state.first_driven_at == first_driven_at
-    assert first_state.last_driven_at == first_driven_at
-    assert first_state.driven_by_trip_id == first_trip_id
-    assert latest_state.first_driven_at == first_driven_at
-    assert latest_state.last_driven_at == latest_driven_at
-    assert latest_state.driven_by_trip_id == latest_trip_id
-
-    refreshed_area = await CoverageArea.get(area.id)
-    assert refreshed_area is not None
-    assert refreshed_area.driven_segments == 2
-    assert refreshed_area.driven_length_miles == pytest.approx(2.0)
-    assert refreshed_area.coverage_percentage == pytest.approx(100.0)
-
-
-@pytest.mark.asyncio
-async def test_stats_refresh_repairs_missing_state_from_drive_events(
-    coverage_db,
-) -> None:
-    area = CoverageArea(
-        display_name="Coverage Stats Recovery Area",
-        status="ready",
-        health="healthy",
-        journal_status="ready",
-        total_length_miles=1.0,
-        driveable_length_miles=1.0,
-        total_segments=1,
-    )
-    await area.insert()
-    assert area.id is not None
-
-    segment_id = f"{area.id}-{area.area_version}-0"
-    await Street(
-        segment_id=segment_id,
-        area_id=area.id,
-        area_version=area.area_version,
-        geometry={
-            "type": "LineString",
-            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
-        },
-        length_miles=1.0,
-    ).insert()
-
-    trip_id = PydanticObjectId()
-    driven_at = datetime(2025, 1, 1, tzinfo=UTC)
-    await CoverageDriveEvent(
-        area_id=area.id,
-        area_version=area.area_version,
-        trip_id=trip_id,
-        driven_at=driven_at,
-        segment_ids=[segment_id],
-    ).insert()
-
-    refreshed_area = await update_area_stats(area.id)
-
-    assert refreshed_area is not None
-    assert refreshed_area.driven_segments == 1
-    assert refreshed_area.driven_length_miles == pytest.approx(1.0)
-    assert refreshed_area.coverage_percentage == pytest.approx(100.0)
-    state = await CoverageState.find_one(
-        {"area_id": area.id, "segment_id": segment_id},
-    )
-    assert state is not None
-    assert state.status == "driven"
-    assert state.first_driven_at == driven_at
-    assert state.last_driven_at == driven_at
-    assert state.driven_by_trip_id == trip_id
-
-
-@pytest.mark.asyncio
-async def test_backfill_uses_raw_gps_not_matched_gps(coverage_db) -> None:
-    area = CoverageArea(
-        display_name="Coverage Raw GPS Only Area",
-        status="initializing",
-        health="unavailable",
-        total_length_miles=1.0,
-        driveable_length_miles=1.0,
-        total_segments=1,
-    )
-    await area.insert()
-    assert area.id is not None
-
-    segment_id = f"{area.id}-{area.area_version}-0"
-    await Street(
-        segment_id=segment_id,
-        area_id=area.id,
-        area_version=area.area_version,
-        geometry={
-            "type": "LineString",
-            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
-        },
-        length_miles=1.0,
-    ).insert()
-
-    t1 = datetime(2025, 1, 1, tzinfo=UTC)
+async def _trace_trip(geometry, when, *, matched=None):
     trip = Trip(
-        transactionId="trip-raw-vs-matched",
-        endTime=t1,
-        # Raw GPS is far away and should not match the segment.
-        gps={
-            "type": "LineString",
-            "coordinates": [[-97.2, 31.0], [-97.2, 31.001]],
-        },
-        # Matched geometry overlaps the segment, but coverage should ignore it.
-        matchedGps={
-            "type": "LineString",
-            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
-        },
+        transactionId=str(PydanticObjectId()),
+        source="bouncie",
+        startTime=when,
+        endTime=when,
+        gps=geometry,
+        matchedGps=matched,
+        matchStatus="matched:linestring" if matched else None,
     )
     await trip.insert()
-
-    updated = await backfill_coverage_for_area(area.id)
-    assert updated == 0
-
-    state = await CoverageState.find_one({"area_id": area.id, "segment_id": segment_id})
-    assert state is None
+    return trip
 
 
-@pytest.mark.asyncio
-async def test_backfill_matched_mode_uses_matched_geometry(coverage_db) -> None:
-    area = CoverageArea(
-        display_name="Coverage Matched Mode Area",
-        status="initializing",
-        health="unavailable",
-        total_length_miles=1.0,
-        driveable_length_miles=1.0,
-        total_segments=1,
+async def test_backfill_sets_first_last_and_latest_trip(coverage_db):
+    area, ids = await area_with_streets([1])
+    geometry = (await Street.find_one({"segment_id": ids[0]})).geometry
+    first = await _trace_trip(geometry, datetime(2025, 1, 1, tzinfo=UTC))
+    last = await _trace_trip(geometry, datetime(2025, 1, 2, tzinfo=UTC))
+    progress = []
+
+    async def update(payload):
+        progress.append(payload)
+
+    await backfill_coverage_for_area(
+        area.id, trip_mode="regular", progress_callback=update, progress_interval=1
     )
-    await area.insert()
-    assert area.id is not None
-
-    segment_id = f"{area.id}-{area.area_version}-0"
-    await Street(
-        segment_id=segment_id,
-        area_id=area.id,
-        area_version=area.area_version,
-        geometry={
-            "type": "LineString",
-            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
-        },
-        length_miles=1.0,
-    ).insert()
-
-    await Trip(
-        transactionId="trip-matched-mode",
-        endTime=datetime(2025, 1, 1, tzinfo=UTC),
-        # Raw GPS is far away and should not match the segment.
-        gps={
-            "type": "LineString",
-            "coordinates": [[-97.2, 31.0], [-97.2, 31.001]],
-        },
-        # Matched geometry overlaps the segment and is explicitly confirmed.
-        matchedGps={
-            "type": "LineString",
-            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
-        },
-        matchStatus="matched:linestring",
-        matched_at=datetime(2025, 1, 1, tzinfo=UTC),
-    ).insert()
-
-    updated = await backfill_coverage_for_area(area.id, trip_mode="matched")
-    assert updated == 1
-
-    state = await CoverageState.find_one({"area_id": area.id, "segment_id": segment_id})
-    assert state is not None
-    assert state.status == "driven"
+    state = await CoverageState.find_one({"segment_id": ids[0]})
+    assert state.first_driven_at == first.endTime
+    assert state.last_driven_at == last.endTime
+    assert state.driven_by_trip_id == last.id
+    assert progress[-1]["processed_trips"] == 2
+    assert progress[-1]["matched_trips"] == 2
+    assert (await CoverageArea.get(area.id)).driven_length_miles == pytest.approx(1)
 
 
-@pytest.mark.asyncio
-async def test_backfill_matched_mode_preserves_turn_segments_without_bearing_drop(
+async def test_interrupted_backfill_preserves_published_state_until_success(
     coverage_db,
-) -> None:
-    area = CoverageArea(
-        display_name="Coverage Matched Turn Area",
-        status="initializing",
-        health="unavailable",
-        total_length_miles=3.0,
-        driveable_length_miles=3.0,
-        total_segments=3,
-    )
-    await area.insert()
-    assert area.id is not None
+):
+    area, ids = await area_with_streets([1])
+    geometry = (await Street.find_one({"segment_id": ids[0]})).geometry
+    await _trace_trip(geometry, datetime(2025, 1, 1, tzinfo=UTC))
+    await backfill_coverage_for_area(area.id, trip_mode="regular")
+    before = (await CoverageArea.get(area.id)).driven_length_miles
+    events = await CoverageDriveEvent.find_all().count()
 
-    segment_a = f"{area.id}-{area.area_version}-a"
-    segment_b = f"{area.id}-{area.area_version}-b"
-    segment_c = f"{area.id}-{area.area_version}-c"
+    async def interrupted(_):
+        raise RuntimeError("interrupted")
 
-    await Street(
-        segment_id=segment_a,
-        area_id=area.id,
-        area_version=area.area_version,
-        geometry={
-            "type": "LineString",
-            "coordinates": [[-97.0000, 31.0000], [-96.9990, 31.0000]],
-        },
-        length_miles=1.0,
-    ).insert()
-    await Street(
-        segment_id=segment_b,
-        area_id=area.id,
-        area_version=area.area_version,
-        geometry={
-            "type": "LineString",
-            "coordinates": [[-96.9990, 31.0000], [-96.9990, 31.0010]],
-        },
-        length_miles=1.0,
-    ).insert()
-    await Street(
-        segment_id=segment_c,
-        area_id=area.id,
-        area_version=area.area_version,
-        geometry={
-            "type": "LineString",
-            "coordinates": [[-96.9990, 31.0010], [-97.0000, 31.0010]],
-        },
-        length_miles=1.0,
-    ).insert()
-
-    await Trip(
-        transactionId="trip-matched-turn-shape",
-        endTime=datetime(2025, 1, 1, tzinfo=UTC),
-        matchedGps={
-            "type": "LineString",
-            "coordinates": [
-                [-97.0000, 31.0000],
-                [-96.9990, 31.0000],
-                [-96.9990, 31.0010],
-                [-97.0000, 31.0010],
-            ],
-        },
-        matchStatus="matched:linestring",
-        matched_at=datetime(2025, 1, 1, tzinfo=UTC),
-    ).insert()
-
-    updated = await backfill_coverage_for_area(area.id, trip_mode="matched")
-    assert updated == 3
-
-    states = await CoverageState.find(
-        {"area_id": area.id, "status": "driven"},
-    ).to_list()
-    assert len(states) == 3
+    with pytest.raises(RuntimeError, match="interrupted"):
+        await backfill_coverage_for_area(
+            area.id,
+            trip_mode="regular",
+            full=True,
+            progress_callback=interrupted,
+            progress_interval=1,
+        )
+    assert (await CoverageArea.get(area.id)).driven_length_miles == before
+    assert await CoverageDriveEvent.find_all().count() == events
+    assert await CoverageState.find_all().count() == 1
+    await backfill_coverage_for_area(area.id, trip_mode="regular", full=True)
+    assert (await CoverageArea.get(area.id)).driven_length_miles == before
 
 
-@pytest.mark.asyncio
-async def test_backfill_matches_micro_segment_when_fully_overlapped(
+async def test_full_backfill_retracts_deleted_trip_evidence(coverage_db):
+    area, ids = await area_with_streets([1])
+    geometry = (await Street.find_one({"segment_id": ids[0]})).geometry
+    trip = await _trace_trip(geometry, datetime(2025, 1, 1, tzinfo=UTC))
+    await backfill_coverage_for_area(area.id, trip_mode="regular")
+    await trip.delete()
+    await backfill_coverage_for_area(area.id, trip_mode="regular")
+    assert await CoverageDriveEvent.find_all().count() == 0
+    assert await CoverageState.find_all().count() == 0
+    assert (await CoverageArea.get(area.id)).driven_length_miles == 0
+
+
+async def test_stats_refresh_recovers_missing_projection_from_valid_evidence(
     coverage_db,
-) -> None:
-    area = CoverageArea(
-        display_name="Coverage Micro Segment Area",
-        status="initializing",
-        health="unavailable",
-        total_length_miles=0.01,
-        driveable_length_miles=0.01,
-        total_segments=1,
+):
+    area, ids = await area_with_streets([1, 1])
+    first = await drive(
+        area, {ids[0]: [[0, 1]], ids[1]: [[0, 1]]}, datetime(2025, 1, 1, tzinfo=UTC)
     )
-    await area.insert()
-    assert area.id is not None
-
-    segment_id = f"{area.id}-{area.area_version}-micro"
-    # ~7.6 meters at this latitude: intentionally below MIN_OVERLAP_METERS.
-    coords = [[-97.00000, 31.00000], [-96.99992, 31.00000]]
-
-    await Street(
-        segment_id=segment_id,
-        area_id=area.id,
-        area_version=area.area_version,
-        geometry={"type": "LineString", "coordinates": coords},
-        length_miles=0.005,
-    ).insert()
-
-    await Trip(
-        transactionId="trip-micro-segment-perfect-overlap",
-        endTime=datetime(2025, 1, 1, tzinfo=UTC),
-        matchedGps={"type": "LineString", "coordinates": coords},
-        matchStatus="matched:linestring",
-        matched_at=datetime(2025, 1, 1, tzinfo=UTC),
-    ).insert()
-
-    updated = await backfill_coverage_for_area(area.id, trip_mode="matched")
-    assert updated == 1
-
-    state = await CoverageState.find_one({"area_id": area.id, "segment_id": segment_id})
-    assert state is not None
-    assert state.status == "driven"
+    latest = await drive(area, {ids[1]: [[0, 1]]}, datetime(2025, 1, 2, tzinfo=UTC))
+    await CoverageState.find_all().delete()
+    await update_area_stats(area.id)
+    states = {
+        state.segment_id: state for state in await CoverageState.find_all().to_list()
+    }
+    assert states[ids[0]].driven_by_trip_id == first.id
+    assert states[ids[1]].driven_by_trip_id == latest.id
+    assert (await CoverageArea.get(area.id)).driven_length_miles == 2
 
 
-@pytest.mark.asyncio
-async def test_backfill_both_mode_unions_regular_and_matched_segments(
-    coverage_db,
-) -> None:
-    area = CoverageArea(
-        display_name="Coverage Both Mode Area",
-        status="ready",
-        health="healthy",
-        total_length_miles=2.0,
-        driveable_length_miles=2.0,
-        total_segments=2,
+@pytest.mark.parametrize("mode,expected", [("regular", 0), ("matched", 1), ("both", 1)])
+async def test_backfill_uses_selected_trace_and_best_mode_never_unions_conflicts(
+    coverage_db, mode, expected
+):
+    area, ids = await area_with_streets([1, 1])
+    streets = await Street.find({"area_id": area.id}).sort("segment_id").to_list()
+    await _trace_trip(
+        streets[0].geometry,
+        datetime(2025, 1, 1, tzinfo=UTC),
+        matched=streets[1].geometry,
     )
-    await area.insert()
-    assert area.id is not None
-
-    segment_regular = f"{area.id}-{area.area_version}-regular"
-    segment_matched = f"{area.id}-{area.area_version}-matched"
-    await Street(
-        segment_id=segment_regular,
-        area_id=area.id,
-        area_version=area.area_version,
-        geometry={
-            "type": "LineString",
-            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
-        },
-        length_miles=1.0,
-    ).insert()
-    await Street(
-        segment_id=segment_matched,
-        area_id=area.id,
-        area_version=area.area_version,
-        geometry={
-            "type": "LineString",
-            "coordinates": [[-97.01, 31.0], [-97.01, 31.001]],
-        },
-        length_miles=1.0,
-    ).insert()
-
-    await Trip(
-        transactionId="trip-both-mode",
-        endTime=datetime(2025, 1, 1, tzinfo=UTC),
-        gps={
-            "type": "LineString",
-            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
-        },
-        matchedGps={
-            "type": "LineString",
-            "coordinates": [[-97.01, 31.0], [-97.01, 31.001]],
-        },
-        matchStatus="matched:linestring",
-        matched_at=datetime(2025, 1, 1, tzinfo=UTC),
-    ).insert()
-
-    updated = await backfill_coverage_for_area(area.id, trip_mode="both")
-    assert updated == 2
-
-    regular_state = await CoverageState.find_one(
-        {"area_id": area.id, "segment_id": segment_regular},
-    )
-    matched_state = await CoverageState.find_one(
-        {"area_id": area.id, "segment_id": segment_matched},
-    )
-    assert regular_state is not None
-    assert matched_state is not None
-    assert regular_state.status == "driven"
-    assert matched_state.status == "driven"
-
-
-@pytest.mark.asyncio
-async def test_backfill_bbox_query_uses_geo_intersects_without_ne(coverage_db) -> None:
-    area = CoverageArea(
-        display_name="Coverage BBox Query Area",
-        status="ready",
-        health="healthy",
-        bounding_box=[-97.1694267, 31.5124059, -97.1381935, 31.5315442],
-    )
-    await area.insert()
-    assert area.id is not None
-
-    class EmptyTripCursor:
-        async def count(self) -> int:
-            return 0
-
-        def sort(self, *_args, **_kwargs) -> EmptyTripCursor:
-            return self
-
-        def __aiter__(self) -> EmptyTripCursor:
-            return self
-
-        async def __anext__(self) -> Trip:
-            raise StopAsyncIteration
-
-    captured_queries: list[dict] = []
-
-    def fake_trip_find(query: dict) -> EmptyTripCursor:
-        captured_queries.append(query)
-        return EmptyTripCursor()
-
-    with (
-        patch(
-            "core.coverage.get_area_segment_index",
-            new=AsyncMock(),
-        ),
-        patch("core.coverage.Trip.find", side_effect=fake_trip_find),
-    ):
-        updated = await backfill_coverage_for_area(area.id, trip_mode="regular")
-
-    assert updated == 0
-    assert len(captured_queries) == 2
-    expected_polygon = {
-        "type": "Polygon",
-        "coordinates": [
-            [
-                [-97.1694267, 31.5124059],
-                [-97.1381935, 31.5124059],
-                [-97.1381935, 31.5315442],
-                [-97.1694267, 31.5315442],
-                [-97.1694267, 31.5124059],
-            ],
-        ],
+    await backfill_coverage_for_area(area.id, trip_mode=mode)
+    assert {state.segment_id for state in await CoverageState.find_all().to_list()} == {
+        ids[expected]
     }
 
-    first_query = captured_queries[0]
-    assert first_query["invalid"] == {"$ne": True}
-    assert first_query["gps"] == {"$geoIntersects": {"$geometry": expected_polygon}}
-    assert "$ne" not in first_query["gps"]
+
+async def test_matching_policy_change_replaces_previous_credit(coverage_db):
+    area, ids = await area_with_streets([1, 1])
+    streets = await Street.find({"area_id": area.id}).sort("segment_id").to_list()
+    await _trace_trip(
+        streets[0].geometry,
+        datetime(2025, 1, 1, tzinfo=UTC),
+        matched=streets[1].geometry,
+    )
+    await backfill_coverage_for_area(area.id, trip_mode="regular")
+    await backfill_coverage_for_area(area.id, trip_mode="matched")
+    assert {state.segment_id for state in await CoverageState.find_all().to_list()} == {
+        ids[1]
+    }
+    assert (await CoverageArea.get(area.id)).driven_length_miles == 1
+
+
+async def test_bbox_query_has_unambiguous_geo_predicates(coverage_db):
+    area, _ = await area_with_streets([1])
+    query = _build_backfill_trip_query(area, trip_mode="both")
+    assert query["source"] == "bouncie"
+    for branch in query["$or"]:
+        geometry = branch.get("gps") or branch.get("matchedGps")
+        assert "$geoIntersects" in geometry and "$ne" not in geometry
 
 
 @pytest.mark.asyncio
@@ -1052,7 +328,10 @@ async def test_rebuild_area_enqueues_ingestion_job(coverage_db) -> None:
 
     rebuilt_area = await CoverageArea.get(area.id)
     assert rebuilt_area is not None
-    assert rebuilt_area.last_backfill_trip_endtime is None
+    assert rebuilt_area.last_backfill_trip_endtime.replace(tzinfo=UTC) == datetime(
+        2025, 1, 3, tzinfo=UTC
+    )
+    assert rebuilt_area.pending_area_version == rebuilt_area.area_version + 1
 
     pool.enqueue_job.assert_awaited_once_with(
         "run_area_ingestion_job",

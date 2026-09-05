@@ -264,7 +264,7 @@ async def test_graph_rebuilds_when_filter_signature_changes(tmp_path: Path) -> N
     preprocess_module.GRAPH_STORAGE_DIR = graph_dir
 
     try:
-        stale_graph_path = graph_dir / "sig-area.graphml"
+        stale_graph_path = graph_dir / "sig-area-1.graphml"
         stale_graph = nx.MultiDiGraph()
         stale_graph.add_node(1, x=-97.1460, y=31.5490)
         stale_graph.add_node(2, x=-97.1455, y=31.5490)
@@ -330,7 +330,7 @@ async def test_graph_rebuilds_when_osm_extract_id_changes(tmp_path: Path) -> Non
     preprocess_module.GRAPH_STORAGE_DIR = graph_dir
 
     try:
-        stale_graph_path = graph_dir / "extract-area.graphml"
+        stale_graph_path = graph_dir / "extract-area-1.graphml"
         stale_graph = nx.MultiDiGraph()
         stale_graph.add_node(1, x=-97.1460, y=31.5490)
         stale_graph.add_node(2, x=-97.1455, y=31.5490)

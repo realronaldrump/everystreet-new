@@ -65,6 +65,7 @@ async def init_mock_beanie(
     builder = mongomock.collection.BulkOperationBuilder
     if not getattr(builder, "_coverage_sort_adapter", False):
         import inspect
+
         original_update = inspect.unwrap(builder.add_update)
         original_replace = inspect.unwrap(builder.add_replace)
 

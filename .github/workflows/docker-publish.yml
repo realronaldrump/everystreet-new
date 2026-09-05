@@ -74,6 +74,37 @@ jobs:
       - name: Run Python tests
         run: python -m pytest
 
+      - name: Start CI transaction database
+        run: |
+          echo '127.0.0.1 everystreet-workflow-mongo' | sudo tee -a /etc/hosts
+          docker run -d --name everystreet-workflow-mongo \
+            --hostname everystreet-workflow-mongo \
+            --publish 127.0.0.1:27017:27017 --memory 1g \
+            --ulimit nofile=64000:64000 mongo:7 \
+            --replSet coverage_ci --bind_ip_all --wiredTigerCacheSizeGB 0.25
+          for attempt in $(seq 1 30); do
+            if docker exec everystreet-workflow-mongo mongosh --quiet \
+              --eval 'db.adminCommand({ping: 1})' >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          docker exec everystreet-workflow-mongo mongosh --quiet --eval \
+            'rs.initiate({_id: "coverage_ci", members: [{_id: 0, host: "everystreet-workflow-mongo:27017"}]})'
+          for attempt in $(seq 1 30); do
+            if docker exec everystreet-workflow-mongo mongosh --quiet --eval \
+              'quit(db.hello().isWritablePrimary ? 0 : 1)'; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+
+      - name: Run transaction and route integration tests
+        env:
+          WORKFLOW_TEST_MONGO_URI: mongodb://everystreet-workflow-mongo:27017/?replicaSet=coverage_ci
+        run: python -m pytest -o addopts=-ra -m integration tests/test_workflow_transactions.py
+
+      - name: Remove CI transaction database
+        if: always()
+        run: docker rm -f everystreet-workflow-mongo || true
+
   build-and-push:
     needs: test
     if: github.event_name != 'pull_request'

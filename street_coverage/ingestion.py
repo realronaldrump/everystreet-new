@@ -198,12 +198,11 @@ async def delete_area(area_id: PydanticObjectId) -> bool:
     # Delete any pending jobs for this area
     await Job.find({"area_id": area_id}).delete()
 
-    # Remove cached graph file (if present)
+    # Remove all published and staged graph versions for this area.
     with contextlib.suppress(Exception):
         from routing.constants import GRAPH_STORAGE_DIR
 
-        graph_path = GRAPH_STORAGE_DIR / f"{area_id}.graphml"
-        if graph_path.exists():
+        for graph_path in GRAPH_STORAGE_DIR.glob(f"{area_id}-*.graphml"):
             graph_path.unlink()
 
     # Delete the area itself
@@ -219,7 +218,7 @@ async def reset_area_for_rebuild(area_id: PydanticObjectId) -> CoverageArea:
     area = await CoverageArea.get(area_id)
     if area is None:
         raise ValueError("Coverage area not found")
-    if area.pending_area_version is not None:
+    if area.pending_area_version is not None and area.status != "error":
         raise ValueError("A street inventory rebuild is already pending")
     await area.set(
         {

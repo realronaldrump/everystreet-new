@@ -15,9 +15,7 @@ from db.models import (
     CoverageArea,
     CoverageDriveEvent,
     CoverageState,
-    CoverageOverride,
-    CoverageGoal,
-    CoverageJournalEntry,
+    ALL_DOCUMENT_MODELS,
     GeneratedRoute,
     Job,
     Street,
@@ -49,18 +47,7 @@ async def workflow_db():
     database = client[f"workflow_test_{uuid4().hex}"]
     await init_beanie(
         database=database,
-        document_models=[
-            Trip,
-            CoverageArea,
-            CoverageState,
-            CoverageOverride,
-            CoverageGoal,
-            CoverageJournalEntry,
-            CoverageDriveEvent,
-            Street,
-            GeneratedRoute,
-            Job,
-        ],
+        document_models=ALL_DOCUMENT_MODELS,
     )
     yield database
     await client.drop_database(database.name)
@@ -195,6 +182,62 @@ async def test_concurrent_trips_credit_shared_street_once(area_and_trip):
     events = await CoverageDriveEvent.find_all().to_list()
     assert len(events) == 2
     assert sum(len(event.newly_driven_segment_ids) for event in events) == 1
+
+
+async def test_inventory_rebuild_publication_rolls_back_and_preserves_owner_decisions(
+    area_and_trip, monkeypatch, tmp_path
+):
+    from core import coverage
+    from street_coverage.projection import set_manual_status
+
+    area, trip, segment_id = area_and_trip
+    street = await Street.find_one({"segment_id": segment_id})
+    await area.set({"bounding_box": [-107.1, 38.9, -106.9, 39.1]})
+    await trip.set({"matchedGps": street.geometry, "matchStatus": "matched:linestring"})
+    # Exercise the real Mongo geo query and the interval matcher before rebuilding.
+    await coverage.backfill_coverage_for_area(area.id, trip_mode="matched")
+    assert (await CoverageArea.get(area.id)).driven_length_miles == pytest.approx(1)
+    await set_manual_status(area.id, [segment_id], "undriven")
+    replacement_id = f"{area.id}-2-0"
+    await Street(
+        area_id=area.id,
+        area_version=2,
+        segment_id=replacement_id,
+        length_miles=1,
+        geometry=street.geometry,
+    ).insert()
+    project = coverage.project_segments
+    monkeypatch.setattr(
+        coverage,
+        "project_segments",
+        AsyncMock(side_effect=RuntimeError("publish crash")),
+    )
+    with pytest.raises(RuntimeError, match="publish crash"):
+        await coverage.backfill_coverage_for_area(
+            area.id, trip_mode="matched", inventory_version=2
+        )
+    assert (await CoverageArea.get(area.id)).area_version == 1
+    assert await CoverageDriveEvent.find({"area_version": 2}).count() == 0
+    assert (await CoverageState.find_one({"segment_id": segment_id})).manually_marked
+    monkeypatch.setattr(coverage, "project_segments", project)
+    await coverage.backfill_coverage_for_area(
+        area.id, trip_mode="matched", inventory_version=2
+    )
+    current = await CoverageArea.get(area.id)
+    assert current.area_version == 2 and current.driven_length_miles == 0
+    state = await CoverageState.find_one({"segment_id": replacement_id})
+    assert state.manually_marked and state.status == "undriven"
+    assert await CoverageState.find({"segment_id": segment_id}).count() == 0
+    from street_coverage.maintenance import audit_area, backup_areas
+
+    assert (await audit_area(current))["consistent"]
+    manifest = await backup_areas([current], tmp_path / "coverage-backup")
+    import json
+
+    contents = json.loads(manifest.read_text())
+    assert contents["collections"]["coverage_state"]["documents"] == 1
+    assert "trips" not in contents["collections"]
+    assert manifest.stat().st_mode & 0o777 == 0o600
 
 
 async def save_route(area, *, cluster=False, coordinates=None):

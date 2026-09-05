@@ -37,7 +37,9 @@ async def credit_trip_area(
         if area is None:
             return None
         if area_version is not None and area.area_version != area_version:
-            # Old inventories are never allowed to alter the current projection.
+            if evidence:
+                raise CoverageDeferred("The street inventory changed; match it again")
+            # Cleanup of an obsolete inventory cannot alter the current projection.
             return None
         if area.coverage_matching_version != MATCHING_VERSION:
             raise CoverageDeferred(

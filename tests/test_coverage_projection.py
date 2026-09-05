@@ -7,6 +7,8 @@ from db_helpers import init_mock_beanie
 from db.models import (
     CoverageArea,
     CoverageDriveEvent,
+    CoverageOverride,
+    CoverageStatusEvent,
     CoverageState,
     CoverageJournalRollup,
     Street,
@@ -14,6 +16,7 @@ from db.models import (
 )
 from street_coverage.matching import MATCHING_VERSION
 from street_coverage.projection import area_metrics, set_manual_status
+from street_coverage.projection import CoverageDeferred
 from street_coverage.stats import calculate_area_stats, update_area_stats
 from street_coverage.trip_credit import credit_trip_area
 from trips.services.inactive_trip_service import InactiveTripService
@@ -153,6 +156,30 @@ async def test_changed_trip_retracts_its_old_intervals(evidence_area):
     await trip.save()
     await credit(area, trip, ids[0], [[0, 0.25]])
     assert (await CoverageArea.get(area.id)).driven_length_miles == 0.125
+
+
+async def test_repeat_manual_decision_preserves_date_and_does_not_add_history(
+    evidence_area,
+):
+    area, ids, _ = evidence_area
+    await set_manual_status(area.id, [ids[0]], "driven")
+    marked_at = (await CoverageOverride.find_one({"area_id": area.id})).marked_at
+    result = await set_manual_status(area.id, [ids[0]], "driven")
+    assert result["updated"] == 0
+    assert (
+        await CoverageOverride.find_one({"area_id": area.id})
+    ).marked_at == marked_at
+    assert await CoverageStatusEvent.find_all().count() == 1
+
+
+async def test_matching_old_inventory_requests_retry_instead_of_losing_credit(
+    evidence_area,
+):
+    area, ids, trip = evidence_area
+    await area.set({"area_version": 2})
+    with pytest.raises(CoverageDeferred, match="inventory changed"):
+        await credit(area, trip, ids[0], [[0, 1]])
+    assert await CoverageDriveEvent.find_all().count() == 0
 
 
 def test_completion_never_depends_on_rounded_percentage():

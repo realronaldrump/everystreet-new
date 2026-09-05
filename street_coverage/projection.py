@@ -317,12 +317,19 @@ async def set_manual_status(area_id, segment_ids, status):
         if len(streets) != len(ids):
             raise ValueError("Selected streets changed. Refresh the map and try again.")
         now = datetime.now(UTC)
+        changed = []
         for street in streets:
             query = {
                 "area_id": area_id,
                 "road_key": road_key(street.geometry, street.road_tags),
             }
             collection = CoverageOverride.get_pymongo_collection()
+            existing = await collection.find_one(query, session=session)
+            if (status == "automatic" and existing is None) or (
+                existing and existing["status"] == status
+            ):
+                continue
+            changed.append(street.segment_id)
             if status == "automatic":
                 await collection.delete_one(query, session=session)
             else:
@@ -347,16 +354,17 @@ async def set_manual_status(area_id, segment_ids, status):
             action=f"mark_{status}",
             source="manual",
             occurred_at=now,
-            segment_ids=ids,
+            segment_ids=changed,
             coverage_before=area.coverage_percentage,
             coverage_after=result["metrics"]["coverage_percentage"],
             driven_miles_before=area.driven_length_miles,
             driven_miles_after=result["metrics"]["driven_length_miles"],
         )
-        await event.insert(session=session)
+        if changed:
+            await event.insert(session=session)
         return {
             "success": True,
-            "updated": len(ids),
+            "updated": len(changed),
             "states": {sid: state for sid, state in result["states"].items()},
             "coverage_revision": area.journal_revision,
             **result["metrics"],

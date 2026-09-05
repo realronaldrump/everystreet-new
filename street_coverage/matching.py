@@ -56,6 +56,7 @@ def match_projected_intervals(
     roads = np.asarray(geometries, dtype=object)
     intervals: dict[str, list[list[float]]] = defaultdict(list)
     offsets: dict[str, float] = defaultdict(float)
+    lengths: dict[str, float] = {}
     cosine_limit = math.cos(math.radians(MAX_LOCAL_ANGLE_DEGREES))
 
     for batch_start in range(0, len(edges), TRACE_BATCH_SIZE):
@@ -133,12 +134,18 @@ def match_projected_intervals(
                 if high <= low:
                     continue
                 sid = segment_ids[best[2]]
+                lengths[sid] = street.length
                 intervals[sid].append(
                     [max(0.0, low / street.length), min(1.0, high / street.length)]
                 )
                 offsets[sid] = max(offsets[sid], best[5])
 
     return {
-        sid: {"intervals": union_intervals(parts, tolerance=min(0.01, INTERVAL_CONTINUITY_METERS / geometries[segment_ids.index(sid)].length)), "max_offset_meters": offsets[sid]}
+        sid: {
+            "intervals": union_intervals(
+                parts, tolerance=min(0.01, INTERVAL_CONTINUITY_METERS / lengths[sid])
+            ),
+            "max_offset_meters": offsets[sid],
+        }
         for sid, parts in intervals.items()
     }
