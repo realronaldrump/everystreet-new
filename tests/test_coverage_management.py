@@ -217,7 +217,8 @@ async def test_trip_moving_outside_rebuild_area_queues_refresh_of_first_evidence
         "endTime": "2025-01-01T00:10:00Z",
         "gps": {
             "type": "LineString",
-            "coordinates": [[-108, 38], [-108, 38.001]],
+            # Re-ingest replaces GPS only when the incoming trace has more points.
+            "coordinates": [[-108, 38], [-108, 38.0005], [-108, 38.001]],
         },
     }
     changed = False
@@ -240,8 +241,9 @@ async def test_trip_moving_outside_rebuild_area_queues_refresh_of_first_evidence
             )
         )
         assert updated is not None and updated.id == trip.id
+        assert updated.gps == replacement["gps"]
         # No old event or current-trace intersection can make this outbox defer.
-        assert updated.coverage_status == "complete"
+        assert updated.coverage_status == "complete", updated.coverage_error
         assert (await CoverageArea.get(area.id)).coverage_refresh_pending
         assert not (await CoverageArea.get(other_area.id)).coverage_refresh_pending
 
