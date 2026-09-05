@@ -8,13 +8,13 @@ Do not treat this Mac checkout as a running or data-bearing installation.
 
 The standard delivery path is:
 
-**Edit on the Mac → push to GitHub `main` → automated CI tests and image build →
-automatic mini-PC deployment → verify the deployed app.**
+**Edit on the Mac → quick local checks → push to GitHub `main` → automated CI
+tests and image build → automatic mini-PC deployment → verify the deployed app.**
 
 | Location | Role |
 | --- | --- |
-| MacBook Pro | Read and edit source, review diffs, use Git and remote-access clients. |
-| GitHub Actions | Install build/test dependencies, run automated tests, build and publish the app image. |
+| MacBook Pro | Read and edit source, run focused lightweight checks with existing tools, review diffs, use Git and remote-access clients. |
+| GitHub Actions | Install build/test dependencies, run broader automated tests, build and publish the app image. |
 | Linux mini PC | Run the actual app and services; inspect live behavior, logs, and data. |
 
 - Public app: `https://www.everystreet.me`.
@@ -26,20 +26,55 @@ automatic mini-PC deployment → verify the deployed app.**
 
 ## Mac Boundaries
 
-- Do not start the app, workers, containers, databases, or local preview servers.
-- Do not run application code or test suites locally, including isolated or
-  mocked Python/JavaScript tests.
+- Do not start the app, workers, containers, database servers, or local preview
+  servers.
+- Focused unit tests may run application functions locally using synthetic data
+  and in-memory mocks. They must require no network, production credentials or
+  data, application startup, containers, database servers, or persistent services.
+  Test setup and imports must also satisfy these conditions.
 - Do not install or start Docker Desktop, Colima, OrbStack, or similar runtimes.
   Do not install/download packages, tools, virtual environments, or map extracts
   to make local execution or testing possible.
-- Use existing tools for source inspection, editing, and `git diff --check`.
-  Existing source-only linters/formatters may be used when useful, provided they
-  require no installation, app execution/imports, service startup, or live data.
-  Missing tooling is a reason to use CI, not to bootstrap the Mac.
+- Use existing tools for source inspection, editing, syntax/format/lint checks,
+  and the focused tests described below. If a tool or dependency is missing,
+  leave that check to CI; do not install packages, create an environment, or
+  spend the task repairing local tooling.
 - Do not search the Mac for production databases, volumes, credentials, logs,
   or map files. Their absence here is expected. Inspect the deployment remotely.
 - Keep credentials supplied through private instructions out of repository
   files, commits, reports, and command output.
+
+## Lightweight Local Checks
+
+Run only checks relevant to the change. Documentation-only edits need text/diff
+review. Code changes should use the smallest useful test file or test selection;
+leave full suites and service integration tests to GitHub Actions.
+
+Use these command forms from the repository root, only when the executable and
+its dependencies already exist. Angle-bracket values are placeholders for the
+specific changed file or an already configured Python interpreter.
+
+| Purpose | Command |
+| --- | --- |
+| Diff whitespace check | `git diff --check` |
+| JavaScript syntax, without executing the module | `node --check <changed-file.js>` |
+| Self-contained geographic math tests, when relevant | `node --test tests/geo_math_utils.test.js` |
+| Other focused JavaScript tests meeting the Mac boundaries | `node --test tests/<relevant-test>.test.js` |
+| JavaScript lint with the installed project binary | `./node_modules/.bin/eslint <changed-file.js>` |
+| Focused Python tests meeting the Mac boundaries | `<existing-python> -m pytest -o addopts= -m "not integration" tests/<relevant_test>.py` |
+
+- The geographic math test and its imports use Node built-ins and pure functions.
+  For other tests, check setup/imports when first selecting them or when those
+  dependencies change. A test name or `not integration` marker alone does not
+  establish that it is safe to run locally.
+- The focused Python command clears the repository-wide coverage options so a
+  small selection does not fail the full-suite coverage threshold. CI retains
+  the configured coverage requirements. Use Python only if its environment is
+  already ready; do not create or repair one for local checks.
+- Do not use package runners that may download missing tools. Avoid broad
+  commands such as `npm run test:all` or unrestricted `pytest` on the Mac.
+- A skipped local check is a specific limitation to report, not a reason to
+  bypass CI. A passing local test does not replace CI or deployed verification.
 
 ## Delivery Workflow
 
@@ -55,8 +90,9 @@ without repeatedly asking for permission.
 2. Make the simplest complete change locally. Add or update meaningful regression
    tests when warranted; commit them so CI runs them. Group related fixes into
    a coherent change instead of pushing every small edit separately.
-3. Review the diff and run `git diff --check`. Do not set up another environment
-   for pre-deployment testing.
+3. Review the diff, run `git diff --check`, and run the relevant lightweight local
+   checks above. Fix failures in the code. Leave checks needing unavailable
+   dependencies or services to CI instead of setting up another environment.
 4. Commit the scoped change and deliver it with `git push origin main`. A local
    commit alone does not trigger deployment. Confirm the pushed commit SHA.
 5. Follow `.github/workflows/docker-publish.yml` for that SHA. It runs JavaScript
@@ -79,9 +115,11 @@ without repeatedly asking for permission.
   transfers to deliver unpublished code, patches, or test helpers. Do not edit
   deployed source, create remote test checkouts/worktrees, build images on the
   mini PC, or manually replace containers to shortcut deployment.
-- Do not create isolated test apps, temporary Mongo/Redis containers, parallel
-  stacks, or staging environments on either machine. Automated test environments
-  already defined in GitHub Actions are part of the approved pipeline.
+- Do not create additional running app installations, temporary Mongo/Redis
+  containers, parallel stacks, or staging environments on either machine.
+  In-memory unit tests on the Mac are allowed as described above. Automated test
+  environments defined in the committed GitHub Actions workflow are part of the
+  approved pipeline.
 - SSH is for inspecting the existing deployment and performing task-authorized
   operations. It is not an alternative source-code delivery channel. Any helper
   file needed on the server must arrive through the normal committed pipeline.
@@ -99,11 +137,13 @@ without repeatedly asking for permission.
   `https://www.everystreet.me/api/status/live`. Then exercise the changed user
   flow on the deployed site and check the associated API/data result when
   applicable. A healthy process alone does not prove the feature works.
-- Automated regression suites belong in CI. Post-deployment checks evaluate the
-  real deployment; do not reinstall test dependencies in production or repeat
-  the full CI suite there. If a required check is absent, add it to the committed
-  CI workflow or report the specific verification gap instead of improvising a
-  separate test environment.
+- Broader regression suites and tests requiring real database/service instances
+  belong in CI. Post-deployment checks evaluate the real deployment; do not
+  reinstall test dependencies in production or repeat the full CI suite there.
+  If a required check is absent, add it to the committed CI workflow or report
+  the specific verification gap instead of improvising a separate environment.
+  Check test selection in `pyproject.toml` and the workflow before claiming
+  integration coverage; tests excluded by a marker did not run.
 - Prefer read-only production checks. Use normal app mutations only when they
   are within the task's authorization. Do not run destructive test fixtures,
   bulk repairs, reprocessing, imports, or data resets merely to validate code.
