@@ -12,8 +12,7 @@ export function updateMastheadDate(elements = {}) {
 }
 
 /**
- * One factual sentence about the primary coverage area, e.g.
- * "Waco is 62.4% driven — 31.8 miles of streets to go."
+ * One factual sentence about the coverage area most recently driven in.
  * Returns null when there is no usable area yet.
  */
 export function buildMissionLine(areas) {
@@ -21,10 +20,16 @@ export function buildMissionLine(areas) {
     return null;
   }
 
-  const primary = areas.reduce((best, area) => {
-    const size = Number(area?.total_length_miles) || 0;
-    const bestSize = Number(best?.total_length_miles) || 0;
-    return size > bestSize ? area : best;
+  const primary = areas.reduce((latest, area) => {
+    const drivenAt = Date.parse(area?.last_coverage_trip_at ?? "");
+    if (!Number.isFinite(drivenAt)) {
+      return latest;
+    }
+
+    const latestDrivenAt = Date.parse(latest?.last_coverage_trip_at ?? "");
+    return !latest || !Number.isFinite(latestDrivenAt) || drivenAt > latestDrivenAt
+      ? area
+      : latest;
   }, null);
 
   const name = primary?.display_name?.split(",")[0]?.trim();

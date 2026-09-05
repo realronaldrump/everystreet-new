@@ -15,6 +15,7 @@ test("coverage mileage excludes undriveable streets from total and remaining", (
     total_length_miles: 100,
     driveable_length_miles: 80,
     driven_length_miles: 40,
+    last_coverage_trip_at: "2026-09-05T18:00:00Z",
   };
 
   assert.equal(getDriveableMiles(area), 80);
@@ -22,6 +23,45 @@ test("coverage mileage excludes undriveable streets from total and remaining", (
   assert.equal(
     buildMissionLine([area]),
     "Testville is 50.0% driven — 40.0 miles of streets to go."
+  );
+});
+
+test("mission line follows the most recently driven coverage area", () => {
+  const largerOlderArea = {
+    display_name: "Waco, Texas",
+    coverage_percentage: 55.6,
+    total_length_miles: 200,
+    driveable_length_miles: 180,
+    driven_length_miles: 100,
+    last_coverage_trip_at: "2026-09-04T18:00:00Z",
+  };
+  const smallerNewerArea = {
+    display_name: "Austin, Texas",
+    coverage_percentage: 25,
+    total_length_miles: 50,
+    driveable_length_miles: 40,
+    driven_length_miles: 10,
+    last_coverage_trip_at: "2026-09-05T18:00:00Z",
+  };
+
+  assert.equal(
+    buildMissionLine([largerOlderArea, smallerNewerArea]),
+    "Austin is 25.0% driven — 30.0 miles of streets to go."
+  );
+});
+
+test("mission line is hidden when no coverage area has a drive timestamp", () => {
+  assert.equal(
+    buildMissionLine([
+      {
+        display_name: "Waco, Texas",
+        coverage_percentage: 55.6,
+        total_length_miles: 200,
+        driveable_length_miles: 180,
+        driven_length_miles: 100,
+      },
+    ]),
+    null
   );
 });
 
