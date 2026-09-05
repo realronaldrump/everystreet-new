@@ -1416,15 +1416,14 @@ def _edge_geometry(G: Any, u: Any, v: Any, data: dict[str, Any]) -> Any | None:
 
 
 def _coerce_name(value: Any) -> str | None:
-    if value is None:
-        return None
+    if isinstance(value, str):
+        return value.strip() or None
     if isinstance(value, list | tuple | set):
         for item in value:
-            if item is None:
-                continue
-            return str(item)
-        return None
-    return str(value)
+            name = _coerce_name(item)
+            if name:
+                return name
+    return None
 
 
 async def _ensure_area_graph(

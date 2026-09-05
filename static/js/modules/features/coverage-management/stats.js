@@ -37,7 +37,12 @@ export function setMetricValue(elementId, value, { decimals = 0, suffix = "" } =
   if (!element) {
     return;
   }
-  const numeric = Number(value) || 0;
+  let numeric = Number(value) || 0;
+  if (suffix === " mi" && numeric > 0 && numeric < 0.1) {
+    numeric = Math.max(1, Math.round(numeric * 5280));
+    decimals = 0;
+    suffix = " ft";
+  }
   if (metricAnimator?.animate) {
     metricAnimator.animate(element, numeric, { decimals, suffix });
   } else {

@@ -17,11 +17,14 @@ import contextlib
 import hashlib
 import json
 import logging
+import math
 import os
 import subprocess
 import sys
 import uuid
 import warnings
+from itertools import chain
+from numbers import Real
 from pathlib import Path
 from typing import Any
 
@@ -331,6 +334,16 @@ def _coerce_osmnx_bool(value: Any) -> bool | None:
 
 
 def _sanitize_graph_for_graphml(G: nx.MultiDiGraph) -> None:
+    # Missing values from GeoDataFrames must stay absent. GraphML would stringify
+    # NaN as a street name, and unequal NaNs also prevent topology simplification.
+    attributes = chain(
+        (data for _, data in G.nodes(data=True)),
+        (data for _, _, data in G.edges(data=True)),
+    )
+    for data in attributes:
+        for key, value in list(data.items()):
+            if value is None or (isinstance(value, Real) and not math.isfinite(value)):
+                del data[key]
     # Some graphs (notably pyrosm) emit "yes"/"no" strings for `oneway`, which
     # OSMnx can't round-trip via GraphML (`load_graphml` expects "True"/"False").
     for key in ("simplified", "consolidated"):
@@ -484,6 +497,7 @@ def _build_graph_in_process(
     G = _load_graph_from_extract(osm_path, routing_polygon)
     if not isinstance(G, nx.MultiDiGraph):
         G = nx.MultiDiGraph(G)
+    _sanitize_graph_for_graphml(G)
     _prune_non_driveable_edges(G)
     G = _ensure_edge_lengths(G)
     if not G.graph.get("simplified") and G.number_of_edges():

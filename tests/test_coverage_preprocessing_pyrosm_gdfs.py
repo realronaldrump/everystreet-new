@@ -5,6 +5,14 @@ from shapely.geometry import LineString, Point
 from street_coverage.preprocessing import _try_pyrosm_to_graph
 
 
+def test_missing_osm_names_do_not_become_named_streets():
+    from street_coverage.ingestion import _coerce_name
+
+    assert _coerce_name(float("nan")) is None
+    assert _coerce_name([float("nan"), None, " Main Street "]) == "Main Street"
+    assert _coerce_name("  ") is None
+
+
 def test_pyrosm_conversion_creates_legal_reverse_edges_and_keeps_oneway():
     nodes = gpd.GeoDataFrame(
         {"id": [1, 2, 3], "lon": [-107, -106.999, -106.998], "lat": [39, 39, 39]},
@@ -73,3 +81,5 @@ def test_real_pbf_pipeline_preserves_parallel_edges_access_and_graphml(tmp_path)
     assert graph.has_edge(3, 5) and not graph.has_edge(5, 3)
     assert graph.has_edge(6, 7) and graph.has_edge(7, 6)
     assert not graph.has_node(2) and not graph.has_node(4)
+    assert all(data.get("name") != "nan" for _, _, data in graph.edges(data=True))
+    assert "name" not in next(iter(graph.get_edge_data(3, 5).values()))

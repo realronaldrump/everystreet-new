@@ -15,7 +15,7 @@ from typing import Any
 
 from core.settings_snapshot import user_setting
 
-ROAD_FILTER_VERSION = "public-road-filter-v3"
+ROAD_FILTER_VERSION = "public-road-filter-v4"
 GRAPH_ROAD_FILTER_VERSION_KEY = "coverage_road_filter_version"
 GRAPH_ROAD_FILTER_SIGNATURE_KEY = "coverage_road_filter_signature"
 GRAPH_ROAD_FILTER_STATS_KEY = "coverage_road_filter_stats"
