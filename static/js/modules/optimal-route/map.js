@@ -1,4 +1,3 @@
-
 import MapStyles from "../map-styles.js";
 import { BaseFeatureMap } from "../utils/base-map.js";
 
@@ -278,7 +277,8 @@ export class OptimalRouteMap extends BaseFeatureMap {
       ],
     };
 
-    if (animate) {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (animate && !reducedMotion) {
       this.setSourceData("optimal-route", []); // Clear first
       this.animateRouteDrawing(geojson);
     } else {
@@ -294,7 +294,7 @@ export class OptimalRouteMap extends BaseFeatureMap {
       new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
     );
 
-    this.map.fitBounds(routeBounds, { padding: 50, duration: 1000 });
+    this.map.fitBounds(routeBounds, this.getFitOptions());
   }
 
   animateRouteDrawing(geojson) {
@@ -341,6 +341,20 @@ export class OptimalRouteMap extends BaseFeatureMap {
     this.routeAnimationFrame = requestAnimationFrame(drawFrame);
   }
 
+  getFitOptions() {
+    const height = this.map?.getContainer?.().clientHeight || 600;
+    const width = this.map?.getContainer?.().clientWidth || 600;
+    return {
+      padding: {
+        top: Math.min(150, height / 3),
+        bottom: Math.min(70, height / 5),
+        left: Math.min(45, width / 10),
+        right: Math.min(45, width / 10),
+      },
+      duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 700,
+    };
+  }
+
   flyToBounds(bounds) {
     if (!this.map || !bounds) {
       return;
@@ -351,7 +365,7 @@ export class OptimalRouteMap extends BaseFeatureMap {
         [west, south],
         [east, north],
       ],
-      { padding: 50, duration: 1000 }
+      this.getFitOptions()
     );
   }
 

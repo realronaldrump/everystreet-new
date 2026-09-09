@@ -21,6 +21,7 @@ export default function initCoverageRoutePlannerPage(context = {}) {
   let sharedMap = null;
   let drivingNavigation = null;
   let optimalRoutes = null;
+  let mapResizeObserver = null;
 
   initCoverageRoutePlannerUi({ signal, onCleanup });
 
@@ -38,6 +39,16 @@ export default function initCoverageRoutePlannerPage(context = {}) {
     }
     return noopTeardown;
   }
+
+  mapResizeObserver = new ResizeObserver(() => sharedMap?.resize());
+  mapResizeObserver.observe(container);
+  document.addEventListener(
+    "plannerViewChanged",
+    () => {
+      requestAnimationFrame(() => sharedMap?.resize());
+    },
+    signal ? { signal } : false
+  );
 
   DrivingNavigationUI.injectClusterStyles();
 
@@ -68,6 +79,7 @@ export default function initCoverageRoutePlannerPage(context = {}) {
       return;
     }
     tornDown = true;
+    mapResizeObserver?.disconnect();
     optimalRoutes?.destroy?.();
     optimalRoutes = null;
     drivingNavigation?.destroy?.();

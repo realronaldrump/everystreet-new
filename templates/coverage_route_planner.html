@@ -13,55 +13,47 @@ Route Planner
 
 {% block content %}
   <div class="coverage-route-planner">
-    <button type="button"
-            class="mobile-panel-toggle"
-            id="mobile-panel-toggle"
-            aria-expanded="true"
-            aria-controls="control-panel"
-            aria-label="Toggle control panel">
-      <i class="fas fa-chevron-up" aria-hidden="true"></i>
-      <span class="toggle-text">Hide Controls</span>
-    </button>
+    <header class="planner-header page-masthead">
+      <div>
+        <p class="page-masthead-eyebrow">Coverage / Plan a drive</p>
+        <h1 class="page-masthead-title">Route planner</h1>
+        <p class="page-masthead-subtitle">More new streets. Less connecting travel.</p>
+      </div>
+      <div class="planner-header-actions">
+        <a class="btn btn-ghost planner-areas-link" href="/coverage-management">
+          <i class="fas fa-map" aria-hidden="true"></i> Coverage areas
+        </a>
+        <button type="button" class="btn btn-secondary mobile-panel-toggle"
+                id="mobile-panel-toggle" aria-expanded="true"
+                aria-controls="control-panel" aria-label="View map">
+          <i class="fas fa-map" aria-hidden="true"></i>
+          <span class="toggle-text">View map</span>
+        </button>
+      </div>
+    </header>
 
-    <aside class="control-panel" id="control-panel">
-      <header class="sidebar-header page-masthead">
-        <div class="sidebar-identity">
-          <div class="sidebar-identity-text">
-            <p class="pm-eyebrow page-masthead-eyebrow sidebar-eyebrow">
-              The field plan
-            </p>
-            <h1 class="page-masthead-title sidebar-title">Route Planner</h1>
-            <p class="page-masthead-subtitle sidebar-subtitle"
-               id="sidebar-subtitle">
-              Select an area to begin planning
-            </p>
-          </div>
-        </div>
-      </header>
-
+    <aside class="control-panel" id="control-panel" aria-label="Route planning controls">
       <div class="planner-flow">
         <section class="widget control-section area-selector-widget">
-          <div class="widget-header collapsible" data-toggle="section-area">
+          <div class="widget-header" data-toggle="section-area">
             <h2 class="widget-title">
               <span class="atlas-step-index">1</span>
-              <span>Coverage Area</span>
+              <span>Choose your area</span>
             </h2>
-            <button type="button"
-                    class="btn-collapse"
-                    aria-expanded="true"
-                    aria-controls="section-area"
-                    aria-label="Toggle Coverage Area section">
-              <i class="fas fa-chevron-up" aria-hidden="true"></i>
-            </button>
           </div>
-          <div class="widget-body collapsible-content" id="section-area">
+          <div class="widget-body" id="section-area">
             <div class="select-wrapper">
-              <select id="area-select" class="form-select">
-                <option value="">Select a coverage area...</option>
+              <select id="area-select" class="form-select" data-native-select aria-label="Coverage area" disabled>
+                <option value="">Loading coverage areas…</option>
               </select>
               <i class="fas fa-map-marker-alt select-icon" aria-hidden="true"></i>
             </div>
 
+            <div class="area-load-feedback" id="area-load-feedback" role="status" hidden>
+              <span id="area-load-message"></span>
+              <button type="button" id="retry-areas-btn" class="btn btn-secondary btn-sm" hidden>Try again</button>
+              <a id="create-area-link" href="/coverage-management" hidden>Create a coverage area</a>
+            </div>
             <div id="area-stats" class="area-context-panel" style="display: none">
               <div class="area-context-body">
                 <div class="area-donut-wrap">
@@ -87,7 +79,7 @@ Route Planner
                           class="donut-pct"
                           data-coverage-percent
                           data-value-flash>--</span>
-                    <span class="donut-sublabel">covered</span>
+                    <span class="donut-sublabel">driven</span>
                   </div>
                 </div>
                 <div class="area-context-stats">
@@ -96,7 +88,7 @@ Route Planner
                       <i class="fas fa-road" aria-hidden="true"></i>
                     </span>
                     <div class="acstat-body">
-                      <span class="acstat-label">Remaining</span>
+                      <span class="acstat-label">Left to explore</span>
                       <span id="area-remaining"
                             class="acstat-value"
                             data-value-flash>--</span>
@@ -128,27 +120,20 @@ Route Planner
             </div>
 
             <div class="area-empty-hint" id="area-empty-hint">
-              <i class="fas fa-hand-pointer" aria-hidden="true"></i>
-              <span>Choose an area to see its coverage and remaining work.</span>
+              <span>Your coverage and remaining streets will appear here.</span>
             </div>
           </div>
         </section>
 
         <section class="widget control-section route-planner-widget">
-          <div class="widget-header collapsible" data-toggle="section-planner">
+          <div class="widget-header" data-toggle="section-planner">
             <h2 class="widget-title">
               <span class="atlas-step-index">2</span>
-              <span>Optimal Route</span>
+              <span>Plan your route</span>
             </h2>
-            <button type="button"
-                    class="btn-collapse"
-                    aria-expanded="true"
-                    aria-controls="section-planner"
-                    aria-label="Toggle Optimal Route section">
-              <i class="fas fa-chevron-up" aria-hidden="true"></i>
-            </button>
           </div>
-          <div class="widget-body collapsible-content" id="section-planner">
+          <div class="widget-body" id="section-planner">
+            <p class="section-description" id="planner-instruction">Connect the undriven streets in your area into one route.</p>
             <button id="generate-route-btn"
                     class="btn btn-primary btn-generate"
                     disabled
@@ -157,17 +142,23 @@ Route Planner
                 <i class="icon-idle fas fa-pen-ruler"></i>
                 <i class="icon-ready fas fa-bolt"></i>
                 <i class="icon-done fas fa-rotate-right"></i>
+                <i class="icon-working fas fa-circle-notch fa-spin"></i>
+                <i class="icon-complete fas fa-check"></i>
               </span>
               <span class="generate-text">
                 <span class="generate-title">
-                  <span class="state-idle">Generate Optimal Route</span>
-                  <span class="state-ready">Generate — Area Ready</span>
-                  <span class="state-done">Regenerate Route</span>
+                  <span class="state-idle">Build a route</span>
+                  <span class="state-ready">Build a route</span>
+                  <span class="state-done">Build a new route</span>
+                  <span class="state-working">Building your route…</span>
+                  <span class="state-complete">Every street covered</span>
                 </span>
                 <span class="generate-subtitle">
                   <span class="state-idle">Select an area first</span>
-                  <span class="state-ready">Minimize deadhead driving</span>
-                  <span class="state-done">Replace the saved route</span>
+                  <span class="state-ready">Cover the remaining streets</span>
+                  <span class="state-done">Use the latest coverage</span>
+                  <span class="state-working">You can follow progress below</span>
+                  <span class="state-complete">No undriven streets remaining</span>
                 </span>
               </span>
             </button>
@@ -178,19 +169,19 @@ Route Planner
                   <span class="algo-step-icon">
                     <i class="fas fa-project-diagram" aria-hidden="true"></i>
                   </span>
-                  <span class="algo-step-text">Map undriven streets as a network graph</span>
+                  <span class="algo-step-text">Find the streets you have yet to drive</span>
                 </div>
                 <div class="algo-step">
                   <span class="algo-step-icon">
                     <i class="fas fa-shuffle" aria-hidden="true"></i>
                   </span>
-                  <span class="algo-step-text">Optimize order, direction, and connecting travel</span>
+                  <span class="algo-step-text">Arrange them to reduce connecting travel</span>
                 </div>
                 <div class="algo-step">
                   <span class="algo-step-icon">
                     <i class="fas fa-route" aria-hidden="true"></i>
                   </span>
-                  <span class="algo-step-text">Return the route with the least extra driving</span>
+                  <span class="algo-step-text">Preview the route, then navigate or export it</span>
                 </div>
               </div>
             </div>
@@ -201,7 +192,7 @@ Route Planner
                     aria-controls="algo-explainer"
                     aria-expanded="false">
               <i class="fas fa-circle-info" aria-hidden="true"></i>
-              <span class="btn-algo-info-text">How does this work?</span>
+              <span class="btn-algo-info-text">How routes are planned</span>
             </button>
 
             <div id="route-progress-inline"
@@ -266,24 +257,19 @@ Route Planner
         <section id="results-section"
                  class="widget control-section is-results"
                  style="display: none">
-          <div class="widget-header collapsible" data-toggle="section-results">
+          <div class="widget-header" data-toggle="section-results">
             <h2 class="widget-title">
               <span class="atlas-step-index">3</span>
-              <span>Route Summary</span>
+              <span>Your route</span>
             </h2>
-            <button type="button"
-                    class="btn-collapse"
-                    aria-expanded="true"
-                    aria-controls="section-results"
-                    aria-label="Toggle Route Summary section">
-              <i class="fas fa-chevron-up" aria-hidden="true"></i>
-            </button>
           </div>
-          <div class="widget-body collapsible-content" id="section-results">
+          <div class="widget-body" id="section-results">
+            <p id="route-result-meta" class="route-result-meta"></p>
+            <p id="route-coverage-note" class="route-coverage-note" hidden>Coverage has changed since this route was built. Build a new route to use your latest progress.</p>
             <div class="results-hero-card stat-card is-efficiency"
                  data-stat="efficiency">
-              <div class="hero-eff-ring" aria-hidden="true">
-                <svg class="eff-ring-svg" viewBox="0 0 72 72">
+              <div class="hero-eff-ring">
+                <svg class="eff-ring-svg" viewBox="0 0 72 72" aria-hidden="true">
                   <circle class="eff-ring-track"
                           cx="36"
                           cy="36"
@@ -302,15 +288,14 @@ Route Planner
                 </svg>
                 <div class="hero-eff-center">
                   <span id="stat-deadhead-percent" class="hero-eff-value">--</span>
-                  <span class="hero-eff-unit">efficient</span>
+                  <span class="hero-eff-unit">new streets</span>
                 </div>
               </div>
               <div class="hero-eff-details">
-                <div class="hero-eff-label">Route Efficiency</div>
+                <div class="hero-eff-label">Make every mile count</div>
                 <div class="hero-eff-desc">
-                  Required streets compared with connecting travel.
+                  New-street distance as a share of your total route.
                 </div>
-                <div class="hero-eff-grade" id="eff-grade"></div>
               </div>
             </div>
 
@@ -321,7 +306,7 @@ Route Planner
                 </div>
                 <div class="stat-content">
                   <span id="stat-total-distance" class="stat-value data-num">--</span>
-                  <span class="stat-label">Total Route</span>
+                  <span class="stat-label">Total distance</span>
                 </div>
               </div>
               <div class="stat-card" data-stat="required">
@@ -331,7 +316,7 @@ Route Planner
                 <div class="stat-content">
                   <span id="stat-required-distance"
                         class="stat-value data-num">--</span>
-                  <span class="stat-label">Required</span>
+                  <span class="stat-label">New streets</span>
                 </div>
               </div>
               <div class="stat-card" data-stat="deadhead">
@@ -341,7 +326,7 @@ Route Planner
                 <div class="stat-content">
                   <span id="stat-deadhead-distance"
                         class="stat-value data-num">--</span>
-                  <span class="stat-label">Deadhead</span>
+                  <span class="stat-label">Connecting</span>
                 </div>
               </div>
             </div>
@@ -352,8 +337,8 @@ Route Planner
                       disabled>
                 <i class="fas fa-location-arrow" aria-hidden="true"></i>
                 <span class="btn-cta-text">
-                  <span class="btn-cta-title">Start Live Navigation</span>
-                  <span class="btn-cta-sub">Open GPS navigation mode</span>
+                  <span class="btn-cta-title">Start navigation</span>
+                  <span class="btn-cta-sub">Follow this route on the road</span>
                 </span>
               </button>
             </div>
@@ -369,46 +354,48 @@ Route Planner
                 <i class="fas fa-play" aria-hidden="true"></i>
                 Replay
               </button>
-              <button id="delete-route-btn" class="btn btn-danger btn-sm">
+              <button id="delete-route-btn" class="btn btn-ghost btn-sm route-delete">
                 <i class="fas fa-trash-can" aria-hidden="true"></i>
-                Delete Route
+                Delete route
               </button>
             </div>
           </div>
         </section>
 
         <section class="widget control-section on-road-widget">
-          <div class="widget-header collapsible" data-toggle="section-on-road">
+          <div class="widget-header collapsible" data-toggle="section-on-road" data-default-collapsed>
             <h2 class="widget-title">
               <i class="fas fa-location-arrow" aria-hidden="true"></i>
-              <span>On the Road</span>
+              <span>Find nearby streets</span>
             </h2>
             <div class="header-actions">
-              <div class="form-check form-switch form-switch-sm">
-                <input class="form-check-input"
-                       type="checkbox"
-                       role="switch"
-                       id="auto-follow-toggle" />
-                <label class="form-check-label" for="auto-follow-toggle">
-                  Auto-Follow
-                </label>
-              </div>
+
               <button type="button"
                       class="btn-collapse"
                       aria-expanded="true"
                       aria-controls="section-on-road"
-                      aria-label="Toggle On the Road section">
+                      aria-label="Toggle nearby street tools">
                 <i class="fas fa-chevron-up" aria-hidden="true"></i>
               </button>
             </div>
           </div>
           <div class="widget-body collapsible-content" id="section-on-road">
+              <div class="form-check form-switch form-switch-sm road-follow-control">
+                <input class="form-check-input"
+                       type="checkbox"
+                       role="switch"
+                       id="auto-follow-toggle" />
+                <label class="form-check-label" for="auto-follow-toggle">
+                  Follow vehicle
+                </label>
+              </div>
+
             <div class="find-action-grid">
               <button id="find-next-street-btn" class="find-tile" disabled>
                 <span class="find-tile-icon">
                   <i class="fas fa-route" aria-hidden="true"></i>
                 </span>
-                <span class="find-tile-title">Nearest Street</span>
+                <span class="find-tile-title">Nearest street</span>
                 <span class="find-tile-hint">Closest undriven road to you</span>
               </button>
               <button id="find-efficient-street-btn"
@@ -417,8 +404,8 @@ Route Planner
                 <span class="find-tile-icon">
                   <i class="fas fa-layer-group" aria-hidden="true"></i>
                 </span>
-                <span class="find-tile-title">Find Clusters</span>
-                <span class="find-tile-hint">Nearby groups of undriven streets</span>
+                <span class="find-tile-title">Street clusters</span>
+                <span class="find-tile-hint">Groups of streets to drive together</span>
               </button>
             </div>
 
@@ -492,7 +479,7 @@ Route Planner
                data-default-collapsed>
             <h2 class="widget-title">
               <i class="fas fa-flask" aria-hidden="true"></i>
-              <span>Simulate Drive</span>
+              <span>Preview coverage gains</span>
               <span id="sim-count-badge"
                     class="sim-badge"
                     style="display:none"></span>
@@ -508,7 +495,7 @@ Route Planner
           <div class="widget-body collapsible-content is-collapsed"
                id="section-simulation">
             <p class="sim-hint">
-              Click undriven streets on the map to preview coverage changes.
+              Select streets on the map to see how much coverage a drive could add. Your recorded coverage stays unchanged.
             </p>
             <button type="button"
                     id="sim-toggle-btn"
@@ -569,10 +556,11 @@ Route Planner
         </section>
 
         <section class="widget control-section is-saved-routes">
-          <div class="widget-header collapsible" data-toggle="section-saved">
+          <div class="widget-header collapsible" data-toggle="section-saved" data-default-collapsed>
             <h2 class="widget-title">
               <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
-              <span>Saved Routes</span>
+              <span>Saved routes</span>
+              <span id="saved-route-count" class="saved-route-count">0</span>
             </h2>
             <button type="button"
                     class="btn-collapse"
@@ -592,115 +580,75 @@ Route Planner
           </div>
         </section>
 
-        <section class="widget control-section layer-controls-widget">
-          <div class="widget-header collapsible"
-               data-toggle="section-layers"
-               data-default-collapsed>
-            <h2 class="widget-title">
-              <i class="fas fa-layer-group" aria-hidden="true"></i>
-              <span>Map Layers</span>
-            </h2>
-            <button type="button"
-                    class="btn-collapse"
-                    aria-expanded="false"
-                    aria-controls="section-layers"
-                    aria-label="Toggle Map Layers section">
-              <i class="fas fa-chevron-up" aria-hidden="true"></i>
-            </button>
-          </div>
-          <div class="widget-body collapsible-content is-collapsed"
-               id="section-layers">
-            <div id="layer-list" class="layer-list">
-              {% for layer_id, label, opacity in [
-                ("route", "Optimal Route", 100),
-                ("driven", "Driven Streets", 60),
-                ("undriven", "Undriven Streets", 80)
-              ] %}
-                <div class="layer-item" data-layer-id="{{ layer_id }}">
-                  <div class="layer-main">
-                    <div class="layer-info">
-                      <span class="layer-color layer-color--{{ layer_id }}"></span>
-                      <span class="layer-name">{{ label }}</span>
-                    </div>
-                    <div class="layer-toggle">
-                      <div class="form-check form-switch form-switch-sm">
-                        <input class="form-check-input"
-                               type="checkbox"
-                               id="toggle-{{ layer_id }}-layer"
-                               checked />
-                      </div>
-                    </div>
-                  </div>
-                  <div class="layer-opacity">
-                    <label class="opacity-label"
-                           for="opacity-{{ layer_id }}-layer">
-                      <span>Opacity</span>
-                      <span class="opacity-value">{{ opacity }}%</span>
-                    </label>
-                    <input type="range"
-                           class="form-range"
-                           id="opacity-{{ layer_id }}-layer"
-                           min="0"
-                           max="100"
-                           value="{{ opacity }}" />
-                  </div>
-                </div>
-              {% endfor %}
-            </div>
-          </div>
-        </section>
+
       </div>
     </aside>
 
     <div class="map-container">
       <div id="coverage-map"></div>
-      <div id="map-scanner-overlay"
-           class="map-scanner-overlay"
-           aria-hidden="true"></div>
-      <div id="route-solver-hud"
-           class="route-solver-hud"
-           aria-live="polite">
-        <div class="hud-panel">
-          <div class="hud-header">
-            <div class="hud-signal">
-              <span class="hud-dot"></span>
-              <span class="hud-title">Route Solver</span>
+      <div class="planner-map-toolbar">
+        <div class="map-context">
+          <span class="map-context-label">Coverage map</span>
+          <h2 id="map-area-name">Your next drive starts here</h2>
+          <p id="sidebar-subtitle">Choose a coverage area to explore its streets.</p>
+        </div>
+        <div class="map-toolbar-actions">
+          <button type="button" id="fit-area-btn" class="btn btn-secondary" disabled
+                  aria-label="Fit selected area or route to map" title="Fit area or route">
+            <i class="fas fa-expand" aria-hidden="true"></i><span>Recenter</span>
+          </button>
+          <details id="map-layers-menu" class="map-layers-menu">
+            <summary class="btn btn-secondary" aria-label="Map layers"><i class="fas fa-layer-group" aria-hidden="true"></i><span>Layers</span></summary>
+            <div class="map-layers-panel">
+              <h3>Map layers</h3>
+              <div id="layer-list" class="layer-list">
+                {% for layer_id, label, opacity in [
+                  ("route", "Planned route", 100),
+                  ("driven", "Driven streets", 60),
+                  ("undriven", "Undriven streets", 80)
+                ] %}
+                  <div class="layer-item" data-layer-id="{{ layer_id }}">
+                    <label class="layer-main" for="toggle-{{ layer_id }}-layer">
+                      <span class="layer-info"><span class="layer-color layer-color--{{ layer_id }}"></span>{{ label }}</span>
+                      <input type="checkbox" id="toggle-{{ layer_id }}-layer" checked />
+                    </label>
+                    <div class="layer-opacity">
+                      <label class="opacity-label" for="opacity-{{ layer_id }}-layer"><span>{{ label }} opacity</span><span class="opacity-value">{{ opacity }}%</span></label>
+                      <input type="range" class="form-range" id="opacity-{{ layer_id }}-layer" min="0" max="100" value="{{ opacity }}" />
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
             </div>
-            <div id="hud-stage" class="hud-stage">Initializing</div>
-          </div>
-          <div id="hud-message" class="hud-message">Initializing...</div>
-          <div id="hud-submessage" class="hud-submessage"></div>
-          <div class="hud-metrics">
-            <div class="hud-metric">
-              <span class="metric-label">Segments</span>
-              <span id="hud-segments" class="metric-value">--</span>
-            </div>
-            <div class="hud-metric">
-              <span class="metric-label">Matched</span>
-              <span id="hud-matched" class="metric-value">--</span>
-            </div>
-            <div class="hud-metric">
-              <span class="metric-label">Elapsed</span>
-              <span id="hud-elapsed" class="metric-value">0:00</span>
-            </div>
-          </div>
-          <div id="hud-activity" class="hud-activity"></div>
+          </details>
         </div>
       </div>
+      <div id="map-selection-status" class="map-selection-status" role="status" hidden></div>
+      <div id="route-solver-hud" class="route-solver-hud" aria-live="polite">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span id="hud-stage">Building route</span>
+        <span id="hud-elapsed">0:00</span>
+      </div>
+      <div class="map-empty-state" id="map-empty-state">
+        <i class="fas fa-route" aria-hidden="true"></i>
+        <h3>A little less familiar.</h3>
+        <p>Choose an area. Find the streets you haven’t driven. Plan what comes next.</p>
+        <button type="button" class="btn btn-primary" id="choose-area-btn">Choose an area <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+      </div>
       <div class="map-legend" id="map-legend" style="display: none">
-        <h2>Legend</h2>
+        <h2 class="visually-hidden">Map legend</h2>
         <div class="legend-items">
           <div class="legend-item">
             <span class="legend-color legend-color--driven"></span>
-            <span class="legend-label">Driven Streets</span>
+            <span class="legend-label">Driven</span>
           </div>
           <div class="legend-item">
             <span class="legend-color legend-color--undriven"></span>
-            <span class="legend-label">Undriven Streets</span>
+            <span class="legend-label">Undriven</span>
           </div>
           <div class="legend-item">
             <span class="legend-color legend-color--route is-route"></span>
-            <span class="legend-label">Optimal Route</span>
+            <span class="legend-label">Planned route</span>
           </div>
           <div class="legend-item legend-item--simulated"
                id="legend-simulated"

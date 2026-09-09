@@ -1,27 +1,19 @@
-/**
- * Route Planner Page Styles
- * Guided route planning layout and map controls
- */
-
-/* ==========================================================================
-   Layout & Grid
-   ========================================================================== */
-
+/* A two-pane workspace: a measured plan beside a full, unobstructed map. */
 .coverage-route-planner {
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: auto 1fr;
-
-  /* Prefer dynamic viewport units where supported (mobile browser UI). */
-  height: calc(100vh - var(--header-height));
-  height: calc(100dvh - var(--header-height));
-
-  /* Set by JS based on the mobile bottom nav so fixed UI doesn't get covered. */
   --bottom-nav-offset: 0px;
 
-  background: var(--surface-0);
+  display: grid;
+  grid-template-columns: 390px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  height: calc(
+    100dvh -
+    var(--planner-top, var(--header-height)) -
+    var(--bottom-nav-offset)
+  );
+  min-height: 360px;
   position: relative;
   overflow: hidden;
+  background: var(--surface-0);
 }
 
 .coverage-route-planner > * {
@@ -29,407 +21,170 @@
   min-height: 0;
 }
 
-/* Phone-sized viewports typically show the fixed bottom nav. */
-@media (width <= 768px) {
-  .coverage-route-planner {
-    --bottom-nav-offset: 72px;
-  }
+.coverage-route-planner [hidden] {
+  display: none !important;
 }
 
-@media (width >= 1024px) {
-  .coverage-route-planner {
-    grid-template-columns: minmax(360px, 440px) 1fr;
-    grid-template-rows: 1fr;
-  }
+.coverage-route-planner button,
+.coverage-route-planner summary {
+  min-height: var(--touch-target);
 }
 
-@media (width >= 1280px) {
-  .coverage-route-planner {
-    grid-template-columns: minmax(400px, 460px) 1fr;
-  }
+.coverage-route-planner :is(button, summary, select, input, a):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
 }
 
-/* ==========================================================================
-   Mobile Panel Toggle
-   ========================================================================== */
-
-.coverage-route-planner .mobile-panel-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  position: fixed;
-  bottom: calc(1rem + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-offset, 0px));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: calc(var(--z-overlay) + 1);
-  background: var(--surface-1);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-full);
-  padding: 0.625rem 1.25rem;
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--text-primary);
-  box-shadow: var(--shadow-lg);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-height: 44px;
-  width: fit-content;
-  min-width: min(14rem, calc(100vw - var(--space-8)));
-  max-width: calc(100vw - var(--space-4) - var(--space-4));
-}
-
-.coverage-route-planner .mobile-panel-toggle:hover {
-  background: var(--surface-2);
-  transform: translateX(-50%) translateY(-2px);
-  box-shadow: var(--shadow-xl);
-}
-
-.coverage-route-planner .mobile-panel-toggle:active {
-  transform: translateX(-50%) translateY(0);
-}
-
-.coverage-route-planner .mobile-panel-toggle i {
-  transition: transform 0.3s ease;
-}
-
-.coverage-route-planner .mobile-panel-toggle[aria-expanded="true"] i {
-  transform: rotate(180deg);
-}
-
-.coverage-route-planner
-  .mobile-panel-toggle[aria-expanded="false"]
-  .toggle-text::after {
-  content: "Show Controls";
-}
-
-.coverage-route-planner .mobile-panel-toggle[aria-expanded="true"] .toggle-text::after {
-  content: "Hide Controls";
-}
-
-.coverage-route-planner .mobile-panel-toggle .toggle-text {
-  font-size: 0;
-}
-
-.coverage-route-planner .mobile-panel-toggle .toggle-text::after {
-  font-size: var(--font-size-sm);
-  line-height: 1;
-}
-
-@media (width <= 1023px) {
-  .coverage-route-planner .mobile-panel-toggle[aria-expanded="true"] {
-    bottom: auto;
-    top: calc(var(--header-height) + var(--space-2));
-    box-shadow: var(--shadow-md);
-  }
-}
-
-@media (width >= 1024px) {
-  .coverage-route-planner .mobile-panel-toggle {
-    display: none;
-  }
-}
-
-/* ==========================================================================
-   Control Panel
-   ========================================================================== */
-
-.coverage-route-planner .control-panel {
-  background: var(--surface-0);
-  border-right: 1px solid var(--warning);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden auto;
-  padding: 0;
-  gap: 0;
-  scroll-behavior: smooth;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-color) transparent;
-  min-width: 0;
-  min-height: 0;
-}
-
-.coverage-route-planner .control-panel::-webkit-scrollbar {
-  width: 6px;
-}
-
-.coverage-route-planner .control-panel::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.coverage-route-planner .control-panel::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: var(--radius-full);
-}
-
-.coverage-route-planner .control-panel::-webkit-scrollbar-thumb:hover {
-  background: var(--text-tertiary);
-}
-
-.coverage-route-planner .planner-flow {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  width: 100%;
-  padding: var(--space-3) var(--space-4) var(--space-6);
-}
-
-/* Mobile panel behavior - bottom sheet pattern */
-@media (width <= 1023px) {
-  .coverage-route-planner .control-panel {
-    position: fixed;
-    inset: auto 0 0;
-    z-index: var(--z-overlay);
-    max-height: min(78dvh, calc(100dvh - var(--header-height) - var(--space-4)));
-    border-right: none;
-    border-top: 1px solid var(--divider-color);
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-    box-shadow: 0 -4px 20px rgb(0 0 0 / 15%);
-    transform: translateY(0);
-    transition: transform 0.3s ease;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-    padding-top: calc(var(--space-3) + 20px);
-    padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
-  }
-
-  .coverage-route-planner .control-panel::before {
-    content: "";
-    position: absolute;
-    top: var(--space-3);
-    left: 50%;
-    transform: translateX(-50%);
-    width: 40px;
-    height: 4px;
-    background: var(--border-color-light);
-    border-radius: 2px;
-    z-index: 1;
-  }
-
-  .coverage-route-planner .control-panel.is-hidden {
-    transform: translateY(100%);
-  }
-}
-
-@media (width >= 1024px) {
-  .coverage-route-planner .control-panel {
-    max-height: none;
-    height: 100%;
-    position: relative;
-    transform: none;
-  }
-}
-
-/* ==========================================================================
-   Sidebar Header — Dynamic Context Block
-   ========================================================================== */
-
-.coverage-route-planner .sidebar-header {
+.coverage-route-planner .planner-header {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-4) var(--space-3);
-  flex-shrink: 0;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  margin: 0;
   border-bottom: 1px solid var(--border-color);
-  background: transparent;
 }
 
-.coverage-route-planner .sidebar-identity {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-  flex: 1;
+.coverage-route-planner .page-masthead-eyebrow {
+  margin: 0 0 var(--space-1);
 }
 
-.coverage-route-planner .sidebar-identity-text {
-  min-width: 0;
-}
-
-.coverage-route-planner .sidebar-title {
+.coverage-route-planner .page-masthead-title {
+  font-size: var(--font-size-3xl);
   margin: 0;
-  font-family: var(--font-family-display);
-  font-size: var(--font-size-lg);
-  font-weight: 700;
-  letter-spacing: var(--tracking-snug);
-  color: var(--text-primary);
-  line-height: 1.25;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.coverage-route-planner .sidebar-subtitle {
-  margin: 0;
+.coverage-route-planner .page-masthead-subtitle {
+  margin: var(--space-1) 0 0;
   font-size: var(--font-size-sm);
-  color: var(--text-tertiary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 1px;
-  transition: color 0.3s ease;
 }
 
-@media (width <= 480px) {
-  .coverage-route-planner .sidebar-header {
-    padding: var(--space-3) var(--space-3) var(--space-2);
-  }
-
-  .coverage-route-planner .sidebar-title {
-    font-size: var(--font-size-sm);
-  }
+.coverage-route-planner .planner-header-actions {
+  display: flex;
+  gap: var(--space-2);
 }
 
-/* ==========================================================================
-   Widget Base Styles
-   ========================================================================== */
+.coverage-route-planner .mobile-panel-toggle {
+  display: none;
+}
+
+.coverage-route-planner .control-panel {
+  grid-column: 1;
+  grid-row: 2;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color-light) transparent;
+  border-right: 1px solid var(--border-color);
+  background: var(--surface-1);
+}
+
+.coverage-route-planner .planner-flow {
+  padding: 0 var(--space-5) var(--space-5);
+}
 
 .coverage-route-planner .widget {
-  background: var(--surface-1);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: none;
-  overflow: hidden;
-  transition: box-shadow 0.2s ease;
-}
-
-.coverage-route-planner .widget:hover {
-  box-shadow: none;
-}
-
-/* The custom area select menu extends beyond the compact selector card. */
-.coverage-route-planner .area-selector-widget,
-.coverage-route-planner .area-selector-widget .collapsible-content:not(.is-collapsed) {
+  display: block;
+  border: 0;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
+  background: transparent;
+  padding: var(--space-4) 0;
+  margin: 0;
   overflow: visible;
+  box-shadow: none;
 }
 
-/* Widget header */
+.coverage-route-planner .widget:last-child {
+  border-bottom: 0;
+}
+
 .coverage-route-planner .widget-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.coverage-route-planner .widget-header.collapsible {
-  cursor: pointer;
-  user-select: none;
-}
-
-.coverage-route-planner .widget-header.collapsible:hover {
-  background: var(--surface-3);
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
 }
 
 .coverage-route-planner .widget-title {
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  flex: 1;
-  min-width: 0;
+  gap: var(--space-2);
   margin: 0;
-  font-size: var(--font-size-md);
-  font-weight: 600;
-  line-height: 1.35;
   color: var(--text-primary);
-  text-wrap: balance;
 }
 
-.coverage-route-planner .widget-title i {
-  font-size: var(--font-size-sm);
-  opacity: 0.8;
-}
-
-.coverage-route-planner .widget-title > .atlas-step-index {
-  flex: 0 0 auto;
+.coverage-route-planner .atlas-step-index {
   color: var(--text-tertiary);
-  font-weight: var(--font-weight-semibold);
 }
 
 .coverage-route-planner .widget-body {
-  padding: var(--space-4);
+  padding: var(--space-3) 0 0;
 }
 
-/* Collapse Button */
-.coverage-route-planner .btn-collapse {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--touch-target);
-  height: var(--touch-target);
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-md);
-  color: var(--text-tertiary);
+.coverage-route-planner .collapsible {
   cursor: pointer;
-  transition: all 0.2s ease;
+}
+
+.coverage-route-planner .collapsible-content.is-collapsed {
+  display: none;
+}
+
+.coverage-route-planner .btn-collapse {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  width: var(--touch-target);
+  padding: 0;
   flex-shrink: 0;
-}
-
-@media (width <= 1023px) {
-  .coverage-route-planner .btn-collapse {
-    width: 44px;
-    height: 44px;
-  }
-}
-
-.coverage-route-planner .btn-collapse:hover {
-  background: var(--surface-4);
-  color: var(--text-primary);
-}
-
-.coverage-route-planner .btn-collapse i {
-  font-size: var(--font-size-sm);
-  transition: transform 0.3s ease;
+  border-radius: var(--radius-sm);
 }
 
 .coverage-route-planner .btn-collapse[aria-expanded="false"] i {
   transform: rotate(180deg);
 }
 
-.coverage-route-planner .collapsible-content {
-  transition:
-    max-height 0.3s ease,
-    opacity 0.2s ease,
-    padding 0.3s ease;
-  max-height: 2000px;
-  opacity: 1;
-  overflow: hidden;
-}
-
-.coverage-route-planner .collapsible-content.is-collapsed {
-  max-height: 0;
-  opacity: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-}
-
-/* Header Actions */
 .coverage-route-planner .header-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  min-width: 0;
+  gap: var(--space-1);
 }
 
-/* ==========================================================================
-   Form Elements
-   ========================================================================== */
+.coverage-route-planner .header-actions .form-check {
+  margin: 0;
+}
 
-.coverage-route-planner .form-label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin-bottom: var(--space-2);
+.coverage-route-planner .form-check-label {
+  font-size: var(--font-size-xs);
+}
+
+.coverage-route-planner .on-road-widget .widget-header {
+  flex-wrap: wrap;
+}
+
+.coverage-route-planner .on-road-widget .header-actions {
+  margin-left: auto;
+}
+
+.coverage-route-planner .section-description,
+.coverage-route-planner .area-empty-hint,
+.coverage-route-planner .sim-hint {
+  color: var(--text-secondary);
   font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--text-primary);
+  line-height: var(--line-height-normal);
+  margin: 0 0 var(--space-3);
+}
+
+.coverage-route-planner .area-empty-hint {
+  margin: var(--space-3) 0 0;
 }
 
 .coverage-route-planner .select-wrapper {
@@ -437,115 +192,58 @@
 }
 
 .coverage-route-planner .select-wrapper .form-select {
-  width: 100%;
-  padding: 0.625rem 2.5rem 0.625rem 0.875rem;
-  padding-left: 2.25rem;
-  font-size: var(--font-size-sm);
-  background-color: var(--surface-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  cursor: pointer;
-  appearance: none;
-  transition: all 0.2s ease;
-  min-height: 44px;
+  min-height: 48px;
+  padding-left: var(--space-3);
+  padding-right: var(--space-8);
+  font-size: var(--font-size-md);
+  text-overflow: ellipsis;
 }
 
-.coverage-route-planner .select-wrapper .form-select:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgb(var(--primary-rgb) / 15%);
+.coverage-route-planner .select-icon {
+  display: none;
 }
 
-.coverage-route-planner .select-wrapper .select-icon {
-  position: absolute;
-  left: 0.875rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-tertiary);
-  font-size: var(--font-size-sm);
-  pointer-events: none;
-}
-
-.coverage-route-planner .select-wrapper::after {
-  content: "\f107";
-  font-family: "Font Awesome 6 Free", sans-serif;
-  font-weight: 900;
-  position: absolute;
-  right: 0.875rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-tertiary);
-  font-size: var(--font-size-sm);
-  pointer-events: none;
-}
-
-/* Small Switch */
-.coverage-route-planner .form-switch-sm .form-check-input {
-  width: 2.25rem;
-  height: 1.25rem;
-  cursor: pointer;
-}
-
-.coverage-route-planner .form-switch-sm .form-check-label {
-  font-size: var(--font-size-sm);
-  line-height: 1.2;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding-left: 0.25rem;
-  white-space: nowrap;
-}
-
-@media (width <= 560px) {
-  .coverage-route-planner .form-switch-sm .form-check-label {
-    white-space: normal;
-  }
-}
-
-/* ==========================================================================
-   Area Selection Widget — Donut + Stats
-   ========================================================================== */
-
-/* Area context panel */
-.coverage-route-planner .area-context-panel {
+.coverage-route-planner .area-load-feedback {
+  display: grid;
+  gap: var(--space-2);
   margin-top: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.coverage-route-planner .area-context-panel {
+  margin-top: var(--space-4);
 }
 
 .coverage-route-planner .area-context-body {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-4);
-  padding: var(--space-3);
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-right: 0;
-  border-left: 0;
-  border-radius: 0;
 }
 
-/* Donut chart */
 .coverage-route-planner .area-donut-wrap {
   position: relative;
-  width: 80px;
-  height: 80px;
-  flex-shrink: 0;
+  width: 104px;
+  height: 104px;
+  flex: 0 0 104px;
 }
 
 .coverage-route-planner .area-donut {
-  width: 80px;
-  height: 80px;
+  width: 100%;
+  height: 100%;
   transform: rotate(-90deg);
 }
 
-.coverage-route-planner .donut-track {
+.coverage-route-planner .donut-track,
+.coverage-route-planner .eff-ring-track {
   stroke: var(--border-color);
 }
 
-.coverage-route-planner .donut-driven {
+.coverage-route-planner .donut-driven,
+.coverage-route-planner .eff-ring-fill {
   stroke: var(--color-driven);
   stroke-linecap: round;
-  transition: stroke-dashoffset 800ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  filter: none;
+  transition: stroke-dashoffset 400ms ease;
 }
 
 .coverage-route-planner .area-donut-label {
@@ -555,322 +253,910 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  line-height: 1;
 }
 
 .coverage-route-planner .donut-pct {
-  font-family: var(--font-numeric);
-  font-size: var(--font-size-lg);
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
 }
 
 .coverage-route-planner .donut-sublabel {
+  color: var(--text-secondary);
   font-size: var(--font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
-  color: var(--text-tertiary);
-  margin-top: 2px;
 }
 
-/* Context stats beside donut */
 .coverage-route-planner .area-context-stats {
   flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  justify-content: center;
-}
-
-.coverage-route-planner .acstat {
-  display: flex;
-  align-items: center;
+  display: grid;
   gap: var(--space-2);
   min-width: 0;
 }
 
 .coverage-route-planner .acstat-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-xs);
-  flex-shrink: 0;
-  color: var(--text-tertiary);
-  background: var(--surface-3);
-}
-
-.coverage-route-planner .acstat--remaining .acstat-icon {
-  color: var(--danger);
-  background: rgb(var(--danger-rgb) / 10%);
-}
-
-.coverage-route-planner .acstat--driven .acstat-icon {
-  color: var(--success);
-  background: rgb(var(--success-rgb) / 10%);
-}
-
-.coverage-route-planner .acstat--total .acstat-icon {
-  color: var(--info);
-  background: rgb(var(--info-rgb) / 10%);
+  display: none;
 }
 
 .coverage-route-planner .acstat-body {
   display: flex;
-  flex-direction: column;
-  gap: 0;
-  min-width: 0;
+  justify-content: space-between;
+  gap: var(--space-2);
+  align-items: baseline;
 }
 
 .coverage-route-planner .acstat-label {
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
-  color: var(--text-tertiary);
-  line-height: 1;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
 }
 
 .coverage-route-planner .acstat-value {
   font-size: var(--font-size-sm);
-  font-weight: 700;
-  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
-/* Coverage bar below context body */
-.coverage-route-planner .coverage-bar-track {
-  height: 6px;
-  background: var(--surface-3);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-  margin-top: var(--space-2);
-}
-
-.coverage-route-planner .coverage-bar-fill {
-  height: 100%;
-  background: var(--primary);
-  border-radius: var(--radius-full);
-  width: 0%;
-  transition: width 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-/* Area empty hint */
-.coverage-route-planner .area-empty-hint {
+.coverage-route-planner .acstat--remaining .acstat-body {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-  padding: var(--space-3);
-  background: rgb(var(--primary-rgb) / 5%);
-  border: 1px solid rgb(var(--primary-rgb) / 15%);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  color: var(--text-tertiary);
-  line-height: 1.5;
+  flex-direction: column;
+  gap: 0;
 }
 
-.coverage-route-planner .area-empty-hint i {
-  color: var(--primary);
-  margin-top: 0.0625rem;
-  flex-shrink: 0;
+.coverage-route-planner .acstat--remaining .acstat-value {
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-snug);
+  font-weight: var(--font-weight-semibold);
 }
 
-/* Widget tints when area is selected */
-
-.coverage-route-planner .route-planner-widget.is-ready {
-  border-color: rgb(var(--warning-rgb) / 30%);
+.coverage-route-planner .coverage-bar-track {
+  display: none;
 }
 
-/* Tabular numbers for stat values */
-.coverage-route-planner .stat-value {
-  font-variant-numeric: tabular-nums;
-}
-
-/* ==========================================================================
-   Generate Route Button — Multi-State
-   ========================================================================== */
-
-.coverage-route-planner .btn-generate {
+.coverage-route-planner .btn-generate,
+.coverage-route-planner .btn-results-nav {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: var(--space-3);
-  width: 100%;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-lg);
-  font-weight: 600;
-  transition: all 0.25s ease;
-  min-height: 68px;
   text-align: left;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  min-height: 64px;
 }
 
-.coverage-route-planner .btn-generate:disabled {
-  opacity: 0.48;
-  cursor: not-allowed;
+.coverage-route-planner .generate-icon,
+.coverage-route-planner .btn-results-nav > i {
+  font-size: var(--font-size-xl);
+  width: 24px;
+  text-align: center;
 }
 
-.coverage-route-planner .btn-generate:not(:disabled):hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
+.coverage-route-planner .generate-text,
+.coverage-route-planner .btn-cta-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
-.coverage-route-planner .btn-generate:not(:disabled):active {
-  transform: translateY(0);
+.coverage-route-planner .generate-title,
+.coverage-route-planner .btn-cta-title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
 }
 
-.coverage-route-planner .generate-icon {
+.coverage-route-planner .generate-subtitle,
+.coverage-route-planner .btn-cta-sub {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-normal);
+  opacity: 0.85;
+}
+
+.coverage-route-planner .generate-icon > i,
+.coverage-route-planner .generate-title > span,
+.coverage-route-planner .generate-subtitle > span {
+  display: none;
+}
+
+.coverage-route-planner [data-state="idle"] :is(.icon-idle, .state-idle),
+.coverage-route-planner [data-state="ready"] :is(.icon-ready, .state-ready),
+.coverage-route-planner [data-state="done"] :is(.icon-done, .state-done),
+.coverage-route-planner [data-state="working"] :is(.icon-working, .state-working),
+.coverage-route-planner [data-state="complete"] :is(.icon-complete, .state-complete) {
+  display: inline;
+}
+
+.coverage-route-planner .btn-algo-info {
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  background: transparent;
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-lg);
-  flex-shrink: 0;
-}
-
-/* Multi-state: show only one icon at a time */
-.coverage-route-planner .generate-icon i {
-  display: none;
-}
-
-.coverage-route-planner .btn-generate[data-state="idle"] .icon-idle {
-  display: flex;
-}
-
-.coverage-route-planner .btn-generate[data-state="ready"] .icon-ready {
-  display: flex;
-}
-
-.coverage-route-planner .btn-generate[data-state="done"] .icon-done {
-  display: flex;
-}
-
-/* Default to idle if no data-state set */
-.coverage-route-planner .btn-generate:not([data-state]) .icon-idle {
-  display: flex;
-}
-
-.coverage-route-planner .generate-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  flex: 1;
-  min-width: 0;
-}
-
-.coverage-route-planner .generate-title {
-  font-size: var(--font-size-md);
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.coverage-route-planner .generate-subtitle {
+  gap: var(--space-2);
+  width: 100%;
   font-size: var(--font-size-sm);
-  opacity: 0.82;
-  font-weight: 400;
-  line-height: 1.3;
-}
-
-/* State text — only show matching state */
-.coverage-route-planner .state-idle,
-.coverage-route-planner .state-ready,
-.coverage-route-planner .state-done {
-  display: none;
-}
-
-.coverage-route-planner .btn-generate[data-state="idle"] .state-idle {
-  display: block;
-}
-
-.coverage-route-planner .btn-generate[data-state="ready"] .state-ready {
-  display: block;
-}
-
-.coverage-route-planner .btn-generate[data-state="done"] .state-done {
-  display: block;
-}
-
-/* Default to idle state text */
-.coverage-route-planner .btn-generate:not([data-state]) .state-idle {
-  display: block;
-}
-
-/* ==========================================================================
-   Algorithm Explainer
-   ========================================================================== */
-
-.coverage-route-planner .algo-explainer {
-  margin-top: var(--space-3);
-  padding: var(--space-3);
-  background: var(--surface-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  animation: tabPanelIn 200ms ease both;
+  padding: var(--space-2);
 }
 
 .coverage-route-planner .algo-steps {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
 }
 
 .coverage-route-planner .algo-step {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
 }
 
 .coverage-route-planner .algo-step-icon {
+  width: 20px;
+  color: var(--warning);
+}
+
+.coverage-route-planner .route-progress-inline {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-color);
+}
+
+.coverage-route-planner .inline-progress-heading,
+.coverage-route-planner .inline-progress-footer {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  background: rgb(var(--warning-rgb) / 15%);
-  color: var(--warning);
-  font-size: var(--font-size-sm);
-  flex-shrink: 0;
-  margin-top: 2px;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
-.coverage-route-planner .algo-step-text {
+.coverage-route-planner .inline-progress-stage {
+  font-weight: var(--font-weight-semibold);
+}
+
+.coverage-route-planner .live-badge {
+  color: var(--warning);
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--tracking-caps);
+}
+
+.coverage-route-planner .progress {
+  height: 5px;
+  background: var(--border-color);
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+
+.coverage-route-planner .progress-bar {
+  background: var(--warning);
+  height: 100%;
+  transition: width 300ms ease;
+}
+
+.coverage-route-planner .progress-bar-container {
+  margin: var(--space-3) 0;
+}
+
+.coverage-route-planner .message-primary {
+  font-size: var(--font-size-sm);
+}
+
+.coverage-route-planner .message-secondary {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin-top: var(--space-1);
+  overflow-wrap: anywhere;
+}
+
+.coverage-route-planner .inline-progress-footer {
+  margin-top: var(--space-2);
+}
+
+.coverage-route-planner .elapsed-time {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.coverage-route-planner .inline-error-section {
+  border-left: 3px solid var(--danger);
+  padding: var(--space-3);
+  margin-top: var(--space-3);
+  background: rgb(var(--danger-rgb) / 6%);
+}
+
+.coverage-route-planner .inline-error-copy {
+  display: flex;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.coverage-route-planner .inline-error-copy > i {
+  color: var(--danger);
+}
+
+.coverage-route-planner #error-message {
+  margin: var(--space-2) 0;
+  overflow-wrap: anywhere;
+}
+
+.coverage-route-planner .route-result-meta {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.coverage-route-planner .route-coverage-note {
+  padding: var(--space-3);
+  border-left: 2px solid var(--warning);
+  background: rgb(var(--warning-rgb) / 7%);
+  font-size: var(--font-size-sm);
+}
+
+.coverage-route-planner .results-hero-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.coverage-route-planner .hero-eff-ring {
+  width: 88px;
+  height: 88px;
+  flex: 0 0 88px;
+  position: relative;
+}
+
+.coverage-route-planner .eff-ring-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.coverage-route-planner .hero-eff-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.coverage-route-planner .hero-eff-value {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.coverage-route-planner .hero-eff-unit {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.coverage-route-planner .hero-eff-label {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.coverage-route-planner .hero-eff-desc {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
-  line-height: 1.5;
-  padding-top: 0.375rem;
+  margin-top: var(--space-1);
 }
 
-.coverage-route-planner .btn-algo-info {
+.coverage-route-planner .results-supporting-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+  padding: var(--space-4) 0;
+  margin: var(--space-3) 0;
+  border-block: 1px solid var(--border-color);
+}
+
+.coverage-route-planner .stat-icon {
+  display: none;
+}
+
+.coverage-route-planner .stat-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.coverage-route-planner .stat-value {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.coverage-route-planner .stat-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.coverage-route-planner .results-secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.coverage-route-planner .route-delete {
+  color: var(--danger);
+  margin-left: auto;
+}
+
+.coverage-route-planner .saved-route-count,
+.coverage-route-planner .sim-badge {
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.coverage-route-planner .route-history {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.coverage-route-planner .route-history-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  text-align: left;
+  color: var(--text-primary);
+  background: var(--surface-0);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+}
+
+.coverage-route-planner .route-history-item:hover {
+  border-color: var(--primary);
+}
+
+.coverage-route-planner .route-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.coverage-route-planner .route-date {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.coverage-route-planner .route-history-chevron {
+  color: var(--text-tertiary);
+}
+
+.coverage-route-planner .empty-state {
+  padding: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.coverage-route-planner .find-action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.coverage-route-planner .find-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  text-align: left;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+  color: var(--text-primary);
+}
+
+.coverage-route-planner .find-tile:disabled {
+  opacity: 0.5;
+}
+
+.coverage-route-planner .find-tile:not(:disabled):hover {
+  border-color: var(--primary);
+}
+
+.coverage-route-planner .find-tile-icon {
+  color: var(--text-secondary);
+}
+
+.coverage-route-planner .find-tile-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.coverage-route-planner .find-tile-hint {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.coverage-route-planner .status-message {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.coverage-route-planner .status-message.error {
+  color: var(--danger);
+}
+
+.coverage-route-planner #route-progress-container {
+  display: none;
+  margin-top: var(--space-3);
+}
+
+.coverage-route-planner #route-progress-container.active {
+  display: block;
+}
+
+.coverage-route-planner .progress-steps {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.coverage-route-planner .step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.coverage-route-planner .step.active {
+  color: var(--warning);
+}
+
+.coverage-route-planner .step.completed {
+  color: var(--color-driven);
+}
+
+.coverage-route-planner .progress-status {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* Map chrome is confined to the edges; it never intercepts the map canvas. */
+.coverage-route-planner .map-container {
+  grid-column: 2;
+  grid-row: 2;
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-0);
+  border: 0;
+  border-radius: 0;
+  margin: 0;
+}
+
+.coverage-route-planner #coverage-map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.coverage-route-planner .planner-map-toolbar {
+  position: absolute;
+  top: var(--space-4);
+  left: var(--space-4);
+  right: 58px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.coverage-route-planner .map-context {
+  max-width: 380px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.coverage-route-planner .map-context-label {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.coverage-route-planner .map-context h2 {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-xl);
+  margin: var(--space-1) 0;
+}
+
+.coverage-route-planner .map-context p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.coverage-route-planner .map-toolbar-actions {
+  display: flex;
+  gap: var(--space-2);
+  pointer-events: auto;
+}
+
+.coverage-route-planner .map-toolbar-actions > .btn,
+.coverage-route-planner .map-layers-menu > summary {
+  background: var(--surface-1);
+  white-space: nowrap;
+}
+
+.coverage-route-planner .map-layers-menu {
+  position: relative;
+}
+
+.coverage-route-planner .map-layers-menu > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.coverage-route-planner .map-layers-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.coverage-route-planner .map-layers-menu[open] > summary {
+  border-color: var(--primary);
+}
+
+.coverage-route-planner .map-layers-panel {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  width: min(280px, calc(100vw - var(--space-8)));
+  padding: var(--space-4);
+  background: var(--surface-1);
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius-sm);
+}
+
+.coverage-route-planner .map-layers-panel h3 {
+  font-size: var(--font-size-md);
+  margin: 0 0 var(--space-3);
+}
+
+.coverage-route-planner .layer-item + .layer-item {
+  border-top: 1px solid var(--border-color);
+  margin-top: var(--space-2);
+}
+
+.coverage-route-planner .layer-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.coverage-route-planner .layer-info {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: var(--touch-target);
-  margin-top: var(--space-2);
-  padding: 0;
-  background: none;
-  border: none;
-  color: var(--text-tertiary);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  transition: color 0.15s ease;
 }
 
-.coverage-route-planner .btn-algo-info:hover {
-  color: var(--info);
+.coverage-route-planner .layer-main input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
 }
 
-.coverage-route-planner .btn-algo-info i {
+.coverage-route-planner .layer-opacity .form-range {
+  min-height: 32px;
+  margin: 0;
+}
+
+.coverage-route-planner .opacity-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.coverage-route-planner .layer-color,
+.coverage-route-planner .legend-color {
+  width: 18px;
+  height: 3px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.coverage-route-planner .layer-color--route {
+  background: var(--warning);
+}
+
+.coverage-route-planner .legend-color--route {
+  background: var(--warning);
+}
+
+.coverage-route-planner .layer-color--driven,
+.coverage-route-planner .legend-color--driven {
+  background: var(--color-driven);
+}
+
+.coverage-route-planner .layer-color--undriven,
+.coverage-route-planner .legend-color--undriven {
+  background: var(--color-undriven);
+}
+
+.coverage-route-planner .legend-color--simulated {
+  background: var(--info);
+}
+
+.coverage-route-planner .map-legend {
+  position: absolute;
+  bottom: 32px;
+  left: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  z-index: 1;
+  max-width: calc(100% - var(--space-8));
+}
+
+.coverage-route-planner .legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.coverage-route-planner .legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.coverage-route-planner .map-empty-state {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(360px, calc(100% - var(--space-8)));
+  padding: var(--space-6);
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  text-align: center;
+}
+
+.coverage-route-planner .map-empty-state > i {
+  color: var(--warning);
+  font-size: var(--font-size-2xl);
+}
+
+.coverage-route-planner .map-empty-state h3 {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-2xl);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.coverage-route-planner .map-empty-state p {
+  color: var(--text-secondary);
+  font-size: var(--font-size-md);
+  margin: 0 0 var(--space-4);
+}
+
+.coverage-route-planner .map-selection-status {
+  position: absolute;
+  top: 136px;
+  left: var(--space-4);
+  right: var(--space-4);
+  width: fit-content;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-1);
+  border-left: 3px solid var(--warning);
   font-size: var(--font-size-sm);
+  z-index: 1;
+}
+
+.coverage-route-planner .route-solver-hud {
+  display: none;
+  align-items: center;
+  gap: var(--space-2);
+  position: absolute;
+  bottom: 80px;
+  left: var(--space-4);
+  padding: var(--space-3);
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
+  font-size: var(--font-size-sm);
+}
+
+.coverage-route-planner .route-solver-hud.active {
+  display: flex;
+}
+
+.coverage-route-planner #hud-elapsed {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (width >= 1600px) {
+  .coverage-route-planner {
+    grid-template-columns: 420px minmax(0, 1fr);
+  }
+}
+
+@media (width >= 1024px) and (width <= 1199px) {
+  .coverage-route-planner {
+    grid-template-columns: 350px minmax(0, 1fr);
+  }
+
+  .coverage-route-planner .map-toolbar-actions .btn > span {
+    display: none;
+  }
+
+  .coverage-route-planner .map-context {
+    max-width: 260px;
+  }
+}
+
+@media (width <= 1023px) {
+  .coverage-route-planner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .coverage-route-planner .planner-header {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .coverage-route-planner .page-masthead-title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .coverage-route-planner .page-masthead-subtitle,
+  .coverage-route-planner .planner-areas-link {
+    display: none;
+  }
+
+  .coverage-route-planner .mobile-panel-toggle {
+    display: inline-flex;
+    white-space: nowrap;
+  }
+
+  .coverage-route-planner .control-panel,
+  .coverage-route-planner .map-container {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .coverage-route-planner .control-panel {
+    z-index: 3;
+    border-right: 0;
+  }
+
+  .coverage-route-planner .planner-flow {
+    max-width: 600px;
+    margin: 0 auto;
+    padding-inline: var(--space-4);
+  }
+
+  .coverage-route-planner[data-view="map"] .control-panel {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .coverage-route-planner:not([data-view="map"]) .map-container {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .coverage-route-planner .map-context {
+    max-width: 310px;
+  }
+
+  .coverage-route-planner .map-toolbar-actions .btn > span {
+    display: none;
+  }
+
+  .coverage-route-planner .planner-map-toolbar {
+    gap: var(--space-2);
+    top: var(--space-3);
+    left: var(--space-3);
+  }
+
+  .coverage-route-planner .map-context {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .coverage-route-planner .map-context h2 {
+    font-size: var(--font-size-lg);
+  }
+
+  .coverage-route-planner .map-context p {
+    font-size: var(--font-size-xs);
+  }
+
+  .coverage-route-planner .map-layers-panel {
+    right: -42px;
+  }
+}
+
+@media (width <= 479px) {
+  .coverage-route-planner .planner-header {
+    gap: var(--space-2);
+  }
+
+  .coverage-route-planner .map-context {
+    max-width: 170px;
+  }
+
+  .coverage-route-planner .map-context-label {
+    display: none;
+  }
+
+  .coverage-route-planner .map-toolbar-actions .btn {
+    padding-inline: var(--space-3);
+  }
+
+  .coverage-route-planner .map-context p {
+    display: none;
+  }
+
+  .coverage-route-planner .map-selection-status {
+    top: 88px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coverage-route-planner *,
+  .coverage-route-planner *::before,
+  .coverage-route-planner *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  .coverage-route-planner {
+    height: auto;
+    display: block;
+    overflow: visible;
+  }
+
+  .coverage-route-planner .control-panel {
+    overflow: visible;
+  }
+
+  .coverage-route-planner .map-container {
+    height: 70vh;
+  }
+
+  .coverage-route-planner
+    :is(
+      .planner-header-actions,
+      .route-planner-widget,
+      .on-road-widget,
+      .sim-widget,
+      .is-saved-routes,
+      .map-toolbar-actions,
+      .results-secondary-actions,
+      .results-cta-primary
+    ) {
+    display: none;
+  }
 }
 
 /* ==========================================================================
@@ -1076,223 +1362,6 @@
   font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--success);
-}
-
-/* ==========================================================================
-   Saved Routes — Enhanced Cards
-   ========================================================================== */
-
-.coverage-route-planner .route-history {
-  max-height: clamp(220px, 32vh, 320px);
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-color) transparent;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.coverage-route-planner .route-history::-webkit-scrollbar {
-  width: 4px;
-}
-
-.coverage-route-planner .route-history::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: var(--radius-full);
-}
-
-.coverage-route-planner .empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: 10rem;
-  padding: var(--space-8) var(--space-4);
-  border: 1px dashed var(--border-color-light);
-  border-radius: var(--radius-lg);
-  background: transparent;
-  color: var(--text-tertiary);
-}
-
-.coverage-route-planner .empty-state i {
-  font-size: var(--font-size-xl);
-  opacity: 0.5;
-}
-
-.coverage-route-planner .empty-state-title {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-/* Route history items */
-.coverage-route-planner .route-history-item {
-  background: var(--surface-2);
-  border: 1px solid var(--border-color);
-  border-left: 3px solid var(--border-color);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  overflow: hidden;
-}
-
-.coverage-route-planner .route-history-item:hover {
-  border-color: var(--border-hover);
-  background: var(--surface-3);
-  box-shadow: var(--shadow-sm);
-}
-
-.coverage-route-planner .route-name {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--text-primary);
-  overflow-wrap: anywhere;
-  flex: 1;
-  min-width: 0;
-}
-
-.coverage-route-planner .route-date {
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
-}
-
-/* Route history chevron */
-.coverage-route-planner .route-history-chevron {
-  color: var(--text-tertiary);
-  font-size: var(--font-size-sm);
-  align-self: center;
-}
-
-/* ==========================================================================
-   On the Road — Action Tiles
-   ========================================================================== */
-
-.coverage-route-planner .find-action-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-}
-
-.coverage-route-planner .find-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-4) var(--space-3);
-  background: var(--surface-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  transition: all 200ms ease;
-  text-align: center;
-  min-height: 100px;
-  color: var(--text-primary);
-}
-
-.coverage-route-planner .find-tile:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.coverage-route-planner .find-tile:not(:disabled):hover {
-  background: rgb(var(--info-rgb) / 8%);
-  border-color: rgb(var(--info-rgb) / 50%);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
-}
-
-.coverage-route-planner .find-tile:not(:disabled):active {
-  transform: translateY(0);
-}
-
-.coverage-route-planner .find-tile-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  background: rgb(var(--info-rgb) / 12%);
-  color: var(--info);
-  font-size: var(--font-size-md);
-  transition: background 200ms ease;
-}
-
-.coverage-route-planner .find-tile--clusters .find-tile-icon {
-  background: rgb(var(--warning-rgb) / 12%);
-  color: var(--warning);
-}
-
-.coverage-route-planner .find-tile:not(:disabled):hover .find-tile-icon {
-  background: rgb(var(--info-rgb) / 20%);
-}
-
-.coverage-route-planner .find-tile--clusters:not(:disabled):hover .find-tile-icon {
-  background: rgb(var(--warning-rgb) / 20%);
-}
-
-.coverage-route-planner .find-tile--clusters:not(:disabled):hover {
-  background: rgb(var(--warning-rgb) / 6%);
-  border-color: rgb(var(--warning-rgb) / 40%);
-}
-
-.coverage-route-planner .find-tile-title {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1.2;
-}
-
-.coverage-route-planner .find-tile-hint {
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
-  line-height: 1.3;
-}
-
-/* ==========================================================================
-   Status Messages
-   ========================================================================== */
-
-.coverage-route-planner .status-message {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  margin-top: var(--space-3);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  line-height: 1.5;
-}
-
-.coverage-route-planner .status-message.info {
-  background: rgb(var(--info-rgb) / 10%);
-  border: 1px solid rgb(var(--info-rgb) / 20%);
-  color: var(--info);
-}
-
-.coverage-route-planner .status-message.success {
-  background: rgb(var(--success-rgb) / 10%);
-  border: 1px solid rgb(var(--success-rgb) / 20%);
-  color: var(--success);
-}
-
-.coverage-route-planner .status-message.warning {
-  background: rgb(var(--warning-rgb) / 10%);
-  border: 1px solid rgb(var(--warning-rgb) / 20%);
-  color: var(--warning);
-}
-
-.coverage-route-planner .status-message.error {
-  background: rgb(var(--danger-rgb) / 10%);
-  border: 1px solid rgb(var(--danger-rgb) / 20%);
-  color: var(--danger);
-}
-
-.coverage-route-planner .status-message i {
-  margin-top: 0.125rem;
-  flex-shrink: 0;
 }
 
 /* ==========================================================================
@@ -1512,1368 +1581,15 @@
   color: var(--text-secondary);
 }
 
-/* ==========================================================================
-   On the Road — Cluster Progress
-   ========================================================================== */
-
-/* Route progress container */
-.coverage-route-planner #route-progress-container {
-  display: none;
-  margin-top: var(--space-4);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border-color);
-}
-
-.coverage-route-planner #route-progress-container.active {
-  display: block;
-}
-
-/* Progress steps */
-.coverage-route-planner .progress-steps {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-3);
-  position: relative;
-}
-
-.coverage-route-planner .progress-steps::before {
-  content: "";
-  position: absolute;
-  top: 10px;
-  left: 15%;
-  right: 15%;
-  height: 2px;
-  background: var(--divider-color);
-  z-index: 0;
-}
-
-.coverage-route-planner .step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  position: relative;
-  z-index: 1;
-  min-width: 0;
-}
-
-.coverage-route-planner .step-indicator {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--surface-4);
-  border: 2px solid var(--divider-color);
-  transition: all 0.3s ease;
-}
-
-.coverage-route-planner .step.active .step-indicator {
-  background: var(--action);
-  border-color: var(--action);
-  box-shadow: 0 0 0 4px rgb(var(--primary-rgb) / 20%);
-}
-
-.coverage-route-planner .step.completed .step-indicator {
-  background: var(--success);
-  border-color: var(--success);
-}
-
-.coverage-route-planner .step.completed .step-indicator::after {
-  content: "\f00c";
-  font-family: "Font Awesome 6 Free", sans-serif;
-  font-weight: 900;
-  font-size: var(--font-size-xs);
-  color: var(--text-on-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-}
-
-.coverage-route-planner .step-label {
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
-  text-align: center;
-  line-height: 1.25;
-}
-
-.coverage-route-planner .step.active .step-label {
-  color: var(--primary);
-  font-weight: 600;
-}
-
-.coverage-route-planner .step.completed .step-label {
-  color: var(--success);
-}
-
-/* Progress Bar Container */
-.coverage-route-planner .progress-bar-container {
-  margin-top: var(--space-3);
-}
-
-.coverage-route-planner .progress-bar-container .progress {
-  height: 8px;
-  background: var(--surface-3);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-}
-
-.coverage-route-planner .progress-bar-container .progress-bar {
-  background: var(--warning);
-  transition: width 0.3s ease;
-}
-
-.coverage-route-planner .progress-status {
-  display: block;
-  margin-top: var(--space-2);
-  font-size: var(--font-size-sm);
-  color: var(--text-tertiary);
-  text-align: center;
-}
-
-/* ==========================================================================
-   Inline Solver Progress
-   ========================================================================== */
-
-.coverage-route-planner .live-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  background: var(--danger);
-  color: var(--text-on-primary);
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
-  border-radius: var(--radius-sm);
-  animation: pulse-badge 2s ease-in-out infinite;
-}
-
-.coverage-route-planner .live-badge::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  background: var(--text-on-primary);
-  border-radius: 50%;
-}
-
-@keyframes pulse-badge {
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.6;
-  }
-}
-
-/* Progress messages */
-.coverage-route-planner .progress-messages {
-  text-align: center;
-  margin-top: var(--space-3);
-}
-
-.coverage-route-planner .message-primary {
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.coverage-route-planner .message-secondary {
-  font-size: var(--font-size-sm);
-  color: var(--text-tertiary);
-  margin-top: 0.25rem;
-}
-
-.coverage-route-planner .elapsed-time {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-  padding: var(--space-2);
-  background: var(--surface-3);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-}
-
-.coverage-route-planner .btn-cancel {
-  width: 100%;
-  margin-top: var(--space-3);
-  min-height: 40px;
-}
-
-.coverage-route-planner .route-progress-inline {
-  margin-top: var(--space-4);
-  padding: var(--space-3);
-  border: 1px solid var(--border-color);
-  border-left: 3px solid var(--warning);
-  border-radius: var(--radius-md);
-  background: var(--surface-2);
-}
-
-.coverage-route-planner .inline-progress-heading,
-.coverage-route-planner .inline-progress-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.coverage-route-planner .inline-progress-stage {
-  min-width: 0;
-  color: var(--text-primary);
-  font-family: var(--font-numeric);
-  font-size: var(--font-size-sm);
-  font-variant-numeric: tabular-nums;
-  font-weight: var(--font-weight-semibold);
-  overflow-wrap: anywhere;
-}
-
-.coverage-route-planner .route-progress-inline .progress-messages {
-  text-align: left;
-}
-
-.coverage-route-planner .route-progress-inline .elapsed-time {
-  justify-content: flex-start;
-  margin-top: var(--space-3);
-  padding: 0;
-  background: transparent;
-  font-family: var(--font-numeric);
-  font-variant-numeric: tabular-nums;
-}
-
-.coverage-route-planner .route-progress-inline .btn-cancel {
-  width: auto;
-  min-height: var(--touch-target);
-  margin-top: var(--space-3);
-}
-
-.coverage-route-planner .inline-error-section {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-3);
-  margin-top: var(--space-4);
-  padding: var(--space-3);
-  border: 1px solid rgb(var(--danger-rgb) / 35%);
-  border-left: 3px solid var(--danger);
-  border-radius: var(--radius-md);
-  background: rgb(var(--danger-rgb) / 8%);
-}
-
-.coverage-route-planner .inline-error-copy {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  color: var(--danger);
-}
-
-.coverage-route-planner .inline-error-copy p {
-  margin: var(--space-1) 0 0;
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  line-height: 1.5;
-}
-
-@media (width >= 400px) {
-  .coverage-route-planner .inline-error-section {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
-}
-
-/* ==========================================================================
-   Route Summary — Hero + Supporting Grid
-   ========================================================================== */
-
-/* Hero efficiency card */
-.coverage-route-planner .results-hero-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4);
-  background: rgb(var(--success-rgb) / 8%);
-  border: 1px solid rgb(var(--success-rgb) / 20%);
-  border-radius: var(--radius-xl);
-  margin-bottom: var(--space-3);
-  transition: border-color 0.3s ease;
-}
-
-.coverage-route-planner .results-hero-card:hover {
-  border-color: rgb(var(--success-rgb) / 35%);
-}
-
-.coverage-route-planner .hero-eff-ring {
-  position: relative;
-  width: 72px;
-  height: 72px;
-  flex-shrink: 0;
-}
-
-.coverage-route-planner .eff-ring-svg {
-  width: 72px;
-  height: 72px;
-  transform: rotate(-90deg);
-}
-
-.coverage-route-planner .eff-ring-track {
-  stroke: var(--surface-3);
-}
-
-.coverage-route-planner .eff-ring-fill {
-  stroke: var(--success);
-  stroke-linecap: round;
-  transition: stroke-dashoffset 1000ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  filter: drop-shadow(0 0 8px rgb(var(--success-rgb) / 40%));
-}
-
-.coverage-route-planner .hero-eff-center {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  gap: 1px;
-}
-
-.coverage-route-planner .hero-eff-value {
-  font-family: var(--font-numeric);
-  font-size: var(--font-size-md);
-  font-weight: 800;
-  color: var(--success);
-  line-height: 1;
-}
-
-.coverage-route-planner .hero-eff-unit {
-  font-size: var(--font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
-  color: var(--text-tertiary);
-}
-
-.coverage-route-planner .hero-eff-details {
-  flex: 1;
-  min-width: 0;
-}
-
-.coverage-route-planner .hero-eff-label {
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: var(--space-1);
-}
-
-.coverage-route-planner .hero-eff-desc {
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
-  line-height: 1.45;
-  margin-bottom: var(--space-2);
-}
-
-.coverage-route-planner .hero-eff-grade {
-  display: inline-block;
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  padding: 0.2rem 0.625rem;
-  border-radius: var(--radius-full);
-  background: rgb(var(--success-rgb) / 15%);
-  color: var(--success);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
-}
-
-/* 2×2 supporting grid */
-.coverage-route-planner .stats-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-3);
-}
-
-@media (width >= 400px) {
-  .coverage-route-planner .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .coverage-route-planner .results-supporting-grid .stat-card:last-child {
-    grid-column: 1 / -1;
-  }
-}
-
-.coverage-route-planner .results-supporting-grid {
-  margin-bottom: var(--space-3);
-}
-
-.coverage-route-planner .stat-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  background: var(--surface-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  transition: all 0.2s ease;
-}
-
-.coverage-route-planner .stat-card:hover {
-  border-color: var(--border-hover);
-  transform: translateY(-1px);
-}
-
-.coverage-route-planner .stat-card .stat-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: transparent;
-  color: var(--text-on-primary);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  flex-shrink: 0;
-}
-
-.coverage-route-planner .stat-card[data-stat="deadhead"] .stat-icon {
-  background: var(--warning);
-}
-
-.coverage-route-planner .stat-card[data-stat="coverage"] .stat-icon {
-  background: var(--primary);
-}
-
-.coverage-route-planner .stat-card[data-stat="required"] .stat-icon {
-  background: var(--info);
-}
-
-.coverage-route-planner .stat-card .stat-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  flex: 1;
-  min-width: 0;
-}
-
-.coverage-route-planner .stat-card .stat-value {
-  font-size: var(--font-size-lg);
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-}
-
-.coverage-route-planner .stat-card .stat-label {
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
-  color: var(--text-tertiary);
-}
-
-/* Navigation CTA */
-.coverage-route-planner .results-cta-primary {
-  margin-bottom: var(--space-3);
-}
-
-.coverage-route-planner .btn-results-nav {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--font-size-md);
-  border-radius: var(--radius-lg);
-  min-height: 68px;
-  text-align: left;
-  transition: all 0.25s ease;
-}
-
-.coverage-route-planner .btn-results-nav:not(:disabled):hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-}
-
-.coverage-route-planner .btn-results-nav:not(:disabled):active {
-  transform: translateY(0);
-}
-
-.coverage-route-planner .btn-results-nav i {
-  font-size: var(--font-size-lg);
-  flex-shrink: 0;
-}
-
-.coverage-route-planner .btn-cta-text {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-}
-
-.coverage-route-planner .btn-cta-title {
-  font-size: var(--font-size-md);
-  font-weight: 700;
-  line-height: 1;
-}
-
-.coverage-route-planner .btn-cta-sub {
-  font-size: var(--font-size-xs);
-  opacity: 0.8;
-  font-weight: 400;
-  line-height: 1;
-}
-
-/* Secondary actions row */
-.coverage-route-planner .results-secondary-actions {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
-}
-
-.coverage-route-planner .results-secondary-actions .btn {
-  min-height: var(--touch-target);
-  font-size: var(--font-size-sm);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  padding-inline: 0.5rem;
-  white-space: normal;
-  text-wrap: balance;
-  line-height: 1.2;
-}
-
-/* Export actions */
-.coverage-route-planner .export-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-}
-
-@media (width >= 400px) {
-  .coverage-route-planner .export-actions {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-.coverage-route-planner .export-actions .btn {
-  min-height: var(--touch-target);
-  font-size: var(--font-size-sm);
-  white-space: normal;
-  text-wrap: balance;
-  line-height: 1.2;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  padding-inline: 0.5rem;
-}
-
-/* ==========================================================================
-   Layer Controls
-   ========================================================================== */
-
-.coverage-route-planner .layer-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.coverage-route-planner .layer-item {
-  padding: var(--space-3);
-  background: var(--surface-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  transition: all 0.2s ease;
-}
-
-.coverage-route-planner .layer-item:hover {
-  border-color: var(--border-hover);
-}
-
-.coverage-route-planner .layer-main {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.coverage-route-planner .layer-info {
+.coverage-route-planner .road-follow-control {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-width: 0;
-}
-
-.coverage-route-planner .layer-color {
-  width: 12px;
-  height: 12px;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-}
-
-.coverage-route-planner .layer-color--route {
-  background: var(--warning);
-}
-
-.coverage-route-planner .layer-color--driven {
-  background: var(--success);
-}
-
-.coverage-route-planner .layer-color--undriven {
-  background: var(--danger);
-}
-
-.coverage-route-planner .layer-name {
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.coverage-route-planner .layer-opacity {
-  margin-top: var(--space-2);
-}
-
-.coverage-route-planner .opacity-label {
-  display: flex;
-  justify-content: space-between;
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
-  margin-bottom: var(--space-1);
-}
-
-.coverage-route-planner .layer-opacity .form-range {
-  height: 4px;
-}
-
-.coverage-route-planner .layer-opacity .form-range::-webkit-slider-thumb {
-  width: 14px;
-  height: 14px;
-  background: var(--action);
-  border: none;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
-}
-
-.coverage-route-planner .route-details {
-  margin-top: var(--space-4);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border-color);
-}
-
-.coverage-route-planner .route-details-heading {
+  min-height: 44px;
   margin: 0 0 var(--space-3);
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
 }
 
-/* ==========================================================================
-   Map Container
-   ========================================================================== */
-
-.coverage-route-planner .map-container {
-  position: relative;
-  background: var(--surface-0);
-  overflow: hidden;
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-}
-
-@media (width >= 1024px) {
-  .coverage-route-planner .map-container {
-    border-radius: var(--radius-lg);
-    margin: var(--space-3);
-    margin-left: 0;
-    border: 1px solid var(--divider-color);
-    box-shadow: var(--shadow-md);
-    min-height: 0;
-  }
-}
-
-.coverage-route-planner #coverage-map {
-  width: 100%;
-  height: 100%;
-  min-height: 40vh;
-}
-
-@media (width >= 1024px) {
-  .coverage-route-planner #coverage-map {
-    min-height: 0;
-  }
-}
-
-/* Mapbox Popup Styles */
-.coverage-route-planner .mapboxgl-popup-content,
-.coverage-route-planner .maplibregl-popup-content {
-  background: var(--surface-2);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: var(--space-3);
-  box-shadow: var(--shadow-xl);
-  font-size: var(--font-size-sm);
-  max-width: min(280px, calc(100vw - var(--space-6)));
-  overflow-wrap: anywhere;
-}
-
-.coverage-route-planner .mapboxgl-popup-close-button,
-.coverage-route-planner .maplibregl-popup-close-button {
-  color: var(--text-secondary);
-  font-size: var(--font-size-lg);
-  padding: var(--space-1) var(--space-2);
-  transition: color 0.2s ease;
-}
-
-.coverage-route-planner .mapboxgl-popup-close-button:hover,
-.coverage-route-planner .maplibregl-popup-close-button:hover {
-  color: var(--text-primary);
-}
-
-.coverage-route-planner .mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip,
-.coverage-route-planner .maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
-  border-top-color: var(--surface-2);
-}
-
-.coverage-route-planner .segment-popup,
-.coverage-route-planner .efficient-cluster-popup {
+.coverage-route-planner .route-history-main {
   display: grid;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.coverage-route-planner .segment-popup h6,
-.coverage-route-planner .efficient-cluster-popup h6 {
-  margin: 0;
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  overflow-wrap: anywhere;
-}
-
-.coverage-route-planner .segment-popup .btn,
-.coverage-route-planner .efficient-cluster-popup .btn {
-  min-height: 40px;
-  white-space: normal;
-  line-height: 1.2;
-}
-
-.coverage-route-planner .efficient-cluster-popup .cluster-stats {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.coverage-route-planner .efficient-cluster-popup .cluster-stats > div {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.4rem;
-  overflow-wrap: anywhere;
-}
-
-/* ==========================================================================
-   Map Scanner Overlay
-   ========================================================================== */
-
-.coverage-route-planner .map-scanner-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 9;
-  opacity: 0;
-  transition: opacity 0.4s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.coverage-route-planner .map-scanner-overlay.active {
-  opacity: 1;
-}
-
-.coverage-route-planner .map-scanner-overlay::before {
-  content: "";
-  position: absolute;
-  width: min(300px, 50vw);
-  height: min(300px, 50vw);
-  border-radius: 50%;
-  border: 1px dashed rgb(var(--primary-rgb) / 45%);
-  animation: scan-pulse 2.5s ease-out infinite;
-}
-
-@keyframes scan-pulse {
-  0% {
-    transform: scale(0.8);
-    opacity: 0.4;
-  }
-
-  70% {
-    opacity: 0.1;
-  }
-
-  100% {
-    transform: scale(1.3);
-    opacity: 0;
-  }
-}
-
-/* ==========================================================================
-   Route Solver HUD
-   ========================================================================== */
-
-.coverage-route-planner .route-solver-hud {
-  position: absolute;
-  top: var(--space-4);
-  left: var(--space-4);
-  right: var(--space-4);
-  z-index: 12;
-  pointer-events: none;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-10px);
-  transition: all 0.3s ease;
-  max-width: 380px;
-  max-height: min(58vh, 460px);
-  overflow: hidden auto;
-}
-
-@media (width >= 640px) {
-  .coverage-route-planner .route-solver-hud {
-    right: auto;
-  }
-}
-
-.coverage-route-planner .route-solver-hud.active {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-}
-
-.coverage-route-planner .hud-panel {
-  background: var(--surface-1);
-  border: 1px solid rgb(var(--border-rgb) / 30%);
-  border-radius: var(--radius-xl);
-  padding: var(--space-4);
-  box-shadow: var(--shadow-lg);
-  min-width: 0;
-}
-
-.coverage-route-planner .hud-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid rgb(var(--border-rgb) / 20%);
-}
-
-.coverage-route-planner .hud-signal {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.coverage-route-planner .hud-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--success);
-  animation: hud-pulse 2s ease-in-out infinite;
-}
-
-@keyframes hud-pulse {
-  0%,
-  100% {
-    transform: scale(0.85);
-    opacity: 0.6;
-  }
-
-  50% {
-    transform: scale(1.15);
-    opacity: 1;
-  }
-}
-
-.coverage-route-planner .hud-title {
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-  color: var(--text-tertiary);
-}
-
-.coverage-route-planner .hud-stage {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--primary);
-  padding: 0.25rem 0.625rem;
-  background: rgb(var(--primary-rgb) / 10%);
-  border-radius: var(--radius-full);
-}
-
-.coverage-route-planner .hud-message {
-  font-size: var(--font-size-md);
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: var(--space-1);
-}
-
-.coverage-route-planner .hud-submessage {
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-  min-height: 1.25rem;
-}
-
-.coverage-route-planner .hud-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-  padding-top: var(--space-3);
-  border-top: 1px solid rgb(var(--border-rgb) / 20%);
-}
-
-.coverage-route-planner .hud-metric {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  padding: var(--space-2);
-  background: rgb(var(--surface-rgb) / 50%);
-  border: 1px solid rgb(var(--border-rgb) / 20%);
-  border-radius: var(--radius-md);
-}
-
-.coverage-route-planner .metric-label {
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
-  color: var(--text-tertiary);
-}
-
-.coverage-route-planner .metric-value {
-  font-size: var(--font-size-md);
-  font-weight: 700;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.coverage-route-planner .hud-activity {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-  max-height: 120px;
-  overflow-y: auto;
-  font-size: var(--font-size-sm);
-}
-
-.coverage-route-planner .hud-activity-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--text-secondary);
-}
-
-.coverage-route-planner .hud-activity-item::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--warning);
-  flex-shrink: 0;
-}
-
-.coverage-route-planner .hud-activity-time {
-  font-variant-numeric: tabular-nums;
-  color: var(--text-tertiary);
-  font-size: var(--font-size-xs);
-}
-
-/* ==========================================================================
-   Map Legend
-   ========================================================================== */
-
-.coverage-route-planner .map-legend {
-  position: absolute;
-  bottom: var(--space-4);
-  right: var(--space-4);
-  background: var(--surface-1);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: var(--space-3);
-  box-shadow: var(--shadow-lg);
-  z-index: 10;
-  min-width: 140px;
-  max-width: min(320px, calc(100vw - var(--space-6)));
-  backdrop-filter: blur(8px);
-}
-
-.coverage-route-planner .map-legend h2,
-.coverage-route-planner .map-legend h6 {
-  margin: 0 0 var(--space-2) 0;
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
-  color: var(--text-secondary);
-}
-
-.coverage-route-planner .legend-items {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.coverage-route-planner .legend-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.coverage-route-planner .legend-color {
-  width: 20px;
-  height: 4px;
-  border-radius: var(--radius-pill);
-  flex-shrink: 0;
-}
-
-.coverage-route-planner .legend-color--driven {
-  background: var(--success);
-}
-
-.coverage-route-planner .legend-color--undriven {
-  background: var(--danger);
-}
-
-.coverage-route-planner .legend-color--route {
-  background: var(--warning);
-}
-
-.coverage-route-planner .legend-color--simulated {
-  background: var(--info);
-  height: 4px;
-  background-image: repeating-linear-gradient(
-    90deg,
-    var(--info) 0,
-    var(--info) 6px,
-    transparent 6px,
-    transparent 9px
-  );
-}
-
-.coverage-route-planner .legend-color.is-route {
-  height: 5px;
-}
-
-.coverage-route-planner .legend-label {
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-  overflow-wrap: anywhere;
-}
-
-/* ==========================================================================
-   Responsive Design — Mobile Optimizations
-   ========================================================================== */
-
-@media (width <= 1023px) {
-  /* Map container for mobile panel */
-  .coverage-route-planner .map-container {
-    position: fixed;
-    inset: var(--header-height) 0 0 0;
-    z-index: 1;
-    min-height: auto;
-  }
-
-  .coverage-route-planner #coverage-map {
-    min-height: 100%;
-  }
-
-  /* Full-width HUD on mobile */
-  .coverage-route-planner .route-solver-hud {
-    left: var(--space-3);
-    right: var(--space-3);
-    max-width: none;
-    max-height: min(52vh, 420px);
-  }
-
-  /* Legend positioning for mobile */
-  .coverage-route-planner .map-legend {
-    left: var(--space-3);
-    right: var(--space-3);
-    bottom: calc(
-      72px +
-      env(safe-area-inset-bottom, 0px) +
-      var(--bottom-nav-offset, 0px)
-    );
-    padding: var(--space-2) var(--space-3);
-  }
-
-  /* Mapbox controls above bottom nav */
-  .coverage-route-planner .mapboxgl-ctrl-bottom-left,
-  .coverage-route-planner .maplibregl-ctrl-bottom-left,
-  .coverage-route-planner .mapboxgl-ctrl-bottom-right,
-  .coverage-route-planner .maplibregl-ctrl-bottom-right {
-    bottom: calc(
-      72px +
-      env(safe-area-inset-bottom, 0px) +
-      var(--bottom-nav-offset, 0px)
-    );
-  }
-
-  /* Touch targets */
-  .coverage-route-planner .route-actions .btn,
-  .coverage-route-planner .export-actions .btn,
-  .coverage-route-planner .results-secondary-actions .btn {
-    min-height: 44px;
-  }
-
-  /* Larger slider thumb */
-  .coverage-route-planner .layer-opacity .form-range::-webkit-slider-thumb {
-    width: 24px;
-    height: 24px;
-  }
-
-  .coverage-route-planner .layer-opacity .form-range::-moz-range-thumb {
-    width: 24px;
-    height: 24px;
-  }
-
-  .coverage-route-planner .layer-opacity .form-range {
-    height: 8px;
-  }
-}
-
-@media (width <= 480px) {
-  .coverage-route-planner .widget-body {
-    padding: var(--space-3);
-  }
-
-  /* iOS auto-zoom prevention */
-  .coverage-route-planner .select-wrapper .form-select {
-    font-size: var(--font-size-md);
-  }
-
-  .coverage-route-planner .stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .coverage-route-planner .results-secondary-actions {
-    grid-template-columns: 1fr;
-  }
-
-  .coverage-route-planner .find-action-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .coverage-route-planner .route-actions {
-    grid-template-columns: 1fr;
-  }
-
-  .coverage-route-planner .route-stats {
-    grid-template-columns: 1fr;
-  }
-
-  .coverage-route-planner .area-context-body {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .coverage-route-planner .area-context-stats {
-    flex-flow: row wrap;
-    gap: var(--space-3);
-    width: 100%;
-  }
-
-  .coverage-route-planner .acstat {
-    flex: 1;
-    min-width: 80px;
-  }
-
-  .coverage-route-planner .hud-metrics {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .coverage-route-planner .results-hero-card {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .coverage-route-planner .hero-eff-details {
-    text-align: center;
-  }
-}
-
-@media (hover: none) {
-  /* Touch devices: no sticky hover transforms */
-  .coverage-route-planner .mobile-panel-toggle:hover {
-    transform: translateX(-50%);
-    box-shadow: var(--shadow-lg);
-  }
-
-  .coverage-route-planner .btn-generate:not(:disabled):hover,
-  .coverage-route-planner .btn-results-nav:not(:disabled):hover,
-  .coverage-route-planner .find-tile:not(:disabled):hover,
-  .coverage-route-planner .stat-card:hover {
-    transform: none;
-    box-shadow: none;
-  }
-}
-
-/* ==========================================================================
-   Accessibility & Reduced Motion
-   ========================================================================== */
-
-@media (prefers-reduced-motion: reduce) {
-  .coverage-route-planner .map-scanner-overlay::before,
-  .coverage-route-planner .map-scanner-overlay::after,
-  .coverage-route-planner .hud-dot,
-  .coverage-route-planner .live-badge {
-    animation: none;
-  }
-
-  .coverage-route-planner .btn-generate,
-  .coverage-route-planner .btn-results-nav,
-  .coverage-route-planner .find-tile,
-  .coverage-route-planner .stat-card,
-  .coverage-route-planner .layer-item,
-  .coverage-route-planner .route-history-item,
-  .coverage-route-planner .donut-driven,
-  .coverage-route-planner .eff-ring-fill,
-  .coverage-route-planner .coverage-bar-fill {
-    transition: none;
-  }
-
-  .coverage-route-planner .collapsible-content {
-    transition: none;
-  }
-}
-
-/* Focus styles for accessibility */
-.coverage-route-planner .find-tile:focus-visible,
-.coverage-route-planner .btn-generate:focus-visible,
-.coverage-route-planner .btn-results-nav:focus-visible,
-.coverage-route-planner .btn-collapse:focus-visible,
-.coverage-route-planner .mobile-panel-toggle:focus-visible,
-.coverage-route-planner .btn-algo-info:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-  .coverage-route-planner .widget {
-    border-width: 2px;
-  }
-
-  .coverage-route-planner .find-tile,
-  .coverage-route-planner .btn-generate,
-  .coverage-route-planner .btn-results-nav {
-    border-width: 2px;
-  }
-}
-
-/* ==========================================================================
-   Print Styles
-   ========================================================================== */
-
-@media print {
-  .coverage-route-planner .control-panel,
-  .coverage-route-planner .mobile-panel-toggle,
-  .coverage-route-planner .route-solver-hud,
-  .coverage-route-planner .map-scanner-overlay {
-    display: none !important;
-  }
-
-  .coverage-route-planner .map-container {
-    position: fixed;
-    inset: 0;
-  }
-}
-
-/* ==========================================================================
-   Field Atlas component alignment
-   ========================================================================== */
-
-.coverage-route-planner .sidebar-eyebrow {
-  margin-bottom: var(--space-1);
-}
-
-.coverage-route-planner .progress-steps.atlas-stepper {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(4.5rem, 1fr);
-  gap: 0;
-  justify-content: normal;
-  padding: 0 var(--space-4);
-  background: var(--surface-0);
-}
-
-.coverage-route-planner .step.atlas-step {
-  flex-direction: row;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--touch-target);
-  padding: var(--space-2) var(--space-3) var(--space-2) 0;
-}
-
-.coverage-route-planner .step.atlas-step .step-indicator.atlas-step-index,
-.coverage-route-planner .step.atlas-step.active .step-indicator.atlas-step-index,
-.coverage-route-planner .step.atlas-step.completed .step-indicator.atlas-step-index {
-  width: auto;
-  height: auto;
-  min-width: 2ch;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  color: var(--text-tertiary);
-  animation: none;
-}
-
-.coverage-route-planner .step.atlas-step.active .step-indicator.atlas-step-index {
-  color: var(--text-primary);
-}
-
-.coverage-route-planner .step.atlas-step.completed .step-indicator.atlas-step-index {
-  color: transparent;
-}
-
-.coverage-route-planner .step.atlas-step .step-label.atlas-step-label,
-.coverage-route-planner .step.atlas-step.active .step-label.atlas-step-label {
-  color: inherit;
-  text-transform: none;
-  letter-spacing: var(--tracking-normal);
-}
-
-.coverage-route-planner .progress-steps.atlas-stepper::before {
-  display: none;
-}
-
-.coverage-route-planner .widget-header,
-.coverage-route-planner .widget-header.collapsible,
-.coverage-route-planner .widget-header.collapsible:hover {
-  padding: var(--space-3) 0;
-  border-top: 1px solid var(--border-color);
-  border-bottom: 0;
-  background: transparent;
-}
-
-.coverage-route-planner .stat-card .stat-icon,
-.coverage-route-planner .stat-card[data-stat="deadhead"] .stat-icon,
-.coverage-route-planner .stat-card[data-stat="efficiency"] .stat-icon {
-  background: transparent;
-  color: var(--text-tertiary);
+  gap: var(--space-1);
 }

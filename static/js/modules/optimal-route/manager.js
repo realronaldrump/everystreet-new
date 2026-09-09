@@ -1,3 +1,4 @@
+import { setPlannerView } from "../features/coverage-route-planner/ui-scaffold.js";
 import { swupReady } from "../core/navigation.js";
 import {
   clearCoverageRouteDraft,
@@ -72,6 +73,23 @@ export class OptimalRoutesManager {
       },
       { signal }
     );
+    document.getElementById("retry-areas-btn")?.addEventListener(
+      "click",
+      () => {
+        this.ui.setAreaLoadState("loading");
+        this.api.clearCoverageAreasCache();
+        void this.loadCoverageAreas();
+      },
+      { signal }
+    );
+    document.getElementById("fit-area-btn")?.addEventListener(
+      "click",
+      () => {
+        void this.fitSelectedArea();
+      },
+      { signal }
+    );
+
     // Area selection
     this.ui.areaSelect?.addEventListener(
       "change",
@@ -184,7 +202,7 @@ export class OptimalRoutesManager {
     const toggles = {
       "toggle-route-layer": ["optimal-route-line", "optimal-route-arrows"],
       "toggle-driven-layer": ["streets-driven-layer"],
-      "toggle-undriven-layer": ["streets-undriven-layer"],
+      "toggle-undriven-layer": ["streets-undriven-layer", "undriven-streets-layer"],
     };
 
     Object.entries(toggles).forEach(([id, layers]) => {
@@ -201,7 +219,7 @@ export class OptimalRoutesManager {
     const opacitySliders = {
       "opacity-route-layer": ["optimal-route-line", "optimal-route-arrows"],
       "opacity-driven-layer": ["streets-driven-layer"],
-      "opacity-undriven-layer": ["streets-undriven-layer"],
+      "opacity-undriven-layer": ["streets-undriven-layer", "undriven-streets-layer"],
     };
 
     Object.entries(opacitySliders).forEach(([id, layers]) => {
@@ -257,6 +275,7 @@ export class OptimalRoutesManager {
     try {
       const areas = await this.api.loadCoverageAreas();
       if (!areas) {
+        this.ui.setAreaLoadState("error");
         this.ui.showNotification(
           "Unable to load coverage areas. Please check your connection and try again.",
           "warning"
@@ -319,6 +338,7 @@ export class OptimalRoutesManager {
         await this.onAreaSelect(initialAreaId);
       }
     } catch (error) {
+      this.ui.setAreaLoadState("error");
       console.error("Error loading coverage areas:", error);
       this.ui.showNotification("Failed to load coverage areas", "danger");
     }
@@ -416,6 +436,8 @@ export class OptimalRoutesManager {
     this.ui.updateAreaStats(selectedArea || null);
     this.ui.setGenerateState(selectedArea?.has_optimal_route ? "done" : "ready");
 
+    this.ui.setMapStatus("Loading streets…");
+
     // Wait for map
     await this.map.bindMapLoad();
     if (epoch !== this.selectionEpoch) return;
@@ -429,8 +451,10 @@ export class OptimalRoutesManager {
         streetNetwork;
       undrivenFeatures = loadedUndrivenFeatures;
       this.map.updateStreets(drivenFeatures, undrivenFeatures);
+      this.ui.setMapStatus("");
     } catch {
-      // already logged in api
+      if (epoch !== this.selectionEpoch) return;
+      this.ui.setMapStatus("Streets couldn’t load. Select the area again to retry.");
     }
 
     // Check for existing route only when metadata says one is saved.
@@ -485,6 +509,21 @@ export class OptimalRoutesManager {
     }
 
     this.hydratePendingDioramaDraft(nextAreaId, undrivenFeatures);
+  }
+
+  async fitSelectedArea() {
+    if (!this.selectedAreaId) return;
+    if (this.currentRouteData?.coordinates) {
+      this.map.displayRoute(
+        this.currentRouteData.coordinates,
+        this.currentRouteData,
+        false
+      );
+      return;
+    }
+    const epoch = this.selectionEpoch;
+    const bounds = await this.api.getAreaBounds(this.selectedAreaId);
+    if (epoch === this.selectionEpoch && bounds) this.map.flyToBounds(bounds);
   }
 
   readPendingDioramaDraft() {
@@ -843,6 +882,7 @@ export class OptimalRoutesManager {
       document.getElementById("legend-simulated").style.display = "none";
     } else {
       this.simulation.activate(this.selectedAreaId);
+      setPlannerView("map");
       document.getElementById("legend-simulated").style.display = "";
     }
   }

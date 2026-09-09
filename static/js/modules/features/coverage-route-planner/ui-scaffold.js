@@ -1,309 +1,188 @@
-function initBottomNavInsets({ signal, onCleanup }) {
+const MOBILE_QUERY = "(max-width: 1023px)";
+
+export function setPlannerView(view) {
   const root = document.querySelector(".coverage-route-planner");
-  if (!root) {
-    return;
-  }
+  const panel = document.getElementById("control-panel");
+  const toggle = document.getElementById("mobile-panel-toggle");
+  if (!root || !panel || !toggle) return;
+  const isMap = view === "map";
+  const isMobile = window.matchMedia(MOBILE_QUERY).matches;
+  root.dataset.view = isMap ? "map" : "plan";
+  panel.inert = isMobile && isMap;
+  const map = root.querySelector(".map-container");
+  if (map) map.inert = isMobile && !isMap;
+  toggle.setAttribute("aria-expanded", String(!isMap));
+  toggle.setAttribute("aria-label", isMap ? "Back to plan" : "View map");
+  const label = toggle.querySelector(".toggle-text");
+  if (label) label.textContent = isMap ? "Back to plan" : "View map";
+  const icon = toggle.querySelector("i");
+  if (icon) icon.className = isMap ? "fas fa-list" : "fas fa-map";
+  document.dispatchEvent(new CustomEvent("plannerViewChanged", { detail: { view } }));
+}
 
+export function revealPlannerSection(id, { focus = false } = {}) {
+  const section = document.getElementById(id);
+  if (!section) return;
+  setPlannerView("plan");
+  section.classList.remove("is-collapsed");
+  const disclosure = document.querySelector(`[aria-controls="${id}"]`);
+  disclosure?.setAttribute("aria-expanded", "true");
+  section.scrollIntoView({ block: "nearest", behavior: "instant" });
+  if (focus) {
+    section.setAttribute("tabindex", "-1");
+    section.focus({ preventScroll: true });
+  }
+}
+
+function initViewport({ signal, onCleanup }) {
+  const root = document.querySelector(".coverage-route-planner");
+  if (!root) return;
   const bottomNav = document.getElementById("bottom-nav");
-  if (!bottomNav) {
-    root.style.setProperty("--bottom-nav-offset", "0px");
-    return;
-  }
-
-  let rafId = null;
-
+  let frame = null;
   const apply = () => {
-    rafId = null;
-    const styles = window.getComputedStyle(bottomNav);
-    const isDisplayed = styles.display !== "none";
-    const isHidden = bottomNav.classList.contains("hidden");
-
-    if (!isDisplayed || isHidden) {
-      root.style.setProperty("--bottom-nav-offset", "0px");
-      return;
-    }
-
-    const navHeight = Math.round(bottomNav.getBoundingClientRect().height);
-    const paddingTop = Number.parseFloat(styles.paddingTop) || 0;
-    const paddingBottom = Number.parseFloat(styles.paddingBottom) || 0;
-    const safeArea = Math.max(0, paddingBottom - paddingTop);
-    const offset = Math.max(0, navHeight - safeArea);
-
+    frame = null;
+    const top = Math.max(0, root.getBoundingClientRect().top);
+    const navVisible =
+      bottomNav &&
+      getComputedStyle(bottomNav).display !== "none" &&
+      !bottomNav.classList.contains("hidden");
+    const offset = navVisible ? bottomNav.getBoundingClientRect().height : 0;
+    root.style.setProperty("--planner-top", `${Math.round(top)}px`);
     root.style.setProperty("--bottom-nav-offset", `${Math.round(offset)}px`);
   };
-
   const schedule = () => {
-    if (rafId != null) {
-      return;
-    }
-    rafId = requestAnimationFrame(apply);
+    if (frame === null) frame = requestAnimationFrame(apply);
   };
-
-  schedule();
-  window.addEventListener("resize", schedule, { passive: true, signal });
+  const observer = new ResizeObserver(schedule);
+  observer.observe(root);
+  if (bottomNav) observer.observe(bottomNav);
+  const navObserver = new MutationObserver(schedule);
+  if (bottomNav)
+    navObserver.observe(bottomNav, {
+      attributes: true,
+      attributeFilter: ["class", "style"],
+    });
+  window.addEventListener("resize", schedule, { signal, passive: true });
   window.visualViewport?.addEventListener("resize", schedule, {
-    passive: true,
     signal,
-  });
-  window.visualViewport?.addEventListener("scroll", schedule, {
     passive: true,
-    signal,
   });
-
-  const observer = new MutationObserver(schedule);
-  observer.observe(bottomNav, {
-    attributes: true,
-    attributeFilter: ["class", "style"],
-  });
-
+  schedule();
   onCleanup(() => {
     observer.disconnect();
-    if (rafId != null) {
-      cancelAnimationFrame(rafId);
-      rafId = null;
-    }
+    navObserver.disconnect();
+    if (frame !== null) cancelAnimationFrame(frame);
   });
 }
 
-function initCollapsibleSections({ signal }) {
-  const headers = document.querySelectorAll(".widget-header.collapsible");
-  const eventOptions = signal ? { signal } : false;
-
-  headers.forEach((header) => {
-    const toggleId = header.dataset.toggle;
-    const content = document.getElementById(toggleId);
-    const collapseBtn = header.querySelector(".btn-collapse");
-    if (!content || !collapseBtn) {
-      return;
+function initCollapsibles({ signal }) {
+  document.querySelectorAll(".widget-header.collapsible").forEach((header) => {
+    const id = header.dataset.toggle;
+    const content = document.getElementById(id);
+    const button = header.querySelector(".btn-collapse");
+    if (!content || !button) return;
+    const key = `coverage-route-planner-${id}`;
+    let saved = null;
+    try {
+      saved = localStorage.getItem(key);
+    } catch {
+      /* Storage is optional. */
     }
-
-    const storageKey = `coverage-route-planner-${toggleId}`;
-    const saved = localStorage.getItem(storageKey);
-    const isDefaultCollapsed = header.hasAttribute("data-default-collapsed");
-    const isCollapsed = saved === "collapsed" || (saved === null && isDefaultCollapsed);
-    content.classList.toggle("is-collapsed", isCollapsed);
-    collapseBtn.setAttribute("aria-expanded", String(!isCollapsed));
-
-    const toggleHandler = (event) => {
-      const isFormControl = event.target.closest(".form-switch, .form-check-input");
-      const inHeaderActions = event.target.closest(".header-actions");
-      const isCollapseButton = event.target.closest(".btn-collapse");
-      if (isFormControl || (inHeaderActions && !isCollapseButton)) {
-        return;
-      }
-
-      const isNowCollapsed = !content.classList.contains("is-collapsed");
-      if (isNowCollapsed) {
-        content.classList.add("is-collapsed");
-        collapseBtn.setAttribute("aria-expanded", "false");
-        localStorage.setItem(storageKey, "collapsed");
-      } else {
-        content.classList.remove("is-collapsed");
-        collapseBtn.setAttribute("aria-expanded", "true");
-        localStorage.setItem(storageKey, "expanded");
-      }
-    };
-
-    header.addEventListener("click", toggleHandler, eventOptions);
-  });
-}
-
-function initMobilePanelToggle({ signal }) {
-  const toggle = document.getElementById("mobile-panel-toggle");
-  const panel = document.getElementById("control-panel");
-  const eventOptions = signal ? { signal } : false;
-  if (!toggle || !panel) {
-    return;
-  }
-
-  const storageKey = "coverage-route-planner-mobile-panel";
-  if (window.innerWidth < 1024) {
-    const saved = localStorage.getItem(storageKey);
-    if (saved === "hidden") {
-      panel.classList.add("is-hidden");
-    } else if (saved === "visible") {
-      panel.classList.remove("is-hidden");
-    }
-  }
-
-  const isPanelVisible = !panel.classList.contains("is-hidden");
-  toggle.setAttribute("aria-expanded", isPanelVisible.toString());
-
-  toggle.addEventListener(
-    "click",
-    () => {
-      const isExpanded = toggle.getAttribute("aria-expanded") === "true";
-      if (isExpanded) {
-        panel.classList.add("is-hidden");
-        toggle.setAttribute("aria-expanded", "false");
-        localStorage.setItem(storageKey, "hidden");
-      } else {
-        panel.classList.remove("is-hidden");
-        toggle.setAttribute("aria-expanded", "true");
-        localStorage.setItem(storageKey, "visible");
-      }
-    },
-    eventOptions
-  );
-
-  const mapContainer = document.querySelector(".map-container");
-  mapContainer?.addEventListener(
-    "click",
-    (event) => {
-      if (window.innerWidth < 1024) {
-        const isExpanded = toggle.getAttribute("aria-expanded") === "true";
-        if (isExpanded && !event.target.closest(".map-legend")) {
-          panel.classList.add("is-hidden");
-          toggle.setAttribute("aria-expanded", "false");
-          localStorage.setItem(storageKey, "hidden");
-        }
-      }
-    },
-    eventOptions
-  );
-}
-
-function initLayerControls({ signal }) {
-  const layerItems = document.querySelectorAll(".layer-item");
-  const eventOptions = signal ? { signal } : false;
-  layerItems.forEach((item) => {
-    const range = item.querySelector('input[type="range"]');
-    const valueDisplay = item.querySelector(".opacity-value");
-    if (!range || !valueDisplay) {
-      return;
-    }
-    range.addEventListener(
-      "input",
+    const collapsed = saved
+      ? saved === "collapsed"
+      : header.hasAttribute("data-default-collapsed");
+    content.classList.toggle("is-collapsed", collapsed);
+    button.setAttribute("aria-expanded", String(!collapsed));
+    header.addEventListener(
+      "click",
       (event) => {
-        valueDisplay.textContent = `${event.target.value}%`;
+        if (event.target.closest(".form-check")) return;
+        const next = !content.classList.contains("is-collapsed");
+        content.classList.toggle("is-collapsed", next);
+        button.setAttribute("aria-expanded", String(!next));
+        try {
+          localStorage.setItem(key, next ? "collapsed" : "expanded");
+        } catch {
+          /* Storage is optional. */
+        }
       },
-      eventOptions
+      { signal }
     );
   });
 }
 
-function initSmoothScroll() {
-  const panel = document.querySelector(".control-panel");
-  if (panel) {
-    panel.style.scrollBehavior = "smooth";
-  }
-}
-
-function handleResponsiveLayout({ signal }) {
-  const panel = document.getElementById("control-panel");
+export default function initCoverageRoutePlannerUi(context = {}) {
+  const { signal = null, onCleanup = () => {} } = context;
+  initViewport({ signal, onCleanup });
+  initCollapsibles({ signal });
+  const root = document.querySelector(".coverage-route-planner");
   const toggle = document.getElementById("mobile-panel-toggle");
-  if (!panel || !toggle) {
-    return;
-  }
+  const media = window.matchMedia(MOBILE_QUERY);
+  setPlannerView("plan");
+  media.addEventListener("change", () => setPlannerView(root?.dataset.view || "plan"), {
+    signal,
+  });
+  toggle?.addEventListener(
+    "click",
+    () => setPlannerView(root?.dataset.view === "map" ? "plan" : "map"),
+    { signal }
+  );
+  document.getElementById("choose-area-btn")?.addEventListener(
+    "click",
+    () => {
+      setPlannerView("plan");
+      document.getElementById("area-select")?.focus();
+    },
+    { signal }
+  );
 
-  const mediaQuery = window.matchMedia("(min-width: 1024px)");
-  const handleChange = (event) => {
-    if (event.matches) {
-      panel.classList.remove("is-hidden");
-      panel.style.transform = "";
-      return;
-    }
-    const isExpanded = toggle.getAttribute("aria-expanded") === "true";
-    if (!isExpanded) {
-      panel.classList.add("is-hidden");
-    }
-  };
-
-  mediaQuery.addEventListener("change", handleChange, signal ? { signal } : false);
-  handleChange(mediaQuery);
-}
-
-function initKeyboardShortcuts({ signal }) {
+  const layers = document.getElementById("map-layers-menu");
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (layers?.open && !layers.contains(event.target)) layers.open = false;
+    },
+    { signal }
+  );
   document.addEventListener(
     "keydown",
     (event) => {
-      const { target } = event;
-      if (target instanceof Element && target.matches("input, select, textarea")) {
-        return;
-      }
-      if (event.key !== "Escape") {
-        return;
-      }
-      const toggle = document.getElementById("mobile-panel-toggle");
-      const panel = document.getElementById("control-panel");
-      if (!toggle || !panel || window.innerWidth >= 1024) {
-        return;
-      }
-      const isExpanded = toggle.getAttribute("aria-expanded") === "true";
-      if (isExpanded) {
-        panel.classList.add("is-hidden");
-        toggle.setAttribute("aria-expanded", "false");
-      } else {
-        panel.classList.remove("is-hidden");
-        toggle.setAttribute("aria-expanded", "true");
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (layers?.open) {
+        layers.open = false;
+        layers.querySelector("summary")?.focus();
+        event.preventDefault();
+      } else if (media.matches && root?.dataset.view === "map") {
+        setPlannerView("plan");
+        toggle?.focus();
       }
     },
-    signal ? { signal } : false
+    { signal }
   );
-}
 
-function enhanceAccessibility() {
-  const statusMessage = document.getElementById("status-message");
-  if (statusMessage) {
-    statusMessage.setAttribute("aria-live", "polite");
-    statusMessage.setAttribute("aria-atomic", "true");
-  }
-
-  document.querySelectorAll(".btn-action, .btn-generate").forEach((btn) => {
-    if (!btn.hasAttribute("tabindex")) {
-      btn.setAttribute("tabindex", "0");
-    }
+  document.querySelectorAll(".layer-item").forEach((item) => {
+    const slider = item.querySelector('input[type="range"]');
+    const value = item.querySelector(".opacity-value");
+    slider?.addEventListener(
+      "input",
+      () => {
+        if (value) value.textContent = `${slider.value}%`;
+      },
+      { signal }
+    );
   });
-}
-
-function initTemplateActions({ signal }) {
-  const algoInfoBtn = document.getElementById("algo-explainer-toggle");
-  const generateBtn = document.getElementById("generate-route-btn");
-
-  algoInfoBtn?.addEventListener(
+  const info = document.getElementById("algo-explainer-toggle");
+  info?.addEventListener(
     "click",
     () => {
-      const el = document.getElementById("algo-explainer");
-      if (!el) {
-        return;
-      }
-      const expanded = algoInfoBtn.getAttribute("aria-expanded") === "true";
-      el.hidden = expanded;
-      algoInfoBtn.setAttribute("aria-expanded", String(!expanded));
-      const textEl = algoInfoBtn.querySelector(".btn-algo-info-text");
-      if (textEl) {
-        textEl.textContent = expanded ? "How does this work?" : "Hide explanation";
-      }
+      const content = document.getElementById("algo-explainer");
+      if (!content) return;
+      const expanded = info.getAttribute("aria-expanded") === "true";
+      content.hidden = expanded;
+      info.setAttribute("aria-expanded", String(!expanded));
     },
-    signal ? { signal } : false
+    { signal }
   );
-
-  generateBtn?.addEventListener(
-    "click",
-    () => {
-      requestAnimationFrame(() => {
-        document.getElementById("route-progress-inline")?.scrollIntoView({
-          behavior: "smooth",
-          block: "nearest",
-        });
-      });
-    },
-    signal ? { signal } : false
-  );
+  const status = document.getElementById("status-message");
+  status?.setAttribute("aria-live", "polite");
 }
-
-function initCoverageNavigatorUi(context = {}) {
-  const { signal = null, onCleanup = () => {} } = context;
-
-  initBottomNavInsets({ signal, onCleanup });
-  initCollapsibleSections({ signal });
-  initMobilePanelToggle({ signal });
-  initLayerControls({ signal });
-  initSmoothScroll();
-  handleResponsiveLayout({ signal });
-  initKeyboardShortcuts({ signal });
-  enhanceAccessibility();
-  initTemplateActions({ signal });
-}
-
-export default initCoverageNavigatorUi;

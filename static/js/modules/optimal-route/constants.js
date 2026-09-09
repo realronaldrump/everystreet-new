@@ -10,19 +10,19 @@ export const OPTIMAL_ROUTES_DEFAULTS = {
 export const STAGE_COPY = {
   queued: {
     label: "Queued",
-    message: "Standing by for a solver slot...",
+    message: "Waiting for an available route worker…",
   },
   waiting: {
     label: "Queued",
-    message: "Standing by for a solver slot...",
+    message: "Waiting for an available route worker…",
   },
   initializing: {
     label: "Initializing",
-    message: "Warming up the route engine...",
+    message: "Preparing your route…",
   },
   loading_area: {
     label: "Loading",
-    message: "Locking onto your coverage area...",
+    message: "Loading your coverage area…",
   },
   loading_segments: {
     label: "Loading",
@@ -58,18 +58,6 @@ export const STAGE_COPY = {
   },
   error: {
     label: "Error",
-    message: "Route solver hit an issue.",
+    message: "Your route could not be completed.",
   },
 };
-
-export const SCANNER_STAGES = new Set([
-  "initializing",
-  "loading_area",
-  "loading_segments",
-  "loading_graph",
-  "fetching_osm",
-  "mapping_segments",
-  "connectivity_check",
-  "routing",
-  "finalizing",
-]);
