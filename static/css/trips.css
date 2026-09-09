@@ -139,7 +139,9 @@
   background: var(--surface-1);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  overflow: hidden;
+
+  /* Native select menus must be able to paint outside the filter panel. */
+  overflow: visible;
   transition: all var(--transition-normal);
 }
 
@@ -416,6 +418,7 @@ html.light-mode body .trips-journal-page .sort-select {
 #trips-filters-panel.is-open {
   max-height: 600px;
   opacity: 1;
+  overflow: visible;
 }
 
 #trips-filters-panel.has-filters {
